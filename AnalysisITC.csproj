@@ -75,7 +75,6 @@
   <ItemGroup>
     <None Include="Info.plist" />
     <None Include="Entitlements.plist" />
-    <None Include="Scripts\Plotly\plotly.min.js" />
     <None Include="packages.config" />
   </ItemGroup>
   <ItemGroup>
