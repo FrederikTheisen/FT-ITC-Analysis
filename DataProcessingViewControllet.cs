@@ -21,13 +21,18 @@ namespace AnalysisITC
             base.ViewDidLoad();
 
             DataManager.SelectionDidChange += OnSelectionChanged;
+            DataProcessor.InterpolationCompleted += OnInterpolationCompleted;
         }
+
+        
 
         public override void ViewDidAppear()
         {
             base.ViewDidAppear();
 
             UpdateUI();
+
+            BaselineGraphView.Initialize(DataManager.Current());
         }
 
         void UpdateUI()
@@ -56,16 +61,49 @@ namespace AnalysisITC
             UpdateProcessing();
         }
 
+        partial void SplineAlgoClicked(NSSegmentedControl sender)
+        {
+            (Processor.Interpolator as SplineInterpolator).Algorithm = (SplineInterpolator.SplineInterpolatorAlgorithm)(int)sender.SelectedSegment;
+
+            UpdateProcessing();
+        }
+
+        partial void SplineBaselineFractionChanged(NSTextField sender)
+        {
+            (Processor.Interpolator as SplineInterpolator).FractionBaseline = sender.FloatValue;
+
+            SplineBaselineFractionControl.FloatValue = sender.FloatValue;
+
+            UpdateProcessing();
+        }
+
+        partial void SplineBaselineFractionSliderChanged(NSSlider sender)
+        {
+            (Processor.Interpolator as SplineInterpolator).FractionBaseline = sender.FloatValue;
+
+            UpdateProcessing();
+        }
+
+        partial void SplineHandleClicked(NSSegmentedControl sender)
+        {
+            (Processor.Interpolator as SplineInterpolator).HandleMode = (SplineInterpolator.SplineHandleMode)(int)sender.SelectedSegment;
+
+            UpdateProcessing();
+        }
+
         void UpdateProcessing()
         {
-            Data.Processor.Interpolator.Interpolate();
-
-            BaselineGraphView.Invalidate();
+            Data.Processor.InterpolateBaseline();
         }
 
         private void OnSelectionChanged(object sender, ExperimentData e)
         {
             BaselineGraphView.Initialize(DataManager.Current());
+        }
+
+        private void OnInterpolationCompleted(object sender, EventArgs e)
+        {
+            BaselineGraphView.Invalidate();
         }
     }
 }
