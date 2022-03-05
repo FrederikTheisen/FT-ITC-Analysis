@@ -47,5 +47,15 @@ namespace AnalysisITC
 
             Invalidate();
         }
+
+        public override void MouseMoved(NSEvent theEvent)
+        {
+            base.MouseMoved(theEvent);
+        }
+
+        public override void MouseDown(NSEvent theEvent)
+        {
+            base.MouseDown(theEvent);
+        }
     }
 }
