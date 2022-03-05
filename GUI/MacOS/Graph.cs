@@ -4,25 +4,40 @@ using AppKit;
 using CoreGraphics;
 using Foundation;
 using System.Linq;
+using CoreText;
 
 namespace AnalysisITC
 {
     public class Graph
     {
         private CGContext Context { get; set; }
-        public const float PPcm = 250/2.54f; 
+        public const float PPcm = 250/2.54f;
 
-        public float PlotWidthCM = 7f;
-        public float PlotPixelWidth => PlotWidthCM * PPcm;
+        public bool DrawOnWhite = false;
+        public NSColor StrokeColor
+        {
+            get
+            {
+                if (DrawOnWhite) return NSColor.Black;
+                else return NSColor.LabelColor;
+            }
+        }
+        internal CTFont DefaultFont = new CTFont("Helvetica", 12);
+        internal nfloat DefaultFontHeight => DefaultFont.CapHeightMetric + 5;
 
-        public float PlotHeightCM = 5f;
-        public float PlotPixelHeight => PlotHeightCM * PPcm;
+        protected float PlotWidthCM = 7f;
+        protected float PlotPixelWidth => PlotWidthCM * PPcm;
+
+        protected float PlotHeightCM = 5f;
+        protected float PlotPixelHeight => PlotHeightCM * PPcm;
 
         internal CGSize PointsPerUnit;
         internal CGPoint Center;
         internal CGSize PlotSize;
         internal CGPoint Origin;
         internal CGRect Frame;
+        internal NSView View;
+        internal bool ScaleToView = true;
 
 
         internal GraphAxis XAxis;
@@ -30,9 +45,10 @@ namespace AnalysisITC
 
         public ExperimentData ExperimentData;
 
-        public Graph(ExperimentData experiment)
+        public Graph(ExperimentData experiment, NSView view)
         {
             ExperimentData = experiment;
+            View = view;
         }
 
         public void PrepareDraw(CGContext cg, CGPoint center)
@@ -40,12 +56,12 @@ namespace AnalysisITC
             this.Context = cg;
             this.Center = center;
 
-            PlotSize = new CGSize(PlotPixelWidth, PlotPixelHeight);
-            Origin = new CGPoint(Center.X - PlotSize.Width * 0.5f, Center.Y - PlotSize.Height * 0.5f);
-            Frame = new CGRect(Origin, PlotSize);
+            SetupFrame();
 
-            var pppw = PlotPixelWidth / (XAxis.Max - XAxis.Min);
-            var ppph = PlotPixelHeight / (YAxis.Max - YAxis.Min);
+            if (Frame.Size.Width * Frame.Size.Height < 0) return;
+
+            var pppw = PlotSize.Width / (XAxis.Max - XAxis.Min);
+            var ppph = PlotSize.Height / (YAxis.Max - YAxis.Min);
 
             PointsPerUnit = new CGSize(pppw, ppph);
 
@@ -54,6 +70,19 @@ namespace AnalysisITC
             DrawFrame();
 
             DrawAxes();
+        }
+
+        internal virtual void SetupFrame()
+        {
+            if (ScaleToView)
+            {
+                PlotWidthCM = (float)View.Frame.Size.Width / PPcm;
+                PlotHeightCM = (float)View.Frame.Size.Height / PPcm;
+            }
+
+            PlotSize = new CGSize(PlotPixelWidth - 2, PlotPixelHeight - 2);
+            Origin = new CGPoint(Center.X - PlotSize.Width * 0.5f + 1, Center.Y - PlotSize.Height * 0.5f + 1);
+            Frame = new CGRect(Origin, PlotSize);
         }
 
         internal virtual void Draw(CGContext cg)
@@ -84,8 +113,8 @@ namespace AnalysisITC
 
         void DrawFrame()
         {
-            Context.SetLineWidth(0.5f);
-            Context.StrokeRect(Frame);
+            Context.SetStrokeColor(StrokeColor.CGColor);
+            Context.StrokeRectWithWidth(Frame, 1);
         }
 
         internal virtual void DrawAxes()
@@ -97,7 +126,27 @@ namespace AnalysisITC
         {
 
         }
-        
+
+        protected void DrawText(CGContext context, string text, nfloat textHeight, nfloat x, nfloat y)
+        {
+            y = PlotPixelHeight - y - textHeight;
+            context.SetFillColor(StrokeColor.CGColor);
+
+            var attributedString = new NSAttributedString(text,
+                new CTStringAttributes
+                {
+                    ForegroundColorFromContext = true,
+                    Font = DefaultFont
+                });
+
+            var textLine = new CTLine(attributedString);
+
+            context.TextPosition = new CGPoint(x, y);
+            textLine.Draw(context);
+
+            textLine.Dispose();
+        }
+
         internal virtual CGPoint GetRelativePosition(Tuple<float, float> point)
         {
             var relx = (point.Item1 - XAxis.Min) * PointsPerUnit.Width;
@@ -126,6 +175,19 @@ namespace AnalysisITC
                 set { max = value; TickScale.SetMinMaxPoints(min, max); }
             }
 
+            float buffer = 0.035f;
+            public float Buffer
+            {
+                get => buffer;
+                set
+                {
+                    var _buffer = buffer;
+
+                    buffer = value;
+
+                    UpdateAutoScale(_buffer);
+                }
+            }
             Utilities.NiceScale TickScale = new Utilities.NiceScale(0, 1);
 
             public bool UseNiceAxis { get; set; } = true;
@@ -136,8 +198,22 @@ namespace AnalysisITC
             {
                 var delta = max - min;
 
-                this.min = min - delta * 0.035f;
-                this.max = max + delta * 0.035f;
+                this.min = min - delta * buffer;
+                this.max = max + delta * buffer;
+
+                TickScale = new Utilities.NiceScale(this.min, this.max);
+            }
+
+            void UpdateAutoScale(float old)
+            {
+                var delta = max - min;
+                var old_delta = delta / (2 * old + 1);
+
+                var old_min = min + old_delta * old;
+                var old_max = max - old_delta * old;
+
+                this.min = old_min - old_delta * buffer;
+                this.max = old_max + old_delta * buffer;
 
                 TickScale = new Utilities.NiceScale(this.min, this.max);
             }
@@ -160,18 +236,20 @@ namespace AnalysisITC
     {
         public bool ShowBaselineCorrected { get; set; } = false;
 
-        public DataGraph(ExperimentData experiment) : base(experiment)
+        public DataGraph(ExperimentData experiment, NSView view) : base(experiment, view)
         {
             XAxis = new GraphAxis(experiment.DataPoints.Min(dp => dp.Time), experiment.DataPoints.Max(dp => dp.Time))
             {
                 UseNiceAxis = false
             };
             YAxis = new GraphAxis(experiment.DataPoints.Min(dp => dp.Power), experiment.DataPoints.Max(dp => dp.Power));
+
         }
 
         internal override void Draw(CGContext cg)
         {
             CGLayer layer = CGLayer.Create(cg, Frame.Size);
+
 
             var path = new CGPath();
 
@@ -183,7 +261,7 @@ namespace AnalysisITC
             path.AddLines(points.ToArray());
 
             layer.Context.AddPath(path);
-            layer.Context.SetStrokeColor(new CGColor(CGConstantColor.White));
+            layer.Context.SetStrokeColor(StrokeColor.CGColor);
             layer.Context.StrokePath();
 
             cg.DrawLayer(layer, Frame.Location);
@@ -195,9 +273,56 @@ namespace AnalysisITC
         }
     }
 
+    public class FileInfoGraph : DataGraph
+    {
+        List<string> info;
+
+        public FileInfoGraph(ExperimentData experiment, NSView view) : base(experiment, view)
+        {
+            info = new List<string>()
+                {
+                    "Filename: " + experiment.FileName,
+                    "Date: " + experiment.Date.ToLocalTime().ToLongDateString() + " " + experiment.Date.ToLocalTime().ToString("HH:mm"),
+                    "Temperature | Target: " + experiment.TargetTemperature.ToString() + " °C | Measured: " + experiment.MeasuredTemperature + " °C",
+                    "Injections: " + experiment.InjectionCount.ToString(),
+                    "Concentrations | Cell: " + (experiment.CellConcentration*1000000).ToString() + " µM | Syringe: " + (experiment.SyringeConcentration*1000000).ToString() + " µM",
+                };
+        }
+
+        internal override void SetupFrame()
+        {
+            base.SetupFrame();
+
+            var infoheight = DefaultFontHeight * info.Count + 10;
+
+            PlotSize = new CGSize(PlotPixelWidth-2, PlotPixelHeight - infoheight-2);
+            Origin = new CGPoint(Center.X - PlotSize.Width * 0.5f, Center.Y - (PlotSize.Height + infoheight) * 0.5f);
+            Frame = new CGRect(Origin, PlotSize);
+        }
+
+        internal override void Draw(CGContext cg)
+        {
+            base.Draw(cg);
+
+            DrawInfo(cg);
+        }
+
+        public void DrawInfo(CGContext cg)
+        {
+            int i = 0;
+
+            foreach (var l in info)
+            {
+                DrawText(cg, l, DefaultFontHeight, 5, 3 + DefaultFontHeight * i);
+
+                i++;
+            }
+        }
+    }
+
     public class BaselineFittingGraph : Graph
     {
-        public BaselineFittingGraph(ExperimentData experiment) : base(experiment)
+        public BaselineFittingGraph(ExperimentData experiment, NSView view) : base(experiment, view)
         {
             XAxis = new GraphAxis(experiment.DataPoints.Min(dp => dp.Time), experiment.DataPoints.Max(dp => dp.Time));
             YAxis = new GraphAxis(experiment.DataPoints.Min(dp => dp.Power), experiment.DataPoints.Max(dp => dp.Power));
@@ -206,25 +331,27 @@ namespace AnalysisITC
 
     public class IntegrationGraph : Graph
     {
-        public IntegrationGraph(ExperimentData experiment) : base(experiment)
+        public IntegrationGraph(ExperimentData experiment, NSView view) : base(experiment, view)
         {
 
         }
     }
 
-    public class FinalFigure : Graph
+    public class FinalFigure
     {
         DataGraph DataGraph;
         IntegrationGraph IntegrationGraph;
 
-        public FinalFigure(ExperimentData experiment) : base(experiment)
+        public FinalFigure(ExperimentData experiment, NSView view)
         {
-            DataGraph = new DataGraph(experiment);
+            DataGraph = new DataGraph(experiment, view);
+            DataGraph.DrawOnWhite = true;
             //setup frame
             //Setup axes
 
 
-            IntegrationGraph = new IntegrationGraph(experiment);
+            IntegrationGraph = new IntegrationGraph(experiment, view);
+            IntegrationGraph.DrawOnWhite = true;
             //setup frame
             //setup axes
         }

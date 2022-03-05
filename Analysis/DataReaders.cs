@@ -5,11 +5,81 @@ using System.Collections.Generic;
 using System.Linq;
 using Utilities;
 
+namespace AnalysisITC
+{
+    public static class DataManager
+    {
+        public static List<ExperimentData> Data => DataSource.Data;
+        static int SelectedIndex => DataSource.SelectedIndex;
+
+        public static ExperimentDataSource DataSource { get; private set; }
+
+        public static event EventHandler<ExperimentData> DataDidChange;
+        public static event EventHandler<ExperimentData> SelectionDidChange;
+        public static event EventHandler<int> ChangeProgramMode;
+
+        public static int Count => Data.Count;
+
+        public static bool DataIsLoaded => DataSource?.Data.Count > 0;
+
+        public static ExperimentData Current()
+        {
+            if (SelectedIndex == -1) return null;
+            else if (SelectedIndex >= Count) return null;
+            else return Data[SelectedIndex];
+        }
+
+        public static void Init()
+        {
+            DataSource = new ExperimentDataSource();
+
+            DataDidChange.Invoke(null, null);
+        }
+
+        internal static void RemoveData(int index)
+        {
+            Data.RemoveAt(index);
+
+            if (SelectedIndex == index) DataDidChange.Invoke(null, null);
+            else if (SelectedIndex > index)
+            {
+                DataSource.SelectedIndex--;
+
+                DataDidChange.Invoke(null, Current());
+            }
+        }
+
+        public static void AddData(ExperimentData data)
+        {
+            Data.Add(data);
+
+            DataDidChange.Invoke(null, data);
+        }
+
+        public static void Clear()
+        {
+            Init();
+        }
+
+        public static void SelectionChanged(int index) => SelectionDidChange?.Invoke(null, Current());
+
+        public static void SetMode(int mode)
+        {
+            ChangeProgramMode.Invoke(null, mode);
+        }
+    }
+}
+
 namespace DataReaders
 {
     public static class DataReader
     {
-        public static List<ExperimentData> ExperimentDataList { get; private set; } = new List<ExperimentData>();
+        static List<ExperimentData> ExperimentDataList { get; set; } = new List<ExperimentData>();
+
+        static void AddData(ExperimentData data)
+        {
+            DataManager.AddData(data);
+        }
 
         public static void Init()
         {
@@ -36,7 +106,9 @@ namespace DataReaders
             {
                 var dat = ReadFile(path);
 
-                if (dat != null) ExperimentDataList.Add(dat);
+                dat.Date = File.GetLastWriteTimeUtc(path);
+
+                if (dat != null) AddData(dat);
             }
         }
 
@@ -65,7 +137,7 @@ namespace DataReaders
     {
         public static ExperimentData ReadPath(string path)
         {
-            var experiment = new ExperimentData();
+            var experiment = new ExperimentData(Path.GetFileName(path));
 
             using (var stream = new StreamReader(path))
             {
@@ -100,7 +172,7 @@ namespace DataReaders
                         counter2++;
 
                         if (counter2 == 2) experiment.SyringeConcentration = LineToFloat(line) * (float)Math.Pow(10, -3);
-                        else if (counter2 == 3) experiment.CellConcentration = LineToFloat(line) == 0 ? LineToFloat(line) * (float)Math.Pow(10, -3) : experiment.SyringeConcentration / 10f;
+                        else if (counter2 == 3) experiment.CellConcentration = LineToFloat(line) != 0 ? LineToFloat(line) * (float)Math.Pow(10, -3) : experiment.SyringeConcentration / 10f;
                         else if (counter2 == 4) experiment.CellVolume = LineToFloat(line) * (float)Math.Pow(10, -6);
                     }
                 }
@@ -110,6 +182,8 @@ namespace DataReaders
             }
 
             ProcessInjections(experiment);
+
+            ProcessData(experiment);
 
             return experiment;
         }
@@ -158,6 +232,11 @@ namespace DataReaders
                 inj.ActualTitrantConcentration = conc_ligand;
                 inj.Ratio = conc_ligand / conc_macro;
             }
+        }
+
+        static void ProcessData(ExperimentData experiment)
+        {
+            experiment.MeasuredTemperature = experiment.DataPoints.Average(dp => dp.Temperature);
         }
     }
 

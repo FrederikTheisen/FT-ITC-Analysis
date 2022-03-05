@@ -18,6 +18,24 @@ namespace AnalysisITC
             base.ViewDidLoad();
 
             // Do any additional setup after loading the view.
+
+            DataManager.Init();
+
+            DataManager.SelectionDidChange += OnSelectionChanged;
+            DataManager.DataDidChange += OnDataChanged;
+        }
+
+        private void OnSelectionChanged(object sender, ExperimentData e)
+        {
+            GVC.Initialize(DataManager.Current());
+        }
+
+        private void OnDataChanged(object sender, ExperimentData e)
+        {
+            ClearDataButton.Enabled = DataManager.DataIsLoaded;
+            ContinueButton.Enabled = DataManager.DataIsLoaded;
+
+            GVC.Initialize(e);
         }
 
         partial void ButtonClick(NSButton sender)
@@ -40,11 +58,18 @@ namespace AnalysisITC
                 }
 
 
-                Analysis.LoadData(urls);
-
-                GVC.Initialize(DataReaders.DataReader.ExperimentDataList[0]);
-                GVC.Invalidate();
+                DataReaders.DataReader.Read(urls);
             }
+        }
+
+        partial void ClearButtonClick(NSObject sender)
+        {
+            DataManager.Clear();
+        }
+
+        partial void ContinueClick(NSObject sender)
+        {
+            DataManager.SetMode(1);
         }
 
         public override NSObject RepresentedObject

@@ -8,20 +8,54 @@ namespace AnalysisITC
 {
     public class DataProcessor
     {
-        public DataProcessor()
+        public event EventHandler InterpolationCompleted;
+
+        internal ExperimentData Data { get; set; }
+
+        public BaselineInterpolator Interpolator { get; set; }
+        public BaselineInterpolatorTypes BaselineType { get; set; }
+
+        public DataProcessor(ExperimentData data)
         {
+            Data = data;
+
+            InitializeBaseline(BaselineInterpolatorTypes.Spline);
+        }
+
+        public void InitializeBaseline(BaselineInterpolatorTypes mode)
+        {
+            switch (mode)
+            {
+                case BaselineInterpolatorTypes.Spline: Interpolator = new SplineInterpolator(this); break;
+                case BaselineInterpolatorTypes.ASL:
+                default: Interpolator = new SplineInterpolator(this); break;
+            }
+        }
+
+        public void InterpolateBaseline()
+        {
+            Interpolator.Interpolate();
+
+            InterpolationCompleted?.Invoke(this, null);
+        }
+
+        void SubtractBaseline()
+        {
+
         }
     }
 
     public class BaselineInterpolator
     {
-        internal ExperimentData Data;
+        DataProcessor Parent { get; set; }
+
+        internal ExperimentData Data => Parent.Data;
 
         internal List<float> Baseline;
 
-        public BaselineInterpolator(ExperimentData experiment)
+        public BaselineInterpolator(DataProcessor processor)
         {
-            Data = experiment;
+            Parent = processor;
 
             Baseline = new List<float>();
         }
@@ -40,6 +74,12 @@ namespace AnalysisITC
         }
     }
 
+    public enum BaselineInterpolatorTypes
+    {
+        Spline = 0,
+        ASL = 1,
+    }
+
     public class SplineInterpolator : BaselineInterpolator
     {
         public int PointsPerInjection { get; set; } = 1;
@@ -47,12 +87,11 @@ namespace AnalysisITC
         public SplineInterpolatorAlgorithm Algorithm { get; set; } = SplineInterpolatorAlgorithm.Akima;
         public SplineHandleMode HandleMode { get; set; } = SplineHandleMode.Mean;
 
-
         public List<Tuple<double, double, double>> SplinePoints { get; private set; }
 
         Spline SplineFunction;
 
-        public SplineInterpolator(ExperimentData experiment) : base(experiment)
+        public SplineInterpolator(DataProcessor processor) : base(processor)
         {
             SplinePoints = new List<Tuple<double, double, double>>();
         }

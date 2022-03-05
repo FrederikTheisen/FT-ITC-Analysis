@@ -9,6 +9,8 @@ namespace AnalysisITC
     {
         public static EnergyUnit Unit = EnergyUnit.Joule;
 
+        public string FileName { get; private set; } = "";
+
         public List<DataPoint> DataPoints = new List<DataPoint>();
         public List<DataPoint> BaseLineCorrectedDataPoints;
         public List<InjectionData> Injections = new List<InjectionData>();
@@ -24,8 +26,18 @@ namespace AnalysisITC
 
         public int InjectionCount => Injections.Count;
 
-        public ExperimentData()
+        public float MeasuredTemperature { get; internal set; }
+        public DateTime Date { get; internal set; }
+
+        public DataProcessor Processor { get; private set; }
+        public Analyzer Analyzer { get; private set; }
+
+        public ExperimentData(string file)
         {
+            FileName = file;
+
+            Processor = new DataProcessor(this);
+            Analyzer = new Analyzer();
         }
     }
 
