@@ -8,7 +8,7 @@ namespace AnalysisITC
 {
     public class DataProcessor
     {
-        public event EventHandler InterpolationCompleted;
+        public static event EventHandler InterpolationCompleted;
 
         internal ExperimentData Data { get; set; }
 
@@ -62,9 +62,9 @@ namespace AnalysisITC
             Baseline = new List<float>();
         }
 
-        public virtual void Interpolate()
+        public virtual void Interpolate(bool replace = true)
         {
-
+            Baseline = new List<float>();
         }
 
         public void WriteToConsole()
@@ -89,17 +89,19 @@ namespace AnalysisITC
         public SplineInterpolatorAlgorithm Algorithm { get; set; } = SplineInterpolatorAlgorithm.Akima;
         public SplineHandleMode HandleMode { get; set; } = SplineHandleMode.Mean;
 
-        public List<Tuple<double, double, double>> SplinePoints { get; private set; }
+        public List<Tuple<double, double, double>> SplinePoints { get; private set; } = new List<Tuple<double, double, double>>();
 
         Spline SplineFunction;
 
         public SplineInterpolator(DataProcessor processor) : base(processor)
         {
-            SplinePoints = new List<Tuple<double, double, double>>();
+            
         }
 
         public void GetInitialPoints(int pointperinjection = 1, float fraction = 0.8f)
         {
+            SplinePoints = new List<Tuple<double, double, double>>();
+
             int handles = 2 + pointperinjection * Data.InjectionCount;
 
             float maxInjVol = Data.Injections.Max(inj => inj.Volume);
@@ -133,16 +135,18 @@ namespace AnalysisITC
 
         float GetDataRangeMean(float start, float end)
         {
+            List<DataPoint> points = Data.DataPoints.Where(dp => dp.Time > start && dp.Time < end).ToList();
+
+            if (points.Count < 1) points.Add(Data.DataPoints.Last(dp => dp.Time < end));
+
             switch (HandleMode)
             {
                 default:
-                case SplineHandleMode.Mean: return DataPoint.Mean(Data.DataPoints.Where(dp => dp.Time > start && dp.Time < end).ToList());
-                case SplineHandleMode.Median: return DataPoint.Median(Data.DataPoints.Where(dp => dp.Time > start && dp.Time < end).ToList());
-                case SplineHandleMode.MinVolatility: return DataPoint.VolatilityWeightedAverage(Data.DataPoints.Where(dp => dp.Time > start && dp.Time < end).ToList());
+                case SplineHandleMode.Mean: return DataPoint.Mean(points); 
+                case SplineHandleMode.Median: return DataPoint.Median(points); 
+                case SplineHandleMode.MinVolatility: return DataPoint.VolatilityWeightedAverage(points); 
                 
             }
-
-
         }
 
         public void UpdatePoints(List<Tuple<float, float>> points)
@@ -150,15 +154,14 @@ namespace AnalysisITC
 
         }
 
-        public override void Interpolate()
+        public override void Interpolate(bool replace = true)
         {
-            if (SplinePoints.Count == 0) GetInitialPoints(PointsPerInjection, FractionBaseline);
+            base.Interpolate(replace);
 
+            if (SplinePoints.Count == 0 || replace) GetInitialPoints(PointsPerInjection, FractionBaseline);
             
             var x = SplinePoints.Select(sp => sp.Item1);
             var y = SplinePoints.Select(sp => sp.Item2);
-
-            for (int i = 0; i < x.Count(); i++) Console.WriteLine(x.ToList()[i] + " " + y.ToList()[i]);
 
             switch (Algorithm)
             {
@@ -171,14 +174,11 @@ namespace AnalysisITC
                 case SplineInterpolatorAlgorithm.LinearSpline: SplineFunction = new Spline(LinearSpline.Interpolate(x, y)); break;
             }
 
-            
 
             foreach (var dp in Data.DataPoints)
             {
                 Baseline.Add((float)SplineFunction.Evaluate(dp.Time));
             }
-
-            base.Interpolate();
         }
 
         public enum SplineInterpolatorAlgorithm
