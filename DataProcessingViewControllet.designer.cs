@@ -13,6 +13,9 @@ namespace AnalysisITC
 	partial class DataProcessingViewControllet
 	{
 		[Outlet]
+		AnalysisITC.DataProcessingGraphView BaselineGraphView { get; set; }
+
+		[Outlet]
 		AppKit.NSSegmentedControl InterpolatorTypeControl { get; set; }
 
 		[Outlet]
@@ -50,21 +53,6 @@ namespace AnalysisITC
 		
 		void ReleaseDesignerOutlets ()
 		{
-			if (SplineAlgorithmView != null) {
-				SplineAlgorithmView.Dispose ();
-				SplineAlgorithmView = null;
-			}
-
-			if (SplineHandleModeView != null) {
-				SplineHandleModeView.Dispose ();
-				SplineHandleModeView = null;
-			}
-
-			if (SplineBaselineFractionView != null) {
-				SplineBaselineFractionView.Dispose ();
-				SplineBaselineFractionView = null;
-			}
-
 			if (InterpolatorTypeControl != null) {
 				InterpolatorTypeControl.Dispose ();
 				InterpolatorTypeControl = null;
@@ -75,14 +63,34 @@ namespace AnalysisITC
 				SplineAlgoControl = null;
 			}
 
-			if (SplineHandleModeControl != null) {
-				SplineHandleModeControl.Dispose ();
-				SplineHandleModeControl = null;
+			if (SplineAlgorithmView != null) {
+				SplineAlgorithmView.Dispose ();
+				SplineAlgorithmView = null;
 			}
 
 			if (SplineBaselineFractionControl != null) {
 				SplineBaselineFractionControl.Dispose ();
 				SplineBaselineFractionControl = null;
+			}
+
+			if (SplineBaselineFractionView != null) {
+				SplineBaselineFractionView.Dispose ();
+				SplineBaselineFractionView = null;
+			}
+
+			if (SplineHandleModeControl != null) {
+				SplineHandleModeControl.Dispose ();
+				SplineHandleModeControl = null;
+			}
+
+			if (SplineHandleModeView != null) {
+				SplineHandleModeView.Dispose ();
+				SplineHandleModeView = null;
+			}
+
+			if (BaselineGraphView != null) {
+				BaselineGraphView.Dispose ();
+				BaselineGraphView = null;
 			}
 		}
 	}

@@ -1224,6 +1224,7 @@
                         </constraints>
                     </view>
                     <connections>
+                        <outlet property="BaselineGraphView" destination="JNM-eh-UKd" id="xaT-Fh-ei6"/>
                         <outlet property="InterpolatorTypeControl" destination="U7H-5D-fmd" id="IJP-oG-mwS"/>
                         <outlet property="SplineAlgoControl" destination="s73-Vs-cPl" id="SC0-j5-6ZE"/>
                         <outlet property="SplineAlgorithmView" destination="fyI-Ib-dCT" id="G0C-QJ-mZu"/>

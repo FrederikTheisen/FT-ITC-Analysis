@@ -4,13 +4,48 @@ using System;
 
 using Foundation;
 using AppKit;
+using CoreGraphics;
 
 namespace AnalysisITC
 {
 	public partial class DataProcessingGraphView : NSView
 	{
+		public void Invalidate() => this.NeedsDisplay = true;
+
+		public Graph Graph;
+
 		public DataProcessingGraphView (IntPtr handle) : base (handle)
 		{
 		}
-	}
+
+        public void Initialize(ExperimentData experiment)
+        {
+            if (experiment != null)
+            {
+                Graph = new BaselineFittingGraph(experiment, this);
+            }
+            else Graph = null;
+
+            Invalidate();
+        }
+
+        public override void DrawRect(CGRect dirtyRect)
+        {
+            var cg = NSGraphicsContext.CurrentContext.CGContext;
+
+            if (Graph != null)
+            {
+                Graph.PrepareDraw(cg, new CGPoint(dirtyRect.GetMidX(), dirtyRect.GetMidY()));
+            }
+
+            base.DrawRect(dirtyRect);
+        }
+
+        public override void SetFrameSize(CGSize newSize)
+        {
+            base.SetFrameSize(newSize);
+
+            Invalidate();
+        }
+    }
 }

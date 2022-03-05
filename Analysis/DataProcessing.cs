@@ -53,6 +53,8 @@ namespace AnalysisITC
 
         internal List<float> Baseline;
 
+        public bool Finished => Baseline.Count > 0;
+
         public BaselineInterpolator(DataProcessor processor)
         {
             Parent = processor;

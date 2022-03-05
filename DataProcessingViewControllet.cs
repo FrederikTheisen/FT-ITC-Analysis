@@ -16,6 +16,13 @@ namespace AnalysisITC
 		{
 		}
 
+        public override void ViewDidLoad()
+        {
+            base.ViewDidLoad();
+
+            DataManager.SelectionDidChange += OnSelectionChanged;
+        }
+
         public override void ViewDidAppear()
         {
             base.ViewDidAppear();
@@ -45,6 +52,20 @@ namespace AnalysisITC
             Processor.InitializeBaseline((BaselineInterpolatorTypes)(int)sender.SelectedSegment);
 
             UpdateUI();
+
+            UpdateProcessing();
+        }
+
+        void UpdateProcessing()
+        {
+            Data.Processor.Interpolator.Interpolate();
+
+            BaselineGraphView.Invalidate();
+        }
+
+        private void OnSelectionChanged(object sender, ExperimentData e)
+        {
+            BaselineGraphView.Initialize(DataManager.Current());
         }
     }
 }

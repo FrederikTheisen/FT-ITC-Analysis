@@ -81,7 +81,7 @@ namespace AnalysisITC
             }
 
             PlotSize = new CGSize(PlotPixelWidth - 2, PlotPixelHeight - 2);
-            Origin = new CGPoint(Center.X - PlotSize.Width * 0.5f + 1, Center.Y - PlotSize.Height * 0.5f + 1);
+            Origin = new CGPoint(Center.X - PlotSize.Width * 0.5f, Center.Y - PlotSize.Height * 0.5f);
             Frame = new CGRect(Origin, PlotSize);
         }
 
@@ -151,6 +151,14 @@ namespace AnalysisITC
         {
             var relx = (point.Item1 - XAxis.Min) * PointsPerUnit.Width;
             var rely = (point.Item2 - YAxis.Min) * PointsPerUnit.Height;
+
+            return new CGPoint(relx, rely);
+        }
+
+        internal virtual CGPoint GetRelativePosition(float x, float y)
+        {
+            var relx = (x - XAxis.Min) * PointsPerUnit.Width;
+            var rely = (y - YAxis.Min) * PointsPerUnit.Height;
 
             return new CGPoint(relx, rely);
         }
@@ -250,7 +258,6 @@ namespace AnalysisITC
         {
             CGLayer layer = CGLayer.Create(cg, Frame.Size);
 
-
             var path = new CGPath();
 
             var points = new List<CGPoint>();
@@ -320,12 +327,101 @@ namespace AnalysisITC
         }
     }
 
-    public class BaselineFittingGraph : Graph
+    public class BaselineFittingGraph : DataGraph
     {
         public BaselineFittingGraph(ExperimentData experiment, NSView view) : base(experiment, view)
         {
-            XAxis = new GraphAxis(experiment.DataPoints.Min(dp => dp.Time), experiment.DataPoints.Max(dp => dp.Time));
-            YAxis = new GraphAxis(experiment.DataPoints.Min(dp => dp.Power), experiment.DataPoints.Max(dp => dp.Power));
+            
+        }
+
+        public void SetInjectionView(int? i)
+        {
+            if (i == null)
+            {
+                XAxis = new GraphAxis(ExperimentData.DataPoints.Min(dp => dp.Time), ExperimentData.DataPoints.Max(dp => dp.Time))
+                {
+                    UseNiceAxis = false
+                };
+                YAxis = new GraphAxis(ExperimentData.DataPoints.Min(dp => dp.Power), ExperimentData.DataPoints.Max(dp => dp.Power));
+            }
+            else
+            {
+                var inj = ExperimentData.Injections[(int)i];
+                var s = inj.Time - 10;
+                var e = inj.Time + inj.Delay + 10;
+
+                XAxis = new GraphAxis(s, e)
+                {
+                    UseNiceAxis = false
+                };
+                YAxis = new GraphAxis(ExperimentData.DataPoints.Where(dp => dp.Time > s && dp.Time < e).Min(dp => dp.Power), ExperimentData.DataPoints.Where(dp => dp.Time > s && dp.Time < e).Max(dp => dp.Power));
+            }
+        }
+
+        internal override void Draw(CGContext cg)
+        {
+            base.Draw(cg);
+
+            if (ExperimentData.Processor.Interpolator.Finished)
+            {
+                DrawBaseline(cg);
+
+                if (ExperimentData.Processor.Interpolator is SplineInterpolator) DrawSplineHandles(cg);
+            }
+        }
+
+        void DrawBaseline(CGContext cg)
+        {
+            CGLayer layer = CGLayer.Create(cg, Frame.Size);
+
+            var path = new CGPath();
+
+            var points = new List<CGPoint>();
+
+            for (int i = 0; i < ExperimentData.DataPoints.Count; i++)
+            {
+                DataPoint p = ExperimentData.DataPoints[i];
+                float b = ExperimentData.Processor.Interpolator.Baseline[i];
+
+                if (p.Time > XAxis.Min && p.Time < XAxis.Max)
+                    points.Add(GetRelativePosition(new Tuple<float, float>(p.Time, b)));
+            }
+
+            path.AddLines(points.ToArray());
+
+            layer.Context.AddPath(path);
+            layer.Context.SetStrokeColor(NSColor.Red.CGColor);
+            layer.Context.SetLineWidth(2);
+            layer.Context.StrokePath();
+            layer.Context.SetLineWidth(1);
+
+            cg.DrawLayer(layer, Frame.Location);
+        }
+
+        void DrawSplineHandles(CGContext cg)
+        {
+            CGLayer layer = CGLayer.Create(cg, Frame.Size);
+
+            List<CGRect> points = new List<CGRect>();
+
+            foreach (var sp in (ExperimentData.Processor.Interpolator as SplineInterpolator).SplinePoints)
+            {
+                var m = GetRelativePosition((float)sp.Item1, (float)sp.Item2);
+
+                var r = new CGRect(m.X - 4, m.Y - 4, 8, 8);
+
+                points.Add(r);
+            }
+
+            layer.Context.SetFillColor(NSColor.Red.CGColor);
+
+            foreach (var r in points)
+            {
+                layer.Context.FillRect(r);
+            }
+            
+
+            cg.DrawLayer(layer, Frame.Location);
         }
     }
 
