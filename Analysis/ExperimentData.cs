@@ -151,6 +151,8 @@ namespace AnalysisITC
 
         public static float Slope(List<DataPoint> list)
         {
+            if (list.Count == 0) return 0;
+
             var deltaX = (list.Last().Time - list.First().Time) / 2;
 
             var first = DataPoint.Mean(list.Take(list.Count / 2).ToList());
