@@ -32,7 +32,7 @@ namespace AnalysisITC
 
     public class ExperimentDataDelegate : NSTableViewDelegate
     {
-        public event EventHandler SelectionChanged;
+        public event EventHandler ExperimentDataViewClicked;
 
         public ExperimentDataSource Source { get; }
         public EventHandler<int> RemoveRow;
@@ -78,7 +78,7 @@ namespace AnalysisITC
         [Export("tableViewSelectionDidChange:")]
         public override void SelectionDidChange(NSNotification notification)
         {
-            SelectionChanged.Invoke(this, null);
+            ExperimentDataViewClicked.Invoke(this, null);
         }
 
         [Export("tableView:heightOfRow:")]
