@@ -21,6 +21,7 @@ namespace AnalysisITC
         public static int Count => Data.Count;
 
         public static bool DataIsLoaded => DataSource?.Data.Count > 0;
+        public static bool DataIsProcessed => DataSource.Data.All(d => d.Processor.Completed);
 
         public static ExperimentData Current()
         {
@@ -34,6 +35,13 @@ namespace AnalysisITC
             DataSource = new ExperimentDataSource();
 
             DataDidChange.Invoke(null, null);
+        }
+
+        public static void SelectIndex(int index)
+        {
+            DataSource.SelectedIndex = index;
+
+            SelectionChanged(index);
         }
 
         internal static void RemoveData(int index)
@@ -232,6 +240,8 @@ namespace DataReaders
                 inj.ActualTitrantConcentration = conc_ligand;
                 inj.Ratio = conc_ligand / conc_macro;
             }
+
+            experiment.CalculatePeakHeatDirection();
         }
 
         static void ProcessData(ExperimentData experiment)
