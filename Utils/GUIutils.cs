@@ -1,4 +1,6 @@
 ﻿using System;
+using AppKit;
+
 namespace Utilities
 {
     public class NiceScale
@@ -106,6 +108,22 @@ namespace Utilities
         {
             this.maxTicks = maxTicks;
             Calculate();
+        }
+    }
+
+    public class NSSliderEvent
+    {
+        public bool DidStartDragging;
+        public bool IsDragging;
+        public bool DidEndDragging;
+
+        public NSSliderEvent()
+        {
+            var _event = NSApplication.SharedApplication.CurrentEvent;
+
+            DidStartDragging = _event.Type == NSEventType.LeftMouseDown;
+            IsDragging = _event.Type == NSEventType.LeftMouseDragged;
+            DidEndDragging = _event.Type == NSEventType.LeftMouseUp;
         }
     }
 }
