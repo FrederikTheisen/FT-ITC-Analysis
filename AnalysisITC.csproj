@@ -27,6 +27,8 @@
     <IncludeMonoRuntime>false</IncludeMonoRuntime>
     <UseSGen>true</UseSGen>
     <UseRefCounting>true</UseRefCounting>
+    <AOTMode>None</AOTMode>
+    <LangVersion>9.0</LangVersion>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
     <DebugType>pdbonly</DebugType>
@@ -42,6 +44,8 @@
     <UseRefCounting>true</UseRefCounting>
     <CodeSignEntitlements>Entitlements.plist</CodeSignEntitlements>
     <LinkMode>SdkOnly</LinkMode>
+    <AOTMode>None</AOTMode>
+    <LangVersion>9.0</LangVersion>
   </PropertyGroup>
   <ItemGroup>
     <Reference Include="System" />
@@ -49,6 +53,10 @@
     <Reference Include="Xamarin.Mac" />
     <Reference Include="MathNet.Numerics">
       <HintPath>packages\MathNet.Numerics.4.15.0\lib\netstandard2.0\MathNet.Numerics.dll</HintPath>
+    </Reference>
+    <Reference Include="System.Numerics" />
+    <Reference Include="Microsoft.Solver.Foundation">
+      <HintPath>packages\Microsoft.Solver.Foundation.3.1.0\lib\Microsoft.Solver.Foundation.dll</HintPath>
     </Reference>
   </ItemGroup>
   <ItemGroup>
@@ -122,9 +130,11 @@
     <Compile Include="DataProcessingGraphView.designer.cs">
       <DependentUpon>DataProcessingGraphView.cs</DependentUpon>
     </Compile>
+    <Compile Include="GUI\StatusBarManager.cs" />
   </ItemGroup>
   <ItemGroup>
     <InterfaceDefinition Include="Main.storyboard" />
   </ItemGroup>
   <Import Project="$(MSBuildExtensionsPath)\Xamarin\Mac\Xamarin.Mac.CSharp.targets" />
+  <Import Project="packages\CenterSpace.NMath.6.2.0.58\build\CenterSpace.NMath.targets" Condition="Exists('packages\CenterSpace.NMath.6.2.0.58\build\CenterSpace.NMath.targets')" />
 </Project>
