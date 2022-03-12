@@ -16,7 +16,37 @@ namespace AnalysisITC
 		AnalysisITC.DataProcessingGraphView BaselineGraphView { get; set; }
 
 		[Outlet]
+		AppKit.NSButton ConfirmProcessingButton { get; set; }
+
+		[Outlet]
+		AppKit.NSSegmentedControl DataZoomSegControl { get; set; }
+
+		[Outlet]
+		AppKit.NSSegmentedControl InjectionViewSegControl { get; set; }
+
+		[Outlet]
+		AppKit.NSSlider IntegrationDelayControl { get; set; }
+
+		[Outlet]
+		AppKit.NSSlider IntegrationLengthControl { get; set; }
+
+		[Outlet]
+		AppKit.NSTextField IntegrationLengthLabel { get; set; }
+
+		[Outlet]
+		AppKit.NSTextField IntegrationStartDelayLabel { get; set; }
+
+		[Outlet]
 		AppKit.NSSegmentedControl InterpolatorTypeControl { get; set; }
+
+		[Outlet]
+		AppKit.NSTextField PolynomialDegreeLabel { get; set; }
+
+		[Outlet]
+		AppKit.NSSlider PolynomialDegreeSlider { get; set; }
+
+		[Outlet]
+		AppKit.NSStackView PolynomialDegreeView { get; set; }
 
 		[Outlet]
 		AppKit.NSSegmentedControl SplineAlgoControl { get; set; }
@@ -31,28 +61,131 @@ namespace AnalysisITC
 		AppKit.NSStackView SplineBaselineFractionView { get; set; }
 
 		[Outlet]
+		AppKit.NSSlider SplineFractionSliderControl { get; set; }
+
+		[Outlet]
 		AppKit.NSSegmentedControl SplineHandleModeControl { get; set; }
 
 		[Outlet]
 		AppKit.NSStackView SplineHandleModeView { get; set; }
 
+		[Outlet]
+		AppKit.NSTextField ZLimitLabel { get; set; }
+
+		[Outlet]
+		AppKit.NSSlider ZLimitSlider { get; set; }
+
+		[Outlet]
+		AppKit.NSStackView ZLimitView { get; set; }
+
+		[Action ("ConfirmProcessingButtonClicked:")]
+		partial void ConfirmProcessingButtonClicked (Foundation.NSObject sender);
+
+		[Action ("DrawFeatureControlClicked:")]
+		partial void DrawFeatureControlClicked (AppKit.NSSegmentedControl sender);
+
+		[Action ("InjectionViewControlClicked:")]
+		partial void InjectionViewControlClicked (AppKit.NSSegmentedControl sender);
+
+		[Action ("IntegrationLengthSliderChanged:")]
+		partial void IntegrationLengthSliderChanged (AppKit.NSSlider sender);
+
+		[Action ("IntegrationStartTimeSliderChanged:")]
+		partial void IntegrationStartTimeSliderChanged (AppKit.NSSlider sender);
+
 		[Action ("InterplolatorClicked:")]
 		partial void InterplolatorClicked (AppKit.NSSegmentedControl sender);
+
+		[Action ("PolynomialDegreeChanged:")]
+		partial void PolynomialDegreeChanged (AppKit.NSSlider sender);
 
 		[Action ("SplineAlgoClicked:")]
 		partial void SplineAlgoClicked (AppKit.NSSegmentedControl sender);
 
-		[Action ("SplineBaselineFractionChanged:")]
-		partial void SplineBaselineFractionChanged (AppKit.NSTextField sender);
-
 		[Action ("SplineBaselineFractionSliderChanged:")]
 		partial void SplineBaselineFractionSliderChanged (AppKit.NSSlider sender);
 
-		[Action ("SplineHandleClicked:")]
-		partial void SplineHandleClicked (AppKit.NSSegmentedControl sender);
+		[Action ("SplineHandleModeControlClicked:")]
+		partial void SplineHandleModeControlClicked (AppKit.NSSegmentedControl sender);
+
+		[Action ("ZLimitChanged:")]
+		partial void ZLimitChanged (AppKit.NSSlider sender);
+
+		[Action ("ZoomSegControlClicked:")]
+		partial void ZoomSegControlClicked (AppKit.NSSegmentedControl sender);
 		
 		void ReleaseDesignerOutlets ()
 		{
+			if (ZLimitView != null) {
+				ZLimitView.Dispose ();
+				ZLimitView = null;
+			}
+
+			if (ZLimitSlider != null) {
+				ZLimitSlider.Dispose ();
+				ZLimitSlider = null;
+			}
+
+			if (ZLimitLabel != null) {
+				ZLimitLabel.Dispose ();
+				ZLimitLabel = null;
+			}
+
+			if (BaselineGraphView != null) {
+				BaselineGraphView.Dispose ();
+				BaselineGraphView = null;
+			}
+
+			if (PolynomialDegreeLabel != null) {
+				PolynomialDegreeLabel.Dispose ();
+				PolynomialDegreeLabel = null;
+			}
+
+			if (ConfirmProcessingButton != null) {
+				ConfirmProcessingButton.Dispose ();
+				ConfirmProcessingButton = null;
+			}
+
+			if (PolynomialDegreeSlider != null) {
+				PolynomialDegreeSlider.Dispose ();
+				PolynomialDegreeSlider = null;
+			}
+
+			if (DataZoomSegControl != null) {
+				DataZoomSegControl.Dispose ();
+				DataZoomSegControl = null;
+			}
+
+			if (InjectionViewSegControl != null) {
+				InjectionViewSegControl.Dispose ();
+				InjectionViewSegControl = null;
+			}
+
+			if (PolynomialDegreeView != null) {
+				PolynomialDegreeView.Dispose ();
+				PolynomialDegreeView = null;
+			}
+
+			if (IntegrationDelayControl != null) {
+				IntegrationDelayControl.Dispose ();
+				IntegrationDelayControl = null;
+			}
+
+			if (IntegrationLengthControl != null) {
+				IntegrationLengthControl.Dispose ();
+				IntegrationLengthControl = null;
+			}
+
+			if (IntegrationLengthLabel != null) {
+				IntegrationLengthLabel.Dispose ();
+				IntegrationLengthLabel = null;
+			}
+
+			if (IntegrationStartDelayLabel != null) {
+				IntegrationStartDelayLabel.Dispose ();
+				IntegrationStartDelayLabel = null;
+			}
+
 			if (InterpolatorTypeControl != null) {
 				InterpolatorTypeControl.Dispose ();
 				InterpolatorTypeControl = null;
@@ -78,6 +211,11 @@ namespace AnalysisITC
 				SplineBaselineFractionView = null;
 			}
 
+			if (SplineFractionSliderControl != null) {
+				SplineFractionSliderControl.Dispose ();
+				SplineFractionSliderControl = null;
+			}
+
 			if (SplineHandleModeControl != null) {
 				SplineHandleModeControl.Dispose ();
 				SplineHandleModeControl = null;
@@ -86,11 +224,6 @@ namespace AnalysisITC
 			if (SplineHandleModeView != null) {
 				SplineHandleModeView.Dispose ();
 				SplineHandleModeView = null;
-			}
-
-			if (BaselineGraphView != null) {
-				BaselineGraphView.Dispose ();
-				BaselineGraphView = null;
 			}
 		}
 	}
