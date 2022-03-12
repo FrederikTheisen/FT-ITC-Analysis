@@ -24,6 +24,8 @@ namespace AnalysisITC
         public float CellConcentration;
         public float CellVolume;
 
+        public PeakHeatDirection AverageHeatDirection { get; set; } = PeakHeatDirection.Unknown;
+
         public int InjectionCount => Injections.Count;
 
         public float MeasuredTemperature { get; internal set; }
@@ -39,24 +41,58 @@ namespace AnalysisITC
             Processor = new DataProcessor(this);
             Analyzer = new Analyzer();
         }
+
+        public void SetCustomIntegrationTimes(float delay, float length)
+        {
+            foreach (var inj in Injections) inj.SetCustomIntegrationTimes(delay, length);
+        }
+
+        public void CalculatePeakHeatDirection()
+        {
+            var tot_diff = 0f;
+
+            foreach (var inj in Injections)
+            {
+                var dat = DataPoints.Where(dp => dp.Time > inj.Time && dp.Time < inj.Time + inj.Delay);
+
+                var mean = dat.Average(dp => dp.Power);
+                var min = dat.Min(dp => dp.Power);
+                var max = dat.Max(dp => dp.Power);
+
+                if ((mean - min) > (max - mean)) inj.HeatDirection = PeakHeatDirection.Exothermal;
+                else inj.HeatDirection = PeakHeatDirection.Endothermal;
+
+                tot_diff += (mean - min) - (max - mean);
+            }
+
+            if (tot_diff > 0) AverageHeatDirection = PeakHeatDirection.Endothermal;
+            else AverageHeatDirection = PeakHeatDirection.Exothermal;
+        }
     }
 
     public class InjectionData
     {
         public int ID { get; internal set; }
 
-        public float Time { get; internal set; }
+        float time;
+
+        public float Time { get => time; set { time = value; SetInjectionTime(); } }
         public float Volume { get; internal set; }
         public float Duration { get; internal set; }
         public float Delay { get; internal set; }
         public float Filter { get; internal set; }
         public float Temperature { get; internal set; }
         public float InjectionMass { get; internal set; }
-
-        public bool Include { get; internal set; } = true;
+      
         public float ActualCellConcentration { get; internal set; }
         public float ActualTitrantConcentration { get; internal set; }
         public float Ratio { get; internal set; }
+
+        public bool Include { get; internal set; } = true;
+        public float IntegrationStartTime { get; set; }
+        public float IntegrationEndTime { get; set; }
+
+        public PeakHeatDirection HeatDirection { get; set; } = PeakHeatDirection.Unknown;
 
         public InjectionData(string line, int id)
         {
@@ -68,6 +104,18 @@ namespace AnalysisITC
             Duration = float.Parse(data[1]);
             Delay = float.Parse(data[2]);
             Filter = float.Parse(data[3]);
+        }
+
+        public void SetInjectionTime()
+        {
+            IntegrationStartTime = Time;
+            IntegrationEndTime = Time + 0.9f * Delay;
+        }
+
+        public void SetCustomIntegrationTimes(float delay, float length)
+        {
+            IntegrationStartTime = Time + delay;
+            IntegrationEndTime = IntegrationStartTime + length;
         }
     }
 
@@ -168,4 +216,10 @@ namespace AnalysisITC
         Cal
     }
 
+    public enum PeakHeatDirection
+    {
+        Unknown,
+        Exothermal,
+        Endothermal
+    }
 }
