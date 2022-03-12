@@ -52,7 +52,7 @@ namespace AnalysisITC
             TableView.DataSource = DataManager.DataSource;
 
             var del = new ExperimentDataDelegate(DataManager.DataSource);
-            del.SelectionChanged += OnSelectionChanged;
+            del.ExperimentDataViewClicked += OnDataViewClicked;
             del.RemoveRow += OnRowRemoveEvent;
 
 
@@ -71,11 +71,9 @@ namespace AnalysisITC
             TableView.RemoveRows(new NSIndexSet(e), NSTableViewAnimation.SlideLeft);
         }
 
-        private void OnSelectionChanged(object sender, EventArgs e)
+        private void OnDataViewClicked(object sender, EventArgs e)
         {
-            DataManager.DataSource.SelectedIndex = (int)TableView.SelectedRow;
-
-            DataManager.SelectionChanged(DataManager.DataSource.SelectedIndex);
+            DataManager.SelectIndex((int)TableView.SelectedRow);
         }
 
         
