@@ -3,6 +3,7 @@
     <dependencies>
         <deployment identifier="macosx"/>
         <plugIn identifier="com.apple.InterfaceBuilder.CocoaPlugin" version="19529"/>
+        <capability name="Image references" minToolsVersion="12.0"/>
         <capability name="NSView safe area layout guides" minToolsVersion="12.0"/>
         <capability name="documents saved in the Xcode 8 format" minToolsVersion="8.0"/>
     </dependencies>
@@ -689,7 +690,7 @@
                     <window key="window" title="FT-ITC Analysis" separatorStyle="line" allowsToolTipsWhenApplicationIsInactive="NO" autorecalculatesKeyViewLoop="NO" releasedWhenClosed="NO" visibleAtLaunch="NO" frameAutosaveName="" animationBehavior="default" toolbarStyle="unified" titleVisibility="hidden" id="bNy-W4-AlW">
                         <windowStyleMask key="styleMask" titled="YES" closable="YES" miniaturizable="YES" resizable="YES"/>
                         <windowPositionMask key="initialPositionMask" leftStrut="YES" rightStrut="YES" topStrut="YES" bottomStrut="YES"/>
-                        <rect key="contentRect" x="-206" y="371" width="1013" height="579"/>
+                        <rect key="contentRect" x="100" y="300" width="1013" height="579"/>
                         <rect key="screenRect" x="0.0" y="0.0" width="1680" height="1025"/>
                         <value key="minSize" type="size" width="700" height="400"/>
                         <view key="contentView" id="VCi-ph-Jsi">
@@ -701,15 +702,23 @@
                                 <toolbarItem implicitItemIdentifier="8AF935DB-A067-4F0F-B12D-F99BA2CF9142" label="Custom View" paletteLabel="Custom View" sizingBehavior="auto" id="ESL-kQ-vNo">
                                     <nil key="toolTip"/>
                                     <segmentedControl key="view" verticalHuggingPriority="750" id="AdS-18-Bnl">
-                                        <rect key="frame" x="0.0" y="14" width="118" height="23"/>
+                                        <rect key="frame" x="0.0" y="14" width="105" height="23"/>
                                         <autoresizingMask key="autoresizingMask"/>
                                         <segmentedCell key="cell" borderStyle="border" alignment="left" style="texturedSquare" trackingMode="selectOne" id="ceI-7A-1SK">
                                             <font key="font" metaFont="system"/>
                                             <segments>
-                                                <segment image="folder" catalog="system" selected="YES"/>
-                                                <segment image="gearshape.2" catalog="system" enabled="NO" tag="1"/>
-                                                <segment image="chart.xyaxis.line" catalog="system" enabled="NO"/>
-                                                <segment image="printer.dotmatrix" catalog="system" enabled="NO"/>
+                                                <segment selected="YES">
+                                                    <imageReference key="image" image="folder" catalog="system" symbolScale="small"/>
+                                                </segment>
+                                                <segment enabled="NO" tag="1">
+                                                    <imageReference key="image" image="gearshape.2" catalog="system" symbolScale="small"/>
+                                                </segment>
+                                                <segment enabled="NO">
+                                                    <imageReference key="image" image="chart.xyaxis.line" catalog="system" symbolScale="small"/>
+                                                </segment>
+                                                <segment enabled="NO">
+                                                    <imageReference key="image" image="printer.dotmatrix" catalog="system" symbolScale="small"/>
+                                                </segment>
                                             </segments>
                                         </segmentedCell>
                                         <connections>
@@ -717,53 +726,95 @@
                                         </connections>
                                     </segmentedControl>
                                 </toolbarItem>
-                                <toolbarItem implicitItemIdentifier="2BF9FCB3-91E1-4815-B811-EFA8FF35DD27" label="Custom View" paletteLabel="Custom View" sizingBehavior="auto" id="tcS-W3-WGf">
+                                <toolbarItem implicitItemIdentifier="2BF9FCB3-91E1-4815-B811-EFA8FF35DD27" explicitItemIdentifier="LoadControl" label="Custom View" paletteLabel="LoadControl" sizingBehavior="auto" id="tcS-W3-WGf">
                                     <nil key="toolTip"/>
                                     <segmentedControl key="view" verticalHuggingPriority="750" id="6j6-4L-w7q">
-                                        <rect key="frame" x="0.0" y="14" width="131" height="26"/>
+                                        <rect key="frame" x="0.0" y="14" width="80" height="26"/>
                                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                         <segmentedCell key="cell" borderStyle="border" alignment="left" style="texturedSquare" trackingMode="momentary" id="I0V-yu-EcM">
                                             <font key="font" metaFont="system"/>
                                             <segments>
                                                 <segment image="plus" catalog="system"/>
-                                                <segment label="Clear" tag="1"/>
-                                                <segment label="Process"/>
+                                                <segment image="trash" catalog="system" enabled="NO" tag="1"/>
+                                                <segment image="arrow.right" catalog="system" enabled="NO"/>
                                             </segments>
                                         </segmentedCell>
+                                        <connections>
+                                            <action selector="DataLoadSegControlClick:" target="PgZ-Wd-eSc" id="wRh-Gp-Oeb"/>
+                                        </connections>
+                                    </segmentedControl>
+                                </toolbarItem>
+                                <toolbarItem implicitItemIdentifier="98C90550-9C5F-4F69-8266-660E8CCFAAAA" explicitItemIdentifier="ProcessingControl" label="Processing" paletteLabel="ProcessingControl" sizingBehavior="auto" id="555-iq-WBk">
+                                    <nil key="toolTip"/>
+                                    <segmentedControl key="view" verticalHuggingPriority="750" id="pJE-sQ-Xh5">
+                                        <rect key="frame" x="11" y="14" width="83" height="26"/>
+                                        <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
+                                        <segmentedCell key="cell" borderStyle="border" alignment="left" style="texturedSquare" trackingMode="momentary" id="wl8-Ey-Evr">
+                                            <font key="font" metaFont="system"/>
+                                            <segments>
+                                                <segment image="arrow.left" catalog="system"/>
+                                                <segment image="sparkles.rectangle.stack" catalog="system" enabled="NO" tag="1"/>
+                                                <segment image="arrow.right" catalog="system" enabled="NO"/>
+                                            </segments>
+                                        </segmentedCell>
+                                        <connections>
+                                            <action selector="ProcessSegControlClick:" target="PgZ-Wd-eSc" id="s6q-WW-AIN"/>
+                                        </connections>
+                                    </segmentedControl>
+                                </toolbarItem>
+                                <toolbarItem implicitItemIdentifier="D1C61348-70A6-4092-AAAB-41EBF6C32812" explicitItemIdentifier="AnalysisControl" label="Analysis" paletteLabel="AnalysisControl" sizingBehavior="auto" id="gfU-uW-Ffr">
+                                    <nil key="toolTip"/>
+                                    <segmentedControl key="view" verticalHuggingPriority="750" id="cLN-ZE-fda">
+                                        <rect key="frame" x="0.0" y="14" width="108" height="26"/>
+                                        <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
+                                        <segmentedCell key="cell" borderStyle="border" alignment="left" style="texturedSquare" trackingMode="momentary" id="3iU-ru-TVd">
+                                            <font key="font" metaFont="system"/>
+                                            <segments>
+                                                <segment image="arrow.left" catalog="system"/>
+                                                <segment image="sparkles" catalog="system" enabled="NO" tag="1"/>
+                                                <segment image="sparkles.rectangle.stack" catalog="system" enabled="NO"/>
+                                                <segment image="checkmark" catalog="system" enabled="NO">
+                                                    <nil key="label"/>
+                                                </segment>
+                                            </segments>
+                                        </segmentedCell>
+                                        <connections>
+                                            <action selector="AnalysisSegControlClicked:" target="PgZ-Wd-eSc" id="AKG-SO-iFt"/>
+                                        </connections>
                                     </segmentedControl>
                                 </toolbarItem>
                                 <toolbarItem implicitItemIdentifier="NSToolbarFlexibleSpaceItem" id="0UK-N1-JYA"/>
                                 <toolbarItem implicitItemIdentifier="54A28129-0721-4D09-A81B-787B20CAEB37" label="Custom View" paletteLabel="Custom View" tag="-1" title="Box" id="QRd-F2-tjm">
                                     <nil key="toolTip"/>
-                                    <size key="minSize" width="177" height="15"/>
-                                    <size key="maxSize" width="270" height="30"/>
+                                    <size key="minSize" width="250" height="30"/>
+                                    <size key="maxSize" width="350" height="30"/>
                                     <box key="view" title="Box" titlePosition="noTitle" id="Vgn-8I-jYc">
-                                        <rect key="frame" x="0.0" y="14" width="270" height="30"/>
+                                        <rect key="frame" x="0.0" y="14" width="300" height="30"/>
                                         <autoresizingMask key="autoresizingMask" flexibleMinX="YES" flexibleMaxX="YES" flexibleMinY="YES" flexibleMaxY="YES"/>
                                         <view key="contentView" id="dNY-k3-tMR">
-                                            <rect key="frame" x="8" y="3" width="254" height="24"/>
+                                            <rect key="frame" x="10" y="3" width="280" height="24"/>
                                             <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
                                             <subviews>
-                                                <textField horizontalHuggingPriority="251" verticalHuggingPriority="750" fixedFrame="YES" translatesAutoresizingMaskIntoConstraints="NO" id="riC-W8-reK">
-                                                    <rect key="frame" x="0.0" y="6" width="87" height="14"/>
-                                                    <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
+                                                <textField horizontalHuggingPriority="251" verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="riC-W8-reK">
+                                                    <rect key="frame" x="-2" y="6" width="87" height="14"/>
                                                     <textFieldCell key="cell" controlSize="small" lineBreakMode="clipping" title="FT ITC-Analysis" id="IH6-Cv-4vB">
                                                         <font key="font" metaFont="system" size="11"/>
                                                         <color key="textColor" name="labelColor" catalog="System" colorSpace="catalog"/>
                                                         <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
                                                     </textFieldCell>
                                                 </textField>
-                                                <progressIndicator maxValue="100" doubleValue="50" displayedWhenStopped="NO" indeterminate="YES" controlSize="small" style="spinning" translatesAutoresizingMaskIntoConstraints="NO" id="xQZ-Zu-EbC">
-                                                    <rect key="frame" x="238" y="4" width="16" height="16"/>
+                                                <progressIndicator maxValue="100" doubleValue="1" displayedWhenStopped="NO" indeterminate="YES" controlSize="small" style="spinning" translatesAutoresizingMaskIntoConstraints="NO" id="xQZ-Zu-EbC">
+                                                    <rect key="frame" x="264" y="5" width="16" height="16"/>
                                                 </progressIndicator>
                                             </subviews>
                                             <constraints>
-                                                <constraint firstItem="xQZ-Zu-EbC" firstAttribute="top" secondItem="dNY-k3-tMR" secondAttribute="top" constant="4" id="EwF-Z4-fTu"/>
-                                                <constraint firstAttribute="trailing" secondItem="xQZ-Zu-EbC" secondAttribute="trailing" id="P0L-Tp-FG2"/>
-                                                <constraint firstAttribute="bottom" secondItem="xQZ-Zu-EbC" secondAttribute="bottom" constant="4" id="wZI-pn-RPh"/>
+                                                <constraint firstItem="riC-W8-reK" firstAttribute="centerY" secondItem="dNY-k3-tMR" secondAttribute="centerY" constant="-1" id="DEv-GQ-aJJ"/>
+                                                <constraint firstAttribute="trailing" secondItem="xQZ-Zu-EbC" secondAttribute="trailing" id="OaJ-bu-zhw"/>
+                                                <constraint firstItem="xQZ-Zu-EbC" firstAttribute="centerY" secondItem="dNY-k3-tMR" secondAttribute="centerY" constant="-1" id="bvJ-N4-Px5"/>
+                                                <constraint firstItem="riC-W8-reK" firstAttribute="leading" secondItem="dNY-k3-tMR" secondAttribute="leading" id="esE-jX-bz5"/>
                                             </constraints>
                                         </view>
-                                        <size key="contentViewMargins" width="5" height="0.0"/>
+                                        <size key="contentViewMargins" width="7" height="0.0"/>
                                     </box>
                                 </toolbarItem>
                                 <toolbarItem implicitItemIdentifier="139B770B-7C39-4B33-9C4C-6B4A010F10E2" label="Custom View" paletteLabel="Custom View" sizingBehavior="auto" id="3jD-Q5-AJV">
@@ -774,10 +825,25 @@
                                         <levelIndicatorCell key="cell" alignment="left" doubleValue="5.5" maxValue="6" warningValue="2" criticalValue="1" levelIndicatorStyle="continuousCapacity" id="eoo-33-GcV"/>
                                     </levelIndicator>
                                 </toolbarItem>
+                                <toolbarItem implicitItemIdentifier="0D2BEDE5-7D78-4C9B-8B01-590A22B4FBA6" label="Custom View" paletteLabel="Custom View" image="cursor.rays" catalog="system" sizingBehavior="auto" id="Wkr-kh-BkZ">
+                                    <nil key="toolTip"/>
+                                    <button key="view" verticalHuggingPriority="750" id="GpY-la-ERc">
+                                        <rect key="frame" x="15" y="14" width="46" height="26"/>
+                                        <autoresizingMask key="autoresizingMask" flexibleMinX="YES" flexibleMaxX="YES" flexibleMinY="YES" flexibleMaxY="YES"/>
+                                        <buttonCell key="cell" type="roundTextured" bezelStyle="texturedRounded" image="cursor.rays" catalog="system" imagePosition="only" alignment="center" controlSize="large" lineBreakMode="truncatingTail" borderStyle="border" imageScaling="proportionallyDown" inset="2" id="mqH-ip-JvD">
+                                            <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
+                                            <font key="font" metaFont="system"/>
+                                        </buttonCell>
+                                        <connections>
+                                            <action selector="ContextButtonClick:" target="PgZ-Wd-eSc" id="73O-tR-lr2"/>
+                                        </connections>
+                                    </button>
+                                </toolbarItem>
                             </allowedToolbarItems>
                             <defaultToolbarItems>
+                                <toolbarItem reference="ESL-kQ-vNo"/>
                                 <toolbarItem reference="0UK-N1-JYA"/>
-                                <toolbarItem reference="0UK-N1-JYA"/>
+                                <toolbarItem reference="Wkr-kh-BkZ"/>
                                 <toolbarItem reference="QRd-F2-tjm"/>
                                 <toolbarItem reference="0UK-N1-JYA"/>
                                 <toolbarItem reference="tcS-W3-WGf"/>
@@ -788,6 +854,12 @@
                         </connections>
                     </window>
                     <connections>
+                        <outlet property="AnalysisSegControl" destination="cLN-ZE-fda" id="bvn-wo-2yM"/>
+                        <outlet property="ContextButton" destination="GpY-la-ERc" id="Cil-63-PLP"/>
+                        <outlet property="DataLoadSegControl" destination="6j6-4L-w7q" id="JOc-hY-Ldv"/>
+                        <outlet property="ProcessSegControl" destination="pJE-sQ-Xh5" id="to9-l0-qpJ"/>
+                        <outlet property="StatusbarPrimaryLabel" destination="riC-W8-reK" id="fGp-2t-UFR"/>
+                        <outlet property="StatusbarProgressIndicator" destination="xQZ-Zu-EbC" id="pd0-lR-J2h"/>
                         <outlet property="StepControl" destination="AdS-18-Bnl" id="ucK-DY-UVp"/>
                         <segue destination="I28-Is-kIg" kind="relationship" relationship="window.shadowedContentViewController" id="mOa-p3-cHP"/>
                     </connections>
@@ -1555,42 +1627,9 @@
                         <autoresizingMask key="autoresizingMask"/>
                         <subviews>
                             <customView id="54f-ar-wQ3" customClass="GraphView">
-                                <rect key="frame" x="20" y="60" width="323" height="202"/>
+                                <rect key="frame" x="10" y="10" width="343" height="250"/>
                                 <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
                             </customView>
-                            <button identifier="LoadDataButton" verticalHuggingPriority="750" id="urf-W4-VNI">
-                                <rect key="frame" x="13" y="13" width="107" height="32"/>
-                                <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMaxY="YES"/>
-                                <buttonCell key="cell" type="push" title="Add data" bezelStyle="rounded" alignment="center" borderStyle="border" imageScaling="proportionallyDown" inset="2" id="nik-aH-dzp">
-                                    <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
-                                    <font key="font" metaFont="system"/>
-                                </buttonCell>
-                                <connections>
-                                    <action selector="ButtonClick:" target="XfG-lQ-9wD" id="PBv-Gi-PuR"/>
-                                </connections>
-                            </button>
-                            <button identifier="LoadDataButton" verticalHuggingPriority="750" id="Kvq-99-mYo">
-                                <rect key="frame" x="118" y="13" width="107" height="32"/>
-                                <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMaxY="YES"/>
-                                <buttonCell key="cell" type="push" title="Clear" bezelStyle="rounded" alignment="center" enabled="NO" borderStyle="border" imageScaling="proportionallyDown" inset="2" id="reY-gd-Jx5">
-                                    <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
-                                    <font key="font" metaFont="system"/>
-                                </buttonCell>
-                                <connections>
-                                    <action selector="ClearButtonClick:" target="XfG-lQ-9wD" id="eCM-sI-nbC"/>
-                                </connections>
-                            </button>
-                            <button identifier="LoadDataButton" verticalHuggingPriority="750" id="iS7-4Y-ebo">
-                                <rect key="frame" x="223" y="13" width="127" height="32"/>
-                                <autoresizingMask key="autoresizingMask" flexibleMinX="YES" flexibleMaxY="YES"/>
-                                <buttonCell key="cell" type="push" title="Process Data" bezelStyle="rounded" alignment="center" enabled="NO" borderStyle="border" imageScaling="proportionallyDown" inset="2" id="v7L-E4-AQy">
-                                    <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
-                                    <font key="font" metaFont="system"/>
-                                </buttonCell>
-                                <connections>
-                                    <action selector="ContinueClick:" target="XfG-lQ-9wD" id="Bsn-K9-Yc9"/>
-                                </connections>
-                            </button>
                         </subviews>
                     </view>
                     <connections>
@@ -1600,8 +1639,41 @@
                     </connections>
                 </viewController>
                 <customObject id="rPt-NT-nkU" userLabel="First Responder" customClass="NSResponder" sceneMemberID="firstResponder"/>
+                <button identifier="LoadDataButton" verticalHuggingPriority="750" id="urf-W4-VNI">
+                    <rect key="frame" x="0.0" y="0.0" width="107" height="32"/>
+                    <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMaxY="YES"/>
+                    <buttonCell key="cell" type="push" title="Add data" bezelStyle="rounded" alignment="center" borderStyle="border" imageScaling="proportionallyDown" inset="2" id="nik-aH-dzp">
+                        <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
+                        <font key="font" metaFont="system"/>
+                    </buttonCell>
+                    <connections>
+                        <action selector="ButtonClick:" target="XfG-lQ-9wD" id="PBv-Gi-PuR"/>
+                    </connections>
+                </button>
+                <button identifier="LoadDataButton" verticalHuggingPriority="750" id="Kvq-99-mYo">
+                    <rect key="frame" x="0.0" y="0.0" width="107" height="32"/>
+                    <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMaxY="YES"/>
+                    <buttonCell key="cell" type="push" title="Clear" bezelStyle="rounded" alignment="center" enabled="NO" borderStyle="border" imageScaling="proportionallyDown" inset="2" id="reY-gd-Jx5">
+                        <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
+                        <font key="font" metaFont="system"/>
+                    </buttonCell>
+                    <connections>
+                        <action selector="ClearButtonClick:" target="XfG-lQ-9wD" id="eCM-sI-nbC"/>
+                    </connections>
+                </button>
+                <button identifier="LoadDataButton" verticalHuggingPriority="750" id="iS7-4Y-ebo">
+                    <rect key="frame" x="0.0" y="0.0" width="127" height="32"/>
+                    <autoresizingMask key="autoresizingMask" flexibleMinX="YES" flexibleMaxY="YES"/>
+                    <buttonCell key="cell" type="push" title="Process Data" bezelStyle="rounded" alignment="center" enabled="NO" borderStyle="border" imageScaling="proportionallyDown" inset="2" id="v7L-E4-AQy">
+                        <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
+                        <font key="font" metaFont="system"/>
+                    </buttonCell>
+                    <connections>
+                        <action selector="ContinueClick:" target="XfG-lQ-9wD" id="Bsn-K9-Yc9"/>
+                    </connections>
+                </button>
             </objects>
-            <point key="canvasLocation" x="772" y="975"/>
+            <point key="canvasLocation" x="771.5" y="975"/>
         </scene>
         <!--Publish-->
         <scene sceneID="rGT-uA-CgQ">
@@ -1620,14 +1692,21 @@
     <resources>
         <image name="NSGoLeftTemplate" width="10" height="14"/>
         <image name="NSGoRightTemplate" width="10" height="14"/>
-        <image name="chart.xyaxis.line" catalog="system" width="17" height="14"/>
-        <image name="folder" catalog="system" width="18" height="14"/>
-        <image name="gearshape.2" catalog="system" width="20" height="16"/>
+        <image name="arrow.left" catalog="system" width="15" height="12"/>
+        <image name="arrow.right" catalog="system" width="15" height="12"/>
+        <image name="chart.xyaxis.line" catalog="system" width="14" height="12"/>
+        <image name="checkmark" catalog="system" width="14" height="13"/>
+        <image name="cursor.rays" catalog="system" width="16" height="16"/>
+        <image name="folder" catalog="system" width="15" height="12"/>
+        <image name="gearshape.2" catalog="system" width="16" height="13"/>
         <image name="plus" catalog="system" width="14" height="13"/>
-        <image name="printer.dotmatrix" catalog="system" width="18" height="16"/>
+        <image name="printer.dotmatrix" catalog="system" width="15" height="13"/>
         <image name="rectangle.arrowtriangle.2.inward" catalog="system" width="16" height="18"/>
         <image name="rectangle.arrowtriangle.2.outward" catalog="system" width="16" height="19"/>
         <image name="rectangle.portrait.arrowtriangle.2.inward" catalog="system" width="19" height="15"/>
         <image name="rectangle.portrait.arrowtriangle.2.outward" catalog="system" width="20" height="15"/>
+        <image name="sparkles" catalog="system" width="15" height="17"/>
+        <image name="sparkles.rectangle.stack" catalog="system" width="17" height="17"/>
+        <image name="trash" catalog="system" width="15" height="17"/>
     </resources>
 </document>
