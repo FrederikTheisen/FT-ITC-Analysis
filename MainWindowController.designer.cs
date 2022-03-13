@@ -13,16 +13,76 @@ namespace AnalysisITC
 	partial class MainWindowController
 	{
 		[Outlet]
+		AppKit.NSSegmentedControl AnalysisSegControl { get; set; }
+
+		[Outlet]
+		AppKit.NSButton ContextButton { get; set; }
+
+		[Outlet]
+		AppKit.NSSegmentedControl DataLoadSegControl { get; set; }
+
+		[Outlet]
+		AppKit.NSSegmentedControl ProcessSegControl { get; set; }
+
+		[Outlet]
+		AppKit.NSTextField StatusbarPrimaryLabel { get; set; }
+
+		[Outlet]
+		AppKit.NSProgressIndicator StatusbarProgressIndicator { get; set; }
+
+		[Outlet]
 		AppKit.NSSegmentedControl StepControl { get; set; }
+
+		[Action ("AnalysisSegControlClicked:")]
+		partial void AnalysisSegControlClicked (AppKit.NSSegmentedControl sender);
+
+		[Action ("ContextButtonClick:")]
+		partial void ContextButtonClick (Foundation.NSObject sender);
+
+		[Action ("DataLoadSegControlClick:")]
+		partial void DataLoadSegControlClick (AppKit.NSSegmentedControl sender);
+
+		[Action ("ProcessSegControlClick:")]
+		partial void ProcessSegControlClick (AppKit.NSSegmentedControl sender);
 
 		[Action ("StepControlClick:")]
 		partial void StepControlClick (AppKit.NSSegmentedControl sender);
 		
 		void ReleaseDesignerOutlets ()
 		{
+			if (AnalysisSegControl != null) {
+				AnalysisSegControl.Dispose ();
+				AnalysisSegControl = null;
+			}
+
+			if (ContextButton != null) {
+				ContextButton.Dispose ();
+				ContextButton = null;
+			}
+
+			if (ProcessSegControl != null) {
+				ProcessSegControl.Dispose ();
+				ProcessSegControl = null;
+			}
+
 			if (StepControl != null) {
 				StepControl.Dispose ();
 				StepControl = null;
+			}
+
+			if (DataLoadSegControl != null) {
+				DataLoadSegControl.Dispose ();
+				DataLoadSegControl = null;
+			}
+
+			if (StatusbarProgressIndicator != null) {
+				StatusbarProgressIndicator.Dispose ();
+				StatusbarProgressIndicator = null;
+			}
+
+			if (StatusbarPrimaryLabel != null) {
+				StatusbarPrimaryLabel.Dispose ();
+				StatusbarPrimaryLabel = null;
 			}
 		}
 	}
