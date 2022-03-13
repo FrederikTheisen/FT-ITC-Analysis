@@ -1,6 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
 using MathNet.Numerics;
 using MathNet.Numerics.Interpolation;
 using MathNet.Numerics.LinearAlgebra.Complex.Solvers;
@@ -11,9 +13,12 @@ namespace AnalysisITC
 {
     public class DataProcessor
     {
-        public static event EventHandler InterpolationCompleted;
+        public static event EventHandler BaselineInterpolationCompleted;
 
         internal ExperimentData Data { get; set; }
+
+        CancellationToken cToken { get; set; }
+        CancellationTokenSource csource = new CancellationTokenSource();
 
         public BaselineInterpolator Interpolator { get; set; }
         public BaselineInterpolatorTypes BaselineType
@@ -34,7 +39,9 @@ namespace AnalysisITC
             }
         }
 
-        public bool Completed { get; private set; } = false;
+        public bool BaselineCompleted { get; internal set; } = false;
+        public bool IntegrationCompleted => Data.Injections.All(inj => inj.IsIntegrated);
+
 
         public DataProcessor(ExperimentData data)
         {
@@ -43,28 +50,58 @@ namespace AnalysisITC
             //InitializeBaseline(BaselineInterpolatorTypes.Spline);
         }
 
+        public DataProcessor(ExperimentData data, DataProcessor dataProcessor)
+        {
+            Data = data;
+
+            Interpolator = dataProcessor.Interpolator.Copy(this);
+        }
+
         public void InitializeBaseline(BaselineInterpolatorTypes mode)
         {
             switch (mode)
             {
+                case BaselineInterpolatorTypes.None: break;
                 case BaselineInterpolatorTypes.Spline: Interpolator = new SplineInterpolator(this); break;
                 case BaselineInterpolatorTypes.Polynomial: Interpolator = new PolynomialLeastSquaresInterpolator(this); break;
+                case BaselineInterpolatorTypes.ASL:
                 default: Interpolator = new SplineInterpolator(this); break;
             }
         }
 
-        public void InterpolateBaseline()
+        public async void InterpolateBaseline()
         {
-            Interpolator.Interpolate();
+            try
+            {
+                BaselineCompleted = false;
 
-            InterpolationCompleted?.Invoke(this, null);
+                StatusBarManager.StartInderminateProgress();
 
-            Completed = true;
+                csource.Cancel();
+                csource = new CancellationTokenSource();
+                cToken = csource.Token;
+
+                await System.Threading.Tasks.Task.Run(() => Interpolator.Interpolate(cToken));
+
+                BaselineCompleted = true;
+
+                BaselineInterpolationCompleted?.Invoke(this, null);
+
+                StatusBarManager.StopInderminateProgress();
+            }
+            catch (Exception ex)
+            {
+
+            }
+            finally
+            {
+                
+            }
         }
 
         public void IterationCompleted()
         {
-            InterpolationCompleted?.Invoke(this, null);
+            BaselineInterpolationCompleted?.Invoke(this, null);
         }
 
         void SubtractBaseline()
@@ -79,7 +116,7 @@ namespace AnalysisITC
 
         internal ExperimentData Data => Parent.Data;
 
-        internal List<float> Baseline;
+        internal List<float> Baseline = new List<float>();
 
         public bool Finished => Baseline.Count > 0;
 
@@ -90,9 +127,14 @@ namespace AnalysisITC
             Baseline = new List<float>();
         }
 
-        public virtual void Interpolate(bool replace = true)
+        public virtual BaselineInterpolator Copy(DataProcessor processor)
         {
-            Baseline = new List<float>();
+            return new BaselineInterpolator(processor);
+        }
+
+        public async virtual Task Interpolate(CancellationToken token, bool replace = true)
+        {
+            Parent.BaselineCompleted = true;
         }
 
         public void WriteToConsole()
@@ -128,9 +170,22 @@ namespace AnalysisITC
             
         }
 
-        public void GetInitialPoints(int pointperinjection = 1, float fraction = 0.8f)
+        public override BaselineInterpolator Copy(DataProcessor processor)
         {
-            SplinePoints = new List<SplinePoint>();
+            var interpolator = new SplineInterpolator(processor)
+            {
+                PointsPerInjection = this.PointsPerInjection,
+                FractionBaseline = this.FractionBaseline,
+                Algorithm = this.Algorithm,
+                HandleMode = this.HandleMode
+            };
+
+            return interpolator;
+        }
+
+        public List<SplinePoint> GetInitialPoints(int pointperinjection = 1, float fraction = 0.8f)
+        {
+            var points = new List<SplinePoint>();
 
             int handles = 2 + pointperinjection * Data.InjectionCount;
 
@@ -138,9 +193,9 @@ namespace AnalysisITC
 
             //First points
             float segmmentL = (Data.InitialDelay - 5) / 4;
-            SplinePoints.Add(new SplinePoint(segmmentL, GetDataRangeMean(0, 2 * segmmentL), DataPoint.Slope(Data.DataPoints.Where(dp => dp.Time > 0 && dp.Time < 2 * segmmentL).ToList())));
+            points.Add(new SplinePoint(segmmentL, GetDataRangeMean(0, 2 * segmmentL), DataPoint.Slope(Data.DataPoints.Where(dp => dp.Time > 0 && dp.Time < 2 * segmmentL).ToList())));
 
-            SplinePoints.Add(new SplinePoint(3 * segmmentL, GetDataRangeMean(2 * segmmentL, 4 * segmmentL), DataPoint.Slope(Data.DataPoints.Where(dp => dp.Time > 2 * segmmentL && dp.Time < 4 * segmmentL).ToList())));
+            points.Add(new SplinePoint(3 * segmmentL, GetDataRangeMean(2 * segmmentL, 4 * segmmentL), DataPoint.Slope(Data.DataPoints.Where(dp => dp.Time > 2 * segmmentL && dp.Time < 4 * segmmentL).ToList())));
 
             foreach (var inj in Data.Injections)
             {
@@ -154,9 +209,11 @@ namespace AnalysisITC
                     var s = start + j * length;
                     var e = s + length;
 
-                    SplinePoints.Add(new SplinePoint(s + length * 0.5f, GetDataRangeMean(s, e), DataPoint.Slope(Data.DataPoints.Where(dp => dp.Time > s && dp.Time < e).ToList())));
+                    points.Add(new SplinePoint(s + length * 0.5f, GetDataRangeMean(s, e), DataPoint.Slope(Data.DataPoints.Where(dp => dp.Time > s && dp.Time < e).ToList())));
                 }
             }
+
+            return points;
         }
 
         float GetDataRangeMean(float start, float end)
@@ -180,31 +237,41 @@ namespace AnalysisITC
 
         }
 
-        public override void Interpolate(bool replace = true)
+        public override async Task Interpolate(CancellationToken token, bool replace = true)
         {
-            base.Interpolate(replace);
+            List<SplinePoint> splinePoints;
 
-            if (SplinePoints.Count == 0 || replace) GetInitialPoints(PointsPerInjection, FractionBaseline);
-            
-            var x = SplinePoints.Select(sp => sp.Time);
-            var y = SplinePoints.Select(sp => sp.Power);
+            if (SplinePoints.Count == 0 || replace) splinePoints = GetInitialPoints(PointsPerInjection, FractionBaseline);
+            else splinePoints = SplinePoints;
+
+            var x = splinePoints.Select(sp => sp.Time);
+            var y = splinePoints.Select(sp => sp.Power);
+
+            Spline spline;
 
             switch (Algorithm)
             {
-                case SplineInterpolatorAlgorithm.Akima: SplineFunction = new Spline(CubicSpline.InterpolateAkima(x, y)); break;
+                case SplineInterpolatorAlgorithm.Akima: spline = new Spline(CubicSpline.InterpolateAkima(x, y)); break;
                 case SplineInterpolatorAlgorithm.InterpolateBoundaries:
-                case SplineInterpolatorAlgorithm.InterpolateHermite: SplineFunction = new Spline(CubicSpline.InterpolateHermite(x, y, SplinePoints.Select(sp => sp.Slope))); break;
-                case SplineInterpolatorAlgorithm.InterpolateNatural: SplineFunction = new Spline(CubicSpline.InterpolateNatural(x, y)); break;
+                case SplineInterpolatorAlgorithm.InterpolateHermite: spline = new Spline(CubicSpline.InterpolateHermite(x, y, splinePoints.Select(sp => sp.Slope))); break;
+                case SplineInterpolatorAlgorithm.InterpolateNatural: spline = new Spline(CubicSpline.InterpolateNatural(x, y)); break;
                 default:
-                case SplineInterpolatorAlgorithm.InterpolatePchip: SplineFunction = new Spline(CubicSpline.InterpolatePchip(x, y)); break;
-                case SplineInterpolatorAlgorithm.LinearSpline: SplineFunction = new Spline(LinearSpline.Interpolate(x, y)); break;
+                case SplineInterpolatorAlgorithm.InterpolatePchip: spline = new Spline(CubicSpline.InterpolatePchip(x, y)); break;
+                case SplineInterpolatorAlgorithm.LinearSpline: spline = new Spline(LinearSpline.Interpolate(x, y)); break;
             }
 
+            var bsl = new List<float>();
 
             foreach (var dp in Data.DataPoints)
             {
-                Baseline.Add((float)SplineFunction.Evaluate(dp.Time));
+                bsl.Add((float)spline.Evaluate(dp.Time));
             }
+
+            Baseline = bsl;
+            SplinePoints = splinePoints;
+            SplineFunction = spline;
+
+            await base.Interpolate(token, replace);
         }
 
         public enum SplineInterpolatorAlgorithm
@@ -275,17 +342,14 @@ namespace AnalysisITC
 
         }
 
-        public override void Interpolate(bool replace = true)
+        public override async Task Interpolate(CancellationToken token, bool replace = true)
         {
-            base.Interpolate(replace);
-
             var y = SparseVector.OfEnumerable(datapoints);
             var L = y.Count; //len(y)
             var D = Diff(new DiagonalMatrix(L, L, 1)); //sparse.csc_matrix(np.diff(np.eye(L), 2))
             var w = new SparseVector(L).Add(1);
 
             var z = new SparseVector(L);
-
 
             for (int i = 0; i < alg_niter; i++)
             {
@@ -304,9 +368,13 @@ namespace AnalysisITC
                 var nZ = Z.SolveIterative(mul, solver, monitor);//Solve(mul);
                 z = SparseVector.OfEnumerable(nZ.Storage.ToArray());
                 w = Select(z.ToList(), y.ToList());
+
+                token.ThrowIfCancellationRequested();
             }
 
             Baseline = z.Select(o => (float)o).ToList();
+
+            await base.Interpolate(token, replace);
         }
 
         MathNet.Numerics.LinearAlgebra.Double.SparseMatrix Diff(DiagonalMatrix m)
@@ -359,21 +427,23 @@ namespace AnalysisITC
         {
         }
 
-        public override void Interpolate(bool replace = true)
+        public override BaselineInterpolator Copy(DataProcessor processor)
         {
-            base.Interpolate(replace);
+            var interpolator = new PolynomialLeastSquaresInterpolator(processor)
+            {
+                Degree = this.Degree,
+                ZLimit = this.ZLimit,
+            };
 
-            Fit(Degree);
-
-            Baseline = Evaluate().ToList(); //fit.Select(v => (float)v).ToList();
+            return interpolator;
         }
 
-        private void Fit(int degree = 3)
+        public override async Task Interpolate(CancellationToken token, bool replace = true)
         {
             var x = Data.DataPoints.Select(dp => (double)dp.Time).ToArray();
             var y = Data.DataPoints.Select(dp => (double)dp.Power).ToArray();
 
-            var fit = MathNet.Numerics.Fit.Polynomial(x, y, degree);
+            var fit = MathNet.Numerics.Fit.Polynomial(x, y, Degree);
             var line = LineFromFit(fit, x);
 
             var previousRSoS = 1.0;
@@ -393,13 +463,19 @@ namespace AnalysisITC
                 x = x.Where((v, idx) => IdxToTime(idx) < Data.InitialDelay || IdxToTime(idx) > Data.Injections.Last().IntegrationEndTime || Zscores[idx] < ZLimit).ToArray();
                 y = y.Where((v, idx) => IdxToTime(idx) < Data.InitialDelay || IdxToTime(idx) > Data.Injections.Last().IntegrationEndTime || Zscores[idx] < ZLimit).ToArray();
 
-                fit = MathNet.Numerics.Fit.Polynomial(x, y, degree);
+                fit = MathNet.Numerics.Fit.Polynomial(x, y, Degree);
                 line = LineFromFit(fit, x);
 
                 r = ResidualSumOfSquares(line, y);
+
+                token.ThrowIfCancellationRequested();
             }
 
             this.fit = fit;
+
+            Baseline = Evaluate().ToList();
+
+            await base.Interpolate(token, replace);
         }
 
         double[] Residuals(double[] fit, double[] dat)
