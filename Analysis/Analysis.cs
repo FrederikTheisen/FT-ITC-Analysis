@@ -12,7 +12,23 @@ namespace AnalysisITC
 
     public class Analyzer
     {
-        public static List<ExperimentData> Data => DataManager.Data;
+        public ExperimentData Data { get; set; }
+
+        public bool IsProcessed
+        {
+            get
+            {
+                return Data.Processor.BaselineCompleted;
+            }
+        }
+
+
+        public Analyzer(ExperimentData data)
+        {
+            Data = data;
+        }
+
+
 
 
         public static void ProcessData()
