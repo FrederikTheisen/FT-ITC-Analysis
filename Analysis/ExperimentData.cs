@@ -39,7 +39,7 @@ namespace AnalysisITC
             FileName = file;
 
             Processor = new DataProcessor(this);
-            Analyzer = new Analyzer();
+            Analyzer = new Analyzer(this);
         }
 
         public void SetCustomIntegrationTimes(float delay, float length)
@@ -68,19 +68,24 @@ namespace AnalysisITC
             if (tot_diff > 0) AverageHeatDirection = PeakHeatDirection.Endothermal;
             else AverageHeatDirection = PeakHeatDirection.Exothermal;
         }
+
+        public void SetProcessor(DataProcessor processor)
+        {
+            Processor = processor;
+        }
     }
 
     public class InjectionData
     {
-        public int ID { get; internal set; }
+        public int ID { get; private set; }
 
         float time;
 
-        public float Time { get => time; set { time = value; SetInjectionTime(); } }
-        public float Volume { get; internal set; }
-        public float Duration { get; internal set; }
-        public float Delay { get; internal set; }
-        public float Filter { get; internal set; }
+        public float Time { get => time; set { time = value; SetIntegrationTimes(); } }
+        public float Volume { get; private set; }
+        public float Duration { get; private set; }
+        public float Delay { get; private set; }
+        public float Filter { get; private set; }
         public float Temperature { get; internal set; }
         public float InjectionMass { get; internal set; }
       
@@ -94,6 +99,12 @@ namespace AnalysisITC
 
         public PeakHeatDirection HeatDirection { get; set; } = PeakHeatDirection.Unknown;
 
+        public float PeakArea { get; private set; } = 0;
+        public float Enthalpy { get; private set; } = 0;
+        public float SD { get; private set; } = 0;
+
+        public bool IsIntegrated { get; private set; }
+
         public InjectionData(string line, int id)
         {
             ID = id;
@@ -106,7 +117,7 @@ namespace AnalysisITC
             Filter = float.Parse(data[3]);
         }
 
-        public void SetInjectionTime()
+        void SetIntegrationTimes()
         {
             IntegrationStartTime = Time;
             IntegrationEndTime = Time + 0.9f * Delay;
@@ -117,15 +128,52 @@ namespace AnalysisITC
             IntegrationStartTime = Time + delay;
             IntegrationEndTime = IntegrationStartTime + length;
         }
+
+        public void ToggleDataPointActive()
+        {
+            Include = !Include;
+        }
+
+        public void Integrate(List<DataPoint> baselinesubtracteddata)
+        {
+            var data = baselinesubtracteddata.Where(dp => dp.Time > IntegrationStartTime && dp.Time < IntegrationEndTime);
+
+            var area = 0f;
+
+            foreach (var dp in data)
+            {
+                area += dp.Power;
+            }
+
+            PeakArea = area;
+            Enthalpy = PeakArea / InjectionMass;
+
+            EstimateError(baselinesubtracteddata);
+
+            IsIntegrated = true;
+        }
+
+        public void EstimateError(List<DataPoint> baselinesubtracteddata)
+        {
+            var baselinedata = baselinesubtracteddata.Where(dp => dp.Time > IntegrationEndTime && dp.Time < Time + Delay);
+
+            float sum_of_squares = 0;
+
+            foreach (var dp in baselinedata)
+            {
+                sum_of_squares += dp.Power * dp.Power;
+            }
+
+            SD = (float)Math.Sqrt(sum_of_squares / (baselinedata.Count() - 1));
+        }
     }
 
     public struct DataPoint
     {
-        float time;
-        float power;
-        float temperature;
-
-        EnergyUnit unit;
+        readonly float time;
+        readonly float power;
+        readonly float temperature;
+        readonly EnergyUnit unit;
 
         public DataPoint(float time, float power, float temp, EnergyUnit unit = EnergyUnit.Cal)
         {
