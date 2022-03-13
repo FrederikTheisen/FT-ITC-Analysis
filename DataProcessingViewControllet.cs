@@ -10,7 +10,7 @@ namespace AnalysisITC
 {
 	public partial class DataProcessingViewControllet : NSViewController
 	{
-        ExperimentData Data => DataManager.Current();
+        ExperimentData Data => DataManager.Current;
         DataProcessor Processor => Data?.Processor;
 
 		public DataProcessingViewControllet (IntPtr handle) : base (handle)
@@ -22,7 +22,7 @@ namespace AnalysisITC
             base.ViewDidLoad();
 
             DataManager.SelectionDidChange += OnSelectionChanged;
-            DataProcessor.InterpolationCompleted += OnInterpolationCompleted;
+            DataProcessor.BaselineInterpolationCompleted += OnInterpolationCompleted;
         }
 
 
@@ -34,7 +34,7 @@ namespace AnalysisITC
 
             UpdateSliderLabels();
 
-            BaselineGraphView.Initialize(DataManager.Current());
+            BaselineGraphView.Initialize(DataManager.Current);
         }
 
         void UpdateUI()
@@ -208,7 +208,7 @@ namespace AnalysisITC
 
         partial void ConfirmProcessingButtonClicked(NSObject sender)
         {
-            DataManager.SetMode(2);
+            DataManager.SetProgramState(2);
         }
 
         void UpdateSliderLabels()
@@ -227,7 +227,7 @@ namespace AnalysisITC
 
         private void OnSelectionChanged(object sender, ExperimentData e)
         {
-            var current = DataManager.Current();
+            var current = DataManager.Current;
 
             BaselineGraphView.Initialize(current);
 
@@ -236,7 +236,7 @@ namespace AnalysisITC
 
         private void OnInterpolationCompleted(object sender, EventArgs e)
         {
-            BaselineGraphView.Invalidate();
+            if (Processor.BaselineCompleted) BaselineGraphView.Invalidate();
 
             ConfirmProcessingButton.Enabled = DataManager.DataIsProcessed;
         }

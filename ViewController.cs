@@ -105,7 +105,7 @@ namespace AnalysisITC
 
         private void OnSelectionChanged(object sender, ExperimentData e)
         {
-            GVC.Initialize(DataManager.Current());
+            GVC.Initialize(DataManager.Current);
         }
 
         private void OnDataChanged(object sender, ExperimentData e)
@@ -147,7 +147,7 @@ namespace AnalysisITC
 
         partial void ContinueClick(NSObject sender)
         {
-            DataManager.SetMode(1);
+            DataManager.SetProgramState(1);
         }
 
         public override NSObject RepresentedObject

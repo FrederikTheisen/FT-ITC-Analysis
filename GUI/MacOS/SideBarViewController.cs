@@ -9,7 +9,7 @@ namespace AnalysisITC
 {
     public partial class SideBarViewController : NSViewController
     {
-        private ExperimentData SelectedData() => DataManager.Current();
+        private ExperimentData SelectedData() => DataManager.Current;
 
         #region Constructors
 
@@ -35,14 +35,20 @@ namespace AnalysisITC
         // Shared initialization code
         void Initialize()
         {
-            
+            DataManager.DataDidChange += OnDataManagerUpdated;
+            DataManager.SelectionDidChange += DataManager_SelectionDidChange;
+        }
+
+        private void DataManager_SelectionDidChange(object sender, ExperimentData e)
+        {
+            TableView.SelectRow(DataManager.DataSource.SelectedIndex, false);
         }
 
         public override void ViewDidLoad()
         {
             base.ViewDidLoad();
 
-            DataManager.DataDidChange += OnDataManagerUpdated;
+            
 
             TableView.ColumnAutoresizingStyle = NSTableViewColumnAutoresizingStyle.FirstColumnOnly;
         }

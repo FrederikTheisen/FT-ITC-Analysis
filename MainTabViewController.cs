@@ -17,7 +17,7 @@ namespace AnalysisITC
         {
             base.ViewDidLoad();
 
-            DataManager.ChangeProgramMode += OnProgramModeChanged;
+            DataManager.ProgramStateChanged += OnProgramModeChanged;
         }
 
         private void OnProgramModeChanged(object sender, int e)
