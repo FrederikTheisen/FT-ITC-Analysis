@@ -16,19 +16,21 @@ namespace AnalysisITC
 
         public static event EventHandler<ExperimentData> DataDidChange;
         public static event EventHandler<ExperimentData> SelectionDidChange;
-        public static event EventHandler<int> ChangeProgramMode;
+        public static event EventHandler<int> ProgramStateChanged;
 
         public static int Count => Data.Count;
 
         public static bool DataIsLoaded => DataSource?.Data.Count > 0;
-        public static bool DataIsProcessed => DataSource.Data.All(d => d.Processor.Completed);
+        public static bool DataIsProcessed => DataSource.Data.All(d => d.Processor.BaselineCompleted);
 
-        public static ExperimentData Current()
-        {
-            if (SelectedIndex == -1) return null;
-            else if (SelectedIndex >= Count) return null;
-            else return Data[SelectedIndex];
-        }
+        public static int State { get; private set; } = 0;
+
+        public static ExperimentData Current => SelectedIndex == -1 || (SelectedIndex >= Count) ? null : Data[SelectedIndex];
+        
+            //if (SelectedIndex == -1) return null;
+            //else if (SelectedIndex >= Count) return null;
+            //else return Data[SelectedIndex];
+        
 
         public static void Init()
         {
@@ -53,7 +55,7 @@ namespace AnalysisITC
             {
                 DataSource.SelectedIndex--;
 
-                DataDidChange.Invoke(null, Current());
+                DataDidChange.Invoke(null, Current);
             }
         }
 
@@ -69,11 +71,47 @@ namespace AnalysisITC
             Init();
         }
 
-        public static void SelectionChanged(int index) => SelectionDidChange?.Invoke(null, Current());
+        public static void SelectionChanged(int index) => SelectionDidChange?.Invoke(null, Current);
 
-        public static void SetMode(int mode)
+        public static void SetProgramState(int state)
         {
-            ChangeProgramMode.Invoke(null, mode);
+            State = state;
+
+            ProgramStateChanged.Invoke(null, state);
+        }
+
+        public static async void CopySelectedProcessToAll()
+        {
+            var curr = Current;
+
+            if (curr == null) return;
+            if (curr.Processor.Interpolator == null) return;
+
+            var count = Count;
+
+            StatusBarManager.SetStatus("Processing data...", 0);
+            StatusBarManager.Progress = 0;
+
+            foreach (var data in Data)
+            {
+                if (data == curr) continue;
+
+                data.SetProcessor(new DataProcessor(data, curr.Processor));
+            }
+
+            float i = 0;
+
+            foreach (var data in Data)
+            {
+                i++;
+
+                await System.Threading.Tasks.Task.Run(() => data.Processor.Interpolator.Interpolate(new System.Threading.CancellationToken(false), true));
+
+                StatusBarManager.Progress = i / count;
+            }
+
+            StatusBarManager.Progress = 1;
+            StatusBarManager.SetStatus("Data processed", 1000);
         }
     }
 }
