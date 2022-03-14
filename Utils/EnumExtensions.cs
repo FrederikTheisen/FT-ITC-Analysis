@@ -1,5 +1,7 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Linq;
+using AnalysisITC;
 using DataReaders;
 
 namespace Utilities
@@ -14,4 +16,17 @@ namespace Utilities
             return attribute;
         }
     }
+
+    public static class NumberExtensions
+    {
+        public static Energy Average(this IEnumerable<Energy> list)
+        {
+            double sum = list.Sum(o => o.Value.Value);
+            double sd = list.Sum(o => o.Value.SD);
+            int count = list.Count();
+
+            return new Energy(new FloatWithError(sum / count, sd / count));
+        }
+    }
+        
 }

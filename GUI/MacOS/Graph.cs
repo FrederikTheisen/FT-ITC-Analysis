@@ -83,11 +83,11 @@ namespace AnalysisITC
         internal CTFont DefaultFont = new CTFont("Helvetica", 12);
         internal nfloat DefaultFontHeight => DefaultFont.CapHeightMetric + 5;
 
-        protected float PlotWidthCM = 7f;
-        protected float PlotPixelWidth => PlotWidthCM * PPcm;
+        protected nfloat PlotWidthCM = 7.0f;
+        protected nfloat PlotPixelWidth => PlotWidthCM * PPcm;
 
-        protected float PlotHeightCM = 5f;
-        protected float PlotPixelHeight => PlotHeightCM * PPcm;
+        protected nfloat PlotHeightCM = 5.0f;
+        protected nfloat PlotPixelHeight => PlotHeightCM * PPcm;
 
         internal CGSize PointsPerUnit;
         internal CGPoint Center;
@@ -135,8 +135,8 @@ namespace AnalysisITC
         {
             if (ScaleToView)
             {
-                PlotWidthCM = (float)View.Frame.Size.Width / PPcm;
-                PlotHeightCM = (float)View.Frame.Size.Height / PPcm;
+                PlotWidthCM = View.Frame.Size.Width / PPcm;
+                PlotHeightCM = View.Frame.Size.Height / PPcm;
             }
 
             PlotSize = new CGSize(PlotPixelWidth - 2, PlotPixelHeight - 2);
@@ -190,7 +190,7 @@ namespace AnalysisITC
         {
             if (textcolor == null) textcolor = NSColor.LabelColor.CGColor;
 
-            y = PlotPixelHeight - y - textHeight;
+            y = (nfloat)PlotPixelHeight - y - textHeight;
             context.SetFillColor(StrokeColor.CGColor);
 
             var attributedString = new NSAttributedString(text,
@@ -209,7 +209,7 @@ namespace AnalysisITC
             textLine.Dispose();
         }
 
-        internal virtual CGPoint GetRelativePosition(Tuple<float, float> point)
+        internal virtual CGPoint GetRelativePosition(Tuple<double, double> point)
         {
             var relx = (point.Item1 - XAxis.Min) * PointsPerUnit.Width;
             var rely = (point.Item2 - YAxis.Min) * PointsPerUnit.Height;
@@ -233,7 +233,7 @@ namespace AnalysisITC
             return new CGPoint(x, y);
         }
 
-        void SetAxisRange(GraphAxis axis, float? min, float? max, bool buffer = false)
+        void SetAxisRange(GraphAxis axis, double? min, double? max, bool buffer = false)
         {
             if (min == null) min = axis.ActualMin;
             if (max == null) max = axis.ActualMax;
@@ -248,7 +248,7 @@ namespace AnalysisITC
 
             if (buffer)
             {
-                axis.SetWithBuffer((float)min, (float)max);
+                axis.SetWithBuffer((double)min, (double)max);
             }
             else
             {
@@ -257,12 +257,12 @@ namespace AnalysisITC
             }
         }
 
-        public void SetXAxisRange(float min, float max, bool buffer = false)
+        public void SetXAxisRange(double min, double max, bool buffer = false)
         {
             SetAxisRange(XAxis, min, max, buffer);
         }
 
-        public void SetYAxisRange(float min, float max, bool buffer = false)
+        public void SetYAxisRange(double min, double max, bool buffer = false)
         {
             SetAxisRange(YAxis, min, max, buffer);
         }
@@ -306,15 +306,15 @@ namespace AnalysisITC
 
             public int DecimalPoints { get; set; } = 1;
 
-            public GraphAxis(float min, float max)
+            public GraphAxis(double min, double max)
             {
-                this.ActualMin = min;
-                this.ActualMax = max;
+                this.ActualMin = (float)min;
+                this.ActualMax = (float)max;
 
                 TickScale = new Utilities.NiceScale(this.ActualMin, this.ActualMax);
             }
 
-            public static GraphAxis WithBuffer(float min, float max, float? buffer = null)
+            public static GraphAxis WithBuffer(double min, double max, float? buffer = null)
             {
                 if (buffer == null) buffer = 0.035f;
 
@@ -328,7 +328,7 @@ namespace AnalysisITC
                 return axis;
             }
 
-            public void SetWithBuffer(float min, float max, float? buffer = null)
+            public void SetWithBuffer(double min, double max, float? buffer = null)
             {
                 if (buffer == null) buffer = 0.035f;
 
@@ -404,7 +404,7 @@ namespace AnalysisITC
 
         CGPoint GetRelativePosition(DataPoint dp)
         {
-            return GetRelativePosition(new Tuple<float, float>(dp.Time, dp.Power));
+            return GetRelativePosition(new Tuple<double, double>(dp.Time, dp.Power));
         }
     }
 
@@ -517,7 +517,7 @@ namespace AnalysisITC
                 float b = ExperimentData.Processor.Interpolator.Baseline[i];
 
                 if (p.Time > XAxis.Min && p.Time < XAxis.Max)
-                    points.Add(GetRelativePosition(new Tuple<float, float>(p.Time, b)));
+                    points.Add(GetRelativePosition(new Tuple<double, double>(p.Time, b)));
             }
 
             path.AddLines(points.ToArray());

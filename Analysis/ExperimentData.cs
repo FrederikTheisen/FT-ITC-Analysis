@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using DataReaders;
+using Utilities;
 
 namespace AnalysisITC
 {
@@ -42,6 +43,13 @@ namespace AnalysisITC
             Analyzer = new Analyzer(this);
         }
 
+        public void AddInjection(string dataline)
+        {
+            var inj = new InjectionData(this, dataline, Injections.Count);
+
+            Injections.Add(inj);
+        }
+
         public void SetCustomIntegrationTimes(float delay, float length)
         {
             foreach (var inj in Injections) inj.SetCustomIntegrationTimes(delay, length);
@@ -77,6 +85,7 @@ namespace AnalysisITC
 
     public class InjectionData
     {
+        public ExperimentData Experiment { get; private set; }
         public int ID { get; private set; }
 
         float time;
@@ -99,14 +108,16 @@ namespace AnalysisITC
 
         public PeakHeatDirection HeatDirection { get; set; } = PeakHeatDirection.Unknown;
 
-        public float PeakArea { get; private set; } = 0;
-        public float Enthalpy { get; private set; } = 0;
-        public float SD { get; private set; } = 0;
+        public Energy PeakArea { get; private set; } = new(0);
+        public Energy Enthalpy => PeakArea / InjectionMass;
+        public double SD => PeakArea.SD;
 
         public bool IsIntegrated { get; private set; }
 
-        public InjectionData(string line, int id)
+        public InjectionData(ExperimentData experiment, string line, int id)
         {
+            Experiment = experiment;
+
             ID = id;
 
             var data = line.Substring(1).Split(',');
@@ -134,52 +145,56 @@ namespace AnalysisITC
             Include = !Include;
         }
 
-        public void Integrate(List<DataPoint> baselinesubtracteddata)
+        public void Integrate()
         {
-            var data = baselinesubtracteddata.Where(dp => dp.Time > IntegrationStartTime && dp.Time < IntegrationEndTime);
+            var data = Experiment.BaseLineCorrectedDataPoints.Where(dp => dp.Time > IntegrationStartTime && dp.Time < IntegrationEndTime);
 
-            var area = 0f;
+            double area = 0.0;
 
             foreach (var dp in data)
             {
                 area += dp.Power;
             }
 
-            PeakArea = area;
-            Enthalpy = PeakArea / InjectionMass;
+            var sd = EstimateError();
 
-            EstimateError(baselinesubtracteddata);
+            PeakArea = new(new FloatWithError(area / 1000000, sd));
 
             IsIntegrated = true;
         }
 
-        public void EstimateError(List<DataPoint> baselinesubtracteddata)
+        public double EstimateError()
         {
-            var baselinedata = baselinesubtracteddata.Where(dp => dp.Time > IntegrationEndTime && dp.Time < Time + Delay);
+            var baselinedata = Experiment.BaseLineCorrectedDataPoints.Where(dp => dp.Time > IntegrationEndTime && dp.Time < Time + Delay);
 
-            float sum_of_squares = 0;
+            double sum_of_squares = 0;
 
             foreach (var dp in baselinedata)
             {
-                sum_of_squares += dp.Power * dp.Power;
+                var p = dp.Power / 1000000;
+
+                sum_of_squares += p * p;
             }
 
-            SD = (float)Math.Sqrt(sum_of_squares / (baselinedata.Count() - 1));
+            return Math.Sqrt(sum_of_squares / (baselinedata.Count() - 1));
         }
     }
 
     public struct DataPoint
     {
-        readonly float time;
-        readonly float power;
-        readonly float temperature;
+        public readonly Energy Power { get; }
+
         readonly EnergyUnit unit;
 
-        public DataPoint(float time, float power, float temp, EnergyUnit unit = EnergyUnit.Cal)
+        public float Time { get; }
+        public float Temperature { get; }
+        //public EnergyUnit Unit => unit;
+
+        public DataPoint(float time, double power, float temp, EnergyUnit unit = EnergyUnit.Cal)
         {
-            this.time = time;
-            this.power = power;
-            this.temperature = temp;
+            this.Time = time;
+            this.Power = new Energy(power, unit);
+            this.Temperature = temp;
             this.unit = unit;
         }
 
@@ -190,36 +205,18 @@ namespace AnalysisITC
             return new DataPoint(data[0], data[1], data[2], unit);
         }
 
-        public float Power
-        {
-            get
-            {
-                if (unit == ExperimentData.Unit) return power;
-                else
-                {
-                    switch (unit)
-                    {
-                        default:
-                        case EnergyUnit.Joule: return power / 4.184f;
-                        case EnergyUnit.Cal: return power * 4.184f;
-                    }
-                }
-            }
-        }
+        
 
-        public float Time => time;
-        public float Temperature => temperature;
-
-        public static float Mean(List<DataPoint> list)
+        public static Energy Mean(List<DataPoint> list)
         {
-            float sum = 0;
+            Energy sum = new(0);
 
             foreach (var dp in list) sum += dp.Power;
 
             return sum / list.Count;
         }
 
-        public static float Median(List<DataPoint> list)
+        public static Energy Median(List<DataPoint> list)
         {
             int count = list.Count();
 
@@ -229,14 +226,14 @@ namespace AnalysisITC
                 return list.Select(x => x.Power).OrderBy(x => x).ElementAt(count / 2);
         }
 
-        public static float VolatilityWeightedAverage(List<DataPoint> list)
+        public static Energy VolatilityWeightedAverage(List<DataPoint> list)
         {
-            float w = 0;
-            float sum = 0;
+            double w = 0;
+            Energy sum = new(0);
 
             for (int i = 1; i < list.Count; i++)
             {
-                float _w = .01f / (0.005f + Math.Abs(list[i].Power - list[i - 1].Power));
+                double _w = .01 / (0.005 + Math.Abs(list[i].Power - list[i - 1].Power));
 
                 w += _w;
                 sum += _w * list[i].Power;
@@ -245,7 +242,7 @@ namespace AnalysisITC
             return sum / w;
         }
 
-        public static float Slope(List<DataPoint> list)
+        public static double Slope(List<DataPoint> list)
         {
             if (list.Count == 0) return 0;
 
@@ -256,12 +253,11 @@ namespace AnalysisITC
 
             return (last - first) / deltaX;
         }
-    }
 
-    public enum EnergyUnit
-    {
-        Joule,
-        Cal
+        public DataPoint Copy(double subtract = 0)
+        {
+            return new DataPoint(Time, Power - subtract, Temperature, unit);
+        }
     }
 
     public enum PeakHeatDirection

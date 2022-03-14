@@ -100,7 +100,7 @@ namespace AnalysisITC
 
             UpdateSliderLabels();
 
-            ConfirmProcessingButton.Enabled = DataManager.DataIsProcessed;
+            ConfirmProcessingButton.Enabled = DataManager.AllDataIsBaselineProcessed;
         }
 
         #region Processing Baseline
@@ -238,7 +238,7 @@ namespace AnalysisITC
         {
             if (Processor.BaselineCompleted) BaselineGraphView.Invalidate();
 
-            ConfirmProcessingButton.Enabled = DataManager.DataIsProcessed;
+            ConfirmProcessingButton.Enabled = DataManager.AllDataIsBaselineProcessed;
         }
     }
 }

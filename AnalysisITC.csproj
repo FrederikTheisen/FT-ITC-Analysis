@@ -58,6 +58,21 @@
     <Reference Include="Microsoft.Solver.Foundation">
       <HintPath>packages\Microsoft.Solver.Foundation.3.1.0\lib\Microsoft.Solver.Foundation.dll</HintPath>
     </Reference>
+    <Reference Include="System.IO.Compression" />
+    <Reference Include="System.Net.Http" />
+    <Reference Include="Accord">
+      <HintPath>packages\Accord.3.8.0\lib\netstandard2.0\Accord.dll</HintPath>
+    </Reference>
+    <Reference Include="Accord.Math.Core">
+      <HintPath>packages\Accord.Math.3.8.0\lib\netstandard2.0\Accord.Math.Core.dll</HintPath>
+    </Reference>
+    <Reference Include="Accord.Math">
+      <HintPath>packages\Accord.Math.3.8.0\lib\netstandard2.0\Accord.Math.dll</HintPath>
+    </Reference>
+    <Reference Include="Accord.Statistics">
+      <HintPath>packages\Accord.Statistics.3.8.0\lib\netstandard2.0\Accord.Statistics.dll</HintPath>
+    </Reference>
+    <Reference Include="System.Data" />
   </ItemGroup>
   <ItemGroup>
     <ImageAsset Include="Assets.xcassets\AppIcon.appiconset\Contents.json" />
@@ -131,10 +146,12 @@
       <DependentUpon>DataProcessingGraphView.cs</DependentUpon>
     </Compile>
     <Compile Include="GUI\StatusBarManager.cs" />
+    <Compile Include="Utils\NumberStructs.cs" />
   </ItemGroup>
   <ItemGroup>
     <InterfaceDefinition Include="Main.storyboard" />
   </ItemGroup>
   <Import Project="$(MSBuildExtensionsPath)\Xamarin\Mac\Xamarin.Mac.CSharp.targets" />
   <Import Project="packages\CenterSpace.NMath.6.2.0.58\build\CenterSpace.NMath.targets" Condition="Exists('packages\CenterSpace.NMath.6.2.0.58\build\CenterSpace.NMath.targets')" />
+  <Import Project="packages\Accord.3.8.0\build\Accord.targets" Condition="Exists('packages\Accord.3.8.0\build\Accord.targets')" />
 </Project>

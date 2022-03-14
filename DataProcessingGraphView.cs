@@ -99,7 +99,7 @@ namespace AnalysisITC
             var ymin = data.DataPoints.Where(dp => dp.Time > xmin && dp.Time < xmax).Min(dp => dp.Power);
             var ymax = data.DataPoints.Where(dp => dp.Time > xmin && dp.Time < xmax).Max(dp => dp.Power);
 
-            float delta = 0;
+            var delta = 0.0;
 
             var delta1 = mean - ymin;
             var delta2 = ymax - mean;

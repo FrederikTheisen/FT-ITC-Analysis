@@ -104,9 +104,24 @@ namespace AnalysisITC
             BaselineInterpolationCompleted?.Invoke(this, null);
         }
 
-        void SubtractBaseline()
+        public void SubtractBaseline()
         {
+            Data.BaseLineCorrectedDataPoints = new List<DataPoint>();
 
+            foreach (var (dp,bl) in Data.DataPoints.Zip(Data.Processor.Interpolator.Baseline, (x, y) => new Tuple<DataPoint, double>(x, y)))
+            {
+                var bldp = dp.Copy(bl);
+
+                Data.BaseLineCorrectedDataPoints.Add(bldp);
+            }
+        }
+
+        public void IntegratePeaks()
+        {
+            foreach (var inj in Data.Injections)
+            {
+                inj.Integrate();
+            }
         }
     }
 
@@ -116,7 +131,7 @@ namespace AnalysisITC
 
         internal ExperimentData Data => Parent.Data;
 
-        internal List<float> Baseline = new List<float>();
+        internal List<double> Baseline = new List<double>();
 
         public bool Finished => Baseline.Count > 0;
 
@@ -124,7 +139,7 @@ namespace AnalysisITC
         {
             Parent = processor;
 
-            Baseline = new List<float>();
+            Baseline = new List<double>();
         }
 
         public virtual BaselineInterpolator Copy(DataProcessor processor)
@@ -216,7 +231,7 @@ namespace AnalysisITC
             return points;
         }
 
-        float GetDataRangeMean(float start, float end)
+        double GetDataRangeMean(double start, double end)
         {
             List<DataPoint> points = Data.DataPoints.Where(dp => dp.Time > start && dp.Time < end).ToList();
 
@@ -232,7 +247,7 @@ namespace AnalysisITC
             }
         }
 
-        public void UpdatePoints(List<Tuple<float, float>> points)
+        public void UpdatePoints(List<Tuple<double, double>> points)
         {
 
         }
@@ -260,11 +275,11 @@ namespace AnalysisITC
                 case SplineInterpolatorAlgorithm.LinearSpline: spline = new Spline(LinearSpline.Interpolate(x, y)); break;
             }
 
-            var bsl = new List<float>();
+            var bsl = new List<double>();
 
             foreach (var dp in Data.DataPoints)
             {
-                bsl.Add((float)spline.Evaluate(dp.Time));
+                bsl.Add(spline.Evaluate(dp.Time));
             }
 
             Baseline = bsl;
@@ -306,10 +321,10 @@ namespace AnalysisITC
                 LinearSplineFunction = spline;
             }
 
-            public float Evaluate(float time)
+            public double Evaluate(float time)
             {
-                if (CubicSplineFunction != null) return (float)CubicSplineFunction.Interpolate(time);
-                if (LinearSplineFunction != null) return (float)LinearSplineFunction.Interpolate(time);
+                if (CubicSplineFunction != null) return CubicSplineFunction.Interpolate(time);
+                if (LinearSplineFunction != null) return LinearSplineFunction.Interpolate(time);
 
                 return 0;
             }
@@ -321,7 +336,7 @@ namespace AnalysisITC
             public double Power;
             public double Slope;
 
-            public SplinePoint(float time, float power, float slope = 0)
+            public SplinePoint(double time, double power, double slope = 0)
             {
                 Time = time;
                 Power = power;
@@ -372,7 +387,7 @@ namespace AnalysisITC
                 token.ThrowIfCancellationRequested();
             }
 
-            Baseline = z.Select(o => (float)o).ToList();
+            Baseline = z.Select(o => o).ToList();
 
             await base.Interpolate(token, replace);
         }
@@ -525,19 +540,19 @@ namespace AnalysisITC
             return line;
         }
 
-        float IdxToTime(int idx)
+        double IdxToTime(int idx)
         {
             return Data.DataPoints[idx].Time;
         }
 
-        float[] Evaluate()
+        double[] Evaluate()
         {
-            float[] eval = new float[Data.DataPoints.Count];
+            double[] eval = new double[Data.DataPoints.Count];
             var data = Data.DataPoints.Select(dp => dp.Time).ToArray();
 
             for (int i = 0; i < eval.Length; i++)
             {
-                eval[i] = (float)MathNet.Numerics.Polynomial.Evaluate(data[i], this.fit);
+                eval[i] = MathNet.Numerics.Polynomial.Evaluate(data[i], this.fit);
             }
 
             return eval;

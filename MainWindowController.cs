@@ -35,7 +35,7 @@ namespace AnalysisITC
         private void DataProcessor_InterpolationCompleted(object sender, EventArgs e)
         {
             ProcessSegControl.SetEnabled(DataManager.Current.Processor.BaselineCompleted, 1);
-            ProcessSegControl.SetEnabled(DataManager.DataIsProcessed, 2);
+            ProcessSegControl.SetEnabled(DataManager.AllDataIsBaselineProcessed, 2);
         }
 
         private void DataManager_SelectionDidChange(object sender, ExperimentData e)
@@ -114,7 +114,9 @@ namespace AnalysisITC
             {
                 case 0: Window.Toolbar.InsertItem("LoadControl", 5); break;
                 case 1: Window.Toolbar.InsertItem("ProcessingControl", 5); break;
-                case 2: Window.Toolbar.InsertItem("AnalysisControl", 5); break;
+                case 2:
+                    DataManager.IntegratePeaks(); //TODO move to separate function and only allow change to analysis mode if all are integrated;
+                    Window.Toolbar.InsertItem("AnalysisControl", 5); break;
             }
         }
 
@@ -151,7 +153,7 @@ namespace AnalysisITC
         {
             if (!DataManager.DataIsLoaded) OpenFileBrowser();
             else if (DataManager.State == 0) DataManager.SetProgramState(1);
-            else if (DataManager.State == 1 && !DataManager.DataIsProcessed)
+            else if (DataManager.State == 1 && !DataManager.AllDataIsBaselineProcessed)
             {
 
             }

@@ -9,6 +9,8 @@ namespace AnalysisITC
 {
     public static class DataManager
     {
+        public static EnergyUnit Unit { get; set; } = EnergyUnit.Joule;
+
         public static List<ExperimentData> Data => DataSource.Data;
         static int SelectedIndex => DataSource.SelectedIndex;
 
@@ -21,7 +23,7 @@ namespace AnalysisITC
         public static int Count => Data.Count;
 
         public static bool DataIsLoaded => DataSource?.Data.Count > 0;
-        public static bool DataIsProcessed => DataSource.Data.All(d => d.Processor.BaselineCompleted);
+        public static bool AllDataIsBaselineProcessed => DataSource.Data.All(d => d.Processor.BaselineCompleted);
 
         public static int State { get; private set; } = 0;
 
@@ -112,6 +114,16 @@ namespace AnalysisITC
 
             StatusBarManager.Progress = 1;
             StatusBarManager.SetStatus("Data processed", 1000);
+        }
+
+        public static void IntegratePeaks()
+        {
+            foreach (var data in Data)
+            {
+                data.Processor.SubtractBaseline();
+                data.Processor.IntegratePeaks();
+                data.Analyzer.Test();
+            }
         }
     }
 }
@@ -211,7 +223,7 @@ namespace DataReaders
                     else if (counter == 7) experiment.TargetPowerDiff = LineToFloat(line);
                     else if (counter >= 11 && line[0] == '$')
                     {
-                        experiment.Injections.Add(new InjectionData(line, experiment.Injections.Count));
+                        experiment.AddInjection(line);
                     }
                     else if (line[0] == '#')
                     {
@@ -219,7 +231,7 @@ namespace DataReaders
 
                         if (counter2 == 2) experiment.SyringeConcentration = LineToFloat(line) * (float)Math.Pow(10, -3);
                         else if (counter2 == 3) experiment.CellConcentration = LineToFloat(line) != 0 ? LineToFloat(line) * (float)Math.Pow(10, -3) : experiment.SyringeConcentration / 10f;
-                        else if (counter2 == 4) experiment.CellVolume = LineToFloat(line) * (float)Math.Pow(10, -6);
+                        else if (counter2 == 4) experiment.CellVolume = LineToFloat(line) * (float)Math.Pow(10, -3);
                     }
                 }
 
@@ -248,7 +260,7 @@ namespace DataReaders
             var inj = experiment.Injections.Find(o => o.ID == id);
 
             inj.Time = data[3];
-            inj.Include = id == 0;
+            inj.Include = id != 0;
             inj.Temperature = experiment.DataPoints.Last().Temperature;
         }
 
