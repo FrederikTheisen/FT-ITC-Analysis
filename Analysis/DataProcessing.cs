@@ -108,9 +108,9 @@ namespace AnalysisITC
         {
             Data.BaseLineCorrectedDataPoints = new List<DataPoint>();
 
-            foreach (var (dp,bl) in Data.DataPoints.Zip(Data.Processor.Interpolator.Baseline, (x, y) => new Tuple<DataPoint, double>(x, y)))
+            foreach (var (dp,bl) in Data.DataPoints.Zip(Data.Processor.Interpolator.Baseline, (x, y) => new Tuple<DataPoint, Energy>(x, y)))
             {
-                var bldp = dp.Copy(bl);
+                var bldp = dp.SubtractBaseline(bl);
 
                 Data.BaseLineCorrectedDataPoints.Add(bldp);
             }
@@ -131,7 +131,7 @@ namespace AnalysisITC
 
         internal ExperimentData Data => Parent.Data;
 
-        internal List<double> Baseline = new List<double>();
+        internal List<Energy> Baseline = new List<Energy>();
 
         public bool Finished => Baseline.Count > 0;
 
@@ -139,7 +139,7 @@ namespace AnalysisITC
         {
             Parent = processor;
 
-            Baseline = new List<double>();
+            Baseline = new List<Energy>();
         }
 
         public virtual BaselineInterpolator Copy(DataProcessor processor)
@@ -231,7 +231,7 @@ namespace AnalysisITC
             return points;
         }
 
-        double GetDataRangeMean(double start, double end)
+        Energy GetDataRangeMean(double start, double end)
         {
             List<DataPoint> points = Data.DataPoints.Where(dp => dp.Time > start && dp.Time < end).ToList();
 
@@ -260,7 +260,7 @@ namespace AnalysisITC
             else splinePoints = SplinePoints;
 
             var x = splinePoints.Select(sp => sp.Time);
-            var y = splinePoints.Select(sp => sp.Power);
+            var y = splinePoints.Select(sp => (double)sp.Power);
 
             Spline spline;
 
@@ -275,7 +275,7 @@ namespace AnalysisITC
                 case SplineInterpolatorAlgorithm.LinearSpline: spline = new Spline(LinearSpline.Interpolate(x, y)); break;
             }
 
-            var bsl = new List<double>();
+            var bsl = new List<Energy>();
 
             foreach (var dp in Data.DataPoints)
             {
@@ -321,22 +321,22 @@ namespace AnalysisITC
                 LinearSplineFunction = spline;
             }
 
-            public double Evaluate(float time)
+            public Energy Evaluate(float time)
             {
-                if (CubicSplineFunction != null) return CubicSplineFunction.Interpolate(time);
-                if (LinearSplineFunction != null) return LinearSplineFunction.Interpolate(time);
+                if (CubicSplineFunction != null) return new(CubicSplineFunction.Interpolate(time));
+                if (LinearSplineFunction != null) return new(LinearSplineFunction.Interpolate(time));
 
-                return 0;
+                return new(0.0);
             }
         }
 
         public class SplinePoint
         {
             public double Time;
-            public double Power;
+            public Energy Power;
             public double Slope;
 
-            public SplinePoint(double time, double power, double slope = 0)
+            public SplinePoint(double time, Energy power, double slope = 0)
             {
                 Time = time;
                 Power = power;
@@ -387,7 +387,7 @@ namespace AnalysisITC
                 token.ThrowIfCancellationRequested();
             }
 
-            Baseline = z.Select(o => o).ToList();
+            //Baseline = z.Select(o => o).ToList();
 
             await base.Interpolate(token, replace);
         }
@@ -465,7 +465,7 @@ namespace AnalysisITC
 
             var r = ResidualSumOfSquares(line, y);
 
-            while (r > 0.1 && Math.Abs(previousRSoS - r) > 0.0000001)
+            while (r > double.Epsilon && Math.Abs(previousRSoS - r) > double.Epsilon)
             {
                 var residues = Residuals(line, y);
 
@@ -488,7 +488,7 @@ namespace AnalysisITC
 
             this.fit = fit;
 
-            Baseline = Evaluate().ToList();
+            Baseline = Evaluate().Select(e => new Energy(e)).ToList();
 
             await base.Interpolate(token, replace);
         }
