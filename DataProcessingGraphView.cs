@@ -6,6 +6,7 @@ using System.Linq;
 using Foundation;
 using AppKit;
 using CoreGraphics;
+using Utilities;
 
 namespace AnalysisITC
 {
@@ -79,8 +80,8 @@ namespace AnalysisITC
             var xmin = Graph.XAxis.Min;
             var xmax = Graph.XAxis.Max;
 
-            float baselinemin = float.MaxValue;
-            float baselinemax = float.MinValue;
+            var baselinemin = double.MaxValue;
+            var baselinemax = double.MinValue;
 
             for (int i = 0; i < data.DataPoints.Count; i++)
             {
@@ -89,13 +90,13 @@ namespace AnalysisITC
                 if (dp.Time < xmin) continue;
                 else if (dp.Time > xmax) break;
 
-                float blp = data.Processor.Interpolator.Baseline[i];
+                var blp = data.Processor.Interpolator.Baseline[i];
 
-                if (blp < baselinemin) baselinemin = blp;
-                else if (blp > baselinemax) baselinemax = blp;
+                if (blp < baselinemin) baselinemin = (double)blp;
+                if (blp > baselinemax) baselinemax = (double)blp;
             }
 
-            var mean = data.DataPoints.Where(dp => dp.Time > xmin && dp.Time < xmax).Average(dp => dp.Power);
+            var mean = data.DataPoints.Where(dp => dp.Time > xmin && dp.Time < xmax).Select(dp => dp.Power).Average();
             var ymin = data.DataPoints.Where(dp => dp.Time > xmin && dp.Time < xmax).Min(dp => dp.Power);
             var ymax = data.DataPoints.Where(dp => dp.Time > xmin && dp.Time < xmax).Max(dp => dp.Power);
 
@@ -104,8 +105,8 @@ namespace AnalysisITC
             var delta1 = mean - ymin;
             var delta2 = ymax - mean;
 
-            if (delta1 < delta2) delta = delta1;
-            else delta = delta2;
+            if (delta1 < delta2) delta = delta1.Value;
+            else delta = delta2.Value;
 
             Graph.SetYAxisRange(baselinemin - delta * .5f, baselinemax + delta * .5f);
 
@@ -122,7 +123,7 @@ namespace AnalysisITC
             var xmin = Graph.XAxis.Min;
             var xmax = Graph.XAxis.Max;
 
-            Graph.SetYAxisRange(data.DataPoints.Where(dp => dp.Time > xmin).Min(dp => dp.Power), data.DataPoints.Where(dp => dp.Time < xmax).Max(dp => dp.Power), buffer: true);
+            Graph.SetYAxisRange(data.DataPoints.Where(dp => dp.Time > xmin).Min(dp => dp.Power).Value, data.DataPoints.Where(dp => dp.Time < xmax).Max(dp => dp.Power).Value, buffer: true);
 
             isBaselineZoomed = false;
 
