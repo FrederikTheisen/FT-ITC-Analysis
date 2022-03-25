@@ -5,6 +5,7 @@ using CoreGraphics;
 using Foundation;
 using System.Linq;
 using CoreText;
+using Utilities;
 
 namespace AnalysisITC
 {
@@ -97,7 +98,6 @@ namespace AnalysisITC
         internal NSView View;
         internal bool ScaleToView = true;
         internal CGLayer CGBuffer;
-
 
         internal GraphAxis XAxis;
         internal GraphAxis YAxis;
@@ -378,7 +378,7 @@ namespace AnalysisITC
             {
                 UseNiceAxis = false
             };
-            YAxis = new GraphAxis(experiment.DataPoints.Min(dp => dp.Power), experiment.DataPoints.Max(dp => dp.Power));
+            YAxis = new GraphAxis(experiment.DataPoints.Min(dp => dp.Power).Value, experiment.DataPoints.Max(dp => dp.Power).Value);
 
         }
 
@@ -404,7 +404,7 @@ namespace AnalysisITC
 
         CGPoint GetRelativePosition(DataPoint dp)
         {
-            return GetRelativePosition(new Tuple<double, double>(dp.Time, dp.Power));
+            return GetRelativePosition(new Tuple<double, double>(dp.Time, dp.Power.Value));
         }
     }
 
@@ -462,7 +462,7 @@ namespace AnalysisITC
 
         public BaselineFittingGraph(ExperimentData experiment, NSView view) : base(experiment, view)
         {
-            SetYAxisRange(experiment.DataPoints.Min(dp => dp.Power), experiment.DataPoints.Max(dp => dp.Power), buffer: true);
+            SetYAxisRange(experiment.DataPoints.Min(dp => dp.Power).Value, experiment.DataPoints.Max(dp => dp.Power).Value, buffer: true);
         }
 
         public void SetInjectionView(int? i)
@@ -473,7 +473,7 @@ namespace AnalysisITC
                 {
                     UseNiceAxis = false
                 };
-                YAxis = new GraphAxis(ExperimentData.DataPoints.Min(dp => dp.Power), ExperimentData.DataPoints.Max(dp => dp.Power));
+                YAxis = new GraphAxis(ExperimentData.DataPoints.Min(dp => dp.Power).Value, ExperimentData.DataPoints.Max(dp => dp.Power).Value);
             }
             else
             {
@@ -485,7 +485,7 @@ namespace AnalysisITC
                 {
                     UseNiceAxis = false
                 };
-                YAxis = new GraphAxis(ExperimentData.DataPoints.Where(dp => dp.Time > s && dp.Time < e).Min(dp => dp.Power), ExperimentData.DataPoints.Where(dp => dp.Time > s && dp.Time < e).Max(dp => dp.Power));
+                YAxis = new GraphAxis(ExperimentData.DataPoints.Where(dp => dp.Time > s && dp.Time < e).Min(dp => dp.Power).Value, ExperimentData.DataPoints.Where(dp => dp.Time > s && dp.Time < e).Max(dp => dp.Power).Value);
             }
         }
 
@@ -514,10 +514,10 @@ namespace AnalysisITC
             for (int i = 0; i < ExperimentData.DataPoints.Count; i++)
             {
                 DataPoint p = ExperimentData.DataPoints[i];
-                float b = ExperimentData.Processor.Interpolator.Baseline[i];
+                Energy b = ExperimentData.Processor.Interpolator.Baseline[i];
 
                 if (p.Time > XAxis.Min && p.Time < XAxis.Max)
-                    points.Add(GetRelativePosition(new Tuple<double, double>(p.Time, b)));
+                    points.Add(GetRelativePosition(new Tuple<double, double>(p.Time, b.Value)));
             }
 
             path.AddLines(points.ToArray());
@@ -565,21 +565,27 @@ namespace AnalysisITC
 
             foreach (var inj in ExperimentData.Injections)
             {
-                var s = GetRelativePosition((float)inj.IntegrationStartTime, ExperimentData.DataPoints.Last(dp => dp.Time < inj.IntegrationStartTime).Power);
-                var e = GetRelativePosition((float)inj.IntegrationEndTime, ExperimentData.DataPoints.Last(dp => dp.Time < inj.IntegrationEndTime).Power);
+                var s = GetRelativePosition(inj.IntegrationStartTime, ExperimentData.DataPoints.Last(dp => dp.Time < inj.IntegrationStartTime).Power.Value);
+                var e = GetRelativePosition(inj.IntegrationEndTime, ExperimentData.DataPoints.Last(dp => dp.Time < inj.IntegrationEndTime).Power.Value);
 
+                var radius = 4f;
                 var delta = 0.04f * (Frame.Height);
+                var deltax = e.X - s.X;
 
                 var maxy = (float)Math.Max(s.Y, e.Y);
                 var miny = (float)Math.Min(s.Y, e.Y);
+
+
 
                 switch (inj.HeatDirection)
                 {
                     default:
                     case PeakHeatDirection.Exothermal:
                         path.MoveToPoint(s.X, miny - delta);
-                        path.AddLineToPoint(s.X, maxy + delta);
-                        path.AddLineToPoint(e.X, maxy + delta);
+                        path.AddArcToPoint(s.X, maxy + delta, e.X - deltax/2, maxy + delta, radius);
+                        path.AddArcToPoint(e.X, maxy + delta, e.X, miny - delta, radius);
+                        //path.AddLineToPoint(s.X, maxy + delta);
+                        //path.AddLineToPoint(e.X, maxy + delta);
                         path.AddLineToPoint(e.X, miny - delta);
                         DrawText(layer.Context, (inj.ID + 1).ToString("inj #0"), DefaultFontHeight, s.X + 3, PlotPixelHeight - (maxy + delta + 20), NSColor.SystemBlueColor.CGColor);
                         break;
@@ -606,7 +612,7 @@ namespace AnalysisITC
             if (RenderBaseline && ExperimentData.Processor.Interpolator is SplineInterpolator)
                 foreach (var sp in (ExperimentData.Processor.Interpolator as SplineInterpolator).SplinePoints)
                 {
-                    var handle_screen_pos = GetRelativePosition(sp.Time, sp.Power);
+                    var handle_screen_pos = GetRelativePosition(sp.Time, sp.Power.Value);
 
                     if (Math.Abs(cursorpos.X - 2 - handle_screen_pos.X) < 5)
                     {
@@ -621,18 +627,54 @@ namespace AnalysisITC
         }
     }
 
-    public class IntegrationGraph : Graph
+    public class DataFittingGraph : Graph
     {
-        public IntegrationGraph(ExperimentData experiment, NSView view) : base(experiment, view)
-        {
+        public static bool UnifiedAxes { get; set; } = false;
 
+        public DataFittingGraph(ExperimentData experiment, NSView view) : base(experiment, view)
+        {
+            SetXAxisRange(0, experiment.Injections.Last().Ratio, buffer: true);
+            SetYAxisRange(experiment.Injections.Min(inj => inj.Enthalpy).Value, experiment.Injections.Max(inj => inj.Enthalpy).Value, buffer: true);
+        }
+
+        internal override void Draw(CGContext cg)
+        {
+            base.Draw(cg);
+
+            DrawSplineHandles(cg);
+        }
+
+        void DrawSplineHandles(CGContext cg)
+        {
+            CGLayer layer = CGLayer.Create(cg, Frame.Size);
+
+            List<CGRect> points = new List<CGRect>();
+
+            foreach (var inj in ExperimentData.Injections)
+            {
+                var m = GetRelativePosition((float)inj.Ratio, (float)inj.Enthalpy);
+
+                var r = new CGRect(m.X - 4, m.Y - 4, 8, 8);
+
+                points.Add(r);
+            }
+
+            layer.Context.SetFillColor(NSColor.Red.CGColor);
+
+            foreach (var r in points)
+            {
+                layer.Context.FillRect(r);
+            }
+
+
+            cg.DrawLayer(layer, Frame.Location);
         }
     }
 
     public class FinalFigure
     {
         DataGraph DataGraph;
-        IntegrationGraph IntegrationGraph;
+        DataFittingGraph IntegrationGraph;
 
         public FinalFigure(ExperimentData experiment, NSView view)
         {
@@ -642,7 +684,7 @@ namespace AnalysisITC
             //Setup axes
 
 
-            IntegrationGraph = new IntegrationGraph(experiment, view);
+            IntegrationGraph = new DataFittingGraph(experiment, view);
             IntegrationGraph.DrawOnWhite = true;
             //setup frame
             //setup axes
