@@ -8,6 +8,8 @@ namespace AnalysisITC
 {
     public static class StatusBarManager
     {
+        static readonly StatusMessage DefaultStatus = new StatusMessage("FT ITC-Analysis", false);
+
         private static readonly List<StatusMessage> status = new();
         private static string secondarystatus = "";
         private static double progress = 0;
@@ -24,7 +26,7 @@ namespace AnalysisITC
             get
             {
                 if (status.Count != 0) return status.Last();
-                else return new StatusMessage("FT ITC-Analysis", false);
+                else return DefaultStatus;
             }
             set
             {
