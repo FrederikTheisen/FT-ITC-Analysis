@@ -147,6 +147,14 @@
     </Compile>
     <Compile Include="GUI\StatusBarManager.cs" />
     <Compile Include="Utils\NumberStructs.cs" />
+    <Compile Include="DataAnalysisViewController.cs" />
+    <Compile Include="DataAnalysisViewController.designer.cs">
+      <DependentUpon>DataAnalysisViewController.cs</DependentUpon>
+    </Compile>
+    <Compile Include="AnalysisGraphView.cs" />
+    <Compile Include="AnalysisGraphView.designer.cs">
+      <DependentUpon>AnalysisGraphView.cs</DependentUpon>
+    </Compile>
   </ItemGroup>
   <ItemGroup>
     <InterfaceDefinition Include="Main.storyboard" />
