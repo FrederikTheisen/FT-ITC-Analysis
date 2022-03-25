@@ -83,8 +83,8 @@ namespace AnalysisITC
                 IntegrationLengthControl.MaxValue = Data.Injections.Max(inj => inj.Delay);
                 if (Data.Injections.Count > 0)
                 {
-                    IntegrationDelayControl.FloatValue = Data.Injections.Last().IntegrationStartTime - Data.Injections.Last().Time;
-                    IntegrationLengthControl.FloatValue = Data.Injections.Last().IntegrationEndTime - Data.Injections.Last().IntegrationStartTime;
+                    IntegrationDelayControl.FloatValue = Data.Injections.Last().IntegrationStartDelay;
+                    IntegrationLengthControl.FloatValue = Data.Injections.Last().IntegrationLength;
                 }
 
                 InjectionViewSegControl.Enabled = Data.Injections.Count > 0;
@@ -163,16 +163,38 @@ namespace AnalysisITC
         {
             UpdateSliderLabels();
 
-            Data.SetCustomIntegrationTimes(IntegrationDelayControl.FloatValue, IntegrationLengthControl.FloatValue);
-
-            BaselineGraphView.Invalidate();
+            SetIntegrationTimes();
         }
 
         partial void IntegrationLengthSliderChanged(NSSlider sender)
         {
             UpdateSliderLabels();
 
-            Data.SetCustomIntegrationTimes(IntegrationDelayControl.FloatValue, IntegrationLengthControl.FloatValue);
+            SetIntegrationTimes();
+        }
+
+        partial void ToggleUseIntegrationFactor(NSButton sender)
+        {
+            Data.UseIntegrationFactorLength = !Data.UseIntegrationFactorLength;
+
+            UpdateSliderLabels();
+
+            SetIntegrationTimes();
+        }
+
+        float SliderToFactor()
+        {
+            return (float)Math.Pow(10, 2 * IntegrationLengthControl.FloatValue / IntegrationLengthControl.MaxValue);
+        }
+
+        void SetIntegrationTimes()
+        {
+            if (Data.UseIntegrationFactorLength)
+            {
+                var factor = SliderToFactor();
+                Data.SetCustomIntegrationTimes(IntegrationDelayControl.FloatValue, factor);
+            }
+            else Data.SetCustomIntegrationTimes(IntegrationDelayControl.FloatValue, IntegrationLengthControl.FloatValue);
 
             BaselineGraphView.Invalidate();
         }
@@ -214,7 +236,12 @@ namespace AnalysisITC
         void UpdateSliderLabels()
         {
             IntegrationStartDelayLabel.StringValue = (IntegrationDelayControl.FloatValue).ToString("#0.0") + "s";
-            IntegrationLengthLabel.StringValue = (IntegrationLengthControl.FloatValue).ToString("#0.0") + "s";
+            if (Data.UseIntegrationFactorLength)
+            {
+                var factor = SliderToFactor();
+                IntegrationLengthLabel.StringValue = factor.ToString("##") + "x";
+            }
+            else IntegrationLengthLabel.StringValue = (IntegrationLengthControl.FloatValue).ToString("#0.0") + "s";
             SplineBaselineFractionControl.StringValue = (SplineFractionSliderControl.FloatValue * 100).ToString("##0") + " %";
             PolynomialDegreeLabel.StringValue = PolynomialDegreeSlider.IntValue.ToString();
             ZLimitLabel.StringValue = ZLimitSlider.FloatValue.ToString();

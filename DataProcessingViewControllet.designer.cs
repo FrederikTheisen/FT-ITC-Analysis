@@ -70,6 +70,9 @@ namespace AnalysisITC
 		AppKit.NSStackView SplineHandleModeView { get; set; }
 
 		[Outlet]
+		AppKit.NSButton UseIntegrationFactorLengthControl { get; set; }
+
+		[Outlet]
 		AppKit.NSTextField ZLimitLabel { get; set; }
 
 		[Outlet]
@@ -108,6 +111,9 @@ namespace AnalysisITC
 		[Action ("SplineHandleModeControlClicked:")]
 		partial void SplineHandleModeControlClicked (AppKit.NSSegmentedControl sender);
 
+		[Action ("ToggleUseIntegrationFactor:")]
+		partial void ToggleUseIntegrationFactor (AppKit.NSButton sender);
+
 		[Action ("ZLimitChanged:")]
 		partial void ZLimitChanged (AppKit.NSSlider sender);
 
@@ -116,19 +122,9 @@ namespace AnalysisITC
 		
 		void ReleaseDesignerOutlets ()
 		{
-			if (ZLimitView != null) {
-				ZLimitView.Dispose ();
-				ZLimitView = null;
-			}
-
-			if (ZLimitSlider != null) {
-				ZLimitSlider.Dispose ();
-				ZLimitSlider = null;
-			}
-
-			if (ZLimitLabel != null) {
-				ZLimitLabel.Dispose ();
-				ZLimitLabel = null;
+			if (UseIntegrationFactorLengthControl != null) {
+				UseIntegrationFactorLengthControl.Dispose ();
+				UseIntegrationFactorLengthControl = null;
 			}
 
 			if (BaselineGraphView != null) {
@@ -136,19 +132,9 @@ namespace AnalysisITC
 				BaselineGraphView = null;
 			}
 
-			if (PolynomialDegreeLabel != null) {
-				PolynomialDegreeLabel.Dispose ();
-				PolynomialDegreeLabel = null;
-			}
-
 			if (ConfirmProcessingButton != null) {
 				ConfirmProcessingButton.Dispose ();
 				ConfirmProcessingButton = null;
-			}
-
-			if (PolynomialDegreeSlider != null) {
-				PolynomialDegreeSlider.Dispose ();
-				PolynomialDegreeSlider = null;
 			}
 
 			if (DataZoomSegControl != null) {
@@ -159,11 +145,6 @@ namespace AnalysisITC
 			if (InjectionViewSegControl != null) {
 				InjectionViewSegControl.Dispose ();
 				InjectionViewSegControl = null;
-			}
-
-			if (PolynomialDegreeView != null) {
-				PolynomialDegreeView.Dispose ();
-				PolynomialDegreeView = null;
 			}
 
 			if (IntegrationDelayControl != null) {
@@ -189,6 +170,21 @@ namespace AnalysisITC
 			if (InterpolatorTypeControl != null) {
 				InterpolatorTypeControl.Dispose ();
 				InterpolatorTypeControl = null;
+			}
+
+			if (PolynomialDegreeLabel != null) {
+				PolynomialDegreeLabel.Dispose ();
+				PolynomialDegreeLabel = null;
+			}
+
+			if (PolynomialDegreeSlider != null) {
+				PolynomialDegreeSlider.Dispose ();
+				PolynomialDegreeSlider = null;
+			}
+
+			if (PolynomialDegreeView != null) {
+				PolynomialDegreeView.Dispose ();
+				PolynomialDegreeView = null;
 			}
 
 			if (SplineAlgoControl != null) {
@@ -224,6 +220,21 @@ namespace AnalysisITC
 			if (SplineHandleModeView != null) {
 				SplineHandleModeView.Dispose ();
 				SplineHandleModeView = null;
+			}
+
+			if (ZLimitLabel != null) {
+				ZLimitLabel.Dispose ();
+				ZLimitLabel = null;
+			}
+
+			if (ZLimitSlider != null) {
+				ZLimitSlider.Dispose ();
+				ZLimitSlider = null;
+			}
+
+			if (ZLimitView != null) {
+				ZLimitView.Dispose ();
+				ZLimitView = null;
 			}
 		}
 	}
