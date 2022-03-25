@@ -89,6 +89,10 @@ namespace AnalysisITC
             if (curr == null) return;
             if (curr.Processor.Interpolator == null) return;
 
+            var int_delay = curr.Injections.Select(inj => inj.IntegrationStartDelay).Average();
+            var int_length = curr.Injections.Select(inj => inj.IntegrationLength).Average();
+            var int_factor = curr.UseIntegrationFactorLength;
+
             var count = Count;
 
             StatusBarManager.SetStatus("Processing data...", 0);
@@ -108,12 +112,15 @@ namespace AnalysisITC
                 i++;
 
                 await System.Threading.Tasks.Task.Run(() => data.Processor.Interpolator.Interpolate(new System.Threading.CancellationToken(false), true));
+                data.SetCustomIntegrationTimes(int_delay, int_length);
+                data.Processor.IterationCompleted();
 
                 StatusBarManager.Progress = i / count;
             }
 
             StatusBarManager.Progress = 1;
-            StatusBarManager.SetStatus("Data processed", 1000);
+            StatusBarManager.SetStatus("Data processed", 3000);
+            
         }
 
         public static void IntegratePeaks()
@@ -122,7 +129,6 @@ namespace AnalysisITC
             {
                 data.Processor.SubtractBaseline();
                 data.Processor.IntegratePeaks();
-                data.Analyzer.Test();
             }
         }
     }
@@ -266,7 +272,7 @@ namespace DataReaders
 
         static void ReadDataPoint(ExperimentData experiment, string line)
         {
-            experiment.DataPoints.Add(DataPoint.FromLine(line));
+            experiment.DataPoints.Add(new DataPoint(line, ITCDataFormat.ITC200));
         }
 
         static void ProcessInjections(ExperimentData experiment)
