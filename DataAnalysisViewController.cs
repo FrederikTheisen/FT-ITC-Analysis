@@ -58,6 +58,8 @@ namespace AnalysisITC
             }
 
             StatusBarManager.StopInderminateProgress();
+
+            GraphView.Invalidate();
         }
 
         void GlobalAnalysis()

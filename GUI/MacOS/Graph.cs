@@ -30,12 +30,6 @@ namespace AnalysisITC
             UpdateTrackingArea();
         }
 
-
-        public override void ViewWillDraw()
-        {
-            base.ViewWillDraw();
-        }
-
         public override void AwakeFromNib()
         {
             base.AwakeFromNib();
@@ -64,6 +58,25 @@ namespace AnalysisITC
             base.MouseMoved(theEvent);
 
             CursorPositionInView = ConvertPointFromView(theEvent.LocationInWindow, null);
+        }
+
+        public override void MouseDragged(NSEvent theEvent)
+        {
+            base.MouseDragged(theEvent);
+
+            CursorPositionInView = ConvertPointFromView(theEvent.LocationInWindow, null);
+        }
+
+        public override void DrawRect(CGRect dirtyRect)
+        {
+            var cg = NSGraphicsContext.CurrentContext.CGContext;
+
+            if (Graph != null)
+            {
+                Graph.PrepareDraw(cg, new CGPoint(dirtyRect.GetMidX(), dirtyRect.GetMidY()));
+            }
+
+            base.DrawRect(dirtyRect);
         }
     }
 
@@ -174,6 +187,37 @@ namespace AnalysisITC
         {
             Context.SetStrokeColor(StrokeColor.CGColor);
             Context.StrokeRectWithWidth(Frame, 1);
+        }
+
+        internal void DrawRectsAtPositions(CGLayer layer, CGPoint[] points, double size, bool rounded = false, bool fill = false, float width = 1, CGColor color = null)
+        {
+            foreach (var p in points)
+            {
+                AddRectAtPosition(layer, p, size, rounded);
+            }
+
+            if (color != null)
+            {
+                if (fill) layer.Context.SetFillColor(color);
+                else layer.Context.SetStrokeColor(color);
+            }
+
+            layer.Context.SetLineWidth(width);
+            if (fill) layer.Context.FillPath();
+            else layer.Context.StrokePath();
+        }
+
+        internal void AddRectAtPosition(CGLayer layer, CGPoint p, double size, bool rounded)
+        {
+            var rect = GetRectAtPosition(p, size);
+
+            if (rounded) layer.Context.AddEllipseInRect(rect);
+            else layer.Context.AddRect(rect);
+        }
+
+        CGRect GetRectAtPosition(CGPoint point, double size)
+        {
+            return new CGRect(point.X - size / 2, point.Y - size / 2, size, size);
         }
 
         internal virtual void DrawAxes()
@@ -314,7 +358,7 @@ namespace AnalysisITC
                 TickScale = new Utilities.NiceScale(this.ActualMin, this.ActualMax);
             }
 
-            public static GraphAxis WithBuffer(double min, double max, float? buffer = null)
+            public static GraphAxis WithBuffer(double min, double max, double? buffer = null)
             {
                 if (buffer == null) buffer = 0.035f;
 
@@ -575,8 +619,6 @@ namespace AnalysisITC
                 var maxy = (float)Math.Max(s.Y, e.Y);
                 var miny = (float)Math.Min(s.Y, e.Y);
 
-
-
                 switch (inj.HeatDirection)
                 {
                     default:
@@ -633,41 +675,149 @@ namespace AnalysisITC
 
         public DataFittingGraph(ExperimentData experiment, NSView view) : base(experiment, view)
         {
-            SetXAxisRange(0, experiment.Injections.Last().Ratio, buffer: true);
-            SetYAxisRange(experiment.Injections.Min(inj => inj.Enthalpy).Value, experiment.Injections.Max(inj => inj.Enthalpy).Value, buffer: true);
+            XAxis = GraphAxis.WithBuffer(
+                0,
+                experiment.Injections.Last().Ratio,
+                0.05);
+
+            YAxis = GraphAxis.WithBuffer(
+                Math.Min(experiment.Injections.Min(inj => inj.OffsetEnthalpy.Value.Value), Math.Min((float)ExperimentData.Solution.Enthalpy.Value, 0)),
+                Math.Max(experiment.Injections.Max(inj => inj.OffsetEnthalpy.Value.Value), Math.Max((float)ExperimentData.Solution.Enthalpy.Value, 0)),
+                0.1);
+
+
+            XAxis.UseNiceAxis = false;
         }
 
         internal override void Draw(CGContext cg)
         {
             base.Draw(cg);
 
-            DrawSplineHandles(cg);
+            if (ExperimentData.Solution != null) DrawFit(cg);
+
+            if (ExperimentData.Processor.IntegrationCompleted) DrawInjectionsPoints(cg);
         }
 
-        void DrawSplineHandles(CGContext cg)
+        void DrawInjectionsPoints(CGContext cg)
         {
             CGLayer layer = CGLayer.Create(cg, Frame.Size);
 
-            List<CGRect> points = new List<CGRect>();
+            List<CGPoint> points = new List<CGPoint>();
+            List<CGPoint> inv_points = new List<CGPoint>();
 
             foreach (var inj in ExperimentData.Injections)
             {
-                var m = GetRelativePosition((float)inj.Ratio, (float)inj.Enthalpy);
+                var p = GetRelativePosition(inj.Ratio, inj.OffsetEnthalpy);
 
-                var r = new CGRect(m.X - 4, m.Y - 4, 8, 8);
+                if (inj.ID == moverfeature) DrawRectsAtPositions(layer, new CGPoint[] { p }, 9, false, false, width: 2, color: NSColor.Red.CGColor);
 
-                points.Add(r);
+                if (inj.Include) points.Add(p);
+                else inv_points.Add(p);
             }
 
-            layer.Context.SetFillColor(NSColor.Red.CGColor);
+            layer.Context.SetFillColor(NSColor.LabelColor.CGColor);
+            layer.Context.SetStrokeColor(NSColor.LabelColor.CGColor);
 
-            foreach (var r in points)
-            {
-                layer.Context.FillRect(r);
-            }
-
+            DrawRectsAtPositions(layer, points.ToArray(), 8, false, true);
+            DrawRectsAtPositions(layer, inv_points.ToArray(), 8, false, false);
 
             cg.DrawLayer(layer, Frame.Location);
+        }
+
+        void DrawFit(CGContext cg)
+        {
+            CGLayer layer = CGLayer.Create(cg, Frame.Size);
+
+            List<CGPoint> points = new List<CGPoint>();
+
+            foreach (var inj in ExperimentData.Injections)
+            {
+                var x = inj.Ratio;
+                var y = ExperimentData.Solution.Evaluate(inj.ID, withoffset: false);
+
+                points.Add(GetRelativePosition(x, y));
+            }
+
+            CGPath path = newPathFromPoints(points.ToArray());
+
+            DrawRectsAtPositions(layer, points.ToArray(), 8, true, false, color: NSColor.PlaceholderTextColor.CGColor);
+
+            layer.Context.SetLineWidth(2);
+            layer.Context.AddPath(path);
+            layer.Context.StrokePath();
+
+            cg.DrawLayer(layer, Frame.Location);
+        }
+
+        CGPoint MidPoint(CGPoint p1, CGPoint p2)
+        {
+            return new CGPoint((p1.X + p2.X) / 2, (p1.Y + p2.Y) / 2);
+        }
+
+        CGPath newPathFromPoints(CGPoint[] points)
+        {
+            var path = new CGPath();
+
+            int pointCount = points.Length;
+
+            if (pointCount > 0)
+            {
+                CGPoint p0 = points.First();
+                path.MoveToPoint(p0);
+
+                if (pointCount == 1) //draw dot
+                {
+                    var strokeWidth = 1;
+                    CGRect pointRect = new CGRect(p0.X - strokeWidth / 2.0, p0.Y - strokeWidth / 2.0, strokeWidth, strokeWidth);
+                    path.AddPath(CGPath.EllipseFromRect(pointRect));
+                }
+                else if (pointCount == 2) //draw line
+                {
+                    CGPoint p1 = points[1];
+                    path.AddLineToPoint(p1);
+                }
+                else //draw spline
+                {
+                    CGPoint p1 = p0;
+                    CGPoint p2;
+                    for (int i = 0; i < pointCount - 1; i++)
+                    {
+                        p2 = points[i + 1];
+                        CGPoint midPoint = MidPoint(p1, p2);
+                        path.AddQuadCurveToPoint(p1.X, p1.Y, midPoint.X, midPoint.Y);
+                        p1 = p2;
+                    }
+                    path.AddLineToPoint(points.Last());
+                }
+            }
+
+            return path;
+        }
+
+        int mdownid = -1;
+        int moverfeature = -1;
+
+        public bool IsCursorOnFeature(CGPoint cursorpos, bool isclick = false, bool ismouseup = false)
+        {
+            foreach (var inj in ExperimentData.Injections)
+            {
+                var handle_screen_pos = GetRelativePosition(inj.Ratio, inj.OffsetEnthalpy);
+
+                if (Math.Abs(cursorpos.X - 2 - handle_screen_pos.X) < 5)
+                {
+                    if (Math.Abs(cursorpos.Y - handle_screen_pos.Y) < 5)
+                    {
+                        if (isclick) mdownid = inj.ID;
+                        else if (ismouseup && mdownid == inj.ID) { inj.Include = !inj.Include; moverfeature = -1; }
+                        moverfeature = inj.ID;
+                        return true;
+                    }
+                }
+            }
+
+            if (isclick) mdownid = -1;
+            moverfeature = -1;
+            return false;
         }
     }
 

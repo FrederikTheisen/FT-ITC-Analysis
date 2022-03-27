@@ -9,6 +9,8 @@ using Accord.Statistics.Models.Regression;
 using Accord.Math.Optimization;
 using Accord.Math;
 using System.Threading.Tasks;
+using Utilities;
+using static Utilities.Increment;
 
 namespace AnalysisITC
 {
@@ -22,6 +24,7 @@ namespace AnalysisITC
             Model = new GlobalModel();
 
             Model.UseVariableAffinity = varAffinity;
+            Model.UseUnifiedAffinity = !varAffinity;
             Model.UseVariableEnthalpy = varEnthalpy;
         }
 
@@ -265,11 +268,11 @@ namespace AnalysisITC
 
     public class GlobalModel
     {
-        internal static double Hstep = 0.05;
-        internal static double Gstep = 5;
-        internal static double Cstep = 0.00001;
+        internal static double Hstep = 1;
+        internal static double Gstep = 1;
+        internal static double Cstep = 0.1;
         internal static double Nstep = 0.01;
-        internal static double Ostep = 0.01;
+        internal static double Ostep = 0.1;
 
         public List<Model> Models { get; set; } = new List<Model>();
 
@@ -460,15 +463,15 @@ namespace AnalysisITC
             double H0 = w[i++];
             double Cp;
 
-            if (UseVariableAffinity) Cp = w[i++];
+            if (UseVariableEnthalpy) Cp = w[i++];
             else Cp = 0;
 
             double[] G;
 
-            if (UseVariableAffinity && !UseUnifiedAffinity) G = w.Skip(i += Models.Count).Take(Models.Count).ToArray(); //Variable affinity of experiments
+            if (UseVariableAffinity || !UseUnifiedAffinity) G = w.Skip(PostIncrement(i, Models.Count, out i)).Take(Models.Count).ToArray();//Variable affinity of experiments
             else G = new double[Models.Count].Add(w[i++]); //Use same affinity for all experiments
 
-            double[] offsets = w.Skip(i += Models.Count).Take(Models.Count).ToArray();
+            double[] offsets = w.Skip(PostIncrement(i, Models.Count, out i)).Take(Models.Count).ToArray();
             double[] ns = w.Skip(i).Take(Models.Count).ToArray();
 
             return GlobalLoss(ns, H0, Cp, G, offsets);
@@ -713,9 +716,9 @@ namespace AnalysisITC
             };
         }
 
-        public double Evaluate(int i)
+        public double Evaluate(int i, bool withoffset = true)
         {
-            return Model.Evaluate(i, N, Enthalpy, K, Offset);
+            return Model.Evaluate(i, N, Enthalpy, K, withoffset ? Offset : 0) / Data.Injections[i].InjectionMass;
         }
 
         public void PrintFit()
@@ -756,14 +759,14 @@ namespace AnalysisITC
             if (model.UseVariableEnthalpy) global.HeatCapacity = new(solution[i++]);
 
             double[] gs;
-            if (model.UseVariableAffinity) gs = solution.Skip(i += nmodels).Take(nmodels).ToArray();
+            if (model.UseVariableAffinity || !model.UseUnifiedAffinity) gs = solution.Skip(PostIncrement(i, model.Models.Count, out i)).Take(nmodels).ToArray();
             else
             {
                 global.FreeEnergy = new(solution[i++]);
                 gs = new double[nmodels].Add(global.FreeEnergy);
             }
 
-            var offsets = solution.Skip(i += nmodels).Take(nmodels).ToArray();
+            var offsets = solution.Skip(PostIncrement(i, model.Models.Count, out i)).Take(nmodels).ToArray();
             var ns = solution.Skip(i).Take(nmodels).ToArray();
 
             for (int j = 0; j < model.Models.Count; j++)

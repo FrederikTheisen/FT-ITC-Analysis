@@ -27,5 +27,45 @@ namespace AnalysisITC
 
             Invalidate();
         }
+
+        public override void MouseMoved(NSEvent theEvent)
+        {
+            base.MouseMoved(theEvent);
+
+            if (Graph == null) return;
+
+            var b = (Graph as DataFittingGraph).IsCursorOnFeature(CursorPositionInView);
+
+            if (b) NSCursor.PointingHandCursor.Set();
+            else NSCursor.ArrowCursor.Set();
+        }
+
+        public override void MouseDown(NSEvent theEvent)
+        {
+            base.MouseDown(theEvent);
+
+            if (Graph == null) return;
+
+            var b = (Graph as DataFittingGraph).IsCursorOnFeature(CursorPositionInView, isclick: true);
+
+            if (b) NSCursor.PointingHandCursor.Set();
+            else NSCursor.ArrowCursor.Set();
+
+            Invalidate();
+        }
+
+        public override void MouseUp(NSEvent theEvent)
+        {
+            base.MouseUp(theEvent);
+
+            if (Graph == null) return;
+
+            var b = (Graph as DataFittingGraph).IsCursorOnFeature(CursorPositionInView, ismouseup: true);
+
+            if (b) NSCursor.PointingHandCursor.Set();
+            else NSCursor.ArrowCursor.Set();
+
+            Invalidate();
+        }
     }
 }

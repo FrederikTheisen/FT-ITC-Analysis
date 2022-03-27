@@ -111,6 +111,15 @@ namespace AnalysisITC
         public Energy Enthalpy => PeakArea / InjectionMass;
         public double SD => PeakArea.SD;
 
+        public Energy OffsetEnthalpy
+        {
+            get
+            {
+                if (Experiment.Solution == null) return Enthalpy;
+                else return Enthalpy - Experiment.Solution.Offset;
+            }
+        }
+
         public bool IsIntegrated { get; private set; }
 
         public InjectionData(ExperimentData experiment, string line, int id)
