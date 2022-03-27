@@ -25,9 +25,9 @@ namespace AnalysisITC
 
             DataManager.SelectionDidChange += OnSelectionChanged;
             DataManager.DataDidChange += OnDataChanged;
-
-            Test();
         }
+
+        
 
         void Test()
         {
