@@ -1664,6 +1664,9 @@
                                                                             <segment label="Global Fitting" enabled="NO" tag="1"/>
                                                                         </segments>
                                                                     </segmentedCell>
+                                                                    <connections>
+                                                                        <action selector="AnalysisModeClicked:" target="YoK-Wd-3Fr" id="ItF-y7-O6N"/>
+                                                                    </connections>
                                                                 </segmentedControl>
                                                             </subviews>
                                                             <visibilityPriorities>
@@ -1868,6 +1871,8 @@
                         <outlet property="AnalysisModeControl" destination="wVz-5I-bbX" id="oeF-V2-Oi0"/>
                         <outlet property="ApplyToAllExperimentsControl" destination="2w9-AB-uTG" id="CBQ-h8-c0B"/>
                         <outlet property="GlobalVariablesControl" destination="d4G-IT-9ca" id="Ntg-K0-hvK"/>
+                        <outlet property="GlobalVariablesView" destination="SD5-5Q-BsS" id="7vZ-ch-Bae"/>
+                        <outlet property="GraphView" destination="TfV-6i-g26" id="vMa-EH-e8L"/>
                         <outlet property="ModelTypeControl" destination="nAb-He-xRl" id="0wB-6L-xZU"/>
                     </connections>
                 </viewController>
