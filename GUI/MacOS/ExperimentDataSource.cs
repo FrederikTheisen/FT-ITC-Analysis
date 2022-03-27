@@ -9,7 +9,7 @@ namespace AnalysisITC
 {
     public class ExperimentDataSource : NSTableViewDataSource
     {
-        public int SelectedIndex { get; set; } = 0;
+        public int SelectedIndex => DataManager.SelectedIndex;
 
         public List<ExperimentData> Data { get; private set; }
 
