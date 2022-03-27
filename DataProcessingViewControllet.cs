@@ -236,7 +236,7 @@ namespace AnalysisITC
         void UpdateSliderLabels()
         {
             IntegrationStartDelayLabel.StringValue = (IntegrationDelayControl.FloatValue).ToString("#0.0") + "s";
-            if (Data.UseIntegrationFactorLength)
+            if (Data != null && Data.UseIntegrationFactorLength)
             {
                 var factor = SliderToFactor();
                 IntegrationLengthLabel.StringValue = factor.ToString("##") + "x";
