@@ -11,6 +11,60 @@ namespace AnalysisITC
 	{
 		public DataAnalysisViewController (IntPtr handle) : base (handle)
 		{
+            
 		}
-	}
+
+        public override void ViewDidLoad()
+        {
+            base.ViewDidLoad();
+
+            DataManager.SelectionDidChange += DataManager_SelectionDidChange;
+            DataManager.DataDidChange += DataManager_DataDidChange;
+        }
+
+        private void DataManager_DataDidChange(object sender, ExperimentData e)
+        {
+            bool enableglobal = DataManager.Data.Count > 1;
+
+            AnalysisModeControl.SetEnabled(enableglobal, 1);
+
+            if (!enableglobal) AnalysisModeControl.SelectSegment(0);
+        }
+
+        private void DataManager_SelectionDidChange(object sender, ExperimentData e)
+        {
+            if (e != null)
+            {
+                GraphView.Initialize(e);
+            }
+        }
+
+        partial void AnalysisModeClicked(NSSegmentedControl sender)
+        {
+            GlobalVariablesView.Hidden = sender.SelectedSegment == 0;
+        }
+
+        partial void FitSimplex(NSObject sender)
+        {
+            StatusBarManager.StartInderminateProgress();
+
+            if (AnalysisModeControl.SelectedSegment == 0)
+            {
+
+            }
+            else
+            {
+                GlobalAnalysis();
+            }
+
+            StatusBarManager.StopInderminateProgress();
+        }
+
+        void GlobalAnalysis()
+        {
+            GlobalAnalyzer.InitializeAnalyzer(GlobalVariablesControl.IsSelectedForSegment(0), GlobalVariablesControl.IsSelectedForSegment(1));
+
+            GlobalAnalyzer.Solve(AnalysisModel.OneSetOfSites);
+        }
+    }
 }
