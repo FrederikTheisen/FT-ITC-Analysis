@@ -4,6 +4,7 @@ using AnalysisITC;
 using System.Collections.Generic;
 using System.Linq;
 using Utilities;
+using AppKit;
 
 namespace AnalysisITC
 {
@@ -12,7 +13,18 @@ namespace AnalysisITC
         public static EnergyUnit Unit { get; set; } = EnergyUnit.Joule;
 
         public static List<ExperimentData> Data => DataSource.Data;
-        static int SelectedIndex => DataSource.SelectedIndex;
+
+        static int selectedIndex = 0;
+        public static int SelectedIndex
+        {
+            get => selectedIndex;
+            set
+            {
+                if (value < 0) selectedIndex = 0;
+                else if (value > Count) selectedIndex = Count - 1;
+                else selectedIndex = value;
+            }
+        }
 
         public static ExperimentDataSource DataSource { get; private set; }
 
@@ -43,22 +55,18 @@ namespace AnalysisITC
 
         public static void SelectIndex(int index)
         {
-            DataSource.SelectedIndex = index;
+            SelectedIndex = index;
 
             SelectionChanged(index);
         }
 
         internal static void RemoveData(int index)
         {
+
+
             Data.RemoveAt(index);
 
-            if (SelectedIndex == index) DataDidChange.Invoke(null, null);
-            else if (SelectedIndex > index)
-            {
-                DataSource.SelectedIndex--;
-
-                DataDidChange.Invoke(null, Current);
-            }
+            DataDidChange.Invoke(null, Current);
         }
 
         public static void AddData(ExperimentData data)
@@ -142,7 +150,9 @@ namespace DataReaders
 
         static void AddData(ExperimentData data)
         {
-            DataManager.AddData(data);
+            bool valid = ValidateData(data);
+
+            if (valid) DataManager.AddData(data);
         }
 
         public static void Init()
@@ -194,6 +204,56 @@ namespace DataReaders
             }
 
             return null;
+        }
+
+        static bool ValidateData(ExperimentData data)
+        {
+            string errormsg = "";
+            DataFixProtocol fixable = DataFixProtocol.None;
+
+            if (data.DataPoints.Count < 10) errormsg = "Data contains very few data points";
+            //else if (DataManager.Data.Exists(dat => dat.FileName == data.FileName)) errormsg = "Experiment with same file name already exists";
+            else if (DataManager.Data.Exists(dat => dat.MeasuredTemperature == data.MeasuredTemperature)) errormsg = "Experiment appears identical to: " + DataManager.Data.Find(dat => dat.MeasuredTemperature == data.MeasuredTemperature).FileName;
+            else if (data.InjectionCount == 0) errormsg = "Data contains no injections";
+            else if (data.Injections.Any(inj => inj.Time < 0)) { errormsg = "Data contains injections with no connected data. Attempt to fix problematic injections?"; fixable = DataFixProtocol.InvalidInjection; }
+            else if (data.Injections.All(inj => !data.DataPoints.Any(dp => dp.Time > inj.Time + 10))) { errormsg = "Data contains injections outside the recorded data range. Attempt to fix problematic injections?"; fixable = DataFixProtocol.InvalidInjection; }
+            else if (Math.Abs(data.MeasuredTemperature - data.TargetTemperature) > 0.5) errormsg = "Measured temperature deviates from target temperature"; 
+
+            if (errormsg != "") using (var alert = new NSAlert()
+            {
+                AlertStyle = NSAlertStyle.Critical,
+                MessageText = "Potential Error Detected: " + data.FileName,
+                InformativeText = errormsg,
+            })
+                {
+                    alert.AddButton("Remove");
+                    alert.AddButton("Keep");
+                    if (fixable != DataFixProtocol.None) alert.AddButton("Attempt Fix");
+                    var response = alert.RunModal();
+
+                    switch (response)
+                    {
+                        case 1000: return false;
+                        case 1001: return true;
+                        case 1002: return ValidateData(AttemptDataFix(data, fixable));
+                    }
+                }
+
+            return true;
+        }
+
+        enum DataFixProtocol
+        {
+            None,
+            InvalidInjection,
+            Concentrations,
+        }
+
+        static ExperimentData AttemptDataFix(ExperimentData data, DataFixProtocol fix)
+        {
+
+
+            return data;
         }
     }
 
