@@ -31,14 +31,13 @@ namespace AnalysisITC
         public bool UseIntegrationFactorLength { get; set; } = false;
 
         public DataProcessor Processor { get; private set; }
-        public Analyzer Analyzer { get; private set; }
+        public Solution Solution { get; set; }
 
         public ExperimentData(string file)
         {
             FileName = file;
 
             Processor = new DataProcessor(this);
-            Analyzer = new Analyzer(this);
         }
 
         public void AddInjection(string dataline)
@@ -86,7 +85,7 @@ namespace AnalysisITC
         public ExperimentData Experiment { get; private set; }
         public int ID { get; private set; }
 
-        float time;
+        float time = -1; 
 
         public float Time { get => time; set { time = value; SetIntegrationTimes(); } }
         public float Volume { get; private set; }
@@ -174,7 +173,7 @@ namespace AnalysisITC
 
             var sd = EstimateError();
 
-            var peakarea = new FloatWithError(area, sd);
+            var peakarea = new FloatWithError(area/1000000, sd/1000000);
 
             PeakArea = new(peakarea);
 
