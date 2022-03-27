@@ -126,4 +126,14 @@ namespace Utilities
             DidEndDragging = _event.Type == NSEventType.LeftMouseUp;
         }
     }
+
+    public class Increment
+    {
+        public static int PostIncrement(int index, int increment, out int i)
+        {
+            i = index + increment;
+
+            return index;
+        }
+    }
 }
