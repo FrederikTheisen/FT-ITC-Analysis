@@ -16,6 +16,8 @@ namespace AnalysisITC
 {
     public static class GlobalAnalyzer
     {
+        public static event EventHandler<SolverConvergence> AnalysisFinished;
+
         static GlobalModel Model { get; set; }
 
 
@@ -47,10 +49,11 @@ namespace AnalysisITC
                 default: InitializeOneSetOfSites(); break;
             }
 
-            GlobalSolution solution;
+            SolverConvergence convergence = null;
 
-            await System.Threading.Tasks.Task.Run(() => solution = Model.SolvewithNelderMeadAlgorithm());
+            await Task.Run(() => convergence = Model.SolvewithNelderMeadAlgorithm());
 
+            AnalysisFinished?.Invoke(null, convergence);
         }
 
         static void SetInitialValues()
@@ -232,7 +235,7 @@ namespace AnalysisITC
                 loss += (calc - meas) * (calc - meas);
             }
 
-            return Math.Sqrt(1000000 * loss);
+            return Math.Sqrt(1000000000000 * loss);
         }
 
         public override double Evaluate(int i, double n, double H, double K, double offset)
@@ -433,7 +436,7 @@ namespace AnalysisITC
             }
         }
 
-        public GlobalSolution SolvewithNelderMeadAlgorithm()
+        public SolverConvergence SolvewithNelderMeadAlgorithm()
         {
             var f = new NonlinearObjectiveFunction(GetVariableCount, (w) => LossFunction(w));
             var solver = new NelderMead(f);
@@ -445,15 +448,17 @@ namespace AnalysisITC
             solver.Convergence = new Accord.Math.Convergence.GeneralConvergence(GetVariableCount)
             {
                 MaximumEvaluations = 300000,
-                RelativeFunctionTolerance = 0.00000000000000000001,
-                RelativeParameterTolerance = 0.00000000000000000001,
+                AbsoluteFunctionTolerance = double.Epsilon,
+                StartTime = DateTime.Now,
             };
 
             SetBounds(solver);
 
             solver.Minimize(GetStartValues());
 
-            return GlobalSolution.FromAccordNelderMead(solver.Solution, this);
+            GlobalSolution.FromAccordNelderMead(solver.Solution, this);
+
+            return new SolverConvergence(solver);
         }
 
         internal virtual double LossFunction(double[] w)
@@ -789,6 +794,22 @@ namespace AnalysisITC
             global.Loss = model.LossFunction(solution);
 
             return global;
+        }
+    }
+
+    public class SolverConvergence
+    {
+        public int Iterations { get; private set; }
+        public string Message { get; private set; }
+        public TimeSpan Time { get; private set; }
+        public double Loss { get; private set; }
+
+        public SolverConvergence(NelderMead solver)
+        {
+            Iterations = solver.Convergence.Evaluations;
+            Message = solver.Status.ToString();
+            Time = DateTime.Now - solver.Convergence.StartTime;
+            Loss = solver.Value;
         }
     }
 

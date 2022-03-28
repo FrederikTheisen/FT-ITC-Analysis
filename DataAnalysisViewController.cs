@@ -11,8 +11,19 @@ namespace AnalysisITC
 	{
 		public DataAnalysisViewController (IntPtr handle) : base (handle)
 		{
-            
+            GlobalAnalyzer.AnalysisFinished += GlobalAnalyzer_AnalysisFinished;
 		}
+
+        private void GlobalAnalyzer_AnalysisFinished(object sender, SolverConvergence e)
+        {
+            StatusBarManager.StopInderminateProgress();
+            StatusBarManager.ClearAppStatus();
+            StatusBarManager.SetStatus(e.Iterations + " iterations, RMSD = " + e.Loss.ToString("##0.00"), 15000);
+            StatusBarManager.SetStatus(e.Message + " | " + e.Time.TotalMilliseconds + "ms", 9000);
+            StatusBarManager.SetStatus("Completed", 2500);
+
+            GraphView.Invalidate();
+        }
 
         public override void ViewDidLoad()
         {
@@ -47,6 +58,7 @@ namespace AnalysisITC
         partial void FitSimplex(NSObject sender)
         {
             StatusBarManager.StartInderminateProgress();
+            StatusBarManager.SetStatus("Fitting data...", 0);
 
             if (AnalysisModeControl.SelectedSegment == 0)
             {
@@ -56,10 +68,6 @@ namespace AnalysisITC
             {
                 GlobalAnalysis();
             }
-
-            StatusBarManager.StopInderminateProgress();
-
-            GraphView.Invalidate();
         }
 
         void GlobalAnalysis()
