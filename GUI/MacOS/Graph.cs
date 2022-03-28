@@ -687,6 +687,7 @@ namespace AnalysisITC
 
 
             XAxis.UseNiceAxis = false;
+            YAxis.UseNiceAxis = false;
         }
 
         internal override void Draw(CGContext cg)
@@ -742,6 +743,7 @@ namespace AnalysisITC
 
             DrawRectsAtPositions(layer, points.ToArray(), 8, true, false, color: NSColor.PlaceholderTextColor.CGColor);
 
+            layer.Context.SetStrokeColor(NSColor.LabelColor.CGColor);
             layer.Context.SetLineWidth(2);
             layer.Context.AddPath(path);
             layer.Context.StrokePath();
@@ -816,7 +818,7 @@ namespace AnalysisITC
             }
 
             if (isclick) mdownid = -1;
-            moverfeature = -1;
+            if (moverfeature != -1) { moverfeature = -1; return true; }
             return false;
         }
     }
