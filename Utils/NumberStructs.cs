@@ -41,7 +41,7 @@ namespace AnalysisITC
             value = v.Value;
             Joule = v;
             Cal = v;
-            Value = new(v);
+            Value = v;
         }
 
         public Energy(double v = 0)
