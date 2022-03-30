@@ -22,6 +22,9 @@ namespace AnalysisITC
 		AppKit.NSSegmentedControl DataZoomSegControl { get; set; }
 
 		[Outlet]
+		AppKit.NSSegmentedControl DrawFeatureSegControl { get; set; }
+
+		[Outlet]
 		AppKit.NSSegmentedControl InjectionViewSegControl { get; set; }
 
 		[Outlet]
@@ -122,11 +125,6 @@ namespace AnalysisITC
 		
 		void ReleaseDesignerOutlets ()
 		{
-			if (UseIntegrationFactorLengthControl != null) {
-				UseIntegrationFactorLengthControl.Dispose ();
-				UseIntegrationFactorLengthControl = null;
-			}
-
 			if (BaselineGraphView != null) {
 				BaselineGraphView.Dispose ();
 				BaselineGraphView = null;
@@ -145,6 +143,11 @@ namespace AnalysisITC
 			if (InjectionViewSegControl != null) {
 				InjectionViewSegControl.Dispose ();
 				InjectionViewSegControl = null;
+			}
+
+			if (DrawFeatureSegControl != null) {
+				DrawFeatureSegControl.Dispose ();
+				DrawFeatureSegControl = null;
 			}
 
 			if (IntegrationDelayControl != null) {
@@ -220,6 +223,11 @@ namespace AnalysisITC
 			if (SplineHandleModeView != null) {
 				SplineHandleModeView.Dispose ();
 				SplineHandleModeView = null;
+			}
+
+			if (UseIntegrationFactorLengthControl != null) {
+				UseIntegrationFactorLengthControl.Dispose ();
+				UseIntegrationFactorLengthControl = null;
 			}
 
 			if (ZLimitLabel != null) {

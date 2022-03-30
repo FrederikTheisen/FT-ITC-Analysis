@@ -19,6 +19,9 @@ namespace AnalysisITC
 		AppKit.NSButton ApplyToAllExperimentsControl { get; set; }
 
 		[Outlet]
+		AppKit.NSTextField CstepTextField { get; set; }
+
+		[Outlet]
 		AppKit.NSSegmentedControl GlobalVariablesControl { get; set; }
 
 		[Outlet]
@@ -28,19 +31,57 @@ namespace AnalysisITC
 		AnalysisITC.AnalysisGraphView GraphView { get; set; }
 
 		[Outlet]
+		AppKit.NSTextField GstepTextField { get; set; }
+
+		[Outlet]
+		AppKit.NSTextField HstepTextField { get; set; }
+
+		[Outlet]
 		AppKit.NSSegmentedControl ModelTypeControl { get; set; }
+
+		[Outlet]
+		AppKit.NSTextField NstepTextField { get; set; }
+
+		[Outlet]
+		AppKit.NSTextField OstepTextField { get; set; }
+
+		[Outlet]
+		AppKit.NSStackView SolverStepSizeView { get; set; }
 
 		[Action ("AnalysisModeClicked:")]
 		partial void AnalysisModeClicked (AppKit.NSSegmentedControl sender);
+
+		[Action ("FeatureDrawControlClicked:")]
+		partial void FeatureDrawControlClicked (AppKit.NSSegmentedControl sender);
 
 		[Action ("FitSimplex:")]
 		partial void FitSimplex (Foundation.NSObject sender);
 		
 		void ReleaseDesignerOutlets ()
 		{
-			if (ApplyToAllExperimentsControl != null) {
-				ApplyToAllExperimentsControl.Dispose ();
-				ApplyToAllExperimentsControl = null;
+			if (CstepTextField != null) {
+				CstepTextField.Dispose ();
+				CstepTextField = null;
+			}
+
+			if (HstepTextField != null) {
+				HstepTextField.Dispose ();
+				HstepTextField = null;
+			}
+
+			if (GstepTextField != null) {
+				GstepTextField.Dispose ();
+				GstepTextField = null;
+			}
+
+			if (NstepTextField != null) {
+				NstepTextField.Dispose ();
+				NstepTextField = null;
+			}
+
+			if (OstepTextField != null) {
+				OstepTextField.Dispose ();
+				OstepTextField = null;
 			}
 
 			if (AnalysisModeControl != null) {
@@ -48,9 +89,9 @@ namespace AnalysisITC
 				AnalysisModeControl = null;
 			}
 
-			if (ModelTypeControl != null) {
-				ModelTypeControl.Dispose ();
-				ModelTypeControl = null;
+			if (ApplyToAllExperimentsControl != null) {
+				ApplyToAllExperimentsControl.Dispose ();
+				ApplyToAllExperimentsControl = null;
 			}
 
 			if (GlobalVariablesControl != null) {
@@ -58,14 +99,24 @@ namespace AnalysisITC
 				GlobalVariablesControl = null;
 			}
 
+			if (GlobalVariablesView != null) {
+				GlobalVariablesView.Dispose ();
+				GlobalVariablesView = null;
+			}
+
 			if (GraphView != null) {
 				GraphView.Dispose ();
 				GraphView = null;
 			}
 
-			if (GlobalVariablesView != null) {
-				GlobalVariablesView.Dispose ();
-				GlobalVariablesView = null;
+			if (ModelTypeControl != null) {
+				ModelTypeControl.Dispose ();
+				ModelTypeControl = null;
+			}
+
+			if (SolverStepSizeView != null) {
+				SolverStepSizeView.Dispose ();
+				SolverStepSizeView = null;
 			}
 		}
 	}

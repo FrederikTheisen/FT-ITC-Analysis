@@ -30,6 +30,8 @@ namespace AnalysisITC
         public PeakHeatDirection AverageHeatDirection { get; set; } = PeakHeatDirection.Unknown;
         public bool UseIntegrationFactorLength { get; set; } = false;
 
+        public bool Include { get; set; } = true;
+
         public DataProcessor Processor { get; private set; }
         public Solution Solution { get; set; }
 
@@ -191,7 +193,7 @@ namespace AnalysisITC
 
         public double EstimateError()
         {
-            var baselinedata = Experiment.BaseLineCorrectedDataPoints.Where(dp => dp.Time > IntegrationEndTime && dp.Time < Time + Delay);
+            var baselinedata = Experiment.BaseLineCorrectedDataPoints.Where(dp => (dp.Time > IntegrationEndTime && dp.Time < Time + Delay) || (dp.Time > Time - Experiment.InitialDelay + 5 && dp.Time < Time));
 
             double sum_of_squares = 0;
 

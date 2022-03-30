@@ -50,6 +50,13 @@ namespace AnalysisITC
             }
         }
 
+        partial void FeatureDrawControlClicked(NSSegmentedControl sender)
+        {
+            DataFittingGraph.DrawPeakInfo = sender.IsSelectedForSegment(0);
+            DataFittingGraph.DrawFitParameters = sender.IsSelectedForSegment(1);
+            DataFittingGraph.UnifiedAxes = sender.IsSelectedForSegment(2);
+        }
+
         partial void AnalysisModeClicked(NSSegmentedControl sender)
         {
             GlobalVariablesView.Hidden = sender.SelectedSegment == 0;
@@ -73,6 +80,12 @@ namespace AnalysisITC
         void GlobalAnalysis()
         {
             GlobalAnalyzer.InitializeAnalyzer(GlobalVariablesControl.IsSelectedForSegment(0), GlobalVariablesControl.IsSelectedForSegment(1));
+
+            if (HstepTextField.FloatValue != 0) GlobalModel.Hstep = HstepTextField.FloatValue;
+            if (GstepTextField.FloatValue != 0) GlobalModel.Gstep = GstepTextField.FloatValue;
+            if (CstepTextField.FloatValue != 0) GlobalModel.Cstep = CstepTextField.FloatValue;
+            if (NstepTextField.FloatValue != 0) GlobalModel.Nstep = NstepTextField.FloatValue;
+            if (OstepTextField.FloatValue != 0) GlobalModel.Ostep = OstepTextField.FloatValue;
 
             GlobalAnalyzer.Solve(AnalysisModel.OneSetOfSites);
         }

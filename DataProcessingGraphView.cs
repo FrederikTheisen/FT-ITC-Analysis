@@ -83,6 +83,8 @@ namespace AnalysisITC
             var baselinemin = double.MaxValue;
             var baselinemax = double.MinValue;
 
+            var dps = (Graph as DataGraph).DataPoints;
+
             for (int i = 0; i < data.DataPoints.Count; i++)
             {
                 DataPoint dp = data.DataPoints[i];
@@ -123,7 +125,9 @@ namespace AnalysisITC
             var xmin = Graph.XAxis.Min;
             var xmax = Graph.XAxis.Max;
 
-            Graph.SetYAxisRange(data.DataPoints.Where(dp => dp.Time > xmin).Min(dp => dp.Power).Value, data.DataPoints.Where(dp => dp.Time < xmax).Max(dp => dp.Power).Value, buffer: true);
+            var dps = (Graph as DataGraph).DataPoints;
+
+            Graph.SetYAxisRange(dps.Where(dp => dp.Time > xmin).Min(dp => dp.Power).Value, dps.Where(dp => dp.Time < xmax).Max(dp => dp.Power).Value, buffer: true);
 
             isBaselineZoomed = false;
 
@@ -160,10 +164,11 @@ namespace AnalysisITC
             Invalidate();
         }
 
-        public void SetFeatureVisibility(bool baseline, bool injections)
+        public void SetFeatureVisibility(NSSegmentedControl sender)
         {
-            BaselineFittingGraph.RenderBaseline = baseline;
-            BaselineFittingGraph.RenderInjections = injections;
+            BaselineFittingGraph.ShowBaseline = sender.IsSelectedForSegment(0);
+            BaselineFittingGraph.ShowInjections = sender.IsSelectedForSegment(1);
+            (Graph as BaselineFittingGraph).ShowBaselineCorrected = sender.IsSelectedForSegment(2);
 
             Invalidate();
         }

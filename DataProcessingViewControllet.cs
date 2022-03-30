@@ -225,7 +225,7 @@ namespace AnalysisITC
 
         partial void DrawFeatureControlClicked(NSSegmentedControl sender)
         {
-            BaselineGraphView.SetFeatureVisibility(sender.IsSelectedForSegment(0), sender.IsSelectedForSegment(1));
+            BaselineGraphView.SetFeatureVisibility(DrawFeatureSegControl);
         }
 
         partial void ConfirmProcessingButtonClicked(NSObject sender)
@@ -257,6 +257,8 @@ namespace AnalysisITC
             var current = DataManager.Current;
 
             BaselineGraphView.Initialize(current);
+
+            BaselineGraphView.SetFeatureVisibility(DrawFeatureSegControl);
 
             UpdateUI();
         }
