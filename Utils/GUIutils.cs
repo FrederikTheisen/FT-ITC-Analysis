@@ -1,5 +1,6 @@
 ﻿using System;
 using AppKit;
+using System.Collections.Generic;
 
 namespace Utilities
 {
@@ -15,6 +16,7 @@ namespace Utilities
 
         public float NiceMin { get => niceMin; }
         public float NiceMax { get => niceMax; }
+        public double TickSpacing { get => tickSpacing; private set => tickSpacing = value; }
 
         /**
          * Instantiates a new instance of the NiceScale class.
@@ -86,6 +88,18 @@ namespace Utilities
             return niceFraction * Math.Pow(10, exponent);
         }
 
+        public List<double> Ticks()
+        {
+            var ticks = new List<double>();
+
+            for (double t = NiceMin; t <= NiceMax; t += tickSpacing)
+            {
+                ticks.Add(t);
+            }
+
+            return ticks;
+        }
+
         /**
          * Sets the minimum and maximum data points for the axis.
          *
@@ -135,5 +149,10 @@ namespace Utilities
 
             return index;
         }
+    }
+
+    public class MouseOverFeatureEvent
+    {
+        int FeatureID { get; set; } = -1;
     }
 }
