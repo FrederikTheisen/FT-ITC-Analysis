@@ -83,6 +83,8 @@ namespace AnalysisITC
 
                 await System.Threading.Tasks.Task.Run(() => Interpolator.Interpolate(cToken));
 
+                SubtractBaseline();
+
                 BaselineCompleted = true;
 
                 BaselineInterpolationCompleted?.Invoke(this, null);
