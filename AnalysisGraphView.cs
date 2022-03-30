@@ -36,7 +36,7 @@ namespace AnalysisITC
 
             var b = (Graph as DataFittingGraph).IsCursorOnFeature(CursorPositionInView);
 
-            if (b) NSCursor.PointingHandCursor.Set();
+            if (b) { NSCursor.PointingHandCursor.Set(); Invalidate(); }
             else NSCursor.ArrowCursor.Set();
         }
 
@@ -51,6 +51,8 @@ namespace AnalysisITC
             if (b) NSCursor.PointingHandCursor.Set();
             else NSCursor.ArrowCursor.Set();
 
+            Graph.IsMouseDown = true;
+
             Invalidate();
         }
 
@@ -64,6 +66,8 @@ namespace AnalysisITC
 
             if (b) NSCursor.PointingHandCursor.Set();
             else NSCursor.ArrowCursor.Set();
+
+            Graph.IsMouseDown = false;
 
             Invalidate();
         }
