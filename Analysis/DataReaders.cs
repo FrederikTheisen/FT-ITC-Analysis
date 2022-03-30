@@ -13,6 +13,7 @@ namespace AnalysisITC
         public static EnergyUnit Unit { get; set; } = EnergyUnit.Joule;
 
         public static List<ExperimentData> Data => DataSource.Data;
+        public static IEnumerable<ExperimentData> IncludedData => Data.Where(d => d.Include);
 
         static int selectedIndex = 0;
         public static int SelectedIndex
@@ -120,6 +121,7 @@ namespace AnalysisITC
                 i++;
 
                 await System.Threading.Tasks.Task.Run(() => data.Processor.Interpolator.Interpolate(new System.Threading.CancellationToken(false), true));
+                data.Processor.SubtractBaseline();
                 data.SetCustomIntegrationTimes(int_delay, int_length);
                 data.Processor.IterationCompleted();
 
