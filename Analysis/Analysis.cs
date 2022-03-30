@@ -271,11 +271,11 @@ namespace AnalysisITC
 
     public class GlobalModel
     {
-        internal static double Hstep = 1;
-        internal static double Gstep = 1;
-        internal static double Cstep = 0.1;
-        internal static double Nstep = 0.01;
-        internal static double Ostep = 0.1;
+        internal static double Hstep = 100;
+        internal static double Gstep = 50;
+        internal static double Cstep = 10;
+        internal static double Nstep = 0.05;
+        internal static double Ostep = 100;
 
         public List<Model> Models { get; set; } = new List<Model>();
 
