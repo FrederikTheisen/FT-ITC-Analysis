@@ -233,7 +233,7 @@ namespace AnalysisITC
             return points;
         }
 
-        Energy GetDataRangeMean(double start, double end)
+        double GetDataRangeMean(double start, double end)
         {
             List<DataPoint> points = Data.DataPoints.Where(dp => dp.Time > start && dp.Time < end).ToList();
 
@@ -335,10 +335,10 @@ namespace AnalysisITC
         public class SplinePoint
         {
             public double Time;
-            public Energy Power;
+            public double Power;
             public double Slope;
 
-            public SplinePoint(double time, Energy power, double slope = 0)
+            public SplinePoint(double time, double power, double slope = 0)
             {
                 Time = time;
                 Power = power;
