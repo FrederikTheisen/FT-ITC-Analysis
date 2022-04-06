@@ -7,6 +7,7 @@ namespace AnalysisITC
     public struct Energy
     {
         const double CalToJouleFactor = 4.184;
+        const double MicroFactor = 0.000001;
         public static readonly Energy R = new Energy(8.3145, EnergyUnit.Joule);
 
         private double value;
@@ -93,6 +94,17 @@ namespace AnalysisITC
             }
         }
 
+        public static double ConvertToJoule(double value, EnergyUnit from)
+        {
+            switch (from)
+            {
+                case EnergyUnit.MicroCal: return MicroFactor * CalToJouleFactor * value;
+                case EnergyUnit.Cal: return CalToJouleFactor * value;
+                case EnergyUnit.Joule:
+                default: return value;
+            }
+        }
+
         public static Energy operator +(Energy e1, Energy e2)
         {
             var v = e1.Value + e2.Value;
@@ -138,6 +150,7 @@ namespace AnalysisITC
     public enum EnergyUnit
     {
         Joule,
+        MicroCal,
         Cal
     }
 
