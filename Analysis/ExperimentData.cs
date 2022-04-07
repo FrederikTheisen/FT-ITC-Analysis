@@ -62,9 +62,9 @@ namespace AnalysisITC
             {
                 var dat = DataPoints.Where(dp => dp.Time > inj.Time && dp.Time < inj.Time + inj.Delay);
 
-                var mean = dat.Average(dp => dp.Power.Value);
-                var min = dat.Min(dp => dp.Power.Value.Value);
-                var max = dat.Max(dp => dp.Power.Value.Value);
+                var mean = dat.Average(dp => dp.Power);
+                var min = dat.Min(dp => dp.Power);
+                var max = dat.Max(dp => dp.Power);
 
                 if ((mean - min) > (max - mean)) inj.HeatDirection = PeakHeatDirection.Exothermal;
                 else inj.HeatDirection = PeakHeatDirection.Endothermal;
@@ -110,10 +110,10 @@ namespace AnalysisITC
         public PeakHeatDirection HeatDirection { get; set; } = PeakHeatDirection.Unknown;
 
         public Energy PeakArea { get; private set; } = new();
-        public Energy Enthalpy => PeakArea / InjectionMass;
+        public double Enthalpy => PeakArea / InjectionMass;
         public double SD => PeakArea.SD;
 
-        public Energy OffsetEnthalpy
+        public double OffsetEnthalpy
         {
             get
             {
@@ -153,11 +153,11 @@ namespace AnalysisITC
                 float maxtime = 0;
 
                 var dps = Experiment.DataPoints.Where(dp => dp.Time > Time && dp.Time < Time + Delay);
-                var ordered = dps.OrderBy(dp => dp.Power.Value.Value);
+                var ordered = dps.OrderBy(dp => dp.Power);
                 var first = ordered.First();
 
                 if (HeatDirection is PeakHeatDirection.Exothermal) maxtime = first.Time;
-                else maxtime = Experiment.DataPoints.Where(dp => dp.Time > Time && dp.Time < Time + Delay).OrderBy(dp => dp.Power.Value).Last().Time;
+                else maxtime = Experiment.DataPoints.Where(dp => dp.Time > Time && dp.Time < Time + Delay).OrderBy(dp => dp.Power).Last().Time;
 
                 length = length * (maxtime - Time);
 
@@ -175,7 +175,7 @@ namespace AnalysisITC
         {
             var data = Experiment.BaseLineCorrectedDataPoints.Where(dp => dp.Time > IntegrationStartTime && dp.Time < IntegrationEndTime);
 
-            Energy area = new();
+            double area = 0;
 
             foreach (var dp in data)
             {
@@ -184,7 +184,7 @@ namespace AnalysisITC
 
             var sd = EstimateError();
 
-            var peakarea = new FloatWithError(area/1000000, sd/1000000);
+            var peakarea = new FloatWithError(area, sd);
 
             PeakArea = new(peakarea);
 
@@ -193,26 +193,32 @@ namespace AnalysisITC
 
         public double EstimateError()
         {
-            var baselinedata = Experiment.BaseLineCorrectedDataPoints.Where(dp => (dp.Time > IntegrationEndTime && dp.Time < Time + Delay) || (dp.Time > Time - Experiment.InitialDelay + 5 && dp.Time < Time));
+            float seg1_s;
+            float seg1_e = Time;
+            if (ID == 0) seg1_s = Experiment.DataPoints.First().Time; 
+            else seg1_s = Experiment.Injections[ID - 1].IntegrationEndTime;
+
+            var baselinedata = Experiment.BaseLineCorrectedDataPoints.Where(dp => (dp.Time >= seg1_s && dp.Time <= seg1_e) || (dp.Time > IntegrationEndTime && dp.Time < Time + Delay));
 
             double sum_of_squares = 0;
 
             foreach (var dp in baselinedata)
             {
-                var p = dp.Power.Value;
+                var p = dp.Power;
 
                 sum_of_squares += p * p;
             }
 
-            return Math.Sqrt(sum_of_squares / (baselinedata.Count() - 1));
+            return Math.Sqrt(sum_of_squares);
         }
     }
 
     public struct DataPoint
     {
-        public readonly Energy Power { get; }
-
-        readonly EnergyUnit unit;
+        /// <summary>
+        /// Power in Joules
+        /// </summary>
+        public readonly double Power { get; }
 
         public float Time { get; }
         /// <summary>
@@ -233,36 +239,22 @@ namespace AnalysisITC
         /// </summary>
         public float JFBI { get; }
 
-        public DataPoint(float time, Energy power, float temp)
+        public DataPoint(float time, double power, float temp)
         {
             this.Time = time;
             this.Power = power;
             this.Temperature = temp;
-            this.unit = DataManager.Unit;
             this.ATP = 0;
             this.JFBI = 0;
             this.DT = 0;
             this.ShieldT = 0;
         }
 
-        public DataPoint(float time, double power, float temp, EnergyUnit unit = EnergyUnit.Cal)
+        public DataPoint(float time, double power, float temp = 0, float dt = 0, float shieldt = 0, float atp = 0, float jfbi = 0)
         {
             this.Time = time;
-            this.Power = new Energy(power, unit);
+            this.Power = power;
             this.Temperature = temp;
-            this.unit = unit;
-            this.ATP = 0;
-            this.JFBI = 0;
-            this.DT = 0;
-            this.ShieldT = 0;
-        }
-
-        public DataPoint(float time, double power, float temp = 0, float dt = 0, float shieldt = 0, float atp = 0, float jfbi = 0, EnergyUnit unit = EnergyUnit.Cal)
-        {
-            this.Time = time;
-            this.Power = new Energy(power, unit);
-            this.Temperature = temp;
-            this.unit = unit;
             this.ATP = atp;
             this.JFBI = jfbi;
             this.DT = dt;
@@ -278,21 +270,21 @@ namespace AnalysisITC
                 case ITCDataFormat.ITC200:
                 case ITCDataFormat.VPITC:
                 default:
-                    this = new DataPoint(dat[0], dat[1], dat[2], dat[3], dat[4], dat[5], dat[6], EnergyUnit.Cal);
+                    this = new DataPoint(dat[0], Energy.ConvertToJoule(dat[1], EnergyUnit.MicroCal), dat[2], dat[3], dat[4], dat[5], dat[6]);
                     break;
             }
         }
 
-        public static Energy Mean(List<DataPoint> list)
+        public static double Mean(List<DataPoint> list)
         {
-            Energy sum = new(0.0);
+            double sum = 0;
 
             foreach (var dp in list) sum += dp.Power;
 
             return sum / list.Count;
         }
 
-        public static Energy Median(List<DataPoint> list)
+        public static double Median(List<DataPoint> list)
         {
             int count = list.Count();
 
@@ -302,10 +294,10 @@ namespace AnalysisITC
                 return list.Select(x => x.Power).OrderBy(x => x).ElementAt(count / 2);
         }
 
-        public static Energy VolatilityWeightedAverage(List<DataPoint> list)
+        public static double VolatilityWeightedAverage(List<DataPoint> list)
         {
             double w = 0;
-            Energy sum = new(0.0);
+            double sum = 0;
 
             for (int i = 1; i < list.Count; i++)
             {
@@ -324,13 +316,13 @@ namespace AnalysisITC
 
             var deltaX = (list.Last().Time - list.First().Time) / 2;
 
-            var first = DataPoint.Mean(list.Take(list.Count / 2).ToList()).Value;
-            var last = DataPoint.Mean(list.Skip(list.Count / 2).ToList()).Value;
+            var first = DataPoint.Mean(list.Take(list.Count / 2).ToList());
+            var last = DataPoint.Mean(list.Skip(list.Count / 2).ToList());
 
             return (last - first) / deltaX;
         }
 
-        public DataPoint SubtractBaseline(Energy baseline)
+        public DataPoint SubtractBaseline(double baseline)
         {
             return new DataPoint(Time, Power - baseline, Temperature);
         }
