@@ -25,14 +25,14 @@ namespace AnalysisITC
         public float ActualMin { get; private set; } = 0;
         public float Min
         {
-            get { if (UseNiceAxis) return TickScale.NiceMin; else return ActualMin; }
+            get { if (false) return TickScale.NiceMin; else return ActualMin; }
             set { ActualMin = value; TickScale.SetMinMaxPoints(ActualMin, ActualMax); }
         }
 
         public float ActualMax { get; private set; } = 1;
         public float Max
         {
-            get { if (UseNiceAxis) return TickScale.NiceMax; else return ActualMax; }
+            get { if (false) return TickScale.NiceMax; else return ActualMax; }
             set { ActualMax = value; TickScale.SetMinMaxPoints(ActualMin, ActualMax); }
         }
 
@@ -54,8 +54,9 @@ namespace AnalysisITC
         public bool UseNiceAxis { get; set; } = false;
 
         public int DecimalPoints { get; set; } = 1;
-        public float ValueFactor { get; set; } = 1;
-        string formatter => "####0." + new string('0', DecimalPoints);
+        double valueFactor = 1;
+        public double ValueFactor { get => valueFactor; set { valueFactor = value; SetTickScale(); } }
+        string formatter => "#####0." + new string('0', DecimalPoints);
 
 
         TextAlignment HorizontalTickLabelAlignment => Position switch
@@ -110,7 +111,7 @@ namespace AnalysisITC
             this.ActualMin = (float)min;
             this.ActualMax = (float)max;
 
-            TickScale = new Utilities.NiceScale(this.ActualMin, this.ActualMax);
+            SetTickScale();
 
             Position = position;
         }
@@ -129,7 +130,7 @@ namespace AnalysisITC
             ActualMin = (float)(min - delta * buffer);
             ActualMax = (float)(max + delta * buffer);
 
-            TickScale = new Utilities.NiceScale(this.ActualMin, this.ActualMax);
+            SetTickScale();
         }
 
         void UpdateAutoScale(float old)
@@ -143,13 +144,18 @@ namespace AnalysisITC
             this.ActualMin = old_min - old_delta * buffer;
             this.ActualMax = old_max + old_delta * buffer;
 
-            TickScale = new Utilities.NiceScale(this.ActualMin, this.ActualMax);
+            SetTickScale();
         }
 
-        public void Draw(CGContext cg)
+        void SetTickScale()
+        {
+            TickScale = new Utilities.NiceScale(this.ActualMin, this.ActualMax, ValueFactor);
+        }
+
+        public void Draw(CGContext gc)
         {
             var tickvalues = TickScale.Ticks();
-            tickvalues.RemoveAll(v => v < Min || v > Max);
+            tickvalues.RemoveAll(v => v / ValueFactor < Min || v / ValueFactor > Max);
 
             var origin = cggraph.Frame.Location;
 
@@ -158,8 +164,10 @@ namespace AnalysisITC
             var drawticks = new List<CGPoint>();
             var allticks = new List<CGPoint>();
 
-            foreach (var tick in tickvalues)
+            foreach (var _tick in tickvalues)
             {
+                var tick = _tick / ValueFactor;
+
                 var x = horizontal ? tick : !alt ? cggraph.XAxis.Min : cggraph.XAxis.Max;
                 var y = !horizontal ? tick : !alt ? cggraph.YAxis.Min : cggraph.YAxis.Max;
 
@@ -170,7 +178,7 @@ namespace AnalysisITC
 
             }
 
-            CGLayer layer = CGLayer.Create(cg, cggraph.Frame.Size);
+            CGLayer layer = CGLayer.Create(gc, cggraph.Frame.Size);
             CGPath ticklines = new();
 
             foreach (var tick in drawticks)
@@ -184,16 +192,16 @@ namespace AnalysisITC
             layer.Context.AddPath(ticklines);
             layer.Context.StrokePath();
 
-            cg.DrawLayer(layer, origin);
+            gc.DrawLayer(layer, origin);
 
-            DrawTicks(cg, allticks, tickvalues);
+            DrawTicks(gc, allticks, tickvalues);
 
-            DrawTitle(cg);
+            DrawTitle(gc);
         }
 
-        void DrawTicks(CGContext cg, List<CGPoint> ticks, List<double> tickvalues)
+        void DrawTicks(CGContext gc, List<CGPoint> ticks, List<double> tickvalues)
         {
-            CGLayer layer = CGLayer.Create(cg, cggraph.View.Frame.Size);
+            CGLayer layer = CGLayer.Create(gc, cggraph.View.Frame.Size);
             layer.Context.SetStrokeColor(cggraph.StrokeColor);
             layer.Context.SetFillColor(cggraph.StrokeColor);
 
@@ -203,9 +211,9 @@ namespace AnalysisITC
             {
                 CGPoint tick = ticks[i];
                 var point = tick + FrameOffset + LabelOffset;
-                //CGRect pointRect = new CGRect(point.X - 2 / 2.0, point.Y - 2 / 2.0, 2, 2);
-                //layer.Context.FillEllipseInRect(pointRect);
-                var _size = cggraph.DrawString(layer, (tickvalues[i] * ValueFactor).ToString(formatter), point, TickFont, null, HorizontalTickLabelAlignment, VerticalTickLabelAlignment, null);
+
+                //var _size = cggraph.DrawString(layer, (tickvalues[i] * ValueFactor).ToString(formatter), point, TickFont, null, HorizontalTickLabelAlignment, VerticalTickLabelAlignment, null);
+                var _size = cggraph.DrawString(layer, (tickvalues[i]).ToString(formatter), point, TickFont, null, HorizontalTickLabelAlignment, VerticalTickLabelAlignment, null);
 
                 if (_size.Width > maxsize.Width) maxsize.Width = _size.Width;
                 if (_size.Height > maxsize.Height) maxsize.Height = _size.Height;
@@ -213,12 +221,12 @@ namespace AnalysisITC
 
             TickLabelSize = maxsize;
 
-            cg.DrawLayer(layer, new CGPoint(0, 0));
+            gc.DrawLayer(layer, new CGPoint(0, 0));
         }
 
-        void DrawTitle(CGContext cg)
+        void DrawTitle(CGContext gc)
         {
-            CGLayer layer = CGLayer.Create(cg, cggraph.View.Frame.Size);
+            CGLayer layer = CGLayer.Create(gc, cggraph.View.Frame.Size);
             layer.Context.SetStrokeColor(cggraph.StrokeColor);
             layer.Context.SetFillColor(cggraph.StrokeColor);
 
@@ -252,7 +260,7 @@ namespace AnalysisITC
 
             cggraph.DrawString(layer, LegendTitle, point, TickFont, null, TextAlignment.Center, aln, null, rot);
 
-            cg.DrawLayer(layer, new CGPoint(0, 0));
+            gc.DrawLayer(layer, new CGPoint(0, 0));
         }
     }
 
