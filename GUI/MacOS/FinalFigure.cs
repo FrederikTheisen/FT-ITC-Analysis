@@ -20,10 +20,13 @@ namespace AnalysisITC
             DataGraph.ShowBaselineCorrected = true;
             DataGraph.XAxis.Buffer = .1f;
             DataGraph.YAxis.Buffer = .05f;
+            DataGraph.YAxis.MirrorTicks = true;
             DataGraph.XAxis.ValueFactor = 1.0 / 60;
 
             IntegrationGraph = new DataFittingGraph(experiment, view);
             IntegrationGraph.DrawOnWhite = true;
+            IntegrationGraph.YAxis.MirrorTicks = true;
+            IntegrationGraph.XAxis.MirrorTicks = true;
         }
 
         public void SetupFrames(nfloat width, nfloat height)
