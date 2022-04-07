@@ -12,12 +12,23 @@ namespace AnalysisITC
 {
 	public partial class DataProcessingGraphView : NSGraph
     {
-        ExperimentData data;
-
         bool isBaselineZoomed = false;
         bool isInjectionZoomed = false;
 
         int selectedPeak = 0;
+
+        bool ShowBaselineCorrected
+        {
+            get => (Graph as BaselineFittingGraph).ShowBaselineCorrected;
+            set => (Graph as BaselineFittingGraph).ShowBaselineCorrected = value;
+        }
+
+        public new BaselineFittingGraph Graph => base.Graph as BaselineFittingGraph;
+
+        public DataProcessingGraphView(IntPtr handle) : base(handle)
+        {
+        }
+
         public int SelectedPeak
         {
             get => selectedPeak;
@@ -26,42 +37,24 @@ namespace AnalysisITC
                 selectedPeak = value;
 
                 if (selectedPeak < 0) selectedPeak = 0;
-                else if (selectedPeak >= data.InjectionCount) selectedPeak = data.InjectionCount - 1;
+                else if (selectedPeak >= Data.InjectionCount) selectedPeak = Data.InjectionCount - 1;
 
                 if (isInjectionZoomed) FocusPeak();
                 if (!isBaselineZoomed) ShowAllVertical();
             }
         }
 
-		public DataProcessingGraphView (IntPtr handle) : base (handle)
-		{
-		}
-
         public void Initialize(ExperimentData experiment)
         {
-            data = experiment;
-
             if (experiment != null)
             {
-                Graph = new BaselineFittingGraph(experiment, this);
+                base.Graph = new BaselineFittingGraph(experiment, this);
             }
-            else Graph = null;
+            else base.Graph = null;
 
             isBaselineZoomed = false;
 
             Invalidate();
-        }
-
-        public override void DrawRect(CGRect dirtyRect)
-        {
-            var cg = NSGraphicsContext.CurrentContext.CGContext;
-
-            if (Graph != null)
-            {
-                Graph.PrepareDraw(cg, new CGPoint(dirtyRect.GetMidX(), dirtyRect.GetMidY()));
-            }
-
-            base.DrawRect(dirtyRect);
         }
 
         public override void SetFrameSize(CGSize newSize)
@@ -73,9 +66,8 @@ namespace AnalysisITC
 
         public void ZoomBaseline()
         {
-            if (data == null) return;
-            if (data.Processor.Interpolator?.Baseline == null) return;
-            if (Graph == null) return;
+            if (Data == null) return;
+            if (Data.Processor.Interpolator?.Baseline == null) return;
 
             var xmin = Graph.XAxis.Min;
             var xmax = Graph.XAxis.Max;
@@ -83,32 +75,35 @@ namespace AnalysisITC
             var baselinemin = double.MaxValue;
             var baselinemax = double.MinValue;
 
-            var dps = (Graph as DataGraph).DataPoints;
+            if (!ShowBaselineCorrected) for (int i = 0; i < Data.DataPoints.Count; i++)
+                {
+                    DataPoint dp = Graph.DataPoints[i];
 
-            for (int i = 0; i < data.DataPoints.Count; i++)
+                    if (dp.Time < xmin) continue;
+                    else if (dp.Time > xmax) break;
+
+                    var blp = Data.Processor.Interpolator.Baseline[i];
+
+                    if (blp < baselinemin) baselinemin = (double)blp;
+                    if (blp > baselinemax) baselinemax = (double)blp;
+                }
+            else
             {
-                DataPoint dp = data.DataPoints[i];
-
-                if (dp.Time < xmin) continue;
-                else if (dp.Time > xmax) break;
-
-                var blp = data.Processor.Interpolator.Baseline[i];
-
-                if (blp < baselinemin) baselinemin = (double)blp;
-                if (blp > baselinemax) baselinemax = (double)blp;
+                baselinemin = 0;
+                baselinemax = 0;
             }
 
-            var mean = data.DataPoints.Where(dp => dp.Time > xmin && dp.Time < xmax).Select(dp => dp.Power).Average();
-            var ymin = data.DataPoints.Where(dp => dp.Time > xmin && dp.Time < xmax).Min(dp => dp.Power);
-            var ymax = data.DataPoints.Where(dp => dp.Time > xmin && dp.Time < xmax).Max(dp => dp.Power);
+            var mean = Graph.DataPoints.Where(dp => dp.Time > xmin && dp.Time < xmax).Select(dp => dp.Power).Average();
+            var ymin = Graph.DataPoints.Where(dp => dp.Time > xmin && dp.Time < xmax).Min(dp => dp.Power);
+            var ymax = Graph.DataPoints.Where(dp => dp.Time > xmin && dp.Time < xmax).Max(dp => dp.Power);
 
             var delta = 0.0;
 
             var delta1 = mean - ymin;
             var delta2 = ymax - mean;
 
-            if (delta1 < delta2) delta = delta1.Value;
-            else delta = delta2.Value;
+            if (delta1 < delta2) delta = delta1;
+            else delta = delta2;
 
             Graph.SetYAxisRange(baselinemin - delta * .5f, baselinemax + delta * .5f);
 
@@ -119,15 +114,14 @@ namespace AnalysisITC
 
         public void ShowAllVertical()
         {
-            if (data == null) return;
-            if (Graph == null) return;
+            if (Data == null) return;
 
             var xmin = Graph.XAxis.Min;
             var xmax = Graph.XAxis.Max;
 
-            var dps = (Graph as DataGraph).DataPoints;
+            var dps = Graph.DataPoints;
 
-            Graph.SetYAxisRange(dps.Where(dp => dp.Time > xmin).Min(dp => dp.Power).Value, dps.Where(dp => dp.Time < xmax).Max(dp => dp.Power).Value, buffer: true);
+            Graph.SetYAxisRange(dps.Where(dp => dp.Time > xmin).Min(dp => dp.Power), dps.Where(dp => dp.Time < xmax).Max(dp => dp.Power), buffer: true);
 
             isBaselineZoomed = false;
 
@@ -136,10 +130,9 @@ namespace AnalysisITC
 
         public void FocusPeak()
         {
-            if (data == null) return;
-            if (Graph == null) return;
+            if (Data == null) return;
 
-            var inj = data.Injections[SelectedPeak];
+            var inj = Data.Injections[SelectedPeak];
 
             Graph.SetXAxisRange(inj.Time - inj.Delay * 0.2f, inj.Time + inj.Delay * 1.2f);
 
@@ -152,9 +145,9 @@ namespace AnalysisITC
 
         public void UnfocusPeak()
         {
-            if (Graph == null) return;
+            if (Data == null) return;
 
-            Graph.SetXAxisRange(data.DataPoints.Min(dp => dp.Time), data.DataPoints.Max(dp => dp.Time), buffer: false);
+            Graph.SetXAxisRange(Graph.DataPoints.Min(dp => dp.Time), Graph.DataPoints.Max(dp => dp.Time), buffer: false);
 
             isInjectionZoomed = false;
 
@@ -168,7 +161,8 @@ namespace AnalysisITC
         {
             BaselineFittingGraph.ShowBaseline = sender.IsSelectedForSegment(0);
             BaselineFittingGraph.ShowInjections = sender.IsSelectedForSegment(1);
-            (Graph as BaselineFittingGraph).ShowBaselineCorrected = sender.IsSelectedForSegment(2);
+
+            ShowBaselineCorrected = sender.IsSelectedForSegment(2);
 
             Invalidate();
         }
@@ -177,9 +171,9 @@ namespace AnalysisITC
         {
             base.MouseMoved(theEvent);
 
-            if (Graph == null) return;
+            if (Data == null) return;
 
-            var b = (Graph as BaselineFittingGraph).IsCursorOnFeature(CursorPositionInView);
+            var b = Graph.IsCursorOnFeature(CursorPositionInView);
 
             if (b) NSCursor.PointingHandCursor.Set();
             else NSCursor.ArrowCursor.Set();
