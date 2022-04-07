@@ -94,6 +94,7 @@
     <Folder Include="GUI\" />
     <Folder Include="GUI\MacOS\" />
     <Folder Include="Utils\" />
+    <Folder Include="GUI\MacOS\Drawing\" />
   </ItemGroup>
   <ItemGroup>
     <None Include="Info.plist" />
@@ -114,7 +115,7 @@
     <Compile Include="Analysis\Analysis.cs" />
     <Compile Include="Analysis\DataProcessing.cs" />
     <Compile Include="GUI\MacOS\DrawingView.cs" />
-    <Compile Include="GUI\MacOS\Graph.cs" />
+    <Compile Include="GUI\MacOS\CAGraph.cs" />
     <Compile Include="Utils\GUIutils.cs" />
     <Compile Include="GUI\MacOS\SideBarViewController.cs" />
     <Compile Include="GUI\MacOS\SideBarViewController.designer.cs">
@@ -155,6 +156,10 @@
     <Compile Include="AnalysisGraphView.designer.cs">
       <DependentUpon>AnalysisGraphView.cs</DependentUpon>
     </Compile>
+    <Compile Include="GUI\MacOS\Drawing\CALayerDrawingView.cs" />
+    <Compile Include="GUI\MacOS\GraphAxis.cs" />
+    <Compile Include="GUI\MacOS\NSGraph.cs" />
+    <Compile Include="GUI\MacOS\CGGraph.cs" />
   </ItemGroup>
   <ItemGroup>
     <InterfaceDefinition Include="Main.storyboard" />
