@@ -44,14 +44,14 @@ namespace AnalysisITC
 
         public static Energy Min(this IEnumerable<DataPoint> list, Func<DataPoint, Energy> selector)
         {
-            var v = list.Min(o => o.Power.Value.Value);
+            var v = list.Min(o => o.Power);
 
             return new Energy(v);
         }
 
         public static Energy Max(this IEnumerable<DataPoint> list, Func<DataPoint, Energy> selector)
         {
-            var v = list.Max(o => o.Power.Value.Value);
+            var v = list.Max(o => o.Power);
 
             return new Energy(v);
         }
