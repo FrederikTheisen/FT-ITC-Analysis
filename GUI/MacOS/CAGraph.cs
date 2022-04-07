@@ -803,24 +803,4 @@ namespace AnalysisITC
             return false;
         }
     }
-
-    public class FinalFigure
-    {
-        CADataGraph DataGraph;
-        CADataFittingGraph IntegrationGraph;
-
-        public FinalFigure(ExperimentData experiment, NSView view)
-        {
-            //DataGraph = new DataGraph(experiment);
-            //DataGraph.DrawOnWhite = true;
-            //setup frame
-            //Setup axes
-
-
-            //IntegrationGraph = new DataFittingGraph(experiment);
-            //IntegrationGraph.DrawOnWhite = true;
-            //setup frame
-            //setup axes
-        }
-    }
 }
