@@ -12,8 +12,13 @@ namespace AnalysisITC
 	{
 		public FinalFigureGraphView (IntPtr handle) : base (handle)
 		{
-            GlobalAnalyzer.AnalysisFinished += (object sender, SolverConvergence e) => { this.NeedsDisplay = true; };
+            DataManager.SelectionDidChange += DataManager_SelectionDidChange;
 		}
+
+        private void DataManager_SelectionDidChange(object sender, ExperimentData e)
+        {
+            this.NeedsDisplay = true;
+        }
 
         public override void DrawRect(CGRect dirtyRect)
         {
@@ -25,6 +30,13 @@ namespace AnalysisITC
 
 
             graph.Draw(cg, new CGPoint(dirtyRect.GetMidX(), dirtyRect.GetMidY()));
+        }
+
+        public override void MouseDown(NSEvent theEvent)
+        {
+            base.MouseDown(theEvent);
+
+            this.NeedsDisplay = true;
         }
     }
 }
