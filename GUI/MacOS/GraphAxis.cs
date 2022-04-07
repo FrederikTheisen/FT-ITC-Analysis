@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using AppKit;
 using CoreAnimation;
 using CoreGraphics;
@@ -19,6 +20,7 @@ namespace AnalysisITC
 
         public AxisPosition Position;
         public bool IsHorizontal => Position == AxisPosition.Bottom || Position == AxisPosition.Top;
+        public bool MirrorTicks { get; set; } = false;
 
         public string LegendTitle { get; set; } = "";
 
@@ -73,7 +75,7 @@ namespace AnalysisITC
             _ => TextAlignment.Center,
         };
 
-        nfloat TickLineLength = 5;
+        nfloat TickLineLength = 6;
 
         CGSize TickLine => Position switch
         {
@@ -155,36 +157,35 @@ namespace AnalysisITC
         public void Draw(CGContext gc)
         {
             var tickvalues = TickScale.Ticks();
+            var minortickvalues = tickvalues.Select(t => t + 0.5 * (tickvalues[1] - tickvalues[2])).ToList();
             tickvalues.RemoveAll(v => v / ValueFactor < Min || v / ValueFactor > Max);
 
             var origin = cggraph.Frame.Location;
 
             bool horizontal = Position == AxisPosition.Bottom || Position == AxisPosition.Top;
             bool alt = Position == AxisPosition.Right || Position == AxisPosition.Top;
+
             var drawticks = new List<CGPoint>();
+            var halfticks = new List<CGPoint>();
             var allticks = new List<CGPoint>();
 
-            foreach (var _tick in tickvalues)
-            {
-                var tick = _tick / ValueFactor;
-
-                var x = horizontal ? tick : !alt ? cggraph.XAxis.Min : cggraph.XAxis.Max;
-                var y = !horizontal ? tick : !alt ? cggraph.YAxis.Min : cggraph.YAxis.Max;
-
-                var p = cggraph.GetRelativePosition(x, y, this);
-
-                if (tick != Min && tick != Max) drawticks.Add(p);
-                allticks.Add(p);
-
-            }
+            GetTickScreenPositions(tickvalues, horizontal, alt, drawticks, allticks);
+            GetTickScreenPositions(minortickvalues, horizontal, alt, halfticks);
 
             CGLayer layer = CGLayer.Create(gc, cggraph.Frame.Size);
             CGPath ticklines = new();
 
-            foreach (var tick in drawticks)
+            AddTickLines(drawticks, halfticks, ticklines);
+
+            if (MirrorTicks)
             {
-                ticklines.MoveToPoint(tick);
-                ticklines.AddLineToPoint(CGPoint.Add(tick, TickLine));
+                drawticks = new List<CGPoint>();
+                halfticks = new List<CGPoint>();
+
+                GetTickScreenPositions(tickvalues, horizontal, !alt, drawticks);
+                GetTickScreenPositions(minortickvalues, horizontal, !alt, halfticks);
+
+                AddTickLines(drawticks, halfticks, ticklines, true);
             }
 
             layer.Context.SetStrokeColor(cggraph.StrokeColor);
@@ -197,6 +198,42 @@ namespace AnalysisITC
             DrawTicks(gc, allticks, tickvalues);
 
             DrawTitle(gc);
+        }
+
+        private void AddTickLines(List<CGPoint> drawticks, List<CGPoint> halfticks, CGPath ticklines, bool mirror = false)
+        {
+            var tickline = TickLine;
+
+            if (mirror) tickline = tickline.ScaleBy(-1);
+
+            foreach (var tick in drawticks)
+            {
+                ticklines.MoveToPoint(tick);
+                ticklines.AddLineToPoint(CGPoint.Add(tick, tickline));
+            }
+            foreach (var tick in halfticks)
+            {
+                ticklines.MoveToPoint(tick);
+                ticklines.AddLineToPoint(CGPoint.Add(tick, tickline.ScaleBy(0.5f)));
+            }
+        }
+
+        private void GetTickScreenPositions(List<double> tickvalues, bool ishorizontal, bool isalt, List<CGPoint> drawticks, List<CGPoint> allticks = null)
+        {
+            if (allticks == null) allticks = new List<CGPoint>();
+
+            foreach (var _tick in tickvalues)
+            {
+                var tick = _tick / ValueFactor;
+
+                var x = ishorizontal ? tick : !isalt ? cggraph.XAxis.Min : cggraph.XAxis.Max;
+                var y = !ishorizontal ? tick : !isalt ? cggraph.YAxis.Min : cggraph.YAxis.Max;
+
+                var p = cggraph.GetRelativePosition(x, y, this);
+
+                if (tick != Min && tick != Max) drawticks.Add(p);
+                allticks.Add(p);
+            }
         }
 
         void DrawTicks(CGContext gc, List<CGPoint> ticks, List<double> tickvalues)
