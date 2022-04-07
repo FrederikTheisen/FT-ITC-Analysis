@@ -7,7 +7,7 @@ using DataReaders;
 
 namespace AnalysisITC
 {
-    public static class EnumExtensions
+    public static class Extensions
     {
         public static ITCFormatAttribute GetProperties(this ITCDataFormat value)
         {
@@ -19,7 +19,17 @@ namespace AnalysisITC
 
         public static CGRect WithMargin(this CGRect box, CGEdgeMargin margin, float mod = 1)
         {
+            return margin.BoxWithMargin(box, mod);
+        }
+
+        public static CGRect WithMargin(this CGRect box, CGEdgeMargin margin)
+        {
             return margin.BoxWithMargin(box);
+        }
+
+        public static CGSize ScaleBy(this CGSize box, float value)
+        {
+            return new CGSize(box.Width * value, box.Height * value);
         }
     }
 
@@ -41,6 +51,11 @@ namespace AnalysisITC
         public CGRect BoxWithMargin(CGRect box, float mod = 1)
         {
             return new CGRect(box.X - Left * mod, box.Y - Bottom * mod, box.Width + (Left + Right) * mod, box.Height + (Bottom + Top) * mod);
+        }
+
+        public CGRect BoxWithMargin(CGRect box)
+        {
+            return new CGRect(box.X - Left, box.Y - Bottom, box.Width + Left + Right, box.Height + Bottom + Top);
         }
     }
 

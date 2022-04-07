@@ -10,8 +10,8 @@ namespace AnalysisITC
         DataFittingGraph IntegrationGraph;
 
         public CGSize PlotDimensions { get; set; } = new CGSize(6, 10);
-        CGEdgeMargin Margin = new CGEdgeMargin(1, 0.2f, .5f, .5f);
-        CGRect PlotBox => new CGRect(IntegrationGraph.Origin, PlotDimensions);
+        CGEdgeMargin Margin = new CGEdgeMargin(1.5f * CGGraph.PPcm, 0.1f * CGGraph.PPcm, .8f * CGGraph.PPcm, .85f * CGGraph.PPcm);
+        CGRect PlotBox => new CGRect(IntegrationGraph.Origin, PlotDimensions.ScaleBy(CGGraph.PPcm));
 
         public FinalFigure(ExperimentData experiment, NSView view)
         {
@@ -46,7 +46,7 @@ namespace AnalysisITC
             SetupFrames(PlotDimensions.Width, PlotDimensions.Height);
 
             gc.SetFillColor(NSColor.White.CGColor);
-            gc.FillRect(PlotBox.WithMargin(Margin, CGGraph.PPcm));
+            gc.FillRect(PlotBox.WithMargin(Margin));
                 //new CGRect
                 //    (
                 //    CGPoint.Subtract(IntegrationGraph.Origin, new CGSize(1.5 * CGGraph.PPcm, .8 * CGGraph.PPcm)),

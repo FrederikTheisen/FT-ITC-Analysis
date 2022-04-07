@@ -769,7 +769,7 @@ namespace AnalysisITC
             XAxis.DecimalPoints = 1;
             XAxis.TickScale.SetMaxTicks(7);
             YAxis.UseNiceAxis = false;
-            YAxis.LegendTitle = "Heat per Injectant (kJ/mol)";
+            YAxis.LegendTitle = "kJ mol⁻¹ of injectant";
             YAxis.ValueFactor = 0.001f;
 
         }

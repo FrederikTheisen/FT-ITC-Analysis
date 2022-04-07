@@ -258,7 +258,7 @@ namespace AnalysisITC
                 _ => TextAlignment.Center,
             };
 
-            cggraph.DrawString(layer, LegendTitle, point, TickFont, null, TextAlignment.Center, aln, null, rot);
+            cggraph.DrawString(layer, LegendTitle, point, TitleFont, null, TextAlignment.Center, aln, null, rot);
 
             gc.DrawLayer(layer, new CGPoint(0, 0));
         }
