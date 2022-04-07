@@ -38,7 +38,7 @@ namespace Utilities
         private void Calculate()
         {
             this.range = NiceNum(maxPoint - minPoint, false);
-            this.tickSpacing = NiceNum(range / (maxTicks - 1), true);
+            this.tickSpacing = NiceNum(range / (maxTicks + 1), true);
             this.niceMin =
               (float)(Math.Floor(minPoint / tickSpacing) * tickSpacing);
             this.niceMax =
@@ -154,5 +154,14 @@ namespace Utilities
     public class MouseOverFeatureEvent
     {
         int FeatureID { get; set; } = -1;
+    }
+
+    public enum TextAlignment
+    {
+        Left,
+        Center,
+        Right,
+        Top,
+        Bottom
     }
 }
