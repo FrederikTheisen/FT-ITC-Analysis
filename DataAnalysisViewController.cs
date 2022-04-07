@@ -55,6 +55,8 @@ namespace AnalysisITC
             DataFittingGraph.DrawPeakInfo = sender.IsSelectedForSegment(0);
             DataFittingGraph.DrawFitParameters = sender.IsSelectedForSegment(1);
             DataFittingGraph.UnifiedAxes = sender.IsSelectedForSegment(2);
+
+            GraphView.Invalidate();
         }
 
         partial void AnalysisModeClicked(NSSegmentedControl sender)

@@ -160,6 +160,12 @@
     <Compile Include="GUI\MacOS\GraphAxis.cs" />
     <Compile Include="GUI\MacOS\NSGraph.cs" />
     <Compile Include="GUI\MacOS\CGGraph.cs" />
+    <Compile Include="GUI\MacOS\FinalFigure.cs" />
+    <Compile Include="FinalFigureGraphView.cs" />
+    <Compile Include="FinalFigureGraphView.designer.cs">
+      <DependentUpon>FinalFigureGraphView.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Analysis\DataManager.cs" />
   </ItemGroup>
   <ItemGroup>
     <InterfaceDefinition Include="Main.storyboard" />

@@ -773,7 +773,7 @@
                                                 <segment image="arrow.left" catalog="system"/>
                                                 <segment image="sparkles" catalog="system" enabled="NO" tag="1"/>
                                                 <segment image="sparkles.rectangle.stack" catalog="system" enabled="NO"/>
-                                                <segment image="checkmark" catalog="system" enabled="NO">
+                                                <segment image="checkmark" catalog="system">
                                                     <nil key="label"/>
                                                 </segment>
                                             </segments>
@@ -2042,6 +2042,12 @@
                     <view key="view" id="NyX-eR-7ca">
                         <rect key="frame" x="0.0" y="0.0" width="450" height="300"/>
                         <autoresizingMask key="autoresizingMask"/>
+                        <subviews>
+                            <customView fixedFrame="YES" translatesAutoresizingMaskIntoConstraints="NO" id="qXb-0i-7mM" customClass="FinalFigureGraphView">
+                                <rect key="frame" x="0.0" y="0.0" width="450" height="300"/>
+                                <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
+                            </customView>
+                        </subviews>
                     </view>
                 </viewController>
                 <customObject id="gHd-Ba-kPY" userLabel="First Responder" customClass="NSResponder" sceneMemberID="firstResponder"/>
