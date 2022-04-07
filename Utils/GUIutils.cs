@@ -6,6 +6,7 @@ namespace Utilities
 {
     public class NiceScale
     {
+        private float factor = 1;
         private double minPoint;
         private double maxPoint;
         private double maxTicks = 10;
@@ -16,7 +17,11 @@ namespace Utilities
 
         public float NiceMin { get => niceMin; }
         public float NiceMax { get => niceMax; }
-        public double TickSpacing { get => tickSpacing; private set => tickSpacing = value; }
+        public double TickSpacing { get => tickSpacing; }
+
+        public double UITickSpacing => tickSpacing;
+        public double UINiceMin => niceMin;
+        public double UINiceMax => niceMax;
 
         /**
          * Instantiates a new instance of the NiceScale class.
@@ -24,10 +29,11 @@ namespace Utilities
          * @param min the minimum data point on the axis
          * @param max the maximum data point on the axis
          */
-        public NiceScale(double min, double max)
+        public NiceScale(double min, double max, double factor = 1)
         {
-            this.minPoint = min;
-            this.maxPoint = max;
+            this.minPoint = min * factor;
+            this.maxPoint = max * factor;
+            this.factor = (float)factor;
             Calculate();
         }
 
@@ -37,12 +43,12 @@ namespace Utilities
          */
         private void Calculate()
         {
-            this.range = NiceNum(maxPoint - minPoint, false);
+            this.range = NiceNum((maxPoint - minPoint), false);
             this.tickSpacing = NiceNum(range / (maxTicks + 1), true);
             this.niceMin =
-              (float)(Math.Floor(minPoint / tickSpacing) * tickSpacing);
+              (float)(Math.Floor(minPoint / TickSpacing) * TickSpacing);
             this.niceMax =
-              (float)(Math.Ceiling(maxPoint / tickSpacing) * tickSpacing);
+              (float)(Math.Ceiling(maxPoint / TickSpacing) * TickSpacing);
         }
 
         /**
@@ -92,7 +98,7 @@ namespace Utilities
         {
             var ticks = new List<double>();
 
-            for (double t = NiceMin; t <= NiceMax; t += tickSpacing)
+            for (double t = UINiceMin; t <= UINiceMax; t += UITickSpacing)
             {
                 ticks.Add(t);
             }
