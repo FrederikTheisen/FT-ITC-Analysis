@@ -40,10 +40,10 @@ namespace AnalysisITC
         public nfloat PlotPixelHeight { get => PlotHeightCM * PPcm; set => PlotHeightCM = value / PPcm; }
 
         internal CGSize PointsPerUnit;
-        internal CGPoint Center;
+        public CGPoint Center;
         internal CGSize PlotSize;
         internal CGPoint Origin;
-        internal CGRect Frame;
+        internal CGRect Frame => new CGRect(Origin, PlotSize);
         internal NSView View;
         internal bool ScaleToView = true;
         internal CGLayer CGBuffer;
@@ -95,37 +95,45 @@ namespace AnalysisITC
             View = view;
         }
 
-        public void PrepareDraw(CGContext cg, CGPoint center)
+        public void PrepareDraw(CGContext gc, CGPoint center)
         {
-            this.Context = cg;
+            this.Context = gc;
             this.Center = center;
 
             SetupFrame();
 
+            SetupAxisScalingUnits();
+
+            Draw(gc);
+
+            DrawFrame(gc);
+
+            DrawAxes();
+        }
+
+        public virtual void SetupFrame(float width = 0, float height = 0)
+        {
+            if (width == 0) PlotWidthCM = View.Frame.Size.Width / PPcm - 1.5f;
+            else PlotWidthCM = width;
+
+            if (height == 0) PlotHeightCM = View.Frame.Size.Height / PPcm - 0.9f;
+            else PlotHeightCM = height;
+
+            PlotSize = new CGSize(PlotPixelWidth - 2, PlotPixelHeight - 2);
+            Origin = new CGPoint(Center.X - PlotSize.Width * 0.5f, Center.Y - PlotSize.Height * 0.5f);
+            //Origin.X += 0.65f * PPcm; //Frame positioning should not be done here
+            //Origin.Y += 0.45f * PPcm;
+            //Frame = new CGRect(Origin, PlotSize);
+        }
+
+        public void SetupAxisScalingUnits()
+        {
             if (Frame.Size.Width * Frame.Size.Height < 0) return;
 
             var pppw = PlotSize.Width / (XAxis.Max - XAxis.Min);
             var ppph = PlotSize.Height / (YAxis.Max - YAxis.Min);
 
             PointsPerUnit = new CGSize(pppw, ppph);
-
-            Draw(cg);
-
-            DrawFrame();
-
-            DrawAxes();
-        }
-
-        internal virtual void SetupFrame()
-        {
-            PlotWidthCM = View.Frame.Size.Width / PPcm - 1.5f;
-            PlotHeightCM = View.Frame.Size.Height / PPcm - 0.9f;
-
-            PlotSize = new CGSize(PlotPixelWidth - 2, PlotPixelHeight - 2);
-            Origin = new CGPoint(Center.X - PlotSize.Width * 0.5f, Center.Y - PlotSize.Height * 0.5f);
-            Origin.X += 0.65f * PPcm;
-            Origin.Y += 0.45f * PPcm;
-            Frame = new CGRect(Origin, PlotSize);
         }
 
         internal virtual void Draw(CGContext cg)
@@ -133,22 +141,17 @@ namespace AnalysisITC
 
         }
 
-        protected void DrawData()
+        public void DrawFrame(CGContext gc)
         {
-
-        }
-
-        void DrawFrame()
-        {
-            Context.SetStrokeColor(StrokeColor);
-            Context.StrokeRectWithWidth(Frame, 1);
+            gc.SetStrokeColor(StrokeColor);
+            gc.StrokeRectWithWidth(Frame, 1);
         }
 
         #region Drawing
 
         #region Drawing Methods
 
-        public void DrawDataGraph(CGContext gc, List<CGPoint> points, float linewidth = 1, CGColor color = null)
+        public void DrawDataSeries(CGContext gc, List<CGPoint> points, float linewidth = 1, CGColor color = null)
         {
             var layer = CGLayer.Create(gc, Frame.Size);
 
@@ -173,12 +176,12 @@ namespace AnalysisITC
             gc.DrawLayer(layer, Origin);
         }
 
-        public void DrawRectsAtPositions(CGLayer layer, CGPoint[] points, float size, bool circle = false, bool fill = false, float width = 1, CGColor color = null, float radius = 0)
+        public void DrawRectsAtPositions(CGLayer layer, CGPoint[] points, float size, bool circle = false, bool fill = false, float width = 1, CGColor color = null, float roundedradius = 0)
         {
             foreach (var p in points)
             {
-                if (circle) GetRectAtPosition(p, size);
-                else AddRectAtPosition(layer, p, size, radius);
+                if (circle) AddCircleAtPosition(layer, p, size);
+                else AddRectAtPosition(layer, p, size, roundedradius);
             }
 
             if (color != null)
@@ -260,12 +263,19 @@ namespace AnalysisITC
             layer.Context.StrokePath();
         }
 
-        internal void AddRectAtPosition(CGLayer layer, CGPoint p, double size, float radius)
+        internal void AddRectAtPosition(CGLayer layer, CGPoint p, double size, float roundedradius)
         {
             var rect = GetRectAtPosition(p, size);
 
-            if (radius > 0) layer.Context.AddPath(CGPath.FromRoundedRect(rect, radius, radius));
+            if (roundedradius > 0) layer.Context.AddPath(CGPath.FromRoundedRect(rect, roundedradius, roundedradius));
             else layer.Context.AddRect(rect);
+        }
+
+        internal void AddCircleAtPosition(CGLayer layer, CGPoint p, double size)
+        {
+            var rect = GetRectAtPosition(p, size);
+
+            layer.Context.AddPath(CGPath.EllipseFromRect(rect));
         }
 
         #endregion
@@ -447,7 +457,7 @@ namespace AnalysisITC
             foreach (var p in DataPoints) { if (p.Time > XAxis.Min && p.Time < XAxis.Max) points.Add(GetRelativePosition(p)); }
 
             gc.SetStrokeColor(StrokeColor);
-            DrawDataGraph(gc, points);
+            DrawDataSeries(gc, points);
 
             XAxis.Draw(gc);
             YAxis.Draw(gc);
@@ -479,29 +489,28 @@ namespace AnalysisITC
             TemperatureAxis.LegendTitle = "Temperature (°C)";
         }
 
-        internal override void SetupFrame()
+        public override void SetupFrame(float w = 0, float h = 0)
         {
-            base.SetupFrame();
+            base.SetupFrame(w,h);
 
             PlotWidthCM = View.Frame.Size.Width / PPcm - 3;
 
             var infoheight = (DefaultFontHeight + 5) * info.Count + 10;
 
             PlotSize = new CGSize(PlotPixelWidth - 2, PlotPixelHeight - infoheight - 2);
-            Origin = new CGPoint(Center.X - PlotSize.Width * 0.5f, Center.Y - (PlotSize.Height * 0.5f + infoheight));
-            Origin.Y += 0.45f * PPcm;
-            Frame = new CGRect(Origin, PlotSize);
+            Origin = new CGPoint(Center.X - PlotSize.Width * 0.5f, Center.Y - (PlotSize.Height * 0.5f));
+            //Frame = new CGRect(Origin, PlotSize);
         }
 
-        internal override void Draw(CGContext cg)
+        internal override void Draw(CGContext gc)
         {
-            DrawInfo(cg);
+            DrawInfo(gc);
 
-            DrawTemperature(cg);
+            DrawTemperature(gc);
 
-            TemperatureAxis.Draw(cg);
+            TemperatureAxis.Draw(gc);
 
-            base.Draw(cg);
+            base.Draw(gc);
         }
 
         void DrawTemperature(CGContext gc)
@@ -522,13 +531,13 @@ namespace AnalysisITC
             temperature.Add(GetRelativePosition(DataPoints.Last().Time, DataPoints.Last().Temperature, TemperatureAxis));
             jacket.Add(GetRelativePosition(DataPoints.Last().Time, DataPoints.Last().ShieldT, TemperatureAxis));
 
-            DrawDataGraph(gc, temperature, 1, NSColor.SystemRedColor.CGColor);
-            DrawDataGraph(gc, jacket, 1, NSColor.SystemRedColor.CGColor);
+            DrawDataSeries(gc, temperature, 1, NSColor.SystemRedColor.CGColor);
+            DrawDataSeries(gc, jacket, 1, NSColor.SystemRedColor.CGColor);
         }
 
-        public void DrawInfo(CGContext cg)
+        public void DrawInfo(CGContext gc)
         {
-            var layer = CGLayer.Create(cg, View.Frame.Size);
+            var layer = CGLayer.Create(gc, View.Frame.Size);
 
             var pos = new CGPoint(5, View.Frame.Height);
 
@@ -539,7 +548,7 @@ namespace AnalysisITC
                 pos.Y -= (s.Height + 5);
             }
 
-            cg.DrawLayer(layer, new CGPoint(0, 0));
+            gc.DrawLayer(layer, new CGPoint(0, 0));
         }
     }
 
@@ -577,23 +586,23 @@ namespace AnalysisITC
             }
         }
 
-        internal override void Draw(CGContext cg)
+        internal override void Draw(CGContext gc)
         {
-            base.Draw(cg);
+            base.Draw(gc);
 
             if (ShowBaseline && ExperimentData.Processor.Interpolator != null && ExperimentData.Processor.Interpolator.Finished)
             {
-                DrawBaseline(cg);
+                DrawBaseline(gc);
 
-                if (ExperimentData.Processor.Interpolator is SplineInterpolator) DrawSplineHandles(cg);
+                if (ExperimentData.Processor.Interpolator is SplineInterpolator) DrawSplineHandles(gc);
             }
 
-            if (ShowInjections) DrawIntegrationMarkers(cg);
+            if (ShowInjections) DrawIntegrationMarkers(gc);
         }
 
-        void DrawBaseline(CGContext cg)
+        void DrawBaseline(CGContext gc)
         {
-            CGLayer layer = CGLayer.Create(cg, Frame.Size);
+            CGLayer layer = CGLayer.Create(gc, Frame.Size);
 
             var path = new CGPath();
 
@@ -621,12 +630,12 @@ namespace AnalysisITC
             layer.Context.StrokePath();
             layer.Context.SetLineWidth(1);
 
-            cg.DrawLayer(layer, Frame.Location);
+            gc.DrawLayer(layer, Frame.Location);
         }
 
-        void DrawSplineHandles(CGContext cg)
+        void DrawSplineHandles(CGContext gc)
         {
-            CGLayer layer = CGLayer.Create(cg, Frame.Size);
+            CGLayer layer = CGLayer.Create(gc, Frame.Size);
 
             List<CGRect> points = new List<CGRect>();
 
@@ -649,12 +658,12 @@ namespace AnalysisITC
             }
 
 
-            cg.DrawLayer(layer, Frame.Location);
+            gc.DrawLayer(layer, Frame.Location);
         }
 
-        void DrawIntegrationMarkers(CGContext cg)
+        void DrawIntegrationMarkers(CGContext gc)
         {
-            CGLayer layer = CGLayer.Create(cg, Frame.Size);
+            CGLayer layer = CGLayer.Create(gc, Frame.Size);
 
             CGPath path = new CGPath();
 
@@ -697,7 +706,7 @@ namespace AnalysisITC
             layer.Context.AddPath(path);
             layer.Context.StrokePath();
 
-            cg.DrawLayer(layer, Frame.Location);
+            gc.DrawLayer(layer, Frame.Location);
         }
 
         public override bool IsCursorOnFeature(CGPoint cursorpos, bool isclick = false, bool ismouseup = false)
@@ -765,23 +774,25 @@ namespace AnalysisITC
 
         }
 
-        internal override void Draw(CGContext cg)
+        internal override void Draw(CGContext gc)
         {
-            base.Draw(cg);
+            base.Draw(gc);
 
-            if (ExperimentData.Solution != null) DrawFit(cg);
+            DrawGrid(gc);
 
-            if (ExperimentData.Processor.IntegrationCompleted) DrawInjectionsPoints(cg);
+            if (ExperimentData.Solution != null) DrawFit(gc);
 
-            if (DrawFitParameters && ExperimentData.Solution != null) DrawParameters(cg);
+            if (ExperimentData.Processor.IntegrationCompleted) DrawInjectionsPoints(gc);
 
-            XAxis.Draw(cg);
-            YAxis.Draw(cg);
+            if (DrawFitParameters && ExperimentData.Solution != null) DrawParameters(gc);
+
+            XAxis.Draw(gc);
+            YAxis.Draw(gc);
         }
 
-        void DrawInjectionsPoints(CGContext cg)
+        void DrawInjectionsPoints(CGContext gc)
         {
-            var layer = CGLayer.Create(cg, Frame.Size);
+            var layer = CGLayer.Create(gc, Frame.Size);
             var points = new List<CGPoint>();
             var inv_points = new List<CGPoint>();
 
@@ -815,7 +826,7 @@ namespace AnalysisITC
 
                 if (inj.ID == moverfeature) DrawRectsAtPositions(
                     layer, new CGPoint[] { p },
-                    size: 14, circle: false, fill: true, width: 0, radius: 4,
+                    size: 14, circle: false, fill: true, width: 0, roundedradius: 4,
                     color: IsMouseDown ? ActivatedHighlightColor : HighlightColor);
 
                 if (inj.Include) points.Add(p);
@@ -831,12 +842,12 @@ namespace AnalysisITC
             DrawRectsAtPositions(layer, points.ToArray(), SquareSize, false, true);
             DrawRectsAtPositions(layer, inv_points.ToArray(), SquareSize, false, false);
 
-            cg.DrawLayer(layer, Frame.Location);
+            gc.DrawLayer(layer, Frame.Location);
         }
 
         void DrawFit(CGContext gc)
         {
-            var layer = CGLayer.Create(gc, Frame.Size);
+            
             var points = new List<CGPoint>();
 
             foreach (var inj in ExperimentData.Injections)
@@ -849,17 +860,12 @@ namespace AnalysisITC
 
             DrawSpline(gc, points.ToArray(), 2, StrokeColor);
 
-            DrawRectsAtPositions(layer, points.ToArray(), 8, true, false, color: NSColor.PlaceholderTextColor.CGColor);
+            //DrawRectsAtPositions(layer, points.ToArray(), 8, true, false, color: NSColor.PlaceholderTextColor.CGColor);
         }
 
-        void DrawPeakDetails(CGContext cg)
+        void DrawGrid(CGContext gc, bool onlyzero = false)
         {
-
-        }
-
-        void DrawParameters(CGContext cg)
-        {
-            CGLayer layer = CGLayer.Create(cg, Frame.Size);
+            CGLayer layer = CGLayer.Create(gc, Frame.Size);
             layer.Context.SetStrokeColor(NSColor.LabelColor.ColorWithAlphaComponent(0.4f).CGColor);
             layer.Context.SetLineWidth(1);
 
@@ -868,6 +874,15 @@ namespace AnalysisITC
             zero.AddLineToPoint(GetRelativePosition(XAxis.Max, 0));
             layer.Context.AddPath(zero);
             layer.Context.StrokePath();
+
+            gc.DrawLayer(layer, Frame.Location);
+        }
+
+        void DrawParameters(CGContext gc)
+        {
+            CGLayer layer = CGLayer.Create(gc, Frame.Size);
+            layer.Context.SetStrokeColor(NSColor.LabelColor.ColorWithAlphaComponent(0.4f).CGColor);
+            layer.Context.SetLineWidth(1);
 
             var H = ExperimentData.Solution.Enthalpy;
             var e1 = GetRelativePosition(XAxis.Min, H);
@@ -889,7 +904,19 @@ namespace AnalysisITC
             layer.Context.SetLineDash(3, new nfloat[] { 3 });
             layer.Context.StrokePath();
 
-            cg.DrawLayer(layer, Frame.Location);
+            var points = new List<CGPoint>();
+
+            foreach (var inj in ExperimentData.Injections)
+            {
+                var x = inj.Ratio;
+                var y = ExperimentData.Solution.Evaluate(inj.ID, withoffset: false);
+
+                points.Add(GetRelativePosition(x, y));
+            }
+
+            DrawRectsAtPositions(layer, points.ToArray(), 8, true, false, color: NSColor.PlaceholderTextColor.CGColor);
+
+            gc.DrawLayer(layer, Frame.Location);
         }
 
         int mdownid = -1;
