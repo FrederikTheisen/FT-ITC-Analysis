@@ -27,6 +27,7 @@ namespace AnalysisITC
 
         public DataProcessingGraphView(IntPtr handle) : base(handle)
         {
+            State = ProgramState.Process;
         }
 
         public int SelectedPeak

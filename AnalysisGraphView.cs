@@ -9,16 +9,13 @@ namespace AnalysisITC
 {
 	public partial class AnalysisGraphView : NSGraph
 	{
-        ExperimentData data;
-
         public AnalysisGraphView (IntPtr handle) : base (handle)
 		{
-		}
+            State = ProgramState.Analyze;
+        }
 
         public void Initialize(ExperimentData experiment)
         {
-            data = experiment;
-
             if (experiment != null)
             {
                 Graph = new DataFittingGraph(experiment, this);

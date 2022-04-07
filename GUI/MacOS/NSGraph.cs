@@ -8,12 +8,15 @@ namespace AnalysisITC
     {
         public void Invalidate() => this.NeedsDisplay = true;
 
+        
+
         public ExperimentData Data => Graph.ExperimentData;
 
         private CGGraph graph;
         private NSTrackingArea trackingArea;
         public CGPoint CursorPositionInView { get; private set; } = new CGPoint(0, 0);
         public virtual CGGraph Graph { get => graph; set => graph = value; }
+        internal ProgramState State = ProgramState.Load;
 
         public NSGraph(IntPtr handle) : base(handle)
         {
@@ -67,11 +70,23 @@ namespace AnalysisITC
 
         public override void DrawRect(CGRect dirtyRect)
         {
+            if (DataManager.State != State) return;
+
             var cg = NSGraphicsContext.CurrentContext.CGContext;
+
+            var center = new CGPoint(dirtyRect.GetMidX(), dirtyRect.GetMidY());
+            switch (State)
+            {
+                case ProgramState.Load: center += new CGSize(0, 1); break;
+                case ProgramState.Process: 
+                case ProgramState.Analyze: center += new CGSize(1, 1); break;
+            }
+
 
             if (Graph != null)
             {
-                Graph.PrepareDraw(cg, new CGPoint(dirtyRect.GetMidX(), dirtyRect.GetMidY()));
+                Graph.PrepareDraw(cg, center);
+
             }
 
             base.DrawRect(dirtyRect);

@@ -102,21 +102,23 @@ namespace AnalysisITC
             DataLoadSegControl.SetEnabled(DataManager.DataIsLoaded, 2);
         }
 
-        private void OnModeChange(object sender, int e)
+        private void OnModeChange(object sender, ProgramState e)
         {
-            StepControl.SelectedSegment = e;
+            StepControl.SelectedSegment = (int)e;
 
-            StepControl.SetEnabled(true, e);
+            StepControl.SetEnabled(true, (int)e);
 
-            Window.Toolbar.RemoveItem(5);
+            Window.Toolbar.RemoveItem(Window.Toolbar.Items.Length - 1);
 
             switch (e)
             {
-                case 0: Window.Toolbar.InsertItem("LoadControl", 5); break;
-                case 1: Window.Toolbar.InsertItem("ProcessingControl", 5); break;
-                case 2:
+                case ProgramState.Load: Window.Toolbar.InsertItem("LoadControl", 5); break;
+                case ProgramState.Process: Window.Toolbar.InsertItem("ProcessingControl", 5); break;
+                case ProgramState.Analyze:
                     DataManager.IntegratePeaks(); //TODO move to separate function and only allow change to analysis mode if all are integrated;
                     Window.Toolbar.InsertItem("AnalysisControl", 5); break;
+                case ProgramState.Publish:
+                    break;
             }
         }
 
@@ -126,7 +128,7 @@ namespace AnalysisITC
             {
                 case 0: OpenFileBrowser(); break;
                 case 1: DataManager.Clear(); break;
-                case 2: DataManager.SetProgramState(1); break;
+                case 2: DataManager.SetProgramState(ProgramState.Process); break;
             }
         }
 
@@ -134,9 +136,9 @@ namespace AnalysisITC
         {
             switch (sender.SelectedSegment)
             {
-                case 0: DataManager.SetProgramState(0); break;
+                case 0: DataManager.SetProgramState(ProgramState.Load); break;
                 case 1: DataManager.CopySelectedProcessToAll(); break;
-                case 2: DataManager.SetProgramState(2); break;
+                case 2: DataManager.SetProgramState(ProgramState.Analyze); break;
             }
         }
 
@@ -144,16 +146,17 @@ namespace AnalysisITC
         {
             switch (sender.SelectedSegment)
             {
-                case 0: DataManager.SetProgramState(1); break;
+                case 0: DataManager.SetProgramState(ProgramState.Process); break;
                 case 1: break;
+                case 3: DataManager.SetProgramState(ProgramState.Publish); break;
             }
         }
 
         partial void ContextButtonClick(NSObject sender)
         {
             if (!DataManager.DataIsLoaded) OpenFileBrowser();
-            else if (DataManager.State == 0) DataManager.SetProgramState(1);
-            else if (DataManager.State == 1 && !DataManager.AllDataIsBaselineProcessed)
+            else if (DataManager.State == 0) DataManager.SetProgramState(ProgramState.Process);
+            else if (DataManager.State == ProgramState.Process && !DataManager.AllDataIsBaselineProcessed)
             {
 
             }
@@ -191,7 +194,7 @@ namespace AnalysisITC
         {
             var index = (int)sender.SelectedSegment;
 
-            DataManager.SetProgramState(index);
+            DataManager.SetProgramState((ProgramState)index);
         }
     }
 }

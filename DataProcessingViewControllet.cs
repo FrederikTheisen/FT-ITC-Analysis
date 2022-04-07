@@ -230,7 +230,7 @@ namespace AnalysisITC
 
         partial void ConfirmProcessingButtonClicked(NSObject sender)
         {
-            DataManager.SetProgramState(2);
+            
         }
 
         void UpdateSliderLabels()

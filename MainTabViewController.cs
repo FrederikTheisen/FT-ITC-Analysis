@@ -20,9 +20,9 @@ namespace AnalysisITC
             DataManager.ProgramStateChanged += OnProgramModeChanged;
         }
 
-        private void OnProgramModeChanged(object sender, int e)
+        private void OnProgramModeChanged(object sender, ProgramState e)
         {
-            TabView.SelectAt(e);
+            TabView.SelectAt((int)e);
         }
     }
 }

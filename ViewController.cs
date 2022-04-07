@@ -147,7 +147,7 @@ namespace AnalysisITC
 
         partial void ContinueClick(NSObject sender)
         {
-            DataManager.SetProgramState(1);
+            
         }
 
         public override NSObject RepresentedObject

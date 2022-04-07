@@ -28,14 +28,14 @@ namespace AnalysisITC
 
         public static event EventHandler<ExperimentData> DataDidChange;
         public static event EventHandler<ExperimentData> SelectionDidChange;
-        public static event EventHandler<int> ProgramStateChanged;
+        public static event EventHandler<ProgramState> ProgramStateChanged;
 
         public static int Count => Data.Count;
 
         public static bool DataIsLoaded => DataSource?.Data.Count > 0;
         public static bool AllDataIsBaselineProcessed => DataSource.Data.All(d => d.Processor.BaselineCompleted);
 
-        public static int State { get; private set; } = 0;
+        public static ProgramState State { get; private set; } = ProgramState.Load;
 
         public static ExperimentData Current => SelectedIndex == -1 || (SelectedIndex >= Count) ? null : Data[SelectedIndex];
 
@@ -81,7 +81,7 @@ namespace AnalysisITC
 
         public static void SelectionChanged(int index) => SelectionDidChange?.Invoke(null, Current);
 
-        public static void SetProgramState(int state)
+        public static void SetProgramState(ProgramState state)
         {
             State = state;
 
@@ -138,5 +138,13 @@ namespace AnalysisITC
                 data.Processor.IntegratePeaks();
             }
         }
+    }
+
+    public enum ProgramState
+    {
+        Load,
+        Process,
+        Analyze,
+        Publish
     }
 }
