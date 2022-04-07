@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using AnalysisITC;
+using CoreGraphics;
 using DataReaders;
 
 namespace AnalysisITC
@@ -14,6 +15,32 @@ namespace AnalysisITC
             var attribute = fieldInfo.GetCustomAttributes(typeof(ITCFormatAttribute), false).FirstOrDefault() as ITCFormatAttribute;
 
             return attribute;
+        }
+
+        public static CGRect WithMargin(this CGRect box, CGEdgeMargin margin, float mod = 1)
+        {
+            return margin.BoxWithMargin(box);
+        }
+    }
+
+    public struct CGEdgeMargin
+    {
+        nfloat Left;
+        nfloat Right;
+        nfloat Top;
+        nfloat Bottom;
+
+        public CGEdgeMargin(float l, float r, float t, float b)
+        {
+            Left = l;
+            Right = r;
+            Top = t;
+            Bottom = b;
+        }
+
+        public CGRect BoxWithMargin(CGRect box, float mod = 1)
+        {
+            return new CGRect(box.X - Left * mod, box.Y - Bottom * mod, box.Width + (Left + Right) * mod, box.Height + (Bottom + Top) * mod);
         }
     }
 
