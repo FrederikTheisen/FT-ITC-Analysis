@@ -235,7 +235,7 @@ namespace AnalysisITC
                 loss += (calc - meas) * (calc - meas);
             }
 
-            return Math.Sqrt(1000000000000 * loss);
+            return Math.Sqrt(1000000 * loss);
         }
 
         public override double Evaluate(int i, double n, double H, double K, double offset)
