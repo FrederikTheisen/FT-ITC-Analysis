@@ -31,6 +31,19 @@ namespace AnalysisITC
         {
             return new CGSize(box.Width * value, box.Height * value);
         }
+
+        public static CGSize AbsoluteValueSize(this CGSize box)
+        {
+            return new CGSize(Math.Abs(box.Width), Math.Abs(box.Height));
+        }
+    }
+
+    public static class FWEMath
+    {
+        public static FloatWithError Log(FloatWithError number)
+        {
+            return new FloatWithError(Math.Log(number.Value), number.SD / number.Value);
+        }
     }
 
     public struct CGEdgeMargin
@@ -40,12 +53,12 @@ namespace AnalysisITC
         nfloat Top;
         nfloat Bottom;
 
-        public CGEdgeMargin(float l, float r, float t, float b)
+        public CGEdgeMargin(float left, float right, float top, float bottom)
         {
-            Left = l;
-            Right = r;
-            Top = t;
-            Bottom = b;
+            Left = left;
+            Right = right;
+            Top = top;
+            Bottom = bottom;
         }
 
         public CGRect BoxWithMargin(CGRect box, float mod = 1)
