@@ -159,7 +159,14 @@ namespace Utilities
 
     public class MouseOverFeatureEvent
     {
-        int FeatureID { get; set; } = -1;
+        public int FeatureID { get; set; } = -1;
+
+        public bool IsMouseOverFeature => FeatureID != -1;
+
+        public MouseOverFeatureEvent()
+        {
+
+        }
     }
 
     public enum TextAlignment
