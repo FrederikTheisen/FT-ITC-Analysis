@@ -8,8 +8,6 @@ namespace AnalysisITC
     {
         public void Invalidate() => this.NeedsDisplay = true;
 
-        
-
         public ExperimentData Data => Graph.ExperimentData;
 
         private CGGraph graph;
@@ -77,11 +75,10 @@ namespace AnalysisITC
             var center = new CGPoint(dirtyRect.GetMidX(), dirtyRect.GetMidY());
             switch (State)
             {
-                case ProgramState.Load: center += new CGSize(0, 1); break;
-                case ProgramState.Process: 
-                case ProgramState.Analyze: center += new CGSize(1, 1); break;
+                case ProgramState.Load: center += new CGSize(0, 0); break;
+                case ProgramState.Process: center += new CGSize(.8 * CGGraph.PPcm, 0.5 * CGGraph.PPcm); break;
+                case ProgramState.Analyze: center += new CGSize(.8*CGGraph.PPcm, .5 * CGGraph.PPcm); break;
             }
-
 
             if (Graph != null)
             {
