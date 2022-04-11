@@ -28,6 +28,7 @@ namespace AnalysisITC
             return DataManager.Count;
         }
         #endregion
+
     }
 
     public class ExperimentDataDelegate : NSTableViewDelegate
@@ -60,10 +61,10 @@ namespace AnalysisITC
                 view = tableView.MakeView(CellIdentifier, this);
                 view.SetIdentifier(series.FileName);
                 (view as ExperimentDataViewCell).RemoveData += OnRemoveDataButtonClick;
+                (view as ExperimentDataViewCell).ResizeRow += (object sender, int e) => tableView.ReloadData(NSIndexSet.FromIndex(row), NSIndexSet.FromIndex(0));
             }
 
             (view as ExperimentDataViewCell).Setup(Source, series, (int)row);
-            
 
             return view;
         }
@@ -84,7 +85,17 @@ namespace AnalysisITC
         [Export("tableView:heightOfRow:")]
         public override nfloat GetRowHeight(NSTableView tableView, nint row)
         {
-            return 60;
+            if (tableView.RowCount > row)
+            {
+                //var cell = tableView. as ExperimentDataViewCell;
+
+                //if (cell != null)
+                //{
+                //    if (cell.IsDetailedViewOpen) return 128;
+                //}
+            }
+
+            return 48;
         }
 
     }
