@@ -13,10 +13,22 @@ namespace AnalysisITC
 	partial class ExperimentDataViewCell
 	{
 		[Outlet]
+		AppKit.NSTextField AffinityLine { get; set; }
+
+		[Outlet]
 		AppKit.NSBox Box { get; set; }
 
 		[Outlet]
+		AppKit.NSTextField EnthalpyLine { get; set; }
+
+		[Outlet]
+		AppKit.NSTextField EntropyLine { get; set; }
+
+		[Outlet]
 		AppKit.NSTextField ExpNameLabel { get; set; }
+
+		[Outlet]
+		AppKit.NSButton IncludeDataButton { get; set; }
 
 		[Outlet]
 		AppKit.NSTextField Line2 { get; set; }
@@ -27,19 +39,54 @@ namespace AnalysisITC
 		[Outlet]
 		AppKit.NSTextField Line4 { get; set; }
 
+		[Outlet]
+		AppKit.NSTextField ModelFitLine { get; set; }
+
+		[Outlet]
+		AppKit.NSTextField NvalueLine { get; set; }
+
+		[Outlet]
+		AnalysisITC.NSMarginButton ShowFitDataButton { get; set; }
+
 		[Action ("RemoveClick:")]
 		partial void RemoveClick (Foundation.NSObject sender);
+
+		[Action ("ShowFitDataButtonClick:")]
+		partial void ShowFitDataButtonClick (Foundation.NSObject sender);
+
+		[Action ("ToggleDataGlobalInclude:")]
+		partial void ToggleDataGlobalInclude (AppKit.NSButton sender);
 		
 		void ReleaseDesignerOutlets ()
 		{
+			if (AffinityLine != null) {
+				AffinityLine.Dispose ();
+				AffinityLine = null;
+			}
+
 			if (Box != null) {
 				Box.Dispose ();
 				Box = null;
 			}
 
+			if (EnthalpyLine != null) {
+				EnthalpyLine.Dispose ();
+				EnthalpyLine = null;
+			}
+
+			if (EntropyLine != null) {
+				EntropyLine.Dispose ();
+				EntropyLine = null;
+			}
+
 			if (ExpNameLabel != null) {
 				ExpNameLabel.Dispose ();
 				ExpNameLabel = null;
+			}
+
+			if (IncludeDataButton != null) {
+				IncludeDataButton.Dispose ();
+				IncludeDataButton = null;
 			}
 
 			if (Line2 != null) {
@@ -55,6 +102,21 @@ namespace AnalysisITC
 			if (Line4 != null) {
 				Line4.Dispose ();
 				Line4 = null;
+			}
+
+			if (ModelFitLine != null) {
+				ModelFitLine.Dispose ();
+				ModelFitLine = null;
+			}
+
+			if (NvalueLine != null) {
+				NvalueLine.Dispose ();
+				NvalueLine = null;
+			}
+
+			if (ShowFitDataButton != null) {
+				ShowFitDataButton.Dispose ();
+				ShowFitDataButton = null;
 			}
 		}
 	}
