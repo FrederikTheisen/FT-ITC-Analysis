@@ -1,25 +1,25 @@
 ﻿using System;
-using DataReaders;
 using System.Collections.Generic;
 using System.Linq;
-using System.Threading;
-using MathNet.Numerics.Optimization;
-using MathNet.Numerics.LinearAlgebra;
-using Accord.Statistics.Models.Regression;
 using Accord.Math.Optimization;
 using Accord.Math;
 using System.Threading.Tasks;
-using Utilities;
 using static Utilities.Increment;
+using Foundation;
+using AppKit;
 
 namespace AnalysisITC
 {
+    public static class Analysis
+    {
+        public static Random Random { get; } = new Random();
+    }
+
     public static class GlobalAnalyzer
     {
         public static event EventHandler<SolverConvergence> AnalysisFinished;
 
         static GlobalModel Model { get; set; }
-
 
         public static void InitializeAnalyzer(bool varEnthalpy, bool varAffinity = true)
         {
@@ -35,6 +35,9 @@ namespace AnalysisITC
             foreach (var data in DataManager.Data)
             {
                 Model.Models.Add(new OneSetOfSites(data));
+                if (data.Solution != null) data.Solution.IsValid = false;
+
+                data.UpdateSolution();
             }
         }
 
@@ -51,7 +54,48 @@ namespace AnalysisITC
 
             SolverConvergence convergence = null;
 
-            await Task.Run(() => convergence = Model.SolvewithNelderMeadAlgorithm());
+            var starttime = DateTime.Now;
+
+            await Task.Run(() =>
+                {
+                    convergence = Model.SolveWithNelderMeadAlgorithm();
+
+                    //NSApplication.SharedApplication.InvokeOnMainThread(() => { });
+
+                    Model.Bootstrap();
+                });
+
+            Console.WriteLine((DateTime.Now - starttime).TotalSeconds);
+
+            var refdat = Model.Models[0].Data;
+            var syndat = new List<ExperimentData>();
+
+            for (var i = 0; i < 100; i++)
+            {
+                syndat.Add(refdat.GetSynthClone());
+            }
+
+            double[][] dat = new double[102][];
+
+
+            for (int j = 0; j < refdat.InjectionCount; j++)
+            {
+                string line = "";
+
+                for (var i = 0; i < 102; i++)
+                {
+                    if (i == 0) line = refdat.Injections[j].Ratio.ToString();
+                    else if (i == 1) line += " " + refdat.Solution.Evaluate(j, true).ToString();
+                    else
+                    {
+                        var d = syndat[i - 2];
+
+                        line += " " + d.Injections[j].Enthalpy.ToString();
+                    }
+                }
+
+                Console.WriteLine(line);
+            }
 
             AnalysisFinished?.Invoke(null, convergence);
         }
@@ -162,7 +206,7 @@ namespace AnalysisITC
         public virtual double GuessN => Data.Injections.Last().Ratio / 2;
         public virtual double GuessH => Data.Injections.First(inj => inj.Include).Enthalpy - GuessOffset;
         public virtual double GuessK => 1000000;
-        public virtual double GuessGibbs => new Energy(-35000, EnergyUnit.Joule);
+        public virtual double GuessGibbs => -35000;
         public virtual double GuessOffset => Data.Injections.Last(inj => inj.Include).Enthalpy;
 
         /// <summary>
@@ -210,6 +254,11 @@ namespace AnalysisITC
 
             return Solution;
         }
+
+        public virtual Model GenerateSyntheticModel()
+        {
+            return new Model(Data.GetSynthClone());
+        }
     }
 
     class OneSetOfSites : Model
@@ -227,15 +276,15 @@ namespace AnalysisITC
         {
             double loss = 0;
 
-            foreach (var inj in Data.Injections.Where(i => i.Include && i.ID != ExcludeSinglePoint))
+            foreach (var inj in Data.Injections)//.Where(i => i.Include && i.ID != ExcludeSinglePoint))
             {
                 var calc = Evaluate(inj.ID, n, H, K, offset);
                 var meas = inj.PeakArea;
 
-                loss += (calc - meas) * (calc - meas);
+                if (inj.Include && inj.ID != ExcludeSinglePoint) loss += (calc - meas) * (calc - meas);
             }
 
-            return Math.Sqrt(1000000 * loss);
+            return loss;
         }
 
         public override double Evaluate(int i, double n, double H, double K, double offset)
@@ -246,42 +295,50 @@ namespace AnalysisITC
         public double GetDeltaHeat(int i, double n, double H, double K)
         {
             var inj = Data.Injections[i];
-
             var Qi = GetHeatContent(inj, n, H, K);
             var Q_i = 0.0;
 
             if (i != 0) Q_i = GetHeatContent(Data.Injections[i - 1], n, H, K);
 
-            var dQi = Qi + (inj.Volume / Data.CellVolume) * ((Qi + Q_i) / 2) - Q_i;
+            var dQi = Qi + (inj.Volume / Data.CellVolume) * ((Qi + Q_i) / 2.0) - Q_i;
 
             return dQi;
         }
 
         public double GetHeatContent(InjectionData inj, double n, double H, double K)
         {
-            var first = (n * inj.ActualCellConcentration * H * Data.CellVolume) / 2;
-            var XnM = inj.ActualTitrantConcentration / (n * inj.ActualCellConcentration);
-            var nKM = 1 / (n * K * inj.ActualCellConcentration);
-            var square = (1 + XnM + nKM);
-            var root = (square * square) - 4 * XnM;
+            var ncell = n * inj.ActualCellConcentration;
+            var first = (ncell * H * Data.CellVolume) / 2.0;
+            var XnM = inj.ActualTitrantConcentration / ncell;
+            var nKM = 1.0 / (K * ncell);
+            var square = (1.0 + XnM + nKM);
+            var root = (square * square) - 4.0 * XnM;
 
             return first * (1 + XnM + nKM - Math.Sqrt(root));
+        }
+
+        public override Model GenerateSyntheticModel()
+        {
+            return new OneSetOfSites(Data.GetSynthClone());
         }
     }
 
     public class GlobalModel
     {
-        internal static double Hstep = 100;
-        internal static double Gstep = 50;
-        internal static double Cstep = 10;
-        internal static double Nstep = 0.05;
-        internal static double Ostep = 100;
+        internal static double Hstep = 1000;
+        internal static double Gstep = 500;
+        internal static double Cstep = 100;
+        internal static double Nstep = 0.5;
+        internal static double Ostep = 1000;
 
         public List<Model> Models { get; set; } = new List<Model>();
+        public GlobalSolution Solution { get; private set; }
 
         public bool UseVariableEnthalpy { get; set; } = true;
         public bool UseVariableAffinity { get; set; } = true;
         public bool UseUnifiedAffinity { get; set; } = false;
+
+        public int BootstrapIterations { get; set; } = 100;
 
         public virtual int GetVariableCount
         {
@@ -300,6 +357,8 @@ namespace AnalysisITC
             //=> 3 + Models.Count * 2;
         }
 
+        #region Initial Values
+
         public double[] InitialGibbs { get; set; }
         public double[] InitialOffsets { get; set; }
         public double[] InitialNs { get; set; }
@@ -308,7 +367,7 @@ namespace AnalysisITC
         IEnumerable<double> GuessOffsets() => InitialOffsets ?? Models.Select(m => m.GuessOffset);
         IEnumerable<double> GuessGibbs() => InitialGibbs ?? Models.Select(m => m.GuessGibbs);
 
-        internal double GuessHeatCapacity
+        double GuessHeatCapacity
         {
             get
             {
@@ -321,7 +380,7 @@ namespace AnalysisITC
             }
         }
 
-        internal double GuessReferenceEnthalpy
+        double GuessReferenceEnthalpy
         {
             get
             {
@@ -336,7 +395,7 @@ namespace AnalysisITC
             }
         }
 
-        internal virtual double[] GetStartValues()
+        double[] GetStartValues()
         {
             var H0 = GuessReferenceEnthalpy;
             var Cp = GuessHeatCapacity;
@@ -356,7 +415,7 @@ namespace AnalysisITC
             return w.ToArray();
         }
 
-        internal virtual double[] StepSizes
+        double[] StepSizes
         {
             get
             {
@@ -377,19 +436,19 @@ namespace AnalysisITC
             }
         }
 
-        internal virtual double[] LowerBounds
+        double[] LowerBounds
         {
             get
             {
                 var bounds = new List<double>()
                 {
-                    new Energy(-100000, EnergyUnit.Joule),
+                    -100000,
                 };
 
-                if (UseVariableEnthalpy) bounds.Add(new Energy(-10000, EnergyUnit.Joule));
+                if (UseVariableEnthalpy) bounds.Add(-10000);
 
-                if (UseVariableAffinity || !UseUnifiedAffinity) { for (int i = 0; i < Models.Count; i++) bounds.Add(new Energy(-50000, EnergyUnit.Joule)); }
-                else bounds.Add(new Energy(-50000, EnergyUnit.Joule));
+                if (UseVariableAffinity || !UseUnifiedAffinity) { for (int i = 0; i < Models.Count; i++) bounds.Add(-50000); }
+                else bounds.Add(-50000);
 
                 bounds.AddRange(new double[Models.Count].Add(-20000));
                 bounds.AddRange(new double[Models.Count].Add(0.1));
@@ -398,19 +457,19 @@ namespace AnalysisITC
             }
         }
 
-        internal virtual double[] UpperBounds
+        double[] UpperBounds
         {
             get
             {
                 var bounds = new List<double>()
                 {
-                    new Energy(100000, EnergyUnit.Joule),
+                    100000,
                 };
 
-                if (UseVariableEnthalpy) bounds.Add(new Energy(10000, EnergyUnit.Joule));
+                if (UseVariableEnthalpy) bounds.Add(10000);
 
-                if (UseVariableAffinity || !UseUnifiedAffinity) { for (int i = 0; i < Models.Count; i++) bounds.Add(new Energy(-5000, EnergyUnit.Joule)); }
-                else bounds.Add(new Energy(-5000, EnergyUnit.Joule));
+                if (UseVariableAffinity || !UseUnifiedAffinity) { for (int i = 0; i < Models.Count; i++) bounds.Add(-5000); }
+                else bounds.Add(-5000);
 
                 bounds.AddRange(new double[Models.Count].Add(20000));
                 bounds.AddRange(new double[Models.Count].Add(10));
@@ -418,6 +477,8 @@ namespace AnalysisITC
                 return bounds.ToArray();
             }
         }
+
+        #endregion
 
         public GlobalModel()
         {
@@ -436,7 +497,7 @@ namespace AnalysisITC
             }
         }
 
-        public SolverConvergence SolvewithNelderMeadAlgorithm()
+        public SolverConvergence SolveWithNelderMeadAlgorithm()
         {
             var f = new NonlinearObjectiveFunction(GetVariableCount, (w) => LossFunction(w));
             var solver = new NelderMead(f);
@@ -456,9 +517,51 @@ namespace AnalysisITC
 
             solver.Minimize(GetStartValues());
 
-            GlobalSolution.FromAccordNelderMead(solver.Solution, this);
+            Solution = GlobalSolution.FromAccordNelderMead(solver.Solution, this);
 
             return new SolverConvergence(solver);
+        }
+
+        public void Bootstrap()
+        {
+            var solutions = new List<GlobalSolution>();
+
+            for (int i = 0; i < BootstrapIterations; i++)
+            {
+                var models = new List<Model>();
+
+                foreach (var m in Models) models.Add(m.GenerateSyntheticModel());
+
+                var gm = new GlobalModel();
+                gm.UseVariableAffinity = this.UseVariableAffinity;
+                gm.UseUnifiedAffinity = this.UseUnifiedAffinity;
+                gm.UseVariableEnthalpy = this.UseVariableEnthalpy;
+
+                gm.Models.AddRange(models);
+
+                gm.SolveWithNelderMeadAlgorithm();
+
+                solutions.Add(gm.Solution);
+            }
+
+            Solution.EnthalpyRef = new Energy(new FloatWithError(solutions.Select(s => s.EnthalpyRef.Value.Value)));
+
+            foreach (var model in Models)
+            {
+                var sols = solutions.SelectMany(gs => gs.Solutions.Where(s => s.Data.FileName == model.Data.FileName)).ToList();
+
+                model.Solution.BootstrapSolutions = sols;
+                model.Solution.ComputeErrorsFromBootstrapSolutions();
+
+                //var dHs = sols.Select(s => s.Enthalpy);
+                //var dH = dHs.Average(o => o.Value.Value);
+                //var minH = dHs.Min(o => o.Value.Value);
+                //var maxH = dHs.Max(o => o.Value.Value);
+
+                //Console.WriteLine(model.Data.MeasuredTemperature.ToString() + ": " + dH.ToString() + " " + minH.ToString() + " " + maxH.ToString());
+            }
+
+
         }
 
         internal virtual double LossFunction(double[] w)
@@ -505,178 +608,15 @@ namespace AnalysisITC
 
             return glob_loss;
         }
-
-        double GlobalLossObsolete(double[] n, double H0, double Cp, double G, double[] offset)
-        {
-            double glob_loss = 0;
-
-            Energy dG = new Energy(G);
-            Energy dH0 = new Energy(H0);
-            Energy dCp = new Energy(Cp);
-
-            for (int i = 0; i < Models.Count; i++)
-            {
-                //Calculate T specific parameters
-                var m = Models[i];
-                var T = m.Data.MeasuredTemperature + 273.15;
-                var dt = T - 298.15;
-                var H = dH0 + dCp * dt;
-                var K = Math.Exp(-1 * dG / (Energy.R * T));
-
-                glob_loss += m.RMSD(n[i], H, K, offset[i]);
-            }
-
-            return glob_loss;
-        }
-
-        double GlobalLossObsolete(double[] n, double H0, double Cp, double[] Gs, double[] offset)
-        {
-            double glob_loss = 0;
-
-            Energy dH0 = new Energy(H0);
-            Energy dCp = new Energy(Cp);
-
-            for (int i = 0; i < Models.Count; i++)
-            {
-                //Calculate T specific parameters
-                var m = Models[i];
-                var T = m.Data.MeasuredTemperature + 273.15;
-                var dt = T - 298.15;
-                var H = dH0 + dCp * dt;
-
-                var dG = new Energy(Gs[i]);
-                var K = Math.Exp(-1 * dG / (Energy.R * T));
-
-                glob_loss += m.RMSD(n[i], H, K, offset[i]);
-            }
-
-            return glob_loss;
-        }
     }
-
-    //public class GlobalModelFreeGibbs : GlobalModel
-    //{
-    //    public double[] InitialGibbs { get; set; }
-
-    //    public override int GetVariableCount => 2 + Models.Count * 3;
-
-    //    private double[] GetInitialGibbs() => InitialGibbs ?? new double[Models.Count].Add(GuessGibbs());
-
-    //    internal override double[] GetStartValues()
-    //    {
-    //        var H0 = GuessReferenceEnthalpy;
-    //        var Cp = GuessHeatCapacity;
-
-    //        var gs = GetInitialGibbs();
-    //        var ns = GuessNs();
-    //        var offsets = GuessOffsets();
-
-    //        var w = new List<double>() { H0, Cp };
-    //        w.AddRange(gs);
-    //        w.AddRange(offsets);
-    //        w.AddRange(ns);
-
-    //        return w.ToArray();
-    //    }
-    //    internal override double[] StepSizes
-    //    {
-    //        get
-    //        {
-    //            var stepsizes = new List<double>()
-    //        {
-    //            Hstep,
-    //            Cstep,
-    //        };
-
-    //            for (int i = 0; i < Models.Count; i++) stepsizes.Add(Gstep);
-    //            for (int i = 0; i < Models.Count; i++) stepsizes.Add(Ostep);
-    //            for (int i = 0; i < Models.Count; i++) stepsizes.Add(Nstep);
-
-
-    //            return stepsizes.ToArray();
-    //        }
-    //    }
-
-    //    internal override double[] LowerBounds
-    //    {
-    //        get
-    //        {
-    //            var bounds = new List<double>()
-    //            {
-    //                new Energy(-100000, EnergyUnit.Joule),
-    //                new Energy(-10000, EnergyUnit.Joule),
-    //            };
-
-    //            bounds.AddRange(new double[Models.Count].Add(new Energy(-50000, EnergyUnit.Joule)));
-    //            bounds.AddRange(new double[Models.Count].Add(-20000));
-    //            bounds.AddRange(new double[Models.Count].Add(0.1));
-
-    //            return bounds.ToArray();
-    //        }
-    //    }
-
-    //    internal override double[] UpperBounds
-    //    {
-    //        get
-    //        {
-    //            var bounds = new List<double>()
-    //            {
-    //                new Energy(100000, EnergyUnit.Joule),
-    //                new Energy(10000, EnergyUnit.Joule),
-    //            };
-
-    //            bounds.AddRange(new double[Models.Count].Add(new Energy(-5000, EnergyUnit.Joule)));
-    //            bounds.AddRange(new double[Models.Count].Add(20000));
-    //            bounds.AddRange(new double[Models.Count].Add(10));
-
-    //            return bounds.ToArray();
-    //        }
-    //    }
-
-    //    internal override double LossFunction(double[] w)
-    //    {
-    //        //extracts parameters
-    //        double H0 = w[0];
-    //        double Cp = w[1];
-    //        double[] Gs = w.Skip(2).Take(Models.Count).ToArray();
-    //        double[] offsets = w.Skip(2 + Models.Count).Take(Models.Count).ToArray();
-    //        double[] ns = w.Skip(Models.Count + Models.Count + 2).Take(Models.Count).ToArray();
-
-    //        return GlobalLoss(ns, H0, Cp, Gs, offsets);
-    //    }
-
-    //    double GlobalLoss(double[] n, double H0, double Cp, double[] Gs, double[] offset)
-    //    {
-    //        double glob_loss = 0;
-
-    //        Energy dH0 = new Energy(H0);
-    //        Energy dCp = new Energy(Cp);
-
-    //        for (int i = 0; i < Models.Count; i++)
-    //        {
-    //            //Calculate T specific parameters
-    //            var m = Models[i];
-    //            var T = m.Data.MeasuredTemperature + 273.15;
-    //            var dt = T - 298.15;
-    //            var H = dH0 + dCp * dt;
-
-    //            var dG = new Energy(Gs[i]);
-    //            var K = Math.Exp(-1 * dG / (Energy.R * T));
-
-    //            glob_loss += m.RMSD(n[i], H, K, offset[i]);
-    //        }
-
-    //        return glob_loss;
-    //    }
-    //}
 
     public class Solution
     {
         static Energy R => Energy.R;
 
         public Model Model;
-
         public ExperimentData Data => Model.Data;
+        public bool IsValid { get; set; } = true;
 
         public Energy Enthalpy { get; private set; }
         public FloatWithError K { get; private set; }
@@ -687,11 +627,13 @@ namespace AnalysisITC
         double TK => T + 273.15;
 
         public FloatWithError Kd => new FloatWithError(1) / K;
-        public Energy GibbsFreeEnergy => -1 * R * TK * Math.Log(K);
+        public Energy GibbsFreeEnergy => new(-1.0 * R.Value * TK * FWEMath.Log(K));
         public Energy TdS => GibbsFreeEnergy - Enthalpy;
         public Energy Entropy => TdS / TK;
 
         public double Loss { get; private set; }
+
+        public List<Solution> BootstrapSolutions;
 
         public Solution()
         {
@@ -721,9 +663,54 @@ namespace AnalysisITC
             };
         }
 
+        public void ComputeErrorsFromBootstrapSolutions()
+        {
+            var enthalpies = BootstrapSolutions.Select(s => s.Enthalpy.Value.Value);
+            Enthalpy = new Energy(new FloatWithError(enthalpies, Enthalpy));
+
+            var k = BootstrapSolutions.Select(s => s.K.Value);
+            K = new FloatWithError(k, K);
+
+            var n = BootstrapSolutions.Select(s => s.N.Value);
+            N = new FloatWithError(n, N);
+
+            var offsets = BootstrapSolutions.Select(s => (double)s.Offset);
+            Offset = Energy.FromDistribution(offsets, Offset);
+
+            Data.UpdateSolution(null);
+        }
+
         public double Evaluate(int i, bool withoffset = true)
         {
             return Model.Evaluate(i, N, Enthalpy, K, withoffset ? Offset : 0) / Data.Injections[i].InjectionMass;
+        }
+
+        public FloatWithError EvaluateBootstrap(int i)
+        {
+            var results = new List<double>();
+
+            foreach (var sol in BootstrapSolutions)
+            {
+                results.Add(sol.Evaluate(i, true));
+            }
+
+            return new FloatWithError(results, Evaluate(i, true)) - Offset.Value;
+        }
+
+        public static Tuple<double, double> EvaluateBootstrap(int i, bool withoffset, List<Solution> solutions)
+        {
+            double min = double.MaxValue;
+            double max = double.MinValue;
+
+            foreach (var sol in solutions)
+            {
+                var result = sol.Evaluate(i, withoffset);
+
+                if (result > max) max = result;
+                if (result < min) min = result;
+            }
+
+            return new Tuple<double, double>(min, max);
         }
 
         public void PrintFit()
@@ -744,9 +731,9 @@ namespace AnalysisITC
     {
         public double Loss { get; private set; } = 0;
 
-        public Energy HeatCapacity { get; private set; }
-        public Energy EnthalpyRef { get; private set; } //Enthalpy at 298.15 °C
-        public Energy FreeEnergy { get; private set; }
+        public Energy HeatCapacity { get; set; }
+        public Energy EnthalpyRef { get; set; } //Enthalpy at 298.15 °C
+        public Energy FreeEnergy { get; set; }
 
         /// <summary>
         /// Parameters of the individual experiments derived from the global solution
