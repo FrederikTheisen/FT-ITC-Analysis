@@ -2,7 +2,6 @@
 
 using System;
 using System.Linq;
-
 using Foundation;
 using AppKit;
 using CoreGraphics;
@@ -176,7 +175,7 @@ namespace AnalysisITC
 
             var b = Graph.IsCursorOnFeature(CursorPositionInView);
 
-            if (b) NSCursor.PointingHandCursor.Set();
+            if (b.IsMouseOverFeature) NSCursor.PointingHandCursor.Set();
             else NSCursor.ArrowCursor.Set();
         }
     }
