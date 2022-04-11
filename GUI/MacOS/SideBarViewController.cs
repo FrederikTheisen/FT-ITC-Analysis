@@ -10,6 +10,9 @@ namespace AnalysisITC
     public partial class SideBarViewController : NSViewController
     {
         private ExperimentData SelectedData() => DataManager.Current;
+        public static NSImage DataNotProcessedImage { get; private set; } = null;
+        public static NSImage DataDisabledImage { get; private set; } = null;
+        public static NSImage DataEnabledImage { get; private set; } = null;
 
         #region Constructors
 
@@ -48,9 +51,11 @@ namespace AnalysisITC
         {
             base.ViewDidLoad();
 
-            
-
             TableView.ColumnAutoresizingStyle = NSTableViewColumnAutoresizingStyle.FirstColumnOnly;
+
+            DataNotProcessedImage = NSPlayImage.Image;
+            DataEnabledImage = NSPlayFillImage.Image;
+            DataDisabledImage = NSPlaySlashedFIllImage.Image;
         }
 
         private void OnDataManagerUpdated(object sender, ExperimentData data)
@@ -60,7 +65,6 @@ namespace AnalysisITC
             var del = new ExperimentDataDelegate(DataManager.DataSource);
             del.ExperimentDataViewClicked += OnDataViewClicked;
             del.RemoveRow += OnRowRemoveEvent;
-
 
             TableView.Delegate = del;
         }
