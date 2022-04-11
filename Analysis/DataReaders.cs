@@ -69,8 +69,8 @@ namespace DataReaders
             DataFixProtocol fixable = DataFixProtocol.None;
 
             if (data.DataPoints.Count < 10) errormsg = "Data contains very few data points";
-            //else if (DataManager.Data.Exists(dat => dat.FileName == data.FileName)) errormsg = "Experiment with same file name already exists";
-            else if (DataManager.Data.Exists(dat => dat.MeasuredTemperature == data.MeasuredTemperature)) errormsg = "Experiment appears identical to: " + DataManager.Data.Find(dat => dat.MeasuredTemperature == data.MeasuredTemperature).FileName;
+            else if (DataManager.Data.Exists(dat => dat.FileName == data.FileName)) { errormsg = "Experiment with same file name already exists"; fixable = DataFixProtocol.FileExists; }
+            else if (DataManager.Data.Exists(dat => dat.MeasuredTemperature == data.MeasuredTemperature)) { errormsg = "Experiment appears identical to: " + DataManager.Data.Find(dat => dat.MeasuredTemperature == data.MeasuredTemperature).FileName; }
             else if (data.InjectionCount == 0) errormsg = "Data contains no injections";
             else if (data.Injections.Any(inj => inj.Time < 0)) { errormsg = "Data contains injections with no connected data. Attempt to fix problematic injections?"; fixable = DataFixProtocol.InvalidInjection; }
             else if (data.Injections.All(inj => !data.DataPoints.Any(dp => dp.Time > inj.Time + 10))) { errormsg = "Data contains injections outside the recorded data range. Attempt to fix problematic injections?"; fixable = DataFixProtocol.InvalidInjection; }
@@ -83,7 +83,7 @@ namespace DataReaders
                 InformativeText = errormsg,
             })
                 {
-                    alert.AddButton("Remove");
+                    alert.AddButton("Discard");
                     alert.AddButton("Keep");
                     if (fixable != DataFixProtocol.None) alert.AddButton("Attempt Fix");
                     var response = alert.RunModal();
@@ -102,13 +102,19 @@ namespace DataReaders
         enum DataFixProtocol
         {
             None,
+            FileExists,
             InvalidInjection,
             Concentrations,
         }
 
         static ExperimentData AttemptDataFix(ExperimentData data, DataFixProtocol fix)
         {
-
+            switch (fix)
+            {
+                case DataFixProtocol.FileExists: data.IterateFileName(); break;
+                case DataFixProtocol.InvalidInjection: break;
+                case DataFixProtocol.Concentrations: break;
+            }
 
             return data;
         }
@@ -194,8 +200,8 @@ namespace DataReaders
 
         static void ProcessInjections(ExperimentData experiment)
         {
-            var deltaVolume = 0.0f;
-            var totalmass = 0.0f;
+            var deltaVolume = 0.0;
+            var totalmass = 0.0;
 
             foreach (var inj in experiment.Injections)
             {
