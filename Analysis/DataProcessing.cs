@@ -14,6 +14,7 @@ namespace AnalysisITC
     public class DataProcessor
     {
         public static event EventHandler BaselineInterpolationCompleted;
+        public event EventHandler ProcessingCompleted;
 
         internal ExperimentData Data { get; set; }
 
@@ -89,6 +90,8 @@ namespace AnalysisITC
 
                 BaselineInterpolationCompleted?.Invoke(this, null);
 
+                IntegratePeaks();
+
                 StatusBarManager.StopInderminateProgress();
             }
             catch (Exception ex)
@@ -124,6 +127,8 @@ namespace AnalysisITC
             {
                 inj.Integrate();
             }
+
+            Data.UpdateProcessing();
         }
     }
 
@@ -200,23 +205,21 @@ namespace AnalysisITC
             return interpolator;
         }
 
-        public List<SplinePoint> GetInitialPoints(int pointperinjection = 1, float fraction = 0.8f)
+        public List<SplinePoint> GetInitialPoints(int pointperinjection = 1, double fraction = 0.8f)
         {
             var points = new List<SplinePoint>();
-
-            int handles = 2 + pointperinjection * Data.InjectionCount;
-
-            float maxInjVol = Data.Injections.Max(inj => inj.Volume);
+            var handles = 2 + pointperinjection * Data.InjectionCount;
+            var maxInjVol = Data.Injections.Max(inj => inj.Volume);
 
             //First points
-            float segmmentL = (Data.InitialDelay - 5) / 4;
+            var segmmentL = (Data.InitialDelay - 5) / 4;
             points.Add(new SplinePoint(segmmentL, GetDataRangeMean(0, 2 * segmmentL), DataPoint.Slope(Data.DataPoints.Where(dp => dp.Time > 0 && dp.Time < 2 * segmmentL).ToList())));
 
             points.Add(new SplinePoint(3 * segmmentL, GetDataRangeMean(2 * segmmentL, 4 * segmmentL), DataPoint.Slope(Data.DataPoints.Where(dp => dp.Time > 2 * segmmentL && dp.Time < 4 * segmmentL).ToList())));
 
             foreach (var inj in Data.Injections)
             {
-                var _frac = 1 - (1 - fraction) / (float)Math.Sqrt(maxInjVol / inj.Volume);
+                var _frac = 1 - (1 - fraction) / Math.Sqrt(maxInjVol / inj.Volume);
 
                 var start = inj.Time + inj.Delay * (1 - _frac);
                 var length = (inj.Delay * _frac - 5) / pointperinjection;
