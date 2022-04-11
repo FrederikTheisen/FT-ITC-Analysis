@@ -18,9 +18,9 @@ namespace AnalysisITC
         {
             StatusBarManager.StopInderminateProgress();
             StatusBarManager.ClearAppStatus();
-            StatusBarManager.SetStatus(e.Iterations + " iterations, RMSD = " + e.Loss.ToString("##0.00"), 15000);
-            StatusBarManager.SetStatus(e.Message + " | " + e.Time.TotalMilliseconds + "ms", 9000);
-            StatusBarManager.SetStatus("Completed", 2500);
+            StatusBarManager.SetStatus(e.Iterations + " iterations, RMSD = " + e.Loss.ToString("##0.00"), 11000);
+            StatusBarManager.SetStatus(e.Message + " | " + e.Time.TotalMilliseconds + "ms", 6000);
+            StatusBarManager.SetStatus("Completed", 1500);
 
             GraphView.Invalidate();
         }
@@ -52,9 +52,9 @@ namespace AnalysisITC
 
         partial void FeatureDrawControlClicked(NSSegmentedControl sender)
         {
-            DataFittingGraph.DrawPeakInfo = sender.IsSelectedForSegment(0);
-            DataFittingGraph.DrawFitParameters = sender.IsSelectedForSegment(1);
-            DataFittingGraph.UnifiedAxes = sender.IsSelectedForSegment(2);
+            DataFittingGraph.ShowPeakInfo = sender.IsSelectedForSegment(0);
+            DataFittingGraph.ShowFitParameters = sender.IsSelectedForSegment(1);
+            DataFittingGraph.UseUnifiedAxes = sender.IsSelectedForSegment(2);
 
             GraphView.Invalidate();
         }
