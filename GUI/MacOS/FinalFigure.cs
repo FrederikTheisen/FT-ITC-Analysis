@@ -10,21 +10,36 @@ namespace AnalysisITC
         DataFittingGraph IntegrationGraph;
 
         public CGSize PlotDimensions { get; set; } = new CGSize(6, 10);
-        CGEdgeMargin Margin = new CGEdgeMargin(1.5f * CGGraph.PPcm, 0.1f * CGGraph.PPcm, .8f * CGGraph.PPcm, .85f * CGGraph.PPcm);
+        CGEdgeMargin Margin
+        {
+            get
+            {
+                var max_margin_left = (float)Math.Max(DataGraph.YAxis.EstimateLabelMargin(), IntegrationGraph.YAxis.EstimateLabelMargin());
+
+                return new CGEdgeMargin(max_margin_left, 0.1f * CGGraph.PPcm, (float)DataGraph.XAxis.EstimateLabelMargin(), (float)IntegrationGraph.XAxis.EstimateLabelMargin());
+            }
+        }
         CGRect PlotBox => new CGRect(IntegrationGraph.Origin, PlotDimensions.ScaleBy(CGGraph.PPcm));
+        CGPoint UnadjustedGraphOrigin => new CGPoint(DataGraph.Center.X - DataGraph.PlotSize.Width * 0.5f, DataGraph.Center.Y - DataGraph.PlotSize.Height * 0.5f);
 
         public FinalFigure(ExperimentData experiment, NSView view)
         {
-            DataGraph = new DataGraph(experiment, view);
-            DataGraph.DrawOnWhite = true;
-            DataGraph.ShowBaselineCorrected = true;
+            DataGraph = new DataGraph(experiment, view)
+            {
+                DrawOnWhite = true,
+                ShowBaselineCorrected = true
+            };
             DataGraph.XAxis.Buffer = .1f;
             DataGraph.YAxis.Buffer = .05f;
             DataGraph.YAxis.MirrorTicks = true;
             DataGraph.XAxis.ValueFactor = 1.0 / 60;
 
-            IntegrationGraph = new DataFittingGraph(experiment, view);
-            IntegrationGraph.DrawOnWhite = true;
+            IntegrationGraph = new DataFittingGraph(experiment, view)
+            {
+                DrawOnWhite = true,
+                ShowGrid = false,
+                HideBadDataErrorBars = true,
+            };
             IntegrationGraph.YAxis.MirrorTicks = true;
             IntegrationGraph.XAxis.MirrorTicks = true;
         }
@@ -33,11 +48,15 @@ namespace AnalysisITC
         {
             var halfheight = height / 2;
 
-            DataGraph.SetupFrame((float)width, (float)halfheight);
+            //DataGraph.AutoSetFrame((float)width, (float)halfheight);
+            DataGraph.PlotSize = new CGSize(width * CGGraph.PPcm, halfheight * CGGraph.PPcm);
+            DataGraph.Origin = new CGPoint(DataGraph.Center.X - DataGraph.PlotSize.Width * 0.5f, DataGraph.Center.Y - DataGraph.PlotSize.Height * 0.5f);
             DataGraph.Origin.Y += DataGraph.Frame.Height / 2;
             DataGraph.XAxis.Position = AxisPosition.Top;
 
-            IntegrationGraph.SetupFrame((float)width, (float)halfheight);
+            //IntegrationGraph.AutoSetFrame((float)width, (float)halfheight);
+            IntegrationGraph.PlotSize = new CGSize(width * CGGraph.PPcm, halfheight * CGGraph.PPcm);
+            IntegrationGraph.Origin = new CGPoint(IntegrationGraph.Center.X - IntegrationGraph.PlotSize.Width * 0.5f, DataGraph.Center.Y - DataGraph.PlotSize.Height * 0.5f);
             IntegrationGraph.Origin.Y -= IntegrationGraph.Frame.Height / 2;
         }
 
@@ -50,11 +69,6 @@ namespace AnalysisITC
 
             gc.SetFillColor(NSColor.White.CGColor);
             gc.FillRect(PlotBox.WithMargin(Margin));
-                //new CGRect
-                //    (
-                //    CGPoint.Subtract(IntegrationGraph.Origin, new CGSize(1.5 * CGGraph.PPcm, .8 * CGGraph.PPcm)),
-                //    new CGSize(DataGraph.PlotPixelWidth + 2 * CGGraph.PPcm, 2 * DataGraph.PlotPixelHeight + 1.6 * CGGraph.PPcm))
-                //    );
 
             DataGraph.SetupAxisScalingUnits();
             IntegrationGraph.SetupAxisScalingUnits();
