@@ -10,22 +10,25 @@ namespace AnalysisITC
     {
         public static EnergyUnit Unit => DataManager.Unit;
 
-        public string FileName { get; private set; } = "";
+        public event EventHandler ProcessingUpdated;
+        public event EventHandler SolutionChanged;
+
+        public string FileName { get; protected set; } = "";
         public DateTime Date { get; internal set; }
 
         public List<DataPoint> DataPoints = new List<DataPoint>();
         public List<DataPoint> BaseLineCorrectedDataPoints;
         public List<InjectionData> Injections = new List<InjectionData>();
 
-        public float SyringeConcentration;
-        public float CellConcentration;
-        public float CellVolume;
-        public float StirringSpeed;
+        public double SyringeConcentration;
+        public double CellConcentration;
+        public double CellVolume;
+        public double StirringSpeed;
 
-        public float TargetTemperature;
-        public float InitialDelay;
-        public float TargetPowerDiff;
-        public float MeasuredTemperature { get; internal set; }
+        public double TargetTemperature;
+        public double InitialDelay;
+        public double TargetPowerDiff;
+        public double MeasuredTemperature { get; internal set; }
         public int InjectionCount => Injections.Count;
         public PeakHeatDirection AverageHeatDirection { get; set; } = PeakHeatDirection.Unknown;
         public bool UseIntegrationFactorLength { get; set; } = false;
@@ -40,6 +43,20 @@ namespace AnalysisITC
             FileName = file;
 
             Processor = new DataProcessor(this);
+        }
+
+        public void IterateFileName()
+        {
+            var parts = FileName.Split('.');
+
+            int v = 2;
+
+            if (int.TryParse(parts.First().Last().ToString(), out v))
+            {
+                v++;
+            }
+
+            FileName = parts.First() + "_" + v.ToString() + string.Join("", parts.Skip(1));
         }
 
         public void AddInjection(string dataline)
@@ -80,6 +97,68 @@ namespace AnalysisITC
         {
             Processor = processor;
         }
+
+        public List<InjectionData> GetResiduals()
+        {
+            var rand = Analysis.Random;
+
+            var syntheticdata = new List<InjectionData>();
+
+            var residuals = new List<double>();
+
+            foreach (var inj in Injections.Where(inj => inj.Include))
+            {
+                var fit = Solution.Evaluate(inj.ID, withoffset: true);
+                residuals.Add(inj.Enthalpy - fit);
+            }
+
+            foreach (var inj in Injections)
+            {
+                var res = residuals[rand.Next(residuals.Count)];
+                var fit = Solution.Evaluate(inj.ID, withoffset: true);
+                var resarea = res * inj.InjectionMass;
+                var fitarea = fit * inj.InjectionMass;
+
+                var syn_inj = new InjectionData(inj.ID, inj.Volume, inj.InjectionMass, inj.Include)
+                {
+                    Temperature = inj.Temperature,
+                    ActualCellConcentration = inj.ActualCellConcentration,
+                    ActualTitrantConcentration = inj.ActualTitrantConcentration,
+                    Ratio = inj.Ratio
+                };
+                syn_inj.SetPeakArea(new FloatWithError(fitarea + resarea, inj.SD));
+
+                syntheticdata.Add(syn_inj);
+            }
+
+            return syntheticdata;
+        }
+
+        public ExperimentData GetSynthClone()
+        {
+            var syninj = GetResiduals();
+
+            var syndat = new ExperimentData(FileName)
+            {
+                Injections = syninj,
+                CellVolume = CellVolume,
+                MeasuredTemperature = MeasuredTemperature,
+            };
+
+            return syndat;
+        }
+
+        public void UpdateProcessing()
+        {
+            ProcessingUpdated?.Invoke(Processor, null);
+        }
+
+        public void UpdateSolution(Solution solution = null)
+        {
+            if (solution != null) Solution = solution;
+
+            SolutionChanged?.Invoke(this, null);
+        }
     }
 
     public class InjectionData
@@ -90,16 +169,16 @@ namespace AnalysisITC
         float time = -1; 
 
         public float Time { get => time; set { time = value; SetIntegrationTimes(); } }
-        public float Volume { get; private set; }
+        public double Volume { get; private set; }
         public float Duration { get; private set; }
         public float Delay { get; private set; }
         public float Filter { get; private set; }
-        public float Temperature { get; internal set; }
-        public float InjectionMass { get; internal set; }
+        public double Temperature { get; set; }
+        public double InjectionMass { get; set; }
       
-        public float ActualCellConcentration { get; internal set; }
-        public float ActualTitrantConcentration { get; internal set; }
-        public float Ratio { get; internal set; }
+        public double ActualCellConcentration { get; set; }
+        public double ActualTitrantConcentration { get; set; }
+        public double Ratio { get; set; }
 
         public bool Include { get; internal set; } = true;
         public float IntegrationStartDelay { get; private set; } = 0;
@@ -109,7 +188,7 @@ namespace AnalysisITC
 
         public PeakHeatDirection HeatDirection { get; set; } = PeakHeatDirection.Unknown;
 
-        public Energy PeakArea { get; private set; } = new();
+        public FloatWithError PeakArea { get; private set; } = new();
         public double Enthalpy => PeakArea / InjectionMass;
         public double SD => PeakArea.SD;
 
@@ -123,6 +202,14 @@ namespace AnalysisITC
         }
 
         public bool IsIntegrated { get; private set; }
+
+        public InjectionData(int id, double volume, double mass, bool include)
+        {
+            ID = id;
+            Volume = volume;
+            InjectionMass = mass;
+            Include = include;
+        }
 
         public InjectionData(ExperimentData experiment, string line, int id)
         {
@@ -184,9 +271,19 @@ namespace AnalysisITC
 
             var sd = EstimateError();
 
+            var prevarea = 0.0;
+            if (ID > 0) prevarea = Experiment.Injections[ID - 1].PeakArea.Value;
+
+            sd = (sd - Math.Abs(area) - Math.Abs(prevarea)) / 2;
+
             var peakarea = new FloatWithError(area, sd);
 
-            PeakArea = new(peakarea);
+            SetPeakArea(peakarea);
+        }
+
+        public void SetPeakArea(FloatWithError area)
+        {
+            PeakArea = area;
 
             IsIntegrated = true;
         }
@@ -195,21 +292,23 @@ namespace AnalysisITC
         {
             float seg1_s;
             float seg1_e = Time;
-            if (ID == 0) seg1_s = Experiment.DataPoints.First().Time; 
-            else seg1_s = Experiment.Injections[ID - 1].IntegrationEndTime;
+            if (ID == 0) seg1_s = 0;
+            else seg1_s = Experiment.Injections[ID - 1].Time;
 
-            var baselinedata = Experiment.BaseLineCorrectedDataPoints.Where(dp => (dp.Time >= seg1_s && dp.Time <= seg1_e) || (dp.Time > IntegrationEndTime && dp.Time < Time + Delay));
+            //var baselinedata = Experiment.BaseLineCorrectedDataPoints.Where(dp => (dp.Time >= seg1_s && dp.Time <= seg1_e) || (dp.Time > IntegrationEndTime && dp.Time < Time + Delay));
+
+            var baselinedata = Experiment.BaseLineCorrectedDataPoints.Where(dp => dp.Time > seg1_s && dp.Time < Time + Delay);
 
             double sum_of_squares = 0;
 
             foreach (var dp in baselinedata)
             {
                 var p = dp.Power;
-
-                sum_of_squares += p * p;
+                
+                sum_of_squares += Math.Abs(p);
             }
 
-            return Math.Sqrt(sum_of_squares);
+            return sum_of_squares;
         }
     }
 
