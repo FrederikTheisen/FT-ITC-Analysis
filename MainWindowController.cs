@@ -56,7 +56,7 @@ namespace AnalysisITC
         {
             if (e.HideProgressWheel)
             {
-                await Task.Delay(200);
+                await Task.Delay(100);
 
                 if (!e.HideProgressWheel) return;
 
@@ -112,11 +112,11 @@ namespace AnalysisITC
 
             switch (e)
             {
-                case ProgramState.Load: Window.Toolbar.InsertItem("LoadControl", 5); break;
-                case ProgramState.Process: Window.Toolbar.InsertItem("ProcessingControl", 5); break;
+                case ProgramState.Load: Window.Toolbar.InsertItem("LoadControl", Window.Toolbar.Items.Length - 1); break;
+                case ProgramState.Process: Window.Toolbar.InsertItem("ProcessingControl", Window.Toolbar.Items.Length - 1); break;
                 case ProgramState.Analyze:
                     DataManager.IntegratePeaks(); //TODO move to separate function and only allow change to analysis mode if all are integrated;
-                    Window.Toolbar.InsertItem("AnalysisControl", 5); break;
+                    Window.Toolbar.InsertItem("AnalysisControl", Window.Toolbar.Items.Length - 1); break;
                 case ProgramState.Publish:
                     break;
             }

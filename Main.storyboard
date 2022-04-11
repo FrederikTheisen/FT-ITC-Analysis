@@ -1,13 +1,55 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<document type="com.apple.InterfaceBuilder3.Cocoa.Storyboard.XIB" version="3.0" toolsVersion="19529" targetRuntime="MacOSX.Cocoa" propertyAccessControl="none" useAutolayout="YES" initialViewController="PgZ-Wd-eSc">
+<document type="com.apple.InterfaceBuilder3.Cocoa.Storyboard.XIB" version="3.0" toolsVersion="20037" targetRuntime="MacOSX.Cocoa" propertyAccessControl="none" useAutolayout="YES" initialViewController="PgZ-Wd-eSc">
     <dependencies>
         <deployment identifier="macosx"/>
-        <plugIn identifier="com.apple.InterfaceBuilder.CocoaPlugin" version="19529"/>
+        <plugIn identifier="com.apple.InterfaceBuilder.CocoaPlugin" version="20037"/>
         <capability name="Image references" minToolsVersion="12.0"/>
         <capability name="NSView safe area layout guides" minToolsVersion="12.0"/>
         <capability name="documents saved in the Xcode 8 format" minToolsVersion="8.0"/>
     </dependencies>
     <scenes>
+        <!--Window Controller-->
+        <scene sceneID="aEW-Jn-LF1">
+            <objects>
+                <windowController id="DxP-em-tm4" sceneMemberID="viewController">
+                    <window key="window" title="Window" separatorStyle="line" allowsToolTipsWhenApplicationIsInactive="NO" autorecalculatesKeyViewLoop="NO" releasedWhenClosed="NO" visibleAtLaunch="NO" frameAutosaveName="" animationBehavior="default" toolbarStyle="unified" titleVisibility="hidden" id="9YS-eq-ttH">
+                        <windowStyleMask key="styleMask" titled="YES" closable="YES" miniaturizable="YES" resizable="YES"/>
+                        <windowPositionMask key="initialPositionMask" leftStrut="YES" rightStrut="YES" topStrut="YES" bottomStrut="YES"/>
+                        <rect key="contentRect" x="245" y="301" width="480" height="270"/>
+                        <rect key="screenRect" x="0.0" y="0.0" width="1680" height="1025"/>
+                        <view key="contentView" id="dez-qE-cWu">
+                            <rect key="frame" x="0.0" y="0.0" width="480" height="270"/>
+                            <autoresizingMask key="autoresizingMask"/>
+                        </view>
+                        <toolbar key="toolbar" implicitIdentifier="D25B1D05-7916-497D-8202-81FF4327D79A" autosavesConfiguration="NO" allowsUserCustomization="NO" displayMode="iconOnly" sizeMode="small" id="yP7-3e-FoA">
+                            <allowedToolbarItems/>
+                            <defaultToolbarItems/>
+                        </toolbar>
+                        <connections>
+                            <outlet property="delegate" destination="DxP-em-tm4" id="Zm2-a1-ROZ"/>
+                        </connections>
+                    </window>
+                    <connections>
+                        <segue destination="73P-08-h8K" kind="relationship" relationship="window.shadowedContentViewController" id="3wZ-RQ-sfg"/>
+                    </connections>
+                </windowController>
+                <customObject id="gN8-bY-Yg3" userLabel="First Responder" customClass="NSResponder" sceneMemberID="firstResponder"/>
+            </objects>
+            <point key="canvasLocation" x="379" y="-1268"/>
+        </scene>
+        <!--View Controller-->
+        <scene sceneID="oRI-9x-QAm">
+            <objects>
+                <viewController id="73P-08-h8K" sceneMemberID="viewController">
+                    <view key="view" id="0zE-lx-A87">
+                        <rect key="frame" x="0.0" y="0.0" width="480" height="270"/>
+                        <autoresizingMask key="autoresizingMask"/>
+                    </view>
+                </viewController>
+                <customObject id="Z1s-HK-Bgw" userLabel="First Responder" customClass="NSResponder" sceneMemberID="firstResponder"/>
+            </objects>
+            <point key="canvasLocation" x="1086" y="-1299"/>
+        </scene>
         <!--Application-->
         <scene sceneID="JPo-4y-FX3">
             <objects>
@@ -697,27 +739,27 @@
                             <rect key="frame" x="0.0" y="0.0" width="1013" height="579"/>
                             <autoresizingMask key="autoresizingMask"/>
                         </view>
-                        <toolbar key="toolbar" implicitIdentifier="09D11707-F4A3-4FD5-970E-AC5832E91C2B" centeredItem="QRd-F2-tjm" autosavesConfiguration="NO" allowsUserCustomization="NO" displayMode="iconOnly" sizeMode="small" id="Xpb-nL-IRP">
+                        <toolbar key="toolbar" implicitIdentifier="09D11707-F4A3-4FD5-970E-AC5832E91C2B" autosavesConfiguration="NO" allowsUserCustomization="NO" displayMode="iconOnly" sizeMode="small" id="Xpb-nL-IRP">
                             <allowedToolbarItems>
-                                <toolbarItem implicitItemIdentifier="8AF935DB-A067-4F0F-B12D-F99BA2CF9142" label="Custom View" paletteLabel="Custom View" sizingBehavior="auto" id="ESL-kQ-vNo">
+                                <toolbarItem implicitItemIdentifier="46C16E08-27D6-4DC6-97FC-75D0A46CBA5B" label="Custom View" paletteLabel="Custom View" sizingBehavior="auto" id="ESL-kQ-vNo">
                                     <nil key="toolTip"/>
                                     <segmentedControl key="view" verticalHuggingPriority="750" id="AdS-18-Bnl">
-                                        <rect key="frame" x="0.0" y="14" width="105" height="23"/>
+                                        <rect key="frame" x="0.0" y="14" width="118" height="23"/>
                                         <autoresizingMask key="autoresizingMask"/>
                                         <segmentedCell key="cell" borderStyle="border" alignment="left" style="texturedSquare" trackingMode="selectOne" id="ceI-7A-1SK">
                                             <font key="font" metaFont="system"/>
                                             <segments>
                                                 <segment selected="YES">
-                                                    <imageReference key="image" image="folder" catalog="system" symbolScale="small"/>
+                                                    <imageReference key="image" image="folder" catalog="system" symbolScale="default"/>
                                                 </segment>
                                                 <segment enabled="NO" tag="1">
-                                                    <imageReference key="image" image="gearshape.2" catalog="system" symbolScale="small"/>
+                                                    <imageReference key="image" image="gearshape.2" catalog="system" symbolScale="default"/>
                                                 </segment>
                                                 <segment enabled="NO">
-                                                    <imageReference key="image" image="chart.xyaxis.line" catalog="system" symbolScale="small"/>
+                                                    <imageReference key="image" image="chart.xyaxis.line" catalog="system" symbolScale="default"/>
                                                 </segment>
                                                 <segment enabled="NO">
-                                                    <imageReference key="image" image="printer.dotmatrix" catalog="system" symbolScale="small"/>
+                                                    <imageReference key="image" image="printer.dotmatrix" catalog="system" symbolScale="default"/>
                                                 </segment>
                                             </segments>
                                         </segmentedCell>
@@ -726,65 +768,7 @@
                                         </connections>
                                     </segmentedControl>
                                 </toolbarItem>
-                                <toolbarItem implicitItemIdentifier="2BF9FCB3-91E1-4815-B811-EFA8FF35DD27" explicitItemIdentifier="LoadControl" label="Custom View" paletteLabel="LoadControl" sizingBehavior="auto" id="tcS-W3-WGf">
-                                    <nil key="toolTip"/>
-                                    <segmentedControl key="view" verticalHuggingPriority="750" id="6j6-4L-w7q">
-                                        <rect key="frame" x="0.0" y="14" width="78" height="23"/>
-                                        <autoresizingMask key="autoresizingMask"/>
-                                        <segmentedCell key="cell" borderStyle="border" alignment="left" style="texturedSquare" trackingMode="momentary" id="I0V-yu-EcM">
-                                            <font key="font" metaFont="system"/>
-                                            <segments>
-                                                <segment image="plus" catalog="system"/>
-                                                <segment image="trash" catalog="system" enabled="NO" tag="1"/>
-                                                <segment image="arrow.right" catalog="system" enabled="NO"/>
-                                            </segments>
-                                        </segmentedCell>
-                                        <connections>
-                                            <action selector="DataLoadSegControlClick:" target="PgZ-Wd-eSc" id="wRh-Gp-Oeb"/>
-                                        </connections>
-                                    </segmentedControl>
-                                </toolbarItem>
-                                <toolbarItem implicitItemIdentifier="98C90550-9C5F-4F69-8266-660E8CCFAAAA" explicitItemIdentifier="ProcessingControl" label="Processing" paletteLabel="ProcessingControl" sizingBehavior="auto" id="555-iq-WBk">
-                                    <nil key="toolTip"/>
-                                    <segmentedControl key="view" verticalHuggingPriority="750" id="pJE-sQ-Xh5">
-                                        <rect key="frame" x="12" y="14" width="81" height="23"/>
-                                        <autoresizingMask key="autoresizingMask"/>
-                                        <segmentedCell key="cell" borderStyle="border" alignment="left" style="texturedSquare" trackingMode="momentary" id="wl8-Ey-Evr">
-                                            <font key="font" metaFont="system"/>
-                                            <segments>
-                                                <segment image="arrow.left" catalog="system"/>
-                                                <segment image="sparkles.rectangle.stack" catalog="system" enabled="NO" tag="1"/>
-                                                <segment image="arrow.right" catalog="system" enabled="NO"/>
-                                            </segments>
-                                        </segmentedCell>
-                                        <connections>
-                                            <action selector="ProcessSegControlClick:" target="PgZ-Wd-eSc" id="s6q-WW-AIN"/>
-                                        </connections>
-                                    </segmentedControl>
-                                </toolbarItem>
-                                <toolbarItem implicitItemIdentifier="D1C61348-70A6-4092-AAAB-41EBF6C32812" explicitItemIdentifier="AnalysisControl" label="Analysis" paletteLabel="AnalysisControl" sizingBehavior="auto" id="gfU-uW-Ffr">
-                                    <nil key="toolTip"/>
-                                    <segmentedControl key="view" verticalHuggingPriority="750" id="cLN-ZE-fda">
-                                        <rect key="frame" x="0.0" y="14" width="106" height="23"/>
-                                        <autoresizingMask key="autoresizingMask"/>
-                                        <segmentedCell key="cell" borderStyle="border" alignment="left" style="texturedSquare" trackingMode="momentary" id="3iU-ru-TVd">
-                                            <font key="font" metaFont="system"/>
-                                            <segments>
-                                                <segment image="arrow.left" catalog="system"/>
-                                                <segment image="sparkles" catalog="system" enabled="NO" tag="1"/>
-                                                <segment image="sparkles.rectangle.stack" catalog="system" enabled="NO"/>
-                                                <segment image="checkmark" catalog="system">
-                                                    <nil key="label"/>
-                                                </segment>
-                                            </segments>
-                                        </segmentedCell>
-                                        <connections>
-                                            <action selector="AnalysisSegControlClicked:" target="PgZ-Wd-eSc" id="AKG-SO-iFt"/>
-                                        </connections>
-                                    </segmentedControl>
-                                </toolbarItem>
-                                <toolbarItem implicitItemIdentifier="NSToolbarFlexibleSpaceItem" id="0UK-N1-JYA"/>
-                                <toolbarItem implicitItemIdentifier="54A28129-0721-4D09-A81B-787B20CAEB37" label="Custom View" paletteLabel="Custom View" tag="-1" title="Box" id="QRd-F2-tjm">
+                                <toolbarItem implicitItemIdentifier="24E721A4-1395-4CA9-9E9C-449E89AB5BD3" label="Custom View" paletteLabel="Custom View" tag="-1" title="Box" id="QRd-F2-tjm">
                                     <nil key="toolTip"/>
                                     <size key="minSize" width="250" height="30"/>
                                     <size key="maxSize" width="350" height="30"/>
@@ -817,36 +801,10 @@
                                         <size key="contentViewMargins" width="7" height="0.0"/>
                                     </box>
                                 </toolbarItem>
-                                <toolbarItem implicitItemIdentifier="139B770B-7C39-4B33-9C4C-6B4A010F10E2" label="Custom View" paletteLabel="Custom View" sizingBehavior="auto" id="3jD-Q5-AJV">
-                                    <nil key="toolTip"/>
-                                    <levelIndicator key="view" verticalHuggingPriority="750" id="HLp-3X-ojd">
-                                        <rect key="frame" x="0.0" y="14" width="96" height="18"/>
-                                        <autoresizingMask key="autoresizingMask"/>
-                                        <levelIndicatorCell key="cell" alignment="left" doubleValue="5.5" maxValue="6" warningValue="2" criticalValue="1" levelIndicatorStyle="continuousCapacity" id="eoo-33-GcV"/>
-                                    </levelIndicator>
-                                </toolbarItem>
-                                <toolbarItem implicitItemIdentifier="0D2BEDE5-7D78-4C9B-8B01-590A22B4FBA6" label="Custom View" paletteLabel="Custom View" image="rays" catalog="system" sizingBehavior="auto" id="Wkr-kh-BkZ">
-                                    <nil key="toolTip"/>
-                                    <button key="view" verticalHuggingPriority="750" id="GpY-la-ERc">
-                                        <rect key="frame" x="24" y="14" width="28" height="23"/>
-                                        <autoresizingMask key="autoresizingMask"/>
-                                        <buttonCell key="cell" type="roundTextured" bezelStyle="texturedRounded" image="rays" catalog="system" imagePosition="only" alignment="center" controlSize="large" lineBreakMode="truncatingTail" borderStyle="border" imageScaling="proportionallyDown" inset="2" id="mqH-ip-JvD">
-                                            <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
-                                            <font key="font" metaFont="system"/>
-                                        </buttonCell>
-                                        <connections>
-                                            <action selector="ContextButtonClick:" target="PgZ-Wd-eSc" id="73O-tR-lr2"/>
-                                        </connections>
-                                    </button>
-                                </toolbarItem>
+                                <toolbarItem implicitItemIdentifier="NSToolbarFlexibleSpaceItem" id="0UK-N1-JYA"/>
                             </allowedToolbarItems>
                             <defaultToolbarItems>
-                                <toolbarItem reference="ESL-kQ-vNo"/>
-                                <toolbarItem reference="0UK-N1-JYA"/>
-                                <toolbarItem reference="Wkr-kh-BkZ"/>
                                 <toolbarItem reference="QRd-F2-tjm"/>
-                                <toolbarItem reference="0UK-N1-JYA"/>
-                                <toolbarItem reference="tcS-W3-WGf"/>
                             </defaultToolbarItems>
                         </toolbar>
                         <connections>
@@ -865,6 +823,103 @@
                     </connections>
                 </windowController>
                 <customObject id="cHg-Wc-fz6" userLabel="First Responder" customClass="NSResponder" sceneMemberID="firstResponder"/>
+                <toolbarItem implicitItemIdentifier="DAAAEF8E-1915-4BBE-A245-5AD59B871C54" label="Custom View" paletteLabel="Custom View" sizingBehavior="auto" navigational="YES" id="RsP-QX-JVG">
+                    <nil key="toolTip"/>
+                    <segmentedControl key="view" verticalHuggingPriority="750" id="zPV-Aj-qG5">
+                        <rect key="frame" x="0.0" y="14" width="141" height="23"/>
+                        <autoresizingMask key="autoresizingMask"/>
+                        <segmentedCell key="cell" borderStyle="border" alignment="left" style="texturedSquare" trackingMode="selectOne" id="Um2-Pe-cHk">
+                            <font key="font" metaFont="system"/>
+                            <segments>
+                                <segment width="32" selected="YES">
+                                    <imageReference key="image" image="folder" catalog="system" symbolScale="medium"/>
+                                </segment>
+                                <segment width="32" tag="1">
+                                    <imageReference key="image" image="gearshape.2" catalog="system" symbolScale="medium"/>
+                                </segment>
+                                <segment width="32">
+                                    <nil key="label"/>
+                                    <imageReference key="image" image="chart.xyaxis.line" catalog="system" symbolScale="medium"/>
+                                </segment>
+                                <segment>
+                                    <nil key="label"/>
+                                    <imageReference key="image" image="printer" catalog="system" symbolScale="medium"/>
+                                </segment>
+                            </segments>
+                        </segmentedCell>
+                    </segmentedControl>
+                </toolbarItem>
+                <toolbarItem implicitItemIdentifier="C39E422B-C47A-4641-BF47-15CB31A9F498" label="Custom View" paletteLabel="Custom View" image="rays" catalog="system" bordered="YES" sizingBehavior="auto" id="Wkr-kh-BkZ">
+                    <nil key="toolTip"/>
+                    <button key="view" verticalHuggingPriority="750" id="GpY-la-ERc">
+                        <rect key="frame" x="24" y="14" width="28" height="23"/>
+                        <autoresizingMask key="autoresizingMask"/>
+                        <buttonCell key="cell" type="roundTextured" bezelStyle="texturedRounded" image="rays" catalog="system" imagePosition="only" alignment="center" controlSize="large" lineBreakMode="truncatingTail" borderStyle="border" imageScaling="proportionallyDown" inset="2" id="mqH-ip-JvD">
+                            <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
+                            <font key="font" metaFont="system"/>
+                        </buttonCell>
+                        <connections>
+                            <action selector="ContextButtonClick:" target="PgZ-Wd-eSc" id="73O-tR-lr2"/>
+                        </connections>
+                    </button>
+                </toolbarItem>
+                <toolbarItem implicitItemIdentifier="2BF9FCB3-91E1-4815-B811-EFA8FF35DD27" explicitItemIdentifier="LoadControl" label="Custom View" paletteLabel="LoadControl" sizingBehavior="auto" id="tcS-W3-WGf">
+                    <nil key="toolTip"/>
+                    <segmentedControl key="view" verticalHuggingPriority="750" id="6j6-4L-w7q">
+                        <rect key="frame" x="0.0" y="14" width="78" height="23"/>
+                        <autoresizingMask key="autoresizingMask"/>
+                        <segmentedCell key="cell" borderStyle="border" alignment="left" style="texturedSquare" trackingMode="momentary" id="I0V-yu-EcM">
+                            <font key="font" metaFont="system"/>
+                            <segments>
+                                <segment image="plus" catalog="system"/>
+                                <segment image="trash" catalog="system" enabled="NO" tag="1"/>
+                                <segment image="arrow.right" catalog="system" enabled="NO"/>
+                            </segments>
+                        </segmentedCell>
+                        <connections>
+                            <action selector="DataLoadSegControlClick:" target="PgZ-Wd-eSc" id="wRh-Gp-Oeb"/>
+                        </connections>
+                    </segmentedControl>
+                </toolbarItem>
+                <toolbarItem implicitItemIdentifier="98C90550-9C5F-4F69-8266-660E8CCFAAAA" explicitItemIdentifier="ProcessingControl" label="Processing" paletteLabel="ProcessingControl" sizingBehavior="auto" id="555-iq-WBk">
+                    <nil key="toolTip"/>
+                    <segmentedControl key="view" verticalHuggingPriority="750" id="pJE-sQ-Xh5">
+                        <rect key="frame" x="12" y="14" width="81" height="23"/>
+                        <autoresizingMask key="autoresizingMask"/>
+                        <segmentedCell key="cell" borderStyle="border" alignment="left" style="texturedSquare" trackingMode="momentary" id="wl8-Ey-Evr">
+                            <font key="font" metaFont="system"/>
+                            <segments>
+                                <segment image="arrow.left" catalog="system"/>
+                                <segment image="sparkles.rectangle.stack" catalog="system" enabled="NO" tag="1"/>
+                                <segment image="arrow.right" catalog="system" enabled="NO"/>
+                            </segments>
+                        </segmentedCell>
+                        <connections>
+                            <action selector="ProcessSegControlClick:" target="PgZ-Wd-eSc" id="s6q-WW-AIN"/>
+                        </connections>
+                    </segmentedControl>
+                </toolbarItem>
+                <toolbarItem implicitItemIdentifier="D1C61348-70A6-4092-AAAB-41EBF6C32812" explicitItemIdentifier="AnalysisControl" label="Analysis" paletteLabel="AnalysisControl" sizingBehavior="auto" id="gfU-uW-Ffr">
+                    <nil key="toolTip"/>
+                    <segmentedControl key="view" verticalHuggingPriority="750" id="cLN-ZE-fda">
+                        <rect key="frame" x="0.0" y="14" width="106" height="23"/>
+                        <autoresizingMask key="autoresizingMask"/>
+                        <segmentedCell key="cell" borderStyle="border" alignment="left" style="texturedSquare" trackingMode="momentary" id="3iU-ru-TVd">
+                            <font key="font" metaFont="system"/>
+                            <segments>
+                                <segment image="arrow.left" catalog="system"/>
+                                <segment image="sparkles" catalog="system" enabled="NO" tag="1"/>
+                                <segment image="sparkles.rectangle.stack" catalog="system" enabled="NO"/>
+                                <segment image="checkmark" catalog="system">
+                                    <nil key="label"/>
+                                </segment>
+                            </segments>
+                        </segmentedCell>
+                        <connections>
+                            <action selector="AnalysisSegControlClicked:" target="PgZ-Wd-eSc" id="AKG-SO-iFt"/>
+                        </connections>
+                    </segmentedControl>
+                </toolbarItem>
             </objects>
             <point key="canvasLocation" x="402.5" y="-77.5"/>
         </scene>
@@ -904,7 +959,7 @@
                                     <rect key="frame" x="0.0" y="0.0" width="239" height="480"/>
                                     <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
                                     <subviews>
-                                        <tableView verticalHuggingPriority="750" allowsExpansionToolTips="YES" columnAutoresizingStyle="lastColumnOnly" tableStyle="sourceList" selectionHighlightStyle="sourceList" columnReordering="NO" columnResizing="NO" multipleSelection="NO" emptySelection="NO" autosaveColumns="NO" typeSelect="NO" rowHeight="16" viewBased="YES" id="1e8-LR-CGk">
+                                        <tableView verticalHuggingPriority="750" allowsExpansionToolTips="YES" columnAutoresizingStyle="lastColumnOnly" tableStyle="sourceList" selectionHighlightStyle="sourceList" columnReordering="NO" columnResizing="NO" multipleSelection="NO" emptySelection="NO" autosaveColumns="NO" typeSelect="NO" rowHeight="16" usesAutomaticRowHeights="YES" viewBased="YES" id="1e8-LR-CGk">
                                             <rect key="frame" x="0.0" y="0.0" width="239" height="480"/>
                                             <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
                                             <size key="intercellSpacing" width="0.0" height="10"/>
@@ -924,60 +979,188 @@
                                                     </textFieldCell>
                                                     <tableColumnResizingMask key="resizingMask" resizeWithTable="YES" userResizable="YES"/>
                                                     <prototypeCellViews>
-                                                        <customView identifier="ExperimentDataViewCell" focusRingType="none" id="9gn-L9-3zZ" customClass="ExperimentDataViewCell">
-                                                            <rect key="frame" x="10" y="5" width="219" height="60"/>
-                                                            <autoresizingMask key="autoresizingMask" widthSizable="YES" flexibleMinY="YES" flexibleMaxY="YES"/>
+                                                        <customView identifier="ExperimentDataViewCell" focusRingType="none" translatesAutoresizingMaskIntoConstraints="NO" id="9gn-L9-3zZ" customClass="ExperimentDataViewCell">
+                                                            <rect key="frame" x="10" y="5" width="219" height="44"/>
                                                             <subviews>
-                                                                <textField horizontalHuggingPriority="251" verticalHuggingPriority="750" fixedFrame="YES" translatesAutoresizingMaskIntoConstraints="NO" id="zXp-R8-aAv">
-                                                                    <rect key="frame" x="-2" y="43" width="203" height="16"/>
-                                                                    <autoresizingMask key="autoresizingMask" widthSizable="YES" flexibleMinY="YES"/>
-                                                                    <textFieldCell key="cell" lineBreakMode="truncatingTail" placeholderString="FIle Name" id="PZb-lJ-yMn">
-                                                                        <font key="font" metaFont="system"/>
-                                                                        <color key="textColor" name="labelColor" catalog="System" colorSpace="catalog"/>
-                                                                        <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
-                                                                    </textFieldCell>
-                                                                </textField>
-                                                                <textField horizontalHuggingPriority="251" verticalHuggingPriority="750" fixedFrame="YES" translatesAutoresizingMaskIntoConstraints="NO" id="i46-cv-jZT">
-                                                                    <rect key="frame" x="-2" y="24" width="203" height="16"/>
-                                                                    <autoresizingMask key="autoresizingMask" widthSizable="YES" flexibleMinY="YES"/>
-                                                                    <textFieldCell key="cell" lineBreakMode="clipping" placeholderString="Date" id="FQn-o1-jNw">
-                                                                        <font key="font" metaFont="system"/>
-                                                                        <color key="textColor" name="labelColor" catalog="System" colorSpace="catalog"/>
-                                                                        <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
-                                                                    </textFieldCell>
-                                                                </textField>
-                                                                <textField horizontalHuggingPriority="251" verticalHuggingPriority="750" fixedFrame="YES" translatesAutoresizingMaskIntoConstraints="NO" id="jPO-5y-6l9">
-                                                                    <rect key="frame" x="-2" y="5" width="203" height="16"/>
-                                                                    <autoresizingMask key="autoresizingMask" widthSizable="YES" flexibleMinY="YES"/>
-                                                                    <textFieldCell key="cell" lineBreakMode="clipping" placeholderString="Details" id="eU9-wF-q5F">
-                                                                        <font key="font" metaFont="system"/>
-                                                                        <color key="textColor" name="labelColor" catalog="System" colorSpace="catalog"/>
-                                                                        <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
-                                                                    </textFieldCell>
-                                                                </textField>
-                                                                <button verticalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="sfE-fD-cUO">
-                                                                    <rect key="frame" x="194" y="-3" width="25.5" height="68"/>
-                                                                    <constraints>
-                                                                        <constraint firstAttribute="width" constant="25" id="134-Sf-aQT"/>
-                                                                    </constraints>
-                                                                    <buttonCell key="cell" type="bevel" bezelStyle="rounded" image="NSTouchBarDeleteTemplate" imagePosition="only" alignment="center" inset="2" id="FZS-KW-jVt">
-                                                                        <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
-                                                                        <font key="font" metaFont="system"/>
-                                                                    </buttonCell>
-                                                                    <connections>
-                                                                        <action selector="RemoveClick:" target="9gn-L9-3zZ" id="Y95-Dg-UVR"/>
-                                                                    </connections>
-                                                                </button>
+                                                                <stackView distribution="fill" orientation="horizontal" alignment="top" spacing="0.0" horizontalStackHuggingPriority="249.99998474121094" verticalStackHuggingPriority="750" verticalHuggingPriority="750" verticalCompressionResistancePriority="1000" detachesHiddenViews="YES" translatesAutoresizingMaskIntoConstraints="NO" id="KjC-0X-pTD">
+                                                                    <rect key="frame" x="0.0" y="0.0" width="219" height="44"/>
+                                                                    <subviews>
+                                                                        <stackView distribution="fill" orientation="vertical" alignment="leading" spacing="2" horizontalStackHuggingPriority="750" verticalStackHuggingPriority="750" horizontalCompressionResistancePriority="1000" verticalCompressionResistancePriority="1000" detachesHiddenViews="YES" translatesAutoresizingMaskIntoConstraints="NO" id="fCk-Bt-hpU">
+                                                                            <rect key="frame" x="0.0" y="0.0" width="18" height="44"/>
+                                                                            <subviews>
+                                                                                <button toolTip="Enable/disable gobal fit inclusion" translatesAutoresizingMaskIntoConstraints="NO" id="KKb-CB-tR9">
+                                                                                    <rect key="frame" x="0.0" y="26.5" width="18.25" height="19"/>
+                                                                                    <constraints>
+                                                                                        <constraint firstAttribute="height" constant="15" id="go8-IT-nMo"/>
+                                                                                    </constraints>
+                                                                                    <buttonCell key="cell" type="bevel" bezelStyle="regularSquare" image="play.slash.fill" catalog="system" imagePosition="only" alignment="center" alternateImage="play.fill" controlSize="small" state="on" inset="2" id="Pv0-xI-xBO">
+                                                                                        <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
+                                                                                        <font key="font" metaFont="smallSystem"/>
+                                                                                    </buttonCell>
+                                                                                    <connections>
+                                                                                        <action selector="ToggleDataGlobalInclude:" target="9gn-L9-3zZ" id="Jcb-Ji-FI9"/>
+                                                                                    </connections>
+                                                                                </button>
+                                                                                <button toolTip="Show fit results" verticalHuggingPriority="249" translatesAutoresizingMaskIntoConstraints="NO" id="8Vi-Xb-zqj" customClass="NSMarginButton">
+                                                                                    <rect key="frame" x="0.0" y="0.0" width="18" height="26"/>
+                                                                                    <buttonCell key="cell" type="inline" bezelStyle="inline" imagePosition="below" alignment="center" controlSize="mini" enabled="NO" borderStyle="border" imageScaling="proportionallyUpOrDown" inset="2" id="maP-W4-YJZ">
+                                                                                        <behavior key="behavior" pushIn="YES" changeContents="YES" lightByContents="YES"/>
+                                                                                        <font key="font" metaFont="smallSystemBold"/>
+                                                                                        <imageReference key="image" image="chevron.down" catalog="system" symbolScale="small"/>
+                                                                                        <imageReference key="alternateImage" image="chevron.up" catalog="system" symbolScale="small"/>
+                                                                                    </buttonCell>
+                                                                                    <connections>
+                                                                                        <action selector="ShowFitDataButtonClick:" target="9gn-L9-3zZ" id="URf-eD-wbd"/>
+                                                                                    </connections>
+                                                                                </button>
+                                                                            </subviews>
+                                                                            <edgeInsets key="edgeInsets" left="0.0" right="0.0" top="1" bottom="0.0"/>
+                                                                            <constraints>
+                                                                                <constraint firstAttribute="bottom" secondItem="8Vi-Xb-zqj" secondAttribute="bottom" id="PAY-Rw-nLt"/>
+                                                                            </constraints>
+                                                                            <visibilityPriorities>
+                                                                                <integer value="1000"/>
+                                                                                <integer value="1000"/>
+                                                                            </visibilityPriorities>
+                                                                            <customSpacing>
+                                                                                <real value="3.4028234663852886e+38"/>
+                                                                                <real value="3.4028234663852886e+38"/>
+                                                                            </customSpacing>
+                                                                        </stackView>
+                                                                        <stackView distribution="fill" orientation="vertical" alignment="leading" spacing="0.0" horizontalStackHuggingPriority="249.99998474121094" verticalStackHuggingPriority="750" horizontalClippingResistancePriority="250" horizontalCompressionResistancePriority="250" verticalCompressionResistancePriority="1000" detachesHiddenViews="YES" translatesAutoresizingMaskIntoConstraints="NO" id="Ahv-xl-ucN">
+                                                                            <rect key="frame" x="18" y="0.0" width="186" height="44"/>
+                                                                            <subviews>
+                                                                                <textField horizontalHuggingPriority="249" verticalHuggingPriority="750" horizontalCompressionResistancePriority="250" verticalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="zXp-R8-aAv">
+                                                                                    <rect key="frame" x="2" y="28" width="186" height="16"/>
+                                                                                    <textFieldCell key="cell" lineBreakMode="truncatingTail" alignment="left" placeholderString="FIle Name" id="PZb-lJ-yMn">
+                                                                                        <font key="font" metaFont="systemMedium" size="13"/>
+                                                                                        <color key="textColor" name="labelColor" catalog="System" colorSpace="catalog"/>
+                                                                                        <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
+                                                                                    </textFieldCell>
+                                                                                </textField>
+                                                                                <textField horizontalHuggingPriority="249" verticalHuggingPriority="750" verticalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="i46-cv-jZT">
+                                                                                    <rect key="frame" x="2" y="14" width="186" height="14"/>
+                                                                                    <textFieldCell key="cell" lineBreakMode="clipping" alignment="left" placeholderString="Date" id="FQn-o1-jNw">
+                                                                                        <font key="font" metaFont="smallSystem"/>
+                                                                                        <color key="textColor" name="labelColor" catalog="System" colorSpace="catalog"/>
+                                                                                        <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
+                                                                                    </textFieldCell>
+                                                                                </textField>
+                                                                                <textField horizontalHuggingPriority="249" verticalHuggingPriority="750" verticalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="jPO-5y-6l9">
+                                                                                    <rect key="frame" x="2" y="0.0" width="186" height="14"/>
+                                                                                    <textFieldCell key="cell" lineBreakMode="clipping" alignment="left" placeholderString="Details" id="eU9-wF-q5F">
+                                                                                        <font key="font" metaFont="smallSystem"/>
+                                                                                        <color key="textColor" name="labelColor" catalog="System" colorSpace="catalog"/>
+                                                                                        <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
+                                                                                    </textFieldCell>
+                                                                                </textField>
+                                                                                <textField hidden="YES" horizontalHuggingPriority="249" verticalHuggingPriority="750" verticalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="9WY-cJ-2Wi">
+                                                                                    <rect key="frame" x="-2" y="30" width="64" height="14"/>
+                                                                                    <textFieldCell key="cell" lineBreakMode="clipping" alignment="left" placeholderString="Model|Loss" id="Z5k-Fr-5nh">
+                                                                                        <font key="font" metaFont="smallSystem"/>
+                                                                                        <color key="textColor" name="labelColor" catalog="System" colorSpace="catalog"/>
+                                                                                        <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
+                                                                                    </textFieldCell>
+                                                                                </textField>
+                                                                                <textField hidden="YES" horizontalHuggingPriority="249" verticalHuggingPriority="750" verticalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="OxH-zB-JFo">
+                                                                                    <rect key="frame" x="-2" y="30" width="85" height="14"/>
+                                                                                    <textFieldCell key="cell" lineBreakMode="clipping" alignment="left" placeholderString="N = 0.87 ± 0.02" id="lTK-pM-9Wi">
+                                                                                        <font key="font" metaFont="smallSystem"/>
+                                                                                        <color key="textColor" name="labelColor" catalog="System" colorSpace="catalog"/>
+                                                                                        <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
+                                                                                    </textFieldCell>
+                                                                                </textField>
+                                                                                <textField hidden="YES" horizontalHuggingPriority="249" verticalHuggingPriority="750" verticalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="8ya-75-wsf">
+                                                                                    <rect key="frame" x="-2" y="30" width="97" height="14"/>
+                                                                                    <textFieldCell key="cell" lineBreakMode="clipping" alignment="left" placeholderString="Kd = 123 ± 30 nM" id="6CA-PU-bV1">
+                                                                                        <font key="font" metaFont="smallSystem"/>
+                                                                                        <color key="textColor" name="labelColor" catalog="System" colorSpace="catalog"/>
+                                                                                        <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
+                                                                                    </textFieldCell>
+                                                                                </textField>
+                                                                                <textField hidden="YES" horizontalHuggingPriority="249" verticalHuggingPriority="750" verticalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="G8u-MP-Oyt">
+                                                                                    <rect key="frame" x="-2" y="30" width="129" height="14"/>
+                                                                                    <textFieldCell key="cell" lineBreakMode="clipping" alignment="left" placeholderString="∆H = -55.3 ± 2.5 kJ/mol" id="724-wg-MFn">
+                                                                                        <font key="font" metaFont="smallSystem"/>
+                                                                                        <color key="textColor" name="labelColor" catalog="System" colorSpace="catalog"/>
+                                                                                        <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
+                                                                                    </textFieldCell>
+                                                                                </textField>
+                                                                                <textField hidden="YES" horizontalHuggingPriority="249" verticalHuggingPriority="750" verticalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="xyg-Jr-Z82">
+                                                                                    <rect key="frame" x="-2" y="30" width="143" height="14"/>
+                                                                                    <textFieldCell key="cell" lineBreakMode="clipping" alignment="left" placeholderString="-T∆S = 20.3 ± 1.5 kJ/mol K" id="oCx-yd-wi0">
+                                                                                        <font key="font" metaFont="smallSystem"/>
+                                                                                        <color key="textColor" name="labelColor" catalog="System" colorSpace="catalog"/>
+                                                                                        <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
+                                                                                    </textFieldCell>
+                                                                                </textField>
+                                                                            </subviews>
+                                                                            <edgeInsets key="edgeInsets" left="4" right="0.0" top="0.0" bottom="0.0"/>
+                                                                            <visibilityPriorities>
+                                                                                <integer value="1000"/>
+                                                                                <integer value="1000"/>
+                                                                                <integer value="1000"/>
+                                                                                <integer value="1000"/>
+                                                                                <integer value="1000"/>
+                                                                                <integer value="1000"/>
+                                                                                <integer value="1000"/>
+                                                                                <integer value="1000"/>
+                                                                            </visibilityPriorities>
+                                                                            <customSpacing>
+                                                                                <real value="3.4028234663852886e+38"/>
+                                                                                <real value="3.4028234663852886e+38"/>
+                                                                                <real value="3.4028234663852886e+38"/>
+                                                                                <real value="3.4028234663852886e+38"/>
+                                                                                <real value="3.4028234663852886e+38"/>
+                                                                                <real value="3.4028234663852886e+38"/>
+                                                                                <real value="3.4028234663852886e+38"/>
+                                                                                <real value="3.4028234663852886e+38"/>
+                                                                            </customSpacing>
+                                                                        </stackView>
+                                                                        <button verticalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="sfE-fD-cUO">
+                                                                            <rect key="frame" x="204" y="27.5" width="15.5" height="19"/>
+                                                                            <constraints>
+                                                                                <constraint firstAttribute="width" constant="15" id="Xje-02-UGR"/>
+                                                                                <constraint firstAttribute="height" constant="15" id="qvA-zh-155"/>
+                                                                            </constraints>
+                                                                            <buttonCell key="cell" type="bevel" bezelStyle="rounded" image="NSStopProgressTemplate" imagePosition="only" alignment="center" inset="2" id="FZS-KW-jVt">
+                                                                                <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
+                                                                                <font key="font" metaFont="system"/>
+                                                                            </buttonCell>
+                                                                            <connections>
+                                                                                <action selector="RemoveClick:" target="9gn-L9-3zZ" id="Y95-Dg-UVR"/>
+                                                                            </connections>
+                                                                        </button>
+                                                                    </subviews>
+                                                                    <visibilityPriorities>
+                                                                        <integer value="1000"/>
+                                                                        <integer value="1000"/>
+                                                                        <integer value="1000"/>
+                                                                    </visibilityPriorities>
+                                                                    <customSpacing>
+                                                                        <real value="3.4028234663852886e+38"/>
+                                                                        <real value="3.4028234663852886e+38"/>
+                                                                        <real value="3.4028234663852886e+38"/>
+                                                                    </customSpacing>
+                                                                </stackView>
                                                             </subviews>
                                                             <constraints>
-                                                                <constraint firstItem="sfE-fD-cUO" firstAttribute="top" secondItem="9gn-L9-3zZ" secondAttribute="top" id="BHD-B8-rig"/>
-                                                                <constraint firstAttribute="bottom" secondItem="sfE-fD-cUO" secondAttribute="bottom" id="vVU-Xj-tmk"/>
-                                                                <constraint firstAttribute="trailing" secondItem="sfE-fD-cUO" secondAttribute="trailing" id="yJp-Hx-p4Z"/>
+                                                                <constraint firstItem="KjC-0X-pTD" firstAttribute="leading" secondItem="9gn-L9-3zZ" secondAttribute="leading" id="NaU-ub-xaD"/>
+                                                                <constraint firstItem="KjC-0X-pTD" firstAttribute="top" secondItem="9gn-L9-3zZ" secondAttribute="top" id="mjO-TJ-Z4D"/>
+                                                                <constraint firstAttribute="bottom" secondItem="KjC-0X-pTD" secondAttribute="bottom" priority="750" id="ppQ-LG-VWn"/>
+                                                                <constraint firstAttribute="trailing" secondItem="KjC-0X-pTD" secondAttribute="trailing" id="wni-dz-CYX"/>
                                                             </constraints>
                                                             <connections>
+                                                                <outlet property="AffinityLine" destination="8ya-75-wsf" id="oVk-cK-jso"/>
+                                                                <outlet property="EnthalpyLine" destination="G8u-MP-Oyt" id="OkF-bM-tnP"/>
+                                                                <outlet property="EntropyLine" destination="xyg-Jr-Z82" id="e89-Vx-gS8"/>
                                                                 <outlet property="ExpNameLabel" destination="zXp-R8-aAv" id="BeY-sE-evR"/>
+                                                                <outlet property="IncludeDataButton" destination="KKb-CB-tR9" id="N3j-gp-yb5"/>
                                                                 <outlet property="Line2" destination="i46-cv-jZT" id="ZN0-uP-vaE"/>
                                                                 <outlet property="Line3" destination="jPO-5y-6l9" id="MEA-uZ-Oph"/>
+                                                                <outlet property="ModelFitLine" destination="9WY-cJ-2Wi" id="Yf9-oe-EYG"/>
+                                                                <outlet property="NvalueLine" destination="OxH-zB-JFo" id="5vQ-yB-hO1"/>
+                                                                <outlet property="ShowFitDataButton" destination="8Vi-Xb-zqj" id="eAd-xD-hTz"/>
                                                             </connections>
                                                         </customView>
                                                     </prototypeCellViews>
@@ -1002,12 +1185,18 @@
                         <viewLayoutGuide key="layoutMargins" id="41t-GL-YDr"/>
                     </view>
                     <connections>
+                        <outlet property="NSPlayFillImage" destination="8FA-fV-PhM" id="mAX-fe-dcT"/>
+                        <outlet property="NSPlayImage" destination="qRg-Ci-cXy" id="qd5-w2-mQE"/>
+                        <outlet property="NSPlaySlashedFIllImage" destination="KOD-dU-kNm" id="eGc-BV-nIF"/>
                         <outlet property="TableView" destination="1e8-LR-CGk" id="1bf-UG-Ndx"/>
                     </connections>
                 </viewController>
                 <customObject id="Z6a-j3-fRI" userLabel="First Responder" customClass="NSResponder" sceneMemberID="firstResponder"/>
+                <imageCell controlSize="small" refusesFirstResponder="YES" alignment="left" imageScaling="proportionallyDown" image="play" catalog="system" id="qRg-Ci-cXy"/>
+                <imageCell controlSize="small" refusesFirstResponder="YES" alignment="left" imageScaling="proportionallyDown" image="play.fill" catalog="system" id="8FA-fV-PhM"/>
+                <imageCell controlSize="small" refusesFirstResponder="YES" alignment="left" imageScaling="proportionallyDown" image="play.slash.fill" catalog="system" id="KOD-dU-kNm"/>
             </objects>
-            <point key="canvasLocation" x="2199.5" y="-449"/>
+            <point key="canvasLocation" x="2188" y="-574"/>
         </scene>
         <!--Main Tab View Controller-->
         <scene sceneID="CDf-I2-Aos">
@@ -2058,15 +2247,21 @@
     <resources>
         <image name="NSGoLeftTemplate" width="10" height="14"/>
         <image name="NSGoRightTemplate" width="10" height="14"/>
-        <image name="NSTouchBarDeleteTemplate" width="15" height="17"/>
+        <image name="NSStopProgressTemplate" width="14" height="13"/>
         <image name="arrow.left" catalog="system" width="15" height="12"/>
         <image name="arrow.right" catalog="system" width="15" height="12"/>
-        <image name="chart.xyaxis.line" catalog="system" width="14" height="12"/>
+        <image name="chart.xyaxis.line" catalog="system" width="17" height="14"/>
         <image name="checkmark" catalog="system" width="14" height="13"/>
-        <image name="folder" catalog="system" width="15" height="12"/>
-        <image name="gearshape.2" catalog="system" width="16" height="13"/>
+        <image name="chevron.down" catalog="system" width="12" height="7"/>
+        <image name="chevron.up" catalog="system" width="12" height="7"/>
+        <image name="folder" catalog="system" width="18" height="14"/>
+        <image name="gearshape.2" catalog="system" width="20" height="16"/>
+        <image name="play" catalog="system" width="12" height="13"/>
+        <image name="play.fill" catalog="system" width="12" height="13"/>
+        <image name="play.slash.fill" catalog="system" width="12" height="14"/>
         <image name="plus" catalog="system" width="14" height="13"/>
-        <image name="printer.dotmatrix" catalog="system" width="15" height="13"/>
+        <image name="printer" catalog="system" width="18" height="16"/>
+        <image name="printer.dotmatrix" catalog="system" width="18" height="16"/>
         <image name="rays" catalog="system" width="16" height="16"/>
         <image name="rectangle.arrowtriangle.2.inward" catalog="system" width="16" height="18"/>
         <image name="rectangle.arrowtriangle.2.outward" catalog="system" width="16" height="19"/>
