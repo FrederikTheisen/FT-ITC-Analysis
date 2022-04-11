@@ -12,32 +12,115 @@ namespace AnalysisITC
 	{
 		ExperimentDataSource source;
 		ExperimentData data;
+		int row;
 		int Index => source.Data.IndexOf(data);
 		bool IsSelected => Index == source.SelectedIndex;
+		public bool IsDetailedViewOpen { get; set; } = false;
 
 		public event EventHandler<int> RemoveData;
+		public event EventHandler<int> ResizeRow;
 
 
 		public ExperimentDataViewCell (IntPtr handle) : base (handle)
 		{
+			
 		}
 
 		public void Setup(ExperimentDataSource source, ExperimentData data, int index)
         {
 			this.source = source;
 			this.data = data;
+			this.row = index;
 			ExpNameLabel.StringValue = data.FileName;
 			Line2.StringValue = data.Date.ToString();
-			Line3.StringValue = data.MeasuredTemperature.ToString("###.0") + " °C | " + (data.SyringeConcentration*1000000).ToString() + " µM | " + (data.CellConcentration * 1000000).ToString() + " µM";
+			Line3.StringValue = data.MeasuredTemperature.ToString("G3") + " °C | " + (data.SyringeConcentration*1000000).ToString("G3") + " µM | " + (data.CellConcentration * 1000000).ToString("G3") + " µM";
+            data.SolutionChanged += Data_SolutionChanged;
+            data.ProcessingUpdated += Data_ProcessingCompleted;
+			ShowFitDataButton.Enabled = data.Solution != null;
+			IncludeDataButton.State = data.Include ? NSCellStateValue.On : NSCellStateValue.Off;
+
+			Data_ProcessingCompleted(null, null);
 		}
 
-		partial void RemoveClick(NSObject obj)
+        private void Data_ProcessingCompleted(object sender, EventArgs e)
+        {
+			if (data.Processor.IntegrationCompleted)
+			{
+				IncludeDataButton.Image = SideBarViewController.DataDisabledImage;
+				IncludeDataButton.AlternateImage = SideBarViewController.DataEnabledImage;
+				IncludeDataButton.Enabled = true;
+			}
+			else
+			{
+				IncludeDataButton.Image = SideBarViewController.DataNotProcessedImage;
+				IncludeDataButton.AlternateImage = SideBarViewController.DataNotProcessedImage;
+				IncludeDataButton.Enabled = false;
+			}
+		}
+
+        private void Data_SolutionChanged(object sender, EventArgs e)
+        {
+			source.InvokeOnMainThread(() =>
+			{
+				if (data.Solution != null)
+				{
+					SetValidSolutionLabeling(data.Solution.IsValid);
+
+					ModelFitLine.StringValue = data.Solution.Model.ToString().Substring("AnalysisITC.".Length) + " | " + data.Solution.Loss.ToString("G3");
+					NvalueLine.StringValue = "N = " + data.Solution.N.ToString("F2");
+					AffinityLine.StringValue = "Kd = " + data.Solution.Kd.AsDissociationConstant();
+					EntropyLine.StringValue = "-T∆S = " + data.Solution.TdS.ToString(EnergyUnit.KiloJoule) + "/molK";
+					EnthalpyLine.StringValue = "∆H = " + data.Solution.Enthalpy.ToString(EnergyUnit.KiloJoule) + "/mol";
+				}
+				else
+				{
+					IsDetailedViewOpen = false;
+					UpdateFitLineVisibility();
+				}
+
+				ShowFitDataButton.Enabled = data.Solution != null;
+			});
+		}
+
+        partial void RemoveClick(NSObject obj)
         {
 			Console.WriteLine("RemoveClick " + Index);
 
 			RemoveData?.Invoke(this, Index);
 
 			DataManager.RemoveData(Index);
+		}
+
+        partial void ShowFitDataButtonClick(NSObject sender)
+        {
+			IsDetailedViewOpen = !IsDetailedViewOpen;
+
+			UpdateFitLineVisibility();
+		}
+
+        partial void ToggleDataGlobalInclude(NSButton sender)
+        {
+			data.Include = sender.State == NSCellStateValue.On;
+        }
+
+        void UpdateFitLineVisibility()
+        {
+			ModelFitLine.Hidden = !IsDetailedViewOpen;
+			AffinityLine.Hidden = !IsDetailedViewOpen;
+			EntropyLine.Hidden = !IsDetailedViewOpen;
+			EnthalpyLine.Hidden = !IsDetailedViewOpen;
+			NvalueLine.Hidden = !IsDetailedViewOpen;
+
+			ResizeRow?.Invoke(this, row);
+		}
+
+		void SetValidSolutionLabeling(bool isvalid)
+        {
+			ModelFitLine.TextColor = isvalid ? NSColor.Label : NSColor.SystemRed;
+			AffinityLine.TextColor = isvalid ? NSColor.Label : NSColor.SystemRed;
+			EntropyLine.TextColor = isvalid ? NSColor.Label : NSColor.SystemRed;
+			EnthalpyLine.TextColor = isvalid ? NSColor.Label : NSColor.SystemRed;
+			NvalueLine.TextColor = isvalid ? NSColor.Label : NSColor.SystemRed;
 		}
     }
 }
