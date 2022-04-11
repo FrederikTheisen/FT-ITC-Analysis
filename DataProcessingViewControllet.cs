@@ -95,7 +95,7 @@ namespace AnalysisITC
                     SplineFractionSliderControl.FloatValue = (Data.Processor.Interpolator as SplineInterpolator).FractionBaseline;
                 }
 
-                InjectionViewSegControl.SetLabel((BaselineGraphView.SelectedPeak + 1).ToString("##0"), 1);
+                InjectionViewSegControl.SetLabel((BaselineGraphView.SelectedPeak + 1).ToString(), 1);
             }
 
             UpdateSliderLabels();
@@ -220,7 +220,7 @@ namespace AnalysisITC
                 case 2: BaselineGraphView.SelectedPeak++; break;
             }
 
-            sender.SetLabel((BaselineGraphView.SelectedPeak + 1).ToString("##0"), 1);
+            sender.SetLabel((BaselineGraphView.SelectedPeak + 1).ToString(), 1);
         }
 
         partial void DrawFeatureControlClicked(NSSegmentedControl sender)
@@ -235,16 +235,16 @@ namespace AnalysisITC
 
         void UpdateSliderLabels()
         {
-            IntegrationStartDelayLabel.StringValue = (IntegrationDelayControl.FloatValue).ToString("#0.0") + "s";
+            IntegrationStartDelayLabel.StringValue = (IntegrationDelayControl.FloatValue).ToString("F1") + "s";
             if (Data != null && Data.UseIntegrationFactorLength)
             {
                 var factor = SliderToFactor();
-                IntegrationLengthLabel.StringValue = factor.ToString("##") + "x";
+                IntegrationLengthLabel.StringValue = factor.ToString("G2") + "x";
             }
-            else IntegrationLengthLabel.StringValue = (IntegrationLengthControl.FloatValue).ToString("#0.0") + "s";
+            else IntegrationLengthLabel.StringValue = (IntegrationLengthControl.FloatValue).ToString("F1") + "s";
             SplineBaselineFractionControl.StringValue = (SplineFractionSliderControl.FloatValue * 100).ToString("##0") + " %";
             PolynomialDegreeLabel.StringValue = PolynomialDegreeSlider.IntValue.ToString();
-            ZLimitLabel.StringValue = ZLimitSlider.FloatValue.ToString();
+            ZLimitLabel.StringValue = ZLimitSlider.FloatValue.ToString("G3");
         }
 
         void UpdateProcessing()
