@@ -53,9 +53,9 @@ namespace AnalysisITC
 
             TableView.ColumnAutoresizingStyle = NSTableViewColumnAutoresizingStyle.FirstColumnOnly;
 
-            DataNotProcessedImage = NSPlayImage.Image;
-            DataEnabledImage = NSPlayFillImage.Image;
-            DataDisabledImage = NSPlaySlashedFIllImage.Image;
+            DataNotProcessedImage = NotProcessedImage.Image;
+            DataEnabledImage = IncludedImage.Image;
+            DataDisabledImage = NotIncludedImage.Image;
         }
 
         private void OnDataManagerUpdated(object sender, ExperimentData data)
