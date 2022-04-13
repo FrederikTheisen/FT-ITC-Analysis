@@ -96,6 +96,8 @@ namespace AnalysisITC
                 }
 
                 InjectionViewSegControl.SetLabel((BaselineGraphView.SelectedPeak + 1).ToString(), 1);
+
+                UseFactorSwitch.State = Data.UseIntegrationFactorLength ? 1 : 0;
             }
 
             UpdateSliderLabels();
@@ -155,6 +157,11 @@ namespace AnalysisITC
             UpdateProcessing();
         }
 
+        partial void ApplyToAllSwitchToggled(NSSwitch sender)
+        {
+            
+        }
+
         #endregion
 
         #region Processing Injections
@@ -182,10 +189,21 @@ namespace AnalysisITC
             SetIntegrationTimes();
         }
 
+        partial void UseFactorToggled(NSObject sender)
+        {
+            Data.UseIntegrationFactorLength = !Data.UseIntegrationFactorLength;
+
+            UpdateSliderLabels();
+
+            SetIntegrationTimes();
+        }
+
         float SliderToFactor()
         {
             return (float)Math.Pow(10, 2 * IntegrationLengthControl.FloatValue / IntegrationLengthControl.MaxValue);
         }
+
+
 
         void SetIntegrationTimes()
         {
@@ -249,7 +267,7 @@ namespace AnalysisITC
 
         void UpdateProcessing()
         {
-            Data.Processor.InterpolateBaseline();
+            Data.Processor.ProcessData();
         }
 
         private void OnSelectionChanged(object sender, ExperimentData e)

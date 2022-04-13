@@ -13,6 +13,9 @@ namespace AnalysisITC
 	partial class DataProcessingViewControllet
 	{
 		[Outlet]
+		AppKit.NSSwitch ApplyToAllSwitch { get; set; }
+
+		[Outlet]
 		AnalysisITC.DataProcessingGraphView BaselineGraphView { get; set; }
 
 		[Outlet]
@@ -73,6 +76,9 @@ namespace AnalysisITC
 		AppKit.NSStackView SplineHandleModeView { get; set; }
 
 		[Outlet]
+		AppKit.NSSwitch UseFactorSwitch { get; set; }
+
+		[Outlet]
 		AppKit.NSButton UseIntegrationFactorLengthControl { get; set; }
 
 		[Outlet]
@@ -83,6 +89,9 @@ namespace AnalysisITC
 
 		[Outlet]
 		AppKit.NSStackView ZLimitView { get; set; }
+
+		[Action ("ApplyToAllSwitchToggled:")]
+		partial void ApplyToAllSwitchToggled (AppKit.NSSwitch sender);
 
 		[Action ("ConfirmProcessingButtonClicked:")]
 		partial void ConfirmProcessingButtonClicked (Foundation.NSObject sender);
@@ -117,6 +126,9 @@ namespace AnalysisITC
 		[Action ("ToggleUseIntegrationFactor:")]
 		partial void ToggleUseIntegrationFactor (AppKit.NSButton sender);
 
+		[Action ("UseFactorToggled:")]
+		partial void UseFactorToggled (Foundation.NSObject sender);
+
 		[Action ("ZLimitChanged:")]
 		partial void ZLimitChanged (AppKit.NSSlider sender);
 
@@ -140,14 +152,14 @@ namespace AnalysisITC
 				DataZoomSegControl = null;
 			}
 
-			if (InjectionViewSegControl != null) {
-				InjectionViewSegControl.Dispose ();
-				InjectionViewSegControl = null;
-			}
-
 			if (DrawFeatureSegControl != null) {
 				DrawFeatureSegControl.Dispose ();
 				DrawFeatureSegControl = null;
+			}
+
+			if (InjectionViewSegControl != null) {
+				InjectionViewSegControl.Dispose ();
+				InjectionViewSegControl = null;
 			}
 
 			if (IntegrationDelayControl != null) {
@@ -243,6 +255,16 @@ namespace AnalysisITC
 			if (ZLimitView != null) {
 				ZLimitView.Dispose ();
 				ZLimitView = null;
+			}
+
+			if (ApplyToAllSwitch != null) {
+				ApplyToAllSwitch.Dispose ();
+				ApplyToAllSwitch = null;
+			}
+
+			if (UseFactorSwitch != null) {
+				UseFactorSwitch.Dispose ();
+				UseFactorSwitch = null;
 			}
 		}
 	}
