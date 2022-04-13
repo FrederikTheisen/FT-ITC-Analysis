@@ -33,7 +33,18 @@ namespace AnalysisITC
         public PeakHeatDirection AverageHeatDirection { get; set; } = PeakHeatDirection.Unknown;
         public bool UseIntegrationFactorLength { get; set; } = false;
 
-        public bool Include { get; set; } = true;
+        bool include = true;
+        public bool Include
+        {
+            get
+            {
+                if (Processor == null) return false;
+                else if (!Processor.BaselineCompleted) return false;
+                else if (!Processor.IntegrationCompleted) return false;
+                else return include;
+            }
+            set => include = value;
+        }
 
         public DataProcessor Processor { get; private set; }
         public Solution Solution { get; set; }
@@ -98,6 +109,26 @@ namespace AnalysisITC
             Processor = processor;
         }
 
+        public double GetNoise(float start = -1, float end = -1)
+        {
+            if (DataPoints.Count == 0) return 0;
+            if (start == -1) start = DataPoints.First().Time;
+            if (end == -1) end = DataPoints.Last().Time;
+
+            var dps = (Processor.BaselineCompleted ? BaseLineCorrectedDataPoints : DataPoints).Where(dp => dp.Time >= start && dp.Time <= end);
+
+            double sum_of_squares = 0;
+
+            foreach (var dp in dps)
+            {
+                var p = dp.Power;
+
+                sum_of_squares += p * p;
+            }
+
+            return Math.Sqrt(sum_of_squares / (dps.Count() - 1)); //TODO check formula is correct
+        }
+
         public List<InjectionData> GetResiduals()
         {
             var rand = Analysis.Random;
@@ -150,6 +181,8 @@ namespace AnalysisITC
 
         public void UpdateProcessing()
         {
+            if (Solution != null) Solution.IsValid = false;
+ 
             ProcessingUpdated?.Invoke(Processor, null);
         }
 
@@ -201,7 +234,7 @@ namespace AnalysisITC
             }
         }
 
-        public bool IsIntegrated { get; private set; }
+        public bool IsIntegrated { get; set; } = false;
 
         public InjectionData(int id, double volume, double mass, bool include)
         {
