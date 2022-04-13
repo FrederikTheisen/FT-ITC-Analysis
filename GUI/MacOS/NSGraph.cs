@@ -68,7 +68,7 @@ namespace AnalysisITC
 
         public override void DrawRect(CGRect dirtyRect)
         {
-            if (DataManager.State != State) return;
+            if (StateManager.CurrentState != State) return;
 
             var cg = NSGraphicsContext.CurrentContext.CGContext;
 
