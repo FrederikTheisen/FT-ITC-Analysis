@@ -18,13 +18,23 @@ namespace AnalysisITC
         {
             base.WindowDidLoad();
 
-            DataManager.ProgramStateChanged += OnModeChange;
+            StateManager.ProgramStateChanged += OnProgramStateChanged;
+            StateManager.UpdateStateDependentUI += StateManager_UpdateStateDependentUI;
+
             DataManager.DataDidChange += OnDataChanged;
             DataManager.SelectionDidChange += DataManager_SelectionDidChange;
             DataProcessor.BaselineInterpolationCompleted += DataProcessor_InterpolationCompleted;
 
             StatusBarManager.ProgressUpdate += OnProgressUpdated;
             StatusBarManager.StatusUpdated += OnStatusUpdated;
+
+            StateManager_UpdateStateDependentUI(null, null);
+        }
+
+        private void StateManager_UpdateStateDependentUI(object sender, EventArgs e)
+        {
+            NavigationArrowControl.SetEnabled(StateManager.PreviousState(true), 2);
+            NavigationArrowControl.SetEnabled(StateManager.NextState(true), 3);
         }
 
         private void OnStatusUpdated(object sender, string e)
@@ -97,28 +107,42 @@ namespace AnalysisITC
                 StepControl.SetEnabled(false, 3);
             }
 
-
             DataLoadSegControl.SetEnabled(DataManager.DataIsLoaded, 1);
             DataLoadSegControl.SetEnabled(DataManager.DataIsLoaded, 2);
         }
 
-        private void OnModeChange(object sender, ProgramState e)
+        private void OnProgramStateChanged(object sender, ProgramState e)
         {
             StepControl.SelectedSegment = (int)e;
 
             StepControl.SetEnabled(true, (int)e);
 
-            Window.Toolbar.RemoveItem(Window.Toolbar.Items.Length - 1);
+            //Window.Toolbar.RemoveItem(Window.Toolbar.Items.Length - 1);
 
             switch (e)
             {
-                case ProgramState.Load: Window.Toolbar.InsertItem("LoadControl", Window.Toolbar.Items.Length - 1); break;
-                case ProgramState.Process: Window.Toolbar.InsertItem("ProcessingControl", Window.Toolbar.Items.Length - 1); break;
+                case ProgramState.Load:
+                    //Window.Toolbar.InsertItem("LoadControl", Window.Toolbar.Items.Length - 1);
+                   break;
+                case ProgramState.Process:
+                    //Window.Toolbar.InsertItem("ProcessingControl", Window.Toolbar.Items.Length - 1);
+                    break;
                 case ProgramState.Analyze:
-                    DataManager.IntegratePeaks(); //TODO move to separate function and only allow change to analysis mode if all are integrated;
-                    Window.Toolbar.InsertItem("AnalysisControl", Window.Toolbar.Items.Length - 1); break;
+                     //TODO move to separate function and only allow change to analysis mode if all are integrated;
+                    //Window.Toolbar.InsertItem("AnalysisControl", Window.Toolbar.Items.Length - 1); break;
+                    break;
                 case ProgramState.Publish:
                     break;
+            }
+        }
+
+        partial void NavigationArrowControlClicked(NSSegmentedControl sender)
+        {
+            switch (sender.SelectedSegment)
+            {
+                case 0: OpenFileBrowser(); break;
+                case 2: StateManager.PreviousState(); break;
+                case 3: StateManager.NextState(); break;
             }
         }
 
@@ -128,7 +152,7 @@ namespace AnalysisITC
             {
                 case 0: OpenFileBrowser(); break;
                 case 1: DataManager.Clear(); break;
-                case 2: DataManager.SetProgramState(ProgramState.Process); break;
+                case 2: StateManager.SetProgramState(ProgramState.Process); break;
             }
         }
 
@@ -136,9 +160,9 @@ namespace AnalysisITC
         {
             switch (sender.SelectedSegment)
             {
-                case 0: DataManager.SetProgramState(ProgramState.Load); break;
+                case 0: StateManager.SetProgramState(ProgramState.Load); break;
                 case 1: DataManager.CopySelectedProcessToAll(); break;
-                case 2: DataManager.SetProgramState(ProgramState.Analyze); break;
+                case 2: StateManager.SetProgramState(ProgramState.Analyze); break;
             }
         }
 
@@ -146,17 +170,17 @@ namespace AnalysisITC
         {
             switch (sender.SelectedSegment)
             {
-                case 0: DataManager.SetProgramState(ProgramState.Process); break;
+                case 0: StateManager.SetProgramState(ProgramState.Process); break;
                 case 1: break;
-                case 3: DataManager.SetProgramState(ProgramState.Publish); break;
+                case 3: StateManager.SetProgramState(ProgramState.Publish); break;
             }
         }
 
         partial void ContextButtonClick(NSObject sender)
         {
             if (!DataManager.DataIsLoaded) OpenFileBrowser();
-            else if (DataManager.State == 0) DataManager.SetProgramState(ProgramState.Process);
-            else if (DataManager.State == ProgramState.Process && !DataManager.AllDataIsBaselineProcessed)
+            else if (StateManager.CurrentState == 0) StateManager.SetProgramState(ProgramState.Process);
+            else if (StateManager.CurrentState == ProgramState.Process && !DataManager.AllDataIsBaselineProcessed)
             {
 
             }
@@ -194,7 +218,7 @@ namespace AnalysisITC
         {
             var index = (int)sender.SelectedSegment;
 
-            DataManager.SetProgramState((ProgramState)index);
+            StateManager.SetProgramState((ProgramState)index);
         }
     }
 }

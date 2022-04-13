@@ -22,6 +22,9 @@ namespace AnalysisITC
 		AppKit.NSSegmentedControl DataLoadSegControl { get; set; }
 
 		[Outlet]
+		AppKit.NSSegmentedControl NavigationArrowControl { get; set; }
+
+		[Outlet]
 		AppKit.NSSegmentedControl ProcessSegControl { get; set; }
 
 		[Outlet]
@@ -42,6 +45,9 @@ namespace AnalysisITC
 		[Action ("DataLoadSegControlClick:")]
 		partial void DataLoadSegControlClick (AppKit.NSSegmentedControl sender);
 
+		[Action ("NavigationArrowControlClicked:")]
+		partial void NavigationArrowControlClicked (AppKit.NSSegmentedControl sender);
+
 		[Action ("ProcessSegControlClick:")]
 		partial void ProcessSegControlClick (AppKit.NSSegmentedControl sender);
 
@@ -60,19 +66,24 @@ namespace AnalysisITC
 				ContextButton = null;
 			}
 
+			if (DataLoadSegControl != null) {
+				DataLoadSegControl.Dispose ();
+				DataLoadSegControl = null;
+			}
+
+			if (NavigationArrowControl != null) {
+				NavigationArrowControl.Dispose ();
+				NavigationArrowControl = null;
+			}
+
 			if (ProcessSegControl != null) {
 				ProcessSegControl.Dispose ();
 				ProcessSegControl = null;
 			}
 
-			if (StepControl != null) {
-				StepControl.Dispose ();
-				StepControl = null;
-			}
-
-			if (DataLoadSegControl != null) {
-				DataLoadSegControl.Dispose ();
-				DataLoadSegControl = null;
+			if (StatusbarPrimaryLabel != null) {
+				StatusbarPrimaryLabel.Dispose ();
+				StatusbarPrimaryLabel = null;
 			}
 
 			if (StatusbarProgressIndicator != null) {
@@ -80,9 +91,9 @@ namespace AnalysisITC
 				StatusbarProgressIndicator = null;
 			}
 
-			if (StatusbarPrimaryLabel != null) {
-				StatusbarPrimaryLabel.Dispose ();
-				StatusbarPrimaryLabel = null;
+			if (StepControl != null) {
+				StepControl.Dispose ();
+				StepControl = null;
 			}
 		}
 	}
