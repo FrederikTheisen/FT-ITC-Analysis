@@ -31,11 +31,14 @@ namespace AnalysisITC
 			this.source = source;
 			this.data = data;
 			this.row = index;
+
 			ExpNameLabel.StringValue = data.FileName;
 			Line2.StringValue = data.Date.ToString();
 			Line3.StringValue = data.MeasuredTemperature.ToString("G3") + " °C | " + (data.SyringeConcentration*1000000).ToString("G3") + " µM | " + (data.CellConcentration * 1000000).ToString("G3") + " µM";
+
             data.SolutionChanged += Data_SolutionChanged;
             data.ProcessingUpdated += Data_ProcessingCompleted;
+
 			ShowFitDataButton.Enabled = data.Solution != null;
 			IncludeDataButton.State = data.Include ? NSCellStateValue.On : NSCellStateValue.Off;
 
@@ -56,6 +59,10 @@ namespace AnalysisITC
 				IncludeDataButton.AlternateImage = SideBarViewController.DataNotProcessedImage;
 				IncludeDataButton.Enabled = false;
 			}
+
+			IncludeDataButton.State = data.Include ? NSCellStateValue.On : NSCellStateValue.Off;
+
+			SetValidSolutionLabeling();
 		}
 
         private void Data_SolutionChanged(object sender, EventArgs e)
@@ -64,7 +71,7 @@ namespace AnalysisITC
 			{
 				if (data.Solution != null)
 				{
-					SetValidSolutionLabeling(data.Solution.IsValid);
+					SetValidSolutionLabeling();
 
 					ModelFitLine.StringValue = data.Solution.Model.ToString().Substring("AnalysisITC.".Length) + " | " + data.Solution.Loss.ToString("G3");
 					NvalueLine.StringValue = "N = " + data.Solution.N.ToString("F2");
@@ -111,11 +118,16 @@ namespace AnalysisITC
 			EnthalpyLine.Hidden = !IsDetailedViewOpen;
 			NvalueLine.Hidden = !IsDetailedViewOpen;
 
+			SetValidSolutionLabeling();
+
 			ResizeRow?.Invoke(this, row);
 		}
 
-		void SetValidSolutionLabeling(bool isvalid)
+		void SetValidSolutionLabeling()
         {
+			bool isvalid = false;
+			if (data.Solution != null) isvalid = data.Solution.IsValid;
+
 			ModelFitLine.TextColor = isvalid ? NSColor.Label : NSColor.SystemRed;
 			AffinityLine.TextColor = isvalid ? NSColor.Label : NSColor.SystemRed;
 			EntropyLine.TextColor = isvalid ? NSColor.Label : NSColor.SystemRed;
