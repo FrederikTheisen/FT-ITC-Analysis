@@ -48,10 +48,12 @@ namespace AnalysisITC
 
     public struct CGEdgeMargin
     {
-        nfloat Left;
-        nfloat Right;
-        nfloat Top;
-        nfloat Bottom;
+        public nfloat Left { get; private set; }
+        public nfloat Right { get; private set; }
+        public nfloat Top { get; private set; }
+        public nfloat Bottom { get; private set; }
+
+        public nfloat Width => Left + Right;
 
         public CGEdgeMargin(float left, float right, float top, float bottom)
         {
