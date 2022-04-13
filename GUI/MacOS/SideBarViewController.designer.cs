@@ -13,6 +13,15 @@ namespace AnalysisITC
 	partial class SideBarViewController
 	{
 		[Outlet]
+		AppKit.NSImageCell IncludedImage { get; set; }
+
+		[Outlet]
+		AppKit.NSImageCell NotIncludedImage { get; set; }
+
+		[Outlet]
+		AppKit.NSImageCell NotProcessedImage { get; set; }
+
+		[Outlet]
 		AppKit.NSImageCell NSPlayFillImage { get; set; }
 
 		[Outlet]
@@ -26,9 +35,9 @@ namespace AnalysisITC
 		
 		void ReleaseDesignerOutlets ()
 		{
-			if (TableView != null) {
-				TableView.Dispose ();
-				TableView = null;
+			if (NSPlayFillImage != null) {
+				NSPlayFillImage.Dispose ();
+				NSPlayFillImage = null;
 			}
 
 			if (NSPlayImage != null) {
@@ -36,14 +45,29 @@ namespace AnalysisITC
 				NSPlayImage = null;
 			}
 
-			if (NSPlayFillImage != null) {
-				NSPlayFillImage.Dispose ();
-				NSPlayFillImage = null;
-			}
-
 			if (NSPlaySlashedFIllImage != null) {
 				NSPlaySlashedFIllImage.Dispose ();
 				NSPlaySlashedFIllImage = null;
+			}
+
+			if (TableView != null) {
+				TableView.Dispose ();
+				TableView = null;
+			}
+
+			if (NotProcessedImage != null) {
+				NotProcessedImage.Dispose ();
+				NotProcessedImage = null;
+			}
+
+			if (NotIncludedImage != null) {
+				NotIncludedImage.Dispose ();
+				NotIncludedImage = null;
+			}
+
+			if (IncludedImage != null) {
+				IncludedImage.Dispose ();
+				IncludedImage = null;
 			}
 		}
 	}
