@@ -7,6 +7,9 @@ namespace AnalysisITC
         static void Main(string[] args)
         {
             NSApplication.Init();
+
+            StateManager.Init();
+
             NSApplication.Main(args);
         }
     }
