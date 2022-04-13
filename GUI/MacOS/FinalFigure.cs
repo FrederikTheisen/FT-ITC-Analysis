@@ -48,16 +48,22 @@ namespace AnalysisITC
         {
             var halfheight = height / 2;
 
+            var xwidth = width * CGGraph.PPcm + Margin.Width;
+
             //DataGraph.AutoSetFrame((float)width, (float)halfheight);
             DataGraph.PlotSize = new CGSize(width * CGGraph.PPcm, halfheight * CGGraph.PPcm);
             DataGraph.Origin = new CGPoint(DataGraph.Center.X - DataGraph.PlotSize.Width * 0.5f, DataGraph.Center.Y - DataGraph.PlotSize.Height * 0.5f);
             DataGraph.Origin.Y += DataGraph.Frame.Height / 2;
+            DataGraph.Origin.X -= xwidth / 2;
             DataGraph.XAxis.Position = AxisPosition.Top;
 
             //IntegrationGraph.AutoSetFrame((float)width, (float)halfheight);
             IntegrationGraph.PlotSize = new CGSize(width * CGGraph.PPcm, halfheight * CGGraph.PPcm);
             IntegrationGraph.Origin = new CGPoint(IntegrationGraph.Center.X - IntegrationGraph.PlotSize.Width * 0.5f, DataGraph.Center.Y - DataGraph.PlotSize.Height * 0.5f);
             IntegrationGraph.Origin.Y -= IntegrationGraph.Frame.Height / 2;
+            IntegrationGraph.Origin.X -= xwidth / 2;
+
+
         }
 
         public void Draw(CGContext gc, CGPoint center)
