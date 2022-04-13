@@ -28,21 +28,15 @@ namespace AnalysisITC
 
         public static event EventHandler<ExperimentData> DataDidChange;
         public static event EventHandler<ExperimentData> SelectionDidChange;
-        public static event EventHandler<ProgramState> ProgramStateChanged;
 
         public static int Count => Data.Count;
 
         public static bool DataIsLoaded => DataSource?.Data.Count > 0;
         public static bool AllDataIsBaselineProcessed => DataSource.Data.All(d => d.Processor.BaselineCompleted);
-
-        public static ProgramState State { get; private set; } = ProgramState.Load;
+        public static bool AnyDataIsBaselineProcessed => DataSource.Data.Any(d => d.Processor.BaselineCompleted);
+        public static bool AnyDataIsAnalyzed => DataSource.Data.Any(d => d.Solution != null);
 
         public static ExperimentData Current => SelectedIndex == -1 || (SelectedIndex >= Count) ? null : Data[SelectedIndex];
-
-        //if (SelectedIndex == -1) return null;
-        //else if (SelectedIndex >= Count) return null;
-        //else return Data[SelectedIndex];
-
 
         public static void Init()
         {
@@ -60,8 +54,6 @@ namespace AnalysisITC
 
         internal static void RemoveData(int index)
         {
-
-
             Data.RemoveAt(index);
 
             DataDidChange.Invoke(null, Current);
@@ -80,13 +72,6 @@ namespace AnalysisITC
         }
 
         public static void SelectionChanged(int index) => SelectionDidChange?.Invoke(null, Current);
-
-        public static void SetProgramState(ProgramState state)
-        {
-            State = state;
-
-            ProgramStateChanged.Invoke(null, state);
-        }
 
         public static async void CopySelectedProcessToAll()
         {
@@ -121,6 +106,7 @@ namespace AnalysisITC
                 data.Processor.SubtractBaseline();
                 data.SetCustomIntegrationTimes(int_delay, int_length);
                 data.Processor.IterationCompleted();
+                data.Processor.IntegratePeaks();
 
                 StatusBarManager.Progress = i / count;
             }
@@ -130,21 +116,14 @@ namespace AnalysisITC
 
         }
 
-        public static void IntegratePeaks()
+        public static void IntegrateAllValidData()
         {
             foreach (var data in Data)
             {
-                data.Processor.SubtractBaseline();
-                data.Processor.IntegratePeaks();
+                if (data.Processor.BaselineCompleted) data.Processor.IntegratePeaks();
             }
         }
     }
 
-    public enum ProgramState
-    {
-        Load,
-        Process,
-        Analyze,
-        Publish
-    }
+
 }
