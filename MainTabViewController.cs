@@ -17,12 +17,66 @@ namespace AnalysisITC
         {
             base.ViewDidLoad();
 
-            DataManager.ProgramStateChanged += OnProgramModeChanged;
+            StateManager.ProgramStateChanged += OnProgramModeChanged;
+            StateManager.UpdateStateDependentUI += StateManager_UpdateStateDependentUI;
+
+            //TabView.AddSubview(TabviewSegControl);
+
+            //TabviewSegControl.ControlSize = NSControlSize.Large;
+            //TabviewSegControl.Alignment = NSTextAlignment.Center;
+            this.View.AddSubview(TabviewSegControl);
+
+            StateManager_UpdateStateDependentUI(null, null);
+        }
+
+        public override void ViewDidLayout()
+        {
+            base.ViewDidLayout();
+
+            var size = SegSize;
+            var cellwidth = (size.Width - 61) / 4;
+
+            TabviewSegControl.Frame = new CoreGraphics.CGRect(new CoreGraphics.CGPoint(TabView.Frame.Width / 2 - size.Width / 2, View.Frame.Size.Height - size.Height - 2), size);
+            TabviewSegControl.SetWidth(cellwidth, 0);
+            TabviewSegControl.SetWidth(cellwidth, 1);
+            TabviewSegControl.SetWidth(cellwidth, 2);
+            TabviewSegControl.SetWidth(cellwidth, 3);
+        }
+
+        nfloat SegWidth
+        {
+            get
+            {
+                switch ((float)View.Frame.Width)
+                {
+                    case > 700: return 461;
+                    default:
+                        var x2 = 700 - View.Frame.Width;
+                        return 461 - 1.5f * x2 * x2 / (700 + x2);
+                }
+            }
+        }
+
+        CoreGraphics.CGSize SegSize => new CoreGraphics.CGSize(SegWidth, 40);
+
+        private void StateManager_UpdateStateDependentUI(object sender, EventArgs e)
+        {
+            for (int i = 0; i < 4; i++)
+            {
+                TabviewSegControl.SetEnabled(StateManager.StateIsAvailable((ProgramState)i), i);
+            }
         }
 
         private void OnProgramModeChanged(object sender, ProgramState e)
         {
             TabView.SelectAt((int)e);
+
+            TabviewSegControl.SelectSegment((int)e);
+        }
+
+        partial void SegControlClicked(NSSegmentedControl sender)
+        {
+            StateManager.SetProgramState((ProgramState)(int)sender.SelectedSegment);
         }
     }
 }

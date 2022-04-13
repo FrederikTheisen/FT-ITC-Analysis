@@ -12,9 +12,18 @@ namespace AnalysisITC
 	[Register ("MainTabViewController")]
 	partial class MainTabViewController
 	{
+		[Outlet]
+		AppKit.NSSegmentedControl TabviewSegControl { get; set; }
+
+		[Action ("SegControlClicked:")]
+		partial void SegControlClicked (AppKit.NSSegmentedControl sender);
 		
 		void ReleaseDesignerOutlets ()
 		{
+			if (TabviewSegControl != null) {
+				TabviewSegControl.Dispose ();
+				TabviewSegControl = null;
+			}
 		}
 	}
 }
