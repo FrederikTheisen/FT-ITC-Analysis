@@ -22,6 +22,9 @@ namespace AnalysisITC
 		AnalysisITC.GraphView GVC { get; set; }
 
 		[Outlet]
+		AppKit.NSTextField InfoLabel { get; set; }
+
+		[Outlet]
 		AppKit.NSTextField Label { get; set; }
 
 		[Outlet]
@@ -29,6 +32,9 @@ namespace AnalysisITC
 
 		[Outlet]
 		AppKit.NSTextField Label3 { get; set; }
+
+		[Outlet]
+		AppKit.NSBox LoadDataPrompt { get; set; }
 
 		[Action ("ButtonClick:")]
 		partial void ButtonClick (AppKit.NSButton sender);
@@ -38,12 +44,33 @@ namespace AnalysisITC
 
 		[Action ("ContinueClick:")]
 		partial void ContinueClick (Foundation.NSObject sender);
+
+		[Action ("LoadDataButtonClick:")]
+		partial void LoadDataButtonClick (Foundation.NSObject sender);
+
+		[Action ("OpenFileButtonClick:")]
+		partial void OpenFileButtonClick (Foundation.NSObject sender);
 		
 		void ReleaseDesignerOutlets ()
 		{
+			if (ClearDataButton != null) {
+				ClearDataButton.Dispose ();
+				ClearDataButton = null;
+			}
+
+			if (ContinueButton != null) {
+				ContinueButton.Dispose ();
+				ContinueButton = null;
+			}
+
 			if (GVC != null) {
 				GVC.Dispose ();
 				GVC = null;
+			}
+
+			if (InfoLabel != null) {
+				InfoLabel.Dispose ();
+				InfoLabel = null;
 			}
 
 			if (Label != null) {
@@ -61,14 +88,9 @@ namespace AnalysisITC
 				Label3 = null;
 			}
 
-			if (ContinueButton != null) {
-				ContinueButton.Dispose ();
-				ContinueButton = null;
-			}
-
-			if (ClearDataButton != null) {
-				ClearDataButton.Dispose ();
-				ClearDataButton = null;
+			if (LoadDataPrompt != null) {
+				LoadDataPrompt.Dispose ();
+				LoadDataPrompt = null;
 			}
 		}
 	}
