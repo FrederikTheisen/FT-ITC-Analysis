@@ -289,6 +289,7 @@
     <Compile Include="NSMarginButton.designer.cs">
       <DependentUpon>NSMarginButton.cs</DependentUpon>
     </Compile>
+    <Compile Include="StateManager.cs" />
   </ItemGroup>
   <ItemGroup>
     <InterfaceDefinition Include="Main.storyboard" />
