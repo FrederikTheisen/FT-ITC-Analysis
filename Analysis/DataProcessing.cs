@@ -14,7 +14,7 @@ namespace AnalysisITC
     public class DataProcessor
     {
         public static event EventHandler BaselineInterpolationCompleted;
-        public event EventHandler ProcessingCompleted;
+        public static event EventHandler ProcessingCompleted;
 
         internal ExperimentData Data { get; set; }
 
@@ -70,14 +70,44 @@ namespace AnalysisITC
             }
         }
 
-        public async void InterpolateBaseline()
+        public async void ProcessData()
+        {
+
+                this.WillProcessData();
+                await this.InterpolateBaseline();
+
+                //csource.Cancel();
+                //csource = new CancellationTokenSource();
+                //cToken = csource.Token;
+
+                //await System.Threading.Tasks.Task.Run(() => Interpolator.Interpolate(cToken));
+
+                //SubtractBaseline();
+
+                //BaselineCompleted = true;
+
+                //BaselineInterpolationCompleted?.Invoke(this, null);
+
+                this.IntegratePeaks();
+
+                //StatusBarManager.StopInderminateProgress();
+
+                this.DidProcessData();
+
+        }
+
+        void WillProcessData()
+        {
+            StatusBarManager.StartInderminateProgress();
+            Data.Injections.ForEach(inj => inj.IsIntegrated = false);
+            BaselineCompleted = false;
+            Data.UpdateProcessing();
+        }
+
+        async Task InterpolateBaseline()
         {
             try
             {
-                BaselineCompleted = false;
-
-                StatusBarManager.StartInderminateProgress();
-
                 csource.Cancel();
                 csource = new CancellationTokenSource();
                 cToken = csource.Token;
@@ -87,21 +117,21 @@ namespace AnalysisITC
                 SubtractBaseline();
 
                 BaselineCompleted = true;
-
                 BaselineInterpolationCompleted?.Invoke(this, null);
-
-                IntegratePeaks();
-
-                StatusBarManager.StopInderminateProgress();
             }
             catch (Exception ex)
             {
 
             }
-            finally
-            {
-                
-            }
+        }
+
+        void DidProcessData()
+        {
+            Data.UpdateProcessing();
+
+            ProcessingCompleted?.Invoke(Data, null);
+
+            StatusBarManager.StopInderminateProgress();
         }
 
         public void IterationCompleted()
@@ -129,6 +159,8 @@ namespace AnalysisITC
             }
 
             Data.UpdateProcessing();
+
+            ProcessingCompleted?.Invoke(Data, null);
         }
     }
 
@@ -156,7 +188,7 @@ namespace AnalysisITC
 
         public async virtual Task Interpolate(CancellationToken token, bool replace = true)
         {
-            Parent.BaselineCompleted = true;
+            Parent.BaselineCompleted = false;
         }
 
         public void WriteToConsole()
@@ -259,6 +291,8 @@ namespace AnalysisITC
 
         public override async Task Interpolate(CancellationToken token, bool replace = true)
         {
+            await base.Interpolate(token, replace);
+
             List<SplinePoint> splinePoints;
 
             if (SplinePoints.Count == 0 || replace) splinePoints = GetInitialPoints(PointsPerInjection, FractionBaseline);
@@ -291,7 +325,7 @@ namespace AnalysisITC
             SplinePoints = splinePoints;
             SplineFunction = spline;
 
-            await base.Interpolate(token, replace);
+            
         }
 
         public enum SplineInterpolatorAlgorithm
@@ -460,6 +494,8 @@ namespace AnalysisITC
 
         public override async Task Interpolate(CancellationToken token, bool replace = true)
         {
+            await base.Interpolate(token, replace);
+
             var x = Data.DataPoints.Select(dp => (double)dp.Time).ToArray();
             var y = Data.DataPoints.Select(dp => (double)dp.Power).ToArray();
 
@@ -494,8 +530,6 @@ namespace AnalysisITC
             this.fit = fit;
 
             Baseline = Evaluate().Select(e => new Energy(e)).ToList();
-
-            await base.Interpolate(token, replace);
         }
 
         double[] Residuals(double[] fit, double[] dat)
