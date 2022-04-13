@@ -502,13 +502,12 @@ namespace AnalysisITC
 
     public class FileInfoGraph : DataGraph
     {
-        List<string> info;
-
         GraphAxis TemperatureAxis { get; set; }
+        public List<string> Info { get; private set; }
 
         public FileInfoGraph(ExperimentData experiment, NSView view) : base(experiment, view)
         {
-            info = new List<string>()
+            Info = new List<string>()
                 {
                     "Filename: " + experiment.FileName,
                     "Date: " + experiment.Date.ToLocalTime().ToLongDateString() + " " + experiment.Date.ToLocalTime().ToString("HH:mm"),
@@ -529,16 +528,16 @@ namespace AnalysisITC
         {
             base.AutoSetFrame();
 
-            var infoheight = (DefaultFontHeight + 5) * info.Count + 10;
+            //var infoheight = (DefaultFontHeight + 5) * info.Count + 10;
 
-            PlotSize.Height -= infoheight;// = new CGSize(View.Frame.Width - YAxis.EstimateLabelMargin() - TemperatureAxis.EstimateLabelMargin(), View.Frame.Height - XAxis.EstimateLabelMargin() - infoheight);
+            //PlotSize.Height -= infoheight;// = new CGSize(View.Frame.Width - YAxis.EstimateLabelMargin() - TemperatureAxis.EstimateLabelMargin(), View.Frame.Height - XAxis.EstimateLabelMargin() - infoheight);
             PlotSize.Width -= TemperatureAxis.EstimateLabelMargin();
             //Origin = new CGPoint(Center.X - PlotSize.Width * 0.5f, Center.Y - (PlotSize.Height + infoheight) * 0.5f + XAxis.EstimateLabelMargin());
         }
 
         internal override void Draw(CGContext gc)
         {
-            DrawInfo(gc);
+            //DrawInfo(gc);
 
             DrawTemperature(gc);
 
@@ -575,7 +574,7 @@ namespace AnalysisITC
 
             var pos = new CGPoint(5, View.Frame.Height);
 
-            foreach (var l in info)
+            foreach (var l in Info)
             {
                 var s = DrawString(layer, l, pos, DefaultFont, null, TextAlignment.Left, TextAlignment.Top);
 
