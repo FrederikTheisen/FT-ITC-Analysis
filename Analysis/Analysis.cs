@@ -13,6 +13,11 @@ namespace AnalysisITC
     public static class Analysis
     {
         public static Random Random { get; } = new Random();
+
+        public static List<ExperimentData> GetValidData()
+        {
+            return DataManager.Data.Where(d => d.Include).ToList();
+        }
     }
 
     public static class GlobalAnalyzer
@@ -32,7 +37,7 @@ namespace AnalysisITC
 
         static void InitializeOneSetOfSites()
         {
-            foreach (var data in DataManager.Data)
+            foreach (var data in Analysis.GetValidData())
             {
                 Model.Models.Add(new OneSetOfSites(data));
                 if (data.Solution != null) data.Solution.IsValid = false;
@@ -616,7 +621,7 @@ namespace AnalysisITC
 
         public Model Model;
         public ExperimentData Data => Model.Data;
-        public bool IsValid { get; set; } = true;
+        public bool IsValid { get; set; } = false;
 
         public Energy Enthalpy { get; private set; }
         public FloatWithError K { get; private set; }
