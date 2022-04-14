@@ -80,11 +80,13 @@ namespace AnalysisITC
                         break;
                 }
 
-                IntegrationLengthControl.MaxValue = Data.Injections.Max(inj => inj.Delay);
+                
                 if (Data.Injections.Count > 0)
                 {
+                    IntegrationLengthControl.MaxValue = Data.Injections.Max(inj => inj.Delay);
                     IntegrationDelayControl.FloatValue = Data.Injections.Last().IntegrationStartDelay;
-                    IntegrationLengthControl.FloatValue = Data.Injections.Last().IntegrationLength;
+                    if (Data.UseIntegrationFactorLength) IntegrationLengthControl.FloatValue = FactorToSlider(Data.IntegrationLengthFactor);
+                    else IntegrationLengthControl.FloatValue = Data.Injections.Last().IntegrationLength;
                 }
 
                 InjectionViewSegControl.Enabled = Data.Injections.Count > 0;
@@ -208,7 +210,10 @@ namespace AnalysisITC
             return (float)Math.Pow(10, 2 * IntegrationLengthControl.FloatValue / IntegrationLengthControl.MaxValue);
         }
 
-
+        float FactorToSlider(float value)
+        {
+            return (float)(Math.Log10(value) * IntegrationLengthControl.MaxValue / 2);
+        }
 
         void SetIntegrationTimes()
         {
