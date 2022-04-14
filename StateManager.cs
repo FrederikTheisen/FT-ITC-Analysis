@@ -20,6 +20,12 @@ namespace AnalysisITC
         {
             DataManager.DataDidChange += OnDataDidChange;
             DataProcessor.ProcessingCompleted += OnAnyProcessingCompleted;
+            GlobalAnalyzer.AnalysisFinished += OnAnalysisFinished;
+        }
+
+        private static void OnAnalysisFinished(object sender, SolverConvergence e)
+        {
+            ShouldUpdateStateDependentUI();
         }
 
         private static void OnAnyProcessingCompleted(object sender, EventArgs e)
@@ -94,9 +100,9 @@ namespace AnalysisITC
 
     public enum ProgramState
     {
-        Load,
-        Process,
-        Analyze,
-        Publish
+        Load = 0,
+        Process = 1,
+        Analyze = 2,
+        Publish = 3
     }
 }
