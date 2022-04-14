@@ -28,6 +28,8 @@ namespace AnalysisITC
 
             var cg = NSGraphicsContext.CurrentContext.CGContext;
 
+            cg.SetFillColor(NSColor.SystemGray.CGColor);
+            cg.FillRect(Frame);
 
             graph.Draw(cg, new CGPoint(dirtyRect.GetMidX(), dirtyRect.GetMidY()));
         }
