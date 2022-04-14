@@ -442,15 +442,8 @@ namespace AnalysisITC
                 max = _min;
             }
 
-            if (buffer)
-            {
-                axis.SetWithBuffer((double)min, (double)max);
-            }
-            else
-            {
-                axis.Min = (float)min;
-                axis.Max = (float)max;
-            }
+            if (buffer) axis.SetWithBuffer((double)min, (double)max);
+            else axis.Set((float)min, (float)max);
         }
 
         public virtual MouseOverFeatureEvent IsCursorOnFeature(CGPoint cursorpos, bool isclick = false, bool ismouseup = false)
@@ -647,7 +640,7 @@ namespace AnalysisITC
                     Energy b = ExperimentData.Processor.Interpolator.Baseline[i];
 
                     if (p.Time > XAxis.Min && p.Time < XAxis.Max)
-                        points.Add(GetRelativePosition(p.Time, b.Value));
+                        points.Add(GetRelativePosition(p.Time, b.FloatWithError));
                 }
             else points = new List<CGPoint>
             {
@@ -790,8 +783,8 @@ namespace AnalysisITC
                 var xmin = 0;
                 var xmax = DataManager.IncludedData.Max(d => d.Injections.Last().Ratio);
 
-                var ymax = Math.Max(DataManager.IncludedData.Max(d => d.Injections.Max(inj => (float)inj.OffsetEnthalpy)), Math.Max(DataManager.IncludedData.Max(d => (float)d.Solution.Enthalpy), 0));
-                var ymin = Math.Min(DataManager.IncludedData.Max(d => d.Injections.Max(inj => (float)inj.OffsetEnthalpy)), Math.Min(DataManager.IncludedData.Min(d => (float)d.Solution.Enthalpy), 0));
+                var ymax = Math.Max(DataManager.IncludedData.Max(d => d.Injections.Max(inj => (float)inj.OffsetEnthalpy)), Math.Max(DataManager.IncludedData.Where(d => d.Solution != null).Max(d => (float)d.Solution.Enthalpy), 0));
+                var ymin = Math.Min(DataManager.IncludedData.Max(d => d.Injections.Max(inj => (float)inj.OffsetEnthalpy)), Math.Min(DataManager.IncludedData.Where(d => d.Solution != null).Min(d => (float)d.Solution.Enthalpy), 0));
 
                 XAxis = GraphAxis.WithBuffer(this, xmin, xmax, 0.05, AxisPosition.Bottom);
                 YAxis = GraphAxis.WithBuffer(this, ymin, ymax, 0.1, AxisPosition.Left);
