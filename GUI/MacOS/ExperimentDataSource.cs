@@ -61,7 +61,7 @@ namespace AnalysisITC
                 view = tableView.MakeView(CellIdentifier, this);
                 view.SetIdentifier(series.FileName);
                 (view as ExperimentDataViewCell).RemoveData += OnRemoveDataButtonClick;
-                (view as ExperimentDataViewCell).ResizeRow += (object sender, int e) => tableView.ReloadData(NSIndexSet.FromIndex(row), NSIndexSet.FromIndex(0));
+                //(view as ExperimentDataViewCell).ResizeRow += (object sender, int e) => tableView.ReloadData(NSIndexSet.FromIndex(row), NSIndexSet.FromIndex(0));
             }
 
             (view as ExperimentDataViewCell).Setup(Source, series, (int)row);
