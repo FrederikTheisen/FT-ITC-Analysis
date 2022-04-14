@@ -14,184 +14,198 @@ namespace AnalysisITC
     {
         public static Random Random { get; } = new Random();
 
+        public static event EventHandler AnalysisIterationFinished;
+        public static event EventHandler<SolverConvergence> AnalysisFinished;
+
+        public static double Hstep { get; set; } = 1000;
+        public static double Kstep { get; set; } = 10000;
+        public static double Gstep { get; set; } = 500;
+        public static double Cstep { get; set; } = 100;
+        public static double Nstep { get; set; } = 0.5;
+        public static double Ostep { get; set; } = 1000;
+
+        public static int BootstrapIterations { get; set; } = 100;
+
         public static List<ExperimentData> GetValidData()
         {
             return DataManager.Data.Where(d => d.Include).ToList();
         }
-    }
 
-    public static class GlobalAnalyzer
-    {
-        public static event EventHandler<SolverConvergence> AnalysisFinished;
-
-        static GlobalModel Model { get; set; }
-
-        public static void InitializeAnalyzer(bool varEnthalpy, bool varAffinity = true)
+        public static class GlobalAnalyzer
         {
-            Model = new GlobalModel();
+            static GlobalModel Model { get; set; }
 
-            Model.UseVariableAffinity = varAffinity;
-            Model.UseUnifiedAffinity = !varAffinity;
-            Model.UseVariableEnthalpy = varEnthalpy;
-        }
-
-        static void InitializeOneSetOfSites()
-        {
-            foreach (var data in Analysis.GetValidData())
+            public static void InitializeAnalyzer(bool varEnthalpy, bool varAffinity = true)
             {
-                Model.Models.Add(new OneSetOfSites(data));
-                if (data.Solution != null) data.Solution.IsValid = false;
+                Model = new GlobalModel();
 
-                data.UpdateSolution();
+                Model.UseVariableAffinity = varAffinity;
+                Model.UseUnifiedAffinity = !varAffinity;
+                Model.UseVariableEnthalpy = varEnthalpy;
+            }
+
+            static void InitializeOneSetOfSites()
+            {
+                foreach (var data in Analysis.GetValidData())
+                {
+                    Model.Models.Add(new OneSetOfSites(data));
+                    if (data.Solution != null) data.Solution.IsValid = false;
+
+                    data.UpdateSolution();
+                }
+            }
+
+            public static async void Solve(AnalysisModel analysismodel)
+            {
+                switch (analysismodel)
+                {
+                    case AnalysisModel.OneSetOfSites: InitializeOneSetOfSites(); break;
+                    case AnalysisModel.SequentialBindingSites:
+                    case AnalysisModel.TwoSetsOfSites:
+                    case AnalysisModel.Dissociation:
+                    default: InitializeOneSetOfSites(); break;
+                }
+
+                SolverConvergence convergence = null;
+
+                var starttime = DateTime.Now;
+
+                await Task.Run(() =>
+                    {
+                        convergence = Model.SolveWithNelderMeadAlgorithm();
+
+                        NSApplication.SharedApplication.InvokeOnMainThread(() => { AnalysisIterationFinished?.Invoke(null, null); });
+
+                        Model.Bootstrap();
+                    });
+
+                Console.WriteLine((DateTime.Now - starttime).TotalSeconds);
+
+                //var refdat = Model.Models[0].Data;
+                //var syndat = new List<ExperimentData>();
+                //
+                //for (var i = 0; i < 100; i++)
+                //{
+                //    syndat.Add(refdat.GetSynthClone());
+                //}
+                //
+                //double[][] dat = new double[102][];
+                //
+                //for (int j = 0; j < refdat.InjectionCount; j++)
+                //{
+                //    string line = "";
+                //
+                //    for (var i = 0; i < 102; i++)
+                //    {
+                //        if (i == 0) line = refdat.Injections[j].Ratio.ToString();
+                //        else if (i == 1) line += " " + refdat.Solution.Evaluate(j, true).ToString();
+                //        else
+                //        {
+                //            var d = syndat[i - 2];
+                //
+                //            line += " " + d.Injections[j].Enthalpy.ToString();
+                //        }
+                //    }
+                //
+                //    Console.WriteLine(line);
+                //}
+
+                AnalysisFinished?.Invoke(null, convergence);
+            }
+
+            static void SetInitialValues()
+            {
+                foreach (var m in Model.Models)
+                {
+                    m.SolveWithNelderMeadAlgorithm();
+                }
+
+                Model.InitialOffsets = Model.Models.Select(m => (double)m.Solution.Offset).ToArray();
+                Model.InitialNs = Model.Models.Select(m => (double)m.Solution.N).ToArray();
+                Model.InitialGibbs = Model.Models.Select(m => (double)m.Solution.GibbsFreeEnergy).ToArray();
             }
         }
 
-        public static async void Solve(AnalysisModel analysismodel)
+        public static class Analyzer
         {
-            switch (analysismodel)
+            static ExperimentData Data { get; set; }
+
+            static Model Model { get; set; }
+
+            public static void InitializeAnalyzer(ExperimentData data)
             {
-                case AnalysisModel.OneSetOfSites: InitializeOneSetOfSites(); break;
-                case AnalysisModel.SequentialBindingSites:
-                case AnalysisModel.TwoSetsOfSites:
-                case AnalysisModel.Dissociation:
-                default: InitializeOneSetOfSites(); break;
+                Data = data;
             }
 
-            SolverConvergence convergence = null;
+            public static void InitializeOneSetOfSites()
+            {
+                Model = new OneSetOfSites(Data);
+            }
 
-            var starttime = DateTime.Now;
+            public static async void Solve(AnalysisModel analysismodel)
+            {
+                switch (analysismodel)
+                {
+                    case AnalysisModel.OneSetOfSites: InitializeOneSetOfSites(); break;
+                    case AnalysisModel.SequentialBindingSites:
+                    case AnalysisModel.TwoSetsOfSites:
+                    case AnalysisModel.Dissociation:
+                    default: InitializeOneSetOfSites(); break;
+                }
 
-            await Task.Run(() =>
+                SolverConvergence convergence = null;
+
+                var starttime = DateTime.Now;
+
+                await Task.Run(() =>
                 {
                     convergence = Model.SolveWithNelderMeadAlgorithm();
 
-                    //NSApplication.SharedApplication.InvokeOnMainThread(() => { });
+                    NSApplication.SharedApplication.InvokeOnMainThread(() => { AnalysisIterationFinished?.Invoke(null, null); });
 
                     Model.Bootstrap();
                 });
 
-            Console.WriteLine((DateTime.Now - starttime).TotalSeconds);
+                Console.WriteLine((DateTime.Now - starttime).TotalSeconds);
 
-            var refdat = Model.Models[0].Data;
-            var syndat = new List<ExperimentData>();
-
-            for (var i = 0; i < 100; i++)
-            {
-                syndat.Add(refdat.GetSynthClone());
+                AnalysisFinished?.Invoke(null, convergence);
             }
 
-            double[][] dat = new double[102][];
-
-
-            for (int j = 0; j < refdat.InjectionCount; j++)
+            public static void LM() //TODO move to model solving
             {
-                string line = "";
-
-                for (var i = 0; i < 102; i++)
+                var f = new Accord.Statistics.Models.Regression.Fitting.NonlinearLeastSquares();
+                f.Algorithm = new Accord.Math.Optimization.LevenbergMarquardt()
                 {
-                    if (i == 0) line = refdat.Injections[j].Ratio.ToString();
-                    else if (i == 1) line += " " + refdat.Solution.Evaluate(j, true).ToString();
-                    else
-                    {
-                        var d = syndat[i - 2];
+                    MaxIterations = 1000,
+                    ParallelOptions = new ParallelOptions() { MaxDegreeOfParallelism = 3 }
 
-                        line += " " + d.Injections[j].Enthalpy.ToString();
-                    }
-                }
-
-                Console.WriteLine(line);
-            }
-
-            AnalysisFinished?.Invoke(null, convergence);
-        }
-
-        static void SetInitialValues()
-        {
-            foreach (var m in Model.Models)
-            {
-                m.SolveWithNelderMeadAlogrithm();
-            }
-
-            Model.InitialOffsets = Model.Models.Select(m => (double)m.Solution.Offset).ToArray();
-            Model.InitialNs = Model.Models.Select(m => (double)m.Solution.N).ToArray();
-            Model.InitialGibbs = Model.Models.Select(m => (double)m.Solution.GibbsFreeEnergy).ToArray();
-        }
-    }
-
-    public class Analyzer
-    {
-        public ExperimentData Data { get; set; }
-
-        public Solution Solution { get; private set; }
-
-        public float T;
-
-        public Analyzer(ExperimentData data)
-        {
-            Data = data;
-        }
-
-        public void Test()
-        {
-            Console.WriteLine("####################");
-
-            var model = new OneSetOfSites(Data);
-
-            Solution = model.SolveWithNelderMeadAlogrithm();
-        }
-
-        public void SolveSimplex()
-        {
-            
-        }
-
-        public void NelderMeadError()
-        {
-            List<Solution> solutions = new List<Solution>();
-
-            foreach (int i in Data.Injections.Where(inj => inj.Include).Select(inj => inj.ID))
-            {
-                var model = new OneSetOfSites(Data)
-                {
-                    ExcludeSinglePoint = i,
                 };
 
-                solutions.Add(model.SolveWithNelderMeadAlogrithm());
+                var model = new OneSetOfSites(Data);
+
+                f.Function = (p, i) => model.Evaluate((int)i[0], (float)p[0], (float)p[1], (float)p[2], (float)p[3]);
+                f.StartValues = new double[4] { 1, -50000, 1000000, 0 };
+                f.ComputeStandardErrors = false;
+                f.Gradient = null;
+
+                f.NumberOfParameters = 4;
+
+                var input = Data.Injections.Where(inj => inj.Include).Select(inj => (double)inj.ID).ToArray().ToJagged();
+                var results = Data.Injections.Where(inj => inj.Include).Select(inj => (double)inj.PeakArea).ToArray();
+
+
+                var output = f.Learn(input, results);
+
+                Console.WriteLine(output.Coefficients);
+
             }
         }
 
-
-        public void LM()
+        public enum VariableStyle
         {
-            var f = new Accord.Statistics.Models.Regression.Fitting.NonlinearLeastSquares();
-            f.Algorithm = new Accord.Math.Optimization.LevenbergMarquardt()
-            {
-                MaxIterations = 1000
-                
-            };
-
-            var model = new OneSetOfSites(Data);
-
-            f.Function = (p, i) => model.Evaluate((int)i[0], (float)p[0], (float)p[1], (float)p[2], (float)p[3]);
-            f.StartValues = new double[4] { 1, -50000, 1000000, 0 };
-            f.ComputeStandardErrors = false;
-            f.Gradient = null;
-
-            f.NumberOfParameters = 4;
-
-            var input = Data.Injections.Where(inj => inj.Include).Select(inj => (double)inj.ID).ToArray().ToJagged();
-            var results = Data.Injections.Where(inj => inj.Include).Select(inj => (double)inj.PeakArea).ToArray();
-
-
-            var output = f.Learn(input, results);
-
-            Console.WriteLine(output.Coefficients);
-
-        }
-
-        public enum AnalysisModel
-        {
-            OneSetOfSites
+            Free,
+            TemperatureDependent,
+            SameForAll
         }
     }
 
@@ -239,25 +253,43 @@ namespace AnalysisITC
             return 0;
         }
 
-        public virtual Solution SolveWithNelderMeadAlogrithm()
+        public virtual SolverConvergence SolveWithNelderMeadAlgorithm()
         {
             var f = new NonlinearObjectiveFunction(4, (w) => this.RMSD(w[0], w[1], w[2], w[3]));
             var solver = new NelderMead(f);
-            solver.StepSize[0] = 0.00001;
-            solver.StepSize[1] = .1;
-            solver.StepSize[2] = .1;
-            solver.StepSize[3] = .1;
+            solver.StepSize[0] = Analysis.Nstep;
+            solver.StepSize[1] = Analysis.Hstep;
+            solver.StepSize[2] = Analysis.Kstep;
+            solver.StepSize[3] = Analysis.Ostep;
             solver.Convergence = new Accord.Math.Convergence.GeneralConvergence(4)
             {
-                MaximumEvaluations = 30000,
-                RelativeFunctionTolerance = 0.000000000001
+                MaximumEvaluations = 300000,
+                AbsoluteFunctionTolerance = double.Epsilon,
+                StartTime = DateTime.Now,
             };
 
             solver.Minimize(new double[4] { GuessN, GuessH, GuessK, GuessOffset });
 
             Data.Solution = Solution.FromAccordNelderMead(solver.Solution, this, solver.Function(solver.Solution));
 
-            return Solution;
+            return new SolverConvergence(solver);
+        }
+
+        public void Bootstrap()
+        {
+            var solutions = new List<Solution>();
+
+            for (int i = 0; i < Analysis.BootstrapIterations; i++)
+            {
+                var model = this.GenerateSyntheticModel();
+
+                model.SolveWithNelderMeadAlgorithm();
+
+                solutions.Add(model.Solution);
+            }
+
+            Solution.BootstrapSolutions = solutions;
+            Solution.ComputeErrorsFromBootstrapSolutions();
         }
 
         public virtual Model GenerateSyntheticModel()
@@ -330,20 +362,12 @@ namespace AnalysisITC
 
     public class GlobalModel
     {
-        internal static double Hstep = 1000;
-        internal static double Gstep = 500;
-        internal static double Cstep = 100;
-        internal static double Nstep = 0.5;
-        internal static double Ostep = 1000;
-
         public List<Model> Models { get; set; } = new List<Model>();
         public GlobalSolution Solution { get; private set; }
 
-        public bool UseVariableEnthalpy { get; set; } = true;
+        public Analysis.VariableStyle Enthalpystyle { get; set; } = Analysis.VariableStyle.TemperatureDependent;
         public bool UseVariableAffinity { get; set; } = true;
         public bool UseUnifiedAffinity { get; set; } = false;
-
-        public int BootstrapIterations { get; set; } = 100;
 
         public virtual int GetVariableCount
         {
@@ -351,8 +375,13 @@ namespace AnalysisITC
             {
                 int nvar = 2 * Models.Count;
 
-                if (UseVariableEnthalpy) nvar += 2;
-                else nvar += 1;
+                switch (Enthalpystyle)
+                {
+                    case Analysis.VariableStyle.TemperatureDependent: nvar += 2; break;
+                    case Analysis.VariableStyle.Free: nvar += Models.Count; break;
+                    case Analysis.VariableStyle.SameForAll:
+                    default: nvar += 1; break;
+                }
 
                 if (UseVariableAffinity || !UseUnifiedAffinity) nvar += Models.Count;
                 else nvar += 1;
@@ -426,16 +455,16 @@ namespace AnalysisITC
             {
                 var stepsizes = new List<double>()
                 {
-                    Hstep,
+                    Analysis.Hstep,
                 };
 
-                if (UseVariableEnthalpy) stepsizes.Add(Cstep);
+                if (UseVariableEnthalpy) stepsizes.Add(Analysis.Cstep);
 
-                if (UseVariableAffinity || !UseUnifiedAffinity) { for (int i = 0; i < Models.Count; i++) stepsizes.Add(Gstep); }
-                else stepsizes.Add(Gstep);
+                if (UseVariableAffinity || !UseUnifiedAffinity) { for (int i = 0; i < Models.Count; i++) stepsizes.Add(Analysis.Gstep); }
+                else stepsizes.Add(Analysis.Gstep);
 
-                for (int i = 0; i < Models.Count; i++) stepsizes.Add(Ostep);
-                for (int i = 0; i < Models.Count; i++) stepsizes.Add(Nstep);
+                for (int i = 0; i < Models.Count; i++) stepsizes.Add(Analysis.Ostep);
+                for (int i = 0; i < Models.Count; i++) stepsizes.Add(Analysis.Nstep);
 
                 return stepsizes.ToArray();
             }
@@ -531,7 +560,7 @@ namespace AnalysisITC
         {
             var solutions = new List<GlobalSolution>();
 
-            for (int i = 0; i < BootstrapIterations; i++)
+            for (int i = 0; i < Analysis.BootstrapIterations; i++)
             {
                 var models = new List<Model>();
 
@@ -549,7 +578,8 @@ namespace AnalysisITC
                 solutions.Add(gm.Solution);
             }
 
-            Solution.EnthalpyRef = new Energy(new FloatWithError(solutions.Select(s => s.EnthalpyRef.FloatWithError.Value)));
+            Solution.EnthalpyRef = new Energy(new FloatWithError(solutions.Select(s => s.EnthalpyRef.Value)));
+            Solution.HeatCapacity = new Energy(new FloatWithError(solutions.Select(s => s.HeatCapacity.Value)));
 
             foreach (var model in Models)
             {
@@ -557,16 +587,7 @@ namespace AnalysisITC
 
                 model.Solution.BootstrapSolutions = sols;
                 model.Solution.ComputeErrorsFromBootstrapSolutions();
-
-                //var dHs = sols.Select(s => s.Enthalpy);
-                //var dH = dHs.Average(o => o.Value.Value);
-                //var minH = dHs.Min(o => o.Value.Value);
-                //var maxH = dHs.Max(o => o.Value.Value);
-
-                //Console.WriteLine(model.Data.MeasuredTemperature.ToString() + ": " + dH.ToString() + " " + minH.ToString() + " " + maxH.ToString());
             }
-
-
         }
 
         internal virtual double LossFunction(double[] w)
