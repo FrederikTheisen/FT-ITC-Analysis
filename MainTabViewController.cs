@@ -20,10 +20,6 @@ namespace AnalysisITC
             StateManager.ProgramStateChanged += OnProgramModeChanged;
             StateManager.UpdateStateDependentUI += StateManager_UpdateStateDependentUI;
 
-            //TabView.AddSubview(TabviewSegControl);
-
-            //TabviewSegControl.ControlSize = NSControlSize.Large;
-            //TabviewSegControl.Alignment = NSTextAlignment.Center;
             this.View.AddSubview(TabviewSegControl);
 
             StateManager_UpdateStateDependentUI(null, null);
@@ -71,7 +67,8 @@ namespace AnalysisITC
         {
             TabView.SelectAt((int)e);
 
-            TabviewSegControl.SelectSegment((int)e);
+            TabviewSegControl.SetSelected(true, (int)e);
+            //TabviewSegControl.SelectSegment((int)e);
         }
 
         partial void SegControlClicked(NSSegmentedControl sender)

@@ -54,7 +54,7 @@ namespace AnalysisITC
             // If a non-null view is returned, you modify it enough to reflect the new data
             ExperimentData series = DataManager.Data[(int)row];
 
-            var view = tableView.MakeView(series.FileName, this);
+            var view = tableView.MakeView(series.UniqueID, this);
 
             if (view == null)
             {
@@ -74,6 +74,8 @@ namespace AnalysisITC
             Console.WriteLine("OnRemoveClick " + e);
 
             RemoveRow?.Invoke(this, e);
+
+            
         }
 
         [Export("tableViewSelectionDidChange:")]

@@ -72,39 +72,24 @@ namespace AnalysisITC
 
         public async void ProcessData()
         {
+            StatusBarManager.StartInderminateProgress();
 
-                this.WillProcessData();
-                await this.InterpolateBaseline();
+            this.WillProcessData();
+            await this.InterpolateBaseline();
+            this.IntegratePeaks();
+            this.DidProcessData();
 
-                //csource.Cancel();
-                //csource = new CancellationTokenSource();
-                //cToken = csource.Token;
-
-                //await System.Threading.Tasks.Task.Run(() => Interpolator.Interpolate(cToken));
-
-                //SubtractBaseline();
-
-                //BaselineCompleted = true;
-
-                //BaselineInterpolationCompleted?.Invoke(this, null);
-
-                this.IntegratePeaks();
-
-                //StatusBarManager.StopInderminateProgress();
-
-                this.DidProcessData();
-
+            StatusBarManager.StopInderminateProgress();
         }
 
-        void WillProcessData()
+        public void WillProcessData()
         {
-            StatusBarManager.StartInderminateProgress();
             Data.Injections.ForEach(inj => inj.IsIntegrated = false);
             BaselineCompleted = false;
             Data.UpdateProcessing();
         }
 
-        async Task InterpolateBaseline()
+        public async Task InterpolateBaseline()
         {
             try
             {
@@ -125,13 +110,11 @@ namespace AnalysisITC
             }
         }
 
-        void DidProcessData()
+        public void DidProcessData()
         {
             Data.UpdateProcessing();
 
             ProcessingCompleted?.Invoke(Data, null);
-
-            StatusBarManager.StopInderminateProgress();
         }
 
         public void IterationCompleted()
