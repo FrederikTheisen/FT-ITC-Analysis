@@ -134,6 +134,14 @@ namespace AnalysisITC
             _ => null,
         };
 
+        public void Set(double min, double max)
+        {
+            ActualMin = (float)min;
+            ActualMax = (float)max;
+
+            SetTickScale();
+        }
+
         public void SetWithBuffer(double min, double max, double buffer = 0.035)
         {
             var delta = max - min;
