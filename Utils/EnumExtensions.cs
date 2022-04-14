@@ -54,6 +54,7 @@ namespace AnalysisITC
         public nfloat Bottom { get; private set; }
 
         public nfloat Width => Left + Right;
+        public nfloat Height => Top + Bottom;
 
         public CGEdgeMargin(float left, float right, float top, float bottom)
         {
@@ -65,12 +66,12 @@ namespace AnalysisITC
 
         public CGRect BoxWithMargin(CGRect box, float mod = 1)
         {
-            return new CGRect(box.X - Left * mod, box.Y - Bottom * mod, box.Width + (Left + Right) * mod, box.Height + (Bottom + Top) * mod);
+            return new CGRect(box.X - Left * mod, box.Y - Bottom * mod, box.Width + Width * mod, box.Height + Height * mod);
         }
 
         public CGRect BoxWithMargin(CGRect box)
         {
-            return new CGRect(box.X - Left, box.Y - Bottom, box.Width + Left + Right, box.Height + Bottom + Top);
+            return new CGRect(box.X - Left, box.Y - Bottom, box.Width + Width, box.Height + Height);
         }
     }
 
