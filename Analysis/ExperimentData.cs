@@ -15,6 +15,7 @@ namespace AnalysisITC
 
         public string FileName { get; protected set; } = "";
         public DateTime Date { get; internal set; }
+        public readonly string UniqueID = Guid.NewGuid().ToString();
 
         public List<DataPoint> DataPoints = new List<DataPoint>();
         public List<DataPoint> BaseLineCorrectedDataPoints;
