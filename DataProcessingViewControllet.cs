@@ -162,6 +162,11 @@ namespace AnalysisITC
             
         }
 
+        partial void CopySettingsToAllClicked(NSObject sender)
+        {
+            DataManager.CopySelectedProcessToAll();
+        }
+
         #endregion
 
         #region Processing Injections
@@ -285,7 +290,7 @@ namespace AnalysisITC
         {
             if (Processor.BaselineCompleted) BaselineGraphView.Invalidate();
 
-            ConfirmProcessingButton.Enabled = DataManager.AllDataIsBaselineProcessed;
+            //ConfirmProcessingButton.Enabled = DataManager.AllDataIsBaselineProcessed;
         }
     }
 }
