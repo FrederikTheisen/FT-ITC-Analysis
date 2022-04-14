@@ -451,7 +451,7 @@ namespace AnalysisITC
                     Energy b = ExperimentData.Processor.Interpolator.Baseline[i];
 
                     if (p.Time > XAxis.Min && p.Time < XAxis.Max)
-                        points.Add(GetRelativePosition(p.Time, b.Value));
+                        points.Add(GetRelativePosition(p.Time, b.FloatWithError));
                 }
             else points = new List<CGPoint>
             {
