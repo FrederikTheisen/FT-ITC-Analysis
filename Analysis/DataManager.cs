@@ -84,7 +84,7 @@ namespace AnalysisITC
             var int_length = curr.Injections.Select(inj => inj.IntegrationLength).Average();
             var int_factor = curr.UseIntegrationFactorLength;
 
-            var count = Count;
+            var count = Count - 1; //Do not cound current data 
 
             StatusBarManager.SetStatus("Processing data...", 0);
             StatusBarManager.Progress = 0;
@@ -100,13 +100,22 @@ namespace AnalysisITC
 
             foreach (var data in Data)
             {
+                if (data == curr) continue;
+
                 i++;
 
-                await System.Threading.Tasks.Task.Run(() => data.Processor.Interpolator.Interpolate(new System.Threading.CancellationToken(false), true));
-                data.Processor.SubtractBaseline();
+                data.Processor.WillProcessData();
+                await data.Processor.InterpolateBaseline();
+                data.UseIntegrationFactorLength = int_factor;
                 data.SetCustomIntegrationTimes(int_delay, int_length);
-                data.Processor.IterationCompleted();
                 data.Processor.IntegratePeaks();
+                data.Processor.DidProcessData();
+
+                //await System.Threading.Tasks.Task.Run(() => data.Processor.Interpolator.Interpolate(new System.Threading.CancellationToken(false), true));
+                //data.Processor.SubtractBaseline();
+                //data.SetCustomIntegrationTimes(int_delay, int_length);
+                //data.Processor.IterationCompleted();
+                //data.Processor.IntegratePeaks();
 
                 StatusBarManager.Progress = i / count;
             }
