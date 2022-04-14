@@ -1040,10 +1040,7 @@ namespace AnalysisITC
                         if (isclick) mDownID = inj.ID;
                         else if (ismouseup && mDownID == inj.ID) { inj.Include = !inj.Include; mOverFeature = -1; }
                         mOverFeature = inj.ID;
-                        return new MouseOverFeatureEvent()
-                        {
-                            FeatureID = mOverFeature
-                        };
+                        return new MouseOverFeatureEvent(inj);
                     }
                 }
             }

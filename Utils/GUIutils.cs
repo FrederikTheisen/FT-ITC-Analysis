@@ -159,13 +159,47 @@ namespace Utilities
 
     public class MouseOverFeatureEvent
     {
+        public FeatureType Type { get; private set; } = FeatureType.Unknown;
+
         public int FeatureID { get; set; } = -1;
+
+        List<string> tooltiplines = new List<string>();
+
+        public string ToolTip
+        {
+            get
+            {
+                if (tooltiplines.Count == 0) return null;
+                else return string.Join(Environment.NewLine, tooltiplines);
+            }
+        }
 
         public bool IsMouseOverFeature => FeatureID != -1;
 
-        public MouseOverFeatureEvent()
+        public MouseOverFeatureEvent(FeatureType type = FeatureType.Unknown)
         {
+            Type = type;
+        }
 
+        public MouseOverFeatureEvent(AnalysisITC.InjectionData inj)
+        {
+            Type = FeatureType.IntegratedInjectionPoint;
+            FeatureID = inj.ID;
+
+            tooltiplines.Add("Inj #" + inj.ID);
+            tooltiplines.Add("Time: " + inj.Time.ToString("F1") + "s");
+            tooltiplines.Add("Ratio: " + inj.Ratio.ToString("F2"));
+            tooltiplines.Add("Area: " + (inj.OffsetEnthalpy/1000).ToString("F1") + " kJ/mol");
+            if (inj.Experiment.Solution != null) tooltiplines.Add("Residual: " + (inj.Enthalpy - inj.Experiment.Solution.Evaluate(inj.ID, false)).ToString("G2") + " kJ/mol");
+        }
+
+        public enum FeatureType
+        {
+            Unknown,
+            IntegratedInjectionPoint,
+            IntegrationRangeMarker,
+            BaselineSplinePoint,
+            BaselineSplineHandle
         }
     }
 

@@ -33,8 +33,20 @@ namespace AnalysisITC
 
             var b = (Graph as DataFittingGraph).IsCursorOnFeature(CursorPositionInView);
 
-            if (b.IsMouseOverFeature) { NSCursor.PointingHandCursor.Set(); Invalidate(); }
-            else NSCursor.ArrowCursor.Set();
+            if (b.IsMouseOverFeature)
+            {
+                NSCursor.PointingHandCursor.Set();
+
+                ToolTip = b.ToolTip;
+
+                Invalidate();
+            }
+            else
+            {
+                NSCursor.ArrowCursor.Set();
+
+                ToolTip = null;
+            }
         }
 
         public override void MouseDown(NSEvent theEvent)
