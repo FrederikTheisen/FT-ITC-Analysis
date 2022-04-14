@@ -51,6 +51,9 @@ namespace AnalysisITC
 		[Action ("AnalysisModeClicked:")]
 		partial void AnalysisModeClicked (AppKit.NSSegmentedControl sender);
 
+		[Action ("CopySettingsToAll:")]
+		partial void CopySettingsToAll (Foundation.NSObject sender);
+
 		[Action ("FeatureDrawControlClicked:")]
 		partial void FeatureDrawControlClicked (AppKit.NSSegmentedControl sender);
 
@@ -59,31 +62,6 @@ namespace AnalysisITC
 		
 		void ReleaseDesignerOutlets ()
 		{
-			if (CstepTextField != null) {
-				CstepTextField.Dispose ();
-				CstepTextField = null;
-			}
-
-			if (HstepTextField != null) {
-				HstepTextField.Dispose ();
-				HstepTextField = null;
-			}
-
-			if (GstepTextField != null) {
-				GstepTextField.Dispose ();
-				GstepTextField = null;
-			}
-
-			if (NstepTextField != null) {
-				NstepTextField.Dispose ();
-				NstepTextField = null;
-			}
-
-			if (OstepTextField != null) {
-				OstepTextField.Dispose ();
-				OstepTextField = null;
-			}
-
 			if (AnalysisModeControl != null) {
 				AnalysisModeControl.Dispose ();
 				AnalysisModeControl = null;
@@ -92,6 +70,11 @@ namespace AnalysisITC
 			if (ApplyToAllExperimentsControl != null) {
 				ApplyToAllExperimentsControl.Dispose ();
 				ApplyToAllExperimentsControl = null;
+			}
+
+			if (CstepTextField != null) {
+				CstepTextField.Dispose ();
+				CstepTextField = null;
 			}
 
 			if (GlobalVariablesControl != null) {
@@ -109,9 +92,29 @@ namespace AnalysisITC
 				GraphView = null;
 			}
 
+			if (GstepTextField != null) {
+				GstepTextField.Dispose ();
+				GstepTextField = null;
+			}
+
+			if (HstepTextField != null) {
+				HstepTextField.Dispose ();
+				HstepTextField = null;
+			}
+
 			if (ModelTypeControl != null) {
 				ModelTypeControl.Dispose ();
 				ModelTypeControl = null;
+			}
+
+			if (NstepTextField != null) {
+				NstepTextField.Dispose ();
+				NstepTextField = null;
+			}
+
+			if (OstepTextField != null) {
+				OstepTextField.Dispose ();
+				OstepTextField = null;
 			}
 
 			if (SolverStepSizeView != null) {
