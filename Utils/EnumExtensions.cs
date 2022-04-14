@@ -79,8 +79,8 @@ namespace AnalysisITC
     {
         public static Energy Average(this IEnumerable<Energy> list)
         {
-            double sum = list.Sum(o => o.Value.Value);
-            double sd = list.Sum(o => o.Value.SD);
+            double sum = list.Sum(o => o.FloatWithError.Value);
+            double sd = list.Sum(o => o.FloatWithError.SD);
             int count = list.Count();
 
             return new Energy(new FloatWithError(sum / count, sd / count));
@@ -88,14 +88,14 @@ namespace AnalysisITC
 
         public static Energy Min(this IEnumerable<Energy> list)
         {
-            var v = list.Min(o => o.Value);
+            var v = list.Min(o => o.FloatWithError);
 
             return new Energy(v);
         }
 
         public static Energy Max(this IEnumerable<Energy> list)
         {
-            var v = list.Max(o => o.Value);
+            var v = list.Max(o => o.FloatWithError);
 
             return new Energy(v);
         }
@@ -116,7 +116,7 @@ namespace AnalysisITC
 
         public static IEnumerable<Energy> OrderBy(this IEnumerable<Energy> list, Func<Energy, Energy> selector)
         {
-            return list.OrderBy(o => o.Value.Value);
+            return list.OrderBy(o => o.FloatWithError.Value);
         }
     }
         

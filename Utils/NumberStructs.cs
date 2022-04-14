@@ -11,17 +11,18 @@ namespace AnalysisITC
         const double MicroFactor = 0.000001;
         public static readonly Energy R = new Energy(8.3145);
 
-        public FloatWithError Value { get; set; }
-        public double SD => Value.SD;
+        public FloatWithError FloatWithError { get; set; }
+        public double Value => FloatWithError.Value;
+        public double SD => FloatWithError.SD;
 
         public Energy(FloatWithError v)
         {
-            Value = v;
+            FloatWithError = v;
         }
 
         public Energy(double v)
         {
-            Value = new(v);
+            FloatWithError = new(v);
         }
 
         public static Energy FromDistribution(IEnumerable<double> dist, double? mean = null) => new Energy(new FloatWithError(dist, mean));
@@ -39,27 +40,27 @@ namespace AnalysisITC
 
         public static Energy operator +(Energy e1, Energy e2)
         {
-            var v = e1.Value + e2.Value;
+            var v = e1.FloatWithError + e2.FloatWithError;
 
             return new Energy(v);
         }
 
         public static Energy operator -(Energy e1, Energy e2)
         {
-            var v = e1.Value - e2.Value;
+            var v = e1.FloatWithError - e2.FloatWithError;
 
             return new Energy(v);
         }
 
-        public static Energy operator /(Energy e1, Energy e2) => new Energy(e1.Value / e2.Value);
+        public static Energy operator /(Energy e1, Energy e2) => new Energy(e1.FloatWithError / e2.FloatWithError);
 
-        public static Energy operator /(Energy e1, double val) => new Energy(e1.Value / val);
+        public static Energy operator /(Energy e1, double val) => new Energy(e1.FloatWithError / val);
 
-        public static Energy operator *(Energy e1, Energy e2) => new Energy(e1.Value * e2.Value);
+        public static Energy operator *(Energy e1, Energy e2) => new Energy(e1.FloatWithError * e2.FloatWithError);
 
-        public static Energy operator *(Energy e1, double val) => new Energy(e1.Value * val);
+        public static Energy operator *(Energy e1, double val) => new Energy(e1.FloatWithError * val);
 
-        public static Energy operator *(double val, Energy e) => new Energy(e.Value * val);
+        public static Energy operator *(double val, Energy e) => new Energy(e.FloatWithError * val);
 
         //public static bool operator <(Energy v1, Energy v2) => v1.Value.Value < v2.Value.Value;
 
@@ -69,23 +70,23 @@ namespace AnalysisITC
 
         //public static bool operator >(Energy v1, double v2) => v1.Value.Value > v2;
 
-        public static implicit operator double(Energy e) => e.Value.Value;
+        public static implicit operator double(Energy e) => e.FloatWithError.Value;
 
         //TODO add unit to print
         public override string ToString()
         {
-            return Value.ToString();
+            return FloatWithError.ToString();
         }
 
         public string ToString(EnergyUnit unit)
         {
             switch (unit)
             {
-                case EnergyUnit.Joule: return Value.ToString() + " J";
-                case EnergyUnit.MicroCal: return (1000000 * JouleToCalFactor * Value).ToString() + " µcal";
-                case EnergyUnit.Cal: return (JouleToCalFactor * Value).ToString() + " cal";
-                case EnergyUnit.KiloJoule: return (Value/1000).ToString() + " kJ";
-                default: return Value.ToString() + " J";
+                case EnergyUnit.Joule: return FloatWithError.ToString() + " J";
+                case EnergyUnit.MicroCal: return (1000000 * JouleToCalFactor * FloatWithError).ToString() + " µcal";
+                case EnergyUnit.Cal: return (JouleToCalFactor * FloatWithError).ToString() + " cal";
+                case EnergyUnit.KiloJoule: return (FloatWithError/1000).ToString() + " kJ";
+                default: return FloatWithError.ToString() + " J";
             }
         }
     }
@@ -101,22 +102,22 @@ namespace AnalysisITC
 
     public struct FloatWithError
     {
-        public double Value { get; set; }
-        public double SD { get; set; }
+        public double Value { get; private set; }
+        public double SD { get; private set; }
         public double FractionSD
         {
             get
             {
                 if (SD < double.Epsilon) return 0;
                 else if (Math.Abs(Value) < double.Epsilon) return 0;
-                else return SD / Value;
+                else return Math.Abs(SD / Value);
             }
         }
 
         public FloatWithError(double value = 0, double error = 0)
         {
             Value = value;
-            SD = error;
+            SD = Math.Abs(error);
         }
 
         public FloatWithError(IEnumerable<double> distribution, double? mean = null)
@@ -147,7 +148,7 @@ namespace AnalysisITC
                 result = Math.Sqrt((sum) / distribution.Count());
             }
 
-            SD = result;
+            SD = Math.Abs(result);
         }
 
         public double[] WithConfidence()

@@ -549,7 +549,7 @@ namespace AnalysisITC
                 solutions.Add(gm.Solution);
             }
 
-            Solution.EnthalpyRef = new Energy(new FloatWithError(solutions.Select(s => s.EnthalpyRef.Value.Value)));
+            Solution.EnthalpyRef = new Energy(new FloatWithError(solutions.Select(s => s.EnthalpyRef.FloatWithError.Value)));
 
             foreach (var model in Models)
             {
@@ -621,7 +621,7 @@ namespace AnalysisITC
 
         public Model Model;
         public ExperimentData Data => Model.Data;
-        public bool IsValid { get; set; } = false;
+        public bool IsValid { get; set; } = true;
 
         public Energy Enthalpy { get; private set; }
         public FloatWithError K { get; private set; }
@@ -632,7 +632,7 @@ namespace AnalysisITC
         double TK => T + 273.15;
 
         public FloatWithError Kd => new FloatWithError(1) / K;
-        public Energy GibbsFreeEnergy => new(-1.0 * R.Value * TK * FWEMath.Log(K));
+        public Energy GibbsFreeEnergy => new(-1.0 * R.FloatWithError * TK * FWEMath.Log(K));
         public Energy TdS => GibbsFreeEnergy - Enthalpy;
         public Energy Entropy => TdS / TK;
 
@@ -670,7 +670,7 @@ namespace AnalysisITC
 
         public void ComputeErrorsFromBootstrapSolutions()
         {
-            var enthalpies = BootstrapSolutions.Select(s => s.Enthalpy.Value.Value);
+            var enthalpies = BootstrapSolutions.Select(s => s.Enthalpy.FloatWithError.Value);
             Enthalpy = new Energy(new FloatWithError(enthalpies, Enthalpy));
 
             var k = BootstrapSolutions.Select(s => s.K.Value);
@@ -699,7 +699,7 @@ namespace AnalysisITC
                 results.Add(sol.Evaluate(i, true));
             }
 
-            return new FloatWithError(results, Evaluate(i, true)) - Offset.Value;
+            return new FloatWithError(results, Evaluate(i, true)) - Offset.FloatWithError;
         }
 
         public static Tuple<double, double> EvaluateBootstrap(int i, bool withoffset, List<Solution> solutions)
