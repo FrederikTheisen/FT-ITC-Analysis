@@ -33,6 +33,7 @@ namespace AnalysisITC
         public int InjectionCount => Injections.Count;
         public PeakHeatDirection AverageHeatDirection { get; set; } = PeakHeatDirection.Unknown;
         public bool UseIntegrationFactorLength { get; set; } = false;
+        public float IntegrationLengthFactor { get; private set; } = 8;
 
         bool include = true;
         public bool Include
@@ -80,6 +81,8 @@ namespace AnalysisITC
 
         public void SetCustomIntegrationTimes(float delay, float length)
         {
+            if (UseIntegrationFactorLength) IntegrationLengthFactor = length;
+
             foreach (var inj in Injections) inj.SetCustomIntegrationTimes(delay, length);
         }
 
@@ -271,16 +274,24 @@ namespace AnalysisITC
 
             if (Experiment.UseIntegrationFactorLength)
             {
-                float maxtime = 0;
+                var dps = Experiment.BaseLineCorrectedDataPoints.Where(dp => dp.Time > Time && dp.Time < Time + Delay);
+                var dps_count = dps.Count();
+                var ordered = dps.OrderBy(dp => Math.Abs(dp.Power));
+                var max_power_point = ordered.Last();
+                int window_start;
+                int window_length = 10;
+                FloatWithError window;
 
-                var dps = Experiment.DataPoints.Where(dp => dp.Time > Time && dp.Time < Time + Delay);
-                var ordered = dps.OrderBy(dp => dp.Power);
-                var first = ordered.First();
+                for (window_start = 0; window_start < dps_count - window_length; window_start++)
+                {
+                    window = new FloatWithError(dps.Where(dp => dp.Time > max_power_point.Time).Skip(window_start).Take(window_length).Select(dp => dp.Power));
 
-                if (HeatDirection is PeakHeatDirection.Exothermal) maxtime = first.Time;
-                else maxtime = Experiment.DataPoints.Where(dp => dp.Time > Time && dp.Time < Time + Delay).OrderBy(dp => dp.Power).Last().Time;
+                    if (window.FractionSD > 1.2) break;
+                }
 
-                length = length * (maxtime - Time);
+                var return_to_baseline_delay = dps.Where(dp => dp.Time > max_power_point.Time).Skip(window_start + window_length).First().Time - Time;
+
+                length = length * return_to_baseline_delay;
 
                 IntegrationLength = Math.Clamp(length, Duration, Delay);
             }
