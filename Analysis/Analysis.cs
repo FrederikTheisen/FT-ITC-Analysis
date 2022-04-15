@@ -16,6 +16,7 @@ namespace AnalysisITC
 
         public static event EventHandler AnalysisIterationFinished;
         public static event EventHandler<SolverConvergence> AnalysisFinished;
+        public static event EventHandler<Tuple<int,int,float>> BootstrapIterationFinished;
 
         public static double Hstep { get; set; } = 1000;
         public static double Kstep { get; set; } = 10000;
@@ -32,6 +33,11 @@ namespace AnalysisITC
         {
             return DataManager.Data.Where(d => d.Include).ToList();
         }
+
+        public static void ReportBootstrapProgress(int iteration) => NSApplication.SharedApplication.InvokeOnMainThread(() =>
+        {
+            BootstrapIterationFinished?.Invoke(null, new Tuple<int, int, float>(iteration, BootstrapIterations, iteration / (float)BootstrapIterations));
+        });
 
         public static class GlobalAnalyzer
         {
@@ -85,35 +91,6 @@ namespace AnalysisITC
                     });
 
                 Console.WriteLine((DateTime.Now - starttime).TotalSeconds);
-
-                //var refdat = Model.Models[0].Data;
-                //var syndat = new List<ExperimentData>();
-                //
-                //for (var i = 0; i < 100; i++)
-                //{
-                //    syndat.Add(refdat.GetSynthClone());
-                //}
-                //
-                //double[][] dat = new double[102][];
-                //
-                //for (int j = 0; j < refdat.InjectionCount; j++)
-                //{
-                //    string line = "";
-                //
-                //    for (var i = 0; i < 102; i++)
-                //    {
-                //        if (i == 0) line = refdat.Injections[j].Ratio.ToString();
-                //        else if (i == 1) line += " " + refdat.Solution.Evaluate(j, true).ToString();
-                //        else
-                //        {
-                //            var d = syndat[i - 2];
-                //
-                //            line += " " + d.Injections[j].Enthalpy.ToString();
-                //        }
-                //    }
-                //
-                //    Console.WriteLine(line);
-                //}
 
                 AnalysisFinished?.Invoke(null, convergence);
             }
@@ -287,10 +264,10 @@ namespace AnalysisITC
             for (int i = 0; i < Analysis.BootstrapIterations; i++)
             {
                 var model = this.GenerateSyntheticModel();
-
                 model.SolveWithNelderMeadAlgorithm();
-
                 solutions.Add(model.Solution);
+
+                Analysis.ReportBootstrapProgress(i);
             }
 
             Solution.BootstrapSolutions = solutions;
@@ -589,6 +566,8 @@ namespace AnalysisITC
                 gm.SolveWithNelderMeadAlgorithm();
 
                 solutions.Add(gm.Solution);
+
+                Analysis.ReportBootstrapProgress(i);
             }
 
             Solution.EnthalpyRef = new Energy(new FloatWithError(solutions.Select(s => s.EnthalpyRef.Value)));

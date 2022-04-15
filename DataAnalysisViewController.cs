@@ -21,19 +21,40 @@ namespace AnalysisITC
             base.ViewDidLoad();
 
             Analysis.AnalysisFinished += GlobalAnalyzer_AnalysisFinished;
+            Analysis.AnalysisIterationFinished += Analysis_AnalysisIterationFinished;
+            Analysis.BootstrapIterationFinished += Analysis_BootstrapIterationFinished;
             DataManager.SelectionDidChange += DataManager_SelectionDidChange;
             DataManager.DataDidChange += DataManager_DataDidChange;
         }
 
+        public override void ViewWillAppear()
+        {
+            base.ViewWillAppear();
+
+            GraphView.Initialize(DataManager.Current);
+        }
+
         private void GlobalAnalyzer_AnalysisFinished(object sender, SolverConvergence e)
         {
-            StatusBarManager.StopInderminateProgress();
+            StatusBarManager.StopIndeterminateProgress();
             StatusBarManager.ClearAppStatus();
             StatusBarManager.SetStatus(e.Iterations + " iterations, RMSD = " + e.Loss.ToString("G2"), 11000);
             StatusBarManager.SetStatus(e.Message + " | " + e.Time.TotalMilliseconds + "ms", 6000);
             StatusBarManager.SetStatus("Completed", 1500);
 
             GraphView.Invalidate();
+        }
+
+        private void Analysis_AnalysisIterationFinished(object sender, EventArgs e)
+        {
+            GraphView.Invalidate();
+        }
+
+        private void Analysis_BootstrapIterationFinished(object sender, Tuple<int, int, float> e)
+        {
+            StatusBarManager.Progress = e.Item3;
+            StatusBarManager.SetStatus("Bootstrapping...", 0);
+            StatusBarManager.SetSecondaryStatus(e.Item1 + "/" + e.Item2, 1000);
         }
 
         private void DataManager_DataDidChange(object sender, ExperimentData e)

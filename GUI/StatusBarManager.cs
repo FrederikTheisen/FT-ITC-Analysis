@@ -93,6 +93,8 @@ namespace AnalysisITC
         {
             status.Clear();
             StatusUpdated?.Invoke(null, Status.Message);
+
+            SecondaryStatus = "";
         }
 
         public static async void SetStatusScrolling(string status)
@@ -145,7 +147,7 @@ namespace AnalysisITC
             Progress = -0.5;
         }
 
-        public static void StopInderminateProgress()
+        public static void StopIndeterminateProgress()
         {
             Progress = -1;
         }
@@ -167,8 +169,8 @@ namespace AnalysisITC
     {
         public double Progress { get; set; }
 
-        public bool InDeterminate => this.Progress < 0;
-        public bool HideProgressWheel => IsProgressFinished && InDeterminate;
+        public bool Indeterminate => this.Progress < 0;
+        public bool HideProgressWheel => IsProgressFinished && Indeterminate;
         public bool IsProgressFinished => Math.Abs(Math.Abs(Progress) - 1) < double.Epsilon;
         
 
