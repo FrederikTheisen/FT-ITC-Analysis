@@ -64,7 +64,7 @@ namespace AnalysisITC
             Invalidate();
         }
 
-        public void ZoomBaseline()
+        public void ZoomBaseline() //TODO fix view scaling when baselinecorrected
         {
             if (Data == null) return;
             if (Data.Processor.Interpolator?.Baseline == null) return;

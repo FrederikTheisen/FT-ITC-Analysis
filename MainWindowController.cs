@@ -42,7 +42,7 @@ namespace AnalysisITC
             StatusbarPrimaryLabel.StringValue = e;
         }
 
-        private void DataProcessor_InterpolationCompleted(object sender, EventArgs e)
+        private void DataProcessor_InterpolationCompleted(object sender, EventArgs e) //TODO probably obsolete
         {
             ProcessSegControl.SetEnabled(DataManager.Current.Processor.BaselineCompleted, 1);
             ProcessSegControl.SetEnabled(DataManager.AllDataIsBaselineProcessed, 2);
