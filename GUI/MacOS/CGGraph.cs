@@ -783,8 +783,14 @@ namespace AnalysisITC
                 var xmin = 0;
                 var xmax = DataManager.IncludedData.Max(d => d.Injections.Last().Ratio);
 
-                var ymax = Math.Max(DataManager.IncludedData.Max(d => d.Injections.Max(inj => (float)inj.OffsetEnthalpy)), Math.Max(DataManager.IncludedData.Where(d => d.Solution != null).Max(d => (float)d.Solution.Enthalpy), 0));
-                var ymin = Math.Min(DataManager.IncludedData.Max(d => d.Injections.Max(inj => (float)inj.OffsetEnthalpy)), Math.Min(DataManager.IncludedData.Where(d => d.Solution != null).Min(d => (float)d.Solution.Enthalpy), 0));
+                var ymax = Math.Max(DataManager.IncludedData.Max(d => d.Injections.Max(inj => (float)inj.OffsetEnthalpy)), 0);
+                var ymin = Math.Min(DataManager.IncludedData.Max(d => d.Injections.Max(inj => (float)inj.OffsetEnthalpy)), 0);
+
+                if (DataManager.AnyDataIsAnalyzed)
+                {
+                    ymax = Math.Max(ymax, DataManager.IncludedData.Where(d => d.Solution != null).Max(d => (float)d.Solution.Enthalpy));
+                    ymin = Math.Min(ymin, DataManager.IncludedData.Where(d => d.Solution != null).Min(d => (float)d.Solution.Enthalpy));
+                }
 
                 XAxis = GraphAxis.WithBuffer(this, xmin, xmax, 0.05, AxisPosition.Bottom);
                 YAxis = GraphAxis.WithBuffer(this, ymin, ymax, 0.1, AxisPosition.Left);

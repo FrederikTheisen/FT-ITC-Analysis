@@ -6,17 +6,17 @@ namespace Utilities
 {
     public class NiceScale
     {
-        private float factor = 1;
+        private double factor = 1;
         private double minPoint;
         private double maxPoint;
         private double maxTicks = 10;
         private double tickSpacing;
         private double range;
-        private float niceMin;
-        private float niceMax;
+        private double niceMin;
+        private double niceMax;
 
-        public float NiceMin { get => niceMin; }
-        public float NiceMax { get => niceMax; }
+        public double NiceMin { get => niceMin; }
+        public double NiceMax { get => niceMax; }
         public double TickSpacing { get => tickSpacing; }
 
         public double UITickSpacing => tickSpacing;
@@ -33,7 +33,7 @@ namespace Utilities
         {
             this.minPoint = min * factor;
             this.maxPoint = max * factor;
-            this.factor = (float)factor;
+            this.factor = factor;
             Calculate();
         }
 
@@ -45,10 +45,8 @@ namespace Utilities
         {
             this.range = NiceNum((maxPoint - minPoint), false);
             this.tickSpacing = NiceNum(range / (maxTicks + 1), true);
-            this.niceMin =
-              (float)(Math.Floor(minPoint / TickSpacing) * TickSpacing);
-            this.niceMax =
-              (float)(Math.Ceiling(maxPoint / TickSpacing) * TickSpacing);
+            this.niceMin = (Math.Floor(minPoint / TickSpacing) * TickSpacing);
+            this.niceMax = (Math.Ceiling(maxPoint / TickSpacing) * TickSpacing);
         }
 
         /**
@@ -100,7 +98,7 @@ namespace Utilities
 
             for (double t = UINiceMin; t <= UINiceMax; t += UITickSpacing)
             {
-                ticks.Add(t);
+                ticks.Add(Math.Round(t, 4));
             }
 
             return ticks;

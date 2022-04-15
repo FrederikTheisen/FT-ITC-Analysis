@@ -27,14 +27,14 @@ namespace AnalysisITC
         public float ActualMin { get; private set; } = 0;
         public float Min
         {
-            get { if (false) return TickScale.NiceMin; else return ActualMin; }
+            get { if (false) return (float)TickScale.NiceMin; else return ActualMin; }
             set { ActualMin = value; TickScale.SetMinMaxPoints(ActualMin, ActualMax); }
         }
 
         public float ActualMax { get; private set; } = 1;
         public float Max
         {
-            get { if (false) return TickScale.NiceMax; else return ActualMax; }
+            get { if (false) return (float)TickScale.NiceMax; else return ActualMax; }
             set { ActualMax = value; TickScale.SetMinMaxPoints(ActualMin, ActualMax); }
         }
 
@@ -178,7 +178,8 @@ namespace AnalysisITC
 
             foreach (var tick in ticks)
             {
-                string s = tick.ToString();
+                string s = ((float)tick).ToString();
+                if (!s.Contains('.')) continue;
                 string result = s.Substring(s.LastIndexOf('.'));
                 int num = result.Length - 1;
                 maxdigits = num > maxdigits ? num : maxdigits;
