@@ -96,6 +96,9 @@ namespace AnalysisITC
 		[Action ("ConfirmProcessingButtonClicked:")]
 		partial void ConfirmProcessingButtonClicked (Foundation.NSObject sender);
 
+		[Action ("CopySettingsToAllClicked:")]
+		partial void CopySettingsToAllClicked (Foundation.NSObject sender);
+
 		[Action ("DrawFeatureControlClicked:")]
 		partial void DrawFeatureControlClicked (AppKit.NSSegmentedControl sender);
 

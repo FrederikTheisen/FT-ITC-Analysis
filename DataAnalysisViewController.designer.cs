@@ -13,6 +13,9 @@ namespace AnalysisITC
 	partial class DataAnalysisViewController
 	{
 		[Outlet]
+		AppKit.NSSegmentedControl AffinityStyleSegControl { get; set; }
+
+		[Outlet]
 		AppKit.NSSegmentedControl AnalysisModeControl { get; set; }
 
 		[Outlet]
@@ -20,6 +23,15 @@ namespace AnalysisITC
 
 		[Outlet]
 		AppKit.NSTextField CstepTextField { get; set; }
+
+		[Outlet]
+		AppKit.NSSegmentedControl EnthalpyStyleSegControl { get; set; }
+
+		[Outlet]
+		AppKit.NSStackView GlobalAffinityStyle { get; set; }
+
+		[Outlet]
+		AppKit.NSStackView GlobalEnthalpyStyle { get; set; }
 
 		[Outlet]
 		AppKit.NSSegmentedControl GlobalVariablesControl { get; set; }
@@ -120,6 +132,26 @@ namespace AnalysisITC
 			if (SolverStepSizeView != null) {
 				SolverStepSizeView.Dispose ();
 				SolverStepSizeView = null;
+			}
+
+			if (GlobalAffinityStyle != null) {
+				GlobalAffinityStyle.Dispose ();
+				GlobalAffinityStyle = null;
+			}
+
+			if (GlobalEnthalpyStyle != null) {
+				GlobalEnthalpyStyle.Dispose ();
+				GlobalEnthalpyStyle = null;
+			}
+
+			if (EnthalpyStyleSegControl != null) {
+				EnthalpyStyleSegControl.Dispose ();
+				EnthalpyStyleSegControl = null;
+			}
+
+			if (AffinityStyleSegControl != null) {
+				AffinityStyleSegControl.Dispose ();
+				AffinityStyleSegControl = null;
 			}
 		}
 	}
