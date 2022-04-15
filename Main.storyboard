@@ -1658,7 +1658,7 @@
                                                                     <segmentedCell key="cell" borderStyle="border" alignment="left" style="texturedRounded" trackingMode="selectOne" id="tMy-nG-J4r">
                                                                         <font key="font" metaFont="system"/>
                                                                         <segments>
-                                                                            <segment label="Single Experiment" selected="YES"/>
+                                                                            <segment label="Single Experiment"/>
                                                                             <segment label="Global Fitting" enabled="NO" tag="1"/>
                                                                         </segments>
                                                                     </segmentedCell>
@@ -1754,7 +1754,7 @@
                                                                     <segmentedCell key="cell" borderStyle="border" alignment="left" style="capsule" trackingMode="selectOne" id="6sy-Ed-RZm">
                                                                         <font key="font" metaFont="system"/>
                                                                         <segments>
-                                                                            <segment label="Free"/>
+                                                                            <segment label="Free" selected="YES"/>
                                                                             <segment label="Temperature dependent"/>
                                                                             <segment label="Same for All"/>
                                                                         </segments>
@@ -2380,11 +2380,27 @@ DQ
                         <rect key="frame" x="0.0" y="0.0" width="450" height="300"/>
                         <autoresizingMask key="autoresizingMask"/>
                         <subviews>
-                            <customView fixedFrame="YES" translatesAutoresizingMaskIntoConstraints="NO" id="qXb-0i-7mM" customClass="FinalFigureGraphView">
-                                <rect key="frame" x="0.0" y="0.0" width="450" height="300"/>
-                                <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
-                            </customView>
+                            <box boxType="custom" cornerRadius="4" title="Box" translatesAutoresizingMaskIntoConstraints="NO" id="Oyp-8d-npO">
+                                <rect key="frame" x="5" y="5" width="440" height="255"/>
+                                <view key="contentView" id="0Wg-2Q-LcG">
+                                    <rect key="frame" x="1" y="1" width="438" height="253"/>
+                                    <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
+                                    <subviews>
+                                        <customView fixedFrame="YES" translatesAutoresizingMaskIntoConstraints="NO" id="qXb-0i-7mM" customClass="FinalFigureGraphView">
+                                            <rect key="frame" x="0.0" y="0.0" width="438" height="253"/>
+                                            <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
+                                        </customView>
+                                    </subviews>
+                                </view>
+                                <color key="fillColor" name="systemGrayColor" catalog="System" colorSpace="catalog"/>
+                            </box>
                         </subviews>
+                        <constraints>
+                            <constraint firstItem="Oyp-8d-npO" firstAttribute="top" secondItem="NyX-eR-7ca" secondAttribute="top" constant="40" id="5k1-lp-OTL"/>
+                            <constraint firstItem="Oyp-8d-npO" firstAttribute="leading" secondItem="NyX-eR-7ca" secondAttribute="leading" constant="5" id="7fv-e2-fnE"/>
+                            <constraint firstAttribute="trailing" secondItem="Oyp-8d-npO" secondAttribute="trailing" constant="5" id="h0w-WN-d9o"/>
+                            <constraint firstAttribute="bottom" secondItem="Oyp-8d-npO" secondAttribute="bottom" constant="5" id="r3S-aN-QSq"/>
+                        </constraints>
                     </view>
                 </viewController>
                 <customObject id="gHd-Ba-kPY" userLabel="First Responder" customClass="NSResponder" sceneMemberID="firstResponder"/>

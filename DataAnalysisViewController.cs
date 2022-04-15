@@ -25,6 +25,9 @@ namespace AnalysisITC
             Analysis.BootstrapIterationFinished += Analysis_BootstrapIterationFinished;
             DataManager.SelectionDidChange += DataManager_SelectionDidChange;
             DataManager.DataDidChange += DataManager_DataDidChange;
+
+            GlobalAffinityStyle.Hidden = true;
+            GlobalEnthalpyStyle.Hidden = true;
         }
 
         public override void ViewWillAppear()
