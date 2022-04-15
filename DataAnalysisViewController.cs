@@ -9,28 +9,31 @@ namespace AnalysisITC
 {
 	public partial class DataAnalysisViewController : NSViewController
 	{
-		public DataAnalysisViewController (IntPtr handle) : base (handle)
+        AnalysisModel SelectedAnalysisModel => (AnalysisModel)(int)ModelTypeControl.SelectedSegment;
+
+        public DataAnalysisViewController (IntPtr handle) : base (handle)
 		{
-            GlobalAnalyzer.AnalysisFinished += GlobalAnalyzer_AnalysisFinished;
-		}
-
-        private void GlobalAnalyzer_AnalysisFinished(object sender, SolverConvergence e)
-        {
-            StatusBarManager.StopInderminateProgress();
-            StatusBarManager.ClearAppStatus();
-            StatusBarManager.SetStatus(e.Iterations + " iterations, RMSD = " + e.Loss.ToString("##0.00"), 11000);
-            StatusBarManager.SetStatus(e.Message + " | " + e.Time.TotalMilliseconds + "ms", 6000);
-            StatusBarManager.SetStatus("Completed", 1500);
-
-            GraphView.Invalidate();
+            
         }
 
         public override void ViewDidLoad()
         {
             base.ViewDidLoad();
 
+            Analysis.AnalysisFinished += GlobalAnalyzer_AnalysisFinished;
             DataManager.SelectionDidChange += DataManager_SelectionDidChange;
             DataManager.DataDidChange += DataManager_DataDidChange;
+        }
+
+        private void GlobalAnalyzer_AnalysisFinished(object sender, SolverConvergence e)
+        {
+            StatusBarManager.StopInderminateProgress();
+            StatusBarManager.ClearAppStatus();
+            StatusBarManager.SetStatus(e.Iterations + " iterations, RMSD = " + e.Loss.ToString("G2"), 11000);
+            StatusBarManager.SetStatus(e.Message + " | " + e.Time.TotalMilliseconds + "ms", 6000);
+            StatusBarManager.SetStatus("Completed", 1500);
+
+            GraphView.Invalidate();
         }
 
         private void DataManager_DataDidChange(object sender, ExperimentData e)
@@ -61,7 +64,8 @@ namespace AnalysisITC
 
         partial void AnalysisModeClicked(NSSegmentedControl sender)
         {
-            GlobalVariablesView.Hidden = sender.SelectedSegment == 0;
+            GlobalAffinityStyle.Hidden = sender.SelectedSegment == 0;
+            GlobalEnthalpyStyle.Hidden = sender.SelectedSegment == 0;
         }
 
         partial void FitSimplex(NSObject sender)
@@ -71,7 +75,7 @@ namespace AnalysisITC
 
             if (AnalysisModeControl.SelectedSegment == 0)
             {
-
+                SingleAnalysis();
             }
             else
             {
@@ -79,17 +83,27 @@ namespace AnalysisITC
             }
         }
 
+        void SingleAnalysis()
+        {
+            Analysis.Analyzer.InitializeAnalyzer(DataManager.Current);
+
+            Analysis.Analyzer.Solve(SelectedAnalysisModel);
+        }
+
         void GlobalAnalysis()
         {
-            GlobalAnalyzer.InitializeAnalyzer(GlobalVariablesControl.IsSelectedForSegment(0), GlobalVariablesControl.IsSelectedForSegment(1));
+            var estyle = (Analysis.VariableStyle)(int)EnthalpyStyleSegControl.SelectedSegment;
+            var astyle = (Analysis.VariableStyle)(int)AffinityStyleSegControl.SelectedSegment;
 
-            if (HstepTextField.FloatValue != 0) GlobalModel.Hstep = HstepTextField.FloatValue;
-            if (GstepTextField.FloatValue != 0) GlobalModel.Gstep = GstepTextField.FloatValue;
-            if (CstepTextField.FloatValue != 0) GlobalModel.Cstep = CstepTextField.FloatValue;
-            if (NstepTextField.FloatValue != 0) GlobalModel.Nstep = NstepTextField.FloatValue;
-            if (OstepTextField.FloatValue != 0) GlobalModel.Ostep = OstepTextField.FloatValue;
+            Analysis.GlobalAnalyzer.InitializeAnalyzer(estyle, astyle);
 
-            GlobalAnalyzer.Solve(AnalysisModel.OneSetOfSites);
+            if (HstepTextField.FloatValue != 0) Analysis.Hstep = HstepTextField.FloatValue;
+            if (GstepTextField.FloatValue != 0) Analysis.Gstep = GstepTextField.FloatValue;
+            if (CstepTextField.FloatValue != 0) Analysis.Cstep = CstepTextField.FloatValue;
+            if (NstepTextField.FloatValue != 0) Analysis.Nstep = NstepTextField.FloatValue;
+            if (OstepTextField.FloatValue != 0) Analysis.Ostep = OstepTextField.FloatValue;
+
+            Analysis.GlobalAnalyzer.Solve(SelectedAnalysisModel);
         }
     }
 }
