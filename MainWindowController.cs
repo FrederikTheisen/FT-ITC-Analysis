@@ -27,8 +27,14 @@ namespace AnalysisITC
 
             StatusBarManager.ProgressUpdate += OnProgressUpdated;
             StatusBarManager.StatusUpdated += OnStatusUpdated;
+            StatusBarManager.SecondaryStatusUpdated += OnSecondaryStatusUpdated;
 
             StateManager_UpdateStateDependentUI(null, null);
+        }
+
+        private void OnSecondaryStatusUpdated(object sender, string e)
+        {
+            StatusbarSecondaryLabel.StringValue = e;
         }
 
         private void StateManager_UpdateStateDependentUI(object sender, EventArgs e)
@@ -73,7 +79,7 @@ namespace AnalysisITC
                 StatusbarProgressIndicator.StopAnimation(this);
                 StatusbarProgressIndicator.Hidden = true;
             }
-            else if (e.InDeterminate)
+            else if (e.Indeterminate)
             {
                 StatusbarProgressIndicator.Indeterminate = true;
                 StatusbarProgressIndicator.StartAnimation(this);
@@ -211,7 +217,7 @@ namespace AnalysisITC
                 DataReaders.DataReader.Read(urls);
             }
 
-            StatusBarManager.StopInderminateProgress();
+            StatusBarManager.StopIndeterminateProgress();
         }
 
         partial void StepControlClick(NSSegmentedControl sender)
