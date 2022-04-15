@@ -20,7 +20,7 @@ namespace AnalysisITC
         {
             DataManager.DataDidChange += OnDataDidChange;
             DataProcessor.ProcessingCompleted += OnAnyProcessingCompleted;
-            GlobalAnalyzer.AnalysisFinished += OnAnalysisFinished;
+            Analysis.AnalysisFinished += OnAnalysisFinished;
         }
 
         private static void OnAnalysisFinished(object sender, SolverConvergence e)
