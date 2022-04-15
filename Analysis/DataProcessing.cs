@@ -79,7 +79,7 @@ namespace AnalysisITC
             this.IntegratePeaks();
             this.DidProcessData();
 
-            StatusBarManager.StopInderminateProgress();
+            StatusBarManager.StopIndeterminateProgress();
         }
 
         public void WillProcessData()
