@@ -60,7 +60,6 @@ namespace AnalysisITC
         public double ValueFactor { get => valueFactor; set { valueFactor = value; SetTickScale(); } }
         string formatter => "#####0." + new string('0', DecimalPoints);
 
-
         TextAlignment HorizontalTickLabelAlignment => Position switch
         {
             AxisPosition.Left => TextAlignment.Right,
@@ -169,6 +168,23 @@ namespace AnalysisITC
         void SetTickScale()
         {
             TickScale = new Utilities.NiceScale(this.ActualMin, this.ActualMax, ValueFactor);
+
+            SetDecimalDigits(TickScale.Ticks());
+        }
+
+        void SetDecimalDigits(List<double> ticks)
+        {
+            int maxdigits = 0;
+
+            foreach (var tick in ticks)
+            {
+                string s = tick.ToString();
+                string result = s.Substring(s.LastIndexOf('.'));
+                int num = result.Length - 1;
+                maxdigits = num > maxdigits ? num : maxdigits;
+            }
+
+            DecimalPoints = maxdigits;
         }
 
         public List<double> GetValidTicks(bool includeborderticks = true)
