@@ -94,7 +94,7 @@ namespace AnalysisITC
                 DataReaders.DataReader.Read(urls);
             }
 
-            StatusBarManager.StopInderminateProgress();
+            StatusBarManager.StopIndeterminateProgress();
         }
 
         partial void ButtonClick(NSButton sender)
