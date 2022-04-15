@@ -607,7 +607,7 @@ namespace AnalysisITC
         {
             int i = 0;
 
-            double[] H;// = w[i++];
+            double[] H;
             double Cp;
 
             if (EnthalpyStyle == Analysis.VariableStyle.Free) H = w.Skip(PostIncrement(i, Models.Count, out i)).Take(Models.Count).ToArray();
@@ -639,7 +639,7 @@ namespace AnalysisITC
                 var dt = T - 298.15;
                 var dH = EnthalpyStyle == Analysis.VariableStyle.TemperatureDependent ? H[0] + Cp * dt : H[i];
                 var dG = Gs[i]; //If non-variable affinity, all G[i]'s will be same value
-                var K = Math.Exp(-1 * dG / (Energy.R.Value * T));
+                var K = AffinityStyle == Analysis.VariableStyle.SameForAll ? Math.Exp(-1 * dG / (Energy.R.Value * 298.15)) : Math.Exp(-1 * dG / (Energy.R.Value * T));
 
                 glob_loss += m.RMSD(ns[i], dH, K, offsets[i]);
             }
