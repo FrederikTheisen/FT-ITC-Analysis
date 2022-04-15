@@ -455,23 +455,46 @@
                                             <rect key="frame" x="10" y="3" width="280" height="24"/>
                                             <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
                                             <subviews>
-                                                <textField horizontalHuggingPriority="251" verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="riC-W8-reK">
-                                                    <rect key="frame" x="-2" y="6" width="87" height="14"/>
-                                                    <textFieldCell key="cell" lineBreakMode="clipping" title="FT ITC-Analysis" id="IH6-Cv-4vB">
-                                                        <font key="font" metaFont="smallSystem"/>
-                                                        <color key="textColor" name="labelColor" catalog="System" colorSpace="catalog"/>
-                                                        <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
-                                                    </textFieldCell>
-                                                </textField>
-                                                <progressIndicator maxValue="100" doubleValue="1" displayedWhenStopped="NO" indeterminate="YES" controlSize="small" style="spinning" translatesAutoresizingMaskIntoConstraints="NO" id="xQZ-Zu-EbC">
-                                                    <rect key="frame" x="264" y="5" width="16" height="16"/>
-                                                </progressIndicator>
+                                                <stackView distribution="fill" orientation="horizontal" alignment="centerY" horizontalStackHuggingPriority="1000" verticalStackHuggingPriority="249.99998474121094" horizontalHuggingPriority="251" detachesHiddenViews="YES" translatesAutoresizingMaskIntoConstraints="NO" id="ZHR-Pw-2LK">
+                                                    <rect key="frame" x="0.0" y="6" width="280" height="16"/>
+                                                    <subviews>
+                                                        <textField horizontalHuggingPriority="249" verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="riC-W8-reK">
+                                                            <rect key="frame" x="-2" y="1" width="202" height="14"/>
+                                                            <textFieldCell key="cell" lineBreakMode="clipping" title="FT ITC-Analysis" id="IH6-Cv-4vB">
+                                                                <font key="font" metaFont="smallSystem"/>
+                                                                <color key="textColor" name="labelColor" catalog="System" colorSpace="catalog"/>
+                                                                <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
+                                                            </textFieldCell>
+                                                        </textField>
+                                                        <textField horizontalHuggingPriority="750" verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="hJN-Db-uqM">
+                                                            <rect key="frame" x="204" y="1" width="54" height="14"/>
+                                                            <textFieldCell key="cell" controlSize="small" lineBreakMode="clipping" alignment="right" id="U6V-yL-Sr9">
+                                                                <font key="font" metaFont="smallSystem"/>
+                                                                <color key="textColor" name="secondaryLabelColor" catalog="System" colorSpace="catalog"/>
+                                                                <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
+                                                            </textFieldCell>
+                                                        </textField>
+                                                        <progressIndicator horizontalHuggingPriority="750" maxValue="100" doubleValue="1" displayedWhenStopped="NO" indeterminate="YES" controlSize="small" style="spinning" translatesAutoresizingMaskIntoConstraints="NO" id="xQZ-Zu-EbC">
+                                                            <rect key="frame" x="264" y="0.0" width="16" height="16"/>
+                                                        </progressIndicator>
+                                                    </subviews>
+                                                    <visibilityPriorities>
+                                                        <integer value="1000"/>
+                                                        <integer value="1000"/>
+                                                        <integer value="1000"/>
+                                                    </visibilityPriorities>
+                                                    <customSpacing>
+                                                        <real value="3.4028234663852886e+38"/>
+                                                        <real value="3.4028234663852886e+38"/>
+                                                        <real value="3.4028234663852886e+38"/>
+                                                    </customSpacing>
+                                                </stackView>
                                             </subviews>
                                             <constraints>
-                                                <constraint firstItem="riC-W8-reK" firstAttribute="centerY" secondItem="dNY-k3-tMR" secondAttribute="centerY" constant="-1" id="DEv-GQ-aJJ"/>
-                                                <constraint firstAttribute="trailing" secondItem="xQZ-Zu-EbC" secondAttribute="trailing" id="OaJ-bu-zhw"/>
-                                                <constraint firstItem="xQZ-Zu-EbC" firstAttribute="centerY" secondItem="dNY-k3-tMR" secondAttribute="centerY" constant="-1" id="bvJ-N4-Px5"/>
-                                                <constraint firstItem="riC-W8-reK" firstAttribute="leading" secondItem="dNY-k3-tMR" secondAttribute="leading" id="esE-jX-bz5"/>
+                                                <constraint firstItem="ZHR-Pw-2LK" firstAttribute="top" secondItem="dNY-k3-tMR" secondAttribute="top" constant="2" id="0Sd-5x-pp5"/>
+                                                <constraint firstAttribute="trailing" secondItem="ZHR-Pw-2LK" secondAttribute="trailing" id="R8B-vq-Fih"/>
+                                                <constraint firstItem="ZHR-Pw-2LK" firstAttribute="leading" secondItem="dNY-k3-tMR" secondAttribute="leading" id="T0d-fL-DJ4"/>
+                                                <constraint firstAttribute="bottom" secondItem="ZHR-Pw-2LK" secondAttribute="bottom" constant="6" id="pGP-hD-P6R"/>
                                             </constraints>
                                         </view>
                                         <size key="contentViewMargins" width="7" height="0.0"/>
@@ -481,7 +504,7 @@
                                 <toolbarItem implicitItemIdentifier="F66577FE-4FED-4B5C-A72B-57D9B854B148" label="Custom View" paletteLabel="Custom View" image="rectangle.stack.fill.badge.plus" catalog="system" sizingBehavior="auto" id="ppB-Im-yCb">
                                     <nil key="toolTip"/>
                                     <button key="view" verticalHuggingPriority="750" id="Yuy-J9-gir">
-                                        <rect key="frame" x="24" y="14" width="28" height="23"/>
+                                        <rect key="frame" x="24" y="14" width="29" height="23"/>
                                         <autoresizingMask key="autoresizingMask"/>
                                         <buttonCell key="cell" type="roundTextured" bezelStyle="texturedRounded" image="rectangle.stack.fill.badge.plus" catalog="system" imagePosition="only" alignment="center" lineBreakMode="truncatingTail" state="on" borderStyle="border" imageScaling="proportionallyDown" inset="2" id="yqJ-lT-JvW">
                                             <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
@@ -531,6 +554,7 @@
                         <outlet property="ProcessSegControl" destination="pJE-sQ-Xh5" id="to9-l0-qpJ"/>
                         <outlet property="StatusbarPrimaryLabel" destination="riC-W8-reK" id="fGp-2t-UFR"/>
                         <outlet property="StatusbarProgressIndicator" destination="xQZ-Zu-EbC" id="pd0-lR-J2h"/>
+                        <outlet property="StatusbarSecondaryLabel" destination="hJN-Db-uqM" id="zDc-g4-r1I"/>
                         <outlet property="StepControl" destination="AdS-18-Bnl" id="ucK-DY-UVp"/>
                         <segue destination="I28-Is-kIg" kind="relationship" relationship="window.shadowedContentViewController" id="mOa-p3-cHP"/>
                     </connections>
@@ -2227,7 +2251,7 @@
                                         <stackView distribution="fillEqually" orientation="horizontal" alignment="centerY" horizontalStackHuggingPriority="250" verticalStackHuggingPriority="249.99998474121094" horizontalCompressionResistancePriority="1000" verticalCompressionResistancePriority="1000" detachesHiddenViews="YES" translatesAutoresizingMaskIntoConstraints="NO" id="X8E-aw-R2A">
                                             <rect key="frame" x="0.0" y="8" width="248" height="28"/>
                                             <subviews>
-                                                <button verticalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="NlW-sq-cHL">
+                                                <button verticalHuggingPriority="750" verticalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="NlW-sq-cHL">
                                                     <rect key="frame" x="2" y="-6" width="124" height="40"/>
                                                     <buttonCell key="cell" type="push" title="Add Data" bezelStyle="rounded" alignment="center" controlSize="large" borderStyle="border" imageScaling="proportionallyDown" inset="2" id="GQg-kA-PZ9">
                                                         <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
@@ -2242,7 +2266,7 @@ DQ
                                                         <action selector="LoadDataButtonClick:" target="XfG-lQ-9wD" id="pqo-eq-6I9"/>
                                                     </connections>
                                                 </button>
-                                                <button verticalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="DJF-uW-HHI">
+                                                <button verticalHuggingPriority="750" verticalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="DJF-uW-HHI">
                                                     <rect key="frame" x="122" y="-6" width="124" height="40"/>
                                                     <buttonCell key="cell" type="push" title="Open File..." bezelStyle="rounded" alignment="center" controlSize="large" enabled="NO" state="on" borderStyle="border" imageScaling="proportionallyDown" inset="2" id="oQr-FC-3Db">
                                                         <behavior key="behavior" pushIn="YES" changeContents="YES" lightByContents="YES"/>

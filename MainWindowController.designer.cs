@@ -34,6 +34,9 @@ namespace AnalysisITC
 		AppKit.NSProgressIndicator StatusbarProgressIndicator { get; set; }
 
 		[Outlet]
+		AppKit.NSTextField StatusbarSecondaryLabel { get; set; }
+
+		[Outlet]
 		AppKit.NSSegmentedControl StepControl { get; set; }
 
 		[Action ("AnalysisSegControlClicked:")]
@@ -84,6 +87,11 @@ namespace AnalysisITC
 			if (StatusbarPrimaryLabel != null) {
 				StatusbarPrimaryLabel.Dispose ();
 				StatusbarPrimaryLabel = null;
+			}
+
+			if (StatusbarSecondaryLabel != null) {
+				StatusbarSecondaryLabel.Dispose ();
+				StatusbarSecondaryLabel = null;
 			}
 
 			if (StatusbarProgressIndicator != null) {
