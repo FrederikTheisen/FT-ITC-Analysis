@@ -235,7 +235,6 @@
     <Compile Include="GUI\StatusBarManager.cs" />
     <Compile Include="Utils\NumberStructs.cs" />
     <Compile Include="AppClasses\DataManager.cs" />
-    <Compile Include="StateManager.cs" />
     <Compile Include="GUI\MacOS\GraphViews\AnalysisGraphView.cs" />
     <Compile Include="GUI\MacOS\GraphViews\AnalysisGraphView.designer.cs">
       <DependentUpon>AnalysisGraphView.cs</DependentUpon>
@@ -292,6 +291,7 @@
       <DependentUpon>SideBarView.cs</DependentUpon>
     </Compile>
     <Compile Include="AppClasses\ExperimentData.cs" />
+    <Compile Include="GUI\StateManager.cs" />
   </ItemGroup>
   <ItemGroup>
     <InterfaceDefinition Include="Main.storyboard" />
