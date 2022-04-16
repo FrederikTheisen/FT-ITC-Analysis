@@ -213,7 +213,9 @@
     <Folder Include="GUI\" />
     <Folder Include="GUI\MacOS\" />
     <Folder Include="Utils\" />
+    <Folder Include="GUI\MacOS\GraphViews\" />
     <Folder Include="GUI\MacOS\Drawing\" />
+    <Folder Include="GUI\MacOS\ViewControllers\" />
   </ItemGroup>
   <ItemGroup>
     <None Include="Info.plist" />
@@ -223,73 +225,73 @@
   <ItemGroup>
     <Compile Include="Main.cs" />
     <Compile Include="AppDelegate.cs" />
-    <Compile Include="ViewController.cs" />
-    <Compile Include="ViewController.designer.cs">
-      <DependentUpon>ViewController.cs</DependentUpon>
-    </Compile>
     <Compile Include="Analysis\DataReaders.cs" />
     <Compile Include="Analysis\ExperimentData.cs" />
     <Compile Include="Utils\EnumExtensions.cs" />
     <Compile Include="Utils\StringParsers.cs" />
     <Compile Include="Analysis\Analysis.cs" />
     <Compile Include="Analysis\DataProcessing.cs" />
-    <Compile Include="GUI\MacOS\DrawingView.cs" />
-    <Compile Include="GUI\MacOS\CAGraph.cs" />
     <Compile Include="Utils\GUIutils.cs" />
-    <Compile Include="GUI\MacOS\SideBarViewController.cs" />
-    <Compile Include="GUI\MacOS\SideBarViewController.designer.cs">
-      <DependentUpon>SideBarViewController.cs</DependentUpon>
-    </Compile>
-    <Compile Include="SideBarView.cs" />
-    <Compile Include="SideBarView.designer.cs">
-      <DependentUpon>SideBarView.cs</DependentUpon>
-    </Compile>
-    <Compile Include="ExperimentDataViewCell.cs" />
-    <Compile Include="ExperimentDataViewCell.designer.cs">
-      <DependentUpon>ExperimentDataViewCell.cs</DependentUpon>
-    </Compile>
     <Compile Include="GUI\MacOS\ExperimentDataSource.cs" />
-    <Compile Include="MainWindowController.cs" />
-    <Compile Include="MainWindowController.designer.cs">
-      <DependentUpon>MainWindowController.cs</DependentUpon>
-    </Compile>
-    <Compile Include="MainTabViewController.cs" />
-    <Compile Include="MainTabViewController.designer.cs">
-      <DependentUpon>MainTabViewController.cs</DependentUpon>
-    </Compile>
-    <Compile Include="DataProcessingViewControllet.cs" />
-    <Compile Include="DataProcessingViewControllet.designer.cs">
-      <DependentUpon>DataProcessingViewControllet.cs</DependentUpon>
-    </Compile>
-    <Compile Include="DataProcessingGraphView.cs" />
-    <Compile Include="DataProcessingGraphView.designer.cs">
-      <DependentUpon>DataProcessingGraphView.cs</DependentUpon>
-    </Compile>
     <Compile Include="GUI\StatusBarManager.cs" />
     <Compile Include="Utils\NumberStructs.cs" />
-    <Compile Include="DataAnalysisViewController.cs" />
-    <Compile Include="DataAnalysisViewController.designer.cs">
-      <DependentUpon>DataAnalysisViewController.cs</DependentUpon>
-    </Compile>
-    <Compile Include="AnalysisGraphView.cs" />
-    <Compile Include="AnalysisGraphView.designer.cs">
+    <Compile Include="Analysis\DataManager.cs" />
+    <Compile Include="StateManager.cs" />
+    <Compile Include="GUI\MacOS\GraphViews\AnalysisGraphView.cs" />
+    <Compile Include="GUI\MacOS\GraphViews\AnalysisGraphView.designer.cs">
       <DependentUpon>AnalysisGraphView.cs</DependentUpon>
     </Compile>
-    <Compile Include="GUI\MacOS\Drawing\CALayerDrawingView.cs" />
-    <Compile Include="GUI\MacOS\GraphAxis.cs" />
-    <Compile Include="GUI\MacOS\NSGraph.cs" />
-    <Compile Include="GUI\MacOS\CGGraph.cs" />
-    <Compile Include="GUI\MacOS\FinalFigure.cs" />
-    <Compile Include="FinalFigureGraphView.cs" />
-    <Compile Include="FinalFigureGraphView.designer.cs">
+    <Compile Include="GUI\MacOS\GraphViews\FinalFigureGraphView.cs" />
+    <Compile Include="GUI\MacOS\GraphViews\FinalFigureGraphView.designer.cs">
       <DependentUpon>FinalFigureGraphView.cs</DependentUpon>
     </Compile>
-    <Compile Include="Analysis\DataManager.cs" />
-    <Compile Include="NSMarginButton.cs" />
-    <Compile Include="NSMarginButton.designer.cs">
+    <Compile Include="GUI\MacOS\GraphViews\DataInfoGraphView.cs" />
+    <Compile Include="GUI\MacOS\GraphViews\DataProcessingGraphView.cs" />
+    <Compile Include="GUI\MacOS\GraphViews\DataProcessingGraphView.designer.cs">
+      <DependentUpon>DataProcessingGraphView.cs</DependentUpon>
+    </Compile>
+    <Compile Include="GUI\MacOS\Drawing\CAGraph.cs" />
+    <Compile Include="GUI\MacOS\Drawing\CGGraph.cs" />
+    <Compile Include="GUI\MacOS\Drawing\CALayerDrawingView.cs" />
+    <Compile Include="GUI\MacOS\Drawing\NSGraph.cs" />
+    <Compile Include="GUI\MacOS\GraphViews\GraphAxis.cs" />
+    <Compile Include="GUI\MacOS\ViewControllers\DataAnalysisViewController.cs" />
+    <Compile Include="GUI\MacOS\ViewControllers\DataAnalysisViewController.designer.cs">
+      <DependentUpon>DataAnalysisViewController.cs</DependentUpon>
+    </Compile>
+    <Compile Include="GUI\MacOS\ViewControllers\DataProcessingViewControllet.cs" />
+    <Compile Include="GUI\MacOS\ViewControllers\DataProcessingViewControllet.designer.cs">
+      <DependentUpon>DataProcessingViewControllet.cs</DependentUpon>
+    </Compile>
+    <Compile Include="GUI\MacOS\Drawing\FinalFigure.cs" />
+    <Compile Include="GUI\MacOS\ViewControllers\ViewController.cs" />
+    <Compile Include="GUI\MacOS\ViewControllers\ViewController.designer.cs">
+      <DependentUpon>ViewController.cs</DependentUpon>
+    </Compile>
+    <Compile Include="GUI\MacOS\ViewControllers\SideBarViewController.cs" />
+    <Compile Include="GUI\MacOS\ViewControllers\SideBarViewController.designer.cs">
+      <DependentUpon>SideBarViewController.cs</DependentUpon>
+    </Compile>
+    <Compile Include="GUI\MacOS\ViewControllers\MainTabViewController.cs" />
+    <Compile Include="GUI\MacOS\ViewControllers\MainTabViewController.designer.cs">
+      <DependentUpon>MainTabViewController.cs</DependentUpon>
+    </Compile>
+    <Compile Include="GUI\MacOS\ViewControllers\MainWindowController.cs" />
+    <Compile Include="GUI\MacOS\ViewControllers\MainWindowController.designer.cs">
+      <DependentUpon>MainWindowController.cs</DependentUpon>
+    </Compile>
+    <Compile Include="GUI\MacOS\ExperimentDataViewCell.cs" />
+    <Compile Include="GUI\MacOS\ExperimentDataViewCell.designer.cs">
+      <DependentUpon>ExperimentDataViewCell.cs</DependentUpon>
+    </Compile>
+    <Compile Include="GUI\MacOS\NSMarginButton.cs" />
+    <Compile Include="GUI\MacOS\NSMarginButton.designer.cs">
       <DependentUpon>NSMarginButton.cs</DependentUpon>
     </Compile>
-    <Compile Include="StateManager.cs" />
+    <Compile Include="GUI\MacOS\SideBarView.cs" />
+    <Compile Include="GUI\MacOS\SideBarView.designer.cs">
+      <DependentUpon>SideBarView.cs</DependentUpon>
+    </Compile>
   </ItemGroup>
   <ItemGroup>
     <InterfaceDefinition Include="Main.storyboard" />

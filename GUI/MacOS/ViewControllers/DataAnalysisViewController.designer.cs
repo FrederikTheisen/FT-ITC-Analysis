@@ -22,6 +22,9 @@ namespace AnalysisITC
 		AppKit.NSButton ApplyToAllExperimentsControl { get; set; }
 
 		[Outlet]
+		AppKit.NSButton AxesScopeButton { get; set; }
+
+		[Outlet]
 		AppKit.NSTextField CstepTextField { get; set; }
 
 		[Outlet]
@@ -58,6 +61,12 @@ namespace AnalysisITC
 		AppKit.NSTextField OstepTextField { get; set; }
 
 		[Outlet]
+		AppKit.NSButton ParametersScopeButton { get; set; }
+
+		[Outlet]
+		AppKit.NSButton PeakInfoScopeButton { get; set; }
+
+		[Outlet]
 		AppKit.NSStackView SolverStepSizeView { get; set; }
 
 		[Action ("AnalysisModeClicked:")]
@@ -71,9 +80,32 @@ namespace AnalysisITC
 
 		[Action ("FitSimplex:")]
 		partial void FitSimplex (Foundation.NSObject sender);
+
+		[Action ("ScopeButtonClicked:")]
+		partial void ScopeButtonClicked (AppKit.NSButton sender);
 		
 		void ReleaseDesignerOutlets ()
 		{
+			if (AxesScopeButton != null) {
+				AxesScopeButton.Dispose ();
+				AxesScopeButton = null;
+			}
+
+			if (ParametersScopeButton != null) {
+				ParametersScopeButton.Dispose ();
+				ParametersScopeButton = null;
+			}
+
+			if (PeakInfoScopeButton != null) {
+				PeakInfoScopeButton.Dispose ();
+				PeakInfoScopeButton = null;
+			}
+
+			if (AffinityStyleSegControl != null) {
+				AffinityStyleSegControl.Dispose ();
+				AffinityStyleSegControl = null;
+			}
+
 			if (AnalysisModeControl != null) {
 				AnalysisModeControl.Dispose ();
 				AnalysisModeControl = null;
@@ -87,6 +119,21 @@ namespace AnalysisITC
 			if (CstepTextField != null) {
 				CstepTextField.Dispose ();
 				CstepTextField = null;
+			}
+
+			if (EnthalpyStyleSegControl != null) {
+				EnthalpyStyleSegControl.Dispose ();
+				EnthalpyStyleSegControl = null;
+			}
+
+			if (GlobalAffinityStyle != null) {
+				GlobalAffinityStyle.Dispose ();
+				GlobalAffinityStyle = null;
+			}
+
+			if (GlobalEnthalpyStyle != null) {
+				GlobalEnthalpyStyle.Dispose ();
+				GlobalEnthalpyStyle = null;
 			}
 
 			if (GlobalVariablesControl != null) {
@@ -132,26 +179,6 @@ namespace AnalysisITC
 			if (SolverStepSizeView != null) {
 				SolverStepSizeView.Dispose ();
 				SolverStepSizeView = null;
-			}
-
-			if (GlobalAffinityStyle != null) {
-				GlobalAffinityStyle.Dispose ();
-				GlobalAffinityStyle = null;
-			}
-
-			if (GlobalEnthalpyStyle != null) {
-				GlobalEnthalpyStyle.Dispose ();
-				GlobalEnthalpyStyle = null;
-			}
-
-			if (EnthalpyStyleSegControl != null) {
-				EnthalpyStyleSegControl.Dispose ();
-				EnthalpyStyleSegControl = null;
-			}
-
-			if (AffinityStyleSegControl != null) {
-				AffinityStyleSegControl.Dispose ();
-				AffinityStyleSegControl = null;
 			}
 		}
 	}

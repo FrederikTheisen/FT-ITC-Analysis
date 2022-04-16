@@ -15,7 +15,6 @@ namespace AnalysisITC
             
 		}
 
-
         public override void DrawRect(CGRect dirtyRect)
         {
             // Reset the bounds after drawing is complete

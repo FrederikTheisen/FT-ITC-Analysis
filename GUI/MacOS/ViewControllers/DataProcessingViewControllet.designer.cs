@@ -19,7 +19,13 @@ namespace AnalysisITC
 		AnalysisITC.DataProcessingGraphView BaselineGraphView { get; set; }
 
 		[Outlet]
+		AppKit.NSButton BaselineScopeButton { get; set; }
+
+		[Outlet]
 		AppKit.NSButton ConfirmProcessingButton { get; set; }
+
+		[Outlet]
+		AppKit.NSButton CorrectedScopeButton { get; set; }
 
 		[Outlet]
 		AppKit.NSSegmentedControl DataZoomSegControl { get; set; }
@@ -38,6 +44,9 @@ namespace AnalysisITC
 
 		[Outlet]
 		AppKit.NSTextField IntegrationLengthLabel { get; set; }
+
+		[Outlet]
+		AppKit.NSButton IntegrationScopeButton { get; set; }
 
 		[Outlet]
 		AppKit.NSTextField IntegrationStartDelayLabel { get; set; }
@@ -117,6 +126,9 @@ namespace AnalysisITC
 		[Action ("PolynomialDegreeChanged:")]
 		partial void PolynomialDegreeChanged (AppKit.NSSlider sender);
 
+		[Action ("ScopeButtonClicked:")]
+		partial void ScopeButtonClicked (Foundation.NSObject sender);
+
 		[Action ("SplineAlgoClicked:")]
 		partial void SplineAlgoClicked (AppKit.NSSegmentedControl sender);
 
@@ -140,6 +152,26 @@ namespace AnalysisITC
 		
 		void ReleaseDesignerOutlets ()
 		{
+			if (CorrectedScopeButton != null) {
+				CorrectedScopeButton.Dispose ();
+				CorrectedScopeButton = null;
+			}
+
+			if (IntegrationScopeButton != null) {
+				IntegrationScopeButton.Dispose ();
+				IntegrationScopeButton = null;
+			}
+
+			if (BaselineScopeButton != null) {
+				BaselineScopeButton.Dispose ();
+				BaselineScopeButton = null;
+			}
+
+			if (ApplyToAllSwitch != null) {
+				ApplyToAllSwitch.Dispose ();
+				ApplyToAllSwitch = null;
+			}
+
 			if (BaselineGraphView != null) {
 				BaselineGraphView.Dispose ();
 				BaselineGraphView = null;
@@ -240,6 +272,11 @@ namespace AnalysisITC
 				SplineHandleModeView = null;
 			}
 
+			if (UseFactorSwitch != null) {
+				UseFactorSwitch.Dispose ();
+				UseFactorSwitch = null;
+			}
+
 			if (UseIntegrationFactorLengthControl != null) {
 				UseIntegrationFactorLengthControl.Dispose ();
 				UseIntegrationFactorLengthControl = null;
@@ -258,16 +295,6 @@ namespace AnalysisITC
 			if (ZLimitView != null) {
 				ZLimitView.Dispose ();
 				ZLimitView = null;
-			}
-
-			if (ApplyToAllSwitch != null) {
-				ApplyToAllSwitch.Dispose ();
-				ApplyToAllSwitch = null;
-			}
-
-			if (UseFactorSwitch != null) {
-				UseFactorSwitch.Dispose ();
-				UseFactorSwitch = null;
 			}
 		}
 	}
