@@ -13,7 +13,11 @@ namespace AnalysisITC
         ExperimentData Data => DataManager.Current;
         DataProcessor Processor => Data?.Processor;
 
-		public DataProcessingViewControllet (IntPtr handle) : base (handle)
+        bool ShowBaseline => BaselineScopeButton.State == NSCellStateValue.On;
+        bool ShowIntegrationRange => IntegrationScopeButton.State == NSCellStateValue.On;
+        bool Corrected => CorrectedScopeButton.State == NSCellStateValue.On;
+
+        public DataProcessingViewControllet (IntPtr handle) : base (handle)
 		{
 		}
 
@@ -35,6 +39,8 @@ namespace AnalysisITC
             UpdateSliderLabels();
 
             BaselineGraphView.Initialize(DataManager.Current);
+
+            BaselineGraphView.SetFeatureVisibility(ShowBaseline, ShowIntegrationRange, Corrected);
         }
 
         void UpdateUI()
@@ -251,6 +257,11 @@ namespace AnalysisITC
             sender.SetLabel((BaselineGraphView.SelectedPeak + 1).ToString(), 1);
         }
 
+        partial void ScopeButtonClicked(NSObject sender)
+        {
+            BaselineGraphView.SetFeatureVisibility(ShowBaseline, ShowIntegrationRange, Corrected);
+        }
+
         partial void DrawFeatureControlClicked(NSSegmentedControl sender)
         {
             BaselineGraphView.SetFeatureVisibility(DrawFeatureSegControl);
@@ -286,7 +297,7 @@ namespace AnalysisITC
 
             BaselineGraphView.Initialize(current);
 
-            BaselineGraphView.SetFeatureVisibility(DrawFeatureSegControl);
+            BaselineGraphView.SetFeatureVisibility(ShowBaseline, ShowIntegrationRange, Corrected);
 
             UpdateUI();
         }
