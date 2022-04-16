@@ -209,7 +209,7 @@
   </ItemGroup>
   <ItemGroup>
     <Folder Include="Resources\" />
-    <Folder Include="Analysis\" />
+    <Folder Include="AppClasses\" />
     <Folder Include="GUI\" />
     <Folder Include="GUI\MacOS\" />
     <Folder Include="Utils\" />
@@ -225,17 +225,17 @@
   <ItemGroup>
     <Compile Include="Main.cs" />
     <Compile Include="AppDelegate.cs" />
-    <Compile Include="Analysis\DataReaders.cs" />
-    <Compile Include="Analysis\ExperimentData.cs" />
+    <Compile Include="Classes\DataReaders.cs" />
+    <Compile Include="Classes\ExperimentData.cs" />
     <Compile Include="Utils\EnumExtensions.cs" />
     <Compile Include="Utils\StringParsers.cs" />
-    <Compile Include="Analysis\Analysis.cs" />
-    <Compile Include="Analysis\DataProcessing.cs" />
+    <Compile Include="Classes\Analysis.cs" />
+    <Compile Include="Classes\DataProcessing.cs" />
     <Compile Include="Utils\GUIutils.cs" />
     <Compile Include="GUI\MacOS\ExperimentDataSource.cs" />
     <Compile Include="GUI\StatusBarManager.cs" />
     <Compile Include="Utils\NumberStructs.cs" />
-    <Compile Include="Analysis\DataManager.cs" />
+    <Compile Include="Classes\DataManager.cs" />
     <Compile Include="StateManager.cs" />
     <Compile Include="GUI\MacOS\GraphViews\AnalysisGraphView.cs" />
     <Compile Include="GUI\MacOS\GraphViews\AnalysisGraphView.designer.cs">
