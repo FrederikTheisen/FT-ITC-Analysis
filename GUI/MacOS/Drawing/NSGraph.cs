@@ -6,7 +6,7 @@ namespace AnalysisITC
 {
     public class NSGraph : NSView
     {
-        public void Invalidate() => this.NeedsDisplay = true;
+        public virtual void Invalidate() => this.NeedsDisplay = true;
 
         public ExperimentData Data => Graph.ExperimentData;
 
