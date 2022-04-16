@@ -10,6 +10,9 @@ namespace AnalysisITC
 	public partial class DataAnalysisViewController : NSViewController
 	{
         AnalysisModel SelectedAnalysisModel => (AnalysisModel)(int)ModelTypeControl.SelectedSegment;
+        bool ShowPeakInfo => PeakInfoScopeButton.State == NSCellStateValue.On;
+        bool ShowParameters => ParametersScopeButton.State == NSCellStateValue.On;
+        bool SameAxes => AxesScopeButton.State == NSCellStateValue.On;
 
         public DataAnalysisViewController (IntPtr handle) : base (handle)
 		{
@@ -57,7 +60,7 @@ namespace AnalysisITC
         {
             StatusBarManager.Progress = e.Item3;
             StatusBarManager.SetStatus("Bootstrapping...", 0);
-            StatusBarManager.SetSecondaryStatus(e.Item1 + "/" + e.Item2, 1000);
+            StatusBarManager.SetSecondaryStatus(e.Item1 + "/" + e.Item2, 0);
         }
 
         private void DataManager_DataDidChange(object sender, ExperimentData e)
@@ -79,9 +82,18 @@ namespace AnalysisITC
 
         partial void FeatureDrawControlClicked(NSSegmentedControl sender)
         {
-            DataFittingGraph.ShowPeakInfo = sender.IsSelectedForSegment(0);
-            DataFittingGraph.ShowFitParameters = sender.IsSelectedForSegment(1);
-            DataFittingGraph.UseUnifiedAxes = sender.IsSelectedForSegment(2);
+            GraphView.DataFittingGraph.ShowPeakInfo = sender.IsSelectedForSegment(0);
+            GraphView.DataFittingGraph.ShowFitParameters = sender.IsSelectedForSegment(1);
+            GraphView.DataFittingGraph.UseUnifiedAxes = sender.IsSelectedForSegment(2);
+
+            GraphView.Invalidate();
+        }
+
+        partial void ScopeButtonClicked(NSButton sender)
+        {
+            GraphView.DataFittingGraph.ShowPeakInfo = ShowPeakInfo;
+            GraphView.DataFittingGraph.ShowFitParameters = ShowParameters;
+            GraphView.DataFittingGraph.UseUnifiedAxes = SameAxes;
 
             GraphView.Invalidate();
         }
@@ -97,13 +109,10 @@ namespace AnalysisITC
             StatusBarManager.StartInderminateProgress();
             StatusBarManager.SetStatus("Fitting data...", 0);
 
-            if (AnalysisModeControl.SelectedSegment == 0)
+            switch (AnalysisModeControl.SelectedSegment)
             {
-                SingleAnalysis();
-            }
-            else
-            {
-                GlobalAnalysis();
+                case 0: SingleAnalysis(); break;
+                default: GlobalAnalysis(); break;
             }
         }
 
