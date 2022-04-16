@@ -460,9 +460,10 @@ namespace AnalysisITC
             get => showBaselineCorrected;
             set
             {
+                bool _value = showBaselineCorrected;
                 showBaselineCorrected = value;
 
-                SetYAxisRange(DataPoints.Min(dp => dp.Power), DataPoints.Max(dp => dp.Power), buffer: true);
+                if (value != _value) SetYAxisRange(DataPoints.Min(dp => dp.Power), DataPoints.Max(dp => dp.Power), buffer: true);
             }
         }
 
@@ -580,8 +581,8 @@ namespace AnalysisITC
 
     public class BaselineFittingGraph : DataGraph
     {
-        public static bool ShowBaseline { get; set; } = true;
-        public static bool ShowInjections { get; set; } = true;
+        public bool ShowBaseline { get; set; } = true;
+        public bool ShowInjections { get; set; } = true;
 
         public BaselineFittingGraph(ExperimentData experiment, NSView view) : base(experiment, view)
         {
@@ -766,9 +767,9 @@ namespace AnalysisITC
 
     public class DataFittingGraph : CGGraph
     {
-        public static bool UseUnifiedAxes { get; set; } = false;
-        public static bool ShowPeakInfo { get; set; } = false;
-        public static bool ShowFitParameters { get; set; } = false;
+        public bool UseUnifiedAxes { get; set; } = false;
+        public bool ShowPeakInfo { get; set; } = false;
+        public bool ShowFitParameters { get; set; } = false;
         public bool ShowGrid { get; set; } = true;
         public bool ShowZero { get; set; } = true;
         public bool HideBadData { get; set; } = false;
