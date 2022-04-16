@@ -225,17 +225,16 @@
   <ItemGroup>
     <Compile Include="Main.cs" />
     <Compile Include="AppDelegate.cs" />
-    <Compile Include="Classes\DataReaders.cs" />
-    <Compile Include="Classes\ExperimentData.cs" />
+    <Compile Include="AppClasses\DataReaders.cs" />
     <Compile Include="Utils\EnumExtensions.cs" />
     <Compile Include="Utils\StringParsers.cs" />
-    <Compile Include="Classes\Analysis.cs" />
-    <Compile Include="Classes\DataProcessing.cs" />
+    <Compile Include="AppClasses\Analysis.cs" />
+    <Compile Include="AppClasses\DataProcessing.cs" />
     <Compile Include="Utils\GUIutils.cs" />
     <Compile Include="GUI\MacOS\ExperimentDataSource.cs" />
     <Compile Include="GUI\StatusBarManager.cs" />
     <Compile Include="Utils\NumberStructs.cs" />
-    <Compile Include="Classes\DataManager.cs" />
+    <Compile Include="AppClasses\DataManager.cs" />
     <Compile Include="StateManager.cs" />
     <Compile Include="GUI\MacOS\GraphViews\AnalysisGraphView.cs" />
     <Compile Include="GUI\MacOS\GraphViews\AnalysisGraphView.designer.cs">
@@ -292,6 +291,7 @@
     <Compile Include="GUI\MacOS\SideBarView.designer.cs">
       <DependentUpon>SideBarView.cs</DependentUpon>
     </Compile>
+    <Compile Include="AppClasses\ExperimentData.cs" />
   </ItemGroup>
   <ItemGroup>
     <InterfaceDefinition Include="Main.storyboard" />
