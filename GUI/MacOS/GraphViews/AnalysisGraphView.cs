@@ -9,6 +9,8 @@ namespace AnalysisITC
 {
 	public partial class AnalysisGraphView : NSGraph
 	{
+        public DataFittingGraph DataFittingGraph => Graph as DataFittingGraph;
+
         public AnalysisGraphView (IntPtr handle) : base (handle)
 		{
             State = ProgramState.Analyze;
