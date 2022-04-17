@@ -454,18 +454,22 @@ namespace AnalysisITC
 
     public class DataGraph : CGGraph
     {
-        bool showBaselineCorrected = false;
+        private bool _useUnifiedAxes = false;
+        private bool _showBaselineCorrected = false;
+
         public bool ShowBaselineCorrected
         {
-            get => showBaselineCorrected;
+            get => _showBaselineCorrected;
             set
             {
-                bool _value = showBaselineCorrected;
-                showBaselineCorrected = value;
+                bool _value = _showBaselineCorrected;
+                _showBaselineCorrected = value;
 
                 if (value != _value) SetYAxisRange(DataPoints.Min(dp => dp.Power), DataPoints.Max(dp => dp.Power), buffer: true);
             }
         }
+
+        public bool UseUnifiedAxes { get => _useUnifiedAxes; set { _useUnifiedAxes = value; SetupYAxes(); } }
 
         public List<DataPoint> DataPoints => ShowBaselineCorrected && ExperimentData.BaseLineCorrectedDataPoints != null
                     ? ExperimentData.BaseLineCorrectedDataPoints
@@ -477,7 +481,20 @@ namespace AnalysisITC
             {
                 UseNiceAxis = false,
             };
-            YAxis = new GraphAxis(this, DataPoints.Min(dp => dp.Power), DataPoints.Max(dp => dp.Power));
+
+            SetupYAxes();
+        }
+
+        void SetupYAxes()
+        {
+            if (UseUnifiedAxes)
+            {
+                var ymin = DataManager.IncludedData.Min(d => d.BaseLineCorrectedDataPoints.Min(dp => dp.Power));
+                var ymax = DataManager.IncludedData.Max(d => d.BaseLineCorrectedDataPoints.Max(dp => dp.Power));
+
+                YAxis = new GraphAxis(this, ymin, ymax);
+            }
+            else YAxis = new GraphAxis(this, DataPoints.Min(dp => dp.Power), DataPoints.Max(dp => dp.Power));
         }
 
         internal override void Draw(CGContext gc)
@@ -767,8 +784,11 @@ namespace AnalysisITC
 
     public class DataFittingGraph : CGGraph
     {
-        public bool UseUnifiedAxes { get; set; } = false;
+        private bool _useUnifiedAxes = false;
+
+        public bool UseUnifiedAxes { get => _useUnifiedAxes; set { _useUnifiedAxes = value; SetupAxes(); } }
         public bool ShowPeakInfo { get; set; } = false;
+        public bool ShowErrorBars { get; set; } = false;
         public bool ShowFitParameters { get; set; } = false;
         public bool ShowGrid { get; set; } = true;
         public bool ShowZero { get; set; } = true;
@@ -778,6 +798,11 @@ namespace AnalysisITC
         static CGSize ErrorBarEndWidth = new CGSize(SquareSize / 2, 0);
 
         public DataFittingGraph(ExperimentData experiment, NSView view) : base(experiment, view)
+        {
+            SetupAxes();
+        }
+
+        void SetupAxes()
         {
             if (UseUnifiedAxes)
             {
@@ -798,11 +823,11 @@ namespace AnalysisITC
             }
             else
             {
-                XAxis = GraphAxis.WithBuffer(this, 0, experiment.Injections.Last().Ratio, 0.05, AxisPosition.Bottom);
+                XAxis = GraphAxis.WithBuffer(this, 0, ExperimentData.Injections.Last().Ratio, 0.05, AxisPosition.Bottom);
 
                 var solutionenthalpy = ExperimentData.Solution != null ? (float)ExperimentData.Solution.Enthalpy : 0;
-                var minenthalpy = Math.Min(experiment.Injections.Min(inj => (float)inj.OffsetEnthalpy), Math.Min(solutionenthalpy, 0));
-                var maxenthalpy = Math.Max(experiment.Injections.Max(inj => (float)inj.OffsetEnthalpy), Math.Max(solutionenthalpy, 0));
+                var minenthalpy = Math.Min(ExperimentData.Injections.Min(inj => (float)inj.OffsetEnthalpy), Math.Min(solutionenthalpy, 0));
+                var maxenthalpy = Math.Max(ExperimentData.Injections.Max(inj => (float)inj.OffsetEnthalpy), Math.Max(solutionenthalpy, 0));
 
                 YAxis = GraphAxis.WithBuffer(this, minenthalpy, maxenthalpy, 0.1, AxisPosition.Left);
             }
@@ -815,7 +840,6 @@ namespace AnalysisITC
             YAxis.UseNiceAxis = false;
             YAxis.LegendTitle = "kJ mol⁻¹ of injectant";
             YAxis.ValueFactor = 0.001f;
-
         }
 
         internal override void Draw(CGContext gc)
@@ -854,7 +878,7 @@ namespace AnalysisITC
 
                 var p = GetRelativePosition(inj.Ratio, inj.OffsetEnthalpy);
 
-                if (ShowPeakInfo && !(HideBadDataErrorBars && !inj.Include))
+                if ((ShowPeakInfo || ShowErrorBars) && !(HideBadDataErrorBars && !inj.Include))
                 {
                     var sd = Math.Abs(inj.SD / inj.PeakArea);
                     var etop = GetRelativePosition(inj.Ratio, inj.OffsetEnthalpy - inj.OffsetEnthalpy * sd);
@@ -917,7 +941,7 @@ namespace AnalysisITC
         void DrawZero(CGContext gc)
         {
             CGLayer layer = CGLayer.Create(gc, Frame.Size);
-            
+
             var zero = new CGPath();
             zero.MoveToPoint(GetRelativePosition(XAxis.Min, 0));
             zero.AddLineToPoint(GetRelativePosition(XAxis.Max, 0));
