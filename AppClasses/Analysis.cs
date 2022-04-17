@@ -68,31 +68,40 @@ namespace AnalysisITC
 
             public static async void Solve(AnalysisModel analysismodel)
             {
-                switch (analysismodel)
+                try
                 {
-                    case AnalysisModel.OneSetOfSites: InitializeOneSetOfSites(); break;
-                    case AnalysisModel.SequentialBindingSites:
-                    case AnalysisModel.TwoSetsOfSites:
-                    case AnalysisModel.Dissociation:
-                    default: InitializeOneSetOfSites(); break;
-                }
-
-                SolverConvergence convergence = null;
-
-                var starttime = DateTime.Now;
-
-                await Task.Run(() =>
+                    switch (analysismodel)
                     {
-                        convergence = Model.SolveWithNelderMeadAlgorithm();
+                        case AnalysisModel.OneSetOfSites: InitializeOneSetOfSites(); break;
+                        case AnalysisModel.SequentialBindingSites:
+                        case AnalysisModel.TwoSetsOfSites:
+                        case AnalysisModel.Dissociation:
+                        default: InitializeOneSetOfSites(); break;
+                    }
 
-                        NSApplication.SharedApplication.InvokeOnMainThread(() => { AnalysisIterationFinished?.Invoke(null, null); });
+                    SolverConvergence convergence = null;
 
-                        Model.Bootstrap();
-                    });
+                    var starttime = DateTime.Now;
 
-                Console.WriteLine((DateTime.Now - starttime).TotalSeconds);
+                    await Task.Run(() =>
+                        {
+                            convergence = Model.SolveWithNelderMeadAlgorithm();
 
-                AnalysisFinished?.Invoke(null, convergence);
+                            NSApplication.SharedApplication.InvokeOnMainThread(() => { AnalysisIterationFinished?.Invoke(null, null); });
+
+                            Model.Bootstrap();
+                        });
+
+                    Console.WriteLine((DateTime.Now - starttime).TotalSeconds);
+
+                    AnalysisFinished?.Invoke(null, convergence);
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine(ex.Message);
+                    StatusBarManager.ClearAppStatus();
+                    StatusBarManager.SetStatusScrolling("Analysis failed: " + ex.Message);
+                }
             }
 
             static void SetInitialValues()
@@ -393,6 +402,7 @@ namespace AnalysisITC
             {
                 if (EnthalpyStyle != Analysis.VariableStyle.TemperatureDependent) return 0;
                 if (Models.Count < 2) return 0;
+                if (Models.Max(m => m.Data.MeasuredTemperature) - Models.Min(m => m.Data.MeasuredTemperature) < 1) return 0;
 
                 var xy = Models.Select(m => new double[] { m.Data.MeasuredTemperature, m.GuessH }).ToArray();
                 var reg = MathNet.Numerics.LinearRegression.SimpleRegression.Fit(xy.GetColumn(0), xy.GetColumn(1));
@@ -407,6 +417,7 @@ namespace AnalysisITC
             {
                 if (EnthalpyStyle != Analysis.VariableStyle.TemperatureDependent) return Models.Select(m => m.GuessH).Average();
                 if (Models.Count < 2) return Models.First().GuessH;
+                if (Models.Max(m => m.Data.MeasuredTemperature) - Models.Min(m => m.Data.MeasuredTemperature) < 1) return Models.Average(m => m.Data.Injections.First(inj => inj.Include).Enthalpy);
 
                 var xy = Models.Select(m => new double[] { m.Data.MeasuredTemperature, m.GuessH }).ToArray();
                 var reg = MathNet.Numerics.LinearRegression.SimpleRegression.Fit(xy.GetColumn(0), xy.GetColumn(1));
@@ -584,26 +595,29 @@ namespace AnalysisITC
 
         internal virtual double LossFunction(double[] w)
         {
-            int i = 0;
+            var parameters = SolverParameters.FromArray(w, Options);
 
-            double[] H;
-            double Cp;
+            //int i = 0;
 
-            if (EnthalpyStyle == Analysis.VariableStyle.Free) H = w.Skip(PostIncrement(i, Models.Count, out i)).Take(Models.Count).ToArray();
-            else H = new double[] { w[i++] };
+            //double[] H;
+            //double Cp;
 
-            if (EnthalpyStyle == Analysis.VariableStyle.TemperatureDependent) Cp = w[i++];
-            else Cp = 0;
+            //if (EnthalpyStyle == Analysis.VariableStyle.Free) H = w.Skip(PostIncrement(i, Models.Count, out i)).Take(Models.Count).ToArray();
+            //else H = new double[] { w[i++] };
 
-            double[] G;
+            //if (EnthalpyStyle == Analysis.VariableStyle.TemperatureDependent) Cp = w[i++];
+            //else Cp = 0;
 
-            if (AffinityStyle == Analysis.VariableStyle.Free) G = w.Skip(PostIncrement(i, Models.Count, out i)).Take(Models.Count).ToArray();//Variable affinity of experiments
-            else G = new double[Models.Count].Add(w[i++]); //Use same affinity for all experiments
+            //double[] G;
 
-            double[] offsets = w.Skip(PostIncrement(i, Models.Count, out i)).Take(Models.Count).ToArray();
-            double[] ns = w.Skip(i).Take(Models.Count).ToArray();
+            //if (AffinityStyle == Analysis.VariableStyle.Free) G = w.Skip(PostIncrement(i, Models.Count, out i)).Take(Models.Count).ToArray();//Variable affinity of experiments
+            //else G = new double[Models.Count].Add(w[i++]); //Use same affinity for all experiments
 
-            return GlobalLoss(ns, H, Cp, G, offsets);
+            //double[] offsets = w.Skip(PostIncrement(i, Models.Count, out i)).Take(Models.Count).ToArray();
+            //double[] ns = w.Skip(i).Take(Models.Count).ToArray();
+
+            //return GlobalLoss(ns, H, Cp, G, offsets);
+            return GlobalLoss(parameters);
         }
 
         double GlobalLoss(double[] ns, double[] H, double Cp, double[] Gs, double[] offsets)
@@ -621,6 +635,21 @@ namespace AnalysisITC
                 var K = AffinityStyle == Analysis.VariableStyle.SameForAll ? Math.Exp(-1 * dG / (Energy.R.Value * 298.15)) : Math.Exp(-1 * dG / (Energy.R.Value * T));
 
                 glob_loss += m.RMSD(ns[i], dH, K, offsets[i]);
+            }
+
+            return glob_loss;
+        }
+
+        double GlobalLoss(SolverParameters parameters)
+        {
+            double glob_loss = 0;
+
+            for (int i = 0; i < Models.Count; i++)
+            {
+                var m = Models[i];
+                var pset = parameters.ParameterSetForModel(i);
+
+                glob_loss += m.RMSD(pset.N, pset.GetEnthalpy(m, Options), pset.GetK(m, Options), pset.Offset);
             }
 
             return glob_loss;
@@ -750,7 +779,6 @@ namespace AnalysisITC
 
         public Energy HeatCapacity { get; set; }
         public Energy EnthalpyRef { get; set; } //Enthalpy at 298.15 °C
-        public Energy FreeEnergy { get; set; }
 
         /// <summary>
         /// Parameters of the individual experiments derived from the global solution
@@ -760,41 +788,13 @@ namespace AnalysisITC
         public static GlobalSolution FromAccordNelderMead(double[] solution, GlobalModel model)
         {
             var global = new GlobalSolution();
-            int nmodels = model.Models.Count;
             var parameters = SolverParameters.FromArray(solution, model.Options);
-
-            //int i = 0;
-
-            //switch (model.EnthalpyStyle)
-            //{
-            //    case Analysis.VariableStyle.TemperatureDependent:
-            //        global.EnthalpyRef = new(solution[i++]);
-            //        global.HeatCapacity = new(solution[i++]);
-            //        break;
-            //    case Analysis.VariableStyle.Free: i += nmodels; break;
-            //    case Analysis.VariableStyle.SameForAll: i++; break;
-            //}
-
-            //double[] gs;
-            //if (model.AffinityStyle == Analysis.VariableStyle.Free) gs = solution.Skip(PostIncrement(i, nmodels, out i)).Take(nmodels).ToArray();
-            //else
-            //{
-            //    global.FreeEnergy = new(solution[i++]);
-            //    gs = new double[nmodels].Add(global.FreeEnergy);
-            //}
-
-            //var offsets = solution.Skip(PostIncrement(i, nmodels, out i)).Take(nmodels).ToArray();
-            //var ns = solution.Skip(i).Take(nmodels).ToArray();
 
             for (int j = 0; j < model.Models.Count; j++)
             {
                 var m = model.Models[j];
                 var dt = m.Data.MeasuredTemperature - 25;
                 var pset = parameters.ParameterSetForModel(j);
-
-                //var dH = global.EnthalpyRef + global.HeatCapacity * dt;
-                //var K = Math.Exp(gs[j] / (-1 * Energy.R * (m.Data.MeasuredTemperature + 273.15)));
-                //var sol = new Solution(ns[j], dH, K, offsets[j], m, m.RMSD(ns[j], dH, K, offsets[j]));
 
                 var dH = model.EnthalpyStyle == Analysis.VariableStyle.TemperatureDependent ? pset.dH + pset.dCp * dt : pset.dH;
                 var K = Math.Exp(pset.dG / (-1 * Energy.R.Value * (m.Data.MeasuredTemperature + 273.15)));
@@ -924,10 +924,11 @@ namespace AnalysisITC
             return w.ToArray();
         }
 
-        public ParameterSet ParameterSetForModel(int modelnumber)
+        public ParameterSet ParameterSetForModel(int modelnumber, SolverOptions options = null)
         {
             return new ParameterSet
             {
+                Options = options,
                 dH = EnthalpyStyle == Analysis.VariableStyle.Free ? Enthalpies[modelnumber] : Enthalpies[0],
                 dCp = HeatCapacity,
                 dG = AffinityStyle == Analysis.VariableStyle.Free ? Gibbs[modelnumber] : Gibbs[0],
@@ -938,11 +939,37 @@ namespace AnalysisITC
 
         public struct ParameterSet
         {
+            public SolverOptions Options { get; set; }
+
             public double dH { get; set; }
             public double dCp { get; set; }
             public double dG { get; set; }
             public double Offset { get; set; }
             public double N { get; set; }
+
+            public double GetEnthalpy(Model model, SolverOptions options)
+            {
+                switch (options.EnthalpyStyle)
+                {
+                    case Analysis.VariableStyle.TemperatureDependent:
+                        var dt = model.Data.MeasuredTemperature - 25;
+                        return dH + dCp * dt;
+                    default: return dH;
+                }
+            }
+
+            public double GetK(Model model, SolverOptions options)
+            {
+                var T = model.Data.MeasuredTemperature + 273.15;
+
+                switch (options.AffinityStyle)
+                {
+                    case Analysis.VariableStyle.SameForAll: return Math.Exp(-1 * dG / (Energy.R.Value * 298.15));
+                    case Analysis.VariableStyle.TemperatureDependent: return Math.Exp(-1 * dG / (Energy.R.Value * T));
+                    default:
+                    case Analysis.VariableStyle.Free: return Math.Exp(-1 * dG / (Energy.R.Value * T));
+                }
+            }
         }
     }
 }
