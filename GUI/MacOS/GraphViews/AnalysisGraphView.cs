@@ -7,13 +7,28 @@ using AppKit;
 
 namespace AnalysisITC
 {
-	public partial class AnalysisGraphView : NSGraph
-	{
+    public partial class AnalysisGraphView : NSGraph
+    {
+        public static bool ShowPeakInfo { get; set; } = true;
+        public static bool ShowFitParameters { get; set; } = true;
+        public static bool UseUnifiedAxes { get; set; } = false;
+
         public DataFittingGraph DataFittingGraph => Graph as DataFittingGraph;
 
         public AnalysisGraphView (IntPtr handle) : base (handle)
 		{
             State = ProgramState.Analyze;
+        }
+
+        public override void Invalidate()
+        {
+            if (Graph == null) return;
+
+            DataFittingGraph.ShowPeakInfo = ShowPeakInfo;
+            DataFittingGraph.ShowFitParameters = ShowFitParameters;
+            DataFittingGraph.UseUnifiedAxes = UseUnifiedAxes;
+
+            base.Invalidate();
         }
 
         public void Initialize(ExperimentData experiment)
