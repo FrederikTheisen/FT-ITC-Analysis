@@ -184,7 +184,7 @@ namespace Utilities
             Type = FeatureType.IntegratedInjectionPoint;
             FeatureID = inj.ID;
 
-            tooltiplines.Add("Inj #" + inj.ID);
+            tooltiplines.Add("Inj #" + inj.ID + "  " + inj.Temperature.ToString("F2") + " °C");
             tooltiplines.Add("Time: " + inj.Time.ToString("F1") + "s");
             tooltiplines.Add("Ratio: " + inj.Ratio.ToString("F2"));
             tooltiplines.Add("Area: " + (inj.OffsetEnthalpy/1000).ToString("F1") + " kJ/mol");
