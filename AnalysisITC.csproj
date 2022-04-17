@@ -292,6 +292,10 @@
     </Compile>
     <Compile Include="AppClasses\ExperimentData.cs" />
     <Compile Include="GUI\StateManager.cs" />
+    <Compile Include="TabControllerView.cs" />
+    <Compile Include="TabControllerView.designer.cs">
+      <DependentUpon>TabControllerView.cs</DependentUpon>
+    </Compile>
   </ItemGroup>
   <ItemGroup>
     <InterfaceDefinition Include="Main.storyboard" />
