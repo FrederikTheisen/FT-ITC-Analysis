@@ -279,7 +279,7 @@ namespace AnalysisITC
                 var ordered = dps.OrderBy(dp => Math.Abs(dp.Power));
                 var max_power_point = ordered.Last();
 
-                length *= (float)Math.Sqrt(Math.Abs(5000000 * max_power_point.Power));
+                length *= (float)(Math.Abs(8000000 * max_power_point.Power));
             }
 
             IntegrationLength = Math.Clamp(length, Duration, Delay);
