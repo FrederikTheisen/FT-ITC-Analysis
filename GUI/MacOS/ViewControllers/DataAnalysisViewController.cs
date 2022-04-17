@@ -37,6 +37,9 @@ namespace AnalysisITC
         {
             base.ViewWillAppear();
 
+            PeakInfoScopeButton.State = AnalysisGraphView.ShowPeakInfo ? NSCellStateValue.On : NSCellStateValue.Off;
+            ParametersScopeButton.State = AnalysisGraphView.ShowFitParameters ? NSCellStateValue.On : NSCellStateValue.Off;
+            AxesScopeButton.State = AnalysisGraphView.UseUnifiedAxes ? NSCellStateValue.On : NSCellStateValue.Off;
             GraphView.Initialize(DataManager.Current);
         }
 
@@ -82,18 +85,18 @@ namespace AnalysisITC
 
         partial void FeatureDrawControlClicked(NSSegmentedControl sender)
         {
-            GraphView.DataFittingGraph.ShowPeakInfo = sender.IsSelectedForSegment(0);
-            GraphView.DataFittingGraph.ShowFitParameters = sender.IsSelectedForSegment(1);
-            GraphView.DataFittingGraph.UseUnifiedAxes = sender.IsSelectedForSegment(2);
+            AnalysisGraphView.ShowPeakInfo = sender.IsSelectedForSegment(0);
+            AnalysisGraphView.ShowFitParameters = sender.IsSelectedForSegment(1);
+            AnalysisGraphView.UseUnifiedAxes = sender.IsSelectedForSegment(2);
 
             GraphView.Invalidate();
         }
 
         partial void ScopeButtonClicked(NSButton sender)
         {
-            GraphView.DataFittingGraph.ShowPeakInfo = ShowPeakInfo;
-            GraphView.DataFittingGraph.ShowFitParameters = ShowParameters;
-            GraphView.DataFittingGraph.UseUnifiedAxes = SameAxes;
+            AnalysisGraphView.ShowPeakInfo = ShowPeakInfo;
+            AnalysisGraphView.ShowFitParameters = ShowParameters;
+            AnalysisGraphView.UseUnifiedAxes = SameAxes;
 
             GraphView.Invalidate();
         }

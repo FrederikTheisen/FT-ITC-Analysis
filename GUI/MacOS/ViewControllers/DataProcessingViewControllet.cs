@@ -47,9 +47,7 @@ namespace AnalysisITC
         {
             if (Data == null || Processor.BaselineType == BaselineInterpolatorTypes.None)
             {
-                InterpolatorTypeControl.SetSelected(false, 0);
-                InterpolatorTypeControl.SetSelected(false, 1);
-                InterpolatorTypeControl.SetSelected(false, 2);
+                SetSelectedSegment(InterpolatorTypeControl, -1);
 
                 SplineAlgorithmView.Hidden = true;
                 SplineBaselineFractionView.Hidden = true;
@@ -59,7 +57,7 @@ namespace AnalysisITC
             }
             else
             {
-                InterpolatorTypeControl.SelectSegment((int)Processor.BaselineType);
+                SetSelectedSegment(InterpolatorTypeControl, (int)Processor.BaselineType);
 
                 switch (Processor.BaselineType)
                 {
@@ -69,6 +67,8 @@ namespace AnalysisITC
                         SplineBaselineFractionView.Hidden = false;
                         PolynomialDegreeView.Hidden = true;
                         ZLimitView.Hidden = true;
+                        SetSelectedSegment(SplineAlgoControl, (int)(Data.Processor.Interpolator as SplineInterpolator).Algorithm);
+                        SplineFractionSliderControl.FloatValue = (Data.Processor.Interpolator as SplineInterpolator).FractionBaseline;
                         break;
                     case BaselineInterpolatorTypes.ASL:
                         SplineAlgorithmView.Hidden = true;
@@ -83,6 +83,8 @@ namespace AnalysisITC
                         SplineBaselineFractionView.Hidden = true;
                         PolynomialDegreeView.Hidden = false;
                         ZLimitView.Hidden = false;
+                        PolynomialDegreeSlider.IntValue = (Data.Processor.Interpolator as PolynomialLeastSquaresInterpolator).Degree;
+                        ZLimitSlider.DoubleValue = (Data.Processor.Interpolator as PolynomialLeastSquaresInterpolator).ZLimit;
                         break;
                 }
 
@@ -98,11 +100,6 @@ namespace AnalysisITC
                 InjectionViewSegControl.Enabled = Data.Injections.Count > 0;
                 DataZoomSegControl.Enabled = true;
 
-                if (Data.Processor.Interpolator is SplineInterpolator)
-                {
-                    SplineFractionSliderControl.FloatValue = (Data.Processor.Interpolator as SplineInterpolator).FractionBaseline;
-                }
-
                 InjectionViewSegControl.SetLabel((BaselineGraphView.SelectedPeak + 1).ToString(), 1);
 
                 UseFactorSwitch.State = Data.UseIntegrationFactorLength ? 1 : 0;
@@ -111,6 +108,27 @@ namespace AnalysisITC
             UpdateSliderLabels();
 
             ConfirmProcessingButton.Enabled = DataManager.AllDataIsBaselineProcessed;
+        }
+
+        void SetSelectedSegment(NSSegmentedControl control, int segment)
+        {
+            for (int i = 0; i < control.SegmentCount; i++) control.SetSelected(false, i);
+
+            if (segment > -0.5) control.SetSelected(true, segment);
+        }
+
+        void UpdateSliderLabels()
+        {
+            IntegrationStartDelayLabel.StringValue = (IntegrationDelayControl.FloatValue).ToString("F1") + "s";
+            if (Data != null && Data.UseIntegrationFactorLength)
+            {
+                var factor = SliderToFactor();
+                IntegrationLengthLabel.StringValue = factor.ToString("G2") + "x";
+            }
+            else IntegrationLengthLabel.StringValue = (IntegrationLengthControl.FloatValue).ToString("F1") + "s";
+            SplineBaselineFractionControl.StringValue = (SplineFractionSliderControl.FloatValue * 100).ToString("##0") + " %";
+            PolynomialDegreeLabel.StringValue = PolynomialDegreeSlider.IntValue.ToString();
+            ZLimitLabel.StringValue = ZLimitSlider.FloatValue.ToString("G3");
         }
 
         #region Processing Baseline
@@ -270,20 +288,6 @@ namespace AnalysisITC
         partial void ConfirmProcessingButtonClicked(NSObject sender)
         {
             
-        }
-
-        void UpdateSliderLabels()
-        {
-            IntegrationStartDelayLabel.StringValue = (IntegrationDelayControl.FloatValue).ToString("F1") + "s";
-            if (Data != null && Data.UseIntegrationFactorLength)
-            {
-                var factor = SliderToFactor();
-                IntegrationLengthLabel.StringValue = factor.ToString("G2") + "x";
-            }
-            else IntegrationLengthLabel.StringValue = (IntegrationLengthControl.FloatValue).ToString("F1") + "s";
-            SplineBaselineFractionControl.StringValue = (SplineFractionSliderControl.FloatValue * 100).ToString("##0") + " %";
-            PolynomialDegreeLabel.StringValue = PolynomialDegreeSlider.IntValue.ToString();
-            ZLimitLabel.StringValue = ZLimitSlider.FloatValue.ToString("G3");
         }
 
         void UpdateProcessing()
