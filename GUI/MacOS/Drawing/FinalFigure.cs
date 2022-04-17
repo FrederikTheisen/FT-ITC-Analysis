@@ -22,6 +22,30 @@ namespace AnalysisITC
         CGRect PlotBox => new CGRect(IntegrationGraph.Origin, PlotDimensions.ScaleBy(CGGraph.PPcm));
         CGPoint UnadjustedGraphOrigin => new CGPoint(DataGraph.Center.X - DataGraph.PlotSize.Width * 0.5f, DataGraph.Center.Y - DataGraph.PlotSize.Height * 0.5f);
 
+        public bool ShowErrorBars
+        {
+            get => IntegrationGraph.ShowErrorBars;
+            set => IntegrationGraph.ShowErrorBars = value;
+        }
+
+        public bool HideBadDataErrorBars
+        {
+            get => IntegrationGraph.HideBadDataErrorBars;
+            set => IntegrationGraph.HideBadDataErrorBars = value;
+        }
+
+        public bool UseUnifiedAnalysisAxes
+        {
+            get => IntegrationGraph.UseUnifiedAxes;
+            set => IntegrationGraph.UseUnifiedAxes = value;
+        }
+
+        public bool UseUnifiedDataAxes
+        {
+            get => DataGraph.UseUnifiedAxes;
+            set => DataGraph.UseUnifiedAxes = value;
+        }
+
         public FinalFigure(ExperimentData experiment, NSView view)
         {
             DataGraph = new DataGraph(experiment, view)
@@ -29,15 +53,17 @@ namespace AnalysisITC
                 DrawOnWhite = true,
                 ShowBaselineCorrected = true
             };
-            DataGraph.XAxis.Buffer = .1f;
             DataGraph.YAxis.Buffer = .05f;
             DataGraph.YAxis.MirrorTicks = true;
+            DataGraph.XAxis.Buffer = .1f;
             DataGraph.XAxis.ValueFactor = 1.0 / 60;
+            DataGraph.XAxis.LegendTitle = "Time (min)";
 
             IntegrationGraph = new DataFittingGraph(experiment, view)
             {
                 DrawOnWhite = true,
                 ShowGrid = false,
+                ShowErrorBars = true,
                 HideBadDataErrorBars = true,
             };
             IntegrationGraph.YAxis.MirrorTicks = true;
