@@ -20,8 +20,8 @@ namespace AnalysisITC
             StateManager.ProgramStateChanged += OnProgramModeChanged;
             StateManager.UpdateStateDependentUI += StateManager_UpdateStateDependentUI;
 
-            this.View.AddSubview(TabviewSegControl);
-
+            this.View.AddSubview(TabControllerView);
+            
             StateManager_UpdateStateDependentUI(null, null);
         }
 
@@ -29,14 +29,16 @@ namespace AnalysisITC
         {
             base.ViewDidLayout();
 
-            var size = SegSize;
-            var cellwidth = (size.Width - 61) / 4;
+            //var size = SegSize;
+            //var cellwidth = (size.Width - 61) / 4;
 
-            TabviewSegControl.Frame = new CoreGraphics.CGRect(new CoreGraphics.CGPoint(TabView.Frame.Width / 2 - size.Width / 2, View.Frame.Size.Height - size.Height - 2), size);
-            TabviewSegControl.SetWidth(cellwidth, 0);
-            TabviewSegControl.SetWidth(cellwidth, 1);
-            TabviewSegControl.SetWidth(cellwidth, 2);
-            TabviewSegControl.SetWidth(cellwidth, 3);
+            TabControllerView.Frame = new CoreGraphics.CGRect(new CoreGraphics.CGPoint(0, View.Frame.Height - 33), new CoreGraphics.CGSize(View.Frame.Width, 33));
+
+            //TabviewSegControl.Frame = new CoreGraphics.CGRect(new CoreGraphics.CGPoint(TabView.Frame.Width / 2 - size.Width / 2, View.Frame.Size.Height - size.Height - 2), size);
+            //TabviewSegControl.SetWidth(cellwidth, 0);
+            //TabviewSegControl.SetWidth(cellwidth, 1);
+            //TabviewSegControl.SetWidth(cellwidth, 2);
+            //TabviewSegControl.SetWidth(cellwidth, 3);
         }
 
         nfloat SegWidth
@@ -57,23 +59,63 @@ namespace AnalysisITC
 
         private void StateManager_UpdateStateDependentUI(object sender, EventArgs e)
         {
-            for (int i = 0; i < 4; i++)
-            {
-                TabviewSegControl.SetEnabled(StateManager.StateIsAvailable((ProgramState)i), i);
-            }
+            //for (int i = 0; i < 4; i++)
+            //{
+            //    TabviewSegControl.SetEnabled(StateManager.StateIsAvailable((ProgramState)i), i);
+            //}
+
+            TCVDataTabControl.Enabled = StateManager.StateIsAvailable(ProgramState.Load);
+            TCVProcessControl.Enabled = StateManager.StateIsAvailable(ProgramState.Process);
+            TCVAnalysisControl.Enabled = StateManager.StateIsAvailable(ProgramState.Analyze);
+            TCVFigureControl.Enabled = StateManager.StateIsAvailable(ProgramState.Publish);
         }
 
         private void OnProgramModeChanged(object sender, ProgramState e)
         {
             TabView.SelectAt((int)e);
 
-            TabviewSegControl.SetSelected(true, (int)e);
+            //TabviewSegControl.SetSelected(true, (int)e);
             //TabviewSegControl.SelectSegment((int)e);
+
+            TCVDataTabControl.State = StateManager.CurrentState == ProgramState.Load ? NSCellStateValue.On : NSCellStateValue.Off;
+            TCVProcessControl.State = StateManager.CurrentState == ProgramState.Process ? NSCellStateValue.On : NSCellStateValue.Off;
+            TCVAnalysisControl.State = StateManager.CurrentState == ProgramState.Analyze ? NSCellStateValue.On : NSCellStateValue.Off;
+            TCVFigureControl.State = StateManager.CurrentState == ProgramState.Publish ? NSCellStateValue.On : NSCellStateValue.Off;
         }
 
         partial void SegControlClicked(NSSegmentedControl sender)
         {
             StateManager.SetProgramState((ProgramState)(int)sender.SelectedSegment);
         }
+
+        partial void TCVDataClick(NSButton sender)
+        {
+            SetTCVState(sender);
+
+            StateManager.SetProgramState(ProgramState.Load);
+        }
+
+        partial void TCVProcessClick(NSButton sender)
+        {
+            SetTCVState(sender);
+
+            StateManager.SetProgramState(ProgramState.Process);
+        }
+
+        partial void TCVAnalysisClick(NSButton sender)
+        {
+            SetTCVState(sender);
+
+            StateManager.SetProgramState(ProgramState.Analyze);
+        }
+
+        partial void TCVFigureClick(NSButton sender)
+        {
+            SetTCVState(sender);
+
+            StateManager.SetProgramState(ProgramState.Publish);
+        }
+
+        void SetTCVState(NSButton sender) => sender.State = NSCellStateValue.On;
     }
 }
