@@ -9,7 +9,6 @@ namespace AnalysisITC
 {
     public partial class SideBarViewController : NSViewController
     {
-        private ExperimentData SelectedData() => DataManager.Current;
         public static NSImage DataNotProcessedImage { get; private set; } = null;
         public static NSImage DataDisabledImage { get; private set; } = null;
         public static NSImage DataEnabledImage { get; private set; } = null;
@@ -44,7 +43,7 @@ namespace AnalysisITC
 
         private void DataManager_SelectionDidChange(object sender, ExperimentData e)
         {
-            TableView.SelectRow(DataManager.DataSource.SelectedIndex, false);
+            //TableView.SelectRow(DataManager.DataSource.SelectedIndex, false);
         }
 
         public override void ViewDidLoad()
@@ -71,22 +70,17 @@ namespace AnalysisITC
 
         private void OnRowRemoveEvent(object sender, int e)
         {
-            Console.WriteLine("RemoveRow " + e);
-
-            if (e >= TableView.RowCount)
-            {
-
-            }
+            //if (e == DataManager.SelectedIndex) DataManager.SelectedIndex++;
 
             TableView.RemoveRows(new NSIndexSet(e), NSTableViewAnimation.SlideLeft);
+
+            //TableView.SelectRow(DataManager.DataSource.SelectedIndex, false);
         }
 
         private void OnDataViewClicked(object sender, EventArgs e)
         {
             DataManager.SelectIndex((int)TableView.SelectedRow);
         }
-
-        
 
         #endregion
     }
