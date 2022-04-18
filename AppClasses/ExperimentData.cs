@@ -6,16 +6,16 @@ using Utilities;
 
 namespace AnalysisITC
 {
-    public class ExperimentData
+    public class ExperimentData : ITCDataViewContainer
     {
         public static EnergyUnit Unit => DataManager.Unit;
 
         public event EventHandler ProcessingUpdated;
         public event EventHandler SolutionChanged;
 
-        public string FileName { get; protected set; } = "";
-        public DateTime Date { get; internal set; }
-        public readonly string UniqueID = Guid.NewGuid().ToString();
+        //public string FileName { get; protected set; } = "";
+        //public DateTime Date { get; internal set; }
+        //public readonly string UniqueID = Guid.NewGuid().ToString();
 
         public List<DataPoint> DataPoints = new List<DataPoint>();
         public List<DataPoint> BaseLineCorrectedDataPoints;
