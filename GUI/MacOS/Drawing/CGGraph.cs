@@ -19,14 +19,9 @@ namespace AnalysisITC
         public const float PPcm = 0.5f * 227 / 2.54f;
 
         public bool DrawOnWhite = false;
-        public CGColor StrokeColor
-        {
-            get
-            {
-                if (DrawOnWhite) return NSColor.Black.CGColor;
-                else return NSColor.Label.CGColor;
-            }
-        }
+        public CGColor StrokeColor => DrawOnWhite ? NSColor.Black.CGColor : NSColor.Label.CGColor;
+        public CGColor SecondaryLineColor => DrawOnWhite ? NSColor.Black.ColorWithAlphaComponent(0.5f).CGColor : NSColor.Grid.CGColor;
+
         internal static CTFont DefaultFont = new CTFont("Helvetica", 12);
         internal static nfloat DefaultFontHeight => DefaultFont.CapHeightMetric + 5;
         internal static CGColor HighlightColor => NSColor.Label.ColorWithAlphaComponent(0.2f).CGColor;
@@ -145,7 +140,7 @@ namespace AnalysisITC
 
         #region Drawing Methods
 
-        public void DrawDataSeries(CGContext gc, List<CGPoint> points, float linewidth = 1, CGColor color = null)
+        public void DrawDataSeries(CGContext gc, List<CGPoint> points, float linewidth, CGColor color)
         {
             var layer = CGLayer.Create(gc, Frame.Size);
 
@@ -172,17 +167,16 @@ namespace AnalysisITC
 
         public void DrawRectsAtPositions(CGLayer layer, CGPoint[] points, float size, bool circle = false, bool fill = false, float width = 1, CGColor color = null, float roundedradius = 0)
         {
+            if (color == null) color = StrokeColor;
+
             foreach (var p in points)
             {
                 if (circle) AddCircleAtPosition(layer, p, size);
                 else AddRectAtPosition(layer, p, size, roundedradius);
             }
 
-            if (color != null)
-            {
-                if (fill) layer.Context.SetFillColor(color);
-                else layer.Context.SetStrokeColor(color);
-            }
+            if (fill) layer.Context.SetFillColor(color);
+            else layer.Context.SetStrokeColor(color);
 
             layer.Context.SetLineWidth(width);
             if (fill) layer.Context.FillPath();
@@ -191,6 +185,8 @@ namespace AnalysisITC
 
         public void DrawCircle(CGContext gc, CGPoint position, float radius, bool fill = false, CGColor color = null)
         {
+            if (color == null) color = StrokeColor;
+
             gc.SetStrokeColor(color);
             gc.SetFillColor(color);
 
@@ -198,14 +194,14 @@ namespace AnalysisITC
             else gc.StrokeEllipseInRect(GetRectAtPosition(position, radius));
         }
 
-        public void DrawSpline(CGContext gc, CGPoint[] points, float linewidth, CGColor color = null)
+        public void DrawSpline(CGContext gc, CGPoint[] points, float linewidth, CGColor color)
         {
             var path = GetSplineFrommPoints(points);
 
             DrawPath(gc, path, linewidth, color);
         }
 
-        void DrawPath(CGContext gc, CGPath path, float linewidth = 1, CGColor color = null)
+        void DrawPath(CGContext gc, CGPath path, float linewidth, CGColor color)
         {
             var layer = CGLayer.Create(gc, Frame.Size);
 
@@ -230,7 +226,7 @@ namespace AnalysisITC
 
         #region Add shapes to existing layer functions
 
-        void DrawPathToLayer(CGLayer layer, CGPath path, float linewidth = 1, CGColor color = null)
+        void DrawPathToLayer(CGLayer layer, CGPath path, float linewidth, CGColor color)
         {
             layer.Context.AddPath(path);
             layer.Context.SetStrokeColor(color);
@@ -504,7 +500,7 @@ namespace AnalysisITC
             foreach (var p in DataPoints) { if (p.Time > XAxis.Min && p.Time < XAxis.Max) points.Add(GetRelativePosition(p)); }
 
             gc.SetStrokeColor(StrokeColor);
-            DrawDataSeries(gc, points);
+            DrawDataSeries(gc, points, 1, StrokeColor);
 
             XAxis.Draw(gc);
             YAxis.Draw(gc);
@@ -909,10 +905,9 @@ namespace AnalysisITC
                 else inv_points.Add(p);
             }
 
-            layer.Context.SetFillColor(NSColor.ControlText.CGColor);
-            layer.Context.SetStrokeColor(NSColor.ControlText.CGColor);
+            layer.Context.SetFillColor(StrokeColor);
+            layer.Context.SetStrokeColor(StrokeColor);
             layer.Context.SetLineWidth(1);
-
             layer.Context.AddPath(bars);
             layer.Context.StrokePath();
             DrawRectsAtPositions(layer, points.ToArray(), SquareSize, false, true);
@@ -946,7 +941,7 @@ namespace AnalysisITC
             zero.MoveToPoint(GetRelativePosition(XAxis.Min, 0));
             zero.AddLineToPoint(GetRelativePosition(XAxis.Max, 0));
             layer.Context.AddPath(zero);
-            layer.Context.SetStrokeColor(NSColor.Label.ColorWithAlphaComponent(0.4f).CGColor);
+            layer.Context.SetStrokeColor(SecondaryLineColor);
             layer.Context.SetLineWidth(1);
             layer.Context.StrokePath();
 
@@ -978,7 +973,7 @@ namespace AnalysisITC
 
             CGLayer layer = CGLayer.Create(gc, Frame.Size);
             layer.Context.SetLineWidth(1);
-            layer.Context.SetStrokeColor(NSColor.Label.ColorWithAlphaComponent(0.1f).CGColor);
+            layer.Context.SetStrokeColor(NSColor.Grid.CGColor);
             layer.Context.SetLineDash(3, new nfloat[] { 10 });
             layer.Context.AddPath(grid);
             layer.Context.StrokePath();
@@ -1022,7 +1017,7 @@ namespace AnalysisITC
                 points.Add(GetRelativePosition(x, y));
             }
 
-            DrawRectsAtPositions(layer, points.ToArray(), 8, true, false, color: NSColor.PlaceholderText.CGColor);
+            DrawRectsAtPositions(layer, points.ToArray(), 8, true, false, color: SecondaryLineColor);
 
             gc.DrawLayer(layer, Frame.Location);
         }
