@@ -16,20 +16,20 @@ namespace AnalysisITC
 
         bool ShowBaselineCorrected
         {
-            get => Graph.ShowBaselineCorrected;
-            set => Graph.ShowBaselineCorrected = value;
+            get => Graph != null ? Graph.ShowBaselineCorrected : false;
+            set { if (Graph != null) Graph.ShowBaselineCorrected = value; }
         }
 
         bool ShowBaseline
         {
-            get => Graph.ShowBaseline;
-            set => Graph.ShowBaseline = value;
+            get => Graph != null ? Graph.ShowBaseline : false;
+            set { if (Graph != null) Graph.ShowBaseline = value; }
         }
 
         bool ShowInjections
         {
-            get => Graph.ShowInjections;
-            set => Graph.ShowInjections = value;
+            get => Graph != null ? Graph.ShowInjections : false;
+            set { if (Graph != null) Graph.ShowInjections = value; }
         }
 
         public new BaselineFittingGraph Graph => base.Graph as BaselineFittingGraph;
