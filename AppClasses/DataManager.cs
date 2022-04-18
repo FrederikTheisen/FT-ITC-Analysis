@@ -9,69 +9,104 @@ namespace AnalysisITC
     {
         public static EnergyUnit Unit { get; set; } = EnergyUnit.Joule;
 
-        public static List<ExperimentData> Data => DataSource.Data;
+        public static AnalysisITCDataSource DataSource { get; private set; }
+        public static List<ITCDataViewContainer> DataSourceContent => DataSource.Content;
+        public static List<AnalysisResult> Results => DataSourceContent.Where(o => o is AnalysisResult).Select(o => o as AnalysisResult).ToList();
+        public static List<ExperimentData> Data => DataSourceContent.Where(o => o is ExperimentData).Select(o => o as ExperimentData).ToList();
         public static IEnumerable<ExperimentData> IncludedData => Data.Where(d => d.Include);
 
-        static int selectedIndex = 0;
-        public static int SelectedIndex
+        static int selectedDataIndex = 0;
+        public static int SelectedDataIndex
         {
-            get => selectedIndex;
+            get => selectedDataIndex;
             set
             {
-                if (value < 0) selectedIndex = 0;
-                else if (value > Count) selectedIndex = Count - 1;
-                else selectedIndex = value;
+                if (value < 0) selectedDataIndex = 0;
+                else if (value > Count) selectedDataIndex = Count - 1;
+                else selectedDataIndex = value;
             }
         }
 
-        public static ExperimentDataSource DataSource { get; private set; }
-
         public static event EventHandler<ExperimentData> DataDidChange;
         public static event EventHandler<ExperimentData> SelectionDidChange;
+        public static event EventHandler<AnalysisResult> AnalysisResultSelected;
 
-        public static int Count => Data.Count;
+        public static int Count => Data.Count();
 
-        public static bool DataIsLoaded => DataSource?.Data.Count > 0;
-        public static bool AllDataIsBaselineProcessed => DataSource.Data.All(d => d.Processor.BaselineCompleted);
-        public static bool AnyDataIsBaselineProcessed => DataSource.Data.Any(d => d.Processor.BaselineCompleted);
-        public static bool AnyDataIsAnalyzed => DataSource.Data.Any(d => d.Solution != null);
+        public static bool DataIsLoaded => DataSource.Content.Exists(o => o is ExperimentData);
+        public static bool AllDataIsBaselineProcessed => Data.All(d => d.Processor.BaselineCompleted);
+        public static bool AnyDataIsBaselineProcessed => Data.Any(d => d.Processor.BaselineCompleted);
+        public static bool AnyDataIsAnalyzed => Data.Any(d => d.Solution != null);
 
-        public static ExperimentData Current => SelectedIndex == -1 || (SelectedIndex >= Count) ? null : Data[SelectedIndex];
+        public static ExperimentData Current => SelectedDataIndex == -1 || (SelectedDataIndex >= Count) ? null : Data[SelectedDataIndex];
 
         public static void Init()
         {
-            DataSource = new ExperimentDataSource();
+            DataSource = new AnalysisITCDataSource();
 
             DataDidChange.Invoke(null, null);
         }
 
         public static void SelectIndex(int index)
         {
-            SelectedIndex = index;
+            if (index == -1)
+            {
+                selectedDataIndex = -1;
 
-            SelectionChanged(index);
+                SelectionDidChange?.Invoke(null, Current);
+            }
+            else if (DataSourceContent[index] is ExperimentData)
+            {
+                SelectedDataIndex = Data.IndexOf(DataSourceContent[index] as ExperimentData);
+
+                SelectionDidChange?.Invoke(null, Current);
+            }
+            else AnalysisResultSelected?.Invoke(null, DataSourceContent[index] as AnalysisResult);
+
+            //SelectedIndex = index;
+
+                //if Content[index] is ExperimentData then SelectedIndex = index; SelectionChanged.Invoke();
+                //else dataviewcicked => open data view sheet
+
+                //Selected index refers only to data rows
+                //ExperimentData selection changed event and Analysis result was selected event
+                //Selected ED index only changed if clicked index is ED
+
         }
 
         internal static void RemoveData(int index)
         {
-            Data.RemoveAt(index);
+            if (DataSourceContent[index] is ExperimentData)
+            {
+                int datindex = Data.IndexOf(DataSourceContent[index] as ExperimentData);
 
-            DataDidChange.Invoke(null, Current);
+                if (datindex < SelectedDataIndex) SelectedDataIndex--;
+
+                DataSourceContent.RemoveAt(index);
+
+                DataDidChange.Invoke(null, Current);
+            }
+            else
+            {
+                DataSourceContent.RemoveAt(index);
+            }
+
+            //if Content[index] is ExperimentData then change SelectedIndex (data) to match expected, index should still be same data unless selected data was removed
+            //If analysis result is removed, then do nothing else
+
+            //DataSourceContent.RemoveAt(index);
+
+            //DataDidChange.Invoke(null, Current);
         }
 
         public static void AddData(ExperimentData data)
         {
-            Data.Add(data);
+            DataSourceContent.Add(data);
 
             DataDidChange.Invoke(null, data);
         }
 
-        public static void Clear()
-        {
-            Init();
-        }
-
-        public static void SelectionChanged(int index) => SelectionDidChange?.Invoke(null, Current);
+        public static void Clear() => Init();
 
         public static async void CopySelectedProcessToAll()
         {

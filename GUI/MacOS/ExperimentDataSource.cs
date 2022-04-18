@@ -7,17 +7,31 @@ using DataReaders;
 
 namespace AnalysisITC
 {
-    public class ExperimentDataSource : NSTableViewDataSource
+    public class ITCDataViewContainer
     {
-        public int SelectedIndex => DataManager.SelectedIndex;
+        public readonly string UniqueID = Guid.NewGuid().ToString();
+        public string FileName { get; set; } = "";
+        public DateTime Date { get; internal set; }
+    }
 
-        public List<ExperimentData> Data { get; private set; }
+    public class AnalysisResult : ITCDataViewContainer
+    {
+        public GlobalSolution Solution { get; set; }
+    }
+
+    public class AnalysisITCDataSource : NSTableViewDataSource
+    {
+        public int SelectedIndex => DataManager.SelectedDataIndex;
+
+        //public List<ExperimentData> Data { get; private set; }
+        public List<ITCDataViewContainer> Content { get; private set; } = new List<ITCDataViewContainer>();
 
         #region Constructors
 
-        public ExperimentDataSource()
+        public AnalysisITCDataSource()
         {
-            Data = new List<ExperimentData>();
+            //Data = new List<ExperimentData>();
+            Content = new List<ITCDataViewContainer>();
         }
 
         #endregion
@@ -25,80 +39,64 @@ namespace AnalysisITC
         #region Override Methods
         public override nint GetRowCount(NSTableView tableView)
         {
-            return DataManager.Count;
+            return Content.Count;
         }
         #endregion
-
     }
 
     public class ExperimentDataDelegate : NSTableViewDelegate
     {
         public event EventHandler ExperimentDataViewClicked;
 
-        public ExperimentDataSource Source { get; }
+        public AnalysisITCDataSource Source { get; }
         public EventHandler<int> RemoveRow;
 
-        public ExperimentDataDelegate(ExperimentDataSource source)
+        public ExperimentDataDelegate(AnalysisITCDataSource source)
         {
             Source = source;
         }
 
-        private const string CellIdentifier = "ExperimentDataViewCell";
+        private const string DataCellIdentifier = "ExperimentDataViewCell";
+        private const string AnalysisCellIdentifier = "AnalysisResultView";
 
-        
+        private string GetCellIdentifier(ITCDataViewContainer content) => content is ExperimentData ? DataCellIdentifier : AnalysisCellIdentifier;
 
         public override NSView GetViewForItem(NSTableView tableView, NSTableColumn tableColumn, nint row)
         {
             // This pattern allows you reuse existing views when they are no-longer in use.
             // If the returned view is null, you instance up a new view
             // If a non-null view is returned, you modify it enough to reflect the new data
-            ExperimentData series = DataManager.Data[(int)row];
+            ITCDataViewContainer content = DataManager.DataSourceContent[(int)row];
 
-            var view = tableView.MakeView(series.UniqueID, this);
+            var view = tableView.MakeView(content.UniqueID, this);
 
             if (view == null)
             {
-                view = tableView.MakeView(CellIdentifier, this);
-                view.SetIdentifier(series.FileName);
-                (view as ExperimentDataViewCell).RemoveData += OnRemoveDataButtonClick;
-                //(view as ExperimentDataViewCell).ResizeRow += (object sender, int e) => tableView.ReloadData(NSIndexSet.FromIndex(row), NSIndexSet.FromIndex(0));
+                view = tableView.MakeView(GetCellIdentifier(content), this);
+                view.SetIdentifier(content.UniqueID);
+
+                if (content is ExperimentData)
+                {
+                    (view as ExperimentDataViewCell).RemoveData += OnRemoveDataButtonClick;
+                }
+                else
+                {
+
+                }
             }
 
-            (view as ExperimentDataViewCell).Setup(Source, series, (int)row);
+            if (content is ExperimentData) (view as ExperimentDataViewCell).Setup(Source, content as ExperimentData, (int)row);
+            else (view as AnalysisResultView).Setup(Source, content as AnalysisResult, (int)row);
 
             return view;
         }
 
-        private void OnRemoveDataButtonClick(object sender, int e)
-        {
-            Console.WriteLine("OnRemoveClick " + e);
-
-            RemoveRow?.Invoke(this, e);
-
-            
-        }
+        private void OnRemoveDataButtonClick(object sender, int e) => RemoveRow?.Invoke(this, e);
 
         [Export("tableViewSelectionDidChange:")]
-        public override void SelectionDidChange(NSNotification notification)
-        {
-            ExperimentDataViewClicked.Invoke(this, null);
-        }
+        public override void SelectionDidChange(NSNotification notification) => ExperimentDataViewClicked.Invoke(this, null);
 
         [Export("tableView:heightOfRow:")]
-        public override nfloat GetRowHeight(NSTableView tableView, nint row)
-        {
-            if (tableView.RowCount > row)
-            {
-                //var cell = tableView. as ExperimentDataViewCell;
-
-                //if (cell != null)
-                //{
-                //    if (cell.IsDetailedViewOpen) return 128;
-                //}
-            }
-
-            return 48;
-        }
-
+        public override nfloat GetRowHeight(NSTableView tableView, nint row) => 48;
     }
 }
