@@ -126,7 +126,7 @@ namespace AnalysisITC
             if (Data != null && Data.UseIntegrationFactorLength)
             {
                 var factor = SliderToFactor();
-                IntegrationLengthLabel.StringValue = factor.ToString("G2") + "x";
+                IntegrationLengthLabel.StringValue = factor.ToString("F1") + "x";
             }
             else IntegrationLengthLabel.StringValue = (IntegrationLengthControl.FloatValue).ToString("F1") + "s";
             SplineBaselineFractionControl.StringValue = (SplineFractionSliderControl.FloatValue * 100).ToString("##0") + " %";
