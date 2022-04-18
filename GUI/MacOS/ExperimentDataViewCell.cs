@@ -10,23 +10,22 @@ namespace AnalysisITC
 {
 	public partial class ExperimentDataViewCell : NSView
 	{
-		ExperimentDataSource source;
+		AnalysisITCDataSource source;
 		ExperimentData data;
 		int row;
-		int Index => source.Data.IndexOf(data);
-		bool IsSelected => Index == source.SelectedIndex;
+		int ContentIndex => source.Content.IndexOf(data);
+		int DataIndex => DataManager.Data.IndexOf(data);
 		public bool IsDetailedViewOpen { get; set; } = false;
 
 		public event EventHandler<int> RemoveData;
 		public event EventHandler<int> ResizeRow;
-
 
 		public ExperimentDataViewCell (IntPtr handle) : base (handle)
 		{
 			
 		}
 
-		public void Setup(ExperimentDataSource source, ExperimentData data, int index)
+		public void Setup(AnalysisITCDataSource source, ExperimentData data, int index)
         {
 			this.source = source;
 			this.data = data;
@@ -91,11 +90,9 @@ namespace AnalysisITC
 
         partial void RemoveClick(NSObject obj)
         {
-			Console.WriteLine("RemoveClick " + Index);
+			RemoveData?.Invoke(this, ContentIndex);
 
-			RemoveData?.Invoke(this, Index);
-
-			DataManager.RemoveData(Index);
+			DataManager.RemoveData(ContentIndex);
 		}
 
         partial void ShowFitDataButtonClick(NSObject sender)
