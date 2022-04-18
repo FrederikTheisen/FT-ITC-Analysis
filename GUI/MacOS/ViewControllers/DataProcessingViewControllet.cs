@@ -27,8 +27,10 @@ namespace AnalysisITC
 
             DataManager.SelectionDidChange += OnSelectionChanged;
             DataProcessor.BaselineInterpolationCompleted += OnInterpolationCompleted;
-        }
 
+            BaselineScopeButton.State = NSCellStateValue.On;
+            IntegrationScopeButton.State = NSCellStateValue.On;
+        }
 
         public override void ViewWillAppear()
         {
@@ -68,6 +70,7 @@ namespace AnalysisITC
                         PolynomialDegreeView.Hidden = true;
                         ZLimitView.Hidden = true;
                         SetSelectedSegment(SplineAlgoControl, (int)(Data.Processor.Interpolator as SplineInterpolator).Algorithm);
+                        SetSelectedSegment(SplineHandleModeControl, (int)(Data.Processor.Interpolator as SplineInterpolator).HandleMode);
                         SplineFractionSliderControl.FloatValue = (Data.Processor.Interpolator as SplineInterpolator).FractionBaseline;
                         break;
                     case BaselineInterpolatorTypes.ASL:
