@@ -106,15 +106,15 @@ namespace AnalysisITC
 
         private void OnDataChanged(object sender, ExperimentData e)
         {
-            if (DataManager.Count == 0)
-            {
-                StepControl.SetEnabled(false, 1);
-                StepControl.SetEnabled(false, 2);
-                StepControl.SetEnabled(false, 3);
-            }
+            //if (DataManager.Count == 0)
+            //{
+            //    StepControl.SetEnabled(false, 1);
+            //    StepControl.SetEnabled(false, 2);
+            //    StepControl.SetEnabled(false, 3);
+            //}
 
-            DataLoadSegControl.SetEnabled(DataManager.DataIsLoaded, 1);
-            DataLoadSegControl.SetEnabled(DataManager.DataIsLoaded, 2);
+            //DataLoadSegControl.SetEnabled(DataManager.DataIsLoaded, 1);
+            //DataLoadSegControl.SetEnabled(DataManager.DataIsLoaded, 2);
         }
 
         private void OnProgramStateChanged(object sender, ProgramState e)
@@ -122,24 +122,6 @@ namespace AnalysisITC
             StepControl.SelectedSegment = (int)e;
 
             StepControl.SetEnabled(true, (int)e);
-
-            //Window.Toolbar.RemoveItem(Window.Toolbar.Items.Length - 1);
-
-            switch (e)
-            {
-                case ProgramState.Load:
-                    //Window.Toolbar.InsertItem("LoadControl", Window.Toolbar.Items.Length - 1);
-                   break;
-                case ProgramState.Process:
-                    //Window.Toolbar.InsertItem("ProcessingControl", Window.Toolbar.Items.Length - 1);
-                    break;
-                case ProgramState.Analyze:
-                     //TODO move to separate function and only allow change to analysis mode if all are integrated;
-                    //Window.Toolbar.InsertItem("AnalysisControl", Window.Toolbar.Items.Length - 1); break;
-                    break;
-                case ProgramState.Publish:
-                    break;
-            }
         }
 
         partial void NavigationArrowControlClicked(NSSegmentedControl sender)
