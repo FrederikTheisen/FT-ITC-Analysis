@@ -94,6 +94,8 @@ namespace AnalysisITC
 
                     Console.WriteLine((DateTime.Now - starttime).TotalSeconds);
 
+                    DataManager.AddData(new AnalysisResult(Model.Solution));
+
                     AnalysisFinished?.Invoke(null, convergence);
                 }
                 catch (Exception ex)
@@ -234,7 +236,7 @@ namespace AnalysisITC
             Data = experiment;
         }
 
-        public virtual double RMSD(double n, double H, double K, double offset)
+        public virtual double RMSD(double n, double H, double K, double offset, bool isloss = true)
         {
             return 0;
         }
@@ -300,19 +302,17 @@ namespace AnalysisITC
         {
         }
 
-        public override double RMSD(double n, double H, double K, double offset)
+        public override double RMSD(double n, double H, double K, double offset, bool isloss = true)
         {
             double loss = 0;
 
-            foreach (var inj in Data.Injections)//.Where(i => i.Include && i.ID != ExcludeSinglePoint))
+            foreach (var inj in Data.Injections.Where(i => i.Include && i.ID != ExcludeSinglePoint))
             {
-                var calc = Evaluate(inj.ID, n, H, K, offset);
-                var meas = inj.PeakArea;
-
-                if (inj.Include && inj.ID != ExcludeSinglePoint) loss += (calc - meas) * (calc - meas);
+                var diff = Evaluate(inj.ID, n, H, K, offset) - inj.PeakArea;
+                loss += diff * diff;
             }
 
-            return loss;
+            return isloss ? loss : Math.Sqrt(loss / Data.Injections.Where(i => i.Include && i.ID != ExcludeSinglePoint).Count());
         }
 
         public override double Evaluate(int i, double n, double H, double K, double offset)
@@ -656,6 +656,8 @@ namespace AnalysisITC
         }
     }
 
+
+
     public class Solution
     {
         static Energy R => Energy.R;
@@ -670,12 +672,12 @@ namespace AnalysisITC
         public Energy Offset { get; private set; }
 
         public double T => Data.MeasuredTemperature;
-        double TK => T + 273.15;
+        double TempKelvin => T + 273.15;
 
         public FloatWithError Kd => new FloatWithError(1) / K;
-        public Energy GibbsFreeEnergy => new(-1.0 * R.FloatWithError * TK * FWEMath.Log(K));
+        public Energy GibbsFreeEnergy => new(-1.0 * R.FloatWithError * TempKelvin * FWEMath.Log(K));
         public Energy TdS => GibbsFreeEnergy - Enthalpy;
-        public Energy Entropy => TdS / TK;
+        public Energy Entropy => TdS / TempKelvin;
 
         public double Loss { get; private set; }
 
@@ -775,10 +777,12 @@ namespace AnalysisITC
 
     public class GlobalSolution
     {
+        public GlobalModel Model { get; set; }
+
         public double Loss { get; private set; } = 0;
 
-        public Energy HeatCapacity { get; set; }
-        public Energy EnthalpyRef { get; set; } //Enthalpy at 298.15 °C
+        public Energy HeatCapacity { get; set; } = new(0);
+        public Energy EnthalpyRef { get; set; } = new(0);//Enthalpy at 298.15 °C
 
         /// <summary>
         /// Parameters of the individual experiments derived from the global solution
@@ -787,8 +791,16 @@ namespace AnalysisITC
 
         public static GlobalSolution FromAccordNelderMead(double[] solution, GlobalModel model)
         {
-            var global = new GlobalSolution();
             var parameters = SolverParameters.FromArray(solution, model.Options);
+
+            var globparams = GetEnthalpyRefFromParameters(parameters, model);
+
+            var global = new GlobalSolution
+            {
+                Model = model,
+                HeatCapacity = new(globparams[1]),
+                EnthalpyRef = new(globparams[0]),
+            };
 
             for (int j = 0; j < model.Models.Count; j++)
             {
@@ -808,6 +820,21 @@ namespace AnalysisITC
             global.Loss = model.LossFunction(solution);
 
             return global;
+        }
+
+        public static double[] GetEnthalpyRefFromParameters(SolverParameters parameters, GlobalModel model)
+        {
+            if (parameters.EnthalpyStyle == Analysis.VariableStyle.SameForAll) return new double[] { parameters.Enthalpies.First(), 0 };
+            if (parameters.EnthalpyStyle == Analysis.VariableStyle.TemperatureDependent) return new double[] { parameters.Enthalpies.First(), parameters.HeatCapacity };
+
+            var temps = model.Models.Select(m => m.Data.MeasuredTemperature);
+
+            var xy = model.Models.Select((m, i) => new double[] { m.Data.MeasuredTemperature, parameters.Enthalpies[i] }).ToArray();
+            var reg = MathNet.Numerics.LinearRegression.SimpleRegression.Fit(xy.GetColumn(0), xy.GetColumn(1));
+
+            var H0 = reg.A + 25 * reg.B;
+
+            return new double[] { H0, reg.B };
         }
     }
 
