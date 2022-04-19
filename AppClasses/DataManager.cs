@@ -22,8 +22,18 @@ namespace AnalysisITC
             set
             {
                 if (value < 0) selectedDataIndex = 0;
-                else if (value > Count) selectedDataIndex = Count - 1;
+                else if (value >= Count) selectedDataIndex = Count - 1;
                 else selectedDataIndex = value;
+            }
+        }
+        static int selectedContentIndex = 0;
+        public static int SelectedContentIndex
+        {
+            get => selectedContentIndex;
+            set
+            {
+                if (value >= DataSourceContent.Count) selectedContentIndex = DataSourceContent.Count - 1;
+                else selectedContentIndex = value;
             }
         }
 
@@ -49,38 +59,35 @@ namespace AnalysisITC
 
         public static void SelectIndex(int index)
         {
-            if (index == -1)
-            {
-                selectedDataIndex = -1;
+            SelectedContentIndex = index;
 
-                SelectionDidChange?.Invoke(null, Current);
-            }
-            else if (DataSourceContent[index] is ExperimentData)
+            if (index == -1) return;
+            if (DataSourceContent[index] is ExperimentData)
             {
                 SelectedDataIndex = Data.IndexOf(DataSourceContent[index] as ExperimentData);
 
                 SelectionDidChange?.Invoke(null, Current);
+
+                StateManager.ManagedReturnToAnalysisViewState();
             }
-            else AnalysisResultSelected?.Invoke(null, DataSourceContent[index] as AnalysisResult);
+            else
+            {
+                AnalysisResultSelected?.Invoke(null, DataSourceContent[index] as AnalysisResult);
 
-            //SelectedIndex = index;
-
-                //if Content[index] is ExperimentData then SelectedIndex = index; SelectionChanged.Invoke();
-                //else dataviewcicked => open data view sheet
-
-                //Selected index refers only to data rows
-                //ExperimentData selection changed event and Analysis result was selected event
-                //Selected ED index only changed if clicked index is ED
-
+                StateManager.GoToResultView();
+            }
         }
 
         internal static void RemoveData(int index)
         {
+            if (SelectedContentIndex >= index) SelectedContentIndex--;
+
             if (DataSourceContent[index] is ExperimentData)
             {
                 int datindex = Data.IndexOf(DataSourceContent[index] as ExperimentData);
 
                 if (datindex < SelectedDataIndex) SelectedDataIndex--;
+                else if (datindex == SelectedDataIndex) { selectedDataIndex = -1; SelectionDidChange?.Invoke(null, Current); }
 
                 DataSourceContent.RemoveAt(index);
 
@@ -90,20 +97,14 @@ namespace AnalysisITC
             {
                 DataSourceContent.RemoveAt(index);
             }
-
-            //if Content[index] is ExperimentData then change SelectedIndex (data) to match expected, index should still be same data unless selected data was removed
-            //If analysis result is removed, then do nothing else
-
-            //DataSourceContent.RemoveAt(index);
-
-            //DataDidChange.Invoke(null, Current);
         }
 
-        public static void AddData(ExperimentData data)
+        public static void AddData(ITCDataViewContainer data)
         {
             DataSourceContent.Add(data);
 
-            DataDidChange.Invoke(null, data);
+            if (data is ExperimentData) { DataDidChange.Invoke(null, data as ExperimentData); SelectIndex(DataSourceContent.Count - 1); SelectionDidChange?.Invoke(null, Current); }
+            else DataDidChange.Invoke(null, null);
         }
 
         public static void Clear() => Init();

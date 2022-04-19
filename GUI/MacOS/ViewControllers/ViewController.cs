@@ -24,7 +24,7 @@ namespace AnalysisITC
             DataManager.Init();
 
             DataManager.SelectionDidChange += OnSelectionChanged;
-            DataManager.DataDidChange += OnDataChanged;
+            //DataManager.DataDidChange += OnDataChanged;
 
             StateManager.UpdateStateDependentUI += StateManager_UpdateStateDependentUI;
         }
@@ -55,9 +55,6 @@ namespace AnalysisITC
 
         private void OnDataChanged(object sender, ExperimentData e)
         {
-            ClearDataButton.Enabled = DataManager.DataIsLoaded;
-            ContinueButton.Enabled = DataManager.DataIsLoaded;
-
             GVC.Initialize(e);
 
             UpdateLabel();

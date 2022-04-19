@@ -22,13 +22,13 @@ namespace AnalysisITC
 
         bool ShowBaseline
         {
-            get => Graph != null ? Graph.ShowBaseline : false;
+            //get => Graph != null ? Graph.ShowBaseline : false;
             set { if (Graph != null) Graph.ShowBaseline = value; }
         }
 
         bool ShowInjections
         {
-            get => Graph != null ? Graph.ShowInjections : false;
+            //get => Graph != null ? Graph.ShowInjections : false;
             set { if (Graph != null) Graph.ShowInjections = value; }
         }
 

@@ -21,8 +21,10 @@ namespace AnalysisITC
             StateManager.ProgramStateChanged += OnProgramStateChanged;
             StateManager.UpdateStateDependentUI += StateManager_UpdateStateDependentUI;
 
-            DataManager.DataDidChange += OnDataChanged;
+            //DataManager.DataDidChange += OnDataChanged;
             DataManager.SelectionDidChange += DataManager_SelectionDidChange;
+            
+
             DataProcessor.BaselineInterpolationCompleted += DataProcessor_InterpolationCompleted;
 
             StatusBarManager.ProgressUpdate += OnProgressUpdated;
@@ -119,9 +121,9 @@ namespace AnalysisITC
 
         private void OnProgramStateChanged(object sender, ProgramState e)
         {
-            StepControl.SelectedSegment = (int)e;
+            //StepControl.SelectedSegment = (int)e;
 
-            StepControl.SetEnabled(true, (int)e);
+            //StepControl.SetEnabled(true, (int)e);
         }
 
         partial void NavigationArrowControlClicked(NSSegmentedControl sender)

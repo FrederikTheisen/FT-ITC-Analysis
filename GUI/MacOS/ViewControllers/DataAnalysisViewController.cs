@@ -77,10 +77,7 @@ namespace AnalysisITC
 
         private void DataManager_SelectionDidChange(object sender, ExperimentData e)
         {
-            if (e != null)
-            {
-                GraphView.Initialize(e);
-            }
+            GraphView.Initialize(e);
         }
 
         partial void FeatureDrawControlClicked(NSSegmentedControl sender)

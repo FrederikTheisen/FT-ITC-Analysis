@@ -78,15 +78,20 @@ namespace AnalysisITC
             return FloatWithError.ToString();
         }
 
-        public string ToString(EnergyUnit unit)
+        public string ToString(string formatter)
+        {
+            return FloatWithError.ToString(formatter);
+        }
+
+        public string ToString(EnergyUnit unit, string formatter = "F1")
         {
             switch (unit)
             {
-                case EnergyUnit.Joule: return FloatWithError.ToString() + " J";
-                case EnergyUnit.MicroCal: return (1000000 * JouleToCalFactor * FloatWithError).ToString() + " µcal";
-                case EnergyUnit.Cal: return (JouleToCalFactor * FloatWithError).ToString() + " cal";
-                case EnergyUnit.KiloJoule: return (FloatWithError/1000).ToString() + " kJ";
-                default: return FloatWithError.ToString() + " J";
+                case EnergyUnit.Joule: return FloatWithError.ToString(formatter) + " J";
+                case EnergyUnit.MicroCal: return (1000000 * JouleToCalFactor * FloatWithError).ToString(formatter) + " µcal";
+                case EnergyUnit.Cal: return (JouleToCalFactor * FloatWithError).ToString(formatter) + " cal";
+                case EnergyUnit.KiloJoule: return (FloatWithError/1000).ToString(formatter) + " kJ";
+                default: return FloatWithError.ToString(formatter) + " J";
             }
         }
     }

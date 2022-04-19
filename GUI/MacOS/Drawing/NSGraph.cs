@@ -8,7 +8,7 @@ namespace AnalysisITC
     {
         public virtual void Invalidate() => this.NeedsDisplay = true;
 
-        public ExperimentData Data => Graph.ExperimentData;
+        public ExperimentData Data => Graph?.ExperimentData;
 
         private CGGraph graph;
         private NSTrackingArea trackingArea;

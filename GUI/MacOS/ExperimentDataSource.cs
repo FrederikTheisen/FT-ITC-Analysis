@@ -17,11 +17,35 @@ namespace AnalysisITC
     public class AnalysisResult : ITCDataViewContainer
     {
         public GlobalSolution Solution { get; set; }
+
+        public AnalysisResult(GlobalSolution solution)
+        {
+            Solution = solution;
+
+            FileName = solution.Model.Models[0].ToString().Substring("AnalysisITC.".Length);
+            Date = DateTime.Now;
+        }
+
+        public string GetResultString()
+        {
+            string s = "Fit of " + Solution.Solutions.Count.ToString() + " experiments";
+
+            s += Environment.NewLine;
+            s += "Enthalpy:" + Solution.Model.Options.EnthalpyStyle.ToString();
+            s += Environment.NewLine;
+            s += "Affinity:" + Solution.Model.Options.AffinityStyle.ToString();
+            s += Environment.NewLine;
+            s += "∆H @ 25 °C = " + Solution.EnthalpyRef.ToString(EnergyUnit.KiloJoule) + "/mol";
+            s += Environment.NewLine;
+            s += "∆Cp = " + Solution.HeatCapacity.ToString(EnergyUnit.Joule, "F0") + "/molK";
+
+            return s;
+        }
     }
 
     public class AnalysisITCDataSource : NSTableViewDataSource
     {
-        public int SelectedIndex => DataManager.SelectedDataIndex;
+        public int SelectedIndex => DataManager.SelectedContentIndex;
 
         //public List<ExperimentData> Data { get; private set; }
         public List<ITCDataViewContainer> Content { get; private set; } = new List<ITCDataViewContainer>();
@@ -75,18 +99,16 @@ namespace AnalysisITC
                 view = tableView.MakeView(GetCellIdentifier(content), this);
                 view.SetIdentifier(content.UniqueID);
 
-                if (content is ExperimentData)
+                switch (content)
                 {
-                    (view as ExperimentDataViewCell).RemoveData += OnRemoveDataButtonClick;
-                }
-                else
-                {
-
+                    case ExperimentData: (view as ExperimentDataViewCell).RemoveData += OnRemoveDataButtonClick; break;
+                    case AnalysisResult: (view as AnalysisResultView).RemoveData += OnRemoveDataButtonClick; break;
+                    default: break;
                 }
             }
 
             if (content is ExperimentData) (view as ExperimentDataViewCell).Setup(Source, content as ExperimentData, (int)row);
-            else (view as AnalysisResultView).Setup(Source, content as AnalysisResult, (int)row);
+            else if (content is AnalysisResult) (view as AnalysisResultView).Setup(Source, content as AnalysisResult, (int)row);
 
             return view;
         }

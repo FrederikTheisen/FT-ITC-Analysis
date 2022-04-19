@@ -39,11 +39,17 @@ namespace AnalysisITC
         {
             DataManager.DataDidChange += OnDataManagerUpdated;
             DataManager.SelectionDidChange += DataManager_SelectionDidChange;
+            DataManager.AnalysisResultSelected += DataManager_AnalysisResultSelected;
         }
 
         private void DataManager_SelectionDidChange(object sender, ExperimentData e)
         {
-            //TableView.SelectRow(DataManager.DataSource.SelectedIndex, false);
+            TableView.SelectRow(DataManager.DataSource.SelectedIndex, false);
+        }
+
+        private void DataManager_AnalysisResultSelected(object sender, AnalysisResult e)
+        {
+            //PerformSegue("ShowAnalysisResultSegue", this);
         }
 
         public override void ViewDidLoad()

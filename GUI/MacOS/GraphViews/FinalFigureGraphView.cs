@@ -24,6 +24,8 @@ namespace AnalysisITC
         {
             base.DrawRect(dirtyRect);
 
+            if (DataManager.Current == null) return;
+
             var graph = new FinalFigure(DataManager.Current, this);
 
             var cg = NSGraphicsContext.CurrentContext.CGContext;
@@ -32,13 +34,6 @@ namespace AnalysisITC
             cg.FillRect(Frame);
 
             graph.Draw(cg, new CGPoint(dirtyRect.GetMidX(), dirtyRect.GetMidY()));
-        }
-
-        public override void MouseDown(NSEvent theEvent)
-        {
-            base.MouseDown(theEvent);
-
-            this.NeedsDisplay = true;
         }
     }
 }

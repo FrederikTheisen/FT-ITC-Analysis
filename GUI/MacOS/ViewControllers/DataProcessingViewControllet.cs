@@ -138,6 +138,8 @@ namespace AnalysisITC
 
         partial void InterplolatorClicked(NSSegmentedControl sender)
         {
+            if (Data == null) return;
+
             Processor.InitializeBaseline((BaselineInterpolatorTypes)(int)sender.SelectedSegment);
 
             UpdateUI();
@@ -147,6 +149,8 @@ namespace AnalysisITC
 
         partial void SplineAlgoClicked(NSSegmentedControl sender)
         {
+            if (Data == null) return;
+
             (Processor.Interpolator as SplineInterpolator).Algorithm = (SplineInterpolator.SplineInterpolatorAlgorithm)(int)sender.SelectedSegment;
 
             UpdateProcessing();
@@ -154,6 +158,8 @@ namespace AnalysisITC
 
         partial void SplineHandleModeControlClicked(NSSegmentedControl sender)
         {
+            if (Data == null) return;
+
             (Processor.Interpolator as SplineInterpolator).HandleMode = (SplineInterpolator.SplineHandleMode)(int)sender.SelectedSegment;
 
             UpdateProcessing();
@@ -161,6 +167,8 @@ namespace AnalysisITC
 
         partial void SplineBaselineFractionSliderChanged(NSSlider sender)
         {
+            if (Data == null) return;
+
             (Processor.Interpolator as SplineInterpolator).FractionBaseline = sender.FloatValue;
 
             UpdateSliderLabels();
@@ -170,6 +178,8 @@ namespace AnalysisITC
 
         partial void PolynomialDegreeChanged(NSSlider sender)
         {
+            if (Data == null) return;
+
             (Processor.Interpolator as PolynomialLeastSquaresInterpolator).Degree = sender.IntValue;
 
             UpdateSliderLabels();
@@ -179,6 +189,8 @@ namespace AnalysisITC
 
         partial void ZLimitChanged(NSSlider sender)
         {
+            if (Data == null) return;
+
             (Processor.Interpolator as PolynomialLeastSquaresInterpolator).ZLimit = sender.FloatValue;
 
             UpdateSliderLabels();
@@ -216,6 +228,8 @@ namespace AnalysisITC
 
         partial void ToggleUseIntegrationFactor(NSButton sender)
         {
+            if (Data == null) return;
+
             Data.UseIntegrationFactorLength = !Data.UseIntegrationFactorLength;
 
             UpdateSliderLabels();
@@ -225,6 +239,8 @@ namespace AnalysisITC
 
         partial void UseFactorToggled(NSObject sender)
         {
+            if (Data == null) return;
+
             Data.UseIntegrationFactorLength = !Data.UseIntegrationFactorLength;
 
             UpdateSliderLabels();
@@ -244,6 +260,8 @@ namespace AnalysisITC
 
         void SetIntegrationTimes()
         {
+            if (Data == null) return;
+
             if (Data.UseIntegrationFactorLength)
             {
                 var factor = SliderToFactor();
@@ -258,6 +276,8 @@ namespace AnalysisITC
 
         partial void ZoomSegControlClicked(NSSegmentedControl sender)
         {
+            if (Data == null) return;
+
             switch (sender.SelectedSegment)
             {
                 case 0: BaselineGraphView.ShowAllVertical(); break;
@@ -269,6 +289,8 @@ namespace AnalysisITC
 
         partial void InjectionViewControlClicked(NSSegmentedControl sender)
         {
+            if (Data == null) return;
+
             switch (sender.SelectedSegment)
             {
                 case 0: BaselineGraphView.SelectedPeak--; break;
@@ -278,15 +300,8 @@ namespace AnalysisITC
             sender.SetLabel((BaselineGraphView.SelectedPeak + 1).ToString(), 1);
         }
 
-        partial void ScopeButtonClicked(NSObject sender)
-        {
-            BaselineGraphView.SetFeatureVisibility(ShowBaseline, ShowIntegrationRange, Corrected);
-        }
-
-        partial void DrawFeatureControlClicked(NSSegmentedControl sender)
-        {
-            BaselineGraphView.SetFeatureVisibility(DrawFeatureSegControl);
-        }
+        partial void ScopeButtonClicked(NSObject sender) => BaselineGraphView.SetFeatureVisibility(ShowBaseline, ShowIntegrationRange, Corrected);
+        partial void DrawFeatureControlClicked(NSSegmentedControl sender) => BaselineGraphView.SetFeatureVisibility(DrawFeatureSegControl);
 
         partial void ConfirmProcessingButtonClicked(NSObject sender)
         {
@@ -295,6 +310,8 @@ namespace AnalysisITC
 
         void UpdateProcessing()
         {
+            if (Data == null) return;
+
             Data.Processor.ProcessData();
         }
 
@@ -312,8 +329,6 @@ namespace AnalysisITC
         private void OnInterpolationCompleted(object sender, EventArgs e)
         {
             if (Processor.BaselineCompleted) BaselineGraphView.Invalidate();
-
-            //ConfirmProcessingButton.Enabled = DataManager.AllDataIsBaselineProcessed;
         }
     }
 }
