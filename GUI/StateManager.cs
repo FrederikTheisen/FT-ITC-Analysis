@@ -7,6 +7,7 @@ namespace AnalysisITC
         public static event EventHandler UpdateStateDependentUI;
 
         private static ProgramState currentState = ProgramState.Load;
+        public static ProgramState saveState { get; private set; } = ProgramState.Load;
         public static ProgramState CurrentState { get => currentState; private set { currentState = value; ProgramStateChanged?.Invoke(null, currentState); UpdateStateDependentUI?.Invoke(null, null); } }
         public static string ProgramStateString
         {
@@ -62,6 +63,7 @@ namespace AnalysisITC
         public static bool NextState(bool simulate = false)
         {
             if (CurrentState == ProgramState.Publish) return false;
+            else if (currentState == ProgramState.AnalysisView) return false;
             else
             {
                 var nextstate = CurrentState + 1;
@@ -77,6 +79,7 @@ namespace AnalysisITC
         public static bool PreviousState(bool simulate = false)
         {
             if (CurrentState == ProgramState.Load) return false;
+            else if (currentState == ProgramState.AnalysisView) return false;
             else
             {
                 var nextstate = CurrentState - 1;
@@ -93,8 +96,22 @@ namespace AnalysisITC
         {
             if (StateIsAvailable(state))
             {
-                CurrentState = state;
+                if (CurrentState != ProgramState.AnalysisView && state == ProgramState.AnalysisView) { saveState = CurrentState; CurrentState = state; }
+                else if (CurrentState == ProgramState.AnalysisView) { while (!StateIsAvailable(saveState)) { saveState--; } CurrentState = saveState; }
+                else CurrentState = state;
             }
+        }
+
+        public static void GoToResultView()
+        {
+            if (CurrentState != ProgramState.AnalysisView) saveState = CurrentState;
+
+            CurrentState = ProgramState.AnalysisView;
+        }
+
+        public static void ManagedReturnToAnalysisViewState()
+        {
+            if (CurrentState == ProgramState.AnalysisView) CurrentState = saveState;
         }
     }
 
@@ -103,6 +120,7 @@ namespace AnalysisITC
         Load = 0,
         Process = 1,
         Analyze = 2,
-        Publish = 3
+        Publish = 3,
+        AnalysisView = 4,
     }
 }
