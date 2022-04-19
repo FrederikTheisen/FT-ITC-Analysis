@@ -296,6 +296,14 @@
     <Compile Include="TabControllerView.designer.cs">
       <DependentUpon>TabControllerView.cs</DependentUpon>
     </Compile>
+    <Compile Include="AnalysisResultView.cs" />
+    <Compile Include="AnalysisResultView.designer.cs">
+      <DependentUpon>AnalysisResultView.cs</DependentUpon>
+    </Compile>
+    <Compile Include="BindingAnalysisViewController.cs" />
+    <Compile Include="BindingAnalysisViewController.designer.cs">
+      <DependentUpon>BindingAnalysisViewController.cs</DependentUpon>
+    </Compile>
   </ItemGroup>
   <ItemGroup>
     <InterfaceDefinition Include="Main.storyboard" />
