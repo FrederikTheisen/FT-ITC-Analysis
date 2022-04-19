@@ -9,8 +9,30 @@ namespace AnalysisITC
 {
 	public partial class AnalysisResultView : NSView
 	{
-		public AnalysisResultView (IntPtr handle) : base (handle)
+        public event EventHandler<int> RemoveData;
+
+        AnalysisITCDataSource source;
+        AnalysisResult data;
+        int ContentIndex => source.Content.IndexOf(data);
+
+        public AnalysisResultView (IntPtr handle) : base (handle)
 		{
 		}
-	}
+
+        internal void Setup(AnalysisITCDataSource source, AnalysisResult analysisResult, int row)
+        {
+            this.source = source;
+            this.data = analysisResult;
+
+            ResultTitleLabel.StringValue = analysisResult.FileName;
+            ResultContentLabel.StringValue = analysisResult.GetResultString();
+        }
+
+        partial void RemoveButtonClick(NSObject sender)
+        {
+            RemoveData?.Invoke(this, ContentIndex);
+
+            DataManager.RemoveData(ContentIndex);
+        }
+    }
 }
