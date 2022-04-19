@@ -20,7 +20,7 @@ namespace AnalysisITC
 
         public bool DrawOnWhite = false;
         public CGColor StrokeColor => DrawOnWhite ? NSColor.Black.CGColor : NSColor.Label.CGColor;
-        public CGColor SecondaryLineColor => DrawOnWhite ? NSColor.Black.ColorWithAlphaComponent(0.5f).CGColor : NSColor.Grid.CGColor;
+        public CGColor SecondaryLineColor => DrawOnWhite ? NSColor.Black.ColorWithAlphaComponent(0.5f).CGColor : NSColor.TertiaryLabel.CGColor;
 
         internal static CTFont DefaultFont = new CTFont("Helvetica", 12);
         internal static nfloat DefaultFontHeight => DefaultFont.CapHeightMetric + 5;
@@ -973,7 +973,7 @@ namespace AnalysisITC
 
             CGLayer layer = CGLayer.Create(gc, Frame.Size);
             layer.Context.SetLineWidth(1);
-            layer.Context.SetStrokeColor(NSColor.Grid.CGColor);
+            layer.Context.SetStrokeColor(SecondaryLineColor);
             layer.Context.SetLineDash(3, new nfloat[] { 10 });
             layer.Context.AddPath(grid);
             layer.Context.StrokePath();
