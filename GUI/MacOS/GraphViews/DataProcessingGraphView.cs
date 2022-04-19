@@ -65,13 +65,6 @@ namespace AnalysisITC
             isBaselineZoomed = false;
         }
 
-        //public override void SetFrameSize(CGSize newSize)
-        //{
-        //    base.SetFrameSize(newSize);
-        //
-        //    Invalidate();
-        //}
-
         public void ZoomBaseline() //TODO fix view scaling when baselinecorrected
         {
             if (Data == null) return;
