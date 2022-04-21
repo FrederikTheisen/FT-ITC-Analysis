@@ -12,11 +12,18 @@ namespace AnalysisITC
 	[Register ("BindingAnalysisViewController")]
 	partial class BindingAnalysisViewController
 	{
+		[Outlet]
+		AppKit.NSTableView ResultsTableView { get; set; }
+
 		[Action ("CloseButtonClicked:")]
 		partial void CloseButtonClicked (Foundation.NSObject sender);
 		
 		void ReleaseDesignerOutlets ()
 		{
+			if (ResultsTableView != null) {
+				ResultsTableView.Dispose ();
+				ResultsTableView = null;
+			}
 		}
 	}
 }
