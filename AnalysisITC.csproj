@@ -304,6 +304,7 @@
     <Compile Include="BindingAnalysisViewController.designer.cs">
       <DependentUpon>BindingAnalysisViewController.cs</DependentUpon>
     </Compile>
+    <Compile Include="Utils\Energy.cs" />
   </ItemGroup>
   <ItemGroup>
     <InterfaceDefinition Include="Main.storyboard" />
