@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 using static Utilities.Increment;
 using Foundation;
 using AppKit;
+using System.Threading;
 
 namespace AnalysisITC
 {
@@ -87,7 +88,7 @@ namespace AnalysisITC
                         {
                             convergence = Model.SolveWithNelderMeadAlgorithm();
 
-                            NSApplication.SharedApplication.InvokeOnMainThread(() => { AnalysisIterationFinished?.Invoke(null, null); });
+                            NSApplication.SharedApplication.InvokeOnMainThread(() => { AnalysisIterationFinished?.Invoke(null, null); Model.Models.ForEach(m => m.Data.UpdateSolution(null)); });
 
                             Model.Bootstrap();
                         });
@@ -359,6 +360,8 @@ namespace AnalysisITC
 
         public Analysis.VariableStyle EnthalpyStyle => Options.EnthalpyStyle;
         public Analysis.VariableStyle AffinityStyle => Options.AffinityStyle;
+        public int MaximumEvaluations { get; set; } = 300000;
+        public double AbsoluteFunctionTolerance { get; set; } = double.Epsilon;
 
         public virtual int GetVariableCount
         {
@@ -391,10 +394,14 @@ namespace AnalysisITC
         public double[] InitialGibbs { get; set; }
         public double[] InitialOffsets { get; set; }
         public double[] InitialNs { get; set; }
+        public double[] InitialHs { get; set; }
+        public double[] InitialHeatCapacity { get; set; }
 
         IEnumerable<double> GuessNs() => InitialNs ?? Models.Select(m => m.GuessN);
         IEnumerable<double> GuessOffsets() => InitialOffsets ?? Models.Select(m => m.GuessOffset);
         IEnumerable<double> GuessGibbs() => InitialGibbs ?? Models.Select(m => m.GuessGibbs);
+
+        double[] BootstrapInitialValues { get; set; }
 
         double GuessHeatCapacity
         {
@@ -430,6 +437,8 @@ namespace AnalysisITC
 
         double[] GetStartValues()
         {
+            if (BootstrapInitialValues != null) return BootstrapInitialValues;
+
             var H0 = GuessReferenceEnthalpy;
             var Cp = GuessHeatCapacity;
             var G = GuessGibbs();
@@ -469,6 +478,8 @@ namespace AnalysisITC
                 for (int i = 0; i < Models.Count; i++) stepsizes.Add(Analysis.Ostep);
                 for (int i = 0; i < Models.Count; i++) stepsizes.Add(Analysis.Nstep);
 
+                //if (BootstrapInitialValues != null) stepsizes = stepsizes.Select(v => v / 10).ToList();
+
                 return stepsizes.ToArray();
             }
         }
@@ -477,6 +488,7 @@ namespace AnalysisITC
         {
             get
             {
+                //if (BootstrapInitialValues != null) return BootstrapInitialValues.Select(v => v - 0.1 * Math.Abs(v)).ToArray();
                 var bounds = new List<double>();
 
                 if (EnthalpyStyle == Analysis.VariableStyle.Free) { for (int i = 0; i < Models.Count; i++) bounds.Add(Analysis.Hbounds[0]); }
@@ -498,6 +510,7 @@ namespace AnalysisITC
         {
             get
             {
+                //if (BootstrapInitialValues != null) return BootstrapInitialValues.Select(v => v + 0.1 * Math.Abs(v)).ToArray();
                 var bounds = new List<double>();
 
                 if (EnthalpyStyle == Analysis.VariableStyle.Free) { for (int i = 0; i < Models.Count; i++) bounds.Add(Analysis.Hbounds[1]); }
@@ -520,6 +533,12 @@ namespace AnalysisITC
         public GlobalModel()
         {
             
+        }
+
+        public GlobalModel(double[] bootstrapinitialvalues)
+        {
+            BootstrapInitialValues = bootstrapinitialvalues;
+            AbsoluteFunctionTolerance = 0.0000000000000000001;
         }
 
         void SetBounds(NelderMead solver)
@@ -545,8 +564,8 @@ namespace AnalysisITC
 
             solver.Convergence = new Accord.Math.Convergence.GeneralConvergence(GetVariableCount)
             {
-                MaximumEvaluations = 300000,
-                AbsoluteFunctionTolerance = double.Epsilon,
+                MaximumEvaluations = MaximumEvaluations,
+                AbsoluteFunctionTolerance = AbsoluteFunctionTolerance,
                 StartTime = DateTime.Now,
             };
 
@@ -563,14 +582,20 @@ namespace AnalysisITC
         {
             var solutions = new List<GlobalSolution>();
 
+            int counter = 0;
+
+            Analysis.ReportBootstrapProgress(0);
+
             for (int i = 0; i < Analysis.BootstrapIterations; i++)
             {
                 var models = new List<Model>();
 
                 foreach (var m in Models) models.Add(m.GenerateSyntheticModel());
 
-                var gm = new GlobalModel();
-                gm.Options = Options;
+                var gm = new GlobalModel(Solution.Raw.Copy())
+                {
+                    Options = Options
+                };
 
                 gm.Models.AddRange(models);
 
@@ -578,7 +603,9 @@ namespace AnalysisITC
 
                 solutions.Add(gm.Solution);
 
-                Analysis.ReportBootstrapProgress(i);
+                var currcounter = Interlocked.Increment(ref counter);
+
+                Analysis.ReportBootstrapProgress(currcounter);
             }
 
             Solution.EnthalpyRef = new Energy(new FloatWithError(solutions.Select(s => s.EnthalpyRef.Value)));
@@ -665,6 +692,7 @@ namespace AnalysisITC
         public Model Model;
         public ExperimentData Data => Model.Data;
         public bool IsValid { get; set; } = true;
+        public double[] Raw { get; set; }
 
         public Energy Enthalpy { get; private set; }
         public FloatWithError K { get; private set; }
@@ -702,6 +730,7 @@ namespace AnalysisITC
         {
             return new Solution()
             {
+                Raw = parameters,
                 N = new(parameters[0]),
                 Enthalpy = new Energy(parameters[1]),
                 K = new(parameters[2]),
@@ -778,6 +807,7 @@ namespace AnalysisITC
     public class GlobalSolution
     {
         public GlobalModel Model { get; set; }
+        public double[] Raw { get; private set; }
 
         public double Loss { get; private set; } = 0;
 
@@ -797,6 +827,7 @@ namespace AnalysisITC
 
             var global = new GlobalSolution
             {
+                Raw = solution,
                 Model = model,
                 HeatCapacity = new(globparams[1]),
                 EnthalpyRef = new(globparams[0]),
