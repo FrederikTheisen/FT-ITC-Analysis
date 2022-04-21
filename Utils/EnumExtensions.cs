@@ -17,6 +17,16 @@ namespace AnalysisITC
             return attribute;
         }
 
+        public static EnergyUnitAttribute GetProperties(this EnergyUnit value)
+        {
+            var fieldInfo = value.GetType().GetField(value.ToString());
+            var attribute = fieldInfo.GetCustomAttributes(typeof(EnergyUnitAttribute), false).FirstOrDefault() as EnergyUnitAttribute;
+
+            return attribute;
+        }
+
+        public static string GetUnit(this EnergyUnit value) => value.GetProperties().Unit;
+
         public static CGRect WithMargin(this CGRect box, CGEdgeMargin margin, float mod = 1)
         {
             return margin.BoxWithMargin(box, mod);
