@@ -23,6 +23,9 @@ namespace AnalysisITC
 
 		[Action ("RemoveButtonClick:")]
 		partial void RemoveButtonClick (Foundation.NSObject sender);
+
+		[Action ("ViewResultClick:")]
+		partial void ViewResultClick (Foundation.NSObject sender);
 		
 		void ReleaseDesignerOutlets ()
 		{
@@ -31,14 +34,14 @@ namespace AnalysisITC
 				AnalysisResultIcon = null;
 			}
 
-			if (ResultTitleLabel != null) {
-				ResultTitleLabel.Dispose ();
-				ResultTitleLabel = null;
-			}
-
 			if (ResultContentLabel != null) {
 				ResultContentLabel.Dispose ();
 				ResultContentLabel = null;
+			}
+
+			if (ResultTitleLabel != null) {
+				ResultTitleLabel.Dispose ();
+				ResultTitleLabel = null;
 			}
 		}
 	}

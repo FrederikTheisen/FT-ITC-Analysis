@@ -10,6 +10,7 @@ namespace AnalysisITC
 	public partial class AnalysisResultView : NSView
 	{
         public event EventHandler<int> RemoveData;
+        public static event EventHandler<AnalysisResult> ExpandDataButtonClicked;
 
         AnalysisITCDataSource source;
         AnalysisResult data;
@@ -26,6 +27,11 @@ namespace AnalysisITC
 
             ResultTitleLabel.StringValue = analysisResult.FileName;
             ResultContentLabel.StringValue = analysisResult.GetResultString();
+        }
+
+        partial void ViewResultClick(NSObject sender)
+        {
+            ExpandDataButtonClicked?.Invoke(this, data);
         }
 
         partial void RemoveButtonClick(NSObject sender)
