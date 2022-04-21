@@ -4,105 +4,13 @@ using System.Linq;
 
 namespace AnalysisITC
 {
-    public struct Energy
+    public enum ConcentrationUnit
     {
-        const double CalToJouleFactor = 4.184;
-        const double JouleToCalFactor = 1 / 4.184;
-        const double MicroFactor = 0.000001;
-        public static readonly Energy R = new Energy(8.3145);
-
-        public FloatWithError FloatWithError { get; set; }
-        public double Value => FloatWithError.Value;
-        public double SD => FloatWithError.SD;
-
-        public Energy(FloatWithError v)
-        {
-            FloatWithError = v;
-        }
-
-        public Energy(double v)
-        {
-            FloatWithError = new(v);
-        }
-
-        public static Energy FromDistribution(IEnumerable<double> dist, double? mean = null) => new Energy(new FloatWithError(dist, mean));
-
-        public static double ConvertToJoule(double value, EnergyUnit from)
-        {
-            switch (from)
-            {
-                case EnergyUnit.MicroCal: return MicroFactor * CalToJouleFactor * value;
-                case EnergyUnit.Cal: return CalToJouleFactor * value;
-                case EnergyUnit.Joule:
-                default: return value;
-            }
-        }
-
-        public static Energy operator +(Energy e1, Energy e2)
-        {
-            var v = e1.FloatWithError + e2.FloatWithError;
-
-            return new Energy(v);
-        }
-
-        public static Energy operator -(Energy e1, Energy e2)
-        {
-            var v = e1.FloatWithError - e2.FloatWithError;
-
-            return new Energy(v);
-        }
-
-        public static Energy operator /(Energy e1, Energy e2) => new Energy(e1.FloatWithError / e2.FloatWithError);
-
-        public static Energy operator /(Energy e1, double val) => new Energy(e1.FloatWithError / val);
-
-        public static Energy operator *(Energy e1, Energy e2) => new Energy(e1.FloatWithError * e2.FloatWithError);
-
-        public static Energy operator *(Energy e1, double val) => new Energy(e1.FloatWithError * val);
-
-        public static Energy operator *(double val, Energy e) => new Energy(e.FloatWithError * val);
-
-        //public static bool operator <(Energy v1, Energy v2) => v1.Value.Value < v2.Value.Value;
-
-        //public static bool operator >(Energy v1, Energy v2) => v1.Value.Value > v2.Value.Value;
-
-        //public static bool operator <(Energy v1, double v2) => v1.Value.Value < v2;
-
-        //public static bool operator >(Energy v1, double v2) => v1.Value.Value > v2;
-
-        public static implicit operator double(Energy e) => e.FloatWithError.Value;
-
-        //TODO add unit to print
-        public override string ToString()
-        {
-            return FloatWithError.ToString();
-        }
-
-        public string ToString(string formatter)
-        {
-            return FloatWithError.ToString(formatter);
-        }
-
-        public string ToString(EnergyUnit unit, string formatter = "F1")
-        {
-            switch (unit)
-            {
-                case EnergyUnit.Joule: return FloatWithError.ToString(formatter) + " J";
-                case EnergyUnit.MicroCal: return (1000000 * JouleToCalFactor * FloatWithError).ToString(formatter) + " µcal";
-                case EnergyUnit.Cal: return (JouleToCalFactor * FloatWithError).ToString(formatter) + " cal";
-                case EnergyUnit.KiloJoule: return (FloatWithError/1000).ToString(formatter) + " kJ";
-                default: return FloatWithError.ToString(formatter) + " J";
-            }
-        }
-    }
-
-    //TODO add attribute with unit names and stuff
-    public enum EnergyUnit
-    {
-        KiloJoule,
-        Joule,
-        MicroCal,
-        Cal
+        M,
+        mM,
+        µM,
+        nM,
+        pM
     }
 
     public struct FloatWithError
@@ -241,16 +149,19 @@ namespace AnalysisITC
             else return Value.ToString(format) + " ± " + SD.ToString(format);
         }
 
-        public string AsDissociationConstant()
+        public string AsDissociationConstant(double mag = -1)
         {
-            var mag = Math.Log10(Value);
+            if (mag < 0) mag = Math.Log10(Value);
 
-            if (mag > 0) return this.ToString() + " M";
-            else if (mag > -3) return (1000 * this).ToString() + " mM";
-            else if (mag > -6) return (1000000 * this).ToString() + " µM";
-            else if (mag > -9) return (1000000000 * this).ToString() + " nM";
-            else if (mag > -12) return (1000000000000 * this).ToString() + " pM";
-            else return this.ToString() + " M";
+            return mag switch
+            {
+                > 0 => ToString() + " M",
+                > -3 => (1000 * this).ToString() + " mM",
+                > -6 => (1000000 * this).ToString() + " µM",
+                > -9 => (1000000000 * this).ToString() + " nM",
+                > -12 => (1000000000000 * this).ToString() + " pM",
+                _ => ToString() + " M"
+            };
         }
     }
 }
