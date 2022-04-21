@@ -40,6 +40,15 @@ namespace AnalysisITC
             DataManager.DataDidChange += OnDataManagerUpdated;
             DataManager.SelectionDidChange += DataManager_SelectionDidChange;
             DataManager.AnalysisResultSelected += DataManager_AnalysisResultSelected;
+
+            AnalysisResultView.ExpandDataButtonClicked += AnalysisResultView_ExpandDataButtonClicked;
+        }
+
+        private void AnalysisResultView_ExpandDataButtonClicked(object sender, AnalysisResult e)
+        {
+            BindingAnalysisViewController.AnalysisResult = e;
+
+            PerformSegue("ShowAnalysisResultSegue", this);
         }
 
         private void DataManager_SelectionDidChange(object sender, ExperimentData e)
