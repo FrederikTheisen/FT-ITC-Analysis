@@ -171,7 +171,7 @@ namespace AnalysisITC
 
         public async virtual Task Interpolate(CancellationToken token, bool replace = true)
         {
-            Parent.BaselineCompleted = false;
+            
         }
 
         public void WriteToConsole()
@@ -228,9 +228,9 @@ namespace AnalysisITC
 
             //First points
             var segmmentL = (Data.InitialDelay - 5) / 4;
-            points.Add(new SplinePoint(segmmentL, GetDataRangeMean(0, 2 * segmmentL), DataPoint.Slope(Data.DataPoints.Where(dp => dp.Time > 0 && dp.Time < 2 * segmmentL).ToList())));
+            points.Add(new SplinePoint(segmmentL, GetDataRangeMean(0, 2 * segmmentL), points.Count, DataPoint.Slope(Data.DataPoints.Where(dp => dp.Time > 0 && dp.Time < 2 * segmmentL).ToList())));
 
-            points.Add(new SplinePoint(3 * segmmentL, GetDataRangeMean(2 * segmmentL, 4 * segmmentL), DataPoint.Slope(Data.DataPoints.Where(dp => dp.Time > 2 * segmmentL && dp.Time < 4 * segmmentL).ToList())));
+            points.Add(new SplinePoint(3 * segmmentL, GetDataRangeMean(2 * segmmentL, 4 * segmmentL), points.Count, DataPoint.Slope(Data.DataPoints.Where(dp => dp.Time > 2 * segmmentL && dp.Time < 4 * segmmentL).ToList())));
 
             foreach (var inj in Data.Injections)
             {
@@ -243,8 +243,13 @@ namespace AnalysisITC
                 {
                     var s = start + j * length;
                     var e = s + length;
+                    var time = s + length * 0.5;
 
-                    points.Add(new SplinePoint(s + length * 0.5f, GetDataRangeMean(s, e), DataPoint.Slope(Data.DataPoints.Where(dp => dp.Time > s && dp.Time < e).ToList())));
+                    double slope;
+                    if (SplineFunction != null) slope = SplineFunction.Slope(time);
+                    else slope = DataPoint.Slope(Data.DataPoints.Where(dp => dp.Time > s && dp.Time < e).ToList());
+
+                    points.Add(new SplinePoint(time, GetDataRangeMean(s, e), points.Count, slope));
                 }
             }
 
@@ -288,13 +293,11 @@ namespace AnalysisITC
 
             switch (Algorithm)
             {
-                case SplineInterpolatorAlgorithm.Akima: spline = new Spline(CubicSpline.InterpolateAkima(x, y)); break;
-                case SplineInterpolatorAlgorithm.InterpolateBoundaries:
-                case SplineInterpolatorAlgorithm.InterpolateHermite: spline = new Spline(CubicSpline.InterpolateHermite(x, y, splinePoints.Select(sp => sp.Slope))); break;
-                case SplineInterpolatorAlgorithm.InterpolateNatural: spline = new Spline(CubicSpline.InterpolateNatural(x, y)); break;
                 default:
-                case SplineInterpolatorAlgorithm.InterpolatePchip: spline = new Spline(CubicSpline.InterpolatePchip(x, y)); break;
-                case SplineInterpolatorAlgorithm.LinearSpline: spline = new Spline(LinearSpline.Interpolate(x, y)); break;
+                case SplineInterpolatorAlgorithm.Akima: spline = new Spline(CubicSpline.InterpolateAkima(x, y)); break;
+                case SplineInterpolatorAlgorithm.Handles: spline = new Spline(CubicSpline.InterpolateHermite(x, y, splinePoints.Select(s => s.Slope))); break;
+                case SplineInterpolatorAlgorithm.Pchip: spline = new Spline(CubicSpline.InterpolatePchip(x, y)); break;
+                case SplineInterpolatorAlgorithm.Linear: spline = new Spline(LinearSpline.Interpolate(x, y)); break;
             }
 
             var bsl = new List<Energy>();
@@ -307,18 +310,14 @@ namespace AnalysisITC
             Baseline = bsl;
             SplinePoints = splinePoints;
             SplineFunction = spline;
-
-            
         }
 
         public enum SplineInterpolatorAlgorithm
         {
             Akima,
-            InterpolateBoundaries,
-            InterpolateHermite,
-            InterpolateNatural,
-            InterpolatePchip,
-            LinearSpline
+            Handles,
+            Pchip,
+            Linear
         }
 
         public enum SplineHandleMode
@@ -350,18 +349,28 @@ namespace AnalysisITC
 
                 return new(0.0);
             }
+
+            public double Slope(double time)
+            {
+                if (CubicSplineFunction != null) return CubicSplineFunction.Differentiate(time);
+                if (LinearSplineFunction != null) return LinearSplineFunction.Differentiate(time);
+
+                else return 0;
+            }
         }
 
         public class SplinePoint
         {
+            public int ID;
             public double Time;
             public double Power;
             public double Slope;
 
-            public SplinePoint(double time, double power, double slope = 0)
+            public SplinePoint(double time, double power, int id, double slope = 0)
             {
                 Time = time;
                 Power = power;
+                ID = id;
                 Slope = slope;
             }
         }

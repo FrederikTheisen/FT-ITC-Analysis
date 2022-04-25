@@ -46,6 +46,14 @@ namespace AnalysisITC
         {
             return new CGSize(Math.Abs(box.Width), Math.Abs(box.Height));
         }
+
+        public static CGPoint Add(this CGPoint p, float x, float y) => new CGPoint(p.X + x, p.Y + y);
+
+        public static CGPoint Add(this CGPoint p1, CGPoint p2) => new CGPoint(p1.X + p2.X, p1.Y + p2.Y);
+
+        public static CGPoint Subtract(this CGPoint p, float x, float y) => new CGPoint(p.X - x, p.Y - y);
+
+        public static CGPoint Subtract(this CGPoint p1, CGPoint p2) => new CGPoint(p1.X - p2.X, p1.Y - p2.Y);
     }
 
     public static class FWEMath

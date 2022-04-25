@@ -20,7 +20,8 @@ namespace AnalysisITC
 
         public bool DrawOnWhite = false;
         public CGColor StrokeColor => DrawOnWhite ? NSColor.Black.CGColor : NSColor.Label.CGColor;
-        public CGColor SecondaryLineColor => DrawOnWhite ? NSColor.Black.ColorWithAlphaComponent(0.5f).CGColor : NSColor.TertiaryLabel.CGColor;
+        public CGColor SecondaryLineColor => DrawOnWhite ? NSColor.Black.ColorWithAlphaComponent(0.75f).CGColor : NSColor.SecondaryLabel.CGColor;
+        public CGColor TertiaryLineColor => DrawOnWhite ? NSColor.Black.ColorWithAlphaComponent(0.5f).CGColor : NSColor.TertiaryLabel.CGColor;
 
         internal static CTFont DefaultFont = new CTFont("Helvetica", 12);
         internal static nfloat DefaultFontHeight => DefaultFont.CapHeightMetric + 5;
@@ -251,7 +252,7 @@ namespace AnalysisITC
 
         #endregion
 
-        CGRect GetRectAtPosition(CGPoint point, double size)
+        public CGRect GetRectAtPosition(CGPoint point, double size)
         {
             return new CGRect(point.X - size / 2, point.Y - size / 2, size, size);
         }
@@ -596,6 +597,8 @@ namespace AnalysisITC
     {
         public bool ShowBaseline { get; set; } = true;
         public bool ShowInjections { get; set; } = true;
+        List<FeatureBoundingBox> SplineHandlePoints { get; set; } = new List<FeatureBoundingBox>();
+        List<FeatureBoundingBox> SplinePoints { get; set; } = new List<FeatureBoundingBox>();
 
         public BaselineFittingGraph(ExperimentData experiment, NSView view) : base(experiment, view)
         {
@@ -675,28 +678,84 @@ namespace AnalysisITC
 
         void DrawSplineHandles(CGContext gc)
         {
+            SplineHandlePoints.Clear();
+            SplinePoints.Clear();
             CGLayer layer = CGLayer.Create(gc, Frame.Size);
 
             List<CGRect> points = new List<CGRect>();
+            List<CGPath> handles = new List<CGPath>();
+            List<CGPath> slopelines = new List<CGPath>();
 
-            foreach (var sp in (ExperimentData.Processor.Interpolator as SplineInterpolator).SplinePoints)
+            foreach (var sp in (ExperimentData.Processor.Interpolator as SplineInterpolator).SplinePoints.Where(sp => sp.Time > XAxis.Min && sp.Time < XAxis.Max))
             {
                 var m = GetRelativePosition((float)sp.Time, (float)sp.Power);
 
                 if (ShowBaselineCorrected) m = GetRelativePosition((float)sp.Time, 0);
+                if ((ExperimentData.Processor.Interpolator as SplineInterpolator).Algorithm == SplineInterpolator.SplineInterpolatorAlgorithm.Handles)
+                {
+                    var handle = new CGPath();
+                    var slopeline = new CGPath();
+
+                    var handlelengthtime = ExperimentData.Injections.Average(inj => inj.Delay / 3);
+                    var y = ShowBaselineCorrected ? 0 : sp.Power;
+                    var yoffset = sp.Slope * handlelengthtime;
+
+                    var h1 = GetRelativePosition((float)sp.Time - handlelengthtime, (float)y - yoffset);
+                    var h2 = GetRelativePosition((float)sp.Time + handlelengthtime, (float)y + yoffset);
+
+                    var slope = (h2.Y - h1.Y) / (h2.X - h1.X);
+                    var theta = Math.Atan(slope);
+
+                    var handlelengthpixels = m.X - h1.X;
+                    var _xoffset = (float)Math.Cos(theta) * (float)handlelengthpixels;
+                    var _yoffset = (float)Math.Sin(theta) * (float)handlelengthpixels;
+
+                    h1 = m.Subtract(_xoffset, _yoffset);
+                    h2 = m.Add(_xoffset, _yoffset);
+
+                    slopeline.MoveToPoint(h1);
+                    slopeline.AddLineToPoint(h2);
+                    handle.AddEllipseInRect(GetRectAtPosition(h1, 8));
+                    handle.AddEllipseInRect(GetRectAtPosition(h2, 8));
+
+                    SplineHandlePoints.Add(new FeatureBoundingBox(MouseOverFeatureEvent.FeatureType.BaselineSplineHandle, GetRectAtPosition(h1, 8), sp.ID, boxoffset: Frame.Location, sid: 0) { FeatureReferenceValue = sp.Slope });
+                    SplineHandlePoints.Add(new FeatureBoundingBox(MouseOverFeatureEvent.FeatureType.BaselineSplineHandle, GetRectAtPosition(h2, 8), sp.ID, boxoffset: Frame.Location, sid: 1) { FeatureReferenceValue = sp.Slope });
+
+                    handles.Add(handle);
+                    slopelines.Add(slopeline);
+                }
 
                 var r = new CGRect(m.X - 4, m.Y - 4, 8, 8);
+
+                SplinePoints.Add(new FeatureBoundingBox(MouseOverFeatureEvent.FeatureType.BaselineSplinePoint, r, sp.ID, Frame.Location) { FeatureReferenceValue = sp.Power });
 
                 points.Add(r);
             }
 
+            //Red slope line
+            layer.Context.SetStrokeColor(NSColor.Red.CGColor);
+            layer.Context.SetLineWidth(3);
+            foreach (var l in slopelines) layer.Context.AddPath(l);
+            layer.Context.StrokePath();
+
+            //Black slope line
+            layer.Context.SetStrokeColor(NSColor.Black.CGColor);
+            layer.Context.SetLineWidth(1);
+            foreach (var l in slopelines) layer.Context.AddPath(l);
+            layer.Context.StrokePath();
+
+            //red handle
             layer.Context.SetFillColor(NSColor.Red.CGColor);
+            foreach (var h in handles) layer.Context.AddPath(h);
+            layer.Context.FillPath();
 
-            foreach (var r in points)
-            {
-                layer.Context.FillRect(r);
-            }
+            //black handle outline
+            foreach (var h in handles) layer.Context.AddPath(h);
+            layer.Context.StrokePath();
 
+            //Draw points
+            layer.Context.SetFillColor(NSColor.Red.CGColor);
+            foreach (var r in points) layer.Context.FillRect(r);
 
             gc.DrawLayer(layer, Frame.Location);
         }
@@ -729,19 +788,19 @@ namespace AnalysisITC
                         //path.AddLineToPoint(s.X, maxy + delta);
                         //path.AddLineToPoint(e.X, maxy + delta);
                         path.AddLineToPoint(e.X, miny - delta);
-                        DrawText(layer.Context, (inj.ID + 1).ToString("inj #0"), DefaultFontHeight, s.X + 3, PlotPixelHeight - (maxy + delta + 20), NSColor.SystemBlueColor.CGColor);
+                        DrawText(layer.Context, (inj.ID + 1).ToString("inj #0"), DefaultFontHeight, s.X + 3, PlotPixelHeight - (maxy + delta + 20), NSColor.SystemBlue.CGColor);
                         break;
                     case PeakHeatDirection.Endothermal:
                         path.MoveToPoint(s.X, maxy + delta);
                         path.AddLineToPoint(s.X, miny - delta);
                         path.AddLineToPoint(e.X, miny - delta);
                         path.AddLineToPoint(e.X, maxy + delta);
-                        DrawText(layer.Context, (inj.ID + 1).ToString("inj #0"), DefaultFontHeight, s.X + 3, PlotPixelHeight - (miny - delta), NSColor.SystemBlueColor.CGColor);
+                        DrawText(layer.Context, (inj.ID + 1).ToString("inj #0"), DefaultFontHeight, s.X + 3, PlotPixelHeight - (miny - delta), NSColor.SystemBlue.CGColor);
                         break;
                 }
             }
 
-            layer.Context.SetStrokeColor(NSColor.SystemBlueColor.CGColor);
+            layer.Context.SetStrokeColor(NSColor.SystemBlue.CGColor);
 
             layer.Context.AddPath(path);
             layer.Context.StrokePath();
@@ -753,26 +812,32 @@ namespace AnalysisITC
         {
             int id = 0;
 
-            if (ShowBaseline && ExperimentData.Processor.Interpolator is SplineInterpolator)
-                foreach (var sp in (ExperimentData.Processor.Interpolator as SplineInterpolator).SplinePoints)
-                {
-                    var handle_screen_pos = GetRelativePosition(sp.Time, sp.Power) + new CGSize(Origin);
+            foreach (var handle in SplineHandlePoints)
+                if (handle.CursorInBox(cursorpos)) return new MouseOverFeatureEvent(handle);
 
-                    if (ShowBaselineCorrected) handle_screen_pos = GetRelativePosition(sp.Time, 0) + new CGSize(Origin);
+            foreach (var point in SplinePoints)
+                if (point.CursorInBox(cursorpos)) return new MouseOverFeatureEvent(point);
 
-                    if (Math.Abs(cursorpos.X - 2 - handle_screen_pos.X) < 5)
-                    {
-                        if (Math.Abs(cursorpos.Y - handle_screen_pos.Y) < 5)
-                        {
-                            return new MouseOverFeatureEvent()
-                            {
-                                FeatureID = id
-                            };
-                        }
-                    }
+            //if (ShowBaseline && ExperimentData.Processor.Interpolator is SplineInterpolator)
+            //    foreach (var sp in (ExperimentData.Processor.Interpolator as SplineInterpolator).SplinePoints)
+            //    {
+            //        var handle_screen_pos = GetRelativePosition(sp.Time, sp.Power) + new CGSize(Origin);
 
-                    id++;
-                }
+            //        if (ShowBaselineCorrected) handle_screen_pos = GetRelativePosition(sp.Time, 0) + new CGSize(Origin);
+
+            //        if (Math.Abs(cursorpos.X - 2 - handle_screen_pos.X) < 5)
+            //        {
+            //            if (Math.Abs(cursorpos.Y - handle_screen_pos.Y) < 5)
+            //            {
+            //                return new MouseOverFeatureEvent(MouseOverFeatureEvent.FeatureType.BaselineSplinePoint)
+            //                {
+            //                    FeatureID = id
+            //                };
+            //            }
+            //        }
+
+            //        id++;
+            //    }
 
             return new MouseOverFeatureEvent();
         }
@@ -973,7 +1038,7 @@ namespace AnalysisITC
 
             CGLayer layer = CGLayer.Create(gc, Frame.Size);
             layer.Context.SetLineWidth(1);
-            layer.Context.SetStrokeColor(SecondaryLineColor);
+            layer.Context.SetStrokeColor(TertiaryLineColor);
             layer.Context.SetLineDash(3, new nfloat[] { 10 });
             layer.Context.AddPath(grid);
             layer.Context.StrokePath();

@@ -1,6 +1,8 @@
 ﻿using System;
 using AppKit;
 using System.Collections.Generic;
+using CoreGraphics;
+using AnalysisITC;
 
 namespace Utilities
 {
@@ -155,11 +157,40 @@ namespace Utilities
         }
     }
 
+    public class FeatureBoundingBox
+    {
+        public MouseOverFeatureEvent.FeatureType Type { get; private set; } = MouseOverFeatureEvent.FeatureType.Unknown;
+        public CGRect Rect { get; set; } = new CGRect(0, 0, 0, 0);
+        public CGPoint offset = new CGPoint();
+        public int FeatureID { get; set; } = -1;
+        public int SubID { get; set; } = -1;
+        public double FeatureReferenceValue { get; set; } = 0;
+
+        public FeatureBoundingBox(MouseOverFeatureEvent.FeatureType type, CGRect rect, int id, CGPoint boxoffset, int sid = -1)
+        {
+            Type = type;
+            Rect = rect;
+            FeatureID = id;
+            SubID = sid;
+            offset = boxoffset;
+        }
+
+        public bool Contains(CGPoint point) => Rect.Contains(point);
+
+        public bool CursorInBox(CGPoint cursorpos) => Contains(cursorpos.Subtract(offset));
+    }
+
     public class MouseOverFeatureEvent
     {
         public FeatureType Type { get; private set; } = FeatureType.Unknown;
 
         public int FeatureID { get; set; } = -1;
+        public int SubID => Box.SubID;
+
+        public FeatureBoundingBox Box { get; private set; }
+
+        public CGPoint ClickCursorPosition { get; set; } = new CGPoint();
+        public double FeatureReferenceValue { get; set; }
 
         List<string> tooltiplines = new List<string>();
 
@@ -177,6 +208,14 @@ namespace Utilities
         public MouseOverFeatureEvent(FeatureType type = FeatureType.Unknown)
         {
             Type = type;
+        }
+
+        public MouseOverFeatureEvent(FeatureBoundingBox box)
+        {
+            Box = box;
+            Type = box.Type;
+            FeatureID = box.FeatureID;
+            FeatureReferenceValue = box.FeatureReferenceValue;
         }
 
         public MouseOverFeatureEvent(AnalysisITC.InjectionData inj)

@@ -14,6 +14,8 @@ namespace AnalysisITC
 
         int selectedPeak = 0;
 
+        Utilities.MouseOverFeatureEvent SelectedFeature { get; set; } = null;
+
         bool ShowBaselineCorrected
         {
             get => Graph != null ? Graph.ShowBaselineCorrected : false;
@@ -180,8 +182,69 @@ namespace AnalysisITC
 
             var b = Graph.IsCursorOnFeature(CursorPositionInView);
 
-            if (b.IsMouseOverFeature) NSCursor.PointingHandCursor.Set();
+            if (b.IsMouseOverFeature)
+            {
+                if (b.Type == Utilities.MouseOverFeatureEvent.FeatureType.BaselineSplinePoint) NSCursor.ResizeUpDownCursor.Set();
+                else if (b.Type == Utilities.MouseOverFeatureEvent.FeatureType.BaselineSplineHandle) NSCursor.ResizeUpDownCursor.Set();
+            }
             else NSCursor.ArrowCursor.Set();
+        }
+
+        public override void MouseDown(NSEvent theEvent)
+        {
+            base.MouseDown(theEvent);
+
+            if (Data == null) return;
+
+            SelectedFeature = Graph.IsCursorOnFeature(CursorPositionInView);
+            SelectedFeature.ClickCursorPosition = theEvent.LocationInWindow;
+        }
+
+        public override void MouseDragged(NSEvent theEvent)
+        {
+            base.MouseDragged(theEvent);
+
+            var position = theEvent.LocationInWindow;
+
+            if (SelectedFeature.FeatureID == -1) return;
+            else if (SelectedFeature.Type == Utilities.MouseOverFeatureEvent.FeatureType.BaselineSplinePoint)
+            {
+                var feature = (Data.Processor.Interpolator as SplineInterpolator).SplinePoints[SelectedFeature.FeatureID];
+                var adjust = 10E-11 * (position.Y - SelectedFeature.ClickCursorPosition.Y);
+
+                feature.Power = SelectedFeature.FeatureReferenceValue + adjust;
+            }
+            else if (SelectedFeature.Type == Utilities.MouseOverFeatureEvent.FeatureType.BaselineSplineHandle)
+            {
+                bool invert = SelectedFeature.SubID == 0;
+
+                var feature = (Data.Processor.Interpolator as SplineInterpolator).SplinePoints[SelectedFeature.FeatureID];
+                var adjust = 10E-12 * (position.Y - SelectedFeature.ClickCursorPosition.Y);
+                if (invert) adjust = -adjust;
+
+                feature.Slope = SelectedFeature.FeatureReferenceValue + adjust;
+            }
+
+            Invalidate();
+        }
+
+        public override void MouseUp(NSEvent theEvent)
+        {
+            base.MouseUp(theEvent);
+
+            if (SelectedFeature.Type == Utilities.MouseOverFeatureEvent.FeatureType.BaselineSplineHandle) UpdateSplineHandle();
+            else if (SelectedFeature.Type == Utilities.MouseOverFeatureEvent.FeatureType.BaselineSplinePoint) UpdateSplineHandle();
+        }
+
+        async void UpdateSplineHandle()
+        {
+            await Data.Processor.Interpolator.Interpolate(new System.Threading.CancellationToken(), false);
+
+            Data.Processor.SubtractBaseline();
+
+            Invalidate();
+
+            Data.Processor.IntegratePeaks();
         }
     }
 }
