@@ -249,7 +249,7 @@ namespace AnalysisITC
 
         public virtual SolverConvergence SolveWithNelderMeadAlgorithm()
         {
-            var f = new NonlinearObjectiveFunction(4, (w) => this.RMSD(w[0], w[1], w[2], w[3]));
+            var f = new NonlinearObjectiveFunction(4, (w) => this.RMSD(w[0], w[1], w[2], w[3], true));
             var solver = new NelderMead(f);
             solver.StepSize[0] = Analysis.Nstep;
             solver.StepSize[1] = Analysis.Hstep;
@@ -303,7 +303,7 @@ namespace AnalysisITC
         {
         }
 
-        public override double RMSD(double n, double H, double K, double offset, bool isloss = true)
+        public override double RMSD(double n, double H, double K, double offset, bool isloss = false)
         {
             double loss = 0;
 
@@ -626,47 +626,7 @@ namespace AnalysisITC
         {
             var parameters = SolverParameters.FromArray(w, Options);
 
-            //int i = 0;
-
-            //double[] H;
-            //double Cp;
-
-            //if (EnthalpyStyle == Analysis.VariableStyle.Free) H = w.Skip(PostIncrement(i, Models.Count, out i)).Take(Models.Count).ToArray();
-            //else H = new double[] { w[i++] };
-
-            //if (EnthalpyStyle == Analysis.VariableStyle.TemperatureDependent) Cp = w[i++];
-            //else Cp = 0;
-
-            //double[] G;
-
-            //if (AffinityStyle == Analysis.VariableStyle.Free) G = w.Skip(PostIncrement(i, Models.Count, out i)).Take(Models.Count).ToArray();//Variable affinity of experiments
-            //else G = new double[Models.Count].Add(w[i++]); //Use same affinity for all experiments
-
-            //double[] offsets = w.Skip(PostIncrement(i, Models.Count, out i)).Take(Models.Count).ToArray();
-            //double[] ns = w.Skip(i).Take(Models.Count).ToArray();
-
-            //return GlobalLoss(ns, H, Cp, G, offsets);
             return GlobalLoss(parameters);
-        }
-
-        double GlobalLoss(double[] ns, double[] H, double Cp, double[] Gs, double[] offsets)
-        {
-            double glob_loss = 0;
-
-            for (int i = 0; i < Models.Count; i++)
-            {
-                //Calculate T specific parameters
-                var m = Models[i];
-                var T = m.Data.MeasuredTemperature + 273.15;
-                var dt = T - 298.15;
-                var dH = EnthalpyStyle == Analysis.VariableStyle.TemperatureDependent ? H[0] + Cp * dt : H[i];
-                var dG = Gs[i]; //If non-variable affinity, all G[i]'s will be same value
-                var K = AffinityStyle == Analysis.VariableStyle.SameForAll ? Math.Exp(-1 * dG / (Energy.R.Value * 298.15)) : Math.Exp(-1 * dG / (Energy.R.Value * T));
-
-                glob_loss += m.RMSD(ns[i], dH, K, offsets[i]);
-            }
-
-            return glob_loss;
         }
 
         double GlobalLoss(SolverParameters parameters)
@@ -678,7 +638,7 @@ namespace AnalysisITC
                 var m = Models[i];
                 var pset = parameters.ParameterSetForModel(i);
 
-                glob_loss += m.RMSD(pset.N, pset.GetEnthalpy(m, Options), pset.GetK(m, Options), pset.Offset);
+                glob_loss += m.RMSD(pset.N, pset.GetEnthalpy(m, Options), pset.GetK(m, Options), pset.Offset, true);
             }
 
             return glob_loss;
