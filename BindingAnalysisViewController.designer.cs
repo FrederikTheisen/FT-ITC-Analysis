@@ -13,16 +13,41 @@ namespace AnalysisITC
 	partial class BindingAnalysisViewController
 	{
 		[Outlet]
+		AppKit.NSSegmentedControl EnergyUnitControl { get; set; }
+
+		[Outlet]
 		AppKit.NSTableView ResultsTableView { get; set; }
+
+		[Outlet]
+		AppKit.NSSegmentedControl TemperatureUnitControl { get; set; }
 
 		[Action ("CloseButtonClicked:")]
 		partial void CloseButtonClicked (Foundation.NSObject sender);
+
+		[Action ("CopyToClipboard:")]
+		partial void CopyToClipboard (Foundation.NSObject sender);
+
+		[Action ("EnergyUnitControlClicked:")]
+		partial void EnergyUnitControlClicked (AppKit.NSSegmentedControl sender);
+
+		[Action ("TempUnitControlClicked:")]
+		partial void TempUnitControlClicked (AppKit.NSSegmentedControl sender);
 		
 		void ReleaseDesignerOutlets ()
 		{
 			if (ResultsTableView != null) {
 				ResultsTableView.Dispose ();
 				ResultsTableView = null;
+			}
+
+			if (EnergyUnitControl != null) {
+				EnergyUnitControl.Dispose ();
+				EnergyUnitControl = null;
+			}
+
+			if (TemperatureUnitControl != null) {
+				TemperatureUnitControl.Dispose ();
+				TemperatureUnitControl = null;
 			}
 		}
 	}

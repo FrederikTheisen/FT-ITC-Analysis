@@ -8,11 +8,13 @@ using AppKit;
 
 namespace AnalysisITC
 {
-    public class ResultViewDataSource : NSTableViewDataSource
+    public partial class ResultViewDataSource : NSTableViewDataSource
     {
         public List<Solution> Data { get; private set; }
 
         public double KdMag { get; set; } = -1;
+        public EnergyUnit EnergyUnit { get; set; } = EnergyUnit.KiloJoule;
+        public bool UseKelvin { get; set; } = false;
 
         public ResultViewDataSource(AnalysisResult result)
         {
@@ -30,6 +32,8 @@ namespace AnalysisITC
         const string CellIdentifier = "Cell";
 
         public double KdMag => DataSource.KdMag;
+        public EnergyUnit EnergyUnit => DataSource.EnergyUnit;
+        public bool UseKelvin => DataSource.UseKelvin;
 
         private ResultViewDataSource DataSource;
 
@@ -55,15 +59,15 @@ namespace AnalysisITC
             }
 
             // Setup view based on the column selected
-            switch (tableColumn.Title)
+            switch (tableColumn.Identifier)
             {
-                case "Temperature": view.StringValue = DataSource.Data[(int)row].T.ToString("F2"); break;
-                case "N-value": view.StringValue = DataSource.Data[(int)row].N.ToString("F2"); view.Alignment = NSTextAlignment.Center; break;
-                case "Kd": view.StringValue = DataSource.Data[(int)row].Kd.AsDissociationConstant(KdMag); view.Alignment = NSTextAlignment.Center; break;
-                case "∆H": view.StringValue = DataSource.Data[(int)row].Enthalpy.ToString(EnergyUnit.KiloJoule, withunit: false); view.Alignment = NSTextAlignment.Center; break;
-                case "-T∆S": view.StringValue = DataSource.Data[(int)row].TdS.ToString(EnergyUnit.KiloJoule, withunit: false); view.Alignment = NSTextAlignment.Center; break;
-                case "∆G": view.StringValue = DataSource.Data[(int)row].GibbsFreeEnergy.ToString(EnergyUnit.KiloJoule, withunit: false); view.Alignment = NSTextAlignment.Center; break;
-                case "Loss": view.StringValue = DataSource.Data[(int)row].Loss.ToString("G3"); view.Alignment = NSTextAlignment.Center; break;
+                case "T": view.StringValue = (DataSource.Data[(int)row].T + (UseKelvin ? 273.15 : 0)).ToString("F2"); break;
+                case "N": view.StringValue = DataSource.Data[(int)row].N.ToString("F2"); view.Alignment = NSTextAlignment.Center; break;
+                case "K": view.StringValue = DataSource.Data[(int)row].Kd.AsDissociationConstant(KdMag, withunit: false); view.Alignment = NSTextAlignment.Center; break;
+                case "H": view.StringValue = DataSource.Data[(int)row].Enthalpy.ToString(EnergyUnit, withunit: false); view.Alignment = NSTextAlignment.Center; break;
+                case "S": view.StringValue = DataSource.Data[(int)row].TdS.ToString(EnergyUnit, withunit: false); view.Alignment = NSTextAlignment.Center; break;
+                case "G": view.StringValue = DataSource.Data[(int)row].GibbsFreeEnergy.ToString(EnergyUnit, withunit: false); view.Alignment = NSTextAlignment.Center; break;
+                case "L": view.StringValue = DataSource.Data[(int)row].Loss.ToString("G3"); view.Alignment = NSTextAlignment.Center; break;
             }
 
             return view;
@@ -86,13 +90,17 @@ namespace AnalysisITC
             Setup();
         }
 
+        EnergyUnit EnergyUnit => (int)EnergyUnitControl.SelectedSegment switch { 0 => EnergyUnit.Joule, 1 => EnergyUnit.KiloJoule, 2 => EnergyUnit.Cal, 3 => EnergyUnit.KCal, _ => EnergyUnit.KiloJoule, };
+        public bool UseKelvin => TemperatureUnitControl.SelectedSegment == 1;
+        double Mag = -1;
+
         public void Setup()
         {
             var kd = AnalysisResult.Solution.Solutions.Average(s => s.Kd);
 
-            var mag = Math.Log10(kd);
+            Mag = Math.Log10(kd);
 
-            var kdunit = mag switch
+            var kdunit = Mag switch
             {
                 > 0 => "M",
                 > -3 => "mM",
@@ -104,14 +112,49 @@ namespace AnalysisITC
 
             var source = new ResultViewDataSource(AnalysisResult)
             {
-                KdMag = mag
+                KdMag = Mag,
+                EnergyUnit = EnergyUnit,
+                UseKelvin = UseKelvin,
             };
             ResultsTableView.DataSource = source;
             ResultsTableView.Delegate = new ResultViewDelegate(source);
-            ResultsTableView.TableColumns()[2].Title += " " + kdunit;
-            ResultsTableView.TableColumns()[3].Title += " " + DataManager.Unit.GetUnit();
-            ResultsTableView.TableColumns()[4].Title += " " + DataManager.Unit.GetUnit();
-            ResultsTableView.TableColumns()[5].Title += " " + DataManager.Unit.GetUnit();
+            ResultsTableView.TableColumns()[0].Title = "Temperature (" + (UseKelvin ? "K" : "°C") + ")";
+            ResultsTableView.TableColumns()[2].Title = "Kd (" + kdunit + ")";
+            ResultsTableView.TableColumns()[3].Title = "∆H (" + EnergyUnit.GetUnit() + "/mol)";
+            ResultsTableView.TableColumns()[4].Title = "-T∆S (" + EnergyUnit.GetUnit() + "/molK)";
+            ResultsTableView.TableColumns()[5].Title = "∆G (" + EnergyUnit.GetUnit() + "/mol)";
+        }
+
+        partial void TempUnitControlClicked(NSSegmentedControl sender)
+        {
+            Setup();
+        }
+
+        partial void EnergyUnitControlClicked(NSSegmentedControl sender)
+        {
+            Setup();
+        }
+
+        partial void CopyToClipboard(NSObject sender)
+        {
+            NSPasteboard.GeneralPasteboard.ClearContents();
+
+            string paste = "";
+
+            foreach (var data in AnalysisResult.Solution.Solutions)
+            {
+                paste += (data.T + (UseKelvin ? 273.15 : 0)).ToString("F2") + " ";
+                paste += data.N.ToString("F2") + " ";
+                paste += data.Kd.AsDissociationConstant(Mag, withunit: false) + " ";
+                paste += data.Enthalpy.ToString(EnergyUnit, withunit: false) + " ";
+                paste += data.TdS.ToString(EnergyUnit, withunit: false) + " ";
+                paste += data.GibbsFreeEnergy.ToString(EnergyUnit, withunit: false);
+                paste += Environment.NewLine;
+            }
+
+            paste = paste.Replace('±', ' ');
+
+            NSPasteboard.GeneralPasteboard.SetStringForType(paste,  "NSStringPboardType");
         }
 
         partial void CloseButtonClicked(NSObject sender)
