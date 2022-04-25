@@ -36,6 +36,8 @@ namespace AnalysisITC
 
         partial void RemoveButtonClick(NSObject sender)
         {
+            if (ContentIndex < 0)
+                return;
             RemoveData?.Invoke(this, ContentIndex);
 
             DataManager.RemoveData(ContentIndex);
