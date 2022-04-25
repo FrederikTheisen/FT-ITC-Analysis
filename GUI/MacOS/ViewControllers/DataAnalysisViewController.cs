@@ -52,6 +52,8 @@ namespace AnalysisITC
             StatusBarManager.SetStatus("Completed", 1500);
 
             GraphView.Invalidate();
+
+            ToggleFitButtons(true);
         }
 
         private void Analysis_AnalysisIterationFinished(object sender, EventArgs e)
@@ -106,6 +108,7 @@ namespace AnalysisITC
 
         partial void FitSimplex(NSObject sender)
         {
+            ToggleFitButtons(false);
             StatusBarManager.StartInderminateProgress();
             StatusBarManager.SetStatus("Fitting data...", 0);
 
@@ -137,6 +140,12 @@ namespace AnalysisITC
             if (OstepTextField.FloatValue != 0) Analysis.Ostep = OstepTextField.FloatValue;
 
             Analysis.GlobalAnalyzer.Solve(SelectedAnalysisModel);
+        }
+
+        void ToggleFitButtons(bool enable)
+        {
+            FitSimplexButton.Enabled = enable;
+            FitLMButton.Enabled = enable;
         }
     }
 }

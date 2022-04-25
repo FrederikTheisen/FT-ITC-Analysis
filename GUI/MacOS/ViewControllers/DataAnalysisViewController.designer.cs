@@ -31,6 +31,12 @@ namespace AnalysisITC
 		AppKit.NSSegmentedControl EnthalpyStyleSegControl { get; set; }
 
 		[Outlet]
+		AppKit.NSButton FitLMButton { get; set; }
+
+		[Outlet]
+		AppKit.NSButton FitSimplexButton { get; set; }
+
+		[Outlet]
 		AppKit.NSStackView GlobalAffinityStyle { get; set; }
 
 		[Outlet]
@@ -86,21 +92,6 @@ namespace AnalysisITC
 		
 		void ReleaseDesignerOutlets ()
 		{
-			if (AxesScopeButton != null) {
-				AxesScopeButton.Dispose ();
-				AxesScopeButton = null;
-			}
-
-			if (ParametersScopeButton != null) {
-				ParametersScopeButton.Dispose ();
-				ParametersScopeButton = null;
-			}
-
-			if (PeakInfoScopeButton != null) {
-				PeakInfoScopeButton.Dispose ();
-				PeakInfoScopeButton = null;
-			}
-
 			if (AffinityStyleSegControl != null) {
 				AffinityStyleSegControl.Dispose ();
 				AffinityStyleSegControl = null;
@@ -114,6 +105,11 @@ namespace AnalysisITC
 			if (ApplyToAllExperimentsControl != null) {
 				ApplyToAllExperimentsControl.Dispose ();
 				ApplyToAllExperimentsControl = null;
+			}
+
+			if (AxesScopeButton != null) {
+				AxesScopeButton.Dispose ();
+				AxesScopeButton = null;
 			}
 
 			if (CstepTextField != null) {
@@ -176,9 +172,29 @@ namespace AnalysisITC
 				OstepTextField = null;
 			}
 
+			if (ParametersScopeButton != null) {
+				ParametersScopeButton.Dispose ();
+				ParametersScopeButton = null;
+			}
+
+			if (PeakInfoScopeButton != null) {
+				PeakInfoScopeButton.Dispose ();
+				PeakInfoScopeButton = null;
+			}
+
 			if (SolverStepSizeView != null) {
 				SolverStepSizeView.Dispose ();
 				SolverStepSizeView = null;
+			}
+
+			if (FitSimplexButton != null) {
+				FitSimplexButton.Dispose ();
+				FitSimplexButton = null;
+			}
+
+			if (FitLMButton != null) {
+				FitLMButton.Dispose ();
+				FitLMButton = null;
 			}
 		}
 	}
