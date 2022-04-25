@@ -149,11 +149,11 @@ namespace AnalysisITC
             else return Value.ToString(format) + " ± " + SD.ToString(format);
         }
 
-        public string AsDissociationConstant(double mag = -1)
+        public string AsDissociationConstant(double mag = -1, bool withunit = true)
         {
             if (mag < 0) mag = Math.Log10(Value);
 
-            return mag switch
+            if (withunit) return mag switch
             {
                 > 0 => ToString() + " M",
                 > -3 => (1000 * this).ToString() + " mM",
@@ -161,6 +161,15 @@ namespace AnalysisITC
                 > -9 => (1000000000 * this).ToString() + " nM",
                 > -12 => (1000000000000 * this).ToString() + " pM",
                 _ => ToString() + " M"
+            };
+            else return mag switch
+            {
+                > 0 => ToString(),
+                > -3 => (1000 * this).ToString(),
+                > -6 => (1000000 * this).ToString(),
+                > -9 => (1000000000 * this).ToString(),
+                > -12 => (1000000000000 * this).ToString(),
+                _ => ToString()
             };
         }
     }
