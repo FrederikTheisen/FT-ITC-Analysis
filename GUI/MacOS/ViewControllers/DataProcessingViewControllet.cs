@@ -270,6 +270,8 @@ namespace AnalysisITC
             else Data.SetCustomIntegrationTimes(IntegrationDelayControl.FloatValue, IntegrationLengthControl.FloatValue);
 
             BaselineGraphView.Invalidate();
+
+            Data.Processor.IntegratePeaks();
         }
 
         #endregion
