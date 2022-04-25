@@ -578,8 +578,6 @@ namespace AnalysisITC
             return new SolverConvergence(solver);
         }
 
-        static bool parallel = true;
-
         public void Bootstrap()
         {
             var solutions = new List<GlobalSolution>();
@@ -590,58 +588,27 @@ namespace AnalysisITC
 
             var start = DateTime.Now;
 
-            if (parallel)
+            var res = Parallel.For(0, Analysis.BootstrapIterations, (i) =>
             {
-                var res = Parallel.For(0, Analysis.BootstrapIterations, (i) =>
+                var models = new List<Model>();
+
+                foreach (var m in Models) models.Add(m.GenerateSyntheticModel());
+
+                var gm = new GlobalModel(Solution.Raw.Copy())
                 {
-                    var models = new List<Model>();
+                    Options = Options
+                };
 
-                    foreach (var m in Models) models.Add(m.GenerateSyntheticModel());
+                gm.Models.AddRange(models);
 
-                    var gm = new GlobalModel(Solution.Raw.Copy())
-                    {
-                        Options = Options
-                    };
+                gm.SolveWithNelderMeadAlgorithm();
 
-                    gm.Models.AddRange(models);
+                solutions.Add(gm.Solution);
 
-                    gm.SolveWithNelderMeadAlgorithm();
+                var currcounter = Interlocked.Increment(ref counter);
 
-                    solutions.Add(gm.Solution);
-
-                    var currcounter = Interlocked.Increment(ref counter);
-
-                    Analysis.ReportBootstrapProgress(currcounter);
-                });
-            }
-            else
-            {
-                for (int i = 0; i < Analysis.BootstrapIterations; i++)
-                {
-                    var models = new List<Model>();
-
-                    foreach (var m in Models) models.Add(m.GenerateSyntheticModel());
-
-                    var gm = new GlobalModel(Solution.Raw.Copy())
-                    {
-                        Options = Options
-                    };
-
-                    gm.Models.AddRange(models);
-
-                    gm.SolveWithNelderMeadAlgorithm();
-
-                    solutions.Add(gm.Solution);
-
-                    var currcounter = Interlocked.Increment(ref counter);
-
-                    Analysis.ReportBootstrapProgress(currcounter);
-                }
-            }
-
-            Console.WriteLine((DateTime.Now - start).TotalSeconds);
-
-            parallel = !parallel;
+                Analysis.ReportBootstrapProgress(currcounter);
+            });
 
             Solution.EnthalpyRef = new Energy(new FloatWithError(solutions.Select(s => s.EnthalpyRef.Value)));
             Solution.HeatCapacity = new Energy(new FloatWithError(solutions.Select(s => s.HeatCapacity.Value)));
