@@ -155,6 +155,8 @@ namespace AnalysisITC
             paste = paste.Replace('±', ' ');
 
             NSPasteboard.GeneralPasteboard.SetStringForType(paste,  "NSStringPboardType");
+
+            StatusBarManager.SetStatus("Results copied to clipboard", 3333);
         }
 
         partial void CloseButtonClicked(NSObject sender)
