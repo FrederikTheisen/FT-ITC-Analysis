@@ -149,9 +149,9 @@ namespace AnalysisITC
             else return Value.ToString(format) + " ± " + SD.ToString(format);
         }
 
-        public string AsDissociationConstant(double mag = -1, bool withunit = true)
+        public string AsDissociationConstant(double mag = 0, bool withunit = true)
         {
-            if (mag < 0) mag = Math.Log10(Value);
+            if (mag == 0) mag = Math.Log10(Value);
 
             if (withunit) return mag switch
             {

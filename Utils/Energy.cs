@@ -88,12 +88,12 @@ namespace AnalysisITC
 
             return unit switch
             {
-                EnergyUnit.Joule => FloatWithError.ToString(formatter) + suffix,
-                EnergyUnit.MicroCal => (1000000 * JouleToCalFactor * FloatWithError).ToString(formatter) + suffix,
-                EnergyUnit.Cal => (JouleToCalFactor * FloatWithError).ToString(formatter) + suffix,
-                EnergyUnit.KiloJoule => (FloatWithError / 1000).ToString(formatter) + suffix,
-                EnergyUnit.KCal => (JouleToCalFactor * FloatWithError / 1000).ToString(formatter) + suffix,
-                _ => FloatWithError.ToString(formatter) + suffix,
+                EnergyUnit.Joule => FloatWithError.ToString(formatter) + " " + suffix,
+                EnergyUnit.MicroCal => (1000000 * JouleToCalFactor * FloatWithError).ToString(formatter) + " " + suffix,
+                EnergyUnit.Cal => (JouleToCalFactor * FloatWithError).ToString(formatter) + " " + suffix,
+                EnergyUnit.KiloJoule => (FloatWithError / 1000).ToString(formatter) + " " + suffix,
+                EnergyUnit.KCal => (JouleToCalFactor * FloatWithError / 1000).ToString(formatter) + " " + suffix,
+                _ => FloatWithError.ToString(formatter) + " " + suffix,
             };
         }
     }
