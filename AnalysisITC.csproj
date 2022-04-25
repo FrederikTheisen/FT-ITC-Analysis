@@ -305,6 +305,18 @@
       <DependentUpon>BindingAnalysisViewController.cs</DependentUpon>
     </Compile>
     <Compile Include="Utils\Energy.cs" />
+    <Compile Include="TemperatureDependenceGraphView.cs" />
+    <Compile Include="TemperatureDependenceGraphView.designer.cs">
+      <DependentUpon>TemperatureDependenceGraphView.cs</DependentUpon>
+    </Compile>
+    <Compile Include="DataGraphOptionPopoverViewController.cs" />
+    <Compile Include="DataGraphOptionPopoverViewController.designer.cs">
+      <DependentUpon>DataGraphOptionPopoverViewController.cs</DependentUpon>
+    </Compile>
+    <Compile Include="FitGraphOptionPopoverViewController.cs" />
+    <Compile Include="FitGraphOptionPopoverViewController.designer.cs">
+      <DependentUpon>FitGraphOptionPopoverViewController.cs</DependentUpon>
+    </Compile>
   </ItemGroup>
   <ItemGroup>
     <InterfaceDefinition Include="Main.storyboard" />
