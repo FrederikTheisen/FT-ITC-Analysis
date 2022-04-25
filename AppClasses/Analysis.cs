@@ -578,6 +578,8 @@ namespace AnalysisITC
             return new SolverConvergence(solver);
         }
 
+        static bool parallel = true;
+
         public void Bootstrap()
         {
             var solutions = new List<GlobalSolution>();
@@ -586,27 +588,60 @@ namespace AnalysisITC
 
             Analysis.ReportBootstrapProgress(0);
 
-            for (int i = 0; i < Analysis.BootstrapIterations; i++)
+            var start = DateTime.Now;
+
+            if (parallel)
             {
-                var models = new List<Model>();
-
-                foreach (var m in Models) models.Add(m.GenerateSyntheticModel());
-
-                var gm = new GlobalModel(Solution.Raw.Copy())
+                var res = Parallel.For(0, Analysis.BootstrapIterations, (i) =>
                 {
-                    Options = Options
-                };
+                    var models = new List<Model>();
 
-                gm.Models.AddRange(models);
+                    foreach (var m in Models) models.Add(m.GenerateSyntheticModel());
 
-                gm.SolveWithNelderMeadAlgorithm();
+                    var gm = new GlobalModel(Solution.Raw.Copy())
+                    {
+                        Options = Options
+                    };
 
-                solutions.Add(gm.Solution);
+                    gm.Models.AddRange(models);
 
-                var currcounter = Interlocked.Increment(ref counter);
+                    gm.SolveWithNelderMeadAlgorithm();
 
-                Analysis.ReportBootstrapProgress(currcounter);
+                    solutions.Add(gm.Solution);
+
+                    var currcounter = Interlocked.Increment(ref counter);
+
+                    Analysis.ReportBootstrapProgress(currcounter);
+                });
             }
+            else
+            {
+                for (int i = 0; i < Analysis.BootstrapIterations; i++)
+                {
+                    var models = new List<Model>();
+
+                    foreach (var m in Models) models.Add(m.GenerateSyntheticModel());
+
+                    var gm = new GlobalModel(Solution.Raw.Copy())
+                    {
+                        Options = Options
+                    };
+
+                    gm.Models.AddRange(models);
+
+                    gm.SolveWithNelderMeadAlgorithm();
+
+                    solutions.Add(gm.Solution);
+
+                    var currcounter = Interlocked.Increment(ref counter);
+
+                    Analysis.ReportBootstrapProgress(currcounter);
+                }
+            }
+
+            Console.WriteLine((DateTime.Now - start).TotalSeconds);
+
+            parallel = !parallel;
 
             Solution.EnthalpyRef = new Energy(new FloatWithError(solutions.Select(s => s.EnthalpyRef.Value)));
             Solution.HeatCapacity = new Energy(new FloatWithError(solutions.Select(s => s.HeatCapacity.Value)));
