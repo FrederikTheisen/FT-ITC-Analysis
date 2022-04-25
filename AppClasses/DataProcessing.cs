@@ -228,9 +228,8 @@ namespace AnalysisITC
 
             //First points
             var segmmentL = (Data.InitialDelay - 5) / 4;
-            points.Add(new SplinePoint(segmmentL, GetDataRangeMean(0, 2 * segmmentL), points.Count, DataPoint.Slope(Data.DataPoints.Where(dp => dp.Time > 0 && dp.Time < 2 * segmmentL).ToList())));
-
-            points.Add(new SplinePoint(3 * segmmentL, GetDataRangeMean(2 * segmmentL, 4 * segmmentL), points.Count, DataPoint.Slope(Data.DataPoints.Where(dp => dp.Time > 2 * segmmentL && dp.Time < 4 * segmmentL).ToList())));
+            points.Add(new SplinePoint(segmmentL, GetDataRangeMean(0, 2 * segmmentL), 0, SplineSlope(segmmentL, 0, 2 * segmmentL)));
+            points.Add(new SplinePoint(3 * segmmentL, GetDataRangeMean(2 * segmmentL, 4 * segmmentL), points.Count, SplineSlope(3 * segmmentL, 2 * segmmentL, 4 * segmmentL)));
 
             foreach (var inj in Data.Injections)
             {
@@ -245,9 +244,7 @@ namespace AnalysisITC
                     var e = s + length;
                     var time = s + length * 0.5;
 
-                    double slope;
-                    if (SplineFunction != null) slope = SplineFunction.Slope(time);
-                    else slope = DataPoint.Slope(Data.DataPoints.Where(dp => dp.Time > s && dp.Time < e).ToList());
+                    double slope = SplineSlope(time, s, e);
 
                     points.Add(new SplinePoint(time, GetDataRangeMean(s, e), points.Count, slope));
                 }
@@ -255,6 +252,8 @@ namespace AnalysisITC
 
             return points;
         }
+
+        double SplineSlope(double time, double s = 0, double e = 1) => SplineFunction != null ? SplineFunction.Slope(time) : DataPoint.Slope(Data.DataPoints.Where(dp => dp.Time > s && dp.Time<e).ToList());
 
         double GetDataRangeMean(double start, double end)
         {
