@@ -12,5 +12,45 @@ namespace AnalysisITC
 		public DataGraphOptionPopoverViewController (IntPtr handle) : base (handle)
 		{
 		}
-	}
+
+        public override void ViewWillAppear()
+        {
+            base.ViewWillAppear();
+
+            UnifiedPowerAxis.State = FinalFigureGraphView.UnifiedPowerAxis ? NSCellStateValue.On : NSCellStateValue.Off;
+            DrawBaseline.State = FinalFigureGraphView.DrawBaseline ? NSCellStateValue.On : NSCellStateValue.Off;
+            TimeUnitControl.SelectSegment((int)FinalFigureGraphView.TimeAxisUnit);
+
+            if (FinalFigureGraphView.PowerAxisTitleIsChanged) PowerAxisTitleLabel.StringValue = FinalFigureGraphView.PowerAxisTitle;
+            if (FinalFigureGraphView.TimeAxisTitleIsChanged) TimeAxisTitleLabel.StringValue = FinalFigureGraphView.TimeAxisTitle;
+
+            XTickStepper.IntValue = FinalFigureGraphView.DataXTickCount;
+            YTickStepper.IntValue = FinalFigureGraphView.DataYTickCount;
+
+            UpdateTickLabels();
+        }
+
+        partial void ControlChanged(NSObject sender)
+        {
+            UpdateTickLabels();
+
+            FinalFigureGraphView.UnifiedPowerAxis = UnifiedPowerAxis.State == NSCellStateValue.On;
+            FinalFigureGraphView.DrawBaseline = DrawBaseline.State == NSCellStateValue.On;
+            FinalFigureGraphView.TimeAxisUnit = (TimeUnit)(int)TimeUnitControl.SelectedSegment;
+
+            FinalFigureGraphView.PowerAxisTitle = PowerAxisTitleLabel.StringValue;
+            FinalFigureGraphView.TimeAxisTitle = TimeAxisTitleLabel.StringValue;
+
+            FinalFigureGraphView.DataXTickCount = XTickStepper.IntValue;
+            FinalFigureGraphView.DataYTickCount = YTickStepper.IntValue;
+
+            FinalFigureGraphView.Invalidate();
+        }
+
+        void UpdateTickLabels()
+        {
+            XTickLabel.IntValue = XTickStepper.IntValue;
+            YTickLabel.IntValue = YTickStepper.IntValue;
+        }
+    }
 }

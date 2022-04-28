@@ -12,9 +12,122 @@ namespace AnalysisITC
 	[Register ("FitGraphOptionPopoverViewController")]
 	partial class FitGraphOptionPopoverViewController
 	{
+		[Outlet]
+		AppKit.NSButton BadDataErrorBars { get; set; }
+
+		[Outlet]
+		AppKit.NSButton DrawConfidence { get; set; }
+
+		[Outlet]
+		AppKit.NSButton DrawErrorBars { get; set; }
+
+		[Outlet]
+		AppKit.NSButton DrawFitParameters { get; set; }
+
+		[Outlet]
+		AppKit.NSButton DrawZeroLine { get; set; }
+
+		[Outlet]
+		AppKit.NSTextField EnthalpyAxisTitleLabel { get; set; }
+
+		[Outlet]
+		AppKit.NSButton HideBadData { get; set; }
+
+		[Outlet]
+		AppKit.NSTextField MolarRatioAxisTitleLabel { get; set; }
+
+		[Outlet]
+		AppKit.NSButton UnifiedHeatAxis { get; set; }
+
+		[Outlet]
+		AppKit.NSButton UnifiedMolarRatioAxis { get; set; }
+
+		[Outlet]
+		AppKit.NSStepper XAxisTickStepper { get; set; }
+
+		[Outlet]
+		AppKit.NSTextField XTickLabel { get; set; }
+
+		[Outlet]
+		AppKit.NSStepper YAxisTickStepper { get; set; }
+
+		[Outlet]
+		AppKit.NSTextField YTickLabel { get; set; }
+
+		[Action ("ControlClicked:")]
+		partial void ControlClicked (Foundation.NSObject sender);
 		
 		void ReleaseDesignerOutlets ()
 		{
+			if (BadDataErrorBars != null) {
+				BadDataErrorBars.Dispose ();
+				BadDataErrorBars = null;
+			}
+
+			if (DrawConfidence != null) {
+				DrawConfidence.Dispose ();
+				DrawConfidence = null;
+			}
+
+			if (DrawErrorBars != null) {
+				DrawErrorBars.Dispose ();
+				DrawErrorBars = null;
+			}
+
+			if (DrawFitParameters != null) {
+				DrawFitParameters.Dispose ();
+				DrawFitParameters = null;
+			}
+
+			if (DrawZeroLine != null) {
+				DrawZeroLine.Dispose ();
+				DrawZeroLine = null;
+			}
+
+			if (EnthalpyAxisTitleLabel != null) {
+				EnthalpyAxisTitleLabel.Dispose ();
+				EnthalpyAxisTitleLabel = null;
+			}
+
+			if (HideBadData != null) {
+				HideBadData.Dispose ();
+				HideBadData = null;
+			}
+
+			if (MolarRatioAxisTitleLabel != null) {
+				MolarRatioAxisTitleLabel.Dispose ();
+				MolarRatioAxisTitleLabel = null;
+			}
+
+			if (UnifiedHeatAxis != null) {
+				UnifiedHeatAxis.Dispose ();
+				UnifiedHeatAxis = null;
+			}
+
+			if (UnifiedMolarRatioAxis != null) {
+				UnifiedMolarRatioAxis.Dispose ();
+				UnifiedMolarRatioAxis = null;
+			}
+
+			if (YAxisTickStepper != null) {
+				YAxisTickStepper.Dispose ();
+				YAxisTickStepper = null;
+			}
+
+			if (XAxisTickStepper != null) {
+				XAxisTickStepper.Dispose ();
+				XAxisTickStepper = null;
+			}
+
+			if (YTickLabel != null) {
+				YTickLabel.Dispose ();
+				YTickLabel = null;
+			}
+
+			if (XTickLabel != null) {
+				XTickLabel.Dispose ();
+				XTickLabel = null;
+			}
 		}
 	}
 }
