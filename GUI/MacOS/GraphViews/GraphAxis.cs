@@ -16,7 +16,6 @@ namespace AnalysisITC
         public static CTFont TitleFont { get; set; } = new CTFont("Arial", 16);
 
         CGGraph cggraph;
-        CAGraph cagraph;
 
         public AxisPosition Position;
         public bool IsHorizontal => Position == AxisPosition.Bottom || Position == AxisPosition.Top;
@@ -38,8 +37,8 @@ namespace AnalysisITC
             set { ActualMax = value; TickScale.SetMinMaxPoints(ActualMin, ActualMax); }
         }
 
-        float buffer = 0.035f;
-        public float Buffer
+        double buffer = 0.035f;
+        public double Buffer
         {
             get => buffer;
             set
@@ -54,6 +53,7 @@ namespace AnalysisITC
         public Utilities.NiceScale TickScale;
 
         public bool UseNiceAxis { get; set; } = false;
+        public bool HideUnwantedTicks { get; set; } = true;
 
         public int DecimalPoints { get; set; } = 1;
         double valueFactor = 1;
@@ -105,7 +105,6 @@ namespace AnalysisITC
 
         public GraphAxis(CAGraph graph, double min, double max, AxisPosition position = AxisPosition.Unknown)
         {
-            this.cagraph = graph;
             Initialize(min, max, position);
         }
 
@@ -128,8 +127,8 @@ namespace AnalysisITC
 
         public static GraphAxis WithBuffer(object obj, double min, double max, double buffer = 0.035, AxisPosition position = AxisPosition.Unknown) => obj switch
         {
-            CGGraph graph => new GraphAxis(graph, min - (max - min) * buffer, max + (max - min) * buffer, position),
-            CAGraph graph => new GraphAxis(graph, min - (max - min) * buffer, max + (max - min) * buffer, position),
+            CGGraph graph => new GraphAxis(graph, min - (max - min) * buffer, max + (max - min) * buffer, position) { Buffer = buffer },
+            CAGraph graph => new GraphAxis(graph, min - (max - min) * buffer, max + (max - min) * buffer, position) { Buffer = buffer },
             _ => null,
         };
 
@@ -151,7 +150,7 @@ namespace AnalysisITC
             SetTickScale();
         }
 
-        void UpdateAutoScale(float old)
+        void UpdateAutoScale(double old)
         {
             var delta = ActualMax - ActualMin;
             var old_delta = delta / (2 * old + 1);
@@ -159,8 +158,8 @@ namespace AnalysisITC
             var old_min = ActualMin + old_delta * old;
             var old_max = ActualMax - old_delta * old;
 
-            this.ActualMin = old_min - old_delta * buffer;
-            this.ActualMax = old_max + old_delta * buffer;
+            this.ActualMin = (float)(old_min - old_delta * buffer);
+            this.ActualMax = (float)(old_max + old_delta * buffer);
 
             SetTickScale();
         }
@@ -188,20 +187,35 @@ namespace AnalysisITC
             DecimalPoints = maxdigits;
         }
 
-        public List<double> GetValidTicks(bool includeborderticks = true)
+        public (List<double>, List<double>) GetValidTicks(bool includeborderticks = true)
         {
             var tickvalues = TickScale.Ticks();
+
+            if (HideUnwantedTicks)
+            {
+                bool hideabovezero = tickvalues.Count(v => v < 0) > tickvalues.Count(v => v > 0);
+
+                if (hideabovezero) tickvalues.RemoveAll(v => v > 0);
+                else tickvalues.RemoveAll(v => v < 0);
+            }
+
+            var minortickvalues = tickvalues.Select(t => t + 0.5 * (tickvalues[0] - tickvalues[1])).ToList();
             tickvalues.RemoveAll(v => v / ValueFactor < Min || v / ValueFactor > Max);
             if (!includeborderticks) tickvalues.RemoveAll(v => v == Min || v == Max);
 
-            return tickvalues;
+            return (tickvalues, minortickvalues);
         }
 
         public void Draw(CGContext gc)
         {
-            var tickvalues = TickScale.Ticks();
-            var minortickvalues = tickvalues.Select(t => t + 0.5 * (tickvalues[1] - tickvalues[2])).ToList();
-            tickvalues.RemoveAll(v => v / ValueFactor < Min || v / ValueFactor > Max);
+            //var tickvalues = TickScale.Ticks();
+            //var minortickvalues = tickvalues.Select(t => t + 0.5 * (tickvalues[1] - tickvalues[2])).ToList();
+            //tickvalues.RemoveAll(v => v / ValueFactor < Min || v / ValueFactor > Max);
+
+            var ticks = GetValidTicks(false);
+
+            List<double> tickvalues = ticks.Item1;
+            List<double> minortickvalues = ticks.Item2;
 
             var origin = cggraph.Frame.Location;
 
