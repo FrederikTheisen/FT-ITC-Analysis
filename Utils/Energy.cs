@@ -5,8 +5,8 @@ namespace AnalysisITC
 {
     public struct Energy
     {
-        const double CalToJouleFactor = 4.184;
-        const double JouleToCalFactor = 1 / 4.184;
+        public const double CalToJouleFactor = 4.184;
+        public const double JouleToCalFactor = 1 / 4.184;
         const double MicroFactor = 0.000001;
         public static readonly Energy R = new Energy(8.3145);
 

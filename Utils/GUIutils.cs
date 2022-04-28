@@ -3,6 +3,7 @@ using AppKit;
 using System.Collections.Generic;
 using CoreGraphics;
 using AnalysisITC;
+using System.Linq;
 
 namespace Utilities
 {
@@ -223,11 +224,21 @@ namespace Utilities
             Type = FeatureType.IntegratedInjectionPoint;
             FeatureID = inj.ID;
 
-            tooltiplines.Add("Inj #" + inj.ID + "  " + inj.Temperature.ToString("F2") + " °C");
-            tooltiplines.Add("Time: " + inj.Time.ToString("F1") + "s");
+            tooltiplines.Add("Inj #" + (inj.ID + 1));
+            //tooltiplines.Add("Time: " + inj.Time.ToString("F1") + "s");
             tooltiplines.Add("Ratio: " + inj.Ratio.ToString("F2"));
             tooltiplines.Add("Area: " + (inj.OffsetEnthalpy/1000).ToString("F1") + " kJ/mol");
+            tooltiplines.Add("Temperature: " + inj.Temperature.ToString("F2") + " °C");
             if (inj.Experiment.Solution != null) tooltiplines.Add("Residual: " + ((inj.Enthalpy - inj.Experiment.Solution.Evaluate(inj.ID, true))/1000).ToString("G2") + " kJ/mol");
+
+            int longest = tooltiplines.Max(l => l.Length);
+
+            string timestring = inj.Time.ToString("F1") + "s";
+
+            int spaces = longest - timestring.Length - tooltiplines[0].Length + 3;
+            if (spaces < 1) spaces = 1;
+
+            tooltiplines[0] += new string(' ', spaces) + timestring;
         }
 
         public enum FeatureType
