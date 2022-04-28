@@ -37,5 +37,37 @@ namespace AnalysisITC
             Invalidate();
         }
 
+        public override void MouseEntered(NSEvent theEvent)
+        {
+            if (Graph == null) return;
+
+            base.MouseEntered(theEvent);
+        }
+
+        public override void MouseExited(NSEvent theEvent)
+        {
+            if (Graph == null) return;
+
+            base.MouseExited(theEvent);
+
+            Invalidate();
+        }
+
+        public override void MouseMoved(NSEvent theEvent)
+        {
+            if (Graph == null) return;
+
+            base.MouseMoved(theEvent);
+
+            var update = (Graph as FileInfoGraph).SetCursorInfo(CursorPositionInView);
+
+            if (update)
+            {
+                NSCursor.CrosshairCursor.Set();
+
+                Invalidate();
+            }
+            else NSCursor.ArrowCursor.Set();
+        }
     }
 }
