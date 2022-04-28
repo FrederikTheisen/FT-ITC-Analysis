@@ -150,6 +150,7 @@ namespace DataReaders
                     else if (counter == 5) experiment.InitialDelay = LineToFloat(line);
                     else if (counter == 6) experiment.StirringSpeed = LineToFloat(line);
                     else if (counter == 7) experiment.TargetPowerDiff = LineToFloat(line);
+                    else if (counter == 8) experiment.FeedBackMode = (FeedbackMode)LineToInt(line);
                     else if (counter >= 11 && line[0] == '$')
                     {
                         experiment.AddInjection(line);
@@ -179,6 +180,12 @@ namespace DataReaders
         {
             Console.WriteLine(line);
             return float.Parse(line.Substring(1).Trim());
+        }
+
+        private static int LineToInt(string line)
+        {
+            Console.WriteLine(line);
+            return int.Parse(line.Substring(1).Trim());
         }
 
         static void ReadInjection(ExperimentData experiment, string line)
