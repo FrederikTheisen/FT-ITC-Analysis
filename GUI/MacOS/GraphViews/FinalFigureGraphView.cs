@@ -10,30 +10,178 @@ namespace AnalysisITC
 {
 	public partial class FinalFigureGraphView : NSView
 	{
-		public FinalFigureGraphView (IntPtr handle) : base (handle)
+        public static event EventHandler Invalidated;
+
+        public static event EventHandler PlotSizeChanged;
+
+        static EnergyUnit energyUnit = EnergyUnit.KiloJoule; 
+        public static EnergyUnit EnergyUnit
+        {
+            get => energyUnit;
+            set
+            {
+                if (value.IsSI()) energyUnit = EnergyUnit.KiloJoule; //TODO update this vlaue based on program preferences
+                else energyUnit = EnergyUnit.KCal;
+            }
+        }
+
+        static string poweraxistitle = "";
+        public static string PowerAxisTitle
+        {
+            get => poweraxistitle != "" ? poweraxistitle : "Differential Power (<unit>)";
+            set
+            {
+                if (value == "") return;
+                if (!value.Contains("<unit>")) value += " (<unit>)";
+
+                poweraxistitle = value;
+            }
+        }
+        public static bool PowerAxisTitleIsChanged => poweraxistitle == "";
+
+        static string timeaxistitle = "";
+        public static string TimeAxisTitle
+        {
+            get => timeaxistitle != "" ? timeaxistitle : "Time (<unit>)";
+            set
+            {
+                if (value == "") return;
+                if (!value.Contains("<unit>")) value += " (<unit>)";
+
+                timeaxistitle = value;
+            }
+        }
+        public static bool TimeAxisTitleIsChanged => timeaxistitle == "";
+
+        static string enthalpyaxistitle = "";
+        public static string EnthalpyAxisTitle
+        {
+            get => enthalpyaxistitle != "" ? enthalpyaxistitle : "<unit> of injectant";
+            set
+            {
+                if (value == "") return;
+                if (!value.Contains("<unit>")) value = "<unit> " + value;
+
+                enthalpyaxistitle = value;
+            }
+        }
+        public static bool EnthalpyAxisTitleAxisTitleIsChanged => enthalpyaxistitle == "";
+
+        static string molarratioaxistitle = "";
+        public static string MolarRatioAxisTitle
+        {
+            get => molarratioaxistitle != "" ? molarratioaxistitle : "Molar Ratio";
+            set => molarratioaxistitle = value;
+        }
+        public static bool MolarRatioAxisTitleIsChanged => molarratioaxistitle == "";
+
+        public static float Width { get; set; } = 6;
+        public static float Height { get; set; } = 10;
+
+        public static bool SanitizeTicks { get; set; } = true;
+        public static int FitXTickCount { get; set; } = 7;
+        public static int FitYTickCount { get; set; } = 7;
+        public static int DataXTickCount { get; set; } = 7;
+        public static int DataYTickCount { get; set; } = 7;
+
+        public static bool UseUnifiedHeatAxis { get; set; } = false;
+        public static bool UseUnifiedMolarRatioAxis { get; set; } = false;
+        public static bool DrawZeroLine { get; set; } = true;
+        public static bool ShowErrorBars { get; set; } = true;
+        public static bool ShowBadDataErrorBars { get; set; } = false;
+        public static bool DrawConfidence { get; set; } = true;
+        public static bool DrawFitParameters { get; set; } = false;
+        public static bool ShowBadData { get; set; } = true;
+
+        public static bool UnifiedPowerAxis { get; set; } = false;
+        public static bool DrawBaseline { get; set; } = false;
+        public static TimeUnit TimeAxisUnit { get; set; } = TimeUnit.Minute;
+
+        public static void Invalidate() => Invalidated?.Invoke(null, null);
+
+        FinalFigure graph;
+        public CGPoint Center { get; set; } = new CGPoint();
+
+        public FinalFigureGraphView (IntPtr handle) : base (handle)
 		{
             DataManager.SelectionDidChange += DataManager_SelectionDidChange;
+            Invalidated += FinalFigureGraphView_Invalidated;
+
+            LayerContentsRedrawPolicy = NSViewLayerContentsRedrawPolicy.OnSetNeedsDisplay;
 		}
+
+        private void FinalFigureGraphView_Invalidated(object sender, EventArgs e)
+        {
+            InitializeGraph();
+
+            this.NeedsDisplay = true;
+        }
 
         private void DataManager_SelectionDidChange(object sender, ExperimentData e)
         {
+            InitializeGraph();
+
             this.NeedsDisplay = true;
+        }
+
+        void InitializeGraph()
+        {
+            if (StateManager.CurrentState != ProgramState.Publish) return;
+            if (DataManager.Current == null) return;
+            graph = new FinalFigure(DataManager.Current, this)
+            {
+                PlotDimensions = new CGSize(Width, Height),
+                SanitizeTicks = SanitizeTicks,
+
+                PowerAxisTitle = PowerAxisTitle,
+                TimeAxisTitle = TimeAxisTitle,
+                UseUnifiedDataAxes = UnifiedPowerAxis,
+                //graph.DrawBaseline = DrawBaseline;
+
+                EnthalpyAxisTitle = EnthalpyAxisTitle,
+                MolarRatioAxisTitle = MolarRatioAxisTitle,
+                UseUnifiedAnalysisAxes = UseUnifiedHeatAxis,
+                //graph.UseUnifiedMolarRatioAxis = UseUnifiedMolarRatioAxis;
+                ShowBadDataPoints = ShowBadData,
+                ShowBadDataErrorBars = ShowBadDataErrorBars,
+                ShowErrorBars = ShowErrorBars,
+                DrawConfidence = DrawConfidence,
+                DrawZeroLine = DrawZeroLine,
+                DrawFitParameters = DrawFitParameters
+            };
+
+            graph.SetTimeUnit(TimeAxisUnit);
+            graph.SetEnergyUnit(EnergyUnit);
+            graph.SetTickNumber(DataXTickCount, DataYTickCount, FitXTickCount, FitYTickCount);
+
+            SetFrameSize(graph.PrintBox.Size); //TODO update view position in box.
+
+            Console.WriteLine(Frame.ToString());
+
+            PlotSizeChanged?.Invoke(graph, null);
+        }
+
+        public void Export()
+        {
+            Print(this);
         }
 
         public override void DrawRect(CGRect dirtyRect)
         {
-            base.DrawRect(dirtyRect);
+            Console.WriteLine("FF Draw");
+            Console.WriteLine(Frame.ToString());
 
+            if (StateManager.CurrentState != ProgramState.Publish) return;
             if (DataManager.Current == null) return;
+            if (graph == null) { InitializeGraph(); }
 
-            var graph = new FinalFigure(DataManager.Current, this);
+            base.DrawRect(dirtyRect);
 
             var cg = NSGraphicsContext.CurrentContext.CGContext;
 
-            cg.SetFillColor(NSColor.SystemGray.CGColor);
-            cg.FillRect(Frame);
+            graph.Draw(cg, new CGPoint(Frame.Width / 2, Frame.Height / 2)); //TODO use frame instead of dirtyrect
 
-            graph.Draw(cg, new CGPoint(dirtyRect.GetMidX(), dirtyRect.GetMidY()));
+            Console.WriteLine(Frame.ToString());
         }
     }
 }
