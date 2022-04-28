@@ -317,6 +317,18 @@
     <Compile Include="FitGraphOptionPopoverViewController.designer.cs">
       <DependentUpon>FitGraphOptionPopoverViewController.cs</DependentUpon>
     </Compile>
+    <Compile Include="GraphOptionsPopoverViewController.cs" />
+    <Compile Include="GraphOptionsPopoverViewController.designer.cs">
+      <DependentUpon>GraphOptionsPopoverViewController.cs</DependentUpon>
+    </Compile>
+    <Compile Include="FinalFigureViewController.cs" />
+    <Compile Include="FinalFigureViewController.designer.cs">
+      <DependentUpon>FinalFigureViewController.cs</DependentUpon>
+    </Compile>
+    <Compile Include="FittingOptionsPopoverViewController.cs" />
+    <Compile Include="FittingOptionsPopoverViewController.designer.cs">
+      <DependentUpon>FittingOptionsPopoverViewController.cs</DependentUpon>
+    </Compile>
   </ItemGroup>
   <ItemGroup>
     <InterfaceDefinition Include="Main.storyboard" />
