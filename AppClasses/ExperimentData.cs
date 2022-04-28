@@ -13,10 +13,6 @@ namespace AnalysisITC
         public event EventHandler ProcessingUpdated;
         public event EventHandler SolutionChanged;
 
-        //public string FileName { get; protected set; } = "";
-        //public DateTime Date { get; internal set; }
-        //public readonly string UniqueID = Guid.NewGuid().ToString();
-
         public List<DataPoint> DataPoints = new List<DataPoint>();
         public List<DataPoint> BaseLineCorrectedDataPoints;
         public List<InjectionData> Injections = new List<InjectionData>();
@@ -25,6 +21,7 @@ namespace AnalysisITC
         public double CellConcentration;
         public double CellVolume;
         public double StirringSpeed;
+        public FeedbackMode FeedBackMode;
 
         public double TargetTemperature;
         public double InitialDelay;
@@ -322,25 +319,28 @@ namespace AnalysisITC
 
         public double EstimateError()
         {
-            float seg1_s;
-            float seg1_e = Time;
-            if (ID == 0) seg1_s = 0;
-            else seg1_s = Experiment.Injections[ID - 1].Time;
+            float start;
+            float end = Time + Delay - 1;
+            if (ID == 0) start = 0;
+            else start = Experiment.Injections[ID - 1].Time;
 
-            //var baselinedata = Experiment.BaseLineCorrectedDataPoints.Where(dp => (dp.Time >= seg1_s && dp.Time <= seg1_e) || (dp.Time > IntegrationEndTime && dp.Time < Time + Delay));
+            var baselinedata = Experiment.BaseLineCorrectedDataPoints.Where(dp => dp.Time >= start && dp.Time <= end);
 
-            var baselinedata = Experiment.BaseLineCorrectedDataPoints.Where(dp => dp.Time > seg1_s && dp.Time < Time + Delay);
+            return ResidualSum(baselinedata);
 
-            double sum_of_squares = 0;
-
-            foreach (var dp in baselinedata)
+            static double ResidualSum(IEnumerable<DataPoint> baselinedata)
             {
-                var p = dp.Power;
-                
-                sum_of_squares += Math.Abs(p);
-            }
+                double sum_of_squares = 0;
 
-            return sum_of_squares;
+                foreach (var dp in baselinedata)
+                {
+                    var p = dp.Power;
+
+                    sum_of_squares += Math.Abs(p);
+                }
+
+                return sum_of_squares;
+            }
         }
     }
 
@@ -464,5 +464,15 @@ namespace AnalysisITC
         Unknown,
         Exothermal,
         Endothermal
+    }
+
+    public enum FeedbackMode
+    {
+        [FeedbackMode("None")]
+        None = 0,
+        [FeedbackMode("Low")]
+        Low = 1,
+        [FeedbackMode("High")]
+        High = 2
     }
 }
