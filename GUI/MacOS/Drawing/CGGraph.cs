@@ -377,8 +377,7 @@ namespace AnalysisITC
 
         public void DrawText(CGContext context, string text, nfloat textHeight, nfloat x, nfloat y, CGColor textcolor = null)
         {
-            if (textcolor == null) textcolor = NSColor.LabelColor.CGColor;
-
+            if (textcolor == null) textcolor = NSColor.Label.CGColor;
 
             y = (nfloat)PlotPixelHeight - y - textHeight;
             context.SetFillColor(StrokeColor);
@@ -478,6 +477,7 @@ namespace AnalysisITC
             {
                 UseNiceAxis = false,
             };
+            YAxis = GraphAxis.WithBuffer(this, DataPoints.Min(dp => dp.Power), DataPoints.Max(dp => dp.Power));
 
             SetupYAxes();
         }
@@ -489,9 +489,9 @@ namespace AnalysisITC
                 var ymin = DataManager.IncludedData.Min(d => d.BaseLineCorrectedDataPoints.Min(dp => dp.Power));
                 var ymax = DataManager.IncludedData.Max(d => d.BaseLineCorrectedDataPoints.Max(dp => dp.Power));
 
-                YAxis = new GraphAxis(this, ymin, ymax);
+                YAxis.SetWithBuffer(ymin, ymax, YAxis.Buffer); //= GraphAxis.WithBuffer(this, ymin, ymax, buffer);// new GraphAxis(this, ymin, ymax);
             }
-            else YAxis = new GraphAxis(this, DataPoints.Min(dp => dp.Power), DataPoints.Max(dp => dp.Power));
+            else YAxis.SetWithBuffer(DataPoints.Min(dp => dp.Power), DataPoints.Max(dp => dp.Power), YAxis.Buffer);// = GraphAxis.WithBuffer(this, , , buffer);
         }
 
         internal override void Draw(CGContext gc)
@@ -513,14 +513,39 @@ namespace AnalysisITC
         GraphAxis TemperatureAxis { get; set; }
         public List<string> Info { get; private set; }
 
+        public bool DrawCursorPositionInfo { get; set; } = false;
+        double CursorPosition { get; set; }
+        List<string> CursorInfo { get; set; } = new List<string>();
+
         public FileInfoGraph(ExperimentData experiment, NSView view) : base(experiment, view)
         {
+            string injdescription = "";
+
+            for (int i = 0; i < experiment.Injections.Count; i++)
+            {
+                var curr = experiment.Injections[i];
+                var next = i < experiment.InjectionCount - 1 ? experiment.Injections[i + 1] : null;
+                var prev = i > 0 ? experiment.Injections[i - 1] : null;
+
+                if (experiment.Injections.Where(inj => inj.ID > i).All(inj => inj.Volume == curr.Volume))
+                {
+                    injdescription += "#" + (i + 1).ToString() + "-" + experiment.Injections.Count.ToString() + ": " + (1000000 * curr.Volume).ToString("F1") + " µl, ";
+                    break;
+                }
+                else if (next != null && curr.Volume != next.Volume)
+                    injdescription += "#" + (i + 1).ToString() + ": " + (1000000 * curr.Volume).ToString("F1") + " µl, ";
+                else if (prev != null && curr.Volume != prev.Volume)
+                    injdescription += "#" + (i + 1).ToString() + ": " + (1000000 * curr.Volume).ToString("F1") + " µl, ";
+            }
+
+            injdescription = injdescription.Substring(0, injdescription.Length - 2);
+
             Info = new List<string>()
                 {
                     "Filename: " + experiment.FileName,
                     "Date: " + experiment.Date.ToLocalTime().ToLongDateString() + " " + experiment.Date.ToLocalTime().ToString("HH:mm"),
-                    "Temperature | Target: " + experiment.TargetTemperature.ToString() + " °C | Measured: " + experiment.MeasuredTemperature.ToString("G4") + " °C",
-                    "Injections: " + experiment.InjectionCount.ToString(),
+                    "Temperature | Target: " + experiment.TargetTemperature.ToString() + " °C [Measured: " + experiment.MeasuredTemperature.ToString("G4") + " °C] | Feedback Mode: " + experiment.FeedBackMode.GetProperties().Name + " | Stirring Speed: " + experiment.StirringSpeed.ToString() + " rpm",
+                    "Injections: " + experiment.InjectionCount.ToString() + " [" + injdescription + "]",
                     "Concentrations | Cell: " + (experiment.CellConcentration*1000000).ToString("G3") + " µM | Syringe: " + (experiment.SyringeConcentration*1000000).ToString("G3") + " µM",
                 };
 
@@ -536,22 +561,18 @@ namespace AnalysisITC
         {
             base.AutoSetFrame();
 
-            //var infoheight = (DefaultFontHeight + 5) * info.Count + 10;
-
-            //PlotSize.Height -= infoheight;// = new CGSize(View.Frame.Width - YAxis.EstimateLabelMargin() - TemperatureAxis.EstimateLabelMargin(), View.Frame.Height - XAxis.EstimateLabelMargin() - infoheight);
             PlotSize.Width -= TemperatureAxis.EstimateLabelMargin();
-            //Origin = new CGPoint(Center.X - PlotSize.Width * 0.5f, Center.Y - (PlotSize.Height + infoheight) * 0.5f + XAxis.EstimateLabelMargin());
         }
 
         internal override void Draw(CGContext gc)
         {
-            //DrawInfo(gc);
-
             DrawTemperature(gc);
 
             TemperatureAxis.Draw(gc);
 
             base.Draw(gc);
+
+            if (DrawCursorPositionInfo) DrawInfo(gc);
         }
 
         void DrawTemperature(CGContext gc)
@@ -576,20 +597,67 @@ namespace AnalysisITC
             DrawDataSeries(gc, jacket, 1, NSColor.SystemRed.CGColor);
         }
 
-        public void DrawInfo(CGContext gc)
+        void DrawInfo(CGContext gc)
         {
-            var layer = CGLayer.Create(gc, View.Frame.Size);
+            var layer = CGLayer.Create(gc, Frame.Size);
 
-            var pos = new CGPoint(5, View.Frame.Height);
+            var min = GetRelativePosition(CursorPosition, YAxis.Min);
+            var max = new CGPoint(min.X, Frame.Height);
 
-            foreach (var l in Info)
+            layer.Context.MoveTo(min.X, min.Y);
+            layer.Context.AddLineToPoint(max.X, max.Y);
+            layer.Context.StrokePath();
+
+            CGPoint pos = new CGPoint(20, Frame.Height - 20);
+            CGRect box = new CGRect(pos.Add(Frame.Location), new CGSize(20, 20));
+
+            foreach (var line in CursorInfo)
             {
-                var s = DrawString(layer, l, pos, DefaultFont, null, TextAlignment.Left, TextAlignment.Top);
+                var size = DrawString(layer, line, pos, DefaultFont, horizontalignment: TextAlignment.Left);
 
-                pos.Y -= (s.Height + 5);
+                if (size.Width > box.Width) box.Width = size.Width;
+
+                box.Height += size.Height;
+
+                pos.Y -= size.Height + 5;
             }
 
-            gc.DrawLayer(layer, new CGPoint(0, 0));
+            box.Width += 20;
+            box.Height += 10;
+            box.X -= 10;
+
+            box.Y = pos.Y + Frame.Y;
+
+            gc.SetFillColor(NSColor.ControlBackground.CGColor);
+            gc.FillRect(box);
+            gc.StrokeRect(box);
+
+
+            gc.DrawLayer(layer, Frame.Location);
+        }
+
+        public bool SetCursorInfo(CGPoint cursorpos)
+        {
+            if (Frame.Contains(cursorpos))
+            {
+                DrawCursorPositionInfo = true;
+
+                var xfraction = (cursorpos.X - Frame.X) / Frame.Width;
+
+                CursorPosition = xfraction * (XAxis.Max - XAxis.Min);
+
+                CursorInfo = new List<string>();
+
+                var datapoint = CursorPosition > ExperimentData.DataPoints.Last().Time ? ExperimentData.DataPoints.Last() : ExperimentData.DataPoints.First(dp => dp.Time > CursorPosition);
+
+                CursorInfo.Add("Time: " + datapoint.Time.ToString() + "s");
+                CursorInfo.Add("DP: " + (DataManager.Unit.IsSI() ? (datapoint.Power * 1000000).ToString("F1") + " µW" : (datapoint.Power * 1000000 * Energy.JouleToCalFactor).ToString("F1") + " µCal"));
+                CursorInfo.Add("Temperature: " + datapoint.Temperature.ToString("F2") + " °C");
+                CursorInfo.Add("Jacket Temp: " + datapoint.ShieldT.ToString("F3") + " °C");
+            }
+            else DrawCursorPositionInfo = false;
+
+            return DrawCursorPositionInfo;
         }
     }
 
@@ -810,34 +878,11 @@ namespace AnalysisITC
 
         public override MouseOverFeatureEvent IsCursorOnFeature(CGPoint cursorpos, bool isclick = false, bool ismouseup = false)
         {
-            int id = 0;
-
             foreach (var handle in SplineHandlePoints)
                 if (handle.CursorInBox(cursorpos)) return new MouseOverFeatureEvent(handle);
 
             foreach (var point in SplinePoints)
                 if (point.CursorInBox(cursorpos)) return new MouseOverFeatureEvent(point);
-
-            //if (ShowBaseline && ExperimentData.Processor.Interpolator is SplineInterpolator)
-            //    foreach (var sp in (ExperimentData.Processor.Interpolator as SplineInterpolator).SplinePoints)
-            //    {
-            //        var handle_screen_pos = GetRelativePosition(sp.Time, sp.Power) + new CGSize(Origin);
-
-            //        if (ShowBaselineCorrected) handle_screen_pos = GetRelativePosition(sp.Time, 0) + new CGSize(Origin);
-
-            //        if (Math.Abs(cursorpos.X - 2 - handle_screen_pos.X) < 5)
-            //        {
-            //            if (Math.Abs(cursorpos.Y - handle_screen_pos.Y) < 5)
-            //            {
-            //                return new MouseOverFeatureEvent(MouseOverFeatureEvent.FeatureType.BaselineSplinePoint)
-            //                {
-            //                    FeatureID = id
-            //                };
-            //            }
-            //        }
-
-            //        id++;
-            //    }
 
             return new MouseOverFeatureEvent();
         }
@@ -848,18 +893,31 @@ namespace AnalysisITC
         private bool _useUnifiedAxes = false;
 
         public bool UseUnifiedAxes { get => _useUnifiedAxes; set { _useUnifiedAxes = value; SetupAxes(); } }
-        public bool ShowPeakInfo { get; set; } = false;
-        public bool ShowErrorBars { get; set; } = false;
-        public bool ShowFitParameters { get; set; } = false;
+        public bool ShowPeakInfo { get; set; } = true;
+        public bool ShowErrorBars { get; set; } = true;
+        public bool DrawConfidenceBands { get; set; } = true;
+        public bool ShowFitParameters { get; set; } = true;
         public bool ShowGrid { get; set; } = true;
         public bool ShowZero { get; set; } = true;
         public bool HideBadData { get; set; } = false;
-        public bool HideBadDataErrorBars { get; set; } = false;
+        public bool HideBadDataErrorBars { get; set; } = true;
 
         static CGSize ErrorBarEndWidth = new CGSize(SquareSize / 2, 0);
 
         public DataFittingGraph(ExperimentData experiment, NSView view) : base(experiment, view)
         {
+            XAxis = new GraphAxis(this, 0, 1);
+            XAxis.SetWithBuffer(0, Math.Max(Math.Floor(XAxis.Max + 0.33f), XAxis.Max), 0.05);
+            XAxis.UseNiceAxis = false;
+            XAxis.LegendTitle = "Molar Ratio";
+            XAxis.DecimalPoints = 1;
+            XAxis.TickScale.SetMaxTicks(7);
+
+            YAxis = new GraphAxis(this, 0, 1);
+            YAxis.UseNiceAxis = false;
+            YAxis.LegendTitle = "kJ mol⁻¹ of injectant";
+            YAxis.ValueFactor = 0.001f;
+
             SetupAxes();
         }
 
@@ -879,28 +937,30 @@ namespace AnalysisITC
                     ymin = Math.Min(ymin, DataManager.IncludedData.Where(d => d.Solution != null).Min(d => (float)d.Solution.Enthalpy));
                 }
 
-                XAxis = GraphAxis.WithBuffer(this, xmin, xmax, 0.05, AxisPosition.Bottom);
-                YAxis = GraphAxis.WithBuffer(this, ymin, ymax, 0.1, AxisPosition.Left);
+                XAxis.SetWithBuffer(xmin, xmax, 0.05);// = GraphAxis.WithBuffer(this, xmin, xmax, 0.05, AxisPosition.Bottom);
+                YAxis.SetWithBuffer(ymin, ymax, 0.1);// = GraphAxis.WithBuffer(this, ymin, ymax, 0.1, AxisPosition.Left);
             }
             else
             {
-                XAxis = GraphAxis.WithBuffer(this, 0, ExperimentData.Injections.Last().Ratio, 0.05, AxisPosition.Bottom);
+                XAxis.SetWithBuffer(0, ExperimentData.Injections.Last().Ratio, 0.05);
 
                 var solutionenthalpy = ExperimentData.Solution != null ? (float)ExperimentData.Solution.Enthalpy : 0;
                 var minenthalpy = Math.Min(ExperimentData.Injections.Min(inj => (float)inj.OffsetEnthalpy), Math.Min(solutionenthalpy, 0));
                 var maxenthalpy = Math.Max(ExperimentData.Injections.Max(inj => (float)inj.OffsetEnthalpy), Math.Max(solutionenthalpy, 0));
 
-                YAxis = GraphAxis.WithBuffer(this, minenthalpy, maxenthalpy, 0.1, AxisPosition.Left);
+                YAxis.SetWithBuffer(minenthalpy, maxenthalpy, 0.1);// = GraphAxis.WithBuffer(this, minenthalpy, maxenthalpy, 0.1, AxisPosition.Left);
             }
 
             XAxis.SetWithBuffer(0, Math.Max(Math.Floor(XAxis.Max + 0.33f), XAxis.Max), 0.05);
-            XAxis.UseNiceAxis = false;
-            XAxis.LegendTitle = "Molar Ratio";
-            XAxis.DecimalPoints = 1;
-            XAxis.TickScale.SetMaxTicks(7);
-            YAxis.UseNiceAxis = false;
-            YAxis.LegendTitle = "kJ mol⁻¹ of injectant";
-            YAxis.ValueFactor = 0.001f;
+            //XAxis.UseNiceAxis = false;
+            //XAxis.LegendTitle = "Molar Ratio";
+            //XAxis.DecimalPoints = 1;
+            //XAxis.TickScale.SetMaxTicks(7);
+            //XAxis.MirrorTicks = mirrorx;
+            //YAxis.UseNiceAxis = false;
+            //YAxis.LegendTitle = "kJ mol⁻¹ of injectant";
+            //YAxis.ValueFactor = 0.001f;
+            //YAxis.MirrorTicks = mirrory;
         }
 
         internal override void Draw(CGContext gc)
@@ -909,11 +969,11 @@ namespace AnalysisITC
 
             if (ShowGrid) DrawGrid(gc);
 
-            DrawZero(gc);
+            if (ShowZero) DrawZero(gc);
 
             if (ExperimentData.Solution != null)
             {
-                DrawConfidenceInterval(gc);
+                if (DrawConfidenceBands) DrawConfidenceInterval(gc);
                 DrawFit(gc);
             }
 
@@ -942,8 +1002,8 @@ namespace AnalysisITC
                 if ((ShowPeakInfo || ShowErrorBars) && !(HideBadDataErrorBars && !inj.Include))
                 {
                     var sd = Math.Abs(inj.SD / inj.PeakArea);
-                    var etop = GetRelativePosition(inj.Ratio, inj.OffsetEnthalpy - inj.OffsetEnthalpy * sd);
-                    var ebottom = GetRelativePosition(inj.Ratio, inj.OffsetEnthalpy + inj.OffsetEnthalpy * sd);
+                    var etop = GetRelativePosition(inj.Ratio, inj.OffsetEnthalpy - inj.Enthalpy * sd);
+                    var ebottom = GetRelativePosition(inj.Ratio, inj.OffsetEnthalpy + inj.Enthalpy * sd);
 
                     if (etop.Y - p.Y > SquareSize / 2)
                     {
@@ -1015,8 +1075,8 @@ namespace AnalysisITC
 
         void DrawGrid(CGContext gc)
         {
-            var yticks = YAxis.GetValidTicks(false);
-            var xticks = XAxis.GetValidTicks(false);
+            var yticks = YAxis.GetValidTicks(false).Item1;
+            var xticks = XAxis.GetValidTicks(false).Item1;
 
             var grid = new CGPath();
 
@@ -1072,19 +1132,24 @@ namespace AnalysisITC
             layer.Context.SetLineDash(3, new nfloat[] { 3 });
             layer.Context.StrokePath();
 
-            var points = new List<CGPoint>();
+            //var points = new List<CGPoint>();
 
-            foreach (var inj in ExperimentData.Injections)
-            {
-                var x = inj.Ratio;
-                var y = ExperimentData.Solution.Evaluate(inj.ID, withoffset: false);
+            //foreach (var inj in ExperimentData.Injections)
+            //{
+            //    var x = inj.Ratio;
+            //    var y = ExperimentData.Solution.Evaluate(inj.ID, withoffset: false);
 
-                points.Add(GetRelativePosition(x, y));
-            }
+            //    points.Add(GetRelativePosition(x, y));
+            //}
 
-            DrawRectsAtPositions(layer, points.ToArray(), 8, true, false, color: SecondaryLineColor);
+            //DrawRectsAtPositions(layer, points.ToArray(), 8, true, false, color: SecondaryLineColor);
 
             gc.DrawLayer(layer, Frame.Location);
+        }
+
+        void DrawParameterBox(CGContext gc)
+        {
+
         }
 
         void DrawConfidenceInterval(CGContext gc)
