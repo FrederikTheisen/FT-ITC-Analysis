@@ -329,6 +329,10 @@
     <Compile Include="FittingOptionsPopoverViewController.designer.cs">
       <DependentUpon>FittingOptionsPopoverViewController.cs</DependentUpon>
     </Compile>
+    <Compile Include="HuggingTextView.cs" />
+    <Compile Include="HuggingTextView.designer.cs">
+      <DependentUpon>HuggingTextView.cs</DependentUpon>
+    </Compile>
   </ItemGroup>
   <ItemGroup>
     <InterfaceDefinition Include="Main.storyboard" />
