@@ -93,7 +93,6 @@ namespace AnalysisITC
             _ => new CGSize(0, labeloffset),
         };
         CGSize TickLabelSize;
-
         nfloat titleoffset = 7;
         CGSize TitleOffset => Position switch
         {
@@ -187,6 +186,13 @@ namespace AnalysisITC
             DecimalPoints = maxdigits;
         }
 
+        public void SetMaxTicks(int number)
+        {
+            TickScale.SetMaxTicks(number);
+
+            SetDecimalDigits(TickScale.Ticks());
+        }
+
         public (List<double>, List<double>) GetValidTicks(bool includeborderticks = true)
         {
             var tickvalues = TickScale.Ticks();
@@ -208,10 +214,6 @@ namespace AnalysisITC
 
         public void Draw(CGContext gc)
         {
-            //var tickvalues = TickScale.Ticks();
-            //var minortickvalues = tickvalues.Select(t => t + 0.5 * (tickvalues[1] - tickvalues[2])).ToList();
-            //tickvalues.RemoveAll(v => v / ValueFactor < Min || v / ValueFactor > Max);
-
             var ticks = GetValidTicks(false);
 
             List<double> tickvalues = ticks.Item1;

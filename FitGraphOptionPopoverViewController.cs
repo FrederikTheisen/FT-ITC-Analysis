@@ -26,18 +26,21 @@ namespace AnalysisITC
             DrawFitParameters.State = FinalFigureGraphView.DrawFitParameters ? NSCellStateValue.On : NSCellStateValue.Off;
             HideBadData.State = FinalFigureGraphView.ShowBadData ? NSCellStateValue.On : NSCellStateValue.Off;
 
-            if (FinalFigureGraphView.EnthalpyAxisTitleAxisTitleIsChanged) EnthalpyAxisTitleLabel.StringValue = FinalFigureGraphView.EnthalpyAxisTitle;
-            if (FinalFigureGraphView.MolarRatioAxisTitleIsChanged) MolarRatioAxisTitleLabel.StringValue = FinalFigureGraphView.MolarRatioAxisTitle;
+            if (FinalFigureGraphView.EnthalpyAxisTitleAxisTitleIsChanged) EnthalpyAxisTitleLabel.PlaceholderString = FinalFigureGraphView.EnthalpyAxisTitle;
+            if (FinalFigureGraphView.MolarRatioAxisTitleIsChanged) MolarRatioAxisTitleLabel.PlaceholderString = FinalFigureGraphView.MolarRatioAxisTitle;
 
             XAxisTickStepper.IntValue = FinalFigureGraphView.FitXTickCount;
             YAxisTickStepper.IntValue = FinalFigureGraphView.FitYTickCount;
 
-            UpdateTickLabels();
+            SymbolSizeStepper.IntValue = (int)(2 * FinalFigureGraphView.SymbolSize);
+            SymbolControl.SelectSegment(FinalFigureGraphView.SymbolShape);
+
+            UpdateLabels();
         }
 
         partial void ControlClicked(NSObject sender)
         {
-            UpdateTickLabels();
+            UpdateLabels();
 
             FinalFigureGraphView.UseUnifiedHeatAxis = UnifiedHeatAxis.State == NSCellStateValue.On;
             FinalFigureGraphView.UseUnifiedMolarRatioAxis = UnifiedMolarRatioAxis.State == NSCellStateValue.On;
@@ -48,19 +51,23 @@ namespace AnalysisITC
             FinalFigureGraphView.DrawFitParameters = DrawFitParameters.State == NSCellStateValue.On;
             FinalFigureGraphView.ShowBadData = HideBadData.State == NSCellStateValue.On;
 
-            FinalFigureGraphView.EnthalpyAxisTitle = EnthalpyAxisTitleLabel.StringValue;
-            FinalFigureGraphView.MolarRatioAxisTitle = MolarRatioAxisTitleLabel.StringValue;
+            if (EnthalpyAxisTitleLabel.StringValue.Trim() != "") FinalFigureGraphView.EnthalpyAxisTitle = EnthalpyAxisTitleLabel.StringValue;
+            if (MolarRatioAxisTitleLabel.StringValue.Trim() != "") FinalFigureGraphView.MolarRatioAxisTitle = MolarRatioAxisTitleLabel.StringValue;
 
             FinalFigureGraphView.FitXTickCount = XAxisTickStepper.IntValue;
             FinalFigureGraphView.FitYTickCount = YAxisTickStepper.IntValue;
 
+            FinalFigureGraphView.SymbolSize = SymbolSizeStepper.IntValue / 2f;
+            FinalFigureGraphView.SymbolShape = (int)SymbolControl.SelectedSegment;
+
             FinalFigureGraphView.Invalidate();
         }
 
-        void UpdateTickLabels()
+        void UpdateLabels()
         {
             XTickLabel.IntValue = XAxisTickStepper.IntValue;
             YTickLabel.IntValue = YAxisTickStepper.IntValue;
+            SymbolSizeLabel.StringValue = (SymbolSizeStepper.IntValue / 2f).ToString("F1");
         }
     }
 }

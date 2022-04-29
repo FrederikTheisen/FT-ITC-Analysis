@@ -27,7 +27,7 @@ namespace AnalysisITC
         internal static nfloat DefaultFontHeight => DefaultFont.CapHeightMetric + 5;
         internal static CGColor HighlightColor => NSColor.Label.ColorWithAlphaComponent(0.2f).CGColor;
         internal static CGColor ActivatedHighlightColor => NSColor.Label.ColorWithAlphaComponent(0.35f).CGColor;
-        internal static float SquareSize = 8;
+        public static float SymbolSize { get; set; } = 8;
 
         public nfloat PlotWidthCM = 7.0f;
         public nfloat PlotPixelWidth { get => PlotWidthCM * PPcm; set => PlotWidthCM = value / PPcm; }
@@ -166,6 +166,16 @@ namespace AnalysisITC
             gc.DrawLayer(layer, Origin);
         }
 
+        public void DrawSymbolsAtPositions(CGLayer layer, CGPoint[] points, float size, SymbolShape shape, bool fill = false, float width = 1, CGColor color = null, float roundedradius = 0)
+        {
+            switch (shape)
+            {
+                case SymbolShape.Square: DrawRectsAtPositions(layer, points, size, false, fill, width, color, roundedradius); break;
+                case SymbolShape.Circle: DrawRectsAtPositions(layer, points, size, true, fill, width, color, roundedradius); break;
+                case SymbolShape.Diamond: DrawDiamondsAtPositions(layer, points, size, fill, width, color, roundedradius); break;
+            }
+        }
+
         public void DrawRectsAtPositions(CGLayer layer, CGPoint[] points, float size, bool circle = false, bool fill = false, float width = 1, CGColor color = null, float roundedradius = 0)
         {
             if (color == null) color = StrokeColor;
@@ -174,6 +184,32 @@ namespace AnalysisITC
             {
                 if (circle) AddCircleAtPosition(layer, p, size);
                 else AddRectAtPosition(layer, p, size, roundedradius);
+            }
+
+            if (fill) layer.Context.SetFillColor(color);
+            else layer.Context.SetStrokeColor(color);
+
+            layer.Context.SetLineWidth(width);
+            if (fill) layer.Context.FillPath();
+            else layer.Context.StrokePath();
+        }
+
+        public void DrawDiamondsAtPositions(CGLayer layer, CGPoint[] points, float size, bool fill = false, float width = 1, CGColor color = null, float roundedradius = 0)
+        {
+            if (color == null) color = StrokeColor;
+
+            foreach (var p in points)
+            {
+                var rect = GetRectAtPosition(new CGPoint(0, 0), size);
+
+                layer.Context.TranslateCTM(p.X, p.Y);
+
+                layer.Context.RotateCTM(PiHalf / 2f);
+                if (roundedradius > 0) layer.Context.AddPath(CGPath.FromRoundedRect(rect, roundedradius, roundedradius));
+                else layer.Context.AddPath(CGPath.FromRect(rect));
+                layer.Context.RotateCTM(-PiHalf / 2f);
+
+                layer.Context.TranslateCTM(-p.X, -p.Y);
             }
 
             if (fill) layer.Context.SetFillColor(color);
@@ -445,6 +481,13 @@ namespace AnalysisITC
         public virtual MouseOverFeatureEvent IsCursorOnFeature(CGPoint cursorpos, bool isclick = false, bool ismouseup = false)
         {
             return new MouseOverFeatureEvent();
+        }
+
+        public enum SymbolShape
+        {
+            Square,
+            Circle,
+            Diamond,
         }
     }
 
@@ -901,8 +944,9 @@ namespace AnalysisITC
         public bool ShowZero { get; set; } = true;
         public bool HideBadData { get; set; } = false;
         public bool HideBadDataErrorBars { get; set; } = true;
+        public SymbolShape SymbolShape { get; set; } = SymbolShape.Square;
 
-        static CGSize ErrorBarEndWidth = new CGSize(SquareSize / 2, 0);
+        static CGSize ErrorBarEndWidth => new CGSize(CGGraph.SymbolSize / 2, 0);
 
         public DataFittingGraph(ExperimentData experiment, NSView view) : base(experiment, view)
         {
@@ -952,15 +996,6 @@ namespace AnalysisITC
             }
 
             XAxis.SetWithBuffer(0, Math.Max(Math.Floor(XAxis.Max + 0.33f), XAxis.Max), 0.05);
-            //XAxis.UseNiceAxis = false;
-            //XAxis.LegendTitle = "Molar Ratio";
-            //XAxis.DecimalPoints = 1;
-            //XAxis.TickScale.SetMaxTicks(7);
-            //XAxis.MirrorTicks = mirrorx;
-            //YAxis.UseNiceAxis = false;
-            //YAxis.LegendTitle = "kJ mol⁻¹ of injectant";
-            //YAxis.ValueFactor = 0.001f;
-            //YAxis.MirrorTicks = mirrory;
         }
 
         internal override void Draw(CGContext gc)
@@ -995,7 +1030,7 @@ namespace AnalysisITC
 
             foreach (var inj in ExperimentData.Injections)
             {
-                if (HideBadData && !inj.Include) continue;
+                if (HideBadData && !inj.Include) continue; //Ignore datapoint if 'bad' and hidebaddata is true
 
                 var p = GetRelativePosition(inj.Ratio, inj.OffsetEnthalpy);
 
@@ -1005,13 +1040,13 @@ namespace AnalysisITC
                     var etop = GetRelativePosition(inj.Ratio, inj.OffsetEnthalpy - inj.Enthalpy * sd);
                     var ebottom = GetRelativePosition(inj.Ratio, inj.OffsetEnthalpy + inj.Enthalpy * sd);
 
-                    if (etop.Y - p.Y > SquareSize / 2)
+                    if (etop.Y - p.Y > CGGraph.SymbolSize / 2)
                     {
                         bars.MoveToPoint(etop);
-                        bars.AddLineToPoint(CGPoint.Add(p, new CGSize(0, SquareSize / 2)));
+                        bars.AddLineToPoint(CGPoint.Add(p, new CGSize(0, CGGraph.SymbolSize / 2)));
 
                         bars.MoveToPoint(ebottom);
-                        bars.AddLineToPoint(CGPoint.Subtract(p, new CGSize(0, SquareSize / 2)));
+                        bars.AddLineToPoint(CGPoint.Subtract(p, new CGSize(0, CGGraph.SymbolSize / 2)));
 
                         bars.MoveToPoint(CGPoint.Subtract(etop, ErrorBarEndWidth));
                         bars.AddLineToPoint(CGPoint.Add(etop, ErrorBarEndWidth));
@@ -1035,8 +1070,10 @@ namespace AnalysisITC
             layer.Context.SetLineWidth(1);
             layer.Context.AddPath(bars);
             layer.Context.StrokePath();
-            DrawRectsAtPositions(layer, points.ToArray(), SquareSize, false, true);
-            DrawRectsAtPositions(layer, inv_points.ToArray(), SquareSize, false, false);
+            DrawSymbolsAtPositions(layer, points.ToArray(), SymbolSize, SymbolShape, true);
+            DrawSymbolsAtPositions(layer, inv_points.ToArray(), SymbolSize, SymbolShape, false);
+            //DrawRectsAtPositions(layer, points.ToArray(), CGGraph.SymbolSize, false, true);
+            //DrawRectsAtPositions(layer, inv_points.ToArray(), CGGraph.SymbolSize, false, false);
 
             gc.DrawLayer(layer, Frame.Location);
         }

@@ -92,6 +92,8 @@ namespace AnalysisITC
         public static bool DrawConfidence { get; set; } = true;
         public static bool DrawFitParameters { get; set; } = false;
         public static bool ShowBadData { get; set; } = true;
+        public static float SymbolSize { get; set; } = CGGraph.SymbolSize;
+        public static int SymbolShape { get; set; } = 0;
 
         public static bool UnifiedPowerAxis { get; set; } = false;
         public static bool DrawBaseline { get; set; } = false;
@@ -147,30 +149,38 @@ namespace AnalysisITC
                 ShowErrorBars = ShowErrorBars,
                 DrawConfidence = DrawConfidence,
                 DrawZeroLine = DrawZeroLine,
-                DrawFitParameters = DrawFitParameters
+                DrawFitParameters = DrawFitParameters,
+                SymbolShape = (CGGraph.SymbolShape)SymbolShape,
+                SymbolSize = SymbolSize,
             };
 
             graph.SetTimeUnit(TimeAxisUnit);
             graph.SetEnergyUnit(EnergyUnit);
             graph.SetTickNumber(DataXTickCount, DataYTickCount, FitXTickCount, FitYTickCount);
 
-            SetFrameSize(graph.PrintBox.Size); //TODO update view position in box.
-
-            Console.WriteLine(Frame.ToString());
+            SetFrameSize(graph.PrintBox.Size); 
 
             PlotSizeChanged?.Invoke(graph, null);
         }
 
         public void Export()
         {
-            Print(this);
+            //Print(this);
+
+            var path = NSFileManager.DefaultManager.GetUrl(NSSearchPathDirectory.DesktopDirectory, NSSearchPathDomain.All, NSUrl.FromFilename("test.pdf"), true, out NSError error);
+
+            var url = NSUrl.FromFilename(new NSUrl("test.pdf", path.Path).Path);
+
+            var x = new CGContextPDF(url);
+            x.BeginPage(graph.PrintBox);
+
+            graph.Draw(x, new CGPoint(Frame.Width / 2, Frame.Height / 2));
+            x.EndPage();
+            x.Close();
         }
 
         public override void DrawRect(CGRect dirtyRect)
         {
-            Console.WriteLine("FF Draw");
-            Console.WriteLine(Frame.ToString());
-
             if (StateManager.CurrentState != ProgramState.Publish) return;
             if (DataManager.Current == null) return;
             if (graph == null) { InitializeGraph(); }
@@ -179,9 +189,7 @@ namespace AnalysisITC
 
             var cg = NSGraphicsContext.CurrentContext.CGContext;
 
-            graph.Draw(cg, new CGPoint(Frame.Width / 2, Frame.Height / 2)); //TODO use frame instead of dirtyrect
-
-            Console.WriteLine(Frame.ToString());
+            graph.Draw(cg, new CGPoint(Frame.Width / 2, Frame.Height / 2));
         }
     }
 }

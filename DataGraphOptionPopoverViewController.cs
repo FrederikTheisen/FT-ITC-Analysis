@@ -21,8 +21,8 @@ namespace AnalysisITC
             DrawBaseline.State = FinalFigureGraphView.DrawBaseline ? NSCellStateValue.On : NSCellStateValue.Off;
             TimeUnitControl.SelectSegment((int)FinalFigureGraphView.TimeAxisUnit);
 
-            if (FinalFigureGraphView.PowerAxisTitleIsChanged) PowerAxisTitleLabel.StringValue = FinalFigureGraphView.PowerAxisTitle;
-            if (FinalFigureGraphView.TimeAxisTitleIsChanged) TimeAxisTitleLabel.StringValue = FinalFigureGraphView.TimeAxisTitle;
+            if (FinalFigureGraphView.PowerAxisTitleIsChanged) PowerAxisTitleLabel.PlaceholderString = FinalFigureGraphView.PowerAxisTitle;
+            if (FinalFigureGraphView.TimeAxisTitleIsChanged) TimeAxisTitleLabel.PlaceholderString = FinalFigureGraphView.TimeAxisTitle;
 
             XTickStepper.IntValue = FinalFigureGraphView.DataXTickCount;
             YTickStepper.IntValue = FinalFigureGraphView.DataYTickCount;
@@ -38,8 +38,8 @@ namespace AnalysisITC
             FinalFigureGraphView.DrawBaseline = DrawBaseline.State == NSCellStateValue.On;
             FinalFigureGraphView.TimeAxisUnit = (TimeUnit)(int)TimeUnitControl.SelectedSegment;
 
-            FinalFigureGraphView.PowerAxisTitle = PowerAxisTitleLabel.StringValue;
-            FinalFigureGraphView.TimeAxisTitle = TimeAxisTitleLabel.StringValue;
+            if (PowerAxisTitleLabel.StringValue.Trim() != "") FinalFigureGraphView.PowerAxisTitle = PowerAxisTitleLabel.StringValue;
+            if (TimeAxisTitleLabel.StringValue.Trim() != "") FinalFigureGraphView.TimeAxisTitle = TimeAxisTitleLabel.StringValue;
 
             FinalFigureGraphView.DataXTickCount = XTickStepper.IntValue;
             FinalFigureGraphView.DataYTickCount = YTickStepper.IntValue;

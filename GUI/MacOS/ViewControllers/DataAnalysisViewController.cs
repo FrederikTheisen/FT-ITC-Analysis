@@ -132,13 +132,6 @@ namespace AnalysisITC
             var astyle = (Analysis.VariableStyle)(int)AffinityStyleSegControl.SelectedSegment;
 
             Analysis.GlobalAnalyzer.InitializeAnalyzer(estyle, astyle);
-
-            //if (HstepTextField.FloatValue != 0) Analysis.Hstep = HstepTextField.FloatValue;
-            //if (GstepTextField.FloatValue != 0) Analysis.Gstep = GstepTextField.FloatValue;
-            //if (CstepTextField.FloatValue != 0) Analysis.Cstep = CstepTextField.FloatValue;
-            //if (NstepTextField.FloatValue != 0) Analysis.Nstep = NstepTextField.FloatValue;
-            //if (OstepTextField.FloatValue != 0) Analysis.Ostep = OstepTextField.FloatValue;
-
             Analysis.GlobalAnalyzer.Solve(SelectedAnalysisModel);
         }
 

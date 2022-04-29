@@ -37,6 +37,15 @@ namespace AnalysisITC
 		AppKit.NSTextField MolarRatioAxisTitleLabel { get; set; }
 
 		[Outlet]
+		AppKit.NSSegmentedControl SymbolControl { get; set; }
+
+		[Outlet]
+		AppKit.NSTextField SymbolSizeLabel { get; set; }
+
+		[Outlet]
+		AppKit.NSStepper SymbolSizeStepper { get; set; }
+
+		[Outlet]
 		AppKit.NSButton UnifiedHeatAxis { get; set; }
 
 		[Outlet]
@@ -109,14 +118,19 @@ namespace AnalysisITC
 				UnifiedMolarRatioAxis = null;
 			}
 
-			if (YAxisTickStepper != null) {
-				YAxisTickStepper.Dispose ();
-				YAxisTickStepper = null;
-			}
-
 			if (XAxisTickStepper != null) {
 				XAxisTickStepper.Dispose ();
 				XAxisTickStepper = null;
+			}
+
+			if (XTickLabel != null) {
+				XTickLabel.Dispose ();
+				XTickLabel = null;
+			}
+
+			if (YAxisTickStepper != null) {
+				YAxisTickStepper.Dispose ();
+				YAxisTickStepper = null;
 			}
 
 			if (YTickLabel != null) {
@@ -124,9 +138,19 @@ namespace AnalysisITC
 				YTickLabel = null;
 			}
 
-			if (XTickLabel != null) {
-				XTickLabel.Dispose ();
-				XTickLabel = null;
+			if (SymbolControl != null) {
+				SymbolControl.Dispose ();
+				SymbolControl = null;
+			}
+
+			if (SymbolSizeStepper != null) {
+				SymbolSizeStepper.Dispose ();
+				SymbolSizeStepper = null;
+			}
+
+			if (SymbolSizeLabel != null) {
+				SymbolSizeLabel.Dispose ();
+				SymbolSizeLabel = null;
 			}
 		}
 	}

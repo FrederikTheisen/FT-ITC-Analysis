@@ -74,6 +74,18 @@ namespace AnalysisITC
             set => IntegrationGraph.ShowFitParameters = value;
         }
 
+        public float SymbolSize
+        {
+            get => CGGraph.SymbolSize;
+            set => CGGraph.SymbolSize = value;
+        }
+
+        public CGGraph.SymbolShape SymbolShape
+        {
+            get => IntegrationGraph.SymbolShape;
+            set => IntegrationGraph.SymbolShape = value;
+        }
+
         bool sanitizeticks = true;
         public bool SanitizeTicks
         {
@@ -114,10 +126,10 @@ namespace AnalysisITC
 
         public void SetTickNumber(int datax, int datay, int fitx, int fity)
         {
-            DataGraph.YAxis.TickScale.SetMaxTicks(datay);
-            DataGraph.XAxis.TickScale.SetMaxTicks(datax);
-            IntegrationGraph.YAxis.TickScale.SetMaxTicks(fity);
-            IntegrationGraph.XAxis.TickScale.SetMaxTicks(fitx);
+            DataGraph.YAxis.SetMaxTicks(datay);
+            DataGraph.XAxis.SetMaxTicks(datax);
+            IntegrationGraph.YAxis.SetMaxTicks(fity);
+            IntegrationGraph.XAxis.SetMaxTicks(fitx);
         }
 
         #endregion

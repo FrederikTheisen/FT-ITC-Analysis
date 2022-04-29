@@ -26,6 +26,13 @@ namespace AnalysisITC
         public static double Nstep { get; set; } = 0.5;
         public static double Ostep { get; set; } = 1000;
 
+        public static double Hinit { get; set; } = double.NaN;
+        public static double Kinit { get; set; } = double.NaN;
+        public static double Ginit { get; set; } = double.NaN;
+        public static double Cinit { get; set; } = double.NaN;
+        public static double Oinit { get; set; } = double.NaN;
+        public static double Ninit { get; set; } = double.NaN;
+
         public static double[] Hbounds { get; set; } = { -300000, 300000 };
 
         public static int BootstrapIterations { get; set; } = 100;
@@ -58,13 +65,19 @@ namespace AnalysisITC
 
             static void InitializeOneSetOfSites()
             {
-                foreach (var data in Analysis.GetValidData())
+                foreach (var data in GetValidData())
                 {
                     Model.Models.Add(new OneSetOfSites(data));
                     if (data.Solution != null) data.Solution.IsValid = false;
 
                     data.UpdateSolution();
                 }
+
+                if (!double.IsNaN(Hinit)) Model.InitialHs = new double[Model.Models.Count].Add(Hinit);
+                if (!double.IsNaN(Ginit)) Model.InitialGibbs = new double[Model.Models.Count].Add(Ginit);
+                if (!double.IsNaN(Oinit)) Model.InitialOffsets = new double[Model.Models.Count].Add(Oinit);
+                if (!double.IsNaN(Ninit)) Model.InitialNs = new double[Model.Models.Count].Add(Ninit);
+                if (!double.IsNaN(Cinit)) Model.InitialHeatCapacity = new double[Model.Models.Count].Add(Cinit);
             }
 
             public static async void Solve(AnalysisModel analysismodel)
@@ -644,8 +657,6 @@ namespace AnalysisITC
             return glob_loss;
         }
     }
-
-
 
     public class Solution
     {
