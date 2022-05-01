@@ -178,30 +178,32 @@ namespace AnalysisITC
 
         void OpenFileBrowser()
         {
-            StatusBarManager.StartInderminateProgress();
+            AppDelegate.LaunchOpenFileDialog();
 
-            var dlg = NSOpenPanel.OpenPanel;
-            dlg.CanChooseFiles = true;
-            dlg.AllowsMultipleSelection = true;
-            dlg.CanChooseDirectories = true;
-            dlg.AllowedFileTypes = DataReaders.ITCFormatAttribute.GetAllExtensions();
+            //StatusBarManager.StartInderminateProgress();
 
-            if (dlg.RunModal() == 1)
-            {
-                // Nab the first file
-                var urls = new List<string>();
+            //var dlg = NSOpenPanel.OpenPanel;
+            //dlg.CanChooseFiles = true;
+            //dlg.AllowsMultipleSelection = true;
+            //dlg.CanChooseDirectories = true;
+            //dlg.AllowedFileTypes = DataReaders.ITCFormatAttribute.GetAllExtensions();
 
-                foreach (var url in dlg.Urls)
-                {
-                    Console.WriteLine(url.Path);
-                    urls.Add(url.Path);
-                }
+            //if (dlg.RunModal() == 1)
+            //{
+            //    // Nab the first file
+            //    var urls = new List<string>();
+
+            //    foreach (var url in dlg.Urls)
+            //    {
+            //        Console.WriteLine(url.Path);
+            //        urls.Add(url.Path);
+            //    }
 
 
-                DataReaders.DataReader.Read(urls);
-            }
+            //    DataReaders.DataReader.Read(urls);
+            //}
 
-            StatusBarManager.StopIndeterminateProgress();
+            //StatusBarManager.StopIndeterminateProgress();
         }
 
         partial void StepControlClick(NSSegmentedControl sender)

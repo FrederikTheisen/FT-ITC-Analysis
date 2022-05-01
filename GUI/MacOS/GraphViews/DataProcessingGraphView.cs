@@ -51,6 +51,8 @@ namespace AnalysisITC
                 if (selectedPeak < 0) selectedPeak = 0;
                 else if (selectedPeak >= Data.InjectionCount) selectedPeak = Data.InjectionCount - 1;
 
+                Graph.SetFocusedInjection(selectedPeak);
+
                 if (isInjectionZoomed) FocusPeak();
                 if (!isBaselineZoomed) ShowAllVertical();
             }
@@ -142,6 +144,7 @@ namespace AnalysisITC
             isInjectionZoomed = true;
 
             if (isBaselineZoomed) ZoomBaseline();
+            else ShowAllVertical();
 
             Invalidate();
         }
@@ -186,6 +189,7 @@ namespace AnalysisITC
             {
                 if (b.Type == Utilities.MouseOverFeatureEvent.FeatureType.BaselineSplinePoint) NSCursor.ResizeUpDownCursor.Set();
                 else if (b.Type == Utilities.MouseOverFeatureEvent.FeatureType.BaselineSplineHandle) NSCursor.ResizeUpDownCursor.Set();
+                else if (b.Type == Utilities.MouseOverFeatureEvent.FeatureType.IntegrationRangeMarker) NSCursor.ResizeLeftRightCursor.Set();
             }
             else NSCursor.ArrowCursor.Set();
         }
@@ -207,22 +211,39 @@ namespace AnalysisITC
             var position = theEvent.LocationInWindow;
 
             if (SelectedFeature.FeatureID == -1) return;
-            else if (SelectedFeature.Type == Utilities.MouseOverFeatureEvent.FeatureType.BaselineSplinePoint)
+            switch (SelectedFeature.Type)
             {
-                var feature = (Data.Processor.Interpolator as SplineInterpolator).SplinePoints[SelectedFeature.FeatureID];
-                var adjust = 10E-11 * (position.Y - SelectedFeature.ClickCursorPosition.Y);
+                case Utilities.MouseOverFeatureEvent.FeatureType.BaselineSplinePoint:
+                    {
+                        var feature = (Data.Processor.Interpolator as SplineInterpolator).SplinePoints[SelectedFeature.FeatureID];
+                        var adjust = 10E-11 * (position.Y - SelectedFeature.ClickCursorPosition.Y);
 
-                feature.Power = SelectedFeature.FeatureReferenceValue + adjust;
-            }
-            else if (SelectedFeature.Type == Utilities.MouseOverFeatureEvent.FeatureType.BaselineSplineHandle)
-            {
-                bool invert = SelectedFeature.SubID == 0;
+                        feature.Power = SelectedFeature.FeatureReferenceValue + adjust;
+                        break;
+                    }
+                case Utilities.MouseOverFeatureEvent.FeatureType.BaselineSplineHandle:
+                    {
+                        bool invert = SelectedFeature.SubID == 0;
 
-                var feature = (Data.Processor.Interpolator as SplineInterpolator).SplinePoints[SelectedFeature.FeatureID];
-                var adjust = 10E-12 * (position.Y - SelectedFeature.ClickCursorPosition.Y);
-                if (invert) adjust = -adjust;
+                        var feature = (Data.Processor.Interpolator as SplineInterpolator).SplinePoints[SelectedFeature.FeatureID];
+                        var adjust = 10E-12 * (position.Y - SelectedFeature.ClickCursorPosition.Y);
+                        if (invert) adjust = -adjust;
 
-                feature.Slope = SelectedFeature.FeatureReferenceValue + adjust;
+                        feature.Slope = SelectedFeature.FeatureReferenceValue + adjust;
+                        break;
+                    }
+                case Utilities.MouseOverFeatureEvent.FeatureType.IntegrationRangeMarker:
+                    {
+                        bool start = SelectedFeature.SubID == 0;
+
+                        var xfraction = (CursorPositionInView.X - Graph.Frame.X) / Graph.Frame.Width;
+                        var time = xfraction * (Graph.XAxis.Max - Graph.XAxis.Min) + Graph.XAxis.Min;
+                        var inj = Data.Injections[SelectedFeature.FeatureID];
+
+                        if (start) inj.SetCustomIntegrationTimes((float)time - inj.Time, inj.IntegrationLength);
+                        else inj.SetCustomIntegrationTimes(inj.IntegrationStartDelay, (float)time - inj.Time);
+                        break;
+                    }
             }
 
             Invalidate();
@@ -232,8 +253,24 @@ namespace AnalysisITC
         {
             base.MouseUp(theEvent);
 
-            if (SelectedFeature.Type == Utilities.MouseOverFeatureEvent.FeatureType.BaselineSplineHandle) UpdateSplineHandle();
-            else if (SelectedFeature.Type == Utilities.MouseOverFeatureEvent.FeatureType.BaselineSplinePoint) UpdateSplineHandle();
+            switch (SelectedFeature.Type)
+            {
+                case Utilities.MouseOverFeatureEvent.FeatureType.BaselineSplineHandle:
+                case Utilities.MouseOverFeatureEvent.FeatureType.BaselineSplinePoint: UpdateSplineHandle(); break;
+                case Utilities.MouseOverFeatureEvent.FeatureType.IntegrationRangeMarker: Data.Processor.IntegratePeaks(); break;
+            }
+
+            if (Data == null) return;
+
+            var b = Graph.IsCursorOnFeature(CursorPositionInView);
+
+            if (b.IsMouseOverFeature)
+            {
+                if (b.Type == Utilities.MouseOverFeatureEvent.FeatureType.BaselineSplinePoint) NSCursor.ResizeUpDownCursor.Set();
+                else if (b.Type == Utilities.MouseOverFeatureEvent.FeatureType.BaselineSplineHandle) NSCursor.ResizeUpDownCursor.Set();
+                else if (b.Type == Utilities.MouseOverFeatureEvent.FeatureType.IntegrationRangeMarker) NSCursor.ResizeLeftRightCursor.Set();
+            }
+            else NSCursor.ArrowCursor.Set();
         }
 
         async void UpdateSplineHandle()

@@ -643,20 +643,24 @@ namespace AnalysisITC
         void DrawInfo(CGContext gc)
         {
             var layer = CGLayer.Create(gc, Frame.Size);
+            var textlayer = CGLayer.Create(gc, Frame.Size);
 
-            var min = GetRelativePosition(CursorPosition, YAxis.Min);
-            var max = new CGPoint(min.X, Frame.Height);
+            var datapoint = CursorPosition > ExperimentData.DataPoints.Last().Time ? ExperimentData.DataPoints.Last() : ExperimentData.DataPoints.First(dp => dp.Time > CursorPosition);
 
-            layer.Context.MoveTo(min.X, min.Y);
-            layer.Context.AddLineToPoint(max.X, max.Y);
+            var power = GetRelativePosition(CursorPosition, datapoint.Power);
+            var max = new CGPoint(power.X, Frame.Height);
+
+            layer.Context.MoveTo(power.X, 0);
+            layer.Context.AddLineToPoint(power.X, Frame.Height);
             layer.Context.StrokePath();
+            DrawRectsAtPositions(layer, new CGPoint[] { power }, 5, true, true);
 
             CGPoint pos = new CGPoint(20, Frame.Height - 20);
-            CGRect box = new CGRect(pos.Add(Frame.Location), new CGSize(20, 20));
+            CGRect box = new CGRect(pos, new CGSize(20, 20));
 
             foreach (var line in CursorInfo)
             {
-                var size = DrawString(layer, line, pos, DefaultFont, horizontalignment: TextAlignment.Left);
+                var size = DrawString(textlayer, line, pos, DefaultFont, horizontalignment: TextAlignment.Left);
 
                 if (size.Width > box.Width) box.Width = size.Width;
 
@@ -669,14 +673,14 @@ namespace AnalysisITC
             box.Height += 10;
             box.X -= 10;
 
-            box.Y = pos.Y + Frame.Y;
+            box.Y = pos.Y;
 
-            gc.SetFillColor(NSColor.ControlBackground.CGColor);
-            gc.FillRect(box);
-            gc.StrokeRect(box);
-
+            layer.Context.SetFillColor(NSColor.WindowBackground.CGColor);
+            layer.Context.FillRect(box);
+            layer.Context.StrokeRect(box);
 
             gc.DrawLayer(layer, Frame.Location);
+            gc.DrawLayer(textlayer, Frame.Location);
         }
 
         public bool SetCursorInfo(CGPoint cursorpos)
@@ -695,7 +699,7 @@ namespace AnalysisITC
 
                 CursorInfo.Add("Time: " + datapoint.Time.ToString() + "s");
                 CursorInfo.Add("DP: " + (DataManager.Unit.IsSI() ? (datapoint.Power * 1000000).ToString("F1") + " µW" : (datapoint.Power * 1000000 * Energy.JouleToCalFactor).ToString("F1") + " µCal"));
-                CursorInfo.Add("Temperature: " + datapoint.Temperature.ToString("F2") + " °C");
+                CursorInfo.Add("Temperature: " + datapoint.Temperature.ToString("F3") + " °C");
                 CursorInfo.Add("Jacket Temp: " + datapoint.ShieldT.ToString("F3") + " °C");
             }
             else DrawCursorPositionInfo = false;
@@ -706,39 +710,20 @@ namespace AnalysisITC
 
     public class BaselineFittingGraph : DataGraph
     {
+        int focused = -1;
+
         public bool ShowBaseline { get; set; } = true;
         public bool ShowInjections { get; set; } = true;
         List<FeatureBoundingBox> SplineHandlePoints { get; set; } = new List<FeatureBoundingBox>();
         List<FeatureBoundingBox> SplinePoints { get; set; } = new List<FeatureBoundingBox>();
+        List<FeatureBoundingBox> IntegrationHandleBoxes { get; set; } = new List<FeatureBoundingBox>();
 
         public BaselineFittingGraph(ExperimentData experiment, NSView view) : base(experiment, view)
         {
             SetYAxisRange(DataPoints.Min(dp => dp.Power), DataPoints.Max(dp => dp.Power), buffer: true);
         }
 
-        public void SetInjectionView(int? i)
-        {
-            if (i == null)
-            {
-                XAxis = new GraphAxis(this, DataPoints.Min(dp => dp.Time), DataPoints.Max(dp => dp.Time))
-                {
-                    UseNiceAxis = false
-                };
-                YAxis = new GraphAxis(this, DataPoints.Min(dp => dp.Power), DataPoints.Max(dp => dp.Power));
-            }
-            else
-            {
-                var inj = ExperimentData.Injections[(int)i];
-                var s = inj.Time - 10;
-                var e = inj.Time + inj.Delay + 10;
-
-                XAxis = new GraphAxis(this, s, e)
-                {
-                    UseNiceAxis = false
-                };
-                YAxis = new GraphAxis(this, ExperimentData.DataPoints.Where(dp => dp.Time > s && dp.Time < e).Min(dp => dp.Power), ExperimentData.DataPoints.Where(dp => dp.Time > s && dp.Time < e).Max(dp => dp.Power));
-            }
-        }
+        public void SetFocusedInjection(int i = -1) => focused = i;
 
         internal override void Draw(CGContext gc)
         {
@@ -873,48 +858,55 @@ namespace AnalysisITC
 
         void DrawIntegrationMarkers(CGContext gc)
         {
+            IntegrationHandleBoxes.Clear();
+
             CGLayer layer = CGLayer.Create(gc, Frame.Size);
 
             CGPath path = new CGPath();
 
+            float thickness = 1.5f;
+
             foreach (var inj in ExperimentData.Injections)
             {
+                if (inj.Time < XAxis.Min || inj.Time > XAxis.Max) continue;
+
                 var s = GetRelativePosition(inj.IntegrationStartTime, DataPoints.Last(dp => dp.Time < inj.IntegrationStartTime).Power);
                 var e = GetRelativePosition(inj.IntegrationEndTime, DataPoints.Last(dp => dp.Time < inj.IntegrationEndTime).Power);
 
-                var radius = 4f;
-                var delta = 0.04f * (Frame.Height);
-                var deltax = e.X - s.X;
+                if (focused == -1 || focused == inj.ID) layer.Context.SetFillColor(NSColor.SystemBlue.ColorWithAlphaComponent(.5f).CGColor);
+                else layer.Context.SetFillColor(NSColor.SystemGray.ColorWithAlphaComponent(.5f).CGColor);
+                layer.Context.SetLineWidth(4);
 
-                var maxy = (float)Math.Max(s.Y, e.Y);
-                var miny = (float)Math.Min(s.Y, e.Y);
+                var b = new CGRect(s.X - thickness, 0, 2 * thickness, Frame.Height);
+                var p = new CGPath();
+                p.MoveToPoint(s.X - thickness, thickness);
+                p.AddLineToPoint(s.X + thickness, thickness);
+                p.AddLineToPoint(s.X + thickness, Frame.Height - 3 * thickness);
+                p.AddLineToPoint(s.X + 10 + thickness, Frame.Height - 3 * thickness);
+                p.AddLineToPoint(s.X + 15 + thickness, Frame.Height - thickness);
+                p.AddLineToPoint(s.X - thickness, Frame.Height - thickness);
+                p.CloseSubpath();
+                layer.Context.AddPath(p);
 
-                switch (inj.HeatDirection)
-                {
-                    default:
-                    case PeakHeatDirection.Exothermal:
-                        path.MoveToPoint(s.X, miny - delta);
-                        path.AddArcToPoint(s.X, maxy + delta, e.X - deltax / 2, maxy + delta, radius);
-                        path.AddArcToPoint(e.X, maxy + delta, e.X, miny - delta, radius);
-                        //path.AddLineToPoint(s.X, maxy + delta);
-                        //path.AddLineToPoint(e.X, maxy + delta);
-                        path.AddLineToPoint(e.X, miny - delta);
-                        DrawText(layer.Context, (inj.ID + 1).ToString("inj #0"), DefaultFontHeight, s.X + 3, PlotPixelHeight - (maxy + delta + 20), NSColor.SystemBlue.CGColor);
-                        break;
-                    case PeakHeatDirection.Endothermal:
-                        path.MoveToPoint(s.X, maxy + delta);
-                        path.AddLineToPoint(s.X, miny - delta);
-                        path.AddLineToPoint(e.X, miny - delta);
-                        path.AddLineToPoint(e.X, maxy + delta);
-                        DrawText(layer.Context, (inj.ID + 1).ToString("inj #0"), DefaultFontHeight, s.X + 3, PlotPixelHeight - (miny - delta), NSColor.SystemBlue.CGColor);
-                        break;
-                }
+                layer.Context.FillPath();
+
+                IntegrationHandleBoxes.Add(new FeatureBoundingBox(MouseOverFeatureEvent.FeatureType.IntegrationRangeMarker, b, inj.ID, Frame.Location, 0));
+
+                var b2 = new CGRect(e.X - thickness, 0, 2 * thickness, Frame.Height);
+                var p2 = new CGPath();
+                p2.MoveToPoint(e.X + thickness, Frame.Height - thickness);
+                p2.AddLineToPoint(e.X - thickness, Frame.Height - thickness);
+                p2.AddLineToPoint(e.X - thickness, 3 * thickness);
+                p2.AddLineToPoint(e.X - 10 - thickness, 3 * thickness);
+                p2.AddLineToPoint(e.X - 15 - thickness, thickness);
+                p2.AddLineToPoint(e.X + thickness, thickness);
+                p2.CloseSubpath();
+                layer.Context.AddPath(p2);
+
+                IntegrationHandleBoxes.Add(new FeatureBoundingBox(MouseOverFeatureEvent.FeatureType.IntegrationRangeMarker, b2, inj.ID, Frame.Location, 1));
+
+                layer.Context.FillPath();
             }
-
-            layer.Context.SetStrokeColor(NSColor.SystemBlue.CGColor);
-
-            layer.Context.AddPath(path);
-            layer.Context.StrokePath();
 
             gc.DrawLayer(layer, Frame.Location);
         }
@@ -926,6 +918,9 @@ namespace AnalysisITC
 
             foreach (var point in SplinePoints)
                 if (point.CursorInBox(cursorpos)) return new MouseOverFeatureEvent(point);
+
+            foreach (var handle in IntegrationHandleBoxes)
+                if (handle.CursorInBox(cursorpos)) return new MouseOverFeatureEvent(handle);
 
             return new MouseOverFeatureEvent();
         }

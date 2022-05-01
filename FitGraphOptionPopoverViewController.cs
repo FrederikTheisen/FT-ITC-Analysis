@@ -33,7 +33,9 @@ namespace AnalysisITC
             YAxisTickStepper.IntValue = FinalFigureGraphView.FitYTickCount;
 
             SymbolSizeStepper.IntValue = (int)(2 * FinalFigureGraphView.SymbolSize);
-            SymbolControl.SelectSegment(FinalFigureGraphView.SymbolShape);
+            //SymbolControl.SelectSegment(FinalFigureGraphView.SymbolShape);
+
+            SymbolControl.SetSelected(true, FinalFigureGraphView.SymbolShape);
 
             UpdateLabels();
         }

@@ -130,7 +130,7 @@ namespace AnalysisITC
             return Math.Sqrt(sum_of_squares / (dps.Count() - 1)); //TODO check formula is correct
         }
 
-        public List<InjectionData> GetResiduals()
+        List<InjectionData> GetResiduals()
         {
             var rand = Analysis.Random;
 
@@ -267,8 +267,6 @@ namespace AnalysisITC
 
         public void SetCustomIntegrationTimes(float delay, float length)
         {
-            IntegrationStartDelay = delay;
-
             if (Experiment.UseIntegrationFactorLength)
             {
                 var dps = Experiment.BaseLineCorrectedDataPoints.Where(dp => dp.Time > Time && dp.Time < Time + Delay);
@@ -280,6 +278,7 @@ namespace AnalysisITC
             }
 
             IntegrationLength = Math.Clamp(length, Duration, Delay);
+            IntegrationStartDelay = Math.Clamp(delay, -5, IntegrationLength);
         }
 
         public void ToggleDataPointActive()

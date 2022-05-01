@@ -136,6 +136,8 @@ namespace AnalysisITC
 
         public void IntegratePeaks()
         {
+            if (Data.BaseLineCorrectedDataPoints == null) return;
+
             foreach (var inj in Data.Injections)
             {
                 inj.Integrate();

@@ -19,13 +19,9 @@ namespace AnalysisITC
         {
             base.ViewDidLoad();
 
-            // Do any additional setup after loading the view.
-
             DataManager.Init();
 
             DataManager.SelectionDidChange += OnSelectionChanged;
-            //DataManager.DataDidChange += OnDataChanged;
-
             StateManager.UpdateStateDependentUI += StateManager_UpdateStateDependentUI;
         }
 
@@ -38,7 +34,7 @@ namespace AnalysisITC
         {
             LoadDataPrompt.Hidden = true;
 
-            OpenFileBrowser();
+            AppDelegate.LaunchOpenFileDialog();
         }
 
         partial void OpenFileButtonClick(NSObject sender)
@@ -66,57 +62,57 @@ namespace AnalysisITC
             else InfoLabel.StringValue = "";
         }
 
-        void OpenFileBrowser()
-        {
-            StatusBarManager.StartInderminateProgress();
+        //void OpenFileBrowser()
+        //{
+        //    StatusBarManager.StartInderminateProgress();
 
-            var dlg = NSOpenPanel.OpenPanel;
-            dlg.CanChooseFiles = true;
-            dlg.AllowsMultipleSelection = true;
-            dlg.CanChooseDirectories = true;
-            dlg.AllowedFileTypes = DataReaders.ITCFormatAttribute.GetAllExtensions();
+        //    var dlg = NSOpenPanel.OpenPanel;
+        //    dlg.CanChooseFiles = true;
+        //    dlg.AllowsMultipleSelection = true;
+        //    dlg.CanChooseDirectories = true;
+        //    dlg.AllowedFileTypes = DataReaders.ITCFormatAttribute.GetAllExtensions();
 
-            if (dlg.RunModal() == 1)
-            {
-                // Nab the first file
-                var urls = new List<string>();
+        //    if (dlg.RunModal() == 1)
+        //    {
+        //        // Nab the first file
+        //        var urls = new List<string>();
 
-                foreach (var url in dlg.Urls)
-                {
-                    Console.WriteLine(url.Path);
-                    urls.Add(url.Path);
-                }
-
-
-                DataReaders.DataReader.Read(urls);
-            }
-
-            StatusBarManager.StopIndeterminateProgress();
-        }
-
-        partial void ButtonClick(NSButton sender)
-        {
-            var dlg = NSOpenPanel.OpenPanel;
-            dlg.CanChooseFiles = true;
-            dlg.AllowsMultipleSelection = true;
-            dlg.CanChooseDirectories = true;
-            dlg.AllowedFileTypes = DataReaders.ITCFormatAttribute.GetAllExtensions();
-
-            if (dlg.RunModal() == 1)
-            {
-                // Nab the first file
-                var urls = new List<string>();
-
-                foreach (var url in dlg.Urls)
-                {
-                    Console.WriteLine(url.Path);
-                    urls.Add(url.Path);
-                }
+        //        foreach (var url in dlg.Urls)
+        //        {
+        //            Console.WriteLine(url.Path);
+        //            urls.Add(url.Path);
+        //        }
 
 
-                DataReaders.DataReader.Read(urls);
-            }
-        }
+        //        DataReaders.DataReader.Read(urls);
+        //    }
+
+        //    StatusBarManager.StopIndeterminateProgress();
+        //}
+
+        //partial void ButtonClick(NSButton sender)
+        //{
+        //    var dlg = NSOpenPanel.OpenPanel;
+        //    dlg.CanChooseFiles = true;
+        //    dlg.AllowsMultipleSelection = true;
+        //    dlg.CanChooseDirectories = true;
+        //    dlg.AllowedFileTypes = DataReaders.ITCFormatAttribute.GetAllExtensions();
+
+        //    if (dlg.RunModal() == 1)
+        //    {
+        //        // Nab the first file
+        //        var urls = new List<string>();
+
+        //        foreach (var url in dlg.Urls)
+        //        {
+        //            Console.WriteLine(url.Path);
+        //            urls.Add(url.Path);
+        //        }
+
+
+        //        DataReaders.DataReader.Read(urls);
+        //    }
+        //}
 
         partial void ClearButtonClick(NSObject sender)
         {
