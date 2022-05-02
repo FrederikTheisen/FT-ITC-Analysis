@@ -4,6 +4,7 @@ using System;
 
 using Foundation;
 using AppKit;
+using CoreGraphics;
 
 namespace AnalysisITC
 {
@@ -12,5 +13,14 @@ namespace AnalysisITC
 		public TemperatureDependenceGraphView (IntPtr handle) : base (handle)
 		{
 		}
-	}
+
+        public override void DrawRect(CGRect dirtyRect)
+        {
+            base.DrawRect(dirtyRect);
+
+            var cg = NSGraphicsContext.CurrentContext.CGContext;
+
+            
+        }
+    }
 }

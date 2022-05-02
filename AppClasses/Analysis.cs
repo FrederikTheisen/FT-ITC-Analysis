@@ -233,7 +233,7 @@ namespace AnalysisITC
         public virtual double GuessH => Data.Injections.First(inj => inj.Include).Enthalpy - GuessOffset;
         public virtual double GuessK => 1000000;
         public virtual double GuessGibbs => -35000;
-        public virtual double GuessOffset => Data.Injections.Last(inj => inj.Include).Enthalpy;
+        public virtual double GuessOffset => Data.Injections.Where(inj => inj.Include).TakeLast(2).Average(inj => inj.Enthalpy);
 
         /// <summary>
         /// Solution parameters
@@ -292,10 +292,27 @@ namespace AnalysisITC
                 model.SolveWithNelderMeadAlgorithm();
                 solutions.Add(model.Solution);
 
+                Console.WriteLine(model.Solution.ToString());
+
                 Analysis.ReportBootstrapProgress(i);
             }
 
-            Solution.BootstrapSolutions = solutions;
+            var clones = new List<ExperimentData>();
+            for (int i = 0; i < 10; i++) clones.Add(Data.GetSynthClone());
+
+            for (int i = 0; i < Data.InjectionCount; i++)
+            {
+                string s = Data.Injections[i].Ratio.ToString() + " ";
+
+                for (int j = 0; j < clones.Count; j++)
+                {
+                    s += clones[j].Injections[i].Enthalpy + " ";
+                }
+
+                Console.WriteLine(s);
+            }
+
+                Solution.BootstrapSolutions = solutions;
             Solution.ComputeErrorsFromBootstrapSolutions();
         }
 
