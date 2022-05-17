@@ -18,6 +18,11 @@ namespace AnalysisITC
     {
         public GlobalSolution Solution { get; set; }
 
+        internal double GetMaximumParameter()
+        {
+            throw new NotImplementedException();
+        }
+
         public AnalysisResult(GlobalSolution solution)
         {
             Solution = solution;
@@ -40,6 +45,21 @@ namespace AnalysisITC
             s += "∆Cp = " + Solution.HeatCapacity.ToString(EnergyUnit.Joule, "F0") + "/molK";
 
             return s;
+        }
+
+        internal double GetMinimumTemperature()
+        {
+            throw new NotImplementedException();
+        }
+
+        internal double GetMaximumTemperature()
+        {
+            throw new NotImplementedException();
+        }
+
+        internal double GetMinimumParameter()
+        {
+            throw new NotImplementedException();
         }
     }
 

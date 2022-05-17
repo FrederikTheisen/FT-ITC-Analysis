@@ -1455,7 +1455,7 @@ CA
                                                             <tableColumnResizingMask key="resizingMask" resizeWithTable="YES" userResizable="YES"/>
                                                             <prototypeCellViews>
                                                                 <tableCellView id="WIm-Bf-VhL">
-                                                                    <rect key="frame" x="309" y="0.0" width="82" height="17"/>
+                                                                    <rect key="frame" x="308.5" y="0.0" width="82" height="17"/>
                                                                     <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
                                                                     <subviews>
                                                                         <textField horizontalHuggingPriority="251" verticalHuggingPriority="750" horizontalCompressionResistancePriority="250" fixedFrame="YES" translatesAutoresizingMaskIntoConstraints="NO" id="Zaq-1s-tvu">
@@ -3878,7 +3878,7 @@ DQ
                                                 </textFieldCell>
                                             </textField>
                                             <stepper horizontalHuggingPriority="750" verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="3LE-5b-i7u">
-                                                <rect key="frame" x="252" y="-3" width="19" height="22"/>
+                                                <rect key="frame" x="252" y="-4" width="19" height="24"/>
                                                 <stepperCell key="cell" continuous="YES" alignment="left" minValue="2" maxValue="30" doubleValue="7" id="PZH-iJ-Mna"/>
                                                 <connections>
                                                     <action selector="ControlChanged:" target="2su-eB-NAU" id="Pob-in-6Bh"/>
@@ -3983,7 +3983,7 @@ DQ
                                                 </textFieldCell>
                                             </textField>
                                             <stepper horizontalHuggingPriority="750" verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="qUc-Od-bTz">
-                                                <rect key="frame" x="252" y="-3" width="19" height="22"/>
+                                                <rect key="frame" x="252" y="-4" width="19" height="24"/>
                                                 <stepperCell key="cell" continuous="YES" alignment="left" minValue="2" maxValue="30" doubleValue="7" id="bwb-58-x03"/>
                                                 <connections>
                                                     <action selector="ControlChanged:" target="2su-eB-NAU" id="kRl-RG-bIm"/>
@@ -4215,7 +4215,7 @@ DQ
                                                 </textFieldCell>
                                             </textField>
                                             <stepper horizontalHuggingPriority="750" verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="bks-1n-QFJ">
-                                                <rect key="frame" x="219" y="-3" width="19" height="22"/>
+                                                <rect key="frame" x="219" y="-4" width="19" height="24"/>
                                                 <stepperCell key="cell" continuous="YES" alignment="left" minValue="2" maxValue="30" doubleValue="7" id="osb-Jz-qTR"/>
                                                 <connections>
                                                     <action selector="ControlClicked:" target="UNR-Cn-UG3" id="5FE-j4-EFK"/>
@@ -4285,7 +4285,7 @@ DQ
                                                 </textFieldCell>
                                             </textField>
                                             <stepper horizontalHuggingPriority="750" verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="xxr-oh-rAR">
-                                                <rect key="frame" x="219" y="-3" width="19" height="22"/>
+                                                <rect key="frame" x="219" y="-4" width="19" height="24"/>
                                                 <stepperCell key="cell" continuous="YES" alignment="left" minValue="2" maxValue="30" doubleValue="5" id="lZQ-xr-6PL"/>
                                                 <connections>
                                                     <action selector="ControlClicked:" target="UNR-Cn-UG3" id="Kxv-FG-HGf"/>
@@ -4367,7 +4367,7 @@ DQ
                                                 </textFieldCell>
                                             </textField>
                                             <stepper horizontalHuggingPriority="750" verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="I6C-mh-8YK">
-                                                <rect key="frame" x="219" y="-3" width="19" height="22"/>
+                                                <rect key="frame" x="219" y="-4" width="19" height="24"/>
                                                 <stepperCell key="cell" continuous="YES" alignment="left" minValue="0.5" maxValue="20" doubleValue="8" id="sAO-hR-lcf"/>
                                                 <connections>
                                                     <action selector="ControlClicked:" target="UNR-Cn-UG3" id="Ozm-5i-JBj"/>

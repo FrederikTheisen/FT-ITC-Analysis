@@ -37,6 +37,8 @@ namespace AnalysisITC
             Data.CellConcentration = CellConcentrationField.DoubleValue / 1000000;
             Data.MeasuredTemperature = TemperatureField.DoubleValue;
 
+            DataReaders.DataReader.ProcessInjections(Data);
+
             DismissViewController(this);
 
             UpdateTable?.Invoke(this, null);

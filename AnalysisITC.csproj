@@ -221,6 +221,7 @@
     <None Include="Info.plist" />
     <None Include="Entitlements.plist" />
     <None Include="packages.config" />
+    <None Include="GUI\MacOS\Drawing\CAGraph.cs" />
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Main.cs" />
@@ -248,7 +249,6 @@
     <Compile Include="GUI\MacOS\GraphViews\DataProcessingGraphView.designer.cs">
       <DependentUpon>DataProcessingGraphView.cs</DependentUpon>
     </Compile>
-    <Compile Include="GUI\MacOS\Drawing\CAGraph.cs" />
     <Compile Include="GUI\MacOS\Drawing\CGGraph.cs" />
     <Compile Include="GUI\MacOS\Drawing\CALayerDrawingView.cs" />
     <Compile Include="GUI\MacOS\Drawing\NSGraph.cs" />
@@ -337,6 +337,7 @@
     <Compile Include="ExperimentDetailsPopoverController.designer.cs">
       <DependentUpon>ExperimentDetailsPopoverController.cs</DependentUpon>
     </Compile>
+    <Compile Include="GUI\MacOS\Drawing\TemperatureDependenceGraph.cs" />
   </ItemGroup>
   <ItemGroup>
     <InterfaceDefinition Include="Main.storyboard" />
