@@ -9,25 +9,10 @@ using Utilities;
 
 namespace AnalysisITC
 {
-    public class CGGraph
+    public class GraphBase
     {
         public const float PiHalf = (float)Math.PI / 2;
-
-        public ExperimentData ExperimentData;
-
-        private CGContext Context { get; set; }
         public const float PPcm = 0.5f * 227 / 2.54f;
-
-        public bool DrawOnWhite = false;
-        public CGColor StrokeColor => DrawOnWhite ? NSColor.Black.CGColor : NSColor.Label.CGColor;
-        public CGColor SecondaryLineColor => DrawOnWhite ? NSColor.Black.ColorWithAlphaComponent(0.75f).CGColor : NSColor.SecondaryLabel.CGColor;
-        public CGColor TertiaryLineColor => DrawOnWhite ? NSColor.Black.ColorWithAlphaComponent(0.5f).CGColor : NSColor.TertiaryLabel.CGColor;
-
-        internal static CTFont DefaultFont = new CTFont("Helvetica", 12);
-        internal static nfloat DefaultFontHeight => DefaultFont.CapHeightMetric + 5;
-        internal static CGColor HighlightColor => NSColor.Label.ColorWithAlphaComponent(0.2f).CGColor;
-        internal static CGColor ActivatedHighlightColor => NSColor.Label.ColorWithAlphaComponent(0.35f).CGColor;
-        public static float SymbolSize { get; set; } = 8;
 
         public nfloat PlotWidthCM = 7.0f;
         public nfloat PlotPixelWidth { get => PlotWidthCM * PPcm; set => PlotWidthCM = value / PPcm; }
@@ -41,8 +26,11 @@ namespace AnalysisITC
         internal CGPoint Origin;
         internal CGRect Frame => new CGRect(Origin, PlotSize);
         internal NSView View;
-        internal bool ScaleToView = true;
-        internal CGLayer CGBuffer;
+
+        public bool DrawOnWhite = false;
+        public CGColor StrokeColor => DrawOnWhite ? NSColor.Black.CGColor : NSColor.Label.CGColor;
+        public CGColor SecondaryLineColor => DrawOnWhite ? NSColor.Black.ColorWithAlphaComponent(0.75f).CGColor : NSColor.SecondaryLabel.CGColor;
+        public CGColor TertiaryLineColor => DrawOnWhite ? NSColor.Black.ColorWithAlphaComponent(0.5f).CGColor : NSColor.TertiaryLabel.CGColor;
 
         GraphAxis xaxis;
         GraphAxis yaxis;
@@ -83,6 +71,102 @@ namespace AnalysisITC
         public void SetXAxisRange(double min, double max, bool buffer = false) => SetAxisRange(XAxis, min, max, buffer);
         public void SetYAxisRange(double min, double max, bool buffer = false) => SetAxisRange(YAxis, min, max, buffer);
 
+        void SetAxisRange(GraphAxis axis, double? min, double? max, bool buffer = false)
+        {
+            if (min == null) min = axis.ActualMin;
+            if (max == null) max = axis.ActualMax;
+
+            if (min >= max)
+            {
+                var _min = min;
+
+                min = max;
+                max = _min;
+            }
+
+            if (buffer) axis.SetWithBuffer((double)min, (double)max);
+            else axis.Set((float)min, (float)max);
+        }
+
+        internal CGPoint GetRelativePosition(DataPoint dp, GraphAxis axis = null)
+        {
+            return GetRelativePosition(dp.Time, dp.Power, axis);
+        }
+
+        internal virtual CGPoint GetRelativePosition(double x, double y, GraphAxis axis = null)
+        {
+            switch (axis)
+            {
+                case null:
+                    return new CGPoint((x - XAxis.Min) * PointsPerUnit.Width, (y - YAxis.Min) * PointsPerUnit.Height);
+                default:
+                    if (axis.IsHorizontal)
+                    {
+                        var rely = (y - YAxis.Min) * PointsPerUnit.Height;
+                        var pppw = PlotSize.Width / (axis.Max - axis.Min);
+                        return new CGPoint((x - axis.Min) * pppw, rely);
+                    }
+                    else
+                    {
+                        var relx = (x - XAxis.Min) * PointsPerUnit.Width;
+                        var ppph = PlotSize.Height / (axis.Max - axis.Min);
+                        return new CGPoint(relx, (y - axis.Min) * ppph);
+                    }
+            }
+        }
+
+        public CGSize DrawString(CGLayer layer, string s, CGPoint position, CTFont font, CTStringAttributes attr = null, TextAlignment horizontalignment = TextAlignment.Center, TextAlignment verticalalignment = TextAlignment.Center, CGColor textcolor = null, float rotation = 0)
+        {
+            if (textcolor == null) textcolor = StrokeColor;
+            if (attr == null) attr = new CTStringAttributes
+            {
+                ForegroundColorFromContext = true,
+                Font = font,
+                StrokeColor = textcolor,
+            };
+
+            var attributedString = new NSAttributedString(s, attr);
+            var textLine = new CTLine(attributedString);
+            var boxsize = textLine.GetBounds(CTLineBoundsOptions.UseOpticalBounds).Size;
+            var size = textLine.GetBounds(CTLineBoundsOptions.UseGlyphPathBounds).Size;
+
+            CGPoint ctm = new CGPoint(0, 0);
+
+            switch (horizontalignment)
+            {
+                case TextAlignment.Right: ctm.X -= boxsize.Width; break;
+                case TextAlignment.Center: ctm.X -= boxsize.Width / 2; break;
+            }
+
+            switch (verticalalignment)
+            {
+                case TextAlignment.Top: ctm.Y -= size.Height; break;
+                case TextAlignment.Center: ctm.Y -= size.Height / 2; break;
+            }
+
+            layer.Context.SaveState();
+            layer.Context.TranslateCTM(position.X, position.Y);
+            layer.Context.RotateCTM(rotation);
+            layer.Context.TranslateCTM(ctm.X, ctm.Y);
+            layer.Context.TextPosition = new CGPoint(0, 0);// position;
+            textLine.Draw(layer.Context);
+            layer.Context.RestoreState();
+            textLine.Dispose();
+
+            return size;
+        }
+    }
+
+    public class CGGraph : GraphBase
+    {
+        public ExperimentData ExperimentData;
+
+        internal static CTFont DefaultFont = new CTFont("Helvetica", 12);
+        internal static nfloat DefaultFontHeight => DefaultFont.CapHeightMetric + 5;
+        internal static CGColor HighlightColor => NSColor.Label.ColorWithAlphaComponent(0.2f).CGColor;
+        internal static CGColor ActivatedHighlightColor => NSColor.Label.ColorWithAlphaComponent(0.35f).CGColor;
+        public static float SymbolSize { get; set; } = 8;
+
         public bool IsMouseDown { get; set; } = false;
 
         public CGGraph(ExperimentData experiment, NSView view)
@@ -93,7 +177,6 @@ namespace AnalysisITC
 
         public void PrepareDraw(CGContext gc, CGPoint center)
         {
-            this.Context = gc;
             this.Center = center;
 
             AutoSetFrame();
@@ -352,9 +435,7 @@ namespace AnalysisITC
             var attributedString = new NSAttributedString(s, attr);
 
             var size = attributedString.Size;
-            //size.Height = font.CapHeightMetric;
 
-            //size = attributedString.BoundingRectWithSize(new CGSize(nfloat.MaxValue, nfloat.MaxValue), NSStringDrawingOptions.UsesDeviceMetrics).Size;
             var textLine = new CTLine(attributedString);
             
             if (!ignoreoptical && (position == AxisPosition.Bottom || position == AxisPosition.Right)) size = textLine.GetBounds(CTLineBoundsOptions.UseOpticalBounds).Size;
@@ -365,118 +446,7 @@ namespace AnalysisITC
             return size;
         }
 
-        public CGSize DrawString(CGLayer layer, string s, CGPoint position, CTFont font, CTStringAttributes attr = null, TextAlignment horizontalignment = TextAlignment.Center, TextAlignment verticalalignment = TextAlignment.Center, CGColor textcolor = null, float rotation = 0)
-        {
-            if (textcolor == null) textcolor = StrokeColor;
-            if (attr == null) attr = new CTStringAttributes
-                {
-                    ForegroundColorFromContext = true,
-                    Font = font,
-                    StrokeColor = textcolor,
-                };
 
-            var attributedString = new NSAttributedString(s, attr);
-
-            //var _size = attributedString.Size;
-            //_size.Height = font.CapHeightMetric;
-
-            var textLine = new CTLine(attributedString);
-
-            var boxsize = textLine.GetBounds(CTLineBoundsOptions.UseOpticalBounds).Size;
-            var size = textLine.GetBounds(CTLineBoundsOptions.UseGlyphPathBounds).Size;
-
-            CGPoint ctm = new CGPoint(0, 0);
-
-            switch (horizontalignment)
-            {
-                case TextAlignment.Right: ctm.X -= boxsize.Width; break;
-                case TextAlignment.Center: ctm.X -= boxsize.Width / 2; break;
-            }
-
-            switch (verticalalignment)
-            {
-                case TextAlignment.Top: ctm.Y -= size.Height; break;
-                case TextAlignment.Center: ctm.Y -= size.Height / 2; break;
-            }
-
-            layer.Context.SaveState();
-            layer.Context.TranslateCTM(position.X, position.Y);
-            layer.Context.RotateCTM(rotation);
-            layer.Context.TranslateCTM(ctm.X, ctm.Y);
-            layer.Context.TextPosition = new CGPoint(0, 0);// position;
-            textLine.Draw(layer.Context);
-            layer.Context.RestoreState();
-            textLine.Dispose();
-
-            return size;
-        }
-
-        public void DrawText(CGContext context, string text, nfloat textHeight, nfloat x, nfloat y, CGColor textcolor = null)
-        {
-            if (textcolor == null) textcolor = NSColor.Label.CGColor;
-
-            y = (nfloat)PlotPixelHeight - y - textHeight;
-            context.SetFillColor(StrokeColor);
-
-            var attributedString = new NSAttributedString(text,
-                new CTStringAttributes
-                {
-                    ForegroundColorFromContext = true,
-                    Font = DefaultFont,
-                    StrokeColor = textcolor,
-                });
-
-            var textLine = new CTLine(attributedString);
-
-            context.TextPosition = new CGPoint(x, y);
-            textLine.Draw(context);
-
-            textLine.Dispose();
-        }
-
-        internal CGPoint GetRelativePosition(DataPoint dp, GraphAxis axis = null)
-        {
-            return GetRelativePosition(dp.Time, dp.Power, axis);
-        }
-
-        internal virtual CGPoint GetRelativePosition(double x, double y, GraphAxis axis = null)
-        {
-            switch (axis)
-            {
-                case null:
-                    return new CGPoint((x - XAxis.Min) * PointsPerUnit.Width, (y - YAxis.Min) * PointsPerUnit.Height);
-                default:
-                    if (axis.IsHorizontal)
-                    {
-                        var rely = (y - YAxis.Min) * PointsPerUnit.Height;
-                        var pppw = PlotSize.Width / (axis.Max - axis.Min);
-                        return new CGPoint((x - axis.Min) * pppw, rely);
-                    }
-                    else
-                    {
-                        var relx = (x - XAxis.Min) * PointsPerUnit.Width;
-                        var ppph = PlotSize.Height / (axis.Max - axis.Min);
-                        return new CGPoint(relx, (y - axis.Min) * ppph);
-                    }
-            }
-        }
-
-        void SetAxisRange(GraphAxis axis, double? min, double? max, bool buffer = false)
-        {
-            if (min == null) min = axis.ActualMin;
-            if (max == null) max = axis.ActualMax;
-
-            if (min >= max)
-            {
-                var _min = min;
-
-                min = max;
-                max = _min;
-            }
-
-            if (buffer) axis.SetWithBuffer((double)min, (double)max);
-            else axis.Set((float)min, (float)max);
-        }
 
         public virtual MouseOverFeatureEvent IsCursorOnFeature(CGPoint cursorpos, bool isclick = false, bool ismouseup = false)
         {

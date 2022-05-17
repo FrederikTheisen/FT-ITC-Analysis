@@ -15,7 +15,7 @@ namespace AnalysisITC
         public static CTFont TickFont { get; set; } = new CTFont("Arial", 14);
         public static CTFont TitleFont { get; set; } = new CTFont("Arial", 16);
 
-        CGGraph cggraph;
+        GraphBase cggraph;
 
         public AxisPosition Position;
         public bool IsHorizontal => Position == AxisPosition.Bottom || Position == AxisPosition.Top;
@@ -102,12 +102,7 @@ namespace AnalysisITC
             _ => new CGSize(0, titleoffset),
         };
 
-        public GraphAxis(CAGraph graph, double min, double max, AxisPosition position = AxisPosition.Unknown)
-        {
-            Initialize(min, max, position);
-        }
-
-        public GraphAxis(CGGraph graph, double min, double max, AxisPosition position = AxisPosition.Unknown)
+        public GraphAxis(GraphBase graph, double min, double max, AxisPosition position = AxisPosition.Unknown)
         {
             this.cggraph = graph;
 
@@ -124,12 +119,10 @@ namespace AnalysisITC
             Position = position;
         }
 
-        public static GraphAxis WithBuffer(object obj, double min, double max, double buffer = 0.035, AxisPosition position = AxisPosition.Unknown) => obj switch
+        public static GraphAxis WithBuffer(GraphBase graph, double min, double max, double buffer = 0.035, AxisPosition position = AxisPosition.Unknown)
         {
-            CGGraph graph => new GraphAxis(graph, min - (max - min) * buffer, max + (max - min) * buffer, position) { Buffer = buffer },
-            CAGraph graph => new GraphAxis(graph, min - (max - min) * buffer, max + (max - min) * buffer, position) { Buffer = buffer },
-            _ => null,
-        };
+            return new GraphAxis(graph, min - (max - min) * buffer, max + (max - min) * buffer, position) { Buffer = buffer };
+        }
 
         public void Set(double min, double max)
         {
