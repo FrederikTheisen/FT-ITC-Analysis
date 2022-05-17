@@ -333,6 +333,10 @@
     <Compile Include="HuggingTextView.designer.cs">
       <DependentUpon>HuggingTextView.cs</DependentUpon>
     </Compile>
+    <Compile Include="ExperimentDetailsPopoverController.cs" />
+    <Compile Include="ExperimentDetailsPopoverController.designer.cs">
+      <DependentUpon>ExperimentDetailsPopoverController.cs</DependentUpon>
+    </Compile>
   </ItemGroup>
   <ItemGroup>
     <InterfaceDefinition Include="Main.storyboard" />

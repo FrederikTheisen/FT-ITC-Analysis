@@ -56,6 +56,9 @@ namespace AnalysisITC
 
 		[Action ("ToggleDataGlobalInclude:")]
 		partial void ToggleDataGlobalInclude (AppKit.NSButton sender);
+
+		[Action ("ViewDetails:")]
+		partial void ViewDetails (Foundation.NSObject sender);
 		
 		void ReleaseDesignerOutlets ()
 		{

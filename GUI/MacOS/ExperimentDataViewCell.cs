@@ -10,6 +10,8 @@ namespace AnalysisITC
 {
 	public partial class ExperimentDataViewCell : NSView
 	{
+		public static event EventHandler<ExperimentData> ExpandDataButtonClicked;
+
 		AnalysisITCDataSource source;
 		ExperimentData data;
 		int row;
@@ -105,6 +107,11 @@ namespace AnalysisITC
         partial void ToggleDataGlobalInclude(NSButton sender)
         {
 			data.Include = sender.State == NSCellStateValue.On;
+        }
+
+        partial void ViewDetails(NSObject sender)
+        {
+			ExpandDataButtonClicked?.Invoke(this, data);
         }
 
         void UpdateFitLineVisibility()

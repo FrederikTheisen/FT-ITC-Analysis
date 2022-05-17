@@ -64,6 +64,9 @@ namespace AnalysisITC
 		AppKit.NSStackView PolynomialDegreeView { get; set; }
 
 		[Outlet]
+		AppKit.NSTextField SelectedInjectionLabel { get; set; }
+
+		[Outlet]
 		AppKit.NSSegmentedControl SplineAlgoControl { get; set; }
 
 		[Outlet]
@@ -89,6 +92,12 @@ namespace AnalysisITC
 
 		[Outlet]
 		AppKit.NSButton UseIntegrationFactorLengthControl { get; set; }
+
+		[Outlet]
+		AppKit.NSButton ViewNextControl { get; set; }
+
+		[Outlet]
+		AppKit.NSButton ViewPreviousControl { get; set; }
 
 		[Outlet]
 		AppKit.NSTextField ZLimitLabel { get; set; }
@@ -129,6 +138,9 @@ namespace AnalysisITC
 		[Action ("ScopeButtonClicked:")]
 		partial void ScopeButtonClicked (Foundation.NSObject sender);
 
+		[Action ("SelectAllInjections:")]
+		partial void SelectAllInjections (AppKit.NSButton sender);
+
 		[Action ("SplineAlgoClicked:")]
 		partial void SplineAlgoClicked (AppKit.NSSegmentedControl sender);
 
@@ -144,6 +156,12 @@ namespace AnalysisITC
 		[Action ("UseFactorToggled:")]
 		partial void UseFactorToggled (Foundation.NSObject sender);
 
+		[Action ("ViewNextInjection:")]
+		partial void ViewNextInjection (AppKit.NSButton sender);
+
+		[Action ("ViewPreviousInjection:")]
+		partial void ViewPreviousInjection (AppKit.NSButton sender);
+
 		[Action ("ZLimitChanged:")]
 		partial void ZLimitChanged (AppKit.NSSlider sender);
 
@@ -152,21 +170,6 @@ namespace AnalysisITC
 		
 		void ReleaseDesignerOutlets ()
 		{
-			if (CorrectedScopeButton != null) {
-				CorrectedScopeButton.Dispose ();
-				CorrectedScopeButton = null;
-			}
-
-			if (IntegrationScopeButton != null) {
-				IntegrationScopeButton.Dispose ();
-				IntegrationScopeButton = null;
-			}
-
-			if (BaselineScopeButton != null) {
-				BaselineScopeButton.Dispose ();
-				BaselineScopeButton = null;
-			}
-
 			if (ApplyToAllSwitch != null) {
 				ApplyToAllSwitch.Dispose ();
 				ApplyToAllSwitch = null;
@@ -177,9 +180,19 @@ namespace AnalysisITC
 				BaselineGraphView = null;
 			}
 
+			if (BaselineScopeButton != null) {
+				BaselineScopeButton.Dispose ();
+				BaselineScopeButton = null;
+			}
+
 			if (ConfirmProcessingButton != null) {
 				ConfirmProcessingButton.Dispose ();
 				ConfirmProcessingButton = null;
+			}
+
+			if (CorrectedScopeButton != null) {
+				CorrectedScopeButton.Dispose ();
+				CorrectedScopeButton = null;
 			}
 
 			if (DataZoomSegControl != null) {
@@ -210,6 +223,11 @@ namespace AnalysisITC
 			if (IntegrationLengthLabel != null) {
 				IntegrationLengthLabel.Dispose ();
 				IntegrationLengthLabel = null;
+			}
+
+			if (IntegrationScopeButton != null) {
+				IntegrationScopeButton.Dispose ();
+				IntegrationScopeButton = null;
 			}
 
 			if (IntegrationStartDelayLabel != null) {
@@ -295,6 +313,21 @@ namespace AnalysisITC
 			if (ZLimitView != null) {
 				ZLimitView.Dispose ();
 				ZLimitView = null;
+			}
+
+			if (ViewPreviousControl != null) {
+				ViewPreviousControl.Dispose ();
+				ViewPreviousControl = null;
+			}
+
+			if (ViewNextControl != null) {
+				ViewNextControl.Dispose ();
+				ViewNextControl = null;
+			}
+
+			if (SelectedInjectionLabel != null) {
+				SelectedInjectionLabel.Dispose ();
+				SelectedInjectionLabel = null;
 			}
 		}
 	}

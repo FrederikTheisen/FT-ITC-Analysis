@@ -41,7 +41,22 @@ namespace AnalysisITC
             DataManager.SelectionDidChange += DataManager_SelectionDidChange;
             DataManager.AnalysisResultSelected += DataManager_AnalysisResultSelected;
 
+            ExperimentDataViewCell.ExpandDataButtonClicked += ExperimentDataViewCell_ExpandDataButtonClicked;
             AnalysisResultView.ExpandDataButtonClicked += AnalysisResultView_ExpandDataButtonClicked;
+
+            ExperimentDetailsPopoverController.UpdateTable += ExperimentDetailsPopoverController_UpdateTable;
+        }
+
+        private void ExperimentDetailsPopoverController_UpdateTable(object sender, EventArgs e)
+        {
+            TableView.ReloadData();
+        }
+
+        private void ExperimentDataViewCell_ExpandDataButtonClicked(object sender, ExperimentData e)
+        {
+            ExperimentDetailsPopoverController.Data = e;
+
+            PerformSegue("DetailsSegue", sender as NSObject);
         }
 
         private void AnalysisResultView_ExpandDataButtonClicked(object sender, AnalysisResult e)

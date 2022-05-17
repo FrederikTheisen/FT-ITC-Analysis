@@ -235,7 +235,7 @@ namespace Utilities
 
             string timestring = inj.Time.ToString("F1") + "s";
 
-            int spaces = longest - timestring.Length - tooltiplines[0].Length + 3;
+            int spaces = 2 * (longest - timestring.Length) - tooltiplines[0].Length;
             if (spaces < 1) spaces = 1;
 
             tooltiplines[0] += new string(' ', spaces) + timestring;

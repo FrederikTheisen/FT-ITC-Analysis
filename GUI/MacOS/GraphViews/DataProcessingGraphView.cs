@@ -46,10 +46,14 @@ namespace AnalysisITC
             get => selectedPeak;
             set
             {
-                selectedPeak = value;
+                if (value == -1) selectedPeak = value;
+                else
+                {
+                    selectedPeak = value;
 
-                if (selectedPeak < 0) selectedPeak = 0;
-                else if (selectedPeak >= Data.InjectionCount) selectedPeak = Data.InjectionCount - 1;
+                    if (selectedPeak < 0) selectedPeak = 0;
+                    else if (selectedPeak >= Data.InjectionCount) selectedPeak = Data.InjectionCount - 1;
+                }
 
                 Graph.SetFocusedInjection(selectedPeak);
 
@@ -136,7 +140,7 @@ namespace AnalysisITC
         public void FocusPeak()
         {
             if (Data == null) return;
-
+            if (SelectedPeak == -1) return;
             var inj = Data.Injections[SelectedPeak];
 
             Graph.SetXAxisRange(inj.Time - inj.Delay * 0.2f, inj.Time + inj.Delay * 1.2f);

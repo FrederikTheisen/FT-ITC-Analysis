@@ -110,6 +110,8 @@ namespace AnalysisITC
 
             UpdateSliderLabels();
 
+            UpdateInjectionSelectionUI();
+
             ConfirmProcessingButton.Enabled = DataManager.AllDataIsBaselineProcessed;
         }
 
@@ -289,6 +291,27 @@ namespace AnalysisITC
             }
         }
 
+        partial void ViewPreviousInjection(NSButton sender)
+        {
+            BaselineGraphView.SelectedPeak--;
+
+            UpdateInjectionSelectionUI();
+        }
+
+        partial void ViewNextInjection(NSButton sender)
+        {
+            BaselineGraphView.SelectedPeak++;
+
+            UpdateInjectionSelectionUI();
+        }
+
+        partial void SelectAllInjections(NSButton sender)
+        {
+            BaselineGraphView.SelectedPeak = -1;
+
+            UpdateInjectionSelectionUI();
+        }
+
         partial void InjectionViewControlClicked(NSSegmentedControl sender)
         {
             if (Data == null) return;
@@ -300,6 +323,24 @@ namespace AnalysisITC
             }
 
             sender.SetLabel((BaselineGraphView.SelectedPeak + 1).ToString(), 1);
+        }
+
+        void UpdateInjectionSelectionUI()
+        {
+            if (BaselineGraphView.SelectedPeak != -1) SelectedInjectionLabel.StringValue = "inj #" + (BaselineGraphView.SelectedPeak + 1).ToString();
+            else SelectedInjectionLabel.StringValue = "All";
+
+            ViewPreviousControl.Enabled = true;
+            ViewNextControl.Enabled = true;
+
+            if (BaselineGraphView.SelectedPeak == 0)
+            {
+                ViewPreviousControl.Enabled = false;
+            }
+            if (BaselineGraphView.SelectedPeak == Data?.InjectionCount - 1)
+            {
+                ViewNextControl.Enabled = false;
+            }
         }
 
         partial void ScopeButtonClicked(NSObject sender) => BaselineGraphView.SetFeatureVisibility(ShowBaseline, ShowIntegrationRange, Corrected);
