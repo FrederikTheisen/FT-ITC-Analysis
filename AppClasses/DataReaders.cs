@@ -37,6 +37,9 @@ namespace DataReaders
             {
                 var dat = ReadFile(path);
 
+                ProcessInjections(dat);
+                ProcessData(dat);
+
                 dat.Date = File.GetLastWriteTimeUtc(path);
 
                 if (dat != null) AddData(dat);
@@ -61,6 +64,36 @@ namespace DataReaders
             }
 
             return null;
+        }
+
+        public static void ProcessInjections(ExperimentData experiment)
+        {
+            var deltaVolume = 0.0;
+            var totalmass = 0.0;
+
+            foreach (var inj in experiment.Injections)
+            {
+                inj.InjectionMass = experiment.SyringeConcentration * inj.Volume;
+
+                deltaVolume += inj.Volume;
+                totalmass += inj.InjectionMass;
+
+                var vcon = deltaVolume / (2 * experiment.CellVolume);
+
+                var conc_ligand = totalmass / (experiment.CellVolume + deltaVolume * 0.5f);
+                var conc_macro = experiment.CellConcentration * (1 - vcon) / (1 + vcon);
+
+                inj.ActualCellConcentration = conc_macro;
+                inj.ActualTitrantConcentration = conc_ligand;
+                inj.Ratio = conc_ligand / conc_macro;
+            }
+
+            experiment.CalculatePeakHeatDirection();
+        }
+
+        static void ProcessData(ExperimentData experiment)
+        {
+            experiment.MeasuredTemperature = experiment.DataPoints.Average(dp => dp.Temperature);
         }
 
         static bool ValidateData(ExperimentData data)
@@ -169,10 +202,6 @@ namespace DataReaders
                 Console.WriteLine($"File has {counter} lines.");
             }
 
-            ProcessInjections(experiment);
-
-            ProcessData(experiment);
-
             return experiment;
         }
 
@@ -205,35 +234,7 @@ namespace DataReaders
             experiment.DataPoints.Add(new DataPoint(line, ITCDataFormat.ITC200));
         }
 
-        static void ProcessInjections(ExperimentData experiment)
-        {
-            var deltaVolume = 0.0;
-            var totalmass = 0.0;
 
-            foreach (var inj in experiment.Injections)
-            {
-                inj.InjectionMass = experiment.SyringeConcentration * inj.Volume;
-
-                deltaVolume += inj.Volume;
-                totalmass += inj.InjectionMass;
-
-                var vcon = deltaVolume / (2 * experiment.CellVolume);
-
-                var conc_ligand = totalmass / (experiment.CellVolume + deltaVolume * 0.5f);
-                var conc_macro = experiment.CellConcentration * (1 - vcon) / (1 + vcon);
-
-                inj.ActualCellConcentration = conc_macro;
-                inj.ActualTitrantConcentration = conc_ligand;
-                inj.Ratio = conc_ligand / conc_macro;
-            }
-
-            experiment.CalculatePeakHeatDirection();
-        }
-
-        static void ProcessData(ExperimentData experiment)
-        {
-            experiment.MeasuredTemperature = experiment.DataPoints.Average(dp => dp.Temperature);
-        }
     }
 
     public class ITCFormatAttribute : Attribute
