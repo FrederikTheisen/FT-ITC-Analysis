@@ -13,19 +13,19 @@ namespace AnalysisITC
         public event EventHandler ProcessingUpdated;
         public event EventHandler SolutionChanged;
 
-        public List<DataPoint> DataPoints = new List<DataPoint>();
+        public List<DataPoint> DataPoints { get; set; } = new List<DataPoint>();
         public List<DataPoint> BaseLineCorrectedDataPoints;
-        public List<InjectionData> Injections = new List<InjectionData>();
+        public List<InjectionData> Injections { get; set; } = new List<InjectionData>();
 
-        public double SyringeConcentration;
-        public double CellConcentration;
-        public double CellVolume;
-        public double StirringSpeed;
-        public FeedbackMode FeedBackMode;
+        public double SyringeConcentration { get; set; }
+        public double CellConcentration { get; set; }
+        public double CellVolume { get; set; }
+        public double StirringSpeed { get; set; }
+        public FeedbackMode FeedBackMode { get; set; }
 
-        public double TargetTemperature;
-        public double InitialDelay;
-        public double TargetPowerDiff;
+        public double TargetTemperature { get; set; }
+        public double InitialDelay { get; set; }
+        public double TargetPowerDiff { get; set; }
         public double MeasuredTemperature { get; internal set; }
         public int InjectionCount => Injections.Count;
         public PeakHeatDirection AverageHeatDirection { get; set; } = PeakHeatDirection.Unknown;

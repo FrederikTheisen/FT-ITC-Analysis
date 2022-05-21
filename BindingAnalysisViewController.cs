@@ -78,61 +78,32 @@ namespace AnalysisITC
 	{
         public static AnalysisResult AnalysisResult { get; set; }
 
-		public BindingAnalysisViewController (IntPtr handle) : base (handle)
+        EnergyUnit EnergyUnit => (int)EnergyUnitControl.SelectedSegment switch { 0 => EnergyUnit.Joule, 1 => EnergyUnit.KiloJoule, 2 => EnergyUnit.Cal, 3 => EnergyUnit.KCal, _ => EnergyUnit.KiloJoule, };
+        public bool UseKelvin => TemperatureUnitControl.SelectedSegment == 1;
+        double Mag = -1;
+
+        public BindingAnalysisViewController (IntPtr handle) : base (handle)
 		{
             
 		}
 
         public override void ViewDidAppear()
         {
-            base.ViewDidAppear();
+            Graph.Initialize(AnalysisResult);
 
             Setup();
         }
 
-        EnergyUnit EnergyUnit => (int)EnergyUnitControl.SelectedSegment switch { 0 => EnergyUnit.Joule, 1 => EnergyUnit.KiloJoule, 2 => EnergyUnit.Cal, 3 => EnergyUnit.KCal, _ => EnergyUnit.KiloJoule, };
-        public bool UseKelvin => TemperatureUnitControl.SelectedSegment == 1;
-        double Mag = -1;
-
-        public void Setup()
+        void Setup()
         {
-            var kd = AnalysisResult.Solution.Solutions.Average(s => s.Kd);
+            string values = "";
 
-            Mag = Math.Log10(kd);
+            values += AnalysisResult.Solution.Model.ToString() + Environment.NewLine;
+            values += AnalysisResult.Solution.Model.Options.EnthalpyStyle.ToString() + Environment.NewLine;
+            values += AnalysisResult.Solution.Model.Options.AffinityStyle.ToString() + Environment.NewLine;
+            values += AnalysisResult.Solution.Model.MeanTemperature.ToString("G3") + Environment.NewLine;
 
-            var kdunit = Mag switch
-            {
-                > 0 => "M",
-                > -3 => "mM",
-                > -6 => "µM",
-                > -9 => "nM",
-                > -12 => "pM",
-                _ => "M"
-            };
-
-            var source = new ResultViewDataSource(AnalysisResult)
-            {
-                KdMag = Mag,
-                EnergyUnit = EnergyUnit,
-                UseKelvin = UseKelvin,
-            };
-            ResultsTableView.DataSource = source;
-            ResultsTableView.Delegate = new ResultViewDelegate(source);
-            ResultsTableView.TableColumns()[0].Title = "Temperature (" + (UseKelvin ? "K" : "°C") + ")";
-            ResultsTableView.TableColumns()[2].Title = "Kd (" + kdunit + ")";
-            ResultsTableView.TableColumns()[3].Title = "∆H (" + EnergyUnit.GetUnit() + "/mol)";
-            ResultsTableView.TableColumns()[4].Title = "-T∆S (" + EnergyUnit.GetUnit() + "/molK)";
-            ResultsTableView.TableColumns()[5].Title = "∆G (" + EnergyUnit.GetUnit() + "/mol)";
-        }
-
-        partial void TempUnitControlClicked(NSSegmentedControl sender)
-        {
-            Setup();
-        }
-
-        partial void EnergyUnitControlClicked(NSSegmentedControl sender)
-        {
-            Setup();
+            ValueLabel.StringValue = values;
         }
 
         partial void CopyToClipboard(NSObject sender)

@@ -16,10 +16,19 @@ namespace AnalysisITC
 		AppKit.NSSegmentedControl EnergyUnitControl { get; set; }
 
 		[Outlet]
+		AnalysisITC.TemperatureDependenceGraphView Graph { get; set; }
+
+		[Outlet]
+		AppKit.NSTextField LabelLabel { get; set; }
+
+		[Outlet]
 		AppKit.NSTableView ResultsTableView { get; set; }
 
 		[Outlet]
 		AppKit.NSSegmentedControl TemperatureUnitControl { get; set; }
+
+		[Outlet]
+		AppKit.NSTextField ValueLabel { get; set; }
 
 		[Action ("CloseButtonClicked:")]
 		partial void CloseButtonClicked (Foundation.NSObject sender);
@@ -35,19 +44,34 @@ namespace AnalysisITC
 		
 		void ReleaseDesignerOutlets ()
 		{
-			if (ResultsTableView != null) {
-				ResultsTableView.Dispose ();
-				ResultsTableView = null;
-			}
-
 			if (EnergyUnitControl != null) {
 				EnergyUnitControl.Dispose ();
 				EnergyUnitControl = null;
 			}
 
+			if (ResultsTableView != null) {
+				ResultsTableView.Dispose ();
+				ResultsTableView = null;
+			}
+
 			if (TemperatureUnitControl != null) {
 				TemperatureUnitControl.Dispose ();
 				TemperatureUnitControl = null;
+			}
+
+			if (Graph != null) {
+				Graph.Dispose ();
+				Graph = null;
+			}
+
+			if (LabelLabel != null) {
+				LabelLabel.Dispose ();
+				LabelLabel = null;
+			}
+
+			if (ValueLabel != null) {
+				ValueLabel.Dispose ();
+				ValueLabel = null;
 			}
 		}
 	}

@@ -3,7 +3,7 @@ using System.Collections.Generic;
 
 namespace AnalysisITC
 {
-    public struct Energy
+    public struct Energy : IComparable
     {
         public const double CalToJouleFactor = 4.184;
         public const double JouleToCalFactor = 1 / 4.184;
@@ -95,6 +95,16 @@ namespace AnalysisITC
                 EnergyUnit.KCal => (JouleToCalFactor * FloatWithError / 1000).ToString(formatter) + " " + suffix,
                 _ => FloatWithError.ToString(formatter) + " " + suffix,
             };
+        }
+
+        public int CompareTo(object obj)
+        {
+            if (obj == null) return 1;
+
+            Energy otherEnergy = (Energy)obj;
+
+            if (obj is Energy) return Value.CompareTo(otherEnergy.Value);
+            else throw new Exception("value not Energy");
         }
     }
 

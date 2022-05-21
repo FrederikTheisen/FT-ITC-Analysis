@@ -39,7 +39,7 @@ namespace AnalysisITC
         Hour
     }
 
-    public struct FloatWithError
+    public struct FloatWithError : IComparable
     {
         public double Value { get; private set; }
         public double SD { get; private set; }
@@ -197,6 +197,14 @@ namespace AnalysisITC
                 > -12 => (1000000000000 * this).ToString(),
                 _ => ToString()
             };
+        }
+
+        public int CompareTo(object obj)
+        {
+            if (obj == null) return 1;
+
+            if (obj is FloatWithError) return Value.CompareTo(((FloatWithError)obj).Value);
+            else throw new Exception("value not FWE");
         }
     }
 }

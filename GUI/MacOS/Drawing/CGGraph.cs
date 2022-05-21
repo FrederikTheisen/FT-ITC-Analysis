@@ -155,109 +155,6 @@ namespace AnalysisITC
 
             return size;
         }
-    }
-
-    public class CGGraph : GraphBase
-    {
-        public ExperimentData ExperimentData;
-
-        internal static CTFont DefaultFont = new CTFont("Helvetica", 12);
-        internal static nfloat DefaultFontHeight => DefaultFont.CapHeightMetric + 5;
-        internal static CGColor HighlightColor => NSColor.Label.ColorWithAlphaComponent(0.2f).CGColor;
-        internal static CGColor ActivatedHighlightColor => NSColor.Label.ColorWithAlphaComponent(0.35f).CGColor;
-        public static float SymbolSize { get; set; } = 8;
-
-        public bool IsMouseDown { get; set; } = false;
-
-        public CGGraph(ExperimentData experiment, NSView view)
-        {
-            ExperimentData = experiment;
-            View = view;
-        }
-
-        public void PrepareDraw(CGContext gc, CGPoint center)
-        {
-            this.Center = center;
-
-            AutoSetFrame();
-
-            SetupAxisScalingUnits();
-
-            Draw(gc);
-
-            DrawFrame(gc);
-
-            DrawAxes();
-        }
-
-        public virtual void AutoSetFrame()
-        {
-            var ymargin = YAxis.EstimateLabelMargin();
-            var xmargin = XAxis.EstimateLabelMargin();
-
-            PlotSize = new CGSize(View.Frame.Width - ymargin - 1, View.Frame.Height - xmargin - 1);
-            Origin = new CGPoint(ymargin, xmargin);
-        }
-
-        public void SetupAxisScalingUnits()
-        {
-            if (Frame.Size.Width * Frame.Size.Height < 0) return;
-
-            var pppw = PlotSize.Width / (XAxis.Max - XAxis.Min);
-            var ppph = PlotSize.Height / (YAxis.Max - YAxis.Min);
-
-            PointsPerUnit = new CGSize(pppw, ppph);
-        }
-
-        internal virtual void Draw(CGContext cg)
-        {
-
-        }
-
-        public void DrawFrame(CGContext gc)
-        {
-            gc.SetStrokeColor(StrokeColor);
-            gc.StrokeRectWithWidth(Frame, 1);
-        }
-
-        #region Drawing
-
-        #region Drawing Methods
-
-        public void DrawDataSeries(CGContext gc, List<CGPoint> points, float linewidth, CGColor color)
-        {
-            var layer = CGLayer.Create(gc, Frame.Size);
-
-            if (points.Count == 0) return;
-            if (points.Count == 1) { DrawCircle(gc, points[0], 2, true, color); return; }
-
-            var path = new CGPath();
-
-            path.MoveToPoint(points[0]);
-
-            for (int i = 1; i < points.Count; i++)
-            {
-                CGPoint p = points[i];
-                path.AddLineToPoint(p);
-            }
-
-            layer.Context.AddPath(path);
-            layer.Context.SetStrokeColor(color);
-            layer.Context.SetLineWidth(linewidth);
-            layer.Context.StrokePath();
-
-            gc.DrawLayer(layer, Origin);
-        }
-
-        public void DrawSymbolsAtPositions(CGLayer layer, CGPoint[] points, float size, SymbolShape shape, bool fill = false, float width = 1, CGColor color = null, float roundedradius = 0)
-        {
-            switch (shape)
-            {
-                case SymbolShape.Square: DrawRectsAtPositions(layer, points, size, false, fill, width, color, roundedradius); break;
-                case SymbolShape.Circle: DrawRectsAtPositions(layer, points, size, true, fill, width, color, roundedradius); break;
-                case SymbolShape.Diamond: DrawDiamondsAtPositions(layer, points, size, fill, width, color, roundedradius); break;
-            }
-        }
 
         public void DrawRectsAtPositions(CGLayer layer, CGPoint[] points, float size, bool circle = false, bool fill = false, float width = 1, CGColor color = null, float roundedradius = 0)
         {
@@ -314,20 +211,34 @@ namespace AnalysisITC
             else gc.StrokeEllipseInRect(GetRectAtPosition(position, radius));
         }
 
-        public void DrawSpline(CGContext gc, CGPoint[] points, float linewidth, CGColor color)
+        public CGRect GetRectAtPosition(CGPoint point, double size)
         {
-            var path = GetSplineFrommPoints(points);
-
-            DrawPath(gc, path, linewidth, color);
+            return new CGRect(point.X - size / 2, point.Y - size / 2, size, size);
         }
 
-        void DrawPath(CGContext gc, CGPath path, float linewidth, CGColor color)
+        public void DrawSymbolsAtPositions(CGLayer layer, CGPoint[] points, float size, SymbolShape shape, bool fill = false, float width = 1, CGColor color = null, float roundedradius = 0)
         {
-            var layer = CGLayer.Create(gc, Frame.Size);
+            switch (shape)
+            {
+                case SymbolShape.Square: DrawRectsAtPositions(layer, points, size, false, fill, width, color, roundedradius); break;
+                case SymbolShape.Circle: DrawRectsAtPositions(layer, points, size, true, fill, width, color, roundedradius); break;
+                case SymbolShape.Diamond: DrawDiamondsAtPositions(layer, points, size, fill, width, color, roundedradius); break;
+            }
+        }
 
-            DrawPathToLayer(layer, path, linewidth, color);
+        internal void AddCircleAtPosition(CGLayer layer, CGPoint p, double size)
+        {
+            var rect = GetRectAtPosition(p, size);
 
-            gc.DrawLayer(layer, Frame.Location);
+            layer.Context.AddPath(CGPath.EllipseFromRect(rect));
+        }
+
+        internal void AddRectAtPosition(CGLayer layer, CGPoint p, double size, float roundedradius)
+        {
+            var rect = GetRectAtPosition(p, size);
+
+            if (roundedradius > 0) layer.Context.AddPath(CGPath.FromRoundedRect(rect, roundedradius, roundedradius));
+            else layer.Context.AddRect(rect);
         }
 
         public void FillPathShape(CGContext gc, CGPath path, CGColor color, float alpha = -1f)
@@ -338,6 +249,122 @@ namespace AnalysisITC
             layer.Context.SetFillColor(color);
             layer.Context.AddPath(path);
             layer.Context.FillPath();
+
+            gc.DrawLayer(layer, Frame.Location);
+        }
+
+        public virtual void AutoSetFrame()
+        {
+            var ymargin = YAxis.EstimateLabelMargin();
+            var xmargin = XAxis.EstimateLabelMargin();
+
+            PlotSize = new CGSize(View.Frame.Width - ymargin - 5, View.Frame.Height - xmargin - 5);
+            Origin = new CGPoint(ymargin, xmargin);
+        }
+
+        public enum SymbolShape
+        {
+            Square,
+            Circle,
+            Diamond,
+        }
+    }
+
+    public class CGGraph : GraphBase
+    {
+        public ExperimentData ExperimentData;
+
+        internal static CTFont DefaultFont = new CTFont("Helvetica", 12);
+        internal static nfloat DefaultFontHeight => DefaultFont.CapHeightMetric + 5;
+        internal static CGColor HighlightColor => NSColor.Label.ColorWithAlphaComponent(0.2f).CGColor;
+        internal static CGColor ActivatedHighlightColor => NSColor.Label.ColorWithAlphaComponent(0.35f).CGColor;
+        public static float SymbolSize { get; set; } = 8;
+
+        public bool IsMouseDown { get; set; } = false;
+
+        public CGGraph(ExperimentData experiment, NSView view)
+        {
+            ExperimentData = experiment;
+            View = view;
+        }
+
+        public void PrepareDraw(CGContext gc, CGPoint center)
+        {
+            this.Center = center;
+
+            AutoSetFrame();
+
+            SetupAxisScalingUnits();
+
+            Draw(gc);
+
+            DrawFrame(gc);
+
+            DrawAxes();
+        }
+
+        public void SetupAxisScalingUnits()
+        {
+            if (Frame.Size.Width * Frame.Size.Height < 0) return;
+
+            var pppw = PlotSize.Width / (XAxis.Max - XAxis.Min);
+            var ppph = PlotSize.Height / (YAxis.Max - YAxis.Min);
+
+            PointsPerUnit = new CGSize(pppw, ppph);
+        }
+
+        internal virtual void Draw(CGContext cg)
+        {
+
+        }
+
+        public void DrawFrame(CGContext gc)
+        {
+            gc.SetStrokeColor(StrokeColor);
+            gc.StrokeRectWithWidth(Frame, 1);
+        }
+
+        #region Drawing
+
+        #region Drawing Methods
+
+        public void DrawDataSeries(CGContext gc, List<CGPoint> points, float linewidth, CGColor color)
+        {
+            var layer = CGLayer.Create(gc, Frame.Size);
+
+            if (points.Count == 0) return;
+            if (points.Count == 1) { DrawCircle(gc, points[0], 2, true, color); return; }
+
+            var path = new CGPath();
+
+            path.MoveToPoint(points[0]);
+
+            for (int i = 1; i < points.Count; i++)
+            {
+                CGPoint p = points[i];
+                path.AddLineToPoint(p);
+            }
+
+            layer.Context.AddPath(path);
+            layer.Context.SetStrokeColor(color);
+            layer.Context.SetLineWidth(linewidth);
+            layer.Context.StrokePath();
+
+            gc.DrawLayer(layer, Origin);
+        }
+
+        public void DrawSpline(CGContext gc, CGPoint[] points, float linewidth, CGColor color)
+        {
+            var path = GetSplineFromPoints(points);
+
+            DrawPath(gc, path, linewidth, color);
+        }
+
+        void DrawPath(CGContext gc, CGPath path, float linewidth, CGColor color)
+        {
+            var layer = CGLayer.Create(gc, Frame.Size);
+
+            DrawPathToLayer(layer, path, linewidth, color);
 
             gc.DrawLayer(layer, Frame.Location);
         }
@@ -354,29 +381,9 @@ namespace AnalysisITC
             layer.Context.StrokePath();
         }
 
-        internal void AddRectAtPosition(CGLayer layer, CGPoint p, double size, float roundedradius)
-        {
-            var rect = GetRectAtPosition(p, size);
-
-            if (roundedradius > 0) layer.Context.AddPath(CGPath.FromRoundedRect(rect, roundedradius, roundedradius));
-            else layer.Context.AddRect(rect);
-        }
-
-        internal void AddCircleAtPosition(CGLayer layer, CGPoint p, double size)
-        {
-            var rect = GetRectAtPosition(p, size);
-
-            layer.Context.AddPath(CGPath.EllipseFromRect(rect));
-        }
-
         #endregion
 
-        public CGRect GetRectAtPosition(CGPoint point, double size)
-        {
-            return new CGRect(point.X - size / 2, point.Y - size / 2, size, size);
-        }
-
-        public CGPath GetSplineFrommPoints(CGPoint[] points, CGPath path = null, float linewidth = 1)
+        public CGPath GetSplineFromPoints(CGPoint[] points, CGPath path = null, float linewidth = 1)
         {
             bool continued = path != null;
             if (path == null) path = new CGPath();
@@ -451,13 +458,6 @@ namespace AnalysisITC
         public virtual MouseOverFeatureEvent IsCursorOnFeature(CGPoint cursorpos, bool isclick = false, bool ismouseup = false)
         {
             return new MouseOverFeatureEvent();
-        }
-
-        public enum SymbolShape
-        {
-            Square,
-            Circle,
-            Diamond,
         }
     }
 
@@ -1173,8 +1173,8 @@ namespace AnalysisITC
 
             bottom.Reverse();
 
-            CGPath path = GetSplineFrommPoints(top.ToArray());
-            GetSplineFrommPoints(bottom.ToArray(), path);
+            CGPath path = GetSplineFromPoints(top.ToArray());
+            GetSplineFromPoints(bottom.ToArray(), path);
 
             //path.MoveToPoint(top[0]);
             //foreach (var p in top.Skip(1)) path.AddLineToPoint(p);

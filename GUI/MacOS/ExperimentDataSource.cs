@@ -9,19 +9,16 @@ namespace AnalysisITC
 {
     public class ITCDataViewContainer
     {
-        public readonly string UniqueID = Guid.NewGuid().ToString();
+        public string UniqueID { get; private set; } = Guid.NewGuid().ToString();
         public string FileName { get; set; } = "";
         public DateTime Date { get; internal set; }
+
+        public void SetID(string id) => UniqueID = id;
     }
 
     public class AnalysisResult : ITCDataViewContainer
     {
         public GlobalSolution Solution { get; set; }
-
-        internal double GetMaximumParameter()
-        {
-            throw new NotImplementedException();
-        }
 
         public AnalysisResult(GlobalSolution solution)
         {
@@ -47,19 +44,26 @@ namespace AnalysisITC
             return s;
         }
 
-        internal double GetMinimumTemperature()
-        {
-            throw new NotImplementedException();
-        }
+        internal double GetMinimumTemperature() => Solution.Solutions.Min(s => s.T);
 
-        internal double GetMaximumTemperature()
+        internal double GetMaximumTemperature() => Solution.Solutions.Max(s => s.T);
+
+        internal double GetMaximumParameter()
         {
-            throw new NotImplementedException();
+            var maxentropy = Solution.Solutions.Max(s => s.TdS);
+            var maxenthalpy = Solution.Solutions.Max(s => s.Enthalpy);
+            var maxgibbs = Solution.Solutions.Max(s => s.GibbsFreeEnergy);
+
+            return (new Energy[] { maxentropy, maxenthalpy, maxgibbs }).Max();
         }
 
         internal double GetMinimumParameter()
         {
-            throw new NotImplementedException();
+            var minentropy = Solution.Solutions.Min(s => s.TdS);
+            var minenthalpy = Solution.Solutions.Min(s => s.Enthalpy);
+            var mingibbs = Solution.Solutions.Min(s => s.GibbsFreeEnergy);
+
+            return (new Energy[] { minentropy, minenthalpy, mingibbs }).Min();
         }
     }
 

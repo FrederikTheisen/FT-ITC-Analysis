@@ -1,17 +1,29 @@
 ﻿using System;
 using AppKit;
 using CoreGraphics;
+using System.Collections.Generic;
+using System.Linq;
 
 namespace AnalysisITC
 {
     public class TemperatureDependenceGraph : GraphBase
     {
+        AnalysisResult Result { get; set; }
+
         public TemperatureDependenceGraph(AnalysisResult analysis, NSView view)
         {
             View = view;
+            Result = analysis;
 
-            XAxis = new GraphAxis(this, analysis.GetMinimumTemperature(), analysis.GetMaximumTemperature(), AxisPosition.Bottom);
-            YAxis = new GraphAxis(this, analysis.GetMinimumParameter(), analysis.GetMaximumParameter(), AxisPosition.Left);
+            XAxis = GraphAxis.WithBuffer(this, analysis.GetMinimumTemperature(), analysis.GetMaximumTemperature(), buffer: .1, position: AxisPosition.Bottom);
+            XAxis.HideUnwantedTicks = false;
+            XAxis.LegendTitle = "Temperature (°C)";
+
+            YAxis = GraphAxis.WithBuffer(this, analysis.GetMinimumParameter(), analysis.GetMaximumParameter(), buffer: .1, position: AxisPosition.Left);
+            YAxis.HideUnwantedTicks = false;
+            YAxis.ValueFactor = 0.001;
+            YAxis.MirrorTicks = true;
+            YAxis.LegendTitle = "Thermodynamc parameter (kJ/mol)";
         }
 
         public void PrepareDraw(CGContext gc, CGPoint center)
@@ -30,21 +42,7 @@ namespace AnalysisITC
             YAxis.Draw(gc);
         }
 
-        public void AutoSetFrame()
-        {
-            var ymargin = YAxis.EstimateLabelMargin();
-            var xmargin = XAxis.EstimateLabelMargin();
-
-            var size = Math.Min(View.Frame.Height - ymargin, View.Frame.Width - xmargin);
-
-            PlotSize = new CGSize(size - 1, size - 1);
-            Origin = new CGPoint(ymargin, xmargin)
-            {
-                X = Center.X - PlotSize.Width / 2
-            };
-        }
-
-        public void SetupAxisScalingUnits()
+        void SetupAxisScalingUnits()
         {
             if (Frame.Size.Width * Frame.Size.Height < 0) return;
 
@@ -54,13 +52,34 @@ namespace AnalysisITC
             PointsPerUnit = new CGSize(pppw, ppph);
         }
 
-        internal void Draw(CGContext cg)
+        void Draw(CGContext gc)
         {
-
-
+            DrawDataPoints(gc);
         }
 
-        public void DrawFrame(CGContext gc)
+        void DrawDataPoints(CGContext gc)
+        {
+            var layer = CGLayer.Create(gc, PlotSize);
+
+            var entropies = new List<CGPoint>();
+            var enthalpies = new List<CGPoint>();
+            var gibbs = new List<CGPoint>();
+
+            foreach (var sol in Result.Solution.Solutions)
+            {
+                entropies.Add(GetRelativePosition(sol.T, sol.TdS));
+                enthalpies.Add(GetRelativePosition(sol.T, sol.Enthalpy));
+                gibbs.Add(GetRelativePosition(sol.T, sol.GibbsFreeEnergy));
+            }
+
+            DrawSymbolsAtPositions(layer, entropies.ToArray(), 10, SymbolShape.Circle, true, 1, null, 0);
+            DrawSymbolsAtPositions(layer, enthalpies.ToArray(), 10, SymbolShape.Square, true, 1, null, 0);
+            DrawSymbolsAtPositions(layer, gibbs.ToArray(), 10, SymbolShape.Diamond, true, 1, null, 0);
+
+            gc.DrawLayer(layer, Origin);
+        }
+
+        void DrawFrame(CGContext gc)
         {
             gc.SetStrokeColor(StrokeColor);
             gc.StrokeRectWithWidth(Frame, 1);

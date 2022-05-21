@@ -12,9 +12,24 @@ namespace AnalysisITC
 	[Register ("TemperatureDependenceGraphView")]
 	partial class TemperatureDependenceGraphView
 	{
+		[Outlet]
+		AppKit.NSTableView ResultTableView { get; set; }
+
+		[Action ("CopyToClipboard:")]
+		partial void CopyToClipboard (Foundation.NSObject sender);
+
+		[Action ("EnergyControlClicked:")]
+		partial void EnergyControlClicked (AppKit.NSSegmentedControl sender);
+
+		[Action ("TempUnitControlClick:")]
+		partial void TempUnitControlClick (AppKit.NSSegmentedCell sender);
 		
 		void ReleaseDesignerOutlets ()
 		{
+			if (ResultTableView != null) {
+				ResultTableView.Dispose ();
+				ResultTableView = null;
+			}
 		}
 	}
 }

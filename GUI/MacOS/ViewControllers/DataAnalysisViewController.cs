@@ -47,9 +47,13 @@ namespace AnalysisITC
         {
             StatusBarManager.StopIndeterminateProgress();
             StatusBarManager.ClearAppStatus();
-            StatusBarManager.SetStatus(e.Iterations + " iterations, RMSD = " + e.Loss.ToString("G2"), 11000);
-            StatusBarManager.SetStatus(e.Message + " | " + e.Time.TotalMilliseconds + "ms", 6000);
-            StatusBarManager.SetStatus("Completed", 1500);
+
+            if (e != null)
+            {
+                StatusBarManager.SetStatus(e.Iterations + " iterations, RMSD = " + e.Loss.ToString("G2"), 11000);
+                StatusBarManager.SetStatus(e.Message + " | " + e.Time.TotalMilliseconds + "ms", 6000);
+                StatusBarManager.SetStatus("Completed", 1500);
+            }
 
             GraphView.Invalidate();
 

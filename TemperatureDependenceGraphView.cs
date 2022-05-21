@@ -10,9 +10,19 @@ namespace AnalysisITC
 {
 	public partial class TemperatureDependenceGraphView : NSView
 	{
+        TemperatureDependenceGraph Graph { get; set; }
+
 		public TemperatureDependenceGraphView (IntPtr handle) : base (handle)
 		{
-		}
+            
+        }
+
+        public void Initialize(AnalysisResult r)
+        {
+            Graph = new TemperatureDependenceGraph(r, this);
+
+            this.NeedsDisplay = true;
+        }
 
         public override void DrawRect(CGRect dirtyRect)
         {
@@ -20,7 +30,7 @@ namespace AnalysisITC
 
             var cg = NSGraphicsContext.CurrentContext.CGContext;
 
-            
+            Graph.PrepareDraw(cg, new CGPoint(Frame.GetMidX(), Frame.GetMidY()));
         }
     }
 }
