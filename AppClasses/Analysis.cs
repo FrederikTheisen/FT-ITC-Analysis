@@ -117,6 +117,8 @@ namespace AnalysisITC
                     Console.WriteLine(ex.Message);
                     StatusBarManager.ClearAppStatus();
                     StatusBarManager.SetStatusScrolling("Analysis failed: " + ex.Message);
+
+                    AnalysisFinished?.Invoke(null, null);
                 }
             }
 
@@ -228,6 +230,8 @@ namespace AnalysisITC
     {
         internal ExperimentData Data { get; private set; }
         public int ExcludeSinglePoint { get; set; } = -1;
+
+        public double Temperature => Data.MeasuredTemperature;
 
         public virtual double GuessN => Data.Injections.Last().Ratio / 2;
         public virtual double GuessH => Data.Injections.First(inj => inj.Include).Enthalpy - GuessOffset;
@@ -388,6 +392,7 @@ namespace AnalysisITC
         public GlobalSolution Solution { get; private set; }
         public SolverOptions Options { get; set; }
 
+        public double MeanTemperature => Models.Average(m => m.Temperature);
         public Analysis.VariableStyle EnthalpyStyle => Options.EnthalpyStyle;
         public Analysis.VariableStyle AffinityStyle => Options.AffinityStyle;
         public int MaximumEvaluations { get; set; } = 300000;
@@ -459,7 +464,7 @@ namespace AnalysisITC
                 var xy = Models.Select(m => new double[] { m.Data.MeasuredTemperature, m.GuessH }).ToArray();
                 var reg = MathNet.Numerics.LinearRegression.SimpleRegression.Fit(xy.GetColumn(0), xy.GetColumn(1));
 
-                var H0 = reg.Item1 + 25 * reg.Item2;
+                var H0 = reg.A + MeanTemperature * reg.B;
 
                 return Math.Clamp(H0, Analysis.Hbounds[0], Analysis.Hbounds[1]);
             }
@@ -813,7 +818,7 @@ namespace AnalysisITC
         {
             var parameters = SolverParameters.FromArray(solution, model.Options);
 
-            var globparams = GetEnthalpyRefFromParameters(parameters, model);
+            var globparams = GetStandardEnthalpyFromParameters(parameters, model);
 
             var global = new GlobalSolution
             {
@@ -826,7 +831,7 @@ namespace AnalysisITC
             for (int j = 0; j < model.Models.Count; j++)
             {
                 var m = model.Models[j];
-                var dt = m.Data.MeasuredTemperature - 25;
+                var dt = m.Data.MeasuredTemperature - model.MeanTemperature;
                 var pset = parameters.ParameterSetForModel(j);
 
                 var dH = model.EnthalpyStyle == Analysis.VariableStyle.TemperatureDependent ? pset.dH + pset.dCp * dt : pset.dH;
@@ -843,19 +848,27 @@ namespace AnalysisITC
             return global;
         }
 
-        public static double[] GetEnthalpyRefFromParameters(SolverParameters parameters, GlobalModel model)
+        public static double[] GetStandardEnthalpyFromParameters(SolverParameters parameters, GlobalModel model)
         {
-            if (parameters.EnthalpyStyle == Analysis.VariableStyle.SameForAll) return new double[] { parameters.Enthalpies.First(), 0 };
-            if (parameters.EnthalpyStyle == Analysis.VariableStyle.TemperatureDependent) return new double[] { parameters.Enthalpies.First(), parameters.HeatCapacity };
+            if (parameters.EnthalpyStyle == Analysis.VariableStyle.Free)
+            {
+                var temps = model.Models.Select(m => m.Data.MeasuredTemperature);
 
-            var temps = model.Models.Select(m => m.Data.MeasuredTemperature);
+                var xy = model.Models.Select((m, i) => new double[] { m.Data.MeasuredTemperature, parameters.Enthalpies[i] }).ToArray();
+                var reg = MathNet.Numerics.LinearRegression.SimpleRegression.Fit(xy.GetColumn(0), xy.GetColumn(1));
 
-            var xy = model.Models.Select((m, i) => new double[] { m.Data.MeasuredTemperature, parameters.Enthalpies[i] }).ToArray();
-            var reg = MathNet.Numerics.LinearRegression.SimpleRegression.Fit(xy.GetColumn(0), xy.GetColumn(1));
+                var H0 = reg.A + 25 * reg.B;
 
-            var H0 = reg.A + 25 * reg.B;
+                return new double[] { H0, reg.B };
+            }
+            else
+            {
+                var cp = parameters.HeatCapacity;
+                var dt = 25 - model.MeanTemperature;
 
-            return new double[] { H0, reg.B };
+                return new double[] { parameters.Enthalpies.First() + cp * dt, cp };
+
+            }
         }
     }
 
@@ -882,17 +895,17 @@ namespace AnalysisITC
         public Analysis.VariableStyle EnthalpyStyle { get; set; } = Analysis.VariableStyle.TemperatureDependent;
         public Analysis.VariableStyle AffinityStyle { get; set; } = Analysis.VariableStyle.Free;
 
-        public int ModelCount
+        public int ModelCount => this.Model switch
         {
-            get
-            {
-                switch (this.Model)
-                {
-                    case GlobalModel: return (Model as GlobalModel).Models.Count;
-                    default: return 1;
-                }
-            }
-        }
+            GlobalModel => (Model as GlobalModel).Models.Count,
+            _ => 1,
+        };
+
+        public double MeanTemperature => this.Model switch
+        {
+            GlobalModel => (Model as GlobalModel).MeanTemperature,
+            _ => 25,
+        };
     }
 
     public class SolverParameters
@@ -1000,7 +1013,7 @@ namespace AnalysisITC
                 switch (options.EnthalpyStyle)
                 {
                     case Analysis.VariableStyle.TemperatureDependent:
-                        var dt = model.Data.MeasuredTemperature - 25;
+                        var dt = model.Data.MeasuredTemperature - options.MeanTemperature;
                         return dH + dCp * dt;
                     default: return dH;
                 }
