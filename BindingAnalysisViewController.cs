@@ -99,9 +99,11 @@ namespace AnalysisITC
             string values = "";
 
             values += AnalysisResult.Solution.Model.ToString() + Environment.NewLine;
+            values += AnalysisResult.Solution.Loss.ToString("G3") + Environment.NewLine;
             values += AnalysisResult.Solution.Model.Options.EnthalpyStyle.ToString() + Environment.NewLine;
             values += AnalysisResult.Solution.Model.Options.AffinityStyle.ToString() + Environment.NewLine;
-            values += AnalysisResult.Solution.Model.MeanTemperature.ToString("G3") + Environment.NewLine;
+            values += AnalysisResult.Solution.Model.MeanTemperature.ToString("F2") + " °C";
+
 
             ValueLabel.StringValue = values;
         }

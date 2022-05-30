@@ -220,7 +220,7 @@ namespace AnalysisITC
                 case Utilities.MouseOverFeatureEvent.FeatureType.BaselineSplinePoint:
                     {
                         var feature = (Data.Processor.Interpolator as SplineInterpolator).SplinePoints[SelectedFeature.FeatureID];
-                        var adjust = 10E-11 * (position.Y - SelectedFeature.ClickCursorPosition.Y);
+                        var adjust = 10E-10 * (position.Y - SelectedFeature.ClickCursorPosition.Y);
 
                         feature.Power = SelectedFeature.FeatureReferenceValue + adjust;
                         break;

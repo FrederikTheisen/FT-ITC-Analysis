@@ -6,12 +6,14 @@ using Utilities;
 
 namespace AnalysisITC
 {
-    public class ExperimentData : ITCDataViewContainer
+    public class ExperimentData : ITCDataContainer
     {
         public static EnergyUnit Unit => DataManager.Unit;
 
         public event EventHandler ProcessingUpdated;
         public event EventHandler SolutionChanged;
+
+        public ITCDataFormat DataSourceFormat { get; set; }
 
         public List<DataPoint> DataPoints { get; set; } = new List<DataPoint>();
         public List<DataPoint> BaseLineCorrectedDataPoints;
@@ -30,7 +32,7 @@ namespace AnalysisITC
         public int InjectionCount => Injections.Count;
         public PeakHeatDirection AverageHeatDirection { get; set; } = PeakHeatDirection.Unknown;
         public bool UseIntegrationFactorLength { get; set; } = false;
-        public float IntegrationLengthFactor { get; private set; } = 8;
+        public float IntegrationLengthFactor { get; set; } = 8;
 
         bool include = true;
         public bool Include
@@ -259,6 +261,23 @@ namespace AnalysisITC
             Filter = float.Parse(data[3]);
         }
 
+        public InjectionData(ExperimentData experiment, string line)
+        {
+            Experiment = experiment;
+
+            var pars = line.Split(',');
+
+            ID = int.Parse(pars[0]);
+            Include = pars[1] == "1";
+            Time = float.Parse(pars[2]);
+            Volume = double.Parse(pars[3]);
+            Delay = float.Parse(pars[4]);
+            Duration = float.Parse(pars[5]);
+            Temperature = double.Parse(pars[6]);
+            IntegrationStartDelay = float.Parse(pars[7]);
+            IntegrationLength = float.Parse(pars[8]);
+        }
+
         void SetIntegrationTimes()
         {
             IntegrationStartDelay = 0;
@@ -348,7 +367,7 @@ namespace AnalysisITC
         /// <summary>
         /// Power in Joules
         /// </summary>
-        public readonly double Power { get; }
+        public readonly float Power { get; }
 
         public float Time { get; }
         /// <summary>
@@ -369,7 +388,7 @@ namespace AnalysisITC
         /// </summary>
         public float JFBI { get; }
 
-        public DataPoint(float time, double power, float temp)
+        public DataPoint(float time, float power, float temp)
         {
             this.Time = time;
             this.Power = power;
@@ -380,7 +399,7 @@ namespace AnalysisITC
             this.ShieldT = 0;
         }
 
-        public DataPoint(float time, double power, float temp = 0, float dt = 0, float shieldt = 0, float atp = 0, float jfbi = 0)
+        public DataPoint(float time, float power, float temp = 0, float dt = 0, float shieldt = 0, float atp = 0, float jfbi = 0)
         {
             this.Time = time;
             this.Power = power;
@@ -389,20 +408,6 @@ namespace AnalysisITC
             this.JFBI = jfbi;
             this.DT = dt;
             this.ShieldT = shieldt;
-        }
-
-        public DataPoint(string line, ITCDataFormat format)
-        {
-            var dat = StringParsers.ParseLine(line);
-
-            switch (format)
-            {
-                case ITCDataFormat.ITC200:
-                case ITCDataFormat.VPITC:
-                default:
-                    this = new DataPoint(dat[0], Energy.ConvertToJoule(dat[1], EnergyUnit.MicroCal), dat[2], dat[3], dat[4], dat[5], dat[6]);
-                    break;
-            }
         }
 
         public static double Mean(List<DataPoint> list)
@@ -452,7 +457,7 @@ namespace AnalysisITC
             return (last - first) / deltaX;
         }
 
-        public DataPoint SubtractBaseline(double baseline)
+        public DataPoint SubtractBaseline(float baseline)
         {
             return new DataPoint(Time, Power - baseline, Temperature);
         }

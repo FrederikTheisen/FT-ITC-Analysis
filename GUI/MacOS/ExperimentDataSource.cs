@@ -7,7 +7,7 @@ using DataReaders;
 
 namespace AnalysisITC
 {
-    public class ITCDataViewContainer
+    public class ITCDataContainer
     {
         public string UniqueID { get; private set; } = Guid.NewGuid().ToString();
         public string FileName { get; set; } = "";
@@ -16,7 +16,7 @@ namespace AnalysisITC
         public void SetID(string id) => UniqueID = id;
     }
 
-    public class AnalysisResult : ITCDataViewContainer
+    public class AnalysisResult : ITCDataContainer
     {
         public GlobalSolution Solution { get; set; }
 
@@ -37,7 +37,7 @@ namespace AnalysisITC
             s += Environment.NewLine;
             s += "Affinity:" + Solution.Model.Options.AffinityStyle.ToString();
             s += Environment.NewLine;
-            s += "∆H @ 25 °C = " + Solution.EnthalpyRef.ToString(EnergyUnit.KiloJoule) + "/mol";
+            s += "∆H @ 25 °C = " + Solution.StandardEnthalpy.ToString(EnergyUnit.KiloJoule) + "/mol";
             s += Environment.NewLine;
             s += "∆Cp = " + Solution.HeatCapacity.ToString(EnergyUnit.Joule, "F0") + "/molK";
 
@@ -72,14 +72,14 @@ namespace AnalysisITC
         public int SelectedIndex => DataManager.SelectedContentIndex;
 
         //public List<ExperimentData> Data { get; private set; }
-        public List<ITCDataViewContainer> Content { get; private set; } = new List<ITCDataViewContainer>();
+        public List<ITCDataContainer> Content { get; private set; } = new List<ITCDataContainer>();
 
         #region Constructors
 
         public AnalysisITCDataSource()
         {
             //Data = new List<ExperimentData>();
-            Content = new List<ITCDataViewContainer>();
+            Content = new List<ITCDataContainer>();
         }
 
         #endregion
@@ -107,14 +107,14 @@ namespace AnalysisITC
         private const string DataCellIdentifier = "ExperimentDataViewCell";
         private const string AnalysisCellIdentifier = "AnalysisResultView";
 
-        private string GetCellIdentifier(ITCDataViewContainer content) => content is ExperimentData ? DataCellIdentifier : AnalysisCellIdentifier;
+        private string GetCellIdentifier(ITCDataContainer content) => content is ExperimentData ? DataCellIdentifier : AnalysisCellIdentifier;
 
         public override NSView GetViewForItem(NSTableView tableView, NSTableColumn tableColumn, nint row)
         {
             // This pattern allows you reuse existing views when they are no-longer in use.
             // If the returned view is null, you instance up a new view
             // If a non-null view is returned, you modify it enough to reflect the new data
-            ITCDataViewContainer content = DataManager.DataSourceContent[(int)row];
+            ITCDataContainer content = DataManager.DataSourceContent[(int)row];
 
             var view = tableView.MakeView(content.UniqueID, this);
 

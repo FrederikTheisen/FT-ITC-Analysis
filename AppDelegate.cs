@@ -1,4 +1,4 @@
-﻿using AppKit;
+using AppKit;
 using Foundation;
 using DataReaders;
 using System;
@@ -7,7 +7,7 @@ using System.Collections.Generic;
 namespace AnalysisITC
 {
     [Register("AppDelegate")]
-    public class AppDelegate : NSApplicationDelegate
+    public partial class AppDelegate : NSApplicationDelegate
     {
         public static event EventHandler OpenFileDialog;
 
@@ -54,6 +54,11 @@ namespace AnalysisITC
             FileDialog.AllowedFileTypes = DataReaders.ITCFormatAttribute.GetAllExtensions();
 
             StatusBarManager.StopIndeterminateProgress();
+        }
+
+        partial void SaveMenuClick(NSMenuItem sender)
+        {
+            FTITCWriter.SaveState();
         }
 
         public override void WillTerminate(NSNotification notification)

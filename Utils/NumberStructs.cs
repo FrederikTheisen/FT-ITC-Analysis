@@ -207,4 +207,25 @@ namespace AnalysisITC
             else throw new Exception("value not FWE");
         }
     }
+
+    public class EnthalpyTuple : Tuple<Energy, Energy, Energy>
+    {
+        public Energy ReferenceEnthalpy => Item1;
+        public Energy StandardEnthalpy => Item2;
+        public Energy HeatCapacity => Item3;
+
+        public EnthalpyTuple(Energy reference, Energy standard, Energy heatcapacity) : base(reference, standard, heatcapacity) { }
+
+        public EnthalpyTuple(double reference, double standard, double heatcapacity) : base(new(reference), new Energy(standard), new(heatcapacity)) { }
+    }
+
+    public class LinearFit : Tuple<double, double>
+    {
+        public double Slope => Item1;
+        public double Intercept => Item2;
+
+        public LinearFit(double slope, double intercept) : base(slope, intercept)
+        {
+        }
+    }
 }

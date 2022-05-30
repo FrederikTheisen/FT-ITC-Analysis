@@ -47,8 +47,6 @@ namespace AnalysisITC
         public DataProcessor(ExperimentData data)
         {
             Data = data;
-
-            //InitializeBaseline(BaselineInterpolatorTypes.Spline);
         }
 
         public DataProcessor(ExperimentData data, DataProcessor dataProcessor)
@@ -70,12 +68,14 @@ namespace AnalysisITC
             }
         }
 
-        public async void ProcessData()
+        public async void ProcessData(bool replace = true)
         {
+            if (BaselineType == BaselineInterpolatorTypes.None) return;
+
             StatusBarManager.StartInderminateProgress();
 
             this.WillProcessData();
-            await this.InterpolateBaseline();
+            await this.InterpolateBaseline(replace);
             this.IntegratePeaks();
             this.DidProcessData();
 
@@ -89,7 +89,7 @@ namespace AnalysisITC
             Data.UpdateProcessing();
         }
 
-        public async Task InterpolateBaseline()
+        public async Task InterpolateBaseline(bool replace = true)
         {
             try
             {
@@ -97,7 +97,7 @@ namespace AnalysisITC
                 csource = new CancellationTokenSource();
                 cToken = csource.Token;
 
-                await System.Threading.Tasks.Task.Run(() => Interpolator.Interpolate(cToken));
+                await System.Threading.Tasks.Task.Run(() => Interpolator.Interpolate(cToken, replace));
 
                 SubtractBaseline();
 
@@ -126,9 +126,9 @@ namespace AnalysisITC
         {
             Data.BaseLineCorrectedDataPoints = new List<DataPoint>();
 
-            foreach (var (dp,bl) in Data.DataPoints.Zip(Data.Processor.Interpolator.Baseline, (x, y) => new Tuple<DataPoint, Energy>(x, y)))
+            foreach (var (dp,bl) in Data.DataPoints.Zip(Interpolator.Baseline, (x, y) => new Tuple<DataPoint, Energy>(x, y)))
             {
-                var bldp = dp.SubtractBaseline(bl);
+                var bldp = dp.SubtractBaseline((float)bl);
 
                 Data.BaseLineCorrectedDataPoints.Add(bldp);
             }
@@ -151,17 +151,15 @@ namespace AnalysisITC
 
     public class BaselineInterpolator
     {
-        internal DataProcessor Parent { get; set; }
+        DataProcessor Processor { get; set; }
 
-        internal ExperimentData Data => Parent.Data;
-
-        internal List<Energy> Baseline = new List<Energy>();
-
+        internal ExperimentData Data => Processor.Data;
+        internal List<Energy> Baseline { get; set; } = new List<Energy>();
         public bool Finished => Baseline.Count > 0;
 
         public BaselineInterpolator(DataProcessor processor)
         {
-            Parent = processor;
+            Processor = processor;
 
             Baseline = new List<Energy>();
         }
@@ -183,6 +181,11 @@ namespace AnalysisITC
                 Console.WriteLine(Data.DataPoints[i].Time + " " + Data.DataPoints[i].Power + " " + Baseline[i]);
             }
         }
+
+        public void ConvertToSpline()
+        {
+            if (this is SplineInterpolator) return;
+        }
     }
 
     public enum BaselineInterpolatorTypes
@@ -195,6 +198,8 @@ namespace AnalysisITC
 
     public class SplineInterpolator : BaselineInterpolator
     {
+        public bool IsLocked { get; set; } = false;
+
         public int PointsPerInjection { get; set; } = 1;
         public float FractionBaseline { get; set; } = 0.5f;
         public SplineInterpolatorAlgorithm Algorithm { get; set; } = SplineInterpolatorAlgorithm.Akima;
@@ -273,11 +278,6 @@ namespace AnalysisITC
             }
         }
 
-        public void UpdatePoints(List<Tuple<double, double>> points)
-        {
-
-        }
-
         public override async Task Interpolate(CancellationToken token, bool replace = true)
         {
             await base.Interpolate(token, replace);
@@ -311,6 +311,26 @@ namespace AnalysisITC
             Baseline = bsl;
             SplinePoints = splinePoints;
             SplineFunction = spline;
+        }
+
+        public void InsertSplinePoint(double cursorpos, bool usedatavalue = false)
+        {
+            if (Baseline.Count == 0) return;
+
+            double pointValue;
+            if (usedatavalue) pointValue = cursorpos > Data.DataPoints.Last().Time ? Data.DataPoints.Last().Power : Data.DataPoints.First(dp => dp.Time > cursorpos).Power;
+            else  pointValue = SplineFunction.Evaluate((float)cursorpos);
+
+            var newsp = new SplinePoint(cursorpos, pointValue, 0);
+
+            for (int i = 0; i < SplinePoints.Count; i++) if (SplinePoints[i].Time > newsp.Time) { SplinePoints.Insert(i, newsp); break; }
+
+            SplinePoints.ForEach(sp => sp.ID = SplinePoints.IndexOf(sp));
+        }
+
+        public void SetSplinePoints(List<SplinePoint> points)
+        {
+            SplinePoints = points;
         }
 
         public enum SplineInterpolatorAlgorithm

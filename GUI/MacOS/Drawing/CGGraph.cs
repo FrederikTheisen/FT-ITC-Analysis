@@ -262,6 +262,75 @@ namespace AnalysisITC
             Origin = new CGPoint(ymargin, xmargin);
         }
 
+        public CGPath GetSplineFromPoints(CGPoint[] points, CGPath path = null, float linewidth = 1)
+        {
+            bool continued = path != null;
+            if (path == null) path = new CGPath();
+
+            int pointCount = points.Length;
+
+            if (pointCount > 0)
+            {
+                CGPoint p0 = points.First();
+                if (!continued) path.MoveToPoint(p0);
+                else path.AddLineToPoint(p0);
+
+                if (pointCount == 1) //draw dot
+                {
+                    CGRect pointRect = new CGRect(p0.X - linewidth / 2.0, p0.Y - linewidth / 2.0, linewidth, linewidth);
+                    path.AddPath(CGPath.EllipseFromRect(pointRect));
+                }
+                else if (pointCount == 2) //draw line
+                {
+                    CGPoint p1 = points[1];
+                    path.AddLineToPoint(p1);
+                }
+                else //draw spline
+                {
+                    CGPoint p1 = p0;
+                    CGPoint p2;
+                    for (int i = 0; i < pointCount - 1; i++)
+                    {
+                        p2 = points[i + 1];
+                        CGPoint midPoint = new CGPoint((p1.X + p2.X) / 2, (p1.Y + p2.Y) / 2);
+                        path.AddQuadCurveToPoint(p1.X, p1.Y, midPoint.X, midPoint.Y);
+                        p1 = p2;
+                    }
+                    path.AddLineToPoint(points.Last());
+                }
+            }
+
+            return path;
+        }
+
+        public void DrawFrame(CGContext gc)
+        {
+            gc.SetStrokeColor(StrokeColor);
+            gc.StrokeRectWithWidth(Frame, 1);
+        }
+
+        public static CGSize MeasureString(string s, CTFont font, CTStringAttributes attr = null, AxisPosition position = AxisPosition.Bottom, bool ignoreoptical = true)
+        {
+            if (attr == null) attr = new CTStringAttributes
+            {
+                ForegroundColorFromContext = true,
+                Font = font,
+            };
+
+            var attributedString = new NSAttributedString(s, attr);
+
+            var size = attributedString.Size;
+
+            var textLine = new CTLine(attributedString);
+            
+            if (!ignoreoptical && (position == AxisPosition.Bottom || position == AxisPosition.Right)) size = textLine.GetBounds(CTLineBoundsOptions.UseOpticalBounds).Size;
+            else size = textLine.GetBounds(CTLineBoundsOptions.UseGlyphPathBounds).Size;
+
+            textLine.Dispose();
+
+            return size;
+        }
+
         public enum SymbolShape
         {
             Square,
@@ -299,8 +368,6 @@ namespace AnalysisITC
             Draw(gc);
 
             DrawFrame(gc);
-
-            DrawAxes();
         }
 
         public void SetupAxisScalingUnits()
@@ -316,12 +383,6 @@ namespace AnalysisITC
         internal virtual void Draw(CGContext cg)
         {
 
-        }
-
-        public void DrawFrame(CGContext gc)
-        {
-            gc.SetStrokeColor(StrokeColor);
-            gc.StrokeRectWithWidth(Frame, 1);
         }
 
         #region Drawing
@@ -382,78 +443,7 @@ namespace AnalysisITC
         }
 
         #endregion
-
-        public CGPath GetSplineFromPoints(CGPoint[] points, CGPath path = null, float linewidth = 1)
-        {
-            bool continued = path != null;
-            if (path == null) path = new CGPath();
-
-            int pointCount = points.Length;
-
-            if (pointCount > 0)
-            {
-                CGPoint p0 = points.First();
-                if (!continued) path.MoveToPoint(p0);
-                else path.AddLineToPoint(p0);
-
-                if (pointCount == 1) //draw dot
-                {
-                    CGRect pointRect = new CGRect(p0.X - linewidth / 2.0, p0.Y - linewidth / 2.0, linewidth, linewidth);
-                    path.AddPath(CGPath.EllipseFromRect(pointRect));
-                }
-                else if (pointCount == 2) //draw line
-                {
-                    CGPoint p1 = points[1];
-                    path.AddLineToPoint(p1);
-                }
-                else //draw spline
-                {
-                    CGPoint p1 = p0;
-                    CGPoint p2;
-                    for (int i = 0; i < pointCount - 1; i++)
-                    {
-                        p2 = points[i + 1];
-                        CGPoint midPoint = new CGPoint((p1.X + p2.X) / 2, (p1.Y + p2.Y) / 2);
-                        path.AddQuadCurveToPoint(p1.X, p1.Y, midPoint.X, midPoint.Y);
-                        p1 = p2;
-                    }
-                    path.AddLineToPoint(points.Last());
-                }
-            }
-
-            return path;
-        }
-
         #endregion
-
-        internal virtual void DrawAxes()
-        {
-
-        }
-
-        public static CGSize MeasureString(string s, CTFont font, CTStringAttributes attr = null, AxisPosition position = AxisPosition.Bottom, bool ignoreoptical = true)
-        {
-            if (attr == null) attr = new CTStringAttributes
-            {
-                ForegroundColorFromContext = true,
-                Font = font,
-            };
-
-            var attributedString = new NSAttributedString(s, attr);
-
-            var size = attributedString.Size;
-
-            var textLine = new CTLine(attributedString);
-            
-            if (!ignoreoptical && (position == AxisPosition.Bottom || position == AxisPosition.Right)) size = textLine.GetBounds(CTLineBoundsOptions.UseOpticalBounds).Size;
-            else size = textLine.GetBounds(CTLineBoundsOptions.UseGlyphPathBounds).Size;
-
-            textLine.Dispose();
-
-            return size;
-        }
-
-
 
         public virtual MouseOverFeatureEvent IsCursorOnFeature(CGPoint cursorpos, bool isclick = false, bool ismouseup = false)
         {
@@ -1175,9 +1165,6 @@ namespace AnalysisITC
 
             CGPath path = GetSplineFromPoints(top.ToArray());
             GetSplineFromPoints(bottom.ToArray(), path);
-
-            //path.MoveToPoint(top[0]);
-            //foreach (var p in top.Skip(1)) path.AddLineToPoint(p);
 
             FillPathShape(gc, path, StrokeColor, .25f);
         }

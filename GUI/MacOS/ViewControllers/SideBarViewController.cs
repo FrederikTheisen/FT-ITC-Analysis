@@ -49,6 +49,8 @@ namespace AnalysisITC
 
         private void ExperimentDetailsPopoverController_UpdateTable(object sender, EventArgs e)
         {
+            FTITCWriter.SaveState();
+
             TableView.ReloadData();
         }
 

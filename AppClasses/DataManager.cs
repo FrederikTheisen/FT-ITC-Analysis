@@ -10,7 +10,7 @@ namespace AnalysisITC
         public static EnergyUnit Unit { get; set; } = EnergyUnit.Joule;
 
         public static AnalysisITCDataSource DataSource { get; private set; }
-        public static List<ITCDataViewContainer> DataSourceContent => DataSource.Content;
+        public static List<ITCDataContainer> DataSourceContent => DataSource.Content;
         public static List<AnalysisResult> Results => DataSourceContent.Where(o => o is AnalysisResult).Select(o => o as AnalysisResult).ToList();
         public static List<ExperimentData> Data => DataSourceContent.Where(o => o is ExperimentData).Select(o => o as ExperimentData).ToList();
         public static IEnumerable<ExperimentData> IncludedData => Data.Where(d => d.Include);
@@ -99,7 +99,7 @@ namespace AnalysisITC
             }
         }
 
-        public static void AddData(ITCDataViewContainer data)
+        public static void AddData(ITCDataContainer data)
         {
             DataSourceContent.Add(data);
 

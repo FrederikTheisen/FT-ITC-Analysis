@@ -397,6 +397,7 @@ namespace AnalysisITC
         public Analysis.VariableStyle AffinityStyle => Options.AffinityStyle;
         public int MaximumEvaluations { get; set; } = 300000;
         public double AbsoluteFunctionTolerance { get; set; } = double.Epsilon;
+        public double AbsoluteParameterTolerance { get; set; } = 0.001;
 
         public virtual int GetVariableCount
         {
@@ -601,6 +602,7 @@ namespace AnalysisITC
             {
                 MaximumEvaluations = MaximumEvaluations,
                 AbsoluteFunctionTolerance = AbsoluteFunctionTolerance,
+                RelativeParameterTolerance = 0.01,
                 StartTime = DateTime.Now,
             };
 
@@ -645,8 +647,7 @@ namespace AnalysisITC
                 Analysis.ReportBootstrapProgress(currcounter);
             });
 
-            Solution.EnthalpyRef = new Energy(new FloatWithError(solutions.Select(s => s.EnthalpyRef.Value)));
-            Solution.HeatCapacity = new Energy(new FloatWithError(solutions.Select(s => s.HeatCapacity.Value)));
+            Solution.SetEnthalpiesFromBootstrap(solutions);
 
             foreach (var model in Models)
             {
@@ -806,26 +807,35 @@ namespace AnalysisITC
 
         public double Loss { get; private set; } = 0;
 
-        public Energy HeatCapacity { get; set; } = new(0);
-        public Energy EnthalpyRef { get; set; } = new(0);//Enthalpy at 298.15 °C
+        public double ReferenceTemperature => Model.MeanTemperature;
+        public Energy HeatCapacity { get; private set; } = new(0);
+        public Energy StandardEnthalpy { get; private set; } = new(0);//Enthalpy at 298.15 °C
+        public Energy ReferenceEnthalpy { get; private set; } = new(); //Fitting reference value
+
+        public LinearFit EnthalpyLine => new LinearFit(HeatCapacity, ReferenceEnthalpy);
+        public LinearFit EntropyLine { get; private set; }
+        public LinearFit GibbsLine { get; private set; }
 
         /// <summary>
         /// Parameters of the individual experiments derived from the global solution
         /// </summary>
         public List<Solution> Solutions { get; private set; } = new List<Solution>();
 
+        public void SetEnthalpiesFromBootstrap(List<GlobalSolution> solutions) => this.SetEnthalpiesFromBootstrap(solutions.Select(gs => gs.ReferenceEnthalpy.Value), solutions.Select(gs => gs.StandardEnthalpy.Value), solutions.Select(gs => gs.HeatCapacity.Value));
+
         public static GlobalSolution FromAccordNelderMead(double[] solution, GlobalModel model)
         {
             var parameters = SolverParameters.FromArray(solution, model.Options);
 
-            var globparams = GetStandardEnthalpyFromParameters(parameters, model);
+            var globparams = GetEnthalpies(parameters, model);
 
             var global = new GlobalSolution
             {
                 Raw = solution,
                 Model = model,
-                HeatCapacity = new(globparams[1]),
-                EnthalpyRef = new(globparams[0]),
+                HeatCapacity = globparams.HeatCapacity,
+                StandardEnthalpy = globparams.StandardEnthalpy,
+                ReferenceEnthalpy = globparams.ReferenceEnthalpy
             };
 
             for (int j = 0; j < model.Models.Count; j++)
@@ -845,10 +855,35 @@ namespace AnalysisITC
 
             global.Loss = model.LossFunction(solution);
 
+            global.SetEntropyTemperatureDependence(model);
+            global.SetGibbsTemperatureDependence(model);
+
             return global;
         }
 
-        public static double[] GetStandardEnthalpyFromParameters(SolverParameters parameters, GlobalModel model)
+        void SetEntropyTemperatureDependence(GlobalModel model)
+        {
+            var xy = model.Models.Select((m, i) => new double[] { m.Data.MeasuredTemperature - model.MeanTemperature, m.Solution.TdS }).ToArray();
+            var reg = MathNet.Numerics.LinearRegression.SimpleRegression.Fit(xy.GetColumn(0), xy.GetColumn(1));
+
+            EntropyLine = new LinearFit(reg.B, reg.A);
+        }
+
+        void SetGibbsTemperatureDependence(GlobalModel model)
+        {
+            var xy = model.Models.Select((m, i) => new double[] { m.Data.MeasuredTemperature - model.MeanTemperature, m.Solution.GibbsFreeEnergy }).ToArray();
+            var reg = MathNet.Numerics.LinearRegression.SimpleRegression.Fit(xy.GetColumn(0), xy.GetColumn(1));
+
+            GibbsLine = new LinearFit(reg.B, reg.A);
+        }
+
+        /// <summary>
+        /// Obsolete
+        /// </summary>
+        /// <param name="parameters"></param>
+        /// <param name="model"></param>
+        /// <returns></returns>
+        static double[] DetermineEnthalpiesFromParameters(SolverParameters parameters, GlobalModel model)
         {
             if (parameters.EnthalpyStyle == Analysis.VariableStyle.Free)
             {
@@ -869,6 +904,53 @@ namespace AnalysisITC
                 return new double[] { parameters.Enthalpies.First() + cp * dt, cp };
 
             }
+        }
+
+        /// <summary>
+        /// Extract enthalpy related values from fit parameters. Values are best fit with not error component. Errors should be derived from bootstrapping.
+        /// </summary>
+        /// <param name="parameters"></param>
+        /// <param name="model"></param>
+        /// <returns></returns>
+        public static EnthalpyTuple GetEnthalpies(SolverParameters parameters, GlobalModel model)
+        {
+            double Hstandard;
+            double H0;
+            double cp;
+
+            switch (parameters.EnthalpyStyle)
+            {
+                default:
+                case Analysis.VariableStyle.Free: //if dH is free, then fit both reference and standard enthalpies
+                    var xy = model.Models.Select((m, i) => new double[] { m.Data.MeasuredTemperature, parameters.Enthalpies[i] }).ToArray();
+                    var reg = MathNet.Numerics.LinearRegression.SimpleRegression.Fit(xy.GetColumn(0), xy.GetColumn(1));
+                    cp = reg.B;
+                    Hstandard = reg.A + 25 * cp;
+                    H0 = reg.A + model.MeanTemperature * cp;
+                    break;
+                case Analysis.VariableStyle.TemperatureDependent: //if temperature dependent, then the reference is the fit value, propagate to standard enthalpy
+                    var dt = 25 - model.MeanTemperature;
+                    cp = parameters.HeatCapacity;
+                    Hstandard = parameters.HeatCapacity * dt + parameters.Enthalpies.First();
+                    H0 = parameters.Enthalpies.First();
+                    break;
+                case Analysis.VariableStyle.SameForAll: //if same for all, then fitted value is both reference and standard??
+                    cp = 0;
+                    H0 = parameters.Enthalpies.First();
+                    Hstandard = H0;
+                    break;
+            }
+
+            return new EnthalpyTuple(H0, Hstandard, cp);
+        }
+
+        void SetEnthalpiesFromBootstrap(IEnumerable<double> refs, IEnumerable<double> stds, IEnumerable<double> cps)
+        {
+            this.ReferenceEnthalpy = new Energy(new FloatWithError(refs));
+            this.StandardEnthalpy = new Energy(new FloatWithError(stds));
+            this.HeatCapacity = new Energy(new FloatWithError(cps));
+
+            Console.WriteLine("Bootstrap enthalpies (refT: " + ReferenceTemperature.ToString("G4") + "): " + ReferenceEnthalpy.ToString("G3") + " | " + StandardEnthalpy.ToString("G3") + " | " + HeatCapacity.ToString("G3"));
         }
     }
 
