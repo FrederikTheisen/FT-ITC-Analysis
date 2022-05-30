@@ -487,14 +487,43 @@ namespace AnalysisITC
 
         void SetupYAxes()
         {
-            if (UseUnifiedAxes)
-            {
-                var ymin = DataManager.IncludedData.Min(d => d.BaseLineCorrectedDataPoints.Min(dp => dp.Power));
-                var ymax = DataManager.IncludedData.Max(d => d.BaseLineCorrectedDataPoints.Max(dp => dp.Power));
+            IEnumerable<ExperimentData> data;
 
-                YAxis.SetWithBuffer(ymin, ymax, YAxis.Buffer); //= GraphAxis.WithBuffer(this, ymin, ymax, buffer);// new GraphAxis(this, ymin, ymax);
+            if (UseUnifiedAxes) data = DataManager.IncludedData;
+            else data = new ExperimentData[] { ExperimentData };
+
+            var minmax = Method(data);
+
+            YAxis.SetWithBuffer(minmax[0], minmax[1], YAxis.Buffer);
+        }
+
+        double[] Method(IEnumerable<ExperimentData> data)
+        {
+            PeakHeatDirection direction;
+            if (data.All(exp => exp.AverageHeatDirection == PeakHeatDirection.Exothermal)) direction = PeakHeatDirection.Exothermal;
+            else if (data.All(exp => exp.AverageHeatDirection == PeakHeatDirection.Endothermal)) direction = PeakHeatDirection.Endothermal;
+            else direction = PeakHeatDirection.Unknown;
+
+            double max = 0;
+            double min = 0;
+
+            switch (direction)
+            {
+                case PeakHeatDirection.Exothermal when ShowBaselineCorrected: min = data.Min(exp => local_getdatapoints(exp).Min(dp => dp.Power)); break;
+                case PeakHeatDirection.Endothermal when ShowBaselineCorrected: max = data.Max(exp => local_getdatapoints(exp).Max(dp => dp.Power)); break;
+                default:
+                    min = data.Min(exp => local_getdatapoints(exp).Min(dp => dp.Power));
+                    max = data.Max(exp => local_getdatapoints(exp).Max(dp => dp.Power));
+                    break;
             }
-            else YAxis.SetWithBuffer(DataPoints.Min(dp => dp.Power), DataPoints.Max(dp => dp.Power), YAxis.Buffer);// = GraphAxis.WithBuffer(this, , , buffer);
+
+            return new double[] { min, max };
+
+            List<DataPoint> local_getdatapoints(ExperimentData _exp)
+            {
+                if (ShowBaselineCorrected && _exp.BaseLineCorrectedDataPoints != null) return _exp.BaseLineCorrectedDataPoints;
+                else return _exp.DataPoints;
+            }
         }
 
         internal override void Draw(CGContext gc)
@@ -889,10 +918,10 @@ namespace AnalysisITC
     public class DataFittingGraph : CGGraph
     {
         private bool _useUnifiedAxes = false;
-        private bool _focusvalidata = false;
+        private bool _focusvaliddata = false;
 
         public bool UseUnifiedAxes { get => _useUnifiedAxes; set { _useUnifiedAxes = value; SetupAxes(); } }
-        public bool FocusValidData { get => _focusvalidata; set { _focusvalidata = value; SetupAxes(); } }
+        public bool FocusValidData { get => _focusvaliddata; set { _focusvaliddata = value; SetupAxes(); } }
         public bool ShowPeakInfo { get; set; } = true;
         public bool ShowErrorBars { get; set; } = true;
         public bool DrawConfidenceBands { get; set; } = true;
@@ -926,30 +955,16 @@ namespace AnalysisITC
         {
             if (UseUnifiedAxes)
             {
-                var xmin = 0;
                 var xmax = DataManager.IncludedData.Max(d => d.Injections.Last().Ratio);
-
-                //var ymax = Math.Max(DataManager.IncludedData.Max(d => d.Injections.Max(inj => (float)inj.OffsetEnthalpy)), 0);
-                //var ymin = Math.Min(DataManager.IncludedData.Max(d => d.Injections.Max(inj => (float)inj.OffsetEnthalpy)), 0);
-
-                //if (DataManager.AnyDataIsAnalyzed)
-                //{
-                //    ymax = Math.Max(ymax, DataManager.IncludedData.Where(d => d.Solution != null).Max(d => (float)d.Solution.Enthalpy));
-                //    ymin = Math.Min(ymin, DataManager.IncludedData.Where(d => d.Solution != null).Min(d => (float)d.Solution.Enthalpy));
-                //}
 
                 var minmax = GetMinMaxEnthalpy(DataManager.IncludedData);
 
-                XAxis.SetWithBuffer(xmin, xmax, 0.05);
+                XAxis.SetWithBuffer(0, xmax, 0.05);
                 YAxis.SetWithBuffer(minmax[0], minmax[1], 0.1);
             }
             else
             {
                 XAxis.SetWithBuffer(0, ExperimentData.Injections.Last().Ratio, 0.05);
-
-                //var solutionenthalpy = ExperimentData.Solution != null ? (float)ExperimentData.Solution.Enthalpy : 0;
-                //var minenthalpy = Math.Min(ExperimentData.Injections.Min(inj => (float)inj.OffsetEnthalpy), Math.Min(solutionenthalpy, 0));
-                //var maxenthalpy = Math.Max(ExperimentData.Injections.Max(inj => (float)inj.OffsetEnthalpy), Math.Max(solutionenthalpy, 0));
 
                 var minmax = GetMinMaxEnthalpy(new ExperimentData[] { ExperimentData });
 
@@ -962,15 +977,15 @@ namespace AnalysisITC
         double[] GetMinMaxEnthalpy(IEnumerable<ExperimentData> data)
         {
             var evals = data.Where(d => d.Include && d.Solution != null).Select(d => d.Solution.Evaluate(0, withoffset: false));
-            if (evals.Count() == 0) evals = new double[] { 0 };
-            var maxpoints = data.Where(d => d.Include).Select(d => d.Injections.Where(inj => inj.Include).Max(inj => inj.Enthalpy));
-            var minpoints = data.Where(d => d.Include).Select(d => d.Injections.Where(inj => inj.Include).Min(inj => inj.Enthalpy));
+            var maxpoints = data.Where(d => d.Include).Select(d => d.Injections.Where(inj => inj.Include || !FocusValidData).Max(inj => inj.Enthalpy));
+            var minpoints = data.Where(d => d.Include).Select(d => d.Injections.Where(inj => inj.Include || !FocusValidData).Min(inj => inj.Enthalpy));
 
+            if (evals.Count() == 0) evals = new double[] { 0 };
             if (maxpoints.Count() == 0) maxpoints = new double[] { 0 };
             if (minpoints.Count() == 0) minpoints = new double[] { 0 };
 
             var max = Math.Max(maxpoints.Max(), evals.Max());
-            var min = Math.Min(maxpoints.Min(), evals.Min());
+            var min = Math.Min(minpoints.Min(), evals.Min());
 
             return new double[] { Math.Min(min, 0), Math.Max(max, 0) };
         }

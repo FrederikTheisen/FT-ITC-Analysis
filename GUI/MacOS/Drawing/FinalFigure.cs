@@ -141,7 +141,7 @@ namespace AnalysisITC
                 DrawOnWhite = true,
                 ShowBaselineCorrected = true
             };
-            DataGraph.YAxis.Buffer = .05f;
+            DataGraph.YAxis.Buffer = .1f;
             DataGraph.YAxis.MirrorTicks = true;
             DataGraph.XAxis.Buffer = .1f;
             DataGraph.XAxis.ValueFactor = 1.0 / 60;
