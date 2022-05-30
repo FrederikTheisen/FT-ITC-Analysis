@@ -889,8 +889,10 @@ namespace AnalysisITC
     public class DataFittingGraph : CGGraph
     {
         private bool _useUnifiedAxes = false;
+        private bool _focusvalidata = false;
 
         public bool UseUnifiedAxes { get => _useUnifiedAxes; set { _useUnifiedAxes = value; SetupAxes(); } }
+        public bool FocusValidData { get => _focusvalidata; set { _focusvalidata = value; SetupAxes(); } }
         public bool ShowPeakInfo { get; set; } = true;
         public bool ShowErrorBars { get; set; } = true;
         public bool DrawConfidenceBands { get; set; } = true;
@@ -927,30 +929,50 @@ namespace AnalysisITC
                 var xmin = 0;
                 var xmax = DataManager.IncludedData.Max(d => d.Injections.Last().Ratio);
 
-                var ymax = Math.Max(DataManager.IncludedData.Max(d => d.Injections.Max(inj => (float)inj.OffsetEnthalpy)), 0);
-                var ymin = Math.Min(DataManager.IncludedData.Max(d => d.Injections.Max(inj => (float)inj.OffsetEnthalpy)), 0);
+                //var ymax = Math.Max(DataManager.IncludedData.Max(d => d.Injections.Max(inj => (float)inj.OffsetEnthalpy)), 0);
+                //var ymin = Math.Min(DataManager.IncludedData.Max(d => d.Injections.Max(inj => (float)inj.OffsetEnthalpy)), 0);
 
-                if (DataManager.AnyDataIsAnalyzed)
-                {
-                    ymax = Math.Max(ymax, DataManager.IncludedData.Where(d => d.Solution != null).Max(d => (float)d.Solution.Enthalpy));
-                    ymin = Math.Min(ymin, DataManager.IncludedData.Where(d => d.Solution != null).Min(d => (float)d.Solution.Enthalpy));
-                }
+                //if (DataManager.AnyDataIsAnalyzed)
+                //{
+                //    ymax = Math.Max(ymax, DataManager.IncludedData.Where(d => d.Solution != null).Max(d => (float)d.Solution.Enthalpy));
+                //    ymin = Math.Min(ymin, DataManager.IncludedData.Where(d => d.Solution != null).Min(d => (float)d.Solution.Enthalpy));
+                //}
 
-                XAxis.SetWithBuffer(xmin, xmax, 0.05);// = GraphAxis.WithBuffer(this, xmin, xmax, 0.05, AxisPosition.Bottom);
-                YAxis.SetWithBuffer(ymin, ymax, 0.1);// = GraphAxis.WithBuffer(this, ymin, ymax, 0.1, AxisPosition.Left);
+                var minmax = GetMinMaxEnthalpy(DataManager.IncludedData);
+
+                XAxis.SetWithBuffer(xmin, xmax, 0.05);
+                YAxis.SetWithBuffer(minmax[0], minmax[1], 0.1);
             }
             else
             {
                 XAxis.SetWithBuffer(0, ExperimentData.Injections.Last().Ratio, 0.05);
 
-                var solutionenthalpy = ExperimentData.Solution != null ? (float)ExperimentData.Solution.Enthalpy : 0;
-                var minenthalpy = Math.Min(ExperimentData.Injections.Min(inj => (float)inj.OffsetEnthalpy), Math.Min(solutionenthalpy, 0));
-                var maxenthalpy = Math.Max(ExperimentData.Injections.Max(inj => (float)inj.OffsetEnthalpy), Math.Max(solutionenthalpy, 0));
+                //var solutionenthalpy = ExperimentData.Solution != null ? (float)ExperimentData.Solution.Enthalpy : 0;
+                //var minenthalpy = Math.Min(ExperimentData.Injections.Min(inj => (float)inj.OffsetEnthalpy), Math.Min(solutionenthalpy, 0));
+                //var maxenthalpy = Math.Max(ExperimentData.Injections.Max(inj => (float)inj.OffsetEnthalpy), Math.Max(solutionenthalpy, 0));
 
-                YAxis.SetWithBuffer(minenthalpy, maxenthalpy, 0.1);// = GraphAxis.WithBuffer(this, minenthalpy, maxenthalpy, 0.1, AxisPosition.Left);
+                var minmax = GetMinMaxEnthalpy(new ExperimentData[] { ExperimentData });
+
+                YAxis.SetWithBuffer(minmax[0], minmax[1], 0.1);
             }
 
             XAxis.SetWithBuffer(0, Math.Max(Math.Floor(XAxis.Max + 0.33f), XAxis.Max), 0.05);
+        }
+
+        double[] GetMinMaxEnthalpy(IEnumerable<ExperimentData> data)
+        {
+            var evals = data.Where(d => d.Include && d.Solution != null).Select(d => d.Solution.Evaluate(0, withoffset: false));
+            if (evals.Count() == 0) evals = new double[] { 0 };
+            var maxpoints = data.Where(d => d.Include).Select(d => d.Injections.Where(inj => inj.Include).Max(inj => inj.Enthalpy));
+            var minpoints = data.Where(d => d.Include).Select(d => d.Injections.Where(inj => inj.Include).Min(inj => inj.Enthalpy));
+
+            if (maxpoints.Count() == 0) maxpoints = new double[] { 0 };
+            if (minpoints.Count() == 0) minpoints = new double[] { 0 };
+
+            var max = Math.Max(maxpoints.Max(), evals.Max());
+            var min = Math.Min(maxpoints.Min(), evals.Min());
+
+            return new double[] { Math.Min(min, 0), Math.Max(max, 0) };
         }
 
         internal override void Draw(CGContext gc)
