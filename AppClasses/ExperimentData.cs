@@ -103,7 +103,7 @@ namespace AnalysisITC
                 tot_diff += (mean - min) - (max - mean);
             }
 
-            if (tot_diff > 0) AverageHeatDirection = PeakHeatDirection.Endothermal;
+            if (tot_diff < 0) AverageHeatDirection = PeakHeatDirection.Endothermal;
             else AverageHeatDirection = PeakHeatDirection.Exothermal;
         }
 
