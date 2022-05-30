@@ -23,6 +23,7 @@ namespace AnalysisITC
         public override void Invalidate()
         {
             if (Graph == null) return;
+            if (StateManager.CurrentState != ProgramState.Analyze) return;
 
             DataFittingGraph.ShowPeakInfo = ShowPeakInfo;
             DataFittingGraph.ShowFitParameters = ShowFitParameters;
