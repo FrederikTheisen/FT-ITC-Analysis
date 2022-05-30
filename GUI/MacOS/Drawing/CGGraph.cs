@@ -620,7 +620,7 @@ namespace AnalysisITC
 
             foreach (var line in CursorInfo)
             {
-                var size = DrawString(textlayer, line, pos, DefaultFont, horizontalignment: TextAlignment.Left);
+                var size = DrawString(textlayer, line, pos, DefaultFont, horizontalignment: TextAlignment.Left, textcolor: StrokeColor);
 
                 if (size.Width > box.Width) box.Width = size.Width;
 
@@ -635,7 +635,7 @@ namespace AnalysisITC
 
             box.Y = pos.Y;
 
-            layer.Context.SetFillColor(NSColor.WindowBackground.CGColor);
+            layer.Context.SetFillColor(SecondaryLineColor);
             layer.Context.FillRect(box);
             layer.Context.StrokeRect(box);
 
