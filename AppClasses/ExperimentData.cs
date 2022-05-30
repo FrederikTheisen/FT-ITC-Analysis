@@ -265,17 +265,17 @@ namespace AnalysisITC
         {
             Experiment = experiment;
 
-            var pars = line.Split(',');
+            var parameters = line.Split(',');
 
-            ID = int.Parse(pars[0]);
-            Include = pars[1] == "1";
-            Time = float.Parse(pars[2]);
-            Volume = double.Parse(pars[3]);
-            Delay = float.Parse(pars[4]);
-            Duration = float.Parse(pars[5]);
-            Temperature = double.Parse(pars[6]);
-            IntegrationStartDelay = float.Parse(pars[7]);
-            IntegrationLength = float.Parse(pars[8]);
+            ID = int.Parse(parameters[0]);
+            Include = parameters[1] == "1";
+            Time = float.Parse(parameters[2]);
+            Volume = double.Parse(parameters[3]);
+            Delay = float.Parse(parameters[4]);
+            Duration = float.Parse(parameters[5]);
+            Temperature = double.Parse(parameters[6]);
+            IntegrationStartDelay = float.Parse(parameters[7]);
+            IntegrationLength = float.Parse(parameters[8]);
         }
 
         void SetIntegrationTimes()

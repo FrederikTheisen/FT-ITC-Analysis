@@ -58,7 +58,7 @@ namespace AnalysisITC
 
         partial void SaveMenuClick(NSMenuItem sender)
         {
-            FTITCWriter.SaveState();
+            FTITCWriter.SaveState2();
         }
 
         public override void WillTerminate(NSNotification notification)

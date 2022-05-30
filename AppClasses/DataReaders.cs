@@ -134,6 +134,18 @@ namespace DataReaders
     {
         public static void ProcessInjections(ExperimentData experiment)
         {
+            switch (experiment.DataSourceFormat)
+            {
+                case ITCDataFormat.ITC200:
+                    ProcessInjectionsMicroCal(experiment);
+                    break;
+                case ITCDataFormat.VPITC:
+                    break;
+            }
+        }
+
+        static void ProcessInjectionsMicroCal(ExperimentData experiment)
+        {
             var x2vol0 = 2 * experiment.CellVolume;
             var deltaVolume = 0.0;
 
@@ -161,6 +173,7 @@ namespace DataReaders
         {
             var experiment = new ExperimentData(Path.GetFileName(path));
             experiment.Date = File.GetLastWriteTimeUtc(path);
+            experiment.DataSourceFormat = ITCDataFormat.ITC200;
 
             using (var stream = new StreamReader(path))
             {
@@ -244,6 +257,146 @@ namespace DataReaders
     }
 
     class FTITCReader : FTITCFormat
+    {
+        public static ITCDataContainer[] ReadPath(string path)
+        {
+            var data = new List<ITCDataContainer>();
+
+            using (var reader = new StreamReader(path))
+            {
+                string line;
+
+                while (!string.IsNullOrEmpty(line = reader.ReadLine()))
+                {
+                    var input = line.Split(':');
+
+                    if (input[0] == "FILE")
+                    {
+                        if (input[1] == ExperimentHeader) data.Add(ProcessExperimentData(reader, line));
+                    }
+                }
+            }
+
+            return data.ToArray();
+        }
+
+        static ExperimentData ProcessExperimentData(StreamReader reader, string firstline)
+        {
+            string[] a = firstline.Split(':');
+
+            if (a[1] != ExperimentHeader) return null;
+
+            var exp = new ExperimentData(a[2]);
+
+            string line;
+
+            while ((line = reader.ReadLine()) != EndFileHeader)
+            {
+                string[] v = line.Split(':');
+
+                switch (v[0])
+                {
+                    case ID: exp.SetID(v[1]); break;
+                    case Date: exp.Date = DateTime.Parse(line[5..]); break;
+                    case SourceFormat: exp.DataSourceFormat = (ITCDataFormat)IParse(v[1]); break;
+                    case SyringeConcentration: exp.SyringeConcentration = DParse(v[1]); break;
+                    case CellConcentration: exp.CellConcentration = DParse(v[1]); break;
+                    case CellVolume: exp.CellVolume = DParse(v[1]); break;
+                    case StirringSpeed: exp.StirringSpeed = DParse(v[1]); break;
+                    case TargetTemperature: exp.TargetTemperature = DParse(v[1]); break;
+                    case MeasuredTemperature: exp.MeasuredTemperature = DParse(v[1]); break;
+                    case InitialDelay: exp.InitialDelay = DParse(v[1]); break;
+                    case TargetPowerDiff: exp.TargetPowerDiff = DParse(v[1]); break;
+                    case UseIntegrationFactorLength: exp.UseIntegrationFactorLength = BParse(v[1]); break;
+                    case IntegrationLengthFactor: exp.IntegrationLengthFactor = FParse(v[1]); break;
+                    case FeedBackMode: exp.FeedBackMode = (FeedbackMode)int.Parse(v[1]); break;
+                    case Include: exp.Include = BParse(v[1]); break;
+                    case "LIST" when v[1] == InjectionList: ReadInjectionList(exp, reader); break;
+                    case "LIST" when v[1] == DataPointList: ReadDataList(exp, reader); break;
+                    case "OBJECT" when v[1] == Processor: ReadProcessor(exp, reader); break;
+                }
+            }
+
+            RawDataReader.ProcessInjections(exp);
+
+            return exp;
+        }
+
+        private static void ReadProcessor(ExperimentData exp, StreamReader reader)
+        {
+            var p = new DataProcessor(exp);
+
+            string line = reader.ReadLine();
+            string[] v = line.Split(':');
+
+            if (v[0] != ProcessorType) return;
+
+            p.InitializeBaseline((BaselineInterpolatorTypes)int.Parse(v[1]));
+
+            while ((line = reader.ReadLine()) != EndObjectHeader)
+            {
+                v = line.Split(':');
+
+                switch (v[0])
+                {
+                    case SplineHandleMode: (p.Interpolator as SplineInterpolator).HandleMode = (SplineInterpolator.SplineHandleMode)IParse(v[1]); break;
+                    case SplineAlgorithm: (p.Interpolator as SplineInterpolator).Algorithm = (SplineInterpolator.SplineInterpolatorAlgorithm)IParse(v[1]); break;
+                    case SplineLocked: (p.Interpolator as SplineInterpolator).IsLocked = BParse(v[1]); break;
+                    case SplineFraction: (p.Interpolator as SplineInterpolator).FractionBaseline = FParse(v[1]); break;
+                    case "LIST" when v[1] == SplinePointList: ReadSplineList(p.Interpolator as SplineInterpolator, reader); break;
+                    case PolynomiumDegree: (p.Interpolator as PolynomialLeastSquaresInterpolator).Degree = IParse(v[1]); break;
+                    case PolynomiumLimit: (p.Interpolator as PolynomialLeastSquaresInterpolator).ZLimit = DParse(v[1]); break;
+                }
+            }
+
+            exp.SetProcessor(p);
+
+            p.ProcessData(replace: false);
+        }
+
+        static void ReadSplineList(SplineInterpolator interpolator, StreamReader reader)
+        {
+            var splinepoints = new List<SplineInterpolator.SplinePoint>();
+
+            string line;
+
+            while ((line = reader.ReadLine()) != EndListHeader)
+            {
+                var _spdat = line.Split(',');
+                splinepoints.Add(new SplineInterpolator.SplinePoint(double.Parse(_spdat[0]), double.Parse(_spdat[1]), int.Parse(_spdat[2]), double.Parse(_spdat[3])));
+            }
+
+            interpolator.SetSplinePoints(splinepoints) ;
+        }
+
+        static void ReadInjectionList(ExperimentData exp, StreamReader reader)
+        {
+            var injections = new List<InjectionData>();
+
+            string line;
+
+            while ((line = reader.ReadLine()) != EndListHeader) injections.Add(new InjectionData(exp, line));
+
+            exp.Injections = injections;
+        }
+
+        static void ReadDataList(ExperimentData exp, StreamReader reader)
+        {
+            var datapoints = new List<DataPoint>();
+
+            string line;
+
+            while ((line = reader.ReadLine()) != EndListHeader)
+            {
+                var dp = line.Split(',');
+                datapoints.Add(new DataPoint(float.Parse(dp[0]), float.Parse(dp[1]), float.Parse(dp[2]), shieldt: float.Parse(dp[3])));
+            }
+
+            exp.DataPoints = datapoints;
+        }
+    }
+
+    class FTITCReaderOld : FTITCFormat
     {
         public static ITCDataContainer[] ReadPath(string path)
         {
@@ -353,8 +506,6 @@ namespace DataReaders
                     exp.SetProcessor(processor);
 
                     processor.ProcessData(replace: false);
-
-
                 }
             }
 
