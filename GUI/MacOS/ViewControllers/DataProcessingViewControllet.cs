@@ -27,9 +27,15 @@ namespace AnalysisITC
 
             DataManager.SelectionDidChange += OnSelectionChanged;
             DataProcessor.BaselineInterpolationCompleted += OnInterpolationCompleted;
+            BaselineGraphView.InjectionSelected += BaselineGraphView_InjectionSelected;
 
             BaselineScopeButton.State = NSCellStateValue.On;
             IntegrationScopeButton.State = NSCellStateValue.On;
+        }
+
+        private void BaselineGraphView_InjectionSelected(object sender, int e)
+        {
+            UpdateInjectionSelectionUI();
         }
 
         public override void ViewWillAppear()
@@ -43,6 +49,8 @@ namespace AnalysisITC
             BaselineGraphView.Initialize(DataManager.Current);
 
             BaselineGraphView.SetFeatureVisibility(ShowBaseline, ShowIntegrationRange, Corrected);
+
+            BaselineGraphView.UpdateTrackingArea();
         }
 
         void UpdateUI()

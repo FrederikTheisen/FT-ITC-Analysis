@@ -24,7 +24,7 @@ namespace AnalysisITC
         public CGPoint Center;
         internal CGSize PlotSize;
         internal CGPoint Origin;
-        internal CGRect Frame => new CGRect(Origin, PlotSize);
+        internal CGRect Frame { get { if (PlotSize.Width == 0) AutoSetFrame(); return new CGRect(Origin, PlotSize); } }
         internal NSView View;
 
         public bool DrawOnWhite = false;

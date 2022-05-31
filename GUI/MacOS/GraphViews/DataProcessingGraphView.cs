@@ -9,6 +9,8 @@ namespace AnalysisITC
 {
     public partial class DataProcessingGraphView : NSGraph
     {
+        public event EventHandler<int> InjectionSelected;
+
         bool isBaselineZoomed = false;
         bool isInjectionZoomed = false;
 
@@ -317,7 +319,11 @@ namespace AnalysisITC
 
                 var clickedinj = Data.Injections.Where(inj => inj.Time < time && inj.Time + inj.Delay > time);
 
-                if (clickedinj.Count() != 0) SelectedPeak = clickedinj.First().ID;
+                if (clickedinj.Count() != 0)
+                {
+                    SelectedPeak = clickedinj.First().ID;
+                    InjectionSelected?.Invoke(clickedinj.First(), clickedinj.First().ID);
+                }
             }
         }
 

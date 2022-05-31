@@ -17,17 +17,12 @@ namespace AnalysisITC
         internal ProgramState State = ProgramState.Load;
         public bool MouseDidDrag { get; private set; } = false;
 
+        CGRect TrackingFrame => Graph != null && Graph.Frame.Width != 0 ? Graph.Frame : new CGRect(0, 0, Frame.Width, Frame.Height);
+
         public NSGraph(IntPtr handle) : base(handle)
         {
             trackingArea = new NSTrackingArea(Frame, NSTrackingAreaOptions.ActiveAlways | NSTrackingAreaOptions.MouseEnteredAndExited | NSTrackingAreaOptions.MouseMoved, this, null);
             AddTrackingArea(trackingArea);
-        }
-
-        public override void Layout()
-        {
-            base.Layout();
-
-            UpdateTrackingArea();
         }
 
         public override void AwakeFromNib()
@@ -44,11 +39,11 @@ namespace AnalysisITC
             UpdateTrackingArea();
         }
 
-        void UpdateTrackingArea()
+        public void UpdateTrackingArea()
         {
             RemoveTrackingArea(trackingArea);
 
-            trackingArea = new NSTrackingArea(Frame, NSTrackingAreaOptions.ActiveAlways | NSTrackingAreaOptions.MouseEnteredAndExited | NSTrackingAreaOptions.MouseMoved, this, null);
+            trackingArea = new NSTrackingArea(TrackingFrame, NSTrackingAreaOptions.ActiveAlways | NSTrackingAreaOptions.MouseEnteredAndExited | NSTrackingAreaOptions.MouseMoved, this, null);
 
             AddTrackingArea(trackingArea);
         }
