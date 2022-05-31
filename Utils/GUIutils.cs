@@ -179,6 +179,20 @@ namespace Utilities
         public bool Contains(CGPoint point) => Rect.Contains(point);
 
         public bool CursorInBox(CGPoint cursorpos) => Contains(cursorpos.Subtract(offset));
+
+        public bool ProximityX(CGPoint cursorpos, float pixels_to_x_factor)
+        {
+            cursorpos = cursorpos.Subtract(offset);
+
+            var dist = Rect.Left > cursorpos.X ? Rect.Left - cursorpos.X : cursorpos.X - Rect.Right;
+            var tdist = dist * pixels_to_x_factor;
+
+            switch (Type)
+            {
+                case MouseOverFeatureEvent.FeatureType.IntegrationRangeMarker: return tdist < 10;
+                default: return false;
+            }
+        }
     }
 
     public class MouseOverFeatureEvent

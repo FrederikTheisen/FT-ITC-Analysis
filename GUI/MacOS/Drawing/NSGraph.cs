@@ -15,6 +15,7 @@ namespace AnalysisITC
         public CGPoint CursorPositionInView { get; private set; } = new CGPoint(0, 0);
         public virtual CGGraph Graph { get => graph; set => graph = value; }
         internal ProgramState State = ProgramState.Load;
+        public bool MouseDidDrag { get; private set; } = false;
 
         public NSGraph(IntPtr handle) : base(handle)
         {
@@ -52,6 +53,13 @@ namespace AnalysisITC
             AddTrackingArea(trackingArea);
         }
 
+        public override void MouseDown(NSEvent theEvent)
+        {
+            base.MouseDown(theEvent);
+
+            MouseDidDrag = false;
+        }
+
         public override void MouseMoved(NSEvent theEvent)
         {
             base.MouseMoved(theEvent);
@@ -63,7 +71,16 @@ namespace AnalysisITC
         {
             base.MouseDragged(theEvent);
 
+            MouseDidDrag = true;
+
             CursorPositionInView = ConvertPointFromView(theEvent.LocationInWindow, null);
+        }
+
+        public override void MouseExited(NSEvent theEvent)
+        {
+            base.MouseExited(theEvent);
+
+            NSCursor.ArrowCursor.Set();
         }
 
         public override void DrawRect(CGRect dirtyRect)

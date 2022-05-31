@@ -151,7 +151,10 @@ namespace AnalysisITC
 
     public class BaselineInterpolator
     {
-        DataProcessor Processor { get; set; }
+        public DataProcessor Processor { get; set; }
+
+        public SplineInterpolator SplineInterpolator => this as SplineInterpolator;
+        public PolynomialLeastSquaresInterpolator PolynomialLeastSquaresInterpolator => this as PolynomialLeastSquaresInterpolator;
 
         internal ExperimentData Data => Processor.Data;
         internal List<Energy> Baseline { get; set; } = new List<Energy>();
@@ -181,6 +184,8 @@ namespace AnalysisITC
                 Console.WriteLine(Data.DataPoints[i].Time + " " + Data.DataPoints[i].Power + " " + Baseline[i]);
             }
         }
+
+        
 
         public void ConvertToSpline()
         {
@@ -313,6 +318,15 @@ namespace AnalysisITC
             SplineFunction = spline;
         }
 
+        public void RemoveSplinePoint(int id)
+        {
+            SplinePoints.RemoveAt(id);
+
+            SplinePoints.ForEach(sp => sp.ID = SplinePoints.IndexOf(sp));
+
+            Processor.ProcessData(false);
+        }
+
         public void InsertSplinePoint(double cursorpos, bool usedatavalue = false)
         {
             if (Baseline.Count == 0) return;
@@ -326,6 +340,8 @@ namespace AnalysisITC
             for (int i = 0; i < SplinePoints.Count; i++) if (SplinePoints[i].Time > newsp.Time) { SplinePoints.Insert(i, newsp); break; }
 
             SplinePoints.ForEach(sp => sp.ID = SplinePoints.IndexOf(sp));
+
+            Processor.ProcessData(false);
         }
 
         public void SetSplinePoints(List<SplinePoint> points)

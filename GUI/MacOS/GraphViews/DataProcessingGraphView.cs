@@ -208,6 +208,38 @@ namespace AnalysisITC
             SelectedFeature.ClickCursorPosition = theEvent.LocationInWindow;
         }
 
+        public override void RightMouseDown(NSEvent theEvent)
+        {
+            base.RightMouseDown(theEvent);
+
+            if (Data == null) return;
+
+            var feature = Graph.IsCursorOnFeature(CursorPositionInView);
+
+            if (feature.IsMouseOverFeature)
+            {
+                if (feature.Type == Utilities.MouseOverFeatureEvent.FeatureType.BaselineSplinePoint)
+                {
+
+                    NSMenu menu = new NSMenu("Spline Point Options");
+                    menu.AddItem(new NSMenuItem("Remove", (s, e) => { Data.Processor.Interpolator.SplineInterpolator.RemoveSplinePoint(feature.FeatureID); }));
+                    WillOpenMenu(menu, theEvent);
+
+                    NSMenu.PopUpContextMenu(menu, theEvent, this);
+                }
+            }
+            else
+            {
+                var xfraction = (CursorPositionInView.X - Graph.Frame.X) / Graph.Frame.Width;
+                var time = xfraction * (Graph.XAxis.Max - Graph.XAxis.Min) + Graph.XAxis.Min;
+
+                NSMenu menu = new NSMenu("New Spline Point Options");
+                menu.AddItem(new NSMenuItem("Add at data", (s, e) => { (Data.Processor.Interpolator as SplineInterpolator).InsertSplinePoint(time, true); }));
+                menu.AddItem(new NSMenuItem("Add at baseline", (s, e) => { (Data.Processor.Interpolator as SplineInterpolator).InsertSplinePoint(time, false); }));
+                NSMenu.PopUpContextMenu(menu, theEvent, this);
+            }
+        }
+
         public override void MouseDragged(NSEvent theEvent)
         {
             base.MouseDragged(theEvent);
@@ -257,24 +289,36 @@ namespace AnalysisITC
         {
             base.MouseUp(theEvent);
 
-            switch (SelectedFeature.Type)
+            if (MouseDidDrag)
             {
-                case Utilities.MouseOverFeatureEvent.FeatureType.BaselineSplineHandle:
-                case Utilities.MouseOverFeatureEvent.FeatureType.BaselineSplinePoint: UpdateSplineHandle(); break;
-                case Utilities.MouseOverFeatureEvent.FeatureType.IntegrationRangeMarker: Data.Processor.IntegratePeaks(); break;
+                switch (SelectedFeature.Type)
+                {
+                    case Utilities.MouseOverFeatureEvent.FeatureType.BaselineSplineHandle:
+                    case Utilities.MouseOverFeatureEvent.FeatureType.BaselineSplinePoint: UpdateSplineHandle(); break;
+                    case Utilities.MouseOverFeatureEvent.FeatureType.IntegrationRangeMarker: Data.Processor.IntegratePeaks(); break;
+                }
+
+                if (Data == null) return;
+
+                var b = Graph.IsCursorOnFeature(CursorPositionInView);
+
+                if (b.IsMouseOverFeature)
+                {
+                    if (b.Type == Utilities.MouseOverFeatureEvent.FeatureType.BaselineSplinePoint) NSCursor.ResizeUpDownCursor.Set();
+                    else if (b.Type == Utilities.MouseOverFeatureEvent.FeatureType.BaselineSplineHandle) NSCursor.ResizeUpDownCursor.Set();
+                    else if (b.Type == Utilities.MouseOverFeatureEvent.FeatureType.IntegrationRangeMarker) NSCursor.ResizeLeftRightCursor.Set();
+                }
+                else NSCursor.ArrowCursor.Set();
             }
-
-            if (Data == null) return;
-
-            var b = Graph.IsCursorOnFeature(CursorPositionInView);
-
-            if (b.IsMouseOverFeature)
+            else
             {
-                if (b.Type == Utilities.MouseOverFeatureEvent.FeatureType.BaselineSplinePoint) NSCursor.ResizeUpDownCursor.Set();
-                else if (b.Type == Utilities.MouseOverFeatureEvent.FeatureType.BaselineSplineHandle) NSCursor.ResizeUpDownCursor.Set();
-                else if (b.Type == Utilities.MouseOverFeatureEvent.FeatureType.IntegrationRangeMarker) NSCursor.ResizeLeftRightCursor.Set();
+                var xfraction = (CursorPositionInView.X - Graph.Frame.X) / Graph.Frame.Width;
+                var time = xfraction * (Graph.XAxis.Max - Graph.XAxis.Min) + Graph.XAxis.Min;
+
+                var clickedinj = Data.Injections.Where(inj => inj.Time < time && inj.Time + inj.Delay > time);
+
+                if (clickedinj.Count() != 0) SelectedPeak = clickedinj.First().ID;
             }
-            else NSCursor.ArrowCursor.Set();
         }
 
         async void UpdateSplineHandle()

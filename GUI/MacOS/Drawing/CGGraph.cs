@@ -911,6 +911,9 @@ namespace AnalysisITC
             foreach (var handle in IntegrationHandleBoxes)
                 if (handle.CursorInBox(cursorpos)) return new MouseOverFeatureEvent(handle);
 
+            foreach (var handle in IntegrationHandleBoxes)
+                if (handle.ProximityX(cursorpos, (XAxis.Max - XAxis.Min) / (float)PlotPixelWidth)) return new MouseOverFeatureEvent(handle);
+
             return new MouseOverFeatureEvent();
         }
     }
