@@ -25,9 +25,9 @@ namespace AnalysisITC
             AddTrackingArea(trackingArea);
         }
 
-        public override void AwakeFromNib()
+        public override void Layout()
         {
-            base.AwakeFromNib();
+            base.Layout();
 
             UpdateTrackingArea();
         }
