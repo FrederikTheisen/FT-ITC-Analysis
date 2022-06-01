@@ -12,9 +12,29 @@ namespace AnalysisITC
 	[Register ("BaselineOptionsPopoverViewController")]
 	partial class BaselineOptionsPopoverViewController
 	{
+		[Outlet]
+		AppKit.NSButton LockButton { get; set; }
+
+		[Outlet]
+		AppKit.NSButton ToSplineButton { get; set; }
+
+		[Action ("LockAction:")]
+		partial void LockAction (Foundation.NSObject sender);
+
+		[Action ("SplineAction:")]
+		partial void SplineAction (Foundation.NSObject sender);
 		
 		void ReleaseDesignerOutlets ()
 		{
+			if (LockButton != null) {
+				LockButton.Dispose ();
+				LockButton = null;
+			}
+
+			if (ToSplineButton != null) {
+				ToSplineButton.Dispose ();
+				ToSplineButton = null;
+			}
 		}
 	}
 }
