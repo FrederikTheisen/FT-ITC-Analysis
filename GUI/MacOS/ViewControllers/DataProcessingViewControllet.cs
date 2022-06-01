@@ -27,10 +27,16 @@ namespace AnalysisITC
 
             DataManager.SelectionDidChange += OnSelectionChanged;
             DataProcessor.BaselineInterpolationCompleted += OnInterpolationCompleted;
+            BaselineOptionsPopoverViewController.Updated += BaselineOptionsPopoverViewController_Updated;
             BaselineGraphView.InjectionSelected += BaselineGraphView_InjectionSelected;
 
             BaselineScopeButton.State = NSCellStateValue.On;
             IntegrationScopeButton.State = NSCellStateValue.On;
+        }
+
+        private void BaselineOptionsPopoverViewController_Updated(object sender, EventArgs e)
+        {
+            UpdateUI();
         }
 
         private void BaselineGraphView_InjectionSelected(object sender, int e)
@@ -64,6 +70,9 @@ namespace AnalysisITC
                 SplineHandleModeView.Hidden = true;
                 PolynomialDegreeView.Hidden = true;
                 ZLimitView.Hidden = true;
+
+                BaselineHeader.StringValue = "Baseline Interpolator Options";
+                IntegrationHeader.StringValue = "Peak Integration Options";
             }
             else
             {
@@ -104,16 +113,17 @@ namespace AnalysisITC
                 {
                     IntegrationLengthControl.MaxValue = Data.Injections.Max(inj => inj.Delay);
                     IntegrationDelayControl.FloatValue = Data.Injections.Last().IntegrationStartDelay;
-                    if (Data.UseIntegrationFactorLength) IntegrationLengthControl.FloatValue = FactorToSlider(Data.IntegrationLengthFactor);
+                    if (Data.IntegrationLengthMode == InjectionData.IntegrationLengthMode.Factor) IntegrationLengthControl.FloatValue = FactorToSlider(Data.IntegrationLengthFactor);
                     else IntegrationLengthControl.FloatValue = Data.Injections.Last().IntegrationLength;
                 }
+
+                BaselineHeader.StringValue = "Baseline Interpolator Options" + (Data.Processor.IsLocked || Data.Processor.Interpolator.IsLocked ? " [LOCKED]" : "");
+                IntegrationHeader.StringValue = "Peak Integration Options" + (Data.Processor.IsLocked ? " [LOCKED]" : "");
 
                 InjectionViewSegControl.Enabled = Data.Injections.Count > 0;
                 DataZoomSegControl.Enabled = true;
 
                 InjectionViewSegControl.SetLabel((BaselineGraphView.SelectedPeak + 1).ToString(), 1);
-
-                UseFactorSwitch.State = Data.UseIntegrationFactorLength ? 1 : 0;
             }
 
             UpdateSliderLabels();
@@ -133,7 +143,7 @@ namespace AnalysisITC
         void UpdateSliderLabels()
         {
             IntegrationStartDelayLabel.StringValue = (IntegrationDelayControl.FloatValue).ToString("F1") + "s";
-            if (Data != null && Data.UseIntegrationFactorLength)
+            if (Data != null && Data.IntegrationLengthMode == InjectionData.IntegrationLengthMode.Factor)
             {
                 var factor = SliderToFactor();
                 IntegrationLengthLabel.StringValue = factor.ToString("F1") + "x";
@@ -163,7 +173,7 @@ namespace AnalysisITC
 
             (Processor.Interpolator as SplineInterpolator).Algorithm = (SplineInterpolator.SplineInterpolatorAlgorithm)(int)sender.SelectedSegment;
 
-            UpdateProcessing();
+            UpdateProcessing(false);
         }
 
         partial void SplineHandleModeControlClicked(NSSegmentedControl sender)
@@ -189,6 +199,7 @@ namespace AnalysisITC
         partial void PolynomialDegreeChanged(NSSlider sender)
         {
             if (Data == null) return;
+            if (Processor.Interpolator is not PolynomialLeastSquaresInterpolator) return;
 
             (Processor.Interpolator as PolynomialLeastSquaresInterpolator).Degree = sender.IntValue;
 
@@ -222,6 +233,11 @@ namespace AnalysisITC
 
         #region Processing Injections
 
+        partial void IntegrationSegControlClicked(NSSegmentedControl sender)
+        {
+            Data.IntegrationLengthMode = (InjectionData.IntegrationLengthMode)(int)sender.SelectedSegment;
+        }
+
         partial void IntegrationStartTimeSliderChanged(NSSlider sender)
         {
             UpdateSliderLabels();
@@ -238,24 +254,24 @@ namespace AnalysisITC
 
         partial void ToggleUseIntegrationFactor(NSButton sender)
         {
-            if (Data == null) return;
+            //if (Data == null) return;
 
-            Data.UseIntegrationFactorLength = !Data.UseIntegrationFactorLength;
+            //Data.UseIntegrationFactorLength = !Data.UseIntegrationFactorLength;
 
-            UpdateSliderLabels();
+            //UpdateSliderLabels();
 
-            SetIntegrationTimes();
+            //SetIntegrationTimes();
         }
 
         partial void UseFactorToggled(NSObject sender)
         {
-            if (Data == null) return;
+            //if (Data == null) return;
 
-            Data.UseIntegrationFactorLength = !Data.UseIntegrationFactorLength;
+            //Data.UseIntegrationFactorLength = !Data.UseIntegrationFactorLength;
 
-            UpdateSliderLabels();
+            //UpdateSliderLabels();
 
-            SetIntegrationTimes();
+            //SetIntegrationTimes();
         }
 
         float SliderToFactor()
@@ -272,7 +288,7 @@ namespace AnalysisITC
         {
             if (Data == null) return;
 
-            if (Data.UseIntegrationFactorLength)
+            if (Data.IntegrationLengthMode == InjectionData.IntegrationLengthMode.Factor)
             {
                 var factor = SliderToFactor();
                 Data.SetCustomIntegrationTimes(IntegrationDelayControl.FloatValue, factor);
@@ -359,11 +375,11 @@ namespace AnalysisITC
             
         }
 
-        void UpdateProcessing()
+        void UpdateProcessing(bool replace = true)
         {
             if (Data == null) return;
 
-            Data.Processor.ProcessData();
+            Data.Processor.ProcessData(replace);
         }
 
         private void OnSelectionChanged(object sender, ExperimentData e)
@@ -380,6 +396,8 @@ namespace AnalysisITC
         private void OnInterpolationCompleted(object sender, EventArgs e)
         {
             if (Processor.BaselineCompleted) BaselineGraphView.Invalidate();
+
+            UpdateUI();
         }
     }
 }

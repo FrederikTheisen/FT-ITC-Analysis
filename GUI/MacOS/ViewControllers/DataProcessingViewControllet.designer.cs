@@ -19,6 +19,9 @@ namespace AnalysisITC
 		AnalysisITC.DataProcessingGraphView BaselineGraphView { get; set; }
 
 		[Outlet]
+		AppKit.NSTextField BaselineHeader { get; set; }
+
+		[Outlet]
 		AppKit.NSButton BaselineScopeButton { get; set; }
 
 		[Outlet]
@@ -40,10 +43,16 @@ namespace AnalysisITC
 		AppKit.NSSlider IntegrationDelayControl { get; set; }
 
 		[Outlet]
+		AppKit.NSTextField IntegrationHeader { get; set; }
+
+		[Outlet]
 		AppKit.NSSlider IntegrationLengthControl { get; set; }
 
 		[Outlet]
 		AppKit.NSTextField IntegrationLengthLabel { get; set; }
+
+		[Outlet]
+		AppKit.NSSegmentedControl IntegrationModeSegControl { get; set; }
 
 		[Outlet]
 		AppKit.NSButton IntegrationScopeButton { get; set; }
@@ -125,6 +134,9 @@ namespace AnalysisITC
 
 		[Action ("IntegrationLengthSliderChanged:")]
 		partial void IntegrationLengthSliderChanged (AppKit.NSSlider sender);
+
+		[Action ("IntegrationSegControlClicked:")]
+		partial void IntegrationSegControlClicked (AppKit.NSSegmentedControl sender);
 
 		[Action ("IntegrationStartTimeSliderChanged:")]
 		partial void IntegrationStartTimeSliderChanged (AppKit.NSSlider sender);
@@ -255,6 +267,11 @@ namespace AnalysisITC
 				PolynomialDegreeView = null;
 			}
 
+			if (SelectedInjectionLabel != null) {
+				SelectedInjectionLabel.Dispose ();
+				SelectedInjectionLabel = null;
+			}
+
 			if (SplineAlgoControl != null) {
 				SplineAlgoControl.Dispose ();
 				SplineAlgoControl = null;
@@ -300,6 +317,16 @@ namespace AnalysisITC
 				UseIntegrationFactorLengthControl = null;
 			}
 
+			if (ViewNextControl != null) {
+				ViewNextControl.Dispose ();
+				ViewNextControl = null;
+			}
+
+			if (ViewPreviousControl != null) {
+				ViewPreviousControl.Dispose ();
+				ViewPreviousControl = null;
+			}
+
 			if (ZLimitLabel != null) {
 				ZLimitLabel.Dispose ();
 				ZLimitLabel = null;
@@ -315,19 +342,19 @@ namespace AnalysisITC
 				ZLimitView = null;
 			}
 
-			if (ViewPreviousControl != null) {
-				ViewPreviousControl.Dispose ();
-				ViewPreviousControl = null;
+			if (IntegrationModeSegControl != null) {
+				IntegrationModeSegControl.Dispose ();
+				IntegrationModeSegControl = null;
 			}
 
-			if (ViewNextControl != null) {
-				ViewNextControl.Dispose ();
-				ViewNextControl = null;
+			if (BaselineHeader != null) {
+				BaselineHeader.Dispose ();
+				BaselineHeader = null;
 			}
 
-			if (SelectedInjectionLabel != null) {
-				SelectedInjectionLabel.Dispose ();
-				SelectedInjectionLabel = null;
+			if (IntegrationHeader != null) {
+				IntegrationHeader.Dispose ();
+				IntegrationHeader = null;
 			}
 		}
 	}
