@@ -31,7 +31,7 @@ namespace AnalysisITC
         public double MeasuredTemperature { get; internal set; }
         public int InjectionCount => Injections.Count;
         public PeakHeatDirection AverageHeatDirection { get; set; } = PeakHeatDirection.Unknown;
-        public bool UseIntegrationFactorLength { get; set; } = false;
+        public InjectionData.IntegrationLengthMode IntegrationLengthMode { get; set; } = InjectionData.IntegrationLengthMode.Time;
         public float IntegrationLengthFactor { get; set; } = 8;
 
         bool include = true;
@@ -78,11 +78,11 @@ namespace AnalysisITC
             Injections.Add(inj);
         }
 
-        public void SetCustomIntegrationTimes(float delay, float length)
+        public void SetCustomIntegrationTimes(float delay, float variable)
         {
-            if (UseIntegrationFactorLength) IntegrationLengthFactor = length;
+            if (IntegrationLengthMode == InjectionData.IntegrationLengthMode.Factor) IntegrationLengthFactor = variable;
 
-            foreach (var inj in Injections) inj.SetCustomIntegrationTimes(delay, length);
+            foreach (var inj in Injections) inj.SetCustomIntegrationTimes(delay, variable);
         }
 
         public void CalculatePeakHeatDirection()
@@ -286,7 +286,7 @@ namespace AnalysisITC
 
         public void SetCustomIntegrationTimes(float delay, float length)
         {
-            if (Experiment.UseIntegrationFactorLength)
+            if (Experiment.IntegrationLengthMode == IntegrationLengthMode.Factor)
             {
                 var dps = Experiment.BaseLineCorrectedDataPoints.Where(dp => dp.Time > Time && dp.Time < Time + Delay);
                 var dps_count = dps.Count();
@@ -359,6 +359,13 @@ namespace AnalysisITC
 
                 return sum_of_squares;
             }
+        }
+
+        public enum IntegrationLengthMode
+        {
+            Time,
+            Factor,
+            Fit
         }
     }
 
