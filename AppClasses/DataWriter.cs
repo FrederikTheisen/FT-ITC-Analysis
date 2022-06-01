@@ -133,7 +133,7 @@ namespace AnalysisITC
             exp += Encapsulate(MeasuredTemperature, data.MeasuredTemperature);
             exp += Encapsulate(InitialDelay, data.InitialDelay);
             exp += Encapsulate(TargetPowerDiff, data.TargetPowerDiff);
-            exp += Encapsulate(UseIntegrationFactorLength, data.UseIntegrationFactorLength);
+            exp += Encapsulate(UseIntegrationFactorLength, data.IntegrationLengthMode);
             exp += Encapsulate(IntegrationLengthFactor, data.IntegrationLengthFactor);
             exp += Encapsulate(FeedBackMode, (int)data.FeedBackMode);
             exp += Encapsulate(CellVolume, data.CellVolume);
@@ -218,7 +218,7 @@ namespace AnalysisITC
             file.Add(Variable(MeasuredTemperature, data.MeasuredTemperature));
             file.Add(Variable(InitialDelay, data.InitialDelay));
             file.Add(Variable(TargetPowerDiff, data.TargetPowerDiff));
-            file.Add(Variable(UseIntegrationFactorLength, data.UseIntegrationFactorLength));
+            file.Add(Variable(UseIntegrationFactorLength, (int)data.IntegrationLengthMode));
             file.Add(Variable(IntegrationLengthFactor, data.IntegrationLengthFactor));
             file.Add(Variable(FeedBackMode, (int)data.FeedBackMode));
             file.Add(Variable(CellVolume, data.CellVolume));

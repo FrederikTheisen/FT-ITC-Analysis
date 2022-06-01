@@ -307,7 +307,7 @@ namespace DataReaders
                     case MeasuredTemperature: exp.MeasuredTemperature = DParse(v[1]); break;
                     case InitialDelay: exp.InitialDelay = DParse(v[1]); break;
                     case TargetPowerDiff: exp.TargetPowerDiff = DParse(v[1]); break;
-                    case UseIntegrationFactorLength: exp.UseIntegrationFactorLength = BParse(v[1]); break;
+                    case UseIntegrationFactorLength: exp.IntegrationLengthMode = (InjectionData.IntegrationLengthMode)IParse(v[1]); break;
                     case IntegrationLengthFactor: exp.IntegrationLengthFactor = FParse(v[1]); break;
                     case FeedBackMode: exp.FeedBackMode = (FeedbackMode)int.Parse(v[1]); break;
                     case Include: exp.Include = BParse(v[1]); break;
@@ -443,7 +443,7 @@ namespace DataReaders
             exp.InitialDelay = double.Parse(GContent(InitialDelay, data));
             exp.TargetPowerDiff = double.Parse(GContent(TargetPowerDiff, data));
             exp.Include = GContent(Include, data) == "1";
-            exp.UseIntegrationFactorLength = double.Parse(GContent(UseIntegrationFactorLength, data)) == 1;
+            exp.IntegrationLengthMode = (InjectionData.IntegrationLengthMode)int.Parse(GContent(UseIntegrationFactorLength, data));
             exp.IntegrationLengthFactor = float.Parse(GContent(IntegrationLengthFactor, data));
             exp.CellVolume = double.Parse(GContent(CellVolume, data));
             exp.CellVolume = double.Parse(GContent(CellVolume, data));
