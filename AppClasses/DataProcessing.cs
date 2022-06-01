@@ -17,6 +17,7 @@ namespace AnalysisITC
         public static event EventHandler ProcessingCompleted;
 
         internal ExperimentData Data { get; set; }
+        public bool IsLocked { get; set; } = false;
 
         CancellationToken cToken { get; set; }
         CancellationTokenSource csource = new CancellationTokenSource();
@@ -117,11 +118,6 @@ namespace AnalysisITC
             ProcessingCompleted?.Invoke(Data, null);
         }
 
-        public void IterationCompleted()
-        {
-            BaselineInterpolationCompleted?.Invoke(this, null);
-        }
-
         public void SubtractBaseline()
         {
             Data.BaseLineCorrectedDataPoints = new List<DataPoint>();
@@ -152,12 +148,13 @@ namespace AnalysisITC
     public class BaselineInterpolator
     {
         public DataProcessor Processor { get; set; }
+        internal List<Energy> Baseline { get; set; } = new List<Energy>();
+        public bool IsLocked { get; set; } = false;
 
+        internal ExperimentData Data => Processor.Data;
         public SplineInterpolator SplineInterpolator => this as SplineInterpolator;
         public PolynomialLeastSquaresInterpolator PolynomialLeastSquaresInterpolator => this as PolynomialLeastSquaresInterpolator;
 
-        internal ExperimentData Data => Processor.Data;
-        internal List<Energy> Baseline { get; set; } = new List<Energy>();
         public bool Finished => Baseline.Count > 0;
 
         public BaselineInterpolator(DataProcessor processor)
@@ -174,7 +171,7 @@ namespace AnalysisITC
 
         public async virtual Task Interpolate(CancellationToken token, bool replace = true)
         {
-            
+
         }
 
         public void WriteToConsole()
@@ -185,11 +182,30 @@ namespace AnalysisITC
             }
         }
 
-        
-
-        public void ConvertToSpline()
+        public void ConvertToSpline(int pointdensity = 2)
         {
             if (this is SplineInterpolator) return;
+
+            int num_of_points = (Data.InjectionCount + 1) * pointdensity;
+
+            int skip = Baseline.Count / (num_of_points + 1);
+
+            var interpolator = new SplineInterpolator(Processor);
+            interpolator.IsLocked = true;
+
+            int k = 0;
+            for (int i = skip; i < Baseline.Count; i += skip)
+            {
+                var time = Data.DataPoints[i].Time;
+                var val = Baseline[i].Value;
+                var slope = (Baseline[i + 1].Value - Baseline[i - 1].Value) / 2;
+
+                interpolator.SplinePoints.Add(new SplineInterpolator.SplinePoint(time, val, k, slope));
+                k++;
+            }
+
+            Processor.Interpolator = interpolator;
+            Processor.ProcessData();
         }
     }
 
@@ -203,8 +219,6 @@ namespace AnalysisITC
 
     public class SplineInterpolator : BaselineInterpolator
     {
-        public bool IsLocked { get; set; } = false;
-
         public int PointsPerInjection { get; set; } = 1;
         public float FractionBaseline { get; set; } = 0.5f;
         public SplineInterpolatorAlgorithm Algorithm { get; set; } = SplineInterpolatorAlgorithm.Akima;
@@ -289,7 +303,7 @@ namespace AnalysisITC
 
             List<SplinePoint> splinePoints;
 
-            if (SplinePoints.Count == 0 || replace) splinePoints = GetInitialPoints(PointsPerInjection, FractionBaseline);
+            if (SplinePoints.Count == 0 || (replace && !IsLocked)) splinePoints = GetInitialPoints(PointsPerInjection, FractionBaseline);
             else splinePoints = SplinePoints;
 
             var x = splinePoints.Select(sp => sp.Time);
