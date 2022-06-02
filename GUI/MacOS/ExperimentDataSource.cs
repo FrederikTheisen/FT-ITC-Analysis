@@ -24,7 +24,7 @@ namespace AnalysisITC
         {
             Solution = solution;
 
-            FileName = solution.Model.Models[0].ToString().Substring("AnalysisITC.".Length);
+            FileName = solution.Model.Models[0].ModelName;
             Date = DateTime.Now;
         }
 
