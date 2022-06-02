@@ -229,6 +229,7 @@ namespace AnalysisITC
     public class Model
     {
         internal ExperimentData Data { get; private set; }
+        public bool FittedGlobally { get; set; } = false;
         public int ExcludeSinglePoint { get; set; } = -1;
 
         public double Temperature => Data.MeasuredTemperature;
@@ -238,6 +239,8 @@ namespace AnalysisITC
         public virtual double GuessK => 1000000;
         public virtual double GuessGibbs => -35000;
         public virtual double GuessOffset => Data.Injections.Where(inj => inj.Include).TakeLast(2).Average(inj => inj.Enthalpy);
+
+        public virtual string ModelName => FittedGlobally ? "Global.Model" : "Model";
 
         /// <summary>
         /// Solution parameters
@@ -328,6 +331,8 @@ namespace AnalysisITC
 
     class OneSetOfSites : Model
     {
+        public override string ModelName => FittedGlobally ? "Global.OneSetOfSites" : "OneSetOfSites";
+
         public OneSetOfSites()
         {
 
@@ -591,6 +596,8 @@ namespace AnalysisITC
 
         public SolverConvergence SolveWithNelderMeadAlgorithm()
         {
+            Models.ForEach(m => m.FittedGlobally = true);
+
             var f = new NonlinearObjectiveFunction(GetVariableCount, (w) => LossFunction(w));
             var solver = new NelderMead(f);
 
