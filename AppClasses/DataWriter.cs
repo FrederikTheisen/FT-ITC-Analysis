@@ -133,7 +133,7 @@ namespace AnalysisITC
             exp += Encapsulate(MeasuredTemperature, data.MeasuredTemperature);
             exp += Encapsulate(InitialDelay, data.InitialDelay);
             exp += Encapsulate(TargetPowerDiff, data.TargetPowerDiff);
-            exp += Encapsulate(UseIntegrationFactorLength, data.IntegrationLengthMode);
+            exp += Encapsulate(UseIntegrationFactorLength, (int)data.IntegrationLengthMode);
             exp += Encapsulate(IntegrationLengthFactor, data.IntegrationLengthFactor);
             exp += Encapsulate(FeedBackMode, (int)data.FeedBackMode);
             exp += Encapsulate(CellVolume, data.CellVolume);
