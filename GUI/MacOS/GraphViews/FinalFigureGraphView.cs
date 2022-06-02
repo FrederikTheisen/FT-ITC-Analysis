@@ -5,6 +5,9 @@ using System;
 using Foundation;
 using AppKit;
 using CoreGraphics;
+using System.Threading.Tasks;
+using System.Collections.Generic;
+using System.IO;
 
 namespace AnalysisITC
 {
@@ -124,6 +127,82 @@ namespace AnalysisITC
             InitializeGraph();
 
             this.NeedsDisplay = true;
+        }
+
+        public static FinalFigure SetupForExport(ExperimentData experiment)
+        {
+            var _ = (new FinalFigure(experiment, new NSView(new CGRect(0, 0, 10, 10)))).PrintBox;
+
+            var _graph = new FinalFigure(experiment, new NSView(_))
+            {
+                PlotDimensions = new CGSize(Width, Height),
+                SanitizeTicks = SanitizeTicks,
+
+                PowerAxisTitle = PowerAxisTitle,
+                TimeAxisTitle = TimeAxisTitle,
+                UseUnifiedDataAxes = UnifiedPowerAxis,
+                //graph.DrawBaseline = DrawBaseline;
+
+                EnthalpyAxisTitle = EnthalpyAxisTitle,
+                MolarRatioAxisTitle = MolarRatioAxisTitle,
+                UseUnifiedAnalysisAxes = UseUnifiedHeatAxis,
+                //graph.UseUnifiedMolarRatioAxis = UseUnifiedMolarRatioAxis;
+                ShowBadDataPoints = ShowBadData,
+                ShowBadDataErrorBars = ShowBadDataErrorBars,
+                ShowErrorBars = ShowErrorBars,
+                DrawConfidence = DrawConfidence,
+                DrawZeroLine = DrawZeroLine,
+                DrawFitParameters = DrawFitParameters,
+                SymbolShape = (CGGraph.SymbolShape)SymbolShape,
+                SymbolSize = SymbolSize,
+            };
+
+            _graph.SetTimeUnit(TimeAxisUnit);
+            _graph.SetEnergyUnit(EnergyUnit);
+            _graph.SetTickNumber(DataXTickCount, DataYTickCount, FitXTickCount, FitYTickCount);
+
+            return _graph;
+        }
+
+        public static void Export(bool all)
+        {
+            var datas = all ? DataManager.IncludedData : new ExperimentData[] { DataManager.Current };
+
+            var dlg = new NSOpenPanel();
+            dlg.Title = "Save PDF File";
+            dlg.AllowedFileTypes = new string[] { "pdf" };
+            dlg.CanChooseDirectories = true;
+            dlg.CanCreateDirectories = true;
+            dlg.CanChooseFiles = false;
+
+
+            dlg.BeginSheet(NSApplication.SharedApplication.MainWindow, (result) =>
+            {
+                if (result == 1)
+                {
+                    foreach (var data in datas)
+                    {
+                        var g = FinalFigureGraphView.SetupForExport(data);
+                        var filename = Path.GetFileNameWithoutExtension(data.FileName);
+
+                        //= new NSUrl(dlg.Url.RelativePath  + "/" + filename + ".pdf");
+
+                        var path = NSUrl.CreateFileUrl(dlg.Url.RelativePath + "/" + filename + ".pdf", null);
+
+                        //var path = NSUrl.CreateFileUrl(new string[] { dlg.Url, filename, ".pdf" });
+                        Console.WriteLine(path);
+
+                        var x = new CGContextPDF(path);
+                        x.BeginPage(new CGRect(new CGPoint(0, 0), g.PrintBox.Size));
+                        g.Draw(x, new CGPoint(g.PrintBox.Width / 2, g.PrintBox.Height / 2));
+                        x.EndPage();
+                        x.Close();
+                        path.Dispose();
+                    }
+                }
+            });
+
+
         }
 
         void InitializeGraph()
