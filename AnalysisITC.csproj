@@ -368,6 +368,10 @@
     <Compile Include="BaselineOptionsPopoverViewController.designer.cs">
       <DependentUpon>BaselineOptionsPopoverViewController.cs</DependentUpon>
     </Compile>
+    <Compile Include="ExportPopViewController.cs" />
+    <Compile Include="ExportPopViewController.designer.cs">
+      <DependentUpon>ExportPopViewController.cs</DependentUpon>
+    </Compile>
   </ItemGroup>
   <ItemGroup>
     <InterfaceDefinition Include="Main.storyboard" />
