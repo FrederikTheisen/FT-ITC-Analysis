@@ -29,6 +29,8 @@ namespace AnalysisITC
         {
             base.Layout();
 
+            if (graph != null) graph.AutoSetFrame();
+
             UpdateTrackingArea();
         }
 
@@ -99,7 +101,6 @@ namespace AnalysisITC
             }
 
             base.DrawRect(dirtyRect);
-
         }
     }
 }
