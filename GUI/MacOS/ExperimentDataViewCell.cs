@@ -74,7 +74,7 @@ namespace AnalysisITC
 				{
 					SetValidSolutionLabeling();
 
-					ModelFitLine.StringValue = data.Solution.Model.ToString().Substring("AnalysisITC.".Length) + " | " + data.Solution.Loss.ToString("G3");
+					ModelFitLine.StringValue = data.Solution.Model.ModelName + " | " + data.Solution.Loss.ToString("G3");
 					NvalueLine.StringValue = "N = " + data.Solution.N.ToString("F2");
 					AffinityLine.StringValue = "Kd = " + data.Solution.Kd.AsDissociationConstant();
 					EntropyLine.StringValue = "-T∆S = " + data.Solution.TdS.ToString(EnergyUnit.KiloJoule) + "/molK";
