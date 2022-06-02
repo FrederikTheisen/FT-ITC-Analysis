@@ -111,33 +111,31 @@ namespace AnalysisITC
 
         public static async void CopySelectedProcessToAll()
         {
-            var curr = Current;
+            if (Current == null) return;
+            if (Current.Processor.Interpolator == null) return;
 
-            if (curr == null) return;
-            if (curr.Processor.Interpolator == null) return;
+            var int_delay = Current.Injections.Select(inj => inj.IntegrationStartDelay).Average();
+            var int_length = Current.Injections.Select(inj => inj.IntegrationLength).Average();
 
-            var int_delay = curr.Injections.Select(inj => inj.IntegrationStartDelay).Average();
-            var int_length = curr.Injections.Select(inj => inj.IntegrationLength).Average();
+            if (Current.IntegrationLengthMode == InjectionData.IntegrationLengthMode.Factor) int_length = Current.IntegrationLengthFactor;
 
-            if (curr.IntegrationLengthMode) int_length = curr.IntegrationLengthFactor;
-
-            var count = Count - 1; //Do not count current data 
+            //Do not count current data 
 
             StatusBarManager.SetStatus("Processing data...", 0);
             StatusBarManager.Progress = 0;
 
             foreach (var data in Data)
             {
-                if (data == curr) continue;
+                if (data == Current) continue;
 
-                if (!data.Processor.IsLocked) data.SetProcessor(new DataProcessor(data, curr.Processor));
+                if (data.Processor.Interpolator == null || !data.Processor.IsLocked && !data.Processor.Interpolator.IsLocked) data.SetProcessor(new DataProcessor(data, Current.Processor));
             }
 
             float i = 0;
 
             foreach (var data in Data)
             {
-                if (data == curr) continue;
+                if (data == Current) continue;
 
                 i++;
 
@@ -145,13 +143,13 @@ namespace AnalysisITC
                 {
                     data.Processor.WillProcessData();
                     if (!data.Processor.Interpolator.IsLocked) await data.Processor.InterpolateBaseline();
-                    data.IntegrationLengthMode = curr.IntegrationLengthMode;
+                    data.IntegrationLengthMode = Current.IntegrationLengthMode;
                     data.SetCustomIntegrationTimes(int_delay, int_length);
                     data.Processor.IntegratePeaks();
                     data.Processor.DidProcessData();
                 }
 
-                StatusBarManager.Progress = i / count;
+                StatusBarManager.Progress = i / (Count - 1);
             }
 
             StatusBarManager.Progress = 1;
