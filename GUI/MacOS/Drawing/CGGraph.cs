@@ -115,6 +115,10 @@ namespace AnalysisITC
             }
         }
 
+        /// <summary>
+        /// Draws string to a given layer. Return size of string. Provide layer as null to get size.
+        /// </summary>
+        /// <returns></returns>
         public CGSize DrawString(CGLayer layer, string s, CGPoint position, CTFont font, CTStringAttributes attr = null, TextAlignment horizontalignment = TextAlignment.Center, TextAlignment verticalalignment = TextAlignment.Center, CGColor textcolor = null, float rotation = 0)
         {
             if (textcolor == null) textcolor = StrokeColor;
@@ -130,28 +134,31 @@ namespace AnalysisITC
             var boxsize = textLine.GetBounds(CTLineBoundsOptions.UseOpticalBounds).Size;
             var size = textLine.GetBounds(CTLineBoundsOptions.UseGlyphPathBounds).Size;
 
-            CGPoint ctm = new CGPoint(0, 0);
-
-            switch (horizontalignment)
+            if (layer != null)
             {
-                case TextAlignment.Right: ctm.X -= boxsize.Width; break;
-                case TextAlignment.Center: ctm.X -= boxsize.Width / 2; break;
-            }
+                CGPoint ctm = new CGPoint(0, 0);
 
-            switch (verticalalignment)
-            {
-                case TextAlignment.Top: ctm.Y -= size.Height; break;
-                case TextAlignment.Center: ctm.Y -= size.Height / 2; break;
-            }
+                switch (horizontalignment)
+                {
+                    case TextAlignment.Right: ctm.X -= boxsize.Width; break;
+                    case TextAlignment.Center: ctm.X -= boxsize.Width / 2; break;
+                }
 
-            layer.Context.SaveState();
-            layer.Context.TranslateCTM(position.X, position.Y);
-            layer.Context.RotateCTM(rotation);
-            layer.Context.TranslateCTM(ctm.X, ctm.Y);
-            layer.Context.TextPosition = new CGPoint(0, 0);// position;
-            textLine.Draw(layer.Context);
-            layer.Context.RestoreState();
-            textLine.Dispose();
+                switch (verticalalignment)
+                {
+                    case TextAlignment.Top: ctm.Y -= size.Height; break;
+                    case TextAlignment.Center: ctm.Y -= size.Height / 2; break;
+                }
+
+                layer.Context.SaveState();
+                layer.Context.TranslateCTM(position.X, position.Y);
+                layer.Context.RotateCTM(rotation);
+                layer.Context.TranslateCTM(ctm.X, ctm.Y);
+                layer.Context.TextPosition = new CGPoint(0, 0);// position;
+                textLine.Draw(layer.Context);
+                layer.Context.RestoreState();
+                textLine.Dispose();
+            }
 
             return size;
         }
@@ -430,6 +437,58 @@ namespace AnalysisITC
             gc.DrawLayer(layer, Frame.Location);
         }
 
+        public void DrawTextBox(CGContext gc, List<string> lines, CTFont font = null, NSRectAlignment alignment = NSRectAlignment.BottomTrailing, CGColor textcolor = null)
+        {
+            if (font == null) font = DefaultFont;
+            if (textcolor == null) textcolor = StrokeColor;
+
+            nfloat width = 0;
+            nfloat height = 0;
+
+            foreach (var line in lines)
+            {
+                var size = DrawString(null, line, new CGPoint(0, 0), font, horizontalignment: TextAlignment.Left, textcolor: StrokeColor);
+
+                if (size.Width > width) width = size.Width;
+                height += size.Height + font.Size * 0.5f;
+            }
+
+            CGSize boxsize = new CGSize(width + 12, height);
+            var xpos = alignment switch
+            {
+                NSRectAlignment.Top or NSRectAlignment.None or NSRectAlignment.Bottom => Frame.Width / 2 - boxsize.Width / 2,
+                NSRectAlignment.BottomTrailing or NSRectAlignment.Trailing or NSRectAlignment.TopTrailing => Frame.Width - boxsize.Width - 5,
+                _ => 5,
+            };
+            var ypos = alignment switch
+            {
+                NSRectAlignment.Leading or NSRectAlignment.None or NSRectAlignment.Trailing => Frame.Height / 2 - boxsize.Height / 2,
+                NSRectAlignment.Top or NSRectAlignment.TopLeading or NSRectAlignment.TopTrailing => Frame.Height - boxsize.Height - 5,
+                _ => 5,
+            };
+
+            CGPoint pos = new CGPoint(xpos + Frame.X, ypos + Frame.Y);
+            CGPoint tpos = new CGPoint(6, boxsize.Height - font.Size * 0.66f);
+
+            var layer = CGLayer.Create(gc, boxsize);
+            var textlayer = CGLayer.Create(gc, boxsize);
+            textlayer.Context.SetFillColor(textcolor);
+
+            foreach (var line in lines)
+            {
+                var size = DrawString(textlayer, line, tpos, font, horizontalignment: TextAlignment.Left, textcolor: StrokeColor);
+
+                tpos.Y -= size.Height + font.Size * 0.45f;
+            }
+
+            layer.Context.SetFillColor(DrawOnWhite ? NSColor.White.CGColor : NSColor.TextBackground.CGColor);
+            layer.Context.FillRect(new CGRect(1, 1, boxsize.Width - 2, boxsize.Height - 2));
+            layer.Context.StrokeRect(new CGRect(1, 1, boxsize.Width - 2, boxsize.Height - 2));
+
+            gc.DrawLayer(layer, pos);
+            gc.DrawLayer(textlayer, pos);
+        }
+
         #endregion
 
         #region Add shapes to existing layer functions
@@ -633,6 +692,7 @@ namespace AnalysisITC
         {
             var layer = CGLayer.Create(gc, Frame.Size);
             var textlayer = CGLayer.Create(gc, Frame.Size);
+            textlayer.Context.SetFillColor(StrokeColor);
 
             var datapoint = CursorPosition > ExperimentData.DataPoints.Last().Time ? ExperimentData.DataPoints.Last() : ExperimentData.DataPoints.First(dp => dp.Time > CursorPosition);
 
@@ -649,7 +709,7 @@ namespace AnalysisITC
 
             foreach (var line in CursorInfo)
             {
-                var size = DrawString(textlayer, line, pos, DefaultFont, horizontalignment: TextAlignment.Left, textcolor: StrokeColor);
+                var size = DrawString(textlayer, line, pos, DefaultFont, horizontalignment: TextAlignment.Left);
 
                 if (size.Width > box.Width) box.Width = size.Width;
 
@@ -664,7 +724,7 @@ namespace AnalysisITC
 
             box.Y = pos.Y;
 
-            layer.Context.SetFillColor(SecondaryLineColor);
+            layer.Context.SetFillColor(NSColor.TextBackground.CGColor);
             layer.Context.FillRect(box);
             layer.Context.StrokeRect(box);
 
@@ -1009,10 +1069,12 @@ namespace AnalysisITC
 
             if (ExperimentData.Processor.IntegrationCompleted) DrawInjectionsPoints(gc);
 
-            if (ShowFitParameters && ExperimentData.Solution != null) DrawParameters(gc);
+            
 
             XAxis.Draw(gc);
             YAxis.Draw(gc);
+
+            if (ShowFitParameters && ExperimentData.Solution != null) DrawParameters(gc);
         }
 
         void DrawInjectionsPoints(CGContext gc)
@@ -1164,19 +1226,17 @@ namespace AnalysisITC
             layer.Context.SetLineDash(3, new nfloat[] { 3 });
             layer.Context.StrokePath();
 
-            //var points = new List<CGPoint>();
-
-            //foreach (var inj in ExperimentData.Injections)
-            //{
-            //    var x = inj.Ratio;
-            //    var y = ExperimentData.Solution.Evaluate(inj.ID, withoffset: false);
-
-            //    points.Add(GetRelativePosition(x, y));
-            //}
-
-            //DrawRectsAtPositions(layer, points.ToArray(), 8, true, false, color: SecondaryLineColor);
-
             gc.DrawLayer(layer, Frame.Location);
+
+            DrawTextBox(gc, new List<string>()
+            {
+                ExperimentData.Solution.Model.ModelName,
+                "RMSD: " + ExperimentData.Solution.Loss.ToString("G4"),
+                "N = " + ExperimentData.Solution.N.ToString("F2"),
+                "Kd = " + ExperimentData.Solution.Kd.AsDissociationConstant(),
+                "∆H = " + ExperimentData.Solution.Enthalpy.ToString(EnergyUnit.KiloJoule),
+                "-T∆S = " + ExperimentData.Solution.TdS.ToString(EnergyUnit.KiloJoule)
+            }, DrawOnWhite ? new CTFont(DefaultFont.DisplayName, 12) : new CTFont(DefaultFont.DisplayName, 24), NSRectAlignment.BottomTrailing);
         }
 
         void DrawParameterBox(CGContext gc)
