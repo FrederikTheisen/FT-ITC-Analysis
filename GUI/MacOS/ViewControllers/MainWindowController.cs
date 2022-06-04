@@ -179,31 +179,6 @@ namespace AnalysisITC
         void OpenFileBrowser()
         {
             AppDelegate.LaunchOpenFileDialog();
-
-            //StatusBarManager.StartInderminateProgress();
-
-            //var dlg = NSOpenPanel.OpenPanel;
-            //dlg.CanChooseFiles = true;
-            //dlg.AllowsMultipleSelection = true;
-            //dlg.CanChooseDirectories = true;
-            //dlg.AllowedFileTypes = DataReaders.ITCFormatAttribute.GetAllExtensions();
-
-            //if (dlg.RunModal() == 1)
-            //{
-            //    // Nab the first file
-            //    var urls = new List<string>();
-
-            //    foreach (var url in dlg.Urls)
-            //    {
-            //        Console.WriteLine(url.Path);
-            //        urls.Add(url.Path);
-            //    }
-
-
-            //    DataReaders.DataReader.Read(urls);
-            //}
-
-            //StatusBarManager.StopIndeterminateProgress();
         }
 
         partial void StepControlClick(NSSegmentedControl sender)
