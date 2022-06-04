@@ -130,7 +130,7 @@ namespace AnalysisITC
         {
             switch (sender.SelectedSegment)
             {
-                case 0: OpenFileBrowser(); break;
+                case 0: AppDelegate.LaunchOpenFileDialog(); break;
                 case 2: StateManager.PreviousState(); break;
                 case 3: StateManager.NextState(); break;
             }
@@ -140,7 +140,7 @@ namespace AnalysisITC
         {
             switch (sender.SelectedSegment)
             {
-                case 0: OpenFileBrowser(); break;
+                case 0: AppDelegate.LaunchOpenFileDialog(); break;
                 case 1: DataManager.Clear(); break;
                 case 2: StateManager.SetProgramState(ProgramState.Process); break;
             }
@@ -168,17 +168,12 @@ namespace AnalysisITC
 
         partial void ContextButtonClick(NSObject sender)
         {
-            if (!DataManager.DataIsLoaded) OpenFileBrowser();
+            if (!DataManager.DataIsLoaded) AppDelegate.LaunchOpenFileDialog();
             else if (StateManager.CurrentState == 0) StateManager.SetProgramState(ProgramState.Process);
             else if (StateManager.CurrentState == ProgramState.Process && !DataManager.AllDataIsBaselineProcessed)
             {
 
             }
-        }
-
-        void OpenFileBrowser()
-        {
-            AppDelegate.LaunchOpenFileDialog();
         }
 
         partial void StepControlClick(NSSegmentedControl sender)
