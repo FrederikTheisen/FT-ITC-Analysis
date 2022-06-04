@@ -170,6 +170,7 @@ namespace AnalysisITC
         public double Progress { get; set; }
 
         public bool Indeterminate => this.Progress < 0;
+        public bool IsDeterminate => !Indeterminate;
         public bool HideProgressWheel => IsProgressFinished && Indeterminate;
         public bool IsProgressFinished => Math.Abs(Math.Abs(Progress) - 1) < double.Epsilon;
         
@@ -177,6 +178,14 @@ namespace AnalysisITC
         public ProgressIndicatorEventData(double progress)
         {
             Progress = progress;
+        }
+
+        public enum Response
+        {
+            IndeterminateWheel,
+            DeterminateWheel,
+            IndeterminateFinished,
+            DeterminateFinished
         }
     }
 }
