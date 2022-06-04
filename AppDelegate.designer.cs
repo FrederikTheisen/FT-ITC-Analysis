@@ -11,8 +11,23 @@ namespace AnalysisITC
 {
 	partial class AppDelegate
 	{
+		[Action ("ClearAllData:")]
+		partial void ClearAllData (Foundation.NSObject sender);
+
+		[Action ("ClearProcessingResult:")]
+		partial void ClearProcessingResult (Foundation.NSObject sender);
+
+		[Action ("DuplicateSelectedData:")]
+		partial void DuplicateSelectedData (Foundation.NSObject sender);
+
+		[Action ("SaveAsMenuClick:")]
+		partial void SaveAsMenuClick (Foundation.NSObject sender);
+
 		[Action ("SaveMenuClick:")]
 		partial void SaveMenuClick (AppKit.NSMenuItem sender);
+
+		[Action ("SaveSelectedMenuClick:")]
+		partial void SaveSelectedMenuClick (Foundation.NSObject sender);
 		
 		void ReleaseDesignerOutlets ()
 		{
