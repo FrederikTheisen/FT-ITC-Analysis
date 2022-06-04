@@ -107,7 +107,12 @@ namespace AnalysisITC
             else DataDidChange.Invoke(null, null);
         }
 
-        public static void Clear() => Init();
+        public static void Clear()
+        {
+            Init();
+
+            DataDidChange?.Invoke(null, null);
+        }
 
         public static async void CopySelectedProcessToAll()
         {

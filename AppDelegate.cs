@@ -61,6 +61,22 @@ namespace AnalysisITC
             FTITCWriter.SaveState2();
         }
 
+        partial void ClearAllData(NSObject sender)
+        {
+            var alert = new NSAlert();
+            alert.MessageText = "Close all open data. Any unsaved results will be lost.";
+            alert.AlertStyle = NSAlertStyle.Critical;
+            alert.AddButton("Cancel");
+            alert.AddButton("Remove Data");
+
+            alert.Buttons[1].HasDestructiveAction = true;
+
+            if (alert.RunModal() == 1001)
+            {
+                DataManager.Clear();
+            }
+        }
+
         public override void WillTerminate(NSNotification notification)
         {
             // Insert code here to tear down your application
