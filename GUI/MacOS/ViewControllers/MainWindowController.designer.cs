@@ -39,6 +39,9 @@ namespace AnalysisITC
 		[Outlet]
 		AppKit.NSSegmentedControl StepControl { get; set; }
 
+		[Outlet]
+		AppKit.NSButton StopProcessButton { get; set; }
+
 		[Action ("AnalysisSegControlClicked:")]
 		partial void AnalysisSegControlClicked (AppKit.NSSegmentedControl sender);
 
@@ -56,6 +59,9 @@ namespace AnalysisITC
 
 		[Action ("StepControlClick:")]
 		partial void StepControlClick (AppKit.NSSegmentedControl sender);
+
+		[Action ("StopButtonClick:")]
+		partial void StopButtonClick (Foundation.NSObject sender);
 		
 		void ReleaseDesignerOutlets ()
 		{
@@ -89,19 +95,24 @@ namespace AnalysisITC
 				StatusbarPrimaryLabel = null;
 			}
 
-			if (StatusbarSecondaryLabel != null) {
-				StatusbarSecondaryLabel.Dispose ();
-				StatusbarSecondaryLabel = null;
-			}
-
 			if (StatusbarProgressIndicator != null) {
 				StatusbarProgressIndicator.Dispose ();
 				StatusbarProgressIndicator = null;
 			}
 
+			if (StatusbarSecondaryLabel != null) {
+				StatusbarSecondaryLabel.Dispose ();
+				StatusbarSecondaryLabel = null;
+			}
+
 			if (StepControl != null) {
 				StepControl.Dispose ();
 				StepControl = null;
+			}
+
+			if (StopProcessButton != null) {
+				StopProcessButton.Dispose ();
+				StopProcessButton = null;
 			}
 		}
 	}
