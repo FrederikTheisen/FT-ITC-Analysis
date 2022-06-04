@@ -278,8 +278,8 @@ namespace AnalysisITC
                         var time = xfraction * (Graph.XAxis.Max - Graph.XAxis.Min) + Graph.XAxis.Min;
                         var inj = Data.Injections[SelectedFeature.FeatureID];
 
-                        if (start) inj.SetCustomIntegrationTimes((float)time - inj.Time, inj.IntegrationLength);
-                        else inj.SetCustomIntegrationTimes(inj.IntegrationStartDelay, (float)time - inj.Time);
+                        if (start) inj.SetCustomIntegrationTimes((float)time - inj.Time, inj.IntegrationLength, forcetime: true);
+                        else inj.SetCustomIntegrationTimes(inj.IntegrationStartDelay, (float)time - inj.Time, forcetime: true);
                         break;
                     }
             }
