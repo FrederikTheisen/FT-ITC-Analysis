@@ -302,16 +302,18 @@ namespace AnalysisITC
             IntegrationLength = 0.9f * Delay;
         }
 
-        public void SetCustomIntegrationTimes(float delay, float length)
+        public void SetCustomIntegrationTimes(float delay, float length, bool forcetime = false)
         {
-            if (Experiment.IntegrationLengthMode == IntegrationLengthMode.Factor)
+            if (!forcetime && Experiment.IntegrationLengthMode == IntegrationLengthMode.Factor)
             {
                 var dps = Experiment.BaseLineCorrectedDataPoints.Where(dp => dp.Time > Time && dp.Time < Time + Delay);
-                var dps_count = dps.Count();
-                var ordered = dps.OrderBy(dp => Math.Abs(dp.Power));
-                var max_power_point = ordered.Last();
+                var height = HeatDirection == PeakHeatDirection.Endothermal ? dps.Max(dp => dp.Power) : dps.Min(dp => dp.Power);
+                var thresh = Math.Abs(height / 3);
+                var first = dps.First(dp => Math.Abs(dp.Power) > thresh);
+                var last = dps.Last(dp => Math.Abs(dp.Power) > thresh);
+                var d = last.Time - first.Time;
 
-                length *= (float)(Math.Abs(50000000 * max_power_point.Power));
+                length = d * length;
             }
 
             IntegrationLength = Math.Clamp(length, Duration, Delay);
