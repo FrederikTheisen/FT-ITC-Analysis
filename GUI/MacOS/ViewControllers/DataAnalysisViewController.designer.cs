@@ -43,6 +43,9 @@ namespace AnalysisITC
 		AppKit.NSStackView GlobalEnthalpyStyle { get; set; }
 
 		[Outlet]
+		AppKit.NSStackView GlobalNView { get; set; }
+
+		[Outlet]
 		AppKit.NSSegmentedControl GlobalVariablesControl { get; set; }
 
 		[Outlet]
@@ -62,6 +65,9 @@ namespace AnalysisITC
 
 		[Outlet]
 		AppKit.NSTextField NstepTextField { get; set; }
+
+		[Outlet]
+		AppKit.NSSegmentedControl NStyleSegControl { get; set; }
 
 		[Outlet]
 		AppKit.NSTextField OstepTextField { get; set; }
@@ -122,6 +128,16 @@ namespace AnalysisITC
 				EnthalpyStyleSegControl = null;
 			}
 
+			if (FitLMButton != null) {
+				FitLMButton.Dispose ();
+				FitLMButton = null;
+			}
+
+			if (FitSimplexButton != null) {
+				FitSimplexButton.Dispose ();
+				FitSimplexButton = null;
+			}
+
 			if (GlobalAffinityStyle != null) {
 				GlobalAffinityStyle.Dispose ();
 				GlobalAffinityStyle = null;
@@ -130,6 +146,16 @@ namespace AnalysisITC
 			if (GlobalEnthalpyStyle != null) {
 				GlobalEnthalpyStyle.Dispose ();
 				GlobalEnthalpyStyle = null;
+			}
+
+			if (GlobalNView != null) {
+				GlobalNView.Dispose ();
+				GlobalNView = null;
+			}
+
+			if (NStyleSegControl != null) {
+				NStyleSegControl.Dispose ();
+				NStyleSegControl = null;
 			}
 
 			if (GlobalVariablesControl != null) {
@@ -185,16 +211,6 @@ namespace AnalysisITC
 			if (SolverStepSizeView != null) {
 				SolverStepSizeView.Dispose ();
 				SolverStepSizeView = null;
-			}
-
-			if (FitSimplexButton != null) {
-				FitSimplexButton.Dispose ();
-				FitSimplexButton = null;
-			}
-
-			if (FitLMButton != null) {
-				FitLMButton.Dispose ();
-				FitLMButton = null;
 			}
 		}
 	}

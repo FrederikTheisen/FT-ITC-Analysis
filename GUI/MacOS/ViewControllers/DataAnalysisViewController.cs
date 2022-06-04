@@ -108,6 +108,7 @@ namespace AnalysisITC
         {
             GlobalAffinityStyle.Hidden = sender.SelectedSegment == 0;
             GlobalEnthalpyStyle.Hidden = sender.SelectedSegment == 0;
+            GlobalNView.Hidden = sender.SelectedSegment == 0;
         }
 
         partial void FitSimplex(NSObject sender)
@@ -134,9 +135,11 @@ namespace AnalysisITC
         {
             var estyle = (Analysis.VariableStyle)(int)EnthalpyStyleSegControl.SelectedSegment;
             var astyle = (Analysis.VariableStyle)(int)AffinityStyleSegControl.SelectedSegment;
+            var nstyle = NStyleSegControl.SelectedSegment == 0 ? Analysis.VariableStyle.Free : Analysis.VariableStyle.SameForAll;
 
-            Analysis.GlobalAnalyzer.InitializeAnalyzer(estyle, astyle);
+            Analysis.GlobalAnalyzer.InitializeAnalyzer(estyle, astyle, nstyle);
             Analysis.GlobalAnalyzer.Solve(SelectedAnalysisModel);
+
         }
 
         void ToggleFitButtons(bool enable)

@@ -14,10 +14,11 @@ namespace AnalysisITC
     public static class Analysis
     {
         public static Random Random { get; } = new Random();
+        public static bool StopAnalysisProcess { get; set; } = false;
 
         public static event EventHandler AnalysisIterationFinished;
         public static event EventHandler<SolverConvergence> AnalysisFinished;
-        public static event EventHandler<Tuple<int,int,float>> BootstrapIterationFinished;
+        public static event EventHandler<Tuple<int, int, float>> BootstrapIterationFinished;
 
         public static double Hstep { get; set; } = 1000;
         public static double Kstep { get; set; } = 10000;
@@ -33,8 +34,27 @@ namespace AnalysisITC
         public static double Oinit { get; set; } = double.NaN;
         public static double Ninit { get; set; } = double.NaN;
 
-        public static double[] Hbounds { get; set; } = { -300000, 300000 };
+        public static bool LockModeIsLoose { get; set; } = false;
+        public static float LooseFactor { get; set; } = 0.1f;
+        public static bool Hlock { get; set; } = false;
+        public static bool Klock { get; set; } = false;
+        public static bool Glock { get; set; } = false;
+        public static bool Clock { get; set; } = false;
+        public static bool Olock { get; set; } = false;
+        public static bool Nlock { get; set; } = false;
 
+        static double[] Bounds(double init, bool locked, double dmin, double dmax) => locked && !double.IsNaN(init) ? LockedBounds(init) : new double[] { dmin, dmax };
+        static double[] LockedBounds(double init) => LockModeIsLoose ? LooseBounds(init) : new double[] { init * 0.9999, init * 1.0001 };
+        static double[] LooseBounds(double init) => new double[] { init * (1 - LooseFactor), init * (1 + LooseFactor) };
+
+        public static double[] Hbounds => Bounds(Hinit, Hlock, -300000, 300000);
+        public static double[] Kbounds => Bounds(Kinit, Klock, 0, 0.001);
+        public static double[] Gbounds => Bounds(Ginit, Glock, -500000, -5000);
+        public static double[] Cbounds => Bounds(Cinit, Clock, -20000, 20000);
+        public static double[] Obounds => Bounds(Oinit, Olock, -20000, 20000);
+        public static double[] Nbounds => Bounds(Ninit, Nlock, .1, 10);
+
+        public static ErrorEstimationMethod ErrorMethod { get; set; } = ErrorEstimationMethod.BootstrapResiduals;
         public static int BootstrapIterations { get; set; } = 100;
 
         public static List<ExperimentData> GetValidData()
@@ -51,7 +71,7 @@ namespace AnalysisITC
         {
             static GlobalModel Model { get; set; }
 
-            public static void InitializeAnalyzer(VariableStyle enthalpystyle, VariableStyle affinitystyle)
+            public static void InitializeAnalyzer(VariableStyle enthalpystyle, VariableStyle affinitystyle = VariableStyle.Free, VariableStyle nstyle = VariableStyle.Free)
             {
                 Model = new GlobalModel();
 
@@ -60,6 +80,7 @@ namespace AnalysisITC
                     Model = Model,
                     EnthalpyStyle = enthalpystyle,
                     AffinityStyle = affinitystyle,
+                    NStyle = nstyle,
                 };
             }
 
@@ -82,6 +103,8 @@ namespace AnalysisITC
 
             public static async void Solve(AnalysisModel analysismodel)
             {
+                StopAnalysisProcess = false;
+
                 try
                 {
                     switch (analysismodel)
@@ -103,7 +126,7 @@ namespace AnalysisITC
 
                             NSApplication.SharedApplication.InvokeOnMainThread(() => { AnalysisIterationFinished?.Invoke(null, null); Model.Models.ForEach(m => m.Data.UpdateSolution(null)); });
 
-                            Model.Bootstrap();
+                            if (ErrorMethod == ErrorEstimationMethod.BootstrapResiduals) Model.Bootstrap();
                         });
 
                     Console.WriteLine((DateTime.Now - starttime).TotalSeconds);
@@ -122,7 +145,7 @@ namespace AnalysisITC
                 }
             }
 
-            static void SetInitialValues()
+            static void SetInitialValuesFromFitting()
             {
                 foreach (var m in Model.Models)
                 {
@@ -153,6 +176,8 @@ namespace AnalysisITC
 
             public static async void Solve(AnalysisModel analysismodel)
             {
+                StopAnalysisProcess = false;
+
                 switch (analysismodel)
                 {
                     case AnalysisModel.OneSetOfSites: InitializeOneSetOfSites(); break;
@@ -172,7 +197,7 @@ namespace AnalysisITC
 
                     NSApplication.SharedApplication.InvokeOnMainThread(() => { AnalysisIterationFinished?.Invoke(null, null); });
 
-                    Model.Bootstrap();
+                    if (ErrorMethod == ErrorEstimationMethod.BootstrapResiduals) Model.Bootstrap();
                 });
 
                 Console.WriteLine((DateTime.Now - starttime).TotalSeconds);
@@ -187,7 +212,6 @@ namespace AnalysisITC
                 {
                     MaxIterations = 1000,
                     ParallelOptions = new ParallelOptions() { MaxDegreeOfParallelism = 3 }
-
                 };
 
                 var model = new OneSetOfSites(Data);
@@ -215,6 +239,12 @@ namespace AnalysisITC
             Free,
             TemperatureDependent,
             SameForAll
+        }
+
+        public enum ErrorEstimationMethod
+        {
+            None,
+            BootstrapResiduals
         }
     }
 
@@ -400,6 +430,7 @@ namespace AnalysisITC
         public double MeanTemperature => Models.Average(m => m.Temperature);
         public Analysis.VariableStyle EnthalpyStyle => Options.EnthalpyStyle;
         public Analysis.VariableStyle AffinityStyle => Options.AffinityStyle;
+        public Analysis.VariableStyle NStyle => Options.NStyle;
         public int MaximumEvaluations { get; set; } = 300000;
         public double AbsoluteFunctionTolerance { get; set; } = double.Epsilon;
         public double AbsoluteParameterTolerance { get; set; } = 0.001;
@@ -408,7 +439,7 @@ namespace AnalysisITC
         {
             get
             {
-                int nvar = 2 * Models.Count;
+                int nvar = Models.Count;
 
                 switch (EnthalpyStyle)
                 {
@@ -424,6 +455,12 @@ namespace AnalysisITC
                     case Analysis.VariableStyle.TemperatureDependent:
                     case Analysis.VariableStyle.SameForAll:
                     default: nvar += 1; break;
+                }
+
+                switch (NStyle)
+                {
+                    case Analysis.VariableStyle.SameForAll: nvar += 1; break;
+                    default: nvar += Models.Count; break;
                 }
 
                 return nvar;
@@ -497,7 +534,9 @@ namespace AnalysisITC
             else w.Add(G.First());
 
             w.AddRange(offsets);
-            w.AddRange(ns);
+
+            if (NStyle == Analysis.VariableStyle.SameForAll) w.Add(ns.First());
+            else w.AddRange(ns);
 
             return w.ToArray();
         }
@@ -535,13 +574,13 @@ namespace AnalysisITC
                 if (EnthalpyStyle == Analysis.VariableStyle.Free) { for (int i = 0; i < Models.Count; i++) bounds.Add(Analysis.Hbounds[0]); }
                 else bounds.Add(Analysis.Hbounds[0]);
 
-                if (EnthalpyStyle == Analysis.VariableStyle.TemperatureDependent) bounds.Add(-10000);
+                if (EnthalpyStyle == Analysis.VariableStyle.TemperatureDependent) bounds.Add(Analysis.Cbounds[0]);
 
-                if (AffinityStyle == Analysis.VariableStyle.Free) { for (int i = 0; i < Models.Count; i++) bounds.Add(-50000); }
-                else bounds.Add(-50000);
+                if (AffinityStyle == Analysis.VariableStyle.Free) { for (int i = 0; i < Models.Count; i++) bounds.Add(Analysis.Gbounds[0]); }
+                else bounds.Add(Analysis.Gbounds[0]);
 
-                bounds.AddRange(new double[Models.Count].Add(-20000));
-                bounds.AddRange(new double[Models.Count].Add(0.1));
+                bounds.AddRange(new double[Models.Count].Add(Analysis.Obounds[0]));
+                bounds.AddRange(new double[Models.Count].Add(Analysis.Nbounds[0]));
 
                 return bounds.ToArray();
             }
@@ -557,13 +596,13 @@ namespace AnalysisITC
                 if (EnthalpyStyle == Analysis.VariableStyle.Free) { for (int i = 0; i < Models.Count; i++) bounds.Add(Analysis.Hbounds[1]); }
                 else bounds.Add(Analysis.Hbounds[1]);
 
-                if (EnthalpyStyle == Analysis.VariableStyle.TemperatureDependent) bounds.Add(10000);
+                if (EnthalpyStyle == Analysis.VariableStyle.TemperatureDependent) bounds.Add(Analysis.Cbounds[1]);
 
-                if (AffinityStyle == Analysis.VariableStyle.Free) { for (int i = 0; i < Models.Count; i++) bounds.Add(-5000); }
-                else bounds.Add(-5000);
+                if (AffinityStyle == Analysis.VariableStyle.Free) { for (int i = 0; i < Models.Count; i++) bounds.Add(Analysis.Gbounds[1]); }
+                else bounds.Add(Analysis.Gbounds[1]);
 
-                bounds.AddRange(new double[Models.Count].Add(20000));
-                bounds.AddRange(new double[Models.Count].Add(10));
+                bounds.AddRange(new double[Models.Count].Add(Analysis.Obounds[1]));
+                bounds.AddRange(new double[Models.Count].Add(Analysis.Nbounds[1]));
 
                 return bounds.ToArray();
             }
@@ -618,8 +657,9 @@ namespace AnalysisITC
             solver.Minimize(GetStartValues());
 
             Solution = GlobalSolution.FromAccordNelderMead(solver.Solution, this);
+            Solution.Convergence = new SolverConvergence(solver);
 
-            return new SolverConvergence(solver);
+            return Solution.Convergence;
         }
 
         public void Bootstrap()
@@ -634,20 +674,23 @@ namespace AnalysisITC
 
             var res = Parallel.For(0, Analysis.BootstrapIterations, (i) =>
             {
-                var models = new List<Model>();
-
-                foreach (var m in Models) models.Add(m.GenerateSyntheticModel());
-
-                var gm = new GlobalModel(Solution.Raw.Copy())
+                if (!Analysis.StopAnalysisProcess)
                 {
-                    Options = Options
-                };
+                    var models = new List<Model>();
 
-                gm.Models.AddRange(models);
+                    foreach (var m in Models) models.Add(m.GenerateSyntheticModel());
 
-                gm.SolveWithNelderMeadAlgorithm();
+                    var gm = new GlobalModel(Solution.Raw.Copy())
+                    {
+                        Options = Options
+                    };
 
-                solutions.Add(gm.Solution);
+                    gm.Models.AddRange(models);
+
+                    gm.SolveWithNelderMeadAlgorithm();
+
+                    solutions.Add(gm.Solution);
+                }
 
                 var currcounter = Interlocked.Increment(ref counter);
 
@@ -811,6 +854,7 @@ namespace AnalysisITC
     {
         public GlobalModel Model { get; set; }
         public double[] Raw { get; private set; }
+        public SolverConvergence Convergence { get; set; }
 
         public double Loss { get; private set; } = 0;
 
@@ -983,6 +1027,7 @@ namespace AnalysisITC
 
         public Analysis.VariableStyle EnthalpyStyle { get; set; } = Analysis.VariableStyle.TemperatureDependent;
         public Analysis.VariableStyle AffinityStyle { get; set; } = Analysis.VariableStyle.Free;
+        public Analysis.VariableStyle NStyle { get; set; } = Analysis.VariableStyle.Free;
 
         public int ModelCount => this.Model switch
         {
@@ -999,9 +1044,12 @@ namespace AnalysisITC
 
     public class SolverParameters
     {
-        public Analysis.VariableStyle EnthalpyStyle { get; }
-        public Analysis.VariableStyle AffinityStyle { get; }
-        public int ModelCount { get; }
+        SolverOptions options { get; set; }
+
+        public Analysis.VariableStyle EnthalpyStyle => options.EnthalpyStyle;
+        public Analysis.VariableStyle AffinityStyle => options.AffinityStyle;
+        public Analysis.VariableStyle NStyle => options.NStyle;
+        public int ModelCount => options.ModelCount;
 
         public List<double> Enthalpies = new List<double>();
         public List<double> Gibbs = new List<double>();
@@ -1012,9 +1060,7 @@ namespace AnalysisITC
 
         public SolverParameters(SolverOptions options)
         {
-            EnthalpyStyle = options.EnthalpyStyle;
-            AffinityStyle = options.AffinityStyle;
-            ModelCount = options.ModelCount;
+            this.options = options;
         }
 
         public static SolverParameters FromArray(double[] w, SolverOptions options)
@@ -1056,7 +1102,11 @@ namespace AnalysisITC
             p.Offsets = w.Skip(index).Take(options.ModelCount).ToList();
             index += options.ModelCount;
 
-            p.Ns = w.Skip(index).Take(options.ModelCount).ToList();
+            switch(options.NStyle)
+            {
+                case Analysis.VariableStyle.SameForAll: p.Ns = w.Skip(index).Take(1).ToList(); break;
+                default: p.Ns = w.Skip(index).Take(options.ModelCount).ToList(); break;
+            }
 
             return p;
         }
@@ -1083,7 +1133,7 @@ namespace AnalysisITC
                 dCp = HeatCapacity,
                 dG = AffinityStyle == Analysis.VariableStyle.Free ? Gibbs[modelnumber] : Gibbs[0],
                 Offset = Offsets[modelnumber],
-                N = Ns[modelnumber]
+                N = NStyle == Analysis.VariableStyle.Free ? Ns[modelnumber] : Ns[0]
             };
         }
 
