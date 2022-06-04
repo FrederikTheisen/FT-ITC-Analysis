@@ -757,38 +757,24 @@ namespace AnalysisITC
         }
     }
 
-    public class BaselineFittingGraph : DataGraph
+    public class BaselineDataGraph : DataGraph
     {
-        int focused = -1;
+        public static float BaselineThickness { get; set; } = 2;
 
         public bool ShowBaseline { get; set; } = true;
-        public bool ShowInjections { get; set; } = true;
-        List<FeatureBoundingBox> SplineHandlePoints { get; set; } = new List<FeatureBoundingBox>();
-        List<FeatureBoundingBox> SplinePoints { get; set; } = new List<FeatureBoundingBox>();
-        List<FeatureBoundingBox> IntegrationHandleBoxes { get; set; } = new List<FeatureBoundingBox>();
 
-        public BaselineFittingGraph(ExperimentData experiment, NSView view) : base(experiment, view)
+        public BaselineDataGraph(ExperimentData experiment, NSView view) : base(experiment, view)
         {
-            SetYAxisRange(DataPoints.Min(dp => dp.Power), DataPoints.Max(dp => dp.Power), buffer: true);
         }
-
-        public void SetFocusedInjection(int i = -1) => focused = i;
 
         internal override void Draw(CGContext gc)
         {
             base.Draw(gc);
 
-            if (ShowBaseline && ExperimentData.Processor.Interpolator != null && ExperimentData.Processor.Interpolator.Finished)
-            {
-                DrawBaseline(gc);
-
-                if (ExperimentData.Processor.Interpolator is SplineInterpolator) DrawSplineHandles(gc);
-            }
-
-            if (ShowInjections) DrawIntegrationMarkers(gc);
+            if (ShowBaseline && ExperimentData.Processor.Interpolator != null && ExperimentData.Processor.Interpolator.Finished) DrawBaseline(gc);
         }
 
-        void DrawBaseline(CGContext gc)
+        internal void DrawBaseline(CGContext gc)
         {
             CGLayer layer = CGLayer.Create(gc, Frame.Size);
 
@@ -814,11 +800,40 @@ namespace AnalysisITC
 
             layer.Context.AddPath(path);
             layer.Context.SetStrokeColor(NSColor.Red.CGColor);
-            layer.Context.SetLineWidth(2);
+            layer.Context.SetLineWidth(BaselineThickness);
             layer.Context.StrokePath();
             layer.Context.SetLineWidth(1);
 
             gc.DrawLayer(layer, Frame.Location);
+        }
+    }
+
+    public class BaselineFittingGraph : BaselineDataGraph
+    {
+        int focused = -1;
+
+        public bool ShowInjections { get; set; } = true;
+        List<FeatureBoundingBox> SplineHandlePoints { get; set; } = new List<FeatureBoundingBox>();
+        List<FeatureBoundingBox> SplinePoints { get; set; } = new List<FeatureBoundingBox>();
+        List<FeatureBoundingBox> IntegrationHandleBoxes { get; set; } = new List<FeatureBoundingBox>();
+
+        public BaselineFittingGraph(ExperimentData experiment, NSView view) : base(experiment, view)
+        {
+            SetYAxisRange(DataPoints.Min(dp => dp.Power), DataPoints.Max(dp => dp.Power), buffer: true);
+        }
+
+        public void SetFocusedInjection(int i = -1) => focused = i;
+
+        internal override void Draw(CGContext gc)
+        {
+            base.Draw(gc);
+
+            if (ShowBaseline && ExperimentData.Processor.Interpolator != null && ExperimentData.Processor.Interpolator.Finished)
+            {
+                if (ExperimentData.Processor.Interpolator is SplineInterpolator) DrawSplineHandles(gc);
+            }
+
+            if (ShowInjections) DrawIntegrationMarkers(gc);
         }
 
         void DrawSplineHandles(CGContext gc)
@@ -1203,7 +1218,7 @@ namespace AnalysisITC
         void DrawParameters(CGContext gc)
         {
             CGLayer layer = CGLayer.Create(gc, Frame.Size);
-            layer.Context.SetStrokeColor(NSColor.Label.ColorWithAlphaComponent(0.4f).CGColor);
+            layer.Context.SetStrokeColor(new CGColor(StrokeColor, .4f));
             layer.Context.SetLineWidth(1);
 
             var H = ExperimentData.Solution.Enthalpy;
@@ -1303,4 +1318,6 @@ namespace AnalysisITC
             return new MouseOverFeatureEvent();
         }
     }
+
+
 }

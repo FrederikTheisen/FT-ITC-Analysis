@@ -141,7 +141,7 @@ namespace AnalysisITC
                 PowerAxisTitle = PowerAxisTitle,
                 TimeAxisTitle = TimeAxisTitle,
                 UseUnifiedDataAxes = UnifiedPowerAxis,
-                //graph.DrawBaseline = DrawBaseline;
+                ShouldDrawBaseline = DrawBaseline,
 
                 EnthalpyAxisTitle = EnthalpyAxisTitle,
                 MolarRatioAxisTitle = MolarRatioAxisTitle,
@@ -217,7 +217,7 @@ namespace AnalysisITC
                 PowerAxisTitle = PowerAxisTitle,
                 TimeAxisTitle = TimeAxisTitle,
                 UseUnifiedDataAxes = UnifiedPowerAxis,
-                //graph.DrawBaseline = DrawBaseline;
+                ShouldDrawBaseline = DrawBaseline,
 
                 EnthalpyAxisTitle = EnthalpyAxisTitle,
                 MolarRatioAxisTitle = MolarRatioAxisTitle,

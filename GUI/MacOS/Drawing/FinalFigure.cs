@@ -6,7 +6,7 @@ namespace AnalysisITC
 {
     public class FinalFigure
     {
-        DataGraph DataGraph;
+        BaselineDataGraph DataGraph;
         DataFittingGraph IntegrationGraph;
 
         public CGSize PlotDimensions { get; set; } = new CGSize(6, 10);
@@ -80,6 +80,12 @@ namespace AnalysisITC
             set => CGGraph.SymbolSize = value;
         }
 
+        public bool ShouldDrawBaseline
+        {
+            get => DataGraph.ShowBaseline;
+            set => DataGraph.ShowBaseline = value;
+        }
+
         public CGGraph.SymbolShape SymbolShape
         {
             get => IntegrationGraph.SymbolShape;
@@ -136,7 +142,7 @@ namespace AnalysisITC
 
         public FinalFigure(ExperimentData experiment, NSView view)
         {
-            DataGraph = new DataGraph(experiment, view)
+            DataGraph = new BaselineDataGraph(experiment, view)
             {
                 DrawOnWhite = true,
                 ShowBaselineCorrected = true
@@ -147,6 +153,7 @@ namespace AnalysisITC
             DataGraph.XAxis.ValueFactor = 1.0 / 60;
             DataGraph.XAxis.LegendTitle = "Time (min)";
             DataGraph.XAxis.Position = AxisPosition.Top;
+            DataGraph.ShowBaseline = ShouldDrawBaseline;
 
             IntegrationGraph = new DataFittingGraph(experiment, view)
             {
