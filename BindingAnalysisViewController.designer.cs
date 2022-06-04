@@ -39,6 +39,12 @@ namespace AnalysisITC
 		[Action ("EnergyUnitControlClicked:")]
 		partial void EnergyUnitControlClicked (AppKit.NSSegmentedControl sender);
 
+		[Action ("LoadSolutionsToExperiments:")]
+		partial void LoadSolutionsToExperiments (Foundation.NSObject sender);
+
+		[Action ("PopView:")]
+		partial void PopView (Foundation.NSObject sender);
+
 		[Action ("TempUnitControlClicked:")]
 		partial void TempUnitControlClicked (AppKit.NSSegmentedControl sender);
 		
@@ -49,16 +55,6 @@ namespace AnalysisITC
 				EnergyUnitControl = null;
 			}
 
-			if (ResultsTableView != null) {
-				ResultsTableView.Dispose ();
-				ResultsTableView = null;
-			}
-
-			if (TemperatureUnitControl != null) {
-				TemperatureUnitControl.Dispose ();
-				TemperatureUnitControl = null;
-			}
-
 			if (Graph != null) {
 				Graph.Dispose ();
 				Graph = null;
@@ -67,6 +63,16 @@ namespace AnalysisITC
 			if (LabelLabel != null) {
 				LabelLabel.Dispose ();
 				LabelLabel = null;
+			}
+
+			if (ResultsTableView != null) {
+				ResultsTableView.Dispose ();
+				ResultsTableView = null;
+			}
+
+			if (TemperatureUnitControl != null) {
+				TemperatureUnitControl.Dispose ();
+				TemperatureUnitControl = null;
 			}
 
 			if (ValueLabel != null) {

@@ -98,8 +98,12 @@ namespace AnalysisITC
         {
             string values = "";
 
-            values += AnalysisResult.Solution.Model.ToString() + Environment.NewLine;
-            values += AnalysisResult.Solution.Loss.ToString("G3") + Environment.NewLine;
+            if (this.NextResponder is NSWindow) (this.NextResponder as NSWindow).Title = AnalysisResult.FileName;
+
+            values += AnalysisResult.Solution.Model.Models[0].ModelName + Environment.NewLine;
+            values += AnalysisResult.Solution.Solutions.Count + " experiments" + Environment.NewLine;
+            values += AnalysisResult.Solution.Convergence.Iterations + " | " + AnalysisResult.Solution.Loss.ToString("G3") + " | " + AnalysisResult.Solution.Convergence.Time.TotalSeconds + "s" + Environment.NewLine;
+            values += AnalysisResult.Solution.Solutions.Count + " bootstrap iterations" + Environment.NewLine;
             values += AnalysisResult.Solution.Model.Options.EnthalpyStyle.ToString() + Environment.NewLine;
             values += AnalysisResult.Solution.Model.Options.AffinityStyle.ToString() + Environment.NewLine;
             values += AnalysisResult.Solution.Model.MeanTemperature.ToString("F2") + " °C";
@@ -134,7 +138,13 @@ namespace AnalysisITC
 
         partial void CloseButtonClicked(NSObject sender)
         {
-            this.DismissViewController(this);
+            if (this.NextResponder is NSWindow)
+            {
+                var window = this.NextResponder as NSWindow;
+
+                if (window.IsSheet) DismissViewController(this);
+                else window.Close();
+            }
         }
     }
 }
