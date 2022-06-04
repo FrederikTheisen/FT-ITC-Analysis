@@ -114,12 +114,9 @@ namespace AnalysisITC
             if (Current == null) return;
             if (Current.Processor.Interpolator == null) return;
 
-            var int_delay = Current.Injections.Select(inj => inj.IntegrationStartDelay).Average();
-            var int_length = Current.Injections.Select(inj => inj.IntegrationLength).Average();
-
-            if (Current.IntegrationLengthMode == InjectionData.IntegrationLengthMode.Factor) int_length = Current.IntegrationLengthFactor;
-
-            //Do not count current data 
+            var int_delay = Current.Injections.Select(inj => inj.IntegrationStartDelay).ToArray();
+            var int_length = Current.Injections.Select(inj => inj.IntegrationLength).ToArray();
+            var int_factor = Current.IntegrationLengthFactor;
 
             StatusBarManager.SetStatus("Processing data...", 0);
             StatusBarManager.Progress = 0;
@@ -144,7 +141,9 @@ namespace AnalysisITC
                     data.Processor.WillProcessData();
                     if (!data.Processor.Interpolator.IsLocked) await data.Processor.InterpolateBaseline();
                     data.IntegrationLengthMode = Current.IntegrationLengthMode;
-                    data.SetCustomIntegrationTimes(int_delay, int_length);
+                    if (Current.IntegrationLengthMode == InjectionData.IntegrationLengthMode.Factor) data.SetCustomIntegrationTimes(int_delay[0], int_factor);
+                    else if (Current.IntegrationLengthMode == InjectionData.IntegrationLengthMode.Fit) data.FitIntegrationPeaks();
+                    else data.SetCustomIntegrationTimes(int_delay, int_length);
                     data.Processor.IntegratePeaks();
                     data.Processor.DidProcessData();
                 }

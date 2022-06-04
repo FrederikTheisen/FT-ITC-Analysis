@@ -78,6 +78,24 @@ namespace AnalysisITC
             Injections.Add(inj);
         }
 
+        public void FitIntegrationPeaks()
+        {
+
+        }
+
+        public void SetCustomIntegrationTimes(float[] delays, float[] lengths)
+        {
+            for (int i = 0; i < Injections.Count; i++)
+            {
+                var inj = Injections[i];
+
+                int j = i;
+                if (i >= delays.Length) j = delays.Length - 1;
+
+                inj.SetCustomIntegrationTimes(delays[j], lengths[j]);
+            }
+        }
+
         public void SetCustomIntegrationTimes(float delay, float variable)
         {
             if (IntegrationLengthMode == InjectionData.IntegrationLengthMode.Factor) IntegrationLengthFactor = variable;
