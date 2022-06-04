@@ -235,7 +235,13 @@ namespace AnalysisITC
 
         partial void IntegrationSegControlClicked(NSSegmentedControl sender)
         {
+            if (Data == null) return;
+
             Data.IntegrationLengthMode = (InjectionData.IntegrationLengthMode)(int)sender.SelectedSegment;
+
+            UpdateSliderLabels();
+
+            SetIntegrationTimes();
         }
 
         partial void IntegrationStartTimeSliderChanged(NSSlider sender)
@@ -288,12 +294,20 @@ namespace AnalysisITC
         {
             if (Data == null) return;
 
-            if (Data.IntegrationLengthMode == InjectionData.IntegrationLengthMode.Factor)
+            switch (Data.IntegrationLengthMode)
             {
-                var factor = SliderToFactor();
-                Data.SetCustomIntegrationTimes(IntegrationDelayControl.FloatValue, factor);
+                case InjectionData.IntegrationLengthMode.Factor:
+                    var factor = SliderToFactor();
+                    Data.SetCustomIntegrationTimes(IntegrationDelayControl.FloatValue, factor);
+                    break;
+                case InjectionData.IntegrationLengthMode.Fit:
+                    var mod = SliderToFactor();
+                    Data.FitIntegrationPeaks(mod);
+                    break;
+                default:
+                    Data.SetCustomIntegrationTimes(IntegrationDelayControl.FloatValue, IntegrationLengthControl.FloatValue);
+                    break;
             }
-            else Data.SetCustomIntegrationTimes(IntegrationDelayControl.FloatValue, IntegrationLengthControl.FloatValue);
 
             BaselineGraphView.Invalidate();
 

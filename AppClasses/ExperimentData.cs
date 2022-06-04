@@ -78,9 +78,28 @@ namespace AnalysisITC
             Injections.Add(inj);
         }
 
-        public void FitIntegrationPeaks()
+        public void FitIntegrationPeaks(float threshold = .01f)
         {
+            foreach (var inj in Injections)
+            {
+                var dps = BaseLineCorrectedDataPoints.Where(dp => dp.Time > inj.Time && dp.Time < inj.Time + inj.Delay);
+                var max = dps.First(dp => Math.Abs(dp.Power) > (0.999 * dps.Max(dp => Math.Abs(dp.Power))));
+                dps = dps.Where(dp => dp.Time > max.Time);
 
+                double[] x = new double[dps.Count()];
+                for (int i = 0; i < x.Length; i++) x[i] = i;
+
+                double[] y = dps.Select(dp => (double)(Math.Abs(max.Power) - Math.Abs(dp.Power))).ToArray();
+
+                var fit = MathNet.Numerics.Fit.Curve(x, y, (v, k, x) => x * v / (k + x), Math.Abs(max.Power), 10);
+                var peaklen = threshold * fit.P1;
+
+                //var fit = MathNet.Numerics.Fit.Exponential(x, y, MathNet.Numerics.LinearRegression.DirectRegressionMethod.Svd);
+                //a*exp(r*x) = 0.0001*max
+                //var peaklen = Math.Log(threshold * Math.Abs(max.Power) / fit.A) / fit.R;
+
+                inj.SetCustomIntegrationTimes(0, (float)peaklen, true);
+            }
         }
 
         public void SetCustomIntegrationTimes(float[] delays, float[] lengths)
@@ -316,7 +335,7 @@ namespace AnalysisITC
                 length = d * length;
             }
 
-            IntegrationLength = Math.Clamp(length, Duration, Delay);
+            IntegrationLength = Math.Clamp(length, Duration, Delay - 1);
             IntegrationStartDelay = Math.Clamp(delay, -5, IntegrationLength);
         }
 
