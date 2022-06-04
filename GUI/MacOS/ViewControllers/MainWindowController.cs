@@ -76,16 +76,19 @@ namespace AnalysisITC
             {
                 await Task.Delay(100);
 
-                if (!e.HideProgressWheel) return;
+                if (!e.HideProgressWheel)
+                    return;
 
                 StatusbarProgressIndicator.StopAnimation(this);
                 StatusbarProgressIndicator.Hidden = true;
+                StopProcessButton.Hidden = true;
             }
             else if (e.Indeterminate)
             {
                 StatusbarProgressIndicator.Indeterminate = true;
                 StatusbarProgressIndicator.StartAnimation(this);
                 StatusbarProgressIndicator.Hidden = false;
+                StopProcessButton.Hidden = true;
             }
             else if (e.IsProgressFinished)
             {
@@ -93,16 +96,20 @@ namespace AnalysisITC
 
                 await Task.Delay(500);
 
-                if (!e.IsProgressFinished) return;
+                if (!e.IsProgressFinished)
+                    return;
 
                 StatusbarProgressIndicator.StopAnimation(this);
                 StatusbarProgressIndicator.Hidden = true;
+                StopProcessButton.Hidden = true;
             }
             else
             {
                 StatusbarProgressIndicator.Hidden = false;
                 StatusbarProgressIndicator.Indeterminate = false;
                 StatusbarProgressIndicator.DoubleValue = e.Progress*100;
+
+                StopProcessButton.Hidden = false;
             }
         }
 
@@ -181,6 +188,11 @@ namespace AnalysisITC
             var index = (int)sender.SelectedSegment;
 
             StateManager.SetProgramState((ProgramState)index);
+        }
+
+        partial void StopButtonClick(NSObject sender)
+        {
+            Analysis.StopAnalysisProcess = true;
         }
     }
 }
