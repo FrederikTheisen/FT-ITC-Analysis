@@ -31,6 +31,14 @@ namespace AnalysisITC
             InitN.StringValue = double.IsNaN(Analysis.Ninit) ? "" : Analysis.Ninit.ToString();
             InitG.StringValue = double.IsNaN(Analysis.Ginit) ? "" : Analysis.Ginit.ToString();
             InitCp.StringValue = double.IsNaN(Analysis.Cinit) ? "" : Analysis.Cinit.ToString();
+
+            InitHLock.State = Analysis.Hlock ? NSCellStateValue.On : NSCellStateValue.Off;
+            InitGLock.State = Analysis.Glock ? NSCellStateValue.On : NSCellStateValue.Off;
+            InitCpLock.State = Analysis.Clock ? NSCellStateValue.On : NSCellStateValue.Off;
+            InitOffsetLock.State = Analysis.Olock ? NSCellStateValue.On : NSCellStateValue.Off;
+            InitNLock.State = Analysis.Nlock ? NSCellStateValue.On : NSCellStateValue.Off;
+
+            ErrorMethodControl.SelectedSegment = (int)Analysis.ErrorMethod;
         }
 
         partial void ErrorIterationSliderChanged(NSSlider sender)
@@ -40,6 +48,7 @@ namespace AnalysisITC
 
         partial void ApplyOptions(NSObject sender)
         {
+            Analysis.ErrorMethod = (Analysis.ErrorEstimationMethod)(int)ErrorMethodControl.SelectedSegment;
             Analysis.BootstrapIterations = (int)Math.Pow(10, ErrorIterationsControl.DoubleValue);
 
             if (OStep.DoubleValue > 0) Analysis.Ostep = OStep.DoubleValue;
@@ -53,6 +62,12 @@ namespace AnalysisITC
             if (!string.IsNullOrEmpty(InitG.StringValue.Trim())) Analysis.Ginit = InitG.DoubleValue; else Analysis.Ginit = double.NaN;
             if (!string.IsNullOrEmpty(InitCp.StringValue.Trim())) Analysis.Cinit = InitCp.DoubleValue; else Analysis.Cinit = double.NaN;
             if (!string.IsNullOrEmpty(InitN.StringValue.Trim())) Analysis.Ninit = InitN.DoubleValue; else Analysis.Ninit = double.NaN;
+
+            Analysis.Hlock = InitHLock.State == NSCellStateValue.On;
+            Analysis.Glock = InitGLock.State == NSCellStateValue.On;
+            Analysis.Clock = InitCpLock.State == NSCellStateValue.On;
+            Analysis.Olock = InitOffsetLock.State == NSCellStateValue.On;
+            Analysis.Nlock = InitNLock.State == NSCellStateValue.On;
 
             DismissViewController(this);
         }
