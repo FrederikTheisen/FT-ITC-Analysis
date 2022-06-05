@@ -457,14 +457,14 @@ namespace AnalysisITC
             var xpos = alignment switch
             {
                 NSRectAlignment.Top or NSRectAlignment.None or NSRectAlignment.Bottom => Frame.Width / 2 - boxsize.Width / 2,
-                NSRectAlignment.BottomTrailing or NSRectAlignment.Trailing or NSRectAlignment.TopTrailing => Frame.Width - boxsize.Width - 5,
-                _ => 5,
+                NSRectAlignment.BottomTrailing or NSRectAlignment.Trailing or NSRectAlignment.TopTrailing => Frame.Width - boxsize.Width - 7,
+                _ => 7,
             };
             var ypos = alignment switch
             {
                 NSRectAlignment.Leading or NSRectAlignment.None or NSRectAlignment.Trailing => Frame.Height / 2 - boxsize.Height / 2,
-                NSRectAlignment.Top or NSRectAlignment.TopLeading or NSRectAlignment.TopTrailing => Frame.Height - boxsize.Height - 5,
-                _ => 5,
+                NSRectAlignment.Top or NSRectAlignment.TopLeading or NSRectAlignment.TopTrailing => Frame.Height - boxsize.Height - 7,
+                _ => 7,
             };
 
             CGPoint pos = new CGPoint(xpos + Frame.X, ypos + Frame.Y);
@@ -1243,20 +1243,15 @@ namespace AnalysisITC
 
             gc.DrawLayer(layer, Frame.Location);
 
-            DrawTextBox(gc, new List<string>()
-            {
-                ExperimentData.Solution.Model.ModelName,
-                "RMSD: " + ExperimentData.Solution.Loss.ToString("G4"),
-                "N = " + ExperimentData.Solution.N.ToString("F2"),
-                "Kd = " + ExperimentData.Solution.Kd.AsDissociationConstant(),
-                "∆H = " + ExperimentData.Solution.Enthalpy.ToString(EnergyUnit.KiloJoule),
-                "-T∆S = " + ExperimentData.Solution.TdS.ToString(EnergyUnit.KiloJoule)
-            }, DrawOnWhite ? new CTFont(DefaultFont.DisplayName, 12) : new CTFont(DefaultFont.DisplayName, 24), NSRectAlignment.BottomTrailing);
-        }
-
-        void DrawParameterBox(CGContext gc)
-        {
-
+            var lines = new List<string>();
+            if (!DrawOnWhite) lines.Add(ExperimentData.Solution.Model.ModelName);
+            if (!DrawOnWhite) lines.Add("RMSD: " + ExperimentData.Solution.Loss.ToString("G4"));
+            lines.Add("N = " + ExperimentData.Solution.N.ToString("F2"));
+            lines.Add("Kd = " + ExperimentData.Solution.Kd.AsDissociationConstant());
+            lines.Add("∆H = " + ExperimentData.Solution.Enthalpy.ToString(EnergyUnit.KiloJoule));
+            lines.Add("-T∆S = " + ExperimentData.Solution.TdS.ToString(EnergyUnit.KiloJoule));
+            if (!DrawOnWhite) lines.Add("Offset = " + ExperimentData.Solution.Offset.ToString(EnergyUnit.KiloJoule));
+            DrawTextBox(gc, lines, DrawOnWhite ? new CTFont(DefaultFont.DisplayName, 12) : new CTFont(DefaultFont.DisplayName, 24), NSRectAlignment.BottomTrailing);
         }
 
         void DrawConfidenceInterval(CGContext gc)
