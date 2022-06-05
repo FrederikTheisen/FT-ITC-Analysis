@@ -31,6 +31,7 @@ namespace AnalysisITC
 
             GlobalAffinityStyle.Hidden = true;
             GlobalEnthalpyStyle.Hidden = true;
+            GlobalNView.Hidden = true;
         }
 
         public override void ViewWillAppear()
