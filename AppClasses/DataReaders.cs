@@ -404,7 +404,7 @@ namespace DataReaders
 
             var file = string.Join("", File.ReadAllLines(path));
 
-            Regex regex = new Regex(ReaderPattern(ExperimentHeader), RegexOptions.Singleline | RegexOptions.Compiled);
+            Regex regex = new Regex(OldReaderPattern(ExperimentHeader), RegexOptions.Singleline | RegexOptions.Compiled);
             var v = regex.Matches(file);
 
             foreach (var m in v.AsEnumerable())
@@ -419,7 +419,7 @@ namespace DataReaders
 
         static string GContent(string header, string data)
         {
-            Regex regex = new Regex(ReaderPattern(header), RegexOptions.Singleline | RegexOptions.Compiled);
+            Regex regex = new Regex(OldReaderPattern(header), RegexOptions.Singleline | RegexOptions.Compiled);
             var v = regex.Matches(data);
 
             if (v.Count == 0) return null;

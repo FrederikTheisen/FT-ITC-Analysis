@@ -5,6 +5,7 @@ using System.Text.Json;
 using System.Collections.Generic;
 using System.IO;
 using System.Threading.Tasks;
+using System.Linq;
 
 namespace AnalysisITC
 {
@@ -38,15 +39,29 @@ namespace AnalysisITC
         public const string PolynomiumDegree = "PDegree";
         public const string PolynomiumLimit = "PLimit";
         public const string SplinePointList = "SPList";
+        public const string Solution = "fit";
+
+        public const string SolutionHeader = "SolutionFile";
+        public const string SolModel = "MDL";
+        public const string SolParamsRaw = "RawParameters";
+        public const string SolLoss = "Loss";
+        public const string SolH = "H";
+        public const string SolK = "S";
+        public const string SolN = "N";
+        public const string SolO = "O";
+        public const string SolBootN = "BootstrapIterations";
+
+        public const string GlobalSolutionHeader = "GlobalSolutionFile";
+        public const string SolutionList = "SolutionList";
 
         //ftitc_old formatting
-        public static string Header(string header) => "<" + header + ">";
-        public static string EndHeader(string header) => Header("/" + header);
-        public static string Encapsulate(string header, string content) => Header(header) + content + EndHeader(header) + Environment.NewLine;
-        public static string Encapsulate(string header, double value) => Encapsulate(header, value.ToString());
-        public static string Encapsulate(string header, bool value) => Encapsulate(header, value ? 1 : 0);
+        public static string OldHeader(string header) => "<" + header + ">";
+        public static string OldEndHeader(string header) => OldHeader("/" + header);
+        public static string OldEncapsulate(string header, string content) => OldHeader(header) + content + OldEndHeader(header) + Environment.NewLine;
+        public static string OldEncapsulate(string header, double value) => OldEncapsulate(header, value.ToString());
+        public static string OldEncapsulate(string header, bool value) => OldEncapsulate(header, value ? 1 : 0);
 
-        public static string ReaderPattern(string header) => Header(header) + ".*?" + EndHeader(header);
+        public static string OldReaderPattern(string header) => OldHeader(header) + ".*?" + OldEndHeader(header);
 
         //ftitc formatting code
         public const string EndFileHeader = "ENDFILE";
@@ -58,16 +73,28 @@ namespace AnalysisITC
         public static string Variable(string header, string value) => header + ":" + value;
         public static string Variable(string header, double value) => Variable(header, value.ToString());
         public static string Variable(string header, bool value) => Variable(header, value ? "1" : "0");
+        public static string Variable(string header, FloatWithError value) => Variable(header, value.Value + "," + value.SD);
+        public static string Variable(string header, Energy value) => Variable(header, value.FloatWithError);
         public static string ListHeader(string header) => "LIST:" + header;
 
         public static double DParse(string value) => double.Parse(value);
         public static float FParse(string value) => float.Parse(value);
         public static int IParse(string value) => int.Parse(value);
         public static bool BParse(string value) => value == "1";
+        public static Energy EParse(string value) => new Energy(FWEParse(value));
+        public static FloatWithError FWEParse(string value)
+        {
+            var s = value.Split(",");
+
+            return new FloatWithError(DParse(s[0]), DParse(s[1]));
+        }
     }
 
     public class FTITCWriter : FTITCFormat
     {
+        /// <summary>
+        /// Obsolete
+        /// </summary>
         public static void SaveState()
         {
             var file = new List<string>();
@@ -114,29 +141,33 @@ namespace AnalysisITC
             {
                 foreach (var data in DataManager.Data)
                 {
-                    await WriteExperimentString(data, writer);
+                    await WriteExperimentDataToFile(data, writer);
                 }
+                //foreach (var data in DataManager.Data.Where(d => d.Solution != null))
+                //{
+                //    await WriteSolutionToFile(data.Solution, writer);
+                //}
             }
         }
 
         static string GetExperimentString(ExperimentData data)
         {
             string exp = "";
-            exp += Encapsulate(ID, data.UniqueID);
-            exp += Encapsulate(FileName, data.FileName);
-            exp += Encapsulate(Date, data.Date.ToString());
-            exp += Encapsulate(Include, data.Include);
-            exp += Encapsulate(SyringeConcentration, data.SyringeConcentration);
-            exp += Encapsulate(CellConcentration, data.CellConcentration);
-            exp += Encapsulate(StirringSpeed, data.StirringSpeed);
-            exp += Encapsulate(TargetTemperature, data.TargetTemperature);
-            exp += Encapsulate(MeasuredTemperature, data.MeasuredTemperature);
-            exp += Encapsulate(InitialDelay, data.InitialDelay);
-            exp += Encapsulate(TargetPowerDiff, data.TargetPowerDiff);
-            exp += Encapsulate(UseIntegrationFactorLength, (int)data.IntegrationLengthMode);
-            exp += Encapsulate(IntegrationLengthFactor, data.IntegrationLengthFactor);
-            exp += Encapsulate(FeedBackMode, (int)data.FeedBackMode);
-            exp += Encapsulate(CellVolume, data.CellVolume);
+            exp += OldEncapsulate(ID, data.UniqueID);
+            exp += OldEncapsulate(FileName, data.FileName);
+            exp += OldEncapsulate(Date, data.Date.ToString());
+            exp += OldEncapsulate(Include, data.Include);
+            exp += OldEncapsulate(SyringeConcentration, data.SyringeConcentration);
+            exp += OldEncapsulate(CellConcentration, data.CellConcentration);
+            exp += OldEncapsulate(StirringSpeed, data.StirringSpeed);
+            exp += OldEncapsulate(TargetTemperature, data.TargetTemperature);
+            exp += OldEncapsulate(MeasuredTemperature, data.MeasuredTemperature);
+            exp += OldEncapsulate(InitialDelay, data.InitialDelay);
+            exp += OldEncapsulate(TargetPowerDiff, data.TargetPowerDiff);
+            exp += OldEncapsulate(UseIntegrationFactorLength, (int)data.IntegrationLengthMode);
+            exp += OldEncapsulate(IntegrationLengthFactor, data.IntegrationLengthFactor);
+            exp += OldEncapsulate(FeedBackMode, (int)data.FeedBackMode);
+            exp += OldEncapsulate(CellVolume, data.CellVolume);
 
             string injections = "";
 
@@ -153,7 +184,7 @@ namespace AnalysisITC
                 injections += inj.IntegrationLength + ";";
             }
 
-            exp += Encapsulate(InjectionList, injections.Substring(0, injections.Length - 1));
+            exp += OldEncapsulate(InjectionList, injections.Substring(0, injections.Length - 1));
 
             string datapoints = "";
 
@@ -168,28 +199,28 @@ namespace AnalysisITC
                 datapoints += line;
             }
 
-            exp += Encapsulate(DataPointList, datapoints.Substring(0, datapoints.Length - 1));
+            exp += OldEncapsulate(DataPointList, datapoints.Substring(0, datapoints.Length - 1));
 
             if (data.Processor != null)
             {
                 string s = "";
 
-                s += Encapsulate(ProcessorType, (int)data.Processor.BaselineType);
+                s += OldEncapsulate(ProcessorType, (int)data.Processor.BaselineType);
                 switch (data.Processor.BaselineType)
                 {
                     case BaselineInterpolatorTypes.Polynomial:
-                        s += Encapsulate(PolynomiumDegree, (data.Processor.Interpolator as PolynomialLeastSquaresInterpolator).Degree);
-                        s += Encapsulate(PolynomiumLimit, (data.Processor.Interpolator as PolynomialLeastSquaresInterpolator).ZLimit);
+                        s += OldEncapsulate(PolynomiumDegree, (data.Processor.Interpolator as PolynomialLeastSquaresInterpolator).Degree);
+                        s += OldEncapsulate(PolynomiumLimit, (data.Processor.Interpolator as PolynomialLeastSquaresInterpolator).ZLimit);
                         break;
                     case BaselineInterpolatorTypes.Spline:
                         var spinterpolator = (data.Processor.Interpolator as SplineInterpolator);
-                        s += Encapsulate(SplineAlgorithm, (int)spinterpolator.Algorithm);
-                        s += Encapsulate(SplineHandleMode, (int)spinterpolator.HandleMode);
-                        s += Encapsulate(SplineFraction, spinterpolator.FractionBaseline);
-                        s += Encapsulate(SplineLocked, spinterpolator.IsLocked ? 1 : 0);
+                        s += OldEncapsulate(SplineAlgorithm, (int)spinterpolator.Algorithm);
+                        s += OldEncapsulate(SplineHandleMode, (int)spinterpolator.HandleMode);
+                        s += OldEncapsulate(SplineFraction, spinterpolator.FractionBaseline);
+                        s += OldEncapsulate(SplineLocked, spinterpolator.IsLocked ? 1 : 0);
                         string points = "";
                         foreach (var sp in spinterpolator.SplinePoints) points += sp.Time + "," + sp.Power + "," + sp.ID + "," + sp.Slope + ";";
-                        s += Encapsulate(SplinePointList, points.Substring(0, points.Length - 1));
+                        s += OldEncapsulate(SplinePointList, points.Substring(0, points.Length - 1));
                         break;
                     default:
                     case BaselineInterpolatorTypes.ASL:
@@ -197,13 +228,13 @@ namespace AnalysisITC
                         break;
                 }
 
-                exp += Encapsulate(Processor, s);
+                exp += OldEncapsulate(Processor, s);
             }
 
-            return Encapsulate(ExperimentHeader, exp);
+            return OldEncapsulate(ExperimentHeader, exp);
         }
 
-        static async Task WriteExperimentString(ExperimentData data, StreamWriter stream)
+        static async Task WriteExperimentDataToFile(ExperimentData data, StreamWriter stream)
         {
             var file = new List<string>();
             file.Add(FileHeader(ExperimentHeader, data.FileName));
@@ -222,6 +253,7 @@ namespace AnalysisITC
             file.Add(Variable(IntegrationLengthFactor, data.IntegrationLengthFactor));
             file.Add(Variable(FeedBackMode, (int)data.FeedBackMode));
             file.Add(Variable(CellVolume, data.CellVolume));
+            if (data.Solution != null) file.Add(Variable(Solution, data.Solution.Guid));
 
             file.Add(ListHeader(InjectionList));
             foreach (var inj in data.Injections)
@@ -253,7 +285,6 @@ namespace AnalysisITC
 
                 file.Add(line);
             }
-
             file.Add(EndListHeader);
 
             if (data.Processor != null)
@@ -287,7 +318,40 @@ namespace AnalysisITC
             }
 
             file.Add(EndFileHeader);
+            foreach (var line in file) await stream.WriteLineAsync(line);
+        }
 
+        static async Task WriteSolutionToFile(Solution solution, StreamWriter stream)
+        {
+            var file = new List<string>();
+            file.Add(FileHeader(SolutionHeader, solution.Guid));
+            file.Add(Variable(SolModel, solution.Model.ToString()));
+            file.Add(Variable(SolLoss, solution.Loss));
+            file.Add(Variable(SolParamsRaw, string.Join(",", solution.Raw.ToList())));
+            file.Add(Variable(SolH, solution.Enthalpy));
+            file.Add(Variable(SolK, solution.K));
+            file.Add(Variable(SolN, solution.N));
+            file.Add(Variable(SolO, solution.Offset));
+            file.Add(Variable(SolBootN, solution.BootstrapSolutions.Count));
+
+            file.Add(EndFileHeader);
+            foreach (var line in file) await stream.WriteLineAsync(line);
+        }
+
+        static async Task WriteGlobalSolutionToFile(GlobalSolution solution, StreamWriter stream)
+        {
+            var file = new List<string>();
+            file.Add(FileHeader(GlobalSolutionHeader, ""));
+
+
+            file.Add(ListHeader(SolutionList));
+            foreach (var sol in solution.Solutions)
+            {
+                file.Add(sol.Guid);
+            }
+            file.Add(EndListHeader);
+
+            file.Add(EndFileHeader);
             foreach (var line in file) await stream.WriteLineAsync(line);
         }
 
