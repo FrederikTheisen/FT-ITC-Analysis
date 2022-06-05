@@ -739,6 +739,7 @@ namespace AnalysisITC
         public ExperimentData Data => Model.Data;
         public bool IsValid { get; set; } = true;
         public double[] Raw { get; set; }
+        public string Guid { get; private set; } = new Guid().ToString();
 
         public Energy Enthalpy { get; private set; }
         public FloatWithError K { get; private set; }
@@ -755,11 +756,16 @@ namespace AnalysisITC
 
         public double Loss { get; private set; }
 
-        public List<Solution> BootstrapSolutions;
+        public List<Solution> BootstrapSolutions { get; set; } = new List<Solution>();
 
         public Solution()
         {
 
+        }
+
+        public Solution(string guid)
+        {
+            Guid = guid;
         }
 
         public Solution(double n, double dH, double k, double offset, Model model, double loss)
@@ -857,6 +863,7 @@ namespace AnalysisITC
         public SolverConvergence Convergence { get; set; }
 
         public double Loss { get; private set; } = 0;
+        public int BootstrapIterations => Solutions[0].BootstrapSolutions.Count;
 
         public double ReferenceTemperature => Model.MeanTemperature;
         public Energy HeatCapacity { get; private set; } = new(0);
