@@ -314,7 +314,7 @@ namespace AnalysisITC
 
             solver.Minimize(new double[4] { GuessN, GuessH, GuessK, GuessOffset });
 
-            Data.Solution = Solution.FromAccordNelderMead(solver.Solution, this, solver.Function(solver.Solution));
+            Data.Solution = Solution.FromAccordNelderMead(solver.Solution, this, RMSD(solver.Solution[0], solver.Solution[1], solver.Solution[2], solver.Solution[3], false)); // solver.Function(solver.Solution));
 
             return new SolverConvergence(solver);
         }
@@ -729,6 +729,23 @@ namespace AnalysisITC
 
             return glob_loss;
         }
+
+        public double RMSD(double[] w)
+        {
+            var parameters = SolverParameters.FromArray(w, Options);
+
+            double glob_loss = 0;
+
+            for (int i = 0; i < Models.Count; i++)
+            {
+                var m = Models[i];
+                var pset = parameters.ParameterSetForModel(i);
+
+                glob_loss += m.RMSD(pset.N, pset.GetEnthalpy(m, Options), pset.GetK(m, Options), pset.Offset, false);
+            }
+
+            return glob_loss;
+        }
     }
 
     public class Solution
@@ -914,14 +931,14 @@ namespace AnalysisITC
 
                 var dH = model.EnthalpyStyle == Analysis.VariableStyle.TemperatureDependent ? pset.dH + pset.dCp * dt : pset.dH;
                 var K = Math.Exp(pset.dG / (-1 * Energy.R.Value * (m.Data.MeasuredTemperature + 273.15)));
-                var sol = new Solution(pset.N, dH, K, pset.Offset, m, m.RMSD(pset.N, dH, K, pset.Offset));
+                var sol = new Solution(pset.N, dH, K, pset.Offset, m, m.RMSD(pset.N, dH, K, pset.Offset, false));
 
                 m.Data.Solution = sol;
 
                 global.Solutions.Add(sol);
             }
 
-            global.Loss = model.LossFunction(solution);
+            global.Loss = model.RMSD(solution);
 
             global.SetEntropyTemperatureDependence(model);
             global.SetGibbsTemperatureDependence(model);
