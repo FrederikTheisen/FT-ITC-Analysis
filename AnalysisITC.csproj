@@ -376,6 +376,7 @@
     <Compile Include="GUI\MacOS\HuggingTextView.designer.cs">
       <DependentUpon>HuggingTextView.cs</DependentUpon>
     </Compile>
+    <Compile Include="AppClasses\Math\ErrorPropagation.cs" />
   </ItemGroup>
   <ItemGroup>
     <InterfaceDefinition Include="Main.storyboard" />
