@@ -235,6 +235,7 @@
     <Folder Include="GUI\MacOS\Drawing\" />
     <Folder Include="GUI\MacOS\ViewControllers\" />
     <Folder Include="AppClasses\Math\" />
+    <Folder Include="GUI\MacOS\PopOptionViewControllers\" />
   </ItemGroup>
   <ItemGroup>
     <None Include="Info.plist" />
@@ -324,33 +325,13 @@
       <DependentUpon>BindingAnalysisViewController.cs</DependentUpon>
     </Compile>
     <Compile Include="Utils\Energy.cs" />
-    <Compile Include="DataGraphOptionPopoverViewController.cs" />
-    <Compile Include="DataGraphOptionPopoverViewController.designer.cs">
-      <DependentUpon>DataGraphOptionPopoverViewController.cs</DependentUpon>
-    </Compile>
-    <Compile Include="FitGraphOptionPopoverViewController.cs" />
-    <Compile Include="FitGraphOptionPopoverViewController.designer.cs">
-      <DependentUpon>FitGraphOptionPopoverViewController.cs</DependentUpon>
-    </Compile>
-    <Compile Include="GraphOptionsPopoverViewController.cs" />
-    <Compile Include="GraphOptionsPopoverViewController.designer.cs">
-      <DependentUpon>GraphOptionsPopoverViewController.cs</DependentUpon>
-    </Compile>
     <Compile Include="FinalFigureViewController.cs" />
     <Compile Include="FinalFigureViewController.designer.cs">
       <DependentUpon>FinalFigureViewController.cs</DependentUpon>
     </Compile>
-    <Compile Include="FittingOptionsPopoverViewController.cs" />
-    <Compile Include="FittingOptionsPopoverViewController.designer.cs">
-      <DependentUpon>FittingOptionsPopoverViewController.cs</DependentUpon>
-    </Compile>
     <Compile Include="HuggingTextView.cs" />
     <Compile Include="HuggingTextView.designer.cs">
       <DependentUpon>HuggingTextView.cs</DependentUpon>
-    </Compile>
-    <Compile Include="ExperimentDetailsPopoverController.cs" />
-    <Compile Include="ExperimentDetailsPopoverController.designer.cs">
-      <DependentUpon>ExperimentDetailsPopoverController.cs</DependentUpon>
     </Compile>
     <Compile Include="GUI\MacOS\Drawing\TemperatureDependenceGraph.cs" />
     <Compile Include="AppClasses\DataWriter.cs" />
@@ -361,19 +342,39 @@
     <Compile Include="AppDelegate.designer.cs">
       <DependentUpon>AppDelegate.cs</DependentUpon>
     </Compile>
-    <Compile Include="BaselineOptionsPopoverViewController.cs" />
-    <Compile Include="BaselineOptionsPopoverViewController.designer.cs">
-      <DependentUpon>BaselineOptionsPopoverViewController.cs</DependentUpon>
-    </Compile>
-    <Compile Include="ExportPopViewController.cs" />
-    <Compile Include="ExportPopViewController.designer.cs">
-      <DependentUpon>ExportPopViewController.cs</DependentUpon>
-    </Compile>
     <Compile Include="AppClasses\SpolarRecordAnalysis.cs" />
     <Compile Include="AppClasses\Math\Distribution.cs" />
     <Compile Include="GUI\MacOS\GraphViews\TemperatureDependenceGraphView.cs" />
     <Compile Include="GUI\MacOS\GraphViews\TemperatureDependenceGraphView.designer.cs">
       <DependentUpon>TemperatureDependenceGraphView.cs</DependentUpon>
+    </Compile>
+    <Compile Include="GUI\MacOS\PopOptionViewControllers\DataGraphOptionPopoverViewController.cs" />
+    <Compile Include="GUI\MacOS\PopOptionViewControllers\DataGraphOptionPopoverViewController.designer.cs">
+      <DependentUpon>DataGraphOptionPopoverViewController.cs</DependentUpon>
+    </Compile>
+    <Compile Include="GUI\MacOS\PopOptionViewControllers\FitGraphOptionPopoverViewController.cs" />
+    <Compile Include="GUI\MacOS\PopOptionViewControllers\FitGraphOptionPopoverViewController.designer.cs">
+      <DependentUpon>FitGraphOptionPopoverViewController.cs</DependentUpon>
+    </Compile>
+    <Compile Include="GUI\MacOS\PopOptionViewControllers\FittingOptionsPopoverViewController.cs" />
+    <Compile Include="GUI\MacOS\PopOptionViewControllers\FittingOptionsPopoverViewController.designer.cs">
+      <DependentUpon>FittingOptionsPopoverViewController.cs</DependentUpon>
+    </Compile>
+    <Compile Include="GUI\MacOS\PopOptionViewControllers\GraphOptionsPopoverViewController.cs" />
+    <Compile Include="GUI\MacOS\PopOptionViewControllers\GraphOptionsPopoverViewController.designer.cs">
+      <DependentUpon>GraphOptionsPopoverViewController.cs</DependentUpon>
+    </Compile>
+    <Compile Include="GUI\MacOS\PopOptionViewControllers\ExportPopViewController.cs" />
+    <Compile Include="GUI\MacOS\PopOptionViewControllers\ExportPopViewController.designer.cs">
+      <DependentUpon>ExportPopViewController.cs</DependentUpon>
+    </Compile>
+    <Compile Include="GUI\MacOS\PopOptionViewControllers\BaselineOptionsPopoverViewController.cs" />
+    <Compile Include="GUI\MacOS\PopOptionViewControllers\BaselineOptionsPopoverViewController.designer.cs">
+      <DependentUpon>BaselineOptionsPopoverViewController.cs</DependentUpon>
+    </Compile>
+    <Compile Include="GUI\MacOS\PopOptionViewControllers\ExperimentDetailsPopoverController.cs" />
+    <Compile Include="GUI\MacOS\PopOptionViewControllers\ExperimentDetailsPopoverController.designer.cs">
+      <DependentUpon>ExperimentDetailsPopoverController.cs</DependentUpon>
     </Compile>
   </ItemGroup>
   <ItemGroup>
