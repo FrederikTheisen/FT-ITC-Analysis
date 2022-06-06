@@ -304,5 +304,21 @@ namespace AnalysisITC
 
             return new FloatWithError(results);
         }
+
+        public FloatWithError GetXAxisIntersect()
+        {
+            var results = new List<double>();
+
+            int iter = Slope.SD != 0 ? 1000 : 1;
+
+            for (int i = 0; i < iter; i++)
+            {
+                var f = new LinearFit(Slope.Sample(), Intercept.Sample(), ReferenceT);
+
+                results.Add(-f.Intercept / f.Slope);
+            }
+
+            return new FloatWithError(results);
+        }
     }
 }
