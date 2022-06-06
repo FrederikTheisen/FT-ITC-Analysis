@@ -374,7 +374,7 @@
       <DependentUpon>ExportPopViewController.cs</DependentUpon>
     </Compile>
     <Compile Include="AppClasses\SpolarRecordAnalysis.cs" />
-    <Compile Include="AppClasses\Distribution.cs" />
+    <Compile Include="AppClasses\Math\Distribution.cs" />
   </ItemGroup>
   <ItemGroup>
     <InterfaceDefinition Include="Main.storyboard" />
