@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading.Tasks;
 
 namespace AnalysisITC
 {
@@ -93,6 +94,11 @@ namespace AnalysisITC
         public double[] WithConfidence()
         {
             return new double[] { Value + 2 * SD, Value - 2 * SD };
+        }
+
+        public double Sample()
+        {
+            return Distribution.Normal(this);
         }
 
         public static FloatWithError operator +(FloatWithError v1, FloatWithError v2)
@@ -219,13 +225,69 @@ namespace AnalysisITC
         public EnthalpyTuple(double reference, double standard, double heatcapacity) : base(new(reference), new Energy(standard), new(heatcapacity)) { }
     }
 
-    public class LinearFit : Tuple<double, double>
+    public class LinearFit : Tuple<double, double, double>
     {
         public double Slope => Item1;
         public double Intercept => Item2;
+        public double ReferenceT => Item3;
 
-        public LinearFit(double slope, double intercept) : base(slope, intercept)
+        public LinearFit(double slope, double intercept, double referencex) : base(slope, intercept, referencex)
         {
+        }
+
+        public static LinearFit FitData(double[] x, double[] y, double refx)
+        {
+            var reg = MathNet.Numerics.LinearRegression.SimpleRegression.Fit(x.Select(v => v - refx).ToArray(), y);
+
+            return new LinearFit(reg.B, reg.A, refx);
+        }
+
+        public double Evaluate(double x) => (x - ReferenceT) * Slope + Intercept;
+    }
+
+    public class LinearFitWithError : Tuple<FloatWithError, FloatWithError, double>
+    {
+        static Random Random = new Random();
+
+        public FloatWithError Slope => Item1;
+        public FloatWithError Intercept => Item2;
+        public double ReferenceT => Item3;
+
+        public LinearFitWithError(FloatWithError slope, FloatWithError intercept, double referencex) : base(slope, intercept, referencex)
+        {
+        }
+
+        static async Task<LinearFitWithError> FitData(double[] x, double[] y, double refx) //TODO not used, remove code (22-06-05)
+        {
+            var fit = LinearFit.FitData(x, y, refx);
+            var fits = new List<LinearFit>();
+
+            var residuals = x.Select((v, i) => fit.Evaluate(v) - y[i]).ToList();
+
+            await Task.Run(() =>
+            {
+                for (int i = 0; i < 1000; i++)
+                {
+                    var newys = y.Select(v => v + residuals[Random.Next(residuals.Count())]).ToArray();
+
+                    fits.Add(LinearFit.FitData(x, newys, refx));
+                }
+            });
+
+            var dist_slope = fits.Select(f => f.Slope);
+            var dist_intercept = fits.Select(f => f.Intercept);
+
+            return new LinearFitWithError(new FloatWithError(dist_slope, fit.Slope), new FloatWithError(dist_intercept, fit.Intercept), refx);
+        }
+
+        public FloatWithError Evaluate(double x)
+        {
+            double sum = 0;
+
+            for (int i = 0; i < 1000; i++)
+            {
+                var f = new LinearFit(Slope.)
+            }
         }
     }
 }

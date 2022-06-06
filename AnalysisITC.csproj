@@ -234,6 +234,7 @@
     <Folder Include="GUI\MacOS\GraphViews\" />
     <Folder Include="GUI\MacOS\Drawing\" />
     <Folder Include="GUI\MacOS\ViewControllers\" />
+    <Folder Include="AppClasses\Math\" />
   </ItemGroup>
   <ItemGroup>
     <None Include="Info.plist" />
@@ -373,6 +374,7 @@
       <DependentUpon>ExportPopViewController.cs</DependentUpon>
     </Compile>
     <Compile Include="AppClasses\SpolarRecordAnalysis.cs" />
+    <Compile Include="AppClasses\Distribution.cs" />
   </ItemGroup>
   <ItemGroup>
     <InterfaceDefinition Include="Main.storyboard" />

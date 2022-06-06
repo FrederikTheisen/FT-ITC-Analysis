@@ -382,7 +382,7 @@ namespace AnalysisITC
                 loss += diff * diff;
             }
 
-            return isloss ? loss : Math.Sqrt(loss / Data.Injections.Where(i => i.Include && i.ID != ExcludeSinglePoint).Count());
+            return isloss ? loss : Math.Sqrt(loss / Data.Injections.Count(i => i.Include && i.ID != ExcludeSinglePoint));
         }
 
         public override double Evaluate(int i, double n, double H, double K, double offset)
@@ -870,7 +870,7 @@ namespace AnalysisITC
         public Energy StandardEnthalpy { get; private set; } = new(0);//Enthalpy at 298.15 °C
         public Energy ReferenceEnthalpy { get; private set; } = new(); //Fitting reference value
 
-        public LinearFit EnthalpyLine => new LinearFit(HeatCapacity, ReferenceEnthalpy);
+        public LinearFit EnthalpyLine => new LinearFit(HeatCapacity, ReferenceEnthalpy, ReferenceTemperature);
         public LinearFit EntropyLine { get; private set; }
         public LinearFit GibbsLine { get; private set; }
 
@@ -879,7 +879,10 @@ namespace AnalysisITC
         /// </summary>
         public List<Solution> Solutions { get; private set; } = new List<Solution>();
 
-        public void SetEnthalpiesFromBootstrap(List<GlobalSolution> solutions) => this.SetEnthalpiesFromBootstrap(solutions.Select(gs => gs.ReferenceEnthalpy.Value), solutions.Select(gs => gs.StandardEnthalpy.Value), solutions.Select(gs => gs.HeatCapacity.Value));
+        public void SetEnthalpiesFromBootstrap(List<GlobalSolution> solutions)
+        {
+            this.SetEnthalpiesFromBootstrap(solutions.Select(gs => gs.ReferenceEnthalpy.Value), solutions.Select(gs => gs.StandardEnthalpy.Value), solutions.Select(gs => gs.HeatCapacity.Value));
+        }
 
         public static GlobalSolution FromAccordNelderMead(double[] solution, GlobalModel model)
         {
@@ -924,7 +927,9 @@ namespace AnalysisITC
             var xy = model.Models.Select((m, i) => new double[] { m.Data.MeasuredTemperature - model.MeanTemperature, m.Solution.TdS }).ToArray();
             var reg = MathNet.Numerics.LinearRegression.SimpleRegression.Fit(xy.GetColumn(0), xy.GetColumn(1));
 
-            EntropyLine = new LinearFit(reg.B, reg.A);
+            //var fit = await LinearFitWithError.FitData(model.Models.Select(m => m.Data.MeasuredTemperature).ToArray(), model.Models.Select(m => m.Solution.TdS.Value).ToArray(), model.MeanTemperature);
+
+            EntropyLine = new LinearFit(reg.B, reg.A, ReferenceTemperature);
         }
 
         void SetGibbsTemperatureDependence(GlobalModel model)
@@ -932,36 +937,7 @@ namespace AnalysisITC
             var xy = model.Models.Select((m, i) => new double[] { m.Data.MeasuredTemperature - model.MeanTemperature, m.Solution.GibbsFreeEnergy }).ToArray();
             var reg = MathNet.Numerics.LinearRegression.SimpleRegression.Fit(xy.GetColumn(0), xy.GetColumn(1));
 
-            GibbsLine = new LinearFit(reg.B, reg.A);
-        }
-
-        /// <summary>
-        /// Obsolete
-        /// </summary>
-        /// <param name="parameters"></param>
-        /// <param name="model"></param>
-        /// <returns></returns>
-        static double[] DetermineEnthalpiesFromParameters(SolverParameters parameters, GlobalModel model)
-        {
-            if (parameters.EnthalpyStyle == Analysis.VariableStyle.Free)
-            {
-                var temps = model.Models.Select(m => m.Data.MeasuredTemperature);
-
-                var xy = model.Models.Select((m, i) => new double[] { m.Data.MeasuredTemperature, parameters.Enthalpies[i] }).ToArray();
-                var reg = MathNet.Numerics.LinearRegression.SimpleRegression.Fit(xy.GetColumn(0), xy.GetColumn(1));
-
-                var H0 = reg.A + 25 * reg.B;
-
-                return new double[] { H0, reg.B };
-            }
-            else
-            {
-                var cp = parameters.HeatCapacity;
-                var dt = 25 - model.MeanTemperature;
-
-                return new double[] { parameters.Enthalpies.First() + cp * dt, cp };
-
-            }
+            GibbsLine = new LinearFit(reg.B, reg.A, ReferenceTemperature);
         }
 
         /// <summary>
@@ -1009,6 +985,16 @@ namespace AnalysisITC
             this.HeatCapacity = new Energy(new FloatWithError(cps));
 
             Console.WriteLine("Bootstrap enthalpies (refT: " + ReferenceTemperature.ToString("G4") + "): " + ReferenceEnthalpy.ToString("G3") + " | " + StandardEnthalpy.ToString("G3") + " | " + HeatCapacity.ToString("G3"));
+        }
+
+        void SetTemperatureDependeceFromBootstrap(List<GlobalSolution> solutions)
+        {
+            var sfit_slope_dist = solutions.Select(gsol => gsol.EntropyLine.Slope);
+            var sfit_intercept_dist = solutions.Select(gsol => gsol.EntropyLine.Slope);
+            var gfit_slope_dist = solutions.Select(gsol => gsol.EntropyLine.Slope);
+            var gfit_intercept_dist = solutions.Select(gsol => gsol.EntropyLine.Slope);
+
+
         }
     }
 
