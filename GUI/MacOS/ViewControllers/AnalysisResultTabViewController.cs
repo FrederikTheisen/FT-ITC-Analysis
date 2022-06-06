@@ -26,12 +26,12 @@ namespace AnalysisITC
             Setup();
         }
 
-        public override void ViewDidAppear()
-        {
-            base.ViewDidAppear();
+        //public override void ViewDidAppear()
+        //{
+        //    base.ViewDidAppear();
 
-            Setup();
-        }
+        //    Setup();
+        //}
 
         EnergyUnit EnergyUnit => (int)EnergyControl.SelectedSegment switch { 0 => EnergyUnit.Joule, 1 => EnergyUnit.KiloJoule, 2 => EnergyUnit.Cal, 3 => EnergyUnit.KCal, _ => EnergyUnit.KiloJoule, };
         public bool UseKelvin => TempControl.SelectedSegment == 1;
@@ -66,6 +66,11 @@ namespace AnalysisITC
             ResultsTableView.TableColumns()[3].Title = "∆H (" + EnergyUnit.GetUnit() + "/mol)";
             ResultsTableView.TableColumns()[4].Title = "-T∆S (" + EnergyUnit.GetUnit() + "/molK)";
             ResultsTableView.TableColumns()[5].Title = "∆G (" + EnergyUnit.GetUnit() + "/mol)";
+
+            //var test = new FTSRMethod(AnalysisResult.Solution.EnthalpyLine, AnalysisResult.Solution.EntropyLine);
+            //test.Calculate(FTSRMethod.SRMode.IsoEntropicPoint);
+            //test.Calculate(FTSRMethod.SRMode.MeanTemperature);
+
         }
 
         partial void TempControlClicked(NSSegmentedControl sender)
