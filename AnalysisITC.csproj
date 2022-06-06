@@ -377,6 +377,7 @@
       <DependentUpon>HuggingTextView.cs</DependentUpon>
     </Compile>
     <Compile Include="AppClasses\Math\ErrorPropagation.cs" />
+    <Compile Include="AppSettings.cs" />
   </ItemGroup>
   <ItemGroup>
     <InterfaceDefinition Include="Main.storyboard" />
