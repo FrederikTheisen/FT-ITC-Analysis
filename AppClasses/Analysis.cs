@@ -870,9 +870,9 @@ namespace AnalysisITC
         public Energy StandardEnthalpy { get; private set; } = new(0);//Enthalpy at 298.15 °C
         public Energy ReferenceEnthalpy { get; private set; } = new(); //Fitting reference value
 
-        public LinearFit EnthalpyLine => new LinearFit(HeatCapacity, ReferenceEnthalpy, ReferenceTemperature);
-        public LinearFit EntropyLine { get; private set; }
-        public LinearFit GibbsLine { get; private set; }
+        public LinearFitWithError EnthalpyLine => new LinearFitWithError(HeatCapacity.FloatWithError, ReferenceEnthalpy.FloatWithError, ReferenceTemperature);
+        public LinearFitWithError EntropyLine { get; private set; }
+        public LinearFitWithError GibbsLine { get; private set; }
 
         /// <summary>
         /// Parameters of the individual experiments derived from the global solution
@@ -882,6 +882,13 @@ namespace AnalysisITC
         public void SetEnthalpiesFromBootstrap(List<GlobalSolution> solutions)
         {
             this.SetEnthalpiesFromBootstrap(solutions.Select(gs => gs.ReferenceEnthalpy.Value), solutions.Select(gs => gs.StandardEnthalpy.Value), solutions.Select(gs => gs.HeatCapacity.Value));
+
+            this.SetTemperatureDependeceFromBootstrap(solutions);
+
+            Console.WriteLine("BOOTSTRAP THERMODYNAMICS: " + Model.Models[0].ModelName);
+            Console.WriteLine("ENTHALPY: " + EnthalpyLine.Evaluate(25).ToString());
+            Console.WriteLine("ENTROPY:  " + EntropyLine.Evaluate(25).ToString());
+            Console.WriteLine("GIBBS:    " + GibbsLine.Evaluate(25).ToString());
         }
 
         public static GlobalSolution FromAccordNelderMead(double[] solution, GlobalModel model)
@@ -929,7 +936,7 @@ namespace AnalysisITC
 
             //var fit = await LinearFitWithError.FitData(model.Models.Select(m => m.Data.MeasuredTemperature).ToArray(), model.Models.Select(m => m.Solution.TdS.Value).ToArray(), model.MeanTemperature);
 
-            EntropyLine = new LinearFit(reg.B, reg.A, ReferenceTemperature);
+            EntropyLine = new LinearFitWithError(reg.B, reg.A, ReferenceTemperature);
         }
 
         void SetGibbsTemperatureDependence(GlobalModel model)
@@ -937,7 +944,7 @@ namespace AnalysisITC
             var xy = model.Models.Select((m, i) => new double[] { m.Data.MeasuredTemperature - model.MeanTemperature, m.Solution.GibbsFreeEnergy }).ToArray();
             var reg = MathNet.Numerics.LinearRegression.SimpleRegression.Fit(xy.GetColumn(0), xy.GetColumn(1));
 
-            GibbsLine = new LinearFit(reg.B, reg.A, ReferenceTemperature);
+            GibbsLine = new LinearFitWithError(reg.B, reg.A, ReferenceTemperature);
         }
 
         /// <summary>
@@ -983,18 +990,17 @@ namespace AnalysisITC
             this.ReferenceEnthalpy = new Energy(new FloatWithError(refs));
             this.StandardEnthalpy = new Energy(new FloatWithError(stds));
             this.HeatCapacity = new Energy(new FloatWithError(cps));
-
-            Console.WriteLine("Bootstrap enthalpies (refT: " + ReferenceTemperature.ToString("G4") + "): " + ReferenceEnthalpy.ToString("G3") + " | " + StandardEnthalpy.ToString("G3") + " | " + HeatCapacity.ToString("G3"));
         }
 
         void SetTemperatureDependeceFromBootstrap(List<GlobalSolution> solutions)
         {
-            var sfit_slope_dist = solutions.Select(gsol => gsol.EntropyLine.Slope);
-            var sfit_intercept_dist = solutions.Select(gsol => gsol.EntropyLine.Slope);
-            var gfit_slope_dist = solutions.Select(gsol => gsol.EntropyLine.Slope);
-            var gfit_intercept_dist = solutions.Select(gsol => gsol.EntropyLine.Slope);
+            var sfit_slope_dist = solutions.Select(gsol => gsol.EntropyLine.Slope.Value).ToList();
+            var sfit_intercept_dist = solutions.Select(gsol => gsol.EntropyLine.Intercept.Value).ToList();
+            var gfit_slope_dist = solutions.Select(gsol => gsol.GibbsLine.Slope.Value).ToList();
+            var gfit_intercept_dist = solutions.Select(gsol => gsol.GibbsLine.Intercept.Value).ToList();
 
-
+            EntropyLine = new LinearFitWithError(new FloatWithError(sfit_slope_dist), new FloatWithError(sfit_intercept_dist), Model.MeanTemperature);
+            GibbsLine = new LinearFitWithError(new FloatWithError(gfit_slope_dist), new FloatWithError(gfit_intercept_dist), Model.MeanTemperature);
         }
     }
 

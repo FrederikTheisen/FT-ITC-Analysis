@@ -84,7 +84,7 @@ namespace AnalysisITC
             DrawLinFit(gc, Result.Solution.GibbsLine, Result.Solution.ReferenceTemperature);
         }
 
-        void DrawLinFit(CGContext gc, LinearFit fit, double offset)
+        void DrawLinFit(CGContext gc, LinearFitWithError fit, double offset)
         {
             var xmin = XAxis.Min - offset;
             var xmax = XAxis.Max - offset;
@@ -167,7 +167,7 @@ namespace AnalysisITC
             DrawPredictionInterval(gc, Result.Solution.GibbsLine, Result.Solution.Solutions.Select(s => s.GibbsFreeEnergy));
         }
 
-        void DrawPredictionInterval(CGContext gc, LinearFit line, IEnumerable<Energy> values)
+        void DrawPredictionInterval(CGContext gc, LinearFitWithError line, IEnumerable<Energy> values)
         {
             var top = new List<CGPoint>();
             var bottom = new List<CGPoint>();
