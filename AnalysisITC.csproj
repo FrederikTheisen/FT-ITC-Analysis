@@ -312,33 +312,9 @@
     </Compile>
     <Compile Include="AppClasses\ExperimentData.cs" />
     <Compile Include="GUI\StateManager.cs" />
-    <Compile Include="TabControllerView.cs" />
-    <Compile Include="TabControllerView.designer.cs">
-      <DependentUpon>TabControllerView.cs</DependentUpon>
-    </Compile>
-    <Compile Include="AnalysisResultView.cs" />
-    <Compile Include="AnalysisResultView.designer.cs">
-      <DependentUpon>AnalysisResultView.cs</DependentUpon>
-    </Compile>
-    <Compile Include="BindingAnalysisViewController.cs" />
-    <Compile Include="BindingAnalysisViewController.designer.cs">
-      <DependentUpon>BindingAnalysisViewController.cs</DependentUpon>
-    </Compile>
     <Compile Include="Utils\Energy.cs" />
-    <Compile Include="FinalFigureViewController.cs" />
-    <Compile Include="FinalFigureViewController.designer.cs">
-      <DependentUpon>FinalFigureViewController.cs</DependentUpon>
-    </Compile>
-    <Compile Include="HuggingTextView.cs" />
-    <Compile Include="HuggingTextView.designer.cs">
-      <DependentUpon>HuggingTextView.cs</DependentUpon>
-    </Compile>
     <Compile Include="GUI\MacOS\Drawing\TemperatureDependenceGraph.cs" />
     <Compile Include="AppClasses\DataWriter.cs" />
-    <Compile Include="AnalysisResultTabViewController.cs" />
-    <Compile Include="AnalysisResultTabViewController.designer.cs">
-      <DependentUpon>AnalysisResultTabViewController.cs</DependentUpon>
-    </Compile>
     <Compile Include="AppDelegate.designer.cs">
       <DependentUpon>AppDelegate.cs</DependentUpon>
     </Compile>
@@ -375,6 +351,30 @@
     <Compile Include="GUI\MacOS\PopOptionViewControllers\ExperimentDetailsPopoverController.cs" />
     <Compile Include="GUI\MacOS\PopOptionViewControllers\ExperimentDetailsPopoverController.designer.cs">
       <DependentUpon>ExperimentDetailsPopoverController.cs</DependentUpon>
+    </Compile>
+    <Compile Include="GUI\MacOS\PopOptionViewControllers\BindingAnalysisViewController.cs" />
+    <Compile Include="GUI\MacOS\PopOptionViewControllers\BindingAnalysisViewController.designer.cs">
+      <DependentUpon>BindingAnalysisViewController.cs</DependentUpon>
+    </Compile>
+    <Compile Include="GUI\MacOS\ViewControllers\AnalysisResultTabViewController.cs" />
+    <Compile Include="GUI\MacOS\ViewControllers\AnalysisResultTabViewController.designer.cs">
+      <DependentUpon>AnalysisResultTabViewController.cs</DependentUpon>
+    </Compile>
+    <Compile Include="GUI\MacOS\ViewControllers\FinalFigureViewController.cs" />
+    <Compile Include="GUI\MacOS\ViewControllers\FinalFigureViewController.designer.cs">
+      <DependentUpon>FinalFigureViewController.cs</DependentUpon>
+    </Compile>
+    <Compile Include="GUI\MacOS\AnalysisResultView.cs" />
+    <Compile Include="GUI\MacOS\AnalysisResultView.designer.cs">
+      <DependentUpon>AnalysisResultView.cs</DependentUpon>
+    </Compile>
+    <Compile Include="GUI\MacOS\TabControllerView.cs" />
+    <Compile Include="GUI\MacOS\TabControllerView.designer.cs">
+      <DependentUpon>TabControllerView.cs</DependentUpon>
+    </Compile>
+    <Compile Include="GUI\MacOS\HuggingTextView.cs" />
+    <Compile Include="GUI\MacOS\HuggingTextView.designer.cs">
+      <DependentUpon>HuggingTextView.cs</DependentUpon>
     </Compile>
   </ItemGroup>
   <ItemGroup>
