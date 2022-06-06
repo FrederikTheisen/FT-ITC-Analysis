@@ -70,7 +70,7 @@ namespace AnalysisITC
                 average = distribution.Average();
                 if (mean != null) average = (double)mean;
                 double sum = distribution.Sum(d => Math.Pow(d - average, 2));
-                result = Math.Sqrt((sum) / distribution.Count());
+                result = Math.Sqrt((sum) / (distribution.Count() - 1));
             }
 
             this = new FloatWithError(average, result);
@@ -175,6 +175,11 @@ namespace AnalysisITC
             return v.Value;
         }
 
+        public override string ToString()
+        {
+            return ToString("F3") + " | " + (100 * FractionSD).ToString("F1") + "%";
+        }
+
         public string ToString(string format = "F1")
         {
             if (SD < double.Epsilon) return Value.ToString(format);
@@ -257,6 +262,10 @@ namespace AnalysisITC
         {
         }
 
+        public LinearFitWithError(double slope, double intercept, double referencex) : base(new(slope), new(intercept), referencex)
+        {
+        }
+
         static async Task<LinearFitWithError> FitData(double[] x, double[] y, double refx) //TODO not used, remove code (22-06-05)
         {
             var fit = LinearFit.FitData(x, y, refx);
@@ -282,12 +291,18 @@ namespace AnalysisITC
 
         public FloatWithError Evaluate(double x)
         {
-            double sum = 0;
+            var results = new List<double>();
 
-            for (int i = 0; i < 1000; i++)
+            int iter = Slope.SD != 0 ? 1000 : 1;
+
+            for (int i = 0; i < iter; i++)
             {
-                var f = new LinearFit(Slope.)
+                var f = new LinearFit(Slope.Sample(), Intercept.Sample(), ReferenceT);
+
+                results.Add(f.Evaluate(x));
             }
+
+            return new FloatWithError(results);
         }
     }
 }
