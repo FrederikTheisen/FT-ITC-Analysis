@@ -96,9 +96,9 @@ namespace AnalysisITC
             return new double[] { Value + 2 * SD, Value - 2 * SD };
         }
 
-        public double Sample()
+        public double Sample(Random rand = null)
         {
-            return Distribution.Normal(this);
+            return Distribution.Normal(this, rand);
         }
 
         public static FloatWithError operator +(FloatWithError v1, FloatWithError v2)
@@ -291,13 +291,12 @@ namespace AnalysisITC
 
         public FloatWithError Evaluate(double x)
         {
+            var rand = new Random();
             var results = new List<double>();
 
-            int iter = Slope.SD != 0 ? 1000 : 1;
-
-            for (int i = 0; i < iter; i++)
+            for (int i = 0; i < 3000; i++)
             {
-                var f = new LinearFit(Slope.Sample(), Intercept.Sample(), ReferenceT);
+                var f = new LinearFit(Slope.Sample(rand), Intercept.Sample(rand), ReferenceT);
 
                 results.Add(f.Evaluate(x));
             }
@@ -307,18 +306,19 @@ namespace AnalysisITC
 
         public FloatWithError GetXAxisIntersect()
         {
+            var rand = new Random();
             var results = new List<double>();
 
-            int iter = Slope.SD != 0 ? 1000 : 1;
+            var exact = -Intercept.Value / Slope.Value;
 
-            for (int i = 0; i < iter; i++)
+            for (int i = 0; i < 3000; i++)
             {
-                var f = new LinearFit(Slope.Sample(), Intercept.Sample(), ReferenceT);
+                var f = new LinearFit(Slope.Sample(rand), Intercept.Sample(rand), ReferenceT);
 
                 results.Add(-f.Intercept / f.Slope);
             }
 
-            return new FloatWithError(results);
+            return new FloatWithError(results, exact);
         }
     }
 }

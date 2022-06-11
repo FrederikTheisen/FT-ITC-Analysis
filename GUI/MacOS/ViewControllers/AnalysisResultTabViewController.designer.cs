@@ -22,6 +22,18 @@ namespace AnalysisITC
 		AppKit.NSTableView ResultsTableView { get; set; }
 
 		[Outlet]
+		AppKit.NSButton SRFitButton { get; set; }
+
+		[Outlet]
+		AppKit.NSSegmentedControl SRFoldedDegreeSegControl { get; set; }
+
+		[Outlet]
+		AppKit.NSTextField SRResultTextField { get; set; }
+
+		[Outlet]
+		AppKit.NSSegmentedControl SRTemperatureModeSegControl { get; set; }
+
+		[Outlet]
 		AppKit.NSSegmentedControl TempControl { get; set; }
 
 		[Action ("CopyToClipboard:")]
@@ -33,19 +45,42 @@ namespace AnalysisITC
 		[Action ("EnergyControlClicked:")]
 		partial void EnergyControlClicked (AppKit.NSSegmentedControl sender);
 
+		[Action ("PerformSRAnalysis:")]
+		partial void PerformSRAnalysis (Foundation.NSObject sender);
+
 		[Action ("TempControlClicked:")]
 		partial void TempControlClicked (AppKit.NSSegmentedControl sender);
 		
 		void ReleaseDesignerOutlets ()
 		{
+			if (SRResultTextField != null) {
+				SRResultTextField.Dispose ();
+				SRResultTextField = null;
+			}
+
+			if (SRTemperatureModeSegControl != null) {
+				SRTemperatureModeSegControl.Dispose ();
+				SRTemperatureModeSegControl = null;
+			}
+
+			if (SRFoldedDegreeSegControl != null) {
+				SRFoldedDegreeSegControl.Dispose ();
+				SRFoldedDegreeSegControl = null;
+			}
+
+			if (SRFitButton != null) {
+				SRFitButton.Dispose ();
+				SRFitButton = null;
+			}
+
 			if (EnergyControl != null) {
 				EnergyControl.Dispose ();
 				EnergyControl = null;
 			}
 
-			if (TempControl != null) {
-				TempControl.Dispose ();
-				TempControl = null;
+			if (Graph != null) {
+				Graph.Dispose ();
+				Graph = null;
 			}
 
 			if (ResultsTableView != null) {
@@ -53,9 +88,9 @@ namespace AnalysisITC
 				ResultsTableView = null;
 			}
 
-			if (Graph != null) {
-				Graph.Dispose ();
-				Graph = null;
+			if (TempControl != null) {
+				TempControl.Dispose ();
+				TempControl = null;
 			}
 		}
 	}

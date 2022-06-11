@@ -37,9 +37,11 @@ namespace AnalysisITC
             s += Environment.NewLine;
             s += "Affinity:" + Solution.Model.Options.AffinityStyle.ToString();
             s += Environment.NewLine;
-            s += "∆H @ 25 °C = " + Solution.StandardEnthalpy.ToString(EnergyUnit.KiloJoule) + "/mol";
+            s += "N-value:" + Solution.Model.Options.NStyle.ToString();
             s += Environment.NewLine;
-            s += "∆Cp = " + Solution.HeatCapacity.ToString(EnergyUnit.Joule, "F0") + "/molK";
+            s += "∆H @ 25 °C = " + Solution.StandardEnthalpy.ToString(EnergyUnit.KiloJoule, permole: true);
+            s += Environment.NewLine;
+            s += "∆Cp = " + Solution.HeatCapacity.ToString(EnergyUnit.Joule, "F0", permole: true, perK: true);
 
             return s;
         }

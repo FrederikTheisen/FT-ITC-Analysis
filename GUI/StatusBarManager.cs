@@ -37,10 +37,10 @@ namespace AnalysisITC
             }
         }
 
-        public static string SecondaryStatus
+        static string SecondaryStatus
         {
             get => secondarystatus;
-            private set
+            set
             {
                 secondarystatus = value;
 
@@ -95,6 +95,11 @@ namespace AnalysisITC
             StatusUpdated?.Invoke(null, Status.Message);
 
             SecondaryStatus = "";
+        }
+
+        public static void SetProgress(double progress)
+        {
+            Progress = progress;
         }
 
         public static async void SetStatusScrolling(string status)

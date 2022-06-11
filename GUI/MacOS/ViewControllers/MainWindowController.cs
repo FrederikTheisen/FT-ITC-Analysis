@@ -193,6 +193,8 @@ namespace AnalysisITC
         partial void StopButtonClick(NSObject sender)
         {
             Analysis.StopAnalysisProcess = true;
+            SpolarRecordAnalysisController.StopAnalysis = true;
+            DataManager.StopProcessCopying = true;
         }
     }
 }

@@ -1248,8 +1248,8 @@ namespace AnalysisITC
             if (!DrawOnWhite) lines.Add("RMSD: " + ExperimentData.Solution.Loss.ToString("G4"));
             lines.Add("N = " + ExperimentData.Solution.N.ToString("F2"));
             lines.Add("Kd = " + ExperimentData.Solution.Kd.AsDissociationConstant());
-            lines.Add("∆H = " + ExperimentData.Solution.Enthalpy.ToString(EnergyUnit.KiloJoule));
-            lines.Add("-T∆S = " + ExperimentData.Solution.TdS.ToString(EnergyUnit.KiloJoule));
+            lines.Add("∆H = " + ExperimentData.Solution.Enthalpy.ToString(EnergyUnit.KiloJoule, permole: true));
+            lines.Add("-T∆S = " + ExperimentData.Solution.TdS.ToString(EnergyUnit.KiloJoule, permole: true));
             if (!DrawOnWhite) lines.Add("Offset = " + ExperimentData.Solution.Offset.ToString(EnergyUnit.KiloJoule));
             DrawTextBox(gc, lines, DrawOnWhite ? new CTFont(DefaultFont.DisplayName, 12) : new CTFont(DefaultFont.DisplayName, 24), NSRectAlignment.BottomTrailing);
         }

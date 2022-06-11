@@ -114,8 +114,12 @@ namespace AnalysisITC
             DataDidChange?.Invoke(null, null);
         }
 
+        public static bool StopProcessCopying { get; set; } = false;
+
         public static async void CopySelectedProcessToAll()
         {
+            StopProcessCopying = false;
+
             if (Current == null) return;
             if (Current.Processor.Interpolator == null) return;
 
@@ -137,7 +141,7 @@ namespace AnalysisITC
 
             foreach (var data in Data)
             {
-                if (data == Current) continue;
+                if (data == Current || StopProcessCopying) continue;
 
                 i++;
 

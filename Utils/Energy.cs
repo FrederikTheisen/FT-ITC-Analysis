@@ -61,14 +61,6 @@ namespace AnalysisITC
 
         public static Energy operator *(double val, Energy e) => new Energy(e.FloatWithError * val);
 
-        //public static bool operator <(Energy v1, Energy v2) => v1.Value.Value < v2.Value.Value;
-
-        //public static bool operator >(Energy v1, Energy v2) => v1.Value.Value > v2.Value.Value;
-
-        //public static bool operator <(Energy v1, double v2) => v1.Value.Value < v2;
-
-        //public static bool operator >(Energy v1, double v2) => v1.Value.Value > v2;
-
         public static implicit operator double(Energy e) => e.FloatWithError.Value;
 
         //TODO add unit to print
@@ -82,9 +74,20 @@ namespace AnalysisITC
             return FloatWithError.ToString(formatter);
         }
 
-        public string ToString(EnergyUnit unit, string formatter = "F1", bool withunit = true)
+        public static string Suffix(bool permole = false, bool perK = false)
+        {
+            string suffix = "";
+
+            if (permole) suffix += "/mol";
+            if (perK) suffix += "·K";
+
+            return suffix;
+        }
+
+        public string ToString(EnergyUnit unit, string formatter = "F1", bool withunit = true, bool permole = false, bool perK = false)
         {
             var suffix = withunit ? unit.GetUnit() : "";
+            suffix += Suffix(permole, perK);
 
             return unit switch
             {

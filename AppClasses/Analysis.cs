@@ -349,7 +349,7 @@ namespace AnalysisITC
                 Console.WriteLine(s);
             }
 
-                Solution.BootstrapSolutions = solutions;
+            Solution.BootstrapSolutions = solutions;
             Solution.ComputeErrorsFromBootstrapSolutions();
         }
 
@@ -434,6 +434,7 @@ namespace AnalysisITC
         public int MaximumEvaluations { get; set; } = 300000;
         public double AbsoluteFunctionTolerance { get; set; } = double.Epsilon;
         public double AbsoluteParameterTolerance { get; set; } = 0.001;
+        public double RelativeSolutionTolerance { get; set; } = 2E-10;
 
         public virtual int GetVariableCount
         {
@@ -619,6 +620,7 @@ namespace AnalysisITC
         {
             BootstrapInitialValues = bootstrapinitialvalues;
             AbsoluteFunctionTolerance = 0.0000000000000000001;
+            RelativeSolutionTolerance = 1.5E-3;
         }
 
         void SetBounds(NelderMead solver)
@@ -648,7 +650,7 @@ namespace AnalysisITC
             {
                 MaximumEvaluations = MaximumEvaluations,
                 AbsoluteFunctionTolerance = AbsoluteFunctionTolerance,
-                RelativeParameterTolerance = 0.01,
+                RelativeParameterTolerance = RelativeSolutionTolerance,
                 StartTime = DateTime.Now,
             };
 
