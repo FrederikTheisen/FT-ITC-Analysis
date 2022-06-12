@@ -9,11 +9,16 @@ namespace AnalysisITC
     {
         public static EnergyUnit Unit { get; set; } = EnergyUnit.Joule;
 
+        public static event EventHandler<ExperimentData> DataDidChange;
+        public static event EventHandler<ExperimentData> SelectionDidChange;
+        public static event EventHandler<AnalysisResult> AnalysisResultSelected;
+
         public static AnalysisITCDataSource DataSource { get; private set; }
         public static List<ITCDataContainer> DataSourceContent => DataSource.Content;
         public static List<AnalysisResult> Results => DataSourceContent.Where(o => o is AnalysisResult).Select(o => o as AnalysisResult).ToList();
         public static List<ExperimentData> Data => DataSourceContent.Where(o => o is ExperimentData).Select(o => o as ExperimentData).ToList();
         public static IEnumerable<ExperimentData> IncludedData => Data.Where(d => d.Include);
+        public static ExperimentData Current => SelectedDataIndex == -1 || (SelectedDataIndex >= Count) ? null : Data[SelectedDataIndex];
 
         static int selectedDataIndex = 0;
         public static int SelectedDataIndex
@@ -37,18 +42,12 @@ namespace AnalysisITC
             }
         }
 
-        public static event EventHandler<ExperimentData> DataDidChange;
-        public static event EventHandler<ExperimentData> SelectionDidChange;
-        public static event EventHandler<AnalysisResult> AnalysisResultSelected;
-
         public static int Count => Data.Count();
 
         public static bool DataIsLoaded => DataSource.Content.Exists(o => o is ExperimentData);
         public static bool AllDataIsBaselineProcessed => Data.All(d => d.Processor.BaselineCompleted);
         public static bool AnyDataIsBaselineProcessed => Data.Any(d => d.Processor.BaselineCompleted);
         public static bool AnyDataIsAnalyzed => Data.Any(d => d.Solution != null);
-
-        public static ExperimentData Current => SelectedDataIndex == -1 || (SelectedDataIndex >= Count) ? null : Data[SelectedDataIndex];
 
         public static void Init()
         {
@@ -78,6 +77,21 @@ namespace AnalysisITC
             }
         }
 
+        public static void RemoveData(ITCDataContainer data)
+        {
+            Console.WriteLine("DM REMOVE: " + data.UniqueID + " " + DataSourceContent.IndexOf(data));
+            var idx = DataSource.Content.IndexOf(data);
+            var current_selected_item = DataSource.Content[SelectedContentIndex];
+            var will_delete_selected = idx == DataSource.Content.IndexOf(current_selected_item);
+
+            DataSource.Content.Remove(data);
+
+            if (will_delete_selected) DataDidChange.Invoke(null, null);
+
+            //if (!will_delete_selected) SelectIndex(DataSource.Content.IndexOf(current_selected_item));
+            //else SelectionDidChange?.Invoke(null, null);
+        }
+
         internal static void RemoveData(int index)
         {
             if (SelectedContentIndex >= index) SelectedContentIndex--;
@@ -93,10 +107,8 @@ namespace AnalysisITC
 
                 DataDidChange.Invoke(null, Current);
             }
-            else
-            {
-                DataSourceContent.RemoveAt(index);
-            }
+            else DataSourceContent.RemoveAt(index);
+            
         }
 
         public static void AddData(ITCDataContainer data)

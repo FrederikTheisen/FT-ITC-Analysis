@@ -73,7 +73,6 @@ namespace AnalysisITC
     {
         public int SelectedIndex => DataManager.SelectedContentIndex;
 
-        //public List<ExperimentData> Data { get; private set; }
         public List<ITCDataContainer> Content { get; private set; } = new List<ITCDataContainer>();
 
         #region Constructors

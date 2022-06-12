@@ -15,6 +15,7 @@ namespace AnalysisITC
         AnalysisITCDataSource source;
         AnalysisResult data;
         int ContentIndex => source.Content.IndexOf(data);
+        int row = -1;
 
         public AnalysisResultView (IntPtr handle) : base (handle)
 		{
@@ -24,8 +25,9 @@ namespace AnalysisITC
         {
             this.source = source;
             this.data = analysisResult;
+            this.row = row;
 
-            ResultTitleLabel.StringValue = analysisResult.FileName;
+            ResultTitleLabel.StringValue = analysisResult.UniqueID;// analysisResult.FileName;
             ResultContentLabel.StringValue = analysisResult.GetResultString();
         }
 
@@ -36,11 +38,18 @@ namespace AnalysisITC
 
         partial void RemoveButtonClick(NSObject sender)
         {
-            if (ContentIndex < 0)
-                return;
-            RemoveData?.Invoke(this, ContentIndex);
+            Console.WriteLine("BTN CLICK: " + data.UniqueID + " " + ContentIndex);
 
-            DataManager.RemoveData(ContentIndex);
+            if (ContentIndex == -1)
+            {
+
+            }
+
+            int idx = ContentIndex;
+
+            DataManager.RemoveData(data);
+
+            RemoveData?.Invoke(this, idx);
         }
     }
 }

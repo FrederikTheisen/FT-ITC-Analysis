@@ -100,11 +100,10 @@ namespace AnalysisITC
 
         private void OnRowRemoveEvent(object sender, int e)
         {
-            //if (e == DataManager.SelectedIndex) DataManager.SelectedIndex++;
+            //var item = (TableView.Delegate as ExperimentDataDelegate).Source.Content[e];
+            //Console.WriteLine("TV REMOVE: " + item.UniqueID + " " + e);
 
             TableView.RemoveRows(new NSIndexSet(e), NSTableViewAnimation.SlideLeft);
-
-            //TableView.SelectRow(DataManager.DataSource.SelectedIndex, false);
         }
 
         private void OnDataViewClicked(object sender, EventArgs e)
