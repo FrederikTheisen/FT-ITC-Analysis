@@ -159,7 +159,8 @@ namespace AnalysisITC
             var inj_first = Data.Injections[idx1];
             var inj_last = Data.Injections[idx2];
 
-            Graph.SetXAxisRange(inj_first.Time - inj_first.Delay * 0.2f, inj_last.Time + inj_last.Delay * 1.2f);
+            //If fitst injection is #0, then start draw at t = 0
+            Graph.SetXAxisRange(idx1 == 0 ? 0 : inj_first.Time - inj_first.Delay * 0.2f, inj_last.Time + inj_last.Delay * 1.2f);
 
             isInjectionZoomed = true;
 
