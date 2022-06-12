@@ -129,6 +129,8 @@ namespace AnalysisITC
                 await Task.Delay(2000);
                 if (abortscroll) break;
             }
+
+            StatusUpdated?.Invoke(null, Status.Message);
         }
 
         public static async void SetSecondaryStatus(string status, int delay = 20000)
