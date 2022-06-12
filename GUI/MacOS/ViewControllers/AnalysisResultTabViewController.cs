@@ -36,12 +36,11 @@ namespace AnalysisITC
 
             var result = new List<string>()
             {
-                "SpolarRecord Analysis Result:",
-                "Structure Mode: " + sr.SRFoldedMode switch { SpolarRecordAnalysisController.SRFoldedMode.Glob => "Globular Mode", SpolarRecordAnalysisController.SRFoldedMode.Intermediate => "Intermediate Mode", SpolarRecordAnalysisController.SRFoldedMode.ID => "ID Interaction Mode", },
-                "Temperature Mode: " + sr.SRTempMode switch { SpolarRecordAnalysisController.SRTempMode.IsoEntropicPoint => "Isoentropic (", SpolarRecordAnalysisController.SRTempMode.MeanTemperature => "Data Set Mean (", SpolarRecordAnalysisController.SRTempMode.ReferenceTemperature => "Set Reference (" } + sr.AnalysisResult.ReferenceTemperature.ToString() + " °C)",
-                "Hydration Entropy: " + new Energy(sr.AnalysisResult.HydrationContribution(sr.EvalutationTemperature(false))).ToString(EnergyUnit.KiloJoule, permole: true),
-                "Conformational Entropy: " + new Energy(sr.AnalysisResult.ConformationalContribution(sr.EvalutationTemperature(false))).ToString(EnergyUnit.KiloJoule, permole: true),
-                "Structuring (R-value): " + sr.AnalysisResult.Rvalue.ToString() + " residues",
+                sr.SRFoldedMode switch { SpolarRecordAnalysisController.SRFoldedMode.Glob => "Globular Mode", SpolarRecordAnalysisController.SRFoldedMode.Intermediate => "Intermediate Mode", SpolarRecordAnalysisController.SRFoldedMode.ID => "ID Interaction Mode", },
+                sr.SRTempMode switch { SpolarRecordAnalysisController.SRTempMode.IsoEntropicPoint => "Isoentropic (", SpolarRecordAnalysisController.SRTempMode.MeanTemperature => "Data Set Mean (", SpolarRecordAnalysisController.SRTempMode.ReferenceTemperature => "Set Reference (" } + sr.AnalysisResult.ReferenceTemperature.ToString() + " °C)",
+                new Energy(sr.AnalysisResult.HydrationContribution(sr.EvalutationTemperature(false))).ToString(EnergyUnit.KiloJoule, permole: true),
+                new Energy(sr.AnalysisResult.ConformationalContribution(sr.EvalutationTemperature(false))).ToString(EnergyUnit.KiloJoule, permole: true),
+                sr.AnalysisResult.Rvalue.ToString() + " residues",
             };
 
             SRResultTextField.StringValue = string.Join(Environment.NewLine, result);
