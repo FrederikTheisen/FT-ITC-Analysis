@@ -96,20 +96,24 @@ namespace AnalysisITC
 
         void Setup()
         {
-            string values = "";
+            string fit = "";
+            string constraints = "";
+            string dataset = "";
 
             if (this.NextResponder is NSWindow) (this.NextResponder as NSWindow).Title = AnalysisResult.FileName;
 
-            values += AnalysisResult.Solution.Model.Models[0].ModelName + Environment.NewLine;
-            values += AnalysisResult.Solution.Solutions.Count + " experiments" + Environment.NewLine;
-            values += AnalysisResult.Solution.Convergence.Iterations + " | " + AnalysisResult.Solution.Loss.ToString("G3") + " | " + AnalysisResult.Solution.Convergence.Time.TotalSeconds + "s" + Environment.NewLine;
-            values += AnalysisResult.Solution.BootstrapIterations + " iterations" + Environment.NewLine;
-            values += AnalysisResult.Solution.Model.Options.EnthalpyStyle.ToString() + Environment.NewLine;
-            values += AnalysisResult.Solution.Model.Options.AffinityStyle.ToString() + Environment.NewLine;
-            values += AnalysisResult.Solution.Model.MeanTemperature.ToString("F2") + " °C";
+            fit += AnalysisResult.Solution.Model.Models[0].ModelName + Environment.NewLine;
+            dataset += AnalysisResult.Solution.Solutions.Count + " experiments" + Environment.NewLine;
+            fit += AnalysisResult.Solution.Convergence.Iterations + " | " + AnalysisResult.Solution.Loss.ToString("G3") + " | " + AnalysisResult.Solution.Convergence.Time.TotalMilliseconds.ToString("F0") + "ms" + Environment.NewLine;
+            fit += AnalysisResult.Solution.BootstrapIterations + " | " + AnalysisResult.Solution.BootstrapTime.TotalSeconds.ToString("F1") + "s";
+            constraints += AnalysisResult.Solution.Model.Options.EnthalpyStyle.ToString() + Environment.NewLine;
+            constraints += AnalysisResult.Solution.Model.Options.AffinityStyle.ToString() + Environment.NewLine;
+            constraints += AnalysisResult.Solution.Model.Options.NStyle.ToString();
+            dataset += AnalysisResult.Solution.Model.MeanTemperature.ToString("F3") + " °C";
 
-
-            ValueLabel.StringValue = values;
+            FitParameterLabel.StringValue = fit;
+            ConstraintLabel.StringValue = constraints;
+            DataSetParameterLabel.StringValue = dataset;
         }
 
         partial void CopyToClipboard(NSObject sender)
@@ -134,6 +138,20 @@ namespace AnalysisITC
             NSPasteboard.GeneralPasteboard.SetStringForType(paste,  "NSStringPboardType");
 
             StatusBarManager.SetStatus("Results copied to clipboard", 3333);
+        }
+
+        partial void LoadSolutionsToExperiments(NSObject sender)
+        {
+            StatusBarManager.SetStatus("Copying solutions to experiments...");
+
+            foreach (var sol in AnalysisResult.Solution.Solutions)
+            {
+                sol.Data.UpdateSolution(sol);
+            }
+
+            StatusBarManager.SetStatus("Solutions updated", 2000);
+
+            DataAnalysisViewController.InvalidateGraph();
         }
 
         partial void CloseButtonClicked(NSObject sender)

@@ -13,7 +13,16 @@ namespace AnalysisITC
 	partial class BindingAnalysisViewController
 	{
 		[Outlet]
+		AppKit.NSTextField ConstraintLabel { get; set; }
+
+		[Outlet]
+		AppKit.NSTextField DataSetParameterLabel { get; set; }
+
+		[Outlet]
 		AppKit.NSSegmentedControl EnergyUnitControl { get; set; }
+
+		[Outlet]
+		AppKit.NSTextField FitParameterLabel { get; set; }
 
 		[Outlet]
 		AnalysisITC.TemperatureDependenceGraphView Graph { get; set; }
@@ -50,6 +59,21 @@ namespace AnalysisITC
 		
 		void ReleaseDesignerOutlets ()
 		{
+			if (DataSetParameterLabel != null) {
+				DataSetParameterLabel.Dispose ();
+				DataSetParameterLabel = null;
+			}
+
+			if (ConstraintLabel != null) {
+				ConstraintLabel.Dispose ();
+				ConstraintLabel = null;
+			}
+
+			if (FitParameterLabel != null) {
+				FitParameterLabel.Dispose ();
+				FitParameterLabel = null;
+			}
+
 			if (EnergyUnitControl != null) {
 				EnergyUnitControl.Dispose ();
 				EnergyUnitControl = null;

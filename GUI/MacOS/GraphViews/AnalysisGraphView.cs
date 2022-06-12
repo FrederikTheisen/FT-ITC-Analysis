@@ -43,6 +43,11 @@ namespace AnalysisITC
             Invalidate();
         }
 
+        private void Experiment_SolutionChanged(object sender, EventArgs e)
+        {
+            Invalidate();
+        }
+
         public override void MouseMoved(NSEvent theEvent)
         {
             base.MouseMoved(theEvent);
