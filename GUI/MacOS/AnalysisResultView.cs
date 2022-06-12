@@ -27,7 +27,7 @@ namespace AnalysisITC
             this.data = analysisResult;
             this.row = row;
 
-            ResultTitleLabel.StringValue = analysisResult.UniqueID;// analysisResult.FileName;
+            ResultTitleLabel.StringValue = analysisResult.FileName;
             ResultContentLabel.StringValue = analysisResult.GetResultString();
         }
 
