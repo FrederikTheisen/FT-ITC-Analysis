@@ -9,6 +9,9 @@ namespace AnalysisITC
 {
 	public partial class DataAnalysisViewController : NSViewController
 	{
+        public static event EventHandler Invalidate;
+        public static void InvalidateGraph() => Invalidate.Invoke(null, null);
+
         AnalysisModel SelectedAnalysisModel => (AnalysisModel)(int)ModelTypeControl.SelectedSegment;
         bool ShowPeakInfo => PeakInfoScopeButton.State == NSCellStateValue.On;
         bool ShowParameters => ParametersScopeButton.State == NSCellStateValue.On;
@@ -28,6 +31,7 @@ namespace AnalysisITC
             Analysis.BootstrapIterationFinished += Analysis_BootstrapIterationFinished;
             DataManager.SelectionDidChange += DataManager_SelectionDidChange;
             DataManager.DataDidChange += DataManager_DataDidChange;
+            Invalidate += Analysis_AnalysisIterationFinished;
 
             GlobalAffinityStyle.Hidden = true;
             GlobalEnthalpyStyle.Hidden = true;
@@ -134,9 +138,9 @@ namespace AnalysisITC
 
         void GlobalAnalysis()
         {
-            var estyle = (Analysis.VariableStyle)(int)EnthalpyStyleSegControl.SelectedSegment;
-            var astyle = (Analysis.VariableStyle)(int)AffinityStyleSegControl.SelectedSegment;
-            var nstyle = NStyleSegControl.SelectedSegment == 0 ? Analysis.VariableStyle.Free : Analysis.VariableStyle.SameForAll;
+            var estyle = (Analysis.VariableConstraint)(int)EnthalpyStyleSegControl.SelectedSegment;
+            var astyle = (Analysis.VariableConstraint)(int)AffinityStyleSegControl.SelectedSegment;
+            var nstyle = NStyleSegControl.SelectedSegment == 0 ? Analysis.VariableConstraint.None : Analysis.VariableConstraint.SameForAll;
 
             Analysis.GlobalAnalyzer.InitializeAnalyzer(estyle, astyle, nstyle);
             Analysis.GlobalAnalyzer.Solve(SelectedAnalysisModel);
