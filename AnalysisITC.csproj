@@ -378,6 +378,7 @@
     </Compile>
     <Compile Include="AppClasses\Math\ErrorPropagation.cs" />
     <Compile Include="AppSettings.cs" />
+    <Compile Include="GUI\MacOS\AnalysisResult.cs" />
   </ItemGroup>
   <ItemGroup>
     <InterfaceDefinition Include="Main.storyboard" />
