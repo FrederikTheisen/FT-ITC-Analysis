@@ -236,19 +236,19 @@ namespace AnalysisITC
             OffsetReferenceEntropy = EntropyDependence.Evaluate(AppSettings.ReferenceTemperature);
 
             await Task.Run(() => Evaluate(SpolarRecordAnalysisController.CalculationIterations));
-
-            Console.WriteLine(AnalysisResult);
         }
 
         (double, double, double) EvaluateExact()
         {
             var temp = Math.Abs(273.15 + EvalutationTemperature(sample: false));
-            var ds = SRTempMode switch
+            var tds = SRTempMode switch
             {
-                SpolarRecordAnalysisController.SRTempMode.MeanTemperature => (ReferenceEntropy / (-temp)).Value,
-                SpolarRecordAnalysisController.SRTempMode.ReferenceTemperature => (OffsetReferenceEntropy / (-temp)).Value,
+                SpolarRecordAnalysisController.SRTempMode.MeanTemperature => (ReferenceEntropy).Value,
+                SpolarRecordAnalysisController.SRTempMode.ReferenceTemperature => (OffsetReferenceEntropy).Value,
                 _ => 0,
             };
+
+            var ds = tds / -temp;
 
             var cp = HeatCapacityChange.Value;
             var ap = ApCoeff.Value;
@@ -314,13 +314,7 @@ namespace AnalysisITC
 
             IterationsCompleted++;
 
-            
-
             AnalysisResult = new SROutput(new(list_ds_he, exact_ds_he), new(list_ds_conf, exact_ds_conf), new(list_ds_r, exact_r), SRTempMode == SpolarRecordAnalysisController.SRTempMode.IsoEntropicPoint ? TS : new(EvalutationTemperature(sample: false)));
-
-            Console.WriteLine(AnalysisResult.ReferenceTemperature + " " + AnalysisResult.Rvalue.Value + " " + AnalysisResult.Rvalue.SD);
-            //foreach (var r in list_ds_r) Console.WriteLine(r);
-
         }
 
         public class SROutput : Tuple<FloatWithError, FloatWithError, FloatWithError, FloatWithError>
