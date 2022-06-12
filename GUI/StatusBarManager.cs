@@ -115,7 +115,7 @@ namespace AnalysisITC
                 Status = new StatusMessage(tmp, false);
                 await Task.Delay(2000);
 
-                while (tmp.Length > 20)
+                while (tmp.Length > 35)
                 {
                     Status = new StatusMessage(tmp, false);
                     tmp = tmp.Substring(1);
