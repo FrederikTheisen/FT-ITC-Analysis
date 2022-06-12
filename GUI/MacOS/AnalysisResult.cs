@@ -6,6 +6,8 @@ namespace AnalysisITC
     public class AnalysisResult : ITCDataContainer
     {
         public GlobalSolution Solution { get; set; }
+        GlobalModel Model => Solution.Model;
+        SolverOptions Options => Model.Options;
 
         public AnalysisResult(GlobalSolution solution)
         {
@@ -17,20 +19,21 @@ namespace AnalysisITC
 
         public string GetResultString()
         {
-            string s = "Fit of " + Solution.Solutions.Count.ToString() + " experiments";
+            string s = "Fit of " + Solution.Solutions.Count.ToString() + " experiments" + Environment.NewLine;
+            if (Options.EnthalpyStyle == Analysis.VariableConstraint.None &&
+                Options.AffinityStyle == Analysis.VariableConstraint.None &&
+                Options.NStyle == Analysis.VariableConstraint.None) s += "All variables unconstrained" + Environment.NewLine;
+            else
+            {
+                if (Options.EnthalpyStyle != Analysis.VariableConstraint.None) s += "Enthalpy: " + Options.EnthalpyStyle.ToString() + Environment.NewLine;
+                if (Options.AffinityStyle != Analysis.VariableConstraint.None) s += "Affinity: " + Options.AffinityStyle.ToString() + Environment.NewLine;
+                if (Options.NStyle != Analysis.VariableConstraint.None) s += "N-value: " + Options.NStyle.ToString() + Environment.NewLine;
+            }
 
-            s += Environment.NewLine;
-            s += "Enthalpy:" + Solution.Model.Options.EnthalpyStyle.ToString();
-            s += Environment.NewLine;
-            s += "Affinity:" + Solution.Model.Options.AffinityStyle.ToString();
-            s += Environment.NewLine;
-            s += "N-value:" + Solution.Model.Options.NStyle.ToString();
-            s += Environment.NewLine;
-            s += "∆H @ 25 °C = " + Solution.StandardEnthalpy.ToString(EnergyUnit.KiloJoule, permole: true);
-            s += Environment.NewLine;
-            s += "∆Cp = " + Solution.HeatCapacity.ToString(EnergyUnit.Joule, "F0", permole: true, perK: true);
+            s += "∆H° = " + Solution.StandardEnthalpy.ToString(EnergyUnit.KiloJoule, permole: true) + Environment.NewLine;
+            s += "∆Cₚ = " + Solution.HeatCapacity.ToString(EnergyUnit.Joule, "F0", permole: true, perK: true);
 
-            return s;
+            return s.Trim();
         }
 
         internal double GetMinimumTemperature() => Solution.Solutions.Min(s => s.T);
