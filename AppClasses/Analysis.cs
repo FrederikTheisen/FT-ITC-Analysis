@@ -71,7 +71,7 @@ namespace AnalysisITC
         {
             static GlobalModel Model { get; set; }
 
-            public static void InitializeAnalyzer(VariableStyle enthalpystyle, VariableStyle affinitystyle = VariableStyle.Free, VariableStyle nstyle = VariableStyle.Free)
+            public static void InitializeAnalyzer(VariableConstraint enthalpystyle, VariableConstraint affinitystyle = VariableConstraint.None, VariableConstraint nstyle = VariableConstraint.None)
             {
                 Model = new GlobalModel();
 
@@ -91,7 +91,7 @@ namespace AnalysisITC
                     Model.Models.Add(new OneSetOfSites(data));
                     if (data.Solution != null) data.Solution.IsValid = false;
 
-                    data.UpdateSolution();
+                    data.UpdateSolution(null);
                 }
 
                 if (!double.IsNaN(Hinit)) Model.InitialHs = new double[Model.Models.Count].Add(Hinit);
@@ -234,9 +234,9 @@ namespace AnalysisITC
             }
         }
 
-        public enum VariableStyle
+        public enum VariableConstraint
         {
-            Free,
+            None,
             TemperatureDependent,
             SameForAll
         }
@@ -428,9 +428,9 @@ namespace AnalysisITC
         public SolverOptions Options { get; set; }
 
         public double MeanTemperature => Models.Average(m => m.Temperature);
-        public Analysis.VariableStyle EnthalpyStyle => Options.EnthalpyStyle;
-        public Analysis.VariableStyle AffinityStyle => Options.AffinityStyle;
-        public Analysis.VariableStyle NStyle => Options.NStyle;
+        public Analysis.VariableConstraint EnthalpyStyle => Options.EnthalpyStyle;
+        public Analysis.VariableConstraint AffinityStyle => Options.AffinityStyle;
+        public Analysis.VariableConstraint NStyle => Options.NStyle;
         public int MaximumEvaluations { get; set; } = 300000;
         public double AbsoluteFunctionTolerance { get; set; } = double.Epsilon;
         public double AbsoluteParameterTolerance { get; set; } = 0.001;
@@ -444,23 +444,23 @@ namespace AnalysisITC
 
                 switch (EnthalpyStyle)
                 {
-                    case Analysis.VariableStyle.TemperatureDependent: nvar += 2; break;
-                    case Analysis.VariableStyle.Free: nvar += Models.Count; break;
-                    case Analysis.VariableStyle.SameForAll:
+                    case Analysis.VariableConstraint.TemperatureDependent: nvar += 2; break;
+                    case Analysis.VariableConstraint.None: nvar += Models.Count; break;
+                    case Analysis.VariableConstraint.SameForAll:
                     default: nvar += 1; break;
                 }
 
                 switch (AffinityStyle)
                 {
-                    case Analysis.VariableStyle.Free: nvar += Models.Count; break;
-                    case Analysis.VariableStyle.TemperatureDependent:
-                    case Analysis.VariableStyle.SameForAll:
+                    case Analysis.VariableConstraint.None: nvar += Models.Count; break;
+                    case Analysis.VariableConstraint.TemperatureDependent:
+                    case Analysis.VariableConstraint.SameForAll:
                     default: nvar += 1; break;
                 }
 
                 switch (NStyle)
                 {
-                    case Analysis.VariableStyle.SameForAll: nvar += 1; break;
+                    case Analysis.VariableConstraint.SameForAll: nvar += 1; break;
                     default: nvar += Models.Count; break;
                 }
 
@@ -486,7 +486,7 @@ namespace AnalysisITC
         {
             get
             {
-                if (EnthalpyStyle != Analysis.VariableStyle.TemperatureDependent) return 0;
+                if (EnthalpyStyle != Analysis.VariableConstraint.TemperatureDependent) return 0;
                 if (Models.Count < 2) return 0;
                 if (Models.Max(m => m.Data.MeasuredTemperature) - Models.Min(m => m.Data.MeasuredTemperature) < 1) return 0;
 
@@ -501,7 +501,7 @@ namespace AnalysisITC
         {
             get
             {
-                if (EnthalpyStyle != Analysis.VariableStyle.TemperatureDependent) return Models.Select(m => m.GuessH).Average();
+                if (EnthalpyStyle != Analysis.VariableConstraint.TemperatureDependent) return Models.Select(m => m.GuessH).Average();
                 if (Models.Count < 2) return Models.First().GuessH;
                 if (Models.Max(m => m.Data.MeasuredTemperature) - Models.Min(m => m.Data.MeasuredTemperature) < 1) return Models.Average(m => m.Data.Injections.First(inj => inj.Include).Enthalpy);
 
@@ -526,17 +526,17 @@ namespace AnalysisITC
             var offsets = GuessOffsets();
 
             var w = new List<double>();
-            if (EnthalpyStyle == Analysis.VariableStyle.Free) w.AddRange(Models.Select(m => m.GuessH));
+            if (EnthalpyStyle == Analysis.VariableConstraint.None) w.AddRange(Models.Select(m => m.GuessH));
             else w.Add(H0);
 
-            if (EnthalpyStyle == Analysis.VariableStyle.TemperatureDependent) w.Add(Cp);
+            if (EnthalpyStyle == Analysis.VariableConstraint.TemperatureDependent) w.Add(Cp);
 
-            if (AffinityStyle == Analysis.VariableStyle.Free) w.AddRange(G);
+            if (AffinityStyle == Analysis.VariableConstraint.None) w.AddRange(G);
             else w.Add(G.First());
 
             w.AddRange(offsets);
 
-            if (NStyle == Analysis.VariableStyle.SameForAll) w.Add(ns.First());
+            if (NStyle == Analysis.VariableConstraint.SameForAll) w.Add(ns.First());
             else w.AddRange(ns);
 
             return w.ToArray();
@@ -548,12 +548,12 @@ namespace AnalysisITC
             {
                 var stepsizes = new List<double>();
 
-                if (EnthalpyStyle == Analysis.VariableStyle.Free) { for (int i = 0; i < Models.Count; i++) stepsizes.Add(Analysis.Hstep); }
+                if (EnthalpyStyle == Analysis.VariableConstraint.None) { for (int i = 0; i < Models.Count; i++) stepsizes.Add(Analysis.Hstep); }
                 else stepsizes.Add(Analysis.Hstep);
 
-                if (EnthalpyStyle == Analysis.VariableStyle.TemperatureDependent) stepsizes.Add(Analysis.Cstep);
+                if (EnthalpyStyle == Analysis.VariableConstraint.TemperatureDependent) stepsizes.Add(Analysis.Cstep);
 
-                if (AffinityStyle == Analysis.VariableStyle.Free) { for (int i = 0; i < Models.Count; i++) stepsizes.Add(Analysis.Gstep); }
+                if (AffinityStyle == Analysis.VariableConstraint.None) { for (int i = 0; i < Models.Count; i++) stepsizes.Add(Analysis.Gstep); }
                 else stepsizes.Add(Analysis.Gstep);
 
                 for (int i = 0; i < Models.Count; i++) stepsizes.Add(Analysis.Ostep);
@@ -572,12 +572,12 @@ namespace AnalysisITC
                 //if (BootstrapInitialValues != null) return BootstrapInitialValues.Select(v => v - 0.1 * Math.Abs(v)).ToArray();
                 var bounds = new List<double>();
 
-                if (EnthalpyStyle == Analysis.VariableStyle.Free) { for (int i = 0; i < Models.Count; i++) bounds.Add(Analysis.Hbounds[0]); }
+                if (EnthalpyStyle == Analysis.VariableConstraint.None) { for (int i = 0; i < Models.Count; i++) bounds.Add(Analysis.Hbounds[0]); }
                 else bounds.Add(Analysis.Hbounds[0]);
 
-                if (EnthalpyStyle == Analysis.VariableStyle.TemperatureDependent) bounds.Add(Analysis.Cbounds[0]);
+                if (EnthalpyStyle == Analysis.VariableConstraint.TemperatureDependent) bounds.Add(Analysis.Cbounds[0]);
 
-                if (AffinityStyle == Analysis.VariableStyle.Free) { for (int i = 0; i < Models.Count; i++) bounds.Add(Analysis.Gbounds[0]); }
+                if (AffinityStyle == Analysis.VariableConstraint.None) { for (int i = 0; i < Models.Count; i++) bounds.Add(Analysis.Gbounds[0]); }
                 else bounds.Add(Analysis.Gbounds[0]);
 
                 bounds.AddRange(new double[Models.Count].Add(Analysis.Obounds[0]));
@@ -594,12 +594,12 @@ namespace AnalysisITC
                 //if (BootstrapInitialValues != null) return BootstrapInitialValues.Select(v => v + 0.1 * Math.Abs(v)).ToArray();
                 var bounds = new List<double>();
 
-                if (EnthalpyStyle == Analysis.VariableStyle.Free) { for (int i = 0; i < Models.Count; i++) bounds.Add(Analysis.Hbounds[1]); }
+                if (EnthalpyStyle == Analysis.VariableConstraint.None) { for (int i = 0; i < Models.Count; i++) bounds.Add(Analysis.Hbounds[1]); }
                 else bounds.Add(Analysis.Hbounds[1]);
 
-                if (EnthalpyStyle == Analysis.VariableStyle.TemperatureDependent) bounds.Add(Analysis.Cbounds[1]);
+                if (EnthalpyStyle == Analysis.VariableConstraint.TemperatureDependent) bounds.Add(Analysis.Cbounds[1]);
 
-                if (AffinityStyle == Analysis.VariableStyle.Free) { for (int i = 0; i < Models.Count; i++) bounds.Add(Analysis.Gbounds[1]); }
+                if (AffinityStyle == Analysis.VariableConstraint.None) { for (int i = 0; i < Models.Count; i++) bounds.Add(Analysis.Gbounds[1]); }
                 else bounds.Add(Analysis.Gbounds[1]);
 
                 bounds.AddRange(new double[Models.Count].Add(Analysis.Obounds[1]));
@@ -708,6 +708,8 @@ namespace AnalysisITC
                 model.Solution.BootstrapSolutions = sols;
                 model.Solution.ComputeErrorsFromBootstrapSolutions();
             }
+
+            Solution.BootstrapTime = DateTime.Now - start;
         }
 
         internal virtual double LossFunction(double[] w)
@@ -897,6 +899,7 @@ namespace AnalysisITC
         /// Parameters of the individual experiments derived from the global solution
         /// </summary>
         public List<Solution> Solutions { get; private set; } = new List<Solution>();
+        public TimeSpan BootstrapTime { get; internal set; }
 
         public void SetEnthalpiesFromBootstrap(List<GlobalSolution> solutions)
         {
@@ -931,7 +934,7 @@ namespace AnalysisITC
                 var dt = m.Data.MeasuredTemperature - model.MeanTemperature;
                 var pset = parameters.ParameterSetForModel(j);
 
-                var dH = model.EnthalpyStyle == Analysis.VariableStyle.TemperatureDependent ? pset.dH + pset.dCp * dt : pset.dH;
+                var dH = model.EnthalpyStyle == Analysis.VariableConstraint.TemperatureDependent ? pset.dH + pset.dCp * dt : pset.dH;
                 var K = Math.Exp(pset.dG / (-1 * Energy.R.Value * (m.Data.MeasuredTemperature + 273.15)));
                 var sol = new Solution(pset.N, dH, K, pset.Offset, m, m.RMSD(pset.N, dH, K, pset.Offset, false));
 
@@ -981,20 +984,20 @@ namespace AnalysisITC
             switch (parameters.EnthalpyStyle)
             {
                 default:
-                case Analysis.VariableStyle.Free: //if dH is free, then fit both reference and standard enthalpies
+                case Analysis.VariableConstraint.None: //if dH is free, then fit both reference and standard enthalpies
                     var xy = model.Models.Select((m, i) => new double[] { m.Data.MeasuredTemperature, parameters.Enthalpies[i] }).ToArray();
                     var reg = MathNet.Numerics.LinearRegression.SimpleRegression.Fit(xy.GetColumn(0), xy.GetColumn(1));
                     cp = reg.B;
                     Hstandard = reg.A + 25 * cp;
                     H0 = reg.A + model.MeanTemperature * cp;
                     break;
-                case Analysis.VariableStyle.TemperatureDependent: //if temperature dependent, then the reference is the fit value, propagate to standard enthalpy
+                case Analysis.VariableConstraint.TemperatureDependent: //if temperature dependent, then the reference is the fit value, propagate to standard enthalpy
                     var dt = 25 - model.MeanTemperature;
                     cp = parameters.HeatCapacity;
                     Hstandard = parameters.HeatCapacity * dt + parameters.Enthalpies.First();
                     H0 = parameters.Enthalpies.First();
                     break;
-                case Analysis.VariableStyle.SameForAll: //if same for all, then fitted value is both reference and standard??
+                case Analysis.VariableConstraint.SameForAll: //if same for all, then fitted value is both reference and standard??
                     cp = 0;
                     H0 = parameters.Enthalpies.First();
                     Hstandard = H0;
@@ -1043,9 +1046,9 @@ namespace AnalysisITC
     {
         public object Model { get; set; }
 
-        public Analysis.VariableStyle EnthalpyStyle { get; set; } = Analysis.VariableStyle.TemperatureDependent;
-        public Analysis.VariableStyle AffinityStyle { get; set; } = Analysis.VariableStyle.Free;
-        public Analysis.VariableStyle NStyle { get; set; } = Analysis.VariableStyle.Free;
+        public Analysis.VariableConstraint EnthalpyStyle { get; set; } = Analysis.VariableConstraint.TemperatureDependent;
+        public Analysis.VariableConstraint AffinityStyle { get; set; } = Analysis.VariableConstraint.None;
+        public Analysis.VariableConstraint NStyle { get; set; } = Analysis.VariableConstraint.None;
 
         public int ModelCount => this.Model switch
         {
@@ -1064,9 +1067,9 @@ namespace AnalysisITC
     {
         SolverOptions options { get; set; }
 
-        public Analysis.VariableStyle EnthalpyStyle => options.EnthalpyStyle;
-        public Analysis.VariableStyle AffinityStyle => options.AffinityStyle;
-        public Analysis.VariableStyle NStyle => options.NStyle;
+        public Analysis.VariableConstraint EnthalpyStyle => options.EnthalpyStyle;
+        public Analysis.VariableConstraint AffinityStyle => options.AffinityStyle;
+        public Analysis.VariableConstraint NStyle => options.NStyle;
         public int ModelCount => options.ModelCount;
 
         public List<double> Enthalpies = new List<double>();
@@ -1089,16 +1092,16 @@ namespace AnalysisITC
 
             switch (options.EnthalpyStyle)
             {
-                case Analysis.VariableStyle.Free:
+                case Analysis.VariableConstraint.None:
                     p.Enthalpies = w.Take(options.ModelCount).ToList();
                     index += options.ModelCount;
                     break;
-                case Analysis.VariableStyle.TemperatureDependent:
+                case Analysis.VariableConstraint.TemperatureDependent:
                     p.Enthalpies = w.Take(1).ToList();
                     p.HeatCapacity = w.Skip(1).Take(1).First();
                     index += 2;
                     break;
-                case Analysis.VariableStyle.SameForAll:
+                case Analysis.VariableConstraint.SameForAll:
                     p.Enthalpies = w.Take(1).ToList();
                     index += 1;
                     break;
@@ -1106,12 +1109,12 @@ namespace AnalysisITC
 
             switch (options.AffinityStyle)
             {
-                case Analysis.VariableStyle.Free:
+                case Analysis.VariableConstraint.None:
                     p.Gibbs = w.Skip(index).Take(options.ModelCount).ToList();
                     index += options.ModelCount;
                     break;
-                case Analysis.VariableStyle.TemperatureDependent:
-                case Analysis.VariableStyle.SameForAll:
+                case Analysis.VariableConstraint.TemperatureDependent:
+                case Analysis.VariableConstraint.SameForAll:
                     p.Gibbs = w.Skip(index).Take(1).ToList();
                     index += 1;
                     break;
@@ -1122,7 +1125,7 @@ namespace AnalysisITC
 
             switch(options.NStyle)
             {
-                case Analysis.VariableStyle.SameForAll: p.Ns = w.Skip(index).Take(1).ToList(); break;
+                case Analysis.VariableConstraint.SameForAll: p.Ns = w.Skip(index).Take(1).ToList(); break;
                 default: p.Ns = w.Skip(index).Take(options.ModelCount).ToList(); break;
             }
 
@@ -1134,7 +1137,7 @@ namespace AnalysisITC
             var w = new List<double>();
 
             w.AddRange(Enthalpies);
-            if (EnthalpyStyle == Analysis.VariableStyle.TemperatureDependent) w.Add(HeatCapacity);
+            if (EnthalpyStyle == Analysis.VariableConstraint.TemperatureDependent) w.Add(HeatCapacity);
             w.AddRange(Gibbs);
             w.AddRange(Offsets);
             w.AddRange(Ns);
@@ -1147,11 +1150,11 @@ namespace AnalysisITC
             return new ParameterSet
             {
                 Options = options,
-                dH = EnthalpyStyle == Analysis.VariableStyle.Free ? Enthalpies[modelnumber] : Enthalpies[0],
+                dH = EnthalpyStyle == Analysis.VariableConstraint.None ? Enthalpies[modelnumber] : Enthalpies[0],
                 dCp = HeatCapacity,
-                dG = AffinityStyle == Analysis.VariableStyle.Free ? Gibbs[modelnumber] : Gibbs[0],
+                dG = AffinityStyle == Analysis.VariableConstraint.None ? Gibbs[modelnumber] : Gibbs[0],
                 Offset = Offsets[modelnumber],
-                N = NStyle == Analysis.VariableStyle.Free ? Ns[modelnumber] : Ns[0]
+                N = NStyle == Analysis.VariableConstraint.None ? Ns[modelnumber] : Ns[0]
             };
         }
 
@@ -1169,7 +1172,7 @@ namespace AnalysisITC
             {
                 switch (options.EnthalpyStyle)
                 {
-                    case Analysis.VariableStyle.TemperatureDependent:
+                    case Analysis.VariableConstraint.TemperatureDependent:
                         var dt = model.Data.MeasuredTemperature - options.MeanTemperature;
                         return dH + dCp * dt;
                     default: return dH;
@@ -1182,10 +1185,10 @@ namespace AnalysisITC
 
                 switch (options.AffinityStyle)
                 {
-                    case Analysis.VariableStyle.SameForAll: return Math.Exp(-1 * dG / (Energy.R.Value * 298.15));
-                    case Analysis.VariableStyle.TemperatureDependent: return Math.Exp(-1 * dG / (Energy.R.Value * T));
+                    case Analysis.VariableConstraint.SameForAll: return Math.Exp(-1 * dG / (Energy.R.Value * 298.15));
+                    case Analysis.VariableConstraint.TemperatureDependent: return Math.Exp(-1 * dG / (Energy.R.Value * T));
                     default:
-                    case Analysis.VariableStyle.Free: return Math.Exp(-1 * dG / (Energy.R.Value * T));
+                    case Analysis.VariableConstraint.None: return Math.Exp(-1 * dG / (Energy.R.Value * T));
                 }
             }
         }
