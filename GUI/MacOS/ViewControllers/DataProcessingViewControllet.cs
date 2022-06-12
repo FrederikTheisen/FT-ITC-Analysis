@@ -369,12 +369,12 @@ namespace AnalysisITC
                 case 2: BaselineGraphView.SelectedPeak++; break;
             }
 
-            sender.SetLabel((BaselineGraphView.SelectedPeak + 1).ToString(), 1);
+            UpdateInjectionSelectionUI();
         }
 
         void UpdateInjectionSelectionUI()
         {
-            if (BaselineGraphView.SelectedPeak != -1) InjectionViewSegControl.SetLabel("inj #" + (BaselineGraphView.SelectedPeak + 1).ToString(), 1);
+            if (BaselineGraphView.SelectedPeak != -1) InjectionViewSegControl.SetLabel((BaselineGraphView.SelectedPeak + 1).ToString(), 1);
             else InjectionViewSegControl.SetLabel("all", 1);
 
             ViewPreviousControl.Enabled = true;
