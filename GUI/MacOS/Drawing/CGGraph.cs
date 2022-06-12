@@ -441,6 +441,7 @@ namespace AnalysisITC
         {
             if (font == null) font = DefaultFont;
             if (textcolor == null) textcolor = StrokeColor;
+            if (lines.Count == 0) return;
 
             nfloat width = 0;
             nfloat height = 0;
@@ -704,29 +705,31 @@ namespace AnalysisITC
             layer.Context.StrokePath();
             DrawRectsAtPositions(layer, new CGPoint[] { power }, 5, true, true);
 
-            CGPoint pos = new CGPoint(20, Frame.Height - 20);
-            CGRect box = new CGRect(pos, new CGSize(20, 20));
+            DrawTextBox(gc, CursorInfo, alignment: NSRectAlignment.TopLeading);
 
-            foreach (var line in CursorInfo)
-            {
-                var size = DrawString(textlayer, line, pos, DefaultFont, horizontalignment: TextAlignment.Left);
+            //CGPoint pos = new CGPoint(20, Frame.Height - 20);
+            //CGRect box = new CGRect(pos, new CGSize(20, 20));
 
-                if (size.Width > box.Width) box.Width = size.Width;
+            //foreach (var line in CursorInfo)
+            //{
+            //    var size = DrawString(textlayer, line, pos, DefaultFont, horizontalignment: TextAlignment.Left);
 
-                box.Height += size.Height;
+            //    if (size.Width > box.Width) box.Width = size.Width;
 
-                pos.Y -= size.Height + 5;
-            }
+            //    box.Height += size.Height;
 
-            box.Width += 20;
-            box.Height += 10;
-            box.X -= 10;
+            //    pos.Y -= size.Height + 5;
+            //}
 
-            box.Y = pos.Y;
+            //box.Width += 20;
+            //box.Height += 10;
+            //box.X -= 10;
 
-            layer.Context.SetFillColor(NSColor.TextBackground.CGColor);
-            layer.Context.FillRect(box);
-            layer.Context.StrokeRect(box);
+            //box.Y = pos.Y;
+
+            //layer.Context.SetFillColor(NSColor.TextBackground.CGColor);
+            //layer.Context.FillRect(box);
+            //layer.Context.StrokeRect(box);
 
             gc.DrawLayer(layer, Frame.Location);
             gc.DrawLayer(textlayer, Frame.Location);
@@ -776,16 +779,14 @@ namespace AnalysisITC
 
         internal void DrawBaseline(CGContext gc)
         {
-            CGLayer layer = CGLayer.Create(gc, Frame.Size);
-
+            var layer = CGLayer.Create(gc, Frame.Size);
             var path = new CGPath();
-
             var points = new List<CGPoint>();
 
             if (!ShowBaselineCorrected) for (int i = 0; i < ExperimentData.DataPoints.Count; i++)
                 {
-                    DataPoint p = ExperimentData.DataPoints[i];
-                    Energy b = ExperimentData.Processor.Interpolator.Baseline[i];
+                    var p = ExperimentData.DataPoints[i];
+                    var b = ExperimentData.Processor.Interpolator.Baseline[i];
 
                     if (p.Time > XAxis.Min && p.Time < XAxis.Max)
                         points.Add(GetRelativePosition(p.Time, b.FloatWithError));
@@ -817,6 +818,10 @@ namespace AnalysisITC
         List<FeatureBoundingBox> SplinePoints { get; set; } = new List<FeatureBoundingBox>();
         List<FeatureBoundingBox> IntegrationHandleBoxes { get; set; } = new List<FeatureBoundingBox>();
 
+        public bool DrawCursorPositionInfo { get; set; } = false;
+        double CursorPosition { get; set; }
+        List<string> CursorInfo { get; set; } = new List<string>();
+
         public BaselineFittingGraph(ExperimentData experiment, NSView view) : base(experiment, view)
         {
             SetYAxisRange(DataPoints.Min(dp => dp.Power), DataPoints.Max(dp => dp.Power), buffer: true);
@@ -828,23 +833,26 @@ namespace AnalysisITC
         {
             base.Draw(gc);
 
+            IntegrationHandleBoxes.Clear();
+            SplineHandlePoints.Clear();
+            SplinePoints.Clear();
+
             if (ShowBaseline && ExperimentData.Processor.Interpolator != null && ExperimentData.Processor.Interpolator.Finished)
             {
                 if (ExperimentData.Processor.Interpolator is SplineInterpolator) DrawSplineHandles(gc);
             }
 
             if (ShowInjections) DrawIntegrationMarkers(gc);
+
+            if (DrawCursorPositionInfo && CursorInfo.Count > 0) DrawTextBox(gc, CursorInfo, alignment: NSRectAlignment.Bottom);
         }
 
         void DrawSplineHandles(CGContext gc)
         {
-            SplineHandlePoints.Clear();
-            SplinePoints.Clear();
-            CGLayer layer = CGLayer.Create(gc, Frame.Size);
-
-            List<CGRect> points = new List<CGRect>();
-            List<CGPath> handles = new List<CGPath>();
-            List<CGPath> slopelines = new List<CGPath>();
+            var layer = CGLayer.Create(gc, Frame.Size);
+            var points = new List<CGRect>();
+            var handles = new List<CGPath>();
+            var slopelines = new List<CGPath>();
 
             foreach (var sp in (ExperimentData.Processor.Interpolator as SplineInterpolator).SplinePoints.Where(sp => sp.Time > XAxis.Min && sp.Time < XAxis.Max))
             {
@@ -922,13 +930,9 @@ namespace AnalysisITC
 
         void DrawIntegrationMarkers(CGContext gc)
         {
-            IntegrationHandleBoxes.Clear();
-
-            CGLayer layer = CGLayer.Create(gc, Frame.Size);
-
-            CGPath path = new CGPath();
-
-            float thickness = 1.5f;
+            var layer = CGLayer.Create(gc, Frame.Size);
+            var path = new CGPath();
+            var thickness = 1.5f;
 
             foreach (var inj in ExperimentData.Injections)
             {
@@ -973,6 +977,31 @@ namespace AnalysisITC
             }
 
             gc.DrawLayer(layer, Frame.Location);
+        }
+
+        public bool SetCursorInfo(CGPoint cursorpos)
+        {
+            if (Frame.Contains(cursorpos))
+            {
+                var xfraction = (cursorpos.X - Frame.X) / Frame.Width;
+
+                CursorPosition = xfraction * (XAxis.Max - XAxis.Min) + XAxis.Min;
+                var datapoint = CursorPosition > ExperimentData.DataPoints.Last().Time ? ExperimentData.DataPoints.Last() : ExperimentData.DataPoints.First(dp => dp.Time > CursorPosition);
+
+                CursorInfo = new List<string>();
+                CursorInfo.Add("Time: " + datapoint.Time.ToString() + "s");
+                CursorInfo.Add("DP: " + (DataManager.Unit.IsSI() ? (datapoint.Power * 1000000).ToString("F1") + " µW" : (datapoint.Power * 1000000 * Energy.JouleToCalFactor).ToString("F1") + " µCal"));
+
+                if (ExperimentData.BaseLineCorrectedDataPoints.Count > 0)
+                {
+                    var bldp = CursorPosition > ExperimentData.BaseLineCorrectedDataPoints.Last().Time ? ExperimentData.BaseLineCorrectedDataPoints.Last() : ExperimentData.BaseLineCorrectedDataPoints.First(dp => dp.Time > CursorPosition);
+
+                    CursorInfo.Add("∆DP: " + (DataManager.Unit.IsSI() ? (bldp.Power * 1000000).ToString("F2") + " µW" : (bldp.Power * 1000000 * Energy.JouleToCalFactor).ToString("F2") + " µCal"));
+                }
+            }
+            else return false;
+
+            return true;
         }
 
         public override MouseOverFeatureEvent IsCursorOnFeature(CGPoint cursorpos, bool isclick = false, bool ismouseup = false)

@@ -16,6 +16,7 @@ namespace AnalysisITC
         bool ShowBaseline => BaselineScopeButton.State == NSCellStateValue.On;
         bool ShowIntegrationRange => IntegrationScopeButton.State == NSCellStateValue.On;
         bool Corrected => CorrectedScopeButton.State == NSCellStateValue.On;
+        bool ShowCursorInfo => ShowCursorInfoButton.State == NSCellStateValue.On;
 
         public DataProcessingViewControllet (IntPtr handle) : base (handle)
 		{
@@ -32,6 +33,7 @@ namespace AnalysisITC
 
             BaselineScopeButton.State = NSCellStateValue.On;
             IntegrationScopeButton.State = NSCellStateValue.On;
+            ShowCursorInfoButton.State = NSCellStateValue.On;
         }
 
         private void BaselineOptionsPopoverViewController_Updated(object sender, EventArgs e)
@@ -54,7 +56,7 @@ namespace AnalysisITC
 
             BaselineGraphView.Initialize(DataManager.Current);
 
-            BaselineGraphView.SetFeatureVisibility(ShowBaseline, ShowIntegrationRange, Corrected);
+            BaselineGraphView.SetFeatureVisibility(ShowBaseline, ShowIntegrationRange, Corrected, ShowCursorInfo);
 
             BaselineGraphView.UpdateTrackingArea();
         }
@@ -329,6 +331,13 @@ namespace AnalysisITC
             }
         }
 
+        partial void PeakZoomWidthClicked(NSSegmentedControl sender)
+        {
+            BaselineGraphView.PeakZoomWidth = (int)sender.SelectedSegment;
+
+            BaselineGraphView.SelectedPeak = BaselineGraphView.SelectedPeak;
+        }
+
         partial void ViewPreviousInjection(NSButton sender)
         {
             BaselineGraphView.SelectedPeak--;
@@ -365,8 +374,8 @@ namespace AnalysisITC
 
         void UpdateInjectionSelectionUI()
         {
-            if (BaselineGraphView.SelectedPeak != -1) SelectedInjectionLabel.StringValue = "inj #" + (BaselineGraphView.SelectedPeak + 1).ToString();
-            else SelectedInjectionLabel.StringValue = "All";
+            if (BaselineGraphView.SelectedPeak != -1) InjectionViewSegControl.SetLabel("inj #" + (BaselineGraphView.SelectedPeak + 1).ToString(), 1);
+            else InjectionViewSegControl.SetLabel("all", 1);
 
             ViewPreviousControl.Enabled = true;
             ViewNextControl.Enabled = true;
@@ -381,7 +390,7 @@ namespace AnalysisITC
             }
         }
 
-        partial void ScopeButtonClicked(NSObject sender) => BaselineGraphView.SetFeatureVisibility(ShowBaseline, ShowIntegrationRange, Corrected);
+        partial void ScopeButtonClicked(NSObject sender) => BaselineGraphView.SetFeatureVisibility(ShowBaseline, ShowIntegrationRange, Corrected, ShowCursorInfo);
         partial void DrawFeatureControlClicked(NSSegmentedControl sender) => BaselineGraphView.SetFeatureVisibility(DrawFeatureSegControl);
 
         partial void ConfirmProcessingButtonClicked(NSObject sender)
@@ -402,7 +411,7 @@ namespace AnalysisITC
 
             BaselineGraphView.Initialize(current);
 
-            BaselineGraphView.SetFeatureVisibility(ShowBaseline, ShowIntegrationRange, Corrected);
+            BaselineGraphView.SetFeatureVisibility(ShowBaseline, ShowIntegrationRange, Corrected, ShowCursorInfo);
 
             UpdateUI();
         }

@@ -36,6 +36,13 @@ namespace AnalysisITC
             set { if (Graph != null) Graph.ShowInjections = value; }
         }
 
+        bool DrawCursorPositionInfo
+        {
+            set { if (Graph != null) Graph.DrawCursorPositionInfo = value; }
+        }
+
+        public int PeakZoomWidth { get; set; } = 1;
+
         public new BaselineFittingGraph Graph => base.Graph as BaselineFittingGraph;
 
         public DataProcessingGraphView(IntPtr handle) : base(handle)
@@ -143,9 +150,16 @@ namespace AnalysisITC
         {
             if (Data == null) return;
             if (SelectedPeak == -1) return;
-            var inj = Data.Injections[SelectedPeak];
+            int idx1 = SelectedPeak - PeakZoomWidth;
+            int idx2 = SelectedPeak + PeakZoomWidth;
 
-            Graph.SetXAxisRange(inj.Time - inj.Delay * 0.2f, inj.Time + inj.Delay * 1.2f);
+            if (idx1 < 0) idx1 = 0;
+            if (idx2 >= Data.InjectionCount) idx2 = Data.InjectionCount - 1;
+
+            var inj_first = Data.Injections[idx1];
+            var inj_last = Data.Injections[idx2];
+
+            Graph.SetXAxisRange(inj_first.Time - inj_first.Delay * 0.2f, inj_last.Time + inj_last.Delay * 1.2f);
 
             isInjectionZoomed = true;
 
@@ -171,14 +185,15 @@ namespace AnalysisITC
 
         public void SetFeatureVisibility(NSSegmentedControl sender)
         {
-            SetFeatureVisibility(sender.IsSelectedForSegment(0), sender.IsSelectedForSegment(1), sender.IsSelectedForSegment(2));
+            SetFeatureVisibility(sender.IsSelectedForSegment(0), sender.IsSelectedForSegment(1), sender.IsSelectedForSegment(2), false);
         }
 
-        public void SetFeatureVisibility(bool baseline, bool injections, bool corrected)
+        public void SetFeatureVisibility(bool baseline, bool injections, bool corrected, bool cursorinfo)
         {
             ShowBaseline = baseline;
             ShowInjections = injections;
             ShowBaselineCorrected = corrected;
+            DrawCursorPositionInfo = cursorinfo;
 
             Invalidate();
         }
@@ -190,6 +205,7 @@ namespace AnalysisITC
             if (Data == null) return;
 
             var b = Graph.IsCursorOnFeature(CursorPositionInView);
+            var update = Graph.SetCursorInfo(CursorPositionInView);
 
             if (b.IsMouseOverFeature)
             {
@@ -197,7 +213,10 @@ namespace AnalysisITC
                 else if (b.Type == Utilities.MouseOverFeatureEvent.FeatureType.BaselineSplineHandle) NSCursor.ResizeUpDownCursor.Set();
                 else if (b.Type == Utilities.MouseOverFeatureEvent.FeatureType.IntegrationRangeMarker) NSCursor.ResizeLeftRightCursor.Set();
             }
+            else if (update) NSCursor.CrosshairCursor.Set();
             else NSCursor.ArrowCursor.Set();
+
+            if (update) Invalidate();
         }
 
         public override void MouseDown(NSEvent theEvent)
@@ -325,6 +344,15 @@ namespace AnalysisITC
                     InjectionSelected?.Invoke(clickedinj.First(), clickedinj.First().ID);
                 }
             }
+        }
+
+        public override void MouseExited(NSEvent theEvent)
+        {
+            if (Graph == null) return;
+
+            base.MouseExited(theEvent);
+
+            Invalidate();
         }
 
         async void UpdateSplineHandle()

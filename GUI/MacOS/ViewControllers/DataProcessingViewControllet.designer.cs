@@ -64,6 +64,9 @@ namespace AnalysisITC
 		AppKit.NSSegmentedControl InterpolatorTypeControl { get; set; }
 
 		[Outlet]
+		AppKit.NSSegmentedControl PeakZoomWidthSegControl { get; set; }
+
+		[Outlet]
 		AppKit.NSTextField PolynomialDegreeLabel { get; set; }
 
 		[Outlet]
@@ -74,6 +77,9 @@ namespace AnalysisITC
 
 		[Outlet]
 		AppKit.NSTextField SelectedInjectionLabel { get; set; }
+
+		[Outlet]
+		AppKit.NSButton ShowCursorInfoButton { get; set; }
 
 		[Outlet]
 		AppKit.NSSegmentedControl SplineAlgoControl { get; set; }
@@ -144,6 +150,9 @@ namespace AnalysisITC
 		[Action ("InterplolatorClicked:")]
 		partial void InterplolatorClicked (AppKit.NSSegmentedControl sender);
 
+		[Action ("PeakZoomWidthClicked:")]
+		partial void PeakZoomWidthClicked (AppKit.NSSegmentedControl sender);
+
 		[Action ("PolynomialDegreeChanged:")]
 		partial void PolynomialDegreeChanged (AppKit.NSSlider sender);
 
@@ -161,6 +170,9 @@ namespace AnalysisITC
 
 		[Action ("SplineHandleModeControlClicked:")]
 		partial void SplineHandleModeControlClicked (AppKit.NSSegmentedControl sender);
+
+		[Action ("ToggleShowCursorInfo:")]
+		partial void ToggleShowCursorInfo (Foundation.NSObject sender);
 
 		[Action ("ToggleUseIntegrationFactor:")]
 		partial void ToggleUseIntegrationFactor (AppKit.NSButton sender);
@@ -190,6 +202,11 @@ namespace AnalysisITC
 			if (BaselineGraphView != null) {
 				BaselineGraphView.Dispose ();
 				BaselineGraphView = null;
+			}
+
+			if (BaselineHeader != null) {
+				BaselineHeader.Dispose ();
+				BaselineHeader = null;
 			}
 
 			if (BaselineScopeButton != null) {
@@ -227,6 +244,11 @@ namespace AnalysisITC
 				IntegrationDelayControl = null;
 			}
 
+			if (IntegrationHeader != null) {
+				IntegrationHeader.Dispose ();
+				IntegrationHeader = null;
+			}
+
 			if (IntegrationLengthControl != null) {
 				IntegrationLengthControl.Dispose ();
 				IntegrationLengthControl = null;
@@ -235,6 +257,11 @@ namespace AnalysisITC
 			if (IntegrationLengthLabel != null) {
 				IntegrationLengthLabel.Dispose ();
 				IntegrationLengthLabel = null;
+			}
+
+			if (IntegrationModeSegControl != null) {
+				IntegrationModeSegControl.Dispose ();
+				IntegrationModeSegControl = null;
 			}
 
 			if (IntegrationScopeButton != null) {
@@ -342,19 +369,14 @@ namespace AnalysisITC
 				ZLimitView = null;
 			}
 
-			if (IntegrationModeSegControl != null) {
-				IntegrationModeSegControl.Dispose ();
-				IntegrationModeSegControl = null;
+			if (ShowCursorInfoButton != null) {
+				ShowCursorInfoButton.Dispose ();
+				ShowCursorInfoButton = null;
 			}
 
-			if (BaselineHeader != null) {
-				BaselineHeader.Dispose ();
-				BaselineHeader = null;
-			}
-
-			if (IntegrationHeader != null) {
-				IntegrationHeader.Dispose ();
-				IntegrationHeader = null;
+			if (PeakZoomWidthSegControl != null) {
+				PeakZoomWidthSegControl.Dispose ();
+				PeakZoomWidthSegControl = null;
 			}
 		}
 	}
