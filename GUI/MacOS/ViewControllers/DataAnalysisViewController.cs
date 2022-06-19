@@ -118,6 +118,20 @@ namespace AnalysisITC
 
         partial void FitSimplex(NSObject sender)
         {
+            Analysis.Algorithm = Analysis.SolverAlgorithm.NelderMead;
+
+            Fit();
+        }
+
+        partial void FitLM(NSObject sender)
+        {
+            Analysis.Algorithm = Analysis.SolverAlgorithm.LevenbergMarquardt;
+
+            Fit();
+        }
+
+        void Fit()
+        {
             ToggleFitButtons(false);
             StatusBarManager.StartInderminateProgress();
             StatusBarManager.SetStatus("Fitting data...", 0);

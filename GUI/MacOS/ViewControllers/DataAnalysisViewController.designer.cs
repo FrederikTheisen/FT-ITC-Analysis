@@ -90,6 +90,9 @@ namespace AnalysisITC
 		[Action ("FeatureDrawControlClicked:")]
 		partial void FeatureDrawControlClicked (AppKit.NSSegmentedControl sender);
 
+		[Action ("FitLM:")]
+		partial void FitLM (Foundation.NSObject sender);
+
 		[Action ("FitSimplex:")]
 		partial void FitSimplex (Foundation.NSObject sender);
 
@@ -153,11 +156,6 @@ namespace AnalysisITC
 				GlobalNView = null;
 			}
 
-			if (NStyleSegControl != null) {
-				NStyleSegControl.Dispose ();
-				NStyleSegControl = null;
-			}
-
 			if (GlobalVariablesControl != null) {
 				GlobalVariablesControl.Dispose ();
 				GlobalVariablesControl = null;
@@ -191,6 +189,11 @@ namespace AnalysisITC
 			if (NstepTextField != null) {
 				NstepTextField.Dispose ();
 				NstepTextField = null;
+			}
+
+			if (NStyleSegControl != null) {
+				NStyleSegControl.Dispose ();
+				NStyleSegControl = null;
 			}
 
 			if (OstepTextField != null) {

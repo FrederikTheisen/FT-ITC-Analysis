@@ -9,25 +9,51 @@ namespace AnalysisITC
 {
     public partial class AnalysisGraphView : NSGraph
     {
-        public static bool ShowPeakInfo { get; set; } = true;
-        public static bool ShowFitParameters { get; set; } = true;
-        public static bool UseUnifiedAxes { get; set; } = false;
+        static event EventHandler UpdateViewParameters;
 
+        static bool showPeakInfo = true;
+        static bool showFitParameters = true;
+        static bool useUnifiedAxes = false;
+
+        public static bool ShowPeakInfo
+        {
+            get => showPeakInfo;
+            set { showPeakInfo = value; UpdateViewParameters?.Invoke(null, null); }
+        }
+        public static bool ShowFitParameters
+        {
+            get => showFitParameters;
+            set { showFitParameters = value; UpdateViewParameters?.Invoke(null, null); }
+        }
+        public static bool UseUnifiedAxes
+        {
+            get => useUnifiedAxes;
+            set { useUnifiedAxes = value; UpdateViewParameters?.Invoke(null, null); }
+        }
         public DataFittingGraph DataFittingGraph => Graph as DataFittingGraph;
 
-        public AnalysisGraphView (IntPtr handle) : base (handle)
-		{
+        public AnalysisGraphView(IntPtr handle) : base(handle)
+        {
             State = ProgramState.Analyze;
+
+            UpdateViewParameters += AnalysisGraphView_UpdateViewParameters;
+        }
+
+        private void AnalysisGraphView_UpdateViewParameters(object sender, EventArgs e)
+        {
+            if (Graph == null) return;
+
+            DataFittingGraph.ShowPeakInfo = ShowPeakInfo;
+            DataFittingGraph.ShowFitParameters = ShowFitParameters;
+            DataFittingGraph.UseUnifiedAxes = UseUnifiedAxes;
+
+            Invalidate();
         }
 
         public override void Invalidate()
         {
             if (Graph == null) return;
             if (StateManager.CurrentState != ProgramState.Analyze) return;
-
-            DataFittingGraph.ShowPeakInfo = ShowPeakInfo;
-            DataFittingGraph.ShowFitParameters = ShowFitParameters;
-            DataFittingGraph.UseUnifiedAxes = UseUnifiedAxes;
 
             base.Invalidate();
         }

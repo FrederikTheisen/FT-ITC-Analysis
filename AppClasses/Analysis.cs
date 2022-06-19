@@ -8,6 +8,7 @@ using static Utilities.Increment;
 using Foundation;
 using AppKit;
 using System.Threading;
+using static alglib;
 
 namespace AnalysisITC
 {
@@ -54,6 +55,7 @@ namespace AnalysisITC
         public static double[] Obounds => Bounds(Oinit, Olock, -20000, 20000);
         public static double[] Nbounds => Bounds(Ninit, Nlock, .1, 10);
 
+        public static SolverAlgorithm Algorithm { get; set; } = SolverAlgorithm.NelderMead;
         public static ErrorEstimationMethod ErrorMethod { get; set; } = ErrorEstimationMethod.BootstrapResiduals;
         public static int BootstrapIterations { get; set; } = 100;
 
@@ -122,7 +124,7 @@ namespace AnalysisITC
 
                     await Task.Run(() =>
                         {
-                            convergence = Model.SolveWithNelderMeadAlgorithm();
+                            convergence = Model.Solve();
 
                             NSApplication.SharedApplication.InvokeOnMainThread(() => { AnalysisIterationFinished?.Invoke(null, null); Model.Models.ForEach(m => m.Data.UpdateSolution(null)); });
 
@@ -193,7 +195,7 @@ namespace AnalysisITC
 
                 await Task.Run(() =>
                 {
-                    convergence = Model.SolveWithNelderMeadAlgorithm();
+                    convergence = Model.Solve();
 
                     NSApplication.SharedApplication.InvokeOnMainThread(() => { AnalysisIterationFinished?.Invoke(null, null); });
 
@@ -225,8 +227,6 @@ namespace AnalysisITC
 
                 var input = Data.Injections.Where(inj => inj.Include).Select(inj => (double)inj.ID).ToArray().ToJagged();
                 var results = Data.Injections.Where(inj => inj.Include).Select(inj => (double)inj.PeakArea).ToArray();
-
-
                 var output = f.Learn(input, results);
 
                 Console.WriteLine(output.Coefficients);
@@ -245,6 +245,12 @@ namespace AnalysisITC
         {
             None,
             BootstrapResiduals
+        }
+
+        public enum SolverAlgorithm
+        {
+            NelderMead,
+            LevenbergMarquardt
         }
     }
 
@@ -297,6 +303,16 @@ namespace AnalysisITC
             return 0;
         }
 
+        public SolverConvergence Solve()
+        {
+            switch (Analysis.Algorithm)
+            {
+                case Analysis.SolverAlgorithm.NelderMead: return SolveWithNelderMeadAlgorithm();
+                case Analysis.SolverAlgorithm.LevenbergMarquardt: return SolveWithLevenbergMarquardt();
+                default: return null;
+            }
+        }
+
         public virtual SolverConvergence SolveWithNelderMeadAlgorithm()
         {
             var f = new NonlinearObjectiveFunction(4, (w) => this.RMSD(w[0], w[1], w[2], w[3], true));
@@ -319,35 +335,50 @@ namespace AnalysisITC
             return new SolverConvergence(solver);
         }
 
+        public virtual SolverConvergence SolveWithLevenbergMarquardt()
+        {
+            DateTime start = DateTime.Now;
+            alglib.minlmstate state;
+            alglib.minlmreport rep;
+            double epsx = 0.0000000001;
+            int maxits = 0;
+            double[] s = new double[] { 1, 10000, 10000000, 1000 };
+            var guess = new double[4] { GuessN, GuessH, GuessK, GuessOffset };
+
+            alglib.minlmcreatev(4, guess, 0.0001, out state);
+            alglib.minlmsetcond(state, epsx, maxits);
+            alglib.minlmsetscale(state, guess);
+
+            alglib.minlmoptimize(state, (double[] x, double[] fi, object obj) => { fi[0] = this.RMSD(x[0], x[1], x[2], x[3]); }, null, null);
+
+            alglib.minlmresults(state, out guess, out rep);
+
+            Data.Solution = Solution.FromAlgLibLevenbergMarquardt(guess, this, RMSD(guess[0], guess[1], guess[2], guess[3], false));
+
+            return new SolverConvergence(state, rep, DateTime.Now - start);
+        }
+
         public void Bootstrap()
         {
+            Analysis.ReportBootstrapProgress(0);
+
+            int counter = 0;
+            var start = DateTime.Now;
             var solutions = new List<Solution>();
 
-            for (int i = 0; i < Analysis.BootstrapIterations; i++)
+            var res = Parallel.For(0, Analysis.BootstrapIterations, (i) =>
             {
-                var model = this.GenerateSyntheticModel();
-                model.SolveWithNelderMeadAlgorithm();
-                solutions.Add(model.Solution);
-
-                Console.WriteLine(model.Solution.ToString());
-
-                Analysis.ReportBootstrapProgress(i);
-            }
-
-            var clones = new List<ExperimentData>();
-            for (int i = 0; i < 10; i++) clones.Add(Data.GetSynthClone());
-
-            for (int i = 0; i < Data.InjectionCount; i++)
-            {
-                string s = Data.Injections[i].Ratio.ToString() + " ";
-
-                for (int j = 0; j < clones.Count; j++)
+                if (!Analysis.StopAnalysisProcess)
                 {
-                    s += clones[j].Injections[i].Enthalpy + " ";
+                    var model = this.GenerateSyntheticModel();
+                    model.Solve();
+                    solutions.Add(model.Solution);
                 }
 
-                Console.WriteLine(s);
-            }
+                var currcounter = Interlocked.Increment(ref counter);
+
+                Analysis.ReportBootstrapProgress(currcounter);
+            });
 
             Solution.BootstrapSolutions = solutions;
             Solution.ComputeErrorsFromBootstrapSolutions();
@@ -435,6 +466,7 @@ namespace AnalysisITC
         public double AbsoluteFunctionTolerance { get; set; } = double.Epsilon;
         public double AbsoluteParameterTolerance { get; set; } = 0.001;
         public double RelativeSolutionTolerance { get; set; } = 2E-10;
+        public double LevenbergMarquardtDifferentiationStepSize = 0.001;
 
         public virtual int GetVariableCount
         {
@@ -621,6 +653,7 @@ namespace AnalysisITC
             BootstrapInitialValues = bootstrapinitialvalues;
             AbsoluteFunctionTolerance = 0.0000000000000000001;
             RelativeSolutionTolerance = 1.5E-3;
+            LevenbergMarquardtDifferentiationStepSize *= 10;
         }
 
         void SetBounds(NelderMead solver)
@@ -635,10 +668,20 @@ namespace AnalysisITC
             }
         }
 
-        public SolverConvergence SolveWithNelderMeadAlgorithm()
+        public SolverConvergence Solve()
         {
             Models.ForEach(m => m.FittedGlobally = true);
 
+            switch (Analysis.Algorithm)
+            {
+                case Analysis.SolverAlgorithm.NelderMead: return SolveWithNelderMeadAlgorithm();
+                case Analysis.SolverAlgorithm.LevenbergMarquardt: return SolveWithLevenbergMarquardt();
+                default: return null;
+            }
+        }
+
+        SolverConvergence SolveWithNelderMeadAlgorithm()
+        {
             var f = new NonlinearObjectiveFunction(GetVariableCount, (w) => LossFunction(w));
             var solver = new NelderMead(f);
 
@@ -660,6 +703,31 @@ namespace AnalysisITC
 
             Solution = GlobalSolution.FromAccordNelderMead(solver.Solution, this);
             Solution.Convergence = new SolverConvergence(solver);
+
+            return Solution.Convergence;
+        }
+
+        SolverConvergence SolveWithLevenbergMarquardt()
+        {
+            DateTime start = DateTime.Now;
+            var varcount = GetVariableCount;
+            minlmstate state;
+            minlmreport rep;
+
+            double epsx = 0.0000000001;
+            int maxits = 0;
+            var guess = GetStartValues();
+
+            alglib.minlmcreatev(varcount, guess, LevenbergMarquardtDifferentiationStepSize, out state);
+            alglib.minlmsetcond(state, epsx, maxits);
+            alglib.minlmsetscale(state, guess);
+            
+            alglib.minlmoptimize(state, (double[] parameters, double[] fi, object obj) => { fi[0] = LossFunction(parameters); }, null, null);
+
+            alglib.minlmresults(state, out guess, out rep);
+
+            Solution = GlobalSolution.FromAlgLibLevenbergMarquardt(guess, this);
+            Solution.Convergence = new SolverConvergence(state, rep, DateTime.Now - start);
 
             return Solution.Convergence;
         }
@@ -689,7 +757,7 @@ namespace AnalysisITC
 
                     gm.Models.AddRange(models);
 
-                    gm.SolveWithNelderMeadAlgorithm();
+                    gm.Solve();
 
                     solutions.Add(gm.Solution);
                 }
@@ -799,6 +867,7 @@ namespace AnalysisITC
             Loss = loss;
         }
 
+        public static Solution FromAlgLibLevenbergMarquardt(double[] parameters, Model model, double loss) => FromAccordNelderMead(parameters, model, loss);
         public static Solution FromAccordNelderMead(double[] parameters, Model model, double loss)
         {
             return new Solution()
@@ -812,6 +881,8 @@ namespace AnalysisITC
                 Loss = loss
             };
         }
+
+        
 
         public void ComputeErrorsFromBootstrapSolutions()
         {
@@ -913,6 +984,8 @@ namespace AnalysisITC
             Console.WriteLine("GIBBS:    " + GibbsLine.Evaluate(25).ToString());
         }
 
+
+        public static GlobalSolution FromAlgLibLevenbergMarquardt(double[] solution, GlobalModel model) => FromAccordNelderMead(solution, model);
         public static GlobalSolution FromAccordNelderMead(double[] solution, GlobalModel model)
         {
             var parameters = SolverParameters.FromArray(solution, model.Options);
@@ -1023,174 +1096,6 @@ namespace AnalysisITC
 
             EntropyLine = new LinearFitWithError(new FloatWithError(sfit_slope_dist), new FloatWithError(sfit_intercept_dist), Model.MeanTemperature);
             GibbsLine = new LinearFitWithError(new FloatWithError(gfit_slope_dist), new FloatWithError(gfit_intercept_dist), Model.MeanTemperature);
-        }
-    }
-
-    public class SolverConvergence
-    {
-        public int Iterations { get; private set; }
-        public string Message { get; private set; }
-        public TimeSpan Time { get; private set; }
-        public double Loss { get; private set; }
-
-        public SolverConvergence(NelderMead solver)
-        {
-            Iterations = solver.Convergence.Evaluations;
-            Message = solver.Status.ToString();
-            Time = DateTime.Now - solver.Convergence.StartTime;
-            Loss = solver.Value;
-        }
-    }
-
-    public class SolverOptions
-    {
-        public object Model { get; set; }
-
-        public Analysis.VariableConstraint EnthalpyStyle { get; set; } = Analysis.VariableConstraint.TemperatureDependent;
-        public Analysis.VariableConstraint AffinityStyle { get; set; } = Analysis.VariableConstraint.None;
-        public Analysis.VariableConstraint NStyle { get; set; } = Analysis.VariableConstraint.None;
-
-        public int ModelCount => this.Model switch
-        {
-            GlobalModel => (Model as GlobalModel).Models.Count,
-            _ => 1,
-        };
-
-        public double MeanTemperature => this.Model switch
-        {
-            GlobalModel => (Model as GlobalModel).MeanTemperature,
-            _ => 25,
-        };
-    }
-
-    public class SolverParameters
-    {
-        SolverOptions options { get; set; }
-
-        public Analysis.VariableConstraint EnthalpyStyle => options.EnthalpyStyle;
-        public Analysis.VariableConstraint AffinityStyle => options.AffinityStyle;
-        public Analysis.VariableConstraint NStyle => options.NStyle;
-        public int ModelCount => options.ModelCount;
-
-        public List<double> Enthalpies = new List<double>();
-        public List<double> Gibbs = new List<double>();
-        public List<double> Offsets = new List<double>();
-        public List<double> Ns = new List<double>();
-
-        public double HeatCapacity = 0;
-
-        public SolverParameters(SolverOptions options)
-        {
-            this.options = options;
-        }
-
-        public static SolverParameters FromArray(double[] w, SolverOptions options)
-        {
-            var p = new SolverParameters(options);
-
-            int index = 0;
-
-            switch (options.EnthalpyStyle)
-            {
-                case Analysis.VariableConstraint.None:
-                    p.Enthalpies = w.Take(options.ModelCount).ToList();
-                    index += options.ModelCount;
-                    break;
-                case Analysis.VariableConstraint.TemperatureDependent:
-                    p.Enthalpies = w.Take(1).ToList();
-                    p.HeatCapacity = w.Skip(1).Take(1).First();
-                    index += 2;
-                    break;
-                case Analysis.VariableConstraint.SameForAll:
-                    p.Enthalpies = w.Take(1).ToList();
-                    index += 1;
-                    break;
-            }
-
-            switch (options.AffinityStyle)
-            {
-                case Analysis.VariableConstraint.None:
-                    p.Gibbs = w.Skip(index).Take(options.ModelCount).ToList();
-                    index += options.ModelCount;
-                    break;
-                case Analysis.VariableConstraint.TemperatureDependent:
-                case Analysis.VariableConstraint.SameForAll:
-                    p.Gibbs = w.Skip(index).Take(1).ToList();
-                    index += 1;
-                    break;
-            }
-
-            p.Offsets = w.Skip(index).Take(options.ModelCount).ToList();
-            index += options.ModelCount;
-
-            switch(options.NStyle)
-            {
-                case Analysis.VariableConstraint.SameForAll: p.Ns = w.Skip(index).Take(1).ToList(); break;
-                default: p.Ns = w.Skip(index).Take(options.ModelCount).ToList(); break;
-            }
-
-            return p;
-        }
-
-        public double[] ToArray()
-        {
-            var w = new List<double>();
-
-            w.AddRange(Enthalpies);
-            if (EnthalpyStyle == Analysis.VariableConstraint.TemperatureDependent) w.Add(HeatCapacity);
-            w.AddRange(Gibbs);
-            w.AddRange(Offsets);
-            w.AddRange(Ns);
-
-            return w.ToArray();
-        }
-
-        public ParameterSet ParameterSetForModel(int modelnumber, SolverOptions options = null)
-        {
-            return new ParameterSet
-            {
-                Options = options,
-                dH = EnthalpyStyle == Analysis.VariableConstraint.None ? Enthalpies[modelnumber] : Enthalpies[0],
-                dCp = HeatCapacity,
-                dG = AffinityStyle == Analysis.VariableConstraint.None ? Gibbs[modelnumber] : Gibbs[0],
-                Offset = Offsets[modelnumber],
-                N = NStyle == Analysis.VariableConstraint.None ? Ns[modelnumber] : Ns[0]
-            };
-        }
-
-        public struct ParameterSet
-        {
-            public SolverOptions Options { get; set; }
-
-            public double dH { get; set; }
-            public double dCp { get; set; }
-            public double dG { get; set; }
-            public double Offset { get; set; }
-            public double N { get; set; }
-
-            public double GetEnthalpy(Model model, SolverOptions options)
-            {
-                switch (options.EnthalpyStyle)
-                {
-                    case Analysis.VariableConstraint.TemperatureDependent:
-                        var dt = model.Data.MeasuredTemperature - options.MeanTemperature;
-                        return dH + dCp * dt;
-                    default: return dH;
-                }
-            }
-
-            public double GetK(Model model, SolverOptions options)
-            {
-                var T = model.Data.MeasuredTemperature + 273.15;
-
-                switch (options.AffinityStyle)
-                {
-                    case Analysis.VariableConstraint.SameForAll: return Math.Exp(-1 * dG / (Energy.R.Value * 298.15));
-                    case Analysis.VariableConstraint.TemperatureDependent: return Math.Exp(-1 * dG / (Energy.R.Value * T));
-                    default:
-                    case Analysis.VariableConstraint.None: return Math.Exp(-1 * dG / (Energy.R.Value * T));
-                }
-            }
         }
     }
 }

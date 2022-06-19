@@ -309,13 +309,13 @@ namespace AnalysisITC
             var rand = new Random();
             var results = new List<double>();
 
-            var exact = -Intercept.Value / Slope.Value;
+            var exact = -Intercept.Value / Slope.Value + ReferenceT;
 
             for (int i = 0; i < 3000; i++)
             {
                 var f = new LinearFit(Slope.Sample(rand), Intercept.Sample(rand), ReferenceT);
 
-                results.Add(-f.Intercept / f.Slope);
+                results.Add(-f.Intercept / f.Slope + ReferenceT);
             }
 
             return new FloatWithError(results, exact);

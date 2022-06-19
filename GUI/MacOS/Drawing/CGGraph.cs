@@ -1083,9 +1083,9 @@ namespace AnalysisITC
 
         double[] GetMinMaxEnthalpy(IEnumerable<ExperimentData> data)
         {
-            var evals = data.Where(d => d.Include && d.Solution != null).Select(d => d.Solution.Evaluate(0, withoffset: false));
-            var maxpoints = data.Where(d => d.Include).Select(d => d.Injections.Where(inj => inj.Include || !FocusValidData).Max(inj => inj.Enthalpy));
-            var minpoints = data.Where(d => d.Include).Select(d => d.Injections.Where(inj => inj.Include || !FocusValidData).Min(inj => inj.Enthalpy));
+            var evals = data.Where(d => d.Solution != null).Select(d => d.Solution.Evaluate(0, withoffset: false));
+            var maxpoints = data.Select(d => d.Injections.Where(inj => inj.Include || !FocusValidData).Max(inj => inj.Enthalpy));
+            var minpoints = data.Select(d => d.Injections.Where(inj => inj.Include || !FocusValidData).Min(inj => inj.Enthalpy));
 
             if (evals.Count() == 0) evals = new double[] { 0 };
             if (maxpoints.Count() == 0) maxpoints = new double[] { 0 };
@@ -1093,6 +1093,9 @@ namespace AnalysisITC
 
             var max = Math.Max(maxpoints.Max(), evals.Max());
             var min = Math.Min(minpoints.Min(), evals.Min());
+
+            if (evals.Min() < -1000) min = evals.Min();
+            if (evals.Max() > 1000) max = evals.Max();
 
             return new double[] { Math.Min(min, 0), Math.Max(max, 0) };
         }
