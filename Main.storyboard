@@ -1101,19 +1101,19 @@ Gw
                         <autoresizingMask key="autoresizingMask"/>
                         <subviews>
                             <stackView distribution="fill" orientation="vertical" alignment="leading" horizontalStackHuggingPriority="1000" verticalStackHuggingPriority="1000" horizontalHuggingPriority="1000" detachesHiddenViews="YES" translatesAutoresizingMaskIntoConstraints="NO" id="XaK-L0-ZOw">
-                                <rect key="frame" x="0.0" y="0.0" width="343" height="528"/>
+                                <rect key="frame" x="0.0" y="0.0" width="343" height="542"/>
                                 <subviews>
                                     <customView horizontalHuggingPriority="750" verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="aDz-wy-dbf" customClass="TemperatureDependenceGraphView">
-                                        <rect key="frame" x="5" y="223" width="333" height="300"/>
+                                        <rect key="frame" x="5" y="237" width="333" height="300"/>
                                         <constraints>
                                             <constraint firstAttribute="height" constant="300" id="tn4-7T-ajf"/>
                                         </constraints>
                                     </customView>
                                     <stackView distribution="fill" orientation="vertical" alignment="leading" spacing="0.0" horizontalStackHuggingPriority="750" verticalStackHuggingPriority="249.99998474121094" detachesHiddenViews="YES" translatesAutoresizingMaskIntoConstraints="NO" id="Z7s-Fl-HQ3">
-                                        <rect key="frame" x="5" y="61" width="333" height="154"/>
+                                        <rect key="frame" x="5" y="61" width="333" height="168"/>
                                         <subviews>
                                             <textField horizontalHuggingPriority="251" verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="KsN-yJ-DwD">
-                                                <rect key="frame" x="-2" y="140" width="337" height="14"/>
+                                                <rect key="frame" x="-2" y="154" width="337" height="14"/>
                                                 <textFieldCell key="cell" lineBreakMode="clipping" alignment="center" title="Fitting Parameters" id="qsC-Dk-wVz">
                                                     <font key="font" metaFont="smallSystemBold"/>
                                                     <color key="textColor" name="labelColor" catalog="System" colorSpace="catalog"/>
@@ -1121,13 +1121,14 @@ Gw
                                                 </textFieldCell>
                                             </textField>
                                             <stackView distribution="fillEqually" orientation="horizontal" alignment="top" horizontalStackHuggingPriority="249.99998474121094" verticalStackHuggingPriority="750" verticalHuggingPriority="750" detachesHiddenViews="YES" translatesAutoresizingMaskIntoConstraints="NO" id="PAY-BQ-IQF">
-                                                <rect key="frame" x="0.0" y="98" width="333" height="42"/>
+                                                <rect key="frame" x="0.0" y="98" width="333" height="56"/>
                                                 <subviews>
                                                     <textField horizontalHuggingPriority="249" verticalHuggingPriority="749" verticalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="AOi-yv-OYg">
-                                                        <rect key="frame" x="8" y="0.0" width="157" height="42"/>
+                                                        <rect key="frame" x="8" y="0.0" width="157" height="56"/>
                                                         <textFieldCell key="cell" controlSize="small" selectable="YES" alignment="right" id="ddZ-ko-cBV">
                                                             <font key="font" metaFont="smallSystem"/>
                                                             <string key="title">Model:
+Algorithm:
 Iterations/Loss/Time:
 Bootstrap iterations:</string>
                                                             <color key="textColor" name="labelColor" catalog="System" colorSpace="catalog"/>
@@ -1135,7 +1136,7 @@ Bootstrap iterations:</string>
                                                         </textFieldCell>
                                                     </textField>
                                                     <textField verticalHuggingPriority="749" verticalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="1JC-8Z-E3m">
-                                                        <rect key="frame" x="169" y="0.0" width="156" height="42"/>
+                                                        <rect key="frame" x="169" y="0.0" width="156" height="56"/>
                                                         <textFieldCell key="cell" controlSize="small" selectable="YES" alignment="left" id="dVq-4r-Ief">
                                                             <font key="font" metaFont="smallSystem"/>
                                                             <string key="title">Global:OneSetOfSites
@@ -2321,7 +2322,7 @@ IA
                                         <size key="contentViewMargins" width="5" height="5"/>
                                     </box>
                                     <stackView distribution="fill" orientation="horizontal" alignment="firstBaseline" horizontalStackHuggingPriority="250" verticalStackHuggingPriority="750" verticalHuggingPriority="750" detachesHiddenViews="YES" translatesAutoresizingMaskIntoConstraints="NO" id="5oj-9h-hGH">
-                                        <rect key="frame" x="343" y="492" width="567" height="16"/>
+                                        <rect key="frame" x="0.0" y="492" width="567" height="16"/>
                                         <subviews>
                                             <button verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="jsQ-Vt-t9u">
                                                 <rect key="frame" x="5" y="-1" width="66" height="17"/>
@@ -4454,13 +4455,13 @@ Structuring (R-value):</string>
                                     <real value="3.4028234663852886e+38"/>
                                 </customSpacing>
                             </stackView>
-                            <scrollView verticalCompressionResistancePriority="250" autohidesScrollers="YES" horizontalLineScroll="16" horizontalPageScroll="10" verticalLineScroll="16" verticalPageScroll="10" usesPredominantAxisScrolling="NO" translatesAutoresizingMaskIntoConstraints="NO" id="6n7-Qo-hom">
+                            <scrollView verticalCompressionResistancePriority="250" autohidesScrollers="YES" horizontalLineScroll="24" horizontalPageScroll="10" verticalLineScroll="24" verticalPageScroll="10" usesPredominantAxisScrolling="NO" translatesAutoresizingMaskIntoConstraints="NO" id="6n7-Qo-hom">
                                 <rect key="frame" x="5" y="30" width="731" height="190"/>
                                 <clipView key="contentView" ambiguous="YES" drawsBackground="NO" id="F2S-4D-9BG">
                                     <rect key="frame" x="1" y="1" width="729" height="188"/>
                                     <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
                                     <subviews>
-                                        <tableView verticalHuggingPriority="750" ambiguous="YES" allowsExpansionToolTips="YES" alternatingRowBackgroundColors="YES" columnReordering="NO" autosaveColumns="NO" rowHeight="16" usesAutomaticRowHeights="YES" headerView="SoU-kQ-e6N" viewBased="YES" translatesAutoresizingMaskIntoConstraints="NO" id="BTS-OT-hEw">
+                                        <tableView verticalHuggingPriority="750" ambiguous="YES" allowsExpansionToolTips="YES" alternatingRowBackgroundColors="YES" columnReordering="NO" autosaveColumns="NO" rowHeight="24" usesAutomaticRowHeights="YES" headerView="SoU-kQ-e6N" viewBased="YES" id="BTS-OT-hEw">
                                             <rect key="frame" x="0.0" y="0.0" width="729" height="160"/>
                                             <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
                                             <size key="intercellSpacing" width="14" height="0.0"/>
@@ -4554,7 +4555,7 @@ Structuring (R-value):</string>
                                                             <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
                                                             <subviews>
                                                                 <textField horizontalHuggingPriority="251" verticalHuggingPriority="750" horizontalCompressionResistancePriority="250" id="FNU-dV-4AM">
-                                                                    <rect key="frame" x="-9" y="29" width="132" height="16"/>
+                                                                    <rect key="frame" x="-10" y="29" width="132" height="16"/>
                                                                     <autoresizingMask key="autoresizingMask" flexibleMinX="YES" widthSizable="YES" flexibleMaxX="YES" flexibleMinY="YES"/>
                                                                     <textFieldCell key="cell" lineBreakMode="truncatingTail" sendsActionOnEndEditing="YES" alignment="center" title="Table View Cell" id="I4S-w4-oW9">
                                                                         <font key="font" metaFont="system"/>

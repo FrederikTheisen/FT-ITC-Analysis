@@ -87,8 +87,9 @@ namespace AnalysisITC
             DataSource.Content.Remove(data);
 
             if (will_delete_selected) DataDidChange.Invoke(null, null);
+            else SelectedContentIndex = DataSource.Content.IndexOf(current_selected_item);
 
-            if (idx > SelectedContentIndex) SelectedContentIndex--;
+            //if (idx >= SelectedContentIndex) SelectedContentIndex--;
 
             //if (!will_delete_selected) SelectIndex(DataSource.Content.IndexOf(current_selected_item));
             //else SelectionDidChange?.Invoke(null, null);

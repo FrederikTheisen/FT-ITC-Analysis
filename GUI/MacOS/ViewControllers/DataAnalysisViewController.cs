@@ -134,7 +134,7 @@ namespace AnalysisITC
         {
             ToggleFitButtons(false);
             StatusBarManager.StartInderminateProgress();
-            StatusBarManager.SetStatus("Fitting data...", 0);
+            StatusBarManager.SetStatus("Minimizing using " + Extensions.GetEnumDescription(Analysis.Algorithm) + " algorithm...", 0);
 
             switch (AnalysisModeControl.SelectedSegment)
             {

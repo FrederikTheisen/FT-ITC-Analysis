@@ -9,6 +9,7 @@ using Foundation;
 using AppKit;
 using System.Threading;
 using static alglib;
+using System.ComponentModel;
 
 namespace AnalysisITC
 {
@@ -52,7 +53,7 @@ namespace AnalysisITC
         public static double[] Kbounds => Bounds(Kinit, Klock, 0, 0.001);
         public static double[] Gbounds => Bounds(Ginit, Glock, -500000, -5000);
         public static double[] Cbounds => Bounds(Cinit, Clock, -20000, 20000);
-        public static double[] Obounds => Bounds(Oinit, Olock, -20000, 20000);
+        public static double[] Obounds => Bounds(Oinit, Olock, -50000, 50000);
         public static double[] Nbounds => Bounds(Ninit, Nlock, .1, 10);
 
         public static SolverAlgorithm Algorithm { get; set; } = SolverAlgorithm.NelderMead;
@@ -249,7 +250,9 @@ namespace AnalysisITC
 
         public enum SolverAlgorithm
         {
+            [Description("Nelder-Mead [SIMPLEX]")]
             NelderMead,
+            [Description("Levenberg-Marquardt")]
             LevenbergMarquardt
         }
     }
@@ -275,8 +278,12 @@ namespace AnalysisITC
         public virtual double GuessK => 1000000;
         public virtual double GuessGibbs => -35000;
         public virtual double GuessOffset => Data.Injections.Where(inj => inj.Include).TakeLast(2).Average(inj => inj.Enthalpy);
+        public virtual double[] InitialGuessVector { get; set; }
 
-        public virtual string ModelName => FittedGlobally ? "Global.Model" : "Model";
+        public virtual string ModelName => FittedGlobally ? "Global." : "";
+
+        double LevenbergMarquardtDifferentiationStepSize { get; set; } = 0.00001;
+        double LevenbergMarquardtEpsilon { get; set; } = 1E-12;
 
         /// <summary>
         /// Solution parameters
@@ -291,6 +298,13 @@ namespace AnalysisITC
         public Model(ExperimentData experiment)
         {
             Data = experiment;
+        }
+
+        public void SetBootstrapStart(double[] initialvalues)
+        {
+            InitialGuessVector = initialvalues;
+            LevenbergMarquardtDifferentiationStepSize *= 1000;
+            LevenbergMarquardtEpsilon *= 1000;
         }
 
         public virtual double RMSD(double n, double H, double K, double offset, bool isloss = true)
@@ -328,7 +342,7 @@ namespace AnalysisITC
                 StartTime = DateTime.Now,
             };
 
-            solver.Minimize(new double[4] { GuessN, GuessH, GuessK, GuessOffset });
+            solver.Minimize(InitialGuessVector is null ? new double[4] { GuessN, GuessH, GuessK, GuessOffset } : InitialGuessVector);
 
             Data.Solution = Solution.FromAccordNelderMead(solver.Solution, this, RMSD(solver.Solution[0], solver.Solution[1], solver.Solution[2], solver.Solution[3], false)); // solver.Function(solver.Solution));
 
@@ -338,20 +352,16 @@ namespace AnalysisITC
         public virtual SolverConvergence SolveWithLevenbergMarquardt()
         {
             DateTime start = DateTime.Now;
-            alglib.minlmstate state;
-            alglib.minlmreport rep;
-            double epsx = 0.0000000001;
             int maxits = 0;
-            double[] s = new double[] { 1, 10000, 10000000, 1000 };
-            var guess = new double[4] { GuessN, GuessH, GuessK, GuessOffset };
+            var guess = InitialGuessVector is null ? new double[4] { GuessN, GuessH, GuessK, GuessOffset } : InitialGuessVector;
 
-            alglib.minlmcreatev(4, guess, 0.0001, out state);
-            alglib.minlmsetcond(state, epsx, maxits);
+            alglib.minlmcreatev(4, guess, LevenbergMarquardtDifferentiationStepSize, out minlmstate state);
+            alglib.minlmsetcond(state, LevenbergMarquardtEpsilon, maxits);
             alglib.minlmsetscale(state, guess);
 
             alglib.minlmoptimize(state, (double[] x, double[] fi, object obj) => { fi[0] = this.RMSD(x[0], x[1], x[2], x[3]); }, null, null);
 
-            alglib.minlmresults(state, out guess, out rep);
+            alglib.minlmresults(state, out guess, out minlmreport rep);
 
             Data.Solution = Solution.FromAlgLibLevenbergMarquardt(guess, this, RMSD(guess[0], guess[1], guess[2], guess[3], false));
 
@@ -371,6 +381,7 @@ namespace AnalysisITC
                 if (!Analysis.StopAnalysisProcess)
                 {
                     var model = this.GenerateSyntheticModel();
+                    model.SetBootstrapStart(Solution.Raw);
                     model.Solve();
                     solutions.Add(model.Solution);
                 }
@@ -392,7 +403,7 @@ namespace AnalysisITC
 
     class OneSetOfSites : Model
     {
-        public override string ModelName => FittedGlobally ? "Global.OneSetOfSites" : "OneSetOfSites";
+        public override string ModelName => base.ModelName + "OneSetOfSites";
 
         public OneSetOfSites()
         {
@@ -458,15 +469,16 @@ namespace AnalysisITC
         public GlobalSolution Solution { get; private set; }
         public SolverOptions Options { get; set; }
 
-        public double MeanTemperature => Models.Average(m => m.Temperature);
+        public double MeanTemperature { get; private set; }
         public Analysis.VariableConstraint EnthalpyStyle => Options.EnthalpyStyle;
         public Analysis.VariableConstraint AffinityStyle => Options.AffinityStyle;
         public Analysis.VariableConstraint NStyle => Options.NStyle;
-        public int MaximumEvaluations { get; set; } = 300000;
-        public double AbsoluteFunctionTolerance { get; set; } = double.Epsilon;
-        public double AbsoluteParameterTolerance { get; set; } = 0.001;
-        public double RelativeSolutionTolerance { get; set; } = 2E-10;
-        public double LevenbergMarquardtDifferentiationStepSize = 0.001;
+        int MaximumEvaluations { get; set; } = 300000;
+        double AbsoluteFunctionTolerance { get; set; } = double.Epsilon;
+        double AbsoluteParameterTolerance { get; set; } = 0.001;
+        double RelativeSolutionTolerance { get; set; } = 2E-10;
+        double LevenbergMarquardtDifferentiationStepSize { get; set; } = 0.00001;
+        double LevenbergMarquardtEpsilon { get; set; } = 1E-12;
 
         public virtual int GetVariableCount
         {
@@ -653,7 +665,7 @@ namespace AnalysisITC
             BootstrapInitialValues = bootstrapinitialvalues;
             AbsoluteFunctionTolerance = 0.0000000000000000001;
             RelativeSolutionTolerance = 1.5E-3;
-            LevenbergMarquardtDifferentiationStepSize *= 10;
+            LevenbergMarquardtDifferentiationStepSize *= 100;
         }
 
         void SetBounds(NelderMead solver)
@@ -671,13 +683,33 @@ namespace AnalysisITC
         public SolverConvergence Solve()
         {
             Models.ForEach(m => m.FittedGlobally = true);
+            MeanTemperature = Models.Average(m => m.Temperature);
 
-            switch (Analysis.Algorithm)
+            //If no variables are globally constrained then perform individual fitting of each experiment
+            if (EnthalpyStyle == Analysis.VariableConstraint.None && 
+                AffinityStyle == Analysis.VariableConstraint.None &&
+                NStyle == Analysis.VariableConstraint.None)
             {
-                case Analysis.SolverAlgorithm.NelderMead: return SolveWithNelderMeadAlgorithm();
-                case Analysis.SolverAlgorithm.LevenbergMarquardt: return SolveWithLevenbergMarquardt();
-                default: return null;
+                var convergence = new List<SolverConvergence>();
+
+                foreach (var model in Models)
+                {
+                    convergence.Add(model.Solve());
+                }
+
+                var output = SolverParameters.FromIndividual(Models.Select(m => m.Solution).ToList(), Options);
+
+                Solution = GlobalSolution.FromAccordNelderMead(output.ToArray(), this);
+                Solution.Convergence = new SolverConvergence(convergence);
+
+                return Solution.Convergence;
             }
+            else switch (Analysis.Algorithm)
+                {
+                    case Analysis.SolverAlgorithm.NelderMead: return SolveWithNelderMeadAlgorithm();
+                    case Analysis.SolverAlgorithm.LevenbergMarquardt: return SolveWithLevenbergMarquardt();
+                    default: return null;
+                }
         }
 
         SolverConvergence SolveWithNelderMeadAlgorithm()
@@ -711,22 +743,16 @@ namespace AnalysisITC
         {
             DateTime start = DateTime.Now;
             var varcount = GetVariableCount;
-            minlmstate state;
-            minlmreport rep;
-
-            double epsx = 0.0000000001;
-            int maxits = 0;
             var guess = GetStartValues();
 
-            alglib.minlmcreatev(varcount, guess, LevenbergMarquardtDifferentiationStepSize, out state);
-            alglib.minlmsetcond(state, epsx, maxits);
+            alglib.minlmcreatev(varcount, guess, LevenbergMarquardtDifferentiationStepSize, out minlmstate state);
+            alglib.minlmsetcond(state, LevenbergMarquardtEpsilon, MaximumEvaluations);
             alglib.minlmsetscale(state, guess);
-            
+            //alglib.minlmsetbc(state, LowerBounds, UpperBounds);
             alglib.minlmoptimize(state, (double[] parameters, double[] fi, object obj) => { fi[0] = LossFunction(parameters); }, null, null);
+            alglib.minlmresults(state, out double[] result, out minlmreport rep);
 
-            alglib.minlmresults(state, out guess, out rep);
-
-            Solution = GlobalSolution.FromAlgLibLevenbergMarquardt(guess, this);
+            Solution = GlobalSolution.FromAlgLibLevenbergMarquardt(result, this);
             Solution.Convergence = new SolverConvergence(state, rep, DateTime.Now - start);
 
             return Solution.Convergence;
@@ -742,13 +768,21 @@ namespace AnalysisITC
 
             var start = DateTime.Now;
 
-            var res = Parallel.For(0, Analysis.BootstrapIterations, (i) =>
+            var opt = new ParallelOptions();
+            opt.MaxDegreeOfParallelism = 10;
+
+            var res = Parallel.For(0, Analysis.BootstrapIterations, opt, (i) =>
             {
                 if (!Analysis.StopAnalysisProcess)
                 {
                     var models = new List<Model>();
 
-                    foreach (var m in Models) models.Add(m.GenerateSyntheticModel());
+                    foreach (var m in Models)
+                    {
+                        var _m = m.GenerateSyntheticModel();
+                        _m.SetBootstrapStart(new double[] { m.Solution.N, m.Solution.Enthalpy, m.Solution.K, m.Solution.Offset });
+                        models.Add(_m);
+                    }
 
                     var gm = new GlobalModel(Solution.Raw.Copy())
                     {

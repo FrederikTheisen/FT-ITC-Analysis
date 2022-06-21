@@ -12,9 +12,11 @@ namespace AnalysisITC
         public string Message { get; private set; }
         public TimeSpan Time { get; private set; }
         public double Loss { get; private set; }
+        public Analysis.SolverAlgorithm Algorithm { get; private set; }
 
         public SolverConvergence(NelderMead solver)
         {
+            Algorithm = Analysis.SolverAlgorithm.NelderMead;
             Iterations = solver.Convergence.Evaluations;
             Message = solver.Status.ToString();
             Time = DateTime.Now - solver.Convergence.StartTime;
@@ -23,10 +25,20 @@ namespace AnalysisITC
 
         public SolverConvergence(minlmstate state, minlmreport rep, TimeSpan time)
         {
+            Algorithm = Analysis.SolverAlgorithm.LevenbergMarquardt;
             Iterations = rep.iterationscount;
             Message = rep.terminationtype.ToString();
             Time = time;
             Loss = state.f;
+        }
+
+        public SolverConvergence(List<SolverConvergence> list)
+        {
+            Algorithm = list.First().Algorithm;
+            Iterations = list.First().Iterations;
+            Message = list.First().Message;
+            Time = TimeSpan.FromTicks(list.Sum(sc => sc.Time.Ticks));
+            Loss = list.Sum(sc => sc.Loss);
         }
     }
 
@@ -60,12 +72,12 @@ namespace AnalysisITC
         public Analysis.VariableConstraint NStyle => options.NStyle;
         public int ModelCount => options.ModelCount;
 
-        public List<double> Enthalpies = new List<double>();
-        public List<double> Gibbs = new List<double>();
-        public List<double> Offsets = new List<double>();
-        public List<double> Ns = new List<double>();
+        public List<double> Enthalpies { get; set; } = new List<double>();
+        public List<double> Gibbs { get; set; } = new List<double>();
+        public List<double> Offsets { get; set; } = new List<double>();
+        public List<double> Ns { get; set; } = new List<double>();
 
-        public double HeatCapacity = 0;
+        public double HeatCapacity { get; set; } = 0;
 
         public SolverParameters(SolverOptions options)
         {
@@ -116,6 +128,18 @@ namespace AnalysisITC
                 case Analysis.VariableConstraint.SameForAll: p.Ns = w.Skip(index).Take(1).ToList(); break;
                 default: p.Ns = w.Skip(index).Take(options.ModelCount).ToList(); break;
             }
+
+            return p;
+        }
+
+        public static SolverParameters FromIndividual(List<Solution> solutions, SolverOptions options)
+        {
+            var p = new SolverParameters(options);
+
+            p.Ns = solutions.Select(s => s.N.Value).ToList();
+            p.Enthalpies = solutions.Select(s => s.Enthalpy.Value).ToList();
+            p.Gibbs = solutions.Select(s => s.GibbsFreeEnergy.Value).ToList();
+            p.Offsets = solutions.Select(s => s.Offset.Value).ToList();
 
             return p;
         }
@@ -178,6 +202,11 @@ namespace AnalysisITC
                     default:
                     case Analysis.VariableConstraint.None: return Math.Exp(-1 * dG / (Energy.R.Value * T));
                 }
+            }
+
+            public double[] ToArray(Model model)
+            {
+                return new double[] { N, GetK(model, Options), dH, Offset};
             }
         }
     }

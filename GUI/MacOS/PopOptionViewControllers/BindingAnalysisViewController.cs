@@ -104,6 +104,7 @@ namespace AnalysisITC
 
             fit += AnalysisResult.Solution.Model.Models[0].ModelName + Environment.NewLine;
             dataset += AnalysisResult.Solution.Solutions.Count + " experiments" + Environment.NewLine;
+            fit += Extensions.GetEnumDescription(AnalysisResult.Solution.Convergence.Algorithm) + Environment.NewLine;
             fit += AnalysisResult.Solution.Convergence.Iterations + " | " + AnalysisResult.Solution.Loss.ToString("G3") + " | " + AnalysisResult.Solution.Convergence.Time.TotalMilliseconds.ToString("F0") + "ms" + Environment.NewLine;
             fit += AnalysisResult.Solution.BootstrapIterations + " | " + AnalysisResult.Solution.BootstrapTime.TotalSeconds.ToString("F1") + "s";
             constraints += AnalysisResult.Solution.Model.Options.EnthalpyStyle.ToString() + Environment.NewLine;
