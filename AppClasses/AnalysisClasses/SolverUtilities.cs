@@ -12,6 +12,7 @@ namespace AnalysisITC
         public string Message { get; private set; }
         public TimeSpan Time { get; private set; }
         public double Loss { get; private set; }
+        public bool Failed { get; private set; } = false;
         public Analysis.SolverAlgorithm Algorithm { get; private set; }
 
         public SolverConvergence(NelderMead solver)
@@ -21,6 +22,8 @@ namespace AnalysisITC
             Message = solver.Status.ToString();
             Time = DateTime.Now - solver.Convergence.StartTime;
             Loss = solver.Value;
+
+            Failed = solver.Status == NelderMeadStatus.Failure;
         }
 
         public SolverConvergence(minlmstate state, minlmreport rep, TimeSpan time)
@@ -30,6 +33,8 @@ namespace AnalysisITC
             Message = rep.terminationtype.ToString();
             Time = time;
             Loss = state.f;
+
+            Failed = rep.terminationtype != 2;
         }
 
         public SolverConvergence(List<SolverConvergence> list)
