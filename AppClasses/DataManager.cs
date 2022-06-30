@@ -82,7 +82,7 @@ namespace AnalysisITC
             Console.WriteLine("DM REMOVE: " + data.UniqueID + " " + DataSourceContent.IndexOf(data));
             var idx = DataSource.Content.IndexOf(data);
             var current_selected_item = DataSource.Content[SelectedContentIndex];
-            var will_delete_selected = idx == DataSource.Content.IndexOf(current_selected_item);
+            var will_delete_selected = idx == SelectedContentIndex;
 
             DataSource.Content.Remove(data);
 
@@ -93,6 +93,19 @@ namespace AnalysisITC
 
             //if (!will_delete_selected) SelectIndex(DataSource.Content.IndexOf(current_selected_item));
             //else SelectionDidChange?.Invoke(null, null);
+        }
+
+        public static void RemoveData2(int index)
+        {
+            if (SelectedContentIndex == -1) { DataSource.Content.RemoveAt(index); return; }
+
+            var current_selected_item = DataSource.Content[SelectedContentIndex];
+            var will_delete_selected = index == SelectedContentIndex;
+
+            DataSource.Content.RemoveAt(index);
+
+            if (will_delete_selected) DataDidChange.Invoke(null, null);
+            SelectIndex(DataSource.Content.IndexOf(current_selected_item));
         }
 
         internal static void RemoveData(int index)
