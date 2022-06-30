@@ -97,6 +97,22 @@ namespace AnalysisITC
             ResultsTableView.TableColumns()[3].Title = "∆H (" + EnergyUnit.GetUnit() + Energy.Suffix(true) + ")";
             ResultsTableView.TableColumns()[4].Title = "-T∆S (" + EnergyUnit.GetUnit() + Energy.Suffix(true) + ")";
             ResultsTableView.TableColumns()[5].Title = "∆G (" + EnergyUnit.GetUnit() + Energy.Suffix(true) + ")";
+
+            ExperimentListButton.Title = AnalysisResult.Solution.Solutions.Count + " experiments";
+            ResultSummaryLabel.StringValue = string.Join(Environment.NewLine, new string[] { AnalysisResult.Solution.Model.Models[0].ModelName, AnalysisResult.Solution.Convergence.Algorithm.Description(), "---" , AnalysisResult.Solution.BootstrapIterations.ToString() });
+
+            var refT = AnalysisResult.Solution.ReferenceTemperature;
+            if (UseKelvin)
+            {
+                refT += 273.15;
+                ResultEvalTempUnitLabel.StringValue = "K";
+            }
+            else ResultEvalTempUnitLabel.StringValue = "°C";
+            string tempunit = " " + (UseKelvin ? "K" : "°C") + " / ";
+
+            TemperatureDependenceLabel.StringValue = string.Join(Environment.NewLine, new string[] { refT.ToString("F2") + tempunit + EnergyUnit.GetUnit() + "/mol", AnalysisResult.Solution.EnthalpyLine.ToString(EnergyUnit), AnalysisResult.Solution.EntropyLine.ToString(EnergyUnit), AnalysisResult.Solution.GibbsLine.ToString(EnergyUnit) });
+
+            EvaluateParameters(null);
         }
 
         void ToggleFitButtons(bool enable)
@@ -111,6 +127,38 @@ namespace AnalysisITC
             SpolarRecordAnalysisController.TempMode = (SpolarRecordAnalysisController.SRTempMode)(int)SRTemperatureModeSegControl.SelectedSegment;
             SpolarRecordAnalysisController.FoldedDegree = (SpolarRecordAnalysisController.SRFoldedMode)(int)SRFoldedDegreeSegControl.SelectedSegment;
             SpolarRecordAnalysisController.Analyze(AnalysisResult.Solution);
+        }
+
+        partial void EvaluateParameters(NSObject sender)
+        {
+            StatusBarManager.StartInderminateProgress();
+            StatusBarManager.SetStatus("Evaluating...");
+
+            try
+            {
+                var T = EvaluateionTemperatureTextField.FloatValue;
+
+                if (UseKelvin) T -= 273.15f;
+
+                var H = new Energy(AnalysisResult.Solution.EnthalpyLine.Evaluate(T, 10000));
+                var S = new Energy(AnalysisResult.Solution.EntropyLine.Evaluate(T, 10000));
+                var G = new Energy(AnalysisResult.Solution.GibbsLine.Evaluate(T, 10000));
+
+                T += 273.15f;
+
+                var kdexponent = G / (T * Energy.R);
+                var Kd = FWEMath.Exp(kdexponent.FloatWithError);
+
+                EvaluationOutputLabel.StringValue = string.Join(Environment.NewLine, new string[] { H.ToString(EnergyUnit,permole:true), S.ToString(EnergyUnit, permole: true), G.ToString(EnergyUnit, permole: true), Kd.AsDissociationConstant() });
+            }
+            catch (Exception ex)
+            {
+                EvaluationOutputLabel.StringValue = string.Join(Environment.NewLine, new string[] { "---", "---", "---", "---" });
+                StatusBarManager.SetStatusScrolling(ex.Message);
+            }
+
+            StatusBarManager.StopIndeterminateProgress();
+            StatusBarManager.ClearAppStatus();
         }
 
         partial void TempControlClicked(NSSegmentedControl sender)

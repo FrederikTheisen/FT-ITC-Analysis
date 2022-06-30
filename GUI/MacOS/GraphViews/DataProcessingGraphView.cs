@@ -32,7 +32,7 @@ namespace AnalysisITC
 
         bool ShowInjections
         {
-            //get => Graph != null ? Graph.ShowInjections : false;
+            get => Graph != null ? Graph.ShowInjections : false;
             set { if (Graph != null) Graph.ShowInjections = value; }
         }
 
@@ -230,6 +230,20 @@ namespace AnalysisITC
             SelectedFeature.ClickCursorPosition = theEvent.LocationInWindow;
         }
 
+        public override void KeyDown(NSEvent theEvent)
+        {
+            base.KeyDown(theEvent);
+
+            if (theEvent.KeyCode == (int)NSKey.Space)
+                if (SelectedPeak != -1 && isInjectionZoomed)
+                {
+                    var length = Data.Injections[SelectedPeak].IntegrationLength;
+                    SelectedPeak++;
+                    Data.Injections[SelectedPeak].SetCustomIntegrationTimes(null, length, true);
+                    FocusPeak();
+                }
+        }
+
         public override void RightMouseDown(NSEvent theEvent)
         {
             base.RightMouseDown(theEvent);
@@ -332,7 +346,7 @@ namespace AnalysisITC
                 }
                 else NSCursor.ArrowCursor.Set();
             }
-            else
+            else if (ShowInjections)
             {
                 var xfraction = (CursorPositionInView.X - Graph.Frame.X) / Graph.Frame.Width;
                 var time = xfraction * (Graph.XAxis.Max - Graph.XAxis.Min) + Graph.XAxis.Min;
@@ -344,6 +358,8 @@ namespace AnalysisITC
                     SelectedPeak = clickedinj.First().ID;
                     InjectionSelected?.Invoke(clickedinj.First(), clickedinj.First().ID);
                 }
+
+                if (theEvent.ClickCount > 1 && SelectedPeak != -1) FocusPeak();
             }
         }
 

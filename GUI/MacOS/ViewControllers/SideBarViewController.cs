@@ -108,7 +108,7 @@ namespace AnalysisITC
 
         private void OnDataViewClicked(object sender, EventArgs e)
         {
-            DataManager.SelectIndex((int)TableView.SelectedRow);
+            if ((int)TableView.SelectedRow != -1) DataManager.SelectIndex((int)TableView.SelectedRow);
         }
 
         #endregion

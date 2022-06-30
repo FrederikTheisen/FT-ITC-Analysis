@@ -992,7 +992,7 @@ namespace AnalysisITC
                 CursorInfo.Add("Time: " + datapoint.Time.ToString() + "s");
                 CursorInfo.Add("DP: " + (DataManager.Unit.IsSI() ? (datapoint.Power * 1000000).ToString("F1") + " µW" : (datapoint.Power * 1000000 * Energy.JouleToCalFactor).ToString("F1") + " µCal"));
 
-                if (ExperimentData.BaseLineCorrectedDataPoints.Count > 0)
+                if (ExperimentData.BaseLineCorrectedDataPoints != null && ExperimentData.BaseLineCorrectedDataPoints.Count > 0)
                 {
                     var bldp = CursorPosition > ExperimentData.BaseLineCorrectedDataPoints.Last().Time ? ExperimentData.BaseLineCorrectedDataPoints.Last() : ExperimentData.BaseLineCorrectedDataPoints.First(dp => dp.Time > CursorPosition);
 
@@ -1144,7 +1144,7 @@ namespace AnalysisITC
                     var etop = GetRelativePosition(inj.Ratio, inj.OffsetEnthalpy - inj.Enthalpy * sd);
                     var ebottom = GetRelativePosition(inj.Ratio, inj.OffsetEnthalpy + inj.Enthalpy * sd);
 
-                    if (etop.Y - p.Y > CGGraph.SymbolSize / 2)
+                    if (Math.Abs(etop.Y - p.Y) > CGGraph.SymbolSize / 2)
                     {
                         bars.MoveToPoint(etop);
                         bars.AddLineToPoint(CGPoint.Add(p, new CGSize(0, CGGraph.SymbolSize / 2)));

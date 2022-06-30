@@ -289,12 +289,12 @@ namespace AnalysisITC
             return new LinearFitWithError(new FloatWithError(dist_slope, fit.Slope), new FloatWithError(dist_intercept, fit.Intercept), refx);
         }
 
-        public FloatWithError Evaluate(double x)
+        public FloatWithError Evaluate(double x, int iterations = 5000)
         {
             var rand = new Random();
             var results = new List<double>();
 
-            for (int i = 0; i < 3000; i++)
+            for (int i = 0; i < iterations; i++)
             {
                 var f = new LinearFit(Slope.Sample(rand), Intercept.Sample(rand), ReferenceT);
 
@@ -319,6 +319,19 @@ namespace AnalysisITC
             }
 
             return new FloatWithError(results, exact);
+        }
+
+        public string ToString(string formatter = "F0")
+        {
+            return "(" + Slope.ToString(formatter) + ") · ∆T + (" + Intercept.ToString(formatter) + ")";
+        }
+
+        public string ToString(EnergyUnit energyUnit)
+        {
+            var slope = new Energy(Slope);
+            var intercept = new Energy(Intercept);
+
+            return slope.ToString(energyUnit, withunit: false) + " · ∆T + " + intercept.ToString(energyUnit, withunit: false);
         }
     }
 }

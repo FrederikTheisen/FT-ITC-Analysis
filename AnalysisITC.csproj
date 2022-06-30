@@ -388,6 +388,10 @@
     <Compile Include="AppSettings.cs" />
     <Compile Include="GUI\MacOS\AnalysisResult.cs" />
     <Compile Include="AppClasses\AnalysisClasses\SolverUtilities.cs" />
+    <Compile Include="ExperimentListViewController.cs" />
+    <Compile Include="ExperimentListViewController.designer.cs">
+      <DependentUpon>ExperimentListViewController.cs</DependentUpon>
+    </Compile>
   </ItemGroup>
   <ItemGroup>
     <InterfaceDefinition Include="Main.storyboard" />

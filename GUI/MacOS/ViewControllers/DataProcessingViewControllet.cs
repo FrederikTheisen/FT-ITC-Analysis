@@ -34,6 +34,15 @@ namespace AnalysisITC
             BaselineScopeButton.State = NSCellStateValue.On;
             IntegrationScopeButton.State = NSCellStateValue.On;
             ShowCursorInfoButton.State = NSCellStateValue.On;
+
+            NSEvent.AddLocalMonitorForEventsMatchingMask(NSEventMask.KeyDown, (NSEvent theEvent) => KeyDownEventHandler(theEvent));
+        }
+
+        NSEvent KeyDownEventHandler(NSEvent theEvent)
+        {
+            if (BaselineGraphView != null) BaselineGraphView.KeyDown(theEvent);
+
+            return theEvent;
         }
 
         private void BaselineOptionsPopoverViewController_Updated(object sender, EventArgs e)
@@ -145,12 +154,12 @@ namespace AnalysisITC
         void UpdateSliderLabels()
         {
             IntegrationStartDelayLabel.StringValue = (IntegrationDelayControl.FloatValue).ToString("F1") + "s";
-            if (Data != null && Data.IntegrationLengthMode == InjectionData.IntegrationLengthMode.Factor)
+            var lengthlabel = GetLengthSliderParameter();
+            if (Data != null)
             {
-                var factor = SliderToFactor();
-                IntegrationLengthLabel.StringValue = factor.ToString("F1") + "x";
+                if (Data.IntegrationLengthMode == InjectionData.IntegrationLengthMode.Time) IntegrationLengthLabel.StringValue = lengthlabel.ToString("F1") + "s";
+                else IntegrationLengthLabel.StringValue = lengthlabel.ToString("F1") + "x";
             }
-            else IntegrationLengthLabel.StringValue = (IntegrationLengthControl.FloatValue).ToString("F1") + "s";
             SplineBaselineFractionControl.StringValue = (SplineFractionSliderControl.FloatValue * 100).ToString("##0") + " %";
             PolynomialDegreeLabel.StringValue = PolynomialDegreeSlider.IntValue.ToString();
             ZLimitLabel.StringValue = ZLimitSlider.FloatValue.ToString("G3");
@@ -243,73 +252,40 @@ namespace AnalysisITC
 
             UpdateSliderLabels();
 
-            SetIntegrationTimes();
+            UpdateIntegrationRange(length: GetLengthSliderParameter());
         }
 
         partial void IntegrationStartTimeSliderChanged(NSSlider sender)
         {
             UpdateSliderLabels();
 
-            SetIntegrationTimes();
+            UpdateIntegrationRange(delay: IntegrationDelayControl.FloatValue);
         }
 
         partial void IntegrationLengthSliderChanged(NSSlider sender)
         {
             UpdateSliderLabels();
 
-            SetIntegrationTimes();
+            UpdateIntegrationRange(length: GetLengthSliderParameter());
         }
 
-        partial void ToggleUseIntegrationFactor(NSButton sender)
+        float GetLengthSliderParameter() => Data.IntegrationLengthMode switch
         {
-            //if (Data == null) return;
-
-            //Data.UseIntegrationFactorLength = !Data.UseIntegrationFactorLength;
-
-            //UpdateSliderLabels();
-
-            //SetIntegrationTimes();
-        }
-
-        partial void UseFactorToggled(NSObject sender)
-        {
-            //if (Data == null) return;
-
-            //Data.UseIntegrationFactorLength = !Data.UseIntegrationFactorLength;
-
-            //UpdateSliderLabels();
-
-            //SetIntegrationTimes();
-        }
-
-        float SliderToFactor()
-        {
-            return (float)Math.Pow(10, 2 * IntegrationLengthControl.FloatValue / IntegrationLengthControl.MaxValue);
-        }
+            InjectionData.IntegrationLengthMode.Factor => (float)Math.Pow(10, 2 * IntegrationLengthControl.FloatValue / IntegrationLengthControl.MaxValue),
+            InjectionData.IntegrationLengthMode.Fit => (float)Math.Pow(10, 2 * IntegrationLengthControl.FloatValue / IntegrationLengthControl.MaxValue),
+            _ => IntegrationLengthControl.FloatValue,
+        };
 
         float FactorToSlider(float value)
         {
             return (float)(Math.Log10(value) * IntegrationLengthControl.MaxValue / 2);
         }
 
-        void SetIntegrationTimes()
+        void UpdateIntegrationRange(float? delay = null, float? length = null)
         {
             if (Data == null) return;
 
-            switch (Data.IntegrationLengthMode)
-            {
-                case InjectionData.IntegrationLengthMode.Factor:
-                    var factor = SliderToFactor();
-                    Data.SetCustomIntegrationTimes(IntegrationDelayControl.FloatValue, factor);
-                    break;
-                case InjectionData.IntegrationLengthMode.Fit:
-                    var mod = SliderToFactor();
-                    Data.FitIntegrationPeaks(mod);
-                    break;
-                default:
-                    Data.SetCustomIntegrationTimes(IntegrationDelayControl.FloatValue, IntegrationLengthControl.FloatValue);
-                    break;
-            }
+            Data.SetCustomIntegrationTimes(delay, length);
 
             BaselineGraphView.Invalidate();
 

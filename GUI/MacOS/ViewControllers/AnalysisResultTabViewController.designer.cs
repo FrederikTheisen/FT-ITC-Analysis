@@ -16,10 +16,25 @@ namespace AnalysisITC
 		AppKit.NSSegmentedControl EnergyControl { get; set; }
 
 		[Outlet]
+		AppKit.NSTextField EvaluateionTemperatureTextField { get; set; }
+
+		[Outlet]
+		AppKit.NSTextField EvaluationOutputLabel { get; set; }
+
+		[Outlet]
+		AppKit.NSButton ExperimentListButton { get; set; }
+
+		[Outlet]
 		AnalysisITC.TemperatureDependenceGraphView Graph { get; set; }
 
 		[Outlet]
+		AppKit.NSTextField ResultEvalTempUnitLabel { get; set; }
+
+		[Outlet]
 		AppKit.NSTableView ResultsTableView { get; set; }
+
+		[Outlet]
+		AppKit.NSTextField ResultSummaryLabel { get; set; }
 
 		[Outlet]
 		AppKit.NSButton SRFitButton { get; set; }
@@ -36,6 +51,9 @@ namespace AnalysisITC
 		[Outlet]
 		AppKit.NSSegmentedControl TempControl { get; set; }
 
+		[Outlet]
+		AppKit.NSTextField TemperatureDependenceLabel { get; set; }
+
 		[Action ("CopyToClipboard:")]
 		partial void CopyToClipboard (Foundation.NSObject sender);
 
@@ -45,6 +63,9 @@ namespace AnalysisITC
 		[Action ("EnergyControlClicked:")]
 		partial void EnergyControlClicked (AppKit.NSSegmentedControl sender);
 
+		[Action ("EvaluateParameters:")]
+		partial void EvaluateParameters (Foundation.NSObject sender);
+
 		[Action ("PerformSRAnalysis:")]
 		partial void PerformSRAnalysis (Foundation.NSObject sender);
 
@@ -53,29 +74,24 @@ namespace AnalysisITC
 		
 		void ReleaseDesignerOutlets ()
 		{
-			if (SRResultTextField != null) {
-				SRResultTextField.Dispose ();
-				SRResultTextField = null;
-			}
-
-			if (SRTemperatureModeSegControl != null) {
-				SRTemperatureModeSegControl.Dispose ();
-				SRTemperatureModeSegControl = null;
-			}
-
-			if (SRFoldedDegreeSegControl != null) {
-				SRFoldedDegreeSegControl.Dispose ();
-				SRFoldedDegreeSegControl = null;
-			}
-
-			if (SRFitButton != null) {
-				SRFitButton.Dispose ();
-				SRFitButton = null;
-			}
-
 			if (EnergyControl != null) {
 				EnergyControl.Dispose ();
 				EnergyControl = null;
+			}
+
+			if (EvaluateionTemperatureTextField != null) {
+				EvaluateionTemperatureTextField.Dispose ();
+				EvaluateionTemperatureTextField = null;
+			}
+
+			if (EvaluationOutputLabel != null) {
+				EvaluationOutputLabel.Dispose ();
+				EvaluationOutputLabel = null;
+			}
+
+			if (ExperimentListButton != null) {
+				ExperimentListButton.Dispose ();
+				ExperimentListButton = null;
 			}
 
 			if (Graph != null) {
@@ -88,9 +104,44 @@ namespace AnalysisITC
 				ResultsTableView = null;
 			}
 
+			if (ResultSummaryLabel != null) {
+				ResultSummaryLabel.Dispose ();
+				ResultSummaryLabel = null;
+			}
+
+			if (SRFitButton != null) {
+				SRFitButton.Dispose ();
+				SRFitButton = null;
+			}
+
+			if (SRFoldedDegreeSegControl != null) {
+				SRFoldedDegreeSegControl.Dispose ();
+				SRFoldedDegreeSegControl = null;
+			}
+
+			if (SRResultTextField != null) {
+				SRResultTextField.Dispose ();
+				SRResultTextField = null;
+			}
+
+			if (SRTemperatureModeSegControl != null) {
+				SRTemperatureModeSegControl.Dispose ();
+				SRTemperatureModeSegControl = null;
+			}
+
 			if (TempControl != null) {
 				TempControl.Dispose ();
 				TempControl = null;
+			}
+
+			if (TemperatureDependenceLabel != null) {
+				TemperatureDependenceLabel.Dispose ();
+				TemperatureDependenceLabel = null;
+			}
+
+			if (ResultEvalTempUnitLabel != null) {
+				ResultEvalTempUnitLabel.Dispose ();
+				ResultEvalTempUnitLabel = null;
 			}
 		}
 	}

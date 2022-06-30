@@ -92,11 +92,7 @@ namespace AnalysisITC
                 double[] y = dps.Select(dp => (double)(Math.Abs(max.Power) - Math.Abs(dp.Power))).ToArray();
 
                 var fit = MathNet.Numerics.Fit.Curve(x, y, (v, k, x) => x * v / (k + x), Math.Abs(max.Power), 10);
-                var peaklen = threshold * fit.P1;
-
-                //var fit = MathNet.Numerics.Fit.Exponential(x, y, MathNet.Numerics.LinearRegression.DirectRegressionMethod.Svd);
-                //a*exp(r*x) = 0.0001*max
-                //var peaklen = Math.Log(threshold * Math.Abs(max.Power) / fit.A) / fit.R;
+                var peaklen = (max.Time - inj.Time) + threshold * fit.P1;
 
                 inj.SetCustomIntegrationTimes(0, (float)peaklen, true);
             }
@@ -115,9 +111,9 @@ namespace AnalysisITC
             }
         }
 
-        public void SetCustomIntegrationTimes(float delay, float variable)
+        public void SetCustomIntegrationTimes(float? delay, float? variable)
         {
-            if (IntegrationLengthMode == InjectionData.IntegrationLengthMode.Factor) IntegrationLengthFactor = variable;
+            if (IntegrationLengthMode != InjectionData.IntegrationLengthMode.Time) IntegrationLengthFactor = (float)variable;
 
             foreach (var inj in Injections) inj.SetCustomIntegrationTimes(delay, variable);
         }
@@ -215,6 +211,8 @@ namespace AnalysisITC
                 CellVolume = CellVolume,
                 MeasuredTemperature = MeasuredTemperature,
             };
+
+            syndat.SetID(UniqueID);
 
             return syndat;
         }
@@ -321,22 +319,35 @@ namespace AnalysisITC
             IntegrationLength = 0.9f * Delay;
         }
 
-        public void SetCustomIntegrationTimes(float delay, float length, bool forcetime = false)
+        public void SetCustomIntegrationTimes(float? delay = null, float? lengthparameter = null, bool forcetime = false)
         {
-            if (!forcetime && Experiment.IntegrationLengthMode == IntegrationLengthMode.Factor)
-            {
-                var dps = Experiment.BaseLineCorrectedDataPoints.Where(dp => dp.Time > Time && dp.Time < Time + Delay);
-                var height = HeatDirection == PeakHeatDirection.Endothermal ? dps.Max(dp => dp.Power) : dps.Min(dp => dp.Power);
-                var thresh = Math.Abs(height / 3);
-                var first = dps.First(dp => Math.Abs(dp.Power) > thresh);
-                var last = dps.Last(dp => Math.Abs(dp.Power) > thresh);
-                var d = last.Time - first.Time;
+            if (lengthparameter != null) switch (Experiment.IntegrationLengthMode)
+                {
+                    case IntegrationLengthMode.Fit when !forcetime:
+                        var dps = Experiment.BaseLineCorrectedDataPoints.Where(dp => dp.Time > this.Time && dp.Time < this.Time + this.Delay);
+                        var max = dps.First(dp => Math.Abs(dp.Power) > (0.999 * dps.Max(dp => Math.Abs(dp.Power))));
+                        dps = dps.Where(dp => dp.Time > max.Time);
+                        double[] x = new double[dps.Count()];
+                        for (int i = 0; i < x.Length; i++) x[i] = i;
+                        double[] y = dps.Select(dp => (double)(Math.Abs(max.Power) - Math.Abs(dp.Power))).ToArray();
+                        var fit = MathNet.Numerics.Fit.Curve(x, y, (v, k, x) => x * v / (k + x), Math.Abs(max.Power), 10);
+                        var peaklen = (max.Time - this.Time) + (float)lengthparameter * fit.P1;
+                        IntegrationLength = Math.Clamp((float)peaklen, Duration, Delay - 1);
+                        break;
+                    case IntegrationLengthMode.Factor when !forcetime:
+                        var _dps = Experiment.BaseLineCorrectedDataPoints.Where(dp => dp.Time > Time && dp.Time < Time + Delay);
+                        var height = HeatDirection == PeakHeatDirection.Endothermal ? _dps.Max(dp => dp.Power) : _dps.Min(dp => dp.Power);
+                        var thresh = Math.Abs(height / 3);
+                        var first = _dps.First(dp => Math.Abs(dp.Power) > thresh);
+                        var last = _dps.Last(dp => Math.Abs(dp.Power) > thresh);
+                        var d = last.Time - first.Time;
+                        IntegrationLength = Math.Clamp((float)lengthparameter * d, Duration, Delay - 1);
+                        break;
+                    case IntegrationLengthMode.Time:
+                    default: IntegrationLength = Math.Clamp((float)lengthparameter, Duration, Delay - 1); break;
+                }
 
-                length = d * length;
-            }
-
-            IntegrationLength = Math.Clamp(length, Duration, Delay - 1);
-            IntegrationStartDelay = Math.Clamp(delay, -5, IntegrationLength);
+            if (delay != null) IntegrationStartDelay = Math.Clamp((float)delay, -5, IntegrationLength);
         }
 
         public void ToggleDataPointActive()
@@ -357,10 +368,7 @@ namespace AnalysisITC
 
             var sd = EstimateError();
 
-            var prevarea = 0.0;
-            if (ID > 0) prevarea = Experiment.Injections[ID - 1].PeakArea.Value;
-
-            sd = (sd - Math.Abs(area) - Math.Abs(prevarea)) / 2;
+            sd = (sd - Math.Abs(area)) / 2;
 
             var peakarea = new FloatWithError(area, sd);
 
@@ -376,10 +384,8 @@ namespace AnalysisITC
 
         public double EstimateError()
         {
-            float start;
-            float end = Time + Delay - 1;
-            if (ID == 0) start = 0;
-            else start = Experiment.Injections[ID - 1].Time;
+            float start = Time - IntegrationLength;
+            float end = Time + Math.Min(2 * IntegrationLength, Delay);
 
             var baselinedata = Experiment.BaseLineCorrectedDataPoints.Where(dp => dp.Time >= start && dp.Time <= end);
 

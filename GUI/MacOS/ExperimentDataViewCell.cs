@@ -94,7 +94,7 @@ namespace AnalysisITC
         {
 			RemoveData?.Invoke(this, ContentIndex);
 
-			DataManager.RemoveData(data);
+			DataManager.RemoveData2(ContentIndex);
 		}
 
         partial void ShowFitDataButtonClick(NSObject sender)
