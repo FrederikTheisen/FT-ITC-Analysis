@@ -47,7 +47,7 @@ namespace AnalysisITC
 
             int idx = ContentIndex;
 
-            DataManager.RemoveData(data);
+            DataManager.RemoveData2(idx);
 
             RemoveData?.Invoke(this, idx);
         }
