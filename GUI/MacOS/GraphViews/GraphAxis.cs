@@ -12,8 +12,8 @@ namespace AnalysisITC
 {
     public class GraphAxis
     {
-        public static CTFont TickFont { get; set; } = new CTFont("Arial", 14);
-        public static CTFont TitleFont { get; set; } = new CTFont("Arial", 16);
+        public static CTFont TickFont { get; set; } = new CTFont("Helvetica Neue Light", 14);
+        public static CTFont TitleFont { get; set; } = new CTFont("Helvetica Neue Light", 16);
 
         GraphBase cggraph;
 
