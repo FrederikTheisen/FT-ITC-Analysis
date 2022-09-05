@@ -350,7 +350,7 @@ namespace AnalysisITC
     {
         public ExperimentData ExperimentData;
 
-        internal static CTFont DefaultFont = new CTFont("Helvetica", 12);
+        internal static CTFont DefaultFont = new CTFont("Helvetica Neue Light", 12);
         internal static nfloat DefaultFontHeight => DefaultFont.CapHeightMetric + 5;
         internal static CGColor HighlightColor => NSColor.Label.ColorWithAlphaComponent(0.2f).CGColor;
         internal static CGColor ActivatedHighlightColor => NSColor.Label.ColorWithAlphaComponent(0.35f).CGColor;
@@ -707,30 +707,6 @@ namespace AnalysisITC
 
             DrawTextBox(gc, CursorInfo, alignment: NSRectAlignment.TopLeading);
 
-            //CGPoint pos = new CGPoint(20, Frame.Height - 20);
-            //CGRect box = new CGRect(pos, new CGSize(20, 20));
-
-            //foreach (var line in CursorInfo)
-            //{
-            //    var size = DrawString(textlayer, line, pos, DefaultFont, horizontalignment: TextAlignment.Left);
-
-            //    if (size.Width > box.Width) box.Width = size.Width;
-
-            //    box.Height += size.Height;
-
-            //    pos.Y -= size.Height + 5;
-            //}
-
-            //box.Width += 20;
-            //box.Height += 10;
-            //box.X -= 10;
-
-            //box.Y = pos.Y;
-
-            //layer.Context.SetFillColor(NSColor.TextBackground.CGColor);
-            //layer.Context.FillRect(box);
-            //layer.Context.StrokeRect(box);
-
             gc.DrawLayer(layer, Frame.Location);
             gc.DrawLayer(textlayer, Frame.Location);
         }
@@ -765,6 +741,11 @@ namespace AnalysisITC
         public static float BaselineThickness { get; set; } = 2;
 
         public bool ShowBaseline { get; set; } = true;
+        public bool ShowExperimentDetails { get; set; } = false;
+
+
+        public string SyringeName { get; set; } = "";
+        public string CellName { get; set; } = "";
 
         public BaselineDataGraph(ExperimentData experiment, NSView view) : base(experiment, view)
         {
@@ -775,6 +756,8 @@ namespace AnalysisITC
             base.Draw(gc);
 
             if (ShowBaseline && ExperimentData.Processor.Interpolator != null && ExperimentData.Processor.Interpolator.Finished) DrawBaseline(gc);
+
+            if (ShowExperimentDetails) DrawExperimentDetails(gc);
         }
 
         internal void DrawBaseline(CGContext gc)
@@ -806,6 +789,28 @@ namespace AnalysisITC
             layer.Context.SetLineWidth(1);
 
             gc.DrawLayer(layer, Frame.Location);
+        }
+
+        void DrawExperimentDetails(CGContext gc)
+        {
+            var lines = new List<string>();
+            string syr = "";
+            if (!string.IsNullOrEmpty(SyringeName)) syr = "[" + SyringeName + "] = ";
+            else syr = "[Syringe] = ";
+            syr += (1000000 * ExperimentData.SyringeConcentration).ToString("F0") + " µM";
+
+            string cell = "";
+            if (!string.IsNullOrEmpty(SyringeName)) cell = "[" + SyringeName + "] = ";
+            else cell = "[Cell] = ";
+            cell += (1000000 * ExperimentData.CellConcentration).ToString("F1") + " µM";
+
+            lines.Add(ExperimentData.MeasuredTemperature.ToString("F1") + " °C");
+            lines.Add(syr);
+            lines.Add(cell);
+
+            var position = ExperimentData.Solution.Enthalpy > 0 ? NSRectAlignment.TopTrailing : NSRectAlignment.BottomTrailing;
+
+            DrawTextBox(gc, lines, DrawOnWhite ? new CTFont(DefaultFont.DisplayName, 12) : new CTFont(DefaultFont.DisplayName, 24), NSRectAlignment.BottomTrailing);
         }
     }
 
@@ -1025,9 +1030,11 @@ namespace AnalysisITC
     public class DataFittingGraph : CGGraph
     {
         private bool _useUnifiedAxes = false;
+        private bool _useUnifiedEnthalpyAxis = false;
         private bool _focusvaliddata = false;
 
-        public bool UseUnifiedAxes { get => _useUnifiedAxes; set { _useUnifiedAxes = value; SetupAxes(); } }
+        public bool UseMolarRatioAxis { get => _useUnifiedAxes; set { _useUnifiedAxes = value; SetupAxes(); } }
+        public bool UseUnifiedEnthalpyAxis { get => _useUnifiedEnthalpyAxis; set { _useUnifiedEnthalpyAxis = value; SetupAxes(); } }
         public bool FocusValidData { get => _focusvaliddata; set { _focusvaliddata = value; SetupAxes(); } }
         public bool ShowPeakInfo { get; set; } = true;
         public bool ShowErrorBars { get; set; } = true;
@@ -1060,21 +1067,21 @@ namespace AnalysisITC
 
         void SetupAxes()
         {
-            if (UseUnifiedAxes)
+            if (UseMolarRatioAxis)
             {
                 var xmax = DataManager.IncludedData.Max(d => d.Injections.Last().Ratio);
-
-                var minmax = GetMinMaxEnthalpy(DataManager.IncludedData);
-
                 XAxis.SetWithBuffer(0, xmax, 0.05);
+            }
+            else XAxis.SetWithBuffer(0, ExperimentData.Injections.Last().Ratio, 0.05);
+            
+            if (UseUnifiedEnthalpyAxis)
+            {
+                var minmax = GetMinMaxEnthalpy(DataManager.IncludedData);
                 YAxis.SetWithBuffer(minmax[0], minmax[1], 0.1);
             }
             else
             {
-                XAxis.SetWithBuffer(0, ExperimentData.Injections.Last().Ratio, 0.05);
-
                 var minmax = GetMinMaxEnthalpy(new ExperimentData[] { ExperimentData });
-
                 YAxis.SetWithBuffer(minmax[0], minmax[1], 0.1);
             }
 
@@ -1283,7 +1290,10 @@ namespace AnalysisITC
             lines.Add("∆H = " + ExperimentData.Solution.Enthalpy.ToString(EnergyUnit.KiloJoule, permole: true));
             lines.Add("-T∆S = " + ExperimentData.Solution.TdS.ToString(EnergyUnit.KiloJoule, permole: true));
             if (!DrawOnWhite) lines.Add("Offset = " + ExperimentData.Solution.Offset.ToString(EnergyUnit.KiloJoule));
-            DrawTextBox(gc, lines, DrawOnWhite ? new CTFont(DefaultFont.DisplayName, 12) : new CTFont(DefaultFont.DisplayName, 24), NSRectAlignment.BottomTrailing);
+
+            var position = ExperimentData.Solution.Enthalpy > 0 ? NSRectAlignment.TopTrailing : NSRectAlignment.BottomTrailing;
+
+            DrawTextBox(gc, lines, DrawOnWhite ? new CTFont(DefaultFont.DisplayName, 12) : new CTFont(DefaultFont.DisplayName, 24), position);
         }
 
         void DrawConfidenceInterval(CGContext gc)

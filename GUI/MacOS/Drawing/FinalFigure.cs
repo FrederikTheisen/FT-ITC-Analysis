@@ -56,10 +56,16 @@ namespace AnalysisITC
             set => IntegrationGraph.ShowZero = value;
         }
 
+        public bool UnifiedEnthalpyAxis
+        {
+            get => IntegrationGraph.UseUnifiedEnthalpyAxis;
+            set => IntegrationGraph.UseUnifiedEnthalpyAxis = value;
+        }
+
         public bool UseUnifiedAnalysisAxes
         {
-            get => IntegrationGraph.UseUnifiedAxes;
-            set => IntegrationGraph.UseUnifiedAxes = value;
+            get => IntegrationGraph.UseMolarRatioAxis;
+            set => IntegrationGraph.UseMolarRatioAxis = value;
         }
 
         public bool UseUnifiedDataAxes
@@ -72,6 +78,12 @@ namespace AnalysisITC
         {
             get => IntegrationGraph.ShowFitParameters;
             set => IntegrationGraph.ShowFitParameters = value;
+        }
+
+        public bool DrawExpDetails
+        {
+            get => DataGraph.ShowExperimentDetails;
+            set => DataGraph.ShowExperimentDetails = value;
         }
 
         public float SymbolSize

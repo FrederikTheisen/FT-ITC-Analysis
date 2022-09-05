@@ -87,7 +87,7 @@ namespace AnalysisITC
         public static int DataXTickCount { get; set; } = 7;
         public static int DataYTickCount { get; set; } = 7;
 
-        public static bool UseUnifiedHeatAxis { get; set; } = false;
+        public static bool UnifiedEnthalpyAxis { get; set; } = false;
         public static bool UseUnifiedMolarRatioAxis { get; set; } = false;
         public static bool DrawZeroLine { get; set; } = true;
         public static bool ShowErrorBars { get; set; } = true;
@@ -145,14 +145,15 @@ namespace AnalysisITC
 
                 EnthalpyAxisTitle = EnthalpyAxisTitle,
                 MolarRatioAxisTitle = MolarRatioAxisTitle,
-                UseUnifiedAnalysisAxes = UseUnifiedHeatAxis,
-                //graph.UseUnifiedMolarRatioAxis = UseUnifiedMolarRatioAxis;
+                UseUnifiedAnalysisAxes = UseUnifiedMolarRatioAxis,
+                UnifiedEnthalpyAxis = UnifiedEnthalpyAxis,
                 ShowBadDataPoints = ShowBadData,
                 ShowBadDataErrorBars = ShowBadDataErrorBars,
                 ShowErrorBars = ShowErrorBars,
                 DrawConfidence = DrawConfidence,
                 DrawZeroLine = DrawZeroLine,
                 DrawFitParameters = DrawFitParameters,
+                DrawExpDetails = DrawFitParameters, //TODO implement separate option
                 SymbolShape = (CGGraph.SymbolShape)SymbolShape,
                 SymbolSize = SymbolSize,
             };
@@ -221,14 +222,15 @@ namespace AnalysisITC
 
                 EnthalpyAxisTitle = EnthalpyAxisTitle,
                 MolarRatioAxisTitle = MolarRatioAxisTitle,
-                UseUnifiedAnalysisAxes = UseUnifiedHeatAxis,
-                //graph.UseUnifiedMolarRatioAxis = UseUnifiedMolarRatioAxis;
+                UseUnifiedAnalysisAxes = UseUnifiedMolarRatioAxis,
+                UnifiedEnthalpyAxis = UnifiedEnthalpyAxis,
                 ShowBadDataPoints = ShowBadData,
                 ShowBadDataErrorBars = ShowBadDataErrorBars,
                 ShowErrorBars = ShowErrorBars,
                 DrawConfidence = DrawConfidence,
                 DrawZeroLine = DrawZeroLine,
                 DrawFitParameters = DrawFitParameters,
+                DrawExpDetails = DrawFitParameters, //TODO implement separate option
                 SymbolShape = (CGGraph.SymbolShape)SymbolShape,
                 SymbolSize = SymbolSize,
             };
