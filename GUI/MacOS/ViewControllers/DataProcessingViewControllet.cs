@@ -34,15 +34,6 @@ namespace AnalysisITC
             BaselineScopeButton.State = NSCellStateValue.On;
             IntegrationScopeButton.State = NSCellStateValue.On;
             ShowCursorInfoButton.State = NSCellStateValue.On;
-
-            NSEvent.AddLocalMonitorForEventsMatchingMask(NSEventMask.KeyDown, (NSEvent theEvent) => KeyDownEventHandler(theEvent));
-        }
-
-        NSEvent KeyDownEventHandler(NSEvent theEvent)
-        {
-            if (BaselineGraphView != null) BaselineGraphView.KeyDown(theEvent);
-
-            return theEvent;
         }
 
         private void BaselineOptionsPopoverViewController_Updated(object sender, EventArgs e)
@@ -276,6 +267,7 @@ namespace AnalysisITC
             _ => IntegrationLengthControl.FloatValue,
         };
 
+
         float FactorToSlider(float value)
         {
             return (float)(Math.Log10(value) * IntegrationLengthControl.MaxValue / 2);
@@ -350,20 +342,19 @@ namespace AnalysisITC
 
         void UpdateInjectionSelectionUI()
         {
-            if (BaselineGraphView.SelectedPeak != -1) InjectionViewSegControl.SetLabel((BaselineGraphView.SelectedPeak + 1).ToString(), 1);
-            else InjectionViewSegControl.SetLabel("all", 1);
-
-            ViewPreviousControl.Enabled = true;
-            ViewNextControl.Enabled = true;
-
-            if (BaselineGraphView.SelectedPeak == 0)
+            if (BaselineGraphView.SelectedPeak != -1)
             {
-                ViewPreviousControl.Enabled = false;
+                InjectionViewSegControl.SetLabel("injection #" + (BaselineGraphView.SelectedPeak + 1).ToString(), 1);
+                IntegrationLengthControl.FloatValue = Data.Injections[BaselineGraphView.SelectedPeak].IntegrationLength;
             }
-            if (BaselineGraphView.SelectedPeak == Data?.InjectionCount - 1)
+            else
             {
-                ViewNextControl.Enabled = false;
+                InjectionViewSegControl.SetLabel("all selected", 1);
             }
+
+            ViewPreviousControl.Enabled = BaselineGraphView.SelectedPeak > 0;
+            ViewNextControl.Enabled = BaselineGraphView.SelectedPeak < Data?.InjectionCount;
+
         }
 
         partial void ScopeButtonClicked(NSObject sender) => BaselineGraphView.SetFeatureVisibility(ShowBaseline, ShowIntegrationRange, Corrected, ShowCursorInfo);

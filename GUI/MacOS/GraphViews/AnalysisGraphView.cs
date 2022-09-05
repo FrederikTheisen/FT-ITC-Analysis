@@ -45,7 +45,7 @@ namespace AnalysisITC
 
             DataFittingGraph.ShowPeakInfo = ShowPeakInfo;
             DataFittingGraph.ShowFitParameters = ShowFitParameters;
-            DataFittingGraph.UseUnifiedAxes = UseUnifiedAxes;
+            DataFittingGraph.UseMolarRatioAxis = UseUnifiedAxes;
 
             Invalidate();
         }

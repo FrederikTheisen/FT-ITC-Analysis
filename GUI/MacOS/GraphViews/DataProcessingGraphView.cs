@@ -45,14 +45,9 @@ namespace AnalysisITC
 
         public new BaselineFittingGraph Graph => base.Graph as BaselineFittingGraph;
 
-        public DataProcessingGraphView(IntPtr handle) : base(handle)
-        {
-            State = ProgramState.Process;
-        }
-
         public int SelectedPeak
         {
-            get => selectedPeak;
+            get => selectedPeak >= Data.InjectionCount ? Data.InjectionCount - 1 : selectedPeak;
             set
             {
                 if (value == -1) selectedPeak = value;
@@ -69,6 +64,29 @@ namespace AnalysisITC
                 if (isInjectionZoomed) FocusPeak();
                 if (!isBaselineZoomed) ShowAllVertical();
             }
+        }
+
+        public DataProcessingGraphView(IntPtr handle) : base(handle)
+        {
+            State = ProgramState.Process;
+
+            NSEvent.AddLocalMonitorForEventsMatchingMask(NSEventMask.KeyDown, (NSEvent theEvent) => KeyDownEventHandler(theEvent));
+        }
+
+        NSEvent KeyDownEventHandler(NSEvent theEvent)
+        {
+            if (StateManager.CurrentState != State) return theEvent;
+
+            if (theEvent.KeyCode == (int)NSKey.Space)
+                if (SelectedPeak != -1 && isInjectionZoomed)
+                {
+                    var length = Data.Injections[SelectedPeak].IntegrationLength;
+                    SelectedPeak++;
+                    Data.Injections[SelectedPeak].SetCustomIntegrationTimes(null, length, true);
+                    FocusPeak();
+                }
+
+            return theEvent;
         }
 
         public void Initialize(ExperimentData experiment)
@@ -228,20 +246,6 @@ namespace AnalysisITC
 
             SelectedFeature = Graph.IsCursorOnFeature(CursorPositionInView);
             SelectedFeature.ClickCursorPosition = theEvent.LocationInWindow;
-        }
-
-        public override void KeyDown(NSEvent theEvent)
-        {
-            base.KeyDown(theEvent);
-
-            if (theEvent.KeyCode == (int)NSKey.Space)
-                if (SelectedPeak != -1 && isInjectionZoomed)
-                {
-                    var length = Data.Injections[SelectedPeak].IntegrationLength;
-                    SelectedPeak++;
-                    Data.Injections[SelectedPeak].SetCustomIntegrationTimes(null, length, true);
-                    FocusPeak();
-                }
         }
 
         public override void RightMouseDown(NSEvent theEvent)

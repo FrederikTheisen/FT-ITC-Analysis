@@ -17,7 +17,7 @@ namespace AnalysisITC
         {
             base.ViewWillAppear();
 
-            UnifiedHeatAxis.State = FinalFigureGraphView.UseUnifiedHeatAxis ? NSCellStateValue.On : NSCellStateValue.Off;
+            UnifiedHeatAxis.State = FinalFigureGraphView.UnifiedEnthalpyAxis ? NSCellStateValue.On : NSCellStateValue.Off;
             UnifiedMolarRatioAxis.State = FinalFigureGraphView.UseUnifiedMolarRatioAxis ? NSCellStateValue.On : NSCellStateValue.Off;
             DrawZeroLine.State = FinalFigureGraphView.DrawZeroLine ? NSCellStateValue.On : NSCellStateValue.Off;
             DrawErrorBars.State = FinalFigureGraphView.ShowErrorBars ? NSCellStateValue.On : NSCellStateValue.Off;
@@ -44,7 +44,7 @@ namespace AnalysisITC
         {
             UpdateLabels();
 
-            FinalFigureGraphView.UseUnifiedHeatAxis = UnifiedHeatAxis.State == NSCellStateValue.On;
+            FinalFigureGraphView.UnifiedEnthalpyAxis = UnifiedHeatAxis.State == NSCellStateValue.On;
             FinalFigureGraphView.UseUnifiedMolarRatioAxis = UnifiedMolarRatioAxis.State == NSCellStateValue.On;
             FinalFigureGraphView.DrawZeroLine = DrawZeroLine.State == NSCellStateValue.On;
             FinalFigureGraphView.ShowErrorBars = DrawErrorBars.State == NSCellStateValue.On;

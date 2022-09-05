@@ -113,7 +113,7 @@ namespace AnalysisITC
 
         public void SetCustomIntegrationTimes(float? delay, float? variable)
         {
-            if (IntegrationLengthMode != InjectionData.IntegrationLengthMode.Time) IntegrationLengthFactor = (float)variable;
+            if (IntegrationLengthMode != InjectionData.IntegrationLengthMode.Time && variable != null) IntegrationLengthFactor = (float)variable;
 
             foreach (var inj in Injections) inj.SetCustomIntegrationTimes(delay, variable);
         }
