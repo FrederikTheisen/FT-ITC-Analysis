@@ -395,6 +395,7 @@
     </Compile>
     <Compile Include="AppClasses\Analysis2\ModelFactory.cs" />
     <Compile Include="AppClasses\Analysis2\ParameterSet.cs" />
+    <Compile Include="AppClasses\Analysis2\Models.cs" />
   </ItemGroup>
   <ItemGroup>
     <InterfaceDefinition Include="Main.storyboard" />

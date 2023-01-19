@@ -39,8 +39,10 @@ namespace AnalysisITC.AppClasses.Analysis2
 			{
 				var model = ModelFactory.InitializeModel(data, ModelType);
 
-                //calc mdl parameters. perhaps depends on model, how to implement?
-                //load parameters into model, overwriting existing default parameters
+				//calc mdl parameters. perhaps depends on model, how to implement?
+				//load parameters into model, overwriting existing default parameters
+
+				model.InitializeParameters();
 
                 globalmodel.Models.Add(model);
 			}
