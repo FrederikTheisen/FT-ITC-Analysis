@@ -10,6 +10,7 @@ using AppKit;
 using System.Threading;
 using static alglib;
 using System.ComponentModel;
+using System.Collections.Concurrent;
 
 namespace AnalysisITC
 {
@@ -397,6 +398,8 @@ namespace AnalysisITC
             var start = DateTime.Now;
             var solutions = new List<Solution>();
 
+            var bag = new ConcurrentBag<Solution>();
+
             var res = Parallel.For(0, Analysis.BootstrapIterations, (i) =>
             {
                 if (!Analysis.StopAnalysisProcess)
@@ -404,13 +407,16 @@ namespace AnalysisITC
                     var model = this.GenerateSyntheticModel();
                     model.SetBootstrapStart(Solution.Raw);
                     model.Solve();
-                    solutions.Add(model.Solution);
+
+                    bag.Add(model.Solution);
                 }
 
                 var currcounter = Interlocked.Increment(ref counter);
 
                 Analysis.ReportBootstrapProgress(currcounter);
             });
+
+            solutions = bag.ToList();
 
             Solution.BootstrapSolutions = solutions.Where(sol => !sol.Convergence.Failed).ToList();
             Solution.ComputeErrorsFromBootstrapSolutions();

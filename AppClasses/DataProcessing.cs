@@ -127,6 +127,8 @@ namespace AnalysisITC
                 var bldp = dp.SubtractBaseline((float)bl);
 
                 Data.BaseLineCorrectedDataPoints.Add(bldp);
+
+                Console.WriteLine(bldp.Time + " " + bldp.Power);
             }
         }
 

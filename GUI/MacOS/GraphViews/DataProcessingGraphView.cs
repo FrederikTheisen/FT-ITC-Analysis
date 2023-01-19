@@ -268,14 +268,15 @@ namespace AnalysisITC
                     NSMenu.PopUpContextMenu(menu, theEvent, this);
                 }
             }
-            else
+            else if (Data.Processor.Interpolator is SplineInterpolator)
             {
                 var xfraction = (CursorPositionInView.X - Graph.Frame.X) / Graph.Frame.Width;
                 var time = xfraction * (Graph.XAxis.Max - Graph.XAxis.Min) + Graph.XAxis.Min;
 
-                NSMenu menu = new NSMenu("New Spline Point Options");
-                menu.AddItem(new NSMenuItem("Add at data", (s, e) => { (Data.Processor.Interpolator as SplineInterpolator).InsertSplinePoint(time, true); }));
-                menu.AddItem(new NSMenuItem("Add at baseline", (s, e) => { (Data.Processor.Interpolator as SplineInterpolator).InsertSplinePoint(time, false); }));
+                NSMenu menu = new NSMenu("New Spline Point");
+                menu.AddItem(new NSMenuItem("New Spline Point..."));
+                menu.AddItem(new NSMenuItem("at data", (s, e) => { (Data.Processor.Interpolator as SplineInterpolator).InsertSplinePoint(time, true); }));
+                menu.AddItem(new NSMenuItem("at baseline", (s, e) => { (Data.Processor.Interpolator as SplineInterpolator).InsertSplinePoint(time, false); }));
                 NSMenu.PopUpContextMenu(menu, theEvent, this);
             }
         }

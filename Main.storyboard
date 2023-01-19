@@ -4872,11 +4872,11 @@ Structuring (R-value):</string>
                                                     <tableColumnResizingMask key="resizingMask" resizeWithTable="YES" userResizable="YES"/>
                                                     <prototypeCellViews>
                                                         <tableCellView id="dlK-4K-pfA">
-                                                            <rect key="frame" x="251" y="0.0" width="121" height="45"/>
+                                                            <rect key="frame" x="250.5" y="0.0" width="121" height="45"/>
                                                             <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
                                                             <subviews>
                                                                 <textField horizontalHuggingPriority="251" verticalHuggingPriority="750" horizontalCompressionResistancePriority="250" id="FNU-dV-4AM">
-                                                                    <rect key="frame" x="-14" y="29" width="163" height="16"/>
+                                                                    <rect key="frame" x="-16" y="29" width="163" height="16"/>
                                                                     <autoresizingMask key="autoresizingMask" flexibleMinX="YES" widthSizable="YES" flexibleMaxX="YES" flexibleMinY="YES"/>
                                                                     <textFieldCell key="cell" lineBreakMode="truncatingTail" sendsActionOnEndEditing="YES" alignment="center" title="Table View Cell" id="I4S-w4-oW9">
                                                                         <font key="font" metaFont="system"/>
@@ -5010,7 +5010,7 @@ Structuring (R-value):</string>
                                                     <tableColumnResizingMask key="resizingMask" resizeWithTable="YES" userResizable="YES"/>
                                                     <prototypeCellViews>
                                                         <tableCellView id="vnm-cN-6XP">
-                                                            <rect key="frame" x="771" y="0.0" width="88" height="45"/>
+                                                            <rect key="frame" x="770.5" y="0.0" width="88" height="45"/>
                                                             <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
                                                             <subviews>
                                                                 <textField horizontalHuggingPriority="251" verticalHuggingPriority="750" horizontalCompressionResistancePriority="250" translatesAutoresizingMaskIntoConstraints="NO" id="xKj-4O-x7T">

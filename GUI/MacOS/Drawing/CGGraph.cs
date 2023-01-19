@@ -849,7 +849,7 @@ namespace AnalysisITC
 
             if (ShowInjections) DrawIntegrationMarkers(gc);
 
-            if (DrawCursorPositionInfo && CursorInfo.Count > 0) DrawTextBox(gc, CursorInfo, alignment: NSRectAlignment.Bottom);
+            if (DrawCursorPositionInfo && CursorInfo.Count > 0) DrawTextBox(gc, CursorInfo, alignment: NSRectAlignment.BottomTrailing);
         }
 
         void DrawSplineHandles(CGContext gc)
