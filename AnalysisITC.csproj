@@ -251,6 +251,7 @@
     <None Include="Entitlements.plist" />
     <None Include="packages.config" />
     <None Include="GUI\MacOS\Drawing\CAGraph.cs" />
+    <None Include="AppClasses\Analysis2\Solver.cs" />
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Main.cs" />
