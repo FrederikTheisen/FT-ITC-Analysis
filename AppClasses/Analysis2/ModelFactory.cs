@@ -37,7 +37,7 @@ namespace AnalysisITC.AppClasses.Analysis2
 				(factory as SingleModelFactory).InitializeModel(DataManager.Current);
 			}
 
-			UpdateFactory.Invoke(factory, null);
+			UpdateFactory?.Invoke(factory, null);
 
 			return factory;
 		}
@@ -88,7 +88,7 @@ namespace AnalysisITC.AppClasses.Analysis2
 
 			model.Parameters.AddParameter(ParameterTypes.Nvalue1, model.GuessN(), limits: new double[] { 0.1, 10 });
             model.Parameters.AddParameter(ParameterTypes.Enthalpy1, model.GuessEnthalpy(), limits: new double[] { -500000, 500000 });
-            model.Parameters.AddParameter(ParameterTypes.Affinity1, model.GuessAffinity(), limits: new double[] { 10E-12, 0.1 });
+            model.Parameters.AddParameter(ParameterTypes.Affinity1, model.GuessAffinity(), limits: new double[] { 10, 100000000000 });
             model.Parameters.AddParameter(ParameterTypes.Offset, model.GuessOffset(), limits: new double[] { -500000, 500000 });
 
             return model;

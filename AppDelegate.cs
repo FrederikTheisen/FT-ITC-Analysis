@@ -34,6 +34,12 @@ namespace AnalysisITC
         {
             StatusBarManager.StartInderminateProgress();
 
+            FileDialog = NSOpenPanel.OpenPanel;
+            //FileDialog.CanChooseFiles = true;
+            //FileDialog.AllowsMultipleSelection = true;
+            //FileDialog.CanChooseDirectories = true;
+            //FileDialog.AllowedFileTypes = DataReaders.ITCFormatAttribute.GetAllExtensions();
+
             if (FileDialog.RunModal() == 1)
             {
                 var urls = new List<string>();

@@ -11,6 +11,11 @@ namespace AnalysisITC.AppClasses.Analysis2
 
 		public GlobalModelParameters Parameters { get; set; }
 
+		public GlobalModel()
+		{
+			Parameters = new GlobalModelParameters();
+        }
+
 		public double LossFunction(double[] parameters)
 		{
 			Parameters.UpdateFromArray(parameters);
@@ -54,7 +59,9 @@ namespace AnalysisITC.AppClasses.Analysis2
 		public Model(ExperimentData data)
 		{
 			Data = data;
-		}
+
+			Parameters = new ModelParameters();
+        }
 
 		public virtual double Evaluate(int injectionindex)
 		{

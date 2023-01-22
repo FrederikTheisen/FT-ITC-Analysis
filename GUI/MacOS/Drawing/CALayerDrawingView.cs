@@ -94,7 +94,7 @@ namespace AnalysisITC
         NSTrackingArea TrackingArea { get; set; }
         public bool IsMouseDown { get; set; } = false;
         public bool DrawOnWhite { get; set; }
-        public CGColor DefaultStrokeColor => DrawOnWhite ? NSColor.Black.CGColor : NSColor.LabelColor.CGColor;
+        public CGColor DefaultStrokeColor => DrawOnWhite ? NSColor.Black.CGColor : NSColor.Label.CGColor;
 
         #region Constructors
 

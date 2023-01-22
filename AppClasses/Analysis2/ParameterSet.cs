@@ -20,7 +20,7 @@ namespace AnalysisITC.AppClasses.Analysis2
             if (limits == null) Limits = new double[] { double.MinValue, double.MaxValue };
             else Limits = limits;
 
-            if (double.IsNaN(stepsize)) StepSize = Math.Abs(Value / 50) + 100; //guess a reasonable step size
+            if (double.IsNaN(stepsize)) StepSize = Math.Abs(Value / 50); //guess a reasonable step size
             else StepSize = stepsize;
         }
 

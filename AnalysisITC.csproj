@@ -251,6 +251,7 @@
     <None Include="Entitlements.plist" />
     <None Include="packages.config" />
     <None Include="GUI\MacOS\Drawing\CAGraph.cs" />
+    <None Include="GUI\MacOS\Drawing\CALayerDrawingView.cs" />
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Main.cs" />
@@ -279,7 +280,6 @@
       <DependentUpon>DataProcessingGraphView.cs</DependentUpon>
     </Compile>
     <Compile Include="GUI\MacOS\Drawing\CGGraph.cs" />
-    <Compile Include="GUI\MacOS\Drawing\CALayerDrawingView.cs" />
     <Compile Include="GUI\MacOS\Drawing\NSGraph.cs" />
     <Compile Include="GUI\MacOS\GraphViews\GraphAxis.cs" />
     <Compile Include="GUI\MacOS\ViewControllers\DataAnalysisViewController.cs" />
