@@ -11,12 +11,19 @@ namespace AnalysisITC.AppClasses.Analysis2
 
 		public GlobalModelParameters Parameters { get; set; }
 
+		public double LossFunction(double[] parameters)
+		{
+
+
+			return Loss();
+		}
+
 		public double Loss()
 		{
 			double loss = 0;
 
 			foreach (var model in Models)
-				loss += model.Loss();
+				loss += model.LossFunction(Parameters.Par);
 
 			return loss;
 		}
@@ -54,6 +61,13 @@ namespace AnalysisITC.AppClasses.Analysis2
 			throw new NotImplementedException();
 		}
 
+		public double LossFunction(double[] parameters)
+		{
+			Parameters.UpdateFromArray(parameters);
+
+			return Loss();
+		}
+
 		public double Loss()
 		{
 			double loss = 0;
@@ -66,19 +80,6 @@ namespace AnalysisITC.AppClasses.Analysis2
 
 			return Math.Sqrt(loss / Data.Injections.Count(i => i.Include));
 		}
-
-		/// <summary>
-		/// Initializes the model parameters using default parameters and limits. If any parameters are provided, these will override the default values.
-		/// </summary>
-		/// <param name="parameters"></param>
-		//public virtual void InitializeParameters()
-		//{
-		//	Console.WriteLine("Parameters for model: " + ModelType.ToString() + " initialized:");
-		//	foreach (var par in Parameters.Table)
-		//	{
-		//		Console.WriteLine("   " + par.Key + ": " + par.Value.Value.ToString("G3") + "  " + par.Value.IsLocked.ToString());
-		//	}
-		//}
 	}
 
 	public class OneSetOfSites : Model
@@ -122,6 +123,7 @@ namespace AnalysisITC.AppClasses.Analysis2
 	{
 		public TwoSetsOfSites(ExperimentData data) : base(data)
 		{
+			throw new NotImplementedException("TwoSetsOfSites not implemented yet");
 		}
 	}
 

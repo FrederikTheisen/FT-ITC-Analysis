@@ -251,7 +251,6 @@
     <None Include="Entitlements.plist" />
     <None Include="packages.config" />
     <None Include="GUI\MacOS\Drawing\CAGraph.cs" />
-    <None Include="AppClasses\Analysis2\Solver.cs" />
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Main.cs" />
@@ -397,6 +396,7 @@
     <Compile Include="AppClasses\Analysis2\ModelFactory.cs" />
     <Compile Include="AppClasses\Analysis2\ParameterSet.cs" />
     <Compile Include="AppClasses\Analysis2\Models.cs" />
+    <Compile Include="AppClasses\Analysis2\Solver.cs" />
   </ItemGroup>
   <ItemGroup>
     <InterfaceDefinition Include="Main.storyboard" />

@@ -21,7 +21,7 @@ namespace AnalysisITC.AppClasses.Analysis2
 		/// <returns></returns>
 		public static ModelFactory InitializeFactory(bool isglobal)
 		{
-			//Initialize ModelFactory
+			Console.WriteLine("Initializing ModelFactory...");
 			ModelFactory factory;
 
 			if (isglobal)
@@ -71,7 +71,8 @@ namespace AnalysisITC.AppClasses.Analysis2
 
 		public void InitializeModel(ExperimentData data)
 		{
-			switch (ModelType)
+            Console.WriteLine("Initializing SingleModelFactory...");
+            switch (ModelType)
 			{
 				case AnalysisModel.OneSetOfSites: Model = InitializeOneSetOfSites(data); break;
 				case AnalysisModel.TwoSetsOfSites: Model = InitializeTwoSetsOfSites(data); break;
@@ -131,6 +132,7 @@ namespace AnalysisITC.AppClasses.Analysis2
 
         public void InitializeModel()
 		{
+			Console.WriteLine("Initializing GlobalModelFactory...");
 			Model = new GlobalModel();
 
 			foreach (var data in DataManager.Data.Where(d => d.Include))
@@ -145,12 +147,11 @@ namespace AnalysisITC.AppClasses.Analysis2
 			InitializeParameters();
 
 			InitializeExposedGlobalFittingOptions();
-
         }
 
         void InitializeParameters()
         {
-            if (Model.Models is null || Model.Models.Count == 0) throw new Exception("No model in global model");
+            if (Model.Models is null || Model.Models.Count == 0) throw new Exception("No models in global model");
 
             var type = Model.Models.First().ModelType;
 

@@ -6,18 +6,22 @@ namespace AnalysisITC.AppClasses.Analysis2
 {
     public class Parameter
     {
-        public ParameterTypes Key { get; set; }
-        public double Value { get; set; }
-        public bool IsLocked { get; set; }
-        public double[] Limits { get; set; }
+        public ParameterTypes Key { get; private set; }
+        public double Value { get; private set; }
+        public bool IsLocked { get; private set; }
+        public double[] Limits { get; private set; }
+        public double StepSize { get; private set; }
 
-        public Parameter(ParameterTypes key, double value, bool islocked = false, double[] limits = null)
+        public Parameter(ParameterTypes key, double value, bool islocked = false, double[] limits = null, double stepsize = double.NaN)
         {
             Key = key;
             Value = value;
             IsLocked = islocked;
             if (limits == null) Limits = new double[] { double.MinValue, double.MaxValue };
             else Limits = limits;
+
+            if (double.IsNaN(stepsize)) StepSize = Math.Abs(Value / 50) + 100; //guess a reasonable step size
+            else StepSize = stepsize;
         }
 
         public void Update(double value)
@@ -47,7 +51,7 @@ namespace AnalysisITC.AppClasses.Analysis2
 
             foreach (var parameter in Table)
             {
-                if (parameter.Key != parameter.Value.Key) throw new KeyNotFoundException();
+                if (parameter.Key != parameter.Value.Key) throw new KeyNotFoundException("Parameter key mismatch");
                 if (!parameter.Value.IsLocked)
                 {
                     parameter.Value.Update(globalparameters[index]);
@@ -70,6 +74,16 @@ namespace AnalysisITC.AppClasses.Analysis2
             }
 
             return w.ToArray();
+        }
+
+        public double[] GetStepSizes()
+        {
+            return Table.Select(p => p.Value).Where(p => !p.IsLocked).Select(p => p.StepSize).ToArray();
+        }
+
+        public List<double[]> GetLimits()
+        {
+            return Table.Select(p => p.Value).Where(p => !p.IsLocked).Select(p => p.Limits).ToList();
         }
     }
 
@@ -143,6 +157,13 @@ namespace AnalysisITC.AppClasses.Analysis2
             }
 
             return w.ToArray();
+        }
+
+        public ModelParameters GetParametersForModel(GlobalModel parent, Model model)
+        {
+            int index = parent.Models.IndexOf(model);
+
+            return IndividualModelParameterList[index];
         }
     }
 
