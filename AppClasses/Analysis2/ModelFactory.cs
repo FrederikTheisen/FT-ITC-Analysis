@@ -56,6 +56,13 @@ namespace AnalysisITC.AppClasses.Analysis2
 		{
 
 		}
+
+		public virtual void BuildModel(List<Parameter> parameters)
+		{
+			Console.WriteLine("Building model: " + (IsGlobalAnalysis ? "GlobalModel " : "IndividualModel ") + ModelType.ToString());
+
+
+		}
 	}
 
 	public class SingleModelFactory : ModelFactory
@@ -105,15 +112,22 @@ namespace AnalysisITC.AppClasses.Analysis2
 		{
 			return Model.Parameters.Table.Values;
 		}
-	}
+
+        public override void BuildModel(List<Parameter> parameters)
+        {
+            base.BuildModel(parameters);
+        }
+    }
 
 	public class GlobalModelFactory : ModelFactory
 	{
 		public GlobalModel Model { get; private set; }
 
-		public List<Parameter> GlobalParameters { get; private set; }
-
 		public GlobalModelParameters GlobalModelParameters { get; private set; }
+
+		public Dictionary<ParameterTypes, List<Analysis.VariableConstraint>> ExposedGlobalFittingOptions { get; private set; }
+
+		public List<Parameter> GlobalParameters => GlobalModelParameters.GlobalParameters.Values.ToList();
 
         public void InitializeModel()
 		{
@@ -125,16 +139,16 @@ namespace AnalysisITC.AppClasses.Analysis2
 
 				factory.InitializeModel(data);
 
-				//calc mdl parameters. perhaps depends on model, how to implement?
-				//load parameters into model, overwriting existing default parameters
-
 				Model.Models.Add(factory.Model);
 			}
 
 			InitializeParameters();
-		}
 
-        public void InitializeParameters()
+			InitializeExposedGlobalFittingOptions();
+
+        }
+
+        void InitializeParameters()
         {
             if (Model.Models is null || Model.Models.Count == 0) throw new Exception("No model in global model");
 
@@ -206,12 +220,7 @@ namespace AnalysisITC.AppClasses.Analysis2
             }
         }
 
-        public override IEnumerable<Parameter> GetExposedParameters()
-        {
-            return GlobalParameters;
-        }
-
-        public Dictionary<ParameterTypes,List<Analysis.VariableConstraint>> GetExposedGlobalFittingOptions()
+        void InitializeExposedGlobalFittingOptions()
 		{
 			var dict = new Dictionary<ParameterTypes, List<Analysis.VariableConstraint>>();
 
@@ -223,21 +232,43 @@ namespace AnalysisITC.AppClasses.Analysis2
                 var max = Model.Models.Max(mdl => mdl.Data.MeasuredTemperature);
 
                 if (max - min > AppSettings.MinimumTemperatureSpanForFitting) tempdependenceenabled = true;
-                
             }
 
+			//Loop exposed parameters 
             foreach (var par in GetExposedParameters())
 			{
 				switch (par.Key)
 				{
-					
+					case ParameterTypes.Affinity1:
+					case ParameterTypes.Affinity2:
+					case ParameterTypes.Enthalpy1:
+					case ParameterTypes.Enthalpy2:
+						if (tempdependenceenabled) dict[par.Key] = new List<Analysis.VariableConstraint> { Analysis.VariableConstraint.None, Analysis.VariableConstraint.TemperatureDependent, Analysis.VariableConstraint.SameForAll};
+						else dict[par.Key] = new List<Analysis.VariableConstraint> { Analysis.VariableConstraint.None, Analysis.VariableConstraint.SameForAll };
+						break;
+                    case ParameterTypes.Nvalue1:
+					case ParameterTypes.Nvalue2:
+						dict[par.Key] = new List<Analysis.VariableConstraint> { Analysis.VariableConstraint.None, Analysis.VariableConstraint.SameForAll };
+						break;
 				}
 			}
 
-
-            
-
-			return dict;
+            ExposedGlobalFittingOptions = dict;
 		}
-	}
+
+		public Dictionary<ParameterTypes, List<Analysis.VariableConstraint>> GetExposedOptions()
+		{
+			return ExposedGlobalFittingOptions;
+		}
+
+        public override IEnumerable<Parameter> GetExposedParameters()
+        {
+            return GlobalParameters;
+        }
+
+        public override void BuildModel(List<Parameter> parameters)
+        {
+            base.BuildModel(parameters);
+        }
+    }
 }

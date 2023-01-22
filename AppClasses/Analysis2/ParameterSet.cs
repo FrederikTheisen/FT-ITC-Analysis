@@ -4,7 +4,7 @@ using System.Linq;
 
 namespace AnalysisITC.AppClasses.Analysis2
 {
-    public struct Parameter
+    public class Parameter
     {
         public ParameterTypes Key { get; set; }
         public double Value { get; set; }
