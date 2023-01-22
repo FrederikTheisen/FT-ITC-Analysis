@@ -13,7 +13,7 @@ namespace AnalysisITC.AppClasses.Analysis2
 
 		public double LossFunction(double[] parameters)
 		{
-
+			Parameters.UpdateFromArray(parameters);
 
 			return Loss();
 		}
@@ -23,14 +23,14 @@ namespace AnalysisITC.AppClasses.Analysis2
 			double loss = 0;
 
 			foreach (var model in Models)
-				loss += model.LossFunction(Parameters.Par);
+				loss += model.LossFunction(Parameters.GetParametersForModel(this, model).ToArray());
 
 			return loss;
 		}
 	}
 
 	public class Model
-	{
+    {
 		public ExperimentData Data { get; set; }
 		public AnalysisModel ModelType { get; set; } = AnalysisModel.OneSetOfSites;
 		public ModelParameters Parameters { get; set; }

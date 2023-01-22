@@ -109,6 +109,8 @@ namespace AnalysisITC
             {
                 StopAnalysisProcess = false;
 
+
+
                 try
                 {
                     switch (analysismodel)
@@ -180,6 +182,15 @@ namespace AnalysisITC
 
             public static async void Solve(AnalysisModel analysismodel)
             {
+                var factory = AppClasses.Analysis2.ModelFactory.InitializeFactory(false);
+                factory.BuildModel();
+
+                var solver = new AppClasses.Analysis2.Solver();
+
+                solver.Model = (factory as AppClasses.Analysis2.SingleModelFactory).Model;
+
+                solver.Fit(SolverAlgorithm.NelderMead);
+
                 StopAnalysisProcess = false;
 
                 switch (analysismodel)
@@ -947,6 +958,22 @@ namespace AnalysisITC
                 Loss = loss,
             };
         }
+        public static Solution FromAccordNelderMead(AnalysisITC.AppClasses.Analysis2.Model model)
+        {
+            var parameters = model.Parameters;
+
+
+            return new Solution()
+            {
+                Raw = parameters.ToArray(),
+                N = new(parameters.Table[AppClasses.Analysis2.ParameterTypes.Nvalue1].Value),
+                Enthalpy = new Energy(parameters.Table[AppClasses.Analysis2.ParameterTypes.Enthalpy1].Value),
+                K = new(parameters.Table[AppClasses.Analysis2.ParameterTypes.Affinity1].Value),
+                Offset = new Energy(parameters.Table[AppClasses.Analysis2.ParameterTypes.Offset].Value),
+                Model = null,
+                Loss = model.Loss(),
+            };
+        }
 
         public void ComputeErrorsFromBootstrapSolutions()
         {
@@ -1089,7 +1116,6 @@ namespace AnalysisITC
 
             return global;
         }
-
 
         public void SetConvergence(SolverConvergence convergence)
         {

@@ -2,13 +2,15 @@
 using System.Linq;
 using Accord.Math.Optimization;
 using static alglib;
-using static CoreFoundation.DispatchSource;
+//using static CoreFoundation.DispatchSource;
+using System.Threading.Tasks;
 
 namespace AnalysisITC.AppClasses.Analysis2
 {
     public class Solver
     {
-        Model Model { get; set; }
+        public Model Model { get; set; }
+
 
         public SolverConvergence Fit(Analysis.SolverAlgorithm algorithm)
         {
@@ -30,7 +32,6 @@ namespace AnalysisITC.AppClasses.Analysis2
         {
             var f = new NonlinearObjectiveFunction(4, (w) => Model.LossFunction(w));
             var solver = new NelderMead(f);
-            SetStepSizes(solver);
 
             solver.Convergence = new Accord.Math.Convergence.GeneralConvergence(4)
             {
@@ -38,12 +39,13 @@ namespace AnalysisITC.AppClasses.Analysis2
                 AbsoluteFunctionTolerance = double.Epsilon,
                 StartTime = DateTime.Now,
             };
+
+            SetStepSizes(solver);
             SetBounds(solver);
 
+            solver.Minimize(Model.Parameters.ToArray());
 
-            solver.Minimize(InitialGuessVector is null ? new double[4] { GuessN, GuessH, GuessK, GuessOffset } : InitialGuessVector);
-
-            Model.Data.Solution = Solution.FromAccordNelderMead(solver.Solution, this, RMSD(solver.Solution[0], solver.Solution[1], solver.Solution[2], solver.Solution[3], false)); // solver.Function(solver.Solution));
+            Model.Data.Solution = Solution.FromAccordNelderMead(Model); // solver.Function(solver.Solution));
             Model.Data.Solution.Convergence = new SolverConvergence(solver);
 
             return Model.Data.Solution.Convergence;

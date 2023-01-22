@@ -57,7 +57,7 @@ namespace AnalysisITC.AppClasses.Analysis2
 
 		}
 
-		public virtual void BuildModel(List<Parameter> parameters)
+		public virtual void BuildModel()
 		{
 			Console.WriteLine("Building model: " + (IsGlobalAnalysis ? "GlobalModel " : "IndividualModel ") + ModelType.ToString());
 
@@ -114,9 +114,9 @@ namespace AnalysisITC.AppClasses.Analysis2
 			return Model.Parameters.Table.Values;
 		}
 
-        public override void BuildModel(List<Parameter> parameters)
+        public override void BuildModel()
         {
-            base.BuildModel(parameters);
+            base.BuildModel();
         }
     }
 
@@ -267,9 +267,9 @@ namespace AnalysisITC.AppClasses.Analysis2
             return GlobalParameters;
         }
 
-        public override void BuildModel(List<Parameter> parameters)
+        public override void BuildModel()
         {
-            base.BuildModel(parameters);
+            base.BuildModel();
         }
     }
 }
