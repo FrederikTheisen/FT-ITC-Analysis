@@ -9,7 +9,7 @@ namespace Utilities
 {
     public class NiceScale
     {
-        private double factor = 1;
+        private readonly double factor = 1;
         private double minPoint;
         private double maxPoint;
         private double maxTicks = 10;
@@ -207,7 +207,7 @@ namespace Utilities
         public CGPoint ClickCursorPosition { get; set; } = new CGPoint();
         public double FeatureReferenceValue { get; set; }
 
-        List<string> tooltiplines = new List<string>();
+        readonly List<string> tooltiplines = new List<string>();
 
         public string ToolTip
         {

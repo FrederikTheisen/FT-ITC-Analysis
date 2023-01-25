@@ -12,7 +12,7 @@ namespace AnalysisITC
         public static event EventHandler OpenFileDialog;
 
         NSOpenPanel FileDialog { get; set; }
-
+         
         public static void LaunchOpenFileDialog() => OpenFileDialog.Invoke(null,null);
 
         public AppDelegate()
@@ -27,18 +27,12 @@ namespace AnalysisITC
             FileDialog.CanChooseFiles = true;
             FileDialog.AllowsMultipleSelection = true;
             FileDialog.CanChooseDirectories = true;
-            FileDialog.AllowedFileTypes = DataReaders.ITCFormatAttribute.GetAllExtensions();
+            FileDialog.AllowedContentTypes = DataReaders.ITCFormatAttribute.GetAllUTTypes();
         }
 
         private void AppDelegate_OpenFileDialog(object sender, EventArgs e)
         {
             StatusBarManager.StartInderminateProgress();
-
-            FileDialog = NSOpenPanel.OpenPanel;
-            //FileDialog.CanChooseFiles = true;
-            //FileDialog.AllowsMultipleSelection = true;
-            //FileDialog.CanChooseDirectories = true;
-            //FileDialog.AllowedFileTypes = DataReaders.ITCFormatAttribute.GetAllExtensions();
 
             if (FileDialog.RunModal() == 1)
             {
@@ -52,12 +46,6 @@ namespace AnalysisITC
 
                 DataReaders.DataReader.Read(urls);
             }
-
-            FileDialog = NSOpenPanel.OpenPanel;
-            FileDialog.CanChooseFiles = true;
-            FileDialog.AllowsMultipleSelection = true;
-            FileDialog.CanChooseDirectories = true;
-            FileDialog.AllowedFileTypes = DataReaders.ITCFormatAttribute.GetAllExtensions();
 
             StatusBarManager.StopIndeterminateProgress();
         }

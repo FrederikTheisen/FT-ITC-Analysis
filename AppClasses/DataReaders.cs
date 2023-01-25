@@ -7,6 +7,7 @@ using Utilities;
 using AppKit;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
+using UniformTypeIdentifiers;
 
 namespace DataReaders
 {
@@ -537,20 +538,32 @@ namespace DataReaders
             };
         }
 
+        
+
         public static string[] GetAllExtensions()
         {
             var formats = GetAll();
 
-            var list = new string[0];
+            return formats.Select(f => f.GetProperties().Extension).ToArray();
+        }
 
-            foreach (var f in formats)
-            {
-                var props = f.GetProperties();
+        public static UTType[] DataFiles()
+        {
+            return UTType.GetTypes("itc", UTTagClass.FilenameExtension, UTTypes.Data);
+        }
 
-                list.Append(props.Extension);
-            }
+        public static UTType[] ProjectFile()
+        {
+            return UTType.GetTypes("ftitc", UTTagClass.FilenameExtension, UTTypes.Data);
+        }
 
-            return list;
+        public static UTType[] GetAllUTTypes()
+        {
+            var list = new List<UTType>();
+            list.AddRange(DataFiles());
+            list.AddRange(ProjectFile());
+
+            return list.ToArray();
         }
     }
 

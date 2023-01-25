@@ -578,7 +578,7 @@ namespace AnalysisITC
                 var xy = Models.Select(m => new double[] { m.Data.MeasuredTemperature, m.GuessH }).ToArray();
                 var reg = MathNet.Numerics.LinearRegression.SimpleRegression.Fit(xy.GetColumn(0), xy.GetColumn(1));
 
-                return reg.Item2;
+                return reg.B;
             }
         }
 

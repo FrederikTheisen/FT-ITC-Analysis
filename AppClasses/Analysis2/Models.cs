@@ -104,9 +104,7 @@ namespace AnalysisITC.AppClasses.Analysis2
 		{
 			var inj = Data.Injections[i];
 			var Qi = GetHeatContent(inj, n, H, K);
-			var Q_i = 0.0;
-
-			if (i != 0) Q_i = GetHeatContent(Data.Injections[i - 1], n, H, K);
+			var Q_i = i == 0 ? 0.0 : GetHeatContent(Data.Injections[i - 1], n, H, K);
 
 			var dQi = Qi + (inj.Volume / Data.CellVolume) * ((Qi + Q_i) / 2.0) - Q_i;
 
