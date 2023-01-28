@@ -226,4 +226,27 @@ namespace AnalysisITC
             }
         }
     }
+
+    public class TerminationFlag
+    {
+        bool FlagIsRaised { get; set; } = false;
+
+        public bool Up => FlagIsRaised;
+        public bool Down => !FlagIsRaised;
+
+        public TerminationFlag()
+        {
+            FlagIsRaised = false;
+        }
+
+        public void Raise()
+        {
+            FlagIsRaised = true;
+        }
+
+        public void Lower()
+        {
+            FlagIsRaised = false;
+        }
+    }
 }
