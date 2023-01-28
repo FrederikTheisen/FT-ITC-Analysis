@@ -30,6 +30,11 @@ namespace AnalysisITC.AppClasses.Analysis2
 
             if (value < Limits[0] || value > Limits[1]) throw new Exception("Parameter out of range");
         }
+
+        public override string ToString()
+        {
+            return Key.ToString() + ": " + Value.ToString("G3");
+        }
     }
 
     public class ModelParameters
