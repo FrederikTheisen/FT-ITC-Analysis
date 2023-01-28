@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using Microsoft.SolverFoundation.Services;
 
 namespace AnalysisITC.AppClasses.Analysis2
 {
@@ -11,28 +12,33 @@ namespace AnalysisITC.AppClasses.Analysis2
 	{
 		public static event EventHandler<ModelFactory> UpdateFactory;
 
-		public static AnalysisModel ModelType { get; set; } = AnalysisModel.OneSetOfSites;
+		public AnalysisModel ModelType { get; set; } = AnalysisModel.OneSetOfSites;
 		public bool IsGlobalAnalysis => this is GlobalModelFactory;
+
+		public ModelFactory(AnalysisModel model)
+		{
+			ModelType = model;
+		}
 
 		/// <summary>
 		/// Initialize model factory to build either individual or global fitting model
 		/// </summary>
 		/// <param name="isglobal"></param>
 		/// <returns></returns>
-		public static ModelFactory InitializeFactory(bool isglobal)
+		public static ModelFactory InitializeFactory(AnalysisModel model, bool isglobal)
 		{
 			Console.WriteLine("Initializing ModelFactory...");
 			ModelFactory factory;
 
 			if (isglobal)
 			{
-				factory = new GlobalModelFactory();
+				factory = new GlobalModelFactory(model);
 
 				(factory as GlobalModelFactory).InitializeModel();
 			}
 			else
 			{
-				factory = new SingleModelFactory();
+				factory = new SingleModelFactory(model);
 
 				(factory as SingleModelFactory).InitializeModel(DataManager.Current);
 			}
@@ -67,47 +73,26 @@ namespace AnalysisITC.AppClasses.Analysis2
 
 	public class SingleModelFactory : ModelFactory
 	{
-		public Model Model { get; private set; }
+        public Model Model { get; private set; }
 
-		public void InitializeModel(ExperimentData data)
+        public SingleModelFactory(AnalysisModel model) : base(model)
+        {
+        }
+
+        public void InitializeModel(ExperimentData data)
 		{
             Console.WriteLine("Initializing SingleModelFactory...");
             switch (ModelType)
 			{
-				case AnalysisModel.OneSetOfSites: Model = InitializeOneSetOfSites(data); break;
-				case AnalysisModel.TwoSetsOfSites: Model = InitializeTwoSetsOfSites(data); break;
+				case AnalysisModel.OneSetOfSites: Model = new OneSetOfSites(data); break;
+				case AnalysisModel.TwoSetsOfSites: Model = new TwoSetsOfSites(data); break;
 				case AnalysisModel.SequentialBindingSites:
 				case AnalysisModel.Dissociation:
 				default: throw new NotImplementedException();
 			}
-		}
 
-		private OneSetOfSites InitializeOneSetOfSites(ExperimentData data)
-		{
-			var model = new OneSetOfSites(data);
-
-			model.Parameters.AddParameter(ParameterTypes.Nvalue1, model.GuessN(), limits: new double[] { 0.1, 10 });
-            model.Parameters.AddParameter(ParameterTypes.Enthalpy1, model.GuessEnthalpy(), limits: new double[] { -500000, 500000 });
-            model.Parameters.AddParameter(ParameterTypes.Affinity1, model.GuessAffinity(), limits: new double[] { 10, 100000000000 });
-            model.Parameters.AddParameter(ParameterTypes.Offset, model.GuessOffset(), limits: new double[] { -500000, 500000 });
-
-            return model;
-		}
-
-		private TwoSetsOfSites InitializeTwoSetsOfSites(ExperimentData data)
-		{
-			var model = new TwoSetsOfSites(data);
-
-            model.Parameters.AddParameter(ParameterTypes.Nvalue1, model.GuessN(), limits: new double[] { 0.1, 10 });
-            model.Parameters.AddParameter(ParameterTypes.Enthalpy1, model.GuessEnthalpy() / 2, limits: new double[] { -500000, 500000 });
-            model.Parameters.AddParameter(ParameterTypes.Affinity1, model.GuessAffinity(), limits: new double[] { 10E-12, 0.1 });
-            model.Parameters.AddParameter(ParameterTypes.Nvalue2, model.GuessN(), limits: new double[] { 0.1, 10 });
-            model.Parameters.AddParameter(ParameterTypes.Enthalpy2, model.GuessEnthalpy() / 2, limits: new double[] { -500000, 500000 });
-            model.Parameters.AddParameter(ParameterTypes.Affinity2, model.GuessAffinity(), limits: new double[] { 10E-12, 0.1 });
-            model.Parameters.AddParameter(ParameterTypes.Offset, model.GuessOffset(), limits: new double[] { -500000, 500000 });
-
-            return model;
-		}
+            Model.InitializeParameters();
+        }
 
 		public override IEnumerable<Parameter> GetExposedParameters()
 		{
@@ -122,13 +107,15 @@ namespace AnalysisITC.AppClasses.Analysis2
 
 	public class GlobalModelFactory : ModelFactory
 	{
-		public GlobalModel Model { get; private set; }
-
+        public GlobalModel Model { get; private set; }
 		public GlobalModelParameters GlobalModelParameters { get; private set; }
-
 		public Dictionary<ParameterTypes, List<Analysis.VariableConstraint>> ExposedGlobalFittingOptions { get; private set; }
 
 		public List<Parameter> GlobalParameters => GlobalModelParameters.GlobalParameters.Values.ToList();
+
+        public GlobalModelFactory(AnalysisModel model) : base(model)
+        {
+        }
 
         public void InitializeModel()
 		{
@@ -137,7 +124,7 @@ namespace AnalysisITC.AppClasses.Analysis2
 
 			foreach (var data in DataManager.Data.Where(d => d.Include))
 			{
-				var factory = new SingleModelFactory();
+				var factory = new SingleModelFactory(ModelType);
 
 				factory.InitializeModel(data);
 

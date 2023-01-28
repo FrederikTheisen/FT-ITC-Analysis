@@ -63,7 +63,12 @@ namespace AnalysisITC.AppClasses.Analysis2
 			Parameters = new ModelParameters();
         }
 
-		public virtual double Evaluate(int injectionindex)
+		public virtual void InitializeParameters()
+		{
+			throw new NotImplementedException();
+		}
+
+        public virtual double Evaluate(int injectionindex)
 		{
 			throw new NotImplementedException();
 		}
@@ -87,7 +92,12 @@ namespace AnalysisITC.AppClasses.Analysis2
 
 			return Math.Sqrt(loss / Data.Injections.Count(i => i.Include));
 		}
-	}
+
+        public virtual Model GenerateSyntheticModel()
+        {
+            return new Model(Data.GetSynthClone());
+        }
+    }
 
 	public class OneSetOfSites : Model
 	{
@@ -95,7 +105,15 @@ namespace AnalysisITC.AppClasses.Analysis2
 		{
 		}
 
-		public override double Evaluate(int injectionindex)
+        public override void InitializeParameters()
+        {
+            Parameters.AddParameter(ParameterTypes.Nvalue1, this.GuessN(), limits: new double[] { 0.1, 10 });
+            Parameters.AddParameter(ParameterTypes.Enthalpy1, this.GuessEnthalpy(), limits: new double[] { -500000, 500000 });
+            Parameters.AddParameter(ParameterTypes.Affinity1, this.GuessAffinity(), limits: new double[] { 10, 100000000000 });
+            Parameters.AddParameter(ParameterTypes.Offset, this.GuessOffset(), limits: new double[] { -500000, 500000 });
+        }
+
+        public override double Evaluate(int injectionindex)
 		{
 			return GetDeltaHeat(injectionindex, Parameters.Table[ParameterTypes.Nvalue1].Value, Parameters.Table[ParameterTypes.Enthalpy1].Value, Parameters.Table[ParameterTypes.Affinity1].Value) + Parameters.Table[ParameterTypes.Offset].Value * Data.Injections[injectionindex].InjectionMass; ;
 		}
@@ -122,7 +140,29 @@ namespace AnalysisITC.AppClasses.Analysis2
 
 			return first * (1 + XnM + nKM - Math.Sqrt(root));
 		}
-	}
+
+        public override Model GenerateSyntheticModel()
+        {
+			Model mdl = new OneSetOfSites(Data.GetSynthClone());
+
+			mdl.InitializeParameters();
+
+			return mdl;
+        }
+
+        public class Solution : ModelSolution
+        {
+            public Energy Enthalpy { get; private set; }
+            public FloatWithError K { get; private set; }
+            public FloatWithError N { get; private set; }
+            public Energy Offset { get; private set; }
+
+            public FloatWithError Kd => new FloatWithError(1) / K;
+            public Energy GibbsFreeEnergy => new(-1.0 * Energy.R.FloatWithError * TempKelvin * FWEMath.Log(K));
+            public Energy TdS => GibbsFreeEnergy - Enthalpy;
+            public Energy Entropy => TdS / TempKelvin;
+        }
+    }
 
 	public class TwoSetsOfSites : Model
 	{
@@ -130,7 +170,51 @@ namespace AnalysisITC.AppClasses.Analysis2
 		{
 			throw new NotImplementedException("TwoSetsOfSites not implemented yet");
 		}
-	}
 
+		public override void InitializeParameters()
+		{
+            Parameters.AddParameter(ParameterTypes.Nvalue1, this.GuessN(), limits: new double[] { 0.1, 10 });
+            Parameters.AddParameter(ParameterTypes.Enthalpy1, this.GuessEnthalpy() / 2, limits: new double[] { -500000, 500000 });
+            Parameters.AddParameter(ParameterTypes.Affinity1, this.GuessAffinity(), limits: new double[] { 10E-12, 0.1 });
+            Parameters.AddParameter(ParameterTypes.Nvalue2, this.GuessN(), limits: new double[] { 0.1, 10 });
+            Parameters.AddParameter(ParameterTypes.Enthalpy2, this.GuessEnthalpy() / 2, limits: new double[] { -500000, 500000 });
+            Parameters.AddParameter(ParameterTypes.Affinity2, this.GuessAffinity(), limits: new double[] { 10E-12, 0.1 });
+            Parameters.AddParameter(ParameterTypes.Offset, this.GuessOffset(), limits: new double[] { -500000, 500000 });
+        }
+
+        public override Model GenerateSyntheticModel()
+        {
+            return new TwoSetsOfSites(Data.GetSynthClone());
+        }
+
+		public class Solution : ModelSolution
+		{
+            public Energy Enthalpy { get; private set; }
+            public FloatWithError K { get; private set; }
+            public FloatWithError N { get; private set; }
+            public Energy Offset { get; private set; }
+
+            public FloatWithError Kd => new FloatWithError(1) / K;
+            public Energy GibbsFreeEnergy => new(-1.0 * Energy.R.FloatWithError * TempKelvin * FWEMath.Log(K));
+            public Energy TdS => GibbsFreeEnergy - Enthalpy;
+            public Energy Entropy => TdS / TempKelvin;
+        }
+    }
+
+	public class ModelSolution
+	{
+        public string Guid { get; private set; } = new Guid().ToString();
+
+        public Model Model;
+        public ExperimentData Data => Model.Data;
+        public double T => Data.MeasuredTemperature;
+        public double TempKelvin => T + 273.15;
+
+        public SolverConvergence Convergence { get; set; }
+        public double Loss { get; private set; }
+        public bool IsValid { get; set; } = true;
+        public double[] Raw { get; set; }
+        public List<ModelSolution> BootstrapSolutions { get; set; } = new List<ModelSolution>();
+    }
 }
 
