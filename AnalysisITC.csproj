@@ -419,6 +419,7 @@
     <Compile Include="AppClasses\Analysis2\ParameterSet.cs" />
     <Compile Include="AppClasses\Analysis2\Models.cs" />
     <Compile Include="AppClasses\Analysis2\Solver.cs" />
+    <Compile Include="AppClasses\Analysis2\GlobalModel.cs" />
   </ItemGroup>
   <ItemGroup>
     <InterfaceDefinition Include="Main.storyboard" />

@@ -7,117 +7,103 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Threading;
 using AppKit;
+using Accord.Math;
 
 namespace AnalysisITC.AppClasses.Analysis2
 {
-    public class Solver
+    public class SolverInterface
     {
-        public static TerminationFlag TerminateAnalysisFlag { get; private set; } = new TerminationFlag();
-
-        public static event EventHandler<Tuple<int, int, float>> BootstrapIterationFinished;
-
-        public Model Model { get; set; }
-        public Analysis.SolverAlgorithm SolverAlgorithm { get; set; } = Analysis.SolverAlgorithm.NelderMead;
-        public Analysis.ErrorEstimationMethod ErrorEstimationMethod { get; set; } = Analysis.ErrorEstimationMethod.BootstrapResiduals;
+        public static TerminationFlag TerminateAnalysisFlag { get; protected set; } = new TerminationFlag();
         public static int BootstrapIterations { get; set; } = 100;
 
-        public static void ReportBootstrapProgress(int iteration) => NSApplication.SharedApplication.InvokeOnMainThread(() =>
+        public static event EventHandler<Tuple<int, int, float>> BootstrapIterationFinished;
+        public static event EventHandler<SolverConvergence> AnalysisFinished;
+        public static event EventHandler AnalysisStepFinished;
+
+        public Analysis.SolverAlgorithm SolverAlgorithm { get; set; } = Analysis.SolverAlgorithm.NelderMead;
+        public Analysis.ErrorEstimationMethod ErrorEstimationMethod { get; set; } = Analysis.ErrorEstimationMethod.BootstrapResiduals;
+
+        protected DateTime starttime;
+        protected DateTime endtime;
+        public TimeSpan Duration
+        {
+            get
+            {
+                if (endtime != null) return endtime - starttime;
+                else if (starttime != null) return DateTime.Now - starttime;
+                else return TimeSpan.Zero;
+            }
+        }
+
+        public void ReportBootstrapProgress(int iteration) => NSApplication.SharedApplication.InvokeOnMainThread(() =>
         {
             BootstrapIterationFinished?.Invoke(null, new Tuple<int, int, float>(iteration, BootstrapIterations, iteration / (float)BootstrapIterations));
         });
 
-        public SolverConvergence Solve()
+        public void ReportAnalysisStepFinished()
         {
-            var starttime = DateTime.Now;
+            AnalysisStepFinished?.Invoke(null, null);
+        }
+
+        public void ReportAnalysisFinished(SolverConvergence convergence)
+        {
+            AnalysisFinished?.Invoke(null, convergence);
+        }
+
+        public async void Analyze() => await Task.Run(() => { Solve(); });
+
+        public virtual void Solve()
+        {
+            starttime = DateTime.Now;
             TerminateAnalysisFlag = new TerminationFlag();
 
-            SolverConvergence convergence;
+            SolverConvergence convergence = null;
 
             switch (SolverAlgorithm)
             {
                 case Analysis.SolverAlgorithm.NelderMead: convergence = SolveWithNelderMeadAlgorithm(); break;
-                case Analysis.SolverAlgorithm.LevenbergMarquardt:
+                case Analysis.SolverAlgorithm.LevenbergMarquardt: convergence = SolverWithLevenbergMarquardtAlgorithm(); break;
                 default: throw new NotImplementedException("Solver algorithm not implemented");
             }
 
+            ReportAnalysisStepFinished();
+
             switch (ErrorEstimationMethod)
             {
-
+                case Analysis.ErrorEstimationMethod.BootstrapResiduals: BoostrapResiduals(); break;
+                case Analysis.ErrorEstimationMethod.None:
+                default: break;
             }
 
-            return convergence;
+            endtime = DateTime.Now;
+
+            Console.WriteLine("Analysis time: " + Duration.TotalSeconds + "s");
+
+            ReportAnalysisFinished(convergence);
         }
 
-        SolverConvergence SolveWithNelderMeadAlgorithm()
+        protected virtual SolverConvergence SolveWithNelderMeadAlgorithm()
         {
-            var f = new NonlinearObjectiveFunction(4, (w) => Model.LossFunction(w));
-            var solver = new NelderMead(f);
-
-            solver.Convergence = new Accord.Math.Convergence.GeneralConvergence(4)
-            {
-                MaximumEvaluations = 300000,
-                AbsoluteFunctionTolerance = double.Epsilon,
-                StartTime = DateTime.Now,
-            };
-
-            SetStepSizes(solver);
-            SetBounds(solver);
-
-            solver.Minimize(Model.Parameters.ToArray());
-
-            Model.Data.Solution = Solution.FromAccordNelderMead(Model); // solver.Function(solver.Solution));
-            Model.Data.Solution.Convergence = new SolverConvergence(solver);
-
-            return Model.Data.Solution.Convergence;
+            throw new NotImplementedException();
         }
 
-        void BoostrapResiduals()
+        protected virtual SolverConvergence SolverWithLevenbergMarquardtAlgorithm()
         {
-            ReportBootstrapProgress(0);
-
-            int counter = 0;
-            var start = DateTime.Now;
-            var solutions = new List<Solution>();
-
-            var bag = new ConcurrentBag<Solution>();
-
-            var res = Parallel.For(0, BootstrapIterations, (i) =>
-            {
-                if (TerminateAnalysisFlag.Down)
-                {
-                    var solver = new Solver();
-                    solver.SolverAlgorithm = this.SolverAlgorithm;
-                    solver.ErrorEstimationMethod = Analysis.ErrorEstimationMethod.None;
-                    solver.Model = Model.GenerateSyntheticModel();
-                    //solver.Model.SetBootstrapStart(Solution.Raw);
-
-                    solver.Solve();
-
-                    //bag.Add(solver.Solution);
-                }
-
-                var currcounter = Interlocked.Increment(ref counter);
-
-                ReportBootstrapProgress(currcounter);
-            });
-
-            solutions = bag.ToList();
-
-            //Solution.BootstrapSolutions = solutions.Where(sol => !sol.Convergence.Failed).ToList();
-            //Solution.ComputeErrorsFromBootstrapSolutions();
+            throw new NotImplementedException();
         }
 
-        private void SetStepSizes(NelderMead solver)
+        protected virtual void BoostrapResiduals()
         {
-            var stepsize = Model.Parameters.GetStepSizes();
+            throw new NotImplementedException();
+        }
 
+        protected void SetStepSizes(NelderMead solver, double[] stepsize)
+        {
             for (int i = 0; i < solver.StepSize.Length; i++) solver.StepSize[i] = stepsize[i];
         }
 
-        public virtual void SetBounds(object solver)
+        public virtual void SetBounds(object solver, List<double[]> bounds)
         {
-            var bounds = Model.Parameters.GetLimits();
-
             var lower = bounds.Select(l => l[0]).ToArray();
             var upper = bounds.Select(l => l[1]).ToArray();
 
@@ -134,6 +120,109 @@ namespace AnalysisITC.AppClasses.Analysis2
                     alglib.minlmsetbc(state, lower, upper);
                     break;
             }
+        }
+    }
+
+    public class Solver : SolverInterface
+    {
+        public Model Model { get; set; }
+        public SolutionInterface Solution { get; private set; }
+
+        protected override SolverConvergence SolveWithNelderMeadAlgorithm()
+        {
+            var f = new NonlinearObjectiveFunction(Model.NumberOfParameters, (w) => Model.LossFunction(w));
+            var solver = new NelderMead(f);
+
+            solver.Convergence = new Accord.Math.Convergence.GeneralConvergence(Model.NumberOfParameters)
+            {
+                MaximumEvaluations = 300000,
+                AbsoluteFunctionTolerance = double.Epsilon,
+                StartTime = DateTime.Now,
+            };
+
+            SetStepSizes(solver, Model.Parameters.GetStepSizes());
+            SetBounds(solver, Model.Parameters.GetLimits());
+
+            solver.Minimize(Model.Parameters.ToArray());
+
+            Model.Solution = SolutionInterface.FromModel(Model, solver.Solution);
+            Model.Solution.Convergence = new SolverConvergence(solver);
+
+            return Model.Solution.Convergence;
+        }
+
+        protected override void BoostrapResiduals()
+        {
+            ReportBootstrapProgress(0);
+
+            int counter = 0;
+            var start = DateTime.Now;
+            var solutions = new List<SolutionInterface>();
+
+            var bag = new ConcurrentBag<SolutionInterface>();
+
+            var res = Parallel.For(0, BootstrapIterations, (i) =>
+            {
+                if (TerminateAnalysisFlag.Down)
+                {
+                    var solver = new Solver();
+                    solver.SolverAlgorithm = this.SolverAlgorithm;
+                    solver.ErrorEstimationMethod = Analysis.ErrorEstimationMethod.None;
+                    solver.Model = Model.GenerateSyntheticModel();
+                    //solver.Model.Parameters = Solution.Parameters;
+
+                    solver.Solve();
+
+                    bag.Add(solver.Model.Solution);
+                }
+
+                var currcounter = Interlocked.Increment(ref counter);
+
+                ReportBootstrapProgress(currcounter);
+            });
+
+            solutions = bag.ToList();
+
+            Model.GenerateSyntheticModel();
+
+            Model.Solution.SetBootstrapSolutions(solutions.Where(sol => !sol.Convergence.Failed).ToList());
+            Model.Solution.ComputeErrorsFromBootstrapSolutions();
+        }
+    }
+
+    public class GlobalSolver : SolverInterface
+    {
+        public GlobalModel Model { get; set; }
+        public SolutionInterface Solution { get; set; }
+
+        protected override SolverConvergence SolveWithNelderMeadAlgorithm()
+        {
+            var f = new NonlinearObjectiveFunction(Model.NumberOfParameters, (w) => Model.LossFunction(w));
+            var solver = new NelderMead(f);
+
+            solver.Convergence = new Accord.Math.Convergence.GeneralConvergence(Model.NumberOfParameters)
+            {
+                MaximumEvaluations = 300000,
+                AbsoluteFunctionTolerance = double.Epsilon,
+                StartTime = DateTime.Now,
+            };
+
+            SetStepSizes(solver, Model.Parameters.GetStepSizes());
+            SetBounds(solver, Model.Parameters.GetLimits());
+
+            solver.Minimize(Model.Parameters.ToArray());
+
+            Model.SetSolutions();
+
+            //Model.Solution = SolutionInterface.FromModel(Model, solver.Solution);
+            Model.Solution.Convergence = new SolverConvergence(solver);
+
+            return Model.Solution.Convergence;
+        }
+
+        protected override void BoostrapResiduals()
+        {
+            
         }
     }
 }

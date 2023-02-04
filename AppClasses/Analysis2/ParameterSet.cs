@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Security.Cryptography;
 
 namespace AnalysisITC.AppClasses.Analysis2
 {
@@ -20,8 +21,20 @@ namespace AnalysisITC.AppClasses.Analysis2
             if (limits == null) Limits = new double[] { double.MinValue, double.MaxValue };
             else Limits = limits;
 
-            if (double.IsNaN(stepsize)) StepSize = Math.Abs(Value / 50); //guess a reasonable step size
+            if (double.IsNaN(stepsize))
+            {
+                if (Math.Abs(Value) < 1) StepSize = Math.Sqrt(Limits[1] - Limits[0]);
+                else StepSize = Math.Abs(Value / 20); //guess a reasonable step size
+            }
             else StepSize = stepsize;
+
+            if (StepSize == 0) throw new Exception();
+        }
+
+        public void SetGlobal(double value)
+        {
+            Update(value);
+            IsLocked = true;
         }
 
         public void Update(double value)
@@ -29,6 +42,15 @@ namespace AnalysisITC.AppClasses.Analysis2
             Value = value;
 
             if (value < Limits[0] || value > Limits[1]) throw new Exception("Parameter out of range");
+        }
+
+        public void Update(double value, bool lockpar)
+        {
+            Update(value);
+
+            IsLocked = lockpar;
+
+            Console.WriteLine("Lock: " + Key.ToString() + " " + lockpar.ToString());
         }
 
         public override string ToString()
@@ -40,17 +62,22 @@ namespace AnalysisITC.AppClasses.Analysis2
     public class ModelParameters
     {
         public AnalysisModel ModelType { get; set; } = AnalysisModel.OneSetOfSites;
-
         public Dictionary<ParameterTypes, Parameter> Table { get; set; } = new Dictionary<ParameterTypes, Parameter>();
+        public double ExperimentTemperature { get; private set; }
 
         public int FittingParameterCount => Table.Count(p => !p.Value.IsLocked);
 
-        public void AddParameter(ParameterTypes key, double value, bool islocked = false, double[] limits = null)
+        public ModelParameters(ExperimentData data)
         {
-            Table.Add(key, new Parameter(key, value, islocked, limits));
+            ExperimentTemperature = data.MeasuredTemperature;
         }
 
-        public void UpdateFromArray(double[] globalparameters)
+        public void AddParameter(ParameterTypes key, double value, bool islocked = false, double[] limits = null, double stepsize = double.NaN)
+        {
+            Table.Add(key, new Parameter(key, value, islocked, limits, stepsize));
+        }
+
+        public void UpdateFromArray(double[] parameters)
         {
             int index = 0;
 
@@ -59,7 +86,7 @@ namespace AnalysisITC.AppClasses.Analysis2
                 if (parameter.Key != parameter.Value.Key) throw new KeyNotFoundException("Parameter key mismatch");
                 if (!parameter.Value.IsLocked)
                 {
-                    parameter.Value.Update(globalparameters[index]);
+                    parameter.Value.Update(parameters[index]);
                     index++;
                 }
             }
@@ -94,26 +121,35 @@ namespace AnalysisITC.AppClasses.Analysis2
 
     public class GlobalModelParameters
     {
-        public Analysis.VariableConstraint EnthalpyStyle { get; set; } = Analysis.VariableConstraint.TemperatureDependent;
+        public Analysis.VariableConstraint EnthalpyStyle { get; set; } = Analysis.VariableConstraint.None;
         public Analysis.VariableConstraint AffinityStyle { get; set; } = Analysis.VariableConstraint.None;
         public Analysis.VariableConstraint NStyle { get; set; } = Analysis.VariableConstraint.None;
 
-        public Dictionary<ParameterTypes, Parameter> GlobalParameters { get; private set; } = new Dictionary<ParameterTypes, Parameter>();
-        public List<ModelParameters> IndividualModelParameterList { get; private set; }
+        public Dictionary<ParameterTypes, Parameter> GlobalTable { get; private set; } = new Dictionary<ParameterTypes, Parameter>();
+        public List<ModelParameters> IndividualModelParameterList { get; private set; } = new List<ModelParameters>();
 
         /// <summary>
         /// Get the number of gloablly fitted parameters for this global model
         /// </summary>
-        int GlobalFittingParameterCount => GlobalParameters.Count(p => !p.Value.IsLocked);
+        int GlobalFittingParameterCount => GlobalTable.Count(p => !p.Value.IsLocked);
+        int IndividualModelParameterCount => IndividualModelParameterList.Sum(pars => pars.FittingParameterCount);
+        public int TotalFittingParameters => GlobalFittingParameterCount + IndividualModelParameterCount;
+        double ReferenceTemperature => IndividualModelParameterList.Average(pars => pars.ExperimentTemperature);
 
         /// <summary>
         /// Check if GlobalModel requires global fitting (any globally fitted parameters?)
         /// </summary>
         public bool RequiresGlobalFitting => GlobalFittingParameterCount == 0;
 
-        public void AddGlobalParameter(ParameterTypes key, double value, bool islocked = false, double[] limits = null)
+        public void AddorUpdateGlobalParameter(ParameterTypes key, double value, bool islocked = false, double[] limits = null)
         {
-            GlobalParameters.Add(key, new Parameter(key, value, islocked, limits));
+            if (GlobalTable.Keys.Contains(key)) GlobalTable[key] = new Parameter(key, value, islocked, limits);           
+            else GlobalTable.Add(key, new Parameter(key, value, islocked, limits));
+        }
+
+        public void AddIndivdualParameter(ModelParameters parameters)
+        {
+            IndividualModelParameterList.Add(parameters);
         }
 
         /// <summary>
@@ -124,7 +160,7 @@ namespace AnalysisITC.AppClasses.Analysis2
         {
             int index = 0;
 
-            foreach (var parameter in GlobalParameters)
+            foreach (var parameter in GlobalTable)
             {
                 if (!parameter.Value.IsLocked)
                 {
@@ -141,6 +177,42 @@ namespace AnalysisITC.AppClasses.Analysis2
 
                 index += take;
             }
+
+            SetIndividualFromGlobal();
+        }
+
+        public void SetIndividualFromGlobal()
+        {
+            foreach (var paramset in IndividualModelParameterList)
+            {
+                foreach (var par in paramset.Table) //Update and lock parameters based on global parameters
+                {
+                    switch (par.Key)
+                    {
+                        case ParameterTypes.Nvalue1:
+                        case ParameterTypes.Nvalue2: if (NStyle == Analysis.VariableConstraint.SameForAll) par.Value.SetGlobal(GlobalTable[par.Key].Value); break;
+                        case ParameterTypes.Enthalpy1:
+                        case ParameterTypes.Enthalpy2:
+                            if (EnthalpyStyle == Analysis.VariableConstraint.TemperatureDependent)
+                            {
+                                var refT = ReferenceTemperature;
+                                var mdlT = paramset.ExperimentTemperature;
+                                var dT = mdlT - refT;
+                                var dH = par.Key switch
+                                {
+                                    ParameterTypes.Enthalpy2 => GlobalTable[ParameterTypes.Enthalpy2].Value + dT * GlobalTable[ParameterTypes.HeatCapacity2].Value,
+                                    _ => GlobalTable[ParameterTypes.Enthalpy1].Value + dT * GlobalTable[ParameterTypes.HeatCapacity1].Value,
+                                };
+                                par.Value.SetGlobal(dH);
+                            }
+                            else if (EnthalpyStyle == Analysis.VariableConstraint.SameForAll) par.Value.SetGlobal(GlobalTable[par.Key].Value);
+                            else if (!double.IsNaN(GlobalTable[par.Key].Value)) par.Value.Update(GlobalTable[par.Key].Value, GlobalTable[par.Key].IsLocked);
+                            break;
+                        case ParameterTypes.Affinity1:
+                        case ParameterTypes.Affinity2: if (AffinityStyle == Analysis.VariableConstraint.TemperatureDependent) par.Value.SetGlobal(Math.Exp(-GlobalTable[ParameterTypes.Gibbs1].Value / (Energy.R * paramset.ExperimentTemperature))); break;
+                    }
+                }
+            }
         }
 
         /// <summary>
@@ -151,7 +223,7 @@ namespace AnalysisITC.AppClasses.Analysis2
         {
             var w = new List<double>();
 
-            foreach (KeyValuePair<ParameterTypes, Parameter> parameter in GlobalParameters)
+            foreach (KeyValuePair<ParameterTypes, Parameter> parameter in GlobalTable)
             {
                 if (!parameter.Value.IsLocked) w.Add(parameter.Value.Value);
             }
@@ -170,6 +242,30 @@ namespace AnalysisITC.AppClasses.Analysis2
 
             return IndividualModelParameterList[index];
         }
+
+        public double[] GetStepSizes()
+        {
+            var stepsize = new List<double>();
+            stepsize.AddRange(GlobalTable.Select(p => p.Value).Where(p => !p.IsLocked).Select(p => p.StepSize));
+            foreach (var par in IndividualModelParameterList)
+            {
+                stepsize.AddRange(par.GetStepSizes());
+            }
+
+            return stepsize.ToArray();
+        }
+
+        public List<double[]> GetLimits()
+        {
+            var limits = new List<double[]>();
+            limits.AddRange(GlobalTable.Select(p => p.Value).Where(p => !p.IsLocked).Select(p => p.Limits));
+            foreach (var par in IndividualModelParameterList)
+            {
+                limits.AddRange(par.GetLimits());
+            }
+
+            return limits;
+        }
     }
 
     public enum ParameterTypes
@@ -182,7 +278,9 @@ namespace AnalysisITC.AppClasses.Analysis2
         Affinity2,
         Offset,
         HeatCapacity1,
-        HeatCapacity2
+        HeatCapacity2,
+        Gibbs1,
+        Gibbs2
     }
 }
 

@@ -11,6 +11,7 @@ using System.Threading;
 using static alglib;
 using System.ComponentModel;
 using System.Collections.Concurrent;
+using AnalysisITC.AppClasses.Analysis2;
 
 namespace AnalysisITC
 {
@@ -86,6 +87,26 @@ namespace AnalysisITC
                     AffinityStyle = affinitystyle,
                     NStyle = nstyle,
                 };
+
+                var factory = new GlobalModelFactory(AnalysisModel.OneSetOfSites);
+                factory.InitializeModel();
+
+                factory.GlobalModelParameters.AffinityStyle = affinitystyle;
+                factory.GlobalModelParameters.EnthalpyStyle = enthalpystyle;
+                factory.GlobalModelParameters.NStyle = nstyle;
+
+                factory.InitializeGlobalParameters();
+
+                var expo = factory.GetExposedOptions();
+                var par = factory.GetExposedParameters();
+
+                factory.BuildModel();
+
+                var solver = new GlobalSolver();
+                solver.Model = factory.Model;
+                solver.SolverAlgorithm = SolverAlgorithm.NelderMead;
+
+                solver.Analyze();
             }
 
             static void InitializeOneSetOfSites()
@@ -182,14 +203,17 @@ namespace AnalysisITC
 
             public static async void Solve(AnalysisModel analysismodel)
             {
-                var factory = AppClasses.Analysis2.ModelFactory.InitializeFactory(false);
+                var factory = AppClasses.Analysis2.SingleModelFactory.InitializeFactory(analysismodel, false);
+
+                var exp = factory.GetExposedParameters();
                 factory.BuildModel();
 
+
                 var solver = new AppClasses.Analysis2.Solver();
+                //solver.SolverAlgorithm = Algorithm;
+                solver.Model = (factory as SingleModelFactory).Model;
 
-                solver.Model = (factory as AppClasses.Analysis2.SingleModelFactory).Model;
-
-                solver.Fit(SolverAlgorithm.NelderMead);
+                solver.Analyze();
 
                 StopAnalysisProcess = false;
 
@@ -220,31 +244,31 @@ namespace AnalysisITC
                 AnalysisFinished?.Invoke(null, convergence);
             }
 
-            public static void LM() //TODO move to model solving
-            {
-                var f = new Accord.Statistics.Models.Regression.Fitting.NonlinearLeastSquares();
-                f.Algorithm = new Accord.Math.Optimization.LevenbergMarquardt()
-                {
-                    MaxIterations = 1000,
-                    ParallelOptions = new ParallelOptions() { MaxDegreeOfParallelism = 3 }
-                };
-
-                var model = new OneSetOfSites(Data);
-
-                f.Function = (p, i) => model.Evaluate((int)i[0], (float)p[0], (float)p[1], (float)p[2], (float)p[3]);
-                f.StartValues = new double[4] { 1, -50000, 1000000, 0 };
-                f.ComputeStandardErrors = false;
-                f.Gradient = null;
-
-                f.NumberOfParameters = 4;
-
-                var input = Data.Injections.Where(inj => inj.Include).Select(inj => (double)inj.ID).ToArray().ToJagged();
-                var results = Data.Injections.Where(inj => inj.Include).Select(inj => (double)inj.PeakArea).ToArray();
-                var output = f.Learn(input, results);
-
-                Console.WriteLine(output.Coefficients);
-
-            }
+            //public static void LM() //TODO move to model solving
+            //{
+            //    var f = new Accord.Statistics.Models.Regression.Fitting.NonlinearLeastSquares();
+            //    f.Algorithm = new Accord.Math.Optimization.LevenbergMarquardt()
+            //    {
+            //        MaxIterations = 1000,
+            //        ParallelOptions = new ParallelOptions() { MaxDegreeOfParallelism = 3 }
+            //    };
+            //
+            //    var model = new OneSetOfSites(Data);
+            //
+            //    f.Function = (p, i) => model.Evaluate((int)i[0], (float)p[0], (float)p[1], (float)p[2], (float)p[3]);
+            //    f.StartValues = new double[4] { 1, -50000, 1000000, 0 };
+            //    f.ComputeStandardErrors = false;
+            //    f.Gradient = null;
+            //
+            //    f.NumberOfParameters = 4;
+            //
+            //    var input = Data.Injections.Where(inj => inj.Include).Select(inj => (double)inj.ID).ToArray().ToJagged();
+            //    var results = Data.Injections.Where(inj => inj.Include).Select(inj => (double)inj.PeakArea).ToArray();
+            //    var output = f.Learn(input, results);
+            //
+            //    Console.WriteLine(output.Coefficients);
+            //
+            //}
         }
 
         public enum VariableConstraint

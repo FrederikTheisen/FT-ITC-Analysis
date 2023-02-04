@@ -49,6 +49,7 @@ namespace AnalysisITC
 
         public DataProcessor Processor { get; private set; }
         public Solution Solution { get; set; }
+        public AnalysisITC.AppClasses.Analysis2.Model Model { get; set; }
 
         public ExperimentData(string file)
         {
@@ -174,14 +175,14 @@ namespace AnalysisITC
 
             foreach (var inj in Injections.Where(inj => inj.Include))
             {
-                var fit = Solution.Evaluate(inj.ID, withoffset: true);
+                var fit = Model.EvaluateEnthalpy(inj.ID, withoffset: true);
                 residuals.Add(inj.Enthalpy - fit);
             }
 
             foreach (var inj in Injections)
             {
                 var res = residuals[rand.Next(residuals.Count)];
-                var fit = Solution.Evaluate(inj.ID, withoffset: true);
+                var fit = Model.EvaluateEnthalpy(inj.ID, withoffset: true);
                 var resarea = res * inj.InjectionMass;
                 var fitarea = fit * inj.InjectionMass;
 
