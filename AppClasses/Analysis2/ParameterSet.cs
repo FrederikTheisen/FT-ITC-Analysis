@@ -41,7 +41,7 @@ namespace AnalysisITC.AppClasses.Analysis2
         {
             Value = value;
 
-            if (value < Limits[0] || value > Limits[1]) throw new Exception("Parameter out of range");
+            if (value < Limits[0] || value > Limits[1]) throw new Exception("Parameter out of range: " + Key.ToString() + " " + value.ToString() + " [" + Limits[0].ToString() + " - " + Limits[1].ToString() + "]");
         }
 
         public void Update(double value, bool lockpar)
@@ -121,24 +121,20 @@ namespace AnalysisITC.AppClasses.Analysis2
 
     public class GlobalModelParameters
     {
+        //Settings
         public Analysis.VariableConstraint EnthalpyStyle { get; set; } = Analysis.VariableConstraint.None;
         public Analysis.VariableConstraint AffinityStyle { get; set; } = Analysis.VariableConstraint.None;
         public Analysis.VariableConstraint NStyle { get; set; } = Analysis.VariableConstraint.None;
 
+        //Properties
         public Dictionary<ParameterTypes, Parameter> GlobalTable { get; private set; } = new Dictionary<ParameterTypes, Parameter>();
         public List<ModelParameters> IndividualModelParameterList { get; private set; } = new List<ModelParameters>();
 
-        /// <summary>
-        /// Get the number of gloablly fitted parameters for this global model
-        /// </summary>
+        //Property derived values
         int GlobalFittingParameterCount => GlobalTable.Count(p => !p.Value.IsLocked);
         int IndividualModelParameterCount => IndividualModelParameterList.Sum(pars => pars.FittingParameterCount);
         public int TotalFittingParameters => GlobalFittingParameterCount + IndividualModelParameterCount;
         double ReferenceTemperature => IndividualModelParameterList.Average(pars => pars.ExperimentTemperature);
-
-        /// <summary>
-        /// Check if GlobalModel requires global fitting (any globally fitted parameters?)
-        /// </summary>
         public bool RequiresGlobalFitting => GlobalFittingParameterCount == 0;
 
         public void AddorUpdateGlobalParameter(ParameterTypes key, double value, bool islocked = false, double[] limits = null)

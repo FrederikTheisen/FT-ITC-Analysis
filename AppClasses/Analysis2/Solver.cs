@@ -8,6 +8,7 @@ using System.Collections.Generic;
 using System.Threading;
 using AppKit;
 using Accord.Math;
+using Accord.IO;
 
 namespace AnalysisITC.AppClasses.Analysis2
 {
@@ -21,7 +22,7 @@ namespace AnalysisITC.AppClasses.Analysis2
         public static event EventHandler AnalysisStepFinished;
 
         public Analysis.SolverAlgorithm SolverAlgorithm { get; set; } = Analysis.SolverAlgorithm.NelderMead;
-        public Analysis.ErrorEstimationMethod ErrorEstimationMethod { get; set; } = Analysis.ErrorEstimationMethod.BootstrapResiduals;
+        public Analysis.ErrorEstimationMethod ErrorEstimationMethod { get; set; } = Analysis.ErrorEstimationMethod.None;
 
         protected DateTime starttime;
         protected DateTime endtime;
@@ -157,8 +158,6 @@ namespace AnalysisITC.AppClasses.Analysis2
 
             int counter = 0;
             var start = DateTime.Now;
-            var solutions = new List<SolutionInterface>();
-
             var bag = new ConcurrentBag<SolutionInterface>();
 
             var res = Parallel.For(0, BootstrapIterations, (i) =>
@@ -167,9 +166,7 @@ namespace AnalysisITC.AppClasses.Analysis2
                 {
                     var solver = new Solver();
                     solver.SolverAlgorithm = this.SolverAlgorithm;
-                    solver.ErrorEstimationMethod = Analysis.ErrorEstimationMethod.None;
                     solver.Model = Model.GenerateSyntheticModel();
-                    //solver.Model.Parameters = Solution.Parameters;
 
                     solver.Solve();
 
@@ -181,7 +178,7 @@ namespace AnalysisITC.AppClasses.Analysis2
                 ReportBootstrapProgress(currcounter);
             });
 
-            solutions = bag.ToList();
+            var solutions = bag.ToList();
 
             Model.GenerateSyntheticModel();
 
@@ -212,9 +209,7 @@ namespace AnalysisITC.AppClasses.Analysis2
 
             solver.Minimize(Model.Parameters.ToArray());
 
-            Model.SetSolutions();
-
-            //Model.Solution = SolutionInterface.FromModel(Model, solver.Solution);
+            Model.Solution = GlobalSolution.FromModel(Model);
             Model.Solution.Convergence = new SolverConvergence(solver);
 
             return Model.Solution.Convergence;
@@ -222,7 +217,51 @@ namespace AnalysisITC.AppClasses.Analysis2
 
         protected override void BoostrapResiduals()
         {
-            
+            var bag = new ConcurrentBag<GlobalSolution>();
+
+            int counter = 0;
+
+            ReportBootstrapProgress(0);
+
+            var start = DateTime.Now;
+
+            var opt = new ParallelOptions();
+            opt.MaxDegreeOfParallelism = 10;
+
+            var res = Parallel.For(0, Analysis.BootstrapIterations, opt, (i) =>
+            {
+                if (TerminateAnalysisFlag.Down)
+                {
+                    var globalmodel = new GlobalModel();
+
+                    foreach (var m in Model.Models) globalmodel.AddModel(m.GenerateSyntheticModel());
+                    var solver = new GlobalSolver();
+                    solver.Model = globalmodel;
+                    solver.SolverAlgorithm = SolverAlgorithm;
+
+                    solver.Solve();
+
+                    bag.Add(GlobalSolution.FromModel(globalmodel));
+                }
+
+                var currcounter = Interlocked.Increment(ref counter);
+
+                ReportBootstrapProgress(currcounter);
+            });
+
+            var solulations = bag.ToList();
+
+            //Solution.SetEnthalpiesFromBootstrap(solutions);
+
+            //foreach (var model in Model.Models)
+            //{
+            //    var sols = solutions.SelectMany(gs => gs.Solutions.Where(s => s.Data.UniqueID == model.Data.UniqueID)).ToList();
+
+            //    model.Solution.BootstrapSolutions = sols.Where(sol => !sol.Convergence.Failed).ToList();
+            //    model.Solution.ComputeErrorsFromBootstrapSolutions();
+            //}
+
+            //Solution.BootstrapTime = DateTime.Now - start;
         }
     }
 }

@@ -1,6 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Security.Cryptography;
+using static CoreFoundation.DispatchSource;
 
 namespace AnalysisITC.AppClasses.Analysis2
 {
@@ -44,33 +46,64 @@ namespace AnalysisITC.AppClasses.Analysis2
 			return loss;
 		}
 
-		public void SetSolutions()
-		{
-			GlobalSolution globalsolution = new GlobalSolution();
+        public GlobalModel GenerateSyntheticModel()
+        {
+            GlobalModel model = new GlobalModel();
 
 			foreach (var mdl in Models)
 			{
-				var solution = SolutionInterface.FromModel(mdl, Parameters.GetParametersForModel(this, mdl).ToArray());
-
-				mdl.Solution = solution;
-				globalsolution.Solutions.Add(solution);
+				model.AddModel(mdl.GenerateSyntheticModel());
 			}
-		}
+
+			model.Parameters.EnthalpyStyle = Parameters.EnthalpyStyle;
+            model.Parameters.AffinityStyle = Parameters.AffinityStyle;
+            model.Parameters.NStyle = Parameters.NStyle;
+
+            foreach (var par in Parameters.GlobalTable)
+			{
+				model.Parameters.AddorUpdateGlobalParameter(par.Value.Key, par.Value.Value, par.Value.IsLocked, par.Value.Limits);
+			}
+
+			foreach (var parset in model.Models)
+			{
+				model.Parameters.AddIndivdualParameter(parset.Parameters);
+			}
+
+            return model;
+        }
+
+  //      public void SetSolution()
+		//{
+		//	Solution = new GlobalSolution();
+
+		//	foreach (var mdl in Models)
+		//	{
+		//		var solution = SolutionInterface.FromModel(mdl, Parameters.GetParametersForModel(this, mdl).ToArray());
+
+		//		mdl.Solution = solution;
+  //              Solution.Solutions.Add(solution);
+		//	}
+		//}
 	}
 
 	public class GlobalSolution
 	{
         public GlobalModel Model { get; set; }
         public SolverConvergence Convergence { get; set; }
-        public List<SolutionInterface> Solutions { get; private set; } = new List<SolutionInterface>();
+        public List<GlobalSolution> Solutions { get; private set; } = new List<GlobalSolution>();
+		public SolutionInterface Solution { get; set; }
+        public bool IsValid { get; private set; } = true;
 
-        public double Loss { get; private set; } = 0;
-        public TimeSpan BootstrapTime { get; internal set; }
+        public double Loss => Convergence.Loss;
+		public TimeSpan Time => Convergence.Time;
+		public TimeSpan BootstrapTime => TimeSpan.FromSeconds(Solutions.Sum(sol => sol.Time.TotalSeconds));
 
-        public int BootstrapIterations => Solutions[0].BootstrapSolutions.Count;
+        public int BootstrapIterations => Solutions.Count;
         public double ReferenceTemperature => Model.MeanTemperature;
 
-		public static GlobalSolution FromModel(GlobalModel model)
+        public void Invalidate() => IsValid = false;
+
+        public static GlobalSolution FromModel(GlobalModel model)
 		{
             GlobalSolution globalsolution = new GlobalSolution();
 
@@ -79,8 +112,17 @@ namespace AnalysisITC.AppClasses.Analysis2
                 var solution = SolutionInterface.FromModel(mdl, model.Parameters.GetParametersForModel(model, mdl).ToArray());
 
                 mdl.Solution = solution;
-                globalsolution.Solutions.Add(solution);
-            }
+			}
+
+			globalsolution.Solution = SolutionInterface.FromModel(model.Models[0], model.Parameters.GetParametersForModel(model, model.Models[0]).ToArray());
+
+			foreach (var par in globalsolution.Solution.Parameters.Table)
+			{
+				switch (par.Key)
+				{
+					case ParameterTypes.Nvalue1: break;
+				}
+			}
 
 			return globalsolution;
         }
