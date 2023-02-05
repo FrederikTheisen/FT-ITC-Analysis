@@ -32,6 +32,8 @@ namespace AnalysisITC
             {
                 case EnergyUnit.MicroCal: return MicroFactor * CalToJouleFactor * value;
                 case EnergyUnit.Cal: return CalToJouleFactor * value;
+                case EnergyUnit.KiloJoule: return 1000 * value;
+                case EnergyUnit.KCal: return ConvertToJoule(1000 * value, EnergyUnit.Cal);
                 case EnergyUnit.Joule:
                 default: return value;
             }
