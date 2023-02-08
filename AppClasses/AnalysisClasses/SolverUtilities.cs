@@ -11,9 +11,12 @@ namespace AnalysisITC
         public int Iterations { get; private set; }
         public string Message { get; private set; }
         public TimeSpan Time { get; private set; }
+        public TimeSpan BootstrapTime { get; private set; }
         public double Loss { get; private set; }
         public bool Failed { get; private set; } = false;
         public Analysis.SolverAlgorithm Algorithm { get; private set; }
+
+        public void SetBootstrapTime(TimeSpan time) => BootstrapTime = time;
 
         public SolverConvergence(NelderMead solver)
         {

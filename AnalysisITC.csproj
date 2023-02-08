@@ -184,6 +184,7 @@
     <None Include="GUI\MacOS\Drawing\CAGraph.cs" />
     <None Include="GUI\MacOS\Drawing\CALayerDrawingView.cs" />
     <None Include=".DS_Store" />
+    <None Include=".editorconfig" />
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Main.cs" />
@@ -330,6 +331,15 @@
     <Compile Include="AppClasses\Analysis2\Models.cs" />
     <Compile Include="AppClasses\Analysis2\Solver.cs" />
     <Compile Include="AppClasses\Analysis2\GlobalModel.cs" />
+    <Compile Include="AppClasses\GlobalSolution.cs" />
+    <Compile Include="AnalysisGlobalModeOptionsViewController.cs" />
+    <Compile Include="AnalysisGlobalModeOptionsViewController.designer.cs">
+      <DependentUpon>AnalysisGlobalModeOptionsViewController.cs</DependentUpon>
+    </Compile>
+    <Compile Include="AnalysisGlobalModeOptionsView.cs" />
+    <Compile Include="AnalysisGlobalModeOptionsView.designer.cs">
+      <DependentUpon>AnalysisGlobalModeOptionsView.cs</DependentUpon>
+    </Compile>
   </ItemGroup>
   <ItemGroup>
     <InterfaceDefinition Include="Main.storyboard" />
