@@ -4,6 +4,10 @@ using System;
 
 using Foundation;
 using AppKit;
+using AnalysisITC.AppClasses.Analysis2;
+using JavaScriptCore;
+using static AnalysisITC.Analysis;
+using System.Security.Cryptography;
 
 namespace AnalysisITC
 {
@@ -19,7 +23,7 @@ namespace AnalysisITC
 
         public DataAnalysisViewController (IntPtr handle) : base (handle)
 		{
-            
+            AnalysisGlobalModeOptionsView2.ParameterContraintUpdated += AnalysisGlobalModeOptionsView2_ParameterContraintUpdated;
         }
 
         public override void ViewDidLoad()
@@ -111,13 +115,82 @@ namespace AnalysisITC
 
         partial void AnalysisModeClicked(NSSegmentedControl sender)
         {
-            GlobalAffinityStyle.Hidden = sender.SelectedSegment == 0;
-            GlobalEnthalpyStyle.Hidden = sender.SelectedSegment == 0;
-            GlobalNView.Hidden = sender.SelectedSegment == 0;
+            //Obsolete code
+            //GlobalAffinityStyle.Hidden = sender.SelectedSegment == 0;
+            //GlobalEnthalpyStyle.Hidden = sender.SelectedSegment == 0;
+            //GlobalNView.Hidden = sender.SelectedSegment == 0;
+
+            InitializeFactory();
+        }
+
+        partial void AnalysisModelClicked(NSSegmentedControl sender)
+        {
+            InitializeFactory();
+        }
+
+        void InitializeFactory()
+        {
+            if (ModelFactory.Factory != null)
+            {
+                bool global = AnalysisModeControl.SelectedSegment == 1;
+                var model = ModelFactory.Factory.ModelType;
+
+                if (ModelFactory.Factory.IsGlobalAnalysis == global && model == SelectedAnalysisModel) return;
+            }
+
+            ModelFactory.Factory = ModelFactory.InitializeFactory(SelectedAnalysisModel, AnalysisModeControl.SelectedSegment == 1);
+
+            UpdateFittingOptions();
+        }
+
+        void UpdateFittingOptions()
+        {
+            while (OptionsStackView.Views[2] is AnalysisGlobalModeOptionsView2)
+            {
+                var view = OptionsStackView.Views[2];
+                OptionsStackView.RemoveView(view);
+                view.Dispose();
+            }
+
+            if (ModelFactory.Factory != null && ModelFactory.Factory.IsGlobalAnalysis)
+            {
+                var options = (ModelFactory.Factory as GlobalModelFactory).GetExposedOptions();
+
+                foreach (var opt in options)
+                {
+                    var control = new AnalysisGlobalModeOptionsView2(new CoreGraphics.CGRect(0, 0, OptionsStackView.Frame.Width, 20));
+                    control.Setup(opt.Key, opt.Value, (ModelFactory.Factory as GlobalModelFactory).GlobalModelParameters);
+
+                    OptionsStackView.InsertArrangedSubview(control, 2);
+                }
+            }
+
+            OptionsStackView.Layout();
+        }
+
+        private void AnalysisGlobalModeOptionsView2_ParameterContraintUpdated(object sender, EventArgs e)
+        {
+            if (ModelFactory.Factory != null && ModelFactory.Factory.IsGlobalAnalysis)
+            {
+                (ModelFactory.Factory as GlobalModelFactory).InitializeGlobalParameters();
+            }
         }
 
         partial void FitSimplex(NSObject sender)
         {
+            //factory.InitializeGlobalParameters();
+
+            //var expo = factory.GetExposedOptions();
+            //var par = factory.GetExposedParameters();
+
+            //factory.BuildModel();
+
+            //var solver = new GlobalSolver();
+            //solver.Model = factory.Model;
+            //solver.SolverAlgorithm = SolverAlgorithm.NelderMead;
+
+            //solver.Analyze();
+
             Analysis.Algorithm = Analysis.SolverAlgorithm.NelderMead;
 
             Fit();

@@ -70,6 +70,9 @@ namespace AnalysisITC
 		AppKit.NSSegmentedControl NStyleSegControl { get; set; }
 
 		[Outlet]
+		AppKit.NSStackView OptionsStackView { get; set; }
+
+		[Outlet]
 		AppKit.NSTextField OstepTextField { get; set; }
 
 		[Outlet]
@@ -83,6 +86,9 @@ namespace AnalysisITC
 
 		[Action ("AnalysisModeClicked:")]
 		partial void AnalysisModeClicked (AppKit.NSSegmentedControl sender);
+
+		[Action ("AnalysisModelClicked:")]
+		partial void AnalysisModelClicked (AppKit.NSSegmentedControl sender);
 
 		[Action ("CopySettingsToAll:")]
 		partial void CopySettingsToAll (Foundation.NSObject sender);
@@ -114,6 +120,11 @@ namespace AnalysisITC
 			if (ApplyToAllExperimentsControl != null) {
 				ApplyToAllExperimentsControl.Dispose ();
 				ApplyToAllExperimentsControl = null;
+			}
+
+			if (OptionsStackView != null) {
+				OptionsStackView.Dispose ();
+				OptionsStackView = null;
 			}
 
 			if (AxesScopeButton != null) {
