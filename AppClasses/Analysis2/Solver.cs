@@ -190,7 +190,7 @@ namespace AnalysisITC.AppClasses.Analysis2
     public class GlobalSolver : SolverInterface
     {
         public GlobalModel Model { get; set; }
-        public SolutionInterface Solution { get; set; }
+        public GlobalSolution Solution => Model.Solution;
 
         protected override SolverConvergence SolveWithNelderMeadAlgorithm()
         {
@@ -209,7 +209,7 @@ namespace AnalysisITC.AppClasses.Analysis2
 
             solver.Minimize(Model.Parameters.ToArray());
 
-            Model.Solution = GlobalSolution.FromModel(Model);
+            Model.Solution = new GlobalSolution(Model);
             Model.Solution.Convergence = new SolverConvergence(solver);
 
             return Model.Solution.Convergence;
@@ -241,7 +241,7 @@ namespace AnalysisITC.AppClasses.Analysis2
 
                     solver.Solve();
 
-                    bag.Add(GlobalSolution.FromModel(globalmodel));
+                    bag.Add(new GlobalSolution(globalmodel));
                 }
 
                 var currcounter = Interlocked.Increment(ref counter);
@@ -249,19 +249,11 @@ namespace AnalysisITC.AppClasses.Analysis2
                 ReportBootstrapProgress(currcounter);
             });
 
-            var solulations = bag.ToList();
+            var solutions = bag.ToList();
 
-            //Solution.SetEnthalpiesFromBootstrap(solutions);
+            Solution.SetBootstrapSolutions(solutions);
 
-            //foreach (var model in Model.Models)
-            //{
-            //    var sols = solutions.SelectMany(gs => gs.Solutions.Where(s => s.Data.UniqueID == model.Data.UniqueID)).ToList();
-
-            //    model.Solution.BootstrapSolutions = sols.Where(sol => !sol.Convergence.Failed).ToList();
-            //    model.Solution.ComputeErrorsFromBootstrapSolutions();
-            //}
-
-            //Solution.BootstrapTime = DateTime.Now - start;
+            Solution.Convergence.SetBootstrapTime(DateTime.Now - start);
         }
     }
 }
