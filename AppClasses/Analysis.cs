@@ -258,7 +258,7 @@ namespace AnalysisITC
         {
             [Description("None")]
             None,
-            [Description("Temperature depedent")]
+            [Description("Temperature dependent")]
             TemperatureDependent,
             [Description("Same for all")]
             SameForAll
