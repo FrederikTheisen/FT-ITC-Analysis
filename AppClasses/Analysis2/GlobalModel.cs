@@ -1,8 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Security.Cryptography;
-using static CoreFoundation.DispatchSource;
+using Accord.Math;
+using Microsoft.SolverFoundation.Services;
 
 namespace AnalysisITC.AppClasses.Analysis2
 {
@@ -71,66 +71,68 @@ namespace AnalysisITC.AppClasses.Analysis2
 
             return model;
         }
-
-  //      public void SetSolution()
-		//{
-		//	Solution = new GlobalSolution();
-
-		//	foreach (var mdl in Models)
-		//	{
-		//		var solution = SolutionInterface.FromModel(mdl, Parameters.GetParametersForModel(this, mdl).ToArray());
-
-		//		mdl.Solution = solution;
-  //              Solution.Solutions.Add(solution);
-		//	}
-		//}
 	}
 
 	public class GlobalSolution
 	{
         public GlobalModel Model { get; set; }
         public SolverConvergence Convergence { get; set; }
-        public List<GlobalSolution> Solutions { get; private set; } = new List<GlobalSolution>();
-		public SolutionInterface Solution { get; set; }
+        public List<GlobalSolution> BootstrapSolutions { get; private set; } = new List<GlobalSolution>();
+		private SolutionInterface Solution { get; set; }
+		public Dictionary<ParameterTypes, LinearFitWithError> TemperatureDependence = new Dictionary<ParameterTypes, LinearFitWithError>();
         public bool IsValid { get; private set; } = true;
 
         public double Loss => Convergence.Loss;
 		public TimeSpan Time => Convergence.Time;
-		public TimeSpan BootstrapTime => TimeSpan.FromSeconds(Solutions.Sum(sol => sol.Time.TotalSeconds));
+		public TimeSpan BootstrapTime => Convergence.BootstrapTime;
+		public TimeSpan TotalTime => Time + BootstrapTime;
 
-        public int BootstrapIterations => Solutions.Count;
+        public int BootstrapIterations => BootstrapSolutions.Count;
         public double ReferenceTemperature => Model.MeanTemperature;
+		List<SolutionInterface> Solutions => Model.Models.Select(mdl => mdl.Solution).ToList();
 
         public void Invalidate() => IsValid = false;
 
-        public static GlobalSolution FromModel(GlobalModel model)
+		public GlobalSolution(GlobalModel model)
 		{
-            GlobalSolution globalsolution = new GlobalSolution();
+			Model = model;
 
-            foreach (var mdl in model.Models)
-            {
-                var solution = SolutionInterface.FromModel(mdl, model.Parameters.GetParametersForModel(model, mdl).ToArray());
+            foreach (var mdl in model.Models) mdl.Solution = SolutionInterface.FromModel(mdl, model.Parameters.GetParametersForModel(model, mdl).ToArray());
 
-                mdl.Solution = solution;
-			}
+			Solution = SolutionInterface.FromModel(model.Models[0], model.Parameters.GetParametersForModel(model, model.Models[0]).ToArray());
 
-			globalsolution.Solution = SolutionInterface.FromModel(model.Models[0], model.Parameters.GetParametersForModel(model, model.Models[0]).ToArray());
+			foreach (var par in Solution.Parameters) SetParameterTemperatureDependence(par.Key);
+		}
 
-			foreach (var par in globalsolution.Solution.Parameters.Table)
-			{
-				switch (par.Key)
-				{
-					case ParameterTypes.Nvalue1: break;
-				}
-			}
+		void SetParameterTemperatureDependence(ParameterTypes key)
+		{
+            var xy = Model.Models.Select((m, i) => new double[] { m.Data.MeasuredTemperature - Model.MeanTemperature, m.Parameters.Table[key].Value }).ToArray();
+            var reg = MathNet.Numerics.LinearRegression.SimpleRegression.Fit(xy.GetColumn(0), xy.GetColumn(1));
 
-			return globalsolution;
+			TemperatureDependence[key] = new LinearFitWithError(reg.B, reg.A, ReferenceTemperature);
         }
 
-		public void SetParametersFromBootstrap(List<GlobalSolution> solutions)
+        public void SetBootstrapSolutions(List<GlobalSolution> solutions)
 		{
+			BootstrapSolutions = solutions;
 
-		}
+			//Set individual data models bootstrapped parameters
+            foreach (var model in Model.Models)
+            {
+                var sols = BootstrapSolutions.SelectMany(gs => gs.Solutions.Where(s => s.Model.Data.UniqueID == model.Data.UniqueID)).ToList();
+
+				model.Solution.SetBootstrapSolutions(sols.Where(sol => !sol.Convergence.Failed).ToList());
+                model.Solution.ComputeErrorsFromBootstrapSolutions();
+            }
+
+			foreach (var par in Solution.Parameters)
+			{
+                var slope = solutions.Select(gsol => gsol.TemperatureDependence[par.Key].Slope.Value).ToList();
+                var intercept = solutions.Select(gsol => gsol.TemperatureDependence[par.Key].Intercept.Value).ToList();
+
+                TemperatureDependence[par.Key] = new LinearFitWithError(new(slope), new(intercept), ReferenceTemperature);
+            }
+        }
     }
 }
 

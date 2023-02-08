@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Linq;
 using System.Security.Cryptography;
 
@@ -122,6 +123,7 @@ namespace AnalysisITC.AppClasses.Analysis2
     public class GlobalModelParameters
     {
         //Settings
+        private Dictionary<ParameterTypes, Analysis.VariableConstraint> Constraints = new Dictionary<ParameterTypes, Analysis.VariableConstraint>();
         public Analysis.VariableConstraint EnthalpyStyle { get; set; } = Analysis.VariableConstraint.None;
         public Analysis.VariableConstraint AffinityStyle { get; set; } = Analysis.VariableConstraint.None;
         public Analysis.VariableConstraint NStyle { get; set; } = Analysis.VariableConstraint.None;
@@ -146,6 +148,17 @@ namespace AnalysisITC.AppClasses.Analysis2
         public void AddIndivdualParameter(ModelParameters parameters)
         {
             IndividualModelParameterList.Add(parameters);
+        }
+
+        public Analysis.VariableConstraint GetConstraintForParameter(ParameterTypes key)
+        {
+            if (Constraints.ContainsKey(key)) return Constraints[key];
+            else return Analysis.VariableConstraint.None;
+        }
+
+        public void SetConstraintForParameter(ParameterTypes key, Analysis.VariableConstraint constraint)
+        {
+            Constraints[key] = constraint;
         }
 
         /// <summary>
@@ -264,18 +277,30 @@ namespace AnalysisITC.AppClasses.Analysis2
         }
     }
 
+    [Description]
     public enum ParameterTypes
     {
+        [Description("N-value")]
         Nvalue1,
+        [Description("N-value 2")]
         Nvalue2,
+        [Description("Enthalpy")]
         Enthalpy1,
+        [Description("Enthalpy 2")]
         Enthalpy2,
+        [Description("Affinity")]
         Affinity1,
+        [Description("Affinity 2")]
         Affinity2,
+        [Description("Offset")]
         Offset,
+        [Description("Heat capacity")]
         HeatCapacity1,
+        [Description("Heat capacity 2")]
         HeatCapacity2,
+        [Description("Gibbs free energy")]
         Gibbs1,
+        [Description("Gibbs free energy 2")]
         Gibbs2
     }
 }

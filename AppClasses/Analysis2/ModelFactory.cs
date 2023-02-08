@@ -13,6 +13,8 @@ namespace AnalysisITC.AppClasses.Analysis2
 	{
 		public static event EventHandler<ModelFactory> UpdateFactory;
 
+        public static ModelFactory Factory { get; set; }
+
 		public AnalysisModel ModelType { get; set; } = AnalysisModel.OneSetOfSites;
 		public bool IsGlobalAnalysis => this is GlobalModelFactory;
 
@@ -110,7 +112,7 @@ namespace AnalysisITC.AppClasses.Analysis2
 	{
         public GlobalModel Model { get; private set; }
 		public GlobalModelParameters GlobalModelParameters { get; private set; }
-		public Dictionary<ParameterTypes, List<Analysis.VariableConstraint>> ExposedGlobalFittingOptions { get; private set; }
+		private Dictionary<ParameterTypes, List<Analysis.VariableConstraint>> ExposedGlobalFittingOptions { get; set; }
 
 		public List<Parameter> Parameters => GlobalModelParameters.GlobalTable.Values.ToList();
 
@@ -146,6 +148,7 @@ namespace AnalysisITC.AppClasses.Analysis2
             if (Model.Models is null || Model.Models.Count == 0) throw new Exception("No models in global model");
 
 			var prevparams = new List<Parameter>(Parameters);
+			Parameters.Clear();
 
             var _pars = Model.Models.First().Parameters;
 
@@ -157,7 +160,7 @@ namespace AnalysisITC.AppClasses.Analysis2
                 {
                     case ParameterTypes.Nvalue1:
                     case ParameterTypes.Nvalue2:
-                        switch (GlobalModelParameters.NStyle)
+                        switch (GlobalModelParameters.GetConstraintForParameter(par.Key))
                         {
                             case Analysis.VariableConstraint.SameForAll:
                                 GlobalModelParameters.AddorUpdateGlobalParameter(
@@ -171,7 +174,7 @@ namespace AnalysisITC.AppClasses.Analysis2
                         break;
                     case ParameterTypes.Enthalpy1:
                     case ParameterTypes.Enthalpy2:
-                        switch (GlobalModelParameters.EnthalpyStyle)
+                        switch (GlobalModelParameters.GetConstraintForParameter(par.Key))
                         {
                             case Analysis.VariableConstraint.None: break;
                             case Analysis.VariableConstraint.SameForAll:
@@ -197,7 +200,7 @@ namespace AnalysisITC.AppClasses.Analysis2
                         break;
                     case ParameterTypes.Affinity1:
                     case ParameterTypes.Affinity2:
-                        switch (GlobalModelParameters.AffinityStyle)
+                        switch (GlobalModelParameters.GetConstraintForParameter(par.Key))
                         {
                             case Analysis.VariableConstraint.SameForAll:
                             case Analysis.VariableConstraint.TemperatureDependent:
@@ -274,34 +277,6 @@ namespace AnalysisITC.AppClasses.Analysis2
             foreach (var mdl in Model.Models)
 			{
 				mdl.Data.Model = mdl;
-
-				//foreach (var par in mdl.Parameters.Table) //Update and lock parameters based on global parameters
-				//{
-    //                switch (par.Key)
-    //                {
-    //                    case ParameterTypes.Nvalue1:
-    //                    case ParameterTypes.Nvalue2: if (GlobalModelParameters.NStyle == Analysis.VariableConstraint.SameForAll) par.Value.SetGlobal(GlobalModelParameters.GlobalTable[par.Key].Value); break;
-    //                    case ParameterTypes.Enthalpy1:
-    //                    case ParameterTypes.Enthalpy2:
-    //                        if (GlobalModelParameters.EnthalpyStyle == Analysis.VariableConstraint.TemperatureDependent)
-    //                        {
-    //                            var refT = Model.ReferenceTemperature;
-    //                            var mdlT = mdl.Data.MeasuredTemperature;
-    //                            var dT = mdlT - refT;
-    //                            var dH = par.Key switch
-    //                            {
-    //                                ParameterTypes.Enthalpy2 => GlobalModelParameters.GlobalTable[ParameterTypes.Enthalpy2].Value + dT * GlobalModelParameters.GlobalTable[ParameterTypes.HeatCapacity2].Value,
-    //                                _ => GlobalModelParameters.GlobalTable[ParameterTypes.Enthalpy1].Value + dT * GlobalModelParameters.GlobalTable[ParameterTypes.HeatCapacity1].Value,
-    //                            };
-    //                            par.Value.SetGlobal(dH);
-    //                        }
-    //                        else if (GlobalModelParameters.EnthalpyStyle == Analysis.VariableConstraint.SameForAll) par.Value.SetGlobal(GlobalModelParameters.GlobalTable[par.Key].Value);
-    //                        else if (!double.IsNaN(GlobalModelParameters.GlobalTable[par.Key].Value)) par.Value.Update(GlobalModelParameters.GlobalTable[par.Key].Value, GlobalModelParameters.GlobalTable[par.Key].IsLocked);
-    //                        break;
-    //                    case ParameterTypes.Affinity1:
-    //                    case ParameterTypes.Affinity2: if (GlobalModelParameters.AffinityStyle == Analysis.VariableConstraint.TemperatureDependent) par.Value.SetGlobal(Math.Exp(-GlobalModelParameters.GlobalTable[ParameterTypes.Gibbs1].Value / (Energy.R * mdl.Data.MeasuredTemperature))); break;
-    //                }
-    //            }
 
                 GlobalModelParameters.AddIndivdualParameter(mdl.Parameters);
             }
