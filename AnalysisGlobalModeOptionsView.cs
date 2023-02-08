@@ -101,6 +101,4 @@ namespace AnalysisITC
             ParameterContraintUpdated?.Invoke(null, null);
         }
     }
-
-
 }
