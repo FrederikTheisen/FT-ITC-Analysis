@@ -11,7 +11,7 @@ namespace AnalysisITC
 {
     public static class Extensions
     {
-        public static string GetEnumDescription(Enum value)
+        public static string GetEnumDescription(this Enum value)
         {
             // Get the Description attribute value for the enum value
             FieldInfo fi = value.GetType().GetField(value.ToString());
