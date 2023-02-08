@@ -24,8 +24,10 @@ namespace AnalysisITC.AppClasses.Analysis2
 
             if (double.IsNaN(stepsize))
             {
-                if (Math.Abs(Value) < 1) StepSize = Math.Sqrt(Limits[1] - Limits[0]);
-                else StepSize = Math.Abs(Value / 20); //guess a reasonable step size
+                //if (Math.Abs(Value) < 1) StepSize = Math.Sqrt(Limits[1] - Limits[0]);
+                //else StepSize = Math.Abs(Value / 20); //guess a reasonable step size
+
+                StepSize = key.GetProperties().DefaultStepSize;
             }
             else StepSize = stepsize;
 

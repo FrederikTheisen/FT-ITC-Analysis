@@ -41,6 +41,14 @@ namespace AnalysisITC
             return attribute;
         }
 
+        public static AnalysisITC.AppClasses.Analysis2.ParameterTypesAttribute GetProperties(this AnalysisITC.AppClasses.Analysis2.ParameterTypes value)
+        {
+            var fieldInfo = value.GetType().GetField(value.ToString());
+            var attribute = fieldInfo.GetCustomAttributes(typeof(AnalysisITC.AppClasses.Analysis2.ParameterTypesAttribute), false).FirstOrDefault() as AnalysisITC.AppClasses.Analysis2.ParameterTypesAttribute;
+
+            return attribute;
+        }
+
         public static bool IsSI(this EnergyUnit value) => value switch
         {
             EnergyUnit.KiloJoule => true,
