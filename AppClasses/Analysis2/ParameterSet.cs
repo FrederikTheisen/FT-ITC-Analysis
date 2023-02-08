@@ -277,30 +277,39 @@ namespace AnalysisITC.AppClasses.Analysis2
         }
     }
 
-    [Description]
+    public class ParameterTypesAttribute : DescriptionAttribute
+    {
+        public double DefaultStepSize { get; set; }
+
+        public ParameterTypesAttribute(string name, double stepsize) : base(name)
+        {
+            DefaultStepSize = stepsize;
+        }
+    }
+
     public enum ParameterTypes
     {
-        [Description("N-value")]
+        [ParameterTypesAttribute("N-value", 0.05)]
         Nvalue1,
-        [Description("N-value 2")]
+        [ParameterTypesAttribute("N-value 2", 0.05)]
         Nvalue2,
-        [Description("Enthalpy")]
+        [ParameterTypesAttribute("Enthalpy", 500)]
         Enthalpy1,
-        [Description("Enthalpy 2")]
+        [ParameterTypesAttribute("Enthalpy 2", 1000)]
         Enthalpy2,
-        [Description("Affinity")]
+        [ParameterTypesAttribute("Affinity", 1000)]
         Affinity1,
-        [Description("Affinity 2")]
+        [ParameterTypesAttribute("Affinity 2", 1000)]
         Affinity2,
-        [Description("Offset")]
+        [ParameterTypesAttribute("Offset", 250)]
         Offset,
-        [Description("Heat capacity")]
+        [ParameterTypesAttribute("Heat capacity", 100)]
         HeatCapacity1,
-        [Description("Heat capacity 2")]
+        [ParameterTypesAttribute("Heat capacity 2", 100)]
         HeatCapacity2,
-        [Description("Gibbs free energy")]
+        [ParameterTypesAttribute("Gibbs free energy", 500)]
         Gibbs1,
-        [Description("Gibbs free energy 2")]
+        [ParameterTypesAttribute("Gibbs free energy 2", 500)]
         Gibbs2
     }
 }
