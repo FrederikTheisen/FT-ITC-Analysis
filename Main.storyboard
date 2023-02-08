@@ -229,19 +229,19 @@
                                 <toolbarItem implicitItemIdentifier="24E721A4-1395-4CA9-9E9C-449E89AB5BD3" label="StatusBar" paletteLabel="StatusBar" tag="-1" title="Box" id="QRd-F2-tjm">
                                     <nil key="toolTip"/>
                                     <size key="minSize" width="250" height="30"/>
-                                    <size key="maxSize" width="350" height="30"/>
-                                    <box key="view" misplaced="YES" title="Box" titlePosition="noTitle" id="Vgn-8I-jYc">
-                                        <rect key="frame" x="0.0" y="14" width="300" height="30"/>
+                                    <size key="maxSize" width="350" height="35"/>
+                                    <box key="view" title="Box" titlePosition="noTitle" id="Vgn-8I-jYc">
+                                        <rect key="frame" x="0.0" y="14" width="300" height="35"/>
                                         <autoresizingMask key="autoresizingMask" flexibleMinX="YES" flexibleMaxX="YES" flexibleMinY="YES" flexibleMaxY="YES"/>
                                         <view key="contentView" id="dNY-k3-tMR">
-                                            <rect key="frame" x="11" y="5" width="278" height="22"/>
+                                            <rect key="frame" x="11" y="5" width="278" height="27"/>
                                             <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
                                             <subviews>
                                                 <stackView distribution="fill" orientation="horizontal" alignment="centerY" horizontalStackHuggingPriority="1000" verticalStackHuggingPriority="249.99998474121094" horizontalHuggingPriority="251" detachesHiddenViews="YES" translatesAutoresizingMaskIntoConstraints="NO" id="ZHR-Pw-2LK">
-                                                    <rect key="frame" x="0.0" y="6" width="278" height="16"/>
+                                                    <rect key="frame" x="0.0" y="0.0" width="278" height="27"/>
                                                     <subviews>
                                                         <textField horizontalHuggingPriority="249" verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="riC-W8-reK">
-                                                            <rect key="frame" x="-2" y="1" width="200" height="14"/>
+                                                            <rect key="frame" x="-2" y="7" width="200" height="14"/>
                                                             <textFieldCell key="cell" lineBreakMode="clipping" title="FT ITC-Analysis" id="IH6-Cv-4vB">
                                                                 <font key="font" metaFont="smallSystem"/>
                                                                 <color key="textColor" name="labelColor" catalog="System" colorSpace="catalog"/>
@@ -249,7 +249,7 @@
                                                             </textFieldCell>
                                                         </textField>
                                                         <textField horizontalHuggingPriority="750" verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="hJN-Db-uqM">
-                                                            <rect key="frame" x="202" y="1" width="54" height="14"/>
+                                                            <rect key="frame" x="202" y="7" width="54" height="14"/>
                                                             <textFieldCell key="cell" controlSize="small" lineBreakMode="clipping" alignment="right" id="U6V-yL-Sr9">
                                                                 <font key="font" metaFont="smallSystem"/>
                                                                 <color key="textColor" name="secondaryLabelColor" catalog="System" colorSpace="catalog"/>
@@ -257,7 +257,7 @@
                                                             </textFieldCell>
                                                         </textField>
                                                         <progressIndicator horizontalHuggingPriority="750" maxValue="100" doubleValue="1" displayedWhenStopped="NO" indeterminate="YES" controlSize="small" style="spinning" translatesAutoresizingMaskIntoConstraints="NO" id="xQZ-Zu-EbC">
-                                                            <rect key="frame" x="262" y="0.0" width="16" height="16"/>
+                                                            <rect key="frame" x="262" y="6" width="16" height="16"/>
                                                         </progressIndicator>
                                                     </subviews>
                                                     <visibilityPriorities>
@@ -273,10 +273,10 @@
                                                 </stackView>
                                             </subviews>
                                             <constraints>
-                                                <constraint firstItem="ZHR-Pw-2LK" firstAttribute="top" secondItem="dNY-k3-tMR" secondAttribute="top" constant="2" id="0Sd-5x-pp5"/>
+                                                <constraint firstItem="ZHR-Pw-2LK" firstAttribute="top" secondItem="dNY-k3-tMR" secondAttribute="top" id="0Sd-5x-pp5"/>
                                                 <constraint firstAttribute="trailing" secondItem="ZHR-Pw-2LK" secondAttribute="trailing" id="R8B-vq-Fih"/>
                                                 <constraint firstItem="ZHR-Pw-2LK" firstAttribute="leading" secondItem="dNY-k3-tMR" secondAttribute="leading" id="T0d-fL-DJ4"/>
-                                                <constraint firstAttribute="bottom" secondItem="ZHR-Pw-2LK" secondAttribute="bottom" constant="6" id="pGP-hD-P6R"/>
+                                                <constraint firstAttribute="bottom" secondItem="ZHR-Pw-2LK" secondAttribute="bottom" id="pGP-hD-P6R"/>
                                             </constraints>
                                         </view>
                                         <size key="contentViewMargins" width="7" height="0.0"/>
@@ -1684,7 +1684,7 @@ IA
                 </viewController>
                 <customObject id="Vmq-W1-HDX" userLabel="First Responder" customClass="NSResponder" sceneMemberID="firstResponder"/>
             </objects>
-            <point key="canvasLocation" x="995" y="477"/>
+            <point key="canvasLocation" x="954" y="839"/>
         </scene>
         <!--Main Tab View Controller-->
         <scene sceneID="CDf-I2-Aos">
@@ -1730,7 +1730,7 @@ IA
                             <rect key="frame" x="0.0" y="0.0" width="454" height="52"/>
                             <subviews>
                                 <button verticalHuggingPriority="750" verticalCompressionResistancePriority="250" translatesAutoresizingMaskIntoConstraints="NO" id="Ibj-M0-dHf">
-                                    <rect key="frame" x="1" y="21" width="111" height="31"/>
+                                    <rect key="frame" x="1" y="-1" width="111" height="31"/>
                                     <constraints>
                                         <constraint firstAttribute="height" constant="30" id="TMv-ct-ngv"/>
                                     </constraints>
@@ -2745,7 +2745,7 @@ IA
                                                 <stackView distribution="fill" orientation="vertical" alignment="leading" horizontalStackHuggingPriority="750" verticalStackHuggingPriority="250" horizontalClippingResistancePriority="250" horizontalCompressionResistancePriority="250" verticalCompressionResistancePriority="1000" detachesHiddenViews="YES" translatesAutoresizingMaskIntoConstraints="NO" id="VXv-Ng-aWg">
                                                     <rect key="frame" x="0.0" y="0.0" width="1015" height="160"/>
                                                     <subviews>
-                                                        <stackView distribution="fill" orientation="horizontal" alignment="firstBaseline" horizontalStackHuggingPriority="250" verticalStackHuggingPriority="250" horizontalClippingResistancePriority="750" horizontalCompressionResistancePriority="250" detachesHiddenViews="YES" translatesAutoresizingMaskIntoConstraints="NO" id="5NN-nb-2q3">
+                                                        <stackView distribution="fill" orientation="horizontal" alignment="firstBaseline" horizontalStackHuggingPriority="250" verticalStackHuggingPriority="250" horizontalClippingResistancePriority="750" horizontalHuggingPriority="750" horizontalCompressionResistancePriority="250" detachesHiddenViews="YES" translatesAutoresizingMaskIntoConstraints="NO" id="5NN-nb-2q3">
                                                             <rect key="frame" x="0.0" y="138" width="1015" height="22"/>
                                                             <subviews>
                                                                 <textField horizontalHuggingPriority="249" verticalHuggingPriority="251" horizontalCompressionResistancePriority="250" translatesAutoresizingMaskIntoConstraints="NO" id="Z5M-FT-aNZ">
@@ -2766,7 +2766,7 @@ IA
                                                                         </segments>
                                                                     </segmentedCell>
                                                                     <connections>
-                                                                        <action selector="AnalysisModeClicked:" target="YoK-Wd-3Fr" id="ItF-y7-O6N"/>
+                                                                        <action selector="AnalysisModeClicked:" target="YoK-Wd-3Fr" id="Tpn-87-KCf"/>
                                                                     </connections>
                                                                 </segmentedControl>
                                                             </subviews>
@@ -2783,7 +2783,7 @@ IA
                                                             <rect key="frame" x="0.0" y="110" width="1015" height="20"/>
                                                             <subviews>
                                                                 <textField horizontalHuggingPriority="249" verticalHuggingPriority="251" horizontalCompressionResistancePriority="250" translatesAutoresizingMaskIntoConstraints="NO" id="R9W-qe-dFx">
-                                                                    <rect key="frame" x="-2" y="3" width="903" height="16"/>
+                                                                    <rect key="frame" x="-2" y="3" width="787" height="16"/>
                                                                     <textFieldCell key="cell" lineBreakMode="clipping" title="Model" id="ktc-X0-wq6">
                                                                         <font key="font" metaFont="system"/>
                                                                         <color key="textColor" name="labelColor" catalog="System" colorSpace="catalog"/>
@@ -2791,13 +2791,17 @@ IA
                                                                     </textFieldCell>
                                                                 </textField>
                                                                 <segmentedControl verticalHuggingPriority="251" translatesAutoresizingMaskIntoConstraints="NO" id="nAb-He-xRl">
-                                                                    <rect key="frame" x="906" y="-2" width="110" height="23"/>
+                                                                    <rect key="frame" x="790" y="-2" width="226" height="23"/>
                                                                     <segmentedCell key="cell" borderStyle="border" alignment="left" style="capsule" trackingMode="selectOne" id="8wV-T2-S0B">
                                                                         <font key="font" metaFont="system"/>
                                                                         <segments>
                                                                             <segment label="One Set of Sites" selected="YES"/>
+                                                                            <segment label="Two Sets of Sites"/>
                                                                         </segments>
                                                                     </segmentedCell>
+                                                                    <connections>
+                                                                        <action selector="AnalysisModelClicked:" target="YoK-Wd-3Fr" id="cfY-Qd-u3V"/>
+                                                                    </connections>
                                                                 </segmentedControl>
                                                             </subviews>
                                                             <visibilityPriorities>
@@ -3081,6 +3085,7 @@ IA
                         <outlet property="GraphView" destination="TfV-6i-g26" id="vMa-EH-e8L"/>
                         <outlet property="ModelTypeControl" destination="nAb-He-xRl" id="0wB-6L-xZU"/>
                         <outlet property="NStyleSegControl" destination="oa9-Yx-xpS" id="1kX-qz-4WK"/>
+                        <outlet property="OptionsStackView" destination="VXv-Ng-aWg" id="RoP-df-2ms"/>
                         <outlet property="ParametersScopeButton" destination="sZF-Rz-Jda" id="wP1-pi-E49"/>
                         <outlet property="PeakInfoScopeButton" destination="o7n-N9-bgG" id="OIx-Ld-D1S"/>
                     </connections>
@@ -3101,8 +3106,102 @@ IA
                         <action selector="FeatureDrawControlClicked:" target="YoK-Wd-3Fr" id="biP-co-W6M"/>
                     </connections>
                 </segmentedControl>
+                <view verticalHuggingPriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="TDD-4t-v3W" customClass="AnalysisGlobalModeOptionsView">
+                    <rect key="frame" x="0.0" y="0.0" width="722" height="23"/>
+                    <subviews>
+                        <stackView distribution="fill" orientation="horizontal" alignment="firstBaseline" spacing="103" horizontalStackHuggingPriority="1000" verticalStackHuggingPriority="1000" horizontalClippingResistancePriority="750" verticalHuggingPriority="1000" detachesHiddenViews="YES" translatesAutoresizingMaskIntoConstraints="NO" id="yZf-nd-Kd9">
+                            <rect key="frame" x="0.0" y="0.0" width="722" height="23"/>
+                            <subviews>
+                                <textField identifier="Label" horizontalHuggingPriority="249" horizontalCompressionResistancePriority="250" translatesAutoresizingMaskIntoConstraints="NO" id="KWS-da-5xq">
+                                    <rect key="frame" x="-2" y="0.0" width="346" height="23"/>
+                                    <textFieldCell key="cell" lineBreakMode="clipping" title="Enthalpy variable constraint" id="tl2-L4-NYq">
+                                        <font key="font" metaFont="system"/>
+                                        <color key="textColor" name="labelColor" catalog="System" colorSpace="catalog"/>
+                                        <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
+                                    </textFieldCell>
+                                </textField>
+                                <segmentedControl identifier="Control" verticalHuggingPriority="251" translatesAutoresizingMaskIntoConstraints="NO" id="hYE-Uk-Y41">
+                                    <rect key="frame" x="444" y="-2" width="279" height="26"/>
+                                    <segmentedCell key="cell" borderStyle="border" alignment="left" style="capsule" trackingMode="selectOne" id="2VD-9v-6K8">
+                                        <font key="font" metaFont="system"/>
+                                        <segments>
+                                            <segment label="Free" toolTip="All experiments have independent enthalpies"/>
+                                            <segment label="Temperature dependent" toolTip="Enthalpy depends on temperature and heat capacity change" selected="YES"/>
+                                            <segment label="Same for all" toolTip="Enthalpy is identical for all"/>
+                                        </segments>
+                                    </segmentedCell>
+                                    <connections>
+                                        <action selector="ControlClicked:" target="TDD-4t-v3W" id="ClJ-MU-iaw"/>
+                                    </connections>
+                                </segmentedControl>
+                            </subviews>
+                            <visibilityPriorities>
+                                <integer value="1000"/>
+                                <integer value="1000"/>
+                            </visibilityPriorities>
+                            <customSpacing>
+                                <real value="3.4028234663852886e+38"/>
+                                <real value="3.4028234663852886e+38"/>
+                            </customSpacing>
+                        </stackView>
+                    </subviews>
+                    <constraints>
+                        <constraint firstItem="yZf-nd-Kd9" firstAttribute="top" secondItem="TDD-4t-v3W" secondAttribute="top" id="0fI-b7-72k"/>
+                        <constraint firstAttribute="trailing" secondItem="yZf-nd-Kd9" secondAttribute="trailing" id="aIT-hv-0PB"/>
+                        <constraint firstAttribute="height" constant="23" id="fLe-it-0AB"/>
+                        <constraint firstAttribute="bottom" secondItem="yZf-nd-Kd9" secondAttribute="bottom" id="gFr-BX-XQJ"/>
+                        <constraint firstItem="yZf-nd-Kd9" firstAttribute="leading" secondItem="TDD-4t-v3W" secondAttribute="leading" id="vGh-4Y-f5S"/>
+                    </constraints>
+                    <connections>
+                        <outlet property="Control" destination="hYE-Uk-Y41" id="MvA-3f-ESl"/>
+                        <outlet property="Label" destination="KWS-da-5xq" id="tm8-Gm-9C8"/>
+                    </connections>
+                </view>
             </objects>
-            <point key="canvasLocation" x="2339" y="975"/>
+            <point key="canvasLocation" x="2336" y="1039"/>
+        </scene>
+        <!--Analysis Global Mode Options View Controller-->
+        <scene sceneID="Bs4-76-Pq3">
+            <objects>
+                <viewController id="mxE-7V-FeM" customClass="AnalysisGlobalModeOptionsViewController" sceneMemberID="viewController">
+                    <customView key="view" id="kJ1-UL-x13">
+                        <rect key="frame" x="0.0" y="0.0" width="450" height="60"/>
+                        <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
+                        <subviews>
+                            <textField horizontalHuggingPriority="249" verticalHuggingPriority="750" id="tgG-us-tGB">
+                                <rect key="frame" x="-2" y="22" width="279" height="16"/>
+                                <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
+                                <textFieldCell key="cell" lineBreakMode="clipping" title="Label" id="uhl-MK-DXi">
+                                    <font key="font" usesAppearanceFont="YES"/>
+                                    <color key="textColor" name="labelColor" catalog="System" colorSpace="catalog"/>
+                                    <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
+                                </textFieldCell>
+                            </textField>
+                            <segmentedControl identifier="OptionSegmentControl" verticalHuggingPriority="750" id="OkR-B0-sdw">
+                                <rect key="frame" x="172" y="18" width="279" height="23"/>
+                                <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
+                                <segmentedCell key="cell" borderStyle="border" alignment="left" style="capsule" trackingMode="selectOne" id="b9D-Jc-ChP">
+                                    <font key="font" metaFont="system"/>
+                                    <segments>
+                                        <segment label="Free"/>
+                                        <segment label="Temperature dependent" selected="YES" tag="1"/>
+                                        <segment label="Same for all"/>
+                                    </segments>
+                                </segmentedCell>
+                                <connections>
+                                    <action selector="ParameterOptionControlClicked:" target="mxE-7V-FeM" id="Kqt-Ez-XlX"/>
+                                </connections>
+                            </segmentedControl>
+                        </subviews>
+                    </customView>
+                    <connections>
+                        <outlet property="ParameterLabel" destination="tgG-us-tGB" id="a8h-NN-8uN"/>
+                        <outlet property="ParameterOptionControl" destination="OkR-B0-sdw" id="L1w-Ol-51E"/>
+                    </connections>
+                </viewController>
+                <customObject id="wY2-53-dPl" userLabel="First Responder" customClass="NSResponder" sceneMemberID="firstResponder"/>
+            </objects>
+            <point key="canvasLocation" x="3159" y="628"/>
         </scene>
         <!--Fitting Options Popover View Controller-->
         <scene sceneID="c3H-Vm-Vhs">
@@ -3670,6 +3769,46 @@ DQ
                     </connections>
                 </viewController>
                 <customObject id="dzJ-vS-iXo" userLabel="First Responder" customClass="NSResponder" sceneMemberID="firstResponder"/>
+                <stackView distribution="fill" orientation="horizontal" alignment="firstBaseline" horizontalStackHuggingPriority="1000" verticalStackHuggingPriority="750" horizontalHuggingPriority="750" detachesHiddenViews="YES" id="f4U-3Z-d4c">
+                    <rect key="frame" x="0.0" y="0.0" width="241" height="14"/>
+                    <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
+                    <subviews>
+                        <textField horizontalHuggingPriority="249" verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="v8d-TQ-x2s">
+                            <rect key="frame" x="-2" y="0.0" width="165" height="14"/>
+                            <textFieldCell key="cell" controlSize="small" title="&lt;ParameterKey&gt;" id="Hlw-j6-URh">
+                                <font key="font" metaFont="smallSystem"/>
+                                <color key="textColor" name="labelColor" catalog="System" colorSpace="catalog"/>
+                                <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
+                            </textFieldCell>
+                        </textField>
+                        <textField focusRingType="none" horizontalHuggingPriority="251" verticalHuggingPriority="1000" horizontalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="gxX-J3-hqZ" customClass="HuggingTextView">
+                            <rect key="frame" x="167" y="0.0" width="54" height="14"/>
+                            <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" refusesFirstResponder="YES" sendsActionOnEndEditing="YES" focusRingType="none" alignment="right" placeholderString="Auto" id="CQQ-WH-8CS">
+                                <font key="font" metaFont="smallSystem"/>
+                                <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
+                                <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
+                            </textFieldCell>
+                        </textField>
+                        <button horizontalHuggingPriority="750" verticalHuggingPriority="749" id="qxi-yq-LYh">
+                            <rect key="frame" x="227" y="-1.5" width="14.5" height="19"/>
+                            <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
+                            <buttonCell key="cell" type="bevel" bezelStyle="regularSquare" image="lock.open.fill" catalog="system" imagePosition="only" alignment="center" alternateImage="lock.fill" controlSize="small" imageScaling="proportionallyDown" inset="2" id="EXh-9p-z8V">
+                                <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
+                                <font key="font" metaFont="smallSystem"/>
+                            </buttonCell>
+                        </button>
+                    </subviews>
+                    <visibilityPriorities>
+                        <integer value="1000"/>
+                        <integer value="1000"/>
+                        <integer value="1000"/>
+                    </visibilityPriorities>
+                    <customSpacing>
+                        <real value="3.4028234663852886e+38"/>
+                        <real value="3.4028234663852886e+38"/>
+                        <real value="3.4028234663852886e+38"/>
+                    </customSpacing>
+                </stackView>
             </objects>
             <point key="canvasLocation" x="3029" y="1021"/>
         </scene>
