@@ -47,6 +47,8 @@ namespace AnalysisITC
             set => include = value;
         }
 
+        public double MeasuredTemperatureKelvin => 273.15 + MeasuredTemperature;
+
         public DataProcessor Processor { get; private set; }
         public Solution Solution { get; set; }
         public AnalysisITC.AppClasses.Analysis2.Model Model { get; set; }
