@@ -81,7 +81,7 @@ namespace AnalysisITC.GUI.MacOS.CustomViews
 
             Lock = new NSButton(new CGRect(0, 0, 14.5, 14))
             {
-                BezelStyle = NSBezelStyle.Recessed,
+                BezelStyle = NSBezelStyle.Rounded,
                 FocusRingType = NSFocusRingType.None,
                 Bordered = false,
                 Image = NSImage.GetSystemSymbol("lock.open.fill", null),
@@ -99,7 +99,7 @@ namespace AnalysisITC.GUI.MacOS.CustomViews
             Lock.Cell.ImageScale = NSImageScale.ProportionallyDown;
             Lock.Cell.ControlSize = NSControlSize.Small;
             Lock.ImagePosition = NSCellImagePosition.ImageOnly;
-            
+            Lock.Layout();
             
 
             AddArrangedSubview(Label);
@@ -119,7 +119,7 @@ namespace AnalysisITC.GUI.MacOS.CustomViews
             HasBeenAffectedFlag = true;
         }
 
-        public override CGSize IntrinsicContentSize => new CGSize(75, 20);
+        public override CGSize IntrinsicContentSize => new CGSize(75, 14);
 
         public void Setup(Parameter par)
         {
