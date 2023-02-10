@@ -4,11 +4,16 @@ using System;
 
 using Foundation;
 using AppKit;
+using AnalysisITC.GUI.MacOS.CustomViews;
+using AnalysisITC.AppClasses.Analysis2;
+using System.Collections.Generic;
 
 namespace AnalysisITC
 {
 	public partial class FittingOptionsPopoverViewController : NSViewController
 	{
+        List<ParameterValueAdjustmentView> ParameterOptionControls = new List<ParameterValueAdjustmentView>();
+
 		public FittingOptionsPopoverViewController (IntPtr handle) : base (handle)
 		{
 		}
@@ -39,6 +44,24 @@ namespace AnalysisITC
             InitNLock.State = Analysis.Nlock ? NSCellStateValue.On : NSCellStateValue.Off;
 
             ErrorMethodControl.SelectedSegment = (int)Analysis.ErrorMethod;
+
+            foreach (var par in ModelFactory.Factory.GetExposedParameters())
+            {
+                var sv = new ParameterValueAdjustmentView(new CoreGraphics.CGRect(0, 0, StackView.Frame.Width, 20));
+
+                sv.Setup(par);
+
+                ParameterOptionControls.Add(sv);
+
+                StackView.InsertArrangedSubview(sv, 7);
+            }
+        }
+
+        public override void ViewDidDisappear()
+        {
+            foreach (var sv in ParameterOptionControls) sv.Dispose();
+
+            base.ViewDidDisappear();
         }
 
         partial void ErrorIterationSliderChanged(NSSlider sender)
@@ -68,6 +91,14 @@ namespace AnalysisITC
             Analysis.Clock = InitCpLock.State == NSCellStateValue.On;
             Analysis.Olock = InitOffsetLock.State == NSCellStateValue.On;
             Analysis.Nlock = InitNLock.State == NSCellStateValue.On;
+
+            foreach (var sv in ParameterOptionControls)
+            {
+                if (sv.HasBeenAffectedFlag)
+                {
+                    ModelFactory.Factory.SetCustomParameter(sv.Key, sv.Value, sv.Locked);
+                }
+            }
 
             DismissViewController(this);
         }

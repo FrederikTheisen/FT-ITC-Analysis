@@ -66,6 +66,9 @@ namespace AnalysisITC
 		[Outlet]
 		AppKit.NSTextField OStep { get; set; }
 
+		[Outlet]
+		AppKit.NSStackView StackView { get; set; }
+
 		[Action ("ApplyOptions:")]
 		partial void ApplyOptions (Foundation.NSObject sender);
 
@@ -74,9 +77,14 @@ namespace AnalysisITC
 		
 		void ReleaseDesignerOutlets ()
 		{
-			if (ErrorMethodControl != null) {
-				ErrorMethodControl.Dispose ();
-				ErrorMethodControl = null;
+			if (CStep != null) {
+				CStep.Dispose ();
+				CStep = null;
+			}
+
+			if (ErrorIterationLabel != null) {
+				ErrorIterationLabel.Dispose ();
+				ErrorIterationLabel = null;
 			}
 
 			if (ErrorIterationsControl != null) {
@@ -84,14 +92,29 @@ namespace AnalysisITC
 				ErrorIterationsControl = null;
 			}
 
-			if (InitH != null) {
-				InitH.Dispose ();
-				InitH = null;
+			if (ErrorMethodControl != null) {
+				ErrorMethodControl.Dispose ();
+				ErrorMethodControl = null;
 			}
 
-			if (InitHLock != null) {
-				InitHLock.Dispose ();
-				InitHLock = null;
+			if (GStep != null) {
+				GStep.Dispose ();
+				GStep = null;
+			}
+
+			if (HStep != null) {
+				HStep.Dispose ();
+				HStep = null;
+			}
+
+			if (InitCp != null) {
+				InitCp.Dispose ();
+				InitCp = null;
+			}
+
+			if (InitCpLock != null) {
+				InitCpLock.Dispose ();
+				InitCpLock = null;
 			}
 
 			if (InitG != null) {
@@ -104,14 +127,14 @@ namespace AnalysisITC
 				InitGLock = null;
 			}
 
-			if (InitCp != null) {
-				InitCp.Dispose ();
-				InitCp = null;
+			if (InitH != null) {
+				InitH.Dispose ();
+				InitH = null;
 			}
 
-			if (InitCpLock != null) {
-				InitCpLock.Dispose ();
-				InitCpLock = null;
+			if (InitHLock != null) {
+				InitHLock.Dispose ();
+				InitHLock = null;
 			}
 
 			if (InitN != null) {
@@ -134,34 +157,19 @@ namespace AnalysisITC
 				InitOffsetLock = null;
 			}
 
-			if (OStep != null) {
-				OStep.Dispose ();
-				OStep = null;
-			}
-
-			if (CStep != null) {
-				CStep.Dispose ();
-				CStep = null;
-			}
-
-			if (GStep != null) {
-				GStep.Dispose ();
-				GStep = null;
-			}
-
-			if (HStep != null) {
-				HStep.Dispose ();
-				HStep = null;
-			}
-
 			if (NStep != null) {
 				NStep.Dispose ();
 				NStep = null;
 			}
 
-			if (ErrorIterationLabel != null) {
-				ErrorIterationLabel.Dispose ();
-				ErrorIterationLabel = null;
+			if (OStep != null) {
+				OStep.Dispose ();
+				OStep = null;
+			}
+
+			if (StackView != null) {
+				StackView.Dispose ();
+				StackView = null;
 			}
 		}
 	}
