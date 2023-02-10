@@ -16,21 +16,13 @@ namespace AnalysisITC.AppClasses.Analysis2
 
         public int NumberOfParameters => Parameters.FittingParameterCount;
 
-		public virtual double GuessEnthalpy()
-		{
-			return Data.Injections.First(inj => inj.Include).Enthalpy - GuessOffset();
-		}
-		public virtual double GuessOffset()
-		{
-			return Data.Injections.Where(inj => inj.Include).TakeLast(2).Average(inj => inj.Enthalpy);
-		}
-		public virtual double GuessN()
-		{
-			return Data.Injections.Last().Ratio / 2;
-		}
-		public virtual double GuessAffinity() => 1000000;
+        public virtual double GuessEnthalpy() => Data.Injections.First(inj => inj.Include).Enthalpy - GuessOffset();
+        public virtual double GuessOffset() => Data.Injections.Where(inj => inj.Include).TakeLast(2).Average(inj => inj.Enthalpy);
+        public virtual double GuessN() => Data.Injections.Last().Ratio / 2;
+        public virtual double GuessAffinity() => 10000000;
+        public virtual double GuessAffinityAsGibbs() => -Energy.R * Data.MeasuredTemperatureKelvin * Math.Log(GuessAffinity());
 
-		public Model(ExperimentData data)
+        public Model(ExperimentData data)
 		{
 			Data = data;
 
@@ -312,14 +304,20 @@ namespace AnalysisITC.AppClasses.Analysis2
 		
 		public static SolutionInterface FromModel(Model model, double[] parameters)
 		{
-			switch (model.ModelType)
+            SolutionInterface solution = null;
+
+            switch (model.ModelType)
 			{
-				case AnalysisModel.OneSetOfSites: return new OneSetOfSites.ModelSolution(model, parameters);
-				case AnalysisModel.TwoSetsOfSites: return new TwoSetsOfSites.ModelSolution(model, parameters);
+				case AnalysisModel.OneSetOfSites: solution = new OneSetOfSites.ModelSolution(model, parameters); break;
+				case AnalysisModel.TwoSetsOfSites: solution = new TwoSetsOfSites.ModelSolution(model, parameters); break;
                 case AnalysisModel.SequentialBindingSites:
 				case AnalysisModel.Dissociation:
 				default: throw new Exception("Model type not found");
 			}
+
+            foreach (var par in model.Parameters.Table) solution.Parameters.Add(par.Key, new (par.Value.Value));
+
+            return solution;
 		}
 
 		public virtual List<Tuple<string,string>> UISolutionParameters(bool all = false)

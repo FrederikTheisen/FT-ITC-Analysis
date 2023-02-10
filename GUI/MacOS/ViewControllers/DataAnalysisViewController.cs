@@ -24,13 +24,15 @@ namespace AnalysisITC
         public DataAnalysisViewController (IntPtr handle) : base (handle)
 		{
             AnalysisGlobalModeOptionsView2.ParameterContraintUpdated += AnalysisGlobalModeOptionsView2_ParameterContraintUpdated;
+            SolverInterface.AnalysisFinished += AnalysisFinished;
+            SolverInterface.BootstrapIterationFinished += Analysis_BootstrapIterationFinished;
         }
 
         public override void ViewDidLoad()
         {
             base.ViewDidLoad();
 
-            Analysis.AnalysisFinished += GlobalAnalyzer_AnalysisFinished;
+            Analysis.AnalysisFinished += AnalysisFinished;
             Analysis.AnalysisIterationFinished += Analysis_AnalysisIterationFinished;
             Analysis.BootstrapIterationFinished += Analysis_BootstrapIterationFinished;
             DataManager.SelectionDidChange += DataManager_SelectionDidChange;
@@ -52,7 +54,7 @@ namespace AnalysisITC
             GraphView.Initialize(DataManager.Current);
         }
 
-        private void GlobalAnalyzer_AnalysisFinished(object sender, SolverConvergence e)
+        private void AnalysisFinished(object sender, SolverConvergence e)
         {
             StatusBarManager.StopIndeterminateProgress();
             StatusBarManager.ClearAppStatus();
@@ -178,22 +180,11 @@ namespace AnalysisITC
 
         partial void FitSimplex(NSObject sender)
         {
-            //factory.InitializeGlobalParameters();
+            //Analysis.Algorithm = Analysis.SolverAlgorithm.NelderMead;
 
-            //var expo = factory.GetExposedOptions();
-            //var par = factory.GetExposedParameters();
+            //Fit();
 
-            //factory.BuildModel();
-
-            //var solver = new GlobalSolver();
-            //solver.Model = factory.Model;
-            //solver.SolverAlgorithm = SolverAlgorithm.NelderMead;
-
-            //solver.Analyze();
-
-            Analysis.Algorithm = Analysis.SolverAlgorithm.NelderMead;
-
-            Fit();
+            Fit2(Analysis.SolverAlgorithm.NelderMead);
         }
 
         partial void FitLM(NSObject sender)
@@ -201,6 +192,8 @@ namespace AnalysisITC
             Analysis.Algorithm = Analysis.SolverAlgorithm.LevenbergMarquardt;
 
             Fit();
+
+            //Fit2(Analysis.SolverAlgorithm.LevenbergMarquardt);
         }
 
         void Fit()
@@ -214,6 +207,20 @@ namespace AnalysisITC
                 case 0: SingleAnalysis(); break;
                 default: GlobalAnalysis(); break;
             }
+        }
+
+        void Fit2(SolverAlgorithm algorithm)
+        {
+            ToggleFitButtons(false);
+            StatusBarManager.StartInderminateProgress();
+
+            ModelFactory.Factory.BuildModel();
+
+            var solver = SolverInterface.Initialize(ModelFactory.Factory);
+            solver.SolverAlgorithm = algorithm;
+            solver.ErrorEstimationMethod = Analysis.ErrorMethod;
+
+            solver.Analyze();
         }
 
         void SingleAnalysis()

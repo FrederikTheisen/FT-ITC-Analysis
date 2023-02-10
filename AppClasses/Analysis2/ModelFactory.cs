@@ -58,10 +58,10 @@ namespace AnalysisITC.AppClasses.Analysis2
 		/// <exception cref="NotImplementedException"></exception>
 		public virtual IEnumerable<Parameter> GetExposedParameters()
 		{
-			throw new NotImplementedException();
+			throw new NotImplementedException("Generic GetExposedParameters not implemented");
 		}
 
-		public void SetCustomParameter(Parameter parameter)
+		public virtual void SetCustomParameter(ParameterTypes key, double value, bool locked)
 		{
 
 		}
@@ -100,6 +100,11 @@ namespace AnalysisITC.AppClasses.Analysis2
 			return Model.Parameters.Table.Values;
 		}
 
+        public virtual void SetCustomParameter(ParameterTypes key, double value, bool locked)
+        {
+
+        }
+
         public override void BuildModel()
         {
 			Model.Data.Model = Model;
@@ -110,6 +115,8 @@ namespace AnalysisITC.AppClasses.Analysis2
 
 	public class GlobalModelFactory : ModelFactory
 	{
+        private static List<Parameter> PrevParameters = new List<Parameter>();
+
         public GlobalModel Model { get; private set; }
 		public GlobalModelParameters GlobalModelParameters { get; private set; }
 		private Dictionary<ParameterTypes, List<Analysis.VariableConstraint>> ExposedGlobalFittingOptions { get; set; }
@@ -120,6 +127,16 @@ namespace AnalysisITC.AppClasses.Analysis2
         {
 			
         }
+
+		void StorePrevParameters()
+		{
+			foreach (var par in Parameters)
+			{
+				PrevParameters.RemoveAll(p => p.Key == par.Key);
+
+				PrevParameters.Add(par);
+			}
+		}
 
         public void InitializeModel()
 		{
@@ -147,14 +164,15 @@ namespace AnalysisITC.AppClasses.Analysis2
         {
             if (Model.Models is null || Model.Models.Count == 0) throw new Exception("No models in global model");
 
-			var prevparams = new List<Parameter>(Parameters);
-			Parameters.Clear();
+			StorePrevParameters();
+
+            GlobalModelParameters.ClearGlobalTable();
 
             var _pars = Model.Models.First().Parameters;
 
             foreach (var par in _pars.Table.Values)
             {
-				double? prevvalue = prevparams.Exists(p => p.Key == par.Key) ? prevparams.Find(p => p.Key == par.Key).Value : null;
+				Parameter? prevvalue = PrevParameters.Exists(p => p.Key == par.Key) ? PrevParameters.Find(p => p.Key == par.Key) : null;
 
                 switch (par.Key)
                 {
@@ -165,9 +183,8 @@ namespace AnalysisITC.AppClasses.Analysis2
                             case Analysis.VariableConstraint.SameForAll:
                                 GlobalModelParameters.AddorUpdateGlobalParameter(
                                     key: par.Key,
-                                    value: prevvalue != null ? (double)prevvalue : Model.Models.Average(mdl => mdl.GuessN()),
-                                    islocked: false,
-                                    limits: new double[] { 0.1, 10 });
+                                    value: prevvalue != null ? prevvalue.Value : Model.Models.Average(mdl => mdl.GuessN()),
+                                    islocked: prevvalue != null ? prevvalue.IsLocked : false);
                                 break;
 							default: break;
                         }
@@ -180,21 +197,20 @@ namespace AnalysisITC.AppClasses.Analysis2
                             case Analysis.VariableConstraint.SameForAll:
                                 GlobalModelParameters.AddorUpdateGlobalParameter(
                                     key: par.Key,
-                                    value: prevvalue != null ? (double)prevvalue : Model.Models.Average(mdl => mdl.GuessEnthalpy()),
-                                    islocked: false,
-                                    limits: new double[] { -500000, 500000 });
+                                    value: prevvalue != null ? prevvalue.Value : Model.Models.Average(mdl => mdl.GuessEnthalpy()),
+                                    islocked: prevvalue != null ? prevvalue.IsLocked : false);
                                 break;
                             case Analysis.VariableConstraint.TemperatureDependent:
-								GlobalModelParameters.AddorUpdateGlobalParameter(
+								var prevdCp = PrevParameters.Find(p => Parameter.Equal(p.Key, ParameterTypes.HeatCapacity1));
+
+                                GlobalModelParameters.AddorUpdateGlobalParameter(
 									key: par.Key == ParameterTypes.Enthalpy1 ? ParameterTypes.HeatCapacity1 : ParameterTypes.HeatCapacity2,
-									value: prevvalue != null ? (double)prevvalue : 0,
-									islocked: false,
-									limits: new double[] { -100000, 100000 });
+									value: prevdCp != null ? prevdCp.Value : 0,
+									islocked: prevdCp != null ? prevdCp.IsLocked : false);
                                 GlobalModelParameters.AddorUpdateGlobalParameter(
 									key: par.Key,
-									value: prevvalue != null ? (double)prevvalue : Model.Models.Average(mdl => mdl.GuessEnthalpy()),
-									islocked: false,
-									limits: new double[] { -500000, 500000 });
+									value: prevvalue != null ? prevvalue.Value : Model.Models.Average(mdl => mdl.GuessEnthalpy()),
+									islocked: prevvalue != null ? prevvalue.IsLocked : false);
                                 break;
                         }
                         break;
@@ -204,11 +220,10 @@ namespace AnalysisITC.AppClasses.Analysis2
                         {
                             case Analysis.VariableConstraint.SameForAll:
                             case Analysis.VariableConstraint.TemperatureDependent:
-                                GlobalModelParameters.AddorUpdateGlobalParameter(
-                                    key: par.Key == ParameterTypes.Affinity1 ? ParameterTypes.Gibbs1 : ParameterTypes.Gibbs2,
-                                    value: prevvalue != null ? (double)prevvalue : Model.Models.Average(mdl => mdl.GuessAffinity()),
-                                    islocked: false,
-                                    limits: new double[] { -2000, -70000 });
+								GlobalModelParameters.AddorUpdateGlobalParameter(
+									key: par.Key == ParameterTypes.Affinity1 ? ParameterTypes.Gibbs1 : ParameterTypes.Gibbs2,
+									value: prevvalue != null ? (double)prevvalue.Value : Model.Models.Average(mdl => mdl.GuessAffinityAsGibbs()),
+									islocked: prevvalue != null ? prevvalue.IsLocked : false);
                                 break;
 							default: break;
                         }
@@ -270,8 +285,16 @@ namespace AnalysisITC.AppClasses.Analysis2
 			return Parameters;
         }
 
+        public override void SetCustomParameter(ParameterTypes key, double value, bool locked)
+        {
+			if (!GlobalModelParameters.GlobalTable.ContainsKey(key)) throw new Exception("Parameter not found [File: GlobalFactory.SetCustomParameter]: " + key.ToString());
+			GlobalModelParameters.GlobalTable[key].Update(value, locked);
+        }
+
         public override void BuildModel()
         {
+			GlobalModelParameters.IndividualModelParameterList.Clear();
+
 			Model.Parameters = GlobalModelParameters;
 
             foreach (var mdl in Model.Models)

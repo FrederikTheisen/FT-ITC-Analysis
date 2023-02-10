@@ -185,18 +185,6 @@ namespace AnalysisITC
 
             public static async void Solve(AnalysisModel analysismodel)
             {
-                var factory = AppClasses.Analysis2.SingleModelFactory.InitializeFactory(analysismodel, false);
-
-                var exp = factory.GetExposedParameters();
-                factory.BuildModel();
-
-
-                var solver = new AppClasses.Analysis2.Solver();
-                //solver.SolverAlgorithm = Algorithm;
-                solver.Model = (factory as SingleModelFactory).Model;
-
-                solver.Analyze();
-
                 StopAnalysisProcess = false;
 
                 switch (analysismodel)

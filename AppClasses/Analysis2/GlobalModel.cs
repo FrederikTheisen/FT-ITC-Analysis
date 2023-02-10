@@ -55,9 +55,10 @@ namespace AnalysisITC.AppClasses.Analysis2
 				model.AddModel(mdl.GenerateSyntheticModel());
 			}
 
-			model.Parameters.EnthalpyStyle = Parameters.EnthalpyStyle;
-            model.Parameters.AffinityStyle = Parameters.AffinityStyle;
-            model.Parameters.NStyle = Parameters.NStyle;
+			foreach (var con in Parameters.Constraints)
+			{
+				model.Parameters.SetConstraintForParameter(con.Key, con.Value);
+			}
 
             foreach (var par in Parameters.GlobalTable)
 			{
@@ -93,11 +94,16 @@ namespace AnalysisITC.AppClasses.Analysis2
 
         public void Invalidate() => IsValid = false;
 
-		public GlobalSolution(GlobalModel model)
+		public GlobalSolution(GlobalModel model, SolverConvergence convergence)
 		{
 			Model = model;
+			Convergence = convergence;
 
-            foreach (var mdl in model.Models) mdl.Solution = SolutionInterface.FromModel(mdl, model.Parameters.GetParametersForModel(model, mdl).ToArray());
+			foreach (var mdl in model.Models)
+			{
+				mdl.Solution = SolutionInterface.FromModel(mdl, model.Parameters.GetParametersForModel(model, mdl).ToArray());
+				mdl.Solution.Convergence = convergence;
+            }
 
 			Solution = SolutionInterface.FromModel(model.Models[0], model.Parameters.GetParametersForModel(model, model.Models[0]).ToArray());
 

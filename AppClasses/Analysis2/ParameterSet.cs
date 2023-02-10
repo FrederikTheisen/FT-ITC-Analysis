@@ -13,13 +13,15 @@ namespace AnalysisITC.AppClasses.Analysis2
         public bool IsLocked { get; private set; }
         public double[] Limits { get; private set; }
         public double StepSize { get; private set; }
+        public bool Auto { get; set; } = true;
 
         public Parameter(ParameterTypes key, double value, bool islocked = false, double[] limits = null, double stepsize = double.NaN)
         {
             Key = key;
             Value = value;
             IsLocked = islocked;
-            if (limits == null) Limits = new double[] { double.MinValue, double.MaxValue };
+            if (limits == null)
+                Limits = key.GetProperties().DefaultLimits;
             else Limits = limits;
 
             if (double.IsNaN(stepsize))
@@ -44,7 +46,8 @@ namespace AnalysisITC.AppClasses.Analysis2
         {
             Value = value;
 
-            if (value < Limits[0] || value > Limits[1]) throw new Exception("Parameter out of range: " + Key.ToString() + " " + value.ToString() + " [" + Limits[0].ToString() + " - " + Limits[1].ToString() + "]");
+            if (value < Limits[0] || value > Limits[1])
+                throw new Exception("Parameter out of range: " + Key.ToString() + " " + value.ToString() + " [" + Limits[0].ToString() + " - " + Limits[1].ToString() + "]");
         }
 
         public void Update(double value, bool lockpar)
@@ -52,13 +55,19 @@ namespace AnalysisITC.AppClasses.Analysis2
             Update(value);
 
             IsLocked = lockpar;
-
-            Console.WriteLine("Lock: " + Key.ToString() + " " + lockpar.ToString());
         }
 
         public override string ToString()
         {
             return Key.ToString() + ": " + Value.ToString("G3");
+        }
+
+        public static bool Equal(ParameterTypes t1, ParameterTypes t2)
+        {
+            if (t1 == t2) return true;
+            else if (t1.GetProperties().ParentType == t2) return true;
+            else if (t2.GetProperties().ParentType == t1) return true;
+            else return false;
         }
     }
 
@@ -72,7 +81,7 @@ namespace AnalysisITC.AppClasses.Analysis2
 
         public ModelParameters(ExperimentData data)
         {
-            ExperimentTemperature = data.MeasuredTemperature;
+            ExperimentTemperature = data.MeasuredTemperatureKelvin;
         }
 
         public void AddParameter(ParameterTypes key, double value, bool islocked = false, double[] limits = null, double stepsize = double.NaN)
@@ -125,10 +134,7 @@ namespace AnalysisITC.AppClasses.Analysis2
     public class GlobalModelParameters
     {
         //Settings
-        private Dictionary<ParameterTypes, Analysis.VariableConstraint> Constraints = new Dictionary<ParameterTypes, Analysis.VariableConstraint>();
-        public Analysis.VariableConstraint EnthalpyStyle { get; set; } = Analysis.VariableConstraint.None;
-        public Analysis.VariableConstraint AffinityStyle { get; set; } = Analysis.VariableConstraint.None;
-        public Analysis.VariableConstraint NStyle { get; set; } = Analysis.VariableConstraint.None;
+        public Dictionary<ParameterTypes, Analysis.VariableConstraint> Constraints { get; private set; } = new Dictionary<ParameterTypes, Analysis.VariableConstraint>();
 
         //Properties
         public Dictionary<ParameterTypes, Parameter> GlobalTable { get; private set; } = new Dictionary<ParameterTypes, Parameter>();
@@ -140,6 +146,8 @@ namespace AnalysisITC.AppClasses.Analysis2
         public int TotalFittingParameters => GlobalFittingParameterCount + IndividualModelParameterCount;
         double ReferenceTemperature => IndividualModelParameterList.Average(pars => pars.ExperimentTemperature);
         public bool RequiresGlobalFitting => GlobalFittingParameterCount == 0;
+
+        public void ClearGlobalTable() => GlobalTable.Clear();
 
         public void AddorUpdateGlobalParameter(ParameterTypes key, double value, bool islocked = false, double[] limits = null)
         {
@@ -201,10 +209,13 @@ namespace AnalysisITC.AppClasses.Analysis2
                     switch (par.Key)
                     {
                         case ParameterTypes.Nvalue1:
-                        case ParameterTypes.Nvalue2: if (NStyle == Analysis.VariableConstraint.SameForAll) par.Value.SetGlobal(GlobalTable[par.Key].Value); break;
+                        case ParameterTypes.Nvalue2:
+                            if (GetConstraintForParameter(par.Key) == Analysis.VariableConstraint.SameForAll)
+                                par.Value.SetGlobal(GlobalTable[par.Key].Value);
+                            break;
                         case ParameterTypes.Enthalpy1:
                         case ParameterTypes.Enthalpy2:
-                            if (EnthalpyStyle == Analysis.VariableConstraint.TemperatureDependent)
+                            if (GetConstraintForParameter(par.Key) == Analysis.VariableConstraint.TemperatureDependent)
                             {
                                 var refT = ReferenceTemperature;
                                 var mdlT = paramset.ExperimentTemperature;
@@ -216,11 +227,16 @@ namespace AnalysisITC.AppClasses.Analysis2
                                 };
                                 par.Value.SetGlobal(dH);
                             }
-                            else if (EnthalpyStyle == Analysis.VariableConstraint.SameForAll) par.Value.SetGlobal(GlobalTable[par.Key].Value);
-                            else if (!double.IsNaN(GlobalTable[par.Key].Value)) par.Value.Update(GlobalTable[par.Key].Value, GlobalTable[par.Key].IsLocked);
+                            else if (GetConstraintForParameter(par.Key) == Analysis.VariableConstraint.SameForAll)
+                                par.Value.SetGlobal(GlobalTable[par.Key].Value);
+                            else if (GlobalTable.ContainsKey(par.Key) && !double.IsNaN(GlobalTable[par.Key].Value))
+                                par.Value.Update(GlobalTable[par.Key].Value, GlobalTable[par.Key].IsLocked);
                             break;
                         case ParameterTypes.Affinity1:
-                        case ParameterTypes.Affinity2: if (AffinityStyle == Analysis.VariableConstraint.TemperatureDependent) par.Value.SetGlobal(Math.Exp(-GlobalTable[ParameterTypes.Gibbs1].Value / (Energy.R * paramset.ExperimentTemperature))); break;
+                        case ParameterTypes.Affinity2:
+                            if (GetConstraintForParameter(par.Key) == Analysis.VariableConstraint.TemperatureDependent)
+                                par.Value.SetGlobal(Math.Exp(-GlobalTable[ParameterTypes.Gibbs1].Value / (Energy.R * paramset.ExperimentTemperature)));
+                            break;
                     }
                 }
             }
@@ -281,37 +297,52 @@ namespace AnalysisITC.AppClasses.Analysis2
 
     public class ParameterTypesAttribute : DescriptionAttribute
     {
-        public double DefaultStepSize { get; set; }
+        public double DefaultStepSize { get; private set; }
+        public double[] DefaultLimits { get; private set; }
+        public ParameterTypes ParentType { get; private set; }
 
-        public ParameterTypesAttribute(string name, double stepsize) : base(name)
+        public ParameterTypesAttribute(string name, ParameterTypes parent) : base(name)
+        {
+            var att = parent.GetProperties();
+
+            DefaultLimits = att.DefaultLimits;
+            DefaultStepSize = att.DefaultStepSize;
+
+            ParentType = parent;
+        }
+
+        public ParameterTypesAttribute(string name, double stepsize, double[] limits, ParameterTypes parent) : base(name)
         {
             DefaultStepSize = stepsize;
+            DefaultLimits = limits;
+
+            ParentType = parent;
         }
     }
 
     public enum ParameterTypes
     {
-        [ParameterTypesAttribute("N-value", 0.05)]
+        [ParameterTypesAttribute("N-value", 0.05, new double[] {0.1, 10 }, ParameterTypes.Nvalue1)]
         Nvalue1,
-        [ParameterTypesAttribute("N-value 2", 0.05)]
+        [ParameterTypesAttribute("N-value 2", ParameterTypes.Nvalue1)]
         Nvalue2,
-        [ParameterTypesAttribute("Enthalpy", 500)]
+        [ParameterTypesAttribute("Enthalpy", 500, new double[] { -300000, 300000 }, ParameterTypes.Enthalpy1)]
         Enthalpy1,
-        [ParameterTypesAttribute("Enthalpy 2", 1000)]
+        [ParameterTypesAttribute("Enthalpy 2", ParameterTypes.Enthalpy1)]
         Enthalpy2,
-        [ParameterTypesAttribute("Affinity", 1000)]
+        [ParameterTypesAttribute("Affinity", 1000, new double[] { 10, 100000000000 }, ParameterTypes.Affinity1)]
         Affinity1,
-        [ParameterTypesAttribute("Affinity 2", 1000)]
+        [ParameterTypesAttribute("Affinity 2", ParameterTypes.Affinity1)]
         Affinity2,
-        [ParameterTypesAttribute("Offset", 250)]
+        [ParameterTypesAttribute("Offset", 250, new double[] { -30000, 30000 }, ParameterTypes.Offset)]
         Offset,
-        [ParameterTypesAttribute("Heat capacity", 100)]
+        [ParameterTypesAttribute("Heat capacity", 100, new double[] { -20000, 20000 }, ParameterTypes.HeatCapacity1)]
         HeatCapacity1,
-        [ParameterTypesAttribute("Heat capacity 2", 100)]
+        [ParameterTypesAttribute("Heat capacity 2", ParameterTypes.HeatCapacity1)]
         HeatCapacity2,
-        [ParameterTypesAttribute("Gibbs free energy", 500)]
+        [ParameterTypesAttribute("Gibbs free energy", 500, new double[] { -100000, -10000 }, ParameterTypes.Gibbs1)]
         Gibbs1,
-        [ParameterTypesAttribute("Gibbs free energy 2", 500)]
+        [ParameterTypesAttribute("Gibbs free energy 2", ParameterTypes.Gibbs1)]
         Gibbs2
     }
 }
