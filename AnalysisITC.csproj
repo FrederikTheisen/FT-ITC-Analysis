@@ -176,6 +176,7 @@
     <Folder Include="GUI\MacOS\PopOptionViewControllers\" />
     <Folder Include="AppClasses\AnalysisClasses\" />
     <Folder Include="AppClasses\Analysis2\" />
+    <Folder Include="GUI\MacOS\CustomViews\" />
   </ItemGroup>
   <ItemGroup>
     <None Include="Info.plist" />
@@ -340,6 +341,7 @@
     <Compile Include="AnalysisGlobalModeOptionsView.designer.cs">
       <DependentUpon>AnalysisGlobalModeOptionsView.cs</DependentUpon>
     </Compile>
+    <Compile Include="GUI\MacOS\CustomViews\ParameterValueAdjustmentView.cs" />
   </ItemGroup>
   <ItemGroup>
     <InterfaceDefinition Include="Main.storyboard" />
