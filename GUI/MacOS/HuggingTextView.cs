@@ -14,6 +14,12 @@ namespace AnalysisITC
 		{
 		}
 
+        [Export("initWithFrame:")]
+        public HuggingTextView(CGRect frameRect) : base(frameRect)
+        {
+
+        }
+
         public override void MouseDown(NSEvent theEvent)
         {
             if (StringValue == "") StringValue = " ";
