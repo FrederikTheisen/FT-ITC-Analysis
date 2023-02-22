@@ -5,6 +5,7 @@ using Foundation;
 using AppKit;
 using System.Threading.Tasks;
 using System.Collections.Generic;
+using AnalysisITC.AppClasses.Analysis2;
 
 namespace AnalysisITC
 {
@@ -192,7 +193,7 @@ namespace AnalysisITC
 
         partial void StopButtonClick(NSObject sender)
         {
-            Analysis.StopAnalysisProcess = true;
+            SolverInterface.TerminateAnalysisFlag.Raise();
             SpolarRecordAnalysisController.StopAnalysis = true;
             DataManager.StopProcessCopying = true;
         }
