@@ -177,6 +177,7 @@
     <Folder Include="AppClasses\AnalysisClasses\" />
     <Folder Include="AppClasses\Analysis2\" />
     <Folder Include="GUI\MacOS\CustomViews\" />
+    <Folder Include="AppClasses\Depreceated\" />
   </ItemGroup>
   <ItemGroup>
     <None Include="Info.plist" />
@@ -186,6 +187,10 @@
     <None Include="GUI\MacOS\Drawing\CALayerDrawingView.cs" />
     <None Include=".DS_Store" />
     <None Include=".editorconfig" />
+    <None Include="AppClasses\Depreceated\GlobalSolution.cs" />
+    <None Include="AppClasses\Depreceated\Analysis.cs" />
+    <None Include="AppClasses\Depreceated\SolverParameters.cs" />
+    <None Include="AppClasses\Depreceated\SolverOptions.cs" />
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Main.cs" />
@@ -193,7 +198,6 @@
     <Compile Include="AppClasses\DataReaders.cs" />
     <Compile Include="Utils\EnumExtensions.cs" />
     <Compile Include="Utils\StringParsers.cs" />
-    <Compile Include="AppClasses\Analysis.cs" />
     <Compile Include="AppClasses\DataProcessing.cs" />
     <Compile Include="Utils\GUIutils.cs" />
     <Compile Include="GUI\MacOS\ExperimentDataSource.cs" />
@@ -332,7 +336,6 @@
     <Compile Include="AppClasses\Analysis2\Models.cs" />
     <Compile Include="AppClasses\Analysis2\Solver.cs" />
     <Compile Include="AppClasses\Analysis2\GlobalModel.cs" />
-    <Compile Include="AppClasses\GlobalSolution.cs" />
     <Compile Include="AnalysisGlobalModeOptionsViewController.cs" />
     <Compile Include="AnalysisGlobalModeOptionsViewController.designer.cs">
       <DependentUpon>AnalysisGlobalModeOptionsViewController.cs</DependentUpon>
@@ -342,6 +345,7 @@
       <DependentUpon>AnalysisGlobalModeOptionsView.cs</DependentUpon>
     </Compile>
     <Compile Include="GUI\MacOS\CustomViews\ParameterValueAdjustmentView.cs" />
+    <Compile Include="Utils\Strings.cs" />
   </ItemGroup>
   <ItemGroup>
     <InterfaceDefinition Include="Main.storyboard" />

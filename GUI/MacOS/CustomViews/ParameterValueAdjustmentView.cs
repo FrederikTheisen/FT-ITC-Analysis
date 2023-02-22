@@ -3,7 +3,7 @@ using AnalysisITC.AppClasses.Analysis2;
 using AppKit;
 using CoreGraphics;
 using PrintCore;
-using static AnalysisITC.Analysis;
+//using static AnalysisITC.Analysis;
 using System.Collections.Generic;
 using Foundation;
 
@@ -17,16 +17,31 @@ namespace AnalysisITC.GUI.MacOS.CustomViews
 
         private NSTextField Label;
         private HuggingTextView Input;
+        private NSColor DefaultFieldColor;
         private NSButton Lock;
 
         public bool HasBeenAffectedFlag { get; private set; } = false;
         
         public ParameterTypes Key => parameter.Key;
+        public string InputString
+        {
+            get
+            {
+                string input = Input.StringValue;
+
+                input = input.Replace(',', '.');
+                input = input.Replace(" ", "");
+
+                return input;
+            }
+        }
         public double Value
         {
             get
             {
-                if (Input.StringValue.Length > 0) return Input.FloatValue;
+                var input = InputString;
+
+                if (Input.StringValue.Length > 0) return double.Parse(input);
                 else return parameter.Value;
             }
         }
@@ -43,10 +58,6 @@ namespace AnalysisITC.GUI.MacOS.CustomViews
             Orientation = NSUserInterfaceLayoutOrientation.Horizontal;
             Distribution = NSStackViewDistribution.Fill;
             Alignment = NSLayoutAttribute.CenterY;
-            ////AutoresizingMask = NSViewResizingMask.WidthSizable;
-            //SetHuggingPriority(1000, NSLayoutConstraintOrientation.Horizontal);
-            //SetClippingResistancePriority(1000, NSLayoutConstraintOrientation.Horizontal);
-            //SetContentHuggingPriorityForOrientation(249, NSLayoutConstraintOrientation.Horizontal);
 
             Label = new NSTextField(new CGRect(0,0,150,14))
             {
@@ -59,10 +70,8 @@ namespace AnalysisITC.GUI.MacOS.CustomViews
                 ControlSize = NSControlSize.Small,
                 Font = NSFont.SystemFontOfSize(NSFont.SmallSystemFontSize),
             };
-            //Label.SetContentHuggingPriorityForOrientation(249, NSLayoutConstraintOrientation.Horizontal);
-            //Label.SetContentCompressionResistancePriority(750, NSLayoutConstraintOrientation.Horizontal);
 
-            Input = new HuggingTextView(new CGRect(0, 0, 54, 14))
+            Input = new HuggingTextView(new CGRect(0, 0, 100, 14))
             {
                 Bordered = false,
                 TranslatesAutoresizingMaskIntoConstraints = false,
@@ -74,10 +83,9 @@ namespace AnalysisITC.GUI.MacOS.CustomViews
                 Alignment = NSTextAlignment.Right,
             };
             Input.Changed += Input_Changed;
-            //Input.SetContentHuggingPriorityForOrientation(251, NSLayoutConstraintOrientation.Horizontal);
-            //Input.SetContentCompressionResistancePriority(750, NSLayoutConstraintOrientation.Horizontal);
             Input.AddConstraint(NSLayoutConstraint.Create(Input, NSLayoutAttribute.Width, NSLayoutRelation.Equal, 1, 54));
             Input.RefusesFirstResponder = true;
+            DefaultFieldColor = Input.TextColor;
 
             Lock = new NSButton(new CGRect(0, 0, 14.5, 14))
             {
@@ -101,12 +109,9 @@ namespace AnalysisITC.GUI.MacOS.CustomViews
             Lock.ImagePosition = NSCellImagePosition.ImageOnly;
             Lock.Layout();
             
-
             AddArrangedSubview(Label);
             AddArrangedSubview(Input);
             AddArrangedSubview(Lock);
-
-            //TranslatesAutoresizingMaskIntoConstraints = false;
         }
 
         private void Lock_Activated(object sender, EventArgs e)
@@ -117,6 +122,21 @@ namespace AnalysisITC.GUI.MacOS.CustomViews
         private void Input_Changed(object sender, EventArgs e)
         {
             HasBeenAffectedFlag = true;
+
+            CheckInput();
+        }
+
+        void CheckInput()
+        {
+            string input = InputString;
+
+            if (double.TryParse(input, out double value))
+            {
+                Console.WriteLine("Input field value changed: " + value.ToString());
+
+                Input.TextColor = DefaultFieldColor;
+            }
+            else Input.TextColor = NSColor.SystemRed;
         }
 
         public override CGSize IntrinsicContentSize => new CGSize(75, 14);
