@@ -243,7 +243,7 @@ namespace Utilities
             tooltiplines.Add("Ratio: " + inj.Ratio.ToString("F2"));
             tooltiplines.Add("Area: " + (inj.OffsetEnthalpy/1000).ToString("F1") + " kJ/mol");
             tooltiplines.Add("Temperature: " + inj.Temperature.ToString("F2") + " °C");
-            if (inj.Experiment.Solution != null) tooltiplines.Add("Residual: " + ((inj.Enthalpy - inj.Experiment.Solution.Evaluate(inj.ID, true))/1000).ToString("G2") + " kJ/mol");
+            if (inj.Experiment.Solution != null) tooltiplines.Add("Residual: " + ((inj.Enthalpy - inj.Experiment.Model.EvaluateEnthalpy(inj.ID, true))/1000).ToString("G2") + " kJ/mol");
 
             int longest = tooltiplines.Max(l => l.Length);
 
