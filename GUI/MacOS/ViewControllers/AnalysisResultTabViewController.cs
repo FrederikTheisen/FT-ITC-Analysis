@@ -179,8 +179,12 @@ namespace AnalysisITC
             StatusBarManager.ClearAppStatus();
         }
 
+        bool usekelvin = false;
         partial void TempControlClicked(NSSegmentedControl sender)
         {
+            if (usekelvin == UseKelvin) return;
+            usekelvin = UseKelvin;
+
             EvaluateionTemperatureTextField.FloatValue += (UseKelvin ? 273.15f : -273.15f); //Fix temperature unit change
 
             Setup();
