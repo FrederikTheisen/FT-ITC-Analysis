@@ -20,6 +20,8 @@ namespace AnalysisITC
         public static IEnumerable<ExperimentData> IncludedData => Data.Where(d => d.Include);
         public static ExperimentData Current => SelectedDataIndex == -1 || (SelectedDataIndex >= Count) ? null : Data[SelectedDataIndex];
 
+        public static bool StopProcessCopying { get; set; } = false;
+
         static int selectedDataIndex = 0;
         public static int SelectedDataIndex
         {
@@ -135,14 +137,17 @@ namespace AnalysisITC
             else DataDidChange.Invoke(null, null);
         }
 
+        public static void InvokeDataDidChange()
+        {
+            DataDidChange?.Invoke(null, null);
+        }
+
         public static void Clear()
         {
             Init();
 
             DataDidChange?.Invoke(null, null);
         }
-
-        public static bool StopProcessCopying { get; set; } = false;
 
         public static async void CopySelectedProcessToAll()
         {
@@ -201,6 +206,4 @@ namespace AnalysisITC
             }
         }
     }
-
-
 }
