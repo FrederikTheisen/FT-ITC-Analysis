@@ -178,6 +178,7 @@
     <Folder Include="AppClasses\Analysis2\" />
     <Folder Include="GUI\MacOS\CustomViews\" />
     <Folder Include="AppClasses\Depreceated\" />
+    <Folder Include="GUI\MacOS\ListViews\" />
   </ItemGroup>
   <ItemGroup>
     <None Include="Info.plist" />
@@ -200,8 +201,6 @@
     <Compile Include="Utils\StringParsers.cs" />
     <Compile Include="AppClasses\DataProcessing.cs" />
     <Compile Include="Utils\GUIutils.cs" />
-    <Compile Include="GUI\MacOS\ExperimentDataSource.cs" />
-    <Compile Include="GUI\StatusBarManager.cs" />
     <Compile Include="Utils\NumberStructs.cs" />
     <Compile Include="AppClasses\DataManager.cs" />
     <Compile Include="GUI\MacOS\GraphViews\AnalysisGraphView.cs" />
@@ -245,20 +244,11 @@
     <Compile Include="GUI\MacOS\ViewControllers\MainWindowController.designer.cs">
       <DependentUpon>MainWindowController.cs</DependentUpon>
     </Compile>
-    <Compile Include="GUI\MacOS\ExperimentDataViewCell.cs" />
-    <Compile Include="GUI\MacOS\ExperimentDataViewCell.designer.cs">
-      <DependentUpon>ExperimentDataViewCell.cs</DependentUpon>
-    </Compile>
-    <Compile Include="GUI\MacOS\NSMarginButton.cs" />
-    <Compile Include="GUI\MacOS\NSMarginButton.designer.cs">
-      <DependentUpon>NSMarginButton.cs</DependentUpon>
-    </Compile>
     <Compile Include="GUI\MacOS\SideBarView.cs" />
     <Compile Include="GUI\MacOS\SideBarView.designer.cs">
       <DependentUpon>SideBarView.cs</DependentUpon>
     </Compile>
     <Compile Include="AppClasses\ExperimentData.cs" />
-    <Compile Include="GUI\StateManager.cs" />
     <Compile Include="Utils\Energy.cs" />
     <Compile Include="GUI\MacOS\Drawing\TemperatureDependenceGraph.cs" />
     <Compile Include="AppClasses\DataWriter.cs" />
@@ -311,41 +301,53 @@
     <Compile Include="GUI\MacOS\ViewControllers\FinalFigureViewController.designer.cs">
       <DependentUpon>FinalFigureViewController.cs</DependentUpon>
     </Compile>
-    <Compile Include="GUI\MacOS\AnalysisResultView.cs" />
-    <Compile Include="GUI\MacOS\AnalysisResultView.designer.cs">
-      <DependentUpon>AnalysisResultView.cs</DependentUpon>
-    </Compile>
     <Compile Include="GUI\MacOS\TabControllerView.cs" />
     <Compile Include="GUI\MacOS\TabControllerView.designer.cs">
       <DependentUpon>TabControllerView.cs</DependentUpon>
     </Compile>
-    <Compile Include="GUI\MacOS\HuggingTextView.cs" />
-    <Compile Include="GUI\MacOS\HuggingTextView.designer.cs">
-      <DependentUpon>HuggingTextView.cs</DependentUpon>
-    </Compile>
     <Compile Include="AppClasses\Math\ErrorPropagation.cs" />
     <Compile Include="AppSettings.cs" />
-    <Compile Include="GUI\MacOS\AnalysisResult.cs" />
     <Compile Include="AppClasses\AnalysisClasses\SolverUtilities.cs" />
-    <Compile Include="ExperimentListViewController.cs" />
-    <Compile Include="ExperimentListViewController.designer.cs">
-      <DependentUpon>ExperimentListViewController.cs</DependentUpon>
-    </Compile>
     <Compile Include="AppClasses\Analysis2\ModelFactory.cs" />
     <Compile Include="AppClasses\Analysis2\ParameterSet.cs" />
     <Compile Include="AppClasses\Analysis2\Models.cs" />
     <Compile Include="AppClasses\Analysis2\Solver.cs" />
     <Compile Include="AppClasses\Analysis2\GlobalModel.cs" />
-    <Compile Include="AnalysisGlobalModeOptionsViewController.cs" />
-    <Compile Include="AnalysisGlobalModeOptionsViewController.designer.cs">
-      <DependentUpon>AnalysisGlobalModeOptionsViewController.cs</DependentUpon>
-    </Compile>
-    <Compile Include="AnalysisGlobalModeOptionsView.cs" />
-    <Compile Include="AnalysisGlobalModeOptionsView.designer.cs">
-      <DependentUpon>AnalysisGlobalModeOptionsView.cs</DependentUpon>
-    </Compile>
     <Compile Include="GUI\MacOS\CustomViews\ParameterValueAdjustmentView.cs" />
     <Compile Include="Utils\Strings.cs" />
+    <Compile Include="GUI\MacOS\ListViews\ExperimentDataViewCell.cs" />
+    <Compile Include="GUI\MacOS\ListViews\ExperimentDataViewCell.designer.cs">
+      <DependentUpon>ExperimentDataViewCell.cs</DependentUpon>
+    </Compile>
+    <Compile Include="GUI\MacOS\CustomViews\HuggingTextView.cs" />
+    <Compile Include="GUI\MacOS\CustomViews\HuggingTextView.designer.cs">
+      <DependentUpon>HuggingTextView.cs</DependentUpon>
+    </Compile>
+    <Compile Include="GUI\MacOS\CustomViews\NSMarginButton.cs" />
+    <Compile Include="GUI\MacOS\CustomViews\NSMarginButton.designer.cs">
+      <DependentUpon>NSMarginButton.cs</DependentUpon>
+    </Compile>
+    <Compile Include="GUI\MacOS\ListViews\ExperimentDataSource.cs" />
+    <Compile Include="GUI\MacOS\ListViews\ResultViewDataSource.cs" />
+    <Compile Include="GUI\MacOS\ListViews\AnalysisResultView.cs" />
+    <Compile Include="GUI\MacOS\ListViews\AnalysisResultView.designer.cs">
+      <DependentUpon>AnalysisResultView.cs</DependentUpon>
+    </Compile>
+    <Compile Include="GUI\MacOS\ListViews\ExperimentListViewController.cs" />
+    <Compile Include="GUI\MacOS\ListViews\ExperimentListViewController.designer.cs">
+      <DependentUpon>ExperimentListViewController.cs</DependentUpon>
+    </Compile>
+    <Compile Include="GUI\MacOS\CustomViews\AnalysisGlobalModeOptionsView.cs" />
+    <Compile Include="GUI\MacOS\CustomViews\AnalysisGlobalModeOptionsView.designer.cs">
+      <DependentUpon>AnalysisGlobalModeOptionsView.cs</DependentUpon>
+    </Compile>
+    <Compile Include="AppClasses\Depreceated\AnalysisGlobalModeOptionsViewController.cs" />
+    <Compile Include="AppClasses\Depreceated\AnalysisGlobalModeOptionsViewController.designer.cs">
+      <DependentUpon>AnalysisGlobalModeOptionsViewController.cs</DependentUpon>
+    </Compile>
+    <Compile Include="AppClasses\AnalysisResult.cs" />
+    <Compile Include="AppClasses\StateManager.cs" />
+    <Compile Include="AppClasses\StatusBarManager.cs" />
   </ItemGroup>
   <ItemGroup>
     <InterfaceDefinition Include="Main.storyboard" />
