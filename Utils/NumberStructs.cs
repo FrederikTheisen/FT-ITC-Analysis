@@ -54,6 +54,8 @@ namespace AnalysisITC
             }
         }
 
+        public Energy Energy => new Energy(this);
+
         public FloatWithError(double value = 0, double error = 0)
         {
             Value = value;
