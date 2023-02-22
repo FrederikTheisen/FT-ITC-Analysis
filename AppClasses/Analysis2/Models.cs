@@ -15,11 +15,12 @@ namespace AnalysisITC.AppClasses.Analysis2
 		public SolutionInterface Solution { get; set; }
 
         public int NumberOfParameters => Parameters.FittingParameterCount;
+        public string ModelName => ModelType.ToString();
 
         public virtual double GuessEnthalpy() => Data.Injections.First(inj => inj.Include).Enthalpy - GuessOffset();
-        public virtual double GuessOffset() => Data.Injections.Where(inj => inj.Include).TakeLast(2).Average(inj => inj.Enthalpy);
+        public virtual double GuessOffset() => 0.8*Data.Injections.Where(inj => inj.Include).TakeLast(2).Average(inj => inj.Enthalpy);
         public virtual double GuessN() => Data.Injections.Last().Ratio / 2;
-        public virtual double GuessAffinity() => 10000000;
+        public virtual double GuessAffinity() => 1000000;
         public virtual double GuessAffinityAsGibbs() => -Energy.R * Data.MeasuredTemperatureKelvin * Math.Log(GuessAffinity());
 
         public Model(ExperimentData data)
@@ -44,6 +45,18 @@ namespace AnalysisITC.AppClasses.Analysis2
 			return Evaluate(injectionindex, withoffset) / Data.Injections[injectionindex].InjectionMass;
 		}
 
+        public FloatWithError EvaluateBootstrap(int inj)
+        {
+            var results = new List<double>();
+
+            foreach (var sol in Solution.BootstrapSolutions)
+            {
+                results.Add(sol.Model.EvaluateEnthalpy(inj, true));
+            }
+
+            return new FloatWithError(results, EvaluateEnthalpy(inj, true)) - Solution.Parameters[ParameterTypes.Offset];
+        }
+
 		public double LossFunction(double[] parameters)
 		{
 			Parameters.UpdateFromArray(parameters);
@@ -61,7 +74,7 @@ namespace AnalysisITC.AppClasses.Analysis2
 				loss += diff * diff;
 			}
 
-			return Math.Sqrt(loss / Data.Injections.Count(i => i.Include));
+            return Math.Sqrt(loss / Data.Injections.Count(i => i.Include));
 		}
 
         public virtual Model GenerateSyntheticModel()
@@ -79,7 +92,7 @@ namespace AnalysisITC.AppClasses.Analysis2
 
 	public class OneSetOfSites : Model
 	{
-		public OneSetOfSites(ExperimentData data) : base(data)
+        public OneSetOfSites(ExperimentData data) : base(data)
 		{
 		}
 
@@ -87,10 +100,10 @@ namespace AnalysisITC.AppClasses.Analysis2
         {
 			base.InitializeParameters(data);
 
-			Parameters.AddParameter(ParameterTypes.Nvalue1, this.GuessN(), limits: new double[] { 0.1, 10 }, stepsize: 0.5);
-            Parameters.AddParameter(ParameterTypes.Enthalpy1, this.GuessEnthalpy(), limits: new double[] { -500000, 500000 }, stepsize: 1000);
-            Parameters.AddParameter(ParameterTypes.Affinity1, this.GuessAffinity(), limits: new double[] { 10, 100000000000 }, stepsize: 10000);
-            Parameters.AddParameter(ParameterTypes.Offset, this.GuessOffset(), limits: new double[] { -500000, 500000 }, stepsize: 1000);
+			Parameters.AddParameter(ParameterTypes.Nvalue1, this.GuessN());
+            Parameters.AddParameter(ParameterTypes.Enthalpy1, this.GuessEnthalpy());
+            Parameters.AddParameter(ParameterTypes.Affinity1, this.GuessAffinity());
+            Parameters.AddParameter(ParameterTypes.Offset, this.GuessOffset());
         }
 
         public override double Evaluate(int injectionindex, bool withoffset = true)
@@ -136,12 +149,10 @@ namespace AnalysisITC.AppClasses.Analysis2
 
         public class ModelSolution : SolutionInterface
         {
-            public new List<ModelSolution> BootstrapSolutions { get; set; }
-
-            public Energy Enthalpy => new (Parameters[ParameterTypes.Enthalpy1]);
-			public FloatWithError K => Parameters[ParameterTypes.Affinity1];
-			public FloatWithError N => Parameters[ParameterTypes.Nvalue1];
-            public Energy Offset => new (Parameters[ParameterTypes.Offset]);
+            public Energy Enthalpy => Parameters[ParameterTypes.Enthalpy1].Energy;
+            public FloatWithError K => Parameters[ParameterTypes.Affinity1];
+            public FloatWithError N => Parameters[ParameterTypes.Nvalue1];
+            public Energy Offset => Parameters[ParameterTypes.Offset].Energy;
 
             public FloatWithError Kd => new FloatWithError(1) / K;
             public Energy GibbsFreeEnergy => new(-1.0 * Energy.R.FloatWithError * TempKelvin * FWEMath.Log(K));
@@ -150,47 +161,63 @@ namespace AnalysisITC.AppClasses.Analysis2
 
             public ModelSolution(Model model, double[] parameters)
             {
-				Model = model;
-				BootstrapSolutions = new List<ModelSolution>();
-            }
-
-            public override void SetBootstrapSolutions(List<SolutionInterface> list)
-            {
-                BootstrapSolutions.AddRange(list.Select(sol => sol as ModelSolution));
+                Model = model;
+                BootstrapSolutions = new List<SolutionInterface>();
             }
 
             public override void ComputeErrorsFromBootstrapSolutions()
             {
-                var enthalpies = BootstrapSolutions.Select(s => s.Enthalpy.FloatWithError.Value);
-                var k = BootstrapSolutions.Select(s => s.K.Value);
-                var n = BootstrapSolutions.Select(s => s.N.Value);
-                var offsets = BootstrapSolutions.Select(s => (double)s.Offset);
+                var enthalpies = BootstrapSolutions.Select(s => (s as ModelSolution).Enthalpy.FloatWithError.Value);
+                var k = BootstrapSolutions.Select(s => (s as ModelSolution).K.Value);
+                var n = BootstrapSolutions.Select(s => (s as ModelSolution).N.Value);
+                var offsets = BootstrapSolutions.Select(s => (s as ModelSolution).Offset.Value);
 
                 Parameters[ParameterTypes.Enthalpy1] = new FloatWithError(enthalpies, Enthalpy);
-				Parameters[ParameterTypes.Affinity1] = new FloatWithError(k, K);
+                Parameters[ParameterTypes.Affinity1] = new FloatWithError(k, K);
                 Parameters[ParameterTypes.Nvalue1] = new FloatWithError(n, N);
                 Parameters[ParameterTypes.Offset] = new FloatWithError(offsets, Offset);
 
-				base.ComputeErrorsFromBootstrapSolutions();
+                base.ComputeErrorsFromBootstrapSolutions();
             }
 
-            public override List<Tuple<string, string>> UISolutionParameters(bool all = false)
-			{
-				var output = base.UISolutionParameters();
+            public override List<Tuple<string, string>> UISolutionParameters(SolutionInfo info)
+            {
+                var output = base.UISolutionParameters(info);
 
-				if (all) output.Add(new("N", N.ToString()));
+                if ((int)info > 0) output.Add(new("N", N.ToString("F2")));
 
-				output.Add(new("Kd", Kd.ToString()));
-				output.Add(new("∆H", Enthalpy.ToString()));
+                output.Add(new("Kd", Kd.AsDissociationConstant()));
+                output.Add(new("∆H", Enthalpy.ToString(EnergyUnit.KiloJoule, permole: true)));
 
-				if (all)
-				{
-					output.Add(new("-T∆S", TdS.ToString()));
-					output.Add(new("∆G", GibbsFreeEnergy.ToString()));
-				}
+                if ((int)info > 0)
+                {
+                    output.Add(new("-T∆S", TdS.ToString(EnergyUnit.KiloJoule, permole: true)));
+                    output.Add(new("∆G", GibbsFreeEnergy.ToString(EnergyUnit.KiloJoule, permole: true)));
+                }
 
-				return output;
-			}
+                if ((int)info > 1)
+                {
+                    output.Add(new("Offset", Offset.ToString(EnergyUnit.KiloJoule, permole: true)));
+                }
+
+                return output;
+            }
+
+            public override List<Tuple<ParameterTypes, Func<SolutionInterface, FloatWithError>>> DependenciesToReport => new List<Tuple<ParameterTypes, Func<SolutionInterface, FloatWithError>>>
+                {
+                    new (ParameterTypes.Enthalpy1, new(sol => (sol as ModelSolution).Enthalpy.FloatWithError)), 
+                    new (ParameterTypes.EntropyContribution1, new(sol => (sol as ModelSolution).TdS.FloatWithError)),
+                    new (ParameterTypes.Gibbs1, new(sol => (sol as ModelSolution).GibbsFreeEnergy.FloatWithError)),
+                };
+
+            public override Dictionary<ParameterTypes, FloatWithError> ReportParameters => new Dictionary<ParameterTypes, FloatWithError>
+                {
+                    { ParameterTypes.Nvalue1, N },
+                    { ParameterTypes.Affinity1, Kd },
+                    { ParameterTypes.Enthalpy1, Enthalpy.FloatWithError },
+                    { ParameterTypes.EntropyContribution1, TdS.FloatWithError} ,
+                    { ParameterTypes.Gibbs1, GibbsFreeEnergy.FloatWithError },
+                };
         }
     }
 
@@ -246,11 +273,6 @@ namespace AnalysisITC.AppClasses.Analysis2
                 Model = model;
             }
 
-            public override void SetBootstrapSolutions(List<SolutionInterface> list)
-            {
-                BootstrapSolutions.AddRange(list.Select(sol => sol as ModelSolution));
-            }
-
             public override void ComputeErrorsFromBootstrapSolutions()
             {
                 var enthalpies1 = BootstrapSolutions.Select(s => s.Enthalpy1.FloatWithError.Value);
@@ -272,9 +294,9 @@ namespace AnalysisITC.AppClasses.Analysis2
                 base.ComputeErrorsFromBootstrapSolutions();
             }
 
-            public override List<Tuple<string, string>> UISolutionParameters(bool all = false)
+            public override List<Tuple<string, string>> UISolutionParameters(SolutionInfo info)
             {
-                var output = base.UISolutionParameters();
+                var output = base.UISolutionParameters(info);
 
                 output.Add(new("Kd1", Kd1.ToString()));
                 output.Add(new("∆H1", Enthalpy1.ToString()));
@@ -287,16 +309,32 @@ namespace AnalysisITC.AppClasses.Analysis2
 	public class SolutionInterface
 	{
         public string Guid { get; private set; } = new Guid().ToString();
+        public bool IsGlobalAnalysisSolution { get; set; } = false;
 
         public Model Model { get; protected set; }
         public SolverConvergence Convergence { get; set; }
+        public ErrorEstimationMethod ErrorMethod { get; set; } = ErrorEstimationMethod.None;
         public virtual List<SolutionInterface> BootstrapSolutions { get; protected set; }
 		public Dictionary<ParameterTypes, FloatWithError> Parameters { get; } = new Dictionary<ParameterTypes, FloatWithError>();
 
+        public string SolutionName => (IsGlobalAnalysisSolution ? "Global." : "") + Model.ModelName;
         public ExperimentData Data => Model.Data;
-        public double T => Data.MeasuredTemperature;
-        public double TempKelvin => T + 273.15;
+        public double Temp => Data.MeasuredTemperature;
+        public double TempKelvin => Temp + 273.15;
 		public double Loss => Convergence.Loss;
+        public FloatWithError TotalEnthalpy
+        {
+            get
+            {
+                var dH = new FloatWithError(0.0);
+                foreach (var par in ParametersConformingToKey(ParameterTypes.Enthalpy1)) dH += par;
+                return dH;
+            }
+        }
+        public List<FloatWithError> ParametersConformingToKey(ParameterTypes key)
+        {
+            return Parameters.Where(par => par.Key.GetProperties().ParentType == key).Select(par => par.Value).ToList();
+        }
 
         public bool IsValid { get; private set; } = true;
 
@@ -317,19 +355,26 @@ namespace AnalysisITC.AppClasses.Analysis2
 
             foreach (var par in model.Parameters.Table) solution.Parameters.Add(par.Key, new (par.Value.Value));
 
+            Console.WriteLine(solution.TotalEnthalpy.Value.ToString());
+
             return solution;
 		}
 
-		public virtual List<Tuple<string,string>> UISolutionParameters(bool all = false)
+        public virtual List<Tuple<ParameterTypes, Func<SolutionInterface, FloatWithError>>> DependenciesToReport => null;
+        public virtual Dictionary<ParameterTypes, FloatWithError> ReportParameters => null;
+
+        public virtual List<Tuple<string,string>> UISolutionParameters(SolutionInfo info)
 		{
             var output = new List<Tuple<string, string>>();
 
-			output.Add(new(Model.ToString() + ":", Loss.ToString("G3")));
+            string mdl = SolutionName;
+
+			output.Add(new(mdl, Loss.ToString("G3")));
 
 			return output;
         }
 
-		public virtual void SetBootstrapSolutions(List<SolutionInterface> list)
+		public void SetBootstrapSolutions(List<SolutionInterface> list)
 		{
 			BootstrapSolutions = list;
 		}
@@ -337,6 +382,18 @@ namespace AnalysisITC.AppClasses.Analysis2
         public virtual void ComputeErrorsFromBootstrapSolutions()
         {
             Data.UpdateSolution(null);
+        }
+
+        public virtual string GetClipboardString(double magnitude, EnergyUnit eunit)
+        {
+            return null;
+        }
+
+        public enum SolutionInfo
+        {
+            TableSummaryLines = 0,
+            FinalFigure = 1,
+            Analysis = 2
         }
     }
 }

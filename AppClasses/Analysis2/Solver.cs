@@ -12,21 +12,29 @@ using Accord.IO;
 
 namespace AnalysisITC.AppClasses.Analysis2
 {
+    public static class FittingOptionsController
+    {
+        public static ErrorEstimationMethod ErrorEstimationMethod { get; set; } = ErrorEstimationMethod.BootstrapResiduals;
+        public static int BootstrapIterations { get; set; } = 100;
+    }
+
     public class SolverInterface
     {
         public static TerminationFlag TerminateAnalysisFlag { get; protected set; } = new TerminationFlag();
-        
+
+        public bool Silent { get; set; } = false;
 
         public static event EventHandler<Tuple<int, int, float>> BootstrapIterationFinished;
         public static event EventHandler<SolverConvergence> AnalysisFinished;
         public static event EventHandler AnalysisStepFinished;
+        public static event EventHandler<SolverUpdate> SolverUpdated;
 
-        public Analysis.SolverAlgorithm SolverAlgorithm { get; set; } = Analysis.SolverAlgorithm.NelderMead;
-        public Analysis.ErrorEstimationMethod ErrorEstimationMethod { get; set; } = Analysis.ErrorEstimationMethod.None;
+        public SolverAlgorithm SolverAlgorithm { get; set; } = SolverAlgorithm.NelderMead;
+        public ErrorEstimationMethod ErrorEstimationMethod { get; set; } = ErrorEstimationMethod.None;
         public int BootstrapIterations { get; set; } = 100;
         public double SolverFunctionTolerance { get; set; } = double.Epsilon;
+        public double RelativeParameterTolerance { get; set; } = 2E-5;
         public double SolverBootstrapTolerance { get; set; } = 1.0E-11;
-
 
         protected DateTime starttime;
         protected DateTime endtime;
@@ -68,21 +76,28 @@ namespace AnalysisITC.AppClasses.Analysis2
 
         public void ReportBootstrapProgress(int iteration) => NSApplication.SharedApplication.InvokeOnMainThread(() =>
         {
-            BootstrapIterationFinished?.Invoke(null, new Tuple<int, int, float>(iteration, BootstrapIterations, iteration / (float)BootstrapIterations));
+            if (!Silent) BootstrapIterationFinished?.Invoke(null, new Tuple<int, int, float>(iteration, BootstrapIterations, iteration / (float)BootstrapIterations));
         });
 
         public void ReportAnalysisStepFinished() => NSApplication.SharedApplication.InvokeOnMainThread(() =>
         {
-            AnalysisStepFinished?.Invoke(null, null);
+            if (!Silent) AnalysisStepFinished?.Invoke(null, null);
         });
 
         public void ReportAnalysisFinished(SolverConvergence convergence) => NSApplication.SharedApplication.InvokeOnMainThread(() =>
         {
-            AnalysisFinished?.Invoke(null, convergence);
+            if (!Silent) AnalysisFinished?.Invoke(null, convergence);
         });
 
-        public async void Analyze() => await Task.Run(() =>
+        public void ReportSolverUpdate(SolverUpdate update) => NSApplication.SharedApplication.InvokeOnMainThread(() =>
         {
+            if (!Silent) SolverUpdated?.Invoke(null, update);
+        });
+
+        public virtual async void Analyze() => await Task.Run(() =>
+        {
+            TerminateAnalysisFlag = new TerminationFlag();
+
             var convergence = Solve();
             ReportAnalysisFinished(convergence);
         });
@@ -90,14 +105,13 @@ namespace AnalysisITC.AppClasses.Analysis2
         public virtual SolverConvergence Solve()
         {
             starttime = DateTime.Now;
-            TerminateAnalysisFlag = new TerminationFlag();
 
             SolverConvergence convergence = null;
 
             switch (SolverAlgorithm)
             {
-                case Analysis.SolverAlgorithm.NelderMead: convergence = SolveWithNelderMeadAlgorithm(); break;
-                case Analysis.SolverAlgorithm.LevenbergMarquardt: convergence = SolverWithLevenbergMarquardtAlgorithm(); break;
+                case SolverAlgorithm.NelderMead: convergence = SolveWithNelderMeadAlgorithm(); break;
+                case SolverAlgorithm.LevenbergMarquardt: convergence = SolverWithLevenbergMarquardtAlgorithm(); break;
                 default: throw new NotImplementedException("Solver algorithm not implemented");
             }
 
@@ -105,14 +119,14 @@ namespace AnalysisITC.AppClasses.Analysis2
 
             switch (ErrorEstimationMethod)
             {
-                case Analysis.ErrorEstimationMethod.BootstrapResiduals: BoostrapResiduals(); break;
-                case Analysis.ErrorEstimationMethod.None:
+                case ErrorEstimationMethod.BootstrapResiduals: BoostrapResiduals(); break;
+                case ErrorEstimationMethod.None:
                 default: break;
             }
 
             endtime = DateTime.Now;
 
-            Console.WriteLine("Analysis time: " + Duration.TotalSeconds + "s");
+            //Console.WriteLine("Analysis time: " + Duration.TotalSeconds + "s");
 
             return convergence;
         }
@@ -161,7 +175,7 @@ namespace AnalysisITC.AppClasses.Analysis2
     public class Solver : SolverInterface
     {
         public Model Model { get; set; }
-        public SolutionInterface Solution { get; private set; }
+        public SolutionInterface Solution => Model.Solution;
 
         protected override SolverConvergence SolveWithNelderMeadAlgorithm()
         {
@@ -172,6 +186,7 @@ namespace AnalysisITC.AppClasses.Analysis2
             {
                 MaximumEvaluations = 300000,
                 AbsoluteFunctionTolerance = SolverFunctionTolerance,
+                RelativeParameterTolerance = RelativeParameterTolerance,
                 StartTime = DateTime.Now,
             };
 
@@ -182,6 +197,7 @@ namespace AnalysisITC.AppClasses.Analysis2
 
             Model.Solution = SolutionInterface.FromModel(Model, solver.Solution);
             Model.Solution.Convergence = new SolverConvergence(solver);
+            Model.Solution.ErrorMethod = ErrorEstimationMethod;
 
             return Model.Solution.Convergence;
         }
@@ -215,10 +231,9 @@ namespace AnalysisITC.AppClasses.Analysis2
 
             var solutions = bag.ToList();
 
-            Model.GenerateSyntheticModel();
-
-            Model.Solution.SetBootstrapSolutions(solutions.Where(sol => !sol.Convergence.Failed).ToList());
-            Model.Solution.ComputeErrorsFromBootstrapSolutions();
+            Solution.SetBootstrapSolutions(solutions.Where(sol => !sol.Convergence.Failed).ToList());
+            Solution.ComputeErrorsFromBootstrapSolutions();
+            Solution.Convergence.SetBootstrapTime(DateTime.Now - start);
         }
     }
 
@@ -226,6 +241,50 @@ namespace AnalysisITC.AppClasses.Analysis2
     {
         public GlobalModel Model { get; set; }
         public GlobalSolution Solution => Model.Solution;
+
+        public override async void Analyze()
+        {
+            await Task.Run(() =>
+            {
+                SolverConvergence convergence;
+
+                if (Model.ShouldFitIndividually)
+                {
+                    ReportSolverUpdate(new SolverUpdate() { Message = "Fitting individually...", Progress = 0, TotalSteps = Model.Models.Count });
+
+                    List<SolverConvergence> convergences = new List<SolverConvergence>();
+                    int counter = 0;
+                    foreach (var mdl in Model.Models)
+                    {
+                        var solver = SolverInterface.Initialize(mdl);
+                        solver.ErrorEstimationMethod = ErrorEstimationMethod;
+                        solver.BootstrapIterations = BootstrapIterations;
+                        solver.SolverAlgorithm = SolverAlgorithm;
+                        solver.Silent = true;
+
+                        var con = solver.Solve();
+
+                        convergences.Add(con);
+
+                        counter++;
+
+                        ReportSolverUpdate(new SolverUpdate() { Progress = (float)counter/Model.Models.Count, Step = counter, TotalSteps = Model.Models.Count });
+                    }
+
+                    convergence = new SolverConvergence(convergences);
+
+                    Model.Solution = new GlobalSolution(this, Model.Models.Select(mdl => mdl.Solution).ToList(), convergence);
+                }
+                else //Fit globally
+                {
+                    convergence = Solve();
+                }
+
+                ReportAnalysisFinished(convergence);
+            });
+
+            DataManager.AddData(new AnalysisResult(Model.Solution));
+        }
 
         protected override SolverConvergence SolveWithNelderMeadAlgorithm()
         {
@@ -236,6 +295,7 @@ namespace AnalysisITC.AppClasses.Analysis2
             {
                 MaximumEvaluations = 300000,
                 AbsoluteFunctionTolerance = SolverFunctionTolerance,
+                //RelativeParameterTolerance = RelativeParameterTolerance,
                 StartTime = DateTime.Now,
             };
 
@@ -244,7 +304,7 @@ namespace AnalysisITC.AppClasses.Analysis2
 
             solver.Minimize(Model.Parameters.ToArray());
 
-            Model.Solution = new GlobalSolution(Model, new SolverConvergence(solver));
+            Model.Solution = new GlobalSolution(this, new SolverConvergence(solver));
 
             return Model.Solution.Convergence;
         }
@@ -259,7 +319,7 @@ namespace AnalysisITC.AppClasses.Analysis2
             var opt = new ParallelOptions();
             opt.MaxDegreeOfParallelism = 10;
 
-            var res = Parallel.For(0, Analysis.BootstrapIterations, opt, (i) =>
+            var res = Parallel.For(0, BootstrapIterations, opt, (i) =>
             {
                 if (TerminateAnalysisFlag.Down)
                 {
@@ -270,7 +330,7 @@ namespace AnalysisITC.AppClasses.Analysis2
                     solver.SolverFunctionTolerance = SolverBootstrapTolerance;
 
                     var convergence = solver.Solve();
-                    var solution = new GlobalSolution(globalmodel, convergence);
+                    var solution = new GlobalSolution(solver, convergence);
 
                     bag.Add(solution);
                 }

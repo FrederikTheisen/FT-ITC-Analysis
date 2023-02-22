@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using Accord.Math.Distances;
 using Microsoft.SolverFoundation.Services;
 using static CoreFoundation.DispatchSource;
 
@@ -58,18 +59,45 @@ namespace AnalysisITC.AppClasses.Analysis2
 		/// <exception cref="NotImplementedException"></exception>
 		public virtual IEnumerable<Parameter> GetExposedParameters()
 		{
-			throw new NotImplementedException("Generic GetExposedParameters not implemented");
+			throw new NotImplementedException("ModelFactory.GetExposedParameters()");
 		}
 
 		public virtual void SetCustomParameter(ParameterTypes key, double value, bool locked)
 		{
+            throw new NotImplementedException("ModelFactory.SetCustomParameter()");
+        }
 
+		public virtual void UpdateData()
+		{
+			throw new NotImplementedException("ModelFactory.UpdateData()");
 		}
 
 		public virtual void BuildModel()
 		{
 			Console.WriteLine("Building model: " + (IsGlobalAnalysis ? "GlobalModel " : "IndividualModel ") + ModelType.ToString());
         }
+
+		public static void Clear()
+		{
+			var factory = InitializeFactory(Factory.ModelType, Factory.IsGlobalAnalysis);
+
+			if (Factory is SingleModelFactory)
+			{
+				foreach (var par in Factory.GetExposedParameters())
+				{
+					
+				}
+			}
+			else if (Factory is GlobalModelFactory)
+			{
+				foreach (var con in ((GlobalModelFactory)Factory).GlobalModelParameters.Constraints)
+				{
+					(factory as GlobalModelFactory).GlobalModelParameters.Constraints.Add(con.Key, con.Value);
+				}
+			}
+
+			Factory = factory;
+		}
 	}
 
 	public class SingleModelFactory : ModelFactory
@@ -100,9 +128,15 @@ namespace AnalysisITC.AppClasses.Analysis2
 			return Model.Parameters.Table.Values;
 		}
 
-        public virtual void SetCustomParameter(ParameterTypes key, double value, bool locked)
+        public override void SetCustomParameter(ParameterTypes key, double value, bool locked)
         {
+            if (!Model.Parameters.Table.ContainsKey(key)) throw new Exception("Parameter not found [File: GlobalFactory.SetCustomParameter]: " + key.ToString());
+            Model.Parameters.Table[key].Update(value, locked);
+        }
 
+        public override void UpdateData()
+        {
+			InitializeModel(DataManager.Current);
         }
 
         public override void BuildModel()
@@ -119,7 +153,7 @@ namespace AnalysisITC.AppClasses.Analysis2
 
         public GlobalModel Model { get; private set; }
 		public GlobalModelParameters GlobalModelParameters { get; private set; }
-		private Dictionary<ParameterTypes, List<Analysis.VariableConstraint>> ExposedGlobalFittingOptions { get; set; }
+		private Dictionary<ParameterTypes, List<VariableConstraint>> ExposedGlobalFittingOptions { get; set; }
 
 		public List<Parameter> Parameters => GlobalModelParameters.GlobalTable.Values.ToList();
 
@@ -144,13 +178,16 @@ namespace AnalysisITC.AppClasses.Analysis2
 			Model = new GlobalModel();
 			GlobalModelParameters = new GlobalModelParameters();
 
-            foreach (var data in DataManager.Data.Where(d => d.Include))
+			var datas = DataManager.Data.Where(d => d.Include).ToList();
+
+            datas.Shuffle();
+
+            foreach (var data in datas)
 			{
 				Console.WriteLine("Adding data: " + data.FileName);
 				var factory = new SingleModelFactory(ModelType);
 
 				factory.InitializeModel(data);
-				factory.BuildModel();
 
 				Model.AddModel(factory.Model);
 			}
@@ -160,9 +197,11 @@ namespace AnalysisITC.AppClasses.Analysis2
             InitializeGlobalParameters();
         }
 
+
+
         public void InitializeGlobalParameters()
         {
-            if (Model.Models is null || Model.Models.Count == 0) throw new Exception("No models in global model");
+            if (Model.Models == null || Model.Models.Count == 0) throw new Exception("No models in global model");
 
 			StorePrevParameters();
 
@@ -172,7 +211,7 @@ namespace AnalysisITC.AppClasses.Analysis2
 
             foreach (var par in _pars.Table.Values)
             {
-				Parameter? prevvalue = PrevParameters.Exists(p => p.Key == par.Key) ? PrevParameters.Find(p => p.Key == par.Key) : null;
+				Parameter prevvalue = PrevParameters.Exists(p => p.Key == par.Key) ? PrevParameters.Find(p => p.Key == par.Key) : null;
 
                 switch (par.Key)
                 {
@@ -180,7 +219,7 @@ namespace AnalysisITC.AppClasses.Analysis2
                     case ParameterTypes.Nvalue2:
                         switch (GlobalModelParameters.GetConstraintForParameter(par.Key))
                         {
-                            case Analysis.VariableConstraint.SameForAll:
+                            case VariableConstraint.SameForAll:
                                 GlobalModelParameters.AddorUpdateGlobalParameter(
                                     key: par.Key,
                                     value: prevvalue != null ? prevvalue.Value : Model.Models.Average(mdl => mdl.GuessN()),
@@ -193,14 +232,14 @@ namespace AnalysisITC.AppClasses.Analysis2
                     case ParameterTypes.Enthalpy2:
                         switch (GlobalModelParameters.GetConstraintForParameter(par.Key))
                         {
-                            case Analysis.VariableConstraint.None: break;
-                            case Analysis.VariableConstraint.SameForAll:
+                            case VariableConstraint.None: break;
+                            case VariableConstraint.SameForAll:
                                 GlobalModelParameters.AddorUpdateGlobalParameter(
                                     key: par.Key,
                                     value: prevvalue != null ? prevvalue.Value : Model.Models.Average(mdl => mdl.GuessEnthalpy()),
                                     islocked: prevvalue != null ? prevvalue.IsLocked : false);
                                 break;
-                            case Analysis.VariableConstraint.TemperatureDependent:
+                            case VariableConstraint.TemperatureDependent:
 								var prevdCp = PrevParameters.Find(p => Parameter.Equal(p.Key, ParameterTypes.HeatCapacity1));
 
                                 GlobalModelParameters.AddorUpdateGlobalParameter(
@@ -218,8 +257,8 @@ namespace AnalysisITC.AppClasses.Analysis2
                     case ParameterTypes.Affinity2:
                         switch (GlobalModelParameters.GetConstraintForParameter(par.Key))
                         {
-                            case Analysis.VariableConstraint.SameForAll:
-                            case Analysis.VariableConstraint.TemperatureDependent:
+                            case VariableConstraint.SameForAll:
+                            case VariableConstraint.TemperatureDependent:
 								GlobalModelParameters.AddorUpdateGlobalParameter(
 									key: par.Key == ParameterTypes.Affinity1 ? ParameterTypes.Gibbs1 : ParameterTypes.Gibbs2,
 									value: prevvalue != null ? (double)prevvalue.Value : Model.Models.Average(mdl => mdl.GuessAffinityAsGibbs()),
@@ -235,16 +274,16 @@ namespace AnalysisITC.AppClasses.Analysis2
 
         void InitializeExposedGlobalFittingOptions()
 		{
-			var dict = new Dictionary<ParameterTypes, List<Analysis.VariableConstraint>>();
+			var dict = new Dictionary<ParameterTypes, List<VariableConstraint>>();
 
-			bool tempdependenceenabled = false;
+			Model.TemperatureDependenceExposed = false;
 
             if (Model.Models.Count > 1)
             {
                 var min = Model.Models.Min(mdl => mdl.Data.MeasuredTemperature);
                 var max = Model.Models.Max(mdl => mdl.Data.MeasuredTemperature);
 
-                if (max - min > AppSettings.MinimumTemperatureSpanForFitting) tempdependenceenabled = true;
+                if (max - min > AppSettings.MinimumTemperatureSpanForFitting) Model.TemperatureDependenceExposed = true;
             }
 
             var _pars = Model.Models.First().Parameters;
@@ -257,17 +296,17 @@ namespace AnalysisITC.AppClasses.Analysis2
 					//Temperature dependent variables
 					case ParameterTypes.Affinity1:
 					case ParameterTypes.Affinity2:
-                        dict[par.Key] = new List<Analysis.VariableConstraint> { Analysis.VariableConstraint.None, Analysis.VariableConstraint.TemperatureDependent };
+                        dict[par.Key] = new List<VariableConstraint> { VariableConstraint.None, VariableConstraint.TemperatureDependent };
                         break;
                     case ParameterTypes.Enthalpy1:
 					case ParameterTypes.Enthalpy2:
-						if (tempdependenceenabled) dict[par.Key] = new List<Analysis.VariableConstraint> { Analysis.VariableConstraint.None, Analysis.VariableConstraint.TemperatureDependent, Analysis.VariableConstraint.SameForAll};
-						else dict[par.Key] = new List<Analysis.VariableConstraint> { Analysis.VariableConstraint.None, Analysis.VariableConstraint.SameForAll };
+						if (Model.TemperatureDependenceExposed) dict[par.Key] = new List<VariableConstraint> { VariableConstraint.None, VariableConstraint.TemperatureDependent, VariableConstraint.SameForAll};
+						else dict[par.Key] = new List<VariableConstraint> { VariableConstraint.None, VariableConstraint.SameForAll };
 						break;
 					//Not temperature dependent variables
                     case ParameterTypes.Nvalue1:
 					case ParameterTypes.Nvalue2:
-						dict[par.Key] = new List<Analysis.VariableConstraint> { Analysis.VariableConstraint.None, Analysis.VariableConstraint.SameForAll };
+						dict[par.Key] = new List<VariableConstraint> { VariableConstraint.None, VariableConstraint.SameForAll };
 						break;
 				}
 			}
@@ -275,7 +314,7 @@ namespace AnalysisITC.AppClasses.Analysis2
             ExposedGlobalFittingOptions = dict;
 		}
 
-		public Dictionary<ParameterTypes, List<Analysis.VariableConstraint>> GetExposedOptions()
+		public Dictionary<ParameterTypes, List<VariableConstraint>> GetExposedOptions()
 		{
 			return ExposedGlobalFittingOptions;
 		}
@@ -291,11 +330,36 @@ namespace AnalysisITC.AppClasses.Analysis2
 			GlobalModelParameters.GlobalTable[key].Update(value, locked);
         }
 
+        public override void UpdateData()
+        {
+			Model.Models.Clear();
+
+            var datas = DataManager.Data.Where(d => d.Include).ToList();
+
+			datas.Shuffle();
+
+            foreach (var data in datas)
+            {
+                Console.WriteLine("Adding data: " + data.FileName);
+                var factory = new SingleModelFactory(ModelType);
+
+                factory.InitializeModel(data);
+
+                Model.AddModel(factory.Model);
+            }
+
+            InitializeExposedGlobalFittingOptions();
+            InitializeGlobalParameters();
+        }
+
         public override void BuildModel()
         {
 			GlobalModelParameters.IndividualModelParameterList.Clear();
 
-			Model.Parameters = GlobalModelParameters;
+            //foreach (var item in GlobalModelParameters.Constraints.Where(kvp => kvp.Value == VariableConstraint.None).ToList())
+			//	GlobalModelParameters.Constraints.Remove(item.Key);
+            
+            Model.Parameters = GlobalModelParameters;
 
             foreach (var mdl in Model.Models)
 			{
