@@ -11,6 +11,8 @@ namespace AnalysisITC
 {
     public static class Extensions
     {
+        private static Random rng = new Random();
+
         public static string GetEnumDescription(this Enum value)
         {
             // Get the Description attribute value for the enum value
@@ -23,7 +25,9 @@ namespace AnalysisITC
                 return value.ToString();
         }
 
-        public static string Description(this Analysis.SolverAlgorithm alg) => GetEnumDescription(alg);
+        public static string Description(this SolverAlgorithm alg) => GetEnumDescription(alg);
+        public static string Description(this ErrorEstimationMethod alg) => GetEnumDescription(alg);
+
 
         public static ITCFormatAttribute GetProperties(this ITCDataFormat value)
         {
@@ -104,6 +108,19 @@ namespace AnalysisITC
         public static CGPoint Subtract(this CGPoint p, float x, float y) => new CGPoint(p.X - x, p.Y - y);
 
         public static CGPoint Subtract(this CGPoint p1, CGPoint p2) => new CGPoint(p1.X - p2.X, p1.Y - p2.Y);
+
+        public static void Shuffle<T>(this IList<T> list)
+        {
+            int n = list.Count;
+            while (n > 1)
+            {
+                n--;
+                int k = rng.Next(n + 1);
+                T value = list[k];
+                list[k] = list[n];
+                list[n] = value;
+            }
+        }
     }
 
     public static class FWEMath
