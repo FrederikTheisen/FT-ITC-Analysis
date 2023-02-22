@@ -13,7 +13,13 @@ namespace AnalysisITC
 	partial class ExperimentDetailsPopoverController
 	{
 		[Outlet]
+		AppKit.NSTextField CellConcentrationErrorField { get; set; }
+
+		[Outlet]
 		AppKit.NSTextField CellConcentrationField { get; set; }
+
+		[Outlet]
+		AppKit.NSTextField SyringeConcentrationErrorField { get; set; }
 
 		[Outlet]
 		AppKit.NSTextField SyringeConcentrationField { get; set; }
@@ -34,9 +40,19 @@ namespace AnalysisITC
 				CellConcentrationField = null;
 			}
 
+			if (CellConcentrationErrorField != null) {
+				CellConcentrationErrorField.Dispose ();
+				CellConcentrationErrorField = null;
+			}
+
 			if (SyringeConcentrationField != null) {
 				SyringeConcentrationField.Dispose ();
 				SyringeConcentrationField = null;
+			}
+
+			if (SyringeConcentrationErrorField != null) {
+				SyringeConcentrationErrorField.Dispose ();
+				SyringeConcentrationErrorField = null;
 			}
 
 			if (TemperatureField != null) {
