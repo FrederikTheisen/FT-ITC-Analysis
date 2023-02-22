@@ -6,6 +6,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Threading.Tasks;
 using System.Linq;
+using AnalysisITC.AppClasses.Analysis2;
 
 namespace AnalysisITC
 {
@@ -321,17 +322,33 @@ namespace AnalysisITC
             foreach (var line in file) await stream.WriteLineAsync(line);
         }
 
-        static async Task WriteSolutionToFile(Solution solution, StreamWriter stream)
+        //static async Task WriteSolutionToFile(Solution solution, StreamWriter stream)
+        //{
+        //    var file = new List<string>();
+        //    file.Add(FileHeader(SolutionHeader, solution.Guid));
+        //    file.Add(Variable(SolModel, solution.Model.ToString()));
+        //    file.Add(Variable(SolLoss, solution.Loss));
+        //    file.Add(Variable(SolParamsRaw, string.Join(",", solution.Raw.ToList())));
+        //    file.Add(Variable(SolH, solution.Enthalpy));
+        //    file.Add(Variable(SolK, solution.K));
+        //    file.Add(Variable(SolN, solution.N));
+        //    file.Add(Variable(SolO, solution.Offset));
+        //    file.Add(Variable(SolBootN, solution.BootstrapSolutions.Count));
+
+        //    file.Add(EndFileHeader);
+        //    foreach (var line in file) await stream.WriteLineAsync(line);
+        //}
+
+        static async Task WriteSolutionToFile2(SolutionInterface solution, StreamWriter stream)
         {
             var file = new List<string>();
             file.Add(FileHeader(SolutionHeader, solution.Guid));
             file.Add(Variable(SolModel, solution.Model.ToString()));
             file.Add(Variable(SolLoss, solution.Loss));
-            file.Add(Variable(SolParamsRaw, string.Join(",", solution.Raw.ToList())));
-            file.Add(Variable(SolH, solution.Enthalpy));
-            file.Add(Variable(SolK, solution.K));
-            file.Add(Variable(SolN, solution.N));
-            file.Add(Variable(SolO, solution.Offset));
+            foreach (var par in solution.Parameters)
+            {
+                file.Add(Variable(par.Key.ToString(), par.Value));
+            }
             file.Add(Variable(SolBootN, solution.BootstrapSolutions.Count));
 
             file.Add(EndFileHeader);
@@ -358,6 +375,37 @@ namespace AnalysisITC
         static void GetAnalysisResultString(AnalysisResult result)
         {
 
+        }
+
+        public static void CopyToClipboard(GlobalSolution solution, double kdmagnitude, EnergyUnit unit, bool usekelvin)
+        {
+            NSPasteboard.GeneralPasteboard.ClearContents();
+
+            string paste = "";
+
+            foreach (var data in solution.Solutions)
+            {
+                paste += (usekelvin ? data.TempKelvin : data.Temp).ToString("F2") + " ";
+                foreach (var par in data.ReportParameters)
+                {
+                    switch (par.Key)
+                    {
+                        case ParameterTypes.Nvalue1:
+                        case ParameterTypes.Nvalue2: paste += par.Value.ToString("F2"); break;
+                        case ParameterTypes.Affinity1:
+                        case ParameterTypes.Affinity2: paste += par.Value.AsDissociationConstant(kdmagnitude, withunit: false); break;
+                        default: paste += new Energy(par.Value).ToString(unit, withunit: false); break;
+                    }
+                    paste += " ";
+                }
+                paste = paste.Trim() + Environment.NewLine;
+            }
+
+            paste = paste.Replace('±', ' ');
+
+            NSPasteboard.GeneralPasteboard.SetStringForType(paste, "NSStringPboardType");
+
+            StatusBarManager.SetStatus("Results copied to clipboard", 3333);
         }
     }
 }
