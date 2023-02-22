@@ -6,7 +6,7 @@ using Foundation;
 using AppKit;
 using AnalysisITC.AppClasses.Analysis2;
 using System.Collections.Generic;
-using static AnalysisITC.Analysis;
+//using static AnalysisITC.Analysis;
 using static AnalysisITC.Extensions;
 
 namespace AnalysisITC
@@ -16,8 +16,7 @@ namespace AnalysisITC
         public event EventHandler<Tuple<ParameterTypes, VariableConstraint>> ParameterContraintUpdated;
 
         ParameterTypes key;
-        List<Analysis.VariableConstraint> options;
-
+        List<VariableConstraint> options;
 
         public AnalysisGlobalModeOptionsViewController (IntPtr handle) : base (handle)
 		{
@@ -29,7 +28,7 @@ namespace AnalysisITC
 
         }
 
-        public void Setup(ParameterTypes type, List<Analysis.VariableConstraint> options)
+        public void Setup(ParameterTypes type, List<VariableConstraint> options)
         {
             key = type;
 

@@ -6,7 +6,7 @@ using Foundation;
 using AppKit;
 using AnalysisITC.AppClasses.Analysis2;
 using System.Collections.Generic;
-using static AnalysisITC.Analysis;
+//using static AnalysisITC.Analysis;
 using CoreGraphics;
 
 namespace AnalysisITC
@@ -17,7 +17,7 @@ namespace AnalysisITC
 
         GlobalModelParameters modelparameters;
         ParameterTypes key;
-        List<Analysis.VariableConstraint> options;
+        List<VariableConstraint> options;
 
         private NSTextField Label;
         private NSSegmentedControl Control;
@@ -68,7 +68,7 @@ namespace AnalysisITC
 
         public override CGSize IntrinsicContentSize => new CGSize(150, 20);
 
-        public void Setup(ParameterTypes type, List<Analysis.VariableConstraint> options, GlobalModelParameters modelparameters)
+        public void Setup(ParameterTypes type, List<VariableConstraint> options, GlobalModelParameters modelparameters)
         {
             this.modelparameters = modelparameters;
             this.key = type;
@@ -87,7 +87,6 @@ namespace AnalysisITC
             }
 
             Label.StringValue = key.GetEnumDescription() + " variable constraint";
-            Control.SelectedSegment = 0;
 
             Layout();
         }
