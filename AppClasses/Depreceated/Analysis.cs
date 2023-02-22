@@ -13,7 +13,7 @@ using System.ComponentModel;
 using System.Collections.Concurrent;
 using AnalysisITC.AppClasses.Analysis2;
 
-namespace AnalysisITC
+namespace AnalysisITC.Obsolete
 {
     public static class Analysis
     {
@@ -241,39 +241,10 @@ namespace AnalysisITC
             //}
         }
 
-        [Description]
-        public enum VariableConstraint
-        {
-            [Description("None")]
-            None,
-            [Description("Temperature dependent")]
-            TemperatureDependent,
-            [Description("Same for all")]
-            SameForAll
-        }
 
-        public enum ErrorEstimationMethod
-        {
-            None,
-            BootstrapResiduals
-        }
-
-        public enum SolverAlgorithm
-        {
-            [Description("Nelder-Mead [SIMPLEX]")]
-            NelderMead,
-            [Description("Levenberg-Marquardt")]
-            LevenbergMarquardt
-        }
     }
 
-    public enum AnalysisModel
-    {
-        OneSetOfSites,
-        TwoSetsOfSites,
-        SequentialBindingSites,
-        Dissociation
-    }
+
 
     public class Model
     {
