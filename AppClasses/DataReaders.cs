@@ -435,7 +435,7 @@ namespace DataReaders
             var exp = new ExperimentData(GContent(FileName, data));
             exp.SetID(GContent(ID, data));
             exp.Date = DateTime.Parse(GContent(Date, data));
-            exp.Include = GContent(Include, data) == "1";
+            //exp.Include = GContent(Include, data) == "1";
             exp.SyringeConcentration = double.Parse(GContent(SyringeConcentration, data));
             exp.CellConcentration = double.Parse(GContent(CellConcentration, data));
             exp.StirringSpeed = double.Parse(GContent(StirringSpeed, data));
