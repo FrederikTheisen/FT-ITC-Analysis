@@ -6,14 +6,20 @@ using Foundation;
 using AppKit;
 using System.Linq;
 using System.Collections.Generic;
+using AnalysisITC.AppClasses.Analysis2;
 
 namespace AnalysisITC
 {
 	public partial class AnalysisResultTabViewController : NSViewController
 	{
         AnalysisResult AnalysisResult { get; set; }
+        GlobalSolution Solution => AnalysisResult.Solution;
 
-		public AnalysisResultTabViewController (IntPtr handle) : base (handle)
+        EnergyUnit EnergyUnit => (int)EnergyControl.SelectedSegment switch { 0 => EnergyUnit.Joule, 1 => EnergyUnit.KiloJoule, 2 => EnergyUnit.Cal, 3 => EnergyUnit.KCal, _ => EnergyUnit.KiloJoule, };
+        public bool UseKelvin => TempControl.SelectedSegment == 1;
+        double Mag = -1;
+
+        public AnalysisResultTabViewController (IntPtr handle) : base (handle)
 		{
             DataManager.AnalysisResultSelected += DataManager_AnalysisResultSelected;
             SpolarRecordAnalysisController.IterationFinished += SpolarRecordAnalysisController_IterationFinished;
@@ -64,13 +70,9 @@ namespace AnalysisITC
             Setup();
         }
 
-        EnergyUnit EnergyUnit => (int)EnergyControl.SelectedSegment switch { 0 => EnergyUnit.Joule, 1 => EnergyUnit.KiloJoule, 2 => EnergyUnit.Cal, 3 => EnergyUnit.KCal, _ => EnergyUnit.KiloJoule, };
-        public bool UseKelvin => TempControl.SelectedSegment == 1;
-        double Mag = -1;
-
         public void Setup()
         {
-            var kd = AnalysisResult.Solution.Solutions.Average(s => s.Kd);
+            var kd = Solution.Solutions.Average(s => s.ReportParameters[AppClasses.Analysis2.ParameterTypes.Affinity1]);
 
             Mag = Math.Log10(kd);
 
@@ -92,25 +94,41 @@ namespace AnalysisITC
             };
             ResultsTableView.DataSource = source;
             ResultsTableView.Delegate = new ResultViewDelegate(source);
-            ResultsTableView.TableColumns()[0].Title = "Temperature (" + (UseKelvin ? "K" : "°C") + ")";
-            ResultsTableView.TableColumns()[2].Title = "Kd (" + kdunit + ")";
-            ResultsTableView.TableColumns()[3].Title = "∆H (" + EnergyUnit.GetUnit() + Energy.Suffix(true) + ")";
-            ResultsTableView.TableColumns()[4].Title = "-T∆S (" + EnergyUnit.GetUnit() + Energy.Suffix(true) + ")";
-            ResultsTableView.TableColumns()[5].Title = "∆G (" + EnergyUnit.GetUnit() + Energy.Suffix(true) + ")";
 
-            ExperimentListButton.Title = AnalysisResult.Solution.Solutions.Count + " experiments";
-            ResultSummaryLabel.StringValue = string.Join(Environment.NewLine, new string[] { AnalysisResult.Solution.Model.Models[0].ModelName, AnalysisResult.Solution.Convergence.Algorithm.Description(), "---" , AnalysisResult.Solution.BootstrapIterations.ToString() });
+            while (ResultsTableView.ColumnCount > 0) ResultsTableView.RemoveColumn(ResultsTableView.TableColumns()[0]);
 
-            var refT = AnalysisResult.Solution.ReferenceTemperature;
+            ResultsTableView.AddColumn(new NSTableColumn("Temp") { Title = "Temperature (" + (UseKelvin ? "K" : "°C") + ")" });
+            foreach (var par in Solution.IndividualModelReportParameters)
+            {
+                ResultsTableView.AddColumn(new NSTableColumn(ParameterTypesAttribute.TableHeaderTitle(par, true))
+                {
+                    Title = ParameterTypesAttribute.TableHeader(par, Solution.Solutions[0].ParametersConformingToKey(par).Count > 1, EnergyUnit, kdunit),
+                });
+            }
+            ResultsTableView.AddColumn(new NSTableColumn("Loss") { Title = "Loss" });
+
+            ExperimentListButton.Title = Solution.Solutions.Count + " experiments";
+            ResultSummaryLabel.StringValue = string.Join(Environment.NewLine, new string[]
+            {
+                Solution.SolutionName,
+                Solution.Convergence.Algorithm.Description(),
+                Solution.ErrorEstimationMethod.Description(),
+                Solution.ErrorEstimationMethod == ErrorEstimationMethod.None ? "-" : Solution.BootstrapIterations.ToString() });
+
+            var refT = Solution.MeanTemperature;
             if (UseKelvin)
             {
                 refT += 273.15;
                 ResultEvalTempUnitLabel.StringValue = "K";
             }
             else ResultEvalTempUnitLabel.StringValue = "°C";
-            string tempunit = " " + (UseKelvin ? "K" : "°C") + " / ";
+            string tempunit = " " + (UseKelvin ? "K" : "°C");
 
-            TemperatureDependenceLabel.StringValue = string.Join(Environment.NewLine, new string[] { refT.ToString("F2") + tempunit + EnergyUnit.GetUnit() + "/mol", AnalysisResult.Solution.EnthalpyLine.ToString(EnergyUnit), AnalysisResult.Solution.EntropyLine.ToString(EnergyUnit), AnalysisResult.Solution.GibbsLine.ToString(EnergyUnit) });
+            var dependencies = new List<string>() { refT.ToString("F2") + tempunit + " | " + EnergyUnit.GetUnit() + "/mol" };
+
+            foreach (var dep in Solution.TemperatureDependence) dependencies.Add(dep.Value.ToString(EnergyUnit));
+
+            TemperatureDependenceLabel.StringValue = string.Join(Environment.NewLine, dependencies);
 
             EvaluateParameters(null);
         }
@@ -140,9 +158,9 @@ namespace AnalysisITC
 
                 if (UseKelvin) T -= 273.15f;
 
-                var H = new Energy(AnalysisResult.Solution.EnthalpyLine.Evaluate(T, 10000));
-                var S = new Energy(AnalysisResult.Solution.EntropyLine.Evaluate(T, 10000));
-                var G = new Energy(AnalysisResult.Solution.GibbsLine.Evaluate(T, 10000));
+                var H = new Energy(Solution.TemperatureDependence[AppClasses.Analysis2.ParameterTypes.Enthalpy1].Evaluate(T, 10000));
+                var S = new Energy(Solution.TemperatureDependence[AppClasses.Analysis2.ParameterTypes.EntropyContribution1].Evaluate(T, 10000));
+                var G = new Energy(Solution.TemperatureDependence[AppClasses.Analysis2.ParameterTypes.Gibbs1].Evaluate(T, 10000));
 
                 T += 273.15f;
 
@@ -163,6 +181,8 @@ namespace AnalysisITC
 
         partial void TempControlClicked(NSSegmentedControl sender)
         {
+            EvaluateionTemperatureTextField.FloatValue += (UseKelvin ? 273.15f : -273.15f); //Fix temperature unit change
+
             Setup();
         }
 
@@ -173,26 +193,7 @@ namespace AnalysisITC
 
         partial void CopyToClipboard(NSObject sender)
         {
-            NSPasteboard.GeneralPasteboard.ClearContents();
-
-            string paste = "";
-
-            foreach (var data in AnalysisResult.Solution.Solutions)
-            {
-                paste += (data.T + (UseKelvin ? 273.15 : 0)).ToString("F2") + " ";
-                paste += data.N.ToString("F2") + " ";
-                paste += data.Kd.AsDissociationConstant(Mag, withunit: false) + " ";
-                paste += data.Enthalpy.ToString(EnergyUnit, withunit: false) + " ";
-                paste += data.TdS.ToString(EnergyUnit, withunit: false) + " ";
-                paste += data.GibbsFreeEnergy.ToString(EnergyUnit, withunit: false);
-                paste += Environment.NewLine;
-            }
-
-            paste = paste.Replace('±', ' ');
-
-            NSPasteboard.GeneralPasteboard.SetStringForType(paste, "NSStringPboardType");
-
-            StatusBarManager.SetStatus("Results copied to clipboard", 3333);
+            FTITCWriter.CopyToClipboard(Solution, Mag, EnergyUnit, UseKelvin);
         }
     }
 }
