@@ -12,9 +12,15 @@ namespace AnalysisITC
 	[Register ("ExperimentListViewController")]
 	partial class ExperimentListViewController
 	{
+		[Outlet]
+		AppKit.NSTextField Label { get; set; }
 		
 		void ReleaseDesignerOutlets ()
 		{
+			if (Label != null) {
+				Label.Dispose ();
+				Label = null;
+			}
 		}
 	}
 }
