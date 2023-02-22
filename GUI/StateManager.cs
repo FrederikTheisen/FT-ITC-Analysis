@@ -1,4 +1,6 @@
 ﻿using System;
+using AnalysisITC.AppClasses.Analysis2;
+
 namespace AnalysisITC
 {
     public static class StateManager
@@ -21,7 +23,7 @@ namespace AnalysisITC
         {
             DataManager.DataDidChange += OnDataDidChange;
             DataProcessor.ProcessingCompleted += OnAnyProcessingCompleted;
-            Analysis.AnalysisFinished += OnAnalysisFinished;
+            SolverInterface.AnalysisFinished += OnAnalysisFinished;
         }
 
         private static void OnAnalysisFinished(object sender, SolverConvergence e)
