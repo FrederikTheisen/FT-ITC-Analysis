@@ -1,61 +1,103 @@
 ﻿using System;
 using System.Linq;
+using AnalysisITC.AppClasses.Analysis2;
 
 namespace AnalysisITC
 {
     public class AnalysisResult : ITCDataContainer
     {
-        public GlobalSolution Solution { get; set; }
-        GlobalModel Model => Solution.Model;
-        SolverOptions Options => Model.Options;
+        public AnalysisITC.AppClasses.Analysis2.GlobalSolution Solution { get; private set; }
+        AnalysisITC.AppClasses.Analysis2.GlobalModel Model => Solution.Model;
+        GlobalModelParameters Options => Model.Parameters;
 
-        public AnalysisResult(GlobalSolution solution)
+        public AnalysisResult(AnalysisITC.AppClasses.Analysis2.GlobalSolution solution)
         {
             Solution = solution;
 
-            FileName = solution.Model.Models[0].ModelName;
+            FileName = solution.Model.Solution.SolutionName;
             Date = DateTime.Now;
         }
 
         public string GetResultString()
         {
             string s = "Fit of " + Solution.Solutions.Count.ToString() + " experiments" + Environment.NewLine;
-            if (Options.EnthalpyStyle == Analysis.VariableConstraint.None &&
-                Options.AffinityStyle == Analysis.VariableConstraint.None &&
-                Options.NStyle == Analysis.VariableConstraint.None) s += "All variables unconstrained" + Environment.NewLine;
+            if (Options.Constraints.All(con => con.Value == VariableConstraint.None)) s += "All variables unconstrained" + Environment.NewLine;
             else
             {
-                if (Options.EnthalpyStyle != Analysis.VariableConstraint.None) s += "Enthalpy: " + Options.EnthalpyStyle.ToString() + Environment.NewLine;
-                if (Options.AffinityStyle != Analysis.VariableConstraint.None) s += "Affinity: " + Options.AffinityStyle.ToString() + Environment.NewLine;
-                if (Options.NStyle != Analysis.VariableConstraint.None) s += "N-value: " + Options.NStyle.ToString() + Environment.NewLine;
+                foreach (var con in Options.Constraints)
+                {
+                    if (con.Value != VariableConstraint.None)
+                    {
+                        switch (con.Key)
+                        {
+                            case ParameterTypes.Nvalue1: s += "N-value: "; break;
+                            case ParameterTypes.Enthalpy1: s += "Enthalpy: "; break;
+                            case ParameterTypes.Affinity1:
+                            case ParameterTypes.Gibbs1: s += "Affinity: "; break;
+                        }
+
+                        s += con.Value.GetEnumDescription() + Environment.NewLine;
+                    }
+                }
+                //if (Options.Constraints[ParameterTypes.Enthalpy1] != VariableConstraint.None) s += "Enthalpy: " + Options.Constraints[ParameterTypes.Enthalpy1].ToString() + Environment.NewLine;
+                //if (Options.Constraints[ParameterTypes.Gibbs1] != VariableConstraint.None) s += "Affinity: " + Options.Constraints[ParameterTypes.Gibbs1].ToString() + Environment.NewLine;
+                //if (Options.Constraints[ParameterTypes.Nvalue1] != VariableConstraint.None) s += "N-value: " + Options.Constraints[ParameterTypes.Nvalue1].ToString() + Environment.NewLine;
             }
 
-            s += "∆H° = " + Solution.StandardEnthalpy.ToString(EnergyUnit.KiloJoule, permole: true) + Environment.NewLine;
-            s += "∆Cₚ = " + Solution.HeatCapacity.ToString(EnergyUnit.Joule, "F0", permole: true, perK: true);
+            s += "∆H° = " + new Energy(Solution.GetStandardParameterValue(ParameterTypes.Enthalpy1)).ToString(EnergyUnit.KiloJoule, permole: true) + Environment.NewLine;
+            s += "∆Cₚ = " + new Energy(Solution.TemperatureDependence[ParameterTypes.Enthalpy1].Slope).ToString(EnergyUnit.Joule, "F0", permole: true, perK: true);
 
             return s.Trim();
         }
 
-        internal double GetMinimumTemperature() => Solution.Solutions.Min(s => s.T);
+        internal double GetMinimumTemperature() => Solution.Solutions.Min(s => s.Temp);
 
-        internal double GetMaximumTemperature() => Solution.Solutions.Max(s => s.T);
+        internal double GetMaximumTemperature() => Solution.Solutions.Max(s => s.Temp);
 
         internal double GetMaximumParameter()
         {
-            var maxentropy = Solution.Solutions.Max(s => s.TdS);
-            var maxenthalpy = Solution.Solutions.Max(s => s.Enthalpy);
-            var maxgibbs = Solution.Solutions.Max(s => s.GibbsFreeEnergy);
+            //var maxentropy = Solution.Solutions.Max(s => s.TdS);
+            //var maxenthalpy = Solution.Solutions.Max(s => s.Enthalpy);
+            //var maxgibbs = Solution.Solutions.Max(s => s.GibbsFreeEnergy);
+            //return (new Energy[] { maxentropy, maxenthalpy, maxgibbs }).Max();
 
-            return (new Energy[] { maxentropy, maxenthalpy, maxgibbs }).Max();
+            double max = double.MinValue;
+
+            foreach (var sol in Solution.Solutions)
+            {
+                var list = sol.DependenciesToReport;
+                foreach (var par in list)
+                {
+                    var val = par.Item2(sol);
+
+                    if (val > max) max = val;
+                }
+            }
+
+            return max;
         }
 
         internal double GetMinimumParameter()
         {
-            var minentropy = Solution.Solutions.Min(s => s.TdS);
-            var minenthalpy = Solution.Solutions.Min(s => s.Enthalpy);
-            var mingibbs = Solution.Solutions.Min(s => s.GibbsFreeEnergy);
+            //var minentropy = Solution.Solutions.Min(s => s.TdS);
+            //var minenthalpy = Solution.Solutions.Min(s => s.Enthalpy);
+            //var mingibbs = Solution.Solutions.Min(s => s.GibbsFreeEnergy);
+            //return (new Energy[] { minentropy, minenthalpy, mingibbs }).Min();
 
-            return (new Energy[] { minentropy, minenthalpy, mingibbs }).Min();
+            double min = double.MaxValue;
+
+            foreach (var sol in Solution.Solutions)
+            {
+                var list = sol.DependenciesToReport;
+                foreach (var par in list)
+                {
+                    var val = par.Item2(sol);
+
+                    if (val < min) min = val;
+                }
+            }
+
+            return min;
         }
     }
 }

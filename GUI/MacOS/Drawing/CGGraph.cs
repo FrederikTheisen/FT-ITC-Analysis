@@ -6,6 +6,7 @@ using Foundation;
 using System.Linq;
 using CoreText;
 using Utilities;
+using static AnalysisITC.AppClasses.Analysis2.SolutionInterface;
 
 namespace AnalysisITC
 {
@@ -808,7 +809,7 @@ namespace AnalysisITC
             lines.Add(syr);
             lines.Add(cell);
 
-            var position = ExperimentData.Solution.Enthalpy > 0 ? NSRectAlignment.TopTrailing : NSRectAlignment.BottomTrailing;
+            var position = ExperimentData.Solution.TotalEnthalpy > 0 ? NSRectAlignment.TopTrailing : NSRectAlignment.BottomTrailing;
 
             DrawTextBox(gc, lines, DrawOnWhite ? new CTFont(DefaultFont.DisplayName, 12) : new CTFont(DefaultFont.DisplayName, 24), NSRectAlignment.BottomTrailing);
         }
@@ -1090,7 +1091,7 @@ namespace AnalysisITC
 
         double[] GetMinMaxEnthalpy(IEnumerable<ExperimentData> data)
         {
-            var evals = data.Where(d => d.Solution != null).Select(d => d.Solution.Evaluate(0, withoffset: false));
+            var evals = data.Where(d => d.Solution != null).Select(d => d.Model.EvaluateEnthalpy(0, withoffset: false));
             var maxpoints = data.Select(d => d.Injections.Where(inj => inj.Include || !FocusValidData).Max(inj => inj.Enthalpy));
             var minpoints = data.Select(d => d.Injections.Where(inj => inj.Include || !FocusValidData).Min(inj => inj.Enthalpy));
 
@@ -1196,7 +1197,7 @@ namespace AnalysisITC
             foreach (var inj in ExperimentData.Injections)
             {
                 var x = inj.Ratio;
-                var y = ExperimentData.Solution.Evaluate(inj.ID, withoffset: false);
+                var y = ExperimentData.Model.EvaluateEnthalpy(inj.ID, withoffset: false);
 
                 points.Add(GetRelativePosition(x, y));
             }
@@ -1260,7 +1261,7 @@ namespace AnalysisITC
             layer.Context.SetStrokeColor(new CGColor(StrokeColor, .4f));
             layer.Context.SetLineWidth(1);
 
-            var H = ExperimentData.Solution.Enthalpy;
+            var H = ExperimentData.Solution.TotalEnthalpy;
             var e1 = GetRelativePosition(XAxis.Min, H);
             var e2 = GetRelativePosition(XAxis.Max, H);
             var enthalpy = new CGPath();
@@ -1268,30 +1269,41 @@ namespace AnalysisITC
             enthalpy.AddLineToPoint(e2);
             layer.Context.AddPath(enthalpy);
 
-            var N = ExperimentData.Solution.N;
-            var n1 = GetRelativePosition(N, YAxis.Min);
-            var n2 = GetRelativePosition(N, YAxis.Max);
+            //var N = ExperimentData.Solution.N;
+            var Ns = ExperimentData.Solution.ParametersConformingToKey(AppClasses.Analysis2.ParameterTypes.Nvalue1);
 
-            var n = new CGPath();
-            n.MoveToPoint(n1);
-            n.AddLineToPoint(n2);
-            layer.Context.AddPath(n);
+            foreach (var N in Ns)
+            {
+                var n1 = GetRelativePosition(N, YAxis.Min);
+                var n2 = GetRelativePosition(N, YAxis.Max);
 
-            layer.Context.SetLineDash(3, new nfloat[] { 3 });
-            layer.Context.StrokePath();
+                var n = new CGPath();
+                n.MoveToPoint(n1);
+                n.AddLineToPoint(n2);
+                layer.Context.AddPath(n);
+
+                layer.Context.SetLineDash(3, new nfloat[] { 3 });
+                layer.Context.StrokePath();
+            }
 
             gc.DrawLayer(layer, Frame.Location);
 
             var lines = new List<string>();
-            if (!DrawOnWhite) lines.Add(ExperimentData.Solution.Model.ModelName);
-            if (!DrawOnWhite) lines.Add("RMSD: " + ExperimentData.Solution.Loss.ToString("G4"));
-            lines.Add("N = " + ExperimentData.Solution.N.ToString("F2"));
-            lines.Add("Kd = " + ExperimentData.Solution.Kd.AsDissociationConstant());
-            lines.Add("∆H = " + ExperimentData.Solution.Enthalpy.ToString(EnergyUnit.KiloJoule, permole: true));
-            lines.Add("-T∆S = " + ExperimentData.Solution.TdS.ToString(EnergyUnit.KiloJoule, permole: true));
-            if (!DrawOnWhite) lines.Add("Offset = " + ExperimentData.Solution.Offset.ToString(EnergyUnit.KiloJoule));
 
-            var position = ExperimentData.Solution.Enthalpy > 0 ? NSRectAlignment.TopTrailing : NSRectAlignment.BottomTrailing;
+            foreach (var par in ExperimentData.Solution.UISolutionParameters(DrawOnWhite ? SolutionInfo.FinalFigure : SolutionInfo.Analysis))
+            {
+                lines.Add(par.Item1 + " = " + par.Item2);
+            }
+
+            //if (!DrawOnWhite) lines.Add(ExperimentData.Solution.Model.ModelName);
+            //if (!DrawOnWhite) lines.Add("RMSD: " + ExperimentData.Solution.Loss.ToString("G4"));
+            //lines.Add("N = " + ExperimentData.Solution.N.ToString("F2"));
+            //lines.Add("Kd = " + ExperimentData.Solution.Kd.AsDissociationConstant());
+            //lines.Add("∆H = " + ExperimentData.Solution.Enthalpy.ToString(EnergyUnit.KiloJoule, permole: true));
+            //lines.Add("-T∆S = " + ExperimentData.Solution.TdS.ToString(EnergyUnit.KiloJoule, permole: true));
+            //if (!DrawOnWhite) lines.Add("Offset = " + ExperimentData.Solution.Offset.ToString(EnergyUnit.KiloJoule));
+
+            var position = ExperimentData.Solution.TotalEnthalpy > 0 ? NSRectAlignment.TopTrailing : NSRectAlignment.BottomTrailing;
 
             DrawTextBox(gc, lines, DrawOnWhite ? new CTFont(DefaultFont.DisplayName, 12) : new CTFont(DefaultFont.DisplayName, 24), position);
         }
@@ -1307,7 +1319,7 @@ namespace AnalysisITC
             foreach (var inj in ExperimentData.Injections)
             {
                 var x = inj.Ratio;
-                var y = ExperimentData.Solution.EvaluateBootstrap(inj.ID).WithConfidence();
+                var y = ExperimentData.Model.EvaluateBootstrap(inj.ID).WithConfidence();
 
                 top.Add(GetRelativePosition(x, y[0]));
                 bottom.Add(GetRelativePosition(x, y[1]));

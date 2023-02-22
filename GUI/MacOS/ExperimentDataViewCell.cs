@@ -74,12 +74,13 @@ namespace AnalysisITC
 				{
 					SetValidSolutionLabeling();
 
-					ModelFitLine.StringValue = data.Solution.Model.ModelName + " | " + data.Solution.Loss.ToString("G3");
-					NvalueLine.StringValue = "N = " + data.Solution.N.ToString("F2");
-					AffinityLine.StringValue = "Kd = " + data.Solution.Kd.AsDissociationConstant();
-					EntropyLine.StringValue = "-T∆S = " + data.Solution.TdS.ToString(EnergyUnit.KiloJoule, permole: true);
-					EnthalpyLine.StringValue = "∆H = " + data.Solution.Enthalpy.ToString(EnergyUnit.KiloJoule, permole: true);
-				}
+					ModelFitLine.UsesSingleLineMode = false;
+
+					string mfline = "";
+					foreach (var par in data.Solution.UISolutionParameters(AppClasses.Analysis2.SolutionInterface.SolutionInfo.TableSummaryLines)) mfline += "\n" + par.Item1 + ": " + par.Item2;
+
+					ModelFitLine.StringValue = mfline.Trim();
+                }
 				else
 				{
 					IsDetailedViewOpen = false;
@@ -107,6 +108,8 @@ namespace AnalysisITC
         partial void ToggleDataGlobalInclude(NSButton sender)
         {
 			data.Include = sender.State == NSCellStateValue.On;
+
+			DataManager.InvokeDataDidChange();
         }
 
         partial void ViewDetails(NSObject sender)
@@ -117,12 +120,12 @@ namespace AnalysisITC
         void UpdateFitLineVisibility()
         {
 			ModelFitLine.Hidden = !IsDetailedViewOpen;
-			AffinityLine.Hidden = !IsDetailedViewOpen;
-			EntropyLine.Hidden = !IsDetailedViewOpen;
-			EnthalpyLine.Hidden = !IsDetailedViewOpen;
-			NvalueLine.Hidden = !IsDetailedViewOpen;
+			AffinityLine.Hidden = true;// !IsDetailedViewOpen;
+			EntropyLine.Hidden = true;//!IsDetailedViewOpen;
+            EnthalpyLine.Hidden = true;//!IsDetailedViewOpen;
+            NvalueLine.Hidden = true;//!IsDetailedViewOpen;
 
-			SetValidSolutionLabeling();
+            SetValidSolutionLabeling();
 
 			ResizeRow?.Invoke(this, row);
 		}
@@ -133,10 +136,10 @@ namespace AnalysisITC
 			if (data.Solution != null) isvalid = data.Solution.IsValid;
 
 			ModelFitLine.TextColor = isvalid ? NSColor.Label : NSColor.SystemRed;
-			AffinityLine.TextColor = isvalid ? NSColor.Label : NSColor.SystemRed;
-			EntropyLine.TextColor = isvalid ? NSColor.Label : NSColor.SystemRed;
-			EnthalpyLine.TextColor = isvalid ? NSColor.Label : NSColor.SystemRed;
-			NvalueLine.TextColor = isvalid ? NSColor.Label : NSColor.SystemRed;
+			//AffinityLine.TextColor = isvalid ? NSColor.Label : NSColor.SystemRed;
+			//EntropyLine.TextColor = isvalid ? NSColor.Label : NSColor.SystemRed;
+			//EnthalpyLine.TextColor = isvalid ? NSColor.Label : NSColor.SystemRed;
+			//NvalueLine.TextColor = isvalid ? NSColor.Label : NSColor.SystemRed;
 		}
     }
 }

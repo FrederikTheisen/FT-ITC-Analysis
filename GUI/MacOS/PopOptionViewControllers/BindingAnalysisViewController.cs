@@ -5,12 +5,13 @@ using System.Collections.Generic;
 using System.Linq;
 using Foundation;
 using AppKit;
+using AnalysisITC.AppClasses.Analysis2;
 
 namespace AnalysisITC
 {
     public partial class ResultViewDataSource : NSTableViewDataSource
     {
-        public List<Solution> Data { get; private set; }
+        public List<SolutionInterface> Data { get; private set; }
 
         public double KdMag { get; set; } = -1;
         public EnergyUnit EnergyUnit { get; set; } = EnergyUnit.KiloJoule;
@@ -61,13 +62,18 @@ namespace AnalysisITC
             // Setup view based on the column selected
             switch (tableColumn.Identifier)
             {
-                case "T": view.StringValue = (DataSource.Data[(int)row].T + (UseKelvin ? 273.15 : 0)).ToString("F2"); break;
-                case "N": view.StringValue = DataSource.Data[(int)row].N.ToString("F2"); view.Alignment = NSTextAlignment.Center; break;
-                case "K": view.StringValue = DataSource.Data[(int)row].Kd.AsDissociationConstant(KdMag, withunit: false); view.Alignment = NSTextAlignment.Center; break;
-                case "H": view.StringValue = DataSource.Data[(int)row].Enthalpy.ToString(EnergyUnit, withunit: false); view.Alignment = NSTextAlignment.Center; break;
-                case "S": view.StringValue = DataSource.Data[(int)row].TdS.ToString(EnergyUnit, withunit: false); view.Alignment = NSTextAlignment.Center; break;
-                case "G": view.StringValue = DataSource.Data[(int)row].GibbsFreeEnergy.ToString(EnergyUnit, withunit: false); view.Alignment = NSTextAlignment.Center; break;
-                case "L": view.StringValue = DataSource.Data[(int)row].Loss.ToString("G3"); view.Alignment = NSTextAlignment.Center; break;
+                case "Temp": view.StringValue = (DataSource.Data[(int)row].Temp + (UseKelvin ? 273.15 : 0)).ToString("F2"); break;
+                case "N1": view.StringValue = DataSource.Data[(int)row].ReportParameters[ParameterTypes.Nvalue1].ToString("F3"); view.Alignment = NSTextAlignment.Center; break;
+                case "N2": view.StringValue = DataSource.Data[(int)row].ReportParameters[ParameterTypes.Nvalue2].ToString("F3"); view.Alignment = NSTextAlignment.Center; break;
+                case "Kd1": view.StringValue = DataSource.Data[(int)row].ReportParameters[ParameterTypes.Affinity1].AsDissociationConstant(KdMag, withunit: false); view.Alignment = NSTextAlignment.Center; break;
+                case "Kd2": view.StringValue = DataSource.Data[(int)row].ReportParameters[ParameterTypes.Affinity2].AsDissociationConstant(KdMag, withunit: false); view.Alignment = NSTextAlignment.Center; break;
+                case "∆H1": view.StringValue = DataSource.Data[(int)row].ReportParameters[ParameterTypes.Enthalpy1].Energy.ToString(EnergyUnit, withunit: false); view.Alignment = NSTextAlignment.Center; break;
+                case "∆H2": view.StringValue = DataSource.Data[(int)row].ReportParameters[ParameterTypes.Enthalpy2].Energy.ToString(EnergyUnit, withunit: false); view.Alignment = NSTextAlignment.Center; break;
+                case "-T∆S1": view.StringValue = DataSource.Data[(int)row].ReportParameters[ParameterTypes.EntropyContribution1].Energy.ToString(EnergyUnit, withunit: false); view.Alignment = NSTextAlignment.Center; break;
+                case "-T∆S2": view.StringValue = DataSource.Data[(int)row].ReportParameters[ParameterTypes.EntropyContribution2].Energy.ToString(EnergyUnit, withunit: false); view.Alignment = NSTextAlignment.Center; break;
+                case "∆G1": view.StringValue = DataSource.Data[(int)row].ReportParameters[ParameterTypes.Gibbs1].Energy.ToString(EnergyUnit, withunit: false); view.Alignment = NSTextAlignment.Center; break;
+                case "∆G2": view.StringValue = DataSource.Data[(int)row].ReportParameters[ParameterTypes.Gibbs2].Energy.ToString(EnergyUnit, withunit: false); view.Alignment = NSTextAlignment.Center; break;
+                case "Loss": view.StringValue = DataSource.Data[(int)row].Loss.ToString("G3"); view.Alignment = NSTextAlignment.Center; break;
             }
 
             return view;
@@ -102,14 +108,14 @@ namespace AnalysisITC
 
             if (this.NextResponder is NSWindow) (this.NextResponder as NSWindow).Title = AnalysisResult.FileName;
 
-            fit += AnalysisResult.Solution.Model.Models[0].ModelName + Environment.NewLine;
+            fit += AnalysisResult.Solution.SolutionName + Environment.NewLine;
             dataset += AnalysisResult.Solution.Solutions.Count + " experiments" + Environment.NewLine;
             fit += Extensions.GetEnumDescription(AnalysisResult.Solution.Convergence.Algorithm) + Environment.NewLine;
             fit += AnalysisResult.Solution.Convergence.Iterations + " | " + AnalysisResult.Solution.Loss.ToString("G3") + " | " + AnalysisResult.Solution.Convergence.Time.TotalMilliseconds.ToString("F0") + "ms" + Environment.NewLine;
             fit += AnalysisResult.Solution.BootstrapIterations + " | " + AnalysisResult.Solution.BootstrapTime.TotalSeconds.ToString("F1") + "s";
-            constraints += AnalysisResult.Solution.Model.Options.EnthalpyStyle.ToString() + Environment.NewLine;
-            constraints += AnalysisResult.Solution.Model.Options.AffinityStyle.ToString() + Environment.NewLine;
-            constraints += AnalysisResult.Solution.Model.Options.NStyle.ToString();
+            constraints += AnalysisResult.Solution.Model.Parameters.Constraints[ParameterTypes.Enthalpy1].ToString() + Environment.NewLine;
+            constraints += AnalysisResult.Solution.Model.Parameters.Constraints[ParameterTypes.Affinity1].ToString() + Environment.NewLine;
+            constraints += AnalysisResult.Solution.Model.Parameters.Constraints[ParameterTypes.Nvalue1].ToString();
             dataset += AnalysisResult.Solution.Model.MeanTemperature.ToString("F3") + " °C";
 
             FitParameterLabel.StringValue = fit;
@@ -119,26 +125,7 @@ namespace AnalysisITC
 
         partial void CopyToClipboard(NSObject sender)
         {
-            NSPasteboard.GeneralPasteboard.ClearContents();
-
-            string paste = "";
-
-            foreach (var data in AnalysisResult.Solution.Solutions)
-            {
-                paste += (data.T + (UseKelvin ? 273.15 : 0)).ToString("F2") + " ";
-                paste += data.N.ToString("F2") + " ";
-                paste += data.Kd.AsDissociationConstant(Mag, withunit: false) + " ";
-                paste += data.Enthalpy.ToString(EnergyUnit, withunit: false) + " ";
-                paste += data.TdS.ToString(EnergyUnit, withunit: false) + " ";
-                paste += data.GibbsFreeEnergy.ToString(EnergyUnit, withunit: false);
-                paste += Environment.NewLine;
-            }
-
-            paste = paste.Replace('±', ' ');
-
-            NSPasteboard.GeneralPasteboard.SetStringForType(paste,  "NSStringPboardType");
-
-            StatusBarManager.SetStatus("Results copied to clipboard", 3333);
+            FTITCWriter.CopyToClipboard(AnalysisResult.Solution, Mag, EnergyUnit, UseKelvin);
         }
 
         partial void LoadSolutionsToExperiments(NSObject sender)

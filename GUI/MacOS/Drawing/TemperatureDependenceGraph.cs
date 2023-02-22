@@ -3,6 +3,7 @@ using AppKit;
 using CoreGraphics;
 using System.Collections.Generic;
 using System.Linq;
+using AnalysisITC.AppClasses.Analysis2;
 
 namespace AnalysisITC
 {
@@ -23,7 +24,7 @@ namespace AnalysisITC
             YAxis.HideUnwantedTicks = false;
             YAxis.ValueFactor = 0.001;
             YAxis.MirrorTicks = true;
-            YAxis.LegendTitle = "Thermodynamc parameter (kJ/mol)";
+            YAxis.LegendTitle = "Thermodynamic parameter (kJ/mol)";
         }
 
         public void PrepareDraw(CGContext gc, CGPoint center)
@@ -54,11 +55,13 @@ namespace AnalysisITC
 
         void Draw(CGContext gc)
         {
-            DrawPredictionIntervals(gc);
+            //DrawPredictionIntervals(gc);
 
-            DrawParameterLines(gc);
+            //DrawParameterLines(gc);
 
-            DrawDataPoints(gc);
+            //DrawDataPoints(gc);
+
+            DrawDependencies(gc);
 
             DrawZeroLine(gc);
         }
@@ -77,18 +80,42 @@ namespace AnalysisITC
             gc.DrawLayer(layer, Frame.Location);
         }
 
-        void DrawParameterLines(CGContext gc)
+        void DrawDependencies(CGContext gc)
         {
-            DrawLinFit(gc, Result.Solution.EnthalpyLine, Result.Solution.ReferenceTemperature);
-            DrawLinFit(gc, Result.Solution.EntropyLine, Result.Solution.ReferenceTemperature);
-            DrawLinFit(gc, Result.Solution.GibbsLine, Result.Solution.ReferenceTemperature);
+            foreach (var dep in Result.Solution.TemperatureDependence)
+            {
+                DrawDependency(gc, dep.Key);
+            }
         }
 
-        void DrawLinFit(CGContext gc, LinearFitWithError fit, double offset)
+        void DrawDependency(CGContext gc, ParameterTypes key)
         {
+            var line = Result.Solution.TemperatureDependence[key];
+            SymbolShape symbol = SymbolShape.Square;
+            bool fill = true;
+
+            switch (key)
+            {
+                case ParameterTypes.Enthalpy1: symbol = SymbolShape.Square; fill = true; break;
+                case ParameterTypes.Enthalpy2: symbol = SymbolShape.Square; fill = false; break;
+                case ParameterTypes.EntropyContribution1: symbol = SymbolShape.Circle; fill = true; break;
+                case ParameterTypes.EntropyContribution2: symbol = SymbolShape.Circle; fill = false; break;
+                case ParameterTypes.Gibbs1: symbol = SymbolShape.Diamond; fill = true; break;
+                case ParameterTypes.Gibbs2: symbol = SymbolShape.Diamond; fill = false; break;
+            }
+
+            DrawPredictionInterval(gc, line, Result.Solution.Solutions.Select(sol => sol.ReportParameters[key]));
+
+            DrawLinFit(gc, line);
+
+            DrawDataPoints(gc, key, symbol, fill);
+        }
+
+        void DrawLinFit(CGContext gc, LinearFitWithError fit)
+        {
+            var offset = fit.ReferenceT;
             var xmin = XAxis.Min - offset;
             var xmax = XAxis.Max - offset;
-
             var y0 = fit.Slope * xmin + fit.Intercept;
             var y1 = fit.Slope * xmax + fit.Intercept;
 
@@ -104,29 +131,19 @@ namespace AnalysisITC
             gc.DrawLayer(layer, Frame.Location);
         }
 
-        void DrawDataPoints(CGContext gc)
+        void DrawDataPoints(CGContext gc, ParameterTypes key, SymbolShape symbol, bool fill)
         {
             var layer = CGLayer.Create(gc, PlotSize);
+            var points = new List<CGPoint>();
 
-            var entropies = new List<CGPoint>();
-            var enthalpies = new List<CGPoint>();
-            var gibbs = new List<CGPoint>();
+            foreach (var sol in Result.Solution.Solutions) points.Add(GetRelativePosition(sol.Temp, sol.ReportParameters[key]));
 
-            foreach (var sol in Result.Solution.Solutions)
-            {
-                entropies.Add(GetRelativePosition(sol.T, sol.TdS));
-                enthalpies.Add(GetRelativePosition(sol.T, sol.Enthalpy));
-                gibbs.Add(GetRelativePosition(sol.T, sol.GibbsFreeEnergy));
-            }
-
-            DrawSymbolsAtPositions(layer, entropies.ToArray(), 10, SymbolShape.Circle, true, 1, null, 0);
-            DrawSymbolsAtPositions(layer, enthalpies.ToArray(), 10, SymbolShape.Square, true, 1, null, 0);
-            DrawSymbolsAtPositions(layer, gibbs.ToArray(), 10, SymbolShape.Diamond, true, 1, null, 0);
+            DrawSymbolsAtPositions(layer, points.ToArray(), 10, symbol, fill, 1, null, 0);
 
             gc.DrawLayer(layer, Origin);
         }
 
-        double ComputeConfidenceBand(double dx, IEnumerable<Energy> var)
+        double ComputeConfidenceBand(double dx, IEnumerable<FloatWithError> var)
         {
             var n = Result.Solution.Solutions.Count;
             var dx2 = dx * dx;
@@ -137,13 +154,13 @@ namespace AnalysisITC
                 return v * v;
             }).Sum() / (n - 2));
 
-            var sx = Result.Solution.Solutions.Select(s => Math.Pow(s.T - Result.Solution.Model.MeanTemperature, 2)).Sum() / (n - 2);
+            var sx = Result.Solution.Solutions.Select(s => Math.Pow(s.Temp - Result.Solution.Model.MeanTemperature, 2)).Sum() / (n - 2);
             var t = 1.96;
 
             return t * sy * Math.Sqrt(1 + 1 / n + dx2 / sx);
         }
 
-        double ComputeConfidenceBand2(double dx, IEnumerable<Energy> var)
+        double ComputeConfidenceBand2(double dx, IEnumerable<FloatWithError> var)
         {
             var n = Result.Solution.Solutions.Count;
             var dx2 = dx * dx;
@@ -154,29 +171,21 @@ namespace AnalysisITC
                 return v;
             }).Sum() / (n - 2));
 
-            var sx = Math.Sqrt(Result.Solution.Solutions.Select(s => Math.Pow(s.T - Result.Solution.Model.MeanTemperature, 2)).Sum() / (n - 2));
+            var sx = Math.Sqrt(Result.Solution.Solutions.Select(s => Math.Pow(s.Temp - Result.Solution.Model.MeanTemperature, 2)).Sum() / (n - 2));
             var t = 1.96;
 
             return t * sy * Math.Sqrt(1 + 1 / n + dx2 / (sx * sx));
         }
 
-        void DrawPredictionIntervals(CGContext gc)
-        {
-            DrawPredictionInterval(gc, Result.Solution.EnthalpyLine, Result.Solution.Solutions.Select(s => s.Enthalpy));
-            DrawPredictionInterval(gc, Result.Solution.EntropyLine, Result.Solution.Solutions.Select(s => s.TdS));
-            DrawPredictionInterval(gc, Result.Solution.GibbsLine, Result.Solution.Solutions.Select(s => s.GibbsFreeEnergy));
-        }
-
-        void DrawPredictionInterval(CGContext gc, LinearFitWithError line, IEnumerable<Energy> values)
+        void DrawPredictionInterval(CGContext gc, LinearFitWithError line, IEnumerable<FloatWithError> values)
         {
             var top = new List<CGPoint>();
             var bottom = new List<CGPoint>();
-
             var xrange = XAxis.Max - XAxis.Min;
-
             var xpoints = new List<double>();
+
             for (var x = XAxis.Min; x <= XAxis.Max; x += xrange / 10) { xpoints.Add(x); }
-            xpoints.Add(XAxis.Max);
+            xpoints.Add(XAxis.Max); 
 
             foreach (var x in xpoints)
             {

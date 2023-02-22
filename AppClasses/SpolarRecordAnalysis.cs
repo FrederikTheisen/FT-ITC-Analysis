@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using AnalysisITC.AppClasses.Analysis2;
 using AppKit;
 
 namespace AnalysisITC
@@ -22,7 +23,7 @@ namespace AnalysisITC
             StopAnalysis = false;
             DateTime start = DateTime.Now;
 
-            var sr = new FTSRMethod(solution.EnthalpyLine, solution.EntropyLine);
+            var sr = new FTSRMethod(solution.TemperatureDependence[ParameterTypes.Enthalpy1], solution.TemperatureDependence[ParameterTypes.EntropyContribution1]);
             sr.SRTempMode = TempMode;
             sr.SRFoldedMode = FoldedDegree;
 
@@ -51,127 +52,6 @@ namespace AnalysisITC
         }
     }
 
-    //public class SpolarRecordMethodError : ErrorPropagation
-    //{
-    //    /// <summary>
-    //    /// Polar surface area coefficient 
-    //    /// </summary>
-    //    internal FloatWithError ApCoeff;
-    //    /// <summary>
-    //    /// Non-polar surface area coefficient
-    //    /// </summary>
-    //    internal FloatWithError AnpCoeff;
-    //    /// <summary>
-    //    /// Ratio of polar to non-polar surface area change for protein-protein interactions
-    //    /// Value depends on protein structural class
-    //    /// </summary>
-    //    public static FloatWithError Ratio;
-    //    /// <summary>
-    //    /// Temperature for which the hydration entropy is zero
-    //    /// </summary>
-    //    internal FloatWithError GlobalZeroEntropy;
-    //    /// <summary>
-    //    /// Average entropy loss for a single residue folding upon binding
-    //    /// </summary>
-    //    internal FloatWithError PerResidueEntropyLoss;
-
-    //    public FloatWithError RototranslationalEntropy = new FloatWithError(-110, 12);
-
-    //    public static bool RatioErrorDistributionOverride { get; set; } = false;
-    //    public static bool GTSErrorDistributionOverride { get; set; } = false;
-    //    public static bool ApErrorDistributionOverride { get; set; } = false;
-    //    public static bool AnpErrorDistributionOverride { get; set; } = false;
-
-    //    public FloatWithError HeatCapacity => Parameters[0];
-    //    public FloatWithError TS => Parameters[1];
-
-    //    public SpolarRecordMethodError(double dcp, double errordcp, double ts, double errorts)
-    //    {
-    //        AssumeNormalDistribution = true;
-
-    //        Parameters.Add(new FloatWithError(dcp, errordcp));
-    //        Parameters.Add(new FloatWithError(ts, errorts));
-    //    }
-
-    //    internal double GetCp() => Distribution.Default(HeatCapacity.Value, HeatCapacity.SD, ParameterDistributions[0].ToList());
-    //    internal double GetTs() => Distribution.Default(TS.Value, TS.SD, ParameterDistributions[1].ToList());
-    //    internal double GetApCoeff() => !ApErrorDistributionOverride ? Distribution.None(ApCoeff) : Distribution.Default(ApCoeff);
-    //    internal double GetGTS() => !GTSErrorDistributionOverride ? Distribution.None(GlobalZeroEntropy) : Distribution.Default(GlobalZeroEntropy);
-    //    internal double GetRatio() => !RatioErrorDistributionOverride ? Distribution.None(Ratio) : Distribution.Default(Ratio);
-    //    internal double GetAnpCoeff() => !AnpErrorDistributionOverride ? Distribution.None(AnpCoeff) : Distribution.Default(AnpCoeff);
-    //}
-
-    //public class SpolarRecordMethodErrorGlob : SpolarRecordMethodError
-    //{
-    //    public SpolarRecordMethodErrorGlob(double a, double da, double b, double db) : base(a, da, b, db)
-    //    {
-    //        ApCoeff = new FloatWithError(-0.59, 0.12);
-    //        AnpCoeff = new FloatWithError(1.34, 0.06);
-    //        Ratio = new FloatWithError(0.59, 0.00);
-    //        GlobalZeroEntropy = new FloatWithError(386, 2.2);
-
-    //        PerResidueEntropyLoss = new FloatWithError(-23.4, 0);
-    //    }
-
-    //    public override void SimulateRandomSampleInput(double x = 0, int iterations = 30000)
-    //    {
-    //        for (int i = 0; i < iterations; i++)
-    //        {
-    //            var cp = GetCp();
-    //            var ts = GetTs();
-    //            var ap = GetApCoeff();
-    //            var anp = GetAnpCoeff();
-    //            var ratio = GetRatio();
-    //            var gts = GetGTS();
-
-    //            var danp_coeff = 1f / (anp + ratio * ap);
-    //            var dcp_coeff = danp_coeff * anp;
-
-    //            var ds_he = cp * dcp_coeff * Math.Log(ts / gts);
-    //            var ds_conf = -ds_he - RototranslationalEntropy;
-    //            var r = ds_conf / PerResidueEntropyLoss.Value;
-
-    //            Results.Add(r);
-    //        }
-    //    }
-    //}
-
-    //public class SpolarRecordMethodErrorID : SpolarRecordMethodError
-    //{
-    //    public static FloatWithError Ratio = new FloatWithError(0.919743, 0.030589);
-
-    //    public SpolarRecordMethodErrorID(double a, double da, double b, double db) : base(a, da, b, db)
-    //    {
-    //        ApCoeff = new FloatWithError(-0.590884521921104, 0.12);
-    //        AnpCoeff = new FloatWithError(1.3721067124117, 0.06);
-    //        GlobalZeroEntropy = new FloatWithError(386, 2.2);
-
-    //        PerResidueEntropyLoss = new FloatWithError(-23.96662, 0);
-    //    }
-
-    //    public override void SimulateRandomSampleInput(double x = 0, int iterations = 30000)
-    //    {
-    //        for (int i = 0; i < iterations; i++)
-    //        {
-    //            var cp = GetCp();
-    //            var ts = GetTs();
-    //            var ap = GetApCoeff();
-    //            var anp = GetAnpCoeff();
-    //            var ratio = GetRatio();
-    //            var gts = GetGTS();
-
-    //            var danp_coeff = 1f / (anp + ratio * ap);
-    //            var dcp_coeff = danp_coeff * anp;
-
-    //            var ds_he = cp * dcp_coeff * Math.Log(ts / gts);
-    //            var ds_conf = -ds_he - RototranslationalEntropy;
-    //            var r = ds_conf / PerResidueEntropyLoss.Value;
-
-    //            Results.Add(r);
-    //        }
-    //    }
-    //}
-
     public class FTSRMethod
     {
         public static FloatWithError ApCoeff { get; } = new FloatWithError(-0.590884521921104, 0.12);
@@ -182,7 +62,7 @@ namespace AnalysisITC
         public static FloatWithError PerResidueEntropyLoss { get; } = new FloatWithError(-23.96662, 0);
         public static FloatWithError RototranslationalEntropy = new FloatWithError(-110, 12);
 
-        Random Rndm { get; } = new Random();
+        Random Rand { get; } = new Random();
 
         public SpolarRecordAnalysisController.SRFoldedMode SRFoldedMode { get; set; } = SpolarRecordAnalysisController.SRFoldedMode.Glob;
         public SpolarRecordAnalysisController.SRTempMode SRTempMode { get; set; } = SpolarRecordAnalysisController.SRTempMode.IsoEntropicPoint;
@@ -204,7 +84,7 @@ namespace AnalysisITC
             {
                 SpolarRecordAnalysisController.SRTempMode.MeanTemperature => TemperatureDependenceReferenceTemperature,
                 SpolarRecordAnalysisController.SRTempMode.ReferenceTemperature => AppSettings.ReferenceTemperature,
-                _ when sample => TS.Sample(Rndm),
+                _ when sample => TS.Sample(Rand),
                 _ => TS.Value
             };
         }
@@ -286,19 +166,19 @@ namespace AnalysisITC
                     _ => new(0),
                 };
 
-                var ds = _ds.Sample(Rndm);
+                var ds = _ds.Sample(Rand);
 
-                var cp = HeatCapacityChange.Sample(Rndm);
-                var ap = ApCoeff.Sample(Rndm);
-                var anp = AnpCoeff.Sample(Rndm);
-                var ratio = Ratio.Sample(Rndm);
-                var gts = GlobalZeroEntropy.Sample(Rndm);
+                var cp = HeatCapacityChange.Sample(Rand);
+                var ap = ApCoeff.Sample(Rand);
+                var anp = AnpCoeff.Sample(Rand);
+                var ratio = Ratio.Sample(Rand);
+                var gts = GlobalZeroEntropy.Sample(Rand);
 
                 var danp_coeff = 1f / (anp + ratio * ap);
                 var dcp_coeff = danp_coeff * anp;
 
                 var ds_he = cp * dcp_coeff * Math.Log(temp / gts);
-                var ds_conf = ds - ds_he - RototranslationalEntropy.Sample(Rndm);
+                var ds_conf = ds - ds_he - RototranslationalEntropy.Sample(Rand);
                 var r = ds_conf / PerResidueEntropyLoss.Value;
 
                 list_ds.Add(ds);

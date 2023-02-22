@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using AnalysisITC.AppClasses.Analysis2;
 using DataReaders;
 using Utilities;
 
@@ -9,6 +10,7 @@ namespace AnalysisITC
     public class ExperimentData : ITCDataContainer
     {
         public static EnergyUnit Unit => DataManager.Unit;
+        public static Random Rand = new Random();
 
         public event EventHandler ProcessingUpdated;
         public event EventHandler SolutionChanged;
@@ -50,7 +52,8 @@ namespace AnalysisITC
         public double MeasuredTemperatureKelvin => 273.15 + MeasuredTemperature;
 
         public DataProcessor Processor { get; private set; }
-        public Solution Solution { get; set; }
+        //public Solution Solution1 { get; set; }
+        public AnalysisITC.AppClasses.Analysis2.SolutionInterface Solution => Model?.Solution;
         public AnalysisITC.AppClasses.Analysis2.Model Model { get; set; }
 
         public ExperimentData(string file)
@@ -169,8 +172,6 @@ namespace AnalysisITC
 
         List<InjectionData> GetResiduals()
         {
-            var rand = Analysis.Random;
-
             var syntheticdata = new List<InjectionData>();
 
             var residuals = new List<double>();
@@ -183,7 +184,7 @@ namespace AnalysisITC
 
             foreach (var inj in Injections)
             {
-                var res = residuals[rand.Next(residuals.Count)];
+                var res = residuals[Rand.Next(residuals.Count)];
                 var fit = Model.EvaluateEnthalpy(inj.ID, withoffset: true);
                 var resarea = res * inj.InjectionMass;
                 var fitarea = fit * inj.InjectionMass;
@@ -221,14 +222,15 @@ namespace AnalysisITC
 
         public void UpdateProcessing()
         {
-            if (Solution != null) Solution.IsValid = false;
- 
+            if (Solution != null) Solution.Invalidate();
+
             ProcessingUpdated?.Invoke(Processor, null);
         }
 
-        public void UpdateSolution(Solution solution = null)
+        public void UpdateSolution(SolutionInterface solution = null)
         {
-            if (solution != null) Solution = solution;
+            //if (solution != null) Solution = solution;
+            if (solution != null) Model.Solution = solution;
 
             SolutionChanged?.Invoke(this, null);
         }
@@ -270,7 +272,8 @@ namespace AnalysisITC
             get
             {
                 if (Experiment.Solution == null) return Enthalpy;
-                else return Enthalpy - Experiment.Solution.Offset;
+                //else return Enthalpy - Experiment.Solution.Offset; //A1 pattern
+                else return Enthalpy - Experiment.Solution.Parameters[ParameterTypes.Offset].Value;
             }
         }
 
