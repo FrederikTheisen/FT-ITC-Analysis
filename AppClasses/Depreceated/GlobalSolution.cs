@@ -70,7 +70,7 @@ namespace AnalysisITC
                 //var sol = new Solution(pset.N, dH, K, pset.Offset, m, m.RMSD(pset.N, dH, K, pset.Offset, false));
                 var sol = Solution.FromAccordNelderMead(new double[] { pset.N, dH, K, pset.Offset }, m, m.RMSD(pset.N, dH, K, pset.Offset, false));
 
-                m.Data.Solution = sol;
+                m.Data.Solution1 = sol;
 
                 global.Solutions.Add(sol);
             }

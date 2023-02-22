@@ -301,7 +301,7 @@ namespace AnalysisITC
         /// <summary>
         /// Solution parameters
         /// </summary>
-        public Solution Solution => Data.Solution;
+        public Solution Solution => Data.Solution1;
 
         public Model()
         {
