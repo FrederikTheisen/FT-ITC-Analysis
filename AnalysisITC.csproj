@@ -348,6 +348,7 @@
     <Compile Include="AppClasses\AnalysisResult.cs" />
     <Compile Include="AppClasses\StateManager.cs" />
     <Compile Include="AppClasses\StatusBarManager.cs" />
+    <Compile Include="AppClasses\Logger.cs" />
   </ItemGroup>
   <ItemGroup>
     <InterfaceDefinition Include="Main.storyboard" />

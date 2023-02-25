@@ -6,6 +6,7 @@ using AppKit;
 using System.Threading.Tasks;
 using System.Collections.Generic;
 using AnalysisITC.AppClasses.Analysis2;
+using static CoreFoundation.DispatchSource;
 
 namespace AnalysisITC
 {
@@ -21,18 +22,37 @@ namespace AnalysisITC
 
             StateManager.ProgramStateChanged += OnProgramStateChanged;
             StateManager.UpdateStateDependentUI += StateManager_UpdateStateDependentUI;
-
-            //DataManager.DataDidChange += OnDataChanged;
             DataManager.SelectionDidChange += DataManager_SelectionDidChange;
-            
-
             DataProcessor.BaselineInterpolationCompleted += DataProcessor_InterpolationCompleted;
-
             StatusBarManager.ProgressUpdate += OnProgressUpdated;
             StatusBarManager.StatusUpdated += OnStatusUpdated;
             StatusBarManager.SecondaryStatusUpdated += OnSecondaryStatusUpdated;
+            AppEventHandler.ShowAppMessage += OnShowAppMessage;
 
             StateManager_UpdateStateDependentUI(null, null);
+        }
+
+        void OnShowAppMessage(object sender, HandledException e)
+        {
+            NSAlertStyle style;
+            switch (e.Level)
+            {
+                default:
+                case HandledException.Severity.Error: style = NSAlertStyle.Critical; break;
+                case HandledException.Severity.Warning: style = NSAlertStyle.Warning; break;
+                case HandledException.Severity.Message: style = NSAlertStyle.Informational; break;
+            }
+
+            using (var alert = new NSAlert()
+            {
+                AlertStyle = style,
+                MessageText = e.Title,
+                InformativeText = e.Message,
+            })
+            {
+                alert.AddButton("Continue");
+                var response = alert.RunModal();
+            }
         }
 
         private void OnSecondaryStatusUpdated(object sender, string e)
@@ -51,7 +71,7 @@ namespace AnalysisITC
             StatusbarPrimaryLabel.StringValue = e;
         }
 
-        private void DataProcessor_InterpolationCompleted(object sender, EventArgs e) //TODO probably obsolete
+        private void DataProcessor_InterpolationCompleted(object sender, EventArgs e)
         {
             ProcessSegControl.SetEnabled(DataManager.Current.Processor.BaselineCompleted, 1);
             ProcessSegControl.SetEnabled(DataManager.AllDataIsBaselineProcessed, 2);
