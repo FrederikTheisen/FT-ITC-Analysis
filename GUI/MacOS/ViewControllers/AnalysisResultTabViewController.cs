@@ -7,6 +7,7 @@ using AppKit;
 using System.Linq;
 using System.Collections.Generic;
 using AnalysisITC.AppClasses.Analysis2;
+using CoreServices;
 
 namespace AnalysisITC
 {
@@ -63,11 +64,18 @@ namespace AnalysisITC
 
         private void DataManager_AnalysisResultSelected(object sender, AnalysisResult e)
         {
+            ClearUI();
+
             AnalysisResult = e;
 
             Graph.Initialize(e);
 
             Setup();
+        }
+
+        public void ClearUI()
+        {
+            SRResultTextField.StringValue = string.Join(Environment.NewLine, new string[] { "-", "-", "-", "-", "-" });
         }
 
         public void Setup()
