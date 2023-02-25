@@ -13,6 +13,9 @@ namespace AnalysisITC
 	partial class BindingAnalysisViewController
 	{
 		[Outlet]
+		AppKit.NSTextField ConstraintKeyLabel { get; set; }
+
+		[Outlet]
 		AppKit.NSTextField ConstraintLabel { get; set; }
 
 		[Outlet]
@@ -59,9 +62,9 @@ namespace AnalysisITC
 		
 		void ReleaseDesignerOutlets ()
 		{
-			if (DataSetParameterLabel != null) {
-				DataSetParameterLabel.Dispose ();
-				DataSetParameterLabel = null;
+			if (ConstraintKeyLabel != null) {
+				ConstraintKeyLabel.Dispose ();
+				ConstraintKeyLabel = null;
 			}
 
 			if (ConstraintLabel != null) {
@@ -69,14 +72,19 @@ namespace AnalysisITC
 				ConstraintLabel = null;
 			}
 
-			if (FitParameterLabel != null) {
-				FitParameterLabel.Dispose ();
-				FitParameterLabel = null;
+			if (DataSetParameterLabel != null) {
+				DataSetParameterLabel.Dispose ();
+				DataSetParameterLabel = null;
 			}
 
 			if (EnergyUnitControl != null) {
 				EnergyUnitControl.Dispose ();
 				EnergyUnitControl = null;
+			}
+
+			if (FitParameterLabel != null) {
+				FitParameterLabel.Dispose ();
+				FitParameterLabel = null;
 			}
 
 			if (Graph != null) {

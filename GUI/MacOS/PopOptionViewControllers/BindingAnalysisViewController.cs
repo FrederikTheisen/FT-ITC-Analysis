@@ -31,7 +31,6 @@ namespace AnalysisITC
         void Setup()
         {
             string fit = "";
-            string constraints = "";
             string dataset = "";
 
             if (this.NextResponder is NSWindow) (this.NextResponder as NSWindow).Title = AnalysisResult.FileName;
@@ -41,13 +40,30 @@ namespace AnalysisITC
             fit += Extensions.GetEnumDescription(AnalysisResult.Solution.Convergence.Algorithm) + Environment.NewLine;
             fit += AnalysisResult.Solution.Convergence.Iterations + " | " + AnalysisResult.Solution.Loss.ToString("G3") + " | " + AnalysisResult.Solution.Convergence.Time.TotalMilliseconds.ToString("F0") + "ms" + Environment.NewLine;
             fit += AnalysisResult.Solution.BootstrapIterations + " | " + AnalysisResult.Solution.BootstrapTime.TotalSeconds.ToString("F1") + "s";
-            constraints += AnalysisResult.Solution.Model.Parameters.Constraints[ParameterTypes.Enthalpy1].ToString() + Environment.NewLine;
-            constraints += AnalysisResult.Solution.Model.Parameters.Constraints[ParameterTypes.Affinity1].ToString() + Environment.NewLine;
-            constraints += AnalysisResult.Solution.Model.Parameters.Constraints[ParameterTypes.Nvalue1].ToString();
+
+            if (AnalysisResult.Solution.Model.Parameters.Constraints.Count > 0)
+            {
+                ConstraintLabel.StringValue = "";
+                ConstraintKeyLabel.StringValue = "";
+
+                foreach (var con in AnalysisResult.Solution.Model.Parameters.Constraints)
+                {
+                    ConstraintLabel.StringValue += con.Value.GetEnumDescription() + Environment.NewLine;
+                    ConstraintKeyLabel.StringValue += con.Key.GetEnumDescription() + ":" + Environment.NewLine;
+                }
+
+                ConstraintLabel.StringValue = ConstraintLabel.StringValue.Trim();
+                ConstraintKeyLabel.StringValue = ConstraintKeyLabel.StringValue.Trim();
+            }
+            else
+            {
+                ConstraintLabel.StringValue = "";
+                ConstraintKeyLabel.StringValue = "No constraints";
+            }
+
             dataset += AnalysisResult.Solution.Model.MeanTemperature.ToString("F3") + " °C";
 
             FitParameterLabel.StringValue = fit;
-            ConstraintLabel.StringValue = constraints;
             DataSetParameterLabel.StringValue = dataset;
         }
 
@@ -62,9 +78,10 @@ namespace AnalysisITC
 
             foreach (var sol in AnalysisResult.Solution.Solutions)
             {
-                sol.Data.UpdateSolution(sol);
+                sol.Data.UpdateSolution(sol.Model);
             }
 
+            StatusBarManager.ClearAppStatus();
             StatusBarManager.SetStatus("Solutions updated", 2000);
 
             DataAnalysisViewController.InvalidateGraph();
