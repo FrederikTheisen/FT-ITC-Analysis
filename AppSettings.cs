@@ -7,6 +7,7 @@ namespace AnalysisITC
 
         public static PeakFitAlgorithm PeakFitAlgorithm { get; set; } = PeakFitAlgorithm.Exponential;
         public static double MinimumTemperatureSpanForFitting { get; internal set; } = 2;
+        public static bool IncludeConcentrationErrorsInBootstrap { get; set; } = true;
     }
 
     public enum PeakFitAlgorithm
