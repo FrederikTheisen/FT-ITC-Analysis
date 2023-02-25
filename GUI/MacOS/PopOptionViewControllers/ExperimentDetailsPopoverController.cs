@@ -26,15 +26,17 @@ namespace AnalysisITC
         {
             base.ViewDidAppear();
 
-			CellConcentrationField.DoubleValue = Data.CellConcentration * 1000000;
+			CellConcentrationField.DoubleValue = Data.CellConcentration.Value * 1000000;
+            if (Data.CellConcentration.HasError) CellConcentrationErrorField.DoubleValue = Data.CellConcentration.SD * 1000000;
 			SyringeConcentrationField.DoubleValue = Data.SyringeConcentration * 1000000;
+            if (Data.SyringeConcentration.HasError) SyringeConcentrationErrorField.DoubleValue = Data.SyringeConcentration.SD * 1000000;
             TemperatureField.DoubleValue = Data.MeasuredTemperature;
         }
 
         partial void Apply(NSObject sender)
         {
-            Data.SyringeConcentration = SyringeConcentrationField.DoubleValue / 1000000;
-            Data.CellConcentration = CellConcentrationField.DoubleValue / 1000000;
+            Data.SyringeConcentration = new(SyringeConcentrationField.DoubleValue / 1000000, SyringeConcentrationErrorField.DoubleValue / 1000000);
+            Data.CellConcentration = new(CellConcentrationField.DoubleValue / 1000000, CellConcentrationErrorField.DoubleValue / 1000000);
             Data.MeasuredTemperature = TemperatureField.DoubleValue;
 
             DataReaders.RawDataReader.ProcessInjections(Data);

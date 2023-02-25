@@ -87,7 +87,8 @@ namespace AnalysisITC
         {
             var s = value.Split(",");
 
-            return new FloatWithError(DParse(s[0]), DParse(s[1]));
+            if (s.Length > 1) return new FloatWithError(DParse(s[0]), DParse(s[1]));
+            else return new FloatWithError(DParse(s[0]));
         }
     }
 

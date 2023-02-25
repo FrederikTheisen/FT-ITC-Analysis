@@ -21,8 +21,8 @@ namespace AnalysisITC
         public List<DataPoint> BaseLineCorrectedDataPoints;
         public List<InjectionData> Injections { get; set; } = new List<InjectionData>();
 
-        public double SyringeConcentration { get; set; }
-        public double CellConcentration { get; set; }
+        public FloatWithError SyringeConcentration { get; set; }
+        public FloatWithError CellConcentration { get; set; }
         public double CellVolume { get; set; }
         public double StirringSpeed { get; set; }
         public FeedbackMode FeedBackMode { get; set; }
@@ -52,9 +52,8 @@ namespace AnalysisITC
         public double MeasuredTemperatureKelvin => 273.15 + MeasuredTemperature;
 
         public DataProcessor Processor { get; private set; }
-        //public Solution Solution1 { get; set; }
-        public AnalysisITC.AppClasses.Analysis2.SolutionInterface Solution => Model?.Solution;
-        public AnalysisITC.AppClasses.Analysis2.Model Model { get; set; }
+        public Model Model { get; set; }
+        public SolutionInterface Solution => Model?.Solution;
 
         public ExperimentData(string file)
         {
@@ -170,7 +169,7 @@ namespace AnalysisITC
             return Math.Sqrt(sum_of_squares / (dps.Count() - 1)); //TODO check formula is correct
         }
 
-        List<InjectionData> GetResiduals()
+        List<InjectionData> GetBootstrappedResiduals()
         {
             var syntheticdata = new List<InjectionData>();
 
@@ -204,9 +203,23 @@ namespace AnalysisITC
             return syntheticdata;
         }
 
+        void AddConcentrationVariance(List<InjectionData> injections)
+        {
+            var cell = 1 + (2 * Rand.NextDouble() - 1) * CellConcentration.FractionSD;
+            var syringe = 1 + (2 * Rand.NextDouble() - 1) * SyringeConcentration.FractionSD;
+
+            foreach (var inj in injections)
+            {
+                inj.ActualCellConcentration *= cell;
+                inj.ActualTitrantConcentration *= syringe;
+            }
+        }
+
         public ExperimentData GetSynthClone()
         {
-            var syninj = GetResiduals();
+            var syninj = GetBootstrappedResiduals();
+
+            if (AppSettings.IncludeConcentrationErrorsInBootstrap) AddConcentrationVariance(syninj);
 
             var syndat = new ExperimentData(FileName)
             {
@@ -227,10 +240,10 @@ namespace AnalysisITC
             ProcessingUpdated?.Invoke(Processor, null);
         }
 
-        public void UpdateSolution(SolutionInterface solution = null)
+        public void UpdateSolution(Model mdl = null)
         {
             //if (solution != null) Solution = solution;
-            if (solution != null) Model.Solution = solution;
+            if (mdl != null) Model = mdl;
 
             SolutionChanged?.Invoke(this, null);
         }

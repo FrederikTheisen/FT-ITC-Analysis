@@ -209,8 +209,8 @@ namespace DataReaders
                     {
                         counter2++;
 
-                        if (counter2 == 2) experiment.SyringeConcentration = LineToFloat(line) * (float)Math.Pow(10, -3);
-                        else if (counter2 == 3) experiment.CellConcentration = LineToFloat(line) != 0 ? LineToFloat(line) * (float)Math.Pow(10, -3) : experiment.SyringeConcentration / 10f;
+                        if (counter2 == 2) experiment.SyringeConcentration = new FloatWithError(LineToFloat(line) * (float)Math.Pow(10, -3));
+                        else if (counter2 == 3) experiment.CellConcentration = LineToFloat(line) != 0 ? new FloatWithError(LineToFloat(line) * (float)Math.Pow(10, -3)) : experiment.SyringeConcentration / 10f;
                         else if (counter2 == 4) experiment.CellVolume = LineToFloat(line) * (float)Math.Pow(10, -3);
                     }
                 }
@@ -300,8 +300,8 @@ namespace DataReaders
                     case ID: exp.SetID(v[1]); break;
                     case Date: exp.Date = DateTime.Parse(line[5..]); break;
                     case SourceFormat: exp.DataSourceFormat = (ITCDataFormat)IParse(v[1]); break;
-                    case SyringeConcentration: exp.SyringeConcentration = DParse(v[1]); break;
-                    case CellConcentration: exp.CellConcentration = DParse(v[1]); break;
+                    case SyringeConcentration: exp.SyringeConcentration = FWEParse(v[1]); break;
+                    case CellConcentration: exp.CellConcentration = FWEParse(v[1]); break;
                     case CellVolume: exp.CellVolume = DParse(v[1]); break;
                     case StirringSpeed: exp.StirringSpeed = DParse(v[1]); break;
                     case TargetTemperature: exp.TargetTemperature = DParse(v[1]); break;
@@ -436,8 +436,8 @@ namespace DataReaders
             exp.SetID(GContent(ID, data));
             exp.Date = DateTime.Parse(GContent(Date, data));
             //exp.Include = GContent(Include, data) == "1";
-            exp.SyringeConcentration = double.Parse(GContent(SyringeConcentration, data));
-            exp.CellConcentration = double.Parse(GContent(CellConcentration, data));
+            exp.SyringeConcentration = FWEParse(GContent(SyringeConcentration, data));
+            exp.CellConcentration = FWEParse(GContent(CellConcentration, data));
             exp.StirringSpeed = double.Parse(GContent(StirringSpeed, data));
             exp.TargetTemperature = double.Parse(GContent(TargetTemperature, data));
             exp.MeasuredTemperature = double.Parse(GContent(MeasuredTemperature, data));
