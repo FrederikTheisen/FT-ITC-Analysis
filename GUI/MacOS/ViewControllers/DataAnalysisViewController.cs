@@ -54,6 +54,8 @@ namespace AnalysisITC
             AxesScopeButton.State = AnalysisGraphView.UseUnifiedAxes ? NSCellStateValue.On : NSCellStateValue.Off;
             GraphView.Initialize(DataManager.Current);
 
+            SetEnableGlobalAnalysis();
+
             if (ModelFactory.Factory == null) InitializeFactory();
         }
 
@@ -92,6 +94,11 @@ namespace AnalysisITC
         }
 
         private void DataManager_DataDidChange(object sender, ExperimentData e)
+        {
+            SetEnableGlobalAnalysis();
+        }
+
+        void SetEnableGlobalAnalysis()
         {
             bool enableglobal = DataManager.Data.Where(d => d.Include).Count() > 1;
 
@@ -185,7 +192,6 @@ namespace AnalysisITC
         void Fit2(SolverAlgorithm algorithm)
         {
             ToggleFitButtons(false);
-            StatusBarManager.StartInderminateProgress();
 
             if (ModelFactory.Factory == null) InitializeFactory();
 
