@@ -94,13 +94,25 @@ namespace AnalysisITC.AppClasses.Analysis2
             if (!Silent) SolverUpdated?.Invoke(null, update);
         });
 
-        public virtual async void Analyze() => await Task.Run(() =>
+        public virtual async void Analyze()
         {
-            TerminateAnalysisFlag = new TerminationFlag();
+            try
+            {
+                StatusBarManager.StartInderminateProgress();
+                StatusBarManager.SetStatus("Optimizing using " + SolverAlgorithm.Description() + "...");
+                TerminateAnalysisFlag = new TerminationFlag();
 
-            var convergence = Solve();
-            ReportAnalysisFinished(convergence);
-        });
+                await Task.Run(() =>
+                {
+                    var convergence = Solve();
+                    ReportAnalysisFinished(convergence);
+                });
+            }
+            catch (Exception ex)
+            {
+                AppEventHandler.DisplayHandledException(ex);
+            }
+        }
 
         public virtual SolverConvergence Solve()
         {
@@ -244,46 +256,56 @@ namespace AnalysisITC.AppClasses.Analysis2
 
         public override async void Analyze()
         {
-            await Task.Run(() =>
+            try
             {
-                SolverConvergence convergence;
+                StatusBarManager.StartInderminateProgress();
+                StatusBarManager.SetStatus("Optimizing using global " + SolverAlgorithm.Description() + "...");
 
-                if (Model.ShouldFitIndividually)
+                await Task.Run(() =>
                 {
-                    ReportSolverUpdate(new SolverUpdate() { Message = "Fitting individually...", Progress = 0, TotalSteps = Model.Models.Count });
+                    SolverConvergence convergence;
 
-                    List<SolverConvergence> convergences = new List<SolverConvergence>();
-                    int counter = 0;
-                    foreach (var mdl in Model.Models)
+                    if (Model.ShouldFitIndividually)
                     {
-                        var solver = SolverInterface.Initialize(mdl);
-                        solver.ErrorEstimationMethod = ErrorEstimationMethod;
-                        solver.BootstrapIterations = BootstrapIterations;
-                        solver.SolverAlgorithm = SolverAlgorithm;
-                        solver.Silent = true;
+                        ReportSolverUpdate(new SolverUpdate() { Message = "Fitting individually...", Progress = 0, TotalSteps = Model.Models.Count });
 
-                        var con = solver.Solve();
+                        List<SolverConvergence> convergences = new List<SolverConvergence>();
+                        int counter = 0;
+                        foreach (var mdl in Model.Models)
+                        {
+                            var solver = SolverInterface.Initialize(mdl);
+                            solver.ErrorEstimationMethod = ErrorEstimationMethod;
+                            solver.BootstrapIterations = BootstrapIterations;
+                            solver.SolverAlgorithm = SolverAlgorithm;
+                            solver.Silent = true;
 
-                        convergences.Add(con);
+                            var con = solver.Solve();
 
-                        counter++;
+                            convergences.Add(con);
 
-                        ReportSolverUpdate(new SolverUpdate() { Progress = (float)counter/Model.Models.Count, Step = counter, TotalSteps = Model.Models.Count });
+                            counter++;
+
+                            ReportSolverUpdate(new SolverUpdate() { Progress = (float)counter / Model.Models.Count, Step = counter, TotalSteps = Model.Models.Count });
+                        }
+
+                        convergence = new SolverConvergence(convergences);
+
+                        Model.Solution = new GlobalSolution(this, Model.Models.Select(mdl => mdl.Solution).ToList(), convergence);
+                    }
+                    else //Fit globally
+                    {
+                        convergence = Solve();
                     }
 
-                    convergence = new SolverConvergence(convergences);
+                    ReportAnalysisFinished(convergence);
+                });
 
-                    Model.Solution = new GlobalSolution(this, Model.Models.Select(mdl => mdl.Solution).ToList(), convergence);
-                }
-                else //Fit globally
-                {
-                    convergence = Solve();
-                }
-
-                ReportAnalysisFinished(convergence);
-            });
-
-            DataManager.AddData(new AnalysisResult(Model.Solution));
+                DataManager.AddData(new AnalysisResult(Model.Solution));
+            }
+            catch (Exception ex)
+            {
+                AppEventHandler.DisplayHandledException(ex);
+            }
         }
 
         protected override SolverConvergence SolveWithNelderMeadAlgorithm()
