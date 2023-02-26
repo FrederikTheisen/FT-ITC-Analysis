@@ -179,6 +179,7 @@
     <Folder Include="GUI\MacOS\CustomViews\" />
     <Folder Include="AppClasses\Depreceated\" />
     <Folder Include="GUI\MacOS\ListViews\" />
+    <Folder Include="AppClasses\Analysis2\Models\" />
   </ItemGroup>
   <ItemGroup>
     <None Include="Info.plist" />
@@ -349,6 +350,9 @@
     <Compile Include="AppClasses\StateManager.cs" />
     <Compile Include="AppClasses\StatusBarManager.cs" />
     <Compile Include="AppClasses\Logger.cs" />
+    <Compile Include="GUI\MacOS\Drawing\ThermodynamicParameterBarPlot.cs" />
+    <Compile Include="AppClasses\Analysis2\Models\OneSetOfSites.cs" />
+    <Compile Include="AppClasses\Analysis2\Models\TwoSetsOfSites.cs" />
   </ItemGroup>
   <ItemGroup>
     <InterfaceDefinition Include="Main.storyboard" />
