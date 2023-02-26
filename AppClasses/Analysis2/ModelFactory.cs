@@ -31,25 +31,34 @@ namespace AnalysisITC.AppClasses.Analysis2
 		/// <returns></returns>
 		public static ModelFactory InitializeFactory(AnalysisModel model, bool isglobal)
 		{
-			Console.WriteLine("Initializing ModelFactory...");
-			ModelFactory factory;
-
-			if (isglobal)
+			try
 			{
-				factory = new GlobalModelFactory(model);
+				Console.WriteLine("Initializing ModelFactory...");
+				ModelFactory factory;
 
-				(factory as GlobalModelFactory).InitializeModel();
+				if (isglobal)
+				{
+					factory = new GlobalModelFactory(model);
+
+					(factory as GlobalModelFactory).InitializeModel();
+				}
+				else
+				{
+					factory = new SingleModelFactory(model);
+
+					(factory as SingleModelFactory).InitializeModel(DataManager.Current);
+				}
+
+				UpdateFactory?.Invoke(factory, null);
+
+				return factory;
 			}
-			else
+			catch (Exception ex)
 			{
-				factory = new SingleModelFactory(model);
+				AppEventHandler.DisplayHandledException(ex);
 
-				(factory as SingleModelFactory).InitializeModel(DataManager.Current);
+				return null;
 			}
-
-			UpdateFactory?.Invoke(factory, null);
-
-			return factory;
 		}
 
 		/// <summary>
