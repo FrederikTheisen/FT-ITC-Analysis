@@ -33,7 +33,7 @@ namespace DataReaders
         {
             var ext = System.IO.Path.GetExtension(path);
 
-            foreach (var format in ITCFormatAttribute.GetAll())
+            foreach (var format in ITCFormatAttribute.GetAllFormats())
             {
                 var fprop = format.GetProperties();
 
@@ -180,6 +180,7 @@ namespace DataReaders
             {
                 int counter = 0;
                 int counter2 = 0;
+                int counter3 = -1;
                 string line;
 
                 bool isDataStream = false;
@@ -194,6 +195,7 @@ namespace DataReaders
                     {
                         if (line.First() == '@') ReadInjection(experiment, line);
                         else ReadDataPoint(experiment, line);
+                        continue;
                     }
 
                     if (counter == 4) experiment.TargetTemperature = LineToFloat(line);
@@ -213,6 +215,16 @@ namespace DataReaders
                         else if (counter2 == 3) experiment.CellConcentration = LineToFloat(line) != 0 ? new FloatWithError(LineToFloat(line) * (float)Math.Pow(10, -3)) : experiment.SyringeConcentration / 10f;
                         else if (counter2 == 4) experiment.CellVolume = LineToFloat(line) * (float)Math.Pow(10, -3);
                     }
+                    else if (line[0] == '?')
+                    {
+                        counter3 = 0;
+                    }
+                    else if (counter3 == 1)
+                    {
+                        experiment.Instrument = ITCFormatAttribute.GetInstrument(line);
+                    }
+
+                    if (counter3 > -1) counter3++;
                 }
 
                 stream.Close();
@@ -449,6 +461,7 @@ namespace DataReaders
             exp.CellVolume = double.Parse(GContent(CellVolume, data));
             exp.CellVolume = double.Parse(GContent(CellVolume, data));
             exp.FeedBackMode = (FeedbackMode)int.Parse(GContent(FeedBackMode, data));
+            exp.Instrument = GContent(Instrument, data) != null ? (ITCInstrument)int.Parse(GContent(Instrument, data)) : ITCInstrument.Unknown;
 
             var datapoints = new List<DataPoint>();
 
@@ -528,7 +541,7 @@ namespace DataReaders
             Extension = extension;
         }
 
-        public static List<ITCDataFormat> GetAll()
+        public static List<ITCDataFormat> GetAllFormats()
         {
             return new List<ITCDataFormat>
             {
@@ -538,13 +551,31 @@ namespace DataReaders
             };
         }
 
-        
-
         public static string[] GetAllExtensions()
         {
-            var formats = GetAll();
+            var formats = GetAllFormats();
 
             return formats.Select(f => f.GetProperties().Extension).ToArray();
+        }
+
+        public static List<ITCInstrument> GetITCInstruments()
+        {
+            return new List<ITCInstrument>
+            {
+                ITCInstrument.MicroCalITC200,
+                ITCInstrument.MicroCalVPITC,
+                ITCInstrument.MalvernITC200,
+            };
+        }
+
+        public static ITCInstrument GetInstrument(string line)
+        {
+            foreach (var ins in GetITCInstruments())
+            {
+                if (line.Contains(ins.GetProperties().Extension)) return ins;
+            }
+
+            return ITCInstrument.Unknown;
         }
 
         public static UTType[] DataFiles()
@@ -567,13 +598,26 @@ namespace DataReaders
         }
     }
 
+    public enum ITCInstrument
+    {
+        [ITCFormatAttribute("Unknown", "", "")]
+        Unknown,
+        [ITCFormatAttribute("MicroCal ITC200", "", "ITC200_")]
+        MicroCalITC200,
+        [ITCFormatAttribute("Malvern Pananalytical ITC", "", "MICROCALITC_MAL")]
+        MicroCalVPITC,
+        [ITCFormatAttribute("MicroCal VP-ITC", "", "VPITC")]
+        MalvernITC200,
+        
+    }
+
     public enum ITCDataFormat
     {
         [ITCFormat("MicroCal ITC-200","Data format produced by the MicroCal ITC200 instrument", ".itc")]
         ITC200,
         [ITCFormat("VP-ITC", "Data format produced by the VP-ITC instrument", ".vpitc")]
         VPITC,
-        [ITCFormat("FT-ITC", "Data format produced by this softwaret", ".ftitc")]
+        [ITCFormat("FT-ITC", "Data format produced by this software", ".ftitc")]
         FTITC
     }
 }
