@@ -20,6 +20,15 @@ namespace AnalysisITC
 		[Action ("DuplicateSelectedData:")]
 		partial void DuplicateSelectedData (Foundation.NSObject sender);
 
+		[Action ("ExportAllCheckAction:")]
+		partial void ExportAllCheckAction (Foundation.NSObject sender);
+
+		[Action ("ExportDataClick:")]
+		partial void ExportDataClick (AppKit.NSMenuItem sender);
+
+		[Action ("ExportPeaksAction:")]
+		partial void ExportPeaksAction (AppKit.NSMenuItem sender);
+
 		[Action ("SaveAsMenuClick:")]
 		partial void SaveAsMenuClick (Foundation.NSObject sender);
 
