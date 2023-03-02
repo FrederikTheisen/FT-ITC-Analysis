@@ -15,6 +15,7 @@ namespace AnalysisITC
         public event EventHandler ProcessingUpdated;
         public event EventHandler SolutionChanged;
 
+        public ITCInstrument Instrument { get; set; } = ITCInstrument.Unknown;
         public ITCDataFormat DataSourceFormat { get; set; }
 
         public List<DataPoint> DataPoints { get; set; } = new List<DataPoint>();
@@ -181,9 +182,15 @@ namespace AnalysisITC
                 residuals.Add(inj.Enthalpy - fit);
             }
 
+            residuals.Shuffle();
+            int resindex = 0;
+
             foreach (var inj in Injections)
             {
-                var res = residuals[Rand.Next(residuals.Count)];
+                var res = 0.0;
+
+                if (inj.Include) { res = residuals[resindex]; resindex++; }
+
                 var fit = Model.EvaluateEnthalpy(inj.ID, withoffset: true);
                 var resarea = res * inj.InjectionMass;
                 var fitarea = fit * inj.InjectionMass;
@@ -242,7 +249,6 @@ namespace AnalysisITC
 
         public void UpdateSolution(Model mdl = null)
         {
-            //if (solution != null) Solution = solution;
             if (mdl != null) Model = mdl;
 
             SolutionChanged?.Invoke(this, null);
@@ -353,8 +359,8 @@ namespace AnalysisITC
                         {
                             case PeakFitAlgorithm.Exponential:
                                 y = dps.Select(dp => (double)(dp.Power)).ToArray();
-                                var exp = MathNet.Numerics.Fit.Curve(x, y, (v, k, x) => v * Math.Exp(-k*x), max.Power, 0.2);
-                                peaklen = (max.Time - this.Time) + (float)lengthparameter * Math.Log(2) / (exp.P1); //TODO should probably be 5 * -ln(2)/k = 98% returned to baseline
+                                var exp = MathNet.Numerics.Fit.Curve(x, y, (v, k, x) => v * Math.Exp(-k*x), max.Power, 0.1);
+                                peaklen = (max.Time - this.Time) + 10 * Math.Log(2) / (exp.P1); //TODO should probably be 5 * -ln(2)/k = 98% returned to baseline
                                 break;
                             default:
                             case PeakFitAlgorithm.Default:
