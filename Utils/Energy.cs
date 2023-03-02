@@ -39,6 +39,18 @@ namespace AnalysisITC
             }
         }
 
+        public static double ScaleFactor(EnergyUnit unit)
+        {
+            switch (unit)
+            {
+                default:
+                case EnergyUnit.Joule: return 1;
+                case EnergyUnit.KiloJoule: return 1 / 1000.0;
+                case EnergyUnit.Cal: return 1 / CalToJouleFactor;
+                case EnergyUnit.KCal: return 1 / (1000 * CalToJouleFactor);
+            }
+        }
+
         public static Energy operator +(Energy e1, Energy e2)
         {
             var v = e1.FloatWithError + e2.FloatWithError;
