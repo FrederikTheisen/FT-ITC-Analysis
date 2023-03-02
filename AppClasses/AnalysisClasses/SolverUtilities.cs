@@ -9,15 +9,17 @@ namespace AnalysisITC
 {
     public class SolverConvergence
     {
-        public int Iterations { get; private set; }
-        public string Message { get; private set; }
-        public TimeSpan Time { get; private set; }
-        public TimeSpan BootstrapTime { get; private set; }
-        public double Loss { get; private set; }
+        public int Iterations { get; private set; } = 0;
+        public string Message { get; private set; } = "";
+        public TimeSpan Time { get; private set; } = new(0);
+        public TimeSpan BootstrapTime { get; private set; } = new(0);
+        public double Loss { get; private set; } = 0;
         public bool Failed { get; private set; } = false;
         public SolverAlgorithm Algorithm { get; private set; }
 
         public void SetBootstrapTime(TimeSpan time) => BootstrapTime = time;
+
+        public SolverConvergence() { }
 
         public SolverConvergence(NelderMead solver)
         {
@@ -61,6 +63,17 @@ namespace AnalysisITC
             Loss = list.Sum(sc => sc.Loss);
 
             Failed = list.Any(con => con.Failed);
+        }
+
+        public static SolverConvergence ReportFailed()
+        {
+            var conv = new SolverConvergence()
+            {
+                Failed = true,
+                Message = "Optimization failed due to error",
+            };
+
+            return conv;
         }
     }
 
