@@ -10,16 +10,24 @@ namespace AnalysisITC
 {
 	public partial class TemperatureDependenceGraphView : NSView
 	{
-        TemperatureDependenceGraph Graph { get; set; }
+        TemperatureDependenceGraph Graph { get; set; } = null;
+        ThermodynamicParameterBarPlot BarPlot { get; set; } = null;
 
 		public TemperatureDependenceGraphView (IntPtr handle) : base (handle)
 		{
             
         }
 
-        public void Initialize(AnalysisResult r)
+        public void Initialize(AnalysisResult r, EnergyUnit unit)
         {
-            Graph = new TemperatureDependenceGraph(r, this);
+            Graph = null;
+            BarPlot = null;
+
+            if (r.Solution.Model.TemperatureDependenceExposed)
+            {
+                Graph = new TemperatureDependenceGraph(r, this);
+            }
+            else BarPlot = new ThermodynamicParameterBarPlot(r, this);
 
             this.NeedsDisplay = true;
         }
@@ -30,7 +38,8 @@ namespace AnalysisITC
 
             var cg = NSGraphicsContext.CurrentContext.CGContext;
 
-            Graph.PrepareDraw(cg, new CGPoint(Frame.GetMidX(), Frame.GetMidY()));
+            if (Graph != null) Graph.PrepareDraw(cg, new CGPoint(Frame.GetMidX(), Frame.GetMidY()));
+            else if (BarPlot != null) BarPlot.PrepareDraw(cg, new CGPoint(Frame.GetMidX(), Frame.GetMidY()));
         }
     }
 }
