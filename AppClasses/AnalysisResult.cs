@@ -44,8 +44,9 @@ namespace AnalysisITC
                 //if (Options.Constraints[ParameterTypes.Nvalue1] != VariableConstraint.None) s += "N-value: " + Options.Constraints[ParameterTypes.Nvalue1].ToString() + Environment.NewLine;
             }
 
-            s += "∆H° = " + new Energy(Solution.GetStandardParameterValue(ParameterTypes.Enthalpy1)).ToString(EnergyUnit.KiloJoule, permole: true) + Environment.NewLine;
-            s += "∆Cₚ = " + new Energy(Solution.TemperatureDependence[ParameterTypes.Enthalpy1].Slope).ToString(EnergyUnit.Joule, "F0", permole: true, perK: true);
+            s += Model.TemperatureDependenceExposed ? "∆H° = " : "∆H = ";
+            s += new Energy(Solution.GetStandardParameterValue(ParameterTypes.Enthalpy1)).ToString(EnergyUnit.KiloJoule, permole: true) + Environment.NewLine;
+            if (Model.TemperatureDependenceExposed) s += "∆Cₚ = " + new Energy(Solution.TemperatureDependence[ParameterTypes.Enthalpy1].Slope).ToString(EnergyUnit.Joule, "F0", permole: true, perK: true);
 
             return s.Trim();
         }
