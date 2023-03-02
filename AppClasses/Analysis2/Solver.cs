@@ -99,7 +99,7 @@ namespace AnalysisITC.AppClasses.Analysis2
             try
             {
                 StatusBarManager.StartInderminateProgress();
-                StatusBarManager.SetStatus("Optimizing using " + SolverAlgorithm.Description() + "...");
+                StatusBarManager.SetStatus("Optimizing using " + SolverAlgorithm.Description() + "...", 0);
                 TerminateAnalysisFlag = new TerminationFlag();
 
                 await Task.Run(() =>
@@ -111,6 +111,8 @@ namespace AnalysisITC.AppClasses.Analysis2
             catch (Exception ex)
             {
                 AppEventHandler.DisplayHandledException(ex);
+
+                ReportAnalysisFinished(SolverConvergence.ReportFailed());
             }
         }
 
@@ -259,7 +261,7 @@ namespace AnalysisITC.AppClasses.Analysis2
             try
             {
                 StatusBarManager.StartInderminateProgress();
-                StatusBarManager.SetStatus("Optimizing using global " + SolverAlgorithm.Description() + "...");
+                StatusBarManager.SetStatus("Optimizing using global " + SolverAlgorithm.Description() + "...", 0);
 
                 await Task.Run(() =>
                 {
@@ -305,6 +307,8 @@ namespace AnalysisITC.AppClasses.Analysis2
             catch (Exception ex)
             {
                 AppEventHandler.DisplayHandledException(ex);
+
+                ReportAnalysisFinished(SolverConvergence.ReportFailed());
             }
         }
 
