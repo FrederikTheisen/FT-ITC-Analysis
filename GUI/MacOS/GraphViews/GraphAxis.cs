@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using AnalysisITC.AppClasses.Analysis2;
 using AppKit;
 using CoreAnimation;
 using CoreGraphics;
@@ -15,10 +16,11 @@ namespace AnalysisITC
         public static CTFont TickFont { get; set; } = new CTFont("Helvetica Neue Light", 14);
         public static CTFont TitleFont { get; set; } = new CTFont("Helvetica Neue Light", 16);
 
-        GraphBase cggraph;
+        protected GraphBase cggraph;
 
         public AxisPosition Position;
         public bool IsHorizontal => Position == AxisPosition.Bottom || Position == AxisPosition.Top;
+        public bool ShouldDrawTicks { get; set; } = true;
         public bool MirrorTicks { get; set; } = false;
 
         public string LegendTitle { get; set; } = "";
@@ -26,14 +28,14 @@ namespace AnalysisITC
         public float ActualMin { get; private set; } = 0;
         public float Min
         {
-            get { if (false) return (float)TickScale.NiceMin; else return ActualMin; }
+            get { return ActualMin; }
             set { ActualMin = value; TickScale.SetMinMaxPoints(ActualMin, ActualMax); }
         }
 
         public float ActualMax { get; private set; } = 1;
         public float Max
         {
-            get { if (false) return (float)TickScale.NiceMax; else return ActualMax; }
+            get { return ActualMax; }
             set { ActualMax = value; TickScale.SetMinMaxPoints(ActualMin, ActualMax); }
         }
 
@@ -58,16 +60,16 @@ namespace AnalysisITC
         public int DecimalPoints { get; set; } = 1;
         double valueFactor = 1;
         public double ValueFactor { get => valueFactor; set { valueFactor = value; SetTickScale(); } }
-        string formatter => "#####0." + new string('0', DecimalPoints);
+        protected string formatter => "#####0." + new string('0', DecimalPoints);
 
-        TextAlignment HorizontalTickLabelAlignment => Position switch
+        protected TextAlignment HorizontalTickLabelAlignment => Position switch
         {
             AxisPosition.Left => TextAlignment.Right,
             AxisPosition.Right => TextAlignment.Left,
             _ => TextAlignment.Center,
         };
 
-        TextAlignment VerticalTickLabelAlignment => Position switch
+        protected TextAlignment VerticalTickLabelAlignment => Position switch
         {
             AxisPosition.Top => TextAlignment.Bottom,
             AxisPosition.Bottom => TextAlignment.Top,
@@ -83,16 +85,16 @@ namespace AnalysisITC
             AxisPosition.Right => new CGSize(-TickLineLength, 0),
             _ => new CGSize(0, -TickLineLength),
         };
-        CGSize FrameOffset => new CGSize(cggraph.Origin);//new CGSize(cggraph.Origin.X, cggraph.Origin.Y);
+        protected CGSize FrameOffset => new CGSize(cggraph.Origin);//new CGSize(cggraph.Origin.X, cggraph.Origin.Y);
         nfloat labeloffset = 7;
-        CGSize LabelOffset => Position switch
+        protected CGSize LabelOffset => Position switch
         {
             AxisPosition.Bottom => new CGSize(0, -labeloffset),
             AxisPosition.Left => new CGSize(-labeloffset, 0),
             AxisPosition.Right => new CGSize(labeloffset, 0),
             _ => new CGSize(0, labeloffset),
         };
-        CGSize TickLabelSize;
+        protected CGSize TickLabelSize;
         nfloat titleoffset = 7;
         CGSize TitleOffset => Position switch
         {
@@ -101,6 +103,13 @@ namespace AnalysisITC
             AxisPosition.Right => new CGSize(titleoffset, 0),
             _ => new CGSize(0, titleoffset),
         };
+
+        public GraphAxis(GraphBase graph, AxisPosition position = AxisPosition.Unknown)
+        {
+            this.cggraph = graph;
+
+            Position = position;
+        }
 
         public GraphAxis(GraphBase graph, double min, double max, AxisPosition position = AxisPosition.Unknown)
         {
@@ -205,7 +214,50 @@ namespace AnalysisITC
             return (tickvalues, minortickvalues);
         }
 
-        public void Draw(CGContext gc)
+        public virtual void Draw(CGContext gc)
+        {
+            DrawTicks(gc);
+
+            DrawAxisTitle(gc);
+        }
+
+        internal void AddTickLines(List<CGPoint> drawticks, List<CGPoint> halfticks, CGPath ticklines, bool mirror = false)
+        {
+            var tickline = TickLine;
+
+            if (mirror) tickline = tickline.ScaleBy(-1);
+
+            foreach (var tick in drawticks)
+            {
+                ticklines.MoveToPoint(tick);
+                ticklines.AddLineToPoint(CGPoint.Add(tick, tickline));
+            }
+            foreach (var tick in halfticks)
+            {
+                ticklines.MoveToPoint(tick);
+                ticklines.AddLineToPoint(CGPoint.Add(tick, tickline.ScaleBy(0.5f)));
+            }
+        }
+
+        internal void GetTickScreenPositions(List<double> tickvalues, bool ishorizontal, bool isalt, List<CGPoint> drawticks = null, List<CGPoint> allticks = null)
+        {
+            if (allticks == null) allticks = new List<CGPoint>();
+
+            foreach (var _tick in tickvalues)
+            {
+                var tick = _tick / ValueFactor;
+
+                var x = ishorizontal ? tick : !isalt ? cggraph.XAxis.Min : cggraph.XAxis.Max;
+                var y = !ishorizontal ? tick : !isalt ? cggraph.YAxis.Min : cggraph.YAxis.Max;
+
+                var p = cggraph.GetRelativePosition(x, y, this);
+
+                if (tick != Min && tick != Max && drawticks != null) drawticks.Add(p);
+                allticks.Add(p);
+            }
+        }
+
+        void DrawTicks(CGContext gc)
         {
             var ticks = GetValidTicks(false);
 
@@ -240,52 +292,17 @@ namespace AnalysisITC
                 AddTickLines(drawticks, halfticks, ticklines, true);
             }
 
-            layer.Context.SetStrokeColor(cggraph.StrokeColor);
-            layer.Context.SetFillColor(cggraph.StrokeColor);
-            layer.Context.AddPath(ticklines);
-            layer.Context.StrokePath();
+            if (ShouldDrawTicks)
+            {
+                layer.Context.SetStrokeColor(cggraph.StrokeColor);
+                layer.Context.SetFillColor(cggraph.StrokeColor);
+                layer.Context.AddPath(ticklines);
+                layer.Context.StrokePath();
 
-            gc.DrawLayer(layer, origin);
+                gc.DrawLayer(layer, origin);
+            }
 
             DrawTickLabels(gc, allticks, tickvalues);
-
-            DrawAxisTitle(gc);
-        }
-
-        private void AddTickLines(List<CGPoint> drawticks, List<CGPoint> halfticks, CGPath ticklines, bool mirror = false)
-        {
-            var tickline = TickLine;
-
-            if (mirror) tickline = tickline.ScaleBy(-1);
-
-            foreach (var tick in drawticks)
-            {
-                ticklines.MoveToPoint(tick);
-                ticklines.AddLineToPoint(CGPoint.Add(tick, tickline));
-            }
-            foreach (var tick in halfticks)
-            {
-                ticklines.MoveToPoint(tick);
-                ticklines.AddLineToPoint(CGPoint.Add(tick, tickline.ScaleBy(0.5f)));
-            }
-        }
-
-        private void GetTickScreenPositions(List<double> tickvalues, bool ishorizontal, bool isalt, List<CGPoint> drawticks, List<CGPoint> allticks = null)
-        {
-            if (allticks == null) allticks = new List<CGPoint>();
-
-            foreach (var _tick in tickvalues)
-            {
-                var tick = _tick / ValueFactor;
-
-                var x = ishorizontal ? tick : !isalt ? cggraph.XAxis.Min : cggraph.XAxis.Max;
-                var y = !ishorizontal ? tick : !isalt ? cggraph.YAxis.Min : cggraph.YAxis.Max;
-
-                var p = cggraph.GetRelativePosition(x, y, this);
-
-                if (tick != Min && tick != Max) drawticks.Add(p);
-                allticks.Add(p);
-            }
         }
 
         void DrawTickLabels(CGContext gc, List<CGPoint> ticks, List<double> tickvalues)
@@ -370,13 +387,87 @@ namespace AnalysisITC
                 if (_size.Height > ticklabelsize.Height) ticklabelsize.Height = _size.Height;
             }
 
-            var titlesize = CGGraph.MeasureString(LegendTitle, TitleFont, null, Position, false);
+            var titlesize = string.IsNullOrEmpty(LegendTitle) ? new CGSize(0,0) : CGGraph.MeasureString(LegendTitle, TitleFont, null, Position, false);
 
             var margin = LabelOffset + TitleOffset;
             margin = margin.AbsoluteValueSize();
 
             if (horizontal) return margin.Height + ticklabelsize.Height + titlesize.Height;
             else return margin.Width + ticklabelsize.Width + titlesize.Height;
+        }
+    }
+
+    public class ParameterCategoryAxis : GraphAxis
+    {
+        public Dictionary<ParameterTypes, int> CategoryLabels { get; private set; }
+
+        public ParameterCategoryAxis(GraphBase graph, List<ParameterTypes> categories, AxisPosition position = AxisPosition.Unknown) : base(graph, -0.5, categories.Count - 0.5, position)
+        {
+            CategoryLabels = new Dictionary<ParameterTypes, int>();
+
+            for (int i = 0; i < categories.Count; i++)
+            {
+                CategoryLabels[categories[i]] = i;
+            }
+        }
+
+        public override void Draw(CGContext gc)
+        {
+            DrawTicks(gc);
+        }
+
+        void DrawTicks(CGContext gc)
+        {
+            var labelpositions = CategoryLabels.Values.Select(t => (double)t).ToList();
+            var tickposition = labelpositions.SkipLast(1).Select(t => t + 0.5).ToList();
+            var origin = cggraph.Frame.Location;
+
+            bool horizontal = Position == AxisPosition.Bottom || Position == AxisPosition.Top;
+            bool alt = Position == AxisPosition.Right || Position == AxisPosition.Top;
+
+            var drawticks = new List<CGPoint>();
+            var labels = new List<CGPoint>();
+
+            GetTickScreenPositions(tickposition, horizontal, alt, drawticks);
+            GetTickScreenPositions(labelpositions, horizontal, alt, null, labels);
+
+            CGLayer layer = CGLayer.Create(gc, cggraph.Frame.Size);
+            CGPath ticklines = new();
+
+            AddTickLines(drawticks, new List<CGPoint>(), ticklines);
+
+            layer.Context.SetStrokeColor(cggraph.StrokeColor);
+            layer.Context.SetFillColor(cggraph.StrokeColor);
+            layer.Context.AddPath(ticklines);
+            layer.Context.StrokePath();
+
+            gc.DrawLayer(layer, origin);
+
+            DrawTickLabels(gc, labels);
+        }
+
+        void DrawTickLabels(CGContext gc, List<CGPoint> ticks)
+        {
+            CGLayer layer = CGLayer.Create(gc, cggraph.View.Frame.Size);
+            layer.Context.SetStrokeColor(cggraph.StrokeColor);
+            layer.Context.SetFillColor(cggraph.StrokeColor);
+
+            var maxsize = new CGSize(0, 0);
+
+            for (int i = 0; i < ticks.Count; i++)
+            {
+                CGPoint tick = ticks[i];
+                var point = tick + FrameOffset + LabelOffset;
+
+                var _size = cggraph.DrawString(layer, ParameterTypesAttribute.TableHeaderTitle(CategoryLabels.Keys.ToList()[i], false), point, TickFont, null, HorizontalTickLabelAlignment, VerticalTickLabelAlignment, null);
+
+                if (_size.Width > maxsize.Width) maxsize.Width = _size.Width;
+                if (_size.Height > maxsize.Height) maxsize.Height = _size.Height;
+            }
+
+            TickLabelSize = maxsize;
+
+            gc.DrawLayer(layer, new CGPoint(0, 0));
         }
     }
 
