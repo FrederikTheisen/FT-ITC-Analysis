@@ -14,7 +14,7 @@ namespace AnalysisITC
         bool isBaselineZoomed = false;
         bool isInjectionZoomed = false;
 
-        int selectedPeak = 0;
+        int selectedPeak = -1;
 
         Utilities.MouseOverFeatureEvent SelectedFeature { get; set; } = null;
 
@@ -91,6 +91,8 @@ namespace AnalysisITC
 
         public void Initialize(ExperimentData experiment)
         {
+            selectedPeak = -1;
+
             if (experiment != null)
             {
                 base.Graph = new BaselineFittingGraph(experiment, this);
@@ -311,6 +313,7 @@ namespace AnalysisITC
                     }
                 case Utilities.MouseOverFeatureEvent.FeatureType.IntegrationRangeMarker:
                     {
+                        Data.IntegrationLengthMode = InjectionData.IntegrationLengthMode.Time;
                         bool start = SelectedFeature.SubID == 0;
 
                         var xfraction = (CursorPositionInView.X - Graph.Frame.X) / Graph.Frame.Width;
@@ -319,6 +322,9 @@ namespace AnalysisITC
 
                         if (start) inj.SetCustomIntegrationTimes((float)time - inj.Time, inj.IntegrationLength, forcetime: true);
                         else inj.SetCustomIntegrationTimes(inj.IntegrationStartDelay, (float)time - inj.Time, forcetime: true);
+
+                        InjectionSelected?.Invoke(null, SelectedFeature.FeatureID);
+
                         break;
                     }
             }
