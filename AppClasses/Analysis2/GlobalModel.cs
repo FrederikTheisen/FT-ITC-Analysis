@@ -53,7 +53,6 @@ namespace AnalysisITC.AppClasses.Analysis2
         {
             GlobalModel model = new GlobalModel();
 
-
 			var mdls = new List<Model>(Models);
 			mdls.Shuffle();
 
@@ -122,23 +121,6 @@ namespace AnalysisITC.AppClasses.Analysis2
             foreach (var dep in dependencies) SetParameterTemperatureDependence(dep.Item1, dep.Item2);
         }
 
-		public GlobalSolution(GlobalModel model, SolverConvergence convergence)
-		{
-			Model = model;
-			Convergence = convergence;
-
-			foreach (var mdl in model.Models)
-			{
-				mdl.Solution = SolutionInterface.FromModel(mdl, model.Parameters.GetParametersForModel(model, mdl).ToArray());
-				mdl.Solution.Convergence = convergence;
-				mdl.Solution.IsGlobalAnalysisSolution = true;
-            }
-
-			var dependencies = Solutions[0].DependenciesToReport;
-
-			foreach (var dep in dependencies) SetParameterTemperatureDependence(dep.Item1, dep.Item2);
-		}
-
 		public GlobalSolution(GlobalSolver solver, List<SolutionInterface> solutions, SolverConvergence convergence)
 		{
 			Model = solver.Model;
@@ -162,26 +144,18 @@ namespace AnalysisITC.AppClasses.Analysis2
 					sets.Add(set);
                 }
 
-				BootstrapSolutions = (sets.Select(set => new GlobalSolution(new GlobalModel() { Models = new List<Model>(set.Select(s => s.Model).ToList()) }))).ToList();
-
-				//foreach (var sol in BootstrapSolutions) //testing
-				//{
-				//	string line = "";
-
-				//	foreach (var mdl in sol.Solutions)
-				//	{
-    //                    line += mdl.TotalEnthalpy.ToString() + " ";
-				//	}
-
-				//	Console.WriteLine(line);
-				//}
+				BootstrapSolutions = (sets.Select(set => new GlobalSolution(new GlobalModel()
+				{
+					Models = new List<Model>(set.Select(s => s.Model).ToList()),
+					TemperatureDependenceExposed = Model.TemperatureDependenceExposed
+				}))).ToList();
 
 				var tmp = new Dictionary<ParameterTypes, LinearFitWithError>();
 
                 foreach (var par in TemperatureDependence)
                 {
-                    var slope = BootstrapSolutions.Select(gsol => gsol.TemperatureDependence[par.Key].Slope.Value).ToList();
-                    var intercept = BootstrapSolutions.Select(gsol => gsol.TemperatureDependence[par.Key].Intercept.Value).ToList();
+                    var slope = BootstrapSolutions.Select(gsol => gsol.TemperatureDependence[par.Key].Slope).ToList();
+                    var intercept = BootstrapSolutions.Select(gsol => gsol.TemperatureDependence[par.Key].Intercept).ToList();
 
                     tmp[par.Key] = new LinearFitWithError(new(slope), new(intercept), MeanTemperature);
                 }
@@ -201,24 +175,17 @@ namespace AnalysisITC.AppClasses.Analysis2
 
         void SetParameterTemperatureDependence(ParameterTypes key, Func<SolutionInterface, FloatWithError> func)
 		{
-			var xy = Model.Models.Select((m, i) => new double[] { m.Data.MeasuredTemperature - Model.MeanTemperature, func(m.Solution) }).ToArray();
-			var reg = MathNet.Numerics.LinearRegression.SimpleRegression.Fit(xy.GetColumn(0), xy.GetColumn(1));
+			if (Model.TemperatureDependenceExposed)
+			{
+				var xy = Model.Models.Select((m, i) => new double[] { m.Data.MeasuredTemperature - Model.MeanTemperature, func(m.Solution) }).ToArray();
+				var reg = MathNet.Numerics.LinearRegression.SimpleRegression.Fit(xy.GetColumn(0), xy.GetColumn(1));
 
-			//if (key == ParameterTypes.Enthalpy1)
-			//{
-			//	//Console.WriteLine(reg.A + " " + reg.B);
-			//	string x = "";
-			//	string y = "";
-
-			//	foreach (var p in xy)
-			//	{
-			//		x += p[0] + " ";
-   //                 y += p[1] + " ";
-   //             }
-			//	Console.WriteLine(x + " " + y + " " + reg.A + " " + reg.B);
-   //         }
-
-			TemperatureDependence[key] = new LinearFitWithError(reg.B, reg.A, MeanTemperature);
+				TemperatureDependence[key] = new LinearFitWithError(reg.B, reg.A, MeanTemperature);
+			}
+			else
+			{
+				TemperatureDependence[key] = new LinearFitWithError(new(0), new(Model.Models.Select((m) => func(m.Solution))), MeanTemperature);
+            }
 		}
 
 		public FloatWithError GetStandardParameterValue(ParameterTypes key)
