@@ -17,7 +17,7 @@ namespace AnalysisITC
 
 		public static void DisplayHandledException(Exception ex)
 		{
-			NSApplication.SharedApplication.InvokeOnMainThread(() => ShowAppMessage?.Invoke(null, new(ex)));
+			NSApplication.SharedApplication.InvokeOnMainThread(() => { ShowAppMessage?.Invoke(null, new(ex)); StatusBarManager.ClearAppStatus(); });
         }
 	}
 
