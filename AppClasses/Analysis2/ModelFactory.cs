@@ -189,7 +189,7 @@ namespace AnalysisITC.AppClasses.Analysis2
 
 			var datas = DataManager.Data.Where(d => d.Include).ToList();
 
-            datas.Shuffle();
+            //datas.Shuffle();
 
             foreach (var data in datas)
 			{
@@ -345,7 +345,7 @@ namespace AnalysisITC.AppClasses.Analysis2
 
             var datas = DataManager.Data.Where(d => d.Include).ToList();
 
-			datas.Shuffle();
+			//dredatas.Shuffle();
 
             foreach (var data in datas)
             {
