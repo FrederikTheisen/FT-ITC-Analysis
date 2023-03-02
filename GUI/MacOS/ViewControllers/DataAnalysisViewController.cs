@@ -109,6 +109,8 @@ namespace AnalysisITC
             if (ModelFactory.Factory is GlobalModelFactory)
                 if (!enableglobal) InitializeFactory();
                 else ModelFactory.Factory.UpdateData();
+
+            SetExposedFittingOptions();
         }
 
         private void DataManager_SelectionDidChange(object sender, ExperimentData e)
