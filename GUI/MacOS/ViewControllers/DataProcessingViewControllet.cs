@@ -144,7 +144,7 @@ namespace AnalysisITC
 
         void UpdateSliderLabels()
         {
-            IntegrationStartDelayLabel.StringValue = (IntegrationDelayControl.FloatValue).ToString("F1") + "s";
+            IntegrationStartDelayLabel.FloatValue = IntegrationDelayControl.FloatValue;
             var lengthlabel = GetLengthSliderParameter();
             if (Data != null)
             {
@@ -277,7 +277,8 @@ namespace AnalysisITC
         {
             if (Data == null) return;
 
-            Data.SetCustomIntegrationTimes(delay, length);
+            if (BaselineGraphView.SelectedPeak == -1) Data.SetCustomIntegrationTimes(delay, length);
+            else Data.Injections[BaselineGraphView.SelectedPeak].SetCustomIntegrationTimes(delay, length);
 
             BaselineGraphView.Invalidate();
 
@@ -346,6 +347,8 @@ namespace AnalysisITC
             {
                 InjectionViewSegControl.SetLabel("injection #" + (BaselineGraphView.SelectedPeak + 1).ToString(), 1);
                 IntegrationLengthControl.FloatValue = Data.Injections[BaselineGraphView.SelectedPeak].IntegrationLength;
+                IntegrationLengthLabel.FloatValue = Data.Injections[BaselineGraphView.SelectedPeak].IntegrationLength;
+                IntegrationStartDelayLabel.FloatValue = Data.Injections[BaselineGraphView.SelectedPeak].IntegrationStartDelay;
             }
             else
             {
@@ -354,7 +357,7 @@ namespace AnalysisITC
 
             ViewPreviousControl.Enabled = BaselineGraphView.SelectedPeak > 0;
             ViewNextControl.Enabled = BaselineGraphView.SelectedPeak < Data?.InjectionCount;
-
+            BaselineGraphView.Invalidate();
         }
 
         partial void ScopeButtonClicked(NSObject sender) => BaselineGraphView.SetFeatureVisibility(ShowBaseline, ShowIntegrationRange, Corrected, ShowCursorInfo);
