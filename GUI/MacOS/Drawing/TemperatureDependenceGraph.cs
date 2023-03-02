@@ -24,7 +24,7 @@ namespace AnalysisITC
             YAxis.HideUnwantedTicks = false;
             YAxis.ValueFactor = 0.001;
             YAxis.MirrorTicks = true;
-            YAxis.LegendTitle = "Thermodynamic parameter (kJ/mol)";
+            YAxis.LegendTitle = "Thermodynamic parameter (" + AppSettings.EnergyUnit.GetUnit() + "/mol)";
         }
 
         public void PrepareDraw(CGContext gc, CGPoint center)
@@ -55,12 +55,6 @@ namespace AnalysisITC
 
         void Draw(CGContext gc)
         {
-            //DrawPredictionIntervals(gc);
-
-            //DrawParameterLines(gc);
-
-            //DrawDataPoints(gc);
-
             DrawDependencies(gc);
 
             DrawZeroLine(gc);

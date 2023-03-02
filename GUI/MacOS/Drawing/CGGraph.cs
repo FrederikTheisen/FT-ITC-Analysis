@@ -635,7 +635,7 @@ namespace AnalysisITC
 
             Info = new List<string>()
                 {
-                    "Filename: " + experiment.FileName,
+                    "Filename: " + experiment.FileName + " | Instrument: " + experiment.Instrument.GetProperties().Name,
                     "Date: " + experiment.Date.ToLocalTime().ToLongDateString() + " " + experiment.Date.ToLocalTime().ToString("HH:mm"),
                     "Temperature | Target: " + experiment.TargetTemperature.ToString() + " °C [Measured: " + experiment.MeasuredTemperature.ToString("G4") + " °C] | Feedback Mode: " + experiment.FeedBackMode.GetProperties().Name + " | Stirring Speed: " + experiment.StirringSpeed.ToString() + " rpm",
                     "Injections: " + experiment.InjectionCount.ToString() + " [" + injdescription + "]",
@@ -673,7 +673,7 @@ namespace AnalysisITC
             var temperature = new List<CGPoint>();
             var jacket = new List<CGPoint>();
 
-            for (int i = 0; i < DataPoints.Count - 1; i += 10)
+            for (int i = 0; i < DataPoints.Count - 1; i += 10) //Skip some datapoints
             {
                 DataPoint p = DataPoints[i];
                 if (p.Time > XAxis.Min && p.Time < XAxis.Max)
@@ -683,7 +683,7 @@ namespace AnalysisITC
                 }
             }
 
-            temperature.Add(GetRelativePosition(DataPoints.Last().Time, DataPoints.Last().Temperature, TemperatureAxis));
+            temperature.Add(GetRelativePosition(DataPoints.Last().Time, DataPoints.Last().Temperature, TemperatureAxis)); //add final datapoint
             jacket.Add(GetRelativePosition(DataPoints.Last().Time, DataPoints.Last().ShieldT, TemperatureAxis));
 
             DrawDataSeries(gc, temperature, 1, NSColor.SystemRed.CGColor);

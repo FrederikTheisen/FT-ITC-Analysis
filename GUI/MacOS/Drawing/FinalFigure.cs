@@ -201,8 +201,8 @@ namespace AnalysisITC
         public void UpdateAxisTitles()
         {
             if (!string.IsNullOrEmpty(TimeAxisTitle)) DataGraph.XAxis.LegendTitle = TimeAxisTitle.Replace("<unit>", TimeUnit.GetProperties().Short);
-            if (!string.IsNullOrEmpty(PowerAxisTitle)) DataGraph.YAxis.LegendTitle = PowerAxisTitle.Replace("<unit>", EnergyUnit.IsSI() ? "µW" : "µCal/s");
-            if (!string.IsNullOrEmpty(EnthalpyAxisTitle)) IntegrationGraph.YAxis.LegendTitle = EnthalpyAxisTitle.Replace("<unit>", EnergyUnit.GetUnit() + " mol⁻¹");
+            if (!string.IsNullOrEmpty(PowerAxisTitle)) DataGraph.YAxis.LegendTitle = PowerAxisTitle.Replace("<unit>", EnergyUnit.IsSI() ? "µW" : "µcal/s");
+            if (!string.IsNullOrEmpty(EnthalpyAxisTitle)) IntegrationGraph.YAxis.LegendTitle = EnthalpyAxisTitle.Replace("<unit>", EnergyUnit.IsSI() ? "kJ/mol" : "kcal/mol");
             if (!string.IsNullOrEmpty(MolarRatioAxisTitle)) IntegrationGraph.XAxis.LegendTitle = MolarRatioAxisTitle;
         }
 

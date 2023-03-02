@@ -45,6 +45,14 @@ namespace AnalysisITC
             return attribute;
         }
 
+        public static ITCFormatAttribute GetProperties(this ITCInstrument value)
+        {
+            var fieldInfo = value.GetType().GetField(value.ToString());
+            var attribute = fieldInfo.GetCustomAttributes(typeof(ITCFormatAttribute), false).FirstOrDefault() as ITCFormatAttribute;
+
+            return attribute;
+        }
+
         public static AnalysisITC.AppClasses.Analysis2.ParameterTypesAttribute GetProperties(this AnalysisITC.AppClasses.Analysis2.ParameterTypes value)
         {
             var fieldInfo = value.GetType().GetField(value.ToString());

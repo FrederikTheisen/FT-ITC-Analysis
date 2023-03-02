@@ -58,7 +58,7 @@ namespace AnalysisITC
 
             FinalFigureGraphView.SanitizeTicks = SanitizeTicks.State == NSCellStateValue.On;
 
-            FinalFigureGraphView.EnergyUnit = EnergyUnitControl.SelectedSegment == 0 ? EnergyUnit.KiloJoule : EnergyUnit.KCal;
+            AppSettings.EnergyUnit = EnergyUnitControl.SelectedSegment == 0 ? EnergyUnit.KiloJoule : EnergyUnit.KCal;
 
             FinalFigureGraphView.Invalidate();
         }

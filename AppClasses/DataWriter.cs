@@ -17,6 +17,7 @@ namespace AnalysisITC
         public const string FileName = "FileName";
         public const string Date = "Date";
         public const string SourceFormat = "Source";
+        public const string Instrument = "Instrument";
         public const string SyringeConcentration = "SyringeConcentration";
         public const string CellConcentration = "CellConcentration";
         public const string CellVolume = "CellVolume";
@@ -94,34 +95,6 @@ namespace AnalysisITC
 
     public class FTITCWriter : FTITCFormat
     {
-        /// <summary>
-        /// Obsolete
-        /// </summary>
-        public static void SaveState()
-        {
-            var file = new List<string>();
-
-            foreach (var data in DataManager.Data)
-            {
-                file.Add(GetExperimentString(data));
-            }
-
-            var dlg = new NSSavePanel();
-            dlg.Title = "Save FT-ITC File";
-            dlg.AllowedFileTypes = new string[] { "ftitc" };
-
-            dlg.BeginSheet(NSApplication.SharedApplication.MainWindow, (result) =>
-            {
-                if (result == 1)
-                {
-                    using (var writer = new StreamWriter(dlg.Filename))
-                    {
-                        foreach (var line in file) writer.Write(line);
-                    }
-                }
-            });
-        }
-
         public static void SaveState2()
         {
             var dlg = new NSSavePanel();
@@ -152,90 +125,6 @@ namespace AnalysisITC
             }
         }
 
-        static string GetExperimentString(ExperimentData data)
-        {
-            string exp = "";
-            exp += OldEncapsulate(ID, data.UniqueID);
-            exp += OldEncapsulate(FileName, data.FileName);
-            exp += OldEncapsulate(Date, data.Date.ToString());
-            exp += OldEncapsulate(Include, data.Include);
-            exp += OldEncapsulate(SyringeConcentration, data.SyringeConcentration);
-            exp += OldEncapsulate(CellConcentration, data.CellConcentration);
-            exp += OldEncapsulate(StirringSpeed, data.StirringSpeed);
-            exp += OldEncapsulate(TargetTemperature, data.TargetTemperature);
-            exp += OldEncapsulate(MeasuredTemperature, data.MeasuredTemperature);
-            exp += OldEncapsulate(InitialDelay, data.InitialDelay);
-            exp += OldEncapsulate(TargetPowerDiff, data.TargetPowerDiff);
-            exp += OldEncapsulate(UseIntegrationFactorLength, (int)data.IntegrationLengthMode);
-            exp += OldEncapsulate(IntegrationLengthFactor, data.IntegrationLengthFactor);
-            exp += OldEncapsulate(FeedBackMode, (int)data.FeedBackMode);
-            exp += OldEncapsulate(CellVolume, data.CellVolume);
-
-            string injections = "";
-
-            foreach (var inj in data.Injections)
-            {
-                injections += inj.ID + ",";
-                injections += (inj.Include ? 1 : 0) + ",";
-                injections += inj.Time + ",";
-                injections += inj.Volume + ",";
-                injections += inj.Delay + ",";
-                injections += inj.Duration + ",";
-                injections += inj.Temperature + ",";
-                injections += inj.IntegrationStartDelay + ",";
-                injections += inj.IntegrationLength + ";";
-            }
-
-            exp += OldEncapsulate(InjectionList, injections.Substring(0, injections.Length - 1));
-
-            string datapoints = "";
-
-            foreach (var dp in data.DataPoints)
-            {
-                string line = "";
-                line += dp.Time + ",";
-                line += dp.Power + ",";
-                line += dp.Temperature + ",";
-                line += dp.ShieldT.ToString() + ";";
-
-                datapoints += line;
-            }
-
-            exp += OldEncapsulate(DataPointList, datapoints.Substring(0, datapoints.Length - 1));
-
-            if (data.Processor != null)
-            {
-                string s = "";
-
-                s += OldEncapsulate(ProcessorType, (int)data.Processor.BaselineType);
-                switch (data.Processor.BaselineType)
-                {
-                    case BaselineInterpolatorTypes.Polynomial:
-                        s += OldEncapsulate(PolynomiumDegree, (data.Processor.Interpolator as PolynomialLeastSquaresInterpolator).Degree);
-                        s += OldEncapsulate(PolynomiumLimit, (data.Processor.Interpolator as PolynomialLeastSquaresInterpolator).ZLimit);
-                        break;
-                    case BaselineInterpolatorTypes.Spline:
-                        var spinterpolator = (data.Processor.Interpolator as SplineInterpolator);
-                        s += OldEncapsulate(SplineAlgorithm, (int)spinterpolator.Algorithm);
-                        s += OldEncapsulate(SplineHandleMode, (int)spinterpolator.HandleMode);
-                        s += OldEncapsulate(SplineFraction, spinterpolator.FractionBaseline);
-                        s += OldEncapsulate(SplineLocked, spinterpolator.IsLocked ? 1 : 0);
-                        string points = "";
-                        foreach (var sp in spinterpolator.SplinePoints) points += sp.Time + "," + sp.Power + "," + sp.ID + "," + sp.Slope + ";";
-                        s += OldEncapsulate(SplinePointList, points.Substring(0, points.Length - 1));
-                        break;
-                    default:
-                    case BaselineInterpolatorTypes.ASL:
-                    case BaselineInterpolatorTypes.None:
-                        break;
-                }
-
-                exp += OldEncapsulate(Processor, s);
-            }
-
-            return OldEncapsulate(ExperimentHeader, exp);
-        }
-
         static async Task WriteExperimentDataToFile(ExperimentData data, StreamWriter stream)
         {
             var file = new List<string>();
@@ -255,6 +144,7 @@ namespace AnalysisITC
             file.Add(Variable(IntegrationLengthFactor, data.IntegrationLengthFactor));
             file.Add(Variable(FeedBackMode, (int)data.FeedBackMode));
             file.Add(Variable(CellVolume, data.CellVolume));
+            file.Add(Variable(Instrument, (int)data.Instrument));
             if (data.Solution != null) file.Add(Variable(Solution, data.Solution.Guid));
 
             file.Add(ListHeader(InjectionList));
@@ -323,7 +213,7 @@ namespace AnalysisITC
             foreach (var line in file) await stream.WriteLineAsync(line);
         }
 
-        //static async Task WriteSolutionToFile(Solution solution, StreamWriter stream)
+        //static async Task WriteSolutionToFile(SolutionInterface solution, StreamWriter stream)
         //{
         //    var file = new List<string>();
         //    file.Add(FileHeader(SolutionHeader, solution.Guid));

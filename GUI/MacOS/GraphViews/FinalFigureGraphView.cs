@@ -14,19 +14,9 @@ namespace AnalysisITC
 	public partial class FinalFigureGraphView : NSView
 	{
         public static event EventHandler Invalidated;
-
         public static event EventHandler PlotSizeChanged;
 
-        static EnergyUnit energyUnit = EnergyUnit.KiloJoule; 
-        public static EnergyUnit EnergyUnit
-        {
-            get => energyUnit;
-            set
-            {
-                if (value.IsSI()) energyUnit = EnergyUnit.KiloJoule; //TODO update this vlaue based on program preferences
-                else energyUnit = EnergyUnit.KCal;
-            }
-        }
+        public static EnergyUnit EnergyUnit => AppSettings.EnergyUnit;
 
         static string poweraxistitle = "";
         public static string PowerAxisTitle
