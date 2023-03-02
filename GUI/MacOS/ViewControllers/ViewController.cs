@@ -21,6 +21,7 @@ namespace AnalysisITC
 
             DataManager.Init();
 
+            DataManager.DataDidChange += OnDataChanged;
             DataManager.SelectionDidChange += OnSelectionChanged;
             StateManager.UpdateStateDependentUI += StateManager_UpdateStateDependentUI;
         }
