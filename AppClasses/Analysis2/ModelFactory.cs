@@ -33,6 +33,8 @@ namespace AnalysisITC.AppClasses.Analysis2
 		{
 			try
 			{
+				if (!DataManager.DataIsLoaded) throw new Exception("No data loaded");
+
 				Console.WriteLine("Initializing ModelFactory...");
 				ModelFactory factory;
 

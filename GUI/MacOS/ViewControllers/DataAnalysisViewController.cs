@@ -144,13 +144,17 @@ namespace AnalysisITC
         partial void AnalysisModelClicked(NSSegmentedControl sender) => InitializeFactory();
         void InitializeFactory()
         {
-            if (ModelFactory.Factory == null) ModelFactory.Factory = ModelFactory.InitializeFactory(SelectedAnalysisModel, AnalysisModeControl.SelectedSegment == 1);
-            else //Determine if model changed and update if it did.
+            if (!DataManager.DataIsLoaded) ModelFactory.Factory = null; //don't even try
+            else
             {
-                bool global = AnalysisModeControl.SelectedSegment == 1;
-                var model = ModelFactory.Factory.ModelType;
+                if (ModelFactory.Factory == null) ModelFactory.Factory = ModelFactory.InitializeFactory(SelectedAnalysisModel, AnalysisModeControl.SelectedSegment == 1);
+                else //Determine if model changed and update if it did.
+                {
+                    bool global = AnalysisModeControl.SelectedSegment == 1;
+                    var model = ModelFactory.Factory.ModelType;
 
-                if (ModelFactory.Factory.IsGlobalAnalysis != global || model != SelectedAnalysisModel) ModelFactory.Factory = ModelFactory.InitializeFactory(SelectedAnalysisModel, AnalysisModeControl.SelectedSegment == 1);
+                    if (ModelFactory.Factory.IsGlobalAnalysis != global || model != SelectedAnalysisModel) ModelFactory.Factory = ModelFactory.InitializeFactory(SelectedAnalysisModel, AnalysisModeControl.SelectedSegment == 1);
+                }
             }
 
             SetExposedFittingOptions();
