@@ -79,6 +79,26 @@ namespace AnalysisITC
             this = new FloatWithError(average, result);
         }
 
+        public FloatWithError(IEnumerable<FloatWithError> distribution, double? mean = null)
+        {
+            double result = 0;
+            double average = 0;
+            int n = 100;
+            var dist = distribution.ToList();
+
+            if (distribution.Any())
+            {
+                var samples = new List<double>();
+                foreach (var fwe in dist) for (int i = 0; i < n; i++) samples.Add(fwe.Sample());
+                average = samples.Average();
+                if (mean != null) average = (double)mean;
+                double sum = samples.Sum(d => Math.Pow(d - average, 2));
+                result = Math.Sqrt((sum) / (samples.Count() - 1));
+            }
+
+            this = new FloatWithError(average, result);
+        }
+
         public void SetError(IEnumerable<double> distribution)
         {
             double result = 0;
