@@ -24,7 +24,11 @@ namespace AnalysisITC
             IncludeConcVarianceCheck.State = AppSettings.IncludeConcentrationErrorsInBootstrap ? NSCellStateValue.On : NSCellStateValue.Off;
             DefaultBootstrapIterationSlider.DoubleValue = Math.Log10(AppSettings.DefaultBootstrapIterations);
 
-            FuncToleranceSlider.DoubleValue = AppSettings.OptimizerTolerance;
+            FuncToleranceSlider.DoubleValue = -Math.Sqrt(-Math.Log10(AppSettings.OptimizerTolerance));
+
+            EnergyUnitControl.SelectedSegment = AppSettings.EnergyUnit.IsSI() ? 0 : 1;
+
+            DefaultBootstrapIterationLabel.StringValue = ((int)Math.Pow(10, DefaultBootstrapIterationSlider.DoubleValue)).ToString();
 
             SetFuncToleranceLabel(AppSettings.OptimizerTolerance);
         }
@@ -36,7 +40,9 @@ namespace AnalysisITC
 
         partial void FuncToleranceAction(NSSlider sender)
         {
-            SetFuncToleranceLabel(sender.DoubleValue);
+            var value = sender.DoubleValue;
+
+            SetFuncToleranceLabel(Math.Pow(10, -(value * value)));
         }
 
         partial void Apply(NSObject sender)
@@ -46,12 +52,22 @@ namespace AnalysisITC
                 AppSettings.ReferenceTemperature = val;
             }
 
+            var energyunit = EnergyUnitControl.SelectedSegment == 0 ? EnergyUnit.KiloJoule : EnergyUnit.KCal;
+
+            if (energyunit.IsSI() != AppSettings.EnergyUnit.IsSI()) //Check if changed to other unit type, update if changed
+            {
+                AppSettings.EnergyUnit = energyunit;
+            }
+
             AppSettings.MinimumTemperatureSpanForFitting = MinTempSpanSlider.DoubleValue;
 
             //Fitting
             AppSettings.DefaultErrorEstimationMethod = (ErrorEstimationMethod)(int)DefaultErrorMethodControl.SelectedSegment;
             AppSettings.IncludeConcentrationErrorsInBootstrap = IncludeConcVarianceCheck.State == NSCellStateValue.On;
             AppSettings.DefaultBootstrapIterations = (int)Math.Pow(10, DefaultBootstrapIterationSlider.DoubleValue);
+            AppSettings.OptimizerTolerance = Math.Max(Math.Pow(10, -(FuncToleranceSlider.DoubleValue * FuncToleranceSlider.DoubleValue)), double.Epsilon);
+
+            AppSettings.Save();
 
             this.DismissViewController(this);
         }
