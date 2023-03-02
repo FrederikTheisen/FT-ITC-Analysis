@@ -8,6 +8,7 @@ using System.Linq;
 using System.Collections.Generic;
 using AnalysisITC.AppClasses.Analysis2;
 using CoreServices;
+using System.Threading.Tasks;
 
 namespace AnalysisITC
 {
@@ -16,7 +17,7 @@ namespace AnalysisITC
         AnalysisResult AnalysisResult { get; set; }
         GlobalSolution Solution => AnalysisResult.Solution;
 
-        EnergyUnit EnergyUnit => (int)EnergyControl.SelectedSegment switch { 0 => EnergyUnit.Joule, 1 => EnergyUnit.KiloJoule, 2 => EnergyUnit.Cal, 3 => EnergyUnit.KCal, _ => EnergyUnit.KiloJoule, };
+        EnergyUnit EnergyUnit => AppSettings.EnergyUnit;
         public bool UseKelvin => TempControl.SelectedSegment == 1;
         double Mag = -1;
 
@@ -68,7 +69,7 @@ namespace AnalysisITC
 
             AnalysisResult = e;
 
-            Graph.Initialize(e);
+            Graph.Initialize(e, EnergyUnit);
 
             Setup();
         }
@@ -80,6 +81,8 @@ namespace AnalysisITC
 
         public void Setup()
         {
+            EnergyControl.SelectedSegment = AppSettings.EnergyUnit switch { EnergyUnit.Joule => 0, EnergyUnit.KiloJoule => 1, EnergyUnit.Cal => 2, EnergyUnit.KCal => 3, _ => 1, };
+
             var kd = Solution.Solutions.Average(s => s.ReportParameters[AppClasses.Analysis2.ParameterTypes.Affinity1]);
 
             Mag = Math.Log10(kd);
@@ -138,7 +141,7 @@ namespace AnalysisITC
 
             TemperatureDependenceLabel.StringValue = string.Join(Environment.NewLine, dependencies);
 
-            EvaluateParameters(null);
+            EvaluateParameters();
         }
 
         void ToggleFitButtons(bool enable)
@@ -157,34 +160,47 @@ namespace AnalysisITC
 
         partial void EvaluateParameters(NSObject sender)
         {
+            EvaluateParameters();
+        }
+
+        async void EvaluateParameters()
+        {
             StatusBarManager.StartInderminateProgress();
-            StatusBarManager.SetStatus("Evaluating...");
+            StatusBarManager.SetStatus("Evaluating...", 0);
 
             try
             {
                 var T = EvaluateionTemperatureTextField.FloatValue;
-
                 if (UseKelvin) T -= 273.15f;
 
-                var H = new Energy(Solution.TemperatureDependence[AppClasses.Analysis2.ParameterTypes.Enthalpy1].Evaluate(T, 10000));
-                var S = new Energy(Solution.TemperatureDependence[AppClasses.Analysis2.ParameterTypes.EntropyContribution1].Evaluate(T, 10000));
-                var G = new Energy(Solution.TemperatureDependence[AppClasses.Analysis2.ParameterTypes.Gibbs1].Evaluate(T, 10000));
+                var unit = EnergyUnit;
 
-                T += 273.15f;
+                var s = await Task.Run(() =>
+                {
+                    var H = new Energy(Solution.TemperatureDependence[AppClasses.Analysis2.ParameterTypes.Enthalpy1].Evaluate(T, 100000));
+                    var S = new Energy(Solution.TemperatureDependence[AppClasses.Analysis2.ParameterTypes.EntropyContribution1].Evaluate(T, 100000));
+                    var G = new Energy(Solution.TemperatureDependence[AppClasses.Analysis2.ParameterTypes.Gibbs1].Evaluate(T, 100000));
 
-                var kdexponent = G / (T * Energy.R);
-                var Kd = FWEMath.Exp(kdexponent.FloatWithError);
+                    T += 273.15f;
 
-                EvaluationOutputLabel.StringValue = string.Join(Environment.NewLine, new string[] { H.ToString(EnergyUnit,permole:true), S.ToString(EnergyUnit, permole: true), G.ToString(EnergyUnit, permole: true), Kd.AsDissociationConstant() });
+                    var kdexponent = G / (T * Energy.R);
+                    var Kd = FWEMath.Exp(kdexponent.FloatWithError);
+
+                    return string.Join(Environment.NewLine, new string[] { H.ToString(unit, permole: true), S.ToString(unit, permole: true), G.ToString(unit, permole: true), Kd.AsDissociationConstant() });
+                });
+
+                EvaluationOutputLabel.StringValue = s;
+
+                StatusBarManager.StopIndeterminateProgress();
+                StatusBarManager.ClearAppStatus();
             }
             catch (Exception ex)
             {
                 EvaluationOutputLabel.StringValue = string.Join(Environment.NewLine, new string[] { "---", "---", "---", "---" });
+                StatusBarManager.StopIndeterminateProgress();
+                StatusBarManager.ClearAppStatus();
                 StatusBarManager.SetStatusScrolling(ex.Message);
             }
-
-            StatusBarManager.StopIndeterminateProgress();
-            StatusBarManager.ClearAppStatus();
         }
 
         bool usekelvin = false;
@@ -200,7 +216,11 @@ namespace AnalysisITC
 
         partial void EnergyControlClicked(NSSegmentedControl sender)
         {
+            AppSettings.EnergyUnit = (int)EnergyControl.SelectedSegment switch { 0 => EnergyUnit.Joule, 1 => EnergyUnit.KiloJoule, 2 => EnergyUnit.Cal, 3 => EnergyUnit.KCal, _ => EnergyUnit.KiloJoule, };
+
             Setup();
+
+            Graph.Initialize(AnalysisResult, EnergyUnit);
         }
 
         partial void CopyToClipboard(NSObject sender)
