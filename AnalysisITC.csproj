@@ -353,6 +353,8 @@
     <Compile Include="GUI\MacOS\Drawing\ThermodynamicParameterBarPlot.cs" />
     <Compile Include="AppClasses\Analysis2\Models\OneSetOfSites.cs" />
     <Compile Include="AppClasses\Analysis2\Models\TwoSetsOfSites.cs" />
+    <Compile Include="GUI\MacOS\ViewControllers\PreferencesViewController.cs" />
+    <Compile Include="GUI\MacOS\ViewControllers\PreferencesViewController.designer.cs" />
   </ItemGroup>
   <ItemGroup>
     <InterfaceDefinition Include="Main.storyboard" />
