@@ -26,6 +26,7 @@ namespace AnalysisITC
         {
             base.ViewDidAppear();
 
+            ExperimentNameField.StringValue = Data.FileName;
 			CellConcentrationField.DoubleValue = Data.CellConcentration.Value * 1000000;
             if (Data.CellConcentration.HasError) CellConcentrationErrorField.DoubleValue = Data.CellConcentration.SD * 1000000;
 			SyringeConcentrationField.DoubleValue = Data.SyringeConcentration * 1000000;
@@ -38,6 +39,7 @@ namespace AnalysisITC
             Data.SyringeConcentration = new(SyringeConcentrationField.DoubleValue / 1000000, SyringeConcentrationErrorField.DoubleValue / 1000000);
             Data.CellConcentration = new(CellConcentrationField.DoubleValue / 1000000, CellConcentrationErrorField.DoubleValue / 1000000);
             Data.MeasuredTemperature = TemperatureField.DoubleValue;
+            if (!string.IsNullOrEmpty(ExperimentNameField.StringValue)) Data.FileName = ExperimentNameField.StringValue;
 
             DataReaders.RawDataReader.ProcessInjections(Data);
 

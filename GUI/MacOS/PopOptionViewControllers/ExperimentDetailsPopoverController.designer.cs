@@ -19,6 +19,9 @@ namespace AnalysisITC
 		AppKit.NSTextField CellConcentrationField { get; set; }
 
 		[Outlet]
+		AppKit.NSTextField ExperimentNameField { get; set; }
+
+		[Outlet]
 		AppKit.NSTextField SyringeConcentrationErrorField { get; set; }
 
 		[Outlet]
@@ -35,19 +38,14 @@ namespace AnalysisITC
 		
 		void ReleaseDesignerOutlets ()
 		{
-			if (CellConcentrationField != null) {
-				CellConcentrationField.Dispose ();
-				CellConcentrationField = null;
-			}
-
 			if (CellConcentrationErrorField != null) {
 				CellConcentrationErrorField.Dispose ();
 				CellConcentrationErrorField = null;
 			}
 
-			if (SyringeConcentrationField != null) {
-				SyringeConcentrationField.Dispose ();
-				SyringeConcentrationField = null;
+			if (CellConcentrationField != null) {
+				CellConcentrationField.Dispose ();
+				CellConcentrationField = null;
 			}
 
 			if (SyringeConcentrationErrorField != null) {
@@ -55,9 +53,19 @@ namespace AnalysisITC
 				SyringeConcentrationErrorField = null;
 			}
 
+			if (SyringeConcentrationField != null) {
+				SyringeConcentrationField.Dispose ();
+				SyringeConcentrationField = null;
+			}
+
 			if (TemperatureField != null) {
 				TemperatureField.Dispose ();
 				TemperatureField = null;
+			}
+
+			if (ExperimentNameField != null) {
+				ExperimentNameField.Dispose ();
+				ExperimentNameField = null;
 			}
 		}
 	}
