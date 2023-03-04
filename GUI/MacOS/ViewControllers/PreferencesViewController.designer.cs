@@ -13,6 +13,12 @@ namespace AnalysisITC
 	partial class PreferencesViewController
 	{
 		[Outlet]
+		AppKit.NSMenu ColorMenu { get; set; }
+
+		[Outlet]
+		AppKit.NSSegmentedControl ColorThemeModeControl { get; set; }
+
+		[Outlet]
 		AppKit.NSTextField DefaultBootstrapIterationLabel { get; set; }
 
 		[Outlet]
@@ -23,6 +29,12 @@ namespace AnalysisITC
 
 		[Outlet]
 		AppKit.NSSegmentedControl EnergyUnitControl { get; set; }
+
+		[Outlet]
+		AppKit.NSTextField FinalFigureHeightField { get; set; }
+
+		[Outlet]
+		AppKit.NSTextField FinalFigureWidthField { get; set; }
 
 		[Outlet]
 		AppKit.NSTextField FuncToleranceLabel { get; set; }
@@ -62,9 +74,44 @@ namespace AnalysisITC
 		
 		void ReleaseDesignerOutlets ()
 		{
+			if (DefaultBootstrapIterationLabel != null) {
+				DefaultBootstrapIterationLabel.Dispose ();
+				DefaultBootstrapIterationLabel = null;
+			}
+
+			if (DefaultBootstrapIterationSlider != null) {
+				DefaultBootstrapIterationSlider.Dispose ();
+				DefaultBootstrapIterationSlider = null;
+			}
+
+			if (DefaultErrorMethodControl != null) {
+				DefaultErrorMethodControl.Dispose ();
+				DefaultErrorMethodControl = null;
+			}
+
 			if (EnergyUnitControl != null) {
 				EnergyUnitControl.Dispose ();
 				EnergyUnitControl = null;
+			}
+
+			if (FuncToleranceLabel != null) {
+				FuncToleranceLabel.Dispose ();
+				FuncToleranceLabel = null;
+			}
+
+			if (FuncToleranceSlider != null) {
+				FuncToleranceSlider.Dispose ();
+				FuncToleranceSlider = null;
+			}
+
+			if (IncludeConcVarianceCheck != null) {
+				IncludeConcVarianceCheck.Dispose ();
+				IncludeConcVarianceCheck = null;
+			}
+
+			if (MaxOptimizerIterationsSlider != null) {
+				MaxOptimizerIterationsSlider.Dispose ();
+				MaxOptimizerIterationsSlider = null;
 			}
 
 			if (MinTempSpanSlider != null) {
@@ -82,44 +129,29 @@ namespace AnalysisITC
 				RefTempField = null;
 			}
 
-			if (DefaultBootstrapIterationSlider != null) {
-				DefaultBootstrapIterationSlider.Dispose ();
-				DefaultBootstrapIterationSlider = null;
-			}
-
-			if (FuncToleranceLabel != null) {
-				FuncToleranceLabel.Dispose ();
-				FuncToleranceLabel = null;
-			}
-
 			if (TempSpanLabel != null) {
 				TempSpanLabel.Dispose ();
 				TempSpanLabel = null;
 			}
 
-			if (DefaultErrorMethodControl != null) {
-				DefaultErrorMethodControl.Dispose ();
-				DefaultErrorMethodControl = null;
+			if (FinalFigureHeightField != null) {
+				FinalFigureHeightField.Dispose ();
+				FinalFigureHeightField = null;
 			}
 
-			if (DefaultBootstrapIterationLabel != null) {
-				DefaultBootstrapIterationLabel.Dispose ();
-				DefaultBootstrapIterationLabel = null;
+			if (FinalFigureWidthField != null) {
+				FinalFigureWidthField.Dispose ();
+				FinalFigureWidthField = null;
 			}
 
-			if (IncludeConcVarianceCheck != null) {
-				IncludeConcVarianceCheck.Dispose ();
-				IncludeConcVarianceCheck = null;
+			if (ColorMenu != null) {
+				ColorMenu.Dispose ();
+				ColorMenu = null;
 			}
 
-			if (MaxOptimizerIterationsSlider != null) {
-				MaxOptimizerIterationsSlider.Dispose ();
-				MaxOptimizerIterationsSlider = null;
-			}
-
-			if (FuncToleranceSlider != null) {
-				FuncToleranceSlider.Dispose ();
-				FuncToleranceSlider = null;
+			if (ColorThemeModeControl != null) {
+				ColorThemeModeControl.Dispose ();
+				ColorThemeModeControl = null;
 			}
 		}
 	}

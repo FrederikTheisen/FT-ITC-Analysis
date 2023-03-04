@@ -2,6 +2,7 @@
 using AnalysisITC.AppClasses.Analysis2;
 using Foundation;
 using System.Linq;
+using AnalysisITC.GUI;
 
 namespace AnalysisITC
 {
@@ -12,6 +13,8 @@ namespace AnalysisITC
         //General
         public static double ReferenceTemperature { get; set; } = 25.0;
         public static EnergyUnit EnergyUnit { get; set; } = EnergyUnit.KiloJoule;
+        public static ColorSchemes ColorScheme { get; set; } = ColorSchemes.Default;
+        public static ColorShcemeGradientMode ColorShcemeGradientMode { get; set; } = ColorShcemeGradientMode.Smooth;
 
         //Processing
         public static PeakFitAlgorithm PeakFitAlgorithm { get; set; } = PeakFitAlgorithm.Exponential;
@@ -37,6 +40,8 @@ namespace AnalysisITC
             Storage.SetBool(IncludeConcentrationErrorsInBootstrap, "IncludeConcentrationErrorsInBootstrap");
             Storage.SetDouble(OptimizerTolerance, "OptimizerTolerance");
             Storage.SetInt(MaximumOptimizerIterations, "MaximumOptimizerIterations");
+            Storage.SetInt((int)ColorScheme, "ColorScheme");
+            Storage.SetInt((int)ColorShcemeGradientMode, "ColorShcemeGradientMode");
 
             StoreArray(FinalFigureDimensions, "FinalFigureDimensions");
 
@@ -77,6 +82,8 @@ namespace AnalysisITC
             IncludeConcentrationErrorsInBootstrap = Storage.BoolForKey("IncludeConcentrationErrorsInBootstrap");
             OptimizerTolerance = Storage.DoubleForKey("OptimizerTolerance");
             MaximumOptimizerIterations = (int)Storage.IntForKey("MaximumOptimizerIterations");
+            ColorScheme = (ColorSchemes)(int)Storage.IntForKey("ColorScheme");
+            ColorShcemeGradientMode = (ColorShcemeGradientMode)(int)Storage.IntForKey("ColorShcemeGradientMode");
 
             ApplyDefaultSettings();
         }
