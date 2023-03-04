@@ -355,6 +355,8 @@
     <Compile Include="AppClasses\Analysis2\Models\TwoSetsOfSites.cs" />
     <Compile Include="GUI\MacOS\ViewControllers\PreferencesViewController.cs" />
     <Compile Include="GUI\MacOS\ViewControllers\PreferencesViewController.designer.cs" />
+    <Compile Include="GUI\AppColors.cs" />
+    <Compile Include="GUI\MacOS\MacColors.cs" />
   </ItemGroup>
   <ItemGroup>
     <InterfaceDefinition Include="Main.storyboard" />

@@ -19,6 +19,8 @@ namespace AnalysisITC
         public static List<ExperimentData> Data => DataSourceContent.Where(o => o is ExperimentData).Select(o => o as ExperimentData).ToList();
         public static IEnumerable<ExperimentData> IncludedData => Data.Where(d => d.Include);
         public static ExperimentData Current => SelectedDataIndex == -1 || (SelectedDataIndex >= Count) ? null : Data[SelectedDataIndex];
+        public static bool SelectedIsData => SelectedContentIndex < DataSourceContent.Count && DataSourceContent[SelectedContentIndex] is ExperimentData;
+
 
         public static bool StopProcessCopying { get; set; } = false;
 

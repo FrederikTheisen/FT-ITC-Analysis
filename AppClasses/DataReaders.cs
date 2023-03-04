@@ -290,6 +290,8 @@ namespace DataReaders
                 }
             }
 
+            LastAccessedPath = path;
+
             return data.ToArray();
         }
 

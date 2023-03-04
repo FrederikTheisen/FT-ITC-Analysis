@@ -91,10 +91,14 @@ namespace AnalysisITC
             if (s.Length > 1) return new FloatWithError(DParse(s[0]), DParse(s[1]));
             else return new FloatWithError(DParse(s[0]));
         }
+
+        public static string LastAccessedPath { get; set; } = "";
     }
 
     public class FTITCWriter : FTITCFormat
     {
+        public static bool IsSaved => string.IsNullOrEmpty(LastAccessedPath);
+
         public static void SaveState2()
         {
             var dlg = new NSSavePanel();
@@ -105,9 +109,18 @@ namespace AnalysisITC
             {
                 if (result == 1)
                 {
+                    StatusBarManager.SetStatusScrolling("Saving file: " + dlg.Filename);
                     await WriteFile(dlg.Filename);
+
+                    LastAccessedPath = dlg.Filename;
                 }
             });
+        }
+
+        public static async void SaveWithPath()
+        {
+            StatusBarManager.SetStatusScrolling("Saving file: " + LastAccessedPath);
+            await WriteFile(LastAccessedPath);
         }
 
         static async Task WriteFile(string path)
