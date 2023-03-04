@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using AnalysisITC.AppClasses.Analysis2;
 using System.Linq;
 using CoreGraphics;
+using AnalysisITC.GUI.MacOS;
 
 namespace AnalysisITC
 {
@@ -108,9 +109,14 @@ namespace AnalysisITC
 
         void Draw(CGContext gc)
         {
-            DrawZeroLine(gc);
+            //foreach (var par in Parameters) DrawParameter(gc, par);
 
-            foreach (var par in Parameters) DrawParameter(gc, par);
+            foreach (var sol in Solution.Solutions)
+            {
+                DrawSolutionParameters(gc, sol);
+            }
+
+            DrawZeroLine(gc);
         }
 
         private void DrawZeroLine(CGContext gc)
@@ -125,6 +131,43 @@ namespace AnalysisITC
             layer.Context.StrokePath();
 
             gc.DrawLayer(layer, Frame.Location);
+        }
+
+        void DrawSolutionParameters(CGContext gc, SolutionInterface sol)
+        {
+            int index = Solution.Solutions.IndexOf(sol);
+
+            var color = MacColors.GetColor(index, Solution.Solutions.Count);
+            if (color == null) color = new CGColor[] {StrokeColor,StrokeColor };
+
+            var barlayer = CGLayer.Create(gc, PlotSize);
+            var errorlayer = CGLayer.Create(gc, PlotSize);
+            var points = new CGPoint[DataCount];
+            var barwidth = GetRelativePosition(CategoryWidth, 0).X - GetRelativePosition(0, 0).X - 2;
+
+            foreach (var key in Parameters)
+            {
+                GraphAxis axis = null;
+                if (key.GetProperties().ParentType == ParameterTypes.Affinity1) axis = DissociationConstantAxis;
+
+                var position = GetBarPosition(key, index);
+                var value = sol.ReportParameters[key];
+                var barpoint = GetRelativePosition(position, value, axis);
+                var errorpoint = GetRelativePosition(position, value.Value * (1 + value.FractionSD), axis);
+
+                points[index] = barpoint;
+
+                AddBarToLayer(barlayer, axis, barpoint, barwidth);
+                AddErrorBarToLayer(errorlayer, barpoint, errorpoint, barwidth);
+            }
+
+            barlayer.Context.SetFillColor(color[0]);
+            barlayer.Context.SetStrokeColor(color[1]);       
+            barlayer.Context.DrawPath(CGPathDrawingMode.FillStroke);
+            gc.DrawLayer(barlayer, Origin);
+            errorlayer.Context.SetStrokeColor(color[1]);
+            errorlayer.Context.StrokePath();
+            gc.DrawLayer(errorlayer, Origin);
         }
 
         void DrawParameter(CGContext gc, ParameterTypes key)
