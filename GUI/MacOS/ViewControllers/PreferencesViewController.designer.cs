@@ -19,6 +19,12 @@ namespace AnalysisITC
 		AppKit.NSSegmentedControl ColorThemeModeControl { get; set; }
 
 		[Outlet]
+		AppKit.NSTextField ConcentrationAutoVarianceLabel { get; set; }
+
+		[Outlet]
+		AppKit.NSSlider ConcentrationAutoVarianceSlider { get; set; }
+
+		[Outlet]
 		AppKit.NSTextField DefaultBootstrapIterationLabel { get; set; }
 
 		[Outlet]
@@ -65,6 +71,9 @@ namespace AnalysisITC
 
 		[Action ("Close:")]
 		partial void Close (Foundation.NSObject sender);
+
+		[Action ("ConcentrationAutoVarianceSliderAction:")]
+		partial void ConcentrationAutoVarianceSliderAction (AppKit.NSSlider sender);
 
 		[Action ("DefaultBootstrapIterationAction:")]
 		partial void DefaultBootstrapIterationAction (AppKit.NSSlider sender);
@@ -124,6 +133,11 @@ namespace AnalysisITC
 				PeakFitAlgorithmControl = null;
 			}
 
+			if (ConcentrationAutoVarianceSlider != null) {
+				ConcentrationAutoVarianceSlider.Dispose ();
+				ConcentrationAutoVarianceSlider = null;
+			}
+
 			if (RefTempField != null) {
 				RefTempField.Dispose ();
 				RefTempField = null;
@@ -132,6 +146,11 @@ namespace AnalysisITC
 			if (TempSpanLabel != null) {
 				TempSpanLabel.Dispose ();
 				TempSpanLabel = null;
+			}
+
+			if (ConcentrationAutoVarianceLabel != null) {
+				ConcentrationAutoVarianceLabel.Dispose ();
+				ConcentrationAutoVarianceLabel = null;
 			}
 
 			if (FinalFigureHeightField != null) {

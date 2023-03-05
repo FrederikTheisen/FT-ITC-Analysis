@@ -48,6 +48,8 @@ namespace AnalysisITC
             FuncToleranceSlider.DoubleValue = -Math.Sqrt(-Math.Log10(AppSettings.OptimizerTolerance));
             EnergyUnitControl.SelectedSegment = AppSettings.EnergyUnit.IsSI() ? 0 : 1;
             DefaultBootstrapIterationLabel.StringValue = ((int)Math.Pow(10, DefaultBootstrapIterationSlider.DoubleValue)).ToString();
+            ConcentrationAutoVarianceSlider.DoubleValue = 100 * AppSettings.ConcentrationAutoVariance;
+            ConcentrationAutoVarianceLabel.StringValue = AppSettings.IsConcentrationAutoVarianceEnabled ? (100 * AppSettings.ConcentrationAutoVariance).ToString("F1") + "%" : "";
 
             SetFuncToleranceLabel(AppSettings.OptimizerTolerance);
         }
@@ -61,6 +63,11 @@ namespace AnalysisITC
             sender.State = NSCellStateValue.On;
 
             ColorScheme = e;
+        }
+
+        partial void ConcentrationAutoVarianceSliderAction(NSSlider sender)
+        {
+            ConcentrationAutoVarianceLabel.StringValue = sender.DoubleValue > double.Epsilon ? sender.DoubleValue.ToString("F1") + "%" : "";
         }
 
         partial void DefaultBootstrapIterationAction(NSSlider sender)
@@ -100,6 +107,7 @@ namespace AnalysisITC
             AppSettings.IncludeConcentrationErrorsInBootstrap = IncludeConcVarianceCheck.State == NSCellStateValue.On;
             AppSettings.DefaultBootstrapIterations = (int)Math.Pow(10, DefaultBootstrapIterationSlider.DoubleValue);
             AppSettings.OptimizerTolerance = Math.Max(Math.Pow(10, -(FuncToleranceSlider.DoubleValue * FuncToleranceSlider.DoubleValue)), double.Epsilon);
+            AppSettings.ConcentrationAutoVariance = ConcentrationAutoVarianceSlider.DoubleValue / 100;
 
             AppSettings.Save();
 
