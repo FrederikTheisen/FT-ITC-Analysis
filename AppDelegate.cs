@@ -10,6 +10,7 @@ namespace AnalysisITC
     public partial class AppDelegate : NSApplicationDelegate
     {
         public static event EventHandler OpenFileDialog;
+        public static event EventHandler StartPrintOperation;
 
         NSOpenPanel FileDialog { get; set; }
          
@@ -45,7 +46,7 @@ namespace AnalysisITC
                 case "exportpeaks": return DataManager.AnyDataIsBaselineProcessed;
                 case "cleardata": return DataManager.DataIsLoaded;
                 case "duplicatedata": return DataManager.SelectedIsData;
-
+                case "print": return StateManager.StateCanPrint();
             }
 
             return true;
@@ -55,6 +56,11 @@ namespace AnalysisITC
         void OpenDocumentMenuClicked(NSObject sender)
         {
             AppDelegate_OpenFileDialog(sender, null);
+        }
+
+        partial void Print(NSMenuItem sender)
+        {
+            StartPrintOperation?.Invoke(null, null);
         }
 
         private void AppDelegate_OpenFileDialog(object sender, EventArgs e)
@@ -109,7 +115,9 @@ namespace AnalysisITC
 
         partial void ExportAllCheckAction(NSObject sender)
         {
-            
+            Exporter.ExportAll = !Exporter.ExportAll;
+
+            (sender as NSMenuItem).State = Exporter.ExportAll ? NSCellStateValue.On : NSCellStateValue.Off;
         }
 
         partial void ExportDataClick(NSMenuItem sender)
@@ -142,6 +150,8 @@ namespace AnalysisITC
                 DataManager.Clear();
             }
         }
+
+        
 
         public override void WillTerminate(NSNotification notification)
         {

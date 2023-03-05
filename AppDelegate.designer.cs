@@ -29,6 +29,9 @@ namespace AnalysisITC
 		[Action ("ExportPeaksAction:")]
 		partial void ExportPeaksAction (AppKit.NSMenuItem sender);
 
+		[Action ("Print:")]
+		partial void Print (AppKit.NSMenuItem sender);
+
 		[Action ("SaveAsMenuClick:")]
 		partial void SaveAsMenuClick (Foundation.NSObject sender);
 
