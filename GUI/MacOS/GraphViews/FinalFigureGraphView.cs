@@ -262,5 +262,19 @@ namespace AnalysisITC
 
             graph.Draw(cg, new CGPoint(Frame.Width / 2, Frame.Height / 2));
         }
+
+        public void Print()
+        {
+            var scalingfactor = 1 / 1.576f;
+
+            var op = NSPrintOperation.FromView(this);
+            op.PrintInfo.PaperSize = this.Frame.Size.ScaleBy(scalingfactor);
+            op.PrintInfo.BottomMargin = 0;
+            op.PrintInfo.TopMargin = 0;
+            op.PrintInfo.LeftMargin = 0;
+            op.PrintInfo.RightMargin = 0;
+            op.PrintInfo.ScalingFactor = scalingfactor;
+            op.RunOperation();
+        }
     }
 }

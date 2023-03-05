@@ -8,10 +8,12 @@ using CoreGraphics;
 
 namespace AnalysisITC
 {
-	public partial class TemperatureDependenceGraphView : NSView
+	public partial class TemperatureDependenceGraphView : NSGraph
 	{
-        TemperatureDependenceGraph Graph { get; set; } = null;
+        TemperatureDependenceGraph ScatterPlot { get; set; } = null;
         ThermodynamicParameterBarPlot BarPlot { get; set; } = null;
+
+        new GraphBase Graph => ScatterPlot == null ? BarPlot : ScatterPlot;
 
 		public TemperatureDependenceGraphView (IntPtr handle) : base (handle)
 		{
@@ -20,12 +22,12 @@ namespace AnalysisITC
 
         public void Initialize(AnalysisResult r, EnergyUnit unit)
         {
-            Graph = null;
+            ScatterPlot = null;
             BarPlot = null;
 
             if (r.Solution.Model.TemperatureDependenceExposed)
             {
-                Graph = new TemperatureDependenceGraph(r, this);
+                ScatterPlot = new TemperatureDependenceGraph(r, this);
             }
             else BarPlot = new ThermodynamicParameterBarPlot(r, this);
 
@@ -38,8 +40,27 @@ namespace AnalysisITC
 
             var cg = NSGraphicsContext.CurrentContext.CGContext;
 
-            if (Graph != null) Graph.PrepareDraw(cg, new CGPoint(Frame.GetMidX(), Frame.GetMidY()));
+            if (ScatterPlot != null) ScatterPlot.PrepareDraw(cg, new CGPoint(Frame.GetMidX(), Frame.GetMidY()));
             else if (BarPlot != null) BarPlot.PrepareDraw(cg, new CGPoint(Frame.GetMidX(), Frame.GetMidY()));
+        }
+
+        new public void Print()
+        {
+            var _dow = Graph.DrawOnWhite;
+            Graph.DrawOnWhite = true;
+
+            Invalidate();
+
+            var op = NSPrintOperation.FromView(this);
+            op.PrintInfo.PaperSize = this.Frame.Size;
+            op.PrintInfo.BottomMargin = 0;
+            op.PrintInfo.TopMargin = 0;
+            op.PrintInfo.LeftMargin = 0;
+            op.PrintInfo.RightMargin = 0;
+            op.PrintInfo.ScalingFactor = 1;
+            op.RunOperation();
+
+            Graph.DrawOnWhite = _dow;
         }
     }
 }

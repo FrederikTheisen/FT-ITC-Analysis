@@ -102,5 +102,24 @@ namespace AnalysisITC
 
             base.DrawRect(dirtyRect);
         }
+
+        public void Print()
+        {
+            var _dow = Graph.DrawOnWhite;
+            Graph.DrawOnWhite = true;
+
+            Invalidate();
+
+            var op = NSPrintOperation.FromView(this);
+            op.PrintInfo.PaperSize = this.Frame.Size;
+            op.PrintInfo.BottomMargin = 0;
+            op.PrintInfo.TopMargin = 0;
+            op.PrintInfo.LeftMargin = 0;
+            op.PrintInfo.RightMargin = 0;
+            op.PrintInfo.ScalingFactor = 1;
+            op.RunOperation();
+
+            Graph.DrawOnWhite = _dow;
+        }
     }
 }
