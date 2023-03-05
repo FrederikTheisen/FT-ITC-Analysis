@@ -26,6 +26,7 @@ namespace AnalysisITC
         {
             base.ViewDidLoad();
 
+            AppDelegate.StartPrintOperation += AppDelegate_StartPrintOperation;
             DataManager.SelectionDidChange += OnSelectionChanged;
             DataProcessor.BaselineInterpolationCompleted += OnInterpolationCompleted;
             BaselineOptionsPopoverViewController.Updated += BaselineOptionsPopoverViewController_Updated;
@@ -34,6 +35,13 @@ namespace AnalysisITC
             BaselineScopeButton.State = NSCellStateValue.On;
             IntegrationScopeButton.State = NSCellStateValue.On;
             ShowCursorInfoButton.State = NSCellStateValue.On;
+        }
+
+        private void AppDelegate_StartPrintOperation(object sender, EventArgs e)
+        {
+            if (StateManager.CurrentState != ProgramState.Process) return;
+
+            BaselineGraphView.Print();
         }
 
         private void BaselineOptionsPopoverViewController_Updated(object sender, EventArgs e)

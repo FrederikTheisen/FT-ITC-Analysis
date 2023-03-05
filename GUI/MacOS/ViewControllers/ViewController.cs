@@ -24,6 +24,14 @@ namespace AnalysisITC
             DataManager.DataDidChange += OnDataChanged;
             DataManager.SelectionDidChange += OnSelectionChanged;
             StateManager.UpdateStateDependentUI += StateManager_UpdateStateDependentUI;
+            AppDelegate.StartPrintOperation += AppDelegate_StartPrintOperation;
+        }
+
+        private void AppDelegate_StartPrintOperation(object sender, EventArgs e)
+        {
+            if (StateManager.CurrentState != ProgramState.Load) return;
+
+            GVC.Print();
         }
 
         private void StateManager_UpdateStateDependentUI(object sender, EventArgs e)

@@ -39,10 +39,18 @@ namespace AnalysisITC
             DataManager.DataDidChange += DataManager_DataDidChange;
             Invalidate += Analysis_AnalysisIterationFinished;
             SolverInterface.SolverUpdated += SolverInterface_SolverUpdated;
+            AppDelegate.StartPrintOperation += AppDelegate_StartPrintOperation;
 
             GlobalAffinityStyle.Hidden = true;
             GlobalEnthalpyStyle.Hidden = true;
             GlobalNView.Hidden = true;
+        }
+
+        private void AppDelegate_StartPrintOperation(object sender, EventArgs e)
+        {
+            if (StateManager.CurrentState != ProgramState.Analyze) return;
+
+            GraphView.Print();
         }
 
         public override void ViewWillAppear()

@@ -26,7 +26,15 @@ namespace AnalysisITC
             DataManager.AnalysisResultSelected += DataManager_AnalysisResultSelected;
             SpolarRecordAnalysisController.IterationFinished += SpolarRecordAnalysisController_IterationFinished;
             SpolarRecordAnalysisController.AnalysisFinished += SpolarRecordAnalysisController_AnalysisFinished;
+            AppDelegate.StartPrintOperation += AppDelegate_StartPrintOperation;
 		}
+
+        private void AppDelegate_StartPrintOperation(object sender, EventArgs e)
+        {
+            if (StateManager.CurrentState != ProgramState.AnalysisView) return;
+
+            Graph.Print();
+        }
 
         private void SpolarRecordAnalysisController_AnalysisFinished(object sender, Tuple<int, TimeSpan> e)
         {

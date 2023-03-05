@@ -11,7 +11,15 @@ namespace AnalysisITC
 	{
 		public FinalFigureViewController (IntPtr handle) : base (handle)
 		{
+            AppDelegate.StartPrintOperation += AppDelegate_StartPrintOperation;
 		}
+
+        private void AppDelegate_StartPrintOperation(object sender, EventArgs e)
+        {
+            if (StateManager.CurrentState != ProgramState.Publish) return;
+
+            FinalFigureGraph.Print();
+        }
 
         public override void ViewDidLoad()
         {
