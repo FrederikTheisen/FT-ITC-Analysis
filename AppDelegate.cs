@@ -59,6 +59,7 @@ namespace AnalysisITC
 
         private void AppDelegate_OpenFileDialog(object sender, EventArgs e)
         {
+            StatusBarManager.SetStatus("Reading data...", 0);
             StatusBarManager.StartInderminateProgress();
 
             FileDialog = NSOpenPanel.OpenPanel;
@@ -82,6 +83,7 @@ namespace AnalysisITC
 
             FileDialog.Dispose();
 
+            StatusBarManager.ClearAppStatus();
             StatusBarManager.StopIndeterminateProgress();
         }
 

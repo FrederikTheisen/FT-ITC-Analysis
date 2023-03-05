@@ -130,7 +130,7 @@ namespace AnalysisITC
                 if (abortscroll) break;
             }
 
-            StatusUpdated?.Invoke(null, Status.Message);
+            ClearAppStatus();
         }
 
         public static async void SetSecondaryStatus(string status, int delay = 20000)
