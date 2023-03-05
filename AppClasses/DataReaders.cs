@@ -69,6 +69,7 @@ namespace DataReaders
             catch (Exception ex)
             {
                 Console.WriteLine("ReadFile Error: " + ex.StackTrace + " " + ex.Message);
+                AppEventHandler.DisplayHandledException(ex);
             }
 
             return null;
@@ -273,6 +274,7 @@ namespace DataReaders
     {
         public static ITCDataContainer[] ReadPath(string path)
         {
+            StatusBarManager.SetStatus("Reading file...");
             var data = new List<ITCDataContainer>();
 
             using (var reader = new StreamReader(path))
