@@ -24,11 +24,19 @@ namespace AnalysisITC
         public static int DefaultBootstrapIterations { get; set; } = 100;
         public static double MinimumTemperatureSpanForFitting { get; internal set; } = 2;
         public static bool IncludeConcentrationErrorsInBootstrap { get; set; } = true;
+        public static double ConcentrationAutoVariance { get; set; } = 0.05;
+        
         public static double OptimizerTolerance { get; set; } = double.Epsilon;
         public static int MaximumOptimizerIterations { get; set; } = 300000;
 
         //Final figure
         public static double[] FinalFigureDimensions { get; set; } = new double[2] { 6.0, 10.0 };
+
+        //Export
+        public static bool UnifyTimeAxisForExport { get; set; } = true;
+        public static bool ExportFitPointsWithPeaks { get; set; } = true;
+
+        public static bool IsConcentrationAutoVarianceEnabled = ConcentrationAutoVariance > 0.1;
 
         public static void Save()
         {
@@ -42,6 +50,9 @@ namespace AnalysisITC
             Storage.SetInt(MaximumOptimizerIterations, "MaximumOptimizerIterations");
             Storage.SetInt((int)ColorScheme, "ColorScheme");
             Storage.SetInt((int)ColorShcemeGradientMode, "ColorShcemeGradientMode");
+            Storage.SetDouble(ConcentrationAutoVariance, "ConcentrationAutoVariance");
+            Storage.SetBool(UnifyTimeAxisForExport, "UnifyTimeAxisForExport");
+            Storage.SetBool(ExportFitPointsWithPeaks, "ExportFitPointsWithPeaks");
 
             StoreArray(FinalFigureDimensions, "FinalFigureDimensions");
 
@@ -84,6 +95,9 @@ namespace AnalysisITC
             MaximumOptimizerIterations = (int)Storage.IntForKey("MaximumOptimizerIterations");
             ColorScheme = (ColorSchemes)(int)Storage.IntForKey("ColorScheme");
             ColorShcemeGradientMode = (ColorShcemeGradientMode)(int)Storage.IntForKey("ColorShcemeGradientMode");
+            ConcentrationAutoVariance = Storage.DoubleForKey("ConcentrationAutoVariance");
+            UnifyTimeAxisForExport = Storage.BoolForKey("UnifyTimeAxisForExport");
+            ExportFitPointsWithPeaks = Storage.BoolForKey("ExportFitPointsWithPeaks");
 
             ApplyDefaultSettings();
         }
