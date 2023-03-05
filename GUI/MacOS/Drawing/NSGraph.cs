@@ -120,6 +120,8 @@ namespace AnalysisITC
             op.RunOperation();
 
             Graph.DrawOnWhite = _dow;
+
+            Invalidate();
         }
     }
 }
