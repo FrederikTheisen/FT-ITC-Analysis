@@ -97,7 +97,7 @@ namespace AnalysisITC
 
     public class FTITCWriter : FTITCFormat
     {
-        public static bool IsSaved => string.IsNullOrEmpty(LastAccessedPath);
+        public static bool IsSaved => !string.IsNullOrEmpty(LastAccessedPath);
 
         public static void SaveState2()
         {
@@ -121,6 +121,40 @@ namespace AnalysisITC
         {
             StatusBarManager.SetStatusScrolling("Saving file: " + LastAccessedPath);
             await WriteFile(LastAccessedPath);
+        }
+
+        public static void SaveSelected(ITCDataContainer data)
+        {
+            var dlg = new NSSavePanel();
+            dlg.Title = "Save FT-ITC " + (data is ExperimentData ? "Experiment Data" : "Analysis Results");
+            dlg.AllowedFileTypes = (data is ExperimentData ? new string[] { "ftitc" } : new string[] { "ftitc", "csv" });
+
+            dlg.BeginSheet(NSApplication.SharedApplication.MainWindow, async (result) =>
+            {
+                if (result == 1)
+                {
+                    StatusBarManager.SetStatusScrolling("Saving file: " + dlg.Filename);
+                    switch (data)
+                    {
+                        case ExperimentData:
+                            using (var writer = new StreamWriter(dlg.Filename))
+                            {
+                                await WriteExperimentDataToFile(data as ExperimentData, writer);
+                            }
+                            break;
+                        case AnalysisResult when dlg.Url.PathExtension == "ftitc":
+                            using (var writer = new StreamWriter(dlg.Filename))
+                            {
+                                await WriteAnalysisResultToFile(data as AnalysisResult, writer);
+                            }
+                            break;
+                        case AnalysisResult when dlg.Url.PathExtension == "csv": throw new NotImplementedException("CSV save not yet implemented");
+                            break;
+                    }
+                }
+            });
+
+            
         }
 
         static async Task WriteFile(string path)
@@ -226,23 +260,6 @@ namespace AnalysisITC
             foreach (var line in file) await stream.WriteLineAsync(line);
         }
 
-        //static async Task WriteSolutionToFile(SolutionInterface solution, StreamWriter stream)
-        //{
-        //    var file = new List<string>();
-        //    file.Add(FileHeader(SolutionHeader, solution.Guid));
-        //    file.Add(Variable(SolModel, solution.Model.ToString()));
-        //    file.Add(Variable(SolLoss, solution.Loss));
-        //    file.Add(Variable(SolParamsRaw, string.Join(",", solution.Raw.ToList())));
-        //    file.Add(Variable(SolH, solution.Enthalpy));
-        //    file.Add(Variable(SolK, solution.K));
-        //    file.Add(Variable(SolN, solution.N));
-        //    file.Add(Variable(SolO, solution.Offset));
-        //    file.Add(Variable(SolBootN, solution.BootstrapSolutions.Count));
-
-        //    file.Add(EndFileHeader);
-        //    foreach (var line in file) await stream.WriteLineAsync(line);
-        //}
-
         static async Task WriteSolutionToFile2(SolutionInterface solution, StreamWriter stream)
         {
             var file = new List<string>();
@@ -276,9 +293,9 @@ namespace AnalysisITC
             foreach (var line in file) await stream.WriteLineAsync(line);
         }
 
-        static void GetAnalysisResultString(AnalysisResult result)
+        static async Task WriteAnalysisResultToFile(AnalysisResult result, StreamWriter writer)
         {
-
+            throw new NotImplementedException("Analysis Result save not yet implemented");
         }
 
         public static void CopyToClipboard(GlobalSolution solution, double kdmagnitude, EnergyUnit unit, bool usekelvin)
