@@ -115,6 +115,15 @@ namespace AnalysisITC
         {
             if (CurrentState == ProgramState.AnalysisView) CurrentState = saveState;
         }
+
+        public static bool StateCanPrint()
+        {
+            switch (CurrentState)
+            {
+                default:
+                case ProgramState.Process: return true;
+            }
+        }
     }
 
     public enum ProgramState
