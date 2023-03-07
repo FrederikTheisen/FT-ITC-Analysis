@@ -153,8 +153,6 @@ namespace AnalysisITC
                     }
                 }
             });
-
-            
         }
 
         static async Task WriteFile(string path)
@@ -327,6 +325,18 @@ namespace AnalysisITC
             NSPasteboard.GeneralPasteboard.SetStringForType(paste, "NSStringPboardType");
 
             StatusBarManager.SetStatus("Results copied to clipboard", 3333);
+        }
+    }
+
+    public class Exporter
+    {
+        public static bool ExportAll { get; set; } = true;
+
+        public static void ExportData()
+        {
+            var data = ExportAll ? DataManager.Data.Where(d => d.Include) : new List<ExperimentData> { DataManager.Current };
+
+            
         }
     }
 }
