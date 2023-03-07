@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.ComponentModel;
 using System.Linq;
 using Accord.Math.Optimization;
+using AnalysisITC.AppClasses.Analysis2;
 using static alglib;
 
 namespace AnalysisITC
@@ -115,6 +116,22 @@ namespace AnalysisITC
             StatusBarManager.Progress = Progress;
             if (Message != "") StatusBarManager.SetStatus(Message, Time);
             if (TotalSteps > 0) StatusBarManager.SetSecondaryStatus(ProgressString, Time);
+        }
+    }
+
+    public class ModelCloneOptions
+    {
+        public ErrorEstimationMethod ErrorEstimationMethod { get; set; } = ErrorEstimationMethod.None;
+        public bool IncludeConcentrationErrorsInBootstrap { get; set; } = false;
+        public bool EnableAutoConcentrationVariance { get; set; } = false;
+        public double AutoConcentrationVariance { get; set; } = 0.05f;
+
+        public ModelCloneOptions()
+        {
+            ErrorEstimationMethod = FittingOptionsController.ErrorEstimationMethod;
+            IncludeConcentrationErrorsInBootstrap = FittingOptionsController.IncludeConcentrationVariance;
+            EnableAutoConcentrationVariance = FittingOptionsController.EnableAutoConcentrationVariance;
+            AutoConcentrationVariance = FittingOptionsController.AutoConcentrationVariance;
         }
     }
 

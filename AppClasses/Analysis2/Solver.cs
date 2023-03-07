@@ -16,6 +16,9 @@ namespace AnalysisITC.AppClasses.Analysis2
     {
         public static ErrorEstimationMethod ErrorEstimationMethod { get; set; } = ErrorEstimationMethod.BootstrapResiduals;
         public static int BootstrapIterations { get; set; } = 100;
+        public static bool IncludeConcentrationVariance { get; set; } = false;
+        public static bool EnableAutoConcentrationVariance { get; set; } = false;
+        public static double AutoConcentrationVariance { get; set; } = 0.05;
     }
 
     public class SolverInterface

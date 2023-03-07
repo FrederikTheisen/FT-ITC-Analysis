@@ -11,8 +11,9 @@ namespace AnalysisITC.AppClasses.Analysis2
 		public ExperimentData Data { get; set; }
 		public AnalysisModel ModelType { get; set; } = AnalysisModel.OneSetOfSites;
 		public ModelParameters Parameters { get; set; }
+        public ModelCloneOptions ModelCloneOptions { get; set; }
 
-		public SolutionInterface Solution { get; set; }
+        public SolutionInterface Solution { get; set; }
 
         public int NumberOfParameters => Parameters.FittingParameterCount;
         public string ModelName => ModelType.ToString();
@@ -79,7 +80,7 @@ namespace AnalysisITC.AppClasses.Analysis2
 
         public virtual Model GenerateSyntheticModel()
         {
-            var mdl = new Model(Data.GetSynthClone());
+            var mdl = new Model(Data.GetSynthClone(ModelCloneOptions));
 
             foreach (var par in Parameters.Table)
 			{

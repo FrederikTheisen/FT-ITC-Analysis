@@ -26,7 +26,14 @@ namespace AnalysisITC.AppClasses.Analysis2
 
         public override Model GenerateSyntheticModel()
         {
-            return new TwoSetsOfSites(Data.GetSynthClone());
+            Model mdl = new TwoSetsOfSites(Data.GetSynthClone(ModelCloneOptions));
+
+            foreach (var par in Parameters.Table)
+            {
+                mdl.Parameters.AddParameter(par.Key, par.Value.Value, par.Value.IsLocked, par.Value.Limits, par.Value.StepSize);
+            }
+
+            return mdl;
         }
 
 		public class ModelSolution : SolutionInterface

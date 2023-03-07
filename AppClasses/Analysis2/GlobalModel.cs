@@ -8,12 +8,13 @@ namespace AnalysisITC.AppClasses.Analysis2
 {
 	public class GlobalModel
 	{
-		public List<Model> Models { get; set; }
+		public List<Model> Models { get; private set; }
 		public GlobalModelParameters Parameters { get; set; }
 		public GlobalSolution Solution { get; set; }
 
 		public double MeanTemperature => Models.Average(mdl => mdl.Data.MeasuredTemperature);
-        public bool TemperatureDependenceExposed { get; set; }
+		public bool TemperatureDependenceExposed { get; private set; }
+		public ModelCloneOptions ModelCloneOptions { get; set; }
 
         public int NumberOfParameters => Parameters.TotalFittingParameters;
 		public bool ShouldFitIndividually => !Parameters.RequiresGlobalFitting;
@@ -24,10 +25,20 @@ namespace AnalysisITC.AppClasses.Analysis2
 			Models = new List<Model>();
 		}
 
-		public void AddModel(Model model)
+		public GlobalModel(List<Model> models)
+		{
+            Parameters = new GlobalModelParameters();
+            Models = new List<Model>();
+
+            foreach (var mdl in models) AddModel(mdl);
+        }
+
+        public void AddModel(Model model)
 		{
 			Models.Add(model);
-		}
+
+			TemperatureDependenceExposed = Models.Max(mdl => mdl.Data.MeasuredTemperature) - Models.Min(mdl => mdl.Data.MeasuredTemperature) > AppSettings.MinimumTemperatureSpanForFitting;
+        }
 
 		public double LossFunction(double[] parameters)
 		{
@@ -144,11 +155,7 @@ namespace AnalysisITC.AppClasses.Analysis2
 					sets.Add(set);
                 }
 
-				BootstrapSolutions = (sets.Select(set => new GlobalSolution(new GlobalModel()
-				{
-					Models = new List<Model>(set.Select(s => s.Model).ToList()),
-					TemperatureDependenceExposed = Model.TemperatureDependenceExposed
-				}))).ToList();
+				BootstrapSolutions = (sets.Select(set => new GlobalSolution(new GlobalModel(set.Select(s => s.Model).ToList())))).ToList();
 
 				var tmp = new Dictionary<ParameterTypes, LinearFitWithError>();
 

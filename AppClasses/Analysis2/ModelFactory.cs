@@ -86,6 +86,12 @@ namespace AnalysisITC.AppClasses.Analysis2
 		public virtual void BuildModel()
 		{
 			Console.WriteLine("Building model: " + (IsGlobalAnalysis ? "GlobalModel " : "IndividualModel ") + ModelType.ToString());
+
+			switch (this)
+			{
+				case SingleModelFactory: (this as SingleModelFactory).Model.ModelCloneOptions = new(); break;
+				case GlobalModelFactory: (this as GlobalModelFactory).Model.ModelCloneOptions = new(); break;
+			}
         }
 
 		public static void Clear()
@@ -287,15 +293,15 @@ namespace AnalysisITC.AppClasses.Analysis2
 		{
 			var dict = new Dictionary<ParameterTypes, List<VariableConstraint>>();
 
-			Model.TemperatureDependenceExposed = false;
+			//Model.TemperatureDependenceExposed = false;
 
-            if (Model.Models.Count > 1)
-            {
-                var min = Model.Models.Min(mdl => mdl.Data.MeasuredTemperature);
-                var max = Model.Models.Max(mdl => mdl.Data.MeasuredTemperature);
+   //         if (Model.Models.Count > 1)
+   //         {
+   //             var min = Model.Models.Min(mdl => mdl.Data.MeasuredTemperature);
+   //             var max = Model.Models.Max(mdl => mdl.Data.MeasuredTemperature);
 
-                if (max - min > AppSettings.MinimumTemperatureSpanForFitting) Model.TemperatureDependenceExposed = true;
-            }
+   //             if (max - min > AppSettings.MinimumTemperatureSpanForFitting) Model.TemperatureDependenceExposed = true;
+   //         }
 
             var _pars = Model.Models.First().Parameters;
 
@@ -375,7 +381,7 @@ namespace AnalysisITC.AppClasses.Analysis2
             foreach (var mdl in Model.Models)
 			{
 				mdl.Data.Model = mdl;
-
+				mdl.ModelCloneOptions = new ModelCloneOptions();
                 GlobalModelParameters.AddIndivdualParameter(mdl.Parameters);
             }
 

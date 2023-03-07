@@ -51,7 +51,7 @@ namespace AnalysisITC.AppClasses.Analysis2
 
         public override Model GenerateSyntheticModel()
         {
-			Model mdl = new OneSetOfSites(Data.GetSynthClone());
+			Model mdl = new OneSetOfSites(Data.GetSynthClone(ModelCloneOptions));
 
 			foreach (var par in Parameters.Table)
 			{
