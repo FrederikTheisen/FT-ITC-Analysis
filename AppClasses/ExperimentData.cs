@@ -210,10 +210,19 @@ namespace AnalysisITC
             return syntheticdata;
         }
 
-        void AddConcentrationVariance(List<InjectionData> injections)
+        void AddConcentrationVariance(List<InjectionData> injections, ModelCloneOptions options = null)
         {
-            var cell = 1 + (2 * Rand.NextDouble() - 1) * CellConcentration.FractionSD;
-            var syringe = 1 + (2 * Rand.NextDouble() - 1) * SyringeConcentration.FractionSD;
+            var sd_cell = CellConcentration.FractionSD;
+            var sd_syringe = SyringeConcentration.FractionSD;
+
+            if (options.EnableAutoConcentrationVariance)
+            {
+                if (sd_cell < 0.001) sd_cell = options.AutoConcentrationVariance;
+                if (sd_syringe < 0.001) sd_syringe = options.AutoConcentrationVariance;
+            }
+
+            var cell = 1 + (2 * Rand.NextDouble() - 1) * sd_cell;
+            var syringe = 1 + (2 * Rand.NextDouble() - 1) * sd_syringe;
 
             foreach (var inj in injections)
             {
@@ -222,11 +231,11 @@ namespace AnalysisITC
             }
         }
 
-        public ExperimentData GetSynthClone()
+        public ExperimentData GetSynthClone(ModelCloneOptions options)
         {
             var syninj = GetBootstrappedResiduals();
 
-            if (AppSettings.IncludeConcentrationErrorsInBootstrap) AddConcentrationVariance(syninj);
+            if (options.IncludeConcentrationErrorsInBootstrap) AddConcentrationVariance(syninj, options);
 
             var syndat = new ExperimentData(FileName)
             {
