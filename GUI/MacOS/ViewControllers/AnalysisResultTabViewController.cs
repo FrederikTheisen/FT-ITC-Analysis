@@ -131,8 +131,8 @@ namespace AnalysisITC
             {
                 Solution.SolutionName,
                 Solution.Convergence.Algorithm.Description(),
-                Solution.ErrorEstimationMethod.Description(),
-                Solution.ErrorEstimationMethod == ErrorEstimationMethod.None ? "-" : Solution.BootstrapIterations.ToString() });
+                Solution.ErrorEstimationMethod.Description() + (Solution.ErrorEstimationMethod == ErrorEstimationMethod.None ? "" : " x " + Solution.BootstrapIterations.ToString() )
+            });
 
             var refT = Solution.MeanTemperature;
             if (UseKelvin)
