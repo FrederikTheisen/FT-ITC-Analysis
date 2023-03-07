@@ -17,7 +17,12 @@ namespace AnalysisITC
 
 		public TemperatureDependenceGraphView (IntPtr handle) : base (handle)
 		{
-            
+            AppSettings.SettingsDidUpdate += AppSettings_SettingsDidUpdate;
+        }
+
+        private void AppSettings_SettingsDidUpdate(object sender, EventArgs e)
+        {
+            Invalidate();
         }
 
         public void Initialize(AnalysisResult r, EnergyUnit unit)
@@ -31,7 +36,7 @@ namespace AnalysisITC
             }
             else BarPlot = new ThermodynamicParameterBarPlot(r, this);
 
-            this.NeedsDisplay = true;
+            Invalidate();
         }
 
         public override void DrawRect(CGRect dirtyRect)
@@ -46,7 +51,7 @@ namespace AnalysisITC
 
         new public void Print()
         {
-            var _dow = Graph.DrawOnWhite;
+            var _drawOnWhite = Graph.DrawOnWhite;
             Graph.DrawOnWhite = true;
 
             Invalidate();
@@ -60,7 +65,7 @@ namespace AnalysisITC
             op.PrintInfo.ScalingFactor = 1;
             op.RunOperation();
 
-            Graph.DrawOnWhite = _dow;
+            Graph.DrawOnWhite = _drawOnWhite;
         }
     }
 }
