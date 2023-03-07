@@ -357,6 +357,12 @@
     <Compile Include="GUI\MacOS\ViewControllers\PreferencesViewController.designer.cs" />
     <Compile Include="GUI\AppColors.cs" />
     <Compile Include="GUI\MacOS\MacColors.cs" />
+    <Compile Include="ExportPreferencesViewController.cs" />
+    <Compile Include="ExportPreferencesViewController.designer.cs" />
+    <Compile Include="FittingPreferencesViewController.cs" />
+    <Compile Include="FittingPreferencesViewController.designer.cs" />
+    <Compile Include="GeneralSettingsViewController.cs" />
+    <Compile Include="GeneralSettingsViewController.designer.cs" />
   </ItemGroup>
   <ItemGroup>
     <InterfaceDefinition Include="Main.storyboard" />
