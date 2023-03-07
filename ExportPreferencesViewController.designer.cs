@@ -19,7 +19,22 @@ namespace AnalysisITC
 		AppKit.NSButton ExportSolutionPointsControl { get; set; }
 
 		[Outlet]
+		AppKit.NSTextField FinalFigHeightField { get; set; }
+
+		[Outlet]
+		AppKit.NSSegmentedControl FinalFigParameterDisplayOptions { get; set; }
+
+		[Outlet]
+		AppKit.NSTextField FinalFigWidthField { get; set; }
+
+		[Outlet]
 		AppKit.NSSegmentedControl UnifyAxesControl { get; set; }
+
+		[Action ("Apply:")]
+		partial void Apply (Foundation.NSObject sender);
+
+		[Action ("Close:")]
+		partial void Close (Foundation.NSObject sender);
 
 		[Action ("ExportSelectionControlAction:")]
 		partial void ExportSelectionControlAction (AppKit.NSSegmentedControl sender);
@@ -32,9 +47,19 @@ namespace AnalysisITC
 		
 		void ReleaseDesignerOutlets ()
 		{
-			if (UnifyAxesControl != null) {
-				UnifyAxesControl.Dispose ();
-				UnifyAxesControl = null;
+			if (FinalFigHeightField != null) {
+				FinalFigHeightField.Dispose ();
+				FinalFigHeightField = null;
+			}
+
+			if (FinalFigWidthField != null) {
+				FinalFigWidthField.Dispose ();
+				FinalFigWidthField = null;
+			}
+
+			if (ExportSelectedControl != null) {
+				ExportSelectedControl.Dispose ();
+				ExportSelectedControl = null;
 			}
 
 			if (ExportSolutionPointsControl != null) {
@@ -42,9 +67,14 @@ namespace AnalysisITC
 				ExportSolutionPointsControl = null;
 			}
 
-			if (ExportSelectedControl != null) {
-				ExportSelectedControl.Dispose ();
-				ExportSelectedControl = null;
+			if (UnifyAxesControl != null) {
+				UnifyAxesControl.Dispose ();
+				UnifyAxesControl = null;
+			}
+
+			if (FinalFigParameterDisplayOptions != null) {
+				FinalFigParameterDisplayOptions.Dispose ();
+				FinalFigParameterDisplayOptions = null;
 			}
 		}
 	}

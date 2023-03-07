@@ -42,6 +42,12 @@ namespace AnalysisITC
 		[Outlet]
 		AppKit.NSTextField RefTempField { get; set; }
 
+		[Action ("Apply:")]
+		partial void Apply (Foundation.NSObject sender);
+
+		[Action ("Close:")]
+		partial void Close (Foundation.NSObject sender);
+
 		[Action ("ColorGradientControlAction:")]
 		partial void ColorGradientControlAction (AppKit.NSSegmentedControl sender);
 
@@ -56,14 +62,14 @@ namespace AnalysisITC
 		
 		void ReleaseDesignerOutlets ()
 		{
-			if (EnergyUnitControl != null) {
-				EnergyUnitControl.Dispose ();
-				EnergyUnitControl = null;
-			}
-
 			if (ColorGradientControl != null) {
 				ColorGradientControl.Dispose ();
 				ColorGradientControl = null;
+			}
+
+			if (ColorMenu != null) {
+				ColorMenu.Dispose ();
+				ColorMenu = null;
 			}
 
 			if (ColorThemeMenu != null) {
@@ -71,19 +77,9 @@ namespace AnalysisITC
 				ColorThemeMenu = null;
 			}
 
-			if (MinTempSpanSlider != null) {
-				MinTempSpanSlider.Dispose ();
-				MinTempSpanSlider = null;
-			}
-
-			if (MinTempSpanField != null) {
-				MinTempSpanField.Dispose ();
-				MinTempSpanField = null;
-			}
-
-			if (RefTempField != null) {
-				RefTempField.Dispose ();
-				RefTempField = null;
+			if (EnergyUnitControl != null) {
+				EnergyUnitControl.Dispose ();
+				EnergyUnitControl = null;
 			}
 
 			if (FinalFigHeightField != null) {
@@ -96,14 +92,24 @@ namespace AnalysisITC
 				FinalFigWidthField = null;
 			}
 
+			if (MinTempSpanField != null) {
+				MinTempSpanField.Dispose ();
+				MinTempSpanField = null;
+			}
+
+			if (MinTempSpanSlider != null) {
+				MinTempSpanSlider.Dispose ();
+				MinTempSpanSlider = null;
+			}
+
 			if (PeakFitAlgorithmControl != null) {
 				PeakFitAlgorithmControl.Dispose ();
 				PeakFitAlgorithmControl = null;
 			}
 
-			if (ColorMenu != null) {
-				ColorMenu.Dispose ();
-				ColorMenu = null;
+			if (RefTempField != null) {
+				RefTempField.Dispose ();
+				RefTempField = null;
 			}
 		}
 	}

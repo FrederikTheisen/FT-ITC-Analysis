@@ -9,8 +9,47 @@ namespace AnalysisITC
 {
 	public partial class ExportPreferencesViewController : NSViewController
 	{
-		public ExportPreferencesViewController (IntPtr handle) : base (handle)
+        public static void ApplySettings() => ShouldApplySettings?.Invoke(null, null);
+        public static event EventHandler ShouldApplySettings;
+
+        public ExportPreferencesViewController (IntPtr handle) : base (handle)
 		{
+            ShouldApplySettings += ExportPreferencesViewController_ShouldApplySettings;
 		}
-	}
+
+        public override void ViewDidLoad()
+        {
+            base.ViewDidLoad();
+
+            ExportSelectedControl.SelectedSegment = AppSettings.ExportSelectionMode;
+            UnifyAxesControl.SelectedSegment = AppSettings.UnifyTimeAxisForExport ? 0 : 1;
+            ExportSolutionPointsControl.State = AppSettings.ExportFitPointsWithPeaks ? NSCellStateValue.On : NSCellStateValue.Off;
+
+            FinalFigHeightField.StringValue = AppSettings.FinalFigureDimensions[1].ToString();
+            FinalFigWidthField.StringValue = AppSettings.FinalFigureDimensions[0].ToString();
+        }
+
+        private void ExportPreferencesViewController_ShouldApplySettings(object sender, EventArgs e)
+        {
+            AppSettings.ExportSelectionMode = (int)ExportSelectedControl.SelectedSegment;
+            AppSettings.UnifyTimeAxisForExport = UnifyAxesControl.SelectedSegment == 0;
+            AppSettings.ExportFitPointsWithPeaks = ExportSolutionPointsControl.State == NSCellStateValue.On;
+
+            AppSettings.FinalFigureDimensions = new double[] { FinalFigWidthField.DoubleValue, FinalFigHeightField.DoubleValue };
+        }
+
+        partial void Apply(NSObject sender)
+        {
+            ApplySettings();
+            GeneralSettingsViewController.ApplySettings();
+            FittingPreferencesViewController.ApplySettings();
+
+            AppSettings.Save();
+        }
+
+        partial void Close(NSObject sender)
+        {
+            this.View.Window.PerformClose(this);
+        }
+    }
 }

@@ -9,8 +9,75 @@ namespace AnalysisITC
 {
 	public partial class FittingPreferencesViewController : NSViewController
 	{
-		public FittingPreferencesViewController (IntPtr handle) : base (handle)
+        public static void ApplySettings() => ShouldApplySettings?.Invoke(null, null);
+        public static event EventHandler ShouldApplySettings;
+
+        public FittingPreferencesViewController (IntPtr handle) : base (handle)
 		{
+            ShouldApplySettings += FittingPreferencesViewController_ShouldApplySettings;
 		}
-	}
+
+        public override void ViewDidLoad()
+        {
+            base.ViewDidLoad();
+
+            DefaultErrorMethodControl.SelectedSegment = (int)AppSettings.DefaultErrorEstimationMethod;
+            IncludeConcVarianceCheck.State = AppSettings.IncludeConcentrationErrorsInBootstrap ? NSCellStateValue.On : NSCellStateValue.Off;
+            AutoConcVarianceSlider.DoubleValue = 100 * AppSettings.ConcentrationAutoVariance;
+            AutoConcField.StringValue = AppSettings.IsConcentrationAutoVarianceEnabled ? (100 * AppSettings.ConcentrationAutoVariance).ToString("F1") + "%" : "";
+            DefaultBootstrapIterationSlider.DoubleValue = Math.Log10(AppSettings.DefaultBootstrapIterations);
+            BootstrapIterField.StringValue = ((int)Math.Pow(10, DefaultBootstrapIterationSlider.DoubleValue)).ToString();
+            FuncToleranceSlider.DoubleValue = -Math.Sqrt(-Math.Log10(AppSettings.OptimizerTolerance));
+            MaxOptimizerIterationsSlider.IntValue = AppSettings.MaximumOptimizerIterations;
+
+            SetFuncToleranceLabel(AppSettings.OptimizerTolerance);
+        }
+
+        void SetFuncToleranceLabel(double value)
+        {
+            if (value < double.Epsilon) value = double.Epsilon;
+            FuncToleranceField.DoubleValue = value;
+        }
+
+        private void FittingPreferencesViewController_ShouldApplySettings(object sender, EventArgs e)
+        {
+            AppSettings.DefaultErrorEstimationMethod = (ErrorEstimationMethod)(int)DefaultErrorMethodControl.SelectedSegment;
+            AppSettings.IncludeConcentrationErrorsInBootstrap = IncludeConcVarianceCheck.State == NSCellStateValue.On;
+            AppSettings.DefaultBootstrapIterations = (int)Math.Pow(10, DefaultBootstrapIterationSlider.DoubleValue);
+            AppSettings.OptimizerTolerance = Math.Max(Math.Pow(10, -(FuncToleranceSlider.DoubleValue * FuncToleranceSlider.DoubleValue)), double.Epsilon);
+            AppSettings.ConcentrationAutoVariance = AutoConcVarianceSlider.DoubleValue / 100;
+            AppSettings.MaximumOptimizerIterations = MaxOptimizerIterationsSlider.IntValue;
+        }
+
+        partial void BootstrapIterSliderAction(NSSlider sender)
+        {
+            BootstrapIterField.StringValue = ((int)Math.Pow(10, sender.DoubleValue)).ToString();
+        }
+
+        partial void FuncToleranceSliderAction(NSSlider sender)
+        {
+            var value = sender.DoubleValue;
+
+            SetFuncToleranceLabel(Math.Pow(10, -(value * value)));
+        }
+
+        partial void AutoConcSliderAction(NSSlider sender)
+        {
+            AutoConcField.StringValue = sender.DoubleValue > double.Epsilon ? sender.DoubleValue.ToString("F1") + "%" : "";
+        }
+
+        partial void Apply(NSObject sender)
+        {
+            ApplySettings();
+            GeneralSettingsViewController.ApplySettings();
+            ExportPreferencesViewController.ApplySettings();
+
+            AppSettings.Save();
+        }
+
+        partial void Close(NSObject sender)
+        {
+            this.View.Window.PerformClose(this);
+        }
+    }
 }

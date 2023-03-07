@@ -4,28 +4,90 @@ using System;
 
 using Foundation;
 using AppKit;
+using AnalysisITC.GUI;
 
 namespace AnalysisITC
 {
 	public partial class GeneralSettingsViewController : NSViewController
 	{
-		public GeneralSettingsViewController (IntPtr handle) : base (handle)
+        public static void ApplySettings() => ShouldApplySettings?.Invoke(null, null);
+        public static event EventHandler ShouldApplySettings;
+
+        ColorSchemes ColorScheme;
+
+        public GeneralSettingsViewController (IntPtr handle) : base (handle)
 		{
+            ShouldApplySettings += GeneralSettingsViewController_ApplySettings;
 		}
+
+        private void GeneralSettingsViewController_ApplySettings(object sender, EventArgs e)
+        {
+            if (double.TryParse(RefTempField.StringValue, out var val))
+            {
+                AppSettings.ReferenceTemperature = val;
+            }
+
+            var energyunit = EnergyUnitControl.SelectedSegment == 0 ? EnergyUnit.KiloJoule : EnergyUnit.KCal;
+
+            if (energyunit.IsSI() != AppSettings.EnergyUnit.IsSI()) //Check if changed to other unit type, update if changed
+            {
+                AppSettings.EnergyUnit = energyunit;
+            }
+
+            AppSettings.MinimumTemperatureSpanForFitting = MinTempSpanSlider.DoubleValue;
+
+            //Color
+            AppSettings.ColorScheme = ColorScheme;
+            AppSettings.ColorShcemeGradientMode = (ColorShcemeGradientMode)(int)ColorGradientControl.SelectedSegment;
+        }
 
         public override void ViewDidLoad()
         {
             base.ViewDidLoad();
+
+            var list = AppColors.GetColorSchemes();
+
+            foreach (var scheme in list)
+            {
+                ColorMenu.AddItem(new NSMenuItem(scheme.ToString(), (sender, e) => ColorMenuHandler((NSMenuItem)sender, scheme))
+                {
+                    State = AppSettings.ColorScheme == scheme ? NSCellStateValue.On : NSCellStateValue.Off,
+                });
+            }
+
+            ColorScheme = AppSettings.ColorScheme;
+            ColorMenu.Items[0].Title = ColorScheme.ToString();
+            ColorGradientControl.SelectedSegment = (int)AppSettings.ColorShcemeGradientMode;
+
+            EnergyUnitControl.SelectedSegment = AppSettings.EnergyUnit.IsSI() ? 0 : 1;
+            RefTempField.StringValue = AppSettings.ReferenceTemperature.ToString("F2");
+            MinTempSpanSlider.DoubleValue = AppSettings.MinimumTemperatureSpanForFitting;
+            MinTempSpanField.DoubleValue = AppSettings.MinimumTemperatureSpanForFitting;
         }
 
-        public override void ViewDidAppear()
+        private void ColorMenuHandler(NSMenuItem sender, ColorSchemes e)
         {
-            base.ViewDidAppear();
+            ColorMenu.Items[0].Title = e.ToString();
+
+            foreach (var item in ColorMenu.Items) item.State = NSCellStateValue.Off;
+
+            sender.State = NSCellStateValue.On;
+
+            ColorScheme = e;
         }
 
-        public override void ViewDidLayout()
+        partial void Apply(NSObject sender)
         {
-            base.ViewDidLayout();
+            ApplySettings();
+            GeneralSettingsViewController.ApplySettings();
+            FittingPreferencesViewController.ApplySettings();
+
+            AppSettings.Save();
+        }
+
+        partial void Close(NSObject sender)
+        {
+            this.View.Window.PerformClose(this);
         }
     }
 }
