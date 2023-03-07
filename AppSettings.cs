@@ -8,6 +8,8 @@ namespace AnalysisITC
 {
     public static class AppSettings
     {
+        public static event EventHandler SettingsDidUpdate;
+
         static NSUserDefaults Storage => NSUserDefaults.StandardUserDefaults;
 
         //General
@@ -35,11 +37,14 @@ namespace AnalysisITC
         //Export
         public static bool UnifyTimeAxisForExport { get; set; } = true;
         public static bool ExportFitPointsWithPeaks { get; set; } = true;
+        public static int ExportSelectionMode { get; set; } = 1;
 
-        public static bool IsConcentrationAutoVarianceEnabled = ConcentrationAutoVariance > 0.1;
+        public static bool IsConcentrationAutoVarianceEnabled = ConcentrationAutoVariance > 0.001;
 
         public static void Save()
         {
+            ApplyDefaultSettings();
+
             Storage.SetDouble(ReferenceTemperature, "ReferenceTemperature");
             Storage.SetInt((int)EnergyUnit, "EnergyUnit");
             Storage.SetInt((int)DefaultErrorEstimationMethod, "DefaultErrorEstimationMethod");
@@ -53,12 +58,15 @@ namespace AnalysisITC
             Storage.SetDouble(ConcentrationAutoVariance, "ConcentrationAutoVariance");
             Storage.SetBool(UnifyTimeAxisForExport, "UnifyTimeAxisForExport");
             Storage.SetBool(ExportFitPointsWithPeaks, "ExportFitPointsWithPeaks");
+            Storage.SetInt(ExportSelectionMode, "ExportSelectionMode");
 
             StoreArray(FinalFigureDimensions, "FinalFigureDimensions");
 
             Storage.SetBool(true, "IsSaved");
 
             Storage.Synchronize();
+
+            SettingsDidUpdate?.Invoke(null, null);
         }
 
         static void StoreArray(double[] arr, string key)
@@ -93,11 +101,13 @@ namespace AnalysisITC
             IncludeConcentrationErrorsInBootstrap = Storage.BoolForKey("IncludeConcentrationErrorsInBootstrap");
             OptimizerTolerance = Storage.DoubleForKey("OptimizerTolerance");
             MaximumOptimizerIterations = (int)Storage.IntForKey("MaximumOptimizerIterations");
+            if (MaximumOptimizerIterations == 0) MaximumOptimizerIterations = 300000;
             ColorScheme = (ColorSchemes)(int)Storage.IntForKey("ColorScheme");
             ColorShcemeGradientMode = (ColorShcemeGradientMode)(int)Storage.IntForKey("ColorShcemeGradientMode");
             ConcentrationAutoVariance = Storage.DoubleForKey("ConcentrationAutoVariance");
             UnifyTimeAxisForExport = Storage.BoolForKey("UnifyTimeAxisForExport");
             ExportFitPointsWithPeaks = Storage.BoolForKey("ExportFitPointsWithPeaks");
+            ExportSelectionMode = (int)Storage.IntForKey("ExportSelectionMode");
 
             ApplyDefaultSettings();
         }
@@ -115,6 +125,11 @@ namespace AnalysisITC
         {
             FittingOptionsController.BootstrapIterations = DefaultBootstrapIterations;
             FittingOptionsController.ErrorEstimationMethod = DefaultErrorEstimationMethod;
+            FittingOptionsController.IncludeConcentrationVariance = IncludeConcentrationErrorsInBootstrap;
+            FittingOptionsController.AutoConcentrationVariance = ConcentrationAutoVariance;
+            FittingOptionsController.EnableAutoConcentrationVariance = IsConcentrationAutoVarianceEnabled;
+            FinalFigureGraphView.Width = (float)FinalFigureDimensions[0];
+            FinalFigureGraphView.Height = (float)FinalFigureDimensions[1];
         }
     }
 
