@@ -333,6 +333,7 @@ namespace AnalysisITC
         static ExportSelection Selection => AppSettings.ExportSelectionMode;
         static bool UnifyTimeAxis => AppSettings.UnifyTimeAxisForExport;
         static char Delimiter = ' ';
+        static char BlankChar = ' ';
 
         public static void ExportData()
         {
@@ -346,6 +347,7 @@ namespace AnalysisITC
             {
                 if (result == 1)
                 {
+                    StatusBarManager.StartInderminateProgress();
                     StatusBarManager.SetStatusScrolling("Saving file: " + dlg.Filename);
                     SetDelimiter(dlg.Url);
                     await WriteDataFile(dlg.Filename, data);
@@ -357,8 +359,8 @@ namespace AnalysisITC
         {
             switch (url.PathExtension)
             {
-                case "csv": Delimiter = ','; break;
-                case "txt": Delimiter = ' '; break;
+                case "csv": Delimiter = ','; BlankChar = ' ';  break;
+                case "txt": Delimiter = ' '; BlankChar = '.';  break;
             }
         }
 
@@ -379,20 +381,24 @@ namespace AnalysisITC
 
         static async Task WriteDataFile(string path, List<ExperimentData> data)
         {
-            var lines = GetUnifiedData(data);
-
-            using (var writer = new StreamWriter(path))
+            await Task.Run(async () =>
             {
-                foreach (var line in lines)
-                {
-                    await writer.WriteLineAsync(line);
-                }
-            }
+                var lines = UnifyTimeAxis ? GetUnifiedDataLines(data) : GetDataLines(data);
 
-            StatusBarManager.SetStatus("Finished exporting data file");
+                using (var writer = new StreamWriter(path))
+                {
+                    foreach (var line in lines)
+                    {
+                        await writer.WriteLineAsync(line);
+                    }
+                }
+            });
+
+            StatusBarManager.SetStatus("Finished exporting data file", 3000);
+            StatusBarManager.StopIndeterminateProgress();
         }
 
-        static List<string> GetUnifiedData(List<ExperimentData> data)
+        static List<string> GetUnifiedDataLines(List<ExperimentData> data)
         {
             //Get time axis
             var mostcommonstep = FindMostCommonStep(data);
@@ -441,9 +447,8 @@ namespace AnalysisITC
             var lines = new List<string>();
             var header = "time" + Delimiter;
             foreach (var dat in newvalues) header += dat.Key + Delimiter;
-            lines.Add(header.Trim());
+            lines.Add(header.TrimEnd(Delimiter));
 
-            //Dump the data on console
             for (int i = 0; i < xaxis.Count; i++)
             {
                 var x = xaxis[i];
@@ -452,11 +457,42 @@ namespace AnalysisITC
                 foreach (var dat in newvalues)
                 {
                     var v = dat.Value[i];
-                    if (float.IsNaN(v)) line += "." + Delimiter;
+                    if (float.IsNaN(v)) line += BlankChar + Delimiter;
                     else line += dat.Value[i].ToString() + Delimiter;
                 }
 
-                lines.Add(line.Trim());
+                lines.Add(line.TrimEnd(Delimiter));
+            }
+
+            return lines;
+        }
+
+        static List<string> GetDataLines(List<ExperimentData> data)
+        {
+            var lines = new List<string>();
+            var header = "";
+            foreach (var dat in data) header += "time" + Delimiter + dat.FileName + Delimiter;
+            lines.Add(header.TrimEnd(Delimiter));
+
+            int index = 0;
+
+            while (data.Any(d => d.DataPoints.Count > index))
+            {
+                string line = "";
+
+                foreach (var d in data)
+                {
+                    if (d.DataPoints.Count > index)
+                    {
+                        var dp = d.DataPoints[index];
+                        line += dp.Time.ToString() + Delimiter + dp.Power.ToString() + Delimiter;
+                    }
+                    else line += BlankChar.ToString() + Delimiter + BlankChar + Delimiter;
+                }
+
+                lines.Add(line.TrimEnd(Delimiter));
+
+                index++;
             }
 
             return lines;
