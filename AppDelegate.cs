@@ -115,14 +115,26 @@ namespace AnalysisITC
 
         partial void ExportAllCheckAction(NSObject sender)
         {
-            Exporter.ExportAll = !Exporter.ExportAll;
+            AppSettings.ExportSelectionMode = AppSettings.ExportSelectionMode switch
+            {
+                Exporter.ExportSelection.SelectedData => Exporter.ExportSelection.IncludedData,
+                Exporter.ExportSelection.IncludedData => Exporter.ExportSelection.AllData,
+                Exporter.ExportSelection.AllData => Exporter.ExportSelection.SelectedData,
+                _ => Exporter.ExportSelection.IncludedData,
+            };
 
-            (sender as NSMenuItem).State = Exporter.ExportAll ? NSCellStateValue.On : NSCellStateValue.Off;
+            (sender as NSMenuItem).State = AppSettings.ExportSelectionMode switch
+            {
+                Exporter.ExportSelection.SelectedData => NSCellStateValue.Off,
+                Exporter.ExportSelection.IncludedData => NSCellStateValue.Mixed,
+                Exporter.ExportSelection.AllData => NSCellStateValue.On,
+                _ => NSCellStateValue.Off,
+            };
         }
 
         partial void ExportDataClick(NSMenuItem sender)
         {
-            throw new NotImplementedException();
+            Exporter.ExportData();
         }
 
         partial void ExportPeaksAction(NSMenuItem sender)
