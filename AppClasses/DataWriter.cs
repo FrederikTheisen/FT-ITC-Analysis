@@ -330,13 +330,162 @@ namespace AnalysisITC
 
     public class Exporter
     {
-        public static bool ExportAll { get; set; } = true;
+        static ExportSelection Selection => AppSettings.ExportSelectionMode;
+        static bool UnifyTimeAxis => AppSettings.UnifyTimeAxisForExport;
+        static char Delimiter = ' ';
 
         public static void ExportData()
         {
-            var data = ExportAll ? DataManager.Data.Where(d => d.Include) : new List<ExperimentData> { DataManager.Current };
+            List<ExperimentData> data = GetData();
 
-            
+            var dlg = new NSSavePanel();
+            dlg.Title = "Export Data";
+            dlg.AllowedFileTypes = new string[] { "csv", "txt" };
+
+            dlg.BeginSheet(NSApplication.SharedApplication.MainWindow, async (result) =>
+            {
+                if (result == 1)
+                {
+                    StatusBarManager.SetStatusScrolling("Saving file: " + dlg.Filename);
+                    SetDelimiter(dlg.Url);
+                    await WriteDataFile(dlg.Filename, data);
+                }
+            });
+        }
+
+        static void SetDelimiter(NSUrl url)
+        {
+            switch (url.PathExtension)
+            {
+                case "csv": Delimiter = ','; break;
+                case "txt": Delimiter = ' '; break;
+            }
+        }
+
+        public static void ExportPeaks()
+        {
+            List<ExperimentData> data = GetData();
+        }
+
+        private static List<ExperimentData> GetData()
+        {
+            return Selection switch
+            {
+                ExportSelection.IncludedData => DataManager.Data.Where(d => d.Include).ToList(),
+                ExportSelection.AllData => DataManager.Data,
+                _ => new List<ExperimentData> { DataManager.Current },
+            };
+        }
+
+        static async Task WriteDataFile(string path, List<ExperimentData> data)
+        {
+            var lines = GetUnifiedData(data);
+
+            using (var writer = new StreamWriter(path))
+            {
+                foreach (var line in lines)
+                {
+                    await writer.WriteLineAsync(line);
+                }
+            }
+
+            StatusBarManager.SetStatus("Finished exporting data file");
+        }
+
+        static List<string> GetUnifiedData(List<ExperimentData> data)
+        {
+            //Get time axis
+            var mostcommonstep = FindMostCommonStep(data);
+            var newvalues = new Dictionary<string, List<float>>();
+            var xaxis = new List<float>();
+            var min = data.Min(d => d.DataPoints.First().Time);
+            var max = data.Max(d => d.DataPoints.Last().Time);
+
+            //Add points to new x axis
+            for (float i = min; i <= max; i += mostcommonstep) xaxis.Add(i); 
+
+            //Implemented unified x axis
+            foreach (var dat in data)
+            {
+                var points = new List<float>();
+                var prevtime = 0f;
+                foreach (var t in xaxis)
+                {
+                    var group = dat.DataPoints.Where(dp => dp.Time > prevtime && dp.Time <= t);
+                    float newdp;
+
+                    if (group.Count() == 0) //Are we averaging a number of datapoints?
+                    {
+                        if (prevtime >= dat.DataPoints.Last().Time || t < dat.DataPoints.First().Time) newdp = float.NaN; //Outside data set?
+                        else //Interpolate from datapoints
+                        {
+                            var p1 = dat.DataPoints.Where(dp => dp.Time > prevtime).First();
+                            var p2 = dat.DataPoints.Where(dp => dp.Time < t).Last();
+
+                            var weight = (t - p2.Time) / (p2.Time - p1.Time);
+
+                            newdp = weight * p2.Power + (1 - weight) * p1.Power;
+                        }
+                    }
+                    //Average datapoints in window. Probably not 100% accurate.
+                    else newdp = dat.DataPoints.Where(dp => dp.Time > prevtime && dp.Time <= t).Select(dp => dp.Power).Average();
+
+                    points.Add(newdp);
+
+                    prevtime = t;
+                }
+
+                newvalues[dat.FileName] = points;
+            }
+
+            var lines = new List<string>();
+            var header = "time" + Delimiter;
+            foreach (var dat in newvalues) header += dat.Key + Delimiter;
+            lines.Add(header.Trim());
+
+            //Dump the data on console
+            for (int i = 0; i < xaxis.Count; i++)
+            {
+                var x = xaxis[i];
+                var line = x.ToString("F1") + Delimiter;
+
+                foreach (var dat in newvalues)
+                {
+                    var v = dat.Value[i];
+                    if (float.IsNaN(v)) line += "." + Delimiter;
+                    else line += dat.Value[i].ToString() + Delimiter;
+                }
+
+                lines.Add(line.Trim());
+            }
+
+            return lines;
+        }
+
+        static float FindMostCommonStep(List<ExperimentData> data)
+        {
+            // Flatten the datasets into a single list of x-axis values
+            List<float> allXValues = new List<float>();
+            foreach (var dataset in data.Select(d => d.DataPoints))
+            {
+                allXValues.AddRange(dataset.Select(dp => dp.Time));
+            }
+
+            // Determine the most frequently used step
+            var stepFrequencies = allXValues
+                .Select((x, i) => i > 0 ? x - allXValues[i - 1] : 0)
+                .GroupBy(step => step)
+                .OrderByDescending(group => group.Count());
+            float mostCommonStep = stepFrequencies.First().Key;
+
+            return mostCommonStep;
+        }
+
+        public enum ExportSelection
+        {
+            SelectedData,
+            IncludedData,
+            AllData
         }
     }
 }
