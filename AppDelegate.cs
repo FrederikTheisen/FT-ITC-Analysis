@@ -139,7 +139,7 @@ namespace AnalysisITC
 
         partial void ExportPeaksAction(NSMenuItem sender)
         {
-            throw new NotImplementedException();
+            Exporter.ExportPeaks();
         }
 
         partial void ClearProcessingResult(NSObject sender)

@@ -1,7 +1,6 @@
 ﻿using System;
 using AppKit;
 using Foundation;
-using System.Text.Json;
 using System.Collections.Generic;
 using System.IO;
 using System.Threading.Tasks;
@@ -367,6 +366,21 @@ namespace AnalysisITC
         public static void ExportPeaks()
         {
             List<ExperimentData> data = GetData();
+
+            var dlg = new NSSavePanel();
+            dlg.Title = "Export Peaks";
+            dlg.AllowedFileTypes = new string[] { "csv", "txt" };
+
+            dlg.BeginSheet(NSApplication.SharedApplication.MainWindow, async (result) =>
+            {
+                if (result == 1)
+                {
+                    StatusBarManager.StartInderminateProgress();
+                    StatusBarManager.SetStatusScrolling("Saving file: " + dlg.Filename);
+                    SetDelimiter(dlg.Url);
+                    await WritePeakFile(dlg.Filename, data);
+                }
+            });
         }
 
         private static List<ExperimentData> GetData()
@@ -515,6 +529,76 @@ namespace AnalysisITC
             float mostCommonStep = stepFrequencies.First().Key;
 
             return mostCommonStep;
+        }
+
+        static async Task WritePeakFile(string path, List<ExperimentData> data)
+        {
+            await Task.Run(async () =>
+            {
+                var lines = GetPeakLines(data);
+
+                using (var writer = new StreamWriter(path))
+                {
+                    foreach (var line in lines)
+                    {
+                        await writer.WriteLineAsync(line);
+                    }
+                }
+            });
+
+            StatusBarManager.SetStatus("Finished exporting peaks", 3000);
+            StatusBarManager.StopIndeterminateProgress();
+        }
+
+        static List<string> GetPeakLines(List<ExperimentData> data)
+        {
+            List<string> lines = new List<string>();
+
+            string header = "";
+
+            bool exportsolution = AppSettings.ExportFitPointsWithPeaks;
+
+            foreach (var d in data)
+            {
+                header += "x" + Delimiter + d.FileName + "_peak" + Delimiter;
+                if (exportsolution) header += d.FileName + "_fit" + Delimiter;
+            }
+
+            lines.Add(header);
+
+            int index = 0;
+
+            while (data.Any(d => d.Injections.Count > index))
+            {
+                string line = "";
+
+                foreach (var d in data)
+                {
+                    if (d.Injections.Count > index)
+                    {
+                        var inj = d.Injections[index];
+                        line += inj.Ratio.ToString() + Delimiter + inj.Enthalpy.ToString() + Delimiter;
+
+                        if (exportsolution)
+                        {
+                            if (d.Solution != null) line += d.Model.EvaluateEnthalpy(index, false).ToString() + Delimiter;
+                            else line += BlankChar.ToString() + Delimiter;
+                        }
+                    }
+                    else
+                    {
+                        line += BlankChar.ToString() + Delimiter + BlankChar + Delimiter;
+
+                        if (exportsolution) line += BlankChar.ToString() + Delimiter;
+                    }
+                }
+
+                lines.Add(line.TrimEnd(Delimiter));
+
+                index++;
+            }
+
+            return lines;
         }
 
         public enum ExportDataSelection
