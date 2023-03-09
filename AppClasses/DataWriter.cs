@@ -330,7 +330,7 @@ namespace AnalysisITC
 
     public class Exporter
     {
-        static ExportSelection Selection => AppSettings.ExportSelectionMode;
+        static ExportDataSelection Selection => AppSettings.ExportSelectionMode;
         static bool UnifyTimeAxis => AppSettings.UnifyTimeAxisForExport;
         static char Delimiter = ' ';
         static char BlankChar = ' ';
@@ -373,8 +373,8 @@ namespace AnalysisITC
         {
             return Selection switch
             {
-                ExportSelection.IncludedData => DataManager.Data.Where(d => d.Include).ToList(),
-                ExportSelection.AllData => DataManager.Data,
+                ExportDataSelection.IncludedData => DataManager.Data.Where(d => d.Include).ToList(),
+                ExportDataSelection.AllData => DataManager.Data,
                 _ => new List<ExperimentData> { DataManager.Current },
             };
         }
@@ -517,7 +517,7 @@ namespace AnalysisITC
             return mostCommonStep;
         }
 
-        public enum ExportSelection
+        public enum ExportDataSelection
         {
             SelectedData,
             IncludedData,

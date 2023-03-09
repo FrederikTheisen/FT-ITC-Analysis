@@ -117,17 +117,17 @@ namespace AnalysisITC
         {
             AppSettings.ExportSelectionMode = AppSettings.ExportSelectionMode switch
             {
-                Exporter.ExportSelection.SelectedData => Exporter.ExportSelection.IncludedData,
-                Exporter.ExportSelection.IncludedData => Exporter.ExportSelection.AllData,
-                Exporter.ExportSelection.AllData => Exporter.ExportSelection.SelectedData,
-                _ => Exporter.ExportSelection.IncludedData,
+                Exporter.ExportDataSelection.SelectedData => Exporter.ExportDataSelection.IncludedData,
+                Exporter.ExportDataSelection.IncludedData => Exporter.ExportDataSelection.AllData,
+                Exporter.ExportDataSelection.AllData => Exporter.ExportDataSelection.SelectedData,
+                _ => Exporter.ExportDataSelection.IncludedData,
             };
 
             (sender as NSMenuItem).State = AppSettings.ExportSelectionMode switch
             {
-                Exporter.ExportSelection.SelectedData => NSCellStateValue.Off,
-                Exporter.ExportSelection.IncludedData => NSCellStateValue.Mixed,
-                Exporter.ExportSelection.AllData => NSCellStateValue.On,
+                Exporter.ExportDataSelection.SelectedData => NSCellStateValue.Off,
+                Exporter.ExportDataSelection.IncludedData => NSCellStateValue.Mixed,
+                Exporter.ExportDataSelection.AllData => NSCellStateValue.On,
                 _ => NSCellStateValue.Off,
             };
         }

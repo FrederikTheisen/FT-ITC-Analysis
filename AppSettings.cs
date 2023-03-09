@@ -37,7 +37,7 @@ namespace AnalysisITC
         //Export
         public static bool UnifyTimeAxisForExport { get; set; } = true;
         public static bool ExportFitPointsWithPeaks { get; set; } = true;
-        public static Exporter.ExportSelection ExportSelectionMode { get; set; } = Exporter.ExportSelection.IncludedData;
+        public static Exporter.ExportDataSelection ExportSelectionMode { get; set; } = Exporter.ExportDataSelection.IncludedData;
 
         public static bool IsConcentrationAutoVarianceEnabled = ConcentrationAutoVariance > 0.001;
 
@@ -107,7 +107,7 @@ namespace AnalysisITC
             ConcentrationAutoVariance = Storage.DoubleForKey("ConcentrationAutoVariance");
             UnifyTimeAxisForExport = Storage.BoolForKey("UnifyTimeAxisForExport");
             ExportFitPointsWithPeaks = Storage.BoolForKey("ExportFitPointsWithPeaks");
-            ExportSelectionMode = (Exporter.ExportSelection)(int)Storage.IntForKey("ExportSelectionMode");
+            ExportSelectionMode = (Exporter.ExportDataSelection)(int)Storage.IntForKey("ExportSelectionMode");
 
             ApplyDefaultSettings();
         }

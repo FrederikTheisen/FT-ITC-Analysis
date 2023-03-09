@@ -31,7 +31,7 @@ namespace AnalysisITC
 
         private void ExportPreferencesViewController_ShouldApplySettings(object sender, EventArgs e)
         {
-            AppSettings.ExportSelectionMode = (Exporter.ExportSelection)(int)ExportSelectedControl.SelectedSegment;
+            AppSettings.ExportSelectionMode = (Exporter.ExportDataSelection)(int)ExportSelectedControl.SelectedSegment;
             AppSettings.UnifyTimeAxisForExport = UnifyAxesControl.SelectedSegment == 0;
             AppSettings.ExportFitPointsWithPeaks = ExportSolutionPointsControl.State == NSCellStateValue.On;
 
