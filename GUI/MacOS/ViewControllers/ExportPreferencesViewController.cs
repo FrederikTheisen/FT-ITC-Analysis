@@ -45,11 +45,15 @@ namespace AnalysisITC
             FittingPreferencesViewController.ApplySettings();
 
             AppSettings.Save();
+
+            Close(this);
         }
 
         partial void Close(NSObject sender)
         {
             this.View.Window.PerformClose(this);
+            ShouldApplySettings -= ExportPreferencesViewController_ShouldApplySettings;
+            this.Dispose();
         }
     }
 }

@@ -28,7 +28,8 @@ namespace AnalysisITC
             DefaultBootstrapIterationSlider.DoubleValue = Math.Log10(AppSettings.DefaultBootstrapIterations);
             BootstrapIterField.StringValue = ((int)Math.Pow(10, DefaultBootstrapIterationSlider.DoubleValue)).ToString();
             FuncToleranceSlider.DoubleValue = -Math.Sqrt(-Math.Log10(AppSettings.OptimizerTolerance));
-            MaxOptimizerIterationsSlider.IntValue = AppSettings.MaximumOptimizerIterations;
+            MaxOptimizerIterationsSlider.DoubleValue = Math.Log10(AppSettings.MaximumOptimizerIterations);
+            MaxOptimizerIterField.IntValue = AppSettings.MaximumOptimizerIterations;
 
             SetFuncToleranceLabel(AppSettings.OptimizerTolerance);
         }
@@ -46,7 +47,10 @@ namespace AnalysisITC
             AppSettings.DefaultBootstrapIterations = (int)Math.Pow(10, DefaultBootstrapIterationSlider.DoubleValue);
             AppSettings.OptimizerTolerance = Math.Max(Math.Pow(10, -(FuncToleranceSlider.DoubleValue * FuncToleranceSlider.DoubleValue)), double.Epsilon);
             AppSettings.ConcentrationAutoVariance = AutoConcVarianceSlider.DoubleValue / 100;
-            AppSettings.MaximumOptimizerIterations = MaxOptimizerIterationsSlider.IntValue;
+            AppSettings.IsConcentrationAutoVarianceEnabled = AutoConcVarianceSlider.DoubleValue > double.Epsilon;
+            AppSettings.MaximumOptimizerIterations = (int)Math.Pow(10, MaxOptimizerIterationsSlider.DoubleValue);
+
+            Console.WriteLine("save settings,lækfdmnokspgdojhbveqwdi0o´fsvb");
         }
 
         partial void BootstrapIterSliderAction(NSSlider sender)
@@ -66,6 +70,11 @@ namespace AnalysisITC
             AutoConcField.StringValue = sender.DoubleValue > double.Epsilon ? sender.DoubleValue.ToString("F1") + "%" : "";
         }
 
+        partial void MaximumIterationsSliderAction(NSSlider sender)
+        {
+            MaxOptimizerIterField.IntValue = (int)Math.Pow(10, sender.DoubleValue);
+        }
+
         partial void Apply(NSObject sender)
         {
             ApplySettings();
@@ -73,11 +82,15 @@ namespace AnalysisITC
             ExportPreferencesViewController.ApplySettings();
 
             AppSettings.Save();
+
+            Close(this);
         }
 
         partial void Close(NSObject sender)
         {
             this.View.Window.PerformClose(this);
+            ShouldApplySettings -= FittingPreferencesViewController_ShouldApplySettings;
+            this.Dispose();
         }
     }
 }

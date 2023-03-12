@@ -37,10 +37,16 @@ namespace AnalysisITC
 		AppKit.NSButton IncludeConcVarianceCheck { get; set; }
 
 		[Outlet]
+		AppKit.NSTextField MaxIterationsField { get; set; }
+
+		[Outlet]
 		AppKit.NSSlider MaxOptimizerIterationsSlider { get; set; }
 
 		[Outlet]
 		AppKit.NSTextField MaxOptimizerIterField { get; set; }
+
+		[Outlet]
+		AppKit.NSSegmentedControl ParameterLimitControl { get; set; }
 
 		[Action ("Apply:")]
 		partial void Apply (Foundation.NSObject sender);
@@ -56,9 +62,22 @@ namespace AnalysisITC
 
 		[Action ("FuncToleranceSliderAction:")]
 		partial void FuncToleranceSliderAction (AppKit.NSSlider sender);
+
+		[Action ("MaximumIterationsSliderAction:")]
+		partial void MaximumIterationsSliderAction (AppKit.NSSlider sender);
 		
 		void ReleaseDesignerOutlets ()
 		{
+			if (MaxIterationsField != null) {
+				MaxIterationsField.Dispose ();
+				MaxIterationsField = null;
+			}
+
+			if (ParameterLimitControl != null) {
+				ParameterLimitControl.Dispose ();
+				ParameterLimitControl = null;
+			}
+
 			if (AutoConcField != null) {
 				AutoConcField.Dispose ();
 				AutoConcField = null;
@@ -67,11 +86,6 @@ namespace AnalysisITC
 			if (AutoConcVarianceSlider != null) {
 				AutoConcVarianceSlider.Dispose ();
 				AutoConcVarianceSlider = null;
-			}
-
-			if (MaxOptimizerIterField != null) {
-				MaxOptimizerIterField.Dispose ();
-				MaxOptimizerIterField = null;
 			}
 
 			if (BootstrapIterField != null) {
@@ -107,6 +121,11 @@ namespace AnalysisITC
 			if (MaxOptimizerIterationsSlider != null) {
 				MaxOptimizerIterationsSlider.Dispose ();
 				MaxOptimizerIterationsSlider = null;
+			}
+
+			if (MaxOptimizerIterField != null) {
+				MaxOptimizerIterField.Dispose ();
+				MaxOptimizerIterField = null;
 			}
 		}
 	}
