@@ -25,12 +25,12 @@ namespace AnalysisITC
         {
             get
             {
-                if (status.Count != 0) return status.Last();
+                if (status.Count != 0) return status.OrderBy(sm => sm.Priority).Last();
                 else return DefaultStatus;
             }
             set
             {
-                status.RemoveAll(o => o.Timed == false);
+                status.RemoveAll(o => o.Timed == false && o.Priority < value.Priority);
                 status.Add(value);
 
                 StatusUpdated?.Invoke(null, Status.Message);
@@ -58,13 +58,13 @@ namespace AnalysisITC
             }
         }
 
-        public static async void SetStatus(string _status, int delay = 10000)
+        public static async void SetStatus(string msg, int delay = 10000, int priority = 0)
         {
             abortscroll = true;
 
             if (delay > 0)
             {
-                var sm = new StatusMessage(_status, true);
+                var sm = new StatusMessage(msg, true, priority);
 
                 Status = sm;
 
@@ -74,17 +74,15 @@ namespace AnalysisITC
             }
             else
             {
-                var sm = new StatusMessage(_status, false);
-
-                Status = sm;
+                Status = new StatusMessage(msg, false, priority);
             }
         }
 
-        private static void StatusExpired(StatusMessage _status)
+        private static void StatusExpired(StatusMessage sm)
         {
-            if (status.Contains(_status))
+            if (status.Contains(sm))
             {
-                status.Remove(_status);
+                status.Remove(sm);
                 StatusUpdated?.Invoke(null, Status.Message);
             }
         }
@@ -147,8 +145,6 @@ namespace AnalysisITC
             }
         }
 
-        public static void UpdateContext() => UpdateContextButton?.Invoke(null, null);
-
         public static void StartInderminateProgress()
         {
             Progress = -0.5;
@@ -161,14 +157,16 @@ namespace AnalysisITC
 
         private struct StatusMessage
         {
-            public StatusMessage(string _status, bool _timed)
+            public StatusMessage(string msg, bool time, int priority = 0)
             {
-                Message = _status;
-                Timed = _timed;
+                Message = msg;
+                Timed = time;
+                Priority = priority;
             }
 
-            public string Message { get; set; }
-            public bool Timed { get; set; }
+            public string Message { get; private set; }
+            public bool Timed { get; private set; }
+            public int Priority { get; private set; }
         }
     }
 
