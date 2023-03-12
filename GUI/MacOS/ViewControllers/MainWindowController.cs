@@ -28,8 +28,23 @@ namespace AnalysisITC
             StatusBarManager.StatusUpdated += OnStatusUpdated;
             StatusBarManager.SecondaryStatusUpdated += OnSecondaryStatusUpdated;
             AppEventHandler.ShowAppMessage += OnShowAppMessage;
+            SolverInterface.AnalysisStarted += StopableProcessStarted;
+            SolverInterface.AnalysisFinished += StopableProcessFinished;
 
             StateManager_UpdateStateDependentUI(null, null);
+        }
+
+        private void StopableProcessFinished(object sender, object e)
+        {
+            StopProcessButton.Hidden = true;
+        }
+
+        private void StopableProcessStarted(object sender, TerminationFlag e)
+        {
+            StopProcessButton.Enabled = true;
+            StopProcessButton.Hidden = false;
+
+            e.WasRaised += (object flag, EventArgs e) => StopProcessButton.Enabled = false;
         }
 
         void OnShowAppMessage(object sender, HandledException e)
@@ -102,14 +117,14 @@ namespace AnalysisITC
 
                 StatusbarProgressIndicator.StopAnimation(this);
                 StatusbarProgressIndicator.Hidden = true;
-                StopProcessButton.Hidden = true;
+                //StopProcessButton.Hidden = true;
             }
             else if (e.Indeterminate)
             {
                 StatusbarProgressIndicator.Indeterminate = true;
                 StatusbarProgressIndicator.StartAnimation(this);
                 StatusbarProgressIndicator.Hidden = false;
-                StopProcessButton.Hidden = true;
+                //StopProcessButton.Hidden = true;
             }
             else if (e.IsProgressFinished)
             {
@@ -122,7 +137,7 @@ namespace AnalysisITC
 
                 StatusbarProgressIndicator.StopAnimation(this);
                 StatusbarProgressIndicator.Hidden = true;
-                StopProcessButton.Hidden = true;
+                //StopProcessButton.Hidden = true;
             }
             else
             {
@@ -130,7 +145,7 @@ namespace AnalysisITC
                 StatusbarProgressIndicator.Indeterminate = false;
                 StatusbarProgressIndicator.DoubleValue = e.Progress*100;
 
-                StopProcessButton.Hidden = false;
+                //StopProcessButton.Hidden = false;
             }
         }
 
