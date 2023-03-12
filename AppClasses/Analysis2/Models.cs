@@ -140,8 +140,6 @@ namespace AnalysisITC.AppClasses.Analysis2
 
             foreach (var par in model.Parameters.Table) solution.Parameters.Add(par.Key, new (par.Value.Value));
 
-            Console.WriteLine(solution.TotalEnthalpy.Value.ToString());
-
             return solution;
 		}
 
