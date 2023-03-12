@@ -27,9 +27,12 @@ namespace AnalysisITC
             StatusBarManager.ProgressUpdate += OnProgressUpdated;
             StatusBarManager.StatusUpdated += OnStatusUpdated;
             StatusBarManager.SecondaryStatusUpdated += OnSecondaryStatusUpdated;
-            AppEventHandler.ShowAppMessage += OnShowAppMessage;
             SolverInterface.AnalysisStarted += StopableProcessStarted;
+            SpolarRecordAnalysisController.AnalysisStarted += StopableProcessStarted;
+            SpolarRecordAnalysisController.AnalysisFinished += StopableProcessFinished;
             SolverInterface.AnalysisFinished += StopableProcessFinished;
+
+            AppEventHandler.ShowAppMessage += OnShowAppMessage;
 
             StateManager_UpdateStateDependentUI(null, null);
         }
@@ -229,7 +232,7 @@ namespace AnalysisITC
         partial void StopButtonClick(NSObject sender)
         {
             SolverInterface.TerminateAnalysisFlag.Raise();
-            SpolarRecordAnalysisController.StopAnalysis = true;
+            SpolarRecordAnalysisController.TerminateAnalysisFlag.Raise();
             DataManager.StopProcessCopying = true;
         }
     }

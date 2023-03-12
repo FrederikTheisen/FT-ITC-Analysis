@@ -9,10 +9,11 @@ namespace AnalysisITC
 {
     public static class SpolarRecordAnalysisController
     {
+        public static TerminationFlag TerminateAnalysisFlag { get; private set; } = new TerminationFlag();
+
+        public static event EventHandler<TerminationFlag> AnalysisStarted;
         public static event EventHandler<Tuple<int, int, float>> IterationFinished;
         public static event EventHandler<Tuple<int, TimeSpan>> AnalysisFinished;
-
-        public static bool StopAnalysis { get; set; } = false;
 
         public static int CalculationIterations { get; set; } = 10000;
         public static SRTempMode TempMode { get; set; } = SRTempMode.IsoEntropicPoint;
@@ -20,8 +21,10 @@ namespace AnalysisITC
 
         public static async void Analyze(GlobalSolution solution)
         {
-            StopAnalysis = false;
+            TerminateAnalysisFlag.Lower();
             DateTime start = DateTime.Now;
+
+            AnalysisStarted?.Invoke(null, TerminateAnalysisFlag);
 
             var sr = new FTSRMethod(solution.TemperatureDependence[ParameterTypes.Enthalpy1], solution.TemperatureDependence[ParameterTypes.EntropyContribution1]);
             sr.SRTempMode = TempMode;
@@ -189,7 +192,7 @@ namespace AnalysisITC
                 SpolarRecordAnalysisController.ReportCalculationProgress(i+1);
                 IterationsCompleted = i;
 
-                if (SpolarRecordAnalysisController.StopAnalysis) break;
+                if (SpolarRecordAnalysisController.TerminateAnalysisFlag.Up) break;
             }
 
             IterationsCompleted++;
