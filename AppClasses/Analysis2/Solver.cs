@@ -8,6 +8,7 @@ using System.Collections.Generic;
 using System.Threading;
 using AppKit;
 using Accord.Math;
+using static alglib;
 using Accord.IO;
 
 namespace AnalysisITC.AppClasses.Analysis2
@@ -27,17 +28,23 @@ namespace AnalysisITC.AppClasses.Analysis2
 
         public bool Silent { get; set; } = false;
 
+        public static event EventHandler<TerminationFlag> AnalysisStarted;
         public static event EventHandler<Tuple<int, int, float>> BootstrapIterationFinished;
         public static event EventHandler<SolverConvergence> AnalysisFinished;
         public static event EventHandler AnalysisStepFinished;
         public static event EventHandler<SolverUpdate> SolverUpdated;
 
         public SolverAlgorithm SolverAlgorithm { get; set; } = SolverAlgorithm.NelderMead;
+        public int MaxOptimizerItegrations { get; private set; } = AppSettings.MaximumOptimizerIterations;
         public ErrorEstimationMethod ErrorEstimationMethod { get; set; } = ErrorEstimationMethod.None;
         public int BootstrapIterations { get; set; } = 100;
         public double SolverFunctionTolerance { get; set; } = double.Epsilon;
         public double RelativeParameterTolerance { get; set; } = 2E-5;
         public double SolverBootstrapTolerance { get; set; } = 1.0E-11;
+        public double LevenbergMarquardtDifferentiationStepSize { get; set; } = 0.1;
+        public double LevenbergMarquardtEpsilon { get; set; } = 1E-8;
+
+        public alglib.minlmstate LMOptimizerState { get; set; }
 
         protected DateTime starttime;
         protected DateTime endtime;
@@ -57,7 +64,7 @@ namespace AnalysisITC.AppClasses.Analysis2
             {
                 case SingleModelFactory: return Initialize((factory as SingleModelFactory).Model);
                 case GlobalModelFactory: return Initialize((factory as GlobalModelFactory).Model);
-                default: throw new Exception("Solver initilization failure: unknown factory");
+                default: throw new Exception("Solver initilization failure: unknown factory: " + factory.ToString());
             }
         }
 
@@ -99,31 +106,40 @@ namespace AnalysisITC.AppClasses.Analysis2
 
         public virtual async void Analyze()
         {
+            starttime = DateTime.Now;
+            AnalysisStarted.Invoke(this, TerminateAnalysisFlag);
+
+            StatusBarManager.StartInderminateProgress();
+
+            string mdl = this switch
+            {
+                Solver => (this as Solver).Model.ModelType.ToString(),
+                GlobalSolver => "Global." + (this as GlobalSolver).Model.ModelType.ToString(),
+                _ => "",
+            };
+            StatusBarManager.SetStatus("Fitting " + mdl + " using " + SolverAlgorithm.Description() + "...", 0, priority: 1);
+
+            TerminateAnalysisFlag = new TerminationFlag();
+        }
+
+        private void TerminateAnalysisFlag_WasRaised(object sender, EventArgs e)
+        {
+            StatusBarManager.SetStatus("Terminating analysis...",0,3);
+
             try
             {
-                StatusBarManager.StartInderminateProgress();
-                StatusBarManager.SetStatus("Optimizing using " + SolverAlgorithm.Description() + "...", 0);
-                TerminateAnalysisFlag = new TerminationFlag();
-
-                await Task.Run(() =>
-                {
-                    var convergence = Solve();
-                    ReportAnalysisFinished(convergence);
-                });
+                if (LMOptimizerState != null) alglib.minlmrequesttermination(LMOptimizerState);
             }
             catch (Exception ex)
             {
                 AppEventHandler.DisplayHandledException(ex);
-
-                ReportAnalysisFinished(SolverConvergence.ReportFailed());
             }
         }
 
         public virtual SolverConvergence Solve()
         {
-            starttime = DateTime.Now;
-
-            SolverConvergence convergence = null;
+            TerminateAnalysisFlag.WasRaised += TerminateAnalysisFlag_WasRaised;
+            SolverConvergence convergence;
 
             switch (SolverAlgorithm)
             {
@@ -142,8 +158,6 @@ namespace AnalysisITC.AppClasses.Analysis2
             }
 
             endtime = DateTime.Now;
-
-            //Console.WriteLine("Analysis time: " + Duration.TotalSeconds + "s");
 
             return convergence;
         }
@@ -194,6 +208,26 @@ namespace AnalysisITC.AppClasses.Analysis2
         public Model Model { get; set; }
         public SolutionInterface Solution => Model.Solution;
 
+        public override async void Analyze()
+        {
+            base.Analyze();
+
+            try
+            {
+                await Task.Run(() =>
+                {
+                    var convergence = Solve();
+                    ReportAnalysisFinished(convergence);
+                });
+            }
+            catch (Exception ex)
+            {
+                AppEventHandler.DisplayHandledException(ex);
+
+                ReportAnalysisFinished(SolverConvergence.ReportFailed(starttime));
+            }
+        }
+
         protected override SolverConvergence SolveWithNelderMeadAlgorithm()
         {
             var f = new NonlinearObjectiveFunction(Model.NumberOfParameters, (w) => Model.LossFunction(w));
@@ -201,7 +235,7 @@ namespace AnalysisITC.AppClasses.Analysis2
 
             solver.Convergence = new Accord.Math.Convergence.GeneralConvergence(Model.NumberOfParameters)
             {
-                MaximumEvaluations = 300000,
+                MaximumEvaluations = MaxOptimizerItegrations,
                 AbsoluteFunctionTolerance = SolverFunctionTolerance,
                 RelativeParameterTolerance = RelativeParameterTolerance,
                 StartTime = DateTime.Now,
@@ -214,6 +248,29 @@ namespace AnalysisITC.AppClasses.Analysis2
 
             Model.Solution = SolutionInterface.FromModel(Model, solver.Solution);
             Model.Solution.Convergence = new SolverConvergence(solver);
+            Model.Solution.ErrorMethod = ErrorEstimationMethod;
+
+            return Model.Solution.Convergence;
+        }
+
+        protected override SolverConvergence SolverWithLevenbergMarquardtAlgorithm()
+        {
+            DateTime start = DateTime.Now;
+            var guess = Model.Parameters.ToArray();
+            var limits = Model.Parameters.GetLimits();
+
+            alglib.minlmcreatev(Model.NumberOfParameters, guess, LevenbergMarquardtDifferentiationStepSize, out minlmstate minlmstate);
+
+            LMOptimizerState = minlmstate;
+
+            alglib.minlmsetcond(LMOptimizerState, LevenbergMarquardtEpsilon, MaxOptimizerItegrations);
+            alglib.minlmsetscale(LMOptimizerState, Model.Parameters.Table.Values.Where(p => !p.IsLocked).Select(p => p.StepSize).ToArray());
+            alglib.minlmsetbc(LMOptimizerState, limits.Select(p => p[0]).ToArray(), limits.Select(p => p[1]).ToArray());
+            alglib.minlmoptimize(LMOptimizerState, (double[] x, double[] fi, object obj) => { fi[0] = Model.LossFunction(x); }, null, null);
+            alglib.minlmresults(LMOptimizerState, out double[] result, out minlmreport rep);
+
+            Model.Solution = SolutionInterface.FromModel(Model, result);
+            Model.Solution.Convergence = new SolverConvergence(LMOptimizerState, rep, DateTime.Now - start, Model.LossFunction(result));
             Model.Solution.ErrorMethod = ErrorEstimationMethod;
 
             return Model.Solution.Convergence;
@@ -249,7 +306,6 @@ namespace AnalysisITC.AppClasses.Analysis2
             var solutions = bag.ToList();
 
             Solution.SetBootstrapSolutions(solutions.Where(sol => !sol.Convergence.Failed).ToList());
-            Solution.ComputeErrorsFromBootstrapSolutions();
             Solution.Convergence.SetBootstrapTime(DateTime.Now - start);
         }
     }
@@ -261,11 +317,10 @@ namespace AnalysisITC.AppClasses.Analysis2
 
         public override async void Analyze()
         {
+            base.Analyze();
+
             try
             {
-                StatusBarManager.StartInderminateProgress();
-                StatusBarManager.SetStatus("Optimizing using global " + SolverAlgorithm.Description() + "...", 0);
-
                 await Task.Run(() =>
                 {
                     SolverConvergence convergence;
@@ -274,10 +329,12 @@ namespace AnalysisITC.AppClasses.Analysis2
                     {
                         ReportSolverUpdate(new SolverUpdate() { Message = "Fitting individually...", Progress = 0, TotalSteps = Model.Models.Count });
 
-                        List<SolverConvergence> convergences = new List<SolverConvergence>();
-                        int counter = 0;
+                        var convergences = new List<SolverConvergence>();
+                        var counter = 0;
                         foreach (var mdl in Model.Models)
                         {
+                            if (TerminateAnalysisFlag.Up) throw new OptimizerStopException();
+
                             var solver = SolverInterface.Initialize(mdl);
                             solver.ErrorEstimationMethod = ErrorEstimationMethod;
                             solver.BootstrapIterations = BootstrapIterations;
@@ -307,11 +364,15 @@ namespace AnalysisITC.AppClasses.Analysis2
 
                 DataManager.AddData(new AnalysisResult(Model.Solution));
             }
+            catch (OptimizerStopException ex)
+            {
+                ReportAnalysisFinished(SolverConvergence.ReportStopped(starttime));
+            }
             catch (Exception ex)
             {
                 AppEventHandler.DisplayHandledException(ex);
 
-                ReportAnalysisFinished(SolverConvergence.ReportFailed());
+                ReportAnalysisFinished(SolverConvergence.ReportFailed(starttime));
             }
         }
 
@@ -322,7 +383,7 @@ namespace AnalysisITC.AppClasses.Analysis2
 
             solver.Convergence = new Accord.Math.Convergence.GeneralConvergence(Model.NumberOfParameters)
             {
-                MaximumEvaluations = 300000,
+                MaximumEvaluations = MaxOptimizerItegrations,
                 AbsoluteFunctionTolerance = SolverFunctionTolerance,
                 //RelativeParameterTolerance = RelativeParameterTolerance,
                 StartTime = DateTime.Now,
@@ -336,6 +397,28 @@ namespace AnalysisITC.AppClasses.Analysis2
             Model.Solution = new GlobalSolution(this, new SolverConvergence(solver));
 
             return Model.Solution.Convergence;
+        }
+
+        protected override SolverConvergence SolverWithLevenbergMarquardtAlgorithm()
+        {
+            DateTime start = DateTime.Now;
+            var varcount = Model.NumberOfParameters;
+            var guess = Model.Parameters.ToArray();
+            var limits = Model.Parameters.GetLimits();
+            var parameters = Model.Parameters.GetParameters();
+
+            alglib.minlmcreatev(varcount, guess, LevenbergMarquardtDifferentiationStepSize, out minlmstate LMOptimizerState);
+            alglib.minlmsetcond(LMOptimizerState, LevenbergMarquardtEpsilon, MaxOptimizerItegrations);
+            alglib.minlmsetscale(LMOptimizerState, parameters.Select(p => p.StepSize).ToArray());
+            alglib.minlmsetbc(LMOptimizerState, limits.Select(p => p[0]).ToArray(), limits.Select(p => p[1]).ToArray());
+            alglib.minlmoptimize(LMOptimizerState, (double[] parameters, double[] fi, object obj) => { fi[0] = Model.LossFunction(parameters); }, null, null);
+            alglib.minlmresults(LMOptimizerState, out double[] result, out minlmreport rep);
+
+            var loss = Model.LossFunction(result);
+
+            Model.Solution = new GlobalSolution(this, new SolverConvergence(LMOptimizerState, rep, DateTime.Now - start, loss));
+
+            return Solution.Convergence;
         }
 
         protected override void BoostrapResiduals()
@@ -372,7 +455,6 @@ namespace AnalysisITC.AppClasses.Analysis2
             var solutions = bag.ToList();
 
             Solution.SetBootstrapSolutions(solutions);
-
             Solution.Convergence.SetBootstrapTime(DateTime.Now - start);
         }
     }

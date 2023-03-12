@@ -162,7 +162,9 @@ namespace AnalysisITC.AppClasses.Analysis2
 		public void SetBootstrapSolutions(List<SolutionInterface> list)
 		{
 			BootstrapSolutions = list;
-		}
+
+            if (list.Count > 0) ComputeErrorsFromBootstrapSolutions();
+        }
 
         public virtual void ComputeErrorsFromBootstrapSolutions()
         {

@@ -260,6 +260,23 @@ namespace AnalysisITC.AppClasses.Analysis2
             return w.ToArray();
         }
 
+        public List<Parameter> GetParameters()
+        {
+            var w = new List<Parameter>();
+
+            foreach (KeyValuePair<ParameterTypes, Parameter> parameter in GlobalTable)
+            {
+                if (!parameter.Value.IsLocked) w.Add(parameter.Value);
+            }
+
+            foreach (var modelparameterset in IndividualModelParameterList)
+            {
+                w.AddRange(modelparameterset.Table.Values.Where(p => !p.IsLocked));
+            }
+
+            return w;
+        }
+
         public ModelParameters GetParametersForModel(GlobalModel parent, Model model)
         {
             int index = parent.Models.IndexOf(model);

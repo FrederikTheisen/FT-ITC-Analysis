@@ -18,6 +18,7 @@ namespace AnalysisITC.AppClasses.Analysis2
 
         public int NumberOfParameters => Parameters.TotalFittingParameters;
 		public bool ShouldFitIndividually => !Parameters.RequiresGlobalFitting;
+		public AnalysisModel ModelType => Models.First().ModelType;
 
         public GlobalModel()
 		{
@@ -212,7 +213,6 @@ namespace AnalysisITC.AppClasses.Analysis2
                 var sols = BootstrapSolutions.SelectMany(gs => gs.Solutions.Where(s => s.Model.Data.UniqueID == model.Data.UniqueID)).ToList();
 
 				model.Solution.SetBootstrapSolutions(sols.Where(sol => !sol.Convergence.Failed).ToList());
-                model.Solution.ComputeErrorsFromBootstrapSolutions();
             }
 
 			var tmp = new Dictionary<ParameterTypes, LinearFitWithError>();

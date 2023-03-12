@@ -20,7 +20,7 @@ namespace AnalysisITC
 
         public void SetBootstrapTime(TimeSpan time) => BootstrapTime = time;
 
-        public SolverConvergence() { }
+        private SolverConvergence() { }
 
         public SolverConvergence(NelderMead solver)
         {
@@ -33,27 +33,27 @@ namespace AnalysisITC
             Failed = solver.Status == NelderMeadStatus.Failure;
         }
 
-        public SolverConvergence(minlmstate state, minlmreport rep, TimeSpan time)
+        public SolverConvergence(minlmstate state, minlmreport rep, TimeSpan time, double loss)
         {
             Algorithm = SolverAlgorithm.LevenbergMarquardt;
             Iterations = rep.iterationscount;
-            Message = rep.terminationtype.ToString();
+            Message = ((AlgLibTerminationCode)rep.terminationtype).GetEnumDescription();
             Time = time;
-            Loss = state.f;
+            Loss = loss;
 
-            Failed = rep.terminationtype != 2;
+            Failed = rep.terminationtype > 2;
         }
 
-        public SolverConvergence(MathNet.Numerics.Optimization.NonlinearMinimizationResult result, TimeSpan time, SolverAlgorithm algorithm)
-        {
-            Algorithm = algorithm;
-            Iterations = result.Iterations;
-            Message = result.ReasonForExit.ToString();
-            Time = time;
-            Loss = result.ModelInfoAtMinimum.Value;
+        //public SolverConvergence(MathNet.Numerics.Optimization.NonlinearMinimizationResult result, TimeSpan time, SolverAlgorithm algorithm)
+        //{
+        //    Algorithm = algorithm;
+        //    Iterations = result.Iterations;
+        //    Message = result.ReasonForExit.ToString();
+        //    Time = time;
+        //    Loss = result.ModelInfoAtMinimum.Value;
 
-            Failed = result.ReasonForExit != MathNet.Numerics.Optimization.ExitCondition.Converged;
-        }
+        //    Failed = result.ReasonForExit != MathNet.Numerics.Optimization.ExitCondition.Converged;
+        //}
 
         public SolverConvergence(List<SolverConvergence> list)
         {
@@ -66,12 +66,25 @@ namespace AnalysisITC
             Failed = list.Any(con => con.Failed);
         }
 
-        public static SolverConvergence ReportFailed()
+        public static SolverConvergence ReportFailed(DateTime starttime)
         {
             var conv = new SolverConvergence()
             {
+                Time = DateTime.Now - starttime,
                 Failed = true,
-                Message = "Optimization failed due to error",
+                Message = "Fitting Failed",
+            };
+
+            return conv;
+        }
+
+        public static SolverConvergence ReportStopped(DateTime starttime)
+        {
+            var conv = new SolverConvergence()
+            {
+                Time = DateTime.Now - starttime,
+                Failed = true,
+                Message = "Fitting Stopped by User",
             };
 
             return conv;
@@ -80,6 +93,8 @@ namespace AnalysisITC
 
     public class TerminationFlag
     {
+        public event EventHandler WasRaised;
+
         bool FlagIsRaised { get; set; } = false;
 
         public bool Up => FlagIsRaised;
@@ -93,6 +108,8 @@ namespace AnalysisITC
         public void Raise()
         {
             FlagIsRaised = true;
+
+            WasRaised.Invoke(this, null);
         }
 
         public void Lower()
@@ -114,7 +131,7 @@ namespace AnalysisITC
         public void SendToStatusBar()
         {
             StatusBarManager.Progress = Progress;
-            if (Message != "") StatusBarManager.SetStatus(Message, Time);
+            if (Message != "") StatusBarManager.SetStatus(Message, Time, priority: 1);
             if (TotalSteps > 0) StatusBarManager.SetSecondaryStatus(ProgressString, Time);
         }
     }
@@ -166,5 +183,27 @@ namespace AnalysisITC
         NelderMead,
         [Description("Levenberg-Marquardt")]
         LevenbergMarquardt
+    }
+
+    public enum AlgLibTerminationCode
+    {
+        [Description("Code0")]
+        Code0 = 0,
+        [Description("Loss function successfully converged")]
+        FunctionConverged = 1,
+        [Description("Step size smaller than limit")]
+        StepSizeTooSmall = 2,
+        [Description("Code3")]
+        Code3 = 3,
+        [Description("Gradient ")]
+        GradientIsFlat = 4,
+        [Description("Optimizer iteration limit")]
+        MaxIterations = 5,
+        Code6 = 6,
+        [Description("Not converging")]
+        NotReachingStopCriteria = 7,
+        [Description("Terminated by user")]
+        TerminatedByUser = 8,
+        //1=relative function improvement is no more than EpsF. 2=relative step is no more than EpsX. 4=gradient norm is no more than EpsG. 5=MaxIts steps was taken. 7=stopping conditions are too stringent, further improvement is impossible, we return best X found so far. 8= terminated by user
     }
 }
