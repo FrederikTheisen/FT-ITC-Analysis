@@ -20,6 +20,13 @@ namespace AnalysisITC
             Log.Add(new LogEntry(ex));
         }
 
+		public static void Out(string msg)
+		{
+			Console.WriteLine(msg);
+
+			AddLog(msg);
+        }
+
         public static void DisplayHandledException(Exception ex)
 		{
 			AddLog(ex);
