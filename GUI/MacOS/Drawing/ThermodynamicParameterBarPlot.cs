@@ -138,7 +138,7 @@ namespace AnalysisITC
             int index = Solution.Solutions.IndexOf(sol);
 
             var color = MacColors.GetColor(index, Solution.Solutions.Count);
-            if (color == null) color = new CGColor[] {StrokeColor,StrokeColor };
+            if (color == null) color = new CGColor[] { StrokeColor, StrokeColor };
 
             var barlayer = CGLayer.Create(gc, PlotSize);
             var errorlayer = CGLayer.Create(gc, PlotSize);
