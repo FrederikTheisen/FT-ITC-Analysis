@@ -15,12 +15,12 @@
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <DebugSymbols>true</DebugSymbols>
     <DebugType>full</DebugType>
-    <Optimize>false</Optimize>
+    <Optimize>true</Optimize>
     <OutputPath>bin\Debug</OutputPath>
     <DefineConstants>DEBUG;</DefineConstants>
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
-    <EnableCodeSigning>false</EnableCodeSigning>
+    <EnableCodeSigning>False</EnableCodeSigning>
     <CodeSigningKey>Mac Developer</CodeSigningKey>
     <CreatePackage>false</CreatePackage>
     <EnablePackageSigning>false</EnablePackageSigning>
@@ -40,7 +40,7 @@
     <OutputPath>bin\Release</OutputPath>
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
-    <EnableCodeSigning>false</EnableCodeSigning>
+    <EnableCodeSigning>False</EnableCodeSigning>
     <CreatePackage>true</CreatePackage>
     <EnablePackageSigning>false</EnablePackageSigning>
     <IncludeMonoRuntime>true</IncludeMonoRuntime>
