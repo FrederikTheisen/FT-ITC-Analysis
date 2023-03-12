@@ -64,7 +64,9 @@ namespace AnalysisITC.GUI
             var c1 = theme[index];
             var c2 = theme[index + 1];
 
-            var gradientposition = (fraction * theme.Count - index);
+            var gradientposition = (fraction * (theme.Count - 1) - index);
+
+            Console.WriteLine(gradientposition.ToString());
 
             return new Color[]
                 {
