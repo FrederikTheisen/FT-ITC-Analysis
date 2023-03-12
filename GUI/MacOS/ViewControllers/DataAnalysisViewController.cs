@@ -23,21 +23,21 @@ namespace AnalysisITC
 
         public DataAnalysisViewController (IntPtr handle) : base (handle)
 		{
-            AnalysisGlobalModeOptionsView2.ParameterContraintUpdated += AnalysisGlobalModeOptionsView2_ParameterContraintUpdated;
-            SolverInterface.AnalysisFinished += AnalysisFinished;
-            SolverInterface.BootstrapIterationFinished += Analysis_BootstrapIterationFinished;
+            
         }
 
         public override void ViewDidLoad()
         {
             base.ViewDidLoad();
 
+            Invalidate += Analysis_AnalysisIterationFinished;
+
+            AnalysisGlobalModeOptionsView2.ParameterContraintUpdated += AnalysisGlobalModeOptionsView2_ParameterContraintUpdated;
             SolverInterface.AnalysisFinished += AnalysisFinished;
             SolverInterface.AnalysisStepFinished += Analysis_AnalysisIterationFinished;
             SolverInterface.BootstrapIterationFinished += Analysis_BootstrapIterationFinished;
             DataManager.SelectionDidChange += DataManager_SelectionDidChange;
             DataManager.DataDidChange += DataManager_DataDidChange;
-            Invalidate += Analysis_AnalysisIterationFinished;
             SolverInterface.SolverUpdated += SolverInterface_SolverUpdated;
             AppDelegate.StartPrintOperation += AppDelegate_StartPrintOperation;
 
@@ -92,7 +92,7 @@ namespace AnalysisITC
         private void Analysis_BootstrapIterationFinished(object sender, Tuple<int, int, float> e)
         {
             StatusBarManager.Progress = e.Item3;
-            StatusBarManager.SetStatus("Bootstrapping...", 0);
+            StatusBarManager.SetStatus("Bootstrapping...", 0, 2);
             StatusBarManager.SetSecondaryStatus(e.Item1 + "/" + e.Item2, 0);
         }
 
