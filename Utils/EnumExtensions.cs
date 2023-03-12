@@ -6,6 +6,7 @@ using System.Reflection;
 using AnalysisITC;
 using CoreGraphics;
 using DataReaders;
+using AnalysisITC.AppClasses.Analysis2;
 
 namespace AnalysisITC
 {
@@ -28,6 +29,13 @@ namespace AnalysisITC
         public static string Description(this SolverAlgorithm alg) => GetEnumDescription(alg);
         public static string Description(this ErrorEstimationMethod alg) => GetEnumDescription(alg);
 
+        public static SolverAlgorithmAttribute GetProperties(this SolverAlgorithm value)
+        {
+            var fieldInfo = value.GetType().GetField(value.ToString());
+            var attribute = fieldInfo.GetCustomAttributes(typeof(SolverAlgorithmAttribute), false).FirstOrDefault() as SolverAlgorithmAttribute;
+
+            return attribute;
+        }
 
         public static ITCFormatAttribute GetProperties(this ITCDataFormat value)
         {
@@ -53,10 +61,10 @@ namespace AnalysisITC
             return attribute;
         }
 
-        public static AnalysisITC.AppClasses.Analysis2.ParameterTypesAttribute GetProperties(this AnalysisITC.AppClasses.Analysis2.ParameterTypes value)
+        public static ParameterTypesAttribute GetProperties(this ParameterTypes value)
         {
             var fieldInfo = value.GetType().GetField(value.ToString());
-            var attribute = fieldInfo.GetCustomAttributes(typeof(AnalysisITC.AppClasses.Analysis2.ParameterTypesAttribute), false).FirstOrDefault() as AnalysisITC.AppClasses.Analysis2.ParameterTypesAttribute;
+            var attribute = fieldInfo.GetCustomAttributes(typeof(ParameterTypesAttribute), false).FirstOrDefault() as ParameterTypesAttribute;
 
             return attribute;
         }
