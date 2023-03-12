@@ -49,8 +49,6 @@ namespace AnalysisITC
             AppSettings.ConcentrationAutoVariance = AutoConcVarianceSlider.DoubleValue / 100;
             AppSettings.IsConcentrationAutoVarianceEnabled = AutoConcVarianceSlider.DoubleValue > double.Epsilon;
             AppSettings.MaximumOptimizerIterations = (int)Math.Pow(10, MaxOptimizerIterationsSlider.DoubleValue);
-
-            Console.WriteLine("save settings,lækfdmnokspgdojhbveqwdi0o´fsvb");
         }
 
         partial void BootstrapIterSliderAction(NSSlider sender)

@@ -233,7 +233,13 @@ namespace AnalysisITC
 
         public ExperimentData GetSynthClone(ModelCloneOptions options)
         {
-            var syninj = GetBootstrappedResiduals();
+            List<InjectionData> syninj;
+
+            switch (options.ErrorEstimationMethod)
+            {
+                default:
+                case ErrorEstimationMethod.BootstrapResiduals: syninj = GetBootstrappedResiduals(); break;
+            }
 
             if (options.IncludeConcentrationErrorsInBootstrap) AddConcentrationVariance(syninj, options);
 
