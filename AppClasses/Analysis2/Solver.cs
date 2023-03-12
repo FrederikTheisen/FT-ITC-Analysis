@@ -10,6 +10,7 @@ using AppKit;
 using Accord.Math;
 using static alglib;
 using Accord.IO;
+using static AnalysisITC.Extensions;
 
 namespace AnalysisITC.AppClasses.Analysis2
 {
@@ -38,7 +39,7 @@ namespace AnalysisITC.AppClasses.Analysis2
         public int MaxOptimizerItegrations { get; private set; } = AppSettings.MaximumOptimizerIterations;
         public ErrorEstimationMethod ErrorEstimationMethod { get; set; } = ErrorEstimationMethod.None;
         public int BootstrapIterations { get; set; } = 100;
-        public double SolverFunctionTolerance { get; set; } = double.Epsilon;
+        public double SolverFunctionTolerance { get; set; } = AppSettings.OptimizerTolerance;
         public double RelativeParameterTolerance { get; set; } = 2E-5;
         public double SolverBootstrapTolerance { get; set; } = 1.0E-11;
         public double LevenbergMarquardtDifferentiationStepSize { get; set; } = 0.1;
@@ -117,7 +118,7 @@ namespace AnalysisITC.AppClasses.Analysis2
                 GlobalSolver => "Global." + (this as GlobalSolver).Model.ModelType.ToString(),
                 _ => "",
             };
-            StatusBarManager.SetStatus("Fitting " + mdl + " using " + SolverAlgorithm.Description() + "...", 0, priority: 1);
+            StatusBarManager.SetStatus("Fitting " + mdl + " using " + SolverAlgorithm.GetProperties().ShortName + "...", 0, priority: 1);
 
             TerminateAnalysisFlag = new TerminationFlag();
         }
