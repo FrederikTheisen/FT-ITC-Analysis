@@ -8,6 +8,7 @@ using CoreGraphics;
 using System.Threading.Tasks;
 using System.Collections.Generic;
 using System.IO;
+using static AnalysisITC.AppClasses.Analysis2.SolutionInterface;
 
 namespace AnalysisITC
 {
@@ -17,6 +18,7 @@ namespace AnalysisITC
         public static event EventHandler PlotSizeChanged;
 
         public static EnergyUnit EnergyUnit => AppSettings.EnergyUnit;
+        public FinalFigureDisplayParameters FinalFigureDisplayParameters => AppSettings.FinalFigureParameterDisplay;
 
         static string poweraxistitle = "";
         public static string PowerAxisTitle
@@ -121,7 +123,7 @@ namespace AnalysisITC
 
         public static FinalFigure SetupForExport(ExperimentData experiment)
         {
-            var _ = (new FinalFigure(experiment, new NSView(new CGRect(0, 0, 10, 10)))).PrintBox;
+            var _ = (new FinalFigure(experiment, new NSView(new CGRect(0, 0, 10, 10)))).PrintBox; //no idea what this does
 
             var _graph = new FinalFigure(experiment, new NSView(_))
             {
@@ -144,6 +146,7 @@ namespace AnalysisITC
                 DrawZeroLine = DrawZeroLine,
                 DrawFitParameters = DrawFitParameters,
                 DrawExpDetails = DrawFitParameters, //TODO implement separate option
+                FinalFigureDisplayParameters = AppSettings.FinalFigureParameterDisplay,
                 SymbolShape = (CGGraph.SymbolShape)SymbolShape,
                 SymbolSize = SymbolSize,
             };
@@ -192,8 +195,6 @@ namespace AnalysisITC
                     }
                 }
             });
-
-
         }
 
         void InitializeGraph()
@@ -221,6 +222,7 @@ namespace AnalysisITC
                 DrawZeroLine = DrawZeroLine,
                 DrawFitParameters = DrawFitParameters,
                 DrawExpDetails = DrawFitParameters, //TODO implement separate option
+                FinalFigureDisplayParameters = AppSettings.FinalFigureParameterDisplay,
                 SymbolShape = (CGGraph.SymbolShape)SymbolShape,
                 SymbolSize = SymbolSize,
             };

@@ -127,12 +127,25 @@ namespace AnalysisITC
             ResultsTableView.AddColumn(new NSTableColumn("Loss") { Title = "Loss" });
 
             ExperimentListButton.Title = Solution.Solutions.Count + " experiments";
-            ResultSummaryLabel.StringValue = string.Join(Environment.NewLine, new string[]
+
+            var solverdesc = new List<string>()
             {
                 Solution.SolutionName,
-                Solution.Convergence.Algorithm.Description(),
+                Solution.Convergence.Algorithm.GetProperties().Name + " | RMSD = " + Solution.Loss.ToString("G3"),
                 Solution.ErrorEstimationMethod.Description() + (Solution.ErrorEstimationMethod == ErrorEstimationMethod.None ? "" : " x " + Solution.BootstrapIterations.ToString() )
-            });
+            };
+
+            if (Solution.ModelCloneOptions.IncludeConcentrationErrorsInBootstrap)
+            {
+                string line = "Conc. error considered";
+
+                if (Solution.ModelCloneOptions.EnableAutoConcentrationVariance)
+                    line += " [AUTO: " + (100 * Solution.ModelCloneOptions.AutoConcentrationVariance).ToString("F1") + "%]";
+
+                solverdesc.Add(line);
+            }
+
+            ResultSummaryLabel.StringValue = string.Join(Environment.NewLine, solverdesc);
 
             var refT = Solution.MeanTemperature;
             if (UseKelvin)

@@ -5,6 +5,7 @@ using System;
 using Foundation;
 using AppKit;
 using System.Text.RegularExpressions;
+using static AnalysisITC.AppClasses.Analysis2.SolutionInterface;
 
 namespace AnalysisITC
 {
@@ -32,6 +33,35 @@ namespace AnalysisITC
             HeightLabel.StringValue = FinalFigureGraphView.Height.ToString("F1") + " cm";
 
             SanitizeTicks.State = FinalFigureGraphView.SanitizeTicks ? NSCellStateValue.On : NSCellStateValue.Off;
+
+            for (int i = 1; i < 6; i++)
+            {
+                NSMenuItem item = ParameterDisplayOptionsControl.Items[i];
+
+                switch (i)
+                {
+                    case 1: item.State = AppSettings.FinalFigureParameterDisplay.HasFlag(FinalFigureDisplayParameters.Model) ? NSCellStateValue.On : NSCellStateValue.Off; break;
+                    case 2: item.State = AppSettings.FinalFigureParameterDisplay.HasFlag(FinalFigureDisplayParameters.Fitted) ? NSCellStateValue.On : NSCellStateValue.Off; break;
+                    case 3: item.State = AppSettings.FinalFigureParameterDisplay.HasFlag(FinalFigureDisplayParameters.Derived) ? NSCellStateValue.On : NSCellStateValue.Off; break;
+                    case 4: item.State = AppSettings.FinalFigureParameterDisplay.HasFlag(FinalFigureDisplayParameters.Offset) ? NSCellStateValue.On : NSCellStateValue.Off; break;
+                    case 5: item.State = AppSettings.FinalFigureParameterDisplay.HasFlag(FinalFigureDisplayParameters.Temperature) ? NSCellStateValue.On : NSCellStateValue.Off; break;
+                    case 6: item.State = AppSettings.FinalFigureParameterDisplay.HasFlag(FinalFigureDisplayParameters.Concentrations) ? NSCellStateValue.On : NSCellStateValue.Off; break;
+                }
+            }
+        }
+
+        partial void ParameterOptionAction(NSObject sender)
+        {
+            var btn = sender as NSPopUpButton;
+            var item = ParameterDisplayOptionsControl.ItemAt(btn.IndexOfSelectedItem);
+
+            switch (item.State)
+            {
+                case NSCellStateValue.On: item.State = NSCellStateValue.Off; break;
+                default: item.State = NSCellStateValue.On; break;
+            }
+
+            ControlChanged(null);
         }
 
         partial void ControlChanged(NSObject sender)
@@ -59,6 +89,21 @@ namespace AnalysisITC
             FinalFigureGraphView.SanitizeTicks = SanitizeTicks.State == NSCellStateValue.On;
 
             AppSettings.EnergyUnit = EnergyUnitControl.SelectedSegment == 0 ? EnergyUnit.KiloJoule : EnergyUnit.KCal;
+
+            AppSettings.FinalFigureParameterDisplay = FinalFigureDisplayParameters.None;
+            for (int i = 1; i < ParameterDisplayOptionsControl.Items.Length; i++)
+            {
+                NSMenuItem item = ParameterDisplayOptionsControl.Items[i];
+                if (item.State == NSCellStateValue.On) switch (i)
+                    {
+                        case 1: AppSettings.FinalFigureParameterDisplay |= FinalFigureDisplayParameters.Model; break;
+                        case 2: AppSettings.FinalFigureParameterDisplay |= FinalFigureDisplayParameters.Fitted; break;
+                        case 3: AppSettings.FinalFigureParameterDisplay |= FinalFigureDisplayParameters.Derived; break;
+                        case 4: AppSettings.FinalFigureParameterDisplay |= FinalFigureDisplayParameters.Offset; break;
+                        case 5: AppSettings.FinalFigureParameterDisplay |= FinalFigureDisplayParameters.Temperature; break;
+                        case 6: AppSettings.FinalFigureParameterDisplay |= FinalFigureDisplayParameters.Concentrations; break;
+                    }
+            }
 
             FinalFigureGraphView.Invalidate();
         }

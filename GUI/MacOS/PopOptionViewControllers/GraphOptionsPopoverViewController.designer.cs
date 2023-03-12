@@ -19,6 +19,9 @@ namespace AnalysisITC
 		AppKit.NSTextField HeightLabel { get; set; }
 
 		[Outlet]
+		AppKit.NSMenu ParameterDisplayOptionsControl { get; set; }
+
+		[Outlet]
 		AppKit.NSButton SanitizeTicks { get; set; }
 
 		[Outlet]
@@ -26,12 +29,25 @@ namespace AnalysisITC
 
 		[Action ("ControlChanged:")]
 		partial void ControlChanged (Foundation.NSObject sender);
+
+		[Action ("ParameterOptionAction:")]
+		partial void ParameterOptionAction (Foundation.NSObject sender);
 		
 		void ReleaseDesignerOutlets ()
 		{
+			if (ParameterDisplayOptionsControl != null) {
+				ParameterDisplayOptionsControl.Dispose ();
+				ParameterDisplayOptionsControl = null;
+			}
+
 			if (EnergyUnitControl != null) {
 				EnergyUnitControl.Dispose ();
 				EnergyUnitControl = null;
+			}
+
+			if (HeightLabel != null) {
+				HeightLabel.Dispose ();
+				HeightLabel = null;
 			}
 
 			if (SanitizeTicks != null) {
@@ -42,11 +58,6 @@ namespace AnalysisITC
 			if (WidthLabel != null) {
 				WidthLabel.Dispose ();
 				WidthLabel = null;
-			}
-
-			if (HeightLabel != null) {
-				HeightLabel.Dispose ();
-				HeightLabel = null;
 			}
 		}
 	}

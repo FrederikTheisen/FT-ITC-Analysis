@@ -452,10 +452,11 @@ namespace AnalysisITC
                 var size = DrawString(null, line, new CGPoint(0, 0), font, horizontalignment: TextAlignment.Left, textcolor: StrokeColor);
 
                 if (size.Width > width) width = size.Width;
-                height += size.Height + font.Size * 0.5f;
+                height += size.Height + font.Size * 0.4f;
             }
+            
 
-            CGSize boxsize = new CGSize(width + 12, height);
+            CGSize boxsize = new CGSize(width + 12, height + 6);
             var xpos = alignment switch
             {
                 NSRectAlignment.Top or NSRectAlignment.None or NSRectAlignment.Bottom => Frame.Width / 2 - boxsize.Width / 2,
@@ -470,7 +471,7 @@ namespace AnalysisITC
             };
 
             CGPoint pos = new CGPoint(xpos + Frame.X, ypos + Frame.Y);
-            CGPoint tpos = new CGPoint(6, boxsize.Height - font.Size * 0.66f);
+            CGPoint tpos = new CGPoint(6, boxsize.Height - 9);
 
             var layer = CGLayer.Create(gc, boxsize);
             var textlayer = CGLayer.Create(gc, boxsize);
@@ -480,7 +481,7 @@ namespace AnalysisITC
             {
                 var size = DrawString(textlayer, line, tpos, font, horizontalignment: TextAlignment.Left, textcolor: StrokeColor);
 
-                tpos.Y -= size.Height + font.Size * 0.45f;
+                tpos.Y -= size.Height + font.Size * 0.4f;
             }
 
             layer.Context.SetFillColor(DrawOnWhite ? NSColor.White.CGColor : NSColor.TextBackground.CGColor);
@@ -743,7 +744,7 @@ namespace AnalysisITC
 
         public bool ShowBaseline { get; set; } = true;
         public bool ShowExperimentDetails { get; set; } = false;
-
+        public FinalFigureDisplayParameters FinalFigureDisplayParameters { get; set; } = FinalFigureDisplayParameters.None;
 
         public string SyringeName { get; set; } = "";
         public string CellName { get; set; } = "";
@@ -805,11 +806,11 @@ namespace AnalysisITC
             else cell = "[Cell] = ";
             cell += (1000000 * ExperimentData.CellConcentration).ToString("F1") + " µM";
 
-            lines.Add(ExperimentData.MeasuredTemperature.ToString("F1") + " °C");
-            lines.Add(syr);
-            lines.Add(cell);
+            if (FinalFigureDisplayParameters.HasFlag(FinalFigureDisplayParameters.Temperature)) lines.Add(ExperimentData.MeasuredTemperature.ToString("F1") + " °C");
+            if (FinalFigureDisplayParameters.HasFlag(FinalFigureDisplayParameters.Concentrations)) lines.Add(syr);
+            if (FinalFigureDisplayParameters.HasFlag(FinalFigureDisplayParameters.Concentrations)) lines.Add(cell);
 
-            var position = ExperimentData.Solution.TotalEnthalpy > 0 ? NSRectAlignment.TopTrailing : NSRectAlignment.BottomTrailing;
+            var position = ExperimentData.AverageHeatDirection == PeakHeatDirection.Endothermal ? NSRectAlignment.TopTrailing : NSRectAlignment.BottomTrailing;
 
             DrawTextBox(gc, lines, DrawOnWhite ? new CTFont(DefaultFont.DisplayName, 12) : new CTFont(DefaultFont.DisplayName, 24), NSRectAlignment.BottomTrailing);
         }
@@ -1041,6 +1042,7 @@ namespace AnalysisITC
         public bool ShowErrorBars { get; set; } = true;
         public bool DrawConfidenceBands { get; set; } = true;
         public bool ShowFitParameters { get; set; } = true;
+        public FinalFigureDisplayParameters FinalFigureDisplayParameters { get; set; } = FinalFigureDisplayParameters.All;
         public bool ShowGrid { get; set; } = true;
         public bool ShowZero { get; set; } = true;
         public bool HideBadData { get; set; } = false;
@@ -1123,8 +1125,6 @@ namespace AnalysisITC
             }
 
             if (ExperimentData.Processor.IntegrationCompleted) DrawInjectionsPoints(gc);
-
-            
 
             XAxis.Draw(gc);
             YAxis.Draw(gc);
@@ -1290,7 +1290,7 @@ namespace AnalysisITC
 
             var lines = new List<string>();
 
-            foreach (var par in ExperimentData.Solution.UISolutionParameters(DrawOnWhite ? SolutionInfo.FinalFigure : SolutionInfo.Analysis))
+            foreach (var par in ExperimentData.Solution.UISolutionParameters(DrawOnWhite ? FinalFigureDisplayParameters : FinalFigureDisplayParameters.AnalysisView))
             {
                 lines.Add(par.Item1 + " = " + par.Item2);
             }

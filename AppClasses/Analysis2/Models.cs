@@ -146,18 +146,30 @@ namespace AnalysisITC.AppClasses.Analysis2
         public virtual List<Tuple<ParameterTypes, Func<SolutionInterface, FloatWithError>>> DependenciesToReport => new List<Tuple<ParameterTypes, Func<SolutionInterface, FloatWithError>>>();
         public virtual Dictionary<ParameterTypes, FloatWithError> ReportParameters => new Dictionary<ParameterTypes, FloatWithError>();
 
-        public virtual List<Tuple<string,string>> UISolutionParameters(SolutionInfo info)
-		{
+  //      public virtual List<Tuple<string,string>> UISolutionParameters(SolutionInfo info)
+		//{
+  //          var output = new List<Tuple<string, string>>();
+
+  //          string mdl = SolutionName;
+
+		//	output.Add(new(mdl, Loss.ToString("G3")));
+
+		//	return output;
+  //      }
+
+        public virtual List<Tuple<string, string>> UISolutionParameters(FinalFigureDisplayParameters info)
+        {
             var output = new List<Tuple<string, string>>();
 
-            string mdl = SolutionName;
+            if (info.HasFlag(FinalFigureDisplayParameters.Model))
+            {
+                output.Add(new(SolutionName, Loss.ToString("G3")));
+            }
 
-			output.Add(new(mdl, Loss.ToString("G3")));
-
-			return output;
+            return output;
         }
 
-		public void SetBootstrapSolutions(List<SolutionInterface> list)
+        public void SetBootstrapSolutions(List<SolutionInterface> list)
 		{
 			BootstrapSolutions = list;
 
@@ -179,6 +191,31 @@ namespace AnalysisITC.AppClasses.Analysis2
             TableSummaryLines = 0,
             FinalFigure = 1,
             Analysis = 2
+        }
+
+        [Flags]
+        public enum FinalFigureDisplayParameters
+        {
+            None = 0,
+            Model = 1,
+            Nvalue = 2,
+            Affinity = 4,
+            Enthalpy = 8,
+            TdS = 16,
+            Gibbs = 32,
+            Offset = 64,
+
+            Temperature = 128,
+            Concentrations = 256,
+
+            Fitted = Nvalue | Affinity | Enthalpy,
+            Derived = TdS | Gibbs,
+
+            Default = Model | Fitted | Derived | Temperature | Concentrations,
+            All = Model | Fitted | Offset | Derived | Temperature | Concentrations,
+
+            ListView = Model | Affinity | Enthalpy,
+            AnalysisView = Model | Fitted | Derived | Offset
         }
     }
 }

@@ -4,6 +4,7 @@ using System;
 
 using Foundation;
 using AppKit;
+using static AnalysisITC.AppClasses.Analysis2.SolutionInterface;
 
 namespace AnalysisITC
 {
@@ -27,6 +28,14 @@ namespace AnalysisITC
 
             FinalFigHeightField.StringValue = AppSettings.FinalFigureDimensions[1].ToString();
             FinalFigWidthField.StringValue = AppSettings.FinalFigureDimensions[0].ToString();
+
+
+            FinalFigParameterDisplayOptions.SetSelected(AppSettings.FinalFigureParameterDisplay.HasFlag(FinalFigureDisplayParameters.Model), 0);
+            FinalFigParameterDisplayOptions.SetSelected(AppSettings.FinalFigureParameterDisplay.HasFlag(FinalFigureDisplayParameters.Fitted), 1);
+            FinalFigParameterDisplayOptions.SetSelected(AppSettings.FinalFigureParameterDisplay.HasFlag(FinalFigureDisplayParameters.Derived), 2);
+            FinalFigParameterDisplayOptions.SetSelected(AppSettings.FinalFigureParameterDisplay.HasFlag(FinalFigureDisplayParameters.Offset), 3);
+            FinalFigParameterDisplayOptions.SetSelected(AppSettings.FinalFigureParameterDisplay.HasFlag(FinalFigureDisplayParameters.Temperature), 4);
+            FinalFigParameterDisplayOptions.SetSelected(AppSettings.FinalFigureParameterDisplay.HasFlag(FinalFigureDisplayParameters.Concentrations), 5);
         }
 
         private void ExportPreferencesViewController_ShouldApplySettings(object sender, EventArgs e)
@@ -36,6 +45,14 @@ namespace AnalysisITC
             AppSettings.ExportFitPointsWithPeaks = ExportSolutionPointsControl.State == NSCellStateValue.On;
 
             AppSettings.FinalFigureDimensions = new double[] { FinalFigWidthField.DoubleValue, FinalFigHeightField.DoubleValue };
+            AppSettings.FinalFigureParameterDisplay = FinalFigureDisplayParameters.None;
+
+            if (FinalFigParameterDisplayOptions.IsSelectedForSegment(0)) AppSettings.FinalFigureParameterDisplay |= FinalFigureDisplayParameters.Model;
+            if (FinalFigParameterDisplayOptions.IsSelectedForSegment(1)) AppSettings.FinalFigureParameterDisplay |= FinalFigureDisplayParameters.Fitted;
+            if (FinalFigParameterDisplayOptions.IsSelectedForSegment(2)) AppSettings.FinalFigureParameterDisplay |= FinalFigureDisplayParameters.Derived;
+            if (FinalFigParameterDisplayOptions.IsSelectedForSegment(3)) AppSettings.FinalFigureParameterDisplay |= FinalFigureDisplayParameters.Offset;
+            if (FinalFigParameterDisplayOptions.IsSelectedForSegment(4)) AppSettings.FinalFigureParameterDisplay |= FinalFigureDisplayParameters.Temperature;
+            if (FinalFigParameterDisplayOptions.IsSelectedForSegment(5)) AppSettings.FinalFigureParameterDisplay |= FinalFigureDisplayParameters.Concentrations;
         }
 
         partial void Apply(NSObject sender)

@@ -94,25 +94,39 @@ namespace AnalysisITC.AppClasses.Analysis2
                 base.ComputeErrorsFromBootstrapSolutions();
             }
 
-            public override List<Tuple<string, string>> UISolutionParameters(SolutionInfo info)
+            //public override List<Tuple<string, string>> UISolutionParameters(SolutionInfo info)
+            //{
+            //    var output = base.UISolutionParameters(info);
+
+            //    if ((int)info > 0) output.Add(new("N", N.ToString("F2")));
+
+            //    output.Add(new("Kd", Kd.AsDissociationConstant()));
+            //    output.Add(new("∆H", Enthalpy.ToString(EnergyUnit.KiloJoule, permole: true)));
+
+            //    if ((int)info > 0)
+            //    {
+            //        output.Add(new("-T∆S", TdS.ToString(EnergyUnit.KiloJoule, permole: true)));
+            //        output.Add(new("∆G", GibbsFreeEnergy.ToString(EnergyUnit.KiloJoule, permole: true)));
+            //    }
+
+            //    if ((int)info > 1)
+            //    {
+            //        output.Add(new("Offset", Offset.ToString(EnergyUnit.KiloJoule, permole: true)));
+            //    }
+
+            //    return output;
+            //}
+
+            public override List<Tuple<string, string>> UISolutionParameters(FinalFigureDisplayParameters info)
             {
                 var output = base.UISolutionParameters(info);
 
-                if ((int)info > 0) output.Add(new("N", N.ToString("F2")));
-
-                output.Add(new("Kd", Kd.AsDissociationConstant()));
-                output.Add(new("∆H", Enthalpy.ToString(EnergyUnit.KiloJoule, permole: true)));
-
-                if ((int)info > 0)
-                {
-                    output.Add(new("-T∆S", TdS.ToString(EnergyUnit.KiloJoule, permole: true)));
-                    output.Add(new("∆G", GibbsFreeEnergy.ToString(EnergyUnit.KiloJoule, permole: true)));
-                }
-
-                if ((int)info > 1)
-                {
-                    output.Add(new("Offset", Offset.ToString(EnergyUnit.KiloJoule, permole: true)));
-                }
+                if (info.HasFlag(FinalFigureDisplayParameters.Nvalue)) output.Add(new("N", N.ToString("F2")));
+                if (info.HasFlag(FinalFigureDisplayParameters.Affinity)) output.Add(new("Kd", Kd.AsDissociationConstant()));
+                if (info.HasFlag(FinalFigureDisplayParameters.Enthalpy)) output.Add(new("∆H", Enthalpy.ToString(EnergyUnit.KiloJoule, permole: true)));
+                if (info.HasFlag(FinalFigureDisplayParameters.TdS)) output.Add(new("-T∆S", TdS.ToString(EnergyUnit.KiloJoule, permole: true)));
+                if (info.HasFlag(FinalFigureDisplayParameters.Gibbs)) output.Add(new("∆G", GibbsFreeEnergy.ToString(EnergyUnit.KiloJoule, permole: true)));
+                if (info.HasFlag(FinalFigureDisplayParameters.Offset)) output.Add(new("Offset", Offset.ToString(EnergyUnit.KiloJoule, permole: true)));
 
                 return output;
             }

@@ -84,7 +84,7 @@ namespace AnalysisITC.AppClasses.Analysis2
                 base.ComputeErrorsFromBootstrapSolutions();
             }
 
-            public override List<Tuple<string, string>> UISolutionParameters(SolutionInfo info)
+            public override List<Tuple<string, string>> UISolutionParameters(FinalFigureDisplayParameters info)
             {
                 var output = base.UISolutionParameters(info);
 

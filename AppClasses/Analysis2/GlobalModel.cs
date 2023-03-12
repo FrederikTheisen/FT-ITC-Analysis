@@ -112,7 +112,9 @@ namespace AnalysisITC.AppClasses.Analysis2
         public double MeanTemperature => Model.MeanTemperature;
 		public List<SolutionInterface> Solutions => Model.Models.Select(mdl => mdl.Solution).ToList();
 		public List<ParameterTypes> IndividualModelReportParameters => Model.Models[0].Solution.ReportParameters.Select(p => p.Key).ToList();
+		public ModelCloneOptions ModelCloneOptions => Model.ModelCloneOptions;
 
+		//TODO invalidate all solutions in solution
         public void Invalidate() => IsValid = false;
 
 		public GlobalSolution(GlobalSolver solver, SolverConvergence convergence)
@@ -124,7 +126,8 @@ namespace AnalysisITC.AppClasses.Analysis2
             foreach (var mdl in Model.Models)
             {
                 mdl.Solution = SolutionInterface.FromModel(mdl, Model.Parameters.GetParametersForModel(Model, mdl).ToArray());
-                mdl.Solution.Convergence = convergence;
+                mdl.Solution.Convergence = new(convergence);
+				mdl.Solution.Convergence.SetLoss(mdl.LossFunction(mdl.Parameters.ToArray()));
                 mdl.Solution.IsGlobalAnalysisSolution = true;
             }
 

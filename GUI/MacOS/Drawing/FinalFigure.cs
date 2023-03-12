@@ -1,6 +1,7 @@
 ﻿using System;
 using AppKit;
 using CoreGraphics;
+using static AnalysisITC.AppClasses.Analysis2.SolutionInterface;
 
 namespace AnalysisITC
 {
@@ -84,6 +85,16 @@ namespace AnalysisITC
         {
             get => DataGraph.ShowExperimentDetails;
             set => DataGraph.ShowExperimentDetails = value;
+        }
+
+        public FinalFigureDisplayParameters FinalFigureDisplayParameters
+        {
+            get => IntegrationGraph.FinalFigureDisplayParameters;
+            set
+            {
+                IntegrationGraph.FinalFigureDisplayParameters = value;
+                DataGraph.FinalFigureDisplayParameters = value;
+            }
         }
 
         public float SymbolSize

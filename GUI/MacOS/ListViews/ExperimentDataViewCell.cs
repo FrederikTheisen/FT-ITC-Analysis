@@ -5,6 +5,7 @@ using System;
 using Foundation;
 using AppKit;
 using CoreGraphics;
+using static AnalysisITC.AppClasses.Analysis2.SolutionInterface;
 
 namespace AnalysisITC
 {
@@ -77,7 +78,7 @@ namespace AnalysisITC
 					ModelFitLine.UsesSingleLineMode = false;
 
 					string mfline = "";
-					foreach (var par in data.Solution.UISolutionParameters(AppClasses.Analysis2.SolutionInterface.SolutionInfo.TableSummaryLines)) mfline += "\n" + par.Item1 + ": " + par.Item2;
+					foreach (var par in data.Solution.UISolutionParameters(FinalFigureDisplayParameters.ListView)) mfline += "\n" + par.Item1 + ": " + par.Item2;
 
 					ModelFitLine.StringValue = mfline.Trim();
                 }
