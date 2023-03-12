@@ -15,11 +15,23 @@ namespace AnalysisITC
 			Log.Add(new LogEntry(msg));
 		}
 
-		public static void DisplayHandledException(Exception ex)
+        public static void AddLog(Exception ex)
+        {
+            Log.Add(new LogEntry(ex));
+        }
+
+        public static void DisplayHandledException(Exception ex)
 		{
+			AddLog(ex);
+
+			var stacktrace = ex.StackTrace.Split(Environment.NewLine);
+
+			foreach (var line in stacktrace) Console.WriteLine(line);
+
 			switch (ex)
 			{
-				case AggregateException: NSApplication.SharedApplication.InvokeOnMainThread(() => { ShowAppMessage?.Invoke(null, new(ex.InnerException)); StatusBarManager.ClearAppStatus(); }); break;
+				case OptimizerStopException: break;
+                case AggregateException: NSApplication.SharedApplication.InvokeOnMainThread(() => { ShowAppMessage?.Invoke(null, new(ex.InnerException)); StatusBarManager.ClearAppStatus(); }); break;
 				default: NSApplication.SharedApplication.InvokeOnMainThread(() => { ShowAppMessage?.Invoke(null, new(ex)); StatusBarManager.ClearAppStatus(); }); break;
             }
         }
@@ -29,13 +41,21 @@ namespace AnalysisITC
 	{
 		public string Message { get; private set; }
 		public DateTime DateTime { get; private set; }
+		public Exception Exception { get; private set; }
 
 		public LogEntry(string msg)
 		{
 			Message = msg;
 			DateTime = DateTime.Now;
 		}
-	}
+
+        public LogEntry(Exception ex)
+        {
+            Message = ex.Message;
+            DateTime = DateTime.Now;
+			Exception = ex;
+        }
+    }
 
 	public class HandledException
 	{
@@ -57,5 +77,10 @@ namespace AnalysisITC
 			Warning,
 			Message,
 		}
+	}
+
+	public class OptimizerStopException : Exception
+	{
+
 	}
 }
