@@ -3,6 +3,7 @@ using AnalysisITC.AppClasses.Analysis2;
 using Foundation;
 using System.Linq;
 using AnalysisITC.GUI;
+using static AnalysisITC.AppClasses.Analysis2.SolutionInterface;
 
 namespace AnalysisITC
 {
@@ -32,7 +33,8 @@ namespace AnalysisITC
         public static int MaximumOptimizerIterations { get; set; } = 300000;
 
         //Final figure
-        public static double[] FinalFigureDimensions { get; set; } = new double[2] { 6.0, 10.0 };
+        public static double[] FinalFigureDimensions { get; set; } = new double[2] { 6.5, 10.0 };
+        public static FinalFigureDisplayParameters FinalFigureParameterDisplay { get; set; } = FinalFigureDisplayParameters.Default;
 
         //Export
         public static bool UnifyTimeAxisForExport { get; set; } = true;
@@ -43,7 +45,7 @@ namespace AnalysisITC
 
         public static void Save()
         {
-            ApplyDefaultSettings();
+            ApplySettings();
 
             Storage.SetDouble(ReferenceTemperature, "ReferenceTemperature");
             Storage.SetInt((int)EnergyUnit, "EnergyUnit");
@@ -59,6 +61,7 @@ namespace AnalysisITC
             Storage.SetBool(UnifyTimeAxisForExport, "UnifyTimeAxisForExport");
             Storage.SetBool(ExportFitPointsWithPeaks, "ExportFitPointsWithPeaks");
             Storage.SetInt((int)ExportSelectionMode, "ExportSelectionMode");
+            Storage.SetInt((int)FinalFigureParameterDisplay, "FinalFigureParameterDisplay");
 
             StoreArray(FinalFigureDimensions, "FinalFigureDimensions");
 
@@ -108,8 +111,10 @@ namespace AnalysisITC
             UnifyTimeAxisForExport = Storage.BoolForKey("UnifyTimeAxisForExport");
             ExportFitPointsWithPeaks = Storage.BoolForKey("ExportFitPointsWithPeaks");
             ExportSelectionMode = (Exporter.ExportDataSelection)(int)Storage.IntForKey("ExportSelectionMode");
+            if (dict.ContainsKey(NSObject.FromObject("FinalFigureParameterDisplay")))
+                FinalFigureParameterDisplay = (FinalFigureDisplayParameters)(int)Storage.IntForKey("FinalFigureParameterDisplay");
 
-            ApplyDefaultSettings();
+            ApplySettings();
         }
 
         static double[] GetArray(string key)
@@ -121,7 +126,7 @@ namespace AnalysisITC
             return arr.Select(v => (double)NSNumber.FromObject(v)).ToArray();
         }
 
-        public static void ApplyDefaultSettings()
+        public static void ApplySettings()
         {
             FittingOptionsController.BootstrapIterations = DefaultBootstrapIterations;
             FittingOptionsController.ErrorEstimationMethod = DefaultErrorEstimationMethod;
