@@ -19,8 +19,20 @@ namespace AnalysisITC
         public SolverAlgorithm Algorithm { get; private set; }
 
         public void SetBootstrapTime(TimeSpan time) => BootstrapTime = time;
+        public void SetLoss(double loss) => Loss = loss;
 
         private SolverConvergence() { }
+
+        public SolverConvergence(SolverConvergence conv)
+        {
+            Algorithm = conv.Algorithm;
+            Iterations = conv.Iterations;
+            Message = conv.Message;
+            Time = conv.Time;
+            Loss = 0;
+
+            Failed = conv.Failed;
+        }
 
         public SolverConvergence(NelderMead solver)
         {
@@ -29,6 +41,7 @@ namespace AnalysisITC
             Message = solver.Status.ToString();
             Time = DateTime.Now - solver.Convergence.StartTime;
             Loss = solver.Value;
+            Console.WriteLine(Loss.ToString() + " | " + solver.Function(solver.Solution).ToString());
 
             Failed = solver.Status == NelderMeadStatus.Failure;
         }
@@ -174,14 +187,27 @@ namespace AnalysisITC
     public enum ErrorEstimationMethod
     {
         None,
-        BootstrapResiduals
+        BootstrapResiduals,
+        LeaveOneOut
+    }
+
+    public class SolverAlgorithmAttribute : Attribute
+    {
+        public string Name { get; private set; }
+        public string ShortName { get; private set; }
+
+        public SolverAlgorithmAttribute(string name, string shortname)
+        {
+            Name = name;
+            ShortName = shortname;
+        }
     }
 
     public enum SolverAlgorithm
     {
-        [Description("Nelder-Mead [SIMPLEX]")]
+        [SolverAlgorithmAttribute("Nelder-Mead [SIMPLEX]", "SIMPLEX")]
         NelderMead,
-        [Description("Levenberg-Marquardt")]
+        [SolverAlgorithmAttribute("Levenberg-Marquardt", "LM")]
         LevenbergMarquardt
     }
 
