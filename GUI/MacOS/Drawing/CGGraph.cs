@@ -417,6 +417,8 @@ namespace AnalysisITC
             layer.Context.AddPath(path);
             layer.Context.SetStrokeColor(color);
             layer.Context.SetLineWidth(linewidth);
+            layer.Context.SetLineJoin(CGLineJoin.Round);
+            layer.Context.SetLineCap(CGLineCap.Round);
             layer.Context.StrokePath();
 
             gc.DrawLayer(layer, Origin);
