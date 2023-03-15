@@ -45,7 +45,8 @@ namespace AnalysisITC.AppClasses.Analysis2
         public double LevenbergMarquardtDifferentiationStepSize { get; set; } = 0.1;
         public double LevenbergMarquardtEpsilon { get; set; } = 1E-8;
 
-        public alglib.minlmstate LMOptimizerState { get; set; }
+        internal alglib.minlmstate LMOptimizerState { get; set; }
+        public static CancellationTokenSource NelderMeadToken { get; set; }
 
         protected DateTime starttime;
         protected DateTime endtime;
@@ -130,6 +131,7 @@ namespace AnalysisITC.AppClasses.Analysis2
             try
             {
                 if (LMOptimizerState != null) alglib.minlmrequesttermination(LMOptimizerState);
+                else if (NelderMeadToken != null) NelderMeadToken.Cancel();
             }
             catch (Exception ex)
             {
@@ -178,12 +180,12 @@ namespace AnalysisITC.AppClasses.Analysis2
             ReportBootstrapProgress(0);
         }
 
-        protected void SetStepSizes(NelderMead solver, double[] stepsize)
+        internal void SetStepSizes(NelderMead solver, double[] stepsize)
         {
             for (int i = 0; i < solver.StepSize.Length; i++) solver.StepSize[i] = stepsize[i];
         }
 
-        public virtual void SetBounds(object solver, List<double[]> bounds)
+        internal void SetBounds(object solver, List<double[]> bounds)
         {
             var lower = bounds.Select(l => l[0]).ToArray();
             var upper = bounds.Select(l => l[1]).ToArray();
@@ -200,6 +202,18 @@ namespace AnalysisITC.AppClasses.Analysis2
                 case alglib.minlmstate state:
                     alglib.minlmsetbc(state, lower, upper);
                     break;
+            }
+        }
+
+        internal void SetCancellationToken(object solver)
+        {
+            switch (solver)
+            {
+                case NelderMead simplex:
+                    NelderMeadToken = new CancellationTokenSource();
+                    simplex.Token = NelderMeadToken.Token;
+                    break;
+                case alglib.minlmstate minlm: LMOptimizerState = minlm; break;
             }
         }
     }
@@ -247,8 +261,7 @@ namespace AnalysisITC.AppClasses.Analysis2
 
             solver.Minimize(Model.Parameters.ToArray());
 
-            Model.Solution = SolutionInterface.FromModel(Model, solver.Solution);
-            Model.Solution.Convergence = new SolverConvergence(solver);
+            Model.Solution = SolutionInterface.FromModel(Model, solver.Solution, new SolverConvergence(solver, Model.LossFunction(Model.Parameters.ToArray())));
             Model.Solution.ErrorMethod = ErrorEstimationMethod;
 
             return Model.Solution.Convergence;
@@ -270,8 +283,7 @@ namespace AnalysisITC.AppClasses.Analysis2
             alglib.minlmoptimize(LMOptimizerState, (double[] x, double[] fi, object obj) => { fi[0] = Model.LossFunction(x); }, null, null);
             alglib.minlmresults(LMOptimizerState, out double[] result, out minlmreport rep);
 
-            Model.Solution = SolutionInterface.FromModel(Model, result);
-            Model.Solution.Convergence = new SolverConvergence(LMOptimizerState, rep, DateTime.Now - start, Model.LossFunction(result));
+            Model.Solution = SolutionInterface.FromModel(Model, result, new SolverConvergence(LMOptimizerState, rep, DateTime.Now - start, Model.LossFunction(result)));
             Model.Solution.ErrorMethod = ErrorEstimationMethod;
 
             return Model.Solution.Convergence;
@@ -392,10 +404,11 @@ namespace AnalysisITC.AppClasses.Analysis2
 
             SetStepSizes(solver, Model.Parameters.GetStepSizes());
             SetBounds(solver, Model.Parameters.GetLimits());
+            SetCancellationToken(solver);
 
             solver.Minimize(Model.Parameters.ToArray());
 
-            Model.Solution = new GlobalSolution(this, new SolverConvergence(solver));
+            Model.Solution = new GlobalSolution(this, new SolverConvergence(solver, Model.LossFunction(Model.Parameters.ToArray())));
 
             return Model.Solution.Convergence;
         }

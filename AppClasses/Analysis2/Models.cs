@@ -60,7 +60,9 @@ namespace AnalysisITC.AppClasses.Analysis2
 
 		public double LossFunction(double[] parameters)
 		{
-			Parameters.UpdateFromArray(parameters);
+            if (SolverInterface.NelderMeadToken != null && SolverInterface.NelderMeadToken.IsCancellationRequested) throw new OptimizerStopException();
+
+            Parameters.UpdateFromArray(parameters);
 
 			return Loss();
 		}
@@ -125,7 +127,7 @@ namespace AnalysisITC.AppClasses.Analysis2
 
 		public void Invalidate() => IsValid = false;
 		
-		public static SolutionInterface FromModel(Model model, double[] parameters)
+		public static SolutionInterface FromModel(Model model, double[] parameters, SolverConvergence convergence)
 		{
             SolutionInterface solution = null;
 
@@ -137,6 +139,8 @@ namespace AnalysisITC.AppClasses.Analysis2
 				case AnalysisModel.Dissociation:
 				default: throw new Exception("Model type not found");
 			}
+
+            solution.Convergence = convergence;
 
             foreach (var par in model.Parameters.Table) solution.Parameters.Add(par.Key, new (par.Value.Value));
 

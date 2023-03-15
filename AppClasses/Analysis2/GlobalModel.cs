@@ -43,7 +43,10 @@ namespace AnalysisITC.AppClasses.Analysis2
 
 		public double LossFunction(double[] parameters)
 		{
-			Parameters.UpdateFromArray(parameters);
+            //SolverInterface.NelderMeadToken?.Token.ThrowIfCancellationRequested();
+            if (SolverInterface.NelderMeadToken != null && SolverInterface.NelderMeadToken.IsCancellationRequested) throw new OptimizerStopException();
+
+            Parameters.UpdateFromArray(parameters);
 
 			return Loss();
 		}
@@ -125,8 +128,7 @@ namespace AnalysisITC.AppClasses.Analysis2
 
             foreach (var mdl in Model.Models)
             {
-                mdl.Solution = SolutionInterface.FromModel(mdl, Model.Parameters.GetParametersForModel(Model, mdl).ToArray());
-                mdl.Solution.Convergence = new(convergence);
+                mdl.Solution = SolutionInterface.FromModel(mdl, Model.Parameters.GetParametersForModel(Model, mdl).ToArray(), new(convergence));
 				mdl.Solution.Convergence.SetLoss(mdl.LossFunction(mdl.Parameters.ToArray()));
                 mdl.Solution.IsGlobalAnalysisSolution = true;
             }

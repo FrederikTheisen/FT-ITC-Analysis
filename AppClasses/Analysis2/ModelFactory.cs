@@ -111,7 +111,12 @@ namespace AnalysisITC.AppClasses.Analysis2
 				{
 					(factory as GlobalModelFactory).GlobalModelParameters.Constraints.Add(con.Key, con.Value);
 				}
-			}
+
+                foreach (var par in ((GlobalModelFactory)Factory).GlobalModelParameters.GlobalTable)
+                {
+					(factory as GlobalModelFactory).GlobalModelParameters.AddorUpdateGlobalParameter(par.Key, par.Value.Value, par.Value.IsLocked, par.Value.Limits);
+                }
+            }
 
 			Factory = factory;
 		}

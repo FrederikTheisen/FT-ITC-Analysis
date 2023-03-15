@@ -34,14 +34,14 @@ namespace AnalysisITC
             Failed = conv.Failed;
         }
 
-        public SolverConvergence(NelderMead solver)
+        public SolverConvergence(NelderMead solver, double loss)
         {
             Algorithm = SolverAlgorithm.NelderMead;
             Iterations = solver.Convergence.Evaluations;
             Message = solver.Status.ToString();
             Time = DateTime.Now - solver.Convergence.StartTime;
             Loss = solver.Value;
-            Console.WriteLine(Loss.ToString() + " | " + solver.Function(solver.Solution).ToString());
+            Console.WriteLine(Loss.ToString() + " | " + loss);
 
             Failed = solver.Status == NelderMeadStatus.Failure;
         }
@@ -122,7 +122,7 @@ namespace AnalysisITC
         {
             FlagIsRaised = true;
 
-            WasRaised.Invoke(this, null);
+            WasRaised?.Invoke(this, null);
         }
 
         public void Lower()
