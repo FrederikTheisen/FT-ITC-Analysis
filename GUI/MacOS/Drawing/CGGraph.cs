@@ -456,9 +456,8 @@ namespace AnalysisITC
                 if (size.Width > width) width = size.Width;
                 height += size.Height + font.Size * 0.4f;
             }
-            
 
-            CGSize boxsize = new CGSize(width + 12, height + 6);
+            var boxsize = new CGSize(width + 12, height + 6);
             var xpos = alignment switch
             {
                 NSRectAlignment.Top or NSRectAlignment.None or NSRectAlignment.Bottom => Frame.Width / 2 - boxsize.Width / 2,
@@ -472,9 +471,8 @@ namespace AnalysisITC
                 _ => 7,
             };
 
-            CGPoint pos = new CGPoint(xpos + Frame.X, ypos + Frame.Y);
-            CGPoint tpos = new CGPoint(6, boxsize.Height - 9);
-
+            var pos = new CGPoint(xpos + Frame.X, ypos + Frame.Y);
+            var tpos = new CGPoint(6, boxsize.Height - 0.75f * font.Size);
             var layer = CGLayer.Create(gc, boxsize);
             var textlayer = CGLayer.Create(gc, boxsize);
             textlayer.Context.SetFillColor(textcolor);
