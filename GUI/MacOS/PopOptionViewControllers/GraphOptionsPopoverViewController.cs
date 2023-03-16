@@ -34,7 +34,7 @@ namespace AnalysisITC
 
             SanitizeTicks.State = FinalFigureGraphView.SanitizeTicks ? NSCellStateValue.On : NSCellStateValue.Off;
 
-            for (int i = 1; i < 6; i++)
+            for (int i = 1; i < ParameterDisplayOptionsControl.Items.Length; i++)
             {
                 NSMenuItem item = ParameterDisplayOptionsControl.Items[i];
 
