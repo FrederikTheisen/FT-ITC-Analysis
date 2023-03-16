@@ -1852,7 +1852,7 @@
                             </menuItem>
                             <menuItem title="File" id="dMs-cI-mzQ">
                                 <modifierMask key="keyEquivalentModifierMask"/>
-                                <menu key="submenu" title="File" id="bib-Uj-vzu">
+                                <menu key="submenu" title="File" showsStateColumn="NO" id="bib-Uj-vzu">
                                     <items>
                                         <menuItem title="Add Data" keyEquivalent="n" id="Was-JA-tGl">
                                             <connections>
@@ -1931,19 +1931,19 @@
                             </menuItem>
                             <menuItem title="Edit" id="5QF-Oa-p0T">
                                 <modifierMask key="keyEquivalentModifierMask"/>
-                                <menu key="submenu" title="Edit" id="W48-6f-4Dl">
+                                <menu key="submenu" title="Edit" showsStateColumn="NO" id="W48-6f-4Dl">
                                     <items>
-                                        <menuItem title="Undo" hidden="YES" keyEquivalent="z" id="dRJ-4n-Yzg">
+                                        <menuItem title="Undo" keyEquivalent="z" identifier="undo" id="dRJ-4n-Yzg">
                                             <connections>
-                                                <action selector="undo:" target="Ady-hI-5gd" id="M6e-cu-g7V"/>
+                                                <action selector="Undo:" target="Voe-Tx-rLC" id="dvE-iG-SHQ"/>
                                             </connections>
                                         </menuItem>
-                                        <menuItem title="Redo" hidden="YES" keyEquivalent="Z" id="6dh-zS-Vam">
+                                        <menuItem title="Redo" hidden="YES" keyEquivalent="Z" identifier="redo" id="6dh-zS-Vam">
                                             <connections>
-                                                <action selector="redo:" target="Ady-hI-5gd" id="oIA-Rs-6OD"/>
+                                                <action selector="Redo:" target="Voe-Tx-rLC" id="2sX-mT-DYi"/>
                                             </connections>
                                         </menuItem>
-                                        <menuItem isSeparatorItem="YES" hidden="YES" id="WRV-NI-Exz"/>
+                                        <menuItem isSeparatorItem="YES" id="WRV-NI-Exz"/>
                                         <menuItem title="Duplicate Data" identifier="duplicatedata" id="x3v-GG-iWU">
                                             <modifierMask key="keyEquivalentModifierMask"/>
                                             <connections>
@@ -1961,6 +1961,45 @@
                                             <connections>
                                                 <action selector="ClearProcessingResult:" target="Voe-Tx-rLC" id="ZO1-tL-Vio"/>
                                             </connections>
+                                        </menuItem>
+                                        <menuItem isSeparatorItem="YES" id="wwb-6g-frr"/>
+                                        <menuItem title="Enable All" identifier="selectall" id="KeD-bq-ymU">
+                                            <modifierMask key="keyEquivalentModifierMask"/>
+                                            <connections>
+                                                <action selector="SetIncludeAll:" target="Voe-Tx-rLC" id="7eW-kV-tPe"/>
+                                            </connections>
+                                        </menuItem>
+                                        <menuItem title="Disable All" identifier="deselectall" id="Rbt-rr-gWF">
+                                            <modifierMask key="keyEquivalentModifierMask"/>
+                                            <connections>
+                                                <action selector="SetIncludeNone:" target="Voe-Tx-rLC" id="qKb-y3-egU"/>
+                                            </connections>
+                                        </menuItem>
+                                        <menuItem isSeparatorItem="YES" id="GSg-FO-Y4B"/>
+                                        <menuItem title="Sort" id="W7i-1W-AxA">
+                                            <modifierMask key="keyEquivalentModifierMask"/>
+                                            <menu key="submenu" title="Sort" showsStateColumn="NO" id="PsE-C8-Ifu">
+                                                <items>
+                                                    <menuItem title="By Name" identifier="sortbyname" id="neE-56-BnF">
+                                                        <modifierMask key="keyEquivalentModifierMask"/>
+                                                        <connections>
+                                                            <action selector="Sort:" target="Voe-Tx-rLC" id="SLb-tW-Em3"/>
+                                                        </connections>
+                                                    </menuItem>
+                                                    <menuItem title="By Temperature" identifier="sortbytemp" id="Gyd-RI-Yhj">
+                                                        <modifierMask key="keyEquivalentModifierMask"/>
+                                                        <connections>
+                                                            <action selector="Sort:" target="Voe-Tx-rLC" id="Sr2-f6-DmW"/>
+                                                        </connections>
+                                                    </menuItem>
+                                                    <menuItem title="By Type" identifier="sortbytype" id="1vo-px-c2o">
+                                                        <modifierMask key="keyEquivalentModifierMask"/>
+                                                        <connections>
+                                                            <action selector="Sort:" target="Voe-Tx-rLC" id="eDO-V1-CSG"/>
+                                                        </connections>
+                                                    </menuItem>
+                                                </items>
+                                            </menu>
                                         </menuItem>
                                     </items>
                                 </menu>
@@ -3691,7 +3730,7 @@ IA
                                     <rect key="frame" x="111" y="1" width="5" height="50"/>
                                 </box>
                                 <button verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="zTg-QH-FPo">
-                                    <rect key="frame" x="115" y="20" width="111" height="31"/>
+                                    <rect key="frame" x="115" y="0.0" width="111" height="31"/>
                                     <constraints>
                                         <constraint firstAttribute="height" constant="30" id="8N3-dc-mCA"/>
                                     </constraints>
@@ -3707,7 +3746,7 @@ IA
                                     <rect key="frame" x="225" y="1" width="5" height="50"/>
                                 </box>
                                 <button verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="v0f-iE-gM6">
-                                    <rect key="frame" x="229" y="20" width="110" height="31"/>
+                                    <rect key="frame" x="229" y="0.0" width="110" height="31"/>
                                     <constraints>
                                         <constraint firstAttribute="height" constant="30" id="OpX-QX-ClO"/>
                                     </constraints>
@@ -4300,7 +4339,7 @@ IA
                                         <size key="contentViewMargins" width="5" height="5"/>
                                     </box>
                                     <stackView distribution="fill" orientation="horizontal" alignment="firstBaseline" horizontalStackHuggingPriority="250" verticalStackHuggingPriority="750" verticalHuggingPriority="750" detachesHiddenViews="YES" translatesAutoresizingMaskIntoConstraints="NO" id="5oj-9h-hGH">
-                                        <rect key="frame" x="0.0" y="492" width="567" height="16"/>
+                                        <rect key="frame" x="343" y="492" width="567" height="16"/>
                                         <subviews>
                                             <button verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="jsQ-Vt-t9u">
                                                 <rect key="frame" x="5" y="-1" width="66" height="17"/>
@@ -7940,7 +7979,7 @@ Structuring (R-value):</string>
                                                     <font key="font" metaFont="systemBold" size="12"/>
                                                     <menu key="menu" id="fHr-qU-Pk2">
                                                         <items>
-                                                            <menuItem title="Select" id="ZgS-zS-KW9"/>
+                                                            <menuItem title="Select" hidden="YES" id="ZgS-zS-KW9"/>
                                                             <menuItem title="Model" state="on" id="2t9-Y4-xcL"/>
                                                             <menuItem title="Fitted" state="on" id="tMg-jK-9cv"/>
                                                             <menuItem title="Derived" state="on" id="PeQ-D2-3wi"/>

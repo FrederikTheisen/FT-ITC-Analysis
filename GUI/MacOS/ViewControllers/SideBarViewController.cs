@@ -45,6 +45,13 @@ namespace AnalysisITC
             AnalysisResultView.ExpandDataButtonClicked += AnalysisResultView_ExpandDataButtonClicked;
 
             ExperimentDetailsPopoverController.UpdateTable += ExperimentDetailsPopoverController_UpdateTable;
+
+            AnalysisITCDataSource.SourceWasSorted += AnalysisITCDataSource_SourceWasSorted;
+        }
+
+        private void AnalysisITCDataSource_SourceWasSorted(object sender, EventArgs e)
+        {
+            TableView.ReloadData();
         }
 
         private void ExperimentDetailsPopoverController_UpdateTable(object sender, EventArgs e)

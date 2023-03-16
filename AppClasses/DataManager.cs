@@ -19,8 +19,16 @@ namespace AnalysisITC
         public static List<ExperimentData> Data => DataSourceContent.Where(o => o is ExperimentData).Select(o => o as ExperimentData).ToList();
         public static IEnumerable<ExperimentData> IncludedData => Data.Where(d => d.Include);
         public static ExperimentData Current => SelectedDataIndex == -1 || (SelectedDataIndex >= Count) ? null : Data[SelectedDataIndex];
-        public static bool SelectedIsData => SelectedContentIndex < DataSourceContent.Count && DataSourceContent[SelectedContentIndex] is ExperimentData;
+        public static bool SelectedIsData
+        {
+            get
+            {
+                if (SelectedContentIndex == -1) return false;
+                return SelectedContentIndex < DataSourceContent.Count && DataSourceContent[SelectedContentIndex] is ExperimentData;
+            }
+        }
 
+        public static List<ITCDataContainer> DeletedDataList { get; } = new List<ITCDataContainer>();
 
         public static bool StopProcessCopying { get; set; } = false;
 
@@ -81,26 +89,28 @@ namespace AnalysisITC
             }
         }
 
-        public static void RemoveData(ITCDataContainer data)
-        {
-            Console.WriteLine("DM REMOVE: " + data.UniqueID + " " + DataSourceContent.IndexOf(data));
-            var idx = DataSource.Content.IndexOf(data);
-            var current_selected_item = DataSource.Content[SelectedContentIndex];
-            var will_delete_selected = idx == SelectedContentIndex;
+        //public static void RemoveData(ITCDataContainer data)
+        //{
+        //    Console.WriteLine("DM REMOVE: " + data.UniqueID + " " + DataSourceContent.IndexOf(data));
+        //    var idx = DataSource.Content.IndexOf(data);
+        //    var current_selected_item = DataSource.Content[SelectedContentIndex];
+        //    var will_delete_selected = idx == SelectedContentIndex;
 
-            DataSource.Content.Remove(data);
+        //    DataSource.Content.Remove(data);
 
-            if (will_delete_selected) DataDidChange.Invoke(null, null);
-            else SelectedContentIndex = DataSource.Content.IndexOf(current_selected_item);
+        //    if (will_delete_selected) DataDidChange.Invoke(null, null);
+        //    else SelectedContentIndex = DataSource.Content.IndexOf(current_selected_item);
 
-            //if (idx >= SelectedContentIndex) SelectedContentIndex--;
+        //    //if (idx >= SelectedContentIndex) SelectedContentIndex--;
 
-            //if (!will_delete_selected) SelectIndex(DataSource.Content.IndexOf(current_selected_item));
-            //else SelectionDidChange?.Invoke(null, null);
-        }
+        //    //if (!will_delete_selected) SelectIndex(DataSource.Content.IndexOf(current_selected_item));
+        //    //else SelectionDidChange?.Invoke(null, null);
+        //}
 
         public static void RemoveData2(int index)
         {
+            DeletedDataList.Add(DataSource.Content[index]);
+
             if (SelectedContentIndex == -1) { DataSource.Content.RemoveAt(index); return; }
 
             var current_selected_item = DataSource.Content[SelectedContentIndex];
@@ -112,31 +122,52 @@ namespace AnalysisITC
             SelectIndex(DataSource.Content.IndexOf(current_selected_item));
         }
 
-        internal static void RemoveData(int index)
+        public static void UndoDeleteData()
         {
-            if (SelectedContentIndex >= index) SelectedContentIndex--;
-
-            if (DataSourceContent[index] is ExperimentData)
-            {
-                int datindex = Data.IndexOf(DataSourceContent[index] as ExperimentData);
-
-                if (datindex < SelectedDataIndex) SelectedDataIndex--;
-                else if (datindex == SelectedDataIndex) { selectedDataIndex = -1; SelectionDidChange?.Invoke(null, Current); }
-
-                DataSourceContent.RemoveAt(index);
-
-                DataDidChange.Invoke(null, Current);
-            }
-            else DataSourceContent.RemoveAt(index);
-            
+            AddData(DeletedDataList.Last());
+            DeletedDataList.Remove(DeletedDataList.Last());
         }
+
+        //internal static void RemoveData(int index)
+        //{
+        //    if (SelectedContentIndex >= index) SelectedContentIndex--;
+
+        //    if (DataSourceContent[index] is ExperimentData)
+        //    {
+        //        int datindex = Data.IndexOf(DataSourceContent[index] as ExperimentData);
+
+        //        if (datindex < SelectedDataIndex) SelectedDataIndex--;
+        //        else if (datindex == SelectedDataIndex) { selectedDataIndex = -1; SelectionDidChange?.Invoke(null, Current); }
+
+        //        DataSourceContent.RemoveAt(index);
+
+        //        DataDidChange.Invoke(null, Current);
+        //    }
+        //    else DataSourceContent.RemoveAt(index);
+        //}
 
         public static void AddData(ITCDataContainer data)
         {
+            AppEventHandler.PrintAndLog("Adding Data: " + data.FileName);
+
             DataSourceContent.Add(data);
 
             if (data is ExperimentData) { DataDidChange.Invoke(null, data as ExperimentData); SelectIndex(DataSourceContent.Count - 1); SelectionDidChange?.Invoke(null, Current); }
             else DataDidChange.Invoke(null, null);
+        }
+
+        public static void SortContent(SortMode mode)
+        {
+            AppEventHandler.PrintAndLog("Sorting content by " + mode.ToString() + "...");
+
+            switch (mode)
+            {
+                case SortMode.Name: DataSource.SortByName(); break;
+                case SortMode.Temperature: DataSource.SortByTemperature(); break;
+                case SortMode.Type: DataSource.SortByType(); break;
+            }
+
+            AppEventHandler.PrintAndLog("Sort completed");
         }
 
         public static void InvokeDataDidChange()
@@ -206,6 +237,13 @@ namespace AnalysisITC
             {
                 if (data.Processor.BaselineCompleted) data.Processor.IntegratePeaks();
             }
+        }
+
+        public enum SortMode
+        {
+            Name,
+            Temperature,
+            Type
         }
     }
 }

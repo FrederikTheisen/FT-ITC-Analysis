@@ -32,6 +32,9 @@ namespace AnalysisITC
 		[Action ("Print:")]
 		partial void Print (AppKit.NSMenuItem sender);
 
+		[Action ("Redo:")]
+		partial void Redo (Foundation.NSObject sender);
+
 		[Action ("SaveAsMenuClick:")]
 		partial void SaveAsMenuClick (Foundation.NSObject sender);
 
@@ -40,6 +43,18 @@ namespace AnalysisITC
 
 		[Action ("SaveSelectedMenuClick:")]
 		partial void SaveSelectedMenuClick (Foundation.NSObject sender);
+
+		[Action ("SetIncludeAll:")]
+		partial void SetIncludeAll (Foundation.NSObject sender);
+
+		[Action ("SetIncludeNone:")]
+		partial void SetIncludeNone (Foundation.NSObject sender);
+
+		[Action ("Sort:")]
+		partial void Sort (Foundation.NSObject sender);
+
+		[Action ("Undo:")]
+		partial void Undo (Foundation.NSObject sender);
 		
 		void ReleaseDesignerOutlets ()
 		{

@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using AppKit;
 using Foundation;
+using System.Linq;
 using DataReaders;
 
 namespace AnalysisITC
@@ -17,6 +18,8 @@ namespace AnalysisITC
 
     public class AnalysisITCDataSource : NSTableViewDataSource
     {
+        public static event EventHandler SourceWasSorted;
+
         public int SelectedIndex => DataManager.SelectedContentIndex;
 
         public List<ITCDataContainer> Content { get; private set; } = new List<ITCDataContainer>();
@@ -37,6 +40,59 @@ namespace AnalysisITC
             return Content.Count;
         }
         #endregion
+
+        public void SortByName()
+        {
+            var curr = Content[SelectedIndex];
+
+            Content = Content.OrderBy(o => o.FileName).OrderBy(OrderOnType).ToList();
+
+            HandleSorted(curr);
+        }
+
+        public void SortByTemperature()
+        {
+            var curr = Content[SelectedIndex];
+
+            Content = Content.OrderBy(OrderOnTemperature).ToList();
+
+            HandleSorted(curr);
+        }
+
+        public void SortByType()
+        {
+            var curr = Content[SelectedIndex];
+
+            Content = Content.OrderBy(OrderOnType).ToList();
+
+            HandleSorted(curr);
+        }
+
+        private void HandleSorted(ITCDataContainer prev)
+        {
+            //DataManager.InvokeDataDidChange();
+
+            SourceWasSorted?.Invoke(this, null);
+
+            int idx = Content.IndexOf(prev);
+
+            DataManager.SelectIndex(idx);
+        }
+
+        private static double OrderOnTemperature(ITCDataContainer item)
+        {
+            if (item is ExperimentData) return ((ExperimentData)item).MeasuredTemperature;
+            else return double.MaxValue;
+        }
+
+        private static int OrderOnType(ITCDataContainer item)
+        {
+            if (item is ExperimentData)
+                return 0;
+            if (item is AnalysisResult)
+                return 1;
+            return 2;
+        }
     }
 
     public class ExperimentDataDelegate : NSTableViewDelegate

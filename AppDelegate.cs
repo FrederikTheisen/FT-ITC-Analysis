@@ -47,6 +47,12 @@ namespace AnalysisITC
                 case "cleardata": return DataManager.DataIsLoaded;
                 case "duplicatedata": return DataManager.SelectedIsData;
                 case "print": return StateManager.StateCanPrint();
+                case "undo": return StateManager.StateCanUndo();
+                case "selectall": return DataManager.DataIsLoaded;
+                case "deselectall": return DataManager.DataIsLoaded;
+                case "sortbyname":
+                case "sortbytemp": return DataManager.DataIsLoaded;
+                case "sortbytype": return DataManager.DataIsLoaded && DataManager.Results.Count > 0; 
             }
 
             return true;
@@ -61,6 +67,32 @@ namespace AnalysisITC
         partial void Print(NSMenuItem sender)
         {
             StartPrintOperation?.Invoke(null, null);
+        }
+
+        partial void Undo(NSObject sender)
+        {
+            StateManager.Undo();
+        }
+
+        partial void SetIncludeAll(NSObject sender)
+        {
+            DataManager.Data.ForEach(d => d.Include = true);
+        }
+
+        partial void SetIncludeNone(NSObject sender)
+        {
+            DataManager.Data.ForEach(d => d.Include = false);
+        }
+
+        partial void Sort(NSObject sender)
+        {
+            var mode = (sender as NSMenuItem).Identifier switch
+            {
+                "sortbytemp" => DataManager.SortMode.Temperature,
+                "sortbytype" => DataManager.SortMode.Type,
+                _ => DataManager.SortMode.Name,
+            };
+            DataManager.SortContent(mode);
         }
 
         private void AppDelegate_OpenFileDialog(object sender, EventArgs e)

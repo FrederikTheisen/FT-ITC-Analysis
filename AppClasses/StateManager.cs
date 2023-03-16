@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using AnalysisITC.AppClasses.Analysis2;
 
 namespace AnalysisITC
@@ -124,6 +125,16 @@ namespace AnalysisITC
                 case ProgramState.Process: return true;
             }
         }
+
+        public static bool StateCanUndo()
+        {
+            return DataManager.DeletedDataList.Count > 0;
+        }
+
+        public static void Undo()
+        {
+            DataManager.UndoDeleteData();
+        }
     }
 
     public enum ProgramState
@@ -133,5 +144,11 @@ namespace AnalysisITC
         Analyze = 2,
         Publish = 3,
         AnalysisView = 4,
+    }
+
+    public enum UndoTask
+    {
+        DataManager,
+        Analysis
     }
 }
