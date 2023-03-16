@@ -22,7 +22,7 @@ namespace AnalysisITC
 
             YAxis = GraphAxis.WithBuffer(this, analysis.GetMinimumParameter(), analysis.GetMaximumParameter(), buffer: .1, position: AxisPosition.Left);
             YAxis.HideUnwantedTicks = false;
-            YAxis.ValueFactor = 0.001;
+            YAxis.ValueFactor = Energy.ScaleFactor(AppSettings.EnergyUnit);
             YAxis.MirrorTicks = true;
             YAxis.LegendTitle = "Thermodynamic parameter (" + AppSettings.EnergyUnit.GetUnit() + "/mol)";
         }
