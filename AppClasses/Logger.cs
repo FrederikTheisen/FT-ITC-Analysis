@@ -20,7 +20,7 @@ namespace AnalysisITC
             Log.Add(new LogEntry(ex));
         }
 
-		public static void Out(string msg)
+		public static void PrintAndLog(string msg)
 		{
 			Console.WriteLine(msg);
 

@@ -205,6 +205,8 @@ namespace AnalysisITC
         partial void FitLM(NSObject sender) => Fit2(SolverAlgorithm.LevenbergMarquardt);
         void Fit2(SolverAlgorithm algorithm)
         {
+            AppEventHandler.PrintAndLog("Start Analysis");
+
             ToggleFitButtons(false);
 
             if (ModelFactory.Factory == null) InitializeFactory();
@@ -220,7 +222,7 @@ namespace AnalysisITC
 
             ModelFactory.Clear();
 
-            InitializeFactory();
+            //InitializeFactory();
         }
 
         void ToggleFitButtons(bool enable)

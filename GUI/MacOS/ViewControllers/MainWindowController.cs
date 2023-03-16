@@ -231,6 +231,8 @@ namespace AnalysisITC
 
         partial void StopButtonClick(NSObject sender)
         {
+            AppEventHandler.PrintAndLog("Terminate Analysis");
+
             SolverInterface.TerminateAnalysisFlag.Raise();
             SpolarRecordAnalysisController.TerminateAnalysisFlag.Raise();
             DataManager.StopProcessCopying = true;
