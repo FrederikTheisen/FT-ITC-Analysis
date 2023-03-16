@@ -174,7 +174,7 @@ namespace AnalysisITC
             var file = new List<string>();
             file.Add(FileHeader(ExperimentHeader, data.FileName));
             file.Add(Variable(ID, data.UniqueID));
-            file.Add(Variable(Date, data.Date.ToString()));
+            file.Add(Variable(Date, data.Date.ToString("O")));
             file.Add(Variable(SourceFormat, (int)data.DataSourceFormat));
             file.Add(Variable(Include, data.Include));
             file.Add(Variable(SyringeConcentration, data.SyringeConcentration));
