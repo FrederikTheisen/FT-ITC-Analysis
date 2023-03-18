@@ -131,13 +131,9 @@
     <ImageAsset Include="Assets.xcassets\AppIcon.appiconset\Contents.json" />
     <ImageAsset Include="Assets.xcassets\Contents.json" />
     <ImageAsset Include="Assets.xcassets\AppIcon.appiconset\1024.png" />
-    <ImageAsset Include="Assets.xcassets\AppIcon.appiconset\64.png" />
-    <ImageAsset Include="Assets.xcassets\AppIcon.appiconset\512-1.png" />
     <ImageAsset Include="Assets.xcassets\AppIcon.appiconset\128.png" />
     <ImageAsset Include="Assets.xcassets\AppIcon.appiconset\512.png" />
     <ImageAsset Include="Assets.xcassets\AppIcon.appiconset\16.png" />
-    <ImageAsset Include="Assets.xcassets\AppIcon.appiconset\32-1.png" />
-    <ImageAsset Include="Assets.xcassets\AppIcon.appiconset\256-1.png" />
     <ImageAsset Include="Assets.xcassets\AppIcon.appiconset\256.png" />
     <ImageAsset Include="Assets.xcassets\AppIcon.appiconset\32.png" />
     <ImageAsset Include="Assets.xcassets\ProjectFileIcon.iconset\icon_32x32%402x.png" />
@@ -161,6 +157,10 @@
     <ImageAsset Include="Assets.xcassets\DataFileBackground.iconset\icon_512x512%402x.png" />
     <ImageAsset Include="Assets.xcassets\DataFileBackground.iconset\icon_256x256.png" />
     <ImageAsset Include="Assets.xcassets\.DS_Store" />
+    <ImageAsset Include="Assets.xcassets\AppIcon.appiconset\512 1.png" />
+    <ImageAsset Include="Assets.xcassets\AppIcon.appiconset\32x2.png" />
+    <ImageAsset Include="Assets.xcassets\AppIcon.appiconset\16x2.png" />
+    <ImageAsset Include="Assets.xcassets\AppIcon.appiconset\256 1.png" />
   </ItemGroup>
   <ItemGroup>
     <Folder Include="Resources\" />
@@ -369,6 +369,10 @@
     <Compile Include="GUI\MacOS\ViewControllers\GeneralSettingsViewController.cs" />
     <Compile Include="GUI\MacOS\ViewControllers\GeneralSettingsViewController.designer.cs">
         <DependentUpon>GeneralSettingsViewController.cs</DependentUpon>
+    </Compile>
+    <Compile Include="AppWindow.cs" />
+    <Compile Include="AppWindow.designer.cs">
+      <DependentUpon>AppWindow.cs</DependentUpon>
     </Compile>
   </ItemGroup>
   <ItemGroup>
