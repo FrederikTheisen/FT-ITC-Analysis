@@ -68,9 +68,18 @@ namespace AnalysisITC
             HandleSorted(curr);
         }
 
+        public void SetAllIncludeState(bool includeall)
+        {
+            var curr = Content[SelectedIndex];
+
+            Content.Where(o => o is ExperimentData).Select(o => o as ExperimentData).ToList().ForEach(d => d.Include = includeall);
+
+            HandleSorted(curr);
+        }
+
         private void HandleSorted(ITCDataContainer prev)
         {
-            //DataManager.InvokeDataDidChange();
+            DataManager.InvokeDataDidChange();
 
             SourceWasSorted?.Invoke(this, null);
 

@@ -170,6 +170,13 @@ namespace AnalysisITC
             AppEventHandler.PrintAndLog("Sort completed");
         }
 
+        public static void SetAllIncludeState(bool includeall)
+        {
+            AppEventHandler.PrintAndLog("Change IncludState: " + includeall.ToString());
+
+            DataSource.SetAllIncludeState(includeall);
+        }
+
         public static void InvokeDataDidChange()
         {
             DataDidChange?.Invoke(null, null);
