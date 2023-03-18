@@ -87,6 +87,9 @@ namespace DataReaders
                     case ITCDataFormat.FTITC: return FTITCReader.ReadPath(path);
                     case ITCDataFormat.ITC200: return new ExperimentData[] { MicroCalITC200Reader.ReadPath(path) };
                     case ITCDataFormat.VPITC: break;
+                    case ITCDataFormat.Unknown:
+                        AppEventHandler.PrintAndLog($"Unknown File Format: {path}");
+                        break;
                 }
             }
             catch (Exception ex)
