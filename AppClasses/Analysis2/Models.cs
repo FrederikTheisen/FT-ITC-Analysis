@@ -46,16 +46,16 @@ namespace AnalysisITC.AppClasses.Analysis2
 			return Evaluate(injectionindex, withoffset) / Data.Injections[injectionindex].InjectionMass;
 		}
 
-        public FloatWithError EvaluateBootstrap(int inj)
+        public FloatWithError EvaluateBootstrap(int inj, bool withoff = true)
         {
             var results = new List<double>();
 
             foreach (var sol in Solution.BootstrapSolutions)
             {
-                results.Add(sol.Model.EvaluateEnthalpy(inj, true));
+                results.Add(sol.Model.EvaluateEnthalpy(inj, withoff));
             }
 
-            return new FloatWithError(results, EvaluateEnthalpy(inj, true)) - Solution.Parameters[ParameterTypes.Offset];
+            return new FloatWithError(results, EvaluateEnthalpy(inj, withoff));// - Solution.Parameters[ParameterTypes.Offset];
         }
 
 		public double LossFunction(double[] parameters)
