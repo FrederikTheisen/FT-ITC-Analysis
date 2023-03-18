@@ -185,6 +185,7 @@ namespace AnalysisITC
                 ShowErrorBars = true,
                 HideBadDataErrorBars = true,
                 ShowPeakInfo = false,
+                DrawWithOffset = false,
             };
             IntegrationGraph.YAxis.MirrorTicks = true;
             IntegrationGraph.XAxis.MirrorTicks = true;

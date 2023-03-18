@@ -1047,6 +1047,7 @@ namespace AnalysisITC
         public bool ShowZero { get; set; } = true;
         public bool HideBadData { get; set; } = false;
         public bool HideBadDataErrorBars { get; set; } = true;
+        public bool DrawWithOffset { get; set; } = true;
         public SymbolShape SymbolShape { get; set; } = SymbolShape.Square;
 
         static CGSize ErrorBarEndWidth => new CGSize(CGGraph.SymbolSize / 2, 0);
@@ -1070,14 +1071,14 @@ namespace AnalysisITC
 
         void SetupAxes()
         {
-            if (UseMolarRatioAxis)
+            if (UseMolarRatioAxis && DataManager.IncludedData.Count() > 0)
             {
                 var xmax = DataManager.IncludedData.Max(d => d.Injections.Last().Ratio);
                 XAxis.SetWithBuffer(0, xmax, 0.05);
             }
             else XAxis.SetWithBuffer(0, ExperimentData.Injections.Last().Ratio, 0.05);
             
-            if (UseUnifiedEnthalpyAxis)
+            if (UseUnifiedEnthalpyAxis && DataManager.IncludedData.Count() > 0)
             {
                 var minmax = GetMinMaxEnthalpy(DataManager.IncludedData);
                 YAxis.SetWithBuffer(minmax[0], minmax[1], 0.1);
@@ -1093,7 +1094,7 @@ namespace AnalysisITC
 
         double[] GetMinMaxEnthalpy(IEnumerable<ExperimentData> data)
         {
-            var evals = data.Where(d => d.Solution != null).Select(d => d.Model.EvaluateEnthalpy(0, withoffset: false));
+            var evals = data.Where(d => d.Solution != null).Select(d => d.Model.EvaluateEnthalpy(0, withoffset: DrawWithOffset));
             var maxpoints = data.Select(d => d.Injections.Where(inj => inj.Include || !FocusValidData).Max(inj => inj.Enthalpy));
             var minpoints = data.Select(d => d.Injections.Where(inj => inj.Include || !FocusValidData).Min(inj => inj.Enthalpy));
 
@@ -1104,8 +1105,11 @@ namespace AnalysisITC
             var max = Math.Max(maxpoints.Max(), evals.Max());
             var min = Math.Min(minpoints.Min(), evals.Min());
 
-            if (evals.Min() < -1000) min = evals.Min();
-            if (evals.Max() > 1000) max = evals.Max();
+            if (!DrawWithOffset)
+            {
+                if (evals.Min() < -1000) min = evals.Min();
+                if (evals.Max() > 1000) max = evals.Max();
+            }
 
             return new double[] { Math.Min(min, 0), Math.Max(max, 0) };
         }
@@ -1137,20 +1141,24 @@ namespace AnalysisITC
             var layer = CGLayer.Create(gc, Frame.Size);
             var points = new List<CGPoint>();
             var inv_points = new List<CGPoint>();
-
+            var infolayer = CGLayer.Create(gc, Frame.Size);
+            infolayer.Context.SetFillColor(StrokeColor);
             var bars = new CGPath();
 
             foreach (var inj in ExperimentData.Injections)
             {
                 if (HideBadData && !inj.Include) continue; //Ignore datapoint if 'bad' and hidebaddata is true
 
-                var p = GetRelativePosition(inj.Ratio, inj.OffsetEnthalpy);
+                var enthalpy = DrawWithOffset ? inj.Enthalpy : inj.OffsetEnthalpy;
+
+                var p = GetRelativePosition(inj.Ratio, enthalpy);
+                var infop = p;
 
                 if ((ShowPeakInfo || ShowErrorBars) && !(HideBadDataErrorBars && !inj.Include))
                 {
                     var sd = Math.Abs(inj.SD / inj.PeakArea);
-                    var etop = GetRelativePosition(inj.Ratio, inj.OffsetEnthalpy - inj.Enthalpy * sd);
-                    var ebottom = GetRelativePosition(inj.Ratio, inj.OffsetEnthalpy + inj.Enthalpy * sd);
+                    var etop = GetRelativePosition(inj.Ratio, enthalpy - inj.Enthalpy * sd);
+                    var ebottom = GetRelativePosition(inj.Ratio, enthalpy + inj.Enthalpy * sd);
 
                     if (Math.Abs(etop.Y - p.Y) > CGGraph.SymbolSize / 2)
                     {
@@ -1166,6 +1174,13 @@ namespace AnalysisITC
                         bars.MoveToPoint(CGPoint.Subtract(ebottom, ErrorBarEndWidth));
                         bars.AddLineToPoint(CGPoint.Add(ebottom, ErrorBarEndWidth));
                     }
+
+                    infop = etop;
+                }
+
+                if (ShowPeakInfo)
+                {
+                    DrawString(infolayer, "#" + (inj.ID + 1).ToString(), infop + new CGSize(0,10), DefaultFont, verticalalignment: TextAlignment.Bottom, textcolor: StrokeColor);
                 }
 
                 if (inj.ID == mOverFeature) DrawRectsAtPositions(
@@ -1184,10 +1199,9 @@ namespace AnalysisITC
             layer.Context.StrokePath();
             DrawSymbolsAtPositions(layer, points.ToArray(), SymbolSize, SymbolShape, true);
             DrawSymbolsAtPositions(layer, inv_points.ToArray(), SymbolSize, SymbolShape, false);
-            //DrawRectsAtPositions(layer, points.ToArray(), CGGraph.SymbolSize, false, true);
-            //DrawRectsAtPositions(layer, inv_points.ToArray(), CGGraph.SymbolSize, false, false);
 
             gc.DrawLayer(layer, Frame.Location);
+            gc.DrawLayer(infolayer, Frame.Location);
         }
 
         void DrawFit(CGContext gc)
@@ -1197,7 +1211,7 @@ namespace AnalysisITC
             foreach (var inj in ExperimentData.Injections)
             {
                 var x = inj.Ratio;
-                var y = ExperimentData.Model.EvaluateEnthalpy(inj.ID, withoffset: false);
+                var y = ExperimentData.Model.EvaluateEnthalpy(inj.ID, withoffset: DrawWithOffset);
 
                 points.Add(GetRelativePosition(x, y));
             }
@@ -1262,6 +1276,7 @@ namespace AnalysisITC
             layer.Context.SetLineWidth(1);
 
             var H = ExperimentData.Solution.TotalEnthalpy;
+            if (DrawWithOffset) H += ExperimentData.Solution.Parameters[AppClasses.Analysis2.ParameterTypes.Offset];
             var e1 = GetRelativePosition(XAxis.Min, H);
             var e2 = GetRelativePosition(XAxis.Max, H);
             var enthalpy = new CGPath();
@@ -1295,14 +1310,6 @@ namespace AnalysisITC
                 lines.Add(par.Item1 + " = " + par.Item2);
             }
 
-            //if (!DrawOnWhite) lines.Add(ExperimentData.Solution.Model.ModelName);
-            //if (!DrawOnWhite) lines.Add("RMSD: " + ExperimentData.Solution.Loss.ToString("G4"));
-            //lines.Add("N = " + ExperimentData.Solution.N.ToString("F2"));
-            //lines.Add("Kd = " + ExperimentData.Solution.Kd.AsDissociationConstant());
-            //lines.Add("∆H = " + ExperimentData.Solution.Enthalpy.ToString(EnergyUnit.KiloJoule, permole: true));
-            //lines.Add("-T∆S = " + ExperimentData.Solution.TdS.ToString(EnergyUnit.KiloJoule, permole: true));
-            //if (!DrawOnWhite) lines.Add("Offset = " + ExperimentData.Solution.Offset.ToString(EnergyUnit.KiloJoule));
-
             var position = ExperimentData.Solution.TotalEnthalpy > 0 ? NSRectAlignment.TopTrailing : NSRectAlignment.BottomTrailing;
 
             DrawTextBox(gc, lines, DrawOnWhite ? new CTFont(DefaultFont.DisplayName, 12) : new CTFont(DefaultFont.DisplayName, 24), position);
@@ -1319,7 +1326,7 @@ namespace AnalysisITC
             foreach (var inj in ExperimentData.Injections)
             {
                 var x = inj.Ratio;
-                var y = ExperimentData.Model.EvaluateBootstrap(inj.ID).WithConfidence();
+                var y = ExperimentData.Model.EvaluateBootstrap(inj.ID, DrawWithOffset).WithConfidence();
 
                 top.Add(GetRelativePosition(x, y[0]));
                 bottom.Add(GetRelativePosition(x, y[1]));
@@ -1340,7 +1347,7 @@ namespace AnalysisITC
         {
             foreach (var inj in ExperimentData.Injections)
             {
-                var handle_screen_pos = GetRelativePosition(inj.Ratio, inj.OffsetEnthalpy) + new CGSize(Origin);
+                var handle_screen_pos = GetRelativePosition(inj.Ratio, DrawWithOffset ? inj.Enthalpy : inj.OffsetEnthalpy) + new CGSize(Origin);
 
                 if (Math.Abs(cursorpos.X - 2 - handle_screen_pos.X) < 5)
                 {
@@ -1367,6 +1374,4 @@ namespace AnalysisITC
             return new MouseOverFeatureEvent();
         }
     }
-
-
 }
