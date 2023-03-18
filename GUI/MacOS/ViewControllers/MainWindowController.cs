@@ -12,7 +12,7 @@ namespace AnalysisITC
 {
 	public partial class MainWindowController : NSWindowController
 	{
-		public MainWindowController (IntPtr handle) : base (handle)
+        public MainWindowController (IntPtr handle) : base (handle)
 		{
 		}
 
@@ -86,6 +86,7 @@ namespace AnalysisITC
 
         private void OnStatusUpdated(object sender, string e)
         {
+            Console.WriteLine(e);
             StatusbarPrimaryLabel.StringValue = e;
         }
 

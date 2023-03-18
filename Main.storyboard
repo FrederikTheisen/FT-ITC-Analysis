@@ -2076,7 +2076,7 @@
         <scene sceneID="xRY-Xk-S9L">
             <objects>
                 <windowController id="PgZ-Wd-eSc" customClass="MainWindowController" sceneMemberID="viewController">
-                    <window key="window" title="FT-ITC Analysis" separatorStyle="line" allowsToolTipsWhenApplicationIsInactive="NO" autorecalculatesKeyViewLoop="NO" releasedWhenClosed="NO" visibleAtLaunch="NO" frameAutosaveName="" animationBehavior="default" toolbarStyle="unified" titleVisibility="hidden" id="bNy-W4-AlW">
+                    <window key="window" title="FT-ITC Analysis" separatorStyle="line" allowsToolTipsWhenApplicationIsInactive="NO" autorecalculatesKeyViewLoop="NO" releasedWhenClosed="NO" visibleAtLaunch="NO" frameAutosaveName="" animationBehavior="default" toolbarStyle="unified" titleVisibility="hidden" id="bNy-W4-AlW" customClass="AppWindow">
                         <windowStyleMask key="styleMask" titled="YES" closable="YES" miniaturizable="YES" resizable="YES"/>
                         <windowPositionMask key="initialPositionMask" leftStrut="YES" rightStrut="YES" topStrut="YES" bottomStrut="YES"/>
                         <rect key="contentRect" x="100" y="300" width="1013" height="579"/>
@@ -2232,6 +2232,7 @@ Gw
                         <outlet property="StatusbarSecondaryLabel" destination="hJN-Db-uqM" id="zDc-g4-r1I"/>
                         <outlet property="StepControl" destination="AdS-18-Bnl" id="ucK-DY-UVp"/>
                         <outlet property="StopProcessButton" destination="baf-zX-7cn" id="Vxy-yB-Lb2"/>
+                        <outlet property="window" destination="bNy-W4-AlW" id="nPc-vk-a7e"/>
                         <segue destination="I28-Is-kIg" kind="relationship" relationship="window.shadowedContentViewController" id="mOa-p3-cHP"/>
                     </connections>
                 </windowController>
@@ -3762,7 +3763,7 @@ IA
                                     <rect key="frame" x="338" y="1" width="5" height="50"/>
                                 </box>
                                 <button verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="DGH-oN-EAU">
-                                    <rect key="frame" x="342" y="20" width="111" height="31"/>
+                                    <rect key="frame" x="342" y="0.0" width="111" height="31"/>
                                     <constraints>
                                         <constraint firstAttribute="height" constant="30" id="FB7-Ld-lyQ"/>
                                     </constraints>

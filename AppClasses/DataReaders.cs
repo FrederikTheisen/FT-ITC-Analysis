@@ -8,6 +8,7 @@ using AppKit;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using UniformTypeIdentifiers;
+using Foundation;
 
 namespace DataReaders
 {
@@ -29,7 +30,7 @@ namespace DataReaders
             }
         }
 
-        static ITCDataFormat GetFormat(string path)
+        public static ITCDataFormat GetFormat(string path)
         {
             var ext = System.IO.Path.GetExtension(path);
 
@@ -40,17 +41,39 @@ namespace DataReaders
                 if (ext == fprop.Extension) return format;
             }
 
-            return ITCDataFormat.ITC200;
+            return ITCDataFormat.Unknown;
         }
 
-        public static void Read(List<string> paths)
+        public static async void Read(IEnumerable<NSUrl> urls)
         {
-            foreach (var path in paths)
-            {
-                var dat = ReadFile(path);
+            StatusBarManager.SetStatus("Reading data...", 0);
+            StatusBarManager.StartInderminateProgress();
 
-                if (dat != null) AddData(dat);
+            try
+            {
+                await Task.Delay(1);
+
+                foreach (var url in urls)
+                {
+                    StatusBarManager.SetStatus("Reading file: " + url.LastPathComponent, 0);
+                    await Task.Delay(1); //Necessary to update UI. Unclear why whole method has to be on UI thread.
+                    var dat = ReadFile(url.Path);
+
+                    if (dat != null)
+                    {
+                        AddData(dat);
+
+                        NSDocumentController.SharedDocumentController.NoteNewRecentDocumentURL(url);
+                    }
+                }
             }
+            catch (Exception ex)
+            {
+                AppEventHandler.DisplayHandledException(ex);
+            }
+
+            StatusBarManager.ClearAppStatus();
+            StatusBarManager.StopIndeterminateProgress();
         }
 
         static ITCDataContainer[] ReadFile(string path)
@@ -240,13 +263,11 @@ namespace DataReaders
 
         private static float LineToFloat(string line)
         {
-            Console.WriteLine(line);
             return float.Parse(line.Substring(1).Trim());
         }
 
         private static int LineToInt(string line)
         {
-            Console.WriteLine(line);
             return int.Parse(line.Substring(1).Trim());
         }
 
@@ -274,10 +295,9 @@ namespace DataReaders
     {
         public static ITCDataContainer[] ReadPath(string path)
         {
-            StatusBarManager.SetStatus("Reading file...");
             var data = new List<ITCDataContainer>();
 
-            using (var reader = new StreamReader(path))
+            using (var reader = (new StreamReader(path)))
             {
                 string line;
 
@@ -622,6 +642,7 @@ namespace DataReaders
         [ITCFormat("VP-ITC", "Data format produced by the VP-ITC instrument", ".vpitc")]
         VPITC,
         [ITCFormat("FT-ITC", "Data format produced by this software", ".ftitc")]
-        FTITC
+        FTITC,
+        Unknown,
     }
 }
