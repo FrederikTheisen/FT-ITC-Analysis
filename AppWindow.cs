@@ -40,10 +40,7 @@ namespace AnalysisITC
             {
                 var urls = nsurls.Select(fileUrl => NSUrl.CreateFileUrl(fileUrl.ToString(), null));
 
-                foreach (NSUrl url in urls)
-                {
-                    AppEventHandler.PrintAndLog($"Dropped file: {url}");
-                }
+                foreach (NSUrl url in urls) { AppEventHandler.PrintAndLog($"Dropped file: {url}"); }
 
                 DataReaders.DataReader.Read(urls);
 

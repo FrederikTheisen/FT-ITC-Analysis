@@ -219,8 +219,6 @@ namespace AnalysisITC.AppClasses.Analysis2
             InitializeGlobalParameters();
         }
 
-
-
         public void InitializeGlobalParameters()
         {
             if (Model.Models == null || Model.Models.Count == 0) throw new Exception("No models in global model");
@@ -296,17 +294,9 @@ namespace AnalysisITC.AppClasses.Analysis2
 
         void InitializeExposedGlobalFittingOptions()
 		{
-			var dict = new Dictionary<ParameterTypes, List<VariableConstraint>>();
+			if (Model.Models == null || Model.Models.Count == 0) return;
 
-			//Model.TemperatureDependenceExposed = false;
-
-   //         if (Model.Models.Count > 1)
-   //         {
-   //             var min = Model.Models.Min(mdl => mdl.Data.MeasuredTemperature);
-   //             var max = Model.Models.Max(mdl => mdl.Data.MeasuredTemperature);
-
-   //             if (max - min > AppSettings.MinimumTemperatureSpanForFitting) Model.TemperatureDependenceExposed = true;
-   //         }
+            var dict = new Dictionary<ParameterTypes, List<VariableConstraint>>();
 
             var _pars = Model.Models.First().Parameters;
 
@@ -378,9 +368,6 @@ namespace AnalysisITC.AppClasses.Analysis2
         {
 			GlobalModelParameters.IndividualModelParameterList.Clear();
 
-            //foreach (var item in GlobalModelParameters.Constraints.Where(kvp => kvp.Value == VariableConstraint.None).ToList())
-			//	GlobalModelParameters.Constraints.Remove(item.Key);
-            
             Model.Parameters = GlobalModelParameters;
 
             foreach (var mdl in Model.Models)

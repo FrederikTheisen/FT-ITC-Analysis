@@ -46,6 +46,7 @@ namespace AnalysisITC
             DataFittingGraph.ShowPeakInfo = ShowPeakInfo;
             DataFittingGraph.ShowFitParameters = ShowFitParameters;
             DataFittingGraph.UseMolarRatioAxis = UseUnifiedAxes;
+            DataFittingGraph.UseUnifiedEnthalpyAxis = UseUnifiedAxes;
 
             Invalidate();
         }
@@ -63,6 +64,8 @@ namespace AnalysisITC
             if (experiment != null)
             {
                 Graph = new DataFittingGraph(experiment, this);
+
+                AnalysisGraphView_UpdateViewParameters(null, null);
             }
             else Graph = null;
 

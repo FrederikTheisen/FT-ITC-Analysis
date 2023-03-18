@@ -40,10 +40,21 @@ namespace AnalysisITC
             DataManager.DataDidChange += DataManager_DataDidChange;
             SolverInterface.SolverUpdated += SolverInterface_SolverUpdated;
             AppDelegate.StartPrintOperation += AppDelegate_StartPrintOperation;
+            AnalysisITCDataSource.SourceWasSorted += AnalysisITCDataSource_SourceWasSorted;
 
             GlobalAffinityStyle.Hidden = true;
             GlobalEnthalpyStyle.Hidden = true;
             GlobalNView.Hidden = true;
+        }
+
+        private void Analysis_AnalysisIterationFinished(object sender, EventArgs e) => GraphView.Invalidate();
+        private void AnalysisITCDataSource_SourceWasSorted(object sender, EventArgs e) => SetEnableGlobalAnalysis();
+        private void SolverInterface_SolverUpdated(object sender, SolverUpdate e) => e.SendToStatusBar();
+        private void DataManager_DataDidChange(object sender, ExperimentData e)
+        {
+            SetEnableGlobalAnalysis();
+
+            GraphView.Initialize(e);
         }
 
         private void AppDelegate_StartPrintOperation(object sender, EventArgs e)
@@ -84,26 +95,11 @@ namespace AnalysisITC
             ToggleFitButtons(true);
         }
 
-        private void Analysis_AnalysisIterationFinished(object sender, EventArgs e)
-        {
-            GraphView.Invalidate();
-        }
-
         private void Analysis_BootstrapIterationFinished(object sender, Tuple<int, int, float> e)
         {
             StatusBarManager.Progress = e.Item3;
             StatusBarManager.SetStatus("Bootstrapping...", 0, 2);
             StatusBarManager.SetSecondaryStatus(e.Item1 + "/" + e.Item2, 0);
-        }
-
-        private void SolverInterface_SolverUpdated(object sender, SolverUpdate e)
-        {
-            e.SendToStatusBar();
-        }
-
-        private void DataManager_DataDidChange(object sender, ExperimentData e)
-        {
-            SetEnableGlobalAnalysis();
         }
 
         void SetEnableGlobalAnalysis()

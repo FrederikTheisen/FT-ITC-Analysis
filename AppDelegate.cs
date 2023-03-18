@@ -90,12 +90,12 @@ namespace AnalysisITC
 
         partial void SetIncludeAll(NSObject sender)
         {
-            DataManager.Data.ForEach(d => d.Include = true);
+            DataManager.SetAllIncludeState(true);
         }
 
         partial void SetIncludeNone(NSObject sender)
         {
-            DataManager.Data.ForEach(d => d.Include = false);
+            DataManager.SetAllIncludeState(false);
         }
 
         partial void Sort(NSObject sender)
