@@ -85,7 +85,7 @@ namespace AnalysisITC
 
         public void WillProcessData()
         {
-            Data.Injections.ForEach(inj => inj.IsIntegrated = false);
+            Data.Injections.ForEach(inj => inj.IsIntegrated = false); //FIXME Crashes if not on UI thread
             BaselineCompleted = false;
             Data.UpdateProcessing();
         }
@@ -127,8 +127,6 @@ namespace AnalysisITC
                 var bldp = dp.SubtractBaseline((float)bl);
 
                 Data.BaseLineCorrectedDataPoints.Add(bldp);
-
-                Console.WriteLine(bldp.Time + " " + bldp.Power);
             }
         }
 

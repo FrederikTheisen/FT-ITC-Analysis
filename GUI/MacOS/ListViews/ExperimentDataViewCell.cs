@@ -49,22 +49,25 @@ namespace AnalysisITC
 
         private void Data_ProcessingCompleted(object sender, EventArgs e)
         {
-			if (data.Processor.IntegrationCompleted)
+			NSApplication.SharedApplication.InvokeOnMainThread(() =>
 			{
-				IncludeDataButton.Image = SideBarViewController.DataDisabledImage;
-				IncludeDataButton.AlternateImage = SideBarViewController.DataEnabledImage;
-				IncludeDataButton.Enabled = true;
-			}
-			else
-			{
-				IncludeDataButton.Image = SideBarViewController.DataNotProcessedImage;
-				IncludeDataButton.AlternateImage = SideBarViewController.DataNotProcessedImage;
-				IncludeDataButton.Enabled = false;
-			}
+				if (data.Processor.IntegrationCompleted)
+				{
+					IncludeDataButton.Image = SideBarViewController.DataDisabledImage;
+					IncludeDataButton.AlternateImage = SideBarViewController.DataEnabledImage;
+					IncludeDataButton.Enabled = true;
+				}
+				else
+				{
+					IncludeDataButton.Image = SideBarViewController.DataNotProcessedImage;
+					IncludeDataButton.AlternateImage = SideBarViewController.DataNotProcessedImage;
+					IncludeDataButton.Enabled = false;
+				}
 
-			IncludeDataButton.State = data.Include ? NSCellStateValue.On : NSCellStateValue.Off;
+				IncludeDataButton.State = data.Include ? NSCellStateValue.On : NSCellStateValue.Off;
 
-			SetValidSolutionLabeling();
+				SetValidSolutionLabeling();
+			});
 		}
 
         private void Data_SolutionChanged(object sender, EventArgs e)
