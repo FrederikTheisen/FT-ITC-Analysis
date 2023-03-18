@@ -18,7 +18,10 @@ namespace AnalysisITC
 
         public AppDelegate()
         {
+            
         }
+
+        public override bool ApplicationShouldTerminateAfterLastWindowClosed(NSApplication sender) => true;
 
         public override void DidFinishLaunching(NSNotification notification)
         {
@@ -64,6 +67,17 @@ namespace AnalysisITC
             AppDelegate_OpenFileDialog(sender, null);
         }
 
+        [Export("application:openFile:")]
+        public override bool OpenFile(NSApplication sender, string filename)
+        {
+            var escapedstring = Uri.EscapeDataString(filename);
+            var url = NSUrl.FromString(escapedstring);
+
+            DataReader.Read(new List<NSUrl> { url });
+
+            return true;
+        }
+
         partial void Print(NSMenuItem sender)
         {
             StartPrintOperation?.Invoke(null, null);
@@ -97,9 +111,6 @@ namespace AnalysisITC
 
         private void AppDelegate_OpenFileDialog(object sender, EventArgs e)
         {
-            StatusBarManager.SetStatus("Reading data...", 0);
-            StatusBarManager.StartInderminateProgress();
-
             FileDialog = NSOpenPanel.OpenPanel;
             FileDialog.CanChooseFiles = true;
             FileDialog.AllowsMultipleSelection = true;
@@ -108,21 +119,10 @@ namespace AnalysisITC
 
             if (FileDialog.RunModal() == 1)
             {
-                var urls = new List<string>();
-
-                foreach (var url in FileDialog.Urls)
-                {
-                    Console.WriteLine(url.Path);
-                    urls.Add(url.Path);
-                }
-
-                DataReaders.DataReader.Read(urls);
+                DataReaders.DataReader.Read(FileDialog.Urls);
             }
 
             FileDialog.Dispose();
-
-            StatusBarManager.ClearAppStatus();
-            StatusBarManager.StopIndeterminateProgress();
         }
 
         partial void SaveAsMenuClick(NSObject sender)
