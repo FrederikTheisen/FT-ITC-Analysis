@@ -73,21 +73,13 @@ namespace AnalysisITC
             }
         }
 
-        private void OnSecondaryStatusUpdated(object sender, string e)
-        {
-            StatusbarSecondaryLabel.StringValue = e;
-        }
+        private void OnStatusUpdated(object sender, string e) => StatusbarPrimaryLabel.StringValue = e;
+        private void OnSecondaryStatusUpdated(object sender, string e) => StatusbarSecondaryLabel.StringValue = e;
 
         private void StateManager_UpdateStateDependentUI(object sender, EventArgs e)
         {
             NavigationArrowControl.SetEnabled(StateManager.PreviousState(true), 2);
             NavigationArrowControl.SetEnabled(StateManager.NextState(true), 3);
-        }
-
-        private void OnStatusUpdated(object sender, string e)
-        {
-            Console.WriteLine(e);
-            StatusbarPrimaryLabel.StringValue = e;
         }
 
         private void DataProcessor_InterpolationCompleted(object sender, EventArgs e)
