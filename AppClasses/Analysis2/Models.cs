@@ -50,17 +50,20 @@ namespace AnalysisITC.AppClasses.Analysis2
         {
             var results = new List<double>();
 
+            //Evaluates with offset to include errors in offset
             foreach (var sol in Solution.BootstrapSolutions)
             {
-                results.Add(sol.Model.EvaluateEnthalpy(inj, withoff));
+                results.Add(sol.Model.EvaluateEnthalpy(inj, true));
             }
 
-            return new FloatWithError(results, EvaluateEnthalpy(inj, withoff));// - Solution.Parameters[ParameterTypes.Offset];
+            var val = new FloatWithError(results, EvaluateEnthalpy(inj, true));
+
+            return withoff ? val : val - Solution.Parameters[ParameterTypes.Offset]; //Returns evaluated value with or without offset
         }
 
 		public double LossFunction(double[] parameters)
 		{
-            if (SolverInterface.NelderMeadToken != null && SolverInterface.NelderMeadToken.IsCancellationRequested) throw new OptimizerStopException();
+            if (SolverInterface.NelderMeadToken != null && SolverInterface.NelderMeadToken.IsCancellationRequested) throw new OptimizerStopException(); //Only way to cancel the NM algorithm seems to be from the loss function
 
             Parameters.UpdateFromArray(parameters);
 
