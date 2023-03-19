@@ -27,6 +27,13 @@ namespace AnalysisITC
             AppDelegate.StartPrintOperation += AppDelegate_StartPrintOperation;
         }
 
+        public override void ViewDidAppear()
+        {
+            base.ViewDidAppear();
+
+            UpdateGraph();
+        }
+
         private void AppDelegate_StartPrintOperation(object sender, EventArgs e)
         {
             if (StateManager.CurrentState != ProgramState.Load) return;
@@ -51,16 +58,12 @@ namespace AnalysisITC
             LoadDataPrompt.Hidden = true;
         }
 
-        private void OnSelectionChanged(object sender, ExperimentData e)
+        private void OnSelectionChanged(object sender, ExperimentData e) => UpdateGraph();
+        private void OnDataChanged(object sender, ExperimentData e) => UpdateGraph();
+
+        private void UpdateGraph()
         {
             GVC.Initialize(DataManager.Current);
-
-            UpdateLabel();
-        }
-
-        private void OnDataChanged(object sender, ExperimentData e)
-        {
-            GVC.Initialize(e);
 
             UpdateLabel();
         }
@@ -79,19 +82,6 @@ namespace AnalysisITC
         partial void ContinueClick(NSObject sender)
         {
             
-        }
-
-        public override NSObject RepresentedObject
-        {
-            get
-            {
-                return base.RepresentedObject;
-            }
-            set
-            {
-                base.RepresentedObject = value;
-                // Update the view, if already loaded.
-            }
         }
     }
 }
