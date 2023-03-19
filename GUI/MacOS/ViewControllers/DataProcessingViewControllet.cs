@@ -62,7 +62,7 @@ namespace AnalysisITC
 
             UpdateSliderLabels();
 
-            BaselineGraphView.Initialize(DataManager.Current);
+            //BaselineGraphView.Initialize(DataManager.Current);
 
             BaselineGraphView.SetFeatureVisibility(ShowBaseline, ShowIntegrationRange, Corrected, ShowCursorInfo);
 
