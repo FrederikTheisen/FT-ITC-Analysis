@@ -72,6 +72,11 @@ namespace AnalysisITC
             ParametersScopeButton.State = AnalysisGraphView.ShowFitParameters ? NSCellStateValue.On : NSCellStateValue.Off;
             AxesScopeButton.State = AnalysisGraphView.UseUnifiedAxes ? NSCellStateValue.On : NSCellStateValue.Off;
             GraphView.Initialize(DataManager.Current);
+        }
+
+        public override void ViewDidAppear()
+        {
+            base.ViewDidAppear();
 
             SetEnableGlobalAnalysis();
 
