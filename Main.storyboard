@@ -1801,6 +1801,99 @@
             </objects>
             <point key="canvasLocation" x="877" y="-763"/>
         </scene>
+        <!--Window Controller-->
+        <scene sceneID="WOx-CY-Jmq">
+            <objects>
+                <windowController showSeguePresentationStyle="single" id="oFg-8N-Txq" sceneMemberID="viewController">
+                    <window key="window" title="About FT-ITC Analysis" separatorStyle="none" allowsToolTipsWhenApplicationIsInactive="NO" autorecalculatesKeyViewLoop="NO" restorable="NO" releasedWhenClosed="NO" visibleAtLaunch="NO" frameAutosaveName="" animationBehavior="default" titlebarAppearsTransparent="YES" titleVisibility="hidden" id="WSI-ax-RgS">
+                        <windowStyleMask key="styleMask" titled="YES" closable="YES" fullSizeContentView="YES"/>
+                        <windowPositionMask key="initialPositionMask" leftStrut="YES" rightStrut="YES" topStrut="YES" bottomStrut="YES"/>
+                        <rect key="contentRect" x="211" y="267" width="383" height="270"/>
+                        <rect key="screenRect" x="0.0" y="0.0" width="1512" height="944"/>
+                        <view key="contentView" id="vwj-NA-xHO">
+                            <rect key="frame" x="0.0" y="0.0" width="383" height="270"/>
+                            <autoresizingMask key="autoresizingMask"/>
+                        </view>
+                        <connections>
+                            <outlet property="delegate" destination="oFg-8N-Txq" id="tGz-zM-w2M"/>
+                        </connections>
+                    </window>
+                    <connections>
+                        <segue destination="227-8v-Qpe" kind="relationship" relationship="window.shadowedContentViewController" id="CWw-LU-KHz"/>
+                    </connections>
+                </windowController>
+                <customObject id="qfk-D0-9A9" userLabel="First Responder" customClass="NSResponder" sceneMemberID="firstResponder"/>
+            </objects>
+            <point key="canvasLocation" x="68" y="-1126"/>
+        </scene>
+        <!--About App View Controller-->
+        <scene sceneID="lVu-B7-Qmn">
+            <objects>
+                <viewController id="227-8v-Qpe" customClass="AboutAppViewController" sceneMemberID="viewController">
+                    <view key="view" id="5Va-XR-4E4">
+                        <rect key="frame" x="0.0" y="0.0" width="474" height="169"/>
+                        <autoresizingMask key="autoresizingMask"/>
+                        <subviews>
+                            <textField horizontalHuggingPriority="251" verticalHuggingPriority="750" fixedFrame="YES" translatesAutoresizingMaskIntoConstraints="NO" id="0zn-sk-YaL">
+                                <rect key="frame" x="175" y="78" width="267" height="55"/>
+                                <autoresizingMask key="autoresizingMask" flexibleMinX="YES" flexibleMaxX="YES" flexibleMinY="YES"/>
+                                <textFieldCell key="cell" controlSize="large" lineBreakMode="clipping" alignment="left" title="FT-ITC" id="rpw-ON-n8K">
+                                    <font key="font" size="36" name="HelveticaNeue-Light"/>
+                                    <color key="textColor" red="0.0" green="0.0" blue="0.0" alpha="1" colorSpace="calibratedRGB"/>
+                                    <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
+                                </textFieldCell>
+                            </textField>
+                            <textField horizontalHuggingPriority="251" verticalHuggingPriority="750" fixedFrame="YES" translatesAutoresizingMaskIntoConstraints="NO" id="hyl-JB-tfn">
+                                <rect key="frame" x="177" y="20" width="267" height="36"/>
+                                <autoresizingMask key="autoresizingMask" flexibleMinX="YES" flexibleMaxX="YES" flexibleMinY="YES"/>
+                                <textFieldCell key="cell" id="5Da-wT-vDR">
+                                    <font key="font" size="11" name="HelveticaNeue-Thin"/>
+                                    <string key="title">Software developed by Frederik Theisen 2023
+For analysis and presentation of ITC data</string>
+                                    <color key="textColor" name="labelColor" catalog="System" colorSpace="catalog"/>
+                                    <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
+                                </textFieldCell>
+                            </textField>
+                            <imageView horizontalHuggingPriority="251" verticalHuggingPriority="251" fixedFrame="YES" translatesAutoresizingMaskIntoConstraints="NO" id="pgK-F7-bdn">
+                                <rect key="frame" x="20" y="0.0" width="129" height="149"/>
+                                <autoresizingMask key="autoresizingMask" flexibleMinX="YES" flexibleMaxX="YES" flexibleMinY="YES"/>
+                                <imageCell key="cell" refusesFirstResponder="YES" alignment="left" imageScaling="proportionallyUpOrDown" image="NSApplicationIcon" id="FYc-3G-1pf"/>
+                            </imageView>
+                            <button verticalHuggingPriority="750" fixedFrame="YES" translatesAutoresizingMaskIntoConstraints="NO" id="UBQ-xQ-ZsE">
+                                <rect key="frame" x="179" y="75" width="275" height="20"/>
+                                <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
+                                <buttonCell key="cell" type="bevel" title="Version: 1.0 (1)" bezelStyle="rounded" alignment="left" imageScaling="proportionallyDown" inset="2" id="2DX-Jv-wBu">
+                                    <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
+                                    <font key="font" size="13" name="HelveticaNeue-Thin"/>
+                                </buttonCell>
+                                <color key="contentTintColor" red="0.0" green="0.0" blue="0.0" alpha="1" colorSpace="calibratedRGB"/>
+                                <connections>
+                                    <action selector="VersionButtonAction:" target="227-8v-Qpe" id="p0R-fX-GG9"/>
+                                </connections>
+                            </button>
+                        </subviews>
+                    </view>
+                    <connections>
+                        <outlet property="VersionButton" destination="UBQ-xQ-ZsE" id="hOn-8U-vKY"/>
+                        <outlet property="VersionLabel" destination="eVz-oH-239" id="6Ol-ke-G8R"/>
+                    </connections>
+                </viewController>
+                <customObject id="gU1-w8-YWa" userLabel="First Responder" customClass="NSResponder" sceneMemberID="firstResponder"/>
+                <textField horizontalHuggingPriority="251" verticalHuggingPriority="750" id="eVz-oH-239">
+                    <rect key="frame" x="0.0" y="0.0" width="267" height="16"/>
+                    <autoresizingMask key="autoresizingMask" flexibleMinX="YES" flexibleMaxX="YES" flexibleMinY="YES"/>
+                    <textFieldCell key="cell" lineBreakMode="clipping" title="Version: 1.0 (1)" id="ZZg-AB-Hsa">
+                        <font key="font" size="13" name="HelveticaNeue-Thin"/>
+                        <color key="textColor" name="labelColor" catalog="System" colorSpace="catalog"/>
+                        <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
+                    </textFieldCell>
+                    <connections>
+                        <action selector="VersionLabelClick:" target="227-8v-Qpe" id="jR6-XY-5M4"/>
+                    </connections>
+                </textField>
+            </objects>
+            <point key="canvasLocation" x="88" y="-1473.5"/>
+        </scene>
         <!--Application-->
         <scene sceneID="JPo-4y-FX3">
             <objects>
@@ -1815,6 +1908,7 @@
                                             <modifierMask key="keyEquivalentModifierMask"/>
                                             <connections>
                                                 <action selector="orderFrontStandardAboutPanel:" target="Ady-hI-5gd" id="Exp-CZ-Vem"/>
+                                                <segue destination="oFg-8N-Txq" kind="show" id="Bsv-by-LnT"/>
                                             </connections>
                                         </menuItem>
                                         <menuItem isSeparatorItem="YES" id="VOq-y0-SEH"/>
@@ -3763,7 +3857,7 @@ IA
                                     <rect key="frame" x="338" y="1" width="5" height="50"/>
                                 </box>
                                 <button verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="DGH-oN-EAU">
-                                    <rect key="frame" x="342" y="0.0" width="111" height="31"/>
+                                    <rect key="frame" x="342" y="20" width="111" height="31"/>
                                     <constraints>
                                         <constraint firstAttribute="height" constant="30" id="FB7-Ld-lyQ"/>
                                     </constraints>
@@ -8460,6 +8554,7 @@ DQ
         </scene>
     </scenes>
     <resources>
+        <image name="NSApplicationIcon" width="32" height="32"/>
         <image name="NSMultipleDocuments" width="32" height="32"/>
         <image name="arrow.left" catalog="system" width="15" height="12"/>
         <image name="arrow.right" catalog="system" width="15" height="12"/>

@@ -374,6 +374,11 @@
     <Compile Include="AppWindow.designer.cs">
       <DependentUpon>AppWindow.cs</DependentUpon>
     </Compile>
+    <Compile Include="AboutAppViewController.cs" />
+    <Compile Include="AboutAppViewController.designer.cs">
+      <DependentUpon>AboutAppViewController.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
   <ItemGroup>
     <InterfaceDefinition Include="Main.storyboard" />
