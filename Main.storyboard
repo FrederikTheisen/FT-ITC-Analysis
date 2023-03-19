@@ -5718,20 +5718,20 @@ DQ
                                     <real value="3.4028234663852886e+38"/>
                                 </customSpacing>
                             </stackView>
-                            <box wantsLayer="YES" fixedFrame="YES" boxType="custom" cornerRadius="8" title="Box" translatesAutoresizingMaskIntoConstraints="NO" id="3cB-Bj-JZb">
+                            <box wantsLayer="YES" fixedFrame="YES" boxType="custom" borderWidth="0.0" cornerRadius="8" title="Box" translatesAutoresizingMaskIntoConstraints="NO" id="3cB-Bj-JZb">
                                 <rect key="frame" x="61" y="58" width="250" height="205"/>
                                 <autoresizingMask key="autoresizingMask" flexibleMinX="YES" flexibleMaxX="YES" flexibleMinY="YES" flexibleMaxY="YES"/>
                                 <view key="contentView" id="0mT-da-T53">
-                                    <rect key="frame" x="1" y="1" width="248" height="203"/>
+                                    <rect key="frame" x="0.0" y="0.0" width="250" height="205"/>
                                     <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
                                     <subviews>
                                         <imageView horizontalHuggingPriority="251" verticalHuggingPriority="251" fixedFrame="YES" translatesAutoresizingMaskIntoConstraints="NO" id="KZT-LZ-OIy">
-                                            <rect key="frame" x="64" y="138" width="120" height="50"/>
+                                            <rect key="frame" x="65" y="140" width="120" height="50"/>
                                             <autoresizingMask key="autoresizingMask" flexibleMinX="YES" flexibleMaxX="YES" flexibleMinY="YES" flexibleMaxY="YES"/>
                                             <imageCell key="cell" refusesFirstResponder="YES" alignment="left" imageScaling="proportionallyUpOrDown" image="NSMultipleDocuments" id="JYJ-qN-1AF"/>
                                         </imageView>
                                         <stackView distribution="fillEqually" orientation="horizontal" alignment="centerY" horizontalStackHuggingPriority="250" verticalStackHuggingPriority="249.99998474121094" horizontalCompressionResistancePriority="1000" verticalCompressionResistancePriority="1000" detachesHiddenViews="YES" translatesAutoresizingMaskIntoConstraints="NO" id="X8E-aw-R2A">
-                                            <rect key="frame" x="0.0" y="8" width="248" height="28"/>
+                                            <rect key="frame" x="0.0" y="10" width="248" height="28"/>
                                             <subviews>
                                                 <button verticalHuggingPriority="750" verticalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="NlW-sq-cHL">
                                                     <rect key="frame" x="5" y="-4" width="238" height="35"/>
@@ -5756,7 +5756,7 @@ DQ
                                             </customSpacing>
                                         </stackView>
                                         <textField horizontalHuggingPriority="251" verticalHuggingPriority="750" fixedFrame="YES" translatesAutoresizingMaskIntoConstraints="NO" id="jal-7c-tiE">
-                                            <rect key="frame" x="65" y="104" width="117" height="16"/>
+                                            <rect key="frame" x="66" y="106" width="117" height="16"/>
                                             <autoresizingMask key="autoresizingMask" flexibleMinX="YES" flexibleMaxX="YES" flexibleMinY="YES"/>
                                             <textFieldCell key="cell" lineBreakMode="clipping" alignment="center" title="No data loaded" id="2hd-Ze-uM7">
                                                 <font key="font" metaFont="systemSemibold" size="13"/>
@@ -5765,7 +5765,7 @@ DQ
                                             </textFieldCell>
                                         </textField>
                                         <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="250" fixedFrame="YES" translatesAutoresizingMaskIntoConstraints="NO" id="LvA-Ih-mhy">
-                                            <rect key="frame" x="18" y="49" width="212" height="47"/>
+                                            <rect key="frame" x="19" y="51" width="212" height="47"/>
                                             <autoresizingMask key="autoresizingMask" flexibleMinX="YES" flexibleMaxX="YES" flexibleMinY="YES"/>
                                             <textFieldCell key="cell" selectable="YES" alignment="center" title="Would you like to read a data file or open a previous project?" id="yPa-8O-5Sj">
                                                 <font key="font" metaFont="system"/>
@@ -5780,10 +5780,10 @@ DQ
                                         <constraint firstItem="X8E-aw-R2A" firstAttribute="leading" secondItem="0mT-da-T53" secondAttribute="leading" id="QC9-3L-lLl"/>
                                     </constraints>
                                 </view>
-                                <shadow key="shadow" blurRadius="45">
+                                <shadow key="shadow" blurRadius="30">
                                     <color key="color" name="secondaryLabelColor" catalog="System" colorSpace="catalog"/>
                                 </shadow>
-                                <color key="borderColor" name="underPageBackgroundColor" catalog="System" colorSpace="catalog"/>
+                                <color key="borderColor" name="unemphasizedSelectedContentBackgroundColor" catalog="System" colorSpace="catalog"/>
                                 <color key="fillColor" name="gridColor" catalog="System" colorSpace="catalog"/>
                             </box>
                         </subviews>
