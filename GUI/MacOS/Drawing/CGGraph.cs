@@ -1063,8 +1063,8 @@ namespace AnalysisITC
 
             YAxis = new GraphAxis(this, 0, 1);
             YAxis.UseNiceAxis = false;
-            YAxis.LegendTitle = "kJ mol⁻¹ of injectant";
-            YAxis.ValueFactor = 0.001f;
+            YAxis.LegendTitle = AppSettings.EnergyUnit.GetUnit() + "/mol of injectant";
+            YAxis.ValueFactor = Energy.ScaleFactor(AppSettings.EnergyUnit);
 
             SetupAxes();
         }

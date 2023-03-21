@@ -26,7 +26,7 @@ namespace AnalysisITC.AppClasses.Analysis2
 			else return GetDeltaHeat(injectionindex, Parameters.Table[ParameterTypes.Nvalue1].Value, Parameters.Table[ParameterTypes.Enthalpy1].Value, Parameters.Table[ParameterTypes.Affinity1].Value);
         }
 
-		public double GetDeltaHeat(int i, double n, double H, double K)
+		double GetDeltaHeat(int i, double n, double H, double K)
 		{
 			var inj = Data.Injections[i];
 			var Qi = GetHeatContent(inj, n, H, K);
@@ -37,7 +37,7 @@ namespace AnalysisITC.AppClasses.Analysis2
 			return dQi;
 		}
 
-		public double GetHeatContent(InjectionData inj, double n, double H, double K)
+		double GetHeatContent(InjectionData inj, double n, double H, double K)
 		{
 			var ncell = n * inj.ActualCellConcentration;
 			var first = (ncell * H * Data.CellVolume) / 2.0;
@@ -93,29 +93,6 @@ namespace AnalysisITC.AppClasses.Analysis2
 
                 base.ComputeErrorsFromBootstrapSolutions();
             }
-
-            //public override List<Tuple<string, string>> UISolutionParameters(SolutionInfo info)
-            //{
-            //    var output = base.UISolutionParameters(info);
-
-            //    if ((int)info > 0) output.Add(new("N", N.ToString("F2")));
-
-            //    output.Add(new("Kd", Kd.AsDissociationConstant()));
-            //    output.Add(new("∆H", Enthalpy.ToString(EnergyUnit.KiloJoule, permole: true)));
-
-            //    if ((int)info > 0)
-            //    {
-            //        output.Add(new("-T∆S", TdS.ToString(EnergyUnit.KiloJoule, permole: true)));
-            //        output.Add(new("∆G", GibbsFreeEnergy.ToString(EnergyUnit.KiloJoule, permole: true)));
-            //    }
-
-            //    if ((int)info > 1)
-            //    {
-            //        output.Add(new("Offset", Offset.ToString(EnergyUnit.KiloJoule, permole: true)));
-            //    }
-
-            //    return output;
-            //}
 
             public override List<Tuple<string, string>> UISolutionParameters(FinalFigureDisplayParameters info)
             {

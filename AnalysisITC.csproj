@@ -374,11 +374,12 @@
     <Compile Include="AppWindow.designer.cs">
       <DependentUpon>AppWindow.cs</DependentUpon>
     </Compile>
-    <Compile Include="AboutAppViewController.cs" />
-    <Compile Include="AboutAppViewController.designer.cs">
+    <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="AppClasses\Analysis2\Models\OneSiteIsomerization.cs" />
+    <Compile Include="GUI\MacOS\PopOptionViewControllers\AboutAppViewController.cs" />
+    <Compile Include="GUI\MacOS\PopOptionViewControllers\AboutAppViewController.designer.cs">
       <DependentUpon>AboutAppViewController.cs</DependentUpon>
     </Compile>
-    <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
   <ItemGroup>
     <InterfaceDefinition Include="Main.storyboard" />

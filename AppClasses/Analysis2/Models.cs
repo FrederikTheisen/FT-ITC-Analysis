@@ -12,17 +12,29 @@ namespace AnalysisITC.AppClasses.Analysis2
 		public AnalysisModel ModelType { get; set; } = AnalysisModel.OneSetOfSites;
 		public ModelParameters Parameters { get; set; }
         public ModelCloneOptions ModelCloneOptions { get; set; }
+        public Dictionary<string,bool> ModelOptions { get; set; }
 
         public SolutionInterface Solution { get; set; }
 
         public int NumberOfParameters => Parameters.FittingParameterCount;
         public string ModelName => ModelType.ToString();
+        bool DataHasSolution => Data.Solution != null;
+        bool SolutionHasParameter(ParameterTypes key) => DataHasSolution ? Data.Solution.Parameters.ContainsKey(key) : false;
 
         public virtual double GuessEnthalpy() => Data.Injections.First(inj => inj.Include).Enthalpy - GuessOffset();
-        public virtual double GuessOffset() => 0.8*Data.Injections.Where(inj => inj.Include).TakeLast(2).Average(inj => inj.Enthalpy);
+        public virtual double GuessOffset() => 0.8 * Data.Injections.Where(inj => inj.Include).TakeLast(2).Average(inj => inj.Enthalpy);
         public virtual double GuessN() => Data.Injections.Last().Ratio / 2;
         public virtual double GuessAffinity() => 1000000;
         public virtual double GuessAffinityAsGibbs() => -Energy.R * Data.MeasuredTemperatureKelvin * Math.Log(GuessAffinity());
+
+        public virtual double GuessParameter(ParameterTypes key)
+        {
+            if (SolutionHasParameter(key))
+            {
+                return Solution.Parameters[key];
+            }
+            else return 0;
+        }
 
         public Model(ExperimentData data)
 		{
@@ -96,7 +108,7 @@ namespace AnalysisITC.AppClasses.Analysis2
         }
     }
 
-	public class SolutionInterface
+    public class SolutionInterface
 	{
         public string Guid { get; private set; } = new Guid().ToString();
         public bool IsGlobalAnalysisSolution { get; set; } = false;

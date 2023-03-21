@@ -53,8 +53,6 @@ namespace AnalysisITC
         private void DataManager_DataDidChange(object sender, ExperimentData e)
         {
             SetEnableGlobalAnalysis();
-
-            GraphView.Initialize(e);
         }
 
         private void AppDelegate_StartPrintOperation(object sender, EventArgs e)
