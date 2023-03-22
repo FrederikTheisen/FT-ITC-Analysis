@@ -1826,6 +1826,191 @@
             </objects>
             <point key="canvasLocation" x="68" y="-1126"/>
         </scene>
+        <!--Export Accessory View Controller-->
+        <scene sceneID="aM9-uf-2Bq">
+            <objects>
+                <viewController storyboardIdentifier="ExportAccessoryViewController" id="wGy-zZ-XHG" customClass="ExportAccessoryViewController" sceneMemberID="viewController">
+                    <view key="view" translatesAutoresizingMaskIntoConstraints="NO" id="nZh-Md-8bl" customClass="ExportAccessoryView">
+                        <rect key="frame" x="0.0" y="0.0" width="493" height="130"/>
+                        <subviews>
+                            <tabView type="noTabsNoBorder" initialItem="fSH-bt-FSR" translatesAutoresizingMaskIntoConstraints="NO" id="T8B-9r-IVm">
+                                <rect key="frame" x="20" y="5" width="453" height="75"/>
+                                <font key="font" metaFont="system"/>
+                                <tabViewItems>
+                                    <tabViewItem label="Data" identifier="" id="fSH-bt-FSR">
+                                        <view key="view" id="tqs-AK-5bp">
+                                            <rect key="frame" x="0.0" y="0.0" width="453" height="75"/>
+                                            <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
+                                            <subviews>
+                                                <stackView distribution="fill" orientation="vertical" alignment="leading" spacing="0.0" horizontalStackHuggingPriority="249.99998474121094" verticalStackHuggingPriority="249.99998474121094" detachesHiddenViews="YES" translatesAutoresizingMaskIntoConstraints="NO" id="ZBp-RK-2bR">
+                                                    <rect key="frame" x="60" y="0.0" width="333" height="75"/>
+                                                    <subviews>
+                                                        <button verticalHuggingPriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="scB-Dx-ITy">
+                                                            <rect key="frame" x="-2" y="58" width="142" height="18"/>
+                                                            <buttonCell key="cell" type="check" title="Baseline Corrected" bezelStyle="regularSquare" imagePosition="left" state="on" inset="2" id="fp5-pT-SqN">
+                                                                <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
+                                                                <font key="font" metaFont="system"/>
+                                                            </buttonCell>
+                                                            <connections>
+                                                                <action selector="BaselineCorrectControlAction:" target="nZh-Md-8bl" id="G2T-7b-GTh"/>
+                                                            </connections>
+                                                        </button>
+                                                        <textField horizontalHuggingPriority="251" verticalHuggingPriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="iDy-NG-a9d">
+                                                            <rect key="frame" x="-2" y="31" width="244" height="28"/>
+                                                            <textFieldCell key="cell" controlSize="small" lineBreakMode="clipping" id="s6R-Pt-DZb">
+                                                                <font key="font" metaFont="smallSystem"/>
+                                                                <string key="title">Export baseline correct datapoints.
+Requires that all selected data has a baseline.</string>
+                                                                <color key="textColor" name="labelColor" catalog="System" colorSpace="catalog"/>
+                                                                <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
+                                                            </textFieldCell>
+                                                        </textField>
+                                                        <button verticalHuggingPriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="kYX-CA-Q9D">
+                                                            <rect key="frame" x="-2" y="14" width="132" height="18"/>
+                                                            <buttonCell key="cell" type="check" title="Unified Time Axis" bezelStyle="regularSquare" imagePosition="left" state="on" inset="2" id="bNy-Db-hOY">
+                                                                <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
+                                                                <font key="font" metaFont="system"/>
+                                                            </buttonCell>
+                                                            <connections>
+                                                                <action selector="UnifyTimeAxisControlAction:" target="nZh-Md-8bl" id="oc6-oZ-Lg2"/>
+                                                            </connections>
+                                                        </button>
+                                                        <textField horizontalHuggingPriority="251" verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="O9B-l7-QhK">
+                                                            <rect key="frame" x="-2" y="0.0" width="274" height="15"/>
+                                                            <textFieldCell key="cell" controlSize="small" lineBreakMode="clipping" title="Export datapoints using a single common time axis." id="H1E-Ps-HpZ">
+                                                                <font key="font" metaFont="smallSystem"/>
+                                                                <color key="textColor" name="labelColor" catalog="System" colorSpace="catalog"/>
+                                                                <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
+                                                            </textFieldCell>
+                                                        </textField>
+                                                    </subviews>
+                                                    <visibilityPriorities>
+                                                        <integer value="1000"/>
+                                                        <integer value="1000"/>
+                                                        <integer value="1000"/>
+                                                        <integer value="1000"/>
+                                                    </visibilityPriorities>
+                                                    <customSpacing>
+                                                        <real value="3.4028234663852886e+38"/>
+                                                        <real value="3.4028234663852886e+38"/>
+                                                        <real value="3.4028234663852886e+38"/>
+                                                        <real value="3.4028234663852886e+38"/>
+                                                    </customSpacing>
+                                                </stackView>
+                                            </subviews>
+                                            <constraints>
+                                                <constraint firstItem="ZBp-RK-2bR" firstAttribute="leading" secondItem="tqs-AK-5bp" secondAttribute="leading" constant="60" id="7JS-bU-tmv"/>
+                                                <constraint firstItem="ZBp-RK-2bR" firstAttribute="top" secondItem="tqs-AK-5bp" secondAttribute="top" id="AWY-KE-gqg"/>
+                                                <constraint firstAttribute="bottom" secondItem="ZBp-RK-2bR" secondAttribute="bottom" id="eeF-OD-Zjs"/>
+                                                <constraint firstAttribute="trailing" secondItem="ZBp-RK-2bR" secondAttribute="trailing" constant="60" id="vfd-7B-X9a"/>
+                                            </constraints>
+                                        </view>
+                                    </tabViewItem>
+                                    <tabViewItem label="Peaks" identifier="" id="36I-0e-P57">
+                                        <view key="view" id="3Tt-xC-QOp">
+                                            <rect key="frame" x="0.0" y="0.0" width="453" height="75"/>
+                                            <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
+                                            <subviews>
+                                                <stackView distribution="fill" orientation="vertical" alignment="leading" spacing="0.0" horizontalStackHuggingPriority="249.99998474121094" verticalStackHuggingPriority="249.99998474121094" detachesHiddenViews="YES" translatesAutoresizingMaskIntoConstraints="NO" id="YaF-Ik-WxW">
+                                                    <rect key="frame" x="60" y="0.0" width="333" height="75"/>
+                                                    <subviews>
+                                                        <button verticalHuggingPriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="Weq-6Y-EIS">
+                                                            <rect key="frame" x="-2" y="58" width="146" height="18"/>
+                                                            <buttonCell key="cell" type="check" title="Include fitted peaks" bezelStyle="regularSquare" imagePosition="left" state="on" inset="2" id="q9c-qj-ALf">
+                                                                <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
+                                                                <font key="font" metaFont="system"/>
+                                                            </buttonCell>
+                                                            <connections>
+                                                                <action selector="FittedPeakControlAction:" target="nZh-Md-8bl" id="ar0-Pq-w5T"/>
+                                                            </connections>
+                                                        </button>
+                                                        <textField horizontalHuggingPriority="251" verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="fVs-dT-RWc">
+                                                            <rect key="frame" x="-2" y="0.0" width="311" height="59"/>
+                                                            <textFieldCell key="cell" controlSize="small" lineBreakMode="clipping" id="v1q-xU-TDo">
+                                                                <font key="font" metaFont="smallSystem"/>
+                                                                <string key="title">Include peak value calculated based on the fitted model.
+Requires that a model has been fitted for all selected data.</string>
+                                                                <color key="textColor" name="labelColor" catalog="System" colorSpace="catalog"/>
+                                                                <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
+                                                            </textFieldCell>
+                                                        </textField>
+                                                    </subviews>
+                                                    <visibilityPriorities>
+                                                        <integer value="1000"/>
+                                                        <integer value="1000"/>
+                                                    </visibilityPriorities>
+                                                    <customSpacing>
+                                                        <real value="3.4028234663852886e+38"/>
+                                                        <real value="3.4028234663852886e+38"/>
+                                                    </customSpacing>
+                                                </stackView>
+                                            </subviews>
+                                            <constraints>
+                                                <constraint firstAttribute="trailing" secondItem="YaF-Ik-WxW" secondAttribute="trailing" constant="60" id="4Z9-F9-dNi"/>
+                                                <constraint firstItem="YaF-Ik-WxW" firstAttribute="top" secondItem="3Tt-xC-QOp" secondAttribute="top" id="Lf4-w0-ugE"/>
+                                                <constraint firstAttribute="bottom" secondItem="YaF-Ik-WxW" secondAttribute="bottom" id="lTx-hi-Vuh"/>
+                                                <constraint firstItem="YaF-Ik-WxW" firstAttribute="leading" secondItem="3Tt-xC-QOp" secondAttribute="leading" constant="60" id="y0F-Wb-Wha"/>
+                                            </constraints>
+                                        </view>
+                                    </tabViewItem>
+                                </tabViewItems>
+                            </tabView>
+                            <segmentedControl verticalHuggingPriority="750" fixedFrame="YES" translatesAutoresizingMaskIntoConstraints="NO" id="oUf-hc-ZR9">
+                                <rect key="frame" x="19" y="88" width="174" height="23"/>
+                                <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
+                                <segmentedCell key="cell" borderStyle="border" alignment="left" style="capsule" trackingMode="selectOne" id="cxZ-fo-DS6">
+                                    <font key="font" metaFont="system"/>
+                                    <segments>
+                                        <segment label="Export Data" selected="YES"/>
+                                        <segment label="Export Peaks" tag="1"/>
+                                    </segments>
+                                </segmentedCell>
+                                <connections>
+                                    <action selector="ExportTypeControlAction:" target="nZh-Md-8bl" id="QYY-9l-mTD"/>
+                                </connections>
+                            </segmentedControl>
+                            <segmentedControl verticalHuggingPriority="750" fixedFrame="YES" translatesAutoresizingMaskIntoConstraints="NO" id="4sB-M3-Gu6">
+                                <rect key="frame" x="318" y="88" width="156" height="23"/>
+                                <autoresizingMask key="autoresizingMask" flexibleMinX="YES" flexibleMinY="YES"/>
+                                <segmentedCell key="cell" borderStyle="border" alignment="left" style="capsule" trackingMode="selectOne" id="rNZ-UU-JJ7">
+                                    <font key="font" metaFont="system"/>
+                                    <segments>
+                                        <segment label="Selected"/>
+                                        <segment label="Included" selected="YES" tag="1"/>
+                                        <segment label="All"/>
+                                    </segments>
+                                </segmentedCell>
+                                <connections>
+                                    <action selector="ExportSelectionControlAction:" target="nZh-Md-8bl" id="1YB-Qx-17q"/>
+                                </connections>
+                            </segmentedControl>
+                        </subviews>
+                        <constraints>
+                            <constraint firstAttribute="height" constant="130" id="3Yy-Jj-0HE"/>
+                            <constraint firstItem="T8B-9r-IVm" firstAttribute="top" secondItem="nZh-Md-8bl" secondAttribute="top" constant="50" id="5Vh-no-xdd"/>
+                            <constraint firstItem="T8B-9r-IVm" firstAttribute="leading" secondItem="nZh-Md-8bl" secondAttribute="leading" constant="20" id="7O9-sV-ZOR"/>
+                            <constraint firstAttribute="bottom" secondItem="T8B-9r-IVm" secondAttribute="bottom" constant="5" id="fRl-sN-JYR"/>
+                            <constraint firstAttribute="trailing" secondItem="T8B-9r-IVm" secondAttribute="trailing" constant="20" id="i22-rU-PPC"/>
+                        </constraints>
+                        <connections>
+                            <outlet property="BSLLabel" destination="iDy-NG-a9d" id="s90-7e-plP"/>
+                            <outlet property="ExportCorrectedControl" destination="scB-Dx-ITy" id="kgZ-48-1JS"/>
+                            <outlet property="ExportSelectionControl" destination="4sB-M3-Gu6" id="Bx8-WJ-wI9"/>
+                            <outlet property="ExportTypeControl" destination="oUf-hc-ZR9" id="4av-5S-neb"/>
+                            <outlet property="FitPeakLabel" destination="fVs-dT-RWc" id="6Rj-8H-dLu"/>
+                            <outlet property="IncludeFittedPeaksControl" destination="Weq-6Y-EIS" id="mVx-Ah-j8Y"/>
+                            <outlet property="TabView" destination="T8B-9r-IVm" id="Qxi-Iu-8TA"/>
+                            <outlet property="UnifyTimeAxisControl" destination="kYX-CA-Q9D" id="MN3-x2-Ni8"/>
+                        </connections>
+                    </view>
+                    <connections>
+                        <outlet property="ExportTypeControl" destination="oUf-hc-ZR9" id="HSY-2f-oKf"/>
+                    </connections>
+                </viewController>
+                <customObject id="Q1t-4f-HtG" userLabel="First Responder" customClass="NSResponder" sceneMemberID="firstResponder"/>
+            </objects>
+            <point key="canvasLocation" x="-420.5" y="-705"/>
+        </scene>
         <!--About App View Controller-->
         <scene sceneID="lVu-B7-Qmn">
             <objects>
@@ -1998,7 +2183,7 @@ For analysis and presentation of ITC data</string>
                                             </connections>
                                         </menuItem>
                                         <menuItem isSeparatorItem="YES" id="aJh-i4-bef"/>
-                                        <menuItem title="Export" id="o95-Wu-QDs">
+                                        <menuItem title="Export" hidden="YES" id="o95-Wu-QDs">
                                             <modifierMask key="keyEquivalentModifierMask"/>
                                             <menu key="submenu" id="S2j-bf-Lgx">
                                                 <items>
@@ -2023,6 +2208,12 @@ For analysis and presentation of ITC data</string>
                                                     </menuItem>
                                                 </items>
                                             </menu>
+                                        </menuItem>
+                                        <menuItem title="Export..." id="Da7-rO-bWF">
+                                            <modifierMask key="keyEquivalentModifierMask"/>
+                                            <connections>
+                                                <action selector="ExportAction:" target="Voe-Tx-rLC" id="1YF-c5-YGY"/>
+                                            </connections>
                                         </menuItem>
                                         <menuItem title="Print…" keyEquivalent="p" identifier="print" id="aTl-1u-JFS">
                                             <connections>
@@ -2871,7 +3062,7 @@ Gw
                                         <rect key="frame" x="5" y="151" width="320" height="5"/>
                                     </box>
                                     <stackView distribution="fill" orientation="horizontal" alignment="top" horizontalStackHuggingPriority="249.99998474121094" verticalStackHuggingPriority="249.99998474121094" detachesHiddenViews="YES" translatesAutoresizingMaskIntoConstraints="NO" id="tBp-NH-D5a">
-                                        <rect key="frame" x="5" y="120" width="320" height="25"/>
+                                        <rect key="frame" x="5" y="120" width="325" height="25"/>
                                         <subviews>
                                             <textField horizontalHuggingPriority="249" verticalHuggingPriority="1000" verticalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="56m-iG-RhT">
                                                 <rect key="frame" x="0.0" y="4" width="279" height="21"/>
@@ -2885,7 +3076,7 @@ Gw
                                                 </textFieldCell>
                                             </textField>
                                             <colorWell wellStyle="minimal" translatesAutoresizingMaskIntoConstraints="NO" id="dE0-Dd-13e">
-                                                <rect key="frame" x="284" y="2" width="39" height="25"/>
+                                                <rect key="frame" x="284" y="2" width="44" height="25"/>
                                                 <constraints>
                                                     <constraint firstAttribute="height" constant="21" id="MBo-FB-FV9"/>
                                                 </constraints>
@@ -4566,7 +4757,7 @@ IA
                                         </middleViews>
                                         <endViews>
                                             <button horizontalHuggingPriority="750" verticalHuggingPriority="750" fixedFrame="YES" translatesAutoresizingMaskIntoConstraints="NO" id="FT6-yN-9c8">
-                                                <rect key="frame" x="817" y="-6" width="89" height="40"/>
+                                                <rect key="frame" x="816" y="-6" width="90" height="40"/>
                                                 <buttonCell key="cell" type="push" title="Select All" bezelStyle="rounded" alignment="center" controlSize="large" borderStyle="border" imageScaling="proportionallyDown" inset="2" id="zx6-Qa-nYI">
                                                     <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
                                                     <font key="font" metaFont="system"/>

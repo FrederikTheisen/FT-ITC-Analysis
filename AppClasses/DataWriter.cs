@@ -329,18 +329,22 @@ namespace AnalysisITC
 
     public class Exporter
     {
-        static ExportDataSelection Selection => AppSettings.ExportSelectionMode;
-        static bool UnifyTimeAxis => AppSettings.UnifyTimeAxisForExport;
         static char Delimiter = ' ';
         static char BlankChar = ' ';
+        static ExportAccessoryViewController.ExportAccessoryViewSettings Settings;
 
-        public static void ExportData()
+        public static void Export(ExportType type)
         {
-            List<ExperimentData> data = GetData();
+            Settings = type == ExportType.Data ? ExportAccessoryViewController.ExportAccessoryViewSettings.DataDefault() : ExportAccessoryViewController.ExportAccessoryViewSettings.PeaksDefault();
+
+            var storyboard = NSStoryboard.FromName("Main", null);
+            var viewController = (ExportAccessoryViewController)storyboard.InstantiateControllerWithIdentifier("ExportAccessoryViewController");
+            viewController.Setup(Settings);
 
             var dlg = new NSSavePanel();
-            dlg.Title = "Export Data";
+            dlg.Title = "Export";
             dlg.AllowedFileTypes = new string[] { "csv", "txt" };
+            dlg.AccessoryView = viewController.View;
 
             dlg.BeginSheet(NSApplication.SharedApplication.MainWindow, async (result) =>
             {
@@ -349,10 +353,42 @@ namespace AnalysisITC
                     StatusBarManager.StartInderminateProgress();
                     StatusBarManager.SetStatusScrolling("Saving file: " + dlg.Filename);
                     SetDelimiter(dlg.Url);
-                    await WriteDataFile(dlg.Filename, data);
+                    switch (Settings.Export)
+                    {
+                        case ExportType.Data: await WriteDataFile(dlg.Filename);break;
+                        case ExportType.Peaks: await WritePeakFile(dlg.Filename); break;
+                    }
+                    
                 }
             });
         }
+
+        //public static void ExportData()
+        //{
+        //    List<ExperimentData> data = GetData();
+
+        //    Settings = ExportAccessoryViewController.ExportAccessoryViewSettings.DataDefault(data);
+
+        //    var storyboard = NSStoryboard.FromName("Main", null);
+        //    var viewController = (ExportAccessoryViewController)storyboard.InstantiateControllerWithIdentifier("ExportAccessoryViewController");
+        //    viewController.Setup(Settings);
+
+        //    var dlg = new NSSavePanel();
+        //    dlg.Title = "Export Data";
+        //    dlg.AllowedFileTypes = new string[] { "csv", "txt" };
+        //    dlg.AccessoryView = viewController.View;
+
+        //    dlg.BeginSheet(NSApplication.SharedApplication.MainWindow, async (result) =>
+        //    {
+        //        if (result == 1)
+        //        {
+        //            StatusBarManager.StartInderminateProgress();
+        //            StatusBarManager.SetStatusScrolling("Saving file: " + dlg.Filename);
+        //            SetDelimiter(dlg.Url);
+        //            await WriteDataFile(dlg.Filename, data, ExportAccessoryViewController.ExportBaselineCorrectDataPoints);
+        //        }
+        //    });
+        //}
 
         static void SetDelimiter(NSUrl url)
         {
@@ -363,29 +399,29 @@ namespace AnalysisITC
             }
         }
 
-        public static void ExportPeaks()
-        {
-            List<ExperimentData> data = GetData();
+        //public static void ExportPeaks()
+        //{
+        //    List<ExperimentData> data = GetData();
 
-            var dlg = new NSSavePanel();
-            dlg.Title = "Export Peaks";
-            dlg.AllowedFileTypes = new string[] { "csv", "txt" };
+        //    var dlg = new NSSavePanel();
+        //    dlg.Title = "Export Peaks";
+        //    dlg.AllowedFileTypes = new string[] { "csv", "txt" };
 
-            dlg.BeginSheet(NSApplication.SharedApplication.MainWindow, async (result) =>
-            {
-                if (result == 1)
-                {
-                    StatusBarManager.StartInderminateProgress();
-                    StatusBarManager.SetStatusScrolling("Saving file: " + dlg.Filename);
-                    SetDelimiter(dlg.Url);
-                    await WritePeakFile(dlg.Filename, data);
-                }
-            });
-        }
+        //    dlg.BeginSheet(NSApplication.SharedApplication.MainWindow, async (result) =>
+        //    {
+        //        if (result == 1)
+        //        {
+        //            StatusBarManager.StartInderminateProgress();
+        //            StatusBarManager.SetStatusScrolling("Saving file: " + dlg.Filename);
+        //            SetDelimiter(dlg.Url);
+        //            await WritePeakFile(dlg.Filename, data);
+        //        }
+        //    });
+        //}
 
         private static List<ExperimentData> GetData()
         {
-            return Selection switch
+            return AppSettings.ExportSelectionMode switch
             {
                 ExportDataSelection.IncludedData => DataManager.Data.Where(d => d.Include).ToList(),
                 ExportDataSelection.AllData => DataManager.Data,
@@ -393,11 +429,11 @@ namespace AnalysisITC
             };
         }
 
-        static async Task WriteDataFile(string path, List<ExperimentData> data)
+        static async Task WriteDataFile(string path)
         {
             await Task.Run(async () =>
             {
-                var lines = UnifyTimeAxis ? GetUnifiedDataLines(data) : GetDataLines(data);
+                var lines = Settings.UnifyTimeAxis ? GetUnifiedDataLines(Settings.Data) : GetDataLines(Settings.Data);
 
                 using (var writer = new StreamWriter(path))
                 {
@@ -427,20 +463,21 @@ namespace AnalysisITC
             //Implemented unified x axis
             foreach (var dat in data)
             {
+                var dps = Settings.ExportBaselineCorrectDataPoints ? dat.BaseLineCorrectedDataPoints : dat.DataPoints;
                 var points = new List<float>();
                 var prevtime = 0f;
                 foreach (var t in xaxis)
                 {
-                    var group = dat.DataPoints.Where(dp => dp.Time > prevtime && dp.Time <= t);
+                    var group = dps.Where(dp => dp.Time > prevtime && dp.Time <= t);
                     float newdp;
 
                     if (group.Count() == 0) //Are we averaging a number of datapoints?
                     {
-                        if (prevtime >= dat.DataPoints.Last().Time || t < dat.DataPoints.First().Time) newdp = float.NaN; //Outside data set?
+                        if (prevtime >= dps.Last().Time || t < dps.First().Time) newdp = float.NaN; //Outside data set?
                         else //Interpolate from datapoints
                         {
-                            var p1 = dat.DataPoints.Where(dp => dp.Time > prevtime).First();
-                            var p2 = dat.DataPoints.Where(dp => dp.Time < t).Last();
+                            var p1 = dps.Where(dp => dp.Time > prevtime).First();
+                            var p2 = dps.Where(dp => dp.Time < t).Last();
 
                             var weight = (t - p2.Time) / (p2.Time - p1.Time);
 
@@ -448,7 +485,7 @@ namespace AnalysisITC
                         }
                     }
                     //Average datapoints in window. Probably not 100% accurate.
-                    else newdp = dat.DataPoints.Where(dp => dp.Time > prevtime && dp.Time <= t).Select(dp => dp.Power).Average();
+                    else newdp = dps.Where(dp => dp.Time > prevtime && dp.Time <= t).Select(dp => dp.Power).Average();
 
                     points.Add(newdp);
 
@@ -496,9 +533,11 @@ namespace AnalysisITC
 
                 foreach (var d in data)
                 {
-                    if (d.DataPoints.Count > index)
+                    var dps = Settings.BaselineCorrectionEnabled ? d.BaseLineCorrectedDataPoints : d.DataPoints;
+
+                    if (dps.Count > index)
                     {
-                        var dp = d.DataPoints[index];
+                        var dp = dps[index];
                         line += dp.Time.ToString() + Delimiter + dp.Power.ToString() + Delimiter;
                     }
                     else line += BlankChar.ToString() + Delimiter + BlankChar + Delimiter;
@@ -531,11 +570,11 @@ namespace AnalysisITC
             return mostCommonStep;
         }
 
-        static async Task WritePeakFile(string path, List<ExperimentData> data)
+        static async Task WritePeakFile(string path)
         {
             await Task.Run(async () =>
             {
-                var lines = GetPeakLines(data);
+                var lines = GetPeakLines(Settings.Data);
 
                 using (var writer = new StreamWriter(path))
                 {
@@ -599,6 +638,12 @@ namespace AnalysisITC
             }
 
             return lines;
+        }
+
+        public enum ExportType
+        {
+            Data,
+            Peaks
         }
 
         public enum ExportDataSelection

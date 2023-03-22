@@ -38,6 +38,7 @@ namespace AnalysisITC
 
         //Export
         public static bool UnifyTimeAxisForExport { get; set; } = true;
+        public static bool ExportBaselineCorrectedData { get; set; } = true;
         public static bool ExportFitPointsWithPeaks { get; set; } = true;
         public static Exporter.ExportDataSelection ExportSelectionMode { get; set; } = Exporter.ExportDataSelection.IncludedData;
 
@@ -62,6 +63,7 @@ namespace AnalysisITC
             Storage.SetBool(ExportFitPointsWithPeaks, "ExportFitPointsWithPeaks");
             Storage.SetInt((int)ExportSelectionMode, "ExportSelectionMode");
             Storage.SetInt((int)FinalFigureParameterDisplay, "FinalFigureParameterDisplay");
+            Storage.SetBool(ExportBaselineCorrectedData, "ExportBaselineCorrectedData");
 
             StoreArray(FinalFigureDimensions, "FinalFigureDimensions");
 
@@ -113,6 +115,8 @@ namespace AnalysisITC
             ExportSelectionMode = (Exporter.ExportDataSelection)(int)Storage.IntForKey("ExportSelectionMode");
             if (dict.ContainsKey(NSObject.FromObject("FinalFigureParameterDisplay")))
                 FinalFigureParameterDisplay = (FinalFigureDisplayParameters)(int)Storage.IntForKey("FinalFigureParameterDisplay");
+            if (dict.ContainsKey(NSObject.FromObject("ExportBaselineCorrectedData")))
+                ExportBaselineCorrectedData = Storage.BoolForKey("ExportBaselineCorrectedData");
 
             ApplySettings();
         }

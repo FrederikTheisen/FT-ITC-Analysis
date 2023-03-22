@@ -1,0 +1,97 @@
+// WARNING
+//
+// This file has been generated automatically by Visual Studio to store outlets and
+// actions made in the UI designer. If it is removed, they will be lost.
+// Manual changes to this file may not be handled correctly.
+//
+using Foundation;
+using System.CodeDom.Compiler;
+
+namespace AnalysisITC
+{
+	[Register ("ExportAccessoryView")]
+	partial class ExportAccessoryView
+	{
+		[Outlet]
+		AppKit.NSTextField BSLLabel { get; set; }
+
+		[Outlet]
+		AppKit.NSButton ExportCorrectedControl { get; set; }
+
+		[Outlet]
+		AppKit.NSSegmentedControl ExportSelectionControl { get; set; }
+
+		[Outlet]
+		AppKit.NSSegmentedControl ExportTypeControl { get; set; }
+
+		[Outlet]
+		AppKit.NSTextField FitPeakLabel { get; set; }
+
+		[Outlet]
+		AppKit.NSButton IncludeFittedPeaksControl { get; set; }
+
+		[Outlet]
+		AppKit.NSTabView TabView { get; set; }
+
+		[Outlet]
+		AppKit.NSButton UnifyTimeAxisControl { get; set; }
+
+		[Action ("BaselineCorrectControlAction:")]
+		partial void BaselineCorrectControlAction (AppKit.NSButton sender);
+
+		[Action ("ExportSelectionControlAction:")]
+		partial void ExportSelectionControlAction (AppKit.NSSegmentedControl sender);
+
+		[Action ("ExportTypeControlAction:")]
+		partial void ExportTypeControlAction (AppKit.NSSegmentedControl sender);
+
+		[Action ("FittedPeakControlAction:")]
+		partial void FittedPeakControlAction (AppKit.NSButton sender);
+
+		[Action ("UnifyTimeAxisControlAction:")]
+		partial void UnifyTimeAxisControlAction (AppKit.NSButton sender);
+		
+		void ReleaseDesignerOutlets ()
+		{
+			if (FitPeakLabel != null) {
+				FitPeakLabel.Dispose ();
+				FitPeakLabel = null;
+			}
+
+			if (BSLLabel != null) {
+				BSLLabel.Dispose ();
+				BSLLabel = null;
+			}
+
+			if (TabView != null) {
+				TabView.Dispose ();
+				TabView = null;
+			}
+
+			if (ExportTypeControl != null) {
+				ExportTypeControl.Dispose ();
+				ExportTypeControl = null;
+			}
+
+			if (ExportSelectionControl != null) {
+				ExportSelectionControl.Dispose ();
+				ExportSelectionControl = null;
+			}
+
+			if (ExportCorrectedControl != null) {
+				ExportCorrectedControl.Dispose ();
+				ExportCorrectedControl = null;
+			}
+
+			if (IncludeFittedPeaksControl != null) {
+				IncludeFittedPeaksControl.Dispose ();
+				IncludeFittedPeaksControl = null;
+			}
+
+			if (UnifyTimeAxisControl != null) {
+				UnifyTimeAxisControl.Dispose ();
+				UnifyTimeAxisControl = null;
+			}
+		}
+	}
+}

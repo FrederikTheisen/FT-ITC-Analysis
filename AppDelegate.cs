@@ -164,14 +164,19 @@ namespace AnalysisITC
             };
         }
 
+        partial void ExportAction(NSObject sender)
+        {
+            Exporter.Export(Exporter.ExportType.Data);
+        }
+
         partial void ExportDataClick(NSMenuItem sender)
         {
-            Exporter.ExportData();
+            Exporter.Export(Exporter.ExportType.Data);
         }
 
         partial void ExportPeaksAction(NSMenuItem sender)
         {
-            Exporter.ExportPeaks();
+            Exporter.Export(Exporter.ExportType.Peaks);
         }
 
         partial void ClearProcessingResult(NSObject sender)
