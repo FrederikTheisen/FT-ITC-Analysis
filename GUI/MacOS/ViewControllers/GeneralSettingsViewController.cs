@@ -34,6 +34,7 @@ namespace AnalysisITC
                 AppSettings.EnergyUnit = energyunit;
             }
 
+            AppSettings.DefaultConcentrationUnit = (ConcentrationUnit)(int)ConcentrationUnitControl.SelectedSegment;
             AppSettings.MinimumTemperatureSpanForFitting = MinTempSpanSlider.DoubleValue;
 
             //Color
@@ -60,6 +61,7 @@ namespace AnalysisITC
             ColorGradientControl.SelectedSegment = (int)AppSettings.ColorShcemeGradientMode;
 
             EnergyUnitControl.SelectedSegment = AppSettings.EnergyUnit.IsSI() ? 0 : 1;
+            ConcentrationUnitControl.SelectedSegment = (int)AppSettings.DefaultConcentrationUnit;
             RefTempField.StringValue = AppSettings.ReferenceTemperature.ToString("F2");
             MinTempSpanSlider.DoubleValue = AppSettings.MinimumTemperatureSpanForFitting;
             MinTempSpanField.DoubleValue = AppSettings.MinimumTemperatureSpanForFitting;

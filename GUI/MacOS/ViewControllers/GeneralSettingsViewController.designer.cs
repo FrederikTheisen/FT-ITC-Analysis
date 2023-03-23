@@ -22,6 +22,9 @@ namespace AnalysisITC
 		AppKit.NSPopUpButton ColorThemeMenu { get; set; }
 
 		[Outlet]
+		AppKit.NSSegmentedControl ConcentrationUnitControl { get; set; }
+
+		[Outlet]
 		AppKit.NSSegmentedControl EnergyUnitControl { get; set; }
 
 		[Outlet]
@@ -80,6 +83,11 @@ namespace AnalysisITC
 			if (EnergyUnitControl != null) {
 				EnergyUnitControl.Dispose ();
 				EnergyUnitControl = null;
+			}
+
+			if (ConcentrationUnitControl != null) {
+				ConcentrationUnitControl.Dispose ();
+				ConcentrationUnitControl = null;
 			}
 
 			if (FinalFigHeightField != null) {

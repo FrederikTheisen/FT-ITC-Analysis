@@ -15,6 +15,9 @@ namespace AnalysisITC
 		[Outlet]
 		AppKit.NSButton ExportAllCheckBox { get; set; }
 
+		[Outlet]
+		AppKit.NSSegmentedControl ExportSelectionControl { get; set; }
+
 		[Action ("Export:")]
 		partial void Export (Foundation.NSObject sender);
 		
@@ -23,6 +26,11 @@ namespace AnalysisITC
 			if (ExportAllCheckBox != null) {
 				ExportAllCheckBox.Dispose ();
 				ExportAllCheckBox = null;
+			}
+
+			if (ExportSelectionControl != null) {
+				ExportSelectionControl.Dispose ();
+				ExportSelectionControl = null;
 			}
 		}
 	}

@@ -78,6 +78,11 @@ namespace AnalysisITC.AppClasses.Analysis2
             throw new NotImplementedException("ModelFactory.SetCustomParameter()");
         }
 
+		public virtual Dictionary<string,bool> GetExposedModelOptions()
+		{
+			throw new NotImplementedException("ModelFactory.GetOptions()");
+		}
+
 		public virtual void UpdateData()
 		{
 			throw new NotImplementedException("ModelFactory.UpdateData()");
@@ -154,6 +159,11 @@ namespace AnalysisITC.AppClasses.Analysis2
         {
             if (!Model.Parameters.Table.ContainsKey(key)) throw new Exception("Parameter not found [File: GlobalFactory.SetCustomParameter]: " + key.ToString());
             Model.Parameters.Table[key].Update(value, locked);
+        }
+
+        public override Dictionary<string, bool> GetExposedModelOptions()
+        {
+			return Model.ModelOptions;
         }
 
         public override void UpdateData()
@@ -326,7 +336,7 @@ namespace AnalysisITC.AppClasses.Analysis2
             ExposedGlobalFittingOptions = dict;
 		}
 
-		public Dictionary<ParameterTypes, List<VariableConstraint>> GetExposedOptions()
+		public Dictionary<ParameterTypes, List<VariableConstraint>> GetExposedConstraints()
 		{
 			return ExposedGlobalFittingOptions;
 		}
@@ -334,6 +344,11 @@ namespace AnalysisITC.AppClasses.Analysis2
         public override IEnumerable<Parameter> GetExposedParameters()
         {
 			return Parameters;
+        }
+
+        public override Dictionary<string, bool> GetExposedModelOptions()
+        {
+            return Model.Models.First().ModelOptions;
         }
 
         public override void SetCustomParameter(ParameterTypes key, double value, bool locked)

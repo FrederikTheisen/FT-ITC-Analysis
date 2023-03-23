@@ -380,6 +380,16 @@
     <Compile Include="GUI\MacOS\PopOptionViewControllers\AboutAppViewController.designer.cs">
       <DependentUpon>AboutAppViewController.cs</DependentUpon>
     </Compile>
+    <Compile Include="ExportAccessoryViewController.cs" />
+    <Compile Include="ExportAccessoryViewController.designer.cs">
+      <DependentUpon>ExportAccessoryViewController.cs</DependentUpon>
+    </Compile>
+    <Compile Include="ExportAccessoryView.cs" />
+    <Compile Include="ExportAccessoryView.designer.cs">
+      <DependentUpon>ExportAccessoryView.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Utils\ConcentrationUnit.cs" />
+    <Compile Include="GUI\MacOS\CustomViews\CustomDrawingSegmentedControl.cs" />
   </ItemGroup>
   <ItemGroup>
     <InterfaceDefinition Include="Main.storyboard" />

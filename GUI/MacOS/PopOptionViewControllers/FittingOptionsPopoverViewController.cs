@@ -7,6 +7,7 @@ using AppKit;
 using AnalysisITC.GUI.MacOS.CustomViews;
 using AnalysisITC.AppClasses.Analysis2;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace AnalysisITC
 {
@@ -26,8 +27,17 @@ namespace AnalysisITC
 
             ErrorIterationsControl.DoubleValue = Math.Log10(FittingOptionsController.BootstrapIterations);
             ErrorIterationLabel.IntValue = (int)Math.Pow(10, ErrorIterationsControl.DoubleValue);
+            if (!FittingOptionsController.IncludeConcentrationVariance) IncludeConcErrorControl.SelectedSegment = 0;
+            else
+            {
+                if (FittingOptionsController.EnableAutoConcentrationVariance) IncludeConcErrorControl.SelectedSegment = 2;
+                else IncludeConcErrorControl.SelectedSegment = 1;
+            }
+            
 
             ErrorMethodControl.SelectedSegment = (int)FittingOptionsController.ErrorEstimationMethod;
+
+            if (ModelFactory.Factory == null) return;
 
             foreach (var par in ModelFactory.Factory.GetExposedParameters())
             {
@@ -37,7 +47,19 @@ namespace AnalysisITC
 
                 ParameterOptionControls.Add(sv);
 
-                StackView.InsertArrangedSubview(sv, 7);
+                StackView.InsertArrangedSubview(sv, 8);
+            }
+
+            if (ModelFactory.Factory.GetExposedParameters() == null || ModelFactory.Factory.GetExposedParameters().Count() == 0)
+            {
+                InitialValuesHeader.Hidden = true;
+                InitialValuesLine.Hidden = true;
+            }
+
+            if (ModelFactory.Factory.GetExposedModelOptions() == null || ModelFactory.Factory.GetExposedModelOptions().Count() == 0)
+            {
+                ModelOptionsHeader.Hidden = true;
+                ModelOptionsLine.Hidden = true;
             }
         }
 
@@ -50,18 +72,29 @@ namespace AnalysisITC
 
         partial void ApplyOptions(NSObject sender)
         {
-            FittingOptionsController.ErrorEstimationMethod = (ErrorEstimationMethod)(int)ErrorMethodControl.SelectedSegment;
-            FittingOptionsController.BootstrapIterations = (int)Math.Pow(10, ErrorIterationsControl.DoubleValue);
-
-            foreach (var sv in ParameterOptionControls)
+            try
             {
-                if (sv.HasBeenAffectedFlag)
-                {
-                    ModelFactory.Factory.SetCustomParameter(sv.Key, sv.Value, sv.Locked);
-                }
-            }
+                FittingOptionsController.ErrorEstimationMethod = (ErrorEstimationMethod)(int)ErrorMethodControl.SelectedSegment;
+                FittingOptionsController.BootstrapIterations = (int)Math.Pow(10, ErrorIterationsControl.DoubleValue);
+                FittingOptionsController.IncludeConcentrationVariance = IncludeConcErrorControl.SelectedSegment > 0;
+                FittingOptionsController.EnableAutoConcentrationVariance = IncludeConcErrorControl.SelectedSegment == 2;
 
-            DismissViewController(this);
+                foreach (var sv in ParameterOptionControls)
+                {
+                    if (sv.HasBeenAffectedFlag)
+                    {
+                        ModelFactory.Factory.SetCustomParameter(sv.Key, sv.Value, sv.Locked);
+                    }
+                }
+
+                DismissViewController(this);
+            }
+            catch (Exception ex)
+            {
+                DismissViewController(this);
+
+                AppEventHandler.DisplayHandledException(ex);
+            }
         }
     }
 }

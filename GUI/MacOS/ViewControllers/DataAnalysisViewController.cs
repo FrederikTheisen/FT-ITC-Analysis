@@ -178,7 +178,7 @@ namespace AnalysisITC
 
             if (ModelFactory.Factory != null && ModelFactory.Factory.IsGlobalAnalysis)
             {
-                var options = (ModelFactory.Factory as GlobalModelFactory).GetExposedOptions();
+                var options = (ModelFactory.Factory as GlobalModelFactory).GetExposedConstraints();
 
                 foreach (var opt in options)
                 {

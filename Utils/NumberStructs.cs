@@ -5,15 +5,6 @@ using System.Threading.Tasks;
 
 namespace AnalysisITC
 {
-    public enum ConcentrationUnit
-    {
-        M,
-        mM,
-        µM,
-        nM,
-        pM
-    }
-
     public class TimeUnitAttribute : Attribute
     {
         public string Name { get; set; }

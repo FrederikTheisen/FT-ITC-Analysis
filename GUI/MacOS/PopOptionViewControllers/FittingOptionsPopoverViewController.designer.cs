@@ -31,6 +31,9 @@ namespace AnalysisITC
 		AppKit.NSTextField HStep { get; set; }
 
 		[Outlet]
+		AppKit.NSSegmentedControl IncludeConcErrorControl { get; set; }
+
+		[Outlet]
 		AppKit.NSTextField InitCp { get; set; }
 
 		[Outlet]
@@ -49,6 +52,12 @@ namespace AnalysisITC
 		AppKit.NSButton InitHLock { get; set; }
 
 		[Outlet]
+		AppKit.NSTextField InitialValuesHeader { get; set; }
+
+		[Outlet]
+		AppKit.NSBox InitialValuesLine { get; set; }
+
+		[Outlet]
 		AppKit.NSTextField InitN { get; set; }
 
 		[Outlet]
@@ -59,6 +68,12 @@ namespace AnalysisITC
 
 		[Outlet]
 		AppKit.NSButton InitOffsetLock { get; set; }
+
+		[Outlet]
+		AppKit.NSTextField ModelOptionsHeader { get; set; }
+
+		[Outlet]
+		AppKit.NSBox ModelOptionsLine { get; set; }
 
 		[Outlet]
 		AppKit.NSTextField NStep { get; set; }
@@ -77,6 +92,11 @@ namespace AnalysisITC
 		
 		void ReleaseDesignerOutlets ()
 		{
+			if (IncludeConcErrorControl != null) {
+				IncludeConcErrorControl.Dispose ();
+				IncludeConcErrorControl = null;
+			}
+
 			if (CStep != null) {
 				CStep.Dispose ();
 				CStep = null;
@@ -170,6 +190,26 @@ namespace AnalysisITC
 			if (StackView != null) {
 				StackView.Dispose ();
 				StackView = null;
+			}
+
+			if (ModelOptionsHeader != null) {
+				ModelOptionsHeader.Dispose ();
+				ModelOptionsHeader = null;
+			}
+
+			if (ModelOptionsLine != null) {
+				ModelOptionsLine.Dispose ();
+				ModelOptionsLine = null;
+			}
+
+			if (InitialValuesHeader != null) {
+				InitialValuesHeader.Dispose ();
+				InitialValuesHeader = null;
+			}
+
+			if (InitialValuesLine != null) {
+				InitialValuesLine.Dispose ();
+				InitialValuesLine = null;
 			}
 		}
 	}

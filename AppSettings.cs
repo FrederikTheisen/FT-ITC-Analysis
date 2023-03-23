@@ -18,11 +18,14 @@ namespace AnalysisITC
         public static EnergyUnit EnergyUnit { get; set; } = EnergyUnit.KiloJoule;
         public static ColorSchemes ColorScheme { get; set; } = ColorSchemes.Default;
         public static ColorShcemeGradientMode ColorShcemeGradientMode { get; set; } = ColorShcemeGradientMode.Smooth;
+        public static ConcentrationUnit DefaultConcentrationUnit { get; set; } = ConcentrationUnit.µM;
 
         //Processing
         public static PeakFitAlgorithm PeakFitAlgorithm { get; set; } = PeakFitAlgorithm.Exponential;
 
         //Fitting
+        public static bool InputAffinityAsDissociationConstant { get; set; } = true;
+
         public static ErrorEstimationMethod DefaultErrorEstimationMethod { get; set; } = ErrorEstimationMethod.BootstrapResiduals;
         public static int DefaultBootstrapIterations { get; set; } = 100;
         public static double MinimumTemperatureSpanForFitting { get; internal set; } = 2;
@@ -64,6 +67,8 @@ namespace AnalysisITC
             Storage.SetInt((int)ExportSelectionMode, "ExportSelectionMode");
             Storage.SetInt((int)FinalFigureParameterDisplay, "FinalFigureParameterDisplay");
             Storage.SetBool(ExportBaselineCorrectedData, "ExportBaselineCorrectedData");
+            Storage.SetInt((int)DefaultConcentrationUnit, "DefaultConcentrationUnit");
+            Storage.SetBool(InputAffinityAsDissociationConstant, "InputAffinityAsDissociationConstant");
 
             StoreArray(FinalFigureDimensions, "FinalFigureDimensions");
 
@@ -117,6 +122,10 @@ namespace AnalysisITC
                 FinalFigureParameterDisplay = (FinalFigureDisplayParameters)(int)Storage.IntForKey("FinalFigureParameterDisplay");
             if (dict.ContainsKey(NSObject.FromObject("ExportBaselineCorrectedData")))
                 ExportBaselineCorrectedData = Storage.BoolForKey("ExportBaselineCorrectedData");
+            if (dict.ContainsKey(NSObject.FromObject("DefaultConcentrationUnit")))
+                DefaultConcentrationUnit = (ConcentrationUnit)(int)Storage.IntForKey("DefaultConcentrationUnit");
+            if (dict.ContainsKey(NSObject.FromObject("InputAffinityAsDissociationConstant")))
+                InputAffinityAsDissociationConstant = Storage.BoolForKey("InputAffinityAsDissociationConstant");
 
             ApplySettings();
         }

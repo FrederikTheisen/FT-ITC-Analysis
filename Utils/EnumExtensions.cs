@@ -10,7 +10,7 @@ using AnalysisITC.AppClasses.Analysis2;
 
 namespace AnalysisITC
 {
-    public static class Extensions
+    public static partial class Extensions
     {
         private static Random rng = new Random();
 
