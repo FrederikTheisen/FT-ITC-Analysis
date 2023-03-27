@@ -16,6 +16,9 @@ namespace AnalysisITC
 		AppKit.NSButton LockButton { get; set; }
 
 		[Outlet]
+		AppKit.NSSlider SplinePointsSlider { get; set; }
+
+		[Outlet]
 		AppKit.NSButton ToSplineButton { get; set; }
 
 		[Action ("LockAction:")]
@@ -34,6 +37,11 @@ namespace AnalysisITC
 			if (ToSplineButton != null) {
 				ToSplineButton.Dispose ();
 				ToSplineButton = null;
+			}
+
+			if (SplinePointsSlider != null) {
+				SplinePointsSlider.Dispose ();
+				SplinePointsSlider = null;
 			}
 		}
 	}

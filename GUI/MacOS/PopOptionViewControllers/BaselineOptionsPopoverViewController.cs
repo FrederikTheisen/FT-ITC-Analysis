@@ -44,7 +44,7 @@ namespace AnalysisITC
 
         partial void SplineAction(NSObject sender)
         {
-            Data.Processor.Interpolator.ConvertToSpline();
+            Data.Processor.Interpolator.ConvertToSpline(SplinePointsSlider.IntValue);
 
             DismissViewController(this);
         }
