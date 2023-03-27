@@ -91,12 +91,12 @@ namespace AnalysisITC
             else return new FloatWithError(DParse(s[0]));
         }
 
-        public static string LastAccessedPath { get; set; } = "";
+        public static string CurrentAccessedAppDocumentPath { get; set; } = "";
     }
 
     public class FTITCWriter : FTITCFormat
     {
-        public static bool IsSaved => !string.IsNullOrEmpty(LastAccessedPath);
+        public static bool IsSaved => !string.IsNullOrEmpty(CurrentAccessedAppDocumentPath);
 
         public static void SaveState2()
         {
@@ -111,15 +111,16 @@ namespace AnalysisITC
                     StatusBarManager.SetStatusScrolling("Saving file: " + dlg.Filename);
                     await WriteFile(dlg.Filename);
 
-                    LastAccessedPath = dlg.Filename;
+                    CurrentAccessedAppDocumentPath = dlg.Filename;
+                    AppSettings.LastDocumentUrl = dlg.Url;
                 }
             });
         }
 
         public static async void SaveWithPath()
         {
-            StatusBarManager.SetStatusScrolling("Saving file: " + LastAccessedPath);
-            await WriteFile(LastAccessedPath);
+            StatusBarManager.SetStatusScrolling("Saving file: " + CurrentAccessedAppDocumentPath);
+            await WriteFile(CurrentAccessedAppDocumentPath);
         }
 
         public static void SaveSelected(ITCDataContainer data)

@@ -32,17 +32,26 @@ namespace DataReaders
 
         public static ITCDataFormat GetFormat(string path)
         {
-            var ext = System.IO.Path.GetExtension(path);
-
-            foreach (var format in ITCFormatAttribute.GetAllFormats())
+            try
             {
-                var fprop = format.GetProperties();
+                var ext = System.IO.Path.GetExtension(path);
 
-                if (ext == fprop.Extension) return format;
+                foreach (var format in ITCFormatAttribute.GetAllFormats())
+                {
+                    var fprop = format.GetProperties();
+
+                    if (ext == fprop.Extension) return format;
+                }
+            }
+            catch
+            {
+                AppEventHandler.PrintAndLog("GetFormat Error: " + path);
             }
 
             return ITCDataFormat.Unknown;
         }
+
+        public static async void Read(NSUrl url) => Read(new NSUrl[] { url });
 
         public static async void Read(IEnumerable<NSUrl> urls)
         {
@@ -64,6 +73,7 @@ namespace DataReaders
                         AddData(dat);
 
                         NSDocumentController.SharedDocumentController.NoteNewRecentDocumentURL(url);
+                        AppSettings.LastDocumentUrl = url;
                     }
                 }
             }
@@ -94,7 +104,6 @@ namespace DataReaders
             }
             catch (Exception ex)
             {
-                Console.WriteLine("ReadFile Error: " + ex.StackTrace + " " + ex.Message);
                 AppEventHandler.DisplayHandledException(ex);
             }
 
@@ -315,7 +324,7 @@ namespace DataReaders
                 }
             }
 
-            LastAccessedPath = path;
+            CurrentAccessedAppDocumentPath = path;
 
             return data.ToArray();
         }

@@ -25,6 +25,8 @@ namespace AnalysisITC
             DataManager.SelectionDidChange += OnSelectionChanged;
             StateManager.UpdateStateDependentUI += StateManager_UpdateStateDependentUI;
             AppDelegate.StartPrintOperation += AppDelegate_StartPrintOperation;
+
+            ShowLoadDataPrompt();
         }
 
         public override void ViewDidAppear()
@@ -43,20 +45,27 @@ namespace AnalysisITC
 
         private void StateManager_UpdateStateDependentUI(object sender, EventArgs e)
         {
-            LoadDataPrompt.Hidden = DataManager.DataIsLoaded;
+            ShowLoadDataPrompt();
         }
 
         partial void LoadDataButtonClick(NSObject sender)
         {
-            LoadDataPrompt.Hidden = true;
+            //LoadDataPrompt.Hidden = true;
 
             AppDelegate.LaunchOpenFileDialog();
         }
 
-        partial void OpenFileButtonClick(NSObject sender)
+        partial void LoadLastFile(NSObject sender)
         {
-            LoadDataPrompt.Hidden = true;
+            DataReaders.DataReader.Read(AppSettings.LastDocumentUrl);
+
+            //LoadDataPrompt.Hidden = true;
         }
+
+        //partial void OpenFileButtonClick(NSObject sender)
+        //{
+        //    LoadDataPrompt.Hidden = true;
+        //}
 
         private void OnSelectionChanged(object sender, ExperimentData e) => UpdateGraph();
         private void OnDataChanged(object sender, ExperimentData e) => UpdateGraph();
@@ -82,6 +91,20 @@ namespace AnalysisITC
         partial void ContinueClick(NSObject sender)
         {
             
+        }
+
+        async void ShowLoadDataPrompt()
+        {
+            LoadLastButton.Enabled = false;
+
+            if (AppSettings.LastDocumentUrl != null)
+            {
+                var format = DataReaders.DataReader.GetFormat(AppSettings.LastDocumentUrl.Path);
+
+                if (format != DataReaders.ITCDataFormat.Unknown) LoadLastButton.Enabled = true;
+            }
+
+            LoadDataPrompt.Hidden = DataManager.DataIsLoaded;
         }
     }
 }

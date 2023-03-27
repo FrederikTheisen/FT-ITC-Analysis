@@ -36,6 +36,9 @@ namespace AnalysisITC
 		[Outlet]
 		AppKit.NSBox LoadDataPrompt { get; set; }
 
+		[Outlet]
+		AppKit.NSButton LoadLastButton { get; set; }
+
 		[Action ("ButtonClick:")]
 		partial void ButtonClick (AppKit.NSButton sender);
 
@@ -48,11 +51,19 @@ namespace AnalysisITC
 		[Action ("LoadDataButtonClick:")]
 		partial void LoadDataButtonClick (Foundation.NSObject sender);
 
+		[Action ("LoadLastFile:")]
+		partial void LoadLastFile (Foundation.NSObject sender);
+
 		[Action ("OpenFileButtonClick:")]
 		partial void OpenFileButtonClick (Foundation.NSObject sender);
 		
 		void ReleaseDesignerOutlets ()
 		{
+			if (LoadLastButton != null) {
+				LoadLastButton.Dispose ();
+				LoadLastButton = null;
+			}
+
 			if (ClearDataButton != null) {
 				ClearDataButton.Dispose ();
 				ClearDataButton = null;

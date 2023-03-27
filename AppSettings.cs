@@ -20,6 +20,8 @@ namespace AnalysisITC
         public static ColorShcemeGradientMode ColorShcemeGradientMode { get; set; } = ColorShcemeGradientMode.Smooth;
         public static ConcentrationUnit DefaultConcentrationUnit { get; set; } = ConcentrationUnit.µM;
 
+        public static NSUrl LastDocumentUrl { get; set; } = null;
+
         //Processing
         public static PeakFitAlgorithm PeakFitAlgorithm { get; set; } = PeakFitAlgorithm.Exponential;
 
@@ -34,6 +36,7 @@ namespace AnalysisITC
         
         public static double OptimizerTolerance { get; set; } = double.Epsilon;
         public static int MaximumOptimizerIterations { get; set; } = 300000;
+        public static bool EnableExtendedParameterLimits { get; set; } = false;
 
         //Final figure
         public static double[] FinalFigureDimensions { get; set; } = new double[2] { 6.5, 10.0 };
@@ -69,6 +72,8 @@ namespace AnalysisITC
             Storage.SetBool(ExportBaselineCorrectedData, "ExportBaselineCorrectedData");
             Storage.SetInt((int)DefaultConcentrationUnit, "DefaultConcentrationUnit");
             Storage.SetBool(InputAffinityAsDissociationConstant, "InputAffinityAsDissociationConstant");
+            Storage.SetURL(LastDocumentUrl, "LastDocumentUrl");
+            Storage.SetBool(EnableExtendedParameterLimits, "EnableExtendedParameterLimits");
 
             StoreArray(FinalFigureDimensions, "FinalFigureDimensions");
 
@@ -102,32 +107,57 @@ namespace AnalysisITC
                 return;
             }
             else Console.WriteLine("There are {0} settings stored in NSUserDefaults.", dict.Count);
-            
-            ReferenceTemperature = Storage.DoubleForKey("ReferenceTemperature");
-            EnergyUnit = (EnergyUnit)(int)Storage.IntForKey("EnergyUnit");
-            DefaultErrorEstimationMethod = (ErrorEstimationMethod)(int)Storage.IntForKey("DefaultErrorEstimationMethod");
-            DefaultBootstrapIterations = (int)Storage.IntForKey("DefaultBootstrapIterations");
-            MinimumTemperatureSpanForFitting = Storage.DoubleForKey("MinimumTemperatureSpanForFitting");
-            IncludeConcentrationErrorsInBootstrap = Storage.BoolForKey("IncludeConcentrationErrorsInBootstrap");
-            OptimizerTolerance = Storage.DoubleForKey("OptimizerTolerance");
-            MaximumOptimizerIterations = (int)Storage.IntForKey("MaximumOptimizerIterations");
-            if (MaximumOptimizerIterations == 0) MaximumOptimizerIterations = 300000;
-            ColorScheme = (ColorSchemes)(int)Storage.IntForKey("ColorScheme");
-            ColorShcemeGradientMode = (ColorShcemeGradientMode)(int)Storage.IntForKey("ColorShcemeGradientMode");
-            ConcentrationAutoVariance = Storage.DoubleForKey("ConcentrationAutoVariance");
-            UnifyTimeAxisForExport = Storage.BoolForKey("UnifyTimeAxisForExport");
-            ExportFitPointsWithPeaks = Storage.BoolForKey("ExportFitPointsWithPeaks");
-            ExportSelectionMode = (Exporter.ExportDataSelection)(int)Storage.IntForKey("ExportSelectionMode");
-            if (dict.ContainsKey(NSObject.FromObject("FinalFigureParameterDisplay")))
-                FinalFigureParameterDisplay = (FinalFigureDisplayParameters)(int)Storage.IntForKey("FinalFigureParameterDisplay");
-            if (dict.ContainsKey(NSObject.FromObject("ExportBaselineCorrectedData")))
-                ExportBaselineCorrectedData = Storage.BoolForKey("ExportBaselineCorrectedData");
-            if (dict.ContainsKey(NSObject.FromObject("DefaultConcentrationUnit")))
-                DefaultConcentrationUnit = (ConcentrationUnit)(int)Storage.IntForKey("DefaultConcentrationUnit");
-            if (dict.ContainsKey(NSObject.FromObject("InputAffinityAsDissociationConstant")))
-                InputAffinityAsDissociationConstant = Storage.BoolForKey("InputAffinityAsDissociationConstant");
+
+            ReferenceTemperature = GetDouble(dict, "ReferenceTemperature", ReferenceTemperature);
+            EnergyUnit = (EnergyUnit)GetInt(dict, "EnergyUnit", (int)EnergyUnit);
+            DefaultErrorEstimationMethod = (ErrorEstimationMethod)GetInt(dict, "DefaultErrorEstimationMethod", (int)DefaultErrorEstimationMethod);
+            DefaultBootstrapIterations = GetInt(dict, "DefaultBootstrapIterations", DefaultBootstrapIterations);
+            MinimumTemperatureSpanForFitting = GetDouble(dict, "MinimumTemperatureSpanForFitting", MinimumTemperatureSpanForFitting);
+            IncludeConcentrationErrorsInBootstrap = GetBool(dict, "IncludeConcentrationErrorsInBootstrap", IncludeConcentrationErrorsInBootstrap);
+            OptimizerTolerance = GetDouble(dict, "OptimizerTolerance", OptimizerTolerance);
+            MaximumOptimizerIterations = GetInt(dict, "MaximumOptimizerIterations", MaximumOptimizerIterations);
+            ColorScheme = (ColorSchemes)GetInt(dict, "ColorScheme", (int)ColorScheme);
+            ColorShcemeGradientMode = (ColorShcemeGradientMode)GetInt(dict, "ColorShcemeGradientMode", (int)ColorShcemeGradientMode);
+            ConcentrationAutoVariance = GetDouble(dict, "ConcentrationAutoVariance", ConcentrationAutoVariance);
+            UnifyTimeAxisForExport = GetBool(dict, "UnifyTimeAxisForExport", UnifyTimeAxisForExport);
+            ExportFitPointsWithPeaks = GetBool(dict, "ExportFitPointsWithPeaks", ExportFitPointsWithPeaks);
+            ExportSelectionMode = (Exporter.ExportDataSelection)GetInt(dict, "ExportSelectionMode", (int)ExportSelectionMode);
+            EnableExtendedParameterLimits = GetBool(dict, "EnableExtendedParameterLimits", EnableExtendedParameterLimits);
+            FinalFigureParameterDisplay = (FinalFigureDisplayParameters)GetInt(dict, "FinalFigureParameterDisplay", (int)FinalFigureParameterDisplay);
+            ExportBaselineCorrectedData = GetBool(dict, "ExportBaselineCorrectedData", ExportBaselineCorrectedData);
+            DefaultConcentrationUnit = (ConcentrationUnit)GetInt(dict, "DefaultConcentrationUnit", (int)DefaultConcentrationUnit);
+            InputAffinityAsDissociationConstant = GetBool(dict, "InputAffinityAsDissociationConstant", InputAffinityAsDissociationConstant);
+            LastDocumentUrl = GetUrl(dict, "LastDocumentUrl");
 
             ApplySettings();
+        }
+
+        static int GetInt(NSDictionary dict, string key, int def = 0)
+        {
+            if (dict.ContainsKey(NSObject.FromObject(key)))
+                return (int)Storage.IntForKey(key);
+            else return def;
+        }
+
+        static double GetDouble(NSDictionary dict, string key, double def = 0)
+        {
+            if (dict.ContainsKey(NSObject.FromObject(key)))
+                return (int)Storage.DoubleForKey(key);
+            else return def;
+        }
+
+        static bool GetBool(NSDictionary dict, string key, bool def = false)
+        {
+            if (dict.ContainsKey(NSObject.FromObject(key)))
+                return Storage.BoolForKey(key);
+            else return def;
+        }
+
+        private static NSUrl GetUrl(NSDictionary dict, string key)
+        {
+            if (dict.ContainsKey(NSObject.FromObject(key)))
+                return Storage.URLForKey(key);
+            else return null;
         }
 
         static double[] GetArray(string key)
