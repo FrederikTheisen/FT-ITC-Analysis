@@ -9,6 +9,8 @@ using System.Threading.Tasks;
 using System.Collections.Generic;
 using System.IO;
 using static AnalysisITC.AppClasses.Analysis2.SolutionInterface;
+using static AnalysisITC.Exporter;
+using System.Linq;
 
 namespace AnalysisITC
 {
@@ -158,9 +160,16 @@ namespace AnalysisITC
             return _graph;
         }
 
-        public static void Export(bool all)
+        public static void Export(ExportDataSelection selection)
         {
-            var datas = all ? DataManager.IncludedData : new ExperimentData[] { DataManager.Current };
+            IEnumerable<ExperimentData> datas;
+            switch (selection)
+            {
+                default:
+                case ExportDataSelection.SelectedData: datas = new ExperimentData[] { DataManager.Current }; break;
+                case ExportDataSelection.IncludedData: datas = DataManager.IncludedData; break;
+                case ExportDataSelection.AllData: datas = DataManager.Data.Where(d => d.Solution != null); break;
+            }
 
             var dlg = new NSOpenPanel();
             dlg.Title = "Save PDF File";
