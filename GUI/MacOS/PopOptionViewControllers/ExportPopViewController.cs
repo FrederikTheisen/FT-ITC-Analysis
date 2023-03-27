@@ -15,7 +15,7 @@ namespace AnalysisITC
 
         partial void Export(NSObject sender)
         {
-            FinalFigureGraphView.Export(ExportAllCheckBox.State == NSCellStateValue.On);
+            FinalFigureGraphView.Export((Exporter.ExportDataSelection)(int)ExportSelectionControl.SelectedSegment);
         }
     }
 }
