@@ -93,13 +93,16 @@ namespace AnalysisITC.GUI.MacOS.CustomViews
 
             ParameterOptionControl = new CustomDrawingSegmentedControl(new CGRect(0, 0, 0, 14))
             {
+                Cell = new CustomKdKaDrawingSegmentedCell(),
                 SegmentStyle = NSSegmentStyle.Capsule,
                 ControlSize = NSControlSize.Small,
-                SegmentDistribution = NSSegmentDistribution.Fit,
+                SegmentDistribution = NSSegmentDistribution.FillEqually,
                 SegmentCount = 2,
                 Font = NSFont.SystemFontOfSize(10),
                 Hidden = true,
             };
+            ParameterOptionControl.SetImageScaling(NSImageScaling.ProportionallyDown, 0);
+            ParameterOptionControl.SetImageScaling(NSImageScaling.ProportionallyDown, 1);
             ParameterOptionControl.Activated += ParameterOptionControl_Activated;
             ParameterOptionControl.SizeToFit();
             //ParameterOptionControl.SetWidth(0, 0);
@@ -176,7 +179,6 @@ namespace AnalysisITC.GUI.MacOS.CustomViews
 
         void CheckInput()
         {
-            //Input.TextColor = NSColor.SystemRed;
             Input.TextColor = NSColor.SystemRed;
             string input = InputString;
 
@@ -206,12 +208,10 @@ namespace AnalysisITC.GUI.MacOS.CustomViews
 
             if (par.Key.GetProperties().ParentType == ParameterTypes.Affinity1)
             {
-                Label.StringValue += " (" + AppSettings.DefaultConcentrationUnit.ToString() + ")";
-
                 ParameterOptionControl.Hidden = false;
                 ParameterOptionControl.SegmentCount = 2;
-                ParameterOptionControl.SetLabel("Ka", 0);
-                ParameterOptionControl.SetLabel("Kd", 1);
+                ParameterOptionControl.SetLabel("  ", 0);
+                ParameterOptionControl.SetLabel("  ", 1);
                 ParameterOptionControl.SizeToFit();
                 ParameterOptionControl.SelectedSegment = AppSettings.InputAffinityAsDissociationConstant ? 1 : 0;
             }
@@ -227,7 +227,12 @@ namespace AnalysisITC.GUI.MacOS.CustomViews
         {
             if (parameter.Key.GetProperties().ParentType == ParameterTypes.Affinity1)
             {
-                if (AppSettings.InputAffinityAsDissociationConstant) Input.PlaceholderString = (AppSettings.DefaultConcentrationUnit.GetProperties().Mod / (double)tmpvalue).ToString("####0.###");
+                Label.StringValue = parameter.Key.GetProperties().Description;
+                if (AppSettings.InputAffinityAsDissociationConstant)
+                {
+                    Label.StringValue += " (" + AppSettings.DefaultConcentrationUnit.ToString() + ")";
+                    Input.PlaceholderString = (AppSettings.DefaultConcentrationUnit.GetProperties().Mod / (double)tmpvalue).ToString("######0.###");
+                }
                 else Input.PlaceholderString = ((double)tmpvalue).ToString("G2");
             }
             else
