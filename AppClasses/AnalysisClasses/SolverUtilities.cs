@@ -41,7 +41,6 @@ namespace AnalysisITC
             Message = solver.Status.ToString();
             Time = DateTime.Now - solver.Convergence.StartTime;
             Loss = solver.Value;
-            Console.WriteLine(Loss.ToString() + " | " + loss);
 
             Failed = solver.Status == NelderMeadStatus.Failure;
         }
