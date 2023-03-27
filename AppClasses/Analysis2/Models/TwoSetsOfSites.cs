@@ -15,13 +15,13 @@ namespace AnalysisITC.AppClasses.Analysis2
 		{
             base.InitializeParameters(data);
 
-            Parameters.AddParameter(ParameterTypes.Nvalue1, this.GuessN(), limits: new double[] { 0.1, 10 });
-            Parameters.AddParameter(ParameterTypes.Enthalpy1, this.GuessEnthalpy() / 2, limits: new double[] { -500000, 500000 });
-            Parameters.AddParameter(ParameterTypes.Affinity1, this.GuessAffinity(), limits: new double[] { 10E-12, 0.1 });
-            Parameters.AddParameter(ParameterTypes.Nvalue2, this.GuessN(), limits: new double[] { 0.1, 10 });
-            Parameters.AddParameter(ParameterTypes.Enthalpy2, this.GuessEnthalpy() / 2, limits: new double[] { -500000, 500000 });
-            Parameters.AddParameter(ParameterTypes.Affinity2, this.GuessAffinity(), limits: new double[] { 10E-12, 0.1 });
-            Parameters.AddParameter(ParameterTypes.Offset, this.GuessOffset(), limits: new double[] { -500000, 500000 });
+            Parameters.AddParameter(ParameterTypes.Nvalue1, this.GuessN());
+            Parameters.AddParameter(ParameterTypes.Enthalpy1, this.GuessEnthalpy() / 2);
+            Parameters.AddParameter(ParameterTypes.Affinity1, this.GuessAffinity());
+            Parameters.AddParameter(ParameterTypes.Nvalue2, this.GuessN());
+            Parameters.AddParameter(ParameterTypes.Enthalpy2, this.GuessEnthalpy() / 2);
+            Parameters.AddParameter(ParameterTypes.Affinity2, this.GuessAffinity());
+            Parameters.AddParameter(ParameterTypes.Offset, this.GuessOffset());
         }
 
         public override Model GenerateSyntheticModel()
@@ -30,7 +30,7 @@ namespace AnalysisITC.AppClasses.Analysis2
 
             foreach (var par in Parameters.Table)
             {
-                mdl.Parameters.AddParameter(par.Key, par.Value.Value, par.Value.IsLocked, par.Value.Limits, par.Value.StepSize);
+                mdl.Parameters.AddParameter(par.Key, par.Value.Value, par.Value.IsLocked);
             }
 
             return mdl;

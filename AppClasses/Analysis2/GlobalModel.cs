@@ -129,7 +129,14 @@ namespace AnalysisITC.AppClasses.Analysis2
             foreach (var mdl in Model.Models)
             {
                 mdl.Solution = SolutionInterface.FromModel(mdl, Model.Parameters.GetParametersForModel(Model, mdl).ToArray(), new(convergence));
-				mdl.Solution.Convergence.SetLoss(mdl.LossFunction(mdl.Parameters.ToArray()));
+
+				var loss = mdl.Loss();
+				var lossf = mdl.LossFunction(mdl.Parameters.ToArray());
+
+				//HACK
+				Console.WriteLine(loss + "|" + lossf);
+
+                mdl.Solution.Convergence.SetLoss(mdl.LossFunction(mdl.Parameters.ToArray()));
                 mdl.Solution.IsGlobalAnalysisSolution = true;
             }
 

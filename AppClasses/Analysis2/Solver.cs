@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Linq;
 using Accord.Math.Optimization;
-//using static CoreFoundation.DispatchSource;
 using System.Threading.Tasks;
 using System.Collections.Concurrent;
 using System.Collections.Generic;

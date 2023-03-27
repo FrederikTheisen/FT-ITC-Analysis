@@ -101,7 +101,7 @@ namespace AnalysisITC.AppClasses.Analysis2
 
             foreach (var par in Parameters.Table)
 			{
-                mdl.Parameters.AddParameter(par.Key, par.Value.Value, par.Value.IsLocked, par.Value.Limits, par.Value.StepSize);
+                mdl.Parameters.AddParameter(par.Key, par.Value.Value, par.Value.IsLocked);
             }
 
 			return mdl;
@@ -165,17 +165,6 @@ namespace AnalysisITC.AppClasses.Analysis2
         public virtual List<Tuple<ParameterTypes, Func<SolutionInterface, FloatWithError>>> DependenciesToReport => new List<Tuple<ParameterTypes, Func<SolutionInterface, FloatWithError>>>();
         public virtual Dictionary<ParameterTypes, FloatWithError> ReportParameters => new Dictionary<ParameterTypes, FloatWithError>();
 
-  //      public virtual List<Tuple<string,string>> UISolutionParameters(SolutionInfo info)
-		//{
-  //          var output = new List<Tuple<string, string>>();
-
-  //          string mdl = SolutionName;
-
-		//	output.Add(new(mdl, Loss.ToString("G3")));
-
-		//	return output;
-  //      }
-
         public virtual List<Tuple<string, string>> UISolutionParameters(FinalFigureDisplayParameters info)
         {
             var output = new List<Tuple<string, string>>();
@@ -203,13 +192,6 @@ namespace AnalysisITC.AppClasses.Analysis2
         public virtual string GetClipboardString(double magnitude, EnergyUnit eunit)
         {
             return null;
-        }
-
-        public enum SolutionInfo
-        {
-            TableSummaryLines = 0,
-            FinalFigure = 1,
-            Analysis = 2
         }
 
         [Flags]

@@ -19,7 +19,7 @@ namespace AnalysisITC.AppClasses.Analysis2.Models
             Parameters.AddParameter(ParameterTypes.Affinity2, this.GuessAffinity());
             Parameters.AddParameter(ParameterTypes.Offset, this.GuessOffset());
             Parameters.AddParameter(ParameterTypes.IsomerizationEquilibriumConstant, 0.42, islocked: true);
-            Parameters.AddParameter(ParameterTypes.IsomerizationRate, this.GuessOffset(), islocked: true);
+            Parameters.AddParameter(ParameterTypes.IsomerizationRate, 0.001, islocked: true);
 
             ModelOptions = new System.Collections.Generic.Dictionary<string, bool>
             {
@@ -55,15 +55,12 @@ namespace AnalysisITC.AppClasses.Analysis2.Models
                 else
                 {
 
-
-                    var dt = Data.Injections[inj.ID - 1].Delay;
-
                     return new double[2];
                 }
             }
             else
             {
-
+                
             }
 
             return null;
@@ -94,8 +91,8 @@ namespace AnalysisITC.AppClasses.Analysis2.Models
             return top / bottom;
         }
 
-        double GetFractionCisActivator(double Kd_cis, double Kd_trans, double conc_binding, double conc_cis, double conc_trans) => GetFractionLigandBound(Kd_cis, Kd_trans, conc_binding, conc_cis, conc_trans);
-        double GetFractionTransInhibitor(double Kd_cis, double Kd_trans, double conc_binding, double conc_cis, double conc_trans) => GetFractionLigandBound(Kd_trans, Kd_cis, conc_binding, conc_trans, conc_cis);
+        double GetFractionCisBound(double Kd_cis, double Kd_trans, double conc_binding, double conc_cis, double conc_trans) => GetFractionLigandBound(Kd_cis, Kd_trans, conc_binding, conc_cis, conc_trans);
+        double GetFractionTransTrans(double Kd_cis, double Kd_trans, double conc_binding, double conc_cis, double conc_trans) => GetFractionLigandBound(Kd_trans, Kd_cis, conc_binding, conc_trans, conc_cis);
 
         double GetDeltaHeat(int i, double n, double H, double K)
         {
@@ -126,7 +123,7 @@ namespace AnalysisITC.AppClasses.Analysis2.Models
 
             foreach (var par in Parameters.Table)
             {
-                mdl.Parameters.AddParameter(par.Key, par.Value.Value, par.Value.IsLocked, par.Value.Limits, par.Value.StepSize);
+                mdl.Parameters.AddParameter(par.Key, par.Value.Value, par.Value.IsLocked);
             }
 
             return mdl;

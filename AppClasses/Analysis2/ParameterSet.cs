@@ -15,19 +15,43 @@ namespace AnalysisITC.AppClasses.Analysis2
         public double StepSize { get; private set; }
         public bool Changed { get; set; } = true;
 
-        public Parameter(ParameterTypes key, double value, bool islocked = false, double[] limits = null, double stepsize = double.NaN)
+        public Parameter(ParameterTypes key, double value, bool islocked = false)
         {
             Key = key;
             Value = value;
             IsLocked = islocked;
-            if (limits == null) Limits = key.GetProperties().DefaultLimits;
-            else Limits = limits;
 
-            if (double.IsNaN(stepsize)) StepSize = key.GetProperties().DefaultStepSize;
-            else StepSize = stepsize;
+            Limits = key.GetProperties().DefaultLimits;
+            if (AppSettings.EnableExtendedParameterLimits)
+            {
+                if (Limits[0] > 0) //Lower value cannot be negative
+                {
+                    Limits[0] *= 0.1;
+                    Limits[1] *= 10;
+                }
+                else //Lower value can be negative or is zero
+                {
+                    Limits[0] *= 10;
+                    Limits[1] *= 10;
+                }
+            }
 
-            if (StepSize == 0) throw new Exception("Parameter initialized with stepsize = 0");
+            StepSize = key.GetProperties().DefaultStepSize;
         }
+
+        //public Parameter(ParameterTypes key, double value, bool islocked = false, double[] limits = null, double stepsize = double.NaN)
+        //{
+        //    Key = key;
+        //    Value = value;
+        //    IsLocked = islocked;
+        //    if (limits == null) Limits = key.GetProperties().DefaultLimits;
+        //    else Limits = limits;
+
+        //    if (double.IsNaN(stepsize)) StepSize = key.GetProperties().DefaultStepSize;
+        //    else StepSize = stepsize;
+
+        //    if (StepSize == 0) throw new Exception("Parameter initialized with stepsize = 0");
+        //}
 
         /// <summary>
         /// Set the parameter value from the global parameters and tells the model that the parameter should not be fitted
@@ -81,9 +105,9 @@ namespace AnalysisITC.AppClasses.Analysis2
             ExperimentTemperature = data.MeasuredTemperatureKelvin;
         }
 
-        public void AddParameter(ParameterTypes key, double value, bool islocked = false, double[] limits = null, double stepsize = double.NaN)
+        public void AddParameter(ParameterTypes key, double value, bool islocked = false)
         {
-            Table.Add(key, new Parameter(key, value, islocked, limits, stepsize));
+            Table.Add(key, new Parameter(key, value, islocked));
         }
 
         public void UpdateFromArray(double[] parameters)
@@ -148,8 +172,8 @@ namespace AnalysisITC.AppClasses.Analysis2
 
         public void AddorUpdateGlobalParameter(ParameterTypes key, double value, bool islocked = false, double[] limits = null)
         {
-            if (GlobalTable.Keys.Contains(key)) GlobalTable[key] = new Parameter(key, value, islocked, limits);           
-            else GlobalTable.Add(key, new Parameter(key, value, islocked, limits));
+            if (GlobalTable.Keys.Contains(key)) GlobalTable[key] = new Parameter(key, value, islocked);           
+            else GlobalTable.Add(key, new Parameter(key, value, islocked));
         }
 
         public void AddIndivdualParameter(ModelParameters parameters)

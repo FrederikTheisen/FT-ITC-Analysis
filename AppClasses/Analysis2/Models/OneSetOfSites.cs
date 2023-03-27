@@ -55,7 +55,7 @@ namespace AnalysisITC.AppClasses.Analysis2
 
 			foreach (var par in Parameters.Table)
 			{
-				mdl.Parameters.AddParameter(par.Key, par.Value.Value, par.Value.IsLocked, par.Value.Limits, par.Value.StepSize);
+				mdl.Parameters.AddParameter(par.Key, par.Value.Value, par.Value.IsLocked);
 			}
 
 			return mdl;
