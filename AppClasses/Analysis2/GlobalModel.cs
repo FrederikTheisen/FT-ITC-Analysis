@@ -57,8 +57,8 @@ namespace AnalysisITC.AppClasses.Analysis2
 
 			foreach (var model in Models)
 			{
-				var loss = model.LossFunction(Parameters.GetParametersForModel(this, model).ToArray());
-				totalloss += loss * loss;
+				var loss = model.LossFunction(Parameters.GetParametersForModel(this, model).ToArray()); //Loss Function = RMSD
+				totalloss += loss * loss; //Unclear if correct loss function
 			}
 
 			return Math.Sqrt(totalloss);
@@ -129,16 +129,12 @@ namespace AnalysisITC.AppClasses.Analysis2
             foreach (var mdl in Model.Models)
             {
                 mdl.Solution = SolutionInterface.FromModel(mdl, Model.Parameters.GetParametersForModel(Model, mdl).ToArray(), new(convergence));
-
-				var loss = mdl.Loss();
-				var lossf = mdl.LossFunction(mdl.Parameters.ToArray());
-
-				//HACK
-				Console.WriteLine(loss + "|" + lossf);
-
-                mdl.Solution.Convergence.SetLoss(mdl.LossFunction(mdl.Parameters.ToArray()));
+                mdl.Solution.Convergence.SetLoss(mdl.Loss());
                 mdl.Solution.IsGlobalAnalysisSolution = true;
             }
+
+			//HACK possibly due to inappropriate loss function
+			Convergence.SetLoss(Solutions.Sum(sol => sol.Convergence.Loss));
 
             var dependencies = Solutions[0].DependenciesToReport;
 

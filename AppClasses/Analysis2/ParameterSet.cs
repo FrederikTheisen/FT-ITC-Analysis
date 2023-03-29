@@ -393,7 +393,7 @@ namespace AnalysisITC.AppClasses.Analysis2
 
     public enum ParameterTypes
     {
-        [ParameterTypesAttribute("N-value", 0.25, new double[] { 0.1, 10 }, ParameterTypes.Nvalue1)]
+        [ParameterTypesAttribute("N-value", 0.05, new double[] { 0.1, 10 }, ParameterTypes.Nvalue1)]
         Nvalue1,
         [ParameterTypesAttribute("N-value 2", ParameterTypes.Nvalue1)]
         Nvalue2,

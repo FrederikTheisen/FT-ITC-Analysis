@@ -407,7 +407,7 @@ namespace AnalysisITC.AppClasses.Analysis2
 
             solver.Minimize(Model.Parameters.ToArray());
 
-            Model.Solution = new GlobalSolution(this, new SolverConvergence(solver, Model.LossFunction(Model.Parameters.ToArray())));
+            Model.Solution = new GlobalSolution(this, new SolverConvergence(solver, Model.Loss()));
 
             return Model.Solution.Convergence;
         }

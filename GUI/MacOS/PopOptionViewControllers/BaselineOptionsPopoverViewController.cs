@@ -10,6 +10,7 @@ namespace AnalysisITC
 	public partial class BaselineOptionsPopoverViewController : NSViewController
 	{
 		ExperimentData Data => DataManager.Current;
+        static int DefaultSplinePoints = 2;
 
         public static event EventHandler Updated;
 
@@ -20,6 +21,8 @@ namespace AnalysisITC
         public override void ViewDidAppear()
         {
             base.ViewDidAppear();
+
+            SplinePointsSlider.IntValue = DefaultSplinePoints;
 
             if (Data.Processor.Interpolator != null)
             {
@@ -44,6 +47,8 @@ namespace AnalysisITC
 
         partial void SplineAction(NSObject sender)
         {
+            DefaultSplinePoints = SplinePointsSlider.IntValue;
+
             Data.Processor.Interpolator.ConvertToSpline(SplinePointsSlider.IntValue);
 
             DismissViewController(this);
