@@ -45,6 +45,14 @@ namespace AnalysisITC
             return attribute;
         }
 
+        public static AnalysisModelAttribute GetProperties(this AnalysisModel value)
+        {
+            var fieldInfo = value.GetType().GetField(value.ToString());
+            var attribute = fieldInfo.GetCustomAttributes(typeof(AnalysisModelAttribute), false).FirstOrDefault() as AnalysisModelAttribute;
+
+            return attribute;
+        }
+
         public static EnergyUnitAttribute GetProperties(this EnergyUnit value)
         {
             var fieldInfo = value.GetType().GetField(value.ToString());

@@ -310,8 +310,6 @@
     <Compile Include="AppSettings.cs" />
     <Compile Include="AppClasses\AnalysisClasses\SolverUtilities.cs" />
     <Compile Include="AppClasses\Analysis2\ModelFactory.cs" />
-    <Compile Include="AppClasses\Analysis2\ParameterSet.cs" />
-    <Compile Include="AppClasses\Analysis2\Models.cs" />
     <Compile Include="AppClasses\Analysis2\Solver.cs" />
     <Compile Include="AppClasses\Analysis2\GlobalModel.cs" />
     <Compile Include="GUI\MacOS\CustomViews\ParameterValueAdjustmentView.cs" />
@@ -391,6 +389,13 @@
     </Compile>
     <Compile Include="Utils\ConcentrationUnit.cs" />
     <Compile Include="GUI\MacOS\CustomViews\CustomDrawingSegmentedControl.cs" />
+    <Compile Include="ModelSelectionViewController.cs" />
+    <Compile Include="ModelSelectionViewController.designer.cs">
+      <DependentUpon>ModelSelectionViewController.cs</DependentUpon>
+    </Compile>
+    <Compile Include="AppClasses\Analysis2\Models\AnalysisModel.cs" />
+    <Compile Include="AppClasses\AnalysisClasses\ParameterSet.cs" />
+    <Compile Include="AppClasses\Analysis2\Models\Models.cs" />
   </ItemGroup>
   <ItemGroup>
     <InterfaceDefinition Include="Main.storyboard" />
