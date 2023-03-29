@@ -57,7 +57,7 @@ namespace AnalysisITC.AppClasses.Analysis2
 			}
 			catch (Exception ex)
 			{
-				AppEventHandler.DisplayHandledException(ex);
+				AppEventHandler.PrintAndLog(ex.Message);
 
 				return null;
 			}
@@ -141,7 +141,7 @@ namespace AnalysisITC.AppClasses.Analysis2
             switch (ModelType)
 			{
 				case AnalysisModel.OneSetOfSites: Model = new OneSetOfSites(data); break;
-				case AnalysisModel.TwoSetsOfSites: Model = new TwoSetsOfSites(data); break;
+				case AnalysisModel.TwoSetsOfSites:
 				case AnalysisModel.SequentialBindingSites:
 				case AnalysisModel.Dissociation:
 				default: throw new NotImplementedException();
