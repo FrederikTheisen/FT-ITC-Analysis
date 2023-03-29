@@ -10,19 +10,43 @@ using System.Linq;
 
 namespace AnalysisITC
 {
-	public partial class DataAnalysisViewController : NSViewController
-	{
+    public partial class DataAnalysisViewController : NSViewController
+    {
+        private static AnalysisModel selectedAnalysisModel = AnalysisModel.OneSetOfSites;
+        public static event EventHandler ModelChanged;
         public static event EventHandler Invalidate;
         public static void InvalidateGraph() => Invalidate.Invoke(null, null);
 
-        AnalysisModel SelectedAnalysisModel => (AnalysisModel)(int)ModelTypeControl.SelectedSegment;
+        public static AnalysisModel SelectedAnalysisModel
+        {
+            get => selectedAnalysisModel;
+            set
+            {
+                selectedAnalysisModel = value;
+
+                ModelChanged?.Invoke(value, null);
+            }
+        }
+        AnalysisModel ModelFromSegmentedControl
+        {
+            get
+            {
+                switch (ModelTypeControl.SelectedSegment)
+                {
+                    default:
+                    case 0: return AnalysisModel.OneSetOfSites;
+                    case 1: return AnalysisModel.TwoSetsOfSites;
+                    case 2: return AnalysisModel.CompetitiveBinding;
+                }
+            }
+        }//=> (AnalysisModel)(int)ModelTypeControl.SelectedSegment;
 
         bool ShowPeakInfo => PeakInfoScopeButton.State == NSCellStateValue.On;
         bool ShowParameters => ParametersScopeButton.State == NSCellStateValue.On;
         bool SameAxes => AxesScopeButton.State == NSCellStateValue.On;
 
-        public DataAnalysisViewController (IntPtr handle) : base (handle)
-		{
+        public DataAnalysisViewController(IntPtr handle) : base(handle)
+        {
             
         }
 
@@ -41,10 +65,23 @@ namespace AnalysisITC
             SolverInterface.SolverUpdated += SolverInterface_SolverUpdated;
             AppDelegate.StartPrintOperation += AppDelegate_StartPrintOperation;
             AnalysisITCDataSource.SourceWasSorted += AnalysisITCDataSource_SourceWasSorted;
+            DataAnalysisViewController.ModelChanged += DataAnalysisViewController_ModelChanged;
 
             GlobalAffinityStyle.Hidden = true;
             GlobalEnthalpyStyle.Hidden = true;
             GlobalNView.Hidden = true;
+        }
+
+        private void DataAnalysisViewController_ModelChanged(object sender, EventArgs e)
+        {
+            for (int i = 0; i < ModelTypeControl.SegmentCount; i++) ModelTypeControl.SetSelected(false, i);
+
+            switch (SelectedAnalysisModel)
+            {
+                case AnalysisModel.OneSetOfSites: ModelTypeControl.SetSelected(true, 0); break;
+                case AnalysisModel.TwoSetsOfSites: ModelTypeControl.SetSelected(true, 1); break;
+                case AnalysisModel.CompetitiveBinding: ModelTypeControl.SetSelected(true, 2); break;
+            }
         }
 
         private void Analysis_AnalysisIterationFinished(object sender, EventArgs e) => GraphView.Invalidate();
@@ -148,7 +185,13 @@ namespace AnalysisITC
         }
 
         partial void AnalysisModeClicked(NSSegmentedControl sender) => InitializeFactory();
-        partial void AnalysisModelClicked(NSSegmentedControl sender) => InitializeFactory();
+        partial void AnalysisModelClicked(NSSegmentedControl sender)
+        {
+            SelectedAnalysisModel = ModelFromSegmentedControl;
+
+            InitializeFactory();
+        }
+
         void InitializeFactory()
         {
             if (!DataManager.DataIsLoaded) ModelFactory.Factory = null; //don't even try
