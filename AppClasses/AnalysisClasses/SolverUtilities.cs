@@ -164,14 +164,6 @@ namespace AnalysisITC
         }
     }
 
-    public enum AnalysisModel
-    {
-        OneSetOfSites,
-        TwoSetsOfSites,
-        SequentialBindingSites,
-        Dissociation
-    }
-
     [Description]
     public enum VariableConstraint
     {
