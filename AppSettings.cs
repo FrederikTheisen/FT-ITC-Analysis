@@ -124,6 +124,7 @@ namespace AnalysisITC
             ExportSelectionMode = (Exporter.ExportDataSelection)GetInt(dict, "ExportSelectionMode", (int)ExportSelectionMode);
             EnableExtendedParameterLimits = GetBool(dict, "EnableExtendedParameterLimits", EnableExtendedParameterLimits);
             FinalFigureParameterDisplay = (FinalFigureDisplayParameters)GetInt(dict, "FinalFigureParameterDisplay", (int)FinalFigureParameterDisplay);
+            FinalFigureDimensions = GetArray(dict, "FinalFigureDimensions", FinalFigureDimensions);
             ExportBaselineCorrectedData = GetBool(dict, "ExportBaselineCorrectedData", ExportBaselineCorrectedData);
             DefaultConcentrationUnit = (ConcentrationUnit)GetInt(dict, "DefaultConcentrationUnit", (int)DefaultConcentrationUnit);
             InputAffinityAsDissociationConstant = GetBool(dict, "InputAffinityAsDissociationConstant", InputAffinityAsDissociationConstant);
@@ -142,7 +143,7 @@ namespace AnalysisITC
         static double GetDouble(NSDictionary dict, string key, double def = 0)
         {
             if (dict.ContainsKey(NSObject.FromObject(key)))
-                return (int)Storage.DoubleForKey(key);
+                return Storage.DoubleForKey(key);
             else return def;
         }
 
@@ -160,13 +161,19 @@ namespace AnalysisITC
             else return null;
         }
 
-        static double[] GetArray(string key)
+        static double[] GetArray(NSDictionary dict, string key, double[] def = null)
         {
-            var obj = Storage.ValueForKey(new NSString(key));
+            if (!dict.ContainsKey(NSObject.FromObject(key))) return def;
 
             var arr = Storage.ArrayForKey(key);
+            var doubleArray = new double[arr.Count()];
 
-            return arr.Select(v => (double)NSNumber.FromObject(v)).ToArray();
+            for (int i = 0; i < arr.Count(); i++)
+            {
+                doubleArray[i] = ((NSNumber)arr.GetValue(i)).DoubleValue;
+            }
+
+            return doubleArray;
         }
 
         public static void ApplySettings()
