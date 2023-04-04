@@ -193,6 +193,8 @@
     <None Include="AppClasses\Depreceated\Analysis.cs" />
     <None Include="AppClasses\Depreceated\SolverParameters.cs" />
     <None Include="AppClasses\Depreceated\SolverOptions.cs" />
+    <None Include="GUI\MacOS\GraphViews\ExperimentDesignerGraphView.cs" />
+    <None Include="ExperimentDesignerViewController.cs" />
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Main.cs" />
@@ -396,6 +398,21 @@
     <Compile Include="AppClasses\Analysis2\Models\AnalysisModel.cs" />
     <Compile Include="AppClasses\AnalysisClasses\ParameterSet.cs" />
     <Compile Include="AppClasses\Analysis2\Models\Models.cs" />
+    <Compile Include="AppClasses\AnalysisClasses\ModelOptions.cs" />
+    <Compile Include="AppClasses\Analysis2\Models\CompetitiveBinding.cs" />
+    <Compile Include="ExperimentDesignerViewController.designer.cs">
+      <DependentUpon>ExperimentDesignerViewController.cs</DependentUpon>
+    </Compile>
+    <Compile Include="AppClasses\ITCInstrument.cs" />
+    <Compile Include="AppClasses\ITCDataFormat.cs" />
+    <Compile Include="ExperimentDesignerViewController2.cs" />
+    <Compile Include="ExperimentDesignerViewController2.designer.cs">
+      <DependentUpon>ExperimentDesignerViewController2.cs</DependentUpon>
+    </Compile>
+    <Compile Include="ExperimentDesignerGraphView.cs" />
+    <Compile Include="ExperimentDesignerGraphView.designer.cs">
+      <DependentUpon>ExperimentDesignerGraphView.cs</DependentUpon>
+    </Compile>
   </ItemGroup>
   <ItemGroup>
     <InterfaceDefinition Include="Main.storyboard" />
