@@ -3,7 +3,7 @@ using AnalysisITC.AppClasses.Analysis2;
 using Foundation;
 using System.Linq;
 using AnalysisITC.GUI;
-using static AnalysisITC.AppClasses.Analysis2.SolutionInterface;
+using static AnalysisITC.AppClasses.Analysis2.Models.SolutionInterface;
 
 namespace AnalysisITC
 {

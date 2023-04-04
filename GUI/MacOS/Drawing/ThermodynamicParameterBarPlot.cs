@@ -5,6 +5,7 @@ using AnalysisITC.AppClasses.Analysis2;
 using System.Linq;
 using CoreGraphics;
 using AnalysisITC.GUI.MacOS;
+using AnalysisITC.AppClasses.Analysis2.Models;
 
 namespace AnalysisITC
 {
@@ -16,7 +17,7 @@ namespace AnalysisITC
         GraphAxis DissociationConstantAxis { get; set; }
         double Mag { get; set; }
 
-        List<ParameterTypes> ParameterFilter { get; set; } = new List<ParameterTypes>() { ParameterTypes.Affinity1, ParameterTypes.Nvalue1 };
+        List<ParameterTypes> ParameterFilter { get; set; } = new List<ParameterTypes>() { ParameterTypes.Affinity1, ParameterTypes.Enthalpy2, ParameterTypes.Nvalue1, ParameterTypes.Nvalue2 };
 
         List<ParameterTypes> Parameters => Result.Solution.IndividualModelReportParameters.Where(p => !ParameterFilter.Contains(p)).Select(p => p).ToList();
         int DataCount => Result.Solution.Solutions.Count;

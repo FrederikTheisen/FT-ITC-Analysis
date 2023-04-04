@@ -8,9 +8,9 @@ using CoreGraphics;
 using System.Threading.Tasks;
 using System.Collections.Generic;
 using System.IO;
-using static AnalysisITC.AppClasses.Analysis2.SolutionInterface;
 using static AnalysisITC.Exporter;
 using System.Linq;
+using static AnalysisITC.AppClasses.Analysis2.Models.SolutionInterface;
 
 namespace AnalysisITC
 {

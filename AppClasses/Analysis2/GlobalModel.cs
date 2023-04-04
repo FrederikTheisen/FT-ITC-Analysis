@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using Accord.Math;
-using Microsoft.SolverFoundation.Services;
+using AnalysisITC.AppClasses.Analysis2.Models;
 
 namespace AnalysisITC.AppClasses.Analysis2
 {

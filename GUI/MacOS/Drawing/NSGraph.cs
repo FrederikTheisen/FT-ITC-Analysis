@@ -41,7 +41,7 @@ namespace AnalysisITC
             UpdateTrackingArea();
         }
 
-        public void UpdateTrackingArea()
+        public virtual void UpdateTrackingArea()
         {
             RemoveTrackingArea(trackingArea);
 
@@ -82,7 +82,7 @@ namespace AnalysisITC
 
         public override void DrawRect(CGRect dirtyRect)
         {
-            if (StateManager.CurrentState != State) return;
+            if (StateManager.CurrentState != State && State != ProgramState.AlwaysActive) return;
 
             var cg = NSGraphicsContext.CurrentContext.CGContext;
 

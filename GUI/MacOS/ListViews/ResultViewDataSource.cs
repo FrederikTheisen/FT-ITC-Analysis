@@ -4,6 +4,7 @@ using System;
 using System.Collections.Generic;
 using AppKit;
 using AnalysisITC.AppClasses.Analysis2;
+using AnalysisITC.AppClasses.Analysis2.Models;
 
 namespace AnalysisITC
 {

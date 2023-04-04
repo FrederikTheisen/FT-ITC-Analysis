@@ -66,6 +66,7 @@ namespace AnalysisITC.GUI.MacOS.CustomViews
             }
         }
         public bool Locked => Lock.State == NSCellStateValue.On;
+        public bool EnableLock { get; set; } = true;
 
         public ParameterValueAdjustmentView(IntPtr handle) : base(handle)
         {
@@ -194,7 +195,7 @@ namespace AnalysisITC.GUI.MacOS.CustomViews
             }
         }
 
-        public override CGSize IntrinsicContentSize => new CGSize(75, 14);
+        public override CGSize IntrinsicContentSize => new CGSize(Frame.Width, 14);
 
         public void Setup(Parameter par)
         {
@@ -202,6 +203,7 @@ namespace AnalysisITC.GUI.MacOS.CustomViews
 
             Label.StringValue = par.Key.GetProperties().Description;
             Lock.State = par.IsLocked ? NSCellStateValue.On : NSCellStateValue.Off;
+            if (!EnableLock) Lock.Hidden = true;
 
             if (tmpvalue == null)
                 tmpvalue = par.Value;

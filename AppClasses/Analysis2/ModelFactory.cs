@@ -2,7 +2,9 @@
 using System.Collections.Generic;
 using System.Linq;
 using Accord.Math.Distances;
-using Microsoft.SolverFoundation.Services;
+using AnalysisITC.AppClasses.Analysis2.Models;
+using AnalysisITC.AppClasses.AnalysisClasses;
+//using Microsoft.SolverFoundation.Services;
 using static CoreFoundation.DispatchSource;
 
 namespace AnalysisITC.AppClasses.Analysis2
@@ -78,7 +80,7 @@ namespace AnalysisITC.AppClasses.Analysis2
             throw new NotImplementedException("ModelFactory.SetCustomParameter()");
         }
 
-		public virtual Dictionary<string,bool> GetExposedModelOptions()
+		public virtual Dictionary<string, ModelOption> GetExposedModelOptions()
 		{
 			throw new NotImplementedException("ModelFactory.GetOptions()");
 		}
@@ -141,7 +143,8 @@ namespace AnalysisITC.AppClasses.Analysis2
             switch (ModelType)
 			{
 				case AnalysisModel.OneSetOfSites: Model = new OneSetOfSites(data); break;
-				case AnalysisModel.TwoSetsOfSites:
+				case AnalysisModel.CompetitiveBinding: Model = new CompetitiveBinding(data); break;
+                case AnalysisModel.TwoSetsOfSites:
 				case AnalysisModel.SequentialBindingSites:
 				case AnalysisModel.Dissociation:
 				default: throw new NotImplementedException();
@@ -161,7 +164,7 @@ namespace AnalysisITC.AppClasses.Analysis2
             Model.Parameters.Table[key].Update(value, locked);
         }
 
-        public override Dictionary<string, bool> GetExposedModelOptions()
+        public override Dictionary<string, ModelOption> GetExposedModelOptions()
         {
 			return Model.ModelOptions;
         }
@@ -346,7 +349,7 @@ namespace AnalysisITC.AppClasses.Analysis2
 			return Parameters;
         }
 
-        public override Dictionary<string, bool> GetExposedModelOptions()
+        public override Dictionary<string, ModelOption> GetExposedModelOptions()
         {
             return Model.Models.First().ModelOptions;
         }

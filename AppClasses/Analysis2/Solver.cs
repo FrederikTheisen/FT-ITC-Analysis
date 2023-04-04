@@ -10,6 +10,7 @@ using Accord.Math;
 using static alglib;
 using Accord.IO;
 using static AnalysisITC.Extensions;
+using AnalysisITC.AppClasses.Analysis2.Models;
 
 namespace AnalysisITC.AppClasses.Analysis2
 {
@@ -35,7 +36,7 @@ namespace AnalysisITC.AppClasses.Analysis2
         public static event EventHandler<SolverUpdate> SolverUpdated;
 
         public SolverAlgorithm SolverAlgorithm { get; set; } = SolverAlgorithm.NelderMead;
-        public int MaxOptimizerItegrations { get; private set; } = AppSettings.MaximumOptimizerIterations;
+        public int MaxOptimizerIterations { get; private set; } = AppSettings.MaximumOptimizerIterations;
         public ErrorEstimationMethod ErrorEstimationMethod { get; set; } = ErrorEstimationMethod.None;
         public int BootstrapIterations { get; set; } = 100;
         public double SolverFunctionTolerance { get; set; } = AppSettings.OptimizerTolerance;
@@ -249,7 +250,7 @@ namespace AnalysisITC.AppClasses.Analysis2
 
             solver.Convergence = new Accord.Math.Convergence.GeneralConvergence(Model.NumberOfParameters)
             {
-                MaximumEvaluations = MaxOptimizerItegrations,
+                MaximumEvaluations = MaxOptimizerIterations,
                 AbsoluteFunctionTolerance = SolverFunctionTolerance,
                 RelativeParameterTolerance = RelativeParameterTolerance,
                 StartTime = DateTime.Now,
@@ -276,7 +277,7 @@ namespace AnalysisITC.AppClasses.Analysis2
 
             LMOptimizerState = minlmstate;
 
-            alglib.minlmsetcond(LMOptimizerState, LevenbergMarquardtEpsilon, MaxOptimizerItegrations);
+            alglib.minlmsetcond(LMOptimizerState, LevenbergMarquardtEpsilon, MaxOptimizerIterations);
             alglib.minlmsetscale(LMOptimizerState, Model.Parameters.Table.Values.Where(p => !p.IsLocked).Select(p => p.StepSize).ToArray());
             alglib.minlmsetbc(LMOptimizerState, limits.Select(p => p[0]).ToArray(), limits.Select(p => p[1]).ToArray());
             alglib.minlmoptimize(LMOptimizerState, (double[] x, double[] fi, object obj) => { fi[0] = Model.LossFunction(x); }, null, null);
@@ -395,7 +396,7 @@ namespace AnalysisITC.AppClasses.Analysis2
 
             solver.Convergence = new Accord.Math.Convergence.GeneralConvergence(Model.NumberOfParameters)
             {
-                MaximumEvaluations = MaxOptimizerItegrations,
+                MaximumEvaluations = MaxOptimizerIterations,
                 AbsoluteFunctionTolerance = SolverFunctionTolerance,
                 //RelativeParameterTolerance = RelativeParameterTolerance,
                 StartTime = DateTime.Now,
@@ -421,7 +422,7 @@ namespace AnalysisITC.AppClasses.Analysis2
             var parameters = Model.Parameters.GetParameters();
 
             alglib.minlmcreatev(varcount, guess, LevenbergMarquardtDifferentiationStepSize, out minlmstate LMOptimizerState);
-            alglib.minlmsetcond(LMOptimizerState, LevenbergMarquardtEpsilon, MaxOptimizerItegrations);
+            alglib.minlmsetcond(LMOptimizerState, LevenbergMarquardtEpsilon, MaxOptimizerIterations);
             alglib.minlmsetscale(LMOptimizerState, parameters.Select(p => p.StepSize).ToArray());
             alglib.minlmsetbc(LMOptimizerState, limits.Select(p => p[0]).ToArray(), limits.Select(p => p[1]).ToArray());
             alglib.minlmoptimize(LMOptimizerState, (double[] parameters, double[] fi, object obj) => { fi[0] = Model.LossFunction(parameters); }, null, null);
