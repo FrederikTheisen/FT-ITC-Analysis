@@ -193,8 +193,6 @@
     <None Include="AppClasses\Depreceated\Analysis.cs" />
     <None Include="AppClasses\Depreceated\SolverParameters.cs" />
     <None Include="AppClasses\Depreceated\SolverOptions.cs" />
-    <None Include="GUI\MacOS\GraphViews\ExperimentDesignerGraphView.cs" />
-    <None Include="ExperimentDesignerViewController.cs" />
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Main.cs" />
@@ -309,7 +307,6 @@
       <DependentUpon>TabControllerView.cs</DependentUpon>
     </Compile>
     <Compile Include="AppClasses\Math\ErrorPropagation.cs" />
-    <Compile Include="AppSettings.cs" />
     <Compile Include="AppClasses\AnalysisClasses\SolverUtilities.cs" />
     <Compile Include="AppClasses\Analysis2\ModelFactory.cs" />
     <Compile Include="AppClasses\Analysis2\Solver.cs" />
@@ -381,37 +378,35 @@
     <Compile Include="GUI\MacOS\PopOptionViewControllers\AboutAppViewController.designer.cs">
       <DependentUpon>AboutAppViewController.cs</DependentUpon>
     </Compile>
-    <Compile Include="ExportAccessoryViewController.cs" />
-    <Compile Include="ExportAccessoryViewController.designer.cs">
-      <DependentUpon>ExportAccessoryViewController.cs</DependentUpon>
-    </Compile>
-    <Compile Include="ExportAccessoryView.cs" />
-    <Compile Include="ExportAccessoryView.designer.cs">
-      <DependentUpon>ExportAccessoryView.cs</DependentUpon>
-    </Compile>
     <Compile Include="Utils\ConcentrationUnit.cs" />
     <Compile Include="GUI\MacOS\CustomViews\CustomDrawingSegmentedControl.cs" />
-    <Compile Include="ModelSelectionViewController.cs" />
-    <Compile Include="ModelSelectionViewController.designer.cs">
-      <DependentUpon>ModelSelectionViewController.cs</DependentUpon>
-    </Compile>
     <Compile Include="AppClasses\Analysis2\Models\AnalysisModel.cs" />
     <Compile Include="AppClasses\AnalysisClasses\ParameterSet.cs" />
     <Compile Include="AppClasses\Analysis2\Models\Models.cs" />
     <Compile Include="AppClasses\AnalysisClasses\ModelOptions.cs" />
     <Compile Include="AppClasses\Analysis2\Models\CompetitiveBinding.cs" />
-    <Compile Include="ExperimentDesignerViewController.designer.cs">
-      <DependentUpon>ExperimentDesignerViewController.cs</DependentUpon>
-    </Compile>
     <Compile Include="AppClasses\ITCInstrument.cs" />
     <Compile Include="AppClasses\ITCDataFormat.cs" />
-    <Compile Include="ExperimentDesignerViewController2.cs" />
-    <Compile Include="ExperimentDesignerViewController2.designer.cs">
+    <Compile Include="GUI\MacOS\GraphViews\ExperimentDesignerGraphView.cs" />
+    <Compile Include="GUI\MacOS\GraphViews\ExperimentDesignerGraphView.designer.cs">
+      <DependentUpon>ExperimentDesignerGraphView.cs</DependentUpon>
+    </Compile>
+    <Compile Include="GUI\MacOS\ViewControllers\ExperimentDesignerViewController2.cs" />
+    <Compile Include="GUI\MacOS\ViewControllers\ExperimentDesignerViewController2.designer.cs">
       <DependentUpon>ExperimentDesignerViewController2.cs</DependentUpon>
     </Compile>
-    <Compile Include="ExperimentDesignerGraphView.cs" />
-    <Compile Include="ExperimentDesignerGraphView.designer.cs">
-      <DependentUpon>ExperimentDesignerGraphView.cs</DependentUpon>
+    <Compile Include="Properties\AppSettings.cs" />
+    <Compile Include="GUI\MacOS\ViewControllers\ModelSelectionViewController.cs" />
+    <Compile Include="GUI\MacOS\ViewControllers\ModelSelectionViewController.designer.cs">
+      <DependentUpon>ModelSelectionViewController.cs</DependentUpon>
+    </Compile>
+    <Compile Include="GUI\MacOS\CustomViews\ExportAccessoryView.cs" />
+    <Compile Include="GUI\MacOS\CustomViews\ExportAccessoryView.designer.cs">
+      <DependentUpon>ExportAccessoryView.cs</DependentUpon>
+    </Compile>
+    <Compile Include="GUI\MacOS\ExportAccessoryViewController.cs" />
+    <Compile Include="GUI\MacOS\ExportAccessoryViewController.designer.cs">
+      <DependentUpon>ExportAccessoryViewController.cs</DependentUpon>
     </Compile>
   </ItemGroup>
   <ItemGroup>
