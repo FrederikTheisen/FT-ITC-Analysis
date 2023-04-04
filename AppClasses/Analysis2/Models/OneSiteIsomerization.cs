@@ -1,4 +1,6 @@
 ﻿using System;
+using AnalysisITC.AppClasses.AnalysisClasses;
+
 namespace AnalysisITC.AppClasses.Analysis2.Models
 {
 	public class OneSiteIsomerization : Model
@@ -21,10 +23,7 @@ namespace AnalysisITC.AppClasses.Analysis2.Models
             Parameters.AddParameter(ParameterTypes.IsomerizationEquilibriumConstant, 0.42, islocked: true);
             Parameters.AddParameter(ParameterTypes.IsomerizationRate, 0.001, islocked: true);
 
-            ModelOptions = new System.Collections.Generic.Dictionary<string, bool>
-            {
-                { PeptideInCellOption, false }
-            };
+            ModelOptions.Add(PeptideInCellOption, ModelOption.Bool(PeptideInCellOption, true));
         }
 
         public override double Evaluate(int injectionindex, bool withoffset = true)
@@ -35,7 +34,7 @@ namespace AnalysisITC.AppClasses.Analysis2.Models
 
         double[] GetIsomerConcentration(InjectionData inj)
         {
-            if (ModelOptions[PeptideInCellOption])
+            if (ModelOptions[PeptideInCellOption].BoolValue)
             {
 
 
@@ -121,10 +120,7 @@ namespace AnalysisITC.AppClasses.Analysis2.Models
         {
             Model mdl = new OneSetOfSites(Data.GetSynthClone(ModelCloneOptions));
 
-            foreach (var par in Parameters.Table)
-            {
-                mdl.Parameters.AddParameter(par.Key, par.Value.Value, par.Value.IsLocked);
-            }
+            SetSynthModelParameters(mdl);
 
             return mdl;
         }

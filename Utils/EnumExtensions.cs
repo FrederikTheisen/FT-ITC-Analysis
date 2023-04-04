@@ -7,6 +7,7 @@ using AnalysisITC;
 using CoreGraphics;
 using DataReaders;
 using AnalysisITC.AppClasses.Analysis2;
+using AnalysisITC.AppClasses.Analysis2.Models;
 
 namespace AnalysisITC
 {
@@ -61,10 +62,10 @@ namespace AnalysisITC
             return attribute;
         }
 
-        public static ITCFormatAttribute GetProperties(this ITCInstrument value)
+        public static ITCInstrumentAttribute GetProperties(this ITCInstrument value)
         {
             var fieldInfo = value.GetType().GetField(value.ToString());
-            var attribute = fieldInfo.GetCustomAttributes(typeof(ITCFormatAttribute), false).FirstOrDefault() as ITCFormatAttribute;
+            var attribute = fieldInfo.GetCustomAttributes(typeof(ITCInstrumentAttribute), false).FirstOrDefault() as ITCInstrumentAttribute;
 
             return attribute;
         }

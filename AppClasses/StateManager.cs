@@ -144,6 +144,7 @@ namespace AnalysisITC
         Analyze = 2,
         Publish = 3,
         AnalysisView = 4,
+        AlwaysActive = 5,
     }
 
     public enum UndoTask

@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 
-namespace AnalysisITC.AppClasses.Analysis2
+namespace AnalysisITC.AppClasses.Analysis2.Models
 {
     public class TwoSetsOfSites : Model
 	{

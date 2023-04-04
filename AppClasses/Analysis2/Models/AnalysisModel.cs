@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 
-namespace AnalysisITC
+namespace AnalysisITC.AppClasses.Analysis2.Models
 {
     public class AnalysisModelAttribute : Attribute
     {
@@ -22,7 +22,7 @@ namespace AnalysisITC
                 AnalysisModel.TwoSetsOfSites,
                 AnalysisModel.CompetitiveBinding,
                 AnalysisModel.Dissociation,
-                AnalysisModel.SequentialBindingSites,
+                //AnalysisModel.SequentialBindingSites,
                 AnalysisModel.PeptideProlineIsomerization,
             };
         }
@@ -30,17 +30,17 @@ namespace AnalysisITC
 
     public enum AnalysisModel
     {
-        [AnalysisModel("One Set of Sites")]
+        [AnalysisModel("One Set of Sites", "Standard model to fit 1 or more identical binding sites that do not influence each other")]
         OneSetOfSites,
-        [AnalysisModel("Two Sets of Sites")]
+        [AnalysisModel("Two Sets of Sites", "")]
         TwoSetsOfSites,
         [AnalysisModel("Sequential Binding Sites")]
         SequentialBindingSites,
-        [AnalysisModel("Dissociation")]
+        [AnalysisModel("Dissociation", "Fit dissociation of an injected preformed complex")]
         Dissociation,
-        [AnalysisModel("Competitive Binding")]
+        [AnalysisModel("Competitive Binding", "Fit competition experiment where the cell contains a preformed complex and a higher affinity interaction partner is titrated in")]
         CompetitiveBinding,
-        [AnalysisModel("Proline Isomer Binding")]
+        [AnalysisModel("Proline Isomer Binding", "Fit interactions affected by proline cis/trans isomerization")]
         PeptideProlineIsomerization
     }
 }

@@ -7,6 +7,7 @@ using AnalysisITC.AppClasses.Analysis2;
 //using JavaScriptCore;
 //using System.Security.Cryptography;
 using System.Linq;
+using AnalysisITC.AppClasses.Analysis2.Models;
 
 namespace AnalysisITC
 {

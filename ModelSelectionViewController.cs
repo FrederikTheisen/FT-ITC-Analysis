@@ -5,6 +5,7 @@ using System;
 using Foundation;
 using AppKit;
 using CoreGraphics;
+using AnalysisITC.AppClasses.Analysis2.Models;
 
 namespace AnalysisITC
 {

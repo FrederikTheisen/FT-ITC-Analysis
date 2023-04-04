@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using AnalysisITC.AppClasses.Analysis2;
+using AnalysisITC.AppClasses.Analysis2.Models;
 using DataReaders;
 using Utilities;
 

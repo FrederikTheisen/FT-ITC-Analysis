@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 
-namespace AnalysisITC.AppClasses.Analysis2
+namespace AnalysisITC.AppClasses.Analysis2.Models
 {
     public class OneSetOfSites : Model
 	{
@@ -53,12 +53,9 @@ namespace AnalysisITC.AppClasses.Analysis2
         {
 			Model mdl = new OneSetOfSites(Data.GetSynthClone(ModelCloneOptions));
 
-			foreach (var par in Parameters.Table)
-			{
-				mdl.Parameters.AddParameter(par.Key, par.Value.Value, par.Value.IsLocked);
-			}
+            SetSynthModelParameters(mdl);
 
-			return mdl;
+            return mdl;
         }
 
         public class ModelSolution : SolutionInterface

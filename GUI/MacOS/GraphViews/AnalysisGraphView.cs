@@ -54,7 +54,7 @@ namespace AnalysisITC
         public override void Invalidate()
         {
             if (Graph == null) return;
-            if (StateManager.CurrentState != ProgramState.Analyze) return;
+            if (StateManager.CurrentState != State && State != ProgramState.AlwaysActive) return;
 
             base.Invalidate();
         }

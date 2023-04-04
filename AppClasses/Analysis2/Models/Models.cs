@@ -2,9 +2,10 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Security.Cryptography;
+using AnalysisITC.AppClasses.AnalysisClasses;
 using Microsoft.SolverFoundation.Services;
 
-namespace AnalysisITC.AppClasses.Analysis2
+namespace AnalysisITC.AppClasses.Analysis2.Models
 {
     public class Model
     {
@@ -12,7 +13,7 @@ namespace AnalysisITC.AppClasses.Analysis2
 		public AnalysisModel ModelType { get; set; } = AnalysisModel.OneSetOfSites;
 		public ModelParameters Parameters { get; set; }
         public ModelCloneOptions ModelCloneOptions { get; set; }
-        public Dictionary<string,bool> ModelOptions { get; set; }
+        public Dictionary<string, ModelOption> ModelOptions { get; set; } = new Dictionary<string, ModelOption>();
 
         public SolutionInterface Solution { get; set; }
 
@@ -75,14 +76,15 @@ namespace AnalysisITC.AppClasses.Analysis2
 
 		public double LossFunction(double[] parameters)
 		{
-            if (SolverInterface.NelderMeadToken != null && SolverInterface.NelderMeadToken.IsCancellationRequested) throw new OptimizerStopException(); //Only way to cancel the NM algorithm seems to be from the loss function
+            //Only way to cancel the Simplex algorithm seems to be from the loss function
+            if (SolverInterface.NelderMeadToken != null && SolverInterface.NelderMeadToken.IsCancellationRequested) throw new OptimizerStopException(); 
 
             Parameters.UpdateFromArray(parameters);
 
 			return Loss();
 		}
 
-		public double Loss()
+		public virtual double Loss()
 		{
 			double loss = 0;
 
@@ -99,12 +101,22 @@ namespace AnalysisITC.AppClasses.Analysis2
         {
             var mdl = new Model(Data.GetSynthClone(ModelCloneOptions));
 
+            SetSynthModelParameters(mdl);
+
+            return mdl;
+        }
+
+        internal void SetSynthModelParameters(Model mdl)
+        {
             foreach (var par in Parameters.Table)
-			{
+            {
                 mdl.Parameters.AddParameter(par.Key, par.Value.Value, par.Value.IsLocked);
             }
 
-			return mdl;
+            foreach (var opt in ModelOptions)
+            {
+                mdl.ModelOptions.Add(opt.Key, opt.Value);
+            }
         }
     }
 
