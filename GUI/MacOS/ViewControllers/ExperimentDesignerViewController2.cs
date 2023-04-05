@@ -15,6 +15,8 @@ namespace AnalysisITC
 {
 	public partial class ExperimentDesignerViewController2 : NSViewController
 	{
+        public static bool AutoRunExperimentSimulation { get; set; } = true;
+
         private ITCInstrument Instrument { get; set; } = ITCInstrument.MicroCalITC200;
         private ExperimentData Data { get; set; }
         private AnalysisModel Model { get; set; } = AnalysisModel.OneSetOfSites;
@@ -77,6 +79,22 @@ namespace AnalysisITC
             InjectionCountField.Changed += InjectionCountField_Changed;
             InjectionCountStepper.Activated += InjectionCountStepper_Activated;
             ModelControl.Enabled = false;
+
+            SolverInterface.AnalysisStarted += SolverInterface_AnalysisStarted;
+            SolverInterface.AnalysisFinished += SolverInterface_AnalysisFinished;
+        }
+
+        private void SolverInterface_AnalysisFinished(object sender, SolverConvergence e) => ApplyModelButton.Enabled = true;
+        private void SolverInterface_AnalysisStarted(object sender, TerminationFlag e) => ApplyModelButton.Enabled = false;
+
+        partial void SyringeCellAction(NSObject sender)
+        {
+            SetupExperiment();
+        }
+
+        partial void SimulateNoiseControlAction(NSObject sender)
+        {
+            SetupExperiment();
         }
 
         private void InjectionCountStepper_Activated(object sender, EventArgs e)
@@ -127,7 +145,7 @@ namespace AnalysisITC
             Data.CellConcentration = CellConcentration;
             Data.SyringeConcentration = SyringeConcentration;
 
-            int injcount = Math.Max(InjectionCountField.IntValue, 1);
+            int injcount = Math.Max(InjectionCountField.IntValue, 2);
 
             double volume = UseSmallFirstInjection ?
                 (Instrument.GetProperties().StandardSyringeVolume - SmallInjectionVolume) / (injcount - 1) :
@@ -149,6 +167,8 @@ namespace AnalysisITC
             SetInjectionDescription();
 
             ModelControl.Enabled = true;
+
+            SetupModel();
         }
 
         private void SetInjectionDescription()
@@ -211,14 +231,12 @@ namespace AnalysisITC
 
                 ModelOptionsStackView.AddArrangedSubview(sv);
             }
+
+            if (AutoRunExperimentSimulation) ApplyModelSettings(null);
         }
 
         partial void ApplyModelSettings(NSButton sender)
         {
-            sender.Enabled = false;
-
-            if (Data.Model == null) SetupModel();
-
             if (Factory == null) return;
 
             foreach (var sv in ParameterOptionControls)
@@ -234,22 +252,22 @@ namespace AnalysisITC
             {
                 var injmass = inj.ID == 0 && UseSmallFirstInjection ? inj.InjectionMass * 0.8 : inj.InjectionMass;
                 var dH = Data.Model.EvaluateEnthalpy(inj.ID);
-                var heat = injmass * new FloatWithError(dH, 2000 / (Math.Sqrt(inj.InjectionMass * Math.Pow(10, 11)))).Sample();
+                var noise = SimulateNoiseControl.State == NSCellStateValue.On ?
+                    2000 / (Math.Sqrt(inj.InjectionMass * Math.Pow(10, 11))) :
+                    0;
+                var heat = injmass * new FloatWithError(dH, noise).Sample();
                 inj.SetPeakArea(new(heat));
             }
 
-            //TODO Fit data based on heats with some error
+            SimGraphView.Initialize(Data);
+
             var solver = Solver.Initialize(Factory);
-            solver.SolverFunctionTolerance = 1.0E-20;
+            solver.SolverFunctionTolerance = 1.0E-50;
             solver.ErrorEstimationMethod = ErrorEstimationMethod.BootstrapResiduals;
-            solver.BootstrapIterations = 30;
+            solver.BootstrapIterations = 50;
             (solver as Solver).Model.ModelCloneOptions.IncludeConcentrationErrorsInBootstrap = true;
 
             solver.Analyze();
-
-            SimGraphView.Initialize(Data);
-
-            sender.Enabled = true;
         }
     }
 }
