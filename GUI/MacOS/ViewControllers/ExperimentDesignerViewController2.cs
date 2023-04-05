@@ -223,7 +223,7 @@ namespace AnalysisITC
 
             foreach (var sv in ParameterOptionControls)
             {
-                Factory.SetCustomParameter(sv.Key, sv.Value, true);
+                Factory.SetCustomParameter(sv.Key, sv.Value, false);
             }
 
             Factory.BuildModel();
@@ -234,11 +234,18 @@ namespace AnalysisITC
             {
                 var injmass = inj.ID == 0 && UseSmallFirstInjection ? inj.InjectionMass * 0.8 : inj.InjectionMass;
                 var dH = Data.Model.EvaluateEnthalpy(inj.ID);
-                var heat = injmass * new FloatWithError(dH, 2000 / Math.Sqrt(inj.InjectionMass * Math.Pow(10, 10))).Sample();
+                var heat = injmass * new FloatWithError(dH, 2000 / (Math.Sqrt(inj.InjectionMass * Math.Pow(10, 11)))).Sample();
                 inj.SetPeakArea(new(heat));
             }
 
             //TODO Fit data based on heats with some error
+            var solver = Solver.Initialize(Factory);
+            solver.SolverFunctionTolerance = 1.0E-20;
+            solver.ErrorEstimationMethod = ErrorEstimationMethod.BootstrapResiduals;
+            solver.BootstrapIterations = 30;
+            (solver as Solver).Model.ModelCloneOptions.IncludeConcentrationErrorsInBootstrap = true;
+
+            solver.Analyze();
 
             SimGraphView.Initialize(Data);
 
