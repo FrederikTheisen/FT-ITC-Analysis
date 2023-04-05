@@ -351,8 +351,8 @@ namespace AnalysisITC
     {
         public ExperimentData ExperimentData;
 
-        internal static CTFont DefaultFont = new CTFont("Helvetica Neue Light", 12);
-        internal static nfloat DefaultFontHeight => DefaultFont.CapHeightMetric + 5;
+        public CTFont DefaultFont = new CTFont("Helvetica Neue Light", 12);
+        internal nfloat DefaultFontHeight => DefaultFont.CapHeightMetric + 5;
         internal static CGColor HighlightColor => NSColor.Label.ColorWithAlphaComponent(0.2f).CGColor;
         internal static CGColor ActivatedHighlightColor => NSColor.Label.ColorWithAlphaComponent(0.35f).CGColor;
         public static float SymbolSize { get; set; } = 8;
@@ -812,7 +812,7 @@ namespace AnalysisITC
 
             var position = ExperimentData.AverageHeatDirection == PeakHeatDirection.Endothermal ? NSRectAlignment.TopTrailing : NSRectAlignment.BottomTrailing;
 
-            DrawTextBox(gc, lines, DrawOnWhite ? new CTFont(DefaultFont.DisplayName, 12) : new CTFont(DefaultFont.DisplayName, 24), NSRectAlignment.BottomTrailing);
+            DrawTextBox(gc, lines, DrawOnWhite ? new CTFont(DefaultFont.DisplayName, 12) : DefaultFont, NSRectAlignment.BottomTrailing);
         }
     }
 
@@ -1043,6 +1043,8 @@ namespace AnalysisITC
         public bool DrawConfidenceBands { get; set; } = true;
         public bool ShowFitParameters { get; set; } = true;
         public FinalFigureDisplayParameters FinalFigureDisplayParameters { get; set; } = FinalFigureDisplayParameters.All;
+        public FinalFigureDisplayParameters AnalysisDisplayParameters { get; set; } = FinalFigureDisplayParameters.AnalysisView;
+        public int ParameterFontSize { get; set; } = 24;
         public bool ShowGrid { get; set; } = true;
         public bool ShowZero { get; set; } = true;
         public bool HideBadData { get; set; } = false;
@@ -1305,14 +1307,14 @@ namespace AnalysisITC
 
             var lines = new List<string>();
 
-            foreach (var par in ExperimentData.Solution.UISolutionParameters(DrawOnWhite ? FinalFigureDisplayParameters : FinalFigureDisplayParameters.AnalysisView))
+            foreach (var par in ExperimentData.Solution.UISolutionParameters(DrawOnWhite ? FinalFigureDisplayParameters : AnalysisDisplayParameters))
             {
                 lines.Add(par.Item1 + " = " + par.Item2);
             }
 
             var position = ExperimentData.Solution.TotalEnthalpy > 0 ? NSRectAlignment.TopTrailing : NSRectAlignment.BottomTrailing;
 
-            DrawTextBox(gc, lines, DrawOnWhite ? new CTFont(DefaultFont.DisplayName, 12) : new CTFont(DefaultFont.DisplayName, 24), position);
+            DrawTextBox(gc, lines, DrawOnWhite ? new CTFont(DefaultFont.DisplayName, 12) : new CTFont(DefaultFont.DisplayName, ParameterFontSize), position);
         }
 
         void DrawConfidenceInterval(CGContext gc)

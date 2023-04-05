@@ -4,6 +4,7 @@ using System;
 
 using Foundation;
 using AppKit;
+using CoreText;
 
 namespace AnalysisITC
 {
@@ -21,40 +22,17 @@ namespace AnalysisITC
 
         }
 
-        public override void ViewDidEndLiveResize()
-        {
-            base.ViewDidEndLiveResize();
-        }
-
-        public override void MouseDown(NSEvent theEvent)
-        {
-
-        }
-
-        public override void MouseMoved(NSEvent theEvent)
-        {
-
-        }
-
-        public override void MouseDragged(NSEvent theEvent)
-        {
-
-        }
-
-        public override void MouseExited(NSEvent theEvent)
-        {
-
-        }
-
         public override void Invalidate()
         {
             if (Graph == null) return;
             if (StateManager.CurrentState != State && State != ProgramState.AlwaysActive) return;
 
             DataFittingGraph.ShowPeakInfo = true;
-            DataFittingGraph.ShowFitParameters = false;
+            DataFittingGraph.ShowFitParameters = true;
             DataFittingGraph.UseMolarRatioAxis = false;
             DataFittingGraph.UseUnifiedEnthalpyAxis = false;
+            DataFittingGraph.ParameterFontSize = 12;
+            DataFittingGraph.AnalysisDisplayParameters = AppClasses.Analysis2.Models.SolutionInterface.FinalFigureDisplayParameters.Fitted;
 
             base.Invalidate();
         }
@@ -66,11 +44,12 @@ namespace AnalysisITC
 
         public void Initialize(ExperimentData experiment)
         {
-            Console.WriteLine("init Exp designer graph");
+            experiment.SolutionChanged -= Experiment_SolutionChanged;
 
             if (experiment != null)
             {
                 Graph = new DataFittingGraph(experiment, this);
+                experiment.SolutionChanged += Experiment_SolutionChanged;
             }
             else Graph = null;
 
@@ -79,7 +58,7 @@ namespace AnalysisITC
 
         private void Experiment_SolutionChanged(object sender, EventArgs e)
         {
-            Invalidate();
+            InvokeOnMainThread(() => Invalidate());
         }
     }
 }
