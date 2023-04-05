@@ -5,7 +5,7 @@ using AnalysisITC.AppClasses.AnalysisClasses;
 
 namespace AnalysisITC.AppClasses.Analysis2.Models
 {
-	public class CompetitiveBinding : Model
+	public class CompetitiveBinding : OneSetOfSites
 	{
         public override AnalysisModel ModelType => AnalysisModel.CompetitiveBinding;
 
@@ -21,45 +21,40 @@ namespace AnalysisITC.AppClasses.Analysis2.Models
         {
             base.InitializeParameters(data);
 
-            Parameters.AddParameter(ParameterTypes.Nvalue1, this.GuessN());
-            Parameters.AddParameter(ParameterTypes.Enthalpy1, this.GuessEnthalpy());
-            Parameters.AddParameter(ParameterTypes.Affinity1, this.GuessAffinity());
-            Parameters.AddParameter(ParameterTypes.Offset, this.GuessOffset());
-
             ModelOptions.Add(WeakLigandConc, ModelOption.Double("Prebound ligand conc.", 10e-6));
             ModelOptions.Add(WeakLigandEnthalpy, ModelOption.Parameter("Prebound ligand ∆H", ParameterTypes.Enthalpy1, new FloatWithError(-40000, 0)));
             ModelOptions.Add(WeakLigandAffinity, ModelOption.Parameter("Prebound ligand affinity.", ParameterTypes.Affinity1, new(1e-6, 0)));
         }
 
-        public override double Evaluate(int injectionindex, bool withoffset = true)
-        {
-            if (withoffset) return GetDeltaHeat(injectionindex, Parameters.Table[ParameterTypes.Nvalue1].Value, Parameters.Table[ParameterTypes.Enthalpy1].Value, Parameters.Table[ParameterTypes.Affinity1].Value) + Parameters.Table[ParameterTypes.Offset].Value * Data.Injections[injectionindex].InjectionMass;
-            else return GetDeltaHeat(injectionindex, Parameters.Table[ParameterTypes.Nvalue1].Value, Parameters.Table[ParameterTypes.Enthalpy1].Value, Parameters.Table[ParameterTypes.Affinity1].Value);
-        }
+        //public override double Evaluate(int injectionindex, bool withoffset = true)
+        //{
+        //    if (withoffset) return GetDeltaHeat(injectionindex, Parameters.Table[ParameterTypes.Nvalue1].Value, Parameters.Table[ParameterTypes.Enthalpy1].Value, Parameters.Table[ParameterTypes.Affinity1].Value) + Parameters.Table[ParameterTypes.Offset].Value * Data.Injections[injectionindex].InjectionMass;
+        //    else return GetDeltaHeat(injectionindex, Parameters.Table[ParameterTypes.Nvalue1].Value, Parameters.Table[ParameterTypes.Enthalpy1].Value, Parameters.Table[ParameterTypes.Affinity1].Value);
+        //}
 
 
-        double GetDeltaHeat(int i, double n, double H, double K)
-        {
-            var inj = Data.Injections[i];
-            var Qi = GetHeatContent(inj, n, H, K);
-            var Q_i = i == 0 ? 0.0 : GetHeatContent(Data.Injections[i - 1], n, H, K);
+        //double GetDeltaHeat(int i, double n, double H, double K)
+        //{
+        //    var inj = Data.Injections[i];
+        //    var Qi = GetHeatContent(inj, n, H, K);
+        //    var Q_i = i == 0 ? 0.0 : GetHeatContent(Data.Injections[i - 1], n, H, K);
 
-            var dQi = Qi + (inj.Volume / Data.CellVolume) * ((Qi + Q_i) / 2.0) - Q_i;
+        //    var dQi = Qi + (inj.Volume / Data.CellVolume) * ((Qi + Q_i) / 2.0) - Q_i;
 
-            return dQi;
-        }
+        //    return dQi;
+        //}
 
-        double GetHeatContent(InjectionData inj, double n, double H, double K)
-        {
-            var ncell = n * inj.ActualCellConcentration;
-            var first = (ncell * H * Data.CellVolume) / 2.0;
-            var XnM = inj.ActualTitrantConcentration / ncell;
-            var nKM = 1.0 / (K * ncell);
-            var square = (1.0 + XnM + nKM);
-            var root = (square * square) - 4.0 * XnM;
+        //double GetHeatContent(InjectionData inj, double n, double H, double K)
+        //{
+        //    var ncell = n * inj.ActualCellConcentration;
+        //    var first = (ncell * H * Data.CellVolume) / 2.0;
+        //    var XnM = inj.ActualTitrantConcentration / ncell;
+        //    var nKM = 1.0 / (K * ncell);
+        //    var square = (1.0 + XnM + nKM);
+        //    var root = (square * square) - 4.0 * XnM;
 
-            return first * (1 + XnM + nKM - Math.Sqrt(root));
-        }
+        //    return first * (1 + XnM + nKM - Math.Sqrt(root));
+        //}
 
         public override Model GenerateSyntheticModel()
         {
@@ -70,7 +65,7 @@ namespace AnalysisITC.AppClasses.Analysis2.Models
             return mdl;
         }
 
-        public class ModelSolution : SolutionInterface
+        new public class ModelSolution : SolutionInterface
         {
             Dictionary<string, ModelOption> opt => Model.ModelOptions;
 
