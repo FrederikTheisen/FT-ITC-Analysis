@@ -232,20 +232,15 @@ namespace AnalysisITC
 
             foreach (var inj in Data.Injections)
             {
-                //var injmass = new FloatWithError(inj.InjectionMass, inj.InjectionMass * 0.05).Sample();
-
-                var injmass = inj.ID == 0 && UseSmallFirstInjection ? inj.InjectionMass * 0.9 : inj.InjectionMass;
+                var injmass = inj.ID == 0 && UseSmallFirstInjection ? inj.InjectionMass * 0.8 : inj.InjectionMass;
                 var dH = Data.Model.EvaluateEnthalpy(inj.ID);
-                var heat = new FloatWithError(dH * injmass, Math.Sqrt(Math.Abs(dH)) * Data.SyringeConcentration * Instrument.GetProperties().StandardSyringeVolume / 10).Sample();
+                var heat = injmass * new FloatWithError(dH, 2000 / Math.Sqrt(inj.InjectionMass * Math.Pow(10, 10))).Sample();
                 inj.SetPeakArea(new(heat));
             }
 
             //TODO Fit data based on heats with some error
 
-
-
             SimGraphView.Initialize(Data);
-            //AnalysisGraphView.Invalidate();
 
             sender.Enabled = true;
         }
