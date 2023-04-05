@@ -13,8 +13,6 @@ namespace AnalysisITC.AppClasses.Analysis2.Models
         private const string WeakLigandAffinity = "WeakLigandAffinity";
         private const string WeakLigandEnthalpy = "WeakLigandEnthalpy";
 
-        private double ApparentAssociationConstant { get; set; } = 0;
-
 		public CompetitiveBinding(ExperimentData data) : base(data)
         {
         }
