@@ -162,9 +162,11 @@ namespace AnalysisITC.AppClasses.Analysis2.Models
 			{
 				case AnalysisModel.OneSetOfSites: solution = new OneSetOfSites.ModelSolution(model, parameters); break;
 				case AnalysisModel.TwoSetsOfSites: solution = new TwoSetsOfSites.ModelSolution(model, parameters); break;
+                case AnalysisModel.CompetitiveBinding: solution = new CompetitiveBinding.ModelSolution(model, parameters); break;
+                case AnalysisModel.PeptideProlineIsomerization: solution = new OneSiteIsomerization.ModelSolution(model, parameters); break;
                 case AnalysisModel.SequentialBindingSites:
 				case AnalysisModel.Dissociation:
-				default: throw new Exception("Model type not found");
+				default: throw new Exception("Model Solution not implemented");
 			}
 
             solution.Convergence = convergence;

@@ -1,10 +1,11 @@
 ﻿using System;
+using System.Collections.Generic;
 using AnalysisITC.AppClasses.AnalysisClasses;
 
 namespace AnalysisITC.AppClasses.Analysis2.Models
 {
-	public class OneSiteIsomerization : Model
-	{
+    public class OneSiteIsomerization : Model
+    {
         public override AnalysisModel ModelType => AnalysisModel.PeptideProlineIsomerization;
 
         const string PeptideInCellOption = "Petide in cell";
@@ -61,7 +62,7 @@ namespace AnalysisITC.AppClasses.Analysis2.Models
             }
             else
             {
-                
+
             }
 
             return null;
@@ -125,6 +126,15 @@ namespace AnalysisITC.AppClasses.Analysis2.Models
             SetSynthModelParameters(mdl);
 
             return mdl;
+        }
+
+        public class ModelSolution : SolutionInterface
+        {
+            public ModelSolution(Model model, double[] parameters)
+            {
+                Model = model;
+                BootstrapSolutions = new List<SolutionInterface>();
+            }
         }
     }
 }
