@@ -5,6 +5,8 @@ namespace AnalysisITC.AppClasses.Analysis2.Models
 {
 	public class OneSiteIsomerization : Model
 	{
+        public override AnalysisModel ModelType => AnalysisModel.PeptideProlineIsomerization;
+
         const string PeptideInCellOption = "Petide in cell";
 
         public OneSiteIsomerization(ExperimentData data) : base(data)

@@ -6,6 +6,8 @@ namespace AnalysisITC.AppClasses.Analysis2.Models
 {
     public class OneSetOfSites : Model
 	{
+        public override AnalysisModel ModelType => AnalysisModel.OneSetOfSites;
+
         public OneSetOfSites(ExperimentData data) : base(data)
 		{
 		}

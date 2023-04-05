@@ -10,7 +10,7 @@ namespace AnalysisITC.AppClasses.Analysis2.Models
     public class Model
     {
 		public ExperimentData Data { get; set; }
-		public AnalysisModel ModelType { get; set; } = AnalysisModel.OneSetOfSites;
+		public virtual AnalysisModel ModelType => AnalysisModel.OneSetOfSites;
 		public ModelParameters Parameters { get; set; }
         public ModelCloneOptions ModelCloneOptions { get; set; }
         public Dictionary<string, ModelOption> ModelOptions { get; set; } = new Dictionary<string, ModelOption>();

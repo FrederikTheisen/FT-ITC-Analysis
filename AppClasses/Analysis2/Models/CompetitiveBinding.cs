@@ -7,6 +7,8 @@ namespace AnalysisITC.AppClasses.Analysis2.Models
 {
 	public class CompetitiveBinding : Model
 	{
+        public override AnalysisModel ModelType => AnalysisModel.CompetitiveBinding;
+
         private const string WeakLigandConc = "WeakLigandConc";
         private const string WeakLigandAffinity = "WeakLigandAffinity";
         private const string WeakLigandEnthalpy = "WeakLigandEnthalpy";

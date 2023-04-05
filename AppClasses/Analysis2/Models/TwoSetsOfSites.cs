@@ -6,7 +6,9 @@ namespace AnalysisITC.AppClasses.Analysis2.Models
 {
     public class TwoSetsOfSites : Model
 	{
-		public TwoSetsOfSites(ExperimentData data) : base(data)
+        public override AnalysisModel ModelType => AnalysisModel.TwoSetsOfSites;
+
+        public TwoSetsOfSites(ExperimentData data) : base(data)
 		{
 			throw new NotImplementedException("TwoSetsOfSites not implemented yet");
 		}
