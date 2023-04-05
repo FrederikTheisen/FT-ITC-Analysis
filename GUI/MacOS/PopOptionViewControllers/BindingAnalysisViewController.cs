@@ -69,7 +69,7 @@ namespace AnalysisITC
 
         partial void CopyToClipboard(NSObject sender)
         {
-            FTITCWriter.CopyToClipboard(AnalysisResult.Solution, Mag, EnergyUnit, UseKelvin);
+            Exporter.CopyToClipboard(AnalysisResult.Solution, Mag, EnergyUnit, UseKelvin);
         }
 
         partial void LoadSolutionsToExperiments(NSObject sender)

@@ -246,7 +246,7 @@ namespace AnalysisITC
 
         partial void CopyToClipboard(NSObject sender)
         {
-            FTITCWriter.CopyToClipboard(Solution, Mag, EnergyUnit, UseKelvin);
+            Exporter.CopyToClipboard(Solution, Mag, EnergyUnit, UseKelvin);
         }
     }
 }

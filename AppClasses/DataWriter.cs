@@ -296,37 +296,6 @@ namespace AnalysisITC
         {
             throw new NotImplementedException("Analysis Result save not yet implemented");
         }
-
-        public static void CopyToClipboard(GlobalSolution solution, double kdmagnitude, EnergyUnit unit, bool usekelvin)
-        {
-            NSPasteboard.GeneralPasteboard.ClearContents();
-
-            string paste = "";
-
-            foreach (var data in solution.Solutions)
-            {
-                paste += (usekelvin ? data.TempKelvin : data.Temp).ToString("F2") + " ";
-                foreach (var par in data.ReportParameters)
-                {
-                    switch (par.Key)
-                    {
-                        case ParameterTypes.Nvalue1:
-                        case ParameterTypes.Nvalue2: paste += par.Value.ToString("F2"); break;
-                        case ParameterTypes.Affinity1:
-                        case ParameterTypes.Affinity2: paste += par.Value.AsDissociationConstant(kdmagnitude, withunit: false); break;
-                        default: paste += new Energy(par.Value).ToString(unit, withunit: false); break;
-                    }
-                    paste += " ";
-                }
-                paste = paste.Trim() + Environment.NewLine;
-            }
-
-            paste = paste.Replace('±', ' ');
-
-            NSPasteboard.GeneralPasteboard.SetStringForType(paste, "NSStringPboardType");
-
-            StatusBarManager.SetStatus("Results copied to clipboard", 3333);
-        }
     }
 
     public class Exporter
@@ -365,33 +334,6 @@ namespace AnalysisITC
             });
         }
 
-        //public static void ExportData()
-        //{
-        //    List<ExperimentData> data = GetData();
-
-        //    Settings = ExportAccessoryViewController.ExportAccessoryViewSettings.DataDefault(data);
-
-        //    var storyboard = NSStoryboard.FromName("Main", null);
-        //    var viewController = (ExportAccessoryViewController)storyboard.InstantiateControllerWithIdentifier("ExportAccessoryViewController");
-        //    viewController.Setup(Settings);
-
-        //    var dlg = new NSSavePanel();
-        //    dlg.Title = "Export Data";
-        //    dlg.AllowedFileTypes = new string[] { "csv", "txt" };
-        //    dlg.AccessoryView = viewController.View;
-
-        //    dlg.BeginSheet(NSApplication.SharedApplication.MainWindow, async (result) =>
-        //    {
-        //        if (result == 1)
-        //        {
-        //            StatusBarManager.StartInderminateProgress();
-        //            StatusBarManager.SetStatusScrolling("Saving file: " + dlg.Filename);
-        //            SetDelimiter(dlg.Url);
-        //            await WriteDataFile(dlg.Filename, data, ExportAccessoryViewController.ExportBaselineCorrectDataPoints);
-        //        }
-        //    });
-        //}
-
         static void SetDelimiter(NSUrl url)
         {
             switch (url.PathExtension)
@@ -400,26 +342,6 @@ namespace AnalysisITC
                 case "txt": Delimiter = ' '; BlankChar = '.';  break;
             }
         }
-
-        //public static void ExportPeaks()
-        //{
-        //    List<ExperimentData> data = GetData();
-
-        //    var dlg = new NSSavePanel();
-        //    dlg.Title = "Export Peaks";
-        //    dlg.AllowedFileTypes = new string[] { "csv", "txt" };
-
-        //    dlg.BeginSheet(NSApplication.SharedApplication.MainWindow, async (result) =>
-        //    {
-        //        if (result == 1)
-        //        {
-        //            StatusBarManager.StartInderminateProgress();
-        //            StatusBarManager.SetStatusScrolling("Saving file: " + dlg.Filename);
-        //            SetDelimiter(dlg.Url);
-        //            await WritePeakFile(dlg.Filename, data);
-        //        }
-        //    });
-        //}
 
         private static List<ExperimentData> GetData()
         {
@@ -640,6 +562,38 @@ namespace AnalysisITC
             }
 
             return lines;
+        }
+
+        public static void CopyToClipboard(GlobalSolution solution, double kdmagnitude, EnergyUnit unit, bool usekelvin)
+        {
+            NSPasteboard.GeneralPasteboard.ClearContents();
+
+            string paste = "";
+
+            foreach (var data in solution.Solutions)
+            {
+                paste += data.Data.FileName + " ";
+                paste += (usekelvin ? data.TempKelvin : data.Temp).ToString("F2") + " ";
+                foreach (var par in data.ReportParameters)
+                {
+                    switch (par.Key)
+                    {
+                        case ParameterTypes.Nvalue1:
+                        case ParameterTypes.Nvalue2: paste += par.Value.ToString("F2"); break;
+                        case ParameterTypes.Affinity1:
+                        case ParameterTypes.Affinity2: paste += par.Value.AsDissociationConstant(kdmagnitude, withunit: false); break;
+                        default: paste += new Energy(par.Value).ToString(unit, withunit: false); break;
+                    }
+                    paste += " ";
+                }
+                paste = paste.Trim() + Environment.NewLine;
+            }
+
+            paste = paste.Replace('±', ' ');
+
+            NSPasteboard.GeneralPasteboard.SetStringForType(paste, "NSStringPboardType");
+
+            StatusBarManager.SetStatus("Results copied to clipboard", 3333);
         }
 
         public enum ExportType
