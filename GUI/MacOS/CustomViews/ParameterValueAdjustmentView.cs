@@ -27,7 +27,7 @@ namespace AnalysisITC.GUI.MacOS.CustomViews
 
         public override nfloat Spacing { get => 0; set => base.Spacing = value; }
 
-        public ParameterTypes Key => parameter.Key;
+        public ParameterType Key => parameter.Key;
         string InputString
         {
             get
@@ -50,7 +50,7 @@ namespace AnalysisITC.GUI.MacOS.CustomViews
                     {
                         var value = double.Parse(input);
 
-                        if (Key.GetProperties().ParentType == ParameterTypes.Affinity1)
+                        if (Key.GetProperties().ParentType == ParameterType.Affinity1)
                         {
                             if (AppSettings.InputAffinityAsDissociationConstant) return AppSettings.DefaultConcentrationUnit.GetProperties().Mod / value;
                             else return value;
@@ -208,7 +208,7 @@ namespace AnalysisITC.GUI.MacOS.CustomViews
             if (tmpvalue == null)
                 tmpvalue = par.Value;
 
-            if (par.Key.GetProperties().ParentType == ParameterTypes.Affinity1)
+            if (par.Key.GetProperties().ParentType == ParameterType.Affinity1)
             {
                 ParameterOptionControl.Hidden = false;
                 ParameterOptionControl.SegmentCount = 2;
@@ -227,7 +227,7 @@ namespace AnalysisITC.GUI.MacOS.CustomViews
 
         void SetInputField()
         {
-            if (parameter.Key.GetProperties().ParentType == ParameterTypes.Affinity1)
+            if (parameter.Key.GetProperties().ParentType == ParameterType.Affinity1)
             {
                 Label.StringValue = parameter.Key.GetProperties().Description;
                 if (AppSettings.InputAffinityAsDissociationConstant)
@@ -236,6 +236,10 @@ namespace AnalysisITC.GUI.MacOS.CustomViews
                     Input.PlaceholderString = (AppSettings.DefaultConcentrationUnit.GetProperties().Mod / (double)tmpvalue).ToString("######0.###");
                 }
                 else Input.PlaceholderString = ((double)tmpvalue).ToString("G2");
+            }
+            else if (ParameterTypeAttribute.IsEnergyUnitParameter(parameter.Key))
+            {
+
             }
             else
             {

@@ -21,7 +21,7 @@ namespace AnalysisITC
         private ExperimentData Data { get; set; }
         private AnalysisModel Model { get; set; } = AnalysisModel.OneSetOfSites;
         private SingleModelFactory Factory { get; set; }
-        private List<ParameterValueAdjustmentView> ParameterOptionControls = new List<ParameterValueAdjustmentView>();
+        private List<ParameterValueAdjustmentView> ParameterControls = new List<ParameterValueAdjustmentView>();
 
         private double SmallInjectionVolume = 0.5 / 1000000.0;
 
@@ -208,10 +208,10 @@ namespace AnalysisITC
 
             ModelOptionsStackView.Subviews = new NSView[0];
 
-            ParameterValueAdjustmentView[] tmppars = new ParameterValueAdjustmentView[ParameterOptionControls.Count];
+            ParameterValueAdjustmentView[] tmppars = new ParameterValueAdjustmentView[ParameterControls.Count];
 
-            ParameterOptionControls.CopyTo(tmppars);
-            ParameterOptionControls.Clear();
+            ParameterControls.CopyTo(tmppars);
+            ParameterControls.Clear();
 
             foreach (var par in Factory.GetExposedParameters())
             {
@@ -227,9 +227,18 @@ namespace AnalysisITC
                     sv.EnableLock = false;
                     sv.Setup(par);
                 }
-                ParameterOptionControls.Add(sv);
+                ParameterControls.Add(sv);
 
-                ModelOptionsStackView.AddArrangedSubview(sv);
+                ParameterStackView.AddArrangedSubview(sv);
+            }
+
+            bool showoptions = (Factory.Model.ModelOptions.Count > 0);
+            ModelOptionsLine.Hidden = !showoptions;
+            ModelOptionsLabel.Hidden = !showoptions;
+
+            foreach (var opt in Factory.GetExposedModelOptions())
+            {
+
             }
 
             if (AutoRunExperimentSimulation) ApplyModelSettings(null);
@@ -239,7 +248,7 @@ namespace AnalysisITC
         {
             if (Factory == null) return;
 
-            foreach (var sv in ParameterOptionControls)
+            foreach (var sv in ParameterControls)
             {
                 Factory.SetCustomParameter(sv.Key, sv.Value, false);
             }

@@ -399,11 +399,11 @@ namespace AnalysisITC
 
     public class ParameterCategoryAxis : GraphAxis
     {
-        public Dictionary<ParameterTypes, int> CategoryLabels { get; private set; }
+        public Dictionary<ParameterType, int> CategoryLabels { get; private set; }
 
-        public ParameterCategoryAxis(GraphBase graph, List<ParameterTypes> categories, AxisPosition position = AxisPosition.Unknown) : base(graph, -0.5, categories.Count - 0.5, position)
+        public ParameterCategoryAxis(GraphBase graph, List<ParameterType> categories, AxisPosition position = AxisPosition.Unknown) : base(graph, -0.5, categories.Count - 0.5, position)
         {
-            CategoryLabels = new Dictionary<ParameterTypes, int>();
+            CategoryLabels = new Dictionary<ParameterType, int>();
 
             for (int i = 0; i < categories.Count; i++)
             {
@@ -459,7 +459,7 @@ namespace AnalysisITC
                 CGPoint tick = ticks[i];
                 var point = tick + FrameOffset + LabelOffset;
 
-                var _size = cggraph.DrawString(layer, ParameterTypesAttribute.TableHeaderTitle(CategoryLabels.Keys.ToList()[i], false), point, TickFont, null, HorizontalTickLabelAlignment, VerticalTickLabelAlignment, null);
+                var _size = cggraph.DrawString(layer, ParameterTypeAttribute.TableHeaderTitle(CategoryLabels.Keys.ToList()[i], false), point, TickFont, null, HorizontalTickLabelAlignment, VerticalTickLabelAlignment, null);
 
                 if (_size.Width > maxsize.Width) maxsize.Width = _size.Width;
                 if (_size.Height > maxsize.Height) maxsize.Height = _size.Height;

@@ -46,7 +46,16 @@ namespace AnalysisITC
 		AppKit.NSMenu ModelMenu { get; set; }
 
 		[Outlet]
+		AppKit.NSTextField ModelOptionsLabel { get; set; }
+
+		[Outlet]
+		AppKit.NSBox ModelOptionsLine { get; set; }
+
+		[Outlet]
 		AppKit.NSStackView ModelOptionsStackView { get; set; }
+
+		[Outlet]
+		AppKit.NSStackView ParameterStackView { get; set; }
 
 		[Outlet]
 		AnalysisITC.ExperimentDesignerGraphView SimGraphView { get; set; }
@@ -166,6 +175,21 @@ namespace AnalysisITC
 			if (ApplyModelButton != null) {
 				ApplyModelButton.Dispose ();
 				ApplyModelButton = null;
+			}
+
+			if (ParameterStackView != null) {
+				ParameterStackView.Dispose ();
+				ParameterStackView = null;
+			}
+
+			if (ModelOptionsLabel != null) {
+				ModelOptionsLabel.Dispose ();
+				ModelOptionsLabel = null;
+			}
+
+			if (ModelOptionsLine != null) {
+				ModelOptionsLine.Dispose ();
+				ModelOptionsLine = null;
 			}
 		}
 	}

@@ -62,16 +62,16 @@ namespace AnalysisITC
             switch (tableColumn.Identifier)
             {
                 case "Temp": view.StringValue = (DataSource.Data[(int)row].Temp + (UseKelvin ? 273.15 : 0)).ToString("F2"); break;
-                case "N1": view.StringValue = DataSource.Data[(int)row].ReportParameters[ParameterTypes.Nvalue1].ToString("F3"); view.Alignment = NSTextAlignment.Center; break;
-                case "N2": view.StringValue = DataSource.Data[(int)row].ReportParameters[ParameterTypes.Nvalue2].ToString("F3"); view.Alignment = NSTextAlignment.Center; break;
-                case "Kd1": view.StringValue = DataSource.Data[(int)row].ReportParameters[ParameterTypes.Affinity1].AsDissociationConstant(KdMag, withunit: false); view.Alignment = NSTextAlignment.Center; break;
-                case "Kd2": view.StringValue = DataSource.Data[(int)row].ReportParameters[ParameterTypes.Affinity2].AsDissociationConstant(KdMag, withunit: false); view.Alignment = NSTextAlignment.Center; break;
-                case "∆H1": view.StringValue = DataSource.Data[(int)row].ReportParameters[ParameterTypes.Enthalpy1].Energy.ToString(EnergyUnit, withunit: false); view.Alignment = NSTextAlignment.Center; break;
-                case "∆H2": view.StringValue = DataSource.Data[(int)row].ReportParameters[ParameterTypes.Enthalpy2].Energy.ToString(EnergyUnit, withunit: false); view.Alignment = NSTextAlignment.Center; break;
-                case "-T∆S1": view.StringValue = DataSource.Data[(int)row].ReportParameters[ParameterTypes.EntropyContribution1].Energy.ToString(EnergyUnit, withunit: false); view.Alignment = NSTextAlignment.Center; break;
-                case "-T∆S2": view.StringValue = DataSource.Data[(int)row].ReportParameters[ParameterTypes.EntropyContribution2].Energy.ToString(EnergyUnit, withunit: false); view.Alignment = NSTextAlignment.Center; break;
-                case "∆G1": view.StringValue = DataSource.Data[(int)row].ReportParameters[ParameterTypes.Gibbs1].Energy.ToString(EnergyUnit, withunit: false); view.Alignment = NSTextAlignment.Center; break;
-                case "∆G2": view.StringValue = DataSource.Data[(int)row].ReportParameters[ParameterTypes.Gibbs2].Energy.ToString(EnergyUnit, withunit: false); view.Alignment = NSTextAlignment.Center; break;
+                case "N1": view.StringValue = DataSource.Data[(int)row].ReportParameters[ParameterType.Nvalue1].ToString("F3"); view.Alignment = NSTextAlignment.Center; break;
+                case "N2": view.StringValue = DataSource.Data[(int)row].ReportParameters[ParameterType.Nvalue2].ToString("F3"); view.Alignment = NSTextAlignment.Center; break;
+                case "Kd1": view.StringValue = DataSource.Data[(int)row].ReportParameters[ParameterType.Affinity1].AsDissociationConstant(KdMag, withunit: false); view.Alignment = NSTextAlignment.Center; break;
+                case "Kd2": view.StringValue = DataSource.Data[(int)row].ReportParameters[ParameterType.Affinity2].AsDissociationConstant(KdMag, withunit: false); view.Alignment = NSTextAlignment.Center; break;
+                case "∆H1": view.StringValue = DataSource.Data[(int)row].ReportParameters[ParameterType.Enthalpy1].Energy.ToString(EnergyUnit, withunit: false); view.Alignment = NSTextAlignment.Center; break;
+                case "∆H2": view.StringValue = DataSource.Data[(int)row].ReportParameters[ParameterType.Enthalpy2].Energy.ToString(EnergyUnit, withunit: false); view.Alignment = NSTextAlignment.Center; break;
+                case "-T∆S1": view.StringValue = DataSource.Data[(int)row].ReportParameters[ParameterType.EntropyContribution1].Energy.ToString(EnergyUnit, withunit: false); view.Alignment = NSTextAlignment.Center; break;
+                case "-T∆S2": view.StringValue = DataSource.Data[(int)row].ReportParameters[ParameterType.EntropyContribution2].Energy.ToString(EnergyUnit, withunit: false); view.Alignment = NSTextAlignment.Center; break;
+                case "∆G1": view.StringValue = DataSource.Data[(int)row].ReportParameters[ParameterType.Gibbs1].Energy.ToString(EnergyUnit, withunit: false); view.Alignment = NSTextAlignment.Center; break;
+                case "∆G2": view.StringValue = DataSource.Data[(int)row].ReportParameters[ParameterType.Gibbs2].Energy.ToString(EnergyUnit, withunit: false); view.Alignment = NSTextAlignment.Center; break;
                 case "Loss": view.StringValue = DataSource.Data[(int)row].Loss.ToString("G3"); view.Alignment = NSTextAlignment.Center; break;
             }
 

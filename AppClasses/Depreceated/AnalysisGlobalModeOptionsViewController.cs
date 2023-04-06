@@ -13,9 +13,9 @@ namespace AnalysisITC
 {
 	public partial class AnalysisGlobalModeOptionsViewController : NSViewController
 	{
-        public event EventHandler<Tuple<ParameterTypes, VariableConstraint>> ParameterContraintUpdated;
+        public event EventHandler<Tuple<ParameterType, VariableConstraint>> ParameterContraintUpdated;
 
-        ParameterTypes key;
+        ParameterType key;
         List<VariableConstraint> options;
 
         public AnalysisGlobalModeOptionsViewController (IntPtr handle) : base (handle)
@@ -28,7 +28,7 @@ namespace AnalysisITC
 
         }
 
-        public void Setup(ParameterTypes type, List<VariableConstraint> options)
+        public void Setup(ParameterType type, List<VariableConstraint> options)
         {
             key = type;
 

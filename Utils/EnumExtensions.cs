@@ -70,10 +70,10 @@ namespace AnalysisITC
             return attribute;
         }
 
-        public static ParameterTypesAttribute GetProperties(this ParameterTypes value)
+        public static ParameterTypeAttribute GetProperties(this ParameterType value)
         {
             var fieldInfo = value.GetType().GetField(value.ToString());
-            var attribute = fieldInfo.GetCustomAttributes(typeof(ParameterTypesAttribute), false).FirstOrDefault() as ParameterTypesAttribute;
+            var attribute = fieldInfo.GetCustomAttributes(typeof(ParameterTypeAttribute), false).FirstOrDefault() as ParameterTypeAttribute;
 
             return attribute;
         }

@@ -91,7 +91,7 @@ namespace AnalysisITC
         {
             EnergyControl.SelectedSegment = AppSettings.EnergyUnit switch { EnergyUnit.Joule => 0, EnergyUnit.KiloJoule => 1, EnergyUnit.Cal => 2, EnergyUnit.KCal => 3, _ => 1, };
 
-            var kd = Solution.Solutions.Average(s => s.ReportParameters[AppClasses.Analysis2.ParameterTypes.Affinity1]);
+            var kd = Solution.Solutions.Average(s => s.ReportParameters[AppClasses.Analysis2.ParameterType.Affinity1]);
 
             Mag = Math.Log10(kd);
 
@@ -119,9 +119,9 @@ namespace AnalysisITC
             ResultsTableView.AddColumn(new NSTableColumn("Temp") { Title = "Temperature (" + (UseKelvin ? "K" : "°C") + ")" });
             foreach (var par in Solution.IndividualModelReportParameters)
             {
-                ResultsTableView.AddColumn(new NSTableColumn(ParameterTypesAttribute.TableHeaderTitle(par, true))
+                ResultsTableView.AddColumn(new NSTableColumn(ParameterTypeAttribute.TableHeaderTitle(par, true))
                 {
-                    Title = ParameterTypesAttribute.TableHeader(par, Solution.Solutions[0].ParametersConformingToKey(par).Count > 1, EnergyUnit, kdunit),
+                    Title = ParameterTypeAttribute.TableHeader(par, Solution.Solutions[0].ParametersConformingToKey(par).Count > 1, EnergyUnit, kdunit),
                 });
             }
             ResultsTableView.AddColumn(new NSTableColumn("Loss") { Title = "Loss" });
@@ -198,9 +198,9 @@ namespace AnalysisITC
 
                 var s = await Task.Run(() =>
                 {
-                    var H = new Energy(Solution.TemperatureDependence[AppClasses.Analysis2.ParameterTypes.Enthalpy1].Evaluate(T, 100000));
-                    var S = new Energy(Solution.TemperatureDependence[AppClasses.Analysis2.ParameterTypes.EntropyContribution1].Evaluate(T, 100000));
-                    var G = new Energy(Solution.TemperatureDependence[AppClasses.Analysis2.ParameterTypes.Gibbs1].Evaluate(T, 100000));
+                    var H = new Energy(Solution.TemperatureDependence[AppClasses.Analysis2.ParameterType.Enthalpy1].Evaluate(T, 100000));
+                    var S = new Energy(Solution.TemperatureDependence[AppClasses.Analysis2.ParameterType.EntropyContribution1].Evaluate(T, 100000));
+                    var G = new Energy(Solution.TemperatureDependence[AppClasses.Analysis2.ParameterType.Gibbs1].Evaluate(T, 100000));
 
                     T += 273.15f;
 

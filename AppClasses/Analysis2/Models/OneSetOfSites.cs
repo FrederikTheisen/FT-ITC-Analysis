@@ -16,16 +16,16 @@ namespace AnalysisITC.AppClasses.Analysis2.Models
         {
 			base.InitializeParameters(data);
 
-			Parameters.AddParameter(ParameterTypes.Nvalue1, this.GuessN());
-            Parameters.AddParameter(ParameterTypes.Enthalpy1, this.GuessEnthalpy());
-            Parameters.AddParameter(ParameterTypes.Affinity1, this.GuessAffinity());
-            Parameters.AddParameter(ParameterTypes.Offset, this.GuessOffset());
+			Parameters.AddParameter(ParameterType.Nvalue1, this.GuessN());
+            Parameters.AddParameter(ParameterType.Enthalpy1, this.GuessEnthalpy());
+            Parameters.AddParameter(ParameterType.Affinity1, this.GuessAffinity());
+            Parameters.AddParameter(ParameterType.Offset, this.GuessOffset());
         }
 
         public override double Evaluate(int injectionindex, bool withoffset = true)
 		{
-			if (withoffset) return GetDeltaHeat(injectionindex, Parameters.Table[ParameterTypes.Nvalue1].Value, Parameters.Table[ParameterTypes.Enthalpy1].Value, Parameters.Table[ParameterTypes.Affinity1].Value) + Parameters.Table[ParameterTypes.Offset].Value * Data.Injections[injectionindex].InjectionMass;
-			else return GetDeltaHeat(injectionindex, Parameters.Table[ParameterTypes.Nvalue1].Value, Parameters.Table[ParameterTypes.Enthalpy1].Value, Parameters.Table[ParameterTypes.Affinity1].Value);
+			if (withoffset) return GetDeltaHeat(injectionindex, Parameters.Table[ParameterType.Nvalue1].Value, Parameters.Table[ParameterType.Enthalpy1].Value, Parameters.Table[ParameterType.Affinity1].Value) + Parameters.Table[ParameterType.Offset].Value * Data.Injections[injectionindex].InjectionMass;
+			else return GetDeltaHeat(injectionindex, Parameters.Table[ParameterType.Nvalue1].Value, Parameters.Table[ParameterType.Enthalpy1].Value, Parameters.Table[ParameterType.Affinity1].Value);
         }
 
 		double GetDeltaHeat(int i, double n, double H, double K)
@@ -62,10 +62,10 @@ namespace AnalysisITC.AppClasses.Analysis2.Models
 
         public class ModelSolution : SolutionInterface
         {
-            public Energy Enthalpy => Parameters[ParameterTypes.Enthalpy1].Energy;
-            public FloatWithError K => Parameters[ParameterTypes.Affinity1];
-            public FloatWithError N => Parameters[ParameterTypes.Nvalue1];
-            public Energy Offset => Parameters[ParameterTypes.Offset].Energy;
+            public Energy Enthalpy => Parameters[ParameterType.Enthalpy1].Energy;
+            public FloatWithError K => Parameters[ParameterType.Affinity1];
+            public FloatWithError N => Parameters[ParameterType.Nvalue1];
+            public Energy Offset => Parameters[ParameterType.Offset].Energy;
 
             public FloatWithError Kd => new FloatWithError(1) / K;
             public Energy GibbsFreeEnergy => new(-1.0 * Energy.R.FloatWithError * TempKelvin * FWEMath.Log(K));
@@ -85,10 +85,10 @@ namespace AnalysisITC.AppClasses.Analysis2.Models
                 var n = BootstrapSolutions.Select(s => (s as ModelSolution).N.Value);
                 var offsets = BootstrapSolutions.Select(s => (s as ModelSolution).Offset.Value);
 
-                Parameters[ParameterTypes.Enthalpy1] = new FloatWithError(enthalpies, Enthalpy);
-                Parameters[ParameterTypes.Affinity1] = new FloatWithError(k, K);
-                Parameters[ParameterTypes.Nvalue1] = new FloatWithError(n, N);
-                Parameters[ParameterTypes.Offset] = new FloatWithError(offsets, Offset);
+                Parameters[ParameterType.Enthalpy1] = new FloatWithError(enthalpies, Enthalpy);
+                Parameters[ParameterType.Affinity1] = new FloatWithError(k, K);
+                Parameters[ParameterType.Nvalue1] = new FloatWithError(n, N);
+                Parameters[ParameterType.Offset] = new FloatWithError(offsets, Offset);
 
                 base.ComputeErrorsFromBootstrapSolutions();
             }
@@ -107,20 +107,20 @@ namespace AnalysisITC.AppClasses.Analysis2.Models
                 return output;
             }
 
-            public override List<Tuple<ParameterTypes, Func<SolutionInterface, FloatWithError>>> DependenciesToReport => new List<Tuple<ParameterTypes, Func<SolutionInterface, FloatWithError>>>
+            public override List<Tuple<ParameterType, Func<SolutionInterface, FloatWithError>>> DependenciesToReport => new List<Tuple<ParameterType, Func<SolutionInterface, FloatWithError>>>
                 {
-                    new (ParameterTypes.Enthalpy1, new(sol => (sol as ModelSolution).Enthalpy.FloatWithError)), 
-                    new (ParameterTypes.EntropyContribution1, new(sol => (sol as ModelSolution).TdS.FloatWithError)),
-                    new (ParameterTypes.Gibbs1, new(sol => (sol as ModelSolution).GibbsFreeEnergy.FloatWithError)),
+                    new (ParameterType.Enthalpy1, new(sol => (sol as ModelSolution).Enthalpy.FloatWithError)), 
+                    new (ParameterType.EntropyContribution1, new(sol => (sol as ModelSolution).TdS.FloatWithError)),
+                    new (ParameterType.Gibbs1, new(sol => (sol as ModelSolution).GibbsFreeEnergy.FloatWithError)),
                 };
 
-            public override Dictionary<ParameterTypes, FloatWithError> ReportParameters => new Dictionary<ParameterTypes, FloatWithError>
+            public override Dictionary<ParameterType, FloatWithError> ReportParameters => new Dictionary<ParameterType, FloatWithError>
                 {
-                    { ParameterTypes.Nvalue1, N },
-                    { ParameterTypes.Affinity1, Kd },
-                    { ParameterTypes.Enthalpy1, Enthalpy.FloatWithError },
-                    { ParameterTypes.EntropyContribution1, TdS.FloatWithError} ,
-                    { ParameterTypes.Gibbs1, GibbsFreeEnergy.FloatWithError },
+                    { ParameterType.Nvalue1, N },
+                    { ParameterType.Affinity1, Kd },
+                    { ParameterType.Enthalpy1, Enthalpy.FloatWithError },
+                    { ParameterType.EntropyContribution1, TdS.FloatWithError} ,
+                    { ParameterType.Gibbs1, GibbsFreeEnergy.FloatWithError },
                 };
         }
     }

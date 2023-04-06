@@ -17,13 +17,13 @@ namespace AnalysisITC.AppClasses.Analysis2.Models
 		{
             base.InitializeParameters(data);
 
-            Parameters.AddParameter(ParameterTypes.Nvalue1, this.GuessN());
-            Parameters.AddParameter(ParameterTypes.Enthalpy1, this.GuessEnthalpy() / 2);
-            Parameters.AddParameter(ParameterTypes.Affinity1, this.GuessAffinity());
-            Parameters.AddParameter(ParameterTypes.Nvalue2, this.GuessN());
-            Parameters.AddParameter(ParameterTypes.Enthalpy2, this.GuessEnthalpy() / 2);
-            Parameters.AddParameter(ParameterTypes.Affinity2, this.GuessAffinity());
-            Parameters.AddParameter(ParameterTypes.Offset, this.GuessOffset());
+            Parameters.AddParameter(ParameterType.Nvalue1, this.GuessN());
+            Parameters.AddParameter(ParameterType.Enthalpy1, this.GuessEnthalpy() / 2);
+            Parameters.AddParameter(ParameterType.Affinity1, this.GuessAffinity());
+            Parameters.AddParameter(ParameterType.Nvalue2, this.GuessN());
+            Parameters.AddParameter(ParameterType.Enthalpy2, this.GuessEnthalpy() / 2);
+            Parameters.AddParameter(ParameterType.Affinity2, this.GuessAffinity());
+            Parameters.AddParameter(ParameterType.Offset, this.GuessOffset());
         }
 
         public override Model GenerateSyntheticModel()
@@ -42,13 +42,13 @@ namespace AnalysisITC.AppClasses.Analysis2.Models
 		{
             public new List<ModelSolution> BootstrapSolutions { get; set; }
 
-            public Energy Enthalpy1 => new(Parameters[ParameterTypes.Enthalpy1]);
-            public Energy Enthalpy2 => new(Parameters[ParameterTypes.Enthalpy2]);
-            public FloatWithError K1 => Parameters[ParameterTypes.Affinity1];
-            public FloatWithError K2 => Parameters[ParameterTypes.Affinity2];
-            public FloatWithError N1 => Parameters[ParameterTypes.Nvalue1];
-            public FloatWithError N2 => Parameters[ParameterTypes.Nvalue2];
-            public Energy Offset => new(Parameters[ParameterTypes.Offset]);
+            public Energy Enthalpy1 => new(Parameters[ParameterType.Enthalpy1]);
+            public Energy Enthalpy2 => new(Parameters[ParameterType.Enthalpy2]);
+            public FloatWithError K1 => Parameters[ParameterType.Affinity1];
+            public FloatWithError K2 => Parameters[ParameterType.Affinity2];
+            public FloatWithError N1 => Parameters[ParameterType.Nvalue1];
+            public FloatWithError N2 => Parameters[ParameterType.Nvalue2];
+            public Energy Offset => new(Parameters[ParameterType.Offset]);
 
             public FloatWithError Kd1 => new FloatWithError(1) / K1;
             public Energy GibbsFreeEnergy1 => new(-1.0 * Energy.R.FloatWithError * TempKelvin * FWEMath.Log(K1));
@@ -75,13 +75,13 @@ namespace AnalysisITC.AppClasses.Analysis2.Models
                 var n2 = BootstrapSolutions.Select(s => s.N2.Value);
                 var offsets = BootstrapSolutions.Select(s => (double)s.Offset);
 
-                Parameters[ParameterTypes.Enthalpy1] = new FloatWithError(enthalpies1, Enthalpy1);
-                Parameters[ParameterTypes.Affinity1] = new FloatWithError(k1, K1);
-                Parameters[ParameterTypes.Nvalue1] = new FloatWithError(n1, N1);
-                Parameters[ParameterTypes.Enthalpy1] = new FloatWithError(enthalpies2, Enthalpy2);
-                Parameters[ParameterTypes.Affinity1] = new FloatWithError(k2, K2);
-                Parameters[ParameterTypes.Nvalue1] = new FloatWithError(n2, N2);
-                Parameters[ParameterTypes.Offset] = new FloatWithError(offsets, Offset);
+                Parameters[ParameterType.Enthalpy1] = new FloatWithError(enthalpies1, Enthalpy1);
+                Parameters[ParameterType.Affinity1] = new FloatWithError(k1, K1);
+                Parameters[ParameterType.Nvalue1] = new FloatWithError(n1, N1);
+                Parameters[ParameterType.Enthalpy1] = new FloatWithError(enthalpies2, Enthalpy2);
+                Parameters[ParameterType.Affinity1] = new FloatWithError(k2, K2);
+                Parameters[ParameterType.Nvalue1] = new FloatWithError(n2, N2);
+                Parameters[ParameterType.Offset] = new FloatWithError(offsets, Offset);
 
                 base.ComputeErrorsFromBootstrapSolutions();
             }

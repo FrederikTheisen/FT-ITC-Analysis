@@ -61,7 +61,7 @@ namespace AnalysisITC.AppClasses.AnalysisClasses
             };
         }
 
-		public static ModelOption Parameter(string name, ParameterTypes type, FloatWithError value)
+		public static ModelOption Parameter(string name, ParameterType type, FloatWithError value)
 		{
 			return new ModelOption()
 			{

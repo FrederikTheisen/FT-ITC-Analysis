@@ -17,14 +17,14 @@ namespace AnalysisITC
         GraphAxis DissociationConstantAxis { get; set; }
         double Mag { get; set; }
 
-        List<ParameterTypes> ParameterFilter { get; set; } = new List<ParameterTypes>() { ParameterTypes.Affinity1, ParameterTypes.Enthalpy2, ParameterTypes.Nvalue1, ParameterTypes.Nvalue2 };
+        List<ParameterType> ParameterFilter { get; set; } = new List<ParameterType>() { ParameterType.Affinity1, ParameterType.Enthalpy2, ParameterType.Nvalue1, ParameterType.Nvalue2 };
 
-        List<ParameterTypes> Parameters => Result.Solution.IndividualModelReportParameters.Where(p => !ParameterFilter.Contains(p)).Select(p => p).ToList();
+        List<ParameterType> Parameters => Result.Solution.IndividualModelReportParameters.Where(p => !ParameterFilter.Contains(p)).Select(p => p).ToList();
         int DataCount => Result.Solution.Solutions.Count;
         float BinWidth = 0.8f;
         float CategoryWidth => BinWidth / DataCount;
 
-        float GetBarPosition(ParameterTypes key, int dataindex)
+        float GetBarPosition(ParameterType key, int dataindex)
         {
             int catpos = (XAxis as ParameterCategoryAxis).CategoryLabels[key];
 
@@ -36,7 +36,7 @@ namespace AnalysisITC
             View = view;
             Result = analysis;
 
-            var kd = Solution.Solutions.Average(s => s.ReportParameters[AppClasses.Analysis2.ParameterTypes.Affinity1]);
+            var kd = Solution.Solutions.Average(s => s.ReportParameters[AppClasses.Analysis2.ParameterType.Affinity1]);
 
             Mag = Math.Log10(kd);
 
@@ -65,7 +65,7 @@ namespace AnalysisITC
             YAxis.MirrorTicks = true;
             YAxis.LegendTitle = "Energy (" + AppSettings.EnergyUnit.GetUnit() + "/mol)";
 
-            var affinities = Solution.Solutions.Select(s => s.ReportParameters.Where(p => p.Key.GetProperties().ParentType == ParameterTypes.Affinity1)).SelectMany(p => p).Select(p => p.Value);
+            var affinities = Solution.Solutions.Select(s => s.ReportParameters.Where(p => p.Key.GetProperties().ParentType == ParameterType.Affinity1)).SelectMany(p => p).Select(p => p.Value);
 
             DissociationConstantAxis = GraphAxis.WithBuffer(this, 0, affinities.Max(), buffer: .1, position: AxisPosition.Right);
             DissociationConstantAxis.HideUnwantedTicks = false;
@@ -149,7 +149,7 @@ namespace AnalysisITC
             foreach (var key in Parameters)
             {
                 GraphAxis axis = null;
-                if (key.GetProperties().ParentType == ParameterTypes.Affinity1) axis = DissociationConstantAxis;
+                if (key.GetProperties().ParentType == ParameterType.Affinity1) axis = DissociationConstantAxis;
 
                 var position = GetBarPosition(key, index);
                 var value = sol.ReportParameters[key];
@@ -171,7 +171,7 @@ namespace AnalysisITC
             gc.DrawLayer(errorlayer, Origin);
         }
 
-        void DrawParameter(CGContext gc, ParameterTypes key)
+        void DrawParameter(CGContext gc, ParameterType key)
         {
             int index = 0;
 
@@ -183,7 +183,7 @@ namespace AnalysisITC
             foreach (var sol in Solution.Solutions)
             {
                 GraphAxis axis = null;
-                if (key.GetProperties().ParentType == ParameterTypes.Affinity1) axis = DissociationConstantAxis;
+                if (key.GetProperties().ParentType == ParameterType.Affinity1) axis = DissociationConstantAxis;
                 var position = GetBarPosition(key, index);
                 var value = sol.ReportParameters[key];
                 var barpoint = GetRelativePosition(position, value, axis);

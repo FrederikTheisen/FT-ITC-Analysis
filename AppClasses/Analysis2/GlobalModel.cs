@@ -101,7 +101,7 @@ namespace AnalysisITC.AppClasses.Analysis2
         public SolverConvergence Convergence { get; set; }
 		public ErrorEstimationMethod ErrorEstimationMethod { get; set; } = ErrorEstimationMethod.None;
         public List<GlobalSolution> BootstrapSolutions { get; private set; } = new List<GlobalSolution>();
-		public Dictionary<ParameterTypes, LinearFitWithError> TemperatureDependence = new Dictionary<ParameterTypes, LinearFitWithError>();
+		public Dictionary<ParameterType, LinearFitWithError> TemperatureDependence = new Dictionary<ParameterType, LinearFitWithError>();
         public bool IsValid { get; private set; } = true;
 
         public double Loss => Convergence.Loss;
@@ -114,7 +114,7 @@ namespace AnalysisITC.AppClasses.Analysis2
         public int BootstrapIterations => BootstrapSolutions.Count;
         public double MeanTemperature => Model.MeanTemperature;
 		public List<SolutionInterface> Solutions => Model.Models.Select(mdl => mdl.Solution).ToList();
-		public List<ParameterTypes> IndividualModelReportParameters => Model.Models[0].Solution.ReportParameters.Select(p => p.Key).ToList();
+		public List<ParameterType> IndividualModelReportParameters => Model.Models[0].Solution.ReportParameters.Select(p => p.Key).ToList();
 		public ModelCloneOptions ModelCloneOptions => Model.ModelCloneOptions;
 
 		//TODO invalidate all solutions in solution
@@ -166,7 +166,7 @@ namespace AnalysisITC.AppClasses.Analysis2
 
 				BootstrapSolutions = (sets.Select(set => new GlobalSolution(new GlobalModel(set.Select(s => s.Model).ToList())))).ToList();
 
-				var tmp = new Dictionary<ParameterTypes, LinearFitWithError>();
+				var tmp = new Dictionary<ParameterType, LinearFitWithError>();
 
                 foreach (var par in TemperatureDependence)
                 {
@@ -189,7 +189,7 @@ namespace AnalysisITC.AppClasses.Analysis2
             foreach (var dep in dependencies) SetParameterTemperatureDependence(dep.Item1, dep.Item2);
         }
 
-        void SetParameterTemperatureDependence(ParameterTypes key, Func<SolutionInterface, FloatWithError> func)
+        void SetParameterTemperatureDependence(ParameterType key, Func<SolutionInterface, FloatWithError> func)
 		{
 			if (Model.TemperatureDependenceExposed)
 			{
@@ -204,7 +204,7 @@ namespace AnalysisITC.AppClasses.Analysis2
             }
 		}
 
-		public FloatWithError GetStandardParameterValue(ParameterTypes key)
+		public FloatWithError GetStandardParameterValue(ParameterType key)
 		{
 			if (!TemperatureDependence.ContainsKey(key)) throw new Exception("GlobMdl: GetStdParam: KeyNotFound: " + key.ToString());
 
@@ -223,7 +223,7 @@ namespace AnalysisITC.AppClasses.Analysis2
 				model.Solution.SetBootstrapSolutions(sols.Where(sol => !sol.Convergence.Failed).ToList());
             }
 
-			var tmp = new Dictionary<ParameterTypes, LinearFitWithError>();
+			var tmp = new Dictionary<ParameterType, LinearFitWithError>();
 
             foreach (var par in TemperatureDependence)
 			{

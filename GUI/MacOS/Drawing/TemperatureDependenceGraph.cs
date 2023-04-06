@@ -82,7 +82,7 @@ namespace AnalysisITC
             }
         }
 
-        void DrawDependency(CGContext gc, ParameterTypes key)
+        void DrawDependency(CGContext gc, ParameterType key)
         {
             var line = Result.Solution.TemperatureDependence[key];
             SymbolShape symbol = SymbolShape.Square;
@@ -90,12 +90,12 @@ namespace AnalysisITC
 
             switch (key)
             {
-                case ParameterTypes.Enthalpy1: symbol = SymbolShape.Square; fill = true; break;
-                case ParameterTypes.Enthalpy2: symbol = SymbolShape.Square; fill = false; break;
-                case ParameterTypes.EntropyContribution1: symbol = SymbolShape.Circle; fill = true; break;
-                case ParameterTypes.EntropyContribution2: symbol = SymbolShape.Circle; fill = false; break;
-                case ParameterTypes.Gibbs1: symbol = SymbolShape.Diamond; fill = true; break;
-                case ParameterTypes.Gibbs2: symbol = SymbolShape.Diamond; fill = false; break;
+                case ParameterType.Enthalpy1: symbol = SymbolShape.Square; fill = true; break;
+                case ParameterType.Enthalpy2: symbol = SymbolShape.Square; fill = false; break;
+                case ParameterType.EntropyContribution1: symbol = SymbolShape.Circle; fill = true; break;
+                case ParameterType.EntropyContribution2: symbol = SymbolShape.Circle; fill = false; break;
+                case ParameterType.Gibbs1: symbol = SymbolShape.Diamond; fill = true; break;
+                case ParameterType.Gibbs2: symbol = SymbolShape.Diamond; fill = false; break;
             }
 
             DrawPredictionInterval(gc, line, Result.Solution.Solutions.Select(sol => sol.ReportParameters[key]));
@@ -125,7 +125,7 @@ namespace AnalysisITC
             gc.DrawLayer(layer, Frame.Location);
         }
 
-        void DrawDataPoints(CGContext gc, ParameterTypes key, SymbolShape symbol, bool fill)
+        void DrawDataPoints(CGContext gc, ParameterType key, SymbolShape symbol, bool fill)
         {
             var layer = CGLayer.Create(gc, PlotSize);
             var points = new List<CGPoint>();

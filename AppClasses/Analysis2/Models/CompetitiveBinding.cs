@@ -22,8 +22,8 @@ namespace AnalysisITC.AppClasses.Analysis2.Models
             base.InitializeParameters(data);
 
             ModelOptions.Add(WeakLigandConc, ModelOption.Double("Prebound ligand conc.", 10e-6));
-            ModelOptions.Add(WeakLigandEnthalpy, ModelOption.Parameter("Prebound ligand ∆H", ParameterTypes.Enthalpy1, new FloatWithError(-40000, 0)));
-            ModelOptions.Add(WeakLigandAffinity, ModelOption.Parameter("Prebound ligand affinity.", ParameterTypes.Affinity1, new(1e-6, 0)));
+            ModelOptions.Add(WeakLigandEnthalpy, ModelOption.Parameter("Prebound ligand ∆H", ParameterType.Enthalpy1, new FloatWithError(-40000, 0)));
+            ModelOptions.Add(WeakLigandAffinity, ModelOption.Parameter("Prebound ligand affinity.", ParameterType.Affinity1, new(1e-6, 0)));
         }
 
         //public override double Evaluate(int injectionindex, bool withoffset = true)
@@ -69,10 +69,10 @@ namespace AnalysisITC.AppClasses.Analysis2.Models
         {
             Dictionary<string, ModelOption> opt => Model.ModelOptions;
 
-            public Energy dHapp => Parameters[ParameterTypes.Enthalpy1].Energy;
-            public FloatWithError Kapp => Parameters[ParameterTypes.Affinity1];
-            public FloatWithError N => Parameters[ParameterTypes.Nvalue1];
-            public Energy Offset => Parameters[ParameterTypes.Offset].Energy;
+            public Energy dHapp => Parameters[ParameterType.Enthalpy1].Energy;
+            public FloatWithError Kapp => Parameters[ParameterType.Affinity1];
+            public FloatWithError N => Parameters[ParameterType.Nvalue1];
+            public Energy Offset => Parameters[ParameterType.Offset].Energy;
 
             public FloatWithError Kdapp => new FloatWithError(1) / Kapp;
 
@@ -109,10 +109,10 @@ namespace AnalysisITC.AppClasses.Analysis2.Models
                 var n = BootstrapSolutions.Select(s => (s as ModelSolution).N.Value);
                 var offsets = BootstrapSolutions.Select(s => (s as ModelSolution).Offset.Value);
 
-                Parameters[ParameterTypes.Enthalpy1] = new FloatWithError(enthalpies, dHapp);
-                Parameters[ParameterTypes.Affinity1] = new FloatWithError(k, Kapp);
-                Parameters[ParameterTypes.Nvalue1] = new FloatWithError(n, N);
-                Parameters[ParameterTypes.Offset] = new FloatWithError(offsets, Offset);
+                Parameters[ParameterType.Enthalpy1] = new FloatWithError(enthalpies, dHapp);
+                Parameters[ParameterType.Affinity1] = new FloatWithError(k, Kapp);
+                Parameters[ParameterType.Nvalue1] = new FloatWithError(n, N);
+                Parameters[ParameterType.Offset] = new FloatWithError(offsets, Offset);
 
                 base.ComputeErrorsFromBootstrapSolutions();
             }
@@ -132,20 +132,20 @@ namespace AnalysisITC.AppClasses.Analysis2.Models
                 return output;
             }
 
-            public override List<Tuple<ParameterTypes, Func<SolutionInterface, FloatWithError>>> DependenciesToReport => new List<Tuple<ParameterTypes, Func<SolutionInterface, FloatWithError>>>
+            public override List<Tuple<ParameterType, Func<SolutionInterface, FloatWithError>>> DependenciesToReport => new List<Tuple<ParameterType, Func<SolutionInterface, FloatWithError>>>
                 {
-                    new (ParameterTypes.Enthalpy1, new(sol => (sol as ModelSolution).dH.FloatWithError)),
-                    new (ParameterTypes.EntropyContribution1, new(sol => (sol as ModelSolution).TdS.FloatWithError)),
-                    new (ParameterTypes.Gibbs1, new(sol => (sol as ModelSolution).GibbsFreeEnergy.FloatWithError)),
+                    new (ParameterType.Enthalpy1, new(sol => (sol as ModelSolution).dH.FloatWithError)),
+                    new (ParameterType.EntropyContribution1, new(sol => (sol as ModelSolution).TdS.FloatWithError)),
+                    new (ParameterType.Gibbs1, new(sol => (sol as ModelSolution).GibbsFreeEnergy.FloatWithError)),
                 };
 
-            public override Dictionary<ParameterTypes, FloatWithError> ReportParameters => new Dictionary<ParameterTypes, FloatWithError>
+            public override Dictionary<ParameterType, FloatWithError> ReportParameters => new Dictionary<ParameterType, FloatWithError>
                 {
-                    { ParameterTypes.Nvalue1, N },
-                    { ParameterTypes.Affinity1, Kd },
-                    { ParameterTypes.Enthalpy1, dH.FloatWithError },
-                    { ParameterTypes.EntropyContribution1, TdS.FloatWithError} ,
-                    { ParameterTypes.Gibbs1, GibbsFreeEnergy.FloatWithError },
+                    { ParameterType.Nvalue1, N },
+                    { ParameterType.Affinity1, Kd },
+                    { ParameterType.Enthalpy1, dH.FloatWithError },
+                    { ParameterType.EntropyContribution1, TdS.FloatWithError} ,
+                    { ParameterType.Gibbs1, GibbsFreeEnergy.FloatWithError },
                 };
         }
     }

@@ -16,7 +16,7 @@ namespace AnalysisITC
         public static event EventHandler ParameterContraintUpdated;
 
         GlobalModelParameters modelparameters;
-        ParameterTypes key;
+        ParameterType key;
         List<VariableConstraint> options;
 
         private NSTextField Label;
@@ -68,7 +68,7 @@ namespace AnalysisITC
 
         public override CGSize IntrinsicContentSize => new CGSize(150, 20);
 
-        public void Setup(ParameterTypes type, List<VariableConstraint> options, GlobalModelParameters modelparameters)
+        public void Setup(ParameterType type, List<VariableConstraint> options, GlobalModelParameters modelparameters)
         {
             this.modelparameters = modelparameters;
             this.key = type;

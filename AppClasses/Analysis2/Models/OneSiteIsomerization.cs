@@ -18,21 +18,21 @@ namespace AnalysisITC.AppClasses.Analysis2.Models
         {
             base.InitializeParameters(data);
 
-            Parameters.AddParameter(ParameterTypes.Nvalue1, this.GuessN());
-            Parameters.AddParameter(ParameterTypes.Enthalpy1, this.GuessEnthalpy());
-            Parameters.AddParameter(ParameterTypes.Affinity1, this.GuessAffinity());
-            Parameters.AddParameter(ParameterTypes.Affinity2, this.GuessAffinity());
-            Parameters.AddParameter(ParameterTypes.Offset, this.GuessOffset());
-            Parameters.AddParameter(ParameterTypes.IsomerizationEquilibriumConstant, 0.42, islocked: true);
-            Parameters.AddParameter(ParameterTypes.IsomerizationRate, 0.001, islocked: true);
+            Parameters.AddParameter(ParameterType.Nvalue1, this.GuessN());
+            Parameters.AddParameter(ParameterType.Enthalpy1, this.GuessEnthalpy());
+            Parameters.AddParameter(ParameterType.Affinity1, this.GuessAffinity());
+            Parameters.AddParameter(ParameterType.Affinity2, this.GuessAffinity());
+            Parameters.AddParameter(ParameterType.Offset, this.GuessOffset());
+            Parameters.AddParameter(ParameterType.IsomerizationEquilibriumConstant, 0.42, islocked: true);
+            Parameters.AddParameter(ParameterType.IsomerizationRate, 0.001, islocked: true);
 
             ModelOptions.Add(PeptideInCellOption, ModelOption.Bool(PeptideInCellOption, true));
         }
 
         public override double Evaluate(int injectionindex, bool withoffset = true)
         {
-            if (withoffset) return GetDeltaHeat(injectionindex, Parameters.Table[ParameterTypes.Nvalue1].Value, Parameters.Table[ParameterTypes.Enthalpy1].Value, Parameters.Table[ParameterTypes.Affinity1].Value) + Parameters.Table[ParameterTypes.Offset].Value * Data.Injections[injectionindex].InjectionMass;
-            else return GetDeltaHeat(injectionindex, Parameters.Table[ParameterTypes.Nvalue1].Value, Parameters.Table[ParameterTypes.Enthalpy1].Value, Parameters.Table[ParameterTypes.Affinity1].Value);
+            if (withoffset) return GetDeltaHeat(injectionindex, Parameters.Table[ParameterType.Nvalue1].Value, Parameters.Table[ParameterType.Enthalpy1].Value, Parameters.Table[ParameterType.Affinity1].Value) + Parameters.Table[ParameterType.Offset].Value * Data.Injections[injectionindex].InjectionMass;
+            else return GetDeltaHeat(injectionindex, Parameters.Table[ParameterType.Nvalue1].Value, Parameters.Table[ParameterType.Enthalpy1].Value, Parameters.Table[ParameterType.Affinity1].Value);
         }
 
         double[] GetIsomerConcentration(InjectionData inj)
@@ -48,8 +48,8 @@ namespace AnalysisITC.AppClasses.Analysis2.Models
                 // Ktot / (1 + K) = B
                 if (inj.ID == 0)
                 {
-                    var KxTot = Parameters.Table[ParameterTypes.IsomerizationEquilibriumConstant].Value * inj.ActualCellConcentration;
-                    var B = KxTot / (1 + Parameters.Table[ParameterTypes.IsomerizationEquilibriumConstant].Value);
+                    var KxTot = Parameters.Table[ParameterType.IsomerizationEquilibriumConstant].Value * inj.ActualCellConcentration;
+                    var B = KxTot / (1 + Parameters.Table[ParameterType.IsomerizationEquilibriumConstant].Value);
                     var A = inj.ActualCellConcentration - B;
 
                     return new double[] { A, B };

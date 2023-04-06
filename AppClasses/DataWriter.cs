@@ -578,10 +578,10 @@ namespace AnalysisITC
                 {
                     switch (par.Key)
                     {
-                        case ParameterTypes.Nvalue1:
-                        case ParameterTypes.Nvalue2: paste += par.Value.ToString("F2"); break;
-                        case ParameterTypes.Affinity1:
-                        case ParameterTypes.Affinity2: paste += par.Value.AsDissociationConstant(kdmagnitude, withunit: false); break;
+                        case ParameterType.Nvalue1:
+                        case ParameterType.Nvalue2: paste += par.Value.ToString("F2"); break;
+                        case ParameterType.Affinity1:
+                        case ParameterType.Affinity2: paste += par.Value.AsDissociationConstant(kdmagnitude, withunit: false); break;
                         default: paste += new Energy(par.Value).ToString(unit, withunit: false); break;
                     }
                     paste += " ";

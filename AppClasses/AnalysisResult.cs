@@ -30,10 +30,10 @@ namespace AnalysisITC
                     {
                         switch (con.Key)
                         {
-                            case ParameterTypes.Nvalue1: s += "N-value: "; break;
-                            case ParameterTypes.Enthalpy1: s += "Enthalpy: "; break;
-                            case ParameterTypes.Affinity1:
-                            case ParameterTypes.Gibbs1: s += "Affinity: "; break;
+                            case ParameterType.Nvalue1: s += "N-value: "; break;
+                            case ParameterType.Enthalpy1: s += "Enthalpy: "; break;
+                            case ParameterType.Affinity1:
+                            case ParameterType.Gibbs1: s += "Affinity: "; break;
                         }
 
                         s += con.Value.GetEnumDescription() + Environment.NewLine;
@@ -45,8 +45,8 @@ namespace AnalysisITC
             }
 
             s += Model.TemperatureDependenceExposed ? "∆H° = " : "∆H = ";
-            s += new Energy(Solution.GetStandardParameterValue(ParameterTypes.Enthalpy1)).ToString(EnergyUnit.KiloJoule, permole: true) + Environment.NewLine;
-            if (Model.TemperatureDependenceExposed) s += "∆Cₚ = " + new Energy(Solution.TemperatureDependence[ParameterTypes.Enthalpy1].Slope).ToString(EnergyUnit.Joule, "F0", permole: true, perK: true);
+            s += new Energy(Solution.GetStandardParameterValue(ParameterType.Enthalpy1)).ToString(EnergyUnit.KiloJoule, permole: true) + Environment.NewLine;
+            if (Model.TemperatureDependenceExposed) s += "∆Cₚ = " + new Energy(Solution.TemperatureDependence[ParameterType.Enthalpy1].Slope).ToString(EnergyUnit.Joule, "F0", permole: true, perK: true);
 
             return s.Trim();
         }

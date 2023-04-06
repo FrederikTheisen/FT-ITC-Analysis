@@ -1278,7 +1278,7 @@ namespace AnalysisITC
             layer.Context.SetLineWidth(1);
 
             var H = ExperimentData.Solution.TotalEnthalpy;
-            if (DrawWithOffset) H += ExperimentData.Solution.Parameters[AppClasses.Analysis2.ParameterTypes.Offset];
+            if (DrawWithOffset) H += ExperimentData.Solution.Parameters[AppClasses.Analysis2.ParameterType.Offset];
             var e1 = GetRelativePosition(XAxis.Min, H);
             var e2 = GetRelativePosition(XAxis.Max, H);
             var enthalpy = new CGPath();
@@ -1287,7 +1287,7 @@ namespace AnalysisITC
             layer.Context.AddPath(enthalpy);
 
             //var N = ExperimentData.Solution.N;
-            var Ns = ExperimentData.Solution.ParametersConformingToKey(AppClasses.Analysis2.ParameterTypes.Nvalue1);
+            var Ns = ExperimentData.Solution.ParametersConformingToKey(AppClasses.Analysis2.ParameterType.Nvalue1);
 
             foreach (var N in Ns)
             {

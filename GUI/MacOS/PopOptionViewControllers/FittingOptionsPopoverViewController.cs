@@ -39,6 +39,11 @@ namespace AnalysisITC
 
             if (ModelFactory.Factory == null) return;
 
+            foreach (var par in ModelFactory.Factory.GetExposedModelOptions())
+            {
+                //StackView.InsertArrangedSubview
+            }
+
             foreach (var par in ModelFactory.Factory.GetExposedParameters())
             {
                 var sv = new ParameterValueAdjustmentView(new CoreGraphics.CGRect(0, 0, StackView.Frame.Width, 20));

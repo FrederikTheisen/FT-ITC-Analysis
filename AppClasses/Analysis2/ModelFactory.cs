@@ -75,7 +75,7 @@ namespace AnalysisITC.AppClasses.Analysis2
 			throw new NotImplementedException("ModelFactory.GetExposedParameters()");
 		}
 
-		public virtual void SetCustomParameter(ParameterTypes key, double value, bool locked)
+		public virtual void SetCustomParameter(ParameterType key, double value, bool locked)
 		{
             throw new NotImplementedException("ModelFactory.SetCustomParameter()");
         }
@@ -158,7 +158,7 @@ namespace AnalysisITC.AppClasses.Analysis2
 			return Model.Parameters.Table.Values;
 		}
 
-        public override void SetCustomParameter(ParameterTypes key, double value, bool locked)
+        public override void SetCustomParameter(ParameterType key, double value, bool locked)
         {
             if (!Model.Parameters.Table.ContainsKey(key)) throw new Exception("Parameter not found [File: GlobalFactory.SetCustomParameter]: " + key.ToString());
             Model.Parameters.Table[key].Update(value, locked);
@@ -188,7 +188,7 @@ namespace AnalysisITC.AppClasses.Analysis2
 
         public GlobalModel Model { get; private set; }
 		public GlobalModelParameters GlobalModelParameters { get; private set; }
-		private Dictionary<ParameterTypes, List<VariableConstraint>> ExposedGlobalFittingOptions { get; set; }
+		private Dictionary<ParameterType, List<VariableConstraint>> ExposedGlobalFittingOptions { get; set; }
 
 		public List<Parameter> Parameters => GlobalModelParameters.GlobalTable.Values.ToList();
 
@@ -248,8 +248,8 @@ namespace AnalysisITC.AppClasses.Analysis2
 
                 switch (par.Key)
                 {
-                    case ParameterTypes.Nvalue1:
-                    case ParameterTypes.Nvalue2:
+                    case ParameterType.Nvalue1:
+                    case ParameterType.Nvalue2:
                         switch (GlobalModelParameters.GetConstraintForParameter(par.Key))
                         {
                             case VariableConstraint.SameForAll:
@@ -261,8 +261,8 @@ namespace AnalysisITC.AppClasses.Analysis2
 							default: break;
                         }
                         break;
-                    case ParameterTypes.Enthalpy1:
-                    case ParameterTypes.Enthalpy2:
+                    case ParameterType.Enthalpy1:
+                    case ParameterType.Enthalpy2:
                         switch (GlobalModelParameters.GetConstraintForParameter(par.Key))
                         {
                             case VariableConstraint.None: break;
@@ -273,10 +273,10 @@ namespace AnalysisITC.AppClasses.Analysis2
                                     islocked: prevvalue != null ? prevvalue.IsLocked : false);
                                 break;
                             case VariableConstraint.TemperatureDependent:
-								var prevdCp = PrevParameters.Find(p => Parameter.Equal(p.Key, ParameterTypes.HeatCapacity1));
+								var prevdCp = PrevParameters.Find(p => Parameter.Equal(p.Key, ParameterType.HeatCapacity1));
 
                                 GlobalModelParameters.AddorUpdateGlobalParameter(
-									key: par.Key == ParameterTypes.Enthalpy1 ? ParameterTypes.HeatCapacity1 : ParameterTypes.HeatCapacity2,
+									key: par.Key == ParameterType.Enthalpy1 ? ParameterType.HeatCapacity1 : ParameterType.HeatCapacity2,
 									value: prevdCp != null ? prevdCp.Value : 0,
 									islocked: prevdCp != null ? prevdCp.IsLocked : false);
                                 GlobalModelParameters.AddorUpdateGlobalParameter(
@@ -286,14 +286,14 @@ namespace AnalysisITC.AppClasses.Analysis2
                                 break;
                         }
                         break;
-                    case ParameterTypes.Affinity1:
-                    case ParameterTypes.Affinity2:
+                    case ParameterType.Affinity1:
+                    case ParameterType.Affinity2:
                         switch (GlobalModelParameters.GetConstraintForParameter(par.Key))
                         {
                             case VariableConstraint.SameForAll:
                             case VariableConstraint.TemperatureDependent:
 								GlobalModelParameters.AddorUpdateGlobalParameter(
-									key: par.Key == ParameterTypes.Affinity1 ? ParameterTypes.Gibbs1 : ParameterTypes.Gibbs2,
+									key: par.Key == ParameterType.Affinity1 ? ParameterType.Gibbs1 : ParameterType.Gibbs2,
 									value: prevvalue != null ? (double)prevvalue.Value : Model.Models.Average(mdl => mdl.GuessAffinityAsGibbs()),
 									islocked: prevvalue != null ? prevvalue.IsLocked : false);
                                 break;
@@ -309,7 +309,7 @@ namespace AnalysisITC.AppClasses.Analysis2
 		{
 			if (Model.Models == null || Model.Models.Count == 0) return;
 
-            var dict = new Dictionary<ParameterTypes, List<VariableConstraint>>();
+            var dict = new Dictionary<ParameterType, List<VariableConstraint>>();
 
             var _pars = Model.Models.First().Parameters;
 
@@ -319,18 +319,18 @@ namespace AnalysisITC.AppClasses.Analysis2
 				switch (par.Key)
 				{
 					//Temperature dependent variables
-					case ParameterTypes.Affinity1:
-					case ParameterTypes.Affinity2:
+					case ParameterType.Affinity1:
+					case ParameterType.Affinity2:
                         dict[par.Key] = new List<VariableConstraint> { VariableConstraint.None, VariableConstraint.TemperatureDependent };
                         break;
-                    case ParameterTypes.Enthalpy1:
-					case ParameterTypes.Enthalpy2:
+                    case ParameterType.Enthalpy1:
+					case ParameterType.Enthalpy2:
 						if (Model.TemperatureDependenceExposed) dict[par.Key] = new List<VariableConstraint> { VariableConstraint.None, VariableConstraint.TemperatureDependent, VariableConstraint.SameForAll};
 						else dict[par.Key] = new List<VariableConstraint> { VariableConstraint.None, VariableConstraint.SameForAll };
 						break;
 					//Not temperature dependent variables
-                    case ParameterTypes.Nvalue1:
-					case ParameterTypes.Nvalue2:
+                    case ParameterType.Nvalue1:
+					case ParameterType.Nvalue2:
 						dict[par.Key] = new List<VariableConstraint> { VariableConstraint.None, VariableConstraint.SameForAll };
 						break;
 				}
@@ -339,7 +339,7 @@ namespace AnalysisITC.AppClasses.Analysis2
             ExposedGlobalFittingOptions = dict;
 		}
 
-		public Dictionary<ParameterTypes, List<VariableConstraint>> GetExposedConstraints()
+		public Dictionary<ParameterType, List<VariableConstraint>> GetExposedConstraints()
 		{
 			return ExposedGlobalFittingOptions;
 		}
@@ -354,7 +354,7 @@ namespace AnalysisITC.AppClasses.Analysis2
             return Model.Models.First().ModelOptions;
         }
 
-        public override void SetCustomParameter(ParameterTypes key, double value, bool locked)
+        public override void SetCustomParameter(ParameterType key, double value, bool locked)
         {
 			if (!GlobalModelParameters.GlobalTable.ContainsKey(key)) throw new Exception("Parameter not found [File: GlobalFactory.SetCustomParameter]: " + key.ToString());
 			GlobalModelParameters.GlobalTable[key].Update(value, locked);

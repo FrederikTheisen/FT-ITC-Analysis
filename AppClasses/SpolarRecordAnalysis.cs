@@ -26,7 +26,7 @@ namespace AnalysisITC
 
             AnalysisStarted?.Invoke(null, TerminateAnalysisFlag);
 
-            var sr = new FTSRMethod(solution.TemperatureDependence[ParameterTypes.Enthalpy1], solution.TemperatureDependence[ParameterTypes.EntropyContribution1]);
+            var sr = new FTSRMethod(solution.TemperatureDependence[ParameterType.Enthalpy1], solution.TemperatureDependence[ParameterType.EntropyContribution1]);
             sr.SRTempMode = TempMode;
             sr.SRFoldedMode = FoldedDegree;
 

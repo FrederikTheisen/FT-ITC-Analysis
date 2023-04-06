@@ -20,7 +20,7 @@ namespace AnalysisITC.AppClasses.Analysis2.Models
         public int NumberOfParameters => Parameters.FittingParameterCount;
         public string ModelName => ModelType.ToString();
         bool DataHasSolution => Data.Solution != null;
-        bool SolutionHasParameter(ParameterTypes key) => DataHasSolution ? Data.Solution.Parameters.ContainsKey(key) : false;
+        bool SolutionHasParameter(ParameterType key) => DataHasSolution ? Data.Solution.Parameters.ContainsKey(key) : false;
 
         public virtual double GuessEnthalpy() => Data.Injections.First(inj => inj.Include).Enthalpy - GuessOffset();
         public virtual double GuessOffset() => 0.8 * Data.Injections.Where(inj => inj.Include).TakeLast(2).Average(inj => inj.Enthalpy);
@@ -28,7 +28,7 @@ namespace AnalysisITC.AppClasses.Analysis2.Models
         public virtual double GuessAffinity() => 1000000;
         public virtual double GuessAffinityAsGibbs() => -Energy.R * Data.MeasuredTemperatureKelvin * Math.Log(GuessAffinity());
 
-        public virtual double GuessParameter(ParameterTypes key)
+        public virtual double GuessParameter(ParameterType key)
         {
             if (SolutionHasParameter(key))
             {
@@ -71,7 +71,7 @@ namespace AnalysisITC.AppClasses.Analysis2.Models
 
             var val = new FloatWithError(results, EvaluateEnthalpy(inj, true));
 
-            return withoff ? val : val - Solution.Parameters[ParameterTypes.Offset]; //Returns evaluated value with or without offset
+            return withoff ? val : val - Solution.Parameters[ParameterType.Offset]; //Returns evaluated value with or without offset
         }
 
 		public double LossFunction(double[] parameters)
@@ -129,7 +129,7 @@ namespace AnalysisITC.AppClasses.Analysis2.Models
         public SolverConvergence Convergence { get; set; }
         public ErrorEstimationMethod ErrorMethod { get; set; } = ErrorEstimationMethod.None;
         public virtual List<SolutionInterface> BootstrapSolutions { get; protected set; }
-		public Dictionary<ParameterTypes, FloatWithError> Parameters { get; } = new Dictionary<ParameterTypes, FloatWithError>();
+		public Dictionary<ParameterType, FloatWithError> Parameters { get; } = new Dictionary<ParameterType, FloatWithError>();
 
         public string SolutionName => (IsGlobalAnalysisSolution ? "Global." : "") + Model.ModelName;
         public ExperimentData Data => Model.Data;
@@ -141,11 +141,11 @@ namespace AnalysisITC.AppClasses.Analysis2.Models
             get
             {
                 var dH = new FloatWithError(0.0);
-                foreach (var par in ParametersConformingToKey(ParameterTypes.Enthalpy1)) dH += par;
+                foreach (var par in ParametersConformingToKey(ParameterType.Enthalpy1)) dH += par;
                 return dH;
             }
         }
-        public List<FloatWithError> ParametersConformingToKey(ParameterTypes key)
+        public List<FloatWithError> ParametersConformingToKey(ParameterType key)
         {
             return Parameters.Where(par => par.Key.GetProperties().ParentType == key).Select(par => par.Value).ToList();
         }
@@ -176,8 +176,8 @@ namespace AnalysisITC.AppClasses.Analysis2.Models
             return solution;
 		}
 
-        public virtual List<Tuple<ParameterTypes, Func<SolutionInterface, FloatWithError>>> DependenciesToReport => new List<Tuple<ParameterTypes, Func<SolutionInterface, FloatWithError>>>();
-        public virtual Dictionary<ParameterTypes, FloatWithError> ReportParameters => new Dictionary<ParameterTypes, FloatWithError>();
+        public virtual List<Tuple<ParameterType, Func<SolutionInterface, FloatWithError>>> DependenciesToReport => new List<Tuple<ParameterType, Func<SolutionInterface, FloatWithError>>>();
+        public virtual Dictionary<ParameterType, FloatWithError> ReportParameters => new Dictionary<ParameterType, FloatWithError>();
 
         public virtual List<Tuple<string, string>> UISolutionParameters(FinalFigureDisplayParameters info)
         {
