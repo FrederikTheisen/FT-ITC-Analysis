@@ -88,7 +88,7 @@ namespace AnalysisITC
             return FloatWithError.ToString(formatter);
         }
 
-        public static string Suffix(bool permole = false, bool perK = false)
+        public string Suffix(bool permole = false, bool perK = false)
         {
             string suffix = "";
 
@@ -130,10 +130,10 @@ namespace AnalysisITC
         public string Unit { get; set; }
         public string LongName { get; set; }
 
-        public EnergyUnitAttribute(string shortname, string longname)
+        public EnergyUnitAttribute(string name, string unit)
         {
-            LongName = shortname;
-            Unit = longname;
+            LongName = name;
+            Unit = unit;
         }
     }
 
