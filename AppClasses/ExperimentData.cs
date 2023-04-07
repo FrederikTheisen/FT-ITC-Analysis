@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using AnalysisITC.AppClasses.AnalysisClasses;
 using AnalysisITC.AppClasses.Analysis2;
 using AnalysisITC.AppClasses.Analysis2.Models;
 using DataReaders;
@@ -54,6 +55,7 @@ namespace AnalysisITC
         public double MeasuredTemperatureKelvin => 273.15 + MeasuredTemperature;
 
         public DataProcessor Processor { get; private set; }
+        public Dictionary<ModelOptionKey, ModelOptions> ExperimentOptions { get; } = new Dictionary<ModelOptionKey, ModelOptions>();
         public Model Model { get; set; }
         public SolutionInterface Solution => Model?.Solution;
 
