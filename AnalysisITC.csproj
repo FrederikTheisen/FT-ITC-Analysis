@@ -312,7 +312,6 @@
     <Compile Include="AppClasses\Analysis2\Solver.cs" />
     <Compile Include="AppClasses\Analysis2\GlobalModel.cs" />
     <Compile Include="GUI\MacOS\CustomViews\ParameterValueAdjustmentView.cs" />
-    <Compile Include="Utils\Strings.cs" />
     <Compile Include="GUI\MacOS\ListViews\ExperimentDataViewCell.cs" />
     <Compile Include="GUI\MacOS\ListViews\ExperimentDataViewCell.designer.cs">
       <DependentUpon>ExperimentDataViewCell.cs</DependentUpon>
@@ -408,9 +407,19 @@
     <Compile Include="GUI\MacOS\ExportAccessoryViewController.designer.cs">
       <DependentUpon>ExportAccessoryViewController.cs</DependentUpon>
     </Compile>
+    <Compile Include="GUI\MacOS\CustomViews\OptionAdjustmentView.cs" />
+    <Compile Include="HelpViewController.cs" />
+    <Compile Include="HelpViewController.designer.cs">
+      <DependentUpon>HelpViewController.cs</DependentUpon>
+    </Compile>
+    <Compile Include="GUI\MacOS\MacStrings.cs" />
+    <Compile Include="GUI\AppStrings.cs" />
   </ItemGroup>
   <ItemGroup>
     <InterfaceDefinition Include="Main.storyboard" />
+  </ItemGroup>
+  <ItemGroup>
+    <BundleResource Include="Resources\HelpTextResource.txt" />
   </ItemGroup>
   <Import Project="$(MSBuildExtensionsPath)\Xamarin\Mac\Xamarin.Mac.CSharp.targets" />
   <Import Project="packages\Accord.3.8.0\build\Accord.targets" Condition="Exists('packages\Accord.3.8.0\build\Accord.targets')" />

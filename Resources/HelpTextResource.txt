@@ -1,0 +1,43 @@
+﻿##Reading Data Files
+#Compatible Formats
+FT-ITC Analysis is currently able to read data files provided by MicroCal and Malvern Pananalytical instruments. These files have an ‘itc’ file extension and are plain text files that contain information about instrument and experiment setup followed by raw data.
+#Loading Files
+To open a raw data file, go to File > Open… and select the file you want to analyze. Alternatively, you can click ‘Enter’ to open the file browser or ‘Space’ to load the last file.
+#Saving Files
+FT-ITC Analysis supports saving processed files in the ‘ftitc’ file format. The saved file contains all the data necessary to process and analyze the experiment and also includes any processing done to the data. Note that saving does not include the analysis of data.
+
+##Processing Experimental Data
+#Adjusting the Baseline
+FT-ITC Analysis offers two baseline correction modes. The first mode, spline baseline, calculates the position of the baseline for each injection delay period and interpolates a spline between these points. You can use a custom spline handle mode for more control over the baseline. The second mode, outlier discarding polynomial fit, is more robust against large spikes in the baseline but may perform poorly with interactions involving slow kinetics or short injection delays. You can convert the polynomial baseline to a spline baseline using the “>” button next to the baseline mode selection control.
+#Setting the Integration Range
+The integration range includes two parameters: the start time and the stop delay. By default, the integration starts at the injection time and continues through most of the injection delay. To limit the amount of noise integrated, you can reduce the integration length. FT-ITC Analysis offers three options: the time option lets you set the end time of the integration, the factor option allows you to quickly set an integration length that depends on the peak height, and the peak fit option fits an exponential function to each peak and sets the integration end time based on this. You can double click or select each injection at the bottom to individually set integration times. You can drag the integration range markers to move them.
+#Tips and Tricks
+Often, the automatic range option is not suitable for all injections. To set custom integration ranges for each injection, select a peak, zoom to the peak, set the end point, and use SPACE to simultaneously copy the end time and navigate to the next injection. If you want to perform a quick analysis of multiple experiments, you can set a conservative range for all peaks and use the ‘Copy to all’ button to copy the baseline and integration range to all experiments.
+
+##Analyzing Experiments
+#Fitting Your Experiment
+Analyzing ITC data using FT-ITC Analysis is easy. In most cases, you can simply click the 'Fit' button on the analysis page. The program includes various models to support the analysis of different interactions.
+#Global Fitting
+FT-ITC Analysis allows you to analyze multiple experiments simultaneously using the global fitting scheme. This enables fitting of difficult interactions with greater certainty by applying constraints to various parameters. Global fitting saves your result in a new object. If experiments at multiple temperatures are available, global fitting allows determining the heat capacity change upon binding, a useful parameter for interpretation of thermodynamics.
+#Further Analysis
+When a global fit has completed you will be able view the result in a result view page available in the side bar. Here you can view the fit parameters and global correlations. In addition, you can do further analysis such as evaluating the global correlation at different temperatures in order to obtain globally thermodynamic parameters based on all experiments. Furthermore, if a sufficient temperature range was used, you will be able to analyze folding-upon-binding using the SpolarRecord (Science 1994) method.
+
+##Presenting the Data
+#Final Figure
+FT-ITC Analysis can export a final figure-style graphic for publication from the 'Final Figure' view. You can modify the look of the figure using the three menus at the top of the Final Figure view. Note that the given dimensions apply to the plot area only and do not include area necessary to show axis labels and legends. You can unify axes to normalize the given axis between all experiments currently active.
+#Export Raw Data
+You can export raw data from the app using the File > Export menu. Raw data can be unified on the time axis, which will attempt to establish the most reasonable time points and interpolate missing data points from existing data in order to export all data with the same time axis. Exporting integrated peaks is also possible and may include expected values based on the fitted model.
+
+##Optimizing Your Experiment
+#The Sample
+ITC requires no labelling of any components, however it does require careful sample preparation and careful concentration determination to enable accurate modelling. In addition, the instruments are generally sensitive to gas and samples should be degassed prior to experiments. This can usually be done by centrifugation at 20000 x g at the experimental temperature. Furthermore, if there is a buffer mismatch between the syringe and the cell, this may give rise to large dilution heats which can disturb the experiments or introduce errors in fitted parameters.
+#Buffer Mismatch
+Buffer mismatch will often be evident as unexpectedly large heats which do not disappear upon saturation of the cell protein. Offsets larger than ±10 kJ/mol may be caused by buffer mismatch. Reducing agents are particularly susceptible to this and it is highly recommended not to use DTT as a reducing agent.
+#Concentrations
+ITC experiments are very concentration dependent and it is essential to consider stoichiometry, cell volume and syringe volume when designing your experiment. The optimal experiment will saturate the cell protein halfway through the experiment to obtain baselines both before and after the inflection point.
+In addition, the shape of the isotherm depends strongly on the concentrations used as higher concentrations will result in larger injection heats and steeper binding curves. For high affinity interactions (Kd < 50 nM), this may cause problems, since both certain heat and some slope is required to be able to fit the experiments. It may be possible to increase the temperature to help this since higher temperatures results in weaker binding and generally also larger heats.
+
+##Interpreting Your Data
+In most cases, interpretation of affinities provided by ITC is straightforward, however it is worth noting that temperature has a large effect on the observed equilibrium constants. Therefore it is important to only compare affinities determined at similar temperatures.
+#Thermodynamic Parameters
+ITC directly measures both enthalpy and affinity and the entropy can therefore be derived from the Gibbs free energy. Entropy is frequently used as a measure of structuring, however it can be difficult to decompose due to the underlying contributions. The derived entropy also contains a hydration term which is often large and favorable for interactions. Determining the heat capacity change upon binding allows thermodynamic structuring analysis.
