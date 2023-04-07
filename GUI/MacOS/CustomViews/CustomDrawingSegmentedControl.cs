@@ -16,37 +16,37 @@ namespace AnalysisITC.GUI.MacOS.CustomViews
             
 		}
 
-        public override nint SegmentCount
-        {
-            get => base.SegmentCount;
-            set
-            {
-                base.SegmentCount = value;
-                attributedStrings = new NSAttributedString[value];
-            }
-        }
+        //public override nint SegmentCount
+        //{
+        //    get => base.SegmentCount;
+        //    set
+        //    {
+        //        base.SegmentCount = value;
+        //        attributedStrings = new NSAttributedString[value];
+        //    }
+        //}
 
-        public override void DrawCell(NSCell aCell)
-        {
-            base.DrawCell(aCell);
-        }
+        //public override void DrawCell(NSCell aCell)
+        //{
+        //    base.DrawCell(aCell);
+        //}
 
-        public void SetAttributedStringValue(NSAttributedString attstring, int n)
-        {
-            attributedStrings[n] = attstring;
-        }
+        //public void SetAttributedStringValue(NSAttributedString attstring, int n)
+        //{
+        //    attributedStrings[n] = attstring;
+        //}
 
-        public override void DrawCellInside(NSCell aCell)
-        {
-            base.DrawCellInside(aCell);
-        }
+        //public override void DrawCellInside(NSCell aCell)
+        //{
+        //    base.DrawCellInside(aCell);
+        //}
 
-        public override void DrawRect(CGRect dirtyRect)
-        {
-            base.DrawRect(dirtyRect);
+        //public override void DrawRect(CGRect dirtyRect)
+        //{
+        //    base.DrawRect(dirtyRect);
 
-            //(Cell as CustomDrawingSegmentedCell).DrawSegment(0, dirtyRect, this);
-        }
+        //    //(Cell as CustomDrawingSegmentedCell).DrawSegment(0, dirtyRect, this);
+        //}
     }
 
     public class CustomKdKaDrawingSegmentedCell : NSSegmentedCell
@@ -59,8 +59,8 @@ namespace AnalysisITC.GUI.MacOS.CustomViews
             switch (segment)
             {
                 default:
-                case 0: str = Utils.Strings.AssociationConstant(9f); break;
-                case 1: str = Utils.Strings.DissociationConstant(9f); break;
+                case 0: str = Utils.MacStrings.AssociationConstant(Font); break;
+                case 1: str = Utils.MacStrings.DissociationConstant(Font); break;
             }
 
             var rect = str.BoundingRectWithSize(frame.Size, NSStringDrawingOptions.UsesLineFragmentOrigin);

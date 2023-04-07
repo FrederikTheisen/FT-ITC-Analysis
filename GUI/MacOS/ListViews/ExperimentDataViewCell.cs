@@ -84,6 +84,21 @@ namespace AnalysisITC
 					foreach (var par in data.Solution.UISolutionParameters(FinalFigureDisplayParameters.ListView)) mfline += "\n" + par.Item1 + ": " + par.Item2;
 
 					ModelFitLine.StringValue = mfline.Trim();
+
+					NSMutableAttributedString line = new NSMutableAttributedString();
+
+					foreach (var par in data.Solution.UISolutionParameters(FinalFigureDisplayParameters.ListView))
+					{
+						var lbl = Utils.MacStrings.FromMarkDownString(par.Item1 + " = ", ModelFitLine.Font);
+						var val = new NSAttributedString(par.Item2);
+
+						if (line.Length > 0) line.Append(new NSAttributedString("\n"));
+						line.Append(lbl);
+						line.Append(val);
+                        //mfline += "\n" + par.Item1 + ": " + par.Item2;
+					}
+
+					ModelFitLine.AttributedStringValue = line;
                 }
 				else
 				{

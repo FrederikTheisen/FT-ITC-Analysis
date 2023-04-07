@@ -16,7 +16,7 @@ namespace AnalysisITC.Utils
         static NSMutableAttributedString SubscriptText(string str, NSFont font)
         {
             var s = new NSMutableAttributedString(str);
-            font = NSFont.FromFontName(font.FontName, font.PointSize * 0.5f);
+            font = NSFont.FromFontName(font.FontName, font.PointSize * 0.75f);
             s.AddAttributes(new NSStringAttributes { Font = font, ForegroundColor = NSColor.ControlText }, new NSRange(0, s.Length));
             var attributes = new NSMutableDictionary();
             var subscriptOffset = new NSNumber(-2);

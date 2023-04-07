@@ -5,6 +5,15 @@ using CoreText;
 
 namespace AnalysisITC.Utils
 {
+    public static class MarkdownStrings
+    {
+        public const string DissociationConstant = "*K*{d}";
+        public const string ApparantDissociationConstant = "*K*{d,app}";
+        public const string Enthalpy = "∆*H*";
+        public const string GibbsFreeEnergy = "∆*G*";
+        public const string EntropyContribution = "-*T*∆*S*";
+    }
+
     /// <summary>
     /// Method and markdown languange 100% invented and written by ChatGPT
     /// </summary>
