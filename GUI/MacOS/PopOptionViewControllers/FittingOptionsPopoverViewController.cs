@@ -40,7 +40,7 @@ namespace AnalysisITC
 
             if (ModelFactory.Factory == null) return;
 
-            foreach (var opt in ModelFactory.Factory.GetExposedModelOptions())
+            foreach (var opt in ModelFactory.Factory.GetExposedModelOptions().Reverse())
             {
                 var sv = new OptionAdjustmentView(new CoreGraphics.CGRect(0, 0, StackView.Frame.Width, 20), opt.Value);
 
@@ -49,7 +49,7 @@ namespace AnalysisITC
                 StackView.InsertArrangedSubview(sv, 10);
             }
 
-            foreach (var par in ModelFactory.Factory.GetExposedParameters())
+            foreach (var par in ModelFactory.Factory.GetExposedParameters().Reverse())
             {
                 var sv = new ParameterValueAdjustmentView(new CoreGraphics.CGRect(0, 0, StackView.Frame.Width, 20));
 
@@ -95,6 +95,10 @@ namespace AnalysisITC
                     {
                         ModelFactory.Factory.SetCustomParameter(sv.Key, sv.Value, sv.Locked);
                     }
+                }
+                foreach (var sv in OptionControls)
+                {
+                    sv.ApplyOptions();
                 }
 
                 DismissViewController(this);
