@@ -40,9 +40,9 @@ namespace AnalysisITC.AppClasses.AnalysisClasses
 		public int IntValue { get; set; }
 		public double DoubleValue { get; set; }
 		public FloatWithError ParameterValue { get; set; }
-		public int EnumOptionCount { get; private set; }
 		public List<string> EnumOptions { get; private set; }
 
+        public int EnumOptionCount => EnumOptions.Count;
         public KeyValuePair<ModelOptionKey, ModelOptions> DictionaryEntry => new KeyValuePair<ModelOptionKey, ModelOptions>(Key, this);
 
         public ModelOptions()
@@ -97,7 +97,6 @@ namespace AnalysisITC.AppClasses.AnalysisClasses
 				Key = key,
 				OptionName = name,
 				IntValue = options.Count,
-				EnumOptionCount = options.Count,
 			};
 		}
 
@@ -140,9 +139,22 @@ namespace AnalysisITC.AppClasses.AnalysisClasses
 				var options = BufferAttribute.GetBuffers();
 
 				IntValue = -1;
-				EnumOptionCount = options.Count;
 				EnumOptions = options.Select(b => b.ToString()).ToList();
 			}
+		}
+
+		public ModelOptions Copy()
+		{
+			return new ModelOptions()
+			{
+				OptionName = OptionName,
+				Key = Key,
+				IntValue = IntValue,
+				BoolValue = BoolValue,
+				ParameterValue = ParameterValue,
+				EnumOptions = EnumOptions,
+				DoubleValue = DoubleValue,
+			};
 		}
 
 		public static List<ModelOptionKey> AvailableExperimentAttributes
