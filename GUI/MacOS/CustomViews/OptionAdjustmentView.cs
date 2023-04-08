@@ -178,6 +178,7 @@ namespace AnalysisITC.GUI.MacOS.CustomViews
 
             if (Option.Key == ModelOptionKey.PreboundLigandAffinity)
             {
+                value = new FloatWithError(1.0) / value;
                 value *= AppSettings.DefaultConcentrationUnit.GetProperties().Mod;
             }
             else if (Option.Key == ModelOptionKey.PreboundLigandConc)
@@ -295,7 +296,53 @@ namespace AnalysisITC.GUI.MacOS.CustomViews
 
         public void ApplyOptions()
         {
+            switch (Option.Key)
+            {
+                case ModelOptionKey.PeptideInCell:
+                    Option.BoolValue = InputButton.State == NSCellStateValue.On;
+                    break;
+                case ModelOptionKey.PreboundLigandConc:
+                    {
+                        Option.BoolValue = InputButton.State == NSCellStateValue.On;
+                        if (string.IsNullOrEmpty(InputField.StringValue)) return;
+                        var val = InputField.DoubleValue / 1000000;
+                        var err = InputErrorField.DoubleValue / 1000000;
 
+                        var value = new FloatWithError(val, err);
+
+                        Option.ParameterValue = value;
+                        Option.BoolValue = InputButton.State == NSCellStateValue.On;
+                        break;
+                    }
+
+                case ModelOptionKey.PreboundLigandAffinity:
+                    {
+                        if (string.IsNullOrEmpty(InputField.StringValue)) return;
+                        if (InputField.DoubleValue == 0) return;
+                        var val = InputField.DoubleValue / AppSettings.DefaultConcentrationUnit.GetProperties().Mod;
+                        var err = InputErrorField.DoubleValue / AppSettings.DefaultConcentrationUnit.GetProperties().Mod;
+
+                        var k = 1 / val;
+                        var k_err = err / val * k;
+
+                        var value = new FloatWithError(k, k_err);
+
+                        Option.ParameterValue = value;
+                        break;
+                    }
+
+                case ModelOptionKey.PreboundLigandEnthalpy:
+                    {
+                        if (string.IsNullOrEmpty(InputField.StringValue)) return;
+                        var val = InputField.DoubleValue;
+                        var err = InputErrorField.DoubleValue;
+
+                        var value = new Energy(new FloatWithError(val, err), AppSettings.EnergyUnit);
+
+                        Option.ParameterValue = value.FloatWithError;
+                        break;
+                    }
+            }
         }
     }
 }
