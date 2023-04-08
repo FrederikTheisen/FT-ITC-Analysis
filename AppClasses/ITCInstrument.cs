@@ -51,7 +51,7 @@ namespace DataReaders
         Unknown,
         [ITCInstrument("MicroCal ITC200", "", "ITC200_", 204, 43)]
         MicroCalITC200,
-        [ITCInstrument("Malvern Pananalytical ITC", "", "MICROCALITC_MAL", 207.1, 43)]
+        [ITCInstrument("MicroCal PEAQ-ITC", "", "MICROCALITC_MAL", 207.1, 43)]
         MalvernITC200,
         [ITCInstrument("MicroCal VP-ITC", "", "VPITC", 1479.1, 310)]
         MicroCalVPITC,
