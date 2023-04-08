@@ -78,7 +78,8 @@ namespace AnalysisITC.GUI.MacOS.CustomViews
             Orientation = NSUserInterfaceLayoutOrientation.Horizontal;
             Distribution = NSStackViewDistribution.Fill;
             Alignment = NSLayoutAttribute.CenterY;
-            SetContentHuggingPriorityForOrientation(1000, NSLayoutConstraintOrientation.Vertical);
+            SetContentHuggingPriorityForOrientation(999, NSLayoutConstraintOrientation.Vertical);
+            SetContentCompressionResistancePriority(1000, NSLayoutConstraintOrientation.Vertical);
             SetHuggingPriority(1000, NSLayoutConstraintOrientation.Vertical);
 
             Label = new NSTextField(new CGRect(0,0,150,14))
@@ -97,15 +98,16 @@ namespace AnalysisITC.GUI.MacOS.CustomViews
             {
                 Cell = new CustomKdKaDrawingSegmentedCell(),
                 SegmentStyle = NSSegmentStyle.Capsule,
-                ControlSize = NSControlSize.Small,
+                ControlSize = NSControlSize.Mini,
                 SegmentDistribution = NSSegmentDistribution.FillEqually,
                 SegmentCount = 2,
-                Font = NSFont.SystemFontOfSize(10),
+                Font = NSFont.SystemFontOfSize(9),
                 Hidden = true,
             };
             ParameterOptionControl.SetImageScaling(NSImageScaling.ProportionallyDown, 0);
             ParameterOptionControl.SetImageScaling(NSImageScaling.ProportionallyDown, 1);
             ParameterOptionControl.Activated += ParameterOptionControl_Activated;
+            ParameterOptionControl.SetContentCompressionResistancePriority(1000, NSLayoutConstraintOrientation.Vertical);
             ParameterOptionControl.SizeToFit();
 
             Input = new NSTextField(new CGRect(0, 0, 100, 14))
@@ -124,34 +126,57 @@ namespace AnalysisITC.GUI.MacOS.CustomViews
             Input.AddConstraint(NSLayoutConstraint.Create(Input, NSLayoutAttribute.Width, NSLayoutRelation.Equal, 1, 60));
             Input.RefusesFirstResponder = true;
 
-            Lock = new NSButton(new CGRect(0, 0, 23, 14))
+
+            AddArrangedSubview(Label);
+            AddArrangedSubview(ParameterOptionControl);
+            AddArrangedSubview(Input);
+
+            SetupLockBtn();
+
+        }
+
+        void SetupLockBtn()
+        {
+            var targetImage1 = NewMethod(NSImage.GetSystemSymbol("lock.open.fill", null));
+            var targetImage2 = NewMethod(NSImage.GetSystemSymbol("lock.fill", null));
+
+            Lock = new NSButton(new CGRect(0, 0, 13, 14))
             {
                 BezelStyle = NSBezelStyle.Rounded,
                 FocusRingType = NSFocusRingType.None,
                 Bordered = false,
-                Image = NSImage.GetSystemSymbol("lock.open.fill", null),
-                AlternateImage = NSImage.GetSystemSymbol("lock.fill", null),
+                Image = targetImage1,
+                AlternateImage = targetImage2,
                 ControlSize = NSControlSize.Small,
-                ImageScaling = NSImageScale.ProportionallyDown,
+                //ImageScaling = NSImageScale.ProportionallyDown,
                 Title = "",
                 AlternateTitle = "",
-                ImagePosition = NSCellImagePosition.ImageRight,
+                //ImagePosition = NSCellImagePosition.ImageRight,
             };
             Lock.SetButtonType(NSButtonType.Switch);
             Lock.Activated += Lock_Activated;
             Lock.ControlSize = NSControlSize.Small;
-            Lock.ImageScaling = NSImageScale.ProportionallyDown;
-            Lock.Cell.ImageScale = NSImageScale.ProportionallyDown;
-            Lock.Cell.ControlSize = NSControlSize.Small;
+            //Lock.ImageScaling = NSImageScale.ProportionallyDown;
+            //Lock.Cell.ImageScale = NSImageScale.ProportionallyDown;
+            //Lock.Cell.ControlSize = NSControlSize.Small;
             //Lock.ImagePosition = NSCellImagePosition.ImageOnly;
             Lock.AddConstraint(NSLayoutConstraint.Create(Lock, NSLayoutAttribute.Width, NSLayoutRelation.Equal, 1, 23));
             Lock.ImagePosition = NSCellImagePosition.ImageRight;
             Lock.Layout();
-            
-            AddArrangedSubview(Label);
-            AddArrangedSubview(ParameterOptionControl);
-            AddArrangedSubview(Input);
+
             AddArrangedSubview(Lock);
+
+            static NSImage NewMethod(NSImage img)
+            {
+                var targetFrame = new CGRect(0, 0, 12, 12);
+                var targetImage = new NSImage(targetFrame.Size);
+                targetImage.LockFocus();
+                targetImage.Template = true;
+                img.Draw(targetFrame, new CGRect(CGPoint.Empty, img.Size), NSCompositingOperation.SourceOver, 1f);
+                targetImage.UnlockFocus();
+                
+                return targetImage;
+            }
         }
 
         private void ParameterOptionControl_Activated(object sender, EventArgs e)

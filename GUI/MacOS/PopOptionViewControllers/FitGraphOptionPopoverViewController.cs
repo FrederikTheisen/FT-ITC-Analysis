@@ -43,6 +43,7 @@ namespace AnalysisITC
                 var targetFrame = new CGRect(0, 0, 10, 10);
                 var image = SymbolControl.GetImage(i);
                 var targetImage = new NSImage(targetFrame.Size);
+                targetImage.Template = true;
                 targetImage.LockFocus();
                 image.Draw(targetFrame, new CGRect(CGPoint.Empty, image.Size), NSCompositingOperation.SourceOver, 1f);
                 targetImage.UnlockFocus();
