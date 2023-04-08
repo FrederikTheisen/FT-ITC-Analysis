@@ -17,6 +17,9 @@ namespace AnalysisITC
     public class ConcentrationUnitAttribute : Attribute
     {
         public string Name { get; set; }
+        /// <summary>
+        /// Factor to from Molar to the current unit (eg. 1 for 'M' and 1000 for 'mM')
+        /// </summary>
         public double Mod { get; set; }
 
         public ConcentrationUnitAttribute(string name, double mod)
