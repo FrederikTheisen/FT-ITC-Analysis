@@ -253,6 +253,8 @@ namespace AnalysisITC
                 MeasuredTemperature = MeasuredTemperature,
             };
 
+            foreach (var opt in ExperimentOptions) syndat.ExperimentOptions.Add(opt);
+
             syndat.SetID(UniqueID);
 
             return syndat;
