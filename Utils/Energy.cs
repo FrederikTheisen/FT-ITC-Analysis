@@ -24,7 +24,25 @@ namespace AnalysisITC
             FloatWithError = new(v);
         }
 
+        public Energy(FloatWithError value, EnergyUnit unit)
+        {
+            FloatWithError = value / ScaleFactor(unit);
+        }
+
         public static Energy FromDistribution(IEnumerable<double> dist, double? mean = null) => new Energy(new FloatWithError(dist, mean));
+
+        public Energy ToUnit(EnergyUnit to)
+        {
+            switch (to)
+            {
+                case EnergyUnit.MicroCal: return JouleToCalFactor * 1000000 * this;
+                case EnergyUnit.Cal: return this * JouleToCalFactor;
+                case EnergyUnit.KiloJoule: return this / 1000;
+                case EnergyUnit.KCal: return this.ToUnit(EnergyUnit.Cal) / 1000;
+                case EnergyUnit.Joule:
+                default: return this;
+            }
+        }
 
         public static double ConvertToJoule(double value, EnergyUnit from)
         {
@@ -34,6 +52,19 @@ namespace AnalysisITC
                 case EnergyUnit.Cal: return CalToJouleFactor * value;
                 case EnergyUnit.KiloJoule: return 1000 * value;
                 case EnergyUnit.KCal: return ConvertToJoule(1000 * value, EnergyUnit.Cal);
+                case EnergyUnit.Joule:
+                default: return value;
+            }
+        }
+
+        public static double ConvertFromJoule(double value, EnergyUnit to)
+        {
+            switch (to)
+            {
+                case EnergyUnit.MicroCal: return JouleToCalFactor * 1000000 * value;
+                case EnergyUnit.Cal: return value * JouleToCalFactor;
+                case EnergyUnit.KiloJoule: return value / 1000;
+                case EnergyUnit.KCal: return ConvertFromJoule(value / 1000, EnergyUnit.Cal);
                 case EnergyUnit.Joule:
                 default: return value;
             }
@@ -135,6 +166,16 @@ namespace AnalysisITC
             LongName = name;
             Unit = unit;
         }
+
+        public static bool IsSI(EnergyUnit unit) => unit switch
+        {
+            EnergyUnit.KiloJoule => true,
+            EnergyUnit.Joule => true,
+            EnergyUnit.MicroCal => false,
+            EnergyUnit.Cal => false,
+            EnergyUnit.KCal => false,
+            _ => true,
+        };
     }
 
     //TODO add attribute with unit names and stuff
