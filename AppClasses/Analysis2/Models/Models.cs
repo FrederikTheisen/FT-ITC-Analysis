@@ -13,8 +13,8 @@ namespace AnalysisITC.AppClasses.Analysis2.Models
 		public virtual AnalysisModel ModelType => AnalysisModel.OneSetOfSites;
 		public ModelParameters Parameters { get; set; }
         public ModelCloneOptions ModelCloneOptions { get; set; }
-        public Dictionary<string, ModelOption> ModelOptions { get; set; } = new Dictionary<string, ModelOption>();
-
+        public IDictionary<ModelOptionKey, ModelOptions> ModelOptions { get; set; } = new Dictionary<ModelOptionKey, ModelOptions>();
+        
         public SolutionInterface Solution { get; set; }
 
         public int NumberOfParameters => Parameters.FittingParameterCount;

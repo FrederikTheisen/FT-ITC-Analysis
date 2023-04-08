@@ -207,6 +207,7 @@ namespace AnalysisITC
             if (Factory == null) return;
 
             ModelOptionsStackView.Subviews = new NSView[0];
+            ParameterStackView.Subviews = new NSView[0];
 
             ParameterValueAdjustmentView[] tmppars = new ParameterValueAdjustmentView[ParameterControls.Count];
 
@@ -223,7 +224,7 @@ namespace AnalysisITC
                 }
                 else
                 {
-                    sv = new ParameterValueAdjustmentView(new CoreGraphics.CGRect(0, 0, ModelOptionsStackView.Frame.Width, 20));
+                    sv = new ParameterValueAdjustmentView(new CoreGraphics.CGRect(0, 0, ParameterStackView.Frame.Width, 20));
                     sv.EnableLock = false;
                     sv.Setup(par);
                 }
@@ -233,6 +234,7 @@ namespace AnalysisITC
             }
 
             bool showoptions = (Factory.Model.ModelOptions.Count > 0);
+            ModelOptionsStackView.Hidden = !showoptions;
             ModelOptionsLine.Hidden = !showoptions;
             ModelOptionsLabel.Hidden = !showoptions;
 
@@ -274,7 +276,9 @@ namespace AnalysisITC
             solver.SolverFunctionTolerance = 1.0E-50;
             solver.ErrorEstimationMethod = ErrorEstimationMethod.BootstrapResiduals;
             solver.BootstrapIterations = 50;
-            (solver as Solver).Model.ModelCloneOptions.IncludeConcentrationErrorsInBootstrap = true;
+            var mco = (solver as Solver).Model.ModelCloneOptions;
+            mco.IncludeConcentrationErrorsInBootstrap = true;
+            mco.EnableAutoConcentrationVariance = false;
 
             solver.Analyze();
         }

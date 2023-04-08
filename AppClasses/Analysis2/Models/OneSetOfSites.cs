@@ -98,10 +98,10 @@ namespace AnalysisITC.AppClasses.Analysis2.Models
                 var output = base.UISolutionParameters(info);
 
                 if (info.HasFlag(FinalFigureDisplayParameters.Nvalue)) output.Add(new("N", N.ToString("F2")));
-                if (info.HasFlag(FinalFigureDisplayParameters.Affinity)) output.Add(new("Kd", Kd.AsDissociationConstant()));
-                if (info.HasFlag(FinalFigureDisplayParameters.Enthalpy)) output.Add(new("∆H", Enthalpy.ToString(EnergyUnit.KiloJoule, permole: true)));
-                if (info.HasFlag(FinalFigureDisplayParameters.TdS)) output.Add(new("-T∆S", TdS.ToString(EnergyUnit.KiloJoule, permole: true)));
-                if (info.HasFlag(FinalFigureDisplayParameters.Gibbs)) output.Add(new("∆G", GibbsFreeEnergy.ToString(EnergyUnit.KiloJoule, permole: true)));
+                if (info.HasFlag(FinalFigureDisplayParameters.Affinity)) output.Add(new(Utils.MarkdownStrings.DissociationConstant, Kd.AsDissociationConstant()));
+                if (info.HasFlag(FinalFigureDisplayParameters.Enthalpy)) output.Add(new(Utils.MarkdownStrings.Enthalpy, Enthalpy.ToString(EnergyUnit.KiloJoule, permole: true)));
+                if (info.HasFlag(FinalFigureDisplayParameters.TdS)) output.Add(new(Utils.MarkdownStrings.EntropyContribution, TdS.ToString(EnergyUnit.KiloJoule, permole: true)));
+                if (info.HasFlag(FinalFigureDisplayParameters.Gibbs)) output.Add(new(Utils.MarkdownStrings.GibbsFreeEnergy, GibbsFreeEnergy.ToString(EnergyUnit.KiloJoule, permole: true)));
                 if (info.HasFlag(FinalFigureDisplayParameters.Offset)) output.Add(new("Offset", Offset.ToString(EnergyUnit.KiloJoule, permole: true)));
 
                 return output;

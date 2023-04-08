@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using AnalysisITC.AppClasses.AnalysisClasses;
 
 namespace AnalysisITC.AppClasses.Analysis2.Models
@@ -26,7 +27,7 @@ namespace AnalysisITC.AppClasses.Analysis2.Models
             Parameters.AddParameter(ParameterType.IsomerizationEquilibriumConstant, 0.42, islocked: true);
             Parameters.AddParameter(ParameterType.IsomerizationRate, 0.001, islocked: true);
 
-            ModelOptions.Add(PeptideInCellOption, ModelOption.Bool(PeptideInCellOption, true));
+            ModelOptions.Append(AnalysisClasses.ModelOptions.Bool(ModelOptionKey.PeptideInCell, PeptideInCellOption, true).DictionaryEntry);
         }
 
         public override double Evaluate(int injectionindex, bool withoffset = true)
@@ -37,7 +38,7 @@ namespace AnalysisITC.AppClasses.Analysis2.Models
 
         double[] GetIsomerConcentration(InjectionData inj)
         {
-            if (ModelOptions[PeptideInCellOption].BoolValue)
+            if (ModelOptions[ModelOptionKey.PeptideInCell].BoolValue)
             {
 
 

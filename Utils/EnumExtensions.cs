@@ -8,6 +8,7 @@ using CoreGraphics;
 using DataReaders;
 using AnalysisITC.AppClasses.Analysis2;
 using AnalysisITC.AppClasses.Analysis2.Models;
+using AnalysisITC.AppClasses.AnalysisClasses;
 
 namespace AnalysisITC
 {
@@ -58,6 +59,14 @@ namespace AnalysisITC
         {
             var fieldInfo = value.GetType().GetField(value.ToString());
             var attribute = fieldInfo.GetCustomAttributes(typeof(EnergyUnitAttribute), false).FirstOrDefault() as EnergyUnitAttribute;
+
+            return attribute;
+        }
+
+        public static ModelOptionKeyAttribute GetProperties(this ModelOptionKey value)
+        {
+            var fieldInfo = value.GetType().GetField(value.ToString());
+            var attribute = fieldInfo.GetCustomAttributes(typeof(ModelOptionKeyAttribute), false).FirstOrDefault() as ModelOptionKeyAttribute;
 
             return attribute;
         }

@@ -13,6 +13,12 @@ namespace AnalysisITC
 	partial class ExperimentDetailsPopoverController
 	{
 		[Outlet]
+		AppKit.NSButton AddAttributeButton { get; set; }
+
+		[Outlet]
+		AppKit.NSStackView AttributeStackView { get; set; }
+
+		[Outlet]
 		AppKit.NSTextField CellConcentrationErrorField { get; set; }
 
 		[Outlet]
@@ -30,6 +36,9 @@ namespace AnalysisITC
 		[Outlet]
 		AppKit.NSTextField TemperatureField { get; set; }
 
+		[Action ("AddAttribute:")]
+		partial void AddAttribute (Foundation.NSObject sender);
+
 		[Action ("Apply:")]
 		partial void Apply (Foundation.NSObject sender);
 
@@ -38,6 +47,11 @@ namespace AnalysisITC
 		
 		void ReleaseDesignerOutlets ()
 		{
+			if (AttributeStackView != null) {
+				AttributeStackView.Dispose ();
+				AttributeStackView = null;
+			}
+
 			if (CellConcentrationErrorField != null) {
 				CellConcentrationErrorField.Dispose ();
 				CellConcentrationErrorField = null;
@@ -46,6 +60,11 @@ namespace AnalysisITC
 			if (CellConcentrationField != null) {
 				CellConcentrationField.Dispose ();
 				CellConcentrationField = null;
+			}
+
+			if (ExperimentNameField != null) {
+				ExperimentNameField.Dispose ();
+				ExperimentNameField = null;
 			}
 
 			if (SyringeConcentrationErrorField != null) {
@@ -63,9 +82,9 @@ namespace AnalysisITC
 				TemperatureField = null;
 			}
 
-			if (ExperimentNameField != null) {
-				ExperimentNameField.Dispose ();
-				ExperimentNameField = null;
+			if (AddAttributeButton != null) {
+				AddAttributeButton.Dispose ();
+				AddAttributeButton = null;
 			}
 		}
 	}

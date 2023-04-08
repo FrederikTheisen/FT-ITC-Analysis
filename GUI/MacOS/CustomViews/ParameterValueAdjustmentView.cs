@@ -9,10 +9,8 @@ using Foundation;
 
 namespace AnalysisITC.GUI.MacOS.CustomViews
 {
-	public class ParameterValueAdjustmentView : NSStackView
+    public class ParameterValueAdjustmentView : NSStackView
 	{
-        public static event EventHandler ParameterContraintUpdated;
-
         Parameter parameter { get; set; }
 
         double? tmpvalue;
@@ -55,6 +53,7 @@ namespace AnalysisITC.GUI.MacOS.CustomViews
                             if (AppSettings.InputAffinityAsDissociationConstant) return AppSettings.DefaultConcentrationUnit.GetProperties().Mod / value;
                             else return value;
                         }
+                        else if (ParameterTypeAttribute.IsEnergyUnitParameter(Key)) return Energy.ConvertToJoule(value, AppSettings.EnergyUnit);
                         else return value;
                     }
                     catch (Exception ex)
@@ -79,6 +78,8 @@ namespace AnalysisITC.GUI.MacOS.CustomViews
             Orientation = NSUserInterfaceLayoutOrientation.Horizontal;
             Distribution = NSStackViewDistribution.Fill;
             Alignment = NSLayoutAttribute.CenterY;
+            SetContentHuggingPriorityForOrientation(1000, NSLayoutConstraintOrientation.Vertical);
+            SetHuggingPriority(1000, NSLayoutConstraintOrientation.Vertical);
 
             Label = new NSTextField(new CGRect(0,0,150,14))
             {
@@ -106,10 +107,6 @@ namespace AnalysisITC.GUI.MacOS.CustomViews
             ParameterOptionControl.SetImageScaling(NSImageScaling.ProportionallyDown, 1);
             ParameterOptionControl.Activated += ParameterOptionControl_Activated;
             ParameterOptionControl.SizeToFit();
-            //ParameterOptionControl.SetWidth(0, 0);
-            //ParameterOptionControl.SetWidth(0, 1);
-            //ParameterOptionControl.AddConstraint(NSLayoutConstraint.Create(ParameterOptionControl, NSLayoutAttribute.Width, NSLayoutRelation.Equal, 1, 50));
-            //ParameterOptionControl.Layout();
 
             Input = new NSTextField(new CGRect(0, 0, 100, 14))
             {
@@ -159,7 +156,7 @@ namespace AnalysisITC.GUI.MacOS.CustomViews
 
         private void ParameterOptionControl_Activated(object sender, EventArgs e)
         {
-            AppSettings.InputAffinityAsDissociationConstant = (sender as NSSegmentedControl).SelectedSegment == 1;
+            if (Key.GetProperties().ParentType == ParameterType.Affinity1) AppSettings.InputAffinityAsDissociationConstant = (sender as NSSegmentedControl).SelectedSegment == 1;
 
             SetInputField();
 
@@ -201,7 +198,6 @@ namespace AnalysisITC.GUI.MacOS.CustomViews
         {
             this.parameter = par;
 
-            Label.StringValue = par.Key.GetProperties().Description;
             Lock.State = par.IsLocked ? NSCellStateValue.On : NSCellStateValue.Off;
             if (!EnableLock) Lock.Hidden = true;
 
@@ -217,6 +213,20 @@ namespace AnalysisITC.GUI.MacOS.CustomViews
                 ParameterOptionControl.SizeToFit();
                 ParameterOptionControl.SelectedSegment = AppSettings.InputAffinityAsDissociationConstant ? 1 : 0;
             }
+            //else if (ParameterTypeAttribute.IsEnergyUnitParameter(par.Key))
+            //{
+            //    ParameterOptionControl.Cell = new NSSegmentedCell();
+            //    ParameterOptionControl.SegmentStyle = NSSegmentStyle.Capsule;
+            //    ParameterOptionControl.ControlSize = NSControlSize.Small;
+            //    ParameterOptionControl.SegmentDistribution = NSSegmentDistribution.FillEqually;
+            //    ParameterOptionControl.Font = NSFont.SystemFontOfSize(10);
+            //    ParameterOptionControl.Hidden = false;
+            //    ParameterOptionControl.SegmentCount = 2;
+            //    ParameterOptionControl.SetLabel("Joule", 0);
+            //    ParameterOptionControl.SetLabel("Cal", 1);
+            //    ParameterOptionControl.SizeToFit();
+            //    ParameterOptionControl.SelectedSegment = EnergyUnitAttribute.IsSI(AppSettings.EnergyUnit) ? 0 : 1;
+            //}
 
             SetInputField();
 
@@ -227,9 +237,10 @@ namespace AnalysisITC.GUI.MacOS.CustomViews
 
         void SetInputField()
         {
+            Label.StringValue = parameter.Key.GetProperties().Description;
+
             if (parameter.Key.GetProperties().ParentType == ParameterType.Affinity1)
             {
-                Label.StringValue = parameter.Key.GetProperties().Description;
                 if (AppSettings.InputAffinityAsDissociationConstant)
                 {
                     Label.StringValue += " (" + AppSettings.DefaultConcentrationUnit.ToString() + ")";
@@ -239,7 +250,8 @@ namespace AnalysisITC.GUI.MacOS.CustomViews
             }
             else if (ParameterTypeAttribute.IsEnergyUnitParameter(parameter.Key))
             {
-
+                Label.StringValue += " (" + AppSettings.EnergyUnit.GetProperties().Unit + ")";
+                Input.PlaceholderString = new Energy((double)tmpvalue).ToString(AppSettings.EnergyUnit, "G3", withunit: false);
             }
             else
             {

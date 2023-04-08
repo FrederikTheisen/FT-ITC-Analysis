@@ -45,7 +45,9 @@ namespace AnalysisITC
 			IncludeDataButton.State = data.Include ? NSCellStateValue.On : NSCellStateValue.Off;
 
 			Data_ProcessingCompleted(null, null);
-		}
+
+			Data_SolutionChanged(null, null);
+        }
 
         private void Data_ProcessingCompleted(object sender, EventArgs e)
         {

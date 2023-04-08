@@ -80,7 +80,7 @@ namespace AnalysisITC.AppClasses.Analysis2
             throw new NotImplementedException("ModelFactory.SetCustomParameter()");
         }
 
-		public virtual Dictionary<string, ModelOption> GetExposedModelOptions()
+		public virtual IDictionary<ModelOptionKey, ModelOptions> GetExposedModelOptions()
 		{
 			throw new NotImplementedException("ModelFactory.GetOptions()");
 		}
@@ -164,7 +164,7 @@ namespace AnalysisITC.AppClasses.Analysis2
             Model.Parameters.Table[key].Update(value, locked);
         }
 
-        public override Dictionary<string, ModelOption> GetExposedModelOptions()
+        public override IDictionary<ModelOptionKey, ModelOptions> GetExposedModelOptions()
         {
 			return Model.ModelOptions;
         }
@@ -349,7 +349,7 @@ namespace AnalysisITC.AppClasses.Analysis2
 			return Parameters;
         }
 
-        public override Dictionary<string, ModelOption> GetExposedModelOptions()
+        public override IDictionary<ModelOptionKey, ModelOptions> GetExposedModelOptions()
         {
             return Model.Models.First().ModelOptions;
         }

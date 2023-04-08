@@ -13,7 +13,8 @@ namespace AnalysisITC
 {
 	public partial class FittingOptionsPopoverViewController : NSViewController
 	{
-        List<ParameterValueAdjustmentView> ParameterOptionControls = new List<ParameterValueAdjustmentView>();
+        List<ParameterValueAdjustmentView> ParameterControls = new List<ParameterValueAdjustmentView>();
+        List<OptionAdjustmentView> OptionControls = new List<OptionAdjustmentView>();
 
         partial void ErrorIterationSliderChanged(NSSlider sender) => ErrorIterationLabel.IntValue = (int)Math.Pow(10, ErrorIterationsControl.DoubleValue);
 
@@ -39,9 +40,13 @@ namespace AnalysisITC
 
             if (ModelFactory.Factory == null) return;
 
-            foreach (var par in ModelFactory.Factory.GetExposedModelOptions())
+            foreach (var opt in ModelFactory.Factory.GetExposedModelOptions())
             {
-                //StackView.InsertArrangedSubview
+                var sv = new OptionAdjustmentView(new CoreGraphics.CGRect(0, 0, StackView.Frame.Width, 20), opt.Value);
+
+                OptionControls.Add(sv);
+
+                StackView.InsertArrangedSubview(sv, 10);
             }
 
             foreach (var par in ModelFactory.Factory.GetExposedParameters())
@@ -50,7 +55,7 @@ namespace AnalysisITC
 
                 sv.Setup(par);
 
-                ParameterOptionControls.Add(sv);
+                ParameterControls.Add(sv);
 
                 StackView.InsertArrangedSubview(sv, 8);
             }
@@ -70,7 +75,7 @@ namespace AnalysisITC
 
         public override void ViewDidDisappear()
         {
-            foreach (var sv in ParameterOptionControls) sv.Dispose();
+            foreach (var sv in ParameterControls) sv.Dispose();
 
             base.ViewDidDisappear();
         }
@@ -84,7 +89,7 @@ namespace AnalysisITC
                 FittingOptionsController.IncludeConcentrationVariance = IncludeConcErrorControl.SelectedSegment > 0;
                 FittingOptionsController.EnableAutoConcentrationVariance = IncludeConcErrorControl.SelectedSegment == 2;
 
-                foreach (var sv in ParameterOptionControls)
+                foreach (var sv in ParameterControls)
                 {
                     if (sv.HasBeenAffectedFlag)
                     {
