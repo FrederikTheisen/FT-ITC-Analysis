@@ -16,6 +16,7 @@ namespace AnalysisITC.GUI.MacOS.CustomViews
 		public ModelOptions Option { get; private set; }
 
         public override nfloat Spacing { get => 1; set => base.Spacing = value; }
+
         NSPopUpButton KeySelectionControl { get; set; }
         NSButton BoolControl { get; set; }
         NSTextField InputField { get; set; }

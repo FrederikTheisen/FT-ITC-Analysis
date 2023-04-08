@@ -7248,15 +7248,15 @@ IA
         <scene sceneID="c3H-Vm-Vhs">
             <objects>
                 <viewController id="Fk8-Gk-Fns" customClass="FittingOptionsPopoverViewController" sceneMemberID="viewController">
-                    <view key="view" id="KOC-yd-fiE">
-                        <rect key="frame" x="0.0" y="0.0" width="261" height="230"/>
+                    <view key="view" misplaced="YES" id="KOC-yd-fiE">
+                        <rect key="frame" x="0.0" y="0.0" width="261" height="234"/>
                         <autoresizingMask key="autoresizingMask"/>
                         <subviews>
                             <stackView distribution="fill" orientation="vertical" alignment="leading" horizontalStackHuggingPriority="750" verticalStackHuggingPriority="1000" detachesHiddenViews="YES" translatesAutoresizingMaskIntoConstraints="NO" id="EMb-ul-vfs">
-                                <rect key="frame" x="0.0" y="0.0" width="261" height="230"/>
+                                <rect key="frame" x="0.0" y="0.0" width="261" height="238"/>
                                 <subviews>
                                     <textField horizontalHuggingPriority="249" verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="cSF-xd-Dla">
-                                        <rect key="frame" x="3" y="209" width="255" height="16"/>
+                                        <rect key="frame" x="3" y="217" width="255" height="16"/>
                                         <textFieldCell key="cell" lineBreakMode="clipping" alignment="center" title="Fitting Options" id="gzN-GJ-9Vx">
                                             <font key="font" textStyle="headline" name=".SFNS-Bold"/>
                                             <color key="textColor" name="labelColor" catalog="System" colorSpace="catalog"/>
@@ -7264,10 +7264,10 @@ IA
                                         </textFieldCell>
                                     </textField>
                                     <box verticalHuggingPriority="750" boxType="separator" translatesAutoresizingMaskIntoConstraints="NO" id="ooJ-Pt-IQV">
-                                        <rect key="frame" x="5" y="198" width="251" height="5"/>
+                                        <rect key="frame" x="5" y="206" width="251" height="5"/>
                                     </box>
                                     <textField horizontalHuggingPriority="251" verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="2Ht-lJ-6b1">
-                                        <rect key="frame" x="3" y="178" width="255" height="14"/>
+                                        <rect key="frame" x="3" y="186" width="255" height="14"/>
                                         <textFieldCell key="cell" controlSize="small" lineBreakMode="clipping" alignment="center" title="Error Estimation" id="Iyz-GM-Q3U">
                                             <font key="font" metaFont="smallSystem"/>
                                             <color key="textColor" name="labelColor" catalog="System" colorSpace="catalog"/>
@@ -7275,18 +7275,18 @@ IA
                                         </textFieldCell>
                                     </textField>
                                     <stackView distribution="fill" orientation="horizontal" alignment="firstBaseline" horizontalStackHuggingPriority="249.99998474121094" verticalStackHuggingPriority="750" detachesHiddenViews="YES" translatesAutoresizingMaskIntoConstraints="NO" id="c75-GH-2T8">
-                                        <rect key="frame" x="5" y="156" width="251" height="14"/>
+                                        <rect key="frame" x="5" y="160" width="251" height="18"/>
                                         <subviews>
                                             <textField horizontalHuggingPriority="249" verticalHuggingPriority="1000" verticalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="qcC-CU-nc4">
-                                                <rect key="frame" x="-2" y="0.0" width="93" height="14"/>
+                                                <rect key="frame" x="-2" y="2" width="93" height="14"/>
                                                 <textFieldCell key="cell" controlSize="small" lineBreakMode="clipping" title="Method" id="IXL-eO-ybw">
                                                     <font key="font" metaFont="smallSystem"/>
                                                     <color key="textColor" name="labelColor" catalog="System" colorSpace="catalog"/>
                                                     <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
                                                 </textFieldCell>
                                             </textField>
-                                            <segmentedControl verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="Cxn-CF-cO1">
-                                                <rect key="frame" x="95" y="-2" width="158" height="17"/>
+                                            <segmentedControl verticalHuggingPriority="750" verticalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="Cxn-CF-cO1">
+                                                <rect key="frame" x="95" y="-2" width="158" height="21"/>
                                                 <segmentedCell key="cell" controlSize="small" borderStyle="border" alignment="left" style="rounded" trackingMode="selectOne" id="wZy-PA-hUT">
                                                     <font key="font" metaFont="smallSystem"/>
                                                     <segments>
@@ -7306,7 +7306,7 @@ IA
                                         </customSpacing>
                                     </stackView>
                                     <stackView distribution="fill" orientation="horizontal" alignment="top" horizontalStackHuggingPriority="249.99998474121094" verticalStackHuggingPriority="750" detachesHiddenViews="YES" translatesAutoresizingMaskIntoConstraints="NO" id="Q5Y-aj-HNp">
-                                        <rect key="frame" x="5" y="134" width="251" height="14"/>
+                                        <rect key="frame" x="5" y="138" width="251" height="14"/>
                                         <subviews>
                                             <textField horizontalHuggingPriority="249" verticalHuggingPriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="hHz-dM-hzJ">
                                                 <rect key="frame" x="-2" y="0.0" width="119" height="14"/>
@@ -7324,7 +7324,7 @@ IA
                                                     <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
                                                 </textFieldCell>
                                             </textField>
-                                            <slider toolTip="Number of bootstrap iterations" verticalHuggingPriority="749" translatesAutoresizingMaskIntoConstraints="NO" id="JZJ-gx-I4g">
+                                            <slider toolTip="Number of bootstrap iterations" verticalHuggingPriority="749" verticalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="JZJ-gx-I4g">
                                                 <rect key="frame" x="149" y="-2" width="104" height="18"/>
                                                 <constraints>
                                                     <constraint firstAttribute="width" constant="100" id="ENJ-LB-7zg"/>
@@ -7347,18 +7347,18 @@ IA
                                         </customSpacing>
                                     </stackView>
                                     <stackView distribution="fill" orientation="horizontal" alignment="firstBaseline" horizontalStackHuggingPriority="249.99998474121094" verticalStackHuggingPriority="750" detachesHiddenViews="YES" translatesAutoresizingMaskIntoConstraints="NO" id="Ve3-LZ-TFW">
-                                        <rect key="frame" x="5" y="112" width="251" height="14"/>
+                                        <rect key="frame" x="5" y="112" width="251" height="18"/>
                                         <subviews>
                                             <textField horizontalHuggingPriority="249" verticalHuggingPriority="1000" verticalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="IIM-6y-E9O">
-                                                <rect key="frame" x="-2" y="0.0" width="123" height="14"/>
+                                                <rect key="frame" x="-2" y="2" width="123" height="14"/>
                                                 <textFieldCell key="cell" controlSize="small" lineBreakMode="clipping" title="Conc. variance" id="b5m-Bt-LCW">
                                                     <font key="font" metaFont="smallSystem"/>
                                                     <color key="textColor" name="labelColor" catalog="System" colorSpace="catalog"/>
                                                     <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
                                                 </textFieldCell>
                                             </textField>
-                                            <segmentedControl verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="lRX-z6-nm5">
-                                                <rect key="frame" x="125" y="-2" width="128" height="17"/>
+                                            <segmentedControl verticalHuggingPriority="750" verticalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="lRX-z6-nm5">
+                                                <rect key="frame" x="125" y="-2" width="128" height="21"/>
                                                 <segmentedCell key="cell" controlSize="small" borderStyle="border" alignment="left" style="rounded" trackingMode="selectOne" id="um9-Dd-PtS">
                                                     <font key="font" metaFont="smallSystem"/>
                                                     <segments>
