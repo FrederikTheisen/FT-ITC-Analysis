@@ -80,7 +80,12 @@ namespace AnalysisITC.AppClasses.Analysis2
             throw new NotImplementedException("ModelFactory.SetCustomParameter()");
         }
 
-		public virtual IDictionary<ModelOptionKey, ModelOptions> GetExposedModelOptions()
+        public virtual void SetModelOption(ModelOptions opt)
+        {
+            throw new NotImplementedException("ModelFactory.SetModelOption()");
+        }
+
+        public virtual IDictionary<ModelOptionKey, ModelOptions> GetExposedModelOptions()
 		{
 			throw new NotImplementedException("ModelFactory.GetOptions()");
 		}
@@ -105,12 +110,19 @@ namespace AnalysisITC.AppClasses.Analysis2
 		{
 			var factory = InitializeFactory(Factory.ModelType, Factory.IsGlobalAnalysis);
 
-			if (Factory is SingleModelFactory)
+            foreach (var par in Factory.GetExposedParameters())
+            {
+				factory.SetCustomParameter(par.Key, par.Value, par.IsLocked);
+            }
+
+            foreach (var opt in Factory.GetExposedModelOptions())
+            {
+				factory.SetModelOption(opt.Value.Copy());
+            }
+
+            if (Factory is SingleModelFactory)
 			{
-				foreach (var par in Factory.GetExposedParameters())
-				{
-					
-				}
+				
 			}
 			else if (Factory is GlobalModelFactory)
 			{
@@ -162,6 +174,11 @@ namespace AnalysisITC.AppClasses.Analysis2
         {
             if (!Model.Parameters.Table.ContainsKey(key)) throw new Exception("Parameter not found [File: GlobalFactory.SetCustomParameter]: " + key.ToString());
             Model.Parameters.Table[key].Update(value, locked);
+        }
+
+        public override void SetModelOption(ModelOptions opt)
+        {
+			Model.ModelOptions[opt.Key] = opt;
         }
 
         public override IDictionary<ModelOptionKey, ModelOptions> GetExposedModelOptions()
@@ -360,13 +377,16 @@ namespace AnalysisITC.AppClasses.Analysis2
 			GlobalModelParameters.GlobalTable[key].Update(value, locked);
         }
 
+        public override void SetModelOption(ModelOptions opt)
+        {
+			Model.Models.First().ModelOptions[opt.Key] = opt;
+        }
+
         public override void UpdateData()
         {
 			Model.Models.Clear();
 
             var datas = DataManager.Data.Where(d => d.Include).ToList();
-
-			//dredatas.Shuffle();
 
             foreach (var data in datas)
             {
@@ -392,6 +412,7 @@ namespace AnalysisITC.AppClasses.Analysis2
 			{
 				mdl.Data.Model = mdl;
 				mdl.ModelCloneOptions = new ModelCloneOptions();
+				mdl.ModelOptions = Model.Models.First().ModelOptions;
                 GlobalModelParameters.AddIndivdualParameter(mdl.Parameters);
             }
 
