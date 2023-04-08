@@ -4,6 +4,7 @@ using System;
 
 using Foundation;
 using AppKit;
+using CoreGraphics;
 
 namespace AnalysisITC
 {
@@ -36,6 +37,18 @@ namespace AnalysisITC
             //SymbolControl.SelectSegment(FinalFigureGraphView.SymbolShape);
 
             SymbolControl.SetSelected(true, FinalFigureGraphView.SymbolShape);
+
+            for (int i = 0; i < 3; i++)
+            {
+                var targetFrame = new CGRect(0, 0, 10, 10);
+                var image = SymbolControl.GetImage(i);
+                var targetImage = new NSImage(targetFrame.Size);
+                targetImage.LockFocus();
+                image.Draw(targetFrame, new CGRect(CGPoint.Empty, image.Size), NSCompositingOperation.SourceOver, 1f);
+                targetImage.UnlockFocus();
+
+                SymbolControl.SetImage(targetImage, i);
+            }
 
             UpdateLabels();
         }
