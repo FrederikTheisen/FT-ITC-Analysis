@@ -152,6 +152,10 @@ namespace AnalysisITC.AppClasses.Analysis2
         public void InitializeModel(ExperimentData data)
 		{
             Console.WriteLine("Initializing SingleModelFactory...");
+
+			var parameters = Model?.Parameters.Table;
+			var options = Model?.ModelOptions;
+
             switch (ModelType)
 			{
 				case AnalysisModel.OneSetOfSites: Model = new OneSetOfSites(data); break;
@@ -163,6 +167,21 @@ namespace AnalysisITC.AppClasses.Analysis2
 			}
 
             Model.InitializeParameters(data);
+
+			if (parameters != null)
+			{
+				foreach (var (key,par) in parameters)
+				{
+					if (Model.Parameters.Table.ContainsKey(key)) SetCustomParameter(par.Key, par.Value, par.IsLocked);
+				}
+			}
+			if (options != null)
+			{
+				foreach (var (key,opt) in options)
+				{
+					if (Model.ModelOptions.ContainsKey(key)) SetModelOption(opt.Copy());
+				}
+			}
         }
 
 		public override IEnumerable<Parameter> GetExposedParameters()
