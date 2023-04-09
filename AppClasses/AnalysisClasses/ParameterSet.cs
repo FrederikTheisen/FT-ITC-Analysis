@@ -68,8 +68,10 @@ namespace AnalysisITC.AppClasses.Analysis2
         {
             Value = value;
 
+#if DEBUG
             if (value < Limits[0] || value > Limits[1])
                 throw new Exception("Parameter out of range: " + Key.ToString() + " " + value.ToString() + " [" + Limits[0].ToString() + " - " + Limits[1].ToString() + "]");
+#endif
         }
 
         public void Update(double value, bool lockpar)
@@ -77,6 +79,7 @@ namespace AnalysisITC.AppClasses.Analysis2
             Update(value);
 
             IsLocked = lockpar;
+            Changed = true;
         }
 
         public override string ToString()
