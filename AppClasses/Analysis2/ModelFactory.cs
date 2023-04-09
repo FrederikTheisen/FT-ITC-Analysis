@@ -21,9 +21,9 @@ namespace AnalysisITC.AppClasses.Analysis2
 		public AnalysisModel ModelType { get; set; } = AnalysisModel.OneSetOfSites;
 		public bool IsGlobalAnalysis => this is GlobalModelFactory;
 
-		public ModelFactory(AnalysisModel model)
+		public ModelFactory(AnalysisModel type)
 		{
-			ModelType = model;
+			ModelType = type;
 		}
 
 		/// <summary>
@@ -73,6 +73,11 @@ namespace AnalysisITC.AppClasses.Analysis2
 		public virtual IEnumerable<Parameter> GetExposedParameters()
 		{
 			throw new NotImplementedException("ModelFactory.GetExposedParameters()");
+		}
+
+		public virtual void ReinitializeParameter(Parameter par)
+		{
+			throw new NotImplementedException("ModelFactory.ReinitParam");
 		}
 
 		public virtual void SetCustomParameter(ParameterType key, double value, bool locked)
@@ -191,8 +196,13 @@ namespace AnalysisITC.AppClasses.Analysis2
 
         public override void SetCustomParameter(ParameterType key, double value, bool locked)
         {
-            if (!Model.Parameters.Table.ContainsKey(key)) throw new Exception("Parameter not found [File: GlobalFactory.SetCustomParameter]: " + key.ToString());
+			if (!Model.Parameters.Table.ContainsKey(key)) return; // throw new Exception("Parameter not found [File: GlobalFactory.SetCustomParameter]: " + key.ToString());
             Model.Parameters.Table[key].Update(value, locked);
+        }
+
+        public override void ReinitializeParameter(Parameter par)
+        {
+			par.ReinitializeParameter(Model);
         }
 
         public override void SetModelOption(ModelOptions opt)
@@ -250,8 +260,6 @@ namespace AnalysisITC.AppClasses.Analysis2
 			GlobalModelParameters = new GlobalModelParameters();
 
 			var datas = DataManager.Data.Where(d => d.Include).ToList();
-
-            //datas.Shuffle();
 
             foreach (var data in datas)
 			{
@@ -392,8 +400,18 @@ namespace AnalysisITC.AppClasses.Analysis2
 
         public override void SetCustomParameter(ParameterType key, double value, bool locked)
         {
-			if (!GlobalModelParameters.GlobalTable.ContainsKey(key)) throw new Exception("Parameter not found [File: GlobalFactory.SetCustomParameter]: " + key.ToString());
+			if (!GlobalModelParameters.GlobalTable.ContainsKey(key)) return; // throw new Exception("Parameter not found [File: GlobalFactory.SetCustomParameter]: " + key.ToString());
 			GlobalModelParameters.GlobalTable[key].Update(value, locked);
+        }
+
+        public override void ReinitializeParameter(Parameter par)
+        {
+			var ghostfactory = ModelFactory.InitializeFactory(ModelType, true) as GlobalModelFactory;
+			var constraints = GetExposedConstraints().Keys.ToList();
+			foreach (var con in constraints) ghostfactory.GlobalModelParameters.SetConstraintForParameter(con, GlobalModelParameters.GetConstraintForParameter(con));
+			ghostfactory.InitializeGlobalParameters();
+
+            par.ReinitializeParameter(ghostfactory.GetExposedParameters().First(p => p.Key == par.Key).Value);
         }
 
         public override void SetModelOption(ModelOptions opt)

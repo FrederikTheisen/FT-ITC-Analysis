@@ -14,7 +14,7 @@ namespace AnalysisITC.AppClasses.Analysis2
         public bool IsLocked { get; private set; }
         public double[] Limits { get; private set; }
         public double StepSize { get; private set; }
-        public bool Changed { get; set; } = true;
+        public bool ChangedByUser { get; private set; } = false;
 
         public Parameter(ParameterType key, double value, bool islocked = false)
         {
@@ -79,7 +79,21 @@ namespace AnalysisITC.AppClasses.Analysis2
             Update(value);
 
             IsLocked = lockpar;
-            Changed = true;
+            ChangedByUser = true;
+        }
+
+        public void ReinitializeParameter(Model model)
+        {
+            this.Value = ModelFactory.InitializeFactory(model.ModelType, false).GetExposedParameters().First(p => p.Key == this.Key).Value;
+            IsLocked = false;
+            ChangedByUser = false;
+        }
+
+        public void ReinitializeParameter(double value)
+        {
+            this.Value = value;
+            IsLocked = false;
+            ChangedByUser = false;
         }
 
         public override string ToString()

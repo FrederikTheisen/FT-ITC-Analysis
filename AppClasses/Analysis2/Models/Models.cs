@@ -28,13 +28,17 @@ namespace AnalysisITC.AppClasses.Analysis2.Models
         public virtual double GuessAffinity() => 1000000;
         public virtual double GuessAffinityAsGibbs() => -Energy.R * Data.MeasuredTemperatureKelvin * Math.Log(GuessAffinity());
 
+        //TODO consider implementing this feature, but not sure about how it should work yet
         public virtual double GuessParameter(ParameterType key)
         {
             if (SolutionHasParameter(key))
             {
                 return Solution.Parameters[key];
             }
-            else return 0;
+            else
+            {
+                return 0;
+            }
         }
 
         public Model(ExperimentData data)

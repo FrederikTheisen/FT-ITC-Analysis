@@ -91,7 +91,11 @@ namespace AnalysisITC
 
                 foreach (var sv in ParameterControls)
                 {
-                    if (sv.HasBeenAffectedFlag)
+                    if (sv.ShouldReInitializeParameter)
+                    {
+                        ModelFactory.Factory.ReinitializeParameter(sv.Parameter);
+                    }
+                    else if (sv.HasBeenAffectedFlag)
                     {
                         ModelFactory.Factory.SetCustomParameter(sv.Key, sv.Value, sv.Locked);
                     }
@@ -105,7 +109,7 @@ namespace AnalysisITC
             }
             catch (Exception ex)
             {
-                DismissViewController(this);
+                //DismissViewController(this);
 
                 AppEventHandler.DisplayHandledException(ex);
             }

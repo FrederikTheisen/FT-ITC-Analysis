@@ -10,8 +10,8 @@ using Foundation;
 namespace AnalysisITC.GUI.MacOS.CustomViews
 {
     public class ParameterValueAdjustmentView : NSStackView
-	{
-        Parameter parameter { get; set; }
+    {
+        public Parameter Parameter { get; set; }
 
         double? tmpvalue;
 
@@ -22,10 +22,11 @@ namespace AnalysisITC.GUI.MacOS.CustomViews
         private CustomDrawingSegmentedControl ParameterOptionControl;
 
         public bool HasBeenAffectedFlag { get; private set; } = false;
+        public bool ShouldReInitializeParameter => string.IsNullOrEmpty(InputString);
 
         public override nfloat Spacing { get => 0; set => base.Spacing = value; }
 
-        public ParameterType Key => parameter.Key;
+        public ParameterType Key => Parameter.Key;
         string InputString
         {
             get
@@ -44,7 +45,8 @@ namespace AnalysisITC.GUI.MacOS.CustomViews
             {
                 var input = InputString;
 
-                if (Input.StringValue.Length > 0) try
+                if (Input.StringValue.Length > 0)
+                    try
                     {
                         var value = double.Parse(input);
 
@@ -61,7 +63,7 @@ namespace AnalysisITC.GUI.MacOS.CustomViews
                         AppEventHandler.DisplayHandledException(ex);
                     }
 
-                return parameter.Value;
+                return Parameter.Value;
             }
         }
         public bool Locked => Lock.State == NSCellStateValue.On;
@@ -82,7 +84,7 @@ namespace AnalysisITC.GUI.MacOS.CustomViews
             SetContentCompressionResistancePriority(1000, NSLayoutConstraintOrientation.Vertical);
             SetHuggingPriority(1000, NSLayoutConstraintOrientation.Vertical);
 
-            Label = new NSTextField(new CGRect(0,0,150,14))
+            Label = new NSTextField(new CGRect(0, 0, 150, 14))
             {
                 BezelStyle = NSTextFieldBezelStyle.Rounded,
                 Bordered = false,
@@ -148,18 +150,12 @@ namespace AnalysisITC.GUI.MacOS.CustomViews
                 Image = targetImage1,
                 AlternateImage = targetImage2,
                 ControlSize = NSControlSize.Small,
-                //ImageScaling = NSImageScale.ProportionallyDown,
                 Title = "",
                 AlternateTitle = "",
-                //ImagePosition = NSCellImagePosition.ImageRight,
             };
             Lock.SetButtonType(NSButtonType.Switch);
             Lock.Activated += Lock_Activated;
             Lock.ControlSize = NSControlSize.Small;
-            //Lock.ImageScaling = NSImageScale.ProportionallyDown;
-            //Lock.Cell.ImageScale = NSImageScale.ProportionallyDown;
-            //Lock.Cell.ControlSize = NSControlSize.Small;
-            //Lock.ImagePosition = NSCellImagePosition.ImageOnly;
             Lock.AddConstraint(NSLayoutConstraint.Create(Lock, NSLayoutAttribute.Width, NSLayoutRelation.Equal, 1, 23));
             Lock.ImagePosition = NSCellImagePosition.ImageRight;
             Lock.Layout();
@@ -174,7 +170,7 @@ namespace AnalysisITC.GUI.MacOS.CustomViews
                 targetImage.Template = true;
                 img.Draw(targetFrame, new CGRect(CGPoint.Empty, img.Size), NSCompositingOperation.SourceOver, 1f);
                 targetImage.UnlockFocus();
-                
+
                 return targetImage;
             }
         }
@@ -212,7 +208,7 @@ namespace AnalysisITC.GUI.MacOS.CustomViews
                 Console.WriteLine("Input field value changed: " + value.ToString());
                 tmpvalue = value;
 
-                if (Value >= parameter.Limits[0] && Value <= parameter.Limits[1])
+                if (Value >= Parameter.Limits[0] && Value <= Parameter.Limits[1])
                     Input.TextColor = DefaultFieldColor;
             }
         }
@@ -221,7 +217,7 @@ namespace AnalysisITC.GUI.MacOS.CustomViews
 
         public void Setup(Parameter par)
         {
-            this.parameter = par;
+            this.Parameter = par;
 
             Lock.State = par.IsLocked ? NSCellStateValue.On : NSCellStateValue.Off;
             if (!EnableLock) Lock.Hidden = true;
@@ -253,6 +249,7 @@ namespace AnalysisITC.GUI.MacOS.CustomViews
             //    ParameterOptionControl.SelectedSegment = EnergyUnitAttribute.IsSI(AppSettings.EnergyUnit) ? 0 : 1;
             //}
 
+            SetupLabel();
             SetInputField();
 
             Layout();
@@ -260,28 +257,30 @@ namespace AnalysisITC.GUI.MacOS.CustomViews
             DefaultFieldColor = Label.TextColor;
         }
 
+        void SetupLabel()
+        {
+            Label.StringValue = Parameter.Key.GetProperties().Description;
+
+            if (Parameter.Key.GetProperties().ParentType == ParameterType.Affinity1 && AppSettings.InputAffinityAsDissociationConstant)
+                Label.StringValue += " (" + AppSettings.DefaultConcentrationUnit.ToString() + ")";
+            else if (ParameterTypeAttribute.IsEnergyUnitParameter(Parameter.Key))
+                Label.StringValue += " (" + AppSettings.EnergyUnit.GetProperties().Unit + ")";
+        }
+
         void SetInputField()
         {
-            Label.StringValue = parameter.Key.GetProperties().Description;
-
-            if (parameter.Key.GetProperties().ParentType == ParameterType.Affinity1)
-            {
-                if (AppSettings.InputAffinityAsDissociationConstant)
+            if (Parameter.ChangedByUser)
+                if (Parameter.Key.GetProperties().ParentType == ParameterType.Affinity1)
                 {
-                    Label.StringValue += " (" + AppSettings.DefaultConcentrationUnit.ToString() + ")";
-                    Input.PlaceholderString = (AppSettings.DefaultConcentrationUnit.GetProperties().Mod / (double)tmpvalue).ToString("######0.###");
+                    if (AppSettings.InputAffinityAsDissociationConstant)
+                        Input.StringValue = (AppSettings.DefaultConcentrationUnit.GetProperties().Mod / (double)tmpvalue).ToString("######0.###");
+                    else
+                        Input.StringValue = ((double)tmpvalue).ToString("G2");
                 }
-                else Input.PlaceholderString = ((double)tmpvalue).ToString("G2");
-            }
-            else if (ParameterTypeAttribute.IsEnergyUnitParameter(parameter.Key))
-            {
-                Label.StringValue += " (" + AppSettings.EnergyUnit.GetProperties().Unit + ")";
-                Input.PlaceholderString = new Energy((double)tmpvalue).ToString(AppSettings.EnergyUnit, "G3", withunit: false);
-            }
-            else
-            {
-                Input.PlaceholderString = ((double)tmpvalue).ToString("G3");
-            }
+                else if (ParameterTypeAttribute.IsEnergyUnitParameter(Parameter.Key))
+                    Input.StringValue = new Energy((double)tmpvalue).ToString(AppSettings.EnergyUnit, "G3", withunit: false);
+                else
+                    Input.DoubleValue = ((double)tmpvalue);
         }
     }
 }
