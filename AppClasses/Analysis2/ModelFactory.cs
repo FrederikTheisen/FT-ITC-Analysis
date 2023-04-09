@@ -153,7 +153,7 @@ namespace AnalysisITC.AppClasses.Analysis2
 		{
             Console.WriteLine("Initializing SingleModelFactory...");
 
-			var parameters = Model?.Parameters.Table;
+			var parameters = Model?.Parameters.Table.Where(p => p.Value.ChangedByUser);
 			var options = Model?.ModelOptions;
 
             switch (ModelType)
