@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 using System.Linq;
 using AnalysisITC.AppClasses.Analysis2;
 using AnalysisITC.AppClasses.Analysis2.Models;
+using AnalysisITC.AppClasses.AnalysisClasses;
 
 namespace AnalysisITC
 {
@@ -42,6 +43,7 @@ namespace AnalysisITC
         public const string PolynomiumLimit = "PLimit";
         public const string SplinePointList = "SPList";
         public const string Solution = "fit";
+        public const string ExperimentAttributes = "ExpAttributes";
 
         public const string SolutionHeader = "SolutionFile";
         public const string SolModel = "MDL";
@@ -78,6 +80,19 @@ namespace AnalysisITC
         public static string Variable(string header, FloatWithError value) => Variable(header, value.Value + "," + value.SD);
         public static string Variable(string header, Energy value) => Variable(header, value.FloatWithError);
         public static string ListHeader(string header) => "LIST:" + header;
+        public static string Attribute(ModelOptions opt)
+        {
+            string str = "";
+
+            str += opt.Key.ToString() + ";"
+                + (int)opt.Key + ";"
+                + Variable("B", opt.BoolValue) + ";"
+                + Variable("I", opt.IntValue) + ";"
+                + Variable("D", opt.DoubleValue) + ";"
+                + Variable("FWE", opt.ParameterValue);
+
+            return str;
+        }
 
         public static double DParse(string value) => double.Parse(value);
         public static float FParse(string value) => float.Parse(value);
@@ -191,6 +206,14 @@ namespace AnalysisITC
             file.Add(Variable(FeedBackMode, (int)data.FeedBackMode));
             file.Add(Variable(CellVolume, data.CellVolume));
             file.Add(Variable(Instrument, (int)data.Instrument));
+
+            if (data.ExperimentOptions.Count > 0)
+            {
+                file.Add(ListHeader(ExperimentAttributes));
+                foreach (var att in data.ExperimentOptions) file.Add(Attribute(att.Value));
+                file.Add(EndListHeader);
+            }
+
             if (data.Solution != null) file.Add(Variable(Solution, data.Solution.Guid));
 
             file.Add(ListHeader(InjectionList));

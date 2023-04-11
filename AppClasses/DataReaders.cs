@@ -9,6 +9,7 @@ using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using UniformTypeIdentifiers;
 using Foundation;
+using AnalysisITC.AppClasses.AnalysisClasses;
 
 namespace DataReaders
 {
@@ -361,6 +362,7 @@ namespace DataReaders
                     case Include: exp.Include = BParse(v[1]); break;
                     case "LIST" when v[1] == InjectionList: ReadInjectionList(exp, reader); break;
                     case "LIST" when v[1] == DataPointList: ReadDataList(exp, reader); break;
+                    case "LIST" when v[1] == ExperimentAttributes: ReadAttributes(exp, reader); break;
                     case "OBJECT" when v[1] == Processor: ReadProcessor(exp, reader); break;
                 }
             }
@@ -415,6 +417,29 @@ namespace DataReaders
             }
 
             interpolator.SetSplinePoints(splinepoints) ;
+        }
+
+        private static void ReadAttributes(ExperimentData exp, StreamReader reader)
+        {
+            var attributes = new List<ModelOptions>();
+
+            string line;
+
+            while ((line = reader.ReadLine()) != EndListHeader)
+            {
+                var dat = line.Split(';');
+
+                var opt = ModelOptions.FromKey((ModelOptionKey)IParse(dat[1].Split(':')[1]));
+                opt.BoolValue = BParse(dat[2].Split(':')[1]);
+                opt.IntValue = IParse(dat[3].Split(':')[1]);
+                opt.DoubleValue = DParse(dat[4].Split(':')[1]);
+                opt.ParameterValue = FWEParse(dat[5].Split(':')[1]);
+
+                attributes.Add(opt);
+            }
+
+            foreach (var att in attributes)
+                exp.ExperimentOptions.Add(att.DictionaryEntry);
         }
 
         static void ReadInjectionList(ExperimentData exp, StreamReader reader)

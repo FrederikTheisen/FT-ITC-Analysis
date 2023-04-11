@@ -40,10 +40,21 @@ namespace AnalysisITC.AppClasses.AnalysisClasses
 		public int IntValue { get; set; }
 		public double DoubleValue { get; set; }
 		public FloatWithError ParameterValue { get; set; }
-		public List<string> EnumOptions { get; private set; }
 
-        public int EnumOptionCount => EnumOptions.Count;
+        public int EnumOptionCount => EnumOptions.Count();
         public KeyValuePair<ModelOptionKey, ModelOptions> DictionaryEntry => new KeyValuePair<ModelOptionKey, ModelOptions>(Key, this);
+
+		public IEnumerable<string> EnumOptions
+		{
+			get
+			{
+				switch (Key)
+				{
+					case ModelOptionKey.Buffer: return BufferAttribute.GetBuffers().Select(b => b.ToString());
+					default: return new List<string>();
+                }
+			}
+		}
 
         public ModelOptions()
 		{
@@ -136,10 +147,7 @@ namespace AnalysisITC.AppClasses.AnalysisClasses
 
 			if (Key == ModelOptionKey.Buffer)
 			{
-				var options = BufferAttribute.GetBuffers();
-
 				IntValue = -1;
-				EnumOptions = options.Select(b => b.ToString()).ToList();
 			}
 		}
 
@@ -152,7 +160,6 @@ namespace AnalysisITC.AppClasses.AnalysisClasses
 				IntValue = IntValue,
 				BoolValue = BoolValue,
 				ParameterValue = ParameterValue,
-				EnumOptions = EnumOptions,
 				DoubleValue = DoubleValue,
 			};
 		}
