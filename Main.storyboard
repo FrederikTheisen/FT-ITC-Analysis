@@ -1990,7 +1990,7 @@
                                                         <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
                                                         <subviews>
                                                             <textView wantsLayer="YES" editable="NO" selectable="NO" drawsBackground="NO" importsGraphics="NO" richText="NO" verticallyResizable="YES" baseWritingDirection="leftToRight" findStyle="panel" smartInsertDelete="YES" id="hif-Db-3cK">
-                                                                <rect key="frame" x="0.0" y="-399" width="340" height="2892"/>
+                                                                <rect key="frame" x="0.0" y="-418" width="340" height="2892"/>
                                                                 <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
                                                                 <color key="textColor" name="textColor" catalog="System" colorSpace="catalog"/>
                                                                 <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
@@ -2762,7 +2762,7 @@ In most cases, interpretation of affinities provided by ITC is straightforward, 
                 <customObject id="vgh-VZ-5mu" userLabel="First Responder" customClass="NSResponder" sceneMemberID="firstResponder"/>
                 <viewController id="Mvi-LU-4cl" customClass="ExperimentDesignerViewController2" sceneMemberID="viewController">
                     <view key="view" horizontalCompressionResistancePriority="1000" misplaced="YES" translatesAutoresizingMaskIntoConstraints="NO" id="Gzx-f9-2qU">
-                        <rect key="frame" x="0.0" y="0.0" width="400" height="653"/>
+                        <rect key="frame" x="0.0" y="0.0" width="400" height="660"/>
                         <subviews>
                             <stackView distribution="fill" orientation="vertical" alignment="leading" horizontalStackHuggingPriority="1000" verticalStackHuggingPriority="250" horizontalCompressionResistancePriority="1000" detachesHiddenViews="YES" translatesAutoresizingMaskIntoConstraints="NO" id="kso-uB-xTj">
                                 <rect key="frame" x="0.0" y="0.0" width="400" height="660"/>
@@ -2973,25 +2973,25 @@ In most cases, interpretation of affinities provided by ITC is straightforward, 
                                                                 <box verticalHuggingPriority="1000" boxType="separator" translatesAutoresizingMaskIntoConstraints="NO" id="vSp-9g-x9E">
                                                                     <rect key="frame" x="5" y="45" width="368" height="5"/>
                                                                 </box>
-                                                                <stackView distribution="fill" orientation="horizontal" alignment="firstBaseline" horizontalStackHuggingPriority="249.99998474121094" verticalStackHuggingPriority="1000" verticalCompressionResistancePriority="1000" detachesHiddenViews="YES" translatesAutoresizingMaskIntoConstraints="NO" id="RB6-fQ-MW3">
+                                                                <stackView distribution="fill" orientation="horizontal" alignment="baseline" horizontalStackHuggingPriority="249.99998474121094" verticalStackHuggingPriority="999" verticalCompressionResistancePriority="1000" detachesHiddenViews="YES" translatesAutoresizingMaskIntoConstraints="NO" id="RB6-fQ-MW3">
                                                                     <rect key="frame" x="5" y="23" width="368" height="20"/>
                                                                     <subviews>
                                                                         <textField horizontalHuggingPriority="249" verticalHuggingPriority="750" verticalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="n54-gd-6k3">
-                                                                            <rect key="frame" x="-2" y="0.0" width="176" height="20"/>
+                                                                            <rect key="frame" x="-2" y="0.0" width="162" height="20"/>
                                                                             <textFieldCell key="cell" lineBreakMode="clipping" title="Injections" id="pRl-vN-fUo">
                                                                                 <font key="font" usesAppearanceFont="YES"/>
                                                                                 <color key="textColor" name="labelColor" catalog="System" colorSpace="catalog"/>
                                                                                 <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
                                                                             </textFieldCell>
                                                                         </textField>
-                                                                        <button horizontalHuggingPriority="1000" verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="MCQ-u5-v5T">
-                                                                            <rect key="frame" x="180" y="-1" width="109" height="21"/>
-                                                                            <buttonCell key="cell" type="recessed" title="Small initial injection" bezelStyle="recessed" imagePosition="leading" alignment="center" controlSize="mini" borderStyle="border" inset="2" id="9Ad-5f-SQL">
-                                                                                <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES" changeBackground="YES" changeGray="YES"/>
-                                                                                <font key="font" metaFont="miniSystem"/>
+                                                                        <button verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="igW-2X-h5i">
+                                                                            <rect key="frame" x="166" y="-1" width="124" height="22"/>
+                                                                            <buttonCell key="cell" type="check" title="Small First Injection" bezelStyle="regularSquare" imagePosition="right" controlSize="small" state="on" inset="2" id="hTg-HF-WMz">
+                                                                                <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
+                                                                                <font key="font" metaFont="smallSystem"/>
                                                                             </buttonCell>
                                                                             <connections>
-                                                                                <action selector="InjectionInputChanged:" target="Mvi-LU-4cl" id="tHg-HJ-6Xc"/>
+                                                                                <action selector="InjectionInputChanged:" target="Mvi-LU-4cl" id="ANX-Tg-99g"/>
                                                                             </connections>
                                                                         </button>
                                                                         <textField focusRingType="none" verticalHuggingPriority="1000" verticalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="Ld1-Mg-oyA">
@@ -3122,7 +3122,7 @@ In most cases, interpretation of affinities provided by ITC is straightforward, 
                                                             <rect key="frame" x="5" y="59" width="368" height="0.0"/>
                                                         </stackView>
                                                         <box horizontalHuggingPriority="249" verticalHuggingPriority="750" boxType="separator" translatesAutoresizingMaskIntoConstraints="NO" id="u0M-42-t8m">
-                                                            <rect key="frame" x="5" y="52" width="368" height="5"/>
+                                                            <rect key="frame" x="5" y="31" width="368" height="5"/>
                                                         </box>
                                                         <stackView distribution="fill" orientation="vertical" alignment="leading" spacing="4" horizontalStackHuggingPriority="250" verticalStackHuggingPriority="1000" detachesHiddenViews="YES" translatesAutoresizingMaskIntoConstraints="NO" id="24i-gR-XOS">
                                                             <rect key="frame" x="5" y="29" width="368" height="0.0"/>
@@ -3220,6 +3220,7 @@ In most cases, interpretation of affinities provided by ITC is straightforward, 
                         <outlet property="ParameterStackView" destination="O07-Jb-RZa" id="huw-NQ-LU4"/>
                         <outlet property="SimGraphView" destination="af9-gq-Qqs" id="ZS3-rw-E1k"/>
                         <outlet property="SimulateNoiseControl" destination="b4e-3e-rKl" id="Sri-s1-fvm"/>
+                        <outlet property="SmallInitialInjCheckmark" destination="igW-2X-h5i" id="vdg-b6-9yo"/>
                         <outlet property="SmallInitialInjControl" destination="MCQ-u5-v5T" id="ti0-ZN-RqI"/>
                         <outlet property="SyringeConcErrorField" destination="Ydi-oc-Peu" id="eXe-M3-FFg"/>
                         <outlet property="SyringeConcField" destination="S2v-f2-v9O" id="0mV-Px-AhN"/>
@@ -3247,6 +3248,17 @@ In most cases, interpretation of affinities provided by ITC is straightforward, 
                         <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
                     </textFieldCell>
                 </textField>
+                <button horizontalHuggingPriority="1000" verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" id="MCQ-u5-v5T">
+                    <rect key="frame" x="0.0" y="0.0" width="109" height="21"/>
+                    <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
+                    <buttonCell key="cell" type="recessed" title="Small initial injection" bezelStyle="recessed" imagePosition="leading" alignment="center" controlSize="mini" borderStyle="border" inset="2" id="9Ad-5f-SQL">
+                        <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES" changeBackground="YES" changeGray="YES"/>
+                        <font key="font" metaFont="miniSystem"/>
+                    </buttonCell>
+                    <connections>
+                        <action selector="InjectionInputChanged:" target="Mvi-LU-4cl" id="tHg-HJ-6Xc"/>
+                    </connections>
+                </button>
             </objects>
             <point key="canvasLocation" x="-1170" y="-609"/>
         </scene>
@@ -5488,7 +5500,7 @@ IA
                                     <rect key="frame" x="111" y="1" width="5" height="50"/>
                                 </box>
                                 <button verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="zTg-QH-FPo">
-                                    <rect key="frame" x="115" y="0.0" width="111" height="31"/>
+                                    <rect key="frame" x="115" y="20" width="111" height="31"/>
                                     <constraints>
                                         <constraint firstAttribute="height" constant="30" id="8N3-dc-mCA"/>
                                     </constraints>
@@ -5504,7 +5516,7 @@ IA
                                     <rect key="frame" x="225" y="1" width="5" height="50"/>
                                 </box>
                                 <button verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="v0f-iE-gM6">
-                                    <rect key="frame" x="229" y="0.0" width="110" height="31"/>
+                                    <rect key="frame" x="229" y="20" width="110" height="31"/>
                                     <constraints>
                                         <constraint firstAttribute="height" constant="30" id="OpX-QX-ClO"/>
                                     </constraints>
@@ -5520,7 +5532,7 @@ IA
                                     <rect key="frame" x="338" y="1" width="5" height="50"/>
                                 </box>
                                 <button verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="DGH-oN-EAU">
-                                    <rect key="frame" x="342" y="0.0" width="111" height="31"/>
+                                    <rect key="frame" x="342" y="20" width="111" height="31"/>
                                     <constraints>
                                         <constraint firstAttribute="height" constant="30" id="FB7-Ld-lyQ"/>
                                     </constraints>
@@ -6097,7 +6109,7 @@ IA
                                         <size key="contentViewMargins" width="5" height="5"/>
                                     </box>
                                     <stackView distribution="fill" orientation="horizontal" alignment="firstBaseline" horizontalStackHuggingPriority="250" verticalStackHuggingPriority="750" verticalHuggingPriority="750" detachesHiddenViews="YES" translatesAutoresizingMaskIntoConstraints="NO" id="5oj-9h-hGH">
-                                        <rect key="frame" x="0.0" y="492" width="567" height="16"/>
+                                        <rect key="frame" x="343" y="492" width="567" height="16"/>
                                         <subviews>
                                             <button verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="jsQ-Vt-t9u">
                                                 <rect key="frame" x="5" y="-1" width="66" height="17"/>
