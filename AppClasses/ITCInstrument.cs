@@ -21,7 +21,7 @@ namespace DataReaders
             Description = description;
             Extension = extension;
             StandardCellVolume = cellv / 1000000;
-            StandardSyringeVolume = (syrv - UnvailableSyringeVolume) / 1000000;
+            StandardSyringeVolume = (syrv) / 1000000;
         }
 
         public static List<ITCInstrument> GetITCInstruments()
@@ -49,9 +49,9 @@ namespace DataReaders
     {
         [ITCInstrument("Unknown", "", "", 200, 40)]
         Unknown,
-        [ITCInstrument("MicroCal ITC200", "", "ITC200_", 204, 43)]
+        [ITCInstrument("MicroCal ITC200", "", "ITC200_", 204, 39.84)]
         MicroCalITC200,
-        [ITCInstrument("MicroCal PEAQ-ITC", "", "MICROCALITC_MAL", 207.1, 43)]
+        [ITCInstrument("MicroCal PEAQ-ITC", "", "MICROCALITC_MAL", 207.1, 39.84)]
         MalvernITC200,
         [ITCInstrument("MicroCal VP-ITC", "", "VPITC", 1479.1, 310)]
         MicroCalVPITC,
