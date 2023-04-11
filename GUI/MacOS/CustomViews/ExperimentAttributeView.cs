@@ -249,9 +249,9 @@ namespace AnalysisITC.GUI.MacOS.CustomViews
                 EnumPopUpControl.Menu = new NSMenu();
                 EnumPopUpControl.Menu.AddItem(new NSMenuItem("Select"));
 
-                for (int i = 0; i < Option.EnumOptions.Count; i++)
+                for (int i = 0; i < Option.EnumOptionCount; i++)
                 {
-                    string opt = Option.EnumOptions[i];
+                    string opt = Option.EnumOptions.ToList()[i];
                     EnumPopUpControl.Menu.AddItem(new NSMenuItem("")
                     {
                         Tag = i,
@@ -290,7 +290,7 @@ namespace AnalysisITC.GUI.MacOS.CustomViews
 
         private void EnumPopUpControl_Activated(object sender, EventArgs e)
         {
-            EnumPopUpControl.Menu.ItemAt(0).AttributedTitle = new NSAttributedString(Option.EnumOptions[(int)EnumPopUpControl.SelectedTag], NSFont.SystemFontOfSize(NSFont.SmallSystemFontSize));
+            EnumPopUpControl.Menu.ItemAt(0).AttributedTitle = new NSAttributedString(Option.EnumOptions.ToList()[(int)EnumPopUpControl.SelectedTag], NSFont.SystemFontOfSize(NSFont.SmallSystemFontSize));
         }
 
         private void Input_Changed(object sender, EventArgs e)
