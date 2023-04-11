@@ -79,7 +79,7 @@ namespace AnalysisITC.Utils
                     case MarkdownProperty.Subscript: attstr.Append(SubscriptText(segment.Text, font)); break;
                 }
             }
-            if (iscg) attstr.AddAttributes(new CoreText.CTStringAttributes() //Necessarry for correct textbox text color...
+            if (iscg) attstr.AddAttributes(new CoreText.CTStringAttributes() //Necessary for correct textbox text color...
             {
                 ForegroundColorFromContext = true
             }, new NSRange(0, attstr.Length));

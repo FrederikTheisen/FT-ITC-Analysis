@@ -194,7 +194,7 @@ namespace AnalysisITC
                 layer.Context.RotateCTM(rotation);
                 layer.Context.TranslateCTM(ctm.X, ctm.Y);
                 layer.Context.TextPosition = new CGPoint(0, 0);// position;
-                layer.Context.SetStrokeColor(textcolor);
+                //layer.Context.SetStrokeColor(textcolor);
                 layer.Context.SetFillColor(textcolor);
                 textLine.Draw(layer.Context);
                 layer.Context.RestoreState();
