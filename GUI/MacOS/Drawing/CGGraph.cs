@@ -165,49 +165,7 @@ namespace AnalysisITC
             return size;
         }
 
-        public CGSize DrawString(CGLayer layer, NSAttributedString str, CGPoint position, CTFont font, CTStringAttributes attr = null, TextAlignment horizontalignment = TextAlignment.Center, TextAlignment verticalalignment = TextAlignment.Center, CGColor textcolor = null, float rotation = 0)
-        {
-            if (textcolor == null) textcolor = StrokeColor;
-            if (attr == null) attr = new CTStringAttributes
-            {
-                ForegroundColorFromContext = true,
-                StrokeColor = textcolor,
-            };
-
-            var textLine = new CTLine(str);
-            var boxsize = textLine.GetBounds(CTLineBoundsOptions.UseOpticalBounds).Size;
-            var size = textLine.GetBounds(CTLineBoundsOptions.UseGlyphPathBounds).Size;
-
-            if (layer != null)
-            {
-                CGPoint ctm = new CGPoint(0, 0);
-
-                switch (horizontalignment)
-                {
-                    case TextAlignment.Right: ctm.X -= boxsize.Width; break;
-                    case TextAlignment.Center: ctm.X -= boxsize.Width / 2; break;
-                }
-
-                switch (verticalalignment)
-                {
-                    case TextAlignment.Top: ctm.Y -= size.Height; break;
-                    case TextAlignment.Center: ctm.Y -= size.Height / 2; break;
-                }
-
-                layer.Context.SaveState();
-                layer.Context.TranslateCTM(position.X, position.Y);
-                layer.Context.RotateCTM(rotation);
-                layer.Context.TranslateCTM(ctm.X, ctm.Y);
-                layer.Context.TextPosition = new CGPoint(0, 0);// position;
-                textLine.Draw(layer.Context);
-                layer.Context.RestoreState();
-                textLine.Dispose();
-            }
-
-            return size;
-        }
-
-        public CGSize DrawString(CGLayer layer, NSAttributedString str, CGPoint position, TextAlignment horizontalignment = TextAlignment.Center, TextAlignment verticalalignment = TextAlignment.Center, CGColor textcolor = null, float rotation = 0)
+        public CGSize DrawString2(CGLayer layer, NSAttributedString str, CGPoint position, TextAlignment horizontalignment = TextAlignment.Center, TextAlignment verticalalignment = TextAlignment.Center, CGColor textcolor = null, float rotation = 0)
         {
             if (textcolor == null) textcolor = StrokeColor;
 
@@ -236,6 +194,8 @@ namespace AnalysisITC
                 layer.Context.RotateCTM(rotation);
                 layer.Context.TranslateCTM(ctm.X, ctm.Y);
                 layer.Context.TextPosition = new CGPoint(0, 0);// position;
+                layer.Context.SetStrokeColor(textcolor);
+                layer.Context.SetFillColor(textcolor);
                 textLine.Draw(layer.Context);
                 layer.Context.RestoreState();
                 textLine.Dispose();
@@ -529,14 +489,14 @@ namespace AnalysisITC
             nfloat width = 0;
             nfloat height = 0;
 
-            var nslines = new List<NSAttributedString>();
+            var attstr_lines = new List<NSAttributedString>();
 
             foreach (var line in lines)
             {
-                var nsline = MacStrings.FromMarkDownString(line, NSFont.FromCTFont(font));
-                nslines.Add(nsline);
+                var attstr = MacStrings.FromMarkDownString(line, NSFont.FromCTFont(font), true);
+                attstr_lines.Add(attstr);
 
-                var size = DrawString(null, nsline, new CGPoint(0, 0), horizontalignment: TextAlignment.Left, textcolor: StrokeColor);
+                var size = DrawString2(null, attstr, new CGPoint(0, 0), horizontalignment: TextAlignment.Left);
 
                 if (size.Width > width) width = size.Width;
                 height += size.Height + font.Size * 0.4f;
@@ -560,11 +520,10 @@ namespace AnalysisITC
             var tpos = new CGPoint(6, boxsize.Height - 0.75f * font.Size);
             var layer = CGLayer.Create(gc, boxsize);
             var textlayer = CGLayer.Create(gc, boxsize);
-            textlayer.Context.SetFillColor(textcolor);
 
-            foreach (var line in nslines)
+            foreach (var line in attstr_lines)
             {
-                var size = DrawString(textlayer, line, tpos, horizontalignment: TextAlignment.Left, textcolor: StrokeColor);
+                var size = DrawString2(textlayer, line, tpos, horizontalignment: TextAlignment.Left);
 
                 tpos.Y -= size.Height + font.Size * 0.4f;
             }
@@ -1150,6 +1109,7 @@ namespace AnalysisITC
 
             YAxis = new GraphAxis(this, 0, 1);
             YAxis.UseNiceAxis = false;
+            YAxis.HideUnwantedTicks = false;
             YAxis.LegendTitle = AppSettings.EnergyUnit.GetUnit() + "/mol of injectant";
             YAxis.ValueFactor = Energy.ScaleFactor(AppSettings.EnergyUnit);
 
