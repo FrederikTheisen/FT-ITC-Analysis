@@ -46,7 +46,7 @@ namespace AnalysisITC
                 return new FloatWithError(conc, error);
             }
         }
-        private bool UseSmallFirstInjection => SmallInitialInjControl.State == NSCellStateValue.On;
+        private bool UseSmallFirstInjection => SmallInitialInjCheckmark.State == NSCellStateValue.On;
 
         public ExperimentDesignerViewController2 (IntPtr handle) : base (handle)
 		{

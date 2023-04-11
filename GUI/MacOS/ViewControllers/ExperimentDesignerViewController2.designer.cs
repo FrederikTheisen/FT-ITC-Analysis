@@ -64,6 +64,9 @@ namespace AnalysisITC
 		AppKit.NSButton SimulateNoiseControl { get; set; }
 
 		[Outlet]
+		AppKit.NSButton SmallInitialInjCheckmark { get; set; }
+
+		[Outlet]
 		AppKit.NSButton SmallInitialInjControl { get; set; }
 
 		[Outlet]
@@ -87,11 +90,19 @@ namespace AnalysisITC
 		[Action ("SimulateNoiseControlAction:")]
 		partial void SimulateNoiseControlAction (Foundation.NSObject sender);
 
+		[Action ("SmallInitialInjCheckAction:")]
+		partial void SmallInitialInjCheckAction (AppKit.NSButton sender);
+
 		[Action ("SyringeCellAction:")]
 		partial void SyringeCellAction (Foundation.NSObject sender);
 		
 		void ReleaseDesignerOutlets ()
 		{
+			if (ApplyModelButton != null) {
+				ApplyModelButton.Dispose ();
+				ApplyModelButton = null;
+			}
+
 			if (CellConcErrorField != null) {
 				CellConcErrorField.Dispose ();
 				CellConcErrorField = null;
@@ -142,9 +153,24 @@ namespace AnalysisITC
 				ModelMenu = null;
 			}
 
+			if (ModelOptionsLabel != null) {
+				ModelOptionsLabel.Dispose ();
+				ModelOptionsLabel = null;
+			}
+
+			if (ModelOptionsLine != null) {
+				ModelOptionsLine.Dispose ();
+				ModelOptionsLine = null;
+			}
+
 			if (ModelOptionsStackView != null) {
 				ModelOptionsStackView.Dispose ();
 				ModelOptionsStackView = null;
+			}
+
+			if (ParameterStackView != null) {
+				ParameterStackView.Dispose ();
+				ParameterStackView = null;
 			}
 
 			if (SimGraphView != null) {
@@ -152,9 +178,19 @@ namespace AnalysisITC
 				SimGraphView = null;
 			}
 
+			if (SimulateNoiseControl != null) {
+				SimulateNoiseControl.Dispose ();
+				SimulateNoiseControl = null;
+			}
+
 			if (SmallInitialInjControl != null) {
 				SmallInitialInjControl.Dispose ();
 				SmallInitialInjControl = null;
+			}
+
+			if (SmallInitialInjCheckmark != null) {
+				SmallInitialInjCheckmark.Dispose ();
+				SmallInitialInjCheckmark = null;
 			}
 
 			if (SyringeConcErrorField != null) {
@@ -165,31 +201,6 @@ namespace AnalysisITC
 			if (SyringeConcField != null) {
 				SyringeConcField.Dispose ();
 				SyringeConcField = null;
-			}
-
-			if (SimulateNoiseControl != null) {
-				SimulateNoiseControl.Dispose ();
-				SimulateNoiseControl = null;
-			}
-
-			if (ApplyModelButton != null) {
-				ApplyModelButton.Dispose ();
-				ApplyModelButton = null;
-			}
-
-			if (ParameterStackView != null) {
-				ParameterStackView.Dispose ();
-				ParameterStackView = null;
-			}
-
-			if (ModelOptionsLabel != null) {
-				ModelOptionsLabel.Dispose ();
-				ModelOptionsLabel = null;
-			}
-
-			if (ModelOptionsLine != null) {
-				ModelOptionsLine.Dispose ();
-				ModelOptionsLine = null;
 			}
 		}
 	}
