@@ -429,7 +429,7 @@ namespace DataReaders
             {
                 var dat = line.Split(';');
 
-                var opt = ModelOptions.FromKey((ModelOptionKey)IParse(dat[1].Split(':')[1]));
+                var opt = ModelOptions.FromKey((ModelOptionKey)IParse(dat[1]));
                 opt.BoolValue = BParse(dat[2].Split(':')[1]);
                 opt.IntValue = IParse(dat[3].Split(':')[1]);
                 opt.DoubleValue = DParse(dat[4].Split(':')[1]);
