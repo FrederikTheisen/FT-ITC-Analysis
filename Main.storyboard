@@ -3122,7 +3122,7 @@ In most cases, interpretation of affinities provided by ITC is straightforward, 
                                                             <rect key="frame" x="5" y="59" width="368" height="0.0"/>
                                                         </stackView>
                                                         <box horizontalHuggingPriority="249" verticalHuggingPriority="750" boxType="separator" translatesAutoresizingMaskIntoConstraints="NO" id="u0M-42-t8m">
-                                                            <rect key="frame" x="5" y="52" width="368" height="5"/>
+                                                            <rect key="frame" x="5" y="31" width="368" height="5"/>
                                                         </box>
                                                         <stackView distribution="fill" orientation="vertical" alignment="leading" spacing="4" horizontalStackHuggingPriority="250" verticalStackHuggingPriority="1000" detachesHiddenViews="YES" translatesAutoresizingMaskIntoConstraints="NO" id="24i-gR-XOS">
                                                             <rect key="frame" x="5" y="29" width="368" height="0.0"/>
@@ -5516,7 +5516,7 @@ IA
                                     <rect key="frame" x="225" y="1" width="5" height="50"/>
                                 </box>
                                 <button verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="v0f-iE-gM6">
-                                    <rect key="frame" x="229" y="0.0" width="110" height="31"/>
+                                    <rect key="frame" x="229" y="20" width="110" height="31"/>
                                     <constraints>
                                         <constraint firstAttribute="height" constant="30" id="OpX-QX-ClO"/>
                                     </constraints>
@@ -6649,23 +6649,23 @@ IA
             <objects>
                 <viewController title="Data Analyzer" id="YoK-Wd-3Fr" customClass="DataAnalysisViewController" sceneMemberID="viewController">
                     <customView key="view" verticalCompressionResistancePriority="250" id="Xsa-sz-SoY">
-                        <rect key="frame" x="0.0" y="0.0" width="1037" height="826"/>
+                        <rect key="frame" x="0.0" y="0.0" width="1037" height="830"/>
                         <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
                         <subviews>
                             <stackView distribution="fill" orientation="vertical" alignment="leading" horizontalStackHuggingPriority="1000" verticalStackHuggingPriority="1000" detachesHiddenViews="YES" translatesAutoresizingMaskIntoConstraints="NO" id="4ft-kK-FDc">
-                                <rect key="frame" x="0.0" y="0.0" width="1037" height="793"/>
+                                <rect key="frame" x="0.0" y="0.0" width="1037" height="797"/>
                                 <subviews>
                                     <box horizontalHuggingPriority="750" verticalCompressionResistancePriority="250" title="Box" titlePosition="noTitle" translatesAutoresizingMaskIntoConstraints="NO" id="Nvm-zn-9K4">
-                                        <rect key="frame" x="2" y="612" width="1033" height="178"/>
+                                        <rect key="frame" x="2" y="614" width="1033" height="180"/>
                                         <view key="contentView" id="X57-vF-3wf">
-                                            <rect key="frame" x="9" y="10" width="1015" height="160"/>
+                                            <rect key="frame" x="9" y="10" width="1015" height="162"/>
                                             <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
                                             <subviews>
                                                 <stackView distribution="fill" orientation="vertical" alignment="leading" horizontalStackHuggingPriority="750" verticalStackHuggingPriority="250" horizontalClippingResistancePriority="250" horizontalCompressionResistancePriority="250" verticalCompressionResistancePriority="1000" detachesHiddenViews="YES" translatesAutoresizingMaskIntoConstraints="NO" id="VXv-Ng-aWg">
-                                                    <rect key="frame" x="0.0" y="0.0" width="1015" height="160"/>
+                                                    <rect key="frame" x="0.0" y="0.0" width="1015" height="162"/>
                                                     <subviews>
                                                         <stackView distribution="fill" orientation="horizontal" alignment="firstBaseline" horizontalStackHuggingPriority="250" verticalStackHuggingPriority="250" horizontalClippingResistancePriority="750" horizontalHuggingPriority="750" horizontalCompressionResistancePriority="250" detachesHiddenViews="YES" translatesAutoresizingMaskIntoConstraints="NO" id="5NN-nb-2q3">
-                                                            <rect key="frame" x="0.0" y="138" width="1015" height="22"/>
+                                                            <rect key="frame" x="0.0" y="140" width="1015" height="22"/>
                                                             <subviews>
                                                                 <textField horizontalHuggingPriority="249" verticalHuggingPriority="251" horizontalCompressionResistancePriority="250" translatesAutoresizingMaskIntoConstraints="NO" id="Z5M-FT-aNZ">
                                                                     <rect key="frame" x="-2" y="4" width="795" height="16"/>
@@ -6699,10 +6699,10 @@ IA
                                                             </customSpacing>
                                                         </stackView>
                                                         <stackView distribution="fill" orientation="horizontal" alignment="firstBaseline" horizontalStackHuggingPriority="250" verticalStackHuggingPriority="250" horizontalClippingResistancePriority="750" detachesHiddenViews="YES" translatesAutoresizingMaskIntoConstraints="NO" id="3ZJ-yD-xi8">
-                                                            <rect key="frame" x="0.0" y="110" width="1015" height="20"/>
+                                                            <rect key="frame" x="0.0" y="110" width="1015" height="22"/>
                                                             <subviews>
                                                                 <textField horizontalHuggingPriority="249" verticalHuggingPriority="251" translatesAutoresizingMaskIntoConstraints="NO" id="R9W-qe-dFx">
-                                                                    <rect key="frame" x="-2" y="3" width="584" height="16"/>
+                                                                    <rect key="frame" x="-2" y="4" width="572" height="16"/>
                                                                     <textFieldCell key="cell" lineBreakMode="clipping" title="Model" id="ktc-X0-wq6">
                                                                         <font key="font" metaFont="system"/>
                                                                         <color key="textColor" name="labelColor" catalog="System" colorSpace="catalog"/>
@@ -6710,13 +6710,13 @@ IA
                                                                     </textFieldCell>
                                                                 </textField>
                                                                 <segmentedControl verticalHuggingPriority="251" horizontalCompressionResistancePriority="250" translatesAutoresizingMaskIntoConstraints="NO" id="nAb-He-xRl">
-                                                                    <rect key="frame" x="587" y="-2" width="360" height="23"/>
-                                                                    <segmentedCell key="cell" lineBreakMode="truncatingMiddle" borderStyle="border" alignment="left" style="capsule" trackingMode="selectOne" id="8wV-T2-S0B">
+                                                                    <rect key="frame" x="574" y="-1" width="368" height="24"/>
+                                                                    <segmentedCell key="cell" lineBreakMode="truncatingMiddle" borderStyle="border" alignment="left" style="texturedRounded" trackingMode="selectOne" id="8wV-T2-S0B">
                                                                         <font key="font" metaFont="system"/>
                                                                         <segments>
                                                                             <segment label="One Set of Sites" selected="YES"/>
                                                                             <segment label="Two Sets of Sites" enabled="NO"/>
-                                                                            <segment label="Competitive Binding" enabled="NO"/>
+                                                                            <segment label="Competitive Binding"/>
                                                                         </segments>
                                                                     </segmentedCell>
                                                                     <connections>
@@ -6724,8 +6724,8 @@ IA
                                                                     </connections>
                                                                 </segmentedControl>
                                                                 <button horizontalHuggingPriority="750" verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="Aml-vC-kCF">
-                                                                    <rect key="frame" x="953" y="-2" width="63" height="23"/>
-                                                                    <buttonCell key="cell" type="roundTextured" title="More" bezelStyle="texturedRounded" image="ellipsis" catalog="system" imagePosition="left" alignment="center" state="on" borderStyle="border" imageScaling="proportionallyDown" inset="2" id="W8G-u5-e4c">
+                                                                    <rect key="frame" x="941" y="-6" width="81" height="32"/>
+                                                                    <buttonCell key="cell" type="push" title="More" bezelStyle="rounded" image="ellipsis" catalog="system" imagePosition="left" alignment="center" state="on" borderStyle="border" imageScaling="proportionallyDown" inset="2" id="W8G-u5-e4c">
                                                                         <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
                                                                         <font key="font" metaFont="system"/>
                                                                     </buttonCell>
@@ -6925,7 +6925,7 @@ IA
                                         <size key="contentViewMargins" width="5" height="5"/>
                                     </box>
                                     <stackView distribution="fill" orientation="horizontal" alignment="firstBaseline" horizontalStackHuggingPriority="249.99998474121094" verticalStackHuggingPriority="1000" horizontalClippingResistancePriority="750" verticalHuggingPriority="1000" detachesHiddenViews="YES" translatesAutoresizingMaskIntoConstraints="NO" id="4zS-F8-nkk">
-                                        <rect key="frame" x="5" y="592" width="1027" height="16"/>
+                                        <rect key="frame" x="5" y="594" width="1027" height="16"/>
                                         <subviews>
                                             <button verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="o7n-N9-bgG">
                                                 <rect key="frame" x="5" y="-1" width="70" height="17"/>
@@ -6981,7 +6981,7 @@ IA
                                         </customSpacing>
                                     </stackView>
                                     <customView horizontalCompressionResistancePriority="250" translatesAutoresizingMaskIntoConstraints="NO" id="TfV-6i-g26" customClass="AnalysisGraphView">
-                                        <rect key="frame" x="5" y="5" width="1027" height="579"/>
+                                        <rect key="frame" x="5" y="5" width="1027" height="581"/>
                                     </customView>
                                 </subviews>
                                 <edgeInsets key="edgeInsets" left="5" right="5" top="5" bottom="5"/>

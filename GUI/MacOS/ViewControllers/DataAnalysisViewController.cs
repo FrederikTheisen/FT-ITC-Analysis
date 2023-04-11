@@ -83,6 +83,8 @@ namespace AnalysisITC
                 case AnalysisModel.TwoSetsOfSites: ModelTypeControl.SetSelected(true, 1); break;
                 case AnalysisModel.CompetitiveBinding: ModelTypeControl.SetSelected(true, 2); break;
             }
+
+            InitializeFactory();
         }
 
         private void Analysis_AnalysisIterationFinished(object sender, EventArgs e) => GraphView.Invalidate();
