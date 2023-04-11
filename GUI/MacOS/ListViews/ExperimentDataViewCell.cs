@@ -82,35 +82,16 @@ namespace AnalysisITC
 
 					ModelFitLine.UsesSingleLineMode = false;
 
-					//string mfline = "";
-					//foreach (var par in data.Solution.UISolutionParameters(FinalFigureDisplayParameters.ListView)) mfline += "\n" + par.Item1 + ": " + par.Item2;
-
-					//ModelFitLine.StringValue = mfline.Trim();
-
-					NSMutableAttributedString line = new NSMutableAttributedString("");
+					var line = new NSMutableAttributedString("");
 
 					foreach (var par in data.Solution.UISolutionParameters(FinalFigureDisplayParameters.ListView))
 					{
-                        //NSAttributedString lbl;
-                        //NSAttributedString val;
-                        //
-                        //if (line.Length > 0) 
-                        //{
-                        //	line.Append(new NSAttributedString("\n"));
-                        //  lbl = Utils.MacStrings.FromMarkDownString(par.Item1 + " = ", ModelFitLine.Font);
-                        //	val = new NSAttributedString(par.Item2);
-                        //}
-                        //else
-                        //{
-                        //	lbl = new NSAttributedString(par.Item1 + ": ", ModelFitLine.Font);
-                        //	val = new NSAttributedString(par.Item2);
-                        //}
-
-
-                        //line.Append(lbl);
-                        //line.Append(val);
-                        if (line.Length > 0) line.Append(new NSAttributedString("\n"));
-                        line.Append(Utils.MacStrings.FromMarkDownString(par.Item1 + " = ", ModelFitLine.Font));
+						if (line.Length > 0)
+						{
+							line.Append(new NSAttributedString("\n"));
+                            line.Append(Utils.MacStrings.FromMarkDownString(par.Item1 + " = ", ModelFitLine.Font));
+                        }
+						else line.Append(Utils.MacStrings.FromMarkDownString(par.Item1 + ": ", ModelFitLine.Font));
                         line.Append(Utils.MacStrings.FromMarkDownString(par.Item2, ModelFitLine.Font));
                     }
 
