@@ -124,7 +124,6 @@ namespace AnalysisITC
             {
                 if (result == 1)
                 {
-                    StatusBarManager.SetStatusScrolling("Saving file: " + dlg.Filename);
                     await WriteFile(dlg.Filename);
 
                     CurrentAccessedAppDocumentPath = dlg.Filename;
@@ -135,7 +134,6 @@ namespace AnalysisITC
 
         public static async void SaveWithPath()
         {
-            StatusBarManager.SetStatusScrolling("Saving file: " + CurrentAccessedAppDocumentPath);
             await WriteFile(CurrentAccessedAppDocumentPath);
         }
 
@@ -149,7 +147,8 @@ namespace AnalysisITC
             {
                 if (result == 1)
                 {
-                    StatusBarManager.SetStatusScrolling("Saving file: " + dlg.Filename);
+                    StatusBarManager.SetSavingFileMessage();
+
                     switch (data)
                     {
                         case ExperimentData:
@@ -167,12 +166,16 @@ namespace AnalysisITC
                         case AnalysisResult when dlg.Url.PathExtension == "csv": throw new NotImplementedException("CSV save not yet implemented");
                             break;
                     }
+
+                    StatusBarManager.SetFileSaveSuccessfulMessage(dlg.Filename);
                 }
             });
         }
 
         static async Task WriteFile(string path)
         {
+            StatusBarManager.SetSavingFileMessage();
+
             using (var writer = new StreamWriter(path))
             {
                 foreach (var data in DataManager.Data)
@@ -184,6 +187,8 @@ namespace AnalysisITC
                 //    await WriteSolutionToFile(data.Solution, writer);
                 //}
             }
+
+            StatusBarManager.SetFileSaveSuccessfulMessage(path);
         }
 
         static async Task WriteExperimentDataToFile(ExperimentData data, StreamWriter stream)
