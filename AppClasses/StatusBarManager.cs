@@ -90,6 +90,7 @@ namespace AnalysisITC
         public static void ClearAppStatus()
         {
             status.Clear();
+            StopIndeterminateProgress();
             StatusUpdated?.Invoke(null, Status.Message);
 
             SecondaryStatus = "";
@@ -100,13 +101,13 @@ namespace AnalysisITC
             Progress = progress;
         }
 
-        public static async void SetStatusScrolling(string status)
+        public static async void SetStatusScrolling(string status, int scrollcount = 2, int scrollspeed = 10)
         {
             var tmp = status;
 
             abortscroll = false;
 
-            for (int i = 0; i < 3; i++)
+            for (int i = 0; i < scrollcount; i++)
             {
                 tmp = status;
 
@@ -118,7 +119,7 @@ namespace AnalysisITC
                     Status = new StatusMessage(tmp, false);
                     tmp = tmp.Substring(1);
 
-                    await Task.Delay(100);
+                    await Task.Delay(1000 / scrollspeed);
 
                     if (abortscroll) break;
                 }
@@ -153,6 +154,20 @@ namespace AnalysisITC
         public static void StopIndeterminateProgress()
         {
             Progress = -1;
+        }
+
+        public static void SetSavingFileMessage()
+        {
+            StartInderminateProgress();
+
+            SetStatus("Saving File...");
+        }
+
+        public static void SetFileSaveSuccessfulMessage(string path)
+        {
+            ClearAppStatus();
+
+            SetStatusScrolling("File Saved: " + path);
         }
 
         private struct StatusMessage
