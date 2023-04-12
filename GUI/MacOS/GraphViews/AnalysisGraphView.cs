@@ -83,7 +83,7 @@ namespace AnalysisITC
 
             if (Graph == null) return;
 
-            var b = (Graph as DataFittingGraph).IsCursorOnFeature(CursorPositionInView);
+            var b = (Graph as DataFittingGraph).CursorFeatureFromPos(CursorPositionInView);
 
             if (b.IsMouseOverFeature)
             {
@@ -107,7 +107,7 @@ namespace AnalysisITC
 
             if (Graph == null) return;
 
-            var b = Graph.IsCursorOnFeature(CursorPositionInView, isclick: true);
+            var b = Graph.CursorFeatureFromPos(CursorPositionInView, isclick: true);
 
             if (b.IsMouseOverFeature) NSCursor.PointingHandCursor.Set();
             else NSCursor.ArrowCursor.Set();
@@ -123,7 +123,7 @@ namespace AnalysisITC
 
             if (Graph == null) return;
 
-            var b = Graph.IsCursorOnFeature(CursorPositionInView, ismouseup: true);
+            var b = Graph.CursorFeatureFromPos(CursorPositionInView, ismouseup: true);
 
             if (b.IsMouseOverFeature) NSCursor.PointingHandCursor.Set();
             else NSCursor.ArrowCursor.Set();
