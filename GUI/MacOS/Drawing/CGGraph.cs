@@ -550,7 +550,7 @@ namespace AnalysisITC
         #endregion
         #endregion
 
-        public virtual MouseOverFeatureEvent IsCursorOnFeature(CGPoint cursorpos, bool isclick = false, bool ismouseup = false)
+        public virtual MouseOverFeatureEvent CursorFeatureFromPos(CGPoint cursorpos, bool isclick = false, bool ismouseup = false)
         {
             return new MouseOverFeatureEvent();
         }
@@ -1054,21 +1054,22 @@ namespace AnalysisITC
             return true;
         }
 
-        public override MouseOverFeatureEvent IsCursorOnFeature(CGPoint cursorpos, bool isclick = false, bool ismouseup = false)
+        public override MouseOverFeatureEvent CursorFeatureFromPos(CGPoint cursorpos, bool isclick = false, bool ismouseup = false)
         {
             foreach (var handle in SplineHandlePoints)
-                if (handle.CursorInBox(cursorpos)) return new MouseOverFeatureEvent(handle);
+                if (handle.CursorInBox(cursorpos)) return MouseOverFeatureEvent.BoundboxFeature(handle, cursorpos); //return new MouseOverFeatureEvent(handle);
 
             foreach (var point in SplinePoints)
-                if (point.CursorInBox(cursorpos)) return new MouseOverFeatureEvent(point);
+                if (point.CursorInBox(cursorpos)) return MouseOverFeatureEvent.BoundboxFeature(point, cursorpos); //return new MouseOverFeatureEvent(point);
 
             foreach (var handle in IntegrationHandleBoxes)
-                if (handle.CursorInBox(cursorpos)) return new MouseOverFeatureEvent(handle);
+                if (handle.CursorInBox(cursorpos)) return MouseOverFeatureEvent.BoundboxFeature(handle, cursorpos); //return new MouseOverFeatureEvent(handle);
 
             foreach (var handle in IntegrationHandleBoxes)
-                if (handle.ProximityX(cursorpos, (XAxis.Max - XAxis.Min) / (float)PlotPixelWidth)) return new MouseOverFeatureEvent(handle);
+                if (handle.ProximityX(cursorpos, (XAxis.Max - XAxis.Min) / (float)PlotPixelWidth)) return MouseOverFeatureEvent.BoundboxFeature(handle, cursorpos); //return new MouseOverFeatureEvent(handle);
 
-            return new MouseOverFeatureEvent();
+            if (isclick) return MouseOverFeatureEvent.MouseDragZoom(this, cursorpos);
+            else return new MouseOverFeatureEvent();
         }
     }
 
@@ -1389,7 +1390,7 @@ namespace AnalysisITC
         int mDownID = -1;
         int mOverFeature = -1;
 
-        public override MouseOverFeatureEvent IsCursorOnFeature(CGPoint cursorpos, bool isclick = false, bool ismouseup = false)
+        public override MouseOverFeatureEvent CursorFeatureFromPos(CGPoint cursorpos, bool isclick = false, bool ismouseup = false)
         {
             foreach (var inj in ExperimentData.Injections)
             {

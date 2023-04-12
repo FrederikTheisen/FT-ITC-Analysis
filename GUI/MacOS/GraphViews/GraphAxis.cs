@@ -188,6 +188,11 @@ namespace AnalysisITC
             DecimalPoints = maxdigits;
         }
 
+        public double GetValueFromRelativePosition(double pos)
+        {
+            return (ActualMax - ActualMin) * pos + ActualMin;
+        }
+
         public void SetMaxTicks(int number)
         {
             TickScale.SetMaxTicks(number);

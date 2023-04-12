@@ -206,6 +206,7 @@ namespace Utilities
 
         public CGPoint ClickCursorPosition { get; set; } = new CGPoint();
         public double FeatureReferenceValue { get; set; }
+        public CGPoint CursorAxisClickPosition { get; set; }
 
         readonly List<string> tooltiplines = new List<string>();
 
@@ -219,6 +220,26 @@ namespace Utilities
         }
 
         public bool IsMouseOverFeature => FeatureID != -1;
+
+        public CGRect GetZoomRegion(CGGraph graph, CGPoint cursorpos)
+        {
+            var curr = MouseDragZoom(graph, cursorpos);
+
+            return CGRect.FromLTRB(
+                (float)Math.Min(CursorAxisClickPosition.X, curr.CursorAxisClickPosition.X),
+                (float)Math.Max(CursorAxisClickPosition.Y, curr.CursorAxisClickPosition.Y),
+                (float)Math.Max(CursorAxisClickPosition.X, curr.CursorAxisClickPosition.X),
+                (float)Math.Min(CursorAxisClickPosition.Y, curr.CursorAxisClickPosition.Y));
+        }
+
+        public CGRect GetZoomRect(CGGraph graph, CGPoint cursorpos)
+        {
+            return CGRect.FromLTRB(
+                (float)Math.Min(ClickCursorPosition.X, cursorpos.X),
+                (float)Math.Max(ClickCursorPosition.Y, cursorpos.Y),
+                (float)Math.Max(ClickCursorPosition.X, cursorpos.X),
+                (float)Math.Min(ClickCursorPosition.Y, cursorpos.Y));
+        }
 
         public MouseOverFeatureEvent(FeatureType type = FeatureType.Unknown)
         {
@@ -255,13 +276,52 @@ namespace Utilities
             tooltiplines[0] += new string(' ', spaces) + timestring;
         }
 
+        public static MouseOverFeatureEvent BoundboxFeature(FeatureBoundingBox box, CGPoint cursorpos)
+        {
+            return new MouseOverFeatureEvent(box)
+            {
+                ClickCursorPosition = cursorpos,
+            };
+        }
+
+        public static MouseOverFeatureEvent MouseDragZoom(CGGraph graph, CGPoint cursorpositioninview)
+        {
+            var relativepositioninframe = CGExtensions.RelativePositionInFrame(graph.Frame, cursorpositioninview);
+
+            var inframepositon = new CGPoint(Math.Min(graph.Frame.Right, Math.Max(graph.Frame.Left, cursorpositioninview.X)), Math.Min(graph.Frame.Bottom, Math.Max(graph.Frame.Top, cursorpositioninview.Y)));
+
+            var feature = new MouseOverFeatureEvent(FeatureType.DragZoom)
+            {
+                ClickCursorPosition = inframepositon,
+                CursorAxisClickPosition = new CGPoint(graph.XAxis.GetValueFromRelativePosition(relativepositioninframe.X), graph.YAxis.GetValueFromRelativePosition(relativepositioninframe.Y))
+            };
+
+            return feature;
+        }
+
         public enum FeatureType
         {
             Unknown,
             IntegratedInjectionPoint,
             IntegrationRangeMarker,
             BaselineSplinePoint,
-            BaselineSplineHandle
+            BaselineSplineHandle,
+            DragZoom
+        }
+    }
+
+    public static class CGExtensions
+    {
+        public static CGPoint RelativePositionInFrame(CGRect frame, CGPoint position)
+        {
+            var offsetpos = position.Subtract(frame.Location);
+
+            return new CGPoint(offsetpos.X / frame.Width, offsetpos.Y / frame.Height);
+        }
+
+        public static CGPoint Subtract(this CGPoint p1, CGPoint p2)
+        {
+            return new CGPoint(p1.X - p2.X, p1.Y - p2.Y);
         }
     }
 

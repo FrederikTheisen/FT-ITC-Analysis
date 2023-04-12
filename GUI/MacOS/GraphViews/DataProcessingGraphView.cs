@@ -11,12 +11,14 @@ namespace AnalysisITC
     {
         public event EventHandler<int> InjectionSelected;
 
+        public new BaselineFittingGraph Graph => base.Graph as BaselineFittingGraph;
+        Utilities.MouseOverFeatureEvent SelectedFeature { get; set; } = null;
+        public int PeakZoomWidth { get; set; } = 1;
         bool isBaselineZoomed = false;
         bool isInjectionZoomed = false;
-
         int selectedPeak = -1;
 
-        Utilities.MouseOverFeatureEvent SelectedFeature { get; set; } = null;
+        NSBox ZoomSelectionBox = new NSBox() { BorderType = NSBorderType.LineBorder, Hidden = true, TitlePosition = NSTitlePosition.NoTitle, BoxType = NSBoxType.NSBoxCustom };
 
         bool ShowBaselineCorrected
         {
@@ -40,10 +42,6 @@ namespace AnalysisITC
         {
             set { if (Graph != null) Graph.DrawCursorPositionInfo = value; }
         }
-
-        public int PeakZoomWidth { get; set; } = 1;
-
-        public new BaselineFittingGraph Graph => base.Graph as BaselineFittingGraph;
 
         public int SelectedPeak
         {
@@ -71,6 +69,8 @@ namespace AnalysisITC
             State = ProgramState.Process;
 
             NSEvent.AddLocalMonitorForEventsMatchingMask(NSEventMask.KeyDown, (NSEvent theEvent) => KeyDownEventHandler(theEvent));
+
+            this.AddSubview(ZoomSelectionBox);
         }
 
         NSEvent KeyDownEventHandler(NSEvent theEvent)
@@ -179,7 +179,7 @@ namespace AnalysisITC
             var inj_first = Data.Injections[idx1];
             var inj_last = Data.Injections[idx2];
 
-            //If fitst injection is #0, then start draw at t = 0
+            //If first injection is #0, then start draw at t = 0
             Graph.SetXAxisRange(idx1 == 0 ? 0 : inj_first.Time - inj_first.Delay * 0.2f, inj_last.Time + inj_last.Delay * 1.2f);
 
             isInjectionZoomed = true;
@@ -200,6 +200,16 @@ namespace AnalysisITC
 
             if (isBaselineZoomed) ZoomBaseline();
             else ShowAllVertical();
+
+            Invalidate();
+        }
+
+        void ZoomRegion(CGRect region)
+        {
+            if (Data == null) return;
+
+            Graph.SetXAxisRange(region.Left, region.Right);
+            Graph.SetYAxisRange(region.Bottom, region.Top);
 
             Invalidate();
         }
@@ -225,7 +235,7 @@ namespace AnalysisITC
 
             if (Data == null) return;
 
-            var b = Graph.IsCursorOnFeature(CursorPositionInView);
+            var b = Graph.CursorFeatureFromPos(CursorPositionInView);
             var update = Graph.SetCursorInfo(CursorPositionInView);
 
             if (b.IsMouseOverFeature)
@@ -246,8 +256,8 @@ namespace AnalysisITC
 
             if (Data == null) return;
 
-            SelectedFeature = Graph.IsCursorOnFeature(CursorPositionInView);
-            SelectedFeature.ClickCursorPosition = theEvent.LocationInWindow;
+            SelectedFeature = Graph.CursorFeatureFromPos(CursorPositionInView, true);
+            //SelectedFeature.ClickCursorPosition = theEvent.LocationInWindow;
         }
 
         public override void RightMouseDown(NSEvent theEvent)
@@ -256,7 +266,7 @@ namespace AnalysisITC
 
             if (Data == null) return;
 
-            var feature = Graph.IsCursorOnFeature(CursorPositionInView);
+            var feature = Graph.CursorFeatureFromPos(CursorPositionInView);
 
             if (feature.IsMouseOverFeature)
             {
@@ -277,8 +287,8 @@ namespace AnalysisITC
 
                 NSMenu menu = new NSMenu("New Spline Point");
                 menu.AddItem(new NSMenuItem("New Spline Point..."));
-                menu.AddItem(new NSMenuItem("at data", (s, e) => { (Data.Processor.Interpolator as SplineInterpolator).InsertSplinePoint(time, true); }));
-                menu.AddItem(new NSMenuItem("at baseline", (s, e) => { (Data.Processor.Interpolator as SplineInterpolator).InsertSplinePoint(time, false); }));
+                menu.AddItem(new NSMenuItem("at data", (s, e) => { (Data.Processor.Interpolator as SplineInterpolator).InsertSplinePoint(time, true); }) { IndentationLevel = 1 });
+                menu.AddItem(new NSMenuItem("at baseline", (s, e) => { (Data.Processor.Interpolator as SplineInterpolator).InsertSplinePoint(time, false); }) { IndentationLevel = 1 });
                 NSMenu.PopUpContextMenu(menu, theEvent, this);
             }
         }
@@ -287,9 +297,9 @@ namespace AnalysisITC
         {
             base.MouseDragged(theEvent);
 
-            var position = theEvent.LocationInWindow;
+            var position = CursorPositionInView;// theEvent.LocationInWindow;
 
-            if (SelectedFeature.FeatureID == -1) return;
+            //if (SelectedFeature.FeatureID == -1) return;
             switch (SelectedFeature.Type)
             {
                 case Utilities.MouseOverFeatureEvent.FeatureType.BaselineSplinePoint:
@@ -327,6 +337,14 @@ namespace AnalysisITC
 
                         break;
                     }
+                case Utilities.MouseOverFeatureEvent.FeatureType.DragZoom:
+                    {
+                        ZoomSelectionBox.Frame = SelectedFeature.GetZoomRect(Graph, position);
+                        ZoomSelectionBox.Hidden = false;
+
+                        break;
+                    }
+                    
             }
 
             Invalidate();
@@ -343,11 +361,16 @@ namespace AnalysisITC
                     case Utilities.MouseOverFeatureEvent.FeatureType.BaselineSplineHandle:
                     case Utilities.MouseOverFeatureEvent.FeatureType.BaselineSplinePoint: UpdateSplineHandle(); break;
                     case Utilities.MouseOverFeatureEvent.FeatureType.IntegrationRangeMarker: Data.Processor.IntegratePeaks(); break;
+                    case Utilities.MouseOverFeatureEvent.FeatureType.DragZoom:
+                        ZoomSelectionBox.Hidden = true;
+                        ZoomRegion(SelectedFeature.GetZoomRegion(Graph, CursorPositionInView));
+                        Console.WriteLine(SelectedFeature.GetZoomRegion(Graph, CursorPositionInView));
+                        break;
                 }
 
                 if (Data == null) return;
 
-                var b = Graph.IsCursorOnFeature(CursorPositionInView);
+                var b = Graph.CursorFeatureFromPos(CursorPositionInView);
 
                 if (b.IsMouseOverFeature)
                 {
