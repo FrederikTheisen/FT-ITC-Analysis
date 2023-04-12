@@ -273,14 +273,16 @@ namespace AnalysisITC.GUI.MacOS.CustomViews
                 if (Parameter.Key.GetProperties().ParentType == ParameterType.Affinity1)
                 {
                     if (AppSettings.InputAffinityAsDissociationConstant)
-                        Input.StringValue = (AppSettings.DefaultConcentrationUnit.GetProperties().Mod / (double)tmpvalue).ToString("######0.###");
-                    else
-                        Input.StringValue = ((double)tmpvalue).ToString("G2");
+                    {
+                        var number = (AppSettings.DefaultConcentrationUnit.GetProperties().Mod / (double)tmpvalue);
+                        Input.StringValue = Convert.ToDouble(String.Format("{0:G3}", number)).ToString();
+                    }
+                    else Input.StringValue = ((double)tmpvalue).ToString("G2");
                 }
                 else if (ParameterTypeAttribute.IsEnergyUnitParameter(Parameter.Key))
                     Input.StringValue = new Energy((double)tmpvalue).ToString(AppSettings.EnergyUnit, "G3", withunit: false);
                 else
-                    Input.DoubleValue = ((double)tmpvalue);
+                    Input.StringValue = ((double)tmpvalue).ToString("F1");
         }
     }
 }
