@@ -20,7 +20,8 @@ namespace AnalysisITC
         public static ColorShcemeGradientMode ColorShcemeGradientMode { get; set; } = ColorShcemeGradientMode.Smooth;
         public static ConcentrationUnit DefaultConcentrationUnit { get; set; } = ConcentrationUnit.µM;
 
-        public static NSUrl LastDocumentUrl { get; set; } = null;
+        private static NSUrl lastDocumentUrl = null;
+        public static NSUrl LastDocumentUrl { get => lastDocumentUrl; set { lastDocumentUrl = value; Save(); } }
 
         //Processing
         public static PeakFitAlgorithm PeakFitAlgorithm { get; set; } = PeakFitAlgorithm.Exponential;
@@ -128,7 +129,7 @@ namespace AnalysisITC
             ExportBaselineCorrectedData = GetBool(dict, "ExportBaselineCorrectedData", ExportBaselineCorrectedData);
             DefaultConcentrationUnit = (ConcentrationUnit)GetInt(dict, "DefaultConcentrationUnit", (int)DefaultConcentrationUnit);
             InputAffinityAsDissociationConstant = GetBool(dict, "InputAffinityAsDissociationConstant", InputAffinityAsDissociationConstant);
-            LastDocumentUrl = GetUrl(dict, "LastDocumentUrl");
+            lastDocumentUrl = GetUrl(dict, "LastDocumentUrl");
 
             ApplySettings();
         }
