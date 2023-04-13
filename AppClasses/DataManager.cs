@@ -187,6 +187,8 @@ namespace AnalysisITC
             Init();
 
             DataDidChange?.Invoke(null, null);
+
+            FTITCFormat.CurrentAccessedAppDocumentPath = ""; //Remove save file path
         }
 
         public static async void CopySelectedProcessToAll()
