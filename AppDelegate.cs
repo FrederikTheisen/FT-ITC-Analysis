@@ -181,7 +181,7 @@ namespace AnalysisITC
 
         partial void ClearProcessingResult(NSObject sender)
         {
-            
+            DataManager.ClearProcessing();
         }
 
         partial void ClearAllData(NSObject sender)

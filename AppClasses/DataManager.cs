@@ -28,7 +28,7 @@ namespace AnalysisITC
             }
         }
 
-        public static List<ITCDataContainer> DeletedDataList { get; } = new List<ITCDataContainer>();
+        public static List<ITCDataContainerDeletionLog> DeletedDataList { get; } = new List<ITCDataContainerDeletionLog>();
 
         public static bool StopProcessCopying { get; set; } = false;
 
@@ -109,7 +109,7 @@ namespace AnalysisITC
 
         public static void RemoveData2(int index)
         {
-            DeletedDataList.Add(DataSource.Content[index]);
+            DeletedDataList.Add(new ITCDataContainerDeletionLog(DataSource.Content[index]));
 
             if (SelectedContentIndex == -1) { DataSource.Content.RemoveAt(index); return; }
 
@@ -124,7 +124,9 @@ namespace AnalysisITC
 
         public static void UndoDeleteData()
         {
-            AddData(DeletedDataList.Last());
+            var restoreddata = DeletedDataList.Last().Data;
+
+            foreach (var data in restoreddata) AddData(data);
             DeletedDataList.Remove(DeletedDataList.Last());
         }
 
@@ -184,11 +186,22 @@ namespace AnalysisITC
 
         public static void Clear()
         {
+            DeletedDataList.Add(new(DataSourceContent));
+
             Init();
 
             DataDidChange?.Invoke(null, null);
 
             FTITCFormat.CurrentAccessedAppDocumentPath = ""; //Remove save file path
+        }
+
+        public static void ClearProcessing()
+        {
+            DeletedDataList.Add(new(DataSourceContent.Where(data => data is AnalysisResult).ToList()));
+
+            DataSource.Content.RemoveAll(data => data is AnalysisResult);
+
+            DataDidChange?.Invoke(null, null);
         }
 
         public static async void CopySelectedProcessToAll()

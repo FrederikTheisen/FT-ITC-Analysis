@@ -7,6 +7,21 @@ using DataReaders;
 
 namespace AnalysisITC
 {
+    public class ITCDataContainerDeletionLog
+    {
+        public List<ITCDataContainer> Data { get; private set; } = new List<ITCDataContainer>();
+
+        public ITCDataContainerDeletionLog(List<ITCDataContainer> data)
+        {
+            Data.AddRange(data);
+        }
+
+        public ITCDataContainerDeletionLog(ITCDataContainer data)
+        {
+            Data.Add(data);
+        }
+    }
+
     public class ITCDataContainer
     {
         public string UniqueID { get; private set; } = Guid.NewGuid().ToString();
