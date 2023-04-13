@@ -118,7 +118,12 @@ namespace AnalysisITC.AppClasses.Analysis2
 		public ModelCloneOptions ModelCloneOptions => Model.ModelCloneOptions;
 
 		//TODO invalidate all solutions in solution
-        public void Invalidate() => IsValid = false;
+        public void Invalidate()
+		{
+			IsValid = false;
+
+			foreach (var sol in Solutions) sol.Invalidate();
+		}
 
 		public GlobalSolution(GlobalSolver solver, SolverConvergence convergence)
 		{
@@ -130,7 +135,7 @@ namespace AnalysisITC.AppClasses.Analysis2
             {
                 mdl.Solution = SolutionInterface.FromModel(mdl, Model.Parameters.GetParametersForModel(Model, mdl).ToArray(), new(convergence));
                 mdl.Solution.Convergence.SetLoss(mdl.Loss());
-                mdl.Solution.IsGlobalAnalysisSolution = true;
+                mdl.Solution.SetIsGlobal(this);
             }
 
 			//HACK possibly due to inappropriate loss function

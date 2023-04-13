@@ -127,7 +127,8 @@ namespace AnalysisITC.AppClasses.Analysis2.Models
     public class SolutionInterface
 	{
         public string Guid { get; private set; } = new Guid().ToString();
-        public bool IsGlobalAnalysisSolution { get; set; } = false;
+        GlobalSolution GlobalParentSolution { get; set; }
+        public bool IsGlobalAnalysisSolution => GlobalParentSolution != null;
 
         public Model Model { get; protected set; }
         public SolverConvergence Convergence { get; set; }
@@ -156,7 +157,22 @@ namespace AnalysisITC.AppClasses.Analysis2.Models
 
         public bool IsValid { get; private set; } = true;
 
-		public void Invalidate() => IsValid = false;
+        public void SetIsGlobal(GlobalSolution parent)
+        {
+            GlobalParentSolution = parent;
+        }
+
+		public void Invalidate()
+        {
+            IsValid = false;
+
+            if (IsGlobalAnalysisSolution && GlobalParentSolution.IsValid)
+            {
+                GlobalParentSolution.Invalidate();
+            }
+
+            Data.UpdateSolution();
+        }
 		
 		public static SolutionInterface FromModel(Model model, double[] parameters, SolverConvergence convergence)
 		{
