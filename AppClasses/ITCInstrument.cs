@@ -49,9 +49,9 @@ namespace DataReaders
     {
         [ITCInstrument("Unknown", "", "", 200, 40)]
         Unknown,
-        [ITCInstrument("MicroCal ITC200", "", "ITC200_", 204, 39.84)]
+        [ITCInstrument("MicroCal ITC200", "", "ITC200_", 204, 39.5)]
         MicroCalITC200,
-        [ITCInstrument("MicroCal PEAQ-ITC", "", "MICROCALITC_MAL", 207.1, 39.84)]
+        [ITCInstrument("MicroCal PEAQ-ITC", "", "MICROCALITC_MAL", 207.1, 39.0)]
         MalvernITC200,
         [ITCInstrument("MicroCal VP-ITC", "", "VPITC", 1479.1, 310)]
         MicroCalVPITC,
