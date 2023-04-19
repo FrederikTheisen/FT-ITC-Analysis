@@ -10,9 +10,12 @@ namespace AnalysisITC.AppClasses.AnalysisClasses
 	{
 		public ModelOptions.ModelOptionType Type { get; set; }
 
-        public ModelOptionKeyAttribute(ModelOptions.ModelOptionType type)
+		public bool AllowMultiple { get; set; } = false;
+
+        public ModelOptionKeyAttribute(ModelOptions.ModelOptionType type, bool allowmultipleattributes = false)
 		{
 			Type = type;
+			AllowMultiple = allowmultipleattributes;
 		}
     }
 
@@ -27,8 +30,12 @@ namespace AnalysisITC.AppClasses.AnalysisClasses
 		PreboundLigandEnthalpy,
 		[ModelOptionKey(ModelOptions.ModelOptionType.Bool)]
         PeptideInCell,
-		[ModelOptionKey(ModelOptions.ModelOptionType.Enum)]
+		[ModelOptionKey(ModelOptions.ModelOptionType.Enum, true)]
 		Buffer,
+        [ModelOptionKey(ModelOptions.ModelOptionType.Enum, true)]
+        Salt,
+        [ModelOptionKey(ModelOptions.ModelOptionType.Double)]
+        IonicStrength
     }
 
 	public class ModelOptions
@@ -44,14 +51,15 @@ namespace AnalysisITC.AppClasses.AnalysisClasses
         public int EnumOptionCount => EnumOptions.Count();
         public KeyValuePair<ModelOptionKey, ModelOptions> DictionaryEntry => new KeyValuePair<ModelOptionKey, ModelOptions>(Key, this);
 
-		public IEnumerable<string> EnumOptions
+		public IEnumerable<Tuple<int,string>> EnumOptions
 		{
 			get
 			{
 				switch (Key)
 				{
-					case ModelOptionKey.Buffer: return BufferAttribute.GetBuffers().Select(b => b.ToString());
-					default: return new List<string>();
+					case ModelOptionKey.Buffer: return BufferAttribute.GetUIBuffers().Select(b => new Tuple<int, string>((int)b, b.ToString()));
+					case ModelOptionKey.Salt: return SaltAttribute.GetSalts().Select(b => new Tuple<int, string>((int)b, b.GetProperties().Name));
+                    default: return new List<Tuple<int,string>>();
                 }
 			}
 		}
@@ -145,7 +153,7 @@ namespace AnalysisITC.AppClasses.AnalysisClasses
 		{
 			Key = key;
 
-			if (Key == ModelOptionKey.Buffer)
+			if (Key == ModelOptionKey.Buffer || Key == ModelOptionKey.Salt)
 			{
 				IntValue = -1;
 			}
@@ -173,6 +181,8 @@ namespace AnalysisITC.AppClasses.AnalysisClasses
 					 ModelOptionKey.PreboundLigandConc,
 					 ModelOptionKey.PeptideInCell,
 					 ModelOptionKey.Buffer,
+					 ModelOptionKey.Salt,
+					 ModelOptionKey.IonicStrength,
 				};
 			}
 		}

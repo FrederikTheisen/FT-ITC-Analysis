@@ -63,6 +63,22 @@ namespace AnalysisITC
             return attribute;
         }
 
+        public static SaltAttribute GetProperties(this Salt value)
+        {
+            var fieldInfo = value.GetType().GetField(value.ToString());
+            var attribute = fieldInfo.GetCustomAttributes(typeof(SaltAttribute), false).FirstOrDefault() as SaltAttribute;
+
+            return attribute;
+        }
+
+        public static Utils.BufferAttribute GetProperties(this Utils.Buffer value)
+        {
+            var fieldInfo = value.GetType().GetField(value.ToString());
+            var attribute = fieldInfo.GetCustomAttributes(typeof(Utils.BufferAttribute), false).FirstOrDefault() as Utils.BufferAttribute;
+
+            return attribute;
+        }
+
         public static ModelOptionKeyAttribute GetProperties(this ModelOptionKey value)
         {
             var fieldInfo = value.GetType().GetField(value.ToString());

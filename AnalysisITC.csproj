@@ -419,6 +419,7 @@
       <DependentUpon>ExperimentAttributeView.cs</DependentUpon>
     </Compile>
     <Compile Include="AppClasses\AnalysisClasses\Buffers.cs" />
+    <Compile Include="AppClasses\AnalysisClasses\Salt.cs" />
   </ItemGroup>
   <ItemGroup>
     <InterfaceDefinition Include="Main.storyboard" />

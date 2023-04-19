@@ -67,7 +67,7 @@ namespace AnalysisITC.AppClasses.Analysis2.Models
                 Model = model;
                 BootstrapSolutions = new List<SolutionInterface>();
 
-                if (opt[ModelOptionKey.PreboundLigandConc].BoolValue) opt[ModelOptionKey.PreboundLigandConc].ParameterValue = Data.ExperimentOptions[ModelOptionKey.PreboundLigandConc].ParameterValue;
+                if (opt[ModelOptionKey.PreboundLigandConc].BoolValue) opt[ModelOptionKey.PreboundLigandConc].ParameterValue = Data.ExperimentOptions.Find(opt => opt.Key == ModelOptionKey.PreboundLigandConc).ParameterValue;
             }
 
             public override void ComputeErrorsFromBootstrapSolutions()

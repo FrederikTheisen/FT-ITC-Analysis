@@ -18,7 +18,7 @@ namespace AnalysisITC
 
         public static ExperimentData Data { get; set; } = null;
         static List<ModelOptions> tmpoptions = new List<ModelOptions>();
-        public static IEnumerable<ModelOptionKey> AllAddedOptions => Data.ExperimentOptions.Keys.ToList().Concat(tmpoptions.Select(mo => mo.Key).ToList());
+        public static IEnumerable<ModelOptionKey> AllAddedOptions => Data.ExperimentOptions.Select(opt => opt.Key).Concat(tmpoptions.Select(mo => mo.Key).ToList());
 
         public ExperimentDetailsPopoverController() : base()
         {
@@ -43,7 +43,7 @@ namespace AnalysisITC
 
             foreach (var opt in Data.ExperimentOptions)
             {
-                AddAttribute(opt.Value);
+                AddAttribute(opt);
                 //AttributeStackView.AddArrangedSubview(new ExperimentAttributeView(new CGRect(0, 0, AttributeStackView.Frame.Width - 20, 14), opt.Value));
             }
 

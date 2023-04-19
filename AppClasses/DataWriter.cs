@@ -215,7 +215,7 @@ namespace AnalysisITC
             if (data.ExperimentOptions.Count > 0)
             {
                 file.Add(ListHeader(ExperimentAttributes));
-                foreach (var att in data.ExperimentOptions) file.Add(Attribute(att.Value));
+                foreach (var att in data.ExperimentOptions) file.Add(Attribute(att));
                 file.Add(EndListHeader);
             }
 
