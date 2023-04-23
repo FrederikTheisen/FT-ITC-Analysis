@@ -101,6 +101,8 @@ namespace AnalysisITC
 
             foreach (var sv in AttributeStackView.Subviews) (sv as ExperimentAttributeView).ApplyOption(Data);
 
+            var i = BufferAttribute.GetIonicStrength(Data);
+
             DataReaders.RawDataReader.ProcessInjections(Data);
 
             DismissViewController(this);

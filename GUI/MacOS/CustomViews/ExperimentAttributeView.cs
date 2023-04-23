@@ -137,7 +137,7 @@ namespace AnalysisITC.GUI.MacOS.CustomViews
                     break;
                 case ModelOptionKey.Buffer:
                     SetupEnum();
-                    SetupDouble("pH value");
+                    SetupDouble("  pH   ");
                     SetupConcentration(ConcentrationUnit.mM, false);
                     break;
             }
@@ -156,20 +156,27 @@ namespace AnalysisITC.GUI.MacOS.CustomViews
             AddArrangedSubview(BoolControl);
         }
 
-        void SetupDouble(string tooltip = "")
+        void SetupDouble(string description = null)
         {
+            if (!string.IsNullOrEmpty(description))
+            {
+                var lbl = NSTextField.CreateLabel(description);
+                lbl.Font = NSFont.SystemFontOfSize(NSFont.SmallSystemFontSize);
+                lbl.Alignment = NSTextAlignment.Center;
+
+                AddArrangedSubview(lbl);
+            }
+
             DoubleField = new NSTextField(new CGRect(0, 0, 30, 14))
             {
                 Bordered = false,
                 TranslatesAutoresizingMaskIntoConstraints = false,
                 PlaceholderString = Option.DoubleValue.ToString("F2"),
-                DoubleValue = Option.DoubleValue,
-                ToolTip = tooltip,
                 BezelStyle = NSTextFieldBezelStyle.Rounded,
                 FocusRingType = NSFocusRingType.None,
                 ControlSize = NSControlSize.Small,
                 Font = NSFont.SystemFontOfSize(NSFont.SmallSystemFontSize),
-                Alignment = NSTextAlignment.Right,
+                Alignment = NSTextAlignment.Left,
                 LineBreakMode = NSLineBreakMode.TruncatingHead,
             };
             DoubleField.Changed += (o, e) => Input_Changed(DoubleField, null);
@@ -184,7 +191,7 @@ namespace AnalysisITC.GUI.MacOS.CustomViews
 		{
             SetupParameter(witherror);
 
-            NSTextField lbl = new NSTextField(new CGRect(0, 0, 25, 14))
+            NSTextField lbl = new NSTextField(new CGRect(0, 0, 22, 14))
             {
                 BezelStyle = NSTextFieldBezelStyle.Rounded,
                 Bordered = false,
@@ -196,7 +203,7 @@ namespace AnalysisITC.GUI.MacOS.CustomViews
                 Alignment = NSTextAlignment.Right,
                 Font = NSFont.SystemFontOfSize(NSFont.SmallSystemFontSize),
             };
-            lbl.AddConstraint(NSLayoutConstraint.Create(lbl, NSLayoutAttribute.Width, NSLayoutRelation.Equal, 1, 25));
+            lbl.AddConstraint(NSLayoutConstraint.Create(lbl, NSLayoutAttribute.Width, NSLayoutRelation.Equal, 1, 22));
 
             AddArrangedSubview(lbl);
         }
@@ -222,7 +229,7 @@ namespace AnalysisITC.GUI.MacOS.CustomViews
                 Bordered = false,
                 TranslatesAutoresizingMaskIntoConstraints = false,
                 PlaceholderString = value.Value.ToString("F1"),
-                DoubleValue = value.Value,
+                //DoubleValue = value.Value,
                 ToolTip = "Value for the given property",
                 BezelStyle = NSTextFieldBezelStyle.Rounded,
                 FocusRingType = NSFocusRingType.None,
@@ -260,7 +267,7 @@ namespace AnalysisITC.GUI.MacOS.CustomViews
                     Bordered = false,
                     TranslatesAutoresizingMaskIntoConstraints = false,
                     PlaceholderString = value.SD.ToString("F1"),
-                    DoubleValue = value.SD,
+                    //DoubleValue = value.SD,
                     ToolTip = "Error value for the given property",
                     BezelStyle = NSTextFieldBezelStyle.Rounded,
                     FocusRingType = NSFocusRingType.None,
@@ -360,6 +367,8 @@ namespace AnalysisITC.GUI.MacOS.CustomViews
             if (string.IsNullOrEmpty(input)) field.TextColor = DefaultFieldColor;
             else if (double.TryParse(input, out double value))
             {
+                if (value < 0) return;
+                if (Option.Key == ModelOptionKey.Buffer && field == DoubleField && value > 14) return;
                 field.TextColor = DefaultFieldColor;
             }
         }
@@ -378,23 +387,28 @@ namespace AnalysisITC.GUI.MacOS.CustomViews
                 case ModelOptionKey.PeptideInCell: Option.BoolValue = BoolControl.State == NSCellStateValue.On; break;
                 case ModelOptionKey.PreboundLigandConc:
                     {
-                        var val = ParameterField.DoubleValue / 1000000;
-                        var err = ParameterErrorField.DoubleValue / 1000000;
+                        if (!string.IsNullOrEmpty(ParameterField.StringValue))
+                        {
+                            var val = ParameterField.DoubleValue / 1000000;
+                            var err = ParameterErrorField.DoubleValue / 1000000;
 
-                        var value = new FloatWithError(val, err);
+                            var value = new FloatWithError(val, err);
 
-                        Option.ParameterValue = value;
+                            Option.ParameterValue = value;
+                        }
                         break;
                     }
-
                 case ModelOptionKey.PreboundLigandAffinity:
                     {
-                        var val = ParameterField.DoubleValue / AppSettings.DefaultConcentrationUnit.GetProperties().Mod;
-                        var err = ParameterErrorField.DoubleValue / AppSettings.DefaultConcentrationUnit.GetProperties().Mod;
+                        if (!string.IsNullOrEmpty(ParameterField.StringValue))
+                        {
+                            var val = ParameterField.DoubleValue / AppSettings.DefaultConcentrationUnit.GetProperties().Mod;
+                            var err = ParameterErrorField.DoubleValue / AppSettings.DefaultConcentrationUnit.GetProperties().Mod;
 
-                        var value = new FloatWithError(val, err);
+                            var value = new FloatWithError(val, err);
 
-                        Option.ParameterValue = value;
+                            Option.ParameterValue = value;
+                        }
                         break;
                     }
 
@@ -411,17 +425,21 @@ namespace AnalysisITC.GUI.MacOS.CustomViews
                 case ModelOptionKey.Salt:
                     {
                         Option.IntValue = (int)EnumPopUpControl.SelectedTag;
-                        Option.ParameterValue = new(ParameterField.DoubleValue / 1000, 0);
+                        if (!string.IsNullOrEmpty(ParameterField.StringValue)) Option.ParameterValue = new(ParameterField.DoubleValue / 1000, 0);
                         break;
                     }
                 case ModelOptionKey.Buffer:
                     {
                         Option.IntValue = (int)EnumPopUpControl.SelectedTag;
-                        Option.DoubleValue = DoubleField.DoubleValue;
-                        Option.ParameterValue = new(ParameterField.DoubleValue / 1000, 0);
+                        if (!string.IsNullOrEmpty(DoubleField.StringValue)) Option.DoubleValue = DoubleField.DoubleValue;
+                        if (!string.IsNullOrEmpty(ParameterField.StringValue)) Option.ParameterValue = new(ParameterField.DoubleValue / 1000, 0);
                         break;
                     }
-                case ModelOptionKey.IonicStrength: Option.ParameterValue = new(ParameterField.DoubleValue / 1000, 0); break;
+                case ModelOptionKey.IonicStrength:
+                    {
+                        if (!string.IsNullOrEmpty(ParameterField.StringValue)) Option.ParameterValue = new(ParameterField.DoubleValue / 1000, 0);
+                        break;
+                    }
             }
         }
     }
