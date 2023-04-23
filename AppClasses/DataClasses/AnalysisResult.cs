@@ -71,6 +71,12 @@ namespace AnalysisITC
 
         internal double GetMaximumTemperature() => Solution.Solutions.Max(s => s.Temp);
 
+        public double[] GetMinMaxIonicStrength()
+        {
+            var list = Solution.Solutions.Select(sol => BufferAttribute.GetIonicStrength(sol.Data));
+            return new double[2] { list.Min(), list.Max() };
+        }
+
         internal double GetMaximumParameter()
         {
             double max = double.MinValue;
