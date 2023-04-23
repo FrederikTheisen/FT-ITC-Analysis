@@ -39,6 +39,8 @@ namespace AnalysisITC
         public static int MaximumOptimizerIterations { get; set; } = 300000;
         public static bool EnableExtendedParameterLimits { get; set; } = false;
 
+        public static bool IonicStrengthIncludesBuffer { get; set; } = true;
+
         //Final figure
         public static double[] FinalFigureDimensions { get; set; } = new double[2] { 6.5, 10.0 };
         public static FinalFigureDisplayParameters FinalFigureParameterDisplay { get; set; } = FinalFigureDisplayParameters.Default;
@@ -75,6 +77,7 @@ namespace AnalysisITC
             Storage.SetBool(InputAffinityAsDissociationConstant, "InputAffinityAsDissociationConstant");
             Storage.SetURL(LastDocumentUrl, "LastDocumentUrl");
             Storage.SetBool(EnableExtendedParameterLimits, "EnableExtendedParameterLimits");
+            Storage.SetBool(IonicStrengthIncludesBuffer, "IonicStrengthIncludesBuffer");
 
             StoreArray(FinalFigureDimensions, "FinalFigureDimensions");
 
@@ -107,7 +110,7 @@ namespace AnalysisITC
                 Console.WriteLine("No settings are stored in NSUserDefaults.");
                 return;
             }
-            else Console.WriteLine("There are {0} settings stored in NSUserDefaults.", dict.Count);
+            else Console.WriteLine($"There are {0} settings stored in NSUserDefaults.", dict.Count);
 
             ReferenceTemperature = GetDouble(dict, "ReferenceTemperature", ReferenceTemperature);
             EnergyUnit = (EnergyUnit)GetInt(dict, "EnergyUnit", (int)EnergyUnit);
@@ -130,6 +133,7 @@ namespace AnalysisITC
             DefaultConcentrationUnit = (ConcentrationUnit)GetInt(dict, "DefaultConcentrationUnit", (int)DefaultConcentrationUnit);
             InputAffinityAsDissociationConstant = GetBool(dict, "InputAffinityAsDissociationConstant", InputAffinityAsDissociationConstant);
             lastDocumentUrl = GetUrl(dict, "LastDocumentUrl");
+            IonicStrengthIncludesBuffer = GetBool(dict, "IonicStrengthIncludesBuffer", IonicStrengthIncludesBuffer);
 
             ApplySettings();
         }
