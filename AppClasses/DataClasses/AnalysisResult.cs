@@ -1,6 +1,8 @@
 ﻿using System;
 using System.Linq;
 using AnalysisITC.AppClasses.Analysis2;
+using AnalysisITC.AppClasses.AnalysisClasses;
+using AnalysisITC.Utils;
 
 namespace AnalysisITC
 {
@@ -10,12 +12,29 @@ namespace AnalysisITC
         AnalysisITC.AppClasses.Analysis2.GlobalModel Model => Solution.Model;
         GlobalModelParameters Options => Model.Parameters;
 
+        public bool IsTemperatureDependenceEnabled => (GetMaximumTemperature() - GetMinimumTemperature()) > AppSettings.MinimumTemperatureSpanForFitting;
+        public bool IsIonicStrengthDependenceEnabled { get; private set; }
+
         public AnalysisResult(AnalysisITC.AppClasses.Analysis2.GlobalSolution solution)
         {
             Solution = solution;
 
             FileName = solution.Model.Solution.SolutionName;
             Date = DateTime.Now;
+
+            SetupAnalysisOptions();
+        }
+
+        void SetupAnalysisOptions()
+        {
+            //IsTemperatureDependenceEnabled = (GetMaximumTemperature() - GetMinimumTemperature()) > AppSettings.MinimumTemperatureSpanForFitting;
+
+            var firstSolutionIonicStrength = BufferAttribute.GetIonicStrength(Solution.Solutions.First().Data);
+            // Check if any other solution has the same ionic strength as the first one
+            IsIonicStrengthDependenceEnabled = Solution.Solutions
+                .Skip(1) // skip the first solution
+                .Select(sol => BufferAttribute.GetIonicStrength(sol.Data))
+                .Any(ionicStrength => ionicStrength != firstSolutionIonicStrength);
         }
 
         public string GetResultString()
@@ -39,9 +58,6 @@ namespace AnalysisITC
                         s += con.Value.GetEnumDescription() + Environment.NewLine;
                     }
                 }
-                //if (Options.Constraints[ParameterTypes.Enthalpy1] != VariableConstraint.None) s += "Enthalpy: " + Options.Constraints[ParameterTypes.Enthalpy1].ToString() + Environment.NewLine;
-                //if (Options.Constraints[ParameterTypes.Gibbs1] != VariableConstraint.None) s += "Affinity: " + Options.Constraints[ParameterTypes.Gibbs1].ToString() + Environment.NewLine;
-                //if (Options.Constraints[ParameterTypes.Nvalue1] != VariableConstraint.None) s += "N-value: " + Options.Constraints[ParameterTypes.Nvalue1].ToString() + Environment.NewLine;
             }
 
             s += Model.TemperatureDependenceExposed ? "∆H° = " : "∆H = ";
@@ -57,11 +73,6 @@ namespace AnalysisITC
 
         internal double GetMaximumParameter()
         {
-            //var maxentropy = Solution.Solutions.Max(s => s.TdS);
-            //var maxenthalpy = Solution.Solutions.Max(s => s.Enthalpy);
-            //var maxgibbs = Solution.Solutions.Max(s => s.GibbsFreeEnergy);
-            //return (new Energy[] { maxentropy, maxenthalpy, maxgibbs }).Max();
-
             double max = double.MinValue;
 
             foreach (var sol in Solution.Solutions)
@@ -80,11 +91,6 @@ namespace AnalysisITC
 
         internal double GetMinimumParameter()
         {
-            //var minentropy = Solution.Solutions.Min(s => s.TdS);
-            //var minenthalpy = Solution.Solutions.Min(s => s.Enthalpy);
-            //var mingibbs = Solution.Solutions.Min(s => s.GibbsFreeEnergy);
-            //return (new Energy[] { minentropy, minenthalpy, mingibbs }).Min();
-
             double min = double.MaxValue;
 
             foreach (var sol in Solution.Solutions)

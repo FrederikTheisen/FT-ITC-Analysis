@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using AnalysisITC.AppClasses.AnalysisClasses;
 
-namespace AnalysisITC.Utils
+namespace AnalysisITC.AppClasses.AnalysisClasses
 {
 	public enum Buffer
 	{
@@ -79,9 +79,11 @@ namespace AnalysisITC.Utils
 		double[] dPKadT { get; set; }
 		int[] Charges { get; set; }
 
+		public double ProtonationEnthalpy { get; private set; } = 0;
+
 		public int Transitions => pKaValues.Length;
 
-        public BufferAttribute(string name, double pka, double tc, int za, string description)
+        public BufferAttribute(string name, double pka, double tc, int za, string description, double dh = 0)
         {
             Name = name;
             Description = description;
@@ -89,9 +91,11 @@ namespace AnalysisITC.Utils
             pKaValues = new[] { pka };
             dPKadT = new[] { tc };
             Charges = new[] { za };
+
+            ProtonationEnthalpy = dh;
         }
 
-        public BufferAttribute(string name, double[] pkas, double[] tcs, int[] za, string description)
+        public BufferAttribute(string name, double[] pkas, double[] tcs, int[] za, string description, double dh = 0)
 		{
 			Name = name;
 			Description = description;
@@ -99,6 +103,8 @@ namespace AnalysisITC.Utils
 			pKaValues = pkas;
 			dPKadT = tcs;
 			Charges = za;
+
+			ProtonationEnthalpy = dh;
 		}
 
 		Tuple<double,double,int> GetStateProperties(double pH)
@@ -162,7 +168,7 @@ namespace AnalysisITC.Utils
 			return pKtemp2;
 		}
 
-        public double GetIonicStrength(double pH, double conc, double temperature)
+        double GetBufferIonicStrength(double pH, double conc, double temperature)
         {
 			var properties = GetStateProperties(pH);
 			var pka = properties.Item1;
@@ -191,8 +197,6 @@ namespace AnalysisITC.Utils
 			//Check if ionicstrength is specifically stated
 			if (data.ExperimentOptions.Exists(opt => opt.Key == ModelOptionKey.IonicStrength)) return data.ExperimentOptions.First(opt => opt.Key == ModelOptionKey.IonicStrength).ParameterValue.Value;
 
-            var temp = data.MeasuredTemperature;
-
 			var salts = data.ExperimentOptions.Where(opt => opt.Key == ModelOptionKey.Salt);
 			var buffers = data.ExperimentOptions.Where(opt => opt.Key == ModelOptionKey.Buffer);
 
@@ -203,13 +207,13 @@ namespace AnalysisITC.Utils
 				i += ((Salt)salt.IntValue).GetProperties().IonicStrength * salt.ParameterValue;
 			}
 
-            foreach (var buffer in buffers)
-            {
-                i += ((Buffer)buffer.IntValue).GetProperties().GetIonicStrength(buffer.DoubleValue, buffer.ParameterValue, temp);
-            }
+			if (AppSettings.IonicStrengthIncludesBuffer) foreach (var buffer in buffers)
+				{
+					i += ((Buffer)buffer.IntValue).GetProperties().GetBufferIonicStrength(buffer.DoubleValue, buffer.ParameterValue, data.MeasuredTemperature);
+				}
 
-            return i;
-        }
+			return i;
+		}
 
 		public static List<Buffer> GetUIBuffers()
 		{
