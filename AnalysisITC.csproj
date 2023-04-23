@@ -180,6 +180,7 @@
     <Folder Include="AppClasses\Depreceated\" />
     <Folder Include="GUI\MacOS\ListViews\" />
     <Folder Include="AppClasses\Analysis2\Models\" />
+    <Folder Include="AppClasses\DataClasses\" />
   </ItemGroup>
   <ItemGroup>
     <None Include="Info.plist" />
@@ -249,14 +250,11 @@
     <Compile Include="GUI\MacOS\SideBarView.designer.cs">
       <DependentUpon>SideBarView.cs</DependentUpon>
     </Compile>
-    <Compile Include="AppClasses\ExperimentData.cs" />
-    <Compile Include="Utils\Energy.cs" />
     <Compile Include="GUI\MacOS\Drawing\TemperatureDependenceGraph.cs" />
     <Compile Include="AppClasses\DataWriter.cs" />
     <Compile Include="AppDelegate.designer.cs">
       <DependentUpon>AppDelegate.cs</DependentUpon>
     </Compile>
-    <Compile Include="AppClasses\SpolarRecordAnalysis.cs" />
     <Compile Include="AppClasses\Math\Distribution.cs" />
     <Compile Include="GUI\MacOS\GraphViews\TemperatureDependenceGraphView.cs" />
     <Compile Include="GUI\MacOS\GraphViews\TemperatureDependenceGraphView.designer.cs">
@@ -342,7 +340,6 @@
     <Compile Include="AppClasses\Depreceated\AnalysisGlobalModeOptionsViewController.designer.cs">
       <DependentUpon>AnalysisGlobalModeOptionsViewController.cs</DependentUpon>
     </Compile>
-    <Compile Include="AppClasses\AnalysisResult.cs" />
     <Compile Include="AppClasses\StateManager.cs" />
     <Compile Include="AppClasses\StatusBarManager.cs" />
     <Compile Include="AppClasses\Logger.cs" />
@@ -377,14 +374,12 @@
     <Compile Include="GUI\MacOS\PopOptionViewControllers\AboutAppViewController.designer.cs">
       <DependentUpon>AboutAppViewController.cs</DependentUpon>
     </Compile>
-    <Compile Include="Utils\ConcentrationUnit.cs" />
     <Compile Include="GUI\MacOS\CustomViews\CustomDrawingSegmentedControl.cs" />
     <Compile Include="AppClasses\Analysis2\Models\AnalysisModel.cs" />
     <Compile Include="AppClasses\AnalysisClasses\ParameterSet.cs" />
     <Compile Include="AppClasses\Analysis2\Models\Models.cs" />
     <Compile Include="AppClasses\AnalysisClasses\ModelOptions.cs" />
     <Compile Include="AppClasses\Analysis2\Models\CompetitiveBinding.cs" />
-    <Compile Include="AppClasses\ITCInstrument.cs" />
     <Compile Include="AppClasses\ITCDataFormat.cs" />
     <Compile Include="GUI\MacOS\GraphViews\ExperimentDesignerGraphView.cs" />
     <Compile Include="GUI\MacOS\GraphViews\ExperimentDesignerGraphView.designer.cs">
@@ -418,8 +413,15 @@
     <Compile Include="GUI\MacOS\CustomViews\ExperimentAttributeView.designer.cs">
       <DependentUpon>ExperimentAttributeView.cs</DependentUpon>
     </Compile>
-    <Compile Include="AppClasses\AnalysisClasses\Buffers.cs" />
-    <Compile Include="AppClasses\AnalysisClasses\Salt.cs" />
+    <Compile Include="GUI\MacOS\Drawing\IonicStrengthDependenceGraph.cs" />
+    <Compile Include="AppClasses\DataClasses\ExperimentData.cs" />
+    <Compile Include="AppClasses\DataClasses\Buffers.cs" />
+    <Compile Include="AppClasses\DataClasses\Salt.cs" />
+    <Compile Include="AppClasses\DataClasses\ITCInstrument.cs" />
+    <Compile Include="AppClasses\DataClasses\AnalysisResult.cs" />
+    <Compile Include="AppClasses\DataClasses\ConcentrationUnit.cs" />
+    <Compile Include="AppClasses\DataClasses\Energy.cs" />
+    <Compile Include="AppClasses\AnalysisClasses\SpolarRecordAnalysis.cs" />
   </ItemGroup>
   <ItemGroup>
     <InterfaceDefinition Include="Main.storyboard" />
