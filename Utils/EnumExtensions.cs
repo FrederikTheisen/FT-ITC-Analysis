@@ -71,10 +71,10 @@ namespace AnalysisITC
             return attribute;
         }
 
-        public static Utils.BufferAttribute GetProperties(this Utils.Buffer value)
+        public static BufferAttribute GetProperties(this AppClasses.AnalysisClasses.Buffer value)
         {
             var fieldInfo = value.GetType().GetField(value.ToString());
-            var attribute = fieldInfo.GetCustomAttributes(typeof(Utils.BufferAttribute), false).FirstOrDefault() as Utils.BufferAttribute;
+            var attribute = fieldInfo.GetCustomAttributes(typeof(BufferAttribute), false).FirstOrDefault() as BufferAttribute;
 
             return attribute;
         }
