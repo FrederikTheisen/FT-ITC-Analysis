@@ -39,7 +39,9 @@ namespace AnalysisITC
         public static int MaximumOptimizerIterations { get; set; } = 300000;
         public static bool EnableExtendedParameterLimits { get; set; } = false;
 
+        //Analysis
         public static bool IonicStrengthIncludesBuffer { get; set; } = true;
+        public static bool BuffersPreparedAtRoomTemperature { get; set; } = true;
 
         //Final figure
         public static double[] FinalFigureDimensions { get; set; } = new double[2] { 6.5, 10.0 };
@@ -78,6 +80,7 @@ namespace AnalysisITC
             Storage.SetURL(LastDocumentUrl, "LastDocumentUrl");
             Storage.SetBool(EnableExtendedParameterLimits, "EnableExtendedParameterLimits");
             Storage.SetBool(IonicStrengthIncludesBuffer, "IonicStrengthIncludesBuffer");
+            Storage.SetBool(BuffersPreparedAtRoomTemperature, "BuffersPreparedAtRoomTemperature");
 
             StoreArray(FinalFigureDimensions, "FinalFigureDimensions");
 
@@ -134,6 +137,7 @@ namespace AnalysisITC
             InputAffinityAsDissociationConstant = GetBool(dict, "InputAffinityAsDissociationConstant", InputAffinityAsDissociationConstant);
             lastDocumentUrl = GetUrl(dict, "LastDocumentUrl");
             IonicStrengthIncludesBuffer = GetBool(dict, "IonicStrengthIncludesBuffer", IonicStrengthIncludesBuffer);
+            BuffersPreparedAtRoomTemperature = GetBool(dict, "BuffersPreparedAtRoomTemperature", BuffersPreparedAtRoomTemperature);
 
             ApplySettings();
         }
