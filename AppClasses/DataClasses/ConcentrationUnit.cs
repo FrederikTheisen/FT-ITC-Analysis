@@ -12,6 +12,11 @@ namespace AnalysisITC
 
             return attribute;
         }
+
+        public static string GetName(this ConcentrationUnit value)
+        {
+            return value.GetProperties().Name;
+        }
     }
 
     public class ConcentrationUnitAttribute : Attribute
@@ -26,6 +31,19 @@ namespace AnalysisITC
         {
             Name = name;
             Mod = mod;
+        }
+
+        public static ConcentrationUnit FromMag(double mag)
+        {
+            return mag switch
+            {
+                > 0 => ConcentrationUnit.M,
+                > -3 => ConcentrationUnit.mM,
+                > -6 => ConcentrationUnit.µM,
+                > -9 => ConcentrationUnit.nM,
+                > -12 => ConcentrationUnit.pM,
+                _ => ConcentrationUnit.M
+            };
         }
     }
 
