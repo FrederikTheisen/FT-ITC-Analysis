@@ -18,8 +18,13 @@ namespace AnalysisITC
         GlobalSolution Solution => AnalysisResult.Solution;
 
         EnergyUnit EnergyUnit => AppSettings.EnergyUnit;
+        ConcentrationUnit AppropriateAutoConcUnit { get; set; } = ConcentrationUnit.µM;
         public bool UseKelvin => TempControl.SelectedSegment == 1;
-        double Mag = -1;
+
+        //Saving tabview for removal and addition, extremily hack
+        NSTabViewItem FoldingAnalysis { get; set; }
+        NSTabViewItem IonicStrengthAnalysis { get; set; }
+
 
         public AnalysisResultTabViewController (IntPtr handle) : base (handle)
 		{
@@ -28,6 +33,14 @@ namespace AnalysisITC
             SpolarRecordAnalysisController.AnalysisFinished += SpolarRecordAnalysisController_AnalysisFinished;
             AppDelegate.StartPrintOperation += AppDelegate_StartPrintOperation;
 		}
+
+        public override void ViewDidLoad()
+        {
+            base.ViewDidLoad();
+
+            FoldingAnalysis = TabView.Item(1);
+            IonicStrengthAnalysis = TabView.Item(2);
+        }
 
         private void AppDelegate_StartPrintOperation(object sender, EventArgs e)
         {
@@ -89,25 +102,26 @@ namespace AnalysisITC
 
         public void Setup()
         {
+            if (TabView.Items.Contains(FoldingAnalysis)) TabView.Remove(FoldingAnalysis);
+            if (TabView.Items.Contains(IonicStrengthAnalysis)) TabView.Remove(IonicStrengthAnalysis);
+
+            SetupResultView();
+
+            if (AnalysisResult.IsTemperatureDependenceEnabled) TabView.Add(FoldingAnalysis);
+            if (AnalysisResult.IsIonicStrengthDependenceEnabled) TabView.Add(IonicStrengthAnalysis);
+        }
+
+        public void SetupResultView()
+        {
             EnergyControl.SelectedSegment = AppSettings.EnergyUnit switch { EnergyUnit.Joule => 0, EnergyUnit.KiloJoule => 1, EnergyUnit.Cal => 2, EnergyUnit.KCal => 3, _ => 1, };
 
             var kd = Solution.Solutions.Average(s => s.ReportParameters[AppClasses.Analysis2.ParameterType.Affinity1]);
 
-            Mag = Math.Log10(kd);
-
-            var kdunit = Mag switch
-            {
-                > 0 => "M",
-                > -3 => "mM",
-                > -6 => "µM",
-                > -9 => "nM",
-                > -12 => "pM",
-                _ => "M"
-            };
+            AppropriateAutoConcUnit = ConcentrationUnitAttribute.FromConc(kd);
 
             var source = new ResultViewDataSource(AnalysisResult)
             {
-                KdMag = Mag,
+                KdMag = AppropriateAutoConcUnit.GetMod(),
                 EnergyUnit = EnergyUnit,
                 UseKelvin = UseKelvin,
             };
@@ -121,7 +135,7 @@ namespace AnalysisITC
             {
                 ResultsTableView.AddColumn(new NSTableColumn(ParameterTypeAttribute.TableHeaderTitle(par, true))
                 {
-                    Title = ParameterTypeAttribute.TableHeader(par, Solution.Solutions[0].ParametersConformingToKey(par).Count > 1, EnergyUnit, kdunit),
+                    Title = ParameterTypeAttribute.TableHeader(par, Solution.Solutions[0].ParametersConformingToKey(par).Count > 1, EnergyUnit, AppropriateAutoConcUnit.GetName()),
                 });
             }
             ResultsTableView.AddColumn(new NSTableColumn("Loss") { Title = "Loss" });
@@ -232,21 +246,21 @@ namespace AnalysisITC
 
             EvaluateionTemperatureTextField.FloatValue += (UseKelvin ? 273.15f : -273.15f); //Fix temperature unit change
 
-            Setup();
+            SetupResultView();
         }
 
         partial void EnergyControlClicked(NSSegmentedControl sender)
         {
             AppSettings.EnergyUnit = (int)EnergyControl.SelectedSegment switch { 0 => EnergyUnit.Joule, 1 => EnergyUnit.KiloJoule, 2 => EnergyUnit.Cal, 3 => EnergyUnit.KCal, _ => EnergyUnit.KiloJoule, };
 
-            Setup();
+            SetupResultView();
 
             Graph.Initialize(AnalysisResult, EnergyUnit);
         }
 
         partial void CopyToClipboard(NSObject sender)
         {
-            Exporter.CopyToClipboard(Solution, Mag, EnergyUnit, UseKelvin);
+            Exporter.CopyToClipboard(Solution, AppropriateAutoConcUnit, EnergyUnit, UseKelvin);
         }
     }
 }

@@ -49,6 +49,9 @@ namespace AnalysisITC
 		AppKit.NSSegmentedControl SRTemperatureModeSegControl { get; set; }
 
 		[Outlet]
+		AppKit.NSTabView TabView { get; set; }
+
+		[Outlet]
 		AppKit.NSSegmentedControl TempControl { get; set; }
 
 		[Outlet]
@@ -99,6 +102,11 @@ namespace AnalysisITC
 				Graph = null;
 			}
 
+			if (ResultEvalTempUnitLabel != null) {
+				ResultEvalTempUnitLabel.Dispose ();
+				ResultEvalTempUnitLabel = null;
+			}
+
 			if (ResultsTableView != null) {
 				ResultsTableView.Dispose ();
 				ResultsTableView = null;
@@ -139,9 +147,9 @@ namespace AnalysisITC
 				TemperatureDependenceLabel = null;
 			}
 
-			if (ResultEvalTempUnitLabel != null) {
-				ResultEvalTempUnitLabel.Dispose ();
-				ResultEvalTempUnitLabel = null;
+			if (TabView != null) {
+				TabView.Dispose ();
+				TabView = null;
 			}
 		}
 	}

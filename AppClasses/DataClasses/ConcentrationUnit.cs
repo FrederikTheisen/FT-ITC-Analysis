@@ -17,6 +17,14 @@ namespace AnalysisITC
         {
             return value.GetProperties().Name;
         }
+
+        /// <summary>
+        /// Factor to from Molar to the current unit (eg. 1 for 'M' and 1000 for 'mM')
+        /// </summary>
+        public static double GetMod(this ConcentrationUnit value)
+        {
+            return value.GetProperties().Mod;
+        }
     }
 
     public class ConcentrationUnitAttribute : Attribute
@@ -35,6 +43,21 @@ namespace AnalysisITC
 
         public static ConcentrationUnit FromMag(double mag)
         {
+            return mag switch
+            {
+                > 0 => ConcentrationUnit.M,
+                > -3 => ConcentrationUnit.mM,
+                > -6 => ConcentrationUnit.µM,
+                > -9 => ConcentrationUnit.nM,
+                > -12 => ConcentrationUnit.pM,
+                _ => ConcentrationUnit.M
+            };
+        }
+
+        public static ConcentrationUnit FromConc(double conc)
+        {
+            var mag = Math.Log10(conc);
+
             return mag switch
             {
                 > 0 => ConcentrationUnit.M,

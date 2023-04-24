@@ -200,6 +200,13 @@ namespace AnalysisITC
             else return Value.ToString(format) + " ± " + SD.ToString(format);
         }
 
+        public string AsDissociationConstant(ConcentrationUnit unit, bool withunit = true)
+        {
+            var value = (unit.GetMod() * this).ToString();
+
+            return withunit ? value + " " + unit.GetName() : value;
+        }
+
         public string AsDissociationConstant(double mag = 0, bool withunit = true)
         {
             if (mag == 0) mag = Math.Log10(Value);

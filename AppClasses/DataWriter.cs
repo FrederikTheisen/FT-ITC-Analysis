@@ -592,7 +592,7 @@ namespace AnalysisITC
             return lines;
         }
 
-        public static void CopyToClipboard(GlobalSolution solution, double kdmagnitude, EnergyUnit unit, bool usekelvin)
+        public static void CopyToClipboard(GlobalSolution solution, ConcentrationUnit kdmagnitude, EnergyUnit unit, bool usekelvin)
         {
             NSPasteboard.GeneralPasteboard.ClearContents();
 

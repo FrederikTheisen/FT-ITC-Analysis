@@ -14,7 +14,6 @@ namespace AnalysisITC
 
         EnergyUnit EnergyUnit => (int)EnergyUnitControl.SelectedSegment switch { 0 => EnergyUnit.Joule, 1 => EnergyUnit.KiloJoule, 2 => EnergyUnit.Cal, 3 => EnergyUnit.KCal, _ => EnergyUnit.KiloJoule, };
         public bool UseKelvin => TemperatureUnitControl.SelectedSegment == 1;
-        double Mag = -1;
 
         public BindingAnalysisViewController (IntPtr handle) : base (handle)
 		{
@@ -69,7 +68,7 @@ namespace AnalysisITC
 
         partial void CopyToClipboard(NSObject sender)
         {
-            Exporter.CopyToClipboard(AnalysisResult.Solution, Mag, EnergyUnit, UseKelvin);
+            Exporter.CopyToClipboard(AnalysisResult.Solution, AppSettings.DefaultConcentrationUnit, EnergyUnit, UseKelvin);
         }
 
         partial void LoadSolutionsToExperiments(NSObject sender)
