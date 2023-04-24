@@ -3073,7 +3073,7 @@ In most cases, interpretation of affinities provided by ITC is straightforward, 
                                                             <rect key="frame" x="5" y="59" width="368" height="0.0"/>
                                                         </stackView>
                                                         <box horizontalHuggingPriority="249" verticalHuggingPriority="750" boxType="separator" translatesAutoresizingMaskIntoConstraints="NO" id="u0M-42-t8m">
-                                                            <rect key="frame" x="5" y="52" width="368" height="5"/>
+                                                            <rect key="frame" x="5" y="31" width="368" height="5"/>
                                                         </box>
                                                         <stackView distribution="fill" orientation="vertical" alignment="leading" spacing="4" horizontalStackHuggingPriority="250" verticalStackHuggingPriority="1000" detachesHiddenViews="YES" translatesAutoresizingMaskIntoConstraints="NO" id="24i-gR-XOS">
                                                             <rect key="frame" x="5" y="29" width="368" height="0.0"/>
@@ -4657,7 +4657,7 @@ Gw
                                             <real value="3.4028234663852886e+38"/>
                                         </customSpacing>
                                     </stackView>
-                                    <button verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="QHJ-Vr-S9L">
+                                    <button toolTip="Add new experiment attribute" verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="QHJ-Vr-S9L">
                                         <rect key="frame" x="5" y="41" width="320" height="14"/>
                                         <buttonCell key="cell" type="bevel" title="Experiment Attributes" bezelStyle="rounded" image="plus.circle" catalog="system" imagePosition="trailing" alignment="left" controlSize="small" imageScaling="proportionallyDown" inset="2" id="rhy-vb-LUJ">
                                             <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
@@ -5451,7 +5451,7 @@ IA
                                     <rect key="frame" x="111" y="1" width="5" height="50"/>
                                 </box>
                                 <button verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="zTg-QH-FPo">
-                                    <rect key="frame" x="115" y="0.0" width="111" height="31"/>
+                                    <rect key="frame" x="115" y="20" width="111" height="31"/>
                                     <constraints>
                                         <constraint firstAttribute="height" constant="30" id="8N3-dc-mCA"/>
                                     </constraints>
@@ -5483,7 +5483,7 @@ IA
                                     <rect key="frame" x="338" y="1" width="5" height="50"/>
                                 </box>
                                 <button verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="DGH-oN-EAU">
-                                    <rect key="frame" x="342" y="0.0" width="111" height="31"/>
+                                    <rect key="frame" x="342" y="20" width="111" height="31"/>
                                     <constraints>
                                         <constraint firstAttribute="height" constant="30" id="FB7-Ld-lyQ"/>
                                     </constraints>
@@ -6060,7 +6060,7 @@ IA
                                         <size key="contentViewMargins" width="5" height="5"/>
                                     </box>
                                     <stackView distribution="fill" orientation="horizontal" alignment="firstBaseline" horizontalStackHuggingPriority="250" verticalStackHuggingPriority="750" verticalHuggingPriority="750" detachesHiddenViews="YES" translatesAutoresizingMaskIntoConstraints="NO" id="5oj-9h-hGH">
-                                        <rect key="frame" x="343" y="492" width="567" height="16"/>
+                                        <rect key="frame" x="0.0" y="492" width="567" height="16"/>
                                         <subviews>
                                             <button verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="jsQ-Vt-t9u">
                                                 <rect key="frame" x="5" y="-1" width="66" height="17"/>
@@ -9313,6 +9313,7 @@ Structuring (R-value):</string>
                         <outlet property="SRFoldedDegreeSegControl" destination="F2C-av-DIU" id="QgC-rG-wR3"/>
                         <outlet property="SRResultTextField" destination="vao-M8-ndw" id="3Ft-Oe-d6A"/>
                         <outlet property="SRTemperatureModeSegControl" destination="82T-lw-vDJ" id="zop-xi-nhd"/>
+                        <outlet property="TabView" destination="OqA-iK-DZv" id="lxX-an-xNM"/>
                         <outlet property="TempControl" destination="Mwq-bc-D7X" id="CIm-sY-JjM"/>
                         <outlet property="TemperatureDependenceLabel" destination="gZN-qq-Aye" id="2rn-mR-vvx"/>
                     </connections>
