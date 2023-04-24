@@ -52,6 +52,7 @@ namespace AnalysisITC
         public static bool ExportBaselineCorrectedData { get; set; } = true;
         public static bool ExportFitPointsWithPeaks { get; set; } = true;
         public static Exporter.ExportDataSelection ExportSelectionMode { get; set; } = Exporter.ExportDataSelection.IncludedData;
+        public static int NumOfDecimalsToExport { get; set; } = 2;
 
         public static bool IsConcentrationAutoVarianceEnabled = ConcentrationAutoVariance > 0.001;
 
@@ -81,6 +82,7 @@ namespace AnalysisITC
             Storage.SetBool(EnableExtendedParameterLimits, "EnableExtendedParameterLimits");
             Storage.SetBool(IonicStrengthIncludesBuffer, "IonicStrengthIncludesBuffer");
             Storage.SetBool(BuffersPreparedAtRoomTemperature, "BuffersPreparedAtRoomTemperature");
+            Storage.SetInt(NumOfDecimalsToExport, "NumOfDecimalsToExport");
 
             StoreArray(FinalFigureDimensions, "FinalFigureDimensions");
 
@@ -138,6 +140,7 @@ namespace AnalysisITC
             lastDocumentUrl = GetUrl(dict, "LastDocumentUrl");
             IonicStrengthIncludesBuffer = GetBool(dict, "IonicStrengthIncludesBuffer", IonicStrengthIncludesBuffer);
             BuffersPreparedAtRoomTemperature = GetBool(dict, "BuffersPreparedAtRoomTemperature", BuffersPreparedAtRoomTemperature);
+            NumOfDecimalsToExport = GetInt(dict, "NumOfDecimalsToExport", NumOfDecimalsToExport);
 
             ApplySettings();
         }
