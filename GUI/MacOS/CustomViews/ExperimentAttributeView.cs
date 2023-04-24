@@ -315,7 +315,8 @@ namespace AnalysisITC.GUI.MacOS.CustomViews
                     if (opt.Item1 != -1) EnumPopUpControl.Menu.AddItem(new NSMenuItem("")
                     {
                         Tag = opt.Item1,
-                        AttributedTitle = MacStrings.FromMarkDownString(opt.Item2, NSFont.SystemFontOfSize(NSFont.SmallSystemFontSize))
+                        AttributedTitle = MacStrings.FromMarkDownString(opt.Item2, NSFont.SystemFontOfSize(NSFont.SmallSystemFontSize)),
+                        ToolTip = MacStrings.FromMarkDownString(opt.Item3, NSFont.SystemFontOfSize(NSFont.SmallSystemFontSize)).Value,
                     });
                     else EnumPopUpControl.Menu.AddItem(NSMenuItem.SeparatorItem);
                 }

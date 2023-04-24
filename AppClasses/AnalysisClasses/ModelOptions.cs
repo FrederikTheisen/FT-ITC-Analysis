@@ -51,15 +51,15 @@ namespace AnalysisITC.AppClasses.AnalysisClasses
         public int EnumOptionCount => EnumOptions.Count();
         public KeyValuePair<ModelOptionKey, ModelOptions> DictionaryEntry => new KeyValuePair<ModelOptionKey, ModelOptions>(Key, this);
 
-		public IEnumerable<Tuple<int,string>> EnumOptions
+		public IEnumerable<Tuple<int,string, string>> EnumOptions
 		{
 			get
 			{
 				switch (Key)
 				{
-					case ModelOptionKey.Buffer: return BufferAttribute.GetUIBuffers().Select(b => new Tuple<int, string>((int)b, b.ToString()));
-					case ModelOptionKey.Salt: return SaltAttribute.GetSalts().Select(b => new Tuple<int, string>((int)b, b.GetProperties().Name));
-                    default: return new List<Tuple<int,string>>();
+					case ModelOptionKey.Buffer: return BufferAttribute.GetUIBuffers().Select(b => new Tuple<int, string, string>((int)b, b.ToString(), b.GetTooltip()));
+					case ModelOptionKey.Salt: return SaltAttribute.GetSalts().Select(b => new Tuple<int, string, string>((int)b, b.GetProperties().Name, ""));
+                    default: return new List<Tuple<int,string, string>>();
                 }
 			}
 		}
