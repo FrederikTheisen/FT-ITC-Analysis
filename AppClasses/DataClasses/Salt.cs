@@ -22,6 +22,17 @@ namespace AnalysisITC.AppClasses.AnalysisClasses
         MgCl2,
 	}
 
+    public static partial class Extensions
+    {
+        public static SaltAttribute GetProperties(this Salt value)
+        {
+            var fieldInfo = value.GetType().GetField(value.ToString());
+            var attribute = fieldInfo.GetCustomAttributes(typeof(SaltAttribute), false).FirstOrDefault() as SaltAttribute;
+
+            return attribute;
+        }
+    }
+
     public class SaltAttribute : Attribute
     {
         public string Name { get; private set; } = "";
