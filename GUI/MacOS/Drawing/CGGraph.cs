@@ -90,6 +90,11 @@ namespace AnalysisITC
             else axis.Set((float)min, (float)max);
         }
 
+        public virtual void PrepareDraw(CGContext gc, CGPoint center)
+        {
+
+        }
+
         internal CGPoint GetRelativePosition(DataPoint dp, GraphAxis axis = null)
         {
             return GetRelativePosition(dp.Time, dp.Power, axis);
@@ -404,7 +409,7 @@ namespace AnalysisITC
             View = view;
         }
 
-        public void PrepareDraw(CGContext gc, CGPoint center)
+        public override void PrepareDraw(CGContext gc, CGPoint center)
         {
             this.Center = center;
 
