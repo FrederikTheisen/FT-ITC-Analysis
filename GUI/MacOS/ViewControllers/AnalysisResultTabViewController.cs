@@ -9,6 +9,7 @@ using System.Collections.Generic;
 using AnalysisITC.AppClasses.Analysis2;
 using CoreServices;
 using System.Threading.Tasks;
+using AnalysisITC.AppClasses.AnalysisClasses;
 
 namespace AnalysisITC
 {
