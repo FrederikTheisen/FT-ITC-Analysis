@@ -422,6 +422,9 @@
     <Compile Include="AppClasses\DataClasses\ConcentrationUnit.cs" />
     <Compile Include="AppClasses\DataClasses\Energy.cs" />
     <Compile Include="AppClasses\AnalysisClasses\SpolarRecordAnalysis.cs" />
+    <Compile Include="AppClasses\AnalysisClasses\ElectrostaticsAnalysis.cs" />
+    <Compile Include="AppClasses\AnalysisClasses\ProtonationAnalysis.cs" />
+    <Compile Include="GUI\MacOS\GraphViews\ResultGraphView.cs" />
   </ItemGroup>
   <ItemGroup>
     <InterfaceDefinition Include="Main.storyboard" />
