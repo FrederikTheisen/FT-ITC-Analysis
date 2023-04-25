@@ -8,17 +8,19 @@ namespace AnalysisITC.AppClasses.AnalysisClasses
 	public enum Buffer
 	{
 		Null = -1,
-		[Buffer("HEPES", 7.66, -0.014, 0, "N-2-hydroxyethylpiperazine-N'-2-ethanesulfonic acid", 20400)]
+		[Buffer("HEPES", 7.66, -0.014, 0, "N-2-hydroxyethylpiperazine-N'-2-ethanesulfonic acid", new[] { 20400.0, 47 } )]
 		Hepes,
-		[Buffer("Phosphate", new[] { 2.15, 7.2, 12.33 }, new[] { 0.0044, -0.0028, -0.026 }, new[] { 0, -1, -2 }, "Na/K phosphoric acid", 5220)]
+		//pKa1: ∆H = -8000, -141, pKa3: 16000, -242
+		[Buffer("Phosphate", new[] { 2.15, 7.2, 12.33 }, new[] { 0.0044, -0.0028, -0.026 }, new[] { 0, -1, -2 }, "Na/K phosphoric acid", new[] { 5120, -187.0 })]
 		Phosphate,
-		[Buffer("Tris", 8.06, -0.028, 1, "tris(hydroxymethyl)aminomethane", 47450)]
+		[Buffer("Tris", 8.06, -0.028, 1, "tris(hydroxymethyl)aminomethane", new[] { 47450, -59.0 })]
 		Tris,
 		[Buffer("Maleate", 2.0, 0, 0, "Maleic acid")]
 		Maleate,
 		[Buffer("Chloroacetate", 2.88, 0.0023, 0, "Chloroacetic acid")]
 		Chloroacetate,
-		[Buffer("Citrate", new[] { 3.14, 4.76, 6.39 }, new[] { 0, -0.0016, 0 }, new[] { 0, -1, -2 }, "Citric acid, monohydrate", -3380)]
+		//pKa1: 4070, -131; pKa2: 2230, -178
+		[Buffer("Citrate", new[] { 3.14, 4.76, 6.39 }, new[] { 0, -0.0016, 0 }, new[] { 0, -1, -2 }, "Citric acid, monohydrate", new[] { -3380, -254.0 })]
 		Citrate,
 		[Buffer("Formate", 3.75, 0, 0, "Na/K/NH4 etc. HCOO")]
 		Formate,
@@ -26,7 +28,7 @@ namespace AnalysisITC.AppClasses.AnalysisClasses
 		Succinate,
 		[Buffer("Benzoate", 4.2, 0.018, 0, "Benzoic acid")]
 		Benzoate,
-		[Buffer("Acetate", 4.76, -0.0002, 0, "NaCH3COOH", -410)]
+		[Buffer("Acetate", 4.76, -0.0002, 0, "NaCH3COOH", new[] { -410, -142.0 })]
 		Acetate,
 		[Buffer("Propionate", 4.86, -0.0002, 0, "Propionic acid")]
 		Propionate,
@@ -34,35 +36,35 @@ namespace AnalysisITC.AppClasses.AnalysisClasses
 		Pyridine,
 		[Buffer("Piperazine", 5.55, -0.015, 0, "Piperazine")]
 		Piperazine,
-		[Buffer("MES", 6.21, -0.011, 0, "2-(N-morpholino)ethanesulfonic acid", 14800)]
+		[Buffer("MES", 6.21, -0.011, 0, "2-(N-morpholino)ethanesulfonic acid", new[] { 14800, 5.0 })]
 		MES,
-		[Buffer("Carbonate", new[] { 6.37, 10.25 }, new[] { -0.0055, -0.0090 }, new[] { 0, -1 }, "Carbonic acid")]
+		[Buffer("Carbonate", new[] { 6.37, 10.25 }, new[] { -0.0055, -0.0090 }, new[] { 0, -1 }, "Carbonic acid", new[] { 9150, -249.0 })]
 		Carbonate,
-		[Buffer("Bis-Tris", 6.46, -0.02, 1, "Bis-Tris base", 28400)]
+		[Buffer("Bis-Tris", 6.46, -0.02, 1, "Bis-Tris base", new[] { 28400, 27.0 })]
 		BisTris,
-		[Buffer("ADA", 6.91, -0.011, -1, "N-(2-acetamido)iminodiacetic acid")]
+		[Buffer("ADA", 6.91, -0.011, -1, "N-(2-acetamido)iminodiacetic acid", new[] { 12230, -144.0 })]
 		ADA,
-		[Buffer("PIPES", 7.1, -0.0085, -1, "piperazine-N,N′-bis(2-ethanesulfonic acid)", 11200)]
+		[Buffer("PIPES", 7.1, -0.0085, -1, "piperazine-N,N′-bis(2-ethanesulfonic acid)", new[] { 11200, 22.0 })]
 		PIPES,
-		[Buffer("ACES", 6.99, -0.02, 0, "N-(2-Acetamido)-2-aminoethanesulfonic acid")]
+		[Buffer("ACES", 6.99, -0.02, 0, "N-(2-Acetamido)-2-aminoethanesulfonic acid", new[] { 30430, -49.0 })]
 		ACES,
-		[Buffer("BES", 7.26, -0.016, 0, "N,N-Bis(2-hydroxyethyl)-2-aminoethanesulfonic acid")]
+		[Buffer("BES", 7.26, -0.016, 0, "N,N-Bis(2-hydroxyethyl)-2-aminoethanesulfonic acid", new[] { 24250, -2.0 })]
 		BES,
-		[Buffer("MOPS", 7.31, -0.011, 0, "3-(N-morpholino)propanesulfonic acid", 22200)]
+		[Buffer("MOPS", 7.31, -0.011, 0, "3-(N-morpholino)propanesulfonic acid", new[] { 22200, 25.0 })]
 		MOPS,
-		[Buffer("TES", 7.61, -0.02, 0, "2-{[1,3-Dihydroxy-2-(hydroxymethyl)propan-2-yl]amino}ethane-1-sulfonic acid")]
+		[Buffer("TES", 7.61, -0.02, 0, "2-{[1,3-Dihydroxy-2-(hydroxymethyl)propan-2-yl]amino}ethane-1-sulfonic acid", new[] { 32130, 0.0 })]
 		TES,
-		[Buffer("Tricine", 8.26, -0.021, 0, "Tricine free acid", 31370)]
+		[Buffer("Tricine", 8.26, -0.021, 0, "Tricine free acid", new[] { 31370, -53.0 })]
 		Tricine,
-		[Buffer("Bicine", 8.46, -0.018, 0, "Bicine free acid", 26340)]
+		[Buffer("Bicine", 8.46, -0.018, 0, "Bicine free acid", new[] { 26340, 0.0 })]
 		Bicine,
-		[Buffer("TAPS", 8.51, -0.02, 0, "[tris(hydroxymethyl)methylamino]propanesulfonic acid", 40400)]
+		[Buffer("TAPS", 8.51, -0.02, 0, "[tris(hydroxymethyl)methylamino]propanesulfonic acid", new[] { 40400, 15.0 })]
 		TAPS,
 		[Buffer("Ethanolamine", 9.5, -0.029, 1, "Ethanolamine")]
 		Ethanolamine,
-		[Buffer("CHES", 9.41, -0.018, 0, "N-cyclohexyl-2-aminoethanesulfonic acid", 39550)]
+		[Buffer("CHES", 9.41, -0.018, 0, "N-cyclohexyl-2-aminoethanesulfonic acid", new[] { 39550, 9.0 })]
 		CHES,
-		[Buffer("CAPS", 10.51, -0.018, 0, "N-cyclohexyl-3-aminopropanesulfonic acid", 48100)]
+		[Buffer("CAPS", 10.51, -0.018, 0, "N-cyclohexyl-3-aminopropanesulfonic acid", new[] { 48100, 57.0 })]
 		CAPS,
 		[Buffer("Methylamine", 10.62, -0.031, 1, "Methylamine")]
 		Methylamine,
@@ -85,6 +87,12 @@ namespace AnalysisITC.AppClasses.AnalysisClasses
 			if (value == Buffer.Null) return "";
 			return BufferAttribute.Tooltips[value];
         }
+
+        public static LinearFit GetProtonationEnthalpy(this Buffer value)
+        {
+			if (value == Buffer.Null) return new(0, 0, 25);
+            return value.GetProperties().ProtonationEnthalpy;
+        }
     }
 
     public class BufferAttribute : Attribute
@@ -96,7 +104,7 @@ namespace AnalysisITC.AppClasses.AnalysisClasses
 		public double[] dPKadT { get; private set; }
 		int[] Charges { get; set; }
 
-		public Energy ProtonationEnthalpy { get; private set; } = new(0);
+		public LinearFit ProtonationEnthalpy { get; private set; } = new(0, 0, 25);
 
 		public int Transitions => pKaValues.Length;
 
@@ -130,6 +138,18 @@ namespace AnalysisITC.AppClasses.AnalysisClasses
             }
         }
 
+        public BufferAttribute(string name, double pka, double tc, int za, string description, double[] dh)
+        {
+            Name = name;
+            Description = description;
+
+            pKaValues = new[] { pka };
+            dPKadT = new[] { tc };
+            Charges = new[] { za };
+
+            if (dh != null) ProtonationEnthalpy = new LinearFit(dh[0], dh[1], 25);
+        }
+
         public BufferAttribute(string name, double pka, double tc, int za, string description, double dh = 0)
         {
             Name = name;
@@ -139,10 +159,10 @@ namespace AnalysisITC.AppClasses.AnalysisClasses
             dPKadT = new[] { tc };
             Charges = new[] { za };
 
-            ProtonationEnthalpy = new(dh);
+            ProtonationEnthalpy = new(dh, 0, 25);
         }
 
-        public BufferAttribute(string name, double[] pkas, double[] tcs, int[] za, string description, double dh = 0)
+        public BufferAttribute(string name, double[] pkas, double[] tcs, int[] za, string description, double[] dh = null)
 		{
 			Name = name;
 			Description = description;
@@ -151,7 +171,7 @@ namespace AnalysisITC.AppClasses.AnalysisClasses
 			dPKadT = tcs;
 			Charges = za;
 
-			ProtonationEnthalpy = new(dh);
+			if (dh != null) ProtonationEnthalpy = new(dh[0], dh[1], 25);
         }
 
 		string GetBufferTooltip()
@@ -177,7 +197,7 @@ namespace AnalysisITC.AppClasses.AnalysisClasses
 			}
             tooltip = tooltip.Substring(0, tooltip.Length - 2) + Environment.NewLine;
 
-            if (ProtonationEnthalpy != 0) tooltip += "∆Hprot = " + ProtonationEnthalpy.ToString(AppSettings.EnergyUnit.IsSI() ? EnergyUnit.KiloJoule : EnergyUnit.KCal, withunit: true, permole: true);
+            if (ProtonationEnthalpy.Intercept != 0) tooltip += "∆Hprot@25°C = " + new Energy(ProtonationEnthalpy.Evaluate(25)).ToString(AppSettings.EnergyUnit.IsSI() ? EnergyUnit.KiloJoule : EnergyUnit.KCal, withunit: true, permole: true);
 
 			return tooltip;
         }
