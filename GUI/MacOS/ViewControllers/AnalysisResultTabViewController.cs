@@ -41,6 +41,20 @@ namespace AnalysisITC
 
             FoldingAnalysis = TabView.Item(1);
             IonicStrengthAnalysis = TabView.Item(2);
+
+            TabView.DidSelect += TabView_DidSelect;
+        }
+
+        private void TabView_DidSelect(object sender, NSTabViewItemEventArgs e)
+        {
+            if (e.Item == FoldingAnalysis)
+            {
+
+            }
+            else if (e.Item == IonicStrengthAnalysis)
+            {
+                
+            }
         }
 
         private void AppDelegate_StartPrintOperation(object sender, EventArgs e)
@@ -91,7 +105,7 @@ namespace AnalysisITC
 
             AnalysisResult = e;
 
-            Graph.Initialize(e, EnergyUnit);
+            Graph.Initialize(e);
 
             Setup();
         }
@@ -256,7 +270,7 @@ namespace AnalysisITC
 
             SetupResultView();
 
-            Graph.Initialize(AnalysisResult, EnergyUnit);
+            Graph.Initialize(AnalysisResult);
         }
 
         partial void CopyToClipboard(NSObject sender)

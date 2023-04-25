@@ -10,10 +10,10 @@ namespace AnalysisITC
 {
 	public partial class TemperatureDependenceGraphView : NSGraph
 	{
-        TemperatureDependenceGraph ScatterPlot { get; set; } = null;
-        ThermodynamicParameterBarPlot BarPlot { get; set; } = null;
+        TemperatureDependenceGraph TemperatureDependenceGraph { get; set; } = null;
+        ThermodynamicParameterBarPlot RawParameterBarPlot { get; set; } = null;
 
-        new GraphBase Graph => ScatterPlot == null ? BarPlot : ScatterPlot;
+        new GraphBase Graph => TemperatureDependenceGraph == null ? RawParameterBarPlot : TemperatureDependenceGraph;
 
 		public TemperatureDependenceGraphView (IntPtr handle) : base (handle)
 		{
@@ -25,16 +25,16 @@ namespace AnalysisITC
             Invalidate();
         }
 
-        public void Initialize(AnalysisResult r, EnergyUnit unit)
+        public void Initialize(AnalysisResult r)
         {
-            ScatterPlot = null;
-            BarPlot = null;
+            TemperatureDependenceGraph = null;
+            RawParameterBarPlot = null;
 
             if (r.Solution.Model.TemperatureDependenceExposed)
             {
-                ScatterPlot = new TemperatureDependenceGraph(r, this);
+                TemperatureDependenceGraph = new TemperatureDependenceGraph(r, this);
             }
-            else BarPlot = new ThermodynamicParameterBarPlot(r, this);
+            else RawParameterBarPlot = new ThermodynamicParameterBarPlot(r, this);
 
             Invalidate();
         }
@@ -45,8 +45,8 @@ namespace AnalysisITC
 
             var cg = NSGraphicsContext.CurrentContext.CGContext;
 
-            if (ScatterPlot != null) ScatterPlot.PrepareDraw(cg, new CGPoint(Frame.GetMidX(), Frame.GetMidY()));
-            else if (BarPlot != null) BarPlot.PrepareDraw(cg, new CGPoint(Frame.GetMidX(), Frame.GetMidY()));
+            if (TemperatureDependenceGraph != null) TemperatureDependenceGraph.PrepareDraw(cg, new CGPoint(Frame.GetMidX(), Frame.GetMidY()));
+            else if (RawParameterBarPlot != null) RawParameterBarPlot.PrepareDraw(cg, new CGPoint(Frame.GetMidX(), Frame.GetMidY()));
         }
 
         new public void Print()

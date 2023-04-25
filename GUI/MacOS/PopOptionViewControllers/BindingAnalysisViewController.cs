@@ -22,7 +22,7 @@ namespace AnalysisITC
 
         public override void ViewDidAppear()
         {
-            Graph.Initialize(AnalysisResult, EnergyUnit.KiloJoule);
+            Graph.Initialize(AnalysisResult);
 
             Setup();
         }
