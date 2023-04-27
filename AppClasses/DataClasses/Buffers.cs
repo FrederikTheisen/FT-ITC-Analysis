@@ -70,6 +70,8 @@ namespace AnalysisITC.AppClasses.AnalysisClasses
 		Methylamine,
 		[Buffer("Piperidine", 11.12, -0.031, 1, "Piperidine")]
 		Piperidine,
+        [Buffer("TAPSO", 7.635, 0, 1, "3-[[1,3-dihydroxy-2-(hydroxymethyl)propan-2-yl]amino]-2-hydroxypropane-1-sulfonic acid", new[] { 39090, -16.0 })] //FIXME check charge and pka temp dependence
+        TAPSO
 	}
 
     public static partial class Extensions
@@ -88,10 +90,10 @@ namespace AnalysisITC.AppClasses.AnalysisClasses
 			return BufferAttribute.Tooltips[value];
         }
 
-        public static LinearFit GetProtonationEnthalpy(this Buffer value)
+        public static double GetProtonationEnthalpy(this Buffer value, double temperature)
         {
-			if (value == Buffer.Null) return new(0, 0, 25);
-            return value.GetProperties().ProtonationEnthalpy;
+			if (value == Buffer.Null) return 0;
+            return value.GetProperties().ProtonationEnthalpy.Evaluate(temperature);
         }
     }
 
@@ -108,7 +110,7 @@ namespace AnalysisITC.AppClasses.AnalysisClasses
 
 		public int Transitions => pKaValues.Length;
 
-		static double avgdPKadT = 0.01240;
+		static double avgdPKadT = 0.01240; //some default just to be sure
 		static double vardPKadT = 0.00998;
 
 		public static Dictionary<Buffer, string> Tooltips { get; private set; } = new Dictionary<Buffer, string>();
