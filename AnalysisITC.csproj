@@ -181,6 +181,7 @@
     <Folder Include="GUI\MacOS\ListViews\" />
     <Folder Include="AppClasses\Analysis2\Models\" />
     <Folder Include="AppClasses\DataClasses\" />
+    <Folder Include="AppClasses\AnalysisClasses\ResultAnalysis\" />
   </ItemGroup>
   <ItemGroup>
     <None Include="Info.plist" />
@@ -194,6 +195,7 @@
     <None Include="AppClasses\Depreceated\Analysis.cs" />
     <None Include="AppClasses\Depreceated\SolverParameters.cs" />
     <None Include="AppClasses\Depreceated\SolverOptions.cs" />
+    <None Include="GUI\MacOS\GraphViews\ResultGraphView2.cs" />
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Main.cs" />
@@ -413,7 +415,7 @@
     <Compile Include="GUI\MacOS\CustomViews\ExperimentAttributeView.designer.cs">
       <DependentUpon>ExperimentAttributeView.cs</DependentUpon>
     </Compile>
-    <Compile Include="GUI\MacOS\Drawing\IonicStrengthDependenceGraph.cs" />
+    <Compile Include="GUI\MacOS\Drawing\ParameterDependenceGraph.cs" />
     <Compile Include="AppClasses\DataClasses\ExperimentData.cs" />
     <Compile Include="AppClasses\DataClasses\Buffers.cs" />
     <Compile Include="AppClasses\DataClasses\Salt.cs" />
@@ -424,7 +426,11 @@
     <Compile Include="AppClasses\AnalysisClasses\SpolarRecordAnalysis.cs" />
     <Compile Include="AppClasses\AnalysisClasses\ElectrostaticsAnalysis.cs" />
     <Compile Include="AppClasses\AnalysisClasses\ProtonationAnalysis.cs" />
+    <Compile Include="AppClasses\AnalysisClasses\ResultAnalysis\ResultAnalysis.cs" />
     <Compile Include="GUI\MacOS\GraphViews\ResultGraphView.cs" />
+    <Compile Include="GUI\MacOS\GraphViews\ResultGraphView.designer.cs">
+      <DependentUpon>ResultGraphView.cs</DependentUpon>
+    </Compile>
   </ItemGroup>
   <ItemGroup>
     <InterfaceDefinition Include="Main.storyboard" />
