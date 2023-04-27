@@ -423,14 +423,14 @@
     <Compile Include="AppClasses\DataClasses\AnalysisResult.cs" />
     <Compile Include="AppClasses\DataClasses\ConcentrationUnit.cs" />
     <Compile Include="AppClasses\DataClasses\Energy.cs" />
-    <Compile Include="AppClasses\AnalysisClasses\SpolarRecordAnalysis.cs" />
-    <Compile Include="AppClasses\AnalysisClasses\ElectrostaticsAnalysis.cs" />
-    <Compile Include="AppClasses\AnalysisClasses\ProtonationAnalysis.cs" />
     <Compile Include="AppClasses\AnalysisClasses\ResultAnalysis\ResultAnalysis.cs" />
     <Compile Include="GUI\MacOS\GraphViews\ResultGraphView.cs" />
     <Compile Include="GUI\MacOS\GraphViews\ResultGraphView.designer.cs">
       <DependentUpon>ResultGraphView.cs</DependentUpon>
     </Compile>
+    <Compile Include="AppClasses\AnalysisClasses\ResultAnalysis\ElectrostaticsAnalysis.cs" />
+    <Compile Include="AppClasses\AnalysisClasses\ResultAnalysis\ProtonationAnalysis.cs" />
+    <Compile Include="AppClasses\AnalysisClasses\ResultAnalysis\SpolarRecordAnalysis.cs" />
   </ItemGroup>
   <ItemGroup>
     <InterfaceDefinition Include="Main.storyboard" />
