@@ -5,7 +5,7 @@ using System.Threading.Tasks;
 using AnalysisITC.AppClasses.Analysis2;
 using AppKit;
 
-namespace AnalysisITC
+namespace AnalysisITC.AppClasses.AnalysisClasses
 {
     public static class SpolarRecordAnalysisController
     {

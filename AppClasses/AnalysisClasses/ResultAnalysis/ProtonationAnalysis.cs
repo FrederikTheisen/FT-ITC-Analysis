@@ -43,11 +43,6 @@ namespace AnalysisITC.AppClasses.AnalysisClasses
 
         public ProtonationAnalysis(AnalysisResult result) : base(result)
         {
-            
-        }
-
-        public override async Task Calculate()
-        {
             DataPoints = new List<Tuple<double, FloatWithError>>();
 
             foreach (var sol in Result.Solution.Solutions)
@@ -56,7 +51,10 @@ namespace AnalysisITC.AppClasses.AnalysisClasses
                     ((Buffer)sol.Data.ExperimentOptions.Find(att => att.Key == ModelOptionKey.Buffer).IntValue).GetProtonationEnthalpy(sol.Temp),
                     new FloatWithError(sol.TotalEnthalpy)));
             }
+        }
 
+        public override async Task Calculate()
+        {
             var result = Fit();
             var results = new List<FitResult>();
             for (int i = 0; i < ElectrostaticsAnalysisController.CalculationIterations; i++)
