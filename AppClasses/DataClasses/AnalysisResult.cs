@@ -13,7 +13,8 @@ namespace AnalysisITC
         GlobalModelParameters Options => Model.Parameters;
 
         public bool IsTemperatureDependenceEnabled => (GetMaximumTemperature() - GetMinimumTemperature()) > AppSettings.MinimumTemperatureSpanForFitting;
-        public bool IsIonicStrengthDependenceEnabled { get; private set; }
+        public bool IsIonicStrengthDependenceEnabled { get; private set; } = false;
+        public bool IsProtonationAnalysisEnabled { get; private set; } = false;
 
         public AnalysisResult(AnalysisITC.AppClasses.Analysis2.GlobalSolution solution)
         {
@@ -30,11 +31,22 @@ namespace AnalysisITC
             //IsTemperatureDependenceEnabled = (GetMaximumTemperature() - GetMinimumTemperature()) > AppSettings.MinimumTemperatureSpanForFitting;
 
             var firstSolutionIonicStrength = BufferAttribute.GetIonicStrength(Solution.Solutions.First().Data);
-            // Check if any other solution has the same ionic strength as the first one
+            // Check if any other solution has a different ionic strength from the first one
             IsIonicStrengthDependenceEnabled = Solution.Solutions
-                .Skip(1) // skip the first solution
+                .Skip(1)
                 .Select(sol => BufferAttribute.GetIonicStrength(sol.Data))
                 .Any(ionicStrength => ionicStrength != firstSolutionIonicStrength);
+
+            //Check if all data has buffer info and figure out if any are different
+            if (Solution.Solutions.All(sol => sol.Data.ExperimentOptions.Exists(att => att.Key == ModelOptionKey.Buffer)))
+            {
+                var firstSolutionBuffer = Solution.Solutions.First().Data.ExperimentOptions.Find(att => att.Key == ModelOptionKey.Buffer).IntValue;
+
+                IsIonicStrengthDependenceEnabled = Solution.Solutions
+                    .Skip(1)
+                    .Any(sol => sol.Data.ExperimentOptions
+                    .Find(att => att.Key == ModelOptionKey.Buffer).IntValue != firstSolutionBuffer);
+            }
         }
 
         public string GetResultString()
