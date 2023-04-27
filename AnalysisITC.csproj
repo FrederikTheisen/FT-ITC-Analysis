@@ -195,7 +195,6 @@
     <None Include="AppClasses\Depreceated\Analysis.cs" />
     <None Include="AppClasses\Depreceated\SolverParameters.cs" />
     <None Include="AppClasses\Depreceated\SolverOptions.cs" />
-    <None Include="GUI\MacOS\GraphViews\ResultGraphView2.cs" />
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Main.cs" />

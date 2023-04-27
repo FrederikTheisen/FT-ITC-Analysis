@@ -6,37 +6,7 @@ using AppKit;
 
 namespace AnalysisITC.AppClasses.AnalysisClasses
 {
-    public static class ProtonationAnalysisController
-    {
-        public static TerminationFlag TerminateAnalysisFlag { get; private set; } = new TerminationFlag();
-
-        public static event EventHandler<TerminationFlag> AnalysisStarted;
-        public static event EventHandler<Tuple<int, int, float>> IterationFinished;
-        public static event EventHandler<Tuple<int, TimeSpan>> AnalysisFinished;
-
-        public static int CalculationIterations { get; set; } = 1000;
-
-        public static void ReportCalculationProgress(int iteration) => NSApplication.SharedApplication.InvokeOnMainThread(() =>
-        {
-            IterationFinished?.Invoke(null, new Tuple<int, int, float>(iteration, CalculationIterations, iteration / (float)CalculationIterations));
-        });
-
-        public static async void AnalyzeProtonation(AnalysisResult datafit)
-        {
-            TerminateAnalysisFlag.Lower();
-            DateTime start = DateTime.Now;
-
-            AnalysisStarted?.Invoke(null, TerminateAnalysisFlag);
-
-            var analysis = new ProtonationAnalysis(datafit);
-
-            await analysis.Calculate();
-
-            AnalysisFinished?.Invoke(analysis, new Tuple<int, TimeSpan>(analysis.CompletedIterations, DateTime.Now - start));
-        }
-    }
-
-    public class ProtonationAnalysis : AnalysisITC.AppClasses.AnalysisClasses.ResultAnalysis.ResultAnalysis
+    public class ProtonationAnalysis : AnalysisITC.AppClasses.AnalysisClasses.ResultAnalysis
     {
         public Energy BindingEnthalpy { get; set; }
         public FloatWithError ProtonationChange { get; set; }
@@ -45,7 +15,7 @@ namespace AnalysisITC.AppClasses.AnalysisClasses
         {
             DataPoints = new List<Tuple<double, FloatWithError>>();
 
-            foreach (var sol in Result.Solution.Solutions)
+            foreach (var sol in Data.Solution.Solutions)
             {
                 DataPoints.Add(new Tuple<double, FloatWithError>(
                     ((Buffer)sol.Data.ExperimentOptions.Find(att => att.Key == ModelOptionKey.Buffer).IntValue).GetProtonationEnthalpy(sol.Temp),
@@ -53,17 +23,17 @@ namespace AnalysisITC.AppClasses.AnalysisClasses
             }
         }
 
-        public override async Task Calculate()
+        protected override void Calculate()
         {
             var result = Fit();
             var results = new List<FitResult>();
-            for (int i = 0; i < ElectrostaticsAnalysisController.CalculationIterations; i++)
+            for (int i = 0; i < ResultAnalysisController.CalculationIterations; i++)
             {
                 results.Add(Fit(witherror: true));
 
-                ElectrostaticsAnalysisController.ReportCalculationProgress(i + 1);
+                ResultAnalysisController.ReportCalculationProgress(i + 1);
 
-                if (ElectrostaticsAnalysisController.TerminateAnalysisFlag.Up) break;
+                if (ResultAnalysisController.TerminateAnalysisFlag.Up) break;
             }
 
             CompletedIterations = results.Count;

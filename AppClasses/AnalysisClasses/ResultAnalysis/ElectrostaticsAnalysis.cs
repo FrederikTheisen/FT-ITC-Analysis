@@ -6,56 +6,34 @@ using AppKit;
 
 namespace AnalysisITC.AppClasses.AnalysisClasses
 {
-    public static class ElectrostaticsAnalysisController
+    public class ElectrostaticsAnalysis : ResultAnalysis
     {
-        public static TerminationFlag TerminateAnalysisFlag { get; private set; } = new TerminationFlag();
-
-        public static event EventHandler<TerminationFlag> AnalysisStarted;
-        public static event EventHandler<Tuple<int, int, float>> IterationFinished;
-        public static event EventHandler<Tuple<int, TimeSpan>> AnalysisFinished;
-
-        public static int CalculationIterations { get; set; } = 10000;
-
-        public static void ReportCalculationProgress(int iteration) => NSApplication.SharedApplication.InvokeOnMainThread(() =>
+        public ElectrostaticsAnalysis(AnalysisResult result) : base(result)
         {
-            IterationFinished?.Invoke(null, new Tuple<int, int, float>(iteration, CalculationIterations, iteration / (float)CalculationIterations));
-        });
-    }
 
-    public class ElectrostaticsAnalysis
-    {
-        static Random Rand { get; } = new Random();
-
-        AnalysisResult Result { get; set; }
-
-        
-
-        public ElectrostaticsAnalysis(AnalysisResult result)
-        {
-            Result = result;
         }
 
-        public async Task Analyze()
+        protected override void Calculate()
         {
             var result = Fit();
 
             var results = new List<FitResult>();
-            for (int i = 0; i < ElectrostaticsAnalysisController.CalculationIterations; i++)
+            for (int i = 0; i < ResultAnalysisController.CalculationIterations; i++)
             {
                 results.Add(Fit(false));
 
-                ElectrostaticsAnalysisController.ReportCalculationProgress(i + 1);
+                ResultAnalysisController.ReportCalculationProgress(i + 1);
 
-                if (ElectrostaticsAnalysisController.TerminateAnalysisFlag.Up) break;
+                if (ResultAnalysisController.TerminateAnalysisFlag.Up) break;
             }
 
-
+            CompletedIterations = results.Count;
         }
 
         FitResult Fit(bool exact = true)
         {
-            var x = Result.Solution.Solutions.Select(sol => BufferAttribute.GetIonicStrength(sol.Data)).ToArray();
-            var y = Result.Solution.Solutions.Select(sol => exact ? sol.Parameters[Analysis2.ParameterType.Affinity1].Value : sol.Parameters[Analysis2.ParameterType.Affinity1].Sample(Rand)).ToArray();
+            var x = Data.Solution.Solutions.Select(sol => BufferAttribute.GetIonicStrength(sol.Data)).ToArray();
+            var y = Data.Solution.Solutions.Select(sol => exact ? sol.Parameters[Analysis2.ParameterType.Affinity1].Value : sol.Parameters[Analysis2.ParameterType.Affinity1].Sample(Rand)).ToArray();
 
             var fit = MathNet.Numerics.Fit.Curve(x, y, (kd0, z, x) => kd0 * Math.Exp(-0.51 * z * Math.Sqrt(x) / (1 + Math.Sqrt(x))), 0.000001, 0);
 
@@ -64,8 +42,6 @@ namespace AnalysisITC.AppClasses.AnalysisClasses
 
         class FitResult : Tuple<double,double>
         {
-
-
             public FitResult(double v1, double v2): base(v1,v2)
             {
 

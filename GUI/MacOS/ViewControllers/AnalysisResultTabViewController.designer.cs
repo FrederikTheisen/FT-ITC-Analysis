@@ -25,7 +25,7 @@ namespace AnalysisITC
 		AppKit.NSButton ExperimentListButton { get; set; }
 
 		[Outlet]
-		AnalysisITC.TemperatureDependenceGraphView Graph { get; set; }
+		AnalysisITC.ResultGraphView Graph { get; set; }
 
 		[Outlet]
 		AppKit.NSTextField ResultEvalTempUnitLabel { get; set; }
@@ -68,6 +68,12 @@ namespace AnalysisITC
 
 		[Action ("EvaluateParameters:")]
 		partial void EvaluateParameters (Foundation.NSObject sender);
+
+		[Action ("PeformIonicStrengthAnalysis:")]
+		partial void PeformIonicStrengthAnalysis (AppKit.NSButton sender);
+
+		[Action ("PerformProtonationAnalysis:")]
+		partial void PerformProtonationAnalysis (AppKit.NSButton sender);
 
 		[Action ("PerformSRAnalysis:")]
 		partial void PerformSRAnalysis (Foundation.NSObject sender);
@@ -137,6 +143,11 @@ namespace AnalysisITC
 				SRTemperatureModeSegControl = null;
 			}
 
+			if (TabView != null) {
+				TabView.Dispose ();
+				TabView = null;
+			}
+
 			if (TempControl != null) {
 				TempControl.Dispose ();
 				TempControl = null;
@@ -145,11 +156,6 @@ namespace AnalysisITC
 			if (TemperatureDependenceLabel != null) {
 				TemperatureDependenceLabel.Dispose ();
 				TemperatureDependenceLabel = null;
-			}
-
-			if (TabView != null) {
-				TabView.Dispose ();
-				TabView = null;
 			}
 		}
 	}

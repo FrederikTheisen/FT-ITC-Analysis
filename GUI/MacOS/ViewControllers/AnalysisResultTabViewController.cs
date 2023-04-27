@@ -23,15 +23,15 @@ namespace AnalysisITC
         public bool UseKelvin => TempControl.SelectedSegment == 1;
 
         //Saving tabview for removal and addition, extremily hack
-        NSTabViewItem FoldingAnalysis { get; set; }
-        NSTabViewItem IonicStrengthAnalysis { get; set; }
-
+        NSTabViewItem FoldingAnalysisTab { get; set; }
+        NSTabViewItem IonicStrengthAnalysisTab { get; set; }
+        NSTabViewItem ProtonationAnalysisTab { get; set; }
 
         public AnalysisResultTabViewController (IntPtr handle) : base (handle)
 		{
             DataManager.AnalysisResultSelected += DataManager_AnalysisResultSelected;
-            SpolarRecordAnalysisController.IterationFinished += SpolarRecordAnalysisController_IterationFinished;
-            SpolarRecordAnalysisController.AnalysisFinished += SpolarRecordAnalysisController_AnalysisFinished;
+            ResultAnalysisController.IterationFinished += SpolarRecordAnalysisController_IterationFinished;
+            ResultAnalysisController.AnalysisFinished += SpolarRecordAnalysisController_AnalysisFinished;
             AppDelegate.StartPrintOperation += AppDelegate_StartPrintOperation;
 		}
 
@@ -39,21 +39,26 @@ namespace AnalysisITC
         {
             base.ViewDidLoad();
 
-            FoldingAnalysis = TabView.Item(1);
-            IonicStrengthAnalysis = TabView.Item(2);
+            FoldingAnalysisTab = TabView.Item(1);
+            IonicStrengthAnalysisTab = TabView.Item(2);
+            ProtonationAnalysisTab = TabView.Item(3);
 
             TabView.DidSelect += TabView_DidSelect;
         }
 
         private void TabView_DidSelect(object sender, NSTabViewItemEventArgs e)
         {
-            if (e.Item == FoldingAnalysis)
+            if (e.Item == FoldingAnalysisTab)
             {
 
             }
-            else if (e.Item == IonicStrengthAnalysis)
+            else if (e.Item == IonicStrengthAnalysisTab)
             {
                 
+            }
+            else if (e.Item == ProtonationAnalysisTab)
+            {
+
             }
         }
 
@@ -72,22 +77,22 @@ namespace AnalysisITC
             if (e != null)
             {
                 StatusBarManager.SetStatus(e.Item1 + " iterations, " + e.Item2.TotalMilliseconds + "ms", 6000);
-                if (e.Item1 == SpolarRecordAnalysisController.CalculationIterations) StatusBarManager.SetStatus("SR Method Finished", 2000);
+                if (e.Item1 == ResultAnalysisController.CalculationIterations) StatusBarManager.SetStatus("SR Method Finished", 2000);
                 else StatusBarManager.SetStatus("SR Method Stopped", 2000);
             }
 
-            var sr = sender as FTSRMethod;
+            var sr = AnalysisResult.SpolarRecordAnalysis;
 
-            var result = new List<string>()
-            {
-                sr.SRFoldedMode switch { SpolarRecordAnalysisController.SRFoldedMode.Glob => "Globular Mode", SpolarRecordAnalysisController.SRFoldedMode.Intermediate => "Intermediate Mode", SpolarRecordAnalysisController.SRFoldedMode.ID => "ID Interaction Mode"},
-                sr.SRTempMode switch { SpolarRecordAnalysisController.SRTempMode.IsoEntropicPoint => "Isoentropic (", SpolarRecordAnalysisController.SRTempMode.MeanTemperature => "Data Set Mean (", SpolarRecordAnalysisController.SRTempMode.ReferenceTemperature => "Set Reference (" } + sr.AnalysisResult.ReferenceTemperature.ToString() + " °C)",
-                new Energy(sr.AnalysisResult.HydrationContribution(sr.EvalutationTemperature(false))).ToString(EnergyUnit.KiloJoule, permole: true),
-                new Energy(sr.AnalysisResult.ConformationalContribution(sr.EvalutationTemperature(false))).ToString(EnergyUnit.KiloJoule, permole: true),
-                sr.AnalysisResult.Rvalue.ToString() + " residues",
-            };
+            //var result = new List<string>()
+            //{
+            //    sr.FoldedMode switch { FTSRMethod.SRFoldedMode.Glob => "Globular Mode", FTSRMethod.SRFoldedMode.Intermediate => "Intermediate Mode", FTSRMethod.SRFoldedMode.ID => "ID Interaction Mode"},
+            //    sr.TempMode switch { FTSRMethod.SRTempMode.IsoEntropicPoint => "Isoentropic (", FTSRMethod.SRTempMode.MeanTemperature => "Data Set Mean (", FTSRMethod.SRTempMode.ReferenceTemperature => "Set Reference (" } + sr.AnalysisResult.ReferenceTemperature.ToString() + " °C)",
+            //    new Energy(sr.AnalysisResult.HydrationContribution(sr.EvalutationTemperature(false))).ToString(EnergyUnit.KiloJoule, permole: true),
+            //    new Energy(sr.AnalysisResult.ConformationalContribution(sr.EvalutationTemperature(false))).ToString(EnergyUnit.KiloJoule, permole: true),
+            //    sr.AnalysisResult.Rvalue.ToString() + " residues",
+            //};
 
-            SRResultTextField.StringValue = string.Join(Environment.NewLine, result);
+            //SRResultTextField.StringValue = string.Join(Environment.NewLine, result);
 
             ToggleFitButtons(true);
         }
@@ -105,7 +110,7 @@ namespace AnalysisITC
 
             AnalysisResult = e;
 
-            Graph.Initialize(e);
+            //Graph.Initialize(e);
 
             Setup();
         }
@@ -117,13 +122,14 @@ namespace AnalysisITC
 
         public void Setup()
         {
-            if (TabView.Items.Contains(FoldingAnalysis)) TabView.Remove(FoldingAnalysis);
-            if (TabView.Items.Contains(IonicStrengthAnalysis)) TabView.Remove(IonicStrengthAnalysis);
+            if (TabView.Items.Contains(FoldingAnalysisTab)) TabView.Remove(FoldingAnalysisTab);
+            if (TabView.Items.Contains(IonicStrengthAnalysisTab)) TabView.Remove(IonicStrengthAnalysisTab);
+            if (TabView.Items.Contains(ProtonationAnalysisTab)) TabView.Remove(ProtonationAnalysisTab);
 
             SetupResultView();
 
-            if (AnalysisResult.IsTemperatureDependenceEnabled) TabView.Add(FoldingAnalysis);
-            if (AnalysisResult.IsIonicStrengthDependenceEnabled) TabView.Add(IonicStrengthAnalysis);
+            if (AnalysisResult.IsTemperatureDependenceEnabled) TabView.Add(FoldingAnalysisTab);
+            if (AnalysisResult.IsElectrostaticsAnalysisDependenceEnabled) TabView.Add(IonicStrengthAnalysisTab);
         }
 
         public void SetupResultView()
@@ -194,6 +200,16 @@ namespace AnalysisITC
             EvaluateParameters();
         }
 
+        void SetupGraphView(ResultGraphView.ResultGraphType type)
+        {
+            switch (type)
+            {
+                case ResultGraphView.ResultGraphType.Parameters:
+                case ResultGraphView.ResultGraphType.TemperatureDependence: Graph.Setup(type, AnalysisResult); break;
+                case ResultGraphView.ResultGraphType.ProtonationAnalysis: Graph.Setup(AnalysisResult.ProtonationAnalysis); break;
+            }
+        }
+
         void ToggleFitButtons(bool enable)
         {
             SRFitButton.Enabled = enable;
@@ -203,9 +219,12 @@ namespace AnalysisITC
         {
             ToggleFitButtons(false);
 
-            SpolarRecordAnalysisController.TempMode = (SpolarRecordAnalysisController.SRTempMode)(int)SRTemperatureModeSegControl.SelectedSegment;
-            SpolarRecordAnalysisController.FoldedDegree = (SpolarRecordAnalysisController.SRFoldedMode)(int)SRFoldedDegreeSegControl.SelectedSegment;
-            SpolarRecordAnalysisController.Analyze(AnalysisResult.Solution);
+            var tempmode = (FTSRMethod.SRTempMode)(int)SRTemperatureModeSegControl.SelectedSegment;
+            var foldedmode = (FTSRMethod.SRFoldedMode)(int)SRFoldedDegreeSegControl.SelectedSegment;
+
+            AnalysisResult.SpolarRecordAnalysis.TempMode = tempmode;
+            AnalysisResult.SpolarRecordAnalysis.FoldedMode = foldedmode;
+            AnalysisResult.SpolarRecordAnalysis.PerformAnalysis();
         }
 
         partial void EvaluateParameters(NSObject sender)
@@ -270,7 +289,7 @@ namespace AnalysisITC
 
             SetupResultView();
 
-            Graph.Initialize(AnalysisResult);
+            //Graph.Initialize(AnalysisResult);
         }
 
         partial void CopyToClipboard(NSObject sender)

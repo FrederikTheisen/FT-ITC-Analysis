@@ -7,55 +7,7 @@ using AppKit;
 
 namespace AnalysisITC.AppClasses.AnalysisClasses
 {
-    public static class SpolarRecordAnalysisController
-    {
-        public static TerminationFlag TerminateAnalysisFlag { get; private set; } = new TerminationFlag();
-
-        public static event EventHandler<TerminationFlag> AnalysisStarted;
-        public static event EventHandler<Tuple<int, int, float>> IterationFinished;
-        public static event EventHandler<Tuple<int, TimeSpan>> AnalysisFinished;
-
-        public static int CalculationIterations { get; set; } = 10000;
-        public static SRTempMode TempMode { get; set; } = SRTempMode.IsoEntropicPoint;
-        public static SRFoldedMode FoldedDegree { get; set; } = SRFoldedMode.Glob;
-
-        public static async void Analyze(GlobalSolution solution)
-        {
-            TerminateAnalysisFlag.Lower();
-            DateTime start = DateTime.Now;
-
-            AnalysisStarted?.Invoke(null, TerminateAnalysisFlag);
-
-            var sr = new FTSRMethod(solution.TemperatureDependence[ParameterType.Enthalpy1], solution.TemperatureDependence[ParameterType.EntropyContribution1]);
-            sr.SRTempMode = TempMode;
-            sr.SRFoldedMode = FoldedDegree;
-
-            await sr.Calculate();
-
-            AnalysisFinished?.Invoke(sr, new Tuple<int, TimeSpan>(sr.IterationsCompleted, DateTime.Now - start));
-        }
-
-        public static void ReportCalculationProgress(int iteration) => NSApplication.SharedApplication.InvokeOnMainThread(() =>
-        {
-            IterationFinished?.Invoke(null, new Tuple<int, int, float>(iteration, CalculationIterations, iteration / (float)CalculationIterations));
-        });
-
-        public enum SRFoldedMode
-        {
-            Glob,
-            Intermediate,
-            ID
-        }
-
-        public enum SRTempMode
-        {
-            IsoEntropicPoint,
-            MeanTemperature,
-            ReferenceTemperature
-        }
-    }
-
-    public class FTSRMethod
+    public class FTSRMethod : ResultAnalysis
     {
         public static FloatWithError ApCoeff { get; } = new FloatWithError(-0.590884521921104, 0.12);
         public static FloatWithError AnpCoeff { get; } = new FloatWithError(1.3721067124117, 0.06);
@@ -65,10 +17,8 @@ namespace AnalysisITC.AppClasses.AnalysisClasses
         public static FloatWithError PerResidueEntropyLoss { get; } = new FloatWithError(-23.96662, 0);
         public static FloatWithError RototranslationalEntropy = new FloatWithError(-110, 12);
 
-        Random Rand { get; } = new Random();
-
-        public SpolarRecordAnalysisController.SRFoldedMode SRFoldedMode { get; set; } = SpolarRecordAnalysisController.SRFoldedMode.Glob;
-        public SpolarRecordAnalysisController.SRTempMode SRTempMode { get; set; } = SpolarRecordAnalysisController.SRTempMode.IsoEntropicPoint;
+        public SRFoldedMode FoldedMode { get; set; } = SRFoldedMode.Glob;
+        public SRTempMode TempMode { get; set; } = SRTempMode.IsoEntropicPoint;
 
         FloatWithError Ratio { get; set; } = RatioGlob;
 
@@ -83,121 +33,96 @@ namespace AnalysisITC.AppClasses.AnalysisClasses
 
         public double EvalutationTemperature(bool sample = true)
         {
-            return SRTempMode switch
+            return TempMode switch
             {
-                SpolarRecordAnalysisController.SRTempMode.MeanTemperature => TemperatureDependenceReferenceTemperature,
-                SpolarRecordAnalysisController.SRTempMode.ReferenceTemperature => AppSettings.ReferenceTemperature,
+                SRTempMode.MeanTemperature => TemperatureDependenceReferenceTemperature,
+                SRTempMode.ReferenceTemperature => AppSettings.ReferenceTemperature,
                 _ when sample => TS.Sample(Rand),
                 _ => TS.Value
             };
         }
 
-        public int IterationsCompleted { get; set; } = 0;
-        List<SROutput> Results = new List<SROutput>();
-        public SROutput AnalysisResult { get; private set; }
+        public SROutput Result { get; private set; }
 
-        public FTSRMethod(LinearFitWithError enthalpy, LinearFitWithError entropy)
+        public FTSRMethod(AnalysisResult analysisResult) : base(analysisResult)
         {
-            EnthalpyDependence = enthalpy;
-            EntropyDependence = entropy;
+            EnthalpyDependence = analysisResult.Solution.TemperatureDependence[ParameterType.Enthalpy1];
+            EntropyDependence = analysisResult.Solution.TemperatureDependence[ParameterType.EntropyContribution1];
 
             TS = EntropyDependence.GetXAxisIntersect();
         }
 
-        public async Task Calculate()
+        public override void PerformAnalysis()
         {
-            float f = SRFoldedMode switch
+            base.PerformAnalysis();
+        }
+
+        protected override void Calculate()
+        {
+            float f = FoldedMode switch
             {
-                SpolarRecordAnalysisController.SRFoldedMode.Glob => 1,
-                SpolarRecordAnalysisController.SRFoldedMode.Intermediate => 0.5f,
-                SpolarRecordAnalysisController.SRFoldedMode.ID => 0,
+                SRFoldedMode.Glob => 1,
+                SRFoldedMode.Intermediate => 0.5f,
+                SRFoldedMode.ID => 0,
                 _ => 1,
             };
 
             Ratio = (RatioID * (1 - f) + RatioGlob * f);
-
             OffsetReferenceEntropy = EntropyDependence.Evaluate(AppSettings.ReferenceTemperature);
 
-            await Task.Run(() => Evaluate(SpolarRecordAnalysisController.CalculationIterations));
+            var exact = Evaluate(exact: true);
+
+            var list_ds_he = new List<double>();
+            var list_ds_conf = new List<double>();
+            var list_ds_r = new List<double>();
+
+            for (int i = 0; i < ResultAnalysisController.CalculationIterations; i++)
+            {
+                var result = Evaluate();
+
+                list_ds_he.Add(result.HydrationEntropy);
+                list_ds_conf.Add(result.ConformationalEntropy);
+                list_ds_r.Add(result.Rvalue);
+            }
+
+            Result = new SROutput(
+                new FloatWithError(list_ds_he, exact.HydrationEntropy),
+                new FloatWithError(list_ds_conf, exact.ConformationalEntropy),
+                new FloatWithError(list_ds_r, exact.Rvalue),
+                TempMode == SRTempMode.IsoEntropicPoint ? TS : new(EvalutationTemperature(sample: false)));
         }
 
-        (double, double, double) EvaluateExact()
+        SROutput Evaluate(bool exact = false)
         {
-            var temp = Math.Abs(273.15 + EvalutationTemperature(sample: false));
-            var tds = SRTempMode switch
+            var temp = Math.Abs(273.15 + EvalutationTemperature(sample: exact));
+
+            var _ds = TempMode switch
             {
-                SpolarRecordAnalysisController.SRTempMode.MeanTemperature => (ReferenceEntropy).Value,
-                SpolarRecordAnalysisController.SRTempMode.ReferenceTemperature => (OffsetReferenceEntropy).Value,
-                _ => 0,
+                SRTempMode.MeanTemperature => (ReferenceEntropy / (-temp)),
+                SRTempMode.ReferenceTemperature => (OffsetReferenceEntropy / (-temp)),
+                _ => new(0),
             };
 
-            var ds = tds / -temp;
-
-            var cp = HeatCapacityChange.Value;
-            var ap = ApCoeff.Value;
-            var anp = AnpCoeff.Value;
-            var ratio = Ratio.Value;
-            var gts = GlobalZeroEntropy.Value;
+            var ds = GetValue(_ds, exact);
+            var cp = GetValue(HeatCapacityChange, exact);
+            var ap = GetValue(ApCoeff, exact);
+            var anp = GetValue(AnpCoeff, exact);
+            var ratio = GetValue(Ratio, exact);
+            var gts = GetValue(GlobalZeroEntropy, exact);
 
             var danp_coeff = 1f / (anp + ratio * ap);
             var dcp_coeff = danp_coeff * anp;
 
             var ds_he = cp * dcp_coeff * Math.Log(temp / gts);
-            var ds_conf = ds - ds_he - RototranslationalEntropy.Value;
+            var ds_conf = ds - ds_he - RototranslationalEntropy.Sample(Rand);
             var r = ds_conf / PerResidueEntropyLoss.Value;
 
-            return (ds_he, ds_conf, r);
-        }
+            return new SROutput(new(ds_he), new(ds_conf), new(r), TempMode == SRTempMode.IsoEntropicPoint ? TS : new(EvalutationTemperature(sample: false)));
 
-        void Evaluate(int iterations)
-        {
-            var (exact_ds_he, exact_ds_conf, exact_r) = EvaluateExact();
-
-            var list_ds = new List<double>();
-            var list_ds_he = new List<double>();
-            var list_ds_conf = new List<double>();
-            var list_ds_r = new List<double>();
-
-            for (int i = 0; i < iterations; i++)
+            double GetValue(FloatWithError par, bool exact)
             {
-                var temp = Math.Abs(273.15 + EvalutationTemperature(sample: true));
-
-                var _ds = SRTempMode switch
-                {
-                    SpolarRecordAnalysisController.SRTempMode.MeanTemperature => (ReferenceEntropy / (-temp)),
-                    SpolarRecordAnalysisController.SRTempMode.ReferenceTemperature => (OffsetReferenceEntropy / (-temp)),
-                    _ => new(0),
-                };
-
-                var ds = _ds.Sample(Rand);
-
-                var cp = HeatCapacityChange.Sample(Rand);
-                var ap = ApCoeff.Sample(Rand);
-                var anp = AnpCoeff.Sample(Rand);
-                var ratio = Ratio.Sample(Rand);
-                var gts = GlobalZeroEntropy.Sample(Rand);
-
-                var danp_coeff = 1f / (anp + ratio * ap);
-                var dcp_coeff = danp_coeff * anp;
-
-                var ds_he = cp * dcp_coeff * Math.Log(temp / gts);
-                var ds_conf = ds - ds_he - RototranslationalEntropy.Sample(Rand);
-                var r = ds_conf / PerResidueEntropyLoss.Value;
-
-                list_ds.Add(ds);
-                list_ds_he.Add(ds_he);
-                list_ds_conf.Add(ds_conf);
-                list_ds_r.Add(r);
-
-                SpolarRecordAnalysisController.ReportCalculationProgress(i+1);
-                IterationsCompleted = i;
-
-                if (SpolarRecordAnalysisController.TerminateAnalysisFlag.Up) break;
+                return exact ? par.Value : par.Sample(Rand);
             }
-
-            IterationsCompleted++;
-
-            AnalysisResult = new SROutput(new(list_ds_he, exact_ds_he), new(list_ds_conf, exact_ds_conf), new(list_ds_r, exact_r), SRTempMode == SpolarRecordAnalysisController.SRTempMode.IsoEntropicPoint ? TS : new(EvalutationTemperature(sample: false)));
         }
 
         public class SROutput : Tuple<FloatWithError, FloatWithError, FloatWithError, FloatWithError>
@@ -218,6 +143,20 @@ namespace AnalysisITC.AppClasses.AnalysisClasses
             {
                 Console.WriteLine(HydrationEntropy.Value + " " + ConformationalEntropy.Value + " " + Rvalue.Value);
             }
+        }
+
+        public enum SRFoldedMode
+        {
+            Glob,
+            Intermediate,
+            ID
+        }
+
+        public enum SRTempMode
+        {
+            IsoEntropicPoint,
+            MeanTemperature,
+            ReferenceTemperature
         }
     }
 }

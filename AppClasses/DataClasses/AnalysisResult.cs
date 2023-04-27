@@ -13,8 +13,12 @@ namespace AnalysisITC
         GlobalModelParameters Options => Model.Parameters;
 
         public bool IsTemperatureDependenceEnabled => (GetMaximumTemperature() - GetMinimumTemperature()) > AppSettings.MinimumTemperatureSpanForFitting;
-        public bool IsIonicStrengthDependenceEnabled { get; private set; } = false;
+        public bool IsElectrostaticsAnalysisDependenceEnabled { get; private set; } = false;
         public bool IsProtonationAnalysisEnabled { get; private set; } = false;
+
+        public FTSRMethod SpolarRecordAnalysis { get; private set; }
+        public ProtonationAnalysis ProtonationAnalysis { get; private set; }
+        public ElectrostaticsAnalysis ElectrostaticsAnalysis { get; private set; }
 
         public AnalysisResult(AnalysisITC.AppClasses.Analysis2.GlobalSolution solution)
         {
@@ -24,6 +28,8 @@ namespace AnalysisITC
             Date = DateTime.Now;
 
             SetupAnalysisOptions();
+
+            InitializeAnalyses();
         }
 
         void SetupAnalysisOptions()
@@ -32,7 +38,7 @@ namespace AnalysisITC
 
             var firstSolutionIonicStrength = BufferAttribute.GetIonicStrength(Solution.Solutions.First().Data);
             // Check if any other solution has a different ionic strength from the first one
-            IsIonicStrengthDependenceEnabled = Solution.Solutions
+            IsElectrostaticsAnalysisDependenceEnabled = Solution.Solutions
                 .Skip(1)
                 .Select(sol => BufferAttribute.GetIonicStrength(sol.Data))
                 .Any(ionicStrength => ionicStrength != firstSolutionIonicStrength);
@@ -42,11 +48,18 @@ namespace AnalysisITC
             {
                 var firstSolutionBuffer = Solution.Solutions.First().Data.ExperimentOptions.Find(att => att.Key == ModelOptionKey.Buffer).IntValue;
 
-                IsIonicStrengthDependenceEnabled = Solution.Solutions
+                IsProtonationAnalysisEnabled = Solution.Solutions
                     .Skip(1)
                     .Any(sol => sol.Data.ExperimentOptions
                     .Find(att => att.Key == ModelOptionKey.Buffer).IntValue != firstSolutionBuffer);
             }
+        }
+
+        void InitializeAnalyses()
+        {
+            if (IsTemperatureDependenceEnabled) SpolarRecordAnalysis = new FTSRMethod(this);
+            if (IsProtonationAnalysisEnabled) ProtonationAnalysis = new ProtonationAnalysis(this);
+            if (IsElectrostaticsAnalysisDependenceEnabled) ElectrostaticsAnalysis = new ElectrostaticsAnalysis(this);
         }
 
         public string GetResultString()

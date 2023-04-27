@@ -1,4 +1,7 @@
-﻿namespace AnalysisITC.GUI.MacOS.GraphViews {
+﻿using Foundation;
+using System.CodeDom.Compiler;
+
+namespace AnalysisITC {
 
 	// Should subclass AppKit.NSView
 	[Foundation.Register("ResultGraphView")]

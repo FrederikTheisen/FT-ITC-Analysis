@@ -6,7 +6,7 @@ using AppKit;
 using CoreGraphics;
 using AnalysisITC.AppClasses.AnalysisClasses;
 
-namespace AnalysisITC.GUI.MacOS.GraphViews
+namespace AnalysisITC
 {
 	public partial class ResultGraphView : NSGraph
 	{

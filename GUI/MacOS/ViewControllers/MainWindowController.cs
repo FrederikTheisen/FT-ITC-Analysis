@@ -6,6 +6,7 @@ using AppKit;
 using System.Threading.Tasks;
 using System.Collections.Generic;
 using AnalysisITC.AppClasses.Analysis2;
+using AnalysisITC.AppClasses.AnalysisClasses;
 using static CoreFoundation.DispatchSource;
 
 namespace AnalysisITC
@@ -28,8 +29,8 @@ namespace AnalysisITC
             StatusBarManager.StatusUpdated += OnStatusUpdated;
             StatusBarManager.SecondaryStatusUpdated += OnSecondaryStatusUpdated;
             SolverInterface.AnalysisStarted += StopableProcessStarted;
-            SpolarRecordAnalysisController.AnalysisStarted += StopableProcessStarted;
-            SpolarRecordAnalysisController.AnalysisFinished += StopableProcessFinished;
+            ResultAnalysisController.AnalysisStarted += StopableProcessStarted;
+            ResultAnalysisController.AnalysisFinished += StopableProcessFinished;
             SolverInterface.AnalysisFinished += StopableProcessFinished;
 
             AppEventHandler.ShowAppMessage += OnShowAppMessage;
@@ -227,7 +228,7 @@ namespace AnalysisITC
             AppEventHandler.PrintAndLog("Terminate Analysis");
 
             SolverInterface.TerminateAnalysisFlag.Raise();
-            SpolarRecordAnalysisController.TerminateAnalysisFlag.Raise();
+            ResultAnalysisController.TerminateAnalysisFlag.Raise();
             DataManager.StopProcessCopying = true;
         }
     }
