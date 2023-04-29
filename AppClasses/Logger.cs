@@ -31,7 +31,7 @@ namespace AnalysisITC
 		{
 			AddLog(ex);
 
-			var stacktrace = ex.StackTrace.Split(Environment.NewLine);
+			var stacktrace = ex.StackTrace?.Split(Environment.NewLine) ?? new[] { "" };
 
 			foreach (var line in stacktrace) Console.WriteLine(line);
 
