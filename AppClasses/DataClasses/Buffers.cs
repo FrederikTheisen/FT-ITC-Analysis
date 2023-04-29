@@ -149,7 +149,7 @@ namespace AnalysisITC.AppClasses.AnalysisClasses
             dPKadT = new[] { tc };
             Charges = new[] { za };
 
-            if (dh != null) ProtonationEnthalpy = new LinearFit(dh[0], dh[1], 25);
+            if (dh != null) ProtonationEnthalpy = new LinearFit(dh[1], dh[0], 25);
         }
 
         public BufferAttribute(string name, double pka, double tc, int za, string description, double dh = 0)
@@ -161,7 +161,7 @@ namespace AnalysisITC.AppClasses.AnalysisClasses
             dPKadT = new[] { tc };
             Charges = new[] { za };
 
-            ProtonationEnthalpy = new(dh, 0, 25);
+            ProtonationEnthalpy = new(0, dh, 25);
         }
 
         public BufferAttribute(string name, double[] pkas, double[] tcs, int[] za, string description, double[] dh = null)
@@ -173,7 +173,7 @@ namespace AnalysisITC.AppClasses.AnalysisClasses
 			dPKadT = tcs;
 			Charges = za;
 
-			if (dh != null) ProtonationEnthalpy = new(dh[0], dh[1], 25);
+			if (dh != null) ProtonationEnthalpy = new(dh[1], dh[0], 25);
         }
 
 		string GetBufferTooltip()
