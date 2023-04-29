@@ -34,6 +34,12 @@ namespace AnalysisITC
 		AppKit.NSTextField FinalFigWidthField { get; set; }
 
 		[Outlet]
+		AppKit.NSTextField MinSaltSpanField { get; set; }
+
+		[Outlet]
+		AppKit.NSSlider MinSaltSpanSlider { get; set; }
+
+		[Outlet]
 		AppKit.NSTextField MinTempSpanField { get; set; }
 
 		[Outlet]
@@ -80,14 +86,14 @@ namespace AnalysisITC
 				ColorThemeMenu = null;
 			}
 
-			if (EnergyUnitControl != null) {
-				EnergyUnitControl.Dispose ();
-				EnergyUnitControl = null;
-			}
-
 			if (ConcentrationUnitControl != null) {
 				ConcentrationUnitControl.Dispose ();
 				ConcentrationUnitControl = null;
+			}
+
+			if (EnergyUnitControl != null) {
+				EnergyUnitControl.Dispose ();
+				EnergyUnitControl = null;
 			}
 
 			if (FinalFigHeightField != null) {
@@ -105,9 +111,19 @@ namespace AnalysisITC
 				MinTempSpanField = null;
 			}
 
+			if (MinSaltSpanField != null) {
+				MinSaltSpanField.Dispose ();
+				MinSaltSpanField = null;
+			}
+
 			if (MinTempSpanSlider != null) {
 				MinTempSpanSlider.Dispose ();
 				MinTempSpanSlider = null;
+			}
+
+			if (MinSaltSpanSlider != null) {
+				MinSaltSpanSlider.Dispose ();
+				MinSaltSpanSlider = null;
 			}
 
 			if (PeakFitAlgorithmControl != null) {

@@ -32,6 +32,7 @@ namespace AnalysisITC
         public static ErrorEstimationMethod DefaultErrorEstimationMethod { get; set; } = ErrorEstimationMethod.BootstrapResiduals;
         public static int DefaultBootstrapIterations { get; set; } = 100;
         public static double MinimumTemperatureSpanForFitting { get; internal set; } = 2;
+        public static double MinimumIonSpanForFitting { get; internal set; } = 0.01;
         public static bool IncludeConcentrationErrorsInBootstrap { get; set; } = true;
         public static double ConcentrationAutoVariance { get; set; } = 0.05;
         
@@ -83,6 +84,7 @@ namespace AnalysisITC
             Storage.SetBool(IonicStrengthIncludesBuffer, "IonicStrengthIncludesBuffer");
             Storage.SetBool(BuffersPreparedAtRoomTemperature, "BuffersPreparedAtRoomTemperature");
             Storage.SetInt(NumOfDecimalsToExport, "NumOfDecimalsToExport");
+            Storage.SetDouble(MinimumIonSpanForFitting, "MinimumIonSpanForFitting");
 
             StoreArray(FinalFigureDimensions, "FinalFigureDimensions");
 
@@ -115,7 +117,7 @@ namespace AnalysisITC
                 Console.WriteLine("No settings are stored in NSUserDefaults.");
                 return;
             }
-            else Console.WriteLine($"There are {0} settings stored in NSUserDefaults.", dict.Count);
+            else Console.WriteLine("There are {0} settings stored in NSUserDefaults.", dict.Count);
 
             ReferenceTemperature = GetDouble(dict, "ReferenceTemperature", ReferenceTemperature);
             EnergyUnit = (EnergyUnit)GetInt(dict, "EnergyUnit", (int)EnergyUnit);
@@ -141,6 +143,7 @@ namespace AnalysisITC
             IonicStrengthIncludesBuffer = GetBool(dict, "IonicStrengthIncludesBuffer", IonicStrengthIncludesBuffer);
             BuffersPreparedAtRoomTemperature = GetBool(dict, "BuffersPreparedAtRoomTemperature", BuffersPreparedAtRoomTemperature);
             NumOfDecimalsToExport = GetInt(dict, "NumOfDecimalsToExport", NumOfDecimalsToExport);
+            MinimumIonSpanForFitting = GetDouble(dict, "MinimumIonSpanForFitting", MinimumIonSpanForFitting);
 
             ApplySettings();
         }
