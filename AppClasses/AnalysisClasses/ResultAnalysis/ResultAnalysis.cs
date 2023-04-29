@@ -20,9 +20,11 @@ namespace AnalysisITC.AppClasses.AnalysisClasses
             AnalysisStarted?.Invoke(null, TerminateAnalysisFlag);
         });
 
-        public static void ReportCalculationProgress(int iteration) => NSApplication.SharedApplication.InvokeOnMainThread(() =>
+        public static void ReportCalculationProgress(int iteration, int totaliterations = 0) => NSApplication.SharedApplication.InvokeOnMainThread(() =>
         {
-            IterationFinished?.Invoke(null, new Tuple<int, int, float>(iteration, CalculationIterations, iteration / (float)CalculationIterations));
+            var totiter = totaliterations > 0 ? totaliterations : CalculationIterations;
+
+            IterationFinished?.Invoke(null, new Tuple<int, int, float>(iteration, totiter, iteration / (float)totiter));
         });
 
         public static void ReportAnalysisFinished(object analysis, int iterations, TimeSpan time) => NSApplication.SharedApplication.InvokeOnMainThread(() =>
@@ -37,7 +39,7 @@ namespace AnalysisITC.AppClasses.AnalysisClasses
 
         public AnalysisResult Data { get; private set; }
         public List<Tuple<double, FloatWithError>> DataPoints;
-        public LinearFitWithError LinearFitWithError { get; set; }
+        public FitWithError Fit { get; set; }
 
         public int CompletedIterations { get; internal set; } = 0;
 

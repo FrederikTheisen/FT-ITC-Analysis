@@ -74,7 +74,7 @@ namespace AnalysisITC
             DissociationConstantAxis.LegendTitle = "Kd (" + kdunit + ")";
         }
 
-        public void PrepareDraw(CGContext gc, CGPoint center)
+        public override void PrepareDraw(CGContext gc, CGPoint center)
         {
             this.Center = center;
 

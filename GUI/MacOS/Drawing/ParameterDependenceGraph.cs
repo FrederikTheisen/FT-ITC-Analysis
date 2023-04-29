@@ -20,6 +20,9 @@ namespace AnalysisITC
 
         public object Fit { get; set; }
 
+        static public SymbolShape SymbolShape { get; set; } = SymbolShape.Square;
+        static CGSize ErrorBarEndWidth => new CGSize(CGGraph.SymbolSize / 2, 0);
+
         public ParameterDependenceGraph(NSView view)
         {
             View = view;
@@ -40,7 +43,7 @@ namespace AnalysisITC
             YAxis.LegendTitle = YLabel;
         }
 
-        public void PrepareDraw(CGContext gc, CGPoint center)
+        public override void PrepareDraw(CGContext gc, CGPoint center)
         {
             this.Center = center;
 
@@ -92,16 +95,41 @@ namespace AnalysisITC
         {
             var layer = CGLayer.Create(gc, PlotSize);
             var points = new List<CGPoint>();
+            var bars = new CGPath();
 
             for (int i = 0; i < XValues.Length; i++)
             {
                 var x = XValues[i];
                 var y = YValues[i];
+                var p = GetRelativePosition(x, y);
+                points.Add(p);
 
-                points.Add(GetRelativePosition(x, y));
+                var sd = y.SD;
+                var etop = GetRelativePosition(x, y + sd);
+                var ebottom = GetRelativePosition(x, y - sd);
+
+                if (Math.Abs(etop.Y - p.Y) > CGGraph.SymbolSize / 2)
+                {
+                    bars.MoveToPoint(etop);
+                    bars.AddLineToPoint(CGPoint.Add(p, new CGSize(0, CGGraph.SymbolSize / 2)));
+
+                    bars.MoveToPoint(ebottom);
+                    bars.AddLineToPoint(CGPoint.Subtract(p, new CGSize(0, CGGraph.SymbolSize / 2)));
+
+                    bars.MoveToPoint(CGPoint.Subtract(etop, ErrorBarEndWidth));
+                    bars.AddLineToPoint(CGPoint.Add(etop, ErrorBarEndWidth));
+
+                    bars.MoveToPoint(CGPoint.Subtract(ebottom, ErrorBarEndWidth));
+                    bars.AddLineToPoint(CGPoint.Add(ebottom, ErrorBarEndWidth));
+                }
             }
 
-            DrawSymbolsAtPositions(layer, points.ToArray(), 10, SymbolShape.Square, true, 1, null, 0);
+            layer.Context.SetFillColor(StrokeColor);
+            layer.Context.SetStrokeColor(StrokeColor);
+            layer.Context.SetLineWidth(1);
+            layer.Context.AddPath(bars);
+            layer.Context.StrokePath();
+            DrawSymbolsAtPositions(layer, points.ToArray(), CGGraph.SymbolSize, SymbolShape, true, 1, null, 0);
 
             gc.DrawLayer(layer, Origin);
         }
@@ -117,7 +145,10 @@ namespace AnalysisITC
                     DrawLinearPredictionInterval(gc, f);
                     DrawLinFit(gc, f);
                     break;
-                default: AppEventHandler.DisplayHandledException(new Exception("Unknown fit")); break;
+                case FitWithError f:
+                    DrawFit(gc, f);
+                    break;
+                default: break;
             }
         }
 
@@ -146,6 +177,51 @@ namespace AnalysisITC
             gc.DrawLayer(layer, Frame.Location);
         }
 
+        void DrawFit(CGContext gc, FitWithError fit)
+        {
+            var line = new List<CGPoint>();
+            var top = new List<CGPoint>();
+            var bottom = new List<CGPoint>();
+            var xrange = XAxis.Max - XAxis.Min;
+            var xpoints = new List<double>();
+
+            for (var x = XAxis.Min; x <= XAxis.Max; x += xrange / 15) { xpoints.Add(x); }
+            xpoints.Add(XAxis.Max);
+
+            foreach (var x in xpoints)
+            {
+                var dx = x - fit.ReferenceX;
+                var y = fit.Evaluate(x,0);
+                var e = fit.MinMax(x);
+                var max = e[1];
+                var min = e[0];
+
+                line.Add(new CGPoint(GetRelativePosition(x, y)));
+                top.Add(new CGPoint(GetRelativePosition(x, max)));
+                bottom.Add(new CGPoint(GetRelativePosition(x, min)));
+            }
+
+            bottom.Reverse();
+
+            CGPath path = GetSplineFromPoints(top.ToArray());
+            GetSplineFromPoints(bottom.ToArray(), path);
+
+            var errorlayer = CGLayer.Create(gc, PlotSize);
+            errorlayer.Context.SetFillColor(new CGColor(StrokeColor, .25f));
+            errorlayer.Context.AddPath(path);
+            errorlayer.Context.FillPath();
+
+            CGPath fitpath = GetSplineFromPoints(line.ToArray());
+
+            var fitlayer = CGLayer.Create(gc, PlotSize);
+            fitlayer.Context.SetStrokeColor(StrokeColor);
+            fitlayer.Context.AddPath(fitpath);
+            fitlayer.Context.StrokePath();
+
+            gc.DrawLayer(errorlayer, Frame.Location);
+            gc.DrawLayer(fitlayer, Frame.Location);
+        }
+
         void DrawLinearPredictionInterval(CGContext gc, LinearFitWithError fit)
         {
             var top = new List<CGPoint>();
@@ -159,7 +235,7 @@ namespace AnalysisITC
             foreach (var x in xpoints)
             {
                 var dx = x - fit.ReferenceT;
-                var e = dx * dx * fit.Slope.SD + fit.Intercept.SD;
+                var e = ComputeConfidenceBand(x, XValues, YValues);
                 var val = fit.Slope * dx + fit.Intercept;
                 var max = val + e;
                 var min = val - e;
@@ -179,6 +255,25 @@ namespace AnalysisITC
             layer.Context.FillPath();
 
             gc.DrawLayer(layer, Frame.Location);
+
+            double ComputeConfidenceBand(double x, FloatWithError[] xs, FloatWithError[] ys)
+            {
+                var x0 = xs.Average(x => x.Value);
+                var n = ys.Count();
+                var dx = x - x0;
+                var dx2 = dx * dx;
+
+                var sy = Math.Sqrt(ys.Select(s =>
+                {
+                    var v = s.SD;
+                    return v * v;
+                }).Sum() / (n - 2));
+
+                var sx = xs.Select(x => Math.Pow(x - x0, 2)).Sum() / (n - 2);
+                var t = 1;
+
+                return t * sy * Math.Sqrt(1 + 1 / n + dx2 / sx);
+            }
         }
     }
 }

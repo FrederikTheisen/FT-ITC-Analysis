@@ -37,28 +37,51 @@ namespace AnalysisITC
             switch (Type)
             {
                 case ResultGraphType.Parameters: Graph = new ThermodynamicParameterBarPlot(result, this); break;
-                case ResultGraphType.TemperatureDependence: Graph = new ThermodynamicParameterBarPlot(result, this); break;
+                case ResultGraphType.TemperatureDependence: Graph = new TemperatureDependenceGraph(result, this); break;
             }
 
             Invalidate();
         }
 
-        public void Setup(ProtonationAnalysis protonationAnalysis)
+        public void Setup(ProtonationAnalysis analysis)
         {
             Type = ResultGraphType.ProtonationAnalysis;
 
             Graph = new ParameterDependenceGraph(this)
             {
-                XLabel = "∆*H*{obs} (" + AppSettings.EnergyUnit.ToString() + ")",
-                YLabel = "∆*H*{buffer,protonation} (" + AppSettings.EnergyUnit.ToString() + ")",
-                XValues = protonationAnalysis.DataPoints.Select(dp => new FloatWithError(dp.Item1)).ToArray(),
-                YValues = protonationAnalysis.DataPoints.Select(dp => dp.Item2).ToArray(),
+                YLabel = "∆*H*{obs} (" + AppSettings.EnergyUnit.GetUnit() + ")",
+                XLabel = "∆*H*{buffer,protonation} (" + AppSettings.EnergyUnit.GetUnit() + ")",
+                XValues = analysis.DataPoints.Select(dp => new FloatWithError(dp.Item1)).ToArray(),
+                YValues = analysis.DataPoints.Select(dp => dp.Item2).ToArray(),
                 XScaleFactor = Energy.ScaleFactor(AppSettings.EnergyUnit),
                 YScaleFactor = Energy.ScaleFactor(AppSettings.EnergyUnit),
-                Fit = protonationAnalysis.LinearFitWithError,
+                Fit = analysis.Fit,
             };
 
             (Graph as ParameterDependenceGraph).Setup();
+
+            Invalidate();
+        }
+
+        public void Setup(ElectrostaticsAnalysis analysis)
+        {
+            Type = ResultGraphType.ProtonationAnalysis;
+            var unit = ConcentrationUnitAttribute.FromConc(analysis.DataPoints.Select(dp => dp.Item2.Value).Average());
+
+            Graph = new ParameterDependenceGraph(this)
+            {
+                XLabel = "*Ionic Strength* (mM)",
+                YLabel = "*K*{d} (" + unit.GetName() + ")",
+                XValues = analysis.DataPoints.Select(dp => new FloatWithError(dp.Item1)).ToArray(),
+                YValues = analysis.DataPoints.Select(dp => dp.Item2).ToArray(),
+                XScaleFactor = ConcentrationUnit.mM.GetMod(),
+                YScaleFactor = unit.GetMod(),
+                Fit = analysis.Fit,
+            };
+
+            (Graph as ParameterDependenceGraph).Setup();
+            Graph.XAxis.Min = 0;
+            Graph.XAxis.ValueFactor = ConcentrationUnit.mM.GetMod();
 
             Invalidate();
         }

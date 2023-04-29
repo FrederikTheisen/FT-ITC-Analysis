@@ -76,14 +76,20 @@ namespace AnalysisITC.AppClasses.AnalysisClasses
             var list_ds_conf = new List<double>();
             var list_ds_r = new List<double>();
 
-            for (int i = 0; i < ResultAnalysisController.CalculationIterations; i++)
+            var niter = 5 * ResultAnalysisController.CalculationIterations;
+
+            for (int i = 0; i < niter; i++)
             {
                 var result = Evaluate();
 
                 list_ds_he.Add(result.HydrationEntropy);
                 list_ds_conf.Add(result.ConformationalEntropy);
                 list_ds_r.Add(result.Rvalue);
+
+                ResultAnalysisController.ReportCalculationProgress(i, niter);
             }
+
+            CompletedIterations = list_ds_r.Count;
 
             Result = new SROutput(
                 new FloatWithError(list_ds_he, exact.HydrationEntropy),

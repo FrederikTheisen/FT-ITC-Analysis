@@ -19,17 +19,17 @@ namespace AnalysisITC.AppClasses.AnalysisClasses
             {
                 DataPoints.Add(new Tuple<double, FloatWithError>(
                     ((Buffer)sol.Data.ExperimentOptions.Find(att => att.Key == ModelOptionKey.Buffer).IntValue).GetProtonationEnthalpy(sol.Temp),
-                    new FloatWithError(sol.TotalEnthalpy)));
+                    sol.TotalEnthalpy));
             }
         }
 
         protected override void Calculate()
         {
-            var result = Fit();
+            var result = Analyze();
             var results = new List<FitResult>();
             for (int i = 0; i < ResultAnalysisController.CalculationIterations; i++)
             {
-                results.Add(Fit(witherror: true));
+                results.Add(Analyze(witherror: true));
 
                 ResultAnalysisController.ReportCalculationProgress(i + 1);
 
@@ -41,15 +41,15 @@ namespace AnalysisITC.AppClasses.AnalysisClasses
             BindingEnthalpy = new FloatWithError(results.Select(r => r.BindingEnthalpy), result.BindingEnthalpy).Energy;
             ProtonationChange = new FloatWithError(results.Select(r => r.ProtonationChange), result.ProtonationChange);
 
-            LinearFitWithError = new LinearFitWithError(ProtonationChange, BindingEnthalpy.FloatWithError, 0);
+            base.Fit = new LinearFitWithError(ProtonationChange, BindingEnthalpy.FloatWithError, 0);
         }
 
-        FitResult Fit(bool witherror = false)
+        FitResult Analyze(bool witherror = false)
         {
             var x = DataPoints.Select(dp => dp.Item1).ToArray();
             var y = DataPoints.Select(dp => witherror ? dp.Item2.Sample(Rand) : dp.Item2.Value).ToArray();
 
-            var fit = MathNet.Numerics.Fit.Curve(x, y, (dHbind, n, x) => dHbind - n * x, y.Average(), 0);
+            var fit = MathNet.Numerics.Fit.Curve(x, y, (dHbind, n, x) => dHbind + n * x, y.Average(), 0);
 
             return new FitResult(fit.P0, fit.P1);
         }

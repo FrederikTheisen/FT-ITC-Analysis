@@ -27,7 +27,7 @@ namespace AnalysisITC
             YAxis.LegendTitle = "Thermodynamic parameter (" + AppSettings.EnergyUnit.GetUnit() + "/mol)";
         }
 
-        public void PrepareDraw(CGContext gc, CGPoint center)
+        public override void PrepareDraw(CGContext gc, CGPoint center)
         {
             this.Center = center;
 

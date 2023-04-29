@@ -13,6 +13,12 @@ namespace AnalysisITC
 	partial class AnalysisResultTabViewController
 	{
 		[Outlet]
+		AppKit.NSSegmentedControl ElectrostaticAnalysisModel { get; set; }
+
+		[Outlet]
+		AppKit.NSTextField ElectrostaticAnalysisOutput { get; set; }
+
+		[Outlet]
 		AppKit.NSSegmentedControl EnergyControl { get; set; }
 
 		[Outlet]
@@ -156,6 +162,16 @@ namespace AnalysisITC
 			if (TemperatureDependenceLabel != null) {
 				TemperatureDependenceLabel.Dispose ();
 				TemperatureDependenceLabel = null;
+			}
+
+			if (ElectrostaticAnalysisOutput != null) {
+				ElectrostaticAnalysisOutput.Dispose ();
+				ElectrostaticAnalysisOutput = null;
+			}
+
+			if (ElectrostaticAnalysisModel != null) {
+				ElectrostaticAnalysisModel.Dispose ();
+				ElectrostaticAnalysisModel = null;
 			}
 		}
 	}
