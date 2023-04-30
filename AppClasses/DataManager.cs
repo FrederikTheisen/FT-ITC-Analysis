@@ -12,6 +12,7 @@ namespace AnalysisITC
         public static event EventHandler<ExperimentData> DataDidChange;
         public static event EventHandler<ExperimentData> SelectionDidChange;
         public static event EventHandler<AnalysisResult> AnalysisResultSelected;
+        public static event EventHandler<int[]> RemoveListIndices;
 
         public static AnalysisITCDataSource DataSource { get; private set; }
         public static List<ITCDataContainer> DataSourceContent => DataSource.Content;
@@ -198,10 +199,16 @@ namespace AnalysisITC
         public static void ClearProcessing()
         {
             DeletedDataList.Add(new(DataSourceContent.Where(data => data is AnalysisResult).ToList()));
-
+            var idxs = DataSource.Content
+                .Select((item, index) => new { Item = item, Index = index })
+                .Where(x => x.Item is AnalysisResult)
+                .Select(x => x.Index)
+                .ToArray();
             DataSource.Content.RemoveAll(data => data is AnalysisResult);
 
-            DataDidChange?.Invoke(null, null);
+            //DataDidChange?.Invoke(null, null);
+
+            RemoveListIndices?.Invoke(null, idxs);
         }
 
         public static async void CopySelectedProcessToAll()

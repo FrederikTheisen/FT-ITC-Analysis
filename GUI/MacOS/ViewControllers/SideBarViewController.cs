@@ -40,6 +40,7 @@ namespace AnalysisITC
             DataManager.DataDidChange += OnDataManagerUpdated;
             DataManager.SelectionDidChange += DataManager_SelectionDidChange;
             DataManager.AnalysisResultSelected += DataManager_AnalysisResultSelected;
+            DataManager.RemoveListIndices += DataManager_RemoveListIndices;
 
             ExperimentDataViewCell.ExpandDataButtonClicked += ExperimentDataViewCell_ExpandDataButtonClicked;
             AnalysisResultView.ExpandDataButtonClicked += AnalysisResultView_ExpandDataButtonClicked;
@@ -48,6 +49,8 @@ namespace AnalysisITC
 
             AnalysisITCDataSource.SourceWasSorted += AnalysisITCDataSource_SourceWasSorted;
         }
+
+
 
         private void AnalysisITCDataSource_SourceWasSorted(object sender, EventArgs e)
         {
@@ -105,6 +108,8 @@ namespace AnalysisITC
             TableView.Delegate = del;
         }
 
+
+
         private void OnRowRemoveEvent(object sender, int e)
         {
             //var item = (TableView.Delegate as ExperimentDataDelegate).Source.Content[e];
@@ -113,10 +118,17 @@ namespace AnalysisITC
             TableView.RemoveRows(new NSIndexSet(e), NSTableViewAnimation.SlideLeft);
         }
 
+        private void DataManager_RemoveListIndices(object sender, int[] e)
+        {
+            TableView.RemoveRows(NSIndexSet.FromArray(e), NSTableViewAnimation.SlideLeft);
+        }
+
         private void OnDataViewClicked(object sender, EventArgs e)
         {
             if ((int)TableView.SelectedRow != -1) DataManager.SelectIndex((int)TableView.SelectedRow);
         }
+
+        
 
         #endregion
     }
