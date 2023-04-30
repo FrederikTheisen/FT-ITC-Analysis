@@ -55,7 +55,8 @@ namespace AnalysisITC
                 case "deselectall": return DataManager.DataIsLoaded;
                 case "sortbyname":
                 case "sortbytemp": return DataManager.DataIsLoaded;
-                case "sortbytype": return DataManager.DataIsLoaded && DataManager.Results.Count > 0; 
+                case "sortbytype": return DataManager.DataIsLoaded && DataManager.Results.Count > 0;
+                case "copyattributes": return DataManager.DataIsLoaded && DataManager.SelectedIsData && DataManager.Current.ExperimentOptions.Count > 0;
             }
 
             return true;
@@ -107,6 +108,11 @@ namespace AnalysisITC
                 _ => DataManager.SortMode.Name,
             };
             DataManager.SortContent(mode);
+        }
+
+        partial void CopyAttributesToAll(NSObject sender)
+        {
+            
         }
 
         private void AppDelegate_OpenFileDialog(object sender, EventArgs e)

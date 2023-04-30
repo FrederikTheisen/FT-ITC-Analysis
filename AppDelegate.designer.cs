@@ -17,6 +17,9 @@ namespace AnalysisITC
 		[Action ("ClearProcessingResult:")]
 		partial void ClearProcessingResult (Foundation.NSObject sender);
 
+		[Action ("CopyAttributesToAll:")]
+		partial void CopyAttributesToAll (Foundation.NSObject sender);
+
 		[Action ("DuplicateSelectedData:")]
 		partial void DuplicateSelectedData (Foundation.NSObject sender);
 
