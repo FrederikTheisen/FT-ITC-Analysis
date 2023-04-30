@@ -90,24 +90,6 @@ namespace AnalysisITC
             }
         }
 
-        //public static void RemoveData(ITCDataContainer data)
-        //{
-        //    Console.WriteLine("DM REMOVE: " + data.UniqueID + " " + DataSourceContent.IndexOf(data));
-        //    var idx = DataSource.Content.IndexOf(data);
-        //    var current_selected_item = DataSource.Content[SelectedContentIndex];
-        //    var will_delete_selected = idx == SelectedContentIndex;
-
-        //    DataSource.Content.Remove(data);
-
-        //    if (will_delete_selected) DataDidChange.Invoke(null, null);
-        //    else SelectedContentIndex = DataSource.Content.IndexOf(current_selected_item);
-
-        //    //if (idx >= SelectedContentIndex) SelectedContentIndex--;
-
-        //    //if (!will_delete_selected) SelectIndex(DataSource.Content.IndexOf(current_selected_item));
-        //    //else SelectionDidChange?.Invoke(null, null);
-        //}
-
         public static void RemoveData2(int index)
         {
             DeletedDataList.Add(new ITCDataContainerDeletionLog(DataSource.Content[index]));
@@ -130,24 +112,6 @@ namespace AnalysisITC
             foreach (var data in restoreddata) AddData(data);
             DeletedDataList.Remove(DeletedDataList.Last());
         }
-
-        //internal static void RemoveData(int index)
-        //{
-        //    if (SelectedContentIndex >= index) SelectedContentIndex--;
-
-        //    if (DataSourceContent[index] is ExperimentData)
-        //    {
-        //        int datindex = Data.IndexOf(DataSourceContent[index] as ExperimentData);
-
-        //        if (datindex < SelectedDataIndex) SelectedDataIndex--;
-        //        else if (datindex == SelectedDataIndex) { selectedDataIndex = -1; SelectionDidChange?.Invoke(null, Current); }
-
-        //        DataSourceContent.RemoveAt(index);
-
-        //        DataDidChange.Invoke(null, Current);
-        //    }
-        //    else DataSourceContent.RemoveAt(index);
-        //}
 
         public static void AddData(ITCDataContainer data)
         {
@@ -175,7 +139,7 @@ namespace AnalysisITC
 
         public static void SetAllIncludeState(bool includeall)
         {
-            AppEventHandler.PrintAndLog("Change IncludState: " + includeall.ToString());
+            AppEventHandler.PrintAndLog("Change IncludeState: " + includeall.ToString());
 
             DataSource.SetAllIncludeState(includeall);
         }
@@ -206,9 +170,32 @@ namespace AnalysisITC
                 .ToArray();
             DataSource.Content.RemoveAll(data => data is AnalysisResult);
 
-            //DataDidChange?.Invoke(null, null);
-
             RemoveListIndices?.Invoke(null, idxs);
+        }
+
+        public static void CopySelectedAttributesToAll()
+        {
+            if (Current == null) return;
+
+            var opt = Current.ExperimentOptions;
+            bool clear = false;
+
+            if (Data.Where(d => d != Current).Any(exp => exp.ExperimentOptions.Count > 0))
+            {
+                clear = AppDelegate.PromptOverwrite("Remove and overwrite existing attributes?");
+            }
+
+            foreach (var exp in Data.Where(d => d != Current))
+            {
+                if (clear) exp.ExperimentOptions.Clear();
+
+                foreach (var att in Current.ExperimentOptions)
+                {
+                    if (!clear && exp.ExperimentOptions.Exists(mo => mo.Key == att.Key)) continue;
+
+                    exp.ExperimentOptions.Add(att.Copy());
+                }
+            }
         }
 
         public static async void CopySelectedProcessToAll()

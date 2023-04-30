@@ -112,7 +112,7 @@ namespace AnalysisITC
 
         partial void CopyAttributesToAll(NSObject sender)
         {
-            
+            DataManager.CopySelectedAttributesToAll();
         }
 
         private void AppDelegate_OpenFileDialog(object sender, EventArgs e)
@@ -206,11 +206,22 @@ namespace AnalysisITC
             }
         }
 
-        
-
         public override void WillTerminate(NSNotification notification)
         {
             // Insert code here to tear down your application
+        }
+
+        public static bool PromptOverwrite(string message, string peacebtn = "Keep", string destructbtn = "Overwrite")
+        {
+            var alert = new NSAlert();
+            alert.MessageText = message;
+            alert.AlertStyle = NSAlertStyle.Critical;
+            alert.AddButton(peacebtn);
+            alert.AddButton(destructbtn);
+
+            alert.Buttons[1].HasDestructiveAction = true;
+
+            return (alert.RunModal() == 1001);
         }
     }
 }
