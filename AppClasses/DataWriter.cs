@@ -598,7 +598,7 @@ namespace AnalysisITC
 
             var solution = analysis.Solution;
             var delimiter = ',';
-            var paste = Header();
+            var paste = Header() + Environment.NewLine;
 
             foreach (var data in solution.Solutions)
             {
@@ -613,10 +613,10 @@ namespace AnalysisITC
                     switch (par.Key)
                     {
                         case ParameterType.Nvalue1:
-                        case ParameterType.Nvalue2: paste += par.Value.ToString("F2"); break;
+                        case ParameterType.Nvalue2: paste += par.Value.ToString("F3"); break;
                         case ParameterType.Affinity1:
                         case ParameterType.Affinity2: paste += par.Value.AsDissociationConstant(kdmagnitude, withunit: false); break;
-                        default: paste += new Energy(par.Value).ToString(unit, withunit: false); break;
+                        default: paste += new Energy(par.Value).ToString(unit, formatter: "F2", withunit: false); break;
                     }
                     paste += delimiter;
                 }
@@ -638,10 +638,12 @@ namespace AnalysisITC
 
                 foreach (var par in solution.IndividualModelReportParameters)
                 {
-                    header += ParameterTypeAttribute.TableHeader(par, solution.Solutions[0].ParametersConformingToKey(par).Count > 1, unit, kdmagnitude.GetName()) + delimiter;
+                    var s = ParameterTypeAttribute.TableHeader(par, solution.Solutions[0].ParametersConformingToKey(par).Count > 1, unit, kdmagnitude.GetName());
+
+                    header += s + delimiter + s + "_SD" + delimiter;
                 }
 
-                return header;
+                return header.Substring(0, header.Length - 1);
             }
         }
 
