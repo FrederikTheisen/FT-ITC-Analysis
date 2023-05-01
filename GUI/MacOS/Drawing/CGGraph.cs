@@ -371,10 +371,26 @@ namespace AnalysisITC
 
             var attributedString = new NSAttributedString(s, attr);
 
+            return MeasureString(attributedString, position, ignoreoptical);
+
+            //var size = attributedString.Size;
+
+            //var textLine = new CTLine(attributedString);
+            
+            //if (!ignoreoptical && (position == AxisPosition.Bottom || position == AxisPosition.Right)) size = textLine.GetBounds(CTLineBoundsOptions.UseOpticalBounds).Size;
+            //else size = textLine.GetBounds(CTLineBoundsOptions.UseGlyphPathBounds).Size;
+
+            //textLine.Dispose();
+
+            //return size;
+        }
+
+        public static CGSize MeasureString(NSAttributedString attributedString, AxisPosition position = AxisPosition.Bottom, bool ignoreoptical = true)
+        {
             var size = attributedString.Size;
 
             var textLine = new CTLine(attributedString);
-            
+
             if (!ignoreoptical && (position == AxisPosition.Bottom || position == AxisPosition.Right)) size = textLine.GetBounds(CTLineBoundsOptions.UseOpticalBounds).Size;
             else size = textLine.GetBounds(CTLineBoundsOptions.UseGlyphPathBounds).Size;
 

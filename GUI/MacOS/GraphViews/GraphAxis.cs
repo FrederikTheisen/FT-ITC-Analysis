@@ -370,7 +370,9 @@ namespace AnalysisITC
                 _ => TextAlignment.Center,
             };
 
-            var titlesize = cggraph.DrawString(layer, LegendTitle, point, TitleFont, null, TextAlignment.Center, aln, null, rot);
+            //var titlesize = cggraph.DrawString(layer, LegendTitle, point, TitleFont, null, TextAlignment.Center, aln, null, rot);
+            var atttitle = Utils.MacStrings.FromMarkDownString(LegendTitle, NSFont.FromCTFont(TitleFont), true);
+            var titlesize = cggraph.DrawString2(layer, atttitle, point, horizontalignment: TextAlignment.Center, verticalalignment: aln, null, rot);
 
             gc.DrawLayer(layer, new CGPoint(0, 0));
         }
@@ -392,7 +394,7 @@ namespace AnalysisITC
                 if (_size.Height > ticklabelsize.Height) ticklabelsize.Height = _size.Height;
             }
 
-            var titlesize = string.IsNullOrEmpty(LegendTitle) ? new CGSize(0,0) : CGGraph.MeasureString(LegendTitle, TitleFont, null, Position, false);
+            var titlesize = string.IsNullOrEmpty(LegendTitle) ? new CGSize(0, 0) : CGGraph.MeasureString(Utils.MacStrings.FromMarkDownString(LegendTitle, NSFont.FromCTFont(TitleFont), true), Position, false);
 
             var margin = LabelOffset + TitleOffset;
             margin = margin.AbsoluteValueSize();
