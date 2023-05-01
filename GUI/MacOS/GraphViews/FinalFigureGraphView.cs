@@ -125,7 +125,7 @@ namespace AnalysisITC
 
         public static FinalFigure SetupForExport(ExperimentData experiment)
         {
-            var _ = (new FinalFigure(experiment, new NSView(new CGRect(0, 0, 10, 10)))).PrintBox; //no idea what this does
+            var _ = (new FinalFigure(experiment, new NSView(new CGRect(0, 0, 0, 0)))).PrintBox; //no idea what this does
 
             var _graph = new FinalFigure(experiment, new NSView(_))
             {
