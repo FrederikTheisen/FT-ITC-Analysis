@@ -28,11 +28,14 @@ namespace AnalysisITC
                 _ => 0,
             };
             EnergyUnitControl.SelectSegment(unitnum);
+            TimeUnitControl.SelectSegment((int)FinalFigureGraphView.TimeAxisUnit);
 
             WidthLabel.StringValue = FinalFigureGraphView.Width.ToString("F1") + " cm";
             HeightLabel.StringValue = FinalFigureGraphView.Height.ToString("F1") + " cm";
 
             SanitizeTicks.State = FinalFigureGraphView.SanitizeTicks ? NSCellStateValue.On : NSCellStateValue.Off;
+
+            ShowParametersControl.State = FinalFigureGraphView.DrawFitParameters ? NSCellStateValue.On : NSCellStateValue.Off;
 
             for (int i = 1; i < ParameterDisplayOptionsControl.Items.Length; i++)
             {
@@ -87,6 +90,8 @@ namespace AnalysisITC
             }
 
             FinalFigureGraphView.SanitizeTicks = SanitizeTicks.State == NSCellStateValue.On;
+            FinalFigureGraphView.DrawFitParameters = ShowParametersControl.State == NSCellStateValue.On;
+            FinalFigureGraphView.TimeAxisUnit = (TimeUnit)(int)TimeUnitControl.SelectedSegment;
 
             AppSettings.EnergyUnit = EnergyUnitControl.SelectedSegment == 0 ? EnergyUnit.KiloJoule : EnergyUnit.KCal;
 

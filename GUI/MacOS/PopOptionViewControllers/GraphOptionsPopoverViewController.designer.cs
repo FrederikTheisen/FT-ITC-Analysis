@@ -25,6 +25,12 @@ namespace AnalysisITC
 		AppKit.NSButton SanitizeTicks { get; set; }
 
 		[Outlet]
+		AppKit.NSButton ShowParametersControl { get; set; }
+
+		[Outlet]
+		AppKit.NSSegmentedControl TimeUnitControl { get; set; }
+
+		[Outlet]
 		AppKit.NSTextField WidthLabel { get; set; }
 
 		[Action ("ControlChanged:")]
@@ -35,19 +41,24 @@ namespace AnalysisITC
 		
 		void ReleaseDesignerOutlets ()
 		{
-			if (ParameterDisplayOptionsControl != null) {
-				ParameterDisplayOptionsControl.Dispose ();
-				ParameterDisplayOptionsControl = null;
-			}
-
 			if (EnergyUnitControl != null) {
 				EnergyUnitControl.Dispose ();
 				EnergyUnitControl = null;
 			}
 
+			if (TimeUnitControl != null) {
+				TimeUnitControl.Dispose ();
+				TimeUnitControl = null;
+			}
+
 			if (HeightLabel != null) {
 				HeightLabel.Dispose ();
 				HeightLabel = null;
+			}
+
+			if (ParameterDisplayOptionsControl != null) {
+				ParameterDisplayOptionsControl.Dispose ();
+				ParameterDisplayOptionsControl = null;
 			}
 
 			if (SanitizeTicks != null) {
@@ -58,6 +69,11 @@ namespace AnalysisITC
 			if (WidthLabel != null) {
 				WidthLabel.Dispose ();
 				WidthLabel = null;
+			}
+
+			if (ShowParametersControl != null) {
+				ShowParametersControl.Dispose ();
+				ShowParametersControl = null;
 			}
 		}
 	}
