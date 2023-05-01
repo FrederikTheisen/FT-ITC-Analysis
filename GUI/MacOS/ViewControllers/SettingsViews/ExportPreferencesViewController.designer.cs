@@ -28,6 +28,9 @@ namespace AnalysisITC
 		AppKit.NSTextField FinalFigWidthField { get; set; }
 
 		[Outlet]
+		AppKit.NSButton ShowParameterAsDefaultCheck { get; set; }
+
+		[Outlet]
 		AppKit.NSSegmentedControl UnifyAxesControl { get; set; }
 
 		[Action ("Apply:")]
@@ -47,16 +50,6 @@ namespace AnalysisITC
 		
 		void ReleaseDesignerOutlets ()
 		{
-			if (FinalFigHeightField != null) {
-				FinalFigHeightField.Dispose ();
-				FinalFigHeightField = null;
-			}
-
-			if (FinalFigWidthField != null) {
-				FinalFigWidthField.Dispose ();
-				FinalFigWidthField = null;
-			}
-
 			if (ExportSelectedControl != null) {
 				ExportSelectedControl.Dispose ();
 				ExportSelectedControl = null;
@@ -67,14 +60,29 @@ namespace AnalysisITC
 				ExportSolutionPointsControl = null;
 			}
 
-			if (UnifyAxesControl != null) {
-				UnifyAxesControl.Dispose ();
-				UnifyAxesControl = null;
+			if (FinalFigHeightField != null) {
+				FinalFigHeightField.Dispose ();
+				FinalFigHeightField = null;
 			}
 
 			if (FinalFigParameterDisplayOptions != null) {
 				FinalFigParameterDisplayOptions.Dispose ();
 				FinalFigParameterDisplayOptions = null;
+			}
+
+			if (FinalFigWidthField != null) {
+				FinalFigWidthField.Dispose ();
+				FinalFigWidthField = null;
+			}
+
+			if (UnifyAxesControl != null) {
+				UnifyAxesControl.Dispose ();
+				UnifyAxesControl = null;
+			}
+
+			if (ShowParameterAsDefaultCheck != null) {
+				ShowParameterAsDefaultCheck.Dispose ();
+				ShowParameterAsDefaultCheck = null;
 			}
 		}
 	}

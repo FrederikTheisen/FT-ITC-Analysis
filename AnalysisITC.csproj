@@ -182,6 +182,8 @@
     <Folder Include="AppClasses\Analysis2\Models\" />
     <Folder Include="AppClasses\DataClasses\" />
     <Folder Include="AppClasses\AnalysisClasses\ResultAnalysis\" />
+    <Folder Include="GUI\MacOS\ViewControllers\SettingsViews\" />
+    <Folder Include="GUI\MacOS\ViewControllers\MainViews\" />
   </ItemGroup>
   <ItemGroup>
     <None Include="Info.plist" />
@@ -222,19 +224,7 @@
     <Compile Include="GUI\MacOS\Drawing\CGGraph.cs" />
     <Compile Include="GUI\MacOS\Drawing\NSGraph.cs" />
     <Compile Include="GUI\MacOS\GraphViews\GraphAxis.cs" />
-    <Compile Include="GUI\MacOS\ViewControllers\DataAnalysisViewController.cs" />
-    <Compile Include="GUI\MacOS\ViewControllers\DataAnalysisViewController.designer.cs">
-      <DependentUpon>DataAnalysisViewController.cs</DependentUpon>
-    </Compile>
-    <Compile Include="GUI\MacOS\ViewControllers\DataProcessingViewControllet.cs" />
-    <Compile Include="GUI\MacOS\ViewControllers\DataProcessingViewControllet.designer.cs">
-      <DependentUpon>DataProcessingViewControllet.cs</DependentUpon>
-    </Compile>
     <Compile Include="GUI\MacOS\Drawing\FinalFigure.cs" />
-    <Compile Include="GUI\MacOS\ViewControllers\ViewController.cs" />
-    <Compile Include="GUI\MacOS\ViewControllers\ViewController.designer.cs">
-      <DependentUpon>ViewController.cs</DependentUpon>
-    </Compile>
     <Compile Include="GUI\MacOS\ViewControllers\SideBarViewController.cs" />
     <Compile Include="GUI\MacOS\ViewControllers\SideBarViewController.designer.cs">
       <DependentUpon>SideBarViewController.cs</DependentUpon>
@@ -293,14 +283,6 @@
     <Compile Include="GUI\MacOS\PopOptionViewControllers\BindingAnalysisViewController.designer.cs">
       <DependentUpon>BindingAnalysisViewController.cs</DependentUpon>
     </Compile>
-    <Compile Include="GUI\MacOS\ViewControllers\AnalysisResultTabViewController.cs" />
-    <Compile Include="GUI\MacOS\ViewControllers\AnalysisResultTabViewController.designer.cs">
-      <DependentUpon>AnalysisResultTabViewController.cs</DependentUpon>
-    </Compile>
-    <Compile Include="GUI\MacOS\ViewControllers\FinalFigureViewController.cs" />
-    <Compile Include="GUI\MacOS\ViewControllers\FinalFigureViewController.designer.cs">
-      <DependentUpon>FinalFigureViewController.cs</DependentUpon>
-    </Compile>
     <Compile Include="GUI\MacOS\TabControllerView.cs" />
     <Compile Include="GUI\MacOS\TabControllerView.designer.cs">
       <DependentUpon>TabControllerView.cs</DependentUpon>
@@ -347,24 +329,8 @@
     <Compile Include="GUI\MacOS\Drawing\ThermodynamicParameterBarPlot.cs" />
     <Compile Include="AppClasses\Analysis2\Models\OneSetOfSites.cs" />
     <Compile Include="AppClasses\Analysis2\Models\TwoSetsOfSites.cs" />
-    <Compile Include="GUI\MacOS\ViewControllers\PreferencesViewController.cs" />
-    <Compile Include="GUI\MacOS\ViewControllers\PreferencesViewController.designer.cs">
-        <DependentUpon>PreferencesViewController.cs</DependentUpon>
-    </Compile>
     <Compile Include="GUI\AppColors.cs" />
     <Compile Include="GUI\MacOS\MacColors.cs" />
-    <Compile Include="GUI\MacOS\ViewControllers\ExportPreferencesViewController.cs" />
-    <Compile Include="GUI\MacOS\ViewControllers\ExportPreferencesViewController.designer.cs">
-        <DependentUpon>ExportPreferencesViewController.cs</DependentUpon>
-    </Compile>
-    <Compile Include="GUI\MacOS\ViewControllers\FittingPreferencesViewController.cs" />
-    <Compile Include="GUI\MacOS\ViewControllers\FittingPreferencesViewController.designer.cs">
-        <DependentUpon>FittingPreferencesViewController.cs</DependentUpon>
-    </Compile>
-    <Compile Include="GUI\MacOS\ViewControllers\GeneralSettingsViewController.cs" />
-    <Compile Include="GUI\MacOS\ViewControllers\GeneralSettingsViewController.designer.cs">
-        <DependentUpon>GeneralSettingsViewController.cs</DependentUpon>
-    </Compile>
     <Compile Include="AppWindow.cs" />
     <Compile Include="AppWindow.designer.cs">
       <DependentUpon>AppWindow.cs</DependentUpon>
@@ -430,6 +396,42 @@
     <Compile Include="AppClasses\AnalysisClasses\ResultAnalysis\ElectrostaticsAnalysis.cs" />
     <Compile Include="AppClasses\AnalysisClasses\ResultAnalysis\ProtonationAnalysis.cs" />
     <Compile Include="AppClasses\AnalysisClasses\ResultAnalysis\SpolarRecordAnalysis.cs" />
+    <Compile Include="GUI\MacOS\ViewControllers\SettingsViews\FittingPreferencesViewController.cs" />
+    <Compile Include="GUI\MacOS\ViewControllers\SettingsViews\FittingPreferencesViewController.designer.cs">
+      <DependentUpon>FittingPreferencesViewController.cs</DependentUpon>
+    </Compile>
+    <Compile Include="GUI\MacOS\ViewControllers\SettingsViews\GeneralSettingsViewController.cs" />
+    <Compile Include="GUI\MacOS\ViewControllers\SettingsViews\GeneralSettingsViewController.designer.cs">
+      <DependentUpon>GeneralSettingsViewController.cs</DependentUpon>
+    </Compile>
+    <Compile Include="GUI\MacOS\ViewControllers\SettingsViews\ExportPreferencesViewController.cs" />
+    <Compile Include="GUI\MacOS\ViewControllers\SettingsViews\ExportPreferencesViewController.designer.cs">
+      <DependentUpon>ExportPreferencesViewController.cs</DependentUpon>
+    </Compile>
+    <Compile Include="GUI\MacOS\ViewControllers\SettingsViews\PreferencesViewController.cs" />
+    <Compile Include="GUI\MacOS\ViewControllers\SettingsViews\PreferencesViewController.designer.cs">
+      <DependentUpon>PreferencesViewController.cs</DependentUpon>
+    </Compile>
+    <Compile Include="GUI\MacOS\ViewControllers\MainViews\AnalysisResultTabViewController.cs" />
+    <Compile Include="GUI\MacOS\ViewControllers\MainViews\AnalysisResultTabViewController.designer.cs">
+      <DependentUpon>AnalysisResultTabViewController.cs</DependentUpon>
+    </Compile>
+    <Compile Include="GUI\MacOS\ViewControllers\MainViews\DataAnalysisViewController.cs" />
+    <Compile Include="GUI\MacOS\ViewControllers\MainViews\DataAnalysisViewController.designer.cs">
+      <DependentUpon>DataAnalysisViewController.cs</DependentUpon>
+    </Compile>
+    <Compile Include="GUI\MacOS\ViewControllers\MainViews\DataProcessingViewControllet.cs" />
+    <Compile Include="GUI\MacOS\ViewControllers\MainViews\DataProcessingViewControllet.designer.cs">
+      <DependentUpon>DataProcessingViewControllet.cs</DependentUpon>
+    </Compile>
+    <Compile Include="GUI\MacOS\ViewControllers\MainViews\ViewController.cs" />
+    <Compile Include="GUI\MacOS\ViewControllers\MainViews\ViewController.designer.cs">
+      <DependentUpon>ViewController.cs</DependentUpon>
+    </Compile>
+    <Compile Include="GUI\MacOS\ViewControllers\MainViews\FinalFigureViewController.cs" />
+    <Compile Include="GUI\MacOS\ViewControllers\MainViews\FinalFigureViewController.designer.cs">
+      <DependentUpon>FinalFigureViewController.cs</DependentUpon>
+    </Compile>
   </ItemGroup>
   <ItemGroup>
     <InterfaceDefinition Include="Main.storyboard" />
