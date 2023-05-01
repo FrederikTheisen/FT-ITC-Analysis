@@ -20,6 +20,31 @@ namespace AnalysisITC.Utils
             return s;
         }
 
+        static NSMutableAttributedString BoldText(string str, NSFont font)
+        {
+            var s = new NSMutableAttributedString(str);
+            s.AddAttributes(new NSStringAttributes { Font = font }, new NSRange(0, s.Length));
+            s.ApplyFontTraits(NSFontTraitMask.Bold, new NSRange(0, s.Length));
+            return s;
+        }
+
+        static NSMutableAttributedString Header1Text(string str, NSFont font)
+        {
+            var s = new NSMutableAttributedString(str);
+            s.AddAttributes(new NSStringAttributes { Font = font }, new NSRange(0, s.Length));
+            s.ApplyFontTraits(NSFontTraitMask.Bold, new NSRange(0, s.Length));
+            return s;
+        }
+
+        static NSMutableAttributedString Header2Text(string str, NSFont font)
+        {
+            var s = new NSMutableAttributedString(str);
+            font = NSFont.FromDescription(font.FontDescriptor, font.PointSize * 2f);
+            s.AddAttributes(new NSStringAttributes { Font = font}, new NSRange(0, s.Length));
+            s.ApplyFontTraits(NSFontTraitMask.Bold, new NSRange(0, s.Length));
+            return s;
+        }
+
         static NSMutableAttributedString SubscriptText(string str, NSFont font)
         {
             var s = new NSMutableAttributedString(str);
@@ -76,7 +101,10 @@ namespace AnalysisITC.Utils
                     default:
                     case MarkdownProperty.Plain: attstr.Append(PlainText(segment.Text, font)); break;
                     case MarkdownProperty.Cursive: attstr.Append(CursiveText(segment.Text, font)); break;
+                    case MarkdownProperty.Bold: attstr.Append(BoldText(segment.Text, font)); break;
                     case MarkdownProperty.Subscript: attstr.Append(SubscriptText(segment.Text, font)); break;
+                    case MarkdownProperty.Header1: attstr.Append(Header1Text(segment.Text, font)); break;
+                    case MarkdownProperty.Header2: attstr.Append(Header2Text(segment.Text, font)); break;
                 }
             }
             if (iscg) attstr.AddAttributes(new CoreText.CTStringAttributes() //Necessary for correct textbox text color...

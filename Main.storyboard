@@ -86,7 +86,7 @@
         <scene sceneID="zDT-51-XIs">
             <objects>
                 <viewController id="NPg-FK-jG9" customClass="GeneralSettingsViewController" sceneMemberID="viewController">
-                    <stackView key="view" distribution="fill" orientation="vertical" alignment="leading" horizontalStackHuggingPriority="1000" verticalStackHuggingPriority="1000" verticalCompressionResistancePriority="1000" misplaced="YES" detachesHiddenViews="YES" translatesAutoresizingMaskIntoConstraints="NO" id="zBa-ds-fuX">
+                    <stackView key="view" distribution="fill" orientation="vertical" alignment="leading" horizontalStackHuggingPriority="1000" verticalStackHuggingPriority="1000" verticalCompressionResistancePriority="1000" detachesHiddenViews="YES" translatesAutoresizingMaskIntoConstraints="NO" id="zBa-ds-fuX">
                         <rect key="frame" x="0.0" y="0.0" width="519" height="377"/>
                         <subviews>
                             <textField verticalHuggingPriority="1000" verticalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="ell-kv-J0Y">
@@ -3123,7 +3123,7 @@ In most cases, interpretation of affinities provided by ITC is straightforward, 
                                                             <rect key="frame" x="5" y="59" width="368" height="0.0"/>
                                                         </stackView>
                                                         <box horizontalHuggingPriority="249" verticalHuggingPriority="750" boxType="separator" translatesAutoresizingMaskIntoConstraints="NO" id="u0M-42-t8m">
-                                                            <rect key="frame" x="5" y="31" width="368" height="5"/>
+                                                            <rect key="frame" x="5" y="52" width="368" height="5"/>
                                                         </box>
                                                         <stackView distribution="fill" orientation="vertical" alignment="leading" spacing="4" horizontalStackHuggingPriority="250" verticalStackHuggingPriority="1000" detachesHiddenViews="YES" translatesAutoresizingMaskIntoConstraints="NO" id="24i-gR-XOS">
                                                             <rect key="frame" x="5" y="29" width="368" height="0.0"/>
@@ -8999,18 +8999,144 @@ Electrostatic interaction strength:</string>
                                                     <rect key="frame" x="10" y="33" width="364" height="320"/>
                                                     <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
                                                     <subviews>
-                                                        <button verticalHuggingPriority="750" fixedFrame="YES" translatesAutoresizingMaskIntoConstraints="NO" id="zWS-Qe-kTT">
-                                                            <rect key="frame" x="145" y="150" width="75" height="32"/>
-                                                            <autoresizingMask key="autoresizingMask" flexibleMinX="YES" flexibleMaxX="YES" flexibleMinY="YES" flexibleMaxY="YES"/>
-                                                            <buttonCell key="cell" type="push" title="Button" bezelStyle="rounded" alignment="center" borderStyle="border" imageScaling="proportionallyDown" inset="2" id="TCZ-i0-CrZ">
-                                                                <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
-                                                                <font key="font" metaFont="system"/>
-                                                            </buttonCell>
-                                                            <connections>
-                                                                <action selector="PerformProtonationAnalysis:" target="wjC-R6-hB8" id="eBc-Os-h1g"/>
-                                                            </connections>
-                                                        </button>
+                                                        <stackView distribution="fill" orientation="vertical" alignment="leading" spacing="5" horizontalStackHuggingPriority="750" verticalStackHuggingPriority="750" detachesHiddenViews="YES" translatesAutoresizingMaskIntoConstraints="NO" id="WII-WH-maG">
+                                                            <rect key="frame" x="0.0" y="0.0" width="364" height="320"/>
+                                                            <subviews>
+                                                                <textField horizontalHuggingPriority="249" verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="k4q-1S-Ela">
+                                                                    <rect key="frame" x="3" y="304" width="358" height="16"/>
+                                                                    <textFieldCell key="cell" lineBreakMode="clipping" alignment="center" title="Protonation Analysis" id="gTh-eL-qgi">
+                                                                        <font key="font" textStyle="headline" name=".SFNS-Bold"/>
+                                                                        <color key="textColor" name="labelColor" catalog="System" colorSpace="catalog"/>
+                                                                        <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
+                                                                    </textFieldCell>
+                                                                </textField>
+                                                                <box verticalHuggingPriority="750" boxType="separator" translatesAutoresizingMaskIntoConstraints="NO" id="Ijg-pk-6kj">
+                                                                    <rect key="frame" x="5" y="296" width="354" height="5"/>
+                                                                </box>
+                                                                <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="250" translatesAutoresizingMaskIntoConstraints="NO" id="xFW-Uq-U0N">
+                                                                    <rect key="frame" x="3" y="209" width="358" height="84"/>
+                                                                    <textFieldCell key="cell" alignment="left" id="edf-1Y-fTA">
+                                                                        <font key="font" metaFont="smallSystem"/>
+                                                                        <string key="title">The ionic strength dependence of a protein-protein interaction affinity provides insight into the electrostatic interactions between the molecules, including their effective charges and sizes. This information is important for understanding the mechanisms of protein-protein interactions and designing strategies to modulate or disrupt them.</string>
+                                                                        <color key="textColor" name="labelColor" catalog="System" colorSpace="catalog"/>
+                                                                        <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
+                                                                    </textFieldCell>
+                                                                </textField>
+                                                                <box verticalHuggingPriority="750" boxType="separator" translatesAutoresizingMaskIntoConstraints="NO" id="goU-mA-0K7">
+                                                                    <rect key="frame" x="5" y="201" width="354" height="5"/>
+                                                                </box>
+                                                                <stackView distribution="fill" orientation="horizontal" alignment="firstBaseline" horizontalStackHuggingPriority="250" verticalStackHuggingPriority="750" detachesHiddenViews="YES" translatesAutoresizingMaskIntoConstraints="NO" id="zB5-Si-H9A">
+                                                                    <rect key="frame" x="5" y="178" width="354" height="20"/>
+                                                                    <subviews>
+                                                                        <textField horizontalHuggingPriority="249" verticalHuggingPriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="9d4-gg-JVF">
+                                                                            <rect key="frame" x="-2" y="3" width="171" height="16"/>
+                                                                            <textFieldCell key="cell" lineBreakMode="clipping" title="Model" id="yjJ-Iv-HkY">
+                                                                                <font key="font" metaFont="system"/>
+                                                                                <color key="textColor" name="labelColor" catalog="System" colorSpace="catalog"/>
+                                                                                <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
+                                                                            </textFieldCell>
+                                                                        </textField>
+                                                                        <segmentedControl verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="CfI-qu-tDD">
+                                                                            <rect key="frame" x="174" y="-2" width="181" height="23"/>
+                                                                            <segmentedCell key="cell" borderStyle="border" alignment="left" style="capsule" trackingMode="selectOne" id="sqU-TL-zmO">
+                                                                                <font key="font" metaFont="system"/>
+                                                                                <segments>
+                                                                                    <segment label="Debye-Hückel" toolTip="Use this settings for interactions involving two folded proteins." selected="YES"/>
+                                                                                    <segment label="Exponential" toolTip="Select this if one protein is severily unfolded, but cannot be described as intrinsically disordered." tag="1"/>
+                                                                                </segments>
+                                                                            </segmentedCell>
+                                                                        </segmentedControl>
+                                                                    </subviews>
+                                                                    <visibilityPriorities>
+                                                                        <integer value="1000"/>
+                                                                        <integer value="1000"/>
+                                                                    </visibilityPriorities>
+                                                                    <customSpacing>
+                                                                        <real value="3.4028234663852886e+38"/>
+                                                                        <real value="3.4028234663852886e+38"/>
+                                                                    </customSpacing>
+                                                                </stackView>
+                                                                <button horizontalHuggingPriority="249" verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="WnE-xr-lh2">
+                                                                    <rect key="frame" x="-2" y="146" width="368" height="32"/>
+                                                                    <buttonCell key="cell" type="push" title="Calculate" bezelStyle="rounded" alignment="center" borderStyle="border" imageScaling="proportionallyDown" inset="2" id="RvQ-P0-AYY">
+                                                                        <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
+                                                                        <font key="font" metaFont="system"/>
+                                                                    </buttonCell>
+                                                                    <connections>
+                                                                        <action selector="PerformProtonationAnalysis:" target="wjC-R6-hB8" id="d5D-Xw-dCP"/>
+                                                                    </connections>
+                                                                </button>
+                                                                <textField horizontalHuggingPriority="249" verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="nQR-nr-fZi">
+                                                                    <rect key="frame" x="3" y="134" width="358" height="14"/>
+                                                                    <textFieldCell key="cell" controlSize="small" lineBreakMode="clipping" alignment="center" title="Protonation analysis output" id="Ex4-jq-OhN">
+                                                                        <font key="font" metaFont="smallSystemBold"/>
+                                                                        <color key="textColor" name="labelColor" catalog="System" colorSpace="catalog"/>
+                                                                        <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
+                                                                    </textFieldCell>
+                                                                </textField>
+                                                                <stackView distribution="fill" orientation="horizontal" alignment="top" spacing="0.0" horizontalStackHuggingPriority="249.99998474121094" verticalStackHuggingPriority="249.99998474121094" verticalHuggingPriority="750" detachesHiddenViews="YES" translatesAutoresizingMaskIntoConstraints="NO" id="jkQ-4x-xD9">
+                                                                    <rect key="frame" x="5" y="0.0" width="354" height="129"/>
+                                                                    <subviews>
+                                                                        <textField horizontalHuggingPriority="251" verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="FmC-HQ-SfI">
+                                                                            <rect key="frame" x="-2" y="101" width="159" height="28"/>
+                                                                            <textFieldCell key="cell" controlSize="small" selectable="YES" alignment="left" allowsEditingTextAttributes="YES" id="Qkc-Cm-0HD">
+                                                                                <font key="font" metaFont="smallSystem"/>
+                                                                                <string key="title">Protein proton change:
+∆H at 0 protonation enthalpy:</string>
+                                                                                <color key="textColor" name="labelColor" catalog="System" colorSpace="catalog"/>
+                                                                                <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
+                                                                            </textFieldCell>
+                                                                        </textField>
+                                                                        <textField horizontalHuggingPriority="249" horizontalCompressionResistancePriority="250" translatesAutoresizingMaskIntoConstraints="NO" id="rdK-3I-e8A">
+                                                                            <rect key="frame" x="153" y="101" width="203" height="28"/>
+                                                                            <textFieldCell key="cell" controlSize="small" selectable="YES" alignment="right" id="OzU-DH-bOf">
+                                                                                <font key="font" metaFont="smallSystem"/>
+                                                                                <string key="title">---
+---</string>
+                                                                                <color key="textColor" name="labelColor" catalog="System" colorSpace="catalog"/>
+                                                                                <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
+                                                                            </textFieldCell>
+                                                                        </textField>
+                                                                    </subviews>
+                                                                    <visibilityPriorities>
+                                                                        <integer value="1000"/>
+                                                                        <integer value="1000"/>
+                                                                    </visibilityPriorities>
+                                                                    <customSpacing>
+                                                                        <real value="3.4028234663852886e+38"/>
+                                                                        <real value="3.4028234663852886e+38"/>
+                                                                    </customSpacing>
+                                                                </stackView>
+                                                            </subviews>
+                                                            <edgeInsets key="edgeInsets" left="5" right="5" top="0.0" bottom="0.0"/>
+                                                            <visibilityPriorities>
+                                                                <integer value="1000"/>
+                                                                <integer value="1000"/>
+                                                                <integer value="1000"/>
+                                                                <integer value="1000"/>
+                                                                <integer value="1000"/>
+                                                                <integer value="1000"/>
+                                                                <integer value="1000"/>
+                                                                <integer value="1000"/>
+                                                            </visibilityPriorities>
+                                                            <customSpacing>
+                                                                <real value="3.4028234663852886e+38"/>
+                                                                <real value="3.4028234663852886e+38"/>
+                                                                <real value="3.4028234663852886e+38"/>
+                                                                <real value="3.4028234663852886e+38"/>
+                                                                <real value="3.4028234663852886e+38"/>
+                                                                <real value="3.4028234663852886e+38"/>
+                                                                <real value="3.4028234663852886e+38"/>
+                                                                <real value="3.4028234663852886e+38"/>
+                                                            </customSpacing>
+                                                        </stackView>
                                                     </subviews>
+                                                    <constraints>
+                                                        <constraint firstItem="WII-WH-maG" firstAttribute="leading" secondItem="EIw-pg-mSr" secondAttribute="leading" id="5dW-QV-8MK"/>
+                                                        <constraint firstAttribute="trailing" secondItem="WII-WH-maG" secondAttribute="trailing" id="Rvc-7u-7FC"/>
+                                                        <constraint firstItem="WII-WH-maG" firstAttribute="top" secondItem="EIw-pg-mSr" secondAttribute="top" id="SX3-6F-9a1"/>
+                                                        <constraint firstAttribute="bottom" secondItem="WII-WH-maG" secondAttribute="bottom" id="f0q-f1-sG7"/>
+                                                    </constraints>
                                                 </view>
                                             </tabViewItem>
                                         </tabViewItems>
@@ -10563,7 +10689,7 @@ DQ
         <scene sceneID="GX4-XT-c59">
             <objects>
                 <viewController id="QzD-9A-jIg" customClass="ExportPreferencesViewController" sceneMemberID="viewController">
-                    <stackView key="view" distribution="fill" orientation="vertical" alignment="leading" horizontalStackHuggingPriority="1000" verticalStackHuggingPriority="1000" verticalCompressionResistancePriority="1000" misplaced="YES" detachesHiddenViews="YES" translatesAutoresizingMaskIntoConstraints="NO" id="PFo-He-PIX">
+                    <stackView key="view" distribution="fill" orientation="vertical" alignment="leading" horizontalStackHuggingPriority="1000" verticalStackHuggingPriority="1000" verticalCompressionResistancePriority="1000" detachesHiddenViews="YES" translatesAutoresizingMaskIntoConstraints="NO" id="PFo-He-PIX">
                         <rect key="frame" x="0.0" y="0.0" width="549" height="339"/>
                         <subviews>
                             <textField horizontalHuggingPriority="249" verticalHuggingPriority="1000" verticalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="svo-OF-KcU">
