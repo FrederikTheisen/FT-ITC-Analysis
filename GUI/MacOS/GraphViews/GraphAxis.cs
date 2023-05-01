@@ -312,7 +312,7 @@ namespace AnalysisITC
 
         void DrawTickLabels(CGContext gc, List<CGPoint> ticks, List<double> tickvalues)
         {
-            CGLayer layer = CGLayer.Create(gc, cggraph.View.Frame.Size + new CGSize(20, 0));
+            CGLayer layer = CGLayer.Create(gc, cggraph.View.Frame.Size + new CGSize(-cggraph.View.Frame.X, 0));
             layer.Context.SetStrokeColor(cggraph.StrokeColor);
             layer.Context.SetFillColor(cggraph.StrokeColor);
 
