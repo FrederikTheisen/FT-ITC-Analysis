@@ -40,11 +40,11 @@ namespace AnalysisITC.GUI.MacOS
 				case ColorSchemes.Floral: theme = Floral; break;
 			}
 
-			switch (AppSettings.ColorShcemeGradientMode)
+			switch (AppSettings.ColorSchemeGradientMode)
 			{
 				default:
-				case ColorShcemeGradientMode.Stepwise: return GetColorFromTheme(theme, index);
-				case ColorShcemeGradientMode.Smooth: return GetColorFromTheme(theme, (float)index / count);
+				case ColorSchemeGradientMode.Stepwise: return GetColorFromTheme(theme, index);
+				case ColorSchemeGradientMode.Smooth: return GetColorFromTheme(theme, (float)index / count);
             }
 		}
 

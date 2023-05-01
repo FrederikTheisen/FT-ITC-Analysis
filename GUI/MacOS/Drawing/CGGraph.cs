@@ -510,6 +510,7 @@ namespace AnalysisITC
             nfloat height = 0;
 
             var attstr_lines = new List<NSAttributedString>();
+            var nsfont = NSFont.FromCTFont(font);
 
             foreach (var line in lines)
             {

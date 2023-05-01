@@ -19,6 +19,7 @@ namespace AnalysisITC
 
             UnifiedPowerAxis.State = FinalFigureGraphView.UnifiedPowerAxis ? NSCellStateValue.On : NSCellStateValue.Off;
             DrawBaseline.State = FinalFigureGraphView.DrawBaseline ? NSCellStateValue.On : NSCellStateValue.Off;
+            DrawCorrected.State = FinalFigureGraphView.DrawBaselineCorrected ? NSCellStateValue.On : NSCellStateValue.Off;
             TimeUnitControl.SelectSegment((int)FinalFigureGraphView.TimeAxisUnit);
 
             if (FinalFigureGraphView.PowerAxisTitleIsChanged) PowerAxisTitleLabel.PlaceholderString = FinalFigureGraphView.PowerAxisTitle;
@@ -36,6 +37,7 @@ namespace AnalysisITC
 
             FinalFigureGraphView.UnifiedPowerAxis = UnifiedPowerAxis.State == NSCellStateValue.On;
             FinalFigureGraphView.DrawBaseline = DrawBaseline.State == NSCellStateValue.On;
+            FinalFigureGraphView.DrawBaselineCorrected = DrawCorrected.State == NSCellStateValue.On;
             FinalFigureGraphView.TimeAxisUnit = (TimeUnit)(int)TimeUnitControl.SelectedSegment;
 
             if (PowerAxisTitleLabel.StringValue.Trim() != "") FinalFigureGraphView.PowerAxisTitle = PowerAxisTitleLabel.StringValue;

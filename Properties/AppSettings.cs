@@ -17,7 +17,7 @@ namespace AnalysisITC
         public static double ReferenceTemperature { get; set; } = 25.0;
         public static EnergyUnit EnergyUnit { get; set; } = EnergyUnit.KiloJoule;
         public static ColorSchemes ColorScheme { get; set; } = ColorSchemes.Default;
-        public static ColorShcemeGradientMode ColorShcemeGradientMode { get; set; } = ColorShcemeGradientMode.Smooth;
+        public static ColorSchemeGradientMode ColorSchemeGradientMode { get; set; } = ColorSchemeGradientMode.Smooth;
         public static ConcentrationUnit DefaultConcentrationUnit { get; set; } = ConcentrationUnit.µM;
 
         private static NSUrl lastDocumentUrl = null;
@@ -47,6 +47,7 @@ namespace AnalysisITC
         //Final figure
         public static double[] FinalFigureDimensions { get; set; } = new double[2] { 6.5, 10.0 };
         public static FinalFigureDisplayParameters FinalFigureParameterDisplay { get; set; } = FinalFigureDisplayParameters.Default;
+        public static bool FinalFigureShowParameterBoxAsDefault { get; set; } = true;
 
         //Export
         public static bool UnifyTimeAxisForExport { get; set; } = true;
@@ -70,7 +71,7 @@ namespace AnalysisITC
             Storage.SetDouble(OptimizerTolerance, "OptimizerTolerance");
             Storage.SetInt(MaximumOptimizerIterations, "MaximumOptimizerIterations");
             Storage.SetInt((int)ColorScheme, "ColorScheme");
-            Storage.SetInt((int)ColorShcemeGradientMode, "ColorShcemeGradientMode");
+            Storage.SetInt((int)ColorSchemeGradientMode, "ColorShcemeGradientMode");
             Storage.SetDouble(ConcentrationAutoVariance, "ConcentrationAutoVariance");
             Storage.SetBool(UnifyTimeAxisForExport, "UnifyTimeAxisForExport");
             Storage.SetBool(ExportFitPointsWithPeaks, "ExportFitPointsWithPeaks");
@@ -85,6 +86,7 @@ namespace AnalysisITC
             Storage.SetBool(BuffersPreparedAtRoomTemperature, "BuffersPreparedAtRoomTemperature");
             Storage.SetInt(NumOfDecimalsToExport, "NumOfDecimalsToExport");
             Storage.SetDouble(MinimumIonSpanForFitting, "MinimumIonSpanForFitting");
+            Storage.SetBool(FinalFigureShowParameterBoxAsDefault, "FinalFigureShowParameterBoxAsDefault");
 
             StoreArray(FinalFigureDimensions, "FinalFigureDimensions");
 
@@ -128,7 +130,7 @@ namespace AnalysisITC
             OptimizerTolerance = GetDouble(dict, "OptimizerTolerance", OptimizerTolerance);
             MaximumOptimizerIterations = GetInt(dict, "MaximumOptimizerIterations", MaximumOptimizerIterations);
             ColorScheme = (ColorSchemes)GetInt(dict, "ColorScheme", (int)ColorScheme);
-            ColorShcemeGradientMode = (ColorShcemeGradientMode)GetInt(dict, "ColorShcemeGradientMode", (int)ColorShcemeGradientMode);
+            ColorSchemeGradientMode = (ColorSchemeGradientMode)GetInt(dict, "ColorShcemeGradientMode", (int)ColorSchemeGradientMode);
             ConcentrationAutoVariance = GetDouble(dict, "ConcentrationAutoVariance", ConcentrationAutoVariance);
             UnifyTimeAxisForExport = GetBool(dict, "UnifyTimeAxisForExport", UnifyTimeAxisForExport);
             ExportFitPointsWithPeaks = GetBool(dict, "ExportFitPointsWithPeaks", ExportFitPointsWithPeaks);
@@ -144,6 +146,7 @@ namespace AnalysisITC
             BuffersPreparedAtRoomTemperature = GetBool(dict, "BuffersPreparedAtRoomTemperature", BuffersPreparedAtRoomTemperature);
             NumOfDecimalsToExport = GetInt(dict, "NumOfDecimalsToExport", NumOfDecimalsToExport);
             MinimumIonSpanForFitting = GetDouble(dict, "MinimumIonSpanForFitting", MinimumIonSpanForFitting);
+            FinalFigureShowParameterBoxAsDefault = GetBool(dict, "FinalFigureShowParameterBoxAsDefault", FinalFigureShowParameterBoxAsDefault);
 
             ApplySettings();
         }
@@ -200,6 +203,7 @@ namespace AnalysisITC
             FittingOptionsController.EnableAutoConcentrationVariance = IsConcentrationAutoVarianceEnabled;
             FinalFigureGraphView.Width = (float)FinalFigureDimensions[0];
             FinalFigureGraphView.Height = (float)FinalFigureDimensions[1];
+            FinalFigureGraphView.DrawFitParameters = FinalFigureShowParameterBoxAsDefault;
         }
     }
 

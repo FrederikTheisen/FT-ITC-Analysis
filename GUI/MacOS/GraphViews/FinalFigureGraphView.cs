@@ -94,6 +94,7 @@ namespace AnalysisITC
 
         public static bool UnifiedPowerAxis { get; set; } = false;
         public static bool DrawBaseline { get; set; } = false;
+        public static bool DrawBaselineCorrected { get; set; } = true;
         public static TimeUnit TimeAxisUnit { get; set; } = TimeUnit.Minute;
 
         public static void Invalidate() => Invalidated?.Invoke(null, null);
@@ -136,6 +137,7 @@ namespace AnalysisITC
                 TimeAxisTitle = TimeAxisTitle,
                 UseUnifiedDataAxes = UnifiedPowerAxis,
                 ShouldDrawBaseline = DrawBaseline,
+                DrawBaselineCorrected = DrawBaselineCorrected,
 
                 EnthalpyAxisTitle = EnthalpyAxisTitle,
                 MolarRatioAxisTitle = MolarRatioAxisTitle,
@@ -219,6 +221,7 @@ namespace AnalysisITC
                 TimeAxisTitle = TimeAxisTitle,
                 UseUnifiedDataAxes = UnifiedPowerAxis,
                 ShouldDrawBaseline = DrawBaseline,
+                DrawBaselineCorrected = DrawBaselineCorrected,
 
                 EnthalpyAxisTitle = EnthalpyAxisTitle,
                 MolarRatioAxisTitle = MolarRatioAxisTitle,

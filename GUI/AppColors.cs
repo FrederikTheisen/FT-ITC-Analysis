@@ -112,7 +112,7 @@ namespace AnalysisITC.GUI
         Floral,
     }
     
-    public enum ColorShcemeGradientMode
+    public enum ColorSchemeGradientMode
     {
         [Description("Only pick defined colors")]
         Stepwise,

@@ -36,6 +36,8 @@ namespace AnalysisITC
             FinalFigParameterDisplayOptions.SetSelected(AppSettings.FinalFigureParameterDisplay.HasFlag(FinalFigureDisplayParameters.Offset), 3);
             FinalFigParameterDisplayOptions.SetSelected(AppSettings.FinalFigureParameterDisplay.HasFlag(FinalFigureDisplayParameters.Temperature), 4);
             FinalFigParameterDisplayOptions.SetSelected(AppSettings.FinalFigureParameterDisplay.HasFlag(FinalFigureDisplayParameters.Concentrations), 5);
+
+            ShowParameterAsDefaultCheck.State = AppSettings.FinalFigureShowParameterBoxAsDefault ? NSCellStateValue.On : NSCellStateValue.Off;
         }
 
         private void ExportPreferencesViewController_ShouldApplySettings(object sender, EventArgs e)
@@ -43,6 +45,7 @@ namespace AnalysisITC
             AppSettings.ExportSelectionMode = (Exporter.ExportDataSelection)(int)ExportSelectedControl.SelectedSegment;
             AppSettings.UnifyTimeAxisForExport = UnifyAxesControl.SelectedSegment == 0;
             AppSettings.ExportFitPointsWithPeaks = ExportSolutionPointsControl.State == NSCellStateValue.On;
+            AppSettings.FinalFigureShowParameterBoxAsDefault = ShowParameterAsDefaultCheck.State == NSCellStateValue.On;
 
             AppSettings.FinalFigureDimensions = new double[] { FinalFigWidthField.DoubleValue, FinalFigHeightField.DoubleValue };
             AppSettings.FinalFigureParameterDisplay = FinalFigureDisplayParameters.None;

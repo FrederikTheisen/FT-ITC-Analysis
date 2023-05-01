@@ -37,7 +37,7 @@ namespace AnalysisITC
 
             ColorScheme = AppSettings.ColorScheme;
             ColorMenu.Items[0].Title = ColorScheme.ToString();
-            ColorThemeModeControl.SelectedSegment = (int)AppSettings.ColorShcemeGradientMode;
+            ColorThemeModeControl.SelectedSegment = (int)AppSettings.ColorSchemeGradientMode;
 
             RefTempField.StringValue = AppSettings.ReferenceTemperature.ToString("F2");
             MinTempSpanSlider.DoubleValue = AppSettings.MinimumTemperatureSpanForFitting;
@@ -100,7 +100,7 @@ namespace AnalysisITC
 
             //Color
             AppSettings.ColorScheme = ColorScheme;
-            AppSettings.ColorShcemeGradientMode = (ColorShcemeGradientMode)(int)ColorThemeModeControl.SelectedSegment;
+            AppSettings.ColorSchemeGradientMode = (ColorSchemeGradientMode)(int)ColorThemeModeControl.SelectedSegment;
 
             //Fitting
             AppSettings.DefaultErrorEstimationMethod = (ErrorEstimationMethod)(int)DefaultErrorMethodControl.SelectedSegment;

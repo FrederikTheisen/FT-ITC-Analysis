@@ -16,6 +16,9 @@ namespace AnalysisITC
 		AppKit.NSButton DrawBaseline { get; set; }
 
 		[Outlet]
+		AppKit.NSButton DrawCorrected { get; set; }
+
+		[Outlet]
 		AppKit.NSTextField PowerAxisTitleLabel { get; set; }
 
 		[Outlet]
@@ -49,6 +52,11 @@ namespace AnalysisITC
 				DrawBaseline = null;
 			}
 
+			if (DrawCorrected != null) {
+				DrawCorrected.Dispose ();
+				DrawCorrected = null;
+			}
+
 			if (PowerAxisTitleLabel != null) {
 				PowerAxisTitleLabel.Dispose ();
 				PowerAxisTitleLabel = null;
@@ -69,24 +77,24 @@ namespace AnalysisITC
 				UnifiedPowerAxis = null;
 			}
 
-			if (XTickStepper != null) {
-				XTickStepper.Dispose ();
-				XTickStepper = null;
-			}
-
-			if (YTickStepper != null) {
-				YTickStepper.Dispose ();
-				YTickStepper = null;
-			}
-
 			if (XTickLabel != null) {
 				XTickLabel.Dispose ();
 				XTickLabel = null;
 			}
 
+			if (XTickStepper != null) {
+				XTickStepper.Dispose ();
+				XTickStepper = null;
+			}
+
 			if (YTickLabel != null) {
 				YTickLabel.Dispose ();
 				YTickLabel = null;
+			}
+
+			if (YTickStepper != null) {
+				YTickStepper.Dispose ();
+				YTickStepper = null;
 			}
 		}
 	}

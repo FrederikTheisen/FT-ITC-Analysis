@@ -36,10 +36,11 @@ namespace AnalysisITC
 
             AppSettings.DefaultConcentrationUnit = (ConcentrationUnit)(int)ConcentrationUnitControl.SelectedSegment;
             AppSettings.MinimumTemperatureSpanForFitting = MinTempSpanSlider.DoubleValue;
+            AppSettings.MinimumIonSpanForFitting = MinSaltSpanSlider.DoubleValue / 1000;
 
             //Color
             AppSettings.ColorScheme = ColorScheme;
-            AppSettings.ColorShcemeGradientMode = (ColorShcemeGradientMode)(int)ColorGradientControl.SelectedSegment;
+            AppSettings.ColorSchemeGradientMode = (ColorSchemeGradientMode)(int)ColorGradientControl.SelectedSegment;
         }
 
         public override void ViewDidLoad()
@@ -58,13 +59,15 @@ namespace AnalysisITC
 
             ColorScheme = AppSettings.ColorScheme;
             ColorMenu.Items[0].Title = ColorScheme.ToString();
-            ColorGradientControl.SelectedSegment = (int)AppSettings.ColorShcemeGradientMode;
+            ColorGradientControl.SelectedSegment = (int)AppSettings.ColorSchemeGradientMode;
 
             EnergyUnitControl.SelectedSegment = AppSettings.EnergyUnit.IsSI() ? 0 : 1;
             ConcentrationUnitControl.SelectedSegment = (int)AppSettings.DefaultConcentrationUnit;
             RefTempField.StringValue = AppSettings.ReferenceTemperature.ToString("F2");
             MinTempSpanSlider.DoubleValue = AppSettings.MinimumTemperatureSpanForFitting;
             MinTempSpanField.DoubleValue = AppSettings.MinimumTemperatureSpanForFitting;
+            MinSaltSpanSlider.DoubleValue = 1000 * AppSettings.MinimumIonSpanForFitting;
+            MinSaltSpanField.DoubleValue = 1000 * AppSettings.MinimumIonSpanForFitting;
         }
 
         private void ColorMenuHandler(NSMenuItem sender, ColorSchemes e)

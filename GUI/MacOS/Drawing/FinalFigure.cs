@@ -109,6 +109,12 @@ namespace AnalysisITC
             set => DataGraph.ShowBaseline = value;
         }
 
+        public bool DrawBaselineCorrected
+        {
+            get => DataGraph.ShowBaselineCorrected;
+            set => DataGraph.ShowBaselineCorrected = value;
+        }
+
         public CGGraph.SymbolShape SymbolShape
         {
             get => IntegrationGraph.SymbolShape;

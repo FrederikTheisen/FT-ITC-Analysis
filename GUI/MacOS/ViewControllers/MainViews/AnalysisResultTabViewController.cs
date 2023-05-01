@@ -90,6 +90,8 @@ namespace AnalysisITC
 
             SetupAnalyisResultView(sender);
 
+            SetupGraphView(DisplayedGraphType);
+
             Graph.Invalidate();
 
             ToggleFitButtons(true);
