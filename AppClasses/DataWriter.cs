@@ -592,16 +592,21 @@ namespace AnalysisITC
             return lines;
         }
 
-        public static void CopyToClipboard(GlobalSolution solution, ConcentrationUnit kdmagnitude, EnergyUnit unit, bool usekelvin)
+        public static void CopyToClipboard(AnalysisResult analysis, ConcentrationUnit kdmagnitude, EnergyUnit unit, bool usekelvin)
         {
             NSPasteboard.GeneralPasteboard.ClearContents();
 
-            string paste = "";
+            var solution = analysis.Solution;
+            var paste = "";
 
             foreach (var data in solution.Solutions)
             {
                 paste += data.Data.FileName + " ";
                 paste += (usekelvin ? data.TempKelvin : data.Temp).ToString("F2") + " ";
+
+                if (analysis.IsElectrostaticsAnalysisDependenceEnabled) paste += (1000 * BufferAttribute.GetIonicStrength(data.Data)).ToString("F2") + " ";
+                if (analysis.IsProtonationAnalysisEnabled) paste += BufferAttribute.GetProtonationEnthalpy(data.Data).ToString(unit, formatter: "F2", withunit: false) + " ";
+
                 foreach (var par in data.ReportParameters)
                 {
                     switch (par.Key)

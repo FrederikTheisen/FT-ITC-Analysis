@@ -68,7 +68,7 @@ namespace AnalysisITC
 
         partial void CopyToClipboard(NSObject sender)
         {
-            Exporter.CopyToClipboard(AnalysisResult.Solution, AppSettings.DefaultConcentrationUnit, EnergyUnit, UseKelvin);
+            Exporter.CopyToClipboard(AnalysisResult, AppSettings.DefaultConcentrationUnit, EnergyUnit, UseKelvin);
         }
 
         partial void LoadSolutionsToExperiments(NSObject sender)
