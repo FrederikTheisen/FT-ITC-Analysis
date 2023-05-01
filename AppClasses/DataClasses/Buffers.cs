@@ -309,6 +309,13 @@ namespace AnalysisITC.AppClasses.AnalysisClasses
 
         #endregion
 
+		public static Energy GetProtonationEnthalpy(ExperimentData data)
+		{
+			var buffer = (Buffer)data.ExperimentOptions.Find(att => att.Key == ModelOptionKey.Buffer).IntValue;
+
+			return new (buffer.GetProtonationEnthalpy(data.MeasuredTemperature));
+        }
+
         public static List<Buffer> GetUIBuffers()
 		{
 			var list = GetCommonBuffers();

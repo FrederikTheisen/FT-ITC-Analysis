@@ -148,7 +148,7 @@ namespace AnalysisITC
             var kd = Solution.Solutions.Average(s => s.ReportParameters[AppClasses.Analysis2.ParameterType.Affinity1]);
 
             AppropriateAutoConcUnit = ConcentrationUnitAttribute.FromConc(kd);
-
+            ResultsTableView.SizeToFit();
             var source = new ResultViewDataSource(AnalysisResult)
             {
                 KdUnit = AppropriateAutoConcUnit,
@@ -160,7 +160,10 @@ namespace AnalysisITC
 
             while (ResultsTableView.ColumnCount > 0) ResultsTableView.RemoveColumn(ResultsTableView.TableColumns()[0]);
 
-            ResultsTableView.AddColumn(new NSTableColumn("Temp") { Title = "Temperature (" + (UseKelvin ? "K" : "°C") + ")" });
+            if (AnalysisResult.IsTemperatureDependenceEnabled) ResultsTableView.AddColumn(new NSTableColumn("Temp") { Title = "Temperature (" + (UseKelvin ? "K" : "°C") + ")" });
+            if (AnalysisResult.IsElectrostaticsAnalysisDependenceEnabled) ResultsTableView.AddColumn(new NSTableColumn("IS") { Title = "[Ions] (mM)" });
+            if (AnalysisResult.IsProtonationAnalysisEnabled) ResultsTableView.AddColumn(new NSTableColumn("HPROT") { Title = "∆H,prot (" + EnergyUnit.GetUnit() + "/mol)" });
+
             foreach (var par in Solution.IndividualModelReportParameters)
             {
                 var column = new NSTableColumn(ParameterTypeAttribute.TableHeaderTitle(par, true))
@@ -210,6 +213,7 @@ namespace AnalysisITC
             TemperatureDependenceLabel.StringValue = string.Join(Environment.NewLine, dependencies);
 
             EvaluateParameters();
+            ResultsTableView.SizeToFit();
         }
 
         void SetupGraphView(ResultGraphView.ResultGraphType type)
