@@ -597,15 +597,16 @@ namespace AnalysisITC
             NSPasteboard.GeneralPasteboard.ClearContents();
 
             var solution = analysis.Solution;
-            var paste = "";
+            var delimiter = ',';
+            var paste = Header();
 
             foreach (var data in solution.Solutions)
             {
-                paste += data.Data.FileName + " ";
-                paste += (usekelvin ? data.TempKelvin : data.Temp).ToString("F2") + " ";
+                paste += data.Data.FileName + delimiter;
+                paste += (usekelvin ? data.TempKelvin : data.Temp).ToString("F2") + delimiter;
 
-                if (analysis.IsElectrostaticsAnalysisDependenceEnabled) paste += (1000 * BufferAttribute.GetIonicStrength(data.Data)).ToString("F2") + " ";
-                if (analysis.IsProtonationAnalysisEnabled) paste += BufferAttribute.GetProtonationEnthalpy(data.Data).ToString(unit, formatter: "F2", withunit: false) + " ";
+                if (analysis.IsElectrostaticsAnalysisDependenceEnabled) paste += (1000 * BufferAttribute.GetIonicStrength(data.Data)).ToString("F2") + delimiter;
+                if (analysis.IsProtonationAnalysisEnabled) paste += BufferAttribute.GetProtonationEnthalpy(data.Data).ToString(unit, formatter: "F2", withunit: false) + delimiter;
 
                 foreach (var par in data.ReportParameters)
                 {
@@ -617,16 +618,31 @@ namespace AnalysisITC
                         case ParameterType.Affinity2: paste += par.Value.AsDissociationConstant(kdmagnitude, withunit: false); break;
                         default: paste += new Energy(par.Value).ToString(unit, withunit: false); break;
                     }
-                    paste += " ";
+                    paste += delimiter;
                 }
                 paste = paste.Trim() + Environment.NewLine;
             }
 
-            paste = paste.Replace('±', ' ');
+            paste = paste.Replace('±', delimiter);
 
             NSPasteboard.GeneralPasteboard.SetStringForType(paste, "NSStringPboardType");
 
             StatusBarManager.SetStatus("Results copied to clipboard", 3333);
+
+            string Header()
+            {
+                string header = "exp" + delimiter + "temperature(C)" + delimiter;
+
+                if (analysis.IsElectrostaticsAnalysisDependenceEnabled) header += "IS(mM)" + delimiter;
+                if (analysis.IsProtonationAnalysisEnabled) header += "∆Hbufferprotonation(" + unit.GetUnit() + ")" + delimiter;
+
+                foreach (var par in solution.IndividualModelReportParameters)
+                {
+                    header += ParameterTypeAttribute.TableHeader(par, solution.Solutions[0].ParametersConformingToKey(par).Count > 1, unit, kdmagnitude.GetName()) + delimiter;
+                }
+
+                return header;
+            }
         }
 
         public enum ExportType

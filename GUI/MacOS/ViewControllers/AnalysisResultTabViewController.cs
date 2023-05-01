@@ -357,7 +357,7 @@ namespace AnalysisITC
 
         partial void CopyToClipboard(NSObject sender)
         {
-            Exporter.CopyToClipboard(Solution, AppropriateAutoConcUnit, EnergyUnit, UseKelvin);
+            Exporter.CopyToClipboard(AnalysisResult, AppropriateAutoConcUnit, EnergyUnit, UseKelvin);
         }
     }
 }
