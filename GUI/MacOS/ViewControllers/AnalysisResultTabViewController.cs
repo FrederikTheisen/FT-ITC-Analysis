@@ -151,7 +151,7 @@ namespace AnalysisITC
 
             var source = new ResultViewDataSource(AnalysisResult)
             {
-                KdMag = AppropriateAutoConcUnit.GetMod(),
+                KdUnit = AppropriateAutoConcUnit,
                 EnergyUnit = EnergyUnit,
                 UseKelvin = UseKelvin,
             };
@@ -163,10 +163,13 @@ namespace AnalysisITC
             ResultsTableView.AddColumn(new NSTableColumn("Temp") { Title = "Temperature (" + (UseKelvin ? "K" : "°C") + ")" });
             foreach (var par in Solution.IndividualModelReportParameters)
             {
-                ResultsTableView.AddColumn(new NSTableColumn(ParameterTypeAttribute.TableHeaderTitle(par, true))
+                var column = new NSTableColumn(ParameterTypeAttribute.TableHeaderTitle(par, true))
                 {
                     Title = ParameterTypeAttribute.TableHeader(par, Solution.Solutions[0].ParametersConformingToKey(par).Count > 1, EnergyUnit, AppropriateAutoConcUnit.GetName()),
-                });
+                };
+                column.HeaderCell.Alignment = NSTextAlignment.Center;
+
+                ResultsTableView.AddColumn(column);
             }
             ResultsTableView.AddColumn(new NSTableColumn("Loss") { Title = "Loss" });
 
