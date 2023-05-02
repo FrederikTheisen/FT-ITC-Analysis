@@ -4,14 +4,27 @@ using System;
 using System.IO;
 using Foundation;
 using AppKit;
+using System.Collections.Generic;
 
 namespace AnalysisITC
 {
 	public partial class HelpViewController : NSViewController
 	{
+        public static Dictionary<int, string[]> ContentIndexes;
+
 		public HelpViewController (IntPtr handle) : base (handle)
 		{
 		}
+
+        public override void ViewDidLoad()
+        {
+            base.ViewDidLoad();
+        }
+
+        public void Index()
+        {
+
+        }
 
         public override void ViewDidAppear()
         {
@@ -23,25 +36,6 @@ namespace AnalysisITC
 
             HelpTextField.TextStorage.SetString(attstring);
             HelpTextField.TextColor = NSColor.Label;
-
-            //var attributedString = HelpTextField.AttributedString;
-
-            //var range = new NSRange(0, attributedString.Length);
-
-            ////Console.WriteLine(attributedString.ToString());
-
-            //var att = new NSAttributedStringDocumentAttributes()
-            //{
-            //    DocumentType = NSDocumentType.WordML
-            //};
-
-            //// Convert the attributed string to an NSData object
-            //var data = attributedString.GetData(range, att.Dictionary, out NSError err);
-
-            //// Convert the NSData object to a string
-            //var htmlString = NSString.FromData(data, NSStringEncoding.UTF8);
-
-            //Console.WriteLine(htmlString.ToString());
         }
     }
 }

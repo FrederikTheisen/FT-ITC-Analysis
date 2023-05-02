@@ -5,6 +5,8 @@ namespace AnalysisITC.Utils
 {
     public static class MacStrings
 	{
+
+
         static NSMutableAttributedString PlainText(string str, NSFont font)
         {
             var s = new NSMutableAttributedString(str);
@@ -31,7 +33,9 @@ namespace AnalysisITC.Utils
         static NSMutableAttributedString Header1Text(string str, NSFont font)
         {
             var s = new NSMutableAttributedString(str);
-            s.AddAttributes(new NSStringAttributes { Font = font }, new NSRange(0, s.Length));
+            var paragraphStyle = new NSMutableParagraphStyle();
+            paragraphStyle.ParagraphSpacingBefore = 5;
+            s.AddAttributes(new NSStringAttributes { Font = font, ParagraphStyle = paragraphStyle }, new NSRange(0, s.Length));
             s.ApplyFontTraits(NSFontTraitMask.Bold, new NSRange(0, s.Length));
             return s;
         }
@@ -39,8 +43,10 @@ namespace AnalysisITC.Utils
         static NSMutableAttributedString Header2Text(string str, NSFont font)
         {
             var s = new NSMutableAttributedString(str);
-            font = NSFont.FromDescription(font.FontDescriptor, font.PointSize * 2f);
-            s.AddAttributes(new NSStringAttributes { Font = font}, new NSRange(0, s.Length));
+            font = NSFont.FromDescription(font.FontDescriptor, font.PointSize * 1.8f);
+            var paragraphStyle = new NSMutableParagraphStyle();
+            paragraphStyle.ParagraphSpacingBefore = 5;
+            s.AddAttributes(new NSStringAttributes { Font = font, ParagraphStyle = paragraphStyle }, new NSRange(0, s.Length));
             s.ApplyFontTraits(NSFontTraitMask.Bold, new NSRange(0, s.Length));
             return s;
         }
