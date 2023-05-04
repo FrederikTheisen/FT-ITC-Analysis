@@ -377,16 +377,17 @@ namespace AnalysisITC
                         double peaklen = 0;
                         switch (AppSettings.PeakFitAlgorithm)
                         {
-                            case PeakFitAlgorithm.Exponential:
-                                y = dps.Select(dp => (double)(dp.Power)).ToArray();
-                                var exp = MathNet.Numerics.Fit.Curve(x, y, (v, k, x) => v * Math.Exp(-k*x), max.Power, 0.1);
-                                peaklen = (max.Time - this.Time) + 10 * Math.Log(2) / (exp.P1); //TODO should probably be 5 * -ln(2)/k = 98% returned to baseline
-                                break;
                             default:
-                            case PeakFitAlgorithm.Default:
-                                y = dps.Select(dp => (double)(Math.Abs(max.Power) - Math.Abs(dp.Power))).ToArray();
-                                var fit = MathNet.Numerics.Fit.Curve(x, y, (v, k, x) => x * v / (k + x), Math.Abs(max.Power), 10);
-                                peaklen = (max.Time - this.Time) + (float)lengthparameter * fit.P1; //TODO should probably be 5 * -ln(2)/k = 98% returned to baseline
+                            case PeakFitAlgorithm.SingleExponential:
+                                y = dps.Select(dp => (double)(dp.Power)).ToArray();
+                                var exp1 = MathNet.Numerics.Fit.Curve(x, y, (v, k, x) => v * Math.Exp(-k*x), max.Power, 0.1);
+                                peaklen = (max.Time - this.Time) + 10 * Math.Log(2) / (exp1.P1); //TODO should probably be 5 * -ln(2)/k = 98% returned to baseline
+                                break;
+                            case PeakFitAlgorithm.DoubleExponential:
+                                y = dps.Select(dp => (double)(dp.Power)).ToArray();
+                                var exp2 = MathNet.Numerics.Fit.Curve(x, y, (v1, k1, v2, k2, x) => v1 * Math.Exp(-k1 * x) + v2 * Math.Exp(-k2 * x), 0.5 * max.Power, 0.05, 0.5 * max.Power, 1, tolerance: 1E-10, maxIterations: 10000);
+                                var avgk = (exp2.P0 * exp2.P1 + exp2.P2 * exp2.P3) / (exp2.P0 + exp2.P2);
+                                peaklen = (max.Time - this.Time) + 10 * Math.Log(2) / (avgk);
                                 break;
                         }
                         

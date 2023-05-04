@@ -37,6 +37,7 @@ namespace AnalysisITC
             AppSettings.DefaultConcentrationUnit = (ConcentrationUnit)(int)ConcentrationUnitControl.SelectedSegment;
             AppSettings.MinimumTemperatureSpanForFitting = MinTempSpanSlider.DoubleValue;
             AppSettings.MinimumIonSpanForFitting = MinSaltSpanSlider.DoubleValue / 1000;
+            AppSettings.PeakFitAlgorithm = (PeakFitAlgorithm)(int)PeakFitAlgorithmControl.SelectedSegment;
 
             //Color
             AppSettings.ColorScheme = ColorScheme;
@@ -68,6 +69,7 @@ namespace AnalysisITC
             MinTempSpanField.DoubleValue = AppSettings.MinimumTemperatureSpanForFitting;
             MinSaltSpanSlider.DoubleValue = 1000 * AppSettings.MinimumIonSpanForFitting;
             MinSaltSpanField.DoubleValue = 1000 * AppSettings.MinimumIonSpanForFitting;
+            PeakFitAlgorithmControl.SelectedSegment = (int)AppSettings.PeakFitAlgorithm;
         }
 
         private void ColorMenuHandler(NSMenuItem sender, ColorSchemes e)
