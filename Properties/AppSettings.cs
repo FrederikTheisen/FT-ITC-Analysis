@@ -24,7 +24,7 @@ namespace AnalysisITC
         public static NSUrl LastDocumentUrl { get => lastDocumentUrl; set { lastDocumentUrl = value; Save(); } }
 
         //Processing
-        public static PeakFitAlgorithm PeakFitAlgorithm { get; set; } = PeakFitAlgorithm.Exponential;
+        public static PeakFitAlgorithm PeakFitAlgorithm { get; set; } = PeakFitAlgorithm.SingleExponential;
 
         //Fitting
         public static bool InputAffinityAsDissociationConstant { get; set; } = true;
@@ -87,6 +87,7 @@ namespace AnalysisITC
             Storage.SetInt(NumOfDecimalsToExport, "NumOfDecimalsToExport");
             Storage.SetDouble(MinimumIonSpanForFitting, "MinimumIonSpanForFitting");
             Storage.SetBool(FinalFigureShowParameterBoxAsDefault, "FinalFigureShowParameterBoxAsDefault");
+            Storage.SetInt((int)PeakFitAlgorithm, "PeakFitAlgorithm");
 
             StoreArray(FinalFigureDimensions, "FinalFigureDimensions");
 
@@ -114,7 +115,7 @@ namespace AnalysisITC
             NSDictionary dict = Storage.ToDictionary();
 
             // Check if the dictionary is empty or not
-            if (!Storage.BoolForKey("IsSaved"))
+            if (!dict.ContainsKey(NSObject.FromObject("IsSaved")) || !Storage.BoolForKey("IsSaved"))
             {
                 Console.WriteLine("No settings are stored in NSUserDefaults.");
                 return;
@@ -147,8 +148,11 @@ namespace AnalysisITC
             NumOfDecimalsToExport = GetInt(dict, "NumOfDecimalsToExport", NumOfDecimalsToExport);
             MinimumIonSpanForFitting = GetDouble(dict, "MinimumIonSpanForFitting", MinimumIonSpanForFitting);
             FinalFigureShowParameterBoxAsDefault = GetBool(dict, "FinalFigureShowParameterBoxAsDefault", FinalFigureShowParameterBoxAsDefault);
+            PeakFitAlgorithm = (PeakFitAlgorithm)GetInt(dict, "PeakFitAlgorithm", (int)PeakFitAlgorithm);
 
             ApplySettings();
+
+            StatusBarManager.ClearAppStatus();
         }
 
         static int GetInt(NSDictionary dict, string key, int def = 0)
@@ -209,7 +213,7 @@ namespace AnalysisITC
 
     public enum PeakFitAlgorithm
     {
-        Exponential,
-        Default,
+        SingleExponential,
+        DoubleExponential,
     }
 }
