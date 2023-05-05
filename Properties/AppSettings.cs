@@ -48,6 +48,7 @@ namespace AnalysisITC
         public static double[] FinalFigureDimensions { get; set; } = new double[2] { 6.5, 10.0 };
         public static FinalFigureDisplayParameters FinalFigureParameterDisplay { get; set; } = FinalFigureDisplayParameters.Default;
         public static bool FinalFigureShowParameterBoxAsDefault { get; set; } = true;
+        public static NumberPrecision NumberPrecision { get; set; } = NumberPrecision.Standard;
 
         //Export
         public static bool UnifyTimeAxisForExport { get; set; } = true;
@@ -57,6 +58,11 @@ namespace AnalysisITC
         public static int NumOfDecimalsToExport { get; set; } = 2;
 
         public static bool IsConcentrationAutoVarianceEnabled = ConcentrationAutoVariance > 0.001;
+
+        public static void Initialize()
+        {
+            Load(Storage);
+        }
 
         public static void Save()
         {
@@ -88,6 +94,7 @@ namespace AnalysisITC
             Storage.SetDouble(MinimumIonSpanForFitting, "MinimumIonSpanForFitting");
             Storage.SetBool(FinalFigureShowParameterBoxAsDefault, "FinalFigureShowParameterBoxAsDefault");
             Storage.SetInt((int)PeakFitAlgorithm, "PeakFitAlgorithm");
+            Storage.SetInt((int)NumberPrecision, "NumberPrecision");
 
             StoreArray(FinalFigureDimensions, "FinalFigureDimensions");
 
@@ -110,15 +117,14 @@ namespace AnalysisITC
             Storage.SetValueForKey(array, new NSString(key));
         }
 
-        public static void Load()
+        public static void Load(NSUserDefaults userDefaults)
         {
-            NSDictionary dict = Storage.ToDictionary();
+            NSDictionary dict = userDefaults.ToDictionary();
 
             // Check if the dictionary is empty or not
             if (!dict.ContainsKey(NSObject.FromObject("IsSaved")) || !Storage.BoolForKey("IsSaved"))
             {
                 Console.WriteLine("No settings are stored in NSUserDefaults.");
-                return;
             }
             else Console.WriteLine("There are {0} settings stored in NSUserDefaults.", dict.Count);
 
@@ -149,6 +155,7 @@ namespace AnalysisITC
             MinimumIonSpanForFitting = GetDouble(dict, "MinimumIonSpanForFitting", MinimumIonSpanForFitting);
             FinalFigureShowParameterBoxAsDefault = GetBool(dict, "FinalFigureShowParameterBoxAsDefault", FinalFigureShowParameterBoxAsDefault);
             PeakFitAlgorithm = (PeakFitAlgorithm)GetInt(dict, "PeakFitAlgorithm", (int)PeakFitAlgorithm);
+            NumberPrecision = (NumberPrecision)GetInt(dict, "NumberPrecision", (int)NumberPrecision);
 
             ApplySettings();
 
@@ -215,5 +222,13 @@ namespace AnalysisITC
     {
         SingleExponential,
         DoubleExponential,
+    }
+
+    public enum NumberPrecision
+    {
+        Strict,
+        Standard,
+        SingleDecimal,
+        AllDecimals,
     }
 }

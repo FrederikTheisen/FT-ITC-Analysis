@@ -25,6 +25,9 @@ namespace AnalysisITC
 		AppKit.NSSegmentedControl FinalFigParameterDisplayOptions { get; set; }
 
 		[Outlet]
+		AppKit.NSSegmentedControl FinalFigureValueRoundingPrecision { get; set; }
+
+		[Outlet]
 		AppKit.NSTextField FinalFigWidthField { get; set; }
 
 		[Outlet]
@@ -55,6 +58,11 @@ namespace AnalysisITC
 				ExportSelectedControl = null;
 			}
 
+			if (FinalFigureValueRoundingPrecision != null) {
+				FinalFigureValueRoundingPrecision.Dispose ();
+				FinalFigureValueRoundingPrecision = null;
+			}
+
 			if (ExportSolutionPointsControl != null) {
 				ExportSolutionPointsControl.Dispose ();
 				ExportSolutionPointsControl = null;
@@ -75,14 +83,14 @@ namespace AnalysisITC
 				FinalFigWidthField = null;
 			}
 
-			if (UnifyAxesControl != null) {
-				UnifyAxesControl.Dispose ();
-				UnifyAxesControl = null;
-			}
-
 			if (ShowParameterAsDefaultCheck != null) {
 				ShowParameterAsDefaultCheck.Dispose ();
 				ShowParameterAsDefaultCheck = null;
+			}
+
+			if (UnifyAxesControl != null) {
+				UnifyAxesControl.Dispose ();
+				UnifyAxesControl = null;
 			}
 		}
 	}
