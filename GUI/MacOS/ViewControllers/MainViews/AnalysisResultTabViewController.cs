@@ -240,9 +240,9 @@ namespace AnalysisITC
                     {
                         sr.FoldedMode switch { FTSRMethod.SRFoldedMode.Glob => "Globular Mode", FTSRMethod.SRFoldedMode.Intermediate => "Intermediate Mode", FTSRMethod.SRFoldedMode.ID => "ID Interaction Mode"},
                         sr.TempMode switch { FTSRMethod.SRTempMode.IsoEntropicPoint => "Isoentropic (", FTSRMethod.SRTempMode.MeanTemperature => "Data Set Mean (", FTSRMethod.SRTempMode.ReferenceTemperature => "Set Reference (" } + sr.Result.ReferenceTemperature.ToString() + " °C)",
-                        new Energy(sr.Result.HydrationContribution(sr.EvalutationTemperature(false))).ToString(AppSettings.EnergyUnit, permole: true),
-                        new Energy(sr.Result.ConformationalContribution(sr.EvalutationTemperature(false))).ToString(AppSettings.EnergyUnit, permole: true),
-                        sr.Result.Rvalue.ToString() + " residues",
+                        new Energy(sr.Result.HydrationContribution(sr.EvalutationTemperature(false))).ToFormattedString(AppSettings.EnergyUnit, permole: true),
+                        new Energy(sr.Result.ConformationalContribution(sr.EvalutationTemperature(false))).ToFormattedString(AppSettings.EnergyUnit, permole: true),
+                        sr.Result.Rvalue.AsNumber() + " residues",
                     };
 
                     SRResultTextField.StringValue = string.Join(Environment.NewLine, result);
@@ -252,7 +252,7 @@ namespace AnalysisITC
                     {
                         (ea.Fit as ElectrostaticsFit).Kd0.AsDissociationConstant(AppropriateAutoConcUnit, withunit: true),
                         (ea.Fit as ElectrostaticsFit).Plateau.AsDissociationConstant(AppropriateAutoConcUnit, withunit: true),
-                        ea.ElectrostaticStrength.ToString(AppSettings.EnergyUnit,withunit: true, permole: true)
+                        ea.ElectrostaticStrength.ToFormattedString(AppSettings.EnergyUnit,withunit: true, permole: true)
                     };
                     ElectrostaticAnalysisOutput.StringValue = string.Join(Environment.NewLine, result);
                     break;
@@ -320,7 +320,7 @@ namespace AnalysisITC
                     var kdexponent = G / (T * Energy.R);
                     var Kd = FWEMath.Exp(kdexponent.FloatWithError);
 
-                    return string.Join(Environment.NewLine, new string[] { H.ToString(unit, permole: true), S.ToString(unit, permole: true), G.ToString(unit, permole: true), Kd.AsDissociationConstant() });
+                    return string.Join(Environment.NewLine, new string[] { H.ToFormattedString(unit, permole: true), S.ToFormattedString(unit, permole: true), G.ToFormattedString(unit, permole: true), Kd.AsFormattedConcentration(true) });
                 });
 
                 EvaluationOutputLabel.StringValue = s;

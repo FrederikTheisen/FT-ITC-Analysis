@@ -705,7 +705,7 @@ namespace AnalysisITC
                     "Date: " + experiment.Date.ToLocalTime().ToLongDateString() + " " + experiment.Date.ToLocalTime().ToString("HH:mm"),
                     "Temperature | Target: " + experiment.TargetTemperature.ToString() + " °C [Measured: " + experiment.MeasuredTemperature.ToString("G4") + " °C] | Feedback Mode: " + experiment.FeedBackMode.GetProperties().Name + " | Stirring Speed: " + experiment.StirringSpeed.ToString() + " rpm",
                     "Injections: " + experiment.InjectionCount.ToString() + " [" + injdescription + "]",
-                    "Concentrations | Cell: " + (experiment.CellConcentration*1000000).ToString("G3") + " µM | Syringe: " + (experiment.SyringeConcentration*1000000).ToString("G3") + " µM",
+                    "Concentrations | Cell: " + experiment.CellConcentration.AsConcentration(ConcentrationUnit.µM) + " | Syringe: " + experiment.SyringeConcentration.AsConcentration(ConcentrationUnit.µM),
                 };
 
             var tamid = experiment.TargetTemperature;
@@ -864,12 +864,12 @@ namespace AnalysisITC
             string syr = "";
             if (!string.IsNullOrEmpty(SyringeName)) syr = "[" + SyringeName + "] = ";
             else syr = "[Syringe] = ";
-            syr += (1000000 * ExperimentData.SyringeConcentration).ToString("F0") + " µM";
+            syr += ExperimentData.SyringeConcentration.AsFormattedConcentration(true);
 
             string cell = "";
             if (!string.IsNullOrEmpty(SyringeName)) cell = "[" + SyringeName + "] = ";
             else cell = "[Cell] = ";
-            cell += (1000000 * ExperimentData.CellConcentration).ToString("F1") + " µM";
+            cell += ExperimentData.CellConcentration.AsFormattedConcentration(true);
 
             if (FinalFigureDisplayParameters.HasFlag(FinalFigureDisplayParameters.Temperature)) lines.Add(ExperimentData.MeasuredTemperature.ToString("F1") + " °C");
             if (FinalFigureDisplayParameters.HasFlag(FinalFigureDisplayParameters.Concentrations)) lines.Add(syr);

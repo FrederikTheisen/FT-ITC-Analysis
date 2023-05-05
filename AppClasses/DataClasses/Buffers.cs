@@ -199,7 +199,7 @@ namespace AnalysisITC.AppClasses.AnalysisClasses
 			}
             tooltip = tooltip.Substring(0, tooltip.Length - 2) + Environment.NewLine;
 
-            if (ProtonationEnthalpy.Intercept != 0) tooltip += "∆Hprot@25°C = " + new Energy(ProtonationEnthalpy.Evaluate(25)).ToString(AppSettings.EnergyUnit.IsSI() ? EnergyUnit.KiloJoule : EnergyUnit.KCal, withunit: true, permole: true);
+            if (ProtonationEnthalpy.Intercept != 0) tooltip += "∆Hprot@25°C = " + new Energy(ProtonationEnthalpy.Evaluate(25)).ToFormattedString(AppSettings.EnergyUnit.IsSI() ? EnergyUnit.KiloJoule : EnergyUnit.KCal, withunit: true, permole: true);
 
 			return tooltip;
         }

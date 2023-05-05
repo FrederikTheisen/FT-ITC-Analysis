@@ -381,7 +381,7 @@ namespace AnalysisITC
                             case PeakFitAlgorithm.SingleExponential:
                                 y = dps.Select(dp => (double)(dp.Power)).ToArray();
                                 var exp1 = MathNet.Numerics.Fit.Curve(x, y, (v, k, x) => v * Math.Exp(-k*x), max.Power, 0.1);
-                                peaklen = (max.Time - this.Time) + 10 * Math.Log(2) / (exp1.P1); //TODO should probably be 5 * -ln(2)/k = 98% returned to baseline
+                                peaklen = (max.Time - this.Time) + 10 * Math.Log(2) / (exp1.P1); //5 * -ln(2)/k = 98% returned to baseline
                                 break;
                             case PeakFitAlgorithm.DoubleExponential:
                                 y = dps.Select(dp => (double)(dp.Power)).ToArray();

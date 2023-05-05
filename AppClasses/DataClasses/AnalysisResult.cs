@@ -86,7 +86,7 @@ namespace AnalysisITC
             }
 
             s += Model.TemperatureDependenceExposed ? "∆H° = " : "∆H = ";
-            s += new Energy(Solution.GetStandardParameterValue(ParameterType.Enthalpy1)).ToString(EnergyUnit.KiloJoule, permole: true) + Environment.NewLine;
+            s += new Energy(Solution.GetStandardParameterValue(ParameterType.Enthalpy1)).ToFormattedString(EnergyUnit.KiloJoule, permole: true) + Environment.NewLine;
             if (Model.TemperatureDependenceExposed) s += "∆Cₚ = " + new Energy(Solution.TemperatureDependence[ParameterType.Enthalpy1].Slope).ToString(EnergyUnit.Joule, "F0", permole: true, perK: true);
 
             return s.Trim();

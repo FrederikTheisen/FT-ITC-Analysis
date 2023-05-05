@@ -36,7 +36,7 @@ namespace AnalysisITC
 
 			ExpNameLabel.StringValue = data.FileName;
 			Line2.StringValue = data.Date.ToString();
-			Line3.StringValue = data.MeasuredTemperature.ToString("G3") + " °C | " + (data.SyringeConcentration*1000000).ToString("G3") + " µM | " + (data.CellConcentration * 1000000).ToString("G3") + " µM";
+			Line3.StringValue = data.MeasuredTemperature.ToString("G3") + " °C | " + data.SyringeConcentration.AsFormattedConcentration(true) + " | " + data.CellConcentration.AsFormattedConcentration(true);
 
             data.SolutionChanged += Data_SolutionChanged;
             data.ProcessingUpdated += Data_ProcessingCompleted;

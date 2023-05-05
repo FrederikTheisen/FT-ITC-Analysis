@@ -90,7 +90,7 @@ namespace AnalysisITC.AppClasses.Analysis2.Models
             {
                 var output = base.UISolutionParameters(info);
 
-                output.Add(new("Kd1", Kd1.ToString()));
+                output.Add(new("Kd1", Kd1.AsFormattedConcentration(true)));
                 output.Add(new("∆H1", Enthalpy1.ToString()));
 
                 return output;

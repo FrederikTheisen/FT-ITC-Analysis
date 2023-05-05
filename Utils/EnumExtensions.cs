@@ -87,16 +87,6 @@ namespace AnalysisITC
             return attribute;
         }
 
-        public static bool IsSI(this EnergyUnit value) => value switch
-        {
-            EnergyUnit.KiloJoule => true,
-            EnergyUnit.Joule => true,
-            EnergyUnit.MicroCal => false,
-            EnergyUnit.Cal => false,
-            EnergyUnit.KCal => false,
-            _ => true,
-        };
-
         public static TimeUnitAttribute GetProperties(this TimeUnit value)
         {
             var fieldInfo = value.GetType().GetField(value.ToString());
@@ -113,7 +103,7 @@ namespace AnalysisITC
             return attribute;
         }
 
-        public static string GetUnit(this EnergyUnit value) => value.GetProperties().Unit;
+        
 
         public static CGRect WithMargin(this CGRect box, CGEdgeMargin margin, float mod = 1)
         {

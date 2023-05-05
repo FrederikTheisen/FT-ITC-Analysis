@@ -592,7 +592,7 @@ namespace AnalysisITC
             return lines;
         }
 
-        public static void CopyToClipboard(AnalysisResult analysis, ConcentrationUnit kdmagnitude, EnergyUnit unit, bool usekelvin)
+        public static void CopyToClipboard(AnalysisResult analysis, ConcentrationUnit kdunit, EnergyUnit eunit, bool usekelvin)
         {
             NSPasteboard.GeneralPasteboard.ClearContents();
 
@@ -606,7 +606,7 @@ namespace AnalysisITC
                 paste += (usekelvin ? data.TempKelvin : data.Temp).ToString("F2") + delimiter;
 
                 if (analysis.IsElectrostaticsAnalysisDependenceEnabled) paste += (1000 * BufferAttribute.GetIonicStrength(data.Data)).ToString("F2") + delimiter;
-                if (analysis.IsProtonationAnalysisEnabled) paste += BufferAttribute.GetProtonationEnthalpy(data.Data).ToString(unit, formatter: "F2", withunit: false) + delimiter;
+                if (analysis.IsProtonationAnalysisEnabled) paste += BufferAttribute.GetProtonationEnthalpy(data.Data).ToString(eunit, formatter: "F2", withunit: false) + delimiter;
 
                 foreach (var par in data.ReportParameters)
                 {
@@ -615,8 +615,8 @@ namespace AnalysisITC
                         case ParameterType.Nvalue1:
                         case ParameterType.Nvalue2: paste += par.Value.ToString("F3"); break;
                         case ParameterType.Affinity1:
-                        case ParameterType.Affinity2: paste += par.Value.AsDissociationConstant(kdmagnitude, withunit: false); break;
-                        default: paste += new Energy(par.Value).ToString(unit, formatter: "F2", withunit: false); break;
+                        case ParameterType.Affinity2: paste += par.Value.AsConcentration(kdunit, withunit: false); break;
+                        default: paste += new Energy(par.Value).ToString(eunit, formatter: "G3", withunit: false); break;
                     }
                     paste += delimiter;
                 }
@@ -634,11 +634,11 @@ namespace AnalysisITC
                 string header = "exp" + delimiter + "temperature(C)" + delimiter;
 
                 if (analysis.IsElectrostaticsAnalysisDependenceEnabled) header += "IS(mM)" + delimiter;
-                if (analysis.IsProtonationAnalysisEnabled) header += "∆Hbufferprotonation(" + unit.GetUnit() + ")" + delimiter;
+                if (analysis.IsProtonationAnalysisEnabled) header += "∆Hbufferprotonation(" + eunit.GetUnit() + ")" + delimiter;
 
                 foreach (var par in solution.IndividualModelReportParameters)
                 {
-                    var s = ParameterTypeAttribute.TableHeader(par, solution.Solutions[0].ParametersConformingToKey(par).Count > 1, unit, kdmagnitude.GetName());
+                    var s = ParameterTypeAttribute.TableHeader(par, solution.Solutions[0].ParametersConformingToKey(par).Count > 1, eunit, kdunit.GetName());
 
                     header += s + delimiter + s + "_SD" + delimiter;
                 }

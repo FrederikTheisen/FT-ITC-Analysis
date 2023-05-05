@@ -184,6 +184,7 @@
     <Folder Include="AppClasses\AnalysisClasses\ResultAnalysis\" />
     <Folder Include="GUI\MacOS\ViewControllers\SettingsViews\" />
     <Folder Include="GUI\MacOS\ViewControllers\MainViews\" />
+    <Folder Include="AppClasses\UnitClasses\" />
   </ItemGroup>
   <ItemGroup>
     <None Include="Info.plist" />
@@ -206,7 +207,6 @@
     <Compile Include="Utils\StringParsers.cs" />
     <Compile Include="AppClasses\DataProcessing.cs" />
     <Compile Include="Utils\GUIutils.cs" />
-    <Compile Include="Utils\NumberStructs.cs" />
     <Compile Include="AppClasses\DataManager.cs" />
     <Compile Include="GUI\MacOS\GraphViews\AnalysisGraphView.cs" />
     <Compile Include="GUI\MacOS\GraphViews\AnalysisGraphView.designer.cs">
@@ -387,7 +387,6 @@
     <Compile Include="AppClasses\DataClasses\ITCInstrument.cs" />
     <Compile Include="AppClasses\DataClasses\AnalysisResult.cs" />
     <Compile Include="AppClasses\DataClasses\ConcentrationUnit.cs" />
-    <Compile Include="AppClasses\DataClasses\Energy.cs" />
     <Compile Include="AppClasses\AnalysisClasses\ResultAnalysis\ResultAnalysis.cs" />
     <Compile Include="GUI\MacOS\GraphViews\ResultGraphView.cs" />
     <Compile Include="GUI\MacOS\GraphViews\ResultGraphView.designer.cs">
@@ -432,6 +431,10 @@
     <Compile Include="GUI\MacOS\ViewControllers\MainViews\FinalFigureViewController.designer.cs">
       <DependentUpon>FinalFigureViewController.cs</DependentUpon>
     </Compile>
+    <Compile Include="AppClasses\UnitClasses\TimeUnit.cs" />
+    <Compile Include="AppClasses\UnitClasses\Energy.cs" />
+    <Compile Include="AppClasses\Math\FitWithError.cs" />
+    <Compile Include="AppClasses\Math\NumberStructs.cs" />
   </ItemGroup>
   <ItemGroup>
     <InterfaceDefinition Include="Main.storyboard" />
