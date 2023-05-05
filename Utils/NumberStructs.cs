@@ -202,13 +202,53 @@ namespace AnalysisITC
 
         public override string ToString()
         {
-            return ToString("F3") + " | " + (100 * FractionSD).ToString("F1") + "%";
+            return ToString("G3") + " | " + (100 * FractionSD).ToString("F1") + "%";
         }
 
         public string ToString(string format = "F1")
         {
-            if (SD < double.Epsilon) return Value.ToString(format);
+            if (!HasError) return Value.ToString(format);
             else return Value.ToString(format) + " ± " + SD.ToString(format);
+        }
+
+        public string AsNumber()
+        {
+            return WithMod(1, "", false);
+        }
+
+        public string AsFormattedConcentration(bool withunit) => AsFormattedConcentration(ConcentrationUnitAttribute.FromConc(this.Value), withunit);
+        public string AsFormattedConcentration(ConcentrationUnit unit, bool withunit = true) => WithMod(unit.GetMod(), unit.GetName(), withunit);
+        public string AsFormattedEnergy(EnergyUnit unit, bool withunit = true) => WithMod(unit.Get(), unit.GetName(), withunit);
+
+        string WithMod(double mod, string unit, bool withunit)
+        {
+            var value = mod * this;
+            double logerror;
+
+            switch (AppSettings.NumberPrecision)
+            {
+                case NumberPrecision.Standard when HasError:
+                    logerror = Math.Log10(value.SD * 0.5); // Add digit for errors less than 2
+                    break;
+                case NumberPrecision.Strict when HasError:
+                    logerror = Math.Log10(value.SD);
+                    break;
+                case NumberPrecision.SingleDecimal:
+                    return withunit ? value.ToString("F1") + " " + unit : value.ToString("F1");
+                case NumberPrecision.AllDecimals:
+                    return withunit ? value.ToString("G5") + " " + unit : value.ToString("G5");
+                default: return withunit ? value.Value.ToString("G5") + " " + unit : value.Value.ToString("G5");
+            }
+
+            double floor = Math.Floor(logerror);
+            int digits = (int)floor;
+            double scale = Math.Pow(10, digits);
+            string formatString = $"F{Math.Max(0, -digits)}";
+            double roundedNumber = Math.Round(value.Value / scale) * scale;
+            double roundedError = Math.Round(value.SD / scale) * scale;
+            var output = roundedNumber.ToString(formatString) + " ± " + roundedError.ToString(formatString);
+
+            return withunit ? output + " " + unit : output;
         }
 
         public string AsDissociationConstant(ConcentrationUnit unit, bool withunit = true)
@@ -218,28 +258,32 @@ namespace AnalysisITC
             return withunit ? value + " " + unit.GetName() : value;
         }
 
-        public string AsDissociationConstant(double mag = 0, bool withunit = true)
+        public string AsDissociationConstant(bool withunit = true)
         {
-            if (mag == 0) mag = Math.Log10(Value);
+            var unit = ConcentrationUnitAttribute.FromConc(this.Value);
 
-            if (withunit) return mag switch
-            {
-                > 0 => ToString() + " M",
-                > -3 => (1000 * this).ToString() + " mM",
-                > -6 => (1000000 * this).ToString() + " µM",
-                > -9 => (1000000000 * this).ToString() + " nM",
-                > -12 => (1000000000000 * this).ToString() + " pM",
-                _ => ToString() + " M"
-            };
-            else return mag switch
-            {
-                > 0 => ToString(),
-                > -3 => (1000 * this).ToString(),
-                > -6 => (1000000 * this).ToString(),
-                > -9 => (1000000000 * this).ToString(),
-                > -12 => (1000000000000 * this).ToString(),
-                _ => ToString()
-            };
+            return AsFormattedConcentration(unit, withunit);
+
+            //if (mag == 0) mag = Math.Log10(Value);
+
+            //if (withunit) return mag switch
+            //{
+            //    > 0 => ToString() + " M",
+            //    > -3 => (1000 * this).ToString() + " mM",
+            //    > -6 => (1000000 * this).ToString() + " µM",
+            //    > -9 => (1000000000 * this).ToString() + " nM",
+            //    > -12 => (1000000000000 * this).ToString() + " pM",
+            //    _ => ToString("G2") + " M"
+            //};
+            //else return mag switch
+            //{
+            //    > 0 => ToString(),
+            //    > -3 => (1000 * this).ToString(),
+            //    > -6 => (1000000 * this).ToString(),
+            //    > -9 => (1000000000 * this).ToString(),
+            //    > -12 => (1000000000000 * this).ToString(),
+            //    _ => ToString("G2")
+            //};
         }
 
         public int CompareTo(object obj)
