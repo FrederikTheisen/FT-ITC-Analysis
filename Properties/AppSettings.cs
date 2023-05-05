@@ -11,6 +11,7 @@ namespace AnalysisITC
     {
         public static event EventHandler SettingsDidUpdate;
 
+        static NSDictionary Default = new NSDictionary();
         static NSUserDefaults Storage => NSUserDefaults.StandardUserDefaults;
 
         //General
@@ -39,6 +40,7 @@ namespace AnalysisITC
         public static double OptimizerTolerance { get; set; } = double.Epsilon;
         public static int MaximumOptimizerIterations { get; set; } = 300000;
         public static bool EnableExtendedParameterLimits { get; set; } = false;
+        public static ParameterLimitSetting ParameterLimitSetting { get; set; } = ParameterLimitSetting.Standard;
 
         //Analysis
         public static bool IonicStrengthIncludesBuffer { get; set; } = true;
@@ -61,13 +63,19 @@ namespace AnalysisITC
 
         public static void Initialize()
         {
-            Load(Storage);
+            Load();
         }
 
         public static void Save()
         {
             ApplySettings();
+            SaveToStorage();
+            Storage.Synchronize();
+            SettingsDidUpdate?.Invoke(null, null);
+        }
 
+        static void SaveToStorage()
+        {
             Storage.SetDouble(ReferenceTemperature, "ReferenceTemperature");
             Storage.SetInt((int)EnergyUnit, "EnergyUnit");
             Storage.SetInt((int)DefaultErrorEstimationMethod, "DefaultErrorEstimationMethod");
@@ -88,6 +96,7 @@ namespace AnalysisITC
             Storage.SetBool(InputAffinityAsDissociationConstant, "InputAffinityAsDissociationConstant");
             Storage.SetURL(LastDocumentUrl, "LastDocumentUrl");
             Storage.SetBool(EnableExtendedParameterLimits, "EnableExtendedParameterLimits");
+            Storage.SetInt((int)ParameterLimitSetting, "ParameterLimitSetting");
             Storage.SetBool(IonicStrengthIncludesBuffer, "IonicStrengthIncludesBuffer");
             Storage.SetBool(BuffersPreparedAtRoomTemperature, "BuffersPreparedAtRoomTemperature");
             Storage.SetInt(NumOfDecimalsToExport, "NumOfDecimalsToExport");
@@ -99,27 +108,11 @@ namespace AnalysisITC
             StoreArray(FinalFigureDimensions, "FinalFigureDimensions");
 
             Storage.SetBool(true, "IsSaved");
-
-            Storage.Synchronize();
-
-            SettingsDidUpdate?.Invoke(null, null);
         }
 
-        static void StoreArray(double[] arr, string key)
+        public static void Load()
         {
-            // Create an NSMutableArray to hold the NSNumber objects
-            var array = new NSMutableArray();
-
-            // Convert each double to an NSNumber object and add it to the NSMutableArray
-            foreach (double d in arr) array.Add(new NSNumber(d));
-
-            // Store the NSMutableArray as an array with a specific key
-            Storage.SetValueForKey(array, new NSString(key));
-        }
-
-        public static void Load(NSUserDefaults userDefaults)
-        {
-            NSDictionary dict = userDefaults.ToDictionary();
+            NSDictionary dict = Storage.ToDictionary();
 
             // Check if the dictionary is empty or not
             if (!dict.ContainsKey(NSObject.FromObject("IsSaved")) || !Storage.BoolForKey("IsSaved"))
@@ -143,6 +136,7 @@ namespace AnalysisITC
             ExportFitPointsWithPeaks = GetBool(dict, "ExportFitPointsWithPeaks", ExportFitPointsWithPeaks);
             ExportSelectionMode = (Exporter.ExportDataSelection)GetInt(dict, "ExportSelectionMode", (int)ExportSelectionMode);
             EnableExtendedParameterLimits = GetBool(dict, "EnableExtendedParameterLimits", EnableExtendedParameterLimits);
+            ParameterLimitSetting = (ParameterLimitSetting)GetInt(dict, "ParameterLimitSetting", (int)ParameterLimitSetting);
             FinalFigureParameterDisplay = (FinalFigureDisplayParameters)GetInt(dict, "FinalFigureParameterDisplay", (int)FinalFigureParameterDisplay);
             FinalFigureDimensions = GetArray(dict, "FinalFigureDimensions", FinalFigureDimensions);
             ExportBaselineCorrectedData = GetBool(dict, "ExportBaselineCorrectedData", ExportBaselineCorrectedData);
@@ -160,6 +154,51 @@ namespace AnalysisITC
             ApplySettings();
 
             StatusBarManager.ClearAppStatus();
+        }
+
+        public static void Reset()
+        {
+            ReferenceTemperature = 25;
+            EnergyUnit = EnergyUnit.KiloJoule;
+            DefaultErrorEstimationMethod = ErrorEstimationMethod.BootstrapResiduals;
+            DefaultBootstrapIterations = 100;
+            MinimumTemperatureSpanForFitting = 3;
+            IncludeConcentrationErrorsInBootstrap = false;
+            OptimizerTolerance = double.Epsilon;
+            MaximumOptimizerIterations = 300000;
+            ColorScheme = ColorSchemes.Default;
+            ColorSchemeGradientMode = ColorSchemeGradientMode.Smooth;
+            ConcentrationAutoVariance = 0.1;
+            UnifyTimeAxisForExport = true;
+            ExportFitPointsWithPeaks = true;
+            ExportSelectionMode = Exporter.ExportDataSelection.IncludedData; ;
+            EnableExtendedParameterLimits = false;
+            ParameterLimitSetting = ParameterLimitSetting.Standard;
+            FinalFigureParameterDisplay = FinalFigureDisplayParameters.Default;
+            FinalFigureDimensions = new double[] { 6.5, 10 };
+            ExportBaselineCorrectedData = true;
+            DefaultConcentrationUnit = ConcentrationUnit.µM;
+            InputAffinityAsDissociationConstant = true;
+            lastDocumentUrl = null;
+            IonicStrengthIncludesBuffer = true;
+            BuffersPreparedAtRoomTemperature = true;
+            NumOfDecimalsToExport = 1;
+            MinimumIonSpanForFitting = 0.03;
+            FinalFigureShowParameterBoxAsDefault = true;
+            PeakFitAlgorithm = PeakFitAlgorithm.SingleExponential;
+            NumberPrecision = NumberPrecision.Standard;
+        }
+
+        static void StoreArray(double[] arr, string key)
+        {
+            // Create an NSMutableArray to hold the NSNumber objects
+            var array = new NSMutableArray();
+
+            // Convert each double to an NSNumber object and add it to the NSMutableArray
+            foreach (double d in arr) array.Add(new NSNumber(d));
+
+            // Store the NSMutableArray as an array with a specific key
+            Storage.SetValueForKey(array, new NSString(key));
         }
 
         static int GetInt(NSDictionary dict, string key, int def = 0)
@@ -231,5 +270,13 @@ namespace AnalysisITC
         Standard,
         SingleDecimal,
         AllDecimals,
+    }
+
+    public enum ParameterLimitSetting
+    {
+        Standard,
+        Expanded10,
+        Expandend100,
+        NoLimit,
     }
 }
