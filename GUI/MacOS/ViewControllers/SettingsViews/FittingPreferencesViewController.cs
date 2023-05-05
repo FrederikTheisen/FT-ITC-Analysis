@@ -90,5 +90,12 @@ namespace AnalysisITC
             ShouldApplySettings -= FittingPreferencesViewController_ShouldApplySettings;
             this.Dispose();
         }
+
+        partial void Reset(NSObject sender)
+        {
+            AppSettings.Reset();
+
+            ViewDidLoad();
+        }
     }
 }

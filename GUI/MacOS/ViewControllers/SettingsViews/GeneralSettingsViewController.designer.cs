@@ -46,6 +46,9 @@ namespace AnalysisITC
 		AppKit.NSSlider MinTempSpanSlider { get; set; }
 
 		[Outlet]
+		AppKit.NSSegmentedControl ParameterRoundingSettingsControl { get; set; }
+
+		[Outlet]
 		AppKit.NSSegmentedControl PeakFitAlgorithmControl { get; set; }
 
 		[Outlet]
@@ -65,6 +68,9 @@ namespace AnalysisITC
 
 		[Action ("RefTempAction:")]
 		partial void RefTempAction (AppKit.NSTextField sender);
+
+		[Action ("Reset:")]
+		partial void Reset (Foundation.NSObject sender);
 
 		[Action ("TempSpanSlicerAction:")]
 		partial void TempSpanSlicerAction (AppKit.NSSlider sender);
@@ -106,24 +112,24 @@ namespace AnalysisITC
 				FinalFigWidthField = null;
 			}
 
-			if (MinTempSpanField != null) {
-				MinTempSpanField.Dispose ();
-				MinTempSpanField = null;
-			}
-
 			if (MinSaltSpanField != null) {
 				MinSaltSpanField.Dispose ();
 				MinSaltSpanField = null;
 			}
 
-			if (MinTempSpanSlider != null) {
-				MinTempSpanSlider.Dispose ();
-				MinTempSpanSlider = null;
-			}
-
 			if (MinSaltSpanSlider != null) {
 				MinSaltSpanSlider.Dispose ();
 				MinSaltSpanSlider = null;
+			}
+
+			if (MinTempSpanField != null) {
+				MinTempSpanField.Dispose ();
+				MinTempSpanField = null;
+			}
+
+			if (MinTempSpanSlider != null) {
+				MinTempSpanSlider.Dispose ();
+				MinTempSpanSlider = null;
 			}
 
 			if (PeakFitAlgorithmControl != null) {
@@ -134,6 +140,11 @@ namespace AnalysisITC
 			if (RefTempField != null) {
 				RefTempField.Dispose ();
 				RefTempField = null;
+			}
+
+			if (ParameterRoundingSettingsControl != null) {
+				ParameterRoundingSettingsControl.Dispose ();
+				ParameterRoundingSettingsControl = null;
 			}
 		}
 	}

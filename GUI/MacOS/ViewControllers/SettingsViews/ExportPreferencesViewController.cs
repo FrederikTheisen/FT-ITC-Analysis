@@ -75,5 +75,12 @@ namespace AnalysisITC
             ShouldApplySettings -= ExportPreferencesViewController_ShouldApplySettings;
             this.Dispose();
         }
+
+        partial void Reset(NSObject sender)
+        {
+            AppSettings.Reset();
+
+            ViewDidLoad();
+        }
     }
 }

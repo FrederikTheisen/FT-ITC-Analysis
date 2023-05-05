@@ -48,6 +48,9 @@ namespace AnalysisITC
 		[Action ("ExportSolutionPointsControlAction:")]
 		partial void ExportSolutionPointsControlAction (AppKit.NSButton sender);
 
+		[Action ("Reset:")]
+		partial void Reset (Foundation.NSObject sender);
+
 		[Action ("UnifyAxesControlAcition:")]
 		partial void UnifyAxesControlAcition (AppKit.NSSegmentedControl sender);
 		
@@ -56,11 +59,6 @@ namespace AnalysisITC
 			if (ExportSelectedControl != null) {
 				ExportSelectedControl.Dispose ();
 				ExportSelectedControl = null;
-			}
-
-			if (FinalFigureValueRoundingPrecision != null) {
-				FinalFigureValueRoundingPrecision.Dispose ();
-				FinalFigureValueRoundingPrecision = null;
 			}
 
 			if (ExportSolutionPointsControl != null) {
@@ -76,6 +74,11 @@ namespace AnalysisITC
 			if (FinalFigParameterDisplayOptions != null) {
 				FinalFigParameterDisplayOptions.Dispose ();
 				FinalFigParameterDisplayOptions = null;
+			}
+
+			if (FinalFigureValueRoundingPrecision != null) {
+				FinalFigureValueRoundingPrecision.Dispose ();
+				FinalFigureValueRoundingPrecision = null;
 			}
 
 			if (FinalFigWidthField != null) {

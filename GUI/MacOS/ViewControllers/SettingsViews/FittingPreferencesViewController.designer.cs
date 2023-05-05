@@ -65,19 +65,12 @@ namespace AnalysisITC
 
 		[Action ("MaximumIterationsSliderAction:")]
 		partial void MaximumIterationsSliderAction (AppKit.NSSlider sender);
+
+		[Action ("Reset:")]
+		partial void Reset (Foundation.NSObject sender);
 		
 		void ReleaseDesignerOutlets ()
 		{
-			if (MaxIterationsField != null) {
-				MaxIterationsField.Dispose ();
-				MaxIterationsField = null;
-			}
-
-			if (ParameterLimitControl != null) {
-				ParameterLimitControl.Dispose ();
-				ParameterLimitControl = null;
-			}
-
 			if (AutoConcField != null) {
 				AutoConcField.Dispose ();
 				AutoConcField = null;
@@ -118,6 +111,11 @@ namespace AnalysisITC
 				IncludeConcVarianceCheck = null;
 			}
 
+			if (MaxIterationsField != null) {
+				MaxIterationsField.Dispose ();
+				MaxIterationsField = null;
+			}
+
 			if (MaxOptimizerIterationsSlider != null) {
 				MaxOptimizerIterationsSlider.Dispose ();
 				MaxOptimizerIterationsSlider = null;
@@ -126,6 +124,11 @@ namespace AnalysisITC
 			if (MaxOptimizerIterField != null) {
 				MaxOptimizerIterField.Dispose ();
 				MaxOptimizerIterField = null;
+			}
+
+			if (ParameterLimitControl != null) {
+				ParameterLimitControl.Dispose ();
+				ParameterLimitControl = null;
 			}
 		}
 	}
