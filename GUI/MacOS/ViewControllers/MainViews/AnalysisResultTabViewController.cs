@@ -239,7 +239,7 @@ namespace AnalysisITC
                     result = new List<string>()
                     {
                         sr.FoldedMode switch { FTSRMethod.SRFoldedMode.Glob => "Globular Mode", FTSRMethod.SRFoldedMode.Intermediate => "Intermediate Mode", FTSRMethod.SRFoldedMode.ID => "ID Interaction Mode"},
-                        sr.TempMode switch { FTSRMethod.SRTempMode.IsoEntropicPoint => "Isoentropic (", FTSRMethod.SRTempMode.MeanTemperature => "Data Set Mean (", FTSRMethod.SRTempMode.ReferenceTemperature => "Set Reference (" } + sr.Result.ReferenceTemperature.ToString() + " °C)",
+                        sr.TempMode switch { FTSRMethod.SRTempMode.IsoEntropicPoint => "Isoentropic (", FTSRMethod.SRTempMode.MeanTemperature => "Data Set Mean (", FTSRMethod.SRTempMode.ReferenceTemperature => "Set Reference (" } + sr.Result.ReferenceTemperature.AsNumber() + " °C)",
                         new Energy(sr.Result.HydrationContribution(sr.EvalutationTemperature(false))).ToFormattedString(AppSettings.EnergyUnit, permole: true),
                         new Energy(sr.Result.ConformationalContribution(sr.EvalutationTemperature(false))).ToFormattedString(AppSettings.EnergyUnit, permole: true),
                         sr.Result.Rvalue.AsNumber() + " residues",
@@ -250,8 +250,8 @@ namespace AnalysisITC
                 case ElectrostaticsAnalysis ea:
                     result = new List<string>()
                     {
-                        (ea.Fit as ElectrostaticsFit).Kd0.AsDissociationConstant(AppropriateAutoConcUnit, withunit: true),
-                        (ea.Fit as ElectrostaticsFit).Plateau.AsDissociationConstant(AppropriateAutoConcUnit, withunit: true),
+                        (ea.Fit as ElectrostaticsFit).Kd0.AsFormattedConcentration(AppropriateAutoConcUnit, withunit: true),
+                        (ea.Fit as ElectrostaticsFit).Plateau.AsFormattedConcentration(AppropriateAutoConcUnit, withunit: true),
                         ea.ElectrostaticStrength.ToFormattedString(AppSettings.EnergyUnit,withunit: true, permole: true)
                     };
                     ElectrostaticAnalysisOutput.StringValue = string.Join(Environment.NewLine, result);
