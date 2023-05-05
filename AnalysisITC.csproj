@@ -386,7 +386,6 @@
     <Compile Include="AppClasses\DataClasses\Salt.cs" />
     <Compile Include="AppClasses\DataClasses\ITCInstrument.cs" />
     <Compile Include="AppClasses\DataClasses\AnalysisResult.cs" />
-    <Compile Include="AppClasses\DataClasses\ConcentrationUnit.cs" />
     <Compile Include="AppClasses\AnalysisClasses\ResultAnalysis\ResultAnalysis.cs" />
     <Compile Include="GUI\MacOS\GraphViews\ResultGraphView.cs" />
     <Compile Include="GUI\MacOS\GraphViews\ResultGraphView.designer.cs">
@@ -435,6 +434,8 @@
     <Compile Include="AppClasses\UnitClasses\Energy.cs" />
     <Compile Include="AppClasses\Math\FitWithError.cs" />
     <Compile Include="AppClasses\Math\NumberStructs.cs" />
+    <Compile Include="AppClasses\Math\FWEMath.cs" />
+    <Compile Include="AppClasses\UnitClasses\ConcentrationUnit.cs" />
   </ItemGroup>
   <ItemGroup>
     <InterfaceDefinition Include="Main.storyboard" />
