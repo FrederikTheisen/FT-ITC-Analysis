@@ -114,10 +114,10 @@ namespace AnalysisITC
             return FloatWithError.ToString();
         }
 
-        public string ToString(string formatter)
-        {
-            return FloatWithError.ToString(formatter);
-        }
+        //public string ToString(string formatter)
+        //{
+        //    return FloatWithError.ToString(formatter);
+        //}
 
         public string Suffix(bool permole = false, bool perK = false)
         {
@@ -129,7 +129,15 @@ namespace AnalysisITC
             return suffix;
         }
 
-        public string ToString(EnergyUnit unit, string formatter = "F1", bool withunit = true, bool permole = false, bool perK = false)
+        public string ToFormattedString(EnergyUnit unit, bool withunit = true, bool permole = false, bool perK = false)
+        {
+            var suffix = withunit ? unit.GetUnit() : "";
+            suffix += Suffix(permole, perK);
+
+            return FloatWithError.AsFormattedEnergy(unit, suffix, withunit);
+        }
+
+        public string ToString(EnergyUnit unit, string formatter, bool withunit = true, bool permole = false, bool perK = false)
         {
             var suffix = withunit ? unit.GetUnit() : "";
             suffix += Suffix(permole, perK);
@@ -156,7 +164,35 @@ namespace AnalysisITC
         }
     }
 
-    public class EnergyUnitAttribute : Attribute
+    public static partial class Extensions
+    {
+        public static bool IsSI(this EnergyUnit unit) => unit switch
+        {
+            EnergyUnit.KiloJoule => true,
+            EnergyUnit.Joule => true,
+            EnergyUnit.MicroCal => false,
+            EnergyUnit.Cal => false,
+            EnergyUnit.KCal => false,
+            _ => true,
+        };
+
+        public static string GetUnit(this EnergyUnit value) => value.GetProperties().Unit;
+
+        public static string GetName(this EnergyUnit value)
+        {
+            return value.GetProperties().LongName;
+        }
+
+        /// <summary>
+        /// Factor to from Molar to the current unit (eg. 1 for 'J' and 0.001 for 'kJ')
+        /// </summary>
+        public static double GetMod(this EnergyUnit value)
+        {
+            return Energy.ScaleFactor(value);
+        }
+    }
+
+        public class EnergyUnitAttribute : Attribute
     {
         public string Unit { get; set; }
         public string LongName { get; set; }
@@ -166,16 +202,6 @@ namespace AnalysisITC
             LongName = name;
             Unit = unit;
         }
-
-        public static bool IsSI(EnergyUnit unit) => unit switch
-        {
-            EnergyUnit.KiloJoule => true,
-            EnergyUnit.Joule => true,
-            EnergyUnit.MicroCal => false,
-            EnergyUnit.Cal => false,
-            EnergyUnit.KCal => false,
-            _ => true,
-        };
     }
 
     //TODO add attribute with unit names and stuff
