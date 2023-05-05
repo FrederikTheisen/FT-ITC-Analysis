@@ -203,6 +203,8 @@ namespace AnalysisITC
         }
         public string AsFormattedConcentration(bool withunit) => AsFormattedConcentration(ConcentrationUnitAttribute.FromConc(this.Value), withunit);
         public string AsFormattedConcentration(ConcentrationUnit unit, bool withunit = true) => WithMod(unit.GetMod(), unit.GetName(), withunit);
+
+
         public string AsFormattedEnergy(EnergyUnit unit, string suffix, bool withunit = true) => WithMod(unit.GetMod(), suffix, withunit);
 
         string WithMod(double mod, string unit, bool withunit)
@@ -234,41 +236,6 @@ namespace AnalysisITC
             var output = roundedNumber.ToString(formatString) + " ± " + roundedError.ToString(formatString);
 
             return withunit ? output + " " + unit : output;
-        }
-
-        public string AsDissociationConstant(ConcentrationUnit unit, bool withunit = true)
-        {
-            var value = (unit.GetMod() * this).ToString();
-
-            return withunit ? value + " " + unit.GetName() : value;
-        }
-
-        public string AsDissociationConstant(bool withunit = true)
-        {
-            var unit = ConcentrationUnitAttribute.FromConc(this.Value);
-
-            return AsFormattedConcentration(unit, withunit);
-
-            //if (mag == 0) mag = Math.Log10(Value);
-
-            //if (withunit) return mag switch
-            //{
-            //    > 0 => ToString() + " M",
-            //    > -3 => (1000 * this).ToString() + " mM",
-            //    > -6 => (1000000 * this).ToString() + " µM",
-            //    > -9 => (1000000000 * this).ToString() + " nM",
-            //    > -12 => (1000000000000 * this).ToString() + " pM",
-            //    _ => ToString("G2") + " M"
-            //};
-            //else return mag switch
-            //{
-            //    > 0 => ToString(),
-            //    > -3 => (1000 * this).ToString(),
-            //    > -6 => (1000000 * this).ToString(),
-            //    > -9 => (1000000000 * this).ToString(),
-            //    > -12 => (1000000000000 * this).ToString(),
-            //    _ => ToString("G2")
-            //};
         }
 
         public int CompareTo(object obj)
