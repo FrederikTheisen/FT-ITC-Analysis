@@ -50,16 +50,22 @@ namespace AnalysisITC
             AnalysisITCDataSource.SourceWasSorted += AnalysisITCDataSource_SourceWasSorted;
         }
 
-
-
         private void AnalysisITCDataSource_SourceWasSorted(object sender, EventArgs e)
         {
+            var item = DataManager.DataSource.SelectedItem;
+
             TableView.ReloadData();
+
+            DataManager.SelectIndex(DataManager.DataSource.Content.IndexOf(item));
         }
 
         private void ExperimentDetailsPopoverController_UpdateTable(object sender, EventArgs e)
         {
+            int idx = DataManager.DataSource.SelectedIndex;
+
             TableView.ReloadData();
+
+            DataManager.SelectIndex(idx);
         }
 
         private void ExperimentDataViewCell_ExpandDataButtonClicked(object sender, ExperimentData e)
@@ -107,8 +113,6 @@ namespace AnalysisITC
 
             TableView.Delegate = del;
         }
-
-
 
         private void OnRowRemoveEvent(object sender, int e)
         {

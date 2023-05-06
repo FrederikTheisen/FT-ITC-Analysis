@@ -39,6 +39,16 @@ namespace AnalysisITC
 
         public List<ITCDataContainer> Content { get; private set; } = new List<ITCDataContainer>();
 
+        public ITCDataContainer SelectedItem
+        {
+            get
+            {
+                if (SelectedIndex < 0) return null;
+                else if (SelectedIndex >= Content.Count) return null;
+                else return Content[SelectedIndex];
+            }
+        }
+
         #region Constructors
 
         public AnalysisITCDataSource()
