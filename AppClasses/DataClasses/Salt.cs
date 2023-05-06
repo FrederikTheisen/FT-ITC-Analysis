@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 
-namespace AnalysisITC.AppClasses.AnalysisClasses
+namespace AnalysisITC
 {
 	public enum Salt
 	{

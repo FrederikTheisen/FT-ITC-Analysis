@@ -212,10 +212,10 @@ namespace AnalysisITC
             file.Add(Variable(CellVolume, data.CellVolume));
             file.Add(Variable(Instrument, (int)data.Instrument));
 
-            if (data.ExperimentOptions.Count > 0)
+            if (data.Attributes.Count > 0)
             {
                 file.Add(ListHeader(ExperimentAttributes));
-                foreach (var att in data.ExperimentOptions) file.Add(Attribute(att));
+                foreach (var att in data.Attributes) file.Add(Attribute(att));
                 file.Add(EndListHeader);
             }
 
@@ -606,7 +606,7 @@ namespace AnalysisITC
                 paste += (usekelvin ? data.TempKelvin : data.Temp).ToString("F2") + delimiter;
 
                 if (analysis.IsElectrostaticsAnalysisDependenceEnabled) paste += (1000 * BufferAttribute.GetIonicStrength(data.Data)).ToString("F2") + delimiter;
-                if (analysis.IsProtonationAnalysisEnabled) paste += BufferAttribute.GetProtonationEnthalpy(data.Data).ToString(eunit, formatter: "F2", withunit: false) + delimiter;
+                if (analysis.IsProtonationAnalysisEnabled) paste += BufferAttribute.GetProtonationEnthalpy(data.Data).ToString(eunit, "F1", withunit: false) + delimiter;
 
                 foreach (var par in data.ReportParameters)
                 {

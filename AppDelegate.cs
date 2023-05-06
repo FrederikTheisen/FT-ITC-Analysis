@@ -56,7 +56,7 @@ namespace AnalysisITC
                 case "sortbyname":
                 case "sortbytemp": return DataManager.DataIsLoaded;
                 case "sortbytype": return DataManager.DataIsLoaded && DataManager.Results.Count > 0;
-                case "copyattributes": return DataManager.DataIsLoaded && DataManager.SelectedIsData && DataManager.Current.ExperimentOptions.Count > 0;
+                case "copyattributes": return DataManager.DataIsLoaded && DataManager.SelectedIsData && DataManager.Current.Attributes.Count > 0;
             }
 
             return true;

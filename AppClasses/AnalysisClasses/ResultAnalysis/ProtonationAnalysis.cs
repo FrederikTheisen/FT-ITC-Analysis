@@ -18,7 +18,7 @@ namespace AnalysisITC.AppClasses.AnalysisClasses
             foreach (var sol in Data.Solution.Solutions)
             {
                 DataPoints.Add(new Tuple<double, FloatWithError>(
-                    ((Buffer)sol.Data.ExperimentOptions.Find(att => att.Key == ModelOptionKey.Buffer).IntValue).GetProtonationEnthalpy(sol.Temp),
+                    ((Buffer)sol.Data.Attributes.Find(att => att.Key == ModelOptionKey.Buffer).IntValue).GetProtonationEnthalpy(sol.Temp),
                     sol.TotalEnthalpy));
             }
         }

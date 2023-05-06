@@ -439,7 +439,7 @@ namespace DataReaders
             }
 
             foreach (var att in attributes)
-                exp.ExperimentOptions.Add(att);
+                exp.Attributes.Add(att);
         }
 
         static void ReadInjectionList(ExperimentData exp, StreamReader reader)

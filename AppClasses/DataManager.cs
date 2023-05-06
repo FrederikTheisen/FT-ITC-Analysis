@@ -177,23 +177,23 @@ namespace AnalysisITC
         {
             if (Current == null) return;
 
-            var opt = Current.ExperimentOptions;
+            var opt = Current.Attributes;
             bool clear = false;
 
-            if (Data.Where(d => d != Current).Any(exp => exp.ExperimentOptions.Count > 0))
+            if (Data.Where(d => d != Current).Any(exp => exp.Attributes.Count > 0))
             {
                 clear = AppDelegate.PromptOverwrite("Remove and overwrite existing attributes?");
             }
 
             foreach (var exp in Data.Where(d => d != Current))
             {
-                if (clear) exp.ExperimentOptions.Clear();
+                if (clear) exp.Attributes.Clear();
 
-                foreach (var att in Current.ExperimentOptions)
+                foreach (var att in Current.Attributes)
                 {
-                    if (!clear && exp.ExperimentOptions.Exists(mo => mo.Key == att.Key)) continue;
+                    if (!clear && exp.Attributes.Exists(mo => mo.Key == att.Key)) continue;
 
-                    exp.ExperimentOptions.Add(att.Copy());
+                    exp.Attributes.Add(att.Copy());
                 }
             }
         }
