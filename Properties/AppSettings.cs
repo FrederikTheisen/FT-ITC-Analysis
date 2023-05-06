@@ -265,7 +265,6 @@ namespace AnalysisITC
 
     public enum NumberPrecision
     {
-        Auto,
         Strict,
         Standard,
         SingleDecimal,
