@@ -114,11 +114,6 @@ namespace AnalysisITC
             return FloatWithError.ToString();
         }
 
-        //public string ToString(string formatter)
-        //{
-        //    return FloatWithError.ToString(formatter);
-        //}
-
         public string Suffix(bool permole = false, bool perK = false)
         {
             string suffix = "";
