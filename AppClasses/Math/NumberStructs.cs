@@ -199,11 +199,10 @@ namespace AnalysisITC
         {
             var value = unit.GetMod() * this;
 
-            return withunit ? value.ToString("G5") + " " + unit : value.ToString("G5");
+            return withunit ? value.ToString("G5") + " " + unit.GetName() : value.ToString("G5");
         }
         public string AsFormattedConcentration(bool withunit) => AsFormattedConcentration(ConcentrationUnitAttribute.FromConc(this.Value), withunit);
         public string AsFormattedConcentration(ConcentrationUnit unit, bool withunit = true) => WithMod(unit.GetMod(), unit.GetName(), withunit);
-
 
         public string AsFormattedEnergy(EnergyUnit unit, string suffix, bool withunit = true) => WithMod(unit.GetMod(), suffix, withunit);
 
@@ -231,8 +230,8 @@ namespace AnalysisITC
             int digits = (int)floor;
             double scale = Math.Pow(10, digits);
             string formatString = $"F{Math.Max(0, -digits)}";
-            double roundedNumber = Math.Round(value.Value / scale) * scale;
-            double roundedError = Math.Round(value.SD / scale) * scale;
+            double roundedNumber = FWEMath.RoundApproximate(value.Value / scale) * scale;
+            double roundedError = FWEMath.RoundApproximate(value.SD / scale) * scale;
             var output = roundedNumber.ToString(formatString) + " ± " + roundedError.ToString(formatString);
 
             return withunit ? output + " " + unit : output;
