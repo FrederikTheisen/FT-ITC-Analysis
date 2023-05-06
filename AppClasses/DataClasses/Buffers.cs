@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using AnalysisITC.AppClasses.AnalysisClasses;
 
-namespace AnalysisITC.AppClasses.AnalysisClasses
+namespace AnalysisITC
 {
 	public enum Buffer
 	{
@@ -71,12 +71,16 @@ namespace AnalysisITC.AppClasses.AnalysisClasses
 		[Buffer("Piperidine", 11.12, -0.031, 1, "Piperidine")]
 		Piperidine,
         [Buffer("TAPSO", 7.635, 0, 1, "3-[[1,3-dihydroxy-2-(hydroxymethyl)propan-2-yl]amino]-2-hydroxypropane-1-sulfonic acid", new[] { 39090, -16.0 })] //FIXME check charge and pka temp dependence
-        TAPSO
-	}
+        TAPSO,
+		[Buffer("1xPBS",0,0,1, "Phosphate-buffered saline [NaPO4, KPO4, pH 7.4, NaCl, KCl]")]
+		PBS,
+        [Buffer("1xTBS", 0, 0, 1, "Tris-buffered saline [Tris-HCl, pH 7.4, NaCl, KCl]")]
+        TBS,
+    }
 
     public static partial class Extensions
     {
-        public static BufferAttribute GetProperties(this AppClasses.AnalysisClasses.Buffer value)
+        public static BufferAttribute GetProperties(this Buffer value)
         {
             var fieldInfo = value.GetType().GetField(value.ToString());
             var attribute = fieldInfo.GetCustomAttributes(typeof(BufferAttribute), false).FirstOrDefault() as BufferAttribute;
@@ -204,6 +208,63 @@ namespace AnalysisITC.AppClasses.AnalysisClasses
 			return tooltip;
         }
 
+        public static void SetupSpecialBuffer(List<ModelOptions> tmpoptions, Buffer buffer)
+        {
+            tmpoptions.RemoveAll(att => att.Key == ModelOptionKey.Buffer);
+            tmpoptions.RemoveAll(att => att.Key == ModelOptionKey.Salt);
+
+			switch (buffer)
+			{
+				case Buffer.TBS:
+					{
+						var tris = ModelOptions.FromKey(ModelOptionKey.Buffer);
+						tris.IntValue = (int)Buffer.Tris;
+						tris.ParameterValue = new(0.025);
+						tris.DoubleValue = 7.4;
+                        tmpoptions.Add(tris);
+
+						var nacl = ModelOptions.FromKey(ModelOptionKey.Salt);
+						nacl.IntValue = (int)Salt.NaCl;
+						nacl.ParameterValue = new(0.137);
+                        tmpoptions.Add(nacl);
+
+						var kcl = ModelOptions.FromKey(ModelOptionKey.Salt);
+						kcl.IntValue = (int)Salt.KCl;
+						kcl.ParameterValue = new(0.0027);
+
+                        tmpoptions.Add(kcl);
+
+					}
+                    break;
+				case Buffer.PBS:
+                    {
+                        var napo4 = ModelOptions.FromKey(ModelOptionKey.Buffer);
+                        napo4.IntValue = (int)Buffer.Phosphate;
+                        napo4.ParameterValue = new(0.010);
+                        napo4.DoubleValue = 7.4;
+                        tmpoptions.Add(napo4);
+
+                        var kpo4 = ModelOptions.FromKey(ModelOptionKey.Buffer);
+                        kpo4.IntValue = (int)Buffer.Phosphate;
+                        kpo4.ParameterValue = new(0.0018);
+                        kpo4.DoubleValue = 7.4;
+                        tmpoptions.Add(kpo4);
+
+                        var nacl = ModelOptions.FromKey(ModelOptionKey.Salt);
+                        nacl.IntValue = (int)Salt.NaCl;
+                        nacl.ParameterValue = new(0.137);
+                        tmpoptions.Add(nacl);
+
+                        var kcl = ModelOptions.FromKey(ModelOptionKey.Salt);
+                        kcl.IntValue = (int)Salt.KCl;
+                        kcl.ParameterValue = new(0.0027);
+
+                        tmpoptions.Add(kcl);
+                    }
+                    break;
+			}
+        }
+
         #region Ionic strength methods
 
         Tuple<double,double,int> GetStateProperties(double pH)
@@ -287,10 +348,10 @@ namespace AnalysisITC.AppClasses.AnalysisClasses
 		public static double GetIonicStrength(ExperimentData data)
 		{
 			//Check if ionicstrength is specifically stated
-			if (data.ExperimentOptions.Exists(opt => opt.Key == ModelOptionKey.IonicStrength)) return data.ExperimentOptions.First(opt => opt.Key == ModelOptionKey.IonicStrength).ParameterValue.Value;
+			if (data.Attributes.Exists(opt => opt.Key == ModelOptionKey.IonicStrength)) return data.Attributes.First(opt => opt.Key == ModelOptionKey.IonicStrength).ParameterValue.Value;
 
-			var salts = data.ExperimentOptions.Where(opt => opt.Key == ModelOptionKey.Salt);
-			var buffers = data.ExperimentOptions.Where(opt => opt.Key == ModelOptionKey.Buffer);
+			var salts = data.Attributes.Where(opt => opt.Key == ModelOptionKey.Salt);
+			var buffers = data.Attributes.Where(opt => opt.Key == ModelOptionKey.Buffer);
 
 			var i = 0.0;
 
@@ -311,7 +372,7 @@ namespace AnalysisITC.AppClasses.AnalysisClasses
 
 		public static Energy GetProtonationEnthalpy(ExperimentData data)
 		{
-			var buffer = (Buffer)data.ExperimentOptions.Find(att => att.Key == ModelOptionKey.Buffer).IntValue;
+			var buffer = (Buffer)data.Attributes.Find(att => att.Key == ModelOptionKey.Buffer).IntValue;
 
 			return new (buffer.GetProtonationEnthalpy(data.MeasuredTemperature));
         }
@@ -328,6 +389,9 @@ namespace AnalysisITC.AppClasses.AnalysisClasses
         {
             return new List<Buffer>
             {
+				Buffer.PBS,
+				Buffer.TBS,
+				Buffer.Null,
                 Buffer.Hepes,
                 Buffer.Phosphate,
 				Buffer.Citrate,
@@ -346,7 +410,7 @@ namespace AnalysisITC.AppClasses.AnalysisClasses
 
         public static List<Buffer> GetBuffers()
 		{
-            return (from Buffer buffer in Enum.GetValues(typeof(Buffer)) select buffer).Where(b => (int)b >= 0).ToList();
+            return (from Buffer buffer in Enum.GetValues(typeof(Buffer)) select buffer).Where(enumidx => (int)enumidx >= 0).ToList();
         }
 	}
 }

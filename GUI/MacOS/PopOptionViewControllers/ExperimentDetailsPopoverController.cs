@@ -18,7 +18,7 @@ namespace AnalysisITC
 
         public static ExperimentData Data { get; set; } = null;
         static List<ModelOptions> tmpoptions = new List<ModelOptions>();
-        public static IEnumerable<ModelOptionKey> AllAddedOptions => Data.ExperimentOptions.Select(opt => opt.Key).Concat(tmpoptions.Select(mo => mo.Key).ToList());
+        public static IEnumerable<ModelOptionKey> AllAddedOptions => Data.Attributes.Select(opt => opt.Key).Concat(tmpoptions.Select(mo => mo.Key).ToList());
 
         public ExperimentDetailsPopoverController() : base()
         {
@@ -33,41 +33,64 @@ namespace AnalysisITC
         {
             base.ViewDidAppear();
 
-            tmpoptions.Clear();
+            tmpoptions = new List<ModelOptions>();
+            foreach (var att in Data.Attributes)
+            {
+                tmpoptions.Add(att.Copy());
+            }
+
+            Setup();
+
+            //if (Data.ExperimentOptions.Count == ModelOptions.AvailableExperimentAttributes.Count) AddAttributeButton.Enabled = false;
+        }
+
+        void Setup()
+        {
             ExperimentNameField.StringValue = Data.FileName;
-			CellConcentrationField.DoubleValue = Data.CellConcentration.Value * 1000000;
+            CellConcentrationField.DoubleValue = Data.CellConcentration.Value * 1000000;
             if (Data.CellConcentration.HasError) CellConcentrationErrorField.DoubleValue = Data.CellConcentration.SD * 1000000;
-			SyringeConcentrationField.DoubleValue = Data.SyringeConcentration * 1000000;
+            SyringeConcentrationField.DoubleValue = Data.SyringeConcentration * 1000000;
             if (Data.SyringeConcentration.HasError) SyringeConcentrationErrorField.DoubleValue = Data.SyringeConcentration.SD * 1000000;
             TemperatureField.DoubleValue = Data.MeasuredTemperature;
 
-            foreach (var opt in Data.ExperimentOptions)
+            foreach (var opt in tmpoptions)
             {
                 AddAttribute(opt);
                 //AttributeStackView.AddArrangedSubview(new ExperimentAttributeView(new CGRect(0, 0, AttributeStackView.Frame.Width - 20, 14), opt.Value));
             }
-
-            //if (Data.ExperimentOptions.Count == ModelOptions.AvailableExperimentAttributes.Count) AddAttributeButton.Enabled = false;
         }
 
         partial void AddAttribute(NSObject sender)
         {
             var opt = new ModelOptions();
+            tmpoptions.Add(opt);
             AddAttribute(opt);
         }
 
         void AddAttribute(ModelOptions opt)
         {
-            tmpoptions.Add(opt);
+            //tmpoptions.Add(opt);
 
             var sv = new ExperimentAttributeView(new CGRect(0, 0, AttributeStackView.Frame.Width - 20, 14), opt);
             sv.Remove += Sv_Remove;
             sv.KeyChanged += Sv_KeyChanged;
+            sv.SpecialAttributeSelected += Sv_SpecialAttributeSelected;
 
             AttributeStackView.AddArrangedSubview(sv);
 
             if (AttributeStackView.Subviews.Count() == ModelOptions.AvailableExperimentAttributes.Count) AddAttributeButton.Enabled = false;
+        }
 
+        private void Sv_SpecialAttributeSelected(object sender, Tuple<ModelOptionKey, int> e)
+        {
+            switch (e.Item1)
+            {
+                case ModelOptionKey.Buffer:
+                    BufferAttribute.SetupSpecialBuffer(tmpoptions, (Buffer)e.Item2);
+                    break;
+            }
+
+            Setup();
         }
 
         private void Sv_KeyChanged(object sender, EventArgs e) //Update available menu items
@@ -97,7 +120,7 @@ namespace AnalysisITC
             if (!string.IsNullOrEmpty(TemperatureField.StringValue)) Data.MeasuredTemperature = TemperatureField.DoubleValue;
             if (!string.IsNullOrEmpty(ExperimentNameField.StringValue)) Data.FileName = ExperimentNameField.StringValue;
 
-            Data.ExperimentOptions.Clear();
+            Data.Attributes.Clear();
 
             foreach (var sv in AttributeStackView.Subviews) (sv as ExperimentAttributeView).ApplyOption(Data);
 

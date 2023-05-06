@@ -13,8 +13,9 @@ namespace AnalysisITC.GUI.MacOS.CustomViews
 	{
 		public event EventHandler Remove;
         public event EventHandler KeyChanged;
+        public event EventHandler<Tuple<ModelOptionKey,int>> SpecialAttributeSelected;
 
-		public ModelOptions Option { get; private set; }
+        public ModelOptions Option { get; private set; }
 
         public override nfloat Spacing { get => 1; set => base.Spacing = value; }
 
@@ -327,7 +328,7 @@ namespace AnalysisITC.GUI.MacOS.CustomViews
             }
             else
             {
-
+                AppEventHandler.DisplayHandledException(new NotImplementedException("Attribute with less than 3 options. Please fix."));
             }
         }
 
@@ -350,8 +351,21 @@ namespace AnalysisITC.GUI.MacOS.CustomViews
             KeyChanged?.Invoke(this, null);
         }
 
-        private void EnumPopUpControl_Activated(object sender, EventArgs e)
+        private void EnumPopUpControl_Activated(object sender, EventArgs args)
         {
+            switch (Option.Key)
+            {
+                case ModelOptionKey.Buffer:
+                    switch ((Buffer)(int)EnumPopUpControl.SelectedTag)
+                    {
+                        case Buffer.PBS:
+                        case Buffer.TBS:
+                            Remove?.Invoke(this, null);
+                            SpecialAttributeSelected?.Invoke(this, new(Option.Key, (int)EnumPopUpControl.SelectedTag));
+                            return;
+                    }
+                    break;
+            }
             EnumPopUpControl.Menu.ItemAt(0).AttributedTitle = MacStrings.FromMarkDownString(Option.EnumOptions.Single(e => e.Item1 == (int)EnumPopUpControl.SelectedTag).Item2, NSFont.SystemFontOfSize(NSFont.SmallSystemFontSize));
         }
 
@@ -378,9 +392,9 @@ namespace AnalysisITC.GUI.MacOS.CustomViews
         {
             if (Option.Key == ModelOptionKey.Null) return;
 
-            if (!experiment.ExperimentOptions.Exists(opt => opt.Key == Option.Key))
+            if (!experiment.Attributes.Exists(opt => opt.Key == Option.Key))
             {
-                experiment.ExperimentOptions.Add(Option);
+                experiment.Attributes.Add(Option);
             }
 
             switch (Option.Key)
