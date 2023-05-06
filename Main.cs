@@ -10,7 +10,7 @@ namespace AnalysisITC
 
             StateManager.Init();
             AppSettings.Initialize();
-            AppClasses.AnalysisClasses.BufferAttribute.Init();
+            BufferAttribute.Init();
 
             NSApplication.Main(args);
         }

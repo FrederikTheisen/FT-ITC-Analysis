@@ -185,13 +185,13 @@
                                             <font key="font" metaFont="system"/>
                                             <segments>
                                                 <segment label="Strict">
-                                                    <string key="toolTip">This method rounds the value so that the error has one significant digit, and both the value and error have the same precision. For example: 1.23 ± 0.123 will be rounded to 1.2 ± 0.1.</string>
+                                                    <string key="toolTip">Rounds the value so that the error has one significant digit, and both the value and error have the same precision. For example: 1.23 ± 0.123 will be rounded to 1.2 ± 0.1.</string>
                                                 </segment>
                                                 <segment label="Standard" selected="YES" tag="1">
-                                                    <string key="toolTip">Less strict rounding will give the error with two significant digits if the first digit is 1. For example: 1.23 ± 0.123 will be rounded to 1.23 ± 0.12.</string>
+                                                    <string key="toolTip">Less strict rounding shows error with two significant digits if the first digit is 1. For example: 1.23 ± 0.123 will be rounded to 1.23 ± 0.12.</string>
                                                 </segment>
                                                 <segment label="Decimal precision">
-                                                    <string key="toolTip">This method simply gives the value with one decimal point precision. For example, if the value is 123.45 ± 12.34, it will be rounded to 123.5 ± 12.3.</string>
+                                                    <string key="toolTip">Shows value and error with one decimal point precision. For example, if the value is 123.45 ± 12.34, it will be rounded to 123.5 ± 12.3.</string>
                                                 </segment>
                                                 <segment label="None" toolTip="Show values with floating point precision"/>
                                             </segments>
