@@ -55,7 +55,7 @@ namespace AnalysisITC
         public double MeasuredTemperatureKelvin => 273.15 + MeasuredTemperature;
 
         public DataProcessor Processor { get; private set; }
-        public List<ModelOptions> ExperimentOptions { get; } = new List<ModelOptions>();
+        public List<ModelOptions> Attributes { get; } = new List<ModelOptions>();
         public Model Model { get; set; }
         public SolutionInterface Solution => Model?.Solution;
 
@@ -253,7 +253,7 @@ namespace AnalysisITC
                 MeasuredTemperature = MeasuredTemperature,
             };
 
-            foreach (var opt in ExperimentOptions) syndat.ExperimentOptions.Add(opt);
+            foreach (var opt in Attributes) syndat.Attributes.Add(opt);
 
             syndat.SetID(UniqueID);
 
