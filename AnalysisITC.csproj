@@ -256,10 +256,6 @@
     <Compile Include="GUI\MacOS\PopOptionViewControllers\FittingOptionsPopoverViewController.designer.cs">
       <DependentUpon>FittingOptionsPopoverViewController.cs</DependentUpon>
     </Compile>
-    <Compile Include="GUI\MacOS\PopOptionViewControllers\ExportPopViewController.cs" />
-    <Compile Include="GUI\MacOS\PopOptionViewControllers\ExportPopViewController.designer.cs">
-      <DependentUpon>ExportPopViewController.cs</DependentUpon>
-    </Compile>
     <Compile Include="GUI\MacOS\PopOptionViewControllers\BaselineOptionsPopoverViewController.cs" />
     <Compile Include="GUI\MacOS\PopOptionViewControllers\BaselineOptionsPopoverViewController.designer.cs">
       <DependentUpon>BaselineOptionsPopoverViewController.cs</DependentUpon>
@@ -436,6 +432,10 @@
     <Compile Include="GUI\MacOS\PopOptionViewControllers\FinalFigureOptions\GraphOptionsPopoverViewController.cs" />
     <Compile Include="GUI\MacOS\PopOptionViewControllers\FinalFigureOptions\GraphOptionsPopoverViewController.designer.cs">
       <DependentUpon>GraphOptionsPopoverViewController.cs</DependentUpon>
+    </Compile>
+    <Compile Include="GUI\MacOS\PopOptionViewControllers\FinalFigureOptions\ExportPopViewController.cs" />
+    <Compile Include="GUI\MacOS\PopOptionViewControllers\FinalFigureOptions\ExportPopViewController.designer.cs">
+      <DependentUpon>ExportPopViewController.cs</DependentUpon>
     </Compile>
   </ItemGroup>
   <ItemGroup>
