@@ -64,7 +64,7 @@ namespace AnalysisITC
             {
                 case "Temp": view.StringValue = (DataSource.Data[(int)row].Temp + (UseKelvin ? 273.15 : 0)).ToString("F2"); break;
                 case "IS": view.StringValue = (1000 * BufferAttribute.GetIonicStrength(DataSource.Data[(int)row].Data)).ToString("F1"); break;
-                case "HPROT": view.StringValue = BufferAttribute.GetProtonationEnthalpy(DataSource.Data[(int)row].Data).ToFormattedString(EnergyUnit, withunit: false); break;
+                case "HPROT": view.StringValue = BufferAttribute.GetProtonationEnthalpy(DataSource.Data[(int)row].Data).ToString(EnergyUnit, "F1", withunit: false); break;
                 case "N1": view.StringValue = DataSource.Data[(int)row].ReportParameters[ParameterType.Nvalue1].AsNumber(); view.Alignment = NSTextAlignment.Center; break;
                 case "N2": view.StringValue = DataSource.Data[(int)row].ReportParameters[ParameterType.Nvalue2].AsNumber(); view.Alignment = NSTextAlignment.Center; break;
                 case "Kd1": view.StringValue = DataSource.Data[(int)row].ReportParameters[ParameterType.Affinity1].AsFormattedConcentration(KdUnit, withunit: false); view.Alignment = NSTextAlignment.Center; break;
