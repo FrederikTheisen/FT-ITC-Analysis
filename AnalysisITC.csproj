@@ -437,6 +437,7 @@
     <Compile Include="GUI\MacOS\PopOptionViewControllers\FinalFigureOptions\ExportPopViewController.designer.cs">
       <DependentUpon>ExportPopViewController.cs</DependentUpon>
     </Compile>
+    <Compile Include="GUI\MacOS\MacSupport.cs" />
   </ItemGroup>
   <ItemGroup>
     <InterfaceDefinition Include="Main.storyboard" />

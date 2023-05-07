@@ -59,6 +59,9 @@ namespace AnalysisITC
 		[Action ("Sort:")]
 		partial void Sort (Foundation.NSObject sender);
 
+		[Action ("StartSupport:")]
+		partial void StartSupport (Foundation.NSObject sender);
+
 		[Action ("Undo:")]
 		partial void Undo (Foundation.NSObject sender);
 		

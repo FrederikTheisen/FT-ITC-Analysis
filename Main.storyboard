@@ -3786,13 +3786,7 @@ For analysis and presentation of ITC data</string>
                                                 <action selector="DuplicateSelectedData:" target="Voe-Tx-rLC" id="xci-1C-X13"/>
                                             </connections>
                                         </menuItem>
-                                        <menuItem title="Copy Attributes to All" identifier="copyattributes" toolTip="Copy selected experiment attributes to all other active experiments" id="7oz-5S-AE9">
-                                            <modifierMask key="keyEquivalentModifierMask"/>
-                                            <connections>
-                                                <action selector="CopyAttributesToAll:" target="Voe-Tx-rLC" id="vjz-mZ-jqg"/>
-                                            </connections>
-                                        </menuItem>
-                                        <menuItem title="Clear Data" identifier="cleardata" id="pa3-QI-u2k">
+                                        <menuItem title="Clear All" identifier="cleardata" id="pa3-QI-u2k">
                                             <modifierMask key="keyEquivalentModifierMask"/>
                                             <connections>
                                                 <action selector="ClearAllData:" target="Voe-Tx-rLC" id="upp-Oc-zbD"/>
@@ -3805,6 +3799,12 @@ For analysis and presentation of ITC data</string>
                                             </connections>
                                         </menuItem>
                                         <menuItem isSeparatorItem="YES" id="wwb-6g-frr"/>
+                                        <menuItem title="Copy Attributes to All" identifier="copyattributes" toolTip="Copy selected experiment attributes to all other active experiments" id="7oz-5S-AE9">
+                                            <modifierMask key="keyEquivalentModifierMask"/>
+                                            <connections>
+                                                <action selector="CopyAttributesToAll:" target="Voe-Tx-rLC" id="vjz-mZ-jqg"/>
+                                            </connections>
+                                        </menuItem>
                                         <menuItem title="Enable All" identifier="selectall" id="KeD-bq-ymU">
                                             <modifierMask key="keyEquivalentModifierMask"/>
                                             <connections>
@@ -3915,8 +3915,11 @@ For analysis and presentation of ITC data</string>
                                         <menuItem title="Open Source" enabled="NO" id="nF3-oU-vjF">
                                             <modifierMask key="keyEquivalentModifierMask"/>
                                         </menuItem>
-                                        <menuItem title="Contact" enabled="NO" id="Mx8-VC-e2I">
+                                        <menuItem title="Support" id="Mx8-VC-e2I">
                                             <modifierMask key="keyEquivalentModifierMask"/>
+                                            <connections>
+                                                <action selector="StartSupport:" target="Voe-Tx-rLC" id="JYo-rE-nHI"/>
+                                            </connections>
                                         </menuItem>
                                     </items>
                                 </menu>
