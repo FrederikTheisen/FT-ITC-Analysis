@@ -4,6 +4,7 @@ using System.ComponentModel;
 using System.Linq;
 using System.Security.Cryptography;
 using AnalysisITC.AppClasses.Analysis2.Models;
+using AnalysisITC.Utils;
 
 namespace AnalysisITC.AppClasses.Analysis2
 {
@@ -353,6 +354,7 @@ namespace AnalysisITC.AppClasses.Analysis2
 
     public class ParameterTypeAttribute : DescriptionAttribute
     {
+        public string AttributedNameString { get; private set; }
         public double DefaultStepSize { get; private set; }
         public double[] DefaultLimits { get; private set; }
         public ParameterType ParentType { get; private set; }
@@ -361,14 +363,16 @@ namespace AnalysisITC.AppClasses.Analysis2
         {
             var att = parent.GetProperties();
 
+            AttributedNameString = att.AttributedNameString;
             DefaultLimits = att.DefaultLimits;
             DefaultStepSize = att.DefaultStepSize;
 
             ParentType = parent;
         }
 
-        public ParameterTypeAttribute(string name, double stepsize, double[] limits, ParameterType parent) : base(name)
+        public ParameterTypeAttribute(string name, string attstr, double stepsize, double[] limits, ParameterType parent) : base(name)
         {
+            AttributedNameString = attstr;
             DefaultStepSize = stepsize;
             DefaultLimits = limits;
 
@@ -389,7 +393,7 @@ namespace AnalysisITC.AppClasses.Analysis2
                 case ParameterType.EntropyContribution2: return "-T∆S2";
                 case ParameterType.Gibbs1: return "∆G" + (containstwo ? "1" : "");
                 case ParameterType.Gibbs2: return "∆G2";
-                default: throw new NotImplementedException("TableHeaderNotImplementedException: " + key.ToString());
+                default: AppEventHandler.DisplayHandledException(new NotImplementedException("TableHeaderNotImplementedException: " + key.ToString())); return "err";
             }
         }
 
@@ -424,39 +428,39 @@ namespace AnalysisITC.AppClasses.Analysis2
 
     public enum ParameterType
     {
-        [ParameterTypeAttribute("N-value", 0.05, new double[] { 0.1, 10 }, ParameterType.Nvalue1)]
+        [ParameterTypeAttribute("N-value", "N", 0.05, new double[] { 0.1, 10 }, ParameterType.Nvalue1)]
         Nvalue1,
         [ParameterTypeAttribute("N-value 2", ParameterType.Nvalue1)]
         Nvalue2,
-        [ParameterTypeAttribute("Enthalpy", 1000, new double[] { -300000, 300000 }, ParameterType.Enthalpy1)]
+        [ParameterTypeAttribute("Enthalpy", "∆*H*", 1000, new double[] { -300000, 300000 }, ParameterType.Enthalpy1)]
         Enthalpy1,
         [ParameterTypeAttribute("Enthalpy 2", ParameterType.Enthalpy1)]
         Enthalpy2,
-        [ParameterTypeAttribute("Affinity", 100000, new double[] { 10, 100000000000 }, ParameterType.Affinity1)]
+        [ParameterTypeAttribute("Affinity", "*K*{d}", 100000, new double[] { 10, 100000000000 }, ParameterType.Affinity1)]
         Affinity1,
         [ParameterTypeAttribute("Affinity 2", ParameterType.Affinity1)]
         Affinity2,
-        [ParameterTypeAttribute("Offset", 500, new double[] { -30000, 30000 }, ParameterType.Offset)]
+        [ParameterTypeAttribute("Offset", "Offset", 500, new double[] { -30000, 30000 }, ParameterType.Offset)]
         Offset,
-        [ParameterTypeAttribute("Heat capacity", 500, new double[] { -20000, 20000 }, ParameterType.HeatCapacity1)]
+        [ParameterTypeAttribute("Heat capacity", "∆*C*{p}", 500, new double[] { -20000, 20000 }, ParameterType.HeatCapacity1)]
         HeatCapacity1,
         [ParameterTypeAttribute("Heat capacity 2", ParameterType.HeatCapacity1)]
         HeatCapacity2,
-        [ParameterTypeAttribute("Gibbs free energy", 500, new double[] { -100000, -10000 }, ParameterType.Gibbs1)]
+        [ParameterTypeAttribute("Gibbs free energy", "∆*G*", 500, new double[] { -100000, -10000 }, ParameterType.Gibbs1)]
         Gibbs1,
         [ParameterTypeAttribute("Gibbs free energy 2", ParameterType.Gibbs1)]
         Gibbs2,
-        [ParameterTypeAttribute("Entropy", 5, null, ParameterType.Entropy1)]
+        [ParameterTypeAttribute("Entropy", "∆*S*", 5, null, ParameterType.Entropy1)]
         Entropy1,
         [ParameterTypeAttribute("Entropy 2", ParameterType.Entropy1)]
         Entropy2,
-        [ParameterTypeAttribute("Entropy contribution", 1000, null, EntropyContribution1)]
+        [ParameterTypeAttribute("Entropy contribution", "-*T*∆*S*", 1000, null, EntropyContribution1)]
         EntropyContribution1,
         [ParameterTypeAttribute("Entropy contribution 2", EntropyContribution1)]
         EntropyContribution2,
-        [ParameterTypeAttribute("Isomerization rate constant", 0.00001, new double[] { 0.00001, 1 }, IsomerizationRate)]
+        [ParameterTypeAttribute("Isomerization rate constant", "*k*{iso}", 0.00001, new double[] { 0.00001, 1 }, IsomerizationRate)]
         IsomerizationRate,
-        [ParameterTypeAttribute("Isomerization equilibrium constant", 0.001, new double[] { 0.001, 1000 }, IsomerizationEquilibriumConstant)]
+        [ParameterTypeAttribute("Isomerization equilibrium constant", "*K*{trans,cis}", 0.001, new double[] { 0.001, 1000 }, IsomerizationEquilibriumConstant)]
         IsomerizationEquilibriumConstant,
     }
 }
