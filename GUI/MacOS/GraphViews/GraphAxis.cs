@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using AnalysisITC.AppClasses.Analysis2;
+using AnalysisITC.Utils;
 using AppKit;
 using CoreAnimation;
 using CoreGraphics;
@@ -371,7 +372,7 @@ namespace AnalysisITC
             };
 
             //var titlesize = cggraph.DrawString(layer, LegendTitle, point, TitleFont, null, TextAlignment.Center, aln, null, rot);
-            var atttitle = Utils.MacStrings.FromMarkDownString(LegendTitle, NSFont.FromCTFont(TitleFont), true);
+            var atttitle = MacStrings.FromMarkDownString(LegendTitle, NSFont.FromCTFont(TitleFont), true);
             var titlesize = cggraph.DrawString2(layer, atttitle, point, horizontalignment: TextAlignment.Center, verticalalignment: aln, null, rot);
 
             gc.DrawLayer(layer, new CGPoint(0, 0));
@@ -466,7 +467,9 @@ namespace AnalysisITC
                 CGPoint tick = ticks[i];
                 var point = tick + FrameOffset + LabelOffset;
 
-                var _size = cggraph.DrawString(layer, ParameterTypeAttribute.TableHeaderTitle(CategoryLabels.Keys.ToList()[i], false), point, TickFont, null, HorizontalTickLabelAlignment, VerticalTickLabelAlignment, null);
+                var label = CategoryLabels.Keys.ToList()[i].GetProperties().AttributedNameString;
+                var attlabel = MacStrings.FromMarkDownString(label, NSFont.FromCTFont(TickFont), true);
+                var _size = cggraph.DrawString2(layer, attlabel, point, HorizontalTickLabelAlignment, VerticalTickLabelAlignment, null);
 
                 if (_size.Width > maxsize.Width) maxsize.Width = _size.Width;
                 if (_size.Height > maxsize.Height) maxsize.Height = _size.Height;
