@@ -10,6 +10,7 @@ using AnalysisITC.AppClasses.Analysis2;
 using CoreServices;
 using System.Threading.Tasks;
 using AnalysisITC.AppClasses.AnalysisClasses;
+using AnalysisITC.Utils;
 
 namespace AnalysisITC
 {
@@ -39,6 +40,36 @@ namespace AnalysisITC
         public override void ViewDidLoad()
         {
             base.ViewDidLoad();
+
+            TempDependenceResultDescField.AttributedStringValue = MacStrings.FromMarkDownString(string.Join(Environment.NewLine, new List<string>()
+            {
+                "Reference Temp / Unit:",
+                "Enthalpy (" + MarkdownStrings.Enthalpy + "):",
+                "Entropy (" + MarkdownStrings.EntropyContribution + "):",
+                "Free Energy (" + MarkdownStrings.GibbsFreeEnergy + "):",
+            }), NSFont.SystemFontOfSize(11));
+
+            EvalResultDescField.AttributedStringValue = MacStrings.FromMarkDownString(string.Join(Environment.NewLine, new List<string>()
+            {
+                "Enthalpy (" + MarkdownStrings.Enthalpy + "):",
+                "Entropy (" + MarkdownStrings.EntropyContribution + "):",
+                "Free Energy (" + MarkdownStrings.GibbsFreeEnergy + "):",
+                "Affinity (" + MarkdownStrings.DissociationConstant + "):",
+            }), NSFont.SystemFontOfSize(11));
+
+            ElectroResultDescField.AttributedStringValue = MacStrings.FromMarkDownString(string.Join(Environment.NewLine, new List<string>()
+            {
+                MarkdownStrings.DissociationConstant + " with no salt:",
+                MarkdownStrings.DissociationConstant + " at infinite salt:",
+                "Electrostatic interaction strength:",
+            }), NSFont.SystemFontOfSize(11));
+
+            ProtonationAnalysisResultDescriptionField.AttributedStringValue = MacStrings.FromMarkDownString(string.Join(Environment.NewLine, new List<string>()
+            {
+                "Protein proton change:",
+                MarkdownStrings.Enthalpy + " at 0 protonation enthalpy:",
+            }), NSFont.SystemFontOfSize(11));
+
 
             FoldingAnalysisTab = TabView.Item(1);
             IonicStrengthAnalysisTab = TabView.Item(2);
@@ -256,7 +287,16 @@ namespace AnalysisITC
                     };
                     ElectrostaticAnalysisOutput.StringValue = string.Join(Environment.NewLine, result);
                     break;
-                case ProtonationAnalysis pa: break;
+                case ProtonationAnalysis pa:
+                    {
+                        result = new List<string>()
+                        {
+                            (pa.Fit as LinearFitWithError).Slope.AsNumber(),
+                            new Energy((pa.Fit as LinearFitWithError).Evaluate(0)).ToFormattedString(AppSettings.EnergyUnit, true, true, false)
+                        };
+                        ProtonationAnalysisOutput.StringValue = string.Join(Environment.NewLine, result);
+                    }
+                    break;
             }
         }
 

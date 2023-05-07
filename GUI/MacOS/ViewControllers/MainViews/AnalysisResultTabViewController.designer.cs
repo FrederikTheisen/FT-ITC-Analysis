@@ -13,6 +13,9 @@ namespace AnalysisITC
 	partial class AnalysisResultTabViewController
 	{
 		[Outlet]
+		AppKit.NSTextField ElectroResultDescField { get; set; }
+
+		[Outlet]
 		AppKit.NSSegmentedControl ElectrostaticAnalysisModel { get; set; }
 
 		[Outlet]
@@ -20,6 +23,9 @@ namespace AnalysisITC
 
 		[Outlet]
 		AppKit.NSSegmentedControl EnergyControl { get; set; }
+
+		[Outlet]
+		AppKit.NSTextField EvalResultDescField { get; set; }
 
 		[Outlet]
 		AppKit.NSTextField EvaluateionTemperatureTextField { get; set; }
@@ -32,6 +38,12 @@ namespace AnalysisITC
 
 		[Outlet]
 		AnalysisITC.ResultGraphView Graph { get; set; }
+
+		[Outlet]
+		AppKit.NSTextField ProtonationAnalysisOutput { get; set; }
+
+		[Outlet]
+		AppKit.NSTextField ProtonationAnalysisResultDescriptionField { get; set; }
 
 		[Outlet]
 		AppKit.NSTextField ResultEvalTempUnitLabel { get; set; }
@@ -59,6 +71,9 @@ namespace AnalysisITC
 
 		[Outlet]
 		AppKit.NSSegmentedControl TempControl { get; set; }
+
+		[Outlet]
+		AppKit.NSTextField TempDependenceResultDescField { get; set; }
 
 		[Outlet]
 		AppKit.NSTextField TemperatureDependenceLabel { get; set; }
@@ -89,6 +104,31 @@ namespace AnalysisITC
 		
 		void ReleaseDesignerOutlets ()
 		{
+			if (ElectrostaticAnalysisModel != null) {
+				ElectrostaticAnalysisModel.Dispose ();
+				ElectrostaticAnalysisModel = null;
+			}
+
+			if (ElectrostaticAnalysisOutput != null) {
+				ElectrostaticAnalysisOutput.Dispose ();
+				ElectrostaticAnalysisOutput = null;
+			}
+
+			if (ProtonationAnalysisOutput != null) {
+				ProtonationAnalysisOutput.Dispose ();
+				ProtonationAnalysisOutput = null;
+			}
+
+			if (ProtonationAnalysisResultDescriptionField != null) {
+				ProtonationAnalysisResultDescriptionField.Dispose ();
+				ProtonationAnalysisResultDescriptionField = null;
+			}
+
+			if (TempDependenceResultDescField != null) {
+				TempDependenceResultDescField.Dispose ();
+				TempDependenceResultDescField = null;
+			}
+
 			if (EnergyControl != null) {
 				EnergyControl.Dispose ();
 				EnergyControl = null;
@@ -97,6 +137,16 @@ namespace AnalysisITC
 			if (EvaluateionTemperatureTextField != null) {
 				EvaluateionTemperatureTextField.Dispose ();
 				EvaluateionTemperatureTextField = null;
+			}
+
+			if (EvalResultDescField != null) {
+				EvalResultDescField.Dispose ();
+				EvalResultDescField = null;
+			}
+
+			if (ElectroResultDescField != null) {
+				ElectroResultDescField.Dispose ();
+				ElectroResultDescField = null;
 			}
 
 			if (EvaluationOutputLabel != null) {
@@ -162,16 +212,6 @@ namespace AnalysisITC
 			if (TemperatureDependenceLabel != null) {
 				TemperatureDependenceLabel.Dispose ();
 				TemperatureDependenceLabel = null;
-			}
-
-			if (ElectrostaticAnalysisOutput != null) {
-				ElectrostaticAnalysisOutput.Dispose ();
-				ElectrostaticAnalysisOutput = null;
-			}
-
-			if (ElectrostaticAnalysisModel != null) {
-				ElectrostaticAnalysisModel.Dispose ();
-				ElectrostaticAnalysisModel = null;
 			}
 		}
 	}
