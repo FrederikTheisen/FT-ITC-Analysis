@@ -63,6 +63,7 @@ namespace AnalysisITC.AppClasses.Analysis2.Models
             public ModelSolution(Model model, double[] parameters)
             {
                 Model = model;
+                BootstrapSolutions = new List<ModelSolution>();
             }
 
             public override void ComputeErrorsFromBootstrapSolutions()
@@ -90,11 +91,35 @@ namespace AnalysisITC.AppClasses.Analysis2.Models
             {
                 var output = base.UISolutionParameters(info);
 
-                output.Add(new("Kd1", Kd1.AsFormattedConcentration(true)));
-                output.Add(new("∆H1", Enthalpy1.ToString()));
+                if (info.HasFlag(FinalFigureDisplayParameters.Nvalue)) output.Add(new("N{1}", N1.AsNumber()));
+                if (info.HasFlag(FinalFigureDisplayParameters.Nvalue)) output.Add(new("N{2}", N2.AsNumber()));
+                if (info.HasFlag(FinalFigureDisplayParameters.Affinity)) output.Add(new(Utils.MarkdownStrings.DissociationConstant + "{,1}", Kd1.AsFormattedConcentration(withunit: true)));
+                if (info.HasFlag(FinalFigureDisplayParameters.Affinity)) output.Add(new(Utils.MarkdownStrings.DissociationConstant + "{,2}", Kd2.AsFormattedConcentration(withunit: true)));
+                if (info.HasFlag(FinalFigureDisplayParameters.Enthalpy)) output.Add(new(Utils.MarkdownStrings.Enthalpy + "{,1}", Enthalpy1.ToFormattedString(ReportEnergyUnit, permole: true)));
+                if (info.HasFlag(FinalFigureDisplayParameters.Enthalpy)) output.Add(new(Utils.MarkdownStrings.Enthalpy + "{,2}", Enthalpy2.ToFormattedString(ReportEnergyUnit, permole: true)));
+                //if (info.HasFlag(FinalFigureDisplayParameters.TdS)) output.Add(new(Utils.MarkdownStrings.EntropyContribution, TdS.ToFormattedString(ReportEnergyUnit, permole: true))); // Perhaps TMI
+                if (info.HasFlag(FinalFigureDisplayParameters.Gibbs)) output.Add(new(Utils.MarkdownStrings.GibbsFreeEnergy + "{,1}", GibbsFreeEnergy1.ToFormattedString(ReportEnergyUnit, permole: true)));
+                if (info.HasFlag(FinalFigureDisplayParameters.Gibbs)) output.Add(new(Utils.MarkdownStrings.GibbsFreeEnergy + "{,2}", GibbsFreeEnergy2.ToFormattedString(ReportEnergyUnit, permole: true)));
+                if (info.HasFlag(FinalFigureDisplayParameters.Offset)) output.Add(new("Offset", Offset.ToFormattedString(ReportEnergyUnit, permole: true)));
 
                 return output;
             }
+
+            public override List<Tuple<ParameterType, Func<SolutionInterface, FloatWithError>>> DependenciesToReport => new List<Tuple<ParameterType, Func<SolutionInterface, FloatWithError>>>
+                {
+                    new (ParameterType.Enthalpy1, new(sol => (sol as ModelSolution).Enthalpy1.FloatWithError)),
+                    new (ParameterType.EntropyContribution1, new(sol => (sol as ModelSolution).TdS1.FloatWithError)),
+                    new (ParameterType.Gibbs1, new(sol => (sol as ModelSolution).GibbsFreeEnergy1.FloatWithError)),
+                };
+
+            public override Dictionary<ParameterType, FloatWithError> ReportParameters => new Dictionary<ParameterType, FloatWithError>
+                {
+                    { ParameterType.Nvalue1, N1 },
+                    { ParameterType.Affinity1, Kd1 },
+                    { ParameterType.Enthalpy1, Enthalpy1.FloatWithError },
+                    { ParameterType.EntropyContribution1, TdS1.FloatWithError} ,
+                    { ParameterType.Gibbs1, GibbsFreeEnergy1.FloatWithError },
+                };
         }
     }
 }
