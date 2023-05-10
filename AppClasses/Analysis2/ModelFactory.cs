@@ -65,6 +65,22 @@ namespace AnalysisITC.AppClasses.Analysis2
 			}
 		}
 
+		public static bool IsModelAvailable(AnalysisModel model)
+		{
+            switch (model)
+            {
+                case AnalysisModel.OneSetOfSites:
+                case AnalysisModel.CompetitiveBinding:
+					return true;
+
+                default:
+                case AnalysisModel.TwoSetsOfSites:
+                case AnalysisModel.SequentialBindingSites:
+                case AnalysisModel.Dissociation:
+					return false;
+            }
+        }
+
 		/// <summary>
 		/// Returns list of exposed parameters.
 		/// </summary>
