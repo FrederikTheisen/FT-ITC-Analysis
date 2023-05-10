@@ -6,6 +6,9 @@ namespace AnalysisITC.AppClasses.Analysis2.Models
 {
     public class TwoSetsOfSites : Model
 	{
+        const double sqrt3 = 1.73205080757;
+        const double cube2 = 1.25992104989;
+
         public override AnalysisModel ModelType => AnalysisModel.TwoSetsOfSites;
 
         public TwoSetsOfSites(ExperimentData data) : base(data)
@@ -24,6 +27,63 @@ namespace AnalysisITC.AppClasses.Analysis2.Models
             Parameters.AddParameter(ParameterType.Enthalpy2, this.GuessEnthalpy() / 2);
             Parameters.AddParameter(ParameterType.Affinity2, this.GuessAffinity());
             Parameters.AddParameter(ParameterType.Offset, this.GuessOffset());
+        }
+
+        public override double Evaluate(int injectionindex, bool withoffset = true)
+        {
+            if (withoffset) return GetDeltaHeat(injectionindex) + Parameters.Table[ParameterType.Offset].Value * Data.Injections[injectionindex].InjectionMass;
+            else return GetDeltaHeat(injectionindex);
+        }
+
+        double Kd1;
+        double Kd2;
+        double N1;
+        double N2;
+
+        double GetDeltaHeat(int i)
+        {
+            Kd1 = 1 / Parameters.Table[ParameterType.Affinity1].Value;
+            Kd2 = 1 / Parameters.Table[ParameterType.Affinity2].Value;
+            N1 = Parameters.Table[ParameterType.Nvalue1].Value;
+            N2 = Parameters.Table[ParameterType.Nvalue2].Value;
+
+            var inj = Data.Injections[i];
+            var Qi = GetHeatContent(inj);
+            var Q_i = i == 0 ? 0.0 : GetHeatContent(Data.Injections[i - 1]);
+
+            var dQi = Qi + (inj.Volume / Data.CellVolume) * ((Qi + Q_i) / 2.0) - Q_i;
+
+            return dQi;
+        }
+
+        double GetHeatContent(InjectionData inj)
+        {
+            var p = Kd1 + Kd2 + (N1 + N2) * inj.ActualCellConcentration - inj.ActualTitrantConcentration;
+            var q = (Kd2 * N1 + Kd1 * N2) * inj.ActualCellConcentration - (Kd1 + Kd2) * inj.ActualTitrantConcentration + Kd1 * Kd2;
+            var r = -inj.ActualTitrantConcentration * Kd1 * Kd2;
+
+            var cuberoot = Math.Cbrt(-2 * p * p * p + 3 * sqrt3 * Math.Sqrt(4 * p * p * p * r - p * p * q * q - 18 * p * q * r + 4 * q * q * q + 27 * r * r) + 9 * p * q - 27 * r);
+
+            //term 1
+            var term1 = cuberoot / (3 * cube2);
+
+            //term2
+            var term2top = cube2 * (3 * q - p * p);
+            var term2btm = 3 * cuberoot;
+
+            var term2 = -term2top / term2btm;
+
+            //term3
+            var term3 = -p / 3;
+
+            var x = term1 + term2 + term3;
+
+            var theta1 = (Parameters.Table[ParameterType.Affinity1].Value * x) / (Parameters.Table[ParameterType.Affinity1].Value * x + 1);
+            var theta2 = (Parameters.Table[ParameterType.Affinity2].Value * x) / (Parameters.Table[ParameterType.Affinity2].Value * x + 1);
+
+            var heat = inj.ActualCellConcentration * Data.CellVolume * (N1 * theta1 * Parameters.Table[ParameterType.Enthalpy1].Value + N2 * theta2 * Parameters.Table[ParameterType.Enthalpy2].Value);
+
+            return heat;
         }
 
         public override Model GenerateSyntheticModel()
