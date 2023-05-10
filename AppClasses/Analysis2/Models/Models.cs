@@ -225,10 +225,10 @@ namespace AnalysisITC.AppClasses.Analysis2.Models
             Data.UpdateSolution(null);
         }
 
-        public virtual string GetClipboardString(double magnitude, EnergyUnit eunit)
-        {
-            return null;
-        }
+        //public virtual string GetClipboardString(double magnitude, EnergyUnit eunit)
+        //{
+        //    return null;
+        //}
 
         [Flags]
         public enum FinalFigureDisplayParameters
