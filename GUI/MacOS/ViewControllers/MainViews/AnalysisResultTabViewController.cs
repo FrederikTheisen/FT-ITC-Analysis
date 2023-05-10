@@ -66,8 +66,8 @@ namespace AnalysisITC
 
             ProtonationAnalysisResultDescriptionField.AttributedStringValue = MacStrings.FromMarkDownString(string.Join(Environment.NewLine, new List<string>()
             {
-                "Protein proton change:",
-                MarkdownStrings.Enthalpy + " at 0 protonation enthalpy:",
+                "Protein proton change upon binding:",
+                MarkdownStrings.Enthalpy + " at ∆*H*{prot,buffer} = 0:",
             }), NSFont.SystemFontOfSize(11));
 
 
@@ -291,7 +291,7 @@ namespace AnalysisITC
                     {
                         result = new List<string>()
                         {
-                            (pa.Fit as LinearFitWithError).Slope.AsNumber(),
+                            (-1 * (pa.Fit as LinearFitWithError).Slope).AsNumber(),
                             new Energy((pa.Fit as LinearFitWithError).Evaluate(0)).ToFormattedString(AppSettings.EnergyUnit, true, true, false)
                         };
                         ProtonationAnalysisOutput.StringValue = string.Join(Environment.NewLine, result);

@@ -22,6 +22,7 @@ namespace AnalysisITC
         private AnalysisModel Model { get; set; } = AnalysisModel.OneSetOfSites;
         private SingleModelFactory Factory { get; set; }
         private List<ParameterValueAdjustmentView> ParameterControls = new List<ParameterValueAdjustmentView>();
+        private List<OptionAdjustmentView> OptionControls = new List<OptionAdjustmentView>();
 
         private double SmallInjectionVolume = 0.5 / 1000000.0;
 
@@ -68,11 +69,11 @@ namespace AnalysisITC
             {
                 var att = type.GetProperties();
 
-                var valid = AppClasses.Analysis2.ModelFactory.InitializeFactory(type, false) != null;
+                var valid = AppClasses.Analysis2.ModelFactory.IsModelAvailable(type);;
 
                 if (true)
                 {
-                    ModelMenu.AddItem(new NSMenuItem(type.GetProperties().Name) { Tag = (int)type });
+                    ModelMenu.AddItem(new NSMenuItem(type.GetProperties().Name) { Tag = (int)type, Enabled = valid });
                 }
             }
 
@@ -132,6 +133,8 @@ namespace AnalysisITC
 
         partial void ModelControlAction(NSPopUpButton sender)
         {
+            Model = (AnalysisModel)(int)sender.SelectedTag;
+
             SetupModel();
         }
 
@@ -240,7 +243,10 @@ namespace AnalysisITC
 
             foreach (var opt in Factory.GetExposedModelOptions())
             {
+                var sv = new OptionAdjustmentView(new CoreGraphics.CGRect(0, 0, ModelOptionsStackView.Frame.Width, 20), opt.Value);
 
+                OptionControls.Add(sv);
+                ModelOptionsStackView.AddArrangedSubview(sv);
             }
 
             if (AutoRunExperimentSimulation) ApplyModelSettings(null);
@@ -253,6 +259,11 @@ namespace AnalysisITC
             foreach (var sv in ParameterControls)
             {
                 Factory.SetCustomParameter(sv.Key, sv.Value, false);
+            }
+
+            foreach (var sv in OptionControls)
+            {
+                sv.ApplyOptions();
             }
 
             Factory.BuildModel();

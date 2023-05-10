@@ -2096,7 +2096,7 @@
                                                         <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
                                                         <subviews>
                                                             <textView wantsLayer="YES" editable="NO" selectable="NO" drawsBackground="NO" importsGraphics="NO" richText="NO" verticallyResizable="YES" baseWritingDirection="leftToRight" findStyle="panel" smartInsertDelete="YES" id="hif-Db-3cK">
-                                                                <rect key="frame" x="0.0" y="-934" width="390" height="2621"/>
+                                                                <rect key="frame" x="0.0" y="-1097" width="390" height="2621"/>
                                                                 <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
                                                                 <color key="textColor" name="textColor" catalog="System" colorSpace="catalog"/>
                                                                 <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
@@ -2868,13 +2868,13 @@ In most cases, interpretation of affinities provided by ITC is straightforward, 
                 <customObject id="vgh-VZ-5mu" userLabel="First Responder" customClass="NSResponder" sceneMemberID="firstResponder"/>
                 <viewController id="Mvi-LU-4cl" customClass="ExperimentDesignerViewController2" sceneMemberID="viewController">
                     <view key="view" horizontalCompressionResistancePriority="1000" misplaced="YES" translatesAutoresizingMaskIntoConstraints="NO" id="Gzx-f9-2qU">
-                        <rect key="frame" x="0.0" y="0.0" width="400" height="660"/>
+                        <rect key="frame" x="0.0" y="0.0" width="400" height="739"/>
                         <subviews>
                             <stackView distribution="fill" orientation="vertical" alignment="leading" horizontalStackHuggingPriority="1000" verticalStackHuggingPriority="250" horizontalCompressionResistancePriority="1000" detachesHiddenViews="YES" translatesAutoresizingMaskIntoConstraints="NO" id="kso-uB-xTj">
-                                <rect key="frame" x="0.0" y="0.0" width="400" height="660"/>
+                                <rect key="frame" x="0.0" y="0.0" width="400" height="739"/>
                                 <subviews>
                                     <stackView distribution="fill" orientation="vertical" alignment="leading" horizontalStackHuggingPriority="1000" verticalStackHuggingPriority="750" verticalHuggingPriority="750" verticalCompressionResistancePriority="1000" detachesHiddenViews="YES" translatesAutoresizingMaskIntoConstraints="NO" id="19q-dU-1DB">
-                                        <rect key="frame" x="10" y="427" width="380" height="223"/>
+                                        <rect key="frame" x="10" y="506" width="380" height="223"/>
                                         <subviews>
                                             <box horizontalHuggingPriority="1000" verticalHuggingPriority="1000" horizontalCompressionResistancePriority="1000" verticalCompressionResistancePriority="1000" borderType="line" title="Box" titlePosition="noTitle" translatesAutoresizingMaskIntoConstraints="NO" id="rt1-T3-VwN">
                                                 <rect key="frame" x="-3" y="-4" width="386" height="229"/>
@@ -3188,16 +3188,16 @@ In most cases, interpretation of affinities provided by ITC is straightforward, 
                                         </customSpacing>
                                     </stackView>
                                     <box title="Box" titlePosition="noTitle" translatesAutoresizingMaskIntoConstraints="NO" id="d3H-UV-02x">
-                                        <rect key="frame" x="7" y="304" width="386" height="117"/>
+                                        <rect key="frame" x="7" y="304" width="386" height="196"/>
                                         <view key="contentView" id="WhK-bZ-5pf">
-                                            <rect key="frame" x="4" y="5" width="378" height="109"/>
+                                            <rect key="frame" x="4" y="5" width="378" height="188"/>
                                             <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
                                             <subviews>
                                                 <stackView distribution="fill" orientation="vertical" alignment="leading" spacing="4" horizontalStackHuggingPriority="249.99998474121094" verticalStackHuggingPriority="750" verticalCompressionResistancePriority="1000" detachesHiddenViews="YES" translatesAutoresizingMaskIntoConstraints="NO" id="GiZ-xG-nAY">
-                                                    <rect key="frame" x="0.0" y="0.0" width="378" height="109"/>
+                                                    <rect key="frame" x="0.0" y="0.0" width="378" height="188"/>
                                                     <subviews>
                                                         <textField horizontalHuggingPriority="249" verticalHuggingPriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="LH1-vR-E8M">
-                                                            <rect key="frame" x="3" y="88" width="372" height="16"/>
+                                                            <rect key="frame" x="3" y="167" width="372" height="16"/>
                                                             <textFieldCell key="cell" lineBreakMode="clipping" alignment="center" title="Interaction Model" id="sJn-dw-AcP">
                                                                 <font key="font" textStyle="headline" name=".SFNS-Bold"/>
                                                                 <color key="textColor" name="labelColor" catalog="System" colorSpace="catalog"/>
@@ -3205,11 +3205,11 @@ In most cases, interpretation of affinities provided by ITC is straightforward, 
                                                             </textFieldCell>
                                                         </textField>
                                                         <popUpButton horizontalHuggingPriority="249" verticalHuggingPriority="1000" verticalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="6Td-XY-u9z">
-                                                            <rect key="frame" x="0.0" y="68" width="373" height="16"/>
-                                                            <popUpButtonCell key="cell" type="bevel" title="One Set of Sites" bezelStyle="regularSquare" alignment="left" lineBreakMode="truncatingTail" state="on" imageScaling="proportionallyDown" inset="2" selectedItem="tTV-JO-Edw" id="vYQ-Ar-nyX">
+                                                            <rect key="frame" x="0.0" y="147" width="373" height="16"/>
+                                                            <popUpButtonCell key="cell" type="bevel" title="One Set of Sites" bezelStyle="regularSquare" alignment="left" lineBreakMode="truncatingTail" state="on" imageScaling="proportionallyDown" inset="2" autoenablesItems="NO" selectedItem="tTV-JO-Edw" id="vYQ-Ar-nyX">
                                                                 <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
                                                                 <font key="font" metaFont="menu"/>
-                                                                <menu key="menu" id="YAG-ma-3rL">
+                                                                <menu key="menu" autoenablesItems="NO" id="YAG-ma-3rL">
                                                                     <items>
                                                                         <menuItem title="One Set of Sites" state="on" id="tTV-JO-Edw"/>
                                                                         <menuItem title="Two Sets of Sites" id="RRh-Zx-N4p"/>
@@ -3222,16 +3222,16 @@ In most cases, interpretation of affinities provided by ITC is straightforward, 
                                                             </connections>
                                                         </popUpButton>
                                                         <box horizontalHuggingPriority="249" verticalHuggingPriority="750" boxType="separator" translatesAutoresizingMaskIntoConstraints="NO" id="S0q-2U-0fP">
-                                                            <rect key="frame" x="5" y="61" width="368" height="5"/>
+                                                            <rect key="frame" x="5" y="140" width="368" height="5"/>
                                                         </box>
-                                                        <stackView distribution="fill" orientation="vertical" alignment="leading" spacing="4" horizontalStackHuggingPriority="250" verticalStackHuggingPriority="1000" detachesHiddenViews="YES" translatesAutoresizingMaskIntoConstraints="NO" id="O07-Jb-RZa">
-                                                            <rect key="frame" x="5" y="59" width="368" height="0.0"/>
+                                                        <stackView distribution="fill" orientation="vertical" alignment="leading" spacing="4" horizontalStackHuggingPriority="250" verticalStackHuggingPriority="1000" verticalHuggingPriority="750" verticalCompressionResistancePriority="1000" detachesHiddenViews="YES" translatesAutoresizingMaskIntoConstraints="NO" id="O07-Jb-RZa">
+                                                            <rect key="frame" x="5" y="88" width="368" height="50"/>
                                                         </stackView>
                                                         <box horizontalHuggingPriority="249" verticalHuggingPriority="750" boxType="separator" translatesAutoresizingMaskIntoConstraints="NO" id="u0M-42-t8m">
-                                                            <rect key="frame" x="5" y="31" width="368" height="5"/>
+                                                            <rect key="frame" x="5" y="81" width="368" height="5"/>
                                                         </box>
-                                                        <stackView distribution="fill" orientation="vertical" alignment="leading" spacing="4" horizontalStackHuggingPriority="250" verticalStackHuggingPriority="1000" detachesHiddenViews="YES" translatesAutoresizingMaskIntoConstraints="NO" id="24i-gR-XOS">
-                                                            <rect key="frame" x="5" y="29" width="368" height="0.0"/>
+                                                        <stackView distribution="fill" orientation="vertical" alignment="leading" spacing="4" horizontalStackHuggingPriority="250" verticalStackHuggingPriority="1000" verticalHuggingPriority="750" verticalCompressionResistancePriority="1000" detachesHiddenViews="YES" translatesAutoresizingMaskIntoConstraints="NO" id="24i-gR-XOS">
+                                                            <rect key="frame" x="5" y="29" width="368" height="50"/>
                                                         </stackView>
                                                         <button horizontalHuggingPriority="249" verticalHuggingPriority="750" verticalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="l35-fh-MlX">
                                                             <rect key="frame" x="-2" y="-2" width="382" height="32"/>
@@ -3250,7 +3250,6 @@ In most cases, interpretation of affinities provided by ITC is straightforward, 
                                                         <constraint firstItem="24i-gR-XOS" firstAttribute="leading" secondItem="GiZ-xG-nAY" secondAttribute="leading" constant="5" id="QqS-IO-P22"/>
                                                         <constraint firstAttribute="trailing" secondItem="O07-Jb-RZa" secondAttribute="trailing" constant="5" id="rk6-kx-fR4"/>
                                                         <constraint firstItem="O07-Jb-RZa" firstAttribute="leading" secondItem="GiZ-xG-nAY" secondAttribute="leading" constant="5" id="roZ-JH-HNk"/>
-                                                        <constraint firstItem="24i-gR-XOS" firstAttribute="top" secondItem="S0q-2U-0fP" secondAttribute="bottom" constant="5" id="vji-Qa-1ZE"/>
                                                     </constraints>
                                                     <visibilityPriorities>
                                                         <integer value="1000"/>
@@ -9214,7 +9213,7 @@ Electrostatic interaction strength:</string>
                                                                     <rect key="frame" x="3" y="153" width="358" height="140"/>
                                                                     <textFieldCell key="cell" alignment="left" id="edf-1Y-fTA">
                                                                         <font key="font" metaFont="smallSystem"/>
-                                                                        <mutableString key="title">Performing ITC experiments with buffers of known protonation enthalpies enables precise quantification of proton transfer in molecular interactions. Proton transfer is crucial for binding processes, and understanding its significance requires unraveling the underlying mechanisms. By using buffers with varying protonation enthalpies, the extent of proton transfer can be determined from the slope of the observed association enthalpy versus buffer protonation enthalpy. This slope directly quantifies the number of protons transferred, offering a valuable measure of this pivotal event.</mutableString>
+                                                                        <string key="title">Performing ITC experiments with buffers of known protonation enthalpies enables precise quantification of proton transfer in molecular interactions. Proton transfer is crucial for binding processes, and understanding its significance requires unraveling the underlying mechanisms. By using buffers with varying protonation enthalpies, the extent of proton transfer can be determined from the slope of the observed association enthalpy versus buffer protonation enthalpy. This slope directly quantifies the number of protons transferred, offering a valuable measure of this pivotal event.</string>
                                                                         <color key="textColor" name="labelColor" catalog="System" colorSpace="catalog"/>
                                                                         <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
                                                                     </textFieldCell>
