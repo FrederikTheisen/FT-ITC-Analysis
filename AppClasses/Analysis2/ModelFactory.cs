@@ -67,18 +67,33 @@ namespace AnalysisITC.AppClasses.Analysis2
 
 		public static bool IsModelAvailable(AnalysisModel model)
 		{
-            switch (model)
-            {
-                case AnalysisModel.OneSetOfSites:
-                case AnalysisModel.CompetitiveBinding:
-					return true;
+			try
+			{
+				var SMF = new SingleModelFactory(model);
+				SMF.InitializeModel(null);
+			}
+			catch (NotImplementedException ex)
+			{
+				return false;
+			}
+			catch (Exception ex)
+			{
+				return true;
+			}
+			return true;
 
-                default:
-                case AnalysisModel.TwoSetsOfSites:
-                case AnalysisModel.SequentialBindingSites:
-                case AnalysisModel.Dissociation:
-					return false;
-            }
+     //       switch (model)
+     //       {
+     //           case AnalysisModel.OneSetOfSites:
+     //           case AnalysisModel.CompetitiveBinding:
+     //           case AnalysisModel.TwoSetsOfSites:
+     //               return true;
+
+     //           default:
+     //           case AnalysisModel.SequentialBindingSites:
+     //           case AnalysisModel.Dissociation:
+					//return false;
+     //       }
         }
 
 		/// <summary>
@@ -181,7 +196,7 @@ namespace AnalysisITC.AppClasses.Analysis2
 			{
 				case AnalysisModel.OneSetOfSites: Model = new OneSetOfSites(data); break;
 				case AnalysisModel.CompetitiveBinding: Model = new CompetitiveBinding(data); break;
-                case AnalysisModel.TwoSetsOfSites:
+                case AnalysisModel.TwoSetsOfSites: Model = new TwoSetsOfSites(data); break;
 				case AnalysisModel.SequentialBindingSites:
 				case AnalysisModel.Dissociation:
 				default: throw new NotImplementedException();
