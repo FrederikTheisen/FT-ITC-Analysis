@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using MathNet.Numerics;
 
 namespace AnalysisITC.AppClasses.Analysis2.Models
 {
@@ -13,7 +14,7 @@ namespace AnalysisITC.AppClasses.Analysis2.Models
 
         public TwoSetsOfSites(ExperimentData data) : base(data)
 		{
-			throw new NotImplementedException("TwoSetsOfSites not implemented yet");
+			
 		}
 
 		public override void InitializeParameters(ExperimentData data)
@@ -62,21 +63,21 @@ namespace AnalysisITC.AppClasses.Analysis2.Models
             var q = (Kd2 * N1 + Kd1 * N2) * inj.ActualCellConcentration - (Kd1 + Kd2) * inj.ActualTitrantConcentration + Kd1 * Kd2;
             var r = -inj.ActualTitrantConcentration * Kd1 * Kd2;
 
-            var cuberoot = Math.Cbrt(-2 * p * p * p + 3 * sqrt3 * Math.Sqrt(4 * p * p * p * r - p * p * q * q - 18 * p * q * r + 4 * q * q * q + 27 * r * r) + 9 * p * q - 27 * r);
+            //var cuberoot = Math.Cbrt(-2 * p * p * p + 3 * sqrt3 * Math.Sqrt(4 * p * p * p * r - p * p * q * q - 18 * p * q * r + 4 * q * q * q + 27 * r * r) + 9 * p * q - 27 * r);
 
-            //term 1
-            var term1 = cuberoot / (3 * cube2);
+            ////term 1
+            //var term1 = cuberoot / (3 * cube2);
 
-            //term2
-            var term2top = cube2 * (3 * q - p * p);
-            var term2btm = 3 * cuberoot;
+            ////term2
+            //var term2top = cube2 * (3 * q - p * p);
+            //var term2btm = 3 * cuberoot;
 
-            var term2 = -term2top / term2btm;
+            //var term2 = -term2top / term2btm;
 
-            //term3
-            var term3 = -p / 3;
+            ////term3
+            //var term3 = -p / 3;
 
-            var x = term1 + term2 + term3;
+            var x = FindFreeTitrant(p, q, r, inj.ActualTitrantConcentration * 0.05);
 
             var theta1 = (Parameters.Table[ParameterType.Affinity1].Value * x) / (Parameters.Table[ParameterType.Affinity1].Value * x + 1);
             var theta2 = (Parameters.Table[ParameterType.Affinity2].Value * x) / (Parameters.Table[ParameterType.Affinity2].Value * x + 1);
@@ -84,6 +85,18 @@ namespace AnalysisITC.AppClasses.Analysis2.Models
             var heat = inj.ActualCellConcentration * Data.CellVolume * (N1 * theta1 * Parameters.Table[ParameterType.Enthalpy1].Value + N2 * theta2 * Parameters.Table[ParameterType.Enthalpy2].Value);
 
             return heat;
+        }
+
+        double FindFreeTitrant(double p, double q, double r, double guess)
+        {
+            bool b = MathNet.Numerics.RootFinding.RobustNewtonRaphson.TryFindRoot(
+                (x) => x * x * x + x * x * p + x * q + r,
+                (x) => 3 * x * x + 2 * x * p + q,
+                lowerBound: 0, upperBound: 1e-3,
+                accuracy: 1e-20, maxIterations: 1000, subdivision: 20,
+                out double root);
+
+            return root;
         }
 
         public override Model GenerateSyntheticModel()
@@ -100,8 +113,6 @@ namespace AnalysisITC.AppClasses.Analysis2.Models
 
 		public class ModelSolution : SolutionInterface
 		{
-            public new List<ModelSolution> BootstrapSolutions { get; set; }
-
             public Energy Enthalpy1 => new(Parameters[ParameterType.Enthalpy1]);
             public Energy Enthalpy2 => new(Parameters[ParameterType.Enthalpy2]);
             public FloatWithError K1 => Parameters[ParameterType.Affinity1];
@@ -123,25 +134,25 @@ namespace AnalysisITC.AppClasses.Analysis2.Models
             public ModelSolution(Model model, double[] parameters)
             {
                 Model = model;
-                BootstrapSolutions = new List<ModelSolution>();
+                BootstrapSolutions = new List<SolutionInterface>();
             }
 
             public override void ComputeErrorsFromBootstrapSolutions()
             {
-                var enthalpies1 = BootstrapSolutions.Select(s => s.Enthalpy1.FloatWithError.Value);
-                var enthalpies2 = BootstrapSolutions.Select(s => s.Enthalpy2.FloatWithError.Value);
-                var k1 = BootstrapSolutions.Select(s => s.K1.Value);
-                var k2 = BootstrapSolutions.Select(s => s.K2.Value);
-                var n1 = BootstrapSolutions.Select(s => s.N1.Value);
-                var n2 = BootstrapSolutions.Select(s => s.N2.Value);
-                var offsets = BootstrapSolutions.Select(s => (double)s.Offset);
+                var enthalpies1 = BootstrapSolutions.Select(s => (s as ModelSolution).Enthalpy1.FloatWithError.Value);
+                var enthalpies2 = BootstrapSolutions.Select(s => (s as ModelSolution).Enthalpy2.FloatWithError.Value);
+                var k1 = BootstrapSolutions.Select(s => (s as ModelSolution).K1.Value);
+                var k2 = BootstrapSolutions.Select(s => (s as ModelSolution).K2.Value);
+                var n1 = BootstrapSolutions.Select(s => (s as ModelSolution).N1.Value);
+                var n2 = BootstrapSolutions.Select(s => (s as ModelSolution).N2.Value);
+                var offsets = BootstrapSolutions.Select(s => (double)(s as ModelSolution).Offset);
 
                 Parameters[ParameterType.Enthalpy1] = new FloatWithError(enthalpies1, Enthalpy1);
                 Parameters[ParameterType.Affinity1] = new FloatWithError(k1, K1);
                 Parameters[ParameterType.Nvalue1] = new FloatWithError(n1, N1);
-                Parameters[ParameterType.Enthalpy1] = new FloatWithError(enthalpies2, Enthalpy2);
-                Parameters[ParameterType.Affinity1] = new FloatWithError(k2, K2);
-                Parameters[ParameterType.Nvalue1] = new FloatWithError(n2, N2);
+                Parameters[ParameterType.Enthalpy2] = new FloatWithError(enthalpies2, Enthalpy2);
+                Parameters[ParameterType.Affinity2] = new FloatWithError(k2, K2);
+                Parameters[ParameterType.Nvalue2] = new FloatWithError(n2, N2);
                 Parameters[ParameterType.Offset] = new FloatWithError(offsets, Offset);
 
                 base.ComputeErrorsFromBootstrapSolutions();
@@ -155,11 +166,11 @@ namespace AnalysisITC.AppClasses.Analysis2.Models
                 if (info.HasFlag(FinalFigureDisplayParameters.Nvalue)) output.Add(new("N{2}", N2.AsNumber()));
                 if (info.HasFlag(FinalFigureDisplayParameters.Affinity)) output.Add(new(Utils.MarkdownStrings.DissociationConstant + "{,1}", Kd1.AsFormattedConcentration(withunit: true)));
                 if (info.HasFlag(FinalFigureDisplayParameters.Affinity)) output.Add(new(Utils.MarkdownStrings.DissociationConstant + "{,2}", Kd2.AsFormattedConcentration(withunit: true)));
-                if (info.HasFlag(FinalFigureDisplayParameters.Enthalpy)) output.Add(new(Utils.MarkdownStrings.Enthalpy + "{,1}", Enthalpy1.ToFormattedString(ReportEnergyUnit, permole: true)));
-                if (info.HasFlag(FinalFigureDisplayParameters.Enthalpy)) output.Add(new(Utils.MarkdownStrings.Enthalpy + "{,2}", Enthalpy2.ToFormattedString(ReportEnergyUnit, permole: true)));
+                if (info.HasFlag(FinalFigureDisplayParameters.Enthalpy)) output.Add(new(Utils.MarkdownStrings.Enthalpy + "{1}", Enthalpy1.ToFormattedString(ReportEnergyUnit, permole: true)));
+                if (info.HasFlag(FinalFigureDisplayParameters.Enthalpy)) output.Add(new(Utils.MarkdownStrings.Enthalpy + "{2}", Enthalpy2.ToFormattedString(ReportEnergyUnit, permole: true)));
                 //if (info.HasFlag(FinalFigureDisplayParameters.TdS)) output.Add(new(Utils.MarkdownStrings.EntropyContribution, TdS.ToFormattedString(ReportEnergyUnit, permole: true))); // Perhaps TMI
-                if (info.HasFlag(FinalFigureDisplayParameters.Gibbs)) output.Add(new(Utils.MarkdownStrings.GibbsFreeEnergy + "{,1}", GibbsFreeEnergy1.ToFormattedString(ReportEnergyUnit, permole: true)));
-                if (info.HasFlag(FinalFigureDisplayParameters.Gibbs)) output.Add(new(Utils.MarkdownStrings.GibbsFreeEnergy + "{,2}", GibbsFreeEnergy2.ToFormattedString(ReportEnergyUnit, permole: true)));
+                if (info.HasFlag(FinalFigureDisplayParameters.Gibbs)) output.Add(new(Utils.MarkdownStrings.GibbsFreeEnergy + "{1}", GibbsFreeEnergy1.ToFormattedString(ReportEnergyUnit, permole: true)));
+                if (info.HasFlag(FinalFigureDisplayParameters.Gibbs)) output.Add(new(Utils.MarkdownStrings.GibbsFreeEnergy + "{2}", GibbsFreeEnergy2.ToFormattedString(ReportEnergyUnit, permole: true)));
                 if (info.HasFlag(FinalFigureDisplayParameters.Offset)) output.Add(new("Offset", Offset.ToFormattedString(ReportEnergyUnit, permole: true)));
 
                 return output;
