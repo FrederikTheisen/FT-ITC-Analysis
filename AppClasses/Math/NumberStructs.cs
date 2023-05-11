@@ -40,6 +40,7 @@ namespace AnalysisITC
                 double sum = distribution.Sum(d => Math.Pow(d - average, 2));
                 result = Math.Sqrt((sum) / (distribution.Count() - 1));
             }
+            else average = (double)mean;
 
             this = new FloatWithError(average, result);
         }
