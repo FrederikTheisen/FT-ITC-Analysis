@@ -26,6 +26,7 @@ namespace AnalysisITC
     {
         public string UniqueID { get; private set; } = Guid.NewGuid().ToString();
         public string FileName { get; set; } = "";
+        public string Comments { get; set; } = "";
         public DateTime Date { get; internal set; }
 
         public void SetID(string id) => UniqueID = id;

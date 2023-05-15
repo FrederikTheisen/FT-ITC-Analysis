@@ -16,6 +16,7 @@ namespace AnalysisITC
         public const string ExperimentHeader = "Experiment";
         public const string ID = "ID";
         public const string FileName = "FileName";
+        public const string Comments = "Comments";
         public const string Date = "Date";
         public const string SourceFormat = "Source";
         public const string Instrument = "Instrument";
@@ -198,6 +199,7 @@ namespace AnalysisITC
             file.Add(Variable(ID, data.UniqueID));
             file.Add(Variable(Date, data.Date.ToString("O")));
             file.Add(Variable(SourceFormat, (int)data.DataSourceFormat));
+            file.Add(Variable(Comments, data.Comments));
             file.Add(Variable(Include, data.Include));
             file.Add(Variable(SyringeConcentration, data.SyringeConcentration));
             file.Add(Variable(CellConcentration, data.CellConcentration));

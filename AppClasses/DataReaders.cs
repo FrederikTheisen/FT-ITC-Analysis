@@ -254,10 +254,26 @@ namespace DataReaders
                     else if (line[0] == '?')
                     {
                         counter3 = 0;
+                        experiment.Comments = line.Substring(1).Trim();
                     }
                     else if (counter3 == 1)
                     {
                         experiment.Instrument = ITCInstrumentAttribute.GetInstrument(line);
+                    }
+                    else if (counter3 == 17)
+                    {
+                        if (experiment.Instrument == ITCInstrument.MalvernITC200) //Try to get exp date from line
+                        {
+                            if (line.Contains("Run time:"))
+                            {
+                                int idx = line.IndexOf("Run time:");
+                                var datestr = line.Substring(idx + 9);
+
+                                var b = DateTime.TryParse(datestr, new System.Globalization.CultureInfo("en-US", false), System.Globalization.DateTimeStyles.AllowWhiteSpaces, out DateTime date);
+
+                                if (b) experiment.Date = date;
+                            }
+                        }
                     }
 
                     if (counter3 > -1) counter3++;
@@ -348,6 +364,7 @@ namespace DataReaders
                     case ID: exp.SetID(v[1]); break;
                     case Date: exp.Date = DateTime.Parse(line[5..]); break;
                     case SourceFormat: exp.DataSourceFormat = (ITCDataFormat)IParse(v[1]); break;
+                    case Comments: exp.Comments = v[1]; break;
                     case SyringeConcentration: exp.SyringeConcentration = FWEParse(v[1]); break;
                     case CellConcentration: exp.CellConcentration = FWEParse(v[1]); break;
                     case CellVolume: exp.CellVolume = DParse(v[1]); break;
