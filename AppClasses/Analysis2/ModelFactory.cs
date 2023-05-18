@@ -72,28 +72,15 @@ namespace AnalysisITC.AppClasses.Analysis2
 				var SMF = new SingleModelFactory(model);
 				SMF.InitializeModel(null);
 			}
-			catch (NotImplementedException ex)
+			catch (NotImplementedException ex) //Exception thrown if mode is not yet implemented
 			{
 				return false;
 			}
-			catch (Exception ex)
+			catch (Exception ex) //some other exception may be thrown in this process, but we don't care at this point
 			{
 				return true;
 			}
 			return true;
-
-     //       switch (model)
-     //       {
-     //           case AnalysisModel.OneSetOfSites:
-     //           case AnalysisModel.CompetitiveBinding:
-     //           case AnalysisModel.TwoSetsOfSites:
-     //               return true;
-
-     //           default:
-     //           case AnalysisModel.SequentialBindingSites:
-     //           case AnalysisModel.Dissociation:
-					//return false;
-     //       }
         }
 
 		/// <summary>
@@ -186,41 +173,46 @@ namespace AnalysisITC.AppClasses.Analysis2
         }
 
         public void InitializeModel(ExperimentData data)
-		{
+        {
             Console.WriteLine("Initializing SingleModelFactory...");
 
-			var parameters = Model?.Parameters.Table.Where(p => p.Value.ChangedByUser);
-			var options = Model?.ModelOptions;
+            var parameters = Model?.Parameters.Table.Where(p => p.Value.ChangedByUser);
+            var options = Model?.ModelOptions;
 
-            switch (ModelType)
-			{
-				case AnalysisModel.OneSetOfSites: Model = new OneSetOfSites(data); break;
-				case AnalysisModel.CompetitiveBinding: Model = new CompetitiveBinding(data); break;
-                case AnalysisModel.TwoSetsOfSites: Model = new TwoSetsOfSites(data); break;
-				case AnalysisModel.SequentialBindingSites:
-				case AnalysisModel.Dissociation:
-				default: throw new NotImplementedException();
-			}
+            ConstructModel(data);
 
             Model.InitializeParameters(data);
 
-			if (parameters != null)
-			{
-				foreach (var (key,par) in parameters)
-				{
-					if (Model.Parameters.Table.ContainsKey(key)) SetCustomParameter(par.Key, par.Value, par.IsLocked);
-				}
-			}
-			if (options != null)
-			{
-				foreach (var (key,opt) in options)
-				{
-					if (Model.ModelOptions.ContainsKey(key)) SetModelOption(opt.Copy());
-				}
-			}
+            if (parameters != null)
+            {
+                foreach (var (key, par) in parameters)
+                {
+                    if (Model.Parameters.Table.ContainsKey(key)) SetCustomParameter(par.Key, par.Value, par.IsLocked);
+                }
+            }
+            if (options != null)
+            {
+                foreach (var (key, opt) in options)
+                {
+                    if (Model.ModelOptions.ContainsKey(key)) SetModelOption(opt.Copy());
+                }
+            }
         }
 
-		public override IEnumerable<Parameter> GetExposedParameters()
+        public void ConstructModel(ExperimentData data)
+        {
+            switch (ModelType)
+            {
+                case AnalysisModel.OneSetOfSites: Model = new OneSetOfSites(data); break;
+                case AnalysisModel.CompetitiveBinding: Model = new CompetitiveBinding(data); break;
+                case AnalysisModel.TwoSetsOfSites: Model = new TwoSetsOfSites(data); break;
+                case AnalysisModel.SequentialBindingSites:
+                case AnalysisModel.Dissociation:
+                default: throw new NotImplementedException();
+            }
+        }
+
+        public override IEnumerable<Parameter> GetExposedParameters()
 		{
 			return Model.Parameters.Table.Values;
 		}

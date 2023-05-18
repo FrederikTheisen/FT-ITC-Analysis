@@ -133,7 +133,7 @@ namespace AnalysisITC.AppClasses.Analysis2
 
             foreach (var mdl in Model.Models)
             {
-                mdl.Solution = SolutionInterface.FromModel(mdl, Model.Parameters.GetParametersForModel(Model, mdl).ToArray(), new(convergence));
+                mdl.Solution = SolutionInterface.FromModel(mdl, new(convergence));
                 mdl.Solution.Convergence.SetLoss(mdl.Loss());
                 mdl.Solution.SetIsGlobal(this);
             }

@@ -12,6 +12,12 @@ namespace AnalysisITC.AppClasses.Analysis2.Models
 
         public override AnalysisModel ModelType => AnalysisModel.TwoSetsOfSites;
 
+        public double GuessN1() => Data.Injections.Last().Ratio / 3;
+        public double GuessN2() => Data.Injections.Last().Ratio / 4;
+
+        public double GuessAffinity1() => 10000000;
+        public double GuessAffinity2() => 1000000;
+
         public TwoSetsOfSites(ExperimentData data) : base(data)
 		{
 			
@@ -21,13 +27,13 @@ namespace AnalysisITC.AppClasses.Analysis2.Models
 		{
             base.InitializeParameters(data);
 
-            Parameters.AddParameter(ParameterType.Nvalue1, this.GuessN());
-            Parameters.AddParameter(ParameterType.Enthalpy1, this.GuessEnthalpy() / 2);
-            Parameters.AddParameter(ParameterType.Affinity1, this.GuessAffinity());
-            Parameters.AddParameter(ParameterType.Nvalue2, this.GuessN());
-            Parameters.AddParameter(ParameterType.Enthalpy2, this.GuessEnthalpy() / 2);
-            Parameters.AddParameter(ParameterType.Affinity2, this.GuessAffinity());
-            Parameters.AddParameter(ParameterType.Offset, this.GuessOffset());
+            Parameters.AddParameter(ParameterType.Nvalue1, GuessParameter(ParameterType.Nvalue1, this.GuessN1()));
+            Parameters.AddParameter(ParameterType.Enthalpy1, GuessParameter(ParameterType.Enthalpy1, this.GuessEnthalpy()));
+            Parameters.AddParameter(ParameterType.Affinity1, GuessParameter(ParameterType.Affinity1, this.GuessAffinity1()));
+            Parameters.AddParameter(ParameterType.Nvalue2, GuessParameter(ParameterType.Nvalue2, this.GuessN2()));
+            Parameters.AddParameter(ParameterType.Enthalpy2, GuessParameter(ParameterType.Enthalpy2, this.GuessEnthalpy() / 2));
+            Parameters.AddParameter(ParameterType.Affinity2, GuessParameter(ParameterType.Affinity2, this.GuessAffinity2()));
+            Parameters.AddParameter(ParameterType.Offset, GuessParameter(ParameterType.Offset, this.GuessOffset()));
         }
 
         public override double Evaluate(int injectionindex, bool withoffset = true)
@@ -93,7 +99,7 @@ namespace AnalysisITC.AppClasses.Analysis2.Models
                 (x) => x * x * x + x * x * p + x * q + r,
                 (x) => 3 * x * x + 2 * x * p + q,
                 lowerBound: 0, upperBound: 1e-3,
-                accuracy: 1e-20, maxIterations: 1000, subdivision: 20,
+                accuracy: 1e-32, maxIterations: 500, subdivision: 20,
                 out double root);
 
             return root;
@@ -131,7 +137,7 @@ namespace AnalysisITC.AppClasses.Analysis2.Models
             public Energy TdS2 => GibbsFreeEnergy2 - Enthalpy2;
             public Energy Entropy2 => TdS2 / TempKelvin;
 
-            public ModelSolution(Model model, double[] parameters)
+            public ModelSolution(Model model)
             {
                 Model = model;
                 BootstrapSolutions = new List<SolutionInterface>();
@@ -190,6 +196,11 @@ namespace AnalysisITC.AppClasses.Analysis2.Models
                     { ParameterType.Enthalpy1, Enthalpy1.FloatWithError },
                     { ParameterType.EntropyContribution1, TdS1.FloatWithError} ,
                     { ParameterType.Gibbs1, GibbsFreeEnergy1.FloatWithError },
+                    { ParameterType.Nvalue2, N2 },
+                    { ParameterType.Affinity2, Kd2 },
+                    { ParameterType.Enthalpy2, Enthalpy2.FloatWithError },
+                    { ParameterType.EntropyContribution2, TdS2.FloatWithError} ,
+                    { ParameterType.Gibbs2, GibbsFreeEnergy2.FloatWithError },
                 };
         }
     }

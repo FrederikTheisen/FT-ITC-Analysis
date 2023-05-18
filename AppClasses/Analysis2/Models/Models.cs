@@ -31,16 +31,13 @@ namespace AnalysisITC.AppClasses.Analysis2.Models
         public virtual double GuessAffinityAsGibbs() => -Energy.R * Data.MeasuredTemperatureKelvin * Math.Log(GuessAffinity());
 
         //TODO consider implementing this feature, but not sure about how it should work yet
-        public virtual double GuessParameter(ParameterType key)
+        public virtual double GuessParameter(ParameterType key, double def = 0)
         {
             if (SolutionHasParameter(key))
             {
-                return Solution.Parameters[key];
+                return Data.Solution.Parameters[key];
             }
-            else
-            {
-                return 0;
-            }
+            else return def;
         }
 
         public Model(ExperimentData data)
@@ -130,14 +127,14 @@ namespace AnalysisITC.AppClasses.Analysis2.Models
 	{
         public string Guid { get; private set; } = new Guid().ToString();
         GlobalSolution GlobalParentSolution { get; set; }
-        public bool IsGlobalAnalysisSolution => GlobalParentSolution != null;
-
         public Model Model { get; protected set; }
-        public SolverConvergence Convergence { get; set; }
+        public SolverConvergence Convergence { get; private set; }
         public ErrorEstimationMethod ErrorMethod { get; set; } = ErrorEstimationMethod.None;
         public virtual List<SolutionInterface> BootstrapSolutions { get; protected set; }
 		public Dictionary<ParameterType, FloatWithError> Parameters { get; } = new Dictionary<ParameterType, FloatWithError>();
 
+        public AnalysisModel ModelType => Model.ModelType;
+        public bool IsGlobalAnalysisSolution => GlobalParentSolution != null;
         public string SolutionName => (IsGlobalAnalysisSolution ? "Global." : "") + Model.ModelName;
         public ExperimentData Data => Model.Data;
         public double Temp => Data.MeasuredTemperature;
@@ -176,16 +173,16 @@ namespace AnalysisITC.AppClasses.Analysis2.Models
             Data.UpdateSolution();
         }
 		
-		public static SolutionInterface FromModel(Model model, double[] parameters, SolverConvergence convergence)
+		public static SolutionInterface FromModel(Model model, SolverConvergence convergence)
 		{
             SolutionInterface solution = null;
 
             switch (model.ModelType)
 			{
-				case AnalysisModel.OneSetOfSites: solution = new OneSetOfSites.ModelSolution(model, parameters); break;
-				case AnalysisModel.TwoSetsOfSites: solution = new TwoSetsOfSites.ModelSolution(model, parameters); break;
-                case AnalysisModel.CompetitiveBinding: solution = new CompetitiveBinding.ModelSolution(model, parameters); break;
-                case AnalysisModel.PeptideProlineIsomerization: solution = new OneSiteIsomerization.ModelSolution(model, parameters); break;
+				case AnalysisModel.OneSetOfSites: solution = new OneSetOfSites.ModelSolution(model); break;
+				case AnalysisModel.TwoSetsOfSites: solution = new TwoSetsOfSites.ModelSolution(model); break;
+                case AnalysisModel.CompetitiveBinding: solution = new CompetitiveBinding.ModelSolution(model); break;
+                case AnalysisModel.PeptideProlineIsomerization: solution = new OneSiteIsomerization.ModelSolution(model); break;
                 case AnalysisModel.SequentialBindingSites:
 				case AnalysisModel.Dissociation:
 				default: throw new Exception("Model Solution not implemented");

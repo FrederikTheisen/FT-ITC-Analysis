@@ -62,7 +62,7 @@ namespace AnalysisITC.AppClasses.Analysis2.Models
             public Energy TdS => GibbsFreeEnergy - dH;
             public Energy Entropy => TdS / TempKelvin;
 
-            public ModelSolution(Model model, double[] parameters)
+            public ModelSolution(Model model)
             {
                 Model = model;
                 BootstrapSolutions = new List<SolutionInterface>();
