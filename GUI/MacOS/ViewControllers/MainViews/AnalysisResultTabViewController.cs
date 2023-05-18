@@ -199,9 +199,11 @@ namespace AnalysisITC
 
             foreach (var par in Solution.IndividualModelReportParameters)
             {
+                bool multiple = ParameterTypeAttribute.ContainsTwo(Solution.Solutions[0].Parameters.Select(p => p.Key), par);
+
                 var column = new NSTableColumn(ParameterTypeAttribute.TableHeaderTitle(par, true))
                 {
-                    Title = ParameterTypeAttribute.TableHeader(par, Solution.Solutions[0].ParametersConformingToKey(par).Count > 1, EnergyUnit, AppropriateAutoConcUnit.GetName()),
+                    Title = ParameterTypeAttribute.TableHeader(par, multiple, EnergyUnit, AppropriateAutoConcUnit.GetName()),
                 };
                 column.HeaderCell.Alignment = NSTextAlignment.Center;
 

@@ -467,7 +467,12 @@ namespace AnalysisITC
                 CGPoint tick = ticks[i];
                 var point = tick + FrameOffset + LabelOffset;
 
-                var label = CategoryLabels.Keys.ToList()[i].GetProperties().AttributedNameString;
+                var par = CategoryLabels.Keys.ToList()[i];
+
+                var label = par.GetProperties().AttributedNameString;
+
+                if (ParameterTypeAttribute.ContainsTwo(CategoryLabels.Keys, par)) label += "{" + par.GetProperties().NumberSubscript + "}";
+
                 var attlabel = MacStrings.FromMarkDownString(label, NSFont.FromCTFont(TickFont), true);
                 var _size = cggraph.DrawString2(layer, attlabel, point, HorizontalTickLabelAlignment, VerticalTickLabelAlignment, null);
 

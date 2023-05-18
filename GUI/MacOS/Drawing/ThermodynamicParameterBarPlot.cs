@@ -17,7 +17,7 @@ namespace AnalysisITC
         GraphAxis DissociationConstantAxis { get; set; }
         double Mag { get; set; }
 
-        List<ParameterType> ParameterFilter { get; set; } = new List<ParameterType>() { ParameterType.Affinity1, ParameterType.Enthalpy2, ParameterType.Nvalue1, ParameterType.Nvalue2 };
+        List<ParameterType> ParameterFilter { get; set; } = new List<ParameterType>() { ParameterType.Affinity1, ParameterType.Affinity2, ParameterType.Nvalue1, ParameterType.Nvalue2 };
 
         List<ParameterType> Parameters => Result.Solution.IndividualModelReportParameters.Where(p => !ParameterFilter.Contains(p)).Select(p => p).ToList();
         int DataCount => Result.Solution.Solutions.Count;
