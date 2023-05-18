@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.ComponentModel;
 using System.Linq;
 using System.Security.Cryptography;
+using System.Text.RegularExpressions;
 using AnalysisITC.AppClasses.Analysis2.Models;
 using AnalysisITC.Utils;
 
@@ -275,8 +276,17 @@ namespace AnalysisITC.AppClasses.Analysis2
                         case ParameterType.Affinity1:
                         case ParameterType.Affinity2:
                             if (GetConstraintForParameter(par.Key) == VariableConstraint.TemperatureDependent)
-                                par.Value.SetGlobal(Math.Exp(-GlobalTable[ParameterType.Gibbs1].Value / (Energy.R * paramset.ExperimentTemperature)));
-                            break;
+                            {
+                                var _par = par.Key switch
+                                {
+                                    ParameterType.Affinity1 => ParameterType.Gibbs1,
+                                    ParameterType.Affinity2 => ParameterType.Gibbs2
+                                };
+
+                                par.Value.SetGlobal(Math.Exp(-GlobalTable[_par].Value / (Energy.R * paramset.ExperimentTemperature)));
+                            }
+
+                    break;
                     }
                 }
             }
@@ -358,16 +368,24 @@ namespace AnalysisITC.AppClasses.Analysis2
         public double DefaultStepSize { get; private set; }
         public double[] DefaultLimits { get; private set; }
         public ParameterType ParentType { get; private set; }
+        public int NumberSubscript { get; private set; } = 1;
 
         public ParameterTypeAttribute(string name, ParameterType parent) : base(name)
         {
-            var att = parent.GetProperties();
+            var parentatt = parent.GetProperties();
 
-            AttributedNameString = att.AttributedNameString;
-            DefaultLimits = att.DefaultLimits;
-            DefaultStepSize = att.DefaultStepSize;
+            AttributedNameString = parentatt.AttributedNameString;
+            DefaultLimits = parentatt.DefaultLimits;
+            DefaultStepSize = parentatt.DefaultStepSize;
 
             ParentType = parent;
+
+            var m = Regex.Match(name, @"\d+");
+
+            if (m.Success)
+            {
+                NumberSubscript = int.Parse(m.Value);
+            }
         }
 
         public ParameterTypeAttribute(string name, string attstr, double stepsize, double[] limits, ParameterType parent) : base(name)
@@ -377,6 +395,11 @@ namespace AnalysisITC.AppClasses.Analysis2
             DefaultLimits = limits;
 
             ParentType = parent;
+        }
+
+        public static bool ContainsTwo(IEnumerable<ParameterType> list, ParameterType query)
+        {
+            return list.Where(p => p.GetProperties().ParentType == query).Count() > 1;
         }
 
         public static string TableHeaderTitle(ParameterType key, bool containstwo)
