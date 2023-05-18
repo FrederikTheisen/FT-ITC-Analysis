@@ -268,7 +268,7 @@ namespace AnalysisITC
 
             Factory.BuildModel();
 
-            Data.Model.Solution = SolutionInterface.FromModel(Data.Model, Data.Model.Parameters.ToArray(), SolverConvergence.ReportStopped(DateTime.Now));
+            Data.Model.Solution = SolutionInterface.FromModel(Data.Model, SolverConvergence.ReportStopped(DateTime.Now));
 
             foreach (var inj in Data.Injections)
             {
