@@ -261,7 +261,7 @@ namespace AnalysisITC.AppClasses.Analysis2
 
             solver.Minimize(Model.Parameters.ToArray());
 
-            Model.Solution = SolutionInterface.FromModel(Model, solver.Solution, new SolverConvergence(solver, Model.LossFunction(Model.Parameters.ToArray())));
+            Model.Solution = SolutionInterface.FromModel(Model, new SolverConvergence(solver, Model.LossFunction(Model.Parameters.ToArray())));
             Model.Solution.ErrorMethod = ErrorEstimationMethod;
 
             return Model.Solution.Convergence;
@@ -283,7 +283,7 @@ namespace AnalysisITC.AppClasses.Analysis2
             alglib.minlmoptimize(LMOptimizerState, (double[] x, double[] fi, object obj) => { fi[0] = Model.LossFunction(x); }, null, null);
             alglib.minlmresults(LMOptimizerState, out double[] result, out minlmreport rep);
 
-            Model.Solution = SolutionInterface.FromModel(Model, result, new SolverConvergence(LMOptimizerState, rep, DateTime.Now - start, Model.LossFunction(result)));
+            Model.Solution = SolutionInterface.FromModel(Model, new SolverConvergence(LMOptimizerState, rep, DateTime.Now - start, Model.LossFunction(result)));
             Model.Solution.ErrorMethod = ErrorEstimationMethod;
 
             return Model.Solution.Convergence;
