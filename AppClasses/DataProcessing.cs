@@ -69,7 +69,7 @@ namespace AnalysisITC
             }
         }
 
-        public async void ProcessData(bool replace = true)
+        public async void ProcessData(bool replace = true, bool invalidate = true)
         {
             if (BaselineType == BaselineInterpolatorTypes.None) return;
 
@@ -77,8 +77,8 @@ namespace AnalysisITC
 
             this.WillProcessData();
             await this.InterpolateBaseline(replace);
-            this.IntegratePeaks();
-            this.DidProcessData();
+            this.IntegratePeaks(invalidate);
+            this.DidProcessData(invalidate);
 
             StatusBarManager.StopIndeterminateProgress();
         }
@@ -111,9 +111,9 @@ namespace AnalysisITC
             }
         }
 
-        public void DidProcessData()
+        public void DidProcessData(bool invalidate = true)
         {
-            Data.UpdateProcessing();
+            Data.UpdateProcessing(invalidate);
 
             ProcessingCompleted?.Invoke(Data, null);
         }
@@ -130,7 +130,7 @@ namespace AnalysisITC
             }
         }
 
-        public void IntegratePeaks()
+        public void IntegratePeaks(bool invalidate = true)
         {
             if (Data.BaseLineCorrectedDataPoints == null) return;
 
@@ -139,7 +139,7 @@ namespace AnalysisITC
                 inj.Integrate();
             }
 
-            Data.UpdateProcessing();
+            Data.UpdateProcessing(invalidate);
 
             ProcessingCompleted?.Invoke(Data, null);
         }

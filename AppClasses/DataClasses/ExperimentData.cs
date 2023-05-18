@@ -260,9 +260,9 @@ namespace AnalysisITC
             return syndat;
         }
 
-        public void UpdateProcessing()
+        public void UpdateProcessing(bool invalidate = true)
         {
-            if (Solution != null) Solution.Invalidate();
+            if (Solution != null && invalidate) Solution.Invalidate();
 
             ProcessingUpdated?.Invoke(Processor, null);
         }

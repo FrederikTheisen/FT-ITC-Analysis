@@ -10,6 +10,8 @@ using System.Threading.Tasks;
 using UniformTypeIdentifiers;
 using Foundation;
 using AnalysisITC.AppClasses.AnalysisClasses;
+using AnalysisITC.AppClasses.Analysis2.Models;
+using AnalysisITC.AppClasses.Analysis2;
 
 namespace DataReaders
 {
@@ -321,9 +323,11 @@ namespace DataReaders
 
     class FTITCReader : FTITCFormat
     {
+        static List<ITCDataContainer> Data { get; set; }
+
         public static ITCDataContainer[] ReadPath(string path)
         {
-            var data = new List<ITCDataContainer>();
+            Data = new List<ITCDataContainer>();
 
             using (var reader = (new StreamReader(path)))
             {
@@ -335,14 +339,15 @@ namespace DataReaders
 
                     if (input[0] == "FILE")
                     {
-                        if (input[1] == ExperimentHeader) data.Add(ProcessExperimentData(reader, line));
+                        if (input[1] == ExperimentHeader) Data.Add(ProcessExperimentData(reader, line));
+                        else if (input[1] == SolutionHeader) Data.Add(ReadAnalysisResult(reader));
                     }
                 }
             }
 
             CurrentAccessedAppDocumentPath = path;
 
-            return data.ToArray();
+            return Data.ToArray();
         }
 
         static ExperimentData ProcessExperimentData(StreamReader reader, string firstline)
@@ -352,6 +357,7 @@ namespace DataReaders
             if (a[1] != ExperimentHeader) return null;
 
             var exp = new ExperimentData(a[2]);
+            SolutionInterface sol = null;
 
             string line;
 
@@ -381,10 +387,14 @@ namespace DataReaders
                     case "LIST" when v[1] == DataPointList: ReadDataList(exp, reader); break;
                     case "LIST" when v[1] == ExperimentAttributes: ReadAttributes(exp, reader); break;
                     case "OBJECT" when v[1] == Processor: ReadProcessor(exp, reader); break;
+                    case "OBJECT" when v[1] == ExperimentSolutionHeader: sol = ReadSolution(reader, reader.ReadLine(), exp); break;
+                    //case "OBJECT" when v[1] == SolutionHeader: exp.UpdateSolution(ReadSolution(reader, line).Model); break; //Not certain about implementation
                 }
             }
 
             RawDataReader.ProcessInjections(exp);
+
+            if (sol != null) exp.UpdateSolution(sol.Model);
 
             return exp;
         }
@@ -418,7 +428,7 @@ namespace DataReaders
 
             exp.SetProcessor(p);
 
-            p.ProcessData(replace: false);
+            p.ProcessData(replace: false, invalidate: false);
         }
 
         static void ReadSplineList(SplineInterpolator interpolator, StreamReader reader)
@@ -483,6 +493,104 @@ namespace DataReaders
             }
 
             exp.DataPoints = datapoints;
+        }
+
+        static AnalysisResult ReadAnalysisResult(StreamReader reader)
+        {
+
+            return null;
+        }
+
+        static void ReadGlobalSolution(StreamReader reader)
+        {
+
+        }
+
+        static SolutionInterface ReadSolution(StreamReader reader, string firstline, ExperimentData experimentData = null)
+        {
+            try
+            {
+                SingleModelFactory factory = null;
+                string guid = firstline.Split(':')[2];
+                string dataref = reader.ReadLine().Split(':')[1];
+                var mdltype = (AnalysisModel)IParse(reader.ReadLine().Split(':')[1]);
+
+                factory = new AnalysisITC.AppClasses.Analysis2.SingleModelFactory(mdltype);
+                if (experimentData == null)
+                    factory.InitializeModel(Data.Find(d => d.UniqueID == dataref) as ExperimentData);
+                else factory.ConstructModel(experimentData);
+                SolverConvergence conv = null;
+                double loss;
+                List<Parameter> parameters = null;
+                List<SolutionInterface> bsols = null;
+
+                string line;
+                while ((line = reader.ReadLine()) != EndFileHeader)
+                {
+                    var v = line.Split(':');
+                    switch (v[0])
+                    {
+                        case "LIST" when v[1] == SolParams:
+                            {
+                                parameters = new List<Parameter>();
+                                string line2;
+                                while ((line2 = reader.ReadLine()) != EndListHeader)
+                                {
+                                    var dat = line2.Split(':');
+                                    var par = (ParameterType)int.Parse(dat[1]);
+                                    var val = DParse(dat[2]);
+
+                                    parameters.Add(new Parameter(par, val));
+                                }
+                                break;
+                            }
+                        case "LIST" when v[1] == SolBootstrapSolutions:
+                            {
+                                bsols = new List<SolutionInterface>();
+                                var bsol = "";
+                                while ((bsol = reader.ReadLine()) != EndListHeader)
+                                {
+                                    bsols.Add(ReadSolution(reader, bsol, factory.Model.Data));
+                                }
+                                break;
+                            }
+                        case "OBJECT" when v[1] == SolConvergence:
+                            {
+                                var dat = reader.ReadLine().Split(';');
+                                var dict = new Dictionary<string, string>();
+                                foreach (var d in dat.Where(s => !string.IsNullOrEmpty(s)))
+                                    dict.Add(d.Split(':')[0], d.Split(':')[1]);
+
+                                conv = SolverConvergence.FromSave(
+                                    IParse(dict[SolIterations]),
+                                    DParse(dict[SolLoss]),
+                                    TSParse(dict[SolConvTime]),
+                                    TSParse(dict[SolConvBootstrapTime]),
+                                    (SolverAlgorithm)IParse(dict[SolConvAlgorithm]),
+                                    dict[SolConvMsg],
+                                    BParse(dict[SolConvFailed]));
+
+                                break;
+                            }
+                    }
+                }
+
+                foreach (var par in parameters)
+                    factory.Model.Parameters.AddParameter(par.Key, par.Value);
+
+                factory.Model.Solution = SolutionInterface.FromModel(factory.Model, conv);
+
+                if (bsols != null) factory.Model.Solution.SetBootstrapSolutions(bsols);
+
+                return factory.Model.Solution;
+            }
+            catch (Exception ex)
+            {
+                ex.Source = "Solution Reading Error: " + firstline;
+                AppEventHandler.DisplayHandledException(ex);
+
+                return null;
+            }
         }
     }
 

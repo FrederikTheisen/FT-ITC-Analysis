@@ -101,6 +101,20 @@ namespace AnalysisITC
 
             return conv;
         }
+
+        public static SolverConvergence FromSave(int iter, double loss, TimeSpan time, TimeSpan btime, SolverAlgorithm algorithm, string msg, bool failed)
+        {
+            return new SolverConvergence()
+            {
+                Iterations = iter,
+                Loss = loss,
+                Time = time,
+                BootstrapTime = btime,
+                Algorithm = algorithm,
+                Message = msg,
+                Failed = failed,
+            };
+        }
     }
 
     public class TerminationFlag

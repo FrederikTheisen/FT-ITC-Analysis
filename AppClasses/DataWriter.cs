@@ -43,21 +43,30 @@ namespace AnalysisITC
         public const string PolynomiumDegree = "PDegree";
         public const string PolynomiumLimit = "PLimit";
         public const string SplinePointList = "SPList";
-        public const string Solution = "fit";
+        public const string SolutionGUID = "SolutionGUID";
         public const string ExperimentAttributes = "ExpAttributes";
+        public const string ExperimentSolutionHeader = "Solution";
 
         public const string SolutionHeader = "SolutionFile";
+        public const string DataRef = "DataGUID";
         public const string SolModel = "MDL";
         public const string SolParamsRaw = "RawParameters";
+        public const string SolParams = "Parameters";
         public const string SolLoss = "Loss";
-        public const string SolH = "H";
-        public const string SolK = "S";
-        public const string SolN = "N";
-        public const string SolO = "O";
         public const string SolBootN = "BootstrapIterations";
+        public const string SolBootstrapSolutions = "BootSolutions";
+        public const string SolConvergence = "Conv";
+        public const string SolIterations = "Iter";
+        public const string SolConvMsg = "MSG";
+        public const string SolConvTime = "TIME";
+        public const string SolConvBootstrapTime = "BTIME";
+        public const string SolConvFailed = "Failed";
+        public const string SolConvAlgorithm = "Algorithm";
 
         public const string GlobalSolutionHeader = "GlobalSolutionFile";
         public const string SolutionList = "SolutionList";
+
+        public const string AnalysisResultHeader = "AnalysisResult";
 
         //ftitc_old formatting
         public static string OldHeader(string header) => "<" + header + ">";
@@ -107,6 +116,7 @@ namespace AnalysisITC
             if (s.Length > 1) return new FloatWithError(DParse(s[0]), DParse(s[1]));
             else return new FloatWithError(DParse(s[0]));
         }
+        public static TimeSpan TSParse(string value) => TimeSpan.FromSeconds(DParse(value));
 
         public static string CurrentAccessedAppDocumentPath { get; set; } = "";
     }
@@ -221,7 +231,13 @@ namespace AnalysisITC
                 file.Add(EndListHeader);
             }
 
-            if (data.Solution != null) file.Add(Variable(Solution, data.Solution.Guid));
+            if (data.Solution != null)
+            {
+                file.Add(Variable(SolutionGUID, data.Solution.Guid));
+                file.Add(ObjectHeader(ExperimentSolutionHeader));
+                file.AddRange(GetSolutionLines(data.Solution));
+                file.Add(EndObjectHeader);
+            }
 
             file.Add(ListHeader(InjectionList));
             foreach (var inj in data.Injections)
@@ -289,19 +305,48 @@ namespace AnalysisITC
             foreach (var line in file) await stream.WriteLineAsync(line);
         }
 
-        static async Task WriteSolutionToFile2(SolutionInterface solution, StreamWriter stream)
+        static List<string> GetSolutionLines(SolutionInterface solution)
         {
             var file = new List<string>();
             file.Add(FileHeader(SolutionHeader, solution.Guid));
-            file.Add(Variable(SolModel, solution.Model.ToString()));
-            file.Add(Variable(SolLoss, solution.Loss));
-            foreach (var par in solution.Parameters)
+            file.Add(Variable(DataRef, solution.Data.UniqueID));
+            file.Add(Variable(SolModel, (int)solution.ModelType));
+            file.Add(ObjectHeader(SolConvergence));
+            var conv = "";
+            conv += Variable(SolIterations, solution.Convergence.Iterations) + ";";
+            conv += Variable(SolConvMsg, solution.Convergence.Message) + ";";
+            conv += Variable(SolConvTime, solution.Convergence.Time.TotalSeconds) + ";";
+            conv += Variable(SolConvBootstrapTime, solution.Convergence.BootstrapTime.TotalSeconds) + ";";
+            conv += Variable(SolLoss, solution.Loss) + ";";
+            conv += Variable(SolConvFailed, solution.Convergence.Failed) + ";";
+            conv += Variable(SolConvAlgorithm, (int)solution.Convergence.Algorithm);
+            file.Add(conv);
+            file.Add(EndObjectHeader);
+            file.Add(ListHeader(SolParams));
+            foreach (var par in solution.Model.Parameters.Table)
             {
-                file.Add(Variable(par.Key.ToString(), par.Value));
+                file.Add(Variable(par.Key.ToString() + ":" + ((int)par.Key).ToString(), par.Value.Value));
             }
-            file.Add(Variable(SolBootN, solution.BootstrapSolutions.Count));
+            file.Add(EndListHeader);
+            if (solution.BootstrapSolutions.Count > 0)
+            {
+                file.Add(ListHeader(SolBootstrapSolutions));
+                foreach (var bsol in solution.BootstrapSolutions)
+                {
+                    var lines = GetSolutionLines(bsol);
 
+                    file.AddRange(lines);
+                }
+                file.Add(EndListHeader);
+            }
             file.Add(EndFileHeader);
+
+            return file;
+        }
+
+        static async Task WriteSolutionToFile2(SolutionInterface solution, StreamWriter stream)
+        {
+            var file = GetSolutionLines(solution);
             foreach (var line in file) await stream.WriteLineAsync(line);
         }
 
@@ -309,8 +354,15 @@ namespace AnalysisITC
         {
             var file = new List<string>();
             file.Add(FileHeader(GlobalSolutionHeader, ""));
-
-
+            //ModelType
+            //GlobalModelParameters
+            //  Constraints
+            //  Table
+            //DataRefs
+            //ModelCloneOptions
+            //Convergence
+            //ModelSolutions (these also contain bootstrap solutions)
+            
             file.Add(ListHeader(SolutionList));
             foreach (var sol in solution.Solutions)
             {
@@ -322,9 +374,13 @@ namespace AnalysisITC
             foreach (var line in file) await stream.WriteLineAsync(line);
         }
 
-        static async Task WriteAnalysisResultToFile(AnalysisResult result, StreamWriter writer)
+        static async Task WriteAnalysisResultToFile(AnalysisResult result, StreamWriter stream)
         {
-            throw new NotImplementedException("Analysis Result save not yet implemented");
+            var file = new List<string>();
+            file.Add(FileHeader(AnalysisResultHeader, result.UniqueID));
+
+            file.Add(EndFileHeader);
+            foreach (var line in file) await stream.WriteLineAsync(line);
         }
     }
 
