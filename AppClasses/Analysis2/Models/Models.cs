@@ -159,7 +159,8 @@ namespace AnalysisITC.AppClasses.Analysis2.Models
 
         public void SetIsGlobal(GlobalSolution parent)
         {
-            GlobalParentSolution = parent;
+            if (parent.Model.Parameters.Constraints.Count > 0)
+                GlobalParentSolution = parent;
         }
 
 		public void Invalidate()

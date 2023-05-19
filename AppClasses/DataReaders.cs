@@ -600,6 +600,8 @@ namespace DataReaders
 
             factory.Model.Solution = new GlobalSolution(new GlobalSolver() { Model = factory.Model, ErrorEstimationMethod = solutions[0].ErrorMethod }, solutions, conv);
 
+            foreach (var sol in solutions) sol.SetIsGlobal(factory.Model.Solution);
+
             return factory.Model.Solution;
 
             try
