@@ -50,8 +50,13 @@ namespace AnalysisITC
         public const string SolutionHeader = "SolutionFile";
         public const string DataRef = "DataGUID";
         public const string SolModel = "MDL";
+        public const string SolErrorMethod = "ErrorMethod";
+        public const string SolCloneConcentrationVariance = "ConcVar";
+        public const string SolCloneAutoVariance = "AutoConcVar";
+        public const string SolCloneAutoVarianceValue = "AutoConcVarValue";
         public const string SolParamsRaw = "RawParameters";
         public const string SolParams = "Parameters";
+        public const string SolConstraints = "SolCons";
         public const string SolLoss = "Loss";
         public const string SolBootN = "BootstrapIterations";
         public const string SolBootstrapSolutions = "BootSolutions";
@@ -62,6 +67,7 @@ namespace AnalysisITC
         public const string SolConvBootstrapTime = "BTIME";
         public const string SolConvFailed = "Failed";
         public const string SolConvAlgorithm = "Algorithm";
+        public const string MdlCloneOptions = "MdlClOpts";
 
         public const string GlobalSolutionHeader = "GlobalSolutionFile";
         public const string SolutionList = "SolutionList";
@@ -193,6 +199,10 @@ namespace AnalysisITC
                 {
                     await WriteExperimentDataToFile(data, writer);
                 }
+                foreach(var res in DataManager.Results)
+                {
+                    await WriteAnalysisResultToFile(res, writer);
+                }
                 //foreach (var data in DataManager.Data.Where(d => d.Solution != null))
                 //{
                 //    await WriteSolutionToFile(data.Solution, writer);
@@ -311,17 +321,8 @@ namespace AnalysisITC
             file.Add(FileHeader(SolutionHeader, solution.Guid));
             file.Add(Variable(DataRef, solution.Data.UniqueID));
             file.Add(Variable(SolModel, (int)solution.ModelType));
-            file.Add(ObjectHeader(SolConvergence));
-            var conv = "";
-            conv += Variable(SolIterations, solution.Convergence.Iterations) + ";";
-            conv += Variable(SolConvMsg, solution.Convergence.Message) + ";";
-            conv += Variable(SolConvTime, solution.Convergence.Time.TotalSeconds) + ";";
-            conv += Variable(SolConvBootstrapTime, solution.Convergence.BootstrapTime.TotalSeconds) + ";";
-            conv += Variable(SolLoss, solution.Loss) + ";";
-            conv += Variable(SolConvFailed, solution.Convergence.Failed) + ";";
-            conv += Variable(SolConvAlgorithm, (int)solution.Convergence.Algorithm);
-            file.Add(conv);
-            file.Add(EndObjectHeader);
+            if (solution.ErrorMethod != ErrorEstimationMethod.None) file.Add(Variable(SolErrorMethod, (int)solution.ErrorMethod));
+            AddConvergenceLine(solution.Convergence, file);
             file.Add(ListHeader(SolParams));
             foreach (var par in solution.Model.Parameters.Table)
             {
@@ -344,6 +345,21 @@ namespace AnalysisITC
             return file;
         }
 
+        private static void AddConvergenceLine(SolverConvergence convergence, List<string> file)
+        {
+            file.Add(ObjectHeader(SolConvergence));
+            var conv = "";
+            conv += Variable(SolIterations, convergence.Iterations) + ";";
+            conv += Variable(SolConvMsg, convergence.Message) + ";";
+            conv += Variable(SolConvTime, convergence.Time.TotalSeconds) + ";";
+            conv += Variable(SolConvBootstrapTime, convergence.BootstrapTime.TotalSeconds) + ";";
+            conv += Variable(SolLoss, convergence.Loss) + ";";
+            conv += Variable(SolConvFailed, convergence.Failed) + ";";
+            conv += Variable(SolConvAlgorithm, (int)convergence.Algorithm);
+            file.Add(conv);
+            file.Add(EndObjectHeader);
+        }
+
         static async Task WriteSolutionToFile2(SolutionInterface solution, StreamWriter stream)
         {
             var file = GetSolutionLines(solution);
@@ -352,33 +368,68 @@ namespace AnalysisITC
 
         static async Task WriteGlobalSolutionToFile(GlobalSolution solution, StreamWriter stream)
         {
+            var file = GetGlobalSolutionLines(solution);
+            foreach (var line in file) await stream.WriteLineAsync(line);
+        }
+
+        static List<string> GetGlobalSolutionLines(GlobalSolution solution)
+        {
             var file = new List<string>();
             file.Add(FileHeader(GlobalSolutionHeader, ""));
-            //ModelType
-            //GlobalModelParameters
-            //  Constraints
-            //  Table
+            file.Add(Variable(SolModel, (int)solution.Model.ModelType));
+
             //DataRefs
+            file.Add(ListHeader(DataRef));
+            foreach (var mdl in solution.Model.Models)
+            {
+                file.Add(mdl.Data.UniqueID);
+            }
+            file.Add(EndListHeader);
+
+            //Parameter Constraints
+            file.Add(ListHeader(SolConstraints));
+            foreach (var par in solution.Model.Parameters.Constraints)
+            {
+                file.Add(Variable(par.Key.ToString() + ":" + ((int)par.Key).ToString(), (int)par.Value));
+            }
+            file.Add(EndListHeader);
+
+            //Parameter Table
+            file.Add(ListHeader(SolParams));
+            foreach (var par in solution.Model.Parameters.GlobalTable)
+            {
+                file.Add(Variable(par.Key.ToString() + ":" + ((int)par.Key).ToString(), par.Value.Value));
+            }
+            file.Add(EndListHeader);
+
             //ModelCloneOptions
+            file.Add(ObjectHeader(MdlCloneOptions));
+            file.Add(Variable(SolErrorMethod, (int)solution.Model.ModelCloneOptions.ErrorEstimationMethod));
+            file.Add(Variable(SolCloneConcentrationVariance, solution.Model.ModelCloneOptions.IncludeConcentrationErrorsInBootstrap));
+            file.Add(Variable(SolCloneAutoVariance, solution.Model.ModelCloneOptions.EnableAutoConcentrationVariance));
+            file.Add(Variable(SolCloneAutoVarianceValue, solution.Model.ModelCloneOptions.AutoConcentrationVariance));     
+            file.Add(EndObjectHeader);
+
             //Convergence
-            //ModelSolutions (these also contain bootstrap solutions)
-            
+            AddConvergenceLine(solution.Convergence, file); 
+
             file.Add(ListHeader(SolutionList));
             foreach (var sol in solution.Solutions)
             {
-                file.Add(sol.Guid);
+                file.AddRange(GetSolutionLines(sol));
             }
             file.Add(EndListHeader);
 
             file.Add(EndFileHeader);
-            foreach (var line in file) await stream.WriteLineAsync(line);
+
+            return file;
         }
 
         static async Task WriteAnalysisResultToFile(AnalysisResult result, StreamWriter stream)
         {
             var file = new List<string>();
             file.Add(FileHeader(AnalysisResultHeader, result.UniqueID));
-
+            file.AddRange(GetGlobalSolutionLines(result.Solution));
             file.Add(EndFileHeader);
             foreach (var line in file) await stream.WriteLineAsync(line);
         }

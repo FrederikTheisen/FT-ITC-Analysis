@@ -99,7 +99,6 @@ namespace AnalysisITC.AppClasses.Analysis2
 	{
         public GlobalModel Model { get; set; }
         public SolverConvergence Convergence { get; set; }
-		public ErrorEstimationMethod ErrorEstimationMethod { get; set; } = ErrorEstimationMethod.None;
         public List<GlobalSolution> BootstrapSolutions { get; private set; } = new List<GlobalSolution>();
 		public Dictionary<ParameterType, LinearFitWithError> TemperatureDependence = new Dictionary<ParameterType, LinearFitWithError>();
         public bool IsValid { get; private set; } = true;
@@ -116,8 +115,8 @@ namespace AnalysisITC.AppClasses.Analysis2
 		public List<SolutionInterface> Solutions => Model.Models.Select(mdl => mdl.Solution).ToList();
 		public List<ParameterType> IndividualModelReportParameters => Model.Models[0].Solution.ReportParameters.Select(p => p.Key).ToList();
 		public ModelCloneOptions ModelCloneOptions => Model.ModelCloneOptions;
+        public ErrorEstimationMethod ErrorEstimationMethod => ModelCloneOptions.ErrorEstimationMethod;
 
-		//TODO invalidate all solutions in solution
         public void Invalidate()
 		{
 			IsValid = false;
@@ -129,7 +128,6 @@ namespace AnalysisITC.AppClasses.Analysis2
 		{
 			Model = solver.Model;
 			Convergence = convergence;
-			ErrorEstimationMethod = solver.ErrorEstimationMethod;
 
             foreach (var mdl in Model.Models)
             {
@@ -150,9 +148,8 @@ namespace AnalysisITC.AppClasses.Analysis2
 		{
 			Model = solver.Model;
 			Convergence = convergence;
-			ErrorEstimationMethod = solver.ErrorEstimationMethod;
 
-            var dependencies = Solutions[0].DependenciesToReport;
+            var dependencies = solutions[0].DependenciesToReport; //Changed Solu... to solu...
 
             foreach (var dep in dependencies) SetParameterTemperatureDependence(dep.Item1, dep.Item2);
 

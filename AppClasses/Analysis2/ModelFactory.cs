@@ -277,24 +277,30 @@ namespace AnalysisITC.AppClasses.Analysis2
 		}
 
         public void InitializeModel()
-		{
-			Console.WriteLine("Initializing GlobalModelFactory...");
-			Model = new GlobalModel();
-			GlobalModelParameters = new GlobalModelParameters();
+        {
+            Console.WriteLine("Initializing GlobalModelFactory...");
 
-			var datas = DataManager.Data.Where(d => d.Include).ToList();
+            var datas = DataManager.Data.Where(d => d.Include).ToList();
+
+            InitializeModel(datas);
+        }
+
+        public void InitializeModel(List<ExperimentData> datas)
+        {
+            Model = new GlobalModel();
+            GlobalModelParameters = new GlobalModelParameters();
 
             foreach (var data in datas)
-			{
-				Console.WriteLine("Adding data: " + data.FileName);
-				var factory = new SingleModelFactory(ModelType);
+            {
+                Console.WriteLine("Adding data: " + data.FileName);
+                var factory = new SingleModelFactory(ModelType);
 
-				factory.InitializeModel(data);
+                factory.InitializeModel(data);
 
-				Model.AddModel(factory.Model);
-			}
+                Model.AddModel(factory.Model);
+            }
 
-			InitializeExposedGlobalFittingOptions();
+            InitializeExposedGlobalFittingOptions();
 
             InitializeGlobalParameters();
         }

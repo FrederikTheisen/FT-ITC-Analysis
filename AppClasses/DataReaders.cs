@@ -340,7 +340,7 @@ namespace DataReaders
                     if (input[0] == "FILE")
                     {
                         if (input[1] == ExperimentHeader) Data.Add(ProcessExperimentData(reader, line));
-                        else if (input[1] == SolutionHeader) Data.Add(ReadAnalysisResult(reader));
+                        else if (input[1] == AnalysisResultHeader) Data.Add(ReadAnalysisResult(reader, line));
                     }
                 }
             }
@@ -495,15 +495,121 @@ namespace DataReaders
             exp.DataPoints = datapoints;
         }
 
-        static AnalysisResult ReadAnalysisResult(StreamReader reader)
+        static AnalysisResult ReadAnalysisResult(StreamReader reader, string firstline)
         {
+            var guid = firstline.Split(':')[2];
+            var sol = ReadGlobalSolution(reader);
 
-            return null;
+            AnalysisResult result = new AnalysisResult(sol);
+
+            return result;
         }
 
-        static void ReadGlobalSolution(StreamReader reader)
+        static GlobalSolution ReadGlobalSolution(StreamReader reader)
         {
+            reader.ReadLine(); //Header is empty
+            string line = reader.ReadLine();
+            var mdl = (AnalysisModel)IParse(line.Split(':')[1]);
+            GlobalModelFactory factory = new GlobalModelFactory(mdl);
+            var datas = new List<ExperimentData>();
+            var solutions = new List<SolutionInterface>();
+            SolverConvergence conv = null;
 
+            while ((line = reader.ReadLine()) != EndFileHeader)
+            {
+                var v = line.Split(':');
+                switch (v[0])
+                {
+                    case "LIST" when v[1] == DataRef:
+                        {
+                            string dref;
+                            while ((dref = reader.ReadLine()) != EndListHeader)
+                            {
+                                datas.Add(Data.Find(d => d.UniqueID == dref) as ExperimentData);
+                            }
+
+                            factory.InitializeModel(datas);
+                        }
+                        break;
+                    case "LIST" when v[1] == SolConstraints:
+                        {
+                            string line2;
+                            while ((line2 = reader.ReadLine()) != EndListHeader)
+                            {
+                                var dat = line2.Split(':');
+                                var par = (ParameterType)int.Parse(dat[1]);
+                                var con = (VariableConstraint)IParse(dat[2]);
+
+                                factory.Model.Parameters.SetConstraintForParameter(par, con);
+                            }
+                        }
+                        break;
+                    case "LIST" when v[1] == SolParams:
+                        {
+                            string line2;
+                            while ((line2 = reader.ReadLine()) != EndListHeader)
+                            {
+                                var dat = line2.Split(':');
+                                var par = (ParameterType)int.Parse(dat[1]);
+                                var val = DParse(dat[2]);
+
+                                factory.Model.Parameters.AddorUpdateGlobalParameter(par, val);
+                            }
+                        }
+                        break;
+                    case "LIST" when v[1] == SolutionList:
+                        {
+                            string solline;
+                            while ((solline = reader.ReadLine()) != EndListHeader)
+                            {
+                                var sol = ReadSolution(reader, solline);
+                                factory.Model.Models.Find(mdl => mdl.Data.UniqueID == sol.Data.UniqueID).Solution = sol;
+
+                                solutions.Add(sol);
+                            }
+                        }
+                        break;
+                    case "OBJECT" when v[1] == SolConvergence:
+                        {
+                            conv = ReadConvergenceObject(reader);
+                            reader.ReadLine();
+
+                            break;
+                        }
+                    case "OBJECT" when v[1] == MdlCloneOptions:
+                        {
+                            var mco = new ModelCloneOptions();
+                            string mcoline;
+                            while ((mcoline = reader.ReadLine()) != EndObjectHeader)
+                            {
+                                var vv = line.Split(':');
+                                switch (vv[0])
+                                {
+                                    case SolErrorMethod: mco.ErrorEstimationMethod = (ErrorEstimationMethod)IParse(v[1]); break;
+                                    case SolCloneConcentrationVariance: mco.IncludeConcentrationErrorsInBootstrap = BParse(v[1]); break;
+                                    case SolCloneAutoVariance: mco.EnableAutoConcentrationVariance = BParse(v[1]); break;
+                                    case SolCloneAutoVarianceValue: mco.AutoConcentrationVariance = DParse(v[1]); break;
+                                }
+                            }
+
+                            factory.Model.ModelCloneOptions = mco;
+                        }
+                        break;
+                }
+            }
+
+            factory.Model.Solution = new GlobalSolution(new GlobalSolver() { Model = factory.Model, ErrorEstimationMethod = solutions[0].ErrorMethod }, solutions, conv);
+
+            return factory.Model.Solution;
+
+            try
+            {
+
+            }
+            catch
+            {
+
+            }
         }
 
         static SolutionInterface ReadSolution(StreamReader reader, string firstline, ExperimentData experimentData = null)
@@ -530,6 +636,7 @@ namespace DataReaders
                     var v = line.Split(':');
                     switch (v[0])
                     {
+                        //case SolErrorMethod: factory.Model.MCO = (ErrorEstimationMethod)IParse(v[1]); break;
                         case "LIST" when v[1] == SolParams:
                             {
                                 parameters = new List<Parameter>();
@@ -556,19 +663,7 @@ namespace DataReaders
                             }
                         case "OBJECT" when v[1] == SolConvergence:
                             {
-                                var dat = reader.ReadLine().Split(';');
-                                var dict = new Dictionary<string, string>();
-                                foreach (var d in dat.Where(s => !string.IsNullOrEmpty(s)))
-                                    dict.Add(d.Split(':')[0], d.Split(':')[1]);
-
-                                conv = SolverConvergence.FromSave(
-                                    IParse(dict[SolIterations]),
-                                    DParse(dict[SolLoss]),
-                                    TSParse(dict[SolConvTime]),
-                                    TSParse(dict[SolConvBootstrapTime]),
-                                    (SolverAlgorithm)IParse(dict[SolConvAlgorithm]),
-                                    dict[SolConvMsg],
-                                    BParse(dict[SolConvFailed]));
+                                conv = ReadConvergenceObject(reader);
 
                                 break;
                             }
@@ -576,7 +671,7 @@ namespace DataReaders
                 }
 
                 foreach (var par in parameters)
-                    factory.Model.Parameters.AddParameter(par.Key, par.Value);
+                    factory.Model.Parameters.AddOrUpdateParameter(par.Key, par.Value);
 
                 factory.Model.Solution = SolutionInterface.FromModel(factory.Model, conv);
 
@@ -591,6 +686,25 @@ namespace DataReaders
 
                 return null;
             }
+        }
+
+        private static SolverConvergence ReadConvergenceObject(StreamReader reader)
+        {
+            SolverConvergence conv;
+            var dat = reader.ReadLine().Split(';');
+            var dict = new Dictionary<string, string>();
+            foreach (var d in dat.Where(s => !string.IsNullOrEmpty(s)))
+                dict.Add(d.Split(':')[0], d.Split(':')[1]);
+
+            conv = SolverConvergence.FromSave(
+                IParse(dict[SolIterations]),
+                DParse(dict[SolLoss]),
+                TSParse(dict[SolConvTime]),
+                TSParse(dict[SolConvBootstrapTime]),
+                (SolverAlgorithm)IParse(dict[SolConvAlgorithm]),
+                dict[SolConvMsg],
+                BParse(dict[SolConvFailed]));
+            return conv;
         }
     }
 

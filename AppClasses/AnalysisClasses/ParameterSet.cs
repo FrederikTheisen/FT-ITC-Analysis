@@ -125,9 +125,10 @@ namespace AnalysisITC.AppClasses.Analysis2
             ExperimentTemperature = data.MeasuredTemperatureKelvin;
         }
 
-        public void AddParameter(ParameterType key, double value, bool islocked = false)
+        public void AddOrUpdateParameter(ParameterType key, double value, bool islocked = false)
         {
-            Table.Add(key, new Parameter(key, value, islocked));
+            if (Table.Keys.Contains(key)) Table[key] = new Parameter(key, value, islocked);
+            else Table.Add(key, new Parameter(key, value, islocked));
         }
 
         public void UpdateFromArray(double[] parameters)

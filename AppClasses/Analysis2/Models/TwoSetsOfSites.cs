@@ -27,13 +27,13 @@ namespace AnalysisITC.AppClasses.Analysis2.Models
 		{
             base.InitializeParameters(data);
 
-            Parameters.AddParameter(ParameterType.Nvalue1, GuessParameter(ParameterType.Nvalue1, this.GuessN1()));
-            Parameters.AddParameter(ParameterType.Enthalpy1, GuessParameter(ParameterType.Enthalpy1, this.GuessEnthalpy()));
-            Parameters.AddParameter(ParameterType.Affinity1, GuessParameter(ParameterType.Affinity1, this.GuessAffinity1()));
-            Parameters.AddParameter(ParameterType.Nvalue2, GuessParameter(ParameterType.Nvalue2, this.GuessN2()));
-            Parameters.AddParameter(ParameterType.Enthalpy2, GuessParameter(ParameterType.Enthalpy2, this.GuessEnthalpy() / 2));
-            Parameters.AddParameter(ParameterType.Affinity2, GuessParameter(ParameterType.Affinity2, this.GuessAffinity2()));
-            Parameters.AddParameter(ParameterType.Offset, GuessParameter(ParameterType.Offset, this.GuessOffset()));
+            Parameters.AddOrUpdateParameter(ParameterType.Nvalue1, GuessParameter(ParameterType.Nvalue1, this.GuessN1()));
+            Parameters.AddOrUpdateParameter(ParameterType.Enthalpy1, GuessParameter(ParameterType.Enthalpy1, this.GuessEnthalpy()));
+            Parameters.AddOrUpdateParameter(ParameterType.Affinity1, GuessParameter(ParameterType.Affinity1, this.GuessAffinity1()));
+            Parameters.AddOrUpdateParameter(ParameterType.Nvalue2, GuessParameter(ParameterType.Nvalue2, this.GuessN2()));
+            Parameters.AddOrUpdateParameter(ParameterType.Enthalpy2, GuessParameter(ParameterType.Enthalpy2, this.GuessEnthalpy() / 2));
+            Parameters.AddOrUpdateParameter(ParameterType.Affinity2, GuessParameter(ParameterType.Affinity2, this.GuessAffinity2()));
+            Parameters.AddOrUpdateParameter(ParameterType.Offset, GuessParameter(ParameterType.Offset, this.GuessOffset()));
         }
 
         public override double Evaluate(int injectionindex, bool withoffset = true)
@@ -111,7 +111,7 @@ namespace AnalysisITC.AppClasses.Analysis2.Models
 
             foreach (var par in Parameters.Table)
             {
-                mdl.Parameters.AddParameter(par.Key, par.Value.Value, par.Value.IsLocked);
+                mdl.Parameters.AddOrUpdateParameter(par.Key, par.Value.Value, par.Value.IsLocked);
             }
 
             return mdl;

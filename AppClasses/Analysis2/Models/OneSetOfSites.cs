@@ -16,10 +16,10 @@ namespace AnalysisITC.AppClasses.Analysis2.Models
         {
 			base.InitializeParameters(data);
 
-			Parameters.AddParameter(ParameterType.Nvalue1, this.GuessN());
-            Parameters.AddParameter(ParameterType.Enthalpy1, this.GuessEnthalpy());
-            Parameters.AddParameter(ParameterType.Affinity1, this.GuessAffinity());
-            Parameters.AddParameter(ParameterType.Offset, this.GuessOffset());
+			Parameters.AddOrUpdateParameter(ParameterType.Nvalue1, this.GuessN());
+            Parameters.AddOrUpdateParameter(ParameterType.Enthalpy1, this.GuessEnthalpy());
+            Parameters.AddOrUpdateParameter(ParameterType.Affinity1, this.GuessAffinity());
+            Parameters.AddOrUpdateParameter(ParameterType.Offset, this.GuessOffset());
         }
 
         public override double Evaluate(int injectionindex, bool withoffset = true)

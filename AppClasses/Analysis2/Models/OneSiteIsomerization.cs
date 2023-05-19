@@ -19,13 +19,13 @@ namespace AnalysisITC.AppClasses.Analysis2.Models
         {
             base.InitializeParameters(data);
 
-            Parameters.AddParameter(ParameterType.Nvalue1, this.GuessN());
-            Parameters.AddParameter(ParameterType.Enthalpy1, this.GuessEnthalpy());
-            Parameters.AddParameter(ParameterType.Affinity1, this.GuessAffinity());
-            Parameters.AddParameter(ParameterType.Affinity2, this.GuessAffinity());
-            Parameters.AddParameter(ParameterType.Offset, this.GuessOffset());
-            Parameters.AddParameter(ParameterType.IsomerizationEquilibriumConstant, 0.42, islocked: true);
-            Parameters.AddParameter(ParameterType.IsomerizationRate, 0.001, islocked: true);
+            Parameters.AddOrUpdateParameter(ParameterType.Nvalue1, this.GuessN());
+            Parameters.AddOrUpdateParameter(ParameterType.Enthalpy1, this.GuessEnthalpy());
+            Parameters.AddOrUpdateParameter(ParameterType.Affinity1, this.GuessAffinity());
+            Parameters.AddOrUpdateParameter(ParameterType.Affinity2, this.GuessAffinity());
+            Parameters.AddOrUpdateParameter(ParameterType.Offset, this.GuessOffset());
+            Parameters.AddOrUpdateParameter(ParameterType.IsomerizationEquilibriumConstant, 0.42, islocked: true);
+            Parameters.AddOrUpdateParameter(ParameterType.IsomerizationRate, 0.001, islocked: true);
 
             ModelOptions.Append(AnalysisClasses.ModelOptions.Bool(ModelOptionKey.PeptideInCell, PeptideInCellOption, true).DictionaryEntry);
         }
