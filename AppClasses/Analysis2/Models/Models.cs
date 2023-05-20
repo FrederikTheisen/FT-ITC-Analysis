@@ -52,6 +52,22 @@ namespace AnalysisITC.AppClasses.Analysis2.Models
             Parameters = new ModelParameters(data);
         }
 
+        public void SetModelOptions(IDictionary<ModelOptionKey, ModelOptions> options = null)
+        {
+            if (options != null)
+                ModelOptions = options;
+
+            // Setup model options
+
+            // Check if prebound ligand should be taken from attributes
+            if (ModelOptions.ContainsKey(ModelOptionKey.PreboundLigandConc) && ModelOptions[ModelOptionKey.PreboundLigandConc].BoolValue == true)
+            {
+                if (!Data.Attributes.Exists(att => att.Key == ModelOptionKey.PreboundLigandConc))
+                    throw new KeyNotFoundException("Model option configuration error encountered.\nMissing option key: " + ModelOptionKey.PreboundLigandConc.ToString() + "\n\nTo solve error, either add the attribute to the experiment or uncheck the 'From Exp' options in solver options");
+                else ModelOptions[ModelOptionKey.PreboundLigandConc].ParameterValue = Data.Attributes.Find(opt => opt.Key == ModelOptionKey.PreboundLigandConc).ParameterValue;
+            }
+        }
+
         public virtual double Evaluate(int injectionindex, bool withoffset = true)
 		{
 			throw new NotImplementedException();

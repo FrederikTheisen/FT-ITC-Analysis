@@ -246,7 +246,7 @@ namespace AnalysisITC.AppClasses.Analysis2
         public override void BuildModel()
         {
 			Model.Data.Model = Model;
-
+            Model.SetModelOptions();
             base.BuildModel();
         }
     }
@@ -478,7 +478,7 @@ namespace AnalysisITC.AppClasses.Analysis2
 			{
 				mdl.Data.Model = mdl;
 				mdl.ModelCloneOptions = new ModelCloneOptions();
-				mdl.ModelOptions = Model.Models.First().ModelOptions;
+				mdl.SetModelOptions(Model.Models.First().ModelOptions);
                 GlobalModelParameters.AddIndivdualParameter(mdl.Parameters);
             }
 
