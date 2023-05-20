@@ -140,7 +140,7 @@ namespace AnalysisITC
 
         void SetupExperiment()
         {
-            Data = new ExperimentData("TestData");
+            Data = new ExperimentData("ExperimentDesignerData");
 
             Data.Instrument = Instrument;
 
@@ -236,14 +236,26 @@ namespace AnalysisITC
                 ParameterStackView.AddArrangedSubview(sv);
             }
 
+            OptionAdjustmentView[] tmpopts = new OptionAdjustmentView[OptionControls.Count];
+            
+
             bool showoptions = (Factory.Model.ModelOptions.Count > 0);
             ModelOptionsStackView.Hidden = !showoptions;
             ModelOptionsLine.Hidden = !showoptions;
             ModelOptionsLabel.Hidden = !showoptions;
 
+            if (showoptions)
+            {
+                OptionControls.CopyTo(tmpopts);
+                OptionControls.Clear();
+            }
+
             foreach (var opt in Factory.GetExposedModelOptions())
             {
-                var sv = new OptionAdjustmentView(new CoreGraphics.CGRect(0, 0, ModelOptionsStackView.Frame.Width, 20), opt.Value);
+                OptionAdjustmentView sv;
+
+                if (tmpopts.ToList().Exists(view => view.Key == opt.Key)) sv = tmpopts.ToList().Find(view => view.Key == opt.Key);
+                else sv = new OptionAdjustmentView(new CoreGraphics.CGRect(0, 0, ModelOptionsStackView.Frame.Width, 20), opt.Value);
 
                 OptionControls.Add(sv);
                 ModelOptionsStackView.AddArrangedSubview(sv);

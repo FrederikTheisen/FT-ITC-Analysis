@@ -11,6 +11,7 @@ namespace AnalysisITC.GUI.MacOS.CustomViews
     public class OptionAdjustmentView : NSStackView
     {
         ModelOptions Option { get; set; }
+        public ModelOptionKey Key => Option.Key;
 
         double tmpvalue;
 
