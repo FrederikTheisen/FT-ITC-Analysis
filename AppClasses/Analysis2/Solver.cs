@@ -304,7 +304,7 @@ namespace AnalysisITC.AppClasses.Analysis2
                     var solver = new Solver();
                     solver.SolverAlgorithm = this.SolverAlgorithm;
                     solver.Model = Model.GenerateSyntheticModel();
-                    solver.SolverFunctionTolerance = SolverBootstrapTolerance;
+                    //solver.SolverFunctionTolerance = SolverBootstrapTolerance;
 
                     solver.Solve();
 
