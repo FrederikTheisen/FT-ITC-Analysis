@@ -347,4 +347,3 @@ namespace AnalysisITC.GUI.MacOS.CustomViews
         }
     }
 }
-

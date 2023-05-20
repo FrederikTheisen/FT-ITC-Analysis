@@ -167,7 +167,7 @@ namespace AnalysisITC.AppClasses.Analysis2.Models
         }
         public List<FloatWithError> ParametersConformingToKey(ParameterType key)
         {
-            //FIXME unreproducible error related to modification of the collection while it is being used. Probably cross thread issue. Encountered 1
+            //FIXME unreproducible error related to modification of the collection while it is being used. Probably cross thread issue. Encountered 2
             return Parameters.Where(par => par.Key.GetProperties().ParentType == key).Select(par => par.Value).ToList();
         }
 
