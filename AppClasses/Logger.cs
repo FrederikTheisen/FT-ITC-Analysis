@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using AppKit;
 
 namespace AnalysisITC
@@ -74,7 +75,7 @@ namespace AnalysisITC
 		{
 			Level = Severity.Error;
 
-			Title = ex.GetType().ToString();
+			Title = ex.GetType().ToString().Split('.').Last();
 			Message = ex.Message;
         }
 
