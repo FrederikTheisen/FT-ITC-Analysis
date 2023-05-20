@@ -250,22 +250,31 @@ namespace AnalysisITC
         partial void FitLM(NSObject sender) => Fit2(SolverAlgorithm.LevenbergMarquardt);
         void Fit2(SolverAlgorithm algorithm)
         {
-            AppEventHandler.PrintAndLog("Start Analysis");
+            try
+            {
+                AppEventHandler.PrintAndLog("Start Analysis");
 
-            ToggleFitButtons(false);
+                ToggleFitButtons(false);
 
-            if (ModelFactory.Factory == null) InitializeFactory();
+                if (ModelFactory.Factory == null) InitializeFactory();
 
-            ModelFactory.Factory.BuildModel();
+                ModelFactory.Factory.BuildModel();
 
-            var solver = SolverInterface.Initialize(ModelFactory.Factory);
-            solver.SolverAlgorithm = algorithm;
-            solver.ErrorEstimationMethod = FittingOptionsController.ErrorEstimationMethod;
-            solver.BootstrapIterations = FittingOptionsController.BootstrapIterations;
+                var solver = SolverInterface.Initialize(ModelFactory.Factory);
+                solver.SolverAlgorithm = algorithm;
+                solver.ErrorEstimationMethod = FittingOptionsController.ErrorEstimationMethod;
+                solver.BootstrapIterations = FittingOptionsController.BootstrapIterations;
 
-            solver.Analyze();
+                solver.Analyze();
 
-            ModelFactory.Clear();
+                ModelFactory.Clear();
+            }
+            catch (Exception ex)
+            {
+                AppEventHandler.DisplayHandledException(ex);
+
+                AnalysisFinished(null, null);
+            }
 
             //InitializeFactory();
         }
