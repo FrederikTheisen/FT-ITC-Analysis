@@ -209,18 +209,8 @@ namespace AnalysisITC
 
         partial void StartSupport(NSObject sender)
         {
-            // Get the shared NSWorkspace instance
-            var workspace = NSWorkspace.SharedWorkspace;
-
-            // Define the recipient email address, subject, and content
-            var recipient = "support@example.com";
-            var subject = "Support Request";
-            var content = "Hello,I have a question regarding your application.";
-
-            var emailString = "mailto:" + System.Uri.EscapeUriString(recipient) + "?subject=" + subject + "&body=" + content;
             MacSupport.Test();
         }
-
 
         public override void WillTerminate(NSNotification notification)
         {
