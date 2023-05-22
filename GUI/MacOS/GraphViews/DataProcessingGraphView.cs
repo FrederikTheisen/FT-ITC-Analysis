@@ -335,6 +335,8 @@ namespace AnalysisITC
 
                         InjectionSelected?.Invoke(null, SelectedFeature.FeatureID);
 
+                        Data.Processor.IntegratePeaks(false);
+
                         break;
                     }
                 case Utilities.MouseOverFeatureEvent.FeatureType.DragZoom:
@@ -346,6 +348,8 @@ namespace AnalysisITC
                     }
                     
             }
+
+            Graph.SetCursorInfo(CursorPositionInView);
 
             Invalidate();
         }
