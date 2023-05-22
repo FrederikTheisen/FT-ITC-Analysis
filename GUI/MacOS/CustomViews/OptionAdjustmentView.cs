@@ -40,6 +40,14 @@ namespace AnalysisITC.GUI.MacOS.CustomViews
             }
         }
 
+        public void SetupDesignerLayout()
+        {
+            switch (Key)
+            {
+                case ModelOptionKey.PreboundLigandConc: InputButton.Hidden = true; break;
+            }
+        }
+
         public OptionAdjustmentView(IntPtr handle) : base(handle)
         {
         }

@@ -244,7 +244,7 @@ namespace AnalysisITC
             ModelOptionsLine.Hidden = !showoptions;
             ModelOptionsLabel.Hidden = !showoptions;
 
-            if (showoptions)
+            if (showoptions) //only do the option thing if options will be readded
             {
                 OptionControls.CopyTo(tmpopts);
                 OptionControls.Clear();
@@ -257,6 +257,7 @@ namespace AnalysisITC
                 if (tmpopts.ToList().Exists(view => view.Key == opt.Key)) sv = tmpopts.ToList().Find(view => view.Key == opt.Key);
                 else sv = new OptionAdjustmentView(new CoreGraphics.CGRect(0, 0, ModelOptionsStackView.Frame.Width, 20), opt.Value);
 
+                sv.SetupDesignerLayout();
                 OptionControls.Add(sv);
                 ModelOptionsStackView.AddArrangedSubview(sv);
             }
