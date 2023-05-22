@@ -149,7 +149,7 @@ namespace AnalysisITC
 
         partial void DuplicateSelectedData(NSObject sender)
         {
-            throw new NotImplementedException();
+            DataManager.DuplicateSelectedData(DataManager.Current);
         }
 
         partial void ExportAllCheckAction(NSObject sender)

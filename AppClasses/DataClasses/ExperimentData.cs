@@ -357,6 +357,17 @@ namespace AnalysisITC
             IntegrationLength = float.Parse(parameters[8]);
         }
 
+        private InjectionData(ExperimentData data, int id, float time, double volume, float delay, float duration, double temp)
+        {
+            Experiment = data;
+            ID = id;
+            Time = time;
+            Volume = volume;
+            Duration = duration;
+            Temperature = temp;
+            Delay = delay;
+        }
+
         void SetIntegrationTimes()
         {
             IntegrationStartDelay = 0;
@@ -365,6 +376,7 @@ namespace AnalysisITC
 
         public void SetCustomIntegrationTimes(float? delay = null, float? lengthparameter = null, bool forcetime = false)
         {
+            AppEventHandler.PrintAndLog("Set Integration Length : " + Experiment.FileName + " : " + delay.ToString() + " : " + lengthparameter.ToString() + " : " + forcetime.ToString());
             if (lengthparameter != null) switch (Experiment.IntegrationLengthMode)
                 {
                     case IntegrationLengthMode.Fit when !forcetime:
@@ -463,6 +475,11 @@ namespace AnalysisITC
 
                 return sum_of_squares;
             }
+        }
+
+        public InjectionData Copy(ExperimentData data)
+        {
+            return new InjectionData(data, ID, Time, Volume, Delay, Duration, Temperature);
         }
 
         public enum IntegrationLengthMode
@@ -571,6 +588,11 @@ namespace AnalysisITC
         public DataPoint SubtractBaseline(float baseline)
         {
             return new DataPoint(Time, Power - baseline, Temperature);
+        }
+
+        public DataPoint Copy()
+        {
+            return new DataPoint(Time, Power, Temperature, DT, ShieldT, ATP, JFBI);
         }
     }
 

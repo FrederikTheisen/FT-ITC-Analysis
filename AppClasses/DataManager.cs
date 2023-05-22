@@ -123,6 +123,41 @@ namespace AnalysisITC
             else DataDidChange.Invoke(null, null);
         }
 
+        public static void DuplicateSelectedData(ExperimentData data)
+        {
+            AppEventHandler.PrintAndLog("Duplicating Data: " + data.FileName);
+
+            var dps = new List<DataPoint>();
+            foreach (var dp in data.DataPoints) dps.Add(dp.Copy());
+
+            var newdata = new ExperimentData(data.FileName + " [COPY]")
+            {
+                Instrument = data.Instrument,
+                DataSourceFormat = data.DataSourceFormat,
+                DataPoints = dps.ToList(),
+                SyringeConcentration = data.SyringeConcentration,
+                CellConcentration = data.CellConcentration,
+                CellVolume = data.CellVolume,
+                StirringSpeed = data.StirringSpeed,
+                FeedBackMode = data.FeedBackMode,
+                TargetTemperature = data.TargetTemperature,
+                InitialDelay = data.InitialDelay,
+                TargetPowerDiff = data.TargetPowerDiff,
+                MeasuredTemperature = data.MeasuredTemperature,
+                Date = DateTime.Now,
+            };
+
+            var injs = new List<InjectionData>();
+            foreach (var inj in data.Injections) injs.Add(inj.Copy(newdata));
+            newdata.Injections = injs;
+
+            foreach (var att in data.Attributes) newdata.Attributes.Add(att.Copy());
+
+            DataReaders.RawDataReader.ProcessInjections(newdata);
+
+            AddData(newdata);
+        }
+
         public static void SortContent(SortMode mode)
         {
             AppEventHandler.PrintAndLog("Sorting content by " + mode.ToString() + "...");
