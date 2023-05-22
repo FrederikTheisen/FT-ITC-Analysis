@@ -43,7 +43,7 @@ namespace AnalysisITC.AppClasses.Analysis2
         public double RelativeParameterTolerance { get; set; } = 2E-5;
         public double SolverBootstrapTolerance { get; set; } = 1.0E-11;
         public double LevenbergMarquardtDifferentiationStepSize { get; set; } = 0.1;
-        public double LevenbergMarquardtEpsilon { get; set; } = 1E-8;
+        public double LevenbergMarquardtEpsilon { get; set; } = 1E-11;
 
         internal alglib.minlmstate LMOptimizerState { get; set; }
         public static CancellationTokenSource NelderMeadToken { get; set; }
@@ -278,7 +278,7 @@ namespace AnalysisITC.AppClasses.Analysis2
             LMOptimizerState = minlmstate;
 
             alglib.minlmsetcond(LMOptimizerState, LevenbergMarquardtEpsilon, MaxOptimizerIterations);
-            alglib.minlmsetscale(LMOptimizerState, Model.Parameters.Table.Values.Where(p => !p.IsLocked).Select(p => p.StepSize).ToArray());
+            alglib.minlmsetscale(LMOptimizerState, Model.Parameters.Table.Values.Where(p => !p.IsLocked).Select(p => 1 * p.StepSize).ToArray());
             alglib.minlmsetbc(LMOptimizerState, limits.Select(p => p[0]).ToArray(), limits.Select(p => p[1]).ToArray());
             alglib.minlmoptimize(LMOptimizerState, (double[] x, double[] fi, object obj) => { fi[0] = Model.LossFunction(x); }, null, null);
             alglib.minlmresults(LMOptimizerState, out double[] result, out minlmreport rep);
