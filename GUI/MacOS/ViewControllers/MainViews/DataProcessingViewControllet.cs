@@ -80,6 +80,7 @@ namespace AnalysisITC
                 SplineHandleModeView.Hidden = true;
                 PolynomialDegreeView.Hidden = true;
                 ZLimitView.Hidden = true;
+                IntegrationModeSegControl.Enabled = false;
 
                 BaselineHeader.StringValue = "Baseline Interpolator Options";
                 IntegrationHeader.StringValue = "Peak Integration Options";
@@ -117,7 +118,6 @@ namespace AnalysisITC
                         ZLimitSlider.DoubleValue = (Data.Processor.Interpolator as PolynomialLeastSquaresInterpolator).ZLimit;
                         break;
                 }
-
                 
                 if (Data.Injections.Count > 0)
                 {
@@ -132,6 +132,7 @@ namespace AnalysisITC
 
                 InjectionViewSegControl.Enabled = Data.Injections.Count > 0;
                 DataZoomSegControl.Enabled = true;
+                IntegrationModeSegControl.Enabled = true;
 
                 InjectionViewSegControl.SetLabel((BaselineGraphView.SelectedPeak + 1).ToString(), 1);
             }
