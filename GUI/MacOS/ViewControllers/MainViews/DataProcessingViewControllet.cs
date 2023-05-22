@@ -59,13 +59,11 @@ namespace AnalysisITC
             base.ViewWillAppear();
 
             UpdateUI();
-
             UpdateSliderLabels();
 
             //BaselineGraphView.Initialize(DataManager.Current);
 
             BaselineGraphView.SetFeatureVisibility(ShowBaseline, ShowIntegrationRange, Corrected, ShowCursorInfo);
-
             BaselineGraphView.UpdateTrackingArea();
         }
 
@@ -138,7 +136,6 @@ namespace AnalysisITC
             }
 
             UpdateSliderLabels();
-
             UpdateInjectionSelectionUI();
 
             ConfirmProcessingButton.Enabled = DataManager.AllDataIsBaselineProcessed;

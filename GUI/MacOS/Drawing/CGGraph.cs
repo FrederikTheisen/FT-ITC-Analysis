@@ -1055,12 +1055,20 @@ namespace AnalysisITC
         {
             if (Frame.Contains(cursorpos))
             {
+                CursorInfo = new List<string>();
+
                 var xfraction = (cursorpos.X - Frame.X) / Frame.Width;
 
                 CursorPosition = xfraction * (XAxis.Max - XAxis.Min) + XAxis.Min;
                 var datapoint = CursorPosition > ExperimentData.DataPoints.Last().Time ? ExperimentData.DataPoints.Last() : ExperimentData.DataPoints.First(dp => dp.Time > CursorPosition);
+                var clickedinj = ExperimentData.Injections.Where(inj => inj.IntegrationStartTime < datapoint.Time && inj.IntegrationEndTime + 1 > datapoint.Time);
 
-                CursorInfo = new List<string>();
+                if (clickedinj.Count() > 0)
+                {
+                    var inj = clickedinj.First().ID + 1;
+                    CursorInfo.Add("Inj #" + inj.ToString() + " | " + new Energy(clickedinj.First().Enthalpy).ToFormattedString(AppSettings.EnergyUnit));
+                }
+                
                 CursorInfo.Add("Time: " + datapoint.Time.ToString() + "s");
                 CursorInfo.Add("DP: " + (DataManager.Unit.IsSI() ? (datapoint.Power * 1000000).ToString("F1") + " µW" : (datapoint.Power * 1000000 * Energy.JouleToCalFactor).ToString("F1") + " µCal"));
 
