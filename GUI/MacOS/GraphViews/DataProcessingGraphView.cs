@@ -393,7 +393,7 @@ namespace AnalysisITC
                     InjectionSelected?.Invoke(clickedinj.First(), clickedinj.First().ID);
                 }
 
-                if (theEvent.ClickCount > 1 && SelectedPeak != -1) FocusPeak();
+                if (theEvent.ClickCount > 1 && SelectedPeak != -1) FocusPeak(); // Double click
             }
         }
 
