@@ -875,9 +875,21 @@ namespace AnalysisITC
             if (FinalFigureDisplayParameters.HasFlag(FinalFigureDisplayParameters.Concentrations)) lines.Add(syr);
             if (FinalFigureDisplayParameters.HasFlag(FinalFigureDisplayParameters.Concentrations)) lines.Add(cell);
 
+            if (FinalFigureDisplayParameters.HasFlag(FinalFigureDisplayParameters.Attributes))
+            {
+                var attlines = ExperimentData.Model.Solution.UIExperimentModelAttributes(DisplayAttributeOptions.All);
+
+                foreach (var att in attlines)
+                {
+                    var l = att.Item1;
+                    if (!string.IsNullOrEmpty(att.Item2)) l += " = " + att.Item2;
+                    lines.Add(l);
+                }
+            }
+
             var position = ExperimentData.AverageHeatDirection == PeakHeatDirection.Endothermal ? NSRectAlignment.TopTrailing : NSRectAlignment.BottomTrailing;
 
-            DrawTextBox(gc, lines, DrawOnWhite ? new CTFont(DefaultFont.DisplayName, 12) : DefaultFont, NSRectAlignment.BottomTrailing);
+            DrawTextBox(gc, lines, DrawOnWhite ? new CTFont(DefaultFont.DisplayName, 12) : DefaultFont, position);
         }
     }
 

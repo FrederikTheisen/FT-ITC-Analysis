@@ -241,13 +241,13 @@ namespace AnalysisITC.AppClasses.Analysis2.Models
             if (info.HasFlag(DisplayAttributeOptions.Buffer) && Model.Data.Attributes.Exists(att => att.Key == ModelOptionKey.Buffer))
             {
                 //FIXME add buffer concentration and pH
-                foreach (var opt in Model.Data.Attributes.FindAll(att => att.Key == ModelOptionKey.Buffer)) output.Add(new (((Buffer)opt.IntValue).GetProperties().Name, ""));
+                foreach (var opt in Model.Data.Attributes.FindAll(att => att.Key == ModelOptionKey.Buffer)) output.Add(new(opt.ParameterValue.AsFormattedConcentration(ConcentrationUnit.mM, true) + " " + ((Buffer)opt.IntValue).GetProperties().Name + " pH " + opt.DoubleValue.ToString("F1"), ""));
             }
 
             if (info.HasFlag(DisplayAttributeOptions.Salt) && Model.Data.Attributes.Exists(att => att.Key == ModelOptionKey.Salt))
             {
                 //FIXME add salt concentration
-                foreach (var opt in Model.Data.Attributes.FindAll(att => att.Key == ModelOptionKey.Salt)) output.Add(new(((Salt)opt.IntValue).GetProperties().Name, ""));
+                foreach (var opt in Model.Data.Attributes.FindAll(att => att.Key == ModelOptionKey.Salt)) output.Add(new(opt.ParameterValue.AsFormattedConcentration(ConcentrationUnit.mM, true) + " " + ((Salt)opt.IntValue).GetProperties().Name, ""));
             }
 
             if (info.HasFlag(DisplayAttributeOptions.IonicStrength) && Model.Data.Attributes.Exists(att => att.Key == ModelOptionKey.Salt))
