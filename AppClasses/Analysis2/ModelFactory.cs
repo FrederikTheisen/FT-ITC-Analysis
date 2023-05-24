@@ -206,6 +206,7 @@ namespace AnalysisITC.AppClasses.Analysis2
                 case AnalysisModel.OneSetOfSites: Model = new OneSetOfSites(data); break;
                 case AnalysisModel.CompetitiveBinding: Model = new CompetitiveBinding(data); break;
                 case AnalysisModel.TwoSetsOfSites: Model = new TwoSetsOfSites(data); break;
+                case AnalysisModel.TwoCompetingSites: Model = new TwoCompetingSites(data); break;
                 case AnalysisModel.SequentialBindingSites:
                 case AnalysisModel.Dissociation:
                 default: throw new NotImplementedException();

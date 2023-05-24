@@ -257,7 +257,6 @@ namespace AnalysisITC
             if (Data == null) return;
 
             SelectedFeature = Graph.CursorFeatureFromPos(CursorPositionInView, true);
-            //SelectedFeature.ClickCursorPosition = theEvent.LocationInWindow;
         }
 
         public override void RightMouseDown(NSEvent theEvent)

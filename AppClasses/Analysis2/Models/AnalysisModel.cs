@@ -24,6 +24,7 @@ namespace AnalysisITC.AppClasses.Analysis2.Models
                 AnalysisModel.Dissociation,
                 AnalysisModel.SequentialBindingSites,
                 AnalysisModel.PeptideProlineIsomerization,
+                AnalysisModel.TwoCompetingSites,
             };
         }
     }
@@ -41,6 +42,8 @@ namespace AnalysisITC.AppClasses.Analysis2.Models
         [AnalysisModel("Competitive Binding", "Fit competition experiment where the cell contains a preformed complex and a higher affinity interaction partner is titrated in")]
         CompetitiveBinding,
         [AnalysisModel("Proline Isomer Binding", "Fit interactions affected by proline cis/trans isomerization")]
-        PeptideProlineIsomerization
+        PeptideProlineIsomerization,
+        [AnalysisModel("Two Competing Sites", "Protein contains two sites which compete for the ligand. Only one of the two sites can be occupied at a time")]
+        TwoCompetingSites
     }
 }
