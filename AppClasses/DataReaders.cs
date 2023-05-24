@@ -202,7 +202,7 @@ namespace DataReaders
         {
             experiment.MeasuredTemperature = experiment.DataPoints.Average(dp => dp.Temperature);
 
-            experiment.CalculatePeakHeatDirection();
+            //experiment.CalculatePeakHeatDirection();
         }
     }
 

@@ -35,7 +35,7 @@ namespace AnalysisITC
         public double TargetPowerDiff { get; set; }
         public double MeasuredTemperature { get; internal set; }
         public int InjectionCount => Injections.Count;
-        public PeakHeatDirection AverageHeatDirection { get; set; } = PeakHeatDirection.Unknown;
+        public PeakHeatDirection AverageHeatDirection => Injections.Sum(inj => inj.PeakArea) > 0 ? PeakHeatDirection.Endothermal : PeakHeatDirection.Exothermal;
         public InjectionData.IntegrationLengthMode IntegrationLengthMode { get; set; } = InjectionData.IntegrationLengthMode.Time;
         public float IntegrationLengthFactor { get; set; } = 8;
 
@@ -117,24 +117,23 @@ namespace AnalysisITC
 
         public void CalculatePeakHeatDirection()
         {
+            if (BaseLineCorrectedDataPoints.Count < 5) return;
+
             var tot_diff = 0.0;
 
             foreach (var inj in Injections)
             {
-                var dat = DataPoints.Where(dp => dp.Time > inj.Time && dp.Time < inj.Time + inj.Delay);
+                var dat = BaseLineCorrectedDataPoints.Where(dp => dp.Time > inj.Time && dp.Time < inj.Time + inj.Delay);
 
                 var mean = dat.Average(dp => dp.Power);
                 var min = dat.Min(dp => dp.Power);
                 var max = dat.Max(dp => dp.Power);
 
-                if ((mean - min) > (max - mean)) inj.HeatDirection = PeakHeatDirection.Exothermal;
-                else inj.HeatDirection = PeakHeatDirection.Endothermal;
-
                 tot_diff += (mean - min) - (max - mean);
             }
 
-            if (tot_diff < 0) AverageHeatDirection = PeakHeatDirection.Endothermal;
-            else AverageHeatDirection = PeakHeatDirection.Exothermal;
+            //if (tot_diff < 0) AverageHeatDirection = PeakHeatDirection.Endothermal;
+            //else AverageHeatDirection = PeakHeatDirection.Exothermal;
         }
 
         public void SetProcessor(DataProcessor processor)
@@ -289,7 +288,7 @@ namespace AnalysisITC
         public float IntegrationStartTime => Time + IntegrationStartDelay;
         public float IntegrationEndTime => Time + IntegrationLength;
 
-        public PeakHeatDirection HeatDirection { get; set; } = PeakHeatDirection.Unknown;
+        public PeakHeatDirection HeatDirection => PeakArea > 0 ? PeakHeatDirection.Endothermal : PeakHeatDirection.Exothermal;
 
         public FloatWithError PeakArea { get; private set; } = new();
         public double Enthalpy => PeakArea / InjectionMass;
@@ -396,7 +395,7 @@ namespace AnalysisITC
                         break;
                     case IntegrationLengthMode.Factor when !forcetime:
                         var _dps = Experiment.BaseLineCorrectedDataPoints.Where(dp => dp.Time > Time && dp.Time < Time + Delay);
-                        var height = HeatDirection == PeakHeatDirection.Endothermal ? _dps.Max(dp => dp.Power) : _dps.Min(dp => dp.Power);
+                        var height = _dps.Max(dp => Math.Abs(dp.Power));
                         var thresh = Math.Abs(height / 3);
                         var first = _dps.First(dp => Math.Abs(dp.Power) > thresh);
                         var last = _dps.Last(dp => Math.Abs(dp.Power) > thresh);

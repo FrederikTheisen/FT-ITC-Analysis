@@ -107,7 +107,7 @@ namespace AnalysisITC
             }
             catch (Exception ex)
             {
-
+                
             }
         }
 
@@ -128,6 +128,8 @@ namespace AnalysisITC
 
                 Data.BaseLineCorrectedDataPoints.Add(bldp);
             }
+
+            Data.CalculatePeakHeatDirection();
         }
 
         public void IntegratePeaks(bool invalidate = true)
