@@ -82,15 +82,15 @@ namespace AnalysisITC.AppClasses.Analysis2.Models
         {
             var results = new List<double>();
 
-            //Evaluates with offset to include errors in offset
+            //Evaluates with offset to include errors in offset (offset error covaries with enthalpy and must therefore be included)
             foreach (var sol in Solution.BootstrapSolutions)
             {
-                results.Add(sol.Model.EvaluateEnthalpy(inj, true));
+                results.Add(sol.Model.EvaluateEnthalpy(inj, withoffset: true));
             }
 
-            var val = new FloatWithError(results, EvaluateEnthalpy(inj, true));
+            var val = new FloatWithError(results, EvaluateEnthalpy(inj, withoffset: true));
 
-            return withoff ? val : val - Solution.Parameters[ParameterType.Offset]; //Returns evaluated value with or without offset
+            return withoff ? val : val - Solution.Parameters[ParameterType.Offset].Value; //Returns evaluated value with or without offset
         }
 
 		public double LossFunction(double[] parameters)
@@ -229,6 +229,41 @@ namespace AnalysisITC.AppClasses.Analysis2.Models
             return output;
         }
 
+        public List<Tuple<string,string>> UIExperimentModelAttributes(DisplayAttributeOptions info)
+        {
+            var output = new List<Tuple<string, string>>();
+
+            if (info.HasFlag(DisplayAttributeOptions.Competitor) && Model.Data.Attributes.Exists(att => att.Key == ModelOptionKey.PreboundLigandConc))
+            {
+                output.Add(new("[Comp]", Model.Data.Attributes.Find(att => att.Key == ModelOptionKey.PreboundLigandConc).ParameterValue.AsFormattedConcentration(ConcentrationUnit.mM, true)));
+            }
+
+            if (info.HasFlag(DisplayAttributeOptions.Buffer) && Model.Data.Attributes.Exists(att => att.Key == ModelOptionKey.Buffer))
+            {
+                //FIXME add buffer concentration and pH
+                foreach (var opt in Model.Data.Attributes.FindAll(att => att.Key == ModelOptionKey.Buffer)) output.Add(new (((Buffer)opt.IntValue).GetProperties().Name, ""));
+            }
+
+            if (info.HasFlag(DisplayAttributeOptions.Salt) && Model.Data.Attributes.Exists(att => att.Key == ModelOptionKey.Salt))
+            {
+                //FIXME add salt concentration
+                foreach (var opt in Model.Data.Attributes.FindAll(att => att.Key == ModelOptionKey.Salt)) output.Add(new(((Salt)opt.IntValue).GetProperties().Name, ""));
+            }
+
+            if (info.HasFlag(DisplayAttributeOptions.IonicStrength) && Model.Data.Attributes.Exists(att => att.Key == ModelOptionKey.Salt))
+            {
+                output.Add(new("[I]", new FloatWithError(BufferAttribute.GetIonicStrength(Model.Data)).AsF1FormattedConcentration(true)));
+                
+            }
+
+            if (info.HasFlag(DisplayAttributeOptions.ProtonationEnthalpy) && Model.Data.Attributes.Exists(att => att.Key == ModelOptionKey.Buffer))
+            {
+                output.Add(new(Utils.MarkdownStrings.ProtonationEnthalpy, BufferAttribute.GetProtonationEnthalpy(Model.Data).ToString(AppSettings.EnergyUnit, "F1", true, true)));
+            }
+
+            return output;
+        }
+
         public void SetBootstrapSolutions(List<SolutionInterface> list)
 		{
 			BootstrapSolutions = list;
@@ -261,14 +296,32 @@ namespace AnalysisITC.AppClasses.Analysis2.Models
             Temperature = 128,
             Concentrations = 256,
 
+            Attributes = 512,
+
             Fitted = Nvalue | Affinity | Enthalpy,
             Derived = TdS | Gibbs,
 
             Default = Model | Fitted | Derived | Temperature | Concentrations,
-            All = Model | Fitted | Offset | Derived | Temperature | Concentrations,
+            All = Model | Fitted | Offset | Derived | Temperature | Concentrations | Attributes,
 
             ListView = Model | Affinity | Enthalpy,
             AnalysisView = Model | Fitted | Derived | Offset
+        }
+
+        [Flags]
+        public enum DisplayAttributeOptions
+        {
+            None = 0,
+            UsedInAnalysis = 1,
+            Buffer = 2,
+            Salt = 4,
+            IonicStrength = 8,
+            ProtonationEnthalpy = 16,
+            Competitor = 32,
+
+            All = Buffer | Salt | IonicStrength | ProtonationEnthalpy | Competitor,
+            Solvent = Buffer | Salt,
+
         }
     }
 }

@@ -109,12 +109,26 @@ namespace AnalysisITC
             return new FloatWithError(v, sd);
         }
 
+        public static FloatWithError operator +(FloatWithError v1, double v2)
+        {
+            var v = v1.Value + v2;
+
+            return new FloatWithError(v, v1.SD);
+        }
+
         public static FloatWithError operator -(FloatWithError v1, FloatWithError v2)
         {
             var v = v1.Value - v2.Value;
             var sd = Math.Sqrt(v1.SD * v1.SD + v2.SD * v2.SD);
 
             return new FloatWithError(v, sd);
+        }
+
+        public static FloatWithError operator -(FloatWithError v1, double v2)
+        {
+            var v = v1.Value - v2;
+
+            return new FloatWithError(v, v1.SD);
         }
 
         public static FloatWithError operator /(FloatWithError v1, FloatWithError v2)
@@ -201,6 +215,18 @@ namespace AnalysisITC
             var value = unit.GetMod() * this;
 
             return withunit ? value.ToString("G5") + " " + unit.GetName() : value.ToString("G5");
+        }
+        public string AsF1FormattedConcentration(bool withunit)
+        {
+            if (this.HasError) return AsFormattedConcentration(ConcentrationUnitAttribute.FromConc(this.Value), withunit);
+            else
+            {
+                var _ = AppSettings.NumberPrecision;
+                AppSettings.NumberPrecision = NumberPrecision.SingleDecimal;
+                var s = AsFormattedConcentration(ConcentrationUnitAttribute.FromConc(this.Value), withunit);
+                AppSettings.NumberPrecision = _;
+                return s;
+            }
         }
         public string AsFormattedConcentration(bool withunit) => AsFormattedConcentration(ConcentrationUnitAttribute.FromConc(this.Value), withunit);
         public string AsFormattedConcentration(ConcentrationUnit unit, bool withunit = true) => WithMod(unit.GetMod(), unit.GetName(), withunit);
