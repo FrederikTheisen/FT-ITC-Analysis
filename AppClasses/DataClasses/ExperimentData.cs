@@ -87,22 +87,11 @@ namespace AnalysisITC
             Injections.Add(inj);
         }
 
-        public void FitIntegrationPeaks(float threshold = .01f)
+        public void FitIntegrationPeaks()
         {
             foreach (var inj in Injections)
             {
-                var dps = BaseLineCorrectedDataPoints.Where(dp => dp.Time > inj.Time && dp.Time < inj.Time + inj.Delay);
-                var max = dps.First(dp => Math.Abs(dp.Power) > (0.999 * dps.Max(dp => Math.Abs(dp.Power))));
-                dps = dps.Where(dp => dp.Time > max.Time);
-                var x = new double[dps.Count()];
-
-                for (int i = 0; i < x.Length; i++) x[i] = i;
-
-                var y = dps.Select(dp => (double)(Math.Abs(max.Power) - Math.Abs(dp.Power))).ToArray();
-                var fit = MathNet.Numerics.Fit.Curve(x, y, (v, k, x) => x * v / (k + x), Math.Abs(max.Power), 10);
-                var peaklen = (max.Time - inj.Time) + threshold * fit.P1;
-
-                inj.SetCustomIntegrationTimes(0, (float)peaklen, true);
+                inj.SetCustomIntegrationTimes();
             }
         }
 
