@@ -49,6 +49,7 @@ namespace AnalysisITC
                     case 4: item.State = AppSettings.FinalFigureParameterDisplay.HasFlag(FinalFigureDisplayParameters.Offset) ? NSCellStateValue.On : NSCellStateValue.Off; break;
                     case 5: item.State = AppSettings.FinalFigureParameterDisplay.HasFlag(FinalFigureDisplayParameters.Temperature) ? NSCellStateValue.On : NSCellStateValue.Off; break;
                     case 6: item.State = AppSettings.FinalFigureParameterDisplay.HasFlag(FinalFigureDisplayParameters.Concentrations) ? NSCellStateValue.On : NSCellStateValue.Off; break;
+                    case 7: item.State = AppSettings.FinalFigureParameterDisplay.HasFlag(FinalFigureDisplayParameters.Attributes) ? NSCellStateValue.On : NSCellStateValue.Off; break;
                 }
             }
         }
@@ -107,6 +108,7 @@ namespace AnalysisITC
                         case 4: AppSettings.FinalFigureParameterDisplay |= FinalFigureDisplayParameters.Offset; break;
                         case 5: AppSettings.FinalFigureParameterDisplay |= FinalFigureDisplayParameters.Temperature; break;
                         case 6: AppSettings.FinalFigureParameterDisplay |= FinalFigureDisplayParameters.Concentrations; break;
+                        case 7: AppSettings.FinalFigureParameterDisplay |= FinalFigureDisplayParameters.Attributes; break;
                     }
             }
 
