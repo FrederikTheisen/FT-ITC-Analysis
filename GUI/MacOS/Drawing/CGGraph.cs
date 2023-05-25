@@ -1264,7 +1264,7 @@ namespace AnalysisITC
                         bars.AddLineToPoint(CGPoint.Add(ebottom, ErrorBarEndWidth));
                     }
 
-                    infop = etop;
+                    infop = new CGPoint(ebottom.X, Math.Max(ebottom.Y, etop.Y));
                 }
 
                 if (ShowPeakInfo)
