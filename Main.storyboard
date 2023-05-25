@@ -5614,7 +5614,7 @@ IA
                                     <rect key="frame" x="111" y="1" width="5" height="50"/>
                                 </box>
                                 <button verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="zTg-QH-FPo">
-                                    <rect key="frame" x="115" y="20" width="111" height="31"/>
+                                    <rect key="frame" x="115" y="0.0" width="111" height="31"/>
                                     <constraints>
                                         <constraint firstAttribute="height" constant="30" id="8N3-dc-mCA"/>
                                     </constraints>
@@ -5630,7 +5630,7 @@ IA
                                     <rect key="frame" x="225" y="1" width="5" height="50"/>
                                 </box>
                                 <button verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="v0f-iE-gM6">
-                                    <rect key="frame" x="229" y="20" width="110" height="31"/>
+                                    <rect key="frame" x="229" y="0.0" width="110" height="31"/>
                                     <constraints>
                                         <constraint firstAttribute="height" constant="30" id="OpX-QX-ClO"/>
                                     </constraints>
@@ -6970,6 +6970,9 @@ IA
                                                                     <buttonCell key="cell" type="recessed" title="Fit with Nelder-Mead (Simplex)" bezelStyle="recessed" alignment="center" borderStyle="border" imageScaling="proportionallyDown" inset="2" id="qZx-1I-o4m">
                                                                         <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
                                                                         <font key="font" metaFont="systemBold" size="12"/>
+                                                                        <string key="keyEquivalent" base64-UTF8="YES">
+IA
+</string>
                                                                     </buttonCell>
                                                                     <connections>
                                                                         <action selector="FitSimplex:" target="YoK-Wd-3Fr" id="4ua-eo-g1H"/>
@@ -10860,7 +10863,7 @@ Structuring (R-value):</string>
                                             <font key="font" metaFont="system"/>
                                             <segments>
                                                 <segment label="Current" selected="YES"/>
-                                                <segment label="Active" tag="1"/>
+                                                <segment label="Included" tag="1"/>
                                                 <segment label="All" toolTip="Export final figures for all experiments with solutions"/>
                                             </segments>
                                         </segmentedCell>

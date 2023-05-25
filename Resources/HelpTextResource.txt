@@ -1,10 +1,27 @@
-﻿## Reading Data Files
+﻿## Getting Started
+Upon open the program you will be presented with a dialog informing that no data is loaded. Below is a quick guide to using FT-ITC Analysis. Scroll further down for more details on each part of the program.
+# Adding Data
+Click 'Enter' to open a file browser, navigate to your itc data files and open them.
+# Processing
+Go to the 'Process Data' tab in the top and start by setting a baseline mode. Different modes have different options. Start by using the polynomial and increase the degree if the baseline is poor.
+When you are satisfied with the baseline, look at the peak integration options. Here you can select between a few modes. Start by clicking 'Peak fit' as this should set appropriate integration regions for all peaks.
+You can select individual injections and adjust the integration range by dragging the range markers (blue).
+# Analysis
+Go to the 'Analyze Data' tab and click 'Space' to automatically fit the standard one-set-of-sites model using the Simplex algorithm.
+If you require a different model you can select that and click one of the fit buttons depending on which algorithm you wish to use.
+If you have processed multiple data sets you can select the global fitting option which will allow fitting of multiple data sets, with or without various constraints. Global fitting will produce an 'Analysis Results' which enables further insights.
+# Presentation
+Go to the 'Final Figure' tab and adjust the display options using the menus just below the tab bar.
+Export the figure(s) using the button in the top right of the figure view.
+
+## Reading Data Files
 # Compatible Formats
 FT-ITC Analysis is currently able to read data files provided by MicroCal and Malvern Pananalytical instruments. These files have an ‘itc’ file extension and are plain text files that contain information about instrument and experiment setup followed by raw data.
 # Loading Files
-To open a raw data file, go to File > Open… and select the file you want to analyze. Alternatively, you can click ‘Enter’ to open the file browser or ‘Space’ to load the last file.
+Drag the compatible file onto the program.
+Alternatively, go to File > Open… and select the file you want to analyze. Alternatively, you can click ‘Enter’ to open the file browser or ‘Space’ to load the last file.
 # Saving Files
-FT-ITC Analysis supports saving processed files in the ‘ftitc’ file format. The saved file contains all the data necessary to process and analyze the experiment and also includes any processing done to the data. Note that saving does not include the analysis of data.
+FT-ITC Analysis supports saving processed files in the ‘ftitc’ file format. The saved file contains all information necessary to process and analyze the data again and also includes fitting results, but does not currently include further analysis such as Spolar-Record or protonation results.
 
 ## Processing Experimental Data
 # Adjusting the Baseline
@@ -45,8 +62,9 @@ In most cases, interpretation of affinities provided by ITC is straightforward, 
 # Thermodynamic Parameters
 ITC directly measures both enthalpy and affinity and the entropy can therefore be derived from the Gibbs free energy. Entropy is frequently used as a measure of structuring, however it can be difficult to decompose due to the underlying contributions. The derived entropy also contains a hydration term which is often large and favorable for interactions. Determining the heat capacity change upon binding allows thermodynamic structuring analysis.
 # Analysis of Structuring
-
+The level of structuring can be inferred from thermodynamic parameters using the Spolar-Record method. This method requires that the heat capacity change upon binding is determined using experiments performed over a range of temperatures. This will allows estimation of surface desolvation and from there the desolvation entropy which can then be subtracted from the total entropy to achieve a term that correlates directly with the conformational entropy change upon binding.
 # Electrostatics Analysis
 The ionic strength dependence of a protein-protein interaction affinity provides important information about the strength and nature of the charge-charge interactions involved in the interaction. By measuring the dissociation constant (*K*{d}) at different ionic strengths, it is possible to estimate the effective charges and sizes of the interacting molecules, as well as the strength of the electrostatic interactions between them. This information can be useful in understanding the mechanisms of protein-protein interactions and in designing strategies to modulate or disrupt these interactions for therapeutic purposes.
 # Protonation Analysis
 When the binding reaction involves a proton transfer, using buffers with different protonation enthalpies can help identify the proton transfer step. The proton transfer reaction can result in a change in the enthalpy of the system, which can be measured by ITC. By comparing the enthalpy changes obtained with different buffers, it is possible to determine whether the proton transfer occurs during the binding process or not. It is also possible to quantify this effect by fitting the dependence of the observed enthalpy as a function of the buffer protonation enthalpy. FT-ITC Analysis includes this option by settings the buffer attribute of the experiments.
+
