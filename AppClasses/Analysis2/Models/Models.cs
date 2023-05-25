@@ -235,25 +235,22 @@ namespace AnalysisITC.AppClasses.Analysis2.Models
 
             if (info.HasFlag(DisplayAttributeOptions.Competitor) && Model.Data.Attributes.Exists(att => att.Key == ModelOptionKey.PreboundLigandConc))
             {
-                output.Add(new("[Comp]", Model.Data.Attributes.Find(att => att.Key == ModelOptionKey.PreboundLigandConc).ParameterValue.AsFormattedConcentration(ConcentrationUnit.mM, true)));
+                output.Add(new("[Comp]", Model.Data.Attributes.Find(att => att.Key == ModelOptionKey.PreboundLigandConc).ParameterValue.AsFormattedConcentration(true)));
             }
 
             if (info.HasFlag(DisplayAttributeOptions.Buffer) && Model.Data.Attributes.Exists(att => att.Key == ModelOptionKey.Buffer))
             {
-                //FIXME add buffer concentration and pH
                 foreach (var opt in Model.Data.Attributes.FindAll(att => att.Key == ModelOptionKey.Buffer)) output.Add(new(opt.ParameterValue.AsFormattedConcentration(ConcentrationUnit.mM, true) + " " + ((Buffer)opt.IntValue).GetProperties().Name + " pH " + opt.DoubleValue.ToString("F1"), ""));
             }
 
             if (info.HasFlag(DisplayAttributeOptions.Salt) && Model.Data.Attributes.Exists(att => att.Key == ModelOptionKey.Salt))
             {
-                //FIXME add salt concentration
                 foreach (var opt in Model.Data.Attributes.FindAll(att => att.Key == ModelOptionKey.Salt)) output.Add(new(opt.ParameterValue.AsFormattedConcentration(ConcentrationUnit.mM, true) + " " + ((Salt)opt.IntValue).GetProperties().Name, ""));
             }
 
             if (info.HasFlag(DisplayAttributeOptions.IonicStrength) && Model.Data.Attributes.Exists(att => att.Key == ModelOptionKey.Salt))
             {
                 output.Add(new("[I]", new FloatWithError(BufferAttribute.GetIonicStrength(Model.Data)).AsF1FormattedConcentration(true)));
-                
             }
 
             if (info.HasFlag(DisplayAttributeOptions.ProtonationEnthalpy) && Model.Data.Attributes.Exists(att => att.Key == ModelOptionKey.Buffer))
