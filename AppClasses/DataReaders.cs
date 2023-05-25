@@ -383,6 +383,7 @@ namespace DataReaders
                     case IntegrationLengthFactor: exp.IntegrationLengthFactor = FParse(v[1]); break;
                     case FeedBackMode: exp.FeedBackMode = (FeedbackMode)int.Parse(v[1]); break;
                     case Include: exp.Include = BParse(v[1]); break;
+                    case Instrument: exp.Instrument = (ITCInstrument)IParse(v[1]); break;
                     case "LIST" when v[1] == InjectionList: ReadInjectionList(exp, reader); break;
                     case "LIST" when v[1] == DataPointList: ReadDataList(exp, reader); break;
                     case "LIST" when v[1] == ExperimentAttributes: ReadAttributes(exp, reader); break;
