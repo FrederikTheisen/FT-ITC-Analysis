@@ -54,7 +54,6 @@ namespace AnalysisITC
             foreach (var opt in tmpoptions)
             {
                 AddAttribute(opt);
-                //AttributeStackView.AddArrangedSubview(new ExperimentAttributeView(new CGRect(0, 0, AttributeStackView.Frame.Width - 20, 14), opt.Value));
             }
         }
 
@@ -67,8 +66,6 @@ namespace AnalysisITC
 
         void AddAttribute(ModelOptions opt)
         {
-            //tmpoptions.Add(opt);
-
             var sv = new ExperimentAttributeView(new CGRect(0, 0, AttributeStackView.Frame.Width - 20, 14), opt);
             sv.Remove += Sv_Remove;
             sv.KeyChanged += Sv_KeyChanged;
