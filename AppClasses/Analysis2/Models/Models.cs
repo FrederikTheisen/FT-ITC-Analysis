@@ -30,6 +30,8 @@ namespace AnalysisITC.AppClasses.Analysis2.Models
         public virtual double GuessAffinity() => 1000000;
         public virtual double GuessAffinityAsGibbs() => -Energy.R * Data.MeasuredTemperatureKelvin * Math.Log(GuessAffinity());
 
+        BootstrappedEvaluationStorage BootstrappedEvaluationStorage { get; set; }
+
         //TODO consider implementing this feature, but not sure about how it should work yet
         public virtual double GuessParameter(ParameterType key, double def = 0)
         {
@@ -80,6 +82,10 @@ namespace AnalysisITC.AppClasses.Analysis2.Models
 
         public FloatWithError EvaluateBootstrap(int inj, bool withoff = true)
         {
+            if (Solution.BootstrapSolutions.Count == 0) return new (EvaluateEnthalpy(inj, withoff));
+            if (BootstrappedEvaluationStorage != null && BootstrappedEvaluationStorage.IsValid(this, inj, withoff)) return BootstrappedEvaluationStorage.GetDataPoint(inj, withoff);
+            if (BootstrappedEvaluationStorage == null) BootstrappedEvaluationStorage = new BootstrappedEvaluationStorage(this);
+
             var results = new List<double>();
 
             //Evaluates with offset to include errors in offset (offset error covaries with enthalpy and must therefore be included)
@@ -90,20 +96,26 @@ namespace AnalysisITC.AppClasses.Analysis2.Models
 
             if (results.Count == 0) results.Add(EvaluateEnthalpy(inj, withoffset: true));
 
+            FloatWithError val;
+
             if (!withoff)
             {
-
-                return new FloatWithError(
+                val = new FloatWithError(
                     results.Select(r => r - Solution.Parameters[ParameterType.Offset].Value),
-                    EvaluateEnthalpy(inj, withoffset: true) - Solution.Parameters[ParameterType.Offset].Value);
+                    EvaluateEnthalpy(inj, withoffset: true) - Solution.Parameters[ParameterType.Offset].Value); 
             }
             else
             {
-                return new FloatWithError(results, EvaluateEnthalpy(inj, withoffset: true));
+                val = new FloatWithError(results, EvaluateEnthalpy(inj, withoffset: true));
             }
-            var val = new FloatWithError(results, EvaluateEnthalpy(inj, withoffset: true));
 
-            return withoff ? val : val - Solution.Parameters[ParameterType.Offset].Value; //Returns evaluated value with or without offset
+            BootstrappedEvaluationStorage.SetDataPoint(inj, withoff, val);
+
+            return val;
+
+            //var val = new FloatWithError(results, EvaluateEnthalpy(inj, withoffset: true));
+
+            //return withoff ? val : val - Solution.Parameters[ParameterType.Offset].Value; //Returns evaluated value with or without offset
         }
 
 		public double LossFunction(double[] parameters)
@@ -331,6 +343,50 @@ namespace AnalysisITC.AppClasses.Analysis2.Models
 
             All = Buffer | Salt | IonicStrength | ProtonationEnthalpy | Competitor,
             Solvent = Buffer | Salt,
+
+        }
+    }
+
+    public class BootstrappedEvaluationStorage
+    {
+        public int BootstrapIterations { get; set; } = -1;
+
+        public FloatWithError[] OffsetDataPoint { get; set; }
+        public FloatWithError[] SubtractedDataPoint { get; set; }
+
+        public BootstrappedEvaluationStorage(Model model)
+        {
+            OffsetDataPoint = new FloatWithError[model.Data.InjectionCount];
+            SubtractedDataPoint = new FloatWithError[model.Data.InjectionCount];
+
+            BootstrapIterations = model.Solution.BootstrapSolutions.Count;
+        }
+
+        public bool IsValid(Model model, int inj, bool withoffset)
+        {
+            if (model.Solution == null) return false;
+            if (model.Solution.BootstrapSolutions.Count != BootstrapIterations) return false;
+            if (withoffset && (OffsetDataPoint == null || OffsetDataPoint[inj].Value == 0)) return false;
+            if (!withoffset && (SubtractedDataPoint == null || SubtractedDataPoint[inj].Value == 0)) return false;
+
+            return true;
+        }
+
+        public void Evaluate(Model model)
+        {
+
+        }
+
+        public void SetDataPoint(int inj, bool withoffset, FloatWithError dp)
+        {
+            if (!withoffset) SubtractedDataPoint[inj] = dp;
+            else OffsetDataPoint[inj] = dp;
+        }
+
+        public FloatWithError GetDataPoint(int inj, bool withoffset)
+        {
+            if (!withoffset) return SubtractedDataPoint[inj];
+            else return OffsetDataPoint[inj];
 
         }
     }
