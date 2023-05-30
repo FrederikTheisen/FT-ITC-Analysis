@@ -72,9 +72,9 @@ namespace AnalysisITC
 		Piperidine,
         [Buffer("TAPSO", 7.635, 0, 1, "3-[[1,3-dihydroxy-2-(hydroxymethyl)propan-2-yl]amino]-2-hydroxypropane-1-sulfonic acid", new[] { 39090, -16.0 })] //FIXME check charge and pka temp dependence
         TAPSO,
-		[Buffer("1xPBS",0,0,1, "Phosphate-buffered saline [NaPO4, KPO4, pH 7.4, NaCl, KCl]")]
+		[Buffer("1xPBS", 7.2, -0.0028, 1, "Phosphate-buffered saline [NaPO4, KPO4, pH 7.4, NaCl, KCl]")]
 		PBS,
-        [Buffer("1xTBS", 0, 0, 1, "Tris-buffered saline [Tris-HCl, pH 7.4, NaCl, KCl]")]
+        [Buffer("1xTBS", 8.06, -0.028, 1, "Tris-buffered saline [Tris-HCl, pH 7.4, NaCl, KCl]")]
         TBS,
     }
 
