@@ -351,15 +351,19 @@ namespace AnalysisITC.AppClasses.Analysis2
             var start = DateTime.Now;
             var bag = new ConcurrentBag<SolutionInterface>();
             var injs = Model.Data.Injections.Where(inj => inj.Include).Select(inj => inj.ID);
+            int var_conc_loops = Model.ModelCloneOptions.IncludeConcentrationErrorsInBootstrap ? BootstrapIterations / injs.Count() : 1;
 
             var models = new List<Model>();
             foreach (int i in injs) //setup models, not thread safe due to MCO implementation
             {
-                Model.ModelCloneOptions.DiscardedDataPoint = i;
-                models.Add(Model.GenerateSyntheticModel());
+                for (int j = 0; j < var_conc_loops; j++) //add additional models for concentration variance
+                {
+                    Model.ModelCloneOptions.DiscardedDataPoint = i;
+                    models.Add(Model.GenerateSyntheticModel());
+                }
             }
 
-            var res = Parallel.For(0 , injs.Count(), (i) =>
+            var res = Parallel.For(0 , models.Count(), (i) =>
             {
                 if (TerminateAnalysisFlag.Down)
                 {
@@ -367,7 +371,7 @@ namespace AnalysisITC.AppClasses.Analysis2
                     var solver = new Solver();
                     solver.SolverAlgorithm = this.SolverAlgorithm;
                     solver.Model = mdl;
-                    solver.SolverFunctionTolerance = SolverFunctionTolerance / 100;
+                    //solver.SolverFunctionTolerance = SolverBootstrapTolerance;
 
                     solver.Solve();
 
@@ -376,7 +380,7 @@ namespace AnalysisITC.AppClasses.Analysis2
 
                 var currcounter = Interlocked.Increment(ref counter);
 
-                ReportLeaveOneOutProgress(currcounter, injs.Count());
+                ReportLeaveOneOutProgress(currcounter, models.Count());
             });
 
             var solutions = bag.ToList();
