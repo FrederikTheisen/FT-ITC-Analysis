@@ -40,8 +40,6 @@ namespace AnalysisITC
             }
 
             Setup();
-
-            //if (Data.ExperimentOptions.Count == ModelOptions.AvailableExperimentAttributes.Count) AddAttributeButton.Enabled = false;
         }
 
         void Setup()
@@ -78,7 +76,7 @@ namespace AnalysisITC
 
             AttributeStackView.AddArrangedSubview(sv);
 
-            if (AttributeStackView.Subviews.Count() == ModelOptions.AvailableExperimentAttributes.Count) AddAttributeButton.Enabled = false;
+            //Obsolete and wrong//if (AttributeStackView.Subviews.Count() == ModelOptions.AvailableExperimentAttributes.Count) AddAttributeButton.Enabled = false;
         }
 
         private void Sv_SpecialAttributeSelected(object sender, Tuple<ModelOptionKey, int> e)
@@ -90,7 +88,9 @@ namespace AnalysisITC
                     break;
             }
 
-            Setup();
+            AttributeStackView.Subviews = new NSView[0];
+
+            foreach (var opt in tmpoptions) AddAttribute(opt);
         }
 
         private void Sv_KeyChanged(object sender, EventArgs e) //Update available menu items

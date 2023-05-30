@@ -392,10 +392,10 @@ namespace AnalysisITC.GUI.MacOS.CustomViews
         {
             if (Option.Key == ModelOptionKey.Null) return;
 
-            if (!experiment.Attributes.Exists(opt => opt.Key == Option.Key))
-            {
+            //if (!experiment.Attributes.Exists(opt => opt.Key == Option.Key))
+            //{
                 experiment.Attributes.Add(Option);
-            }
+            //}
 
             switch (Option.Key)
             {
