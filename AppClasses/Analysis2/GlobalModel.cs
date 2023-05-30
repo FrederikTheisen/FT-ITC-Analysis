@@ -93,6 +93,35 @@ namespace AnalysisITC.AppClasses.Analysis2
 
             return model;
         }
+
+		public GlobalModel LeaveOneOut(int idx)
+		{
+            GlobalModel model = new GlobalModel();
+
+            var mdls = new List<Model>(Models.Where((v, i) => i != idx));
+
+            foreach (var mdl in mdls)
+            {
+                model.AddModel(mdl.GenerateSyntheticModel());
+            }
+
+            foreach (var con in Parameters.Constraints)
+            {
+                model.Parameters.SetConstraintForParameter(con.Key, con.Value);
+            }
+
+            foreach (var par in Parameters.GlobalTable)
+            {
+                model.Parameters.AddorUpdateGlobalParameter(par.Value.Key, par.Value.Value, par.Value.IsLocked, par.Value.Limits);
+            }
+
+            foreach (var parset in model.Models)
+            {
+                model.Parameters.AddIndivdualParameter(parset.Parameters);
+            }
+
+            return model;
+        }
 	}
 
 	public class GlobalSolution

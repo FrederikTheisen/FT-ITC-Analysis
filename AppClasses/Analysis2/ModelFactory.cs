@@ -124,8 +124,8 @@ namespace AnalysisITC.AppClasses.Analysis2
 
 			switch (this)
 			{
-				case SingleModelFactory: (this as SingleModelFactory).Model.ModelCloneOptions = new(); break;
-				case GlobalModelFactory: (this as GlobalModelFactory).Model.ModelCloneOptions = new(); break;
+				case SingleModelFactory: (this as SingleModelFactory).Model.ModelCloneOptions = ModelCloneOptions.DefaultOptions; break;
+				case GlobalModelFactory: (this as GlobalModelFactory).Model.ModelCloneOptions = ModelCloneOptions.DefaultGlobalOptions; break;
 			}
         }
 
@@ -478,7 +478,7 @@ namespace AnalysisITC.AppClasses.Analysis2
             foreach (var mdl in Model.Models)
 			{
 				mdl.Data.Model = mdl;
-				mdl.ModelCloneOptions = new ModelCloneOptions();
+                mdl.ModelCloneOptions = GlobalModelParameters.RequiresGlobalFitting ? ModelCloneOptions.DefaultGlobalOptions : ModelCloneOptions.DefaultOptions;
 				mdl.SetModelOptions(Model.Models.First().ModelOptions);
                 GlobalModelParameters.AddIndivdualParameter(mdl.Parameters);
             }

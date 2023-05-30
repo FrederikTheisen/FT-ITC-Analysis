@@ -224,22 +224,41 @@ namespace AnalysisITC
 
         public ExperimentData GetSynthClone(ModelCloneOptions options)
         {
+            var syndat = new ExperimentData(FileName)
+            {
+                CellVolume = CellVolume,
+                MeasuredTemperature = MeasuredTemperature,
+            };
             List<InjectionData> syninj;
 
             switch (options.ErrorEstimationMethod)
             {
                 default:
                 case ErrorEstimationMethod.BootstrapResiduals: syninj = GetBootstrappedResiduals(); break;
+                case ErrorEstimationMethod.LeaveOneOut when options.IsGlobalClone: syninj = Injections; break;
+                case ErrorEstimationMethod.LeaveOneOut:
+                    {
+                        syninj = new List<InjectionData>();
+                        foreach (var inj in Injections)
+                        {
+                            var sinj = new InjectionData(inj.ID, inj.Volume, inj.InjectionMass, inj.Include)
+                            {
+                                Temperature = inj.Temperature,
+                                ActualCellConcentration = inj.ActualCellConcentration,
+                                ActualTitrantConcentration = inj.ActualTitrantConcentration,
+                                Ratio = inj.Ratio,
+                            };
+                            sinj.SetPeakArea(new FloatWithError(inj.PeakArea, inj.SD));
+                            if (sinj.ID == options.DiscardedDataPoint) sinj.Include = false;
+                            syninj.Add(sinj);
+                        }
+                        break;
+                    }
             }
 
             if (options.IncludeConcentrationErrorsInBootstrap) AddConcentrationVariance(syninj, options);
 
-            var syndat = new ExperimentData(FileName)
-            {
-                Injections = syninj,
-                CellVolume = CellVolume,
-                MeasuredTemperature = MeasuredTemperature,
-            };
+            syndat.Injections = syninj;
 
             foreach (var opt in Attributes) syndat.Attributes.Add(opt);
 

@@ -41,9 +41,9 @@ namespace AnalysisITC.AppClasses.Analysis2
         public int BootstrapIterations { get; set; } = 100;
         public double SolverFunctionTolerance { get; set; } = AppSettings.OptimizerTolerance;
         public double RelativeParameterTolerance { get; set; } = 2E-5;
-        public double SolverBootstrapTolerance { get; set; } = 1.0E-11;
-        public double LevenbergMarquardtDifferentiationStepSize { get; set; } = 0.1;
-        public double LevenbergMarquardtEpsilon { get; set; } = 1E-11;
+        public double SolverBootstrapTolerance { get; set; } = 1.0E-12;
+        public double LevenbergMarquardtDifferentiationStepSize { get; set; } = 0.01;
+        public double LevenbergMarquardtEpsilon { get; set; } = 1E-22;
 
         internal alglib.minlmstate LMOptimizerState { get; set; }
         public static CancellationTokenSource NelderMeadToken { get; set; }
@@ -64,9 +64,9 @@ namespace AnalysisITC.AppClasses.Analysis2
         {
             switch (factory)
             {
+                default:
                 case SingleModelFactory: return Initialize((factory as SingleModelFactory).Model);
                 case GlobalModelFactory: return Initialize((factory as GlobalModelFactory).Model);
-                default: throw new Exception("Solver initilization failure: unknown factory: " + factory.ToString());
             }
         }
 
@@ -89,11 +89,19 @@ namespace AnalysisITC.AppClasses.Analysis2
         public void ReportBootstrapProgress(int iteration) => NSApplication.SharedApplication.InvokeOnMainThread(() =>
         {
             if (!Silent) BootstrapIterationFinished?.Invoke(null, new Tuple<int, int, float>(iteration, BootstrapIterations, iteration / (float)BootstrapIterations));
+            else SolverUpdated?.Invoke(null, SolverUpdate.BackgroundBootstrapUpdate(iteration, BootstrapIterations));
+        });
+
+        public void ReportLeaveOneOutProgress(int iteration, int models) => NSApplication.SharedApplication.InvokeOnMainThread(() =>
+        {
+            if (!Silent) BootstrapIterationFinished?.Invoke(null, new Tuple<int, int, float>(iteration, models, iteration / (float)models));
+            else SolverUpdated?.Invoke(null, SolverUpdate.BackgroundBootstrapUpdate(iteration, models));
         });
 
         public void ReportAnalysisStepFinished() => NSApplication.SharedApplication.InvokeOnMainThread(() =>
         {
-            if (!Silent) AnalysisStepFinished?.Invoke(null, null);
+            //if (!Silent)
+                AnalysisStepFinished?.Invoke(null, null);
         });
 
         public void ReportAnalysisFinished(SolverConvergence convergence) => NSApplication.SharedApplication.InvokeOnMainThread(() =>
@@ -156,6 +164,7 @@ namespace AnalysisITC.AppClasses.Analysis2
             switch (ErrorEstimationMethod)
             {
                 case ErrorEstimationMethod.BootstrapResiduals: BoostrapResiduals(); break;
+                case ErrorEstimationMethod.LeaveOneOut: LeaveOneOut(); break;
                 case ErrorEstimationMethod.None:
                 default: break;
             }
@@ -178,6 +187,18 @@ namespace AnalysisITC.AppClasses.Analysis2
         protected virtual void BoostrapResiduals()
         {
             ReportBootstrapProgress(0);
+        }
+
+        protected virtual void LeaveOneOut()
+        {
+            if (this is GlobalSolver)
+            {
+                ReportLeaveOneOutProgress(0, (this as GlobalSolver).Model.Models.Count);
+            }
+            else if (this is Solver)
+            {
+                ReportLeaveOneOutProgress(0, (this as Solver).Model.Data.Injections.Where(inj => inj.Include).Count());
+            }
         }
 
         internal void SetStepSizes(NelderMead solver, double[] stepsize)
@@ -278,7 +299,7 @@ namespace AnalysisITC.AppClasses.Analysis2
             LMOptimizerState = minlmstate;
 
             alglib.minlmsetcond(LMOptimizerState, LevenbergMarquardtEpsilon, MaxOptimizerIterations);
-            alglib.minlmsetscale(LMOptimizerState, Model.Parameters.Table.Values.Where(p => !p.IsLocked).Select(p => 1 * p.StepSize).ToArray());
+            alglib.minlmsetscale(LMOptimizerState, Model.Parameters.Table.Values.Where(p => !p.IsLocked).Select(p => p.StepSize).ToArray());
             alglib.minlmsetbc(LMOptimizerState, limits.Select(p => p[0]).ToArray(), limits.Select(p => p[1]).ToArray());
             alglib.minlmoptimize(LMOptimizerState, (double[] x, double[] fi, object obj) => { fi[0] = Model.LossFunction(x); }, null, null);
             alglib.minlmresults(LMOptimizerState, out double[] result, out minlmreport rep);
@@ -321,6 +342,48 @@ namespace AnalysisITC.AppClasses.Analysis2
             Solution.SetBootstrapSolutions(solutions.Where(sol => !sol.Convergence.Failed).ToList());
             Solution.Convergence.SetBootstrapTime(DateTime.Now - start);
         }
+
+        protected override void LeaveOneOut()
+        {
+            base.LeaveOneOut();
+
+            int counter = 0;
+            var start = DateTime.Now;
+            var bag = new ConcurrentBag<SolutionInterface>();
+            var injs = Model.Data.Injections.Where(inj => inj.Include).Select(inj => inj.ID);
+
+            var models = new List<Model>();
+            foreach (int i in injs) //setup models, not thread safe due to MCO implementation
+            {
+                Model.ModelCloneOptions.DiscardedDataPoint = i;
+                models.Add(Model.GenerateSyntheticModel());
+            }
+
+            var res = Parallel.For(0 , injs.Count(), (i) =>
+            {
+                if (TerminateAnalysisFlag.Down)
+                {
+                    var mdl = models[i];
+                    var solver = new Solver();
+                    solver.SolverAlgorithm = this.SolverAlgorithm;
+                    solver.Model = mdl;
+                    solver.SolverFunctionTolerance = SolverFunctionTolerance / 100;
+
+                    solver.Solve();
+
+                    bag.Add(solver.Model.Solution);
+                }
+
+                var currcounter = Interlocked.Increment(ref counter);
+
+                ReportLeaveOneOutProgress(currcounter, injs.Count());
+            });
+
+            var solutions = bag.ToList();
+
+            Solution.SetBootstrapSolutions(solutions.Where(sol => !sol.Convergence.Failed).ToList());
+            Solution.Convergence.SetBootstrapTime(DateTime.Now - start);
+        }
     }
 
     public class GlobalSolver : SolverInterface
@@ -340,7 +403,7 @@ namespace AnalysisITC.AppClasses.Analysis2
 
                     if (Model.ShouldFitIndividually)
                     {
-                        ReportSolverUpdate(new SolverUpdate() { Message = "Fitting individually...", Progress = 0, TotalSteps = Model.Models.Count });
+                        ReportSolverUpdate(new SolverUpdate(0, Model.Models.Count) { Message = "Fitting individually...", Progress = 0 });
 
                         var convergences = new List<SolverConvergence>();
                         var counter = 0;
@@ -360,7 +423,7 @@ namespace AnalysisITC.AppClasses.Analysis2
 
                             counter++;
 
-                            ReportSolverUpdate(new SolverUpdate() { Progress = (float)counter / Model.Models.Count, Step = counter, TotalSteps = Model.Models.Count });
+                            ReportSolverUpdate(new SolverUpdate(counter, Model.Models.Count) { Progress = (float)counter / Model.Models.Count });
                         }
 
                         convergence = new SolverConvergence(convergences);
@@ -464,6 +527,43 @@ namespace AnalysisITC.AppClasses.Analysis2
                 var currcounter = Interlocked.Increment(ref counter);
 
                 ReportBootstrapProgress(currcounter);
+            });
+
+            var solutions = bag.ToList();
+
+            Solution.SetBootstrapSolutions(solutions);
+            Solution.Convergence.SetBootstrapTime(DateTime.Now - start);
+        }
+
+        protected override void LeaveOneOut()
+        {
+            base.LeaveOneOut();
+
+            var bag = new ConcurrentBag<GlobalSolution>();
+            int counter = 0;
+            var start = DateTime.Now;
+            var opt = new ParallelOptions();
+            opt.MaxDegreeOfParallelism = 10;
+
+            var res = Parallel.For(0, Model.Models.Count, opt, (i) =>
+            {
+                if (TerminateAnalysisFlag.Down)
+                {
+                    var globalmodel = Model.LeaveOneOut(i);
+                    var solver = new GlobalSolver();
+                    solver.Model = globalmodel;
+                    solver.SolverAlgorithm = SolverAlgorithm;
+                    solver.SolverFunctionTolerance = SolverBootstrapTolerance;
+
+                    var convergence = solver.Solve();
+                    var solution = new GlobalSolution(solver, convergence);
+
+                    bag.Add(solution);
+                }
+
+                var currcounter = Interlocked.Increment(ref counter);
+
+                ReportLeaveOneOutProgress(currcounter, Model.Models.Count);
             });
 
             var solutions = bag.ToList();

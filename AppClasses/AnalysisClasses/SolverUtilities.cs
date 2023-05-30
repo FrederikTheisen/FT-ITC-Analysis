@@ -148,26 +148,50 @@ namespace AnalysisITC
     {
         public string Message { get; set; } = "";
         public float Progress { get; set; } = -1;
-        public int Step { get; set; } = 0;
-        public int TotalSteps { get; set; } = 1;
+        public static int Step { get; set; } = 0;
+        public static int TotalSteps { get; set; } = 1;
         public int Time { get; set; } = 0;
 
         public string ProgressString => Step.ToString() + "/" + TotalSteps.ToString();
 
+        private SolverUpdate()
+        {
+
+        }
+
+        public SolverUpdate(int step, int totalsteps)
+        {
+            Step = step;
+            TotalSteps = totalsteps;
+        }
+
         public void SendToStatusBar()
         {
-            StatusBarManager.Progress = Progress;
+            StatusBarManager.SetProgress(Progress);
             if (Message != "") StatusBarManager.SetStatus(Message, Time, priority: 1);
             if (TotalSteps > 0) StatusBarManager.SetSecondaryStatus(ProgressString, Time);
+        }
+
+        public static SolverUpdate BackgroundBootstrapUpdate(int counter, int bootiterations)
+        {
+            float stepsize = 1.0f / TotalSteps;
+
+            return new SolverUpdate()
+            {
+                Progress = stepsize * (float)counter / bootiterations + (float)Step / TotalSteps,
+            };
         }
     }
 
     public class ModelCloneOptions
     {
+        public bool IsGlobalClone { get; set; } = false;
+
         public ErrorEstimationMethod ErrorEstimationMethod { get; set; } = ErrorEstimationMethod.None;
         public bool IncludeConcentrationErrorsInBootstrap { get; set; } = false;
         public bool EnableAutoConcentrationVariance { get; set; } = false;
         public double AutoConcentrationVariance { get; set; } = 0.05f;
+        public int DiscardedDataPoint { get; set; } = 0;
 
         public ModelCloneOptions()
         {
@@ -175,6 +199,25 @@ namespace AnalysisITC
             IncludeConcentrationErrorsInBootstrap = FittingOptionsController.IncludeConcentrationVariance;
             EnableAutoConcentrationVariance = FittingOptionsController.EnableAutoConcentrationVariance;
             AutoConcentrationVariance = FittingOptionsController.AutoConcentrationVariance;
+        }
+
+        public static ModelCloneOptions DefaultOptions
+        {
+            get
+            {
+                return new ModelCloneOptions();
+            }
+        }
+
+        public static ModelCloneOptions DefaultGlobalOptions
+        {
+            get
+            {
+                return new ModelCloneOptions()
+                {
+                    IsGlobalClone = true,
+                };
+            }
         }
     }
 

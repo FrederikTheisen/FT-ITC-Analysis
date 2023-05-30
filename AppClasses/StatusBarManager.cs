@@ -12,7 +12,6 @@ namespace AnalysisITC
 
         private static readonly List<StatusMessage> status = new();
         private static string secondarystatus = "";
-        private static double progress = 0;
         private static bool abortscroll;
         private static ProgressIndicatorEventData progressstate = new ProgressIndicatorEventData(1);
 
@@ -50,11 +49,15 @@ namespace AnalysisITC
 
         public static double Progress
         {
-            set
+            private set
             {
                 progressstate.Progress = value;
 
                 ProgressUpdate?.Invoke(null, progressstate);
+            }
+            get
+            {
+                return progressstate.Progress;
             }
         }
 
