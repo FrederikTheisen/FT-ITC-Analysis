@@ -245,7 +245,7 @@ namespace AnalysisITC
             var int_factor = Current.IntegrationLengthFactor;
 
             StatusBarManager.SetStatus("Processing data...", 0);
-            StatusBarManager.Progress = 0;
+            StatusBarManager.SetProgress(0);
 
             foreach (var data in Data)
             {
@@ -274,10 +274,10 @@ namespace AnalysisITC
                     data.Processor.DidProcessData();
                 }
 
-                StatusBarManager.Progress = i / (Count - 1);
+                StatusBarManager.SetProgress(i / (Count - 1));
             }
 
-            StatusBarManager.Progress = 1;
+            StatusBarManager.SetProgress(1);
             StatusBarManager.SetStatus("Data processed", 3000);
 
         }

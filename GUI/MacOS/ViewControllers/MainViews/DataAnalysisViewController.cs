@@ -140,7 +140,7 @@ namespace AnalysisITC
 
         private void Analysis_BootstrapIterationFinished(object sender, Tuple<int, int, float> e)
         {
-            StatusBarManager.Progress = e.Item3;
+            StatusBarManager.SetProgress(e.Item3);
             StatusBarManager.SetStatus("Bootstrapping...", 0, 2);
             StatusBarManager.SetSecondaryStatus(e.Item1 + "/" + e.Item2, 0);
         }
