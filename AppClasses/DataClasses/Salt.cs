@@ -20,7 +20,9 @@ namespace AnalysisITC
         KCl,
         [Salt("MgCl{2}", 3)]
         MgCl2,
-	}
+        [Salt("KI", 1)]
+        KI,
+    }
 
     public static partial class Extensions
     {
