@@ -130,7 +130,7 @@ namespace AnalysisITC
 
         private void ResultAnalysisProgressReport(object sender, Tuple<int, int, float> e)
         {
-            StatusBarManager.Progress = e.Item3;
+            StatusBarManager.SetProgress(e.Item3);
             StatusBarManager.SetStatus("Calculating...", 0);
             StatusBarManager.SetSecondaryStatus(e.Item1 + "/" + e.Item2, 0);
         }
@@ -168,6 +168,9 @@ namespace AnalysisITC
                 if (!TabView.Items.Contains(ProtonationAnalysisTab)) TabView.Add(ProtonationAnalysisTab);
             }
             else if (TabView.Items.Contains(ProtonationAnalysisTab)) TabView.Remove(ProtonationAnalysisTab);
+
+            if (AnalysisResult.Model.TemperatureDependenceExposed) EvaluateionTemperatureTextField.DoubleValue = AppSettings.ReferenceTemperature;
+            else EvaluateionTemperatureTextField.DoubleValue = AnalysisResult.Model.Models.Average(mdl => mdl.Data.TargetTemperature);
 
             SetupResultView();
 

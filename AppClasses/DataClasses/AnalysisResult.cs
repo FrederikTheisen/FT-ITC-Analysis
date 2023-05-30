@@ -9,7 +9,7 @@ namespace AnalysisITC
     public class AnalysisResult : ITCDataContainer
     {
         public AnalysisITC.AppClasses.Analysis2.GlobalSolution Solution { get; private set; }
-        AnalysisITC.AppClasses.Analysis2.GlobalModel Model => Solution.Model;
+        public AnalysisITC.AppClasses.Analysis2.GlobalModel Model => Solution.Model;
         GlobalModelParameters Options => Model.Parameters;
 
         public bool IsTemperatureDependenceEnabled => (GetMaximumTemperature() - GetMinimumTemperature()) > AppSettings.MinimumTemperatureSpanForFitting;
