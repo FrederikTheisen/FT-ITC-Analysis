@@ -88,6 +88,19 @@ namespace AnalysisITC.AppClasses.Analysis2.Models
                 results.Add(sol.Model.EvaluateEnthalpy(inj, withoffset: true));
             }
 
+            if (results.Count == 0) results.Add(EvaluateEnthalpy(inj, withoffset: true));
+
+            if (!withoff)
+            {
+
+                return new FloatWithError(
+                    results.Select(r => r - Solution.Parameters[ParameterType.Offset].Value),
+                    EvaluateEnthalpy(inj, withoffset: true) - Solution.Parameters[ParameterType.Offset].Value);
+            }
+            else
+            {
+                return new FloatWithError(results, EvaluateEnthalpy(inj, withoffset: true));
+            }
             var val = new FloatWithError(results, EvaluateEnthalpy(inj, withoffset: true));
 
             return withoff ? val : val - Solution.Parameters[ParameterType.Offset].Value; //Returns evaluated value with or without offset

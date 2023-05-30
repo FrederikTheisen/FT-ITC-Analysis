@@ -9,6 +9,8 @@ namespace AnalysisITC
     {
         public double Value { get; private set; }
         public double SD { get; private set; }
+        public double[] DistributionLimits { get; private set; }
+
         public double FractionSD
         {
             get
@@ -26,6 +28,7 @@ namespace AnalysisITC
         {
             Value = value;
             SD = Math.Abs(error);
+            DistributionLimits = new double[] { Value - 2 * SD, Value + 2 * SD };
         }
 
         public FloatWithError(IEnumerable<double> distribution, double? mean = null)
@@ -39,30 +42,34 @@ namespace AnalysisITC
                 if (mean != null) average = (double)mean;
                 double sum = distribution.Sum(d => Math.Pow(d - average, 2));
                 result = Math.Sqrt((sum) / (distribution.Count() - 1));
-            }
-            else average = (double)mean;
 
-            this = new FloatWithError(average, result);
+                Value = average;
+                SD = Math.Abs(result);
+                DistributionLimits = GetConfidenceInterval(distribution.ToList());
+            }
+            else this = new FloatWithError((double)mean, result);
         }
 
         public FloatWithError(IEnumerable<FloatWithError> distribution, double? mean = null)
         {
             double result = 0;
             double average = 0;
-            int n = 100;
-            var dist = distribution.ToList();
-
+            
             if (distribution.Any())
             {
+                int n = 100;
                 var samples = new List<double>();
-                foreach (var fwe in dist) for (int i = 0; i < n; i++) samples.Add(fwe.Sample());
+                foreach (var fwe in distribution) for (int i = 0; i < n; i++) samples.Add(fwe.Sample());
                 average = samples.Average();
                 if (mean != null) average = (double)mean;
                 double sum = samples.Sum(d => Math.Pow(d - average, 2));
                 result = Math.Sqrt((sum) / (samples.Count() - 1));
-            }
 
-            this = new FloatWithError(average, result);
+                Value = average;
+                SD = Math.Abs(result);
+                DistributionLimits = GetConfidenceInterval(samples);
+            }
+            else this = new FloatWithError((double)mean, result);
         }
 
         public void SetError(IEnumerable<double> distribution)
@@ -79,6 +86,30 @@ namespace AnalysisITC
 
             SD = Math.Abs(result);
         }
+
+        public static double[] GetConfidenceInterval(List<double> distribution)
+        {
+            // Sort the data in ascending order
+            distribution.Sort();
+
+            // Set the desired confidence level (e.g., 95%)
+            double confidenceLevel = 0.95;
+
+            // Calculate lower and upper percentiles
+            double lowerPercentile = (1 - confidenceLevel) / 2 * 100;
+            double upperPercentile = (1 + confidenceLevel) / 2 * 100;
+
+            // Calculate the indices corresponding to the percentiles
+            int lowerIndex = (int)Math.Ceiling(lowerPercentile * distribution.Count / 100) - 1;
+            int upperIndex = (int)Math.Floor(upperPercentile * distribution.Count / 100);
+
+            // Retrieve the values at the calculated indices
+            double lowerValue = distribution[lowerIndex];
+            double upperValue = distribution[upperIndex];
+
+            return new double[] { lowerValue, upperValue };
+        }
+
         public enum ConfidenceLevel
         {
             Conf95,
@@ -90,7 +121,7 @@ namespace AnalysisITC
             switch (conf)
             {
                 default:
-                case ConfidenceLevel.Conf95: return new double[] { Value + 2 * SD, Value - 2 * SD };
+                case ConfidenceLevel.Conf95: return DistributionLimits;
                 case ConfidenceLevel.SD: return new double[] { Value + SD, Value - SD };
                 case ConfidenceLevel.Conf50: return new double[] { Value + 0.5 * SD, Value - 0.5 * SD };
             }
