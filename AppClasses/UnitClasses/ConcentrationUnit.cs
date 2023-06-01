@@ -50,7 +50,7 @@ namespace AnalysisITC
                 > -6 => ConcentrationUnit.µM,
                 > -9 => ConcentrationUnit.nM,
                 > -12 => ConcentrationUnit.pM,
-                _ => ConcentrationUnit.M
+                _ => ConcentrationUnit.pM
             };
         }
 
@@ -65,7 +65,7 @@ namespace AnalysisITC
                 > -6 => ConcentrationUnit.µM,
                 > -9 => ConcentrationUnit.nM,
                 > -12 => ConcentrationUnit.pM,
-                _ => ConcentrationUnit.M
+                _ => ConcentrationUnit.pM
             };
         }
     }
