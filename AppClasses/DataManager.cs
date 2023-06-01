@@ -167,6 +167,8 @@ namespace AnalysisITC
                 case SortMode.Name: DataSource.SortByName(); break;
                 case SortMode.Temperature: DataSource.SortByTemperature(); break;
                 case SortMode.Type: DataSource.SortByType(); break;
+                case SortMode.IonicStrength: DataSource.SortByIonicStrength(); break;
+                case SortMode.ProtonationEnthalpy: DataSource.SortByProtonationEnthalpy(); break;
             }
 
             AppEventHandler.PrintAndLog("Sort completed");
@@ -294,7 +296,9 @@ namespace AnalysisITC
         {
             Name,
             Temperature,
-            Type
+            Type,
+            IonicStrength,
+            ProtonationEnthalpy
         }
     }
 }

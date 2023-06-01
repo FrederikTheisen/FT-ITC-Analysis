@@ -4,6 +4,7 @@ using DataReaders;
 using System;
 using System.Collections.Generic;
 using AnalysisITC.GUI.MacOS;
+using System.Linq;
 
 namespace AnalysisITC
 {
@@ -57,6 +58,8 @@ namespace AnalysisITC
                 case "sortbyname":
                 case "sortbytemp": return DataManager.DataIsLoaded;
                 case "sortbytype": return DataManager.DataIsLoaded && DataManager.Results.Count > 0;
+                case "sortbyprotonation": return DataManager.DataIsLoaded && DataManager.Data.Any(d => d.Attributes.Count > 0);
+                case "sortbyionic": return DataManager.DataIsLoaded && DataManager.Data.Any(d => d.Attributes.Count > 0);
                 case "copyattributes": return DataManager.DataIsLoaded && DataManager.SelectedIsData && DataManager.Current.Attributes.Count > 0;
             }
 
@@ -106,6 +109,8 @@ namespace AnalysisITC
             {
                 "sortbytemp" => DataManager.SortMode.Temperature,
                 "sortbytype" => DataManager.SortMode.Type,
+                "sortbyionic" => DataManager.SortMode.IonicStrength,
+                "sorttbyprotonation" => DataManager.SortMode.ProtonationEnthalpy,
                 _ => DataManager.SortMode.Name,
             };
             DataManager.SortContent(mode);

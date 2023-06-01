@@ -94,6 +94,24 @@ namespace AnalysisITC
             HandleSorted(curr);
         }
 
+        public void SortByIonicStrength()
+        {
+            var curr = Content[SelectedIndex];
+
+            Content = Content.OrderBy(OrderOnIonicStrength).ToList();
+
+            HandleSorted(curr);
+        }
+
+        public void SortByProtonationEnthalpy()
+        {
+            var curr = Content[SelectedIndex];
+
+            Content = Content.OrderBy(OrderOnIonicProtonationEnthalpy).ToList();
+
+            HandleSorted(curr);
+        }
+
         public void SetAllIncludeState(bool includeall)
         {
             var curr = Content[SelectedIndex];
@@ -127,6 +145,24 @@ namespace AnalysisITC
             if (item is AnalysisResult)
                 return 1;
             return 2;
+        }
+
+        private static double OrderOnIonicStrength(ITCDataContainer item)
+        {
+            if (item is ExperimentData)
+            {
+                return BufferAttribute.GetIonicStrength(item as ExperimentData);
+            }    
+            return double.MaxValue;
+        }
+
+        private static double OrderOnIonicProtonationEnthalpy(ITCDataContainer item)
+        {
+            if (item is ExperimentData)
+            {
+                return BufferAttribute.GetProtonationEnthalpy(item as ExperimentData);
+            }
+            return double.MaxValue;
         }
     }
 
