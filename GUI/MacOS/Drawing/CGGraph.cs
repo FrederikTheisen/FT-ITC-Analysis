@@ -708,6 +708,8 @@ namespace AnalysisITC
                     "Concentrations | Cell: " + experiment.CellConcentration.AsConcentration(ConcentrationUnit.µM) + " | Syringe: " + experiment.SyringeConcentration.AsConcentration(ConcentrationUnit.µM),
                 };
 
+            if (!string.IsNullOrEmpty(experiment.Comments)) Info.Add("Comment: " + experiment.Comments);
+
             var tamid = experiment.TargetTemperature;
             var delta = Math.Max(Math.Abs(experiment.DataPoints.Min(dp => Math.Min(dp.Temperature, dp.ShieldT)) - tamid), Math.Abs(experiment.DataPoints.Max(dp => Math.Max(dp.Temperature, dp.ShieldT)) - tamid));
             TemperatureAxis = GraphAxis.WithBuffer(this, tamid - delta, tamid + delta, position: AxisPosition.Right);
