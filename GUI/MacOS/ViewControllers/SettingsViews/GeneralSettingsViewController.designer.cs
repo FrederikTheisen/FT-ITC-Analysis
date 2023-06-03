@@ -34,6 +34,9 @@ namespace AnalysisITC
 		AppKit.NSTextField FinalFigWidthField { get; set; }
 
 		[Outlet]
+		AppKit.NSButton IncludeBufferInIonicStrength { get; set; }
+
+		[Outlet]
 		AppKit.NSTextField MinSaltSpanField { get; set; }
 
 		[Outlet]
@@ -132,6 +135,11 @@ namespace AnalysisITC
 				MinTempSpanSlider = null;
 			}
 
+			if (ParameterRoundingSettingsControl != null) {
+				ParameterRoundingSettingsControl.Dispose ();
+				ParameterRoundingSettingsControl = null;
+			}
+
 			if (PeakFitAlgorithmControl != null) {
 				PeakFitAlgorithmControl.Dispose ();
 				PeakFitAlgorithmControl = null;
@@ -142,9 +150,9 @@ namespace AnalysisITC
 				RefTempField = null;
 			}
 
-			if (ParameterRoundingSettingsControl != null) {
-				ParameterRoundingSettingsControl.Dispose ();
-				ParameterRoundingSettingsControl = null;
+			if (IncludeBufferInIonicStrength != null) {
+				IncludeBufferInIonicStrength.Dispose ();
+				IncludeBufferInIonicStrength = null;
 			}
 		}
 	}

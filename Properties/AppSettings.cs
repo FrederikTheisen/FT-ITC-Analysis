@@ -26,6 +26,7 @@ namespace AnalysisITC
 
         //Processing
         public static PeakFitAlgorithm PeakFitAlgorithm { get; set; } = PeakFitAlgorithm.SingleExponential;
+        public static bool IncludeBufferInIonicStrengthCalc { get; set; } = true;
 
         //Fitting
         public static bool InputAffinityAsDissociationConstant { get; set; } = true;
@@ -43,7 +44,6 @@ namespace AnalysisITC
         public static ParameterLimitSetting ParameterLimitSetting { get; set; } = ParameterLimitSetting.Standard;
 
         //Analysis
-        public static bool IonicStrengthIncludesBuffer { get; set; } = true;
         public static bool BuffersPreparedAtRoomTemperature { get; set; } = true;
 
         //Final figure
@@ -97,13 +97,13 @@ namespace AnalysisITC
             Storage.SetURL(LastDocumentUrl, "LastDocumentUrl");
             Storage.SetBool(EnableExtendedParameterLimits, "EnableExtendedParameterLimits");
             Storage.SetInt((int)ParameterLimitSetting, "ParameterLimitSetting");
-            Storage.SetBool(IonicStrengthIncludesBuffer, "IonicStrengthIncludesBuffer");
             Storage.SetBool(BuffersPreparedAtRoomTemperature, "BuffersPreparedAtRoomTemperature");
             Storage.SetInt(NumOfDecimalsToExport, "NumOfDecimalsToExport");
             Storage.SetDouble(MinimumIonSpanForFitting, "MinimumIonSpanForFitting");
             Storage.SetBool(FinalFigureShowParameterBoxAsDefault, "FinalFigureShowParameterBoxAsDefault");
             Storage.SetInt((int)PeakFitAlgorithm, "PeakFitAlgorithm");
             Storage.SetInt((int)NumberPrecision, "NumberPrecision");
+            Storage.SetBool(IncludeBufferInIonicStrengthCalc, "IncludeBufferInIonicStrengthCalc");
 
             StoreArray(FinalFigureDimensions, "FinalFigureDimensions");
 
@@ -143,13 +143,13 @@ namespace AnalysisITC
             DefaultConcentrationUnit = (ConcentrationUnit)GetInt(dict, "DefaultConcentrationUnit", (int)DefaultConcentrationUnit);
             InputAffinityAsDissociationConstant = GetBool(dict, "InputAffinityAsDissociationConstant", InputAffinityAsDissociationConstant);
             lastDocumentUrl = GetUrl(dict, "LastDocumentUrl");
-            IonicStrengthIncludesBuffer = GetBool(dict, "IonicStrengthIncludesBuffer", IonicStrengthIncludesBuffer);
             BuffersPreparedAtRoomTemperature = GetBool(dict, "BuffersPreparedAtRoomTemperature", BuffersPreparedAtRoomTemperature);
             NumOfDecimalsToExport = GetInt(dict, "NumOfDecimalsToExport", NumOfDecimalsToExport);
             MinimumIonSpanForFitting = GetDouble(dict, "MinimumIonSpanForFitting", MinimumIonSpanForFitting);
             FinalFigureShowParameterBoxAsDefault = GetBool(dict, "FinalFigureShowParameterBoxAsDefault", FinalFigureShowParameterBoxAsDefault);
             PeakFitAlgorithm = (PeakFitAlgorithm)GetInt(dict, "PeakFitAlgorithm", (int)PeakFitAlgorithm);
             NumberPrecision = (NumberPrecision)GetInt(dict, "NumberPrecision", (int)NumberPrecision);
+            IncludeBufferInIonicStrengthCalc = GetBool(dict, "IncludeBufferInIonicStrengthCalc", IncludeBufferInIonicStrengthCalc);
 
             ApplySettings();
 
@@ -180,7 +180,7 @@ namespace AnalysisITC
             DefaultConcentrationUnit = ConcentrationUnit.µM;
             InputAffinityAsDissociationConstant = true;
             lastDocumentUrl = null;
-            IonicStrengthIncludesBuffer = true;
+            IncludeBufferInIonicStrengthCalc = true;
             BuffersPreparedAtRoomTemperature = true;
             NumOfDecimalsToExport = 1;
             MinimumIonSpanForFitting = 0.03;
