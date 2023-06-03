@@ -254,8 +254,10 @@ namespace AnalysisITC
             {
                 OptionAdjustmentView sv;
 
-                if (tmpopts.ToList().Exists(view => view.Key == opt.Key)) sv = tmpopts.ToList().Find(view => view.Key == opt.Key);
-                else sv = new OptionAdjustmentView(new CoreGraphics.CGRect(0, 0, ModelOptionsStackView.Frame.Width, 20), opt.Value);
+                if (tmpopts.ToList().Exists(view => view.Key == opt.Key)) opt.Value.ParameterValue = tmpopts.ToList().Find(o => o.Key == opt.Key).Option.ParameterValue;
+                //else sv = new OptionAdjustmentView(new CoreGraphics.CGRect(0, 0, ModelOptionsStackView.Frame.Width, 20), opt.Value);
+
+                sv = new OptionAdjustmentView(new CoreGraphics.CGRect(0, 0, ModelOptionsStackView.Frame.Width, 20), opt.Value);
 
                 sv.SetupDesignerLayout();
                 OptionControls.Add(sv);
@@ -298,7 +300,7 @@ namespace AnalysisITC
 
             var solver = Solver.Initialize(Factory);
             solver.SolverFunctionTolerance = 1.0E-50;
-            solver.ErrorEstimationMethod = ErrorEstimationMethod.BootstrapResiduals;
+            solver.ErrorEstimationMethod = SimulateNoiseControl.State == NSCellStateValue.On ? ErrorEstimationMethod.BootstrapResiduals : ErrorEstimationMethod.None;
             solver.BootstrapIterations = 50;
             var mco = (solver as Solver).Model.ModelCloneOptions;
             mco.IncludeConcentrationErrorsInBootstrap = true;
