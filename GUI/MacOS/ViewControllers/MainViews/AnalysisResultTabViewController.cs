@@ -119,7 +119,7 @@ namespace AnalysisITC
             }
             
 
-            SetupAnalyisResultView(sender);
+            SetupAnalyisResultView(sender as ResultAnalysis);
 
             SetupGraphView(DisplayedGraphType);
 
@@ -259,20 +259,31 @@ namespace AnalysisITC
             switch (type)
             {
                 case ResultGraphView.ResultGraphType.Parameters:
-                case ResultGraphView.ResultGraphType.TemperatureDependence: Graph.Setup(type, AnalysisResult); break;
-                case ResultGraphView.ResultGraphType.ProtonationAnalysis: Graph.Setup(AnalysisResult.ProtonationAnalysis); break;
-                case ResultGraphView.ResultGraphType.IonicStrengthDependence: Graph.Setup(AnalysisResult.ElectrostaticsAnalysis); break;
+                    Graph.Setup(type, AnalysisResult);
+                    break;
+                case ResultGraphView.ResultGraphType.TemperatureDependence:
+                    Graph.Setup(type, AnalysisResult);
+                    SetupAnalyisResultView(AnalysisResult.SpolarRecordAnalysis);
+                    break;
+                case ResultGraphView.ResultGraphType.ProtonationAnalysis:
+                    Graph.Setup(AnalysisResult.ProtonationAnalysis);
+                    SetupAnalyisResultView(AnalysisResult.ProtonationAnalysis);
+                    break;
+                case ResultGraphView.ResultGraphType.IonicStrengthDependence:
+                    Graph.Setup(AnalysisResult.ElectrostaticsAnalysis);
+                    SetupAnalyisResultView(AnalysisResult.ElectrostaticsAnalysis);
+                    break;
             }
         }
 
-        void SetupAnalyisResultView(object analysis)
+        void SetupAnalyisResultView(ResultAnalysis analysis)
         {
             var result = new List<string>();
 
             switch (analysis)
             {
                 case FTSRMethod sr:
-                    result = new List<string>()
+                    if (analysis.Fit != null) result = new List<string>()
                     {
                         sr.FoldedMode switch { FTSRMethod.SRFoldedMode.Glob => "Globular Mode", FTSRMethod.SRFoldedMode.Intermediate => "Intermediate Mode", FTSRMethod.SRFoldedMode.ID => "ID Interaction Mode"},
                         sr.TempMode switch { FTSRMethod.SRTempMode.IsoEntropicPoint => "Isoentropic (", FTSRMethod.SRTempMode.MeanTemperature => "Data Set Mean (", FTSRMethod.SRTempMode.ReferenceTemperature => "Set Reference (" } + sr.Result.ReferenceTemperature.AsNumber() + " °C)",
@@ -284,17 +295,17 @@ namespace AnalysisITC
                     SRResultTextField.StringValue = string.Join(Environment.NewLine, result);
                     break;
                 case ElectrostaticsAnalysis ea:
-                    result = new List<string>()
+                    if (analysis.Fit != null) result = new List<string>()
                     {
-                        (ea.Fit as ElectrostaticsFit).Kd0.AsFormattedConcentration(AppropriateAutoConcUnit, withunit: true),
-                        (ea.Fit as ElectrostaticsFit).Plateau.AsFormattedConcentration(AppropriateAutoConcUnit, withunit: true),
+                        (ea.Fit as ElectrostaticsFit).Kd0.AsFormattedConcentration(withunit: true),
+                        (ea.Fit as ElectrostaticsFit).Plateau.AsFormattedConcentration(withunit: true),
                         ea.ElectrostaticStrength.ToFormattedString(AppSettings.EnergyUnit,withunit: true, permole: true)
                     };
                     ElectrostaticAnalysisOutput.StringValue = string.Join(Environment.NewLine, result);
                     break;
                 case ProtonationAnalysis pa:
                     {
-                        result = new List<string>()
+                        if (analysis.Fit != null) result = new List<string>()
                         {
                             (-1 * (pa.Fit as LinearFitWithError).Slope).AsNumber(),
                             new Energy((pa.Fit as LinearFitWithError).Evaluate(0)).ToFormattedString(AppSettings.EnergyUnit, true, true, false)

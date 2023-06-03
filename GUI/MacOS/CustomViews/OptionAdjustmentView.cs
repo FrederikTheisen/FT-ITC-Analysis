@@ -10,7 +10,7 @@ namespace AnalysisITC.GUI.MacOS.CustomViews
 {
     public class OptionAdjustmentView : NSStackView
     {
-        ModelOptions Option { get; set; }
+        public ModelOptions Option { get; private set; }
         public ModelOptionKey Key => Option.Key;
 
         double tmpvalue;
@@ -352,6 +352,11 @@ namespace AnalysisITC.GUI.MacOS.CustomViews
                         break;
                     }
             }
+        }
+
+        public override string ToString()
+        {
+            return Key.ToString() + ": " + Option.OptionName;
         }
     }
 }
