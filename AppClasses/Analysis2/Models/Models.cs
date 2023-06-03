@@ -120,6 +120,8 @@ namespace AnalysisITC.AppClasses.Analysis2.Models
 
 		public double LossFunction(double[] parameters)
 		{
+            BootstrappedEvaluationStorage = null; //kill this object if the fitting algorithm touches this
+
             //Only way to cancel the Simplex algorithm seems to be from the loss function
             if (SolverInterface.NelderMeadToken != null && SolverInterface.NelderMeadToken.IsCancellationRequested) throw new OptimizerStopException(); 
 
