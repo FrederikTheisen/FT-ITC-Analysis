@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 using AppKit;
 
@@ -63,6 +64,21 @@ namespace AnalysisITC.AppClasses.AnalysisClasses
         protected virtual void Calculate()
         {
             
+        }
+
+        internal List<Tuple<double,double>> GetErrorData(List<Tuple<double, FloatWithError>> dps)
+        {
+            switch (AppSettings.DefaultErrorEstimationMethod)
+            {
+                default:
+                case ErrorEstimationMethod.BootstrapResiduals: return dps.Select(dp => new Tuple<double, double>(dp.Item1, dp.Item2.Sample())).ToList();
+                case ErrorEstimationMethod.LeaveOneOut:
+                    var _dps = new List<Tuple<double, FloatWithError>>();
+                    _dps.AddRange(dps);
+                    _dps.RemoveAt(Rand.Next(dps.Count - 1));
+
+                    return _dps.Select(dp => new Tuple<double, double>(dp.Item1, dp.Item2.Value)).ToList();
+            }
         }
     }
 }
