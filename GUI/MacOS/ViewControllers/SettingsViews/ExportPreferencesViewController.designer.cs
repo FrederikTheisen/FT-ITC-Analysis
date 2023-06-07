@@ -19,6 +19,9 @@ namespace AnalysisITC
 		AppKit.NSButton ExportSolutionPointsControl { get; set; }
 
 		[Outlet]
+		AppKit.NSSegmentedControl FinalFigAttributeDisplay { get; set; }
+
+		[Outlet]
 		AppKit.NSTextField FinalFigHeightField { get; set; }
 
 		[Outlet]
@@ -94,6 +97,11 @@ namespace AnalysisITC
 			if (UnifyAxesControl != null) {
 				UnifyAxesControl.Dispose ();
 				UnifyAxesControl = null;
+			}
+
+			if (FinalFigAttributeDisplay != null) {
+				FinalFigAttributeDisplay.Dispose ();
+				FinalFigAttributeDisplay = null;
 			}
 		}
 	}

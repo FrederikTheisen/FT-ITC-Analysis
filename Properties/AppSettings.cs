@@ -49,6 +49,7 @@ namespace AnalysisITC
         //Final figure
         public static double[] FinalFigureDimensions { get; set; } = new double[2] { 6.5, 10.0 };
         public static FinalFigureDisplayParameters FinalFigureParameterDisplay { get; set; } = FinalFigureDisplayParameters.Default;
+        public static DisplayAttributeOptions DisplayAttributeOptions { get; set; } = DisplayAttributeOptions.Default;
         public static bool FinalFigureShowParameterBoxAsDefault { get; set; } = true;
         public static NumberPrecision NumberPrecision { get; set; } = NumberPrecision.Standard;
 
@@ -104,6 +105,7 @@ namespace AnalysisITC
             Storage.SetInt((int)PeakFitAlgorithm, "PeakFitAlgorithm");
             Storage.SetInt((int)NumberPrecision, "NumberPrecision");
             Storage.SetBool(IncludeBufferInIonicStrengthCalc, "IncludeBufferInIonicStrengthCalc");
+            Storage.SetInt((int)DisplayAttributeOptions, "DisplayAttributeOptions");
 
             StoreArray(FinalFigureDimensions, "FinalFigureDimensions");
 
@@ -150,6 +152,7 @@ namespace AnalysisITC
             PeakFitAlgorithm = (PeakFitAlgorithm)GetInt(dict, "PeakFitAlgorithm", (int)PeakFitAlgorithm);
             NumberPrecision = (NumberPrecision)GetInt(dict, "NumberPrecision", (int)NumberPrecision);
             IncludeBufferInIonicStrengthCalc = GetBool(dict, "IncludeBufferInIonicStrengthCalc", IncludeBufferInIonicStrengthCalc);
+            DisplayAttributeOptions = (DisplayAttributeOptions)GetInt(dict, "DisplayAttributeOptions", (int)DisplayAttributeOptions);
 
             ApplySettings();
 
@@ -187,6 +190,7 @@ namespace AnalysisITC
             FinalFigureShowParameterBoxAsDefault = true;
             PeakFitAlgorithm = PeakFitAlgorithm.SingleExponential;
             NumberPrecision = NumberPrecision.Standard;
+            DisplayAttributeOptions = DisplayAttributeOptions.Default;
         }
 
         static void StoreArray(double[] arr, string key)
