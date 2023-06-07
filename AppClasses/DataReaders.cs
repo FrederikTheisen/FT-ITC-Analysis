@@ -604,15 +604,6 @@ namespace DataReaders
             foreach (var sol in solutions) sol.SetIsGlobal(factory.Model.Solution);
 
             return factory.Model.Solution;
-
-            try
-            {
-
-            }
-            catch
-            {
-
-            }
         }
 
         static SolutionInterface ReadSolution(StreamReader reader, string firstline, ExperimentData experimentData = null)
