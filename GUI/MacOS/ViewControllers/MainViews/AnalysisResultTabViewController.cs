@@ -16,6 +16,8 @@ namespace AnalysisITC
 {
 	public partial class AnalysisResultTabViewController : NSViewController
 	{
+        public static TerminationFlag AnalysisTerminationFlag { get; } = new TerminationFlag();
+
         AnalysisResult AnalysisResult { get; set; }
         GlobalSolution Solution => AnalysisResult.Solution;
 
@@ -61,7 +63,7 @@ namespace AnalysisITC
             {
                 MarkdownStrings.DissociationConstant + " with no salt:",
                 MarkdownStrings.DissociationConstant + " at infinite salt:",
-                "Electrostatic interaction strength:",
+                "Counter ion release (∆*n*{salt}):",
             }), NSFont.SystemFontOfSize(11));
 
             ProtonationAnalysisResultDescriptionField.AttributedStringValue = MacStrings.FromMarkDownString(string.Join(Environment.NewLine, new List<string>()
@@ -295,11 +297,11 @@ namespace AnalysisITC
                     SRResultTextField.StringValue = string.Join(Environment.NewLine, result);
                     break;
                 case ElectrostaticsAnalysis ea:
-                    if (analysis.Fit != null) result = new List<string>()
+                    if (ea.Calculated) result = new List<string>()
                     {
-                        (ea.Fit as ElectrostaticsFit).Kd0.AsFormattedConcentration(withunit: true),
-                        (ea.Fit as ElectrostaticsFit).Plateau.AsFormattedConcentration(withunit: true),
-                        ea.ElectrostaticStrength.ToFormattedString(AppSettings.EnergyUnit,withunit: true, permole: true)
+                        ea.Kd0.AsFormattedConcentration(withunit: true),
+                        ea.KdInf.AsFormattedConcentration(withunit: true),
+                        ea.CounterIonRelease.AsNumber(),
                     };
                     ElectrostaticAnalysisOutput.StringValue = string.Join(Environment.NewLine, result);
                     break;
@@ -319,6 +321,8 @@ namespace AnalysisITC
         void ToggleFitButtons(bool enable)
         {
             SRFitButton.Enabled = enable;
+
+            AnalysisTerminationFlag.Lower();
         }
 
         partial void PerformSRAnalysis(NSObject sender)
@@ -344,8 +348,15 @@ namespace AnalysisITC
         {
             ToggleFitButtons(false);
 
-            AnalysisResult.ElectrostaticsAnalysis.Model = (ElectrostaticsAnalysis.DissocFitMode)(int)ElectrostaticAnalysisModel.SelectedSegment;
+            AnalysisResult.ElectrostaticsAnalysis.SetMode((ElectrostaticsAnalysis.DissocFitMode)(int)ElectrostaticAnalysisModel.SelectedSegment);
             AnalysisResult.ElectrostaticsAnalysis.PerformAnalysis();
+        }
+
+        partial void ElectrostaticsAnalysisModeAction(NSSegmentedControl sender)
+        {
+            AnalysisResult.ElectrostaticsAnalysis.SetMode((ElectrostaticsAnalysis.DissocFitMode)(int)ElectrostaticAnalysisModel.SelectedSegment);
+
+            Graph.Setup(AnalysisResult.ElectrostaticsAnalysis);
         }
 
         partial void EvaluateParameters(NSObject sender)

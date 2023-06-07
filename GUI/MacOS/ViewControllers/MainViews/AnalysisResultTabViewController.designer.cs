@@ -84,6 +84,9 @@ namespace AnalysisITC
 		[Action ("CopyToClipboatd:")]
 		partial void CopyToClipboatd (Foundation.NSObject sender);
 
+		[Action ("ElectrostaticsAnalysisModeAction:")]
+		partial void ElectrostaticsAnalysisModeAction (AppKit.NSSegmentedControl sender);
+
 		[Action ("EnergyControlClicked:")]
 		partial void EnergyControlClicked (AppKit.NSSegmentedControl sender);
 
@@ -104,6 +107,11 @@ namespace AnalysisITC
 		
 		void ReleaseDesignerOutlets ()
 		{
+			if (ElectroResultDescField != null) {
+				ElectroResultDescField.Dispose ();
+				ElectroResultDescField = null;
+			}
+
 			if (ElectrostaticAnalysisModel != null) {
 				ElectrostaticAnalysisModel.Dispose ();
 				ElectrostaticAnalysisModel = null;
@@ -114,29 +122,9 @@ namespace AnalysisITC
 				ElectrostaticAnalysisOutput = null;
 			}
 
-			if (ProtonationAnalysisOutput != null) {
-				ProtonationAnalysisOutput.Dispose ();
-				ProtonationAnalysisOutput = null;
-			}
-
-			if (ProtonationAnalysisResultDescriptionField != null) {
-				ProtonationAnalysisResultDescriptionField.Dispose ();
-				ProtonationAnalysisResultDescriptionField = null;
-			}
-
-			if (TempDependenceResultDescField != null) {
-				TempDependenceResultDescField.Dispose ();
-				TempDependenceResultDescField = null;
-			}
-
 			if (EnergyControl != null) {
 				EnergyControl.Dispose ();
 				EnergyControl = null;
-			}
-
-			if (EvaluateionTemperatureTextField != null) {
-				EvaluateionTemperatureTextField.Dispose ();
-				EvaluateionTemperatureTextField = null;
 			}
 
 			if (EvalResultDescField != null) {
@@ -144,9 +132,9 @@ namespace AnalysisITC
 				EvalResultDescField = null;
 			}
 
-			if (ElectroResultDescField != null) {
-				ElectroResultDescField.Dispose ();
-				ElectroResultDescField = null;
+			if (EvaluateionTemperatureTextField != null) {
+				EvaluateionTemperatureTextField.Dispose ();
+				EvaluateionTemperatureTextField = null;
 			}
 
 			if (EvaluationOutputLabel != null) {
@@ -162,6 +150,16 @@ namespace AnalysisITC
 			if (Graph != null) {
 				Graph.Dispose ();
 				Graph = null;
+			}
+
+			if (ProtonationAnalysisOutput != null) {
+				ProtonationAnalysisOutput.Dispose ();
+				ProtonationAnalysisOutput = null;
+			}
+
+			if (ProtonationAnalysisResultDescriptionField != null) {
+				ProtonationAnalysisResultDescriptionField.Dispose ();
+				ProtonationAnalysisResultDescriptionField = null;
 			}
 
 			if (ResultEvalTempUnitLabel != null) {
@@ -207,6 +205,11 @@ namespace AnalysisITC
 			if (TempControl != null) {
 				TempControl.Dispose ();
 				TempControl = null;
+			}
+
+			if (TempDependenceResultDescField != null) {
+				TempDependenceResultDescField.Dispose ();
+				TempDependenceResultDescField = null;
 			}
 
 			if (TemperatureDependenceLabel != null) {

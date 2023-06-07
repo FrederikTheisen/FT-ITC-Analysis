@@ -150,8 +150,9 @@ namespace AnalysisITC
 
             var rand = new Random();
             var results = new List<double>();
+            var sqrtx = Math.Sqrt(x);
 
-            var result = Kd0 * Math.Exp(-0.51 * Charges * Math.Sqrt(x) / (1 + Math.Sqrt(x)));
+            var result = Kd0 * Math.Exp(-0.51 * Charges * sqrtx / (1 + sqrtx));
 
             if (iterations < 2) return result;
 
@@ -161,7 +162,7 @@ namespace AnalysisITC
                 var _kd0 = Kd0.Sample(rand);
                 var _z = Charges.Sample(rand);
 
-                var f = _kd0 * Math.Exp(-0.51 * _z * Math.Sqrt(x) / (1 + Math.Sqrt(x)));
+                var f = _kd0 * Math.Exp(-0.51 * _z * sqrtx / (1 + sqrtx));
 
                 results.Add(f);
             }
@@ -179,6 +180,26 @@ namespace AnalysisITC
             var vals = new double[] { r00, r01, r10, r11 };
 
             return new double[] { vals.Min(), vals.Max() };
+        }
+    }
+
+    public class CounterIonReleaseFit : ElectrostaticsFit
+    {
+        LinearFitWithError Fit;
+
+        public CounterIonReleaseFit(FloatWithError slope, FloatWithError intercept, double referencex = 0)
+        {
+            Fit = new LinearFitWithError(slope, intercept, referencex);
+        }
+
+        public override FloatWithError Evaluate(double x, int iterations = 5000)
+        {
+            return Fit.Evaluate(x, iterations);
+        }
+
+        public override double[] MinMax(double x)
+        {
+            return base.MinMax(x);
         }
     }
 

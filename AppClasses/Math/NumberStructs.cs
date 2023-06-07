@@ -185,6 +185,13 @@ namespace AnalysisITC
             return new FloatWithError(v, v1.FractionSD * v);
         }
 
+        public static FloatWithError operator /(double v1, FloatWithError v2)
+        {
+            var v = v1 / v2.Value;
+
+            return new FloatWithError(v, v2.FractionSD * v);
+        }
+
         public static FloatWithError operator *(FloatWithError v1, FloatWithError v2)
         {
             var v = v1.Value * v2.Value;

@@ -68,20 +68,38 @@ namespace AnalysisITC
             Type = ResultGraphType.ProtonationAnalysis;
             var unit = ConcentrationUnitAttribute.FromConc(analysis.DataPoints.Select(dp => dp.Item2.Value).Average());
 
-            Graph = new ParameterDependenceGraph(this)
+            if (analysis.Mode == ElectrostaticsAnalysis.DissocFitMode.CounterIonRelease)
             {
-                XLabel = "*Ionic Strength* (mM)",
-                YLabel = "*K*{d} (" + unit.GetName() + ")",
-                XValues = analysis.DataPoints.Select(dp => new FloatWithError(dp.Item1)).ToArray(),
-                YValues = analysis.DataPoints.Select(dp => dp.Item2).ToArray(),
-                XScaleFactor = ConcentrationUnit.mM.GetMod(),
-                YScaleFactor = unit.GetMod(),
-                Fit = analysis.Fit,
-            };
+                Graph = new ParameterDependenceGraph(this)
+                {
+                    XLabel = "ln(*a*{salt})",
+                    YLabel = "ln(*K*{a})",
+                    XValues = analysis.DataPoints.Select(dp => new FloatWithError(dp.Item1)).ToArray(),
+                    YValues = analysis.DataPoints.Select(dp => dp.Item2).ToArray(),
+                    XScaleFactor = 1,
+                    YScaleFactor = 1,
+                    Fit = analysis.CounterIonReleaseFit,
+                };
 
-            (Graph as ParameterDependenceGraph).Setup();
-            Graph.XAxis.Min = 0;
-            Graph.XAxis.ValueFactor = ConcentrationUnit.mM.GetMod();
+                (Graph as ParameterDependenceGraph).Setup();
+            }
+            else
+            {
+                Graph = new ParameterDependenceGraph(this)
+                {
+                    XLabel = "*Ionic Strength* (mM)",
+                    YLabel = "*K*{d} (" + unit.GetName() + ")",
+                    XValues = analysis.DataPoints.Select(dp => new FloatWithError(dp.Item1)).ToArray(),
+                    YValues = analysis.DataPoints.Select(dp => dp.Item2).ToArray(),
+                    XScaleFactor = ConcentrationUnit.mM.GetMod(),
+                    YScaleFactor = unit.GetMod(),
+                    Fit = analysis.DebyeHuckelFit,
+                };
+
+                (Graph as ParameterDependenceGraph).Setup();
+                Graph.XAxis.Min = 0;
+                Graph.XAxis.ValueFactor = ConcentrationUnit.mM.GetMod(); //should not be necessary
+            }
 
             Invalidate();
         }
