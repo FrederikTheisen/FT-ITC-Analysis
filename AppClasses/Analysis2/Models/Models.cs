@@ -258,6 +258,19 @@ namespace AnalysisITC.AppClasses.Analysis2.Models
 
         public List<Tuple<string,string>> UIExperimentModelAttributes(DisplayAttributeOptions info)
         {
+            if (info == DisplayAttributeOptions.UsedInAnalysis)
+            {
+                if (this.IsGlobalAnalysisSolution)
+                {
+                    info = 0;
+                    var result = DataManager.Results.Find(r => r.Solution == this.GlobalParentSolution);
+
+                    if (result.IsElectrostaticsAnalysisDependenceEnabled) info |= DisplayAttributeOptions.Salt;
+                    if (result.IsProtonationAnalysisEnabled) info |= DisplayAttributeOptions.ProtonationEnthalpy;
+                    if (this.Model.ModelType == AnalysisModel.CompetitiveBinding) info |= DisplayAttributeOptions.Competitor;
+                }
+            }
+
             var output = new List<Tuple<string, string>>();
 
             if (info.HasFlag(DisplayAttributeOptions.Competitor) && Model.Data.Attributes.Exists(att => att.Key == ModelOptionKey.PreboundLigandConc))
@@ -346,6 +359,7 @@ namespace AnalysisITC.AppClasses.Analysis2.Models
             All = Buffer | Salt | IonicStrength | ProtonationEnthalpy | Competitor,
             Solvent = Buffer | Salt,
 
+            Default = UsedInAnalysis,
         }
     }
 
