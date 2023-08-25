@@ -186,6 +186,7 @@
     <Folder Include="GUI\MacOS\ViewControllers\MainViews\" />
     <Folder Include="AppClasses\UnitClasses\" />
     <Folder Include="GUI\MacOS\PopOptionViewControllers\FinalFigureOptions\" />
+    <Folder Include="AppClasses\Analysis2\Kinetics\" />
   </ItemGroup>
   <ItemGroup>
     <None Include="Info.plist" />
@@ -439,6 +440,7 @@
     </Compile>
     <Compile Include="GUI\MacOS\MacSupport.cs" />
     <Compile Include="AppClasses\Analysis2\Models\TwoCompetingSites.cs" />
+    <Compile Include="AppClasses\Analysis2\Kinetics\KineticModel.cs" />
   </ItemGroup>
   <ItemGroup>
     <InterfaceDefinition Include="Main.storyboard" />
