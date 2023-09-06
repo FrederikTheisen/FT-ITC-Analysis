@@ -56,7 +56,14 @@ namespace AnalysisITC.AppClasses.AnalysisClasses
 
             DateTime start = DateTime.Now;
 
-            await Task.Run(() => Calculate());
+            try
+            {
+                await Task.Run(() => Calculate());
+            }
+            catch (Exception ex)
+            {
+                AppEventHandler.DisplayHandledException(ex);
+            }
 
             ResultAnalysisController.ReportAnalysisFinished(this, CompletedIterations, DateTime.Now - start);
         }
