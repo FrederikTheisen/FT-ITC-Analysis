@@ -383,8 +383,11 @@ namespace AnalysisITC
 
         public void SetCustomIntegrationTimes(float? delay = null, float? lengthparameter = null, bool forcetime = false)
         {
-            AppEventHandler.PrintAndLog("Set Integration Length : " + Experiment.FileName + " : " + delay.ToString() + " : " + lengthparameter.ToString() + " : " + forcetime.ToString());
-            if (lengthparameter != null) switch (Experiment.IntegrationLengthMode)
+            AppEventHandler.PrintAndLog("Set Integration Length ["+ Experiment.IntegrationLengthMode + "]: " + Experiment.FileName + ", Delay: " + delay.ToString() + ", LengthPar: " + lengthparameter.ToString() + ", ForceT: " + forcetime.ToString());
+
+            try
+            {
+                switch (Experiment.IntegrationLengthMode)
                 {
                     case IntegrationLengthMode.Fit when !forcetime:
                         var dps = Experiment.BaseLineCorrectedDataPoints.Where(dp => dp.Time > this.Time && dp.Time < this.Time + this.Delay);
@@ -398,21 +401,26 @@ namespace AnalysisITC
                         {
                             default:
                             case PeakFitAlgorithm.SingleExponential:
-                                y = dps.Select(dp => (double)(dp.Power)).ToArray();
-                                var exp1 = MathNet.Numerics.Fit.Curve(x, y, (v, k, x) => v * Math.Exp(-k*x), max.Power, 0.1);
-                                peaklen = (max.Time - this.Time) + 10 * Math.Log(2) / (exp1.P1); //5 * -ln(2)/k = 98% returned to baseline
-                                break;
+                                {
+                                    y = dps.Select(dp => (double)(dp.Power)).ToArray();
+                                    var exp1 = MathNet.Numerics.Fit.Curve(x, y, (v, k, x) => v * Math.Exp(-k * x), max.Power, 0.1);
+                                    peaklen = (max.Time - this.Time) + 10 * Math.Log(2) / (exp1.P1); //5 * -ln(2)/k = 98% returned to baseline
+                                    break;
+                                }
                             case PeakFitAlgorithm.DoubleExponential:
-                                y = dps.Select(dp => (double)(dp.Power)).ToArray();
-                                var exp2 = MathNet.Numerics.Fit.Curve(x, y, (v1, k1, v2, k2, x) => v1 * Math.Exp(-k1 * x) + v2 * Math.Exp(-k2 * x), 0.5 * max.Power, 0.05, 0.5 * max.Power, 1, tolerance: 1E-10, maxIterations: 10000);
-                                var avgk = (exp2.P0 * exp2.P1 + exp2.P2 * exp2.P3) / (exp2.P0 + exp2.P2);
-                                peaklen = (max.Time - this.Time) + 10 * Math.Log(2) / (avgk);
-                                break;
+                                {
+                                    y = dps.Select(dp => (double)(dp.Power)).ToArray();
+                                    var exp1 = MathNet.Numerics.Fit.Curve(x, y, (v, k, x) => v * Math.Exp(-k * x), max.Power, 0.1);
+                                    var exp2 = MathNet.Numerics.Fit.Curve(x, y, (v1, k1, v2, k2, x) => v1 * Math.Exp(-k1 * x) + v2 * Math.Exp(-k2 * x), 0.5 * exp1.P0, exp1.P1, 0.5 * exp1.P0, exp1.P1, tolerance: 1E-10, maxIterations: 10000);
+                                    var avgk = (exp2.P0 * exp2.P1 + exp2.P2 * exp2.P3) / (exp2.P0 + exp2.P2);
+                                    peaklen = (max.Time - this.Time) + 10 * Math.Log(2) / (avgk);
+                                    break;
+                                }
                         }
-                        
+
                         IntegrationLength = Math.Clamp((float)peaklen, Duration, Delay - 1);
                         break;
-                    case IntegrationLengthMode.Factor when !forcetime:
+                    case IntegrationLengthMode.Factor when !forcetime && lengthparameter != null:
                         var _dps = Experiment.BaseLineCorrectedDataPoints.Where(dp => dp.Time > Time && dp.Time < Time + Delay);
                         var height = _dps.Max(dp => Math.Abs(dp.Power));
                         var thresh = Math.Abs(height / 3);
@@ -425,7 +433,12 @@ namespace AnalysisITC
                     default: IntegrationLength = Math.Clamp((float)lengthparameter, Duration, Delay - 1); break;
                 }
 
-            if (delay != null) IntegrationStartDelay = Math.Clamp((float)delay, -5, IntegrationLength);
+                if (delay != null) IntegrationStartDelay = Math.Clamp((float)delay, -5, IntegrationLength);
+            }
+            catch
+            {
+
+            }
         }
 
         public void ToggleDataPointActive()
