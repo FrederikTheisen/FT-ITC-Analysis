@@ -78,6 +78,7 @@ namespace AnalysisITC
                             case ParameterType.Enthalpy1: s += "Enthalpy: "; break;
                             case ParameterType.Affinity1:
                             case ParameterType.Gibbs1: s += "Affinity: "; break;
+                            default: s += con.Key.GetProperties().Description + ": "; break;
                         }
 
                         s += con.Value.GetEnumDescription() + Environment.NewLine;

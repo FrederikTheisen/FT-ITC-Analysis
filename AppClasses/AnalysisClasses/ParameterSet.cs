@@ -494,7 +494,7 @@ namespace AnalysisITC.AppClasses.Analysis2
         EntropyContribution2,
         [ParameterTypeAttribute("Isomerization rate constant", "*k*{iso}", 0.01, new double[] { 0.00001, 1 }, IsomerizationRate)]
         IsomerizationRate,
-        [ParameterTypeAttribute("Isomerization equilibrium constant", "*K*{eq,trans-cis}", 0.01, new double[] { 0.001, 1000 }, IsomerizationEquilibriumConstant)]
+        [ParameterTypeAttribute("Equilibrium constant", "*K*{eq}", 0.01, new double[] { 0.001, 1000 }, IsomerizationEquilibriumConstant)]
         IsomerizationEquilibriumConstant,
     }
 }
