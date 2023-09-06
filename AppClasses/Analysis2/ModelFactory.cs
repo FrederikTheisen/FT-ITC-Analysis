@@ -207,6 +207,7 @@ namespace AnalysisITC.AppClasses.Analysis2
                 case AnalysisModel.CompetitiveBinding: Model = new CompetitiveBinding(data); break;
                 case AnalysisModel.TwoSetsOfSites: Model = new TwoSetsOfSites(data); break;
                 case AnalysisModel.TwoCompetingSites: Model = new TwoCompetingSites(data); break;
+                case AnalysisModel.PeptideProlineIsomerization: Model = new OneSiteIsomerization(data); break;
                 case AnalysisModel.SequentialBindingSites:
                 case AnalysisModel.Dissociation:
                 default: throw new NotImplementedException();
@@ -374,6 +375,20 @@ namespace AnalysisITC.AppClasses.Analysis2
 							default: break;
                         }
                         break;
+                    case ParameterType.IsomerizationEquilibriumConstant:
+                        {
+                            switch (GlobalModelParameters.GetConstraintForParameter(par.Key))
+                            {
+                                case VariableConstraint.SameForAll:
+                                    GlobalModelParameters.AddorUpdateGlobalParameter(
+                                    key: par.Key,
+                                    value: prevvalue != null ? (double)prevvalue.Value : 0.42,
+                                    islocked: prevvalue != null ? prevvalue.IsLocked : false);
+                                    break;
+                                default: break;
+                            }
+                        }
+                        break;
                     default: break;
                 }
             }
@@ -407,7 +422,11 @@ namespace AnalysisITC.AppClasses.Analysis2
 					case ParameterType.Nvalue2:
 						dict[par.Key] = new List<VariableConstraint> { VariableConstraint.None, VariableConstraint.SameForAll };
 						break;
-				}
+                    case ParameterType.IsomerizationEquilibriumConstant:
+                        dict[par.Key] = new List<VariableConstraint> { VariableConstraint.None, VariableConstraint.SameForAll };
+                        break;
+                    default: Console.WriteLine(par.Key.ToString() + " not handled by factory"); break;
+                }
 			}
 
             ExposedGlobalFittingOptions = dict;
