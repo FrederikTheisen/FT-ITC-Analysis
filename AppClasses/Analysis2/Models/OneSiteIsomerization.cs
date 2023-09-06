@@ -22,12 +22,12 @@ namespace AnalysisITC.AppClasses.Analysis2.Models
             Parameters.AddOrUpdateParameter(ParameterType.Nvalue1, this.GuessN());
             Parameters.AddOrUpdateParameter(ParameterType.Enthalpy1, this.GuessEnthalpy());
             Parameters.AddOrUpdateParameter(ParameterType.Affinity1, this.GuessAffinity());
-            Parameters.AddOrUpdateParameter(ParameterType.Affinity2, this.GuessAffinity());
+            //Parameters.AddOrUpdateParameter(ParameterType.Affinity2, this.GuessAffinity());
             Parameters.AddOrUpdateParameter(ParameterType.Offset, this.GuessOffset());
-            Parameters.AddOrUpdateParameter(ParameterType.IsomerizationEquilibriumConstant, 0.42, islocked: true);
-            Parameters.AddOrUpdateParameter(ParameterType.IsomerizationRate, 0.001, islocked: true);
+            Parameters.AddOrUpdateParameter(ParameterType.IsomerizationEquilibriumConstant, 0.42, islocked: false);
+            //Parameters.AddOrUpdateParameter(ParameterType.IsomerizationRate, 0.001, islocked: true);
 
-            ModelOptions.Append(AnalysisClasses.ModelOptions.Bool(ModelOptionKey.PeptideInCell, PeptideInCellOption, true).DictionaryEntry);
+            ModelOptions.Add(AnalysisClasses.ModelOptions.Bool(ModelOptionKey.PeptideInCell, PeptideInCellOption, false).DictionaryEntry);
         }
 
         public override double Evaluate(int injectionindex, bool withoffset = true)
@@ -36,43 +36,70 @@ namespace AnalysisITC.AppClasses.Analysis2.Models
             else return GetDeltaHeat(injectionindex, Parameters.Table[ParameterType.Nvalue1].Value, Parameters.Table[ParameterType.Enthalpy1].Value, Parameters.Table[ParameterType.Affinity1].Value);
         }
 
-        double[] GetIsomerConcentration(InjectionData inj)
+        double[] GetBoundIsomerConcentrations(InjectionData inj)
         {
-            if (ModelOptions[ModelOptionKey.PeptideInCell].BoolValue)
+            //Figure out which component isomerises
+            //Whatever is in the cell is multiplied by the n-value
+            var totpep = ModelOptions[ModelOptionKey.PeptideInCell].BoolValue ? Parameters.Table[ParameterType.Nvalue1].Value * inj.ActualCellConcentration : inj.ActualTitrantConcentration;
+            var totprot = ModelOptions[ModelOptionKey.PeptideInCell].BoolValue ? inj.ActualTitrantConcentration : Parameters.Table[ParameterType.Nvalue1].Value * inj.ActualCellConcentration;
+
+            var KxTot = Parameters.Table[ParameterType.IsomerizationEquilibriumConstant].Value * totpep;
+            var cis = KxTot / (1 + Parameters.Table[ParameterType.IsomerizationEquilibriumConstant].Value);
+            var trans = totpep - cis;
+
+            var f_cisbound = GetFractionCisBound(
+                Parameters.Table[ParameterType.Affinity2].Value,
+                Parameters.Table[ParameterType.Affinity1].Value,
+                totprot, cis, trans);
+            var f_transbound = GetFractionTransBound(
+                Parameters.Table[ParameterType.Affinity2].Value,
+                Parameters.Table[ParameterType.Affinity1].Value,
+                totprot, cis, trans);
+
+            return new double[2] { trans * f_transbound, cis * f_cisbound };
+        }
+
+        /// <summary>
+        /// Get preinjection isomer concentrations
+        /// </summary>
+        /// <param name="inj"></param>
+        /// <returns>double[2] {trans, cis}</returns>
+        double[] GetInitialIsomerBoundConcentration(InjectionData inj)
+        {
+            if (inj.ID == 0)
             {
+                /* trans <=> cis
+                 * K = cis / trans
+                 * K = cis / (Tot-cis)
+                 * K * (Tot - cis) = cis
+                 * K*tot - K*cis = cis
+                 * K*tot = cis + K*cis = cis * (1 + K)
+                 * K*tot / (1 + K) = cis
+                 * trans = tot - cis
+                 */
+                //var tot = ModelOptions[ModelOptionKey.PeptideInCell].BoolValue ? inj.ActualCellConcentration : inj.ActualTitrantConcentration;
+                //var KxTot = Parameters.Table[ParameterType.IsomerizationEquilibriumConstant].Value * tot;
+                //var cis = KxTot / (1 + Parameters.Table[ParameterType.IsomerizationEquilibriumConstant].Value);
+                //var trans = tot - cis;
 
-
-                // K = (B) / (Tot-B)
-                // K * (Tot - B) = B
-                // Ktot - KB = B
-                // Ktot = B + KB = B * (1 + K)
-                // Ktot / (1 + K) = B
-                if (inj.ID == 0)
-                {
-                    var KxTot = Parameters.Table[ParameterType.IsomerizationEquilibriumConstant].Value * inj.ActualCellConcentration;
-                    var B = KxTot / (1 + Parameters.Table[ParameterType.IsomerizationEquilibriumConstant].Value);
-                    var A = inj.ActualCellConcentration - B;
-
-                    return new double[] { A, B };
-                }
-                else
-                {
-
-                    return new double[2];
-                }
+                return new double[] { 0, 0 };
             }
             else
             {
+                var _inj = Data.Injections[inj.ID - 1];
 
+                return GetBoundIsomerConcentrations(_inj);
             }
+        }
 
-            return null;
+        double[] GetFinalIsomerBoundConcentration(InjectionData inj)
+        {
+            return GetBoundIsomerConcentrations(inj);
         }
 
         double GetD(double Kd_cis, double Kd_trans, double conc_binding, double conc_cis, double conc_trans) => Kd_cis + Kd_trans + conc_cis + conc_trans - conc_binding;
         double GetE(double Kd_cis, double Kd_trans, double conc_binding, double conc_cis, double conc_trans) => (conc_trans - conc_binding) * Kd_cis + (conc_cis - conc_binding) * Kd_trans + Kd_cis * Kd_trans;
         double GetF(double Kd_cis, double Kd_trans, double conc_binding) => -Kd_cis * Kd_trans * conc_binding;
-
         double GetTheta(double d, double e, double f)
         {
             double top = -2 * Math.Pow(d, 3) + 9 * d * e - 27 * f;
@@ -80,7 +107,6 @@ namespace AnalysisITC.AppClasses.Analysis2.Models
 
             return Math.Acos(top / bottom);
         }
-
         double GetFractionLigandBound(double Kd_cis, double Kd_trans, double conc_binding, double conc_cis, double conc_trans)
         {
             double d = GetD(Kd_cis, Kd_trans, conc_binding, conc_cis, conc_trans);
@@ -93,9 +119,8 @@ namespace AnalysisITC.AppClasses.Analysis2.Models
 
             return top / bottom;
         }
-
         double GetFractionCisBound(double Kd_cis, double Kd_trans, double conc_binding, double conc_cis, double conc_trans) => GetFractionLigandBound(Kd_cis, Kd_trans, conc_binding, conc_cis, conc_trans);
-        double GetFractionTransTrans(double Kd_cis, double Kd_trans, double conc_binding, double conc_cis, double conc_trans) => GetFractionLigandBound(Kd_trans, Kd_cis, conc_binding, conc_trans, conc_cis);
+        double GetFractionTransBound(double Kd_cis, double Kd_trans, double conc_binding, double conc_cis, double conc_trans) => GetFractionLigandBound(Kd_trans, Kd_cis, conc_binding, conc_trans, conc_cis);
 
         double GetDeltaHeat(int i, double n, double H, double K)
         {
@@ -110,10 +135,17 @@ namespace AnalysisITC.AppClasses.Analysis2.Models
 
         double GetHeatContent(InjectionData inj, double n, double H, double K)
         {
+            //var bound = GetFinalIsomerBoundConcentration(inj);
+            //var prev = GetInitialIsomerBoundConcentration(inj);
+
+            //return Parameters.Table[ParameterType.Enthalpy1].Value * (bound[0] + bound[1]);
+
+            var Kapp = K / (1 + Parameters.Table[ParameterType.IsomerizationEquilibriumConstant].Value);
+
             var ncell = n * inj.ActualCellConcentration;
             var first = (ncell * H * Data.CellVolume) / 2.0;
             var XnM = inj.ActualTitrantConcentration / ncell;
-            var nKM = 1.0 / (K * ncell);
+            var nKM = 1.0 / (Kapp * ncell);
             var square = (1.0 + XnM + nKM);
             var root = (square * square) - 4.0 * XnM;
 
@@ -122,7 +154,7 @@ namespace AnalysisITC.AppClasses.Analysis2.Models
 
         public override Model GenerateSyntheticModel()
         {
-            Model mdl = new OneSetOfSites(Data.GetSynthClone(ModelCloneOptions));
+            Model mdl = new OneSiteIsomerization(Data.GetSynthClone(ModelCloneOptions));
 
             SetSynthModelParameters(mdl);
 
@@ -131,11 +163,82 @@ namespace AnalysisITC.AppClasses.Analysis2.Models
 
         public class ModelSolution : SolutionInterface
         {
+            public Energy Enthalpy => Parameters[ParameterType.Enthalpy1].Energy;
+            public FloatWithError K => Parameters[ParameterType.Affinity1];
+            public FloatWithError K_app => K / (1 + Parameters[ParameterType.IsomerizationEquilibriumConstant]);
+            public FloatWithError N => Parameters[ParameterType.Nvalue1];
+            public Energy Offset => Parameters[ParameterType.Offset].Energy;
+            public FloatWithError IsomerizationEquilibriumConstant => Parameters[ParameterType.IsomerizationEquilibriumConstant];
+
+            public FloatWithError Kd => new FloatWithError(1) / K;
+            public FloatWithError Kd_app => new FloatWithError(1) / K_app;
+            public Energy GibbsFreeEnergy => new(-1.0 * Energy.R.FloatWithError * TempKelvin * FWEMath.Log(K));
+            public Energy TdS => GibbsFreeEnergy - Enthalpy;
+            public Energy Entropy => TdS / TempKelvin;
+
             public ModelSolution(Model model)
             {
                 Model = model;
                 BootstrapSolutions = new List<SolutionInterface>();
             }
+
+            public override void ComputeErrorsFromBootstrapSolutions()
+            {
+                var enthalpies = BootstrapSolutions.Select(s => (s as ModelSolution).Enthalpy.FloatWithError.Value);
+                var k = BootstrapSolutions.Select(s => (s as ModelSolution).K.Value);
+                var n = BootstrapSolutions.Select(s => (s as ModelSolution).N.Value);
+                var offsets = BootstrapSolutions.Select(s => (s as ModelSolution).Offset.Value);
+                var keq = BootstrapSolutions.Select(s => (s as ModelSolution).IsomerizationEquilibriumConstant.Value);
+
+                Parameters[ParameterType.Enthalpy1] = new FloatWithError(enthalpies, Enthalpy);
+                Parameters[ParameterType.Affinity1] = new FloatWithError(k, K);
+                //Parameters[ParameterType.Affinity2] = new FloatWithError(k_cis, Kcis);
+                Parameters[ParameterType.Nvalue1] = new FloatWithError(n, N);
+                Parameters[ParameterType.Offset] = new FloatWithError(offsets, Offset);
+                Parameters[ParameterType.IsomerizationEquilibriumConstant] = new FloatWithError(keq, IsomerizationEquilibriumConstant);
+
+                base.ComputeErrorsFromBootstrapSolutions();
+            }
+
+            public override List<Tuple<string, string>> UISolutionParameters(FinalFigureDisplayParameters info)
+            {
+                var output = base.UISolutionParameters(info);
+
+                if (info.HasFlag(FinalFigureDisplayParameters.Nvalue)) output.Add(new("N", N.AsNumber()));
+                if (info.HasFlag(FinalFigureDisplayParameters.Affinity))
+                {
+                    output.Add(new(Utils.MarkdownStrings.DissociationConstant, Kd.AsFormattedConcentration(true)));
+                    if (info.HasFlag(FinalFigureDisplayParameters.Other))
+                    {
+                        output.Add(new(Utils.MarkdownStrings.ApparantDissociationConstant, Kd_app.AsFormattedConcentration(true)));
+                        output.Add(new(Utils.MarkdownStrings.IsomerizationEquilibriumConstant, IsomerizationEquilibriumConstant.AsNumber()));
+                    }
+                }
+                if (info.HasFlag(FinalFigureDisplayParameters.Enthalpy)) output.Add(new(Utils.MarkdownStrings.Enthalpy, Enthalpy.ToFormattedString(ReportEnergyUnit, permole: true)));
+                if (info.HasFlag(FinalFigureDisplayParameters.TdS)) output.Add(new(Utils.MarkdownStrings.EntropyContribution, TdS.ToFormattedString(ReportEnergyUnit, permole: true)));
+                if (info.HasFlag(FinalFigureDisplayParameters.Gibbs)) output.Add(new(Utils.MarkdownStrings.GibbsFreeEnergy, GibbsFreeEnergy.ToFormattedString(ReportEnergyUnit, permole: true)));
+
+                if (info.HasFlag(FinalFigureDisplayParameters.Offset)) output.Add(new("Offset", Offset.ToFormattedString(ReportEnergyUnit, permole: true)));
+
+                return output;
+            }
+
+            public override List<Tuple<ParameterType, Func<SolutionInterface, FloatWithError>>> DependenciesToReport => new List<Tuple<ParameterType, Func<SolutionInterface, FloatWithError>>>
+                {
+                    new (ParameterType.Enthalpy1, new(sol => (sol as ModelSolution).Enthalpy.FloatWithError)),
+                    new (ParameterType.EntropyContribution1, new(sol => (sol as ModelSolution).TdS.FloatWithError)),
+                    new (ParameterType.Gibbs1, new(sol => (sol as ModelSolution).GibbsFreeEnergy.FloatWithError)),
+                };
+
+            public override Dictionary<ParameterType, FloatWithError> ReportParameters => new Dictionary<ParameterType, FloatWithError>
+                {
+                    { ParameterType.Nvalue1, N },
+                    { ParameterType.Affinity1, Kd },
+                    { ParameterType.IsomerizationEquilibriumConstant, IsomerizationEquilibriumConstant },
+                    { ParameterType.Enthalpy1, Enthalpy.FloatWithError },
+                    { ParameterType.EntropyContribution1, TdS.FloatWithError} ,
+                    { ParameterType.Gibbs1, GibbsFreeEnergy.FloatWithError },
+                };
         }
     }
 }

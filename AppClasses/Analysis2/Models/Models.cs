@@ -335,11 +335,13 @@ namespace AnalysisITC.AppClasses.Analysis2.Models
 
             Attributes = 512,
 
+            Other = 1024,
+
             Fitted = Nvalue | Affinity | Enthalpy,
             Derived = TdS | Gibbs,
 
             Default = Model | Fitted | Derived | Temperature | Concentrations,
-            All = Model | Fitted | Offset | Derived | Temperature | Concentrations | Attributes,
+            All = Model | Fitted | Offset | Derived | Temperature | Concentrations | Attributes | Other,
 
             ListView = Model | Affinity | Enthalpy,
             AnalysisView = Model | Fitted | Derived | Offset

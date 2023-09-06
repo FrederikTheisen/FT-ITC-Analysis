@@ -286,8 +286,16 @@ namespace AnalysisITC.AppClasses.Analysis2
 
                                 par.Value.SetGlobal(Math.Exp(-GlobalTable[_par].Value / (Energy.R * paramset.ExperimentTemperature)));
                             }
+                            break;
+                        case ParameterType.IsomerizationEquilibriumConstant:
+                            if (GetConstraintForParameter(par.Key) == VariableConstraint.SameForAll)
+                            {
+                                par.Value.SetGlobal(GlobalTable[par.Key].Value);
+                            }
+                            break;
+                        default:
+                            break;
 
-                    break;
                     }
                 }
             }
@@ -417,7 +425,9 @@ namespace AnalysisITC.AppClasses.Analysis2
                 case ParameterType.EntropyContribution2: return "-T∆S2";
                 case ParameterType.Gibbs1: return "∆G" + (containstwo ? "1" : "");
                 case ParameterType.Gibbs2: return "∆G2";
-                default: AppEventHandler.DisplayHandledException(new NotImplementedException("TableHeaderNotImplementedException: " + key.ToString())); return "err";
+                case ParameterType.IsomerizationEquilibriumConstant: return "Keq";
+                case ParameterType.IsomerizationRate:
+                default: AppEventHandler.DisplayHandledException(new NotImplementedException("[ParameterSet.cs] TableHeaderNotImplementedException: " + key.ToString())); return "err";
             }
         }
 
@@ -482,9 +492,9 @@ namespace AnalysisITC.AppClasses.Analysis2
         EntropyContribution1,
         [ParameterTypeAttribute("Entropy contribution 2", EntropyContribution1)]
         EntropyContribution2,
-        [ParameterTypeAttribute("Isomerization rate constant", "*k*{iso}", 0.00001, new double[] { 0.00001, 1 }, IsomerizationRate)]
+        [ParameterTypeAttribute("Isomerization rate constant", "*k*{iso}", 0.01, new double[] { 0.00001, 1 }, IsomerizationRate)]
         IsomerizationRate,
-        [ParameterTypeAttribute("Isomerization equilibrium constant", "*K*{trans,cis}", 0.001, new double[] { 0.001, 1000 }, IsomerizationEquilibriumConstant)]
+        [ParameterTypeAttribute("Isomerization equilibrium constant", "*K*{eq,trans-cis}", 0.01, new double[] { 0.001, 1000 }, IsomerizationEquilibriumConstant)]
         IsomerizationEquilibriumConstant,
     }
 }
