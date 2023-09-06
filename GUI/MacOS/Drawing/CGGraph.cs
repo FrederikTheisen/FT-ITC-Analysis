@@ -879,7 +879,7 @@ namespace AnalysisITC
 
             if (FinalFigureDisplayParameters.HasFlag(FinalFigureDisplayParameters.Attributes))
             {
-                var attlines = ExperimentData.Model.Solution.UIExperimentModelAttributes(DisplayAttributeOptions.All);
+                var attlines = ExperimentData.Model.Solution.UIExperimentModelAttributes(AppSettings.DisplayAttributeOptions);
 
                 foreach (var att in attlines)
                 {
