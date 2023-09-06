@@ -269,20 +269,23 @@ namespace AnalysisITC.GUI.MacOS.CustomViews
 
         void SetInputField()
         {
-            if (Parameter.ChangedByUser)
-                if (Parameter.Key.GetProperties().ParentType == ParameterType.Affinity1)
+            if (Parameter.Key.GetProperties().ParentType == ParameterType.Affinity1)
+            {
+                if (AppSettings.InputAffinityAsDissociationConstant)
                 {
-                    if (AppSettings.InputAffinityAsDissociationConstant)
-                    {
-                        var number = (AppSettings.DefaultConcentrationUnit.GetProperties().Mod / (double)tmpvalue);
-                        Input.StringValue = Convert.ToDouble(String.Format("{0:G3}", number)).ToString();
-                    }
-                    else Input.StringValue = ((double)tmpvalue).ToString("G2");
+                    var number = (AppSettings.DefaultConcentrationUnit.GetProperties().Mod / (double)tmpvalue);
+                    SetInputField(Convert.ToDouble(String.Format("{0:G3}", number)).ToString());
                 }
-                else if (ParameterTypeAttribute.IsEnergyUnitParameter(Parameter.Key))
-                    Input.StringValue = new Energy((double)tmpvalue).ToString(AppSettings.EnergyUnit, "G3", withunit: false);
-                else
-                    Input.StringValue = ((double)tmpvalue).ToString("F1");
+                else SetInputField(((double)tmpvalue).ToString("G2"));
+            }
+            else if (ParameterTypeAttribute.IsEnergyUnitParameter(Parameter.Key)) SetInputField(new Energy((double)tmpvalue).ToString(AppSettings.EnergyUnit, "G3", withunit: false));
+            else SetInputField(((double)tmpvalue).ToString("F3"));
+        }
+
+        void SetInputField(string s)
+        {
+            if (Parameter.ChangedByUser) Input.StringValue = s;
+            else Input.PlaceholderString = s;
         }
     }
 }
