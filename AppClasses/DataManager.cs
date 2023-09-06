@@ -249,6 +249,7 @@ namespace AnalysisITC
             StatusBarManager.SetStatus("Processing data...", 0);
             StatusBarManager.SetProgress(0);
 
+            //Prepare the baseline interpolator
             foreach (var data in Data)
             {
                 if (data == Current) continue;
@@ -280,6 +281,7 @@ namespace AnalysisITC
             }
 
             StatusBarManager.SetProgress(1);
+            StatusBarManager.ClearAppStatus();
             StatusBarManager.SetStatus("Data processed", 3000);
 
         }
