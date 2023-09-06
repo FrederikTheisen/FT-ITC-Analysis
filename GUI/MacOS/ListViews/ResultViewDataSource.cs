@@ -76,6 +76,9 @@ namespace AnalysisITC
                 case "∆G1": view.StringValue = DataSource.Data[(int)row].ReportParameters[ParameterType.Gibbs1].Energy.ToFormattedString(EnergyUnit, withunit: false); view.Alignment = NSTextAlignment.Center; break;
                 case "∆G2": view.StringValue = DataSource.Data[(int)row].ReportParameters[ParameterType.Gibbs2].Energy.ToFormattedString(EnergyUnit, withunit: false); view.Alignment = NSTextAlignment.Center; break;
                 case "Loss": view.StringValue = DataSource.Data[(int)row].Loss.ToString("G3"); view.Alignment = NSTextAlignment.Center; break;
+                case "Keq": view.StringValue = DataSource.Data[(int)row].ReportParameters[ParameterType.IsomerizationEquilibriumConstant].AsNumber(); view.Alignment = NSTextAlignment.Center; break;
+                default: throw new NotImplementedException("ResultViewDataSource table column ID not recognized");
+                    break;
             }
 
             return view;
