@@ -19,7 +19,7 @@ namespace AnalysisITC
 
         List<ParameterType> ParameterFilter { get; set; } = new List<ParameterType>() { ParameterType.Affinity1, ParameterType.Affinity2, ParameterType.Nvalue1, ParameterType.Nvalue2 };
 
-        List<ParameterType> Parameters => Result.Solution.IndividualModelReportParameters.Where(p => !ParameterFilter.Contains(p)).Select(p => p).ToList();
+        List<ParameterType> Parameters => Result.Solution.IndividualModelReportParameters.Where(p => ParameterTypeAttribute.IsEnergyUnitParameter(p)).Select(p => p).ToList();// !ParameterFilter.Contains(p)).Select(p => p).ToList();
         int DataCount => Result.Solution.Solutions.Count;
         float BinWidth = 0.8f;
         float CategoryWidth => BinWidth / DataCount;
