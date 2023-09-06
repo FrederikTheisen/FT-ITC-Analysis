@@ -9,7 +9,10 @@ namespace AnalysisITC.Utils
     public static class MarkdownStrings
     {
         public const string DissociationConstant = "*K*{d}";
+        public const string DissociationConstantTrans = "*K*{d,trans}";
+        public const string DissociationConstantCis = "*K*{d,cis}";
         public const string ApparantDissociationConstant = "*K*{d,app}";
+        public const string IsomerizationEquilibriumConstant = "*K*{eq}";
         public const string Enthalpy = "∆*H*";
         public const string GibbsFreeEnergy = "∆*G*";
         public const string EntropyContribution = "-*T*∆*S*";
