@@ -76,6 +76,8 @@ namespace AnalysisITC
 		PBS,
         [Buffer("1xTBS", 8.06, -0.028, 1, "Tris-buffered saline [Tris-HCl, pH 7.4, NaCl, KCl]")]
         TBS,
+		[Buffer("L-Histidine", 6.07, -0.02, 1, "Histidine Buffer", new[] { 29500, 176.0 })]
+		Histidine,
     }
 
     public static partial class Extensions
