@@ -47,7 +47,7 @@ namespace AnalysisITC
                     case 2: item.State = AppSettings.FinalFigureParameterDisplay.HasFlag(FinalFigureDisplayParameters.Fitted) ? NSCellStateValue.On : NSCellStateValue.Off; break;
                     case 3: item.State = AppSettings.FinalFigureParameterDisplay.HasFlag(FinalFigureDisplayParameters.Derived) ? NSCellStateValue.On : NSCellStateValue.Off; break;
                     case 4: item.State = AppSettings.FinalFigureParameterDisplay.HasFlag(FinalFigureDisplayParameters.Offset) ? NSCellStateValue.On : NSCellStateValue.Off; break;
-                    case 5: item.State = AppSettings.FinalFigureParameterDisplay.HasFlag(FinalFigureDisplayParameters.Other) ? NSCellStateValue.On : NSCellStateValue.Off; break;
+                    case 5: item.State = AppSettings.FinalFigureParameterDisplay.HasFlag(FinalFigureDisplayParameters.Misc) ? NSCellStateValue.On : NSCellStateValue.Off; break;
                     case 7: item.State = AppSettings.FinalFigureParameterDisplay.HasFlag(FinalFigureDisplayParameters.Temperature) ? NSCellStateValue.On : NSCellStateValue.Off; break;
                     case 8: item.State = AppSettings.FinalFigureParameterDisplay.HasFlag(FinalFigureDisplayParameters.Concentrations) ? NSCellStateValue.On : NSCellStateValue.Off; break;
                     case 9: item.State = AppSettings.FinalFigureParameterDisplay.HasFlag(FinalFigureDisplayParameters.Attributes) ? NSCellStateValue.On : NSCellStateValue.Off; break;
@@ -107,7 +107,7 @@ namespace AnalysisITC
                         case 2: AppSettings.FinalFigureParameterDisplay |= FinalFigureDisplayParameters.Fitted; break;
                         case 3: AppSettings.FinalFigureParameterDisplay |= FinalFigureDisplayParameters.Derived; break;
                         case 4: AppSettings.FinalFigureParameterDisplay |= FinalFigureDisplayParameters.Offset; break;
-                        case 5: AppSettings.FinalFigureParameterDisplay |= FinalFigureDisplayParameters.Other; break;
+                        case 5: AppSettings.FinalFigureParameterDisplay |= FinalFigureDisplayParameters.Misc; break;
                         case 7: AppSettings.FinalFigureParameterDisplay |= FinalFigureDisplayParameters.Temperature; break;
                         case 8: AppSettings.FinalFigureParameterDisplay |= FinalFigureDisplayParameters.Concentrations; break;
                         case 9: AppSettings.FinalFigureParameterDisplay |= FinalFigureDisplayParameters.Attributes; break;
