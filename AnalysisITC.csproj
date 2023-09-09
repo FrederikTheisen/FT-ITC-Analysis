@@ -200,6 +200,8 @@
     <None Include="AppClasses\Depreceated\Analysis.cs" />
     <None Include="AppClasses\Depreceated\SolverParameters.cs" />
     <None Include="AppClasses\Depreceated\SolverOptions.cs" />
+    <None Include="GUI\.DS_Store" />
+    <None Include="GUI\MacOS\CustomViews\AutoExpandingTextField.swift" />
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Main.cs" />
@@ -441,10 +443,15 @@
     <Compile Include="GUI\MacOS\MacSupport.cs" />
     <Compile Include="AppClasses\Analysis2\Models\TwoCompetingSites.cs" />
     <Compile Include="AppClasses\Analysis2\Kinetics\KineticModel.cs" />
+    <Compile Include="GUI\MacOS\CustomViews\AutoExpandingTextView2.cs" />
+    <Compile Include="GUI\MacOS\CustomViews\AutoExpandingTextView2.designer.cs">
+      <DependentUpon>AutoExpandingTextView2.cs</DependentUpon>
+    </Compile>
   </ItemGroup>
   <ItemGroup>
     <InterfaceDefinition Include="Main.storyboard" />
     <InterfaceDefinition Include="GUI\MacOS\CustomViews\ExperimentAttributeView.xib" />
+    <InterfaceDefinition Include="GUI\MacOS\CustomViews\AutoExpandingTextView2.xib" />
   </ItemGroup>
   <ItemGroup>
     <BundleResource Include="Resources\HelpTextResource.txt" />
