@@ -59,6 +59,8 @@ namespace AnalysisITC
             DeselectAll();
 
             (sender as NSButton).State = NSCellStateValue.On;
+
+            this.DismissViewController(this);
         }
     }
 }
