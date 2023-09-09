@@ -2,10 +2,8 @@
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Linq;
-using System.Security.Cryptography;
 using System.Text.RegularExpressions;
 using AnalysisITC.AppClasses.Analysis2.Models;
-using AnalysisITC.Utils;
 
 namespace AnalysisITC.AppClasses.Analysis2
 {
@@ -494,8 +492,10 @@ namespace AnalysisITC.AppClasses.Analysis2
         EntropyContribution2,
         [ParameterTypeAttribute("Isomerization rate constant", "*k*{iso}", 0.01, new double[] { 0.00001, 1 }, IsomerizationRate)]
         IsomerizationRate,
-        [ParameterTypeAttribute("Equilibrium constant", "*K*{eq}", 0.01, new double[] { 0.001, 1000 }, IsomerizationEquilibriumConstant)]
+        [ParameterTypeAttribute("Equilibrium constant", "*K*{eq}", 0.1, new double[] { 0.000001, 100000 }, IsomerizationEquilibriumConstant)]
         IsomerizationEquilibriumConstant,
+        [ParameterTypeAttribute("Equilibrium constant", "%{cis}", 0.1, new double[] { 0 + float.Epsilon, 100 - float.Epsilon }, CisIsomerPopulationPercentage)]
+        CisIsomerPopulationPercentage,
     }
 }
 

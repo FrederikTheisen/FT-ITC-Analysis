@@ -35,7 +35,11 @@ namespace AnalysisITC.AppClasses.AnalysisClasses
         [ModelOptionKey(ModelOptions.ModelOptionType.Enum, true)]
         Salt,
         [ModelOptionKey(ModelOptions.ModelOptionType.Double)]
-        IonicStrength
+        IonicStrength,
+        [ModelOptionKey(ModelOptions.ModelOptionType.ParameterConcentration)]
+        EquilibriumConstant,
+        [ModelOptionKey(ModelOptions.ModelOptionType.Parameter)]
+        Percentage,
     }
 
 	public class ModelOptions

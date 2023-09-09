@@ -161,7 +161,7 @@ namespace AnalysisITC.AppClasses.Analysis2.Models
 
             foreach (var opt in ModelOptions)
             {
-                mdl.ModelOptions.Add(opt.Key, opt.Value);
+                mdl.ModelOptions.Add(opt.Key, opt.Value.Copy());
             }
         }
     }
@@ -194,7 +194,7 @@ namespace AnalysisITC.AppClasses.Analysis2.Models
         }
         public List<FloatWithError> ParametersConformingToKey(ParameterType key)
         {
-            //FIXME unreproducible error related to modification of the collection while it is being used. Probably cross thread issue. Encountered 2
+            //FIXME unreproducible error related to modification of the collection while it is being used. Probably cross thread issue. Encountered 3
             return Parameters.Where(par => par.Key.GetProperties().ParentType == key).Select(par => par.Value).ToList();
         }
 
@@ -335,13 +335,13 @@ namespace AnalysisITC.AppClasses.Analysis2.Models
 
             Attributes = 512,
 
-            Other = 1024,
+            Misc = 1024,
 
             Fitted = Nvalue | Affinity | Enthalpy,
             Derived = TdS | Gibbs,
 
             Default = Model | Fitted | Derived | Temperature | Concentrations,
-            All = Model | Fitted | Offset | Derived | Temperature | Concentrations | Attributes | Other,
+            All = Model | Fitted | Offset | Derived | Temperature | Concentrations | Attributes | Misc,
 
             ListView = Model | Affinity | Enthalpy,
             AnalysisView = Model | Fitted | Derived | Offset

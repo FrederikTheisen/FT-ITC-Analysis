@@ -122,6 +122,8 @@ namespace AnalysisITC.GUI.MacOS.CustomViews
             {
                 case ModelOptionKey.PeptideInCell:
                     SetupBoolOption(); break;
+                case ModelOptionKey.Percentage:
+                case ModelOptionKey.EquilibriumConstant:
                 case ModelOptionKey.PreboundLigandConc:
                 case ModelOptionKey.PreboundLigandAffinity:
                 case ModelOptionKey.PreboundLigandEnthalpy:
@@ -142,7 +144,8 @@ namespace AnalysisITC.GUI.MacOS.CustomViews
                 BezelStyle = NSTextFieldBezelStyle.Rounded,
                 Bordered = false,
                 Editable = false,
-                StringValue = Option.OptionName,
+                AttributedStringValue = Utils.MacStrings.FromMarkDownString(Option.OptionName, NSFont.SystemFontOfSize(NSFont.SmallSystemFontSize)),
+                //StringValue = Option.OptionName,
                 ToolTip = "Property Key: " + Option.Key.ToString(),
                 TranslatesAutoresizingMaskIntoConstraints = false,
                 HorizontalContentSizeConstraintActive = false,
@@ -185,38 +188,46 @@ namespace AnalysisITC.GUI.MacOS.CustomViews
         {
             FloatWithError value = Option.ParameterValue;
 
-            if (Option.Key == ModelOptionKey.PreboundLigandAffinity)
+            switch (Option.Key)
             {
-                value = new FloatWithError(1.0) / value;
-                value *= AppSettings.DefaultConcentrationUnit.GetProperties().Mod;
-            }
-            else if (Option.Key == ModelOptionKey.PreboundLigandConc)
-            {
-                value *= 1000000;
-
-                InputButton = new NSButton();
-                //InputButton = NSButton.CreateCheckbox("From Exp", () => Method());
-                InputButton.SetButtonType(NSButtonType.OnOff);
-                InputButton.Title = "FromExp";
-                InputButton.ToolTip = $"When enabled, the parameter value will be taken from the matching experiment property ({Option.Key.ToString()}) rather than from the available input field";
-                InputButton.State = Option.BoolValue ? NSCellStateValue.On : NSCellStateValue.Off;
-                InputButton.BezelStyle = NSBezelStyle.Recessed;
-                InputButton.ControlSize = NSControlSize.Mini;
-                InputButton.Font = NSFont.SystemFontOfSize(9);
-                //InputButton.ImagePosition = NSCellImagePosition.ImageTrailing;
-
-                AddArrangedSubview(InputButton);
-            }
-            else if (Option.Key == ModelOptionKey.PreboundLigandEnthalpy)
-            {
-                value /= 1000;
+                case ModelOptionKey.PreboundLigandAffinity:
+                    value = new FloatWithError(1.0) / value;
+                    value *= AppSettings.DefaultConcentrationUnit.GetProperties().Mod;
+                    break;
+                case ModelOptionKey.PreboundLigandConc:
+                    value *= 1000000;
+                    break;
+                case ModelOptionKey.PreboundLigandEnthalpy:
+                    value /= 1000;
+                    break;
+                case ModelOptionKey.Percentage:
+                    value *= 100;
+                    break;
             }
 
-            InputField = new NSTextField(new CGRect(0, 0, 45, 14))
+            switch (Option.Key)
+            {
+                case ModelOptionKey.Percentage:
+                case ModelOptionKey.PreboundLigandConc:
+                case ModelOptionKey.EquilibriumConstant:
+                    InputButton = new NSButton();
+                    InputButton.SetButtonType(NSButtonType.OnOff);
+                    InputButton.Title = "FromExp";
+                    InputButton.ToolTip = $"When enabled, the parameter value will be taken from the matching experiment property ({Option.Key}) rather than from the available input field";
+                    InputButton.State = Option.BoolValue ? NSCellStateValue.On : NSCellStateValue.Off;
+                    InputButton.BezelStyle = NSBezelStyle.Recessed;
+                    InputButton.ControlSize = NSControlSize.Mini;
+                    InputButton.Font = NSFont.SystemFontOfSize(9);
+
+                    AddArrangedSubview(InputButton);
+                    break;
+            }
+
+            InputField = new NSTextField(new CGRect(0, 0, 80, 14))
             {
                 Bordered = false,
                 TranslatesAutoresizingMaskIntoConstraints = false,
-                PlaceholderString = value.Value.ToString("F1"),
+                StringValue = value.Value.ToString("####0.0####"),
                 ToolTip = "Value for the given property",
                 BezelStyle = NSTextFieldBezelStyle.Rounded,
                 FocusRingType = NSFocusRingType.None,
@@ -226,7 +237,7 @@ namespace AnalysisITC.GUI.MacOS.CustomViews
                 LineBreakMode = NSLineBreakMode.TruncatingHead,
             };
             InputField.Changed += Input_Changed;
-            InputField.AddConstraint(NSLayoutConstraint.Create(InputField, NSLayoutAttribute.Width, NSLayoutRelation.Equal, 1, 45));
+            InputField.AddConstraint(NSLayoutConstraint.Create(InputField, NSLayoutAttribute.Width, NSLayoutRelation.Equal, 1, 40));
             InputField.RefusesFirstResponder = true;
 
             var plusminuslabel = new NSTextField(new CGRect(0, 0, 10, 14))
@@ -239,31 +250,34 @@ namespace AnalysisITC.GUI.MacOS.CustomViews
                 HorizontalContentSizeConstraintActive = false,
                 ControlSize = NSControlSize.Small,
                 Alignment = NSTextAlignment.Center,
-                TextColor = NSColor.SecondaryLabel,
+                //TextColor = NSColor.SecondaryLabel,
                 Font = NSFont.SystemFontOfSize(NSFont.SmallSystemFontSize),
             };
-            plusminuslabel.AddConstraint(NSLayoutConstraint.Create(plusminuslabel, NSLayoutAttribute.Width, NSLayoutRelation.Equal, 1, 10));
+            plusminuslabel.AddConstraint(NSLayoutConstraint.Create(plusminuslabel, NSLayoutAttribute.Width, NSLayoutRelation.Equal, 1, 20));
 
-            InputErrorField = new NSTextField(new CGRect(0, 0, 25, 14))
+            InputErrorField = new NSTextField(new CGRect(0, 0, 20, 14))
             {
                 Bordered = false,
                 TranslatesAutoresizingMaskIntoConstraints = false,
-                PlaceholderString = value.SD.ToString("F1"),
+                StringValue = value.SD.ToString("####0.0####"),
                 ToolTip = "Error value for the given property",
                 BezelStyle = NSTextFieldBezelStyle.Rounded,
                 FocusRingType = NSFocusRingType.None,
                 ControlSize = NSControlSize.Small,
                 Font = NSFont.SystemFontOfSize(NSFont.SmallSystemFontSize),
-                Alignment = NSTextAlignment.Left,
-                LineBreakMode = NSLineBreakMode.TruncatingHead,
+                Alignment = NSTextAlignment.Right,
+                LineBreakMode = NSLineBreakMode.TruncatingMiddle,
+                
             };
             InputErrorField.Changed += Input_Changed;
-            InputErrorField.AddConstraint(NSLayoutConstraint.Create(InputErrorField, NSLayoutAttribute.Width, NSLayoutRelation.Equal, 1, 25));
+            InputErrorField.SetContentCompressionResistancePriority(250, NSLayoutConstraintOrientation.Horizontal);
+            InputErrorField.SetContentHuggingPriorityForOrientation(250, NSLayoutConstraintOrientation.Horizontal);
+            InputErrorField.AddConstraint(NSLayoutConstraint.Create(InputErrorField, NSLayoutAttribute.Width, NSLayoutRelation.LessThanOrEqual, 1, 20));
             InputErrorField.RefusesFirstResponder = true;
 
             AddArrangedSubview(InputField);
-            //AddArrangedSubview(plusminuslabel);
-            //AddArrangedSubview(InputErrorField);
+            AddArrangedSubview(plusminuslabel);
+            AddArrangedSubview(InputErrorField);
 
             DefaultFieldColor = InputField.TextColor;
         }
@@ -305,29 +319,51 @@ namespace AnalysisITC.GUI.MacOS.CustomViews
 
         public void ApplyOptions()
         {
+            if (InputButton != null)
+            {
+                Option.BoolValue = InputButton.State == NSCellStateValue.On;
+            }
+
+            if (string.IsNullOrEmpty(InputField.StringValue)) return;
+
             switch (Option.Key)
             {
-                case ModelOptionKey.PeptideInCell:
-                    Option.BoolValue = InputButton.State == NSCellStateValue.On;
-                    break;
+                case ModelOptionKey.Percentage:
+                    {
+                        var val = InputField.DoubleValue / 100;
+                        var err = InputErrorField.DoubleValue / 100;
+
+                        var value = new FloatWithError(val, err);
+
+                        Option.ParameterValue = value;
+                        break;
+                    }
+                case ModelOptionKey.EquilibriumConstant:
+                    {
+                        if (InputField.DoubleValue == 0) return;
+
+                        var val = InputField.DoubleValue;
+                        var err = InputErrorField.DoubleValue;
+
+                        var value = new FloatWithError(val, err);
+
+                        Option.ParameterValue = value;
+                        break;
+                    }
                 case ModelOptionKey.PreboundLigandConc:
                     {
-                        Option.BoolValue = InputButton.State == NSCellStateValue.On;
-                        if (string.IsNullOrEmpty(InputField.StringValue)) return;
                         var val = InputField.DoubleValue / 1000000;
                         var err = InputErrorField.DoubleValue / 1000000;
 
                         var value = new FloatWithError(val, err);
 
                         Option.ParameterValue = value;
-                        Option.BoolValue = InputButton.State == NSCellStateValue.On;
                         break;
                     }
-
                 case ModelOptionKey.PreboundLigandAffinity:
                     {
-                        if (string.IsNullOrEmpty(InputField.StringValue)) return;
                         if (InputField.DoubleValue == 0) return;
+
                         var val = InputField.DoubleValue / AppSettings.DefaultConcentrationUnit.GetProperties().Mod;
                         var err = InputErrorField.DoubleValue / AppSettings.DefaultConcentrationUnit.GetProperties().Mod;
 
@@ -342,7 +378,6 @@ namespace AnalysisITC.GUI.MacOS.CustomViews
 
                 case ModelOptionKey.PreboundLigandEnthalpy:
                     {
-                        if (string.IsNullOrEmpty(InputField.StringValue)) return;
                         var val = InputField.DoubleValue;
                         var err = InputErrorField.DoubleValue;
 

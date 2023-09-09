@@ -22,12 +22,10 @@ namespace AnalysisITC.AppClasses.Analysis2.Models
             Parameters.AddOrUpdateParameter(ParameterType.Nvalue1, this.GuessN());
             Parameters.AddOrUpdateParameter(ParameterType.Enthalpy1, this.GuessEnthalpy());
             Parameters.AddOrUpdateParameter(ParameterType.Affinity1, this.GuessAffinity());
-            //Parameters.AddOrUpdateParameter(ParameterType.Affinity2, this.GuessAffinity());
             Parameters.AddOrUpdateParameter(ParameterType.Offset, this.GuessOffset());
-            Parameters.AddOrUpdateParameter(ParameterType.IsomerizationEquilibriumConstant, 0.42, islocked: false);
-            //Parameters.AddOrUpdateParameter(ParameterType.IsomerizationRate, 0.001, islocked: true);
+            //Parameters.AddOrUpdateParameter(ParameterType.IsomerizationEquilibriumConstant, 0.42, islocked: true);
 
-            ModelOptions.Add(AnalysisClasses.ModelOptions.Bool(ModelOptionKey.PeptideInCell, PeptideInCellOption, false).DictionaryEntry);
+            ModelOptions.Add(AnalysisClasses.ModelOptions.Parameter(ModelOptionKey.Percentage, "*Cis* population (0-100%)", new FloatWithError(0.42,0.05)).DictionaryEntry);
         }
 
         public override double Evaluate(int injectionindex, bool withoffset = true)
@@ -122,25 +120,25 @@ namespace AnalysisITC.AppClasses.Analysis2.Models
         double GetFractionCisBound(double Kd_cis, double Kd_trans, double conc_binding, double conc_cis, double conc_trans) => GetFractionLigandBound(Kd_cis, Kd_trans, conc_binding, conc_cis, conc_trans);
         double GetFractionTransBound(double Kd_cis, double Kd_trans, double conc_binding, double conc_cis, double conc_trans) => GetFractionLigandBound(Kd_trans, Kd_cis, conc_binding, conc_trans, conc_cis);
 
-        double GetDeltaHeat(int i, double n, double H, double K)
+        double GetDeltaHeat(int i, double n, double H, double Kapp)
         {
             var inj = Data.Injections[i];
-            var Qi = GetHeatContent(inj, n, H, K);
-            var Q_i = i == 0 ? 0.0 : GetHeatContent(Data.Injections[i - 1], n, H, K);
+            var Qi = GetHeatContent(inj, n, H, Kapp);
+            var Q_i = i == 0 ? 0.0 : GetHeatContent(Data.Injections[i - 1], n, H, Kapp);
 
             var dQi = Qi + (inj.Volume / Data.CellVolume) * ((Qi + Q_i) / 2.0) - Q_i;
 
             return dQi;
         }
 
-        double GetHeatContent(InjectionData inj, double n, double H, double K)
+        double GetHeatContent(InjectionData inj, double n, double H, double Kapp)
         {
             //var bound = GetFinalIsomerBoundConcentration(inj);
             //var prev = GetInitialIsomerBoundConcentration(inj);
 
             //return Parameters.Table[ParameterType.Enthalpy1].Value * (bound[0] + bound[1]);
 
-            var Kapp = K / (1 + Parameters.Table[ParameterType.IsomerizationEquilibriumConstant].Value);
+            //var Kapp = K * ModelOptions[ModelOptionKey.EquilibriumConstant].ParameterValue.Value; 
 
             var ncell = n * inj.ActualCellConcentration;
             var first = (ncell * H * Data.CellVolume) / 2.0;
@@ -158,17 +156,23 @@ namespace AnalysisITC.AppClasses.Analysis2.Models
 
             SetSynthModelParameters(mdl);
 
+            //Bootstrap value for error estimation //TODO does this work with LeaveOneOut?
+            var limits = ParameterType.CisIsomerPopulationPercentage.GetProperties().DefaultLimits;
+            mdl.ModelOptions[ModelOptionKey.Percentage].ParameterValue =
+                new FloatWithError(Math.Clamp(ModelOptions[ModelOptionKey.Percentage].ParameterValue.Sample(), limits[0], limits[1]), 0);
+
             return mdl;
         }
 
         public class ModelSolution : SolutionInterface
         {
             public Energy Enthalpy => Parameters[ParameterType.Enthalpy1].Energy;
-            public FloatWithError K => Parameters[ParameterType.Affinity1];
-            public FloatWithError K_app => K / (1 + Parameters[ParameterType.IsomerizationEquilibriumConstant]);
+            public FloatWithError K_app => Parameters[ParameterType.Affinity1];
+            public FloatWithError K => K_app / IsomerizationEquilibriumConstant;
             public FloatWithError N => Parameters[ParameterType.Nvalue1];
             public Energy Offset => Parameters[ParameterType.Offset].Energy;
-            public FloatWithError IsomerizationEquilibriumConstant => Parameters[ParameterType.IsomerizationEquilibriumConstant];
+            public FloatWithError PercentageCis => Model.ModelOptions[ModelOptionKey.Percentage].ParameterValue;
+            public FloatWithError IsomerizationEquilibriumConstant => PercentageCis / (1 - PercentageCis);
 
             public FloatWithError Kd => new FloatWithError(1) / K;
             public FloatWithError Kd_app => new FloatWithError(1) / K_app;
@@ -185,14 +189,13 @@ namespace AnalysisITC.AppClasses.Analysis2.Models
             public override void ComputeErrorsFromBootstrapSolutions()
             {
                 var enthalpies = BootstrapSolutions.Select(s => (s as ModelSolution).Enthalpy.FloatWithError.Value);
-                var k = BootstrapSolutions.Select(s => (s as ModelSolution).K.Value);
+                var k = BootstrapSolutions.Select(s => (s as ModelSolution).K_app.Value);
                 var n = BootstrapSolutions.Select(s => (s as ModelSolution).N.Value);
                 var offsets = BootstrapSolutions.Select(s => (s as ModelSolution).Offset.Value);
                 var keq = BootstrapSolutions.Select(s => (s as ModelSolution).IsomerizationEquilibriumConstant.Value);
 
                 Parameters[ParameterType.Enthalpy1] = new FloatWithError(enthalpies, Enthalpy);
-                Parameters[ParameterType.Affinity1] = new FloatWithError(k, K);
-                //Parameters[ParameterType.Affinity2] = new FloatWithError(k_cis, Kcis);
+                Parameters[ParameterType.Affinity1] = new FloatWithError(k, K_app);
                 Parameters[ParameterType.Nvalue1] = new FloatWithError(n, N);
                 Parameters[ParameterType.Offset] = new FloatWithError(offsets, Offset);
                 Parameters[ParameterType.IsomerizationEquilibriumConstant] = new FloatWithError(keq, IsomerizationEquilibriumConstant);
@@ -208,7 +211,7 @@ namespace AnalysisITC.AppClasses.Analysis2.Models
                 if (info.HasFlag(FinalFigureDisplayParameters.Affinity))
                 {
                     output.Add(new(Utils.MarkdownStrings.DissociationConstant, Kd.AsFormattedConcentration(true)));
-                    if (info.HasFlag(FinalFigureDisplayParameters.Other))
+                    if (info.HasFlag(FinalFigureDisplayParameters.Misc))
                     {
                         output.Add(new(Utils.MarkdownStrings.ApparantDissociationConstant, Kd_app.AsFormattedConcentration(true)));
                         output.Add(new(Utils.MarkdownStrings.IsomerizationEquilibriumConstant, IsomerizationEquilibriumConstant.AsNumber()));
