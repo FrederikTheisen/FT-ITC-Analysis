@@ -207,6 +207,7 @@ namespace AnalysisITC
         void ZoomRegion(CGRect region)
         {
             if (Data == null) return;
+            if (region.Width < 10) return; //dont zoom too much please
 
             Graph.SetXAxisRange(region.Left, region.Right);
             Graph.SetYAxisRange(region.Bottom, region.Top);
