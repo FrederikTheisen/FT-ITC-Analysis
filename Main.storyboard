@@ -1259,7 +1259,7 @@
                                                         <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
                                                         <subviews>
                                                             <textView wantsLayer="YES" editable="NO" selectable="NO" drawsBackground="NO" importsGraphics="NO" richText="NO" verticallyResizable="YES" baseWritingDirection="leftToRight" findStyle="panel" smartInsertDelete="YES" id="hif-Db-3cK">
-                                                                <rect key="frame" x="0.0" y="-1586" width="390" height="2321"/>
+                                                                <rect key="frame" x="0.0" y="-1586" width="390" height="2621"/>
                                                                 <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
                                                                 <color key="textColor" name="textColor" catalog="System" colorSpace="catalog"/>
                                                                 <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
@@ -5168,15 +5168,28 @@ IA
                                                             <rect key="frame" x="0.0" y="114" width="888" height="20"/>
                                                             <subviews>
                                                                 <textField horizontalHuggingPriority="249" verticalHuggingPriority="751" translatesAutoresizingMaskIntoConstraints="NO" id="Vgh-fd-ott">
-                                                                    <rect key="frame" x="-2" y="3" width="719" height="16"/>
+                                                                    <rect key="frame" x="-2" y="3" width="521" height="16"/>
                                                                     <textFieldCell key="cell" lineBreakMode="clipping" title="Injection equilibrium time (fraction of delay)" id="gZf-hT-9If">
                                                                         <font key="font" metaFont="system"/>
                                                                         <color key="textColor" name="labelColor" catalog="System" colorSpace="catalog"/>
                                                                         <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
                                                                     </textFieldCell>
                                                                 </textField>
+                                                                <button horizontalHuggingPriority="251" verticalHuggingPriority="749" translatesAutoresizingMaskIntoConstraints="NO" id="uTh-Vr-QVQ">
+                                                                    <rect key="frame" x="525" y="-2" width="159" height="24"/>
+                                                                    <buttonCell key="cell" type="check" title="Discard integration range" bezelStyle="regularSquare" imagePosition="right" state="on" inset="2" id="qhq-ss-k18">
+                                                                        <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
+                                                                        <font key="font" metaFont="system" size="11"/>
+                                                                    </buttonCell>
+                                                                    <connections>
+                                                                        <action selector="DiscardIntRangeAction:" target="HbJ-1n-Qa7" id="10g-Tj-p9p"/>
+                                                                    </connections>
+                                                                </button>
                                                                 <textField focusRingType="none" horizontalHuggingPriority="251" verticalHuggingPriority="749" mirrorLayoutDirectionWhenInternationalizing="never" textCompletion="NO" translatesAutoresizingMaskIntoConstraints="NO" id="eGg-vp-bPI">
-                                                                    <rect key="frame" x="721" y="0.0" width="11" height="20"/>
+                                                                    <rect key="frame" x="688" y="0.0" width="44" height="20"/>
+                                                                    <constraints>
+                                                                        <constraint firstAttribute="width" constant="40" id="CH2-NS-2Zy"/>
+                                                                    </constraints>
                                                                     <textFieldCell key="cell" sendsActionOnEndEditing="YES" focusRingType="none" baseWritingDirection="leftToRight" alignment="right" title="-" id="qgz-l2-yMB">
                                                                         <font key="font" metaFont="system"/>
                                                                         <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
@@ -5198,8 +5211,10 @@ IA
                                                                 <integer value="1000"/>
                                                                 <integer value="1000"/>
                                                                 <integer value="1000"/>
+                                                                <integer value="1000"/>
                                                             </visibilityPriorities>
                                                             <customSpacing>
+                                                                <real value="3.4028234663852886e+38"/>
                                                                 <real value="3.4028234663852886e+38"/>
                                                                 <real value="3.4028234663852886e+38"/>
                                                                 <real value="3.4028234663852886e+38"/>
@@ -5250,15 +5265,28 @@ IA
                                                             <rect key="frame" x="0.0" y="58" width="888" height="20"/>
                                                             <subviews>
                                                                 <textField verticalHuggingPriority="751" translatesAutoresizingMaskIntoConstraints="NO" id="QYT-v8-FGd">
-                                                                    <rect key="frame" x="-2" y="3" width="719" height="16"/>
+                                                                    <rect key="frame" x="-2" y="3" width="531" height="16"/>
                                                                     <textFieldCell key="cell" lineBreakMode="clipping" title="Discard function Z limit" id="Skw-tn-pl4">
                                                                         <font key="font" metaFont="system"/>
                                                                         <color key="textColor" name="labelColor" catalog="System" colorSpace="catalog"/>
                                                                         <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
                                                                     </textFieldCell>
                                                                 </textField>
+                                                                <button horizontalHuggingPriority="251" verticalHuggingPriority="749" translatesAutoresizingMaskIntoConstraints="NO" id="qIC-SF-Q6T">
+                                                                    <rect key="frame" x="535" y="-2" width="159" height="24"/>
+                                                                    <buttonCell key="cell" type="check" title="Discard integration range" bezelStyle="regularSquare" imagePosition="right" state="on" inset="2" id="zMl-iD-86j">
+                                                                        <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
+                                                                        <font key="font" metaFont="system" size="11"/>
+                                                                    </buttonCell>
+                                                                    <connections>
+                                                                        <action selector="DiscardIntRangeAction:" target="HbJ-1n-Qa7" id="XtR-GP-HC6"/>
+                                                                    </connections>
+                                                                </button>
                                                                 <textField focusRingType="none" horizontalHuggingPriority="251" verticalHuggingPriority="749" mirrorLayoutDirectionWhenInternationalizing="never" textCompletion="NO" translatesAutoresizingMaskIntoConstraints="NO" id="2ZU-bz-tA3">
-                                                                    <rect key="frame" x="721" y="0.0" width="11" height="20"/>
+                                                                    <rect key="frame" x="698" y="0.0" width="34" height="20"/>
+                                                                    <constraints>
+                                                                        <constraint firstAttribute="width" constant="30" id="fw3-xh-T8P"/>
+                                                                    </constraints>
                                                                     <textFieldCell key="cell" sendsActionOnEndEditing="YES" focusRingType="none" baseWritingDirection="leftToRight" alignment="right" title="-" id="2Kd-Il-Wd3">
                                                                         <font key="font" metaFont="system"/>
                                                                         <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
@@ -5280,8 +5308,10 @@ IA
                                                                 <integer value="1000"/>
                                                                 <integer value="1000"/>
                                                                 <integer value="1000"/>
+                                                                <integer value="1000"/>
                                                             </visibilityPriorities>
                                                             <customSpacing>
+                                                                <real value="3.4028234663852886e+38"/>
                                                                 <real value="3.4028234663852886e+38"/>
                                                                 <real value="3.4028234663852886e+38"/>
                                                                 <real value="3.4028234663852886e+38"/>
@@ -5640,12 +5670,14 @@ IA
                         <outlet property="PolynomialDegreeLabel" destination="hfl-vt-GLE" id="2kH-B5-bYg"/>
                         <outlet property="PolynomialDegreeSlider" destination="XaD-96-jKX" id="e7K-SY-o4C"/>
                         <outlet property="PolynomialDegreeView" destination="FlM-5h-4nV" id="o8V-5U-ptr"/>
+                        <outlet property="PolynomialDiscardIntegrationRange" destination="qIC-SF-Q6T" id="wUo-RC-AgN"/>
                         <outlet property="SelectedInjectionLabel" destination="hKs-HY-tz4" id="b1C-Ey-NW6"/>
                         <outlet property="ShowCursorInfoButton" destination="nl7-lo-hzH" id="yYN-RX-0Jm"/>
                         <outlet property="SplineAlgoControl" destination="s73-Vs-cPl" id="SC0-j5-6ZE"/>
                         <outlet property="SplineAlgorithmView" destination="fyI-Ib-dCT" id="G0C-QJ-mZu"/>
                         <outlet property="SplineBaselineFractionControl" destination="eGg-vp-bPI" id="xc6-ob-zvf"/>
                         <outlet property="SplineBaselineFractionView" destination="l6Z-Vn-XRp" id="rNi-U2-wb1"/>
+                        <outlet property="SplineDiscardIntegrationRange" destination="uTh-Vr-QVQ" id="pKX-2w-5nh"/>
                         <outlet property="SplineFractionSliderControl" destination="bUx-n5-MBV" id="0mt-yC-fis"/>
                         <outlet property="SplineHandleModeControl" destination="ATX-gc-bgX" id="Uyg-SN-RwY"/>
                         <outlet property="SplineHandleModeView" destination="PUw-5Z-bnr" id="mhP-QQ-sdC"/>

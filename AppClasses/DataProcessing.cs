@@ -152,6 +152,7 @@ namespace AnalysisITC
         public DataProcessor Processor { get; set; }
         internal List<Energy> Baseline { get; set; } = new List<Energy>();
         public bool IsLocked { get; set; } = false;
+        public bool DiscardIntegratedPoints { get; set; } = true;
 
         internal ExperimentData Data => Processor.Data;
         public SplineInterpolator SplineInterpolator => this as SplineInterpolator;
@@ -242,7 +243,8 @@ namespace AnalysisITC
                 PointsPerInjection = this.PointsPerInjection,
                 FractionBaseline = this.FractionBaseline,
                 Algorithm = this.Algorithm,
-                HandleMode = this.HandleMode
+                HandleMode = this.HandleMode,
+                DiscardIntegratedPoints = this.DiscardIntegratedPoints,
             };
 
             return interpolator;
@@ -266,11 +268,18 @@ namespace AnalysisITC
                 var start = inj.Time + inj.Delay * (1 - _frac);
                 var length = (inj.Delay * _frac - 5) / pointperinjection;
 
+                if (DiscardIntegratedPoints)
+                {
+                    if (start < inj.IntegrationEndTime) start = inj.IntegrationEndTime;
+                }
+
+                var end = inj.Time + inj.Delay;
+
                 for (int j = 0; j < pointperinjection; j++)
                 {
-                    var s = start + j * length;
-                    var e = s + length;
-                    var time = s + length * 0.5;
+                    var s = start; // + j * length;
+                    var e = end; // s + length;
+                    var time = (s + e) / 2;
 
                     double slope = SplineSlope(time, s, e);
 
@@ -541,8 +550,18 @@ namespace AnalysisITC
         {
             await base.Interpolate(token, replace);
 
+            //Arrays of time and power datapoints
             var x = Data.DataPoints.Select(dp => (double)dp.Time).ToArray();
             var y = Data.DataPoints.Select(dp => (double)dp.Power).ToArray();
+
+            if (DiscardIntegratedPoints)
+            {
+                foreach (var inj in Data.Injections)
+                {
+                    y = y.Where((v, idx) => x[idx] < inj.IntegrationStartTime || x[idx] > inj.IntegrationEndTime).ToArray();
+                    x = x.Where((v, idx) => v < inj.IntegrationStartTime || v > inj.IntegrationEndTime).ToArray();
+                }
+            }
 
             var fit = MathNet.Numerics.Fit.Polynomial(x, y, Degree);
             var line = LineFromFit(fit, x);
@@ -553,16 +572,21 @@ namespace AnalysisITC
 
             while (r > double.Epsilon && Math.Abs(previousRSoS - r) > double.Epsilon)
             {
-                var residues = Residuals(line, y);
+                var residuals = Residuals(line, y);
 
                 var s = Math.Sqrt(r / (line.Length - 1));
-                var avg = residues.Average();
+                var avg = residuals.Average();
 
-                var Zscores = residues.Select(v => Math.Abs(v - avg) / s).ToArray();
+                var Zscores = residuals.Select(v => Math.Abs(v - avg) / s).ToArray();
                 previousRSoS = r;
 
-                x = x.Where((v, idx) => IdxToTime(idx) < Data.InitialDelay || IdxToTime(idx) > Data.Injections.Last().IntegrationEndTime || Zscores[idx] < ZLimit).ToArray();
-                y = y.Where((v, idx) => IdxToTime(idx) < Data.InitialDelay || IdxToTime(idx) > Data.Injections.Last().IntegrationEndTime || Zscores[idx] < ZLimit).ToArray();
+                //x = x.Where((v, idx) => IdxToTime(idx) < Data.InitialDelay || IdxToTime(idx) > Data.Injections.Last().IntegrationEndTime || Zscores[idx] < ZLimit).ToArray();
+                //y = y.Where((v, idx) => IdxToTime(idx) < Data.InitialDelay || IdxToTime(idx) > Data.Injections.Last().IntegrationEndTime || Zscores[idx] < ZLimit).ToArray();
+
+                y = y.Where((v, idx) => Zscores[idx] < ZLimit).ToArray();
+                x = x.Where((v, idx) => Zscores[idx] < ZLimit).ToArray();
+
+
 
                 fit = MathNet.Numerics.Fit.Polynomial(x, y, Degree);
                 line = LineFromFit(fit, x);

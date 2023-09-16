@@ -76,6 +76,9 @@ namespace AnalysisITC
 		AppKit.NSStackView PolynomialDegreeView { get; set; }
 
 		[Outlet]
+		AppKit.NSButton PolynomialDiscardIntegrationRange { get; set; }
+
+		[Outlet]
 		AppKit.NSTextField SelectedInjectionLabel { get; set; }
 
 		[Outlet]
@@ -92,6 +95,9 @@ namespace AnalysisITC
 
 		[Outlet]
 		AppKit.NSStackView SplineBaselineFractionView { get; set; }
+
+		[Outlet]
+		AppKit.NSButton SplineDiscardIntegrationRange { get; set; }
 
 		[Outlet]
 		AppKit.NSSlider SplineFractionSliderControl { get; set; }
@@ -131,6 +137,9 @@ namespace AnalysisITC
 
 		[Action ("CopySettingsToAllClicked:")]
 		partial void CopySettingsToAllClicked (Foundation.NSObject sender);
+
+		[Action ("DiscardIntRangeAction:")]
+		partial void DiscardIntRangeAction (AppKit.NSButton sender);
 
 		[Action ("DrawFeatureControlClicked:")]
 		partial void DrawFeatureControlClicked (AppKit.NSSegmentedControl sender);
@@ -279,6 +288,11 @@ namespace AnalysisITC
 				InterpolatorTypeControl = null;
 			}
 
+			if (PeakZoomWidthSegControl != null) {
+				PeakZoomWidthSegControl.Dispose ();
+				PeakZoomWidthSegControl = null;
+			}
+
 			if (PolynomialDegreeLabel != null) {
 				PolynomialDegreeLabel.Dispose ();
 				PolynomialDegreeLabel = null;
@@ -297,6 +311,11 @@ namespace AnalysisITC
 			if (SelectedInjectionLabel != null) {
 				SelectedInjectionLabel.Dispose ();
 				SelectedInjectionLabel = null;
+			}
+
+			if (ShowCursorInfoButton != null) {
+				ShowCursorInfoButton.Dispose ();
+				ShowCursorInfoButton = null;
 			}
 
 			if (SplineAlgoControl != null) {
@@ -369,14 +388,14 @@ namespace AnalysisITC
 				ZLimitView = null;
 			}
 
-			if (ShowCursorInfoButton != null) {
-				ShowCursorInfoButton.Dispose ();
-				ShowCursorInfoButton = null;
+			if (SplineDiscardIntegrationRange != null) {
+				SplineDiscardIntegrationRange.Dispose ();
+				SplineDiscardIntegrationRange = null;
 			}
 
-			if (PeakZoomWidthSegControl != null) {
-				PeakZoomWidthSegControl.Dispose ();
-				PeakZoomWidthSegControl = null;
+			if (PolynomialDiscardIntegrationRange != null) {
+				PolynomialDiscardIntegrationRange.Dispose ();
+				PolynomialDiscardIntegrationRange = null;
 			}
 		}
 	}

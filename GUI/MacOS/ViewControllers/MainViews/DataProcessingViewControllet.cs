@@ -17,6 +17,7 @@ namespace AnalysisITC
         bool ShowIntegrationRange => IntegrationScopeButton.State == NSCellStateValue.On;
         bool Corrected => CorrectedScopeButton.State == NSCellStateValue.On;
         bool ShowCursorInfo => ShowCursorInfoButton.State == NSCellStateValue.On;
+        bool DiscardIntegratedPoints { get; set; } = true;
 
         public DataProcessingViewControllet (IntPtr handle) : base (handle)
 		{
@@ -35,6 +36,8 @@ namespace AnalysisITC
             BaselineScopeButton.State = NSCellStateValue.On;
             IntegrationScopeButton.State = NSCellStateValue.On;
             ShowCursorInfoButton.State = NSCellStateValue.On;
+            PolynomialDiscardIntegrationRange.State = DiscardIntegratedPoints ? NSCellStateValue.On : NSCellStateValue.Off;
+            SplineDiscardIntegrationRange.State = DiscardIntegratedPoints ? NSCellStateValue.On : NSCellStateValue.Off;
         }
 
         private void AppDelegate_StartPrintOperation(object sender, EventArgs e)
@@ -162,6 +165,19 @@ namespace AnalysisITC
             ZLimitLabel.StringValue = ZLimitSlider.FloatValue.ToString("G3");
         }
 
+        partial void DiscardIntRangeAction(NSButton sender)
+        {
+            DiscardIntegratedPoints = !DiscardIntegratedPoints;
+
+            PolynomialDiscardIntegrationRange.State = DiscardIntegratedPoints ? NSCellStateValue.On : NSCellStateValue.Off;
+            SplineDiscardIntegrationRange.State = DiscardIntegratedPoints ? NSCellStateValue.On : NSCellStateValue.Off;
+
+            if (Data != null)
+                Processor.Interpolator.DiscardIntegratedPoints = DiscardIntegratedPoints;
+
+            UpdateProcessing();
+        }
+
         #region Processing Baseline
 
         partial void InterplolatorClicked(NSSegmentedControl sender)
@@ -285,6 +301,8 @@ namespace AnalysisITC
 
             if (BaselineGraphView.SelectedPeak == -1) Data.SetCustomIntegrationTimes(delay, length);
             else Data.Injections[BaselineGraphView.SelectedPeak].SetCustomIntegrationTimes(delay, length);
+
+            if (DiscardIntegratedPoints) UpdateProcessing();
 
             BaselineGraphView.Invalidate();
 

@@ -363,7 +363,10 @@ namespace AnalysisITC
                 {
                     case Utilities.MouseOverFeatureEvent.FeatureType.BaselineSplineHandle:
                     case Utilities.MouseOverFeatureEvent.FeatureType.BaselineSplinePoint: UpdateSplineHandle(); break;
-                    case Utilities.MouseOverFeatureEvent.FeatureType.IntegrationRangeMarker: Data.Processor.IntegratePeaks(); break;
+                    case Utilities.MouseOverFeatureEvent.FeatureType.IntegrationRangeMarker:
+                        if (Data.Processor.Interpolator.DiscardIntegratedPoints) Data.Processor.ProcessData();
+                        else Data.Processor.IntegratePeaks(); //Don't integrate twice
+                        break;
                     case Utilities.MouseOverFeatureEvent.FeatureType.DragZoom:
                         ZoomSelectionBox.Hidden = true;
                         ZoomRegion(SelectedFeature.GetZoomRegion(Graph, CursorPositionInView));
