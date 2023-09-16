@@ -5134,7 +5134,7 @@ IA
                                                             <subviews>
                                                                 <textField verticalHuggingPriority="751" translatesAutoresizingMaskIntoConstraints="NO" id="Q53-ya-7Il">
                                                                     <rect key="frame" x="-2" y="3" width="718" height="16"/>
-                                                                    <textFieldCell key="cell" lineBreakMode="clipping" title="Spline handle mode" id="6Da-FS-BYe">
+                                                                    <textFieldCell key="cell" lineBreakMode="clipping" title="Spline point placement mode" id="6Da-FS-BYe">
                                                                         <font key="font" metaFont="system"/>
                                                                         <color key="textColor" name="labelColor" catalog="System" colorSpace="catalog"/>
                                                                         <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
@@ -5473,7 +5473,7 @@ IA
                                         <size key="contentViewMargins" width="5" height="5"/>
                                     </box>
                                     <stackView distribution="fill" orientation="horizontal" alignment="firstBaseline" horizontalStackHuggingPriority="250" verticalStackHuggingPriority="750" verticalHuggingPriority="750" detachesHiddenViews="YES" translatesAutoresizingMaskIntoConstraints="NO" id="5oj-9h-hGH">
-                                        <rect key="frame" x="0.0" y="492" width="567" height="16"/>
+                                        <rect key="frame" x="343" y="492" width="567" height="16"/>
                                         <subviews>
                                             <button toolTip="Display the baseline" verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="jsQ-Vt-t9u">
                                                 <rect key="frame" x="5" y="-1" width="66" height="17"/>

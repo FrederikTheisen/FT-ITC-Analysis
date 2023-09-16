@@ -586,8 +586,6 @@ namespace AnalysisITC
                 y = y.Where((v, idx) => Zscores[idx] < ZLimit).ToArray();
                 x = x.Where((v, idx) => Zscores[idx] < ZLimit).ToArray();
 
-
-
                 fit = MathNet.Numerics.Fit.Polynomial(x, y, Degree);
                 line = LineFromFit(fit, x);
 
