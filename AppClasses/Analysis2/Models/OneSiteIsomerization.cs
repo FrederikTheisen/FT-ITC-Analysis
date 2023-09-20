@@ -25,7 +25,7 @@ namespace AnalysisITC.AppClasses.Analysis2.Models
             Parameters.AddOrUpdateParameter(ParameterType.Offset, this.GuessOffset());
             //Parameters.AddOrUpdateParameter(ParameterType.IsomerizationEquilibriumConstant, 0.42, islocked: true);
 
-            ModelOptions.Add(AnalysisClasses.ModelOptions.Parameter(ModelOptionKey.Percentage, "*Cis* population (0-100%)", new FloatWithError(0.42,0.05)).DictionaryEntry);
+            ModelOptions.Add(AnalysisClasses.ModelOptions.Parameter(ModelOptionKey.Percentage, "*Cis* population (0-100%)", new FloatWithError(0.37,0.02)).DictionaryEntry);
         }
 
         public override double Evaluate(int injectionindex, bool withoffset = true)
@@ -168,7 +168,7 @@ namespace AnalysisITC.AppClasses.Analysis2.Models
         {
             public Energy Enthalpy => Parameters[ParameterType.Enthalpy1].Energy;
             public FloatWithError K_app => Parameters[ParameterType.Affinity1];
-            public FloatWithError K => K_app / IsomerizationEquilibriumConstant;
+            public FloatWithError K => 1/(Kd_app / (1 + 1/IsomerizationEquilibriumConstant));
             public FloatWithError N => Parameters[ParameterType.Nvalue1];
             public Energy Offset => Parameters[ParameterType.Offset].Energy;
             public FloatWithError PercentageCis => Model.ModelOptions[ModelOptionKey.Percentage].ParameterValue;
@@ -192,13 +192,13 @@ namespace AnalysisITC.AppClasses.Analysis2.Models
                 var k = BootstrapSolutions.Select(s => (s as ModelSolution).K_app.Value);
                 var n = BootstrapSolutions.Select(s => (s as ModelSolution).N.Value);
                 var offsets = BootstrapSolutions.Select(s => (s as ModelSolution).Offset.Value);
-                var keq = BootstrapSolutions.Select(s => (s as ModelSolution).IsomerizationEquilibriumConstant.Value);
+                //var keq = BootstrapSolutions.Select(s => (s as ModelSolution).IsomerizationEquilibriumConstant.Value);
 
                 Parameters[ParameterType.Enthalpy1] = new FloatWithError(enthalpies, Enthalpy);
                 Parameters[ParameterType.Affinity1] = new FloatWithError(k, K_app);
                 Parameters[ParameterType.Nvalue1] = new FloatWithError(n, N);
                 Parameters[ParameterType.Offset] = new FloatWithError(offsets, Offset);
-                Parameters[ParameterType.IsomerizationEquilibriumConstant] = new FloatWithError(keq, IsomerizationEquilibriumConstant);
+                //Parameters[ParameterType.IsomerizationEquilibriumConstant] = new FloatWithError(keq, IsomerizationEquilibriumConstant);
 
                 base.ComputeErrorsFromBootstrapSolutions();
             }
@@ -236,6 +236,7 @@ namespace AnalysisITC.AppClasses.Analysis2.Models
             public override Dictionary<ParameterType, FloatWithError> ReportParameters => new Dictionary<ParameterType, FloatWithError>
                 {
                     { ParameterType.Nvalue1, N },
+                    { ParameterType.ApparentAffinity, Kd_app },
                     { ParameterType.Affinity1, Kd },
                     { ParameterType.IsomerizationEquilibriumConstant, IsomerizationEquilibriumConstant },
                     { ParameterType.Enthalpy1, Enthalpy.FloatWithError },
