@@ -496,6 +496,8 @@ namespace AnalysisITC.AppClasses.Analysis2
         IsomerizationEquilibriumConstant,
         [ParameterTypeAttribute("Equilibrium constant", "%{cis}", 0.1, new double[] { 0 + float.Epsilon, 100 - float.Epsilon }, CisIsomerPopulationPercentage)]
         CisIsomerPopulationPercentage,
+        [ParameterTypeAttribute("Apparent *K*{d}", "*K*{d,app}", 100000, new double[] { 10, 100000000000 }, Affinity1)]
+        ApparentAffinity,
     }
 }
 
