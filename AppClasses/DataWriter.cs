@@ -68,6 +68,7 @@ namespace AnalysisITC
         public const string SolConvFailed = "Failed";
         public const string SolConvAlgorithm = "Algorithm";
         public const string MdlCloneOptions = "MdlClOpts";
+        public const string MdlOptions = "MdlOpts";
 
         public const string GlobalSolutionHeader = "GlobalSolutionFile";
         public const string SolutionList = "SolutionList";
@@ -323,12 +324,21 @@ namespace AnalysisITC
             file.Add(Variable(SolModel, (int)solution.ModelType));
             if (solution.ErrorMethod != ErrorEstimationMethod.None) file.Add(Variable(SolErrorMethod, (int)solution.ErrorMethod));
             AddConvergenceLine(solution.Convergence, file);
+
             file.Add(ListHeader(SolParams));
             foreach (var par in solution.Model.Parameters.Table)
             {
                 file.Add(Variable(par.Key.ToString() + ":" + ((int)par.Key).ToString(), par.Value.Value));
             }
             file.Add(EndListHeader);
+
+            file.Add(ListHeader(MdlOptions));
+            foreach (var opt in solution.Model.ModelOptions.ToList())
+            {
+                file.Add(Attribute(opt.Value));
+            }
+            file.Add(EndListHeader);
+
             if (solution.BootstrapSolutions.Count > 0)
             {
                 file.Add(ListHeader(SolBootstrapSolutions));

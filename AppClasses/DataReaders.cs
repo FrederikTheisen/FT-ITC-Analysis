@@ -449,7 +449,15 @@ namespace DataReaders
 
         private static void ReadAttributes(ExperimentData exp, StreamReader reader)
         {
-            var attributes = new List<ModelOptions>();
+            var attributes = ReadAttributeOptions(reader);
+
+            foreach (var att in attributes)
+                exp.Attributes.Add(att);
+        }
+
+        private static List<ModelOptions> ReadAttributeOptions(StreamReader reader)
+        {
+            var options = new List<ModelOptions>();
 
             string line;
 
@@ -463,11 +471,10 @@ namespace DataReaders
                 opt.DoubleValue = DParse(dat[4].Split(':')[1]);
                 opt.ParameterValue = FWEParse(dat[5].Split(':')[1]);
 
-                attributes.Add(opt);
+                options.Add(opt);
             }
 
-            foreach (var att in attributes)
-                exp.Attributes.Add(att);
+            return options;
         }
 
         static void ReadInjectionList(ExperimentData exp, StreamReader reader)
@@ -498,12 +505,21 @@ namespace DataReaders
 
         static AnalysisResult ReadAnalysisResult(StreamReader reader, string firstline)
         {
-            var guid = firstline.Split(':')[2];
-            var sol = ReadGlobalSolution(reader);
+            try
+            {
+                var guid = firstline.Split(':')[2];
+                var sol = ReadGlobalSolution(reader);
 
-            AnalysisResult result = new AnalysisResult(sol);
+                AnalysisResult result = new AnalysisResult(sol);
 
-            return result;
+                return result;
+            }
+            catch (Exception ex)
+            {
+                AppEventHandler.AddLog(ex);
+
+                return null;
+            }
         }
 
         static GlobalSolution ReadGlobalSolution(StreamReader reader)
@@ -564,6 +580,7 @@ namespace DataReaders
                             while ((solline = reader.ReadLine()) != EndListHeader)
                             {
                                 var sol = ReadSolution(reader, solline);
+                                if (sol == null) break;
                                 factory.Model.Models.Find(mdl => mdl.Data.UniqueID == sol.Data.UniqueID).Solution = sol;
 
                                 solutions.Add(sol);
@@ -599,7 +616,7 @@ namespace DataReaders
                 }
             }
 
-            factory.Model.Solution = new GlobalSolution(new GlobalSolver() { Model = factory.Model, ErrorEstimationMethod = solutions[0].ErrorMethod }, solutions, conv);
+            if (solutions.Count > 0) factory.Model.Solution = new GlobalSolution(new GlobalSolver() { Model = factory.Model, ErrorEstimationMethod = solutions[0].ErrorMethod }, solutions, conv);
 
             foreach (var sol in solutions) sol.SetIsGlobal(factory.Model.Solution);
 
@@ -632,35 +649,28 @@ namespace DataReaders
                     {
                         //case SolErrorMethod: factory.Model.MCO = (ErrorEstimationMethod)IParse(v[1]); break;
                         case "LIST" when v[1] == SolParams:
+                            parameters = new List<Parameter>();
+                            string line2;
+                            while ((line2 = reader.ReadLine()) != EndListHeader)
                             {
-                                parameters = new List<Parameter>();
-                                string line2;
-                                while ((line2 = reader.ReadLine()) != EndListHeader)
-                                {
-                                    var dat = line2.Split(':');
-                                    var par = (ParameterType)int.Parse(dat[1]);
-                                    var val = DParse(dat[2]);
+                                var dat = line2.Split(':');
+                                var par = (ParameterType)int.Parse(dat[1]);
+                                var val = DParse(dat[2]);
 
-                                    parameters.Add(new Parameter(par, val));
-                                }
-                                break;
+                                parameters.Add(new Parameter(par, val));
                             }
+                            break;
                         case "LIST" when v[1] == SolBootstrapSolutions:
+                            bsols = new List<SolutionInterface>();
+                            var bsol = "";
+                            while ((bsol = reader.ReadLine()) != EndListHeader)
                             {
-                                bsols = new List<SolutionInterface>();
-                                var bsol = "";
-                                while ((bsol = reader.ReadLine()) != EndListHeader)
-                                {
-                                    bsols.Add(ReadSolution(reader, bsol, factory.Model.Data));
-                                }
-                                break;
+                                bsols.Add(ReadSolution(reader, bsol, factory.Model.Data));
                             }
-                        case "OBJECT" when v[1] == SolConvergence:
-                            {
-                                conv = ReadConvergenceObject(reader);
+                            break;
+                        case "LIST" when v[1] == MdlOptions: ReadModelOptions(factory.Model, reader); break;
+                        case "OBJECT" when v[1] == SolConvergence: conv = ReadConvergenceObject(reader); break;
 
-                                break;
-                            }
                     }
                 }
 
@@ -680,6 +690,14 @@ namespace DataReaders
 
                 return null;
             }
+        }
+
+        private static void ReadModelOptions(Model mdl, StreamReader reader)
+        {
+            List<ModelOptions> options = ReadAttributeOptions(reader);
+
+            foreach (var att in options)
+                mdl.ModelOptions.Add(att.DictionaryEntry);
         }
 
         private static SolverConvergence ReadConvergenceObject(StreamReader reader)
