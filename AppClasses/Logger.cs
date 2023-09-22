@@ -34,7 +34,8 @@ namespace AnalysisITC
 
 			var stacktrace = ex.StackTrace?.Split(Environment.NewLine) ?? new[] { "" };
 
-			foreach (var line in stacktrace) Console.WriteLine(line);
+            Console.WriteLine(ex.Message);
+            foreach (var line in stacktrace) Console.WriteLine(line);
 
 			switch (ex)
 			{
