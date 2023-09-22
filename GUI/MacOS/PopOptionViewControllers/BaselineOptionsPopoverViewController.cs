@@ -49,7 +49,7 @@ namespace AnalysisITC
         {
             DefaultSplinePoints = SplinePointsSlider.IntValue;
 
-            Data.Processor.Interpolator.ConvertToSpline(SplinePointsSlider.IntValue);
+            Data.Processor.Interpolator.ConvertToSpline((int)Math.Pow(2, SplinePointsSlider.IntValue - 1));
 
             DismissViewController(this);
         }
