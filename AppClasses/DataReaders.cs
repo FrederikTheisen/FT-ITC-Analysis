@@ -19,6 +19,7 @@ namespace DataReaders
     {
         static void AddData(ITCDataContainer data)
         {
+            if (data == null) return;
             bool valid = true;
             if (data is ExperimentData) valid = ValidateData(data as ExperimentData);
 
