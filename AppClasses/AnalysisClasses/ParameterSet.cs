@@ -423,6 +423,7 @@ namespace AnalysisITC.AppClasses.Analysis2
                 case ParameterType.EntropyContribution2: return "-T∆S2";
                 case ParameterType.Gibbs1: return "∆G" + (containstwo ? "1" : "");
                 case ParameterType.Gibbs2: return "∆G2";
+                case ParameterType.ApparentAffinity: return "Kd_app";
                 case ParameterType.IsomerizationEquilibriumConstant: return "Keq";
                 case ParameterType.IsomerizationRate:
                 default: AppEventHandler.DisplayHandledException(new NotImplementedException("[ParameterSet.cs] TableHeaderNotImplementedException: " + key.ToString())); return "err";

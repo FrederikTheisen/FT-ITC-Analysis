@@ -183,7 +183,7 @@ namespace AnalysisITC.AppClasses.AnalysisClasses
 				return new List<ModelOptionKey>
 				{
 					 ModelOptionKey.PreboundLigandConc,
-					 ModelOptionKey.PeptideInCell,
+					 //ModelOptionKey.PeptideInCell,
 					 ModelOptionKey.Buffer,
 					 ModelOptionKey.Salt,
 					 ModelOptionKey.IonicStrength,
