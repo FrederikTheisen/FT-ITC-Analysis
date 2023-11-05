@@ -13,7 +13,6 @@ namespace AnalysisITC
 {
 	public partial class ExportAccessoryViewController : NSViewController
 	{
-
         public ExportAccessoryViewController (IntPtr handle) : base (handle)
 		{
 		}
@@ -31,6 +30,7 @@ namespace AnalysisITC
             public bool UnifyTimeAxis;
             public bool ExportBaselineCorrectDataPoints;
             public bool ExportFittedPeaks;
+            public bool ExportOffsetCorrected;
             public ExportDataSelection Selection;
 
             public bool FittedPeakExportEnabled;
@@ -45,6 +45,7 @@ namespace AnalysisITC
                     ExportBaselineCorrectDataPoints = AppSettings.ExportBaselineCorrectedData,
                     ExportFittedPeaks = AppSettings.ExportFitPointsWithPeaks,
                     Selection = AppSettings.ExportSelectionMode,
+                    ExportOffsetCorrected = true,
                 };
 
                 settings.SetData();
@@ -52,6 +53,10 @@ namespace AnalysisITC
                 return settings;
             }
 
+            /// <summary>
+            /// Default setting for data export
+            /// </summary>
+            /// <returns></returns>
             public static ExportAccessoryViewSettings DataDefault()
             {
                 var s = Default();
@@ -60,6 +65,10 @@ namespace AnalysisITC
                 return s;
             }
 
+            /// <summary>
+            /// Default settings for peak export
+            /// </summary>
+            /// <returns></returns>
             public static ExportAccessoryViewSettings PeaksDefault()
             {
                 var s = Default();
@@ -81,7 +90,11 @@ namespace AnalysisITC
                 FittedPeakExportEnabled = !Data.Any(d => d.Solution == null);
 
                 if (!BaselineCorrectionEnabled) ExportBaselineCorrectDataPoints = false;
-                if (!FittedPeakExportEnabled) ExportFittedPeaks = false;
+                if (!FittedPeakExportEnabled)
+                {
+                    ExportFittedPeaks = false;
+                    ExportOffsetCorrected = false;
+                }
             }
         }
     }

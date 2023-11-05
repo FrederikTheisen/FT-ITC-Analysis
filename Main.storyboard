@@ -1259,7 +1259,7 @@
                                                         <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
                                                         <subviews>
                                                             <textView wantsLayer="YES" editable="NO" selectable="NO" drawsBackground="NO" importsGraphics="NO" richText="NO" verticallyResizable="YES" baseWritingDirection="leftToRight" findStyle="panel" smartInsertDelete="YES" id="hif-Db-3cK">
-                                                                <rect key="frame" x="0.0" y="-1586" width="390" height="2621"/>
+                                                                <rect key="frame" x="0.0" y="-1749" width="390" height="2621"/>
                                                                 <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
                                                                 <color key="textColor" name="textColor" catalog="System" colorSpace="catalog"/>
                                                                 <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
@@ -2667,7 +2667,7 @@ Requires that all selected data has a baseline.</string>
                                                             </connections>
                                                         </button>
                                                         <textField horizontalHuggingPriority="251" verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="fVs-dT-RWc">
-                                                            <rect key="frame" x="-2" y="0.0" width="311" height="59"/>
+                                                            <rect key="frame" x="-2" y="30" width="311" height="29"/>
                                                             <textFieldCell key="cell" controlSize="small" lineBreakMode="clipping" id="v1q-xU-TDo">
                                                                 <font key="font" metaFont="smallSystem"/>
                                                                 <string key="title">Include peak value calculated based on the fitted model.
@@ -2676,12 +2676,34 @@ Requires that a model has been fitted for all selected data.</string>
                                                                 <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
                                                             </textFieldCell>
                                                         </textField>
+                                                        <button verticalHuggingPriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="tBZ-sw-huV">
+                                                            <rect key="frame" x="-2" y="13" width="129" height="18"/>
+                                                            <buttonCell key="cell" type="check" title="Offset Corrected" bezelStyle="regularSquare" imagePosition="left" state="on" inset="2" id="Pqy-wY-bf1">
+                                                                <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
+                                                                <font key="font" metaFont="system"/>
+                                                            </buttonCell>
+                                                            <connections>
+                                                                <action selector="OffsetCorrectControlAction:" target="nZh-Md-8bl" id="sUE-ru-VTG"/>
+                                                            </connections>
+                                                        </button>
+                                                        <textField horizontalHuggingPriority="251" verticalHuggingPriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="6K7-7Y-bp9">
+                                                            <rect key="frame" x="-2" y="0.0" width="151" height="14"/>
+                                                            <textFieldCell key="cell" controlSize="small" lineBreakMode="clipping" title="Export offset correct peaks." id="jPv-ma-1ID">
+                                                                <font key="font" metaFont="smallSystem"/>
+                                                                <color key="textColor" name="labelColor" catalog="System" colorSpace="catalog"/>
+                                                                <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
+                                                            </textFieldCell>
+                                                        </textField>
                                                     </subviews>
                                                     <visibilityPriorities>
                                                         <integer value="1000"/>
                                                         <integer value="1000"/>
+                                                        <integer value="1000"/>
+                                                        <integer value="1000"/>
                                                     </visibilityPriorities>
                                                     <customSpacing>
+                                                        <real value="3.4028234663852886e+38"/>
+                                                        <real value="3.4028234663852886e+38"/>
                                                         <real value="3.4028234663852886e+38"/>
                                                         <real value="3.4028234663852886e+38"/>
                                                     </customSpacing>
@@ -2737,6 +2759,7 @@ Requires that a model has been fitted for all selected data.</string>
                         <connections>
                             <outlet property="BSLLabel" destination="iDy-NG-a9d" id="s90-7e-plP"/>
                             <outlet property="ExportCorrectedControl" destination="scB-Dx-ITy" id="kgZ-48-1JS"/>
+                            <outlet property="ExportOffsetCorrectedControl" destination="tBZ-sw-huV" id="TvZ-nW-e3f"/>
                             <outlet property="ExportSelectionControl" destination="4sB-M3-Gu6" id="Bx8-WJ-wI9"/>
                             <outlet property="ExportTypeControl" destination="oUf-hc-ZR9" id="4av-5S-neb"/>
                             <outlet property="FitPeakLabel" destination="fVs-dT-RWc" id="6Rj-8H-dLu"/>
@@ -4834,7 +4857,7 @@ IA
                                     <rect key="frame" x="111" y="1" width="5" height="50"/>
                                 </box>
                                 <button verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="zTg-QH-FPo">
-                                    <rect key="frame" x="115" y="20" width="111" height="31"/>
+                                    <rect key="frame" x="115" y="0.0" width="111" height="31"/>
                                     <constraints>
                                         <constraint firstAttribute="height" constant="30" id="8N3-dc-mCA"/>
                                     </constraints>
@@ -4866,7 +4889,7 @@ IA
                                     <rect key="frame" x="338" y="1" width="5" height="50"/>
                                 </box>
                                 <button verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="DGH-oN-EAU">
-                                    <rect key="frame" x="342" y="20" width="111" height="31"/>
+                                    <rect key="frame" x="342" y="0.0" width="111" height="31"/>
                                     <constraints>
                                         <constraint firstAttribute="height" constant="30" id="FB7-Ld-lyQ"/>
                                     </constraints>
@@ -5179,7 +5202,7 @@ IA
                                                                     <rect key="frame" x="525" y="-2" width="159" height="24"/>
                                                                     <buttonCell key="cell" type="check" title="Discard integration range" bezelStyle="regularSquare" imagePosition="right" state="on" inset="2" id="qhq-ss-k18">
                                                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
-                                                                        <font key="font" metaFont="system" size="11"/>
+                                                                        <font key="font" metaFont="smallSystem"/>
                                                                     </buttonCell>
                                                                     <connections>
                                                                         <action selector="DiscardIntRangeAction:" target="HbJ-1n-Qa7" id="10g-Tj-p9p"/>
@@ -5276,7 +5299,7 @@ IA
                                                                     <rect key="frame" x="535" y="-2" width="159" height="24"/>
                                                                     <buttonCell key="cell" type="check" title="Discard integration range" bezelStyle="regularSquare" imagePosition="right" state="on" inset="2" id="zMl-iD-86j">
                                                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
-                                                                        <font key="font" metaFont="system" size="11"/>
+                                                                        <font key="font" metaFont="smallSystem"/>
                                                                     </buttonCell>
                                                                     <connections>
                                                                         <action selector="DiscardIntRangeAction:" target="HbJ-1n-Qa7" id="XtR-GP-HC6"/>
@@ -5596,7 +5619,7 @@ IA
                                         </middleViews>
                                         <endViews>
                                             <button toolTip="Deselect injection" horizontalHuggingPriority="750" verticalHuggingPriority="750" fixedFrame="YES" translatesAutoresizingMaskIntoConstraints="NO" id="FT6-yN-9c8">
-                                                <rect key="frame" x="816" y="-6" width="90" height="40"/>
+                                                <rect key="frame" x="817" y="-6" width="89" height="40"/>
                                                 <buttonCell key="cell" type="push" title="Select All" bezelStyle="rounded" alignment="center" controlSize="large" borderStyle="border" imageScaling="proportionallyDown" inset="2" id="zx6-Qa-nYI">
                                                     <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
                                                     <font key="font" metaFont="system"/>

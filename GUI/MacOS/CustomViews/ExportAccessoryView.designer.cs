@@ -19,6 +19,9 @@ namespace AnalysisITC
 		AppKit.NSButton ExportCorrectedControl { get; set; }
 
 		[Outlet]
+		AppKit.NSButton ExportOffsetCorrectedControl { get; set; }
+
+		[Outlet]
 		AppKit.NSSegmentedControl ExportSelectionControl { get; set; }
 
 		[Outlet]
@@ -48,34 +51,17 @@ namespace AnalysisITC
 		[Action ("FittedPeakControlAction:")]
 		partial void FittedPeakControlAction (AppKit.NSButton sender);
 
+		[Action ("OffsetCorrectControlAction:")]
+		partial void OffsetCorrectControlAction (AppKit.NSButton sender);
+
 		[Action ("UnifyTimeAxisControlAction:")]
 		partial void UnifyTimeAxisControlAction (AppKit.NSButton sender);
 		
 		void ReleaseDesignerOutlets ()
 		{
-			if (FitPeakLabel != null) {
-				FitPeakLabel.Dispose ();
-				FitPeakLabel = null;
-			}
-
 			if (BSLLabel != null) {
 				BSLLabel.Dispose ();
 				BSLLabel = null;
-			}
-
-			if (TabView != null) {
-				TabView.Dispose ();
-				TabView = null;
-			}
-
-			if (ExportTypeControl != null) {
-				ExportTypeControl.Dispose ();
-				ExportTypeControl = null;
-			}
-
-			if (ExportSelectionControl != null) {
-				ExportSelectionControl.Dispose ();
-				ExportSelectionControl = null;
 			}
 
 			if (ExportCorrectedControl != null) {
@@ -83,9 +69,34 @@ namespace AnalysisITC
 				ExportCorrectedControl = null;
 			}
 
+			if (ExportOffsetCorrectedControl != null) {
+				ExportOffsetCorrectedControl.Dispose ();
+				ExportOffsetCorrectedControl = null;
+			}
+
+			if (ExportSelectionControl != null) {
+				ExportSelectionControl.Dispose ();
+				ExportSelectionControl = null;
+			}
+
+			if (ExportTypeControl != null) {
+				ExportTypeControl.Dispose ();
+				ExportTypeControl = null;
+			}
+
+			if (FitPeakLabel != null) {
+				FitPeakLabel.Dispose ();
+				FitPeakLabel = null;
+			}
+
 			if (IncludeFittedPeaksControl != null) {
 				IncludeFittedPeaksControl.Dispose ();
 				IncludeFittedPeaksControl = null;
+			}
+
+			if (TabView != null) {
+				TabView.Dispose ();
+				TabView = null;
 			}
 
 			if (UnifyTimeAxisControl != null) {

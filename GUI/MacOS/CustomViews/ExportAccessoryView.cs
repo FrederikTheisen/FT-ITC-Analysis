@@ -33,6 +33,8 @@ namespace AnalysisITC
             IncludeFittedPeaksControl.State = settings.ExportFittedPeaks ? NSCellStateValue.On : NSCellStateValue.Off;
             FitPeakLabel.Enabled = settings.FittedPeakExportEnabled;
 
+            ExportOffsetCorrectedControl.Enabled = Settings.FittedPeakExportEnabled;
+
             TabView.SelectAt((int)Settings.Export);
         }
 
@@ -64,6 +66,11 @@ namespace AnalysisITC
         partial void FittedPeakControlAction(NSButton sender)
         {
             Settings.ExportFittedPeaks = sender.State == NSCellStateValue.On;
+        }
+
+        partial void OffsetCorrectControlAction(NSButton sender)
+        {
+            Settings.ExportOffsetCorrected = sender.State == NSCellStateValue.On;
         }
     }
 }

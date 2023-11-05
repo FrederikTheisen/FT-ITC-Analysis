@@ -687,11 +687,12 @@ namespace AnalysisITC
                     if (d.Injections.Count > index)
                     {
                         var inj = d.Injections[index];
-                        line += inj.Ratio.ToString() + Delimiter + inj.Enthalpy.ToString() + Delimiter;
+                        var enthalpy = Settings.ExportOffsetCorrected ? inj.OffsetEnthalpy : inj.Enthalpy;
+                        line += inj.Ratio.ToString() + Delimiter + enthalpy.ToString() + Delimiter;
 
                         if (exportsolution)
                         {
-                            if (d.Solution != null) line += d.Model.EvaluateEnthalpy(index, false).ToString() + Delimiter;
+                            if (d.Solution != null) line += d.Model.EvaluateEnthalpy(index, !Settings.ExportOffsetCorrected).ToString() + Delimiter;
                             else line += BlankChar.ToString() + Delimiter;
                         }
                     }
