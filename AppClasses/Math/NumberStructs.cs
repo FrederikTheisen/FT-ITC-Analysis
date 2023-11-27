@@ -20,7 +20,7 @@ namespace AnalysisITC
                 else return Math.Abs(SD / Value);
             }
         }
-        public bool HasError => SD > double.Epsilon;
+        public bool HasError => SD > float.Epsilon;
 
         public Energy Energy => new Energy(this);
 
