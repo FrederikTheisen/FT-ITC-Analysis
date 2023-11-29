@@ -28,9 +28,10 @@ namespace AnalysisITC
             double tolerance = margin * dbl;
             // Determine whether this is a midpoint value.
             if ((fraction >= .5 - tolerance) & (fraction <= .5 + tolerance)) return (value + 1);
-            
+
             // Any remaining fractional value greater than .5 is not a midpoint value.
             if (fraction > .5) return (value + 1);
+            else if (fraction < -0.5) return (value - 1);
             else return value;
         }
 
