@@ -31,8 +31,8 @@ namespace AnalysisITC
 
         public bool DrawOnWhite = false;
         public CGColor StrokeColor => DrawOnWhite ? NSColor.Black.CGColor : NSColor.Label.CGColor;
-        public CGColor SecondaryLineColor => DrawOnWhite ? NSColor.Black.ColorWithAlphaComponent(0.75f).CGColor : NSColor.SecondaryLabel.CGColor;
-        public CGColor TertiaryLineColor => DrawOnWhite ? NSColor.Black.ColorWithAlphaComponent(0.5f).CGColor : NSColor.TertiaryLabel.CGColor;
+        public CGColor SecondaryLineColor => DrawOnWhite ? NSColor.DarkGray.CGColor : NSColor.SecondaryLabel.CGColor;
+        public CGColor TertiaryLineColor => DrawOnWhite ? NSColor.Gray.CGColor : NSColor.TertiaryLabel.CGColor;
 
         GraphAxis xaxis;
         GraphAxis yaxis;
@@ -877,7 +877,7 @@ namespace AnalysisITC
             if (FinalFigureDisplayParameters.HasFlag(FinalFigureDisplayParameters.Concentrations)) lines.Add(syr);
             if (FinalFigureDisplayParameters.HasFlag(FinalFigureDisplayParameters.Concentrations)) lines.Add(cell);
 
-            if (FinalFigureDisplayParameters.HasFlag(FinalFigureDisplayParameters.Attributes))
+            if (FinalFigureDisplayParameters.HasFlag(FinalFigureDisplayParameters.Attributes) && ExperimentData.Solution != null)
             {
                 var attlines = ExperimentData.Model.Solution.UIExperimentModelAttributes(AppSettings.DisplayAttributeOptions);
 
