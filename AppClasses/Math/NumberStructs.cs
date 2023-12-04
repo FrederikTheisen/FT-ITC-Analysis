@@ -9,7 +9,8 @@ namespace AnalysisITC
     {
         public double Value { get; private set; }
         public double SD { get; private set; }
-        public double[] DistributionLimits { get; private set; }
+        public double[] DistributionConfidence95 { get; private set; }
+        public double[] DistributionConfidence100 { get; private set; }
 
         public double FractionSD
         {
@@ -20,7 +21,7 @@ namespace AnalysisITC
                 else return Math.Abs(SD / Value);
             }
         }
-        public bool HasError => SD > float.Epsilon;
+        public bool HasError => SD > 10E-8;
 
         public Energy Energy => new Energy(this);
 
@@ -28,7 +29,8 @@ namespace AnalysisITC
         {
             Value = value;
             SD = Math.Abs(error);
-            DistributionLimits = new double[] { Value - 2 * SD, Value + 2 * SD };
+            DistributionConfidence95 = new double[] { Value - 2 * SD, Value + 2 * SD };
+            DistributionConfidence100 = new double[] { Value - 3 * SD, Value + 3 * SD };
         }
 
         public FloatWithError(IEnumerable<double> distribution, double? mean = null)
@@ -45,7 +47,8 @@ namespace AnalysisITC
 
                 Value = average;
                 SD = Math.Abs(result);
-                DistributionLimits = GetConfidenceInterval(distribution.ToList());
+                DistributionConfidence95 = GetConfidenceInterval(distribution.ToList());
+                DistributionConfidence100 = new double[] { distribution.Min(),distribution.Max() };
             }
             else this = new FloatWithError((double)mean, result);
         }
@@ -67,7 +70,8 @@ namespace AnalysisITC
 
                 Value = average;
                 SD = Math.Abs(result);
-                DistributionLimits = GetConfidenceInterval(samples);
+                DistributionConfidence95 = GetConfidenceInterval(samples);
+                DistributionConfidence100 = new double[] { samples.Min(), samples.Max() };
             }
             else this = new FloatWithError((double)mean, result);
         }
@@ -112,6 +116,7 @@ namespace AnalysisITC
 
         public enum ConfidenceLevel
         {
+            Conf100,
             Conf95,
             SD,
             Conf50
@@ -121,9 +126,10 @@ namespace AnalysisITC
             switch (conf)
             {
                 default:
-                case ConfidenceLevel.Conf95: return DistributionLimits;
+                case ConfidenceLevel.Conf95: return DistributionConfidence95;
                 case ConfidenceLevel.SD: return new double[] { Value + SD, Value - SD };
                 case ConfidenceLevel.Conf50: return new double[] { Value + 0.5 * SD, Value - 0.5 * SD };
+                case ConfidenceLevel.Conf100: return DistributionConfidence100;
             }
         }
 
