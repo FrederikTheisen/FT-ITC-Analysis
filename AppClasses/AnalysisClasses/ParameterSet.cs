@@ -25,7 +25,7 @@ namespace AnalysisITC.AppClasses.Analysis2
             Limits = key.GetProperties().DefaultLimits;
             if (AppSettings.EnableExtendedParameterLimits)
             {
-                if (Limits[0] > 0) //Lower value cannot be negative
+                if (Limits[0] > 0 || Limits[1] < 0) // Parameter can only be positive or negative
                 {
                     Limits[0] *= 0.1;
                     Limits[1] *= 10;
@@ -461,7 +461,7 @@ namespace AnalysisITC.AppClasses.Analysis2
 
     public enum ParameterType
     {
-        [ParameterTypeAttribute("N-value", "N", 0.05, new double[] { 0.1, 10 }, ParameterType.Nvalue1)]
+        [ParameterTypeAttribute("N-value", "N", 0.025, new double[] { 0.1, 10 }, ParameterType.Nvalue1)]
         Nvalue1,
         [ParameterTypeAttribute("N-value 2", ParameterType.Nvalue1)]
         Nvalue2,
