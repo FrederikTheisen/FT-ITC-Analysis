@@ -604,7 +604,7 @@ namespace AnalysisITC
 
                 foreach (var d in data)
                 {
-                    var dps = Settings.BaselineCorrectionEnabled ? d.BaseLineCorrectedDataPoints : d.DataPoints;
+                    var dps = Settings.ExportBaselineCorrectDataPoints ? d.BaseLineCorrectedDataPoints : d.DataPoints;
 
                     if (dps.Count > index)
                     {
