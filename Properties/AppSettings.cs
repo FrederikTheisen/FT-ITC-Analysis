@@ -20,6 +20,7 @@ namespace AnalysisITC
         public static ColorSchemes ColorScheme { get; set; } = ColorSchemes.Default;
         public static ColorSchemeGradientMode ColorSchemeGradientMode { get; set; } = ColorSchemeGradientMode.Smooth;
         public static ConcentrationUnit DefaultConcentrationUnit { get; set; } = ConcentrationUnit.µM;
+        public static int MaxDegreeOfParallelism { get; set; } = 10;
 
         private static NSUrl lastDocumentUrl = null;
         public static NSUrl LastDocumentUrl { get => lastDocumentUrl; set { lastDocumentUrl = value; Save(); } }
@@ -35,7 +36,7 @@ namespace AnalysisITC
         public static int DefaultBootstrapIterations { get; set; } = 100;
         public static double MinimumTemperatureSpanForFitting { get; internal set; } = 2;
         public static double MinimumIonSpanForFitting { get; internal set; } = 0.01;
-        public static bool IncludeConcentrationErrorsInBootstrap { get; set; } = true;
+        public static bool IncludeConcentrationErrorsInBootstrap { get; set; } = false;
         public static double ConcentrationAutoVariance { get; set; } = 0.05;
         
         public static double OptimizerTolerance { get; set; } = double.Epsilon;
