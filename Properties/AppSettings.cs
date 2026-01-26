@@ -38,7 +38,8 @@ namespace AnalysisITC
         public static double MinimumIonSpanForFitting { get; internal set; } = 0.01;
         public static bool IncludeConcentrationErrorsInBootstrap { get; set; } = false;
         public static double ConcentrationAutoVariance { get; set; } = 0.05;
-        
+        public static bool IsConcentrationAutoVarianceEnabled { get; set; } = ConcentrationAutoVariance > 0.001;
+
         public static double OptimizerTolerance { get; set; } = double.Epsilon;
         public static int MaximumOptimizerIterations { get; set; } = 300000;
         public static bool EnableExtendedParameterLimits { get; set; } = false;
@@ -60,8 +61,7 @@ namespace AnalysisITC
         public static bool ExportFitPointsWithPeaks { get; set; } = true;
         public static Exporter.ExportDataSelection ExportSelectionMode { get; set; } = Exporter.ExportDataSelection.IncludedData;
         public static int NumOfDecimalsToExport { get; set; } = 2;
-
-        public static bool IsConcentrationAutoVarianceEnabled = ConcentrationAutoVariance > 0.001;
+        public static Exporter.ExportColumns ExportColumns { get; set; } = Exporter.ExportColumns.Default;
 
         public static void Initialize()
         {
@@ -107,6 +107,7 @@ namespace AnalysisITC
             Storage.SetInt((int)NumberPrecision, "NumberPrecision");
             Storage.SetBool(IncludeBufferInIonicStrengthCalc, "IncludeBufferInIonicStrengthCalc");
             Storage.SetInt((int)DisplayAttributeOptions, "DisplayAttributeOptions");
+            Storage.SetInt((int)ExportColumns, "ExportColumns");
 
             StoreArray(FinalFigureDimensions, "FinalFigureDimensions");
 
@@ -154,6 +155,7 @@ namespace AnalysisITC
             NumberPrecision = (NumberPrecision)GetInt(dict, "NumberPrecision", (int)NumberPrecision);
             IncludeBufferInIonicStrengthCalc = GetBool(dict, "IncludeBufferInIonicStrengthCalc", IncludeBufferInIonicStrengthCalc);
             DisplayAttributeOptions = (DisplayAttributeOptions)GetInt(dict, "DisplayAttributeOptions", (int)DisplayAttributeOptions);
+            ExportColumns = (Exporter.ExportColumns)GetInt(dict, "ExportColumns", (int)Exporter.ExportColumns.Default);
 
             ApplySettings();
 
@@ -192,6 +194,7 @@ namespace AnalysisITC
             PeakFitAlgorithm = PeakFitAlgorithm.SingleExponential;
             NumberPrecision = NumberPrecision.Standard;
             DisplayAttributeOptions = DisplayAttributeOptions.Default;
+            ExportColumns = Exporter.ExportColumns.Default;
         }
 
         static void StoreArray(double[] arr, string key)
