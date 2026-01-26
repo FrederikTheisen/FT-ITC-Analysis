@@ -57,7 +57,7 @@ namespace AnalysisITC.AppClasses.Analysis2
 
 			foreach (var model in Models)
 			{
-				var loss = model.LossFunction(Parameters.GetParametersForModel(this, model).ToArray()); //Loss Function = RMSD
+				var loss = model.LossFunction(Parameters.GetParametersForModel(this, model).GetFittedParameterArray()); //Loss Function = RMSD
 				totalloss += loss * loss; //Unclear if correct loss function
 			}
 
@@ -83,7 +83,7 @@ namespace AnalysisITC.AppClasses.Analysis2
 
             foreach (var par in Parameters.GlobalTable)
 			{
-				model.Parameters.AddorUpdateGlobalParameter(par.Value.Key, par.Value.Value, par.Value.IsLocked, par.Value.Limits);
+				model.Parameters.AddorUpdateGlobalParameter(par.Value.Key, par.Value.Value, par.Value.IsLocked, par.Value.Limits); //TODO implement global determined?
 			}
 
 			foreach (var parset in model.Models)
@@ -112,7 +112,7 @@ namespace AnalysisITC.AppClasses.Analysis2
 
             foreach (var par in Parameters.GlobalTable)
             {
-                model.Parameters.AddorUpdateGlobalParameter(par.Value.Key, par.Value.Value, par.Value.IsLocked, par.Value.Limits);
+                model.Parameters.AddorUpdateGlobalParameter(par.Value.Key, par.Value.Value, par.Value.IsLocked, par.Value.Limits); //TODO implement global determiend?
             }
 
             foreach (var parset in model.Models)
@@ -166,7 +166,7 @@ namespace AnalysisITC.AppClasses.Analysis2
             }
 
 			//HACK possibly due to inappropriate loss function
-			Convergence.SetLoss(Solutions.Sum(sol => sol.Convergence.Loss));
+			Convergence.SetLoss(Solutions.Sum(sol => sol.Convergence.Loss) / Solutions.Count);
 
             var dependencies = Solutions[0].DependenciesToReport;
 
