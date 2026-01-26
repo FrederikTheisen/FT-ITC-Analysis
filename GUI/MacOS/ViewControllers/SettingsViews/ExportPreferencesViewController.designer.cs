@@ -13,6 +13,9 @@ namespace AnalysisITC
 	partial class ExportPreferencesViewController
 	{
 		[Outlet]
+		AppKit.NSSegmentedControl ExportDataColumnControl { get; set; }
+
+		[Outlet]
 		AppKit.NSSegmentedControl ExportSelectedControl { get; set; }
 
 		[Outlet]
@@ -69,6 +72,11 @@ namespace AnalysisITC
 				ExportSolutionPointsControl = null;
 			}
 
+			if (FinalFigAttributeDisplay != null) {
+				FinalFigAttributeDisplay.Dispose ();
+				FinalFigAttributeDisplay = null;
+			}
+
 			if (FinalFigHeightField != null) {
 				FinalFigHeightField.Dispose ();
 				FinalFigHeightField = null;
@@ -84,6 +92,11 @@ namespace AnalysisITC
 				FinalFigureValueRoundingPrecision = null;
 			}
 
+			if (ExportDataColumnControl != null) {
+				ExportDataColumnControl.Dispose ();
+				ExportDataColumnControl = null;
+			}
+
 			if (FinalFigWidthField != null) {
 				FinalFigWidthField.Dispose ();
 				FinalFigWidthField = null;
@@ -97,11 +110,6 @@ namespace AnalysisITC
 			if (UnifyAxesControl != null) {
 				UnifyAxesControl.Dispose ();
 				UnifyAxesControl = null;
-			}
-
-			if (FinalFigAttributeDisplay != null) {
-				FinalFigAttributeDisplay.Dispose ();
-				FinalFigAttributeDisplay = null;
 			}
 		}
 	}

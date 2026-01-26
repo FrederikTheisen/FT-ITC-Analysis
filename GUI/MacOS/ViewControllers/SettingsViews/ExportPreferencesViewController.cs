@@ -26,6 +26,14 @@ namespace AnalysisITC
             UnifyAxesControl.SelectedSegment = AppSettings.UnifyTimeAxisForExport ? 0 : 1;
             ExportSolutionPointsControl.State = AppSettings.ExportFitPointsWithPeaks ? NSCellStateValue.On : NSCellStateValue.Off;
 
+            ExportDataColumnControl.SetSelected(AppSettings.ExportColumns.HasFlag(Exporter.ExportColumns.MolarRatio), 0);
+            ExportDataColumnControl.SetSelected(AppSettings.ExportColumns.HasFlag(Exporter.ExportColumns.InjectionDelay | Exporter.ExportColumns.InjectionVolume), 1);
+            ExportDataColumnControl.SetSelected(AppSettings.ExportColumns.HasFlag(Exporter.ExportColumns.CellConc | Exporter.ExportColumns.SyrConc), 2);
+            ExportDataColumnControl.SetSelected(AppSettings.ExportColumns.HasFlag(Exporter.ExportColumns.Included), 3);
+            ExportDataColumnControl.SetSelected(AppSettings.ExportColumns.HasFlag(Exporter.ExportColumns.Peak), 4);
+            ExportDataColumnControl.SetSelected(AppSettings.ExportColumns.HasFlag(Exporter.ExportColumns.Fit), 5);
+
+
             FinalFigHeightField.StringValue = AppSettings.FinalFigureDimensions[1].ToString();
             FinalFigWidthField.StringValue = AppSettings.FinalFigureDimensions[0].ToString();
 
@@ -46,6 +54,14 @@ namespace AnalysisITC
             AppSettings.UnifyTimeAxisForExport = UnifyAxesControl.SelectedSegment == 0;
             AppSettings.ExportFitPointsWithPeaks = ExportSolutionPointsControl.State == NSCellStateValue.On;
             AppSettings.FinalFigureShowParameterBoxAsDefault = ShowParameterAsDefaultCheck.State == NSCellStateValue.On;
+
+            AppSettings.ExportColumns = Exporter.ExportColumns.None;
+            if (ExportDataColumnControl.IsSelectedForSegment(0)) AppSettings.ExportColumns |= Exporter.ExportColumns.MolarRatio;
+            if (ExportDataColumnControl.IsSelectedForSegment(1)) AppSettings.ExportColumns |= Exporter.ExportColumns.InjectionInfo;
+            if (ExportDataColumnControl.IsSelectedForSegment(2)) AppSettings.ExportColumns |= Exporter.ExportColumns.Concentrations;
+            if (ExportDataColumnControl.IsSelectedForSegment(3)) AppSettings.ExportColumns |= Exporter.ExportColumns.Included;
+            if (ExportDataColumnControl.IsSelectedForSegment(4)) AppSettings.ExportColumns |= Exporter.ExportColumns.Peak;
+            if (ExportDataColumnControl.IsSelectedForSegment(5)) AppSettings.ExportColumns |= Exporter.ExportColumns.Fit;
 
             AppSettings.FinalFigureDimensions = new double[] { FinalFigWidthField.DoubleValue, FinalFigHeightField.DoubleValue };
             AppSettings.FinalFigureParameterDisplay = FinalFigureDisplayParameters.None;
