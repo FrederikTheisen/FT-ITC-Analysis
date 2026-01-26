@@ -10455,15 +10455,15 @@ DQ
                                 <rect key="frame" x="20" y="251" width="617" height="16"/>
                                 <subviews>
                                     <textField focusRingType="none" horizontalHuggingPriority="249" verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="Pag-nL-CPb">
-                                        <rect key="frame" x="-2" y="0.0" width="393" height="16"/>
-                                        <textFieldCell key="cell" lineBreakMode="clipping" title="Export peaks" id="BNn-X6-oNC">
+                                        <rect key="frame" x="-2" y="0.0" width="210" height="16"/>
+                                        <textFieldCell key="cell" lineBreakMode="clipping" title="Export columns" id="BNn-X6-oNC">
                                             <font key="font" usesAppearanceFont="YES"/>
                                             <color key="textColor" name="labelColor" catalog="System" colorSpace="catalog"/>
                                             <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
                                         </textFieldCell>
                                     </textField>
-                                    <button verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="IrZ-fb-hEh">
-                                        <rect key="frame" x="397" y="-1" width="222" height="18"/>
+                                    <button hidden="YES" verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="IrZ-fb-hEh">
+                                        <rect key="frame" x="0.0" y="-1" width="222" height="18"/>
                                         <buttonCell key="cell" type="check" title="Only integrated peaks" alternateTitle="Both integrated and fitted peaks" bezelStyle="regularSquare" imagePosition="right" alignment="right" state="on" inset="2" id="l7R-gE-PZE">
                                             <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                             <font key="font" metaFont="system"/>
@@ -10472,12 +10472,28 @@ DQ
                                             <action selector="ExportSolutionPointsControlAction:" target="QzD-9A-jIg" id="8Dg-jF-zwu"/>
                                         </connections>
                                     </button>
+                                    <segmentedControl verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="XXw-WP-Hpq">
+                                        <rect key="frame" x="213" y="-2" width="405" height="19"/>
+                                        <segmentedCell key="cell" borderStyle="border" alignment="left" segmentDistribution="fill" style="capsule" trackingMode="selectAny" id="Ce0-QT-xf1">
+                                            <font key="font" metaFont="system"/>
+                                            <segments>
+                                                <segment label="Molar Ratio" toolTip="Molar ratio of injected to cell species" selected="YES"/>
+                                                <segment label="Injection info" toolTip="Include information about the injection (volume, delay)" imageScaling="proportionallyUpOrDown" tag="1"/>
+                                                <segment label="Concentrations" toolTip="Include information about the concentration of species in the cell following injection dilution"/>
+                                                <segment label="Included" toolTip="Include the discard data point information"/>
+                                                <segment label="Peak" toolTip="Integrated peak volume per mole injected" imageScaling="proportionallyUpOrDown" selected="YES"/>
+                                                <segment label="Fit" toolTip="The fitted peak volume" imageScaling="proportionallyUpOrDown" selected="YES"/>
+                                            </segments>
+                                        </segmentedCell>
+                                    </segmentedControl>
                                 </subviews>
                                 <visibilityPriorities>
                                     <integer value="1000"/>
                                     <integer value="1000"/>
+                                    <integer value="1000"/>
                                 </visibilityPriorities>
                                 <customSpacing>
+                                    <real value="3.4028234663852886e+38"/>
                                     <real value="3.4028234663852886e+38"/>
                                     <real value="3.4028234663852886e+38"/>
                                 </customSpacing>
@@ -10783,6 +10799,7 @@ DQ
                         </customSpacing>
                     </stackView>
                     <connections>
+                        <outlet property="ExportDataColumnControl" destination="XXw-WP-Hpq" id="kti-ax-Zel"/>
                         <outlet property="ExportSelectedControl" destination="gdO-x0-kmA" id="YFX-zV-D8r"/>
                         <outlet property="ExportSolutionPointsControl" destination="IrZ-fb-hEh" id="S9X-1i-pRJ"/>
                         <outlet property="FinalFigAttributeDisplay" destination="5o7-FF-mst" id="MRp-HB-71R"/>
@@ -10862,7 +10879,7 @@ DQ
                     </customSpacing>
                 </stackView>
             </objects>
-            <point key="canvasLocation" x="2128" y="-1310"/>
+            <point key="canvasLocation" x="2127.5" y="-1310.5"/>
         </scene>
     </scenes>
     <resources>
