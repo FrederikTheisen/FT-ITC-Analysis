@@ -17,6 +17,13 @@ namespace AnalysisITC
 		{
 		}
 
+        public override void ViewDidAppear()
+        {
+            base.ViewDidAppear();
+
+            ExportTypeControl.SetLabel("Export for " + Utils.MarkdownStrings.ITCsimName + " Analysis", 2);
+        }
+
         public void Setup(ExportAccessoryViewSettings settings)
         {
             (View as ExportAccessoryView).Setup(settings);
@@ -33,6 +40,7 @@ namespace AnalysisITC
             public bool ExportOffsetCorrected;
             public ExportDataSelection Selection;
             public bool ExportConcentrations;
+            public ExportColumns Columns;
 
             public bool FittedPeakExportEnabled;
             public bool BaselineCorrectionEnabled;
@@ -48,6 +56,7 @@ namespace AnalysisITC
                     Selection = AppSettings.ExportSelectionMode,
                     ExportOffsetCorrected = true,
                     ExportConcentrations = true,
+                    Columns = AppSettings.ExportColumns,
                 };
 
                 settings.SetData();

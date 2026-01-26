@@ -34,6 +34,9 @@ namespace AnalysisITC
 		AppKit.NSButton IncludeFittedPeaksControl { get; set; }
 
 		[Outlet]
+		AppKit.NSButton ITCsimExportOffsetCorrectedControl { get; set; }
+
+		[Outlet]
 		AppKit.NSTabView TabView { get; set; }
 
 		[Outlet]
@@ -50,6 +53,9 @@ namespace AnalysisITC
 
 		[Action ("FittedPeakControlAction:")]
 		partial void FittedPeakControlAction (AppKit.NSButton sender);
+
+		[Action ("ITCsimExportOffsetCorrectedAction:")]
+		partial void ITCsimExportOffsetCorrectedAction (AppKit.NSButton sender);
 
 		[Action ("OffsetCorrectControlAction:")]
 		partial void OffsetCorrectControlAction (AppKit.NSButton sender);
@@ -77,6 +83,11 @@ namespace AnalysisITC
 			if (ExportSelectionControl != null) {
 				ExportSelectionControl.Dispose ();
 				ExportSelectionControl = null;
+			}
+
+			if (ITCsimExportOffsetCorrectedControl != null) {
+				ITCsimExportOffsetCorrectedControl.Dispose ();
+				ITCsimExportOffsetCorrectedControl = null;
 			}
 
 			if (ExportTypeControl != null) {

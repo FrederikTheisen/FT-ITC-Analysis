@@ -30,10 +30,13 @@ namespace AnalysisITC
             BSLLabel.Enabled = settings.BaselineCorrectionEnabled;
 
             IncludeFittedPeaksControl.Enabled = settings.FittedPeakExportEnabled;
-            IncludeFittedPeaksControl.State = settings.ExportFittedPeaks ? NSCellStateValue.On : NSCellStateValue.Off;
+            IncludeFittedPeaksControl.State = settings.Columns.HasFlag(ExportColumns.Fit) ? NSCellStateValue.On : NSCellStateValue.Off;
             FitPeakLabel.Enabled = settings.FittedPeakExportEnabled;
 
             ExportOffsetCorrectedControl.Enabled = Settings.FittedPeakExportEnabled;
+            ExportOffsetCorrectedControl.State = Settings.ExportOffsetCorrected ? NSCellStateValue.On : NSCellStateValue.Off;
+            ITCsimExportOffsetCorrectedControl.Enabled = Settings.FittedPeakExportEnabled;
+            ITCsimExportOffsetCorrectedControl.State = Settings.ExportOffsetCorrected ? NSCellStateValue.On : NSCellStateValue.Off;
 
             TabView.SelectAt((int)Settings.Export);
         }
@@ -43,6 +46,8 @@ namespace AnalysisITC
 			TabView.SelectAt(sender.SelectedSegment);
 
             Settings.Export = (ExportType)(int)sender.SelectedSegment;
+
+            Setup(Settings);
         }
 
         partial void ExportSelectionControlAction(NSSegmentedControl sender)
@@ -56,21 +61,43 @@ namespace AnalysisITC
         partial void UnifyTimeAxisControlAction(NSButton sender)
         {
             Settings.UnifyTimeAxis = sender.State == NSCellStateValue.On;
+
+            AppEventHandler.PrintAndLog("Settings.UnifyTimeAxis" + Settings.UnifyTimeAxis.ToString());
         }
 
         partial void BaselineCorrectControlAction(NSButton sender)
         {
             Settings.ExportBaselineCorrectDataPoints = sender.State == NSCellStateValue.On;
+
+            AppEventHandler.PrintAndLog("Settings.ExportBaselineCorrectDataPoints" + Settings.ExportBaselineCorrectDataPoints.ToString());
         }
 
         partial void FittedPeakControlAction(NSButton sender)
         {
-            Settings.ExportFittedPeaks = sender.State == NSCellStateValue.On;
+            switch (sender.State)
+            {
+                case NSCellStateValue.On: Settings.Columns |= ExportColumns.Fit; break;
+                default: Settings.Columns &= ~ExportColumns.Fit; break;
+            }
+
+            AppEventHandler.PrintAndLog("Settings.ExportFittedPeaks" + Settings.Columns.HasFlag(ExportColumns.Fit).ToString());
         }
 
         partial void OffsetCorrectControlAction(NSButton sender)
         {
+            SetOffsetCorrectionAction(sender);
+        }
+
+        partial void ITCsimExportOffsetCorrectedAction(NSButton sender)
+        {
+            SetOffsetCorrectionAction(sender);
+        }
+
+        private void SetOffsetCorrectionAction(NSButton sender)
+        {
             Settings.ExportOffsetCorrected = sender.State == NSCellStateValue.On;
+
+            AppEventHandler.PrintAndLog("Settings.ExportOffsetCorrected" + Settings.ExportOffsetCorrected.ToString());
         }
     }
 }

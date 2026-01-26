@@ -2723,8 +2723,8 @@ Requires that a model has been fitted for all selected data.</string>
                                                             </constraints>
                                                             <textFieldCell key="cell" controlSize="small" id="YA7-9Q-ZDh">
                                                                 <font key="font" metaFont="smallSystem"/>
-                                                                <string key="title">Export processed ITC data in a format compatible with ITCSim.
-Each experiment is written as a separate file and includes experimental metadata to enable automatic configuration in ITCSim.</string>
+                                                                <string key="title">Export processed ITC data in a format compatible with ITCsim.
+Each experiment is written as a separate file and includes experimental metadata to enable automatic configuration in ITCsim.</string>
                                                                 <color key="textColor" name="labelColor" catalog="System" colorSpace="catalog"/>
                                                                 <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
                                                             </textFieldCell>
