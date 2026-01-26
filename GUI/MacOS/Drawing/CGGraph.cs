@@ -31,8 +31,8 @@ namespace AnalysisITC
 
         public bool DrawOnWhite = false;
         public CGColor StrokeColor => DrawOnWhite ? NSColor.Black.CGColor : NSColor.Label.CGColor;
-        public CGColor SecondaryLineColor => DrawOnWhite ? NSColor.DarkGray.CGColor : NSColor.SecondaryLabel.CGColor;
-        public CGColor TertiaryLineColor => DrawOnWhite ? NSColor.Gray.CGColor : NSColor.TertiaryLabel.CGColor;
+        public CGColor SecondaryLineColor => DrawOnWhite ? NSColor.Gray.CGColor : NSColor.SecondaryLabel.CGColor;
+        public CGColor TertiaryLineColor => DrawOnWhite ? NSColor.LightGray.CGColor : NSColor.TertiaryLabel.CGColor;
 
         GraphAxis xaxis;
         GraphAxis yaxis;
@@ -293,10 +293,8 @@ namespace AnalysisITC
             else layer.Context.AddRect(rect);
         }
 
-        public void FillPathShape(CGContext gc, CGPath path, CGColor color, float alpha = -1f)
+        public void FillPathShape(CGContext gc, CGPath path, CGColor color)
         {
-            if (alpha > 0) color = new CGColor(color, alpha);
-
             var layer = CGLayer.Create(gc, Frame.Size);
             layer.Context.SetFillColor(color);
             layer.Context.AddPath(path);
@@ -1363,7 +1361,7 @@ namespace AnalysisITC
         void DrawParameters(CGContext gc)
         {
             CGLayer layer = CGLayer.Create(gc, Frame.Size);
-            layer.Context.SetStrokeColor(new CGColor(StrokeColor, .4f));
+            layer.Context.SetStrokeColor(TertiaryLineColor);
             layer.Context.SetLineWidth(1);
 
             var H = ExperimentData.Solution.TotalEnthalpy;
@@ -1410,6 +1408,7 @@ namespace AnalysisITC
         {
             if (ExperimentData.Solution == null) return;
             if (ExperimentData.Solution.BootstrapSolutions == null) return;
+            if (ExperimentData.Solution.BootstrapSolutions.Count == 0) return;
 
             var top = new List<CGPoint>();
             var bottom = new List<CGPoint>();
@@ -1428,7 +1427,7 @@ namespace AnalysisITC
             CGPath path = GetSplineFromPoints(top.ToArray());
             GetSplineFromPoints(bottom.ToArray(), path);
 
-            FillPathShape(gc, path, StrokeColor, .25f);
+            FillPathShape(gc, path, TertiaryLineColor);
         }
 
         int mDownID = -1;

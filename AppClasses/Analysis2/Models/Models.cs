@@ -60,6 +60,7 @@ namespace AnalysisITC.AppClasses.Analysis2.Models
                 ModelOptions = options;
 
             // Setup model options
+            ApplyModelOptions();
 
             // Check if prebound ligand should be taken from attributes
             if (ModelOptions.ContainsKey(ModelOptionKey.PreboundLigandConc) && ModelOptions[ModelOptionKey.PreboundLigandConc].BoolValue == true)
@@ -68,6 +69,11 @@ namespace AnalysisITC.AppClasses.Analysis2.Models
                     throw new KeyNotFoundException("Model option configuration error encountered.\nMissing option key: " + ModelOptionKey.PreboundLigandConc.ToString() + "\n\nTo solve error, either add the attribute to the experiment or uncheck the 'From Exp' options in solver options");
                 else ModelOptions[ModelOptionKey.PreboundLigandConc].ParameterValue = Data.Attributes.Find(opt => opt.Key == ModelOptionKey.PreboundLigandConc).ParameterValue;
             }
+        }
+
+        public virtual void ApplyModelOptions()
+        {
+
         }
 
         public virtual double Evaluate(int injectionindex, bool withoffset = true)
@@ -123,11 +129,12 @@ namespace AnalysisITC.AppClasses.Analysis2.Models
             BootstrappedEvaluationStorage = null; //kill this object if the fitting algorithm touches this
 
             //Only way to cancel the Simplex algorithm seems to be from the loss function
-            if (SolverInterface.NelderMeadToken != null && SolverInterface.NelderMeadToken.IsCancellationRequested) throw new OptimizerStopException(); 
+            if (SolverInterface.TerminateAnalysisFlag.Up) throw new OptimizerStopException(); 
 
             Parameters.UpdateFromArray(parameters);
+            ApplyModelOptions();
 
-			return Loss();
+            return Loss();
 		}
 
 		public virtual double Loss()
@@ -140,7 +147,7 @@ namespace AnalysisITC.AppClasses.Analysis2.Models
 				loss += diff * diff;
 			}
 
-            return Math.Sqrt(loss / Data.Injections.Count(i => i.Include));
+            return 1000000 * Math.Sqrt(loss / Data.Injections.Count(i => i.Include));
 		}
 
         public virtual Model GenerateSyntheticModel()
@@ -156,7 +163,11 @@ namespace AnalysisITC.AppClasses.Analysis2.Models
         {
             foreach (var par in Parameters.Table)
             {
-                mdl.Parameters.AddOrUpdateParameter(par.Key, par.Value.Value, par.Value.IsLocked);
+                var _par = par.Value.Copy();
+                if (ModelCloneOptions.UnlockBootstrapParameters) _par.Unlock();
+                //_par.SetReducedStepSize();// TODO reduces stepsize to 10%, check if this makes a difference
+
+                mdl.Parameters.AddOrUpdateParameter(_par);
             }
 
             foreach (var opt in ModelOptions)
@@ -194,7 +205,7 @@ namespace AnalysisITC.AppClasses.Analysis2.Models
         }
         public List<FloatWithError> ParametersConformingToKey(ParameterType key)
         {
-            //FIXME unreproducible error related to modification of the collection while it is being used. Probably cross thread issue. Encountered 4
+            //FIXME unreproducible error related to modification of the collection while it is being used. Probably cross thread issue. Encountered 6
             return Parameters.Where(par => par.Key.GetProperties().ParentType == key).Select(par => par.Value).ToList();
         }
 
@@ -303,9 +314,33 @@ namespace AnalysisITC.AppClasses.Analysis2.Models
 
         public void SetBootstrapSolutions(List<SolutionInterface> list)
 		{
-			BootstrapSolutions = list;
+			BootstrapSolutions = ValidateBootstrapSolution(list);
 
-            if (list.Count > 0) ComputeErrorsFromBootstrapSolutions();
+            if (BootstrapSolutions.Count > 0) ComputeErrorsFromBootstrapSolutions();
+        }
+
+        List<SolutionInterface> ValidateBootstrapSolution(List<SolutionInterface> list)
+        {
+            var validated = new List<SolutionInterface>();
+
+            foreach (var sol in list)
+            {
+                bool valid = true;
+
+                foreach (var par in sol.Parameters)
+                {
+                    var lim = new Parameter(par.Key, par.Value.Value).Limits;
+
+                    if (ParameterChecker.IsWithinOnePercent(par.Value.Value, lim[0], lim[1])) continue;
+
+                    valid = false;
+                    break;
+                }
+
+                if (valid) validated.Add(sol);
+            }
+
+            return validated;
         }
 
         public virtual void ComputeErrorsFromBootstrapSolutions()

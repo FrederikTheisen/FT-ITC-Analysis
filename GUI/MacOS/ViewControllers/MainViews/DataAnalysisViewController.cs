@@ -226,7 +226,7 @@ namespace AnalysisITC
             {
                 var options = (ModelFactory.Factory as GlobalModelFactory).GetExposedConstraints();
 
-                foreach (var opt in options)
+                foreach (var opt in options.Reverse())
                 {
                     var control = new AnalysisGlobalModeOptionsView2(new CoreGraphics.CGRect(0, 0, OptionsStackView.Frame.Width, 20));
                     control.Setup(opt.Key, opt.Value, (ModelFactory.Factory as GlobalModelFactory).GlobalModelParameters);

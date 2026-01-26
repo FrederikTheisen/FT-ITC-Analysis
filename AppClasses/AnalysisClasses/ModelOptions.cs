@@ -40,6 +40,8 @@ namespace AnalysisITC.AppClasses.AnalysisClasses
         EquilibriumConstant,
         [ModelOptionKey(ModelOptions.ModelOptionType.Parameter)]
         Percentage,
+        [ModelOptionKey(ModelOptions.ModelOptionType.Bool)]
+        LockDuplicateParameter,
     }
 
 	public class ModelOptions

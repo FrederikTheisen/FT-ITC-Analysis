@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using AnalysisITC.AppClasses.AnalysisClasses;
 using MathNet.Numerics;
 
 namespace AnalysisITC.AppClasses.Analysis2.Models
@@ -34,6 +35,18 @@ namespace AnalysisITC.AppClasses.Analysis2.Models
             Parameters.AddOrUpdateParameter(ParameterType.Enthalpy2, GuessParameter(ParameterType.Enthalpy2, this.GuessEnthalpy() / 2));
             Parameters.AddOrUpdateParameter(ParameterType.Affinity2, GuessParameter(ParameterType.Affinity2, this.GuessAffinity2()));
             Parameters.AddOrUpdateParameter(ParameterType.Offset, GuessParameter(ParameterType.Offset, this.GuessOffset()));
+
+            ModelOptions.Add(AnalysisClasses.ModelOptions.Bool(ModelOptionKey.LockDuplicateParameter, "Shared N-values", false).DictionaryEntry);
+        }
+
+        public override void ApplyModelOptions()
+        {
+            base.ApplyModelOptions();
+
+            if (ModelOptions[ModelOptionKey.LockDuplicateParameter].BoolValue)
+            {
+                Parameters.Table[ParameterType.Nvalue2].SetGlobal(Parameters.Table[ParameterType.Nvalue1].Value);
+            }
         }
 
         public override double Evaluate(int injectionindex, bool withoffset = true)
@@ -109,10 +122,7 @@ namespace AnalysisITC.AppClasses.Analysis2.Models
         {
             Model mdl = new TwoSetsOfSites(Data.GetSynthClone(ModelCloneOptions));
 
-            foreach (var par in Parameters.Table)
-            {
-                mdl.Parameters.AddOrUpdateParameter(par.Key, par.Value.Value, par.Value.IsLocked);
-            }
+            SetSynthModelParameters(mdl);
 
             return mdl;
         }

@@ -666,15 +666,21 @@ namespace AnalysisITC
 
             string header = "";
 
-            bool exportsolution = AppSettings.ExportFitPointsWithPeaks;
+            bool exportsolution = Settings.ExportFittedPeaks;
+            bool exportconcentration = Settings.ExportConcentrations;
 
             foreach (var d in data)
             {
-                header += "x" + Delimiter + d.FileName + "_peak" + Delimiter;
-                if (exportsolution) header += d.FileName + "_fit" + Delimiter;
+                header += "x" + Delimiter;
+
+                if (Settings.ExportConcentrations) header += "[cell]" + Delimiter + "[syringe]" + Delimiter + "n_injmass" + Delimiter + "V_inj" + Delimiter + "Included" + Delimiter;
+
+                header += d.FileName + "_peak" + Delimiter;
+
+                if (Settings.ExportFittedPeaks) header += d.FileName + "_fit" + Delimiter;
             }
 
-            lines.Add(header);
+            lines.Add(header.TrimEnd(Delimiter));
 
             int index = 0;
 
@@ -687,10 +693,21 @@ namespace AnalysisITC
                     if (d.Injections.Count > index)
                     {
                         var inj = d.Injections[index];
-                        var enthalpy = Settings.ExportOffsetCorrected ? inj.OffsetEnthalpy : inj.Enthalpy;
-                        line += inj.Ratio.ToString() + Delimiter + enthalpy.ToString() + Delimiter;
+                        line += inj.Ratio.ToString() + Delimiter;
 
-                        if (exportsolution)
+                        if (Settings.ExportConcentrations)
+                        {
+                            line += inj.ActualCellConcentration.ToString() + Delimiter
+                                + inj.ActualTitrantConcentration.ToString() + Delimiter
+                                + inj.InjectionMass.ToString() + Delimiter
+                                + inj.Volume.ToString() + Delimiter
+                                + (inj.Include ? "1" : "0") + Delimiter;
+                        }
+                        
+                        var enthalpy = Settings.ExportOffsetCorrected ? inj.OffsetEnthalpy : inj.Enthalpy;
+                        line += enthalpy.ToString() + Delimiter;
+
+                        if (Settings.ExportFittedPeaks)
                         {
                             if (d.Solution != null) line += d.Model.EvaluateEnthalpy(index, !Settings.ExportOffsetCorrected).ToString() + Delimiter;
                             else line += BlankChar.ToString() + Delimiter;
@@ -699,8 +716,8 @@ namespace AnalysisITC
                     else
                     {
                         line += BlankChar.ToString() + Delimiter + BlankChar + Delimiter;
-
-                        if (exportsolution) line += BlankChar.ToString() + Delimiter;
+                        if (Settings.ExportConcentrations) line += BlankChar.ToString() + Delimiter + BlankChar.ToString() + Delimiter + BlankChar.ToString() + Delimiter + BlankChar.ToString() + Delimiter + BlankChar.ToString() + Delimiter;
+                        if (Settings.ExportFittedPeaks) line += BlankChar.ToString() + Delimiter;
                     }
                 }
 

@@ -18,6 +18,7 @@ namespace AnalysisITC.AppClasses.Analysis2
     {
         public static ErrorEstimationMethod ErrorEstimationMethod { get; set; } = ErrorEstimationMethod.BootstrapResiduals;
         public static int BootstrapIterations { get; set; } = 100;
+        public static bool UnlockBootstrapParameters { get; set; } = false;
         public static bool IncludeConcentrationVariance { get; set; } = false;
         public static bool EnableAutoConcentrationVariance { get; set; } = false;
         public static double AutoConcentrationVariance { get; set; } = 0.05;
@@ -41,8 +42,8 @@ namespace AnalysisITC.AppClasses.Analysis2
         public int BootstrapIterations { get; set; } = 100;
         public double SolverFunctionTolerance { get; set; } = AppSettings.OptimizerTolerance;
         public double RelativeParameterTolerance { get; set; } = 2E-5;
-        public double SolverBootstrapTolerance { get; set; } = 1.0E-12;
-        public double LevenbergMarquardtDifferentiationStepSize { get; set; } = 0.01;
+        public double SolverBootstrapTolerance { get; set; } = 1.0E-13;
+        public double LevenbergMarquardtDifferentiationStepSize { get; set; } = 0.001;
         public double LevenbergMarquardtEpsilon { get; set; } = 1E-22;
 
         internal alglib.minlmstate LMOptimizerState { get; set; }
@@ -117,6 +118,7 @@ namespace AnalysisITC.AppClasses.Analysis2
         public virtual async void Analyze()
         {
             starttime = DateTime.Now;
+            TerminateAnalysisFlag.Lower();
             AnalysisStarted.Invoke(this, TerminateAnalysisFlag);
 
             StatusBarManager.StartInderminateProgress();
@@ -128,8 +130,6 @@ namespace AnalysisITC.AppClasses.Analysis2
                 _ => "",
             };
             StatusBarManager.SetStatus("Fitting " + mdl + " using " + SolverAlgorithm.GetProperties().ShortName + "...", 0, priority: 1);
-
-            TerminateAnalysisFlag = new TerminationFlag();
         }
 
         private void TerminateAnalysisFlag_WasRaised(object sender, EventArgs e)
@@ -272,17 +272,19 @@ namespace AnalysisITC.AppClasses.Analysis2
             solver.Convergence = new Accord.Math.Convergence.GeneralConvergence(Model.NumberOfParameters)
             {
                 MaximumEvaluations = MaxOptimizerIterations,
-                AbsoluteFunctionTolerance = SolverFunctionTolerance,
-                RelativeParameterTolerance = RelativeParameterTolerance,
+                //AbsoluteFunctionTolerance = SolverFunctionTolerance,
+                //RelativeParameterTolerance = RelativeParameterTolerance,
                 StartTime = DateTime.Now,
             };
 
             SetStepSizes(solver, Model.Parameters.GetStepSizes());
             SetBounds(solver, Model.Parameters.GetLimits());
 
-            solver.Minimize(Model.Parameters.ToArray());
+            solver.Minimize(Model.Parameters.GetFittedParameterArray());
 
-            Model.Solution = SolutionInterface.FromModel(Model, new SolverConvergence(solver, Model.LossFunction(Model.Parameters.ToArray())));
+            var mdl_pars = Model.Parameters.GetFittedParameters();
+
+            Model.Solution = SolutionInterface.FromModel(Model, new SolverConvergence(solver, Model.LossFunction(Model.Parameters.GetFittedParameterArray())));
             Model.Solution.ErrorMethod = ErrorEstimationMethod;
 
             return Model.Solution.Convergence;
@@ -291,7 +293,7 @@ namespace AnalysisITC.AppClasses.Analysis2
         protected override SolverConvergence SolverWithLevenbergMarquardtAlgorithm()
         {
             DateTime start = DateTime.Now;
-            var guess = Model.Parameters.ToArray();
+            var guess = Model.Parameters.GetFittedParameterArray();
             var limits = Model.Parameters.GetLimits();
 
             alglib.minlmcreatev(Model.NumberOfParameters, guess, LevenbergMarquardtDifferentiationStepSize, out minlmstate minlmstate);
@@ -299,7 +301,7 @@ namespace AnalysisITC.AppClasses.Analysis2
             LMOptimizerState = minlmstate;
 
             alglib.minlmsetcond(LMOptimizerState, LevenbergMarquardtEpsilon, MaxOptimizerIterations);
-            alglib.minlmsetscale(LMOptimizerState, Model.Parameters.Table.Values.Where(p => !p.IsLocked).Select(p => p.StepSize).ToArray());
+            alglib.minlmsetscale(LMOptimizerState, Model.Parameters.Table.Values.Where(p => p.IsFitted).Select(p => p.StepSize).ToArray());
             alglib.minlmsetbc(LMOptimizerState, limits.Select(p => p[0]).ToArray(), limits.Select(p => p[1]).ToArray());
             alglib.minlmoptimize(LMOptimizerState, (double[] x, double[] fi, object obj) => { fi[0] = Model.LossFunction(x); }, null, null);
             alglib.minlmresults(LMOptimizerState, out double[] result, out minlmreport rep);
@@ -317,6 +319,8 @@ namespace AnalysisITC.AppClasses.Analysis2
             int counter = 0;
             var start = DateTime.Now;
             var bag = new ConcurrentBag<SolutionInterface>();
+            var opt = new ParallelOptions();
+            opt.MaxDegreeOfParallelism = AppSettings.MaxDegreeOfParallelism;
 
             var res = Parallel.For(0, BootstrapIterations, (i) =>
             {
@@ -325,7 +329,7 @@ namespace AnalysisITC.AppClasses.Analysis2
                     var solver = new Solver();
                     solver.SolverAlgorithm = this.SolverAlgorithm;
                     solver.Model = Model.GenerateSyntheticModel();
-                    //solver.SolverFunctionTolerance = SolverBootstrapTolerance;
+                    solver.SolverFunctionTolerance = SolverBootstrapTolerance;
 
                     solver.Solve();
 
@@ -371,7 +375,7 @@ namespace AnalysisITC.AppClasses.Analysis2
                     var solver = new Solver();
                     solver.SolverAlgorithm = this.SolverAlgorithm;
                     solver.Model = mdl;
-                    //solver.SolverFunctionTolerance = SolverBootstrapTolerance;
+                    solver.SolverFunctionTolerance = SolverBootstrapTolerance;
 
                     solver.Solve();
 
@@ -473,7 +477,9 @@ namespace AnalysisITC.AppClasses.Analysis2
             SetBounds(solver, Model.Parameters.GetLimits());
             SetCancellationToken(solver);
 
-            solver.Minimize(Model.Parameters.ToArray());
+            solver.Minimize(Model.Parameters.GetFittedParameterArray());
+
+            var mdl_pars = Model.Parameters.GetFittedParameters();
 
             Model.Solution = new GlobalSolution(this, new SolverConvergence(solver, Model.Loss()));
 
@@ -484,9 +490,9 @@ namespace AnalysisITC.AppClasses.Analysis2
         {
             DateTime start = DateTime.Now;
             var varcount = Model.NumberOfParameters;
-            var guess = Model.Parameters.ToArray();
+            var guess = Model.Parameters.GetFittedParameterArray();
             var limits = Model.Parameters.GetLimits();
-            var parameters = Model.Parameters.GetParameters();
+            var parameters = Model.Parameters.GetFittedParameters();
 
             alglib.minlmcreatev(varcount, guess, LevenbergMarquardtDifferentiationStepSize, out minlmstate LMOptimizerState);
             alglib.minlmsetcond(LMOptimizerState, LevenbergMarquardtEpsilon, MaxOptimizerIterations);
@@ -510,7 +516,7 @@ namespace AnalysisITC.AppClasses.Analysis2
             int counter = 0;
             var start = DateTime.Now;
             var opt = new ParallelOptions();
-            opt.MaxDegreeOfParallelism = 10;
+            opt.MaxDegreeOfParallelism = AppSettings.MaxDegreeOfParallelism;
 
             var res = Parallel.For(0, BootstrapIterations, opt, (i) =>
             {

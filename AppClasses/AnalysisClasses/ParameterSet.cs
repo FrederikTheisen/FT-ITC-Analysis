@@ -15,6 +15,14 @@ namespace AnalysisITC.AppClasses.Analysis2
         public double[] Limits { get; private set; }
         public double StepSize { get; private set; }
         public bool ChangedByUser { get; private set; } = false;
+        public bool IsGloballyDetermined { get; private set; } = false;
+
+        public bool IsFitted => !(IsLocked || IsGloballyDetermined);
+
+        private Parameter()
+        {
+
+        }
 
         public Parameter(ParameterType key, double value, bool islocked = false)
         {
@@ -25,12 +33,17 @@ namespace AnalysisITC.AppClasses.Analysis2
             Limits = key.GetProperties().DefaultLimits;
             if (AppSettings.EnableExtendedParameterLimits)
             {
-                if (Limits[0] > 0 || Limits[1] < 0) // Parameter can only be positive or negative
+                if (Limits[0] > 0) // Parameter can only be positive
                 {
                     Limits[0] *= 0.1;
                     Limits[1] *= 10;
                 }
-                else //Lower value can be negative or is zero
+                else if (Limits[1] < 0) // Parameter can only be negative
+                {
+                    Limits[0] *= 10;
+                    Limits[1] *= 0.1;
+                }
+                else // Parameter can be both positive or negative or zero
                 {
                     Limits[0] *= 10;
                     Limits[1] *= 10;
@@ -61,14 +74,14 @@ namespace AnalysisITC.AppClasses.Analysis2
         public void SetGlobal(double value)
         {
             Update(value);
-            IsLocked = true;
+            IsGloballyDetermined = true;
         }
 
         public void Update(double value)
         {
             Value = value;
 
-#if DEBUG
+#if false
             if (value < Limits[0] || value > Limits[1])
                 throw new Exception("Parameter out of range: " + Key.ToString() + " " + value.ToString() + " [" + Limits[0].ToString() + " - " + Limits[1].ToString() + "]");
 #endif
@@ -82,10 +95,21 @@ namespace AnalysisITC.AppClasses.Analysis2
             ChangedByUser = true;
         }
 
+        public void Unlock()
+        {
+            IsLocked = false;
+        }
+
+        public void SetReducedStepSize()
+        {
+            StepSize = Key.GetProperties().DefaultStepSize / 10;
+        }
+
         public void ReinitializeParameter(Model model)
         {
             this.Value = ModelFactory.InitializeFactory(model.ModelType, false).GetExposedParameters().First(p => p.Key == this.Key).Value;
             IsLocked = false;
+            IsGloballyDetermined = false;
             ChangedByUser = false;
         }
 
@@ -93,12 +117,13 @@ namespace AnalysisITC.AppClasses.Analysis2
         {
             this.Value = value;
             IsLocked = false;
+            IsGloballyDetermined = false;
             ChangedByUser = false;
         }
 
         public override string ToString()
         {
-            return Key.ToString() + ": " + Value.ToString("G3");
+            return $"{Key}: { Value.ToString("G3")} | {IsFitted}";
         }
 
         public static bool Equal(ParameterType t1, ParameterType t2)
@@ -108,6 +133,20 @@ namespace AnalysisITC.AppClasses.Analysis2
             else if (t2.GetProperties().ParentType == t1) return true;
             else return false;
         }
+
+        public Parameter Copy()
+        {
+            return new Parameter()
+            {
+                Key = this.Key,
+                Value = this.Value,
+                Limits = this.Limits,
+                StepSize = this.StepSize,
+                ChangedByUser = this.ChangedByUser,
+                IsLocked = this.IsLocked,
+                IsGloballyDetermined = this.IsGloballyDetermined,
+            };
+        }
     }
 
     public class ModelParameters
@@ -116,7 +155,7 @@ namespace AnalysisITC.AppClasses.Analysis2
         public Dictionary<ParameterType, Parameter> Table { get; set; } = new Dictionary<ParameterType, Parameter>();
         public double ExperimentTemperature { get; private set; }
 
-        public int FittingParameterCount => Table.Count(p => !p.Value.IsLocked);
+        public int FittingParameterCount => Table.Count(p => p.Value.IsFitted);
 
         public ModelParameters(ExperimentData data)
         {
@@ -129,6 +168,12 @@ namespace AnalysisITC.AppClasses.Analysis2
             else Table.Add(key, new Parameter(key, value, islocked));
         }
 
+        public void AddOrUpdateParameter(Parameter par)
+        {
+            if (Table.Keys.Contains(par.Key)) Table[par.Key] = par.Copy();
+            else Table.Add(par.Key, par.Copy());
+        }
+
         public void UpdateFromArray(double[] parameters)
         {
             int index = 0;
@@ -136,7 +181,7 @@ namespace AnalysisITC.AppClasses.Analysis2
             foreach (var parameter in Table)
             {
                 if (parameter.Key != parameter.Value.Key) throw new KeyNotFoundException("Parameter key mismatch");
-                if (!parameter.Value.IsLocked)
+                if (parameter.Value.IsFitted)
                 {
                     parameter.Value.Update(parameters[index]);
                     index++;
@@ -145,16 +190,25 @@ namespace AnalysisITC.AppClasses.Analysis2
         }
 
         /// <summary>
-        /// Method to extract initial guess parameter vector
+        /// Method to extract fitted parameter vector
         /// </summary>
         /// <returns></returns>
-        public double[] ToArray()
+        public double[] GetFittedParameterArray()
         {
-            var w = new List<double>();
+            return GetFittedParameters().Select(p => p.Value).ToArray();
+        }
+
+        /// <summary>
+        /// Method to extract fitted parameter vector
+        /// </summary>
+        /// <returns></returns>
+        public Parameter[] GetFittedParameters()
+        {
+            var w = new List<Parameter>();
 
             foreach (KeyValuePair<ParameterType, Parameter> parameter in Table)
             {
-                if (!parameter.Value.IsLocked) w.Add(parameter.Value.Value);
+                if (parameter.Value.IsFitted) w.Add(parameter.Value);
             }
 
             return w.ToArray();
@@ -162,12 +216,12 @@ namespace AnalysisITC.AppClasses.Analysis2
 
         public double[] GetStepSizes()
         {
-            return Table.Select(p => p.Value).Where(p => !p.IsLocked).Select(p => p.StepSize).ToArray();
+            return Table.Select(p => p.Value).Where(p => p.IsFitted).Select(p => p.StepSize).ToArray();
         }
 
         public List<double[]> GetLimits()
         {
-            return Table.Select(p => p.Value).Where(p => !p.IsLocked).Select(p => p.Limits).ToList();
+            return Table.Select(p => p.Value).Where(p => p.IsFitted).Select(p => p.Limits).ToList();
         }
     }
 
@@ -181,7 +235,7 @@ namespace AnalysisITC.AppClasses.Analysis2
         public List<ModelParameters> IndividualModelParameterList { get; private set; } = new List<ModelParameters>();
 
         //Property derived values
-        int GlobalFittingParameterCount => GlobalTable.Count(p => !p.Value.IsLocked);
+        int GlobalFittingParameterCount => GlobalTable.Count(p => p.Value.IsFitted);
         int IndividualModelParameterCount => IndividualModelParameterList.Sum(pars => pars.FittingParameterCount);
         public int TotalFittingParameters => GlobalFittingParameterCount + IndividualModelParameterCount;
         double ReferenceTemperature => IndividualModelParameterList.Average(pars => pars.ExperimentTemperature);
@@ -221,7 +275,7 @@ namespace AnalysisITC.AppClasses.Analysis2
 
             foreach (var parameter in GlobalTable)
             {
-                if (!parameter.Value.IsLocked)
+                if (parameter.Value.IsFitted)
                 {
                     parameter.Value.Update(parameterarray[index]);
                     index++;
@@ -303,35 +357,35 @@ namespace AnalysisITC.AppClasses.Analysis2
         /// Method to extract initial guess parameter vector
         /// </summary>
         /// <returns></returns>
-        public double[] ToArray()
+        public double[] GetFittedParameterArray()
         {
-            var w = new List<double>();
+            //var w = new List<double>();
+            //
+            //foreach (KeyValuePair<ParameterType, Parameter> parameter in GlobalTable)
+            //{
+            //    if (!parameter.Value.IsLocked) w.Add(parameter.Value.Value);
+            //}
+            //
+            //foreach (var modelparameterset in IndividualModelParameterList)
+            //{
+            //    w.AddRange(modelparameterset.GetFittedParameterArray());
+            //}
 
-            foreach (KeyValuePair<ParameterType, Parameter> parameter in GlobalTable)
-            {
-                if (!parameter.Value.IsLocked) w.Add(parameter.Value.Value);
-            }
-
-            foreach (var modelparameterset in IndividualModelParameterList)
-            {
-                w.AddRange(modelparameterset.ToArray());
-            }
-
-            return w.ToArray();
+            return GetFittedParameters().Select(p => p.Value).ToArray();
         }
 
-        public List<Parameter> GetParameters()
+        public List<Parameter> GetFittedParameters()
         {
             var w = new List<Parameter>();
 
             foreach (KeyValuePair<ParameterType, Parameter> parameter in GlobalTable)
             {
-                if (!parameter.Value.IsLocked) w.Add(parameter.Value);
+                if (parameter.Value.IsFitted) w.Add(parameter.Value);
             }
 
             foreach (var modelparameterset in IndividualModelParameterList)
             {
-                w.AddRange(modelparameterset.Table.Values.Where(p => !p.IsLocked));
+                w.AddRange(modelparameterset.GetFittedParameters());
             }
 
             return w;
@@ -347,7 +401,7 @@ namespace AnalysisITC.AppClasses.Analysis2
         public double[] GetStepSizes()
         {
             var stepsize = new List<double>();
-            stepsize.AddRange(GlobalTable.Select(p => p.Value).Where(p => !p.IsLocked).Select(p => p.StepSize));
+            stepsize.AddRange(GlobalTable.Select(p => p.Value).Where(p => p.IsFitted).Select(p => p.StepSize));
             foreach (var par in IndividualModelParameterList)
             {
                 stepsize.AddRange(par.GetStepSizes());
@@ -359,7 +413,7 @@ namespace AnalysisITC.AppClasses.Analysis2
         public List<double[]> GetLimits()
         {
             var limits = new List<double[]>();
-            limits.AddRange(GlobalTable.Select(p => p.Value).Where(p => !p.IsLocked).Select(p => p.Limits));
+            limits.AddRange(GlobalTable.Select(p => p.Value).Where(p => p.IsFitted).Select(p => p.Limits));
             foreach (var par in IndividualModelParameterList)
             {
                 limits.AddRange(par.GetLimits());

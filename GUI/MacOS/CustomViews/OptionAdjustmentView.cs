@@ -120,6 +120,7 @@ namespace AnalysisITC.GUI.MacOS.CustomViews
 
             switch (option.Key)
             {
+                case ModelOptionKey.LockDuplicateParameter:
                 case ModelOptionKey.PeptideInCell:
                     SetupBoolOption(); break;
                 case ModelOptionKey.Percentage:
@@ -323,8 +324,7 @@ namespace AnalysisITC.GUI.MacOS.CustomViews
             {
                 Option.BoolValue = InputButton.State == NSCellStateValue.On;
             }
-
-            if (string.IsNullOrEmpty(InputField.StringValue)) return;
+            else if (string.IsNullOrEmpty(InputField.StringValue)) return;
 
             switch (Option.Key)
             {

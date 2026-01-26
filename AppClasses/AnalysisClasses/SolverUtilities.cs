@@ -192,6 +192,7 @@ namespace AnalysisITC
         public bool EnableAutoConcentrationVariance { get; set; } = false;
         public double AutoConcentrationVariance { get; set; } = 0.05f;
         public int DiscardedDataPoint { get; set; } = 0;
+        public bool UnlockBootstrapParameters { get; set; } = false;
 
         public ModelCloneOptions()
         {
@@ -199,6 +200,7 @@ namespace AnalysisITC
             IncludeConcentrationErrorsInBootstrap = FittingOptionsController.IncludeConcentrationVariance;
             EnableAutoConcentrationVariance = FittingOptionsController.EnableAutoConcentrationVariance;
             AutoConcentrationVariance = FittingOptionsController.AutoConcentrationVariance;
+            UnlockBootstrapParameters = FittingOptionsController.UnlockBootstrapParameters;
         }
 
         public static ModelCloneOptions DefaultOptions

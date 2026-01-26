@@ -698,7 +698,13 @@ namespace DataReaders
             List<ModelOptions> options = ReadAttributeOptions(reader);
 
             foreach (var att in options)
-                mdl.ModelOptions.Add(att.DictionaryEntry);
+            {
+                if (mdl.ModelOptions.ContainsKey(att.Key))
+                {
+                    mdl.ModelOptions[att.Key] = att;
+                }
+                else mdl.ModelOptions.Add(att.DictionaryEntry);
+            }
         }
 
         private static SolverConvergence ReadConvergenceObject(StreamReader reader)

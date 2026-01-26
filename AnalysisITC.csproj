@@ -447,6 +447,7 @@
     <Compile Include="GUI\MacOS\CustomViews\AutoExpandingTextView2.designer.cs">
       <DependentUpon>AutoExpandingTextView2.cs</DependentUpon>
     </Compile>
+    <Compile Include="AppClasses\AnalysisClasses\ParameterChecker.cs" />
   </ItemGroup>
   <ItemGroup>
     <InterfaceDefinition Include="Main.storyboard" />

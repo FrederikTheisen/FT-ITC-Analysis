@@ -32,6 +32,7 @@ namespace AnalysisITC
             public bool ExportFittedPeaks;
             public bool ExportOffsetCorrected;
             public ExportDataSelection Selection;
+            public bool ExportConcentrations;
 
             public bool FittedPeakExportEnabled;
             public bool BaselineCorrectionEnabled;
@@ -46,6 +47,7 @@ namespace AnalysisITC
                     ExportFittedPeaks = AppSettings.ExportFitPointsWithPeaks,
                     Selection = AppSettings.ExportSelectionMode,
                     ExportOffsetCorrected = true,
+                    ExportConcentrations = true,
                 };
 
                 settings.SetData();
