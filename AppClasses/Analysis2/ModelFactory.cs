@@ -307,7 +307,7 @@ namespace AnalysisITC.AppClasses.Analysis2
             InitializeGlobalParameters();
         }
 
-        public void InitializeGlobalParameters()
+        public void InitializeGlobalParameters() //TODO implement global determined
         {
             if (Model.Models == null || Model.Models.Count == 0) throw new Exception("No models in global model");
 
