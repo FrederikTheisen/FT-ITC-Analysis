@@ -21,7 +21,14 @@ namespace AnalysisITC
                 else return Math.Abs(SD / Value);
             }
         }
-        public bool HasError => SD > 10E-8;
+        public bool HasError
+        {
+            get
+            {
+                if (Math.Abs(Value) < float.Epsilon) return SD > 10E-8;
+                else return SD / Math.Abs(Value) > 10E-8;
+            }
+        }
 
         public Energy Energy => new Energy(this);
 
@@ -89,6 +96,8 @@ namespace AnalysisITC
             }
 
             SD = Math.Abs(result);
+            DistributionConfidence95 = GetConfidenceInterval(distribution.ToList());
+            DistributionConfidence100 = new double[] { distribution.Min(), distribution.Max() };
         }
 
         public static double[] GetConfidenceInterval(List<double> distribution)
