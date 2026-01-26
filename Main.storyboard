@@ -2723,7 +2723,7 @@ Requires that a model has been fitted for all selected data.</string>
                                                             </constraints>
                                                             <textFieldCell key="cell" controlSize="small" id="YA7-9Q-ZDh">
                                                                 <font key="font" metaFont="smallSystem"/>
-                                                                <string key="title">Export processed ITC data in a format compatible with ITCSim. XX
+                                                                <string key="title">Export processed ITC data in a format compatible with ITCSim.
 Each experiment is written as a separate file and includes experimental metadata to enable automatic configuration in ITCSim.</string>
                                                                 <color key="textColor" name="labelColor" catalog="System" colorSpace="catalog"/>
                                                                 <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
@@ -2765,13 +2765,13 @@ Each experiment is written as a separate file and includes experimental metadata
                                 </tabViewItems>
                             </tabView>
                             <segmentedControl verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="oUf-hc-ZR9">
-                                <rect key="frame" x="11" y="96" width="270" height="23"/>
+                                <rect key="frame" x="11" y="96" width="344" height="23"/>
                                 <segmentedCell key="cell" borderStyle="border" alignment="left" style="capsule" trackingMode="selectOne" id="cxZ-fo-DS6">
                                     <font key="font" metaFont="system"/>
                                     <segments>
                                         <segment label="Export Data" selected="YES"/>
                                         <segment label="Export Peaks" tag="1"/>
-                                        <segment label="Export ITCsim"/>
+                                        <segment label="Export for ITCsim Analysis"/>
                                     </segments>
                                 </segmentedCell>
                                 <connections>
