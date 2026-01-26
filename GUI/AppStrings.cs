@@ -17,6 +17,8 @@ namespace AnalysisITC.Utils
         public const string GibbsFreeEnergy = "∆*G*";
         public const string EntropyContribution = "-*T*∆*S*";
         public const string ProtonationEnthalpy = "∆*H*{buffer}";
+
+        public const string ITCsimName = "ITCsim";
     }
 
     /// <summary>
