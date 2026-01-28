@@ -32,6 +32,7 @@ namespace AnalysisITC
             ResultAnalysisController.AnalysisStarted += StopableProcessStarted;
             ResultAnalysisController.AnalysisFinished += StopableProcessFinished;
             SolverInterface.AnalysisFinished += StopableProcessFinished;
+            AppDelegate.OpenMergeTool += OpenTool;
 
             AppEventHandler.ShowAppMessage += OnShowAppMessage;
 
@@ -76,6 +77,11 @@ namespace AnalysisITC
 
         private void OnStatusUpdated(object sender, string e) => StatusbarPrimaryLabel.StringValue = e;
         private void OnSecondaryStatusUpdated(object sender, string e) => StatusbarSecondaryLabel.StringValue = e;
+
+        private void OpenTool(object sender, EventArgs e)
+        {
+            PerformSegue("ShowExperimentMergerToolSegue", this);
+        }
 
         private void StateManager_UpdateStateDependentUI(object sender, EventArgs e)
         {

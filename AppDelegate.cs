@@ -13,6 +13,7 @@ namespace AnalysisITC
     {
         public static event EventHandler OpenFileDialog;
         public static event EventHandler StartPrintOperation;
+        public static event EventHandler OpenMergeTool;
 
         NSOpenPanel FileDialog { get; set; }
          
@@ -39,7 +40,6 @@ namespace AnalysisITC
         [Action("validateMenuItem:")]
         public bool ValidateMenuItem(NSMenuItem item)
         {
-            Console.WriteLine(item.Identifier);
             // Take action based on the menu item type
             // (As specified in its Tag)
             switch (item.Identifier)
@@ -61,6 +61,7 @@ namespace AnalysisITC
                 case "sortbyprotonation": return DataManager.DataIsLoaded && DataManager.Data.Any(d => d.Attributes.Count > 0);
                 case "sortbyionic": return DataManager.DataIsLoaded && DataManager.Data.Any(d => d.Attributes.Count > 0);
                 case "copyattributes": return DataManager.DataIsLoaded && DataManager.SelectedIsData && DataManager.Current.Attributes.Count > 0;
+                case "mergetool": return DataManager.DataIsLoaded;
             }
 
             return true;
@@ -81,6 +82,11 @@ namespace AnalysisITC
             DataReader.Read(new List<NSUrl> { url });
 
             return true;
+        }
+
+        partial void OpenMergeToolAction(NSObject sender)
+        {
+            OpenMergeTool.Invoke(this, null);
         }
 
         partial void Print(NSMenuItem sender)
