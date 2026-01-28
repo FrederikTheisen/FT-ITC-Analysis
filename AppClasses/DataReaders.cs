@@ -199,6 +199,10 @@ namespace DataReaders
             }
         }
 
+        /// <summary>
+        /// Calculate properties for the experiment. Currently determines the measured temperature.
+        /// </summary>
+        /// <param name="experiment"></param>
         public static void ProcessData(ExperimentData experiment)
         {
             experiment.MeasuredTemperature = experiment.DataPoints.Average(dp => dp.Temperature);
