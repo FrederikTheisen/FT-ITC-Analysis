@@ -2530,6 +2530,339 @@ In most cases, interpretation of affinities provided by ITC is straightforward, 
             </objects>
             <point key="canvasLocation" x="-1170" y="-609"/>
         </scene>
+        <!--Experiment Merger View Controller-->
+        <scene sceneID="R60-Uv-ArZ">
+            <objects>
+                <viewController id="Z6E-PS-hGv" customClass="ExperimentMergerViewController" sceneMemberID="viewController">
+                    <view key="view" verticalHuggingPriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="62W-Hl-eHA">
+                        <rect key="frame" x="0.0" y="0.0" width="487" height="475"/>
+                        <subviews>
+                            <stackView distribution="fill" orientation="vertical" alignment="leading" horizontalStackHuggingPriority="250" verticalStackHuggingPriority="250" horizontalHuggingPriority="750" verticalHuggingPriority="1000" detachesHiddenViews="YES" translatesAutoresizingMaskIntoConstraints="NO" id="Xga-ve-s9F">
+                                <rect key="frame" x="0.0" y="0.0" width="487" height="475"/>
+                                <subviews>
+                                    <textField focusRingType="none" verticalHuggingPriority="1000" horizontalCompressionResistancePriority="250" translatesAutoresizingMaskIntoConstraints="NO" id="U5t-Wi-st1">
+                                        <rect key="frame" x="18" y="391" width="451" height="64"/>
+                                        <textFieldCell key="cell" selectable="YES" alignment="justified" id="xB2-YH-iMx">
+                                            <font key="font" metaFont="system"/>
+                                            <string key="title">Combines multiple tandem ITC runs (syringe reloads on the same cell) into a single experiment for analysis. The stitched dataset recalculates concentrations and molar ratios across all injections, with an optional correction for partial remixing of displaced liquid between runs.</string>
+                                            <color key="textColor" name="labelColor" catalog="System" colorSpace="catalog"/>
+                                            <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
+                                        </textFieldCell>
+                                    </textField>
+                                    <box verticalHuggingPriority="750" boxType="separator" translatesAutoresizingMaskIntoConstraints="NO" id="CU8-2g-FEr">
+                                        <rect key="frame" x="20" y="380" width="447" height="5"/>
+                                    </box>
+                                    <stackView distribution="fill" orientation="horizontal" alignment="top" horizontalStackHuggingPriority="249.99998474121094" verticalStackHuggingPriority="249.99998474121094" verticalHuggingPriority="1000" detachesHiddenViews="YES" translatesAutoresizingMaskIntoConstraints="NO" id="nox-ag-2xm">
+                                        <rect key="frame" x="20" y="354" width="447" height="20"/>
+                                        <subviews>
+                                            <textField focusRingType="none" horizontalHuggingPriority="249" verticalHuggingPriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="gnm-Ne-Mo9">
+                                                <rect key="frame" x="-2" y="4" width="151" height="16"/>
+                                                <string key="toolTip">Extra solution occupying the filling stem/overflow space above the active cell volume. This volume can contain displaced liquid during injections and may partially remix between tandem runs (if back-mixing is enabled). Typical MicroCal iTC200 fill requires ~80 µL extra beyond the ~200 µL active cell volume (adjust if you know your instrument/loading volume).</string>
+                                                <textFieldCell key="cell" lineBreakMode="clipping" title="Method" id="Peo-gN-Ms3">
+                                                    <font key="font" usesAppearanceFont="YES"/>
+                                                    <color key="textColor" name="labelColor" catalog="System" colorSpace="catalog"/>
+                                                    <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
+                                                </textFieldCell>
+                                            </textField>
+                                            <segmentedControl verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="oF6-d8-meS">
+                                                <rect key="frame" x="153" y="-1" width="296" height="22"/>
+                                                <segmentedCell key="cell" borderStyle="border" alignment="left" style="rounded" trackingMode="selectOne" id="V2f-bh-Yrd">
+                                                    <font key="font" metaFont="system"/>
+                                                    <segments>
+                                                        <segment label="MicroCal Concat" selected="YES"/>
+                                                        <segment label="Back-Mixing Compensation" tag="1"/>
+                                                    </segments>
+                                                </segmentedCell>
+                                            </segmentedControl>
+                                        </subviews>
+                                        <constraints>
+                                            <constraint firstAttribute="height" constant="20" id="THq-Bi-2Kk"/>
+                                        </constraints>
+                                        <visibilityPriorities>
+                                            <integer value="1000"/>
+                                            <integer value="1000"/>
+                                        </visibilityPriorities>
+                                        <customSpacing>
+                                            <real value="3.4028234663852886e+38"/>
+                                            <real value="3.4028234663852886e+38"/>
+                                        </customSpacing>
+                                    </stackView>
+                                    <stackView distribution="fill" orientation="horizontal" alignment="top" horizontalStackHuggingPriority="249.99998474121094" verticalStackHuggingPriority="249.99998474121094" verticalHuggingPriority="1000" detachesHiddenViews="YES" translatesAutoresizingMaskIntoConstraints="NO" id="rLe-wM-z2C">
+                                        <rect key="frame" x="20" y="326" width="447" height="20"/>
+                                        <subviews>
+                                            <textField focusRingType="none" horizontalHuggingPriority="249" verticalHuggingPriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="zkF-0Z-MmZ">
+                                                <rect key="frame" x="-2" y="4" width="293" height="16"/>
+                                                <string key="toolTip">Extra solution occupying the filling stem/overflow space above the active cell volume. This volume can contain displaced liquid during injections and may partially remix between tandem runs (if back-mixing is enabled). Typical MicroCal iTC200 fill requires ~80 µL extra beyond the ~200 µL active cell volume (adjust if you know your instrument/loading volume).</string>
+                                                <textFieldCell key="cell" lineBreakMode="clipping" title="Dead volume (above cell) [µL]" id="FEn-JL-04J">
+                                                    <font key="font" usesAppearanceFont="YES"/>
+                                                    <color key="textColor" name="labelColor" catalog="System" colorSpace="catalog"/>
+                                                    <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
+                                                </textFieldCell>
+                                            </textField>
+                                            <textField focusRingType="none" verticalHuggingPriority="1000" verticalCompressionResistancePriority="1000" preferredMaxLayoutWidth="406" translatesAutoresizingMaskIntoConstraints="NO" id="fRq-Zc-zch">
+                                                <rect key="frame" x="297" y="0.0" width="150" height="20"/>
+                                                <constraints>
+                                                    <constraint firstAttribute="width" constant="150" id="bl7-Rb-rRJ"/>
+                                                </constraints>
+                                                <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" refusesFirstResponder="YES" sendsActionOnEndEditing="YES" borderStyle="border" alignment="right" title="80" drawsBackground="YES" id="wpg-Ie-yte">
+                                                    <font key="font" metaFont="system"/>
+                                                    <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
+                                                    <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
+                                                </textFieldCell>
+                                            </textField>
+                                        </subviews>
+                                        <constraints>
+                                            <constraint firstAttribute="height" constant="20" id="YvN-XF-Frb"/>
+                                        </constraints>
+                                        <visibilityPriorities>
+                                            <integer value="1000"/>
+                                            <integer value="1000"/>
+                                        </visibilityPriorities>
+                                        <customSpacing>
+                                            <real value="3.4028234663852886e+38"/>
+                                            <real value="3.4028234663852886e+38"/>
+                                        </customSpacing>
+                                    </stackView>
+                                    <stackView distribution="fill" orientation="horizontal" alignment="top" horizontalStackHuggingPriority="249.99998474121094" verticalStackHuggingPriority="249.99998474121094" verticalHuggingPriority="1000" detachesHiddenViews="YES" translatesAutoresizingMaskIntoConstraints="NO" id="Yzn-AK-aZU">
+                                        <rect key="frame" x="20" y="298" width="447" height="20"/>
+                                        <subviews>
+                                            <textField focusRingType="none" horizontalHuggingPriority="249" verticalHuggingPriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="78Y-Th-WTR">
+                                                <rect key="frame" x="-2" y="4" width="253" height="16"/>
+                                                <string key="toolTip">Extra solution occupying the filling stem/overflow space above the active cell volume. This volume can contain displaced liquid during injections and may partially remix between tandem runs (if back-mixing is enabled). Typical MicroCal iTC200 fill requires ~80 µL extra beyond the ~200 µL active cell volume (adjust if you know your instrument/loading volume).</string>
+                                                <textFieldCell key="cell" lineBreakMode="clipping" title="Back-mixing degree" id="wQw-oq-yFk">
+                                                    <font key="font" usesAppearanceFont="YES"/>
+                                                    <color key="textColor" name="labelColor" catalog="System" colorSpace="catalog"/>
+                                                    <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
+                                                </textFieldCell>
+                                            </textField>
+                                            <textField focusRingType="none" verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="PSo-Dw-3dd">
+                                                <rect key="frame" x="255" y="4" width="36" height="16"/>
+                                                <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" refusesFirstResponder="YES" sendsActionOnEndEditing="YES" state="on" alignment="right" title="50 %" id="Y3b-7N-cgx">
+                                                    <numberFormatter key="formatter" formatterBehavior="default10_4" numberStyle="percent" formatWidth="-1" minimumIntegerDigits="1" maximumIntegerDigits="2000000000" id="xZR-aH-qeY">
+                                                        <integer key="multiplier" value="100"/>
+                                                    </numberFormatter>
+                                                    <font key="font" metaFont="system"/>
+                                                    <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
+                                                    <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
+                                                    <connections>
+                                                        <action selector="takeIntegerValueFrom:" target="8iq-Xq-uui" id="kan-jK-wjl"/>
+                                                    </connections>
+                                                </textFieldCell>
+                                            </textField>
+                                            <slider verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="8iq-Xq-uui">
+                                                <rect key="frame" x="295" y="5" width="154" height="17"/>
+                                                <constraints>
+                                                    <constraint firstAttribute="width" constant="150" id="aE9-My-sMZ"/>
+                                                </constraints>
+                                                <sliderCell key="cell" controlSize="mini" continuous="YES" state="on" alignment="left" maxValue="1" doubleValue="0.5" tickMarkPosition="above" numberOfTickMarks="11" sliderType="linear" id="E6d-HN-qBQ"/>
+                                                <connections>
+                                                    <action selector="takeFloatValueFrom:" target="Y3b-7N-cgx" id="uar-BV-ciL"/>
+                                                    <outlet property="formatter" destination="xZR-aH-qeY" id="8nh-hl-V3K"/>
+                                                </connections>
+                                            </slider>
+                                        </subviews>
+                                        <constraints>
+                                            <constraint firstAttribute="height" constant="20" id="lDe-Dw-4Ve"/>
+                                        </constraints>
+                                        <visibilityPriorities>
+                                            <integer value="1000"/>
+                                            <integer value="1000"/>
+                                            <integer value="1000"/>
+                                        </visibilityPriorities>
+                                        <customSpacing>
+                                            <real value="3.4028234663852886e+38"/>
+                                            <real value="3.4028234663852886e+38"/>
+                                            <real value="3.4028234663852886e+38"/>
+                                        </customSpacing>
+                                    </stackView>
+                                    <button horizontalHuggingPriority="249" verticalHuggingPriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="bCH-jS-bGL">
+                                        <rect key="frame" x="20" y="273" width="449" height="18"/>
+                                        <buttonCell key="cell" type="check" title="Removed titrated volume after each experiment" bezelStyle="regularSquare" imagePosition="right" state="on" inset="2" id="ihO-jy-2ee">
+                                            <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
+                                            <font key="font" metaFont="system"/>
+                                        </buttonCell>
+                                        <constraints>
+                                            <constraint firstAttribute="height" constant="16" id="kQG-nc-vPq"/>
+                                        </constraints>
+                                    </button>
+                                    <box verticalHuggingPriority="750" boxType="separator" translatesAutoresizingMaskIntoConstraints="NO" id="RJE-Ye-bEb">
+                                        <rect key="frame" x="20" y="263" width="447" height="5"/>
+                                    </box>
+                                    <scrollView verticalHuggingPriority="1000" borderType="none" autohidesScrollers="YES" horizontalLineScroll="63" horizontalPageScroll="10" verticalLineScroll="63" verticalPageScroll="10" usesPredominantAxisScrolling="NO" horizontalScrollElasticity="none" translatesAutoresizingMaskIntoConstraints="NO" id="Fcw-fA-iVA">
+                                        <rect key="frame" x="20" y="57" width="447" height="200"/>
+                                        <clipView key="contentView" drawsBackground="NO" id="X3Q-Pz-nEw">
+                                            <rect key="frame" x="0.0" y="0.0" width="447" height="200"/>
+                                            <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
+                                            <subviews>
+                                                <tableView verticalHuggingPriority="750" allowsExpansionToolTips="YES" columnAutoresizingStyle="lastColumnOnly" tableStyle="sourceList" selectionHighlightStyle="sourceList" columnResizing="NO" multipleSelection="NO" autosaveColumns="NO" rowHeight="63" rowSizeStyle="automatic" viewBased="YES" id="DjZ-fF-OMy">
+                                                    <rect key="frame" x="0.0" y="0.0" width="447" height="200"/>
+                                                    <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
+                                                    <color key="backgroundColor" name="_sourceListBackgroundColor" catalog="System" colorSpace="catalog"/>
+                                                    <color key="gridColor" name="gridColor" catalog="System" colorSpace="catalog"/>
+                                                    <tableColumns>
+                                                        <tableColumn identifier="AutomaticTableColumnIdentifier.0" width="415" minWidth="40" maxWidth="1000" id="3NW-15-4SU">
+                                                            <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border">
+                                                                <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
+                                                                <color key="backgroundColor" name="headerColor" catalog="System" colorSpace="catalog"/>
+                                                            </tableHeaderCell>
+                                                            <textFieldCell key="dataCell" lineBreakMode="truncatingTail" selectable="YES" editable="YES" title="Text Cell" id="dK1-3d-eEM">
+                                                                <font key="font" metaFont="system"/>
+                                                                <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
+                                                                <color key="backgroundColor" name="controlBackgroundColor" catalog="System" colorSpace="catalog"/>
+                                                            </textFieldCell>
+                                                            <tableColumnResizingMask key="resizingMask" resizeWithTable="YES" userResizable="YES"/>
+                                                            <prototypeCellViews>
+                                                                <customView id="5Mb-O6-g7X" customClass="ExperimentMergerListViewCell" customModule="AnalysisITC" customModuleProvider="target">
+                                                                    <rect key="frame" x="10" y="0.0" width="427" height="63"/>
+                                                                    <autoresizingMask key="autoresizingMask" widthSizable="YES" flexibleMinY="YES" flexibleMaxY="YES"/>
+                                                                    <subviews>
+                                                                        <button fixedFrame="YES" translatesAutoresizingMaskIntoConstraints="NO" id="dUI-Ak-dRf">
+                                                                            <rect key="frame" x="398" y="34.5" width="25" height="27"/>
+                                                                            <autoresizingMask key="autoresizingMask" flexibleMinX="YES" flexibleMinY="YES"/>
+                                                                            <buttonCell key="cell" type="bevel" bezelStyle="regularSquare" image="arrow.up" catalog="system" imagePosition="overlaps" alignment="center" controlSize="large" imageScaling="proportionallyDown" inset="2" id="4K5-v2-SC8">
+                                                                                <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
+                                                                                <font key="font" metaFont="system"/>
+                                                                            </buttonCell>
+                                                                            <connections>
+                                                                                <action selector="MoveUpAction:" target="5Mb-O6-g7X" id="yZp-kk-Iby"/>
+                                                                            </connections>
+                                                                        </button>
+                                                                        <button fixedFrame="YES" translatesAutoresizingMaskIntoConstraints="NO" id="4wp-49-gjQ">
+                                                                            <rect key="frame" x="398" y="0.5" width="25" height="27"/>
+                                                                            <autoresizingMask key="autoresizingMask" flexibleMinX="YES" flexibleMaxY="YES"/>
+                                                                            <buttonCell key="cell" type="bevel" bezelStyle="regularSquare" image="arrow.down" catalog="system" imagePosition="overlaps" alignment="center" controlSize="large" imageScaling="proportionallyDown" inset="2" id="t4E-ih-JAW">
+                                                                                <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
+                                                                                <font key="font" metaFont="system"/>
+                                                                            </buttonCell>
+                                                                            <connections>
+                                                                                <action selector="MoveDownAction:" target="5Mb-O6-g7X" id="QXx-Ph-7aM"/>
+                                                                            </connections>
+                                                                        </button>
+                                                                        <textField focusRingType="none" horizontalHuggingPriority="251" verticalHuggingPriority="750" fixedFrame="YES" translatesAutoresizingMaskIntoConstraints="NO" id="u4D-Cz-qRk">
+                                                                            <rect key="frame" x="18" y="0.0" width="374" height="60"/>
+                                                                            <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
+                                                                            <textFieldCell key="cell" title="Label" id="4Cd-P6-78x">
+                                                                                <font key="font" usesAppearanceFont="YES"/>
+                                                                                <color key="textColor" name="labelColor" catalog="System" colorSpace="catalog"/>
+                                                                                <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
+                                                                            </textFieldCell>
+                                                                        </textField>
+                                                                    </subviews>
+                                                                    <connections>
+                                                                        <outlet property="MoveDownAction" destination="4wp-49-gjQ" id="v08-ko-bAG"/>
+                                                                        <outlet property="MoveDownControl" destination="4wp-49-gjQ" id="idx-mY-zVy"/>
+                                                                        <outlet property="MoveUpControl" destination="dUI-Ak-dRf" id="Nbq-3v-H9Q"/>
+                                                                        <outlet property="TitleLabel" destination="u4D-Cz-qRk" id="kIY-Dv-yGw"/>
+                                                                    </connections>
+                                                                </customView>
+                                                            </prototypeCellViews>
+                                                        </tableColumn>
+                                                    </tableColumns>
+                                                </tableView>
+                                            </subviews>
+                                            <nil key="backgroundColor"/>
+                                        </clipView>
+                                        <constraints>
+                                            <constraint firstAttribute="height" constant="200" id="NUk-db-Gau"/>
+                                        </constraints>
+                                        <scroller key="horizontalScroller" hidden="YES" wantsLayer="YES" verticalHuggingPriority="750" horizontal="YES" id="abJ-B1-v5W">
+                                            <rect key="frame" x="0.0" y="119" width="447" height="16"/>
+                                            <autoresizingMask key="autoresizingMask"/>
+                                        </scroller>
+                                        <scroller key="verticalScroller" hidden="YES" wantsLayer="YES" verticalHuggingPriority="750" horizontal="NO" id="OZF-LW-nPL">
+                                            <rect key="frame" x="224" y="17" width="15" height="102"/>
+                                            <autoresizingMask key="autoresizingMask"/>
+                                        </scroller>
+                                    </scrollView>
+                                    <box verticalHuggingPriority="750" boxType="separator" translatesAutoresizingMaskIntoConstraints="NO" id="kV4-gk-6mB">
+                                        <rect key="frame" x="20" y="46" width="447" height="5"/>
+                                    </box>
+                                    <stackView distribution="fillEqually" orientation="horizontal" alignment="top" horizontalStackHuggingPriority="249.99998474121094" verticalStackHuggingPriority="1000" verticalHuggingPriority="1000" detachesHiddenViews="YES" translatesAutoresizingMaskIntoConstraints="NO" id="htE-93-Ydu">
+                                        <rect key="frame" x="20" y="20" width="447" height="20"/>
+                                        <subviews>
+                                            <button horizontalHuggingPriority="249" verticalHuggingPriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="IKJ-Vp-UCN">
+                                                <rect key="frame" x="-7" y="-7" width="234" height="32"/>
+                                                <buttonCell key="cell" type="push" title="Cancel" bezelStyle="rounded" alignment="center" borderStyle="border" imageScaling="proportionallyDown" inset="2" id="7LP-kH-JjX">
+                                                    <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
+                                                    <font key="font" metaFont="system"/>
+                                                    <string key="keyEquivalent" base64-UTF8="YES">
+Gw
+</string>
+                                                </buttonCell>
+                                                <connections>
+                                                    <action selector="dismissController:" target="Z6E-PS-hGv" id="IFl-lE-xVf"/>
+                                                </connections>
+                                            </button>
+                                            <button verticalHuggingPriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="XD8-Uz-b0L">
+                                                <rect key="frame" x="221" y="-7" width="233" height="32"/>
+                                                <buttonCell key="cell" type="push" title="Create New Merged Experiment" bezelStyle="rounded" alignment="center" borderStyle="border" imageScaling="proportionallyDown" inset="2" id="ODq-IG-Xnt">
+                                                    <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
+                                                    <font key="font" metaFont="system"/>
+                                                </buttonCell>
+                                                <connections>
+                                                    <action selector="CreateNewMergedExperimentAction:" target="Z6E-PS-hGv" id="5SZ-lm-Ehi"/>
+                                                </connections>
+                                            </button>
+                                        </subviews>
+                                        <visibilityPriorities>
+                                            <integer value="1000"/>
+                                            <integer value="1000"/>
+                                        </visibilityPriorities>
+                                        <customSpacing>
+                                            <real value="3.4028234663852886e+38"/>
+                                            <real value="3.4028234663852886e+38"/>
+                                        </customSpacing>
+                                    </stackView>
+                                </subviews>
+                                <edgeInsets key="edgeInsets" left="20" right="20" top="20" bottom="20"/>
+                                <constraints>
+                                    <constraint firstAttribute="trailing" secondItem="U5t-Wi-st1" secondAttribute="trailing" constant="20" id="KuS-70-SuC"/>
+                                    <constraint firstItem="U5t-Wi-st1" firstAttribute="leading" secondItem="Xga-ve-s9F" secondAttribute="leading" constant="20" id="zhM-ub-FnW"/>
+                                </constraints>
+                                <visibilityPriorities>
+                                    <integer value="1000"/>
+                                    <integer value="1000"/>
+                                    <integer value="1000"/>
+                                    <integer value="1000"/>
+                                    <integer value="1000"/>
+                                    <integer value="1000"/>
+                                    <integer value="1000"/>
+                                    <integer value="1000"/>
+                                    <integer value="1000"/>
+                                    <integer value="1000"/>
+                                </visibilityPriorities>
+                                <customSpacing>
+                                    <real value="3.4028234663852886e+38"/>
+                                    <real value="3.4028234663852886e+38"/>
+                                    <real value="3.4028234663852886e+38"/>
+                                    <real value="3.4028234663852886e+38"/>
+                                    <real value="3.4028234663852886e+38"/>
+                                    <real value="3.4028234663852886e+38"/>
+                                    <real value="3.4028234663852886e+38"/>
+                                    <real value="3.4028234663852886e+38"/>
+                                    <real value="3.4028234663852886e+38"/>
+                                    <real value="3.4028234663852886e+38"/>
+                                </customSpacing>
+                            </stackView>
+                        </subviews>
+                        <constraints>
+                            <constraint firstAttribute="trailing" secondItem="Xga-ve-s9F" secondAttribute="trailing" id="B3r-pS-Ws9"/>
+                            <constraint firstItem="Xga-ve-s9F" firstAttribute="leading" secondItem="62W-Hl-eHA" secondAttribute="leading" id="iwN-Rc-qQ5"/>
+                            <constraint firstAttribute="bottom" secondItem="Xga-ve-s9F" secondAttribute="bottom" id="nW4-P9-A4A"/>
+                            <constraint firstItem="Xga-ve-s9F" firstAttribute="top" secondItem="62W-Hl-eHA" secondAttribute="top" id="xGa-G2-wYi"/>
+                        </constraints>
+                    </view>
+                    <connections>
+                        <outlet property="BackMixingSliderControl" destination="8iq-Xq-uui" id="b74-AJ-mRQ"/>
+                        <outlet property="DeadVolumeTextField" destination="fRq-Zc-zch" id="uHS-AN-Jge"/>
+                        <outlet property="ExperimentListView" destination="Fcw-fA-iVA" id="9q9-g8-Fhy"/>
+                        <outlet property="RemovedTitratedAfterExperimentControl" destination="bCH-jS-bGL" id="DNo-Bo-wN2"/>
+                    </connections>
+                </viewController>
+                <customObject id="ot0-BE-jUG" userLabel="First Responder" customClass="NSResponder" sceneMemberID="firstResponder"/>
+            </objects>
+            <point key="canvasLocation" x="-1254" y="154"/>
+        </scene>
         <!--Window Controller-->
         <scene sceneID="d4f-dA-3IW">
             <objects>
@@ -3159,16 +3492,22 @@ For analysis and presentation of ITC data</string>
                                                 <segue destination="z8n-GP-VNe" kind="show" id="aWY-ej-L34"/>
                                             </connections>
                                         </menuItem>
-                                        <menuItem title="Kinetics Suite" identifier="kinsuite" id="2cO-Ul-qbm">
-                                            <modifierMask key="keyEquivalentModifierMask"/>
-                                            <connections>
-                                                <segue destination="nKX-ra-sCh" kind="show" id="Q2f-je-DQV"/>
-                                            </connections>
-                                        </menuItem>
                                         <menuItem title="Buffer Selection" id="GLr-8s-mLf">
                                             <modifierMask key="keyEquivalentModifierMask"/>
                                             <connections>
                                                 <segue destination="PjH-Ba-8a6" kind="modal" id="T2b-L8-V91"/>
+                                            </connections>
+                                        </menuItem>
+                                        <menuItem title="Experiment Merger" identifier="mergetool" id="vXm-fq-NLz">
+                                            <modifierMask key="keyEquivalentModifierMask"/>
+                                            <connections>
+                                                <action selector="OpenMergeToolAction:" target="Voe-Tx-rLC" id="O0f-NF-8SP"/>
+                                            </connections>
+                                        </menuItem>
+                                        <menuItem title="Kinetics Suite" hidden="YES" identifier="kinsuite" id="2cO-Ul-qbm">
+                                            <modifierMask key="keyEquivalentModifierMask"/>
+                                            <connections>
+                                                <segue destination="nKX-ra-sCh" kind="show" id="Q2f-je-DQV"/>
                                             </connections>
                                         </menuItem>
                                     </items>
@@ -3231,7 +3570,7 @@ For analysis and presentation of ITC data</string>
                 <customObject id="YLy-65-1bz" customClass="NSFontManager"/>
                 <customObject id="Ady-hI-5gd" userLabel="First Responder" customClass="NSResponder" sceneMemberID="firstResponder"/>
             </objects>
-            <point key="canvasLocation" x="246" y="-704"/>
+            <point key="canvasLocation" x="246" y="-714"/>
         </scene>
         <!--View Controller-->
         <scene sceneID="ZiX-nq-dpD">
@@ -3414,6 +3753,9 @@ For analysis and presentation of ITC data</string>
                                         </view>
                                         <size key="contentViewMargins" width="7" height="0.0"/>
                                     </box>
+                                    <connections>
+                                        <segue destination="Z6E-PS-hGv" kind="sheet" identifier="ShowExperimentMergerToolSegue" id="74d-TV-NLG"/>
+                                    </connections>
                                 </toolbarItem>
                                 <toolbarItem implicitItemIdentifier="NSToolbarFlexibleSpaceItem" id="0UK-N1-JYA"/>
                                 <toolbarItem implicitItemIdentifier="F66577FE-4FED-4B5C-A72B-57D9B854B148" label="Custom View" paletteLabel="Custom View" image="rectangle.stack.fill.badge.plus" catalog="system" sizingBehavior="auto" id="ppB-Im-yCb">
@@ -8035,7 +8377,7 @@ IA
                                                             <subviews>
                                                                 <textField focusRingType="none" horizontalHuggingPriority="249" verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="seF-HB-66m">
                                                                     <rect key="frame" x="3" y="304" width="358" height="16"/>
-                                                                    <textFieldCell key="cell" lineBreakMode="clipping" alignment="center" title="Global Fit Parameters" id="P8t-jn-FWj">
+                                                                    <textFieldCell key="cell" lineBreakMode="clipping" alignment="center" title="Fit Options" id="P8t-jn-FWj">
                                                                         <font key="font" metaFont="systemBold"/>
                                                                         <color key="textColor" name="labelColor" catalog="System" colorSpace="catalog"/>
                                                                         <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
@@ -8117,7 +8459,7 @@ Error Method:
                                                                 </box>
                                                                 <textField focusRingType="none" horizontalHuggingPriority="249" verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="l0z-de-onO">
                                                                     <rect key="frame" x="3" y="187" width="358" height="16"/>
-                                                                    <textFieldCell key="cell" lineBreakMode="clipping" alignment="center" title="Temperature Dependence" id="RL3-GG-chU">
+                                                                    <textFieldCell key="cell" lineBreakMode="clipping" alignment="center" title="Parameters" id="RL3-GG-chU">
                                                                         <font key="font" metaFont="systemBold"/>
                                                                         <color key="textColor" name="labelColor" catalog="System" colorSpace="catalog"/>
                                                                         <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
@@ -10885,8 +11227,10 @@ DQ
     <resources>
         <image name="NSApplicationIcon" width="32" height="32"/>
         <image name="NSFolder" width="32" height="32"/>
+        <image name="arrow.down" catalog="system" width="13" height="14"/>
         <image name="arrow.left" catalog="system" width="15" height="12"/>
         <image name="arrow.right" catalog="system" width="15" height="12"/>
+        <image name="arrow.up" catalog="system" width="13" height="14"/>
         <image name="chart.bar.doc.horizontal" catalog="system" width="14" height="16"/>
         <image name="chart.xyaxis.line" catalog="system" width="17" height="14"/>
         <image name="checkmark" catalog="system" width="14" height="13"/>

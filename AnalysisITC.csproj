@@ -448,6 +448,15 @@
       <DependentUpon>AutoExpandingTextView2.cs</DependentUpon>
     </Compile>
     <Compile Include="AppClasses\AnalysisClasses\ParameterChecker.cs" />
+    <Compile Include="AppClasses\TandemConcatenationTool.cs" />
+    <Compile Include="GUI\MacOS\ListViews\ExperimentMergerListViewCell.cs" />
+    <Compile Include="GUI\MacOS\ListViews\ExperimentMergerListViewCell.designer.cs">
+      <DependentUpon>ExperimentMergerListViewCell.cs</DependentUpon>
+    </Compile>
+    <Compile Include="GUI\MacOS\ViewControllers\ExperimentMergerViewController.cs" />
+    <Compile Include="GUI\MacOS\ViewControllers\ExperimentMergerViewController.designer.cs">
+      <DependentUpon>ExperimentMergerViewController.cs</DependentUpon>
+    </Compile>
   </ItemGroup>
   <ItemGroup>
     <InterfaceDefinition Include="Main.storyboard" />
