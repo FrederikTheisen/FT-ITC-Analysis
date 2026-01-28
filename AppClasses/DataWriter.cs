@@ -806,8 +806,8 @@ namespace AnalysisITC
         {
             var lines = new List<string>
             {
-                "# EXPINFO CELLCONC " + data.CellConcentration.Value.ToString("F9"),
-                "# EXPINFO SYRINGECONC " + data.SyringeConcentration.Value.ToString("F9"),
+                "# EXPINFO CELLCONC " + data.CellConcentration.AsFormattedConcentration(ConcentrationUnit.µM),
+                "# EXPINFO SYRINGECONC " + data.SyringeConcentration.AsFormattedConcentration(ConcentrationUnit.µM),
                 "# EXPINFO CELLVOLUME " + data.CellVolume.ToString("F9")
             };
 
