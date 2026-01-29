@@ -22,21 +22,40 @@ namespace AnalysisITC
 		AppKit.NSScrollView ExperimentListView { get; set; }
 
 		[Outlet]
+		AppKit.NSButton MergeButtonControl { get; set; }
+
+		[Outlet]
+		AppKit.NSTableView MergeTableView { get; set; }
+
+		[Outlet]
 		AppKit.NSButton RemovedTitratedAfterExperimentControl { get; set; }
 
 		[Action ("CreateNewMergedExperimentAction:")]
 		partial void CreateNewMergedExperimentAction (Foundation.NSObject sender);
+
+		[Action ("MergeMethodControlAction:")]
+		partial void MergeMethodControlAction (AppKit.NSSegmentedControl sender);
 		
 		void ReleaseDesignerOutlets ()
 		{
+			if (BackMixingSliderControl != null) {
+				BackMixingSliderControl.Dispose ();
+				BackMixingSliderControl = null;
+			}
+
 			if (DeadVolumeTextField != null) {
 				DeadVolumeTextField.Dispose ();
 				DeadVolumeTextField = null;
 			}
 
-			if (BackMixingSliderControl != null) {
-				BackMixingSliderControl.Dispose ();
-				BackMixingSliderControl = null;
+			if (ExperimentListView != null) {
+				ExperimentListView.Dispose ();
+				ExperimentListView = null;
+			}
+
+			if (MergeTableView != null) {
+				MergeTableView.Dispose ();
+				MergeTableView = null;
 			}
 
 			if (RemovedTitratedAfterExperimentControl != null) {
@@ -44,9 +63,9 @@ namespace AnalysisITC
 				RemovedTitratedAfterExperimentControl = null;
 			}
 
-			if (ExperimentListView != null) {
-				ExperimentListView.Dispose ();
-				ExperimentListView = null;
+			if (MergeButtonControl != null) {
+				MergeButtonControl.Dispose ();
+				MergeButtonControl = null;
 			}
 		}
 	}

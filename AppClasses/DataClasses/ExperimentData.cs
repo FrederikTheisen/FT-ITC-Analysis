@@ -21,7 +21,7 @@ namespace AnalysisITC
         public ITCDataFormat DataSourceFormat { get; set; }
 
         public List<DataPoint> DataPoints { get; set; } = new List<DataPoint>();
-        public List<DataPoint> BaseLineCorrectedDataPoints;
+        public List<DataPoint> BaseLineCorrectedDataPoints { get; set; }
         public List<InjectionData> Injections { get; set; } = new List<InjectionData>();
 
         public FloatWithError SyringeConcentration { get; set; }
@@ -362,6 +362,13 @@ namespace AnalysisITC
             Temperature = double.Parse(parameters[6]);
             IntegrationStartDelay = float.Parse(parameters[7]);
             IntegrationLength = float.Parse(parameters[8]);
+
+            if (parameters.Count() > 9)
+            {
+                ActualCellConcentration = double.Parse(parameters[9]);
+                ActualTitrantConcentration = double.Parse(parameters[10]);
+                Ratio = ActualTitrantConcentration / ActualCellConcentration;
+            }
         }
 
         private InjectionData(ExperimentData data, int id, float time, double volume, float delay, float duration, double temp)
@@ -607,12 +614,69 @@ namespace AnalysisITC
 
         public DataPoint SubtractBaseline(float baseline)
         {
-            return new DataPoint(Time, Power - baseline, Temperature);
+            return new DataPoint(Time, Power - baseline, Temperature, DT, ShieldT, ATP, JFBI);
         }
 
         public DataPoint Copy()
         {
             return new DataPoint(Time, Power, Temperature, DT, ShieldT, ATP, JFBI);
+        }
+    }
+
+    public class TandemExperimentSegment
+    {
+        public int FirstInjectionID { get; private set; }          // ID of first injection in this segment
+        public double ActiveCellConc { get; private set; }         // M_pre in cell (mol/L)
+        public double ActiveTitrantConc { get; private set; }      // L_pre in cell (mol/L)
+
+        public TandemExperimentSegment() { }
+
+        public TandemExperimentSegment(int ID, double activecellconc, double activetitrantconc)
+        {
+            FirstInjectionID = ID;
+            ActiveCellConc = activecellconc;
+            ActiveTitrantConc = activetitrantconc;
+        }
+
+        public static TandemExperimentSegment FromFile(string line)
+        {
+            var items = line.Split(',');
+
+            return new TandemExperimentSegment()
+            {
+                FirstInjectionID = int.Parse(items[0]),
+                ActiveCellConc = double.Parse(items[1]),
+                ActiveTitrantConc = double.Parse(items[2])
+            };
+        }
+
+        public void UpdateConcentrations(double activecellconc, double activetitrantconc)
+        {
+            Console.WriteLine("Updating TandemSegment Concentrations: \n" + activecellconc.ToString() + "\n" + activetitrantconc.ToString());
+
+            ActiveCellConc = activecellconc;
+            ActiveTitrantConc = activetitrantconc;
+        }
+    }
+
+    public class TandemExperimentData : ExperimentData
+    {
+        public List<TandemExperimentSegment> Segments { get; set; }
+
+        public TandemExperimentData(string file) : base(file)
+        {
+        }
+
+        public void AddSegment(TandemExperimentSegment segment)
+        {
+            if (Segments == null) Segments = new List<TandemExperimentSegment>();
+
+            Console.WriteLine("Adding Segment:\n  ID: "
+                + segment.FirstInjectionID.ToString() + "\n  Cell Conc:    "
+                + segment.ActiveCellConc.ToString() +   "\n  Titrant Conc: "
+                + segment.ActiveTitrantConc.ToString());
+
+            Segments.Add(segment);
         }
     }
 

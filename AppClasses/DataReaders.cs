@@ -195,7 +195,9 @@ namespace DataReaders
                 inj.InjectionMass = experiment.SyringeConcentration * inj.Volume;
                 inj.ActualCellConcentration = experiment.CellConcentration * ((1 - deltaVolume / x2vol0) / (1 + deltaVolume / x2vol0));
                 inj.ActualTitrantConcentration = experiment.SyringeConcentration * (deltaVolume / experiment.CellVolume) * (1 - deltaVolume / x2vol0);
-                inj.Ratio = inj.ActualTitrantConcentration / inj.ActualCellConcentration;
+
+                if (inj.ActualCellConcentration > float.Epsilon) inj.Ratio = inj.ActualTitrantConcentration / inj.ActualCellConcentration;
+                else inj.Ratio = inj.ActualTitrantConcentration;
             }
         }
 
@@ -332,6 +334,8 @@ namespace DataReaders
 
         public static ITCDataContainer[] ReadPath(string path)
         {
+            AppEventHandler.PrintAndLog("Loading File " + path);
+
             Data = new List<ITCDataContainer>();
 
             using (var reader = (new StreamReader(path)))
@@ -344,7 +348,8 @@ namespace DataReaders
 
                     if (input[0] == "FILE")
                     {
-                        if (input[1] == ExperimentHeader) Data.Add(ProcessExperimentData(reader, line));
+                        if (input[1] == ExperimentHeader) Data.Add(ReadExperimentDataFile(reader, line));
+                        else if (input[1] == TandemExperimentHeader) Data.Add(ReadTandemExperimentDataFile(reader, line));
                         else if (input[1] == AnalysisResultHeader) Data.Add(ReadAnalysisResult(reader, line));
                     }
                 }
@@ -355,13 +360,38 @@ namespace DataReaders
             return Data.ToArray();
         }
 
-        static ExperimentData ProcessExperimentData(StreamReader reader, string firstline)
+        static TandemExperimentData ReadTandemExperimentDataFile(StreamReader reader, string firstline)
         {
+            AppEventHandler.PrintAndLog("Loading Tandem Experiment Data...");
+
             string[] a = firstline.Split(':');
+            var exp = new TandemExperimentData(a[2]);
 
-            if (a[1] != ExperimentHeader) return null;
+            ReadExperimentData(reader, exp);
 
+            if (exp.Solution != null) exp.UpdateSolution(exp.Solution.Model);
+
+            return exp;
+        }
+
+        static ExperimentData ReadExperimentDataFile(StreamReader reader, string firstline)
+        {
+            AppEventHandler.PrintAndLog("Loading Experiment Data...");
+
+            string[] a = firstline.Split(':');
             var exp = new ExperimentData(a[2]);
+
+            ReadExperimentData(reader, exp);
+
+            RawDataReader.ProcessInjections(exp);
+
+            if (exp.Solution != null) exp.UpdateSolution(exp.Solution.Model);
+
+            return exp;
+        }
+
+        static ExperimentData ReadExperimentData(StreamReader reader, ExperimentData exp)
+        {
             SolutionInterface sol = null;
 
             string line;
@@ -392,15 +422,12 @@ namespace DataReaders
                     case "LIST" when v[1] == InjectionList: ReadInjectionList(exp, reader); break;
                     case "LIST" when v[1] == DataPointList: ReadDataList(exp, reader); break;
                     case "LIST" when v[1] == ExperimentAttributes: ReadAttributes(exp, reader); break;
+                    case "LIST" when v[1] == SegmentList: break;
                     case "OBJECT" when v[1] == Processor: ReadProcessor(exp, reader); break;
                     case "OBJECT" when v[1] == ExperimentSolutionHeader: sol = ReadSolution(reader, reader.ReadLine(), exp); break;
                     //case "OBJECT" when v[1] == SolutionHeader: exp.UpdateSolution(ReadSolution(reader, line).Model); break; //Not certain about implementation
                 }
             }
-
-            RawDataReader.ProcessInjections(exp);
-
-            if (sol != null) exp.UpdateSolution(sol.Model);
 
             return exp;
         }
@@ -510,6 +537,8 @@ namespace DataReaders
 
         static AnalysisResult ReadAnalysisResult(StreamReader reader, string firstline)
         {
+            AppEventHandler.PrintAndLog("Loading Analysis Result...");
+
             try
             {
                 var guid = firstline.Split(':')[2];

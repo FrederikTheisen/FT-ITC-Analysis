@@ -4,13 +4,115 @@ using System;
 
 using Foundation;
 using AppKit;
+using System.Collections.Generic;
+using static AnalysisITC.TandemConcatenation;
 
 namespace AnalysisITC
 {
 	public partial class ExperimentMergerViewController : NSViewController
 	{
-		public ExperimentMergerViewController (IntPtr handle) : base (handle)
+        BackMixingSettings MergeSettings { get; set; }
+
+        ExperimentMergeQueueDataSource mergeSource;
+        ExperimentMergeQueueDelegate mergeDelegate;
+
+        public ExperimentMergerViewController (IntPtr handle) : base (handle)
 		{
 		}
-	}
+
+        public override void ViewDidLoad()
+        {
+            base.ViewDidLoad();
+
+            MergeSettings = new BackMixingSettings();
+
+            mergeSource = new ExperimentMergeQueueDataSource();
+            mergeSource.SetFromOpenExperiments(defaultActiveFromInclude: false); // uses DataManager.Data / Include :contentReference[oaicite:5]{index=5}
+
+            mergeDelegate = new ExperimentMergeQueueDelegate(mergeSource);
+            mergeDelegate.QueueChanged += (_, __) =>
+            {
+                var ids = CaptureSelectedIDs(MergeTableView, mergeSource);
+                MergeTableView.ReloadData();
+                RestoreSelectedIDs(MergeTableView, mergeSource, ids);
+
+                ValidateMergeButton();
+            };
+            mergeDelegate.SelectionChanged += (_, __) =>
+            {
+                ValidateMergeButton();
+            };
+
+            MergeTableView.DataSource = mergeSource;
+            MergeTableView.Delegate = mergeDelegate;
+
+            MergeTableView.ReloadData();
+
+            SetupMethodControls();
+
+            ValidateMergeButton();
+        }
+
+        void SetupMethodControls()
+        {
+            DeadVolumeTextField.Enabled = MergeSettings.UseBackMixingMethod;
+            BackMixingSliderControl.Enabled = MergeSettings.UseBackMixingMethod;
+            RemovedTitratedAfterExperimentControl.Enabled = MergeSettings.UseBackMixingMethod;
+        }
+
+        void ValidateMergeButton()
+        {
+            var n = mergeDelegate.GetSelectedExperiments(MergeTableView).Count;
+
+            MergeButtonControl.Enabled = n > 1;
+        }
+
+        HashSet<string> CaptureSelectedIDs(NSTableView tableView, ExperimentMergeQueueDataSource source)
+        {
+            var ids = new HashSet<string>();
+            var idx = tableView.SelectedRows;
+
+            idx.EnumerateIndexes((nuint i, ref bool stop) =>
+            {
+                if (i < (nuint)source.Items.Count)
+                    ids.Add(source.Items[(int)i].UniqueID);
+            });
+
+            return ids;
+        }
+
+        void RestoreSelectedIDs(NSTableView tableView, ExperimentMergeQueueDataSource source, HashSet<string> ids)
+        {
+            var newIdx = new NSMutableIndexSet();
+            for (int i = 0; i < source.Items.Count; i++)
+                if (ids.Contains(source.Items[i].UniqueID))
+                    newIdx.Add((nuint)i);
+
+            tableView.SelectRows(newIdx, byExtendingSelection: false);
+        }
+
+        partial void MergeMethodControlAction(NSSegmentedControl sender)
+        {
+            MergeSettings.UseBackMixingMethod = sender.SelectedSegment == 1;
+
+            SetupMethodControls();
+        }
+
+        partial void CreateNewMergedExperimentAction(NSObject sender)
+        {
+            MergeSettings.DeadVolume = DeadVolumeTextField.FloatValue * 1e-6;
+            MergeSettings.MixingFraction = BackMixingSliderControl.FloatValue;
+            MergeSettings.DidRemoveOverflow = RemovedTitratedAfterExperimentControl.State == NSCellStateValue.On;
+
+            var exps = mergeDelegate.GetSelectedExperiments(MergeTableView);
+
+            ExperimentData mergeddata;
+            if (MergeSettings.UseBackMixingMethod) mergeddata = TandemConcatenation.ConcatTandemWithBackMixing(exps, MergeSettings);
+            else mergeddata = TandemConcatenation.ConcatTandem(exps);
+
+            DataManager.AddData(mergeddata);
+
+            DismissViewController(this);
+        }
+    }
 }

@@ -14,6 +14,7 @@ namespace AnalysisITC
     public class FTITCFormat
     {
         public const string ExperimentHeader = "Experiment";
+        public const string TandemExperimentHeader = "TandemExperiment";
         public const string ID = "ID";
         public const string FileName = "FileName";
         public const string Comments = "Comments";
@@ -34,6 +35,7 @@ namespace AnalysisITC
         public const string Include = "Include";
         public const string InjectionList = "InjectionList";
         public const string DataPointList = "DataPointList";
+        public const string SegmentList = "SegmentList";
         public const string Processor = "DataProcessor";
         public const string ProcessorType = "ProcessorType";
         public const string SplineHandleMode = "SHandleMode";
@@ -215,25 +217,27 @@ namespace AnalysisITC
 
         static async Task WriteExperimentDataToFile(ExperimentData data, StreamWriter stream)
         {
-            var file = new List<string>();
-            file.Add(FileHeader(ExperimentHeader, data.FileName));
-            file.Add(Variable(ID, data.UniqueID));
-            file.Add(Variable(Date, data.Date.ToString("O")));
-            file.Add(Variable(SourceFormat, (int)data.DataSourceFormat));
-            file.Add(Variable(Comments, data.Comments));
-            file.Add(Variable(Include, data.Include));
-            file.Add(Variable(SyringeConcentration, data.SyringeConcentration));
-            file.Add(Variable(CellConcentration, data.CellConcentration));
-            file.Add(Variable(StirringSpeed, data.StirringSpeed));
-            file.Add(Variable(TargetTemperature, data.TargetTemperature));
-            file.Add(Variable(MeasuredTemperature, data.MeasuredTemperature));
-            file.Add(Variable(InitialDelay, data.InitialDelay));
-            file.Add(Variable(TargetPowerDiff, data.TargetPowerDiff));
-            file.Add(Variable(UseIntegrationFactorLength, (int)data.IntegrationLengthMode));
-            file.Add(Variable(IntegrationLengthFactor, data.IntegrationLengthFactor));
-            file.Add(Variable(FeedBackMode, (int)data.FeedBackMode));
-            file.Add(Variable(CellVolume, data.CellVolume));
-            file.Add(Variable(Instrument, (int)data.Instrument));
+            var file = new List<string>
+            {
+                FileHeader(data is TandemExperimentData ? TandemExperimentHeader : ExperimentHeader, data.FileName),
+                Variable(ID, data.UniqueID),
+                Variable(Date, data.Date.ToString("O")),
+                Variable(SourceFormat, (int)data.DataSourceFormat),
+                Variable(Comments, data.Comments),
+                Variable(Include, data.Include),
+                Variable(SyringeConcentration, data.SyringeConcentration),
+                Variable(CellConcentration, data.CellConcentration),
+                Variable(StirringSpeed, data.StirringSpeed),
+                Variable(TargetTemperature, data.TargetTemperature),
+                Variable(MeasuredTemperature, data.MeasuredTemperature),
+                Variable(InitialDelay, data.InitialDelay),
+                Variable(TargetPowerDiff, data.TargetPowerDiff),
+                Variable(UseIntegrationFactorLength, (int)data.IntegrationLengthMode),
+                Variable(IntegrationLengthFactor, data.IntegrationLengthFactor),
+                Variable(FeedBackMode, (int)data.FeedBackMode),
+                Variable(CellVolume, data.CellVolume),
+                Variable(Instrument, (int)data.Instrument)
+            };
 
             if (data.Attributes.Count > 0)
             {
@@ -263,9 +267,26 @@ namespace AnalysisITC
                 injection += inj.Duration + ",";
                 injection += inj.Temperature + ",";
                 injection += inj.IntegrationStartDelay + ",";
-                injection += inj.IntegrationLength;
+                injection += inj.IntegrationLength + ",";
+                injection += inj.ActualCellConcentration + ",";
+                injection += inj.ActualTitrantConcentration;
 
                 file.Add(injection);
+            }
+            file.Add(EndListHeader);
+            if (data is TandemExperimentData)
+            {
+                file.Add(ListHeader(SegmentList));
+                foreach (var seg in (data as TandemExperimentData).Segments)
+                {
+                    var line = "";
+
+                    line += seg.FirstInjectionID.ToString() + ",";
+                    line += seg.ActiveCellConc.ToString() + ",";
+                    line += seg.ActiveTitrantConc.ToString();
+
+                    file.Add(line);
+                }
             }
             file.Add(EndListHeader);
 

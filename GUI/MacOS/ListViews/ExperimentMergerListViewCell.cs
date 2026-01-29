@@ -4,23 +4,242 @@ using System;
 
 using Foundation;
 using AppKit;
+using System.Collections.Generic;
+using System.Linq;
+using CoreGraphics;
 
 namespace AnalysisITC
 {
-	public partial class ExperimentMergerListViewCell : NSView
+    public class MergeExperimentItem
+    {
+        public string UniqueID { get; } = Guid.NewGuid().ToString();
+
+        public ExperimentData Data { get; }
+        public bool IsActive { get; set; } = false;
+
+        public string FileName => Data?.FileName ?? "";
+        public DateTime Date => Data?.Date ?? DateTime.MinValue;
+
+        public MergeExperimentItem(ExperimentData data, bool active = false)
+        {
+            Data = data;
+            IsActive = active;
+        }
+    }
+
+    public partial class ExperimentMergerListViewCell : NSView
 	{
-		public ExperimentMergerListViewCell (IntPtr handle) : base (handle)
+        ExperimentMergeQueueDataSource source;
+        int row;
+
+        public event EventHandler<int> MoveUp;
+        public event EventHandler<int> MoveDown;
+        public event EventHandler<int> ToggleActive;
+        public event EventHandler<int> Remove;
+
+        public int Index => row;
+
+        public bool IsActive => source.Items[Index].IsActive;
+
+        public ExperimentMergerListViewCell (IntPtr handle) : base (handle)
 		{
 		}
 
-        partial void MoveUpAction(NSObject sender)
+        public void Setup(ExperimentMergeQueueDataSource source, int row)
         {
-            throw new NotImplementedException();
+            this.source = source;
+            this.row = row;
+
+            var item = source.Items[row];
+            var data = item.Data;
+
+            TitleLabel.StringValue = data.FileName;
+
+            // Time-of-day emphasized:
+            var local = data.Date.ToLocalTime();
+            //DateLabel.StringValue = local.ToString("yyyy-MM-dd  HH:mm");
+
+            // Keep this minimal; add more if you want.
+            //InfoLabel.StringValue =
+            //    data.MeasuredTemperature.ToString("G3") + " °C";
+
+            //ActiveButton.State = item.IsActive ? NSCellStateValue.On : NSCellStateValue.Off;
+
+            // Visual de-emphasis when inactive
+            var alpha = item.IsActive ? 1.0f : 0.45f;
+            //FileNameLabel.AlphaValue = alpha;
+            //DateLabel.AlphaValue = alpha;
+            //InfoLabel.AlphaValue = alpha;
+
+            MoveUpControl.Enabled = row > 0;
+            MoveDownControl.Enabled = row < source.Items.Count - 1;
         }
 
-        partial void MoveDownAction(NSObject sender)
+        partial void MoveUpAction(NSObject sender) => MoveUp?.Invoke(this, row);
+        partial void MoveDownAction(NSObject sender) => MoveDown?.Invoke(this, row);
+    }
+
+    public class ExperimentMergeQueueDataSource : NSTableViewDataSource
+    {
+        public List<MergeExperimentItem> Items { get; private set; } = new();
+
+        public override nint GetRowCount(NSTableView tableView) => Items.Count;
+
+        public void SetFromOpenExperiments(bool defaultActiveFromInclude = true)
         {
-            throw new NotImplementedException();
+            // Open experiments are DataManager.Data (not results)
+            Items = DataManager.Data
+                .Select(d => new MergeExperimentItem(d, active: defaultActiveFromInclude ? d.Include : true))
+                .ToList();
+
+            // Optionally: remove inactive by default
+            // Items = Items.Where(i => i.IsActive).ToList();
+        }
+
+        public List<ExperimentData> ActiveExperiments() =>
+            Items.Where(i => i.IsActive).Select(i => i.Data).ToList();
+
+        public void Move(int fromIndex, int toIndex)
+        {
+            if (fromIndex < 0 || fromIndex >= Items.Count) return;
+            if (toIndex < 0 || toIndex >= Items.Count) return;
+            if (fromIndex == toIndex) return;
+
+            var item = Items[fromIndex];
+            Items.RemoveAt(fromIndex);
+            Items.Insert(toIndex, item);
+        }
+
+        public void RemoveAt(int index)
+        {
+            if (index < 0 || index >= Items.Count) return;
+            Items.RemoveAt(index);
+        }
+    }
+
+    public class ExperimentMergeQueueDelegate : NSTableViewDelegate
+    {
+        readonly ExperimentMergeQueueDataSource Source;
+
+        public event EventHandler QueueChanged;
+        public event EventHandler SelectionChanged;
+
+        // ExperimentMergerListViewCell
+        const string CellIdentifier = "ExperimentMergerListViewCell";
+
+        public ExperimentMergeQueueDelegate(ExperimentMergeQueueDataSource source)
+        {
+            Source = source;
+        }
+
+        public override NSView GetViewForItem(NSTableView tableView, NSTableColumn tableColumn, nint row)
+        {
+            var item = Source.Items[(int)row];
+
+            var view = tableView.MakeView(item.UniqueID, this);
+
+            if (view == null)
+            {
+                view = tableView.MakeView(CellIdentifier, this);
+                view.SetIdentifier(item.UniqueID);
+
+                var cell = (ExperimentMergerListViewCell)view;
+
+                cell.MoveUp += (_, __) =>
+                {
+                    var ids = CaptureSelectedIDs(tableView);
+
+                    var from = (int)tableView.RowForView(cell);  // safer than using the cached 'row'
+                    Source.Move(from, from - 1);
+
+                    tableView.ReloadData();
+                    RestoreSelectedIDs(tableView, ids);
+
+                    QueueChanged?.Invoke(this, null);
+                };
+                cell.MoveDown += (_, __) =>
+                {
+                    var ids = CaptureSelectedIDs(tableView);
+
+                    var from = (int)tableView.RowForView(cell);
+                    Source.Move(from, from + 1);
+
+                    tableView.ReloadData();
+                    RestoreSelectedIDs(tableView, ids);
+
+                    QueueChanged?.Invoke(this, null);
+                };
+            }
+
+            (view as ExperimentMergerListViewCell).Setup(Source, (int)row);
+
+            return view;
+        }
+
+
+        [Export("tableView:heightOfRow:")]
+        public override nfloat GetRowHeight(NSTableView tableView, nint row) => 62;
+
+        [Export("tableView:rowViewForRow:")]
+        public NSTableRowView CoreGetRowView(NSTableView tableView, nint row)
+        {
+            return new ExperimentMergerRowView();
+        }
+
+        [Export("tableViewSelectionDidChange:")]
+        public void SelectionDidChange(NSNotification notification)
+        {
+            SelectionChanged?.Invoke(this, null);
+        }
+
+        public List<ExperimentData> GetSelectedExperiments(NSTableView tableView)
+        {
+            var ids = CaptureSelectedIDs(tableView);
+
+            return Source.Items.Where(o => ids.Contains(o.UniqueID)).Select(o => o.Data).ToList();
+        }
+
+        HashSet<string> CaptureSelectedIDs(NSTableView tableView)
+        {
+            var ids = new HashSet<string>();
+
+            tableView.SelectedRows.EnumerateIndexes((nuint i, ref bool stop) =>
+            {
+                if (i < (nuint)Source.Items.Count)
+                    ids.Add(Source.Items[(int)i].UniqueID);
+            });
+
+            return ids;
+        }
+
+        void RestoreSelectedIDs(NSTableView tableView, HashSet<string> ids)
+        {
+            var newIdx = new NSMutableIndexSet();
+
+            for (int i = 0; i < Source.Items.Count; i++)
+                if (ids.Contains(Source.Items[i].UniqueID))
+                    newIdx.Add((nuint)i);
+
+            tableView.SelectRows(newIdx, byExtendingSelection: false);
+        }
+    }
+
+    public class ExperimentMergerRowView : NSTableRowView
+    {
+        public override void DrawSelection(CGRect dirtyRect)
+        {
+            if (!Selected)
+                return;
+
+            // Subtle selection using system accent color (works in light/dark mode).
+            var fill = NSColor.ControlAccent;
+            fill.SetFill();
+
+            var rect = Bounds;
+            rect.Inflate(-2, -1);
+
+            var path = NSBezierPath.FromRoundedRect(rect, 6, 6);
+            path.Fill();
         }
     }
 }

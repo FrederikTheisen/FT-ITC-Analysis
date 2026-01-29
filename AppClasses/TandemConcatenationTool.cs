@@ -28,6 +28,9 @@ namespace AnalysisITC
     {
         public class BackMixingSettings
         {
+            public bool UseBackMixingMethod { get; set; } = false;
+            public bool DidRemoveOverflow { get; set; } = true;
+
             /// <summary>
             /// Volume above the active cell that can hold displaced liquid (L). Typical iTC200 fill “extra” is ~80 µL.
             /// Store in liters (1 µL = 1e-6 L), same unit system as ExperimentData.CellVolume and InjectionData.Volume.
@@ -44,14 +47,23 @@ namespace AnalysisITC
             /// Fraction (0..1) of the dead/overflow compartment that “exchanges” with the active cell between segments.
             /// 0 -> no back-mixing; 1 -> full dead compartment participates.
             /// </summary>
-            public double MixingFraction = 0.0;
+            public double MixingFraction = 0.5;
 
             public BackMixingSettings Copy()
             {
                 return (BackMixingSettings)MemberwiseClone();
             }
 
-            public static double uL(double value) => value * 1e-6;
+            public static BackMixingSettings MicroCalDefault()
+            {
+                return new BackMixingSettings()
+                {
+                    UseBackMixingMethod = false,
+                    DidRemoveOverflow = true,
+                    MixingFraction = 0.0,
+                    RemoveOverflowVolume = 40 * 1e-6,
+                };
+            }
         }
 
         struct SegmentInfo
@@ -73,40 +85,41 @@ namespace AnalysisITC
         /// </summary>
         public static ExperimentData ConcatTandem(List<ExperimentData> experiments, string fileName = null)
         {
-            var (result, segments) = ConcatCore(experiments, fileName, modeTag: "Tandem concatenation (no back-mixing).");
+            var (merged, segments) = ConcatCore(experiments, fileName, modeTag: "Tandem concatenation (no back-mixing).");
 
-            RawDataReader.ProcessInjections(result);
-            RawDataReader.ProcessData(result);
+            // Compute injection concentrations/ratios via back-mixing model
+            ProcessInjections_BackMixingOverflowModel(merged, segments, BackMixingSettings.MicroCalDefault());
 
-            return result;
+            // Keep the usual post-read processing (baseline, peak direction, etc.)
+            RawDataReader.ProcessData(merged);
+
+            return merged;
         }
 
         /// <summary>
         /// Tandem stitching with optional back-mixing between segments.
-        /// This function does NOT call RawDataReader.ProcessInjections(result) because we compute the concentrations
-        /// with a stateful (multi-compartment) model instead.
         /// </summary>
-        public static ExperimentData ConcatTandemWithBackMixing(List<ExperimentData> experiments, BackMixingSettings settings, string fileName = null)
+        public static TandemExperimentData ConcatTandemWithBackMixing(List<ExperimentData> experiments, BackMixingSettings settings, string fileName = null)
         {
             if (settings == null) throw new ArgumentNullException(nameof(settings));
 
             var tag = "Tandem concatenation (back-mixing enabled): " +
-                      $"DeadVolume={settings.DeadVolume.ToString("G", CultureInfo.InvariantCulture)} L, " +
-                      $"RemoveOverflow={settings.RemoveOverflowVolume.ToString("G", CultureInfo.InvariantCulture)} L, " +
-                      $"MixFrac={settings.MixingFraction.ToString("G", CultureInfo.InvariantCulture)}";
+                      $"DeadVolume={(1000000*settings.DeadVolume).ToString("G", CultureInfo.InvariantCulture)} µL, " +
+                      $"RemoveOverflow={settings.DidRemoveOverflow.ToString()}, " +
+                      $"MixFrac={(100*settings.MixingFraction).ToString("F1", CultureInfo.InvariantCulture)}%";
 
-            var (result, segments) = ConcatCore(experiments, fileName, modeTag: tag);
+            var (merged, segments) = ConcatCore(experiments, fileName, modeTag: tag);
 
             // Compute injection concentrations/ratios via back-mixing model
-            ProcessInjections_BackMixingOverflowModel(result, segments, settings);
+            ProcessInjections_BackMixingOverflowModel(merged, segments, settings);
 
             // Keep the usual post-read processing (baseline, peak direction, etc.)
-            RawDataReader.ProcessData(result);
+            RawDataReader.ProcessData(merged);
 
-            return result;
+            return merged;
         }
 
-        static (ExperimentData result, List<SegmentInfo> segments) ConcatCore(List<ExperimentData> experiments, string fileName, string modeTag)
+        static (TandemExperimentData result, List<SegmentInfo> segments) ConcatCore(List<ExperimentData> experiments, string fileName, string modeTag)
         {
             if (experiments == null) throw new ArgumentNullException(nameof(experiments));
             if (experiments.Count < 2) throw new ArgumentException("ConcatTandem requires at least two experiments.");
@@ -118,7 +131,8 @@ namespace AnalysisITC
                 fileName = "Tandem_" + first.FileName;
             }
 
-            var result = new ExperimentData(fileName)
+            // Create experiment data from first experiment. Date is set to now.
+            var merged = new TandemExperimentData(fileName)
             {
                 Instrument = first.Instrument,
                 DataSourceFormat = first.DataSourceFormat,
@@ -136,11 +150,11 @@ namespace AnalysisITC
                 IntegrationLengthMode = first.IntegrationLengthMode,
                 IntegrationLengthFactor = first.IntegrationLengthFactor,
 
-                Date = first.Date,
+                Date = DateTime.Now,
                 Comments = BuildConcatComment(experiments, first.Comments, modeTag),
             };
 
-            foreach (var opt in first.Attributes) result.Attributes.Add(opt);
+            foreach (var opt in first.Attributes) merged.Attributes.Add(opt);
 
             foreach (var exp in experiments)
             {
@@ -173,7 +187,9 @@ namespace AnalysisITC
 
                 float shift = nextStartTime - segFirstTime;
 
-                foreach (var dp in exp.DataPoints)
+                var dps = exp.Processor.BaselineCompleted ? exp.BaseLineCorrectedDataPoints : exp.DataPoints;
+
+                foreach (var dp in dps)
                 {
                     datapoints.Add(new DataPoint(
                         time: dp.Time + shift,
@@ -192,7 +208,7 @@ namespace AnalysisITC
                 {
                     foreach (var inj in exp.Injections)
                     {
-                        var newInj = CopyInjectionWithNewIdAndShift(result, inj, injId, shift);
+                        var newInj = CopyInjectionWithNewIdAndShift(merged, inj, injId, shift);
                         injections.Add(newInj);
                         injId++;
                     }
@@ -203,13 +219,13 @@ namespace AnalysisITC
                 nextStartTime = (segLastTime + shift) + 1f;
             }
 
-            result.DataPoints = datapoints;
-            result.Injections = injections;
+            merged.DataPoints = datapoints;
+            merged.Injections = injections;
 
-            return (result, segments);
+            return (merged, segments);
         }
 
-        static void ProcessInjections_BackMixingOverflowModel(ExperimentData experiment, List<SegmentInfo> segments, BackMixingSettings settings)
+        static void ProcessInjections_BackMixingOverflowModel(TandemExperimentData experiment, List<SegmentInfo> segments, BackMixingSettings settings)
         {
             if (experiment == null) throw new ArgumentNullException(nameof(experiment));
             if (segments == null) throw new ArgumentNullException(nameof(segments));
@@ -220,14 +236,14 @@ namespace AnalysisITC
 
             // Clamp settings
             double Vdead = settings.DeadVolume;
-            double Vremove = settings.RemoveOverflowVolume;
+            double Vremove = settings.RemoveOverflowVolume; // Obsolete currently, assumes Vremove = V_inj_total
             double mixFrac = Math.Clamp(settings.MixingFraction, 0.0, 1.0);
-            double V0 = experiment.CellVolume;
+            double Vcell = experiment.CellVolume;
             double Cs = experiment.SyringeConcentration.Value;
             double M0 = experiment.CellConcentration.Value; // initial macromolecule concentration in active cell
 
             // State variables (amounts in mol)
-            double nM_active = M0 * V0;
+            double nM_active = M0 * Vcell;
             double nL_active = 0.0;
 
             double nM_dead = M0 * Vdead;
@@ -235,13 +251,17 @@ namespace AnalysisITC
 
             for (int s = 0; s < segments.Count; s++)
             {
+                experiment.AddSegment(new TandemExperimentSegment(s, nM_active / Vcell, nL_active / Vcell));
+
                 var seg = segments[s];
+                var V_inj_total = 0.0;
 
                 // Segment injections
                 for (int i = seg.InjectionNumStart; i < seg.InjectionNumStart + seg.InjectionCount; i++)
                 {
                     var inj = experiment.Injections[i];
                     var v_inj = inj.Volume;
+                    V_inj_total += v_inj;
 
                     // Inject titrant (mol)
                     inj.InjectionMass = Cs * v_inj;
@@ -249,11 +269,11 @@ namespace AnalysisITC
                     // Instant overflow recursion:
                     // 1) mix injected volume with active contents
                     // 2) displace v of the well-mixed (V0+v) back to keep active at V0
-                    var Vtot = V0 + v_inj;
+                    var Vtot = Vcell + v_inj;
                     var nM_mix = nM_active;
                     var nL_mix = nL_active + (Cs * v_inj);
 
-                    var fracRemain = V0 / Vtot;
+                    var fracRemain = Vcell / Vtot;
                     var fracDisp = v_inj / Vtot;
 
                     // Update active
@@ -266,20 +286,20 @@ namespace AnalysisITC
                     Vdead += v_inj;
 
                     // Derived concentrations for this injection
-                    inj.ActualCellConcentration = nM_active / V0;
-                    inj.ActualTitrantConcentration = nL_active / V0;
+                    inj.ActualCellConcentration = nM_active / Vcell;
+                    inj.ActualTitrantConcentration = nL_active / Vcell;
                     inj.Ratio = inj.ActualTitrantConcentration / inj.ActualCellConcentration;
                 }
 
                 // Between segments: removal + back-mixing (skip after last segment)
                 if (s < segments.Count - 1)
                 {
-                    ApplyOverflowRemoval(ref Vdead, ref nM_dead, ref nL_dead, Vremove);
+                    if (settings.DidRemoveOverflow) ApplyOverflowRemoval(ref Vdead, ref nM_dead, ref nL_dead, V_inj_total);
 
                     if (mixFrac > 0 && Vdead > 0)
                     {
                         ApplyBackMixing(
-                            V0,
+                            Vcell,
                             mixFrac,
                             ref nM_active, ref nL_active,
                             Vdead, ref nM_dead, ref nL_dead);
