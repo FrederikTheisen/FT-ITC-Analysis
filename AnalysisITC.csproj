@@ -457,6 +457,11 @@
     <Compile Include="GUI\MacOS\ViewControllers\ExperimentMergerViewController.designer.cs">
       <DependentUpon>ExperimentMergerViewController.cs</DependentUpon>
     </Compile>
+    <Compile Include="ToggleSelectTableView.cs" />
+    <Compile Include="ToggleSelectTableView.designer.cs">
+      <DependentUpon>ToggleSelectTableView.cs</DependentUpon>
+    </Compile>
+    <Compile Include="AppClasses\Analysis2\Models\Dissociation.cs" />
   </ItemGroup>
   <ItemGroup>
     <InterfaceDefinition Include="Main.storyboard" />

@@ -112,8 +112,6 @@ namespace AnalysisITC.Obsolete
             {
                 StopAnalysisProcess = false;
 
-
-
                 try
                 {
                     switch (analysismodel)

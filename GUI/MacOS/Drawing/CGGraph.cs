@@ -1145,9 +1145,10 @@ namespace AnalysisITC
             XAxis = new GraphAxis(this, 0, 1);
             XAxis.SetWithBuffer(0, Math.Max(Math.Floor(XAxis.Max + 0.33f), XAxis.Max), 0.05);
             XAxis.UseNiceAxis = false;
-            XAxis.LegendTitle = "Molar Ratio";
+            XAxis.LegendTitle = GraphAxis.GetXAxisTitle(experiment);
             XAxis.DecimalPoints = 1;
             XAxis.TickScale.SetMaxTicks(7);
+            XAxis.ValueFactor = GraphAxis.GetXAxisScaleFactor(experiment);
 
             YAxis = new GraphAxis(this, 0, 1);
             YAxis.UseNiceAxis = false;

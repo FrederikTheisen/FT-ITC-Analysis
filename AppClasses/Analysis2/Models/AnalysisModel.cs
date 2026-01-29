@@ -22,9 +22,9 @@ namespace AnalysisITC.AppClasses.Analysis2.Models
                 AnalysisModel.TwoSetsOfSites,
                 AnalysisModel.CompetitiveBinding,
                 AnalysisModel.Dissociation,
-                AnalysisModel.SequentialBindingSites,
-                AnalysisModel.PeptideProlineIsomerization,
-                AnalysisModel.TwoCompetingSites,
+                //AnalysisModel.SequentialBindingSites,
+                //AnalysisModel.PeptideProlineIsomerization,
+                //AnalysisModel.TwoCompetingSites,
             };
         }
     }

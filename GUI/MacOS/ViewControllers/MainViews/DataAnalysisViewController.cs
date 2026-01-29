@@ -38,6 +38,7 @@ namespace AnalysisITC
                     case 0: return AnalysisModel.OneSetOfSites;
                     case 1: return AnalysisModel.TwoSetsOfSites;
                     case 2: return AnalysisModel.CompetitiveBinding;
+                    case 3: return AnalysisModel.Dissociation;
                 }
             }
         }//=> (AnalysisModel)(int)ModelTypeControl.SelectedSegment;
@@ -82,6 +83,7 @@ namespace AnalysisITC
                 case AnalysisModel.OneSetOfSites: ModelTypeControl.SetSelected(true, 0); break;
                 case AnalysisModel.TwoSetsOfSites: ModelTypeControl.SetSelected(true, 1); break;
                 case AnalysisModel.CompetitiveBinding: ModelTypeControl.SetSelected(true, 2); break;
+                case AnalysisModel.Dissociation: ModelTypeControl.SetSelected(true, 3); break;
             }
 
             InitializeFactory();

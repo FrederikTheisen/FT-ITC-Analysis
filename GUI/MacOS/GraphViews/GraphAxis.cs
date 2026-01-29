@@ -403,6 +403,28 @@ namespace AnalysisITC
             if (horizontal) return margin.Height + ticklabelsize.Height + titlesize.Height;
             else return margin.Width + ticklabelsize.Width + titlesize.Height;
         }
+
+        public static string GetXAxisTitle(ExperimentData data)
+        {
+            if (data.Model == null) return "X";
+
+            switch (data.Model.ModelType)
+            {
+                case AppClasses.Analysis2.Models.AnalysisModel.Dissociation: return "[Monomer] (µM)";
+                default: return "Molar Ratio";
+            }
+        }
+
+        public static int GetXAxisScaleFactor(ExperimentData data)
+        {
+            if (data.Model == null) return 1;
+
+            switch (data.Model.ModelType)
+            {
+                case AppClasses.Analysis2.Models.AnalysisModel.Dissociation: return 1000000;
+                default: return 1;
+            }
+        }
     }
 
     public class ParameterCategoryAxis : GraphAxis

@@ -209,8 +209,8 @@ namespace AnalysisITC.AppClasses.Analysis2
                 case AnalysisModel.TwoCompetingSites: Model = new TwoCompetingSites(data); break;
                 case AnalysisModel.PeptideProlineIsomerization: Model = new OneSiteIsomerization(data); break;
                 case AnalysisModel.SequentialBindingSites:
-                case AnalysisModel.Dissociation:
-                default: throw new NotImplementedException();
+                case AnalysisModel.Dissociation: Model = new Dissociation(data); break;
+                default: throw new NotImplementedException("The selected model has not been implemented yet.");
             }
         }
 

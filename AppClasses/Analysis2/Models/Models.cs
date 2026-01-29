@@ -241,7 +241,7 @@ namespace AnalysisITC.AppClasses.Analysis2.Models
                 case AnalysisModel.PeptideProlineIsomerization: solution = new OneSiteIsomerization.ModelSolution(model); break;
                 case AnalysisModel.TwoCompetingSites: solution = new TwoCompetingSites.ModelSolution(model); break;
                 case AnalysisModel.SequentialBindingSites:
-				case AnalysisModel.Dissociation:
+				case AnalysisModel.Dissociation: solution = new Dissociation.ModelSolution(model); break;
 				default: throw new Exception("Model Solution not implemented");
 			}
 
