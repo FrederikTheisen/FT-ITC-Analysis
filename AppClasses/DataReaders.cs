@@ -5,7 +5,6 @@ using System.Collections.Generic;
 using System.Linq;
 using Utilities;
 using AppKit;
-using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using UniformTypeIdentifiers;
 using Foundation;
@@ -99,8 +98,9 @@ namespace DataReaders
                 switch (format)
                 {
                     case ITCDataFormat.FTITC: return FTITCReader.ReadPath(path);
+                    case ITCDataFormat.VPITC: // TODO No idea what vpitc files might look like if they exist
                     case ITCDataFormat.ITC200: return new ExperimentData[] { MicroCalITC200Reader.ReadPath(path) };
-                    case ITCDataFormat.VPITC: break;
+                    case ITCDataFormat.TAITC: return new ExperimentData[] { TAFileReader.ReadPath(path) };
                     case ITCDataFormat.Unknown:
                         AppEventHandler.PrintAndLog($"Unknown File Format: {path}");
                         break;
@@ -177,6 +177,10 @@ namespace DataReaders
         {
             switch (experiment.DataSourceFormat)
             {
+                case ITCDataFormat.TAITC:
+                    foreach (var inj in experiment.Injections) inj.SetIntegrationTimes();
+                    ProcessInjectionsMicroCal(experiment); // We think this might be the same proecessing. Lack of information makes other assumptions hard.
+                    break;
                 default:
                 case ITCDataFormat.ITC200:
                     ProcessInjectionsMicroCal(experiment);
@@ -233,6 +237,7 @@ namespace DataReaders
                 while ((line = stream.ReadLine()) != null)
                 {
                     line = line.Trim();
+                    if (line.Count() == 0) continue;
                     counter++;
                     if (line == "@0") { isDataStream = true; continue; }
 
@@ -325,6 +330,95 @@ namespace DataReaders
             var dat = StringParsers.ParseLine(line);
 
             experiment.DataPoints.Add(new DataPoint(dat[0], (float)Energy.ConvertToJoule(dat[1], EnergyUnit.MicroCal), dat[2], dat[3], dat[4], dat[5], dat[6]));
+        }
+    }
+
+    class TAFileReader : RawDataReader
+    {
+        public static ExperimentData ReadPath(string path)
+        {
+            var experiment = new ExperimentData(Path.GetFileName(path));
+            experiment.Date = File.GetLastWriteTimeUtc(path);
+            experiment.DataSourceFormat = ITCDataFormat.TAITC;
+            experiment.FeedBackMode = FeedbackMode.High;
+            experiment.StirringSpeed = 0;
+
+            using (var stream = new StreamReader(path))
+            {
+                int counter = 0;
+                int counter2 = 0;
+                int counter3 = -1;
+                string line;
+
+                bool isDataStream = false;
+
+                while ((line = stream.ReadLine()) != null)
+                {
+                    line = line.Trim();
+                    if (line.Count() == 0) continue;
+                    counter++;
+                    if (line == "@0") { isDataStream = true; continue; }
+
+                    if (isDataStream)
+                    {
+                        if (line.First() == '@') AddInjection(experiment, line);
+                        else ReadDataPoint(experiment, line);
+                        continue;
+                    }
+
+                    if (line[0] == '#')
+                    {
+                        counter2++;
+
+                        if (counter2 == 2) experiment.SyringeConcentration = new FloatWithError(LineToFloat(line) * (float)Math.Pow(10, -3));
+                        else if (counter2 == 3) experiment.CellConcentration = LineToFloat(line) != 0 ? new FloatWithError(LineToFloat(line) * (float)Math.Pow(10, -3)) : experiment.SyringeConcentration / 10f;
+                        else if (counter2 == 4) experiment.CellVolume = LineToFloat(line) * (float)Math.Pow(10, -3);
+                        else if (counter2 == 5) experiment.TargetTemperature = LineToFloat(line);
+                    }
+                    else if (line[0] == '?')
+                    {
+                        counter3 = 0;
+                        experiment.Comments += line.Substring(1).Trim();
+                    }
+
+                    if (counter3 > -1) counter3++;
+                }
+
+                stream.Close();
+                Console.WriteLine($"File has {counter} lines.");
+            }
+
+            experiment.TargetPowerDiff = experiment.DataPoints.First().Power;
+            experiment.InitialDelay = experiment.Injections.First().Time;
+            experiment.Instrument = experiment.CellVolume > 0.2e-3 ? ITCInstrument.TAInstrumentsITCStandard : ITCInstrument.TAInstrumentsITCLowVolume;
+
+            ProcessInjections(experiment);
+            ProcessData(experiment);
+
+            return experiment;
+        }
+
+        private static float LineToFloat(string line)
+        {
+            return float.Parse(line.Substring(1).Trim());
+        }
+
+        static void AddInjection(ExperimentData experiment, string line)
+        {
+            var data = Utilities.StringParsers.ParseLine(line.Substring(1));
+            int id = (int)data[0] - 1;
+            double v = data[1] * 1e-6;
+
+            var inj = InjectionData.FromTAFileLine(experiment, id, v, experiment.DataPoints.LastOrDefault(), experiment.Injections.LastOrDefault());
+
+            experiment.Injections.Add(inj);
+        }
+
+        static void ReadDataPoint(ExperimentData experiment, string line)
+        {
+            var dat = StringParsers.ParseLine(line);
+
+            experiment.DataPoints.Add(new DataPoint(dat[0], (float)Energy.ConvertToJoule(dat[1], EnergyUnit.MicroCal), temp: (float)experiment.TargetTemperature));
         }
     }
 
@@ -757,125 +851,6 @@ namespace DataReaders
                 dict[SolConvMsg],
                 BParse(dict[SolConvFailed]));
             return conv;
-        }
-    }
-
-    class FTITCReaderOld : FTITCFormat
-    {
-        public static ITCDataContainer[] ReadPath(string path)
-        {
-            var data = new List<ITCDataContainer>();
-
-            var file = string.Join("", File.ReadAllLines(path));
-
-            Regex regex = new Regex(OldReaderPattern(ExperimentHeader), RegexOptions.Singleline | RegexOptions.Compiled);
-            var v = regex.Matches(file);
-
-            foreach (var m in v.AsEnumerable())
-            {
-                var result = m.Value;
-
-                data.Add(ProcessExperimentData(result.Substring(ExperimentHeader.Length + 2, result.Length - (2 * ExperimentHeader.Length + 5))));
-            }
-
-            return data.ToArray();
-        }
-
-        static string GContent(string header, string data)
-        {
-            Regex regex = new Regex(OldReaderPattern(header), RegexOptions.Singleline | RegexOptions.Compiled);
-            var v = regex.Matches(data);
-
-            if (v.Count == 0) return null;
-
-            var result = v.First().Value;
-
-            return result.Substring(header.Length + 2, result.Length - (2 * header.Length + 5));
-        }
-
-        static ExperimentData ProcessExperimentData(string data)
-        {
-            var exp = new ExperimentData(GContent(FileName, data));
-            exp.SetID(GContent(ID, data));
-            exp.Date = DateTime.Parse(GContent(Date, data));
-            //exp.Include = GContent(Include, data) == "1";
-            exp.SyringeConcentration = FWEParse(GContent(SyringeConcentration, data));
-            exp.CellConcentration = FWEParse(GContent(CellConcentration, data));
-            exp.StirringSpeed = double.Parse(GContent(StirringSpeed, data));
-            exp.TargetTemperature = double.Parse(GContent(TargetTemperature, data));
-            exp.MeasuredTemperature = double.Parse(GContent(MeasuredTemperature, data));
-            exp.InitialDelay = double.Parse(GContent(InitialDelay, data));
-            exp.TargetPowerDiff = double.Parse(GContent(TargetPowerDiff, data));
-            exp.Include = GContent(Include, data) == "1";
-            exp.IntegrationLengthMode = (InjectionData.IntegrationLengthMode)int.Parse(GContent(UseIntegrationFactorLength, data));
-            exp.IntegrationLengthFactor = float.Parse(GContent(IntegrationLengthFactor, data));
-            exp.CellVolume = double.Parse(GContent(CellVolume, data));
-            exp.CellVolume = double.Parse(GContent(CellVolume, data));
-            exp.FeedBackMode = (FeedbackMode)int.Parse(GContent(FeedBackMode, data));
-            exp.Instrument = GContent(Instrument, data) != null ? (ITCInstrument)int.Parse(GContent(Instrument, data)) : ITCInstrument.Unknown;
-
-            var datapoints = new List<DataPoint>();
-
-            var dpdata = GContent(DataPointList, data).Split(";");
-            foreach (var dp in dpdata)
-            {
-                var _dp = dp.Split(',');
-                datapoints.Add(new DataPoint(float.Parse(_dp[0]), float.Parse(_dp[1]), float.Parse(_dp[2]), shieldt: float.Parse(_dp[3])));
-            }
-
-            exp.DataPoints = datapoints;
-
-            var injections = new List<InjectionData>();
-
-            var injdata = GContent(InjectionList, data).Split(";");
-            foreach (var inj in injdata)
-            {
-                injections.Add(new InjectionData(exp, inj));
-            }
-
-            exp.Injections = injections;
-
-            string processordata = GContent(Processor, data);
-            {
-                if (!string.IsNullOrEmpty(processordata))
-                {
-                    var processor = new DataProcessor(exp);
-                    processor.InitializeBaseline((BaselineInterpolatorTypes)int.Parse(GContent(ProcessorType, processordata)));
-
-                    switch (processor.BaselineType)
-                    {
-                        case BaselineInterpolatorTypes.None: break;
-                        default:
-                        case BaselineInterpolatorTypes.Spline:
-                            (processor.Interpolator as SplineInterpolator).Algorithm = (SplineInterpolator.SplineInterpolatorAlgorithm)int.Parse(GContent(SplineAlgorithm, processordata));
-                            (processor.Interpolator as SplineInterpolator).HandleMode = (SplineInterpolator.SplineHandleMode)int.Parse(GContent(SplineHandleMode, processordata));
-                            (processor.Interpolator as SplineInterpolator).FractionBaseline = float.Parse(GContent(SplineFraction, processordata));
-                            (processor.Interpolator as SplineInterpolator).IsLocked = GContent(SplineLocked, processordata) == "1";
-                            var splinepoints = new List<SplineInterpolator.SplinePoint>();
-
-                            var spdata = GContent(SplinePointList, data).Split(";");
-                            foreach (var sp in spdata)
-                            {
-                                var _spdat = sp.Split(',');
-                                splinepoints.Add(new SplineInterpolator.SplinePoint(double.Parse(_spdat[0]), double.Parse(_spdat[1]), int.Parse(_spdat[2]), double.Parse(_spdat[3])));
-                            }
-
-                            (processor.Interpolator as SplineInterpolator).SetSplinePoints(splinepoints);
-                            break;
-                        case BaselineInterpolatorTypes.Polynomial:
-                            (processor.Interpolator as PolynomialLeastSquaresInterpolator).Degree = int.Parse(GContent(PolynomiumDegree, processordata));
-                            (processor.Interpolator as PolynomialLeastSquaresInterpolator).ZLimit = int.Parse(GContent(PolynomiumLimit, processordata));
-                            break;
-                    }
-
-                    exp.SetProcessor(processor);
-
-                    processor.ProcessData(replace: false);
-                }
-            }
-
-
-            return exp;
         }
     }
 }

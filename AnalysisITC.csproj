@@ -462,6 +462,7 @@
       <DependentUpon>ToggleSelectTableView.cs</DependentUpon>
     </Compile>
     <Compile Include="AppClasses\Analysis2\Models\Dissociation.cs" />
+    <Compile Include="AppClasses\FTITCReaderOld.cs" />
   </ItemGroup>
   <ItemGroup>
     <InterfaceDefinition Include="Main.storyboard" />

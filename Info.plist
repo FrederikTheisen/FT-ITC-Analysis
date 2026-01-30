@@ -12,6 +12,7 @@
 				<string>itc</string>
 				<string>vpitc</string>
 				<string>ITC</string>
+				<string>ta</string>
 			</array>
 			<key>CFBundleTypeIconFile</key>
 			<string>DataFileBackground</string>
@@ -128,6 +129,7 @@
 					<string>vpitc</string>
 					<string>ITC</string>
 					<string>VPITC</string>
+					<string>ta</string>
 				</array>
 				<key>public.mime-type</key>
 				<array>

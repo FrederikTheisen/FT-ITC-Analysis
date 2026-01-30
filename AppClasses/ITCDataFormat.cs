@@ -28,6 +28,7 @@ namespace DataReaders
             {
                 ITCDataFormat.ITC200,
                 ITCDataFormat.VPITC,
+                ITCDataFormat.TAITC,
                 ITCDataFormat.FTITC
             };
         }
@@ -41,7 +42,12 @@ namespace DataReaders
 
         public static UTType[] DataFiles()
         {
-            return UTType.GetTypes("itc", UTTagClass.FilenameExtension, UTTypes.Data);
+            List<UTType> types = new List<UTType>();
+
+            types.AddRange(UTType.GetTypes("itc", UTTagClass.FilenameExtension, UTTypes.Data).ToList());
+            types.AddRange(UTType.GetTypes("ta", UTTagClass.FilenameExtension, UTTypes.Data).ToList());
+
+            return types.ToArray();
         }
 
         public static UTType[] ProjectFile()
@@ -68,5 +74,7 @@ namespace DataReaders
         [ITCFormat("FT-ITC", "Data format produced by this software", ".ftitc")]
         FTITC,
         Unknown,
+        [ITCFormat("TA Instruments", "Data format exported from NanoAnalyze", ".ta")]
+        TAITC,
     }
 }

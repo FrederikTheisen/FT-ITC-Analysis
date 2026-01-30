@@ -55,5 +55,9 @@ namespace DataReaders
         MalvernITC200,
         [ITCInstrument("MicroCal VP-ITC", "", "VPITC", 1479.1, 310)]
         MicroCalVPITC,
+        [ITCInstrument("TA Instruments ITC Standard", "", "TAITC", 1000.0, 250)]
+        TAInstrumentsITCStandard,
+        [ITCInstrument("TA Instruments ITC Low Vol", "", "TAITC", 190.0, 250)]
+        TAInstrumentsITCLowVolume,
     }
 }
