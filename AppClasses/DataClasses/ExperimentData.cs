@@ -293,7 +293,7 @@ namespace AnalysisITC
         public double Volume { get; private set; }
         public float Duration { get; private set; }
         public float Delay { get; private set; }
-        public float Filter { get; private set; }
+        public float Filter { get; private set; } = 5;
         public double Temperature { get; set; }
         public double InjectionMass { get; set; }
       
@@ -325,6 +325,32 @@ namespace AnalysisITC
 
         public bool IsIntegrated { get; set; } = false;
 
+        private InjectionData() { }
+
+        public static InjectionData FromTAFileLine(ExperimentData experiment, int id, double v, DataPoint dp, InjectionData prev)
+        {
+            float delay = 0.0f;
+            if (prev != null)
+            {
+                delay = dp.Time - prev.Time;
+                prev.Delay = delay;
+            }
+
+
+            return new InjectionData()
+            {
+                Experiment = experiment,
+                ID = id,
+                Include = id != 0,
+                Volume = v,
+                Time = dp.Time,
+                Temperature = dp.Temperature,
+                Delay = delay, // Delay guess until next injection is processed
+                Duration = 0.0f, // Not known
+                Filter = 0.0f, // Not known, not used
+            };
+        }
+
         public InjectionData(int id, double volume, double mass, bool include)
         {
             ID = id;
@@ -347,6 +373,11 @@ namespace AnalysisITC
             Filter = float.Parse(data[3]);
         }
 
+        /// <summary>
+        /// FT-ITC file format reader for injection data
+        /// </summary>
+        /// <param name="experiment"></param>
+        /// <param name="line"></param>
         public InjectionData(ExperimentData experiment, string line)
         {
             Experiment = experiment;
@@ -363,6 +394,7 @@ namespace AnalysisITC
             IntegrationStartDelay = float.Parse(parameters[7]);
             IntegrationLength = float.Parse(parameters[8]);
 
+            // Newer files contain additional information for the injections to handle tandem experiment data
             if (parameters.Count() > 9)
             {
                 ActualCellConcentration = double.Parse(parameters[9]);
@@ -382,7 +414,7 @@ namespace AnalysisITC
             Delay = delay;
         }
 
-        void SetIntegrationTimes()
+        public void SetIntegrationTimes()
         {
             IntegrationStartDelay = 0;
             IntegrationLength = 0.9f * Delay;
