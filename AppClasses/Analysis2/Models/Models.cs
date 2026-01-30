@@ -261,7 +261,8 @@ namespace AnalysisITC.AppClasses.Analysis2.Models
 
             if (info.HasFlag(FinalFigureDisplayParameters.Model))
             {
-                output.Add(new(SolutionName, Loss.ToString("G3")));
+                //output.Add(new(SolutionName, Loss.ToString("G3")));
+                output.Add(new(SolutionName, ""));
             }
 
             return output;

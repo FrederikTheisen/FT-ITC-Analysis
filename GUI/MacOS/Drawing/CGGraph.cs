@@ -1397,7 +1397,9 @@ namespace AnalysisITC
 
             foreach (var par in ExperimentData.Solution.UISolutionParameters(DrawOnWhite ? FinalFigureDisplayParameters : AnalysisDisplayParameters))
             {
-                lines.Add(par.Item1 + " = " + par.Item2);
+                var line = par.Item1;
+                if (par.Item2.Length > 0) line += " = " + par.Item2;
+                lines.Add(line);
             }
 
             var position = ExperimentData.Solution.TotalEnthalpy > 0 ? NSRectAlignment.TopTrailing : NSRectAlignment.BottomTrailing;
