@@ -111,7 +111,7 @@ namespace AnalysisITC
 
 		public double[] pKaValues { get; private set; }
 		public double[] dPKadT { get; private set; }
-		int[] Charges { get; set; }
+		int[] AcidCharges { get; set; }
 
 		public LinearFit ProtonationEnthalpy { get; private set; } = new(0, 0, 25);
 
@@ -154,7 +154,7 @@ namespace AnalysisITC
 
             pKaValues = new[] { pka };
             dPKadT = new[] { tc };
-            Charges = new[] { za };
+            AcidCharges = new[] { za };
 
             if (dh != null) ProtonationEnthalpy = new LinearFit(dh[1], dh[0], 25);
         }
@@ -166,7 +166,7 @@ namespace AnalysisITC
 
             pKaValues = new[] { pka };
             dPKadT = new[] { tc };
-            Charges = new[] { za };
+            AcidCharges = new[] { za };
 
             ProtonationEnthalpy = new(0, dh, 25);
         }
@@ -178,7 +178,7 @@ namespace AnalysisITC
 
 			pKaValues = pkas;
 			dPKadT = tcs;
-			Charges = za;
+			AcidCharges = za;
 
 			if (dh != null) ProtonationEnthalpy = new(dh[1], dh[0], 25);
         }
@@ -270,24 +270,20 @@ namespace AnalysisITC
 
         #region Ionic strength methods
 
-        Tuple<double,double,int> GetStateProperties(double pH)
-		{
-			if (Transitions == 1) return new Tuple<double, double, int>(pKaValues[0], dPKadT[0], Charges[0]);
-			else
-			{
-				var dist = 14.0;
+        Tuple<double, double, int> GetStateProperties(double pH)
+        {
+            int best = 0;
+            double bestDist = double.MaxValue;
 
-                for (int i = 0; i < Transitions; i++)
-				{
-                    double pka = pKaValues[i];
-
-					if (Math.Abs(pka - pH) > dist) return new Tuple<double, double, int>(pKaValues[i - 1], dPKadT[i - 1], Charges[i - 1]);
-					else dist = Math.Abs(pka - pH);
-                }
-
-				return new Tuple<double, double, int>(pKaValues[Transitions - 1], dPKadT[Transitions - 1], Charges[Transitions - 1]);
+            for (int i = 0; i < Transitions; i++)
+            {
+                double d = Math.Abs(pKaValues[i] - pH);
+                if (d < bestDist) { bestDist = d; best = i; }
             }
-		}
+
+            return Tuple.Create(pKaValues[best], dPKadT[best], AcidCharges[best]);
+        }
+
         /// <summary>
         /// Makes temperature correction to pKa
         /// </summary>
@@ -342,13 +338,22 @@ namespace AnalysisITC
         double CalcIS(double pH, double pK, int z, double conc)
         {
             var R = Math.Pow(10, (pH - pK));
-            var I1 = (R / (1 + R)) * conc * (Math.Pow((z - 1), 2));    // basic species
-            var I2 = (1 / (1 + R)) * conc * (Math.Pow(z, 2));        // acidic species
-            var I3 = (R / (1 + R)) * conc * (Math.Abs(z - 1));        // counterion, basic species
-            var I4 = (1 / (1 + R)) * conc * (Math.Abs(z));          // counterion, acidic species
-            return (I1 + I2 + I3 + I4) / 2;
+            var c_acid = conc / (1.0 + R);
+            var c_base = conc - c_acid;
+
+            // buffer species
+            var I_species =
+                c_base * Math.Pow(z - 1, 2) +
+                c_acid * Math.Pow(z, 2);
+
+            // monovalent counterions from NaOH / HCl
+            var I_counter =
+                c_base * Math.Abs(z - 1) +
+                c_acid * Math.Abs(z);
+
+            return 0.5 * (I_species + I_counter);
         }
-		public static double GetIonicStrength(ExperimentData data)
+        public static double GetIonicStrength(ExperimentData data)
 		{
 			//Check if ionicstrength is specifically stated
 			if (data.Attributes.Exists(opt => opt.Key == ModelOptionKey.IonicStrength)) return data.Attributes.First(opt => opt.Key == ModelOptionKey.IonicStrength).ParameterValue.Value;
