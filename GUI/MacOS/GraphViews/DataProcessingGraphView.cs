@@ -287,8 +287,8 @@ namespace AnalysisITC
 
                 NSMenu menu = new NSMenu("New Spline Point");
                 menu.AddItem(new NSMenuItem("New Spline Point..."));
-                menu.AddItem(new NSMenuItem("at data", (s, e) => { (Data.Processor.Interpolator as SplineInterpolator).InsertSplinePoint(time, true); }) { IndentationLevel = 1 });
-                menu.AddItem(new NSMenuItem("at baseline", (s, e) => { (Data.Processor.Interpolator as SplineInterpolator).InsertSplinePoint(time, false); }) { IndentationLevel = 1 });
+                menu.AddItem(new NSMenuItem("at data", (s, e) => { (Data.Processor.Interpolator as SplineInterpolator).InsertSplinePoint(time, true); Data.Processor.Lock();  }) { IndentationLevel = 1 });
+                menu.AddItem(new NSMenuItem("at baseline", (s, e) => { (Data.Processor.Interpolator as SplineInterpolator).InsertSplinePoint(time, false); Data.Processor.Lock(); }) { IndentationLevel = 1 });
                 NSMenu.PopUpContextMenu(menu, theEvent, this);
             }
         }
@@ -308,6 +308,7 @@ namespace AnalysisITC
                         var adjust = 10E-10 * (position.Y - SelectedFeature.ClickCursorPosition.Y);
 
                         feature.Power = SelectedFeature.FeatureReferenceValue + adjust;
+                        Data.Processor.Lock();
                         break;
                     }
                 case Utilities.MouseOverFeatureEvent.FeatureType.BaselineSplineHandle:
@@ -319,6 +320,7 @@ namespace AnalysisITC
                         if (invert) adjust = -adjust;
 
                         feature.Slope = SelectedFeature.FeatureReferenceValue + adjust;
+                        Data.Processor.Lock();
                         break;
                     }
                 case Utilities.MouseOverFeatureEvent.FeatureType.IntegrationRangeMarker:

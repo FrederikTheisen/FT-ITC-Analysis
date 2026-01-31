@@ -17,7 +17,7 @@ namespace AnalysisITC
         public static event EventHandler ProcessingCompleted;
 
         internal ExperimentData Data { get; set; }
-        public bool IsLocked { get; set; } = false;
+        public bool IsLocked { get; private set; } = false;
 
         CancellationToken cToken { get; set; }
         CancellationTokenSource csource = new CancellationTokenSource();
@@ -83,10 +83,15 @@ namespace AnalysisITC
             StatusBarManager.StopIndeterminateProgress();
         }
 
+        public void Lock() => IsLocked = true;
+        public void Unlock() => IsLocked = false;
+        public void ToggleLock() => IsLocked = !IsLocked;
+
         public void WillProcessData()
         {
-            Data.Injections.ForEach(inj => inj.IsIntegrated = false); //FIXME Crashes if not on UI thread
             BaselineCompleted = false;
+
+            Data.Injections.ForEach(inj => inj.IsIntegrated = false); //FIXME Crashes if not on UI thread
             Data.UpdateProcessing();
         }
 
@@ -151,7 +156,7 @@ namespace AnalysisITC
     {
         public DataProcessor Processor { get; set; }
         internal List<Energy> Baseline { get; set; } = new List<Energy>();
-        public bool IsLocked { get; set; } = false;
+        public bool IsLocked => Processor.IsLocked;
         public bool DiscardIntegratedPoints { get; set; } = true;
 
         internal ExperimentData Data => Processor.Data;
@@ -163,6 +168,7 @@ namespace AnalysisITC
         public BaselineInterpolator(DataProcessor processor)
         {
             Processor = processor;
+            Processor.Unlock();
 
             Baseline = new List<Energy>();
         }
@@ -194,7 +200,8 @@ namespace AnalysisITC
             int skip = Baseline.Count / (num_of_points + 1);
 
             var interpolator = new SplineInterpolator(Processor);
-            interpolator.IsLocked = true;
+            
+            //interpolator.IsLocked = true;
 
             int k = 0;
             for (int i = skip; i < Baseline.Count; i += skip)
@@ -209,6 +216,7 @@ namespace AnalysisITC
 
             Processor.Interpolator = interpolator;
             Processor.ProcessData();
+            Processor.Lock();
         }
     }
 

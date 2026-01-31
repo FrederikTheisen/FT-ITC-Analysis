@@ -38,7 +38,7 @@ namespace AnalysisITC
 
         partial void LockAction(NSObject sender)
         {
-            Data.Processor.IsLocked = !Data.Processor.IsLocked;
+            Data.Processor.ToggleLock();
 
             Updated?.Invoke(this, null);
 
