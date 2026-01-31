@@ -206,7 +206,18 @@ namespace AnalysisITC.AppClasses.Analysis2.Models
         public List<FloatWithError> ParametersConformingToKey(ParameterType key)
         {
             //FIXME unreproducible error related to modification of the collection while it is being used. Probably cross thread issue. Encountered 6
-            return Parameters.Where(par => par.Key.GetProperties().ParentType == key).Select(par => par.Value).ToList();
+            try
+            {
+                return Parameters.Where(par => par.Key.GetProperties().ParentType == key).Select(par => par.Value).ToList();
+            }
+            catch
+            {
+                var pars = new Dictionary<ParameterType, FloatWithError>(Parameters);
+
+                var values = pars.Where(par => par.Key.GetProperties().ParentType == key).Select(par => par.Value).ToList();
+
+                return values;
+            }
         }
 
         public bool IsValid { get; private set; } = true;
