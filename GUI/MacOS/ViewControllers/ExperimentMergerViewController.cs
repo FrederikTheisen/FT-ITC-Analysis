@@ -58,6 +58,9 @@ namespace AnalysisITC
             DeadVolumeTextField.Enabled = MergeSettings.UseBackMixingMethod;
             BackMixingSliderControl.Enabled = MergeSettings.UseBackMixingMethod;
             RemovedTitratedAfterExperimentControl.Enabled = MergeSettings.UseBackMixingMethod;
+            BackMixFracLabel.TextColor = MergeSettings.UseBackMixingMethod ? NSColor.Label : NSColor.TertiaryLabel;
+            BackMixLabel.TextColor = MergeSettings.UseBackMixingMethod ? NSColor.Label : NSColor.TertiaryLabel;
+            DeadVolLabel.TextColor = MergeSettings.UseBackMixingMethod ? NSColor.Label : NSColor.TertiaryLabel;
         }
 
         void ValidateMergeButton()

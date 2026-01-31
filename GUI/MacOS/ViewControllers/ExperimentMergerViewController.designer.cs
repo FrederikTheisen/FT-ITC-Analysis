@@ -13,7 +13,16 @@ namespace AnalysisITC
 	partial class ExperimentMergerViewController
 	{
 		[Outlet]
+		AppKit.NSTextField BackMixFracLabel { get; set; }
+
+		[Outlet]
 		AppKit.NSSlider BackMixingSliderControl { get; set; }
+
+		[Outlet]
+		AppKit.NSTextField BackMixLabel { get; set; }
+
+		[Outlet]
+		AppKit.NSTextField DeadVolLabel { get; set; }
 
 		[Outlet]
 		AppKit.NSTextField DeadVolumeTextField { get; set; }
@@ -38,6 +47,21 @@ namespace AnalysisITC
 		
 		void ReleaseDesignerOutlets ()
 		{
+			if (BackMixLabel != null) {
+				BackMixLabel.Dispose ();
+				BackMixLabel = null;
+			}
+
+			if (DeadVolLabel != null) {
+				DeadVolLabel.Dispose ();
+				DeadVolLabel = null;
+			}
+
+			if (BackMixFracLabel != null) {
+				BackMixFracLabel.Dispose ();
+				BackMixFracLabel = null;
+			}
+
 			if (BackMixingSliderControl != null) {
 				BackMixingSliderControl.Dispose ();
 				BackMixingSliderControl = null;
@@ -53,6 +77,11 @@ namespace AnalysisITC
 				ExperimentListView = null;
 			}
 
+			if (MergeButtonControl != null) {
+				MergeButtonControl.Dispose ();
+				MergeButtonControl = null;
+			}
+
 			if (MergeTableView != null) {
 				MergeTableView.Dispose ();
 				MergeTableView = null;
@@ -61,11 +90,6 @@ namespace AnalysisITC
 			if (RemovedTitratedAfterExperimentControl != null) {
 				RemovedTitratedAfterExperimentControl.Dispose ();
 				RemovedTitratedAfterExperimentControl = null;
-			}
-
-			if (MergeButtonControl != null) {
-				MergeButtonControl.Dispose ();
-				MergeButtonControl = null;
 			}
 		}
 	}
