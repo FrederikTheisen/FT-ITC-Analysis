@@ -47,7 +47,7 @@ namespace AnalysisITC
             /// Fraction (0..1) of the dead/overflow compartment that “exchanges” with the active cell between segments.
             /// 0 -> no back-mixing; 1 -> full dead compartment participates.
             /// </summary>
-            public double MixingFraction = 0.5;
+            public double MixingFraction = 0.1;
 
             public BackMixingSettings Copy()
             {
@@ -99,7 +99,7 @@ namespace AnalysisITC
         /// <summary>
         /// Tandem stitching with optional back-mixing between segments.
         /// </summary>
-        public static TandemExperimentData ConcatTandemWithBackMixing(List<ExperimentData> experiments, BackMixingSettings settings, string fileName = null)
+        public static ExperimentData ConcatTandemWithBackMixing(List<ExperimentData> experiments, BackMixingSettings settings, string fileName = null)
         {
             if (settings == null) throw new ArgumentNullException(nameof(settings));
 
@@ -119,7 +119,7 @@ namespace AnalysisITC
             return merged;
         }
 
-        static (TandemExperimentData result, List<SegmentInfo> segments) ConcatCore(List<ExperimentData> experiments, string fileName, string modeTag)
+        static (ExperimentData result, List<SegmentInfo> segments) ConcatCore(List<ExperimentData> experiments, string fileName, string modeTag)
         {
             if (experiments == null) throw new ArgumentNullException(nameof(experiments));
             if (experiments.Count < 2) throw new ArgumentException("ConcatTandem requires at least two experiments.");
@@ -132,7 +132,7 @@ namespace AnalysisITC
             }
 
             // Create experiment data from first experiment. Date is set to now.
-            var merged = new TandemExperimentData(fileName)
+            var merged = new ExperimentData(fileName)
             {
                 Instrument = first.Instrument,
                 DataSourceFormat = first.DataSourceFormat,
@@ -225,7 +225,7 @@ namespace AnalysisITC
             return (merged, segments);
         }
 
-        static void ProcessInjections_BackMixingOverflowModel(TandemExperimentData experiment, List<SegmentInfo> segments, BackMixingSettings settings)
+        static void ProcessInjections_BackMixingOverflowModel(ExperimentData experiment, List<SegmentInfo> segments, BackMixingSettings settings)
         {
             if (experiment == null) throw new ArgumentNullException(nameof(experiment));
             if (segments == null) throw new ArgumentNullException(nameof(segments));
@@ -251,10 +251,10 @@ namespace AnalysisITC
 
             for (int s = 0; s < segments.Count; s++)
             {
-                experiment.AddSegment(new TandemExperimentSegment(s, nM_active / Vcell, nL_active / Vcell));
-
                 var seg = segments[s];
                 var V_inj_total = 0.0;
+
+                experiment.AddSegment(new TandemExperimentSegment(seg.InjectionNumStart, nM_active / Vcell, nL_active / Vcell));
 
                 // Segment injections
                 for (int i = seg.InjectionNumStart; i < seg.InjectionNumStart + seg.InjectionCount; i++)
