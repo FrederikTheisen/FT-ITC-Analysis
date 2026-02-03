@@ -1306,7 +1306,7 @@ namespace AnalysisITC
                 points.Add(GetRelativePosition(x, y));
             }
 
-            DrawSpline(gc, points.ToArray(), 2, StrokeColor);
+            DrawSpline(gc, points.OrderBy(p => p.X).ToArray(), 2, StrokeColor);
 
             //DrawRectsAtPositions(layer, points.ToArray(), 8, true, false, color: NSColor.PlaceholderTextColor.CGColor);
         }
