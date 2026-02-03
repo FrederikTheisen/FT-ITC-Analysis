@@ -6,6 +6,7 @@ using Foundation;
 using AppKit;
 using System.Collections.Generic;
 using static AnalysisITC.TandemConcatenation;
+using System.Linq;
 
 namespace AnalysisITC
 {
@@ -55,6 +56,10 @@ namespace AnalysisITC
 
         void SetupMethodControls()
         {
+            SetMixingSliderValue(MergeSettings.MixingFraction);
+
+            DeadVolumeTextField.DoubleValue = 1000000 * GetFirstSelectedExperimentOrDefault().Instrument.GetProperties().DeadVolume;
+
             DeadVolumeTextField.Enabled = MergeSettings.UseBackMixingMethod;
             BackMixingSliderControl.Enabled = MergeSettings.UseBackMixingMethod;
             RemovedTitratedAfterExperimentControl.Enabled = MergeSettings.UseBackMixingMethod;
@@ -63,11 +68,29 @@ namespace AnalysisITC
             DeadVolLabel.TextColor = MergeSettings.UseBackMixingMethod ? NSColor.Label : NSColor.TertiaryLabel;
         }
 
+        void SetMixingSliderValue(double value)
+        {
+            BackMixingSliderControl.DoubleValue = Math.Clamp(value, 0, 1.0);
+            BackMixingSliderControl.SendAction(BackMixingSliderControl.Action, BackMixingSliderControl.Target);
+        }
+
         void ValidateMergeButton()
         {
             var n = mergeDelegate.GetSelectedExperiments(MergeTableView).Count;
 
             MergeButtonControl.Enabled = n > 1;
+        }
+
+        ExperimentData GetFirstSelectedExperimentOrDefault()
+        {
+            var exps = mergeDelegate.GetSelectedExperiments(MergeTableView);
+
+            if (exps.Count == 0)
+            {
+                exps.Add(mergeSource.Items.First().Data);
+            }
+
+            return exps[0];
         }
 
         HashSet<string> CaptureSelectedIDs(NSTableView tableView, ExperimentMergeQueueDataSource source)
@@ -112,6 +135,8 @@ namespace AnalysisITC
             ExperimentData mergeddata;
             if (MergeSettings.UseBackMixingMethod) mergeddata = TandemConcatenation.ConcatTandemWithBackMixing(exps, MergeSettings);
             else mergeddata = TandemConcatenation.ConcatTandem(exps);
+
+            var clone = mergeddata.GetSynthClone(new ModelCloneOptions());
 
             DataManager.AddData(mergeddata);
 

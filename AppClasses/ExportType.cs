@@ -21,13 +21,13 @@ namespace AnalysisITC
         Data,
         [ExportType("Peak", "Export a file containing injections and heats.")]
         Peaks,
-        [ExportType(MarkdownStrings.ITCsimName, "Export a file compatible with " + MarkdownStrings.ITCsimName + " analysis.")]
+        [ExportType(MarkdownStrings.ITCsimName, "Export a file compatible with " + MarkdownStrings.ITCsimName + " analysis. " + MarkdownStrings.ITCsimName + " provides analysis of ITC data by numeric simulation of the experiment using COPASI. COPASI is a free software that allows construction of arbitrary models with abstract parameters.")]
         ITCsim,
         [ExportType("CSV", "Export in comma separated format. Select exported columns in preferences.")]
         CSV,
-        [ExportType("pytc", "Export a .dh file for analysis using pytc.")]
+        [ExportType("pytc", "Export a .dh file for analysis using pytc. pytc is a python software package for analyzing Isothermal Titration Calorimetry experiments. It does Bayesian and ML fitting. Performs global fits to multiple experiments, has a clean Python API, and is designed for easy extension with new models.")]
         PYTC,
-        [ExportType("MicroCal", "Export a MicroCal style table.")]
+        [ExportType("MicroCal", "Export a MicroCal style table containing columns such as DH, INJV, Xt, Mt, XMt and so forth. The format is compatible with SEDPHAT analysis.")]
         MicroCal
     }
 

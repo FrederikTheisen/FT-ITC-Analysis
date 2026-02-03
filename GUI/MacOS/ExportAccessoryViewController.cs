@@ -20,8 +20,6 @@ namespace AnalysisITC
         public override void ViewDidAppear()
         {
             base.ViewDidAppear();
-
-            ExportTypeControl.SetLabel("Export for " + Utils.MarkdownStrings.ITCsimName + " Analysis", 2);
         }
 
         public void Setup(ExportAccessoryViewSettings settings)
