@@ -262,7 +262,7 @@ namespace Utilities
             tooltiplines.Add("Inj #" + (inj.ID + 1));
             //tooltiplines.Add("Time: " + inj.Time.ToString("F1") + "s");
             tooltiplines.Add("Ratio: " + inj.Ratio.ToString("F2"));
-            tooltiplines.Add("Area: " + new Energy(inj.Enthalpy).ToFormattedString(AppSettings.EnergyUnit, true, true));
+            tooltiplines.Add("Enthalpy: " + new Energy(inj.Enthalpy).ToFormattedString(AppSettings.EnergyUnit, true, true));
             tooltiplines.Add("Temperature: " + inj.Temperature.ToString("F2") + " °C");
             if (inj.Experiment.Solution != null) tooltiplines.Add("Residual: " + new Energy(inj.Enthalpy - inj.Experiment.Model.EvaluateEnthalpy(inj.ID, true)).ToFormattedString(AppSettings.EnergyUnit, true, true));
 
