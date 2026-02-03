@@ -167,34 +167,34 @@ namespace AnalysisITC
         {
             AppSettings.ExportSelectionMode = AppSettings.ExportSelectionMode switch
             {
-                Exporter.ExportDataSelection.SelectedData => Exporter.ExportDataSelection.IncludedData,
-                Exporter.ExportDataSelection.IncludedData => Exporter.ExportDataSelection.AllData,
-                Exporter.ExportDataSelection.AllData => Exporter.ExportDataSelection.SelectedData,
-                _ => Exporter.ExportDataSelection.IncludedData,
+                ExportDataSelection.SelectedData => ExportDataSelection.IncludedData,
+                ExportDataSelection.IncludedData => ExportDataSelection.AllData,
+                ExportDataSelection.AllData => ExportDataSelection.SelectedData,
+                _ => ExportDataSelection.IncludedData,
             };
 
             (sender as NSMenuItem).State = AppSettings.ExportSelectionMode switch
             {
-                Exporter.ExportDataSelection.SelectedData => NSCellStateValue.Off,
-                Exporter.ExportDataSelection.IncludedData => NSCellStateValue.Mixed,
-                Exporter.ExportDataSelection.AllData => NSCellStateValue.On,
+                ExportDataSelection.SelectedData => NSCellStateValue.Off,
+                ExportDataSelection.IncludedData => NSCellStateValue.Mixed,
+                ExportDataSelection.AllData => NSCellStateValue.On,
                 _ => NSCellStateValue.Off,
             };
         }
 
         partial void ExportAction(NSObject sender)
         {
-            Exporter.Export(Exporter.ExportType.Data);
+            Exporter.Export(ExportType.Data);
         }
 
         partial void ExportDataClick(NSMenuItem sender)
         {
-            Exporter.Export(Exporter.ExportType.Data);
+            Exporter.Export(ExportType.Data);
         }
 
         partial void ExportPeaksAction(NSMenuItem sender)
         {
-            Exporter.Export(Exporter.ExportType.Peaks);
+            Exporter.Export(ExportType.Peaks);
         }
 
         partial void ClearProcessingResult(NSObject sender)
