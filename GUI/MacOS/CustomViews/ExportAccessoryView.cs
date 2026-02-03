@@ -13,14 +13,14 @@ namespace AnalysisITC
 {
 	public partial class ExportAccessoryView : NSView
 	{
-        ExportAccessoryViewController.ExportAccessoryViewSettings Settings { get; set; }
+        ExportAccessoryViewSettings Settings { get; set; }
 
 
         public ExportAccessoryView (IntPtr handle) : base (handle)
 		{
 		}
 
-		public void Setup(ExportAccessoryViewController.ExportAccessoryViewSettings settings)
+		public void Setup(ExportAccessoryViewSettings settings)
 		{
             Settings = settings;
 
@@ -70,6 +70,7 @@ namespace AnalysisITC
                 case "microcal": Settings.Export = ExportType.MicroCal; break;
                 case "itcsim": Settings.Export = ExportType.ITCsim; break;
                 case "pytc": Settings.Export = ExportType.PYTC; break;
+                default:
                 case "csv": Settings.Export = ExportType.CSV; break;
             }
 

@@ -468,43 +468,161 @@ namespace AnalysisITC
 
     public class Exporter
     {
-        static char Delimiter = ' ';
+        static char Delimiter = ',';
         static char BlankChar = ' ';
-        static ExportAccessoryViewController.ExportAccessoryViewSettings ExportSettings;
+        static ExportAccessoryViewSettings ExportSettings;
+
+        //public static void Export(ExportType type)
+        //{
+        //    ExportSettings = type == ExportType.Data ? ExportAccessoryViewController.ExportAccessoryViewSettings.DataDefault() : ExportAccessoryViewController.ExportAccessoryViewSettings.PeaksDefault();
+
+        //    var storyboard = NSStoryboard.FromName("Main", null);
+        //    var viewController = (ExportAccessoryViewController)storyboard.InstantiateControllerWithIdentifier("ExportAccessoryViewController");
+        //    viewController.Setup(ExportSettings);
+
+        //    var dlg = new NSSavePanel();
+        //    dlg.Title = "Export";
+        //    dlg.AccessoryView = viewController.View;
+        //    dlg.NameFieldStringValue = "out";
+
+        //    dlg.BeginSheet(NSApplication.SharedApplication.MainWindow, async (result) =>
+        //    {
+        //        if (result == 1)
+        //        {
+        //            StatusBarManager.StartInderminateProgress();
+        //            StatusBarManager.SetStatusScrolling("Saving file: " + dlg.Filename);
+        //            SetDelimiter(dlg.Url);
+        //            switch (ExportSettings.Export)
+        //            {
+        //                case ExportType.Data: await WriteDataFile(dlg.Filename);break;
+        //                case ExportType.Peaks: await WritePeakFile(dlg.Filename, ExportColumns.SelectionMinimal); break;
+        //                case ExportType.ITCsim: await WriteITCsimFile(dlg.Filename, ExportColumns.SelectionITCsim); break;
+        //                case ExportType.CSV: await WritePeakFile(dlg.Filename, ExportSettings.Columns); break;
+        //                case ExportType.MicroCal: await WriteMicroCalExportFile(dlg.Filename); break;
+        //                case ExportType.PYTC: await WritePytcExportFile(dlg.Filename); break;
+        //            }
+                    
+        //        }
+        //    });
+        //}
 
         public static void Export(ExportType type)
         {
-            ExportSettings = type == ExportType.Data ? ExportAccessoryViewController.ExportAccessoryViewSettings.DataDefault() : ExportAccessoryViewController.ExportAccessoryViewSettings.PeaksDefault();
+            ExportSettings = type == ExportType.Data
+                ? ExportAccessoryViewSettings.DataDefault()
+                : ExportAccessoryViewSettings.PeaksDefault();
 
             var storyboard = NSStoryboard.FromName("Main", null);
             var viewController = (ExportAccessoryViewController)storyboard.InstantiateControllerWithIdentifier("ExportAccessoryViewController");
             viewController.Setup(ExportSettings);
 
-            var dlg = new NSSavePanel();
+            // Use OpenPanel as "choose destination folder"
+            var dlg = NSOpenPanel.OpenPanel;
             dlg.Title = "Export";
-            dlg.AllowedFileTypes = new string[] { "csv", "txt" };
             dlg.AccessoryView = viewController.View;
-            dlg.NameFieldStringValue = "out";
+            dlg.RespondsToSelector(new ObjCRuntime.Selector("setAccessoryViewDisclosed:"));
+            dlg.PerformSelector(new ObjCRuntime.Selector("setAccessoryViewDisclosed:"), NSNumber.FromBoolean(true), 0);
+            dlg.CanChooseDirectories = true;
+            dlg.CanChooseFiles = false;
+            dlg.AllowsMultipleSelection = false;
+            dlg.CanCreateDirectories = true;
 
-            dlg.BeginSheet(NSApplication.SharedApplication.MainWindow, async (result) =>
+            dlg.Prompt = "Export";
+
+            var parent = NSApplication.SharedApplication.MainWindow;
+
+            dlg.BeginSheet(parent, async (result) =>
             {
-                if (result == 1)
+                if (result != (int)NSModalResponse.OK) return;
+
+                var folderUrl = dlg.Url;
+                if (folderUrl == null) return;
+
+                // Create the list of output paths (could be many later).
+                var outputPaths = GetPlannedOutputPaths(folderUrl.Path, ExportSettings);
+
+                // Overwrite control (single prompt)
+                if (!ConfirmOverwriteIfNeeded(parent, outputPaths))
+                    return;
+
+                StatusBarManager.StartInderminateProgress();
+
+                try
                 {
-                    StatusBarManager.StartInderminateProgress();
-                    StatusBarManager.SetStatusScrolling("Saving file: " + dlg.Filename);
-                    SetDelimiter(dlg.Url);
+                    var path = Path.GetDirectoryName(outputPaths[0]);
+
+                    StatusBarManager.SetStatusScrolling($"Saving to {path}...");
+
                     switch (ExportSettings.Export)
                     {
-                        case ExportType.Data: await WriteDataFile(dlg.Filename);break;
-                        case ExportType.Peaks: await WritePeakFile(dlg.Filename, ExportColumns.SelectionMinimal); break;
-                        case ExportType.ITCsim: await WriteITCsimFile(dlg.Filename, ExportColumns.SelectionITCsim); break;
-                        case ExportType.CSV: await WritePeakFile(dlg.Filename, ExportSettings.Columns); break;
-                        case ExportType.MicroCal: await WriteMicroCalExportFile(dlg.Filename); break;
-                        case ExportType.PYTC: await WritePytcExportFile(dlg.Filename); break;
+                        case ExportType.Data:
+                            await WriteDataFile(path);
+                            break;
+
+                        case ExportType.Peaks:
+                            await WritePeakFile(path, ExportColumns.SelectionMinimal);
+                            break;
+
+                        case ExportType.ITCsim:
+                            await WriteITCsimFile(path, ExportColumns.SelectionITCsim);
+                            break;
+
+                        default:
+                        case ExportType.CSV:
+                            await WritePeakFile(path, ExportSettings.Columns);
+                            break;
+
+                        case ExportType.MicroCal:
+                            await WriteMicroCalExportFile(path);
+                            break;
+
+                        case ExportType.PYTC:
+                            await WritePytcExportFile(path);
+                            break;
                     }
-                    
+                }
+                finally
+                {
+                    // If you have a "stop progress" method, call it here.
                 }
             });
+        }
+
+        static List<string> GetPlannedOutputPaths(string folderPath, ExportAccessoryViewSettings settings)
+        {
+            // If you export many files, return many here based on data names.
+            string ext = settings.Export.GetProperties().Extension;
+
+            var paths = new List<string>();
+            foreach (var data in settings.Data)
+            {
+                var fileName = $"{Path.GetFileNameWithoutExtension(data.FileName)}.{ext}";
+
+                paths.Add(Path.Combine(folderPath, fileName));
+            }
+
+            return paths;
+        }
+
+        static bool ConfirmOverwriteIfNeeded(NSWindow parent, IEnumerable<string> outputPaths)
+        {
+            var existing = outputPaths.Where(File.Exists).Distinct().ToList();
+            if (existing.Count == 0) return true;
+
+            var alert = new NSAlert
+            {
+                AlertStyle = NSAlertStyle.Warning,
+                MessageText = "File already exists.",
+                InformativeText = existing.Count == 1
+                    ? $"This export will overwrite:\n{Path.GetFileName(existing[0])}"
+                    : $"This export will overwrite {existing.Count} files."
+            };
+
+            alert.AddButton("Overwrite");
+            alert.AddButton("Cancel");
+
+            var response = parent != null ? alert.RunSheetModal(parent) : alert.RunModal();
+            return response == (int)NSAlertButtonReturn.First;
         }
 
         static void SetDelimiter(NSUrl url)
@@ -526,13 +644,20 @@ namespace AnalysisITC
             };
         }
 
+        static string GetDataFileName()
+        {
+            return Path.GetFileNameWithoutExtension(ExportSettings.Data[0].FileName);
+        }
+
         static async Task WriteDataFile(string path)
         {
             await Task.Run(async () =>
             {
                 var lines = ExportSettings.UnifyTimeAxis ? GetUnifiedDataLines(ExportSettings.Data) : GetDataLines(ExportSettings.Data);
 
-                using (var writer = new StreamWriter(path))
+                var filename = GetDataFileName() + ExportSettings.Export.GetProperties().DotExtension();
+
+                using (var writer = new StreamWriter(Path.Combine(path, filename)))
                 {
                     foreach (var line in lines)
                     {
@@ -674,8 +799,8 @@ namespace AnalysisITC
                 foreach (var data in ExportSettings.Data)
                 {
                     var dataname = Path.GetFileNameWithoutExtension(data.FileName);
-                    var ext = Path.GetExtension(path);
-                    var output = Path.GetDirectoryName(path) + "/" + Path.GetFileNameWithoutExtension(path) + "_" + dataname + ext;
+                    var ext = ExportType.Peaks.GetProperties().DotExtension();
+                    var output = Path.Combine(path, dataname + ext);
 
                     var lines = GetColumns(data, columns);
 
@@ -693,75 +818,6 @@ namespace AnalysisITC
             StatusBarManager.StopIndeterminateProgress();
         }
 
-        static List<string> GetPeakLines(List<ExperimentData> data)
-        {
-            List<string> lines = new List<string>();
-
-            string header = "";
-
-            bool exportsolution = ExportSettings.ExportFittedPeaks;
-            bool exportconcentration = ExportSettings.ExportConcentrations;
-
-            foreach (var d in data)
-            {
-                header += "x" + Delimiter;
-
-                if (ExportSettings.ExportConcentrations) header += "[cell]" + Delimiter + "[syringe]" + Delimiter + "n_injmass" + Delimiter + "V_inj" + Delimiter + "Included" + Delimiter;
-
-                header += d.FileName + "_peak" + Delimiter;
-
-                if (ExportSettings.ExportFittedPeaks) header += d.FileName + "_fit" + Delimiter;
-            }
-
-            lines.Add(header.TrimEnd(Delimiter));
-
-            int index = 0;
-
-            while (data.Any(d => d.Injections.Count > index))
-            {
-                string line = "";
-
-                foreach (var d in data)
-                {
-                    if (d.Injections.Count > index)
-                    {
-                        var inj = d.Injections[index];
-                        line += inj.Ratio.ToString() + Delimiter;
-
-                        if (ExportSettings.ExportConcentrations)
-                        {
-                            line += inj.ActualCellConcentration.ToString() + Delimiter
-                                + inj.ActualTitrantConcentration.ToString() + Delimiter
-                                + inj.InjectionMass.ToString() + Delimiter
-                                + inj.Volume.ToString() + Delimiter
-                                + (inj.Include ? "1" : "0") + Delimiter;
-                        }
-                        
-                        var enthalpy = ExportSettings.ExportOffsetCorrected ? inj.OffsetEnthalpy : inj.Enthalpy;
-                        line += enthalpy.ToString() + Delimiter;
-
-                        if (ExportSettings.ExportFittedPeaks)
-                        {
-                            if (d.Solution != null) line += d.Model.EvaluateEnthalpy(index, !ExportSettings.ExportOffsetCorrected).ToString() + Delimiter;
-                            else line += BlankChar.ToString() + Delimiter;
-                        }
-                    }
-                    else
-                    {
-                        line += BlankChar.ToString() + Delimiter + BlankChar + Delimiter;
-                        if (ExportSettings.ExportConcentrations) line += BlankChar.ToString() + Delimiter + BlankChar.ToString() + Delimiter + BlankChar.ToString() + Delimiter + BlankChar.ToString() + Delimiter + BlankChar.ToString() + Delimiter;
-                        if (ExportSettings.ExportFittedPeaks) line += BlankChar.ToString() + Delimiter;
-                    }
-                }
-
-                lines.Add(line.TrimEnd(Delimiter));
-
-                index++;
-            }
-
-            return lines;
-        }
-
         static async Task WriteITCsimFile(string path, ExportColumns columns)
         {
             await Task.Run(async () =>
@@ -769,8 +825,8 @@ namespace AnalysisITC
                 foreach (var data in ExportSettings.Data)
                 {
                     var dataname = Path.GetFileNameWithoutExtension(data.FileName);
-                    var ext = Path.GetExtension(path);
-                    var output = Path.GetDirectoryName(path) + "/" + Path.GetFileNameWithoutExtension(path) + "_" + dataname + ext;
+                    var ext = ExportType.ITCsim.GetProperties().DotExtension();
+                    var output = Path.Combine(path, dataname + ext);
 
                     var lines = GetColumns(data, columns);
 
@@ -797,8 +853,8 @@ namespace AnalysisITC
                 foreach (var data in ExportSettings.Data)
                 {
                     var dataname = Path.GetFileNameWithoutExtension(data.FileName);
-                    var ext = ".dat";
-                    var output = Path.GetDirectoryName(path) + "/" + Path.GetFileNameWithoutExtension(path) + "_" + dataname + ext;
+                    var ext = ExportType.MicroCal.GetProperties().DotExtension();
+                    var output = Path.Combine(path, dataname + ext);
 
                     var lines = new List<string>()
                     {
@@ -871,8 +927,8 @@ namespace AnalysisITC
                 foreach (var data in ExportSettings.Data)
                 {
                     var dataname = Path.GetFileNameWithoutExtension(data.FileName);
-                    var ext = ".DH";
-                    var output = Path.GetDirectoryName(path) + "/" + Path.GetFileNameWithoutExtension(path) + "_" + dataname + ext;
+                    var ext = ExportType.PYTC.GetProperties().DotExtension();
+                    var output = Path.Combine(path, dataname + ext);
 
                     var lines = new List<string>
                     {
