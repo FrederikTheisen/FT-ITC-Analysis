@@ -103,7 +103,15 @@ namespace AnalysisITC
             return attribute;
         }
 
-        
+        public static ExportTypeAttribute GetProperties(this ExportType value)
+        {
+            var fieldInfo = value.GetType().GetField(value.ToString());
+            var attribute = fieldInfo.GetCustomAttributes(typeof(ExportTypeAttribute), false).FirstOrDefault() as ExportTypeAttribute;
+
+            return attribute;
+        }
+
+
 
         public static CGRect WithMargin(this CGRect box, CGEdgeMargin margin, float mod = 1)
         {

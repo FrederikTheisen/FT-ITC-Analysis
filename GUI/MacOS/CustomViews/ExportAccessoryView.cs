@@ -7,6 +7,7 @@ using AppKit;
 using System.Collections.Generic;
 using System.Linq;
 using static AnalysisITC.Exporter;
+using DataReaders;
 
 namespace AnalysisITC
 {
@@ -56,6 +57,26 @@ namespace AnalysisITC
             Settings.SetData();
 
             Setup(Settings);
+        }
+
+        partial void SelectThirdPartyAction(NSPopUpButton sender)
+        {
+            var selected = sender.SelectedItem;
+
+            ITCDataFormat.FTITC.GetProperties();
+
+            switch (selected.Title.ToLower())
+            {
+                case "microcal": Settings.Export = ExportType.MicroCal; break;
+                case "itcsim": Settings.Export = ExportType.ITCsim; break;
+                case "pytc": Settings.Export = ExportType.PYTC; break;
+                case "csv": Settings.Export = ExportType.CSV; break;
+            }
+
+            ThirdPartyFormatButton.Title = Settings.Export.ToString();
+            ExportTypeInfo.StringValue = Settings.Export.GetProperties().Description;
+
+            Console.WriteLine("Export Format: " + Settings.Export);
         }
 
         partial void UnifyTimeAxisControlAction(NSButton sender)

@@ -15,7 +15,7 @@ namespace AnalysisITC
 
         partial void Export(NSObject sender)
         {
-            FinalFigureGraphView.Export((Exporter.ExportDataSelection)(int)ExportSelectionControl.SelectedSegment);
+            FinalFigureGraphView.Export((ExportDataSelection)(int)ExportSelectionControl.SelectedSegment);
         }
     }
 }

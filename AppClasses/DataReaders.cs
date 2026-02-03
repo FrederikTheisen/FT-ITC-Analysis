@@ -454,12 +454,12 @@ namespace DataReaders
             return Data.ToArray();
         }
 
-        static TandemExperimentData ReadTandemExperimentDataFile(StreamReader reader, string firstline)
+        static ExperimentData ReadTandemExperimentDataFile(StreamReader reader, string firstline)
         {
             AppEventHandler.PrintAndLog("Loading Tandem Experiment Data...");
 
             string[] a = firstline.Split(':');
-            var exp = new TandemExperimentData(a[2]);
+            var exp = new ExperimentData(a[2]);
 
             ReadExperimentData(reader, exp);
 
@@ -516,7 +516,7 @@ namespace DataReaders
                     case "LIST" when v[1] == InjectionList: ReadInjectionList(exp, reader); break;
                     case "LIST" when v[1] == DataPointList: ReadDataList(exp, reader); break;
                     case "LIST" when v[1] == ExperimentAttributes: ReadAttributes(exp, reader); break;
-                    case "LIST" when v[1] == SegmentList: break;
+                    case "LIST" when v[1] == SegmentList: ReadSegmentList(exp, reader);  break;
                     case "OBJECT" when v[1] == Processor: ReadProcessor(exp, reader); break;
                     case "OBJECT" when v[1] == ExperimentSolutionHeader: sol = ReadSolution(reader, reader.ReadLine(), exp); break;
                     //case "OBJECT" when v[1] == SolutionHeader: exp.UpdateSolution(ReadSolution(reader, line).Model); break; //Not certain about implementation
@@ -627,6 +627,15 @@ namespace DataReaders
             }
 
             exp.DataPoints = datapoints;
+        }
+
+        static void ReadSegmentList(ExperimentData exp, StreamReader reader)
+        {
+            string line;
+
+            while ((line = reader.ReadLine()) != EndListHeader) exp.AddSegment(TandemExperimentSegment.FromFile(line));
+
+            exp.InvalidateSegmentLookup();
         }
 
         static AnalysisResult ReadAnalysisResult(StreamReader reader, string firstline)

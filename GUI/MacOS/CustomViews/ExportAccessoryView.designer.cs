@@ -28,6 +28,9 @@ namespace AnalysisITC
 		AppKit.NSSegmentedControl ExportTypeControl { get; set; }
 
 		[Outlet]
+		AppKit.NSTextField ExportTypeInfo { get; set; }
+
+		[Outlet]
 		AppKit.NSTextField FitPeakLabel { get; set; }
 
 		[Outlet]
@@ -38,6 +41,9 @@ namespace AnalysisITC
 
 		[Outlet]
 		AppKit.NSTabView TabView { get; set; }
+
+		[Outlet]
+		AppKit.NSPopUpButton ThirdPartyFormatButton { get; set; }
 
 		[Outlet]
 		AppKit.NSButton UnifyTimeAxisControl { get; set; }
@@ -59,6 +65,9 @@ namespace AnalysisITC
 
 		[Action ("OffsetCorrectControlAction:")]
 		partial void OffsetCorrectControlAction (AppKit.NSButton sender);
+
+		[Action ("SelectThirdPartyAction:")]
+		partial void SelectThirdPartyAction (AppKit.NSPopUpButton sender);
 
 		[Action ("UnifyTimeAxisControlAction:")]
 		partial void UnifyTimeAxisControlAction (AppKit.NSButton sender);
@@ -85,11 +94,6 @@ namespace AnalysisITC
 				ExportSelectionControl = null;
 			}
 
-			if (ITCsimExportOffsetCorrectedControl != null) {
-				ITCsimExportOffsetCorrectedControl.Dispose ();
-				ITCsimExportOffsetCorrectedControl = null;
-			}
-
 			if (ExportTypeControl != null) {
 				ExportTypeControl.Dispose ();
 				ExportTypeControl = null;
@@ -105,6 +109,11 @@ namespace AnalysisITC
 				IncludeFittedPeaksControl = null;
 			}
 
+			if (ITCsimExportOffsetCorrectedControl != null) {
+				ITCsimExportOffsetCorrectedControl.Dispose ();
+				ITCsimExportOffsetCorrectedControl = null;
+			}
+
 			if (TabView != null) {
 				TabView.Dispose ();
 				TabView = null;
@@ -113,6 +122,16 @@ namespace AnalysisITC
 			if (UnifyTimeAxisControl != null) {
 				UnifyTimeAxisControl.Dispose ();
 				UnifyTimeAxisControl = null;
+			}
+
+			if (ThirdPartyFormatButton != null) {
+				ThirdPartyFormatButton.Dispose ();
+				ThirdPartyFormatButton = null;
+			}
+
+			if (ExportTypeInfo != null) {
+				ExportTypeInfo.Dispose ();
+				ExportTypeInfo = null;
 			}
 		}
 	}

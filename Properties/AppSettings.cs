@@ -59,9 +59,9 @@ namespace AnalysisITC
         public static bool UnifyTimeAxisForExport { get; set; } = true;
         public static bool ExportBaselineCorrectedData { get; set; } = true;
         public static bool ExportFitPointsWithPeaks { get; set; } = true;
-        public static Exporter.ExportDataSelection ExportSelectionMode { get; set; } = Exporter.ExportDataSelection.IncludedData;
+        public static ExportDataSelection ExportSelectionMode { get; set; } = ExportDataSelection.IncludedData;
         public static int NumOfDecimalsToExport { get; set; } = 2;
-        public static Exporter.ExportColumns ExportColumns { get; set; } = Exporter.ExportColumns.Default;
+        public static ExportColumns ExportColumns { get; set; } = ExportColumns.Default;
 
         public static void Initialize()
         {
@@ -138,7 +138,7 @@ namespace AnalysisITC
             ConcentrationAutoVariance = GetDouble(dict, "ConcentrationAutoVariance", ConcentrationAutoVariance);
             UnifyTimeAxisForExport = GetBool(dict, "UnifyTimeAxisForExport", UnifyTimeAxisForExport);
             ExportFitPointsWithPeaks = GetBool(dict, "ExportFitPointsWithPeaks", ExportFitPointsWithPeaks);
-            ExportSelectionMode = (Exporter.ExportDataSelection)GetInt(dict, "ExportSelectionMode", (int)ExportSelectionMode);
+            ExportSelectionMode = (ExportDataSelection)GetInt(dict, "ExportSelectionMode", (int)ExportSelectionMode);
             EnableExtendedParameterLimits = GetBool(dict, "EnableExtendedParameterLimits", EnableExtendedParameterLimits);
             ParameterLimitSetting = (ParameterLimitSetting)GetInt(dict, "ParameterLimitSetting", (int)ParameterLimitSetting);
             FinalFigureParameterDisplay = (FinalFigureDisplayParameters)GetInt(dict, "FinalFigureParameterDisplay", (int)FinalFigureParameterDisplay);
@@ -155,7 +155,7 @@ namespace AnalysisITC
             NumberPrecision = (NumberPrecision)GetInt(dict, "NumberPrecision", (int)NumberPrecision);
             IncludeBufferInIonicStrengthCalc = GetBool(dict, "IncludeBufferInIonicStrengthCalc", IncludeBufferInIonicStrengthCalc);
             DisplayAttributeOptions = (DisplayAttributeOptions)GetInt(dict, "DisplayAttributeOptions", (int)DisplayAttributeOptions);
-            ExportColumns = (Exporter.ExportColumns)GetInt(dict, "ExportColumns", (int)Exporter.ExportColumns.Default);
+            ExportColumns = (ExportColumns)GetInt(dict, "ExportColumns", (int)ExportColumns.Default);
 
             ApplySettings();
 
@@ -177,7 +177,7 @@ namespace AnalysisITC
             ConcentrationAutoVariance = 0.1;
             UnifyTimeAxisForExport = true;
             ExportFitPointsWithPeaks = true;
-            ExportSelectionMode = Exporter.ExportDataSelection.IncludedData; ;
+            ExportSelectionMode = ExportDataSelection.IncludedData; ;
             EnableExtendedParameterLimits = false;
             ParameterLimitSetting = ParameterLimitSetting.Standard;
             FinalFigureParameterDisplay = FinalFigureDisplayParameters.Default;
@@ -194,7 +194,7 @@ namespace AnalysisITC
             PeakFitAlgorithm = PeakFitAlgorithm.SingleExponential;
             NumberPrecision = NumberPrecision.Standard;
             DisplayAttributeOptions = DisplayAttributeOptions.Default;
-            ExportColumns = Exporter.ExportColumns.Default;
+            ExportColumns = ExportColumns.Default;
         }
 
         static void StoreArray(double[] arr, string key)

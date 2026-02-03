@@ -219,7 +219,7 @@ namespace AnalysisITC
         {
             var file = new List<string>
             {
-                FileHeader(data is TandemExperimentData ? TandemExperimentHeader : ExperimentHeader, data.FileName),
+                FileHeader(ExperimentHeader, data.FileName),
                 Variable(ID, data.UniqueID),
                 Variable(Date, data.Date.ToString("O")),
                 Variable(SourceFormat, (int)data.DataSourceFormat),
@@ -274,16 +274,16 @@ namespace AnalysisITC
                 file.Add(injection);
             }
             file.Add(EndListHeader);
-            if (data is TandemExperimentData)
+            if (data.Segments != null)
             {
                 file.Add(ListHeader(SegmentList));
-                foreach (var seg in (data as TandemExperimentData).Segments)
+                foreach (var seg in data.Segments)
                 {
                     var line = "";
 
                     line += seg.FirstInjectionID.ToString() + ",";
-                    line += seg.ActiveCellConc.ToString() + ",";
-                    line += seg.ActiveTitrantConc.ToString();
+                    line += seg.SegmentInitialActiveCellConc.ToString() + ",";
+                    line += seg.SegmentInitialActiveTitrantConc.ToString();
 
                     file.Add(line);
                 }
@@ -496,8 +496,11 @@ namespace AnalysisITC
                     switch (ExportSettings.Export)
                     {
                         case ExportType.Data: await WriteDataFile(dlg.Filename);break;
-                        case ExportType.Peaks: await WritePeakFile(dlg.Filename); break;
+                        case ExportType.Peaks: await WritePeakFile(dlg.Filename, ExportColumns.SelectionMinimal); break;
                         case ExportType.ITCsim: await WriteITCsimFile(dlg.Filename, ExportColumns.SelectionITCsim); break;
+                        case ExportType.CSV: await WritePeakFile(dlg.Filename, ExportSettings.Columns); break;
+                        case ExportType.MicroCal: await WriteMicroCalExportFile(dlg.Filename); break;
+                        case ExportType.PYTC: await WritePytcExportFile(dlg.Filename); break;
                     }
                     
                 }
@@ -664,7 +667,7 @@ namespace AnalysisITC
             return mostCommonStep;
         }
 
-        static async Task WritePeakFile(string path)
+        static async Task WritePeakFile(string path, ExportColumns columns)
         {
             await Task.Run(async () =>
             {
@@ -674,7 +677,7 @@ namespace AnalysisITC
                     var ext = Path.GetExtension(path);
                     var output = Path.GetDirectoryName(path) + "/" + Path.GetFileNameWithoutExtension(path) + "_" + dataname + ext;
 
-                    var lines = GetColumns(data, ExportSettings.Columns);
+                    var lines = GetColumns(data, columns);
 
                     using (var writer = new StreamWriter(output))
                     {
@@ -686,7 +689,7 @@ namespace AnalysisITC
                 }
             });
 
-            StatusBarManager.SetStatus("Finished exporting " + Utils.MarkdownStrings.ITCsimName, 3000);
+            StatusBarManager.SetStatus("Finished exporting peak file", 3000);
             StatusBarManager.StopIndeterminateProgress();
         }
 
@@ -784,6 +787,120 @@ namespace AnalysisITC
             });
 
             StatusBarManager.SetStatus("Finished exporting " + Utils.MarkdownStrings.ITCsimName, 3000);
+            StatusBarManager.StopIndeterminateProgress();
+        }
+
+        static async Task WriteMicroCalExportFile(string path)
+        {
+            await Task.Run(async () =>
+            {
+                foreach (var data in ExportSettings.Data)
+                {
+                    var dataname = Path.GetFileNameWithoutExtension(data.FileName);
+                    var ext = ".dat";
+                    var output = Path.GetDirectoryName(path) + "/" + Path.GetFileNameWithoutExtension(path) + "_" + dataname + ext;
+
+                    var lines = new List<string>()
+                    {
+                        "DH,INJV,Xt,Mt,XMt,NDH,DY,Fit"
+                    };
+
+                    string DH; // Peak area
+                    string INJV; // Inj vol
+                    string Xt = "0.0"; // Actual titration conc
+                    string Mt = (1000 * data.CellConcentration).ToString(); // Actual cell conc
+                    string XMt; // Ratio
+                    string NDH = "--"; // Enthalpy
+                    string DY = "--"; // Fit residual
+                    string Fit = "--";
+
+                    foreach (var inj in data.Injections)
+                    {
+                        string line = "";
+
+                        DH = inj.Enthalpy.ToString();
+                        INJV = (inj.Volume * 1000000).ToString();
+                        XMt = inj.Ratio.ToString();
+                        if (data.Solution != null && data.Solution.IsValid)
+                        {
+                            Fit = data.Model.EvaluateEnthalpy(inj.ID, true).ToString();
+                        }
+
+                        line = DH + ","
+                            + INJV + ","
+                            + Xt + ","
+                            + Mt + ","
+                            + XMt + ","
+                            + NDH + ","
+                            + DY + ","
+                            + Fit;
+
+                        Xt = (1000 * inj.ActualTitrantConcentration).ToString();
+                        Mt = (1000 * inj.ActualCellConcentration).ToString();
+                        NDH = inj.Enthalpy.ToString();
+
+                        if (data.Solution != null && data.Solution.IsValid)
+                        {
+                            DY = (inj.Enthalpy - data.Model.EvaluateEnthalpy(inj.ID, true)).ToString();
+                            
+                        }
+
+                        lines.Add(line);
+                    }
+
+                    lines.Add(",--," + Xt + "," + Mt + ",--,,,");
+
+                    using (var writer = new StreamWriter(output))
+                    {
+                        foreach (var line in lines)
+                        {
+                            await writer.WriteLineAsync(line);
+                        }
+                    }
+                }
+            });
+
+            StatusBarManager.SetStatus("Finished exporting " + Utils.MarkdownStrings.ITCsimName, 3000);
+            StatusBarManager.StopIndeterminateProgress();
+        }
+
+        static async Task WritePytcExportFile(string path)
+        {
+            await Task.Run(async () =>
+            {
+                foreach (var data in ExportSettings.Data)
+                {
+                    var dataname = Path.GetFileNameWithoutExtension(data.FileName);
+                    var ext = ".DH";
+                    var output = Path.GetDirectoryName(path) + "/" + Path.GetFileNameWithoutExtension(path) + "_" + dataname + ext;
+
+                    var lines = new List<string>
+                    {
+                        "10", // ?
+                        "0," + data.InjectionCount.ToString() + ",0,0,0",
+                        data.MeasuredTemperature.ToString("F3") + "," + (1000 * data.CellConcentration).Value.ToString("F4") + "," + (1000 * data.SyringeConcentration).Value.ToString("F4") + "," + (1000 * data.CellVolume).ToString("F5"),
+                        "0", // ?
+                        "0", // ?
+                    };
+
+                    foreach (var inj in data.Injections)
+                    {
+                        string line = (1000000 * inj.Volume).ToString("F2") + "," + inj.PeakArea.Energy.ToUnit(EnergyUnit.MicroCal).Value.ToString("F5");
+
+                        lines.Add(line);
+                    }
+
+                    using (var writer = new StreamWriter(output))
+                    {
+                        foreach (var line in lines)
+                        {
+                            await writer.WriteLineAsync(line);
+                        }
+                    }
+                }
+            });
+
+            StatusBarManager.SetStatus("Finished exporting file for pytc", 3000);
             StatusBarManager.StopIndeterminateProgress();
         }
 
@@ -890,43 +1007,7 @@ namespace AnalysisITC
             }
         }
 
-        public enum ExportType
-        {
-            Data,
-            Peaks,
-            ITCsim
-        }
-
-        public enum ExportDataSelection
-        {
-            SelectedData,
-            IncludedData,
-            AllData
-        }
-
-        [Flags]
-        public enum ExportColumns
-        {
-            None = 0,
-            
-            MolarRatio = 1 << 0,
-            Included = 1 << 1,
-            Peak = 1 << 2,
-            Fit = 1 << 3,
-            InjectionVolume = 1 << 4,
-            InjectionDelay = 1 << 5,
-            CellConc = 1 << 6,
-            SyrConc = 1 << 7,
-
-            Concentrations = CellConc | SyrConc,
-            InjectionInfo = InjectionVolume | InjectionDelay,
-
-            Default = MolarRatio | Included | Peak | Fit,
-            SelectionMinimal = MolarRatio | Peak | Fit,
-            SelectionITCsim = MolarRatio | Included | InjectionVolume | InjectionDelay | Peak | Fit,
-        }
-
-        private class ExportColumnHandler
+        class ExportColumnHandler
         {
             public static string GetColumnHeader(ExportColumns column)
             {
