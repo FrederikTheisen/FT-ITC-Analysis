@@ -319,10 +319,6 @@
     <Compile Include="AppClasses\Analysis2\Models\TwoSetsOfSites.cs" />
     <Compile Include="GUI\AppColors.cs" />
     <Compile Include="GUI\MacOS\MacColors.cs" />
-    <Compile Include="AppWindow.cs" />
-    <Compile Include="AppWindow.designer.cs">
-      <DependentUpon>AppWindow.cs</DependentUpon>
-    </Compile>
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="AppClasses\Analysis2\Models\OneSiteIsomerization.cs" />
     <Compile Include="GUI\MacOS\PopOptionViewControllers\AboutAppViewController.cs" />
@@ -358,10 +354,6 @@
       <DependentUpon>ExportAccessoryViewController.cs</DependentUpon>
     </Compile>
     <Compile Include="GUI\MacOS\CustomViews\OptionAdjustmentView.cs" />
-    <Compile Include="HelpViewController.cs" />
-    <Compile Include="HelpViewController.designer.cs">
-      <DependentUpon>HelpViewController.cs</DependentUpon>
-    </Compile>
     <Compile Include="GUI\MacOS\MacStrings.cs" />
     <Compile Include="GUI\AppStrings.cs" />
     <Compile Include="GUI\MacOS\CustomViews\ExperimentAttributeView.cs" />
@@ -457,12 +449,21 @@
     <Compile Include="GUI\MacOS\ViewControllers\ExperimentMergerViewController.designer.cs">
       <DependentUpon>ExperimentMergerViewController.cs</DependentUpon>
     </Compile>
-    <Compile Include="ToggleSelectTableView.cs" />
-    <Compile Include="ToggleSelectTableView.designer.cs">
-      <DependentUpon>ToggleSelectTableView.cs</DependentUpon>
-    </Compile>
     <Compile Include="AppClasses\Analysis2\Models\Dissociation.cs" />
     <Compile Include="AppClasses\FTITCReaderOld.cs" />
+    <Compile Include="GUI\MacOS\CustomViews\ToggleSelectTableView.cs" />
+    <Compile Include="GUI\MacOS\CustomViews\ToggleSelectTableView.designer.cs">
+      <DependentUpon>ToggleSelectTableView.cs</DependentUpon>
+    </Compile>
+    <Compile Include="GUI\MacOS\HelpViewController.cs" />
+    <Compile Include="GUI\MacOS\HelpViewController.designer.cs">
+      <DependentUpon>HelpViewController.cs</DependentUpon>
+    </Compile>
+    <Compile Include="GUI\MacOS\AppWindow.cs" />
+    <Compile Include="GUI\MacOS\AppWindow.designer.cs">
+      <DependentUpon>AppWindow.cs</DependentUpon>
+    </Compile>
+    <Compile Include="AppClasses\ExportType.cs" />
   </ItemGroup>
   <ItemGroup>
     <InterfaceDefinition Include="Main.storyboard" />
