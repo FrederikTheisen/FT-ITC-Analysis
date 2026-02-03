@@ -23,6 +23,8 @@ namespace AnalysisITC
         public List<DataPoint> DataPoints { get; set; } = new List<DataPoint>();
         public List<DataPoint> BaseLineCorrectedDataPoints { get; set; }
         public List<InjectionData> Injections { get; set; } = new List<InjectionData>();
+        public List<TandemExperimentSegment> Segments { get; private set; }
+        Dictionary<int, TandemExperimentSegment> _segmentStartLookup;
 
         public FloatWithError SyringeConcentration { get; set; }
         public FloatWithError CellConcentration { get; set; }
@@ -163,6 +165,8 @@ namespace AnalysisITC
 
         List<InjectionData> GetBootstrappedResiduals()
         {
+            if (Solution == null) return Injections;
+
             var syntheticdata = new List<InjectionData>();
 
             var residuals = new List<double>();
@@ -222,12 +226,14 @@ namespace AnalysisITC
             }
         }
 
-        public ExperimentData GetSynthClone(ModelCloneOptions options)
+        public virtual ExperimentData GetSynthClone(ModelCloneOptions options)
         {
-            var syndat = new ExperimentData(FileName)
+            var clone = new ExperimentData(FileName)
             {
                 CellVolume = CellVolume,
                 MeasuredTemperature = MeasuredTemperature,
+                CellConcentration = CellConcentration,
+                SyringeConcentration = SyringeConcentration,
             };
             List<InjectionData> syninj;
 
@@ -258,13 +264,19 @@ namespace AnalysisITC
 
             if (options.IncludeConcentrationErrorsInBootstrap) AddConcentrationVariance(syninj, options);
 
-            syndat.Injections = syninj;
+            clone.Injections = syninj;
 
-            foreach (var opt in Attributes) syndat.Attributes.Add(opt);
+            clone.Segments = Segments?
+                .Select(s => new TandemExperimentSegment(s.FirstInjectionID, s.SegmentInitialActiveCellConc, s.SegmentInitialActiveTitrantConc))
+                .ToList();
 
-            syndat.SetID(UniqueID);
+            clone.InvalidateSegmentLookup();
 
-            return syndat;
+            foreach (var opt in Attributes) clone.Attributes.Add(opt);
+
+            clone.SetID(UniqueID);
+
+            return clone;
         }
 
         public void UpdateProcessing(bool invalidate = true)
@@ -279,6 +291,50 @@ namespace AnalysisITC
             if (mdl != null) Model = mdl;
 
             SolutionChanged?.Invoke(this, null);
+        }
+
+        public void AddSegment(TandemExperimentSegment segment)
+        {
+            if (Segments == null) Segments = new List<TandemExperimentSegment>();
+
+            Console.WriteLine("Adding Segment:\n  ID: "
+                + segment.FirstInjectionID.ToString() + "\n  Cell Conc:    "
+                + segment.SegmentInitialActiveCellConc.ToString() + "\n  Titrant Conc: "
+                + segment.SegmentInitialActiveTitrantConc.ToString());
+
+            Segments.Add(segment);
+        }
+
+        void EnsureSegmentStartLookup()
+        {
+            if (_segmentStartLookup != null) return;
+            _segmentStartLookup = Segments?
+                .GroupBy(s => s.FirstInjectionID)
+                .ToDictionary(g => g.Key, g => g.First()) ?? new Dictionary<int, TandemExperimentSegment>();
+        }
+
+        // This returns the correct “Qprev state” for injection index/id i
+        public (double CellConc, double TitrantConc) GetReferencePreStateConcentrations(int i)
+        {
+            EnsureSegmentStartLookup();
+
+            // Segment boundary override
+            if (_segmentStartLookup.TryGetValue(i, out var seg))
+                return (seg.SegmentInitialActiveCellConc, seg.SegmentInitialActiveTitrantConc);
+
+            // Normal experiment start
+            if (i <= 0)
+                return (CellConcentration.Value, 0.0);
+
+            // Normal within-segment case: previous injection post-state
+            var prev = Injections[i - 1];
+            return (prev.ActualCellConcentration, prev.ActualTitrantConcentration);
+        }
+
+        // Call this after loading / after you assign SegmentStarts
+        public void InvalidateSegmentLookup()
+        {
+            _segmentStartLookup = null;
         }
     }
 
@@ -658,16 +714,20 @@ namespace AnalysisITC
     public class TandemExperimentSegment
     {
         public int FirstInjectionID { get; private set; }          // ID of first injection in this segment
-        public double ActiveCellConc { get; private set; }         // M_pre in cell (mol/L)
-        public double ActiveTitrantConc { get; private set; }      // L_pre in cell (mol/L)
+
+        /// <summary>
+        /// Segment starting concentrations in cell
+        /// </summary>
+        public double SegmentInitialActiveCellConc { get; private set; }         // M_pre in cell (mol/L)
+        public double SegmentInitialActiveTitrantConc { get; private set; }      // L_pre in cell (mol/L)
 
         public TandemExperimentSegment() { }
 
         public TandemExperimentSegment(int ID, double activecellconc, double activetitrantconc)
         {
             FirstInjectionID = ID;
-            ActiveCellConc = activecellconc;
-            ActiveTitrantConc = activetitrantconc;
+            SegmentInitialActiveCellConc = activecellconc;
+            SegmentInitialActiveTitrantConc = activetitrantconc;
         }
 
         public static TandemExperimentSegment FromFile(string line)
@@ -677,8 +737,8 @@ namespace AnalysisITC
             return new TandemExperimentSegment()
             {
                 FirstInjectionID = int.Parse(items[0]),
-                ActiveCellConc = double.Parse(items[1]),
-                ActiveTitrantConc = double.Parse(items[2])
+                SegmentInitialActiveCellConc = double.Parse(items[1]),
+                SegmentInitialActiveTitrantConc = double.Parse(items[2])
             };
         }
 
@@ -686,29 +746,8 @@ namespace AnalysisITC
         {
             Console.WriteLine("Updating TandemSegment Concentrations: \n" + activecellconc.ToString() + "\n" + activetitrantconc.ToString());
 
-            ActiveCellConc = activecellconc;
-            ActiveTitrantConc = activetitrantconc;
-        }
-    }
-
-    public class TandemExperimentData : ExperimentData
-    {
-        public List<TandemExperimentSegment> Segments { get; set; }
-
-        public TandemExperimentData(string file) : base(file)
-        {
-        }
-
-        public void AddSegment(TandemExperimentSegment segment)
-        {
-            if (Segments == null) Segments = new List<TandemExperimentSegment>();
-
-            Console.WriteLine("Adding Segment:\n  ID: "
-                + segment.FirstInjectionID.ToString() + "\n  Cell Conc:    "
-                + segment.ActiveCellConc.ToString() +   "\n  Titrant Conc: "
-                + segment.ActiveTitrantConc.ToString());
-
-            Segments.Add(segment);
+            SegmentInitialActiveCellConc = activecellconc;
+            SegmentInitialActiveTitrantConc = activetitrantconc;
         }
     }
 

@@ -49,20 +49,25 @@ namespace AnalysisITC.AppClasses.Analysis2.Models
 
         double GetDeltaHeat(int i, double n, double H, double K)
         {
-            var inj = Data.Injections[i];
-            var Qi = GetHeatContent(inj, n, H, K);
-            var Q_i = i == 0 ? 0.0 : GetHeatContent(Data.Injections[i - 1], n, H, K);
-
-            var dQi = Qi + (inj.Volume / Data.CellVolume) * ((Qi + Q_i) / 2.0) - Q_i;
-
-            return dQi;
+            return DeltaHeatFromHeatContent(i, (cm, cl) => GetHeatContent(cm, cl, n, H, K));
         }
 
-        double GetHeatContent(InjectionData inj, double n, double H, double K)
+        //double GetDeltaHeat(int i, double n, double H, double K)
+        //{
+        //    var inj = Data.Injections[i];
+        //    var Qi = GetHeatContent(inj, n, H, K);
+        //    var Q_i = i == 0 ? 0.0 : GetHeatContent(Data.Injections[i - 1], n, H, K);
+        //
+        //    var dQi = Qi + (inj.Volume / Data.CellVolume) * ((Qi + Q_i) / 2.0) - Q_i;
+        //
+        //    return dQi;
+        //}
+
+        double GetHeatContent(double cellConc, double titrantConc, double n, double H, double K)
         {
-            var ncell = n * inj.ActualCellConcentration;
+            var ncell = n * cellConc;
             var first = (ncell * H * Data.CellVolume) / 2.0;
-            var XnM = inj.ActualTitrantConcentration / ncell;
+            var XnM = titrantConc / ncell;
             var nKM = 1.0 / (K * ncell);
             var square = (1.0 + XnM + nKM);
             var root = (square * square) - 4.0 * XnM;

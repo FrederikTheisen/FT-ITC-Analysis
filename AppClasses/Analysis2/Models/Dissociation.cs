@@ -50,54 +50,22 @@ namespace AnalysisITC.AppClasses.Analysis2.Models
         {
             if (Ka <= 0) return 0.0;
 
-            var V = Data.CellVolume;
-            if (V <= 0) return 0.0;
+            var inj = Data.Injections[i];
 
-            // State variables are moles in the cell
-            double nTot = 0.0; // total "monomer equivalents": nTot = nM + 2*nD
-            double nD = 0.0;   // moles dimer
+            double C_syr = Data.SyringeConcentration;
+            double C_before = (i == 0) ? 0.0 : Data.Injections[i - 1].ActualTitrantConcentration; // M
+            double C_after = Data.Injections[i].ActualTitrantConcentration;
 
-            double q = 0.0;
+            double C_dimer_inj = DimerFromTotal(C_syr, Ka);
+            double C_dimer_cell_pre = DimerFromTotal(C_before, Ka);
+            double C_dimer_cell_post = DimerFromTotal(C_after, Ka);
 
-            for (int idx = 0; idx <= i && idx < Data.Injections.Count; idx++)
-            {
-                var inj = Data.Injections[idx];
+            double n_dimer_total_pre = inj.Volume * C_dimer_inj + Data.CellVolume * C_dimer_cell_pre - inj.Volume * C_dimer_cell_pre;
+            double n_dimer_total_post = Data.CellVolume * C_dimer_cell_post;
 
-                var v = inj.Volume;
-                if (v <= 0)
-                {
-                    q = 0.0;
-                    continue;
-                }
+            double q = dH * (n_dimer_total_post - n_dimer_total_pre);
 
-                var f = 1.0 - (v / V); // retained fraction due to overflow
-                if (f < 0) f = 0.0;
-
-                // Total concentration in syringe (monomer equivalents, M)
-                // (InjectionMass is in mol; Volume is in L)
-                var C_syr = inj.InjectionMass > 0 ? (inj.InjectionMass / v) : 0.0;
-
-                // Dimer concentration in syringe at equilibrium (M)
-                var D_syr = DimerFromTotal(C_syr, Ka);
-
-                // Immediately after physical transfer (before re-equilibration in the cell)
-                var nTot_pre = nTot * f + inj.InjectionMass;
-                var nD_pre = nD * f + (D_syr * v);
-
-                // Re-equilibrate in the cell at the new total concentration
-                var C_cell = nTot_pre / V;
-                var D_post = DimerFromTotal(C_cell, Ka);
-                var nD_post = D_post * V;
-
-                // Heat for this injection comes from shift in dimer amount during re-equilibration
-                q = dH * (nD_post - nD_pre);
-
-                // Update for next injection
-                nTot = nTot_pre;
-                nD = nD_post;
-            }
-
-            return q;
+            return q / inj.InjectionMass;
         }
 
         /// <summary>
@@ -110,8 +78,6 @@ namespace AnalysisITC.AppClasses.Analysis2.Models
 
             // 2 Ka x^2 + x - C = 0
             var disc = 1.0 + 8.0 * Ka * C;
-            if (disc <= 1.0) return 0.0;
-
             var x = (-1.0 + Math.Sqrt(disc)) / (4.0 * Ka); // positive root
             if (x <= 0) return 0.0;
 

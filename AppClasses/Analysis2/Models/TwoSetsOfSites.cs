@@ -67,44 +67,56 @@ namespace AnalysisITC.AppClasses.Analysis2.Models
             N1 = Parameters.Table[ParameterType.Nvalue1].Value;
             N2 = Parameters.Table[ParameterType.Nvalue2].Value;
 
-            var inj = Data.Injections[i];
-            var Qi = GetHeatContent(inj);
-            var Q_i = i == 0 ? 0.0 : GetHeatContent(Data.Injections[i - 1]);
-
-            var dQi = Qi + (inj.Volume / Data.CellVolume) * ((Qi + Q_i) / 2.0) - Q_i;
-
-            return dQi;
+            return DeltaHeatFromHeatContent(i, (cm, cl) => GetHeatContent(cm, cl));
         }
 
-        double GetHeatContent(InjectionData inj)
+        double GetHeatContent(double cellConc, double titrantConc)
         {
-            var p = Kd1 + Kd2 + (N1 + N2) * inj.ActualCellConcentration - inj.ActualTitrantConcentration;
-            var q = (Kd2 * N1 + Kd1 * N2) * inj.ActualCellConcentration - (Kd1 + Kd2) * inj.ActualTitrantConcentration + Kd1 * Kd2;
-            var r = -inj.ActualTitrantConcentration * Kd1 * Kd2;
+            var p = Kd1 + Kd2 + (N1 + N2) * cellConc - titrantConc;
+            var q = (Kd2 * N1 + Kd1 * N2) * cellConc - (Kd1 + Kd2) * titrantConc + Kd1 * Kd2;
+            var r = -titrantConc * Kd1 * Kd2;
 
-            //var cuberoot = Math.Cbrt(-2 * p * p * p + 3 * sqrt3 * Math.Sqrt(4 * p * p * p * r - p * p * q * q - 18 * p * q * r + 4 * q * q * q + 27 * r * r) + 9 * p * q - 27 * r);
-
-            ////term 1
-            //var term1 = cuberoot / (3 * cube2);
-
-            ////term2
-            //var term2top = cube2 * (3 * q - p * p);
-            //var term2btm = 3 * cuberoot;
-
-            //var term2 = -term2top / term2btm;
-
-            ////term3
-            //var term3 = -p / 3;
-
-            var x = FindFreeTitrant(p, q, r, inj.ActualTitrantConcentration * 0.05);
+            var x = FindFreeTitrant(p, q, r, titrantConc * 0.05);
 
             var theta1 = (Parameters.Table[ParameterType.Affinity1].Value * x) / (Parameters.Table[ParameterType.Affinity1].Value * x + 1);
             var theta2 = (Parameters.Table[ParameterType.Affinity2].Value * x) / (Parameters.Table[ParameterType.Affinity2].Value * x + 1);
 
-            var heat = inj.ActualCellConcentration * Data.CellVolume * (N1 * theta1 * Parameters.Table[ParameterType.Enthalpy1].Value + N2 * theta2 * Parameters.Table[ParameterType.Enthalpy2].Value);
-
-            return heat;
+            return cellConc * Data.CellVolume *
+                   (N1 * theta1 * Parameters.Table[ParameterType.Enthalpy1].Value +
+                    N2 * theta2 * Parameters.Table[ParameterType.Enthalpy2].Value);
         }
+
+        //double GetDeltaHeat(int i)
+        //{
+        //    Kd1 = 1 / Parameters.Table[ParameterType.Affinity1].Value;
+        //    Kd2 = 1 / Parameters.Table[ParameterType.Affinity2].Value;
+        //    N1 = Parameters.Table[ParameterType.Nvalue1].Value;
+        //    N2 = Parameters.Table[ParameterType.Nvalue2].Value;
+        //
+        //    var inj = Data.Injections[i];
+        //    var Qi = GetHeatContent(inj);
+        //    var Q_i = i == 0 ? 0.0 : GetHeatContent(Data.Injections[i - 1]);
+        //
+        //    var dQi = Qi + (inj.Volume / Data.CellVolume) * ((Qi + Q_i) / 2.0) - Q_i;
+        //
+        //    return dQi;
+        //}
+
+        //double GetHeatContent(InjectionData inj)
+        //{
+        //    var p = Kd1 + Kd2 + (N1 + N2) * inj.ActualCellConcentration - inj.ActualTitrantConcentration;
+        //    var q = (Kd2 * N1 + Kd1 * N2) * inj.ActualCellConcentration - (Kd1 + Kd2) * inj.ActualTitrantConcentration + Kd1 * Kd2;
+        //    var r = -inj.ActualTitrantConcentration * Kd1 * Kd2;
+        //
+        //    var x = FindFreeTitrant(p, q, r, inj.ActualTitrantConcentration * 0.05);
+        //
+        //    var theta1 = (Parameters.Table[ParameterType.Affinity1].Value * x) / (Parameters.Table[ParameterType.Affinity1].Value * x + 1);
+        //    var theta2 = (Parameters.Table[ParameterType.Affinity2].Value * x) / (Parameters.Table[ParameterType.Affinity2].Value * x + 1);
+        //
+        //    var heat = inj.ActualCellConcentration * Data.CellVolume * (N1 * theta1 * Parameters.Table[ParameterType.Enthalpy1].Value + N2 * theta2 * Parameters.Table[ParameterType.Enthalpy2].Value);
+        //
+        //    return heat;
+        //}
 
         double FindFreeTitrant(double p, double q, double r, double guess)
         {

@@ -11,7 +11,7 @@ namespace AnalysisITC.AppClasses.Analysis2.Models
     {
         public static EnergyUnit ReportEnergyUnit => AppSettings.EnergyUnit.IsSI() ? EnergyUnit.KiloJoule : EnergyUnit.KCal;
 
-		public ExperimentData Data { get; set; }
+		public ExperimentData Data { get; private set; }
 		public virtual AnalysisModel ModelType => AnalysisModel.OneSetOfSites;
 		public ModelParameters Parameters { get; set; }
         public ModelCloneOptions ModelCloneOptions { get; set; }
@@ -66,7 +66,7 @@ namespace AnalysisITC.AppClasses.Analysis2.Models
             if (ModelOptions.ContainsKey(ModelOptionKey.PreboundLigandConc) && ModelOptions[ModelOptionKey.PreboundLigandConc].BoolValue == true)
             {
                 if (!Data.Attributes.Exists(att => att.Key == ModelOptionKey.PreboundLigandConc))
-                    throw new KeyNotFoundException("Model option configuration error encountered.\nMissing option key: " + ModelOptionKey.PreboundLigandConc.ToString() + "\n\nTo solve error, either add the attribute to the experiment or uncheck the 'From Exp' options in solver options");
+                    throw new KeyNotFoundException("Model option configuration error encountered.\nMissing option key: " + ModelOptionKey.PreboundLigandConc.ToString() + "\n\nTo resolve error, either add the attribute to the experiment or uncheck the 'From Exp' options in solver options");
                 else ModelOptions[ModelOptionKey.PreboundLigandConc].ParameterValue = Data.Attributes.Find(opt => opt.Key == ModelOptionKey.PreboundLigandConc).ParameterValue;
             }
         }
@@ -74,6 +74,36 @@ namespace AnalysisITC.AppClasses.Analysis2.Models
         public virtual void ApplyModelOptions()
         {
 
+        }
+
+        protected (double cellConc, double titrantConc) GetReferencePreStateConcentrations(int injectionIndex)
+        {
+            // If this injection is a segment start, use the stored pre-state.
+            if (Data.Segments != null)
+            {
+                var seg = Data.Segments.FirstOrDefault(s => s.FirstInjectionID == injectionIndex);
+                if (seg != null) return (seg.SegmentInitialActiveCellConc, seg.SegmentInitialActiveTitrantConc);
+            }
+
+            // Normal run start
+            if (injectionIndex <= 0) return (Data.CellConcentration, 0.0);
+
+            // Normal within-segment case: previous injection post-state
+            var prev = Data.Injections[injectionIndex - 1];
+            return (prev.ActualCellConcentration, prev.ActualTitrantConcentration);
+        }
+
+        protected double DeltaHeatFromHeatContent(int injectionIndex, Func<double, double, double> heatContent)
+        {
+            var inj = Data.Injections[injectionIndex];
+
+            var Qi = heatContent(inj.ActualCellConcentration, inj.ActualTitrantConcentration);
+
+            var (cmPrev, clPrev) = GetReferencePreStateConcentrations(injectionIndex);
+            var Qprev = heatContent(cmPrev, clPrev);
+
+            // Your common “dQi correction” used in multiple models
+            return Qi + (inj.Volume / Data.CellVolume) * ((Qi + Qprev) / 2.0) - Qprev;
         }
 
         public virtual double Evaluate(int injectionindex, bool withoffset = true)
@@ -143,7 +173,7 @@ namespace AnalysisITC.AppClasses.Analysis2.Models
 
 			foreach (var inj in Data.Injections.Where(i => i.Include))
 			{
-				var diff = Evaluate(inj.ID) - inj.PeakArea;
+				var diff = Evaluate(inj.ID, withoffset: true) - inj.PeakArea;
 				loss += diff * diff;
 			}
 

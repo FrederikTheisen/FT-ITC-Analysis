@@ -28,28 +28,45 @@ namespace AnalysisITC.AppClasses.Analysis2.Models
 			else return GetDeltaHeat(injectionindex, Parameters.Table[ParameterType.Nvalue1].Value, Parameters.Table[ParameterType.Enthalpy1].Value, Parameters.Table[ParameterType.Affinity1].Value);
         }
 
-		double GetDeltaHeat(int i, double n, double H, double K)
-		{
-			var inj = Data.Injections[i];
-			var Qi = GetHeatContent(inj, n, H, K);
-			var Q_i = i == 0 ? 0.0 : GetHeatContent(Data.Injections[i - 1], n, H, K);
+        double GetDeltaHeat(int i, double n, double H, double K)
+        {
+            return DeltaHeatFromHeatContent(i, (cm, cl) => GetHeatContent(cm, cl, n, H, K));
+        }
 
-			var dQi = Qi + (inj.Volume / Data.CellVolume) * ((Qi + Q_i) / 2.0) - Q_i;
+        //double GetDeltaHeatOld(int i, double n, double H, double K)
+		//{
+		//	var inj = Data.Injections[i];
+		//	var Qi = GetHeatContent(inj, n, H, K);
+		//	var Q_i = i == 0 ? 0.0 : GetHeatContent(Data.Injections[i - 1], n, H, K);
+        //
+		//	var dQi = Qi + (inj.Volume / Data.CellVolume) * ((Qi + Q_i) / 2.0) - Q_i;
+        //
+		//	return dQi;
+		//}
 
-			return dQi;
-		}
+        double GetHeatContent(double cellConc, double titrantConc, double n, double H, double K)
+        {
+            var ncell = n * cellConc;
+            var first = (ncell * H * Data.CellVolume) / 2.0;
+            var XnM = titrantConc / ncell;
+            var nKM = 1.0 / (K * ncell);
+            var square = (1.0 + XnM + nKM);
+            var root = (square * square) - 4.0 * XnM;
 
-		double GetHeatContent(InjectionData inj, double n, double H, double K)
-		{
-			var ncell = n * inj.ActualCellConcentration;
-			var first = (ncell * H * Data.CellVolume) / 2.0;
-			var XnM = inj.ActualTitrantConcentration / ncell;
-			var nKM = 1.0 / (K * ncell);
-			var square = (1.0 + XnM + nKM);
-			var root = (square * square) - 4.0 * XnM;
+            return first * (1 + XnM + nKM - Math.Sqrt(root));
+        }
 
-			return first * (1 + XnM + nKM - Math.Sqrt(root));
-		}
+        //double GetHeatContent(InjectionData inj, double n, double H, double K)
+		//{
+		//	var ncell = n * inj.ActualCellConcentration;
+		//	var first = (ncell * H * Data.CellVolume) / 2.0;
+		//	var XnM = inj.ActualTitrantConcentration / ncell;
+		//	var nKM = 1.0 / (K * ncell);
+		//	var square = (1.0 + XnM + nKM);
+		//	var root = (square * square) - 4.0 * XnM;
+        //
+		//	return first * (1 + XnM + nKM - Math.Sqrt(root));
+		//}
 
         public override Model GenerateSyntheticModel()
         {
