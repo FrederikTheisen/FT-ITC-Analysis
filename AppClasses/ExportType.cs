@@ -54,18 +54,21 @@ namespace AnalysisITC
         MolarRatio = 1 << 0,
         Included = 1 << 1,
         Peak = 1 << 2,
-        Fit = 1 << 3,
-        InjectionVolume = 1 << 4,
-        InjectionDelay = 1 << 5,
-        CellConc = 1 << 6,
-        SyrConc = 1 << 7,
+        PeakError = 1 << 3,
+        Fit = 1 << 4,
+        InjectionVolume = 1 << 5,
+        InjectionDelay = 1 << 6,
+        IntegrationLength = 1 << 7,
+        CellConc = 1 << 8,
+        SyrConc = 1 << 9,
+        Temperature = 1 << 10,
 
         Concentrations = CellConc | SyrConc,
-        InjectionInfo = InjectionVolume | InjectionDelay,
+        InjectionInfo = InjectionVolume | InjectionDelay | PeakError | IntegrationLength | Temperature,
 
         Default = MolarRatio | Included | Peak | Fit,
         SelectionMinimal = MolarRatio | Peak | Fit,
-        SelectionITCsim = MolarRatio | Included | InjectionVolume | InjectionDelay | Peak | Fit,
+        SelectionITCsim = MolarRatio | Included | InjectionVolume | InjectionDelay | Peak,
     }
 
     public class ExportAccessoryViewSettings

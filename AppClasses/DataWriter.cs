@@ -564,7 +564,7 @@ namespace AnalysisITC
                             break;
 
                         case ExportType.ITCsim:
-                            await WriteITCsimFile(path, ExportColumns.SelectionITCsim);
+                            await WriteITCsimFile(path);
                             break;
 
                         default:
@@ -632,16 +632,6 @@ namespace AnalysisITC
                 case "csv": Delimiter = ','; BlankChar = ' ';  break;
                 case "txt": Delimiter = ' '; BlankChar = '.';  break;
             }
-        }
-
-        private static List<ExperimentData> GetData()
-        {
-            return AppSettings.ExportSelectionMode switch
-            {
-                ExportDataSelection.IncludedData => DataManager.Data.Where(d => d.Include).ToList(),
-                ExportDataSelection.AllData => DataManager.Data,
-                _ => new List<ExperimentData> { DataManager.Current },
-            };
         }
 
         static string GetDataFileName()
@@ -818,7 +808,7 @@ namespace AnalysisITC
             StatusBarManager.StopIndeterminateProgress();
         }
 
-        static async Task WriteITCsimFile(string path, ExportColumns columns)
+        static async Task WriteITCsimFile(string path)
         {
             await Task.Run(async () =>
             {
@@ -828,7 +818,7 @@ namespace AnalysisITC
                     var ext = ExportType.ITCsim.GetProperties().DotExtension();
                     var output = Path.Combine(path, dataname + ext);
 
-                    var lines = GetColumns(data, columns);
+                    var lines = GetColumns(data, ExportColumns.SelectionITCsim);
 
                     lines.AddRange(GetMetaData(data));
 
@@ -904,7 +894,7 @@ namespace AnalysisITC
                         lines.Add(line);
                     }
 
-                    lines.Add(",--," + Xt + "," + Mt + ",--,,,");
+                    lines.Add(" ,--," + Xt + "," + Mt + ",--, , , ");
 
                     using (var writer = new StreamWriter(output))
                     {
@@ -969,7 +959,8 @@ namespace AnalysisITC
 
             for (int i = 1; i < 9999; i *= 2)
             {
-                if (!Enum.IsDefined(typeof(ExportColumns), i)) { break; }
+                if (!Enum.IsDefined(typeof(ExportColumns), i)) { break; } // We are through the list of valid enums, break
+                if (!columns.HasFlag((ExportColumns)i)) { continue; } // Enum not in selection, try next
                 if (header.Length > 0) header += Delimiter.ToString();
 
                 header += ExportColumnHandler.GetColumnHeader((ExportColumns)i);
@@ -984,7 +975,8 @@ namespace AnalysisITC
 
                 for (int i = 1; i < 9999; i *= 2)
                 {
-                    if (!Enum.IsDefined(typeof(ExportColumns), i)) { break; }
+                    if (!Enum.IsDefined(typeof(ExportColumns), i)) { break; } // We are through the list of valid enums, break
+                    if (!columns.HasFlag((ExportColumns)i)) { continue; } // Enum not in selection, try next
                     if (line.Length > 0) line += Delimiter.ToString();
 
                     line += ExportColumnHandler.GetColumnValue((ExportColumns)i, data, j);
@@ -1000,9 +992,10 @@ namespace AnalysisITC
         {
             var lines = new List<string>
             {
-                "# EXPINFO CELLCONC " + data.CellConcentration.AsFormattedConcentration(ConcentrationUnit.µM),
-                "# EXPINFO SYRINGECONC " + data.SyringeConcentration.AsFormattedConcentration(ConcentrationUnit.µM),
-                "# EXPINFO CELLVOLUME " + data.CellVolume.ToString("F9")
+                "#ITCSIM METADATA LIST",
+                "#EXPINFO CELLCONC " + (1000000*data.CellConcentration).ToString("F2") + " uM",
+                "#EXPINFO SYRINGECONC " + (1000000*data.SyringeConcentration).ToString("F2") + " uM",
+                "#EXPINFO CELLVOLUME " + data.CellVolume.ToString("F9") + " L"
             };
 
             return lines;
@@ -1072,11 +1065,14 @@ namespace AnalysisITC
                     case ExportColumns.MolarRatio: return "MolarRatio";
                     case ExportColumns.Included: return "Included";
                     case ExportColumns.Peak: return "PeakHeat";
-                    case ExportColumns.Fit: return "FittedHeat";
+                    case ExportColumns.Fit: return "Fit";
                     case ExportColumns.InjectionVolume: return "InjVolume";
                     case ExportColumns.InjectionDelay: return "InjDelay";
                     case ExportColumns.CellConc: return "[cell]";
                     case ExportColumns.SyrConc: return "[syr]";
+                    case ExportColumns.PeakError: return "PeakHeatError";
+                    case ExportColumns.IntegrationLength: return "PeakIntegrationLength";
+                    case ExportColumns.Temperature: return "Temperature";
                     default: return "unknown_column_selection_" + column.ToString();
                 }
             }
@@ -1098,6 +1094,9 @@ namespace AnalysisITC
                     case ExportColumns.CellConc: return inj.ActualCellConcentration.ToString("F8");
                     case ExportColumns.SyrConc: return inj.ActualTitrantConcentration.ToString("F8");
                     case ExportColumns.Peak: return ExportSettings.ExportOffsetCorrected ? inj.OffsetEnthalpy.ToString("F3") : inj.Enthalpy.ToString("F3");
+                    case ExportColumns.PeakError: return (inj.SD / inj.InjectionMass).ToString("F2");
+                    case ExportColumns.Temperature: return inj.Temperature.ToString("F2");
+                    case ExportColumns.IntegrationLength: return inj.IntegrationLength.ToString("F1");
                     case ExportColumns.Fit:
                         if (data.Solution != null) return data.Model.EvaluateEnthalpy(i, !ExportSettings.ExportOffsetCorrected).ToString("F3");
                         else return BlankChar.ToString();

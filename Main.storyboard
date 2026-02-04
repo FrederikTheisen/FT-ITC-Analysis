@@ -3097,7 +3097,7 @@ Requires that all selected data has a baseline.</string>
                                                     <rect key="frame" x="60" y="0.0" width="400" height="85"/>
                                                     <autoresizingMask key="autoresizingMask" flexibleMinX="YES" flexibleMaxX="YES" flexibleMinY="YES"/>
                                                     <subviews>
-                                                        <button verticalHuggingPriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="Weq-6Y-EIS">
+                                                        <button hidden="YES" verticalHuggingPriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="Weq-6Y-EIS">
                                                             <rect key="frame" x="-2" y="68" width="146" height="18"/>
                                                             <buttonCell key="cell" type="check" title="Include fitted peaks" bezelStyle="regularSquare" imagePosition="left" state="on" inset="2" id="q9c-qj-ALf">
                                                                 <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
@@ -3107,8 +3107,8 @@ Requires that all selected data has a baseline.</string>
                                                                 <action selector="FittedPeakControlAction:" target="nZh-Md-8bl" id="ar0-Pq-w5T"/>
                                                             </connections>
                                                         </button>
-                                                        <textField focusRingType="none" horizontalHuggingPriority="251" verticalHuggingPriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="fVs-dT-RWc">
-                                                            <rect key="frame" x="-2" y="41" width="311" height="28"/>
+                                                        <textField hidden="YES" focusRingType="none" horizontalHuggingPriority="251" verticalHuggingPriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="fVs-dT-RWc">
+                                                            <rect key="frame" x="-2" y="57" width="311" height="28"/>
                                                             <textFieldCell key="cell" controlSize="small" id="v1q-xU-TDo">
                                                                 <font key="font" metaFont="smallSystem"/>
                                                                 <string key="title">Include peak value calculated based on the fitted model.
@@ -3118,13 +3118,13 @@ Requires that a model has been fitted for all selected data.</string>
                                                             </textFieldCell>
                                                         </textField>
                                                         <customView translatesAutoresizingMaskIntoConstraints="NO" id="a6o-HQ-lj1">
-                                                            <rect key="frame" x="0.0" y="33" width="163" height="8"/>
+                                                            <rect key="frame" x="0.0" y="77" width="163" height="8"/>
                                                             <constraints>
                                                                 <constraint firstAttribute="height" constant="8" id="JTo-rn-RKG"/>
                                                             </constraints>
                                                         </customView>
                                                         <button verticalHuggingPriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="tBZ-sw-huV">
-                                                            <rect key="frame" x="-2" y="16" width="129" height="18"/>
+                                                            <rect key="frame" x="-2" y="60" width="129" height="18"/>
                                                             <buttonCell key="cell" type="check" title="Offset Corrected" bezelStyle="regularSquare" imagePosition="left" state="on" inset="2" id="Pqy-wY-bf1">
                                                                 <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                                                 <font key="font" metaFont="system"/>
@@ -3134,7 +3134,7 @@ Requires that a model has been fitted for all selected data.</string>
                                                             </connections>
                                                         </button>
                                                         <textField focusRingType="none" horizontalHuggingPriority="251" verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="6K7-7Y-bp9">
-                                                            <rect key="frame" x="-2" y="0.0" width="164" height="17"/>
+                                                            <rect key="frame" x="-2" y="0.0" width="164" height="61"/>
                                                             <textFieldCell key="cell" controlSize="small" lineBreakMode="clipping" title="Export offset corrected peaks." id="jPv-ma-1ID">
                                                                 <font key="font" metaFont="smallSystem"/>
                                                                 <color key="textColor" name="labelColor" catalog="System" colorSpace="catalog"/>
@@ -3573,8 +3573,7 @@ For analysis and presentation of ITC data</string>
                                                 </items>
                                             </menu>
                                         </menuItem>
-                                        <menuItem title="Export..." id="Da7-rO-bWF">
-                                            <modifierMask key="keyEquivalentModifierMask"/>
+                                        <menuItem title="Export..." keyEquivalent="e" identifier="export" id="Da7-rO-bWF">
                                             <connections>
                                                 <action selector="ExportAction:" target="Voe-Tx-rLC" id="1YF-c5-YGY"/>
                                             </connections>
@@ -6188,7 +6187,7 @@ IA
                                         <size key="contentViewMargins" width="5" height="5"/>
                                     </box>
                                     <stackView distribution="fill" orientation="horizontal" alignment="firstBaseline" horizontalStackHuggingPriority="250" verticalStackHuggingPriority="750" verticalHuggingPriority="750" detachesHiddenViews="YES" translatesAutoresizingMaskIntoConstraints="NO" id="5oj-9h-hGH">
-                                        <rect key="frame" x="0.0" y="492" width="567" height="16"/>
+                                        <rect key="frame" x="343" y="492" width="567" height="16"/>
                                         <subviews>
                                             <button toolTip="Display the baseline" verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="jsQ-Vt-t9u">
                                                 <rect key="frame" x="5" y="-1" width="66" height="17"/>
@@ -6926,7 +6925,7 @@ IA
                                                             <rect key="frame" x="0.0" y="0.0" width="1015" height="28"/>
                                                             <subviews>
                                                                 <textField focusRingType="none" horizontalHuggingPriority="248" verticalHuggingPriority="750" horizontalCompressionResistancePriority="250" translatesAutoresizingMaskIntoConstraints="NO" id="JU3-FV-Yr9">
-                                                                    <rect key="frame" x="-2" y="7" width="570" height="16"/>
+                                                                    <rect key="frame" x="-2" y="7" width="553" height="16"/>
                                                                     <textFieldCell key="cell" lineBreakMode="clipping" id="egg-ml-Knk">
                                                                         <font key="font" metaFont="system"/>
                                                                         <color key="textColor" name="labelColor" catalog="System" colorSpace="catalog"/>
@@ -6934,24 +6933,26 @@ IA
                                                                     </textFieldCell>
                                                                 </textField>
                                                                 <button toolTip="Fit the selected model using the Simplex algorthm" verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="USk-79-Be9">
-                                                                    <rect key="frame" x="574" y="-1" width="202" height="29"/>
+                                                                    <rect key="frame" x="557" y="-1" width="211" height="29"/>
                                                                     <buttonCell key="cell" type="recessed" title="Fit with Nelder-Mead (Simplex)" bezelStyle="recessed" alignment="center" controlSize="large" borderStyle="border" imageScaling="proportionallyDown" inset="2" id="qZx-1I-o4m">
                                                                         <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
-                                                                        <font key="font" metaFont="system"/>
+                                                                        <font key="font" metaFont="systemSemibold" size="13"/>
                                                                         <string key="keyEquivalent" base64-UTF8="YES">
 IA
 </string>
                                                                     </buttonCell>
+                                                                    <color key="contentTintColor" name="labelColor" catalog="System" colorSpace="catalog"/>
                                                                     <connections>
                                                                         <action selector="FitSimplex:" target="YoK-Wd-3Fr" id="4ua-eo-g1H"/>
                                                                     </connections>
                                                                 </button>
                                                                 <button toolTip="Fit the selected model using the LM algorithm" verticalHuggingPriority="750" horizontalCompressionResistancePriority="751" translatesAutoresizingMaskIntoConstraints="NO" id="ca8-Wo-Gfg">
-                                                                    <rect key="frame" x="784" y="-1" width="198" height="29"/>
+                                                                    <rect key="frame" x="776" y="-1" width="206" height="29"/>
                                                                     <buttonCell key="cell" type="recessed" title="Fit with Levenberg-Marquardt " bezelStyle="recessed" alignment="center" controlSize="large" borderStyle="border" imageScaling="proportionallyDown" inset="2" id="Qka-kc-5tf">
                                                                         <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
-                                                                        <font key="font" metaFont="system"/>
+                                                                        <font key="font" metaFont="systemSemibold" size="13"/>
                                                                     </buttonCell>
+                                                                    <color key="contentTintColor" name="labelColor" catalog="System" colorSpace="catalog"/>
                                                                     <connections>
                                                                         <action selector="FitLM:" target="YoK-Wd-3Fr" id="3BD-X3-Bgc"/>
                                                                     </connections>
@@ -6962,6 +6963,7 @@ IA
                                                                         <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
                                                                         <font key="font" metaFont="system"/>
                                                                     </buttonCell>
+                                                                    <color key="contentTintColor" name="labelColor" catalog="System" colorSpace="catalog"/>
                                                                     <constraints>
                                                                         <constraint firstAttribute="width" constant="20" id="wGk-39-a66"/>
                                                                     </constraints>

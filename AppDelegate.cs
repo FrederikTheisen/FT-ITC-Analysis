@@ -47,6 +47,7 @@ namespace AnalysisITC
                 case "saveas": return DataManager.DataIsLoaded;
                 case "save": return DataManager.DataIsLoaded && FTITCWriter.IsSaved;
                 case "saveselected": return DataManager.SelectedIsData;
+                case "export": return DataManager.Data.Count > 0;
                 case "exportdata": return DataManager.DataIsLoaded;
                 case "exportpeaks": return DataManager.AnyDataIsBaselineProcessed;
                 case "cleardata": return DataManager.DataIsLoaded;
