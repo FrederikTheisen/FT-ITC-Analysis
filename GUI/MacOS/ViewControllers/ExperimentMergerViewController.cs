@@ -136,8 +136,6 @@ namespace AnalysisITC
             if (MergeSettings.UseBackMixingMethod) mergeddata = TandemConcatenation.ConcatTandemWithBackMixing(exps, MergeSettings);
             else mergeddata = TandemConcatenation.ConcatTandem(exps);
 
-            var clone = mergeddata.GetSynthClone(new ModelCloneOptions());
-
             DataManager.AddData(mergeddata);
 
             DismissViewController(this);
