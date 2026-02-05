@@ -202,6 +202,7 @@
     <None Include="AppClasses\Depreceated\SolverOptions.cs" />
     <None Include="GUI\.DS_Store" />
     <None Include="GUI\MacOS\CustomViews\AutoExpandingTextField.swift" />
+    <None Include="README.md" />
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Main.cs" />

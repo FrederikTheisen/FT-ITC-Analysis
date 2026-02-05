@@ -29,7 +29,7 @@ namespace DataReaders
                 deadv = 0.4 * StandardCellVolume;
             }
 
-            DeadVolume = (double)deadv;
+            DeadVolume = (double)deadv / 1000000;
         }
 
         public static List<ITCInstrument> GetITCInstruments()

@@ -1425,6 +1425,9 @@ namespace AnalysisITC
                 bottom.Add(GetRelativePosition(x, y[1]));
             }
 
+            top = top.OrderBy(p => p.X).ToList();
+            bottom = bottom.OrderBy(p => p.X).ToList();
+
             bottom.Reverse();
 
             CGPath path = GetSplineFromPoints(top.ToArray());
