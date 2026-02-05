@@ -9,12 +9,6 @@ This repository is open source and exists both to distribute end-user binaries (
 - **MicroCal raw data**: `.itc`
 - **TA Instruments / NanoAnalyze export**: `.TA`
 
-## System requirements
-
-- **CPU**: Intel (x86_64)
-  - Apple Silicon Macs can run the Intel build using **Rosetta 2**.
-- **macOS**: TODO (minimum supported version)
-
 ## Installation
 
 1. Download the latest `.dmg` from GitHub Releases.
@@ -32,12 +26,6 @@ Releases are intended to be **Developer ID–signed and notarized** to reduce Ga
 3. Review processed injection heats and perform standard model fitting.
 4. Grouped analysis of multiple experiments to for global fitting or derived parameters.
 5. Export figures and/or processed results as needed.
-
-## Scope and limitations
-
-- macOS-only distribution.
-- The supported user workflow is using the prebuilt Releases (DMG).
-- Source is public for transparency and reuse, but building from source is not currently a supported end-user workflow.
 
 ## Citation
 
