@@ -82,6 +82,9 @@ namespace AnalysisITC
 		AppKit.NSTextField OStep { get; set; }
 
 		[Outlet]
+		AppKit.NSSegmentedControl SolverAlgorithmControl { get; set; }
+
+		[Outlet]
 		AppKit.NSStackView StackView { get; set; }
 
 		[Action ("ApplyOptions:")]
@@ -92,11 +95,6 @@ namespace AnalysisITC
 		
 		void ReleaseDesignerOutlets ()
 		{
-			if (IncludeConcErrorControl != null) {
-				IncludeConcErrorControl.Dispose ();
-				IncludeConcErrorControl = null;
-			}
-
 			if (CStep != null) {
 				CStep.Dispose ();
 				CStep = null;
@@ -125,6 +123,11 @@ namespace AnalysisITC
 			if (HStep != null) {
 				HStep.Dispose ();
 				HStep = null;
+			}
+
+			if (IncludeConcErrorControl != null) {
+				IncludeConcErrorControl.Dispose ();
+				IncludeConcErrorControl = null;
 			}
 
 			if (InitCp != null) {
@@ -157,6 +160,16 @@ namespace AnalysisITC
 				InitHLock = null;
 			}
 
+			if (InitialValuesHeader != null) {
+				InitialValuesHeader.Dispose ();
+				InitialValuesHeader = null;
+			}
+
+			if (InitialValuesLine != null) {
+				InitialValuesLine.Dispose ();
+				InitialValuesLine = null;
+			}
+
 			if (InitN != null) {
 				InitN.Dispose ();
 				InitN = null;
@@ -177,6 +190,16 @@ namespace AnalysisITC
 				InitOffsetLock = null;
 			}
 
+			if (ModelOptionsHeader != null) {
+				ModelOptionsHeader.Dispose ();
+				ModelOptionsHeader = null;
+			}
+
+			if (ModelOptionsLine != null) {
+				ModelOptionsLine.Dispose ();
+				ModelOptionsLine = null;
+			}
+
 			if (NStep != null) {
 				NStep.Dispose ();
 				NStep = null;
@@ -192,24 +215,9 @@ namespace AnalysisITC
 				StackView = null;
 			}
 
-			if (ModelOptionsHeader != null) {
-				ModelOptionsHeader.Dispose ();
-				ModelOptionsHeader = null;
-			}
-
-			if (ModelOptionsLine != null) {
-				ModelOptionsLine.Dispose ();
-				ModelOptionsLine = null;
-			}
-
-			if (InitialValuesHeader != null) {
-				InitialValuesHeader.Dispose ();
-				InitialValuesHeader = null;
-			}
-
-			if (InitialValuesLine != null) {
-				InitialValuesLine.Dispose ();
-				InitialValuesLine = null;
+			if (SolverAlgorithmControl != null) {
+				SolverAlgorithmControl.Dispose ();
+				SolverAlgorithmControl = null;
 			}
 		}
 	}

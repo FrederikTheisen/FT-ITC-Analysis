@@ -22,6 +22,7 @@ namespace AnalysisITC.AppClasses.Analysis2
         public static bool IncludeConcentrationVariance { get; set; } = false;
         public static bool EnableAutoConcentrationVariance { get; set; } = false;
         public static double AutoConcentrationVariance { get; set; } = 0.05;
+        public static SolverAlgorithm Algorithm { get; set; } = SolverAlgorithm.NelderMead;
     }
 
     public class SolverInterface

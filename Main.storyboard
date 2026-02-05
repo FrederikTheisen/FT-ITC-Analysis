@@ -6187,7 +6187,7 @@ IA
                                         <size key="contentViewMargins" width="5" height="5"/>
                                     </box>
                                     <stackView distribution="fill" orientation="horizontal" alignment="firstBaseline" horizontalStackHuggingPriority="250" verticalStackHuggingPriority="750" verticalHuggingPriority="750" detachesHiddenViews="YES" translatesAutoresizingMaskIntoConstraints="NO" id="5oj-9h-hGH">
-                                        <rect key="frame" x="343" y="492" width="567" height="16"/>
+                                        <rect key="frame" x="0.0" y="492" width="567" height="16"/>
                                         <subviews>
                                             <button toolTip="Display the baseline" verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="jsQ-Vt-t9u">
                                                 <rect key="frame" x="5" y="-1" width="66" height="17"/>
@@ -6729,14 +6729,14 @@ IA
             <objects>
                 <viewController title="Data Analyzer" id="YoK-Wd-3Fr" customClass="DataAnalysisViewController" sceneMemberID="viewController">
                     <customView key="view" verticalCompressionResistancePriority="250" id="Xsa-sz-SoY">
-                        <rect key="frame" x="0.0" y="0.0" width="1037" height="840"/>
+                        <rect key="frame" x="0.0" y="0.0" width="1037" height="892"/>
                         <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
                         <subviews>
                             <stackView distribution="fill" orientation="vertical" alignment="leading" horizontalStackHuggingPriority="1000" verticalStackHuggingPriority="1000" detachesHiddenViews="YES" translatesAutoresizingMaskIntoConstraints="NO" id="4ft-kK-FDc">
-                                <rect key="frame" x="0.0" y="0.0" width="1037" height="807"/>
+                                <rect key="frame" x="0.0" y="0.0" width="1037" height="859"/>
                                 <subviews>
                                     <box horizontalHuggingPriority="750" verticalCompressionResistancePriority="250" title="Box" titlePosition="noTitle" translatesAutoresizingMaskIntoConstraints="NO" id="Nvm-zn-9K4">
-                                        <rect key="frame" x="2" y="614" width="1033" height="190"/>
+                                        <rect key="frame" x="2" y="666" width="1033" height="190"/>
                                         <view key="contentView" id="X57-vF-3wf">
                                             <rect key="frame" x="9" y="10" width="1015" height="172"/>
                                             <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
@@ -6830,7 +6830,7 @@ IA
                                                             <rect key="frame" x="0.0" y="92" width="1015" height="20"/>
                                                             <subviews>
                                                                 <textField focusRingType="none" horizontalHuggingPriority="249" verticalHuggingPriority="251" horizontalCompressionResistancePriority="250" translatesAutoresizingMaskIntoConstraints="NO" id="Ved-cP-fAG">
-                                                                    <rect key="frame" x="-2" y="3" width="734" height="16"/>
+                                                                    <rect key="frame" x="-2" y="3" width="728" height="16"/>
                                                                     <textFieldCell key="cell" lineBreakMode="clipping" title="Enthalpy variable constraint" id="Qwj-z2-FfV">
                                                                         <font key="font" metaFont="system"/>
                                                                         <color key="textColor" name="labelColor" catalog="System" colorSpace="catalog"/>
@@ -6838,11 +6838,11 @@ IA
                                                                     </textFieldCell>
                                                                 </textField>
                                                                 <segmentedControl verticalHuggingPriority="251" translatesAutoresizingMaskIntoConstraints="NO" id="d4G-IT-9ca">
-                                                                    <rect key="frame" x="737" y="-2" width="279" height="23"/>
+                                                                    <rect key="frame" x="731" y="-2" width="285" height="23"/>
                                                                     <segmentedCell key="cell" borderStyle="border" alignment="left" style="capsule" trackingMode="selectOne" id="9T2-9A-tt4">
                                                                         <font key="font" metaFont="system"/>
                                                                         <segments>
-                                                                            <segment label="Free" toolTip="All experiments have independent enthalpies"/>
+                                                                            <segment label="None" toolTip="All experiments have independent enthalpies"/>
                                                                             <segment label="Temperature dependent" toolTip="Enthalpy depends on temperature and heat capacity change" selected="YES"/>
                                                                             <segment label="Same for all" toolTip="Enthalpy is identical for all"/>
                                                                         </segments>
@@ -6862,7 +6862,7 @@ IA
                                                             <rect key="frame" x="0.0" y="64" width="1015" height="20"/>
                                                             <subviews>
                                                                 <textField focusRingType="none" horizontalHuggingPriority="249" verticalHuggingPriority="251" horizontalCompressionResistancePriority="250" translatesAutoresizingMaskIntoConstraints="NO" id="U6w-L0-y46">
-                                                                    <rect key="frame" x="-2" y="3" width="733" height="16"/>
+                                                                    <rect key="frame" x="-2" y="3" width="727" height="16"/>
                                                                     <textFieldCell key="cell" lineBreakMode="clipping" title="Affinity variable constraint" id="GXq-ga-AsY">
                                                                         <font key="font" metaFont="system"/>
                                                                         <color key="textColor" name="labelColor" catalog="System" colorSpace="catalog"/>
@@ -6870,11 +6870,11 @@ IA
                                                                     </textFieldCell>
                                                                 </textField>
                                                                 <segmentedControl verticalHuggingPriority="251" translatesAutoresizingMaskIntoConstraints="NO" id="FHC-fC-OhL">
-                                                                    <rect key="frame" x="736" y="-2" width="280" height="23"/>
+                                                                    <rect key="frame" x="730" y="-2" width="286" height="23"/>
                                                                     <segmentedCell key="cell" borderStyle="border" alignment="left" style="capsule" trackingMode="selectOne" id="6sy-Ed-RZm">
                                                                         <font key="font" metaFont="system"/>
                                                                         <segments>
-                                                                            <segment label="Free" selected="YES"/>
+                                                                            <segment label="None" selected="YES"/>
                                                                             <segment label="Temperature dependent"/>
                                                                             <segment label="Same for All"/>
                                                                         </segments>
@@ -6894,7 +6894,7 @@ IA
                                                             <rect key="frame" x="0.0" y="36" width="1015" height="20"/>
                                                             <subviews>
                                                                 <textField focusRingType="none" horizontalHuggingPriority="249" verticalHuggingPriority="251" horizontalCompressionResistancePriority="250" translatesAutoresizingMaskIntoConstraints="NO" id="yfy-df-SoY">
-                                                                    <rect key="frame" x="-2" y="3" width="891" height="16"/>
+                                                                    <rect key="frame" x="-2" y="3" width="885" height="16"/>
                                                                     <textFieldCell key="cell" lineBreakMode="clipping" title="Stochiometry constraint" id="Tg8-EF-fEZ">
                                                                         <font key="font" metaFont="system"/>
                                                                         <color key="textColor" name="labelColor" catalog="System" colorSpace="catalog"/>
@@ -6902,11 +6902,11 @@ IA
                                                                     </textFieldCell>
                                                                 </textField>
                                                                 <segmentedControl verticalHuggingPriority="251" translatesAutoresizingMaskIntoConstraints="NO" id="oa9-Yx-xpS">
-                                                                    <rect key="frame" x="894" y="-2" width="122" height="23"/>
+                                                                    <rect key="frame" x="888" y="-2" width="128" height="23"/>
                                                                     <segmentedCell key="cell" borderStyle="border" alignment="left" style="capsule" trackingMode="selectOne" id="5Cx-bV-mH8">
                                                                         <font key="font" metaFont="system"/>
                                                                         <segments>
-                                                                            <segment label="Free" selected="YES"/>
+                                                                            <segment label="None" selected="YES"/>
                                                                             <segment label="Same for all"/>
                                                                         </segments>
                                                                     </segmentedCell>
@@ -6925,16 +6925,16 @@ IA
                                                             <rect key="frame" x="0.0" y="0.0" width="1015" height="28"/>
                                                             <subviews>
                                                                 <textField focusRingType="none" horizontalHuggingPriority="248" verticalHuggingPriority="750" horizontalCompressionResistancePriority="250" translatesAutoresizingMaskIntoConstraints="NO" id="JU3-FV-Yr9">
-                                                                    <rect key="frame" x="-2" y="7" width="553" height="16"/>
+                                                                    <rect key="frame" x="-2" y="7" width="749" height="16"/>
                                                                     <textFieldCell key="cell" lineBreakMode="clipping" id="egg-ml-Knk">
                                                                         <font key="font" metaFont="system"/>
                                                                         <color key="textColor" name="labelColor" catalog="System" colorSpace="catalog"/>
                                                                         <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
                                                                     </textFieldCell>
                                                                 </textField>
-                                                                <button toolTip="Fit the selected model using the Simplex algorthm" verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="USk-79-Be9">
-                                                                    <rect key="frame" x="557" y="-1" width="211" height="29"/>
-                                                                    <buttonCell key="cell" type="recessed" title="Fit with Nelder-Mead (Simplex)" bezelStyle="recessed" alignment="center" controlSize="large" borderStyle="border" imageScaling="proportionallyDown" inset="2" id="qZx-1I-o4m">
+                                                                <button toolTip="Fit the selected data using the selected model" verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="USk-79-Be9">
+                                                                    <rect key="frame" x="753" y="-1" width="219" height="29"/>
+                                                                    <buttonCell key="cell" type="recessed" title="Fit model using selected options" bezelStyle="recessed" alignment="center" controlSize="large" borderStyle="border" imageScaling="proportionallyDown" inset="2" id="qZx-1I-o4m">
                                                                         <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
                                                                         <font key="font" metaFont="systemSemibold" size="13"/>
                                                                         <string key="keyEquivalent" base64-UTF8="YES">
@@ -6946,8 +6946,8 @@ IA
                                                                         <action selector="FitSimplex:" target="YoK-Wd-3Fr" id="4ua-eo-g1H"/>
                                                                     </connections>
                                                                 </button>
-                                                                <button toolTip="Fit the selected model using the LM algorithm" verticalHuggingPriority="750" horizontalCompressionResistancePriority="751" translatesAutoresizingMaskIntoConstraints="NO" id="ca8-Wo-Gfg">
-                                                                    <rect key="frame" x="776" y="-1" width="206" height="29"/>
+                                                                <button hidden="YES" toolTip="Fit the selected model using the LM algorithm" verticalHuggingPriority="750" horizontalCompressionResistancePriority="751" translatesAutoresizingMaskIntoConstraints="NO" id="ca8-Wo-Gfg">
+                                                                    <rect key="frame" x="0.0" y="-1" width="206" height="29"/>
                                                                     <buttonCell key="cell" type="recessed" title="Fit with Levenberg-Marquardt " bezelStyle="recessed" alignment="center" controlSize="large" borderStyle="border" imageScaling="proportionallyDown" inset="2" id="Qka-kc-5tf">
                                                                         <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
                                                                         <font key="font" metaFont="systemSemibold" size="13"/>
@@ -6957,15 +6957,15 @@ IA
                                                                         <action selector="FitLM:" target="YoK-Wd-3Fr" id="3BD-X3-Bgc"/>
                                                                     </connections>
                                                                 </button>
-                                                                <button horizontalHuggingPriority="750" verticalHuggingPriority="248" horizontalCompressionResistancePriority="751" verticalCompressionResistancePriority="751" translatesAutoresizingMaskIntoConstraints="NO" id="QCw-pM-2ga">
-                                                                    <rect key="frame" x="990" y="-2" width="20" height="32"/>
-                                                                    <buttonCell key="cell" type="square" bezelStyle="shadowlessSquare" image="slider.horizontal.3" catalog="system" imagePosition="only" alignment="center" controlSize="large" imageScaling="proportionallyDown" inset="2" id="Puf-N5-dga">
+                                                                <button toolTip="View fitting options" horizontalHuggingPriority="750" verticalHuggingPriority="248" horizontalCompressionResistancePriority="751" verticalCompressionResistancePriority="751" translatesAutoresizingMaskIntoConstraints="NO" id="QCw-pM-2ga">
+                                                                    <rect key="frame" x="980" y="-1" width="30" height="29"/>
+                                                                    <buttonCell key="cell" type="recessed" bezelStyle="recessed" image="slider.horizontal.3" catalog="system" imagePosition="overlaps" alignment="left" controlSize="large" scrollable="YES" lineBreakMode="clipping" borderStyle="border" imageScaling="proportionallyDown" inset="2" id="Puf-N5-dga">
                                                                         <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
                                                                         <font key="font" metaFont="system"/>
                                                                     </buttonCell>
                                                                     <color key="contentTintColor" name="labelColor" catalog="System" colorSpace="catalog"/>
                                                                     <constraints>
-                                                                        <constraint firstAttribute="width" constant="20" id="wGk-39-a66"/>
+                                                                        <constraint firstAttribute="width" constant="30" id="dSH-LN-Mje"/>
                                                                     </constraints>
                                                                     <connections>
                                                                         <segue destination="Fk8-Gk-Fns" kind="popover" popoverAnchorView="QCw-pM-2ga" popoverBehavior="t" preferredEdge="maxY" id="syZ-No-OOc"/>
@@ -7018,7 +7018,7 @@ IA
                                         <size key="contentViewMargins" width="5" height="5"/>
                                     </box>
                                     <stackView distribution="fill" orientation="horizontal" alignment="firstBaseline" horizontalStackHuggingPriority="249.99998474121094" verticalStackHuggingPriority="1000" horizontalClippingResistancePriority="750" verticalHuggingPriority="1000" detachesHiddenViews="YES" translatesAutoresizingMaskIntoConstraints="NO" id="4zS-F8-nkk">
-                                        <rect key="frame" x="5" y="594" width="1027" height="16"/>
+                                        <rect key="frame" x="5" y="646" width="1027" height="16"/>
                                         <subviews>
                                             <button verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="o7n-N9-bgG">
                                                 <rect key="frame" x="5" y="-1" width="70" height="17"/>
@@ -7074,7 +7074,7 @@ IA
                                         </customSpacing>
                                     </stackView>
                                     <customView horizontalCompressionResistancePriority="250" translatesAutoresizingMaskIntoConstraints="NO" id="TfV-6i-g26" customClass="AnalysisGraphView">
-                                        <rect key="frame" x="5" y="5" width="1027" height="581"/>
+                                        <rect key="frame" x="5" y="5" width="1027" height="633"/>
                                     </customView>
                                 </subviews>
                                 <edgeInsets key="edgeInsets" left="5" right="5" top="5" bottom="5"/>
@@ -7354,14 +7354,14 @@ IA
             <objects>
                 <viewController id="Fk8-Gk-Fns" customClass="FittingOptionsPopoverViewController" sceneMemberID="viewController">
                     <view key="view" id="KOC-yd-fiE">
-                        <rect key="frame" x="0.0" y="0.0" width="261" height="238"/>
+                        <rect key="frame" x="0.0" y="0.0" width="261" height="264"/>
                         <autoresizingMask key="autoresizingMask"/>
                         <subviews>
                             <stackView distribution="fill" orientation="vertical" alignment="leading" horizontalStackHuggingPriority="750" verticalStackHuggingPriority="1000" detachesHiddenViews="YES" translatesAutoresizingMaskIntoConstraints="NO" id="EMb-ul-vfs">
-                                <rect key="frame" x="0.0" y="0.0" width="261" height="238"/>
+                                <rect key="frame" x="0.0" y="0.0" width="261" height="264"/>
                                 <subviews>
                                     <textField focusRingType="none" horizontalHuggingPriority="249" verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="cSF-xd-Dla">
-                                        <rect key="frame" x="3" y="217" width="255" height="16"/>
+                                        <rect key="frame" x="3" y="243" width="255" height="16"/>
                                         <textFieldCell key="cell" lineBreakMode="clipping" alignment="center" title="Fitting Options" id="gzN-GJ-9Vx">
                                             <font key="font" textStyle="headline" name=".SFNS-Bold"/>
                                             <color key="textColor" name="labelColor" catalog="System" colorSpace="catalog"/>
@@ -7369,8 +7369,39 @@ IA
                                         </textFieldCell>
                                     </textField>
                                     <box horizontalHuggingPriority="249" verticalHuggingPriority="750" horizontalCompressionResistancePriority="250" boxType="separator" translatesAutoresizingMaskIntoConstraints="NO" id="ooJ-Pt-IQV">
-                                        <rect key="frame" x="5" y="206" width="251" height="5"/>
+                                        <rect key="frame" x="5" y="232" width="251" height="5"/>
                                     </box>
+                                    <stackView distribution="fill" orientation="horizontal" alignment="firstBaseline" horizontalStackHuggingPriority="249.99998474121094" verticalStackHuggingPriority="750" detachesHiddenViews="YES" translatesAutoresizingMaskIntoConstraints="NO" id="td1-1U-EoN">
+                                        <rect key="frame" x="5" y="208" width="251" height="18"/>
+                                        <subviews>
+                                            <textField focusRingType="none" horizontalHuggingPriority="249" verticalHuggingPriority="1000" verticalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="tUu-ba-U7j">
+                                                <rect key="frame" x="-2" y="2" width="63" height="14"/>
+                                                <textFieldCell key="cell" controlSize="small" lineBreakMode="clipping" title="Algorithm" id="bXM-LS-Kx8">
+                                                    <font key="font" metaFont="smallSystem"/>
+                                                    <color key="textColor" name="labelColor" catalog="System" colorSpace="catalog"/>
+                                                    <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
+                                                </textFieldCell>
+                                            </textField>
+                                            <segmentedControl verticalHuggingPriority="750" verticalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="ljz-sh-bdS">
+                                                <rect key="frame" x="65" y="-2" width="188" height="21"/>
+                                                <segmentedCell key="cell" controlSize="small" borderStyle="border" alignment="left" style="rounded" trackingMode="selectOne" id="coZ-lK-TuA">
+                                                    <font key="font" metaFont="smallSystem"/>
+                                                    <segments>
+                                                        <segment label="SIMPLEX" toolTip="Use a Nelder-Mead Simplex fitting algorithm. Fast and accurate and recommended for most problems."/>
+                                                        <segment label="Levenberg-Marquardt" toolTip="Use a Levenberg-Marquardt algorithm for fitting. Performs better when the model has more parameters." selected="YES" tag="1"/>
+                                                    </segments>
+                                                </segmentedCell>
+                                            </segmentedControl>
+                                        </subviews>
+                                        <visibilityPriorities>
+                                            <integer value="1000"/>
+                                            <integer value="1000"/>
+                                        </visibilityPriorities>
+                                        <customSpacing>
+                                            <real value="3.4028234663852886e+38"/>
+                                            <real value="3.4028234663852886e+38"/>
+                                        </customSpacing>
+                                    </stackView>
                                     <textField focusRingType="none" horizontalHuggingPriority="249" verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="2Ht-lJ-6b1">
                                         <rect key="frame" x="3" y="186" width="255" height="14"/>
                                         <textFieldCell key="cell" controlSize="small" lineBreakMode="clipping" alignment="center" title="Error Estimation" id="Iyz-GM-Q3U">
@@ -7548,8 +7579,10 @@ DQ
                                     <integer value="1000"/>
                                     <integer value="1000"/>
                                     <integer value="1000"/>
+                                    <integer value="1000"/>
                                 </visibilityPriorities>
                                 <customSpacing>
+                                    <real value="3.4028234663852886e+38"/>
                                     <real value="3.4028234663852886e+38"/>
                                     <real value="3.4028234663852886e+38"/>
                                     <real value="3.4028234663852886e+38"/>
@@ -7586,6 +7619,7 @@ DQ
                         <outlet property="ModelOptionsLine" destination="cT4-pb-11t" id="PLG-tg-bq7"/>
                         <outlet property="NStep" destination="eZv-kc-61W" id="UvU-pt-lI6"/>
                         <outlet property="OStep" destination="BqP-Ag-m46" id="VSX-ZG-uWD"/>
+                        <outlet property="SolverAlgorithmControl" destination="ljz-sh-bdS" id="Bkt-F4-xeo"/>
                         <outlet property="StackView" destination="EMb-ul-vfs" id="n4O-Ek-FgI"/>
                     </connections>
                 </viewController>
@@ -8861,19 +8895,19 @@ Affinity (Kd):</string>
                                                                             <rect key="frame" x="5" y="296" width="354" height="5"/>
                                                                         </box>
                                                                         <textField focusRingType="none" verticalHuggingPriority="750" horizontalCompressionResistancePriority="250" translatesAutoresizingMaskIntoConstraints="NO" id="qAp-mZ-cyQ">
-                                                                            <rect key="frame" x="3" y="223" width="358" height="70"/>
-                                                                            <textFieldCell key="cell" alignment="left" id="eXf-my-sOc">
+                                                                            <rect key="frame" x="3" y="181" width="358" height="112"/>
+                                                                            <textFieldCell key="cell" alignment="justified" id="eXf-my-sOc">
                                                                                 <font key="font" metaFont="smallSystem"/>
-                                                                                <string key="title">Thermodynamic analysis method develop by R. S. Spolar and M. T. Record Jr. (Science 1994). The method provides a thermodynamic quantification of the level of structuring in the oberserved interaction. This tool includes parameters optimized for studying disordered interactions by Theisen et al. (JACS 2021).</string>
+                                                                                <string key="title">Thermodynamic analysis method introduced by Spolar &amp; Record (Science 1994) to relate experimentally determined temperature-dependence (notably ΔCₚ and ΔS) to hydration and conformational contributions, enabling an empirical estimate of how much local structuring is coupled to binding. This framework has been re-parameterized and applied specifically to IDP/IDR folding-upon-binding cases; the tool’s “ID-based” parameter set aligns with the updated treatment reported by Theisen et al. (JACS 2021).</string>
                                                                                 <color key="textColor" name="labelColor" catalog="System" colorSpace="catalog"/>
                                                                                 <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
                                                                             </textFieldCell>
                                                                         </textField>
                                                                         <box verticalHuggingPriority="750" boxType="separator" translatesAutoresizingMaskIntoConstraints="NO" id="HP6-9l-oaC">
-                                                                            <rect key="frame" x="5" y="215" width="354" height="5"/>
+                                                                            <rect key="frame" x="5" y="173" width="354" height="5"/>
                                                                         </box>
                                                                         <stackView distribution="fill" orientation="horizontal" alignment="firstBaseline" horizontalStackHuggingPriority="250" verticalStackHuggingPriority="750" detachesHiddenViews="YES" translatesAutoresizingMaskIntoConstraints="NO" id="Z4e-Lb-vVp">
-                                                                            <rect key="frame" x="5" y="192" width="354" height="20"/>
+                                                                            <rect key="frame" x="5" y="150" width="354" height="20"/>
                                                                             <subviews>
                                                                                 <textField focusRingType="none" horizontalHuggingPriority="249" verticalHuggingPriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="lZw-Wb-XSZ">
                                                                                     <rect key="frame" x="-2" y="3" width="143" height="16"/>
@@ -8905,7 +8939,7 @@ Affinity (Kd):</string>
                                                                             </customSpacing>
                                                                         </stackView>
                                                                         <stackView distribution="fill" orientation="horizontal" alignment="firstBaseline" horizontalStackHuggingPriority="250" verticalStackHuggingPriority="750" detachesHiddenViews="YES" translatesAutoresizingMaskIntoConstraints="NO" id="wSB-eT-8qF">
-                                                                            <rect key="frame" x="5" y="167" width="354" height="20"/>
+                                                                            <rect key="frame" x="5" y="125" width="354" height="20"/>
                                                                             <subviews>
                                                                                 <textField focusRingType="none" horizontalHuggingPriority="249" verticalHuggingPriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="rgR-04-XhZ">
                                                                                     <rect key="frame" x="-2" y="3" width="152" height="16"/>
@@ -8940,7 +8974,7 @@ Affinity (Kd):</string>
                                                                             </customSpacing>
                                                                         </stackView>
                                                                         <button horizontalHuggingPriority="249" verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="UUR-3G-kXx">
-                                                                            <rect key="frame" x="-2" y="135" width="368" height="32"/>
+                                                                            <rect key="frame" x="-2" y="93" width="368" height="32"/>
                                                                             <buttonCell key="cell" type="push" title="Calculate" bezelStyle="rounded" alignment="center" borderStyle="border" imageScaling="proportionallyDown" inset="2" id="1dd-Zg-JL2">
                                                                                 <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
                                                                                 <font key="font" metaFont="system"/>
@@ -8950,7 +8984,7 @@ Affinity (Kd):</string>
                                                                             </connections>
                                                                         </button>
                                                                         <textField focusRingType="none" horizontalHuggingPriority="249" verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="vg4-c8-uJw">
-                                                                            <rect key="frame" x="3" y="123" width="358" height="14"/>
+                                                                            <rect key="frame" x="3" y="81" width="358" height="14"/>
                                                                             <textFieldCell key="cell" controlSize="small" lineBreakMode="clipping" alignment="center" title="SR analysis output" id="UBo-pm-B5d">
                                                                                 <font key="font" metaFont="smallSystemBold"/>
                                                                                 <color key="textColor" name="labelColor" catalog="System" colorSpace="catalog"/>
@@ -8958,10 +8992,10 @@ Affinity (Kd):</string>
                                                                             </textFieldCell>
                                                                         </textField>
                                                                         <stackView distribution="fill" orientation="horizontal" alignment="top" spacing="0.0" horizontalStackHuggingPriority="249.99998474121094" verticalStackHuggingPriority="249.99998474121094" verticalHuggingPriority="750" detachesHiddenViews="YES" translatesAutoresizingMaskIntoConstraints="NO" id="lyR-pH-Y4V">
-                                                                            <rect key="frame" x="5" y="0.0" width="354" height="118"/>
+                                                                            <rect key="frame" x="5" y="0.0" width="354" height="76"/>
                                                                             <subviews>
                                                                                 <textField focusRingType="none" horizontalHuggingPriority="251" verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="jXX-RX-zMP">
-                                                                                    <rect key="frame" x="-2" y="48" width="132" height="70"/>
+                                                                                    <rect key="frame" x="-2" y="6" width="132" height="70"/>
                                                                                     <textFieldCell key="cell" controlSize="small" selectable="YES" alignment="left" id="mYw-vf-TEj">
                                                                                         <font key="font" metaFont="smallSystem"/>
                                                                                         <string key="title">Structure Mode:
@@ -8974,7 +9008,7 @@ Structuring (R-value):</string>
                                                                                     </textFieldCell>
                                                                                 </textField>
                                                                                 <textField focusRingType="none" horizontalHuggingPriority="249" horizontalCompressionResistancePriority="250" translatesAutoresizingMaskIntoConstraints="NO" id="vao-M8-ndw">
-                                                                                    <rect key="frame" x="126" y="48" width="230" height="70"/>
+                                                                                    <rect key="frame" x="126" y="6" width="230" height="70"/>
                                                                                     <textFieldCell key="cell" controlSize="small" selectable="YES" alignment="right" id="6k8-tV-fil">
                                                                                         <font key="font" metaFont="smallSystem"/>
                                                                                         <string key="title">---
@@ -9052,19 +9086,20 @@ Structuring (R-value):</string>
                                                                     <rect key="frame" x="5" y="296" width="354" height="5"/>
                                                                 </box>
                                                                 <textField focusRingType="none" verticalHuggingPriority="750" horizontalCompressionResistancePriority="250" translatesAutoresizingMaskIntoConstraints="NO" id="qAn-an-Osw">
-                                                                    <rect key="frame" x="3" y="209" width="358" height="84"/>
-                                                                    <textFieldCell key="cell" alignment="left" id="ELJ-1W-6rL">
+                                                                    <rect key="frame" x="3" y="167" width="358" height="126"/>
+                                                                    <textFieldCell key="cell" alignment="justified" id="ELJ-1W-6rL">
                                                                         <font key="font" metaFont="smallSystem"/>
-                                                                        <string key="title">The ionic strength dependence of a protein-protein interaction affinity provides insight into the electrostatic interactions between the molecules, including their effective charges and sizes. This information is important for understanding the mechanisms of protein-protein interactions and designing strategies to modulate or disrupt them.</string>
+                                                                        <string key="title">Salt/ionic-strength dependence of affinity is a standard way to probe electrostatic contributions to binding, because increasing ionic strength screens charge–charge interactions (Debye–Hückel-type screening), changing affinity in a predictable manner for many systems (Zhou and Pang, Chem. Rev. 2019).
+A complementary mechanistic interpretation uses counterion release/uptake: the slope of log K vs log [salt] can be used to estimate the thermodynamic extent of ion release associated with complex formation (Mascotti and Lohman, PNAS 1990).</string>
                                                                         <color key="textColor" name="labelColor" catalog="System" colorSpace="catalog"/>
                                                                         <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
                                                                     </textFieldCell>
                                                                 </textField>
                                                                 <box verticalHuggingPriority="750" boxType="separator" translatesAutoresizingMaskIntoConstraints="NO" id="QxR-5b-EdK">
-                                                                    <rect key="frame" x="5" y="201" width="354" height="5"/>
+                                                                    <rect key="frame" x="5" y="159" width="354" height="5"/>
                                                                 </box>
                                                                 <stackView distribution="fill" orientation="horizontal" alignment="firstBaseline" horizontalStackHuggingPriority="250" verticalStackHuggingPriority="750" detachesHiddenViews="YES" translatesAutoresizingMaskIntoConstraints="NO" id="n7k-SF-LYp">
-                                                                    <rect key="frame" x="5" y="178" width="354" height="20"/>
+                                                                    <rect key="frame" x="5" y="136" width="354" height="20"/>
                                                                     <subviews>
                                                                         <textField focusRingType="none" horizontalHuggingPriority="249" verticalHuggingPriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="J3A-JO-FTu">
                                                                             <rect key="frame" x="-2" y="3" width="120" height="16"/>
@@ -9098,7 +9133,7 @@ Structuring (R-value):</string>
                                                                     </customSpacing>
                                                                 </stackView>
                                                                 <button horizontalHuggingPriority="249" verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="QbD-wq-2f3">
-                                                                    <rect key="frame" x="-2" y="146" width="368" height="32"/>
+                                                                    <rect key="frame" x="-2" y="104" width="368" height="32"/>
                                                                     <buttonCell key="cell" type="push" title="Calculate" bezelStyle="rounded" alignment="center" borderStyle="border" imageScaling="proportionallyDown" inset="2" id="4QL-CN-Mvf">
                                                                         <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
                                                                         <font key="font" metaFont="system"/>
@@ -9108,7 +9143,7 @@ Structuring (R-value):</string>
                                                                     </connections>
                                                                 </button>
                                                                 <textField focusRingType="none" horizontalHuggingPriority="249" verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="eAi-Iz-pwb">
-                                                                    <rect key="frame" x="3" y="134" width="358" height="14"/>
+                                                                    <rect key="frame" x="3" y="92" width="358" height="14"/>
                                                                     <textFieldCell key="cell" controlSize="small" lineBreakMode="clipping" alignment="center" title="Ionic strength analysis output" id="6Or-AD-s6m">
                                                                         <font key="font" metaFont="smallSystemBold"/>
                                                                         <color key="textColor" name="labelColor" catalog="System" colorSpace="catalog"/>
@@ -9116,10 +9151,10 @@ Structuring (R-value):</string>
                                                                     </textFieldCell>
                                                                 </textField>
                                                                 <stackView distribution="fill" orientation="horizontal" alignment="top" spacing="0.0" horizontalStackHuggingPriority="249.99998474121094" verticalStackHuggingPriority="249.99998474121094" verticalHuggingPriority="750" detachesHiddenViews="YES" translatesAutoresizingMaskIntoConstraints="NO" id="q2I-Ab-Tvy">
-                                                                    <rect key="frame" x="5" y="0.0" width="354" height="129"/>
+                                                                    <rect key="frame" x="5" y="0.0" width="354" height="87"/>
                                                                     <subviews>
                                                                         <textField focusRingType="none" horizontalHuggingPriority="251" verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="iGC-sY-pHL">
-                                                                            <rect key="frame" x="-2" y="87" width="180" height="42"/>
+                                                                            <rect key="frame" x="-2" y="45" width="180" height="42"/>
                                                                             <textFieldCell key="cell" controlSize="small" selectable="YES" alignment="left" allowsEditingTextAttributes="YES" id="ce0-Mn-0Va">
                                                                                 <font key="font" metaFont="smallSystem"/>
                                                                                 <string key="title">Kd with no salt:
@@ -9130,7 +9165,7 @@ Electrostatic interaction strength:</string>
                                                                             </textFieldCell>
                                                                         </textField>
                                                                         <textField focusRingType="none" horizontalHuggingPriority="249" horizontalCompressionResistancePriority="250" translatesAutoresizingMaskIntoConstraints="NO" id="pfo-19-XPn">
-                                                                            <rect key="frame" x="174" y="87" width="182" height="42"/>
+                                                                            <rect key="frame" x="174" y="45" width="182" height="42"/>
                                                                             <textFieldCell key="cell" controlSize="small" selectable="YES" alignment="right" id="hPU-2W-Eei">
                                                                                 <font key="font" metaFont="smallSystem"/>
                                                                                 <string key="title">---
@@ -9203,9 +9238,10 @@ Electrostatic interaction strength:</string>
                                                                 </box>
                                                                 <textField focusRingType="none" verticalHuggingPriority="750" horizontalCompressionResistancePriority="250" translatesAutoresizingMaskIntoConstraints="NO" id="xFW-Uq-U0N">
                                                                     <rect key="frame" x="3" y="153" width="358" height="140"/>
-                                                                    <textFieldCell key="cell" alignment="left" id="edf-1Y-fTA">
+                                                                    <textFieldCell key="cell" alignment="justified" id="edf-1Y-fTA">
                                                                         <font key="font" metaFont="smallSystem"/>
-                                                                        <string key="title">Performing ITC experiments with buffers of known protonation enthalpies enables precise quantification of proton transfer in molecular interactions. Proton transfer is crucial for binding processes, and understanding its significance requires unraveling the underlying mechanisms. By using buffers with varying protonation enthalpies, the extent of proton transfer can be determined from the slope of the observed association enthalpy versus buffer protonation enthalpy. This slope directly quantifies the number of protons transferred, offering a valuable measure of this pivotal event.</string>
+                                                                        <string key="title">Running ITC in buffers with different, known buffer ionization (protonation) enthalpies enables quantification of net proton uptake/release coupled to binding: plotting observed binding enthalpy vs buffer ionization enthalpy yields a line whose slope corresponds to the number of protons exchanged, while the intercept gives the buffer-corrected (intrinsic) binding enthalpy.
+This approach is a standard part of ITC thermodynamic interpretation in biomolecular recognition and is commonly discussed in foundational ITC methodology reviews (Vatheuer et al. ChemMedChem 2025).</string>
                                                                         <color key="textColor" name="labelColor" catalog="System" colorSpace="catalog"/>
                                                                         <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
                                                                     </textFieldCell>
@@ -9235,17 +9271,17 @@ Electrostatic interaction strength:</string>
                                                                     <rect key="frame" x="5" y="0.0" width="354" height="98"/>
                                                                     <subviews>
                                                                         <textField focusRingType="none" horizontalHuggingPriority="251" verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="FmC-HQ-SfI">
-                                                                            <rect key="frame" x="-2" y="70" width="159" height="28"/>
+                                                                            <rect key="frame" x="-2" y="70" width="175" height="28"/>
                                                                             <textFieldCell key="cell" controlSize="small" selectable="YES" alignment="left" allowsEditingTextAttributes="YES" id="Qkc-Cm-0HD">
                                                                                 <font key="font" metaFont="smallSystem"/>
                                                                                 <string key="title">Protein proton change:
-∆H at 0 protonation enthalpy:</string>
+∆H at zero protonation enthalpy:</string>
                                                                                 <color key="textColor" name="labelColor" catalog="System" colorSpace="catalog"/>
                                                                                 <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
                                                                             </textFieldCell>
                                                                         </textField>
                                                                         <textField focusRingType="none" horizontalHuggingPriority="249" horizontalCompressionResistancePriority="250" translatesAutoresizingMaskIntoConstraints="NO" id="rdK-3I-e8A">
-                                                                            <rect key="frame" x="153" y="70" width="203" height="28"/>
+                                                                            <rect key="frame" x="169" y="70" width="187" height="28"/>
                                                                             <textFieldCell key="cell" controlSize="small" selectable="YES" alignment="right" id="OzU-DH-bOf">
                                                                                 <font key="font" metaFont="smallSystem"/>
                                                                                 <string key="title">---

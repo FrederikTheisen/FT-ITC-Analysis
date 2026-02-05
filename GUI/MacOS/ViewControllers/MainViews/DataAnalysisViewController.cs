@@ -248,9 +248,9 @@ namespace AnalysisITC
             }
         }
 
-        partial void FitSimplex(NSObject sender) => Fit2(SolverAlgorithm.NelderMead);
-        partial void FitLM(NSObject sender) => Fit2(SolverAlgorithm.LevenbergMarquardt);
-        void Fit2(SolverAlgorithm algorithm)
+        partial void FitSimplex(NSObject sender) => Fit2();
+        partial void FitLM(NSObject sender) => Fit2();
+        void Fit2()
         {
             try
             {
@@ -263,7 +263,7 @@ namespace AnalysisITC
                 ModelFactory.Factory.BuildModel();
 
                 var solver = SolverInterface.Initialize(ModelFactory.Factory);
-                solver.SolverAlgorithm = algorithm;
+                solver.SolverAlgorithm = FittingOptionsController.Algorithm;
                 solver.ErrorEstimationMethod = FittingOptionsController.ErrorEstimationMethod;
                 solver.BootstrapIterations = FittingOptionsController.BootstrapIterations;
 

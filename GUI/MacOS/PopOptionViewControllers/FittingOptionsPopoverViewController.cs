@@ -26,6 +26,8 @@ namespace AnalysisITC
         {
             base.ViewWillAppear();
 
+            SolverAlgorithmControl.SelectSegment((int)FittingOptionsController.Algorithm);
+
             ErrorIterationsControl.DoubleValue = Math.Log10(FittingOptionsController.BootstrapIterations);
             ErrorIterationLabel.IntValue = (int)Math.Pow(10, ErrorIterationsControl.DoubleValue);
             if (!FittingOptionsController.IncludeConcentrationVariance) IncludeConcErrorControl.SelectedSegment = 0;
@@ -46,7 +48,7 @@ namespace AnalysisITC
 
                 OptionControls.Add(sv);
 
-                StackView.InsertArrangedSubview(sv, 10);
+                StackView.InsertArrangedSubview(sv, 11);
             }
 
             foreach (var par in ModelFactory.Factory.GetExposedParameters().Reverse())
@@ -57,7 +59,7 @@ namespace AnalysisITC
 
                 ParameterControls.Add(sv);
 
-                StackView.InsertArrangedSubview(sv, 8);
+                StackView.InsertArrangedSubview(sv, 9);
             }
 
             if (ModelFactory.Factory.GetExposedParameters() == null || ModelFactory.Factory.GetExposedParameters().Count() == 0)
@@ -88,6 +90,7 @@ namespace AnalysisITC
                 FittingOptionsController.BootstrapIterations = (int)Math.Pow(10, ErrorIterationsControl.DoubleValue);
                 FittingOptionsController.IncludeConcentrationVariance = IncludeConcErrorControl.SelectedSegment > 0;
                 FittingOptionsController.EnableAutoConcentrationVariance = IncludeConcErrorControl.SelectedSegment == 2;
+                FittingOptionsController.Algorithm = (SolverAlgorithm)(int)SolverAlgorithmControl.SelectedSegment;
 
                 foreach (var sv in ParameterControls)
                 {
