@@ -44,10 +44,7 @@ Releases are intended to be **Developer ID–signed and notarized** to reduce Ga
 
 This repository contains (or should contain) a `CITATION.cff` file to tell others how to cite the software.
 
-Recommended approach for a stable, citable reference:
-1. Create a GitHub Release for each public version.
-2. Enable Zenodo’s GitHub integration for this repository so each release is archived and assigned a DOI.
-3. Update `CITATION.cff` with the DOI (and later, when you publish a short software note, add it as a preferred citation).
+TODO Create a GitHub Release for each public version.
 
 ## Contributing
 
