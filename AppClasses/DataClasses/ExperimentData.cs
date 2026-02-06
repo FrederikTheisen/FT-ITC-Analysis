@@ -313,23 +313,6 @@ namespace AnalysisITC
                 .ToDictionary(g => g.Key, g => g.First()) ?? new Dictionary<int, TandemExperimentSegment>();
         }
 
-        // This returns the correct “Qprev state” for injection index/id i
-        public (double CellConc, double TitrantConc) GetReferencePreStateConcentrations(int i)
-        {
-            EnsureSegmentStartLookup();
-
-            // Segment boundary override
-            if (_segmentStartLookup.TryGetValue(i, out var seg))
-                return (seg.SegmentInitialActiveCellConc, seg.SegmentInitialActiveTitrantConc);
-
-            // Normal experiment start
-            if (i <= 0)
-                return (CellConcentration.Value, 0.0);
-
-            // Normal within-segment case: previous injection post-state
-            var prev = Injections[i - 1];
-            return (prev.ActualCellConcentration, prev.ActualTitrantConcentration);
-        }
 
         // Call this after loading / after you assign SegmentStarts
         public void InvalidateSegmentLookup()
