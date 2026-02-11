@@ -112,6 +112,7 @@ namespace AnalysisITC
             PeakInfoScopeButton.State = AnalysisGraphView.ShowPeakInfo ? NSCellStateValue.On : NSCellStateValue.Off;
             ParametersScopeButton.State = AnalysisGraphView.ShowFitParameters ? NSCellStateValue.On : NSCellStateValue.Off;
             AxesScopeButton.State = AnalysisGraphView.UseUnifiedAxes ? NSCellStateValue.On : NSCellStateValue.Off;
+            ShowResidualGraphButton.State = AnalysisGraphView.ShowResidualGraph ? NSCellStateValue.On : NSCellStateValue.Off;
             GraphView.Initialize(DataManager.Current);
         }
 
