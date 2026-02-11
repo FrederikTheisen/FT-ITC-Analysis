@@ -14,8 +14,8 @@ using static AnalysisITC.AppClasses.Analysis2.Models.SolutionInterface;
 
 namespace AnalysisITC
 {
-	public partial class FinalFigureGraphView : NSView
-	{
+    public partial class FinalFigureGraphView : NSView
+    {
         public static event EventHandler Invalidated;
         public static event EventHandler PlotSizeChanged;
 
@@ -92,6 +92,8 @@ namespace AnalysisITC
         public static float SymbolSize { get; set; } = CGGraph.SymbolSize;
         public static int SymbolShape { get; set; } = 0;
         public static bool ShowResiduals { get; set; } = false;
+        public static bool GapResidualGraph { get; set; } = false;
+        public static bool MirrorDataGraphAxisUnification { get; set; } = false;
 
         public static bool UnifiedPowerAxis { get; set; } = false;
         public static bool DrawBaseline { get; set; } = false;
@@ -155,7 +157,7 @@ namespace AnalysisITC
                 SymbolShape = (CGGraph.SymbolShape)SymbolShape,
                 SymbolSize = SymbolSize,
                 ShowResiduals = ShowResiduals,
-                
+                IncludeResidualGraphGap = GapResidualGraph,
             };
 
             _graph.SetTimeUnit(TimeAxisUnit);
@@ -241,6 +243,7 @@ namespace AnalysisITC
                 SymbolShape = (CGGraph.SymbolShape)SymbolShape,
                 SymbolSize = SymbolSize,
                 ShowResiduals = ShowResiduals,
+                IncludeResidualGraphGap = GapResidualGraph,
             };
 
             graph.SetTimeUnit(TimeAxisUnit);

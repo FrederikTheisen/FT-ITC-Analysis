@@ -28,6 +28,18 @@ namespace AnalysisITC
 
         #region Properties
 
+        public bool MirrorDataGraphAxisUnification
+        {
+            get => IntegrationGraph.ResidualDisplayOptions.GapGraphs;
+            set => IntegrationGraph.ResidualDisplayOptions.GapGraphs = value;
+        }
+
+        public bool IncludeResidualGraphGap
+        {
+            get => IntegrationGraph.ResidualDisplayOptions.GapGraphs;
+            set => IntegrationGraph.ResidualDisplayOptions.GapGraphs = value;
+        }
+
         public bool ShowResiduals
         {
             get => IntegrationGraph.ResidualDisplayOptions.ShowResidualGraph;
@@ -204,7 +216,8 @@ namespace AnalysisITC
             };
             IntegrationGraph.YAxis.MirrorTicks = true;
             IntegrationGraph.XAxis.MirrorTicks = true;
-            IntegrationGraph.ResidualDisplayOptions.GapGraphs = false;
+            IntegrationGraph.ResidualDisplayOptions.GapGraphs = true;
+            IntegrationGraph.ResidualGraph.MirrorAxisUnification = MirrorDataGraphAxisUnification;
         }
 
         public void SetupFrames(nfloat width, nfloat height)

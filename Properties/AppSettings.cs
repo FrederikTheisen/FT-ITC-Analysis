@@ -54,6 +54,9 @@ namespace AnalysisITC
         public static DisplayAttributeOptions DisplayAttributeOptions { get; set; } = DisplayAttributeOptions.Default;
         public static bool FinalFigureShowParameterBoxAsDefault { get; set; } = true;
         public static NumberPrecision NumberPrecision { get; set; } = NumberPrecision.Standard;
+        public static bool ShowResidualGraph { get; set; } = true;
+        public static bool ShowResidualGraphGap { get; set; } = false;
+        public static bool UnifyResidualGraphAxis { get; set; } = false;
 
         //Export
         public static bool UnifyTimeAxisForExport { get; set; } = true;
@@ -108,6 +111,10 @@ namespace AnalysisITC
             Storage.SetBool(IncludeBufferInIonicStrengthCalc, "IncludeBufferInIonicStrengthCalc");
             Storage.SetInt((int)DisplayAttributeOptions, "DisplayAttributeOptions");
             Storage.SetInt((int)ExportColumns, "ExportColumns");
+            Storage.SetBool(ShowResidualGraph, "ShowResidualGraph");
+            Storage.SetBool(ShowResidualGraphGap, "ShowResidualGraphGap");
+            Storage.SetBool(UnifyResidualGraphAxis, "UnifyResidualGraphAxis");
+
 
             StoreArray(FinalFigureDimensions, "FinalFigureDimensions");
 
@@ -156,6 +163,9 @@ namespace AnalysisITC
             IncludeBufferInIonicStrengthCalc = GetBool(dict, "IncludeBufferInIonicStrengthCalc", IncludeBufferInIonicStrengthCalc);
             DisplayAttributeOptions = (DisplayAttributeOptions)GetInt(dict, "DisplayAttributeOptions", (int)DisplayAttributeOptions);
             ExportColumns = (ExportColumns)GetInt(dict, "ExportColumns", (int)ExportColumns.Default);
+            ShowResidualGraph = GetBool(dict, "ShowResidualGraph", ShowResidualGraph);
+            ShowResidualGraphGap = GetBool(dict, "ShowResidualGraphGap", ShowResidualGraphGap);
+            UnifyResidualGraphAxis = GetBool(dict, "UnifyResidualGraphAxis", UnifyResidualGraphAxis);
 
             ApplySettings();
 
@@ -262,6 +272,9 @@ namespace AnalysisITC
             FinalFigureGraphView.Width = (float)FinalFigureDimensions[0];
             FinalFigureGraphView.Height = (float)FinalFigureDimensions[1];
             FinalFigureGraphView.DrawFitParameters = FinalFigureShowParameterBoxAsDefault;
+            FinalFigureGraphView.ShowResiduals = ShowResidualGraph;
+            FinalFigureGraphView.GapResidualGraph = ShowResidualGraphGap;
+            FinalFigureGraphView.MirrorDataGraphAxisUnification = UnifyResidualGraphAxis;
         }
     }
 

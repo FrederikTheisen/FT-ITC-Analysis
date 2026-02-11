@@ -37,6 +37,9 @@ namespace AnalysisITC
 		AppKit.NSTextField FinalFigWidthField { get; set; }
 
 		[Outlet]
+		AppKit.NSSegmentedControl ResidualPlotSettingsControl { get; set; }
+
+		[Outlet]
 		AppKit.NSButton ShowParameterAsDefaultCheck { get; set; }
 
 		[Outlet]
@@ -62,6 +65,11 @@ namespace AnalysisITC
 		
 		void ReleaseDesignerOutlets ()
 		{
+			if (ExportDataColumnControl != null) {
+				ExportDataColumnControl.Dispose ();
+				ExportDataColumnControl = null;
+			}
+
 			if (ExportSelectedControl != null) {
 				ExportSelectedControl.Dispose ();
 				ExportSelectedControl = null;
@@ -92,11 +100,6 @@ namespace AnalysisITC
 				FinalFigureValueRoundingPrecision = null;
 			}
 
-			if (ExportDataColumnControl != null) {
-				ExportDataColumnControl.Dispose ();
-				ExportDataColumnControl = null;
-			}
-
 			if (FinalFigWidthField != null) {
 				FinalFigWidthField.Dispose ();
 				FinalFigWidthField = null;
@@ -110,6 +113,11 @@ namespace AnalysisITC
 			if (UnifyAxesControl != null) {
 				UnifyAxesControl.Dispose ();
 				UnifyAxesControl = null;
+			}
+
+			if (ResidualPlotSettingsControl != null) {
+				ResidualPlotSettingsControl.Dispose ();
+				ResidualPlotSettingsControl = null;
 			}
 		}
 	}

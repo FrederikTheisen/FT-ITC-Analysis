@@ -37,6 +37,9 @@ namespace AnalysisITC
             FinalFigHeightField.StringValue = AppSettings.FinalFigureDimensions[1].ToString();
             FinalFigWidthField.StringValue = AppSettings.FinalFigureDimensions[0].ToString();
 
+            ResidualPlotSettingsControl.SetSelected(AppSettings.ShowResidualGraph, 0);
+            ResidualPlotSettingsControl.SetSelected(AppSettings.ShowResidualGraphGap, 1);
+            ResidualPlotSettingsControl.SetSelected(AppSettings.UnifyResidualGraphAxis, 2);
 
             FinalFigParameterDisplayOptions.SetSelected(AppSettings.FinalFigureParameterDisplay.HasFlag(FinalFigureDisplayParameters.Model), 0);
             FinalFigParameterDisplayOptions.SetSelected(AppSettings.FinalFigureParameterDisplay.HasFlag(FinalFigureDisplayParameters.Fitted), 1);
@@ -83,6 +86,10 @@ namespace AnalysisITC
                 if (FinalFigAttributeDisplay.IsSelectedForSegment(4)) AppSettings.DisplayAttributeOptions |= DisplayAttributeOptions.ProtonationEnthalpy;
                 if (FinalFigAttributeDisplay.IsSelectedForSegment(5)) AppSettings.DisplayAttributeOptions |= DisplayAttributeOptions.Competitor;
             }
+
+            AppSettings.ShowResidualGraph = ResidualPlotSettingsControl.IsSelectedForSegment(0);
+            AppSettings.ShowResidualGraphGap = ResidualPlotSettingsControl.IsSelectedForSegment(1);
+            AppSettings.UnifyResidualGraphAxis = ResidualPlotSettingsControl.IsSelectedForSegment(2);
         }
 
         partial void Apply(NSObject sender)

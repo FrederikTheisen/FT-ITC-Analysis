@@ -1131,25 +1131,11 @@ namespace AnalysisITC
     }
 
     public class ThermogramGraph : CGGraph
-    {
-        private bool _useUnifiedAxes = false;
-        private bool _useUnifiedEnthalpyAxis = false;
-        private bool _focusvaliddata = false;
+    { 
         protected int mDownID = -1;
         protected int mOverFeature = -1;
 
-        public bool ShowPeakInfo { get; set; } = true;
-        public bool ShowErrorBars { get; set; } = true;
-        public bool HideBadData { get; set; } = false;
-        public bool HideBadDataErrorBars { get; set; } = true;
-        public SymbolShape InjectionSymbolShape { get; set; } = SymbolShape.Square;
         public static CGSize ErrorBarEndWidth => new CGSize(CGGraph.SymbolSize / 2, 0);
-        public bool ShowGrid { get; set; } = true;
-        public bool ShowZero { get; set; } = true;
-
-        public bool UnifiedMolarRatioAxis { get => _useUnifiedAxes; set { _useUnifiedAxes = value; SetupAxes(); } }
-        public bool UnifiedEnthalpyAxis { get => _useUnifiedEnthalpyAxis; set { _useUnifiedEnthalpyAxis = value; SetupAxes(); } }
-        public bool FocusValidData { get => _focusvaliddata; set { _focusvaliddata = value; SetupAxes(); } }
 
         public ThermogramGraph(ExperimentData experiment, NSView view) : base(experiment, view)
         {
@@ -1211,16 +1197,31 @@ namespace AnalysisITC
 
     public class DataFittingGraph : ThermogramGraph
     {
+        private bool _useUnifiedAxes = false;
+        private bool _useUnifiedEnthalpyAxis = false;
+        private bool _focusvaliddata = false;
+
         public bool DrawConfidenceBands { get; set; } = true;
         public bool ShowFitParameters { get; set; } = true;
         public int ParameterFontSize { get; set; } = 24;
         public bool DrawWithOffset { get; set; } = true;
+        public bool ShowGrid { get; set; } = true;
+        public bool ShowZero { get; set; } = true;
+        public bool ShowPeakInfo { get; set; } = true;
+        public bool ShowErrorBars { get; set; } = true;
+        public bool HideBadData { get; set; } = false;
+        public bool HideBadDataErrorBars { get; set; } = true;
+        public SymbolShape InjectionSymbolShape { get; set; } = SymbolShape.Square;
 
         public FinalFigureDisplayParameters FinalFigureDisplayParameters { get; set; } = FinalFigureDisplayParameters.All;
         public FinalFigureDisplayParameters AnalysisDisplayParameters { get; set; } = FinalFigureDisplayParameters.AnalysisView;
 
         public ResidualGraph ResidualGraph { get; set; }
         public ResidualGraphOptions ResidualDisplayOptions { get; private set; }
+
+        public bool UnifiedMolarRatioAxis { get => _useUnifiedAxes; set { _useUnifiedAxes = value; SetupAxes(); } }
+        public bool UnifiedEnthalpyAxis { get => _useUnifiedEnthalpyAxis; set { _useUnifiedEnthalpyAxis = value; SetupAxes(); } }
+        public bool FocusValidData { get => _focusvaliddata; set { _focusvaliddata = value; SetupAxes(); } }
 
         public CGPoint GetCompositeOrigin()
         {
@@ -1592,6 +1593,8 @@ namespace AnalysisITC
     {
         DataFittingGraph DataFittingGraph { get; set; }
 
+        public bool MirrorAxisUnification { get; set; } = true;
+
         GraphAxis ParentXAxis => DataFittingGraph.XAxis;
         GraphAxis ParentYAxis => DataFittingGraph.YAxis;
 
@@ -1621,28 +1624,37 @@ namespace AnalysisITC
         {
             XAxis.Set(ParentXAxis.ActualMin, ParentXAxis.Max);
 
-            if (ExperimentData.Solution != null)
-            {
-                var res = new List<double>();
+            var list = new List<ExperimentData>();
 
-                foreach (var inj in ExperimentData.Injections.Where(inj => inj.Include))
+            if (DataFittingGraph.UnifiedEnthalpyAxis && MirrorAxisUnification) list.AddRange(DataManager.IncludedData);
+            else list.Add(ExperimentData);
+
+            var max = GetMaxResiduals(list);
+
+            YAxis.Set(-max, max);
+        }
+
+        double GetMaxResiduals(IEnumerable<ExperimentData> data)
+        {
+            var res = new List<double>();
+
+            foreach (var dat in data)
+            {
+                if (dat.Solution != null)
                 {
-                    var inj_v = Math.Abs(inj.ResidualEnthalpy);
-                    var inj_min = Math.Abs(inj_v - inj.SD);
-                    var inj_max = Math.Abs(inj_v + inj.SD);
-                    res.Add(Math.Max(inj_v, Math.Min(inj_min, inj_max)));
+                    foreach (var inj in dat.Injections.Where(inj => inj.Include))
+                    {
+                        var inj_v = Math.Abs(inj.ResidualEnthalpy);
+                        var inj_min = Math.Abs(inj_v - inj.SD);
+                        var inj_max = Math.Abs(inj_v + inj.SD);
+                        if (DataFittingGraph.ShowErrorBars) res.Add(Math.Max(inj_v, Math.Min(inj_min, inj_max)));
+                        else res.Add(inj_v);
+                    }
                 }
-
-                var max = Math.Max(res.Max(v => Math.Abs(v)),1E-3);
-                var range = max * 1.5;
-
-                YAxis.Set(-range, range);
             }
-            else
-            {
-                // Set some aribtrary range since we cannot draw anything meaningful without a solution anyway
-                YAxis.Set(-1.1, 1.1);
-            }
+
+            if (res.Count > 0) return 1.5 * Math.Max(res.Max(v => Math.Abs(v)), 1E-3);
+            else return 1100;
         }
 
         public override void PrepareDraw(CGContext gc, CGPoint center)

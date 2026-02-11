@@ -13,6 +13,9 @@ namespace AnalysisITC
 	partial class FitGraphOptionPopoverViewController
 	{
 		[Outlet]
+		AppKit.NSButton AddGapToResidualPlot { get; set; }
+
+		[Outlet]
 		AppKit.NSButton BadDataErrorBars { get; set; }
 
 		[Outlet]
@@ -91,11 +94,6 @@ namespace AnalysisITC
 				DrawFitParameters = null;
 			}
 
-			if (ShowResiduals != null) {
-				ShowResiduals.Dispose ();
-				ShowResiduals = null;
-			}
-
 			if (DrawZeroLine != null) {
 				DrawZeroLine.Dispose ();
 				DrawZeroLine = null;
@@ -114,6 +112,16 @@ namespace AnalysisITC
 			if (MolarRatioAxisTitleLabel != null) {
 				MolarRatioAxisTitleLabel.Dispose ();
 				MolarRatioAxisTitleLabel = null;
+			}
+
+			if (ShowResiduals != null) {
+				ShowResiduals.Dispose ();
+				ShowResiduals = null;
+			}
+
+			if (AddGapToResidualPlot != null) {
+				AddGapToResidualPlot.Dispose ();
+				AddGapToResidualPlot = null;
 			}
 
 			if (SymbolControl != null) {
