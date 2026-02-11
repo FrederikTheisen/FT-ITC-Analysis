@@ -20,6 +20,18 @@ namespace AnalysisITC.AppClasses.Analysis2
 		public bool ShouldFitIndividually => !Parameters.RequiresGlobalFitting;
 		public AnalysisModel ModelType => Models.First().ModelType;
 
+		public int GetNumberOfPoints()
+		{
+			var m = 0;
+
+			foreach (var model in Models)
+			{
+				m += model.NumberOfPoints;
+			}
+
+			return m;
+		}
+
         public GlobalModel()
 		{
 			Parameters = new GlobalModelParameters();
@@ -49,6 +61,32 @@ namespace AnalysisITC.AppClasses.Analysis2
             Parameters.UpdateFromArray(parameters);
 
 			return Loss();
+		}
+
+		public double[] LossFunctionResiduals(double[] parameters)
+		{
+            // If the Nelder–Mead cancellation token has been signalled then abort immediately. This mirrors the
+            // behaviour of LossFunction() and prevents unnecessary work when a cancellation is requested.
+            if (SolverInterface.NelderMeadToken != null && SolverInterface.NelderMeadToken.IsCancellationRequested)
+                throw new OptimizerStopException();
+
+            // Update the global parameter table from the incoming parameter array. Without this update, the
+            // residuals would be calculated at the previous parameter values, causing the LM solver to stop with
+            // zero step size on the first iteration.
+            Parameters.UpdateFromArray(parameters);
+
+            // Preallocate the result list with the total number of residuals across all models for efficiency.
+            var res = new List<double>(GetNumberOfPoints());
+
+            // Compute residuals model-by-model using the updated global parameter set.
+            foreach (var model in Models)
+			{
+				var par = Parameters.GetParametersForModel(this, model).GetFittedParameterArray();
+
+				res.AddRange(model.LossFunctionResiduals(par));
+			}
+
+			return res.ToArray();
 		}
 
 		public double Loss()

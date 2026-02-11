@@ -20,6 +20,7 @@ namespace AnalysisITC.AppClasses.Analysis2.Models
         public SolutionInterface Solution { get; set; }
 
         public int NumberOfParameters => Parameters.FittingParameterCount;
+        public int NumberOfPoints => Data.Injections.Count(inj => inj.Include);
         public string ModelName => ModelType.ToString();
         bool DataHasSolution => Data.Solution != null;
         bool SolutionHasParameter(ParameterType key) => DataHasSolution ? Data.Solution.Parameters.ContainsKey(key) : false;
@@ -156,29 +157,62 @@ namespace AnalysisITC.AppClasses.Analysis2.Models
 
 		public double LossFunction(double[] parameters)
 		{
+            LossFunctionMisc(parameters);
+
+            double loss = 0;
+
+            foreach (var inj in Data.Injections.Where(i => i.Include))
+            {
+                var res = Residual(inj);
+                loss += res * res;
+            }
+
+            return loss;
+        }
+
+        public double[] LossFunctionResiduals(double[] parameters)
+        {
+            LossFunctionMisc(parameters);
+
+            double[] loss = new double[Data.Injections.Count(i => i.Include)];
+
+            int i = 0;
+            foreach (var inj in Data.Injections.Where(i => i.Include))
+            {
+                var res = Residual(inj);
+                loss[i] = res;
+
+                i++;
+            }
+
+            return loss;
+        }
+
+        void LossFunctionMisc(double[] parameters)
+        {
             BootstrappedEvaluationStorage = null; //kill this object if the fitting algorithm touches this
 
             //Only way to cancel the Simplex algorithm seems to be from the loss function
-            if (SolverInterface.TerminateAnalysisFlag.Up) throw new OptimizerStopException(); 
+            if (SolverInterface.TerminateAnalysisFlag.Up) throw new OptimizerStopException();
 
             Parameters.UpdateFromArray(parameters);
             ApplyModelOptions();
+        }
 
-            return Loss();
-		}
-
-		public virtual double Loss()
+		public double Loss()
 		{
 			double loss = 0;
 
 			foreach (var inj in Data.Injections.Where(i => i.Include))
 			{
-				var diff = Evaluate(inj.ID, withoffset: true) - inj.PeakArea;
-				loss += diff * diff;
+                var res = Residual(inj);
+                loss += res * res;
 			}
 
             return 1000000 * Math.Sqrt(loss / Data.Injections.Count(i => i.Include));
 		}
+
+        public double Residual(InjectionData inj) => inj.PeakArea - Evaluate(inj.ID, withoffset: true);
 
         public virtual Model GenerateSyntheticModel()
         {

@@ -40,8 +40,8 @@ namespace AnalysisITC
         public static double ConcentrationAutoVariance { get; set; } = 0.05;
         public static bool IsConcentrationAutoVarianceEnabled { get; set; } = ConcentrationAutoVariance > 0.001;
 
-        public static double OptimizerTolerance { get; set; } = double.Epsilon;
-        public static int MaximumOptimizerIterations { get; set; } = 300000;
+        public static double OptimizerTolerance { get; set; } = 0.5;
+        public static int MaximumOptimizerIterations { get; set; } = 2000;
         public static bool EnableExtendedParameterLimits { get; set; } = false;
         public static ParameterLimitSetting ParameterLimitSetting { get; set; } = ParameterLimitSetting.Standard;
 

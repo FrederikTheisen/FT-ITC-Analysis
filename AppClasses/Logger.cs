@@ -80,6 +80,13 @@ namespace AnalysisITC
 			Message = ex.Message;
         }
 
+		public HandledException(Severity level, string title, string message)
+		{
+			Level = level;
+			Title = title;
+			Message = message;
+		}
+
 		public enum Severity
 		{
 			Error,
@@ -89,7 +96,13 @@ namespace AnalysisITC
 	}
 
 	public class OptimizerStopException : Exception
-	{
+    {
+        public HandledException.Severity Level { get; } = HandledException.Severity.Warning;
+        public string Title { get; } = "Optimizer Was Stopped";
 
+        public OptimizerStopException() : base("The optimization was stopped by the user")
+		{
+
+        }
 	}
 }
