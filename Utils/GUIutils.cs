@@ -12,7 +12,7 @@ namespace Utilities
         private readonly double factor = 1;
         private double minPoint;
         private double maxPoint;
-        private double maxTicks = 10;
+        private int maxTicks = 10;
         private double tickSpacing;
         private double range;
         private double niceMin;
@@ -25,6 +25,8 @@ namespace Utilities
         public double UITickSpacing => tickSpacing;
         public double UINiceMin => niceMin;
         public double UINiceMax => niceMax;
+
+        public int MaxTicks => maxTicks;
 
         /**
          * Instantiates a new instance of the NiceScale class.
@@ -125,7 +127,7 @@ namespace Utilities
          *
          * @param maxTicks the maximum number of tick marks for the axis
          */
-        public void SetMaxTicks(double maxTicks)
+        public void SetMaxTicks(int maxTicks)
         {
             this.maxTicks = maxTicks;
             Calculate();
