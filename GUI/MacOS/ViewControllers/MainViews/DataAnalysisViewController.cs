@@ -127,23 +127,24 @@ namespace AnalysisITC
 
         private void AnalysisFinished(object sender, SolverConvergence e)
         {
-            StatusBarManager.StopIndeterminateProgress();
-            StatusBarManager.ClearAppStatus();
+            AppEventHandler.PrintAndLog("Analysis Ended: " + e.Message);
+            AppEventHandler.PrintAndLog(e.DetailedMessage);
+            AppEventHandler.PrintAndLog("Warning: " + e.Warning);
+            AppEventHandler.PrintAndLog("Stopped: " + e.Stopped);
+            AppEventHandler.PrintAndLog("Failed:  " + e.Failed);
 
-            if (e != null)
-            {
-                StatusBarManager.SetStatus(e.Iterations + " iterations, RMSD = " + e.Loss.ToString("G2"), 11000);
-                StatusBarManager.SetStatus(e.Message + " | " + e.Time.TotalMilliseconds + "ms", 6000);
-                StatusBarManager.SetStatus("Completed", 1500);
-            }
+            StatusBarManager.ClearAppStatus();
+            if (e.Success) StatusBarManager.SetStatus(e.Iterations + " iterations, RMSD = " + e.Loss.ToString("G2"), 11000);
+            StatusBarManager.SetStatus(e.Message + " | " + e.Time.TotalMilliseconds + "ms", 6000);
+            StatusBarManager.SetStatus("Analysis Finished", 1000);
 
             GraphView.Invalidate();
-
             ToggleFitButtons(true);
         }
 
         private void Analysis_BootstrapIterationFinished(object sender, Tuple<int, int, float> e)
         {
+            AppEventHandler.PrintAndLog("Bootstrap Iteration: " + e.Item1 + "/" + e.Item2);
             StatusBarManager.SetProgress(e.Item3);
             StatusBarManager.SetStatus("Bootstrapping...", 0, 2);
             StatusBarManager.SetSecondaryStatus(e.Item1 + "/" + e.Item2, 0);
@@ -278,7 +279,8 @@ namespace AnalysisITC
             {
                 AppEventHandler.DisplayHandledException(ex);
 
-                AnalysisFinished(null, null);
+                StatusBarManager.ClearAppStatus();
+                ToggleFitButtons(true);
             }
 
             //InitializeFactory();

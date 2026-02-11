@@ -84,6 +84,8 @@ namespace AnalysisITC
 
                 if (!simulate) CurrentState = nextstate;
 
+                StatusBarManager.Invalidate();
+
                 return valid;
             }
         }
@@ -99,6 +101,8 @@ namespace AnalysisITC
                 var valid = StateIsAvailable(nextstate);
 
                 if (!simulate) CurrentState = nextstate;
+
+                StatusBarManager.Invalidate();
 
                 return valid;
             }

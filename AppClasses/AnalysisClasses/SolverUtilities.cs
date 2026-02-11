@@ -5,18 +5,64 @@ using System.Linq;
 using Accord.Math.Optimization;
 using AnalysisITC.AppClasses.Analysis2;
 using static alglib;
+using System.Threading.Tasks;
 
 namespace AnalysisITC
 {
     public class SolverConvergence
     {
         public int Iterations { get; private set; } = 0;
-        public string Message { get; private set; } = "";
-        public TimeSpan Time { get; private set; } = new(0);
+        /// <summary>
+        /// A short, user friendly description of the solver outcome. This string is normalized
+        /// by <see cref="Normalize"/> to map solver-specific messages onto a unified set of
+        /// completion statuses (e.g. "Completed", "Stopped by user", "Reached iteration limit",
+        /// "Completed with warnings", "Failed").
+        /// </summary>
+        public string Message { get; set; } = string.Empty;
+        public TimeSpan Time { get; set; } = new(0);
         public TimeSpan BootstrapTime { get; private set; } = new(0);
         public double Loss { get; private set; } = 0;
-        public bool Failed { get; private set; } = false;
+        /// <summary>
+        /// Indicates that the solver hit an unrecoverable error. Note that a fit stopped by the
+        /// user or terminated due to reaching the maximum number of iterations is not considered
+        /// a failure. See <see cref="Stopped"/> and <see cref="MaxIterationsReached"/> for those
+        /// cases.
+        /// </summary>
+        public bool Failed { get; set; } = false;
+        /// <summary>
+        /// Indicates that the solver was cancelled by the user or externally. When true the fit
+        /// was aborted before completion; this flag always supersedes <see cref="Failed"/> and
+        /// <see cref="MaxIterationsReached"/>.
+        /// </summary>
+        public bool Stopped { get; set; } = false;
+        /// <summary>
+        /// Indicates that the solver reached its iteration or evaluation limit before
+        /// converging. This is not considered a fatal failure but should be surfaced to the
+        /// user as "Reached iteration limit".
+        /// </summary>
+        public bool MaxIterationsReached { get; set; } = false;
+        /// <summary>
+        /// Indicates that the fit completed successfully but some warnings occurred (e.g. during
+        /// bootstrapping some replicates failed). When true the user facing message will be
+        /// "Completed with warnings".
+        /// </summary>
+        public bool Warning { get; set; } = false;
+        /// <summary>
+        /// Stores the detailed solver or exception message prior to normalization. This is used
+        /// when generating the user friendly <see cref="Message"/> string. It may include the
+        /// description of the underlying termination code or an exception message. Do not show
+        /// this value directly to users.
+        /// </summary>
+        public string DetailedMessage { get; set; } = string.Empty;
+        /// <summary>
+        /// If the fit ended due to an exception then this property holds the root cause for
+        /// diagnostic logging. It is never shown directly to the user but may be passed to
+        /// <see cref="AppEventHandler.DisplayHandledException"/> for logging and alerting.
+        /// </summary>
+        public Exception RootCause { get; set; } = null;
         public SolverAlgorithm Algorithm { get; private set; }
+
+        public bool Success => (!Failed && !Stopped);
 
         public void SetBootstrapTime(TimeSpan time) => BootstrapTime = time;
         public void SetLoss(double loss) => Loss = loss;
@@ -29,31 +75,44 @@ namespace AnalysisITC
             Iterations = conv.Iterations;
             Message = conv.Message;
             Time = conv.Time;
-            Loss = 0;
+            Loss = conv.Loss;
 
             Failed = conv.Failed;
+            Stopped = conv.Stopped;
+            MaxIterationsReached = conv.MaxIterationsReached;
+            Warning = conv.Warning;
+            DetailedMessage = conv.DetailedMessage;
+            RootCause = conv.RootCause;
         }
 
         public SolverConvergence(NelderMead solver, double loss)
         {
             Algorithm = SolverAlgorithm.NelderMead;
             Iterations = solver.Convergence.Evaluations;
-            Message = solver.Status.ToString();
+            // Capture the raw status string as the detailed message. This will be
+            // normalized later by Normalize().
+            DetailedMessage = solver.Status != null ? solver.Status.ToString() : string.Empty;
+            Message = DetailedMessage;
             Time = DateTime.Now - solver.Convergence.StartTime;
             Loss = solver.Value;
-
-            Failed = solver.Status == NelderMeadStatus.Failure;
+            // Accord returns a Status that may indicate failure. Flag this for now; it will
+            // be normalised later. Typical statuses include Success, Failure, MaximumIterations,
+            // Stopped, etc.
+            Failed = solver.Status != null && solver.Status.Equals(NelderMeadStatus.Failure);
         }
 
         public SolverConvergence(minlmstate state, minlmreport rep, TimeSpan time, double loss)
         {
             Algorithm = SolverAlgorithm.LevenbergMarquardt;
             Iterations = rep.iterationscount;
-            Message = ((AlgLibTerminationCode)rep.terminationtype).GetEnumDescription();
+            // Store the description of the termination type as the detailed message. See
+            // AlgLibTerminationCode for descriptions. This will be normalised later.
+            DetailedMessage = ((AlgLibTerminationCode)rep.terminationtype).GetEnumDescription();
+            Message = DetailedMessage;
             Time = time;
             Loss = loss;
 
-            Failed = rep.terminationtype > 2;
+            //Failed = rep.terminationtype > 2;
         }
 
         //public SolverConvergence(MathNet.Numerics.Optimization.NonlinearMinimizationResult result, TimeSpan time, SolverAlgorithm algorithm)
@@ -84,7 +143,8 @@ namespace AnalysisITC
             {
                 Time = DateTime.Now - starttime,
                 Failed = true,
-                Message = "Fitting Failed",
+                DetailedMessage = "Fitting failed",
+                Message = "Failed",
             };
 
             return conv;
@@ -95,8 +155,10 @@ namespace AnalysisITC
             var conv = new SolverConvergence()
             {
                 Time = DateTime.Now - starttime,
-                Failed = true,
-                Message = "Fitting Stopped by User",
+                Stopped = true,
+                Failed = false,
+                DetailedMessage = "The optimization was stopped by the user",
+                Message = "Stopped by user",
             };
 
             return conv;
@@ -112,8 +174,166 @@ namespace AnalysisITC
                 BootstrapTime = btime,
                 Algorithm = algorithm,
                 Message = msg,
+                DetailedMessage = msg,
                 Failed = failed,
             };
+        }
+
+        /// <summary>
+        /// Builds a <see cref="SolverConvergence"/> from an exception and records the root cause.
+        /// The returned convergence represents either a failure or a user cancellation, and
+        /// contains a preliminary message that will be normalised by <see cref="Normalize"/>.
+        /// </summary>
+        /// <param name="ex">The exception thrown during analysis.</param>
+        /// <param name="starttime">The time when the analysis started.</param>
+        public static SolverConvergence FromException(Exception ex, DateTime starttime)
+        {
+            var conv = new SolverConvergence()
+            {
+                Time = DateTime.Now - starttime,
+                RootCause = ex,
+                Failed = false,
+                Stopped = false,
+                MaxIterationsReached = false,
+                Warning = false,
+            };
+
+            if (ex is AggregateException agg)
+            {
+                var flat = agg.Flatten().InnerExceptions;
+                // Look for any inner exception that represents a user cancellation. If found,
+                // classify this as a stopped fit; otherwise treat as a failure and use the
+                // first inner exception as the root cause.
+                var cancel = flat.FirstOrDefault(ix => ix is OptimizerStopException || ix is OperationCanceledException || ix is TaskCanceledException);
+                if (cancel != null)
+                {
+                    conv.Stopped = true;
+                    conv.Failed = false;
+                    conv.DetailedMessage = cancel.Message;
+                    conv.Message = cancel.Message;
+                    conv.RootCause = cancel;
+                }
+                else
+                {
+                    conv.Failed = true;
+                    // Choose the first inner exception as the root cause for logging
+                    var cause = flat.FirstOrDefault();
+                    if (cause != null)
+                    {
+                        conv.DetailedMessage = cause.Message;
+                        conv.Message = cause.Message;
+                        conv.RootCause = cause;
+                    }
+                    else
+                    {
+                        conv.DetailedMessage = ex.Message;
+                        conv.Message = ex.Message;
+                    }
+                }
+            }
+            else if (ex is OptimizerStopException || ex is OperationCanceledException || ex is TaskCanceledException)
+            {
+                conv.Stopped = true;
+                conv.Failed = false;
+                conv.DetailedMessage = ex.Message;
+                conv.Message = ex.Message;
+            }
+            else
+            {
+                conv.Failed = true;
+                conv.DetailedMessage = ex.Message;
+                conv.Message = ex.Message;
+            }
+
+            return conv;
+        }
+
+        /// <summary>
+        /// Examines the current convergence result and normalises its status and message to a
+        /// unified set of completion outcomes. After calling this method the <see cref="Message"/>
+        /// property will contain one of:
+        /// "Completed", "Completed with warnings", "Stopped by user",
+        /// "Reached iteration limit", or a failure message. It will also adjust the
+        /// <see cref="Failed"/>, <see cref="Stopped"/>, <see cref="MaxIterationsReached"/>, and
+        /// <see cref="Warning"/> flags as necessary based on the contents of <see
+        /// cref="DetailedMessage"/>.
+        /// </summary>
+        public void Normalize()
+        {
+            // If the fit was already explicitly marked as stopped or reaching the iteration limit
+            // by external logic then honour those flags. Otherwise attempt to infer these
+            // conditions from the detailed message.
+            var msg = (DetailedMessage ?? Message ?? string.Empty).ToLowerInvariant();
+
+            // Infer stop and iteration-limit conditions from the detailed message when not
+            // already set. This handles cases where underlying libraries encode the result in
+            // text strings (e.g. "Terminated by user", "Optimizer iteration limit").
+            if (!Stopped && !MaxIterationsReached)
+            {
+                // User-initiated cancellation
+                if (msg.Contains("term") && msg.Contains("user") || msg.Contains("stopped") || msg.Contains("cancel"))
+                {
+                    Stopped = true;
+                    Failed = false;
+                }
+                // Maximum iterations or evaluations reached
+                else if (msg.Contains("max") && msg.Contains("it"))
+                {
+                    MaxIterationsReached = true;
+                    Failed = false;
+                }
+                else if (msg.Contains("iteration") && msg.Contains("limit"))
+                {
+                    MaxIterationsReached = true;
+                    Failed = false;
+                }
+                else if (msg.Contains("maximum") && msg.Contains("evalu"))
+                {
+                    MaxIterationsReached = true;
+                    Failed = false;
+                }
+            }
+
+            // Determine the normalised user message based on flags.
+            if (Stopped)
+            {
+                Message = "Stopped by user";
+                Failed = false;
+                MaxIterationsReached = false;
+                return;
+            }
+
+            if (MaxIterationsReached)
+            {
+                Message = "Reached iteration limit";
+                Failed = false;
+                return;
+            }
+
+            if (Failed)
+            {
+                // Provide a concise failure message.
+                if (!string.IsNullOrEmpty(DetailedMessage))
+                {
+                    Message = "Failed: " + DetailedMessage.Trim();
+                }
+                else
+                {
+                    Message = "Failed";
+                }
+                return;
+            }
+
+            // At this point the fit is not failed or stopped or limited. If warnings have
+            // occurred (e.g. bootstrap partial failures), surface them.
+            if (Warning)
+            {
+                Message = "Completed with warnings";
+                return;
+            }
+
+            // Otherwise the fit completed successfully.
+            Message = "Completed Successfully";
         }
     }
 

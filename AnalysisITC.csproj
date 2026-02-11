@@ -467,6 +467,7 @@
     <Compile Include="AppClasses\ExportType.cs" />
     <Compile Include="GUI\MacOS\Drawing\AnalysisFigure.cs" />
     <Compile Include="GUI\MacOS\Drawing\AnalysisGraph.cs" />
+    <Compile Include="AppClasses\Analysis2\Solver2.cs" />
   </ItemGroup>
   <ItemGroup>
     <InterfaceDefinition Include="Main.storyboard" />

@@ -94,8 +94,10 @@ namespace AnalysisITC
 
         public static void ClearAppStatus()
         {
-            var priority = Status.Priority;
-            status.RemoveAll(s => s.Priority >= priority);
+            // Do not remember why this priority thing is here....
+            //var priority = Status.Priority;
+            //status.RemoveAll(s => s.Priority >= priority);
+            status.Clear();
             StopIndeterminateProgress();
             StatusUpdated?.Invoke(null, Status.Message);
 
