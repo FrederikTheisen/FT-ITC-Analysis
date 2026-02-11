@@ -190,14 +190,14 @@ namespace AnalysisITC
                 var resarea = res * inj.InjectionMass;
                 var fitarea = fit * inj.InjectionMass;
 
-                var syn_inj = new InjectionData(inj.ID, inj.Volume, inj.InjectionMass, inj.Include)
+                var syn_inj = new InjectionData(null, inj.ID, inj.Volume, inj.InjectionMass, inj.Include)
                 {
                     Temperature = inj.Temperature,
                     ActualCellConcentration = inj.ActualCellConcentration,
                     ActualTitrantConcentration = inj.ActualTitrantConcentration,
                     Ratio = inj.Ratio
                 };
-                syn_inj.SetPeakArea(new FloatWithError(fitarea + resarea, inj.SD));
+                syn_inj.SetPeakArea(new FloatWithError(fitarea + resarea, inj.PeakArea.SD));
 
                 syntheticdata.Add(syn_inj);
             }
@@ -247,14 +247,14 @@ namespace AnalysisITC
                         syninj = new List<InjectionData>();
                         foreach (var inj in Injections)
                         {
-                            var sinj = new InjectionData(inj.ID, inj.Volume, inj.InjectionMass, inj.Include)
+                            var sinj = new InjectionData(clone, inj.ID, inj.Volume, inj.InjectionMass, inj.Include)
                             {
                                 Temperature = inj.Temperature,
                                 ActualCellConcentration = inj.ActualCellConcentration,
                                 ActualTitrantConcentration = inj.ActualTitrantConcentration,
                                 Ratio = inj.Ratio,
                             };
-                            sinj.SetPeakArea(new FloatWithError(inj.PeakArea, inj.SD));
+                            sinj.SetPeakArea(new FloatWithError(inj.PeakArea, inj.PeakArea.SD));
                             if (sinj.ID == options.DiscardedDataPoint) sinj.Include = false;
                             syninj.Add(sinj);
                         }
@@ -350,7 +350,7 @@ namespace AnalysisITC
 
         public FloatWithError PeakArea { get; private set; } = new();
         public double Enthalpy => PeakArea / InjectionMass;
-        public double SD => PeakArea.SD;
+        public double SD => PeakArea.SD / InjectionMass;
 
         public double OffsetEnthalpy
         {
@@ -359,6 +359,17 @@ namespace AnalysisITC
                 if (Experiment.Solution == null) return Enthalpy;
                 //else return Enthalpy - Experiment.Solution.Offset; //A1 pattern
                 else return Enthalpy - Experiment.Solution.Parameters[ParameterType.Offset].Value;
+            }
+        }
+
+        public double ResidualEnthalpy
+        {
+            get
+            {
+                if (Experiment.Solution == null) return 0;
+                if (InjectionMass == 0) return 0;
+
+                return Experiment.Model.Residual(this) / InjectionMass;
             }
         }
 
@@ -390,8 +401,9 @@ namespace AnalysisITC
             };
         }
 
-        public InjectionData(int id, double volume, double mass, bool include)
+        public InjectionData(ExperimentData experiment, int id, double volume, double mass, bool include)
         {
+            Experiment = experiment;
             ID = id;
             Volume = volume;
             InjectionMass = mass;

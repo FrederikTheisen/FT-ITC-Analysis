@@ -4,6 +4,7 @@ using System;
 
 using Foundation;
 using AppKit;
+using AnalysisITC.GUI.MacOS.Drawing;
 
 namespace AnalysisITC
 {
@@ -14,6 +15,7 @@ namespace AnalysisITC
         static bool showPeakInfo = true;
         static bool showFitParameters = true;
         static bool useUnifiedAxes = false;
+        static bool showResidualGraph = true;
 
         public static bool ShowPeakInfo
         {
@@ -30,6 +32,11 @@ namespace AnalysisITC
             get => useUnifiedAxes;
             set { useUnifiedAxes = value; UpdateViewParameters?.Invoke(null, null); }
         }
+        public static bool ShowResidualGraph
+        {
+            get => showResidualGraph;
+            set { showResidualGraph = value; UpdateViewParameters?.Invoke(null, null); }
+        }
         public DataFittingGraph DataFittingGraph => Graph as DataFittingGraph;
 
         public AnalysisGraphView(IntPtr handle) : base(handle)
@@ -45,8 +52,9 @@ namespace AnalysisITC
 
             DataFittingGraph.ShowPeakInfo = ShowPeakInfo;
             DataFittingGraph.ShowFitParameters = ShowFitParameters;
-            DataFittingGraph.UseMolarRatioAxis = UseUnifiedAxes;
-            DataFittingGraph.UseUnifiedEnthalpyAxis = UseUnifiedAxes;
+            DataFittingGraph.UnifiedMolarRatioAxis = UseUnifiedAxes;
+            DataFittingGraph.UnifiedEnthalpyAxis = UseUnifiedAxes;
+            DataFittingGraph.ResidualDisplayOptions.ShowResidualGraph = ShowResidualGraph;
 
             Invalidate();
         }

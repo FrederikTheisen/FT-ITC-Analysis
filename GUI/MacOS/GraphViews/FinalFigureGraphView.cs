@@ -91,6 +91,7 @@ namespace AnalysisITC
         public static bool ShowBadData { get; set; } = true;
         public static float SymbolSize { get; set; } = CGGraph.SymbolSize;
         public static int SymbolShape { get; set; } = 0;
+        public static bool ShowResiduals { get; set; } = false;
 
         public static bool UnifiedPowerAxis { get; set; } = false;
         public static bool DrawBaseline { get; set; } = false;
@@ -153,6 +154,8 @@ namespace AnalysisITC
                 FinalFigureDisplayParameters = AppSettings.FinalFigureParameterDisplay,
                 SymbolShape = (CGGraph.SymbolShape)SymbolShape,
                 SymbolSize = SymbolSize,
+                ShowResiduals = ShowResiduals,
+                
             };
 
             _graph.SetTimeUnit(TimeAxisUnit);
@@ -237,6 +240,7 @@ namespace AnalysisITC
                 FinalFigureDisplayParameters = AppSettings.FinalFigureParameterDisplay,
                 SymbolShape = (CGGraph.SymbolShape)SymbolShape,
                 SymbolSize = SymbolSize,
+                ShowResiduals = ShowResiduals,
             };
 
             graph.SetTimeUnit(TimeAxisUnit);

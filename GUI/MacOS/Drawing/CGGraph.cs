@@ -19,15 +19,19 @@ namespace AnalysisITC
         public nfloat PlotWidthCM = 7.0f;
         public nfloat PlotPixelWidth { get => PlotWidthCM * PPcm; set => PlotWidthCM = value / PPcm; }
 
-        public nfloat PlotHeightCM = 5.0f;
-        public nfloat PlotPixelHeight { get => PlotHeightCM * PPcm; set => PlotHeightCM = value / PPcm; }
+        private nfloat PlotHeightCM = 5.0f;
+        private nfloat PlotPixelHeight { get => PlotHeightCM * PPcm; set => PlotHeightCM = value / PPcm; }
 
         internal CGSize PointsPerUnit;
         public CGPoint Center;
-        internal CGSize PlotSize;
-        internal CGPoint Origin;
-        internal CGRect Frame { get { if (PlotSize.Width == 0) AutoSetFrame(); return new CGRect(Origin, PlotSize); } }
-        internal NSView View;
+        public CGSize PlotSize;
+        public CGPoint Origin;
+
+        /// <summary>
+        /// The graph frame defining the plotting area. Derived from Origin and PlotSize.
+        /// </summary>
+        public CGRect Frame { get { if (PlotSize.Width == 0) AutoSetFrame(); return new CGRect(Origin, PlotSize); } }
+        public NSView View;
 
         public bool DrawOnWhite = false;
         public CGColor StrokeColor => DrawOnWhite ? NSColor.Black.CGColor : NSColor.Label.CGColor;
@@ -95,12 +99,23 @@ namespace AnalysisITC
 
         }
 
+        /// <summary>
+        /// Returns the frame that should be used for cursor tracking. By default this is the same as <see cref="Frame"/>.
+        /// Derived graph types that contain multiple plotting regions can override this to return the bounding rectangle
+        /// encompassing all interactive plot areas.
+        /// </summary>
+        /// <returns>A rectangle in view coordinates representing the interactive region.</returns>
+        public virtual CGRect GetTrackingFrame()
+        {
+            return Frame;
+        }
+
         internal CGPoint GetRelativePosition(DataPoint dp, GraphAxis axis = null)
         {
             return GetRelativePosition(dp.Time, dp.Power, axis);
         }
 
-        internal virtual CGPoint GetRelativePosition(double x, double y, GraphAxis axis = null)
+        public virtual CGPoint GetRelativePosition(double x, double y, GraphAxis axis = null)
         {
             switch (axis)
             {
@@ -1115,30 +1130,103 @@ namespace AnalysisITC
         }
     }
 
-    public class DataFittingGraph : CGGraph
+    public class ThermogramGraph : CGGraph
     {
         private bool _useUnifiedAxes = false;
         private bool _useUnifiedEnthalpyAxis = false;
         private bool _focusvaliddata = false;
+        protected int mDownID = -1;
+        protected int mOverFeature = -1;
 
-        public bool UseMolarRatioAxis { get => _useUnifiedAxes; set { _useUnifiedAxes = value; SetupAxes(); } }
-        public bool UseUnifiedEnthalpyAxis { get => _useUnifiedEnthalpyAxis; set { _useUnifiedEnthalpyAxis = value; SetupAxes(); } }
-        public bool FocusValidData { get => _focusvaliddata; set { _focusvaliddata = value; SetupAxes(); } }
         public bool ShowPeakInfo { get; set; } = true;
         public bool ShowErrorBars { get; set; } = true;
-        public bool DrawConfidenceBands { get; set; } = true;
-        public bool ShowFitParameters { get; set; } = true;
-        public FinalFigureDisplayParameters FinalFigureDisplayParameters { get; set; } = FinalFigureDisplayParameters.All;
-        public FinalFigureDisplayParameters AnalysisDisplayParameters { get; set; } = FinalFigureDisplayParameters.AnalysisView;
-        public int ParameterFontSize { get; set; } = 24;
-        public bool ShowGrid { get; set; } = true;
-        public bool ShowZero { get; set; } = true;
         public bool HideBadData { get; set; } = false;
         public bool HideBadDataErrorBars { get; set; } = true;
-        public bool DrawWithOffset { get; set; } = true;
-        public SymbolShape SymbolShape { get; set; } = SymbolShape.Square;
+        public SymbolShape InjectionSymbolShape { get; set; } = SymbolShape.Square;
+        public static CGSize ErrorBarEndWidth => new CGSize(CGGraph.SymbolSize / 2, 0);
+        public bool ShowGrid { get; set; } = true;
+        public bool ShowZero { get; set; } = true;
 
-        static CGSize ErrorBarEndWidth => new CGSize(CGGraph.SymbolSize / 2, 0);
+        public bool UnifiedMolarRatioAxis { get => _useUnifiedAxes; set { _useUnifiedAxes = value; SetupAxes(); } }
+        public bool UnifiedEnthalpyAxis { get => _useUnifiedEnthalpyAxis; set { _useUnifiedEnthalpyAxis = value; SetupAxes(); } }
+        public bool FocusValidData { get => _focusvaliddata; set { _focusvaliddata = value; SetupAxes(); } }
+
+        public ThermogramGraph(ExperimentData experiment, NSView view) : base(experiment, view)
+        {
+        }
+
+        protected virtual void SetupAxes()
+        {
+
+        }
+
+        protected void DrawZero(CGContext gc)
+        {
+            CGLayer layer = CGLayer.Create(gc, Frame.Size);
+
+            var zero = new CGPath();
+            zero.MoveToPoint(GetRelativePosition(XAxis.Min, 0));
+            zero.AddLineToPoint(GetRelativePosition(XAxis.Max, 0));
+            layer.Context.AddPath(zero);
+            layer.Context.SetStrokeColor(SecondaryLineColor);
+            layer.Context.SetLineWidth(1);
+            layer.Context.StrokePath();
+
+            gc.DrawLayer(layer, Frame.Location);
+        }
+
+        protected void DrawGrid(CGContext gc)
+        {
+            var yticks = YAxis.GetValidTicks(false).Item1;
+            var xticks = XAxis.GetValidTicks(false).Item1;
+
+            var grid = new CGPath();
+
+            foreach (var t in yticks.Where(v => v != 0))
+            {
+                var y = GetRelativePosition(0, t / YAxis.ValueFactor).Y;
+
+                grid.MoveToPoint(0, y);
+                grid.AddLineToPoint(PlotSize.Width, y);
+            }
+
+            foreach (var t in xticks)
+            {
+                var x = GetRelativePosition(t / XAxis.ValueFactor, 0).X;
+
+                grid.MoveToPoint(x, 0);
+                grid.AddLineToPoint(x, PlotSize.Height);
+            }
+
+            CGLayer layer = CGLayer.Create(gc, Frame.Size);
+            layer.Context.SetLineWidth(1);
+            layer.Context.SetStrokeColor(TertiaryLineColor);
+            layer.Context.SetLineDash(3, new nfloat[] { 10 });
+            layer.Context.AddPath(grid);
+            layer.Context.StrokePath();
+
+            gc.DrawLayer(layer, Frame.Location);
+        }
+    }
+
+    public class DataFittingGraph : ThermogramGraph
+    {
+        public bool DrawConfidenceBands { get; set; } = true;
+        public bool ShowFitParameters { get; set; } = true;
+        public int ParameterFontSize { get; set; } = 24;
+        public bool DrawWithOffset { get; set; } = true;
+
+        public FinalFigureDisplayParameters FinalFigureDisplayParameters { get; set; } = FinalFigureDisplayParameters.All;
+        public FinalFigureDisplayParameters AnalysisDisplayParameters { get; set; } = FinalFigureDisplayParameters.AnalysisView;
+
+        public ResidualGraph ResidualGraph { get; set; }
+        public ResidualGraphOptions ResidualDisplayOptions { get; private set; }
+
+        public CGPoint GetCompositeOrigin()
+        {
+            if (ResidualDisplayOptions.ShowResidualGraph) return ResidualGraph.Origin;
+            else return base.Origin;
+        }
 
         public DataFittingGraph(ExperimentData experiment, NSView view) : base(experiment, view)
         {
@@ -1157,18 +1245,33 @@ namespace AnalysisITC
             YAxis.ValueFactor = Energy.ScaleFactor(AppSettings.EnergyUnit);
 
             SetupAxes();
+
+            ResidualGraph = new ResidualGraph(this);
+            ResidualDisplayOptions = new ResidualGraphOptions();
         }
 
-        void SetupAxes()
+        public override CGRect GetTrackingFrame()
         {
-            if (UseMolarRatioAxis && DataManager.IncludedData.Count() > 0)
+            if (ResidualDisplayOptions != null && ResidualDisplayOptions.ShowResidualGraph && ResidualGraph != null)
+            {
+                // Compute the union of the fit graph frame and the residual graph frame.
+                var fitFrame = base.Frame;
+                var resFrame = ResidualGraph.Frame;
+                return CGRect.Union(fitFrame, resFrame);
+            }
+            return base.Frame;
+        }
+
+        protected override void SetupAxes()
+        {
+            if (UnifiedMolarRatioAxis && DataManager.IncludedData.Count() > 0)
             {
                 var xmax = DataManager.IncludedData.Max(d => d.Injections.Last().Ratio);
                 XAxis.SetWithBuffer(0, xmax, 0.05);
             }
             else XAxis.SetWithBuffer(0, ExperimentData.Injections.Last().Ratio, 0.05);
             
-            if (UseUnifiedEnthalpyAxis && DataManager.IncludedData.Count() > 0)
+            if (UnifiedEnthalpyAxis && DataManager.IncludedData.Count() > 0)
             {
                 var minmax = GetMinMaxEnthalpy(DataManager.IncludedData);
                 YAxis.SetWithBuffer(minmax[0], minmax[1], 0.1);
@@ -1204,6 +1307,53 @@ namespace AnalysisITC
             return new double[] { Math.Min(min, 0), Math.Max(max, 0) };
         }
 
+        public override void AutoSetFrame()
+        {
+            var ymargin = YAxis.EstimateLabelMargin();
+            var xmargin = XAxis.EstimateLabelMargin();
+
+            var viable_height = View.Frame.Height - xmargin - 5;
+            var viable_width = View.Frame.Width - ymargin - 5;
+
+            SetFrame(new CGSize(viable_width, viable_height), new CGPoint(ymargin, xmargin));
+        }
+
+        public void SetFrame(CGSize viable_size, CGPoint origin)
+        {
+            var ymargin = origin.X;
+            var xmargin = origin.Y;
+
+            var viable_height = viable_size.Height;
+            var viable_width = viable_size.Width;
+
+            if (ResidualDisplayOptions.ShowResidualGraph)
+            {
+                var frac = ResidualDisplayOptions.ResidualFraction;
+                var fit_plot_height = viable_height * (1 - frac);
+                var res_plot_height = viable_height * (frac);
+                var origin_x = ymargin;
+                var origin_y_fit = xmargin + res_plot_height;
+                var origin_y_res = xmargin;
+
+                if (ResidualDisplayOptions.GapGraphs) res_plot_height -= ResidualDisplayOptions.GapSize;
+
+                base.PlotSize = new CGSize(viable_width, fit_plot_height);
+                base.Origin = new CGPoint(origin_x, origin_y_fit);
+
+                ResidualGraph.PlotSize = new CGSize(viable_width, res_plot_height);
+                ResidualGraph.Origin = new CGPoint(origin_x, origin_y_res);
+
+                XAxis.HideLabels = true;
+            }
+            else
+            {
+                base.PlotSize = viable_size;
+                base.Origin = origin;
+
+                XAxis.HideLabels = false;
+            }
+        }
+
         internal override void Draw(CGContext gc)
         {
             base.Draw(gc);
@@ -1224,6 +1374,9 @@ namespace AnalysisITC
             YAxis.Draw(gc);
 
             if (ShowFitParameters && ExperimentData.Solution != null) DrawParameters(gc);
+
+            // Draw the residual graph after the fit graph, if enabled.
+            if (ResidualDisplayOptions.ShowResidualGraph) ResidualGraph.PrepareDraw(gc, Center);
         }
 
         void DrawInjectionsPoints(CGContext gc)
@@ -1246,9 +1399,8 @@ namespace AnalysisITC
 
                 if ((ShowPeakInfo || ShowErrorBars) && !(HideBadDataErrorBars && !inj.Include))
                 {
-                    var sd = Math.Abs(inj.SD / inj.PeakArea);
-                    var etop = GetRelativePosition(inj.Ratio, enthalpy - inj.Enthalpy * sd);
-                    var ebottom = GetRelativePosition(inj.Ratio, enthalpy + inj.Enthalpy * sd);
+                    var etop = GetRelativePosition(inj.Ratio, enthalpy - inj.SD);
+                    var ebottom = GetRelativePosition(inj.Ratio, enthalpy + inj.SD);
 
                     if (Math.Abs(etop.Y - p.Y) > CGGraph.SymbolSize / 2)
                     {
@@ -1287,8 +1439,8 @@ namespace AnalysisITC
             layer.Context.SetLineWidth(1);
             layer.Context.AddPath(bars);
             layer.Context.StrokePath();
-            DrawSymbolsAtPositions(layer, points.ToArray(), SymbolSize, SymbolShape, true);
-            DrawSymbolsAtPositions(layer, inv_points.ToArray(), SymbolSize, SymbolShape, false);
+            DrawSymbolsAtPositions(layer, points.ToArray(), SymbolSize, InjectionSymbolShape, true);
+            DrawSymbolsAtPositions(layer, inv_points.ToArray(), SymbolSize, InjectionSymbolShape, false);
 
             gc.DrawLayer(layer, Frame.Location);
             gc.DrawLayer(infolayer, Frame.Location);
@@ -1309,54 +1461,6 @@ namespace AnalysisITC
             DrawSpline(gc, points.OrderBy(p => p.X).ToArray(), 2, StrokeColor);
 
             //DrawRectsAtPositions(layer, points.ToArray(), 8, true, false, color: NSColor.PlaceholderTextColor.CGColor);
-        }
-
-        void DrawZero(CGContext gc)
-        {
-            CGLayer layer = CGLayer.Create(gc, Frame.Size);
-
-            var zero = new CGPath();
-            zero.MoveToPoint(GetRelativePosition(XAxis.Min, 0));
-            zero.AddLineToPoint(GetRelativePosition(XAxis.Max, 0));
-            layer.Context.AddPath(zero);
-            layer.Context.SetStrokeColor(SecondaryLineColor);
-            layer.Context.SetLineWidth(1);
-            layer.Context.StrokePath();
-
-            gc.DrawLayer(layer, Frame.Location);
-        }
-
-        void DrawGrid(CGContext gc)
-        {
-            var yticks = YAxis.GetValidTicks(false).Item1;
-            var xticks = XAxis.GetValidTicks(false).Item1;
-
-            var grid = new CGPath();
-
-            foreach (var t in yticks.Where(v => v != 0))
-            {
-                var y = GetRelativePosition(0, t / YAxis.ValueFactor).Y;
-
-                grid.MoveToPoint(0, y);
-                grid.AddLineToPoint(PlotSize.Width, y);
-            }
-
-            foreach (var t in xticks)
-            {
-                var x = GetRelativePosition(t / XAxis.ValueFactor, 0).X;
-
-                grid.MoveToPoint(x, 0);
-                grid.AddLineToPoint(x, PlotSize.Height);
-            }
-
-            CGLayer layer = CGLayer.Create(gc, Frame.Size);
-            layer.Context.SetLineWidth(1);
-            layer.Context.SetStrokeColor(TertiaryLineColor);
-            layer.Context.SetLineDash(3, new nfloat[] { 10 });
-            layer.Context.AddPath(grid);
-            layer.Context.StrokePath();
-
-            gc.DrawLayer(layer, Frame.Location);
         }
 
         void DrawParameters(CGContext gc)
@@ -1436,13 +1540,18 @@ namespace AnalysisITC
             FillPathShape(gc, path, TertiaryLineColor);
         }
 
-        int mDownID = -1;
-        int mOverFeature = -1;
+        public override CGPoint GetRelativePosition(double x, double y, GraphAxis axis = null)
+        {
+            var point = base.GetRelativePosition(x, y, axis);
+
+            return point;
+        }
 
         public override MouseOverFeatureEvent CursorFeatureFromPos(CGPoint cursorpos, bool isclick = false, bool ismouseup = false)
         {
             foreach (var inj in ExperimentData.Injections)
             {
+                // Get injection point position
                 var handle_screen_pos = GetRelativePosition(inj.Ratio, DrawWithOffset ? inj.Enthalpy : inj.OffsetEnthalpy) + new CGSize(Origin);
 
                 if (Math.Abs(cursorpos.X - 2 - handle_screen_pos.X) < 5)
@@ -1468,6 +1577,166 @@ namespace AnalysisITC
                 return e;
             }
             return new MouseOverFeatureEvent();
+        }
+
+        public class ResidualGraphOptions
+        {
+            public bool ShowResidualGraph { get; set; } = true;
+            public bool GapGraphs { get; set; } = true;
+            public float ResidualFraction { get; set; } = 0.2f;
+            public float GapSize { get; set; } = 5f;
+        }
+    }
+
+    public class ResidualGraph : ThermogramGraph
+    {
+        DataFittingGraph DataFittingGraph { get; set; }
+
+        GraphAxis ParentXAxis => DataFittingGraph.XAxis;
+        GraphAxis ParentYAxis => DataFittingGraph.YAxis;
+
+        public ResidualGraph(DataFittingGraph dataFittingGraph) : base(dataFittingGraph.ExperimentData, dataFittingGraph.View)
+        {
+            DataFittingGraph = dataFittingGraph;
+
+            XAxis = new GraphAxis(this, 0, 1);
+            XAxis.UseNiceAxis = ParentXAxis.UseNiceAxis;
+            XAxis.LegendTitle = ParentXAxis.LegendTitle;
+            XAxis.DecimalPoints = ParentXAxis.DecimalPoints;
+            XAxis.TickScale.SetMaxTicks(7);
+            XAxis.MirrorTicks = true;
+            XAxis.ValueFactor = ParentXAxis.ValueFactor;
+
+            YAxis = new GraphAxis(this, 0, 1);
+            YAxis.UseNiceAxis = ParentYAxis.UseNiceAxis;
+            YAxis.HideUnwantedTicks = ParentYAxis.HideUnwantedTicks;
+            YAxis.LegendTitle = "";
+            YAxis.ValueFactor = ParentYAxis.ValueFactor;
+            YAxis.TickScale.SetMaxTicks(3);
+
+            SetupAxes();
+        }
+
+        protected override void SetupAxes()
+        {
+            XAxis.Set(ParentXAxis.ActualMin, ParentXAxis.Max);
+
+            if (ExperimentData.Solution != null)
+            {
+                var res = new List<double>();
+
+                foreach (var inj in ExperimentData.Injections.Where(inj => inj.Include))
+                {
+                    var inj_v = Math.Abs(inj.ResidualEnthalpy);
+                    var inj_min = Math.Abs(inj_v - inj.SD);
+                    var inj_max = Math.Abs(inj_v + inj.SD);
+                    res.Add(Math.Max(inj_v, Math.Min(inj_min, inj_max)));
+                }
+
+                var max = Math.Max(res.Max(v => Math.Abs(v)),1E-3);
+                var range = max * 1.5;
+
+                YAxis.Set(-range, range);
+            }
+            else
+            {
+                // Set some aribtrary range since we cannot draw anything meaningful without a solution anyway
+                YAxis.Set(-1.1, 1.1);
+            }
+        }
+
+        public override void PrepareDraw(CGContext gc, CGPoint center)
+        {
+            SetupAxes();
+
+            DrawOnWhite = DataFittingGraph.DrawOnWhite;
+            base.SetupAxisScalingUnits();
+
+            Draw(gc);
+
+            DrawFrame(gc);
+        }
+
+        internal override void Draw(CGContext gc)
+        {
+            base.Draw(gc);
+
+            if (DataFittingGraph.ShowGrid) DrawGrid(gc);
+
+            DrawZero(gc);
+
+            if (ExperimentData.Solution != null)
+            {
+                DrawResidual(gc);
+            }
+
+            XAxis.Draw(gc);
+            YAxis.Draw(gc);
+        }
+
+        void DrawResidual(CGContext gc)
+        {
+            var layer = CGLayer.Create(gc, Frame.Size);
+            var points = new List<CGPoint>();
+            var inv_points = new List<CGPoint>();
+            var infolayer = CGLayer.Create(gc, Frame.Size);
+            infolayer.Context.SetFillColor(StrokeColor);
+            var bars = new CGPath();
+
+            foreach (var inj in ExperimentData.Injections)
+            {
+                var res = inj.ResidualEnthalpy;
+
+                var p = GetRelativePosition(inj.Ratio, res);
+                var infop = p;
+
+                if ((DataFittingGraph.ShowPeakInfo || DataFittingGraph.ShowErrorBars) && !(DataFittingGraph.HideBadDataErrorBars && !inj.Include))
+                {
+                    var etop = GetRelativePosition(inj.Ratio, res - inj.SD);
+                    var ebottom = GetRelativePosition(inj.Ratio, res + inj.SD);
+
+                    if (Math.Abs(etop.Y - p.Y) > CGGraph.SymbolSize / 2)
+                    {
+                        bars.MoveToPoint(etop);
+                        bars.AddLineToPoint(CGPoint.Add(p, new CGSize(0, CGGraph.SymbolSize / 2)));
+
+                        bars.MoveToPoint(ebottom);
+                        bars.AddLineToPoint(CGPoint.Subtract(p, new CGSize(0, CGGraph.SymbolSize / 2)));
+
+                        bars.MoveToPoint(CGPoint.Subtract(etop, ErrorBarEndWidth));
+                        bars.AddLineToPoint(CGPoint.Add(etop, ErrorBarEndWidth));
+
+                        bars.MoveToPoint(CGPoint.Subtract(ebottom, ErrorBarEndWidth));
+                        bars.AddLineToPoint(CGPoint.Add(ebottom, ErrorBarEndWidth));
+                    }
+
+                    infop = new CGPoint(ebottom.X, Math.Max(ebottom.Y, etop.Y));
+                }
+
+                if (DataFittingGraph.ShowPeakInfo)
+                {
+                    DrawString(infolayer, "#" + (inj.ID + 1).ToString(), infop + new CGSize(0, 10), DefaultFont, verticalalignment: TextAlignment.Bottom, textcolor: StrokeColor);
+                }
+
+                if (inj.ID == mOverFeature) DrawRectsAtPositions(
+                    layer, new CGPoint[] { p },
+                    size: 14, circle: false, fill: true, width: 0, roundedradius: 4,
+                    color: IsMouseDown ? ActivatedHighlightColor : HighlightColor);
+
+                if (inj.Include) points.Add(p);
+                else inv_points.Add(p);
+            }
+
+            layer.Context.SetFillColor(StrokeColor);
+            layer.Context.SetStrokeColor(StrokeColor);
+            layer.Context.SetLineWidth(1);
+            layer.Context.AddPath(bars);
+            layer.Context.StrokePath();
+            DrawSymbolsAtPositions(layer, points.ToArray(), SymbolSize, DataFittingGraph.InjectionSymbolShape, true);
+            DrawSymbolsAtPositions(layer, inv_points.ToArray(), SymbolSize, DataFittingGraph.InjectionSymbolShape, false);
+
+            gc.DrawLayer(layer, Frame.Location);
+            gc.DrawLayer(infolayer, Frame.Location);
         }
     }
 }

@@ -18,6 +18,8 @@ namespace AnalysisITC
         public static CTFont TitleFont { get; set; } = new CTFont("Helvetica Neue Light", 16);
 
         protected GraphBase cggraph;
+        public bool Hidden { get; set; } = false;
+        public bool HideLabels { get; set; } = false;
 
         public AxisPosition Position;
         public bool IsHorizontal => Position == AxisPosition.Bottom || Position == AxisPosition.Top;
@@ -168,7 +170,14 @@ namespace AnalysisITC
 
         void SetTickScale()
         {
+            var prev = TickScale;
+
             TickScale = new Utilities.NiceScale(this.ActualMin, this.ActualMax, ValueFactor);
+
+            if (prev != null)
+            {
+                TickScale.SetMaxTicks(prev.MaxTicks);
+            }
 
             SetDecimalDigits(TickScale.Ticks());
         }
@@ -222,9 +231,11 @@ namespace AnalysisITC
 
         public virtual void Draw(CGContext gc)
         {
+            if (Hidden) return;
+
             DrawTicks(gc);
 
-            DrawAxisTitle(gc);
+            if (!HideLabels) DrawAxisTitle(gc);
         }
 
         internal void AddTickLines(List<CGPoint> drawticks, List<CGPoint> halfticks, CGPath ticklines, bool mirror = false)
@@ -308,7 +319,7 @@ namespace AnalysisITC
                 gc.DrawLayer(layer, origin);
             }
 
-            DrawTickLabels(gc, allticks, tickvalues);
+            if (!HideLabels) DrawTickLabels(gc, allticks, tickvalues);
         }
 
         void DrawTickLabels(CGContext gc, List<CGPoint> ticks, List<double> tickvalues)

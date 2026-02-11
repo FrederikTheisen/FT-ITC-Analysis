@@ -46,6 +46,7 @@ namespace AnalysisITC
         bool ShowPeakInfo => PeakInfoScopeButton.State == NSCellStateValue.On;
         bool ShowParameters => ParametersScopeButton.State == NSCellStateValue.On;
         bool SameAxes => AxesScopeButton.State == NSCellStateValue.On;
+        bool ShowResidualGraph => ShowResidualGraphButton.State == NSCellStateValue.On;
 
         public DataAnalysisViewController(IntPtr handle) : base(handle)
         {
@@ -185,6 +186,7 @@ namespace AnalysisITC
             AnalysisGraphView.ShowPeakInfo = ShowPeakInfo;
             AnalysisGraphView.ShowFitParameters = ShowParameters;
             AnalysisGraphView.UseUnifiedAxes = SameAxes;
+            AnalysisGraphView.ShowResidualGraph = ShowResidualGraph;
 
             GraphView.Invalidate();
         }

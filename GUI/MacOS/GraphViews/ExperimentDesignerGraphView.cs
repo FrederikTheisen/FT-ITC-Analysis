@@ -27,10 +27,10 @@ namespace AnalysisITC
             if (Graph == null) return;
             if (StateManager.CurrentState != State && State != ProgramState.AlwaysActive) return;
 
-            DataFittingGraph.ShowPeakInfo = true;
+            DataFittingGraph.ShowPeakInfo = false;
             DataFittingGraph.ShowFitParameters = true;
-            DataFittingGraph.UseMolarRatioAxis = false;
-            DataFittingGraph.UseUnifiedEnthalpyAxis = false;
+            DataFittingGraph.UnifiedMolarRatioAxis = false;
+            DataFittingGraph.UnifiedEnthalpyAxis = false;
             DataFittingGraph.ParameterFontSize = 12;
             DataFittingGraph.AnalysisDisplayParameters = AppClasses.Analysis2.Models.SolutionInterface.FinalFigureDisplayParameters.Fitted;
 

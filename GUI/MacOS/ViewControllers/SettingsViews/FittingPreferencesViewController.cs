@@ -27,7 +27,7 @@ namespace AnalysisITC
             AutoConcField.StringValue = AppSettings.IsConcentrationAutoVarianceEnabled ? (100 * AppSettings.ConcentrationAutoVariance).ToString("F1") + "%" : "";
             DefaultBootstrapIterationSlider.DoubleValue = Math.Log10(AppSettings.DefaultBootstrapIterations);
             BootstrapIterField.StringValue = ((int)Math.Pow(10, DefaultBootstrapIterationSlider.DoubleValue)).ToString();
-            FuncToleranceSlider.DoubleValue = -Math.Sqrt(-Math.Log10(AppSettings.OptimizerTolerance));
+            FuncToleranceSlider.DoubleValue = AppSettings.OptimizerTolerance;
             MaxOptimizerIterationsSlider.DoubleValue = Math.Log10(AppSettings.MaximumOptimizerIterations);
             MaxOptimizerIterField.IntValue = AppSettings.MaximumOptimizerIterations;
             ParameterLimitControl.SelectedSegment = AppSettings.EnableExtendedParameterLimits ? 1 : 0;
@@ -37,8 +37,20 @@ namespace AnalysisITC
 
         void SetFuncToleranceLabel(double value)
         {
-            if (value < double.Epsilon) value = double.Epsilon;
-            FuncToleranceField.DoubleValue = value;
+            if (value >= 0.95)
+                FuncToleranceField.StringValue = "Very Strict - Slow";
+            else if (value >= 0.85)
+                FuncToleranceField.StringValue = "Strict";
+            else if (value >= 0.70)
+                FuncToleranceField.StringValue = "Tight";
+            else if (value >= 0.50)
+                FuncToleranceField.StringValue = "Balanced";
+            else if (value >= 0.30)
+                FuncToleranceField.StringValue = "Soft";
+            else if (value >= 0.15)
+                FuncToleranceField.StringValue = "Loose";
+            else
+                FuncToleranceField.StringValue = "Wide tolerance - Fast";
         }
 
         private void FittingPreferencesViewController_ShouldApplySettings(object sender, EventArgs e)
@@ -46,7 +58,7 @@ namespace AnalysisITC
             AppSettings.DefaultErrorEstimationMethod = (ErrorEstimationMethod)(int)DefaultErrorMethodControl.SelectedSegment;
             AppSettings.IncludeConcentrationErrorsInBootstrap = IncludeConcVarianceCheck.State == NSCellStateValue.On;
             AppSettings.DefaultBootstrapIterations = (int)Math.Pow(10, DefaultBootstrapIterationSlider.DoubleValue);
-            AppSettings.OptimizerTolerance = Math.Max(Math.Pow(10, -(FuncToleranceSlider.DoubleValue * FuncToleranceSlider.DoubleValue)), double.Epsilon);
+            AppSettings.OptimizerTolerance = FuncToleranceSlider.DoubleValue;
             AppSettings.ConcentrationAutoVariance = AutoConcVarianceSlider.DoubleValue / 100;
             AppSettings.IsConcentrationAutoVarianceEnabled = AutoConcVarianceSlider.DoubleValue > double.Epsilon;
             AppSettings.MaximumOptimizerIterations = (int)Math.Pow(10, MaxOptimizerIterationsSlider.DoubleValue);
@@ -62,7 +74,7 @@ namespace AnalysisITC
         {
             var value = sender.DoubleValue;
 
-            SetFuncToleranceLabel(Math.Pow(10, -(value * value)));
+            SetFuncToleranceLabel(value);
         }
 
         partial void AutoConcSliderAction(NSSlider sender)

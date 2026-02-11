@@ -9,6 +9,7 @@ namespace AnalysisITC
     {
         BaselineDataGraph DataGraph;
         DataFittingGraph IntegrationGraph;
+        NSView View;
 
         public CGSize PlotDimensions { get; set; } = new CGSize(6, 10);
         CGEdgeMargin Margin
@@ -20,12 +21,18 @@ namespace AnalysisITC
                 return new CGEdgeMargin(max_margin_left, 0.1f * CGGraph.PPcm, (float)DataGraph.XAxis.EstimateLabelMargin(), (float)IntegrationGraph.XAxis.EstimateLabelMargin());
             }
         }
-        CGRect PlotBox => new CGRect(IntegrationGraph.Origin, PlotDimensions.ScaleBy(CGGraph.PPcm));
+        CGRect PlotBox => new CGRect(IntegrationGraph.GetCompositeOrigin(), PlotDimensions.ScaleBy(CGGraph.PPcm));
         CGPoint UnadjustedGraphOrigin => new CGPoint(DataGraph.Center.X - DataGraph.PlotSize.Width * 0.5f, DataGraph.Center.Y - DataGraph.PlotSize.Height * 0.5f);
 
         public CGRect PrintBox => PlotBox.WithMargin(Margin);
 
         #region Properties
+
+        public bool ShowResiduals
+        {
+            get => IntegrationGraph.ResidualDisplayOptions.ShowResidualGraph;
+            set => IntegrationGraph.ResidualDisplayOptions.ShowResidualGraph = value;
+        }
 
         public bool DrawConfidence
         {
@@ -59,14 +66,14 @@ namespace AnalysisITC
 
         public bool UnifiedEnthalpyAxis
         {
-            get => IntegrationGraph.UseUnifiedEnthalpyAxis;
-            set => IntegrationGraph.UseUnifiedEnthalpyAxis = value;
+            get => IntegrationGraph.UnifiedEnthalpyAxis;
+            set => IntegrationGraph.UnifiedEnthalpyAxis = value;
         }
 
         public bool UseUnifiedAnalysisAxes
         {
-            get => IntegrationGraph.UseMolarRatioAxis;
-            set => IntegrationGraph.UseMolarRatioAxis = value;
+            get => IntegrationGraph.UnifiedMolarRatioAxis;
+            set => IntegrationGraph.UnifiedMolarRatioAxis = value;
         }
 
         public bool UseUnifiedDataAxes
@@ -117,8 +124,8 @@ namespace AnalysisITC
 
         public CGGraph.SymbolShape SymbolShape
         {
-            get => IntegrationGraph.SymbolShape;
-            set => IntegrationGraph.SymbolShape = value;
+            get => IntegrationGraph.InjectionSymbolShape;
+            set => IntegrationGraph.InjectionSymbolShape = value;
         }
 
         bool sanitizeticks = true;
@@ -171,6 +178,8 @@ namespace AnalysisITC
 
         public FinalFigure(ExperimentData experiment, NSView view)
         {
+            View = view;
+
             DataGraph = new BaselineDataGraph(experiment, view)
             {
                 DrawOnWhite = true,
@@ -195,6 +204,7 @@ namespace AnalysisITC
             };
             IntegrationGraph.YAxis.MirrorTicks = true;
             IntegrationGraph.XAxis.MirrorTicks = true;
+            IntegrationGraph.ResidualDisplayOptions.GapGraphs = false;
         }
 
         public void SetupFrames(nfloat width, nfloat height)
@@ -202,6 +212,7 @@ namespace AnalysisITC
             var halfheight = height / 2;
 
             var x = DataGraph.Center.X - PlotBox.Width * 0.5f + Margin.Left * 0.5f - Margin.Right * 0.5f;
+            x = Margin.Left;
 
             //DataGraph.AutoSetFrame((float)width, (float)halfheight);
             DataGraph.PlotSize = new CGSize(width * CGGraph.PPcm, halfheight * CGGraph.PPcm);
@@ -209,11 +220,17 @@ namespace AnalysisITC
             DataGraph.Origin.Y += DataGraph.Frame.Height / 2;
             DataGraph.Origin.X = x;
 
-            //IntegrationGraph.AutoSetFrame((float)width, (float)halfheight);
+            ////IntegrationGraph.AutoSetFrame((float)width, (float)halfheight);
             IntegrationGraph.PlotSize = new CGSize(width * CGGraph.PPcm, halfheight * CGGraph.PPcm);
-            IntegrationGraph.Origin = new CGPoint(IntegrationGraph.Center.X - IntegrationGraph.PlotSize.Width * 0.5f, DataGraph.Center.Y - DataGraph.PlotSize.Height * 0.5f);
-            IntegrationGraph.Origin.Y -= IntegrationGraph.Frame.Height / 2;
-            IntegrationGraph.Origin.X = x;
+            //IntegrationGraph.Origin = new CGPoint(IntegrationGraph.Center.X - IntegrationGraph.PlotSize.Width * 0.5f, DataGraph.Center.Y - DataGraph.PlotSize.Height * 0.5f);
+            //IntegrationGraph.Origin.Y -= IntegrationGraph.Frame.Height / 2;
+            //IntegrationGraph.Origin.X = x;
+
+            var ori = new CGPoint(IntegrationGraph.Center.X - IntegrationGraph.PlotSize.Width * 0.5f, DataGraph.Center.Y - DataGraph.PlotSize.Height * 0.5f);
+            ori.Y -= IntegrationGraph.Frame.Height / 2;
+            ori.X = x;
+
+            IntegrationGraph.SetFrame(new CGSize(width * CGGraph.PPcm, halfheight * CGGraph.PPcm), ori);
         }
 
         public void UpdateAxisTitles()

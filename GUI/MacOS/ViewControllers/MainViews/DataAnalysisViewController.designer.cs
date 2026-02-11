@@ -82,6 +82,9 @@ namespace AnalysisITC
 		AppKit.NSButton PeakInfoScopeButton { get; set; }
 
 		[Outlet]
+		AppKit.NSButton ShowResidualGraphButton { get; set; }
+
+		[Outlet]
 		AppKit.NSStackView SolverStepSizeView { get; set; }
 
 		[Action ("AnalysisModeClicked:")]
@@ -120,11 +123,6 @@ namespace AnalysisITC
 			if (ApplyToAllExperimentsControl != null) {
 				ApplyToAllExperimentsControl.Dispose ();
 				ApplyToAllExperimentsControl = null;
-			}
-
-			if (OptionsStackView != null) {
-				OptionsStackView.Dispose ();
-				OptionsStackView = null;
 			}
 
 			if (AxesScopeButton != null) {
@@ -207,6 +205,11 @@ namespace AnalysisITC
 				NStyleSegControl = null;
 			}
 
+			if (OptionsStackView != null) {
+				OptionsStackView.Dispose ();
+				OptionsStackView = null;
+			}
+
 			if (OstepTextField != null) {
 				OstepTextField.Dispose ();
 				OstepTextField = null;
@@ -225,6 +228,11 @@ namespace AnalysisITC
 			if (SolverStepSizeView != null) {
 				SolverStepSizeView.Dispose ();
 				SolverStepSizeView = null;
+			}
+
+			if (ShowResidualGraphButton != null) {
+				ShowResidualGraphButton.Dispose ();
+				ShowResidualGraphButton = null;
 			}
 		}
 	}

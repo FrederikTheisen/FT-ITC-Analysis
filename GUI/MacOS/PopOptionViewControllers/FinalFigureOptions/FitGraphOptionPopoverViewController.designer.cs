@@ -37,6 +37,9 @@ namespace AnalysisITC
 		AppKit.NSTextField MolarRatioAxisTitleLabel { get; set; }
 
 		[Outlet]
+		AppKit.NSButton ShowResiduals { get; set; }
+
+		[Outlet]
 		AppKit.NSSegmentedControl SymbolControl { get; set; }
 
 		[Outlet]
@@ -88,6 +91,11 @@ namespace AnalysisITC
 				DrawFitParameters = null;
 			}
 
+			if (ShowResiduals != null) {
+				ShowResiduals.Dispose ();
+				ShowResiduals = null;
+			}
+
 			if (DrawZeroLine != null) {
 				DrawZeroLine.Dispose ();
 				DrawZeroLine = null;
@@ -106,6 +114,21 @@ namespace AnalysisITC
 			if (MolarRatioAxisTitleLabel != null) {
 				MolarRatioAxisTitleLabel.Dispose ();
 				MolarRatioAxisTitleLabel = null;
+			}
+
+			if (SymbolControl != null) {
+				SymbolControl.Dispose ();
+				SymbolControl = null;
+			}
+
+			if (SymbolSizeLabel != null) {
+				SymbolSizeLabel.Dispose ();
+				SymbolSizeLabel = null;
+			}
+
+			if (SymbolSizeStepper != null) {
+				SymbolSizeStepper.Dispose ();
+				SymbolSizeStepper = null;
 			}
 
 			if (UnifiedHeatAxis != null) {
@@ -136,21 +159,6 @@ namespace AnalysisITC
 			if (YTickLabel != null) {
 				YTickLabel.Dispose ();
 				YTickLabel = null;
-			}
-
-			if (SymbolControl != null) {
-				SymbolControl.Dispose ();
-				SymbolControl = null;
-			}
-
-			if (SymbolSizeStepper != null) {
-				SymbolSizeStepper.Dispose ();
-				SymbolSizeStepper = null;
-			}
-
-			if (SymbolSizeLabel != null) {
-				SymbolSizeLabel.Dispose ();
-				SymbolSizeLabel = null;
 			}
 		}
 	}

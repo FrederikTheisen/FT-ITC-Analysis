@@ -17,7 +17,24 @@ namespace AnalysisITC
         internal ProgramState State = ProgramState.Load;
         public bool MouseDidDrag { get; private set; } = false;
 
-        CGRect TrackingFrame => Graph != null && Graph.Frame.Width != 0 ? Graph.Frame : new CGRect(0, 0, Frame.Width, Frame.Height);
+        /// <summary>
+        /// Defines the area used to track cursor movements. If the graph contains multiple subplots, this returns
+        /// the union of all interactive plot regions by calling <see cref="CGGraph.GetTrackingFrame"/>.
+        /// </summary>
+        CGRect TrackingFrame
+        {
+            get
+            {
+                if (Graph != null)
+                {
+                    // Use the graph's tracking frame when available
+                    var tf = Graph.GetTrackingFrame();
+                    if (tf.Width != 0 && tf.Height != 0) return tf;
+                }
+                // Fall back to the full view frame when no graph or invalid frame
+                return new CGRect(0, 0, Frame.Width, Frame.Height);
+            }
+        }
 
         public NSGraph(IntPtr handle) : base(handle)
         {

@@ -26,6 +26,7 @@ namespace AnalysisITC
             DrawConfidence.State = FinalFigureGraphView.DrawConfidence ? NSCellStateValue.On : NSCellStateValue.Off;
             DrawFitParameters.State = FinalFigureGraphView.DrawFitParameters ? NSCellStateValue.On : NSCellStateValue.Off;
             HideBadData.State = FinalFigureGraphView.ShowBadData ? NSCellStateValue.On : NSCellStateValue.Off;
+            ShowResiduals.State = FinalFigureGraphView.ShowResiduals ? NSCellStateValue.On : NSCellStateValue.Off;
 
             if (FinalFigureGraphView.EnthalpyAxisTitleAxisTitleIsChanged) EnthalpyAxisTitleLabel.PlaceholderString = FinalFigureGraphView.EnthalpyAxisTitle;
             if (FinalFigureGraphView.MolarRatioAxisTitleIsChanged) MolarRatioAxisTitleLabel.PlaceholderString = FinalFigureGraphView.MolarRatioAxisTitle;
@@ -66,6 +67,7 @@ namespace AnalysisITC
             FinalFigureGraphView.DrawConfidence = DrawConfidence.State == NSCellStateValue.On;
             FinalFigureGraphView.DrawFitParameters = DrawFitParameters.State == NSCellStateValue.On;
             FinalFigureGraphView.ShowBadData = HideBadData.State == NSCellStateValue.On;
+            FinalFigureGraphView.ShowResiduals = ShowResiduals.State == NSCellStateValue.On;
 
             if (EnthalpyAxisTitleLabel.StringValue.Trim() != "") FinalFigureGraphView.EnthalpyAxisTitle = EnthalpyAxisTitleLabel.StringValue;
             if (MolarRatioAxisTitleLabel.StringValue.Trim() != "") FinalFigureGraphView.MolarRatioAxisTitle = MolarRatioAxisTitleLabel.StringValue;

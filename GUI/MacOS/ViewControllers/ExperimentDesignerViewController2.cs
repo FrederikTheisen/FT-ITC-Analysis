@@ -160,9 +160,9 @@ namespace AnalysisITC
             {
                 if (i == 0 && UseSmallFirstInjection)
                 {
-                    Data.Injections.Add(new InjectionData(i, SmallInjectionVolume, 0, false));
+                    Data.Injections.Add(new InjectionData(Data, i, SmallInjectionVolume, 0, false));
                 }
-                else Data.Injections.Add(new InjectionData(i, volume, 0, true));
+                else Data.Injections.Add(new InjectionData(Data, i, volume, 0, true));
             }
 
             RawDataReader.ProcessInjections(Data);
@@ -299,7 +299,7 @@ namespace AnalysisITC
             SimGraphView.Initialize(Data);
 
             var solver = Solver.Initialize(Factory);
-            solver.SolverFunctionTolerance = 1.0E-50;
+            solver.SolverToleranceModifier = 2;
             solver.ErrorEstimationMethod = SimulateNoiseControl.State == NSCellStateValue.On ? ErrorEstimationMethod.BootstrapResiduals : ErrorEstimationMethod.None;
             solver.BootstrapIterations = 50;
             var mco = (solver as Solver).Model.ModelCloneOptions;
