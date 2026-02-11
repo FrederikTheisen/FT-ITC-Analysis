@@ -55,8 +55,13 @@ namespace AnalysisITC.AppClasses.Analysis2
 
 		public double LossFunction(double[] parameters)
 		{
-            //SolverInterface.NelderMeadToken?.Token.ThrowIfCancellationRequested();
-            if (SolverInterface.NelderMeadToken != null && SolverInterface.NelderMeadToken.IsCancellationRequested) throw new OptimizerStopException();
+            // Abort early if a termination has been requested by the user or via the Nelder–Mead cancellation token.
+            if (SolverInterface.TerminateAnalysisFlag?.Up == true)
+                throw new OptimizerStopException();
+            // Also honour the cancellation token used by the Nelder–Mead solver. This ensures we stop when
+            // nested NM solvers are cancelled (e.g. during bootstrapping).
+            if (SolverInterface.NelderMeadToken != null && SolverInterface.NelderMeadToken.IsCancellationRequested)
+                throw new OptimizerStopException();
 
             Parameters.UpdateFromArray(parameters);
 
@@ -65,8 +70,11 @@ namespace AnalysisITC.AppClasses.Analysis2
 
 		public double[] LossFunctionResiduals(double[] parameters)
 		{
-            // If the Nelder–Mead cancellation token has been signalled then abort immediately. This mirrors the
-            // behaviour of LossFunction() and prevents unnecessary work when a cancellation is requested.
+            // Honour termination requests (e.g. user cancellation) by checking the global termination flag and
+            // the Nelder–Mead cancellation token. If either has been signalled, abort immediately. We add
+            // the TerminateAnalysisFlag check to ensure that LM fits can also be aborted quickly.
+            if (SolverInterface.TerminateAnalysisFlag?.Up == true)
+                throw new OptimizerStopException();
             if (SolverInterface.NelderMeadToken != null && SolverInterface.NelderMeadToken.IsCancellationRequested)
                 throw new OptimizerStopException();
 
