@@ -1094,7 +1094,7 @@ namespace AnalysisITC
                     case ExportColumns.CellConc: return inj.ActualCellConcentration.ToString("F8");
                     case ExportColumns.SyrConc: return inj.ActualTitrantConcentration.ToString("F8");
                     case ExportColumns.Peak: return ExportSettings.ExportOffsetCorrected ? inj.OffsetEnthalpy.ToString("F3") : inj.Enthalpy.ToString("F3");
-                    case ExportColumns.PeakError: return (inj.SD / inj.InjectionMass).ToString("F2");
+                    case ExportColumns.PeakError: return inj.SD.ToString("F2");
                     case ExportColumns.Temperature: return inj.Temperature.ToString("F2");
                     case ExportColumns.IntegrationLength: return inj.IntegrationLength.ToString("F1");
                     case ExportColumns.Fit:
