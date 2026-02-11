@@ -11,12 +11,21 @@ namespace AnalysisITC
 
         private static ProgramState currentState = ProgramState.Load;
         public static ProgramState saveState { get; private set; } = ProgramState.Load;
-        public static ProgramState CurrentState { get => currentState; private set { currentState = value; ProgramStateChanged?.Invoke(null, currentState); UpdateStateDependentUI?.Invoke(null, null); } }
+        public static ProgramState CurrentState
+        {
+            get => currentState;
+            private set
+            {
+                currentState = value;
+                ProgramStateChanged?.Invoke(null, currentState);
+                UpdateStateDependentUI?.Invoke(null, null);
+            }
+        }
         public static string ProgramStateString
         {
             get
             {
-                return "FT ITC-Analysis 〉" + CurrentState.ToString();
+                return Utils.MarkdownStrings.AppName + " 〉" + CurrentState.ToString();
             }
         }
 
@@ -103,6 +112,8 @@ namespace AnalysisITC
                 else if (CurrentState == ProgramState.AnalysisView) { while (!StateIsAvailable(saveState)) { saveState--; } CurrentState = saveState; }
                 else CurrentState = state;
             }
+
+            StatusBarManager.Invalidate();
         }
 
         public static void GoToResultView()

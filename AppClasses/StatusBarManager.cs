@@ -8,7 +8,7 @@ namespace AnalysisITC
 {
     public static class StatusBarManager
     {
-        static readonly StatusMessage DefaultStatus = new StatusMessage("FT ITC-Analysis", false);
+        static StatusMessage DefaultStatus => new StatusMessage(StateManager.ProgramStateString, false);
 
         private static readonly List<StatusMessage> status = new();
         private static string secondarystatus = "";
@@ -35,6 +35,8 @@ namespace AnalysisITC
                 StatusUpdated?.Invoke(null, Status.Message);
             }
         }
+
+        public static void Invalidate() => StatusUpdated?.Invoke(null, Status.Message);
 
         static string SecondaryStatus
         {
