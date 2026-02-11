@@ -18,6 +18,7 @@ namespace AnalysisITC.Utils
         public const string EntropyContribution = "-*T*∆*S*";
         public const string ProtonationEnthalpy = "∆*H*{buffer}";
 
+        public const string AppName = "FT-ITC Analysis";
         public const string ITCsimName = "ITCsim";
     }
 
