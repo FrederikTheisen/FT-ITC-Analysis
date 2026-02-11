@@ -83,7 +83,6 @@ namespace AnalysisITC.GUI.MacOS.Drawing
             {
                 // Requires setting for both graphs perhaps, or I inherit from the attached fit graph???
                 FitGraph.ShowPeakInfo = value;
-                ResidualGraph.ShowPeakInfo = value;
             }
         }
         public bool DrawOnWhite => FitGraph.DrawOnWhite;
