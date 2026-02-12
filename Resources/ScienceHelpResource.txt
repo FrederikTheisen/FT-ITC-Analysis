@@ -1,28 +1,33 @@
-﻿## Reported Parameter Uncertainties
+﻿## Parameter Uncertainties
 The uncertainty reported for each fitted model parameter is an statistical uncertainty, estimated by refitting the dataset many times after adding realistic measurement noise. \appname has two different methods for estimating uncertainty. Both methods are based on repeated resampling and refitting.
 
-**Residual Bootstrapping (default)**
-The program treats the optimal solution fit residuals as an empirical description of your noise. This noise is then used to create synthetic data sets that are refitted to obtain a destribution of each parameter.
-**Leave-One-Out Refitting**
-The fit is repeated multiple times while removing one data point at a time. Data points are injections for single fits, or entire data sets for global analyses.
+**Residual Bootstrapping (default):** The program treats the optimal solution fit residuals as an empirical description of your noise. This noise is then used to create synthetic data sets that are refitted to obtain a destribution of each parameter.
+**Leave-One-Out Refitting:** The fit is repeated multiple times while removing one data point at a time. Data points are injections for single fits, or entire data sets for global analyses.
 
 For each parameter (e.g., *N*, \dh, \kd), \appname collects the distribution of fitted values across those refits. The reported “error” for a parameter is derived from that distribution assuming a standard deviation.
+The parameter values reported are not averages. They are the single best-fit values that minimize the loss function. Only the errors are derived from the resample + refitting scheme.
 # Derived quantities
 Derived parameters, such \dg and \tds, are also reported with errors. These errors are calculated in the same way as fitted parameters by looking at the error estimation from the resampled and refitted distribution.
 # Concentration Uncertainty Propagation
 If you have entered concentration uncertainties for cell and syringe, \appname can propagate those into parameter errors by allowing the refits to include concentration perturbations within the provided uncertainty.
 
-## Global Results
-When you perform \multexp analyses, \appname fits multiple experiments simultaneously and produces an Analysis Result that is added to the list of files. \multexp analyses have different types of parameters. 
+## \multexp
+When you perform analyses multiple experiments, \appname fits multiple experiments simultaneously and produces an Analysis Result that is added to the list of files. \multexp analyses have different types of parameters. 
 
 **Shared (global) parameters:** one value must explain all included experiments.
 **Per-experiment parameters:** allowed to differ between experiments.
 **Dependent parameters:** allowed to vary with an experimental attribute (eg. temperature), but in a structured way.
 
 The “global” parameters reported in Analysis Results are therefore not averages. They are the single best-fit values (or dependence descriptors) that minimize the total mismatch across all included datasets under the selected constraint scheme.
+Quantities that were fitted individually in a multi experiment context are reported as the average of the included experiments with errors from the destribuion of refit averages.
 
 ## Peak Error Bars
-The error bar drawn on each injection point represents the program’s estimate of the uncertainty of that injection’s integrated heat, based on the baseline-corrected trace around the injection and the amount of cancellation/noise introduced by integration. These injection uncertainties are the “measurement noise model” that ultimately drives how wide the parameter distributions become in the refitting-based error estimation.
+The error bar drawn on each injection point represents the program’s estimate of the uncertainty of that injection’s integrated heat (\sigma{q,i}), based on the baseline-corrected trace around the injection and the amount of noise introduced by integration.
+The exact formula for calculating the errors is:
+
+                              \sigma{q,i} = \sigma{p,i} · ∆*t* · √N{i}
+
+where \sigma{p,i} is the baseline RMSD for data points that are not integrated surrounding peak *i*, ∆*t* is the stepsize in seconds, and N{i} is the number of data points being integrated.
 
 ## Model Formalism
 The analysis models in \appname are implemented in accordance with the MicroCal/Origin formal definitions. The implementation is also extended to the calculation mass balance / dilution bookkeeping. Thus parameter values from \appname are intended to be directly comparable to MicroCal-style analyses, although the baseline correction cannot be compared and might introduce small differences in fitted values.
