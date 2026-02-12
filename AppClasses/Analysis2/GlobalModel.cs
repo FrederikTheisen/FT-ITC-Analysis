@@ -218,9 +218,6 @@ namespace AnalysisITC.AppClasses.Analysis2
                 mdl.Solution.SetIsGlobal(this);
             }
 
-			//HACK possibly due to inappropriate loss function
-			Convergence.SetLoss(Solutions.Sum(sol => sol.Convergence.Loss) / Solutions.Count);
-
             var dependencies = Solutions[0].DependenciesToReport;
 
             foreach (var dep in dependencies) SetParameterTemperatureDependence(dep.Item1, dep.Item2);
