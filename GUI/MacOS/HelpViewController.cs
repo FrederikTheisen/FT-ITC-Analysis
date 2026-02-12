@@ -30,9 +30,11 @@ namespace AnalysisITC
         {
             base.ViewDidAppear();
 
-            var file = File.ReadAllText("./HelpTextResource.txt");
+            var text = File.ReadAllText("./HelpTextResource.txt");
             var font = NSFont.FromFontName(HelpTextField.Font.DisplayName, 13);
-            var attstring = Utils.MacStrings.FromMarkDownString(file, font);
+
+            var processed_text = Utilities.MarkdownProcessor.ProcessWrittenText(text);
+            var attstring = Utilities.MacStrings.FromMarkDownString(processed_text, font);
 
             HelpTextField.TextStorage.SetString(attstring);
             HelpTextField.TextColor = NSColor.Label;

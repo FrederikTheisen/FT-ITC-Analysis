@@ -1,7 +1,7 @@
 ﻿using AppKit;
 using Foundation;
 
-namespace AnalysisITC.Utils
+namespace AnalysisITC.Utilities
 {
     public static class MacStrings
 	{

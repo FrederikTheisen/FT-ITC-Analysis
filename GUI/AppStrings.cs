@@ -4,14 +4,14 @@ using System.Linq;
 using System.Text.RegularExpressions;
 using CoreText;
 
-namespace AnalysisITC.Utils
+namespace AnalysisITC.Utilities
 {
     public static class MarkdownStrings
     {
         public const string DissociationConstant = "*K*{d}";
         public const string DissociationConstantTrans = "*K*{d,trans}";
         public const string DissociationConstantCis = "*K*{d,cis}";
-        public const string ApparantDissociationConstant = "*K*{d,app}";
+        public const string ApparentDissociationConstant = "*K*{d,app}";
         public const string IsomerizationEquilibriumConstant = "*K*{eq}";
         public const string Enthalpy = "∆*H*";
         public const string GibbsFreeEnergy = "∆*G*";
@@ -20,6 +20,26 @@ namespace AnalysisITC.Utils
 
         public const string AppName = "FT-ITC Analysis";
         public const string ITCsimName = "ITCsim";
+        public const string PeakFitBtn = "Fit Peak Shapes";
+        public const string MultExpString = "Mutiple Experiments";
+        public const string DataFitBtn = "Fit Model";
+        public const string ExpMerger = "Mutiple Experiments";
+        public const string KeyEnter = "ENTER";
+        public const string KeySpace = "SPACE";
+
+        public static Dictionary<string, string> Aliases = new Dictionary<string, string>()
+        {
+            {"\\kd", DissociationConstant },
+            {"\\appname",  AppName},
+            {"\\peakfit",  "Fit Peak Shapes"},
+            {"\\itcsim",  ITCsimName},
+            {"\\multexp",  "Mutiple Experiments"},
+            {"\\merger",  "Experiment Merger"},
+            {"\\designer",  "Experiment Designer"},
+            {"\\enter",  "ENTER"},
+            {"\\space",  "SPACE"},
+            {"\\btnfit",  "Fit Model"},
+        };
     }
 
     /// <summary>
@@ -129,6 +149,16 @@ namespace AnalysisITC.Utils
             // Update the current index to the end of the cursive text
             currentIndex = match.Index + match.Length;
             return currentIndex;
+        }
+
+        public static string ProcessWrittenText(string text)
+        {
+            foreach (var (key, value) in MarkdownStrings.Aliases)
+            {
+                text = text.Replace(key, value);
+            }
+
+            return text;
         }
     }
 
