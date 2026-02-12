@@ -468,6 +468,10 @@
     <Compile Include="GUI\MacOS\Drawing\AnalysisFigure.cs" />
     <Compile Include="GUI\MacOS\Drawing\AnalysisGraph.cs" />
     <Compile Include="AppClasses\Analysis2\Solver2.cs" />
+    <Compile Include="GUI\MacOS\TechnicalDetailsViewController.cs" />
+    <Compile Include="GUI\MacOS\TechnicalDetailsViewController.designer.cs">
+      <DependentUpon>TechnicalDetailsViewController.cs</DependentUpon>
+    </Compile>
   </ItemGroup>
   <ItemGroup>
     <InterfaceDefinition Include="Main.storyboard" />
@@ -476,6 +480,7 @@
   </ItemGroup>
   <ItemGroup>
     <BundleResource Include="Resources\HelpTextResource.txt" />
+    <BundleResource Include="Resources\ScienceHelpResource.txt" />
   </ItemGroup>
   <Import Project="$(MSBuildExtensionsPath)\Xamarin\Mac\Xamarin.Mac.CSharp.targets" />
   <Import Project="packages\Accord.3.8.0\build\Accord.targets" Condition="Exists('packages\Accord.3.8.0\build\Accord.targets')" />

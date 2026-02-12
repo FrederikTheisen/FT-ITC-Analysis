@@ -33,6 +33,7 @@ namespace AnalysisITC.Utilities
         static NSMutableAttributedString Header1Text(string str, NSFont font)
         {
             var s = new NSMutableAttributedString(str);
+            font = NSFont.FromDescription(font.FontDescriptor, font.PointSize * 1.2f);
             var paragraphStyle = new NSMutableParagraphStyle();
             paragraphStyle.ParagraphSpacingBefore = 5;
             s.AddAttributes(new NSStringAttributes { Font = font, ParagraphStyle = paragraphStyle }, new NSRange(0, s.Length));

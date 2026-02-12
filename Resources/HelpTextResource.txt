@@ -24,22 +24,19 @@ Go to the **Final Figure** tab and adjust the display options using the menus ju
 
 ## Reading Data Files
 # Compatible Formats
-\appname can read:
-- **MicroCal and Malvern Panalytical** data files with the `.itc` extension.
-- **TA Instruments NanoAnalyze Export**, typically saved as `.TA` or `.txt`.
+\appname can read **MicroCal / Malvern Panalytical** and **TA Instruments NanoAnalyze Export** files.
 # Loading Files
 Drag a compatible file into the app window.
 Alternatively, use **File > Open…** and select the file you want to analyze. You can also press **\enter** to open the file browser or press **\space** to load the most recently opened file.
 # \merger
 Some workflows involve **tandem experiments**, where one titration immediately follows another and the combined sequence should be treated as a single dataset (for example, sequential titrations that are intended to form one continuous experiment).
-The **\merger** combines tandem experiments into a single merged entry for downstream processing and analysis, while keeping the original inputs available.
+The tool combines tandem experiments into a single merged entry for downstream processing and analysis, while keeping the original inputs available.
 # Saving Files
 \appname can save processed experiments in the `.ftitc` format. The saved file contains everything needed to reopen, reprocess, and refit the experiment, including fitting results. It does not currently store downstream analyses such as Spolar–Record or protonation analysis results.
 
 ## Processing Experimental Data
 # Adjusting the Baseline
-\appname provides two baseline correction modes:
-
+\appname provides two different baseline correction modes.
 **Spline baseline**  
 This mode estimates the baseline level for each injection delay period and interpolates a spline between these points. You can use custom spline handle modes for additional manual control. Additional points can be added anywhere for complete control.
 **Polynomial baseline with outlier rejection**  
@@ -59,11 +56,9 @@ You can also note concentration errors. This information can improve uncertainty
 
 ## Analyzing Experiments
 # Fitting Your Experiment
-In most cases, you can analyze an experiment by clicking the *\btnfit* button on the analysis page. The app includes multiple models to support different interaction mechanisms.
+In most cases, you can analyze an experiment by clicking the **\btnfit** button on the analysis page. The app includes multiple models to support different interaction mechanisms.
 # Residual Plot
 The residual plot shows the difference between the observed integrated heats and the values predicted by the current fit. A good fit typically produces residuals that fluctuate around zero without clear structure. Use the residual plot to:
-- Detect systematic deviations (for example, baseline bias, integration bias, or model mismatch).
-- Identify injections that dominate the error.
 # Global Fitting
 \appname can perform global fits of multiple experiments simultaneously. To enable global fitting, select the This is useful for difficult interactions and for applying constraints across experiments (for example, shared parameters). Global fitting stores its output as a new result object. If you have experiments at multiple temperatures, global fitting can be used to estimate the heat capacity change upon binding, which is often useful for thermodynamic interpretation.
 # Further Analysis
@@ -75,18 +70,12 @@ Additional analyses are available, such as evaluating temperature dependence to 
 \appname can export publication-style figures from the **Final Figure view**. Use the three menus at the top of the view to adjust styling and layout.
 The displayed dimensions apply to the plot area only; they do not include space required for axis labels and legends. You can unify axes to use consistent axis limits across all currently active experiments.
 # Export Options
-\appname provides export tools for both processed numeric data and figures.
-
-**Data export** (File > Export) can produce:
-- Raw power-vs-time traces for one or more experiments. When exporting raw traces, you can unify experiments onto a common time axis by selecting shared time points and interpolating where needed so that all exported traces share the same time base.
-- Integrated heats per injection (the values used for fitting). If a fit is available, you can optionally include model-predicted values alongside experimental values.
-- **Predefined formats**, such as the `\itcsim` format, designed for advanced analysis using numeric simulation-based approaches. These formats include the metadata and numeric arrays needed for simulation and custom modeling workflows.
+\appname provides tools export data points (File > Export). It is possible to export **raw power-vs-time traces** for one or more experiments and **integrated heats per injection**. 
+Several predefined export formats are available. These formats may include metadata. For the CSV export format, the exported data can be defined in Preferences > Export.
 
 ## Optimizing Your Experiment
 # \designer
-The \designer helps you plan an ITC experiment before you collect data. Use it to explore how choices such as cell concentration, syringe concentration, injection volumes, and the number of injections affect the expected titration curve and the information content of the experiment. Typical uses include:
-- **Choosing concentrations** that produce a well-defined transition region.
-- Ensuring that saturation is reached with **baseline regions** before and after the transition.
+The \designer helps you plan an ITC experiment before you collect data. Use it to explore how choices such as cell concentration, syringe concentration, injection volumes, and the number of injections affect the expected titration curve and the information content of the experiment.
 # The Sample
 ITC does not require labeling, but it does require careful sample preparation and reliable concentration determination for accurate modeling.
 Remove bubbles before loading and consider **degassing** samples (vacuum degassing is common; high G centrifugation can also help reduce bubbles). Buffer mismatch between syringe and cell can produce large dilution heats that distort the baseline and bias fitted parameters.
@@ -95,8 +84,8 @@ Degassing steps should be **done at the experimental temperature** to avoid late
 Buffer mismatch is often visible as unexpectedly large heats that do not disappear upon saturation of the binding partner in the cell. Offsets larger than ±10 kJ/mol can be consistent with buffer mismatch, depending on the system.
 Reducing agents can be particularly problematic. Avoid DTT when possible; consider alternatives such as TCEP.
 # Concentrations
-ITC experiments are highly concentration dependent. Consider stoichiometry, cell volume, and syringe concentration when designing an experiment. For one-to-one binding, a typical goal is to be at equal syringe to cell concentrations around the middle of the titration to obtain good baselines both before and after the transition region. This can be roughly estimated by calculating the concentration of the titrant molecule diluted into the cell volume. For MicroCal style instruments, you would want a syringe concentration around 10x of what is in the cell.
-The isotherm shape also depends strongly on concentration: higher concentrations produce larger heats and steeper transitions. For high-affinity interactions (\kd < 50 nM), the transition can become too sharp to fit reliably unless sufficient signal and curvature are present. Increasing temperature can sometimes help by weakening binding and often increasing heat magnitude.
+ITC experiments are highly concentration dependent. Consider stoichiometry, cell volume, and syringe concentration when designing an experiment. For one-to-one binding, a typical goal is to be at equal syringe to cell concentrations around the middle of the titration to obtain good baselines both before and after the transition region. This can be roughly estimated by calculating the concentration of the titrant molecule diluted into the cell volume. For MicroCal style instruments, you would typically want a syringe concentration around 10x of the concentration in the cell.
+Higher concentrations produce larger heats and steeper transitions. For high-affinity interactions (\kd < 50 nM), the transition can become too sharp to fit reliably unless sufficient signal and curvature are present. Increasing temperature can sometimes help by weakening binding and often increasing heat magnitude.
 
 ## Interpreting Your Data
 Affinity interpretation is often straightforward, but many parameters are temperature dependent. Compare only when experiments were performed at similar temperatures.
@@ -108,3 +97,5 @@ The level of structuring can be inferred from thermodynamic parameters using the
 The ionic-strength dependence of a protein–protein interaction affinity provides information about charge–charge contributions. By measuring the dissociation constant (\kd) at different ionic strengths, it is possible to estimate effective charges and characteristic length scales of the interaction. This can help interpret binding mechanisms and guide strategies to modulate or disrupt interactions.
 # Protonation Analysis
 If binding involves proton transfer, using buffers with different protonation enthalpies can reveal and quantify this contribution. By comparing binding enthalpies measured in different buffers, you can assess whether proton transfer accompanies binding. Quantification is typically performed by fitting the dependence of observed binding enthalpy on buffer protonation enthalpy. \appname supports this workflow by allowing buffer attributes to be assigned to experiments.
+
+

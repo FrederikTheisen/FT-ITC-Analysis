@@ -2003,7 +2003,7 @@ In most cases, interpretation of affinities provided by ITC is straightforward, 
                     </scroller>
                 </scrollView>
             </objects>
-            <point key="canvasLocation" x="-485" y="-1564"/>
+            <point key="canvasLocation" x="-239" y="-1607"/>
         </scene>
         <!--Window Controller-->
         <scene sceneID="kLO-qE-bNy">
@@ -3767,6 +3767,13 @@ For analysis and presentation of ITC data</string>
                                             <connections>
                                                 <action selector="showHelp:" target="Ady-hI-5gd" id="y7X-2Q-9no"/>
                                                 <segue destination="H04-VO-A7f" kind="show" id="uCt-o9-OIC"/>
+                                            </connections>
+                                        </menuItem>
+                                        <menuItem title="Technical Details" id="tPt-am-iaC">
+                                            <modifierMask key="keyEquivalentModifierMask"/>
+                                            <connections>
+                                                <action selector="showHelp:" target="Ady-hI-5gd" id="hdQ-a9-dkV"/>
+                                                <segue destination="jeV-bI-BjH" kind="show" id="cNv-iH-Uko"/>
                                             </connections>
                                         </menuItem>
                                         <menuItem title="Open Source" enabled="NO" id="nF3-oU-vjF">
@@ -5553,7 +5560,7 @@ IA
                                     <rect key="frame" x="111" y="1" width="5" height="50"/>
                                 </box>
                                 <button verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="zTg-QH-FPo">
-                                    <rect key="frame" x="115" y="20" width="111" height="31"/>
+                                    <rect key="frame" x="115" y="0.0" width="111" height="31"/>
                                     <buttonCell key="cell" type="recessed" title="Process Data" bezelStyle="recessed" alignment="center" controlSize="large" lineBreakMode="truncatingTail" borderStyle="border" inset="2" id="o5L-6P-mOP">
                                         <behavior key="behavior" lightByBackground="YES" lightByGray="YES" changeBackground="YES" changeGray="YES"/>
                                         <font key="font" metaFont="system"/>
@@ -5569,7 +5576,7 @@ IA
                                     <rect key="frame" x="225" y="1" width="5" height="50"/>
                                 </box>
                                 <button verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="v0f-iE-gM6">
-                                    <rect key="frame" x="229" y="20" width="110" height="31"/>
+                                    <rect key="frame" x="229" y="0.0" width="110" height="31"/>
                                     <buttonCell key="cell" type="recessed" title="Analyze Data" bezelStyle="recessed" alignment="center" controlSize="large" lineBreakMode="truncatingTail" borderStyle="border" inset="2" id="946-Qa-1ae">
                                         <behavior key="behavior" lightByBackground="YES" lightByGray="YES" changeBackground="YES" changeGray="YES"/>
                                         <font key="font" metaFont="system"/>
@@ -5585,7 +5592,7 @@ IA
                                     <rect key="frame" x="338" y="1" width="5" height="50"/>
                                 </box>
                                 <button verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="DGH-oN-EAU">
-                                    <rect key="frame" x="342" y="20" width="111" height="31"/>
+                                    <rect key="frame" x="342" y="0.0" width="111" height="31"/>
                                     <buttonCell key="cell" type="recessed" title="Final Figure" bezelStyle="recessed" alignment="center" controlSize="large" lineBreakMode="truncatingTail" borderStyle="border" inset="2" id="Fgw-Bk-CyU">
                                         <behavior key="behavior" lightByBackground="YES" lightByGray="YES" changeBackground="YES" changeGray="YES"/>
                                         <font key="font" metaFont="system"/>
@@ -6192,7 +6199,7 @@ IA
                                         <size key="contentViewMargins" width="5" height="5"/>
                                     </box>
                                     <stackView distribution="fill" orientation="horizontal" alignment="firstBaseline" horizontalStackHuggingPriority="250" verticalStackHuggingPriority="750" verticalHuggingPriority="750" detachesHiddenViews="YES" translatesAutoresizingMaskIntoConstraints="NO" id="5oj-9h-hGH">
-                                        <rect key="frame" x="338" y="492" width="572" height="16"/>
+                                        <rect key="frame" x="0.0" y="492" width="572" height="16"/>
                                         <subviews>
                                             <button toolTip="Display the baseline" verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="jsQ-Vt-t9u">
                                                 <rect key="frame" x="5" y="-1" width="66" height="17"/>
@@ -11576,6 +11583,872 @@ DQ
                 </stackView>
             </objects>
             <point key="canvasLocation" x="2127.5" y="-1310.5"/>
+        </scene>
+        <!--Help View Controller-->
+        <scene sceneID="te6-0F-nf9">
+            <objects>
+                <viewController id="IUB-Ik-K1R" customClass="HelpViewController" sceneMemberID="viewController">
+                    <view key="view" id="9GR-sT-4cN">
+                        <rect key="frame" x="0.0" y="0.0" width="400" height="515"/>
+                        <autoresizingMask key="autoresizingMask"/>
+                        <subviews>
+                            <box boxType="custom" borderType="line" borderWidth="0.0" title="Box" titlePosition="noTitle" translatesAutoresizingMaskIntoConstraints="NO" id="Md1-Q7-rnp">
+                                <rect key="frame" x="0.0" y="0.0" width="400" height="515"/>
+                                <view key="contentView" id="90N-50-fVy">
+                                    <rect key="frame" x="0.0" y="0.0" width="400" height="515"/>
+                                    <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
+                                    <subviews>
+                                        <stackView distribution="fill" orientation="vertical" alignment="leading" horizontalStackHuggingPriority="750" verticalStackHuggingPriority="249.99998474121094" detachesHiddenViews="YES" translatesAutoresizingMaskIntoConstraints="NO" id="RZw-jB-rzZ">
+                                            <rect key="frame" x="0.0" y="0.0" width="400" height="500"/>
+                                            <subviews>
+                                                <stackView distribution="fill" orientation="horizontal" alignment="top" spacing="20" horizontalStackHuggingPriority="249.99998474121094" verticalStackHuggingPriority="250" detachesHiddenViews="YES" translatesAutoresizingMaskIntoConstraints="NO" id="qQs-Q2-49C">
+                                                    <rect key="frame" x="5" y="412" width="390" height="83"/>
+                                                    <subviews>
+                                                        <customView translatesAutoresizingMaskIntoConstraints="NO" id="erW-Cu-BmF">
+                                                            <rect key="frame" x="10" y="0.0" width="77" height="77"/>
+                                                            <subviews>
+                                                                <imageView fixedFrame="YES" translatesAutoresizingMaskIntoConstraints="NO" id="Xss-3k-Fj3">
+                                                                    <rect key="frame" x="0.0" y="9" width="77" height="60"/>
+                                                                    <autoresizingMask key="autoresizingMask" widthSizable="YES" flexibleMinY="YES" flexibleMaxY="YES"/>
+                                                                    <imageCell key="cell" refusesFirstResponder="YES" alignment="left" animates="YES" imageScaling="proportionallyUpOrDown" image="NSApplicationIcon" id="vwf-BH-UUd"/>
+                                                                </imageView>
+                                                                <imageView fixedFrame="YES" translatesAutoresizingMaskIntoConstraints="NO" id="v7F-Lw-BNd">
+                                                                    <rect key="frame" x="38" y="38.5" width="41" height="41"/>
+                                                                    <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
+                                                                    <imageCell key="cell" refusesFirstResponder="YES" alignment="left" animates="YES" imageScaling="proportionallyUpOrDown" id="qYR-I6-QxY">
+                                                                        <imageReference key="image" image="questionmark.bubble.fill" catalog="system" symbolScale="default" renderingMode="hierarchical" variableValue="1">
+                                                                            <hierarchicalColors>
+                                                                                <color name="windowBackgroundColor" catalog="System" colorSpace="catalog"/>
+                                                                                <color name="secondaryLabelColor" catalog="System" colorSpace="catalog"/>
+                                                                                <color name="labelColor" catalog="System" colorSpace="catalog"/>
+                                                                            </hierarchicalColors>
+                                                                        </imageReference>
+                                                                    </imageCell>
+                                                                </imageView>
+                                                            </subviews>
+                                                            <constraints>
+                                                                <constraint firstAttribute="width" constant="77" id="lbs-oA-ubB"/>
+                                                                <constraint firstAttribute="height" constant="77" id="sjI-8B-aYq"/>
+                                                            </constraints>
+                                                        </customView>
+                                                        <stackView distribution="fill" orientation="vertical" alignment="leading" horizontalStackHuggingPriority="249.99998474121094" verticalStackHuggingPriority="250" verticalHuggingPriority="1000" verticalCompressionResistancePriority="1000" detachesHiddenViews="YES" translatesAutoresizingMaskIntoConstraints="NO" id="YQa-TS-gH0">
+                                                            <rect key="frame" x="107" y="0.0" width="273" height="83"/>
+                                                            <subviews>
+                                                                <textField focusRingType="none" horizontalHuggingPriority="251" verticalHuggingPriority="1000" verticalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="4CL-ra-PlU">
+                                                                    <rect key="frame" x="-2" y="44" width="173" height="29"/>
+                                                                    <textFieldCell key="cell" controlSize="large" lineBreakMode="clipping" alignment="left" title="Help and Guide" id="3Hn-kQ-Z09">
+                                                                        <font key="font" size="25" name="HelveticaNeue-Light"/>
+                                                                        <color key="textColor" name="labelColor" catalog="System" colorSpace="catalog"/>
+                                                                        <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
+                                                                    </textFieldCell>
+                                                                </textField>
+                                                                <textField focusRingType="none" horizontalHuggingPriority="1000" verticalHuggingPriority="1000" verticalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="f8A-53-PeQ">
+                                                                    <rect key="frame" x="-2" y="10" width="277" height="26"/>
+                                                                    <textFieldCell key="cell" title="Guide to analyze, interpret and present your ITC data using FT-ITC Analysis." id="TuC-pQ-mxB">
+                                                                        <font key="font" size="11" name="HelveticaNeue-Light"/>
+                                                                        <color key="textColor" name="labelColor" catalog="System" colorSpace="catalog"/>
+                                                                        <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
+                                                                    </textFieldCell>
+                                                                </textField>
+                                                            </subviews>
+                                                            <edgeInsets key="edgeInsets" left="0.0" right="0.0" top="10" bottom="10"/>
+                                                            <visibilityPriorities>
+                                                                <integer value="1000"/>
+                                                                <integer value="1000"/>
+                                                            </visibilityPriorities>
+                                                            <customSpacing>
+                                                                <real value="3.4028234663852886e+38"/>
+                                                                <real value="3.4028234663852886e+38"/>
+                                                            </customSpacing>
+                                                        </stackView>
+                                                    </subviews>
+                                                    <edgeInsets key="edgeInsets" left="10" right="10" top="10" bottom="10"/>
+                                                    <constraints>
+                                                        <constraint firstItem="YQa-TS-gH0" firstAttribute="top" secondItem="qQs-Q2-49C" secondAttribute="top" id="5Ge-bt-dTD"/>
+                                                        <constraint firstAttribute="bottom" secondItem="YQa-TS-gH0" secondAttribute="bottom" id="mOk-cD-m4J"/>
+                                                    </constraints>
+                                                    <visibilityPriorities>
+                                                        <integer value="1000"/>
+                                                        <integer value="1000"/>
+                                                    </visibilityPriorities>
+                                                    <customSpacing>
+                                                        <real value="3.4028234663852886e+38"/>
+                                                        <real value="3.4028234663852886e+38"/>
+                                                    </customSpacing>
+                                                </stackView>
+                                                <scrollView borderType="none" horizontalLineScroll="10" horizontalPageScroll="10" verticalLineScroll="10" verticalPageScroll="10" hasHorizontalScroller="NO" horizontalScrollElasticity="none" translatesAutoresizingMaskIntoConstraints="NO" id="UHi-e3-Fg8">
+                                                    <rect key="frame" x="5" y="5" width="390" height="399"/>
+                                                    <clipView key="contentView" drawsBackground="NO" id="2w2-Zc-5OG">
+                                                        <rect key="frame" x="0.0" y="0.0" width="390" height="399"/>
+                                                        <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
+                                                        <subviews>
+                                                            <textView wantsLayer="YES" editable="NO" selectable="NO" drawsBackground="NO" importsGraphics="NO" richText="NO" verticallyResizable="YES" baseWritingDirection="leftToRight" findStyle="panel" spellingCorrection="YES" smartInsertDelete="YES" id="VP9-rx-j2D">
+                                                                <rect key="frame" x="0.0" y="-1749" width="390" height="2621"/>
+                                                                <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
+                                                                <color key="textColor" name="textColor" catalog="System" colorSpace="catalog"/>
+                                                                <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
+                                                                <size key="minSize" width="390" height="399"/>
+                                                                <size key="maxSize" width="440" height="10000000"/>
+                                                                <attributedString key="textStorage">
+                                                                    <fragment>
+                                                                        <string key="content">Reading Data Files
+</string>
+                                                                        <attributes>
+                                                                            <color key="NSColor" name="textColor" catalog="System" colorSpace="catalog"/>
+                                                                            <font key="NSFont" textStyle="title2" name=".SFNS-Regular"/>
+                                                                            <real key="NSKern" value="0.0"/>
+                                                                            <paragraphStyle key="NSParagraphStyle" alignment="left" lineBreakMode="wordWrapping" baseWritingDirection="leftToRight" paragraphSpacing="8" defaultTabInterval="36" tighteningFactorForTruncation="0.0" allowsDefaultTighteningForTruncation="NO">
+                                                                                <tabStops/>
+                                                                            </paragraphStyle>
+                                                                            <color key="NSStrokeColor" red="0.0" green="0.0" blue="0.0" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
+                                                                        </attributes>
+                                                                    </fragment>
+                                                                    <fragment content="Compatible Formats ">
+                                                                        <attributes>
+                                                                            <color key="NSColor" name="textColor" catalog="System" colorSpace="catalog"/>
+                                                                            <font key="NSFont" textStyle="headline" name=".SFNS-Bold"/>
+                                                                            <real key="NSKern" value="0.0"/>
+                                                                            <paragraphStyle key="NSParagraphStyle" alignment="left" lineBreakMode="wordWrapping" baseWritingDirection="leftToRight" paragraphSpacing="8" defaultTabInterval="36" tighteningFactorForTruncation="0.0" allowsDefaultTighteningForTruncation="NO">
+                                                                                <tabStops/>
+                                                                            </paragraphStyle>
+                                                                            <color key="NSStrokeColor" red="0.0" green="0.0" blue="0.0" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
+                                                                        </attributes>
+                                                                    </fragment>
+                                                                    <fragment>
+                                                                        <mutableString key="content">FT-ITC Analysis is currently able to read data files provided by MicroCal and Malvern Pananalytical instruments. These files have an ‘itc’ file extension and are plain text files that contain information about instrument and experiment setup followed by raw data.
+</mutableString>
+                                                                        <attributes>
+                                                                            <color key="NSColor" name="textColor" catalog="System" colorSpace="catalog"/>
+                                                                            <font key="NSFont" metaFont="system"/>
+                                                                            <real key="NSKern" value="0.0"/>
+                                                                            <paragraphStyle key="NSParagraphStyle" alignment="left" lineBreakMode="wordWrapping" baseWritingDirection="leftToRight" paragraphSpacing="8" defaultTabInterval="36" tighteningFactorForTruncation="0.0" allowsDefaultTighteningForTruncation="NO">
+                                                                                <tabStops/>
+                                                                            </paragraphStyle>
+                                                                            <color key="NSStrokeColor" red="0.0" green="0.0" blue="0.0" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
+                                                                        </attributes>
+                                                                    </fragment>
+                                                                    <fragment content="Loading Files ">
+                                                                        <attributes>
+                                                                            <color key="NSColor" name="textColor" catalog="System" colorSpace="catalog"/>
+                                                                            <font key="NSFont" textStyle="headline" name=".SFNS-Bold"/>
+                                                                            <real key="NSKern" value="0.0"/>
+                                                                            <paragraphStyle key="NSParagraphStyle" alignment="left" lineBreakMode="wordWrapping" baseWritingDirection="leftToRight" paragraphSpacing="8" defaultTabInterval="36" tighteningFactorForTruncation="0.0" allowsDefaultTighteningForTruncation="NO">
+                                                                                <tabStops/>
+                                                                            </paragraphStyle>
+                                                                            <color key="NSStrokeColor" red="0.0" green="0.0" blue="0.0" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
+                                                                        </attributes>
+                                                                    </fragment>
+                                                                    <fragment>
+                                                                        <string key="content">To open a raw data file, go to File &gt; Open… and select the file you want to analyze. Alternatively, you can click ‘Enter’ to open the file browser or ‘Space’ to load the last file.
+</string>
+                                                                        <attributes>
+                                                                            <color key="NSColor" name="textColor" catalog="System" colorSpace="catalog"/>
+                                                                            <font key="NSFont" metaFont="system"/>
+                                                                            <real key="NSKern" value="0.0"/>
+                                                                            <paragraphStyle key="NSParagraphStyle" alignment="left" lineBreakMode="wordWrapping" baseWritingDirection="leftToRight" paragraphSpacing="8" defaultTabInterval="36" tighteningFactorForTruncation="0.0" allowsDefaultTighteningForTruncation="NO">
+                                                                                <tabStops/>
+                                                                            </paragraphStyle>
+                                                                            <color key="NSStrokeColor" red="0.0" green="0.0" blue="0.0" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
+                                                                        </attributes>
+                                                                    </fragment>
+                                                                    <fragment content="Saving Files ">
+                                                                        <attributes>
+                                                                            <color key="NSColor" name="textColor" catalog="System" colorSpace="catalog"/>
+                                                                            <font key="NSFont" textStyle="headline" name=".SFNS-Bold"/>
+                                                                            <real key="NSKern" value="0.0"/>
+                                                                            <paragraphStyle key="NSParagraphStyle" alignment="left" lineBreakMode="wordWrapping" baseWritingDirection="leftToRight" paragraphSpacing="8" defaultTabInterval="36" tighteningFactorForTruncation="0.0" allowsDefaultTighteningForTruncation="NO">
+                                                                                <tabStops/>
+                                                                            </paragraphStyle>
+                                                                            <color key="NSStrokeColor" red="0.0" green="0.0" blue="0.0" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
+                                                                        </attributes>
+                                                                    </fragment>
+                                                                    <fragment>
+                                                                        <mutableString key="content">FT-ITC Analysis supports saving processed files in the ‘ftitc’ file format. The saved file contains all the data necessary to process and analyze the experiment and also includes any processing done to the data. Note that saving does not include the analysis of data.
+</mutableString>
+                                                                        <attributes>
+                                                                            <color key="NSColor" name="textColor" catalog="System" colorSpace="catalog"/>
+                                                                            <font key="NSFont" metaFont="system"/>
+                                                                            <real key="NSKern" value="0.0"/>
+                                                                            <paragraphStyle key="NSParagraphStyle" alignment="left" lineBreakMode="wordWrapping" baseWritingDirection="leftToRight" paragraphSpacing="8" defaultTabInterval="36" tighteningFactorForTruncation="0.0" allowsDefaultTighteningForTruncation="NO">
+                                                                                <tabStops/>
+                                                                            </paragraphStyle>
+                                                                            <color key="NSStrokeColor" red="0.0" green="0.0" blue="0.0" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
+                                                                        </attributes>
+                                                                    </fragment>
+                                                                    <fragment>
+                                                                        <string key="content">
+Processing Experimental Data
+</string>
+                                                                        <attributes>
+                                                                            <color key="NSColor" name="textColor" catalog="System" colorSpace="catalog"/>
+                                                                            <font key="NSFont" textStyle="title2" name=".SFNS-Regular"/>
+                                                                            <real key="NSKern" value="0.0"/>
+                                                                            <paragraphStyle key="NSParagraphStyle" alignment="left" lineBreakMode="wordWrapping" baseWritingDirection="leftToRight" paragraphSpacing="8" defaultTabInterval="36" tighteningFactorForTruncation="0.0" allowsDefaultTighteningForTruncation="NO">
+                                                                                <tabStops/>
+                                                                            </paragraphStyle>
+                                                                            <color key="NSStrokeColor" red="0.0" green="0.0" blue="0.0" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
+                                                                        </attributes>
+                                                                    </fragment>
+                                                                    <fragment content="Adjusting the Baseline">
+                                                                        <attributes>
+                                                                            <color key="NSColor" name="textColor" catalog="System" colorSpace="catalog"/>
+                                                                            <font key="NSFont" textStyle="headline" name=".SFNS-Bold"/>
+                                                                            <real key="NSKern" value="0.0"/>
+                                                                            <paragraphStyle key="NSParagraphStyle" alignment="left" lineBreakMode="wordWrapping" baseWritingDirection="leftToRight" paragraphSpacing="8" defaultTabInterval="36" tighteningFactorForTruncation="0.0" allowsDefaultTighteningForTruncation="NO">
+                                                                                <tabStops/>
+                                                                            </paragraphStyle>
+                                                                            <color key="NSStrokeColor" red="0.0" green="0.0" blue="0.0" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
+                                                                        </attributes>
+                                                                    </fragment>
+                                                                    <fragment>
+                                                                        <mutableString key="content"> FT-ITC Analysis offers two baseline correction modes. The first mode, spline baseline, calculates the position of the baseline for each injection delay period and interpolates a spline between these points. You can use a custom spline handle mode for more control over the baseline. The second mode, outlier discarding polynomial fit, is more robust against large spikes in the baseline but may perform poorly with interactions involving slow kinetics or short injection delays. You can convert the polynomial baseline to a spline baseline using the “&gt;” button next to the baseline mode selection control.
+</mutableString>
+                                                                        <attributes>
+                                                                            <color key="NSColor" name="textColor" catalog="System" colorSpace="catalog"/>
+                                                                            <font key="NSFont" metaFont="system"/>
+                                                                            <real key="NSKern" value="0.0"/>
+                                                                            <paragraphStyle key="NSParagraphStyle" alignment="left" lineBreakMode="wordWrapping" baseWritingDirection="leftToRight" paragraphSpacing="8" defaultTabInterval="36" tighteningFactorForTruncation="0.0" allowsDefaultTighteningForTruncation="NO">
+                                                                                <tabStops/>
+                                                                            </paragraphStyle>
+                                                                            <color key="NSStrokeColor" red="0.0" green="0.0" blue="0.0" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
+                                                                        </attributes>
+                                                                    </fragment>
+                                                                    <fragment content="Setting the Integration Range">
+                                                                        <attributes>
+                                                                            <color key="NSColor" name="textColor" catalog="System" colorSpace="catalog"/>
+                                                                            <font key="NSFont" textStyle="headline" name=".SFNS-Bold"/>
+                                                                            <real key="NSKern" value="0.0"/>
+                                                                            <paragraphStyle key="NSParagraphStyle" alignment="left" lineBreakMode="wordWrapping" baseWritingDirection="leftToRight" paragraphSpacing="8" defaultTabInterval="36" tighteningFactorForTruncation="0.0" allowsDefaultTighteningForTruncation="NO">
+                                                                                <tabStops/>
+                                                                            </paragraphStyle>
+                                                                            <color key="NSStrokeColor" red="0.0" green="0.0" blue="0.0" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
+                                                                        </attributes>
+                                                                    </fragment>
+                                                                    <fragment>
+                                                                        <mutableString key="content"> The integration range includes two parameters: the start time and the stop delay. By default, the integration starts at the injection time and continues through most of the injection delay. To limit the amount of noise integrated, you can reduce the integration length. FT-ITC Analysis offers three options: the time option lets you set the end time of the integration, the factor option allows you to quickly set an integration length that depends on the peak height, and the peak fit option fits an exponential function to each peak and sets the integration end time based on this. You can double click or select each injection at the bottom to individually set integration times. You can drag the integration range markers to move them.
+</mutableString>
+                                                                        <attributes>
+                                                                            <color key="NSColor" name="textColor" catalog="System" colorSpace="catalog"/>
+                                                                            <font key="NSFont" metaFont="system"/>
+                                                                            <real key="NSKern" value="0.0"/>
+                                                                            <paragraphStyle key="NSParagraphStyle" alignment="left" lineBreakMode="wordWrapping" baseWritingDirection="leftToRight" paragraphSpacing="8" defaultTabInterval="36" tighteningFactorForTruncation="0.0" allowsDefaultTighteningForTruncation="NO">
+                                                                                <tabStops/>
+                                                                            </paragraphStyle>
+                                                                            <color key="NSStrokeColor" red="0.0" green="0.0" blue="0.0" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
+                                                                        </attributes>
+                                                                    </fragment>
+                                                                    <fragment content="Tips and Tricks">
+                                                                        <attributes>
+                                                                            <color key="NSColor" name="textColor" catalog="System" colorSpace="catalog"/>
+                                                                            <font key="NSFont" textStyle="headline" name=".SFNS-Bold"/>
+                                                                            <real key="NSKern" value="0.0"/>
+                                                                            <paragraphStyle key="NSParagraphStyle" alignment="left" lineBreakMode="wordWrapping" baseWritingDirection="leftToRight" paragraphSpacing="8" defaultTabInterval="36" tighteningFactorForTruncation="0.0" allowsDefaultTighteningForTruncation="NO">
+                                                                                <tabStops/>
+                                                                            </paragraphStyle>
+                                                                            <color key="NSStrokeColor" red="0.0" green="0.0" blue="0.0" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
+                                                                        </attributes>
+                                                                    </fragment>
+                                                                    <fragment>
+                                                                        <mutableString key="content"> Often, the automatic range option is not suitable for all injections. To set custom integration ranges for each injection, select a peak, zoom to the peak, set the end point, and use SPACE to simultaneously copy the end time and navigate to the next injection. If you want to perform a quick analysis of multiple experiments, you can set a conservative range for all peaks and use the ‘Copy to all’ button to copy the baseline and integration range to all experiments.
+</mutableString>
+                                                                        <attributes>
+                                                                            <color key="NSColor" name="textColor" catalog="System" colorSpace="catalog"/>
+                                                                            <font key="NSFont" metaFont="system"/>
+                                                                            <real key="NSKern" value="0.0"/>
+                                                                            <paragraphStyle key="NSParagraphStyle" alignment="left" lineBreakMode="wordWrapping" baseWritingDirection="leftToRight" paragraphSpacing="8" defaultTabInterval="36" tighteningFactorForTruncation="0.0" allowsDefaultTighteningForTruncation="NO">
+                                                                                <tabStops/>
+                                                                            </paragraphStyle>
+                                                                            <color key="NSStrokeColor" red="0.0" green="0.0" blue="0.0" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
+                                                                        </attributes>
+                                                                    </fragment>
+                                                                    <fragment>
+                                                                        <string key="content">
+Analyzing Experiments
+</string>
+                                                                        <attributes>
+                                                                            <color key="NSColor" name="textColor" catalog="System" colorSpace="catalog"/>
+                                                                            <font key="NSFont" textStyle="title2" name=".SFNS-Regular"/>
+                                                                            <real key="NSKern" value="0.0"/>
+                                                                            <paragraphStyle key="NSParagraphStyle" alignment="left" lineBreakMode="wordWrapping" baseWritingDirection="leftToRight" paragraphSpacing="8" defaultTabInterval="36" tighteningFactorForTruncation="0.0" allowsDefaultTighteningForTruncation="NO">
+                                                                                <tabStops/>
+                                                                            </paragraphStyle>
+                                                                            <color key="NSStrokeColor" red="0.0" green="0.0" blue="0.0" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
+                                                                        </attributes>
+                                                                    </fragment>
+                                                                    <fragment content="Fitting Your Experiment">
+                                                                        <attributes>
+                                                                            <color key="NSColor" name="textColor" catalog="System" colorSpace="catalog"/>
+                                                                            <font key="NSFont" textStyle="headline" name=".SFNS-Bold"/>
+                                                                            <real key="NSKern" value="0.0"/>
+                                                                            <paragraphStyle key="NSParagraphStyle" alignment="left" lineBreakMode="wordWrapping" baseWritingDirection="leftToRight" paragraphSpacing="8" defaultTabInterval="36" tighteningFactorForTruncation="0.0" allowsDefaultTighteningForTruncation="NO">
+                                                                                <tabStops/>
+                                                                            </paragraphStyle>
+                                                                            <color key="NSStrokeColor" red="0.0" green="0.0" blue="0.0" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
+                                                                        </attributes>
+                                                                    </fragment>
+                                                                    <fragment>
+                                                                        <string key="content"> Analyzing ITC data using FT-ITC Analysis is easy. In most cases, you can simply click the 'Fit' button on the analysis page. The program includes various models to support the analysis of different interactions.
+</string>
+                                                                        <attributes>
+                                                                            <color key="NSColor" name="textColor" catalog="System" colorSpace="catalog"/>
+                                                                            <font key="NSFont" metaFont="system"/>
+                                                                            <real key="NSKern" value="0.0"/>
+                                                                            <paragraphStyle key="NSParagraphStyle" alignment="left" lineBreakMode="wordWrapping" baseWritingDirection="leftToRight" paragraphSpacing="8" defaultTabInterval="36" tighteningFactorForTruncation="0.0" allowsDefaultTighteningForTruncation="NO">
+                                                                                <tabStops/>
+                                                                            </paragraphStyle>
+                                                                            <color key="NSStrokeColor" red="0.0" green="0.0" blue="0.0" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
+                                                                        </attributes>
+                                                                    </fragment>
+                                                                    <fragment content="Global Fitting">
+                                                                        <attributes>
+                                                                            <color key="NSColor" name="textColor" catalog="System" colorSpace="catalog"/>
+                                                                            <font key="NSFont" textStyle="headline" name=".SFNS-Bold"/>
+                                                                            <real key="NSKern" value="0.0"/>
+                                                                            <paragraphStyle key="NSParagraphStyle" alignment="left" lineBreakMode="wordWrapping" baseWritingDirection="leftToRight" paragraphSpacing="8" defaultTabInterval="36" tighteningFactorForTruncation="0.0" allowsDefaultTighteningForTruncation="NO">
+                                                                                <tabStops/>
+                                                                            </paragraphStyle>
+                                                                            <color key="NSStrokeColor" red="0.0" green="0.0" blue="0.0" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
+                                                                        </attributes>
+                                                                    </fragment>
+                                                                    <fragment>
+                                                                        <mutableString key="content"> FT-ITC Analysis allows you to analyze multiple experiments simultaneously using the global fitting scheme. This enables fitting of difficult interactions with greater certainty by applying constraints to various parameters. Global fitting saves your result in a new object. If experiments at multiple temperatures are available, global fitting allows determining the heat capacity change upon binding, a useful parameter for interpretation of thermodynamics.
+</mutableString>
+                                                                        <attributes>
+                                                                            <color key="NSColor" name="textColor" catalog="System" colorSpace="catalog"/>
+                                                                            <font key="NSFont" metaFont="system"/>
+                                                                            <real key="NSKern" value="0.0"/>
+                                                                            <paragraphStyle key="NSParagraphStyle" alignment="left" lineBreakMode="wordWrapping" baseWritingDirection="leftToRight" paragraphSpacing="8" defaultTabInterval="36" tighteningFactorForTruncation="0.0" allowsDefaultTighteningForTruncation="NO">
+                                                                                <tabStops/>
+                                                                            </paragraphStyle>
+                                                                            <color key="NSStrokeColor" red="0.0" green="0.0" blue="0.0" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
+                                                                        </attributes>
+                                                                    </fragment>
+                                                                    <fragment content="Further Analysis">
+                                                                        <attributes>
+                                                                            <color key="NSColor" name="textColor" catalog="System" colorSpace="catalog"/>
+                                                                            <font key="NSFont" textStyle="headline" name=".SFNS-Bold"/>
+                                                                            <real key="NSKern" value="0.0"/>
+                                                                            <paragraphStyle key="NSParagraphStyle" alignment="left" lineBreakMode="wordWrapping" baseWritingDirection="leftToRight" paragraphSpacing="8" defaultTabInterval="36" tighteningFactorForTruncation="0.0" allowsDefaultTighteningForTruncation="NO">
+                                                                                <tabStops/>
+                                                                            </paragraphStyle>
+                                                                            <color key="NSStrokeColor" red="0.0" green="0.0" blue="0.0" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
+                                                                        </attributes>
+                                                                    </fragment>
+                                                                    <fragment content=" ">
+                                                                        <attributes>
+                                                                            <color key="NSColor" name="textColor" catalog="System" colorSpace="catalog"/>
+                                                                            <font key="NSFont" metaFont="system"/>
+                                                                            <real key="NSKern" value="0.0"/>
+                                                                            <paragraphStyle key="NSParagraphStyle" alignment="left" lineBreakMode="wordWrapping" baseWritingDirection="leftToRight" paragraphSpacing="8" defaultTabInterval="36" tighteningFactorForTruncation="0.0" allowsDefaultTighteningForTruncation="NO">
+                                                                                <tabStops/>
+                                                                            </paragraphStyle>
+                                                                            <color key="NSStrokeColor" red="0.0" green="0.0" blue="0.0" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
+                                                                        </attributes>
+                                                                    </fragment>
+                                                                    <fragment>
+                                                                        <mutableString key="content">When a global fit has completed you will be able view the result in a result view page available in the side bar. Here you can view the fit parameters and global correlations. In addition, you can do further analysis such as evaluating the global correlation at different temperatures in order to obtain globally thermodynamic parameters based on all experiments. Furthermore, if a sufficient temperature range was used, you will be able to analyze folding-upon-binding using the SpolarRecord (Science 1994) method.</mutableString>
+                                                                        <attributes>
+                                                                            <color key="NSColor" name="textColor" catalog="System" colorSpace="catalog"/>
+                                                                            <font key="NSFont" size="13" name="HelveticaNeue"/>
+                                                                            <real key="NSKern" value="0.0"/>
+                                                                            <paragraphStyle key="NSParagraphStyle" alignment="left" lineBreakMode="wordWrapping" baseWritingDirection="leftToRight" paragraphSpacing="8" defaultTabInterval="36" tighteningFactorForTruncation="0.0" allowsDefaultTighteningForTruncation="NO">
+                                                                                <tabStops/>
+                                                                            </paragraphStyle>
+                                                                        </attributes>
+                                                                    </fragment>
+                                                                    <fragment>
+                                                                        <string key="content" base64-UTF8="YES">
+DQo
+</string>
+                                                                        <attributes>
+                                                                            <color key="NSColor" name="textColor" catalog="System" colorSpace="catalog"/>
+                                                                            <font key="NSFont" metaFont="system"/>
+                                                                            <real key="NSKern" value="0.0"/>
+                                                                            <paragraphStyle key="NSParagraphStyle" alignment="left" lineBreakMode="wordWrapping" baseWritingDirection="leftToRight" paragraphSpacing="8" defaultTabInterval="36" tighteningFactorForTruncation="0.0" allowsDefaultTighteningForTruncation="NO">
+                                                                                <tabStops/>
+                                                                            </paragraphStyle>
+                                                                            <color key="NSStrokeColor" red="0.0" green="0.0" blue="0.0" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
+                                                                        </attributes>
+                                                                    </fragment>
+                                                                    <fragment>
+                                                                        <string key="content">
+Presenting the Data
+</string>
+                                                                        <attributes>
+                                                                            <color key="NSColor" name="textColor" catalog="System" colorSpace="catalog"/>
+                                                                            <font key="NSFont" textStyle="title2" name=".SFNS-Regular"/>
+                                                                            <real key="NSKern" value="0.0"/>
+                                                                            <paragraphStyle key="NSParagraphStyle" alignment="left" lineBreakMode="wordWrapping" baseWritingDirection="leftToRight" paragraphSpacing="8" defaultTabInterval="36" tighteningFactorForTruncation="0.0" allowsDefaultTighteningForTruncation="NO">
+                                                                                <tabStops/>
+                                                                            </paragraphStyle>
+                                                                            <color key="NSStrokeColor" red="0.0" green="0.0" blue="0.0" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
+                                                                        </attributes>
+                                                                    </fragment>
+                                                                    <fragment content="Final Figure">
+                                                                        <attributes>
+                                                                            <color key="NSColor" name="textColor" catalog="System" colorSpace="catalog"/>
+                                                                            <font key="NSFont" textStyle="headline" name=".SFNS-Bold"/>
+                                                                            <real key="NSKern" value="0.0"/>
+                                                                            <paragraphStyle key="NSParagraphStyle" alignment="left" lineBreakMode="wordWrapping" baseWritingDirection="leftToRight" paragraphSpacing="8" defaultTabInterval="36" tighteningFactorForTruncation="0.0" allowsDefaultTighteningForTruncation="NO">
+                                                                                <tabStops/>
+                                                                            </paragraphStyle>
+                                                                            <color key="NSStrokeColor" red="0.0" green="0.0" blue="0.0" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
+                                                                        </attributes>
+                                                                    </fragment>
+                                                                    <fragment>
+                                                                        <mutableString key="content"> FT-ITC Analysis can export a final figure-style graphic for publication from the 'Final Figure' view. You can modify the look of the figure using the three menus at the top of the Final Figure view. Note that the given dimensions apply to the plot area only and do not include area necessary to show axis labels and legends. You can unify axes to normalize the given axis between all experiments currently active.
+</mutableString>
+                                                                        <attributes>
+                                                                            <color key="NSColor" name="textColor" catalog="System" colorSpace="catalog"/>
+                                                                            <font key="NSFont" metaFont="system"/>
+                                                                            <real key="NSKern" value="0.0"/>
+                                                                            <paragraphStyle key="NSParagraphStyle" alignment="left" lineBreakMode="wordWrapping" baseWritingDirection="leftToRight" paragraphSpacing="8" defaultTabInterval="36" tighteningFactorForTruncation="0.0" allowsDefaultTighteningForTruncation="NO">
+                                                                                <tabStops/>
+                                                                            </paragraphStyle>
+                                                                            <color key="NSStrokeColor" red="0.0" green="0.0" blue="0.0" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
+                                                                        </attributes>
+                                                                    </fragment>
+                                                                    <fragment content="Export Raw Data">
+                                                                        <attributes>
+                                                                            <color key="NSColor" name="textColor" catalog="System" colorSpace="catalog"/>
+                                                                            <font key="NSFont" textStyle="headline" name=".SFNS-Bold"/>
+                                                                            <real key="NSKern" value="0.0"/>
+                                                                            <paragraphStyle key="NSParagraphStyle" alignment="left" lineBreakMode="wordWrapping" baseWritingDirection="leftToRight" paragraphSpacing="8" defaultTabInterval="36" tighteningFactorForTruncation="0.0" allowsDefaultTighteningForTruncation="NO">
+                                                                                <tabStops/>
+                                                                            </paragraphStyle>
+                                                                            <color key="NSStrokeColor" red="0.0" green="0.0" blue="0.0" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
+                                                                        </attributes>
+                                                                    </fragment>
+                                                                    <fragment>
+                                                                        <mutableString key="content"> You can export raw data from the app using the File &gt; Export menu. Raw data can be unified on the time axis, which will attempt to establish the most reasonable time points and interpolate missing data points from existing data in order to export all data with the same time axis. Exporting integrated peaks is also possible and may include expected values based on the fitted model.
+</mutableString>
+                                                                        <attributes>
+                                                                            <color key="NSColor" name="textColor" catalog="System" colorSpace="catalog"/>
+                                                                            <font key="NSFont" metaFont="system"/>
+                                                                            <real key="NSKern" value="0.0"/>
+                                                                            <paragraphStyle key="NSParagraphStyle" alignment="left" lineBreakMode="wordWrapping" baseWritingDirection="leftToRight" paragraphSpacing="8" defaultTabInterval="36" tighteningFactorForTruncation="0.0" allowsDefaultTighteningForTruncation="NO">
+                                                                                <tabStops/>
+                                                                            </paragraphStyle>
+                                                                            <color key="NSStrokeColor" red="0.0" green="0.0" blue="0.0" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
+                                                                        </attributes>
+                                                                    </fragment>
+                                                                    <fragment>
+                                                                        <string key="content">
+Optimizing Your Experiment</string>
+                                                                        <attributes>
+                                                                            <color key="NSColor" name="textColor" catalog="System" colorSpace="catalog"/>
+                                                                            <font key="NSFont" textStyle="title2" name=".SFNS-Regular"/>
+                                                                            <real key="NSKern" value="0.0"/>
+                                                                            <paragraphStyle key="NSParagraphStyle" alignment="left" lineBreakMode="wordWrapping" baseWritingDirection="leftToRight" paragraphSpacing="8" defaultTabInterval="36" tighteningFactorForTruncation="0.0" allowsDefaultTighteningForTruncation="NO">
+                                                                                <tabStops/>
+                                                                            </paragraphStyle>
+                                                                            <color key="NSStrokeColor" red="0.0" green="0.0" blue="0.0" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
+                                                                        </attributes>
+                                                                    </fragment>
+                                                                    <fragment>
+                                                                        <string key="content" base64-UTF8="YES">
+Cg
+</string>
+                                                                        <attributes>
+                                                                            <color key="NSColor" name="textColor" catalog="System" colorSpace="catalog"/>
+                                                                            <font key="NSFont" metaFont="system"/>
+                                                                            <real key="NSKern" value="0.0"/>
+                                                                            <paragraphStyle key="NSParagraphStyle" alignment="left" lineBreakMode="wordWrapping" baseWritingDirection="leftToRight" paragraphSpacing="8" defaultTabInterval="36" tighteningFactorForTruncation="0.0" allowsDefaultTighteningForTruncation="NO">
+                                                                                <tabStops/>
+                                                                            </paragraphStyle>
+                                                                            <color key="NSStrokeColor" red="0.0" green="0.0" blue="0.0" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
+                                                                        </attributes>
+                                                                    </fragment>
+                                                                    <fragment content="The Sample">
+                                                                        <attributes>
+                                                                            <color key="NSColor" name="textColor" catalog="System" colorSpace="catalog"/>
+                                                                            <font key="NSFont" textStyle="headline" name=".SFNS-Bold"/>
+                                                                            <real key="NSKern" value="0.0"/>
+                                                                            <paragraphStyle key="NSParagraphStyle" alignment="left" lineBreakMode="wordWrapping" baseWritingDirection="leftToRight" paragraphSpacing="8" defaultTabInterval="36" tighteningFactorForTruncation="0.0" allowsDefaultTighteningForTruncation="NO">
+                                                                                <tabStops/>
+                                                                            </paragraphStyle>
+                                                                            <color key="NSStrokeColor" red="0.0" green="0.0" blue="0.0" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
+                                                                        </attributes>
+                                                                    </fragment>
+                                                                    <fragment>
+                                                                        <mutableString key="content"> ITC requires no labelling of any components, however it does require careful sample preparation and careful concentration determination to enable accurate modelling. In addition, the instruments are generally sensitive to gas and samples should be degassed prior to experiments. This can usually be done by centrifugation at 20000 x g at the experimental temperature. Furthermore, if there is a buffer mismatch between the syringe and the cell, this may give rise to large dilution heats which can disturb the experiments or introduce errors in fitted parameters.
+</mutableString>
+                                                                        <attributes>
+                                                                            <color key="NSColor" name="textColor" catalog="System" colorSpace="catalog"/>
+                                                                            <font key="NSFont" metaFont="system"/>
+                                                                            <real key="NSKern" value="0.0"/>
+                                                                            <paragraphStyle key="NSParagraphStyle" alignment="left" lineBreakMode="wordWrapping" baseWritingDirection="leftToRight" paragraphSpacing="8" defaultTabInterval="36" tighteningFactorForTruncation="0.0" allowsDefaultTighteningForTruncation="NO">
+                                                                                <tabStops/>
+                                                                            </paragraphStyle>
+                                                                            <color key="NSStrokeColor" red="0.0" green="0.0" blue="0.0" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
+                                                                        </attributes>
+                                                                    </fragment>
+                                                                    <fragment content="Buffer Mismatch">
+                                                                        <attributes>
+                                                                            <color key="NSColor" name="textColor" catalog="System" colorSpace="catalog"/>
+                                                                            <font key="NSFont" textStyle="headline" name=".SFNS-Bold"/>
+                                                                            <real key="NSKern" value="0.0"/>
+                                                                            <paragraphStyle key="NSParagraphStyle" alignment="left" lineBreakMode="wordWrapping" baseWritingDirection="leftToRight" paragraphSpacing="8" defaultTabInterval="36" tighteningFactorForTruncation="0.0" allowsDefaultTighteningForTruncation="NO">
+                                                                                <tabStops/>
+                                                                            </paragraphStyle>
+                                                                            <color key="NSStrokeColor" red="0.0" green="0.0" blue="0.0" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
+                                                                        </attributes>
+                                                                    </fragment>
+                                                                    <fragment>
+                                                                        <mutableString key="content"> Buffer mismatch will often be evident as unexpectedly large heats which do not disappear upon saturation of the cell protein. Offsets larger than ±10 kJ/mol may be caused by buffer mismatch. Reducing agents are particularly susceptible to this and it is highly recommended not to use DTT as a reducing agent.
+</mutableString>
+                                                                        <attributes>
+                                                                            <color key="NSColor" name="textColor" catalog="System" colorSpace="catalog"/>
+                                                                            <font key="NSFont" metaFont="system"/>
+                                                                            <real key="NSKern" value="0.0"/>
+                                                                            <paragraphStyle key="NSParagraphStyle" alignment="left" lineBreakMode="wordWrapping" baseWritingDirection="leftToRight" paragraphSpacing="8" defaultTabInterval="36" tighteningFactorForTruncation="0.0" allowsDefaultTighteningForTruncation="NO">
+                                                                                <tabStops/>
+                                                                            </paragraphStyle>
+                                                                            <color key="NSStrokeColor" red="0.0" green="0.0" blue="0.0" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
+                                                                        </attributes>
+                                                                    </fragment>
+                                                                    <fragment content="Concentrations">
+                                                                        <attributes>
+                                                                            <color key="NSColor" name="textColor" catalog="System" colorSpace="catalog"/>
+                                                                            <font key="NSFont" textStyle="headline" name=".SFNS-Bold"/>
+                                                                            <real key="NSKern" value="0.0"/>
+                                                                            <paragraphStyle key="NSParagraphStyle" alignment="left" lineBreakMode="wordWrapping" baseWritingDirection="leftToRight" paragraphSpacing="8" defaultTabInterval="36" tighteningFactorForTruncation="0.0" allowsDefaultTighteningForTruncation="NO">
+                                                                                <tabStops/>
+                                                                            </paragraphStyle>
+                                                                            <color key="NSStrokeColor" red="0.0" green="0.0" blue="0.0" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
+                                                                        </attributes>
+                                                                    </fragment>
+                                                                    <fragment>
+                                                                        <mutableString key="content"> ITC experiments are very concentration dependent and it is essential to consider stoichiometry, cell volume and syringe volume when designing your experiment. The optimal experiment will saturate the cell protein halfway through the experiment to obtain baselines both before and after the inflection point. In addition, the shape of the isotherm depends strongly on the concentrations used as higher concentrations will result in larger injection heats and steeper binding curves. For high affinity interactions (Kd &lt; 50 nM), this may cause problems, since both certain heat and some slope is required to be able to fit the experiments. It may be possible to increase the temperature to help this since higher temperatures results in weaker binding and generally also larger heats.
+</mutableString>
+                                                                        <attributes>
+                                                                            <color key="NSColor" name="textColor" catalog="System" colorSpace="catalog"/>
+                                                                            <font key="NSFont" metaFont="system"/>
+                                                                            <real key="NSKern" value="0.0"/>
+                                                                            <paragraphStyle key="NSParagraphStyle" alignment="left" lineBreakMode="wordWrapping" baseWritingDirection="leftToRight" paragraphSpacing="8" defaultTabInterval="36" tighteningFactorForTruncation="0.0" allowsDefaultTighteningForTruncation="NO">
+                                                                                <tabStops/>
+                                                                            </paragraphStyle>
+                                                                            <color key="NSStrokeColor" red="0.0" green="0.0" blue="0.0" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
+                                                                        </attributes>
+                                                                    </fragment>
+                                                                    <fragment>
+                                                                        <string key="content">
+Interpreting Your Data</string>
+                                                                        <attributes>
+                                                                            <color key="NSColor" name="textColor" catalog="System" colorSpace="catalog"/>
+                                                                            <font key="NSFont" textStyle="title2" name=".SFNS-Regular"/>
+                                                                            <real key="NSKern" value="0.0"/>
+                                                                            <paragraphStyle key="NSParagraphStyle" alignment="left" lineBreakMode="wordWrapping" baseWritingDirection="leftToRight" paragraphSpacing="8" defaultTabInterval="36" tighteningFactorForTruncation="0.0" allowsDefaultTighteningForTruncation="NO">
+                                                                                <tabStops/>
+                                                                            </paragraphStyle>
+                                                                            <color key="NSStrokeColor" red="0.0" green="0.0" blue="0.0" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
+                                                                        </attributes>
+                                                                    </fragment>
+                                                                    <fragment>
+                                                                        <mutableString key="content">
+In most cases, interpretation of affinities provided by ITC is straightforward, however it is worth noting that temperature has a large effect on the observed equilibrium constants. Therefore it is important to only compare affinities determined at similar temperatures.
+</mutableString>
+                                                                        <attributes>
+                                                                            <color key="NSColor" name="textColor" catalog="System" colorSpace="catalog"/>
+                                                                            <font key="NSFont" metaFont="system"/>
+                                                                            <real key="NSKern" value="0.0"/>
+                                                                            <paragraphStyle key="NSParagraphStyle" alignment="left" lineBreakMode="wordWrapping" baseWritingDirection="leftToRight" paragraphSpacing="8" defaultTabInterval="36" tighteningFactorForTruncation="0.0" allowsDefaultTighteningForTruncation="NO">
+                                                                                <tabStops/>
+                                                                            </paragraphStyle>
+                                                                            <color key="NSStrokeColor" red="0.0" green="0.0" blue="0.0" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
+                                                                        </attributes>
+                                                                    </fragment>
+                                                                    <fragment content="Thermodynamic Parameters">
+                                                                        <attributes>
+                                                                            <color key="NSColor" name="textColor" catalog="System" colorSpace="catalog"/>
+                                                                            <font key="NSFont" textStyle="headline" name=".SFNS-Bold"/>
+                                                                            <real key="NSKern" value="0.0"/>
+                                                                            <paragraphStyle key="NSParagraphStyle" alignment="justified" lineBreakMode="wordWrapping" baseWritingDirection="leftToRight" paragraphSpacing="8" defaultTabInterval="36" tighteningFactorForTruncation="0.0" allowsDefaultTighteningForTruncation="NO">
+                                                                                <tabStops/>
+                                                                            </paragraphStyle>
+                                                                            <color key="NSStrokeColor" red="0.0" green="0.0" blue="0.0" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
+                                                                        </attributes>
+                                                                    </fragment>
+                                                                    <fragment>
+                                                                        <mutableString key="content"> ITC directly measures both enthalpy and affinity and the entropy can therefore be derived from the Gibbs free energy. Entropy is frequently used as a measure of structuring, however it can be difficult to decompose due to the underlying contributions. The derived entropy also contains a hydration term which is often large and favorable for interactions. Determining the heat capacity change upon binding allows thermodynamic structuring analysis.</mutableString>
+                                                                        <attributes>
+                                                                            <color key="NSColor" name="textColor" catalog="System" colorSpace="catalog"/>
+                                                                            <font key="NSFont" metaFont="system"/>
+                                                                            <real key="NSKern" value="0.0"/>
+                                                                            <paragraphStyle key="NSParagraphStyle" alignment="justified" lineBreakMode="wordWrapping" baseWritingDirection="leftToRight" paragraphSpacing="8" defaultTabInterval="36" tighteningFactorForTruncation="0.0" allowsDefaultTighteningForTruncation="NO">
+                                                                                <tabStops/>
+                                                                            </paragraphStyle>
+                                                                            <color key="NSStrokeColor" red="0.0" green="0.0" blue="0.0" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
+                                                                        </attributes>
+                                                                    </fragment>
+                                                                </attributedString>
+                                                            </textView>
+                                                        </subviews>
+                                                    </clipView>
+                                                    <scroller key="horizontalScroller" hidden="YES" wantsLayer="YES" verticalHuggingPriority="750" horizontal="YES" id="o0D-aW-Y4r">
+                                                        <rect key="frame" x="-100" y="-100" width="240" height="16"/>
+                                                        <autoresizingMask key="autoresizingMask"/>
+                                                    </scroller>
+                                                    <scroller key="verticalScroller" wantsLayer="YES" verticalHuggingPriority="750" horizontal="NO" id="MFj-9a-Mxj">
+                                                        <rect key="frame" x="374" y="0.0" width="16" height="399"/>
+                                                        <autoresizingMask key="autoresizingMask"/>
+                                                    </scroller>
+                                                </scrollView>
+                                            </subviews>
+                                            <edgeInsets key="edgeInsets" left="5" right="5" top="5" bottom="5"/>
+                                            <constraints>
+                                                <constraint firstAttribute="width" constant="400" id="TfX-rv-jhh"/>
+                                                <constraint firstAttribute="height" constant="500" id="sKJ-Hb-w1H"/>
+                                            </constraints>
+                                            <visibilityPriorities>
+                                                <integer value="1000"/>
+                                                <integer value="1000"/>
+                                            </visibilityPriorities>
+                                            <customSpacing>
+                                                <real value="3.4028234663852886e+38"/>
+                                                <real value="3.4028234663852886e+38"/>
+                                            </customSpacing>
+                                        </stackView>
+                                    </subviews>
+                                    <constraints>
+                                        <constraint firstItem="RZw-jB-rzZ" firstAttribute="top" secondItem="90N-50-fVy" secondAttribute="top" constant="15" id="l4q-p5-B6y"/>
+                                        <constraint firstAttribute="bottom" secondItem="RZw-jB-rzZ" secondAttribute="bottom" id="t0J-eU-9Bn"/>
+                                        <constraint firstItem="RZw-jB-rzZ" firstAttribute="leading" secondItem="90N-50-fVy" secondAttribute="leading" id="ufI-I0-uLg"/>
+                                        <constraint firstAttribute="trailing" secondItem="RZw-jB-rzZ" secondAttribute="trailing" id="vNT-oN-hhz"/>
+                                    </constraints>
+                                </view>
+                                <color key="fillColor" name="controlBackgroundColor" catalog="System" colorSpace="catalog"/>
+                            </box>
+                        </subviews>
+                        <constraints>
+                            <constraint firstItem="Md1-Q7-rnp" firstAttribute="top" secondItem="9GR-sT-4cN" secondAttribute="top" id="4ls-cU-6Vc"/>
+                            <constraint firstAttribute="trailing" secondItem="Md1-Q7-rnp" secondAttribute="trailing" id="5UB-6I-0ek"/>
+                            <constraint firstItem="Md1-Q7-rnp" firstAttribute="leading" secondItem="9GR-sT-4cN" secondAttribute="leading" id="IGp-6V-cWZ"/>
+                            <constraint firstItem="Md1-Q7-rnp" firstAttribute="leading" secondItem="9GR-sT-4cN" secondAttribute="leading" id="TbB-nG-NP0"/>
+                            <constraint firstAttribute="bottom" secondItem="Md1-Q7-rnp" secondAttribute="bottom" id="Ukb-kn-EHA"/>
+                            <constraint firstAttribute="bottom" secondItem="Md1-Q7-rnp" secondAttribute="bottom" id="jHM-3e-H0a"/>
+                            <constraint firstItem="Md1-Q7-rnp" firstAttribute="top" secondItem="9GR-sT-4cN" secondAttribute="top" id="mF8-rv-I89"/>
+                            <constraint firstAttribute="trailing" secondItem="Md1-Q7-rnp" secondAttribute="trailing" id="yVM-6Y-QSd"/>
+                        </constraints>
+                    </view>
+                    <connections>
+                        <outlet property="HelpTextField" destination="VP9-rx-j2D" id="zDf-S3-Arx"/>
+                    </connections>
+                </viewController>
+                <customObject id="AoL-1q-hCf" userLabel="First Responder" customClass="NSResponder" sceneMemberID="firstResponder"/>
+            </objects>
+            <point key="canvasLocation" x="-673" y="-1644"/>
+        </scene>
+        <!--Technical Details View Controller-->
+        <scene sceneID="v3L-PS-Gw4">
+            <objects>
+                <viewController id="jeV-bI-BjH" customClass="TechnicalDetailsViewController" sceneMemberID="viewController">
+                    <view key="view" id="Dru-qU-JeD">
+                        <rect key="frame" x="0.0" y="0.0" width="400" height="515"/>
+                        <autoresizingMask key="autoresizingMask"/>
+                        <subviews>
+                            <box boxType="custom" borderType="line" borderWidth="0.0" title="Box" titlePosition="noTitle" translatesAutoresizingMaskIntoConstraints="NO" id="pnU-eo-eaM">
+                                <rect key="frame" x="0.0" y="0.0" width="400" height="515"/>
+                                <view key="contentView" id="6hn-UJ-V8i">
+                                    <rect key="frame" x="0.0" y="0.0" width="400" height="515"/>
+                                    <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
+                                    <subviews>
+                                        <stackView distribution="fill" orientation="vertical" alignment="leading" horizontalStackHuggingPriority="750" verticalStackHuggingPriority="249.99998474121094" detachesHiddenViews="YES" translatesAutoresizingMaskIntoConstraints="NO" id="luD-NN-fQv">
+                                            <rect key="frame" x="0.0" y="0.0" width="400" height="500"/>
+                                            <subviews>
+                                                <stackView distribution="fill" orientation="horizontal" alignment="top" spacing="20" horizontalStackHuggingPriority="249.99998474121094" verticalStackHuggingPriority="250" detachesHiddenViews="YES" translatesAutoresizingMaskIntoConstraints="NO" id="sRf-ER-Xan">
+                                                    <rect key="frame" x="5" y="412" width="390" height="83"/>
+                                                    <subviews>
+                                                        <customView translatesAutoresizingMaskIntoConstraints="NO" id="kVn-9H-dwR">
+                                                            <rect key="frame" x="10" y="0.0" width="77" height="77"/>
+                                                            <subviews>
+                                                                <imageView fixedFrame="YES" translatesAutoresizingMaskIntoConstraints="NO" id="AfO-Ud-X8T">
+                                                                    <rect key="frame" x="0.0" y="9" width="77" height="60"/>
+                                                                    <autoresizingMask key="autoresizingMask" widthSizable="YES" flexibleMinY="YES" flexibleMaxY="YES"/>
+                                                                    <imageCell key="cell" refusesFirstResponder="YES" alignment="left" animates="YES" imageScaling="proportionallyUpOrDown" image="NSApplicationIcon" id="hqL-au-Ib6"/>
+                                                                </imageView>
+                                                            </subviews>
+                                                            <constraints>
+                                                                <constraint firstAttribute="height" constant="77" id="7Ot-uw-oBG"/>
+                                                                <constraint firstAttribute="width" constant="77" id="wzO-uD-xjE"/>
+                                                            </constraints>
+                                                        </customView>
+                                                        <stackView distribution="fill" orientation="vertical" alignment="leading" horizontalStackHuggingPriority="249.99998474121094" verticalStackHuggingPriority="250" verticalHuggingPriority="1000" verticalCompressionResistancePriority="1000" detachesHiddenViews="YES" translatesAutoresizingMaskIntoConstraints="NO" id="7s4-yL-5is">
+                                                            <rect key="frame" x="107" y="0.0" width="273" height="83"/>
+                                                            <subviews>
+                                                                <textField focusRingType="none" horizontalHuggingPriority="251" verticalHuggingPriority="1000" verticalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="puP-Vq-svf">
+                                                                    <rect key="frame" x="-2" y="44" width="182" height="29"/>
+                                                                    <textFieldCell key="cell" controlSize="large" lineBreakMode="clipping" alignment="left" title="Technical Details" id="mfT-3L-3kQ">
+                                                                        <font key="font" size="25" name="HelveticaNeue-Light"/>
+                                                                        <color key="textColor" name="labelColor" catalog="System" colorSpace="catalog"/>
+                                                                        <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
+                                                                    </textFieldCell>
+                                                                </textField>
+                                                                <textField focusRingType="none" horizontalHuggingPriority="1000" verticalHuggingPriority="1000" verticalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="634-eP-QdC">
+                                                                    <rect key="frame" x="-2" y="10" width="277" height="26"/>
+                                                                    <textFieldCell key="cell" title="Technical description of how the program handles various tasks" id="XaT-aJ-L17">
+                                                                        <font key="font" size="11" name="HelveticaNeue-Light"/>
+                                                                        <color key="textColor" name="labelColor" catalog="System" colorSpace="catalog"/>
+                                                                        <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
+                                                                    </textFieldCell>
+                                                                </textField>
+                                                            </subviews>
+                                                            <edgeInsets key="edgeInsets" left="0.0" right="0.0" top="10" bottom="10"/>
+                                                            <visibilityPriorities>
+                                                                <integer value="1000"/>
+                                                                <integer value="1000"/>
+                                                            </visibilityPriorities>
+                                                            <customSpacing>
+                                                                <real value="3.4028234663852886e+38"/>
+                                                                <real value="3.4028234663852886e+38"/>
+                                                            </customSpacing>
+                                                        </stackView>
+                                                    </subviews>
+                                                    <edgeInsets key="edgeInsets" left="10" right="10" top="10" bottom="10"/>
+                                                    <constraints>
+                                                        <constraint firstItem="7s4-yL-5is" firstAttribute="top" secondItem="sRf-ER-Xan" secondAttribute="top" id="O9V-m4-rg6"/>
+                                                        <constraint firstAttribute="bottom" secondItem="7s4-yL-5is" secondAttribute="bottom" id="QhU-ul-zof"/>
+                                                    </constraints>
+                                                    <visibilityPriorities>
+                                                        <integer value="1000"/>
+                                                        <integer value="1000"/>
+                                                    </visibilityPriorities>
+                                                    <customSpacing>
+                                                        <real value="3.4028234663852886e+38"/>
+                                                        <real value="3.4028234663852886e+38"/>
+                                                    </customSpacing>
+                                                </stackView>
+                                                <scrollView borderType="none" horizontalLineScroll="10" horizontalPageScroll="10" verticalLineScroll="10" verticalPageScroll="10" hasHorizontalScroller="NO" horizontalScrollElasticity="none" translatesAutoresizingMaskIntoConstraints="NO" id="ZAh-eM-MHe">
+                                                    <rect key="frame" x="5" y="5" width="390" height="399"/>
+                                                    <clipView key="contentView" drawsBackground="NO" id="seB-bO-PiY">
+                                                        <rect key="frame" x="0.0" y="0.0" width="390" height="399"/>
+                                                        <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
+                                                        <subviews>
+                                                            <textView wantsLayer="YES" editable="NO" selectable="NO" drawsBackground="NO" importsGraphics="NO" richText="NO" verticallyResizable="YES" baseWritingDirection="leftToRight" findStyle="panel" spellingCorrection="YES" smartInsertDelete="YES" id="2ZM-7J-5o8">
+                                                                <rect key="frame" x="0.0" y="-1749" width="390" height="3258"/>
+                                                                <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
+                                                                <color key="textColor" name="textColor" catalog="System" colorSpace="catalog"/>
+                                                                <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
+                                                                <size key="minSize" width="390" height="399"/>
+                                                                <size key="maxSize" width="440" height="10000000"/>
+                                                                <attributedString key="textStorage">
+                                                                    <fragment>
+                                                                        <mutableString key="content">## Reported parameter errors
+The uncertainty reported for each fitted model parameter is a **statistical uncertainty in parameter space**, estimated by **refitting the dataset many times after adding realistic measurement noise**. In other words, it answers:
+# Method used by \appname
+\appname estimates parameter uncertainties by **resampling + refitting** using one of these approaches (selected in the error estimation settings):
+
+# 1) Residual bootstrap (default)**
+- The program treats the **fit residuals** as an empirical description of your noise.
+- It then performs many refits where each refit sees the same model signal but with a **new noise realization** drawn from those residuals.
+- For each parameter (e.g., N, \dh, \kd), \appname collects the **distribution of fitted values** across those refits.
+- The reported “error” for a parameter is derived from that distribution assuming a standard deviation.
+
+**Meaning:** a wide distribution implies the data do not uniquely determine that parameter (strong correlations, insufficient curvature, too few informative points, etc.), even if the fit curve looks good.
+# 2) Leave-one-out refitting (robustness / influence analysis)
+- The fit is repeated multiple times while **removing one data point at a time**.
+- Data points are injections for single fits, or entire data sets for global analyses.
+- The spread in parameter values shows how sensitive the result is to individual data points.
+
+**Meaning:** if removing a single data point changes a parameter a lot, the parameter is **influence-limited** (strongly driven by a small subset of points), and the nominal uncertainty from a single fit can be overly optimistic.
+# Optional: concentration uncertainty propagation
+If you have entered concentration uncertainties for cell and syringe, \appname can propagate those into parameter errors by allowing the refits to include concentration perturbations within the provided uncertainty.
+
+**Meaning:** the parameter error then represents uncertainty from **measurement noise + concentration uncertainty**, rather than noise alone. 
+
+## Global results: where “global” parameters come from
+When you perform **global fitting**, \appname fits multiple experiments simultaneously. Parameters can be:
+- **Shared (global) parameters:** one value must explain all included experiments.
+- **Per-experiment parameters:** allowed to differ between experiments.
+- **Dependent parameters:** allowed to vary with an experimental attribute (eg temperature), but in a structured way.
+
+The “global” parameters reported in *Analysis Results* are therefore not averages. They are the **single best-fit values** (or dependence descriptors) that minimize the total mismatch across all included datasets under the selected constraint scheme.
+# Temperature dependence example (\dh0 and \dcp)
+If the temperature span is large enough, \appname enables temperature-dependence reporting. In that case it reports:
+- **\dh0:** the enthalpy at the program’s chosen reference (“standard”) temperature definition.
+- **\dcp:** the **slope of enthalpy versus temperature** implied by the multi-temperature dataset ensemble.
+
+**Meaning of the \dcp error:** it reflects how precisely your multi-temperature data constrain the *trend* of \dh with temperature, not how well a single experiment is fit.
+# Structuring, protonation and electrostatics analyses
+These analyses are enabled when the included experiments differ in:
+- **buffer identity** (protonation analysis), or
+- **ionic strength** (electrostatics analysis).
+
+In both cases, \appname derives the reported global quantities from the **across-experiment dependence** of fitted parameters on the relevant experimental attribute (buffer or ionic strength). The reported errors (when available) represent how reproducibly that dependence can be estimated from the set of experiments, under the same bootstrap / refitting logic described above.
+
+## Peak (injection) error bars
+The error bar drawn on each injection point represents the program’s estimate of the **uncertainty of that injection’s integrated heat**, based on the baseline-corrected trace around the injection and the amount of cancellation/noise introduced by integration. These injection uncertainties are the “measurement noise model” that ultimately drives how wide the parameter distributions become in the refitting-based error estimation.
+
+## Model formalism
+The models in \appname are implemented to match the **MicroCal/Origin formal definitions** of fitted parameters and predicted heats (e.g., how *N*, *\dh*, and the binding constant map to the injection-by-injection heat signal using the standard ITC mass-balance / dilution bookkeeping). This is why parameter values from \appname are intended to be directly comparable to MicroCal-style analyses when using the same model assumptions and processing choices.
+</mutableString>
+                                                                        <attributes>
+                                                                            <color key="NSColor" name="textColor" catalog="System" colorSpace="catalog"/>
+                                                                            <font key="NSFont" textStyle="title2" name=".SFNS-Regular"/>
+                                                                            <real key="NSKern" value="0.0"/>
+                                                                            <paragraphStyle key="NSParagraphStyle" alignment="left" lineBreakMode="wordWrapping" baseWritingDirection="leftToRight" paragraphSpacing="8" defaultTabInterval="36" tighteningFactorForTruncation="0.0" allowsDefaultTighteningForTruncation="NO">
+                                                                                <tabStops/>
+                                                                            </paragraphStyle>
+                                                                            <color key="NSStrokeColor" red="0.0" green="0.0" blue="0.0" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
+                                                                        </attributes>
+                                                                    </fragment>
+                                                                </attributedString>
+                                                            </textView>
+                                                        </subviews>
+                                                    </clipView>
+                                                    <scroller key="horizontalScroller" hidden="YES" wantsLayer="YES" verticalHuggingPriority="750" horizontal="YES" id="wvM-r0-ZFx">
+                                                        <rect key="frame" x="-100" y="-100" width="240" height="16"/>
+                                                        <autoresizingMask key="autoresizingMask"/>
+                                                    </scroller>
+                                                    <scroller key="verticalScroller" wantsLayer="YES" verticalHuggingPriority="750" horizontal="NO" id="D2v-cg-IQU">
+                                                        <rect key="frame" x="374" y="0.0" width="16" height="399"/>
+                                                        <autoresizingMask key="autoresizingMask"/>
+                                                    </scroller>
+                                                </scrollView>
+                                            </subviews>
+                                            <edgeInsets key="edgeInsets" left="5" right="5" top="5" bottom="5"/>
+                                            <constraints>
+                                                <constraint firstAttribute="width" constant="400" id="e8G-eY-LnO"/>
+                                                <constraint firstAttribute="height" constant="500" id="iPY-sw-yYK"/>
+                                            </constraints>
+                                            <visibilityPriorities>
+                                                <integer value="1000"/>
+                                                <integer value="1000"/>
+                                            </visibilityPriorities>
+                                            <customSpacing>
+                                                <real value="3.4028234663852886e+38"/>
+                                                <real value="3.4028234663852886e+38"/>
+                                            </customSpacing>
+                                        </stackView>
+                                    </subviews>
+                                    <constraints>
+                                        <constraint firstItem="luD-NN-fQv" firstAttribute="top" secondItem="6hn-UJ-V8i" secondAttribute="top" constant="15" id="0rO-XC-0do"/>
+                                        <constraint firstAttribute="bottom" secondItem="luD-NN-fQv" secondAttribute="bottom" id="BDe-VY-f5j"/>
+                                        <constraint firstAttribute="trailing" secondItem="luD-NN-fQv" secondAttribute="trailing" id="Cd2-TM-3jd"/>
+                                        <constraint firstItem="luD-NN-fQv" firstAttribute="leading" secondItem="6hn-UJ-V8i" secondAttribute="leading" id="wVz-Wj-6ht"/>
+                                    </constraints>
+                                </view>
+                                <color key="fillColor" name="controlBackgroundColor" catalog="System" colorSpace="catalog"/>
+                            </box>
+                        </subviews>
+                        <constraints>
+                            <constraint firstItem="pnU-eo-eaM" firstAttribute="leading" secondItem="Dru-qU-JeD" secondAttribute="leading" id="3rM-I2-fgf"/>
+                            <constraint firstAttribute="trailing" secondItem="pnU-eo-eaM" secondAttribute="trailing" id="Biw-pn-8uf"/>
+                            <constraint firstItem="pnU-eo-eaM" firstAttribute="leading" secondItem="Dru-qU-JeD" secondAttribute="leading" id="KvE-vd-g62"/>
+                            <constraint firstItem="pnU-eo-eaM" firstAttribute="top" secondItem="Dru-qU-JeD" secondAttribute="top" id="LfG-Ry-lVa"/>
+                            <constraint firstAttribute="trailing" secondItem="pnU-eo-eaM" secondAttribute="trailing" id="SDX-20-CiD"/>
+                            <constraint firstItem="pnU-eo-eaM" firstAttribute="top" secondItem="Dru-qU-JeD" secondAttribute="top" id="Urw-2a-X8P"/>
+                            <constraint firstAttribute="bottom" secondItem="pnU-eo-eaM" secondAttribute="bottom" id="hOL-Dt-dXO"/>
+                            <constraint firstAttribute="bottom" secondItem="pnU-eo-eaM" secondAttribute="bottom" id="hXk-jh-et2"/>
+                        </constraints>
+                    </view>
+                    <connections>
+                        <outlet property="TextField" destination="2ZM-7J-5o8" id="kNr-Xy-HLA"/>
+                    </connections>
+                </viewController>
+                <customObject id="udY-nV-Xrg" userLabel="First Responder" customClass="NSResponder" sceneMemberID="firstResponder"/>
+            </objects>
+            <point key="canvasLocation" x="-1102" y="-1643"/>
         </scene>
     </scenes>
     <resources>
