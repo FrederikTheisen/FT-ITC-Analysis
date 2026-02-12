@@ -230,12 +230,13 @@ namespace AnalysisITC.AppClasses.Analysis2
 
             var dependencies = solutions[0].DependenciesToReport; //Changed Solu... to solu...
 
+			// Get the parameters 
             foreach (var dep in dependencies) SetParameterTemperatureDependence(dep.Item1, dep.Item2);
 
 			if (solutions[0].BootstrapSolutions.Count != 0)
 			{
+				// Create a set of error solutions based on the minimum amount of successful refits
 				var sets = new List<List<SolutionInterface>>();
-
 				for (int i = 0; i < solutions.Min(sol => sol.BootstrapSolutions.Count); i++)
 				{
 					var set = new List<SolutionInterface>();
@@ -245,16 +246,19 @@ namespace AnalysisITC.AppClasses.Analysis2
 					sets.Add(set);
                 }
 
+				// Construct global solutions for each refit
+				// This determines a 'dependency' for each parameter (may be zero slope and just a value)
 				BootstrapSolutions = (sets.Select(set => new GlobalSolution(new GlobalModel(set.Select(s => s.Model).ToList())))).ToList();
 
+				// Set the solution dependency based on refit distributions
+				// Currently forces the average to be the best fit value and derives the error from the distribution of refits around this mean
 				var tmp = new Dictionary<ParameterType, LinearFitWithError>();
-
                 foreach (var par in TemperatureDependence)
                 {
                     var slope = BootstrapSolutions.Select(gsol => gsol.TemperatureDependence[par.Key].Slope).ToList();
                     var intercept = BootstrapSolutions.Select(gsol => gsol.TemperatureDependence[par.Key].Intercept).ToList();
 
-                    tmp[par.Key] = new LinearFitWithError(new(slope), new(intercept), MeanTemperature);
+                    tmp[par.Key] = new LinearFitWithError(new(slope, mean: TemperatureDependence[par.Key].Slope), new(intercept, mean: TemperatureDependence[par.Key].Intercept), MeanTemperature);
                 }
 
                 TemperatureDependence = tmp;
@@ -281,6 +285,7 @@ namespace AnalysisITC.AppClasses.Analysis2
 			}
 			else
 			{
+				// No temperature dependence possible, slope is zero, intercept + error from distribution of model values
 				TemperatureDependence[key] = new LinearFitWithError(new(0), new(Model.Models.Select((m) => func(m.Solution))), MeanTemperature);
             }
 		}
