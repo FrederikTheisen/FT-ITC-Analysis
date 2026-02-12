@@ -541,15 +541,17 @@ namespace AnalysisITC
             var data = Experiment.BaseLineCorrectedDataPoints.Where(dp => dp.Time > IntegrationStartTime && dp.Time < IntegrationEndTime);
 
             double area = 0;
+            float t = data.First().Time;
 
             foreach (var dp in data)
             {
-                area += dp.Power;
+                var dt = dp.Time - t;
+                area += dp.Power * dt;
+
+                t = dp.Time;
             }
 
-            var sd = EstimateError();
-
-            sd = (sd - Math.Abs(area)) / 2;
+            var sd = EstimateError2();
 
             var peakarea = new FloatWithError(area, sd);
 
@@ -563,28 +565,42 @@ namespace AnalysisITC
             IsIntegrated = true;
         }
 
-        public double EstimateError()
+        private double EstimateError2()
         {
-            float start = Time - IntegrationLength;
-            float end = Time + Math.Min(2 * IntegrationLength, Delay);
+            // Set baseline fitting time points to non-integrated data points surrounding current peak.
+            float baseline_start_time = ID == 0 ? 0 : Experiment.Injections[ID - 1].IntegrationEndTime;
+            float baseline_end_time = Time + Delay;
+            float baseline_exclude_start_time = IntegrationStartTime;
+            float baseline_exclude_end_time = IntegrationEndTime;
 
-            var baselinedata = Experiment.BaseLineCorrectedDataPoints.Where(dp => dp.Time >= start && dp.Time <= end);
+            // Check region. If limits are on top of each other, extend into integration regions.
+            if (baseline_start_time > baseline_exclude_start_time) baseline_start_time = baseline_exclude_start_time - 10;
+            if (baseline_end_time < baseline_exclude_end_time) baseline_exclude_end_time = baseline_end_time - 10;
 
-            return ResidualSum(baselinedata);
+            var bl = Experiment.BaseLineCorrectedDataPoints.Where(dp =>
+                dp.Time >= baseline_start_time
+                && dp.Time <= baseline_end_time
+                && !(dp.Time > baseline_exclude_start_time && dp.Time < baseline_exclude_end_time));
 
-            static double ResidualSum(IEnumerable<DataPoint> baselinedata)
+            if (bl.Count() < 2) return 0;
+
+            double ss = 0;
+            foreach (var dp in bl)
             {
-                double sum_of_squares = 0;
+                var p = dp.Power;
 
-                foreach (var dp in baselinedata)
-                {
-                    var p = dp.Power;
-
-                    sum_of_squares += Math.Abs(p);
-                }
-
-                return sum_of_squares;
+                ss += p * p;
             }
+
+            var sigma_p = Math.Sqrt(ss / (bl.Count() - 1));
+            int n_samples_integration = Experiment.BaseLineCorrectedDataPoints.Where(dp => dp.Time > IntegrationStartTime && dp.Time < IntegrationEndTime).Count();
+
+            if (n_samples_integration < 2) return 0;
+
+            float dt = (IntegrationEndTime - IntegrationStartTime) / (n_samples_integration - 1);
+
+            // return sigma_q = sigma_baseline * ∆t * sqrt(N_q)
+            return sigma_p * dt * Math.Sqrt(n_samples_integration);
         }
 
         public InjectionData Copy(ExperimentData data)
