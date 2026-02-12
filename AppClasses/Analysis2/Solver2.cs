@@ -60,16 +60,16 @@ namespace AnalysisITC.AppClasses.Analysis2
 
         // NM Parameters
         // public double SolverFunctionTolerance { get; set; } = AppSettings.OptimizerTolerance;
-        public double RelativeParameterTolerance => Tolerance(3, 9);
+        public double RelativeParameterTolerance => Tolerance(3, 10);
 
         protected double NMFunctionTolerance(double guessloss)
         {
-            return Math.Max(1E-30, guessloss * Tolerance(3, 9)); // 1E-4 - 1E-8
+            return Math.Max(1E-30, guessloss * Tolerance(3, 10)); // 1E-4 - 1E-8
         }
 
         // LM parameters
-        public double LevenbergMarquardtDifferentiationStepSize => Tolerance(1, 7);   // 1E-2 - 1E-6
-        public double LevenbergMarquardtEpsilon => Tolerance(4, 10);              // 1E-5 - 1E-9
+        public double LevenbergMarquardtDifferentiationStepSize => Tolerance(1, 8);   // 1E-2 - 1E-6
+        public double LevenbergMarquardtEpsilon => Tolerance(4, 11);              // 1E-5 - 1E-9
 
         internal alglib.minlmstate LMOptimizerState { get; set; }
         public static CancellationTokenSource NelderMeadToken { get; set; }
@@ -381,7 +381,7 @@ namespace AnalysisITC.AppClasses.Analysis2
 
             var mdl_pars = Model.Parameters.GetFittedParameters();
 
-            Model.Solution = SolutionInterface.FromModel(Model, new SolverConvergence(solver, Model.LossFunction(Model.Parameters.GetFittedParameterArray())));
+            Model.Solution = SolutionInterface.FromModel(Model, new SolverConvergence(solver, Model.Loss()));
             Model.Solution.ErrorMethod = ErrorEstimationMethod;
 
             return Model.Solution.Convergence;
@@ -410,7 +410,7 @@ namespace AnalysisITC.AppClasses.Analysis2
             null, null);
             alglib.minlmresults(LMOptimizerState, out double[] result, out minlmreport rep);
 
-            Model.Solution = SolutionInterface.FromModel(Model, new SolverConvergence(LMOptimizerState, rep, DateTime.Now - start, Model.LossFunction(result)));
+            Model.Solution = SolutionInterface.FromModel(Model, new SolverConvergence(LMOptimizerState, rep, DateTime.Now - start, Model.Loss()));
             Model.Solution.ErrorMethod = ErrorEstimationMethod;
 
             return Model.Solution.Convergence;
@@ -622,7 +622,7 @@ namespace AnalysisITC.AppClasses.Analysis2
                         var counter = 0;
                         foreach (var mdl in Model.Models)
                         {
-                            // Honour user cancellation
+                            // Detect user cancellation
                             if (TerminateAnalysisFlag.Up) throw new OptimizerStopException();
 
                             var solver = SolverInterface.Initialize(mdl);
@@ -648,6 +648,7 @@ namespace AnalysisITC.AppClasses.Analysis2
                     else // Fit globally
                     {
                         convergence = Solve();
+                        convergence.SetLoss(Model.Loss());
                     }
 
                     // Normalise the convergence before reporting. Individual solves already

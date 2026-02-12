@@ -382,7 +382,7 @@ namespace AnalysisITC.AppClasses.Analysis2.Models
 
             if (info.HasFlag(DisplayAttributeOptions.ProtonationEnthalpy) && Model.Data.Attributes.Exists(att => att.Key == ModelOptionKey.Buffer))
             {
-                output.Add(new(Utils.MarkdownStrings.ProtonationEnthalpy, BufferAttribute.GetProtonationEnthalpy(Model.Data).ToString(AppSettings.EnergyUnit, "F1", true, true)));
+                output.Add(new(Utilities.MarkdownStrings.ProtonationEnthalpy, BufferAttribute.GetProtonationEnthalpy(Model.Data).ToString(AppSettings.EnergyUnit, "F1", true, true)));
             }
 
             return output;

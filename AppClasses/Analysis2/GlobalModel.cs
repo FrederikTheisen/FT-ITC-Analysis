@@ -65,8 +65,16 @@ namespace AnalysisITC.AppClasses.Analysis2
 
             Parameters.UpdateFromArray(parameters);
 
-			return Loss();
-		}
+            double totalloss = 0;
+
+            foreach (var model in Models)
+            {
+                var loss = model.LossFunction(Parameters.GetParametersForModel(this, model).GetFittedParameterArray()); //Loss Function = RMSD
+                totalloss += loss * loss; //Unclear if correct loss function
+            }
+
+            return totalloss;
+        }
 
 		public double[] LossFunctionResiduals(double[] parameters)
 		{
@@ -103,11 +111,10 @@ namespace AnalysisITC.AppClasses.Analysis2
 
 			foreach (var model in Models)
 			{
-				var loss = model.LossFunction(Parameters.GetParametersForModel(this, model).GetFittedParameterArray()); //Loss Function = RMSD
-				totalloss += loss * loss; //Unclear if correct loss function
+				totalloss += model.Loss();
 			}
 
-			return Math.Sqrt(totalloss);
+            return totalloss;
 		}
 
         public GlobalModel GenerateSyntheticModel()

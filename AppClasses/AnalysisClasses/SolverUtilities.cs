@@ -94,7 +94,7 @@ namespace AnalysisITC
             DetailedMessage = solver.Status != null ? solver.Status.ToString() : string.Empty;
             Message = DetailedMessage;
             Time = DateTime.Now - solver.Convergence.StartTime;
-            Loss = solver.Value;
+            Loss = loss; // solver.Value;
             // Accord returns a Status that may indicate failure. Flag this for now; it will
             // be normalised later. Typical statuses include Success, Failure, MaximumIterations,
             // Stopped, etc.
@@ -333,7 +333,7 @@ namespace AnalysisITC
             }
 
             // Otherwise the fit completed successfully.
-            Message = "Completed Successfully";
+            Message = "Completed successfully";
         }
     }
 
