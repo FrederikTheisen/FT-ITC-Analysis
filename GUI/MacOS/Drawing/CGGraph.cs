@@ -7,7 +7,6 @@ using System.Linq;
 using CoreText;
 using Utilities;
 using static AnalysisITC.AppClasses.Analysis2.Models.SolutionInterface;
-using AnalysisITC.Utils;
 
 namespace AnalysisITC
 {
@@ -527,7 +526,7 @@ namespace AnalysisITC
 
             foreach (var line in lines)
             {
-                var attstr = MacStrings.FromMarkDownString(line, NSFont.FromCTFont(font), true);
+                var attstr = Utilities.MacStrings.FromMarkDownString(line, NSFont.FromCTFont(font), true);
                 attstr_lines.Add(attstr);
 
                 var size = DrawString2(null, attstr, new CGPoint(0, 0), horizontalignment: TextAlignment.Left);
@@ -1555,9 +1554,9 @@ namespace AnalysisITC
                 // Get injection point position
                 var handle_screen_pos = GetRelativePosition(inj.Ratio, DrawWithOffset ? inj.Enthalpy : inj.OffsetEnthalpy) + new CGSize(Origin);
 
-                if (Math.Abs(cursorpos.X - 2 - handle_screen_pos.X) < 5)
+                if (Math.Abs(cursorpos.X - 2 - handle_screen_pos.X) < 5.5)
                 {
-                    if (Math.Abs(cursorpos.Y - handle_screen_pos.Y) < 5)
+                    if (Math.Abs(cursorpos.Y + 1 - handle_screen_pos.Y) < 5.5)
                     {
                         if (isclick) mDownID = inj.ID;
                         else if (ismouseup && mDownID == inj.ID) { inj.Include = !inj.Include; mOverFeature = -1; }

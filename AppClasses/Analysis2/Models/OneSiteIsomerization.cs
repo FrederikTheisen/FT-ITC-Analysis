@@ -210,16 +210,16 @@ namespace AnalysisITC.AppClasses.Analysis2.Models
                 if (info.HasFlag(FinalFigureDisplayParameters.Nvalue)) output.Add(new("N", N.AsNumber()));
                 if (info.HasFlag(FinalFigureDisplayParameters.Affinity))
                 {
-                    output.Add(new(Utils.MarkdownStrings.DissociationConstant, Kd.AsFormattedConcentration(true)));
+                    output.Add(new(Utilities.MarkdownStrings.DissociationConstant, Kd.AsFormattedConcentration(true)));
                     if (info.HasFlag(FinalFigureDisplayParameters.Misc))
                     {
-                        output.Add(new(Utils.MarkdownStrings.ApparantDissociationConstant, Kd_app.AsFormattedConcentration(true)));
-                        output.Add(new(Utils.MarkdownStrings.IsomerizationEquilibriumConstant, IsomerizationEquilibriumConstant.AsNumber()));
+                        output.Add(new(Utilities.MarkdownStrings.ApparentDissociationConstant, Kd_app.AsFormattedConcentration(true)));
+                        output.Add(new(Utilities.MarkdownStrings.IsomerizationEquilibriumConstant, IsomerizationEquilibriumConstant.AsNumber()));
                     }
                 }
-                if (info.HasFlag(FinalFigureDisplayParameters.Enthalpy)) output.Add(new(Utils.MarkdownStrings.Enthalpy, Enthalpy.ToFormattedString(ReportEnergyUnit, permole: true)));
-                if (info.HasFlag(FinalFigureDisplayParameters.TdS)) output.Add(new(Utils.MarkdownStrings.EntropyContribution, TdS.ToFormattedString(ReportEnergyUnit, permole: true)));
-                if (info.HasFlag(FinalFigureDisplayParameters.Gibbs)) output.Add(new(Utils.MarkdownStrings.GibbsFreeEnergy, GibbsFreeEnergy.ToFormattedString(ReportEnergyUnit, permole: true)));
+                if (info.HasFlag(FinalFigureDisplayParameters.Enthalpy)) output.Add(new(Utilities.MarkdownStrings.Enthalpy, Enthalpy.ToFormattedString(ReportEnergyUnit, permole: true)));
+                if (info.HasFlag(FinalFigureDisplayParameters.TdS)) output.Add(new(Utilities.MarkdownStrings.EntropyContribution, TdS.ToFormattedString(ReportEnergyUnit, permole: true)));
+                if (info.HasFlag(FinalFigureDisplayParameters.Gibbs)) output.Add(new(Utilities.MarkdownStrings.GibbsFreeEnergy, GibbsFreeEnergy.ToFormattedString(ReportEnergyUnit, permole: true)));
 
                 if (info.HasFlag(FinalFigureDisplayParameters.Offset)) output.Add(new("Offset", Offset.ToFormattedString(ReportEnergyUnit, permole: true)));
 

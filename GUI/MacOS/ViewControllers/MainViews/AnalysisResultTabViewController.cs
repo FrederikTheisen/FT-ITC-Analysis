@@ -10,7 +10,7 @@ using AnalysisITC.AppClasses.Analysis2;
 using CoreServices;
 using System.Threading.Tasks;
 using AnalysisITC.AppClasses.AnalysisClasses;
-using AnalysisITC.Utils;
+using AnalysisITC.Utilities;
 
 namespace AnalysisITC
 {

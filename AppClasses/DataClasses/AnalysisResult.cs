@@ -2,7 +2,7 @@
 using System.Linq;
 using AnalysisITC.AppClasses.Analysis2;
 using AnalysisITC.AppClasses.AnalysisClasses;
-using AnalysisITC.Utils;
+using AnalysisITC.Utilities;
 
 namespace AnalysisITC
 {

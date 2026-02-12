@@ -89,10 +89,10 @@ namespace AnalysisITC
 						if (line.Length > 0)
 						{
 							line.Append(new NSAttributedString("\n"));
-                            line.Append(Utils.MacStrings.FromMarkDownString(par.Item1 + " = ", ModelFitLine.Font));
+                            line.Append(Utilities.MacStrings.FromMarkDownString(par.Item1 + " = ", ModelFitLine.Font));
                         }
-						else line.Append(Utils.MacStrings.FromMarkDownString(par.Item1 + ": ", ModelFitLine.Font));
-                        line.Append(Utils.MacStrings.FromMarkDownString(par.Item2, ModelFitLine.Font));
+						else line.Append(Utilities.MacStrings.FromMarkDownString(par.Item1 + ": ", ModelFitLine.Font));
+                        line.Append(Utilities.MacStrings.FromMarkDownString(par.Item2, ModelFitLine.Font));
                     }
 
                     ModelFitLine.AttributedStringValue = line;

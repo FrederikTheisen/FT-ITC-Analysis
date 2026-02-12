@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using AnalysisITC.Utils;
+using AnalysisITC.Utilities;
 
 namespace AnalysisITC
 {

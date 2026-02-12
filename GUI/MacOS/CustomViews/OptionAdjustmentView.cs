@@ -145,7 +145,7 @@ namespace AnalysisITC.GUI.MacOS.CustomViews
                 BezelStyle = NSTextFieldBezelStyle.Rounded,
                 Bordered = false,
                 Editable = false,
-                AttributedStringValue = Utils.MacStrings.FromMarkDownString(Option.OptionName, NSFont.SystemFontOfSize(NSFont.SmallSystemFontSize)),
+                AttributedStringValue = Utilities.MacStrings.FromMarkDownString(Option.OptionName, NSFont.SystemFontOfSize(NSFont.SmallSystemFontSize)),
                 //StringValue = Option.OptionName,
                 ToolTip = "Property Key: " + Option.Key.ToString(),
                 TranslatesAutoresizingMaskIntoConstraints = false,

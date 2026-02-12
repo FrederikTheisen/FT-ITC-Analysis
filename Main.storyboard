@@ -1744,7 +1744,7 @@ In most cases, interpretation of affinities provided by ITC is straightforward, 
                                                                             <color key="NSColor" name="textColor" catalog="System" colorSpace="catalog"/>
                                                                             <font key="NSFont" textStyle="headline" name=".SFNS-Bold"/>
                                                                             <real key="NSKern" value="0.0"/>
-                                                                            <paragraphStyle key="NSParagraphStyle" alignment="left" lineBreakMode="wordWrapping" baseWritingDirection="leftToRight" paragraphSpacing="8" defaultTabInterval="36" tighteningFactorForTruncation="0.0" allowsDefaultTighteningForTruncation="NO">
+                                                                            <paragraphStyle key="NSParagraphStyle" alignment="justified" lineBreakMode="wordWrapping" baseWritingDirection="leftToRight" paragraphSpacing="8" defaultTabInterval="36" tighteningFactorForTruncation="0.0" allowsDefaultTighteningForTruncation="NO">
                                                                                 <tabStops/>
                                                                             </paragraphStyle>
                                                                             <color key="NSStrokeColor" red="0.0" green="0.0" blue="0.0" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
@@ -1756,7 +1756,7 @@ In most cases, interpretation of affinities provided by ITC is straightforward, 
                                                                             <color key="NSColor" name="textColor" catalog="System" colorSpace="catalog"/>
                                                                             <font key="NSFont" metaFont="system"/>
                                                                             <real key="NSKern" value="0.0"/>
-                                                                            <paragraphStyle key="NSParagraphStyle" alignment="left" lineBreakMode="wordWrapping" baseWritingDirection="leftToRight" paragraphSpacing="8" defaultTabInterval="36" tighteningFactorForTruncation="0.0" allowsDefaultTighteningForTruncation="NO">
+                                                                            <paragraphStyle key="NSParagraphStyle" alignment="justified" lineBreakMode="wordWrapping" baseWritingDirection="leftToRight" paragraphSpacing="8" defaultTabInterval="36" tighteningFactorForTruncation="0.0" allowsDefaultTighteningForTruncation="NO">
                                                                                 <tabStops/>
                                                                             </paragraphStyle>
                                                                             <color key="NSStrokeColor" red="0.0" green="0.0" blue="0.0" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
@@ -5553,7 +5553,7 @@ IA
                                     <rect key="frame" x="111" y="1" width="5" height="50"/>
                                 </box>
                                 <button verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="zTg-QH-FPo">
-                                    <rect key="frame" x="115" y="0.0" width="111" height="31"/>
+                                    <rect key="frame" x="115" y="20" width="111" height="31"/>
                                     <buttonCell key="cell" type="recessed" title="Process Data" bezelStyle="recessed" alignment="center" controlSize="large" lineBreakMode="truncatingTail" borderStyle="border" inset="2" id="o5L-6P-mOP">
                                         <behavior key="behavior" lightByBackground="YES" lightByGray="YES" changeBackground="YES" changeGray="YES"/>
                                         <font key="font" metaFont="system"/>
@@ -5569,7 +5569,7 @@ IA
                                     <rect key="frame" x="225" y="1" width="5" height="50"/>
                                 </box>
                                 <button verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="v0f-iE-gM6">
-                                    <rect key="frame" x="229" y="0.0" width="110" height="31"/>
+                                    <rect key="frame" x="229" y="20" width="110" height="31"/>
                                     <buttonCell key="cell" type="recessed" title="Analyze Data" bezelStyle="recessed" alignment="center" controlSize="large" lineBreakMode="truncatingTail" borderStyle="border" inset="2" id="946-Qa-1ae">
                                         <behavior key="behavior" lightByBackground="YES" lightByGray="YES" changeBackground="YES" changeGray="YES"/>
                                         <font key="font" metaFont="system"/>
@@ -5585,7 +5585,7 @@ IA
                                     <rect key="frame" x="338" y="1" width="5" height="50"/>
                                 </box>
                                 <button verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="DGH-oN-EAU">
-                                    <rect key="frame" x="342" y="0.0" width="111" height="31"/>
+                                    <rect key="frame" x="342" y="20" width="111" height="31"/>
                                     <buttonCell key="cell" type="recessed" title="Final Figure" bezelStyle="recessed" alignment="center" controlSize="large" lineBreakMode="truncatingTail" borderStyle="border" inset="2" id="Fgw-Bk-CyU">
                                         <behavior key="behavior" lightByBackground="YES" lightByGray="YES" changeBackground="YES" changeGray="YES"/>
                                         <font key="font" metaFont="system"/>
@@ -6040,7 +6040,7 @@ IA
                                                             <rect key="frame" x="0.0" y="28" width="888" height="22"/>
                                                             <subviews>
                                                                 <textField focusRingType="none" horizontalHuggingPriority="249" verticalHuggingPriority="751" translatesAutoresizingMaskIntoConstraints="NO" id="tOG-Yd-EKb">
-                                                                    <rect key="frame" x="-2" y="4" width="707" height="16"/>
+                                                                    <rect key="frame" x="-2" y="4" width="653" height="16"/>
                                                                     <textFieldCell key="cell" lineBreakMode="clipping" title="Peak Integration Options" id="BMa-nl-Kfb">
                                                                         <font key="font" metaFont="systemBold"/>
                                                                         <color key="textColor" name="labelColor" catalog="System" colorSpace="catalog"/>
@@ -6048,13 +6048,13 @@ IA
                                                                     </textFieldCell>
                                                                 </textField>
                                                                 <segmentedControl horizontalHuggingPriority="1000" verticalHuggingPriority="750" verticalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="waB-Hr-js1">
-                                                                    <rect key="frame" x="709" y="-1" width="178" height="24"/>
+                                                                    <rect key="frame" x="655" y="-1" width="232" height="24"/>
                                                                     <segmentedCell key="cell" borderStyle="border" alignment="left" style="rounded" trackingMode="selectOne" id="ZFr-Dn-oVX">
                                                                         <font key="font" metaFont="system"/>
                                                                         <segments>
-                                                                            <segment label="Set time" toolTip="Set explicit integration times" selected="YES"/>
+                                                                            <segment label="Set Time" toolTip="Set explicit integration times" selected="YES"/>
                                                                             <segment label="Factor" toolTip="Use peak height based multiplication factor" tag="1"/>
-                                                                            <segment label="Peak fit" toolTip="Attempt to fit an exponential decay to each peak to determine peak length"/>
+                                                                            <segment label="Fit Peak Shapes" toolTip="Attempt to fit an exponential decay to each peak to determine peak length"/>
                                                                         </segments>
                                                                     </segmentedCell>
                                                                     <connections>
@@ -6192,7 +6192,7 @@ IA
                                         <size key="contentViewMargins" width="5" height="5"/>
                                     </box>
                                     <stackView distribution="fill" orientation="horizontal" alignment="firstBaseline" horizontalStackHuggingPriority="250" verticalStackHuggingPriority="750" verticalHuggingPriority="750" detachesHiddenViews="YES" translatesAutoresizingMaskIntoConstraints="NO" id="5oj-9h-hGH">
-                                        <rect key="frame" x="0.0" y="492" width="567" height="16"/>
+                                        <rect key="frame" x="338" y="492" width="572" height="16"/>
                                         <subviews>
                                             <button toolTip="Display the baseline" verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="jsQ-Vt-t9u">
                                                 <rect key="frame" x="5" y="-1" width="66" height="17"/>
@@ -6205,8 +6205,8 @@ IA
                                                 </connections>
                                             </button>
                                             <button toolTip="Display integration range markers" verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="hGR-s5-3Yt">
-                                                <rect key="frame" x="79" y="-1" width="119" height="17"/>
-                                                <buttonCell key="cell" type="recessed" title="Integration range" bezelStyle="recessed" alignment="center" controlSize="small" borderStyle="border" imageScaling="proportionallyDown" inset="2" id="1kQ-Yz-Eqd">
+                                                <rect key="frame" x="79" y="-1" width="122" height="17"/>
+                                                <buttonCell key="cell" type="recessed" title="Integration Range" bezelStyle="recessed" alignment="center" controlSize="small" borderStyle="border" imageScaling="proportionallyDown" inset="2" id="1kQ-Yz-Eqd">
                                                     <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES" changeBackground="YES" changeGray="YES"/>
                                                     <font key="font" metaFont="systemBold" size="12"/>
                                                 </buttonCell>
@@ -6215,8 +6215,8 @@ IA
                                                 </connections>
                                             </button>
                                             <button toolTip="Display data as baseline corrected" verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="N9L-IG-uVF">
-                                                <rect key="frame" x="206" y="-1" width="105" height="17"/>
-                                                <buttonCell key="cell" type="recessed" title="Corrected data" bezelStyle="recessed" alignment="center" controlSize="small" borderStyle="border" imageScaling="proportionallyDown" inset="2" id="WbK-7Q-nMG">
+                                                <rect key="frame" x="209" y="-1" width="107" height="17"/>
+                                                <buttonCell key="cell" type="recessed" title="Corrected Data" bezelStyle="recessed" alignment="center" controlSize="small" borderStyle="border" imageScaling="proportionallyDown" inset="2" id="WbK-7Q-nMG">
                                                     <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES" changeBackground="YES" changeGray="YES"/>
                                                     <font key="font" metaFont="systemBold" size="12"/>
                                                 </buttonCell>
@@ -6225,7 +6225,7 @@ IA
                                                 </connections>
                                             </button>
                                             <button toolTip="Display cursor position information" verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="nl7-lo-hzH">
-                                                <rect key="frame" x="319" y="-1" width="82" height="17"/>
+                                                <rect key="frame" x="324" y="-1" width="82" height="17"/>
                                                 <buttonCell key="cell" type="recessed" title="Cursor Info" bezelStyle="recessed" alignment="center" controlSize="small" borderStyle="border" imageScaling="proportionallyDown" inset="2" id="Mb3-QT-9Gz">
                                                     <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES" changeBackground="YES" changeGray="YES"/>
                                                     <font key="font" metaFont="systemBold" size="12"/>
@@ -6235,7 +6235,7 @@ IA
                                                 </connections>
                                             </button>
                                             <textField focusRingType="none" horizontalHuggingPriority="249" translatesAutoresizingMaskIntoConstraints="NO" id="NTB-NW-ffN">
-                                                <rect key="frame" x="407" y="0.0" width="97" height="16"/>
+                                                <rect key="frame" x="412" y="0.0" width="97" height="16"/>
                                                 <textFieldCell key="cell" controlSize="small" lineBreakMode="clipping" alignment="right" title="Peak zoom width:" id="ei8-mF-bcn">
                                                     <font key="font" metaFont="smallSystem"/>
                                                     <color key="textColor" name="secondaryLabelColor" catalog="System" colorSpace="catalog"/>
@@ -6243,7 +6243,7 @@ IA
                                                 </textFieldCell>
                                             </textField>
                                             <segmentedControl toolTip="Set how many peaks should be shown in the peak zoom setting" verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="dQc-By-bT1">
-                                                <rect key="frame" x="508" y="-2" width="56" height="19"/>
+                                                <rect key="frame" x="513" y="-2" width="56" height="19"/>
                                                 <segmentedCell key="cell" controlSize="small" borderStyle="border" alignment="left" style="rounded" trackingMode="selectOne" id="tB4-5O-Ouc">
                                                     <font key="font" metaFont="smallSystem"/>
                                                     <segments>

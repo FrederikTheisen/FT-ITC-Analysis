@@ -25,7 +25,7 @@ namespace AnalysisITC
         {
             get
             {
-                return Utils.MarkdownStrings.AppName + " 〉" + CurrentState.ToString();
+                return Utilities.MarkdownStrings.AppName + " 〉" + CurrentState.ToString();
             }
         }
 

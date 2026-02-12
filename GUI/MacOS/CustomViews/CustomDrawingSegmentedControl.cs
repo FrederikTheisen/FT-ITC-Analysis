@@ -59,8 +59,8 @@ namespace AnalysisITC.GUI.MacOS.CustomViews
             switch (segment)
             {
                 default:
-                case 0: str = Utils.MacStrings.AssociationConstant(Font); break;
-                case 1: str = Utils.MacStrings.DissociationConstant(Font); break;
+                case 0: str = Utilities.MacStrings.AssociationConstant(Font); break;
+                case 1: str = Utilities.MacStrings.DissociationConstant(Font); break;
             }
 
             var rect = str.BoundingRectWithSize(frame.Size, NSStringDrawingOptions.UsesLineFragmentOrigin);

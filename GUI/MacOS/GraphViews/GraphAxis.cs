@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using AnalysisITC.AppClasses.Analysis2;
-using AnalysisITC.Utils;
+using AnalysisITC.Utilities;
 using AppKit;
 using CoreAnimation;
 using CoreGraphics;
@@ -55,7 +55,7 @@ namespace AnalysisITC
                 UpdateAutoScale(_buffer);
             }
         }
-        public Utilities.NiceScale TickScale;
+        public NiceScale TickScale;
 
         public bool UseNiceAxis { get; set; } = false;
         public bool HideUnwantedTicks { get; set; } = true;
@@ -172,7 +172,7 @@ namespace AnalysisITC
         {
             var prev = TickScale;
 
-            TickScale = new Utilities.NiceScale(this.ActualMin, this.ActualMax, ValueFactor);
+            TickScale = new NiceScale(this.ActualMin, this.ActualMax, ValueFactor);
 
             if (prev != null)
             {
@@ -406,7 +406,7 @@ namespace AnalysisITC
                 if (_size.Height > ticklabelsize.Height) ticklabelsize.Height = _size.Height;
             }
 
-            var titlesize = string.IsNullOrEmpty(LegendTitle) ? new CGSize(0, 0) : CGGraph.MeasureString(Utils.MacStrings.FromMarkDownString(LegendTitle, NSFont.FromCTFont(TitleFont), true), Position, false);
+            var titlesize = string.IsNullOrEmpty(LegendTitle) ? new CGSize(0, 0) : CGGraph.MeasureString(Utilities.MacStrings.FromMarkDownString(LegendTitle, NSFont.FromCTFont(TitleFont), true), Position, false);
 
             var margin = LabelOffset + TitleOffset;
             margin = margin.AbsoluteValueSize();

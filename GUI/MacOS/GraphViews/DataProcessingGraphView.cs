@@ -4,6 +4,7 @@ using System;
 using System.Linq;
 using AppKit;
 using CoreGraphics;
+using Utilities;
 
 namespace AnalysisITC
 {
@@ -12,7 +13,7 @@ namespace AnalysisITC
         public event EventHandler<int> InjectionSelected;
 
         public new BaselineFittingGraph Graph => base.Graph as BaselineFittingGraph;
-        Utilities.MouseOverFeatureEvent SelectedFeature { get; set; } = null;
+        MouseOverFeatureEvent SelectedFeature { get; set; } = null;
         public int PeakZoomWidth { get; set; } = 1;
         bool isBaselineZoomed = false;
         bool isInjectionZoomed = false;
@@ -241,9 +242,9 @@ namespace AnalysisITC
 
             if (b.IsMouseOverFeature)
             {
-                if (b.Type == Utilities.MouseOverFeatureEvent.FeatureType.BaselineSplinePoint) NSCursor.ResizeUpDownCursor.Set();
-                else if (b.Type == Utilities.MouseOverFeatureEvent.FeatureType.BaselineSplineHandle) NSCursor.ResizeUpDownCursor.Set();
-                else if (b.Type == Utilities.MouseOverFeatureEvent.FeatureType.IntegrationRangeMarker) NSCursor.ResizeLeftRightCursor.Set();
+                if (b.Type == MouseOverFeatureEvent.FeatureType.BaselineSplinePoint) NSCursor.ResizeUpDownCursor.Set();
+                else if (b.Type == MouseOverFeatureEvent.FeatureType.BaselineSplineHandle) NSCursor.ResizeUpDownCursor.Set();
+                else if (b.Type == MouseOverFeatureEvent.FeatureType.IntegrationRangeMarker) NSCursor.ResizeLeftRightCursor.Set();
             }
             else if (update) NSCursor.CrosshairCursor.Set();
             else NSCursor.ArrowCursor.Set();
@@ -270,7 +271,7 @@ namespace AnalysisITC
 
             if (feature.IsMouseOverFeature)
             {
-                if (feature.Type == Utilities.MouseOverFeatureEvent.FeatureType.BaselineSplinePoint)
+                if (feature.Type == MouseOverFeatureEvent.FeatureType.BaselineSplinePoint)
                 {
 
                     NSMenu menu = new NSMenu("Spline Point Options");
@@ -302,7 +303,7 @@ namespace AnalysisITC
             //if (SelectedFeature.FeatureID == -1) return;
             switch (SelectedFeature.Type)
             {
-                case Utilities.MouseOverFeatureEvent.FeatureType.BaselineSplinePoint:
+                case MouseOverFeatureEvent.FeatureType.BaselineSplinePoint:
                     {
                         var feature = (Data.Processor.Interpolator as SplineInterpolator).SplinePoints[SelectedFeature.FeatureID];
                         var adjust = 10E-10 * (position.Y - SelectedFeature.ClickCursorPosition.Y);
@@ -311,7 +312,7 @@ namespace AnalysisITC
                         Data.Processor.Lock();
                         break;
                     }
-                case Utilities.MouseOverFeatureEvent.FeatureType.BaselineSplineHandle:
+                case MouseOverFeatureEvent.FeatureType.BaselineSplineHandle:
                     {
                         bool invert = SelectedFeature.SubID == 0;
 
@@ -323,7 +324,7 @@ namespace AnalysisITC
                         Data.Processor.Lock();
                         break;
                     }
-                case Utilities.MouseOverFeatureEvent.FeatureType.IntegrationRangeMarker:
+                case MouseOverFeatureEvent.FeatureType.IntegrationRangeMarker:
                     {
                         Data.IntegrationLengthMode = InjectionData.IntegrationLengthMode.Time;
                         bool start = SelectedFeature.SubID == 0;
@@ -341,7 +342,7 @@ namespace AnalysisITC
 
                         break;
                     }
-                case Utilities.MouseOverFeatureEvent.FeatureType.DragZoom:
+                case MouseOverFeatureEvent.FeatureType.DragZoom:
                     {
                         ZoomSelectionBox.Frame = SelectedFeature.GetZoomRect(Graph, position);
                         ZoomSelectionBox.Hidden = false;
@@ -364,14 +365,14 @@ namespace AnalysisITC
             {
                 switch (SelectedFeature.Type)
                 {
-                    case Utilities.MouseOverFeatureEvent.FeatureType.BaselineSplineHandle:
-                    case Utilities.MouseOverFeatureEvent.FeatureType.BaselineSplinePoint: UpdateSplineHandle(); break;
-                    case Utilities.MouseOverFeatureEvent.FeatureType.IntegrationRangeMarker:
+                    case MouseOverFeatureEvent.FeatureType.BaselineSplineHandle:
+                    case MouseOverFeatureEvent.FeatureType.BaselineSplinePoint: UpdateSplineHandle(); break;
+                    case MouseOverFeatureEvent.FeatureType.IntegrationRangeMarker:
                         if (Data.Processor.BaselineCompleted)
                             if (Data.Processor.Interpolator.DiscardIntegratedPoints) Data.Processor.ProcessData();
                             else Data.Processor.IntegratePeaks(); //Don't integrate twice
                         break;
-                    case Utilities.MouseOverFeatureEvent.FeatureType.DragZoom:
+                    case MouseOverFeatureEvent.FeatureType.DragZoom:
                         ZoomSelectionBox.Hidden = true;
                         ZoomRegion(SelectedFeature.GetZoomRegion(Graph, CursorPositionInView));
                         Console.WriteLine(SelectedFeature.GetZoomRegion(Graph, CursorPositionInView));
@@ -384,9 +385,9 @@ namespace AnalysisITC
 
                 if (b.IsMouseOverFeature)
                 {
-                    if (b.Type == Utilities.MouseOverFeatureEvent.FeatureType.BaselineSplinePoint) NSCursor.ResizeUpDownCursor.Set();
-                    else if (b.Type == Utilities.MouseOverFeatureEvent.FeatureType.BaselineSplineHandle) NSCursor.ResizeUpDownCursor.Set();
-                    else if (b.Type == Utilities.MouseOverFeatureEvent.FeatureType.IntegrationRangeMarker) NSCursor.ResizeLeftRightCursor.Set();
+                    if (b.Type == MouseOverFeatureEvent.FeatureType.BaselineSplinePoint) NSCursor.ResizeUpDownCursor.Set();
+                    else if (b.Type == MouseOverFeatureEvent.FeatureType.BaselineSplineHandle) NSCursor.ResizeUpDownCursor.Set();
+                    else if (b.Type == MouseOverFeatureEvent.FeatureType.IntegrationRangeMarker) NSCursor.ResizeLeftRightCursor.Set();
                 }
                 else NSCursor.ArrowCursor.Set();
             }

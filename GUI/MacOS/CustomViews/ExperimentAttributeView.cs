@@ -5,7 +5,7 @@ using Foundation;
 using AppKit;
 using CoreGraphics;
 using AnalysisITC.AppClasses.AnalysisClasses;
-using AnalysisITC.Utils;
+using AnalysisITC.Utilities;
 
 namespace AnalysisITC.GUI.MacOS.CustomViews
 {

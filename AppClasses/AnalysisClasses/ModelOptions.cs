@@ -1,7 +1,7 @@
 ﻿using System;
 using AnalysisITC.AppClasses.Analysis2;
 using System.Collections.Generic;
-using AnalysisITC.Utils;
+using AnalysisITC.Utilities;
 using System.Linq;
 
 namespace AnalysisITC.AppClasses.AnalysisClasses

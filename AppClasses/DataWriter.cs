@@ -832,7 +832,7 @@ namespace AnalysisITC
                 }
             });
 
-            StatusBarManager.SetStatus("Finished exporting " + Utils.MarkdownStrings.ITCsimName, 3000);
+            StatusBarManager.SetStatus("Finished exporting " + Utilities.MarkdownStrings.ITCsimName, 3000);
             StatusBarManager.StopIndeterminateProgress();
         }
 
@@ -906,7 +906,7 @@ namespace AnalysisITC
                 }
             });
 
-            StatusBarManager.SetStatus("Finished exporting " + Utils.MarkdownStrings.ITCsimName, 3000);
+            StatusBarManager.SetStatus("Finished exporting " + Utilities.MarkdownStrings.ITCsimName, 3000);
             StatusBarManager.StopIndeterminateProgress();
         }
 
