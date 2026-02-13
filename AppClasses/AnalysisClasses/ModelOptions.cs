@@ -6,21 +6,21 @@ using System.Linq;
 
 namespace AnalysisITC.AppClasses.AnalysisClasses
 {
-	public class ModelOptionKeyAttribute : Attribute
+	public class AttributeKeyAttribute : Attribute
 	{
 		public string Name { get; set; }
 		public ExperimentAttribute.AttributeType Type { get; set; }
 
 		public bool AllowMultiple { get; set; } = false;
 
-        public ModelOptionKeyAttribute(ExperimentAttribute.AttributeType type, bool allowmultipleattributes = false)
+        public AttributeKeyAttribute(ExperimentAttribute.AttributeType type, bool allowmultipleattributes = false)
 		{
 			Name = type.ToString();
 			Type = type;
 			AllowMultiple = allowmultipleattributes;
 		}
 
-        public ModelOptionKeyAttribute(string name, ExperimentAttribute.AttributeType type, bool allowmultipleattributes = false)
+        public AttributeKeyAttribute(string name, ExperimentAttribute.AttributeType type, bool allowmultipleattributes = false)
         {
 			Name = name;
             Type = type;
@@ -31,27 +31,27 @@ namespace AnalysisITC.AppClasses.AnalysisClasses
 	public enum AttributeKey
 	{
 		Null,
-		[ModelOptionKey("Prebound Ligand Concentration", ExperimentAttribute.AttributeType.ParameterConcentration)]
+		[AttributeKey("Prebound Ligand Concentration", ExperimentAttribute.AttributeType.ParameterConcentration)]
 		PreboundLigandConc,
-		[ModelOptionKey(ExperimentAttribute.AttributeType.ParameterAffinity)]
+		[AttributeKey(ExperimentAttribute.AttributeType.ParameterAffinity)]
 		PreboundLigandAffinity,
-		[ModelOptionKey(ExperimentAttribute.AttributeType.Parameter)]
+		[AttributeKey(ExperimentAttribute.AttributeType.Parameter)]
 		PreboundLigandEnthalpy,
-		[ModelOptionKey(ExperimentAttribute.AttributeType.Bool)]
+		[AttributeKey(ExperimentAttribute.AttributeType.Bool)]
         PeptideInCell,
-		[ModelOptionKey("Buffer", ExperimentAttribute.AttributeType.Enum, true)]
+		[AttributeKey("Buffer", ExperimentAttribute.AttributeType.Enum, true)]
 		Buffer,
-        [ModelOptionKey("Salt", ExperimentAttribute.AttributeType.Enum, true)]
+        [AttributeKey("Salt", ExperimentAttribute.AttributeType.Enum, true)]
         Salt,
-        [ModelOptionKey("Ionic Strength", ExperimentAttribute.AttributeType.Double)]
+        [AttributeKey("Ionic Strength", ExperimentAttribute.AttributeType.Double)]
         IonicStrength,
-        [ModelOptionKey(ExperimentAttribute.AttributeType.ParameterConcentration)]
+        [AttributeKey(ExperimentAttribute.AttributeType.ParameterConcentration)]
         EquilibriumConstant,
-        [ModelOptionKey(ExperimentAttribute.AttributeType.Parameter)]
+        [AttributeKey(ExperimentAttribute.AttributeType.Parameter)]
         Percentage,
-        [ModelOptionKey(ExperimentAttribute.AttributeType.Bool)]
+        [AttributeKey(ExperimentAttribute.AttributeType.Bool)]
         LockDuplicateParameter,
-        [ModelOptionKey("Buffer Subtraction Experiment", ExperimentAttribute.AttributeType.ReferenceExperiment)]
+        [AttributeKey("Buffer Subtraction Experiment", ExperimentAttribute.AttributeType.ReferenceExperiment)]
         BufferSubtraction,
     }
 

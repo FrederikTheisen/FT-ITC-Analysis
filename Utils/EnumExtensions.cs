@@ -63,10 +63,10 @@ namespace AnalysisITC
             return attribute;
         }
 
-        public static ModelOptionKeyAttribute GetProperties(this AttributeKey value)
+        public static AttributeKeyAttribute GetProperties(this AttributeKey value)
         {
             var fieldInfo = value.GetType().GetField(value.ToString());
-            var attribute = fieldInfo.GetCustomAttributes(typeof(ModelOptionKeyAttribute), false).FirstOrDefault() as ModelOptionKeyAttribute;
+            var attribute = fieldInfo.GetCustomAttributes(typeof(AttributeKeyAttribute), false).FirstOrDefault() as AttributeKeyAttribute;
 
             return attribute;
         }
