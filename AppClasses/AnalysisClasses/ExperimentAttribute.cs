@@ -80,18 +80,17 @@ namespace AnalysisITC.AppClasses.AnalysisClasses
 				{
 					case AttributeKey.Buffer: return BufferAttribute.GetUIBuffers().Select(b => new Tuple<int, string, string>((int)b, b.ToString(), b.GetTooltip()));
 					case AttributeKey.Salt: return SaltAttribute.GetSalts().Select(b => new Tuple<int, string, string>((int)b, b.GetProperties().Name, ""));
-					case AttributeKey.BufferSubtraction: return ExperimentReferenceOptions;
-                    default: return new List<Tuple<int,string, string>>();
+                    default: throw new Exception("Attribute Configuration Error");
                 }
 			}
 		}
 
-		private IEnumerable<Tuple<int, string,string>> ExperimentReferenceOptions
+		public IEnumerable<Tuple<int, string, string, string>> ExperimentReferenceOptions
 		{
 			get
 			{
 				int i = 0;
-				return DataManager.Data.Select(d => new Tuple<int, string,string>(i++, d.FileName, d.Date.ToString()));
+				return DataManager.Data.Select(d => new Tuple<int, string, string, string>(i++, d.FileName, d.Date.ToString(), d.UniqueID));
 			}
 		}
 
@@ -210,6 +209,7 @@ namespace AnalysisITC.AppClasses.AnalysisClasses
 				BoolValue = BoolValue,
 				ParameterValue = ParameterValue,
 				DoubleValue = DoubleValue,
+				StringValue = StringValue,
 			};
 		}
 

@@ -330,7 +330,7 @@
     <Compile Include="AppClasses\Analysis2\Models\AnalysisModel.cs" />
     <Compile Include="AppClasses\AnalysisClasses\ParameterSet.cs" />
     <Compile Include="AppClasses\Analysis2\Models\Models.cs" />
-    <Compile Include="AppClasses\AnalysisClasses\ModelOptions.cs" />
+    <Compile Include="AppClasses\AnalysisClasses\ExperimentAttribute.cs" />
     <Compile Include="AppClasses\Analysis2\Models\CompetitiveBinding.cs" />
     <Compile Include="AppClasses\ITCDataFormat.cs" />
     <Compile Include="GUI\MacOS\GraphViews\ExperimentDesignerGraphView.cs" />

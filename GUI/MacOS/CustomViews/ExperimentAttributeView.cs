@@ -101,7 +101,7 @@ namespace AnalysisITC.GUI.MacOS.CustomViews
                 KeySelectionControl.Menu.AddItem(new NSMenuItem("")
                 {
                     Tag = (int)att,
-                    AttributedTitle = new NSAttributedString(att.ToString(), NSFont.SystemFontOfSize(NSFont.SmallSystemFontSize))
+                    AttributedTitle = new NSAttributedString(att.GetProperties().Name, NSFont.SystemFontOfSize(NSFont.SmallSystemFontSize))
                 });
             }
 
@@ -142,7 +142,7 @@ namespace AnalysisITC.GUI.MacOS.CustomViews
                     SetupConcentration(ConcentrationUnit.mM, false);
                     break;
                 case AttributeKey.BufferSubtraction:
-                    SetupEnum();
+                    SetupReferenceExperiment();
                     break;
             }
         }
@@ -302,6 +302,7 @@ namespace AnalysisITC.GUI.MacOS.CustomViews
             btn.ControlSize = NSControlSize.Small;
             btn.Activated += EnumPopUpControl_Activated;
             btn.AddConstraint(NSLayoutConstraint.Create(btn, NSLayoutAttribute.Width, NSLayoutRelation.LessThanOrEqual, 1, 150));
+            btn.LineBreakMode = NSLineBreakMode.TruncatingMiddle;
 
             btn.Menu = new NSMenu();
             btn.Menu.AddItem(new NSMenuItem("Select"));
@@ -316,7 +317,6 @@ namespace AnalysisITC.GUI.MacOS.CustomViews
             AddArrangedSubview(spacer);
 
             EnumPopUpControl = DropDownMenuButton();
-
         }
 
         void SetupEnum()
@@ -346,25 +346,29 @@ namespace AnalysisITC.GUI.MacOS.CustomViews
             if (Option.IntValue != -1) { EnumPopUpControl.SelectItemWithTag(Option.IntValue); EnumPopUpControl_Activated(null, null); }
         }
 
-        void SetupReference()
+        void SetupReferenceExperiment()
         {
             SetupDropdownMenu();
 
-            var opts = Option.EnumOptions.ToList();
+            var opts = Option.ExperimentReferenceOptions.ToList();
+
+            int selectedID = -1;
 
             for (int i = 0; i < opts.Count; i++)
             {
                 var opt = opts[i];
+                if (Option.StringValue == opt.Item4) selectedID = i;
                 EnumPopUpControl.Menu.AddItem(new NSMenuItem("")
                 {
                     Tag = i,
                     AttributedTitle = MacStrings.FromMarkDownString(opt.Item2, NSFont.SystemFontOfSize(NSFont.SmallSystemFontSize)),
+                    ToolTip = MacStrings.FromMarkDownString(opt.Item3, NSFont.SystemFontOfSize(NSFont.SmallSystemFontSize)).Value,
                 });
             }
 
             AddArrangedSubview(EnumPopUpControl);
 
-            if (Option.IntValue != -1) { EnumPopUpControl.SelectItemWithTag(Option.IntValue); EnumPopUpControl_Activated(null, null); }
+            if (selectedID != -1) { EnumPopUpControl.SelectItemWithTag(selectedID); EnumPopUpControl_Activated(null, null); }
         }
 
         #endregion
@@ -386,6 +390,11 @@ namespace AnalysisITC.GUI.MacOS.CustomViews
             KeyChanged?.Invoke(this, null);
         }
 
+        void SetPopUpButtonText(string text)
+        {
+            EnumPopUpControl.Menu.ItemAt(0).AttributedTitle = MacStrings.FromMarkDownString(text , NSFont.SystemFontOfSize(NSFont.SmallSystemFontSize));
+        }
+
         private void EnumPopUpControl_Activated(object sender, EventArgs args)
         {
             switch (Option.Key)
@@ -399,11 +408,15 @@ namespace AnalysisITC.GUI.MacOS.CustomViews
                             SpecialAttributeSelected?.Invoke(this, new(Option.Key, (int)EnumPopUpControl.SelectedTag));
                             return;
                     }
+                    // Set button text
+                    SetPopUpButtonText(Option.EnumOptions.Single(e => e.Item1 == (int)EnumPopUpControl.SelectedTag).Item2);
                     break;
                 case AttributeKey.BufferSubtraction:
+                    // Set button text
+                    SetPopUpButtonText(Option.ExperimentReferenceOptions.Single(e => e.Item1 == (int)EnumPopUpControl.SelectedTag).Item2);
                     break;
             }
-            EnumPopUpControl.Menu.ItemAt(0).AttributedTitle = MacStrings.FromMarkDownString(Option.EnumOptions.Single(e => e.Item1 == (int)EnumPopUpControl.SelectedTag).Item2, NSFont.SystemFontOfSize(NSFont.SmallSystemFontSize));
+            
         }
 
         private void Input_Changed(object sender, EventArgs e)

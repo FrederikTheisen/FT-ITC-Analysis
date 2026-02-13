@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using AnalysisITC.AppClasses.AnalysisClasses;
+using AnalysisITC.Utilities;
 
 namespace AnalysisITC
 {
@@ -186,7 +187,7 @@ namespace AnalysisITC
 		string GetBufferTooltip()
 		{
 			var tooltip = Name + Environment.NewLine + Description + Environment.NewLine;
-			tooltip += "pKa" + (Transitions > 1 ? "s: " : ": ");
+			tooltip += MarkdownStrings.pKa + (Transitions > 1 ? "s: " : ": ");
 			foreach (var pka in pKaValues)
 				tooltip += pka.ToString("F2") + ", ";
 			tooltip = tooltip.Substring(0,tooltip.Length - 2) + Environment.NewLine;
@@ -204,9 +205,9 @@ namespace AnalysisITC
 
 				tooltip += s;
 			}
-            tooltip = tooltip.Substring(0, tooltip.Length - 2) + Environment.NewLine;
+			tooltip = tooltip.Substring(0, tooltip.Length - 2);
 
-            if (ProtonationEnthalpy.Intercept != 0) tooltip += "∆Hprot@25°C = " + new Energy(ProtonationEnthalpy.Evaluate(25)).ToFormattedString(AppSettings.EnergyUnit.IsSI() ? EnergyUnit.KiloJoule : EnergyUnit.KCal, withunit: true, permole: true);
+            if (ProtonationEnthalpy.Intercept != 0) tooltip += Environment.NewLine + MarkdownStrings.ProtonationEnthalpy +  "@25°C = " + new Energy(ProtonationEnthalpy.Evaluate(25)).ToFormattedString(AppSettings.EnergyUnit.IsSI() ? EnergyUnit.KiloJoule : EnergyUnit.KCal, withunit: true, permole: true);
 
 			return tooltip;
         }

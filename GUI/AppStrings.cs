@@ -19,6 +19,7 @@ namespace AnalysisITC.Utilities
         public const string ProtonationEnthalpy = "∆*H*{buffer}";
         public const string HeatCapacity = "∆*C*{p}";
         public const string Sigma = "σ";
+        public const string pKa = "p*K*{a}";
 
         public const string AppName = "FT-ITC Analysis";
         public const string ITCsimName = "ITCsim";
