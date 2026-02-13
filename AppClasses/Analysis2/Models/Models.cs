@@ -15,7 +15,7 @@ namespace AnalysisITC.AppClasses.Analysis2.Models
 		public virtual AnalysisModel ModelType => AnalysisModel.OneSetOfSites;
 		public ModelParameters Parameters { get; set; }
         public ModelCloneOptions ModelCloneOptions { get; set; }
-        public IDictionary<ModelOptionKey, ModelOptions> ModelOptions { get; set; } = new Dictionary<ModelOptionKey, ModelOptions>();
+        public IDictionary<AttributeKey, ExperimentAttribute> ModelOptions { get; set; } = new Dictionary<AttributeKey, ExperimentAttribute>();
         
         public SolutionInterface Solution { get; set; }
 
@@ -55,7 +55,7 @@ namespace AnalysisITC.AppClasses.Analysis2.Models
             Parameters = new ModelParameters(data);
         }
 
-        public void SetModelOptions(IDictionary<ModelOptionKey, ModelOptions> options = null)
+        public void SetModelOptions(IDictionary<AttributeKey, ExperimentAttribute> options = null)
         {
             if (options != null)
                 ModelOptions = options;
@@ -64,11 +64,11 @@ namespace AnalysisITC.AppClasses.Analysis2.Models
             ApplyModelOptions();
 
             // Check if prebound ligand should be taken from attributes
-            if (ModelOptions.ContainsKey(ModelOptionKey.PreboundLigandConc) && ModelOptions[ModelOptionKey.PreboundLigandConc].BoolValue == true)
+            if (ModelOptions.ContainsKey(AttributeKey.PreboundLigandConc) && ModelOptions[AttributeKey.PreboundLigandConc].BoolValue == true)
             {
-                if (!Data.Attributes.Exists(att => att.Key == ModelOptionKey.PreboundLigandConc))
-                    throw new KeyNotFoundException("Model option configuration error encountered.\nMissing option key: " + ModelOptionKey.PreboundLigandConc.ToString() + "\n\nTo resolve error, either add the attribute to the experiment or uncheck the 'From Exp' options in solver options");
-                else ModelOptions[ModelOptionKey.PreboundLigandConc].ParameterValue = Data.Attributes.Find(opt => opt.Key == ModelOptionKey.PreboundLigandConc).ParameterValue;
+                if (!Data.Attributes.Exists(att => att.Key == AttributeKey.PreboundLigandConc))
+                    throw new KeyNotFoundException("Model option configuration error encountered.\nMissing option key: " + AttributeKey.PreboundLigandConc.ToString() + "\n\nTo resolve error, either add the attribute to the experiment or uncheck the 'From Exp' options in solver options");
+                else ModelOptions[AttributeKey.PreboundLigandConc].ParameterValue = Data.Attributes.Find(opt => opt.Key == AttributeKey.PreboundLigandConc).ParameterValue;
             }
         }
 
@@ -360,27 +360,27 @@ namespace AnalysisITC.AppClasses.Analysis2.Models
 
             var output = new List<Tuple<string, string>>();
 
-            if (info.HasFlag(DisplayAttributeOptions.Competitor) && Model.Data.Attributes.Exists(att => att.Key == ModelOptionKey.PreboundLigandConc))
+            if (info.HasFlag(DisplayAttributeOptions.Competitor) && Model.Data.Attributes.Exists(att => att.Key == AttributeKey.PreboundLigandConc))
             {
-                output.Add(new("[Comp]", Model.Data.Attributes.Find(att => att.Key == ModelOptionKey.PreboundLigandConc).ParameterValue.AsFormattedConcentration(true)));
+                output.Add(new("[Comp]", Model.Data.Attributes.Find(att => att.Key == AttributeKey.PreboundLigandConc).ParameterValue.AsFormattedConcentration(true)));
             }
 
-            if (info.HasFlag(DisplayAttributeOptions.Buffer) && Model.Data.Attributes.Exists(att => att.Key == ModelOptionKey.Buffer))
+            if (info.HasFlag(DisplayAttributeOptions.Buffer) && Model.Data.Attributes.Exists(att => att.Key == AttributeKey.Buffer))
             {
-                foreach (var opt in Model.Data.Attributes.FindAll(att => att.Key == ModelOptionKey.Buffer)) output.Add(new(opt.ParameterValue.AsFormattedConcentration(ConcentrationUnit.mM, true) + " " + ((Buffer)opt.IntValue).GetProperties().Name + " pH " + opt.DoubleValue.ToString("F1"), ""));
+                foreach (var opt in Model.Data.Attributes.FindAll(att => att.Key == AttributeKey.Buffer)) output.Add(new(opt.ParameterValue.AsFormattedConcentration(ConcentrationUnit.mM, true) + " " + ((Buffer)opt.IntValue).GetProperties().Name + " pH " + opt.DoubleValue.ToString("F1"), ""));
             }
 
-            if (info.HasFlag(DisplayAttributeOptions.Salt) && Model.Data.Attributes.Exists(att => att.Key == ModelOptionKey.Salt))
+            if (info.HasFlag(DisplayAttributeOptions.Salt) && Model.Data.Attributes.Exists(att => att.Key == AttributeKey.Salt))
             {
-                foreach (var opt in Model.Data.Attributes.FindAll(att => att.Key == ModelOptionKey.Salt)) output.Add(new(opt.ParameterValue.AsFormattedConcentration(ConcentrationUnit.mM, true) + " " + ((Salt)opt.IntValue).GetProperties().Name, ""));
+                foreach (var opt in Model.Data.Attributes.FindAll(att => att.Key == AttributeKey.Salt)) output.Add(new(opt.ParameterValue.AsFormattedConcentration(ConcentrationUnit.mM, true) + " " + ((Salt)opt.IntValue).GetProperties().Name, ""));
             }
 
-            if (info.HasFlag(DisplayAttributeOptions.IonicStrength) && Model.Data.Attributes.Exists(att => att.Key == ModelOptionKey.Salt))
+            if (info.HasFlag(DisplayAttributeOptions.IonicStrength) && Model.Data.Attributes.Exists(att => att.Key == AttributeKey.Salt))
             {
                 output.Add(new("[I]", new FloatWithError(BufferAttribute.GetIonicStrength(Model.Data)).AsF1FormattedConcentration(true)));
             }
 
-            if (info.HasFlag(DisplayAttributeOptions.ProtonationEnthalpy) && Model.Data.Attributes.Exists(att => att.Key == ModelOptionKey.Buffer))
+            if (info.HasFlag(DisplayAttributeOptions.ProtonationEnthalpy) && Model.Data.Attributes.Exists(att => att.Key == AttributeKey.Buffer))
             {
                 output.Add(new(Utilities.MarkdownStrings.ProtonationEnthalpy, BufferAttribute.GetProtonationEnthalpy(Model.Data).ToString(AppSettings.EnergyUnit, "F1", true, true)));
             }

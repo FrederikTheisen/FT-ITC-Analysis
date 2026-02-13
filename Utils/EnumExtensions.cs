@@ -63,7 +63,7 @@ namespace AnalysisITC
             return attribute;
         }
 
-        public static ModelOptionKeyAttribute GetProperties(this ModelOptionKey value)
+        public static ModelOptionKeyAttribute GetProperties(this AttributeKey value)
         {
             var fieldInfo = value.GetType().GetField(value.ToString());
             var attribute = fieldInfo.GetCustomAttributes(typeof(ModelOptionKeyAttribute), false).FirstOrDefault() as ModelOptionKeyAttribute;

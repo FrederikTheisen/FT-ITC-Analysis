@@ -64,7 +64,7 @@ namespace AnalysisITC
 
         public static double GetIonActivity(ExperimentData data)
         {
-            var salts = data.Attributes.Where(opt => opt.Key == ModelOptionKey.Salt);
+            var salts = data.Attributes.Where(opt => opt.Key == AttributeKey.Salt);
             var a = 0.0;
 
             foreach (var salt in salts)

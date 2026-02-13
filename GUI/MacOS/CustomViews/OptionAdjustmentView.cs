@@ -10,8 +10,8 @@ namespace AnalysisITC.GUI.MacOS.CustomViews
 {
     public class OptionAdjustmentView : NSStackView
     {
-        public ModelOptions Option { get; private set; }
-        public ModelOptionKey Key => Option.Key;
+        public ExperimentAttribute Option { get; private set; }
+        public AttributeKey Key => Option.Key;
 
         double tmpvalue;
 
@@ -44,7 +44,7 @@ namespace AnalysisITC.GUI.MacOS.CustomViews
         {
             switch (Key)
             {
-                case ModelOptionKey.PreboundLigandConc: InputButton.Hidden = true; break;
+                case AttributeKey.PreboundLigandConc: InputButton.Hidden = true; break;
             }
         }
 
@@ -110,7 +110,7 @@ namespace AnalysisITC.GUI.MacOS.CustomViews
             AddArrangedSubview(InputField);
         }
 
-        public OptionAdjustmentView(CGRect frameRect, ModelOptions option) : base(frameRect)
+        public OptionAdjustmentView(CGRect frameRect, ExperimentAttribute option) : base(frameRect)
         {
             Frame = frameRect;
             Orientation = NSUserInterfaceLayoutOrientation.Horizontal;
@@ -120,19 +120,19 @@ namespace AnalysisITC.GUI.MacOS.CustomViews
 
             switch (option.Key)
             {
-                case ModelOptionKey.LockDuplicateParameter:
-                case ModelOptionKey.PeptideInCell:
+                case AttributeKey.LockDuplicateParameter:
+                case AttributeKey.PeptideInCell:
                     SetupBoolOption(); break;
-                case ModelOptionKey.Percentage:
-                case ModelOptionKey.EquilibriumConstant:
-                case ModelOptionKey.PreboundLigandConc:
-                case ModelOptionKey.PreboundLigandAffinity:
-                case ModelOptionKey.PreboundLigandEnthalpy:
+                case AttributeKey.Percentage:
+                case AttributeKey.EquilibriumConstant:
+                case AttributeKey.PreboundLigandConc:
+                case AttributeKey.PreboundLigandAffinity:
+                case AttributeKey.PreboundLigandEnthalpy:
                     SetupLabel();
                     SetupParameterOptionLabel();
                     SetupInputErrorFields();
                     break;
-                case ModelOptionKey.Buffer:
+                case AttributeKey.Buffer:
                     SetupLabel();
                     break;
             }
@@ -171,15 +171,15 @@ namespace AnalysisITC.GUI.MacOS.CustomViews
 
         void SetupParameterOptionLabel()
         {
-            if (Option.Key == ModelOptionKey.PreboundLigandAffinity)
+            if (Option.Key == AttributeKey.PreboundLigandAffinity)
             {
                 Label.StringValue = Option.OptionName + $" ({AppSettings.DefaultConcentrationUnit.ToString()})";
             }
-            else if (Option.Key == ModelOptionKey.PreboundLigandConc)
+            else if (Option.Key == AttributeKey.PreboundLigandConc)
             {
                 //Label.StringValue = Option.OptionName + $" ({AppSettings.DefaultConcentrationUnit.ToString()})";
             }
-            else if (Option.Key == ModelOptionKey.PreboundLigandEnthalpy)
+            else if (Option.Key == AttributeKey.PreboundLigandEnthalpy)
             {
                 Label.StringValue += " (" + AppSettings.EnergyUnit.GetProperties().Unit + ")";
             }
@@ -191,26 +191,26 @@ namespace AnalysisITC.GUI.MacOS.CustomViews
 
             switch (Option.Key)
             {
-                case ModelOptionKey.PreboundLigandAffinity:
+                case AttributeKey.PreboundLigandAffinity:
                     value = new FloatWithError(1.0) / value;
                     value *= AppSettings.DefaultConcentrationUnit.GetProperties().Mod;
                     break;
-                case ModelOptionKey.PreboundLigandConc:
+                case AttributeKey.PreboundLigandConc:
                     value *= 1000000;
                     break;
-                case ModelOptionKey.PreboundLigandEnthalpy:
+                case AttributeKey.PreboundLigandEnthalpy:
                     value /= 1000;
                     break;
-                case ModelOptionKey.Percentage:
+                case AttributeKey.Percentage:
                     value *= 100;
                     break;
             }
 
             switch (Option.Key)
             {
-                case ModelOptionKey.Percentage:
-                case ModelOptionKey.PreboundLigandConc:
-                case ModelOptionKey.EquilibriumConstant:
+                case AttributeKey.Percentage:
+                case AttributeKey.PreboundLigandConc:
+                case AttributeKey.EquilibriumConstant:
                     InputButton = new NSButton();
                     InputButton.SetButtonType(NSButtonType.OnOff);
                     InputButton.Title = "FromExp";
@@ -290,7 +290,7 @@ namespace AnalysisITC.GUI.MacOS.CustomViews
 
         private void ParameterOptionControl_Activated(object sender, EventArgs e)
         {
-            if (Option.Key == ModelOptionKey.PreboundLigandAffinity)
+            if (Option.Key == AttributeKey.PreboundLigandAffinity)
             {
                 AppSettings.InputAffinityAsDissociationConstant = (sender as NSSegmentedControl).SelectedSegment == 1;
                 Label.StringValue = Option.OptionName + (AppSettings.InputAffinityAsDissociationConstant ? $" ({AppSettings.DefaultConcentrationUnit.ToString()})" : "");
@@ -328,7 +328,7 @@ namespace AnalysisITC.GUI.MacOS.CustomViews
 
             switch (Option.Key)
             {
-                case ModelOptionKey.Percentage:
+                case AttributeKey.Percentage:
                     {
                         var val = InputField.DoubleValue / 100;
                         var err = InputErrorField.DoubleValue / 100;
@@ -338,7 +338,7 @@ namespace AnalysisITC.GUI.MacOS.CustomViews
                         Option.ParameterValue = value;
                         break;
                     }
-                case ModelOptionKey.EquilibriumConstant:
+                case AttributeKey.EquilibriumConstant:
                     {
                         if (InputField.DoubleValue == 0) return;
 
@@ -350,7 +350,7 @@ namespace AnalysisITC.GUI.MacOS.CustomViews
                         Option.ParameterValue = value;
                         break;
                     }
-                case ModelOptionKey.PreboundLigandConc:
+                case AttributeKey.PreboundLigandConc:
                     {
                         var val = InputField.DoubleValue / 1000000;
                         var err = InputErrorField.DoubleValue / 1000000;
@@ -360,7 +360,7 @@ namespace AnalysisITC.GUI.MacOS.CustomViews
                         Option.ParameterValue = value;
                         break;
                     }
-                case ModelOptionKey.PreboundLigandAffinity:
+                case AttributeKey.PreboundLigandAffinity:
                     {
                         if (InputField.DoubleValue == 0) return;
 
@@ -376,7 +376,7 @@ namespace AnalysisITC.GUI.MacOS.CustomViews
                         break;
                     }
 
-                case ModelOptionKey.PreboundLigandEnthalpy:
+                case AttributeKey.PreboundLigandEnthalpy:
                     {
                         var val = InputField.DoubleValue;
                         var err = InputErrorField.DoubleValue;

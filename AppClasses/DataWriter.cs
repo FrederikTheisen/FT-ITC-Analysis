@@ -99,7 +99,7 @@ namespace AnalysisITC
         public static string Variable(string header, FloatWithError value) => Variable(header, value.Value + "," + value.SD);
         public static string Variable(string header, Energy value) => Variable(header, value.FloatWithError);
         public static string ListHeader(string header) => "LIST:" + header;
-        public static string Attribute(ModelOptions opt)
+        public static string Attribute(ExperimentAttribute opt)
         {
             string str = "";
 

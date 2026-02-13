@@ -17,8 +17,8 @@ namespace AnalysisITC
         public static event EventHandler UpdateTable; 
 
         public static ExperimentData Data { get; set; } = null;
-        static List<ModelOptions> tmpoptions = new List<ModelOptions>();
-        public static IEnumerable<ModelOptionKey> AllAddedOptions => Data.Attributes.Select(opt => opt.Key).Concat(tmpoptions.Select(mo => mo.Key).ToList());
+        static List<ExperimentAttribute> tmpoptions = new List<ExperimentAttribute>();
+        public static IEnumerable<AttributeKey> AllAddedOptions => Data.Attributes.Select(opt => opt.Key).Concat(tmpoptions.Select(mo => mo.Key).ToList());
 
         public ExperimentDetailsPopoverController() : base()
         {
@@ -33,7 +33,7 @@ namespace AnalysisITC
         {
             base.ViewDidAppear();
 
-            tmpoptions = new List<ModelOptions>();
+            tmpoptions = new List<ExperimentAttribute>();
             foreach (var att in Data.Attributes)
             {
                 tmpoptions.Add(att.Copy());
@@ -59,12 +59,12 @@ namespace AnalysisITC
 
         partial void AddAttribute(NSObject sender)
         {
-            var opt = new ModelOptions();
+            var opt = new ExperimentAttribute();
             tmpoptions.Add(opt);
             AddAttribute(opt);
         }
 
-        void AddAttribute(ModelOptions opt)
+        void AddAttribute(ExperimentAttribute opt)
         {
             var sv = new ExperimentAttributeView(new CGRect(0, 0, AttributeStackView.Frame.Width - 20, 14), opt);
             sv.Remove += Sv_Remove;
@@ -76,11 +76,11 @@ namespace AnalysisITC
             //Obsolete and wrong//if (AttributeStackView.Subviews.Count() == ModelOptions.AvailableExperimentAttributes.Count) AddAttributeButton.Enabled = false;
         }
 
-        private void Sv_SpecialAttributeSelected(object sender, Tuple<ModelOptionKey, int> e)
+        private void Sv_SpecialAttributeSelected(object sender, Tuple<AttributeKey, int> e)
         {
             switch (e.Item1)
             {
-                case ModelOptionKey.Buffer:
+                case AttributeKey.Buffer:
                     BufferAttribute.SetupSpecialBuffer(tmpoptions, (Buffer)e.Item2);
                     break;
             }
@@ -105,7 +105,7 @@ namespace AnalysisITC
 
             tmpoptions.Remove((sender as ExperimentAttributeView).Option);
 
-            if (AttributeStackView.Subviews.Count() < ModelOptions.AvailableExperimentAttributes.Count) AddAttributeButton.Enabled = true;
+            if (AttributeStackView.Subviews.Count() < ExperimentAttribute.AvailableExperimentAttributes.Count) AddAttributeButton.Enabled = true;
 
             Sv_KeyChanged(null, null);
         }

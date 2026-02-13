@@ -8,86 +8,111 @@ namespace AnalysisITC.AppClasses.AnalysisClasses
 {
 	public class ModelOptionKeyAttribute : Attribute
 	{
-		public ModelOptions.ModelOptionType Type { get; set; }
+		public string Name { get; set; }
+		public ExperimentAttribute.AttributeType Type { get; set; }
 
 		public bool AllowMultiple { get; set; } = false;
 
-        public ModelOptionKeyAttribute(ModelOptions.ModelOptionType type, bool allowmultipleattributes = false)
+        public ModelOptionKeyAttribute(ExperimentAttribute.AttributeType type, bool allowmultipleattributes = false)
 		{
+			Name = type.ToString();
 			Type = type;
 			AllowMultiple = allowmultipleattributes;
 		}
+
+        public ModelOptionKeyAttribute(string name, ExperimentAttribute.AttributeType type, bool allowmultipleattributes = false)
+        {
+			Name = name;
+            Type = type;
+            AllowMultiple = allowmultipleattributes;
+        }
     }
 
-	public enum ModelOptionKey
+	public enum AttributeKey
 	{
 		Null,
-		[ModelOptionKey(ModelOptions.ModelOptionType.ParameterConcentration)]
+		[ModelOptionKey("Prebound Ligand Concentration", ExperimentAttribute.AttributeType.ParameterConcentration)]
 		PreboundLigandConc,
-		[ModelOptionKey(ModelOptions.ModelOptionType.ParameterAffinity)]
+		[ModelOptionKey(ExperimentAttribute.AttributeType.ParameterAffinity)]
 		PreboundLigandAffinity,
-		[ModelOptionKey(ModelOptions.ModelOptionType.Parameter)]
+		[ModelOptionKey(ExperimentAttribute.AttributeType.Parameter)]
 		PreboundLigandEnthalpy,
-		[ModelOptionKey(ModelOptions.ModelOptionType.Bool)]
+		[ModelOptionKey(ExperimentAttribute.AttributeType.Bool)]
         PeptideInCell,
-		[ModelOptionKey(ModelOptions.ModelOptionType.Enum, true)]
+		[ModelOptionKey("Buffer", ExperimentAttribute.AttributeType.Enum, true)]
 		Buffer,
-        [ModelOptionKey(ModelOptions.ModelOptionType.Enum, true)]
+        [ModelOptionKey("Salt", ExperimentAttribute.AttributeType.Enum, true)]
         Salt,
-        [ModelOptionKey(ModelOptions.ModelOptionType.Double)]
+        [ModelOptionKey("Ionic Strength", ExperimentAttribute.AttributeType.Double)]
         IonicStrength,
-        [ModelOptionKey(ModelOptions.ModelOptionType.ParameterConcentration)]
+        [ModelOptionKey(ExperimentAttribute.AttributeType.ParameterConcentration)]
         EquilibriumConstant,
-        [ModelOptionKey(ModelOptions.ModelOptionType.Parameter)]
+        [ModelOptionKey(ExperimentAttribute.AttributeType.Parameter)]
         Percentage,
-        [ModelOptionKey(ModelOptions.ModelOptionType.Bool)]
+        [ModelOptionKey(ExperimentAttribute.AttributeType.Bool)]
         LockDuplicateParameter,
+        [ModelOptionKey("Buffer Subtraction Experiment", ExperimentAttribute.AttributeType.ReferenceExperiment)]
+        BufferSubtraction,
     }
 
-	public class ModelOptions
+	public class ExperimentAttribute
 	{
 		public string OptionName { get; set; }
-		public ModelOptionKey Key { get; private set; } = ModelOptionKey.Null;
+		public AttributeKey Key { get; private set; } = AttributeKey.Null;
 
 		public bool BoolValue { get; set; }
 		public int IntValue { get; set; }
 		public double DoubleValue { get; set; }
+		public string StringValue { get; set; }
 		public FloatWithError ParameterValue { get; set; }
 
         public int EnumOptionCount => EnumOptions.Count();
-        public KeyValuePair<ModelOptionKey, ModelOptions> DictionaryEntry => new KeyValuePair<ModelOptionKey, ModelOptions>(Key, this);
+        public KeyValuePair<AttributeKey, ExperimentAttribute> DictionaryEntry => new KeyValuePair<AttributeKey, ExperimentAttribute>(Key, this);
 
+		/// <summary>
+		/// Return list of available options as tuples with an ID, title and tooltip.
+		/// </summary>
 		public IEnumerable<Tuple<int,string, string>> EnumOptions
 		{
 			get
 			{
 				switch (Key)
 				{
-					case ModelOptionKey.Buffer: return BufferAttribute.GetUIBuffers().Select(b => new Tuple<int, string, string>((int)b, b.ToString(), b.GetTooltip()));
-					case ModelOptionKey.Salt: return SaltAttribute.GetSalts().Select(b => new Tuple<int, string, string>((int)b, b.GetProperties().Name, ""));
+					case AttributeKey.Buffer: return BufferAttribute.GetUIBuffers().Select(b => new Tuple<int, string, string>((int)b, b.ToString(), b.GetTooltip()));
+					case AttributeKey.Salt: return SaltAttribute.GetSalts().Select(b => new Tuple<int, string, string>((int)b, b.GetProperties().Name, ""));
+					case AttributeKey.BufferSubtraction: return ExperimentReferenceOptions;
                     default: return new List<Tuple<int,string, string>>();
                 }
 			}
 		}
 
-        public ModelOptions()
+		private IEnumerable<Tuple<int, string,string>> ExperimentReferenceOptions
+		{
+			get
+			{
+				int i = 0;
+				return DataManager.Data.Select(d => new Tuple<int, string,string>(i++, d.FileName, d.Date.ToString()));
+			}
+		}
+
+        public ExperimentAttribute()
 		{
 			
 		}
 
-		public static ModelOptions FromKey(ModelOptionKey key)
+		public static ExperimentAttribute FromKey(AttributeKey key)
 		{
 			switch (key)
 			{
-				case ModelOptionKey.PreboundLigandConc: return Concentration(key, "", new(0));
-				case ModelOptionKey.PeptideInCell: return Bool(key, "", false);
+				case AttributeKey.PreboundLigandConc: return Concentration(key, "", new(0));
+				case AttributeKey.PeptideInCell: return Bool(key, "", false);
 				default: return Parameter(key, "", new(0));
 			}
 		}
 
-		public static ModelOptions Bool(ModelOptionKey key, string name, bool value)
+		public static ExperimentAttribute Bool(AttributeKey key, string name, bool value)
 		{
-			return new ModelOptions()
+			return new ExperimentAttribute()
 			{
                 Key = key,
                 OptionName = name,
@@ -95,9 +120,9 @@ namespace AnalysisITC.AppClasses.AnalysisClasses
 			};
 		}
 
-		public static ModelOptions Int(ModelOptionKey key, string name, int value)
+		public static ExperimentAttribute Int(AttributeKey key, string name, int value)
 		{
-			return new ModelOptions()
+			return new ExperimentAttribute()
 			{
                 Key = key,
                 OptionName = name,
@@ -105,9 +130,9 @@ namespace AnalysisITC.AppClasses.AnalysisClasses
 			};
 		}
 
-		public static ModelOptions Double(ModelOptionKey key, string name, double value)
+		public static ExperimentAttribute Double(AttributeKey key, string name, double value)
 		{
-			return new ModelOptions()
+			return new ExperimentAttribute()
 			{
                 Key = key,
                 OptionName = name,
@@ -115,9 +140,9 @@ namespace AnalysisITC.AppClasses.AnalysisClasses
 			};
 		}
 
-		public static ModelOptions Enum(ModelOptionKey key, string name, List<string> options, int initial = 0)
+		public static ExperimentAttribute Enum(AttributeKey key, string name, List<string> options, int initial = 0)
 		{
-			return new ModelOptions()
+			return new ExperimentAttribute()
 			{
 				Key = key,
 				OptionName = name,
@@ -125,9 +150,9 @@ namespace AnalysisITC.AppClasses.AnalysisClasses
 			};
 		}
 
-		public static ModelOptions Parameter(ModelOptionKey key, string name, FloatWithError value)
+		public static ExperimentAttribute Parameter(AttributeKey key, string name, FloatWithError value)
 		{
-			return new ModelOptions()
+			return new ExperimentAttribute()
 			{
 				Key = key,
 				OptionName = name,
@@ -135,9 +160,9 @@ namespace AnalysisITC.AppClasses.AnalysisClasses
 			};
 		}
 
-		public static ModelOptions Affinity(ModelOptionKey key, string name, FloatWithError value)
+		public static ExperimentAttribute Affinity(AttributeKey key, string name, FloatWithError value)
 		{
-			return new ModelOptions()
+			return new ExperimentAttribute()
 			{
                 Key = key,
 				OptionName = name,
@@ -145,9 +170,9 @@ namespace AnalysisITC.AppClasses.AnalysisClasses
 			};
 		}
 
-		public static ModelOptions Concentration(ModelOptionKey key, string name, FloatWithError value)
+		public static ExperimentAttribute Concentration(AttributeKey key, string name, FloatWithError value)
 		{
-			return new ModelOptions()
+			return new ExperimentAttribute()
 			{
                 Key = key,
 				OptionName = name,
@@ -155,19 +180,29 @@ namespace AnalysisITC.AppClasses.AnalysisClasses
 			};
 		}
 
-		public void UpdateOptionKey(ModelOptionKey key)
+        public static ExperimentAttribute ExperimentReference(string name, string uniqueid)
+        {
+            return new ExperimentAttribute()
+            {
+                Key = AttributeKey.BufferSubtraction,
+                OptionName = name,
+                StringValue = uniqueid,
+            };
+        }
+
+        public void UpdateOptionKey(AttributeKey key)
 		{
 			Key = key;
 
-			if (Key == ModelOptionKey.Buffer || Key == ModelOptionKey.Salt)
+			if (Key == AttributeKey.Buffer || Key == AttributeKey.Salt)
 			{
 				IntValue = -1;
 			}
 		}
 
-		public ModelOptions Copy()
+		public ExperimentAttribute Copy()
 		{
-			return new ModelOptions()
+			return new ExperimentAttribute()
 			{
 				OptionName = OptionName,
 				Key = Key,
@@ -178,22 +213,23 @@ namespace AnalysisITC.AppClasses.AnalysisClasses
 			};
 		}
 
-		public static List<ModelOptionKey> AvailableExperimentAttributes
+		public static List<AttributeKey> AvailableExperimentAttributes
 		{
 			get
 			{
-				return new List<ModelOptionKey>
+				return new List<AttributeKey>
 				{
-					 ModelOptionKey.PreboundLigandConc,
+					 AttributeKey.PreboundLigandConc,
 					 //ModelOptionKey.PeptideInCell,
-					 ModelOptionKey.Buffer,
-					 ModelOptionKey.Salt,
-					 ModelOptionKey.IonicStrength,
+					 AttributeKey.Buffer,
+					 AttributeKey.Salt,
+					 AttributeKey.IonicStrength,
+					 AttributeKey.BufferSubtraction
 				};
 			}
 		}
 
-		public enum ModelOptionType
+		public enum AttributeType
 		{
 			Bool,
 			Int,
@@ -201,8 +237,9 @@ namespace AnalysisITC.AppClasses.AnalysisClasses
 			Enum,
 			Parameter,
 			ParameterAffinity,
-			ParameterConcentration
-		}
+			ParameterConcentration,
+            ReferenceExperiment,
+        }
 	}
 }
 

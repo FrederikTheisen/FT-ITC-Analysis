@@ -13,9 +13,9 @@ namespace AnalysisITC.GUI.MacOS.CustomViews
 	{
 		public event EventHandler Remove;
         public event EventHandler KeyChanged;
-        public event EventHandler<Tuple<ModelOptionKey,int>> SpecialAttributeSelected;
+        public event EventHandler<Tuple<AttributeKey,int>> SpecialAttributeSelected;
 
-        public ModelOptions Option { get; private set; }
+        public ExperimentAttribute Option { get; private set; }
 
         public override nfloat Spacing { get => 1; set => base.Spacing = value; }
 
@@ -43,7 +43,7 @@ namespace AnalysisITC.GUI.MacOS.CustomViews
 			Initialize();
 		}
 
-		public ExperimentAttributeView(CGRect frameRect, ModelOptions option) : base(frameRect)
+		public ExperimentAttributeView(CGRect frameRect, ExperimentAttribute option) : base(frameRect)
 		{
 			Frame = frameRect;
 			Option = option;
@@ -95,7 +95,7 @@ namespace AnalysisITC.GUI.MacOS.CustomViews
             KeySelectionControl.Menu = new NSMenu();
             KeySelectionControl.Menu.AddItem(new NSMenuItem("Select Attribute Key"));
 
-            foreach (var att in ModelOptions.AvailableExperimentAttributes)
+            foreach (var att in ExperimentAttribute.AvailableExperimentAttributes)
             {
                 if (!att.GetProperties().AllowMultiple && ExperimentDetailsPopoverController.AllAddedOptions.Contains(att) && Option.Key != att) continue;
                 KeySelectionControl.Menu.AddItem(new NSMenuItem("")
@@ -105,7 +105,7 @@ namespace AnalysisITC.GUI.MacOS.CustomViews
                 });
             }
 
-            if (Option.Key != ModelOptionKey.Null)
+            if (Option.Key != AttributeKey.Null)
             {
                 KeySelectionControl.SelectItemWithTag((int)Option.Key);
                 KeySelectionControl.SynchronizeTitleAndSelectedItem();
@@ -115,31 +115,34 @@ namespace AnalysisITC.GUI.MacOS.CustomViews
 
         void SetupOption()
 		{
-			if (Option.Key == ModelOptionKey.Null) return;
+			if (Option.Key == AttributeKey.Null) return;
 
 			KeySelectionControl.SynchronizeTitleAndSelectedItem();
 			KeySelectionControl.Title = KeySelectionControl.TitleOfSelectedItem;
 
 			switch (Option.Key)
 			{
-                case ModelOptionKey.PeptideInCell:
+                case AttributeKey.PeptideInCell:
 					SetupBool();
 					break;
-                case ModelOptionKey.IonicStrength:
+                case AttributeKey.IonicStrength:
                     SetupConcentration(ConcentrationUnit.mM, false);
                     break;
-                case ModelOptionKey.PreboundLigandAffinity:
-                case ModelOptionKey.PreboundLigandConc:
+                case AttributeKey.PreboundLigandAffinity:
+                case AttributeKey.PreboundLigandConc:
 					SetupConcentration(ConcentrationUnit.µM);
 					break;
-                case ModelOptionKey.Salt:
+                case AttributeKey.Salt:
                     SetupEnum();
                     SetupConcentration(ConcentrationUnit.mM, false);
                     break;
-                case ModelOptionKey.Buffer:
+                case AttributeKey.Buffer:
                     SetupEnum();
                     SetupDouble("  pH   ");
                     SetupConcentration(ConcentrationUnit.mM, false);
+                    break;
+                case AttributeKey.BufferSubtraction:
+                    SetupEnum();
                     break;
             }
         }
@@ -215,12 +218,12 @@ namespace AnalysisITC.GUI.MacOS.CustomViews
 
             switch (Option.Key)
             {
-                case ModelOptionKey.PreboundLigandConc:
+                case AttributeKey.PreboundLigandConc:
                     value *= 1000000;
                     break;
-                case ModelOptionKey.IonicStrength:
-                case ModelOptionKey.Salt:
-                case ModelOptionKey.Buffer:
+                case AttributeKey.IonicStrength:
+                case AttributeKey.Salt:
+                case AttributeKey.Buffer:
                     value *= 1000;
                     break;
             }
@@ -291,45 +294,77 @@ namespace AnalysisITC.GUI.MacOS.CustomViews
             DefaultFieldColor = ParameterField.TextColor;
         }
 
-        void SetupEnum()
+        NSPopUpButton DropDownMenuButton()
+        {
+            var btn = new NSPopUpButton(new CGRect(0, 0, Frame.Width / 2, Frame.Height), true);
+            btn.BezelStyle = NSBezelStyle.Recessed;
+            btn.Font = NSFont.SystemFontOfSize(NSFont.SmallSystemFontSize);
+            btn.ControlSize = NSControlSize.Small;
+            btn.Activated += EnumPopUpControl_Activated;
+            btn.AddConstraint(NSLayoutConstraint.Create(btn, NSLayoutAttribute.Width, NSLayoutRelation.LessThanOrEqual, 1, 150));
+
+            btn.Menu = new NSMenu();
+            btn.Menu.AddItem(new NSMenuItem("Select"));
+
+            return btn;
+        }
+
+        void SetupDropdownMenu()
         {
             var spacer = new NSBox() { TitlePosition = NSTitlePosition.NoTitle, BoxType = NSBoxType.NSBoxCustom, BorderType = NSBorderType.NoBorder };
             spacer.SetContentHuggingPriorityForOrientation(249, NSLayoutConstraintOrientation.Horizontal);
             AddArrangedSubview(spacer);
 
-            if (Option.EnumOptionCount > 3)
+            EnumPopUpControl = DropDownMenuButton();
+
+        }
+
+        void SetupEnum()
+        {
+            SetupDropdownMenu();
+
+            var opts = Option.EnumOptions.ToList();
+
+            for (int i = 0; i < Option.EnumOptionCount; i++)
             {
-                EnumPopUpControl = new NSPopUpButton(new CGRect(0, 0, Frame.Width / 2, Frame.Height), true);
-                EnumPopUpControl.BezelStyle = NSBezelStyle.Recessed;
-                EnumPopUpControl.Font = NSFont.SystemFontOfSize(NSFont.SmallSystemFontSize);
-                EnumPopUpControl.ControlSize = NSControlSize.Small;
-                EnumPopUpControl.Activated += EnumPopUpControl_Activated;
-
-                EnumPopUpControl.Menu = new NSMenu();
-                EnumPopUpControl.Menu.AddItem(new NSMenuItem("Select"));
-
-                var opts = Option.EnumOptions.ToList();
-
-                for (int i = 0; i < Option.EnumOptionCount; i++)
+                var opt = opts[i];
+                if (opt.Item1 != -1)
                 {
-                    var opt = opts[i];
-                    if (opt.Item1 != -1) EnumPopUpControl.Menu.AddItem(new NSMenuItem("")
+                    var item = new NSMenuItem("")
                     {
                         Tag = opt.Item1,
                         AttributedTitle = MacStrings.FromMarkDownString(opt.Item2, NSFont.SystemFontOfSize(NSFont.SmallSystemFontSize)),
                         ToolTip = MacStrings.FromMarkDownString(opt.Item3, NSFont.SystemFontOfSize(NSFont.SmallSystemFontSize)).Value,
-                    });
-                    else EnumPopUpControl.Menu.AddItem(NSMenuItem.SeparatorItem);
+                    };
+                    EnumPopUpControl.Menu.AddItem(item);
                 }
-
-                AddArrangedSubview(EnumPopUpControl);
-
-                if (Option.IntValue != -1) { EnumPopUpControl.SelectItemWithTag(Option.IntValue); EnumPopUpControl_Activated(null, null); }
+                else EnumPopUpControl.Menu.AddItem(NSMenuItem.SeparatorItem);
             }
-            else
+
+            AddArrangedSubview(EnumPopUpControl);
+
+            if (Option.IntValue != -1) { EnumPopUpControl.SelectItemWithTag(Option.IntValue); EnumPopUpControl_Activated(null, null); }
+        }
+
+        void SetupReference()
+        {
+            SetupDropdownMenu();
+
+            var opts = Option.EnumOptions.ToList();
+
+            for (int i = 0; i < opts.Count; i++)
             {
-                AppEventHandler.DisplayHandledException(new NotImplementedException("Attribute with less than 3 options. Please fix."));
+                var opt = opts[i];
+                EnumPopUpControl.Menu.AddItem(new NSMenuItem("")
+                {
+                    Tag = i,
+                    AttributedTitle = MacStrings.FromMarkDownString(opt.Item2, NSFont.SystemFontOfSize(NSFont.SmallSystemFontSize)),
+                });
             }
+
+            AddArrangedSubview(EnumPopUpControl);
+
+            if (Option.IntValue != -1) { EnumPopUpControl.SelectItemWithTag(Option.IntValue); EnumPopUpControl_Activated(null, null); }
         }
 
         #endregion
@@ -344,7 +379,7 @@ namespace AnalysisITC.GUI.MacOS.CustomViews
             while (Views.Count() > 2)
                 RemoveView(Views[2]);
 
-            Option.UpdateOptionKey((ModelOptionKey)(int)KeySelectionControl.SelectedItem.Tag);
+            Option.UpdateOptionKey((AttributeKey)(int)KeySelectionControl.SelectedItem.Tag);
 
             SetupOption();
 
@@ -355,7 +390,7 @@ namespace AnalysisITC.GUI.MacOS.CustomViews
         {
             switch (Option.Key)
             {
-                case ModelOptionKey.Buffer:
+                case AttributeKey.Buffer:
                     switch ((Buffer)(int)EnumPopUpControl.SelectedTag)
                     {
                         case Buffer.PBS:
@@ -364,6 +399,8 @@ namespace AnalysisITC.GUI.MacOS.CustomViews
                             SpecialAttributeSelected?.Invoke(this, new(Option.Key, (int)EnumPopUpControl.SelectedTag));
                             return;
                     }
+                    break;
+                case AttributeKey.BufferSubtraction:
                     break;
             }
             EnumPopUpControl.Menu.ItemAt(0).AttributedTitle = MacStrings.FromMarkDownString(Option.EnumOptions.Single(e => e.Item1 == (int)EnumPopUpControl.SelectedTag).Item2, NSFont.SystemFontOfSize(NSFont.SmallSystemFontSize));
@@ -383,14 +420,14 @@ namespace AnalysisITC.GUI.MacOS.CustomViews
             else if (double.TryParse(input, out double value))
             {
                 if (value < 0) return;
-                if (Option.Key == ModelOptionKey.Buffer && field == DoubleField && value > 14) return;
+                if (Option.Key == AttributeKey.Buffer && field == DoubleField && value > 14) return;
                 field.TextColor = DefaultFieldColor;
             }
         }
 
         public void ApplyOption(ExperimentData experiment)
         {
-            if (Option.Key == ModelOptionKey.Null) return;
+            if (Option.Key == AttributeKey.Null) return;
 
             //if (!experiment.Attributes.Exists(opt => opt.Key == Option.Key))
             //{
@@ -399,8 +436,8 @@ namespace AnalysisITC.GUI.MacOS.CustomViews
 
             switch (Option.Key)
             {
-                case ModelOptionKey.PeptideInCell: Option.BoolValue = BoolControl.State == NSCellStateValue.On; break;
-                case ModelOptionKey.PreboundLigandConc:
+                case AttributeKey.PeptideInCell: Option.BoolValue = BoolControl.State == NSCellStateValue.On; break;
+                case AttributeKey.PreboundLigandConc:
                     {
                         if (!string.IsNullOrEmpty(ParameterField.StringValue))
                         {
@@ -413,7 +450,7 @@ namespace AnalysisITC.GUI.MacOS.CustomViews
                         }
                         break;
                     }
-                case ModelOptionKey.PreboundLigandAffinity:
+                case AttributeKey.PreboundLigandAffinity:
                     {
                         if (!string.IsNullOrEmpty(ParameterField.StringValue))
                         {
@@ -427,7 +464,7 @@ namespace AnalysisITC.GUI.MacOS.CustomViews
                         break;
                     }
 
-                case ModelOptionKey.PreboundLigandEnthalpy:
+                case AttributeKey.PreboundLigandEnthalpy:
                     {
                         var val = ParameterField.DoubleValue;
                         var err = ParameterErrorField.DoubleValue;
@@ -437,22 +474,28 @@ namespace AnalysisITC.GUI.MacOS.CustomViews
                         Option.ParameterValue = value.FloatWithError;
                         break;
                     }
-                case ModelOptionKey.Salt:
+                case AttributeKey.Salt:
                     {
                         Option.IntValue = (int)EnumPopUpControl.SelectedTag;
                         if (!string.IsNullOrEmpty(ParameterField.StringValue)) Option.ParameterValue = new(ParameterField.DoubleValue / 1000, 0);
                         break;
                     }
-                case ModelOptionKey.Buffer:
+                case AttributeKey.Buffer:
                     {
                         Option.IntValue = (int)EnumPopUpControl.SelectedTag;
                         if (!string.IsNullOrEmpty(DoubleField.StringValue)) Option.DoubleValue = DoubleField.DoubleValue;
                         if (!string.IsNullOrEmpty(ParameterField.StringValue)) Option.ParameterValue = new(ParameterField.DoubleValue / 1000, 0);
                         break;
                     }
-                case ModelOptionKey.IonicStrength:
+                case AttributeKey.IonicStrength:
                     {
                         if (!string.IsNullOrEmpty(ParameterField.StringValue)) Option.ParameterValue = new(ParameterField.DoubleValue / 1000, 0);
+                        break;
+                    }
+                case AttributeKey.BufferSubtraction:
+                    {
+                        var idx = (int)EnumPopUpControl.SelectedTag;
+                        Option.StringValue = DataManager.Data[idx].UniqueID;
                         break;
                     }
             }

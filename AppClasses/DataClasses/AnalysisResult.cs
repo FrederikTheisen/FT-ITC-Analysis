@@ -44,14 +44,14 @@ namespace AnalysisITC
                 .Any(ionicStrength => ionicStrength != firstSolutionIonicStrength);
 
             //Check if all data has buffer info and figure out if any are different
-            if (Solution.Solutions.All(sol => sol.Data.Attributes.Exists(att => att.Key == ModelOptionKey.Buffer)))
+            if (Solution.Solutions.All(sol => sol.Data.Attributes.Exists(att => att.Key == AttributeKey.Buffer)))
             {
-                var firstSolutionBuffer = Solution.Solutions.First().Data.Attributes.Find(att => att.Key == ModelOptionKey.Buffer).IntValue;
+                var firstSolutionBuffer = Solution.Solutions.First().Data.Attributes.Find(att => att.Key == AttributeKey.Buffer).IntValue;
 
                 IsProtonationAnalysisEnabled = Solution.Solutions
                     .Skip(1)
                     .Any(sol => sol.Data.Attributes
-                    .Find(att => att.Key == ModelOptionKey.Buffer).IntValue != firstSolutionBuffer);
+                    .Find(att => att.Key == AttributeKey.Buffer).IntValue != firstSolutionBuffer);
             }
         }
 

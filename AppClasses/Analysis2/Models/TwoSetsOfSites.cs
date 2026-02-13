@@ -36,14 +36,14 @@ namespace AnalysisITC.AppClasses.Analysis2.Models
             Parameters.AddOrUpdateParameter(ParameterType.Affinity2, GuessParameter(ParameterType.Affinity2, this.GuessAffinity2()));
             Parameters.AddOrUpdateParameter(ParameterType.Offset, GuessParameter(ParameterType.Offset, this.GuessOffset()));
 
-            ModelOptions.Add(AnalysisClasses.ModelOptions.Bool(ModelOptionKey.LockDuplicateParameter, "Shared N-values", false).DictionaryEntry);
+            ModelOptions.Add(AnalysisClasses.ExperimentAttribute.Bool(AttributeKey.LockDuplicateParameter, "Shared N-values", false).DictionaryEntry);
         }
 
         public override void ApplyModelOptions()
         {
             base.ApplyModelOptions();
 
-            if (ModelOptions[ModelOptionKey.LockDuplicateParameter].BoolValue)
+            if (ModelOptions[AttributeKey.LockDuplicateParameter].BoolValue)
             {
                 Parameters.Table[ParameterType.Nvalue2].SetGlobal(Parameters.Table[ParameterType.Nvalue1].Value);
             }

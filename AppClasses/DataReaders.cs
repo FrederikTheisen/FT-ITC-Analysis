@@ -581,9 +581,9 @@ namespace DataReaders
                 exp.Attributes.Add(att);
         }
 
-        private static List<ModelOptions> ReadAttributeOptions(StreamReader reader)
+        private static List<ExperimentAttribute> ReadAttributeOptions(StreamReader reader)
         {
-            var options = new List<ModelOptions>();
+            var options = new List<ExperimentAttribute>();
 
             string line;
 
@@ -591,7 +591,7 @@ namespace DataReaders
             {
                 var dat = line.Split(';');
 
-                var opt = ModelOptions.FromKey((ModelOptionKey)IParse(dat[1]));
+                var opt = ExperimentAttribute.FromKey((AttributeKey)IParse(dat[1]));
                 opt.BoolValue = BParse(dat[2].Split(':')[1]);
                 opt.IntValue = IParse(dat[3].Split(':')[1]);
                 opt.DoubleValue = DParse(dat[4].Split(':')[1]);
@@ -831,7 +831,7 @@ namespace DataReaders
 
         private static void ReadModelOptions(Model mdl, StreamReader reader)
         {
-            List<ModelOptions> options = ReadAttributeOptions(reader);
+            List<ExperimentAttribute> options = ReadAttributeOptions(reader);
 
             foreach (var att in options)
             {

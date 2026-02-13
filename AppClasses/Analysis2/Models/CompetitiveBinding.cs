@@ -9,13 +9,13 @@ namespace AnalysisITC.AppClasses.Analysis2.Models
     {
         public override AnalysisModel ModelType => AnalysisModel.CompetitiveBinding;
 
-        double Kapp => Parameters.Table[ParameterType.Affinity1].Value / (ModelOptions[ModelOptionKey.PreboundLigandAffinity].ParameterValue * ModelOptions[ModelOptionKey.PreboundLigandConc].ParameterValue + 1);
+        double Kapp => Parameters.Table[ParameterType.Affinity1].Value / (ModelOptions[AttributeKey.PreboundLigandAffinity].ParameterValue * ModelOptions[AttributeKey.PreboundLigandConc].ParameterValue + 1);
         double dHapp
         {
             get
             {
-                var top = ModelOptions[ModelOptionKey.PreboundLigandEnthalpy].ParameterValue * ModelOptions[ModelOptionKey.PreboundLigandAffinity].ParameterValue * ModelOptions[ModelOptionKey.PreboundLigandConc].ParameterValue;
-                var btm = (1 + ModelOptions[ModelOptionKey.PreboundLigandAffinity].ParameterValue * ModelOptions[ModelOptionKey.PreboundLigandConc].ParameterValue);
+                var top = ModelOptions[AttributeKey.PreboundLigandEnthalpy].ParameterValue * ModelOptions[AttributeKey.PreboundLigandAffinity].ParameterValue * ModelOptions[AttributeKey.PreboundLigandConc].ParameterValue;
+                var btm = (1 + ModelOptions[AttributeKey.PreboundLigandAffinity].ParameterValue * ModelOptions[AttributeKey.PreboundLigandConc].ParameterValue);
 
                 var dh = Parameters.Table[ParameterType.Enthalpy1].Value - top / btm;
 
@@ -36,9 +36,9 @@ namespace AnalysisITC.AppClasses.Analysis2.Models
             Parameters.AddOrUpdateParameter(ParameterType.Affinity1, 1E8); //We expect very high affinity if this model is used
             Parameters.AddOrUpdateParameter(ParameterType.Offset, GuessParameter(ParameterType.Offset, this.GuessOffset()));
 
-            ModelOptions.Add(AnalysisClasses.ModelOptions.Concentration(ModelOptionKey.PreboundLigandConc, "[Prebound ligand] (µM)", new FloatWithError(10e-6, 0)).DictionaryEntry);
-            ModelOptions.Add(AnalysisClasses.ModelOptions.Parameter(ModelOptionKey.PreboundLigandEnthalpy, "Prebound ligand ∆H", new FloatWithError(-40000, 0)).DictionaryEntry);
-            ModelOptions.Add(AnalysisClasses.ModelOptions.Affinity(ModelOptionKey.PreboundLigandAffinity, "Prebound ligand Kd", new(1000000, 0)).DictionaryEntry);
+            ModelOptions.Add(AnalysisClasses.ExperimentAttribute.Concentration(AttributeKey.PreboundLigandConc, "[Prebound ligand] (µM)", new FloatWithError(10e-6, 0)).DictionaryEntry);
+            ModelOptions.Add(AnalysisClasses.ExperimentAttribute.Parameter(AttributeKey.PreboundLigandEnthalpy, "Prebound ligand ∆H", new FloatWithError(-40000, 0)).DictionaryEntry);
+            ModelOptions.Add(AnalysisClasses.ExperimentAttribute.Affinity(AttributeKey.PreboundLigandAffinity, "Prebound ligand Kd", new(1000000, 0)).DictionaryEntry);
         }
 
         public override double Evaluate(int injectionindex, bool withoffset = true)
@@ -86,7 +86,7 @@ namespace AnalysisITC.AppClasses.Analysis2.Models
 
         public class ModelSolution : SolutionInterface
         {
-            IDictionary<ModelOptionKey, ModelOptions> opt => Model.ModelOptions;
+            IDictionary<AttributeKey, ExperimentAttribute> opt => Model.ModelOptions;
 
             public Energy Enthalpy => Parameters[ParameterType.Enthalpy1].Energy;
             public FloatWithError K => Parameters[ParameterType.Affinity1];
@@ -98,14 +98,14 @@ namespace AnalysisITC.AppClasses.Analysis2.Models
             public Energy TdS => GibbsFreeEnergy - Enthalpy;
             public Energy Entropy => TdS / TempKelvin;
 
-            public FloatWithError Kapp => K / (opt[ModelOptionKey.PreboundLigandAffinity].ParameterValue * opt[ModelOptionKey.PreboundLigandConc].ParameterValue + 1);
+            public FloatWithError Kapp => K / (opt[AttributeKey.PreboundLigandAffinity].ParameterValue * opt[AttributeKey.PreboundLigandConc].ParameterValue + 1);
             public FloatWithError Kdapp => new FloatWithError(1) / Kapp;
             public Energy dHapp
             {
                 get
                 {
-                    var top = opt[ModelOptionKey.PreboundLigandEnthalpy].ParameterValue * opt[ModelOptionKey.PreboundLigandAffinity].ParameterValue * opt[ModelOptionKey.PreboundLigandConc].ParameterValue;
-                    var btm = (1 + opt[ModelOptionKey.PreboundLigandAffinity].ParameterValue * opt[ModelOptionKey.PreboundLigandConc].ParameterValue);
+                    var top = opt[AttributeKey.PreboundLigandEnthalpy].ParameterValue * opt[AttributeKey.PreboundLigandAffinity].ParameterValue * opt[AttributeKey.PreboundLigandConc].ParameterValue;
+                    var btm = (1 + opt[AttributeKey.PreboundLigandAffinity].ParameterValue * opt[AttributeKey.PreboundLigandConc].ParameterValue);
 
                     var dh = Enthalpy.FloatWithError - top / btm;
 
@@ -180,9 +180,9 @@ namespace AnalysisITC.AppClasses.Analysis2.Models
         {
             base.InitializeParameters(data);
 
-            ModelOptions.Add(AnalysisClasses.ModelOptions.Concentration(ModelOptionKey.PreboundLigandConc, "[Prebound ligand] (µM)", new FloatWithError(10e-6, 0)).DictionaryEntry);
-            ModelOptions.Add(AnalysisClasses.ModelOptions.Parameter(ModelOptionKey.PreboundLigandEnthalpy, "Prebound ligand ∆H", new FloatWithError(-40000, 0)).DictionaryEntry);
-            ModelOptions.Add(AnalysisClasses.ModelOptions.Affinity(ModelOptionKey.PreboundLigandAffinity, "Prebound ligand Kd", new(1000000, 0)).DictionaryEntry);
+            ModelOptions.Add(AnalysisClasses.ExperimentAttribute.Concentration(AttributeKey.PreboundLigandConc, "[Prebound ligand] (µM)", new FloatWithError(10e-6, 0)).DictionaryEntry);
+            ModelOptions.Add(AnalysisClasses.ExperimentAttribute.Parameter(AttributeKey.PreboundLigandEnthalpy, "Prebound ligand ∆H", new FloatWithError(-40000, 0)).DictionaryEntry);
+            ModelOptions.Add(AnalysisClasses.ExperimentAttribute.Affinity(AttributeKey.PreboundLigandAffinity, "Prebound ligand Kd", new(1000000, 0)).DictionaryEntry);
         }
 
         public override Model GenerateSyntheticModel()
@@ -196,7 +196,7 @@ namespace AnalysisITC.AppClasses.Analysis2.Models
 
         new public class ModelSolution : SolutionInterface
         {
-            IDictionary<ModelOptionKey,ModelOptions> opt => Model.ModelOptions;
+            IDictionary<AttributeKey,ExperimentAttribute> opt => Model.ModelOptions;
 
             public Energy dHapp => Parameters[ParameterType.Enthalpy1].Energy;
             public FloatWithError Kapp => Parameters[ParameterType.Affinity1];
@@ -205,7 +205,7 @@ namespace AnalysisITC.AppClasses.Analysis2.Models
 
             public FloatWithError Kdapp => new FloatWithError(1) / Kapp;
 
-            public FloatWithError K => Kapp + Kapp * opt[ModelOptionKey.PreboundLigandAffinity].ParameterValue * opt[ModelOptionKey.PreboundLigandConc].ParameterValue;
+            public FloatWithError K => Kapp + Kapp * opt[AttributeKey.PreboundLigandAffinity].ParameterValue * opt[AttributeKey.PreboundLigandConc].ParameterValue;
             public FloatWithError Kd => new FloatWithError(1) / K;
             public Energy dH
             {
@@ -213,8 +213,8 @@ namespace AnalysisITC.AppClasses.Analysis2.Models
                 {
                     var dh = dHapp.FloatWithError;
 
-                    var top = opt[ModelOptionKey.PreboundLigandEnthalpy].ParameterValue * opt[ModelOptionKey.PreboundLigandAffinity].ParameterValue * opt[ModelOptionKey.PreboundLigandConc].ParameterValue;
-                    var btm = (1 + opt[ModelOptionKey.PreboundLigandAffinity].ParameterValue * opt[ModelOptionKey.PreboundLigandConc].ParameterValue);
+                    var top = opt[AttributeKey.PreboundLigandEnthalpy].ParameterValue * opt[AttributeKey.PreboundLigandAffinity].ParameterValue * opt[AttributeKey.PreboundLigandConc].ParameterValue;
+                    var btm = (1 + opt[AttributeKey.PreboundLigandAffinity].ParameterValue * opt[AttributeKey.PreboundLigandConc].ParameterValue);
 
                     dh += top / btm;
 
@@ -230,7 +230,7 @@ namespace AnalysisITC.AppClasses.Analysis2.Models
                 Model = model;
                 BootstrapSolutions = new List<SolutionInterface>();
 
-                if (opt[ModelOptionKey.PreboundLigandConc].BoolValue) opt[ModelOptionKey.PreboundLigandConc].ParameterValue = Data.Attributes.Find(opt => opt.Key == ModelOptionKey.PreboundLigandConc).ParameterValue;
+                if (opt[AttributeKey.PreboundLigandConc].BoolValue) opt[AttributeKey.PreboundLigandConc].ParameterValue = Data.Attributes.Find(opt => opt.Key == AttributeKey.PreboundLigandConc).ParameterValue;
             }
 
             public override void ComputeErrorsFromBootstrapSolutions()

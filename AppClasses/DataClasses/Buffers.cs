@@ -211,27 +211,27 @@ namespace AnalysisITC
 			return tooltip;
         }
 
-        public static void SetupSpecialBuffer(List<ModelOptions> tmpoptions, Buffer buffer)
+        public static void SetupSpecialBuffer(List<ExperimentAttribute> tmpoptions, Buffer buffer)
         {
-            tmpoptions.RemoveAll(att => att.Key == ModelOptionKey.Buffer);
-            tmpoptions.RemoveAll(att => att.Key == ModelOptionKey.Salt);
+            tmpoptions.RemoveAll(att => att.Key == AttributeKey.Buffer);
+            tmpoptions.RemoveAll(att => att.Key == AttributeKey.Salt);
 
 			switch (buffer)
 			{
 				case Buffer.TBS:
 					{
-						var tris = ModelOptions.FromKey(ModelOptionKey.Buffer);
+						var tris = ExperimentAttribute.FromKey(AttributeKey.Buffer);
 						tris.IntValue = (int)Buffer.Tris;
 						tris.ParameterValue = new(0.025);
 						tris.DoubleValue = 7.4;
                         tmpoptions.Add(tris);
 
-						var nacl = ModelOptions.FromKey(ModelOptionKey.Salt);
+						var nacl = ExperimentAttribute.FromKey(AttributeKey.Salt);
 						nacl.IntValue = (int)Salt.NaCl;
 						nacl.ParameterValue = new(0.137);
                         tmpoptions.Add(nacl);
 
-						var kcl = ModelOptions.FromKey(ModelOptionKey.Salt);
+						var kcl = ExperimentAttribute.FromKey(AttributeKey.Salt);
 						kcl.IntValue = (int)Salt.KCl;
 						kcl.ParameterValue = new(0.0027);
 
@@ -241,24 +241,24 @@ namespace AnalysisITC
                     break;
 				case Buffer.PBS:
                     {
-                        var napo4 = ModelOptions.FromKey(ModelOptionKey.Buffer);
+                        var napo4 = ExperimentAttribute.FromKey(AttributeKey.Buffer);
                         napo4.IntValue = (int)Buffer.Phosphate;
                         napo4.ParameterValue = new(0.010);
                         napo4.DoubleValue = 7.4;
                         tmpoptions.Add(napo4);
 
-                        var kpo4 = ModelOptions.FromKey(ModelOptionKey.Buffer);
+                        var kpo4 = ExperimentAttribute.FromKey(AttributeKey.Buffer);
                         kpo4.IntValue = (int)Buffer.Phosphate;
                         kpo4.ParameterValue = new(0.0018);
                         kpo4.DoubleValue = 7.4;
                         tmpoptions.Add(kpo4);
 
-                        var nacl = ModelOptions.FromKey(ModelOptionKey.Salt);
+                        var nacl = ExperimentAttribute.FromKey(AttributeKey.Salt);
                         nacl.IntValue = (int)Salt.NaCl;
                         nacl.ParameterValue = new(0.137);
                         tmpoptions.Add(nacl);
 
-                        var kcl = ModelOptions.FromKey(ModelOptionKey.Salt);
+                        var kcl = ExperimentAttribute.FromKey(AttributeKey.Salt);
                         kcl.IntValue = (int)Salt.KCl;
                         kcl.ParameterValue = new(0.0027);
 
@@ -356,10 +356,10 @@ namespace AnalysisITC
         public static double GetIonicStrength(ExperimentData data)
 		{
 			//Check if ionicstrength is specifically stated
-			if (data.Attributes.Exists(opt => opt.Key == ModelOptionKey.IonicStrength)) return data.Attributes.First(opt => opt.Key == ModelOptionKey.IonicStrength).ParameterValue.Value;
+			if (data.Attributes.Exists(opt => opt.Key == AttributeKey.IonicStrength)) return data.Attributes.First(opt => opt.Key == AttributeKey.IonicStrength).ParameterValue.Value;
 
-			var salts = data.Attributes.Where(opt => opt.Key == ModelOptionKey.Salt);
-			var buffers = data.Attributes.Where(opt => opt.Key == ModelOptionKey.Buffer);
+			var salts = data.Attributes.Where(opt => opt.Key == AttributeKey.Salt);
+			var buffers = data.Attributes.Where(opt => opt.Key == AttributeKey.Buffer);
 
 			var i = 0.0;
 
@@ -380,7 +380,7 @@ namespace AnalysisITC
 
 		public static Energy GetProtonationEnthalpy(ExperimentData data)
 		{
-			var buffer = (Buffer)data.Attributes.Find(att => att.Key == ModelOptionKey.Buffer).IntValue;
+			var buffer = (Buffer)data.Attributes.Find(att => att.Key == AttributeKey.Buffer).IntValue;
 
 			return new (buffer.GetProtonationEnthalpy(data.MeasuredTemperature));
         }

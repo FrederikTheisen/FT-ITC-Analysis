@@ -103,12 +103,12 @@ namespace AnalysisITC.AppClasses.Analysis2
             throw new NotImplementedException("ModelFactory.SetCustomParameter()");
         }
 
-        public virtual void SetModelOption(ModelOptions opt)
+        public virtual void SetModelOption(ExperimentAttribute opt)
         {
             throw new NotImplementedException("ModelFactory.SetModelOption()");
         }
 
-        public virtual IDictionary<ModelOptionKey, ModelOptions> GetExposedModelOptions()
+        public virtual IDictionary<AttributeKey, ExperimentAttribute> GetExposedModelOptions()
 		{
 			throw new NotImplementedException("ModelFactory.GetOptions()");
 		}
@@ -230,12 +230,12 @@ namespace AnalysisITC.AppClasses.Analysis2
 			par.ReinitializeParameter(Model);
         }
 
-        public override void SetModelOption(ModelOptions opt)
+        public override void SetModelOption(ExperimentAttribute opt)
         {
 			Model.ModelOptions[opt.Key] = opt;
         }
 
-        public override IDictionary<ModelOptionKey, ModelOptions> GetExposedModelOptions()
+        public override IDictionary<AttributeKey, ExperimentAttribute> GetExposedModelOptions()
         {
 			return Model.ModelOptions;
         }
@@ -442,7 +442,7 @@ namespace AnalysisITC.AppClasses.Analysis2
 			return Parameters;
         }
 
-        public override IDictionary<ModelOptionKey, ModelOptions> GetExposedModelOptions()
+        public override IDictionary<AttributeKey, ExperimentAttribute> GetExposedModelOptions()
         {
             return Model.Models.First().ModelOptions;
         }
@@ -463,7 +463,7 @@ namespace AnalysisITC.AppClasses.Analysis2
             par.ReinitializeParameter(ghostfactory.GetExposedParameters().First(p => p.Key == par.Key).Value);
         }
 
-        public override void SetModelOption(ModelOptions opt)
+        public override void SetModelOption(ExperimentAttribute opt)
         {
 			Model.Models.First().ModelOptions[opt.Key] = opt;
         }

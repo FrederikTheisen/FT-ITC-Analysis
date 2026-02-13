@@ -25,7 +25,7 @@ namespace AnalysisITC.AppClasses.Analysis2.Models
             Parameters.AddOrUpdateParameter(ParameterType.Offset, this.GuessOffset());
             //Parameters.AddOrUpdateParameter(ParameterType.IsomerizationEquilibriumConstant, 0.42, islocked: true);
 
-            ModelOptions.Add(AnalysisClasses.ModelOptions.Parameter(ModelOptionKey.Percentage, "*Cis* population (0-100%)", new FloatWithError(0.37,0.02)).DictionaryEntry);
+            ModelOptions.Add(AnalysisClasses.ExperimentAttribute.Parameter(AttributeKey.Percentage, "*Cis* population (0-100%)", new FloatWithError(0.37,0.02)).DictionaryEntry);
         }
 
         public override double Evaluate(int injectionindex, bool withoffset = true)
@@ -38,8 +38,8 @@ namespace AnalysisITC.AppClasses.Analysis2.Models
         {
             //Figure out which component isomerises
             //Whatever is in the cell is multiplied by the n-value
-            var totpep = ModelOptions[ModelOptionKey.PeptideInCell].BoolValue ? Parameters.Table[ParameterType.Nvalue1].Value * inj.ActualCellConcentration : inj.ActualTitrantConcentration;
-            var totprot = ModelOptions[ModelOptionKey.PeptideInCell].BoolValue ? inj.ActualTitrantConcentration : Parameters.Table[ParameterType.Nvalue1].Value * inj.ActualCellConcentration;
+            var totpep = ModelOptions[AttributeKey.PeptideInCell].BoolValue ? Parameters.Table[ParameterType.Nvalue1].Value * inj.ActualCellConcentration : inj.ActualTitrantConcentration;
+            var totprot = ModelOptions[AttributeKey.PeptideInCell].BoolValue ? inj.ActualTitrantConcentration : Parameters.Table[ParameterType.Nvalue1].Value * inj.ActualCellConcentration;
 
             var KxTot = Parameters.Table[ParameterType.IsomerizationEquilibriumConstant].Value * totpep;
             var cis = KxTot / (1 + Parameters.Table[ParameterType.IsomerizationEquilibriumConstant].Value);
@@ -158,8 +158,8 @@ namespace AnalysisITC.AppClasses.Analysis2.Models
 
             //Bootstrap value for error estimation //TODO does this work with LeaveOneOut?
             var limits = ParameterType.CisIsomerPopulationPercentage.GetProperties().DefaultLimits;
-            mdl.ModelOptions[ModelOptionKey.Percentage].ParameterValue =
-                new FloatWithError(Math.Clamp(ModelOptions[ModelOptionKey.Percentage].ParameterValue.Sample(), limits[0], limits[1]), 0);
+            mdl.ModelOptions[AttributeKey.Percentage].ParameterValue =
+                new FloatWithError(Math.Clamp(ModelOptions[AttributeKey.Percentage].ParameterValue.Sample(), limits[0], limits[1]), 0);
 
             return mdl;
         }
@@ -171,7 +171,7 @@ namespace AnalysisITC.AppClasses.Analysis2.Models
             public FloatWithError K => 1/(Kd_app / (1 + 1/IsomerizationEquilibriumConstant));
             public FloatWithError N => Parameters[ParameterType.Nvalue1];
             public Energy Offset => Parameters[ParameterType.Offset].Energy;
-            public FloatWithError PercentageCis => Model.ModelOptions[ModelOptionKey.Percentage].ParameterValue;
+            public FloatWithError PercentageCis => Model.ModelOptions[AttributeKey.Percentage].ParameterValue;
             public FloatWithError IsomerizationEquilibriumConstant => PercentageCis / (1 - PercentageCis);
 
             public FloatWithError Kd => new FloatWithError(1) / K;

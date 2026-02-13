@@ -57,7 +57,7 @@ namespace AnalysisITC
         public double MeasuredTemperatureKelvin => 273.15 + MeasuredTemperature;
 
         public DataProcessor Processor { get; private set; }
-        public List<ModelOptions> Attributes { get; } = new List<ModelOptions>();
+        public List<ExperimentAttribute> Attributes { get; } = new List<ExperimentAttribute>();
         public Model Model { get; set; }
         public SolutionInterface Solution => Model?.Solution;
 
