@@ -4,6 +4,7 @@ using System;
 
 using Foundation;
 using AppKit;
+using System.Collections.Generic;
 
 namespace AnalysisITC
 {
@@ -25,12 +26,17 @@ namespace AnalysisITC
 
             Label.StringValue = "";
 
+            var lines = new List<string>();
+
             foreach (var mdl in analysisresult.Solution.Model.Models)
             {
-                Label.StringValue += mdl.Data.FileName + Environment.NewLine;
+                lines.Add(System.IO.Path.GetFileNameWithoutExtension(mdl.Data.FileName));
+                lines.Add(mdl.Data.UIShortDateWithTime);
+                lines.Add("--------------------------");
             }
+            lines.RemoveAt(lines.Count - 1);
 
-            Label.StringValue = Label.StringValue.Trim();
+            Label.StringValue = string.Join(Environment.NewLine, lines);
         }
     }
 }
