@@ -201,12 +201,12 @@ namespace AnalysisITC
 
             var syntheticdata = new List<InjectionData>();
 
-            var residuals = new List<double>();
+            var residuals = new List<(double,double)>();
 
             foreach (var inj in Injections.Where(inj => inj.Include))
             {
                 var fit = Model.EvaluateEnthalpy(inj.ID, withoffset: true);
-                residuals.Add(inj.Enthalpy - fit);
+                residuals.Add((inj.Enthalpy - fit, inj.SD));
             }
 
             residuals.Shuffle();
@@ -214,12 +214,13 @@ namespace AnalysisITC
 
             foreach (var inj in Injections)
             {
-                var res = 0.0;
+                var res = (0.0,0.0);
 
                 if (inj.Include) { res = residuals[resindex]; resindex++; }
 
                 var fit = Model.EvaluateEnthalpy(inj.ID, withoffset: true);
-                var resarea = res * inj.InjectionMass;
+                var resarea = res.Item1 * inj.InjectionMass;
+                var ressdarea = res.Item2 * inj.InjectionMass;
                 var fitarea = fit * inj.InjectionMass;
 
                 var syn_inj = new InjectionData(null, inj.ID, inj.Volume, inj.InjectionMass, inj.Include)
@@ -229,7 +230,7 @@ namespace AnalysisITC
                     ActualTitrantConcentration = inj.ActualTitrantConcentration,
                     Ratio = inj.Ratio
                 };
-                syn_inj.SetPeakArea(new FloatWithError(fitarea + resarea, inj.PeakArea.SD));
+                syn_inj.SetPeakArea(new FloatWithError(fitarea + resarea, ressdarea));
 
                 syntheticdata.Add(syn_inj);
             }
