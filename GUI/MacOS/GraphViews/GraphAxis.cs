@@ -418,13 +418,9 @@ namespace AnalysisITC
 
         public static string GetXAxisTitle(ExperimentData data)
         {
-            if (data.Model == null) return "X";
+            if (data.Model != null && data.Model.ModelType == AppClasses.Analysis2.Models.AnalysisModel.Dissociation) return "[Monomer] (µM)";
 
-            switch (data.Model.ModelType)
-            {
-                case AppClasses.Analysis2.Models.AnalysisModel.Dissociation: return "[Monomer] (µM)";
-                default: return "Molar Ratio";
-            }
+            return "Molar Ratio";
         }
 
         public static int GetXAxisScaleFactor(ExperimentData data)
