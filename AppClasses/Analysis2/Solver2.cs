@@ -66,12 +66,12 @@ namespace AnalysisITC.AppClasses.Analysis2
 
         protected double NMFunctionTolerance(double guessloss)
         {
-            return Math.Max(1E-30, guessloss * Tolerance(3, 10)); // 1E-4 - 1E-8
+            return Math.Max(1E-30, guessloss * Tolerance(5, 10)); // 1E-4 - 1E-8
         }
 
         // LM parameters
-        public double LevenbergMarquardtDifferentiationStepSize => Tolerance(1, 8);   // 1E-2 - 1E-6
-        public double LevenbergMarquardtEpsilon => Tolerance(4, 11);              // 1E-5 - 1E-9
+        public double LevenbergMarquardtDifferentiationStepSize => Tolerance(2, 8);   // 1E-2 - 1E-6
+        public double LevenbergMarquardtEpsilon => Tolerance(5, 11);              // 1E-5 - 1E-9
 
         internal alglib.minlmstate LMOptimizerState { get; set; }
         public static CancellationTokenSource NelderMeadToken { get; set; }
