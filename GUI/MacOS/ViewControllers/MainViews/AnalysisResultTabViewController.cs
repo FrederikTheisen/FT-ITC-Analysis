@@ -166,6 +166,9 @@ namespace AnalysisITC
 
         public void SetupResultView()
         {
+            // Clear parameter field
+            EvaluationOutputLabel.StringValue = "";
+
             /// Setup the description lines for the result view
             var parameters = new List<string>() { "Reference temperature:" };
 
