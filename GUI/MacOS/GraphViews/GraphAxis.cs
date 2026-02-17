@@ -499,7 +499,7 @@ namespace AnalysisITC
 
                 var par = CategoryLabels.Keys.ToList()[i];
 
-                var label = par.GetProperties().AttributedNameString;
+                var label = par.GetProperties().SymbolName;
 
                 if (ParameterTypeAttribute.ContainsTwo(CategoryLabels.Keys, par)) label += "{" + par.GetProperties().NumberSubscript + "}";
 
