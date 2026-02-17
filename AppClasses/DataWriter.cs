@@ -232,8 +232,8 @@ namespace AnalysisITC
                 Variable(MeasuredTemperature, data.MeasuredTemperature),
                 Variable(InitialDelay, data.InitialDelay),
                 Variable(TargetPowerDiff, data.TargetPowerDiff),
-                Variable(UseIntegrationFactorLength, (int)data.IntegrationLengthMode),
-                Variable(IntegrationLengthFactor, data.IntegrationLengthFactor),
+                //Variable(UseIntegrationFactorLength, (int)data.IntegrationLengthMode),
+                //Variable(IntegrationLengthFactor, data.IntegrationLengthFactor),
                 Variable(FeedBackMode, (int)data.FeedBackMode),
                 Variable(CellVolume, data.CellVolume),
                 Variable(Instrument, (int)data.Instrument)

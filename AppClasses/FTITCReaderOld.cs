@@ -57,8 +57,8 @@ namespace DataReaders
             exp.InitialDelay = double.Parse(GContent(InitialDelay, data));
             exp.TargetPowerDiff = double.Parse(GContent(TargetPowerDiff, data));
             exp.Include = GContent(Include, data) == "1";
-            exp.IntegrationLengthMode = (InjectionData.IntegrationLengthMode)int.Parse(GContent(UseIntegrationFactorLength, data));
-            exp.IntegrationLengthFactor = float.Parse(GContent(IntegrationLengthFactor, data));
+            //exp.IntegrationLengthMode = (InjectionData.IntegrationLengthMode)int.Parse(GContent(UseIntegrationFactorLength, data));
+            //exp.IntegrationLengthFactor = float.Parse(GContent(IntegrationLengthFactor, data));
             exp.CellVolume = double.Parse(GContent(CellVolume, data));
             exp.CellVolume = double.Parse(GContent(CellVolume, data));
             exp.FeedBackMode = (FeedbackMode)int.Parse(GContent(FeedBackMode, data));

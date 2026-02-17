@@ -175,10 +175,15 @@ namespace DataReaders
     {
         public static void ProcessInjections(ExperimentData experiment)
         {
+            // We cannot reprocess injections for tandem experiments
+            if (experiment.IsTandemExperiment) return;
+
+            AppEventHandler.PrintAndLog("Proceesing injections for: " + experiment.FileName);
+
             switch (experiment.DataSourceFormat)
             {
                 case ITCDataFormat.TAITC:
-                    foreach (var inj in experiment.Injections) inj.SetIntegrationTimes();
+                    foreach (var inj in experiment.Injections) inj.InitializeIntegrationTimes();
                     ProcessInjectionsMicroCal(experiment); // We think this might be the same proecessing. Lack of information makes other assumptions hard.
                     break;
                 default:
@@ -508,8 +513,8 @@ namespace DataReaders
                     case MeasuredTemperature: exp.MeasuredTemperature = DParse(v[1]); break;
                     case InitialDelay: exp.InitialDelay = DParse(v[1]); break;
                     case TargetPowerDiff: exp.TargetPowerDiff = DParse(v[1]); break;
-                    case UseIntegrationFactorLength: exp.IntegrationLengthMode = (InjectionData.IntegrationLengthMode)IParse(v[1]); break;
-                    case IntegrationLengthFactor: exp.IntegrationLengthFactor = FParse(v[1]); break;
+                    //case UseIntegrationFactorLength: exp.IntegrationLengthMode = (InjectionData.IntegrationLengthMode)IParse(v[1]); break;
+                    //case IntegrationLengthFactor: exp.IntegrationLengthFactor = FParse(v[1]); break;
                     case FeedBackMode: exp.FeedBackMode = (FeedbackMode)int.Parse(v[1]); break;
                     case Include: exp.Include = BParse(v[1]); break;
                     case Instrument: exp.Instrument = (ITCInstrument)IParse(v[1]); break;
