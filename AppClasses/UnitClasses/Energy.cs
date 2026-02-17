@@ -24,6 +24,11 @@ namespace AnalysisITC
             FloatWithError = new(v);
         }
 
+        public Energy(double v, double e)
+        {
+            FloatWithError = new(v, e);
+        }
+
         public Energy(FloatWithError value, EnergyUnit unit)
         {
             FloatWithError = value / ScaleFactor(unit);
