@@ -256,17 +256,22 @@ namespace Utilities
             FeatureReferenceValue = box.FeatureReferenceValue;
         }
 
-        public MouseOverFeatureEvent(AnalysisITC.InjectionData inj)
+        public MouseOverFeatureEvent(AnalysisITC.InjectionData inj, CGGraph graph)
         {
             Type = FeatureType.IntegratedInjectionPoint;
             FeatureID = inj.ID;
 
             tooltiplines.Add("Inj #" + (inj.ID + 1));
             //tooltiplines.Add("Time: " + inj.Time.ToString("F1") + "s");
-            tooltiplines.Add("Ratio: " + inj.Ratio.ToString("F2"));
-            tooltiplines.Add("Enthalpy: " + new Energy(inj.Enthalpy).ToFormattedString(AppSettings.EnergyUnit, true, true));
-            tooltiplines.Add("Temperature: " + inj.Temperature.ToString("F2") + " °C");
-            if (inj.Experiment.Solution != null) tooltiplines.Add("Residual: " + new Energy(inj.Enthalpy - inj.Experiment.Model.EvaluateEnthalpy(inj.ID, true)).ToFormattedString(AppSettings.EnergyUnit, true, true));
+            tooltiplines.Add(graph.XAxis.LegendTitle + ": " + inj.Ratio.ToString("F2"));
+            tooltiplines.Add("Enthalpy: " + inj.Enthalpy2.ToFormattedString(AppSettings.EnergyUnit, withunit: true, permole: true));
+            //tooltiplines.Add("Temperature: " + inj.Temperature.ToString("F2") + " °C");
+            if (inj.Experiment.Solution != null)
+            {
+                var fit = new Energy(inj.Experiment.Model.EvaluateEnthalpy(inj.ID, true));
+                var delta = inj.Enthalpy2 - fit;
+                tooltiplines.Add("Fitted: " + fit.ToFormattedString(AppSettings.EnergyUnit, false, false) + ", ∆=" + delta.ToFormattedString(AppSettings.EnergyUnit, true, true));
+            }
 
             int longest = tooltiplines.Max(l => l.Length);
 
