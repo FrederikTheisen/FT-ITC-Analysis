@@ -19,6 +19,8 @@ namespace AnalysisITC
         public static ExperimentData Data { get; set; } = null;
         static List<ExperimentAttribute> tmpoptions = new List<ExperimentAttribute>();
         public static IEnumerable<AttributeKey> AllAddedOptions => Data.Attributes.Select(opt => opt.Key).Concat(tmpoptions.Select(mo => mo.Key).ToList());
+        public static IEnumerable<AttributeKey> AvailableAttributes => tmpoptions.Select(mo => mo.Key).ToList();
+
 
         public ExperimentDetailsPopoverController() : base()
         {
@@ -54,6 +56,15 @@ namespace AnalysisITC
             foreach (var opt in tmpoptions)
             {
                 AddAttribute(opt);
+            }
+
+            // For tandem/merged experiments, we do not allow changing the concentrations
+            if (Data.IsTandemExperiment)
+            {
+                CellConcentrationField.Enabled = false;
+                CellConcentrationErrorField.Enabled = false;
+                SyringeConcentrationField.Enabled = false;
+                SyringeConcentrationErrorField.Enabled = false;
             }
         }
 
@@ -121,9 +132,11 @@ namespace AnalysisITC
 
             foreach (var sv in AttributeStackView.Subviews) (sv as ExperimentAttributeView).ApplyOption(Data);
 
-            var i = BufferAttribute.GetIonicStrength(Data);
-
             DataReaders.RawDataReader.ProcessInjections(Data);
+
+            // Ensure reference experiment is subtracted immediately
+            var proc = new DataProcessor(Data);
+            proc.IntegratePeaks();
 
             DismissViewController(this);
 

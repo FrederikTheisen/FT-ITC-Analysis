@@ -65,7 +65,7 @@ namespace AnalysisITC.GUI.MacOS.CustomViews
 				BezelStyle = NSBezelStyle.Recessed,
 				ControlSize = NSControlSize.Small,
                 Image = NSImage.GetSystemSymbol("minus", null),
-                Bordered = false,
+                Bordered = true,
             };
 			rmbtn.SetButtonType(NSButtonType.MomentaryPushIn);
 			rmbtn.Activated += (o,e) => Remove?.Invoke(this, null);
@@ -97,7 +97,7 @@ namespace AnalysisITC.GUI.MacOS.CustomViews
 
             foreach (var att in ExperimentAttribute.AvailableExperimentAttributes)
             {
-                if (!att.GetProperties().AllowMultiple && ExperimentDetailsPopoverController.AllAddedOptions.Contains(att) && Option.Key != att) continue;
+                if (!att.GetProperties().AllowMultiple && ExperimentDetailsPopoverController.AvailableAttributes.Contains(att) && Option.Key != att) continue;
                 KeySelectionControl.Menu.AddItem(new NSMenuItem("")
                 {
                     Tag = (int)att,
@@ -328,6 +328,7 @@ namespace AnalysisITC.GUI.MacOS.CustomViews
             for (int i = 0; i < Option.EnumOptionCount; i++)
             {
                 var opt = opts[i];
+
                 if (opt.Item1 != -1)
                 {
                     var item = new NSMenuItem("")
@@ -390,6 +391,10 @@ namespace AnalysisITC.GUI.MacOS.CustomViews
             KeyChanged?.Invoke(this, null);
         }
 
+        /// <summary>
+        /// Set the drop down menu text to the selected option title (or whatever you want)
+        /// </summary>
+        /// <param name="text"></param>
         void SetPopUpButtonText(string text)
         {
             EnumPopUpControl.Menu.ItemAt(0).AttributedTitle = MacStrings.FromMarkDownString(text , NSFont.SystemFontOfSize(NSFont.SmallSystemFontSize));
@@ -508,7 +513,10 @@ namespace AnalysisITC.GUI.MacOS.CustomViews
                 case AttributeKey.BufferSubtraction:
                     {
                         var idx = (int)EnumPopUpControl.SelectedTag;
-                        Option.StringValue = DataManager.Data[idx].UniqueID;
+                        if (idx != -1)
+                        {
+                            Option.StringValue = DataManager.Data[idx].UniqueID;
+                        }
                         break;
                     }
             }

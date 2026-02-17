@@ -31,7 +31,7 @@ namespace AnalysisITC.AppClasses.AnalysisClasses
 	public enum AttributeKey
 	{
 		Null,
-		[AttributeKey("Prebound Ligand Concentration", ExperimentAttribute.AttributeType.ParameterConcentration)]
+		[AttributeKey("Prebound Ligand", ExperimentAttribute.AttributeType.ParameterConcentration)]
 		PreboundLigandConc,
 		[AttributeKey(ExperimentAttribute.AttributeType.ParameterAffinity)]
 		PreboundLigandAffinity,
@@ -51,7 +51,7 @@ namespace AnalysisITC.AppClasses.AnalysisClasses
         Percentage,
         [AttributeKey(ExperimentAttribute.AttributeType.Bool)]
         LockDuplicateParameter,
-        [AttributeKey("Buffer Subtraction Experiment", ExperimentAttribute.AttributeType.ReferenceExperiment)]
+        [AttributeKey("Buffer Subtraction", ExperimentAttribute.AttributeType.ReferenceExperiment)]
         BufferSubtraction,
     }
 
