@@ -1130,7 +1130,7 @@ namespace AnalysisITC
                 if (clickedinj.Count() > 0)
                 {
                     var inj = clickedinj.First();
-                    CursorInfo.Add("Inj #" + inj.ID.ToString() + " | " + inj.Enthalpy2.ToFormattedString(AppSettings.EnergyUnit));
+                    CursorInfo.Add("Inj #" + (inj.ID + 1).ToString() + " | " + inj.Enthalpy2.ToFormattedString(AppSettings.EnergyUnit));
                 }
                 
                 CursorInfo.Add("Time: " + datapoint.Time.ToString() + "s");
