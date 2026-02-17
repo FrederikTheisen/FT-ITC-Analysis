@@ -7,6 +7,7 @@ using System.Linq;
 using CoreText;
 using Utilities;
 using static AnalysisITC.AppClasses.Analysis2.Models.SolutionInterface;
+using MathNet.Numerics.Interpolation;
 
 namespace AnalysisITC
 {
@@ -326,7 +327,7 @@ namespace AnalysisITC
             Origin = new CGPoint(ymargin, xmargin);
         }
 
-        public CGPath GetSplineFromPoints(CGPoint[] points, CGPath path = null, float linewidth = 1)
+        public CGPath GetSplineFromPoints(CGPoint[] points, CGPath path = null, float linewidth = 1, LineSmoothness smoothness = LineSmoothness.Spline)
         {
             bool continued = path != null;
             if (path == null) path = new CGPath();
@@ -351,20 +352,55 @@ namespace AnalysisITC
                 }
                 else //draw spline
                 {
-                    CGPoint p1 = p0;
-                    CGPoint p2;
-                    for (int i = 0; i < pointCount - 1; i++)
-                    {
-                        p2 = points[i + 1];
-                        CGPoint midPoint = new CGPoint((p1.X + p2.X) / 2, (p1.Y + p2.Y) / 2);
-                        path.AddQuadCurveToPoint(p1.X, p1.Y, midPoint.X, midPoint.Y);
-                        p1 = p2;
-                    }
-                    path.AddLineToPoint(points.Last());
+                    AddCubicSpline(points, path);
                 }
             }
 
             return path;
+        }
+
+        void AddCubicSpline(CGPoint[] points, CGPath path)
+        {
+            var spline = CubicSpline.InterpolatePchip(points.Select(p => (double)p.X), points.Select(p => (double)p.Y));
+
+            bool reverse = points[0].X > points[^1].X;
+
+            for (double i = points[0].X;
+                (!reverse && i <= points[^1].X) || (reverse && i >= points[^1].X);
+                i += reverse ? -1 : 1)
+            {
+                var point = spline.Interpolate(i);
+                path.AddLineToPoint((float)i, (float)point);
+            }
+
+            path.AddLineToPoint(points[^1]);
+        }
+
+        void AddSmoothSpline(CGPoint[] points, CGPath path)
+        {
+            CGPoint p1 = points.First();
+            CGPoint p2;
+            for (int i = 0; i < points.Count() - 1; i++)
+            {
+                p2 = points[i + 1];
+                CGPoint midPoint = new CGPoint((p1.X + p2.X) / 2, (p1.Y + p2.Y) / 2);
+                path.AddQuadCurveToPoint(p1.X, p1.Y, midPoint.X, midPoint.Y);
+                p1 = p2;
+            }
+            path.AddLineToPoint(points.Last());
+        }
+
+        void AddLinearInterpolation(CGPoint[] points, CGPath path)
+        {
+            CGPoint p1 = points.First();
+            CGPoint p2;
+            for (int i = 0; i < points.Count() - 1; i++)
+            {
+                p2 = points[i + 1];
+                path.AddLineToPoint(p1.X, p1.Y);
+                p1 = p2;
+            }
+            path.AddLineToPoint(points.Last());
         }
 
         public void DrawFrame(CGContext gc)
@@ -384,17 +420,6 @@ namespace AnalysisITC
             var attributedString = new NSAttributedString(s, attr);
 
             return MeasureString(attributedString, position, ignoreoptical);
-
-            //var size = attributedString.Size;
-
-            //var textLine = new CTLine(attributedString);
-            
-            //if (!ignoreoptical && (position == AxisPosition.Bottom || position == AxisPosition.Right)) size = textLine.GetBounds(CTLineBoundsOptions.UseOpticalBounds).Size;
-            //else size = textLine.GetBounds(CTLineBoundsOptions.UseGlyphPathBounds).Size;
-
-            //textLine.Dispose();
-
-            //return size;
         }
 
         public static CGSize MeasureString(NSAttributedString attributedString, AxisPosition position = AxisPosition.Bottom, bool ignoreoptical = true)
@@ -416,6 +441,13 @@ namespace AnalysisITC
             Square,
             Circle,
             Diamond,
+        }
+
+        public enum LineSmoothness
+        {
+            Smooth,
+            Spline,
+            Linear,
         }
     }
 
@@ -496,9 +528,9 @@ namespace AnalysisITC
             gc.DrawLayer(layer, Origin);
         }
 
-        public void DrawSpline(CGContext gc, CGPoint[] points, float linewidth, CGColor color)
+        public void DrawSpline(CGContext gc, CGPoint[] points, float linewidth, CGColor color, LineSmoothness smoothness)
         {
-            var path = GetSplineFromPoints(points);
+            var path = GetSplineFromPoints(points, smoothness: smoothness);
 
             DrawPath(gc, path, linewidth, color);
         }
@@ -714,7 +746,7 @@ namespace AnalysisITC
             Info = new List<string>()
                 {
                     "Filename: " + experiment.FileName + " | Instrument: " + experiment.Instrument.GetProperties().Name,
-                    "Date: " + experiment.Date.ToLocalTime().ToLongDateString() + " " + experiment.Date.ToLocalTime().ToString("HH:mm"),
+                    "Date: " + experiment.UILongDateWithTime,
                     "Temperature | Target: " + experiment.TargetTemperature.ToString() + " °C [Measured: " + experiment.MeasuredTemperature.ToString("G4") + " °C] | Feedback Mode: " + experiment.FeedBackMode.GetProperties().Name + " | Stirring Speed: " + experiment.StirringSpeed.ToString() + " rpm",
                     "Injections: " + experiment.InjectionCount.ToString() + " [" + injdescription + "]",
                     "Concentrations | Cell: " + experiment.CellConcentration.AsConcentration(ConcentrationUnit.µM) + " | Syringe: " + experiment.SyringeConcentration.AsConcentration(ConcentrationUnit.µM),
@@ -1091,8 +1123,8 @@ namespace AnalysisITC
 
                 if (clickedinj.Count() > 0)
                 {
-                    var inj = clickedinj.First().ID + 1;
-                    CursorInfo.Add("Inj #" + inj.ToString() + " | " + new Energy(clickedinj.First().Enthalpy).ToFormattedString(AppSettings.EnergyUnit));
+                    var inj = clickedinj.First();
+                    CursorInfo.Add("Inj #" + inj.ID.ToString() + " | " + inj.Enthalpy2.ToFormattedString(AppSettings.EnergyUnit));
                 }
                 
                 CursorInfo.Add("Time: " + datapoint.Time.ToString() + "s");
@@ -1135,6 +1167,7 @@ namespace AnalysisITC
         protected int mOverFeature = -1;
 
         public static CGSize ErrorBarEndWidth => new CGSize(CGGraph.SymbolSize / 2, 0);
+        public LineSmoothness LineSmoothness { get; set; } = LineSmoothness.Spline;
 
         public ThermogramGraph(ExperimentData experiment, NSView view) : base(experiment, view)
         {
@@ -1458,7 +1491,7 @@ namespace AnalysisITC
                 points.Add(GetRelativePosition(x, y));
             }
 
-            DrawSpline(gc, points.OrderBy(p => p.X).ToArray(), 2, StrokeColor);
+            DrawSpline(gc, points.OrderBy(p => p.X).ToArray(), 2, StrokeColor, LineSmoothness);
 
             //DrawRectsAtPositions(layer, points.ToArray(), 8, true, false, color: NSColor.PlaceholderTextColor.CGColor);
         }
@@ -1534,8 +1567,8 @@ namespace AnalysisITC
 
             bottom.Reverse();
 
-            CGPath path = GetSplineFromPoints(top.ToArray());
-            GetSplineFromPoints(bottom.ToArray(), path);
+            CGPath path = GetSplineFromPoints(top.ToArray(), smoothness: LineSmoothness);
+            GetSplineFromPoints(bottom.ToArray(), path, smoothness: LineSmoothness);
 
             FillPathShape(gc, path, TertiaryLineColor);
         }
@@ -1561,7 +1594,7 @@ namespace AnalysisITC
                         if (isclick) mDownID = inj.ID;
                         else if (ismouseup && mDownID == inj.ID) { inj.Include = !inj.Include; mOverFeature = -1; }
                         mOverFeature = inj.ID;
-                        return new MouseOverFeatureEvent(inj);
+                        return new MouseOverFeatureEvent(inj, this);
                     }
                 }
             }
