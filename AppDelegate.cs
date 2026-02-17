@@ -58,6 +58,7 @@ namespace AnalysisITC
                 case "deselectall": return DataManager.DataIsLoaded;
                 case "sortbyname":
                 case "sortbytemp": return DataManager.DataIsLoaded;
+                case "sortbydate": return DataManager.DataIsLoaded;
                 case "sortbytype": return DataManager.DataIsLoaded && DataManager.Results.Count > 0;
                 case "sortbyprotonation": return DataManager.DataIsLoaded && DataManager.Data.Any(d => d.Attributes.Count > 0);
                 case "sortbyionic": return DataManager.DataIsLoaded && DataManager.Data.Any(d => d.Attributes.Count > 0);
@@ -118,6 +119,7 @@ namespace AnalysisITC
                 "sortbytype" => DataManager.SortMode.Type,
                 "sortbyionic" => DataManager.SortMode.IonicStrength,
                 "sorttbyprotonation" => DataManager.SortMode.ProtonationEnthalpy,
+                "ortbydate" => DataManager.SortMode.Date,
                 _ => DataManager.SortMode.Name,
             };
             DataManager.SortContent(mode);

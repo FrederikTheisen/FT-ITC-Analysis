@@ -153,6 +153,9 @@ namespace AnalysisITC
 
             foreach (var att in data.Attributes) newdata.Attributes.Add(att.Copy());
 
+            if (data.Segments != null)
+                foreach (var seg in data.Segments) newdata.AddSegment(seg);
+
             DataReaders.RawDataReader.ProcessInjections(newdata);
 
             AddData(newdata);
@@ -169,6 +172,7 @@ namespace AnalysisITC
                 case SortMode.Type: DataSource.SortByType(); break;
                 case SortMode.IonicStrength: DataSource.SortByIonicStrength(); break;
                 case SortMode.ProtonationEnthalpy: DataSource.SortByProtonationEnthalpy(); break;
+                case SortMode.Date: DataSource.SortByDate(); break;
             }
 
             AppEventHandler.PrintAndLog("Sort completed");
@@ -244,7 +248,8 @@ namespace AnalysisITC
 
             var int_delay = Current.Injections.Select(inj => inj.IntegrationStartDelay).ToArray();
             var int_length = Current.Injections.Select(inj => inj.IntegrationLength).ToArray();
-            var int_factor = Current.IntegrationLengthFactor;
+            var int_factor = Current.Processor.IntegrationLengthFactor;
+            var int_mode = Current.Processor.IntegrationLengthMode;
 
             StatusBarManager.SetStatus("Processing data...", 0);
             StatusBarManager.SetProgress(0);
@@ -269,10 +274,14 @@ namespace AnalysisITC
                 {
                     data.Processor.WillProcessData();
                     if (!data.Processor.Interpolator.IsLocked) await data.Processor.InterpolateBaseline();
-                    data.IntegrationLengthMode = Current.IntegrationLengthMode;
-                    if (Current.IntegrationLengthMode == InjectionData.IntegrationLengthMode.Factor) data.SetCustomIntegrationTimes(int_delay[0], int_factor);
-                    else if (Current.IntegrationLengthMode == InjectionData.IntegrationLengthMode.Fit) data.FitIntegrationPeaks();
-                    else data.SetCustomIntegrationTimes(int_delay, int_length);
+
+                    data.SetIntegrationStartTimes(int_delay);
+
+                    data.Processor.IntegrationLengthMode = int_mode;
+                    if (int_mode == InjectionData.IntegrationLengthMode.Factor) data.SetIntegrationLengthByFactor(int_factor);
+                    else if (int_mode == InjectionData.IntegrationLengthMode.Fit) data.FitIntegrationPeaks();
+                    else data.SetIntegrationStartTimes(int_length);
+
                     data.Processor.IntegratePeaks();
                     data.Processor.DidProcessData();
                 }
@@ -300,7 +309,8 @@ namespace AnalysisITC
             Temperature,
             Type,
             IonicStrength,
-            ProtonationEnthalpy
+            ProtonationEnthalpy,
+            Date
         }
     }
 }
