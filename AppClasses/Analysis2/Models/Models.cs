@@ -103,7 +103,7 @@ namespace AnalysisITC.AppClasses.Analysis2.Models
             var (cmPrev, clPrev) = GetReferencePreStateConcentrations(injectionIndex);
             var Qprev = heatContent(cmPrev, clPrev);
 
-            // Your common “dQi correction” used in multiple models
+            // Common “dQi correction” used in multiple models
             return Qi + (inj.Volume / Data.CellVolume) * ((Qi + Qprev) / 2.0) - Qprev;
         }
 

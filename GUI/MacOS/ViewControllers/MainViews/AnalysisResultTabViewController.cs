@@ -153,24 +153,25 @@ namespace AnalysisITC
 
         public void SetupAnalysisTabView()
         {
-            if (AnalysisResult.IsTemperatureDependenceEnabled)
+            if (AnalysisResult.IsAdvancedAnalysisAvailable && AnalysisResult.IsTemperatureDependenceEnabled)
             {
                 if (!TabView.Items.Contains(FoldingAnalysisTab)) TabView.Add(FoldingAnalysisTab);
             }
             else if (TabView.Items.Contains(FoldingAnalysisTab)) TabView.Remove(FoldingAnalysisTab);
 
-            if (AnalysisResult.IsElectrostaticsAnalysisDependenceEnabled)
+            if (AnalysisResult.IsAdvancedAnalysisAvailable && AnalysisResult.IsElectrostaticsAnalysisDependenceEnabled)
             {
                 if (!TabView.Items.Contains(IonicStrengthAnalysisTab)) TabView.Add(IonicStrengthAnalysisTab);
             }
             else if (TabView.Items.Contains(IonicStrengthAnalysisTab)) TabView.Remove(IonicStrengthAnalysisTab);
 
-            if (AnalysisResult.IsProtonationAnalysisEnabled)
+            if (AnalysisResult.IsAdvancedAnalysisAvailable && AnalysisResult.IsProtonationAnalysisEnabled)
             {
                 if (!TabView.Items.Contains(ProtonationAnalysisTab)) TabView.Add(ProtonationAnalysisTab);
             }
             else if (TabView.Items.Contains(ProtonationAnalysisTab)) TabView.Remove(ProtonationAnalysisTab);
 
+            // Set default evaluation temperature depending on whether the experiment were performed at different temperature (use ref) else use average
             if (AnalysisResult.Model.TemperatureDependenceExposed) EvaluateionTemperatureTextField.DoubleValue = AppSettings.ReferenceTemperature;
             else EvaluateionTemperatureTextField.DoubleValue = AnalysisResult.Model.Models.Average(mdl => mdl.Data.TargetTemperature);
 

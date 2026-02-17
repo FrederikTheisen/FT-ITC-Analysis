@@ -8,10 +8,11 @@ namespace AnalysisITC
 {
     public class AnalysisResult : ITCDataContainer
     {
-        public AnalysisITC.AppClasses.Analysis2.GlobalSolution Solution { get; private set; }
-        public AnalysisITC.AppClasses.Analysis2.GlobalModel Model => Solution.Model;
+        public GlobalSolution Solution { get; private set; }
+        public GlobalModel Model => Solution.Model;
         GlobalModelParameters Options => Model.Parameters;
 
+        public bool IsAdvancedAnalysisAvailable => Model.ModelType == AppClasses.Analysis2.Models.AnalysisModel.OneSetOfSites;
         public bool IsTemperatureDependenceEnabled => (GetMaximumTemperature() - GetMinimumTemperature()) > AppSettings.MinimumTemperatureSpanForFitting;
         public bool IsElectrostaticsAnalysisDependenceEnabled { get; private set; } = false;
         public bool IsProtonationAnalysisEnabled { get; private set; } = false;
@@ -20,7 +21,7 @@ namespace AnalysisITC
         public ProtonationAnalysis ProtonationAnalysis { get; private set; }
         public ElectrostaticsAnalysis ElectrostaticsAnalysis { get; private set; }
 
-        public AnalysisResult(AnalysisITC.AppClasses.Analysis2.GlobalSolution solution)
+        public AnalysisResult(GlobalSolution solution)
         {
             Solution = solution;
 
@@ -62,6 +63,10 @@ namespace AnalysisITC
             if (IsElectrostaticsAnalysisDependenceEnabled) ElectrostaticsAnalysis = new ElectrostaticsAnalysis(this);
         }
 
+        /// <summary>
+        /// Result string for the list view cell
+        /// </summary>
+        /// <returns></returns>
         public string GetResultString()
         {
             string s = "Fit of " + Solution.Solutions.Count.ToString() + " experiments" + Environment.NewLine;

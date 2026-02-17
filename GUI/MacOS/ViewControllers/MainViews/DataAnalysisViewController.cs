@@ -134,9 +134,9 @@ namespace AnalysisITC
             AppEventHandler.PrintAndLog("Failed:  " + e.Failed);
 
             StatusBarManager.ClearAppStatus();
-            if (e.Success) StatusBarManager.SetStatus(e.Iterations + " iterations, RMSD = " + e.Loss.ToString("G2"), 11000);
-            StatusBarManager.SetStatus(e.Message + " | " + e.Time.TotalMilliseconds.ToString("F1") + "ms", 6000);
-            StatusBarManager.SetStatus("Analysis Finished", 1500);
+            if (e.Success) StatusBarManager.SetStatus(e.Iterations + " iterations, RMSD = " + e.Loss.ToString("G4"), 6000);
+            StatusBarManager.SetStatus(e.Message + " | " + e.Time.TotalMilliseconds.ToString("F1") + "ms", 3000);
+            //StatusBarManager.SetStatus("Analysis Finished | " + e.Time.TotalMilliseconds.ToString("F1") + "ms", 1500);
 
             GraphView.Invalidate();
             ToggleFitButtons(true);
