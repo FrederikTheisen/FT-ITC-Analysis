@@ -45,7 +45,7 @@ namespace AnalysisITC
 
             TempDependenceResultDescField.AttributedStringValue = MacStrings.FromMarkDownString(string.Join(Environment.NewLine, new List<string>()
             {
-                "Reference Temp / Unit:",
+                "Reference temp / unit:",
                 "Enthalpy (" + MarkdownStrings.Enthalpy + "):",
                 "Entropy (" + MarkdownStrings.EntropyContribution + "):",
                 "Free Energy (" + MarkdownStrings.GibbsFreeEnergy + "):",
@@ -55,7 +55,7 @@ namespace AnalysisITC
             {
                 "Enthalpy (" + MarkdownStrings.Enthalpy + "):",
                 "Entropy (" + MarkdownStrings.EntropyContribution + "):",
-                "Free Energy (" + MarkdownStrings.GibbsFreeEnergy + "):",
+                "Free energy (" + MarkdownStrings.GibbsFreeEnergy + "):",
                 "Affinity (" + MarkdownStrings.DissociationConstant + "):",
             }), NSFont.SystemFontOfSize(11));
 
@@ -223,6 +223,7 @@ namespace AnalysisITC
             {
                 Solution.SolutionName,
                 Solution.Convergence.Algorithm.GetProperties().Name + " | RMSD = " + Solution.Loss.ToString("G3"),
+                Solution.WeightedFitting ? "ENABLED" : "OFF",
                 Solution.ErrorEstimationMethod.Description() + (Solution.ErrorEstimationMethod == ErrorEstimationMethod.None ? "" : " x " + Solution.BootstrapIterations.ToString() )
             };
 

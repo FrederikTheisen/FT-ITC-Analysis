@@ -13,10 +13,10 @@ namespace AnalysisITC
 	partial class DataGraphOptionPopoverViewController
 	{
 		[Outlet]
-		AppKit.NSButton DrawBaseline { get; set; }
+		AppKit.NSSwitch DrawBaseline { get; set; }
 
 		[Outlet]
-		AppKit.NSButton DrawCorrected { get; set; }
+		AppKit.NSSwitch DrawCorrected { get; set; }
 
 		[Outlet]
 		AppKit.NSTextField PowerAxisTitleLabel { get; set; }
@@ -28,7 +28,7 @@ namespace AnalysisITC
 		AppKit.NSSegmentedControl TimeUnitControl { get; set; }
 
 		[Outlet]
-		AppKit.NSButton UnifiedPowerAxis { get; set; }
+		AppKit.NSSwitch UnifiedPowerAxis { get; set; }
 
 		[Outlet]
 		AppKit.NSTextField XTickLabel { get; set; }

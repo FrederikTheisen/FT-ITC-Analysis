@@ -18,16 +18,16 @@ namespace AnalysisITC
         {
             base.ViewWillAppear();
 
-            UnifiedHeatAxis.State = FinalFigureGraphView.UnifiedEnthalpyAxis ? NSCellStateValue.On : NSCellStateValue.Off;
-            UnifiedMolarRatioAxis.State = FinalFigureGraphView.UseUnifiedMolarRatioAxis ? NSCellStateValue.On : NSCellStateValue.Off;
-            DrawZeroLine.State = FinalFigureGraphView.DrawZeroLine ? NSCellStateValue.On : NSCellStateValue.Off;
-            DrawErrorBars.State = FinalFigureGraphView.ShowErrorBars ? NSCellStateValue.On : NSCellStateValue.Off;
-            BadDataErrorBars.State = FinalFigureGraphView.ShowBadDataErrorBars ? NSCellStateValue.On : NSCellStateValue.Off;
-            DrawConfidence.State = FinalFigureGraphView.DrawConfidence ? NSCellStateValue.On : NSCellStateValue.Off;
-            DrawFitParameters.State = FinalFigureGraphView.DrawFitParameters ? NSCellStateValue.On : NSCellStateValue.Off;
-            HideBadData.State = FinalFigureGraphView.ShowBadData ? NSCellStateValue.On : NSCellStateValue.Off;
-            ShowResiduals.State = FinalFigureGraphView.ShowResiduals ? NSCellStateValue.On : NSCellStateValue.Off;
-            AddGapToResidualPlot.State = FinalFigureGraphView.GapResidualGraph ? NSCellStateValue.On : NSCellStateValue.Off;
+            UnifiedHeatAxis.State = FinalFigureGraphView.UnifiedEnthalpyAxis ? 1 : 0;
+            UnifiedMolarRatioAxis.State = FinalFigureGraphView.UseUnifiedMolarRatioAxis ? 1 : 0;
+            DrawZeroLine.State = FinalFigureGraphView.DrawZeroLine ? 1 : 0;
+            DrawErrorBars.State = FinalFigureGraphView.ShowErrorBars ? 1 : 0;
+            BadDataErrorBars.State = FinalFigureGraphView.ShowBadDataErrorBars ? 1 : 0;
+            DrawConfidence.State = FinalFigureGraphView.DrawConfidence ? 1 : 0;
+            HideBadData.State = FinalFigureGraphView.ShowBadData ? 1 : 0;
+            ShowResiduals.State = FinalFigureGraphView.ShowResiduals ? 1 : 0;
+            AddGapToResidualPlot.State = FinalFigureGraphView.GapResidualGraph ? 1 : 0;
+            SplineInterpolationControl.SelectedSegment = (int)FinalFigureGraphView.FitLineSmoothness;
 
             if (FinalFigureGraphView.EnthalpyAxisTitleAxisTitleIsChanged) EnthalpyAxisTitleLabel.PlaceholderString = FinalFigureGraphView.EnthalpyAxisTitle;
             if (FinalFigureGraphView.MolarRatioAxisTitleIsChanged) MolarRatioAxisTitleLabel.PlaceholderString = FinalFigureGraphView.MolarRatioAxisTitle;
@@ -60,16 +60,16 @@ namespace AnalysisITC
         {
             UpdateLabels();
 
-            FinalFigureGraphView.UnifiedEnthalpyAxis = UnifiedHeatAxis.State == NSCellStateValue.On;
-            FinalFigureGraphView.UseUnifiedMolarRatioAxis = UnifiedMolarRatioAxis.State == NSCellStateValue.On;
-            FinalFigureGraphView.DrawZeroLine = DrawZeroLine.State == NSCellStateValue.On;
-            FinalFigureGraphView.ShowErrorBars = DrawErrorBars.State == NSCellStateValue.On;
-            FinalFigureGraphView.ShowBadDataErrorBars = BadDataErrorBars.State == NSCellStateValue.On;
-            FinalFigureGraphView.DrawConfidence = DrawConfidence.State == NSCellStateValue.On;
-            FinalFigureGraphView.DrawFitParameters = DrawFitParameters.State == NSCellStateValue.On;
-            FinalFigureGraphView.ShowBadData = HideBadData.State == NSCellStateValue.On;
-            FinalFigureGraphView.ShowResiduals = ShowResiduals.State == NSCellStateValue.On;
-            FinalFigureGraphView.GapResidualGraph = AddGapToResidualPlot.State == NSCellStateValue.On;
+            FinalFigureGraphView.UnifiedEnthalpyAxis = UnifiedHeatAxis.State == 1;
+            FinalFigureGraphView.UseUnifiedMolarRatioAxis = UnifiedMolarRatioAxis.State == 1;
+            FinalFigureGraphView.DrawZeroLine = DrawZeroLine.State == 1;
+            FinalFigureGraphView.ShowErrorBars = DrawErrorBars.State == 1;
+            FinalFigureGraphView.ShowBadDataErrorBars = BadDataErrorBars.State == 1;
+            FinalFigureGraphView.DrawConfidence = DrawConfidence.State == 1;
+            FinalFigureGraphView.ShowBadData = HideBadData.State == 1;
+            FinalFigureGraphView.ShowResiduals = ShowResiduals.State == 1;
+            FinalFigureGraphView.GapResidualGraph = AddGapToResidualPlot.State == 1;
+            FinalFigureGraphView.FitLineSmoothness = (GraphBase.LineSmoothness)(int)SplineInterpolationControl.SelectedSegment;
 
             if (EnthalpyAxisTitleLabel.StringValue.Trim() != "") FinalFigureGraphView.EnthalpyAxisTitle = EnthalpyAxisTitleLabel.StringValue;
             if (MolarRatioAxisTitleLabel.StringValue.Trim() != "") FinalFigureGraphView.MolarRatioAxisTitle = MolarRatioAxisTitleLabel.StringValue;

@@ -49,6 +49,8 @@ namespace AnalysisITC
             FinalFigParameterDisplayOptions.SetSelected(AppSettings.FinalFigureParameterDisplay.HasFlag(FinalFigureDisplayParameters.Concentrations), 5);
 
             ShowParameterAsDefaultCheck.State = AppSettings.FinalFigureShowParameterBoxAsDefault ? NSCellStateValue.On : NSCellStateValue.Off;
+
+            FitLineSmoothnessControl.SelectedSegment = (int)AppSettings.FitLineSmoothness;
         }
 
         private void ExportPreferencesViewController_ShouldApplySettings(object sender, EventArgs e)
@@ -90,6 +92,7 @@ namespace AnalysisITC
             AppSettings.ShowResidualGraph = ResidualPlotSettingsControl.IsSelectedForSegment(0);
             AppSettings.ShowResidualGraphGap = ResidualPlotSettingsControl.IsSelectedForSegment(1);
             AppSettings.UnifyResidualGraphAxis = ResidualPlotSettingsControl.IsSelectedForSegment(2);
+            AppSettings.FitLineSmoothness = (GraphBase.LineSmoothness)(int)FitLineSmoothnessControl.SelectedSegment;
         }
 
         partial void Apply(NSObject sender)

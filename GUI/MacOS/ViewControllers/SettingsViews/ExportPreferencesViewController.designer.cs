@@ -37,6 +37,9 @@ namespace AnalysisITC
 		AppKit.NSTextField FinalFigWidthField { get; set; }
 
 		[Outlet]
+		AppKit.NSSegmentedControl FitLineSmoothnessControl { get; set; }
+
+		[Outlet]
 		AppKit.NSSegmentedControl ResidualPlotSettingsControl { get; set; }
 
 		[Outlet]
@@ -105,6 +108,11 @@ namespace AnalysisITC
 				FinalFigWidthField = null;
 			}
 
+			if (ResidualPlotSettingsControl != null) {
+				ResidualPlotSettingsControl.Dispose ();
+				ResidualPlotSettingsControl = null;
+			}
+
 			if (ShowParameterAsDefaultCheck != null) {
 				ShowParameterAsDefaultCheck.Dispose ();
 				ShowParameterAsDefaultCheck = null;
@@ -115,9 +123,9 @@ namespace AnalysisITC
 				UnifyAxesControl = null;
 			}
 
-			if (ResidualPlotSettingsControl != null) {
-				ResidualPlotSettingsControl.Dispose ();
-				ResidualPlotSettingsControl = null;
+			if (FitLineSmoothnessControl != null) {
+				FitLineSmoothnessControl.Dispose ();
+				FitLineSmoothnessControl = null;
 			}
 		}
 	}

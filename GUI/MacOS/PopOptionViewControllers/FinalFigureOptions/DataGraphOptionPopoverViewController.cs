@@ -17,9 +17,9 @@ namespace AnalysisITC
         {
             base.ViewWillAppear();
 
-            UnifiedPowerAxis.State = FinalFigureGraphView.UnifiedPowerAxis ? NSCellStateValue.On : NSCellStateValue.Off;
-            DrawBaseline.State = FinalFigureGraphView.DrawBaseline ? NSCellStateValue.On : NSCellStateValue.Off;
-            DrawCorrected.State = FinalFigureGraphView.DrawBaselineCorrected ? NSCellStateValue.On : NSCellStateValue.Off;
+            UnifiedPowerAxis.State = FinalFigureGraphView.UnifiedPowerAxis ? 1 : 0;
+            DrawBaseline.State = FinalFigureGraphView.DrawBaseline ? 1 : 0;
+            DrawCorrected.State = FinalFigureGraphView.DrawBaselineCorrected ? 1 : 0;
             TimeUnitControl.SelectSegment((int)FinalFigureGraphView.TimeAxisUnit);
 
             if (FinalFigureGraphView.PowerAxisTitleIsChanged) PowerAxisTitleLabel.PlaceholderString = FinalFigureGraphView.PowerAxisTitle;
@@ -35,9 +35,9 @@ namespace AnalysisITC
         {
             UpdateTickLabels();
 
-            FinalFigureGraphView.UnifiedPowerAxis = UnifiedPowerAxis.State == NSCellStateValue.On;
-            FinalFigureGraphView.DrawBaseline = DrawBaseline.State == NSCellStateValue.On;
-            FinalFigureGraphView.DrawBaselineCorrected = DrawCorrected.State == NSCellStateValue.On;
+            FinalFigureGraphView.UnifiedPowerAxis = UnifiedPowerAxis.State == 1;
+            FinalFigureGraphView.DrawBaseline = DrawBaseline.State == 1;
+            FinalFigureGraphView.DrawBaselineCorrected = DrawCorrected.State == 1;
             FinalFigureGraphView.TimeAxisUnit = (TimeUnit)(int)TimeUnitControl.SelectedSegment;
 
             if (PowerAxisTitleLabel.StringValue.Trim() != "") FinalFigureGraphView.PowerAxisTitle = PowerAxisTitleLabel.StringValue;

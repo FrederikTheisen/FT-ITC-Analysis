@@ -33,9 +33,9 @@ namespace AnalysisITC
             WidthLabel.StringValue = FinalFigureGraphView.Width.ToString("F1") + " cm";
             HeightLabel.StringValue = FinalFigureGraphView.Height.ToString("F1") + " cm";
 
-            SanitizeTicks.State = FinalFigureGraphView.SanitizeTicks ? NSCellStateValue.On : NSCellStateValue.Off;
+            SanitizeTicks.State = FinalFigureGraphView.SanitizeTicks ? 1 : 0;
 
-            ShowParametersControl.State = FinalFigureGraphView.DrawFitParameters ? NSCellStateValue.On : NSCellStateValue.Off;
+            ShowParametersControl.State = FinalFigureGraphView.DrawFitParameters ? 1 : 0;
 
             for (int i = 1; i < ParameterDisplayOptionsControl.Items.Length; i++)
             {
@@ -91,8 +91,8 @@ namespace AnalysisITC
                 }
             }
 
-            FinalFigureGraphView.SanitizeTicks = SanitizeTicks.State == NSCellStateValue.On;
-            FinalFigureGraphView.DrawFitParameters = ShowParametersControl.State == NSCellStateValue.On;
+            FinalFigureGraphView.SanitizeTicks = SanitizeTicks.State == 1;
+            FinalFigureGraphView.DrawFitParameters = ShowParametersControl.State == 1;
             FinalFigureGraphView.TimeAxisUnit = (TimeUnit)(int)TimeUnitControl.SelectedSegment;
 
             AppSettings.EnergyUnit = EnergyUnitControl.SelectedSegment == 0 ? EnergyUnit.KiloJoule : EnergyUnit.KCal;

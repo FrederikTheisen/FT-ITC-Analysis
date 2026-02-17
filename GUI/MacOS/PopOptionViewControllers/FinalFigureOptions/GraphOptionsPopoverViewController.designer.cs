@@ -22,10 +22,10 @@ namespace AnalysisITC
 		AppKit.NSMenu ParameterDisplayOptionsControl { get; set; }
 
 		[Outlet]
-		AppKit.NSButton SanitizeTicks { get; set; }
+		AppKit.NSSwitch SanitizeTicks { get; set; }
 
 		[Outlet]
-		AppKit.NSButton ShowParametersControl { get; set; }
+		AppKit.NSSwitch ShowParametersControl { get; set; }
 
 		[Outlet]
 		AppKit.NSSegmentedControl TimeUnitControl { get; set; }
@@ -46,11 +46,6 @@ namespace AnalysisITC
 				EnergyUnitControl = null;
 			}
 
-			if (TimeUnitControl != null) {
-				TimeUnitControl.Dispose ();
-				TimeUnitControl = null;
-			}
-
 			if (HeightLabel != null) {
 				HeightLabel.Dispose ();
 				HeightLabel = null;
@@ -66,14 +61,19 @@ namespace AnalysisITC
 				SanitizeTicks = null;
 			}
 
-			if (WidthLabel != null) {
-				WidthLabel.Dispose ();
-				WidthLabel = null;
-			}
-
 			if (ShowParametersControl != null) {
 				ShowParametersControl.Dispose ();
 				ShowParametersControl = null;
+			}
+
+			if (TimeUnitControl != null) {
+				TimeUnitControl.Dispose ();
+				TimeUnitControl = null;
+			}
+
+			if (WidthLabel != null) {
+				WidthLabel.Dispose ();
+				WidthLabel = null;
 			}
 		}
 	}

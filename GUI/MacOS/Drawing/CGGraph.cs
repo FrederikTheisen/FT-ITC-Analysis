@@ -352,7 +352,13 @@ namespace AnalysisITC
                 }
                 else //draw spline
                 {
-                    AddCubicSpline(points, path);
+                    switch (smoothness)
+                    {
+                        case LineSmoothness.Smooth: AddSmoothSpline(points, path); break;
+                        default:
+                        case LineSmoothness.Spline: AddCubicSpline(points, path); break;
+                        case LineSmoothness.Linear: AddLinearInterpolation(points, path); break;
+                    }
                 }
             }
 
@@ -1167,7 +1173,7 @@ namespace AnalysisITC
         protected int mOverFeature = -1;
 
         public static CGSize ErrorBarEndWidth => new CGSize(CGGraph.SymbolSize / 2, 0);
-        public LineSmoothness LineSmoothness { get; set; } = LineSmoothness.Spline;
+        public LineSmoothness FitLineSmoothnessSetting { get; set; } = LineSmoothness.Spline;
 
         public ThermogramGraph(ExperimentData experiment, NSView view) : base(experiment, view)
         {
@@ -1491,7 +1497,7 @@ namespace AnalysisITC
                 points.Add(GetRelativePosition(x, y));
             }
 
-            DrawSpline(gc, points.OrderBy(p => p.X).ToArray(), 2, StrokeColor, LineSmoothness);
+            DrawSpline(gc, points.OrderBy(p => p.X).ToArray(), 2, StrokeColor, FitLineSmoothnessSetting);
 
             //DrawRectsAtPositions(layer, points.ToArray(), 8, true, false, color: NSColor.PlaceholderTextColor.CGColor);
         }
@@ -1567,8 +1573,8 @@ namespace AnalysisITC
 
             bottom.Reverse();
 
-            CGPath path = GetSplineFromPoints(top.ToArray(), smoothness: LineSmoothness);
-            GetSplineFromPoints(bottom.ToArray(), path, smoothness: LineSmoothness);
+            CGPath path = GetSplineFromPoints(top.ToArray(), smoothness: FitLineSmoothnessSetting);
+            GetSplineFromPoints(bottom.ToArray(), path, smoothness: FitLineSmoothnessSetting);
 
             FillPathShape(gc, path, TertiaryLineColor);
         }

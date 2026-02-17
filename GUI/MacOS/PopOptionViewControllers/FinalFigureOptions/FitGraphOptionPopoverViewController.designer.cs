@@ -13,34 +13,37 @@ namespace AnalysisITC
 	partial class FitGraphOptionPopoverViewController
 	{
 		[Outlet]
-		AppKit.NSButton AddGapToResidualPlot { get; set; }
+		AppKit.NSSwitch AddGapToResidualPlot { get; set; }
 
 		[Outlet]
-		AppKit.NSButton BadDataErrorBars { get; set; }
+		AppKit.NSSwitch BadDataErrorBars { get; set; }
 
 		[Outlet]
-		AppKit.NSButton DrawConfidence { get; set; }
+		AppKit.NSSwitch DrawConfidence { get; set; }
 
 		[Outlet]
-		AppKit.NSButton DrawErrorBars { get; set; }
+		AppKit.NSSwitch DrawErrorBars { get; set; }
 
 		[Outlet]
-		AppKit.NSButton DrawFitParameters { get; set; }
+		AppKit.NSSwitch DrawFitParameters { get; set; }
 
 		[Outlet]
-		AppKit.NSButton DrawZeroLine { get; set; }
+		AppKit.NSSwitch DrawZeroLine { get; set; }
 
 		[Outlet]
 		AppKit.NSTextField EnthalpyAxisTitleLabel { get; set; }
 
 		[Outlet]
-		AppKit.NSButton HideBadData { get; set; }
+		AppKit.NSSwitch HideBadData { get; set; }
 
 		[Outlet]
 		AppKit.NSTextField MolarRatioAxisTitleLabel { get; set; }
 
 		[Outlet]
-		AppKit.NSButton ShowResiduals { get; set; }
+		AppKit.NSSwitch ShowResiduals { get; set; }
+
+		[Outlet]
+		AppKit.NSSegmentedControl SplineInterpolationControl { get; set; }
 
 		[Outlet]
 		AppKit.NSSegmentedControl SymbolControl { get; set; }
@@ -52,10 +55,10 @@ namespace AnalysisITC
 		AppKit.NSStepper SymbolSizeStepper { get; set; }
 
 		[Outlet]
-		AppKit.NSButton UnifiedHeatAxis { get; set; }
+		AppKit.NSSwitch UnifiedHeatAxis { get; set; }
 
 		[Outlet]
-		AppKit.NSButton UnifiedMolarRatioAxis { get; set; }
+		AppKit.NSSwitch UnifiedMolarRatioAxis { get; set; }
 
 		[Outlet]
 		AppKit.NSStepper XAxisTickStepper { get; set; }
@@ -74,6 +77,16 @@ namespace AnalysisITC
 		
 		void ReleaseDesignerOutlets ()
 		{
+			if (AddGapToResidualPlot != null) {
+				AddGapToResidualPlot.Dispose ();
+				AddGapToResidualPlot = null;
+			}
+
+			if (SplineInterpolationControl != null) {
+				SplineInterpolationControl.Dispose ();
+				SplineInterpolationControl = null;
+			}
+
 			if (BadDataErrorBars != null) {
 				BadDataErrorBars.Dispose ();
 				BadDataErrorBars = null;
@@ -117,11 +130,6 @@ namespace AnalysisITC
 			if (ShowResiduals != null) {
 				ShowResiduals.Dispose ();
 				ShowResiduals = null;
-			}
-
-			if (AddGapToResidualPlot != null) {
-				AddGapToResidualPlot.Dispose ();
-				AddGapToResidualPlot = null;
 			}
 
 			if (SymbolControl != null) {

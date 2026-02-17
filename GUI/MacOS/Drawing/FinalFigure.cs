@@ -28,6 +28,12 @@ namespace AnalysisITC
 
         #region Properties
 
+        public GraphBase.LineSmoothness LineSmoothness
+        {
+            get => IntegrationGraph.FitLineSmoothnessSetting;
+            set => IntegrationGraph.FitLineSmoothnessSetting = value;
+        }
+
         public bool MirrorDataGraphAxisUnification
         {
             get => IntegrationGraph.ResidualDisplayOptions.GapGraphs;
