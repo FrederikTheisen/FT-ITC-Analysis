@@ -57,6 +57,7 @@ namespace AnalysisITC
         public static bool ShowResidualGraph { get; set; } = true;
         public static bool ShowResidualGraphGap { get; set; } = false;
         public static bool UnifyResidualGraphAxis { get; set; } = false;
+        public static GraphBase.LineSmoothness FitLineSmoothness { get; set; } = GraphBase.LineSmoothness.Spline;
 
         //Export
         public static bool UnifyTimeAxisForExport { get; set; } = true;
@@ -114,6 +115,7 @@ namespace AnalysisITC
             Storage.SetBool(ShowResidualGraph, "ShowResidualGraph");
             Storage.SetBool(ShowResidualGraphGap, "ShowResidualGraphGap");
             Storage.SetBool(UnifyResidualGraphAxis, "UnifyResidualGraphAxis");
+            Storage.SetInt((int)FitLineSmoothness, "FitLineSmoothness");
 
 
             StoreArray(FinalFigureDimensions, "FinalFigureDimensions");
@@ -166,6 +168,7 @@ namespace AnalysisITC
             ShowResidualGraph = GetBool(dict, "ShowResidualGraph", ShowResidualGraph);
             ShowResidualGraphGap = GetBool(dict, "ShowResidualGraphGap", ShowResidualGraphGap);
             UnifyResidualGraphAxis = GetBool(dict, "UnifyResidualGraphAxis", UnifyResidualGraphAxis);
+            FitLineSmoothness = (GraphBase.LineSmoothness)GetInt(dict, "FitLineSmoothness", (int)FitLineSmoothness);
 
             ApplySettings();
 
