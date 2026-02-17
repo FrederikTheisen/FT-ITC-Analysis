@@ -21,13 +21,7 @@ namespace AnalysisITC
                 UpdateStateDependentUI?.Invoke(null, null);
             }
         }
-        public static string ProgramStateString
-        {
-            get
-            {
-                return Utilities.MarkdownStrings.AppName + " 〉" + CurrentState.ToString();
-            }
-        }
+        public static string ProgramStateString => Utilities.MarkdownStrings.AppName + " 〉" + CurrentState.ToString();
 
         public static void Init()
         {
