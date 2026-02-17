@@ -53,7 +53,7 @@ namespace AnalysisITC.AppClasses.Analysis2
 			TemperatureDependenceExposed = Models.Max(mdl => mdl.Data.MeasuredTemperature) - Models.Min(mdl => mdl.Data.MeasuredTemperature) > AppSettings.MinimumTemperatureSpanForFitting;
         }
 
-		public double LossFunction(double[] parameters)
+		public double LossFunction(double[] parameters, bool errorweighted)
 		{
             // Abort early if a termination has been requested by the user or via the Nelder–Mead cancellation token.
             if (SolverInterface.TerminateAnalysisFlag?.Up == true)
@@ -69,14 +69,14 @@ namespace AnalysisITC.AppClasses.Analysis2
 
             foreach (var model in Models)
             {
-                var loss = model.LossFunction(Parameters.GetParametersForModel(this, model).GetFittedParameterArray()); //Loss Function = RMSD
+                var loss = model.LossFunction(Parameters.GetParametersForModel(this, model).GetFittedParameterArray(), errorweighted); //Loss Function = RMSD
                 totalloss += loss * loss; //Unclear if correct loss function
             }
 
             return totalloss;
         }
 
-		public double[] LossFunctionResiduals(double[] parameters)
+		public double[] LossFunctionResiduals(double[] parameters, bool errorweighted)
 		{
             // Honour termination requests (e.g. user cancellation) by checking the global termination flag and
             // the Nelder–Mead cancellation token. If either has been signalled, abort immediately. We add
@@ -99,7 +99,7 @@ namespace AnalysisITC.AppClasses.Analysis2
 			{
 				var par = Parameters.GetParametersForModel(this, model).GetFittedParameterArray();
 
-				res.AddRange(model.LossFunctionResiduals(par));
+				res.AddRange(model.LossFunctionResiduals(par, errorweighted));
 			}
 
 			return res.ToArray();

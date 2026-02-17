@@ -23,6 +23,7 @@ namespace AnalysisITC.AppClasses.Analysis2
         public static bool EnableAutoConcentrationVariance { get; set; } = false;
         public static double AutoConcentrationVariance { get; set; } = 0.05;
         public static SolverAlgorithm Algorithm { get; set; } = SolverAlgorithm.NelderMead;
+        public static bool UseErrorWeightedFitting { get; set; } = false;
     }
 
     public class SolverInterface
@@ -39,6 +40,7 @@ namespace AnalysisITC.AppClasses.Analysis2
 
         public SolverAlgorithm SolverAlgorithm { get; set; } = SolverAlgorithm.NelderMead;
         public int MaxOptimizerIterations { get; set; } = AppSettings.MaximumOptimizerIterations;
+        public bool UseErrorWeightedFitting { get; set; } = false;
 
         public ErrorEstimationMethod ErrorEstimationMethod { get; set; } = ErrorEstimationMethod.None;
         public int BootstrapIterations { get; set; } = 100;
@@ -193,6 +195,8 @@ namespace AnalysisITC.AppClasses.Analysis2
 
         public virtual SolverConvergence Solve()
         {
+            UseErrorWeightedFitting = FittingOptionsController.UseErrorWeightedFitting;
+
             // Subscribe to the termination flag so we can stop the underlying solver when requested.
             TerminateAnalysisFlag.WasRaised += TerminateAnalysisFlag_WasRaised;
             try
@@ -361,13 +365,13 @@ namespace AnalysisITC.AppClasses.Analysis2
 
         protected override SolverConvergence SolveWithNelderMeadAlgorithm()
         {
-            var f = new NonlinearObjectiveFunction(Model.NumberOfParameters, (w) => Model.LossFunction(w));
+            var f = new NonlinearObjectiveFunction(Model.NumberOfParameters, (w) => Model.LossFunction(w, UseErrorWeightedFitting));
             var solver = new NelderMead(f);
 
             solver.Convergence = new Accord.Math.Convergence.GeneralConvergence(Model.NumberOfParameters)
             {
                 MaximumEvaluations = MaxOptimizerIterations,
-                AbsoluteFunctionTolerance = NMFunctionTolerance(Model.LossFunction(Model.Parameters.GetFittedParameterArray())),
+                AbsoluteFunctionTolerance = NMFunctionTolerance(Model.LossFunction(Model.Parameters.GetFittedParameterArray(), UseErrorWeightedFitting)),
                 RelativeParameterTolerance = RelativeParameterTolerance,
                 StartTime = DateTime.Now,
             };
@@ -404,7 +408,7 @@ namespace AnalysisITC.AppClasses.Analysis2
             alglib.minlmsetbc(LMOptimizerState, limits.Select(p => p[0]).ToArray(), limits.Select(p => p[1]).ToArray());
             alglib.minlmoptimize(LMOptimizerState, (double[] x, double[] fi, object obj) =>
             {
-                var res = Model.LossFunctionResiduals(x);
+                var res = Model.LossFunctionResiduals(x, UseErrorWeightedFitting);
                 for (int i = 0; i < res.Length; i++) fi[i] = res[i];
             },
             null, null);
@@ -681,13 +685,13 @@ namespace AnalysisITC.AppClasses.Analysis2
 
         protected override SolverConvergence SolveWithNelderMeadAlgorithm()
         {
-            var f = new NonlinearObjectiveFunction(Model.NumberOfParameters, (w) => Model.LossFunction(w));
+            var f = new NonlinearObjectiveFunction(Model.NumberOfParameters, (w) => Model.LossFunction(w, UseErrorWeightedFitting));
             var solver = new NelderMead(f);
 
             solver.Convergence = new Accord.Math.Convergence.GeneralConvergence(Model.NumberOfParameters)
             {
                 MaximumEvaluations = MaxOptimizerIterations,
-                AbsoluteFunctionTolerance = NMFunctionTolerance(Model.LossFunction(Model.Parameters.GetFittedParameterArray())),
+                AbsoluteFunctionTolerance = NMFunctionTolerance(Model.LossFunction(Model.Parameters.GetFittedParameterArray(), UseErrorWeightedFitting)),
                 RelativeParameterTolerance = RelativeParameterTolerance,
                 StartTime = DateTime.Now,
             };
@@ -723,12 +727,12 @@ namespace AnalysisITC.AppClasses.Analysis2
             alglib.minlmsetbc(state, limits.Select(p => p[0]).ToArray(), limits.Select(p => p[1]).ToArray());
             alglib.minlmoptimize(state, (double[] x, double[] fi, object obj) =>
             {
-                var res = Model.LossFunctionResiduals(x);
+                var res = Model.LossFunctionResiduals(x, UseErrorWeightedFitting);
                 for (int i = 0; i < res.Length; i++) fi[i] = res[i];
             }, null, null);
             alglib.minlmresults(state, out double[] result, out minlmreport rep);
 
-            var loss = Model.LossFunction(result);
+            var loss = Model.LossFunction(result, UseErrorWeightedFitting);
 
             Model.Solution = new GlobalSolution(this, new SolverConvergence(LMOptimizerState, rep, DateTime.Now - start, loss));
 

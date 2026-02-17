@@ -87,6 +87,9 @@ namespace AnalysisITC
 		[Outlet]
 		AppKit.NSStackView StackView { get; set; }
 
+		[Outlet]
+		AppKit.NSButton UseWeightedControl { get; set; }
+
 		[Action ("ApplyOptions:")]
 		partial void ApplyOptions (Foundation.NSObject sender);
 
@@ -103,6 +106,11 @@ namespace AnalysisITC
 			if (ErrorIterationLabel != null) {
 				ErrorIterationLabel.Dispose ();
 				ErrorIterationLabel = null;
+			}
+
+			if (UseWeightedControl != null) {
+				UseWeightedControl.Dispose ();
+				UseWeightedControl = null;
 			}
 
 			if (ErrorIterationsControl != null) {
@@ -210,14 +218,14 @@ namespace AnalysisITC
 				OStep = null;
 			}
 
-			if (StackView != null) {
-				StackView.Dispose ();
-				StackView = null;
-			}
-
 			if (SolverAlgorithmControl != null) {
 				SolverAlgorithmControl.Dispose ();
 				SolverAlgorithmControl = null;
+			}
+
+			if (StackView != null) {
+				StackView.Dispose ();
+				StackView = null;
 			}
 		}
 	}

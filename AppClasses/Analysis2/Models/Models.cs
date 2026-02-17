@@ -155,7 +155,7 @@ namespace AnalysisITC.AppClasses.Analysis2.Models
             //return withoff ? val : val - Solution.Parameters[ParameterType.Offset].Value; //Returns evaluated value with or without offset
         }
 
-		public double LossFunction(double[] parameters)
+		public double LossFunction(double[] parameters, bool errorweighted)
 		{
             LossFunctionMisc(parameters);
 
@@ -164,13 +164,16 @@ namespace AnalysisITC.AppClasses.Analysis2.Models
             foreach (var inj in Data.Injections.Where(i => i.Include))
             {
                 var res = Residual(inj);
+
+                if (errorweighted) res /= inj.SD;
+
                 loss += res * res;
             }
 
             return loss;
         }
 
-        public double[] LossFunctionResiduals(double[] parameters)
+        public double[] LossFunctionResiduals(double[] parameters, bool errorweighted)
         {
             LossFunctionMisc(parameters);
 
@@ -180,6 +183,7 @@ namespace AnalysisITC.AppClasses.Analysis2.Models
             foreach (var inj in Data.Injections.Where(i => i.Include))
             {
                 var res = Residual(inj);
+                if (errorweighted) res /= inj.SD;
                 loss[i] = res;
 
                 i++;

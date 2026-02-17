@@ -16,6 +16,9 @@ namespace AnalysisITC
         List<ParameterValueAdjustmentView> ParameterControls = new List<ParameterValueAdjustmentView>();
         List<OptionAdjustmentView> OptionControls = new List<OptionAdjustmentView>();
 
+        const int ParameterInsertionPoint = 11;
+        int OptionInsertionPoint => ParameterInsertionPoint + 2;
+
         partial void ErrorIterationSliderChanged(NSSlider sender) => ErrorIterationLabel.IntValue = (int)Math.Pow(10, ErrorIterationsControl.DoubleValue);
 
         public FittingOptionsPopoverViewController (IntPtr handle) : base (handle)
@@ -27,6 +30,7 @@ namespace AnalysisITC
             base.ViewWillAppear();
 
             SolverAlgorithmControl.SelectSegment((int)FittingOptionsController.Algorithm);
+            UseWeightedControl.State = FittingOptionsController.UseErrorWeightedFitting ? NSCellStateValue.On : NSCellStateValue.Off;
 
             ErrorIterationsControl.DoubleValue = Math.Log10(FittingOptionsController.BootstrapIterations);
             ErrorIterationLabel.IntValue = (int)Math.Pow(10, ErrorIterationsControl.DoubleValue);
@@ -48,7 +52,7 @@ namespace AnalysisITC
 
                 OptionControls.Add(sv);
 
-                StackView.InsertArrangedSubview(sv, 11);
+                StackView.InsertArrangedSubview(sv, OptionInsertionPoint);
             }
 
             foreach (var par in ModelFactory.Factory.GetExposedParameters().Reverse())
@@ -59,7 +63,7 @@ namespace AnalysisITC
 
                 ParameterControls.Add(sv);
 
-                StackView.InsertArrangedSubview(sv, 9);
+                StackView.InsertArrangedSubview(sv, ParameterInsertionPoint);
             }
 
             if (ModelFactory.Factory.GetExposedParameters() == null || ModelFactory.Factory.GetExposedParameters().Count() == 0)
@@ -91,6 +95,7 @@ namespace AnalysisITC
                 FittingOptionsController.IncludeConcentrationVariance = IncludeConcErrorControl.SelectedSegment > 0;
                 FittingOptionsController.EnableAutoConcentrationVariance = IncludeConcErrorControl.SelectedSegment == 2;
                 FittingOptionsController.Algorithm = (SolverAlgorithm)(int)SolverAlgorithmControl.SelectedSegment;
+                FittingOptionsController.UseErrorWeightedFitting = UseWeightedControl.State == NSCellStateValue.On;
 
                 foreach (var sv in ParameterControls)
                 {
