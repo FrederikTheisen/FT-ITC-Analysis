@@ -147,6 +147,7 @@ namespace AnalysisITC
         public void SetWithBuffer(double min, double max, double buffer = 0.035)
         {
             var delta = max - min;
+            if (delta == 0) delta = 1;  
 
             ActualMin = (float)(min - delta * buffer);
             ActualMax = (float)(max + delta * buffer);
