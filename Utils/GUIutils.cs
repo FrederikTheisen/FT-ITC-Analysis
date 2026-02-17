@@ -270,7 +270,7 @@ namespace Utilities
             {
                 var fit = new Energy(inj.Experiment.Model.EvaluateEnthalpy(inj.ID, true));
                 var delta = inj.Enthalpy2 - fit;
-                tooltiplines.Add("Fitted: " + fit.ToFormattedString(AppSettings.EnergyUnit, false, false) + ", ∆=" + delta.ToFormattedString(AppSettings.EnergyUnit, true, true));
+                tooltiplines.Add("Fitted: " + fit.ToFormattedString(AppSettings.EnergyUnit, true, true));
             }
 
             int longest = tooltiplines.Max(l => l.Length);
