@@ -184,6 +184,7 @@ namespace AnalysisITC.AppClasses.Analysis2
         public List<GlobalSolution> BootstrapSolutions { get; private set; } = new List<GlobalSolution>();
 		public Dictionary<ParameterType, LinearFitWithError> TemperatureDependence = new Dictionary<ParameterType, LinearFitWithError>();
         public bool IsValid { get; private set; } = true;
+		public bool WeightedFitting { get; set; } = false;
 
         public double Loss => Convergence.Loss;
 		public TimeSpan Time => Convergence.Time;
@@ -210,6 +211,7 @@ namespace AnalysisITC.AppClasses.Analysis2
 		{
 			Model = solver.Model;
 			Convergence = convergence;
+            WeightedFitting = solver.UseErrorWeightedFitting;
 
             foreach (var mdl in Model.Models)
             {
@@ -227,6 +229,7 @@ namespace AnalysisITC.AppClasses.Analysis2
 		{
 			Model = solver.Model;
 			Convergence = convergence;
+			WeightedFitting = solver.UseErrorWeightedFitting;
 
             var dependencies = solutions[0].DependenciesToReport; //Changed Solu... to solu...
 

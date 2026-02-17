@@ -387,6 +387,7 @@ namespace AnalysisITC.AppClasses.Analysis2
 
             Model.Solution = SolutionInterface.FromModel(Model, new SolverConvergence(solver, Model.Loss()));
             Model.Solution.ErrorMethod = ErrorEstimationMethod;
+            Model.Solution.UseWeightedFitting = UseErrorWeightedFitting;
 
             return Model.Solution.Convergence;
         }
@@ -416,6 +417,7 @@ namespace AnalysisITC.AppClasses.Analysis2
 
             Model.Solution = SolutionInterface.FromModel(Model, new SolverConvergence(LMOptimizerState, rep, DateTime.Now - start, Model.Loss()));
             Model.Solution.ErrorMethod = ErrorEstimationMethod;
+            Model.Solution.UseWeightedFitting = UseErrorWeightedFitting;
 
             return Model.Solution.Convergence;
         }

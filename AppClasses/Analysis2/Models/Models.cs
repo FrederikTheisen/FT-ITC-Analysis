@@ -254,6 +254,7 @@ namespace AnalysisITC.AppClasses.Analysis2.Models
         public ErrorEstimationMethod ErrorMethod { get; set; } = ErrorEstimationMethod.None;
         public virtual List<SolutionInterface> BootstrapSolutions { get; protected set; }
 		public Dictionary<ParameterType, FloatWithError> Parameters { get; } = new Dictionary<ParameterType, FloatWithError>();
+        public bool UseWeightedFitting { get; set; } = false;
 
         public AnalysisModel ModelType => Model.ModelType;
         public bool IsGlobalAnalysisSolution => GlobalParentSolution != null;
