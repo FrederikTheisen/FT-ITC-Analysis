@@ -425,7 +425,8 @@ namespace AnalysisITC.AppClasses.Analysis2
 
     public class ParameterTypeAttribute : DescriptionAttribute
     {
-        public string AttributedNameString { get; private set; }
+        public string Name { get; private set; }
+        public string SymbolName { get; private set; }
         public double DefaultStepSize { get; private set; }
         public double[] DefaultLimits { get; private set; }
         public ParameterType ParentType { get; private set; }
@@ -433,9 +434,11 @@ namespace AnalysisITC.AppClasses.Analysis2
 
         public ParameterTypeAttribute(string name, ParameterType parent) : base(name)
         {
+            Name = name;
+
             var parentatt = parent.GetProperties();
 
-            AttributedNameString = parentatt.AttributedNameString;
+            SymbolName = parentatt.SymbolName;
             DefaultLimits = parentatt.DefaultLimits;
             DefaultStepSize = parentatt.DefaultStepSize;
 
@@ -451,7 +454,9 @@ namespace AnalysisITC.AppClasses.Analysis2
 
         public ParameterTypeAttribute(string name, string attstr, double stepsize, double[] limits, ParameterType parent) : base(name)
         {
-            AttributedNameString = attstr;
+            Name = name;
+
+            SymbolName = attstr;
             DefaultStepSize = stepsize;
             DefaultLimits = limits;
 

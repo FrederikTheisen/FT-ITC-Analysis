@@ -43,22 +43,6 @@ namespace AnalysisITC
         {
             base.ViewDidLoad();
 
-            TempDependenceResultDescField.AttributedStringValue = MacStrings.FromMarkDownString(string.Join(Environment.NewLine, new List<string>()
-            {
-                "Reference temp / unit:",
-                "Enthalpy (" + MarkdownStrings.Enthalpy + "):",
-                "Entropy (" + MarkdownStrings.EntropyContribution + "):",
-                "Free Energy (" + MarkdownStrings.GibbsFreeEnergy + "):",
-            }), NSFont.SystemFontOfSize(11));
-
-            EvalResultDescField.AttributedStringValue = MacStrings.FromMarkDownString(string.Join(Environment.NewLine, new List<string>()
-            {
-                "Enthalpy (" + MarkdownStrings.Enthalpy + "):",
-                "Entropy (" + MarkdownStrings.EntropyContribution + "):",
-                "Free energy (" + MarkdownStrings.GibbsFreeEnergy + "):",
-                "Affinity (" + MarkdownStrings.DissociationConstant + "):",
-            }), NSFont.SystemFontOfSize(11));
-
             ElectroResultDescField.AttributedStringValue = MacStrings.FromMarkDownString(string.Join(Environment.NewLine, new List<string>()
             {
                 MarkdownStrings.DissociationConstant + " with no salt:",
@@ -182,7 +166,34 @@ namespace AnalysisITC
 
         public void SetupResultView()
         {
+            /// Setup the description lines for the result view
+            var parameters = new List<string>() { "Reference temperature:" };
+
+            foreach (var dep in Solution.TemperatureDependence)
+                parameters.Add(dep.Key.GetProperties().Name + " (" + dep.Key.GetProperties().SymbolName + ")");
+
+            TempDependenceResultDescField.AttributedStringValue = MacStrings.FromMarkDownString(string.Join(Environment.NewLine, parameters), NSFont.SystemFontOfSize(11));
+
+            var eval_parameters = new List<string>() { };
+
+            foreach (var dep in Solution.TemperatureDependence)
+            {
+                eval_parameters.Add(dep.Key.GetProperties().Name + " (" + dep.Key.GetProperties().SymbolName + ")");
+                if (dep.Key.GetProperties().ParentType == ParameterType.Gibbs1)
+                {
+                    ParameterType par;
+
+                    if (dep.Key == ParameterType.Gibbs1) par = ParameterType.Affinity1;
+                    else par = ParameterType.Affinity2;
+
+                    eval_parameters.Add(par.GetProperties().Name + " (" + par.GetProperties().SymbolName + ")");
+                }
+            }
+
+            EvalResultDescField.AttributedStringValue = MacStrings.FromMarkDownString(string.Join(Environment.NewLine, eval_parameters), NSFont.SystemFontOfSize(11));
+
             EnergyControl.SelectedSegment = AppSettings.EnergyUnit switch { EnergyUnit.Joule => 0, EnergyUnit.KiloJoule => 1, EnergyUnit.Cal => 2, EnergyUnit.KCal => 3, _ => 1, };
+            ///
 
             var kd = Solution.Solutions.Average(s => s.ReportParameters[AppClasses.Analysis2.ParameterType.Affinity1]);
 
@@ -248,9 +259,9 @@ namespace AnalysisITC
             else ResultEvalTempUnitLabel.StringValue = "°C";
             string tempunit = " " + (UseKelvin ? "K" : "°C");
 
-            var dependencies = new List<string>() { refT.ToString("F2") + tempunit + " | " + EnergyUnit.GetUnit() + "/mol" };
+            var dependencies = new List<string>() { refT.ToString("F2") + tempunit};
 
-            foreach (var dep in Solution.TemperatureDependence) dependencies.Add(dep.Value.ToString(EnergyUnit));
+            foreach (var dep in Solution.TemperatureDependence) dependencies.Add(dep.Value.ToString(EnergyUnit) + " " + EnergyUnit.GetUnit() + "/mol");
 
             TemperatureDependenceLabel.StringValue = string.Join(Environment.NewLine, dependencies);
 
@@ -380,16 +391,33 @@ namespace AnalysisITC
 
                 var s = await Task.Run(() =>
                 {
-                    var H = new Energy(Solution.TemperatureDependence[AppClasses.Analysis2.ParameterType.Enthalpy1].Evaluate(T, 100000));
-                    var S = new Energy(Solution.TemperatureDependence[AppClasses.Analysis2.ParameterType.EntropyContribution1].Evaluate(T, 100000));
-                    var G = new Energy(Solution.TemperatureDependence[AppClasses.Analysis2.ParameterType.Gibbs1].Evaluate(T, 100000));
+                Energy H = new Energy(Solution.TemperatureDependence[AppClasses.Analysis2.ParameterType.Enthalpy1].Evaluate(T, 100000));
+                Energy S = new Energy(Solution.TemperatureDependence[AppClasses.Analysis2.ParameterType.EntropyContribution1].Evaluate(T, 100000));
+                Energy G = new Energy(Solution.TemperatureDependence[AppClasses.Analysis2.ParameterType.Gibbs1].Evaluate(T, 100000));
+                Energy? H2 = Solution.TemperatureDependence.ContainsKey(ParameterType.Enthalpy2) ? new Energy(Solution.TemperatureDependence[AppClasses.Analysis2.ParameterType.Enthalpy2].Evaluate(T, 100000)) : null;
+                Energy? S2 = Solution.TemperatureDependence.ContainsKey(ParameterType.EntropyContribution2) ? new Energy(Solution.TemperatureDependence[AppClasses.Analysis2.ParameterType.EntropyContribution2].Evaluate(T, 100000)) : null;
+                Energy? G2 = Solution.TemperatureDependence.ContainsKey(ParameterType.Gibbs2) ? new Energy(Solution.TemperatureDependence[AppClasses.Analysis2.ParameterType.Gibbs2].Evaluate(T, 100000)) : null;
 
-                    T += 273.15f;
+                T += 273.15f;
 
-                    var kdexponent = G / (T * Energy.R);
-                    var Kd = FWEMath.Exp(kdexponent.FloatWithError);
+                var kdexponent = G / (T * Energy.R);
+                var Kd = FWEMath.Exp(kdexponent.FloatWithError);
 
-                    return string.Join(Environment.NewLine, new string[] { H.ToFormattedString(unit, permole: true), S.ToFormattedString(unit, permole: true), G.ToFormattedString(unit, permole: true), Kd.AsFormattedConcentration(true) });
+                var lines = new List<string>() { H.ToFormattedString(unit, permole: true), S.ToFormattedString(unit, permole: true), G.ToFormattedString(unit, permole: true), Kd.AsFormattedConcentration(true) };
+
+                if (H2 != null) lines.Add(((Energy)H2).ToFormattedString(unit, permole: true));
+                if (S2 != null) lines.Add(((Energy)S2).ToFormattedString(unit, permole: true));
+                if (G2 != null)
+                {
+                    lines.Add(((Energy)G2).ToFormattedString(unit, permole: true));
+
+                    var kdexponent2 = (Energy)G2 / (T * Energy.R);
+                    var Kd2 = FWEMath.Exp(kdexponent2.FloatWithError);
+
+                    lines.Add(Kd2.AsFormattedConcentration(true));
+                    }
+
+                    return string.Join(Environment.NewLine, lines);
                 });
 
                 EvaluationOutputLabel.StringValue = s;
@@ -399,7 +427,7 @@ namespace AnalysisITC
             }
             catch (Exception ex)
             {
-                EvaluationOutputLabel.StringValue = string.Join(Environment.NewLine, new string[] { "---", "---", "---", "---" });
+                EvaluationOutputLabel.StringValue = "";
                 StatusBarManager.StopIndeterminateProgress();
                 StatusBarManager.ClearAppStatus();
                 StatusBarManager.SetStatusScrolling(ex.Message);

@@ -204,11 +204,17 @@ namespace AnalysisITC.AppClasses.Analysis2.Models
                 return output;
             }
 
-            public override List<Tuple<ParameterType, Func<SolutionInterface, FloatWithError>>> DependenciesToReport => new List<Tuple<ParameterType, Func<SolutionInterface, FloatWithError>>>
-                {
+            public override List<Tuple<ParameterType, Func<SolutionInterface, FloatWithError>>> DependenciesToReport => new()
+            {
+                    // Interaction 1
                     new (ParameterType.Enthalpy1, new(sol => (sol as ModelSolution).Enthalpy1.FloatWithError)),
                     new (ParameterType.EntropyContribution1, new(sol => (sol as ModelSolution).TdS1.FloatWithError)),
                     new (ParameterType.Gibbs1, new(sol => (sol as ModelSolution).GibbsFreeEnergy1.FloatWithError)),
+
+                    // Interaction 2
+                    new (ParameterType.Enthalpy2, new(sol => (sol as ModelSolution).Enthalpy2.FloatWithError)),
+                    new (ParameterType.EntropyContribution2, new(sol => (sol as ModelSolution).TdS2.FloatWithError)),
+                    new (ParameterType.Gibbs2, new(sol => (sol as ModelSolution).GibbsFreeEnergy2.FloatWithError)),
                 };
 
             public override Dictionary<ParameterType, FloatWithError> ReportParameters => new Dictionary<ParameterType, FloatWithError>
