@@ -29,6 +29,9 @@ namespace AnalysisITC
         public string Comments { get; set; } = "";
         public DateTime Date { get; internal set; }
 
+        public string UILongDateWithTime => Date.ToLongDateString() + " " + Date.ToString("HH:mm:ss");
+        public string UIShortDateWithTime => Date.ToShortDateString() + " " + Date.ToString("HH:mm");
+
         public void SetID(string id) => UniqueID = id;
     }
 
@@ -72,6 +75,15 @@ namespace AnalysisITC
             var curr = Content[SelectedIndex];
 
             Content = Content.OrderBy(o => o.FileName).OrderBy(OrderOnType).ToList();
+
+            HandleSorted(curr);
+        }
+
+        public void SortByDate()
+        {
+            var curr = Content[SelectedIndex];
+
+            Content = Content.OrderBy(o => o.Date).OrderBy(OrderOnType).ToList();
 
             HandleSorted(curr);
         }
