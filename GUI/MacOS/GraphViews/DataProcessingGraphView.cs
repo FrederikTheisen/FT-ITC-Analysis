@@ -11,6 +11,7 @@ namespace AnalysisITC
     public partial class DataProcessingGraphView : NSGraph
     {
         public event EventHandler<int> InjectionSelected;
+        public event EventHandler BaselineChanged;
 
         public new BaselineFittingGraph Graph => base.Graph as BaselineFittingGraph;
         MouseOverFeatureEvent SelectedFeature { get; set; } = null;
@@ -83,7 +84,7 @@ namespace AnalysisITC
                 {
                     var length = Data.Injections[SelectedPeak].IntegrationLength;
                     SelectedPeak++;
-                    Data.Injections[SelectedPeak].SetCustomIntegrationTimes(null, length, true);
+                    Data.Injections[SelectedPeak].SetIntegrationLengthByTime(length);
                     FocusPeak();
                 }
 
@@ -326,15 +327,15 @@ namespace AnalysisITC
                     }
                 case MouseOverFeatureEvent.FeatureType.IntegrationRangeMarker:
                     {
-                        Data.IntegrationLengthMode = InjectionData.IntegrationLengthMode.Time;
+                        Data.Processor.IntegrationLengthMode = InjectionData.IntegrationLengthMode.Time;
                         bool start = SelectedFeature.SubID == 0;
 
                         var xfraction = (CursorPositionInView.X - Graph.Frame.X) / Graph.Frame.Width;
                         var time = xfraction * (Graph.XAxis.Max - Graph.XAxis.Min) + Graph.XAxis.Min;
                         var inj = Data.Injections[SelectedFeature.FeatureID];
 
-                        if (start) inj.SetCustomIntegrationTimes((float)time - inj.Time, inj.IntegrationLength, forcetime: true);
-                        else inj.SetCustomIntegrationTimes(inj.IntegrationStartDelay, (float)time - inj.Time, forcetime: true);
+                        if (start) inj.SetIntegrationStartTime((float)time - inj.Time);
+                        else inj.SetIntegrationLengthByTime((float)time - inj.Time);
 
                         InjectionSelected?.Invoke(null, SelectedFeature.FeatureID);
 
@@ -355,6 +356,8 @@ namespace AnalysisITC
             Graph.SetCursorInfo(CursorPositionInView);
 
             Invalidate();
+
+            BaselineChanged?.Invoke(SelectedFeature, null);
         }
 
         public override void MouseUp(NSEvent theEvent)

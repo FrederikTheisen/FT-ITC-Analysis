@@ -41,6 +41,9 @@ namespace AnalysisITC
             }
         }
 
+        public InjectionData.IntegrationLengthMode IntegrationLengthMode { get; set; } = InjectionData.IntegrationLengthMode.Time;
+        public float IntegrationLengthFactor { get; set; } = 2;
+
         public bool BaselineCompleted { get; internal set; } = false;
         public bool IntegrationCompleted => Data.Injections.All(inj => inj.IsIntegrated);
 
@@ -141,9 +144,16 @@ namespace AnalysisITC
         {
             if (Data.BaseLineCorrectedDataPoints == null) return;
 
-            foreach (var inj in Data.Injections)
+            try
             {
-                inj.Integrate();
+                foreach (var inj in Data.Injections)
+                {
+                    inj.Integrate();
+                }
+            }
+            catch (Exception ex)
+            {
+                AppEventHandler.DisplayHandledException(ex);
             }
 
             Data.UpdateProcessing(invalidate);
@@ -231,8 +241,8 @@ namespace AnalysisITC
     public class SplineInterpolator : BaselineInterpolator
     {
         public int PointsPerInjection { get; set; } = 1;
-        public float FractionBaseline { get; set; } = 0.5f;
-        public SplineInterpolatorAlgorithm Algorithm { get; set; } = SplineInterpolatorAlgorithm.Akima;
+        public float FractionBaseline { get; set; } = 0.9f;
+        public SplineInterpolatorAlgorithm Algorithm { get; set; } = SplineInterpolatorAlgorithm.Pchip;
         public SplineHandleMode HandleMode { get; set; } = SplineHandleMode.Mean;
 
         public List<SplinePoint> SplinePoints { get; private set; } = new List<SplinePoint>();
@@ -370,8 +380,11 @@ namespace AnalysisITC
 
             var newsp = new SplinePoint(cursorpos, pointValue, 0);
 
-            for (int i = 0; i < SplinePoints.Count; i++) if (SplinePoints[i].Time > newsp.Time) { SplinePoints.Insert(i, newsp); break; }
+            // Insert and order by time
+            SplinePoints.Add(newsp);
+            SplinePoints = SplinePoints.OrderBy(sp => sp.Time).ToList();
 
+            // Re-number points
             SplinePoints.ForEach(sp => sp.ID = SplinePoints.IndexOf(sp));
 
             Processor.ProcessData(false);
@@ -431,6 +444,9 @@ namespace AnalysisITC
 
         public class SplinePoint
         {
+            /// <summary>
+            /// Mouse over feature relevant ID
+            /// </summary>
             public int ID;
             public double Time;
             public double Power;

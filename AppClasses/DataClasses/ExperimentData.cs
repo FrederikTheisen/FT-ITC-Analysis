@@ -38,8 +38,8 @@ namespace AnalysisITC
         public double MeasuredTemperature { get; internal set; }
         public int InjectionCount => Injections.Count;
         public PeakHeatDirection AverageHeatDirection => Injections.Sum(inj => inj.PeakArea) > 0 ? PeakHeatDirection.Endothermal : PeakHeatDirection.Exothermal;
-        public InjectionData.IntegrationLengthMode IntegrationLengthMode { get; set; } = InjectionData.IntegrationLengthMode.Time;
-        public float IntegrationLengthFactor { get; set; } = 8;
+        //public InjectionData.IntegrationLengthMode IntegrationLengthMode { get; set; } = InjectionData.IntegrationLengthMode.Time;
+        //public float IntegrationLengthFactor { get; set; } = 2;
 
         bool include = true;
         public bool Include
@@ -60,6 +60,24 @@ namespace AnalysisITC
         public List<ExperimentAttribute> Attributes { get; } = new List<ExperimentAttribute>();
         public Model Model { get; set; }
         public SolutionInterface Solution => Model?.Solution;
+        public ExperimentData ReferenceExperiment
+        {
+            get
+            {
+                if (Attributes.Exists(att => att.Key == AttributeKey.BufferSubtraction))
+                {
+                    var reference = Attributes.Find(att => att.Key == AttributeKey.BufferSubtraction);
+
+                    if (DataManager.Data.Exists(d => d.UniqueID == reference.StringValue))
+                    {
+                        return DataManager.Data.Find(d => d.UniqueID == reference.StringValue);
+                    }
+                }
+
+                return null;
+            }
+        }
+        public bool IsTandemExperiment => Segments != null ? Segments.Count > 0 : false;
 
         public ExperimentData(string file)
         {
@@ -91,30 +109,64 @@ namespace AnalysisITC
 
         public void FitIntegrationPeaks()
         {
+            try
+            {
+                foreach (var inj in Injections)
+                {
+                    inj.SetIntegrationLengthByPeakFitting();
+                }
+            }
+            catch (Exception ex)
+            {
+                AppEventHandler.DisplayHandledException(ex);
+            }
+        }
+
+        public void SetIntegrationLengthByFactor(float factor)
+        {
+            try
+            {
+                foreach (var inj in Injections)
+                {
+                    inj.SetIntegrationLengthByFactor(factor);
+                }
+            }
+            catch (Exception ex)
+            {
+                AppEventHandler.DisplayHandledException(ex);
+            }
+        }
+
+        public void SetIntegrationLengthByTime(float length)
+        {
+            try
+            {
+                foreach (var inj in Injections) { inj.SetIntegrationLengthByTime(length); }
+            }
+            catch (Exception ex)
+            {
+                AppEventHandler.DisplayHandledException(ex);
+            }
+        }
+
+        public void SetIntegrationStartTimes(float[] delays)
+        {
+            int i = 0;
             foreach (var inj in Injections)
             {
-                inj.SetCustomIntegrationTimes();
+                float delay;
+                if (i == delays.Length) delay = delays[delays.Length - 1];
+                else delay = delays[i];
+
+                inj.SetIntegrationStartTime(delay);
+
+                i++;
             }
         }
 
-        public void SetCustomIntegrationTimes(float[] delays, float[] lengths)
+        public void SetIntegrationStartTime(float delay)
         {
-            for (int i = 0; i < Injections.Count; i++)
-            {
-                var inj = Injections[i];
-
-                int j = i;
-                if (i >= delays.Length) j = delays.Length - 1;
-
-                inj.SetCustomIntegrationTimes(delays[j], lengths[j]);
-            }
-        }
-
-        public void SetCustomIntegrationTimes(float? delay, float? variable)
-        {
-            if (IntegrationLengthMode != InjectionData.IntegrationLengthMode.Time && variable != null) IntegrationLengthFactor = (float)variable;
-
-            foreach (var inj in Injections) inj.SetCustomIntegrationTimes(delay, variable);
+            foreach (var inj in Injections) { inj.SetIntegrationStartTime(delay); }
         }
 
         public void CalculatePeakHeatDirection()
@@ -141,26 +193,6 @@ namespace AnalysisITC
         public void SetProcessor(DataProcessor processor)
         {
             Processor = processor;
-        }
-
-        public double GetNoise(float start = -1, float end = -1)
-        {
-            if (DataPoints.Count == 0) return 0;
-            if (start == -1) start = DataPoints.First().Time;
-            if (end == -1) end = DataPoints.Last().Time;
-
-            var dps = (Processor.BaselineCompleted ? BaseLineCorrectedDataPoints : DataPoints).Where(dp => dp.Time >= start && dp.Time <= end);
-
-            double sum_of_squares = 0;
-
-            foreach (var dp in dps)
-            {
-                var p = dp.Power;
-
-                sum_of_squares += p * p;
-            }
-
-            return Math.Sqrt(sum_of_squares / (dps.Count() - 1)); //TODO check formula is correct
         }
 
         List<InjectionData> GetBootstrappedResiduals()
@@ -326,16 +358,16 @@ namespace AnalysisITC
         public ExperimentData Experiment { get; private set; }
         public int ID { get; private set; }
 
-        float time = -1; 
+        float time = -1;
 
-        public float Time { get => time; set { time = value; SetIntegrationTimes(); } }
+        public float Time { get => time; set { time = value; InitializeIntegrationTimes(); } }
         public double Volume { get; private set; }
         public float Duration { get; private set; }
         public float Delay { get; private set; }
         public float Filter { get; private set; } = 5;
         public double Temperature { get; set; }
         public double InjectionMass { get; set; }
-      
+
         public double ActualCellConcentration { get; set; }
         public double ActualTitrantConcentration { get; set; }
         public double Ratio { get; set; }
@@ -396,7 +428,7 @@ namespace AnalysisITC
                 Time = dp.Time,
                 Temperature = dp.Temperature,
                 Delay = delay, // Delay guess until next injection is processed
-                Duration = 0.0f, // Not known
+                Duration = 2 * (float)v, // Not known
                 Filter = 0.0f, // Not known, not used
             };
         }
@@ -463,72 +495,217 @@ namespace AnalysisITC
             Duration = duration;
             Temperature = temp;
             Delay = delay;
+
+            InitializeIntegrationTimes();
         }
 
-        public void SetIntegrationTimes()
+        public void InitializeIntegrationTimes()
         {
             IntegrationStartDelay = 0;
             IntegrationLength = 0.9f * Delay;
         }
 
-        public void SetCustomIntegrationTimes(float? delay = null, float? lengthparameter = null, bool forcetime = false)
+        public void SetIntegrationStartTime(float delay)
         {
-            AppEventHandler.PrintAndLog("Set Integration Length ["+ Experiment.IntegrationLengthMode + "]: " + Experiment.FileName + ", Delay: " + delay.ToString() + ", LengthPar: " + lengthparameter.ToString() + ", ForceT: " + forcetime.ToString());
+            IntegrationStartDelay = Math.Clamp(delay, -Delay, IntegrationLength - 1);
+        }
+
+        public void SetIntegrationLengthByPeakFitting()
+        {
+            // Fit window: from injection time to injection time + Delay
+            double windowStart = this.Time;
+            double windowEnd = this.Time + this.Delay;
+
+            var window = Experiment.BaseLineCorrectedDataPoints
+                .Where(dp => dp.Time > windowStart && dp.Time < windowEnd)
+                .ToList();
+
+            int n = window.Count;
+
+            if (n < 5)
+                throw new InvalidOperationException("Peak fitting window contains too few data points.");
+
+            // Peak marker: first point reaching 99.9% of the max absolute magnitude within the window
+            double maxAbs = window.Max(dp => Math.Abs(dp.Power));
+            double thresholdAbs = 0.999 * maxAbs;
+            // Use points after (and including) peak for fitting
+            var peak = window.FirstOrDefault(dp => Math.Abs(dp.Power) >= thresholdAbs);
+            var decay = window.Where(dp => dp.Time >= peak.Time).ToList();
+            if (decay.Count < 5)
+                throw new InvalidOperationException("Too few post-peak points for peak fitting.");
+
+            // x = time in seconds since peak time (NOT index)
+            double t0 = peak.Time;
+            double[] x = decay.Select(dp => (double)(dp.Time - t0)).ToArray();
+            double[] y = decay.Select(dp => (double)dp.Power).ToArray();
+
+            // Define "returned to baseline" as when |fit(t)| <= fracOfPeak * |peakPower|
+            // Baseline + sigma from tail (last 20%, min 10 points)
+            int tailN = Math.Min(20, Math.Max(10, n / 5));
+            var tail = window.Skip(n - tailN).OrderBy(v => v.Power).Select(dp => dp.Power).ToArray();
+            double baseline = tail[tail.Length / 2]; // median
+            double sigma = Math.Sqrt(window.Skip(n - tailN).Average(v => (v.Power - baseline) * (v.Power - baseline)));
+
+            const double fracOfPeak = 0.005;
+            double yThresh = Math.Max(2 * sigma, fracOfPeak * maxAbs);
+            double peakLenSeconds;
+
+            switch (AppSettings.PeakFitAlgorithm)
+            {
+                default:
+                case PeakFitAlgorithm.SingleExponential:
+                    {
+                        // y(t) = a * exp(-k t)
+                        double a0 = peak.Power;
+                        double k0 = 0.1; // 1/s initial guess
+
+                        var fit = MathNet.Numerics.Fit.Curve(
+                            x, y,
+                            (a, k, t) => a * Math.Exp(-k * t),
+                            a0, k0);
+
+                        double a = fit.P0;
+                        double k = fit.P1;
+
+                        if (k <= 0)
+                            throw new InvalidOperationException($"Single-exponential fit returned non-positive k ({k}).");
+
+                        // Solve |a * exp(-k t)| = yThresh => t = ln(|a|/yThresh)/k
+                        double tReturn = Math.Log(Math.Abs(a) / yThresh) / k;
+
+                        if (!double.IsFinite(tReturn) || tReturn <= 0)
+                            throw new InvalidOperationException("Single-exponential baseline return time was invalid.");
+
+                        peakLenSeconds = (peak.Time - this.Time) + tReturn;
+                        break;
+                    }
+
+                case PeakFitAlgorithm.DoubleExponential:
+                    {
+                        // y(t) = a1*exp(-k1 t) + a2*exp(-k2 t)
+                        // Seed from single exponential
+                        double a0 = peak.Power;
+                        double k0 = 0.1;
+
+                        var seed = MathNet.Numerics.Fit.Curve(
+                            x, y,
+                            (a, k, t) => a * Math.Exp(-k * t),
+                            a0, k0);
+
+                        double aSeed = seed.P0;
+                        double kSeed = Math.Max(seed.P1, 1e-6);
+
+                        var fit = MathNet.Numerics.Fit.Curve(
+                            x, y,
+                            (a1, k1, a2, k2, t) => a1 * Math.Exp(-k1 * t) + a2 * Math.Exp(-k2 * t),
+                            0.5 * aSeed, kSeed,
+                            0.5 * aSeed, kSeed,
+                            tolerance: 1e-10,
+                            maxIterations: 10000);
+
+                        double a1 = fit.P0, k1 = fit.P1, a2 = fit.P2, k2 = fit.P3;
+
+                        if (k1 <= 0 || k2 <= 0)
+                            throw new InvalidOperationException($"Double-exponential fit returned non-positive k values (k1={k1}, k2={k2}).");
+
+                        // Find the first t where |fit(t)| <= yThresh (bounded to available x-range)
+                        double tMax = x.Last();
+                        double dt = 0.5; // Use 0.5s steps
+                        double tReturn = double.NaN;
+                        for (double t = 20; t <= tMax; t += dt)
+                        {
+                            double yt = a1 * Math.Exp(-k1 * t) + a2 * Math.Exp(-k2 * t);
+                            if (Math.Abs(yt) <= yThresh)
+                            {
+                                tReturn = t;
+                                break;
+                            }
+                        }
+
+                        if (!double.IsFinite(tReturn) || tReturn <= 0)
+                            tReturn = tMax;
+
+                        peakLenSeconds = (peak.Time - this.Time) + tReturn;
+                        break;
+                    }
+            }
+
+            // Keep between the start delay and the injection scope
+            IntegrationLength = Math.Clamp((float)peakLenSeconds, IntegrationStartDelay + 2, Delay);
+        }
+
+        public void SetIntegrationLengthByFactor(float factor)
+        {
+            // Assumed instrument/response time constant (seconds).
+            // If you meant "k = 1/8 s^-1" (rate constant), then tau = 1/k = 8 s (same value here).
+            const double tau = 8.0;
+
+            // "Back to baseline" definition
+            const double returnFrac = 0.02;   // 2% of apex amplitude above baseline
+            const double noiseFactor = 3.0;   // 3*sigma floor
+            const int smoothHalfWin = 2;      // 5-pt moving average
 
             try
             {
-                switch (Experiment.IntegrationLengthMode)
-                {
-                    case IntegrationLengthMode.Fit when !forcetime:
-                        var dps = Experiment.BaseLineCorrectedDataPoints.Where(dp => dp.Time > this.Time && dp.Time < this.Time + this.Delay);
-                        var max = dps.First(dp => Math.Abs(dp.Power) > (0.999 * dps.Max(dp => Math.Abs(dp.Power))));
-                        dps = dps.Where(dp => dp.Time > max.Time);
-                        double[] x = new double[dps.Count()];
-                        for (int i = 0; i < x.Length; i++) x[i] = i;
-                        double[] y;
-                        double peaklen = 0;
-                        switch (AppSettings.PeakFitAlgorithm)
-                        {
-                            default:
-                            case PeakFitAlgorithm.SingleExponential:
-                                {
-                                    y = dps.Select(dp => (double)(dp.Power)).ToArray();
-                                    var exp1 = MathNet.Numerics.Fit.Curve(x, y, (v, k, x) => v * Math.Exp(-k * x), max.Power, 0.1);
-                                    peaklen = (max.Time - this.Time) + 10 * Math.Log(2) / (exp1.P1); //5 * -ln(2)/k = 98% returned to baseline
-                                    break;
-                                }
-                            case PeakFitAlgorithm.DoubleExponential:
-                                {
-                                    y = dps.Select(dp => (double)(dp.Power)).ToArray();
-                                    var exp1 = MathNet.Numerics.Fit.Curve(x, y, (v, k, x) => v * Math.Exp(-k * x), max.Power, 0.1);
-                                    var exp2 = MathNet.Numerics.Fit.Curve(x, y, (v1, k1, v2, k2, x) => v1 * Math.Exp(-k1 * x) + v2 * Math.Exp(-k2 * x), 0.5 * exp1.P0, exp1.P1, 0.5 * exp1.P0, exp1.P1, tolerance: 1E-10, maxIterations: 10000);
-                                    var avgk = (exp2.P0 * exp2.P1 + exp2.P2 * exp2.P3) / (exp2.P0 + exp2.P2);
-                                    peaklen = (max.Time - this.Time) + 10 * Math.Log(2) / (avgk);
-                                    break;
-                                }
-                        }
+                var dps = Experiment.BaseLineCorrectedDataPoints
+                    .Where(dp => dp.Time > Time && dp.Time < Time + Delay)
+                    .ToList();
+                if (dps.Count < 10) return;
 
-                        IntegrationLength = Math.Clamp((float)peaklen, Duration, Delay - 1);
-                        break;
-                    case IntegrationLengthMode.Factor when !forcetime && lengthparameter != null:
-                        var _dps = Experiment.BaseLineCorrectedDataPoints.Where(dp => dp.Time > Time && dp.Time < Time + Delay);
-                        var height = _dps.Max(dp => Math.Abs(dp.Power));
-                        var thresh = Math.Abs(height / 3);
-                        var first = _dps.First(dp => Math.Abs(dp.Power) > thresh);
-                        var last = _dps.Last(dp => Math.Abs(dp.Power) > thresh);
-                        var d = last.Time - first.Time;
-                        IntegrationLength = Math.Clamp((float)lengthparameter * d, Duration, Delay - 1);
-                        break;
-                    case IntegrationLengthMode.Time:
-                    default: IntegrationLength = Math.Clamp((float)lengthparameter, Duration, Delay - 1); break;
+                int n = dps.Count;
+
+                // Smooth |power| to suppress isolated spikes (cheap, short)
+                double[] sm = new double[n];
+                for (int i = 0; i < n; i++)
+                {
+                    double s = 0; int c = 0;
+                    for (int j = Math.Max(0, i - smoothHalfWin); j <= Math.Min(n - 1, i + smoothHalfWin); j++)
+                    { s += Math.Abs(dps[j].Power); c++; }
+                    sm[i] = s / c;
                 }
 
-                if (delay != null) IntegrationStartDelay = Math.Clamp((float)delay, -5, IntegrationLength);
-            }
-            catch
-            {
+                // Baseline + sigma from tail (last ~20 s or last 10%)
+                int tailN = Math.Min(20, Math.Max(10, n / 10));
+                var tail = sm.Skip(n - tailN).OrderBy(v => v).ToArray();
+                double baseline = tail[tail.Length / 2];
 
+                double sigma = Math.Sqrt(sm.Skip(n - tailN).Average(v => (v - baseline) * (v - baseline)));
+
+                // Apex = last point before |power| turns back (use smoothed series)
+                // Pick the first "real" turning point: sm rises then begins to fall.
+                int apex = -1;
+                for (int i = 2; i < n - 2; i++)
+                {
+                    if (sm[i - 2] <= sm[i - 1] && sm[i - 1] <= sm[i] && sm[i] >= sm[i + 1] && sm[i + 1] >= sm[i + 2])
+                    { apex = i; break; }
+                }
+                if (apex < 0) return;
+
+                double A0 = sm[apex] - baseline;
+                if (A0 <= 0) return;
+
+                double thr = Math.Max(returnFrac * A0, noiseFactor * sigma);
+
+                // Exponential return time (seconds). Guard against thr >= A0.
+                double tReturn = (thr < A0) ? (tau * Math.Log(A0 / thr)) : 0.0;
+
+                // IntegrationLength assumed to be "end offset from injection start Time"
+                double apexOffset = dps[apex].Time - Time;
+                double endOffset = apexOffset + factor * tReturn;
+
+                // Keep between the start delay and the injection scope
+                IntegrationLength = Math.Clamp((float)endOffset, IntegrationStartDelay + 2, Delay);
             }
+            catch (Exception ex)
+            {
+                AppEventHandler.DisplayHandledException(ex);
+            }
+        }
+
+        public void SetIntegrationLengthByTime(float time)
+        {
+            // Keep between the start delay and the injection scope
+            IntegrationLength = IntegrationLength = Math.Clamp(time, IntegrationStartDelay + 2, Delay); ;
         }
 
         public void ToggleDataPointActive()
@@ -539,6 +716,9 @@ namespace AnalysisITC
         public void Integrate()
         {
             var data = Experiment.BaseLineCorrectedDataPoints.Where(dp => dp.Time > IntegrationStartTime && dp.Time < IntegrationEndTime);
+            var reference = Experiment.ReferenceExperiment;
+
+            if (data.Count() <= 0) throw new Exception($"Cannot integrate peak with no data point(s)");
 
             double area = 0;
             float t = data.First().Time;
@@ -552,10 +732,25 @@ namespace AnalysisITC
             }
 
             var sd = EstimateError2();
-
             var peakarea = new FloatWithError(area, sd);
 
             SetPeakArea(peakarea);
+
+            // Update peak area if reference experiment is set
+            if (reference != null)
+            {
+                // Clamp reference to corresponding or last (we just have to assume all dilution heats are the same following the last)
+                var idx = Math.Clamp(ID, 0, reference.InjectionCount - 1);
+                var inj = reference.Injections[idx];
+
+                var ref_heat = inj.PeakArea;
+                var new_heat = peakarea.Value - ref_heat.Value;
+                var new_sd = Math.Sqrt(peakarea.SD * peakarea.SD + ref_heat.SD * ref_heat.SD);
+
+                peakarea = new FloatWithError(new_heat, new_sd);
+
+                SetPeakArea(peakarea);
+            }
         }
 
         public void SetPeakArea(FloatWithError area)
@@ -582,7 +777,9 @@ namespace AnalysisITC
                 && dp.Time <= baseline_end_time
                 && !(dp.Time > baseline_exclude_start_time && dp.Time < baseline_exclude_end_time));
 
-            if (bl.Count() < 2) return 0;
+            var blpoints = bl.Count();
+
+            if (blpoints < 2) return 0;
 
             double ss = 0;
             foreach (var dp in bl)
@@ -592,20 +789,29 @@ namespace AnalysisITC
                 ss += p * p;
             }
 
-            var sigma_p = Math.Sqrt(ss / (bl.Count() - 1));
-            int n_samples_integration = Experiment.BaseLineCorrectedDataPoints.Where(dp => dp.Time > IntegrationStartTime && dp.Time < IntegrationEndTime).Count();
+            var sigma_p = Math.Sqrt(ss / (blpoints - 1));
+            var intpoints = Experiment.BaseLineCorrectedDataPoints.Where(dp => dp.Time > IntegrationStartTime && dp.Time < IntegrationEndTime);
+            int n_samples_integration = intpoints.Count();
 
             if (n_samples_integration < 2) return 0;
 
-            float dt = (IntegrationEndTime - IntegrationStartTime) / (n_samples_integration - 1);
+            float dt = (intpoints.Last().Time - intpoints.First().Time) / (n_samples_integration - 1);
+            var sigma_q = sigma_p * dt * Math.Sqrt(n_samples_integration);
+            var sigma_bl = sigma_p * dt * dt;
 
-            // return sigma_q = sigma_baseline * ∆t * sqrt(N_q)
-            return sigma_p * dt * Math.Sqrt(n_samples_integration);
+            return Math.Sqrt(sigma_q * sigma_q + sigma_bl * sigma_bl);
         }
 
         public InjectionData Copy(ExperimentData data)
         {
-            return new InjectionData(data, ID, Time, Volume, Delay, Duration, Temperature);
+            var inj = new InjectionData(data, ID, Time, Volume, Delay, Duration, Temperature);
+            inj.InjectionMass = Volume * data.SyringeConcentration;
+            inj.ActualCellConcentration = ActualCellConcentration;
+            inj.ActualTitrantConcentration = ActualTitrantConcentration;
+            inj.Ratio = Ratio;
+            inj.Include = Include;
+
+            return inj;
         }
 
         public enum IntegrationLengthMode
@@ -616,7 +822,7 @@ namespace AnalysisITC
         }
     }
 
-    public struct DataPoint
+    public readonly struct DataPoint
     {
         /// <summary>
         /// Power in Joules

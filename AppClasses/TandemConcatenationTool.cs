@@ -124,6 +124,8 @@ namespace AnalysisITC
             if (experiments == null) throw new ArgumentNullException(nameof(experiments));
             if (experiments.Count < 2) throw new ArgumentException("ConcatTandem requires at least two experiments.");
 
+            AppEventHandler.PrintAndLog("Creating tandem experiment...");
+
             var first = experiments[0];
 
             if (string.IsNullOrEmpty(fileName))
@@ -146,9 +148,6 @@ namespace AnalysisITC
                 TargetTemperature = first.TargetTemperature,
                 InitialDelay = first.InitialDelay,
                 TargetPowerDiff = first.TargetPowerDiff,
-
-                IntegrationLengthMode = first.IntegrationLengthMode,
-                IntegrationLengthFactor = first.IntegrationLengthFactor,
 
                 Date = DateTime.Now,
                 Comments = BuildConcatComment(experiments, first.Comments, modeTag),

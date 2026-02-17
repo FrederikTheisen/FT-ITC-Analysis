@@ -32,12 +32,20 @@ namespace AnalysisITC
             DataProcessor.BaselineInterpolationCompleted += OnInterpolationCompleted;
             BaselineOptionsPopoverViewController.Updated += BaselineOptionsPopoverViewController_Updated;
             BaselineGraphView.InjectionSelected += BaselineGraphView_InjectionSelected;
+            BaselineGraphView.BaselineChanged += BaselineGraphView_BaselineChanged;
 
             BaselineScopeButton.State = NSCellStateValue.On;
             IntegrationScopeButton.State = NSCellStateValue.On;
             ShowCursorInfoButton.State = NSCellStateValue.On;
             PolynomialDiscardIntegrationRange.State = DiscardIntegratedPoints ? NSCellStateValue.On : NSCellStateValue.Off;
             SplineDiscardIntegrationRange.State = DiscardIntegratedPoints ? NSCellStateValue.On : NSCellStateValue.Off;
+        }
+
+        private void BaselineGraphView_BaselineChanged(object sender, EventArgs e)
+        {
+            if (sender == null) return; // Assume nothing changed since no feature was selected for the operation
+
+            UpdateUI();
         }
 
         private void AppDelegate_StartPrintOperation(object sender, EventArgs e)
@@ -88,17 +96,21 @@ namespace AnalysisITC
             }
             else
             {
-                SetSelectedSegment(InterpolatorTypeControl, (int)Processor.BaselineType);
-
                 switch (Processor.BaselineType)
                 {
                     case BaselineInterpolatorTypes.Spline:
+                        SetSelectedSegment(InterpolatorTypeControl, 0);
                         SplineAlgorithmView.Hidden = false;
                         SplineHandleModeView.Hidden = false;
                         SplineBaselineFractionView.Hidden = false;
                         PolynomialDegreeView.Hidden = true;
                         ZLimitView.Hidden = true;
-                        SetSelectedSegment(SplineAlgoControl, (int)(Data.Processor.Interpolator as SplineInterpolator).Algorithm);
+                        SetSelectedSegment(SplineAlgoControl, (Data.Processor.Interpolator as SplineInterpolator).Algorithm switch
+                        {
+                            SplineInterpolator.SplineInterpolatorAlgorithm.Pchip => 0,
+                            SplineInterpolator.SplineInterpolatorAlgorithm.Linear => 1,
+                            SplineInterpolator.SplineInterpolatorAlgorithm.Handles => 2
+                        } );
                         SetSelectedSegment(SplineHandleModeControl, (int)(Data.Processor.Interpolator as SplineInterpolator).HandleMode);
                         SplineFractionSliderControl.FloatValue = (Data.Processor.Interpolator as SplineInterpolator).FractionBaseline;
                         break;
@@ -110,6 +122,7 @@ namespace AnalysisITC
                         ZLimitView.Hidden = true;
                         break;
                     case BaselineInterpolatorTypes.Polynomial:
+                        SetSelectedSegment(InterpolatorTypeControl, 1);
                         SplineAlgorithmView.Hidden = true;
                         SplineHandleModeView.Hidden = true;
                         SplineBaselineFractionView.Hidden = true;
@@ -124,12 +137,12 @@ namespace AnalysisITC
                 {
                     IntegrationLengthControl.MaxValue = Data.Injections.Max(inj => inj.Delay);
                     IntegrationDelayControl.FloatValue = Data.Injections.Last().IntegrationStartDelay;
-                    if (Data.IntegrationLengthMode == InjectionData.IntegrationLengthMode.Factor) IntegrationLengthControl.FloatValue = FactorToSlider(Data.IntegrationLengthFactor);
+                    if (Processor.IntegrationLengthMode == InjectionData.IntegrationLengthMode.Factor) IntegrationLengthControl.FloatValue = FactorToSlider(Processor.IntegrationLengthFactor);
                     else IntegrationLengthControl.FloatValue = Data.Injections.Last().IntegrationLength;
                 }
 
-                BaselineHeader.StringValue = "Baseline Interpolator Options" + (Data.Processor.IsLocked || Data.Processor.Interpolator.IsLocked ? " [LOCKED]" : "");
-                IntegrationHeader.StringValue = "Peak Integration Options" + (Data.Processor.IsLocked ? " [LOCKED]" : "");
+                BaselineHeader.StringValue = "Baseline Interpolator Options" + (Data.Processor.Interpolator.IsLocked ? " [LOCKED]" : "");
+                IntegrationHeader.StringValue = "Peak Integration Options";
 
                 InjectionViewSegControl.Enabled = Data.Injections.Count > 0;
                 DataZoomSegControl.Enabled = true;
@@ -157,8 +170,12 @@ namespace AnalysisITC
             var lengthlabel = GetLengthSliderParameter();
             if (Data != null)
             {
-                if (Data.IntegrationLengthMode == InjectionData.IntegrationLengthMode.Time) IntegrationLengthLabel.StringValue = lengthlabel.ToString("F1") + "s";
-                else IntegrationLengthLabel.StringValue = lengthlabel.ToString("F1") + "x";
+                if (Processor.IntegrationLengthMode == InjectionData.IntegrationLengthMode.Factor) IntegrationLengthLabel.StringValue = lengthlabel.ToString("F1") + "x";
+                else IntegrationLengthLabel.StringValue = lengthlabel.ToString("F1") + "s";
+
+                // Disable slider and label if mode is "Fit"
+                IntegrationLengthControl.Enabled = Processor.IntegrationLengthMode != InjectionData.IntegrationLengthMode.Fit;
+                IntegrationLengthLabel.Enabled = Processor.IntegrationLengthMode != InjectionData.IntegrationLengthMode.Fit;
             }
             SplineBaselineFractionControl.StringValue = (SplineFractionSliderControl.FloatValue * 100).ToString("##0") + " %";
             PolynomialDegreeLabel.StringValue = PolynomialDegreeSlider.IntValue.ToString();
@@ -184,7 +201,10 @@ namespace AnalysisITC
         {
             if (Data == null) return;
 
-            Processor.InitializeBaseline((BaselineInterpolatorTypes)(int)sender.SelectedSegment);
+            // Determine baseline type
+            BaselineInterpolatorTypes interpolator = (int)sender.SelectedSegment switch { 0 => BaselineInterpolatorTypes.Spline, 1 => BaselineInterpolatorTypes.Polynomial };
+
+            Processor.InitializeBaseline(interpolator);
 
             UpdateUI();
 
@@ -195,7 +215,16 @@ namespace AnalysisITC
         {
             if (Data == null) return;
 
-            (Processor.Interpolator as SplineInterpolator).Algorithm = (SplineInterpolator.SplineInterpolatorAlgorithm)(int)sender.SelectedSegment;
+            SplineInterpolator.SplineInterpolatorAlgorithm algorithm;
+            switch (sender.SelectedSegment)
+            {
+                default:
+                case 0: algorithm = SplineInterpolator.SplineInterpolatorAlgorithm.Pchip; break;
+                case 1: algorithm = SplineInterpolator.SplineInterpolatorAlgorithm.Linear; break;
+                case 2: algorithm = SplineInterpolator.SplineInterpolatorAlgorithm.Handles; break;
+            }
+
+            (Processor.Interpolator as SplineInterpolator).Algorithm = algorithm;
 
             UpdateProcessing(false);
         }
@@ -204,6 +233,7 @@ namespace AnalysisITC
         {
             if (Data == null) return;
 
+            // Select between mean or median since segment 3 is not available
             (Processor.Interpolator as SplineInterpolator).HandleMode = (SplineInterpolator.SplineHandleMode)(int)sender.SelectedSegment;
 
             UpdateProcessing();
@@ -261,46 +291,85 @@ namespace AnalysisITC
         {
             if (Data == null) return;
 
-            Data.IntegrationLengthMode = (InjectionData.IntegrationLengthMode)(int)sender.SelectedSegment;
+            Processor.IntegrationLengthMode = (InjectionData.IntegrationLengthMode)(int)sender.SelectedSegment;
 
             UpdateSliderLabels();
 
-            UpdateIntegrationRange(length: GetLengthSliderParameter());
+            UpdateIntegrationEndPoint(time_or_factor: GetLengthSliderParameter());
         }
 
         partial void IntegrationStartTimeSliderChanged(NSSlider sender)
         {
             UpdateSliderLabels();
 
-            UpdateIntegrationRange(delay: IntegrationDelayControl.FloatValue);
+            UpdateIntegrationStartTime(IntegrationDelayControl.FloatValue);
         }
 
         partial void IntegrationLengthSliderChanged(NSSlider sender)
         {
             UpdateSliderLabels();
 
-            UpdateIntegrationRange(length: GetLengthSliderParameter());
+            UpdateIntegrationEndPoint(time_or_factor: GetLengthSliderParameter());
         }
 
-        float GetLengthSliderParameter() => Data.IntegrationLengthMode switch
+        float GetLengthSliderParameter() => Processor.IntegrationLengthMode switch
         {
-            InjectionData.IntegrationLengthMode.Factor => (float)Math.Pow(10, 2 * IntegrationLengthControl.FloatValue / IntegrationLengthControl.MaxValue),
-            InjectionData.IntegrationLengthMode.Fit => (float)Math.Pow(10, 2 * IntegrationLengthControl.FloatValue / IntegrationLengthControl.MaxValue),
-            _ => IntegrationLengthControl.FloatValue,
+            // A factor from 1-10
+            InjectionData.IntegrationLengthMode.Factor => (float)Math.Pow(4, IntegrationLengthControl.FloatValue / IntegrationLengthControl.MaxValue),
+            // The peak mode is fitting based, we don't care about the value
+            InjectionData.IntegrationLengthMode.Fit => 0,
+            // Time mode, return the slider value
+            InjectionData.IntegrationLengthMode.Time => IntegrationLengthControl.FloatValue,
+            _ => IntegrationLengthControl.FloatValue
         };
 
 
         float FactorToSlider(float value)
         {
-            return (float)(Math.Log10(value) * IntegrationLengthControl.MaxValue / 2);
+            return (float)(Math.Log(value, 4) * IntegrationLengthControl.MaxValue);
         }
 
-        void UpdateIntegrationRange(float? delay = null, float? length = null)
+        void UpdateIntegrationEndPoint(float time_or_factor)
         {
             if (Data == null) return;
 
-            if (BaselineGraphView.SelectedPeak == -1) Data.SetCustomIntegrationTimes(delay, length);
-            else Data.Injections[BaselineGraphView.SelectedPeak].SetCustomIntegrationTimes(delay, length);
+            try
+            {
+                switch (Processor.IntegrationLengthMode)
+                {
+                    case InjectionData.IntegrationLengthMode.Time:
+                        if (BaselineGraphView.SelectedPeak == -1) Data.SetIntegrationLengthByTime(time_or_factor);
+                        else Data.Injections[BaselineGraphView.SelectedPeak].SetIntegrationLengthByTime(time_or_factor);
+                        break;
+                    case InjectionData.IntegrationLengthMode.Factor:
+                        Processor.IntegrationLengthFactor = time_or_factor;
+                        if (BaselineGraphView.SelectedPeak == -1) Data.SetIntegrationLengthByFactor(time_or_factor);
+                        else Data.Injections[BaselineGraphView.SelectedPeak].SetIntegrationLengthByFactor(time_or_factor);
+                        break;
+                    case InjectionData.IntegrationLengthMode.Fit:
+                        if (BaselineGraphView.SelectedPeak == -1) Data.FitIntegrationPeaks();
+                        else Data.Injections[BaselineGraphView.SelectedPeak].SetIntegrationLengthByPeakFitting();
+                        break;
+                }
+
+                if (DiscardIntegratedPoints) UpdateProcessing();
+
+                BaselineGraphView.Invalidate();
+
+                Data.Processor.IntegratePeaks();
+            }
+            catch (Exception ex)
+            {
+                AppEventHandler.DisplayHandledException(ex);
+            }
+        }
+
+        void UpdateIntegrationStartTime(float delay)
+        {
+            if (Data == null) return;
+
+            if (BaselineGraphView.SelectedPeak == -1) Data.Injections.ForEach(inj => inj.SetIntegrationStartTime(delay));
+            else Data.Injections[BaselineGraphView.SelectedPeak].SetIntegrationStartTime(delay);
 
             if (DiscardIntegratedPoints) UpdateProcessing();
 
@@ -369,10 +438,12 @@ namespace AnalysisITC
         {
             if (BaselineGraphView.SelectedPeak != -1)
             {
+                // Specific selection, set labels and sliders to corresponding peak
                 InjectionViewSegControl.SetLabel("injection #" + (BaselineGraphView.SelectedPeak + 1).ToString(), 1);
                 IntegrationLengthControl.FloatValue = Data.Injections[BaselineGraphView.SelectedPeak].IntegrationLength;
                 IntegrationLengthLabel.FloatValue = Data.Injections[BaselineGraphView.SelectedPeak].IntegrationLength;
                 IntegrationStartDelayLabel.FloatValue = Data.Injections[BaselineGraphView.SelectedPeak].IntegrationStartDelay;
+                IntegrationDelayControl.FloatValue = Data.Injections[BaselineGraphView.SelectedPeak].IntegrationStartDelay;
             }
             else
             {
