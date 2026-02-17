@@ -345,7 +345,6 @@ namespace AnalysisITC
                 .ToDictionary(g => g.Key, g => g.First()) ?? new Dictionary<int, TandemExperimentSegment>();
         }
 
-
         // Call this after loading / after you assign SegmentStarts
         public void InvalidateSegmentLookup()
         {
@@ -381,6 +380,7 @@ namespace AnalysisITC
         public PeakHeatDirection HeatDirection => PeakArea > 0 ? PeakHeatDirection.Endothermal : PeakHeatDirection.Exothermal;
 
         public FloatWithError PeakArea { get; private set; } = new();
+        public Energy Enthalpy2 => new(PeakArea / InjectionMass);
         public double Enthalpy => PeakArea / InjectionMass;
         public double SD => PeakArea.SD / InjectionMass;
 
@@ -799,7 +799,7 @@ namespace AnalysisITC
             var sigma_q = sigma_p * dt * Math.Sqrt(n_samples_integration);
             var sigma_bl = sigma_p * dt * dt;
 
-            return Math.Sqrt(sigma_q * sigma_q + sigma_bl * sigma_bl);
+            return sigma_q + sigma_bl;
         }
 
         public InjectionData Copy(ExperimentData data)
