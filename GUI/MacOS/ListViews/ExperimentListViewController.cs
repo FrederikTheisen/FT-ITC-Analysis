@@ -32,7 +32,6 @@ namespace AnalysisITC
             {
                 lines.Add(System.IO.Path.GetFileNameWithoutExtension(mdl.Data.FileName));
                 lines.Add(mdl.Data.UIShortDateWithTime);
-                lines.Add("--------------------------");
             }
             lines.RemoveAt(lines.Count - 1);
 
