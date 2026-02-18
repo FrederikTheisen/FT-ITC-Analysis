@@ -98,8 +98,20 @@ namespace AnalysisITC
             var slope = new Energy(Slope);
             var intercept = new Energy(Intercept);
 
-            if (slope == 0) return intercept.ToFormattedString(energyUnit, withunit: false);
-            else return slope.ToFormattedString(energyUnit, withunit: false) + " · ∆T + " + intercept.ToFormattedString(energyUnit, withunit: false);
+            string s = intercept.ToFormattedString(energyUnit, withunit: false);
+
+            if (Math.Abs(slope) > 1E-6) // If there is any meaningful slope
+            {
+                // Determine correct sign for display
+                string sign = slope < 0 ? "-" : "+";
+
+                var printslope = new Energy(Math.Abs(slope.Value), slope.SD);
+
+                // (value ± sd) + (slope ± sd) · ∆T
+                s = "(" + s + ") " + sign + " (" + printslope.ToFormattedString(energyUnit, withunit: false) + ") · ∆T";
+            }
+
+            return s;
         }
     }
 
