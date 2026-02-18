@@ -16,6 +16,7 @@ namespace AnalysisITC
 {
 	public partial class AnalysisResultTabViewController : NSViewController
 	{
+        bool _eventsUnsubscribed = false;
         public static TerminationFlag AnalysisTerminationFlag { get; } = new TerminationFlag();
 
         AnalysisResult AnalysisResult { get; set; }
@@ -170,7 +171,7 @@ namespace AnalysisITC
             EvaluationOutputLabel.StringValue = "";
 
             /// Setup the description lines for the result view
-            var parameters = new List<string>() { "Reference temperature:" };
+            var parameters = new List<string>() { "Reference temperature / Unit:" };
 
             foreach (var dep in Solution.TemperatureDependence)
                 parameters.Add(dep.Key.GetProperties().Name + " (" + dep.Key.GetProperties().SymbolName + ")");
@@ -262,9 +263,9 @@ namespace AnalysisITC
             else ResultEvalTempUnitLabel.StringValue = "°C";
             string tempunit = " " + (UseKelvin ? "K" : "°C");
 
-            var dependencies = new List<string>() { refT.ToString("F2") + tempunit};
+            var dependencies = new List<string>() { refT.ToString("F2") + tempunit + " / " + EnergyUnit.ToString() + "/mol"};
 
-            foreach (var dep in Solution.TemperatureDependence) dependencies.Add(dep.Value.ToString(EnergyUnit) + " " + EnergyUnit.GetUnit() + "/mol");
+            foreach (var dep in Solution.TemperatureDependence) dependencies.Add(dep.Value.ToString(EnergyUnit));
 
             TemperatureDependenceLabel.StringValue = string.Join(Environment.NewLine, dependencies);
 
@@ -460,6 +461,28 @@ namespace AnalysisITC
         partial void CopyToClipboard(NSObject sender)
         {
             Exporter.CopyToClipboard(AnalysisResult, AppropriateAutoConcUnit, EnergyUnit, UseKelvin);
+        }
+
+        void UnsubscribeEvents()
+        {
+            if (_eventsUnsubscribed) return;
+            _eventsUnsubscribed = true;
+
+            DataManager.AnalysisResultSelected -= DataManager_AnalysisResultSelected;
+            ResultAnalysisController.IterationFinished -= ResultAnalysisProgressReport;
+            ResultAnalysisController.AnalysisFinished -= ResultsAnalysisCompleted;
+            AppDelegate.StartPrintOperation -= AppDelegate_StartPrintOperation;
+
+            if (TabView != null)
+                TabView.DidSelect -= TabView_DidSelect;
+        }
+
+        protected override void Dispose(bool disposing)
+        {
+            if (disposing)
+                UnsubscribeEvents();
+
+            base.Dispose(disposing);
         }
     }
 }
