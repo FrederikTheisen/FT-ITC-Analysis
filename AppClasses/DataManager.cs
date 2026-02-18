@@ -280,7 +280,7 @@ namespace AnalysisITC
                     data.Processor.IntegrationLengthMode = int_mode;
                     if (int_mode == InjectionData.IntegrationLengthMode.Factor) data.SetIntegrationLengthByFactor(int_factor);
                     else if (int_mode == InjectionData.IntegrationLengthMode.Fit) data.FitIntegrationPeaks();
-                    else data.SetIntegrationStartTimes(int_length);
+                    else data.SetIntegrationLengthByTimes(int_length);
 
                     data.Processor.IntegratePeaks();
                     data.Processor.DidProcessData();

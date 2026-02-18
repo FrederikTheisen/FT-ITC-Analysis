@@ -137,6 +137,21 @@ namespace AnalysisITC
             }
         }
 
+        public void SetIntegrationLengthByTimes(float[] lengths)
+        {
+            int i = 0;
+            foreach (var inj in Injections)
+            {
+                float length;
+                if (i == lengths.Length) length = lengths[^1];
+                else length = lengths[i];
+
+                inj.SetIntegrationLengthByTime(length);
+
+                i++;
+            }
+        }
+
         public void SetIntegrationLengthByTime(float length)
         {
             try
