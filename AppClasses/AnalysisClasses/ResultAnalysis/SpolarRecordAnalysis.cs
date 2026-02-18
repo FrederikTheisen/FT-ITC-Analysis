@@ -22,6 +22,8 @@ namespace AnalysisITC.AppClasses.AnalysisClasses
 
         FloatWithError Ratio { get; set; } = RatioGlob;
 
+        public SROutput Result { get; private set; }
+
         LinearFitWithError EnthalpyDependence { get; set; }
         LinearFitWithError EntropyDependence { get; set; }
 
@@ -41,8 +43,6 @@ namespace AnalysisITC.AppClasses.AnalysisClasses
                 _ => TS.Value
             };
         }
-
-        public SROutput Result { get; private set; }
 
         public FTSRMethod(AnalysisResult analysisResult) : base(analysisResult)
         {

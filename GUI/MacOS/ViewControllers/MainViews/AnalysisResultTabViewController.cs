@@ -301,7 +301,7 @@ namespace AnalysisITC
             switch (analysis)
             {
                 case FTSRMethod sr:
-                    if (analysis.Fit != null) result = new List<string>()
+                    if (sr.Result != null) result = new List<string>()
                     {
                         sr.FoldedMode switch { FTSRMethod.SRFoldedMode.Glob => "Globular Mode", FTSRMethod.SRFoldedMode.Intermediate => "Intermediate Mode", FTSRMethod.SRFoldedMode.ID => "ID Interaction Mode"},
                         sr.TempMode switch { FTSRMethod.SRTempMode.IsoEntropicPoint => "Isoentropic (", FTSRMethod.SRTempMode.MeanTemperature => "Data Set Mean (", FTSRMethod.SRTempMode.ReferenceTemperature => "Set Reference (" } + sr.Result.ReferenceTemperature.AsNumber() + " °C)",
