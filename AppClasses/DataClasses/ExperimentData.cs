@@ -614,15 +614,19 @@ namespace AnalysisITC
                         var fit = MathNet.Numerics.Fit.Curve(
                             x, y,
                             (a1, k1, a2, k2, t) => a1 * Math.Exp(-k1 * t) + a2 * Math.Exp(-k2 * t),
-                            0.5 * aSeed, kSeed,
-                            0.5 * aSeed, kSeed,
+                            0.5 * aSeed, kSeed * 0.3,
+                            0.5 * aSeed, 3 * kSeed,
                             tolerance: 1e-10,
                             maxIterations: 10000);
 
                         double a1 = fit.P0, k1 = fit.P1, a2 = fit.P2, k2 = fit.P3;
 
                         if (k1 <= 0 || k2 <= 0)
-                            throw new InvalidOperationException($"Double-exponential fit returned non-positive k values (k1={k1}, k2={k2}).");
+                        {
+                            AppEventHandler.PrintAndLog($"Double-exponential fit of inj #{ID} returned non-positive k values (k1={k1}, k2={k2}).");
+                            k1 = Math.Max(k1, k2);
+                            k2 = Math.Max(k1, k2);
+                        }
 
                         // Find the first t where |fit(t)| <= yThresh (bounded to available x-range)
                         double tMax = x.Last();
@@ -782,40 +786,57 @@ namespace AnalysisITC
             float baseline_start_time = ID == 0 ? 0 : Experiment.Injections[ID - 1].IntegrationEndTime;
             float baseline_end_time = Time + Delay;
             float baseline_exclude_start_time = IntegrationStartTime;
-            float baseline_exclude_end_time = IntegrationEndTime;
 
-            // Check region. If limits are on top of each other, extend into integration regions.
-            if (baseline_start_time > baseline_exclude_start_time) baseline_start_time = baseline_exclude_start_time - 10;
-            if (baseline_end_time < baseline_exclude_end_time) baseline_exclude_end_time = baseline_end_time - 10;
+            // Start at previous inj integration end time, but take at least 10s
+            baseline_start_time = Math.Min(baseline_start_time, baseline_exclude_start_time - 10);
+            // Exclude integration but keep at least the last 10s of the injection scope
+            float baseline_exclude_end_time = Math.Min(IntegrationEndTime, baseline_end_time - 10);
 
+            // In case of strange values or very short injection scopes
+            if (baseline_exclude_end_time <= baseline_exclude_start_time)
+                baseline_exclude_end_time = baseline_exclude_start_time;
+
+            // Collect the baseline points (excluding integrated points)
             var bl = Experiment.BaseLineCorrectedDataPoints.Where(dp =>
                 dp.Time >= baseline_start_time
                 && dp.Time <= baseline_end_time
-                && !(dp.Time > baseline_exclude_start_time && dp.Time < baseline_exclude_end_time));
+                && !(dp.Time > baseline_exclude_start_time && dp.Time < baseline_exclude_end_time)).ToList();
 
-            var blpoints = bl.Count();
+            var blpoints = bl.Count;
 
             if (blpoints < 2) return 0;
 
+            // Calculate the RMSD
             double ss = 0;
+            int n1 = 0;
+            int n2 = 0;
             foreach (var dp in bl)
             {
                 var p = dp.Power;
 
                 ss += p * p;
+
+                if (dp.Time <= baseline_exclude_start_time) n1++;
+                else n2++;
             }
 
             var sigma_p = Math.Sqrt(ss / (blpoints - 1));
-            var intpoints = Experiment.BaseLineCorrectedDataPoints.Where(dp => dp.Time > IntegrationStartTime && dp.Time < IntegrationEndTime);
-            int n_samples_integration = intpoints.Count();
+
+            var intpoints = Experiment.BaseLineCorrectedDataPoints.Where(dp => dp.Time > IntegrationStartTime && dp.Time < IntegrationEndTime).ToList();
+            int n_samples_integration = intpoints.Count;
 
             if (n_samples_integration < 2) return 0;
 
             float dt = (intpoints.Last().Time - intpoints.First().Time) / (n_samples_integration - 1);
-            var sigma_q = sigma_p * dt * Math.Sqrt(n_samples_integration);
-            var sigma_bl = sigma_p * dt * dt;
+            var r1 = Statistics.EstimateAutoCorrelation(bl, 2 * dt);
 
-            return sigma_q + sigma_bl;
+            var sumVarInt = Statistics.Ar1SumVarFactor(n_samples_integration, r1);
+            var sigma_q = sigma_p * dt * Math.Sqrt(sumVarInt);
+
+            var sumVar = Statistics.Ar1SumVarFactor(n1, r1) + Statistics.Ar1SumVarFactor(n2, r1);
+            var sigma_q_bl = (sigma_p * Math.Sqrt(sumVar) / blpoints) * IntegrationLength;
+
+            return Math.Sqrt(sigma_q * sigma_q + sigma_q_bl * sigma_q_bl);
         }
 
         public InjectionData Copy(ExperimentData data)
