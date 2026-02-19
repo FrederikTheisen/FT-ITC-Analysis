@@ -47,7 +47,7 @@ namespace AnalysisITC.Utilities
             {"\\dcp", HeatCapacity },
             {"\\dh0",  Enthalpy + "°"},
             {"\\tds",  EntropyContribution},
-            { "\\sigma",  Sigma}
+            {"\\sigma",  Sigma}
         };
     }
 
@@ -62,6 +62,7 @@ namespace AnalysisITC.Utilities
 
             Regex cursiveRegex = new Regex(@"\*([^*]+)\*");
             Regex subscriptRegex = new Regex(@"\{([^}]+)\}");
+            Regex superscriptRegex = new Regex(@"\^([^}]+)\^");
             Regex boldRegex = new Regex(@"\*\*(.*?)\*\*");
             Regex header1Regex = new Regex(@"^# (.+)$", RegexOptions.Multiline);
             Regex header2Regex = new Regex(@"^## (.+)$", RegexOptions.Multiline);
@@ -75,6 +76,7 @@ namespace AnalysisITC.Utilities
                 Match boldMatch = boldRegex.Match(input, currentIndex);
                 Match cursiveMatch = cursiveRegex.Match(input, currentIndex);
                 Match subscriptMatch = subscriptRegex.Match(input, currentIndex);
+                Match superscriptMatch = superscriptRegex.Match(input, currentIndex);
 
                 Match match = null;
                 int firstidx = int.MaxValue;
@@ -84,50 +86,13 @@ namespace AnalysisITC.Utilities
                 type = CheckMatch(boldMatch, ref match, ref firstidx, MarkdownProperty.Bold) ?? type;
                 type = CheckMatch(cursiveMatch, ref match, ref firstidx, MarkdownProperty.Cursive) ?? type;
                 type = CheckMatch(subscriptMatch, ref match, ref firstidx, MarkdownProperty.Subscript) ?? type;
+                type = CheckMatch(superscriptMatch, ref match, ref firstidx, MarkdownProperty.Superscript) ?? type;
 
                 if (match != null)
                 {
                     currentIndex = AddSegment(input, segments, currentIndex, match, type);
                     continue;
                 }
-
-                //if (cursiveMatch.Success)
-                //{
-                //    if (cursiveMatch.Index > currentIndex)
-                //    {
-                //        // Add the plain text segment before the cursive text
-                //        string plainText = input.Substring(currentIndex, cursiveMatch.Index - currentIndex);
-                //        segments.Add(new Segment(plainText, MarkdownProperty.Plain));
-                //    }
-
-                //    // Add the cursive text segment
-                //    string cursiveText = cursiveMatch.Groups[1].Value;
-                //    segments.Add(new Segment(cursiveText, MarkdownProperty.Cursive));
-
-                //    // Update the current index to the end of the cursive text
-                //    currentIndex = cursiveMatch.Index + cursiveMatch.Length;
-                //    continue;
-                //}
-
-                //// Check for subscript text
-
-                //if (subscriptMatch.Success)
-                //{
-                //    if (subscriptMatch.Index > currentIndex)
-                //    {
-                //        // Add the plain text segment before the subscript text
-                //        string plainText = input.Substring(currentIndex, subscriptMatch.Index - currentIndex);
-                //        segments.Add(new Segment(plainText, MarkdownProperty.Plain));
-                //    }
-
-                //    // Add the subscript text segment
-                //    string subscriptText = subscriptMatch.Groups[1].Value;
-                //    segments.Add(new Segment(subscriptText, MarkdownProperty.Subscript));
-
-                //    // Update the current index to the end of the subscript text
-                //    currentIndex = subscriptMatch.Index + subscriptMatch.Length;
-                //    continue;
-                //}
 
                 // If no markdown was found, add the rest of the plain text as a segment
                 string remainingText = input.Substring(currentIndex);
@@ -178,7 +143,8 @@ namespace AnalysisITC.Utilities
         Subscript,
         Bold,
         Header1,
-        Header2
+        Header2,
+        Superscript
     }
 
     public class Segment

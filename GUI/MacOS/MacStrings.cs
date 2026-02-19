@@ -5,7 +5,7 @@ namespace AnalysisITC.Utilities
 {
     public static class MacStrings
 	{
-
+        const float SuperSubOffset = 3;
 
         static NSMutableAttributedString PlainText(string str, NSFont font)
         {
@@ -55,17 +55,31 @@ namespace AnalysisITC.Utilities
         static NSMutableAttributedString SubscriptText(string str, NSFont font)
         {
             var s = new NSMutableAttributedString(str);
-            font = NSFont.FromFontName(font.FontName, font.PointSize * 0.75f);
+            font = NSFont.FromFontName(font.FontName, font.PointSize * 0.7f);
             s.AddAttributes(new NSStringAttributes { Font = font }, new NSRange(0, s.Length));
             var attributes = new NSMutableDictionary();
-            var subscriptOffset = new NSNumber(-2);
+            var subscriptOffset = new NSNumber(-SuperSubOffset);
             var range = new NSRange(0, s.Length);
             attributes.Add(NSStringAttributeKey.BaselineOffset, subscriptOffset);
             s.AddAttributes(attributes, range);
 
             return s;
         }
-        
+
+        static NSMutableAttributedString SuperscriptText(string str, NSFont font)
+        {
+            var s = new NSMutableAttributedString(str);
+            font = NSFont.FromFontName(font.FontName, font.PointSize * 0.7f);
+            s.AddAttributes(new NSStringAttributes { Font = font }, new NSRange(0, s.Length));
+            var attributes = new NSMutableDictionary();
+            var subscriptOffset = new NSNumber(SuperSubOffset);
+            var range = new NSRange(0, s.Length);
+            attributes.Add(NSStringAttributeKey.BaselineOffset, subscriptOffset);
+            s.AddAttributes(attributes, range);
+
+            return s;
+        }
+
 
         public static NSMutableAttributedString CursiveSubscript(string str, NSFont font)
         {
@@ -110,6 +124,7 @@ namespace AnalysisITC.Utilities
                     case MarkdownProperty.Cursive: attstr.Append(CursiveText(segment.Text, font)); break;
                     case MarkdownProperty.Bold: attstr.Append(BoldText(segment.Text, font)); break;
                     case MarkdownProperty.Subscript: attstr.Append(SubscriptText(segment.Text, font)); break;
+                    case MarkdownProperty.Superscript: attstr.Append(SuperscriptText(segment.Text, font)); break;
                     case MarkdownProperty.Header1: attstr.Append(Header1Text(segment.Text, font)); break;
                     case MarkdownProperty.Header2: attstr.Append(Header2Text(segment.Text, font)); break;
                 }
