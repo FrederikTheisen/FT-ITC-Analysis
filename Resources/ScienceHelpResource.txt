@@ -22,12 +22,21 @@ The “global” parameters reported in Analysis Results are therefore not avera
 Quantities that were fitted individually in a multi experiment context are reported as the average of the included experiments with errors from the destribuion of refit averages.
 
 ## Peak Error Bars
-The error bar drawn on each injection point represents the program’s estimate of the uncertainty of that injection’s integrated heat (\sigma{q,i}), based on the baseline-corrected trace around the injection and the amount of noise introduced by integration.
-The exact formula for calculating the errors is:
+The error bar drawn on each injection point represents the program’s estimate of the standard uncertainty of that injection’s integrated heat, \sigma{q,i}. The value is computed as the combination of an integration-noise contribution and a baseline-level contribution:
 
-                              \sigma{q,i} = \sigma{p,i} · ∆*t* · √N{i}
+                                \sigma{q,i} = √( \sigma{q,i,int}^2^ + \sigma{q,i,bl}^2^ )
 
-where \sigma{p,i} is the baseline RMSD for data points that are not integrated surrounding peak *i*, ∆*t* is the stepsize in seconds, and N{i} is the number of data points being integrated.
+Integration noise contribution:
+
+                                \sigma{q,i,int} = \sigma{p,i} · ∆*t* · √*N*{int,eff}
+
+Here, \sigma{p,i} is the baseline RMS noise level estimated from non-integrated points surrounding injection *i*, ∆*t* is the sampling interval, and *N*{int,eff} is an effective number of integrated samples. *N*{int,eff} is based on the actual number of integrated samples (*N*{int}), but adjusted to compensate for autocorrelation in the baseline noise (neighboring samples are not fully independent).
+
+Baseline level contribution:
+
+                                \sigma{q,i,bl} = \sigma{p,i} · (*T*{int} / √*N*{bl,eff})
+
+Here, *T*{int} is the integration length (seconds), and N{bl,eff} is an effective number of baseline samples used to estimate the baseline level. As above, *N*{bl,eff} is adjusted to compensate for autocorrelation in the baseline noise.
 
 ## Model Formalism
 The analysis models in \appname are implemented in accordance with the MicroCal/Origin formal definitions. The implementation is also extended to the calculation mass balance / dilution bookkeeping. Thus parameter values from \appname are intended to be directly comparable to MicroCal-style analyses, although the baseline correction cannot be compared and might introduce small differences in fitted values.
