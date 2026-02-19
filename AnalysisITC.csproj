@@ -472,6 +472,7 @@
     <Compile Include="GUI\MacOS\TechnicalDetailsViewController.designer.cs">
       <DependentUpon>TechnicalDetailsViewController.cs</DependentUpon>
     </Compile>
+    <Compile Include="AppClasses\Math\Statistics.cs" />
   </ItemGroup>
   <ItemGroup>
     <InterfaceDefinition Include="Main.storyboard" />
