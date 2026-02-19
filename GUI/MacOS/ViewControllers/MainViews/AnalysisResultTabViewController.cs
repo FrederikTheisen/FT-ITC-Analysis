@@ -263,7 +263,7 @@ namespace AnalysisITC
             else ResultEvalTempUnitLabel.StringValue = "°C";
             string tempunit = " " + (UseKelvin ? "K" : "°C");
 
-            var dependencies = new List<string>() { refT.ToString("F2") + tempunit + " / " + EnergyUnit.ToString() + "/mol"};
+            var dependencies = new List<string>() { refT.ToString("F2") + tempunit + " / " + EnergyUnit.GetUnit() + "/mol"};
 
             foreach (var dep in Solution.TemperatureDependence) dependencies.Add(dep.Value.ToString(EnergyUnit));
 
