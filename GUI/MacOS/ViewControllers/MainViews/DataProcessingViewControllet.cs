@@ -85,10 +85,10 @@ namespace AnalysisITC
                 SetSelectedSegment(InterpolatorTypeControl, -1);
 
                 SplineAlgorithmView.Hidden = true;
-                SplineBaselineFractionView.Hidden = true;
+                //SplineBaselineFractionView.Hidden = true;
                 SplineHandleModeView.Hidden = true;
                 PolynomialDegreeView.Hidden = true;
-                ZLimitView.Hidden = true;
+                //ZLimitView.Hidden = true;
                 IntegrationModeSegControl.Enabled = false;
 
                 BaselineHeader.StringValue = "Baseline Interpolator Options";
@@ -102,9 +102,9 @@ namespace AnalysisITC
                         SetSelectedSegment(InterpolatorTypeControl, 0);
                         SplineAlgorithmView.Hidden = false;
                         SplineHandleModeView.Hidden = false;
-                        SplineBaselineFractionView.Hidden = false;
+                        //SplineBaselineFractionView.Hidden = false;
                         PolynomialDegreeView.Hidden = true;
-                        ZLimitView.Hidden = true;
+                        //ZLimitView.Hidden = true;
                         SetSelectedSegment(SplineAlgoControl, (Data.Processor.Interpolator as SplineInterpolator).Algorithm switch
                         {
                             SplineInterpolator.SplineInterpolatorAlgorithm.Pchip => 0,
@@ -112,24 +112,18 @@ namespace AnalysisITC
                             SplineInterpolator.SplineInterpolatorAlgorithm.Handles => 2
                         } );
                         SetSelectedSegment(SplineHandleModeControl, (int)(Data.Processor.Interpolator as SplineInterpolator).HandleMode);
-                        SplineFractionSliderControl.FloatValue = (Data.Processor.Interpolator as SplineInterpolator).FractionBaseline;
+                        //SplineFractionSliderControl.FloatValue = (Data.Processor.Interpolator as SplineInterpolator).FractionBaseline;
                         break;
                     case BaselineInterpolatorTypes.ASL:
-                        SplineAlgorithmView.Hidden = true;
-                        SplineHandleModeView.Hidden = true;
-                        SplineBaselineFractionView.Hidden = true;
-                        PolynomialDegreeView.Hidden = true;
-                        ZLimitView.Hidden = true;
-                        break;
                     case BaselineInterpolatorTypes.Polynomial:
                         SetSelectedSegment(InterpolatorTypeControl, 1);
                         SplineAlgorithmView.Hidden = true;
                         SplineHandleModeView.Hidden = true;
-                        SplineBaselineFractionView.Hidden = true;
+                        //SplineBaselineFractionView.Hidden = true;
                         PolynomialDegreeView.Hidden = false;
-                        ZLimitView.Hidden = false;
+                        //ZLimitView.Hidden = false;
                         PolynomialDegreeSlider.IntValue = (Data.Processor.Interpolator as PolynomialLeastSquaresInterpolator).Degree;
-                        ZLimitSlider.DoubleValue = (Data.Processor.Interpolator as PolynomialLeastSquaresInterpolator).ZLimit;
+                        //ZLimitSlider.DoubleValue = (Data.Processor.Interpolator as PolynomialLeastSquaresInterpolator).ZLimit;
                         break;
                 }
                 
@@ -178,9 +172,9 @@ namespace AnalysisITC
                 IntegrationLengthControl.Enabled = Processor.IntegrationLengthMode != InjectionData.IntegrationLengthMode.Fit;
                 IntegrationLengthLabel.Enabled = Processor.IntegrationLengthMode != InjectionData.IntegrationLengthMode.Fit;
             }
-            SplineBaselineFractionControl.StringValue = (SplineFractionSliderControl.FloatValue * 100).ToString("##0") + " %";
+            //SplineBaselineFractionControl.StringValue = (SplineFractionSliderControl.FloatValue * 100).ToString("##0") + " %";
             PolynomialDegreeLabel.StringValue = PolynomialDegreeSlider.IntValue.ToString();
-            ZLimitLabel.StringValue = ZLimitSlider.FloatValue.ToString("G3");
+            //ZLimitLabel.StringValue = ZLimitSlider.FloatValue.ToString("G3");
         }
 
         partial void DiscardIntRangeAction(NSButton sender)
@@ -191,7 +185,7 @@ namespace AnalysisITC
             SplineDiscardIntegrationRange.State = DiscardIntegratedPoints ? NSCellStateValue.On : NSCellStateValue.Off;
 
             if (Data != null)
-                Processor.Interpolator.DiscardIntegratedPoints = DiscardIntegratedPoints;
+                Processor.DiscardIntegratedPoints = DiscardIntegratedPoints;
 
             UpdateProcessing();
         }

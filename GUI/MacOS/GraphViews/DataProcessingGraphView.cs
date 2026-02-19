@@ -372,7 +372,7 @@ namespace AnalysisITC
                     case MouseOverFeatureEvent.FeatureType.BaselineSplinePoint: UpdateSplineHandle(); break;
                     case MouseOverFeatureEvent.FeatureType.IntegrationRangeMarker:
                         if (Data.Processor.BaselineCompleted)
-                            if (Data.Processor.Interpolator.DiscardIntegratedPoints) Data.Processor.ProcessData();
+                            if (Data.Processor.DiscardIntegratedPoints) Data.Processor.ProcessData();
                             else Data.Processor.IntegratePeaks(); //Don't integrate twice
                         break;
                     case MouseOverFeatureEvent.FeatureType.DragZoom:

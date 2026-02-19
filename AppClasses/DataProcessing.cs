@@ -40,7 +40,7 @@ namespace AnalysisITC
                 }
             }
         }
-
+        public bool DiscardIntegratedPoints { get; set; } = true;
         public InjectionData.IntegrationLengthMode IntegrationLengthMode { get; set; } = InjectionData.IntegrationLengthMode.Time;
         public float IntegrationLengthFactor { get; set; } = 2;
 
@@ -51,12 +51,16 @@ namespace AnalysisITC
         public DataProcessor(ExperimentData data)
         {
             Data = data;
+
+            DiscardIntegratedPoints = AppSettings.DiscardIntegrationRegionForBaseline;
         }
 
         public DataProcessor(ExperimentData data, DataProcessor dataProcessor)
         {
             Data = data;
-
+            DiscardIntegratedPoints = dataProcessor.DiscardIntegratedPoints;
+            IntegrationLengthFactor = dataProcessor.IntegrationLengthFactor;
+            IntegrationLengthMode = dataProcessor.IntegrationLengthMode;
             Interpolator = dataProcessor.Interpolator.Copy(this);
         }
 
@@ -167,7 +171,7 @@ namespace AnalysisITC
         public DataProcessor Processor { get; set; }
         internal List<Energy> Baseline { get; set; } = new List<Energy>();
         public bool IsLocked => Processor.IsLocked;
-        public bool DiscardIntegratedPoints { get; set; } = true;
+        
 
         internal ExperimentData Data => Processor.Data;
         public SplineInterpolator SplineInterpolator => this as SplineInterpolator;
@@ -262,7 +266,6 @@ namespace AnalysisITC
                 FractionBaseline = this.FractionBaseline,
                 Algorithm = this.Algorithm,
                 HandleMode = this.HandleMode,
-                DiscardIntegratedPoints = this.DiscardIntegratedPoints,
             };
 
             return interpolator;
@@ -286,7 +289,7 @@ namespace AnalysisITC
                 var start = inj.Time + inj.Delay * (1 - _frac);
                 var length = (inj.Delay * _frac - 5) / pointperinjection;
 
-                if (DiscardIntegratedPoints)
+                if (Processor.DiscardIntegratedPoints)
                 {
                     if (start < inj.IntegrationEndTime) start = inj.IntegrationEndTime;
                 }
@@ -563,7 +566,7 @@ namespace AnalysisITC
         {
             var interpolator = new PolynomialLeastSquaresInterpolator(processor)
             {
-                Degree = this.Degree,
+                Degree = Math.Clamp(Math.Max(8, Processor.Data.InjectionCount / 2), 1, 20),
                 ZLimit = this.ZLimit,
             };
 
@@ -578,7 +581,7 @@ namespace AnalysisITC
             var x = Data.DataPoints.Select(dp => (double)dp.Time).ToArray();
             var y = Data.DataPoints.Select(dp => (double)dp.Power).ToArray();
 
-            if (DiscardIntegratedPoints)
+            if (Processor.DiscardIntegratedPoints)
             {
                 foreach (var inj in Data.Injections)
                 {
