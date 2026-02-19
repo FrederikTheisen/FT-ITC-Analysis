@@ -24,7 +24,6 @@ namespace AnalysisITC
 
             ExportSelectedControl.SelectedSegment = (int)AppSettings.ExportSelectionMode;
             UnifyAxesControl.SelectedSegment = AppSettings.UnifyTimeAxisForExport ? 0 : 1;
-            ExportSolutionPointsControl.State = AppSettings.ExportFitPointsWithPeaks ? NSCellStateValue.On : NSCellStateValue.Off;
 
             ExportDataColumnControl.SetSelected(AppSettings.ExportColumns.HasFlag(ExportColumns.MolarRatio), 0);
             ExportDataColumnControl.SetSelected(AppSettings.ExportColumns.HasFlag(ExportColumns.InjectionDelay | ExportColumns.InjectionVolume), 1);

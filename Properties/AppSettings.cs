@@ -27,6 +27,7 @@ namespace AnalysisITC
 
         //Processing
         public static PeakFitAlgorithm PeakFitAlgorithm { get; set; } = PeakFitAlgorithm.SingleExponential;
+        public static bool DiscardIntegrationRegionForBaseline { get; set; } = true;
         public static bool IncludeBufferInIonicStrengthCalc { get; set; } = true;
 
         //Fitting
@@ -44,6 +45,7 @@ namespace AnalysisITC
         public static int MaximumOptimizerIterations { get; set; } = 2000;
         public static bool EnableExtendedParameterLimits { get; set; } = false;
         public static ParameterLimitSetting ParameterLimitSetting { get; set; } = ParameterLimitSetting.Standard;
+        public static SolverAlgorithm SolverAlgorithm { get; set; } = SolverAlgorithm.NelderMead;
 
         //Analysis
         public static bool BuffersPreparedAtRoomTemperature { get; set; } = true;
@@ -116,6 +118,8 @@ namespace AnalysisITC
             Storage.SetBool(ShowResidualGraphGap, "ShowResidualGraphGap");
             Storage.SetBool(UnifyResidualGraphAxis, "UnifyResidualGraphAxis");
             Storage.SetInt((int)FitLineSmoothness, "FitLineSmoothness");
+            Storage.SetBool(DiscardIntegrationRegionForBaseline, "DiscardIntegrationRegionForBaseline");
+            Storage.SetInt((int)SolverAlgorithm, "SolverAlgorithm");
 
 
             StoreArray(FinalFigureDimensions, "FinalFigureDimensions");
@@ -169,6 +173,8 @@ namespace AnalysisITC
             ShowResidualGraphGap = GetBool(dict, "ShowResidualGraphGap", ShowResidualGraphGap);
             UnifyResidualGraphAxis = GetBool(dict, "UnifyResidualGraphAxis", UnifyResidualGraphAxis);
             FitLineSmoothness = (GraphBase.LineSmoothness)GetInt(dict, "FitLineSmoothness", (int)FitLineSmoothness);
+            DiscardIntegrationRegionForBaseline = GetBool(dict, "DiscardIntegrationRegionForBaseline", DiscardIntegrationRegionForBaseline);
+            SolverAlgorithm = (SolverAlgorithm)GetInt(dict, "SolverAlgorithm", (int)SolverAlgorithm);
 
             ApplySettings();
 

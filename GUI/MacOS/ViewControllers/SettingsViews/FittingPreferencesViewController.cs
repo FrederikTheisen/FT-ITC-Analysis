@@ -31,6 +31,7 @@ namespace AnalysisITC
             MaxOptimizerIterationsSlider.DoubleValue = Math.Log10(AppSettings.MaximumOptimizerIterations);
             MaxOptimizerIterField.IntValue = AppSettings.MaximumOptimizerIterations;
             ParameterLimitControl.SelectedSegment = AppSettings.EnableExtendedParameterLimits ? 1 : 0;
+            DefaultAlgorithm.SelectedSegment = (int)AppSettings.SolverAlgorithm;
 
             SetFuncToleranceLabel(AppSettings.OptimizerTolerance);
         }
@@ -63,6 +64,7 @@ namespace AnalysisITC
             AppSettings.IsConcentrationAutoVarianceEnabled = AutoConcVarianceSlider.DoubleValue > double.Epsilon;
             AppSettings.MaximumOptimizerIterations = (int)Math.Pow(10, MaxOptimizerIterationsSlider.DoubleValue);
             AppSettings.EnableExtendedParameterLimits = ParameterLimitControl.SelectedSegment == 1;
+            AppSettings.SolverAlgorithm = (SolverAlgorithm)(int)DefaultAlgorithm.SelectedSegment;
         }
 
         partial void BootstrapIterSliderAction(NSSlider sender)

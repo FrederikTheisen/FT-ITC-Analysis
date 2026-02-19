@@ -25,6 +25,9 @@ namespace AnalysisITC
 		AppKit.NSSegmentedControl ConcentrationUnitControl { get; set; }
 
 		[Outlet]
+		AppKit.NSButton DiscardIntegrationRegionForBaseline { get; set; }
+
+		[Outlet]
 		AppKit.NSSegmentedControl EnergyUnitControl { get; set; }
 
 		[Outlet]
@@ -80,6 +83,11 @@ namespace AnalysisITC
 		
 		void ReleaseDesignerOutlets ()
 		{
+			if (DiscardIntegrationRegionForBaseline != null) {
+				DiscardIntegrationRegionForBaseline.Dispose ();
+				DiscardIntegrationRegionForBaseline = null;
+			}
+
 			if (ColorGradientControl != null) {
 				ColorGradientControl.Dispose ();
 				ColorGradientControl = null;
@@ -115,6 +123,11 @@ namespace AnalysisITC
 				FinalFigWidthField = null;
 			}
 
+			if (IncludeBufferInIonicStrength != null) {
+				IncludeBufferInIonicStrength.Dispose ();
+				IncludeBufferInIonicStrength = null;
+			}
+
 			if (MinSaltSpanField != null) {
 				MinSaltSpanField.Dispose ();
 				MinSaltSpanField = null;
@@ -148,11 +161,6 @@ namespace AnalysisITC
 			if (RefTempField != null) {
 				RefTempField.Dispose ();
 				RefTempField = null;
-			}
-
-			if (IncludeBufferInIonicStrength != null) {
-				IncludeBufferInIonicStrength.Dispose ();
-				IncludeBufferInIonicStrength = null;
 			}
 		}
 	}

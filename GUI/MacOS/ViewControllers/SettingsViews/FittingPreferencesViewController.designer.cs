@@ -22,6 +22,9 @@ namespace AnalysisITC
 		AppKit.NSTextField BootstrapIterField { get; set; }
 
 		[Outlet]
+		AppKit.NSSegmentedControl DefaultAlgorithm { get; set; }
+
+		[Outlet]
 		AppKit.NSSlider DefaultBootstrapIterationSlider { get; set; }
 
 		[Outlet]
@@ -71,6 +74,11 @@ namespace AnalysisITC
 		
 		void ReleaseDesignerOutlets ()
 		{
+			if (DefaultAlgorithm != null) {
+				DefaultAlgorithm.Dispose ();
+				DefaultAlgorithm = null;
+			}
+
 			if (AutoConcField != null) {
 				AutoConcField.Dispose ();
 				AutoConcField = null;
