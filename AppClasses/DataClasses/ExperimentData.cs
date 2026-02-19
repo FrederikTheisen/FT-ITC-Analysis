@@ -679,6 +679,13 @@ namespace AnalysisITC
                 && dp.Time <= baseline_end_time
                 && !(dp.Time > baseline_exclude_start_time && dp.Time < baseline_exclude_end_time)).ToList();
 
+            var med = Statistics.Median(bl.Select(dp => dp.Power).ToList());
+            var mad = Statistics.Median(bl.Select(dp => Math.Abs(dp.Power - med)).ToList());
+            var sigma0 = 1.4826f * mad;
+            if (sigma0 <= 0) sigma0 = 1e-12f;
+            var k = 6.0f;
+            var cap = k * sigma0;
+
             var blpoints = bl.Count;
 
             if (blpoints < 2) return 0;
@@ -690,6 +697,8 @@ namespace AnalysisITC
             foreach (var dp in bl)
             {
                 var p = dp.Power;
+
+                if (Math.Abs(p) > cap) p = cap;
 
                 ss += p * p;
 
@@ -839,6 +848,11 @@ namespace AnalysisITC
         public DataPoint Copy()
         {
             return new DataPoint(Time, Power, Temperature, DT, ShieldT, ATP, JFBI);
+        }
+
+        override public string ToString()
+        {
+            return Time.ToString("F1") + ", " + Power.ToString("G3");
         }
     }
 
