@@ -1,10 +1,10 @@
 ﻿## About \appname
 \appname is a macOS application for processing, analyzing, and presenting isothermal titration calorimetry (ITC) experiments. It takes you from raw instrument traces (power vs time), through baseline correction and peak integration, to model-based fitting. The app supports single-experiment fitting and global fitting across multiple experiments. It also includes utilities for planning experiments (\designer), combining tandem experiments (\merger), and generating publication-style figures and exports.
 # \appname focuses on:
-- **Baseline correction and peak integration** with per-injection control.
-- **Standard and advanced fitting workflows**, including global fitting with optional constraints.
-- **Further analysis**, \appname provides derived analysis schemes for appropriate data sets.
-- **Workflow utilities** (\designer, \merger, and export tools) to support planning, analysis, and reporting.
+**Baseline correction and peak integration** with per-injection control.
+**Standard and advanced fitting workflows**, including global fitting with optional constraints.
+**Further analysis**, \appname provides derived analysis schemes for appropriate data sets.
+**Workflow utilities** (\designer, \merger, and export tools) to support planning, analysis, and reporting.
 
 ## Getting Started
 When you open the app, you will see a dialog indicating that no data is loaded. The sections below provide a quick start guide; scroll down for more detailed descriptions of each part of the app.
@@ -45,9 +45,9 @@ This mode is more robust to spikes and baseline artifacts, but it may perform po
 The integration range is defined by the start time and the stop delay. By default, integration starts at the injection time and continues through most of the injection delay. To reduce integrated noise, shorten the integration length.
 
 \appname provides three options for setting the integration end point:
-- **Time:** Set the integration end time directly.
-- **Factor:** Set an integration length based on peak height.
-- **\peakfit:** Fit an exponential function to each peak.
+**Time:** Set the integration end time directly.
+**Factor:** Set an integration length based on peak height.
+**\peakfit:** Fit an exponential function to each peak.
 
 You can double-click or select injections in the injection list to set integration limits per injection. You can also drag the integration range markers to adjust them. Press **\space** to copy the select injection integration range to the next peak.
 # Setting Experiment Attributes
@@ -67,7 +67,7 @@ Additional analyses are available, such as evaluating temperature dependence to 
 
 ## Presenting the Data
 # Final Figure
-\appname can export publication-style figures from the **Final Figure view**. Use the three menus at the top of the view to adjust styling and layout.
+\appname can export publication-style figures from the Final Figure view. Use the three menus at the top of the view to adjust styling and layout.
 The displayed dimensions apply to the plot area only; they do not include space required for axis labels and legends. You can unify axes to use consistent axis limits across all currently active experiments.
 # Export Options
 \appname provides tools export data points (File > Export). It is possible to export **raw power-vs-time traces** for one or more experiments and **integrated heats per injection**. 
@@ -78,7 +78,7 @@ Several predefined export formats are available. These formats may include metad
 The \designer helps you plan an ITC experiment before you collect data. Use it to explore how choices such as cell concentration, syringe concentration, injection volumes, and the number of injections affect the expected titration curve and the information content of the experiment.
 # The Sample
 ITC does not require labeling, but it does require careful sample preparation and reliable concentration determination for accurate modeling.
-Remove bubbles before loading and consider **degassing** samples (vacuum degassing is common; high G centrifugation can also help reduce bubbles). Buffer mismatch between syringe and cell can produce large dilution heats that distort the baseline and bias fitted parameters.
+Remove bubbles before loading and consider degassing samples (vacuum degassing is common; high G centrifugation can also help reduce bubbles). Buffer mismatch between syringe and cell can produce large dilution heats that distort the baseline and bias fitted parameters.
 Degassing steps should be **done at the experimental temperature** to avoid later release of gas due to temperature changes.
 # Buffer Mismatch
 Buffer mismatch is often visible as unexpectedly large heats that do not disappear upon saturation of the binding partner in the cell. Offsets larger than ±10 kJ/mol can be consistent with buffer mismatch, depending on the system.
