@@ -147,6 +147,7 @@ namespace AnalysisITC
                 InjectionViewSegControl.Enabled = Data.Injections.Count > 0;
                 DataZoomSegControl.Enabled = true;
                 IntegrationModeSegControl.Enabled = true;
+                IntegrationModeSegControl.SelectedSegment = (int)Data.Processor.IntegrationLengthMode;
 
                 InjectionViewSegControl.SetLabel((BaselineGraphView.SelectedPeak + 1).ToString(), 1);
             }
@@ -314,8 +315,8 @@ namespace AnalysisITC
 
         float GetLengthSliderParameter() => Processor.IntegrationLengthMode switch
         {
-            // A factor from 1-10
-            InjectionData.IntegrationLengthMode.Factor => (float)Math.Pow(4, IntegrationLengthControl.FloatValue / IntegrationLengthControl.MaxValue),
+            // A factor from 1-5
+            InjectionData.IntegrationLengthMode.Factor => (float)Math.Pow(5, IntegrationLengthControl.FloatValue / IntegrationLengthControl.MaxValue),
             // The peak mode is fitting based, we don't care about the value
             InjectionData.IntegrationLengthMode.Fit => 0,
             // Time mode, return the slider value
@@ -326,7 +327,7 @@ namespace AnalysisITC
 
         float FactorToSlider(float value)
         {
-            return (float)(Math.Log(value, 4) * IntegrationLengthControl.MaxValue);
+            return (float)(Math.Log(value, 5) * IntegrationLengthControl.MaxValue);
         }
 
         void UpdateIntegrationEndPoint(float time_or_factor)
