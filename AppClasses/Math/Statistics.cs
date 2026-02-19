@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace AnalysisITC
 {
@@ -55,6 +56,16 @@ namespace AnalysisITC
             if (r > 0.999) r = 0.999;
             if (r < -0.999) r = -0.999;
             return Math.Min(r, 0.85);
+        }
+
+        public static float Median(List<float> list)
+        {
+            int count = list.Count;
+
+            if (count % 2 == 0)
+                return list.OrderBy(o => o).Skip((count / 2) - 1).Take(2).Average();
+            else
+                return list.OrderBy(x => x).ElementAt(count / 2);
         }
     }
 }
