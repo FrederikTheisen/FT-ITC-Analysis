@@ -14,6 +14,7 @@ namespace AnalysisITC
         public static event EventHandler OpenFileDialog;
         public static event EventHandler StartPrintOperation;
         public static event EventHandler OpenMergeTool;
+        public static event EventHandler OpenSubtractionTool;
 
         NSOpenPanel FileDialog { get; set; }
          
@@ -64,6 +65,7 @@ namespace AnalysisITC
                 case "sortbyionic": return DataManager.DataIsLoaded && DataManager.Data.Any(d => d.Attributes.Count > 0);
                 case "copyattributes": return DataManager.DataIsLoaded && DataManager.SelectedIsData && DataManager.Current.Attributes.Count > 0;
                 case "mergetool": return DataManager.DataIsLoaded;
+                case "buffersub": return DataManager.Data.Count >= 2;
             }
 
             return true;
@@ -89,6 +91,11 @@ namespace AnalysisITC
         partial void OpenMergeToolAction(NSObject sender)
         {
             OpenMergeTool.Invoke(this, null);
+        }
+
+        partial void OpenBufferSubTool(NSObject sender)
+        {
+            OpenSubtractionTool?.Invoke(this, null);
         }
 
         partial void Print(NSMenuItem sender)

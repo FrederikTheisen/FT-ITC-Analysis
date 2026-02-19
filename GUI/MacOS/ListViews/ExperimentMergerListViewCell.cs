@@ -10,7 +10,7 @@ using CoreGraphics;
 
 namespace AnalysisITC
 {
-    public class MergeExperimentItem
+    public partial class MergeExperimentItem
     {
         public string UniqueID { get; } = Guid.NewGuid().ToString();
 
@@ -54,22 +54,9 @@ namespace AnalysisITC
             var data = item.Data;
 
             TitleLabel.StringValue = data.FileName;
-
-            // Time-of-day emphasized:
-            var local = data.Date.ToLocalTime();
-            //DateLabel.StringValue = local.ToString("yyyy-MM-dd  HH:mm");
-
-            // Keep this minimal; add more if you want.
-            //InfoLabel.StringValue =
-            //    data.MeasuredTemperature.ToString("G3") + " °C";
-
-            //ActiveButton.State = item.IsActive ? NSCellStateValue.On : NSCellStateValue.Off;
-
-            // Visual de-emphasis when inactive
-            var alpha = item.IsActive ? 1.0f : 0.45f;
-            //FileNameLabel.AlphaValue = alpha;
-            //DateLabel.AlphaValue = alpha;
-            //InfoLabel.AlphaValue = alpha;
+            DateLabel.StringValue = "Date: " + data.UIShortDateWithTime;
+            if (!string.IsNullOrEmpty(data.Comments)) CommentLabel.StringValue = "Comments: " + data.Comments;
+            else CommentLabel.StringValue = "Info: " + data.MeasuredTemperature.ToString("G3") + " °C | " + data.SyringeConcentration.AsFormattedConcentration(true) + " | " + data.CellConcentration.AsFormattedConcentration(true);
 
             MoveUpControl.Enabled = row > 0;
             MoveDownControl.Enabled = row < source.Items.Count - 1;

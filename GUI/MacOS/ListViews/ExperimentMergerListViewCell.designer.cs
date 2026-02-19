@@ -13,6 +13,12 @@ namespace AnalysisITC
 	partial class ExperimentMergerListViewCell
 	{
 		[Outlet]
+		AppKit.NSTextField CommentLabel { get; set; }
+
+		[Outlet]
+		AppKit.NSTextField DateLabel { get; set; }
+
+		[Outlet]
 		AppKit.NSButton MoveDownControl { get; set; }
 
 		[Outlet]
@@ -29,9 +35,9 @@ namespace AnalysisITC
 		
 		void ReleaseDesignerOutlets ()
 		{
-			if (TitleLabel != null) {
-				TitleLabel.Dispose ();
-				TitleLabel = null;
+			if (MoveDownControl != null) {
+				MoveDownControl.Dispose ();
+				MoveDownControl = null;
 			}
 
 			if (MoveUpControl != null) {
@@ -39,9 +45,19 @@ namespace AnalysisITC
 				MoveUpControl = null;
 			}
 
-			if (MoveDownControl != null) {
-				MoveDownControl.Dispose ();
-				MoveDownControl = null;
+			if (TitleLabel != null) {
+				TitleLabel.Dispose ();
+				TitleLabel = null;
+			}
+
+			if (DateLabel != null) {
+				DateLabel.Dispose ();
+				DateLabel = null;
+			}
+
+			if (CommentLabel != null) {
+				CommentLabel.Dispose ();
+				CommentLabel = null;
 			}
 		}
 	}

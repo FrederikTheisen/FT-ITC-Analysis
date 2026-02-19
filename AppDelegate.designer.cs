@@ -35,6 +35,9 @@ namespace AnalysisITC
 		[Action ("ExportPeaksAction:")]
 		partial void ExportPeaksAction (AppKit.NSMenuItem sender);
 
+		[Action ("OpenBufferSubTool:")]
+		partial void OpenBufferSubTool (Foundation.NSObject sender);
+
 		[Action ("OpenMergeToolAction:")]
 		partial void OpenMergeToolAction (Foundation.NSObject sender);
 

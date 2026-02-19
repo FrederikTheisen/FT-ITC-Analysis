@@ -33,6 +33,7 @@ namespace AnalysisITC
             ResultAnalysisController.AnalysisFinished += StopableProcessFinished;
             SolverInterface.AnalysisFinished += StopableProcessFinished;
             AppDelegate.OpenMergeTool += OpenTool;
+            AppDelegate.OpenSubtractionTool += OpenSubtractionTool;
 
             AppEventHandler.ShowAppMessage += OnShowAppMessage;
 
@@ -81,6 +82,11 @@ namespace AnalysisITC
         private void OpenTool(object sender, EventArgs e)
         {
             PerformSegue("ShowExperimentMergerToolSegue", this);
+        }
+
+        private void OpenSubtractionTool(object sender, EventArgs e)
+        {
+            PerformSegue("ShowBufferSubtractionToolSegue", this);
         }
 
         private void StateManager_UpdateStateDependentUI(object sender, EventArgs e)
