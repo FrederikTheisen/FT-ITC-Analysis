@@ -11,6 +11,7 @@
     <TargetFrameworkVersion>v2.0</TargetFrameworkVersion>
     <MonoMacResourcePrefix>Resources</MonoMacResourcePrefix>
     <TargetFrameworkIdentifier>Xamarin.Mac</TargetFrameworkIdentifier>
+    <XamMacArch>x86_64,ARM64</XamMacArch>
     <ReleaseVersion>1.1</ReleaseVersion>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
@@ -32,7 +33,6 @@
     <LangVersion>9.0</LangVersion>
     <LinkMode>None</LinkMode>
     <PackageSigningKey>3rd Party Mac Developer Installer</PackageSigningKey>
-    <XamMacArch>x86_64</XamMacArch>
     <CodesignProvision></CodesignProvision>
     <NoWarn>MMP</NoWarn>
   </PropertyGroup>
@@ -473,6 +473,10 @@
       <DependentUpon>TechnicalDetailsViewController.cs</DependentUpon>
     </Compile>
     <Compile Include="AppClasses\Math\Statistics.cs" />
+    <Compile Include="GUI\MacOS\ViewControllers\BufferSubtractionTool.cs" />
+    <Compile Include="GUI\MacOS\ViewControllers\BufferSubtractionTool.designer.cs">
+      <DependentUpon>BufferSubtractionTool.cs</DependentUpon>
+    </Compile>
   </ItemGroup>
   <ItemGroup>
     <InterfaceDefinition Include="Main.storyboard" />
