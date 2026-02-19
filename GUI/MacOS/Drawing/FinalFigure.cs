@@ -190,6 +190,7 @@ namespace AnalysisITC
             DataGraph.XAxis.SetMaxTicks(datax);
             IntegrationGraph.YAxis.SetMaxTicks(fity);
             IntegrationGraph.XAxis.SetMaxTicks(fitx);
+            IntegrationGraph.ResidualGraph.XAxis.SetMaxTicks(fitx);
         }
 
         #endregion
