@@ -165,7 +165,7 @@ namespace AnalysisITC.AppClasses.Analysis2.Models
             {
                 var res = Residual(inj);
 
-                if (errorweighted) res /= inj.SD;
+                if (errorweighted) res /= Math.Max(inj.SD, 1);
 
                 loss += res * res;
             }
@@ -183,7 +183,7 @@ namespace AnalysisITC.AppClasses.Analysis2.Models
             foreach (var inj in Data.Injections.Where(i => i.Include))
             {
                 var res = Residual(inj);
-                if (errorweighted) res /= inj.SD;
+                if (errorweighted) res /= Math.Max(inj.SD, 1);
                 loss[i] = res;
 
                 i++;
