@@ -32,7 +32,6 @@ namespace AnalysisITC
             ExportDataColumnControl.SetSelected(AppSettings.ExportColumns.HasFlag(ExportColumns.Peak), 4);
             ExportDataColumnControl.SetSelected(AppSettings.ExportColumns.HasFlag(ExportColumns.Fit), 5);
 
-
             FinalFigHeightField.StringValue = AppSettings.FinalFigureDimensions[1].ToString();
             FinalFigWidthField.StringValue = AppSettings.FinalFigureDimensions[0].ToString();
 
@@ -47,6 +46,14 @@ namespace AnalysisITC
             FinalFigParameterDisplayOptions.SetSelected(AppSettings.FinalFigureParameterDisplay.HasFlag(FinalFigureDisplayParameters.Temperature), 4);
             FinalFigParameterDisplayOptions.SetSelected(AppSettings.FinalFigureParameterDisplay.HasFlag(FinalFigureDisplayParameters.Concentrations), 5);
 
+            FinalFigAttributeDisplay.SetSelected(AppSettings.DisplayAttributeOptions.HasFlag(DisplayAttributeOptions.UsedInAnalysis), 0);
+            FinalFigAttributeDisplay.SetSelected(AppSettings.DisplayAttributeOptions.HasFlag(DisplayAttributeOptions.Buffer), 1);
+            FinalFigAttributeDisplay.SetSelected(AppSettings.DisplayAttributeOptions.HasFlag(DisplayAttributeOptions.Salt), 2);
+            FinalFigAttributeDisplay.SetSelected(AppSettings.DisplayAttributeOptions.HasFlag(DisplayAttributeOptions.IonicStrength), 3);
+            FinalFigAttributeDisplay.SetSelected(AppSettings.DisplayAttributeOptions.HasFlag(DisplayAttributeOptions.ProtonationEnthalpy), 4);
+            FinalFigAttributeDisplay.SetSelected(AppSettings.DisplayAttributeOptions.HasFlag(DisplayAttributeOptions.Competitor), 5);
+
+
             ShowParameterAsDefaultCheck.State = AppSettings.FinalFigureShowParameterBoxAsDefault ? NSCellStateValue.On : NSCellStateValue.Off;
 
             FitLineSmoothnessControl.SelectedSegment = (int)AppSettings.FitLineSmoothness;
@@ -56,7 +63,6 @@ namespace AnalysisITC
         {
             AppSettings.ExportSelectionMode = (ExportDataSelection)(int)ExportSelectedControl.SelectedSegment;
             AppSettings.UnifyTimeAxisForExport = UnifyAxesControl.SelectedSegment == 0;
-            AppSettings.ExportFitPointsWithPeaks = ExportSolutionPointsControl.State == NSCellStateValue.On;
             AppSettings.FinalFigureShowParameterBoxAsDefault = ShowParameterAsDefaultCheck.State == NSCellStateValue.On;
 
             AppSettings.ExportColumns = ExportColumns.None;
