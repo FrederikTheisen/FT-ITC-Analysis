@@ -181,12 +181,12 @@
     <Folder Include="GUI\MacOS\ListViews\" />
     <Folder Include="AppClasses\Analysis2\Models\" />
     <Folder Include="AppClasses\DataClasses\" />
-    <Folder Include="AppClasses\AnalysisClasses\ResultAnalysis\" />
     <Folder Include="GUI\MacOS\ViewControllers\SettingsViews\" />
     <Folder Include="GUI\MacOS\ViewControllers\MainViews\" />
     <Folder Include="AppClasses\UnitClasses\" />
     <Folder Include="GUI\MacOS\PopOptionViewControllers\FinalFigureOptions\" />
     <Folder Include="AppClasses\Analysis2\Kinetics\" />
+    <Folder Include="AppClasses\AnalysisClasses\AdvancedAnalysis\" />
   </ItemGroup>
   <ItemGroup>
     <None Include="Info.plist" />
@@ -367,7 +367,7 @@
     <Compile Include="AppClasses\DataClasses\Salt.cs" />
     <Compile Include="AppClasses\DataClasses\ITCInstrument.cs" />
     <Compile Include="AppClasses\DataClasses\AnalysisResult.cs" />
-    <Compile Include="AppClasses\AnalysisClasses\ResultAnalysis\ResultAnalysis.cs" />
+    <Compile Include="AppClasses\AnalysisClasses\ResultAnalysis\AdvancedAnalysis.cs" />
     <Compile Include="GUI\MacOS\GraphViews\ResultGraphView.cs" />
     <Compile Include="GUI\MacOS\GraphViews\ResultGraphView.designer.cs">
       <DependentUpon>ResultGraphView.cs</DependentUpon>
@@ -476,6 +476,10 @@
     <Compile Include="GUI\MacOS\ViewControllers\BufferSubtractionTool.cs" />
     <Compile Include="GUI\MacOS\ViewControllers\BufferSubtractionTool.designer.cs">
       <DependentUpon>BufferSubtractionTool.cs</DependentUpon>
+    </Compile>
+    <Compile Include="GuideHintViewController.cs" />
+    <Compile Include="GuideHintViewController.designer.cs">
+      <DependentUpon>GuideHintViewController.cs</DependentUpon>
     </Compile>
   </ItemGroup>
   <ItemGroup>
