@@ -79,7 +79,7 @@ namespace AnalysisITC.AppClasses.AnalysisClasses
 				switch (Key)
 				{
 					case AttributeKey.Buffer: return BufferAttribute.GetUIBuffers().Select(b => new Tuple<int, string, string>((int)b, b.ToString(), b.GetTooltip()));
-					case AttributeKey.Salt: return SaltAttribute.GetSalts().Select(b => new Tuple<int, string, string>((int)b, b.GetProperties().Name, ""));
+					case AttributeKey.Salt: return SaltAttribute.GetSalts().Select(b => new Tuple<int, string, string>((int)b, b.GetProperties().AttributedName, ""));
                     default: throw new Exception("Attribute Configuration Error");
                 }
 			}

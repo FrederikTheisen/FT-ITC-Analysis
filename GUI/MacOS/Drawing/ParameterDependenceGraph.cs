@@ -229,6 +229,9 @@ namespace AnalysisITC
             var xrange = XAxis.Max - XAxis.Min;
             var xpoints = new List<double>();
 
+            // In case xrange is zero
+            if (xrange < 1E-9f) xrange = 1;
+
             for (var x = XAxis.Min; x <= XAxis.Max; x += xrange / 10) { xpoints.Add(x); }
             xpoints.Add(XAxis.Max);
 

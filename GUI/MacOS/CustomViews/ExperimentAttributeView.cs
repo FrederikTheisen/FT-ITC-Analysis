@@ -175,6 +175,7 @@ namespace AnalysisITC.GUI.MacOS.CustomViews
             {
                 Bordered = false,
                 TranslatesAutoresizingMaskIntoConstraints = false,
+                StringValue = Option.DoubleValue.ToString("F2"),
                 PlaceholderString = Option.DoubleValue.ToString("F2"),
                 BezelStyle = NSTextFieldBezelStyle.Rounded,
                 FocusRingType = NSFocusRingType.None,
@@ -233,6 +234,7 @@ namespace AnalysisITC.GUI.MacOS.CustomViews
                 Bordered = false,
                 TranslatesAutoresizingMaskIntoConstraints = false,
                 PlaceholderString = value.Value.ToString("F1"),
+                StringValue = value.Value.ToString("F1"),
                 //DoubleValue = value.Value,
                 ToolTip = "Value for the given property",
                 BezelStyle = NSTextFieldBezelStyle.Rounded,
@@ -271,6 +273,7 @@ namespace AnalysisITC.GUI.MacOS.CustomViews
                     Bordered = false,
                     TranslatesAutoresizingMaskIntoConstraints = false,
                     PlaceholderString = value.SD.ToString("F1"),
+                    StringValue = value.SD.ToString("F1"),
                     //DoubleValue = value.SD,
                     ToolTip = "Error value for the given property",
                     BezelStyle = NSTextFieldBezelStyle.Rounded,
@@ -305,7 +308,7 @@ namespace AnalysisITC.GUI.MacOS.CustomViews
             btn.LineBreakMode = NSLineBreakMode.TruncatingMiddle;
 
             btn.Menu = new NSMenu();
-            btn.Menu.AddItem(new NSMenuItem("Select"));
+            btn.Menu.AddItem(new NSMenuItem("Select") { Tag = -1 });
 
             return btn;
         }
@@ -404,6 +407,7 @@ namespace AnalysisITC.GUI.MacOS.CustomViews
         {
             switch (Option.Key)
             {
+                case AttributeKey.Salt:
                 case AttributeKey.Buffer:
                     switch ((Buffer)(int)EnumPopUpControl.SelectedTag)
                     {
@@ -446,11 +450,6 @@ namespace AnalysisITC.GUI.MacOS.CustomViews
         public void ApplyOption(ExperimentData experiment)
         {
             if (Option.Key == AttributeKey.Null) return;
-
-            //if (!experiment.Attributes.Exists(opt => opt.Key == Option.Key))
-            //{
-                experiment.Attributes.Add(Option);
-            //}
 
             switch (Option.Key)
             {
@@ -495,12 +494,14 @@ namespace AnalysisITC.GUI.MacOS.CustomViews
                 case AttributeKey.Salt:
                     {
                         Option.IntValue = (int)EnumPopUpControl.SelectedTag;
+                        if (Option.IntValue == -1) return;
                         if (!string.IsNullOrEmpty(ParameterField.StringValue)) Option.ParameterValue = new(ParameterField.DoubleValue / 1000, 0);
                         break;
                     }
                 case AttributeKey.Buffer:
                     {
                         Option.IntValue = (int)EnumPopUpControl.SelectedTag;
+                        if (Option.IntValue == -1) return;
                         if (!string.IsNullOrEmpty(DoubleField.StringValue)) Option.DoubleValue = DoubleField.DoubleValue;
                         if (!string.IsNullOrEmpty(ParameterField.StringValue)) Option.ParameterValue = new(ParameterField.DoubleValue / 1000, 0);
                         break;
@@ -515,11 +516,16 @@ namespace AnalysisITC.GUI.MacOS.CustomViews
                         var idx = (int)EnumPopUpControl.SelectedTag;
                         if (idx != -1)
                         {
-                            Option.StringValue = DataManager.Data[idx].UniqueID;
+                            var reference = DataManager.Data[idx];
+                            experiment.SetReferenceExperiment(reference);
+
+                            return;
                         }
                         break;
                     }
             }
+
+            experiment.Attributes.Add(Option);
         }
     }
 }

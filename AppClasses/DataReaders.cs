@@ -11,6 +11,8 @@ using Foundation;
 using AnalysisITC.AppClasses.AnalysisClasses;
 using AnalysisITC.AppClasses.Analysis2.Models;
 using AnalysisITC.AppClasses.Analysis2;
+using System.Text.RegularExpressions;
+using System.Globalization;
 
 namespace DataReaders
 {
@@ -218,7 +220,98 @@ namespace DataReaders
         {
             experiment.MeasuredTemperature = experiment.DataPoints.Average(dp => dp.Temperature);
 
+            // Try to extract attributes from comments
+            if (!string.IsNullOrEmpty(experiment.Comments))
+            {
+                var comment = experiment.Comments;
+
+                // Global pH fallback (if comment says "pH 7.4" once, apply to buffers that don’t have a local pH match)
+                double? globalPH = null;
+                {
+                    var m = Regex.Match(comment, @"\bpH\s*[:=]?\s*([+-]?\d+(?:[.,]\d+)?)", RegexOptions.IgnoreCase);
+                    if (m.Success && TryParseNumber(m.Groups[1].Value, out var ph)) globalPH = ph;
+                }
+
+                // Special buffers (expand into explicit components)
+                if (Regex.IsMatch(comment, @"\b(1x)?PBS\b", RegexOptions.IgnoreCase))
+                    BufferAttribute.SetupSpecialBuffer(experiment.Attributes, AnalysisITC.Buffer.PBS);
+                if (Regex.IsMatch(comment, @"\b(1x)?TBS\b", RegexOptions.IgnoreCase))
+                    BufferAttribute.SetupSpecialBuffer(experiment.Attributes, AnalysisITC.Buffer.TBS);
+
+                // ---------- Salt ----------
+                foreach (var salt in SaltAttribute.GetSalts())
+                {
+                    var sname = salt.GetProperties().Name;
+
+                    if (!Regex.IsMatch(comment, $@"(?<![A-Za-z0-9]){Regex.Escape(sname)}(?![A-Za-z0-9])", RegexOptions.IgnoreCase))
+                        continue;
+
+                    if (HasAttribute(experiment.Attributes, AttributeKey.Salt, (int)salt))
+                        continue;
+
+                    if (!ConcentrationUnitAttribute.TryExtractConcentrationM(comment, sname, out var concM))
+                        continue;
+
+                    var att = ExperimentAttribute.FromKey(AttributeKey.Salt);
+                    att.IntValue = (int)salt;
+                    att.ParameterValue = new FloatWithError(concM, 0);
+                    experiment.Attributes.Add(att);
+                }
+
+                // ---------- Buffer ----------
+                foreach (var buffer in BufferAttribute.GetBuffers())
+                {
+                    // Accept "PBS"/"TBS" as well as the enum names ("1xPBS"/"1xTBS")
+                    var bname = buffer.GetProperties().Name;
+                    var bnames = (buffer == AnalysisITC.Buffer.PBS) ? new[] { "PBS", "1xPBS" }
+                               : (buffer == AnalysisITC.Buffer.TBS) ? new[] { "TBS", "1xTBS" }
+                               : new[] { bname };
+
+                    bool matched = false;
+                    string matchedName = bname;
+
+                    foreach (var bn in bnames)
+                    {
+                        if (Regex.IsMatch(comment, $@"(?<![A-Za-z0-9]){Regex.Escape(bn)}(?![A-Za-z0-9])", RegexOptions.IgnoreCase))
+                        {
+                            matched = true;
+                            matchedName = bn;
+                            break;
+                        }
+                    }
+
+                    if (!matched) continue;
+                    if (HasAttribute(experiment.Attributes, AttributeKey.Buffer, (int)buffer)) continue;
+
+                    if (!ConcentrationUnitAttribute.TryExtractConcentrationM(comment, matchedName, out var concM))
+                        continue;
+
+                    var att = ExperimentAttribute.FromKey(AttributeKey.Buffer);
+                    att.IntValue = (int)buffer;
+                    att.ParameterValue = new FloatWithError(concM, 0);
+
+                    if (AnalysisITC.BufferAttribute.TryExtractPH(comment, matchedName, out var pH)) att.DoubleValue = pH;
+                    else if (globalPH.HasValue) att.DoubleValue = globalPH.Value;
+
+                    experiment.Attributes.Add(att);
+                }
+            }
+
             //experiment.CalculatePeakHeatDirection();
+        }
+
+        static bool HasAttribute(List<ExperimentAttribute> atts, AttributeKey key, int intValue) => atts.Any(a => a.Key == key && a.IntValue == intValue);
+
+        static bool TryParseNumber(string s, out double v)
+        {
+            v = 0;
+            if (string.IsNullOrWhiteSpace(s)) return false;
+
+            // allow both "7.4" and "7,4"
+            var t = s.Trim();
+            if (t.Count(c => c == ',') == 1 && !t.Contains('.')) t = t.Replace(',', '.');
+
+            return double.TryParse(t, NumberStyles.Float, CultureInfo.InvariantCulture, out v);
         }
     }
 

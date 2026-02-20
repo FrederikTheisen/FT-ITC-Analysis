@@ -52,6 +52,7 @@ namespace AnalysisITC
             SyringeConcentrationField.DoubleValue = Data.SyringeConcentration * 1000000;
             if (Data.SyringeConcentration.HasError) SyringeConcentrationErrorField.DoubleValue = Data.SyringeConcentration.SD * 1000000;
             TemperatureField.DoubleValue = Data.MeasuredTemperature;
+            CommentTextField.StringValue = Data.Comments;
 
             foreach (var opt in tmpoptions)
             {
@@ -123,24 +124,45 @@ namespace AnalysisITC
 
         partial void Apply(NSObject sender)
         {
-            if (!string.IsNullOrEmpty(SyringeConcentrationField.StringValue)) Data.SyringeConcentration = new(SyringeConcentrationField.DoubleValue / 1000000, SyringeConcentrationErrorField.DoubleValue / 1000000);
-            if (!string.IsNullOrEmpty(CellConcentrationField.StringValue)) Data.CellConcentration = new(CellConcentrationField.DoubleValue / 1000000, CellConcentrationErrorField.DoubleValue / 1000000);
-            if (!string.IsNullOrEmpty(TemperatureField.StringValue)) Data.MeasuredTemperature = TemperatureField.DoubleValue;
-            if (!string.IsNullOrEmpty(ExperimentNameField.StringValue)) Data.FileName = ExperimentNameField.StringValue;
+            // Outer scope try catch just in case
+            try
+            {
+                if (!string.IsNullOrEmpty(SyringeConcentrationField.StringValue)) Data.SyringeConcentration = new(SyringeConcentrationField.DoubleValue / 1000000, SyringeConcentrationErrorField.DoubleValue / 1000000);
+                if (!string.IsNullOrEmpty(CellConcentrationField.StringValue)) Data.CellConcentration = new(CellConcentrationField.DoubleValue / 1000000, CellConcentrationErrorField.DoubleValue / 1000000);
+                if (!string.IsNullOrEmpty(TemperatureField.StringValue)) Data.MeasuredTemperature = TemperatureField.DoubleValue;
+                if (!string.IsNullOrEmpty(ExperimentNameField.StringValue)) Data.FileName = ExperimentNameField.StringValue;
 
-            Data.Attributes.Clear();
+                Data.Attributes.Clear();
 
-            foreach (var sv in AttributeStackView.Subviews) (sv as ExperimentAttributeView).ApplyOption(Data);
+                foreach (var sv in AttributeStackView.Subviews)
+                {
+                    // Try catch that should not delete other attributes of one fails
+                    try
+                    {
+                        (sv as ExperimentAttributeView).ApplyOption(Data);
+                    }
+                    catch (Exception ex)
+                    {
+                        AppEventHandler.DisplayHandledException(ex);
+                    }
+                }
 
-            DataReaders.RawDataReader.ProcessInjections(Data);
+                DataReaders.RawDataReader.ProcessInjections(Data);
 
-            // Ensure reference experiment is subtracted immediately
-            var proc = new DataProcessor(Data);
-            proc.IntegratePeaks();
+                // Ensure reference experiment is subtracted immediately
+                var proc = new DataProcessor(Data);
+                proc.IntegratePeaks();
 
-            DismissViewController(this);
+                Data.Comments = CommentTextField.StringValue;
 
-            UpdateTable?.Invoke(this, null);
+                DismissViewController(this);
+
+                UpdateTable?.Invoke(this, null);
+            }
+            catch (Exception ex)
+            {
+                AppEventHandler.DisplayHandledException(ex);
+            }
         }
 
         partial void Cancel(NSObject sender)

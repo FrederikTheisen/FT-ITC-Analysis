@@ -25,6 +25,9 @@ namespace AnalysisITC
 		AppKit.NSTextField CellConcentrationField { get; set; }
 
 		[Outlet]
+		AppKit.NSTextField CommentTextField { get; set; }
+
+		[Outlet]
 		AppKit.NSTextField ExperimentNameField { get; set; }
 
 		[Outlet]
@@ -47,6 +50,11 @@ namespace AnalysisITC
 		
 		void ReleaseDesignerOutlets ()
 		{
+			if (AddAttributeButton != null) {
+				AddAttributeButton.Dispose ();
+				AddAttributeButton = null;
+			}
+
 			if (AttributeStackView != null) {
 				AttributeStackView.Dispose ();
 				AttributeStackView = null;
@@ -60,6 +68,11 @@ namespace AnalysisITC
 			if (CellConcentrationField != null) {
 				CellConcentrationField.Dispose ();
 				CellConcentrationField = null;
+			}
+
+			if (CommentTextField != null) {
+				CommentTextField.Dispose ();
+				CommentTextField = null;
 			}
 
 			if (ExperimentNameField != null) {
@@ -80,11 +93,6 @@ namespace AnalysisITC
 			if (TemperatureField != null) {
 				TemperatureField.Dispose ();
 				TemperatureField = null;
-			}
-
-			if (AddAttributeButton != null) {
-				AddAttributeButton.Dispose ();
-				AddAttributeButton = null;
 			}
 		}
 	}

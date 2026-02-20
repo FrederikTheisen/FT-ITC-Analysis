@@ -205,6 +205,8 @@ namespace AnalysisITC
 
         public void SetReferenceExperiment(ExperimentData reference)
         {
+            if (reference.UniqueID == UniqueID) throw new Exception("Attempting to set reference experiment to itself");
+
             // Clear previous setting
             Attributes.RemoveAll(att => att.Key == AttributeKey.BufferSubtraction);
 

@@ -1,6 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
+using System.Text.RegularExpressions;
 using AnalysisITC.AppClasses.AnalysisClasses;
 using AnalysisITC.Utilities;
 
@@ -421,6 +423,40 @@ namespace AnalysisITC
 		{
             return (from Buffer buffer in Enum.GetValues(typeof(Buffer)) select buffer).Where(enumidx => (int)enumidx >= 0).ToList();
         }
-	}
+
+        public static bool TryExtractPH(string text, string name, out double pH)
+        {
+            pH = 0;
+
+            var esc = Regex.Escape(name);
+            var mName = Regex.Match(text, $@"(?<![A-Za-z0-9]){esc}(?![A-Za-z0-9])", RegexOptions.IgnoreCase);
+            if (!mName.Success) return false;
+
+            // Search a local window around the buffer name
+            int start = Math.Max(0, mName.Index - 40);
+            int len = Math.Min(text.Length - start, 140);
+            var window = text.Substring(start, len);
+
+            var m = Regex.Match(window, @"\bpH\s*[:=]?\s*([+-]?\d+(?:[.,]\d+)?)", RegexOptions.IgnoreCase);
+            if (!m.Success)
+                m = Regex.Match(window, @"([+-]?\d+(?:[.,]\d+)?)\s*pH\b", RegexOptions.IgnoreCase);
+
+            if (!m.Success) return false;
+
+            return TryParseNumber(m.Groups[1].Value, out pH);
+
+            static bool TryParseNumber(string s, out double v)
+            {
+                v = 0;
+                if (string.IsNullOrWhiteSpace(s)) return false;
+
+                // allow both "7.4" and "7,4"
+                var t = s.Trim();
+                if (t.Count(c => c == ',') == 1 && !t.Contains('.')) t = t.Replace(',', '.');
+
+                return double.TryParse(t, NumberStyles.Float, CultureInfo.InvariantCulture, out v);
+            }
+        }
+    }
 }
 

@@ -40,19 +40,22 @@ namespace AnalysisITC
 
     public class SaltAttribute : Attribute
     {
-        public string Name { get; private set; } = "";
+        public string Name { get; set; } = "";
+        public string AttributedName { get; private set; } = "";
         public int IonicStrength { get; private set; } = 1;
         public int Activity { get; private set; } = 2;
 
         public SaltAttribute(string name = "", int ionicstrength = 1)
         {
-            Name = name;
+            Name = name.Replace("{", "").Replace("}", "");
+            AttributedName = name;
             IonicStrength = ionicstrength;
         }
 
         public SaltAttribute(string name = "", int ionicstrength = 1, int activity = 2)
         {
-            Name = name;
+            Name = name.Replace("{", "").Replace("}", "");
+            AttributedName = name;
             IonicStrength = ionicstrength;
             Activity = activity;
         }

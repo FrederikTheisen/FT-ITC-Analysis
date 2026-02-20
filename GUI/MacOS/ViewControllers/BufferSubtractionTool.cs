@@ -49,8 +49,7 @@ namespace AnalysisITC
 
             foreach (var exp in DataManager.Data)
             {
-                var local = exp.Date.ToLocalTime();
-                var title = $"{exp.FileName} — {local:HH:mm}";
+                var title = $"{exp.FileName} — {exp.Date:HH:mm}";
                 ReferenceExperimentSelection.AddItem(title);
             }
 
@@ -113,19 +112,26 @@ namespace AnalysisITC
 
         partial void Apply(NSObject sender)
         {
-            var reference = GetSelectedReference();
-            var targets = CaptureSelectedIDs(SelectListView, mergeSource);
-
-            foreach (var target in targets)
+            try
             {
-                if (target == reference) continue;
+                var reference = GetSelectedReference();
+                var targets = CaptureSelectedIDs(SelectListView, mergeSource);
 
-                AppEventHandler.PrintAndLog($"Adding buffer reference ({reference.FileName}) to {target.FileName}");
+                foreach (var target in targets)
+                {
+                    if (target == reference) continue;
 
-                target.SetReferenceExperiment(reference);
+                    AppEventHandler.PrintAndLog($"Adding buffer reference ({reference.FileName}) to {target.FileName}");
+
+                    target.SetReferenceExperiment(reference);
+                }
+
+                DismissViewController(this);
             }
-
-            DismissViewController(this);
+            catch (Exception ex)
+            {
+                AppEventHandler.DisplayHandledException(ex);
+            }
         }
     }
 }
