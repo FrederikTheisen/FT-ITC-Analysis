@@ -26,25 +26,17 @@ namespace AnalysisITC
             mergeSource.SetFromOpenExperiments(defaultActiveFromInclude: false); // uses DataManager.Data / Include :contentReference[oaicite:5]{index=5}
 
             mergeDelegate = new ExperimentMergeQueueDelegate(mergeSource);
-            mergeDelegate.QueueChanged += (_, __) =>
-            {
-
-            };
             mergeDelegate.SelectionChanged += (_, __) =>
             {
-                //ValidateMergeButton();
+                ValidateApplyButton();
             };
 
             SelectListView.DataSource = mergeSource;
             SelectListView.Delegate = mergeDelegate;
-
             SelectListView.ReloadData();
 
-            //SetupMethodControls();
-
-            //ValidateMergeButton();
-
             PopulateReferencePopup();
+            ValidateApplyButton();
         }
 
         void PopulateReferencePopup()
@@ -63,8 +55,8 @@ namespace AnalysisITC
             }
 
             // Default selection (first real item if exists)
-            if (ReferenceExperimentSelection.Menu.Count > 0)
-                ReferenceExperimentSelection.SelectItem(1);
+            //if (ReferenceExperimentSelection.Menu.Count > 0)
+            //    ReferenceExperimentSelection.SelectItem(1);
         }
 
         partial void ReferenceSelectionChanged(NSPopUpButton sender)
@@ -77,13 +69,16 @@ namespace AnalysisITC
 
             if (reference != null)
             {
-                info = reference.FileName + Environment.NewLine;
-                info += reference.UILongDateWithTime + Environment.NewLine;
-                info += reference.MeasuredTemperature.ToString("G3") + " °C | " + reference.SyringeConcentration.AsFormattedConcentration(true) + " | " + reference.CellConcentration.AsFormattedConcentration(true) + Environment.NewLine;
-                info += reference.Comments;  
+                info = "Experiment: " + reference.FileName + Environment.NewLine;
+                info += "Date: " + reference.UILongDateWithTime + Environment.NewLine;
+                info += "Details: " + reference.MeasuredTemperature.ToString("G3") + " °C | [syringe] = " + reference.SyringeConcentration.AsFormattedConcentration(true) + " | [cell] = " + reference.CellConcentration.AsFormattedConcentration(true) + Environment.NewLine;
+                if (!string.IsNullOrEmpty(reference.Comments)) info += "Comments: " + reference.Comments;
+                if (reference.Processor == null || !reference.Processor.IntegrationCompleted) info += Environment.NewLine + "NOT YET PROCESSED";
             }
 
             ReferenceExperimentInfoLabel.StringValue = info;
+
+            ValidateApplyButton();
         }
 
         ExperimentData GetSelectedReference()
@@ -108,6 +103,14 @@ namespace AnalysisITC
             return ids;
         }
 
+        void ValidateApplyButton()
+        {
+            var reference = GetSelectedReference();
+            var targets = CaptureSelectedIDs(SelectListView, mergeSource);
+
+            ApplyButton.Enabled = (reference != null && targets.Where(t => t != reference).Count() > 0);
+        }
+
         partial void Apply(NSObject sender)
         {
             var reference = GetSelectedReference();
@@ -119,7 +122,7 @@ namespace AnalysisITC
 
                 AppEventHandler.PrintAndLog($"Adding buffer reference ({reference.FileName}) to {target.FileName}");
 
-                target.Attributes.Add(AppClasses.AnalysisClasses.ExperimentAttribute.ExperimentReference("Reference", reference.UniqueID));
+                target.SetReferenceExperiment(reference);
             }
 
             DismissViewController(this);

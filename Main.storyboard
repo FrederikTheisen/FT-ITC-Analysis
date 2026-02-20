@@ -2609,17 +2609,17 @@ In most cases, interpretation of affinities provided by ITC is straightforward, 
             <objects>
                 <viewController title="Buffer Subtraction Tool" id="Bde-GA-GrI" customClass="BufferSubtractionTool" sceneMemberID="viewController">
                     <view key="view" id="TAn-zL-CfY">
-                        <rect key="frame" x="0.0" y="0.0" width="470" height="443"/>
+                        <rect key="frame" x="0.0" y="0.0" width="470" height="475"/>
                         <autoresizingMask key="autoresizingMask"/>
                         <subviews>
                             <stackView distribution="fill" orientation="vertical" alignment="leading" horizontalStackHuggingPriority="250" verticalStackHuggingPriority="250" horizontalHuggingPriority="750" verticalHuggingPriority="1000" detachesHiddenViews="YES" translatesAutoresizingMaskIntoConstraints="NO" id="ixZ-yR-KeS">
-                                <rect key="frame" x="0.0" y="0.0" width="470" height="443"/>
+                                <rect key="frame" x="0.0" y="0.0" width="470" height="475"/>
                                 <subviews>
                                     <textField verticalHuggingPriority="1000" horizontalCompressionResistancePriority="250" translatesAutoresizingMaskIntoConstraints="NO" id="MxE-8J-EPZ">
-                                        <rect key="frame" x="18" y="359" width="434" height="64"/>
+                                        <rect key="frame" x="18" y="359" width="434" height="96"/>
                                         <textFieldCell key="cell" selectable="YES" alignment="justified" id="gq9-Yj-t0I">
                                             <font key="font" metaFont="system"/>
-                                            <string key="title">Combine multiple tandem ITC runs (syringe reloads on the same cell) into a single experiment for analysis. The stitched dataset recalculates concentrations and molar ratios across all injections, with an optional correction for partial remixing of displaced liquid between runs.</string>
+                                            <string key="title">Select a reference experiment below. Select one or more target experiments in the list. Click Apply to assign the selected experiment as the Reference Experiment for the selected targets. The corrected heats are then computed by subtracting the reference injection heats injection-by-injection. This tool sets the Reference Experiment attribute; you can view and edit it under Experiment Attributes.</string>
                                             <color key="textColor" name="labelColor" catalog="System" colorSpace="catalog"/>
                                             <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
                                         </textFieldCell>
@@ -2627,11 +2627,11 @@ In most cases, interpretation of affinities provided by ITC is straightforward, 
                                     <box verticalHuggingPriority="750" boxType="separator" translatesAutoresizingMaskIntoConstraints="NO" id="xdf-my-ax5">
                                         <rect key="frame" x="20" y="348" width="447" height="5"/>
                                     </box>
-                                    <stackView distribution="fill" orientation="horizontal" alignment="top" horizontalStackHuggingPriority="249.99998474121094" verticalStackHuggingPriority="249.99998474121094" verticalHuggingPriority="1000" detachesHiddenViews="YES" translatesAutoresizingMaskIntoConstraints="NO" id="jOo-PE-5MD">
+                                    <stackView distribution="fill" orientation="horizontal" alignment="firstBaseline" horizontalStackHuggingPriority="249.99998474121094" verticalStackHuggingPriority="249.99998474121094" verticalHuggingPriority="1000" detachesHiddenViews="YES" translatesAutoresizingMaskIntoConstraints="NO" id="jOo-PE-5MD">
                                         <rect key="frame" x="20" y="322" width="430" height="20"/>
                                         <subviews>
                                             <textField toolTip="The degree of mixing expected between the active cell volume and the dead volume." horizontalHuggingPriority="249" verticalHuggingPriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="tYD-Lu-quN">
-                                                <rect key="frame" x="-2" y="4" width="176" height="16"/>
+                                                <rect key="frame" x="-2" y="3" width="176" height="16"/>
                                                 <textFieldCell key="cell" lineBreakMode="clipping" title="Reference experiment" id="SDa-DN-KIE">
                                                     <font key="font" usesAppearanceFont="YES"/>
                                                     <color key="textColor" name="labelColor" catalog="System" colorSpace="catalog"/>
@@ -2640,10 +2640,10 @@ In most cases, interpretation of affinities provided by ITC is straightforward, 
                                             </textField>
                                             <popUpButton verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="fa6-XX-Enp">
                                                 <rect key="frame" x="177" y="-4" width="257" height="25"/>
-                                                <popUpButtonCell key="cell" type="roundTextured" title="Item 1" bezelStyle="texturedRounded" alignment="left" lineBreakMode="truncatingMiddle" state="on" borderStyle="border" imageScaling="proportionallyDown" inset="2" selectedItem="Qi1-0B-Aub" id="Coe-Dw-NWV">
+                                                <popUpButtonCell key="cell" type="roundTextured" title="Item 1" bezelStyle="texturedRounded" alignment="left" lineBreakMode="truncatingMiddle" state="on" borderStyle="border" imageScaling="proportionallyDown" inset="2" autoenablesItems="NO" selectedItem="Qi1-0B-Aub" id="Coe-Dw-NWV">
                                                     <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
                                                     <font key="font" metaFont="system"/>
-                                                    <menu key="menu" id="lZ4-20-Ery">
+                                                    <menu key="menu" autoenablesItems="NO" id="lZ4-20-Ery">
                                                         <items>
                                                             <menuItem title="Item 1" state="on" id="Qi1-0B-Aub"/>
                                                             <menuItem title="Item 2" id="10U-X8-Rwh"/>
@@ -2675,10 +2675,10 @@ In most cases, interpretation of affinities provided by ITC is straightforward, 
                                         <rect key="frame" x="18" y="258" width="434" height="56"/>
                                         <textFieldCell key="cell" controlSize="small" selectable="YES" alignment="justified" id="ez6-x6-5bi">
                                             <font key="font" metaFont="smallSystem"/>
-                                            <string key="title">Experiment name
-Date
-details
-comments</string>
+                                            <string key="title">Experiment:
+Date:
+Details:
+Comments:</string>
                                             <color key="textColor" name="labelColor" catalog="System" colorSpace="catalog"/>
                                             <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
                                         </textFieldCell>
@@ -2936,6 +2936,7 @@ Gw
                         </constraints>
                     </view>
                     <connections>
+                        <outlet property="ApplyButton" destination="Feq-q5-nfC" id="ZSf-ne-TZp"/>
                         <outlet property="ExperimentListView" destination="cpw-XU-bpa" id="bQd-mq-b7t"/>
                         <outlet property="ListView" destination="bpG-Eu-mC9" id="VVc-W1-Npu"/>
                         <outlet property="ReferenceExperimentInfoLabel" destination="oVd-K0-1fE" id="tKs-yA-sPc"/>
@@ -5980,7 +5981,7 @@ IA
                             <rect key="frame" x="0.0" y="0.0" width="454" height="52"/>
                             <subviews>
                                 <button verticalHuggingPriority="750" verticalCompressionResistancePriority="250" translatesAutoresizingMaskIntoConstraints="NO" id="Ibj-M0-dHf">
-                                    <rect key="frame" x="1" y="-1" width="111" height="31"/>
+                                    <rect key="frame" x="1" y="21" width="111" height="31"/>
                                     <buttonCell key="cell" type="recessed" title="Overview" bezelStyle="recessed" alignment="center" controlSize="large" lineBreakMode="truncatingTail" state="on" borderStyle="border" inset="2" id="ed1-E0-79d">
                                         <behavior key="behavior" lightByBackground="YES" lightByGray="YES" changeBackground="YES" changeGray="YES"/>
                                         <font key="font" metaFont="system"/>
@@ -5996,7 +5997,7 @@ IA
                                     <rect key="frame" x="111" y="1" width="5" height="50"/>
                                 </box>
                                 <button verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="zTg-QH-FPo">
-                                    <rect key="frame" x="115" y="20" width="111" height="31"/>
+                                    <rect key="frame" x="115" y="0.0" width="111" height="31"/>
                                     <buttonCell key="cell" type="recessed" title="Process Data" bezelStyle="recessed" alignment="center" controlSize="large" lineBreakMode="truncatingTail" borderStyle="border" inset="2" id="o5L-6P-mOP">
                                         <behavior key="behavior" lightByBackground="YES" lightByGray="YES" changeBackground="YES" changeGray="YES"/>
                                         <font key="font" metaFont="system"/>
@@ -6012,7 +6013,7 @@ IA
                                     <rect key="frame" x="225" y="1" width="5" height="50"/>
                                 </box>
                                 <button verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="v0f-iE-gM6">
-                                    <rect key="frame" x="229" y="20" width="110" height="31"/>
+                                    <rect key="frame" x="229" y="0.0" width="110" height="31"/>
                                     <buttonCell key="cell" type="recessed" title="Analyze Data" bezelStyle="recessed" alignment="center" controlSize="large" lineBreakMode="truncatingTail" borderStyle="border" inset="2" id="946-Qa-1ae">
                                         <behavior key="behavior" lightByBackground="YES" lightByGray="YES" changeBackground="YES" changeGray="YES"/>
                                         <font key="font" metaFont="system"/>
@@ -6028,7 +6029,7 @@ IA
                                     <rect key="frame" x="338" y="1" width="5" height="50"/>
                                 </box>
                                 <button verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="DGH-oN-EAU">
-                                    <rect key="frame" x="342" y="20" width="111" height="31"/>
+                                    <rect key="frame" x="342" y="0.0" width="111" height="31"/>
                                     <buttonCell key="cell" type="recessed" title="Final Figure" bezelStyle="recessed" alignment="center" controlSize="large" lineBreakMode="truncatingTail" borderStyle="border" inset="2" id="Fgw-Bk-CyU">
                                         <behavior key="behavior" lightByBackground="YES" lightByGray="YES" changeBackground="YES" changeGray="YES"/>
                                         <font key="font" metaFont="system"/>

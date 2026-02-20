@@ -13,6 +13,9 @@ namespace AnalysisITC
 	partial class BufferSubtractionTool
 	{
 		[Outlet]
+		AppKit.NSButton ApplyButton { get; set; }
+
+		[Outlet]
 		AppKit.NSScrollView ExperimentListView { get; set; }
 
 		[Outlet]
@@ -50,6 +53,11 @@ namespace AnalysisITC
 			if (ReferenceExperimentInfoLabel != null) {
 				ReferenceExperimentInfoLabel.Dispose ();
 				ReferenceExperimentInfoLabel = null;
+			}
+
+			if (ApplyButton != null) {
+				ApplyButton.Dispose ();
+				ApplyButton = null;
 			}
 		}
 	}

@@ -37,7 +37,7 @@ namespace AnalysisITC
         public double TargetPowerDiff { get; set; }
         public double MeasuredTemperature { get; internal set; }
         public int InjectionCount => Injections.Count;
-        public PeakHeatDirection AverageHeatDirection => Injections.Sum(inj => inj.PeakArea) > 0 ? PeakHeatDirection.Endothermal : PeakHeatDirection.Exothermal;
+        public PeakHeatDirection AverageHeatDirection { get; set; } = PeakHeatDirection.Unknown;
         //public InjectionData.IntegrationLengthMode IntegrationLengthMode { get; set; } = InjectionData.IntegrationLengthMode.Time;
         //public float IntegrationLengthFactor { get; set; } = 2;
 
@@ -188,21 +188,31 @@ namespace AnalysisITC
         {
             if (BaseLineCorrectedDataPoints.Count < 5) return;
 
-            var tot_diff = 0.0;
+            bool positive = false;
+            bool negative = false;
 
             foreach (var inj in Injections)
             {
-                var dat = BaseLineCorrectedDataPoints.Where(dp => dp.Time > inj.Time && dp.Time < inj.Time + inj.Delay);
-
-                var mean = dat.Average(dp => dp.Power);
-                var min = dat.Min(dp => dp.Power);
-                var max = dat.Max(dp => dp.Power);
-
-                tot_diff += (mean - min) - (max - mean);
+                if (inj.HeatDirection == PeakHeatDirection.Endothermal) positive = true;
+                else if (inj.HeatDirection == PeakHeatDirection.Exothermal) negative = true;
             }
 
-            //if (tot_diff < 0) AverageHeatDirection = PeakHeatDirection.Endothermal;
-            //else AverageHeatDirection = PeakHeatDirection.Exothermal;
+            if (positive && negative) AverageHeatDirection = PeakHeatDirection.Both;
+            else if (positive) AverageHeatDirection = PeakHeatDirection.Endothermal;
+            else if (negative) AverageHeatDirection = PeakHeatDirection.Exothermal;
+            else AverageHeatDirection = PeakHeatDirection.Unknown;
+        }
+
+        public void SetReferenceExperiment(ExperimentData reference)
+        {
+            // Clear previous setting
+            Attributes.RemoveAll(att => att.Key == AttributeKey.BufferSubtraction);
+
+            // Add reference experiment
+            Attributes.Add(ExperimentAttribute.ExperimentReference("Reference", reference.UniqueID));
+
+            // Reintegrate peaks
+            Processor?.IntegratePeaks(invalidate: true);
         }
 
         public void SetProcessor(DataProcessor processor)
@@ -393,7 +403,7 @@ namespace AnalysisITC
         public float IntegrationStartTime => Time + IntegrationStartDelay;
         public float IntegrationEndTime => Time + IntegrationLength;
 
-        public PeakHeatDirection HeatDirection => PeakArea > 0 ? PeakHeatDirection.Endothermal : PeakHeatDirection.Exothermal;
+        public PeakHeatDirection HeatDirection { get; set; } = PeakHeatDirection.Unknown;
 
         public FloatWithError PeakArea { get; private set; } = new();
         public Energy Enthalpy2 => new(PeakArea / InjectionMass);
@@ -630,6 +640,8 @@ namespace AnalysisITC
 
             var sd = EstimateError2();
             var peakarea = new FloatWithError(area, sd);
+
+            HeatDirection = area > 0 ? PeakHeatDirection.Endothermal : PeakHeatDirection.Exothermal;
 
             SetPeakArea(peakarea);
 
@@ -900,7 +912,8 @@ namespace AnalysisITC
     {
         Unknown,
         Exothermal,
-        Endothermal
+        Endothermal,
+        Both,
     }
 
     public enum FeedbackMode
