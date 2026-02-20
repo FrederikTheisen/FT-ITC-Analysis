@@ -34,7 +34,7 @@ namespace AnalysisITC.AppClasses.AnalysisClasses
         });
     }
 
-    public class ResultAnalysis
+    public class AdvancedAnalysis
     {
         internal static Random Rand { get; } = new Random();
 
@@ -44,7 +44,7 @@ namespace AnalysisITC.AppClasses.AnalysisClasses
 
         public int CompletedIterations { get; internal set; } = 0;
 
-        public ResultAnalysis(AnalysisResult result)
+        public AdvancedAnalysis(AnalysisResult result)
         {
             Data = result;
         }

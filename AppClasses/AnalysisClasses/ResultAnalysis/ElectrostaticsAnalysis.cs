@@ -7,7 +7,7 @@ using AppKit;
 
 namespace AnalysisITC.AppClasses.AnalysisClasses
 {
-    public class ElectrostaticsAnalysis : ResultAnalysis
+    public class ElectrostaticsAnalysis : AdvancedAnalysis
     {
         public DissocFitMode Mode { get; private set; } = DissocFitMode.DebyeHuckel;
 

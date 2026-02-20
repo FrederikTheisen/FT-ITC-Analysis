@@ -6,7 +6,7 @@ using AppKit;
 
 namespace AnalysisITC.AppClasses.AnalysisClasses
 {
-    public class ProtonationAnalysis : AnalysisITC.AppClasses.AnalysisClasses.ResultAnalysis
+    public class ProtonationAnalysis : AnalysisITC.AppClasses.AnalysisClasses.AdvancedAnalysis
     {
         public Energy BindingEnthalpy { get; set; }
         public FloatWithError ProtonationChange { get; set; }

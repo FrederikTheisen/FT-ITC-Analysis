@@ -106,7 +106,7 @@ namespace AnalysisITC
             }
             
 
-            SetupAnalyisResultView(sender as ResultAnalysis);
+            SetupAnalyisResultView(sender as AdvancedAnalysis);
 
             SetupGraphView(DisplayedGraphType);
 
@@ -295,7 +295,7 @@ namespace AnalysisITC
             }
         }
 
-        void SetupAnalyisResultView(ResultAnalysis analysis)
+        void SetupAnalyisResultView(AdvancedAnalysis analysis)
         {
             var result = new List<string>();
 

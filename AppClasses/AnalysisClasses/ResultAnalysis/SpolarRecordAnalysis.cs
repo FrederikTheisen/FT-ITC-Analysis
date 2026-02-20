@@ -7,7 +7,7 @@ using AppKit;
 
 namespace AnalysisITC.AppClasses.AnalysisClasses
 {
-    public class FTSRMethod : ResultAnalysis
+    public class FTSRMethod : AdvancedAnalysis
     {
         public static FloatWithError ApCoeff { get; } = new FloatWithError(-0.590884521921104, 0.12);
         public static FloatWithError AnpCoeff { get; } = new FloatWithError(1.3721067124117, 0.06);
