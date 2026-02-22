@@ -119,12 +119,28 @@ namespace AnalysisITC
             //var item = (TableView.Delegate as ExperimentDataDelegate).Source.Content[e];
             //Console.WriteLine("TV REMOVE: " + item.UniqueID + " " + e);
 
-            TableView.RemoveRows(new NSIndexSet(e), NSTableViewAnimation.SlideLeft);
+            try
+            {
+                AppEventHandler.PrintAndLog($"TableView Remove Data: {e}");
+                TableView.RemoveRows(new NSIndexSet(e), NSTableViewAnimation.SlideLeft);
+            }
+            catch (Exception ex)
+            {
+                AppEventHandler.AddLog(ex);
+            }
         }
 
         private void DataManager_RemoveListIndices(object sender, int[] e)
         {
-            TableView.RemoveRows(NSIndexSet.FromArray(e), NSTableViewAnimation.SlideLeft);
+            try
+            {
+                AppEventHandler.PrintAndLog($"TableView Remove Data: {e}");
+                TableView.RemoveRows(NSIndexSet.FromArray(e), NSTableViewAnimation.SlideLeft);
+            }
+            catch (Exception ex)
+            {
+                AppEventHandler.AddLog(ex);
+            }
         }
 
         private void OnDataViewClicked(object sender, EventArgs e)
