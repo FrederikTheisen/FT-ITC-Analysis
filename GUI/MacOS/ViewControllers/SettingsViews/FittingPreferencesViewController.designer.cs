@@ -51,6 +51,9 @@ namespace AnalysisITC
 		[Outlet]
 		AppKit.NSSegmentedControl ParameterLimitControl { get; set; }
 
+		[Outlet]
+		AppKit.NSButton UseInjErrorWeights { get; set; }
+
 		[Action ("Apply:")]
 		partial void Apply (Foundation.NSObject sender);
 
@@ -74,11 +77,6 @@ namespace AnalysisITC
 		
 		void ReleaseDesignerOutlets ()
 		{
-			if (DefaultAlgorithm != null) {
-				DefaultAlgorithm.Dispose ();
-				DefaultAlgorithm = null;
-			}
-
 			if (AutoConcField != null) {
 				AutoConcField.Dispose ();
 				AutoConcField = null;
@@ -92,6 +90,11 @@ namespace AnalysisITC
 			if (BootstrapIterField != null) {
 				BootstrapIterField.Dispose ();
 				BootstrapIterField = null;
+			}
+
+			if (DefaultAlgorithm != null) {
+				DefaultAlgorithm.Dispose ();
+				DefaultAlgorithm = null;
 			}
 
 			if (DefaultBootstrapIterationSlider != null) {
@@ -137,6 +140,11 @@ namespace AnalysisITC
 			if (ParameterLimitControl != null) {
 				ParameterLimitControl.Dispose ();
 				ParameterLimitControl = null;
+			}
+
+			if (UseInjErrorWeights != null) {
+				UseInjErrorWeights.Dispose ();
+				UseInjErrorWeights = null;
 			}
 		}
 	}

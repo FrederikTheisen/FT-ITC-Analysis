@@ -45,7 +45,8 @@ namespace AnalysisITC
         public static int MaximumOptimizerIterations { get; set; } = 2000;
         public static bool EnableExtendedParameterLimits { get; set; } = false;
         public static ParameterLimitSetting ParameterLimitSetting { get; set; } = ParameterLimitSetting.Standard;
-        public static SolverAlgorithm SolverAlgorithm { get; set; } = SolverAlgorithm.NelderMead;
+        public static SolverAlgorithm DefaultSolverAlgorithm { get; set; } = SolverAlgorithm.NelderMead;
+        public static bool UseInjectionErrorWeightedFitting { get; set; } = false;
 
         //Analysis
         public static bool BuffersPreparedAtRoomTemperature { get; set; } = true;
@@ -57,7 +58,7 @@ namespace AnalysisITC
         public static bool FinalFigureShowParameterBoxAsDefault { get; set; } = true;
         public static NumberPrecision NumberPrecision { get; set; } = NumberPrecision.Standard;
         public static bool ShowResidualGraph { get; set; } = true;
-        public static bool ShowResidualGraphGap { get; set; } = false;
+        public static bool ShowResidualGraphGap { get; set; } = true;
         public static bool UnifyResidualGraphAxis { get; set; } = false;
         public static GraphBase.LineSmoothness FitLineSmoothness { get; set; } = GraphBase.LineSmoothness.Spline;
 
@@ -119,7 +120,8 @@ namespace AnalysisITC
             Storage.SetBool(UnifyResidualGraphAxis, "UnifyResidualGraphAxis");
             Storage.SetInt((int)FitLineSmoothness, "FitLineSmoothness");
             Storage.SetBool(DiscardIntegrationRegionForBaseline, "DiscardIntegrationRegionForBaseline");
-            Storage.SetInt((int)SolverAlgorithm, "SolverAlgorithm");
+            Storage.SetInt((int)DefaultSolverAlgorithm, "SolverAlgorithm");
+            Storage.SetBool(UseInjectionErrorWeightedFitting, "UseInjectionErrorWeightedFitting");
 
 
             StoreArray(FinalFigureDimensions, "FinalFigureDimensions");
@@ -174,7 +176,8 @@ namespace AnalysisITC
             UnifyResidualGraphAxis = GetBool(dict, "UnifyResidualGraphAxis", UnifyResidualGraphAxis);
             FitLineSmoothness = (GraphBase.LineSmoothness)GetInt(dict, "FitLineSmoothness", (int)FitLineSmoothness);
             DiscardIntegrationRegionForBaseline = GetBool(dict, "DiscardIntegrationRegionForBaseline", DiscardIntegrationRegionForBaseline);
-            SolverAlgorithm = (SolverAlgorithm)GetInt(dict, "SolverAlgorithm", (int)SolverAlgorithm);
+            DefaultSolverAlgorithm = (SolverAlgorithm)GetInt(dict, "SolverAlgorithm", (int)DefaultSolverAlgorithm);
+            UseInjectionErrorWeightedFitting = GetBool(dict, "UseInjectionErrorWeightedFitting", UseInjectionErrorWeightedFitting);
 
             ApplySettings();
 
@@ -214,6 +217,13 @@ namespace AnalysisITC
             NumberPrecision = NumberPrecision.Standard;
             DisplayAttributeOptions = DisplayAttributeOptions.Default;
             ExportColumns = ExportColumns.Default;
+            UseInjectionErrorWeightedFitting = false;
+            DefaultSolverAlgorithm = SolverAlgorithm.NelderMead;
+            DiscardIntegrationRegionForBaseline = true;
+            FitLineSmoothness = GraphBase.LineSmoothness.Spline;
+            ShowResidualGraph = true;
+            ShowResidualGraphGap = true;
+            UnifyResidualGraphAxis = false;
         }
 
         static void StoreArray(double[] arr, string key)
@@ -278,6 +288,8 @@ namespace AnalysisITC
             FittingOptionsController.IncludeConcentrationVariance = IncludeConcentrationErrorsInBootstrap;
             FittingOptionsController.AutoConcentrationVariance = ConcentrationAutoVariance;
             FittingOptionsController.EnableAutoConcentrationVariance = IsConcentrationAutoVarianceEnabled;
+            FittingOptionsController.Algorithm = DefaultSolverAlgorithm;
+            FittingOptionsController.UseErrorWeightedFitting = UseInjectionErrorWeightedFitting;
             FinalFigureGraphView.Width = (float)FinalFigureDimensions[0];
             FinalFigureGraphView.Height = (float)FinalFigureDimensions[1];
             FinalFigureGraphView.DrawFitParameters = FinalFigureShowParameterBoxAsDefault;
