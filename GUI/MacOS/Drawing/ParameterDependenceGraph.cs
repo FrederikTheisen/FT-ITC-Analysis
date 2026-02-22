@@ -182,10 +182,12 @@ namespace AnalysisITC
             var line = new List<CGPoint>();
             var top = new List<CGPoint>();
             var bottom = new List<CGPoint>();
-            var xrange = XAxis.Max - XAxis.Min;
+            var xrange = Math.Max(1, XAxis.Max - XAxis.Min);
             var xpoints = new List<double>();
+            var stepsize = xrange * 0.05f;
 
-            for (var x = XAxis.Min; x <= XAxis.Max; x += xrange / 15) { xpoints.Add(x); }
+            // Protect against points with same x axis position
+            for (var x = XAxis.Min; x < (XAxis.Max - stepsize); x += stepsize) { xpoints.Add(x); }
             xpoints.Add(XAxis.Max);
 
             foreach (var x in xpoints)
@@ -230,9 +232,9 @@ namespace AnalysisITC
             var xpoints = new List<double>();
 
             // In case xrange is zero
-            if (xrange < 1E-9f) xrange = 1;
+            if (xrange < 1E-9f) xrange = 0.01f;
 
-            for (var x = XAxis.Min; x <= XAxis.Max; x += xrange / 10) { xpoints.Add(x); }
+            for (var x = XAxis.Min; x < XAxis.Max; x += xrange / 10) { xpoints.Add(x); }
             xpoints.Add(XAxis.Max);
 
             foreach (var x in xpoints)
@@ -249,8 +251,8 @@ namespace AnalysisITC
 
             bottom.Reverse();
 
-            CGPath path = GetSplineFromPoints(top.ToArray());
-            GetSplineFromPoints(bottom.ToArray(), path);
+            CGPath path = GetSplineFromPoints(top.ToArray(), smoothness: LineSmoothness.Linear);
+            GetSplineFromPoints(bottom.ToArray(), path, smoothness: LineSmoothness.Linear);
 
             var layer = CGLayer.Create(gc, PlotSize);
             layer.Context.SetFillColor(new CGColor(StrokeColor, .25f));

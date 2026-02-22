@@ -178,7 +178,7 @@ namespace AnalysisITC
             var xrange = XAxis.Max - XAxis.Min;
             var xpoints = new List<double>();
 
-            for (var x = XAxis.Min; x <= XAxis.Max; x += xrange / 10) { xpoints.Add(x); }
+            for (var x = XAxis.Min; x < XAxis.Max; x += 0.5f) { xpoints.Add(x); }
             xpoints.Add(XAxis.Max); 
 
             foreach (var x in xpoints)
