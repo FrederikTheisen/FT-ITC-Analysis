@@ -36,6 +36,7 @@ namespace AnalysisITC.AppClasses.AnalysisClasses
                     }
                     break;
                 default:
+                case DissocFitMode.DebyeHuckel:
                     foreach (var sol in Data.Solution.Solutions)
                     {
                         DataPoints.Add(new Tuple<double, FloatWithError>(
