@@ -367,6 +367,9 @@ namespace AnalysisITC
 
             point += LabelOffset + TitleOffset;
 
+            // HACK Test
+            if (Position == AxisPosition.Left) point.X = 0.1f * CGGraph.PPcm;
+
             var rot = Position switch
             {
                 AxisPosition.Left => CGGraph.PiHalf,
@@ -378,14 +381,14 @@ namespace AnalysisITC
             {
                 AxisPosition.Bottom => TextAlignment.Top,
                 AxisPosition.Top => TextAlignment.Bottom,
-                AxisPosition.Left => TextAlignment.Bottom,
+                AxisPosition.Left => TextAlignment.Top, // Hack test
                 AxisPosition.Right => TextAlignment.Top,
                 _ => TextAlignment.Center,
             };
 
             //var titlesize = cggraph.DrawString(layer, LegendTitle, point, TitleFont, null, TextAlignment.Center, aln, null, rot);
             var atttitle = MacStrings.FromMarkDownString(LegendTitle, NSFont.FromCTFont(TitleFont), true);
-            var titlesize = cggraph.DrawString2(layer, atttitle, point, horizontalignment: TextAlignment.Center, verticalalignment: aln, null, rot);
+            var _ = cggraph.DrawString2(layer, atttitle, point, horizontalignment: TextAlignment.Center, verticalalignment: aln, null, rot);
 
             gc.DrawLayer(layer, new CGPoint(0, 0));
         }
@@ -504,10 +507,10 @@ namespace AnalysisITC
                 if (ParameterTypeAttribute.ContainsTwo(CategoryLabels.Keys, par)) label += "{" + par.GetProperties().NumberSubscript + "}";
 
                 var attlabel = MacStrings.FromMarkDownString(label, NSFont.FromCTFont(TickFont), true);
-                var _size = cggraph.DrawString2(layer, attlabel, point, HorizontalTickLabelAlignment, VerticalTickLabelAlignment, null);
+                var size = cggraph.DrawString2(layer, attlabel, point, HorizontalTickLabelAlignment, VerticalTickLabelAlignment, null);
 
-                if (_size.Width > maxsize.Width) maxsize.Width = _size.Width;
-                if (_size.Height > maxsize.Height) maxsize.Height = _size.Height;
+                if (size.Width > maxsize.Width) maxsize.Width = size.Width;
+                if (size.Height > maxsize.Height) maxsize.Height = size.Height;
             }
 
             TickLabelSize = maxsize;

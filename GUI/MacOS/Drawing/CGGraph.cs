@@ -8,6 +8,7 @@ using CoreText;
 using Utilities;
 using static AnalysisITC.AppClasses.Analysis2.Models.SolutionInterface;
 using MathNet.Numerics.Interpolation;
+using AnalysisITC.Utilities;
 
 namespace AnalysisITC
 {
@@ -190,8 +191,8 @@ namespace AnalysisITC
             if (textcolor == null) textcolor = StrokeColor;
 
             var textLine = new CTLine(str);
-            var boxsize = textLine.GetBounds(CTLineBoundsOptions.UseOpticalBounds).Size;
-            var size = textLine.GetBounds(CTLineBoundsOptions.UseGlyphPathBounds).Size;
+            var optical = textLine.GetBounds(CTLineBoundsOptions.UseOpticalBounds);
+            var glyph = textLine.GetBounds(CTLineBoundsOptions.UseGlyphPathBounds);
 
             if (layer != null)
             {
@@ -199,14 +200,14 @@ namespace AnalysisITC
 
                 switch (horizontalignment)
                 {
-                    case TextAlignment.Right: ctm.X -= boxsize.Width; break;
-                    case TextAlignment.Center: ctm.X -= boxsize.Width / 2; break;
+                    case TextAlignment.Right: ctm.X -= (optical.X + optical.Width); break;
+                    case TextAlignment.Center: ctm.X -= (optical.X + optical.Width / 2); break;
                 }
 
                 switch (verticalalignment)
                 {
-                    case TextAlignment.Top: ctm.Y -= size.Height; break;
-                    case TextAlignment.Center: ctm.Y -= size.Height / 2; break;
+                    case TextAlignment.Top: ctm.Y -= (glyph.Y + glyph.Height); break;
+                    case TextAlignment.Center: ctm.Y -= (glyph.Y + glyph.Height / 2); break;
                 }
 
                 layer.Context.SaveState();
@@ -220,7 +221,7 @@ namespace AnalysisITC
                 textLine.Dispose();
             }
 
-            return size;
+            return optical.Size;
         }
 
         public void DrawRectsAtPositions(CGLayer layer, CGPoint[] points, float size, bool circle = false, bool fill = false, float width = 1, CGColor color = null, float roundedradius = 0)
@@ -367,19 +368,28 @@ namespace AnalysisITC
 
         void AddCubicSpline(CGPoint[] points, CGPath path)
         {
-            var spline = CubicSpline.InterpolatePchip(points.Select(p => (double)p.X), points.Select(p => (double)p.Y));
-
-            bool reverse = points[0].X > points[^1].X;
-
-            for (double i = points[0].X;
-                (!reverse && i <= points[^1].X) || (reverse && i >= points[^1].X);
-                i += reverse ? -1 : 1)
+            try
             {
-                var point = spline.Interpolate(i);
-                path.AddLineToPoint((float)i, (float)point);
-            }
+                var x = points.Select(p => (double)p.X);
+                var y = points.Select(p => (double)p.Y);
+                var spline = CubicSpline.InterpolatePchip(x, y);
 
-            path.AddLineToPoint(points[^1]);
+                bool reverse = points[0].X > points[^1].X;
+
+                for (double i = points[0].X;
+                    (!reverse && i <= points[^1].X) || (reverse && i >= points[^1].X);
+                    i += reverse ? -1 : 1)
+                {
+                    var point = spline.Interpolate(i);
+                    path.AddLineToPoint((float)i, (float)point);
+                }
+
+                path.AddLineToPoint(points[^1]);
+            }
+            catch
+            {
+                AddLinearInterpolation(points, path);
+            }
         }
 
         void AddSmoothSpline(CGPoint[] points, CGPath path)
@@ -430,12 +440,19 @@ namespace AnalysisITC
 
         public static CGSize MeasureString(NSAttributedString attributedString, AxisPosition position = AxisPosition.Bottom, bool ignoreoptical = true)
         {
-            var size = attributedString.Size;
+            CGSize size;
 
             var textLine = new CTLine(attributedString);
 
-            if (!ignoreoptical && (position == AxisPosition.Bottom || position == AxisPosition.Right)) size = textLine.GetBounds(CTLineBoundsOptions.UseOpticalBounds).Size;
-            else size = textLine.GetBounds(CTLineBoundsOptions.UseGlyphPathBounds).Size;
+            //if (!ignoreoptical && (position == AxisPosition.Bottom || position == AxisPosition.Right))
+            if (!ignoreoptical)
+            {
+                size = textLine.GetBounds(CTLineBoundsOptions.UseOpticalBounds).Size;
+            }
+            else
+            {
+                size = textLine.GetBounds(CTLineBoundsOptions.UseGlyphPathBounds).Size;
+            }
 
             textLine.Dispose();
 
@@ -564,10 +581,10 @@ namespace AnalysisITC
 
             foreach (var line in lines)
             {
-                var attstr = Utilities.MacStrings.FromMarkDownString(line, NSFont.FromCTFont(font), true);
+                var attstr = Utilities.MacStrings.FromMarkDownString(line, nsfont, true);
                 attstr_lines.Add(attstr);
 
-                var size = DrawString2(null, attstr, new CGPoint(0, 0), horizontalignment: TextAlignment.Left);
+                var size = MeasureString(attstr, AxisPosition.Unknown, ignoreoptical: false); //DrawString2(null, attstr, new CGPoint(0, 0), horizontalignment: TextAlignment.Left);
 
                 if (size.Width > width) width = size.Width;
                 height += size.Height + font.Size * 0.4f;
@@ -606,6 +623,136 @@ namespace AnalysisITC
             gc.DrawLayer(layer, pos);
             gc.DrawLayer(textlayer, pos);
         }
+
+        public void DrawTextBoxConsistent(
+            CGContext gc,
+            IList<string> lines,
+            CTFont font = null,
+            NSRectAlignment alignment = NSRectAlignment.BottomTrailing,
+            CGColor textcolor = null,
+            float paddingX = 6,
+            float paddingY = 4,
+            float lineSpacing = 0)
+        {
+            if (font == null) font = DefaultFont;
+            if (textcolor == null) textcolor = StrokeColor;
+            if (lines == null || lines.Count == 0) return;
+
+            var nsfont = NSFont.FromCTFont(font);
+            var attLines = new List<NSAttributedString>(lines.Count);
+
+            foreach (var line in lines)
+                attLines.Add(MacStrings.FromMarkDownString(line, nsfont, true));
+
+            DrawTextBoxConsistent(gc, attLines, font, alignment, textcolor, paddingX, paddingY, lineSpacing);
+        }
+
+        public void DrawTextBoxConsistent(
+            CGContext gc,
+            IList<NSAttributedString> lines,
+            CTFont font = null,
+            NSRectAlignment alignment = NSRectAlignment.BottomTrailing,
+            CGColor textcolor = null,
+            float paddingX = 6,
+            float paddingY = 4,
+            float lineSpacing = 0)
+        { 
+            if (font == null) font = DefaultFont;
+            if (textcolor == null) textcolor = StrokeColor;
+            if (lines == null || lines.Count == 0) return;
+
+            if (lineSpacing <= 0) lineSpacing = (float)font.Size * 0.30f; // similar to your old spacing, but now fixed
+
+            // Precompute CTLines + bounds; pick a fixed line advance = max glyph-height + spacing
+            var ctLines = new List<CTLine>(lines.Count);
+            var glyphBounds = new List<CGRect>(lines.Count);
+
+            nfloat maxWidth = 0;
+            nfloat maxLineHeight = 0;
+
+            try
+            {
+                for (int i = 0; i < lines.Count; i++)
+                {
+                    // Ensure we can drive color via the CGContext fill color
+                    var mut = new NSMutableAttributedString(lines[i]);
+                    mut.AddAttribute(CTStringAttributeKey.ForegroundColorFromContext, NSNumber.FromBoolean(true), new NSRange(0, mut.Length));
+
+                    var line = new CTLine(mut);
+                    ctLines.Add(line);
+
+                    var b = line.GetBounds(CTLineBoundsOptions.UseGlyphPathBounds);
+                    glyphBounds.Add(b);
+
+                    if (b.Width > maxWidth) maxWidth = b.Width;
+                    if (b.Height > maxLineHeight) maxLineHeight = b.Height;
+                }
+
+                var lineAdvance = maxLineHeight + lineSpacing;
+                var textHeight = lines.Count * lineAdvance - lineSpacing; // no extra after last line
+
+                var boxSize = new CGSize(maxWidth + 2 * paddingX, textHeight + 2 * paddingY);
+
+                var xpos = alignment switch
+                {
+                    NSRectAlignment.Top or NSRectAlignment.None or NSRectAlignment.Bottom => Frame.Width / 2 - boxSize.Width / 2,
+                    NSRectAlignment.BottomTrailing or NSRectAlignment.Trailing or NSRectAlignment.TopTrailing => Frame.Width - boxSize.Width - 7,
+                    _ => 7,
+                };
+                var ypos = alignment switch
+                {
+                    NSRectAlignment.Leading or NSRectAlignment.None or NSRectAlignment.Trailing => Frame.Height / 2 - boxSize.Height / 2,
+                    NSRectAlignment.Top or NSRectAlignment.TopLeading or NSRectAlignment.TopTrailing => Frame.Height - boxSize.Height - 7,
+                    _ => 7,
+                };
+
+                var pos = new CGPoint(xpos + Frame.X, ypos + Frame.Y);
+
+                var boxLayer = CGLayer.Create(gc, boxSize);
+                var textLayer = CGLayer.Create(gc, boxSize);
+
+                // Background box
+                boxLayer.Context.SaveState();
+                boxLayer.Context.SetFillColor(DrawOnWhite ? NSColor.White.CGColor : NSColor.TextBackground.CGColor);
+                boxLayer.Context.FillRect(new CGRect(1, 1, boxSize.Width - 2, boxSize.Height - 2));
+                boxLayer.Context.SetStrokeColor(StrokeColor);
+                boxLayer.Context.StrokeRect(new CGRect(1, 1, boxSize.Width - 2, boxSize.Height - 2));
+                boxLayer.Context.RestoreState();
+
+                // Text
+                textLayer.Context.SaveState();
+                textLayer.Context.SetFillColor(textcolor);
+
+                // We place each line by aligning its *glyph bounds top* to a descending "top cursor".
+                nfloat top = (nfloat)boxSize.Height - paddingY;
+
+                for (int i = 0; i < ctLines.Count; i++)
+                {
+                    var line = ctLines[i];
+                    var b = glyphBounds[i];
+
+                    // Baseline position that makes (b.Y + b.Height) land at "top"
+                    var baselineX = paddingX - b.X;                 // keep left ink at padding
+                    var baselineY = top - (b.Y + b.Height);         // include bounds.Y so subscripts count
+
+                    textLayer.Context.TextPosition = new CGPoint(baselineX, baselineY);
+                    line.Draw(textLayer.Context);
+
+                    top -= lineAdvance;
+                }
+
+                textLayer.Context.RestoreState();
+
+                gc.DrawLayer(boxLayer, pos);
+                gc.DrawLayer(textLayer, pos);
+            }
+            finally
+            {
+                // CTLine is disposable; be explicit
+                foreach (var l in ctLines) l.Dispose();
+            }
+        }
+
 
         #endregion
 
@@ -824,7 +971,7 @@ namespace AnalysisITC
             layer.Context.StrokePath();
             DrawRectsAtPositions(layer, new CGPoint[] { power }, 5, true, true);
 
-            DrawTextBox(gc, CursorInfo, alignment: NSRectAlignment.TopLeading);
+            DrawTextBoxConsistent(gc, CursorInfo, alignment: NSRectAlignment.TopLeading);
 
             gc.DrawLayer(layer, Frame.Location);
             gc.DrawLayer(textlayer, Frame.Location);
@@ -941,7 +1088,7 @@ namespace AnalysisITC
 
             var position = ExperimentData.AverageHeatDirection == PeakHeatDirection.Endothermal ? NSRectAlignment.TopTrailing : NSRectAlignment.BottomTrailing;
 
-            DrawTextBox(gc, lines, DrawOnWhite ? new CTFont(DefaultFont.DisplayName, 12) : DefaultFont, position);
+            DrawTextBoxConsistent(gc, lines, DrawOnWhite ? new CTFont(DefaultFont.DisplayName, 12) : DefaultFont, position);
         }
     }
 
@@ -980,7 +1127,7 @@ namespace AnalysisITC
 
             if (ShowInjections) DrawIntegrationMarkers(gc);
 
-            if (DrawCursorPositionInfo && CursorInfo.Count > 0) DrawTextBox(gc, CursorInfo, alignment: NSRectAlignment.BottomTrailing);
+            if (DrawCursorPositionInfo && CursorInfo.Count > 0) DrawTextBoxConsistent(gc, CursorInfo, alignment: NSRectAlignment.BottomTrailing);
         }
 
         void DrawSplineHandles(CGContext gc)
@@ -1547,7 +1694,7 @@ namespace AnalysisITC
 
             var position = ExperimentData.Solution.TotalEnthalpy > 0 ? NSRectAlignment.TopTrailing : NSRectAlignment.BottomTrailing;
 
-            DrawTextBox(gc, lines, DrawOnWhite ? new CTFont(DefaultFont.DisplayName, 12) : new CTFont(DefaultFont.DisplayName, ParameterFontSize), position);
+            DrawTextBoxConsistent(gc, lines, DrawOnWhite ? new CTFont(DefaultFont.DisplayName, 12) : new CTFont(DefaultFont.DisplayName, ParameterFontSize), position);
         }
 
         void DrawConfidenceInterval(CGContext gc)
