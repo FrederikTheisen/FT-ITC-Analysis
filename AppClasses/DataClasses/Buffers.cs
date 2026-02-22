@@ -11,12 +11,14 @@ namespace AnalysisITC
 	public enum Buffer
 	{
 		Null = -1,
-		[Buffer("HEPES", 7.66, -0.014, 0, "N-2-hydroxyethylpiperazine-N'-2-ethanesulfonic acid", new[] { 20400.0, 47 } )]
+		[Buffer("Hepes", 7.66, -0.014, 0, "N-2-hydroxyethylpiperazine-N'-2-ethanesulfonic acid", new[] { 20400.0, 47 } )]
 		Hepes,
 		//pKa1: ∆H = -8000, -141, pKa3: 16000, -242
-		[Buffer("Phosphate", new[] { 2.15, 7.2, 12.33 }, new[] { 0.0044, -0.0028, -0.026 }, new[] { 0, -1, -2 }, "Na/K phosphoric acid", new[] { 5120, -187.0 })]
-		Phosphate,
-		[Buffer("Tris", 8.06, -0.028, 1, "tris(hydroxymethyl)aminomethane", new[] { 47450, -59.0 })]
+		[Buffer(new[] { "Sodium Phosphate", "NaPO{4}", "NaPO", "NaPi" }, new[] { 2.15, 7.2, 12.33 }, new[] { 0.0044, -0.0028, -0.026 }, new[] { 0, -1, -2 }, "Sodium phosphoric acid (NaPO4)", new[] { 5120, -187.0 })]
+		SodiumPhosphate,
+        [Buffer(new[] { "Potassium Phosphate", "KPO{4}", "KPO" }, new[] { 2.15, 7.2, 12.33 }, new[] { 0.0044, -0.0028, -0.026 }, new[] { 0, -1, -2 }, "Potasium phosphoric acid (KPO4)", new[] { 5120, -187.0 })]
+        PotassiumPhosphate,
+        [Buffer("Tris", 8.06, -0.028, 1, "tris(hydroxymethyl)aminomethane", new[] { 47450, -59.0 })]
 		Tris,
 		[Buffer("Maleate", 2.0, 0, 0, "Maleic acid")]
 		Maleate,
@@ -75,12 +77,12 @@ namespace AnalysisITC
 		Piperidine,
         [Buffer("TAPSO", 7.635, 0, 1, "3-[[1,3-dihydroxy-2-(hydroxymethyl)propan-2-yl]amino]-2-hydroxypropane-1-sulfonic acid", new[] { 39090, -16.0 })] //FIXME check charge and pka temp dependence
         TAPSO,
-		[Buffer("1xPBS", 7.2, -0.0028, 1, "Phosphate-buffered saline [NaPO4, KPO4, pH 7.4, NaCl, KCl]")]
+		[Buffer("PBS", 7.2, -0.0028, 1, "Phosphate-buffered saline [NaPO4, KPO4, pH 7.4, NaCl, KCl]")]
 		PBS,
-        [Buffer("1xTBS", 8.06, -0.028, 1, "Tris-buffered saline [Tris-HCl, pH 7.4, NaCl, KCl]")]
+        [Buffer("TBS", 8.06, -0.028, 1, "Tris-buffered saline [Tris-HCl, pH 7.4, NaCl, KCl]")]
         TBS,
         //dpKa/T ref: doi.org/10.1016/j.chroma.2006.09.084
-        [Buffer("L-Histidine", 6.07, -0.02, 1, "Histidine Buffer", new[] { 29500, 176.0 })]
+        [Buffer(new[] { "L-Histidine", "Histidine", "His" }, 6.07, -0.02, 1, "Histidine Buffer", new[] { 29500, 176.0 })]
 		Histidine,
     }
 
@@ -109,7 +111,16 @@ namespace AnalysisITC
 
     public class BufferAttribute : Attribute
 	{
-		public string Name { get; private set; }
+		/// <summary>
+		/// Nice looking name string
+		/// </summary>
+		public string ListName { get; private set; }
+
+		/// <summary>
+		/// Should typically be a chemical formula or the same as the ListName
+		/// </summary>
+		public string AttName { get; set; }
+		private List<string> aliases { get; set; }
 		public string Description { get; private set; }
 
 		public double[] pKaValues { get; private set; }
@@ -122,6 +133,21 @@ namespace AnalysisITC
 
 		static double avgdPKadT = 0.01240; //some default just to be sure
 		static double vardPKadT = 0.00998;
+
+		/// <summary>
+		/// All possible name of the buffer
+		/// </summary>
+		public List<string> Aliases
+		{
+			get
+			{
+				var list = new List<string> { ListName, AttName.Replace("{", "").Replace("}", "") };
+
+				if (aliases != null) list.AddRange(aliases);
+
+				return list;
+			}
+		}
 
 		public static Dictionary<Buffer, string> Tooltips { get; private set; } = new Dictionary<Buffer, string>();
 
@@ -152,7 +178,8 @@ namespace AnalysisITC
 
         public BufferAttribute(string name, double pka, double tc, int za, string description, double[] dh)
         {
-            Name = name;
+            ListName = name;
+			AttName = name;
             Description = description;
 
             pKaValues = new[] { pka };
@@ -162,9 +189,25 @@ namespace AnalysisITC
             if (dh != null) ProtonationEnthalpy = new LinearFit(dh[1], dh[0], 25);
         }
 
+        public BufferAttribute(string[] names, double pka, double tc, int za, string description, double[] dh)
+        {
+            ListName = names[0];
+            AttName = names[1];
+            Description = description;
+
+            pKaValues = new[] { pka };
+            dPKadT = new[] { tc };
+            AcidCharges = new[] { za };
+
+            if (dh != null) ProtonationEnthalpy = new LinearFit(dh[1], dh[0], 25);
+
+            AddAliases(names);
+        }
+
         public BufferAttribute(string name, double pka, double tc, int za, string description, double dh = 0)
         {
-            Name = name;
+            ListName = name;
+			AttName = name;
             Description = description;
 
             pKaValues = new[] { pka };
@@ -176,7 +219,8 @@ namespace AnalysisITC
 
         public BufferAttribute(string name, double[] pkas, double[] tcs, int[] za, string description, double[] dh = null)
 		{
-			Name = name;
+			ListName = name;
+			AttName = name;
 			Description = description;
 
 			pKaValues = pkas;
@@ -186,9 +230,31 @@ namespace AnalysisITC
 			if (dh != null) ProtonationEnthalpy = new(dh[1], dh[0], 25);
         }
 
-		string GetBufferTooltip()
+        public BufferAttribute(string[] names, double[] pkas, double[] tcs, int[] za, string description, double[] dh = null)
+        {
+            ListName = names[0];
+			AttName = names[1];
+            Description = description;
+
+            pKaValues = pkas;
+            dPKadT = tcs;
+            AcidCharges = za;
+
+            if (dh != null) ProtonationEnthalpy = new(dh[1], dh[0], 25);
+
+			AddAliases(names);
+        }
+
+		void AddAliases(string[] names)
+        {
+            aliases = new List<string>();
+            for (int i = 2; i < names.Length; i++)
+                aliases.Add(names[i].Replace("{", "").Replace("}", ""));
+        }
+
+        string GetBufferTooltip()
 		{
-			var tooltip = Name + Environment.NewLine + Description + Environment.NewLine;
+			var tooltip = ListName + Environment.NewLine + Description + Environment.NewLine;
 			tooltip += MarkdownStrings.pKa + (Transitions > 1 ? "s: " : ": ");
 			foreach (var pka in pKaValues)
 				tooltip += pka.ToString("F2") + ", ";
@@ -245,13 +311,13 @@ namespace AnalysisITC
 				case Buffer.PBS:
                     {
                         var napo4 = ExperimentAttribute.FromKey(AttributeKey.Buffer);
-                        napo4.IntValue = (int)Buffer.Phosphate;
+                        napo4.IntValue = (int)Buffer.SodiumPhosphate;
                         napo4.ParameterValue = new(0.010);
                         napo4.DoubleValue = 7.4;
                         tmpoptions.Add(napo4);
 
                         var kpo4 = ExperimentAttribute.FromKey(AttributeKey.Buffer);
-                        kpo4.IntValue = (int)Buffer.Phosphate;
+                        kpo4.IntValue = (int)Buffer.PotassiumPhosphate;
                         kpo4.ParameterValue = new(0.0018);
                         kpo4.DoubleValue = 7.4;
                         tmpoptions.Add(kpo4);
@@ -404,7 +470,7 @@ namespace AnalysisITC
 				Buffer.TBS,
 				Buffer.Null,
                 Buffer.Hepes,
-                Buffer.Phosphate,
+                Buffer.SodiumPhosphate,
 				Buffer.Citrate,
                 Buffer.Tris,
 				Buffer.MOPS,

@@ -213,10 +213,10 @@ namespace DataReaders
         }
 
         /// <summary>
-        /// Calculate properties for the experiment. Currently determines the measured temperature.
+        /// Determine derived properties and try parse the comment for attributes
         /// </summary>
         /// <param name="experiment"></param>
-        public static void ProcessData(ExperimentData experiment)
+        public static void ProcessExperiment(ExperimentData experiment)
         {
             experiment.MeasuredTemperature = experiment.DataPoints.Average(dp => dp.Temperature);
 
@@ -261,14 +261,10 @@ namespace DataReaders
                 // ---------- Buffer ----------
                 foreach (var buffer in BufferAttribute.GetBuffers())
                 {
-                    // Accept "PBS"/"TBS" as well as the enum names ("1xPBS"/"1xTBS")
-                    var bname = buffer.GetProperties().Name;
-                    var bnames = (buffer == AnalysisITC.Buffer.PBS) ? new[] { "PBS", "1xPBS" }
-                               : (buffer == AnalysisITC.Buffer.TBS) ? new[] { "TBS", "1xTBS" }
-                               : new[] { bname };
+                    var bnames = buffer.GetProperties().Aliases;
 
                     bool matched = false;
-                    string matchedName = bname;
+                    string matchedName = bnames[0];
 
                     foreach (var bn in bnames)
                     {
@@ -283,8 +279,7 @@ namespace DataReaders
                     if (!matched) continue;
                     if (HasAttribute(experiment.Attributes, AttributeKey.Buffer, (int)buffer)) continue;
 
-                    if (!ConcentrationUnitAttribute.TryExtractConcentrationM(comment, matchedName, out var concM))
-                        continue;
+                    ConcentrationUnitAttribute.TryExtractConcentrationM(comment, matchedName, out var concM);
 
                     var att = ExperimentAttribute.FromKey(AttributeKey.Buffer);
                     att.IntValue = (int)buffer;
@@ -396,7 +391,7 @@ namespace DataReaders
             }
 
             ProcessInjections(experiment);
-            ProcessData(experiment);
+            ProcessExperiment(experiment);
 
             return experiment;
         }
@@ -491,7 +486,7 @@ namespace DataReaders
             experiment.Instrument = experiment.CellVolume > 0.2e-3 ? ITCInstrument.TAInstrumentsITCStandard : ITCInstrument.TAInstrumentsITCLowVolume;
 
             ProcessInjections(experiment);
-            ProcessData(experiment);
+            ProcessExperiment(experiment);
 
             return experiment;
         }

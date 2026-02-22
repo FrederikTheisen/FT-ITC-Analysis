@@ -91,7 +91,7 @@ namespace AnalysisITC
             ProcessInjections_BackMixingOverflowModel(merged, segments, BackMixingSettings.MicroCalDefault());
 
             // Keep the usual post-read processing (baseline, peak direction, etc.)
-            RawDataReader.ProcessData(merged);
+            RawDataReader.ProcessExperiment(merged);
 
             return merged;
         }
@@ -114,7 +114,7 @@ namespace AnalysisITC
             ProcessInjections_BackMixingOverflowModel(merged, segments, settings);
 
             // Keep the usual post-read processing (baseline, peak direction, etc.)
-            RawDataReader.ProcessData(merged);
+            RawDataReader.ProcessExperiment(merged);
 
             return merged;
         }
