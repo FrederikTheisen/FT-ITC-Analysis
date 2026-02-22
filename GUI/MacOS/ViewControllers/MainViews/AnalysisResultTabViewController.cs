@@ -347,7 +347,12 @@ namespace AnalysisITC
             ToggleFitButtons(false);
 
             var tempmode = (FTSRMethod.SRTempMode)(int)SRTemperatureModeSegControl.SelectedSegment;
-            var foldedmode = (FTSRMethod.SRFoldedMode)(int)SRFoldedDegreeSegControl.SelectedSegment;
+            var foldedmode = (int)SRFoldedDegreeSegControl.SelectedSegment switch
+                {
+                    0 => FTSRMethod.SRFoldedMode.Glob,
+                    1 => FTSRMethod.SRFoldedMode.ID,
+                    _ => FTSRMethod.SRFoldedMode.Glob
+                };
 
             AnalysisResult.SpolarRecordAnalysis.TempMode = tempmode;
             AnalysisResult.SpolarRecordAnalysis.FoldedMode = foldedmode;
