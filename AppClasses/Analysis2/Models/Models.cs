@@ -372,7 +372,7 @@ namespace AnalysisITC.AppClasses.Analysis2.Models
 
             if (info.HasFlag(DisplayAttributeOptions.Buffer) && Model.Data.Attributes.Exists(att => att.Key == AttributeKey.Buffer))
             {
-                foreach (var opt in Model.Data.Attributes.FindAll(att => att.Key == AttributeKey.Buffer)) output.Add(new(opt.ParameterValue.AsFormattedConcentration(ConcentrationUnit.mM, true) + " " + ((Buffer)opt.IntValue).GetProperties().ListName + " pH " + opt.DoubleValue.ToString("F1"), ""));
+                foreach (var opt in Model.Data.Attributes.FindAll(att => att.Key == AttributeKey.Buffer)) output.Add(new(opt.ParameterValue.AsFormattedConcentration(ConcentrationUnit.mM, true) + " " + ((Buffer)opt.IntValue).GetProperties().AttributedName + " pH " + opt.DoubleValue.ToString("F1"), ""));
             }
 
             if (info.HasFlag(DisplayAttributeOptions.Salt) && Model.Data.Attributes.Exists(att => att.Key == AttributeKey.Salt))

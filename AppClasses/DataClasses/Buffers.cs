@@ -14,9 +14,9 @@ namespace AnalysisITC
 		[Buffer("Hepes", 7.66, -0.014, 0, "N-2-hydroxyethylpiperazine-N'-2-ethanesulfonic acid", new[] { 20400.0, 47 } )]
 		Hepes,
 		//pKa1: ∆H = -8000, -141, pKa3: 16000, -242
-		[Buffer(new[] { "Sodium Phosphate", "NaPO{4}", "NaPO", "NaPi" }, new[] { 2.15, 7.2, 12.33 }, new[] { 0.0044, -0.0028, -0.026 }, new[] { 0, -1, -2 }, "Sodium phosphoric acid (NaPO4)", new[] { 5120, -187.0 })]
+		[Buffer(new[] { "Sodium Phosphate", "NaHPO{4}", "NaPO4", "NaPO", "NaPi" }, new[] { 2.15, 7.2, 12.33 }, new[] { 0.0044, -0.0028, -0.026 }, new[] { 0, -1, -2 }, "Sodium phosphoric acid (NaPO4)", new[] { 5120, -187.0 })]
 		SodiumPhosphate,
-        [Buffer(new[] { "Potassium Phosphate", "KPO{4}", "KPO" }, new[] { 2.15, 7.2, 12.33 }, new[] { 0.0044, -0.0028, -0.026 }, new[] { 0, -1, -2 }, "Potasium phosphoric acid (KPO4)", new[] { 5120, -187.0 })]
+        [Buffer(new[] { "Potassium Phosphate", "KHPO{4}", "KPO4", "KPO" }, new[] { 2.15, 7.2, 12.33 }, new[] { 0.0044, -0.0028, -0.026 }, new[] { 0, -1, -2 }, "Potasium phosphoric acid (KPO4)", new[] { 5120, -187.0 })]
         PotassiumPhosphate,
         [Buffer("Tris", 8.06, -0.028, 1, "tris(hydroxymethyl)aminomethane", new[] { 47450, -59.0 })]
 		Tris,
@@ -119,7 +119,7 @@ namespace AnalysisITC
 		/// <summary>
 		/// Should typically be a chemical formula or the same as the ListName
 		/// </summary>
-		public string AttName { get; set; }
+		public string AttributedName { get; set; }
 		private List<string> aliases { get; set; }
 		public string Description { get; private set; }
 
@@ -141,7 +141,7 @@ namespace AnalysisITC
 		{
 			get
 			{
-				var list = new List<string> { ListName, AttName.Replace("{", "").Replace("}", "") };
+				var list = new List<string> { ListName, AttributedName.Replace("{", "").Replace("}", "") };
 
 				if (aliases != null) list.AddRange(aliases);
 
@@ -179,7 +179,7 @@ namespace AnalysisITC
         public BufferAttribute(string name, double pka, double tc, int za, string description, double[] dh)
         {
             ListName = name;
-			AttName = name;
+			AttributedName = name;
             Description = description;
 
             pKaValues = new[] { pka };
@@ -192,7 +192,7 @@ namespace AnalysisITC
         public BufferAttribute(string[] names, double pka, double tc, int za, string description, double[] dh)
         {
             ListName = names[0];
-            AttName = names[1];
+            AttributedName = names[1];
             Description = description;
 
             pKaValues = new[] { pka };
@@ -207,7 +207,7 @@ namespace AnalysisITC
         public BufferAttribute(string name, double pka, double tc, int za, string description, double dh = 0)
         {
             ListName = name;
-			AttName = name;
+			AttributedName = name;
             Description = description;
 
             pKaValues = new[] { pka };
@@ -220,7 +220,7 @@ namespace AnalysisITC
         public BufferAttribute(string name, double[] pkas, double[] tcs, int[] za, string description, double[] dh = null)
 		{
 			ListName = name;
-			AttName = name;
+			AttributedName = name;
 			Description = description;
 
 			pKaValues = pkas;
@@ -233,7 +233,7 @@ namespace AnalysisITC
         public BufferAttribute(string[] names, double[] pkas, double[] tcs, int[] za, string description, double[] dh = null)
         {
             ListName = names[0];
-			AttName = names[1];
+			AttributedName = names[1];
             Description = description;
 
             pKaValues = pkas;
