@@ -1,4 +1,4 @@
-cff-version: 1.2.0
+cff-version: 1.0
 message: "If you use this software, please cite it as below."
 authors:
   - family-names: Theisen
@@ -6,7 +6,5 @@ authors:
     orcid: https://orcid.org/0000-0002-3412-4242
 title: "FT-ITC Analysis"
 version: 0.2
-identifiers:
-  - type: doi
-    value: 10.5281/zenodo.14832177
+doi: 10.5281/zenodo.14832177
 date-released: 2025-02-07
