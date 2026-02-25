@@ -18,6 +18,13 @@ namespace AnalysisITC
 		{
 		}
 
+        public override void ViewWillAppear()
+        {
+            base.ViewWillAppear();
+
+            StatusBarManager.SetStatus(StateManager.ProgramSubStateString(ProgramSubState.SubtractionTool));
+        }
+
         public override void ViewDidLoad()
         {
             base.ViewDidLoad();
@@ -132,6 +139,13 @@ namespace AnalysisITC
             {
                 AppEventHandler.DisplayHandledException(ex);
             }
+        }
+
+        public override void ViewWillDisappear()
+        {
+            base.ViewWillDisappear();
+
+            StatusBarManager.ClearAppStatus();
         }
     }
 }

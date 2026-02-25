@@ -21,6 +21,13 @@ namespace AnalysisITC
 		{
 		}
 
+        public override void ViewWillAppear()
+        {
+            base.ViewWillAppear();
+
+            StatusBarManager.SetStatus(StateManager.ProgramSubStateString(ProgramSubState.MergeTool));
+        }
+
         public override void ViewDidLoad()
         {
             base.ViewDidLoad();
@@ -139,6 +146,13 @@ namespace AnalysisITC
             DataManager.AddData(mergeddata);
 
             DismissViewController(this);
+        }
+
+        public override void ViewWillDisappear()
+        {
+            base.ViewWillDisappear();
+
+            StatusBarManager.ClearAppStatus();
         }
     }
 }
