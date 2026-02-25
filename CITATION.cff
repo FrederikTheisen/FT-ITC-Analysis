@@ -3,7 +3,7 @@ message: "If you use this software, please cite it as below."
 authors:
   - family-names: "Theisen"
     given-names: "Frederik Friis"
-    orcid: https://orcid.org/0000-0002-3412-4242
+    orcid: "https://orcid.org/0000-0002-3412-4242"
 title: "FT-ITC Analysis"
 version: 0.2
 doi: 10.5281/zenodo.14832177
