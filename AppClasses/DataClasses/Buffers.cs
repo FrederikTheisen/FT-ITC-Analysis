@@ -10,15 +10,16 @@ namespace AnalysisITC
 {
 	public enum Buffer
 	{
-		Null = -1,
+        [Buffer("Generic Buffer", 7.0, 0, 0, "Unknown Buffer", new[] { 0.0, 0.0 })]
+        Null = -1,
 		[Buffer("Hepes", 7.66, -0.014, 0, "N-2-hydroxyethylpiperazine-N'-2-ethanesulfonic acid", new[] { 20400.0, 47 } )]
 		Hepes,
 		//pKa1: ∆H = -8000, -141, pKa3: 16000, -242
-		[Buffer(new[] { "Sodium Phosphate", "NaHPO{4}", "NaPO4", "NaPO", "NaPi" }, new[] { 2.15, 7.2, 12.33 }, new[] { 0.0044, -0.0028, -0.026 }, new[] { 0, -1, -2 }, "Sodium phosphoric acid (NaPO4)", new[] { 5120, -187.0 })]
+		[Buffer(new[] { "Sodium Phosphate", "NaHPO{4}", "NaPO4", "NaPO", "NaPi", "Phosphate", "PO4", "Phos", "Fosfate", "Fosphate", "Pi",  }, new[] { 2.15, 7.2, 12.33 }, new[] { 0.0044, -0.0028, -0.026 }, new[] { 0, -1, -2 }, "Na{2}HPO{4}/NaH{2}PO{4}", new[] { 5120, -187.0 })]
 		SodiumPhosphate,
-        [Buffer(new[] { "Potassium Phosphate", "KHPO{4}", "KPO4", "KPO" }, new[] { 2.15, 7.2, 12.33 }, new[] { 0.0044, -0.0028, -0.026 }, new[] { 0, -1, -2 }, "Potasium phosphoric acid (KPO4)", new[] { 5120, -187.0 })]
+        [Buffer(new[] { "Potassium Phosphate", "KHPO{4}", "KPO4", "KPO" }, new[] { 2.15, 7.2, 12.33 }, new[] { 0.0044, -0.0028, -0.026 }, new[] { 0, -1, -2 }, "K{2}HPO{4}/KH{2}PO{4}", new[] { 5120, -187.0 })]
         PotassiumPhosphate,
-        [Buffer("Tris", 8.06, -0.028, 1, "tris(hydroxymethyl)aminomethane", new[] { 47450, -59.0 })]
+        [Buffer("Tris", 8.06, -0.028, 1, "tris(hydroxymethyl)aminomethane", new[] { 47450, -259.0 })]
 		Tris,
 		[Buffer("Maleate", 2.0, 0, 0, "Maleic acid")]
 		Maleate,
@@ -41,9 +42,9 @@ namespace AnalysisITC
 		Pyridine,
 		[Buffer("Piperazine", 5.55, -0.015, 0, "Piperazine")]
 		Piperazine,
-		[Buffer("MES", 6.21, -0.011, 0, "2-(N-morpholino)ethanesulfonic acid", new[] { 14800, 5.0 })]
+		[Buffer("MES", 6.10, -0.011, 0, "2-(N-morpholino)ethanesulfonic acid", new[] { 14800, 5.0 })]
 		MES,
-		[Buffer("Carbonate", new[] { 6.37, 10.25 }, new[] { -0.0055, -0.0090 }, new[] { 0, -1 }, "Carbonic acid", new[] { 9150, -249.0 })]
+		[Buffer("Carbonate", new[] { 6.37, 10.33 }, new[] { -0.0055, -0.0090 }, new[] { 0, -1 }, "Carbonic acid", new[] { 9150, -249.0 })]
 		Carbonate,
 		[Buffer("Bis-Tris", 6.46, -0.02, 1, "Bis-Tris base", new[] { 28400, 27.0 })]
 		BisTris,
@@ -55,7 +56,7 @@ namespace AnalysisITC
 		ACES,
 		[Buffer("BES", 7.26, -0.016, 0, "N,N-Bis(2-hydroxyethyl)-2-aminoethanesulfonic acid", new[] { 24250, -2.0 })]
 		BES,
-		[Buffer("MOPS", 7.31, -0.011, 0, "3-(N-morpholino)propanesulfonic acid", new[] { 22200, 25.0 })]
+		[Buffer("MOPS", 7.20, -0.016, 0, "3-(N-morpholino)propanesulfonic acid", new[] { 22200, 25.0 })]
 		MOPS,
 		[Buffer("TES", 7.61, -0.02, 0, "2-{[1,3-Dihydroxy-2-(hydroxymethyl)propan-2-yl]amino}ethane-1-sulfonic acid", new[] { 32130, 0.0 })]
 		TES,
@@ -67,9 +68,9 @@ namespace AnalysisITC
 		TAPS,
 		[Buffer("Ethanolamine", 9.5, -0.029, 1, "Ethanolamine")]
 		Ethanolamine,
-		[Buffer("CHES", 9.41, -0.018, 0, "N-cyclohexyl-2-aminoethanesulfonic acid", new[] { 39550, 9.0 })]
+		[Buffer("CHES", 9.51, -0.012, 0, "N-cyclohexyl-2-aminoethanesulfonic acid", new[] { 39550, 9.0 })]
 		CHES,
-		[Buffer("CAPS", 10.51, -0.018, 0, "N-cyclohexyl-3-aminopropanesulfonic acid", new[] { 48100, 57.0 })]
+		[Buffer("CAPS", 10.40, -0.032, 0, "N-cyclohexyl-3-aminopropanesulfonic acid", new[] { 48100, 57.0 })]
 		CAPS,
 		[Buffer("Methylamine", 10.62, -0.031, 1, "Methylamine")]
 		Methylamine,
@@ -111,16 +112,16 @@ namespace AnalysisITC
 
     public class BufferAttribute : Attribute
 	{
-		/// <summary>
-		/// Nice looking name string
-		/// </summary>
-		public string ListName { get; private set; }
+		string attname;
+        private List<string> aliases;
+        static double avgdPKadT = 0.01240; //some default just to be sure
+        static double vardPKadT = 0.00998;
 
-		/// <summary>
-		/// Should typically be a chemical formula or the same as the ListName
-		/// </summary>
-		public string AttributedName { get; set; }
-		private List<string> aliases { get; set; }
+        /// <summary>
+        /// Nice looking name string
+        /// </summary>
+        public string ListName { get; private set; } = "Generic";
+		
 		public string Description { get; private set; }
 
 		public double[] pKaValues { get; private set; }
@@ -129,15 +130,28 @@ namespace AnalysisITC
 
 		public LinearFit ProtonationEnthalpy { get; private set; } = new(0, 0, 25);
 
+        /// <summary>
+        /// Number of transitions as the number of pKa values
+        /// </summary>
 		public int Transitions => pKaValues.Length;
 
-		static double avgdPKadT = 0.01240; //some default just to be sure
-		static double vardPKadT = 0.00998;
+        /// <summary>
+        /// Should typically be a chemical formula or the same as the ListName
+        /// </summary>
+        public string AttributedName
+        {
+            get
+            {
+                if (attname != null) return attname;
+                else return ListName;
+            }
+            set => attname = value;
+        }
 
-		/// <summary>
-		/// All possible name of the buffer
-		/// </summary>
-		public List<string> Aliases
+        /// <summary>
+        /// All possible name of the buffer
+        /// </summary>
+        public List<string> Aliases
 		{
 			get
 			{
@@ -179,7 +193,6 @@ namespace AnalysisITC
         public BufferAttribute(string name, double pka, double tc, int za, string description, double[] dh)
         {
             ListName = name;
-			AttributedName = name;
             Description = description;
 
             pKaValues = new[] { pka };
@@ -207,7 +220,6 @@ namespace AnalysisITC
         public BufferAttribute(string name, double pka, double tc, int za, string description, double dh = 0)
         {
             ListName = name;
-			AttributedName = name;
             Description = description;
 
             pKaValues = new[] { pka };
@@ -220,7 +232,6 @@ namespace AnalysisITC
         public BufferAttribute(string name, double[] pkas, double[] tcs, int[] za, string description, double[] dh = null)
 		{
 			ListName = name;
-			AttributedName = name;
 			Description = description;
 
 			pKaValues = pkas;
@@ -254,7 +265,8 @@ namespace AnalysisITC
 
         string GetBufferTooltip()
 		{
-			var tooltip = ListName + Environment.NewLine + Description + Environment.NewLine;
+            var tooltip = ListName + Environment.NewLine;
+            tooltip += Description.Replace("{", "").Replace("}", "") + Environment.NewLine;
 			tooltip += MarkdownStrings.pKa + (Transitions > 1 ? "s: " : ": ");
 			foreach (var pka in pKaValues)
 				tooltip += pka.ToString("F2") + ", ";
