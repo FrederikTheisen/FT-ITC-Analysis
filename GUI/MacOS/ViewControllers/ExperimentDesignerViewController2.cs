@@ -221,6 +221,10 @@ namespace AnalysisITC
             {
                 ParameterValueAdjustmentView sv;
 
+                // Set some meaning ful default value for enthalpy type variables
+                if (par.Key.GetProperties().ParentType == ParameterType.Enthalpy1)
+                    par.Update(-30000);
+
                 if (tmppars.ToList().Exists(view => view.Key == par.Key))
                 {
                     sv = tmppars.ToList().Find(view => view.Key == par.Key);
