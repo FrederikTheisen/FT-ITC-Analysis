@@ -146,7 +146,7 @@ namespace AnalysisITC.AppClasses.AnalysisClasses
             var zz = new FloatWithError(results.Select(r => r.ZZ), result.ZZ);
 
             Kd0 = new(results.Select(r => r.Kd0), result.Kd0);
-            KdInf = Kd0 * FWEMath.Exp(-0.51 * zz);
+            KdInf = new(results.Select(r => r.Kd0 * Math.Exp(-0.51 * r.ZZ)));
 
             DebyeHuckelFit = new DebyeHuckelFit(Kd0, zz);
             CompletedIterations = results.Count;
