@@ -69,6 +69,8 @@ namespace AnalysisITC
         {
             base.ViewWillAppear();
 
+            InitializeData();
+
             UpdateUI();
             UpdateSliderLabels();
 
@@ -76,6 +78,26 @@ namespace AnalysisITC
 
             BaselineGraphView.SetFeatureVisibility(ShowBaseline, ShowIntegrationRange, Corrected, ShowCursorInfo);
             BaselineGraphView.UpdateTrackingArea();
+        }
+
+        /// <summary>
+        /// Initialize a baseline for data that does not have any baseline
+        /// </summary>
+        void InitializeData()
+        {
+            if (Data != null)
+            {
+                if (Processor != null)
+                {
+                    if (Processor.BaselineType == BaselineInterpolatorTypes.None)
+                    {
+                        Processor.InitializeBaseline(BaselineInterpolatorTypes.Spline);
+                        UpdateIntegrationEndPoint(Data.Injections[0].Delay / 2);
+
+                        UpdateProcessing(true);
+                    }
+                }
+            }
         }
 
         void UpdateUI()
