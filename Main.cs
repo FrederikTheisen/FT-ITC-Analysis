@@ -13,6 +13,9 @@ namespace AnalysisITC
             AppSettings.Initialize();
             BufferAttribute.Init();
 
+            // Not implemented yet if ever
+            // BufferRegistry.Registry = BufferRegistry.LoadFromFile("./Buffers.json");
+
             NSApplication.Main(args);
         }
     }

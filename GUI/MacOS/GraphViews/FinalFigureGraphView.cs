@@ -20,7 +20,7 @@ namespace AnalysisITC
         public static event EventHandler PlotSizeChanged;
 
         public static EnergyUnit EnergyUnit => AppSettings.EnergyUnit;
-        public FinalFigureDisplayParameters FinalFigureDisplayParameters => AppSettings.FinalFigureParameterDisplay;
+        //public FinalFigureDisplayParameters FinalFigureDisplayParameters => AppSettings.FinalFigureParameterDisplay;
 
         static string poweraxistitle = "";
         public static string PowerAxisTitle

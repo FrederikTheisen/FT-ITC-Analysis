@@ -57,6 +57,7 @@ namespace AnalysisITC.GUI.MacOS.CustomViews
 			Orientation = NSUserInterfaceLayoutOrientation.Horizontal;
 			Distribution = NSStackViewDistribution.Fill;
 			Alignment = NSLayoutAttribute.CenterY;
+            AddConstraint(NSLayoutConstraint.Create(this, NSLayoutAttribute.Height, NSLayoutRelation.Equal, 1, 16));
             SetContentHuggingPriorityForOrientation(1000, NSLayoutConstraintOrientation.Vertical);
             SetHuggingPriority(1000, NSLayoutConstraintOrientation.Vertical);
 
@@ -323,6 +324,34 @@ namespace AnalysisITC.GUI.MacOS.CustomViews
         }
 
         void SetupEnum()
+        {
+            SetupDropdownMenu();
+
+            var opts = Option.EnumOptions.ToList();
+
+            for (int i = 0; i < Option.EnumOptionCount; i++)
+            {
+                var opt = opts[i];
+
+                if (opt.Item1 != -1)
+                {
+                    var item = new NSMenuItem("")
+                    {
+                        Tag = opt.Item1,
+                        AttributedTitle = MacStrings.FromMarkDownString(opt.Item2, NSFont.SystemFontOfSize(NSFont.SmallSystemFontSize)),
+                        ToolTip = MacStrings.FromMarkDownString(opt.Item3, NSFont.SystemFontOfSize(NSFont.SmallSystemFontSize)).Value,
+                    };
+                    EnumPopUpControl.Menu.AddItem(item);
+                }
+                else EnumPopUpControl.Menu.AddItem(NSMenuItem.SeparatorItem);
+            }
+
+            AddArrangedSubview(EnumPopUpControl);
+
+            if (Option.IntValue != -1) { EnumPopUpControl.SelectItemWithTag(Option.IntValue); EnumPopUpControl_Activated(null, null); }
+        }
+
+        void SetupBufferSelection()
         {
             SetupDropdownMenu();
 
