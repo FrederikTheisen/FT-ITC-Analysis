@@ -5,6 +5,7 @@ using System;
 using Foundation;
 using AppKit;
 using System.Collections.Generic;
+using AnalysisITC.Utilities;
 
 namespace AnalysisITC
 {
@@ -30,12 +31,12 @@ namespace AnalysisITC
 
             foreach (var mdl in analysisresult.Solution.Model.Models)
             {
-                lines.Add(System.IO.Path.GetFileNameWithoutExtension(mdl.Data.FileName));
-                lines.Add(mdl.Data.UIShortDateWithTime);
+                lines.Add($"**{System.IO.Path.GetFileNameWithoutExtension(mdl.Data.FileName)}**");
+                lines.Add($"  --Date: {mdl.Data.UIShortDateWithTime}");
+                lines.Add($"  Temperature: {mdl.Data.MeasuredTemperature:G3}--");
             }
-            lines.RemoveAt(lines.Count - 1);
 
-            Label.StringValue = string.Join(Environment.NewLine, lines);
+            Label.AttributedStringValue = MacStrings.FromMarkDownString(string.Join(Environment.NewLine, lines), Label.Font);
         }
     }
 }
