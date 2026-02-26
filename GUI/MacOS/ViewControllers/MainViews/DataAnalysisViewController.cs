@@ -217,6 +217,9 @@ namespace AnalysisITC
             }
 
             SetExposedFittingOptions();
+
+            // Update status bar to show model info
+            StatusBarManager.Invalidate();
         }
 
         void SetExposedFittingOptions()
