@@ -611,7 +611,10 @@ namespace DataReaders
                     case "LIST" when v[1] == ExperimentAttributes: ReadAttributes(exp, reader); break;
                     case "LIST" when v[1] == SegmentList: ReadSegmentList(exp, reader);  break;
                     case "OBJECT" when v[1] == Processor: ReadProcessor(exp, reader); break;
-                    case "OBJECT" when v[1] == ExperimentSolutionHeader: sol = ReadSolution(reader, reader.ReadLine(), exp); break;
+                    case "OBJECT" when v[1] == ExperimentSolutionHeader:
+                        sol = ReadSolution(reader, reader.ReadLine(), exp);
+                        exp.UpdateSolution(sol.Model);
+                        break;
                     //case "OBJECT" when v[1] == SolutionHeader: exp.UpdateSolution(ReadSolution(reader, line).Model); break; //Not certain about implementation
                 }
             }
@@ -685,10 +688,22 @@ namespace DataReaders
                 var dat = line.Split(';');
 
                 var opt = ExperimentAttribute.FromKey((AttributeKey)IParse(dat[1]));
-                opt.BoolValue = BParse(dat[2].Split(':')[1]);
-                opt.IntValue = IParse(dat[3].Split(':')[1]);
-                opt.DoubleValue = DParse(dat[4].Split(':')[1]);
-                opt.ParameterValue = FWEParse(dat[5].Split(':')[1]);
+
+                for (int i = 2; i < dat.Length; i++)
+                {
+                    var d = dat[i].Split(':');
+                    string type = d[0];
+                    string val = d[1];
+
+                    switch (type)
+                    {
+                        case "B": opt.BoolValue = BParse(val); break;
+                        case "I": opt.IntValue = IParse(val); break;
+                        case "D": opt.DoubleValue = DParse(val); break;
+                        case "FWE": opt.ParameterValue = FWEParse(val); break;
+                        case "S": opt.StringValue = val; break;
+                    }
+                }
 
                 options.Add(opt);
             }
@@ -848,7 +863,7 @@ namespace DataReaders
 
             if (solutions.Count > 0) factory.Model.Solution = new GlobalSolution(new GlobalSolver() { Model = factory.Model, ErrorEstimationMethod = solutions[0].ErrorMethod }, solutions, conv);
 
-            foreach (var sol in solutions) sol.SetIsGlobal(factory.Model.Solution);
+            foreach (var sol in solutions) sol.SetParentSolution(factory.Model.Solution);
 
             return factory.Model.Solution;
         }
@@ -862,7 +877,7 @@ namespace DataReaders
                 string dataref = reader.ReadLine().Split(':')[1];
                 var mdltype = (AnalysisModel)IParse(reader.ReadLine().Split(':')[1]);
 
-                factory = new AnalysisITC.AppClasses.Analysis2.SingleModelFactory(mdltype);
+                factory = new SingleModelFactory(mdltype);
                 if (experimentData == null)
                     factory.InitializeModel(Data.Find(d => d.UniqueID == dataref) as ExperimentData);
                 else factory.ConstructModel(experimentData);
