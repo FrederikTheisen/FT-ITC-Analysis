@@ -898,14 +898,21 @@ namespace AnalysisITC
 
             Info = new List<string>()
                 {
-                    "Filename: " + experiment.FileName + " | Instrument: " + experiment.Instrument.GetProperties().Name,
-                    "Date: " + experiment.UILongDateWithTime,
-                    "Temperature | Target: " + experiment.TargetTemperature.ToString() + " °C [Measured: " + experiment.MeasuredTemperature.ToString("G4") + " °C] | Feedback Mode: " + experiment.FeedBackMode.GetProperties().Name + " | Stirring Speed: " + experiment.StirringSpeed.ToString() + " rpm",
-                    "Injections: " + experiment.InjectionCount.ToString() + " [" + injdescription + "]",
-                    "Concentrations | Cell: " + experiment.CellConcentration.AsConcentration(ConcentrationUnit.µM) + " | Syringe: " + experiment.SyringeConcentration.AsConcentration(ConcentrationUnit.µM),
+                    "**Filename:** " + experiment.FileName,
+                    "  **Date:** " + experiment.UILongDateWithTime,
+                   $"  **Duration:** {experiment.Duration.ToReadableString()}",
+                    "**Instrument:** " + experiment.Instrument.GetProperties().Name,
+                   $"  **Cell Volume:** {1000000*experiment.CellVolume:F1} µl",
+                    "  **Feedback Mode:** " + experiment.FeedBackMode.GetProperties().Name,
+                    "  **Stirring Speed:** " + experiment.StirringSpeed.ToString() + " rpm",
+                    "**Temperature:**",
+                   $"  **Target:** {experiment.TargetTemperature:G4} °C",
+                   $"  **Measured:** {experiment.DataPoints.Min(dp => dp.Temperature):F4} - {experiment.DataPoints.Max(dp => dp.Temperature):F4} °C | Mean = {experiment.MeasuredTemperature:G4} °C",
+                   $"**Injections:** {experiment.InjectionCount} [{injdescription}]",
+                   $"**Concentrations:** Cell: {experiment.CellConcentration.AsConcentration(ConcentrationUnit.µM)} | Syringe: {experiment.SyringeConcentration.AsConcentration(ConcentrationUnit.µM)}",
                 };
 
-            if (!string.IsNullOrEmpty(experiment.Comments)) Info.Add("Comment: " + experiment.Comments);
+            if (!string.IsNullOrEmpty(experiment.Comments)) Info.Add("  Comment: " + experiment.Comments);
 
             var tamid = experiment.TargetTemperature;
             var delta = Math.Max(Math.Abs(experiment.DataPoints.Min(dp => Math.Min(dp.Temperature, dp.ShieldT)) - tamid), Math.Abs(experiment.DataPoints.Max(dp => Math.Max(dp.Temperature, dp.ShieldT)) - tamid));
@@ -971,7 +978,7 @@ namespace AnalysisITC
             layer.Context.StrokePath();
             DrawRectsAtPositions(layer, new CGPoint[] { power }, 5, true, true);
 
-            DrawTextBoxConsistent(gc, CursorInfo, alignment: NSRectAlignment.TopLeading);
+            DrawTextBoxConsistent(gc, CursorInfo, alignment: NSRectAlignment.BottomTrailing);
 
             gc.DrawLayer(layer, Frame.Location);
             gc.DrawLayer(textlayer, Frame.Location);
