@@ -52,6 +52,14 @@ namespace AnalysisITC.Utilities
             return s;
         }
 
+        static NSMutableAttributedString SmallText(string str, NSFont font)
+        {
+            var s = new NSMutableAttributedString(str);
+            font = NSFont.FromDescription(font.FontDescriptor, font.PointSize * 0.8f);
+            s.AddAttributes(new NSStringAttributes { Font = font }, new NSRange(0, s.Length));
+            return s;
+        }
+
         static NSMutableAttributedString SubscriptText(string str, NSFont font)
         {
             var s = new NSMutableAttributedString(str);
@@ -127,6 +135,7 @@ namespace AnalysisITC.Utilities
                     case MarkdownProperty.Superscript: attstr.Append(SuperscriptText(segment.Text, font)); break;
                     case MarkdownProperty.Header1: attstr.Append(Header1Text(segment.Text, font)); break;
                     case MarkdownProperty.Header2: attstr.Append(Header2Text(segment.Text, font)); break;
+                    case MarkdownProperty.Small: attstr.Append(SmallText(segment.Text, font)); break;
                 }
             }
             if (iscg) attstr.AddAttributes(new CoreText.CTStringAttributes() //Necessary for correct textbox text color...

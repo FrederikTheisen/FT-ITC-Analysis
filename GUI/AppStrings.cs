@@ -66,6 +66,7 @@ namespace AnalysisITC.Utilities
             Regex boldRegex = new Regex(@"\*\*(.*?)\*\*");
             Regex header1Regex = new Regex(@"^# (.+)$", RegexOptions.Multiline);
             Regex header2Regex = new Regex(@"^## (.+)$", RegexOptions.Multiline);
+            Regex small = new Regex(@"\-\-([^*]+)\-\-");
 
             int currentIndex = 0;
 
@@ -77,6 +78,7 @@ namespace AnalysisITC.Utilities
                 Match cursiveMatch = cursiveRegex.Match(input, currentIndex);
                 Match subscriptMatch = subscriptRegex.Match(input, currentIndex);
                 Match superscriptMatch = superscriptRegex.Match(input, currentIndex);
+                Match smallMatch = small.Match(input, currentIndex);
 
                 Match match = null;
                 int firstidx = int.MaxValue;
@@ -87,6 +89,7 @@ namespace AnalysisITC.Utilities
                 type = CheckMatch(cursiveMatch, ref match, ref firstidx, MarkdownProperty.Cursive) ?? type;
                 type = CheckMatch(subscriptMatch, ref match, ref firstidx, MarkdownProperty.Subscript) ?? type;
                 type = CheckMatch(superscriptMatch, ref match, ref firstidx, MarkdownProperty.Superscript) ?? type;
+                type = CheckMatch(smallMatch, ref match, ref firstidx, MarkdownProperty.Small) ?? type;
 
                 if (match != null)
                 {
@@ -144,7 +147,8 @@ namespace AnalysisITC.Utilities
         Bold,
         Header1,
         Header2,
-        Superscript
+        Superscript,
+        Small,
     }
 
     public class Segment
