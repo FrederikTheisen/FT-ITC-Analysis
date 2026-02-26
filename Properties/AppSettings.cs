@@ -238,6 +238,18 @@ namespace AnalysisITC
             Storage.SetValueForKey(array, new NSString(key));
         }
 
+        static void StoreArray(string[] arr, string key)
+        {
+            // Create an NSMutableArray to hold the NSNumber objects
+            var array = new NSMutableArray();
+
+            // Convert each double to an NSNumber object and add it to the NSMutableArray
+            foreach (string s in arr) array.Add(new NSString(s));
+
+            // Store the NSMutableArray as an array with a specific key
+            Storage.SetValueForKey(array, new NSString(key));
+        }
+
         static int GetInt(NSDictionary dict, string key, int def = 0)
         {
             if (dict.ContainsKey(NSObject.FromObject(key)))
@@ -279,6 +291,21 @@ namespace AnalysisITC
             }
 
             return doubleArray;
+        }
+
+        static string[] GetArray(NSDictionary dict, string key, string[] def = null)
+        {
+            if (!dict.ContainsKey(NSObject.FromObject(key))) return def;
+
+            var arr = Storage.ArrayForKey(key);
+            var outarr = new string[arr.Count()];
+
+            for (int i = 0; i < arr.Count(); i++)
+            {
+                outarr[i] = (NSString)arr.ToArray()[i];
+            }
+
+            return outarr;
         }
 
         public static void ApplySettings()
