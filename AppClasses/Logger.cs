@@ -39,7 +39,14 @@ namespace AnalysisITC
 
 			switch (ex)
 			{
-				case OptimizerStopException: break;
+				case HandledException:
+					NSApplication.SharedApplication.InvokeOnMainThread(() =>
+						{
+							ShowAppMessage?.Invoke(null, ex as HandledException);
+							StatusBarManager.ClearAppStatus();
+						});
+					break;
+                case OptimizerStopException: break;
                 case AggregateException: NSApplication.SharedApplication.InvokeOnMainThread(() => { ShowAppMessage?.Invoke(null, new(ex.InnerException)); StatusBarManager.ClearAppStatus(); }); break;
 				default: NSApplication.SharedApplication.InvokeOnMainThread(() => { ShowAppMessage?.Invoke(null, new(ex)); StatusBarManager.ClearAppStatus(); }); break;
             }
@@ -66,25 +73,22 @@ namespace AnalysisITC
         }
     }
 
-	public class HandledException
+	public class HandledException : Exception
 	{
 		public Severity Level { get; private set; } = Severity.Message;
 		public string Title { get; private set; } = "Error";
-		public string Message { get; private set; } = "An error occured";
 
-		public HandledException(Exception ex)
+		public HandledException(Exception ex) : base(ex.Message)
 		{
 			Level = Severity.Error;
 
 			Title = ex.GetType().ToString().Split('.').Last();
-			Message = ex.Message;
         }
 
-		public HandledException(Severity level, string title, string message)
+		public HandledException(Severity level, string title, string message) : base(message)
 		{
 			Level = level;
 			Title = title;
-			Message = message;
 		}
 
 		public enum Severity
