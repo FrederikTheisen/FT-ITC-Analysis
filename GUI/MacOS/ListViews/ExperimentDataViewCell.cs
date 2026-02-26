@@ -16,8 +16,8 @@ namespace AnalysisITC
 		AnalysisITCDataSource source;
 		ExperimentData data;
 		int row;
-		int ContentIndex => source.Content.IndexOf(data);
-		int DataIndex => DataManager.Data.IndexOf(data);
+		int ContentIndex => source?.Content?.FindIndex(x => x.UniqueID == data.UniqueID) ?? -1;
+        int DataIndex => DataManager.Data.IndexOf(data);
 		public bool IsDetailedViewOpen { get; set; } = false;
 
 		public event EventHandler<int> RemoveData;
@@ -30,7 +30,13 @@ namespace AnalysisITC
 
 		public void Setup(AnalysisITCDataSource source, ExperimentData data, int index)
         {
-			this.source = source;
+            if (this.data != null)
+            {
+                this.data.SolutionChanged -= Data_SolutionChanged;
+                this.data.ProcessingUpdated -= Data_ProcessingCompleted;
+            }
+
+            this.source = source;
 			this.data = data;
 			this.row = index;
 
@@ -110,10 +116,12 @@ namespace AnalysisITC
 
         partial void RemoveClick(NSObject obj)
         {
-			RemoveData?.Invoke(this, ContentIndex);
+            int idx = ContentIndex;
+            if (idx < 0) return; // stale cell / already removed
 
-			DataManager.RemoveData2(ContentIndex);
-		}
+            DataManager.RemoveData2(idx);    // 1) update model first
+            RemoveData?.Invoke(this, idx);   // 2) then animate UI removal
+        }
 
         partial void ShowFitDataButtonClick(NSObject sender)
         {

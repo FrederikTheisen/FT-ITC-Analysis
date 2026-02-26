@@ -14,7 +14,7 @@ namespace AnalysisITC
 
         AnalysisITCDataSource source;
         AnalysisResult data;
-        int ContentIndex => source.Content.IndexOf(data);
+        int ContentIndex => source?.Content?.FindIndex(x => x.UniqueID == data.UniqueID) ?? -1;
         int row = -1;
 
         public AnalysisResultView (IntPtr handle) : base (handle)
@@ -39,10 +39,10 @@ namespace AnalysisITC
         partial void RemoveButtonClick(NSObject sender)
         {
             Console.WriteLine("BTN CLICK: " + data.UniqueID + " " + ContentIndex);
-
-            if (ContentIndex == -1)
+            foreach (var item in source.Content)
             {
-
+                if (item is AnalysisResult)
+                    Console.WriteLine("  " + item.UniqueID);
             }
 
             int idx = ContentIndex;

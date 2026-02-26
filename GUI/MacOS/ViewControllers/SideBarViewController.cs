@@ -127,6 +127,8 @@ namespace AnalysisITC
             catch (Exception ex)
             {
                 AppEventHandler.AddLog(ex);
+
+                TableView.ReloadData();
             }
         }
 
@@ -140,6 +142,8 @@ namespace AnalysisITC
             catch (Exception ex)
             {
                 AppEventHandler.AddLog(ex);
+
+                TableView.ReloadData();
             }
         }
 

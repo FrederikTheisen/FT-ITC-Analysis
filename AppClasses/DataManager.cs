@@ -92,17 +92,22 @@ namespace AnalysisITC
 
         public static void RemoveData2(int index)
         {
+            if (index == -1) return;
+            if (index >= DataSource.Content.Count) return;
+
             DeletedDataList.Add(new ITCDataContainerDeletionLog(DataSource.Content[index]));
 
             if (SelectedContentIndex == -1) { DataSource.Content.RemoveAt(index); return; }
+            else
+            {
+                var current_selected_item = DataSource.Content[SelectedContentIndex];
+                var will_delete_selected = index == SelectedContentIndex;
 
-            var current_selected_item = DataSource.Content[SelectedContentIndex];
-            var will_delete_selected = index == SelectedContentIndex;
+                DataSource.Content.RemoveAt(index);
 
-            DataSource.Content.RemoveAt(index);
-
-            if (will_delete_selected) DataDidChange.Invoke(null, null);
-            SelectIndex(DataSource.Content.IndexOf(current_selected_item));
+                if (will_delete_selected) DataDidChange.Invoke(null, null);
+                SelectIndex(DataSource.Content.IndexOf(current_selected_item));
+            }
         }
 
         public static void UndoDeleteData()
