@@ -195,8 +195,8 @@ namespace AnalysisITC
                 var dx = x - fit.ReferenceX;
                 var y = fit.Evaluate(x,0);
                 var e = fit.MinMax(x);
-                var max = e[1];
-                var min = e[0];
+                var max = y.WithConfidence(FloatWithError.ConfidenceLevel.SD)[1]; //e[1];
+                var min = y.WithConfidence(FloatWithError.ConfidenceLevel.SD)[0];  //e[0];
 
                 line.Add(new CGPoint(GetRelativePosition(x, y)));
                 top.Add(new CGPoint(GetRelativePosition(x, max)));
