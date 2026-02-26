@@ -1,0 +1,670 @@
+﻿{
+    "schemaVersion": 1,
+    "convention": "ionization",
+    "referenceTemperature_K": 298.15,
+    "buffers": [
+        {
+            "id": "null",
+            "enum": "Null",
+            "legacyEnum": -1,
+            "name": "Generic Buffer",
+            "aliases": [ "Generic Buffer", "Unknown Buffer" ],
+            "pKa": [ 7.0 ],
+            "dPka_dT": [ 0.0 ],
+            "acidCharge": [ 0 ],
+            "description": "Unknown buffer.",
+            "thermoSteps": [
+                {
+                    "dH298_Jmol": 0.0,
+                    "dCp_JmolK": 0.0
+                }
+            ],
+            "mixture": null
+        },
+        {
+            "id": "hepes",
+            "enum": "Hepes",
+            "legacyEnum": 0,
+            "name": "HEPES",
+            "aliases": [ "Hepes", "HEPES" ],
+            "pKa": [ 7.48 ],
+            "dPka_dT": [ -0.015 ],
+            "acidCharge": [ 0 ],
+            "description": "N-2-hydroxyethylpiperazine-N′-2-ethanesulfonic acid",
+            "thermoSteps": [
+                {
+                    "dH298_Jmol": 20400.0,
+                    "dCp_JmolK": 47.0
+                }
+            ],
+            "mixture": null
+        },
+        {
+            "id": "sodium_phosphate",
+            "enum": "SodiumPhosphate",
+            "legacyEnum": 1,
+            "name": "Sodium phosphate",
+            "aliases": [ "Sodium Phosphate", "NaPi", "NaHPO4", "NaPO4", "NaHPO{4}", "NaPO" ],
+            "pKa": [ 2.148, 7.198, 12.35 ],
+            "dPka_dT": [ 0.0044, -0.0028, -0.026 ],
+            "acidCharge": [ 0, -1, -2 ],
+            "description": "Phosphoric acid system with Na+ counterions (step-specific).",
+            "thermoSteps": [
+                {
+                    "dH298_Jmol": 28000.0,
+                    "dCp_JmolK": 141.0
+                },
+                {
+                    "dH298_Jmol": 3600.0,
+                    "dCp_JmolK": -230.0
+                },
+                {
+                    "dH298_Jmol": 16000.0,
+                    "dCp_JmolK": -242.0
+                }
+            ],
+            "mixture": null
+        },
+        {
+            "id": "potassium_phosphate",
+            "enum": "PotassiumPhosphate",
+            "legacyEnum": 2,
+            "name": "Potassium phosphate",
+            "aliases": [ "Potassium Phosphate", "KHPO4", "KPO4", "KHPO{4}", "KPO" ],
+            "pKa": [ 2.148, 7.198, 12.35 ],
+            "dPka_dT": [ 0.0044, -0.0028, -0.026 ],
+            "acidCharge": [ 0, -1, -2 ],
+            "description": "Phosphoric acid system with K+ counterions (step-specific).",
+            "thermoSteps": [
+                {
+                    "dH298_Jmol": 28000.0,
+                    "dCp_JmolK": 141.0
+                },
+                {
+                    "dH298_Jmol": 3600.0,
+                    "dCp_JmolK": -230.0
+                },
+                {
+                    "dH298_Jmol": 16000.0,
+                    "dCp_JmolK": -242.0
+                }
+            ],
+            "mixture": null
+        },
+        {
+            "id": "tris",
+            "enum": "Tris",
+            "legacyEnum": 3,
+            "name": "Tris",
+            "aliases": [ "Tris", "TRIS" ],
+            "pKa": [ 8.06 ],
+            "dPka_dT": [ -0.028 ],
+            "acidCharge": [ 1 ],
+            "description": "tris(hydroxymethyl)aminomethane",
+            "thermoSteps": [
+                {
+                    "dH298_Jmol": 47450.0,
+                    "dCp_JmolK": 259.0
+                }
+            ],
+            "mixture": null
+        },
+        {
+            "id": "maleate",
+            "enum": "Maleate",
+            "legacyEnum": 4,
+            "name": "Maleate",
+            "aliases": [ "Maleate", "Maleic acid" ],
+            "pKa": [ 2.0 ],
+            "dPka_dT": [ 0.0 ],
+            "acidCharge": [ 0 ],
+            "description": "Maleic acid.",
+            "thermoSteps": [ null ],
+            "mixture": null
+        },
+        {
+            "id": "chloroacetate",
+            "enum": "Chloroacetate",
+            "legacyEnum": 5,
+            "name": "Chloroacetate",
+            "aliases": [ "Chloroacetate", "Chloroacetic acid" ],
+            "pKa": [ 2.88 ],
+            "dPka_dT": [ 0.0023 ],
+            "acidCharge": [ 0 ],
+            "description": "Chloroacetic acid.",
+            "thermoSteps": [ null ],
+            "mixture": null
+        },
+        {
+            "id": "citrate",
+            "enum": "Citrate",
+            "legacyEnum": 6,
+            "name": "Citrate",
+            "aliases": [ "Citrate", "Citric acid" ],
+            "pKa": [ 3.14, 4.76, 6.39 ],
+            "dPka_dT": [ 0.0, -0.0016, 0.0 ],
+            "acidCharge": [ 0, -1, -2 ],
+            "description": "Citric acid system (step-specific).",
+            "thermoSteps": [
+                {
+                    "dH298_Jmol": 4070.0,
+                    "dCp_JmolK": -131.0
+                },
+                {
+                    "dH298_Jmol": 2230.0,
+                    "dCp_JmolK": -178.0
+                },
+                {
+                    "dH298_Jmol": 23380.0,
+                    "dCp_JmolK": -254.0
+                }
+            ],
+            "mixture": null
+        },
+        {
+            "id": "formate",
+            "enum": "Formate",
+            "legacyEnum": 7,
+            "name": "Formate",
+            "aliases": [ "Formate", "Formic acid" ],
+            "pKa": [ 3.75 ],
+            "dPka_dT": [ 0.0 ],
+            "acidCharge": [ 0 ],
+            "description": "Formic acid/formate.",
+            "thermoSteps": [ null ],
+            "mixture": null
+        },
+        {
+            "id": "succinate",
+            "enum": "Succinate",
+            "legacyEnum": 8,
+            "name": "Succinate",
+            "aliases": [ "Succinate", "Succinic acid" ],
+            "pKa": [ 4.19, 5.57 ],
+            "dPka_dT": [ -0.0018, 0.0 ],
+            "acidCharge": [ 0, -1 ],
+            "description": "Succinic acid system.",
+            "thermoSteps": [ null, null ],
+            "mixture": null
+        },
+        {
+            "id": "benzoate",
+            "enum": "Benzoate",
+            "legacyEnum": 9,
+            "name": "Benzoate",
+            "aliases": [ "Benzoate", "Benzoic acid" ],
+            "pKa": [ 4.2 ],
+            "dPka_dT": [ 0.018 ],
+            "acidCharge": [ 0 ],
+            "description": "Benzoic acid/benzoate.",
+            "thermoSteps": [ null ],
+            "mixture": null
+        },
+        {
+            "id": "acetate",
+            "enum": "Acetate",
+            "legacyEnum": 10,
+            "name": "Acetate",
+            "aliases": [ "Acetate", "Acetic acid", "NaOAc" ],
+            "pKa": [ 4.756 ],
+            "dPka_dT": [ -0.0002 ],
+            "acidCharge": [ 0 ],
+            "description": "Acetic acid/acetate.",
+            "thermoSteps": [
+                {
+                    "dH298_Jmol": 410.0,
+                    "dCp_JmolK": -142.0
+                }
+            ],
+            "mixture": null
+        },
+        {
+            "id": "propionate",
+            "enum": "Propionate",
+            "legacyEnum": 11,
+            "name": "Propionate",
+            "aliases": [ "Propionate", "Propionic acid" ],
+            "pKa": [ 4.86 ],
+            "dPka_dT": [ -0.0002 ],
+            "acidCharge": [ 0 ],
+            "description": "Propionic acid/propionate.",
+            "thermoSteps": [ null ],
+            "mixture": null
+        },
+        {
+            "id": "pyridine",
+            "enum": "Pyridine",
+            "legacyEnum": 12,
+            "name": "Pyridine",
+            "aliases": [ "Pyridine" ],
+            "pKa": [ 5.23 ],
+            "dPka_dT": [ -0.014 ],
+            "acidCharge": [ 1 ],
+            "description": "Pyridine base/conjugate acid.",
+            "thermoSteps": [ null ],
+            "mixture": null
+        },
+        {
+            "id": "piperazine",
+            "enum": "Piperazine",
+            "legacyEnum": 13,
+            "name": "Piperazine",
+            "aliases": [ "Piperazine" ],
+            "pKa": [ 5.55 ],
+            "dPka_dT": [ -0.015 ],
+            "acidCharge": [ 0 ],
+            "description": "Piperazine.",
+            "thermoSteps": [ null ],
+            "mixture": null
+        },
+        {
+            "id": "mes",
+            "enum": "MES",
+            "legacyEnum": 14,
+            "name": "MES",
+            "aliases": [ "MES" ],
+            "pKa": [ 6.1 ],
+            "dPka_dT": [ -0.011 ],
+            "acidCharge": [ 0 ],
+            "description": "2-(N-morpholino)ethanesulfonic acid",
+            "thermoSteps": [
+                {
+                    "dH298_Jmol": 14800.0,
+                    "dCp_JmolK": 5.0
+                }
+            ],
+            "mixture": null
+        },
+        {
+            "id": "carbonate",
+            "enum": "Carbonate",
+            "legacyEnum": 15,
+            "name": "Carbonate",
+            "aliases": [ "Carbonate", "Bicarbonate", "HCO3" ],
+            "pKa": [ 6.351, 10.329 ],
+            "dPka_dT": [ -0.0055, -0.009 ],
+            "acidCharge": [ 0, -1 ],
+            "description": "Carbonic acid / bicarbonate system (step-specific).",
+            "thermoSteps": [
+                {
+                    "dH298_Jmol": 9150.0,
+                    "dCp_JmolK": 371.0
+                },
+                {
+                    "dH298_Jmol": 14700.0,
+                    "dCp_JmolK": -249.0
+                }
+            ],
+            "mixture": null
+        },
+        {
+            "id": "bis_tris",
+            "enum": "BisTris",
+            "legacyEnum": 16,
+            "name": "Bis-Tris",
+            "aliases": [ "Bis-Tris", "BisTris" ],
+            "pKa": [ 6.5 ],
+            "dPka_dT": [ -0.017 ],
+            "acidCharge": [ 1 ],
+            "description": "Bis-Tris base",
+            "thermoSteps": [
+                {
+                    "dH298_Jmol": 28400.0,
+                    "dCp_JmolK": 27.0
+                }
+            ],
+            "mixture": null
+        },
+        {
+            "id": "ada",
+            "enum": "ADA",
+            "legacyEnum": 17,
+            "name": "ADA",
+            "aliases": [ "ADA" ],
+            "pKa": [ 6.59 ],
+            "dPka_dT": [ -0.011 ],
+            "acidCharge": [ -1 ],
+            "description": "N-(2-acetamido)iminodiacetic acid",
+            "thermoSteps": [
+                {
+                    "dH298_Jmol": 12230.0,
+                    "dCp_JmolK": -144.0
+                }
+            ],
+            "mixture": null
+        },
+        {
+            "id": "pipes",
+            "enum": "PIPES",
+            "legacyEnum": 18,
+            "name": "PIPES",
+            "aliases": [ "PIPES" ],
+            "pKa": [ 6.76 ],
+            "dPka_dT": [ -0.009 ],
+            "acidCharge": [ -1 ],
+            "description": "piperazine-N,N′-bis(2-ethanesulfonic acid)",
+            "thermoSteps": [
+                {
+                    "dH298_Jmol": 11200.0,
+                    "dCp_JmolK": 22.0
+                }
+            ],
+            "mixture": null
+        },
+        {
+            "id": "aces",
+            "enum": "ACES",
+            "legacyEnum": 19,
+            "name": "ACES",
+            "aliases": [ "ACES" ],
+            "pKa": [ 6.78 ],
+            "dPka_dT": [ -0.02 ],
+            "acidCharge": [ 0 ],
+            "description": "N-(2-Acetamido)-2-aminoethanesulfonic acid",
+            "thermoSteps": [
+                {
+                    "dH298_Jmol": 30430.0,
+                    "dCp_JmolK": 249.0
+                }
+            ],
+            "mixture": null
+        },
+        {
+            "id": "bes",
+            "enum": "BES",
+            "legacyEnum": 20,
+            "name": "BES",
+            "aliases": [ "BES" ],
+            "pKa": [ 7.09 ],
+            "dPka_dT": [ -0.016 ],
+            "acidCharge": [ 0 ],
+            "description": "N,N-Bis(2-hydroxyethyl)-2-aminoethanesulfonic acid",
+            "thermoSteps": [
+                {
+                    "dH298_Jmol": 24250.0,
+                    "dCp_JmolK": 22.0
+                }
+            ],
+            "mixture": null
+        },
+        {
+            "id": "mops",
+            "enum": "MOPS",
+            "legacyEnum": 21,
+            "name": "MOPS",
+            "aliases": [ "MOPS" ],
+            "pKa": [ 7.2 ],
+            "dPka_dT": [ -0.011 ],
+            "acidCharge": [ 0 ],
+            "description": "3-(N-morpholino)propanesulfonic acid",
+            "thermoSteps": [
+                {
+                    "dH298_Jmol": 21100.0,
+                    "dCp_JmolK": 25.0
+                }
+            ],
+            "mixture": null
+        },
+        {
+            "id": "tes",
+            "enum": "TES",
+            "legacyEnum": 22,
+            "name": "TES",
+            "aliases": [ "TES" ],
+            "pKa": [ 7.4 ],
+            "dPka_dT": [ -0.02 ],
+            "acidCharge": [ 0 ],
+            "description": "TES",
+            "thermoSteps": [
+                {
+                    "dH298_Jmol": 32130.0,
+                    "dCp_JmolK": 0.0
+                }
+            ],
+            "mixture": null
+        },
+        {
+            "id": "tricine",
+            "enum": "Tricine",
+            "legacyEnum": 23,
+            "name": "Tricine",
+            "aliases": [ "Tricine" ],
+            "pKa": [ 8.05 ],
+            "dPka_dT": [ -0.021 ],
+            "acidCharge": [ 0 ],
+            "description": "Tricine free acid",
+            "thermoSteps": [
+                {
+                    "dH298_Jmol": 31370.0,
+                    "dCp_JmolK": 253.0
+                }
+            ],
+            "mixture": null
+        },
+        {
+            "id": "bicine",
+            "enum": "Bicine",
+            "legacyEnum": 24,
+            "name": "Bicine",
+            "aliases": [ "Bicine" ],
+            "pKa": [ 8.35 ],
+            "dPka_dT": [ -0.018 ],
+            "acidCharge": [ 0 ],
+            "description": "Bicine free acid",
+            "thermoSteps": [
+                {
+                    "dH298_Jmol": 26340.0,
+                    "dCp_JmolK": 0.0
+                }
+            ],
+            "mixture": null
+        },
+        {
+            "id": "taps",
+            "enum": "TAPS",
+            "legacyEnum": 25,
+            "name": "TAPS",
+            "aliases": [ "TAPS" ],
+            "pKa": [ 8.4 ],
+            "dPka_dT": [ -0.02 ],
+            "acidCharge": [ 0 ],
+            "description": "TAPS",
+            "thermoSteps": [
+                {
+                    "dH298_Jmol": 40400.0,
+                    "dCp_JmolK": 15.0
+                }
+            ],
+            "mixture": null
+        },
+        {
+            "id": "ethanolamine",
+            "enum": "Ethanolamine",
+            "legacyEnum": 26,
+            "name": "Ethanolamine",
+            "aliases": [ "Ethanolamine" ],
+            "pKa": [ 9.5 ],
+            "dPka_dT": [ -0.029 ],
+            "acidCharge": [ 1 ],
+            "description": "Ethanolamine.",
+            "thermoSteps": [ null ],
+            "mixture": null
+        },
+        {
+            "id": "ches",
+            "enum": "CHES",
+            "legacyEnum": 27,
+            "name": "CHES",
+            "aliases": [ "CHES" ],
+            "pKa": [ 9.49 ],
+            "dPka_dT": [ -0.011 ],
+            "acidCharge": [ 0 ],
+            "description": "CHES",
+            "thermoSteps": [
+                {
+                    "dH298_Jmol": 39550.0,
+                    "dCp_JmolK": 9.0
+                }
+            ],
+            "mixture": null
+        },
+        {
+            "id": "caps",
+            "enum": "CAPS",
+            "legacyEnum": 28,
+            "name": "CAPS",
+            "aliases": [ "CAPS" ],
+            "pKa": [ 10.4 ],
+            "dPka_dT": [ -0.032 ],
+            "acidCharge": [ 0 ],
+            "description": "CAPS",
+            "thermoSteps": [
+                {
+                    "dH298_Jmol": 48100.0,
+                    "dCp_JmolK": 57.0
+                }
+            ],
+            "mixture": null
+        },
+        {
+            "id": "methylamine",
+            "enum": "Methylamine",
+            "legacyEnum": 29,
+            "name": "Methylamine",
+            "aliases": [ "Methylamine" ],
+            "pKa": [ 10.62 ],
+            "dPka_dT": [ -0.031 ],
+            "acidCharge": [ 1 ],
+            "description": "Methylamine.",
+            "thermoSteps": [ null ],
+            "mixture": null
+        },
+        {
+            "id": "piperidine",
+            "enum": "Piperidine",
+            "legacyEnum": 30,
+            "name": "Piperidine",
+            "aliases": [ "Piperidine" ],
+            "pKa": [ 11.12 ],
+            "dPka_dT": [ -0.031 ],
+            "acidCharge": [ 1 ],
+            "description": "Piperidine.",
+            "thermoSteps": [ null ],
+            "mixture": null
+        },
+        {
+            "id": "tapso",
+            "enum": "TAPSO",
+            "legacyEnum": 31,
+            "name": "TAPSO",
+            "aliases": [ "TAPSO" ],
+            "pKa": [ 7.635 ],
+            "dPka_dT": [ 0.0 ],
+            "acidCharge": [ 0 ],
+            "description": "TAPSO",
+            "thermoSteps": [
+                {
+                    "dH298_Jmol": 39090.0,
+                    "dCp_JmolK": 16.0
+                }
+            ],
+            "mixture": null
+        },
+        {
+            "id": "pbs",
+            "enum": "PBS",
+            "legacyEnum": 32,
+            "name": "PBS",
+            "aliases": [ "PBS", "Phosphate-buffered saline" ],
+            "pKa": [ 7.2 ],
+            "dPka_dT": [ -0.0028 ],
+            "acidCharge": [ 0 ],
+            "description": "PBS (phosphate buffer + saline).",
+            "thermoSteps": [
+                {
+                    "dH298_Jmol": 3600.0,
+                    "dCp_JmolK": -230.0
+                }
+            ],
+            "type": "composite",
+            "composition": [
+                {
+                    "attributeKey": "Buffer",
+                    "id": "sodium_phosphate",
+                    "conc_M": 0.010,
+                    "pH": 7.4
+                },
+                {
+                    "attributeKey": "Buffer",
+                    "id": "potassium_phosphate",
+                    "conc_M": 0.0018,
+                    "pH": 7.4
+                },
+                {
+                    "attributeKey": "Salt",
+                    "id": "NaCl",
+                    "conc_M": 0.137
+                },
+                {
+                    "attributeKey": "Salt",
+                    "id": "KCl",
+                    "conc_M": 0.0027
+                }
+            ]
+        },
+        {
+            "id": "tbs",
+            "enum": "TBS",
+            "legacyEnum": 33,
+            "name": "TBS",
+            "aliases": [ "TBS", "Tris-buffered saline" ],
+            "pKa": [ 8.06 ],
+            "dPka_dT": [ -0.028 ],
+            "acidCharge": [ 1 ],
+            "description": "TBS (Tris buffer + saline).",
+            "thermoSteps": [
+                {
+                    "dH298_Jmol": 47450.0,
+                    "dCp_JmolK": 259.0
+                }
+            ],
+            "type": "composite",
+            "composition": [
+                {
+                    "attributeKey": "Buffer",
+                    "id": "tris",
+                    "conc_M": 0.025,
+                    "pH": 7.4
+                },
+                {
+                    "attributeKey": "Salt",
+                    "id": "NaCl",
+                    "conc_M": 0.137
+                },
+                {
+                    "attributeKey": "Salt",
+                    "id": "KCl",
+                    "conc_M": 0.0027
+                }
+            ]
+        },
+        {
+            "id": "histidine",
+            "enum": "Histidine",
+            "legacyEnum": 34,
+            "name": "Histidine",
+            "aliases": [ "L-Histidine", "Histidine", "His" ],
+            "pKa": [ 6.07 ],
+            "dPka_dT": [ -0.02 ],
+            "acidCharge": [ 1 ],
+            "description": "Histidine buffer",
+            "thermoSteps": [
+                {
+                    "dH298_Jmol": 29500.0,
+                    "dCp_JmolK": 176.0
+                }
+            ],
+            "mixture": null
+        }
+    ]
+}
