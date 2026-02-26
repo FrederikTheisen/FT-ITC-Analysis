@@ -78,6 +78,18 @@ namespace AnalysisITC
             }
         }
         public bool IsTandemExperiment => Segments != null ? Segments.Count > 0 : false;
+        public TimeSpan Duration
+        {
+            get
+            {
+                if (DataPoints != null && DataPoints.Count > 1)
+                {
+                    return TimeSpan.FromSeconds(DataPoints.Last().Time - DataPoints.First().Time);
+                }
+
+                return TimeSpan.FromSeconds(0);
+            }
+        }
 
         public ExperimentData(string file)
         {
@@ -205,7 +217,17 @@ namespace AnalysisITC
 
         public void SetReferenceExperiment(ExperimentData reference)
         {
-            if (reference.UniqueID == UniqueID) throw new Exception("Attempting to set reference experiment to itself");
+            if (reference.UniqueID == this.UniqueID) throw new HandledException(HandledException.Severity.Warning, "Buffer Subtraction Error", "Attempting to set reference experiment to itself");
+            if (reference.ReferenceExperiment != null)
+            {
+                var deepref = reference;
+                while (deepref.ReferenceExperiment != null)
+                {
+                    deepref = deepref.ReferenceExperiment;
+
+                    if (deepref.UniqueID == this.UniqueID) throw new HandledException(HandledException.Severity.Warning, "Buffer Subtraction Error", "Experiment self reference detected in reference chain");
+                }
+            }
 
             // Clear previous setting
             Attributes.RemoveAll(att => att.Key == AttributeKey.BufferSubtraction);
