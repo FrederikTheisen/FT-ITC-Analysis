@@ -38,6 +38,12 @@ namespace AnalysisITC
 		[Action ("OpenBufferSubTool:")]
 		partial void OpenBufferSubTool (Foundation.NSObject sender);
 
+		[Action ("OpenCitation:")]
+		partial void OpenCitation (Foundation.NSObject sender);
+
+		[Action ("OpenHint:")]
+		partial void OpenHint (Foundation.NSObject sender);
+
 		[Action ("OpenMergeToolAction:")]
 		partial void OpenMergeToolAction (Foundation.NSObject sender);
 

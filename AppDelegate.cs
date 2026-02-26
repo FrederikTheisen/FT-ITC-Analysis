@@ -15,6 +15,8 @@ namespace AnalysisITC
         public static event EventHandler StartPrintOperation;
         public static event EventHandler OpenMergeTool;
         public static event EventHandler OpenSubtractionTool;
+        public static event EventHandler ShowHint;
+        public static event EventHandler ShowCitation;
 
         NSOpenPanel FileDialog { get; set; }
          
@@ -64,7 +66,7 @@ namespace AnalysisITC
                 case "sortbyprotonation": return DataManager.DataIsLoaded && DataManager.Data.Any(d => d.Attributes.Count > 0);
                 case "sortbyionic": return DataManager.DataIsLoaded && DataManager.Data.Any(d => d.Attributes.Count > 0);
                 case "copyattributes": return DataManager.DataIsLoaded && DataManager.SelectedIsData && DataManager.Current.Attributes.Count > 0;
-                case "mergetool": return DataManager.DataIsLoaded;
+                case "mergetool": return DataManager.Data.Count >= 2;
                 case "buffersub": return DataManager.Data.Count >= 2;
             }
 
@@ -249,6 +251,16 @@ namespace AnalysisITC
             alert.Buttons[1].HasDestructiveAction = true;
 
             return (alert.RunModal() == 1001);
+        }
+
+        partial void OpenHint(NSObject sender)
+        {
+            ShowHint?.Invoke(null, null);
+        }
+
+        partial void OpenCitation(NSObject sender)
+        {
+            ShowCitation?.Invoke(this, null);
         }
     }
 }

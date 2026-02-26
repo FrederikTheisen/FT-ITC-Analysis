@@ -34,10 +34,22 @@ namespace AnalysisITC
             SolverInterface.AnalysisFinished += StopableProcessFinished;
             AppDelegate.OpenMergeTool += OpenTool;
             AppDelegate.OpenSubtractionTool += OpenSubtractionTool;
+            AppDelegate.ShowHint += AppDelegate_ShowHint;
+            AppDelegate.ShowCitation += AppDelegate_ShowCitation;
 
             AppEventHandler.ShowAppMessage += OnShowAppMessage;
 
             StateManager_UpdateStateDependentUI(null, null);
+        }
+
+        private void AppDelegate_ShowCitation(object sender, EventArgs e)
+        {
+            CitationUI.ShowCitationDialog(this.Window);
+        }
+
+        private void AppDelegate_ShowHint(object sender, EventArgs e)
+        {
+            PerformSegue("ShowGuidePopUpSegue", this);
         }
 
         private void StopableProcessFinished(object sender, object e)
