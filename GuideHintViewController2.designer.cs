@@ -9,8 +9,8 @@ using System.CodeDom.Compiler;
 
 namespace AnalysisITC
 {
-	[Register ("GuideHintViewController")]
-	partial class GuideHintViewController
+	[Register ("GuideHintViewController2")]
+	partial class GuideHintViewController2
 	{
 		[Outlet]
 		AppKit.NSImageView ImageView { get; set; }
