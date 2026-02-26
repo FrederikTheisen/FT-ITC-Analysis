@@ -68,37 +68,51 @@ namespace AnalysisITC
             Type = ResultGraphType.ProtonationAnalysis;
             var unit = ConcentrationUnitAttribute.FromConc(analysis.DataPoints.Select(dp => dp.Item2.Value).Average());
 
-            if (analysis.Mode == ElectrostaticsAnalysis.DissocFitMode.CounterIonRelease)
+            switch (analysis.Mode)
             {
-                Graph = new ParameterDependenceGraph(this)
-                {
-                    XLabel = "ln(*a*{salt})",
-                    YLabel = "ln(*K*{a})",
-                    XValues = analysis.DataPoints.Select(dp => new FloatWithError(dp.Item1)).ToArray(),
-                    YValues = analysis.DataPoints.Select(dp => dp.Item2).ToArray(),
-                    XScaleFactor = 1,
-                    YScaleFactor = 1,
-                    Fit = analysis.CounterIonReleaseFit,
-                };
+                case ElectrostaticsAnalysis.DissocFitMode.CounterIonRelease:
+                    {
+                        Graph = new ParameterDependenceGraph(this)
+                        {
+                            XLabel = "ln(*a*{salt})",
+                            YLabel = "ln(*K*{a})",
+                            XValues = analysis.DataPoints.Select(dp => new FloatWithError(dp.Item1)).ToArray(),
+                            YValues = analysis.DataPoints.Select(dp => dp.Item2).ToArray(),
+                            XScaleFactor = 1,
+                            YScaleFactor = 1,
+                            Fit = analysis.CounterIonReleaseFit,
+                        };
 
-                (Graph as ParameterDependenceGraph).Setup();
-            }
-            else
-            {
-                Graph = new ParameterDependenceGraph(this)
-                {
-                    XLabel = "*Ionic Strength* (mM)",
-                    YLabel = "*K*{d} (" + unit.GetName() + ")",
-                    XValues = analysis.DataPoints.Select(dp => new FloatWithError(dp.Item1)).ToArray(),
-                    YValues = analysis.DataPoints.Select(dp => dp.Item2).ToArray(),
-                    XScaleFactor = ConcentrationUnit.mM.GetMod(),
-                    YScaleFactor = unit.GetMod(),
-                    Fit = analysis.DebyeHuckelFit,
-                };
+                        (Graph as ParameterDependenceGraph).Setup();
+                        break;
+                    }
+                default:
+                case ElectrostaticsAnalysis.DissocFitMode.DebyeHuckel:
+                    {
+                        var yvalues = analysis.DataPoints.Select(dp => dp.Item2).ToArray();
 
-                (Graph as ParameterDependenceGraph).Setup();
-                Graph.XAxis.Min = 0;
-                Graph.XAxis.ValueFactor = ConcentrationUnit.mM.GetMod(); //should not be necessary
+                        Graph = new ParameterDependenceGraph(this)
+                        {
+                            XLabel = "*Ionic Strength* (mM)",
+                            YLabel = "*K*{d} (" + unit.GetName() + ")",
+                            XValues = analysis.DataPoints.Select(dp => new FloatWithError(dp.Item1)).ToArray(),
+                            YValues = yvalues,
+                            XScaleFactor = ConcentrationUnit.mM.GetMod(),
+                            YScaleFactor = unit.GetMod(),
+                            Fit = analysis.DebyeHuckelFit,
+                        };
+
+                        (Graph as ParameterDependenceGraph).Setup();
+                        Graph.XAxis.Min = 0;
+                        Graph.XAxis.Max *= 1.5f;
+                        Graph.XAxis.ValueFactor = ConcentrationUnit.mM.GetMod(); //should not be necessary
+
+                        var logrange = Math.Log(yvalues.Max()) - Math.Log(yvalues.Min());
+                        var logmin = Math.Log(yvalues.Min()) - logrange * 2f;
+                        var logmax = Math.Log(yvalues.Max()) + logrange * 0.5f;
+                        Graph.YAxis.Set(Math.Exp(logmin), Math.Exp(logmax)); // We want a larger Y range
+                        break;
+                    }
             }
 
             Invalidate();
