@@ -188,6 +188,7 @@
     <Folder Include="AppClasses\Analysis2\Kinetics\" />
     <Folder Include="AppClasses\AnalysisClasses\AdvancedAnalysis\" />
     <Folder Include="AppClasses\AnalysisClasses\ResultAnalysis\" />
+    <Folder Include="Resources\ToolTipsImages\" />
   </ItemGroup>
   <ItemGroup>
     <None Include="Info.plist" />
@@ -474,7 +475,6 @@
     <Compile Include="GUI\MacOS\ViewControllers\BufferSubtractionTool.designer.cs">
       <DependentUpon>BufferSubtractionTool.cs</DependentUpon>
     </Compile>
-    <Compile Include="GuideHintViewController.cs" />
     <Compile Include="GuideHintViewController.designer.cs">
       <DependentUpon>GuideHintViewController.cs</DependentUpon>
     </Compile>
@@ -482,6 +482,12 @@
     <Compile Include="AppClasses\AnalysisClasses\AdvancedAnalysis\ElectrostaticsAnalysis.cs" />
     <Compile Include="AppClasses\AnalysisClasses\AdvancedAnalysis\ProtonationAnalysis.cs" />
     <Compile Include="AppClasses\AnalysisClasses\AdvancedAnalysis\SpolarRecordAnalysis.cs" />
+    <Compile Include="AppClasses\DataClasses\BufferRegistry.cs" />
+    <Compile Include="GuideHintViewController2.cs" />
+    <Compile Include="GuideHintViewController2.designer.cs">
+      <DependentUpon>GuideHintViewController2.cs</DependentUpon>
+    </Compile>
+    <Compile Include="GUI\MacOS\CitationManager.cs" />
   </ItemGroup>
   <ItemGroup>
     <InterfaceDefinition Include="Main.storyboard" />
@@ -491,6 +497,11 @@
   <ItemGroup>
     <BundleResource Include="Resources\HelpTextResource.txt" />
     <BundleResource Include="Resources\ScienceHelpResource.txt" />
+    <BundleResource Include="Resources\Buffers.json" />
+    <BundleResource Include="GuideHintViewController.cs" />
+    <BundleResource Include="Resources\ExperimentViewCell.png" />
+    <BundleResource Include="Resources\HintImg_ExpDetails.jpg" />
+    <BundleResource Include="Resources\citation.bib" />
   </ItemGroup>
   <Import Project="$(MSBuildExtensionsPath)\Xamarin\Mac\Xamarin.Mac.CSharp.targets" />
   <Import Project="packages\Accord.3.8.0\build\Accord.targets" Condition="Exists('packages\Accord.3.8.0\build\Accord.targets')" />
