@@ -65,26 +65,46 @@ namespace AnalysisITC
             TabView.DidSelect += TabView_DidSelect;
         }
 
+        public override void ViewDidAppear()
+        {
+            base.ViewDidAppear();
+
+            UpdateAnalysisViewSubState();
+        }
+
         private void TabView_DidSelect(object sender, NSTabViewItemEventArgs e)
         {
-            if (e.Item == FoldingAnalysisTab)
+            UpdateAnalysisViewSubState();
+
+            SetupGraphView(DisplayedGraphType);
+        }
+
+        /// <summary>
+        /// Update the StateManager sub state to display analysis view specific sub states
+        /// </summary>
+        void UpdateAnalysisViewSubState()
+        {
+            var selected = TabView.Selected;
+            if (selected == FoldingAnalysisTab)
             {
                 DisplayedGraphType = ResultGraphView.ResultGraphType.TemperatureDependence;
+                StateManager.SetProgramSubState(ProgramSubState.ResultStructuring);
             }
-            else if (e.Item == IonicStrengthAnalysisTab)
+            else if (selected == IonicStrengthAnalysisTab)
             {
                 DisplayedGraphType = ResultGraphView.ResultGraphType.IonicStrengthDependence;
+                StateManager.SetProgramSubState(ProgramSubState.ResultSalt);
             }
-            else if (e.Item == ProtonationAnalysisTab)
+            else if (selected == ProtonationAnalysisTab)
             {
                 DisplayedGraphType = ResultGraphView.ResultGraphType.ProtonationAnalysis;
+                StateManager.SetProgramSubState(ProgramSubState.ResultProtonation);
             }
             else
             {
                 DisplayedGraphType = ResultGraphView.ResultGraphType.Parameters;
+                StateManager.SetProgramSubState(ProgramSubState.None);
             }
-
-            SetupGraphView(DisplayedGraphType);
         }
 
         private void AppDelegate_StartPrintOperation(object sender, EventArgs e)
