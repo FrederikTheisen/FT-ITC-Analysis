@@ -108,6 +108,7 @@ namespace AnalysisITC
                 + Variable("B", opt.BoolValue) + ";"
                 + Variable("I", opt.IntValue) + ";"
                 + Variable("D", opt.DoubleValue) + ";"
+                + Variable("S", opt.StringValue) + ";"
                 + Variable("FWE", opt.ParameterValue);
 
             return str;
