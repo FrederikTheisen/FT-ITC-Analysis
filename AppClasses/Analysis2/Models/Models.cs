@@ -248,16 +248,17 @@ namespace AnalysisITC.AppClasses.Analysis2.Models
     public class SolutionInterface
 	{
         public string Guid { get; private set; } = new Guid().ToString();
-        GlobalSolution GlobalParentSolution { get; set; }
+        GlobalSolution ParentSolution { get; set; }
         public Model Model { get; protected set; }
         public SolverConvergence Convergence { get; private set; }
         public ErrorEstimationMethod ErrorMethod { get; set; } = ErrorEstimationMethod.None;
         public virtual List<SolutionInterface> BootstrapSolutions { get; protected set; }
 		public Dictionary<ParameterType, FloatWithError> Parameters { get; } = new Dictionary<ParameterType, FloatWithError>();
         public bool UseWeightedFitting { get; set; } = false;
+        public bool IsValid { get; private set; } = true;
 
         public AnalysisModel ModelType => Model.ModelType;
-        public bool IsGlobalAnalysisSolution => GlobalParentSolution != null;
+        public bool IsGlobalAnalysisSolution => ParentSolution != null && ParentSolution.Model.Parameters.Constraints.Where(con => con.Value != VariableConstraint.None).Count() > 0;
         public string SolutionName => (IsGlobalAnalysisSolution ? "Global." : "") + Model.ModelName;
         public ExperimentData Data => Model.Data;
         public double Temp => Data.MeasuredTemperature;
@@ -289,21 +290,18 @@ namespace AnalysisITC.AppClasses.Analysis2.Models
             }
         }
 
-        public bool IsValid { get; private set; } = true;
-
-        public void SetIsGlobal(GlobalSolution parent)
+        public void SetParentSolution(GlobalSolution parent)
         {
-            if (parent.Model.Parameters.Constraints.Count > 0)
-                GlobalParentSolution = parent;
+            ParentSolution = parent;
         }
 
 		public void Invalidate()
         {
             IsValid = false;
 
-            if (IsGlobalAnalysisSolution && GlobalParentSolution.IsValid)
+            if (IsGlobalAnalysisSolution && ParentSolution.IsValid)
             {
-                GlobalParentSolution.Invalidate();
+                ParentSolution.Invalidate();
             }
 
             Data.UpdateSolution();
@@ -352,10 +350,10 @@ namespace AnalysisITC.AppClasses.Analysis2.Models
         {
             if (info == DisplayAttributeOptions.UsedInAnalysis)
             {
-                if (this.IsGlobalAnalysisSolution)
+                if (ParentSolution != null)
                 {
                     info = 0;
-                    var result = DataManager.Results.Find(r => r.Solution == this.GlobalParentSolution);
+                    var result = DataManager.Results.Find(r => r.Solution == this.ParentSolution);
 
                     if (result.IsElectrostaticsAnalysisDependenceEnabled) info |= DisplayAttributeOptions.Salt;
                     if (result.IsProtonationAnalysisEnabled) info |= DisplayAttributeOptions.ProtonationEnthalpy;

@@ -217,7 +217,7 @@ namespace AnalysisITC.AppClasses.Analysis2
             {
                 mdl.Solution = SolutionInterface.FromModel(mdl, new(convergence));
                 mdl.Solution.Convergence.SetLoss(mdl.Loss());
-                mdl.Solution.SetIsGlobal(this);
+                mdl.Solution.SetParentSolution(this);
             }
 
             var dependencies = Solutions[0].DependenciesToReport;
@@ -266,6 +266,8 @@ namespace AnalysisITC.AppClasses.Analysis2
 
                 TemperatureDependence = tmp;
             }
+
+			foreach (var sol in solutions) sol.SetParentSolution(this);
         }
 
 		private GlobalSolution(GlobalModel model)
