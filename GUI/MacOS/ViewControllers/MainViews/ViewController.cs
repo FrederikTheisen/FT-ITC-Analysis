@@ -79,7 +79,7 @@ namespace AnalysisITC
 
         void UpdateLabel()
         {
-            if (GVC.Graph != null) InfoLabel.StringValue = (GVC.Graph as FileInfoGraph).Info.Aggregate((s1, s2) => s1 + "\n" + s2);
+            if (GVC.Graph != null) InfoLabel.AttributedStringValue = Utilities.MacStrings.FromMarkDownString((GVC.Graph as FileInfoGraph).Info.Aggregate((s1, s2) => s1 + "\n" + s2), InfoLabel.Font);
             else InfoLabel.StringValue = "";
         }
 
