@@ -800,6 +800,13 @@ namespace AnalysisITC
 
         public DataGraph(ExperimentData experiment, NSView view) : base(experiment, view)
         {
+            if (!experiment.HasThermogram)
+            {
+                XAxis = new GraphAxis(this, 0, 1) { UseNiceAxis = false, LegendTitle = "Time (s)" };
+                YAxis = new GraphAxis(this, -1, 1) { UseNiceAxis = false, LegendTitle = "Power" };
+                return;
+            }
+
             XAxis = new GraphAxis(this, 0, DataPoints.Max(dp => dp.Time))
             {
                 UseNiceAxis = false,
@@ -852,6 +859,17 @@ namespace AnalysisITC
 
         internal override void Draw(CGContext gc)
         {
+            if (!ExperimentData.HasThermogram)
+            {
+                XAxis.Draw(gc);
+                YAxis.Draw(gc);
+                DrawTextBox(gc, new List<string> {
+                    "No raw thermogram available.",
+                    "This file contains integrated heats only."
+                }, alignment: NSRectAlignment.BottomTrailing);
+                return;
+            }
+
             var points = new List<CGPoint>();
 
             foreach (var p in DataPoints) { if (p.Time > XAxis.Min && p.Time < XAxis.Max) points.Add(GetRelativePosition(p)); }
@@ -875,6 +893,20 @@ namespace AnalysisITC
 
         public FileInfoGraph(ExperimentData experiment, NSView view) : base(experiment, view)
         {
+            BuildInfoString(experiment);
+
+            if (!ExperimentData.HasThermogram) return;
+
+            var tamid = experiment.TargetTemperature;
+            var delta = Math.Max(Math.Abs(experiment.DataPoints.Min(dp => Math.Min(dp.Temperature, dp.ShieldT)) - tamid), Math.Abs(experiment.DataPoints.Max(dp => Math.Max(dp.Temperature, dp.ShieldT)) - tamid));
+            TemperatureAxis = GraphAxis.WithBuffer(this, tamid - delta, tamid + delta, position: AxisPosition.Right);
+            TemperatureAxis.Position = AxisPosition.Right;
+            TemperatureAxis.TickScale.SetMaxTicks(5);
+            TemperatureAxis.LegendTitle = "Temperature (°C)";
+        }
+
+        void BuildInfoString(ExperimentData experiment)
+        {
             string injdescription = "";
 
             for (int i = 0; i < experiment.Injections.Count; i++)
@@ -896,30 +928,25 @@ namespace AnalysisITC
 
             injdescription = injdescription.Substring(0, injdescription.Length - 2);
 
-            Info = new List<string>()
-                {
-                    "**Filename:** " + experiment.FileName,
-                    "  **Date:** " + experiment.UILongDateWithTime,
-                   $"  **Duration:** {experiment.Duration.ToReadableString()}",
-                    "**Instrument:** " + experiment.Instrument.GetProperties().Name,
-                   $"  **Cell Volume:** {1000000*experiment.CellVolume:F1} µl",
-                    "  **Feedback Mode:** " + experiment.FeedBackMode.GetProperties().Name,
-                    "  **Stirring Speed:** " + experiment.StirringSpeed.ToString() + " rpm",
-                    "**Temperature:**",
-                   $"  **Target:** {experiment.TargetTemperature:G4} °C",
-                   $"  **Measured:** {experiment.DataPoints.Min(dp => dp.Temperature):F4} - {experiment.DataPoints.Max(dp => dp.Temperature):F4} °C | Mean = {experiment.MeasuredTemperature:G4} °C",
-                   $"**Injections:** {experiment.InjectionCount} [{injdescription}]",
-                   $"**Concentrations:** Cell: {experiment.CellConcentration.AsConcentration(ConcentrationUnit.µM)} | Syringe: {experiment.SyringeConcentration.AsConcentration(ConcentrationUnit.µM)}",
-                };
+            Info = new List<string>();
+            Info.Add("**Filename:** " + experiment.FileName);
+            Info.Add("  **Date:** " + experiment.UILongDateWithTime);
+            if (experiment.Duration > TimeSpan.FromSeconds(1))
+                Info.Add($"  **Duration:** {experiment.Duration.ToReadableString()}");
+            Info.Add("**Instrument:** " + experiment.Instrument.GetProperties().Name);
+            Info.Add($"  **Cell Volume:** {1000000 * experiment.CellVolume:F1} µl");
+            if (DataReaders.ITCInstrument.MicroCal.HasFlag(experiment.Instrument))
+                Info.Add("  **Feedback Mode:** " + experiment.FeedBackMode.GetProperties().Name);
+            if (experiment.StirringSpeed > -1)
+                Info.Add("  **Stirring Speed:** " + experiment.StirringSpeed.ToString() + " rpm");
+            Info.Add("**Temperature:**");
+            Info.Add($"  **Target:** {experiment.TargetTemperature:G4} °C");
+            if (experiment.MeasuredTemperature != experiment.TargetTemperature)
+                Info.Add($"  **Measured:** {experiment.DataPoints.Min(dp => dp.Temperature):F4} - {experiment.DataPoints.Max(dp => dp.Temperature):F4} °C | Mean = {experiment.MeasuredTemperature:G4} °C");
+            Info.Add($"**Injections:** {experiment.InjectionCount} [{injdescription}]");
+            Info.Add($"**Concentrations:** Cell: {experiment.CellConcentration.AsConcentration(ConcentrationUnit.µM)} | Syringe: {experiment.SyringeConcentration.AsConcentration(ConcentrationUnit.µM)}");
 
-            if (!string.IsNullOrEmpty(experiment.Comments)) Info.Add("  Comment: " + experiment.Comments);
-
-            var tamid = experiment.TargetTemperature;
-            var delta = Math.Max(Math.Abs(experiment.DataPoints.Min(dp => Math.Min(dp.Temperature, dp.ShieldT)) - tamid), Math.Abs(experiment.DataPoints.Max(dp => Math.Max(dp.Temperature, dp.ShieldT)) - tamid));
-            TemperatureAxis = GraphAxis.WithBuffer(this, tamid - delta, tamid + delta, position: AxisPosition.Right);
-            TemperatureAxis.Position = AxisPosition.Right;
-            TemperatureAxis.TickScale.SetMaxTicks(5);
-            TemperatureAxis.LegendTitle = "Temperature (°C)";
+            if (!string.IsNullOrEmpty(experiment.Comments)) Info.Add("**Comment:** " + experiment.Comments);
         }
 
         public override void AutoSetFrame()
@@ -931,6 +958,8 @@ namespace AnalysisITC
 
         internal override void Draw(CGContext gc)
         {
+            if (!ExperimentData.HasThermogram) return;
+
             DrawTemperature(gc);
 
             TemperatureAxis.Draw(gc);
@@ -1478,15 +1507,22 @@ namespace AnalysisITC
             XAxis.SetWithBuffer(0, Math.Max(Math.Floor(XAxis.Max + 0.33f), XAxis.Max), 0.05);
         }
 
-        double[] GetMinMaxEnthalpy(IEnumerable<ExperimentData> data)
+        double[] GetMinMaxEnthalpy(IEnumerable<ExperimentData> includeddata)
         {
-            var evals = data.Where(d => d.Solution != null).Select(d => d.Model.EvaluateEnthalpy(0, withoffset: DrawWithOffset));
-            var maxpoints = data.Select(d => d.Injections.Where(inj => inj.Include || !FocusValidData).Max(inj => inj.Enthalpy));
-            var minpoints = data.Select(d => d.Injections.Where(inj => inj.Include || !FocusValidData).Min(inj => inj.Enthalpy));
+            var evals = new List<double>(); // includeddata.Where(d => d.Solution != null).Select(d => d.Model.EvaluateEnthalpy(0, withoffset: DrawWithOffset));
 
-            if (evals.Count() == 0) evals = new double[] { 0 };
-            if (maxpoints.Count() == 0) maxpoints = new double[] { 0 };
-            if (minpoints.Count() == 0) minpoints = new double[] { 0 };
+            foreach (var data in includeddata)
+                if (data.Solution != null)
+                    for (int i = 0; i < data.InjectionCount; i++)
+                        if (data.Injections[i].Include)
+                            evals.Add(data.Model.EvaluateEnthalpy(i, withoffset: DrawWithOffset));
+
+            var maxpoints = includeddata.Select(d => d.Injections.Where(inj => inj.Include || !FocusValidData).Max(inj => inj.Enthalpy));
+            var minpoints = includeddata.Select(d => d.Injections.Where(inj => inj.Include || !FocusValidData).Min(inj => inj.Enthalpy));
+
+            if (evals.Count(v => double.IsFinite(v)) == 0) evals = new List<double> { 0 };
+            if (maxpoints.Count(v => double.IsFinite(v)) == 0) maxpoints = new double[] { 0 };
+            if (minpoints.Count(v => double.IsFinite(v)) == 0) minpoints = new double[] { 0 };
 
             var max = Math.Max(maxpoints.Max(), evals.Max());
             var min = Math.Min(minpoints.Min(), evals.Min());
