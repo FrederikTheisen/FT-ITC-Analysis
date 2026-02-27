@@ -43,9 +43,9 @@ namespace DataReaders
 
                 foreach (var format in ITCFormatAttribute.GetAllFormats())
                 {
-                    var fprop = format.GetProperties();
+                    var extensions = format.GetProperties().Extensions;
 
-                    if (ext == fprop.Extension) return format;
+                    if (extensions.Contains(ext)) return format;
                 }
             }
             catch
@@ -103,6 +103,7 @@ namespace DataReaders
                     case ITCDataFormat.VPITC: // TODO No idea what vpitc files might look like if they exist
                     case ITCDataFormat.ITC200: return new ExperimentData[] { MicroCalITC200Reader.ReadPath(path) };
                     case ITCDataFormat.TAITC: return new ExperimentData[] { TAFileReader.ReadPath(path) };
+                    case ITCDataFormat.IntegratedHeats: return new ExperimentData[] { IntegratedHeatReader.ReadFile(path) };
                     case ITCDataFormat.Unknown:
                         AppEventHandler.PrintAndLog($"Unknown File Format: {path}");
                         break;
@@ -118,6 +119,8 @@ namespace DataReaders
 
         static bool ValidateData(ExperimentData data)
         {
+            if (data.DataSourceFormat == ITCDataFormat.IntegratedHeats) return true; // Hail Mary
+
             string errormsg = "";
             DataFixProtocol fixable = DataFixProtocol.None;
 
@@ -189,6 +192,7 @@ namespace DataReaders
                     ProcessInjectionsMicroCal(experiment); // We think this might be the same proecessing. Lack of information makes other assumptions hard.
                     break;
                 default:
+                case ITCDataFormat.IntegratedHeats: // We absolutely need to recalculate concentrations since some programs export far too low precission 
                 case ITCDataFormat.ITC200:
                     ProcessInjectionsMicroCal(experiment);
                     break;
@@ -315,7 +319,7 @@ namespace DataReaders
         public static ExperimentData ReadPath(string path)
         {
             var experiment = new ExperimentData(Path.GetFileName(path));
-            experiment.Date = File.GetLastWriteTimeUtc(path);
+            experiment.Date = File.GetCreationTime(path);
             experiment.DataSourceFormat = ITCDataFormat.ITC200;
 
             using (var stream = new StreamReader(path))
@@ -413,7 +417,8 @@ namespace DataReaders
 
             var inj = experiment.Injections.Find(o => o.ID == id);
 
-            inj.Time = data[3];
+            if (data.Length > 3) inj.Time = data[3];
+            else inj.Time = experiment.DataPoints.Last().Time;
             inj.Include = id != 0;
             inj.Temperature = experiment.DataPoints.Last().Temperature;
         }
@@ -434,7 +439,7 @@ namespace DataReaders
             experiment.Date = File.GetLastWriteTimeUtc(path);
             experiment.DataSourceFormat = ITCDataFormat.TAITC;
             experiment.FeedBackMode = FeedbackMode.High;
-            experiment.StirringSpeed = 0;
+            experiment.StirringSpeed = -1;
 
             using (var stream = new StreamReader(path))
             {

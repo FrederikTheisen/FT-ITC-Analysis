@@ -47,6 +47,7 @@ namespace AnalysisITC
         public static void Init()
         {
             DataManager.DataDidChange += OnDataDidChange;
+            DataManager.SelectionDidChange += OnDataDidChange;
             DataProcessor.ProcessingCompleted += OnAnyProcessingCompleted;
             SolverInterface.AnalysisFinished += OnAnalysisFinished;
         }
@@ -63,7 +64,17 @@ namespace AnalysisITC
 
         static void OnDataDidChange(object sender, ExperimentData e)
         {
-            while (!StateIsAvailable(CurrentState)) currentState--;
+            bool forward = false;
+            while (!StateIsAvailable(CurrentState))
+            {
+                if (currentState == ProgramState.Load) forward = true;
+                if (!forward) currentState--;
+                else
+                {
+                    if (currentState == ProgramState.Publish) SetProgramState(ProgramState.Load);
+                    currentState++;
+                }
+            }
 
             SetProgramState(CurrentState);
 
@@ -79,9 +90,9 @@ namespace AnalysisITC
         {
             switch (state)
             {
-                case ProgramState.Load: return true;
-                case ProgramState.Process: return DataManager.DataIsLoaded;
-                case ProgramState.Analyze: return DataManager.AnyDataIsBaselineProcessed;
+                case ProgramState.Load: return DataManager.Current == null || (DataManager.Current != null && DataManager.Current.HasThermogram);
+                case ProgramState.Process: return DataManager.Current != null && DataManager.Current.HasThermogram;
+                case ProgramState.Analyze: return DataManager.Current != null && DataManager.Current.CanBeAnalyzed;
                 case ProgramState.Publish: return DataManager.AnyDataIsAnalyzed;
                 default: return true;
             }

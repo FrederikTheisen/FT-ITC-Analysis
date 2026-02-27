@@ -122,23 +122,26 @@ namespace AnalysisITC
 
         public void Print()
         {
-            var _dow = Graph.DrawOnWhite;
-            Graph.DrawOnWhite = true;
+            if (Graph != null)
+            {
+                var _dow = Graph.DrawOnWhite;
+                Graph.DrawOnWhite = true;
 
-            Invalidate();
+                Invalidate();
 
-            var op = NSPrintOperation.FromView(this);
-            op.PrintInfo.PaperSize = this.Frame.Size;
-            op.PrintInfo.BottomMargin = 0;
-            op.PrintInfo.TopMargin = 0;
-            op.PrintInfo.LeftMargin = 0;
-            op.PrintInfo.RightMargin = 0;
-            op.PrintInfo.ScalingFactor = 1;
-            op.RunOperation();
+                var op = NSPrintOperation.FromView(this);
+                op.PrintInfo.PaperSize = this.Frame.Size;
+                op.PrintInfo.BottomMargin = 0;
+                op.PrintInfo.TopMargin = 0;
+                op.PrintInfo.LeftMargin = 0;
+                op.PrintInfo.RightMargin = 0;
+                op.PrintInfo.ScalingFactor = 1;
+                op.RunOperation();
 
-            Graph.DrawOnWhite = _dow;
+                Graph.DrawOnWhite = _dow;
 
-            Invalidate();
+                Invalidate();
+            }
         }
     }
 }

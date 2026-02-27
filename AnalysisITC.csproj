@@ -488,6 +488,7 @@
       <DependentUpon>GuideHintViewController2.cs</DependentUpon>
     </Compile>
     <Compile Include="GUI\MacOS\CitationManager.cs" />
+    <Compile Include="AppClasses\IntegratedHeatReader.cs" />
   </ItemGroup>
   <ItemGroup>
     <InterfaceDefinition Include="Main.storyboard" />

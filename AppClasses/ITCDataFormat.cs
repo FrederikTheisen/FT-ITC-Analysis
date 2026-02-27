@@ -13,13 +13,20 @@ namespace DataReaders
     {
         public string Name { get; set; }
         public string Description { get; set; }
-        public string Extension { get; set; }
+        public List<string> Extensions { get; set; }
 
         public ITCFormatAttribute(string name, string description, string extension)
         {
             Name = name;
             Description = description;
-            Extension = extension;
+            Extensions = new List<string> { extension };
+        }
+
+        public ITCFormatAttribute(string name, string description, string[] extensions)
+        {
+            Name = name;
+            Description = description;
+            Extensions = extensions.ToList();
         }
 
         public static List<ITCDataFormat> GetAllFormats()
@@ -29,7 +36,8 @@ namespace DataReaders
                 ITCDataFormat.ITC200,
                 ITCDataFormat.VPITC,
                 ITCDataFormat.TAITC,
-                ITCDataFormat.FTITC
+                ITCDataFormat.FTITC,
+                ITCDataFormat.IntegratedHeats,
             };
         }
 
@@ -37,7 +45,11 @@ namespace DataReaders
         {
             var formats = GetAllFormats();
 
-            return formats.Select(f => f.GetProperties().Extension).ToArray();
+            var extensions = new List<string>();
+            foreach (var format in formats)
+                extensions.AddRange(format.GetProperties().Extensions);
+
+            return extensions.ToArray();
         }
 
         public static UTType[] DataFiles()
@@ -46,6 +58,8 @@ namespace DataReaders
 
             types.AddRange(UTType.GetTypes("itc", UTTagClass.FilenameExtension, UTTypes.Data).ToList());
             types.AddRange(UTType.GetTypes("ta", UTTagClass.FilenameExtension, UTTypes.Data).ToList());
+            types.AddRange(UTType.GetTypes("dat", UTTagClass.FilenameExtension, UTTypes.Data).ToList());
+            types.AddRange(UTType.GetTypes("aff", UTTagClass.FilenameExtension, UTTypes.Data).ToList());
 
             return types.ToArray();
         }
@@ -76,5 +90,7 @@ namespace DataReaders
         Unknown,
         [ITCFormat("TA Instruments", "Data format exported from NanoAnalyze", ".ta")]
         TAITC,
+        [ITCFormat("TA Instruments", "Data format exported from NanoAnalyze", new[] { ".dat", ".aff" })]
+        IntegratedHeats,
     }
 }

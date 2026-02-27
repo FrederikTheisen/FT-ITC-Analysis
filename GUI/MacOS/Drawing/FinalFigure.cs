@@ -16,13 +16,28 @@ namespace AnalysisITC
         {
             get
             {
-                var max_margin_left = (float)Math.Max(DataGraph.YAxis.EstimateLabelMargin(), IntegrationGraph.YAxis.EstimateLabelMargin());
+                if (DataGraph != null)
+                {
+                    var max_margin_left = (float)Math.Max(DataGraph.YAxis.EstimateLabelMargin(), IntegrationGraph.YAxis.EstimateLabelMargin());
 
-                return new CGEdgeMargin(max_margin_left, 0.1f * CGGraph.PPcm, (float)DataGraph.XAxis.EstimateLabelMargin(), (float)IntegrationGraph.XAxis.EstimateLabelMargin());
+                    return new CGEdgeMargin(
+                        max_margin_left,
+                        0.1f * CGGraph.PPcm,
+                        (float)DataGraph.XAxis.EstimateLabelMargin(),
+                        (float)IntegrationGraph.XAxis.EstimateLabelMargin());
+                }
+                else
+                {
+                    return new CGEdgeMargin(
+                        (float)IntegrationGraph.YAxis.EstimateLabelMargin(),
+                        0.1f * CGGraph.PPcm,
+                        0.1f * CGGraph.PPcm,
+                        (float)IntegrationGraph.XAxis.EstimateLabelMargin());
+                }
             }
         }
-        CGRect PlotBox => new CGRect(IntegrationGraph.GetCompositeOrigin(), PlotDimensions.ScaleBy(CGGraph.PPcm));
-        CGPoint UnadjustedGraphOrigin => new CGPoint(DataGraph.Center.X - DataGraph.PlotSize.Width * 0.5f, DataGraph.Center.Y - DataGraph.PlotSize.Height * 0.5f);
+        CGSize ActualPlotBackground => new CGSize(PlotDimensions.Width, DataGraph != null ? PlotDimensions.Height : PlotDimensions.Height / 2);
+        CGRect PlotBox => new CGRect(IntegrationGraph.GetCompositeOrigin(), ActualPlotBackground.ScaleBy(CGGraph.PPcm));
 
         public CGRect PrintBox => PlotBox.WithMargin(Margin);
 
@@ -96,8 +111,14 @@ namespace AnalysisITC
 
         public bool UseUnifiedDataAxes
         {
-            get => DataGraph.UseUnifiedAxes;
-            set => DataGraph.UseUnifiedAxes = value;
+            get => DataGraph != null && DataGraph.UseUnifiedAxes;
+            set
+            {
+                if (DataGraph != null)
+                {
+                    DataGraph.UseUnifiedAxes = value;
+                }
+            }
         }
 
         public bool DrawFitParameters
@@ -108,8 +129,11 @@ namespace AnalysisITC
 
         public bool DrawExpDetails
         {
-            get => DataGraph.ShowExperimentDetails;
-            set => DataGraph.ShowExperimentDetails = value;
+            get => DataGraph != null && DataGraph.ShowExperimentDetails;
+            set
+            {
+                if (DataGraph != null) { DataGraph.ShowExperimentDetails = value; }
+            }
         }
 
         public FinalFigureDisplayParameters FinalFigureDisplayParameters
@@ -118,7 +142,7 @@ namespace AnalysisITC
             set
             {
                 IntegrationGraph.FinalFigureDisplayParameters = value;
-                DataGraph.FinalFigureDisplayParameters = value;
+                if (DataGraph != null) DataGraph.FinalFigureDisplayParameters = value;
             }
         }
 
@@ -130,14 +154,26 @@ namespace AnalysisITC
 
         public bool ShouldDrawBaseline
         {
-            get => DataGraph.ShowBaseline;
-            set => DataGraph.ShowBaseline = value;
+            get => DataGraph != null && DataGraph.ShowBaseline;
+            set
+            {
+                if (DataGraph != null)
+                {
+                    DataGraph.ShowBaseline = value;
+                }
+            }
         }
 
         public bool DrawBaselineCorrected
         {
-            get => DataGraph.ShowBaselineCorrected;
-            set => DataGraph.ShowBaselineCorrected = value;
+            get => DataGraph != null && DataGraph.ShowBaselineCorrected;
+            set
+            {
+                if (DataGraph != null)
+                {
+                    DataGraph.ShowBaselineCorrected = value;
+                }
+            }
         }
 
         public CGGraph.SymbolShape SymbolShape
@@ -154,8 +190,8 @@ namespace AnalysisITC
             {
                 sanitizeticks = value;
 
-                DataGraph.XAxis.HideUnwantedTicks = sanitizeticks;
-                DataGraph.YAxis.HideUnwantedTicks = sanitizeticks;
+                if (DataGraph != null) DataGraph.XAxis.HideUnwantedTicks = sanitizeticks;
+                if (DataGraph != null) DataGraph.YAxis.HideUnwantedTicks = sanitizeticks;
                 IntegrationGraph.XAxis.HideUnwantedTicks = sanitizeticks;
                 IntegrationGraph.YAxis.HideUnwantedTicks = sanitizeticks;
             }
@@ -171,7 +207,7 @@ namespace AnalysisITC
 
         public void SetTimeUnit(TimeUnit unit)
         {
-            DataGraph.XAxis.ValueFactor = unit.GetProperties().Mod;
+            if (DataGraph != null) DataGraph.XAxis.ValueFactor = unit.GetProperties().Mod;
 
             TimeUnit = unit;
         }
@@ -180,14 +216,14 @@ namespace AnalysisITC
         {
             EnergyUnit = unit;
 
-            DataGraph.YAxis.ValueFactor = unit.IsSI() ? 1000000 : 1000000 * Energy.JouleToCalFactor;
+            if (DataGraph != null) DataGraph.YAxis.ValueFactor = unit.IsSI() ? 1000000 : 1000000 * Energy.JouleToCalFactor;
             IntegrationGraph.YAxis.ValueFactor = unit.IsSI() ? 0.001 : 0.001 * Energy.JouleToCalFactor;
         }
 
         public void SetTickNumber(int datax, int datay, int fitx, int fity)
         {
-            DataGraph.YAxis.SetMaxTicks(datay);
-            DataGraph.XAxis.SetMaxTicks(datax);
+            if (DataGraph != null) DataGraph.YAxis.SetMaxTicks(datay);
+            if (DataGraph != null) DataGraph.XAxis.SetMaxTicks(datax);
             IntegrationGraph.YAxis.SetMaxTicks(fity);
             IntegrationGraph.XAxis.SetMaxTicks(fitx);
             IntegrationGraph.ResidualGraph.XAxis.SetMaxTicks(fitx);
@@ -199,18 +235,21 @@ namespace AnalysisITC
         {
             View = view;
 
-            DataGraph = new BaselineDataGraph(experiment, view)
+            if (experiment.HasThermogram)
             {
-                DrawOnWhite = true,
-                ShowBaselineCorrected = true
-            };
-            DataGraph.YAxis.Buffer = .1f;
-            DataGraph.YAxis.MirrorTicks = true;
-            DataGraph.XAxis.Buffer = .1f;
-            DataGraph.XAxis.ValueFactor = 1.0 / 60;
-            DataGraph.XAxis.LegendTitle = "Time (min)";
-            DataGraph.XAxis.Position = AxisPosition.Top;
-            DataGraph.ShowBaseline = ShouldDrawBaseline;
+                DataGraph = new BaselineDataGraph(experiment, view)
+                {
+                    DrawOnWhite = true,
+                    ShowBaselineCorrected = true
+                };
+                DataGraph.YAxis.Buffer = .1f;
+                DataGraph.YAxis.MirrorTicks = true;
+                DataGraph.XAxis.Buffer = .1f;
+                DataGraph.XAxis.ValueFactor = 1.0 / 60;
+                DataGraph.XAxis.LegendTitle = "Time (min)";
+                DataGraph.XAxis.Position = AxisPosition.Top;
+                DataGraph.ShowBaseline = ShouldDrawBaseline;
+            }
 
             IntegrationGraph = new DataFittingGraph(experiment, view)
             {
@@ -227,58 +266,60 @@ namespace AnalysisITC
             IntegrationGraph.ResidualGraph.MirrorAxisUnification = MirrorDataGraphAxisUnification;
         }
 
-        public void SetupFrames(nfloat width, nfloat height)
+        public void SetupFrames(nfloat width, nfloat height, CGPoint center)
         {
             var halfheight = height / 2;
+            var x = Margin.Left;
 
-            var x = DataGraph.Center.X - PlotBox.Width * 0.5f + Margin.Left * 0.5f - Margin.Right * 0.5f;
-            x = Margin.Left;
+            if (DataGraph != null)
+            {
+                DataGraph.PlotSize = new CGSize(width * CGGraph.PPcm, halfheight * CGGraph.PPcm);
+                DataGraph.Origin = new CGPoint(x, center.Y);
+            }
 
-            //DataGraph.AutoSetFrame((float)width, (float)halfheight);
-            DataGraph.PlotSize = new CGSize(width * CGGraph.PPcm, halfheight * CGGraph.PPcm);
-            DataGraph.Origin = new CGPoint(DataGraph.Center.X - DataGraph.PlotSize.Width * 0.5f, DataGraph.Center.Y - DataGraph.PlotSize.Height * 0.5f);
-            DataGraph.Origin.Y += DataGraph.Frame.Height / 2;
-            DataGraph.Origin.X = x;
-
-            ////IntegrationGraph.AutoSetFrame((float)width, (float)halfheight);
             IntegrationGraph.PlotSize = new CGSize(width * CGGraph.PPcm, halfheight * CGGraph.PPcm);
-            //IntegrationGraph.Origin = new CGPoint(IntegrationGraph.Center.X - IntegrationGraph.PlotSize.Width * 0.5f, DataGraph.Center.Y - DataGraph.PlotSize.Height * 0.5f);
-            //IntegrationGraph.Origin.Y -= IntegrationGraph.Frame.Height / 2;
-            //IntegrationGraph.Origin.X = x;
 
-            var ori = new CGPoint(IntegrationGraph.Center.X - IntegrationGraph.PlotSize.Width * 0.5f, DataGraph.Center.Y - DataGraph.PlotSize.Height * 0.5f);
-            ori.Y -= IntegrationGraph.Frame.Height / 2;
-            ori.X = x;
+            var oriY = (DataGraph == null) ? Margin.Bottom : (center.Y - IntegrationGraph.Frame.Height);
 
-            IntegrationGraph.SetFrame(new CGSize(width * CGGraph.PPcm, halfheight * CGGraph.PPcm), ori);
+            IntegrationGraph.SetFrame(
+                new CGSize(width * CGGraph.PPcm, halfheight * CGGraph.PPcm),
+                new CGPoint(x, oriY)
+                );
         }
 
         public void UpdateAxisTitles()
         {
-            if (!string.IsNullOrEmpty(TimeAxisTitle)) DataGraph.XAxis.LegendTitle = TimeAxisTitle.Replace("<unit>", TimeUnit.GetProperties().Short);
-            if (!string.IsNullOrEmpty(PowerAxisTitle)) DataGraph.YAxis.LegendTitle = PowerAxisTitle.Replace("<unit>", EnergyUnit.IsSI() ? "µW" : "µcal/s");
-            if (!string.IsNullOrEmpty(EnthalpyAxisTitle)) IntegrationGraph.YAxis.LegendTitle = EnthalpyAxisTitle.Replace("<unit>", EnergyUnit.IsSI() ? "kJ/mol" : "kcal/mol");
-            if (!string.IsNullOrEmpty(MolarRatioAxisTitle)) IntegrationGraph.XAxis.LegendTitle = MolarRatioAxisTitle;
+            if (!string.IsNullOrEmpty(TimeAxisTitle) && DataGraph != null)
+                DataGraph.XAxis.LegendTitle = TimeAxisTitle.Replace("<unit>", TimeUnit.GetProperties().Short);
+
+            if (!string.IsNullOrEmpty(PowerAxisTitle) && DataGraph != null)
+                DataGraph.YAxis.LegendTitle = PowerAxisTitle.Replace("<unit>", EnergyUnit.IsSI() ? "µW" : "µcal/s");
+
+            if (!string.IsNullOrEmpty(EnthalpyAxisTitle))
+                IntegrationGraph.YAxis.LegendTitle = EnthalpyAxisTitle.Replace("<unit>", EnergyUnit.IsSI() ? "kJ/mol" : "kcal/mol");
+
+            if (!string.IsNullOrEmpty(MolarRatioAxisTitle))
+                IntegrationGraph.XAxis.LegendTitle = MolarRatioAxisTitle;
         }
 
         public void Draw(CGContext gc, CGPoint center)
         {
-            DataGraph.Center = center;
+            if (DataGraph != null) DataGraph.Center = center;
             IntegrationGraph.Center = center;
 
-            SetupFrames(PlotDimensions.Width, PlotDimensions.Height);
+            SetupFrames(PlotDimensions.Width, PlotDimensions.Height, center);
             UpdateAxisTitles();
 
             gc.SetFillColor(NSColor.White.CGColor);
             gc.FillRect(PlotBox.WithMargin(Margin));
 
-            DataGraph.SetupAxisScalingUnits();
+            DataGraph?.SetupAxisScalingUnits();
             IntegrationGraph.SetupAxisScalingUnits();
 
-            DataGraph.Draw(gc);
+            DataGraph?.Draw(gc);
             IntegrationGraph.Draw(gc);
 
-            DataGraph.DrawFrame(gc);
+            DataGraph?.DrawFrame(gc);
             IntegrationGraph.DrawFrame(gc);
         }
     }

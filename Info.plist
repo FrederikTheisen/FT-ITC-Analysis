@@ -13,6 +13,10 @@
 				<string>vpitc</string>
 				<string>ITC</string>
 				<string>ta</string>
+				<string>dat</string>
+				<string>aff</string>
+				<string>DAT</string>
+				<string>AFF</string>
 			</array>
 			<key>CFBundleTypeIconFile</key>
 			<string>DataFileBackground</string>
@@ -55,7 +59,7 @@
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundleName</key>
-	<string>FT ITC Analysis</string>
+	<string>FT-ITC Analysis</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
@@ -130,6 +134,10 @@
 					<string>ITC</string>
 					<string>VPITC</string>
 					<string>ta</string>
+					<string>dat</string>
+					<string>DAT</string>
+					<string>aff</string>
+					<string>AFF</string>
 				</array>
 				<key>public.mime-type</key>
 				<array>

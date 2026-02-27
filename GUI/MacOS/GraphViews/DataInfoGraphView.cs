@@ -20,7 +20,7 @@ namespace AnalysisITC
 
         public void Initialize(ExperimentData experiment)
         {
-            if (experiment != null)
+            if (experiment != null && experiment.HasThermogram)
             {
                 Graph = new FileInfoGraph(experiment, this);
                 Graph.YAxis.Buffer = .05f;

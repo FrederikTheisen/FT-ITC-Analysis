@@ -17,6 +17,8 @@ namespace AnalysisITC
         public event EventHandler ProcessingUpdated;
         public event EventHandler SolutionChanged;
 
+        private double measuredTemperature = double.NaN;
+
         public ITCInstrument Instrument { get; set; } = ITCInstrument.Unknown;
         public ITCDataFormat DataSourceFormat { get; set; }
 
@@ -29,15 +31,24 @@ namespace AnalysisITC
         public FloatWithError SyringeConcentration { get; set; }
         public FloatWithError CellConcentration { get; set; }
         public double CellVolume { get; set; }
-        public double StirringSpeed { get; set; }
+        public double StirringSpeed { get; set; } = -1;
         public FeedbackMode FeedBackMode { get; set; }
 
         public double TargetTemperature { get; set; }
         public double InitialDelay { get; set; }
         public double TargetPowerDiff { get; set; }
-        public double MeasuredTemperature { get; internal set; }
+        public double MeasuredTemperature
+        {
+            get
+            {
+                if (double.IsNaN(measuredTemperature)) return TargetTemperature;
+                else return measuredTemperature;
+            }
+            internal set => measuredTemperature = value;
+        }
         public int InjectionCount => Injections.Count;
         public PeakHeatDirection AverageHeatDirection { get; set; } = PeakHeatDirection.Unknown;
+        public bool CanBeAnalyzed => Injections.All(inj => inj.IsIntegrated);
         //public InjectionData.IntegrationLengthMode IntegrationLengthMode { get; set; } = InjectionData.IntegrationLengthMode.Time;
         //public float IntegrationLengthFactor { get; set; } = 2;
 
@@ -46,9 +57,7 @@ namespace AnalysisITC
         {
             get
             {
-                if (Processor == null) return false;
-                else if (!Processor.BaselineCompleted) return false;
-                else if (!Processor.IntegrationCompleted) return false;
+                if (!Injections.All(inj => inj.IsIntegrated)) return false;
                 else return include;
             }
             set => include = value;
@@ -90,6 +99,7 @@ namespace AnalysisITC
                 return TimeSpan.FromSeconds(0);
             }
         }
+        public bool HasThermogram => DataPoints != null && DataPoints.Count > 1;
 
         public ExperimentData(string file)
         {
@@ -395,7 +405,6 @@ namespace AnalysisITC
                 .ToDictionary(g => g.Key, g => g.First()) ?? new Dictionary<int, TandemExperimentSegment>();
         }
 
-        // Call this after loading / after you assign SegmentStarts
         public void InvalidateSegmentLookup()
         {
             _segmentStartLookup = null;
@@ -429,6 +438,7 @@ namespace AnalysisITC
 
         public PeakHeatDirection HeatDirection { get; set; } = PeakHeatDirection.Unknown;
 
+        public bool IsIntegrated { get; set; } = false;
         public FloatWithError PeakArea { get; private set; } = new();
         public Energy Enthalpy2 => new(PeakArea / InjectionMass);
         public double Enthalpy => PeakArea / InjectionMass;
@@ -454,8 +464,6 @@ namespace AnalysisITC
                 return Experiment.Model.Residual(this) / InjectionMass;
             }
         }
-
-        public bool IsIntegrated { get; set; } = false;
 
         private InjectionData() { }
 
@@ -686,6 +694,10 @@ namespace AnalysisITC
             }
         }
 
+        /// <summary>
+        /// Set the integrated area and set the IsIntegrated flag
+        /// </summary>
+        /// <param name="area"></param>
         public void SetPeakArea(FloatWithError area)
         {
             PeakArea = area;
@@ -778,6 +790,11 @@ namespace AnalysisITC
             Time,
             Factor,
             Fit
+        }
+
+        public override string ToString()
+        {
+            return $"{ID} : {Ratio:F2} : {Enthalpy2.ToFormattedString(EnergyUnit.KiloJoule)}";
         }
     }
 

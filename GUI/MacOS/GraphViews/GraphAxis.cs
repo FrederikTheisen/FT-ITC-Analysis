@@ -386,10 +386,10 @@ namespace AnalysisITC
                 _ => TextAlignment.Center,
             };
 
-            //var titlesize = cggraph.DrawString(layer, LegendTitle, point, TitleFont, null, TextAlignment.Center, aln, null, rot);
             var atttitle = MacStrings.FromMarkDownString(LegendTitle, NSFont.FromCTFont(TitleFont), true);
             var _ = cggraph.DrawString2(layer, atttitle, point, horizontalignment: TextAlignment.Center, verticalalignment: aln, null, rot);
 
+            layer.Context.AddRect(cggraph.Frame);
             gc.DrawLayer(layer, new CGPoint(0, 0));
         }
 

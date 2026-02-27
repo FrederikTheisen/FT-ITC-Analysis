@@ -146,7 +146,7 @@ namespace AnalysisITC
 
         public void IntegratePeaks(bool invalidate = true)
         {
-            if (Data.BaseLineCorrectedDataPoints == null) return;
+            if (Data.BaseLineCorrectedDataPoints == null || Data.BaseLineCorrectedDataPoints.Count == 0) return;
 
             try
             {

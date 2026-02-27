@@ -47,7 +47,7 @@ namespace AnalysisITC
 
         public int SelectedPeak
         {
-            get => selectedPeak >= Data.InjectionCount ? Data.InjectionCount - 1 : selectedPeak;
+            get => selectedPeak >= Data?.InjectionCount ? Data.InjectionCount - 1 : selectedPeak;
             set
             {
                 if (value == -1) selectedPeak = value;
@@ -95,7 +95,7 @@ namespace AnalysisITC
         {
             selectedPeak = -1;
 
-            if (experiment != null)
+            if (experiment != null && experiment.HasThermogram)
             {
                 base.Graph = new BaselineFittingGraph(experiment, this);
             }
@@ -108,6 +108,7 @@ namespace AnalysisITC
         {
             if (Data == null) return;
             if (Data.Processor.Interpolator?.Baseline == null) return;
+            if (Graph == null) return;
 
             var xmin = Graph.XAxis.Min;
             var xmax = Graph.XAxis.Max;
@@ -155,6 +156,7 @@ namespace AnalysisITC
         public void ShowAllVertical()
         {
             if (Data == null) return;
+            if (Graph == null) return;
 
             var xmin = Graph.XAxis.Min;
             var xmax = Graph.XAxis.Max;
@@ -172,6 +174,7 @@ namespace AnalysisITC
         {
             if (Data == null) return;
             if (SelectedPeak == -1) return;
+            if (Graph == null) return;
             int idx1 = SelectedPeak - PeakZoomWidth;
             int idx2 = SelectedPeak + PeakZoomWidth;
 
@@ -195,6 +198,7 @@ namespace AnalysisITC
         public void UnfocusPeak()
         {
             if (Data == null) return;
+            if (Graph == null) return;
 
             Graph.SetXAxisRange(Graph.DataPoints.Min(dp => dp.Time), Graph.DataPoints.Max(dp => dp.Time), buffer: false);
 
@@ -210,6 +214,7 @@ namespace AnalysisITC
         {
             if (Data == null) return;
             if (region.Width < 10) return; //dont zoom too much please
+            if (Graph == null) return;
 
             Graph.SetXAxisRange(region.Left, region.Right);
             Graph.SetYAxisRange(region.Bottom, region.Top);
@@ -237,6 +242,7 @@ namespace AnalysisITC
             base.MouseMoved(theEvent);
 
             if (Data == null) return;
+            if (Graph == null) return;
 
             var b = Graph.CursorFeatureFromPos(CursorPositionInView);
             var update = Graph.SetCursorInfo(CursorPositionInView);
@@ -258,6 +264,7 @@ namespace AnalysisITC
             base.MouseDown(theEvent);
 
             if (Data == null) return;
+            if (Graph == null) return;
 
             SelectedFeature = Graph.CursorFeatureFromPos(CursorPositionInView, true);
         }
@@ -267,6 +274,7 @@ namespace AnalysisITC
             base.RightMouseDown(theEvent);
 
             if (Data == null) return;
+            if (Graph == null) return;
 
             var feature = Graph.CursorFeatureFromPos(CursorPositionInView);
 
@@ -298,6 +306,8 @@ namespace AnalysisITC
         public override void MouseDragged(NSEvent theEvent)
         {
             base.MouseDragged(theEvent);
+
+            if (Graph == null) return;
 
             var position = CursorPositionInView;// theEvent.LocationInWindow;
 
@@ -364,6 +374,8 @@ namespace AnalysisITC
         {
             base.MouseUp(theEvent);
 
+            if (Graph == null) return;
+
             if (MouseDidDrag)
             {
                 switch (SelectedFeature.Type)
@@ -422,6 +434,8 @@ namespace AnalysisITC
 
         async void UpdateSplineHandle()
         {
+            if (Graph == null) return;
+
             await Data.Processor.Interpolator.Interpolate(new System.Threading.CancellationToken(), false);
 
             Data.Processor.SubtractBaseline();

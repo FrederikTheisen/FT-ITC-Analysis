@@ -55,6 +55,7 @@ namespace DataReaders
         }
     }
 
+    [Flags]
     public enum ITCInstrument
     {
         [ITCInstrument("Unknown", "", "",
@@ -92,5 +93,7 @@ namespace DataReaders
             syrv: 250,
             deadv: 60)]
         TAInstrumentsITCLowVolume,
+
+        MicroCal = MicroCalITC200 | ITCInstrument.MalvernITC200 | ITCInstrument.MicroCalVPITC 
     }
 }
