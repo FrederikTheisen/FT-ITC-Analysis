@@ -555,7 +555,7 @@ namespace AnalysisITC
     {
         double[] fit;
 
-        public int Degree { get; set; } = 8;
+        public int Degree { get; set; } = 12;
         public double ZLimit { get; set; } = 2;
 
         public PolynomialLeastSquaresInterpolator(DataProcessor processor) : base(processor)
@@ -566,7 +566,7 @@ namespace AnalysisITC
         {
             var interpolator = new PolynomialLeastSquaresInterpolator(processor)
             {
-                Degree = Math.Clamp(Math.Max(8, Processor.Data.InjectionCount / 2), 1, 20),
+                Degree = this.Degree,
                 ZLimit = this.ZLimit,
             };
 

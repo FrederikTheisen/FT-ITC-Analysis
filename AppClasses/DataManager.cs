@@ -249,6 +249,7 @@ namespace AnalysisITC
             StopProcessCopying = false;
 
             if (Current == null) return;
+            if (Current.Processor == null) return;
             if (Current.Processor.Interpolator == null) return;
 
             var int_delay = Current.Injections.Select(inj => inj.IntegrationStartDelay).ToArray();
@@ -264,7 +265,8 @@ namespace AnalysisITC
             {
                 if (data == Current) continue;
 
-                if (data.Processor.Interpolator == null || !data.Processor.IsLocked && !data.Processor.Interpolator.IsLocked) data.SetProcessor(new DataProcessor(data, Current.Processor));
+                if (data.Processor.Interpolator == null || !data.Processor.IsLocked && !data.Processor.Interpolator.IsLocked)
+                    data.SetProcessor(new DataProcessor(data, Current.Processor));
             }
 
             float i = 0;
@@ -277,6 +279,7 @@ namespace AnalysisITC
 
                 if (!data.Processor.IsLocked)
                 {
+                    // Make an initial baseline because we need something
                     data.Processor.WillProcessData();
                     if (!data.Processor.Interpolator.IsLocked) await data.Processor.InterpolateBaseline();
 
@@ -287,6 +290,9 @@ namespace AnalysisITC
                     else if (int_mode == InjectionData.IntegrationLengthMode.Fit) data.FitIntegrationPeaks();
                     else data.SetIntegrationLengthByTimes(int_length);
 
+                    // Reprocesses baseline with new integration regions
+                    data.Processor.WillProcessData();
+                    if (!data.Processor.Interpolator.IsLocked) await data.Processor.InterpolateBaseline();
                     data.Processor.IntegratePeaks();
                     data.Processor.DidProcessData();
                 }
