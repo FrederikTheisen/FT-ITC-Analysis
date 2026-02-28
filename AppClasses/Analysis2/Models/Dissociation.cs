@@ -65,7 +65,7 @@ namespace AnalysisITC.AppClasses.Analysis2.Models
 
             double q = dH * (n_dimer_total_post - n_dimer_total_pre);
 
-            return q / inj.InjectionMass;
+            return q;
         }
 
         /// <summary>
