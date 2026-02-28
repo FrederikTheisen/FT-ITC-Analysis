@@ -67,14 +67,7 @@ namespace AnalysisITC
 
             foreach (var type in AnalysisModelAttribute.GetAll())
             {
-                var att = type.GetProperties();
-
-                var valid = AppClasses.Analysis2.ModelFactory.IsModelAvailable(type);;
-
-                if (true)
-                {
-                    ModelMenu.AddItem(new NSMenuItem(type.GetProperties().Name) { Tag = (int)type, Enabled = valid });
-                }
+                ModelMenu.AddItem(new NSMenuItem(type.GetProperties().Name) { Tag = (int)type, Enabled = true });
             }
 
             InjectionCountField.Changed += InjectionCountField_Changed;
