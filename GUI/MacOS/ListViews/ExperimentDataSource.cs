@@ -72,7 +72,7 @@ namespace AnalysisITC
 
         public void SortByName()
         {
-            var curr = Content[SelectedIndex];
+            var curr = SelectedIndex > 0 ? Content[SelectedIndex] : null;
 
             Content = Content.OrderBy(o => o.FileName).OrderBy(OrderOnType).ToList();
 
@@ -81,7 +81,7 @@ namespace AnalysisITC
 
         public void SortByDate()
         {
-            var curr = Content[SelectedIndex];
+            var curr = SelectedIndex > 0 ? Content[SelectedIndex] : null;
 
             Content = Content.OrderBy(o => o.Date).OrderBy(OrderOnType).ToList();
 
@@ -90,7 +90,7 @@ namespace AnalysisITC
 
         public void SortByTemperature()
         {
-            var curr = Content[SelectedIndex];
+            var curr = SelectedIndex > 0 ? Content[SelectedIndex] : null;
 
             Content = Content.OrderBy(OrderOnTemperature).ToList();
 
@@ -99,7 +99,7 @@ namespace AnalysisITC
 
         public void SortByType()
         {
-            var curr = Content[SelectedIndex];
+            var curr = SelectedIndex > 0 ? Content[SelectedIndex] : null;
 
             Content = Content.OrderBy(OrderOnType).ToList();
 
@@ -108,7 +108,7 @@ namespace AnalysisITC
 
         public void SortByIonicStrength()
         {
-            var curr = Content[SelectedIndex];
+            var curr = SelectedIndex > 0 ? Content[SelectedIndex] : null;
 
             Content = Content.OrderBy(OrderOnIonicStrength).ToList();
 
@@ -117,7 +117,7 @@ namespace AnalysisITC
 
         public void SortByProtonationEnthalpy()
         {
-            var curr = Content[SelectedIndex];
+            var curr = SelectedIndex > 0 ? Content[SelectedIndex] : null;
 
             Content = Content.OrderBy(OrderOnIonicProtonationEnthalpy).ToList();
 
@@ -126,7 +126,7 @@ namespace AnalysisITC
 
         public void SetAllIncludeState(bool includeall)
         {
-            var curr = Content[SelectedIndex];
+            var curr = SelectedIndex > 0 ? Content[SelectedIndex] : null;
 
             Content.Where(o => o is ExperimentData).Select(o => o as ExperimentData).ToList().ForEach(d => d.Include = includeall);
 
@@ -139,9 +139,12 @@ namespace AnalysisITC
 
             SourceWasSorted?.Invoke(this, null);
 
-            int idx = Content.IndexOf(prev);
+            if (prev != null)
+            {
+                int idx = Content.IndexOf(prev);
 
-            DataManager.SelectIndex(idx);
+                DataManager.SelectIndex(idx);
+            }
         }
 
         private static double OrderOnTemperature(ITCDataContainer item)
