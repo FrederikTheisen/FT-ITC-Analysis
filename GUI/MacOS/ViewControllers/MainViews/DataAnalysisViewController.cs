@@ -47,6 +47,7 @@ namespace AnalysisITC
         bool ShowParameters => ParametersScopeButton.State == NSCellStateValue.On;
         bool SameAxes => AxesScopeButton.State == NSCellStateValue.On;
         bool ShowResidualGraph => ShowResidualGraphButton.State == NSCellStateValue.On;
+        bool IsGlobalMode => AnalysisModeControl.SelectedSegment == 1;
 
         public DataAnalysisViewController(IntPtr handle) : base(handle)
         {
@@ -163,6 +164,24 @@ namespace AnalysisITC
                 else ModelFactory.Factory.UpdateData();
 
             SetExposedFittingOptions();
+
+            SetAvailableModels();
+        }
+
+        void SetAvailableModels()
+        {
+            var models = new[] { AnalysisModel.OneSetOfSites, AnalysisModel.TwoSetsOfSites, AnalysisModel.CompetitiveBinding, AnalysisModel.Dissociation };
+
+            for (int i = 0; i < models.Length; i++)
+            {
+                var model = models[i];
+                var available = ModelFactory.IsModelAvailable(model, IsGlobalMode);
+
+                if (AppSettings.Verbose && !available && ModelFromSegmentedControl == model && ModelTypeControl.IsEnabled(i))
+                    AppEventHandler.DisplayHandledException(new HandledException(HandledException.Severity.Message, "Model Not Available", "The current data selection does not support analysis using the selected model"));
+
+                ModelTypeControl.SetEnabled(available, i);
+            }
         }
 
         private void DataManager_SelectionDidChange(object sender, ExperimentData e)
@@ -170,6 +189,8 @@ namespace AnalysisITC
             if (ModelFactory.Factory != null) ModelFactory.Factory.UpdateData();
 
             SetExposedFittingOptions();
+
+            SetAvailableModels();
 
             GraphView.Initialize(e);
         }
@@ -206,13 +227,12 @@ namespace AnalysisITC
             if (!DataManager.DataIsLoaded) ModelFactory.Factory = null; //don't even try
             else
             {
-                if (ModelFactory.Factory == null) ModelFactory.Factory = ModelFactory.InitializeFactory(SelectedAnalysisModel, AnalysisModeControl.SelectedSegment == 1);
+                if (ModelFactory.Factory == null) ModelFactory.Factory = ModelFactory.InitializeFactory(SelectedAnalysisModel, IsGlobalMode);
                 else //Determine if model changed and update if it did.
                 {
-                    bool global = AnalysisModeControl.SelectedSegment == 1;
                     var model = ModelFactory.Factory.ModelType;
 
-                    if (ModelFactory.Factory.IsGlobalAnalysis != global || model != SelectedAnalysisModel) ModelFactory.Factory = ModelFactory.InitializeFactory(SelectedAnalysisModel, AnalysisModeControl.SelectedSegment == 1);
+                    if (ModelFactory.Factory.IsGlobalAnalysis != IsGlobalMode || model != SelectedAnalysisModel) ModelFactory.Factory = ModelFactory.InitializeFactory(SelectedAnalysisModel, IsGlobalMode);
                 }
             }
 
@@ -259,6 +279,16 @@ namespace AnalysisITC
         partial void FitLM(NSObject sender) => Fit2();
         void Fit2()
         {
+            if (!ModelFactory.IsModelAvailable(ModelFromSegmentedControl, IsGlobalMode))
+            {
+                AppEventHandler.DisplayHandledException( new HandledException(
+                        HandledException.Severity.Message,
+                        "Model Not Available",
+                        "The current data selection does not support analysis using the selected model"));
+
+                return;
+            }
+
             try
             {
                 AppEventHandler.PrintAndLog("Start Analysis");
