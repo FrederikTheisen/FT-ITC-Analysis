@@ -263,7 +263,7 @@ namespace Utilities
 
             tooltiplines.Add("Inj #" + (inj.ID + 1));
             //tooltiplines.Add("Time: " + inj.Time.ToString("F1") + "s");
-            tooltiplines.Add(graph.XAxis.LegendTitle + ": " + inj.Ratio.ToString("F2"));
+            tooltiplines.Add(graph.XAxis.LegendTitle + ": " + (graph.XAxis.ValueFactor * inj.Ratio).ToString("F2"));
             tooltiplines.Add("Enthalpy: " + inj.Enthalpy2.ToFormattedString(AppSettings.EnergyUnit, withunit: true, permole: true));
             //tooltiplines.Add("Temperature: " + inj.Temperature.ToString("F2") + " °C");
             if (inj.Experiment.Solution != null)

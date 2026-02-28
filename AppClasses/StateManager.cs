@@ -30,7 +30,7 @@ namespace AnalysisITC
             {
                 string status = Utilities.MarkdownStrings.AppName + " 〉" + CurrentState.GetEnumDescription().ToString();
 
-                if (currentState == ProgramState.Analyze)
+                if (currentState == ProgramState.Analyze && ModelFactory.Factory != null)
                 {
                     if (ModelFactory.Factory.IsGlobalAnalysis) status += " 〉" + ProgramSubState.MultiAnalysis.GetEnumDescription() + $" [{DataManager.IncludedData.Count()} selected]";
                 }

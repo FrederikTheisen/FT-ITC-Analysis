@@ -270,7 +270,7 @@ namespace AnalysisITC
                 injection += inj.IntegrationStartDelay + ",";
                 injection += inj.IntegrationLength + ",";
                 injection += inj.ActualCellConcentration + ",";
-                injection += inj.ActualTitrantConcentration;
+                injection += inj.ActualTitrantConcentration + ",";
 
                 file.Add(injection);
             }

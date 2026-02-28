@@ -115,17 +115,6 @@ namespace AnalysisITC
             //Failed = rep.terminationtype > 2;
         }
 
-        //public SolverConvergence(MathNet.Numerics.Optimization.NonlinearMinimizationResult result, TimeSpan time, SolverAlgorithm algorithm)
-        //{
-        //    Algorithm = algorithm;
-        //    Iterations = result.Iterations;
-        //    Message = result.ReasonForExit.ToString();
-        //    Time = time;
-        //    Loss = result.ModelInfoAtMinimum.Value;
-
-        //    Failed = result.ReasonForExit != MathNet.Numerics.Optimization.ExitCondition.Converged;
-        //}
-
         public SolverConvergence(List<SolverConvergence> list)
         {
             Algorithm = list.First().Algorithm;
