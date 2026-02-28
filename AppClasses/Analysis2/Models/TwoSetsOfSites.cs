@@ -13,11 +13,11 @@ namespace AnalysisITC.AppClasses.Analysis2.Models
 
         public override AnalysisModel ModelType => AnalysisModel.TwoSetsOfSites;
 
-        public double GuessN1() => Data.Injections.Last().Ratio / 3;
-        public double GuessN2() => Data.Injections.Last().Ratio / 4;
+        public double GuessN1() => 1;
+        public double GuessN2() => 1;
 
         public double GuessAffinity1() => 10000000;
-        public double GuessAffinity2() => 1000000;
+        public double GuessAffinity2() => 100000;
 
         public TwoSetsOfSites(ExperimentData data) : base(data)
 		{
@@ -32,7 +32,7 @@ namespace AnalysisITC.AppClasses.Analysis2.Models
             Parameters.AddOrUpdateParameter(ParameterType.Enthalpy1, GuessParameter(ParameterType.Enthalpy1, this.GuessEnthalpy()));
             Parameters.AddOrUpdateParameter(ParameterType.Affinity1, GuessParameter(ParameterType.Affinity1, this.GuessAffinity1()));
             Parameters.AddOrUpdateParameter(ParameterType.Nvalue2, GuessParameter(ParameterType.Nvalue2, this.GuessN2()));
-            Parameters.AddOrUpdateParameter(ParameterType.Enthalpy2, GuessParameter(ParameterType.Enthalpy2, this.GuessEnthalpy() / 2));
+            Parameters.AddOrUpdateParameter(ParameterType.Enthalpy2, GuessParameter(ParameterType.Enthalpy2, this.GuessEnthalpyMax()));
             Parameters.AddOrUpdateParameter(ParameterType.Affinity2, GuessParameter(ParameterType.Affinity2, this.GuessAffinity2()));
             Parameters.AddOrUpdateParameter(ParameterType.Offset, GuessParameter(ParameterType.Offset, this.GuessOffset()));
 
