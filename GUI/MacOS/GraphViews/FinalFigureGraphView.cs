@@ -95,6 +95,7 @@ namespace AnalysisITC
         public static bool GapResidualGraph { get; set; } = false;
         public static bool MirrorDataGraphAxisUnification { get; set; } = false;
         public static GraphBase.LineSmoothness FitLineSmoothness { get; set; } = AppSettings.FitLineSmoothness;
+        public static bool AutoAxesIgnoresBadData { get; set; } = true;
 
         public static bool UnifiedPowerAxis { get; set; } = false;
         public static bool DrawBaseline { get; set; } = false;
@@ -160,6 +161,7 @@ namespace AnalysisITC
                 ShowResiduals = ShowResiduals,
                 IncludeResidualGraphGap = GapResidualGraph,
                 LineSmoothness = FitLineSmoothness,
+                AutoAxesIgnoresBadData = AutoAxesIgnoresBadData,
             };
 
             _graph.SetTimeUnit(TimeAxisUnit);
@@ -247,6 +249,7 @@ namespace AnalysisITC
                 ShowResiduals = ShowResiduals,
                 IncludeResidualGraphGap = GapResidualGraph,
                 LineSmoothness = FitLineSmoothness,
+                AutoAxesIgnoresBadData = AutoAxesIgnoresBadData,
             };
 
             graph.SetTimeUnit(TimeAxisUnit);

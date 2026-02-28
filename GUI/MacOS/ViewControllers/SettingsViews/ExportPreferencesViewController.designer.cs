@@ -13,6 +13,9 @@ namespace AnalysisITC
 	partial class ExportPreferencesViewController
 	{
 		[Outlet]
+		AppKit.NSButton AutoAxesIgnoresBadData { get; set; }
+
+		[Outlet]
 		AppKit.NSSegmentedControl ExportDataColumnControl { get; set; }
 
 		[Outlet]
@@ -73,6 +76,11 @@ namespace AnalysisITC
 				ExportDataColumnControl = null;
 			}
 
+			if (AutoAxesIgnoresBadData != null) {
+				AutoAxesIgnoresBadData.Dispose ();
+				AutoAxesIgnoresBadData = null;
+			}
+
 			if (ExportSelectedControl != null) {
 				ExportSelectedControl.Dispose ();
 				ExportSelectedControl = null;
@@ -108,6 +116,11 @@ namespace AnalysisITC
 				FinalFigWidthField = null;
 			}
 
+			if (FitLineSmoothnessControl != null) {
+				FitLineSmoothnessControl.Dispose ();
+				FitLineSmoothnessControl = null;
+			}
+
 			if (ResidualPlotSettingsControl != null) {
 				ResidualPlotSettingsControl.Dispose ();
 				ResidualPlotSettingsControl = null;
@@ -121,11 +134,6 @@ namespace AnalysisITC
 			if (UnifyAxesControl != null) {
 				UnifyAxesControl.Dispose ();
 				UnifyAxesControl = null;
-			}
-
-			if (FitLineSmoothnessControl != null) {
-				FitLineSmoothnessControl.Dispose ();
-				FitLineSmoothnessControl = null;
 			}
 		}
 	}

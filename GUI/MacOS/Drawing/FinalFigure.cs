@@ -43,6 +43,12 @@ namespace AnalysisITC
 
         #region Properties
 
+        public bool AutoAxesIgnoresBadData
+        {
+            get => IntegrationGraph.FocusValidData;
+            set => IntegrationGraph.FocusValidData = value;
+        }
+
         public GraphBase.LineSmoothness LineSmoothness
         {
             get => IntegrationGraph.FitLineSmoothnessSetting;

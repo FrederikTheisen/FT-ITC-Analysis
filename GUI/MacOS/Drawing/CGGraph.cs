@@ -1108,7 +1108,7 @@ namespace AnalysisITC
 
             if (FinalFigureDisplayParameters.HasFlag(FinalFigureDisplayParameters.Temperature)) lines.Add(ExperimentData.MeasuredTemperature.ToString("F1") + " °C");
             if (FinalFigureDisplayParameters.HasFlag(FinalFigureDisplayParameters.Concentrations)) lines.Add(syr);
-            if (FinalFigureDisplayParameters.HasFlag(FinalFigureDisplayParameters.Concentrations)) lines.Add(cell);
+            if (FinalFigureDisplayParameters.HasFlag(FinalFigureDisplayParameters.Concentrations) && ExperimentData.CellConcentration > float.Epsilon) lines.Add(cell);
 
             if (FinalFigureDisplayParameters.HasFlag(FinalFigureDisplayParameters.Attributes) && ExperimentData.Solution != null)
             {
@@ -1420,7 +1420,7 @@ namespace AnalysisITC
     {
         private bool _useUnifiedAxes = false;
         private bool _useUnifiedEnthalpyAxis = false;
-        private bool _focusvaliddata = false;
+        private bool _focusvaliddata = true;
 
         public bool DrawConfidenceBands { get; set; } = true;
         public bool ShowFitParameters { get; set; } = true;
@@ -1443,6 +1443,9 @@ namespace AnalysisITC
         public bool UnifiedMolarRatioAxis { get => _useUnifiedAxes; set { _useUnifiedAxes = value; SetupAxes(); } }
         public bool UnifiedEnthalpyAxis { get => _useUnifiedEnthalpyAxis; set { _useUnifiedEnthalpyAxis = value; SetupAxes(); } }
         public bool FocusValidData { get => _focusvaliddata; set { _focusvaliddata = value; SetupAxes(); } }
+
+        bool ShowBadData => !HideBadData;
+        bool AutoAxesIncludesBadData => (!FocusValidData && ShowBadData);
 
         public CGPoint GetCompositeOrigin()
         {
@@ -1514,11 +1517,11 @@ namespace AnalysisITC
             foreach (var data in includeddata)
                 if (data.Solution != null)
                     for (int i = 0; i < data.InjectionCount; i++)
-                        if (data.Injections[i].Include)
-                            evals.Add(data.Model.EvaluateEnthalpy(i, withoffset: DrawWithOffset));
+                        evals.Add(data.Model.EvaluateEnthalpy(i, withoffset: DrawWithOffset));
 
-            var maxpoints = includeddata.Select(d => d.Injections.Where(inj => inj.Include || !FocusValidData).Max(inj => inj.Enthalpy));
-            var minpoints = includeddata.Select(d => d.Injections.Where(inj => inj.Include || !FocusValidData).Min(inj => inj.Enthalpy));
+            // Consider only data points which were included for fitting, or if we explicitly show bad data
+            var maxpoints = includeddata.Select(d => d.Injections.Where(inj => inj.Include || AutoAxesIncludesBadData).Max(inj => inj.Enthalpy));
+            var minpoints = includeddata.Select(d => d.Injections.Where(inj => inj.Include || AutoAxesIncludesBadData).Min(inj => inj.Enthalpy));
 
             if (evals.Count(v => double.IsFinite(v)) == 0) evals = new List<double> { 0 };
             if (maxpoints.Count(v => double.IsFinite(v)) == 0) maxpoints = new double[] { 0 };
@@ -1735,7 +1738,7 @@ namespace AnalysisITC
                 lines.Add(line);
             }
 
-            var position = ExperimentData.Solution.TotalEnthalpy > 0 ? NSRectAlignment.TopTrailing : NSRectAlignment.BottomTrailing;
+            var position = ExperimentData.Model.Evaluate(0) > ExperimentData.Model.Evaluate(ExperimentData.InjectionCount - 1) ? NSRectAlignment.TopTrailing : NSRectAlignment.BottomTrailing;
 
             DrawTextBoxConsistent(gc, lines, DrawOnWhite ? new CTFont(DefaultFont.DisplayName, 12) : new CTFont(DefaultFont.DisplayName, ParameterFontSize), position);
         }
@@ -1788,7 +1791,7 @@ namespace AnalysisITC
                     if (Math.Abs(cursorpos.Y + 1 - handle_screen_pos.Y) < 5.5)
                     {
                         if (isclick) mDownID = inj.ID;
-                        else if (ismouseup && mDownID == inj.ID) { inj.Include = !inj.Include; mOverFeature = -1; }
+                        else if (ismouseup && mDownID == inj.ID) { inj.ToggleDataPointActive(); mOverFeature = -1; }
                         mOverFeature = inj.ID;
                         return new MouseOverFeatureEvent(inj, this);
                     }
@@ -1844,6 +1847,7 @@ namespace AnalysisITC
             YAxis.LegendTitle = "";
             YAxis.ValueFactor = ParentYAxis.ValueFactor;
             YAxis.TickScale.SetMaxTicks(3);
+            YAxis.HideTitle = true;
 
             SetupAxes();
         }

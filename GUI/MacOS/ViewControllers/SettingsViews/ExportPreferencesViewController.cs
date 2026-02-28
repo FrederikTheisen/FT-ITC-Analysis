@@ -53,7 +53,7 @@ namespace AnalysisITC
             FinalFigAttributeDisplay.SetSelected(AppSettings.DisplayAttributeOptions.HasFlag(DisplayAttributeOptions.ProtonationEnthalpy), 4);
             FinalFigAttributeDisplay.SetSelected(AppSettings.DisplayAttributeOptions.HasFlag(DisplayAttributeOptions.Competitor), 5);
 
-
+            AutoAxesIgnoresBadData.State = AppSettings.AutoAxesIgnoresBadData ? NSCellStateValue.On : NSCellStateValue.Off;
             ShowParameterAsDefaultCheck.State = AppSettings.FinalFigureShowParameterBoxAsDefault ? NSCellStateValue.On : NSCellStateValue.Off;
 
             FitLineSmoothnessControl.SelectedSegment = (int)AppSettings.FitLineSmoothness;
@@ -64,6 +64,7 @@ namespace AnalysisITC
             AppSettings.ExportSelectionMode = (ExportDataSelection)(int)ExportSelectedControl.SelectedSegment;
             AppSettings.UnifyTimeAxisForExport = UnifyAxesControl.SelectedSegment == 0;
             AppSettings.FinalFigureShowParameterBoxAsDefault = ShowParameterAsDefaultCheck.State == NSCellStateValue.On;
+            AppSettings.AutoAxesIgnoresBadData = AutoAxesIgnoresBadData.State == NSCellStateValue.On;
 
             AppSettings.ExportColumns = ExportColumns.None;
             if (ExportDataColumnControl.IsSelectedForSegment(0)) AppSettings.ExportColumns |= ExportColumns.MolarRatio;

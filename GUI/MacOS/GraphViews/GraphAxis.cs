@@ -20,6 +20,7 @@ namespace AnalysisITC
         protected GraphBase cggraph;
         public bool Hidden { get; set; } = false;
         public bool HideLabels { get; set; } = false;
+        public bool HideTitle { get; set; } = false;
 
         public AxisPosition Position;
         public bool IsHorizontal => Position == AxisPosition.Bottom || Position == AxisPosition.Top;
@@ -236,7 +237,7 @@ namespace AnalysisITC
 
             DrawTicks(gc);
 
-            if (!HideLabels) DrawAxisTitle(gc);
+            if (!HideLabels && !HideTitle) DrawAxisTitle(gc);
         }
 
         internal void AddTickLines(List<CGPoint> drawticks, List<CGPoint> halfticks, CGPath ticklines, bool mirror = false)
@@ -422,19 +423,17 @@ namespace AnalysisITC
         public static string GetXAxisTitle(ExperimentData data)
         {
             if (data.Model != null && data.Model.ModelType == AppClasses.Analysis2.Models.AnalysisModel.Dissociation) return "[Monomer] (µM)";
+            else if (data.CellConcentration < float.Epsilon) return "[Monomer] (µM)";
 
             return "Molar Ratio";
         }
 
         public static int GetXAxisScaleFactor(ExperimentData data)
         {
-            if (data.Model == null) return 1;
+            if (data.Model != null && data.Model.ModelType == AppClasses.Analysis2.Models.AnalysisModel.Dissociation) return 1000000;
+            else if (data.CellConcentration < float.Epsilon) return 1000000;
 
-            switch (data.Model.ModelType)
-            {
-                case AppClasses.Analysis2.Models.AnalysisModel.Dissociation: return 1000000;
-                default: return 1;
-            }
+            return 1;
         }
     }
 

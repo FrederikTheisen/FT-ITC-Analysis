@@ -22,6 +22,8 @@ namespace AnalysisITC
         public static ConcentrationUnit DefaultConcentrationUnit { get; set; } = ConcentrationUnit.µM;
         public static int MaxDegreeOfParallelism { get; set; } = 10;
 
+        public static bool Verbose { get; set; } = false;
+
         private static NSUrl lastDocumentUrl = null;
         public static NSUrl LastDocumentUrl { get => lastDocumentUrl; set { lastDocumentUrl = value; Save(); } }
 
@@ -61,6 +63,7 @@ namespace AnalysisITC
         public static bool ShowResidualGraphGap { get; set; } = true;
         public static bool UnifyResidualGraphAxis { get; set; } = false;
         public static GraphBase.LineSmoothness FitLineSmoothness { get; set; } = GraphBase.LineSmoothness.Spline;
+        public static bool AutoAxesIgnoresBadData { get; set; } = true;
 
         //Export
         public static bool UnifyTimeAxisForExport { get; set; } = true;
@@ -122,6 +125,7 @@ namespace AnalysisITC
             Storage.SetBool(DiscardIntegrationRegionForBaseline, "DiscardIntegrationRegionForBaseline");
             Storage.SetInt((int)DefaultSolverAlgorithm, "SolverAlgorithm");
             Storage.SetBool(UseInjectionErrorWeightedFitting, "UseInjectionErrorWeightedFitting");
+            Storage.SetBool(AutoAxesIgnoresBadData, "AutoAxesIgnoresBadData");
 
 
             StoreArray(FinalFigureDimensions, "FinalFigureDimensions");
@@ -178,6 +182,7 @@ namespace AnalysisITC
             DiscardIntegrationRegionForBaseline = GetBool(dict, "DiscardIntegrationRegionForBaseline", DiscardIntegrationRegionForBaseline);
             DefaultSolverAlgorithm = (SolverAlgorithm)GetInt(dict, "SolverAlgorithm", (int)DefaultSolverAlgorithm);
             UseInjectionErrorWeightedFitting = GetBool(dict, "UseInjectionErrorWeightedFitting", UseInjectionErrorWeightedFitting);
+            AutoAxesIgnoresBadData = GetBool(dict, "AutoAxesIgnoresBadData", AutoAxesIgnoresBadData);
 
             ApplySettings();
 
@@ -224,6 +229,7 @@ namespace AnalysisITC
             ShowResidualGraph = true;
             ShowResidualGraphGap = true;
             UnifyResidualGraphAxis = false;
+            AutoAxesIgnoresBadData = true;
         }
 
         static void StoreArray(double[] arr, string key)
@@ -323,6 +329,7 @@ namespace AnalysisITC
             FinalFigureGraphView.ShowResiduals = ShowResidualGraph;
             FinalFigureGraphView.GapResidualGraph = ShowResidualGraphGap;
             FinalFigureGraphView.MirrorDataGraphAxisUnification = UnifyResidualGraphAxis;
+            FinalFigureGraphView.AutoAxesIgnoresBadData = AutoAxesIgnoresBadData;
         }
     }
 
