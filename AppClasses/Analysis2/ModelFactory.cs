@@ -65,21 +65,22 @@ namespace AnalysisITC.AppClasses.Analysis2
 			}
 		}
 
-		public static bool IsModelAvailable(AnalysisModel model)
+		public static bool IsModelAvailable(AnalysisModel model, bool isglobal)
 		{
-			try
-			{
-				var SMF = new SingleModelFactory(model);
-				SMF.InitializeModel(null);
-			}
-			catch (NotImplementedException ex) //Exception thrown if mode is not yet implemented
-			{
-				return false;
-			}
-			catch (Exception ex) //some other exception may be thrown in this process, but we don't care at this point
-			{
-				return true;
-			}
+            if (DataManager.Current == null) return false;
+
+            if (model != AnalysisModel.Dissociation)
+            {
+                if (isglobal)
+                {
+                    foreach (var data in DataManager.IncludedData)
+                    {
+                        if (data.CellConcentration < float.Epsilon) return false;
+                    }
+                }
+                else if (DataManager.Current.CellConcentration < float.Epsilon) return false;
+            }
+            
 			return true;
         }
 
@@ -201,6 +202,8 @@ namespace AnalysisITC.AppClasses.Analysis2
 
         public void ConstructModel(ExperimentData data)
         {
+            if (data.Injections.Where(inj => inj.Include).Count() == 0) throw new HandledException(HandledException.Severity.Error, "No valid peaks", "Please check that not all peaks are excluded");
+
             switch (ModelType)
             {
                 case AnalysisModel.OneSetOfSites: Model = new OneSetOfSites(data); break;
