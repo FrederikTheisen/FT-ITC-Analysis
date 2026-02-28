@@ -189,6 +189,7 @@
     <Folder Include="AppClasses\AnalysisClasses\AdvancedAnalysis\" />
     <Folder Include="AppClasses\AnalysisClasses\ResultAnalysis\" />
     <Folder Include="Resources\ToolTipsImages\" />
+    <Folder Include="AppClasses\DataReaders\" />
   </ItemGroup>
   <ItemGroup>
     <None Include="Info.plist" />
@@ -209,7 +210,6 @@
   <ItemGroup>
     <Compile Include="Main.cs" />
     <Compile Include="AppDelegate.cs" />
-    <Compile Include="AppClasses\DataReaders.cs" />
     <Compile Include="Utils\EnumExtensions.cs" />
     <Compile Include="Utils\StringParsers.cs" />
     <Compile Include="AppClasses\DataProcessing.cs" />
@@ -334,7 +334,6 @@
     <Compile Include="AppClasses\Analysis2\Models\Models.cs" />
     <Compile Include="AppClasses\AnalysisClasses\ExperimentAttribute.cs" />
     <Compile Include="AppClasses\Analysis2\Models\CompetitiveBinding.cs" />
-    <Compile Include="AppClasses\ITCDataFormat.cs" />
     <Compile Include="GUI\MacOS\GraphViews\ExperimentDesignerGraphView.cs" />
     <Compile Include="GUI\MacOS\GraphViews\ExperimentDesignerGraphView.designer.cs">
       <DependentUpon>ExperimentDesignerGraphView.cs</DependentUpon>
@@ -449,7 +448,6 @@
       <DependentUpon>ExperimentMergerViewController.cs</DependentUpon>
     </Compile>
     <Compile Include="AppClasses\Analysis2\Models\Dissociation.cs" />
-    <Compile Include="AppClasses\FTITCReaderOld.cs" />
     <Compile Include="GUI\MacOS\CustomViews\ToggleSelectTableView.cs" />
     <Compile Include="GUI\MacOS\CustomViews\ToggleSelectTableView.designer.cs">
       <DependentUpon>ToggleSelectTableView.cs</DependentUpon>
@@ -488,7 +486,15 @@
       <DependentUpon>GuideHintViewController2.cs</DependentUpon>
     </Compile>
     <Compile Include="GUI\MacOS\CitationManager.cs" />
-    <Compile Include="AppClasses\IntegratedHeatReader.cs" />
+    <Compile Include="AppClasses\DataReaders\DataReaders.cs" />
+    <Compile Include="AppClasses\DataReaders\TAFileReader.cs" />
+    <Compile Include="AppClasses\DataReaders\FTITCReader.cs" />
+    <Compile Include="AppClasses\DataReaders\FTITCReaderOld.cs" />
+    <Compile Include="AppClasses\DataReaders\MicroCalITC200Reader.cs" />
+    <Compile Include="AppClasses\DataReaders\IntegratedHeatReader.cs" />
+    <Compile Include="AppClasses\DataReaders\ITCDataFormat.cs" />
+    <Compile Include="AppClasses\DataReaders\PEAQReader.cs" />
+    <Compile Include="AppClasses\DataReaders\DataValidator.cs" />
   </ItemGroup>
   <ItemGroup>
     <InterfaceDefinition Include="Main.storyboard" />

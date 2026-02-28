@@ -62,38 +62,38 @@ namespace DataReaders
             cellv: 200,
             syrv: 40,
             deadv: 0)]
-        Unknown,
+        Unknown = 0,
 
         [ITCInstrument("MicroCal ITC200", "", "ITC200_",
             cellv: 204,
             syrv: 39.5,
             deadv: 80)]
-        MicroCalITC200,
+        MicroCalITC200 = 1,
 
         [ITCInstrument("MicroCal PEAQ-ITC", "", "MICROCALITC_MAL",
             cellv: 207.1,
             syrv: 39.0,
             deadv: 80)]
-        MalvernITC200,
+        MalvernITC200 = 2,
 
         [ITCInstrument("MicroCal VP-ITC", "", "VPITC",
             cellv: 1479.1,
             syrv: 310,
             deadv: 400)]
-        MicroCalVPITC,
+        MicroCalVPITC = 4,
 
         [ITCInstrument("TA Instruments ITC Standard", "", "TAITC",
             cellv: 1000.0,
             syrv: 250,
             deadv: 200)]
-        TAInstrumentsITCStandard,
+        TAInstrumentsITCStandard = 8,
 
         [ITCInstrument("TA Instruments ITC Low Vol", "", "TAITC",
             cellv: 190.0,
             syrv: 250,
             deadv: 60)]
-        TAInstrumentsITCLowVolume,
+        TAInstrumentsITCLowVolume = 16,
 
-        MicroCal = MicroCalITC200 | ITCInstrument.MalvernITC200 | ITCInstrument.MicroCalVPITC 
+        MicroCal = MicroCalITC200 | MalvernITC200 | MicroCalVPITC 
     }
 }
