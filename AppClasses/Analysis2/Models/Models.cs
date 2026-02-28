@@ -26,7 +26,7 @@ namespace AnalysisITC.AppClasses.Analysis2.Models
         bool SolutionHasParameter(ParameterType key) => DataHasSolution ? Data.Solution.Parameters.ContainsKey(key) : false;
 
         public virtual double GuessEnthalpy() => Data.Injections.First(inj => inj.Include).Enthalpy - GuessOffset();
-        public virtual double GuessEnthalpyMax() => Data.Injections.Where(inj => inj.Include).Max(inj => inj.Enthalpy) - GuessOffset();
+        public virtual double GuessEnthalpyMax() => Data.Injections.Where(inj => inj.Include).OrderBy(inj => Math.Abs(inj.Enthalpy)).First().Enthalpy - GuessOffset();
         public virtual double GuessOffset() => 0.8 * Data.Injections.Where(inj => inj.Include).TakeLast(2).Average(inj => inj.Enthalpy);
         public virtual double GuessN() => Data.Injections.Last().Ratio / 2;
         public virtual double GuessAffinity() => 1000000;
