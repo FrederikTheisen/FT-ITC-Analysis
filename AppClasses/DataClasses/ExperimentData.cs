@@ -165,7 +165,7 @@ namespace AnalysisITC
             foreach (var inj in Injections)
             {
                 float length;
-                if (i == lengths.Length) length = lengths[^1];
+                if (i >= lengths.Length) length = lengths[^1];
                 else length = lengths[i];
 
                 inj.SetIntegrationLengthByTime(length);
@@ -192,7 +192,7 @@ namespace AnalysisITC
             foreach (var inj in Injections)
             {
                 float delay;
-                if (i == delays.Length) delay = delays[delays.Length - 1];
+                if (i >= delays.Length) delay = delays[^1];
                 else delay = delays[i];
 
                 inj.SetIntegrationStartTime(delay);
@@ -208,13 +208,13 @@ namespace AnalysisITC
 
         public void CalculatePeakHeatDirection()
         {
-            if (BaseLineCorrectedDataPoints.Count < 5) return;
-
             bool positive = false;
             bool negative = false;
 
             foreach (var inj in Injections)
             {
+                if (!inj.Include) continue;
+
                 if (inj.HeatDirection == PeakHeatDirection.Endothermal) positive = true;
                 else if (inj.HeatDirection == PeakHeatDirection.Exothermal) negative = true;
             }
@@ -339,7 +339,9 @@ namespace AnalysisITC
                         syninj = new List<InjectionData>();
                         foreach (var inj in Injections)
                         {
-                            var sinj = new InjectionData(clone, inj.ID, inj.Volume, inj.InjectionMass, inj.Include)
+                            // If using leave one out or the data point was excluded from the original fit
+                            bool discard = inj.ID == options.DiscardedDataPoint || !inj.Include;
+                            var sinj = new InjectionData(clone, inj.ID, inj.Volume, inj.InjectionMass, !discard)
                             {
                                 Temperature = inj.Temperature,
                                 ActualCellConcentration = inj.ActualCellConcentration,
@@ -347,7 +349,6 @@ namespace AnalysisITC
                                 Ratio = inj.Ratio,
                             };
                             sinj.SetPeakArea(new FloatWithError(inj.PeakArea, inj.PeakArea.SD));
-                            if (sinj.ID == options.DiscardedDataPoint) sinj.Include = false;
                             syninj.Add(sinj);
                         }
                         break;
@@ -374,6 +375,8 @@ namespace AnalysisITC
         public void UpdateProcessing(bool invalidate = true)
         {
             if (Solution != null && invalidate) Solution.Invalidate();
+
+            CalculatePeakHeatDirection();
 
             ProcessingUpdated?.Invoke(Processor, null);
         }
@@ -430,7 +433,7 @@ namespace AnalysisITC
         public double ActualTitrantConcentration { get; set; }
         public double Ratio { get; set; }
 
-        public bool Include { get; internal set; } = true;
+        public bool Include { get; private set; } = true;
         public float IntegrationStartDelay { get; private set; } = 0;
         public float IntegrationLength { get; private set; } = 90;
         public float IntegrationStartTime => Time + IntegrationStartDelay;
@@ -512,6 +515,7 @@ namespace AnalysisITC
             Duration = float.Parse(data[1]);
             Delay = float.Parse(data[2]);
             Filter = float.Parse(data[3]);
+            Include = ID > 0;
         }
 
         /// <summary>
@@ -542,6 +546,15 @@ namespace AnalysisITC
                 ActualTitrantConcentration = double.Parse(parameters[10]);
                 Ratio = ActualTitrantConcentration / ActualCellConcentration;
             }
+        }
+
+        public InjectionData(ExperimentData data, float volume, float delay, float filter, float duration)
+        {
+            Experiment = data;
+            Volume = volume;
+            Delay = delay;
+            Filter = filter;
+            Duration = duration;
         }
 
         private InjectionData(ExperimentData data, int id, float time, double volume, float delay, float duration, double temp)
@@ -650,6 +663,9 @@ namespace AnalysisITC
         public void ToggleDataPointActive()
         {
             Include = !Include;
+
+            // Heat direction depends only on included peaks to avoid artifacts
+            Experiment.CalculatePeakHeatDirection();
         }
 
         public void Integrate()
@@ -672,8 +688,6 @@ namespace AnalysisITC
 
             var sd = EstimateError2();
             var peakarea = new FloatWithError(area, sd);
-
-            HeatDirection = area > 0 ? PeakHeatDirection.Endothermal : PeakHeatDirection.Exothermal;
 
             SetPeakArea(peakarea);
 
@@ -701,6 +715,12 @@ namespace AnalysisITC
         public void SetPeakArea(FloatWithError area)
         {
             PeakArea = area;
+
+            // Set heat direction based on the area and error
+            HeatDirection =
+                PeakArea > 3 * PeakArea.SD ? PeakHeatDirection.Endothermal :
+                PeakArea < -3 * PeakArea.SD ? PeakHeatDirection.Exothermal :
+                PeakHeatDirection.Unknown;
 
             IsIntegrated = true;
         }
