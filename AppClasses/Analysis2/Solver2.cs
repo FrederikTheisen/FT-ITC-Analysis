@@ -493,11 +493,7 @@ namespace AnalysisITC.AppClasses.Analysis2
                     // Append the replicate summary to the detailed message for logging. This
                     // summary is not shown directly to users but can help diagnose bootstrap
                     // robustness issues.
-                    string summary = $"Bootstrap: {success}/{BootstrapIterations} succeeded ({failure} failed)";
-                    if (string.IsNullOrWhiteSpace(Solution.Convergence.DetailedMessage))
-                        Solution.Convergence.DetailedMessage = summary;
-                    else
-                        Solution.Convergence.DetailedMessage += " | " + summary;
+                    Solution.Convergence.DetailedMessage = $"Bootstrap: {success}/{BootstrapIterations} succeeded ({failure} failed)";
                 }
                 else if (success == 0 && BootstrapIterations > 0)
                 {
@@ -505,11 +501,7 @@ namespace AnalysisITC.AppClasses.Analysis2
                     // override the Failed flag here; normalization will use the highest
                     // severity status between the main fit and bootstrap outcome.
                     Solution.Convergence.Warning = true;
-                    string summary = $"Bootstrap failed: 0/{BootstrapIterations} replicates succeeded";
-                    if (string.IsNullOrWhiteSpace(Solution.Convergence.DetailedMessage))
-                        Solution.Convergence.DetailedMessage = summary;
-                    else
-                        Solution.Convergence.DetailedMessage += " | " + summary;
+                    Solution.Convergence.DetailedMessage = $"Bootstrap failed: 0/{BootstrapIterations} replicates succeeded";
                 }
             }
         }
@@ -586,20 +578,12 @@ namespace AnalysisITC.AppClasses.Analysis2
                 if (success > 0)
                 {
                     Solution.Convergence.Warning = true;
-                    string summary = $"Leave-one-out: {success}/{models.Count} succeeded ({failure} failed)";
-                    if (string.IsNullOrWhiteSpace(Solution.Convergence.DetailedMessage))
-                        Solution.Convergence.DetailedMessage = summary;
-                    else
-                        Solution.Convergence.DetailedMessage += " | " + summary;
+                    Solution.Convergence.DetailedMessage = $"Leave-one-out: {success}/{models.Count} succeeded ({failure} failed)";
                 }
                 else if (success == 0 && models.Count > 0)
                 {
                     Solution.Convergence.Warning = true;
-                    string summary = $"Leave-one-out failed: 0/{models.Count} replicates succeeded";
-                    if (string.IsNullOrWhiteSpace(Solution.Convergence.DetailedMessage))
-                        Solution.Convergence.DetailedMessage = summary;
-                    else
-                        Solution.Convergence.DetailedMessage += " | " + summary;
+                    Solution.Convergence.DetailedMessage = $"Leave-one-out failed: 0/{models.Count} replicates succeeded";
                 }
             }
         }
@@ -805,20 +789,12 @@ namespace AnalysisITC.AppClasses.Analysis2
                 if (success > 0)
                 {
                     Solution.Convergence.Warning = true;
-                    string summary = $"Global bootstrap: {success}/{BootstrapIterations} succeeded ({failure} failed)";
-                    if (string.IsNullOrWhiteSpace(Solution.Convergence.DetailedMessage))
-                        Solution.Convergence.DetailedMessage = summary;
-                    else
-                        Solution.Convergence.DetailedMessage += " | " + summary;
+                    Solution.Convergence.DetailedMessage = $"Global bootstrap: {success}/{BootstrapIterations} succeeded ({failure} failed)";
                 }
                 else if (success == 0 && BootstrapIterations > 0)
                 {
                     Solution.Convergence.Warning = true;
-                    string summary = $"Global bootstrap failed: 0/{BootstrapIterations} replicates succeeded";
-                    if (string.IsNullOrWhiteSpace(Solution.Convergence.DetailedMessage))
-                        Solution.Convergence.DetailedMessage = summary;
-                    else
-                        Solution.Convergence.DetailedMessage += " | " + summary;
+                    Solution.Convergence.DetailedMessage = $"Global bootstrap failed: 0/{BootstrapIterations} replicates succeeded";
                 }
             }
         }
@@ -885,20 +861,12 @@ namespace AnalysisITC.AppClasses.Analysis2
                 if (success > 0)
                 {
                     Solution.Convergence.Warning = true;
-                    string summary = $"Global leave-one-out: {success}/{Model.Models.Count} succeeded ({failure} failed)";
-                    if (string.IsNullOrWhiteSpace(Solution.Convergence.DetailedMessage))
-                        Solution.Convergence.DetailedMessage = summary;
-                    else
-                        Solution.Convergence.DetailedMessage += " | " + summary;
+                    Solution.Convergence.DetailedMessage = $"Global leave-one-out: {success}/{Model.Models.Count} succeeded ({failure} failed)";
                 }
                 else if (success == 0 && Model.Models.Count > 0)
                 {
                     Solution.Convergence.Warning = true;
-                    string summary = $"Global leave-one-out failed: 0/{Model.Models.Count} replicates succeeded";
-                    if (string.IsNullOrWhiteSpace(Solution.Convergence.DetailedMessage))
-                        Solution.Convergence.DetailedMessage = summary;
-                    else
-                        Solution.Convergence.DetailedMessage += " | " + summary;
+                    Solution.Convergence.DetailedMessage = $"Global leave-one-out failed: 0/{Model.Models.Count} replicates succeeded";
                 }
             }
         }
