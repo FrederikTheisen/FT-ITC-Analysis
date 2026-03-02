@@ -156,8 +156,12 @@ namespace DataReaders
                 inj.ActualCellConcentration = experiment.CellConcentration * ((1 - deltaVolume / x2vol0) / (1 + deltaVolume / x2vol0));
                 inj.ActualTitrantConcentration = experiment.SyringeConcentration * (deltaVolume / experiment.CellVolume) * (1 - deltaVolume / x2vol0);
 
-                if (inj.ActualCellConcentration > float.Epsilon) inj.Ratio = inj.ActualTitrantConcentration / inj.ActualCellConcentration;
-                else inj.Ratio = inj.ActualTitrantConcentration;
+                switch (experiment.AxisType)
+                {
+                    case AnalysisXAxisType.ID: inj.Ratio = (inj.ID + 1); break;
+                    case AnalysisXAxisType.TitrantConcentration: inj.Ratio = inj.ActualTitrantConcentration; break;
+                    default: inj.Ratio = inj.ActualTitrantConcentration / inj.ActualCellConcentration; break;
+                }
             }
         }
 
