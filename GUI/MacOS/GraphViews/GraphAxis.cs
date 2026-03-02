@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Linq;
 using AnalysisITC.AppClasses.Analysis2;
 using AnalysisITC.Utilities;
@@ -422,6 +423,7 @@ namespace AnalysisITC
 
         public static string GetXAxisTitle(ExperimentData data)
         {
+            return data.AxisType.GetEnumDescription();
             if (data.Model != null && data.Model.ModelType == AppClasses.Analysis2.Models.AnalysisModel.Dissociation) return "[Monomer] (µM)";
             else if (data.CellConcentration < float.Epsilon) return "[Monomer] (µM)";
 
@@ -430,6 +432,11 @@ namespace AnalysisITC
 
         public static int GetXAxisScaleFactor(ExperimentData data)
         {
+            switch (data.AxisType)
+            {
+                case AnalysisXAxisType.TitrantConcentration: return 1000000;
+                default: return 1;
+            }
             if (data.Model != null && data.Model.ModelType == AppClasses.Analysis2.Models.AnalysisModel.Dissociation) return 1000000;
             else if (data.CellConcentration < float.Epsilon) return 1000000;
 
@@ -525,5 +532,15 @@ namespace AnalysisITC
         Bottom,
         Left,
         Right
+    }
+
+    public enum AnalysisXAxisType
+    {
+        [Description("Molar Ratio")]
+        MolarRatio,
+        [Description("[Titrant] (µM)")]
+        TitrantConcentration,
+        [Description("Injection Number")]
+        ID
     }
 }
