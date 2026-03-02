@@ -15,7 +15,7 @@ namespace AnalysisITC
 
         partial void Action(NSTextField sender)
         {
-            string token = sender.StringValue.Trim();
+            string token = sender.StringValue.Trim().ToLower();
 
             // Ignore if token empty
             if (string.IsNullOrWhiteSpace(token)) return;
@@ -27,7 +27,7 @@ namespace AnalysisITC
 
             foreach (var data in DataManager.Data)
             {
-                if (data.FileName.Contains(token) || data.Comments.Contains(token))
+                if (data.FileName.ToLower().Contains(token) || data.Comments.ToLower().Contains(token))
                     data.Include = true;
 
                 data.UpdateProcessing(false);
