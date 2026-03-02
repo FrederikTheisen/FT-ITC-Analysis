@@ -65,23 +65,31 @@ namespace AnalysisITC.AppClasses.Analysis2
 			}
 		}
 
+        public static bool DataSupportsAnalysis(ExperimentData experiment)
+        {
+            return AnalysisModelAttribute.GetAll().Any(mdl => ModelAvailableForExperiment(mdl, experiment));
+        }
+
 		public static bool IsModelAvailable(AnalysisModel model, bool isglobal)
 		{
             if (DataManager.Current == null) return false;
 
-            if (model != AnalysisModel.Dissociation)
+
+            if (isglobal) return DataManager.IncludedData.All(d => ModelAvailableForExperiment(model, d));
+            else return ModelAvailableForExperiment(model, DataManager.Current);
+        }
+
+        static bool ModelAvailableForExperiment(AnalysisModel model, ExperimentData experiment)
+        {
+            if (experiment == null) return false;
+            if (experiment.Injections == null) return false;
+            if (experiment.Injections.Count(inj => inj.Include) < 3) return false;
+
+            switch (model)
             {
-                if (isglobal)
-                {
-                    foreach (var data in DataManager.IncludedData)
-                    {
-                        if (data.CellConcentration < float.Epsilon) return false;
-                    }
-                }
-                else if (DataManager.Current.CellConcentration < float.Epsilon) return false;
+                case AnalysisModel.Dissociation: return experiment.SyringeConcentration > double.Epsilon;
+                default: return experiment.CellConcentration > double.Epsilon;
             }
-            
-			return true;
         }
 
 		/// <summary>
