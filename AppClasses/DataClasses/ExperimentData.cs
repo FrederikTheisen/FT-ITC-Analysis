@@ -64,6 +64,15 @@ namespace AnalysisITC
         }
 
         public double MeasuredTemperatureKelvin => 273.15 + MeasuredTemperature;
+        public double TimeStep
+        {
+            get
+            {
+                if (DataPoints.Count < 2) return 1;
+
+                return (DataPoints.Last().Time - DataPoints.First().Time) / (DataPoints.Count - 1);
+            }
+        }
 
         public DataProcessor Processor { get; private set; }
         public List<ExperimentAttribute> Attributes { get; } = new List<ExperimentAttribute>();
@@ -458,6 +467,7 @@ namespace AnalysisITC
         public float IntegrationLength { get; private set; } = 90;
         public float IntegrationStartTime => Time + IntegrationStartDelay;
         public float IntegrationEndTime => Time + IntegrationLength;
+        float MinimumIntegrationTime => 2 * (float)Experiment.TimeStep;
 
         public PeakHeatDirection HeatDirection { get; set; } = PeakHeatDirection.Unknown;
 
@@ -593,12 +603,17 @@ namespace AnalysisITC
         public void InitializeIntegrationTimes()
         {
             IntegrationStartDelay = 0;
-            IntegrationLength = 0.9f * Delay;
+            IntegrationLength = 0.8f * Delay;
         }
 
         public void SetIntegrationStartTime(float delay)
         {
-            IntegrationStartDelay = Math.Clamp(delay, -Delay, IntegrationLength - 1);
+            // start delay cannot be more negative than this number under any circumstances
+            // -Delay should be start of previous injection
+            // DataPoints first because there might not be datapoinst from the first few seconds
+            var absoluteminimum = Math.Max(-Delay, Experiment.DataPoints.First().Time - Time + MinimumIntegrationTime);
+
+            IntegrationStartDelay = Math.Clamp(delay, absoluteminimum, IntegrationLength - MinimumIntegrationTime);
         }
 
         public void SetIntegrationLengthByPeakFitting()
@@ -666,7 +681,7 @@ namespace AnalysisITC
                 double endOffset = apexOffset + factor * tReturn;
 
                 // Keep between the start delay and the injection scope
-                IntegrationLength = Math.Clamp((float)endOffset, IntegrationStartDelay + 2, Delay);
+                IntegrationLength = Math.Clamp((float)endOffset, IntegrationStartDelay + MinimumIntegrationTime, Delay);
             }
             catch (Exception ex)
             {
@@ -677,7 +692,7 @@ namespace AnalysisITC
         public void SetIntegrationLengthByTime(float time)
         {
             // Keep between the start delay and the injection scope
-            IntegrationLength = IntegrationLength = Math.Clamp(time, IntegrationStartDelay + 2, Delay); ;
+            IntegrationLength = Math.Clamp(time, IntegrationStartDelay + MinimumIntegrationTime, Delay);
         }
 
         public void ToggleDataPointActive()
@@ -801,7 +816,7 @@ namespace AnalysisITC
 
             if (n_samples_integration < 2) return 0;
 
-            float dt = (intpoints.Last().Time - intpoints.First().Time) / (n_samples_integration - 1);
+            float dt = (float)Experiment.TimeStep;
             var r1 = Statistics.EstimateAutoCorrelation(bl, 2 * dt);
 
             var sumVarInt = Statistics.Ar1SumVarFactor(n_samples_integration, r1);
