@@ -74,8 +74,9 @@ namespace AnalysisITC
 
         public void SetFromOpenExperiments(bool defaultActiveFromInclude = true)
         {
-            // Open experiments are DataManager.Data (not results)
+            // Open experiments are DataManager.Data and have thermogram (not results)
             Items = DataManager.Data
+                .Where(d => d.HasThermogram)
                 .Select(d => new MergeExperimentItem(d, active: defaultActiveFromInclude ? d.Include : true))
                 .ToList();
 
