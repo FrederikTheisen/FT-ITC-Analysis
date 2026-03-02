@@ -61,6 +61,9 @@ namespace AnalysisITC
 		AppKit.NSTextField HstepTextField { get; set; }
 
 		[Outlet]
+		AppKit.NSSegmentedControl LineSmoothnessControl { get; set; }
+
+		[Outlet]
 		AppKit.NSSegmentedControl ModelTypeControl { get; set; }
 
 		[Outlet]
@@ -80,6 +83,9 @@ namespace AnalysisITC
 
 		[Outlet]
 		AppKit.NSButton PeakInfoScopeButton { get; set; }
+
+		[Outlet]
+		AppKit.NSButton ScaleToValidButton { get; set; }
 
 		[Outlet]
 		AppKit.NSButton ShowResidualGraphButton { get; set; }
@@ -105,6 +111,9 @@ namespace AnalysisITC
 		[Action ("FitSimplex:")]
 		partial void FitSimplex (Foundation.NSObject sender);
 
+		[Action ("LineSmoothnessAction:")]
+		partial void LineSmoothnessAction (Foundation.NSObject sender);
+
 		[Action ("ScopeButtonClicked:")]
 		partial void ScopeButtonClicked (AppKit.NSButton sender);
 		
@@ -113,6 +122,11 @@ namespace AnalysisITC
 			if (AffinityStyleSegControl != null) {
 				AffinityStyleSegControl.Dispose ();
 				AffinityStyleSegControl = null;
+			}
+
+			if (ScaleToValidButton != null) {
+				ScaleToValidButton.Dispose ();
+				ScaleToValidButton = null;
 			}
 
 			if (AnalysisModeControl != null) {
@@ -225,14 +239,19 @@ namespace AnalysisITC
 				PeakInfoScopeButton = null;
 			}
 
+			if (ShowResidualGraphButton != null) {
+				ShowResidualGraphButton.Dispose ();
+				ShowResidualGraphButton = null;
+			}
+
 			if (SolverStepSizeView != null) {
 				SolverStepSizeView.Dispose ();
 				SolverStepSizeView = null;
 			}
 
-			if (ShowResidualGraphButton != null) {
-				ShowResidualGraphButton.Dispose ();
-				ShowResidualGraphButton = null;
+			if (LineSmoothnessControl != null) {
+				LineSmoothnessControl.Dispose ();
+				LineSmoothnessControl = null;
 			}
 		}
 	}

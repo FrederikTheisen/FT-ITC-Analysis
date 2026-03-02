@@ -6139,10 +6139,10 @@ IA
                     <rect key="frame" x="0.0" y="4" width="454" height="52"/>
                     <subviews>
                         <stackView distribution="fillEqually" orientation="horizontal" alignment="centerY" spacing="1" horizontalStackHuggingPriority="249.99998474121094" verticalStackHuggingPriority="1000" verticalHuggingPriority="1000" horizontalCompressionResistancePriority="1000" verticalCompressionResistancePriority="1000" detachesHiddenViews="YES" translatesAutoresizingMaskIntoConstraints="NO" id="Ugp-o3-ZFO">
-                            <rect key="frame" x="0.0" y="0.0" width="454" height="32"/>
+                            <rect key="frame" x="0.0" y="0.0" width="454" height="52"/>
                             <subviews>
                                 <button verticalHuggingPriority="750" verticalCompressionResistancePriority="250" translatesAutoresizingMaskIntoConstraints="NO" id="Ibj-M0-dHf">
-                                    <rect key="frame" x="1" y="1" width="111" height="31"/>
+                                    <rect key="frame" x="1" y="21" width="111" height="31"/>
                                     <buttonCell key="cell" type="recessed" title="Overview" bezelStyle="recessed" alignment="center" controlSize="large" lineBreakMode="truncatingTail" state="on" borderStyle="border" inset="2" id="ed1-E0-79d">
                                         <behavior key="behavior" lightByBackground="YES" lightByGray="YES" changeBackground="YES" changeGray="YES"/>
                                         <font key="font" metaFont="system"/>
@@ -6155,7 +6155,7 @@ IA
                                     </connections>
                                 </button>
                                 <box horizontalHuggingPriority="750" boxType="separator" translatesAutoresizingMaskIntoConstraints="NO" id="xJa-2d-0Jq">
-                                    <rect key="frame" x="111" y="1" width="5" height="30"/>
+                                    <rect key="frame" x="111" y="1" width="5" height="50"/>
                                 </box>
                                 <button verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="zTg-QH-FPo">
                                     <rect key="frame" x="115" y="0.0" width="111" height="31"/>
@@ -6171,7 +6171,7 @@ IA
                                     </connections>
                                 </button>
                                 <box horizontalHuggingPriority="750" boxType="separator" translatesAutoresizingMaskIntoConstraints="NO" id="FZx-tK-8ld">
-                                    <rect key="frame" x="225" y="1" width="5" height="30"/>
+                                    <rect key="frame" x="225" y="1" width="5" height="50"/>
                                 </box>
                                 <button verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="v0f-iE-gM6">
                                     <rect key="frame" x="229" y="0.0" width="110" height="31"/>
@@ -6187,7 +6187,7 @@ IA
                                     </connections>
                                 </button>
                                 <box horizontalHuggingPriority="750" boxType="separator" translatesAutoresizingMaskIntoConstraints="NO" id="mor-0T-x1h">
-                                    <rect key="frame" x="338" y="1" width="5" height="30"/>
+                                    <rect key="frame" x="338" y="1" width="5" height="50"/>
                                 </box>
                                 <button verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="DGH-oN-EAU">
                                     <rect key="frame" x="342" y="0.0" width="111" height="31"/>
@@ -7338,14 +7338,14 @@ IA
             <objects>
                 <viewController title="Data Analyzer" id="YoK-Wd-3Fr" customClass="DataAnalysisViewController" sceneMemberID="viewController">
                     <customView key="view" verticalCompressionResistancePriority="250" id="Xsa-sz-SoY">
-                        <rect key="frame" x="0.0" y="0.0" width="1037" height="892"/>
+                        <rect key="frame" x="0.0" y="0.0" width="1037" height="906"/>
                         <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
                         <subviews>
                             <stackView distribution="fill" orientation="vertical" alignment="leading" horizontalStackHuggingPriority="1000" verticalStackHuggingPriority="1000" detachesHiddenViews="YES" translatesAutoresizingMaskIntoConstraints="NO" id="4ft-kK-FDc">
-                                <rect key="frame" x="0.0" y="0.0" width="1037" height="859"/>
+                                <rect key="frame" x="0.0" y="0.0" width="1037" height="873"/>
                                 <subviews>
                                     <box horizontalHuggingPriority="750" verticalCompressionResistancePriority="250" title="Box" titlePosition="noTitle" translatesAutoresizingMaskIntoConstraints="NO" id="Nvm-zn-9K4">
-                                        <rect key="frame" x="2" y="666" width="1033" height="190"/>
+                                        <rect key="frame" x="2" y="680" width="1033" height="190"/>
                                         <view key="contentView" id="X57-vF-3wf">
                                             <rect key="frame" x="9" y="10" width="1015" height="172"/>
                                             <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
@@ -7504,7 +7504,7 @@ IA
                                                             <subviews>
                                                                 <textField horizontalHuggingPriority="249" verticalHuggingPriority="251" horizontalCompressionResistancePriority="250" translatesAutoresizingMaskIntoConstraints="NO" id="yfy-df-SoY">
                                                                     <rect key="frame" x="-2" y="3" width="885" height="16"/>
-                                                                    <textFieldCell key="cell" lineBreakMode="clipping" title="Stochiometry constraint" id="Tg8-EF-fEZ">
+                                                                    <textFieldCell key="cell" lineBreakMode="clipping" title="Stoichiometry constraint" id="Tg8-EF-fEZ">
                                                                         <font key="font" metaFont="system"/>
                                                                         <color key="textColor" name="labelColor" catalog="System" colorSpace="catalog"/>
                                                                         <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
@@ -7626,8 +7626,8 @@ IA
                                         </view>
                                         <size key="contentViewMargins" width="5" height="5"/>
                                     </box>
-                                    <stackView distribution="fill" orientation="horizontal" alignment="firstBaseline" horizontalStackHuggingPriority="249.99998474121094" verticalStackHuggingPriority="1000" horizontalClippingResistancePriority="750" verticalHuggingPriority="1000" detachesHiddenViews="YES" translatesAutoresizingMaskIntoConstraints="NO" id="4zS-F8-nkk">
-                                        <rect key="frame" x="5" y="646" width="1027" height="16"/>
+                                    <stackView distribution="fill" orientation="horizontal" alignment="firstBaseline" horizontalStackHuggingPriority="249.99998474121094" verticalStackHuggingPriority="1000" horizontalClippingResistancePriority="750" verticalHuggingPriority="750" verticalCompressionResistancePriority="1000" detachesHiddenViews="YES" translatesAutoresizingMaskIntoConstraints="NO" id="4zS-F8-nkk">
+                                        <rect key="frame" x="5" y="660" width="1027" height="16"/>
                                         <subviews>
                                             <button verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="o7n-N9-bgG">
                                                 <rect key="frame" x="5" y="-1" width="70" height="17"/>
@@ -7669,17 +7669,42 @@ IA
                                                     <action selector="ScopeButtonClicked:" target="YoK-Wd-3Fr" id="sIt-dz-n3D"/>
                                                 </connections>
                                             </button>
+                                            <button toolTip="Scale the energy axis to the included points. If selected, bad data points may be hiden outside the graphing area." verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="Ax0-nY-vXr">
+                                                <rect key="frame" x="377" y="-1" width="96" height="17"/>
+                                                <buttonCell key="cell" type="recessed" title="Scale to Valid" bezelStyle="recessed" alignment="center" controlSize="small" borderStyle="border" imageScaling="proportionallyDown" inset="2" id="44k-va-11y">
+                                                    <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES" changeBackground="YES" changeGray="YES"/>
+                                                    <font key="font" metaFont="systemBold" size="12"/>
+                                                </buttonCell>
+                                                <connections>
+                                                    <action selector="ScopeButtonClicked:" target="YoK-Wd-3Fr" id="H65-Cf-uEn"/>
+                                                </connections>
+                                            </button>
                                             <textField horizontalHuggingPriority="249" verticalHuggingPriority="750" horizontalCompressionResistancePriority="250" translatesAutoresizingMaskIntoConstraints="NO" id="c1a-W7-cH8">
-                                                <rect key="frame" x="375" y="0.0" width="649" height="16"/>
-                                                <textFieldCell key="cell" controlSize="small" lineBreakMode="clipping" alignment="right" id="LYR-eo-2sX">
+                                                <rect key="frame" x="479" y="0.0" width="442" height="16"/>
+                                                <textFieldCell key="cell" controlSize="small" lineBreakMode="truncatingTail" alignment="right" title="Fit line interpolation:" id="LYR-eo-2sX">
                                                     <font key="font" metaFont="smallSystem"/>
                                                     <color key="textColor" name="labelColor" catalog="System" colorSpace="catalog"/>
                                                     <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
                                                 </textFieldCell>
                                             </textField>
+                                            <segmentedControl verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="1my-Xn-JFr">
+                                                <rect key="frame" x="925" y="-2" width="99" height="19"/>
+                                                <segmentedCell key="cell" controlSize="small" borderStyle="border" alignment="left" style="rounded" trackingMode="selectOne" id="X33-ym-yEM">
+                                                    <font key="font" metaFont="smallSystem"/>
+                                                    <segments>
+                                                        <segment label="Linear"/>
+                                                        <segment label="Smooth" selected="YES" tag="1"/>
+                                                    </segments>
+                                                </segmentedCell>
+                                                <connections>
+                                                    <action selector="LineSmoothnessAction:" target="YoK-Wd-3Fr" id="5nl-dm-wTV"/>
+                                                </connections>
+                                            </segmentedControl>
                                         </subviews>
                                         <edgeInsets key="edgeInsets" left="5" right="5" top="0.0" bottom="0.0"/>
                                         <visibilityPriorities>
+                                            <integer value="1000"/>
+                                            <integer value="1000"/>
                                             <integer value="1000"/>
                                             <integer value="1000"/>
                                             <integer value="1000"/>
@@ -7692,10 +7717,12 @@ IA
                                             <real value="3.4028234663852886e+38"/>
                                             <real value="3.4028234663852886e+38"/>
                                             <real value="3.4028234663852886e+38"/>
+                                            <real value="3.4028234663852886e+38"/>
+                                            <real value="3.4028234663852886e+38"/>
                                         </customSpacing>
                                     </stackView>
                                     <customView horizontalCompressionResistancePriority="250" translatesAutoresizingMaskIntoConstraints="NO" id="TfV-6i-g26" customClass="AnalysisGraphView">
-                                        <rect key="frame" x="5" y="5" width="1027" height="633"/>
+                                        <rect key="frame" x="5" y="5" width="1027" height="647"/>
                                     </customView>
                                 </subviews>
                                 <edgeInsets key="edgeInsets" left="5" right="5" top="5" bottom="5"/>
@@ -7729,11 +7756,13 @@ IA
                         <outlet property="GlobalEnthalpyStyle" destination="SD5-5Q-BsS" id="9X1-bb-baC"/>
                         <outlet property="GlobalNView" destination="qF5-8C-UcM" id="RRC-Cc-dGf"/>
                         <outlet property="GraphView" destination="TfV-6i-g26" id="vMa-EH-e8L"/>
+                        <outlet property="LineSmoothnessControl" destination="1my-Xn-JFr" id="U5U-za-faJ"/>
                         <outlet property="ModelTypeControl" destination="nAb-He-xRl" id="0wB-6L-xZU"/>
                         <outlet property="NStyleSegControl" destination="oa9-Yx-xpS" id="1kX-qz-4WK"/>
                         <outlet property="OptionsStackView" destination="VXv-Ng-aWg" id="RoP-df-2ms"/>
                         <outlet property="ParametersScopeButton" destination="sZF-Rz-Jda" id="wP1-pi-E49"/>
                         <outlet property="PeakInfoScopeButton" destination="o7n-N9-bgG" id="OIx-Ld-D1S"/>
+                        <outlet property="ScaleToValidButton" destination="Ax0-nY-vXr" id="4yj-K4-aLr"/>
                         <outlet property="ShowResidualGraphButton" destination="4t0-JE-A0w" id="Hw3-4d-Lq3"/>
                     </connections>
                 </viewController>
@@ -9309,7 +9338,7 @@ IA
                                                                                                 <rect key="frame" x="-2" y="0.0" width="135" height="56"/>
                                                                                                 <textFieldCell key="cell" controlSize="small" alignment="left" id="C6h-Zx-ZUF">
                                                                                                     <font key="font" metaFont="smallSystem"/>
-                                                                                                    <string key="title">Model:
+                                                                                                    <string key="title">Data and Model:
 Algorithm:
 Weighted fitting:
 Error estimation method:</string>

@@ -16,7 +16,19 @@ namespace AnalysisITC
         static bool showFitParameters = true;
         static bool useUnifiedAxes = false;
         static bool showResidualGraph = true;
+        static bool scaleToValid = false;
+        static GraphBase.LineSmoothness lineSmoothness = GraphBase.LineSmoothness.Linear;
 
+        public static GraphBase.LineSmoothness LineSmoothness
+        {
+            get => lineSmoothness;
+            set { lineSmoothness = value; UpdateViewParameters?.Invoke(null, null); }
+        }
+        public static bool ScaleToValidPoints
+        {
+            get => scaleToValid;
+            set { scaleToValid = value; UpdateViewParameters?.Invoke(null, null); }
+        }
         public static bool ShowPeakInfo
         {
             get => showPeakInfo;
@@ -55,6 +67,9 @@ namespace AnalysisITC
             DataFittingGraph.UnifiedMolarRatioAxis = UseUnifiedAxes;
             DataFittingGraph.UnifiedEnthalpyAxis = UseUnifiedAxes;
             DataFittingGraph.ResidualDisplayOptions.ShowResidualGraph = ShowResidualGraph;
+            DataFittingGraph.HideBadData = false;
+            DataFittingGraph.AutoAxesFocusesIncludedOnly = ScaleToValidPoints;
+            DataFittingGraph.FitLineSmoothnessSetting = LineSmoothness;
 
             Invalidate();
         }
@@ -73,6 +88,7 @@ namespace AnalysisITC
             {
                 Graph = new DataFittingGraph(experiment, this);
 
+                // Update view options using the same function called when clicking a view scope button
                 AnalysisGraphView_UpdateViewParameters(null, null);
             }
             else Graph = null;

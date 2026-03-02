@@ -48,6 +48,7 @@ namespace AnalysisITC
         bool SameAxes => AxesScopeButton.State == NSCellStateValue.On;
         bool ShowResidualGraph => ShowResidualGraphButton.State == NSCellStateValue.On;
         bool IsGlobalMode => AnalysisModeControl.SelectedSegment == 1;
+        bool ScaleToValid => ScaleToValidButton.State == NSCellStateValue.On;
 
         public DataAnalysisViewController(IntPtr handle) : base(handle)
         {
@@ -114,6 +115,7 @@ namespace AnalysisITC
             ParametersScopeButton.State = AnalysisGraphView.ShowFitParameters ? NSCellStateValue.On : NSCellStateValue.Off;
             AxesScopeButton.State = AnalysisGraphView.UseUnifiedAxes ? NSCellStateValue.On : NSCellStateValue.Off;
             ShowResidualGraphButton.State = AnalysisGraphView.ShowResidualGraph ? NSCellStateValue.On : NSCellStateValue.Off;
+            LineSmoothnessControl.SelectedSegment = AnalysisGraphView.LineSmoothness == GraphBase.LineSmoothness.Linear ? 0 : 1;
             GraphView.Initialize(DataManager.Current);
         }
 
@@ -210,8 +212,20 @@ namespace AnalysisITC
             AnalysisGraphView.ShowFitParameters = ShowParameters;
             AnalysisGraphView.UseUnifiedAxes = SameAxes;
             AnalysisGraphView.ShowResidualGraph = ShowResidualGraph;
+            AnalysisGraphView.ScaleToValidPoints = ScaleToValid;
 
             GraphView.Invalidate();
+        }
+
+        partial void LineSmoothnessAction(NSObject sender)
+        {
+            switch (LineSmoothnessControl.SelectedSegment)
+            {
+                case 0: AnalysisGraphView.LineSmoothness = GraphBase.LineSmoothness.Linear; break;
+                case 1: AnalysisGraphView.LineSmoothness = GraphBase.LineSmoothness.Smooth; break;
+            }
+
+            ScopeButtonClicked(null);
         }
 
         partial void AnalysisModeClicked(NSSegmentedControl sender) => InitializeFactory();
@@ -237,6 +251,8 @@ namespace AnalysisITC
             }
 
             SetExposedFittingOptions();
+
+            SetAvailableModels();
 
             // Update status bar to show model info
             StatusBarManager.Invalidate();

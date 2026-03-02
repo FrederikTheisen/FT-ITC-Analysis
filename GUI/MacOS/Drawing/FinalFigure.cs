@@ -45,8 +45,8 @@ namespace AnalysisITC
 
         public bool AutoAxesIgnoresBadData
         {
-            get => IntegrationGraph.FocusValidData;
-            set => IntegrationGraph.FocusValidData = value;
+            get => IntegrationGraph.AutoAxesFocusesIncludedOnly;
+            set => IntegrationGraph.AutoAxesFocusesIncludedOnly = value;
         }
 
         public GraphBase.LineSmoothness LineSmoothness
