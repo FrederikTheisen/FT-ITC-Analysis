@@ -100,6 +100,22 @@ namespace AnalysisITC
             }
         }
         public bool HasThermogram => DataPoints != null && DataPoints.Count > 1;
+        public AnalysisXAxisType AxisType
+        {
+            get
+            {
+                // There is no possible way to get any meaningful X axis from concentrations
+                if (CellConcentration < double.Epsilon && SyringeConcentration < double.Epsilon) return AnalysisXAxisType.ID;
+
+                // We can just return the running concentration of titrant in the cell
+                if (CellConcentration < double.Epsilon) return AnalysisXAxisType.TitrantConcentration;
+
+                // Using dissociation model, use dissociation axis
+                if (Model != null && Model.ModelType == AnalysisModel.Dissociation) return AnalysisXAxisType.TitrantConcentration;
+
+                return AnalysisXAxisType.MolarRatio;
+            }
+        }
 
         public ExperimentData(string file)
         {
@@ -431,6 +447,10 @@ namespace AnalysisITC
 
         public double ActualCellConcentration { get; set; }
         public double ActualTitrantConcentration { get; set; }
+
+        /// <summary>
+        /// The X axis variable to plot
+        /// </summary>
         public double Ratio { get; set; }
 
         public bool Include { get; private set; } = true;
