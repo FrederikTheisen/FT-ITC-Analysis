@@ -290,6 +290,7 @@ namespace AnalysisITC.AppClasses.Analysis2.Models
                 return values;
             }
         }
+        public virtual Energy Offset => Parameters[ParameterType.Offset].Energy;
 
         public void SetParentSolution(GlobalSolution parent)
         {

@@ -82,7 +82,7 @@ namespace AnalysisITC.AppClasses.Analysis2.Models
             public Energy Enthalpy => Parameters[ParameterType.Enthalpy1].Energy;
             public FloatWithError K => Parameters[ParameterType.Affinity1];
             public FloatWithError N => Parameters[ParameterType.Nvalue1];
-            public Energy Offset => Parameters[ParameterType.Offset].Energy;
+            override public Energy Offset => Parameters[ParameterType.Offset].Energy;
 
             public FloatWithError Kd => new FloatWithError(1) / K;
             public Energy GibbsFreeEnergy => new(-1.0 * Energy.R.FloatWithError * TempKelvin * FWEMath.Log(K));

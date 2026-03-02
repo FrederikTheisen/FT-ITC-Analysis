@@ -201,7 +201,7 @@ namespace AnalysisITC.AppClasses.Analysis2.Models
             public Energy dHapp => Parameters[ParameterType.Enthalpy1].Energy;
             public FloatWithError Kapp => Parameters[ParameterType.Affinity1];
             public FloatWithError N => Parameters[ParameterType.Nvalue1];
-            public Energy Offset => Parameters[ParameterType.Offset].Energy;
+            override public Energy Offset => Parameters[ParameterType.Offset].Energy;
 
             public FloatWithError Kdapp => new FloatWithError(1) / Kapp;
 
