@@ -2,6 +2,7 @@
 
 using System;
 using System.Linq;
+using System.Threading.Tasks;
 using AppKit;
 using CoreGraphics;
 using Utilities;
@@ -82,11 +83,15 @@ namespace AnalysisITC
             if (theEvent.KeyCode == (int)NSKey.Space)
                 if (SelectedPeak != -1 && isInjectionZoomed)
                 {
+                    Console.WriteLine("Copying integration length...");
                     var length = Data.Injections[SelectedPeak].IntegrationLength;
                     SelectedPeak++;
                     Data.Injections[SelectedPeak].SetIntegrationLengthByTime(length);
                     FocusPeak();
+
+                    Data.Processor.ProcessData();
                 }
+            
 
             return theEvent;
         }
