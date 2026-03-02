@@ -1313,7 +1313,12 @@ namespace AnalysisITC
                 if (clickedinj.Count() > 0)
                 {
                     var inj = clickedinj.First();
-                    CursorInfo.Add("Inj #" + (inj.ID + 1).ToString() + " | " + inj.Enthalpy2.ToFormattedString(AppSettings.EnergyUnit));
+                    string line1 = "Inj #" + (inj.ID + 1).ToString() + " | ";
+                    if (double.IsFinite(inj.Enthalpy)) line1 += inj.Enthalpy2.ToFormattedString(AppSettings.EnergyUnit, withunit: true, permole: true);
+                    else line1 += (1000000 * inj.PeakArea).ToString() + " µJ";
+
+                    CursorInfo.Add(line1);
+                    CursorInfo.Add("Heat: " + inj.HeatDirection.GetEnumDescription());
                 }
                 
                 CursorInfo.Add("Time: " + datapoint.Time.ToString() + "s");
@@ -1442,10 +1447,10 @@ namespace AnalysisITC
 
         public bool UnifiedMolarRatioAxis { get => _useUnifiedAxes; set { _useUnifiedAxes = value; SetupAxes(); } }
         public bool UnifiedEnthalpyAxis { get => _useUnifiedEnthalpyAxis; set { _useUnifiedEnthalpyAxis = value; SetupAxes(); } }
-        public bool FocusValidData { get => _focusvaliddata; set { _focusvaliddata = value; SetupAxes(); } }
+        public bool AutoAxesFocusesIncludedOnly { get => _focusvaliddata; set { _focusvaliddata = value; SetupAxes(); } }
 
         bool ShowBadData => !HideBadData;
-        bool AutoAxesIncludesBadData => (!FocusValidData && ShowBadData);
+        bool AutoAxesIncludesBadData => (!AutoAxesFocusesIncludedOnly && ShowBadData);
 
         public CGPoint GetCompositeOrigin()
         {
@@ -1489,6 +1494,9 @@ namespace AnalysisITC
 
         protected override void SetupAxes()
         {
+            XAxis.LegendTitle = GraphAxis.GetXAxisTitle(ExperimentData);
+            XAxis.ValueFactor = GraphAxis.GetXAxisScaleFactor(ExperimentData);
+
             if (UnifiedMolarRatioAxis && DataManager.IncludedData.Count() > 0)
             {
                 var xmax = DataManager.IncludedData.Max(d => d.Injections.Last().Ratio);
@@ -1512,7 +1520,7 @@ namespace AnalysisITC
 
         double[] GetMinMaxEnthalpy(IEnumerable<ExperimentData> includeddata)
         {
-            var evals = new List<double>(); // includeddata.Where(d => d.Solution != null).Select(d => d.Model.EvaluateEnthalpy(0, withoffset: DrawWithOffset));
+            var evals = new List<double>();
 
             foreach (var data in includeddata)
                 if (data.Solution != null)
@@ -1520,8 +1528,8 @@ namespace AnalysisITC
                         evals.Add(data.Model.EvaluateEnthalpy(i, withoffset: DrawWithOffset));
 
             // Consider only data points which were included for fitting, or if we explicitly show bad data
-            var maxpoints = includeddata.Select(d => d.Injections.Where(inj => inj.Include || AutoAxesIncludesBadData).Max(inj => inj.Enthalpy));
-            var minpoints = includeddata.Select(d => d.Injections.Where(inj => inj.Include || AutoAxesIncludesBadData).Min(inj => inj.Enthalpy));
+            var maxpoints = includeddata.Select(d => d.Injections.Where(inj => inj.Include || AutoAxesIncludesBadData).Max(inj => DrawWithOffset ? inj.Enthalpy : inj.OffsetEnthalpy));
+            var minpoints = includeddata.Select(d => d.Injections.Where(inj => inj.Include || AutoAxesIncludesBadData).Min(inj => DrawWithOffset ? inj.Enthalpy : inj.OffsetEnthalpy));
 
             if (evals.Count(v => double.IsFinite(v)) == 0) evals = new List<double> { 0 };
             if (maxpoints.Count(v => double.IsFinite(v)) == 0) maxpoints = new double[] { 0 };
@@ -1529,12 +1537,6 @@ namespace AnalysisITC
 
             var max = Math.Max(maxpoints.Max(), evals.Max());
             var min = Math.Min(minpoints.Min(), evals.Min());
-
-            if (!DrawWithOffset)
-            {
-                if (evals.Min() < -1000) min = evals.Min();
-                if (evals.Max() > 1000) max = evals.Max();
-            }
 
             return new double[] { Math.Min(min, 0), Math.Max(max, 0) };
         }
