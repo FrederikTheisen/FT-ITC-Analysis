@@ -80,18 +80,29 @@ namespace AnalysisITC
         {
             if (StateManager.CurrentState != State) return theEvent;
 
-            if (theEvent.KeyCode == (int)NSKey.Space)
-                if (SelectedPeak != -1 && isInjectionZoomed)
-                {
-                    Console.WriteLine("Copying integration length...");
-                    var length = Data.Injections[SelectedPeak].IntegrationLength;
-                    SelectedPeak++;
-                    Data.Injections[SelectedPeak].SetIntegrationLengthByTime(length);
-                    FocusPeak();
+            switch ((NSKey)theEvent.KeyCode)
+            {
+                case NSKey.Space:
+                    if (SelectedPeak != -1 && isInjectionZoomed)
+                    {
+                        Console.WriteLine("Copying integration length...");
+                        var length = Data.Injections[SelectedPeak].IntegrationLength;
+                        SelectedPeak++;
+                        Data.Injections[SelectedPeak].SetIntegrationLengthByTime(length);
+                        FocusPeak();
 
-                    Data.Processor.ProcessData();
-                }
-            
+                        Data.Processor.ProcessData();
+                    }
+                    break;
+                case NSKey.LeftArrow:
+                    SelectedPeak--;
+                    FocusPeak();
+                    return null;
+                case NSKey.RightArrow:
+                    SelectedPeak++;
+                    FocusPeak();
+                    return null;
+            }
 
             return theEvent;
         }
