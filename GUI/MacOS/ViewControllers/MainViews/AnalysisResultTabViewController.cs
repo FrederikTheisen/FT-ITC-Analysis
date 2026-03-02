@@ -256,7 +256,7 @@ namespace AnalysisITC
 
             var solverdesc = new List<string>()
             {
-                Solution.SolutionName,
+                AnalysisResult.FileName,
                 Solution.Convergence.Algorithm.GetProperties().Name + " | RMSD = " + Solution.Loss.ToString("G3"),
                 Solution.WeightedFitting ? "ENABLED" : "OFF",
                 Solution.ErrorEstimationMethod.Description() + (Solution.ErrorEstimationMethod == ErrorEstimationMethod.None ? "" : " x " + Solution.BootstrapIterations.ToString() )

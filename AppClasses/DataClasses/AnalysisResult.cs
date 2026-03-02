@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 using AnalysisITC.AppClasses.Analysis2;
 using AnalysisITC.AppClasses.AnalysisClasses;
@@ -25,8 +26,14 @@ namespace AnalysisITC
         {
             Solution = solution;
 
-            FileName = solution.Model.Solution.SolutionName;
+            //FileName = solution.Model.Solution.SolutionName;
             Date = DateTime.Now;
+
+            // Generate a descriptive name based on the experiments included in this result.
+            // Falls back to the underlying solution name if no discriminating label can be generated.
+            var suggested = AnalysisResultNameParser.GenerateSuggestedName(Solution);
+            FileName = EnsureUniqueName(suggested ?? solution.Model.Solution.SolutionName);
+
 
             SetupAnalysisOptions();
 
@@ -96,6 +103,29 @@ namespace AnalysisITC
             if (Model.TemperatureDependenceExposed) s += "∆Cₚ = " + new Energy(Solution.TemperatureDependence[ParameterType.Enthalpy1].Slope).ToString(EnergyUnit.Joule, "F0", permole: true, perK: true);
 
             return s.Trim();
+        }
+
+        string EnsureUniqueName(string name)
+        {
+            try
+            {
+                if (string.IsNullOrWhiteSpace(name)) return name;
+
+                var existing = DataManager.Results
+                    .Where(r => r != null && r != this && !string.IsNullOrWhiteSpace(r.FileName))
+                    .Select(r => r.FileName)
+                    .ToHashSet();
+
+                if (!existing.Contains(name)) return name;
+
+                int i = 2;
+                while (existing.Contains($"{name} ({i})")) i++;
+                return $"{name} ({i})";
+            }
+            catch
+            {
+                return name;
+            }
         }
 
         internal double GetMinimumTemperature() => Solution.Solutions.Min(s => s.Temp);
