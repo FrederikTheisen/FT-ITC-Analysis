@@ -598,6 +598,9 @@ namespace AnalysisITC.AppClasses.Analysis2
         {
             base.Analyze();
 
+            // This will not be called if fitting indivdually
+            UseErrorWeightedFitting = FittingOptionsController.UseErrorWeightedFitting;
+
             try
             {
                 await Task.Run(() =>
