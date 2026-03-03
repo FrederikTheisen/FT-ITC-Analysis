@@ -31,7 +31,7 @@ namespace AnalysisITC.AppClasses.Analysis2
             IsLocked = islocked;
 
             Limits = key.GetProperties().DefaultLimits;
-            if (AppSettings.EnableExtendedParameterLimits)
+            if (AppSettings.ParameterLimitSetting == ParameterLimitSetting.Extended)
             {
                 if (Limits[0] > 0) // Parameter can only be positive
                 {
@@ -49,23 +49,13 @@ namespace AnalysisITC.AppClasses.Analysis2
                     Limits[1] *= 10;
                 }
             }
+            else if (AppSettings.ParameterLimitSetting == ParameterLimitSetting.NoLimit)
+            {
+                Limits = new double[] { double.MinValue, double.MaxValue };
+            }
 
             StepSize = key.GetProperties().DefaultStepSize;
         }
-
-        //public Parameter(ParameterTypes key, double value, bool islocked = false, double[] limits = null, double stepsize = double.NaN)
-        //{
-        //    Key = key;
-        //    Value = value;
-        //    IsLocked = islocked;
-        //    if (limits == null) Limits = key.GetProperties().DefaultLimits;
-        //    else Limits = limits;
-
-        //    if (double.IsNaN(stepsize)) StepSize = key.GetProperties().DefaultStepSize;
-        //    else StepSize = stepsize;
-
-        //    if (StepSize == 0) throw new Exception("Parameter initialized with stepsize = 0");
-        //}
 
         /// <summary>
         /// Set the parameter value from the global parameters and tells the model that the parameter should not be fitted

@@ -30,7 +30,7 @@ namespace AnalysisITC
             FuncToleranceSlider.DoubleValue = AppSettings.OptimizerTolerance;
             MaxOptimizerIterationsSlider.DoubleValue = Math.Log10(AppSettings.MaximumOptimizerIterations);
             MaxOptimizerIterField.IntValue = AppSettings.MaximumOptimizerIterations;
-            ParameterLimitControl.SelectedSegment = AppSettings.EnableExtendedParameterLimits ? 1 : 0;
+            ParameterLimitControl.SelectedSegment = (int)AppSettings.ParameterLimitSetting;
             DefaultAlgorithm.SelectedSegment = (int)AppSettings.DefaultSolverAlgorithm;
             UseInjErrorWeights.State = AppSettings.UseInjectionErrorWeightedFitting ? NSCellStateValue.On : NSCellStateValue.Off;
 
@@ -64,7 +64,8 @@ namespace AnalysisITC
             AppSettings.ConcentrationAutoVariance = AutoConcVarianceSlider.DoubleValue / 100;
             AppSettings.IsConcentrationAutoVarianceEnabled = AutoConcVarianceSlider.DoubleValue > double.Epsilon;
             AppSettings.MaximumOptimizerIterations = (int)Math.Pow(10, MaxOptimizerIterationsSlider.DoubleValue);
-            AppSettings.EnableExtendedParameterLimits = ParameterLimitControl.SelectedSegment == 1;
+            AppSettings.EnableExtendedParameterLimits = ParameterLimitControl.SelectedSegment > 0;
+            AppSettings.ParameterLimitSetting = (ParameterLimitSetting)(int)ParameterLimitControl.SelectedSegment;
             AppSettings.DefaultSolverAlgorithm = (SolverAlgorithm)(int)DefaultAlgorithm.SelectedSegment;
             AppSettings.UseInjectionErrorWeightedFitting = UseInjErrorWeights.State == NSCellStateValue.On;
         }

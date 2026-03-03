@@ -350,8 +350,7 @@ namespace AnalysisITC
     public enum ParameterLimitSetting
     {
         Standard,
-        Expanded10,
-        Expandend100,
+        Extended,
         NoLimit,
     }
 }
