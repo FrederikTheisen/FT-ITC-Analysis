@@ -58,6 +58,8 @@ namespace AnalysisITC
 
                     if (selectedPeak < 0) selectedPeak = 0;
                     else if (selectedPeak >= Data.InjectionCount) selectedPeak = Data.InjectionCount - 1;
+
+                    InjectionSelected?.Invoke(null, SelectedPeak);
                 }
 
                 Graph.SetFocusedInjection(selectedPeak);
@@ -78,7 +80,7 @@ namespace AnalysisITC
 
         NSEvent KeyDownEventHandler(NSEvent theEvent)
         {
-            if (StateManager.CurrentState != State) return theEvent;
+            if (StateManager.CurrentState != this.State) return theEvent;
 
             switch ((NSKey)theEvent.KeyCode)
             {
