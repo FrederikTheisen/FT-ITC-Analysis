@@ -46,6 +46,7 @@ namespace AnalysisITC
             AnalysisResultView.ExpandDataButtonClicked += AnalysisResultView_ExpandDataButtonClicked;
 
             ExperimentDetailsPopoverController.UpdateTable += ExperimentDetailsPopoverController_UpdateTable;
+            BindingAnalysisViewController.UpdateTable += ExperimentDetailsPopoverController_UpdateTable;
 
             AnalysisITCDataSource.SourceWasSorted += AnalysisITCDataSource_SourceWasSorted;
         }

@@ -10,6 +10,8 @@ namespace AnalysisITC
 {
 	public partial class BindingAnalysisViewController : NSViewController
 	{
+        public static event EventHandler UpdateTable;
+
         public static AnalysisResult AnalysisResult { get; set; }
 
         EnergyUnit EnergyUnit => (int)EnergyUnitControl.SelectedSegment switch { 0 => EnergyUnit.Joule, 1 => EnergyUnit.KiloJoule, 2 => EnergyUnit.Cal, 3 => EnergyUnit.KCal, _ => EnergyUnit.KiloJoule, };
@@ -30,15 +32,20 @@ namespace AnalysisITC
         void Setup()
         {
             string fit = "";
-            string dataset = "";
+            string parameters = "";
+            string parameter_values = "";
 
             if (this.NextResponder is NSWindow) (this.NextResponder as NSWindow).Title = AnalysisResult.FileName;
 
+            NameTextField.StringValue = AnalysisResult.FileName;
+            CommentTextField.StringValue = AnalysisResult.Comments;
+
+            fit += AnalysisResult.Solution.Solutions.Count + " experiments" + Environment.NewLine;
             fit += AnalysisResult.Solution.SolutionName + Environment.NewLine;
-            dataset += AnalysisResult.Solution.Solutions.Count + " experiments" + Environment.NewLine;
             fit += Extensions.GetEnumDescription(AnalysisResult.Solution.Convergence.Algorithm) + Environment.NewLine;
             fit += AnalysisResult.Solution.Convergence.Iterations + " | " + AnalysisResult.Solution.Loss.ToString("G3") + " | " + AnalysisResult.Solution.Convergence.Time.TotalMilliseconds.ToString("F0") + "ms" + Environment.NewLine;
             fit += AnalysisResult.Solution.BootstrapIterations + " | " + AnalysisResult.Solution.BootstrapTime.TotalSeconds.ToString("F1") + "s";
+            fit += (AnalysisResult.Solution.WeightedFitting ? "ENABLED" : "OFF") + " | " + (AnalysisResult.Solution.ModelCloneOptions.IncludeConcentrationErrorsInBootstrap ? "ENABLED" : "OFF");
 
             if (AnalysisResult.Solution.Model.Parameters.Constraints.Count > 0)
             {
@@ -60,10 +67,12 @@ namespace AnalysisITC
                 ConstraintKeyLabel.StringValue = "No constraints";
             }
 
-            dataset += AnalysisResult.Solution.Model.MeanTemperature.ToString("F3") + " °C";
+            parameters += AnalysisResult.Solution.Model.MeanTemperature.ToString("F3") + " °C";
 
             FitParameterLabel.StringValue = fit;
-            DataSetParameterLabel.StringValue = dataset;
+            DataSetParameterLabel.StringValue = parameters;
+
+
         }
 
         partial void CopyToClipboard(NSObject sender)
@@ -95,6 +104,19 @@ namespace AnalysisITC
                 if (window.IsSheet) DismissViewController(this);
                 else window.Close();
             }
+        }
+
+        partial void Apply(NSObject sender)
+        {
+            if (!string.IsNullOrWhiteSpace(NameTextField.StringValue))
+                AnalysisResult.FileName = NameTextField.StringValue;
+
+            if (!string.IsNullOrWhiteSpace(CommentTextField.StringValue))
+                AnalysisResult.Comments = CommentTextField.StringValue;
+
+            CloseButtonClicked(sender);
+
+            UpdateTable?.Invoke(this, null);
         }
     }
 }

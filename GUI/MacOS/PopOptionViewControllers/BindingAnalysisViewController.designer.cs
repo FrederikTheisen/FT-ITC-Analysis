@@ -13,6 +13,9 @@ namespace AnalysisITC
 	partial class BindingAnalysisViewController
 	{
 		[Outlet]
+		AppKit.NSTextField CommentTextField { get; set; }
+
+		[Outlet]
 		AppKit.NSTextField ConstraintKeyLabel { get; set; }
 
 		[Outlet]
@@ -34,6 +37,9 @@ namespace AnalysisITC
 		AppKit.NSTextField LabelLabel { get; set; }
 
 		[Outlet]
+		AppKit.NSTextField NameTextField { get; set; }
+
+		[Outlet]
 		AppKit.NSTableView ResultsTableView { get; set; }
 
 		[Outlet]
@@ -41,6 +47,9 @@ namespace AnalysisITC
 
 		[Outlet]
 		AppKit.NSTextField ValueLabel { get; set; }
+
+		[Action ("Apply:")]
+		partial void Apply (Foundation.NSObject sender);
 
 		[Action ("CloseButtonClicked:")]
 		partial void CloseButtonClicked (Foundation.NSObject sender);
@@ -62,6 +71,16 @@ namespace AnalysisITC
 		
 		void ReleaseDesignerOutlets ()
 		{
+			if (NameTextField != null) {
+				NameTextField.Dispose ();
+				NameTextField = null;
+			}
+
+			if (CommentTextField != null) {
+				CommentTextField.Dispose ();
+				CommentTextField = null;
+			}
+
 			if (ConstraintKeyLabel != null) {
 				ConstraintKeyLabel.Dispose ();
 				ConstraintKeyLabel = null;
