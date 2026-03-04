@@ -489,6 +489,10 @@ namespace AnalysisITC
         NotReachingStopCriteria = 7,
         [Description("Terminated by user")]
         TerminatedByUser = 8,
+        [Description("NaN or infinity in function")]
+        CodeMinus8 = -8,
+        [Description("Rounding errors prevent further improvement")]
+        RoundingErrors = -2,
         //1=relative function improvement is no more than EpsF. 2=relative step is no more than EpsX. 4=gradient norm is no more than EpsG. 5=MaxIts steps was taken. 7=stopping conditions are too stringent, further improvement is impossible, we return best X found so far. 8= terminated by user
     }
 }
