@@ -81,6 +81,7 @@ namespace AnalysisITC
         public static int DataXTickCount { get; set; } = 7;
         public static int DataYTickCount { get; set; } = 7;
 
+        public static bool ShowDataGraph { get; set; } = true;
         public static bool UnifiedEnthalpyAxis { get; set; } = false;
         public static bool UseUnifiedMolarRatioAxis { get; set; } = false;
         public static bool DrawZeroLine { get; set; } = true;
@@ -162,11 +163,13 @@ namespace AnalysisITC
                 IncludeResidualGraphGap = GapResidualGraph,
                 LineSmoothness = FitLineSmoothness,
                 AutoAxesIgnoresBadData = AutoAxesIgnoresBadData,
+                ShowDataGraph = ShowDataGraph,
             };
 
             _graph.SetTimeUnit(TimeAxisUnit);
             _graph.SetEnergyUnit(EnergyUnit);
             _graph.SetTickNumber(DataXTickCount, DataYTickCount, FitXTickCount, FitYTickCount);
+            _graph.SetShowDataGraph(ShowDataGraph);
 
             return _graph;
         }
@@ -250,11 +253,13 @@ namespace AnalysisITC
                 IncludeResidualGraphGap = GapResidualGraph,
                 LineSmoothness = FitLineSmoothness,
                 AutoAxesIgnoresBadData = AutoAxesIgnoresBadData,
+                ShowDataGraph = ShowDataGraph,
             };
 
             graph.SetTimeUnit(TimeAxisUnit);
             graph.SetEnergyUnit(EnergyUnit);
             graph.SetTickNumber(DataXTickCount, DataYTickCount, FitXTickCount, FitYTickCount);
+            graph.SetShowDataGraph(ShowDataGraph);
 
             SetFrameSize(graph.PrintBox.Size); 
 

@@ -53,6 +53,8 @@ namespace AnalysisITC
                     case 9: item.State = AppSettings.FinalFigureParameterDisplay.HasFlag(FinalFigureDisplayParameters.Attributes) ? NSCellStateValue.On : NSCellStateValue.Off; break;
                 }
             }
+
+            ShowDataGraphControl.State = FinalFigureGraphView.ShowDataGraph ? 1 : 0;
         }
 
         partial void ParameterOptionAction(NSObject sender)
@@ -91,6 +93,7 @@ namespace AnalysisITC
                 }
             }
 
+            FinalFigureGraphView.ShowDataGraph = ShowDataGraphControl.State == 1;
             FinalFigureGraphView.SanitizeTicks = SanitizeTicks.State == 1;
             FinalFigureGraphView.DrawFitParameters = ShowParametersControl.State == 1;
             FinalFigureGraphView.TimeAxisUnit = (TimeUnit)(int)TimeUnitControl.SelectedSegment;

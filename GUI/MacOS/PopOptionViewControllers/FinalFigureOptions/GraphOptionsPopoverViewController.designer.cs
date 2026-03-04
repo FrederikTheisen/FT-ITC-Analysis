@@ -25,6 +25,9 @@ namespace AnalysisITC
 		AppKit.NSSwitch SanitizeTicks { get; set; }
 
 		[Outlet]
+		AppKit.NSSwitch ShowDataGraphControl { get; set; }
+
+		[Outlet]
 		AppKit.NSSwitch ShowParametersControl { get; set; }
 
 		[Outlet]
@@ -41,6 +44,11 @@ namespace AnalysisITC
 		
 		void ReleaseDesignerOutlets ()
 		{
+			if (ShowDataGraphControl != null) {
+				ShowDataGraphControl.Dispose ();
+				ShowDataGraphControl = null;
+			}
+
 			if (EnergyUnitControl != null) {
 				EnergyUnitControl.Dispose ();
 				EnergyUnitControl = null;

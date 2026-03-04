@@ -7,6 +7,7 @@ namespace AnalysisITC
 {
     public class FinalFigure
     {
+        ExperimentData Data;
         BaselineDataGraph DataGraph;
         DataFittingGraph IntegrationGraph;
         NSView View;
@@ -42,6 +43,8 @@ namespace AnalysisITC
         public CGRect PrintBox => PlotBox.WithMargin(Margin);
 
         #region Properties
+
+        public bool ShowDataGraph { get; set; } = true;
 
         public bool AutoAxesIgnoresBadData
         {
@@ -197,9 +200,9 @@ namespace AnalysisITC
                 sanitizeticks = value;
 
                 if (DataGraph != null) DataGraph.XAxis.HideUnwantedTicks = sanitizeticks;
-                if (DataGraph != null) DataGraph.YAxis.HideUnwantedTicks = sanitizeticks;
+                //if (DataGraph != null) DataGraph.YAxis.HideUnwantedTicks = sanitizeticks; // Never hide these
                 IntegrationGraph.XAxis.HideUnwantedTicks = sanitizeticks;
-                IntegrationGraph.YAxis.HideUnwantedTicks = sanitizeticks;
+                //IntegrationGraph.YAxis.HideUnwantedTicks = sanitizeticks; // Never hide these
             }
         }
 
@@ -235,29 +238,46 @@ namespace AnalysisITC
             IntegrationGraph.ResidualGraph.XAxis.SetMaxTicks(fitx);
         }
 
+        public void SetShowDataGraph(bool show)
+        {
+            if (show && DataGraph == null) CreateDataGraph();
+            else if (!show) DataGraph = null;
+        }
+
         #endregion
 
         public FinalFigure(ExperimentData experiment, NSView view)
         {
             View = view;
+            Data = experiment;
 
-            if (experiment.HasThermogram)
+            if (experiment.HasThermogram && ShowDataGraph)
             {
-                DataGraph = new BaselineDataGraph(experiment, view)
-                {
-                    DrawOnWhite = true,
-                    ShowBaselineCorrected = true
-                };
-                DataGraph.YAxis.Buffer = .1f;
-                DataGraph.YAxis.MirrorTicks = true;
-                DataGraph.XAxis.Buffer = .1f;
-                DataGraph.XAxis.ValueFactor = 1.0 / 60;
-                DataGraph.XAxis.LegendTitle = "Time (min)";
-                DataGraph.XAxis.Position = AxisPosition.Top;
-                DataGraph.ShowBaseline = ShouldDrawBaseline;
+                CreateDataGraph();
             }
 
-            IntegrationGraph = new DataFittingGraph(experiment, view)
+            CreateIntegrationGraph();
+        }
+
+        void CreateDataGraph()
+        {
+            DataGraph = new BaselineDataGraph(Data, View)
+            {
+                DrawOnWhite = true,
+                ShowBaselineCorrected = true
+            };
+            DataGraph.YAxis.Buffer = .1f;
+            DataGraph.YAxis.MirrorTicks = true;
+            DataGraph.XAxis.Buffer = .1f;
+            DataGraph.XAxis.ValueFactor = 1.0 / 60;
+            DataGraph.XAxis.LegendTitle = "Time (min)";
+            DataGraph.XAxis.Position = AxisPosition.Top;
+            DataGraph.ShowBaseline = ShouldDrawBaseline;
+        }
+
+        void CreateIntegrationGraph()
+        {
+            IntegrationGraph = new DataFittingGraph(Data, View)
             {
                 DrawOnWhite = true,
                 ShowGrid = false,
