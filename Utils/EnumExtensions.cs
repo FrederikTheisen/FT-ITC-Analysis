@@ -20,12 +20,19 @@ namespace AnalysisITC
         {
             // Get the Description attribute value for the enum value
             FieldInfo fi = value.GetType().GetField(value.ToString());
-            DescriptionAttribute[] attributes = (DescriptionAttribute[])fi.GetCustomAttributes(typeof(DescriptionAttribute), false);
+            try
+            {
+                DescriptionAttribute[] attributes = (DescriptionAttribute[])fi.GetCustomAttributes(typeof(DescriptionAttribute), false);
 
-            if (attributes.Length > 0)
-                return attributes[0].Description;
-            else
+                if (attributes.Length > 0)
+                    return attributes[0].Description;
+                else
+                    return value.ToString();
+            }
+            catch
+            {
                 return value.ToString();
+            }
         }
 
         public static string Description(this SolverAlgorithm alg) => GetEnumDescription(alg);

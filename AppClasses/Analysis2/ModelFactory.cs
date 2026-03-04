@@ -17,6 +17,7 @@ namespace AnalysisITC.AppClasses.Analysis2
 		public static event EventHandler<ModelFactory> UpdateFactory;
 
         public static ModelFactory Factory { get; set; }
+        public static List<ExperimentAttribute> PreviousAttributes { get; } = new List<ExperimentAttribute>();
 
 		public AnalysisModel ModelType { get; set; } = AnalysisModel.OneSetOfSites;
 		public bool IsGlobalAnalysis => this is GlobalModelFactory;
@@ -64,6 +65,14 @@ namespace AnalysisITC.AppClasses.Analysis2
 				return null;
 			}
 		}
+
+        public static void StorePreviousAttributes(List<ExperimentAttribute> atts) => atts.ForEach(att => StorePreviousAttribute(att));
+        public static void StorePreviousAttribute(ExperimentAttribute att)
+        {
+            PreviousAttributes.RemoveAll(a => a.Key == att.Key);
+
+            PreviousAttributes.Add(att);
+        }
 
         public static bool DataSupportsAnalysis(ExperimentData experiment)
         {
@@ -131,16 +140,48 @@ namespace AnalysisITC.AppClasses.Analysis2
 		{
 			Console.WriteLine("Building model: " + (IsGlobalAnalysis ? "GlobalModel " : "IndividualModel ") + ModelType.ToString());
 
-			switch (this)
+            switch (this)
 			{
 				case SingleModelFactory: (this as SingleModelFactory).Model.ModelCloneOptions = ModelCloneOptions.DefaultOptions; break;
 				case GlobalModelFactory: (this as GlobalModelFactory).Model.ModelCloneOptions = ModelCloneOptions.DefaultGlobalOptions; break;
 			}
         }
 
-		public static void Clear()
+        public static void RefreshParameterLimits()
+        {
+            Console.WriteLine("Updating Parameter values...");
+
+            switch (Factory)
+            {
+                case SingleModelFactory:
+                    foreach (var par in (Factory as SingleModelFactory).Model.Parameters.Table)
+                    {
+                        par.Value.RefreshLimits();
+                    }
+                    break;
+                case GlobalModelFactory:
+                    foreach (var gpar in (Factory as GlobalModelFactory).Model.Parameters.GlobalTable)
+                    {
+                        gpar.Value.RefreshLimits();
+                    }
+                    foreach (var parset in (Factory as GlobalModelFactory).Model.Parameters.IndividualModelParameterList)
+                    {
+                        foreach (var par in parset.Table)
+                        {
+                            par.Value.RefreshLimits();
+                        }
+                    }
+                    break;
+            }
+
+            Console.WriteLine("Done");
+        }
+
+        public static void Clear()
 		{
-			var factory = InitializeFactory(Factory.ModelType, Factory.IsGlobalAnalysis);
+            StorePreviousAttributes(Factory.GetExposedModelOptions().Select(att => att.Value).ToList());
+
+            var factory = InitializeFactory(Factory.ModelType, Factory.IsGlobalAnalysis);
 
             foreach (var par in Factory.GetExposedParameters())
             {
@@ -183,35 +224,66 @@ namespace AnalysisITC.AppClasses.Analysis2
 
         public void InitializeModel(ExperimentData data)
         {
-            Console.WriteLine("Initializing SingleModelFactory...");
+            AppEventHandler.PrintAndLog($"Initializing SingleModelFactory for {data.FileName}...");
+
+            AppEventHandler.PrintAndLog("  Checking injections...");
+            if (data.Injections.Where(inj => inj.Include).Count() == 0) throw new HandledException(HandledException.Severity.Error, "No valid peaks", "Please check that not all peaks are excluded");
+            AppEventHandler.PrintAndLog("  OK");
 
             var parameters = Model?.Parameters.Table.Where(p => p.Value.ChangedByUser);
             var options = Model?.ModelOptions;
 
+            AppEventHandler.PrintAndLog("  Constructing Model...");
             ConstructModel(data);
+            AppEventHandler.PrintAndLog("  OK");
 
+            AppEventHandler.PrintAndLog("  Initializing Parameters...");
             Model.InitializeParameters(data);
+            AppEventHandler.PrintAndLog("  OK");
 
+            AppEventHandler.PrintAndLog("  Setting Parameter Initial Values...");
             if (parameters != null)
             {
                 foreach (var (key, par) in parameters)
                 {
+                    AppEventHandler.PrintAndLog($"    Setting {key} = {par.Value}");
                     if (Model.Parameters.Table.ContainsKey(key)) SetCustomParameter(par.Key, par.Value, par.IsLocked);
                 }
             }
+            AppEventHandler.PrintAndLog("  OK");
+
+            AppEventHandler.PrintAndLog("  Setting Options...");
             if (options != null)
             {
                 foreach (var (key, opt) in options)
                 {
+                    AppEventHandler.PrintAndLog($"    Setting {key} = {opt}");
                     if (Model.ModelOptions.ContainsKey(key)) SetModelOption(opt.Copy());
                 }
             }
+            else
+            {
+                AppEventHandler.PrintAndLog("  Checking Storage...");
+                var exposed = GetExposedModelOptions().Select(att => att.Key).ToList();
+                foreach (var key in exposed)
+                {
+                    if (PreviousAttributes.Exists(att => att.Key == key))
+                    {
+                        var prevatt = PreviousAttributes.Find(att => att.Key == key);
+
+                        AppEventHandler.PrintAndLog($"    Setting {key} = {prevatt}");
+
+                        SetModelOption(prevatt.Copy());
+                    }
+                }
+            }
+            AppEventHandler.PrintAndLog("  OK");
+
+            AppEventHandler.PrintAndLog("SingleModelFactory OK");
         }
 
         public void ConstructModel(ExperimentData data)
         {
-            if (data.Injections.Where(inj => inj.Include).Count() == 0) throw new HandledException(HandledException.Severity.Error, "No valid peaks", "Please check that not all peaks are excluded");
-
             switch (ModelType)
             {
                 case AnalysisModel.OneSetOfSites: Model = new OneSetOfSites(data); break;

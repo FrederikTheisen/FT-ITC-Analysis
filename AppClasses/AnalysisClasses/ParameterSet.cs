@@ -30,7 +30,14 @@ namespace AnalysisITC.AppClasses.Analysis2
             Value = value;
             IsLocked = islocked;
 
-            Limits = key.GetProperties().DefaultLimits;
+            RefreshLimits();
+
+            StepSize = key.GetProperties().DefaultStepSize;
+        }
+
+        public void RefreshLimits()
+        {
+            Limits = this.Key.GetProperties().DefaultLimits;
             if (AppSettings.ParameterLimitSetting == ParameterLimitSetting.Extended)
             {
                 if (Limits[0] > 0) // Parameter can only be positive
@@ -51,10 +58,11 @@ namespace AnalysisITC.AppClasses.Analysis2
             }
             else if (AppSettings.ParameterLimitSetting == ParameterLimitSetting.NoLimit)
             {
-                Limits = new double[] { double.MinValue, double.MaxValue };
+                if (Limits[0] > 0) // we retain a limit for parameters that should not be negative or zero
+                    Limits = new double[] { float.Epsilon, float.MaxValue };
+                else
+                    Limits = new double[] { float.MinValue, float.MaxValue };
             }
-
-            StepSize = key.GetProperties().DefaultStepSize;
         }
 
         /// <summary>

@@ -314,6 +314,7 @@ namespace AnalysisITC
                 if (ModelFactory.Factory == null) InitializeFactory();
 
                 ModelFactory.Factory.BuildModel();
+                ModelFactory.RefreshParameterLimits();
 
                 var solver = SolverInterface.Initialize(ModelFactory.Factory);
                 solver.SolverAlgorithm = FittingOptionsController.Algorithm;
