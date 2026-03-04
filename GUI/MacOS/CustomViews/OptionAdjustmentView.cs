@@ -173,15 +173,19 @@ namespace AnalysisITC.GUI.MacOS.CustomViews
         {
             if (Option.Key == AttributeKey.PreboundLigandAffinity)
             {
-                Label.StringValue = Option.OptionName + $" ({AppSettings.DefaultConcentrationUnit.ToString()})";
+                Label.AttributedStringValue = Utilities.MacStrings.FromMarkDownString(
+                    Option.OptionName + $" ({Utilities.MarkdownStrings.DissociationConstant}, {AppSettings.DefaultConcentrationUnit})",
+                    NSFont.SystemFontOfSize(NSFont.SmallSystemFontSize));
             }
             else if (Option.Key == AttributeKey.PreboundLigandConc)
             {
-                //Label.StringValue = Option.OptionName + $" ({AppSettings.DefaultConcentrationUnit.ToString()})";
+                Label.AttributedStringValue = Utilities.MacStrings.FromMarkDownString(
+                    Option.OptionName + $" ({AppSettings.DefaultConcentrationUnit})",
+                    NSFont.SystemFontOfSize(NSFont.SmallSystemFontSize));
             }
             else if (Option.Key == AttributeKey.PreboundLigandEnthalpy)
             {
-                Label.StringValue += " (" + AppSettings.EnergyUnit.GetProperties().Unit + ")";
+                Label.StringValue += " (" + AppSettings.EnergyUnit.GetProperties().Unit + "/mol)";
             }
         }
 
@@ -387,6 +391,9 @@ namespace AnalysisITC.GUI.MacOS.CustomViews
                         break;
                     }
             }
+
+            // Store in array of options
+            ModelFactory.StorePreviousAttribute(Option);
         }
 
         public override string ToString()
