@@ -150,6 +150,8 @@
 	<key>CFBundleHelpBookName</key>
 	<string></string>
 	<key>XSAppIconAssets</key>
-	<string>Assets.xcassets/AppIcon.appiconset</string>
+	<string>Resources/AppIcon</string>
+	<key>CFBundleIconFile</key>
+	<string>AppIcon</string>
 </dict>
 </plist>

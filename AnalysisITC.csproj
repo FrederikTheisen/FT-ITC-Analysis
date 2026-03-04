@@ -129,14 +129,7 @@
     </Reference>
   </ItemGroup>
   <ItemGroup>
-    <ImageAsset Include="Assets.xcassets\AppIcon.appiconset\Contents.json" />
     <ImageAsset Include="Assets.xcassets\Contents.json" />
-    <ImageAsset Include="Assets.xcassets\AppIcon.appiconset\1024.png" />
-    <ImageAsset Include="Assets.xcassets\AppIcon.appiconset\128.png" />
-    <ImageAsset Include="Assets.xcassets\AppIcon.appiconset\512.png" />
-    <ImageAsset Include="Assets.xcassets\AppIcon.appiconset\16.png" />
-    <ImageAsset Include="Assets.xcassets\AppIcon.appiconset\256.png" />
-    <ImageAsset Include="Assets.xcassets\AppIcon.appiconset\32.png" />
     <ImageAsset Include="Assets.xcassets\ProjectFileIcon.iconset\icon_32x32%402x.png" />
     <ImageAsset Include="Assets.xcassets\ProjectFileIcon.iconset\icon_128x128.png" />
     <ImageAsset Include="Assets.xcassets\ProjectFileIcon.iconset\icon_256x256%402x.png" />
@@ -158,10 +151,27 @@
     <ImageAsset Include="Assets.xcassets\DataFileBackground.iconset\icon_512x512%402x.png" />
     <ImageAsset Include="Assets.xcassets\DataFileBackground.iconset\icon_256x256.png" />
     <ImageAsset Include="Assets.xcassets\.DS_Store" />
-    <ImageAsset Include="Assets.xcassets\AppIcon.appiconset\512 1.png" />
-    <ImageAsset Include="Assets.xcassets\AppIcon.appiconset\32x2.png" />
-    <ImageAsset Include="Assets.xcassets\AppIcon.appiconset\16x2.png" />
-    <ImageAsset Include="Assets.xcassets\AppIcon.appiconset\256 1.png" />
+    <ImageAsset Include="Assets.xcassets\AppIcon.iconset\icon_32x32%402x.png" />
+    <ImageAsset Include="Assets.xcassets\AppIcon.iconset\icon_128x128.png" />
+    <ImageAsset Include="Assets.xcassets\AppIcon.iconset\icon_256x256%402x.png" />
+    <ImageAsset Include="Assets.xcassets\AppIcon.iconset\icon_32x32.png" />
+    <ImageAsset Include="Assets.xcassets\AppIcon.iconset\icon_512x512.png" />
+    <ImageAsset Include="Assets.xcassets\AppIcon.iconset\icon_16x16.png" />
+    <ImageAsset Include="Assets.xcassets\AppIcon.iconset\icon_16x16%402x.png" />
+    <ImageAsset Include="Assets.xcassets\AppIcon.iconset\icon_128x128%402x.png" />
+    <ImageAsset Include="Assets.xcassets\AppIcon.iconset\icon_512x512%402x.png" />
+    <ImageAsset Include="Assets.xcassets\AppIcon.iconset\icon_256x256.png" />
+    <ImageAsset Include="Assets.xcassets\AppIconOld.appiconset\1024.png" />
+    <ImageAsset Include="Assets.xcassets\AppIconOld.appiconset\128.png" />
+    <ImageAsset Include="Assets.xcassets\AppIconOld.appiconset\512.png" />
+    <ImageAsset Include="Assets.xcassets\AppIconOld.appiconset\16.png" />
+    <ImageAsset Include="Assets.xcassets\AppIconOld.appiconset\512 1.png" />
+    <ImageAsset Include="Assets.xcassets\AppIconOld.appiconset\256.png" />
+    <ImageAsset Include="Assets.xcassets\AppIconOld.appiconset\32x2.png" />
+    <ImageAsset Include="Assets.xcassets\AppIconOld.appiconset\16x2.png" />
+    <ImageAsset Include="Assets.xcassets\AppIconOld.appiconset\32.png" />
+    <ImageAsset Include="Assets.xcassets\AppIconOld.appiconset\256 1.png" />
+    <ImageAsset Include="Assets.xcassets\AppIconOld.appiconset\Contents.json" />
   </ItemGroup>
   <ItemGroup>
     <Folder Include="Resources\" />
@@ -496,6 +506,10 @@
     <Compile Include="AppClasses\DataReaders\PEAQReader.cs" />
     <Compile Include="AppClasses\DataReaders\DataValidator.cs" />
     <Compile Include="AppClasses\DataClasses\AnalysisResultNameParser.cs" />
+    <Compile Include="TextInputMeniItemView.cs" />
+    <Compile Include="TextInputMeniItemView.designer.cs">
+      <DependentUpon>TextInputMeniItemView.cs</DependentUpon>
+    </Compile>
   </ItemGroup>
   <ItemGroup>
     <InterfaceDefinition Include="Main.storyboard" />
@@ -510,6 +524,7 @@
     <BundleResource Include="Resources\ExperimentViewCell.png" />
     <BundleResource Include="Resources\HintImg_ExpDetails.jpg" />
     <BundleResource Include="Resources\citation.bib" />
+    <BundleResource Include="Resources\AppIcon.icns" />
   </ItemGroup>
   <Import Project="$(MSBuildExtensionsPath)\Xamarin\Mac\Xamarin.Mac.CSharp.targets" />
   <Import Project="packages\Accord.3.8.0\build\Accord.targets" Condition="Exists('packages\Accord.3.8.0\build\Accord.targets')" />
