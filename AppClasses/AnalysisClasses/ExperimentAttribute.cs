@@ -119,36 +119,6 @@ namespace AnalysisITC.AppClasses.AnalysisClasses
 			};
 		}
 
-		public static ExperimentAttribute Int(AttributeKey key, string name, int value)
-		{
-			return new ExperimentAttribute()
-			{
-                Key = key,
-                OptionName = name,
-				IntValue = value,
-			};
-		}
-
-		public static ExperimentAttribute Double(AttributeKey key, string name, double value)
-		{
-			return new ExperimentAttribute()
-			{
-                Key = key,
-                OptionName = name,
-				DoubleValue = value,
-			};
-		}
-
-		public static ExperimentAttribute Enum(AttributeKey key, string name, List<string> options, int initial = 0)
-		{
-			return new ExperimentAttribute()
-			{
-				Key = key,
-				OptionName = name,
-				IntValue = options.Count,
-			};
-		}
-
 		public static ExperimentAttribute Parameter(AttributeKey key, string name, FloatWithError value)
 		{
 			return new ExperimentAttribute()
@@ -211,6 +181,26 @@ namespace AnalysisITC.AppClasses.AnalysisClasses
 				DoubleValue = DoubleValue,
 				StringValue = StringValue,
 			};
+		}
+
+		override public string ToString()
+		{
+			if (Key == AttributeKey.Buffer)
+				return $"{ParameterValue.Value} mM {((Buffer)IntValue).GetProperties().ListName} pH {DoubleValue}";
+			else if (Key == AttributeKey.Salt)
+				return $"{ParameterValue.Value} mM {((Salt)IntValue).GetProperties().Name}";
+
+            switch (Key.GetProperties().Type)
+			{
+				case AttributeType.Bool: return BoolValue.ToString();
+				case AttributeType.Enum:
+				case AttributeType.Int: return IntValue.ToString();
+				case AttributeType.Double: return DoubleValue.ToString();
+				case AttributeType.ParameterConcentration:
+				case AttributeType.Parameter: return ParameterValue.ToString();
+			}
+
+			return $"{Key} {StringValue} {IntValue} {BoolValue} {DoubleValue} {ParameterValue}";
 		}
 
 		public static List<AttributeKey> AvailableExperimentAttributes
