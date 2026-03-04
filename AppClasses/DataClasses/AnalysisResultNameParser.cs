@@ -289,7 +289,7 @@ namespace AnalysisITC
             }
             catch { }
 
-            var s = (name ?? "").ToLowerInvariant();
+            var s = (name ?? "");//.ToLowerInvariant();
 
             string delimiter = @"[\\s_\.]+";
             if (!s.Contains('_')) //If name contain '_', we assume this is used and that '-' means something else
