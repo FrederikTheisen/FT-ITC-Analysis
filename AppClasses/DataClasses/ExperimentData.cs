@@ -623,14 +623,15 @@ namespace AnalysisITC
 
         public void SetIntegrationLengthByFactor(float factor)
         {
-            // Assumed instrument/response time constant (seconds).
-            // If you meant "k = 1/8 s^-1" (rate constant), then tau = 1/k = 8 s (same value here).
             const double tau = 8.0;
 
-            // "Back to baseline" definition
-            const double returnFrac = 0.02;   // 2% of apex amplitude above baseline
-            const double noiseFactor = 3.0;   // 3*sigma floor
-            const int smoothHalfWin = 2;      // 5-pt moving average
+            const double returnFrac = 0.02;
+            const double noiseFactor = 3.0;
+
+            // Time-based parameters (seconds)
+            const double smoothWindowSeconds = 5.0; // ~current behavior at 1 s sampling
+            const double tailWindowSeconds = 20.0;  // as per comment
+            const int minTailSamples = 10;          // keep some robustness
 
             try
             {
@@ -640,31 +641,46 @@ namespace AnalysisITC
                 if (dps.Count < 10) return;
 
                 int n = dps.Count;
+                double dt = Experiment.TimeStep;
+                if (!(dt > 0)) return;
 
-                // Smooth |power| to suppress isolated spikes (cheap, short)
+                // Convert time windows -> sample windows
+                int smoothHalfWin = Math.Max(1, (int)Math.Round((smoothWindowSeconds / dt) / 2.0));
+                int tailN = (int)Math.Round(tailWindowSeconds / dt);
+                tailN = Math.Clamp(tailN, minTailSamples, n);
+
+                // Smooth |power|
                 double[] sm = new double[n];
                 for (int i = 0; i < n; i++)
                 {
                     double s = 0; int c = 0;
-                    for (int j = Math.Max(0, i - smoothHalfWin); j <= Math.Min(n - 1, i + smoothHalfWin); j++)
-                    { s += Math.Abs(dps[j].Power); c++; }
+                    int a = Math.Max(0, i - smoothHalfWin);
+                    int b = Math.Min(n - 1, i + smoothHalfWin);
+                    for (int j = a; j <= b; j++) { s += Math.Abs(dps[j].Power); c++; }
                     sm[i] = s / c;
                 }
 
-                // Baseline + sigma from tail (last ~20 s or last 10%)
-                int tailN = Math.Min(20, Math.Max(10, n / 10));
+                // Baseline + sigma from tail (last tailWindowSeconds)
                 var tail = sm.Skip(n - tailN).OrderBy(v => v).ToArray();
                 double baseline = tail[tail.Length / 2];
 
-                double sigma = Math.Sqrt(sm.Skip(n - tailN).Average(v => (v - baseline) * (v - baseline)));
+                double sigma = Math.Sqrt(sm.Skip(n - tailN)
+                    .Average(v => (v - baseline) * (v - baseline)));
 
-                // Apex = last point before |power| turns back (use smoothed series)
-                // Pick the first "real" turning point: sm rises then begins to fall.
+                // Apex: turning point using the same time-scale neighborhood
+                // (keep your logic but with window derived from dt)
                 int apex = -1;
-                for (int i = 2; i < n - 2; i++)
+                int k = Math.Max(2, smoothHalfWin); // ensure enough points for pattern
+                for (int i = k; i < n - k; i++)
                 {
-                    if (sm[i - 2] <= sm[i - 1] && sm[i - 1] <= sm[i] && sm[i] >= sm[i + 1] && sm[i + 1] >= sm[i + 2])
-                    { apex = i; break; }
+                    // require non-decreasing up to i and non-increasing after i over k steps
+                    bool up = true, down = true;
+                    for (int u = i - k; u < i; u++) if (sm[u] > sm[u + 1]) { up = false; break; }
+                    if (up)
+                    {
+                        for (int d = i; d < i + k; d++) if (sm[d] < sm[d + 1]) { down = false; break; }
+                        if (down) { apex = i; break; }
+                    }
                 }
                 if (apex < 0) return;
 
@@ -673,15 +689,14 @@ namespace AnalysisITC
 
                 double thr = Math.Max(returnFrac * A0, noiseFactor * sigma);
 
-                // Exponential return time (seconds). Guard against thr >= A0.
                 double tReturn = (thr < A0) ? (tau * Math.Log(A0 / thr)) : 0.0;
 
-                // IntegrationLength assumed to be "end offset from injection start Time"
                 double apexOffset = dps[apex].Time - Time;
                 double endOffset = apexOffset + factor * tReturn;
 
-                // Keep between the start delay and the injection scope
-                IntegrationLength = Math.Clamp((float)endOffset, IntegrationStartDelay + MinimumIntegrationTime, Delay);
+                IntegrationLength = Math.Clamp((float)endOffset,
+                    IntegrationStartDelay + MinimumIntegrationTime,
+                    Delay);
             }
             catch (Exception ex)
             {
