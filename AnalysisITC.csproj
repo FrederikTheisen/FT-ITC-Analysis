@@ -525,6 +525,8 @@
     <BundleResource Include="Resources\HintImg_ExpDetails.jpg" />
     <BundleResource Include="Resources\citation.bib" />
     <BundleResource Include="Resources\AppIcon.icns" />
+    <BundleResource Include="Resources\DataFileIcon.icns" />
+    <BundleResource Include="Resources\ProjectFileIcon.icns" />
   </ItemGroup>
   <Import Project="$(MSBuildExtensionsPath)\Xamarin\Mac\Xamarin.Mac.CSharp.targets" />
   <Import Project="packages\Accord.3.8.0\build\Accord.targets" Condition="Exists('packages\Accord.3.8.0\build\Accord.targets')" />

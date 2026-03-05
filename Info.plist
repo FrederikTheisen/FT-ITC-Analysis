@@ -20,7 +20,7 @@
 				<string>apj</string>
 			</array>
 			<key>CFBundleTypeIconFile</key>
-			<string>DataFileBackground</string>
+			<string>DataFileIcon</string>
 			<key>CFBundleTypeIconSystemGenerated</key>
 			<integer>0</integer>
 			<key>CFBundleTypeName</key>
@@ -31,7 +31,7 @@
 			<string>Owner</string>
 			<key>LSItemContentTypes</key>
 			<array>
-				<string>public.itcdatafile</string>
+				<string>com.frederiktheisen.ftitc.itcdata</string>
 			</array>
 			<key>NSDocumentClass</key>
 			<string></string>
@@ -42,17 +42,22 @@
 			<key>CFBundleTypeIconSystemGenerated</key>
 			<integer>0</integer>
 			<key>CFBundleTypeName</key>
-			<string>FT-ITC Project File [TEST]</string>
+			<string>FT-ITC Project File</string>
 			<key>CFBundleTypeRole</key>
 			<string>Editor</string>
 			<key>LSHandlerRank</key>
 			<string>Owner</string>
 			<key>LSItemContentTypes</key>
 			<array>
-				<string>public.ftitcproject</string>
+				<string>com.frederiktheisen.ftitc.project</string>
 			</array>
 			<key>NSDocumentClass</key>
 			<string>NSDocument</string>
+			<key>CFBundleTypeExtensions</key>
+			<array>
+				<string>ftitc</string>
+				<string>FTITC</string>
+			</array>
 		</dict>
 	</array>
 	<key>CFBundleIdentifier</key>
