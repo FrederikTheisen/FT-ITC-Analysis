@@ -9,9 +9,6 @@ namespace AnalysisITC
 {
 	public partial class AboutAppViewController : NSViewController
 	{
-        string simpleVersion = "";
-        string fullVersion = "";
-
 		public AboutAppViewController (IntPtr handle) : base (handle)
 		{
 		}
@@ -20,21 +17,17 @@ namespace AnalysisITC
         {
             base.ViewWillAppear();
 
-            Version version = System.Reflection.Assembly.GetExecutingAssembly().GetName().Version;
-            simpleVersion = version.Major + "." + version.Minor;
-            fullVersion = version.ToString();
-
-            VersionButton.Title = $"Version: {simpleVersion}";
+            VersionButton.Title = $"Version: {AppVersion.ShortVersionString}";
         }
 
         partial void VersionLabelClick(NSObject sender)
         {
-            VersionLabel.StringValue = $"Version: {fullVersion}";
+
         }
 
         partial void VersionButtonAction(NSObject sender)
         {
-            VersionButton.Title = $"Version: {fullVersion}";
+            VersionButton.Title = $"Version: {AppVersion.FullVersionString}";
         }
     }
 }

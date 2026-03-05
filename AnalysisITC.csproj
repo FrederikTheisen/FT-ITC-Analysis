@@ -510,6 +510,7 @@
     <Compile Include="TextInputMeniItemView.designer.cs">
       <DependentUpon>TextInputMeniItemView.cs</DependentUpon>
     </Compile>
+    <Compile Include="GUI\MacOS\AppVersion.cs" />
   </ItemGroup>
   <ItemGroup>
     <InterfaceDefinition Include="Main.storyboard" />
