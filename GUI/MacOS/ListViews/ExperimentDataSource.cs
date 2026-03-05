@@ -27,12 +27,14 @@ namespace AnalysisITC
         public string UniqueID { get; private set; } = Guid.NewGuid().ToString();
         public string FileName { get; set; } = "";
         public string Comments { get; set; } = "";
-        public DateTime Date { get; internal set; }
+        public DateTime Date { get; set; }
 
         public string UILongDateWithTime => Date.ToLongDateString() + " " + Date.ToString("HH:mm:ss");
         public string UIShortDateWithTime => Date.ToShortDateString() + " " + Date.ToString("HH:mm");
 
         public void SetID(string id) => UniqueID = id;
+
+        public void SetDate(DateTime date) => Date = date;
     }
 
     public class AnalysisITCDataSource : NSTableViewDataSource

@@ -92,6 +92,7 @@ namespace AnalysisITC
         public const string EndObjectHeader = "ENDOBJECT";
 
         public static string FileHeader(string header, string filename) => "FILE:" + header + ":" + filename;
+        public static string FileHeader(string header, string[] args) => "FILE:" + header + ":" + string.Join(',', args);
         public static string ObjectHeader(string header) => "OBJECT:" + header; 
         public static string Variable(string header, string value) => header + ":" + value;
         public static string Variable(string header, double value) => Variable(header, value.ToString());
@@ -339,7 +340,7 @@ namespace AnalysisITC
         }
 
         static List<string> GetSolutionLines(SolutionInterface solution)
-        {
+        { 
             var file = new List<string>();
             file.Add(FileHeader(SolutionHeader, solution.Guid));
             file.Add(Variable(DataRef, solution.Data.UniqueID));
@@ -392,15 +393,16 @@ namespace AnalysisITC
             file.Add(EndObjectHeader);
         }
 
-        static async Task WriteSolutionToFile2(SolutionInterface solution, StreamWriter stream)
+        static async Task WriteAnalysisResultToFile(AnalysisResult result, StreamWriter stream)
         {
-            var file = GetSolutionLines(solution);
-            foreach (var line in file) await stream.WriteLineAsync(line);
-        }
-
-        static async Task WriteGlobalSolutionToFile(GlobalSolution solution, StreamWriter stream)
-        {
-            var file = GetGlobalSolutionLines(solution);
+            var file = new List<string>()
+            {
+                FileHeader(AnalysisResultHeader, new[] { result.UniqueID, result.FileName }),
+                Variable(Comments, result.Comments),
+                Variable(Date, result.Date.ToString("O")),
+            };
+            file.AddRange(GetGlobalSolutionLines(result.Solution));
+            file.Add(EndFileHeader);
             foreach (var line in file) await stream.WriteLineAsync(line);
         }
 
@@ -455,15 +457,6 @@ namespace AnalysisITC
             file.Add(EndFileHeader);
 
             return file;
-        }
-
-        static async Task WriteAnalysisResultToFile(AnalysisResult result, StreamWriter stream)
-        {
-            var file = new List<string>();
-            file.Add(FileHeader(AnalysisResultHeader, result.UniqueID));
-            file.AddRange(GetGlobalSolutionLines(result.Solution));
-            file.Add(EndFileHeader);
-            foreach (var line in file) await stream.WriteLineAsync(line);
         }
     }
 

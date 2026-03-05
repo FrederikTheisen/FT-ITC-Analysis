@@ -250,16 +250,28 @@ namespace DataReaders
 
             try
             {
-                var guid = firstline.Split(':')[2];
+                var info = firstline.Split(':')[2].Split(',');
+                var comments = reader.ReadLine().Split(':')[1];
+                var dateinfo = reader.ReadLine().Substring(Date.Length + 1);
+                var date = DateTime.Parse(dateinfo);
+
                 var sol = ReadGlobalSolution(reader);
 
+                
+                string guid = info[0];
+                string name = info.Length > 1 ? info[1] : sol.SolutionName;
                 AnalysisResult result = new AnalysisResult(sol);
+                result.SetID(guid);
+                result.FileName = name;
+                result.Comments = comments;
+                result.SetDate(date);
 
                 return result;
             }
             catch (Exception ex)
             {
-                AppEventHandler.AddLog(ex);
+                AppEventHandler.PrintAndLog(ex.StackTrace);
+                AppEventHandler.DisplayHandledException(new HandledException(HandledException.Severity.Error,"File Reading Error", $"Analysis Result reading error.\nFile: {firstline}"));
 
                 return null;
             }
