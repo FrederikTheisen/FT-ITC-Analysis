@@ -2,47 +2,45 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<key>CFBundleIdentifier</key>
+	<string>FrederikTheisen.FT-ITC-Analysis</string>
+	<key>CFBundleName</key>
+	<string>FT-ITC Analysis</string>
+	<key>NSHumanReadableCopyright</key>
+	<string>(c) Frederik Theisen</string>
+	<key>NSPrincipalClass</key>
+	<string>NSApplication</string>
+	<key>LSApplicationCategoryType</key>
+	<string>public.app-category.productivity</string>
+	<key>CFBundleVersion</key>
+	<string>1.7.4</string>
+	<key>CFBundleShortVersionString</key>
+	<string>1.7.4</string>
+	<key>CFBundlePackageType</key>
+	<string>APPL</string>
+	<key>CFBundleSignature</key>
+	<string>????</string>
+	<key>LSMinimumSystemVersion</key>
+	<string>11.1</string>
+	<key>CFBundleIconFile</key>
+	<string>AppIcon</string>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>en</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>NSMainStoryboardFile</key>
+	<string>Main</string>
 	<key>CFBundleDocumentTypes</key>
 	<array>
 		<dict>
-			<key>CFBundleTypeExtensions</key>
-			<array>
-				<string>itc</string>
-				<string>vpitc</string>
-				<string>ITC</string>
-				<string>ta</string>
-				<string>dat</string>
-				<string>aff</string>
-				<string>DAT</string>
-				<string>AFF</string>
-				<string>apj</string>
-			</array>
-			<key>CFBundleTypeIconFile</key>
-			<string>DataFileIcon</string>
-			<key>CFBundleTypeIconSystemGenerated</key>
-			<integer>0</integer>
-			<key>CFBundleTypeName</key>
-			<string>ITC Data File</string>
-			<key>CFBundleTypeRole</key>
-			<string>Viewer</string>
-			<key>LSHandlerRank</key>
-			<string>Owner</string>
-			<key>LSItemContentTypes</key>
-			<array>
-				<string>com.frederiktheisen.ftitc.itcdata</string>
-			</array>
-			<key>NSDocumentClass</key>
-			<string></string>
-		</dict>
-		<dict>
-			<key>CFBundleTypeIconFile</key>
-			<string>ProjectFileIcon</string>
-			<key>CFBundleTypeIconSystemGenerated</key>
-			<integer>0</integer>
 			<key>CFBundleTypeName</key>
 			<string>FT-ITC Project File</string>
+			<key>CFBundleTypeExtensions</key>
+			<array>
+				<string>ftitc</string>
+			</array>
+			<key>CFBundleTypeIconFile</key>
+			<string>ProjectFileIcon</string>
 			<key>CFBundleTypeRole</key>
 			<string>Editor</string>
 			<key>LSHandlerRank</key>
@@ -51,64 +49,83 @@
 			<array>
 				<string>com.frederiktheisen.ftitc.project</string>
 			</array>
-			<key>NSDocumentClass</key>
-			<string>NSDocument</string>
+		</dict>
+		<dict>
+			<key>CFBundleTypeName</key>
+			<string>ITC Data File</string>
 			<key>CFBundleTypeExtensions</key>
 			<array>
-				<string>ftitc</string>
-				<string>FTITC</string>
+				<string>itc</string>
+				<string>ITC</string>
+				<string>ta</string>
+				<string>TA</string>
+				<string>dat</string>
+				<string>aff</string>
+				<string>DAT</string>
+				<string>AFF</string>
+				<string>apj</string>
+			</array>
+			<key>CFBundleTypeIconFile</key>
+			<string>DataFileIcon</string>
+			<key>CFBundleTypeRole</key>
+			<string>Viewer</string>
+			<key>LSHandlerRank</key>
+			<string>Owner</string>
+			<key>LSItemContentTypes</key>
+			<array>
+				<string>com.frederiktheisen.ftitc.itcdata</string>
 			</array>
 		</dict>
 	</array>
-	<key>CFBundleIdentifier</key>
-	<string>FrederikTheisen.FT-ITC-Analysis</string>
-	<key>CFBundleInfoDictionaryVersion</key>
-	<string>6.0</string>
-	<key>CFBundleName</key>
-	<string>FT-ITC Analysis</string>
-	<key>CFBundlePackageType</key>
-	<string>APPL</string>
-	<key>CFBundleShortVersionString</key>
-	<string>1.7</string>
-	<key>CFBundleSignature</key>
-	<string>????</string>
-	<key>CFBundleVersion</key>
-	<string>1</string>
-	<key>LSApplicationCategoryType</key>
-	<string>public.app-category.productivity</string>
-	<key>LSMinimumSystemVersion</key>
-	<string>11.1</string>
-	<key>NSHumanReadableCopyright</key>
-	<string>(c) Frederik Theisen</string>
-	<key>NSMainStoryboardFile</key>
-	<string>Main</string>
-	<key>NSPrincipalClass</key>
-	<string>NSApplication</string>
 	<key>UTExportedTypeDeclarations</key>
 	<array>
 		<dict>
-			<key>UTTypeConformsTo</key>
-			<array>
-				<string>public.text</string>
-			</array>
 			<key>UTTypeDescription</key>
 			<string>FT-ITC Project</string>
-			<key>UTTypeIconFile</key>
-			<string></string>
-			<key>UTTypeIcons</key>
-			<dict/>
 			<key>UTTypeIdentifier</key>
-			<string>public.ftitcproject</string>
+			<string>com.frederiktheisen.ftitc-project</string>
+			<key>UTTypeConformsTo</key>
+			<array>
+				<string>public.data</string>
+			</array>
+			<key>UTTypeIconFiles</key>
+			<array>
+				<string>ProjectFileIcon</string>
+			</array>
 			<key>UTTypeTagSpecification</key>
 			<dict>
 				<key>public.filename-extension</key>
 				<array>
 					<string>ftitc</string>
-					<string>FTITC</string>
 				</array>
-				<key>public.mime-type</key>
+			</dict>
+		</dict>
+		<dict>
+			<key>UTTypeDescription</key>
+			<string>ITC Data File</string>
+			<key>UTTypeIdentifier</key>
+			<string>com.frederiktheisen.ftitc.itcdata</string>
+			<key>UTTypeConformsTo</key>
+			<array>
+				<string>public.data</string>
+			</array>
+			<key>UTTypeIconFiles</key>
+			<array>
+				<string>DataFileIcon</string>
+			</array>
+			<key>UTTypeTagSpecification</key>
+			<dict>
+				<key>public.filename-extension</key>
 				<array>
-					<string>ftitcproject</string>
+					<string>itc</string>
+					<string>ITC</string>
+					<string>ta</string>
+					<string>TA</string>
+					<string>dat</string>
+					<string>aff</string>
+					<string>DAT</string>
+					<string>AFF</string>
+					<string>apj</string>
 				</array>
 			</dict>
 		</dict>
@@ -118,45 +135,32 @@
 		<dict>
 			<key>UTTypeConformsTo</key>
 			<array>
-				<string>public.text</string>
+				<string>public.data</string>
 			</array>
 			<key>UTTypeDescription</key>
-			<string>Raw Data</string>
-			<key>UTTypeIconFile</key>
-			<string></string>
-			<key>UTTypeIcons</key>
-			<dict>
-				<key>UTTypeIconBadgeName</key>
-				<string></string>
-			</dict>
+			<string>ITC Data File</string>
+			<key>UTTypeIconFiles</key>
+			<array>
+				<string>DataFileIcon</string>
+			</array>
 			<key>UTTypeIdentifier</key>
-			<string>public.itcdatafile</string>
+			<string>com.frederiktheisen.ftitc.itcdata</string>
 			<key>UTTypeTagSpecification</key>
 			<dict>
 				<key>public.filename-extension</key>
 				<array>
 					<string>itc</string>
-					<string>vpitc</string>
+					<string>TA</string>
 					<string>ITC</string>
-					<string>VPITC</string>
+					<string>apj</string>
 					<string>ta</string>
 					<string>dat</string>
 					<string>DAT</string>
 					<string>aff</string>
 					<string>AFF</string>
 				</array>
-				<key>public.mime-type</key>
-				<array>
-					<string>itcdata</string>
-				</array>
 			</dict>
 		</dict>
 	</array>
-	<key>CFBundleHelpBookName</key>
-	<string></string>
-	<key>XSAppIconAssets</key>
-	<string>Resources/AppIcon</string>
-	<key>CFBundleIconFile</key>
-	<string>AppIcon</string>
 </dict>
 </plist>
