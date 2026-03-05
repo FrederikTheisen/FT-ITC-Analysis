@@ -173,5 +173,98 @@ namespace AnalysisITC
 
             return min;
         }
+
+        public List<Tuple<string, string>> GetParameterEvaluationList()
+        {
+            var output = new List<Tuple<string, string>>();
+
+            // Evaluation temperature (°C):
+            // - If temperature span is large enough to expose temperature dependence -> use reference temp
+            // - Otherwise -> use mean dataset temperature
+            var evalTempC = Model.TemperatureDependenceExposed ? AppSettings.ReferenceTemperature : Solution.MeanTemperature;
+
+            var energyUnit = AppSettings.EnergyUnit;
+
+            static string Sub(int i) => i switch { 2 => "{2}", 3 => "{3}", 4 => "{4}", _ => "" };
+
+            string ParameterName(ParameterType key) => $"{key.GetProperties().Name} ({key.GetProperties().SymbolName})";
+
+            void AddInteraction(int idx)
+            {
+                var enthalpyKey = idx == 1 ? ParameterType.Enthalpy1 : ParameterType.Enthalpy2;
+                var gibbsKey = idx == 1 ? ParameterType.Gibbs1 : ParameterType.Gibbs2;
+                var affinityKey = idx == 1 ? ParameterType.Affinity1 : ParameterType.Affinity2; // NOTE: UI treats this as Kd
+                var nKey = idx == 1 ? ParameterType.Nvalue1 : ParameterType.Nvalue2;
+
+                // ΔH
+                if (Solution.TemperatureDependence.ContainsKey(enthalpyKey))
+                {
+                    var dH = new Energy(Solution.TemperatureDependence[enthalpyKey].Evaluate(evalTempC, 100000));
+                    output.Add(new(ParameterName(enthalpyKey), dH.ToFormattedString(energyUnit, permole: true)));
+
+                    // ΔCp (only if temperature dependence was actually fitted)
+                    if (Model.TemperatureDependenceExposed)
+                    {
+                        var slope = Solution.TemperatureDependence[enthalpyKey].Slope;
+                        if (Math.Abs(slope.Value) > 0)
+                        {
+                            var dCp = new Energy(slope);
+                            output.Add(new(MarkdownStrings.HeatCapacity + Sub(idx), dCp.ToFormattedString(energyUnit, true, true, true)));
+                        }
+                    }
+                }
+
+                // ΔG and Kd (Kd derived from ΔG)
+                if (Solution.TemperatureDependence.ContainsKey(gibbsKey))
+                {
+                    var dG = new Energy(Solution.TemperatureDependence[gibbsKey].Evaluate(evalTempC, 100000));
+                    output.Add(new(ParameterName(gibbsKey), dG.ToFormattedString(energyUnit, permole: true)));
+
+                    // Convert °C -> K for van 't Hoff relation
+                    var tK = evalTempC + 273.15;
+                    var kdExponent = dG / (tK * Energy.R);
+                    var kd = FWEMath.Exp(kdExponent.FloatWithError); // Kd = exp(ΔG / (R T))
+                    output.Add(new(ParameterName(affinityKey), kd.AsFormattedConcentration(withunit: true)));
+                }
+                else
+                {
+                    // Fallback: average per-experiment Kd if ΔG isn't available for the model
+                    try
+                    {
+                        if (Solution.Solutions.Count > 0 && Solution.Solutions[0].ReportParameters.ContainsKey(affinityKey))
+                        {
+                            var kdVals = Solution.Solutions.Select(sol => sol.ReportParameters[affinityKey].Value).ToList();
+                            var kdAvg = new FloatWithError(kdVals, kdVals.Average());
+                            output.Add(new(ParameterName(affinityKey), kdAvg.AsFormattedConcentration(withunit: true)));
+                        }
+                    }
+                    catch { }
+                }
+
+                // N (low priority)
+                try
+                {
+                    if (Solution.Solutions.Count > 0 && Solution.Solutions[0].ReportParameters.ContainsKey(nKey))
+                    {
+                        var nVals = Solution.Solutions.Select(sol => sol.ReportParameters[nKey].Value).ToList();
+                        var nAvg = new FloatWithError(nVals, nVals.Average());
+                        output.Add(new(ParameterName(nKey), nAvg.AsNumber()));
+                    }
+                }
+                catch { }
+            }
+
+            AddInteraction(1);
+
+            // Add second binding event if present
+            if (Solution.TemperatureDependence.ContainsKey(ParameterType.Enthalpy2) ||
+                Solution.TemperatureDependence.ContainsKey(ParameterType.Gibbs2) ||
+                (Solution.Solutions.Count > 0 && Solution.Solutions[0].ReportParameters.ContainsKey(ParameterType.Nvalue2)))
+            {
+                AddInteraction(2);
+            }
+
+            return output;
+        }
     }
 }
