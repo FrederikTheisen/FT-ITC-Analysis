@@ -5,6 +5,7 @@ using System.Linq;
 using Foundation;
 using AppKit;
 using AnalysisITC.AppClasses.Analysis2;
+using AnalysisITC.Utilities;
 
 namespace AnalysisITC
 {
@@ -44,9 +45,10 @@ namespace AnalysisITC
             fit += AnalysisResult.Solution.SolutionName + Environment.NewLine;
             fit += Extensions.GetEnumDescription(AnalysisResult.Solution.Convergence.Algorithm) + Environment.NewLine;
             fit += AnalysisResult.Solution.Convergence.Iterations + " | " + AnalysisResult.Solution.Loss.ToString("G3") + " | " + AnalysisResult.Solution.Convergence.Time.TotalMilliseconds.ToString("F0") + "ms" + Environment.NewLine;
-            fit += AnalysisResult.Solution.BootstrapIterations + " | " + AnalysisResult.Solution.BootstrapTime.TotalSeconds.ToString("F1") + "s";
+            fit += AnalysisResult.Solution.BootstrapIterations + " | " + AnalysisResult.Solution.BootstrapTime.TotalSeconds.ToString("F1") + "s" + Environment.NewLine;
             fit += (AnalysisResult.Solution.WeightedFitting ? "ENABLED" : "OFF") + " | " + (AnalysisResult.Solution.ModelCloneOptions.IncludeConcentrationErrorsInBootstrap ? "ENABLED" : "OFF");
 
+            // Constraints
             if (AnalysisResult.Solution.Model.Parameters.Constraints.Count > 0)
             {
                 ConstraintLabel.StringValue = "";
@@ -70,9 +72,27 @@ namespace AnalysisITC
             parameters += AnalysisResult.Solution.Model.MeanTemperature.ToString("F3") + " °C";
 
             FitParameterLabel.StringValue = fit;
-            DataSetParameterLabel.StringValue = parameters;
+            //DataSetParameterLabel.StringValue = parameters;
 
+            var items = AnalysisResult.GetParameterEvaluationList();
 
+            // Left column labels
+
+            var attr = MacStrings.FromMarkDownString(string.Join(Environment.NewLine, items.Select(i => i.Item1 + ":")), NSFont.SystemFontOfSize(11));
+            var mutable = new NSMutableAttributedString(attr);
+            var full = new NSRange(0, mutable.Length);
+            // Preserve existing paragraph style if present, but override alignment
+            var existing = mutable.GetAttribute(NSStringAttributeKey.ParagraphStyle, 0, out _) as NSParagraphStyle;
+            var ps = existing != null ? (existing.MutableCopy() as NSMutableParagraphStyle) : new NSMutableParagraphStyle();
+            ps.Alignment = NSTextAlignment.Right;
+
+            mutable.AddAttribute(NSStringAttributeKey.ParagraphStyle, ps, full);
+
+            ParameterLabels.AttributedStringValue = mutable;
+
+            // Right column values
+            DataSetParameterLabel.StringValue =
+                string.Join(Environment.NewLine, items.Select(i => i.Item2));
         }
 
         partial void CopyToClipboard(NSObject sender)

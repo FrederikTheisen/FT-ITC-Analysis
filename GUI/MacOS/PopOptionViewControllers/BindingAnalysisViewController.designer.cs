@@ -40,6 +40,9 @@ namespace AnalysisITC
 		AppKit.NSTextField NameTextField { get; set; }
 
 		[Outlet]
+		AppKit.NSTextField ParameterLabels { get; set; }
+
+		[Outlet]
 		AppKit.NSTableView ResultsTableView { get; set; }
 
 		[Outlet]
@@ -79,6 +82,11 @@ namespace AnalysisITC
 			if (CommentTextField != null) {
 				CommentTextField.Dispose ();
 				CommentTextField = null;
+			}
+
+			if (ParameterLabels != null) {
+				ParameterLabels.Dispose ();
+				ParameterLabels = null;
 			}
 
 			if (ConstraintKeyLabel != null) {
