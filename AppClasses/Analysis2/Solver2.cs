@@ -70,7 +70,7 @@ namespace AnalysisITC.AppClasses.Analysis2
         }
 
         // LM parameters
-        public double LevenbergMarquardtDifferentiationStepSize => Tolerance(2, 8);   // 1E-2 - 1E-6
+        public double LevenbergMarquardtDifferentiationStepSize => Tolerance(3, 6);   // 1E-2 - 1E-6
         public double LevenbergMarquardtEpsilon => Tolerance(5, 11);              // 1E-5 - 1E-9
 
         internal alglib.minlmstate LMOptimizerState { get; set; }
@@ -405,7 +405,7 @@ namespace AnalysisITC.AppClasses.Analysis2
             LMOptimizerState = state;
 
             alglib.minlmsetcond(LMOptimizerState, LevenbergMarquardtEpsilon, MaxOptimizerIterations);
-            alglib.minlmsetscale(LMOptimizerState, guess); // Model.Parameters.Table.Values.Where(p => p.IsFitted).Select(p => p.StepSize).ToArray());
+            alglib.minlmsetscale(LMOptimizerState, guess);
             alglib.minlmsetbc(LMOptimizerState, limits.Select(p => p[0]).ToArray(), limits.Select(p => p[1]).ToArray());
             alglib.minlmoptimize(LMOptimizerState, (double[] x, double[] fi, object obj) =>
             {
@@ -712,7 +712,7 @@ namespace AnalysisITC.AppClasses.Analysis2
             LMOptimizerState = state;
 
             alglib.minlmsetcond(state, LevenbergMarquardtEpsilon, MaxOptimizerIterations);
-            alglib.minlmsetscale(state, parameters.Select(p => p.StepSize).ToArray());
+            alglib.minlmsetscale(state, guess);
             alglib.minlmsetbc(state, limits.Select(p => p[0]).ToArray(), limits.Select(p => p[1]).ToArray());
             alglib.minlmoptimize(state, (double[] x, double[] fi, object obj) =>
             {
