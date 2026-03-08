@@ -23,7 +23,7 @@ namespace AnalysisITC
         GlobalSolution Solution => AnalysisResult.Solution;
 
         EnergyUnit EnergyUnit => AppSettings.EnergyUnit;
-        ConcentrationUnit AppropriateAutoConcUnit { get; set; } = ConcentrationUnit.µM;
+        ConcentrationUnit AppropriateAffinityUnit { get; set; } = ConcentrationUnit.µM;
         public bool UseKelvin => TempControl.SelectedSegment == 1;
 
         ResultGraphView.ResultGraphType DisplayedGraphType = ResultGraphView.ResultGraphType.Parameters;
@@ -187,17 +187,44 @@ namespace AnalysisITC
 
         public void SetupResultView()
         {
-            // Clear parameter field
+            // Clear fields and set button states
             EvaluationOutputLabel.StringValue = "";
+            EnergyControl.SelectedSegment = AppSettings.EnergyUnit switch { EnergyUnit.Joule => 0, EnergyUnit.KiloJoule => 1, EnergyUnit.Cal => 2, EnergyUnit.KCal => 3, _ => 1, };
+            var refT = Solution.MeanTemperature;
+            if (UseKelvin)
+            {
+                refT += 273.15;
+                ResultEvalTempUnitLabel.StringValue = "K";
+            }
+            else ResultEvalTempUnitLabel.StringValue = "°C";
+            string tempunit = (UseKelvin ? " K" : " °C");
+
+            // Information Area
+            ExperimentListButton.Title = Solution.Solutions.Count + " experiments";
+
+            var solverdesc = new List<string>()
+            {
+                AnalysisResult.Model.ModelType.GetEnumDescription(),
+                Solution.Convergence.Algorithm.GetProperties().Name + " | RMSD = " + Solution.Loss.ToString("G3"),
+                Solution.UseWeightedFitting ? "ENABLED" : "OFF",
+                Solution.ErrorEstimationMethod.Description() + (Solution.ErrorEstimationMethod == ErrorEstimationMethod.None ? "" : " x " + Solution.BootstrapIterations.ToString() )
+            };
+
+            if (Solution.ModelCloneOptions.IncludeConcentrationErrorsInBootstrap)
+            {
+                string line = "Conc. error considered";
+
+                if (Solution.ModelCloneOptions.EnableAutoConcentrationVariance)
+                    line += " [AUTO: " + (100 * Solution.ModelCloneOptions.AutoConcentrationVariance).ToString("F1") + "%]";
+
+                solverdesc.Add(line);
+            }
+
+            ResultSummaryLabel.StringValue = string.Join(Environment.NewLine, solverdesc);
+            ///
+
 
             /// Setup the description lines for the result view
-            var parameters = new List<string>() { "Reference temperature / Unit:" };
-
-            foreach (var dep in Solution.TemperatureDependence)
-                parameters.Add(dep.Key.GetProperties().Name + " (" + dep.Key.GetProperties().SymbolName + ")");
-
-            TempDependenceResultDescField.AttributedStringValue = MacStrings.FromMarkDownString(string.Join(Environment.NewLine, parameters), NSFont.SystemFontOfSize(11));
-
             var eval_parameters = new List<string>() { };
 
             foreach (var dep in Solution.TemperatureDependence)
@@ -215,17 +242,17 @@ namespace AnalysisITC
             }
 
             EvalResultDescField.AttributedStringValue = MacStrings.FromMarkDownString(string.Join(Environment.NewLine, eval_parameters), NSFont.SystemFontOfSize(11));
-
-            EnergyControl.SelectedSegment = AppSettings.EnergyUnit switch { EnergyUnit.Joule => 0, EnergyUnit.KiloJoule => 1, EnergyUnit.Cal => 2, EnergyUnit.KCal => 3, _ => 1, };
             ///
 
+            
+            /// Populate Table View
             var kd = Solution.Solutions.Average(s => s.ReportParameters[AppClasses.Analysis2.ParameterType.Affinity1]);
 
-            AppropriateAutoConcUnit = ConcentrationUnitAttribute.FromConc(kd);
+            AppropriateAffinityUnit = ConcentrationUnitAttribute.FromConc(kd);
             ResultsTableView.SizeToFit();
             var source = new ResultViewDataSource(AnalysisResult)
             {
-                KdUnit = AppropriateAutoConcUnit,
+                KdUnit = AppropriateAffinityUnit,
                 EnergyUnit = EnergyUnit,
                 UseKelvin = UseKelvin,
             };
@@ -244,53 +271,96 @@ namespace AnalysisITC
 
                 var column = new NSTableColumn(ParameterTypeAttribute.TableHeaderTitle(par, true))
                 {
-                    Title = ParameterTypeAttribute.TableHeader(par, multiple, EnergyUnit, AppropriateAutoConcUnit.GetName()),
+                    Title = ParameterTypeAttribute.TableHeader(par, multiple, EnergyUnit, AppropriateAffinityUnit.GetName()),
                 };
                 column.HeaderCell.Alignment = NSTextAlignment.Center;
 
                 ResultsTableView.AddColumn(column);
             }
             ResultsTableView.AddColumn(new NSTableColumn("Loss") { Title = "Loss" });
+            ///
 
-            ExperimentListButton.Title = Solution.Solutions.Count + " experiments";
 
-            var solverdesc = new List<string>()
-            {
-                AnalysisResult.FileName,
-                Solution.Convergence.Algorithm.GetProperties().Name + " | RMSD = " + Solution.Loss.ToString("G3"),
-                Solution.WeightedFitting ? "ENABLED" : "OFF",
-                Solution.ErrorEstimationMethod.Description() + (Solution.ErrorEstimationMethod == ErrorEstimationMethod.None ? "" : " x " + Solution.BootstrapIterations.ToString() )
-            };
+            /// Temperature Dependence Lines
+            SetConstraintsAndOptions();
+            //var parameters = new List<string>() { "Reference temperature / Unit:" };
 
-            if (Solution.ModelCloneOptions.IncludeConcentrationErrorsInBootstrap)
-            {
-                string line = "Conc. error considered";
+            //foreach (var dep in Solution.TemperatureDependence)
+            //    parameters.Add(dep.Key.GetProperties().Name + " (" + dep.Key.GetProperties().SymbolName + ")");
 
-                if (Solution.ModelCloneOptions.EnableAutoConcentrationVariance)
-                    line += " [AUTO: " + (100 * Solution.ModelCloneOptions.AutoConcentrationVariance).ToString("F1") + "%]";
+            //TempDependenceResultDescField.AttributedStringValue = MacStrings.FromMarkDownString(string.Join(Environment.NewLine, parameters), NSFont.SystemFontOfSize(11));
 
-                solverdesc.Add(line);
-            }
+            //var dependencies = new List<string>() { refT.ToString("F2") + tempunit + " / " + EnergyUnit.GetUnit() + "/mol"};
 
-            ResultSummaryLabel.StringValue = string.Join(Environment.NewLine, solverdesc);
+            //foreach (var dep in Solution.TemperatureDependence) dependencies.Add(dep.Value.ToString(EnergyUnit));
 
+            //TemperatureDependenceLabel.StringValue = string.Join(Environment.NewLine, dependencies);
+            ///
+
+            EvaluateParameters();
+            ResultsTableView.SizeToFit();
+        }
+
+        void SetConstraintsAndOptions()
+        {
+            List<Tuple<string, string>> items = new List<Tuple<string, string>>();
+
+            // Set reference temperature
             var refT = Solution.MeanTemperature;
             if (UseKelvin)
             {
                 refT += 273.15;
-                ResultEvalTempUnitLabel.StringValue = "K";
             }
             else ResultEvalTempUnitLabel.StringValue = "°C";
-            string tempunit = " " + (UseKelvin ? "K" : "°C");
+            string tempunit = (UseKelvin ? " K" : " °C");
+            items.Add(new("**Reference temperature:**", refT.ToString("F2") + tempunit));
 
-            var dependencies = new List<string>() { refT.ToString("F2") + tempunit + " / " + EnergyUnit.GetUnit() + "/mol"};
+            // Populate options (if any)
+            if (Solution.Model.ModelOptions.Count > 0)
+            {
+                items.Add(new("**Model Options**", ""));
+                foreach (var (key, att) in Solution.Model.ModelOptions)
+                {
+                    var name = att.OptionName;
+                    var value = att.ToString();
 
-            foreach (var dep in Solution.TemperatureDependence) dependencies.Add(dep.Value.ToString(EnergyUnit));
+                    if (key == AttributeKey.PreboundLigandAffinity)
+                    {
+                        name += $" ({MarkdownStrings.DissociationConstant})";
+                        value = $"{(1 / att.ParameterValue).AsConcentration(AppSettings.DefaultConcentrationUnit, withunit: true)}"; // Kd fix
+                    }
+                    else if (key == AttributeKey.PreboundLigandConc)
+                    {
+                        if (att.BoolValue) value = "From Experiment Attribute";
+                        else value += $" {AppSettings.DefaultConcentrationUnit}";
+                    }
+                    else if (key == AttributeKey.PreboundLigandEnthalpy)
+                    {
+                        value = new Energy(att.ParameterValue).ToFormattedString(AppSettings.EnergyUnit, true, true);
+                    }
 
-            TemperatureDependenceLabel.StringValue = string.Join(Environment.NewLine, dependencies);
+                    if (string.IsNullOrWhiteSpace(name)) name = key.GetEnumDescription(); // Fall back
 
-            EvaluateParameters();
-            ResultsTableView.SizeToFit();
+                    items.Add(new(name, value));
+                }
+            }
+
+            // Populate constraints
+            if (Solution.Model.Parameters.Constraints.Any(con => con.Value != VariableConstraint.None))
+            {
+                items.Add(new("**Constraints**", ""));
+                foreach (var (key, att) in Solution.Model.Parameters.Constraints)
+                {
+                    var name = key.GetEnumDescription();
+                    var value = att.GetEnumDescription();
+
+                    items.Add(new(name, value));
+                }
+            }
+            else items.Add(new("**Constraints:**", "None"));
+
+            TempDependenceResultDescField.AttributedStringValue = Utilities.MacStrings.FromMarkDownString(string.Join(Environment.NewLine, items.Select(i => i.Item1)), NSFont.SystemFontOfSize(NSFont.SmallSystemFontSize));
+            TemperatureDependenceLabel.StringValue = string.Join(Environment.NewLine, items.Select(i => i.Item2));
         }
 
         void SetupGraphView(ResultGraphView.ResultGraphType type)
@@ -414,7 +484,9 @@ namespace AnalysisITC
             try
             {
                 var T = EvaluateionTemperatureTextField.FloatValue;
-                if (UseKelvin) T -= 273.15f;
+                if (UseKelvin) T -= 273.15f; // if input was in Kelvin, degrees C is actually 273.15 lower
+
+                T = Math.Clamp(T, -273.15f, float.PositiveInfinity); // Guard against forbidden temperatures
 
                 var unit = EnergyUnit;
 
@@ -485,7 +557,7 @@ namespace AnalysisITC
 
         partial void CopyToClipboard(NSObject sender)
         {
-            Exporter.CopyToClipboard(AnalysisResult, AppropriateAutoConcUnit, EnergyUnit, UseKelvin);
+            Exporter.CopyToClipboard(AnalysisResult, AppropriateAffinityUnit, EnergyUnit, UseKelvin);
         }
 
         void UnsubscribeEvents()

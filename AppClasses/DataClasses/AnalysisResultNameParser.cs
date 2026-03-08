@@ -291,13 +291,18 @@ namespace AnalysisITC
 
             var s = (name ?? "");//.ToLowerInvariant();
 
-            string delimiter = @"[\\s_\.]+";
-            if (!s.Contains('_')) //If name contain '_', we assume this is used and that '-' means something else
-                delimiter = @"[\\s_\-\.]+";
+            string delimiter = @"[\s_]+";
+            if (!s.Contains('_') && !s.Contains(' ')) //If name does not contain '_' or ' ', we expand seperator lookup
+                delimiter = @"[\s_-.+]+";
+
+            s = s.Replace("(", "").Replace(")", "");
+            s = s.Replace("[", "").Replace("]", "");
+            s = s.Replace("{", "").Replace("}", "");
 
             var tokens = Regex.Split(s, delimiter)
                 .Where(t => t.Length >= 2)
-                .Where(t => !Regex.IsMatch(t, @" ^\d+$"))      // drop pure numbers
+                .Where(t => !Regex.IsMatch(t, @"^\d+$"))      // drop pure numbers
+                .Where(t => t.Any(char.IsLetter))             // Only keep tokens that contain letters
                 .Where(t => !Regex.IsMatch(t, @"^\d"))        // drop tokens starting with digits (often replicate/temperature)
                 .Where(t => !LooksLikeDateToken(t))
                 .Select(t => StripTrailingReplicateTag(t))    // TEST 

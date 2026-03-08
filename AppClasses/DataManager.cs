@@ -14,10 +14,10 @@ namespace AnalysisITC
         public static event EventHandler<AnalysisResult> AnalysisResultSelected;
         public static event EventHandler<int[]> RemoveListIndices;
 
-        public static AnalysisITCDataSource DataSource { get; private set; }
-        public static List<ITCDataContainer> DataSourceContent => DataSource.Content;
-        public static List<AnalysisResult> Results => DataSourceContent.Where(o => o is AnalysisResult).Select(o => o as AnalysisResult).ToList();
-        public static List<ExperimentData> Data => DataSourceContent.Where(o => o is ExperimentData).Select(o => o as ExperimentData).ToList();
+        public static AnalysisITCDataSource Source { get; private set; }
+        public static List<ITCDataContainer> SourceItems => Source.Content;
+        public static List<AnalysisResult> Results => SourceItems.Where(o => o is AnalysisResult).Select(o => o as AnalysisResult).ToList();
+        public static List<ExperimentData> Data => SourceItems.Where(o => o is ExperimentData).Select(o => o as ExperimentData).ToList();
         public static IEnumerable<ExperimentData> IncludedData => Data.Where(d => d.Include);
         public static ExperimentData Current => SelectedDataIndex == -1 || (SelectedDataIndex >= Count) ? null : Data[SelectedDataIndex];
         public static bool SelectedIsData
@@ -25,7 +25,7 @@ namespace AnalysisITC
             get
             {
                 if (SelectedContentIndex == -1) return false;
-                return SelectedContentIndex < DataSourceContent.Count && DataSourceContent[SelectedContentIndex] is ExperimentData;
+                return SelectedContentIndex < SourceItems.Count && SourceItems[SelectedContentIndex] is ExperimentData;
             }
         }
 
@@ -50,21 +50,21 @@ namespace AnalysisITC
             get => selectedContentIndex;
             set
             {
-                if (value >= DataSourceContent.Count) selectedContentIndex = DataSourceContent.Count - 1;
+                if (value >= SourceItems.Count) selectedContentIndex = SourceItems.Count - 1;
                 else selectedContentIndex = value;
             }
         }
 
         public static int Count => Data.Count();
 
-        public static bool DataIsLoaded => DataSource.Content.Exists(o => o is ExperimentData);
+        public static bool DataIsLoaded => Source.Content.Exists(o => o is ExperimentData);
         public static bool AllDataIsBaselineProcessed => Data.All(d => d.Processor.BaselineCompleted);
         public static bool AnyDataIsBaselineProcessed => Data.Any(d => d.Processor.BaselineCompleted);
         public static bool AnyDataIsAnalyzed => Data.Any(d => d.Solution != null);
 
         public static void Init()
         {
-            DataSource = new AnalysisITCDataSource();
+            Source = new AnalysisITCDataSource();
 
             DataDidChange.Invoke(null, null);
         }
@@ -74,9 +74,9 @@ namespace AnalysisITC
             SelectedContentIndex = index;
 
             if (index == -1) return;
-            if (DataSourceContent[index] is ExperimentData)
+            if (SourceItems[index] is ExperimentData)
             {
-                SelectedDataIndex = Data.IndexOf(DataSourceContent[index] as ExperimentData);
+                SelectedDataIndex = Data.IndexOf(SourceItems[index] as ExperimentData);
 
                 SelectionDidChange?.Invoke(null, Current);
 
@@ -84,7 +84,7 @@ namespace AnalysisITC
             }
             else
             {
-                AnalysisResultSelected?.Invoke(null, DataSourceContent[index] as AnalysisResult);
+                AnalysisResultSelected?.Invoke(null, SourceItems[index] as AnalysisResult);
 
                 StateManager.GoToResultView();
             }
@@ -93,20 +93,20 @@ namespace AnalysisITC
         public static void RemoveData2(int index)
         {
             if (index == -1) return;
-            if (index >= DataSource.Content.Count) return;
+            if (index >= Source.Content.Count) return;
 
-            DeletedDataList.Add(new ITCDataContainerDeletionLog(DataSource.Content[index]));
+            DeletedDataList.Add(new ITCDataContainerDeletionLog(Source.Content[index]));
 
-            if (SelectedContentIndex == -1) { DataSource.Content.RemoveAt(index); return; }
+            if (SelectedContentIndex == -1) { Source.Content.RemoveAt(index); return; }
             else
             {
-                var current_selected_item = DataSource.Content[SelectedContentIndex];
+                var current_selected_item = Source.Content[SelectedContentIndex];
                 var will_delete_selected = index == SelectedContentIndex;
 
-                DataSource.Content.RemoveAt(index);
+                Source.Content.RemoveAt(index);
 
                 if (will_delete_selected) DataDidChange.Invoke(null, null);
-                SelectIndex(DataSource.Content.IndexOf(current_selected_item));
+                SelectIndex(Source.Content.IndexOf(current_selected_item));
             }
         }
 
@@ -122,9 +122,9 @@ namespace AnalysisITC
         {
             AppEventHandler.PrintAndLog("Adding Data: " + data.FileName);
 
-            DataSourceContent.Add(data);
+            SourceItems.Add(data);
 
-            if (data is ExperimentData) { DataDidChange.Invoke(null, data as ExperimentData); SelectIndex(DataSourceContent.Count - 1); SelectionDidChange?.Invoke(null, Current); }
+            if (data is ExperimentData) { DataDidChange.Invoke(null, data as ExperimentData); SelectIndex(SourceItems.Count - 1); SelectionDidChange?.Invoke(null, Current); }
             else DataDidChange.Invoke(null, null);
         }
 
@@ -172,12 +172,12 @@ namespace AnalysisITC
 
             switch (mode)
             {
-                case SortMode.Name: DataSource.SortByName(); break;
-                case SortMode.Temperature: DataSource.SortByTemperature(); break;
-                case SortMode.Type: DataSource.SortByType(); break;
-                case SortMode.IonicStrength: DataSource.SortByIonicStrength(); break;
-                case SortMode.ProtonationEnthalpy: DataSource.SortByProtonationEnthalpy(); break;
-                case SortMode.Date: DataSource.SortByDate(); break;
+                case SortMode.Name: Source.SortByName(); break;
+                case SortMode.Temperature: Source.SortByTemperature(); break;
+                case SortMode.Type: Source.SortByType(); break;
+                case SortMode.IonicStrength: Source.SortByIonicStrength(); break;
+                case SortMode.ProtonationEnthalpy: Source.SortByProtonationEnthalpy(); break;
+                case SortMode.Date: Source.SortByDate(); break;
             }
 
             AppEventHandler.PrintAndLog("Sort completed");
@@ -187,7 +187,7 @@ namespace AnalysisITC
         {
             AppEventHandler.PrintAndLog("Change IncludeState: " + includeall.ToString());
 
-            DataSource.SetAllIncludeState(includeall);
+            Source.SetAllIncludeState(includeall);
         }
 
         public static void InvokeDataDidChange()
@@ -197,7 +197,7 @@ namespace AnalysisITC
 
         public static void Clear()
         {
-            DeletedDataList.Add(new(DataSourceContent));
+            DeletedDataList.Add(new(SourceItems));
 
             Init();
 
@@ -208,13 +208,13 @@ namespace AnalysisITC
 
         public static void ClearProcessing()
         {
-            DeletedDataList.Add(new(DataSourceContent.Where(data => data is AnalysisResult).ToList()));
-            var idxs = DataSource.Content
+            DeletedDataList.Add(new(SourceItems.Where(data => data is AnalysisResult).ToList()));
+            var idxs = Source.Content
                 .Select((item, index) => new { Item = item, Index = index })
                 .Where(x => x.Item is AnalysisResult)
                 .Select(x => x.Index)
                 .ToArray();
-            DataSource.Content.RemoveAll(data => data is AnalysisResult);
+            Source.Content.RemoveAll(data => data is AnalysisResult);
 
             RemoveListIndices?.Invoke(null, idxs);
         }

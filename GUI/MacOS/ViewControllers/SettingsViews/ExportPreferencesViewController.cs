@@ -86,14 +86,11 @@ namespace AnalysisITC
             if (FinalFigParameterDisplayOptions.IsSelectedForSegment(5)) AppSettings.FinalFigureParameterDisplay |= FinalFigureDisplayParameters.Concentrations;
 
             if (FinalFigAttributeDisplay.IsSelectedForSegment(0)) AppSettings.DisplayAttributeOptions = DisplayAttributeOptions.UsedInAnalysis;
-            else
-            {
-                if (FinalFigAttributeDisplay.IsSelectedForSegment(1)) AppSettings.DisplayAttributeOptions |= DisplayAttributeOptions.Buffer;
-                if (FinalFigAttributeDisplay.IsSelectedForSegment(2)) AppSettings.DisplayAttributeOptions |= DisplayAttributeOptions.Salt;
-                if (FinalFigAttributeDisplay.IsSelectedForSegment(3)) AppSettings.DisplayAttributeOptions |= DisplayAttributeOptions.IonicStrength;
-                if (FinalFigAttributeDisplay.IsSelectedForSegment(4)) AppSettings.DisplayAttributeOptions |= DisplayAttributeOptions.ProtonationEnthalpy;
-                if (FinalFigAttributeDisplay.IsSelectedForSegment(5)) AppSettings.DisplayAttributeOptions |= DisplayAttributeOptions.Competitor;
-            }
+            if (FinalFigAttributeDisplay.IsSelectedForSegment(1)) AppSettings.DisplayAttributeOptions |= DisplayAttributeOptions.Buffer;
+            if (FinalFigAttributeDisplay.IsSelectedForSegment(2)) AppSettings.DisplayAttributeOptions |= DisplayAttributeOptions.Salt;
+            if (FinalFigAttributeDisplay.IsSelectedForSegment(3)) AppSettings.DisplayAttributeOptions |= DisplayAttributeOptions.IonicStrength;
+            if (FinalFigAttributeDisplay.IsSelectedForSegment(4)) AppSettings.DisplayAttributeOptions |= DisplayAttributeOptions.ProtonationEnthalpy;
+            if (FinalFigAttributeDisplay.IsSelectedForSegment(5)) AppSettings.DisplayAttributeOptions |= DisplayAttributeOptions.Competitor;
 
             AppSettings.ShowResidualGraph = ResidualPlotSettingsControl.IsSelectedForSegment(0);
             AppSettings.ShowResidualGraphGap = ResidualPlotSettingsControl.IsSelectedForSegment(1);

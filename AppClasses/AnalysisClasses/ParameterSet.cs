@@ -526,7 +526,7 @@ namespace AnalysisITC.AppClasses.Analysis2
         Enthalpy1,
         [ParameterTypeAttribute("Enthalpy 2", ParameterType.Enthalpy1)]
         Enthalpy2,
-        [ParameterTypeAttribute("Affinity", "*K*{d}", 100000, new double[] { 10, 100000000000 }, ParameterType.Affinity1)]
+        [ParameterTypeAttribute("Affinity", "*K*{d}", 100000, new double[] { 10, 1000000000000 }, ParameterType.Affinity1)]
         Affinity1,
         [ParameterTypeAttribute("Affinity 2", ParameterType.Affinity1)]
         Affinity2,
@@ -536,7 +536,7 @@ namespace AnalysisITC.AppClasses.Analysis2
         HeatCapacity1,
         [ParameterTypeAttribute("Heat capacity 2", ParameterType.HeatCapacity1)]
         HeatCapacity2,
-        [ParameterTypeAttribute("Gibbs free energy", "∆*G*", 500, new double[] { -100000, -10000 }, ParameterType.Gibbs1)]
+        [ParameterTypeAttribute("Gibbs free energy", "∆*G*", 500, new double[] { -100000, -1000 }, ParameterType.Gibbs1)]
         Gibbs1,
         [ParameterTypeAttribute("Gibbs free energy 2", ParameterType.Gibbs1)]
         Gibbs2,

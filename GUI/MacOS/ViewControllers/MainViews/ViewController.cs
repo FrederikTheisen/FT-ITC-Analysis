@@ -102,6 +102,8 @@ namespace AnalysisITC
                 var format = DataReaders.DataReader.GetFormat(AppSettings.LastDocumentUrl.Path);
 
                 if (format != DataReaders.ITCDataFormat.Unknown) LoadLastButton.Enabled = true;
+
+                LoadLastButton.ToolTip = $"Reload the last file ({Path.GetFileName(AppSettings.LastDocumentUrl.Path)}) [SPACE] ";
             }
 
             LoadDataPrompt.Hidden = DataManager.DataIsLoaded;

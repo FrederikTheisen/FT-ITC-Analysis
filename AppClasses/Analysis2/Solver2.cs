@@ -70,7 +70,7 @@ namespace AnalysisITC.AppClasses.Analysis2
         }
 
         // LM parameters
-        public double LevenbergMarquardtDifferentiationStepSize => Tolerance(3, 6);   // 1E-2 - 1E-6
+        public double LevenbergMarquardtDifferentiationStepSize => Tolerance(2, 4);   // 1E-2 - 1E-6
         public double LevenbergMarquardtEpsilon => Tolerance(5, 11);              // 1E-5 - 1E-9
 
         internal alglib.minlmstate LMOptimizerState { get; set; }
@@ -443,7 +443,8 @@ namespace AnalysisITC.AppClasses.Analysis2
                             SolverAlgorithm = this.SolverAlgorithm,
                             Model = Model.GenerateSyntheticModel(),
                             SolverToleranceModifier = 10,
-                            MaxOptimizerIterations = MaxBootstrapOptimizerIterations
+                            MaxOptimizerIterations = MaxBootstrapOptimizerIterations,
+                            UseErrorWeightedFitting = this.UseErrorWeightedFitting,
                         };
 
                         var rconv = solver.Solve();
@@ -540,7 +541,8 @@ namespace AnalysisITC.AppClasses.Analysis2
                             SolverAlgorithm = this.SolverAlgorithm,
                             Model = mdl,
                             SolverToleranceModifier = 10,
-                            MaxOptimizerIterations = MaxBootstrapOptimizerIterations
+                            MaxOptimizerIterations = MaxBootstrapOptimizerIterations,
+                            UseErrorWeightedFitting = this.UseErrorWeightedFitting,
                         };
 
                         var rconv = solver.Solve();
@@ -622,6 +624,7 @@ namespace AnalysisITC.AppClasses.Analysis2
                             solver.ErrorEstimationMethod = ErrorEstimationMethod;
                             solver.BootstrapIterations = BootstrapIterations;
                             solver.SolverAlgorithm = SolverAlgorithm;
+                            solver.UseErrorWeightedFitting = this.UseErrorWeightedFitting;
                             solver.Silent = true;
 
                             var con = solver.Solve();

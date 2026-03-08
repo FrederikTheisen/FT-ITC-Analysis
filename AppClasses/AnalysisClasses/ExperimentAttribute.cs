@@ -3,6 +3,7 @@ using AnalysisITC.AppClasses.Analysis2;
 using System.Collections.Generic;
 using AnalysisITC.Utilities;
 using System.Linq;
+using AnalysisITC.GUI.MacOS.CustomViews;
 
 namespace AnalysisITC.AppClasses.AnalysisClasses
 {
@@ -159,13 +160,23 @@ namespace AnalysisITC.AppClasses.AnalysisClasses
             };
         }
 
-        public void UpdateOptionKey(AttributeKey key)
+        public void UpdateOptionKey(AttributeKey key, double dd = 0.0, double dp = 0.0)
 		{
 			Key = key;
 
-			if (Key == AttributeKey.Buffer || Key == AttributeKey.Salt)
+			switch(key)
 			{
-				IntValue = -1;
+				case AttributeKey.Buffer:
+					DoubleValue = dd;
+					ParameterValue = new(dp);
+                    IntValue = -1;
+                    break;
+                case AttributeKey.Salt:
+                    ParameterValue = new(dp);
+                    IntValue = -1;
+                    break;
+				default:
+					break;
 			}
 		}
 
@@ -196,6 +207,7 @@ namespace AnalysisITC.AppClasses.AnalysisClasses
 				case AttributeType.Enum:
 				case AttributeType.Int: return IntValue.ToString();
 				case AttributeType.Double: return DoubleValue.ToString();
+				case AttributeType.ParameterAffinity:
 				case AttributeType.ParameterConcentration:
 				case AttributeType.Parameter: return ParameterValue.ToString();
 			}

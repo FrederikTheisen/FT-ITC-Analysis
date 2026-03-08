@@ -1429,7 +1429,7 @@ namespace AnalysisITC
 
         public bool DrawConfidenceBands { get; set; } = true;
         public bool ShowFitParameters { get; set; } = true;
-        public int ParameterFontSize { get; set; } = 24;
+        public int ParameterFontSize { get; set; } = 18;
         public bool DrawWithOffset { get; set; } = true;
         public bool ShowGrid { get; set; } = true;
         public bool ShowZero { get; set; } = true;
@@ -1733,11 +1733,17 @@ namespace AnalysisITC
 
             var lines = new List<string>();
 
-            foreach (var par in ExperimentData.Solution.UISolutionParameters(DrawOnWhite ? FinalFigureDisplayParameters : AnalysisDisplayParameters))
+            var display = DrawOnWhite ? FinalFigureDisplayParameters : AnalysisDisplayParameters;
+            foreach (var par in ExperimentData.Solution.UISolutionParameters(display))
             {
-                var line = par.Item1;
-                if (par.Item2.Length > 0) line += " = " + par.Item2;
-                lines.Add(line);
+                if (display.HasFlag(FinalFigureDisplayParameters.Model) && lines.Count == 0)
+                {
+                    lines.Add($"{par.Item1} | RMSD = {par.Item2}");
+                }
+                else
+                {
+                    lines.Add($"{par.Item1} = {par.Item2}");
+                }
             }
 
             var position = ExperimentData.Model.Evaluate(0) > ExperimentData.Model.Evaluate(ExperimentData.InjectionCount - 1) ? NSRectAlignment.TopTrailing : NSRectAlignment.BottomTrailing;

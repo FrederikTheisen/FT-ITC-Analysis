@@ -3,12 +3,13 @@ using System.Collections.Generic;
 using System.Linq;
 using Accord.Math;
 using AnalysisITC.AppClasses.Analysis2.Models;
+using AnalysisITC.AppClasses.AnalysisClasses;
 
 namespace AnalysisITC.AppClasses.Analysis2
 {
 	public class GlobalModel
 	{
-		public List<Model> Models { get; private set; }
+        public List<Model> Models { get; private set; }
 		public GlobalModelParameters Parameters { get; set; }
 		public GlobalSolution Solution { get; set; }
 
@@ -19,8 +20,10 @@ namespace AnalysisITC.AppClasses.Analysis2
         public int NumberOfParameters => Parameters.TotalFittingParameters;
 		public bool ShouldFitIndividually => !Parameters.RequiresGlobalFitting;
 		public AnalysisModel ModelType => Models.First().ModelType;
+		public IDictionary<AttributeKey, ExperimentAttribute> ModelOptions => Models.First()?.ModelOptions ?? null;
 
-		public int GetNumberOfPoints()
+
+        public int GetNumberOfPoints()
 		{
 			var m = 0;
 
@@ -179,13 +182,14 @@ namespace AnalysisITC.AppClasses.Analysis2
 
 	public class GlobalSolution
 	{
+        public string UniqueID { get; private set; } = Guid.NewGuid().ToString();
+
         public GlobalModel Model { get; set; }
         public SolverConvergence Convergence { get; set; }
         public List<GlobalSolution> BootstrapSolutions { get; private set; } = new List<GlobalSolution>();
 		public Dictionary<ParameterType, LinearFitWithError> TemperatureDependence = new Dictionary<ParameterType, LinearFitWithError>();
         public bool IsValid { get; private set; } = true;
-		public bool WeightedFitting { get; set; } = false;
-
+		
         public double Loss => Convergence.Loss;
 		public TimeSpan Time => Convergence.Time;
 		public TimeSpan BootstrapTime => Convergence.BootstrapTime;
@@ -200,6 +204,8 @@ namespace AnalysisITC.AppClasses.Analysis2
 		public ModelCloneOptions ModelCloneOptions => Model.ModelCloneOptions;
         public ErrorEstimationMethod ErrorEstimationMethod => ModelCloneOptions.ErrorEstimationMethod;
 
+		public bool UseWeightedFitting { get; set; } = false;
+
         public void Invalidate()
 		{
 			IsValid = false;
@@ -211,7 +217,7 @@ namespace AnalysisITC.AppClasses.Analysis2
 		{
 			Model = solver.Model;
 			Convergence = convergence;
-            WeightedFitting = solver.UseErrorWeightedFitting;
+			UseWeightedFitting = solver.UseErrorWeightedFitting;
 
             foreach (var mdl in Model.Models)
             {
@@ -229,9 +235,9 @@ namespace AnalysisITC.AppClasses.Analysis2
 		{
 			Model = solver.Model;
 			Convergence = convergence;
-			WeightedFitting = solver.UseErrorWeightedFitting;
+			UseWeightedFitting = solver.UseErrorWeightedFitting;
 
-            var dependencies = solutions[0].DependenciesToReport; //Changed Solu... to solu...
+            var dependencies = solutions[0].DependenciesToReport;
 
 			// Get the parameters 
             foreach (var dep in dependencies) SetParameterTemperatureDependence(dep.Item1, dep.Item2);
@@ -239,19 +245,19 @@ namespace AnalysisITC.AppClasses.Analysis2
 			if (solutions[0].BootstrapSolutions.Count != 0)
 			{
 				// Create a set of error solutions based on the minimum amount of successful refits
-				var sets = new List<List<SolutionInterface>>();
 				for (int i = 0; i < solutions.Min(sol => sol.BootstrapSolutions.Count); i++)
 				{
 					var set = new List<SolutionInterface>();
 
 					foreach (var sol in solutions) set.Add(sol.BootstrapSolutions[i]);
 
-					sets.Add(set);
+
+					BootstrapSolutions.Add(new GlobalSolution(new GlobalModel(set.Select(s => s.Model).ToList())));
                 }
 
 				// Construct global solutions for each refit
 				// This determines a 'dependency' for each parameter (may be zero slope and just a value)
-				BootstrapSolutions = (sets.Select(set => new GlobalSolution(new GlobalModel(set.Select(s => s.Model).ToList())))).ToList();
+				// BootstrapSolutions = (sets.Select(set => new GlobalSolution(new GlobalModel(set.Select(s => s.Model).ToList())))).ToList();
 
 				// Set the solution dependency based on refit distributions
 				// Currently forces the average to be the best fit value and derives the error from the distribution of refits around this mean

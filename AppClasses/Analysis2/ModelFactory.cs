@@ -231,7 +231,13 @@ namespace AnalysisITC.AppClasses.Analysis2
             AppEventHandler.PrintAndLog("  OK");
 
             var parameters = Model?.Parameters.Table.Where(p => p.Value.ChangedByUser);
-            var options = Model?.ModelOptions;
+            //var options = Model?.ModelOptions;
+            // Prefer current factory model options, else fall back to options stored on the loaded experiment model
+            IDictionary<AttributeKey, ExperimentAttribute> options = null;
+            if (Model?.ModelOptions != null && Model.ModelOptions.Count > 0)
+                options = Model.ModelOptions;
+            else if (data?.Model?.ModelOptions != null && data.Model.ModelOptions.Count > 0)
+                options = data.Model.ModelOptions;
 
             AppEventHandler.PrintAndLog("  Constructing Model...");
             ConstructModel(data);
@@ -257,23 +263,29 @@ namespace AnalysisITC.AppClasses.Analysis2
             {
                 foreach (var (key, opt) in options)
                 {
-                    AppEventHandler.PrintAndLog($"    Setting {key} = {opt}");
-                    if (Model.ModelOptions.ContainsKey(key)) SetModelOption(opt.Copy());
+                    AppEventHandler.PrintAndLog($"    Setting {opt.OptionName} ({key}) = {opt}");
+                    if (Model.ModelOptions.ContainsKey(key))
+                    {
+                        var existing_att = opt.Copy();
+                        existing_att.OptionName = Model.ModelOptions[key].OptionName; // We may need to refresh the name
+                        SetModelOption(existing_att);
+                    }
                 }
             }
             else
             {
                 AppEventHandler.PrintAndLog("  Checking Storage...");
-                var exposed = GetExposedModelOptions().Select(att => att.Key).ToList();
-                foreach (var key in exposed)
+                var exposed = GetExposedModelOptions().ToList();
+                foreach (var (key, val) in exposed)
                 {
                     if (PreviousAttributes.Exists(att => att.Key == key))
                     {
-                        var prevatt = PreviousAttributes.Find(att => att.Key == key);
+                        var recovered_att = PreviousAttributes.Find(att => att.Key == key).Copy();
+                        recovered_att.OptionName = val.OptionName; // Update name to real model name just in case
 
-                        AppEventHandler.PrintAndLog($"    Setting {key} = {prevatt}");
+                        AppEventHandler.PrintAndLog($"    Setting {recovered_att.OptionName} ({key}) = {recovered_att}");
 
-                        SetModelOption(prevatt.Copy());
+                        SetModelOption(recovered_att);
                     }
                 }
             }
@@ -527,7 +539,7 @@ namespace AnalysisITC.AppClasses.Analysis2
 
         public override IDictionary<AttributeKey, ExperimentAttribute> GetExposedModelOptions()
         {
-            return Model.Models.First().ModelOptions;
+            return Model.ModelOptions;
         }
 
         public override void SetCustomParameter(ParameterType key, double value, bool locked)
@@ -548,7 +560,7 @@ namespace AnalysisITC.AppClasses.Analysis2
 
         public override void SetModelOption(ExperimentAttribute opt)
         {
-			Model.Models.First().ModelOptions[opt.Key] = opt;
+			Model.ModelOptions[opt.Key] = opt;
         }
 
         public override void UpdateData()
@@ -581,7 +593,7 @@ namespace AnalysisITC.AppClasses.Analysis2
 			{
 				mdl.Data.Model = mdl;
                 mdl.ModelCloneOptions = GlobalModelParameters.RequiresGlobalFitting ? ModelCloneOptions.DefaultGlobalOptions : ModelCloneOptions.DefaultOptions;
-				mdl.SetModelOptions(Model.Models.First().ModelOptions);
+				mdl.SetModelOptions(Model.ModelOptions);
                 GlobalModelParameters.AddIndivdualParameter(mdl.Parameters);
             }
 

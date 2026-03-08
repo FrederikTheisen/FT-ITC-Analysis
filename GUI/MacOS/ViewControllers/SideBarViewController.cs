@@ -53,16 +53,16 @@ namespace AnalysisITC
 
         private void AnalysisITCDataSource_SourceWasSorted(object sender, EventArgs e)
         {
-            var item = DataManager.DataSource.SelectedItem;
+            var item = DataManager.Source.SelectedItem;
 
             TableView.ReloadData();
 
-            DataManager.SelectIndex(DataManager.DataSource.Content.IndexOf(item));
+            DataManager.SelectIndex(DataManager.Source.Content.IndexOf(item));
         }
 
         private void ExperimentDetailsPopoverController_UpdateTable(object sender, EventArgs e)
         {
-            int idx = DataManager.DataSource.SelectedIndex;
+            int idx = DataManager.Source.SelectedIndex;
 
             TableView.ReloadData();
 
@@ -73,24 +73,40 @@ namespace AnalysisITC
         {
             ExperimentDetailsPopoverController.Data = e;
 
+            try
+            {
+                DataManager.SelectIndex(DataManager.SourceItems.IndexOf(e));
+            }
+            catch
+            {
+                AppEventHandler.PrintAndLog("Failed to select detail view experiment...");
+            }
+
             PerformSegue("DetailsSegue", sender as NSObject);
         }
 
         private void AnalysisResultView_ExpandDataButtonClicked(object sender, AnalysisResult e)
         {
-            BindingAnalysisViewController.AnalysisResult = e;
+            var storyboard = NSStoryboard.FromName("Main", null);
+            var vc = storyboard.InstantiateControllerWithIdentifier("BindingAnalysisViewController")
+                     as BindingAnalysisViewController;
 
-            PerformSegue("ShowAnalysisResultSegue", this);
+            vc.SetResult(e);
+
+            PresentViewControllerAsSheet(vc);
+
+            //PerformSegue("ShowAnalysisResultSegue", this);
         }
 
         private void DataManager_SelectionDidChange(object sender, ExperimentData e)
         {
-            TableView.SelectRow(DataManager.DataSource.SelectedIndex, false);
+            TableView.SelectRow(DataManager.Source.SelectedIndex, false);
         }
 
         private void DataManager_AnalysisResultSelected(object sender, AnalysisResult e)
         {
             //PerformSegue("ShowAnalysisResultSegue", this);
+            TableView.SelectRow(DataManager.Source.SelectedIndex, false);
         }
 
         public override void ViewDidLoad()
@@ -106,9 +122,9 @@ namespace AnalysisITC
 
         private void OnDataManagerUpdated(object sender, ExperimentData data)
         {
-            TableView.DataSource = DataManager.DataSource;
+            TableView.DataSource = DataManager.Source;
 
-            var del = new ExperimentDataDelegate(DataManager.DataSource);
+            var del = new ExperimentDataDelegate(DataManager.Source);
             del.ExperimentDataViewClicked += OnDataViewClicked;
             del.RemoveRow += OnRowRemoveEvent;
 

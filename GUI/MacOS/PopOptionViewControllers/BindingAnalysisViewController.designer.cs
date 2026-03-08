@@ -25,6 +25,9 @@ namespace AnalysisITC
 		AppKit.NSTextField DataSetParameterLabel { get; set; }
 
 		[Outlet]
+		AppKit.NSButton DetachViewButton { get; set; }
+
+		[Outlet]
 		AppKit.NSSegmentedControl EnergyUnitControl { get; set; }
 
 		[Outlet]
@@ -60,6 +63,9 @@ namespace AnalysisITC
 		[Action ("CopyToClipboard:")]
 		partial void CopyToClipboard (Foundation.NSObject sender);
 
+		[Action ("EnableSolutionExperiments:")]
+		partial void EnableSolutionExperiments (Foundation.NSObject sender);
+
 		[Action ("EnergyUnitControlClicked:")]
 		partial void EnergyUnitControlClicked (AppKit.NSSegmentedControl sender);
 
@@ -74,19 +80,9 @@ namespace AnalysisITC
 		
 		void ReleaseDesignerOutlets ()
 		{
-			if (NameTextField != null) {
-				NameTextField.Dispose ();
-				NameTextField = null;
-			}
-
 			if (CommentTextField != null) {
 				CommentTextField.Dispose ();
 				CommentTextField = null;
-			}
-
-			if (ParameterLabels != null) {
-				ParameterLabels.Dispose ();
-				ParameterLabels = null;
 			}
 
 			if (ConstraintKeyLabel != null) {
@@ -124,6 +120,16 @@ namespace AnalysisITC
 				LabelLabel = null;
 			}
 
+			if (NameTextField != null) {
+				NameTextField.Dispose ();
+				NameTextField = null;
+			}
+
+			if (ParameterLabels != null) {
+				ParameterLabels.Dispose ();
+				ParameterLabels = null;
+			}
+
 			if (ResultsTableView != null) {
 				ResultsTableView.Dispose ();
 				ResultsTableView = null;
@@ -137,6 +143,11 @@ namespace AnalysisITC
 			if (ValueLabel != null) {
 				ValueLabel.Dispose ();
 				ValueLabel = null;
+			}
+
+			if (DetachViewButton != null) {
+				DetachViewButton.Dispose ();
+				DetachViewButton = null;
 			}
 		}
 	}

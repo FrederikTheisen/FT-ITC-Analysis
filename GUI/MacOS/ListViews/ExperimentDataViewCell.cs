@@ -92,14 +92,16 @@ namespace AnalysisITC
 
 					foreach (var par in data.Solution.UISolutionParameters(FinalFigureDisplayParameters.ListView))
 					{
-						if (line.Length > 0)
+						// First line is model line, treat special
+						if (line.Length == 0)
 						{
-							line.Append(new NSAttributedString("\n"));
-                            line.Append(Utilities.MacStrings.FromMarkDownString(par.Item1 + " = ", ModelFitLine.Font));
+                            line.Append(Utilities.MacStrings.FromMarkDownString($"{par.Item1} | RMSD = {par.Item2}", ModelFitLine.Font));
                         }
-						// This is the model line
-						else line.Append(Utilities.MacStrings.FromMarkDownString("Model: " + par.Item1, ModelFitLine.Font));
-                        line.Append(Utilities.MacStrings.FromMarkDownString(par.Item2, ModelFitLine.Font));
+						else
+						{
+                            line.Append(Utilities.MacStrings.FromMarkDownString(Environment.NewLine + par.Item1 + " = ", ModelFitLine.Font));
+                            line.Append(Utilities.MacStrings.FromMarkDownString(par.Item2, ModelFitLine.Font));
+                        }                      
                     }
 
                     ModelFitLine.AttributedStringValue = line;

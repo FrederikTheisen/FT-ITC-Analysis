@@ -243,6 +243,7 @@ namespace AnalysisITC.AppClasses.Analysis2.Models
             public override Dictionary<ParameterType, FloatWithError> ReportParameters => new Dictionary<ParameterType, FloatWithError>
                 {
                     { ParameterType.Nvalue1, N },
+                    { ParameterType.ApparentAffinity, Kdapp },
                     { ParameterType.Affinity1, Kd },
                     { ParameterType.Enthalpy1, Enthalpy.FloatWithError },
                     { ParameterType.EntropyContribution1, TdS.FloatWithError} ,

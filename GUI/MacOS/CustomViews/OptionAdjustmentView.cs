@@ -233,6 +233,7 @@ namespace AnalysisITC.GUI.MacOS.CustomViews
                 Bordered = false,
                 TranslatesAutoresizingMaskIntoConstraints = false,
                 StringValue = value.Value.ToString("####0.0####"),
+                PlaceholderString = "value",
                 ToolTip = "Value for the given property",
                 BezelStyle = NSTextFieldBezelStyle.Rounded,
                 FocusRingType = NSFocusRingType.None,
@@ -242,7 +243,7 @@ namespace AnalysisITC.GUI.MacOS.CustomViews
                 LineBreakMode = NSLineBreakMode.TruncatingHead,
             };
             InputField.Changed += Input_Changed;
-            InputField.AddConstraint(NSLayoutConstraint.Create(InputField, NSLayoutAttribute.Width, NSLayoutRelation.Equal, 1, 40));
+            InputField.AddConstraint(NSLayoutConstraint.Create(InputField, NSLayoutAttribute.Width, NSLayoutRelation.Equal, 1, 50));
             InputField.RefusesFirstResponder = true;
 
             var plusminuslabel = new NSTextField(new CGRect(0, 0, 10, 14))
@@ -265,6 +266,7 @@ namespace AnalysisITC.GUI.MacOS.CustomViews
                 Bordered = false,
                 TranslatesAutoresizingMaskIntoConstraints = false,
                 StringValue = value.SD.ToString("####0.0####"),
+                PlaceholderString = "error",
                 ToolTip = "Error value for the given property",
                 BezelStyle = NSTextFieldBezelStyle.Rounded,
                 FocusRingType = NSFocusRingType.None,
@@ -275,9 +277,9 @@ namespace AnalysisITC.GUI.MacOS.CustomViews
                 
             };
             InputErrorField.Changed += Input_Changed;
-            InputErrorField.SetContentCompressionResistancePriority(250, NSLayoutConstraintOrientation.Horizontal);
-            InputErrorField.SetContentHuggingPriorityForOrientation(250, NSLayoutConstraintOrientation.Horizontal);
-            InputErrorField.AddConstraint(NSLayoutConstraint.Create(InputErrorField, NSLayoutAttribute.Width, NSLayoutRelation.LessThanOrEqual, 1, 20));
+            //InputErrorField.SetContentCompressionResistancePriority(250, NSLayoutConstraintOrientation.Horizontal);
+            //InputErrorField.SetContentHuggingPriorityForOrientation(1000, NSLayoutConstraintOrientation.Horizontal);
+            InputErrorField.AddConstraint(NSLayoutConstraint.Create(InputErrorField, NSLayoutAttribute.Width, NSLayoutRelation.Equal, 1, 40));
             InputErrorField.RefusesFirstResponder = true;
 
             AddArrangedSubview(InputField);

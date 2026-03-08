@@ -22,21 +22,6 @@ namespace AnalysisITC
         }
     }
 
-    public class ITCDataContainer
-    {
-        public string UniqueID { get; private set; } = Guid.NewGuid().ToString();
-        public string FileName { get; set; } = "";
-        public string Comments { get; set; } = "";
-        public DateTime Date { get; set; }
-
-        public string UILongDateWithTime => Date.ToLongDateString() + " " + Date.ToString("HH:mm:ss");
-        public string UIShortDateWithTime => Date.ToShortDateString() + " " + Date.ToString("HH:mm");
-
-        public void SetID(string id) => UniqueID = id;
-
-        public void SetDate(DateTime date) => Date = date;
-    }
-
     public class AnalysisITCDataSource : NSTableViewDataSource
     {
         public static event EventHandler SourceWasSorted;
@@ -205,7 +190,7 @@ namespace AnalysisITC
             // This pattern allows you reuse existing views when they are no-longer in use.
             // If the returned view is null, you instance up a new view
             // If a non-null view is returned, you modify it enough to reflect the new data
-            ITCDataContainer content = DataManager.DataSourceContent[(int)row];
+            ITCDataContainer content = DataManager.SourceItems[(int)row];
 
             var view = tableView.MakeView(content.UniqueID, this);
 

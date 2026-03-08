@@ -8,17 +8,21 @@ public static class AppVersion
     static string? BuildVersion =>
         NSBundle.MainBundle.ObjectForInfoDictionary("CFBundleVersion")?.ToString();
 
-    // Convenient combined string, e.g. "1.2.3 (456)"
+    /// <summary>
+    /// Returns the full app version x.y.z...
+    /// </summary>
     public static string FullVersionString
     {
         get
         {
             var v = ShortVersion ?? "?.?.?";
-            var b = BuildVersion;
             return v;
         }
     }
 
+    /// <summary>
+    /// Return app version major.minor
+    /// </summary>
     public static string ShortVersionString
     {
         get

@@ -13,6 +13,7 @@ namespace AnalysisITC
 
         static NSDictionary Default = new NSDictionary();
         static NSUserDefaults Storage => NSUserDefaults.StandardUserDefaults;
+        public static string Locale { get; set; } = "en-US";
 
         //General
         public static double ReferenceTemperature { get; set; } = 25.0;

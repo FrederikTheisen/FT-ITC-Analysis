@@ -82,7 +82,7 @@ namespace AnalysisITC
 
             StatusBarManager.StartInderminateProgress();
 
-            this.WillProcessData();
+            this.WillProcessData(invalidate);
             await this.InterpolateBaseline(replace);
             this.IntegratePeaks(invalidate);
             this.DidProcessData(invalidate);
@@ -94,12 +94,12 @@ namespace AnalysisITC
         public void Unlock() => IsLocked = false;
         public void ToggleLock() => IsLocked = !IsLocked;
 
-        public void WillProcessData()
+        public void WillProcessData(bool invalidate = true)
         {
             BaselineCompleted = false;
 
             Data.Injections.ForEach(inj => inj.IsIntegrated = false); //FIXME Crashes if not on UI thread
-            Data.UpdateProcessing();
+            Data.UpdateProcessing(invalidate);
         }
 
         public async Task InterpolateBaseline(bool replace = true)

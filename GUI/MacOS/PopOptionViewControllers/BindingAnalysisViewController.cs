@@ -13,10 +13,12 @@ namespace AnalysisITC
 	{
         public static event EventHandler UpdateTable;
 
-        public static AnalysisResult AnalysisResult { get; set; }
+        private AnalysisResult Result { get; set; }
 
         EnergyUnit EnergyUnit => (int)EnergyUnitControl.SelectedSegment switch { 0 => EnergyUnit.Joule, 1 => EnergyUnit.KiloJoule, 2 => EnergyUnit.Cal, 3 => EnergyUnit.KCal, _ => EnergyUnit.KiloJoule, };
         public bool UseKelvin => TemperatureUnitControl.SelectedSegment == 1;
+
+        public void SetResult(AnalysisResult result) => Result = result;
 
         public BindingAnalysisViewController (IntPtr handle) : base (handle)
 		{
@@ -25,59 +27,41 @@ namespace AnalysisITC
 
         public override void ViewDidAppear()
         {
-            Graph.Initialize(AnalysisResult);
+            base.ViewDidAppear();
+
+            // Remove detach view button if alrady detached
+            if (this.NextResponder is NSWindow window)
+            {
+                if (!window.IsSheet) DetachViewButton.Hidden = true;
+            }
+
+            Graph.Initialize(Result);
 
             Setup();
         }
 
         void Setup()
         {
-            string fit = "";
-            string parameters = "";
-            string parameter_values = "";
+            string info = "";
 
-            if (this.NextResponder is NSWindow) (this.NextResponder as NSWindow).Title = AnalysisResult.FileName;
+            if (this.NextResponder is NSWindow) (this.NextResponder as NSWindow).Title = Result.FileName;
 
-            NameTextField.StringValue = AnalysisResult.FileName;
-            CommentTextField.StringValue = AnalysisResult.Comments;
+            NameTextField.StringValue = Result.FileName;
+            CommentTextField.StringValue = Result.Comments;
 
-            fit += AnalysisResult.Solution.Solutions.Count + " experiments" + Environment.NewLine;
-            fit += AnalysisResult.Solution.SolutionName + Environment.NewLine;
-            fit += Extensions.GetEnumDescription(AnalysisResult.Solution.Convergence.Algorithm) + Environment.NewLine;
-            fit += AnalysisResult.Solution.Convergence.Iterations + " | " + AnalysisResult.Solution.Loss.ToString("G3") + " | " + AnalysisResult.Solution.Convergence.Time.TotalMilliseconds.ToString("F0") + "ms" + Environment.NewLine;
-            fit += AnalysisResult.Solution.BootstrapIterations + " | " + AnalysisResult.Solution.BootstrapTime.TotalSeconds.ToString("F1") + "s" + Environment.NewLine;
-            fit += (AnalysisResult.Solution.WeightedFitting ? "ENABLED" : "OFF") + " | " + (AnalysisResult.Solution.ModelCloneOptions.IncludeConcentrationErrorsInBootstrap ? "ENABLED" : "OFF");
+            info += Result.Solution.Solutions.Count + " experiments" + Environment.NewLine;
+            info += Result.Solution.SolutionName + Environment.NewLine;
+            info += Extensions.GetEnumDescription(Result.Solution.Convergence.Algorithm) + Environment.NewLine;
+            info += Result.Solution.Convergence.Iterations + " | " + Result.Solution.Loss.ToString("G3") + " | " + Result.Solution.Convergence.Time.TotalMilliseconds.ToString("F0") + "ms" + Environment.NewLine;
+            info += Result.Solution.BootstrapIterations + " | " + Result.Solution.BootstrapTime.TotalSeconds.ToString("F1") + "s" + Environment.NewLine;
+            info += (Result.Solution.UseWeightedFitting ? "ENABLED" : "OFF") + " | " + (Result.Solution.ModelCloneOptions.IncludeConcentrationErrorsInBootstrap ? "ENABLED" : "OFF") + Environment.NewLine;
+            info += Result.UIShortDateWithTime;
 
-            // Constraints
-            if (AnalysisResult.Solution.Model.Parameters.Constraints.Count > 0)
-            {
-                ConstraintLabel.StringValue = "";
-                ConstraintKeyLabel.StringValue = "";
+            FitParameterLabel.StringValue = info;
 
-                foreach (var con in AnalysisResult.Solution.Model.Parameters.Constraints)
-                {
-                    ConstraintLabel.StringValue += con.Value.GetEnumDescription() + Environment.NewLine;
-                    ConstraintKeyLabel.StringValue += con.Key.GetEnumDescription() + ":" + Environment.NewLine;
-                }
-
-                ConstraintLabel.StringValue = ConstraintLabel.StringValue.Trim();
-                ConstraintKeyLabel.StringValue = ConstraintKeyLabel.StringValue.Trim();
-            }
-            else
-            {
-                ConstraintLabel.StringValue = "";
-                ConstraintKeyLabel.StringValue = "No constraints";
-            }
-
-            parameters += AnalysisResult.Solution.Model.MeanTemperature.ToString("F3") + " °C";
-
-            FitParameterLabel.StringValue = fit;
-            //DataSetParameterLabel.StringValue = parameters;
-
-            var items = AnalysisResult.GetParameterEvaluationList();
+            var items = Result.GetParameterEvaluationList();
 
             // Left column labels
-
             var attr = MacStrings.FromMarkDownString(string.Join(Environment.NewLine, items.Select(i => i.Item1 + ":")), NSFont.SystemFontOfSize(11));
             var mutable = new NSMutableAttributedString(attr);
             var full = new NSRange(0, mutable.Length);
@@ -97,14 +81,29 @@ namespace AnalysisITC
 
         partial void CopyToClipboard(NSObject sender)
         {
-            Exporter.CopyToClipboard(AnalysisResult, AppSettings.DefaultConcentrationUnit, EnergyUnit, UseKelvin);
+            Exporter.CopyToClipboard(Result, AppSettings.DefaultConcentrationUnit, EnergyUnit, UseKelvin);
+        }
+
+        partial void PopView(NSObject sender)
+        {
+            var storyboard = NSStoryboard.FromName("Main", null);
+            var vc = storyboard.InstantiateControllerWithIdentifier("BindingAnalysisViewController")
+                     as BindingAnalysisViewController;
+
+            var wc = storyboard.InstantiateControllerWithIdentifier("DetachedAnalysisResultWindowController") as NSWindowController;
+
+            (wc.ContentViewController as BindingAnalysisViewController).SetResult(Result);
+
+            wc.ShowWindow(null);
+
+            CloseButtonClicked(sender);
         }
 
         partial void LoadSolutionsToExperiments(NSObject sender)
         {
             StatusBarManager.SetStatus("Copying solutions to experiments...");
 
-            foreach (var sol in AnalysisResult.Solution.Solutions)
+            foreach (var sol in Result.Solution.Solutions)
             {
                 sol.Data.UpdateSolution(sol.Model);
             }
@@ -117,22 +116,29 @@ namespace AnalysisITC
 
         partial void CloseButtonClicked(NSObject sender)
         {
-            if (this.NextResponder is NSWindow)
+            if (this.NextResponder is NSWindow window)
             {
-                var window = this.NextResponder as NSWindow;
-
                 if (window.IsSheet) DismissViewController(this);
                 else window.Close();
             }
         }
 
+        partial void EnableSolutionExperiments(NSObject sender)
+        {
+            var solutionexp = Result.Solution.Model.Models.Select(m => m.Data.UniqueID);
+
+            DataManager.Data.ForEach(d => d.Include = solutionexp.Contains(d.UniqueID));
+
+            UpdateTable?.Invoke(this, null);
+        }
+
         partial void Apply(NSObject sender)
         {
             if (!string.IsNullOrWhiteSpace(NameTextField.StringValue))
-                AnalysisResult.FileName = NameTextField.StringValue;
+                Result.FileName = NameTextField.StringValue;
 
             if (!string.IsNullOrWhiteSpace(CommentTextField.StringValue))
-                AnalysisResult.Comments = CommentTextField.StringValue;
+                Result.Comments = CommentTextField.StringValue;
 
             CloseButtonClicked(sender);
 

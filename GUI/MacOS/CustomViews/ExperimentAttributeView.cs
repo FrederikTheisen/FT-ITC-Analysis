@@ -11,7 +11,10 @@ namespace AnalysisITC.GUI.MacOS.CustomViews
 {
 	public partial class ExperimentAttributeView : AppKit.NSStackView
 	{
-		public event EventHandler Remove;
+        public static double LastValue_PH { get; set; } = 7.4; // Default guess for ph
+        public static double LastValue_HighConcentration { get; set; } = 0.1; // Default guess for concentration (mM range)
+
+        public event EventHandler Remove;
         public event EventHandler KeyChanged;
         public event EventHandler<Tuple<AttributeKey,int>> SpecialAttributeSelected;
 
@@ -416,7 +419,7 @@ namespace AnalysisITC.GUI.MacOS.CustomViews
             while (Views.Count() > 2)
                 RemoveView(Views[2]);
 
-            Option.UpdateOptionKey((AttributeKey)(int)KeySelectionControl.SelectedItem.Tag);
+            Option.UpdateOptionKey((AttributeKey)(int)KeySelectionControl.SelectedItem.Tag, LastValue_PH, LastValue_HighConcentration);
 
             SetupOption();
 
@@ -437,6 +440,9 @@ namespace AnalysisITC.GUI.MacOS.CustomViews
             switch (Option.Key)
             {
                 case AttributeKey.Salt:
+                    // Set button text
+                    SetPopUpButtonText(Option.EnumOptions.Single(e => e.Item1 == (int)EnumPopUpControl.SelectedTag).Item2);
+                    break;
                 case AttributeKey.Buffer:
                     switch ((Buffer)(int)EnumPopUpControl.SelectedTag)
                     {
@@ -493,6 +499,7 @@ namespace AnalysisITC.GUI.MacOS.CustomViews
                             var value = new FloatWithError(val, err);
 
                             Option.ParameterValue = value;
+                            Option.OptionName = "[Ligand]";
                         }
                         break;
                     }
@@ -524,15 +531,27 @@ namespace AnalysisITC.GUI.MacOS.CustomViews
                     {
                         Option.IntValue = (int)EnumPopUpControl.SelectedTag;
                         if (Option.IntValue == -1) return;
-                        if (!string.IsNullOrEmpty(ParameterField.StringValue)) Option.ParameterValue = new(ParameterField.DoubleValue / 1000, 0);
+                        if (!string.IsNullOrEmpty(ParameterField.StringValue))
+                        {
+                            Option.ParameterValue = new(ParameterField.DoubleValue / 1000, 0);
+                            LastValue_HighConcentration = ParameterField.DoubleValue / 1000;
+                        }
                         break;
                     }
                 case AttributeKey.Buffer:
                     {
                         Option.IntValue = (int)EnumPopUpControl.SelectedTag;
                         if (Option.IntValue == -1) return;
-                        if (!string.IsNullOrEmpty(DoubleField.StringValue)) Option.DoubleValue = DoubleField.DoubleValue;
-                        if (!string.IsNullOrEmpty(ParameterField.StringValue)) Option.ParameterValue = new(ParameterField.DoubleValue / 1000, 0);
+                        if (!string.IsNullOrEmpty(DoubleField.StringValue))
+                        {
+                            Option.DoubleValue = DoubleField.DoubleValue;
+                            LastValue_PH = DoubleField.DoubleValue;
+                        }
+                        if (!string.IsNullOrEmpty(ParameterField.StringValue))
+                        {
+                            Option.ParameterValue = new(ParameterField.DoubleValue / 1000, 0);
+                            LastValue_HighConcentration = ParameterField.DoubleValue / 1000;
+                        }
                         break;
                     }
                 case AttributeKey.IonicStrength:

@@ -19,7 +19,7 @@ namespace AnalysisITC
         {
             base.ViewDidAppear();
 
-            var result = DataManager.DataSourceContent[DataManager.SelectedContentIndex];
+            var result = DataManager.SourceItems[DataManager.SelectedContentIndex];
 
             if (result is not AnalysisResult) throw new Exception("Selected item not analysis result");
 

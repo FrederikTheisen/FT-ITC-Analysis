@@ -234,14 +234,15 @@ namespace AnalysisITC.AppClasses.Analysis2.Models
             {
                 var _par = par.Value.Copy();
                 if (ModelCloneOptions.UnlockBootstrapParameters) _par.Unlock();
-                //_par.SetReducedStepSize();// TODO reduces stepsize to 10%, check if this makes a difference
 
                 mdl.Parameters.AddOrUpdateParameter(_par);
             }
 
             foreach (var opt in ModelOptions)
             {
-                mdl.ModelOptions.Add(opt.Key, opt.Value.Copy());
+                var newopt = opt.Value.Copy();
+                if (newopt.ParameterValue != null) newopt.ParameterValue = new(newopt.ParameterValue.Sample());
+                mdl.ModelOptions.Add(opt.Key, newopt);
             }
         }
     }
@@ -249,7 +250,8 @@ namespace AnalysisITC.AppClasses.Analysis2.Models
     public class SolutionInterface
 	{
         public string Guid { get; private set; } = new Guid().ToString();
-        GlobalSolution ParentSolution { get; set; }
+        public string ParentSolutionID { get; set; }
+        public GlobalSolution ParentSolution { get; private set; }
         public Model Model { get; protected set; }
         public SolverConvergence Convergence { get; private set; }
         public ErrorEstimationMethod ErrorMethod { get; set; } = ErrorEstimationMethod.None;
@@ -276,15 +278,16 @@ namespace AnalysisITC.AppClasses.Analysis2.Models
         }
         public List<FloatWithError> ParametersConformingToKey(ParameterType key)
         {
-            //FIXME unreproducible error related to modification of the collection while it is being used. Probably cross thread issue. Encountered 6
             try
             {
-                return Parameters.Where(par => par.Key.GetProperties().ParentType == key).Select(par => par.Value).ToList();
+                var pars = new Dictionary<ParameterType, FloatWithError>(Parameters);
+                var values = pars.Where(par => par.Key.GetProperties().ParentType == key).Select(par => par.Value).ToList();
+
+                return values;
             }
             catch
             {
                 var pars = new Dictionary<ParameterType, FloatWithError>(Parameters);
-
                 var values = pars.Where(par => par.Key.GetProperties().ParentType == key).Select(par => par.Value).ToList();
 
                 return values;
@@ -294,8 +297,21 @@ namespace AnalysisITC.AppClasses.Analysis2.Models
 
         public void SetParentSolution(GlobalSolution parent)
         {
-            ParentSolution = parent;
+            if (parent != null) // Set directly
+            {
+                AppEventHandler.PrintAndLog($"Setting Parent Solution {parent.UniqueID} for {Data.UniqueID}");
+                ParentSolution = parent;
+            }
+            else if (!string.IsNullOrWhiteSpace(ParentSolutionID)) // Resolve from loaded ID
+            {
+                parent = DataManager.Results.Find(res => res.Solution.UniqueID == ParentSolutionID)?.Solution;
+
+                if (parent != null)
+                    SetParentSolution(parent);
+            }
         }
+
+
 
 		public void Invalidate()
         {
@@ -341,8 +357,8 @@ namespace AnalysisITC.AppClasses.Analysis2.Models
 
             if (info.HasFlag(FinalFigureDisplayParameters.Model))
             {
-                //output.Add(new(SolutionName, Loss.ToString("G3")));
-                output.Add(new(SolutionName, ""));
+                output.Add(new(SolutionName, Loss.ToString("G3")));
+                //output.Add(new(SolutionName, ""));
             }
 
             return output;
@@ -352,14 +368,14 @@ namespace AnalysisITC.AppClasses.Analysis2.Models
         {
             if (info == DisplayAttributeOptions.UsedInAnalysis)
             {
+                if (Model.ModelType == AnalysisModel.CompetitiveBinding) info |= DisplayAttributeOptions.Competitor;
+
                 if (ParentSolution != null)
                 {
-                    info = 0;
                     var result = DataManager.Results.Find(r => r.Solution == this.ParentSolution);
 
                     if (result.IsElectrostaticsAnalysisDependenceEnabled) info |= DisplayAttributeOptions.Salt;
                     if (result.IsProtonationAnalysisEnabled) info |= DisplayAttributeOptions.ProtonationEnthalpy;
-                    if (this.Model.ModelType == AnalysisModel.CompetitiveBinding) info |= DisplayAttributeOptions.Competitor;
                 }
             }
 
@@ -367,7 +383,8 @@ namespace AnalysisITC.AppClasses.Analysis2.Models
 
             if (info.HasFlag(DisplayAttributeOptions.Competitor) && Model.Data.Attributes.Exists(att => att.Key == AttributeKey.PreboundLigandConc))
             {
-                output.Add(new("[Comp]", Model.Data.Attributes.Find(att => att.Key == AttributeKey.PreboundLigandConc).ParameterValue.AsFormattedConcentration(true)));
+                var att = Model.Data.Attributes.Find(att => att.Key == AttributeKey.PreboundLigandConc);
+                output.Add(new(att.OptionName, Model.Data.Attributes.Find(att => att.Key == AttributeKey.PreboundLigandConc).ParameterValue.AsFormattedConcentration(true)));
             }
 
             if (info.HasFlag(DisplayAttributeOptions.Buffer) && Model.Data.Attributes.Exists(att => att.Key == AttributeKey.Buffer))

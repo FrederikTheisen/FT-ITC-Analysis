@@ -495,7 +495,6 @@
     <Compile Include="GuideHintViewController2.designer.cs">
       <DependentUpon>GuideHintViewController2.cs</DependentUpon>
     </Compile>
-    <Compile Include="GUI\MacOS\CitationManager.cs" />
     <Compile Include="AppClasses\DataReaders\DataReaders.cs" />
     <Compile Include="AppClasses\DataReaders\TAFileReader.cs" />
     <Compile Include="AppClasses\DataReaders\FTITCReader.cs" />
@@ -510,7 +509,11 @@
     <Compile Include="TextInputMeniItemView.designer.cs">
       <DependentUpon>TextInputMeniItemView.cs</DependentUpon>
     </Compile>
-    <Compile Include="GUI\MacOS\AppVersion.cs" />
+    <Compile Include="AppClasses\DataClasses\ITCDataContainer.cs" />
+    <Compile Include="AppClasses\Exporter.cs" />
+    <Compile Include="Properties\CitationManager.cs" />
+    <Compile Include="Properties\AppVersion.cs" />
+    <Compile Include="GUI\MacOS\CitationUI.cs" />
   </ItemGroup>
   <ItemGroup>
     <InterfaceDefinition Include="Main.storyboard" />
@@ -524,7 +527,6 @@
     <BundleResource Include="GuideHintViewController.cs" />
     <BundleResource Include="Resources\ExperimentViewCell.png" />
     <BundleResource Include="Resources\HintImg_ExpDetails.jpg" />
-    <BundleResource Include="Resources\citation.bib" />
     <BundleResource Include="Resources\AppIcon.icns" />
     <BundleResource Include="Resources\DataFileIcon.icns" />
     <BundleResource Include="Resources\ProjectFileIcon.icns" />

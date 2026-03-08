@@ -16,6 +16,7 @@ namespace DataReaders
         public static ITCDataContainer[] ReadPath(string path)
         {
             AppEventHandler.PrintAndLog("Loading File " + path);
+            var watch = System.Diagnostics.Stopwatch.StartNew();
 
             Data = new List<ITCDataContainer>();
 
@@ -25,6 +26,9 @@ namespace DataReaders
 
                 while (!string.IsNullOrEmpty(line = reader.ReadLine()))
                 {
+                    var startms = watch.ElapsedMilliseconds;
+                    AppEventHandler.PrintAndLog($"Read {line} Start: {watch.ElapsedMilliseconds}");
+
                     var input = line.Split(':');
 
                     if (input[0] == "FILE")
@@ -33,7 +37,12 @@ namespace DataReaders
                         else if (input[1] == TandemExperimentHeader) Data.Add(ReadTandemExperimentDataFile(reader, line));
                         else if (input[1] == AnalysisResultHeader) Data.Add(ReadAnalysisResult(reader, line));
                     }
+
+                    AppEventHandler.PrintAndLog($"End Time: {watch.ElapsedMilliseconds}");
+                    AppEventHandler.PrintAndLog($"Total time: {watch.ElapsedMilliseconds - startms}");
                 }
+
+                watch.Stop();
             }
 
             CurrentAccessedAppDocumentPath = path;
@@ -200,6 +209,7 @@ namespace DataReaders
                         case "D": opt.DoubleValue = DParse(val); break;
                         case "FWE": opt.ParameterValue = FWEParse(val); break;
                         case "S": opt.StringValue = val; break;
+                        case "name": opt.OptionName = val; break;
                     }
                 }
 
@@ -279,6 +289,8 @@ namespace DataReaders
 
         static GlobalSolution ReadGlobalSolution(StreamReader reader)
         {
+            bool useErrorWeightedFitting = false;
+
             reader.ReadLine(); //Header is empty
             string line = reader.ReadLine();
             var mdl = (AnalysisModel)IParse(line.Split(':')[1]);
@@ -292,6 +304,7 @@ namespace DataReaders
                 var v = line.Split(':');
                 switch (v[0])
                 {
+                    case SolWeightedError: useErrorWeightedFitting = BParse(v[1]); break;
                     case "LIST" when v[1] == DataRef:
                         {
                             string dref;
@@ -371,9 +384,18 @@ namespace DataReaders
                 }
             }
 
-            if (solutions.Count > 0) factory.Model.Solution = new GlobalSolution(new GlobalSolver() { Model = factory.Model, ErrorEstimationMethod = solutions[0].ErrorMethod }, solutions, conv);
 
-            foreach (var sol in solutions) sol.SetParentSolution(factory.Model.Solution);
+            if (solutions.Count > 0)
+                factory.Model.Solution = new GlobalSolution(new GlobalSolver()
+                {
+                    Model = factory.Model, ErrorEstimationMethod = solutions[0].ErrorMethod
+                }, solutions, conv);
+
+            factory.Model.Solution.UseWeightedFitting = useErrorWeightedFitting;
+
+            foreach (var sol in solutions)
+                sol.SetParentSolution(factory.Model.Solution);
+
 
             return factory.Model.Solution;
         }
@@ -385,6 +407,8 @@ namespace DataReaders
                 SingleModelFactory factory = null;
                 string guid = firstline.Split(':')[2];
                 string dataref = reader.ReadLine().Split(':')[1];
+                string parentID = "";
+                bool useErrorWeightedFitting = false;
                 var mdltype = (AnalysisModel)IParse(reader.ReadLine().Split(':')[1]);
 
                 factory = new SingleModelFactory(mdltype);
@@ -392,7 +416,7 @@ namespace DataReaders
                     factory.InitializeModel(Data.Find(d => d.UniqueID == dataref) as ExperimentData);
                 else factory.ConstructModel(experimentData);
                 SolverConvergence conv = null;
-                double loss;
+                double reference_loss_value = double.NaN;
                 List<Parameter> parameters = null;
                 List<SolutionInterface> bsols = null;
 
@@ -403,6 +427,9 @@ namespace DataReaders
                     switch (v[0])
                     {
                         //case SolErrorMethod: factory.Model.MCO = (ErrorEstimationMethod)IParse(v[1]); break;
+                        case SolWeightedError: useErrorWeightedFitting = BParse(v[1]); break;
+                        case SolParent: parentID = v[1]; break;
+                        case SolLoss: reference_loss_value = DParse(v[1]); break;
                         case "LIST" when v[1] == SolParams:
                             parameters = new List<Parameter>();
                             string line2;
@@ -432,9 +459,19 @@ namespace DataReaders
                 foreach (var par in parameters)
                     factory.Model.Parameters.AddOrUpdateParameter(par.Key, par.Value);
 
-                factory.Model.Solution = SolutionInterface.FromModel(factory.Model, conv);
+                var solution = SolutionInterface.FromModel(factory.Model, conv);
+                solution.UseWeightedFitting = useErrorWeightedFitting;
+                if (string.IsNullOrWhiteSpace(parentID)) solution.ParentSolutionID = parentID;
 
-                if (bsols != null) factory.Model.Solution.SetBootstrapSolutions(bsols);
+                factory.Model.Solution = solution;
+
+                // If a loss was stored and it does not correspond to the loss calculated for the model, something changed and we invalidate the solution 
+                var currloss = solution.Model.Loss();
+                if (!double.IsNaN(reference_loss_value))
+                    if (Math.Abs(reference_loss_value - currloss) > 0.0001)
+                        solution.Invalidate();
+
+                if (bsols != null) solution.SetBootstrapSolutions(bsols);
 
                 return factory.Model.Solution;
             }

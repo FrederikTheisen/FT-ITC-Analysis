@@ -44,12 +44,11 @@ namespace AnalysisITC
         {
             //IsTemperatureDependenceEnabled = (GetMaximumTemperature() - GetMinimumTemperature()) > AppSettings.MinimumTemperatureSpanForFitting;
 
-            var firstSolutionIonicStrength = BufferAttribute.GetIonicStrength(Solution.Solutions.First().Data);
-            // Check if any other solution has a different ionic strength from the first one
+            var averageIonicStrength = Solution.Solutions.Average(sol => BufferAttribute.GetIonicStrength(sol.Data));
+            // Check if data has an ionic strength more than half the minimum span from the average
             IsElectrostaticsAnalysisDependenceEnabled = Solution.Solutions
-                .Skip(1)
                 .Select(sol => BufferAttribute.GetIonicStrength(sol.Data))
-                .Any(ionicStrength => ionicStrength != firstSolutionIonicStrength);
+                .Any(ionicStrength => Math.Abs(ionicStrength - averageIonicStrength) > AppSettings.MinimumIonSpanForFitting / 2.0);
 
             //Check if all data has buffer info and figure out if any are different
             if (Solution.Solutions.All(sol => sol.Data.Attributes.Exists(att => att.Key == AttributeKey.Buffer)))
