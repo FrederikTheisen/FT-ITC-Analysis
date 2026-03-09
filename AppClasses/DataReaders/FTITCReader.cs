@@ -42,8 +42,10 @@ namespace DataReaders
                     AppEventHandler.PrintAndLog($"Total time: {watch.ElapsedMilliseconds - startms}");
                 }
 
-                watch.Stop();
+                
             }
+
+            watch.Stop();
 
             CurrentAccessedAppDocumentPath = path;
 
@@ -287,8 +289,13 @@ namespace DataReaders
             }
         }
 
+        static System.Diagnostics.Stopwatch sw_gs_0 = new System.Diagnostics.Stopwatch();
+        static System.Diagnostics.Stopwatch sw_gs_1 = new System.Diagnostics.Stopwatch();
+        static System.Diagnostics.Stopwatch sw_gs_2 = new System.Diagnostics.Stopwatch();
         static GlobalSolution ReadGlobalSolution(StreamReader reader)
         {
+            AppEventHandler.Print("GS Start");
+            sw_gs_0.Restart();
             bool useErrorWeightedFitting = false;
 
             reader.ReadLine(); //Header is empty
@@ -307,6 +314,8 @@ namespace DataReaders
                     case SolWeightedError: useErrorWeightedFitting = BParse(v[1]); break;
                     case "LIST" when v[1] == DataRef:
                         {
+                            AppEventHandler.Print("GS Start DataRef");
+                            sw_gs_2.Restart();
                             string dref;
                             while ((dref = reader.ReadLine()) != EndListHeader)
                             {
@@ -314,6 +323,8 @@ namespace DataReaders
                             }
 
                             factory.InitializeModel(datas);
+                            sw_gs_2.Stop();
+                            AppEventHandler.Print("GS DF Time = " + sw_gs_2.ElapsedMilliseconds, 1);
                         }
                         break;
                     case "LIST" when v[1] == SolConstraints:
@@ -344,6 +355,8 @@ namespace DataReaders
                         break;
                     case "LIST" when v[1] == SolutionList:
                         {
+                            AppEventHandler.Print("GS Start Reading Solutions");
+                            sw_gs_1.Restart();
                             string solline;
                             while ((solline = reader.ReadLine()) != EndListHeader)
                             {
@@ -353,6 +366,8 @@ namespace DataReaders
 
                                 solutions.Add(sol);
                             }
+                            sw_gs_1.Stop();
+                            AppEventHandler.Print("GS SL Time = " + sw_gs_1.ElapsedMilliseconds, 1);
                         }
                         break;
                     case "OBJECT" when v[1] == SolConvergence:
@@ -368,13 +383,13 @@ namespace DataReaders
                             string mcoline;
                             while ((mcoline = reader.ReadLine()) != EndObjectHeader)
                             {
-                                var vv = line.Split(':');
+                                var vv = mcoline.Split(':');
                                 switch (vv[0])
                                 {
-                                    case SolErrorMethod: mco.ErrorEstimationMethod = (ErrorEstimationMethod)IParse(v[1]); break;
-                                    case SolCloneConcentrationVariance: mco.IncludeConcentrationErrorsInBootstrap = BParse(v[1]); break;
-                                    case SolCloneAutoVariance: mco.EnableAutoConcentrationVariance = BParse(v[1]); break;
-                                    case SolCloneAutoVarianceValue: mco.AutoConcentrationVariance = DParse(v[1]); break;
+                                    case SolErrorMethod: mco.ErrorEstimationMethod = (ErrorEstimationMethod)IParse(vv[1]); break;
+                                    case SolCloneConcentrationVariance: mco.IncludeConcentrationErrorsInBootstrap = BParse(vv[1]); break;
+                                    case SolCloneAutoVariance: mco.EnableAutoConcentrationVariance = BParse(vv[1]); break;
+                                    case SolCloneAutoVarianceValue: mco.AutoConcentrationVariance = DParse(vv[1]); break;
                                 }
                             }
 
@@ -384,6 +399,7 @@ namespace DataReaders
                 }
             }
 
+            AppEventHandler.Print("GS Reading Time = " + sw_gs_0.ElapsedMilliseconds, 1);
 
             if (solutions.Count > 0)
                 factory.Model.Solution = new GlobalSolution(new GlobalSolver()
@@ -391,11 +407,12 @@ namespace DataReaders
                     Model = factory.Model, ErrorEstimationMethod = solutions[0].ErrorMethod
                 }, solutions, conv);
 
+            AppEventHandler.Print("GS Constructor Time = " + sw_gs_0.ElapsedMilliseconds, 1);
+
             factory.Model.Solution.UseWeightedFitting = useErrorWeightedFitting;
 
-            foreach (var sol in solutions)
-                sol.SetParentSolution(factory.Model.Solution);
-
+            sw_gs_0.Stop();
+            AppEventHandler.Print("GS Load Time = " + sw_gs_0.ElapsedMilliseconds, 1);
 
             return factory.Model.Solution;
         }
@@ -461,15 +478,15 @@ namespace DataReaders
 
                 var solution = SolutionInterface.FromModel(factory.Model, conv);
                 solution.UseWeightedFitting = useErrorWeightedFitting;
-                if (string.IsNullOrWhiteSpace(parentID)) solution.ParentSolutionID = parentID;
+                if (!string.IsNullOrWhiteSpace(parentID)) solution.ParentSolutionID = parentID;
 
                 factory.Model.Solution = solution;
 
                 // If a loss was stored and it does not correspond to the loss calculated for the model, something changed and we invalidate the solution 
-                var currloss = solution.Model.Loss();
-                if (!double.IsNaN(reference_loss_value))
-                    if (Math.Abs(reference_loss_value - currloss) > 0.0001)
-                        solution.Invalidate();
+                // var currloss = solution.Model.Loss();
+                // if (!double.IsNaN(reference_loss_value))
+                //    if (Math.Abs(reference_loss_value - currloss) > 0.0001)
+                //        solution.Invalidate();
 
                 if (bsols != null) solution.SetBootstrapSolutions(bsols);
 
