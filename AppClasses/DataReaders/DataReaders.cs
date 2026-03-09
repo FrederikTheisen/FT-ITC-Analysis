@@ -67,7 +67,7 @@ namespace DataReaders
                 {
                     StatusBarManager.SetStatus("Reading file: " + url.LastPathComponent, 0);
                     await Task.Delay(1); //Necessary to update UI. Unclear why whole method has to be on UI thread.
-                    var dat = ReadFile(url.Path);
+                    var dat = await ReadFile(url.Path);
 
                     if (dat != null)
                     {
@@ -87,7 +87,7 @@ namespace DataReaders
             StatusBarManager.StopIndeterminateProgress();
         }
 
-        static ITCDataContainer[] ReadFile(string path)
+        static async Task<ITCDataContainer[]> ReadFile(string path)
         {
             try
             {
@@ -96,7 +96,7 @@ namespace DataReaders
                 switch (format)
                 {
                     case ITCDataFormat.FTITC:
-                        return FTITCReader.ReadPath(path);
+                        return await FTITCReader.ReadPath(path);
                     case ITCDataFormat.VPITC: // TODO No idea what vpitc files might look like if they exist
                     case ITCDataFormat.ITC200:
                         return new ExperimentData[] { MicroCalITC200Reader.ReadPath(path) };

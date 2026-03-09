@@ -233,9 +233,6 @@ namespace AnalysisITC.AppClasses.Analysis2
 
 		public GlobalSolution(GlobalSolver solver, List<SolutionInterface> solutions, SolverConvergence convergence)
 		{
-            AppEventHandler.Print($"GS START", 0);
-            var sw = new System.Diagnostics.Stopwatch();
-			sw.Start();
 			Model = solver.Model;
 			Convergence = convergence;
 			UseWeightedFitting = solver.UseErrorWeightedFitting;
@@ -245,7 +242,6 @@ namespace AnalysisITC.AppClasses.Analysis2
 			// Get the parameters 
             foreach (var dep in dependencies) SetParameterTemperatureDependence(dep.Item1, dep.Item2);
 
-            AppEventHandler.Print($"START BS = {sw.ElapsedMilliseconds}", 1);
             int min_error_sol_count = solutions.Min(sol => sol.BootstrapSolutions.Count);
             if (min_error_sol_count != 0)
 			{
@@ -263,8 +259,6 @@ namespace AnalysisITC.AppClasses.Analysis2
                     sets[i] = set;
                 }
 
-                AppEventHandler.Print($"BS COLLECTED = {sw.ElapsedMilliseconds}", 1);
-
                 // Construct global solutions for each refit
                 // This determines a 'dependency' for each parameter (may be zero slope and just a value)
                 var bootstrapSolutions = new GlobalSolution[min_error_sol_count];
@@ -275,9 +269,6 @@ namespace AnalysisITC.AppClasses.Analysis2
                 });
 
                 BootstrapSolutions = bootstrapSolutions.ToList();
-
-
-                AppEventHandler.Print($"BS CREATED = {sw.ElapsedMilliseconds}", 1);
 
                 // Set the solution dependency based on refit distributions
                 // Currently forces the average to be the best fit value and derives the error from the distribution of refits around this mean
@@ -299,15 +290,10 @@ namespace AnalysisITC.AppClasses.Analysis2
                         MeanTemperature);
                 }
 
-                AppEventHandler.Print($"BS TEMP = {sw.ElapsedMilliseconds}", 1);
-
                 TemperatureDependence = tmp;
             }
 
 			foreach (var sol in solutions) sol.SetParentSolution(this);
-
-			sw.Stop();
-			AppEventHandler.Print($"GS END = {sw.ElapsedMilliseconds}",0);
         }
 
 		private GlobalSolution(GlobalModel model)

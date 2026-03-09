@@ -25,9 +25,9 @@ namespace AnalysisITC
             if (Log.Count > 1023) Log.RemoveAt(0);
         }
 
-		public static void PrintAndLog(string msg)
+		public static void PrintAndLog(string msg, int indentation = 0)
 		{
-			Console.WriteLine(msg);
+            Print(msg, indentation);
 
 			AddLog(msg);
         }

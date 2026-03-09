@@ -6,6 +6,7 @@ using System.Linq;
 using AnalysisITC.AppClasses.AnalysisClasses;
 using AnalysisITC.AppClasses.Analysis2.Models;
 using AnalysisITC.AppClasses.Analysis2;
+using System.Threading.Tasks;
 
 namespace DataReaders
 {
@@ -13,9 +14,9 @@ namespace DataReaders
     {
         static List<ITCDataContainer> Data { get; set; }
 
-        public static ITCDataContainer[] ReadPath(string path)
+        public static async Task<ITCDataContainer[]> ReadPath(string path)
         {
-            AppEventHandler.PrintAndLog("Loading File " + path);
+            AppEventHandler.PrintAndLog("Loading File " + path, 0);
             var watch = System.Diagnostics.Stopwatch.StartNew();
 
             Data = new List<ITCDataContainer>();
@@ -33,12 +34,11 @@ namespace DataReaders
 
                     if (input[0] == "FILE")
                     {
-                        if (input[1] == ExperimentHeader) Data.Add(ReadExperimentDataFile(reader, line));
-                        else if (input[1] == TandemExperimentHeader) Data.Add(ReadTandemExperimentDataFile(reader, line));
-                        else if (input[1] == AnalysisResultHeader) Data.Add(ReadAnalysisResult(reader, line));
+                        if (input[1] == ExperimentHeader) Data.Add(await ReadExperimentDataFile(reader, line));
+                        else if (input[1] == TandemExperimentHeader) Data.Add(await ReadTandemExperimentDataFile(reader, line));
+                        else if (input[1] == AnalysisResultHeader) Data.Add(await ReadAnalysisResult(reader, line));
                     }
 
-                    AppEventHandler.PrintAndLog($"End Time: {watch.ElapsedMilliseconds}");
                     AppEventHandler.PrintAndLog($"Total time: {watch.ElapsedMilliseconds - startms}");
                 }
 
@@ -52,12 +52,15 @@ namespace DataReaders
             return Data.ToArray();
         }
 
-        static ExperimentData ReadTandemExperimentDataFile(StreamReader reader, string firstline)
+        static async Task<ExperimentData> ReadTandemExperimentDataFile(StreamReader reader, string firstline)
         {
-            AppEventHandler.PrintAndLog("Loading Tandem Experiment Data...");
+            AppEventHandler.PrintAndLog("Loading Tandem Experiment Data...", 1);
 
             string[] a = firstline.Split(':');
             var exp = new ExperimentData(a[2]);
+
+            StatusBarManager.SetStatus($"Loading {exp.FileName}", 0);
+            await Task.Delay(1); //Necessary to update UI. Unclear why whole method has to be on UI thread.
 
             ReadExperimentData(reader, exp);
 
@@ -66,12 +69,15 @@ namespace DataReaders
             return exp;
         }
 
-        static ExperimentData ReadExperimentDataFile(StreamReader reader, string firstline)
+        static async Task<ExperimentData> ReadExperimentDataFile(StreamReader reader, string firstline)
         {
-            AppEventHandler.PrintAndLog("Loading Experiment Data...");
+            AppEventHandler.PrintAndLog("Loading Experiment Data...", 1);
 
             string[] a = firstline.Split(':');
             var exp = new ExperimentData(a[2]);
+
+            StatusBarManager.SetStatus($"Loading {exp.FileName}", 0);
+            await Task.Delay(1); //Necessary to update UI. Unclear why whole method has to be on UI thread.
 
             ReadExperimentData(reader, exp);
 
@@ -256,9 +262,9 @@ namespace DataReaders
             exp.InvalidateSegmentLookup();
         }
 
-        static AnalysisResult ReadAnalysisResult(StreamReader reader, string firstline)
+        static async Task<AnalysisResult> ReadAnalysisResult(StreamReader reader, string firstline)
         {
-            AppEventHandler.PrintAndLog("Loading Analysis Result...");
+            AppEventHandler.PrintAndLog("Loading Analysis Result...", 1);
 
             try
             {
@@ -267,8 +273,10 @@ namespace DataReaders
                 var dateinfo = reader.ReadLine().Substring(Date.Length + 1);
                 var date = DateTime.Parse(dateinfo);
 
-                var sol = ReadGlobalSolution(reader);
+                StatusBarManager.SetStatus($"Loading {(info.Length > 1 ? info[1] : "Analysis Result")}", 0);
+                await Task.Delay(1); //Necessary to update UI.
 
+                var sol = ReadGlobalSolution(reader);
                 
                 string guid = info[0];
                 string name = info.Length > 1 ? info[1] : sol.SolutionName;
@@ -289,13 +297,8 @@ namespace DataReaders
             }
         }
 
-        static System.Diagnostics.Stopwatch sw_gs_0 = new System.Diagnostics.Stopwatch();
-        static System.Diagnostics.Stopwatch sw_gs_1 = new System.Diagnostics.Stopwatch();
-        static System.Diagnostics.Stopwatch sw_gs_2 = new System.Diagnostics.Stopwatch();
         static GlobalSolution ReadGlobalSolution(StreamReader reader)
         {
-            AppEventHandler.Print("GS Start");
-            sw_gs_0.Restart();
             bool useErrorWeightedFitting = false;
 
             reader.ReadLine(); //Header is empty
@@ -314,8 +317,6 @@ namespace DataReaders
                     case SolWeightedError: useErrorWeightedFitting = BParse(v[1]); break;
                     case "LIST" when v[1] == DataRef:
                         {
-                            AppEventHandler.Print("GS Start DataRef");
-                            sw_gs_2.Restart();
                             string dref;
                             while ((dref = reader.ReadLine()) != EndListHeader)
                             {
@@ -323,8 +324,6 @@ namespace DataReaders
                             }
 
                             factory.InitializeModel(datas);
-                            sw_gs_2.Stop();
-                            AppEventHandler.Print("GS DF Time = " + sw_gs_2.ElapsedMilliseconds, 1);
                         }
                         break;
                     case "LIST" when v[1] == SolConstraints:
@@ -355,8 +354,6 @@ namespace DataReaders
                         break;
                     case "LIST" when v[1] == SolutionList:
                         {
-                            AppEventHandler.Print("GS Start Reading Solutions");
-                            sw_gs_1.Restart();
                             string solline;
                             while ((solline = reader.ReadLine()) != EndListHeader)
                             {
@@ -366,8 +363,6 @@ namespace DataReaders
 
                                 solutions.Add(sol);
                             }
-                            sw_gs_1.Stop();
-                            AppEventHandler.Print("GS SL Time = " + sw_gs_1.ElapsedMilliseconds, 1);
                         }
                         break;
                     case "OBJECT" when v[1] == SolConvergence:
@@ -399,20 +394,13 @@ namespace DataReaders
                 }
             }
 
-            AppEventHandler.Print("GS Reading Time = " + sw_gs_0.ElapsedMilliseconds, 1);
-
             if (solutions.Count > 0)
                 factory.Model.Solution = new GlobalSolution(new GlobalSolver()
                 {
                     Model = factory.Model, ErrorEstimationMethod = solutions[0].ErrorMethod
                 }, solutions, conv);
 
-            AppEventHandler.Print("GS Constructor Time = " + sw_gs_0.ElapsedMilliseconds, 1);
-
             factory.Model.Solution.UseWeightedFitting = useErrorWeightedFitting;
-
-            sw_gs_0.Stop();
-            AppEventHandler.Print("GS Load Time = " + sw_gs_0.ElapsedMilliseconds, 1);
 
             return factory.Model.Solution;
         }
