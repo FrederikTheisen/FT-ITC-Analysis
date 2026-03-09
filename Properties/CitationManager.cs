@@ -93,18 +93,18 @@ $@"@article{{ftitc{year},
             {
                 Task.Run(async () =>
                 {
-                    AppEventHandler.PrintAndLog("Trying to update citation info...");
+                    AppEventHandler.PrintAndLog("Citation Manager: Trying to update citation info...");
                     string url = "https://raw.githubusercontent.com/FrederikTheisen/FT-ITC-Analysis/refs/heads/master/citation.json";
                     using var client = new WebClient();
                     string json = client.DownloadString(url);
 
                     SaveCache(JsonSerializer.Deserialize<CitationInfo>(json));
-                    AppEventHandler.PrintAndLog("Completed");
+                    AppEventHandler.PrintAndLog("Citation Manager: Successfully retrieved citation from online source");
                 });
             }
             catch
             {
-                AppEventHandler.PrintAndLog("Failed");
+                AppEventHandler.PrintAndLog("Citation Manager: Failed to retrieve citation");
             }
         }
 
