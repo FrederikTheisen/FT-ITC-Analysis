@@ -299,7 +299,7 @@ namespace AnalysisITC.AppClasses.Analysis2.Models
         {
             if (parent != null) // Set directly
             {
-                AppEventHandler.PrintAndLog($"Setting Parent Solution {parent.UniqueID} for {Data.UniqueID}");
+                AppEventHandler.Print($"Setting Parent Solution {parent.UniqueID} for {Data.UniqueID}");
                 ParentSolution = parent;
             }
             else if (!string.IsNullOrWhiteSpace(ParentSolutionID)) // Resolve from loaded ID
@@ -310,8 +310,6 @@ namespace AnalysisITC.AppClasses.Analysis2.Models
                     SetParentSolution(parent);
             }
         }
-
-
 
 		public void Invalidate()
         {

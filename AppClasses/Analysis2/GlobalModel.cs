@@ -233,6 +233,9 @@ namespace AnalysisITC.AppClasses.Analysis2
 
 		public GlobalSolution(GlobalSolver solver, List<SolutionInterface> solutions, SolverConvergence convergence)
 		{
+            AppEventHandler.Print($"GS START", 0);
+            var sw = new System.Diagnostics.Stopwatch();
+			sw.Start();
 			Model = solver.Model;
 			Convergence = convergence;
 			UseWeightedFitting = solver.UseErrorWeightedFitting;
@@ -242,38 +245,69 @@ namespace AnalysisITC.AppClasses.Analysis2
 			// Get the parameters 
             foreach (var dep in dependencies) SetParameterTemperatureDependence(dep.Item1, dep.Item2);
 
-			if (solutions[0].BootstrapSolutions.Count != 0)
+            AppEventHandler.Print($"START BS = {sw.ElapsedMilliseconds}", 1);
+            int min_error_sol_count = solutions.Min(sol => sol.BootstrapSolutions.Count);
+            if (min_error_sol_count != 0)
 			{
-				// Create a set of error solutions based on the minimum amount of successful refits
-				for (int i = 0; i < solutions.Min(sol => sol.BootstrapSolutions.Count); i++)
-				{
-					var set = new List<SolutionInterface>();
+                // Create a set of error solutions based on the minimum amount of successful refits. This does not take any time.
+                // Build the model sets once, preserving bootstrap index order
+                var sets = new List<Model>[min_error_sol_count];
 
-					foreach (var sol in solutions) set.Add(sol.BootstrapSolutions[i]);
+                for (int i = 0; i < min_error_sol_count; i++)
+                {
+                    var set = new List<Model>(solutions.Count);
 
+                    foreach (var sol in solutions)
+                        set.Add(sol.BootstrapSolutions[i].Model);
 
-					BootstrapSolutions.Add(new GlobalSolution(new GlobalModel(set.Select(s => s.Model).ToList())));
+                    sets[i] = set;
                 }
 
-				// Construct global solutions for each refit
-				// This determines a 'dependency' for each parameter (may be zero slope and just a value)
-				// BootstrapSolutions = (sets.Select(set => new GlobalSolution(new GlobalModel(set.Select(s => s.Model).ToList())))).ToList();
+                AppEventHandler.Print($"BS COLLECTED = {sw.ElapsedMilliseconds}", 1);
 
-				// Set the solution dependency based on refit distributions
-				// Currently forces the average to be the best fit value and derives the error from the distribution of refits around this mean
-				var tmp = new Dictionary<ParameterType, LinearFitWithError>();
+                // Construct global solutions for each refit
+                // This determines a 'dependency' for each parameter (may be zero slope and just a value)
+                var bootstrapSolutions = new GlobalSolution[min_error_sol_count];
+
+                System.Threading.Tasks.Parallel.For(0, min_error_sol_count, i =>
+                {
+                    bootstrapSolutions[i] = new GlobalSolution(new GlobalModel(sets[i]));
+                });
+
+                BootstrapSolutions = bootstrapSolutions.ToList();
+
+
+                AppEventHandler.Print($"BS CREATED = {sw.ElapsedMilliseconds}", 1);
+
+                // Set the solution dependency based on refit distributions
+                // Currently forces the average to be the best fit value and derives the error from the distribution of refits around this mean
+                var tmp = new Dictionary<ParameterType, LinearFitWithError>();
                 foreach (var par in TemperatureDependence)
                 {
-                    var slope = BootstrapSolutions.Select(gsol => gsol.TemperatureDependence[par.Key].Slope).ToList();
-                    var intercept = BootstrapSolutions.Select(gsol => gsol.TemperatureDependence[par.Key].Intercept).ToList();
+                    var slope = new List<FloatWithError>(BootstrapSolutions.Count);
+                    var intercept = new List<FloatWithError>(BootstrapSolutions.Count);
 
-                    tmp[par.Key] = new LinearFitWithError(new(slope, mean: TemperatureDependence[par.Key].Slope), new(intercept, mean: TemperatureDependence[par.Key].Intercept), MeanTemperature);
+                    foreach (var gsol in BootstrapSolutions)
+                    {
+                        slope.Add(gsol.TemperatureDependence[par.Key].Slope);
+                        intercept.Add(gsol.TemperatureDependence[par.Key].Intercept);
+                    }
+
+                    tmp[par.Key] = new LinearFitWithError(
+                        new(slope, mean: TemperatureDependence[par.Key].Slope),
+                        new(intercept, mean: TemperatureDependence[par.Key].Intercept),
+                        MeanTemperature);
                 }
+
+                AppEventHandler.Print($"BS TEMP = {sw.ElapsedMilliseconds}", 1);
 
                 TemperatureDependence = tmp;
             }
 
 			foreach (var sol in solutions) sol.SetParentSolution(this);
+
+			sw.Stop();
+			AppEventHandler.Print($"GS END = {sw.ElapsedMilliseconds}",0);
         }
 
 		private GlobalSolution(GlobalModel model)

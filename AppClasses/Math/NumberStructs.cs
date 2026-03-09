@@ -67,9 +67,11 @@ namespace AnalysisITC
             
             if (distribution.Any())
             {
-                int n = 100;
-                var samples = new List<double>();
-                foreach (var fwe in distribution) for (int i = 0; i < n; i++) samples.Add(fwe.Sample());
+                int n = Math.Min(50, 10000 / distribution.Count());
+                var samples = new List<double>(n * distribution.Count());
+                foreach (var fwe in distribution)
+                    for (int i = 0; i < n; i++)
+                        samples.Add(fwe.Sample());
                 average = samples.Average();
                 if (mean != null) average = (double)mean;
                 double sum = samples.Sum(d => Math.Pow(d - average, 2));

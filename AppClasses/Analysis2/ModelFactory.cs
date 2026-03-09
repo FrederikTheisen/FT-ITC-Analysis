@@ -224,11 +224,9 @@ namespace AnalysisITC.AppClasses.Analysis2
 
         public void InitializeModel(ExperimentData data)
         {
-            AppEventHandler.PrintAndLog($"Initializing SingleModelFactory for {data.FileName}...");
+            AppEventHandler.Print($"Initializing SingleModelFactory for {data.FileName}...");
 
-            AppEventHandler.PrintAndLog("  Checking injections...");
             if (data.Injections.Where(inj => inj.Include).Count() == 0) throw new HandledException(HandledException.Severity.Error, "No valid peaks", "Please check that not all peaks are excluded");
-            AppEventHandler.PrintAndLog("  OK");
 
             var parameters = Model?.Parameters.Table.Where(p => p.Value.ChangedByUser);
             //var options = Model?.ModelOptions;
@@ -239,31 +237,24 @@ namespace AnalysisITC.AppClasses.Analysis2
             else if (data?.Model?.ModelOptions != null && data.Model.ModelOptions.Count > 0)
                 options = data.Model.ModelOptions;
 
-            AppEventHandler.PrintAndLog("  Constructing Model...");
             ConstructModel(data);
-            AppEventHandler.PrintAndLog("  OK");
 
-            AppEventHandler.PrintAndLog("  Initializing Parameters...");
             Model.InitializeParameters(data);
-            AppEventHandler.PrintAndLog("  OK");
 
-            AppEventHandler.PrintAndLog("  Setting Parameter Initial Values...");
             if (parameters != null)
             {
                 foreach (var (key, par) in parameters)
                 {
-                    AppEventHandler.PrintAndLog($"    Setting {key} = {par.Value}");
+                    AppEventHandler.Print($"Parameter {key} = {par.Value}", 1);
+
                     if (Model.Parameters.Table.ContainsKey(key)) SetCustomParameter(par.Key, par.Value, par.IsLocked);
                 }
             }
-            AppEventHandler.PrintAndLog("  OK");
 
-            AppEventHandler.PrintAndLog("  Setting Options...");
             if (options != null)
             {
                 foreach (var (key, opt) in options)
                 {
-                    AppEventHandler.PrintAndLog($"    Setting {opt.OptionName} ({key}) = {opt}");
                     if (Model.ModelOptions.ContainsKey(key))
                     {
                         var existing_att = opt.Copy();
@@ -274,7 +265,6 @@ namespace AnalysisITC.AppClasses.Analysis2
             }
             else
             {
-                AppEventHandler.PrintAndLog("  Checking Storage...");
                 var exposed = GetExposedModelOptions().ToList();
                 foreach (var (key, val) in exposed)
                 {
@@ -283,15 +273,14 @@ namespace AnalysisITC.AppClasses.Analysis2
                         var recovered_att = PreviousAttributes.Find(att => att.Key == key).Copy();
                         recovered_att.OptionName = val.OptionName; // Update name to real model name just in case
 
-                        AppEventHandler.PrintAndLog($"    Setting {recovered_att.OptionName} ({key}) = {recovered_att}");
+                        AppEventHandler.Print($"Setting {val.OptionName} = {recovered_att}", 1);
 
                         SetModelOption(recovered_att);
                     }
                 }
             }
-            AppEventHandler.PrintAndLog("  OK");
 
-            AppEventHandler.PrintAndLog("SingleModelFactory OK");
+            AppEventHandler.Print("OK", 1);
         }
 
         public void ConstructModel(ExperimentData data)
