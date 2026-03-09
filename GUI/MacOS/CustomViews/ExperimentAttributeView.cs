@@ -25,8 +25,9 @@ namespace AnalysisITC.GUI.MacOS.CustomViews
         NSPopUpButton KeySelectionControl { get; set; }
         NSButton BoolControl { get; set; }
         NSTextField DoubleField { get; set; }
-        NSTextField ParameterField { get; set; }
-        NSTextField ParameterErrorField { get; set; }
+        //NSTextField ParameterField { get; set; }
+        //NSTextField ParameterErrorField { get; set; }
+        ValueWithErrorTextField CombinedParameterField { get; set; }
         NSColor DefaultFieldColor { get; set; }
         NSPopUpButton EnumPopUpControl { get; set; }
         NSSegmentedControl EnumSegControl { get; set; }
@@ -134,7 +135,7 @@ namespace AnalysisITC.GUI.MacOS.CustomViews
                     break;
                 case AttributeKey.PreboundLigandAffinity:
                 case AttributeKey.PreboundLigandConc:
-					SetupConcentration(ConcentrationUnit.µM);
+					SetupConcentration(ConcentrationUnit.µM, true);
 					break;
                 case AttributeKey.Salt:
                     SetupEnum();
@@ -175,7 +176,7 @@ namespace AnalysisITC.GUI.MacOS.CustomViews
                 AddArrangedSubview(lbl);
             }
 
-            DoubleField = new NSTextField(new CGRect(0, 0, 30, 14))
+            DoubleField = new NSTextField(new CGRect(0, 0, 30, 16))
             {
                 Bordered = false,
                 TranslatesAutoresizingMaskIntoConstraints = false,
@@ -190,7 +191,7 @@ namespace AnalysisITC.GUI.MacOS.CustomViews
             };
             DoubleField.Changed += (o, e) => Input_Changed(DoubleField, null);
             DoubleField.RefusesFirstResponder = true;
-            DoubleField.AddConstraint(NSLayoutConstraint.Create(DoubleField, NSLayoutAttribute.Width, NSLayoutRelation.GreaterThanOrEqual, 1, 30));
+            DoubleField.AddConstraint(NSLayoutConstraint.Create(DoubleField, NSLayoutAttribute.Width, NSLayoutRelation.Equal, 1, 30));
             DoubleField.SetContentHuggingPriorityForOrientation(249, NSLayoutConstraintOrientation.Horizontal);
 
             AddArrangedSubview(DoubleField);
@@ -233,72 +234,23 @@ namespace AnalysisITC.GUI.MacOS.CustomViews
                     break;
             }
 
-            ParameterField = new NSTextField(new CGRect(0, 0, 45, 14))
+            CombinedParameterField = new ValueWithErrorTextField(new CGRect(0, 0, 80, 19))
             {
-                Bordered = false,
-                TranslatesAutoresizingMaskIntoConstraints = false,
-                PlaceholderString = value.Value.ToString("F1"),
-                StringValue = value.Value.ToString("F1"),
-                //DoubleValue = value.Value,
-                ToolTip = "Value for the given property",
-                BezelStyle = NSTextFieldBezelStyle.Rounded,
-                FocusRingType = NSFocusRingType.None,
-                ControlSize = NSControlSize.Small,
-                Font = NSFont.SystemFontOfSize(NSFont.SmallSystemFontSize),
+                ToolTip = includeerror ? "Value for the given property. Press space to enter uncertainty." : "Value for the given property",
                 Alignment = NSTextAlignment.Right,
-                LineBreakMode = NSLineBreakMode.TruncatingHead,
+                Bezeled = false,
             };
-            ParameterField.Changed += (o, e) => Input_Changed(ParameterField, null);
-            ParameterField.RefusesFirstResponder = true;
-            ParameterField.AddConstraint(NSLayoutConstraint.Create(ParameterField, NSLayoutAttribute.Width, NSLayoutRelation.GreaterThanOrEqual, 1, 35));
-            ParameterField.SetContentHuggingPriorityForOrientation(249, NSLayoutConstraintOrientation.Horizontal);
 
-            AddArrangedSubview(ParameterField);
+            CombinedParameterField.SetValue(value.Value, value.SD);
 
-            if (includeerror)
-            {
-                var plusminuslabel = new NSTextField(new CGRect(0, 0, 10, 14))
-                {
-                    BezelStyle = NSTextFieldBezelStyle.Rounded,
-                    Bordered = false,
-                    Editable = false,
-                    StringValue = "±",
-                    TranslatesAutoresizingMaskIntoConstraints = false,
-                    HorizontalContentSizeConstraintActive = false,
-                    ControlSize = NSControlSize.Small,
-                    Alignment = NSTextAlignment.Center,
-                    TextColor = NSColor.SecondaryLabel,
-                    Font = NSFont.SystemFontOfSize(NSFont.SmallSystemFontSize),
-                };
-                plusminuslabel.AddConstraint(NSLayoutConstraint.Create(plusminuslabel, NSLayoutAttribute.Width, NSLayoutRelation.Equal, 1, 10));
+            CombinedParameterField.Changed += (o, e) => Input_Changed(CombinedParameterField, null);
+            CombinedParameterField.AddConstraint(NSLayoutConstraint.Create(CombinedParameterField, NSLayoutAttribute.Width, NSLayoutRelation.GreaterThanOrEqual, 1, 80));
 
-                ParameterErrorField = new NSTextField(new CGRect(0, 0, 25, 14))
-                {
-                    Bordered = false,
-                    TranslatesAutoresizingMaskIntoConstraints = false,
-                    PlaceholderString = value.SD.ToString("F1"),
-                    StringValue = value.SD.ToString("F1"),
-                    //DoubleValue = value.SD,
-                    ToolTip = "Error value for the given property",
-                    BezelStyle = NSTextFieldBezelStyle.Rounded,
-                    FocusRingType = NSFocusRingType.None,
-                    ControlSize = NSControlSize.Small,
-                    Font = NSFont.SystemFontOfSize(NSFont.SmallSystemFontSize),
-                    Alignment = NSTextAlignment.Left,
-                    LineBreakMode = NSLineBreakMode.TruncatingHead,
-                };
-                ParameterErrorField.Changed += (o, e) => Input_Changed(ParameterErrorField, null);
-                ParameterErrorField.AddConstraint(NSLayoutConstraint.Create(ParameterErrorField, NSLayoutAttribute.Width, NSLayoutRelation.Equal, 1, 25));
-                ParameterErrorField.RefusesFirstResponder = true;
+            CombinedParameterField.SetContentHuggingPriorityForOrientation(249, NSLayoutConstraintOrientation.Horizontal);
 
-                ParameterField.NextKeyView = ParameterErrorField;
-                ParameterErrorField.NextKeyView = ParameterField;
+            AddArrangedSubview(CombinedParameterField);
 
-                AddArrangedSubview(plusminuslabel);
-                AddArrangedSubview(ParameterErrorField);
-            }
-
-            DefaultFieldColor = ParameterField.TextColor;
+            DefaultFieldColor = CombinedParameterField.TextColor;
         }
 
         NSPopUpButton DropDownMenuButton()
@@ -327,34 +279,6 @@ namespace AnalysisITC.GUI.MacOS.CustomViews
         }
 
         void SetupEnum()
-        {
-            SetupDropdownMenu();
-
-            var opts = Option.EnumOptions.ToList();
-
-            for (int i = 0; i < Option.EnumOptionCount; i++)
-            {
-                var opt = opts[i];
-
-                if (opt.Item1 != -1)
-                {
-                    var item = new NSMenuItem("")
-                    {
-                        Tag = opt.Item1,
-                        AttributedTitle = MacStrings.FromMarkDownString(opt.Item2, NSFont.SystemFontOfSize(NSFont.SmallSystemFontSize)),
-                        ToolTip = MacStrings.FromMarkDownString(opt.Item3, NSFont.SystemFontOfSize(NSFont.SmallSystemFontSize)).Value,
-                    };
-                    EnumPopUpControl.Menu.AddItem(item);
-                }
-                else EnumPopUpControl.Menu.AddItem(NSMenuItem.SeparatorItem);
-            }
-
-            AddArrangedSubview(EnumPopUpControl);
-
-            if (Option.IntValue != -1) { EnumPopUpControl.SelectItemWithTag(Option.IntValue); EnumPopUpControl_Activated(null, null); }
-        }
-
-        void SetupBufferSelection()
         {
             SetupDropdownMenu();
 
@@ -470,15 +394,40 @@ namespace AnalysisITC.GUI.MacOS.CustomViews
 
         void CheckInput(NSTextField field)
         {
-            field.TextColor = NSColor.SystemRed;
-            string input = field.StringValue;
+            if (field == null)
+                return;
 
-            if (string.IsNullOrEmpty(input)) field.TextColor = DefaultFieldColor;
-            else if (double.TryParse(input, out double value))
+            field.TextColor = NSColor.SystemRed;
+
+            if (field is ValueWithErrorTextField valueField)
             {
-                if (value < 0) return;
-                if (Option.Key == AttributeKey.Buffer && field == DoubleField && value > 14) return;
-                field.TextColor = DefaultFieldColor;
+                if (string.IsNullOrWhiteSpace(valueField.ValueText))
+                {
+                    field.TextColor = DefaultFieldColor;
+                    return;
+                }
+
+                if (valueField.HasValidInput)
+                {
+                    var value = valueField.DoubleValuePart;
+
+                    if (value < 0) return;
+                    field.TextColor = DefaultFieldColor;
+                }
+
+                return;
+            }
+            else
+            {
+                string input = field.StringValue;
+
+                if (string.IsNullOrEmpty(input)) field.TextColor = DefaultFieldColor;
+                else if (double.TryParse(input, out double value))
+                {
+                    if (value < 0) return;
+                    if (Option.Key == AttributeKey.Buffer && field == DoubleField && value > 14) return;
+                    field.TextColor = DefaultFieldColor;
+                }
             }
         }
 
@@ -486,56 +435,60 @@ namespace AnalysisITC.GUI.MacOS.CustomViews
         {
             if (Option.Key == AttributeKey.Null) return;
 
+
+
             switch (Option.Key)
             {
                 case AttributeKey.PeptideInCell: Option.BoolValue = BoolControl.State == NSCellStateValue.On; break;
                 case AttributeKey.PreboundLigandConc:
                     {
-                        if (!string.IsNullOrEmpty(ParameterField.StringValue))
-                        {
-                            var val = ParameterField.DoubleValue / 1000000;
-                            var err = ParameterErrorField.DoubleValue / 1000000;
+                        if (!CombinedParameterField.TryGetValue(out double val, out double err))
+                            break;
 
-                            var value = new FloatWithError(val, err);
+                        val /= 1000000;
+                        err /= 1000000;
 
-                            Option.ParameterValue = value;
-                            Option.OptionName = "[Ligand]";
-                        }
+                        var value = new FloatWithError(val, err);
+
+                        Option.ParameterValue = value;
+                        Option.OptionName = "[Ligand]";
                         break;
                     }
-                case AttributeKey.PreboundLigandAffinity:
-                    {
-                        if (!string.IsNullOrEmpty(ParameterField.StringValue))
-                        {
-                            var val = ParameterField.DoubleValue / AppSettings.DefaultConcentrationUnit.GetProperties().Mod;
-                            var err = ParameterErrorField.DoubleValue / AppSettings.DefaultConcentrationUnit.GetProperties().Mod;
+                //case AttributeKey.PreboundLigandAffinity:
+                //    {
+                //        if (!string.IsNullOrEmpty(ParameterField.StringValue))
+                //        {
+                //            var val = ParameterField.DoubleValue / AppSettings.DefaultConcentrationUnit.GetProperties().Mod;
+                //            var err = ParameterErrorField.DoubleValue / AppSettings.DefaultConcentrationUnit.GetProperties().Mod;
 
-                            var value = new FloatWithError(val, err);
+                //            var value = new FloatWithError(val, err);
 
-                            Option.ParameterValue = value;
-                        }
-                        break;
-                    }
+                //            Option.ParameterValue = value;
+                //        }
+                //        break;
+                //    }
 
-                case AttributeKey.PreboundLigandEnthalpy:
-                    {
-                        var val = ParameterField.DoubleValue;
-                        var err = ParameterErrorField.DoubleValue;
+                //case AttributeKey.PreboundLigandEnthalpy:
+                //    {
+                //        var val = ParameterField.DoubleValue;
+                //        var err = ParameterErrorField.DoubleValue;
 
-                        var value = new Energy(new FloatWithError(val, err), AppSettings.EnergyUnit);
+                //        var value = new Energy(new FloatWithError(val, err), AppSettings.EnergyUnit);
 
-                        Option.ParameterValue = value.FloatWithError;
-                        break;
-                    }
+                //        Option.ParameterValue = value.FloatWithError;
+                //        break;
+                //    }
                 case AttributeKey.Salt:
                     {
                         Option.IntValue = (int)EnumPopUpControl.SelectedTag;
                         if (Option.IntValue == -1) return;
-                        if (!string.IsNullOrEmpty(ParameterField.StringValue))
-                        {
-                            Option.ParameterValue = new(ParameterField.DoubleValue / 1000, 0);
-                            LastValue_HighConcentration = ParameterField.DoubleValue / 1000;
-                        }
+
+                        if (!CombinedParameterField.TryGetValue(out double val, out double err))
+                            break;
+
+                        Option.ParameterValue = new(val / 1000, err / 1000);
+                        LastValue_HighConcentration = val / 1000;
+
                         break;
                     }
                 case AttributeKey.Buffer:
@@ -547,16 +500,22 @@ namespace AnalysisITC.GUI.MacOS.CustomViews
                             Option.DoubleValue = DoubleField.DoubleValue;
                             LastValue_PH = DoubleField.DoubleValue;
                         }
-                        if (!string.IsNullOrEmpty(ParameterField.StringValue))
-                        {
-                            Option.ParameterValue = new(ParameterField.DoubleValue / 1000, 0);
-                            LastValue_HighConcentration = ParameterField.DoubleValue / 1000;
-                        }
+
+
+                        if (!CombinedParameterField.TryGetValue(out double val, out double err))
+                            break;
+
+                        Option.ParameterValue = new(val / 1000, err / 1000);
+                        LastValue_HighConcentration = val / 1000;
+
                         break;
                     }
                 case AttributeKey.IonicStrength:
                     {
-                        if (!string.IsNullOrEmpty(ParameterField.StringValue)) Option.ParameterValue = new(ParameterField.DoubleValue / 1000, 0);
+                        if (!CombinedParameterField.TryGetValue(out double val, out double err))
+                            break;
+
+                        Option.ParameterValue = new(val / 1000, err / 1000);
                         break;
                     }
                 case AttributeKey.BufferSubtraction:

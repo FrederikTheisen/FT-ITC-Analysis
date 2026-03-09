@@ -23,8 +23,9 @@ namespace AnalysisITC.GUI.MacOS.CustomViews
 
         public bool HasBeenAffectedFlag { get; private set; } = false;
         public bool ShouldReInitializeParameter => string.IsNullOrEmpty(InputString);
+        public override CGSize IntrinsicContentSize => new CGSize(NSView.NoIntrinsicMetric, 16);
 
-        public override nfloat Spacing { get => 0; set => base.Spacing = value; }
+        public override nfloat Spacing { get => 1; set => base.Spacing = value; }
 
         public ParameterType Key => Parameter.Key;
         string InputString
@@ -80,11 +81,11 @@ namespace AnalysisITC.GUI.MacOS.CustomViews
             Orientation = NSUserInterfaceLayoutOrientation.Horizontal;
             Distribution = NSStackViewDistribution.Fill;
             Alignment = NSLayoutAttribute.CenterY;
-            SetContentHuggingPriorityForOrientation(999, NSLayoutConstraintOrientation.Vertical);
-            SetContentCompressionResistancePriority(1000, NSLayoutConstraintOrientation.Vertical);
-            SetHuggingPriority(1000, NSLayoutConstraintOrientation.Vertical);
+            //SetContentHuggingPriorityForOrientation(999, NSLayoutConstraintOrientation.Vertical);
+            //SetContentCompressionResistancePriority(1000, NSLayoutConstraintOrientation.Vertical);
+            //SetHuggingPriority(1000, NSLayoutConstraintOrientation.Vertical);
 
-            Label = new NSTextField(new CGRect(0, 0, 150, 14))
+            Label = new NSTextField(new CGRect(0, 0, 150, 16))
             {
                 BezelStyle = NSTextFieldBezelStyle.Rounded,
                 Bordered = false,
@@ -96,11 +97,11 @@ namespace AnalysisITC.GUI.MacOS.CustomViews
                 Font = NSFont.SystemFontOfSize(NSFont.SmallSystemFontSize),
             };
 
-            ParameterOptionControl = new CustomDrawingSegmentedControl(new CGRect(0, 0, 0, 14))
+            ParameterOptionControl = new CustomDrawingSegmentedControl(new CGRect(0, 0, 0, 16))
             {
                 Cell = new CustomKdKaDrawingSegmentedCell(),
-                SegmentStyle = NSSegmentStyle.Capsule,
-                ControlSize = NSControlSize.Mini,
+                SegmentStyle = NSSegmentStyle.Rounded,
+                ControlSize = NSControlSize.Small,
                 SegmentDistribution = NSSegmentDistribution.FillEqually,
                 SegmentCount = 2,
                 Font = NSFont.SystemFontOfSize(9),
@@ -112,20 +113,22 @@ namespace AnalysisITC.GUI.MacOS.CustomViews
             ParameterOptionControl.SetContentCompressionResistancePriority(1000, NSLayoutConstraintOrientation.Vertical);
             ParameterOptionControl.SizeToFit();
 
-            Input = new NSTextField(new CGRect(0, 0, 100, 14))
+            Input = new NSTextField(new CGRect(0, 0, 80, 18))
             {
                 Bordered = false,
                 TranslatesAutoresizingMaskIntoConstraints = false,
                 PlaceholderString = "Auto",
                 BezelStyle = NSTextFieldBezelStyle.Rounded,
                 FocusRingType = NSFocusRingType.None,
+                Bezeled = true,
                 ControlSize = NSControlSize.Small,
                 Font = NSFont.SystemFontOfSize(NSFont.SmallSystemFontSize),
                 Alignment = NSTextAlignment.Right,
                 LineBreakMode = NSLineBreakMode.TruncatingHead,
             };
             Input.Changed += Input_Changed;
-            Input.AddConstraint(NSLayoutConstraint.Create(Input, NSLayoutAttribute.Width, NSLayoutRelation.Equal, 1, 60));
+            Input.AddConstraint(NSLayoutConstraint.Create(Input, NSLayoutAttribute.Width, NSLayoutRelation.Equal, 1, 80));
+            Input.AddConstraint(NSLayoutConstraint.Create(Input, NSLayoutAttribute.Height, NSLayoutRelation.Equal, 1, 19));
             Input.RefusesFirstResponder = true;
 
 
@@ -135,6 +138,8 @@ namespace AnalysisITC.GUI.MacOS.CustomViews
 
             SetupLockBtn();
 
+            //SetContentHuggingPriorityForOrientation(1000, NSLayoutConstraintOrientation.Vertical);
+            //SetContentCompressionResistancePriority(1000, NSLayoutConstraintOrientation.Vertical);
         }
 
         void SetupLockBtn()
@@ -142,29 +147,31 @@ namespace AnalysisITC.GUI.MacOS.CustomViews
             var targetImage1 = NewMethod(NSImage.GetSystemSymbol("lock.open.fill", null));
             var targetImage2 = NewMethod(NSImage.GetSystemSymbol("lock.fill", null));
 
-            Lock = new NSButton(new CGRect(0, 0, 13, 14))
+            Lock = new NSButton(new CGRect(0, 0, 13, 16))
             {
-                BezelStyle = NSBezelStyle.Rounded,
+                BezelStyle = NSBezelStyle.Recessed,
                 FocusRingType = NSFocusRingType.None,
-                Bordered = false,
+                //Bordered = false,
                 Image = targetImage1,
                 AlternateImage = targetImage2,
                 ControlSize = NSControlSize.Small,
                 Title = "",
                 AlternateTitle = "",
             };
-            Lock.SetButtonType(NSButtonType.Switch);
+            Lock.SetButtonType(NSButtonType.Toggle);
             Lock.Activated += Lock_Activated;
             Lock.ControlSize = NSControlSize.Small;
-            Lock.AddConstraint(NSLayoutConstraint.Create(Lock, NSLayoutAttribute.Width, NSLayoutRelation.Equal, 1, 23));
-            Lock.ImagePosition = NSCellImagePosition.ImageRight;
+            Lock.AddConstraint(NSLayoutConstraint.Create(Lock, NSLayoutAttribute.Width, NSLayoutRelation.Equal, 1, 20));
+            Lock.SetContentCompressionResistancePriority(1000, NSLayoutConstraintOrientation.Vertical);
+            Lock.SetContentHuggingPriorityForOrientation(1000, NSLayoutConstraintOrientation.Vertical);
+            Lock.ImagePosition = NSCellImagePosition.ImageOnly;
             Lock.Layout();
 
             AddArrangedSubview(Lock);
 
             static NSImage NewMethod(NSImage img)
             {
-                var targetFrame = new CGRect(0, 0, 12, 12);
+                var targetFrame = new CGRect(0, 0, 13, 13);
                 var targetImage = new NSImage(targetFrame.Size);
                 targetImage.LockFocus();
                 targetImage.Template = true;
@@ -172,6 +179,20 @@ namespace AnalysisITC.GUI.MacOS.CustomViews
                 targetImage.UnlockFocus();
 
                 return targetImage;
+            }
+
+            static NSImage MakeSymbolImage(string symbolName, nfloat size)
+            {
+                var img = NSImage.GetSystemSymbol(symbolName, null);
+                var frame = new CGRect(0, 0, size, size);
+                var output = new NSImage(frame.Size);
+
+                output.LockFocus();
+                output.Template = true;
+                img.Draw(frame, new CGRect(CGPoint.Empty, img.Size), NSCompositingOperation.SourceOver, 1f);
+                output.UnlockFocus();
+
+                return output;
             }
         }
 
@@ -213,8 +234,6 @@ namespace AnalysisITC.GUI.MacOS.CustomViews
             }
         }
 
-        public override CGSize IntrinsicContentSize => new CGSize(Frame.Width, 14);
-
         public void Setup(Parameter par)
         {
             this.Parameter = par;
@@ -234,20 +253,6 @@ namespace AnalysisITC.GUI.MacOS.CustomViews
                 ParameterOptionControl.SizeToFit();
                 ParameterOptionControl.SelectedSegment = AppSettings.InputAffinityAsDissociationConstant ? 1 : 0;
             }
-            //else if (ParameterTypeAttribute.IsEnergyUnitParameter(par.Key))
-            //{
-            //    ParameterOptionControl.Cell = new NSSegmentedCell();
-            //    ParameterOptionControl.SegmentStyle = NSSegmentStyle.Capsule;
-            //    ParameterOptionControl.ControlSize = NSControlSize.Small;
-            //    ParameterOptionControl.SegmentDistribution = NSSegmentDistribution.FillEqually;
-            //    ParameterOptionControl.Font = NSFont.SystemFontOfSize(10);
-            //    ParameterOptionControl.Hidden = false;
-            //    ParameterOptionControl.SegmentCount = 2;
-            //    ParameterOptionControl.SetLabel("Joule", 0);
-            //    ParameterOptionControl.SetLabel("Cal", 1);
-            //    ParameterOptionControl.SizeToFit();
-            //    ParameterOptionControl.SelectedSegment = EnergyUnitAttribute.IsSI(AppSettings.EnergyUnit) ? 0 : 1;
-            //}
 
             SetupLabel();
             SetInputField();

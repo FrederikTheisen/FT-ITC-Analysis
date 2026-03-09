@@ -514,6 +514,7 @@
     <Compile Include="Properties\CitationManager.cs" />
     <Compile Include="Properties\AppVersion.cs" />
     <Compile Include="GUI\MacOS\CitationUI.cs" />
+    <Compile Include="GUI\MacOS\CustomViews\ValueWithErrorTextField.cs" />
   </ItemGroup>
   <ItemGroup>
     <InterfaceDefinition Include="Main.storyboard" />

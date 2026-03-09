@@ -16,9 +16,6 @@ namespace AnalysisITC
         List<ParameterValueAdjustmentView> ParameterControls = new List<ParameterValueAdjustmentView>();
         List<OptionAdjustmentView> OptionControls = new List<OptionAdjustmentView>();
 
-        const int ParameterInsertionPoint = 11;
-        int OptionInsertionPoint => ParameterInsertionPoint + 2;
-
         partial void ErrorIterationSliderChanged(NSSlider sender) => ErrorIterationLabel.IntValue = (int)Math.Pow(10, ErrorIterationsControl.DoubleValue);
 
         public FittingOptionsPopoverViewController (IntPtr handle) : base (handle)
@@ -48,22 +45,22 @@ namespace AnalysisITC
 
             foreach (var opt in ModelFactory.Factory.GetExposedModelOptions().Reverse())
             {
-                var sv = new OptionAdjustmentView(new CoreGraphics.CGRect(0, 0, StackView.Frame.Width, 20), opt.Value);
+                var sv = new OptionAdjustmentView(new CoreGraphics.CGRect(0, 0, OptionStackView.Frame.Width, 16), opt.Value);
 
                 OptionControls.Add(sv);
 
-                StackView.InsertArrangedSubview(sv, OptionInsertionPoint);
+                OptionStackView.InsertArrangedSubview(sv, 0);
             }
 
             foreach (var par in ModelFactory.Factory.GetExposedParameters().Reverse())
             {
-                var sv = new ParameterValueAdjustmentView(new CoreGraphics.CGRect(0, 0, StackView.Frame.Width, 20));
+                var sv = new ParameterValueAdjustmentView(new CoreGraphics.CGRect(0, 0, ParameterStackView.Frame.Width, 16));
 
                 sv.Setup(par);
 
                 ParameterControls.Add(sv);
 
-                StackView.InsertArrangedSubview(sv, ParameterInsertionPoint);
+                ParameterStackView.InsertArrangedSubview(sv, 0);
             }
 
             if (ModelFactory.Factory.GetExposedParameters() == null || ModelFactory.Factory.GetExposedParameters().Count() == 0)
