@@ -3,16 +3,29 @@ using System.IO;
 using System.Net;
 using System.Text;
 using System.Text.Json;
+using System.Threading.Tasks;
+using System.Text.Json.Serialization;
 
 namespace AnalysisITC
 {
     public class CitationInfo
     {
+        [JsonPropertyName("title")]
         public string Title { get; set; }
+
+        [JsonPropertyName("authors")]
         public string Authors { get; set; }
+
+        [JsonPropertyName("journal")]
         public string Journal { get; set; }
+
+        [JsonPropertyName("year")]
         public string Year { get; set; }
+
+        [JsonPropertyName("doi")]
         public string DOI { get; set; }
+
+        [JsonPropertyName("version")]
         public string Version { get; set; }
 
         public string ToDisplayString()
@@ -30,7 +43,7 @@ namespace AnalysisITC
                 sb.AppendLine("DOI: " + DOI);
 
             if (!string.IsNullOrWhiteSpace(Version))
-                sb.AppendLine("Version: " + Version);
+                sb.AppendLine("Version: " + AppVersion.ShortVersionString);
 
             return sb.ToString().Trim();
         }
@@ -46,7 +59,7 @@ $@"@article{{ftitc{year},
   journal = {{{Journal}}},
   year = {{{year}}},
   doi = {{{DOI}}},
-  version = {{{Version}}}
+  version = {{{AppVersion.ShortVersionString}}}
 }}";
         }
     }
@@ -78,15 +91,20 @@ $@"@article{{ftitc{year},
         {
             try
             {
-                string url = "https://example.org/ftitc/citation.json";
-                using var client = new WebClient();
-                string json = client.DownloadString(url);
+                Task.Run(async () =>
+                {
+                    AppEventHandler.PrintAndLog("Trying to update citation info...");
+                    string url = "https://raw.githubusercontent.com/FrederikTheisen/FT-ITC-Analysis/refs/heads/master/citation.json";
+                    using var client = new WebClient();
+                    string json = client.DownloadString(url);
 
-                SaveCache(JsonSerializer.Deserialize<CitationInfo>(json));
+                    SaveCache(JsonSerializer.Deserialize<CitationInfo>(json));
+                    AppEventHandler.PrintAndLog("Completed");
+                });
             }
             catch
             {
-
+                AppEventHandler.PrintAndLog("Failed");
             }
         }
 
