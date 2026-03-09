@@ -129,7 +129,7 @@ namespace AnalysisITC.GUI.MacOS.CustomViews
             Input.Changed += Input_Changed;
             Input.AddConstraint(NSLayoutConstraint.Create(Input, NSLayoutAttribute.Width, NSLayoutRelation.Equal, 1, 80));
             Input.AddConstraint(NSLayoutConstraint.Create(Input, NSLayoutAttribute.Height, NSLayoutRelation.Equal, 1, 19));
-            Input.RefusesFirstResponder = true;
+            //Input.RefusesFirstResponder = true;
 
 
             AddArrangedSubview(Label);
