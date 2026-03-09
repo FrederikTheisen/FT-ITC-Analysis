@@ -14,11 +14,15 @@ namespace AnalysisITC
 		public static void AddLog(string msg)
 		{
 			Log.Add(new LogEntry(msg));
+
+			if (Log.Count > 1023) Log.RemoveAt(0);
 		}
 
         public static void AddLog(Exception ex)
         {
             Log.Add(new LogEntry(ex));
+
+            if (Log.Count > 1023) Log.RemoveAt(0);
         }
 
 		public static void PrintAndLog(string msg)
@@ -27,6 +31,8 @@ namespace AnalysisITC
 
 			AddLog(msg);
         }
+
+		public static void Print(string msg, int indentation = 0) => Console.WriteLine($"{new string(' ', 2*indentation)}{msg}");
 
         public static void DisplayHandledException(Exception ex)
 		{
