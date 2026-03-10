@@ -17,6 +17,16 @@ namespace AnalysisITC
             return new FloatWithError(f, f * sd);
         }
 
+        public static FloatWithError Average(FloatWithError a, FloatWithError b)
+        {
+            var value = 0.5 * (a.Value + b.Value);
+
+            // SD of average of two independent values
+            var sd = 0.5 * Math.Sqrt(a.SD * a.SD + b.SD * b.SD);
+
+            return new FloatWithError(value, sd);
+        }
+
         public static double RoundApproximate(double dbl)
         {
             double margin = 8e-8;
