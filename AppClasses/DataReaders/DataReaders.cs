@@ -124,8 +124,9 @@ namespace DataReaders
     {
         public static void ProcessInjections(ExperimentData experiment)
         {
-            // We cannot reprocess injections for tandem experiments
+            // We cannot reprocess injections for tandem experiments or experiments without raw data
             if (experiment.IsTandemExperiment) return;
+            if (!experiment.HasThermogram) return;
 
             AppEventHandler.PrintAndLog("Proceesing injections for: " + experiment.FileName);
 
@@ -156,12 +157,12 @@ namespace DataReaders
                 inj.ActualCellConcentration = experiment.CellConcentration * ((1 - deltaVolume / x2vol0) / (1 + deltaVolume / x2vol0));
                 inj.ActualTitrantConcentration = experiment.SyringeConcentration * (deltaVolume / experiment.CellVolume) * (1 - deltaVolume / x2vol0);
 
-                switch (experiment.AxisType)
+                inj.Ratio = experiment.AxisType switch
                 {
-                    case AnalysisXAxisType.ID: inj.Ratio = (inj.ID + 1); break;
-                    case AnalysisXAxisType.TitrantConcentration: inj.Ratio = inj.ActualTitrantConcentration; break;
-                    default: inj.Ratio = inj.ActualTitrantConcentration / inj.ActualCellConcentration; break;
-                }
+                    AnalysisXAxisType.ID => (inj.ID + 1),
+                    AnalysisXAxisType.TitrantConcentration => inj.ActualTitrantConcentration,
+                    _ => inj.ActualTitrantConcentration / inj.ActualCellConcentration,
+                };
             }
         }
 

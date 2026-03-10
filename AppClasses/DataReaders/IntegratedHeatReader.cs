@@ -157,7 +157,7 @@ namespace DataReaders
 
             data.Injections = injs;
 
-            // We need to recalculate concentrations for precission 
+            // We need to recalculate concentrations for precision 
             RawDataReader.ProcessInjections(data);
 
             return data;

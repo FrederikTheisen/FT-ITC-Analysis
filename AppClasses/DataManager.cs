@@ -131,6 +131,7 @@ namespace AnalysisITC
         public static void DuplicateSelectedData(ExperimentData data)
         {
             AppEventHandler.PrintAndLog("Duplicating Data: " + data.FileName);
+            StatusBarManager.SetStatus($"Duplicating Data: {data.FileName}", 3000);
 
             var dps = new List<DataPoint>();
             foreach (var dp in data.DataPoints) dps.Add(dp.Copy());
@@ -149,14 +150,17 @@ namespace AnalysisITC
                 InitialDelay = data.InitialDelay,
                 TargetPowerDiff = data.TargetPowerDiff,
                 MeasuredTemperature = data.MeasuredTemperature,
-                Date = DateTime.Now,
+                Date = data.Date,
             };
 
             var injs = new List<InjectionData>();
-            foreach (var inj in data.Injections) injs.Add(inj.Copy(newdata));
+            foreach (var inj in data.Injections)
+                injs.Add(inj.Copy(newdata));
+
             newdata.Injections = injs;
 
-            foreach (var att in data.Attributes) newdata.Attributes.Add(att.Copy());
+            foreach (var att in data.Attributes)
+                newdata.Attributes.Add(att.Copy());
 
             if (data.Segments != null)
                 foreach (var seg in data.Segments) newdata.AddSegment(seg);

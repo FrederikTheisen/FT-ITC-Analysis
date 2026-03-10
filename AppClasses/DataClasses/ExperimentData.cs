@@ -845,12 +845,16 @@ namespace AnalysisITC
 
         public InjectionData Copy(ExperimentData data)
         {
-            var inj = new InjectionData(data, ID, Time, Volume, Delay, Duration, Temperature);
-            inj.InjectionMass = Volume * data.SyringeConcentration;
-            inj.ActualCellConcentration = ActualCellConcentration;
-            inj.ActualTitrantConcentration = ActualTitrantConcentration;
-            inj.Ratio = Ratio;
-            inj.Include = Include;
+            var inj = new InjectionData(data, ID, Time, Volume, Delay, Duration, Temperature)
+            {
+                InjectionMass = Volume * data.SyringeConcentration,
+                ActualCellConcentration = ActualCellConcentration,
+                ActualTitrantConcentration = ActualTitrantConcentration,
+                Ratio = Ratio,
+                Include = Include
+            };
+
+            inj.SetPeakArea(PeakArea);
 
             return inj;
         }
