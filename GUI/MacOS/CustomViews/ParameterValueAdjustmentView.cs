@@ -6,6 +6,7 @@ using PrintCore;
 //using static AnalysisITC.Analysis;
 using System.Collections.Generic;
 using Foundation;
+using AnalysisITC.Utilities;
 
 namespace AnalysisITC.GUI.MacOS.CustomViews
 {
@@ -244,15 +245,15 @@ namespace AnalysisITC.GUI.MacOS.CustomViews
             if (tmpvalue == null)
                 tmpvalue = par.Value;
 
-            if (par.Key.GetProperties().ParentType == ParameterType.Affinity1)
-            {
-                ParameterOptionControl.Hidden = false;
-                ParameterOptionControl.SegmentCount = 2;
-                ParameterOptionControl.SetLabel("  ", 0);
-                ParameterOptionControl.SetLabel("  ", 1);
-                ParameterOptionControl.SizeToFit();
-                ParameterOptionControl.SelectedSegment = AppSettings.InputAffinityAsDissociationConstant ? 1 : 0;
-            }
+            //if (par.Key.GetProperties().ParentType == ParameterType.Affinity1)
+            //{
+            //    ParameterOptionControl.Hidden = false;
+            //    ParameterOptionControl.SegmentCount = 2;
+            //    ParameterOptionControl.SetLabel("  ", 0);
+            //    ParameterOptionControl.SetLabel("  ", 1);
+            //    ParameterOptionControl.SizeToFit();
+            //    ParameterOptionControl.SelectedSegment = AppSettings.InputAffinityAsDissociationConstant ? 1 : 0;
+            //}
 
             SetupLabel();
             SetInputField();
@@ -267,9 +268,9 @@ namespace AnalysisITC.GUI.MacOS.CustomViews
             Label.StringValue = Parameter.Key.GetProperties().Description;
 
             if (Parameter.Key.GetProperties().ParentType == ParameterType.Affinity1 && AppSettings.InputAffinityAsDissociationConstant)
-                Label.StringValue += " (" + AppSettings.DefaultConcentrationUnit.ToString() + ")";
+                Label.AttributedStringValue = MacStrings.FromMarkDownString($"{Label.StringValue} ({MarkdownStrings.DissociationConstant}, {AppSettings.DefaultConcentrationUnit})", Label.Font);
             else if (ParameterTypeAttribute.IsEnergyUnitParameter(Parameter.Key))
-                Label.StringValue += " (" + AppSettings.EnergyUnit.GetProperties().Unit + ")";
+                Label.StringValue += " (" + AppSettings.EnergyUnit.GetProperties().Unit + "/mol)";
         }
 
         void SetInputField()
