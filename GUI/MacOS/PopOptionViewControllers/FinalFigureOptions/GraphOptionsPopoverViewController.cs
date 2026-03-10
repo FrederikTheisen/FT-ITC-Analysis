@@ -11,7 +11,30 @@ namespace AnalysisITC
 {
 	public partial class GraphOptionsPopoverViewController : NSViewController
 	{
-		public GraphOptionsPopoverViewController (IntPtr handle) : base (handle)
+        FinalFigureDisplayParameters GetParameterFlagForMenuIndex(int index)
+        {
+            return index switch
+            {
+                1 => FinalFigureDisplayParameters.Model,
+                2 => FinalFigureDisplayParameters.Fitted,
+                3 => FinalFigureDisplayParameters.Derived,
+
+                5 => FinalFigureDisplayParameters.Temperature,
+                6 => FinalFigureDisplayParameters.Concentrations,
+                7 => FinalFigureDisplayParameters.Attributes,
+
+                9 => FinalFigureDisplayParameters.Nvalue,
+                10 => FinalFigureDisplayParameters.Affinity,
+                11 => FinalFigureDisplayParameters.Enthalpy,
+                12 => FinalFigureDisplayParameters.Gibbs,
+                13 => FinalFigureDisplayParameters.Entropy,
+                14 => FinalFigureDisplayParameters.Offset,
+
+                _ => FinalFigureDisplayParameters.None,
+            };
+        }
+
+        public GraphOptionsPopoverViewController (IntPtr handle) : base (handle)
 		{
 		}
 
@@ -37,45 +60,47 @@ namespace AnalysisITC
 
             ShowParametersControl.State = FinalFigureGraphView.DrawFitParameters ? 1 : 0;
 
-            for (int i = 1; i < ParameterDisplayOptionsControl.Items.Length; i++)
-            {
-                NSMenuItem item = ParameterDisplayOptionsControl.Items[i];
-
-                switch (i)
-                {
-                    case 1: item.State = AppSettings.FinalFigureParameterDisplay.HasFlag(FinalFigureDisplayParameters.Model) ? NSCellStateValue.On : NSCellStateValue.Off; break;
-                    case 2: item.State = AppSettings.FinalFigureParameterDisplay.HasFlag(FinalFigureDisplayParameters.Fitted) ? NSCellStateValue.On : NSCellStateValue.Off; break;
-                    case 3: item.State = AppSettings.FinalFigureParameterDisplay.HasFlag(FinalFigureDisplayParameters.Derived) ? NSCellStateValue.On : NSCellStateValue.Off; break;
-
-                    case 5: item.State = AppSettings.FinalFigureParameterDisplay.HasFlag(FinalFigureDisplayParameters.Temperature) ? NSCellStateValue.On : NSCellStateValue.Off; break;
-                    case 6: item.State = AppSettings.FinalFigureParameterDisplay.HasFlag(FinalFigureDisplayParameters.Concentrations) ? NSCellStateValue.On : NSCellStateValue.Off; break;
-                    case 7: item.State = AppSettings.FinalFigureParameterDisplay.HasFlag(FinalFigureDisplayParameters.Attributes) ? NSCellStateValue.On : NSCellStateValue.Off; break;
-
-                    case 9: item.State = AppSettings.FinalFigureParameterDisplay.HasFlag(FinalFigureDisplayParameters.Nvalue) ? NSCellStateValue.On : NSCellStateValue.Off; break;
-                    case 10: item.State = AppSettings.FinalFigureParameterDisplay.HasFlag(FinalFigureDisplayParameters.Affinity) ? NSCellStateValue.On : NSCellStateValue.Off; break;
-                    case 11: item.State = AppSettings.FinalFigureParameterDisplay.HasFlag(FinalFigureDisplayParameters.Enthalpy) ? NSCellStateValue.On : NSCellStateValue.Off; break;
-                    case 12: item.State = AppSettings.FinalFigureParameterDisplay.HasFlag(FinalFigureDisplayParameters.Gibbs) ? NSCellStateValue.On : NSCellStateValue.Off; break;
-                    case 13: item.State = AppSettings.FinalFigureParameterDisplay.HasFlag(FinalFigureDisplayParameters.Entropy) ? NSCellStateValue.On : NSCellStateValue.Off; break;
-                    case 14: item.State = AppSettings.FinalFigureParameterDisplay.HasFlag(FinalFigureDisplayParameters.Offset) ? NSCellStateValue.On : NSCellStateValue.Off; break;
-
-                }
-            }
+            UpdateParameterDisplayMenu();
 
             ShowDataGraphControl.State = FinalFigureGraphView.ShowDataGraph ? 1 : 0;
         }
 
+        void SetParameterFlag(FinalFigureDisplayParameters flag, bool enabled)
+        {
+            if (flag == FinalFigureDisplayParameters.None) return;
+
+            if (enabled) AppSettings.FinalFigureParameterDisplay |= flag;
+            else AppSettings.FinalFigureParameterDisplay &= ~flag;
+        }
+
         partial void ParameterOptionAction(NSObject sender)
         {
-            var btn = sender as NSPopUpButton;
-            var item = ParameterDisplayOptionsControl.ItemAt(btn.IndexOfSelectedItem);
+            if (sender is not NSPopUpButton btn) return;
 
-            switch (item.State)
+            int index = (int)btn.IndexOfSelectedItem;
+            var flag = GetParameterFlagForMenuIndex(index);
+            if (flag == FinalFigureDisplayParameters.None) return;
+
+            bool currentlyEnabled = AppSettings.FinalFigureParameterDisplay.HasFlag(flag);
+            SetParameterFlag(flag, !currentlyEnabled);
+
+            UpdateParameterDisplayMenu();
+            FinalFigureGraphView.Invalidate();
+        }
+
+        void UpdateParameterDisplayMenu()
+        {
+            for (int i = 1; i < ParameterDisplayOptionsControl.Items.Length; i++)
             {
-                case NSCellStateValue.On: item.State = NSCellStateValue.Off; break;
-                default: item.State = NSCellStateValue.On; break;
-            }
+                var item = ParameterDisplayOptionsControl.Items[i];
+                var flag = GetParameterFlagForMenuIndex(i);
 
-            ControlChanged(null);
+                if (flag == FinalFigureDisplayParameters.None) continue;
+
+                item.State = AppSettings.FinalFigureParameterDisplay.HasFlag(flag)
+                    ? NSCellStateValue.On
+                    : NSCellStateValue.Off;
+            }
         }
 
         partial void ControlChanged(NSObject sender)
@@ -106,29 +131,6 @@ namespace AnalysisITC
             FinalFigureGraphView.TimeAxisUnit = (TimeUnit)(int)TimeUnitControl.SelectedSegment;
 
             AppSettings.EnergyUnit = EnergyUnitControl.SelectedSegment == 0 ? EnergyUnit.KiloJoule : EnergyUnit.KCal;
-
-            AppSettings.FinalFigureParameterDisplay = FinalFigureDisplayParameters.None;
-            for (int i = 1; i < ParameterDisplayOptionsControl.Items.Length; i++)
-            {
-                NSMenuItem item = ParameterDisplayOptionsControl.Items[i];
-                if (item.State == NSCellStateValue.On) switch (i)
-                    {
-                        case 1: AppSettings.FinalFigureParameterDisplay |= FinalFigureDisplayParameters.Model; break;
-                        case 2: AppSettings.FinalFigureParameterDisplay |= FinalFigureDisplayParameters.Fitted; break;
-                        case 3: AppSettings.FinalFigureParameterDisplay |= FinalFigureDisplayParameters.Derived; break;
-
-                        case 5: AppSettings.FinalFigureParameterDisplay |= FinalFigureDisplayParameters.Temperature; break;
-                        case 6: AppSettings.FinalFigureParameterDisplay |= FinalFigureDisplayParameters.Concentrations; break;
-                        case 7: AppSettings.FinalFigureParameterDisplay |= FinalFigureDisplayParameters.Attributes; break;
-
-                        case 9: AppSettings.FinalFigureParameterDisplay |= FinalFigureDisplayParameters.Nvalue; break;
-                        case 10: AppSettings.FinalFigureParameterDisplay |= FinalFigureDisplayParameters.Affinity;  break;
-                        case 11: AppSettings.FinalFigureParameterDisplay |= FinalFigureDisplayParameters.Enthalpy; break;
-                        case 12: AppSettings.FinalFigureParameterDisplay |= FinalFigureDisplayParameters.Gibbs; break;
-                        case 13: AppSettings.FinalFigureParameterDisplay |= FinalFigureDisplayParameters.Entropy; break;
-                        case 14: AppSettings.FinalFigureParameterDisplay |= FinalFigureDisplayParameters.Offset; break;
-                    }
-            }
 
             FinalFigureGraphView.Invalidate();
         }
