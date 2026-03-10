@@ -69,8 +69,18 @@ namespace AnalysisITC.Utilities
             var subscriptOffset = new NSNumber(-SuperSubOffset);
             var range = new NSRange(0, s.Length);
             attributes.Add(NSStringAttributeKey.BaselineOffset, subscriptOffset);
+
             s.AddAttributes(attributes, range);
 
+            return s;
+        }
+
+        static NSMutableAttributedString SubscriptText2(string str, NSFont font)
+        {
+            var s = new NSMutableAttributedString(str);
+            font = NSFont.FromFontName(font.FontName, font.PointSize * 0.7f);
+            s.AddAttributes(new NSStringAttributes { Font = font }, new NSRange(0, s.Length));
+            s.AddAttribute(NSStringAttributeKey.Superscript, NSNumber.FromInt32(-1), new NSRange(0, s.Length));
             return s;
         }
 
@@ -88,6 +98,14 @@ namespace AnalysisITC.Utilities
             return s;
         }
 
+        static NSMutableAttributedString SuperscriptText2(string str, NSFont font)
+        {
+            var s = new NSMutableAttributedString(str);
+            font = NSFont.FromFontName(font.FontName, font.PointSize * 0.7f);
+            s.AddAttributes(new NSStringAttributes { Font = font }, new NSRange(0, s.Length));
+            s.AddAttribute(NSStringAttributeKey.Superscript, NSNumber.FromInt32(1), new NSRange(0, s.Length));
+            return s;
+        }
 
         public static NSMutableAttributedString CursiveSubscript(string str, NSFont font)
         {
@@ -105,14 +123,14 @@ namespace AnalysisITC.Utilities
 
 		public static NSAttributedString DissociationConstant(NSFont font)
 		{
-            var s = CursiveSubscript("Kd", font);
+            var s = FromMarkDownString(MarkdownStrings.DissociationConstant, font);
 
             return s;
         }
 
         public static NSAttributedString AssociationConstant(NSFont font)
         {
-            var s = CursiveSubscript("Ka", font);
+            var s = FromMarkDownString(MarkdownStrings.AssociationnConstant, font);
 
             return s;
         }
@@ -138,6 +156,7 @@ namespace AnalysisITC.Utilities
                     case MarkdownProperty.Small: attstr.Append(SmallText(segment.Text, font)); break;
                 }
             }
+
             if (iscg) attstr.AddAttributes(new CoreText.CTStringAttributes() //Necessary for correct textbox text color...
             {
                 ForegroundColorFromContext = true

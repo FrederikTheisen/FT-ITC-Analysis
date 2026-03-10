@@ -9,6 +9,7 @@ namespace AnalysisITC.Utilities
     public static class MarkdownStrings
     {
         public const string DissociationConstant = "*K*{d}";
+        public const string AssociationnConstant = "*K*{a}";
         public const string DissociationConstantTrans = "*K*{d,trans}";
         public const string DissociationConstantCis = "*K*{d,cis}";
         public const string ApparentDissociationConstant = "*K*{d,app}";
