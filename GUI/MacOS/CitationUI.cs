@@ -1,5 +1,6 @@
 ﻿using System;
 using AnalysisITC;
+using AnalysisITC.Utilities;
 using AppKit;
 using CoreGraphics;
 using Foundation;
@@ -13,10 +14,10 @@ static class CitationUI
         var alert = new NSAlert
         {
             MessageText = "How to cite FT-ITC Analysis",
-            InformativeText = "Copy one of the formats below (or open the repository CITATION file)."
+            InformativeText = "If you have used Copy a BibTeX formatted bibliographic entry or use the DOI in a citation manager."
         };
 
-        alert.AccessoryView = BuildWrappedLabelAccessory(citation.ToDisplayString());
+        alert.AccessoryView = BuildWrappedLabelAccessory(citation.ToMarkdownDisplayString());
         alert.AddButton("Copy");
         alert.AddButton("OK");
 
@@ -35,7 +36,7 @@ static class CitationUI
 
         // Measure height for the given width
         var attrs = new NSStringAttributes { Font = font };
-        var attributed = new NSAttributedString(text, attrs);
+        var attributed = MacStrings.FromMarkDownString(text, font);
 
         var bounds = attributed.BoundingRectWithSize(
             new CGSize(width, nfloat.MaxValue),
@@ -53,7 +54,7 @@ static class CitationUI
             DrawsBackground = false,
             Selectable = true,
             Font = font,
-            StringValue = text
+            AttributedStringValue = attributed
         };
 
         // Critical multiline settings

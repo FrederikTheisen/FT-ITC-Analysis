@@ -28,22 +28,22 @@ namespace AnalysisITC
         [JsonPropertyName("version")]
         public string Version { get; set; }
 
-        public string ToDisplayString()
+        public string ToMarkdownDisplayString()
         {
             var sb = new StringBuilder();
 
             if (!string.IsNullOrWhiteSpace(Title))
                 sb.AppendLine(Title);
 
-            var line2 = $"{Authors}, {Journal}, {Year}".Trim(' ', ',');
+            var line2 = $"{Authors}, *{Journal}*, {Year}".Trim(' ', ',');
             if (!string.IsNullOrWhiteSpace(line2))
                 sb.AppendLine(line2);
 
             if (!string.IsNullOrWhiteSpace(DOI))
-                sb.AppendLine("DOI: " + DOI);
+                sb.AppendLine("**DOI**: " + DOI);
 
             if (!string.IsNullOrWhiteSpace(Version))
-                sb.AppendLine("Version: " + AppVersion.ShortVersionString);
+                sb.AppendLine("**Version**: " + AppVersion.ShortVersionString);
 
             return sb.ToString().Trim();
         }
@@ -72,8 +72,8 @@ $@"@article{{ftitc{year},
         {
             Title = "FT-ITC Analysis",
             Authors = "Frederik Friis Theisen",
-            Journal = "",
-            Year = "",
+            Journal = "Not Yet Published",
+            Year = "2026",
             DOI = "",
             Version = AppVersion.ShortVersionString
         };
