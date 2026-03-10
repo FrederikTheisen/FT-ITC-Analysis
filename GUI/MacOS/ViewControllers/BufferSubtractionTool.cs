@@ -30,7 +30,7 @@ namespace AnalysisITC
             base.ViewDidLoad();
 
             mergeSource = new ExperimentMergeQueueDataSource();
-            mergeSource.SetFromOpenExperiments(defaultActiveFromInclude: false); // uses DataManager.Data / Include :contentReference[oaicite:5]{index=5}
+            mergeSource.SetFromOpenExperiments(defaultActiveFromInclude: false, musthavethermogram: false);
 
             mergeDelegate = new ExperimentMergeQueueDelegate(mergeSource);
             mergeDelegate.SelectionChanged += (_, __) =>
