@@ -26,7 +26,9 @@ namespace AnalysisITC
         public static bool Verbose { get; set; } = false;
 
         private static NSUrl lastDocumentUrl = null;
+        private static NSUrl[] lastDocumentUrls = null;
         public static NSUrl LastDocumentUrl { get => lastDocumentUrl; set { lastDocumentUrl = value; Save(); } }
+        public static NSUrl[] LastDocumentUrls { get => lastDocumentUrls; set { lastDocumentUrls = value; Save(); } }
 
         //Processing
         public static PeakFitAlgorithm PeakFitAlgorithm { get; set; } = PeakFitAlgorithm.SingleExponential;
@@ -128,7 +130,7 @@ namespace AnalysisITC
             Storage.SetBool(UseInjectionErrorWeightedFitting, "UseInjectionErrorWeightedFitting");
             Storage.SetBool(AutoAxesIgnoresBadData, "AutoAxesIgnoresBadData");
 
-
+            if (LastDocumentUrls != null) StoreArray(LastDocumentUrls.Select(url => url.ToString()).ToArray(), "LastDocumentUrls");
             StoreArray(FinalFigureDimensions, "FinalFigureDimensions");
 
             Storage.SetBool(true, "IsSaved");
@@ -185,6 +187,8 @@ namespace AnalysisITC
             UseInjectionErrorWeightedFitting = GetBool(dict, "UseInjectionErrorWeightedFitting", UseInjectionErrorWeightedFitting);
             AutoAxesIgnoresBadData = GetBool(dict, "AutoAxesIgnoresBadData", AutoAxesIgnoresBadData);
 
+            LastDocumentUrls = GetArray(dict, "LastDocumentUrls", new string[0]).Select(url => NSUrl.FromString(url)).ToArray();
+
             ApplySettings();
 
             StatusBarManager.ClearAppStatus();
@@ -214,6 +218,7 @@ namespace AnalysisITC
             DefaultConcentrationUnit = ConcentrationUnit.µM;
             InputAffinityAsDissociationConstant = true;
             lastDocumentUrl = null;
+            LastDocumentUrls = null;
             IncludeBufferInIonicStrengthCalc = true;
             BuffersPreparedAtRoomTemperature = true;
             NumOfDecimalsToExport = 1;

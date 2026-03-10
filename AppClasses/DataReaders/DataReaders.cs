@@ -77,6 +77,8 @@ namespace DataReaders
                         AppSettings.LastDocumentUrl = url;
                     }
                 }
+
+                AppSettings.LastDocumentUrls = urls.ToArray();
             }
             catch (Exception ex)
             {

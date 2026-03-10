@@ -57,7 +57,11 @@ namespace AnalysisITC
 
         partial void LoadLastFile(NSObject sender)
         {
-            DataReaders.DataReader.Read(AppSettings.LastDocumentUrl);
+            if (AppSettings.LastDocumentUrls != null)
+            {
+                DataReaders.DataReader.Read(AppSettings.LastDocumentUrls);
+            }
+            else DataReaders.DataReader.Read(AppSettings.LastDocumentUrl);
 
             //LoadDataPrompt.Hidden = true;
         }
