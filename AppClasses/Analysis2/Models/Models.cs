@@ -457,7 +457,7 @@ namespace AnalysisITC.AppClasses.Analysis2.Models
             Nvalue = 2,
             Affinity = 4,
             Enthalpy = 8,
-            TdS = 16,
+            Entropy = 16,
             Gibbs = 32,
             Offset = 64,
 
@@ -469,7 +469,7 @@ namespace AnalysisITC.AppClasses.Analysis2.Models
             Misc = 1024,
 
             Fitted = Nvalue | Affinity | Enthalpy,
-            Derived = TdS | Gibbs,
+            Derived = Entropy | Gibbs,
 
             Default = Model | Fitted | Derived | Temperature | Concentrations,
             All = Model | Fitted | Offset | Derived | Temperature | Concentrations | Attributes | Misc,

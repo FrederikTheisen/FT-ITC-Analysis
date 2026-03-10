@@ -146,7 +146,7 @@ namespace AnalysisITC.AppClasses.Analysis2.Models
                 if (info.HasFlag(FinalFigureDisplayParameters.Enthalpy))
                     output.Add(new(Utilities.MarkdownStrings.Enthalpy, Enthalpy.ToFormattedString(ReportEnergyUnit, permole: true)));
 
-                if (info.HasFlag(FinalFigureDisplayParameters.TdS))
+                if (info.HasFlag(FinalFigureDisplayParameters.Entropy))
                     output.Add(new(Utilities.MarkdownStrings.EntropyContribution, TdS.ToFormattedString(ReportEnergyUnit, permole: true)));
 
                 if (info.HasFlag(FinalFigureDisplayParameters.Gibbs))
