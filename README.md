@@ -8,6 +8,8 @@ This repository is open source and exists both to distribute end-user binaries (
 
 - **MicroCal raw data**: `.itc`
 - **TA Instruments / NanoAnalyze export**: `.TA`
+- **PEAQ ITC** project files: `.apj`
+- **Integrated Heats**: `.dat`
 
 ## Installation
 
@@ -20,8 +22,8 @@ Releases are intended to be **Developer ID–signed and notarized** to reduce Ga
 
 ## Basic workflow
 
-1. Open one or more supported data files (`.itc`, `.TA`) (menu or drag-and-drop).
-    - Apply concentration corrections and add buffer/salt options if relevant.
+1. Open one or more supported data files (`.itc`, `.TA`, `.apj` etc.) (menu or drag-and-drop).
+    - Correct concentrations if necessary
 2. Perform baseline fitting and peak integration.
 3. Review processed injection heats and perform standard model fitting.
 4. Grouped analysis of multiple experiments to for global fitting or derived parameters.
@@ -29,16 +31,14 @@ Releases are intended to be **Developer ID–signed and notarized** to reduce Ga
 
 ## Citation
 
-This repository contains (or should contain) a `CITATION.cff` file to tell others how to cite the software.
-
-TODO Create a GitHub Release for each public version.
+A bibliographic citation entry in BibTeX format can be retrieved inside the program in the menu `Help > Citation`.
 
 ## Contributing
 
 Issues and pull requests are welcome.
 
 If reporting bugs, include:
-- the input file type (`.itc` or `.TA`),
+- the input file type,
 - what you expected vs what you observed,
 - (if possible) a minimal example dataset or export.
 
