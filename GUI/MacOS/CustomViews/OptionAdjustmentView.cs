@@ -99,6 +99,8 @@ namespace AnalysisITC.GUI.MacOS.CustomViews
             InputButton.Font = NSFont.SystemFontOfSize(NSFont.SmallSystemFontSize);
             InputButton.ImagePosition = NSCellImagePosition.ImageTrailing;
 
+            InputButton.SetContentHuggingPriorityForOrientation(249, NSLayoutConstraintOrientation.Horizontal);
+
             AddArrangedSubview(InputButton);
         }
 
