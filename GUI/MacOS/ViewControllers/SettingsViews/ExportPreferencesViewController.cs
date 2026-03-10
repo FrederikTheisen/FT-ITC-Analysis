@@ -45,6 +45,7 @@ namespace AnalysisITC
             FinalFigParameterDisplayOptions.SetSelected(AppSettings.FinalFigureParameterDisplay.HasFlag(FinalFigureDisplayParameters.Offset), 3);
             FinalFigParameterDisplayOptions.SetSelected(AppSettings.FinalFigureParameterDisplay.HasFlag(FinalFigureDisplayParameters.Temperature), 4);
             FinalFigParameterDisplayOptions.SetSelected(AppSettings.FinalFigureParameterDisplay.HasFlag(FinalFigureDisplayParameters.Concentrations), 5);
+            FinalFigParameterDisplayOptions.SetSelected(AppSettings.FinalFigureParameterDisplay.HasFlag(FinalFigureDisplayParameters.Attributes), 6);
 
             FinalFigAttributeDisplay.SetSelected(AppSettings.DisplayAttributeOptions.HasFlag(DisplayAttributeOptions.UsedInAnalysis), 0);
             FinalFigAttributeDisplay.SetSelected(AppSettings.DisplayAttributeOptions.HasFlag(DisplayAttributeOptions.Buffer), 1);
@@ -84,6 +85,7 @@ namespace AnalysisITC
             if (FinalFigParameterDisplayOptions.IsSelectedForSegment(3)) AppSettings.FinalFigureParameterDisplay |= FinalFigureDisplayParameters.Offset;
             if (FinalFigParameterDisplayOptions.IsSelectedForSegment(4)) AppSettings.FinalFigureParameterDisplay |= FinalFigureDisplayParameters.Temperature;
             if (FinalFigParameterDisplayOptions.IsSelectedForSegment(5)) AppSettings.FinalFigureParameterDisplay |= FinalFigureDisplayParameters.Concentrations;
+            if (FinalFigParameterDisplayOptions.IsSelectedForSegment(6)) AppSettings.FinalFigureParameterDisplay |= FinalFigureDisplayParameters.Attributes;
 
             if (FinalFigAttributeDisplay.IsSelectedForSegment(0)) AppSettings.DisplayAttributeOptions = DisplayAttributeOptions.UsedInAnalysis;
             if (FinalFigAttributeDisplay.IsSelectedForSegment(1)) AppSettings.DisplayAttributeOptions |= DisplayAttributeOptions.Buffer;

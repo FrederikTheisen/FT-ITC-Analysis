@@ -471,7 +471,7 @@ namespace AnalysisITC.AppClasses.Analysis2.Models
             Fitted = Nvalue | Affinity | Enthalpy,
             Derived = Entropy | Gibbs,
 
-            Default = Model | Fitted | Derived | Temperature | Concentrations,
+            Default = Model | Fitted | Derived | Temperature | Concentrations | Attributes,
             All = Model | Fitted | Offset | Derived | Temperature | Concentrations | Attributes | Misc,
 
             ListView = Model | Affinity | Enthalpy,
