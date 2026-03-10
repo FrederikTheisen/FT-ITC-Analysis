@@ -348,15 +348,6 @@ namespace AnalysisITC
                         Data.Processor.Lock();
                         break;
                     }
-                //case MouseOverFeatureEvent.FeatureType.BaselineSplinePoint:
-                //    {
-                //        var feature = (Data.Processor.Interpolator as SplineInterpolator).SplinePoints[SelectedFeature.FeatureID];
-                //        var adjust = 10E-10 * (position.Y - SelectedFeature.ClickCursorPosition.Y);
-
-                //        feature.Power = SelectedFeature.FeatureReferenceValue + adjust;
-                //        Data.Processor.Lock();
-                //        break;
-                //    }
                 case MouseOverFeatureEvent.FeatureType.BaselineSplineHandle:
                     {
                         bool invert = SelectedFeature.SubID == 0;
@@ -373,18 +364,6 @@ namespace AnalysisITC
                         Data.Processor.Lock();
                         break;
                     }
-                //case MouseOverFeatureEvent.FeatureType.BaselineSplineHandle:
-                //    {
-                //        bool invert = SelectedFeature.SubID == 0;
-
-                //        var feature = (Data.Processor.Interpolator as SplineInterpolator).SplinePoints[SelectedFeature.FeatureID];
-                //        var adjust = 10E-12 * (position.Y - SelectedFeature.ClickCursorPosition.Y);
-                //        if (invert) adjust = -adjust;
-
-                //        feature.Slope = SelectedFeature.FeatureReferenceValue + adjust;
-                //        Data.Processor.Lock();
-                //        break;
-                //    }
                 case MouseOverFeatureEvent.FeatureType.IntegrationRangeMarker:
                     {
                         Data.Processor.IntegrationLengthMode = InjectionData.IntegrationLengthMode.Time;
