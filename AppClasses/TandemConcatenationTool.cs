@@ -355,31 +355,7 @@ namespace AnalysisITC
 
         static InjectionData CopyInjectionWithNewIdAndShift(ExperimentData target, InjectionData inj, int newId, float shift)
         {
-            var inv = CultureInfo.InvariantCulture;
-
-            var include = inj.Include ? "1" : "0";
-            var time = (inj.Time + shift).ToString(inv);
-            var vol = inj.Volume.ToString(inv);
-            var delay = inj.Delay.ToString(inv);
-            var dur = inj.Duration.ToString(inv);
-            var temp = inj.Temperature.ToString(inv);
-            var istart = inj.IntegrationStartDelay.ToString(inv);
-            var ilen = inj.IntegrationLength.ToString(inv);
-
-            var line = string.Join(",", new string[]
-            {
-                newId.ToString(inv),
-                include,
-                time,
-                vol,
-                delay,
-                dur,
-                temp,
-                istart,
-                ilen
-            });
-
-            return new InjectionData(target, line);
+            return inj.CopyWithNewID(target, newId, shift);
         }
 
         static string BuildConcatComment(List<ExperimentData> experiments, string originalComment, string modeTag)

@@ -252,17 +252,9 @@ namespace AnalysisITC
 
         public void SetReferenceExperiment(ExperimentData reference)
         {
+            // Check for self referencing.
             if (reference.UniqueID == this.UniqueID) throw new HandledException(HandledException.Severity.Warning, "Buffer Subtraction Error", "Attempting to set reference experiment to itself");
-            if (reference.ReferenceExperiment != null)
-            {
-                var deepref = reference;
-                while (deepref.ReferenceExperiment != null)
-                {
-                    deepref = deepref.ReferenceExperiment;
-
-                    if (deepref.UniqueID == this.UniqueID) throw new HandledException(HandledException.Severity.Warning, "Buffer Subtraction Error", "Experiment self reference detected in reference chain");
-                }
-            }
+            if (reference.ReferenceExperiment != null) throw new HandledException(HandledException.Severity.Warning, "Buffer Subtraction Error", "Reference experiment already contains a buffer subtraction");
 
             // Clear previous setting
             Attributes.RemoveAll(att => att.Key == AttributeKey.BufferSubtraction);
@@ -271,7 +263,9 @@ namespace AnalysisITC
             Attributes.Add(ExperimentAttribute.ExperimentReference("Reference", reference.UniqueID));
 
             // Reintegrate peaks
-            Processor?.IntegratePeaks(invalidate: true);
+            // Processor?.IntegratePeaks(invalidate: true);
+            foreach (var inj in Injections)
+                inj.UpdateCorrectedPeakArea();
         }
 
         public void SetProcessor(DataProcessor processor)
@@ -472,10 +466,13 @@ namespace AnalysisITC
         public PeakHeatDirection HeatDirection { get; set; } = PeakHeatDirection.Unknown;
 
         public bool IsIntegrated { get; set; } = false;
+        public FloatWithError RawPeakArea { get; private set; } = new();
         public FloatWithError PeakArea { get; private set; } = new();
         public Energy Enthalpy2 => new(PeakArea / InjectionMass);
         public double Enthalpy => PeakArea / InjectionMass;
         public double SD => PeakArea.SD / InjectionMass;
+
+        static bool IsValidReferenceInjection(InjectionData inj) => inj != null && inj.Include && inj.IsIntegrated;
 
         public double OffsetEnthalpy
         {
@@ -522,6 +519,68 @@ namespace AnalysisITC
                 Duration = 2 * (float)v, // Not known
                 Filter = 0.0f, // Not known, not used
             };
+        }
+
+        public static InjectionData FromFTITCLine(ExperimentData experiment, string line)
+        {
+            var parameters = line.Split(',');
+
+            var inj = new InjectionData()
+            {
+                Experiment = experiment,
+                ID = int.Parse(parameters[0]),
+                Include = parameters[1] == "1",
+                Time = float.Parse(parameters[2]),
+                Volume = double.Parse(parameters[3]),
+                Delay = float.Parse(parameters[4]),
+                Duration = float.Parse(parameters[5]),
+                Temperature = double.Parse(parameters[6]),
+                IntegrationStartDelay = float.Parse(parameters[7]),
+                IntegrationLength = float.Parse(parameters[8]),
+            };
+
+            // Newer files contain additional information for the injections to handle tandem experiment data
+            if (parameters.Count() > 9)
+            {
+                inj.ActualCellConcentration = double.Parse(parameters[9]);
+                inj.ActualTitrantConcentration = double.Parse(parameters[10]);
+                inj.Ratio = inj.ActualTitrantConcentration / inj.ActualCellConcentration;
+            }
+
+            // Newer files contain additional information
+            if (parameters.Count() > 11)
+            {
+                var peakarea = double.Parse(parameters[11]);
+                var peaksd = double.Parse(parameters[12]);
+
+                inj.SetPeakArea(new FloatWithError(peakarea, peaksd));
+            }
+
+            return inj;
+        }
+
+        public static InjectionData FromPEAQFile(ExperimentData experiment, int id, bool include, double time, double volume, double delay, double duration, double temperature)
+        {
+            return new InjectionData()
+            {
+                Experiment = experiment,
+                ID = id,
+                Include = include,
+                Time = (float)time,
+                Volume = volume,
+                Delay = (float)delay,
+                Duration = (float)duration,
+                Temperature = temperature
+            };
+        }
+
+        public InjectionData(ExperimentData experiment, double volume)
+        {
+            Experiment = experiment;
+
+            ID = experiment.InjectionCount;
+            Volume = volume;
+            Time = ID; // No meaningful time
         }
 
         public InjectionData(ExperimentData experiment, int id, double volume, double mass, bool include)
@@ -721,7 +780,6 @@ namespace AnalysisITC
         public void Integrate()
         {
             var data = Experiment.BaseLineCorrectedDataPoints.Where(dp => dp.Time > IntegrationStartTime && dp.Time < IntegrationEndTime);
-            var reference = Experiment.ReferenceExperiment;
 
             if (data.Count() <= 0) throw new Exception($"Cannot integrate peak with no data point(s)");
 
@@ -740,31 +798,15 @@ namespace AnalysisITC
             var peakarea = new FloatWithError(area, sd);
 
             SetPeakArea(peakarea);
-
-            // Update peak area if reference experiment is set
-            if (reference != null)
-            {
-                // Clamp reference to corresponding or last (we just have to assume all dilution heats are the same following the last)
-                var idx = Math.Clamp(ID, 0, reference.InjectionCount - 1);
-                var inj = reference.Injections[idx];
-
-                var ref_heat = inj.PeakArea;
-                var new_heat = peakarea.Value - ref_heat.Value;
-                var new_sd = Math.Sqrt(peakarea.SD * peakarea.SD + ref_heat.SD * ref_heat.SD);
-
-                peakarea = new FloatWithError(new_heat, new_sd);
-
-                SetPeakArea(peakarea);
-            }
         }
 
         /// <summary>
-        /// Set the integrated area and set the IsIntegrated flag
+        /// Set the integrated area and set the IsIntegrated flag. Also performs buffer referencing.
         /// </summary>
-        /// <param name="area"></param>
         public void SetPeakArea(FloatWithError area)
         {
-            PeakArea = area;
+            RawPeakArea = area;
+            UpdateCorrectedPeakArea();
 
             // Set heat direction based on the area and error
             HeatDirection =
@@ -773,6 +815,67 @@ namespace AnalysisITC
                 PeakHeatDirection.Unknown;
 
             IsIntegrated = true;
+        }
+
+        public void UpdateCorrectedPeakArea()
+        {
+            var area = RawPeakArea;
+
+            var reference = Experiment?.ReferenceExperiment;
+            if (reference != null && TryGetReferencePeakArea(reference, out var refHeat))
+            {
+                var newHeat = area.Value - refHeat.Value;
+                var newSd = Math.Sqrt(area.SD * area.SD + refHeat.SD * refHeat.SD);
+                area = new FloatWithError(newHeat, newSd);
+            }
+
+            PeakArea = area;
+        }
+
+        bool TryGetReferencePeakArea(ExperimentData reference, out FloatWithError area)
+        {
+            area = default;
+
+            if (reference.InjectionCount == 0) return false;
+
+            // Prefer same injection if valid
+            var idx = Math.Clamp(ID, 0, reference.InjectionCount - 1);
+            var same = reference.Injections[idx];
+            if (IsValidReferenceInjection(same))
+            {
+                area = same.RawPeakArea;
+                return true;
+            }
+
+            // Look for alternatives
+            InjectionData prev = null;
+            for (int i = idx - 1; i >= 0; i--)
+            {
+                var inj = reference.Injections[i];
+                if (IsValidReferenceInjection(inj))
+                {
+                    prev = inj;
+                    break;
+                }
+            }
+
+            InjectionData next = null;
+            for (int i = idx + 1; i < reference.InjectionCount; i++)
+            {
+                var inj = reference.Injections[i];
+                if (IsValidReferenceInjection(inj))
+                {
+                    next = inj;
+                    break;
+                }
+            }
+
+            // Prefer average over previous over next
+            if (prev != null && next != null) { area = FWEMath.Average(prev.RawPeakArea, next.RawPeakArea); return true; }
+            else if (prev != null) { area = prev.RawPeakArea; return true; }
+            else if (next != null) { area = next.RawPeakArea; return true; }
+
+            return false;
         }
 
         private double EstimateError2()
@@ -854,7 +957,26 @@ namespace AnalysisITC
                 Include = Include
             };
 
-            inj.SetPeakArea(PeakArea);
+            inj.SetPeakArea(RawPeakArea);
+
+            return inj;
+        }
+
+        public InjectionData CopyWithNewID(ExperimentData data, int id, float timeshift)
+        {
+            var inj = new InjectionData()
+            {
+                Experiment = data,
+                ID = id,
+                Include = this.Include,
+                Time = this.Time + timeshift,
+                Volume = this.Volume,
+                Delay = this.Delay,
+                Duration = this.Duration,
+                Temperature = this.Temperature,
+                IntegrationStartDelay = this.IntegrationStartDelay,
+                IntegrationLength = this.IntegrationLength,
+            };
 
             return inj;
         }

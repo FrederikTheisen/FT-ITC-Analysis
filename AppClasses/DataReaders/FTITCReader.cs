@@ -233,7 +233,7 @@ namespace DataReaders
 
             string line;
 
-            while ((line = reader.ReadLine()) != EndListHeader) injections.Add(new InjectionData(exp, line));
+            while ((line = reader.ReadLine()) != EndListHeader) injections.Add(InjectionData.FromFTITCLine(exp, line));
 
             exp.Injections = injections;
         }

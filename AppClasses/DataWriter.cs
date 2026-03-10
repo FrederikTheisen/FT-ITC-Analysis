@@ -274,6 +274,8 @@ namespace AnalysisITC
                 injection += inj.IntegrationLength + ",";
                 injection += inj.ActualCellConcentration + ",";
                 injection += inj.ActualTitrantConcentration + ",";
+                injection += inj.RawPeakArea.Value + ",";
+                injection += inj.RawPeakArea.SD;
 
                 file.Add(injection);
             }

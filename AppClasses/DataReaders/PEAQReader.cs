@@ -164,21 +164,16 @@ namespace DataReaders
                     bool include = ParseBool(injElem.Element("IsValid")?.Value);
 
                     var plannedInj = plannedInjectionScheme[id];
-
-                    // Build CSV string for InjectionData constructor.
-                    // Format: id,Include,Time,Volume,Delay,Duration,Temperature,IntegrationStartDelay,IntegrationLength
-                    // Use StartTime for both the Time and Delay fields.  Temperature is the average experiment temperature.
-                    string csv = string.Format(CultureInfo.InvariantCulture,
-                        "{0},{1},{2},{3},{4},{5},{6},0,0",
+                    var inj = InjectionData.FromPEAQFile(
+                        experiment,
                         id,
-                        include ? "1" : "0",
+                        include,
                         startTime,
                         vol,
                         plannedInj.Delay,
                         duration,
                         experiment.DataPoints.First(dp => dp.Time > startTime).Temperature);
 
-                    var inj = new InjectionData(experiment, csv);
                     inj.InitializeIntegrationTimes();
 
                     injections.Add(inj);

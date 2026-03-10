@@ -142,20 +142,26 @@ namespace DataReaders
                     25.0
                 );
 
-                var inj = new InjectionData(data, csv)
-                {
-                    InjectionMass = injMol,
-                    Ratio = ratio_post,
-                    ActualCellConcentration = mt_post,
-                    ActualTitrantConcentration = xt_post,
-                };
+                //var inj = new InjectionData(data, csv)
+
+                var inj = new InjectionData(data, vinj_L);
+
+                //var inj = new InjectionData(data, i, vinj_L, injMol, true)
+                //{
+                //    //InjectionMass = injMol,
+                //    Ratio = ratio_post,
+                //    ActualCellConcentration = mt_post,
+                //    ActualTitrantConcentration = xt_post,
+                //};
 
                 inj.SetPeakArea(new FloatWithError(heat_J, 0));
 
-                injs.Add(inj);
+                //injs.Add(inj);
+
+                data.Injections.Add(inj);
             }
 
-            data.Injections = injs;
+            //data.Injections = injs;
 
             // We need to recalculate concentrations for precision 
             RawDataReader.ProcessInjections(data);

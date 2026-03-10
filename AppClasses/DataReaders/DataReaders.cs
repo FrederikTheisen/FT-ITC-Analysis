@@ -124,9 +124,8 @@ namespace DataReaders
     {
         public static void ProcessInjections(ExperimentData experiment)
         {
-            // We cannot reprocess injections for tandem experiments or experiments without raw data
+            // We cannot reprocess injections for tandem experiments
             if (experiment.IsTandemExperiment) return;
-            if (!experiment.HasThermogram) return;
 
             AppEventHandler.PrintAndLog("Proceesing injections for: " + experiment.FileName);
 
