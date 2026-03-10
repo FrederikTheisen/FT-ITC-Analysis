@@ -26,7 +26,7 @@ namespace AnalysisITC
             {
                 var solutions = solution?.Solutions;
                 if (solutions == null || solutions.Count == 0) return null;
-                if (solutions.Count == DataManager.Data.Count) return "All";
+                if (solutions.Count == DataManager.Data.Count) return null;
 
                 var modelInfo = solution?.Model?.Solution?.SolutionName;
                 if (string.IsNullOrWhiteSpace(modelInfo)) modelInfo = solution.Model.ModelType.ToString();
