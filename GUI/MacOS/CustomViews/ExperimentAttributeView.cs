@@ -180,8 +180,8 @@ namespace AnalysisITC.GUI.MacOS.CustomViews
             {
                 Bordered = false,
                 TranslatesAutoresizingMaskIntoConstraints = false,
-                StringValue = Option.DoubleValue.ToString("F2"),
-                PlaceholderString = Option.DoubleValue.ToString("F2"),
+                StringValue = Option.DoubleValue.ToString("F1"),
+                PlaceholderString = Option.DoubleValue.ToString("F1"),
                 BezelStyle = NSTextFieldBezelStyle.Rounded,
                 FocusRingType = NSFocusRingType.None,
                 ControlSize = NSControlSize.Small,

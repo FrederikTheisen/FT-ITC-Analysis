@@ -222,59 +222,60 @@ namespace AnalysisITC.GUI.MacOS.CustomViews
                 Option.BoolValue = InputButton.State == NSCellStateValue.On;
             }
 
-            if (!InputValueWithErrorField.TryGetValue(out double val, out double err))
-                return;
-
-            switch (Option.Key)
+            if (InputValueWithErrorField != null)
             {
-                case AttributeKey.Percentage:
-                    {
-                        val /= 100;
-                        err /= 100;
+                if (!InputValueWithErrorField.TryGetValue(out double val, out double err))
+                    return;
 
-                        var value = new FloatWithError(val, err);
+                switch (Option.Key)
+                {
+                    case AttributeKey.Percentage:
+                        {
+                            val /= 100;
+                            err /= 100;
 
-                        Option.ParameterValue = value;
-                        break;
-                    }
-                case AttributeKey.EquilibriumConstant:
-                    {
-                        var value = new FloatWithError(val, err);
+                            var value = new FloatWithError(val, err);
 
-                        Option.ParameterValue = value;
-                        break;
-                    }
-                case AttributeKey.PreboundLigandConc:
-                    {
-                        val /=1000000;
-                        err /= 1000000;
+                            Option.ParameterValue = value;
+                            break;
+                        }
+                    case AttributeKey.EquilibriumConstant:
+                        {
+                            var value = new FloatWithError(val, err);
 
-                        var value = new FloatWithError(val, err);
+                            Option.ParameterValue = value;
+                            break;
+                        }
+                    case AttributeKey.PreboundLigandConc:
+                        {
+                            val /= 1000000;
+                            err /= 1000000;
 
-                        Option.ParameterValue = value;
-                        break;
-                    }
-                case AttributeKey.PreboundLigandAffinity:
-                    {
-                        val /= AppSettings.DefaultConcentrationUnit.GetProperties().Mod;
-                        err /= AppSettings.DefaultConcentrationUnit.GetProperties().Mod;
+                            var value = new FloatWithError(val, err);
 
-                        var k = 1 / val;
-                        var k_err = err / val * k;
+                            Option.ParameterValue = value;
+                            break;
+                        }
+                    case AttributeKey.PreboundLigandAffinity:
+                        {
+                            val /= AppSettings.DefaultConcentrationUnit.GetProperties().Mod;
+                            err /= AppSettings.DefaultConcentrationUnit.GetProperties().Mod;
 
-                        var value = new FloatWithError(k, k_err);
+                            var k = 1 / val;
+                            var k_err = err / val * k;
 
-                        Option.ParameterValue = value;
-                        break;
-                    }
+                            var value = new FloatWithError(k, k_err);
 
-                case AttributeKey.PreboundLigandEnthalpy:
-                    {
-                        var value = new Energy(new FloatWithError(val, err), AppSettings.EnergyUnit);
-
-                        Option.ParameterValue = value.FloatWithError;
-                        break;
-                    }
+                            Option.ParameterValue = value;
+                            break;
+                        }
+                    case AttributeKey.PreboundLigandEnthalpy:
+                        {
+                            var value = new Energy(new FloatWithError(val, err), AppSettings.EnergyUnit);
+                            Option.ParameterValue = value.FloatWithError;
+                            break;
+                        }  
+                }
             }
 
             // Store in array of options

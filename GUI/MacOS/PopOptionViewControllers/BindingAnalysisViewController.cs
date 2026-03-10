@@ -75,8 +75,8 @@ namespace AnalysisITC
             ParameterLabels.AttributedStringValue = mutable;
 
             // Right column values
-            DataSetParameterLabel.StringValue =
-                string.Join(Environment.NewLine, items.Select(i => i.Item2));
+            DataSetParameterLabel.AttributedStringValue =
+                MacStrings.FromMarkDownString(string.Join(Environment.NewLine, items.Select(i => i.Item2)), NSFont.SystemFontOfSize(11));
         }
 
         partial void CopyToClipboard(NSObject sender)
