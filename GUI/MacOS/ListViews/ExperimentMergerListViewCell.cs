@@ -55,7 +55,11 @@ namespace AnalysisITC
 
             TitleLabel.StringValue = data.FileName;
             DateLabel.StringValue = "Date: " + data.UIShortDateWithTime;
-            if (!string.IsNullOrEmpty(data.Comments)) CommentLabel.StringValue = "Comments: " + data.Comments;
+            if (!string.IsNullOrEmpty(data.Comments))
+            {
+                CommentLabel.StringValue = "Comments: " + data.Comments;
+                CommentLabel.ToolTip = data.Comments;
+            }
             else CommentLabel.StringValue = "Info: " + data.MeasuredTemperature.ToString("G3") + " °C | " + data.SyringeConcentration.AsFormattedConcentration(true) + " | " + data.CellConcentration.AsFormattedConcentration(true);
 
             MoveUpControl.Enabled = row > 0;
@@ -72,11 +76,11 @@ namespace AnalysisITC
 
         public override nint GetRowCount(NSTableView tableView) => Items.Count;
 
-        public void SetFromOpenExperiments(bool defaultActiveFromInclude = true)
+        public void SetFromOpenExperiments(bool defaultActiveFromInclude = true, bool musthavethermogram = true)
         {
-            // Open experiments are DataManager.Data and have thermogram (not results)
+            // Open experiments are DataManager.Data
             Items = DataManager.Data
-                .Where(d => d.HasThermogram)
+                .Where(d => d.HasThermogram || !musthavethermogram)
                 .Select(d => new MergeExperimentItem(d, active: defaultActiveFromInclude ? d.Include : true))
                 .ToList();
 

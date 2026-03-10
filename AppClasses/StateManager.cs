@@ -68,7 +68,10 @@ namespace AnalysisITC
             while (!StateIsAvailable(CurrentState))
             {
                 if (currentState == ProgramState.Load) forward = true;
-                if (!forward) currentState--;
+                if (!forward)
+                {
+                    currentState--;
+                }
                 else
                 {
                     if (currentState == ProgramState.Publish) SetProgramState(ProgramState.Load);
@@ -88,6 +91,8 @@ namespace AnalysisITC
 
         public static bool StateIsAvailable(ProgramState state)
         {
+            if ((int)state < 0) return false;
+
             switch (state)
             {
                 case ProgramState.Load: return DataManager.Current == null || (DataManager.Current != null && DataManager.Current.HasThermogram);

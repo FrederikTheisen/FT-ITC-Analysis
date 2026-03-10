@@ -67,12 +67,14 @@ namespace AnalysisITC
             {
                 InitialValuesHeader.Hidden = true;
                 InitialValuesLine.Hidden = true;
+                ParameterStackView.Hidden = true;
             }
 
             if (ModelFactory.Factory.GetExposedModelOptions() == null || ModelFactory.Factory.GetExposedModelOptions().Count() == 0)
             {
                 ModelOptionsHeader.Hidden = true;
                 ModelOptionsLine.Hidden = true;
+                OptionStackView.Hidden = true;
             }
         }
 

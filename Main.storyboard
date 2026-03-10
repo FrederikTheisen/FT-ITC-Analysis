@@ -2706,7 +2706,7 @@ In most cases, interpretation of affinities provided by ITC is straightforward, 
                                     </stackView>
                                     <textField horizontalHuggingPriority="249" verticalHuggingPriority="1000" horizontalCompressionResistancePriority="250" translatesAutoresizingMaskIntoConstraints="NO" id="oVd-K0-1fE">
                                         <rect key="frame" x="18" y="258" width="434" height="56"/>
-                                        <textFieldCell key="cell" controlSize="small" selectable="YES" alignment="justified" id="ez6-x6-5bi">
+                                        <textFieldCell key="cell" controlSize="small" selectable="YES" alignment="left" id="ez6-x6-5bi">
                                             <font key="font" metaFont="smallSystem"/>
                                             <string key="title">Experiment:
 Date:
@@ -2754,28 +2754,28 @@ Comments:</string>
                                                                                 <stackView distribution="fill" orientation="horizontal" alignment="top" spacing="5" horizontalStackHuggingPriority="1000" verticalStackHuggingPriority="249.99998474121094" detachesHiddenViews="YES" translatesAutoresizingMaskIntoConstraints="NO" id="THH-jv-1zY">
                                                                                     <rect key="frame" x="0.0" y="0.0" width="427" height="63"/>
                                                                                     <subviews>
-                                                                                        <stackView distribution="fill" orientation="vertical" alignment="leading" spacing="4" horizontalStackHuggingPriority="249.99998474121094" verticalStackHuggingPriority="250" horizontalCompressionResistancePriority="1000" verticalCompressionResistancePriority="250" detachesHiddenViews="YES" translatesAutoresizingMaskIntoConstraints="NO" id="bTP-3b-8MJ">
+                                                                                        <stackView distribution="fill" orientation="vertical" alignment="leading" spacing="4" horizontalStackHuggingPriority="249.99998474121094" verticalStackHuggingPriority="250" verticalCompressionResistancePriority="250" detachesHiddenViews="YES" translatesAutoresizingMaskIntoConstraints="NO" id="bTP-3b-8MJ">
                                                                                             <rect key="frame" x="0.0" y="1" width="422" height="62"/>
                                                                                             <subviews>
-                                                                                                <textField horizontalHuggingPriority="249" verticalHuggingPriority="1000" horizontalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="fEJ-9W-wDD">
+                                                                                                <textField horizontalHuggingPriority="249" verticalHuggingPriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="fEJ-9W-wDD">
                                                                                                     <rect key="frame" x="3" y="41" width="421" height="16"/>
-                                                                                                    <textFieldCell key="cell" refusesFirstResponder="YES" title="Experiment File Name" id="FuJ-Ml-j7b">
-                                                                                                        <font key="font" usesAppearanceFont="YES"/>
+                                                                                                    <textFieldCell key="cell" lineBreakMode="truncatingTail" refusesFirstResponder="YES" title="Experiment File Name" id="FuJ-Ml-j7b">
+                                                                                                        <font key="font" metaFont="systemMedium" size="13"/>
                                                                                                         <color key="textColor" name="labelColor" catalog="System" colorSpace="catalog"/>
                                                                                                         <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
                                                                                                     </textFieldCell>
                                                                                                 </textField>
-                                                                                                <textField horizontalHuggingPriority="249" verticalHuggingPriority="1000" horizontalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="JQ1-DW-yrh">
+                                                                                                <textField horizontalHuggingPriority="249" verticalHuggingPriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="JQ1-DW-yrh">
                                                                                                     <rect key="frame" x="3" y="23" width="421" height="14"/>
-                                                                                                    <textFieldCell key="cell" controlSize="small" refusesFirstResponder="YES" title="Date:" id="fFl-zW-IxK">
+                                                                                                    <textFieldCell key="cell" controlSize="small" lineBreakMode="truncatingTail" refusesFirstResponder="YES" title="Date:" id="fFl-zW-IxK">
                                                                                                         <font key="font" metaFont="smallSystem"/>
                                                                                                         <color key="textColor" name="labelColor" catalog="System" colorSpace="catalog"/>
                                                                                                         <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
                                                                                                     </textFieldCell>
                                                                                                 </textField>
-                                                                                                <textField horizontalHuggingPriority="249" verticalHuggingPriority="1000" horizontalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="vaF-IM-7wH">
+                                                                                                <textField horizontalHuggingPriority="249" verticalHuggingPriority="1000" horizontalCompressionResistancePriority="250" translatesAutoresizingMaskIntoConstraints="NO" id="vaF-IM-7wH">
                                                                                                     <rect key="frame" x="3" y="5" width="421" height="14"/>
-                                                                                                    <textFieldCell key="cell" controlSize="small" refusesFirstResponder="YES" title="Comment:" id="9g2-qM-NPo">
+                                                                                                    <textFieldCell key="cell" controlSize="small" lineBreakMode="truncatingTail" refusesFirstResponder="YES" title="Comment:" id="9g2-qM-NPo">
                                                                                                         <font key="font" metaFont="smallSystem"/>
                                                                                                         <color key="textColor" name="labelColor" catalog="System" colorSpace="catalog"/>
                                                                                                         <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
@@ -3176,28 +3176,28 @@ Gw
                                                                                 <stackView distribution="fill" orientation="horizontal" alignment="top" spacing="5" horizontalStackHuggingPriority="1000" verticalStackHuggingPriority="249.99998474121094" detachesHiddenViews="YES" translatesAutoresizingMaskIntoConstraints="NO" id="E1B-3S-SWU">
                                                                                     <rect key="frame" x="0.0" y="0.0" width="427" height="63"/>
                                                                                     <subviews>
-                                                                                        <stackView distribution="fill" orientation="vertical" alignment="leading" spacing="4" horizontalStackHuggingPriority="249.99998474121094" verticalStackHuggingPriority="250" horizontalCompressionResistancePriority="1000" verticalCompressionResistancePriority="250" detachesHiddenViews="YES" translatesAutoresizingMaskIntoConstraints="NO" id="TUc-iv-T6z">
+                                                                                        <stackView distribution="fill" orientation="vertical" alignment="leading" spacing="4" horizontalStackHuggingPriority="249.99998474121094" verticalStackHuggingPriority="250" horizontalCompressionResistancePriority="250" verticalCompressionResistancePriority="250" detachesHiddenViews="YES" translatesAutoresizingMaskIntoConstraints="NO" id="TUc-iv-T6z">
                                                                                             <rect key="frame" x="0.0" y="1" width="397" height="62"/>
                                                                                             <subviews>
-                                                                                                <textField horizontalHuggingPriority="249" verticalHuggingPriority="1000" horizontalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="u4D-Cz-qRk">
+                                                                                                <textField horizontalHuggingPriority="249" verticalHuggingPriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="u4D-Cz-qRk">
                                                                                                     <rect key="frame" x="3" y="41" width="396" height="16"/>
-                                                                                                    <textFieldCell key="cell" refusesFirstResponder="YES" title="Experiment File Name" id="4Cd-P6-78x">
-                                                                                                        <font key="font" usesAppearanceFont="YES"/>
+                                                                                                    <textFieldCell key="cell" lineBreakMode="truncatingTail" refusesFirstResponder="YES" title="Experiment File Name" id="4Cd-P6-78x">
+                                                                                                        <font key="font" metaFont="systemMedium" size="13"/>
                                                                                                         <color key="textColor" name="labelColor" catalog="System" colorSpace="catalog"/>
                                                                                                         <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
                                                                                                     </textFieldCell>
                                                                                                 </textField>
-                                                                                                <textField horizontalHuggingPriority="249" verticalHuggingPriority="1000" horizontalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="3gV-RN-gsa">
+                                                                                                <textField horizontalHuggingPriority="249" verticalHuggingPriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="3gV-RN-gsa">
                                                                                                     <rect key="frame" x="3" y="23" width="396" height="14"/>
-                                                                                                    <textFieldCell key="cell" controlSize="small" refusesFirstResponder="YES" title="Date:" id="sF4-1P-rBD">
+                                                                                                    <textFieldCell key="cell" controlSize="small" lineBreakMode="truncatingTail" refusesFirstResponder="YES" title="Date:" id="sF4-1P-rBD">
                                                                                                         <font key="font" metaFont="smallSystem"/>
                                                                                                         <color key="textColor" name="labelColor" catalog="System" colorSpace="catalog"/>
                                                                                                         <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
                                                                                                     </textFieldCell>
                                                                                                 </textField>
-                                                                                                <textField horizontalHuggingPriority="249" verticalHuggingPriority="1000" horizontalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="BLf-QV-7ZU">
+                                                                                                <textField horizontalHuggingPriority="249" verticalHuggingPriority="1000" horizontalCompressionResistancePriority="250" translatesAutoresizingMaskIntoConstraints="NO" id="BLf-QV-7ZU">
                                                                                                     <rect key="frame" x="3" y="5" width="396" height="14"/>
-                                                                                                    <textFieldCell key="cell" controlSize="small" refusesFirstResponder="YES" title="Comment:" id="Xqf-fL-g23">
+                                                                                                    <textFieldCell key="cell" controlSize="small" lineBreakMode="truncatingTail" refusesFirstResponder="YES" title="Comment:" id="Xqf-fL-g23">
                                                                                                         <font key="font" metaFont="smallSystem"/>
                                                                                                         <color key="textColor" name="labelColor" catalog="System" colorSpace="catalog"/>
                                                                                                         <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
@@ -6301,7 +6301,7 @@ DQ
                             <rect key="frame" x="0.0" y="0.0" width="454" height="52"/>
                             <subviews>
                                 <button verticalHuggingPriority="750" verticalCompressionResistancePriority="250" translatesAutoresizingMaskIntoConstraints="NO" id="Ibj-M0-dHf">
-                                    <rect key="frame" x="1" y="-1" width="111" height="31"/>
+                                    <rect key="frame" x="1" y="21" width="111" height="31"/>
                                     <buttonCell key="cell" type="recessed" title="Overview" bezelStyle="recessed" alignment="center" controlSize="large" lineBreakMode="truncatingTail" state="on" borderStyle="border" inset="2" id="ed1-E0-79d">
                                         <behavior key="behavior" lightByBackground="YES" lightByGray="YES" changeBackground="YES" changeGray="YES"/>
                                         <font key="font" metaFont="system"/>
@@ -6955,7 +6955,7 @@ DQ
                                         <size key="contentViewMargins" width="5" height="5"/>
                                     </box>
                                     <stackView distribution="fill" orientation="horizontal" alignment="firstBaseline" horizontalStackHuggingPriority="250" verticalStackHuggingPriority="750" verticalHuggingPriority="750" detachesHiddenViews="YES" translatesAutoresizingMaskIntoConstraints="NO" id="5oj-9h-hGH">
-                                        <rect key="frame" x="0.0" y="548" width="572" height="16"/>
+                                        <rect key="frame" x="338" y="548" width="572" height="16"/>
                                         <subviews>
                                             <button toolTip="Display the baseline" verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="jsQ-Vt-t9u">
                                                 <rect key="frame" x="5" y="-1" width="66" height="17"/>
@@ -8350,7 +8350,7 @@ IA
                                     </box>
                                     <textField horizontalHuggingPriority="249" verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="iMF-IG-n8B">
                                         <rect key="frame" x="3" y="79" width="256" height="14"/>
-                                        <textFieldCell key="cell" controlSize="small" lineBreakMode="clipping" alignment="center" title="Initial values" id="Byb-7B-g1O">
+                                        <textFieldCell key="cell" controlSize="small" lineBreakMode="clipping" alignment="center" title="Initial Values" id="Byb-7B-g1O">
                                             <font key="font" metaFont="smallSystem"/>
                                             <color key="textColor" name="labelColor" catalog="System" colorSpace="catalog"/>
                                             <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
@@ -8364,7 +8364,7 @@ IA
                                     </box>
                                     <textField horizontalHuggingPriority="249" verticalHuggingPriority="1000" verticalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="aEe-kL-2fS">
                                         <rect key="frame" x="3" y="49" width="256" height="14"/>
-                                        <textFieldCell key="cell" controlSize="small" lineBreakMode="clipping" alignment="center" title="Model options" id="k7p-dI-50P">
+                                        <textFieldCell key="cell" controlSize="small" lineBreakMode="clipping" alignment="center" title="Model Options" id="k7p-dI-50P">
                                             <font key="font" metaFont="smallSystem"/>
                                             <color key="textColor" name="labelColor" catalog="System" colorSpace="catalog"/>
                                             <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
@@ -11574,12 +11574,17 @@ Structuring (R-value):</string>
                                                             <menuItem title="Model" state="on" id="2t9-Y4-xcL"/>
                                                             <menuItem title="Fitted" state="on" id="tMg-jK-9cv"/>
                                                             <menuItem title="Derived" state="on" id="PeQ-D2-3wi"/>
-                                                            <menuItem title="Offset" id="Wi5-qO-hyR"/>
-                                                            <menuItem title="Misc" id="x9i-m1-NXc"/>
                                                             <menuItem isSeparatorItem="YES" id="LPK-Al-L97"/>
                                                             <menuItem title="Temperature" id="TiZ-SR-oXD"/>
                                                             <menuItem title="Concentrations" id="UrW-fZ-IVY"/>
                                                             <menuItem title="Attributes" id="I4Y-LV-KjF"/>
+                                                            <menuItem isSeparatorItem="YES" id="qeH-pJ-DAE"/>
+                                                            <menuItem title="N-value" id="x9i-m1-NXc"/>
+                                                            <menuItem title="Affinity" id="MCK-An-Exm"/>
+                                                            <menuItem title="Enthalpy" id="nWh-LQ-oni"/>
+                                                            <menuItem title="Free Energy" id="Q9K-db-YPS"/>
+                                                            <menuItem title="Entropy" id="NSH-2A-MVd"/>
+                                                            <menuItem title="Offset" id="Wi5-qO-hyR"/>
                                                         </items>
                                                     </menu>
                                                     <connections>
@@ -12656,7 +12661,7 @@ The models in \appname are implemented to match the **MicroCal/Origin formal def
         </scene>
     </scenes>
     <inferredMetricsTieBreakers>
-        <segue reference="SO9-Uh-s4m"/>
+        <segue reference="sXc-8z-KcE"/>
         <segue reference="7hb-tm-SkL"/>
         <segue reference="tYI-30-X17"/>
         <segue reference="M3R-ql-On8"/>
