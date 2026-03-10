@@ -66,7 +66,7 @@ namespace AnalysisITC
                 case "sortbyprotonation": return DataManager.DataIsLoaded && DataManager.Data.Any(d => d.Attributes.Count > 0);
                 case "sortbyionic": return DataManager.DataIsLoaded && DataManager.Data.Any(d => d.Attributes.Count > 0);
                 case "copyattributes": return DataManager.DataIsLoaded && DataManager.SelectedIsData && DataManager.Current.Attributes.Count > 0;
-                case "mergetool": return DataManager.Data.Count >= 2;
+                case "mergetool": return DataManager.Data.Count(data => data.HasThermogram) >= 2;
                 case "buffersub": return DataManager.Data.Count >= 2;
             }
 
