@@ -11,6 +11,8 @@ namespace AnalysisITC
 {
     public partial class DataProcessingGraphView : NSGraph
     {
+        const double SplineDragSlowFactor = 0.2; // Hold SHIFT to slow down point/handle dragging (fine adjust)
+
         public event EventHandler<int> InjectionSelected;
         public event EventHandler BaselineChanged;
 
@@ -326,33 +328,63 @@ namespace AnalysisITC
             base.MouseDragged(theEvent);
 
             if (Graph == null) return;
+            if (SelectedFeature == null) return;
 
-            var position = CursorPositionInView;// theEvent.LocationInWindow;
+            var position = CursorPositionInView;
 
-            //if (SelectedFeature.FeatureID == -1) return;
+            var factor = (theEvent.ModifierFlags & NSEventModifierMask.ShiftKeyMask) != 0 ? SplineDragSlowFactor : 1.0;
+            // Convert vertical cursor movement (pixels) into graph Y units.
+            // Using PointsPerUnit means the feature will follow the cursor 1:1 in screen space.
+            var deltaYpx = position.Y - SelectedFeature.ClickCursorPosition.Y;
+            var yUnitsPerPixel = Graph.PointsPerUnit.Height != 0 ? 1.0 / (double)Graph.PointsPerUnit.Height : 0.0;
+            var deltaYUnits = deltaYpx * yUnitsPerPixel * factor;
+
             switch (SelectedFeature.Type)
             {
                 case MouseOverFeatureEvent.FeatureType.BaselineSplinePoint:
                     {
                         var feature = (Data.Processor.Interpolator as SplineInterpolator).SplinePoints[SelectedFeature.FeatureID];
-                        var adjust = 10E-10 * (position.Y - SelectedFeature.ClickCursorPosition.Y);
-
-                        feature.Power = SelectedFeature.FeatureReferenceValue + adjust;
+                        feature.Power = SelectedFeature.FeatureReferenceValue + deltaYUnits;
                         Data.Processor.Lock();
                         break;
                     }
+                //case MouseOverFeatureEvent.FeatureType.BaselineSplinePoint:
+                //    {
+                //        var feature = (Data.Processor.Interpolator as SplineInterpolator).SplinePoints[SelectedFeature.FeatureID];
+                //        var adjust = 10E-10 * (position.Y - SelectedFeature.ClickCursorPosition.Y);
+
+                //        feature.Power = SelectedFeature.FeatureReferenceValue + adjust;
+                //        Data.Processor.Lock();
+                //        break;
+                //    }
                 case MouseOverFeatureEvent.FeatureType.BaselineSplineHandle:
                     {
                         bool invert = SelectedFeature.SubID == 0;
 
                         var feature = (Data.Processor.Interpolator as SplineInterpolator).SplinePoints[SelectedFeature.FeatureID];
-                        var adjust = 10E-12 * (position.Y - SelectedFeature.ClickCursorPosition.Y);
-                        if (invert) adjust = -adjust;
 
-                        feature.Slope = SelectedFeature.FeatureReferenceValue + adjust;
+                        // Handle visualization uses an average delay/3 as a time-length for handle placement.
+                        // A slope change of dSlope changes the handle point Y by dSlope * handleLengthTime.
+                        var handleLengthTime = Data.Injections.Average(inj => inj.Delay / 3);
+                        var dSlope = handleLengthTime != 0 ? (deltaYUnits / handleLengthTime) : 0.0;
+                        if (invert) dSlope = -dSlope;
+
+                        feature.Slope = SelectedFeature.FeatureReferenceValue + dSlope;
                         Data.Processor.Lock();
                         break;
                     }
+                //case MouseOverFeatureEvent.FeatureType.BaselineSplineHandle:
+                //    {
+                //        bool invert = SelectedFeature.SubID == 0;
+
+                //        var feature = (Data.Processor.Interpolator as SplineInterpolator).SplinePoints[SelectedFeature.FeatureID];
+                //        var adjust = 10E-12 * (position.Y - SelectedFeature.ClickCursorPosition.Y);
+                //        if (invert) adjust = -adjust;
+
+                //        feature.Slope = SelectedFeature.FeatureReferenceValue + adjust;
+                //        Data.Processor.Lock();
+                //        break;
+                //    }
                 case MouseOverFeatureEvent.FeatureType.IntegrationRangeMarker:
                     {
                         Data.Processor.IntegrationLengthMode = InjectionData.IntegrationLengthMode.Time;
