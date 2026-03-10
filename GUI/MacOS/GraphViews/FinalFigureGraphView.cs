@@ -11,6 +11,7 @@ using System.IO;
 using static AnalysisITC.Exporter;
 using System.Linq;
 using static AnalysisITC.AppClasses.Analysis2.Models.SolutionInterface;
+using AnalysisITC.Utilities;
 
 namespace AnalysisITC
 {
@@ -201,15 +202,33 @@ namespace AnalysisITC
                     {
                         var g = FinalFigureGraphView.SetupForExport(data);
                         var filename = Path.GetFileNameWithoutExtension(data.FileName);
-
-                        //= new NSUrl(dlg.Url.RelativePath  + "/" + filename + ".pdf");
-
                         var path = NSUrl.CreateFileUrl(dlg.Url.RelativePath + "/" + filename + ".pdf", null);
 
-                        //var path = NSUrl.CreateFileUrl(new string[] { dlg.Url, filename, ".pdf" });
-                        Console.WriteLine(path);
+                        var parameters = new List<string>()
+                        {
+                                $"File: {data.FileName}",
+                                $"File Date: {data.Date:yyyy-MM-dd}",
+                                $"[Syringe]: {data.SyringeConcentration.AsConcentration(ConcentrationUnit.µM, true)}",
+                                $"[Cell]: {data.CellConcentration.AsConcentration(ConcentrationUnit.µM, true)}",
+                                $"Model: {data.Solution?.ModelType}",
+                                $"Solution: {data.Solution?.SolutionName}"
+                        };
+                        if (data.Solution != null)
+                            foreach (var par in data.Solution?.ReportParameters)
+                            {
+                                parameters.Add($"{par.Key} = {par.Value}");
+                            }
 
-                        var x = new CGContextPDF(path);
+                        var pdfInfo = new CGPDFInfo
+                        {
+                            Title = data.FileName,
+                            Author = MarkdownStrings.AppName,
+                            Creator = $"{MarkdownStrings.AppName} v{AppVersion.FullVersionString}",
+                            Subject = $"ITC publication figure",
+                            Keywords = parameters.ToArray(),
+                        };
+
+                        var x = new CGContextPDF(path, pdfInfo);
                         x.BeginPage(new CGRect(new CGPoint(0, 0), g.PrintBox.Size));
                         g.Draw(x, new CGPoint(g.PrintBox.Width / 2, g.PrintBox.Height / 2));
                         x.EndPage();

@@ -261,6 +261,8 @@ namespace AnalysisITC
 
         void CreateDataGraph()
         {
+            if (!Data.HasThermogram) return;
+
             DataGraph = new BaselineDataGraph(Data, View)
             {
                 DrawOnWhite = true,
