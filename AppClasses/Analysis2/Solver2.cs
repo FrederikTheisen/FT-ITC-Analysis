@@ -399,13 +399,14 @@ namespace AnalysisITC.AppClasses.Analysis2
             var limits = Model.Parameters.GetLimits();
             int n_par = Model.NumberOfParameters;
             int m = Model.Data.Injections.Count(inj => inj.Include);
+            double[] scale = guess.Select(g => Math.Max(1, g)).ToArray();
 
             alglib.minlmcreatev(n_par, m, guess, LevenbergMarquardtDifferentiationStepSize, out minlmstate state);
 
             LMOptimizerState = state;
 
             alglib.minlmsetcond(LMOptimizerState, LevenbergMarquardtEpsilon, MaxOptimizerIterations);
-            alglib.minlmsetscale(LMOptimizerState, guess);
+            alglib.minlmsetscale(LMOptimizerState, scale);
             alglib.minlmsetbc(LMOptimizerState, limits.Select(p => p[0]).ToArray(), limits.Select(p => p[1]).ToArray());
             alglib.minlmoptimize(LMOptimizerState, (double[] x, double[] fi, object obj) =>
             {
@@ -709,13 +710,14 @@ namespace AnalysisITC.AppClasses.Analysis2
             var parameters = Model.Parameters.GetFittedParameters();
             int n_par = Model.NumberOfParameters;
             int m = Model.GetNumberOfPoints();
+            double[] scale = guess.Select(g => Math.Max(1, g)).ToArray();
 
             alglib.minlmcreatev(n_par, m, guess, LevenbergMarquardtDifferentiationStepSize, out minlmstate state);
 
             LMOptimizerState = state;
 
             alglib.minlmsetcond(state, LevenbergMarquardtEpsilon, MaxOptimizerIterations);
-            alglib.minlmsetscale(state, guess);
+            alglib.minlmsetscale(state, scale);
             alglib.minlmsetbc(state, limits.Select(p => p[0]).ToArray(), limits.Select(p => p[1]).ToArray());
             alglib.minlmoptimize(state, (double[] x, double[] fi, object obj) =>
             {
