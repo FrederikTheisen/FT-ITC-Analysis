@@ -4105,12 +4105,6 @@ For analysis and presentation of ITC data</string>
                                             </connections>
                                         </menuItem>
                                         <menuItem isSeparatorItem="YES" id="aJh-i4-bef"/>
-                                        <menuItem title="Clear Processing/Results" id="uRl-iY-unG">
-                                            <modifierMask key="keyEquivalentModifierMask"/>
-                                            <connections>
-                                                <action selector="ClearProcessingResult:" target="Voe-Tx-rLC" id="ZO1-tL-Vio"/>
-                                            </connections>
-                                        </menuItem>
                                         <menuItem title="Remove All Data/Results" identifier="cleardata" id="pa3-QI-u2k">
                                             <modifierMask key="keyEquivalentModifierMask"/>
                                             <connections>
@@ -4182,6 +4176,12 @@ For analysis and presentation of ITC data</string>
                                             <modifierMask key="keyEquivalentModifierMask"/>
                                             <connections>
                                                 <action selector="CopyAttributesToAll:" target="Voe-Tx-rLC" id="vjz-mZ-jqg"/>
+                                            </connections>
+                                        </menuItem>
+                                        <menuItem title="Clear Processing/Results" id="uRl-iY-unG">
+                                            <modifierMask key="keyEquivalentModifierMask"/>
+                                            <connections>
+                                                <action selector="ClearProcessingResult:" target="Voe-Tx-rLC" id="ZO1-tL-Vio"/>
                                             </connections>
                                         </menuItem>
                                         <menuItem isSeparatorItem="YES" id="wwb-6g-frr"/>
@@ -4355,10 +4355,10 @@ For analysis and presentation of ITC data</string>
                                                 <segue destination="fNZ-eA-ZYe" kind="show" id="dm5-JF-QZc"/>
                                             </connections>
                                         </menuItem>
-                                        <menuItem title="Open Source" enabled="NO" id="nF3-oU-vjF">
+                                        <menuItem title="Open Source" hidden="YES" enabled="NO" id="nF3-oU-vjF">
                                             <modifierMask key="keyEquivalentModifierMask"/>
                                         </menuItem>
-                                        <menuItem title="Hint" id="m3f-Vd-rOd">
+                                        <menuItem title="Hint" hidden="YES" id="m3f-Vd-rOd">
                                             <modifierMask key="keyEquivalentModifierMask"/>
                                             <connections>
                                                 <action selector="OpenHint:" target="Voe-Tx-rLC" id="4xd-2E-LFA"/>
