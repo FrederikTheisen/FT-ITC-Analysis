@@ -290,6 +290,7 @@ namespace AnalysisITC
             catch { }
 
             var s = (name ?? "");//.ToLowerInvariant();
+            s = Regex.Replace(s, @"\s*\(\s*\d{1,2}\s*\)", " ");
 
             string delimiter = @"[\s_]+";
             if (!s.Contains('_') && !s.Contains(' ')) //If name does not contain '_' or ' ', we expand seperator lookup
