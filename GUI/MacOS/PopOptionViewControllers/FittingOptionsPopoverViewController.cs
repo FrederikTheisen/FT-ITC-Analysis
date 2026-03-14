@@ -16,11 +16,29 @@ namespace AnalysisITC
         List<ParameterValueAdjustmentView> ParameterControls = new List<ParameterValueAdjustmentView>();
         List<OptionAdjustmentView> OptionControls = new List<OptionAdjustmentView>();
 
+        bool shouldRevertChanges = true;
+
         partial void ErrorIterationSliderChanged(NSSlider sender) => ErrorIterationLabel.IntValue = (int)Math.Pow(10, ErrorIterationsControl.DoubleValue);
 
         public FittingOptionsPopoverViewController (IntPtr handle) : base (handle)
 		{
+            OptionAdjustmentView.RefreshLists += OptionAdjustmentView_RefreshLists;
 		}
+
+        private void OptionAdjustmentView_RefreshLists(object sender, EventArgs e)
+        {
+            foreach (var sv in OptionStackView.Views)
+            {
+                if (sv is OptionAdjustmentView adjustmentView)
+                    adjustmentView.UpdateState(ModelFactory.Factory.GetExposedModelOptions());
+            }
+
+            foreach (var sv in ParameterStackView.Views)
+            {
+                if (sv is ParameterValueAdjustmentView adjustmentView)
+                    adjustmentView.UpdateState(ModelFactory.Factory.GetExposedModelOptions());
+            }
+        }
 
         public override void ViewWillAppear()
         {
@@ -46,20 +64,16 @@ namespace AnalysisITC
             foreach (var opt in ModelFactory.Factory.GetExposedModelOptions().Reverse())
             {
                 var sv = new OptionAdjustmentView(new CoreGraphics.CGRect(0, 0, OptionStackView.Frame.Width, 16), opt.Value);
-
+                sv.UpdateState(ModelFactory.Factory.GetExposedModelOptions());
                 OptionControls.Add(sv);
-
                 OptionStackView.InsertArrangedSubview(sv, 0);
             }
 
             foreach (var par in ModelFactory.Factory.GetExposedParameters().Reverse())
             {
-                var sv = new ParameterValueAdjustmentView(new CoreGraphics.CGRect(0, 0, ParameterStackView.Frame.Width, 16));
-
-                sv.Setup(par);
-
+                var sv = new ParameterValueAdjustmentView(new CoreGraphics.CGRect(0, 0, ParameterStackView.Frame.Width, 16), par);
+                sv.UpdateState(ModelFactory.Factory.GetExposedModelOptions());
                 ParameterControls.Add(sv);
-
                 ParameterStackView.InsertArrangedSubview(sv, 0);
             }
 
@@ -87,6 +101,8 @@ namespace AnalysisITC
 
         partial void ApplyOptions(NSObject sender)
         {
+            shouldRevertChanges = false;
+
             try
             {
                 FittingOptionsController.ErrorEstimationMethod = (ErrorEstimationMethod)(int)ErrorMethodControl.SelectedSegment;
@@ -119,6 +135,19 @@ namespace AnalysisITC
                 //DismissViewController(this);
 
                 AppEventHandler.DisplayHandledException(ex);
+            }
+        }
+
+        public override void ViewWillDisappear()
+        {
+            base.ViewWillDisappear();
+
+            OptionAdjustmentView.RefreshLists -= OptionAdjustmentView_RefreshLists;
+
+            // Special case some options have to update immediately to handle other UI elements, revert these if not actually applying
+            if (shouldRevertChanges)
+            {
+                foreach (var sv in OptionControls) sv.Revert(); 
             }
         }
     }

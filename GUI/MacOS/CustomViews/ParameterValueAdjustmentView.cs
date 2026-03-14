@@ -7,6 +7,7 @@ using PrintCore;
 using System.Collections.Generic;
 using Foundation;
 using AnalysisITC.Utilities;
+using AnalysisITC.AppClasses.AnalysisClasses;
 
 namespace AnalysisITC.GUI.MacOS.CustomViews
 {
@@ -75,72 +76,21 @@ namespace AnalysisITC.GUI.MacOS.CustomViews
         {
         }
 
-        [Export("initWithFrame:")]
-        public ParameterValueAdjustmentView(CGRect frameRect) : base(frameRect)
+        public ParameterValueAdjustmentView(CGRect frameRect, Parameter par, bool enablelock = true) : base(frameRect)
         {
             Frame = frameRect;
             Orientation = NSUserInterfaceLayoutOrientation.Horizontal;
             Distribution = NSStackViewDistribution.Fill;
             Alignment = NSLayoutAttribute.CenterY;
-            //SetContentHuggingPriorityForOrientation(999, NSLayoutConstraintOrientation.Vertical);
-            //SetContentCompressionResistancePriority(1000, NSLayoutConstraintOrientation.Vertical);
-            //SetHuggingPriority(1000, NSLayoutConstraintOrientation.Vertical);
+            Parameter = par;
+            EnableLock = enablelock;
 
-            Label = new NSTextField(new CGRect(0, 0, 150, 16))
-            {
-                BezelStyle = NSTextFieldBezelStyle.Rounded,
-                Bordered = false,
-                Editable = false,
-                StringValue = "init",
-                TranslatesAutoresizingMaskIntoConstraints = false,
-                HorizontalContentSizeConstraintActive = false,
-                ControlSize = NSControlSize.Small,
-                Font = NSFont.SystemFontOfSize(NSFont.SmallSystemFontSize),
-            };
+            if (tmpvalue == null)
+                tmpvalue = Parameter.Value;
 
-            ParameterOptionControl = new CustomDrawingSegmentedControl(new CGRect(0, 0, 0, 16))
-            {
-                Cell = new CustomKdKaDrawingSegmentedCell(),
-                SegmentStyle = NSSegmentStyle.Rounded,
-                ControlSize = NSControlSize.Small,
-                SegmentDistribution = NSSegmentDistribution.FillEqually,
-                SegmentCount = 2,
-                Font = NSFont.SystemFontOfSize(9),
-                Hidden = true,
-            };
-            ParameterOptionControl.SetImageScaling(NSImageScaling.ProportionallyDown, 0);
-            ParameterOptionControl.SetImageScaling(NSImageScaling.ProportionallyDown, 1);
-            ParameterOptionControl.Activated += ParameterOptionControl_Activated;
-            ParameterOptionControl.SetContentCompressionResistancePriority(1000, NSLayoutConstraintOrientation.Vertical);
-            ParameterOptionControl.SizeToFit();
-
-            Input = new NSTextField(new CGRect(0, 0, 80, 18))
-            {
-                Bordered = false,
-                TranslatesAutoresizingMaskIntoConstraints = false,
-                PlaceholderString = "Auto",
-                BezelStyle = NSTextFieldBezelStyle.Rounded,
-                FocusRingType = NSFocusRingType.None,
-                Bezeled = true,
-                ControlSize = NSControlSize.Small,
-                Font = NSFont.SystemFontOfSize(NSFont.SmallSystemFontSize),
-                Alignment = NSTextAlignment.Right,
-                LineBreakMode = NSLineBreakMode.TruncatingHead,
-            };
-            Input.Changed += Input_Changed;
-            Input.AddConstraint(NSLayoutConstraint.Create(Input, NSLayoutAttribute.Width, NSLayoutRelation.Equal, 1, 80));
-            Input.AddConstraint(NSLayoutConstraint.Create(Input, NSLayoutAttribute.Height, NSLayoutRelation.Equal, 1, 19));
-            //Input.RefusesFirstResponder = true;
-
-
-            AddArrangedSubview(Label);
-            AddArrangedSubview(ParameterOptionControl);
-            AddArrangedSubview(Input);
-
+            SetupLabel();
+            SetInputField();
             SetupLockBtn();
-
-            //SetContentHuggingPriorityForOrientation(1000, NSLayoutConstraintOrientation.Vertical);
-            //SetContentCompressionResistancePriority(1000, NSLayoutConstraintOrientation.Vertical);
         }
 
         void SetupLockBtn()
@@ -167,6 +117,9 @@ namespace AnalysisITC.GUI.MacOS.CustomViews
             Lock.SetContentHuggingPriorityForOrientation(1000, NSLayoutConstraintOrientation.Vertical);
             Lock.ImagePosition = NSCellImagePosition.ImageOnly;
             Lock.Layout();
+
+            Lock.State = Parameter.IsLocked ? NSCellStateValue.On : NSCellStateValue.Off;
+            if (!EnableLock) Lock.Hidden = true;
 
             AddArrangedSubview(Lock);
 
@@ -235,46 +188,74 @@ namespace AnalysisITC.GUI.MacOS.CustomViews
             }
         }
 
-        public void Setup(Parameter par)
+        public void UpdateState(IDictionary<AttributeKey, ExperimentAttribute> attributes)
         {
-            this.Parameter = par;
+            switch (this.Parameter.Key)
+            {
+                case ParameterType.Nvalue1 when attributes.ContainsKey(AttributeKey.UseSyringeActiveFraction):
+                    bool syrfactor = attributes[AttributeKey.UseSyringeActiveFraction]?.BoolValue ?? false;
 
-            Lock.State = par.IsLocked ? NSCellStateValue.On : NSCellStateValue.Off;
-            if (!EnableLock) Lock.Hidden = true;
-
-            if (tmpvalue == null)
-                tmpvalue = par.Value;
-
-            //if (par.Key.GetProperties().ParentType == ParameterType.Affinity1)
-            //{
-            //    ParameterOptionControl.Hidden = false;
-            //    ParameterOptionControl.SegmentCount = 2;
-            //    ParameterOptionControl.SetLabel("  ", 0);
-            //    ParameterOptionControl.SetLabel("  ", 1);
-            //    ParameterOptionControl.SizeToFit();
-            //    ParameterOptionControl.SelectedSegment = AppSettings.InputAffinityAsDissociationConstant ? 1 : 0;
-            //}
-
-            SetupLabel();
-            SetInputField();
-
-            Layout();
-
-            DefaultFieldColor = Label.TextColor;
+                    if (syrfactor) Label.StringValue = "Correction Factor";
+                    else Label.StringValue = Parameter.Key.GetProperties().Description;
+                    break;
+                case ParameterType.Nvalue2 when attributes.ContainsKey(AttributeKey.LockDuplicateParameter):
+                    bool disable = attributes[AttributeKey.LockDuplicateParameter].BoolValue;
+                    Input.Enabled = !disable;
+                    Lock.Enabled = !disable;
+                    break;
+            }
+            //Layout();
         }
 
         void SetupLabel()
         {
-            Label.StringValue = Parameter.Key.GetProperties().Description;
+            // Create the parameter name label
+            Label = new NSTextField(new CGRect(0, 0, 150, 16))
+            {
+                BezelStyle = NSTextFieldBezelStyle.Rounded,
+                Bordered = false,
+                Editable = false,
+                StringValue = Parameter.Key.GetProperties().Description,
+                TranslatesAutoresizingMaskIntoConstraints = false,
+                HorizontalContentSizeConstraintActive = false,
+                ControlSize = NSControlSize.Small,
+                Font = NSFont.SystemFontOfSize(NSFont.SmallSystemFontSize),
+            };
 
+            // Set unit info in label
             if (Parameter.Key.GetProperties().ParentType == ParameterType.Affinity1 && AppSettings.InputAffinityAsDissociationConstant)
                 Label.AttributedStringValue = MacStrings.FromMarkDownString($"{Label.StringValue} ({MarkdownStrings.DissociationConstant}, {AppSettings.DefaultConcentrationUnit})", Label.Font);
             else if (ParameterTypeAttribute.IsEnergyUnitParameter(Parameter.Key))
                 Label.StringValue += " (" + AppSettings.EnergyUnit.GetProperties().Unit + "/mol)";
+
+            // Store the default color (not sure if relevant, why not just use NSColor.Label?
+            DefaultFieldColor = Label.TextColor;
+
+            // Add to stack
+            AddArrangedSubview(Label);
         }
 
         void SetInputField()
         {
+            // Create the input text field
+            Input = new NSTextField(new CGRect(0, 0, 80, 18))
+            {
+                Bordered = false,
+                TranslatesAutoresizingMaskIntoConstraints = false,
+                PlaceholderString = "",
+                BezelStyle = NSTextFieldBezelStyle.Rounded,
+                FocusRingType = NSFocusRingType.None,
+                Bezeled = true,
+                ControlSize = NSControlSize.Small,
+                Font = NSFont.SystemFontOfSize(NSFont.SmallSystemFontSize),
+                Alignment = NSTextAlignment.Right,
+                LineBreakMode = NSLineBreakMode.TruncatingHead,
+            };
+            Input.Changed += Input_Changed;
+            Input.AddConstraint(NSLayoutConstraint.Create(Input, NSLayoutAttribute.Width, NSLayoutRelation.Equal, 1, 80));
+            Input.AddConstraint(NSLayoutConstraint.Create(Input, NSLayoutAttribute.Height, NSLayoutRelation.Equal, 1, 19));
+
+            // If input is affinity, format with concentration unit
             if (Parameter.Key.GetProperties().ParentType == ParameterType.Affinity1)
             {
                 if (AppSettings.InputAffinityAsDissociationConstant)
@@ -284,8 +265,14 @@ namespace AnalysisITC.GUI.MacOS.CustomViews
                 }
                 else SetInputField(((double)tmpvalue).ToString("G2"));
             }
-            else if (ParameterTypeAttribute.IsEnergyUnitParameter(Parameter.Key)) SetInputField(new Energy((double)tmpvalue).ToString(AppSettings.EnergyUnit, "G3", withunit: false));
+            // if input is energy, format with energy unit scale
+            else if (ParameterTypeAttribute.IsEnergyUnitParameter(Parameter.Key))
+                SetInputField(new Energy((double)tmpvalue).ToString(AppSettings.EnergyUnit, "G3", withunit: false));
+            // Else it is just a number
             else SetInputField(((double)tmpvalue).ToString("F3"));
+
+            // Add to stack
+            AddArrangedSubview(Input);
         }
 
         void SetInputField(string s)

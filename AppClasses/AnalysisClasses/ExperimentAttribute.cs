@@ -54,6 +54,10 @@ namespace AnalysisITC.AppClasses.AnalysisClasses
         LockDuplicateParameter,
         [AttributeKey("Buffer Subtraction", ExperimentAttribute.AttributeType.ReferenceExperiment)]
         BufferSubtraction,
+        [AttributeKey("N Sites", ExperimentAttribute.AttributeType.Int)]
+        NumberOfSites,
+        [AttributeKey("Use Syringe Correction", ExperimentAttribute.AttributeType.Bool)]
+        UseSyringeActiveFraction,
     }
 
 	public class ExperimentAttribute
@@ -120,7 +124,17 @@ namespace AnalysisITC.AppClasses.AnalysisClasses
 			};
 		}
 
-		public static ExperimentAttribute Parameter(AttributeKey key, string name, FloatWithError value)
+        public static ExperimentAttribute Int(AttributeKey key, string name, int value)
+        {
+            return new ExperimentAttribute()
+            {
+                Key = key,
+                OptionName = name,
+                IntValue = value,
+            };
+        }
+
+        public static ExperimentAttribute Parameter(AttributeKey key, string name, FloatWithError value)
 		{
 			return new ExperimentAttribute()
 			{

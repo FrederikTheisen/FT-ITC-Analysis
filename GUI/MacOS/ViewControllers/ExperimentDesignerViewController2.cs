@@ -214,7 +214,7 @@ namespace AnalysisITC
             {
                 ParameterValueAdjustmentView sv;
 
-                // Set some meaning ful default value for enthalpy type variables
+                // Set some meaningful default value for enthalpy type variables
                 if (par.Key.GetProperties().ParentType == ParameterType.Enthalpy1)
                     par.Update(-30000);
 
@@ -224,9 +224,7 @@ namespace AnalysisITC
                 }
                 else
                 {
-                    sv = new ParameterValueAdjustmentView(new CoreGraphics.CGRect(0, 0, ParameterStackView.Frame.Width, 20));
-                    sv.EnableLock = false;
-                    sv.Setup(par);
+                    sv = new ParameterValueAdjustmentView(new CoreGraphics.CGRect(0, 0, ParameterStackView.Frame.Width, 20), par, enablelock: false);
                 }
                 ParameterControls.Add(sv);
 
