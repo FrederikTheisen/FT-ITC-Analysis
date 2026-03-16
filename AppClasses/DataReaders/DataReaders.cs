@@ -181,10 +181,10 @@ namespace DataReaders
                 var comment = experiment.Comments;
 
                 // Global pH fallback (if comment says "pH 7.4" once, apply to buffers that don’t have a local pH match)
-                double? globalPH = null;
+                double? pH = null;
                 {
                     var m = Regex.Match(comment, @"\bpH\s*[:=]?\s*([+-]?\d+(?:[.,]\d+)?)", RegexOptions.IgnoreCase);
-                    if (m.Success && TryParseNumber(m.Groups[1].Value, out var ph)) globalPH = ph;
+                    if (m.Success && TryParseNumber(m.Groups[1].Value, out var ph)) pH = ph;
                 }
 
                 // Special buffers (expand into explicit components)
@@ -240,8 +240,13 @@ namespace DataReaders
                     att.IntValue = (int)buffer;
                     att.ParameterValue = new FloatWithError(concM, 0);
 
-                    if (AnalysisITC.BufferAttribute.TryExtractPH(comment, matchedName, out var pH)) att.DoubleValue = pH;
-                    else if (globalPH.HasValue) att.DoubleValue = globalPH.Value;
+                    if (pH.HasValue) att.DoubleValue = pH.Value;
+                    else
+                    {
+                        // Fallback to pKa of buffer with one decimal (it is a guess to avoid 0)
+                        pH = Math.Round(BufferAttribute.GetDefaultpHValue(buffer), 1);
+                        att.DoubleValue = pH.Value;
+                    }
 
                     experiment.Attributes.Add(att);
                 }

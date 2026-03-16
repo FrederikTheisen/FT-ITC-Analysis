@@ -349,9 +349,14 @@ namespace AnalysisITC
 			}
         }
 
+        public static double GetDefaultpHValue(Buffer buffer)
+        {
+            return buffer.GetProperties().GetStateProperties(7.4).pka;
+        }
+
         #region Ionic strength methods
 
-        Tuple<double, double, int> GetStateProperties(double pH)
+        (double pka,double dPKadT,int z) GetStateProperties(double pH)
         {
             int best = 0;
             double bestDist = double.MaxValue;
@@ -362,7 +367,7 @@ namespace AnalysisITC
                 if (d < bestDist) { bestDist = d; best = i; }
             }
 
-            return Tuple.Create(pKaValues[best], dPKadT[best], AcidCharges[best]);
+            return (pKaValues[best], dPKadT[best], AcidCharges[best]);
         }
 
         /// <summary>
