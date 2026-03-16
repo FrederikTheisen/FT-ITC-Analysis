@@ -46,12 +46,12 @@ namespace AnalysisITC.AppClasses.Analysis2.Models
         {
             base.InitializeParameters(data);
 
-            Parameters.AddOrUpdateParameter(ParameterType.Nvalue1, GuessParameter(ParameterType.Nvalue1, this.GuessN()));
-            Parameters.AddOrUpdateParameter(ParameterType.Enthalpy1, GuessParameter(ParameterType.Enthalpy1, this.GuessEnthalpy()));
-            Parameters.AddOrUpdateParameter(ParameterType.Affinity1, GuessParameter(ParameterType.Affinity1, 100*this.GuessAffinity()));
-            Parameters.AddOrUpdateParameter(ParameterType.Enthalpy2, GuessParameter(ParameterType.Enthalpy2, 0.1*this.GuessEnthalpy()));
-            Parameters.AddOrUpdateParameter(ParameterType.Affinity2, GuessParameter(ParameterType.Affinity2, this.GuessAffinity()));
-            Parameters.AddOrUpdateParameter(ParameterType.Offset, GuessParameter(ParameterType.Offset, this.GuessOffset()));
+            Parameters.AddOrUpdateParameter(ParameterType.Nvalue1, PreviousOrDefault(ParameterType.Nvalue1, this.GuessN()));
+            Parameters.AddOrUpdateParameter(ParameterType.Enthalpy1, PreviousOrDefault(ParameterType.Enthalpy1, this.GuessEnthalpy()));
+            Parameters.AddOrUpdateParameter(ParameterType.Affinity1, PreviousOrDefault(ParameterType.Affinity1, 100*this.GuessAffinity()));
+            Parameters.AddOrUpdateParameter(ParameterType.Enthalpy2, PreviousOrDefault(ParameterType.Enthalpy2, 0.1*this.GuessEnthalpy()));
+            Parameters.AddOrUpdateParameter(ParameterType.Affinity2, PreviousOrDefault(ParameterType.Affinity2, this.GuessAffinity()));
+            Parameters.AddOrUpdateParameter(ParameterType.Offset, PreviousOrDefault(ParameterType.Offset, this.GuessOffset()));
         }
 
         public override double Evaluate(int injectionindex, bool withoffset = true)

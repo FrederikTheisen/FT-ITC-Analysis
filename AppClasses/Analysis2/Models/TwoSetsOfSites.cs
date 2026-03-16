@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using AnalysisITC.AppClasses.AnalysisClasses;
+using AnalysisITC.Utilities;
 using MathNet.Numerics;
 
 namespace AnalysisITC.AppClasses.Analysis2.Models
@@ -19,6 +20,27 @@ namespace AnalysisITC.AppClasses.Analysis2.Models
         public double GuessAffinity1() => 10000000;
         public double GuessAffinity2() => 100000;
 
+        bool ApplyNToSyringe => ModelOptions[AttributeKey.UseSyringeActiveFraction]?.BoolValue ?? false;
+
+        double GetSyringeFactor()
+        {
+            return ApplyNToSyringe ? Parameters.Table[ParameterType.Nvalue1].Value : 1.0;
+        }
+
+        double GetSiteStoichiometry1()
+        {
+            return ApplyNToSyringe
+                ? ModelOptions[AttributeKey.NumberOfSites1].DoubleValue
+                : Parameters.Table[ParameterType.Nvalue1].Value;
+        }
+
+        double GetSiteStoichiometry2()
+        {
+            return ApplyNToSyringe
+                ? ModelOptions[AttributeKey.NumberOfSites2].DoubleValue
+                : Parameters.Table[ParameterType.Nvalue2].Value;
+        }
+
         public TwoSetsOfSites(ExperimentData data) : base(data)
 		{
 			
@@ -28,23 +50,29 @@ namespace AnalysisITC.AppClasses.Analysis2.Models
 		{
             base.InitializeParameters(data);
 
-            Parameters.AddOrUpdateParameter(ParameterType.Nvalue1, GuessParameter(ParameterType.Nvalue1, this.GuessN1()));
-            Parameters.AddOrUpdateParameter(ParameterType.Enthalpy1, GuessParameter(ParameterType.Enthalpy1, this.GuessEnthalpy()));
-            Parameters.AddOrUpdateParameter(ParameterType.Affinity1, GuessParameter(ParameterType.Affinity1, this.GuessAffinity1()));
-            Parameters.AddOrUpdateParameter(ParameterType.Nvalue2, GuessParameter(ParameterType.Nvalue2, this.GuessN2()));
-            Parameters.AddOrUpdateParameter(ParameterType.Enthalpy2, GuessParameter(ParameterType.Enthalpy2, this.GuessEnthalpyMax()));
-            Parameters.AddOrUpdateParameter(ParameterType.Affinity2, GuessParameter(ParameterType.Affinity2, this.GuessAffinity2()));
-            Parameters.AddOrUpdateParameter(ParameterType.Offset, GuessParameter(ParameterType.Offset, this.GuessOffset()));
+            Parameters.AddOrUpdateParameter(ParameterType.Nvalue1, PreviousOrDefault(ParameterType.Nvalue1, this.GuessN1()));
+            Parameters.AddOrUpdateParameter(ParameterType.Enthalpy1, PreviousOrDefault(ParameterType.Enthalpy1, this.GuessEnthalpy()));
+            Parameters.AddOrUpdateParameter(ParameterType.Affinity1, PreviousOrDefault(ParameterType.Affinity1, this.GuessAffinity1()));
+            Parameters.AddOrUpdateParameter(ParameterType.Nvalue2, PreviousOrDefault(ParameterType.Nvalue2, this.GuessN2()));
+            Parameters.AddOrUpdateParameter(ParameterType.Enthalpy2, PreviousOrDefault(ParameterType.Enthalpy2, this.EnthalpyMax()));
+            Parameters.AddOrUpdateParameter(ParameterType.Affinity2, PreviousOrDefault(ParameterType.Affinity2, this.GuessAffinity2()));
+            Parameters.AddOrUpdateParameter(ParameterType.Offset, PreviousOrDefault(ParameterType.Offset, this.GuessOffset()));
 
-            ModelOptions.Add(AnalysisClasses.ExperimentAttribute.Bool(AttributeKey.LockDuplicateParameter, "Shared N-values", false).DictionaryEntry);
+            ModelOptions.Add(ExperimentAttribute.Bool(AttributeKey.LockDuplicateParameter, AttributeKey.LockDuplicateParameter.GetProperties().Name, false).DictionaryEntry);
+            ModelOptions.Add(ExperimentAttribute.Bool(AttributeKey.UseSyringeActiveFraction, AttributeKey.UseSyringeActiveFraction.GetProperties().Name, false).DictionaryEntry);
+            ModelOptions.Add(ExperimentAttribute.Double(AttributeKey.NumberOfSites1, "1^st^ " + AttributeKey.NumberOfSites1.GetProperties().Name, 1).DictionaryEntry);
+            ModelOptions.Add(ExperimentAttribute.Double(AttributeKey.NumberOfSites2, "2^nd^ " + AttributeKey.NumberOfSites2.GetProperties().Name, 1).DictionaryEntry);
         }
 
         public override void ApplyModelOptions()
         {
             base.ApplyModelOptions();
 
-            if (ModelOptions[AttributeKey.LockDuplicateParameter].BoolValue)
+            if (ModelOptions[AttributeKey.LockDuplicateParameter].BoolValue || ApplyNToSyringe)
             {
+                // Sets the parameter to be the same as N-value 1, also sets the parameter to not be fitted
+                // If Use Syringe Factor, we just don't need this parameter and IsGlobalFitted removes it from the parameter list
+                // Possibly Locked would be more intuitive
                 Parameters.Table[ParameterType.Nvalue2].SetGlobal(Parameters.Table[ParameterType.Nvalue1].Value);
             }
         }
@@ -64,19 +92,21 @@ namespace AnalysisITC.AppClasses.Analysis2.Models
         {
             Kd1 = 1 / Parameters.Table[ParameterType.Affinity1].Value;
             Kd2 = 1 / Parameters.Table[ParameterType.Affinity2].Value;
-            N1 = Parameters.Table[ParameterType.Nvalue1].Value;
-            N2 = Parameters.Table[ParameterType.Nvalue2].Value;
+            N1 = GetSiteStoichiometry1();
+            N2 = GetSiteStoichiometry2();
 
             return DeltaHeatFromHeatContent(i, (cm, cl) => GetHeatContent(cm, cl));
         }
 
         double GetHeatContent(double cellConc, double titrantConc)
         {
-            var p = Kd1 + Kd2 + (N1 + N2) * cellConc - titrantConc;
-            var q = (Kd2 * N1 + Kd1 * N2) * cellConc - (Kd1 + Kd2) * titrantConc + Kd1 * Kd2;
-            var r = -titrantConc * Kd1 * Kd2;
+            var titrant = titrantConc * GetSyringeFactor();
 
-            var x = FindFreeTitrant(p, q, r, titrantConc * 0.05);
+            var p = Kd1 + Kd2 + (N1 + N2) * cellConc - titrant;
+            var q = (Kd2 * N1 + Kd1 * N2) * cellConc - (Kd1 + Kd2) * titrant + Kd1 * Kd2;
+            var r = -titrant * Kd1 * Kd2;
+
+            var x = FindFreeTitrant(p, q, r, titrant * 0.05);
 
             var theta1 = (Parameters.Table[ParameterType.Affinity1].Value * x) / (Parameters.Table[ParameterType.Affinity1].Value * x + 1);
             var theta2 = (Parameters.Table[ParameterType.Affinity2].Value * x) / (Parameters.Table[ParameterType.Affinity2].Value * x + 1);
@@ -85,38 +115,6 @@ namespace AnalysisITC.AppClasses.Analysis2.Models
                    (N1 * theta1 * Parameters.Table[ParameterType.Enthalpy1].Value +
                     N2 * theta2 * Parameters.Table[ParameterType.Enthalpy2].Value);
         }
-
-        //double GetDeltaHeat(int i)
-        //{
-        //    Kd1 = 1 / Parameters.Table[ParameterType.Affinity1].Value;
-        //    Kd2 = 1 / Parameters.Table[ParameterType.Affinity2].Value;
-        //    N1 = Parameters.Table[ParameterType.Nvalue1].Value;
-        //    N2 = Parameters.Table[ParameterType.Nvalue2].Value;
-        //
-        //    var inj = Data.Injections[i];
-        //    var Qi = GetHeatContent(inj);
-        //    var Q_i = i == 0 ? 0.0 : GetHeatContent(Data.Injections[i - 1]);
-        //
-        //    var dQi = Qi + (inj.Volume / Data.CellVolume) * ((Qi + Q_i) / 2.0) - Q_i;
-        //
-        //    return dQi;
-        //}
-
-        //double GetHeatContent(InjectionData inj)
-        //{
-        //    var p = Kd1 + Kd2 + (N1 + N2) * inj.ActualCellConcentration - inj.ActualTitrantConcentration;
-        //    var q = (Kd2 * N1 + Kd1 * N2) * inj.ActualCellConcentration - (Kd1 + Kd2) * inj.ActualTitrantConcentration + Kd1 * Kd2;
-        //    var r = -inj.ActualTitrantConcentration * Kd1 * Kd2;
-        //
-        //    var x = FindFreeTitrant(p, q, r, inj.ActualTitrantConcentration * 0.05);
-        //
-        //    var theta1 = (Parameters.Table[ParameterType.Affinity1].Value * x) / (Parameters.Table[ParameterType.Affinity1].Value * x + 1);
-        //    var theta2 = (Parameters.Table[ParameterType.Affinity2].Value * x) / (Parameters.Table[ParameterType.Affinity2].Value * x + 1);
-        //
-        //    var heat = inj.ActualCellConcentration * Data.CellVolume * (N1 * theta1 * Parameters.Table[ParameterType.Enthalpy1].Value + N2 * theta2 * Parameters.Table[ParameterType.Enthalpy2].Value);
-        //
-        //    return heat;
-        //}
 
         double FindFreeTitrant(double p, double q, double r, double guess)
         {
@@ -190,15 +188,32 @@ namespace AnalysisITC.AppClasses.Analysis2.Models
             {
                 var output = base.UISolutionParameters(info);
 
-                if (info.HasFlag(FinalFigureDisplayParameters.Nvalue)) output.Add(new("N{1}", N1.AsNumber()));
-                if (info.HasFlag(FinalFigureDisplayParameters.Nvalue)) output.Add(new("N{2}", N2.AsNumber()));
+                // Site 1
+                if (info.HasFlag(FinalFigureDisplayParameters.Nvalue))
+                    if (UseSyringeCorrectionMode)
+                    {
+                        output.Add(new(MarkdownStrings.Alpha + "{syringe}", N1.AsNumber()));
+                        output.Add(new("N{1,fixed}", StoichiometryOptions.FormatStoichiometry(ModelOptions[AttributeKey.NumberOfSites1].DoubleValue)));
+                    }
+                    else output.Add(new("N{1}", N1.AsNumber()));
+
                 if (info.HasFlag(FinalFigureDisplayParameters.Affinity)) output.Add(new(Utilities.MarkdownStrings.DissociationConstant + "{,1}", Kd1.AsFormattedConcentration(withunit: true)));
-                if (info.HasFlag(FinalFigureDisplayParameters.Affinity)) output.Add(new(Utilities.MarkdownStrings.DissociationConstant + "{,2}", Kd2.AsFormattedConcentration(withunit: true)));
                 if (info.HasFlag(FinalFigureDisplayParameters.Enthalpy)) output.Add(new(Utilities.MarkdownStrings.Enthalpy + "{1}", Enthalpy1.ToFormattedString(ReportEnergyUnit, permole: true)));
-                if (info.HasFlag(FinalFigureDisplayParameters.Enthalpy)) output.Add(new(Utilities.MarkdownStrings.Enthalpy + "{2}", Enthalpy2.ToFormattedString(ReportEnergyUnit, permole: true)));
-                //if (info.HasFlag(FinalFigureDisplayParameters.TdS)) output.Add(new(Utilities.MarkdownStrings.EntropyContribution, TdS.ToFormattedString(ReportEnergyUnit, permole: true))); // Perhaps TMI
                 if (info.HasFlag(FinalFigureDisplayParameters.Gibbs)) output.Add(new(Utilities.MarkdownStrings.GibbsFreeEnergy + "{1}", GibbsFreeEnergy1.ToFormattedString(ReportEnergyUnit, permole: true)));
+
+                // Site 2
+                if (info.HasFlag(FinalFigureDisplayParameters.Nvalue))
+                    if (UseSyringeCorrectionMode)
+                    {
+                        output.Add(new("N{2,fixed}", StoichiometryOptions.FormatStoichiometry(ModelOptions[AttributeKey.NumberOfSites2].DoubleValue)));
+                    }
+                    else output.Add(new("N{2}", N2.AsNumber()));
+
+                if (info.HasFlag(FinalFigureDisplayParameters.Affinity)) output.Add(new(Utilities.MarkdownStrings.DissociationConstant + "{,2}", Kd2.AsFormattedConcentration(withunit: true)));
+                if (info.HasFlag(FinalFigureDisplayParameters.Enthalpy)) output.Add(new(Utilities.MarkdownStrings.Enthalpy + "{2}", Enthalpy2.ToFormattedString(ReportEnergyUnit, permole: true)));                
                 if (info.HasFlag(FinalFigureDisplayParameters.Gibbs)) output.Add(new(Utilities.MarkdownStrings.GibbsFreeEnergy + "{2}", GibbsFreeEnergy2.ToFormattedString(ReportEnergyUnit, permole: true)));
+
+                // Offset
                 if (info.HasFlag(FinalFigureDisplayParameters.Offset)) output.Add(new("Offset", Offset.ToFormattedString(ReportEnergyUnit, permole: true)));
 
                 return output;
@@ -217,19 +232,39 @@ namespace AnalysisITC.AppClasses.Analysis2.Models
                     new (ParameterType.Gibbs2, new(sol => (sol as ModelSolution).GibbsFreeEnergy2.FloatWithError)),
                 };
 
-            public override Dictionary<ParameterType, FloatWithError> ReportParameters => new Dictionary<ParameterType, FloatWithError>
+            public override Dictionary<ParameterType, FloatWithError> ReportParameters
+            {
+                get
                 {
-                    { ParameterType.Nvalue1, N1 },
-                    { ParameterType.Affinity1, Kd1 },
-                    { ParameterType.Enthalpy1, Enthalpy1.FloatWithError },
-                    { ParameterType.EntropyContribution1, TdS1.FloatWithError} ,
-                    { ParameterType.Gibbs1, GibbsFreeEnergy1.FloatWithError },
-                    { ParameterType.Nvalue2, N2 },
-                    { ParameterType.Affinity2, Kd2 },
-                    { ParameterType.Enthalpy2, Enthalpy2.FloatWithError },
-                    { ParameterType.EntropyContribution2, TdS2.FloatWithError} ,
-                    { ParameterType.Gibbs2, GibbsFreeEnergy2.FloatWithError },
-                };
+                    var dict = new Dictionary<ParameterType, FloatWithError>()
+                    { 
+                        // Site 1
+                        { ParameterType.Affinity1, Kd1 },
+                        { ParameterType.Enthalpy1, Enthalpy1.FloatWithError },
+                        { ParameterType.EntropyContribution1, TdS1.FloatWithError} ,
+                        { ParameterType.Gibbs1, GibbsFreeEnergy1.FloatWithError },
+
+                        // Site 2
+                        { ParameterType.Affinity2, Kd2 },
+                        { ParameterType.Enthalpy2, Enthalpy2.FloatWithError },
+                        { ParameterType.EntropyContribution2, TdS2.FloatWithError} ,
+                        { ParameterType.Gibbs2, GibbsFreeEnergy2.FloatWithError },
+                    };
+
+                    if (UseSyringeCorrectionMode)
+                    {
+                        dict.Add(ParameterType.Nvalue1, N1);
+                    }
+                    else
+                    {
+                        dict.Add(ParameterType.Nvalue1, N1);
+                        dict.Add(ParameterType.Nvalue2, N2);
+                    }
+
+                    return dict;
+                }
+                
+            }
         }
     }
 }

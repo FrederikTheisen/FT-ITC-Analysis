@@ -28,9 +28,9 @@ namespace AnalysisITC.AppClasses.Analysis2.Models
         {
             base.InitializeParameters(data);
 
-            Parameters.AddOrUpdateParameter(ParameterType.Enthalpy1, GuessParameter(ParameterType.Enthalpy1, GuessEnthalpy()));
-            Parameters.AddOrUpdateParameter(ParameterType.Affinity1, GuessParameter(ParameterType.Affinity1, GuessAssociationConstant(data)));
-            Parameters.AddOrUpdateParameter(ParameterType.Offset, GuessParameter(ParameterType.Offset, GuessOffset()));
+            Parameters.AddOrUpdateParameter(ParameterType.Enthalpy1, PreviousOrDefault(ParameterType.Enthalpy1, GuessEnthalpy()));
+            Parameters.AddOrUpdateParameter(ParameterType.Affinity1, PreviousOrDefault(ParameterType.Affinity1, GuessAssociationConstant(data)));
+            Parameters.AddOrUpdateParameter(ParameterType.Offset, PreviousOrDefault(ParameterType.Offset, GuessOffset()));
         }
 
         public override double Evaluate(int injectionindex, bool withoffset = true)

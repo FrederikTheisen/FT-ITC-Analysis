@@ -19,13 +19,13 @@ namespace AnalysisITC.AppClasses.Analysis2.Models
         {
 			base.InitializeParameters(data);
 
-			Parameters.AddOrUpdateParameter(ParameterType.Nvalue1, GuessParameter(ParameterType.Nvalue1, this.GuessN()));
-            Parameters.AddOrUpdateParameter(ParameterType.Enthalpy1, GuessParameter(ParameterType.Enthalpy1, this.GuessEnthalpy()));
-            Parameters.AddOrUpdateParameter(ParameterType.Affinity1, GuessParameter(ParameterType.Affinity1, this.GuessAffinity()));
-            Parameters.AddOrUpdateParameter(ParameterType.Offset, GuessParameter(ParameterType.Offset, this.GuessOffset()));
+			Parameters.AddOrUpdateParameter(ParameterType.Nvalue1, PreviousOrDefault(ParameterType.Nvalue1, this.GuessN()));
+            Parameters.AddOrUpdateParameter(ParameterType.Enthalpy1, PreviousOrDefault(ParameterType.Enthalpy1, this.GuessEnthalpy()));
+            Parameters.AddOrUpdateParameter(ParameterType.Affinity1, PreviousOrDefault(ParameterType.Affinity1, this.GuessAffinity()));
+            Parameters.AddOrUpdateParameter(ParameterType.Offset, PreviousOrDefault(ParameterType.Offset, this.GuessOffset()));
 
             ModelOptions.Add(AnalysisClasses.ExperimentAttribute.Bool(AnalysisClasses.AttributeKey.UseSyringeActiveFraction, AnalysisClasses.AttributeKey.UseSyringeActiveFraction.GetProperties().Name, false).DictionaryEntry);
-            ModelOptions.Add(AnalysisClasses.ExperimentAttribute.Int(AnalysisClasses.AttributeKey.NumberOfSites, "Stoichiometry", 1).DictionaryEntry);
+            ModelOptions.Add(AnalysisClasses.ExperimentAttribute.Int(AnalysisClasses.AttributeKey.NumberOfSites1, "Stoichiometry", 1).DictionaryEntry);
         }
 
         public override double Evaluate(int injectionindex, bool withoffset = true)
@@ -41,7 +41,7 @@ namespace AnalysisITC.AppClasses.Analysis2.Models
 
         double GetHeatContent(double cellConc, double titrantConc, double n, double H, double K)
         {
-            double nc = ApplyNToSyringe ? ModelOptions[AnalysisClasses.AttributeKey.NumberOfSites].DoubleValue : n;
+            double nc = ApplyNToSyringe ? ModelOptions[AnalysisClasses.AttributeKey.NumberOfSites1].DoubleValue : n;
             double ns = ApplyNToSyringe ? n : 1;
 
             var ncell = nc * cellConc;
@@ -105,7 +105,7 @@ namespace AnalysisITC.AppClasses.Analysis2.Models
                     if (Model.ModelOptions[AnalysisClasses.AttributeKey.UseSyringeActiveFraction].BoolValue)
                     {
                         output.Add(new(MarkdownStrings.Alpha + "{syringe}", N.AsNumber()));
-                        output.Add(new("N{fixed}", Model.ModelOptions[AnalysisClasses.AttributeKey.NumberOfSites].DoubleValue.ToString("G2")));
+                        output.Add(new("N{fixed}", Model.ModelOptions[AnalysisClasses.AttributeKey.NumberOfSites1].DoubleValue.ToString("G2")));
                     }
                     else output.Add(new("N", N.AsNumber()));
 
@@ -118,15 +118,15 @@ namespace AnalysisITC.AppClasses.Analysis2.Models
                 return output;
             }
 
-            public override List<Tuple<ParameterType, Func<SolutionInterface, FloatWithError>>> DependenciesToReport => new List<Tuple<ParameterType, Func<SolutionInterface, FloatWithError>>>
-                {
+            public override List<Tuple<ParameterType, Func<SolutionInterface, FloatWithError>>> DependenciesToReport => new()
+            {
                     new (ParameterType.Enthalpy1, new(sol => (sol as ModelSolution).Enthalpy.FloatWithError)), 
                     new (ParameterType.EntropyContribution1, new(sol => (sol as ModelSolution).TdS.FloatWithError)),
                     new (ParameterType.Gibbs1, new(sol => (sol as ModelSolution).GibbsFreeEnergy.FloatWithError)),
                 };
 
-            public override Dictionary<ParameterType, FloatWithError> ReportParameters => new Dictionary<ParameterType, FloatWithError>
-                {
+            public override Dictionary<ParameterType, FloatWithError> ReportParameters => new()
+            {
                     { ParameterType.Nvalue1, N },
                     { ParameterType.Affinity1, Kd },
                     { ParameterType.Enthalpy1, Enthalpy.FloatWithError },
@@ -136,4 +136,3 @@ namespace AnalysisITC.AppClasses.Analysis2.Models
         }
     }
 }
-

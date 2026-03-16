@@ -23,25 +23,30 @@ namespace AnalysisITC.AppClasses.Analysis2.Models
         public int NumberOfPoints => Data.Injections.Count(inj => inj.Include);
         public string ModelName => ModelType.GetProperties().Name;
         bool DataHasSolution => Data.Solution != null;
-        bool SolutionHasParameter(ParameterType key) => DataHasSolution ? Data.Solution.Parameters.ContainsKey(key) : false;
+        bool SolutionHasParameter(ParameterType key) => DataHasSolution && Data.Solution.Parameters.ContainsKey(key);
 
         public virtual double GuessEnthalpy() => Data.Injections.First(inj => inj.Include).Enthalpy - GuessOffset();
-        public virtual double GuessEnthalpyMax() => Data.Injections.Where(inj => inj.Include).OrderBy(inj => Math.Abs(inj.Enthalpy)).Last().Enthalpy - GuessOffset();
+        public virtual double EnthalpyMax() => Data.Injections.Where(inj => inj.Include).OrderBy(inj => Math.Abs(inj.Enthalpy)).Last().Enthalpy - GuessOffset();
         public virtual double GuessOffset() => 0.8 * Data.Injections.Where(inj => inj.Include).TakeLast(2).Average(inj => inj.Enthalpy);
         public virtual double GuessN() => Data.Injections.Last().Ratio / 2;
-        public virtual double GuessAffinity() => 1000000;
-        public virtual double GuessAffinityAsGibbs() => -Energy.R * Data.MeasuredTemperatureKelvin * Math.Log(GuessAffinity());
+        public virtual double GuessAffinity() => 6.0;
+        public virtual double GuessAffinityAsGibbs()
+        {
+            double logK = GuessAffinity();
+            double K = Math.Pow(10.0, logK);
+            return -Energy.R * Data.MeasuredTemperatureKelvin * Math.Log(K);
+        }
 
         BootstrappedEvaluationStorage BootstrappedEvaluationStorage { get; set; }
 
         //TODO consider implementing this feature, but not sure about how it should work yet
-        public virtual double GuessParameter(ParameterType key, double def = 0)
+        public virtual double PreviousOrDefault(ParameterType key, double baseguess = 0)
         {
             if (SolutionHasParameter(key))
             {
                 return Data.Solution.Parameters[key];
             }
-            else return def;
+            else return baseguess;
         }
 
         public Model(ExperimentData data)
@@ -251,19 +256,20 @@ namespace AnalysisITC.AppClasses.Analysis2.Models
 	{
         public string Guid { get; private set; } = new Guid().ToString();
         public string ParentSolutionID { get; set; }
-        public GlobalSolution ParentSolution { get; private set; }
         public Model Model { get; protected set; }
+        public ExperimentData Data => Model.Data;
+        public AnalysisModel ModelType => Model.ModelType;
+        public IDictionary<AttributeKey, ExperimentAttribute> ModelOptions => Model.ModelOptions;
+        public Dictionary<ParameterType, FloatWithError> Parameters { get; } = new Dictionary<ParameterType, FloatWithError>();
+        public GlobalSolution ParentSolution { get; private set; }
         public SolverConvergence Convergence { get; private set; }
         public ErrorEstimationMethod ErrorMethod { get; set; } = ErrorEstimationMethod.None;
         public virtual List<SolutionInterface> BootstrapSolutions { get; protected set; }
-		public Dictionary<ParameterType, FloatWithError> Parameters { get; } = new Dictionary<ParameterType, FloatWithError>();
+		
         public bool UseWeightedFitting { get; set; } = false;
         public bool IsValid { get; private set; } = true;
-
-        public AnalysisModel ModelType => Model.ModelType;
         public bool IsGlobalAnalysisSolution => ParentSolution != null && ParentSolution.Model.Parameters.Constraints.Where(con => con.Value != VariableConstraint.None).Count() > 0;
         public string SolutionName => (IsGlobalAnalysisSolution ? "Global." : "") + Model.ModelName.Replace(" ", "").Replace("-", "");
-        public ExperimentData Data => Model.Data;
         public double Temp => Data.MeasuredTemperature;
         public double TempKelvin => Temp + 273.15;
 		public double Loss => Convergence.Loss;
@@ -295,12 +301,12 @@ namespace AnalysisITC.AppClasses.Analysis2.Models
         }
         public virtual Energy Offset => Parameters[ParameterType.Offset].Energy;
 
-        bool UseSyringeCorrectionMode
+        protected bool UseSyringeCorrectionMode
         {
             get
             {
-                if (Model.ModelOptions.ContainsKey(AttributeKey.UseSyringeActiveFraction))
-                    return Model.ModelOptions[AttributeKey.UseSyringeActiveFraction].BoolValue;
+                if (ModelOptions.ContainsKey(AttributeKey.UseSyringeActiveFraction))
+                    return ModelOptions[AttributeKey.UseSyringeActiveFraction].BoolValue;
 
                 return false;
             }
@@ -388,6 +394,11 @@ namespace AnalysisITC.AppClasses.Analysis2.Models
 		}
 
         public virtual List<Tuple<ParameterType, Func<SolutionInterface, FloatWithError>>> DependenciesToReport => new List<Tuple<ParameterType, Func<SolutionInterface, FloatWithError>>>();
+
+        /// <summary>
+        /// This method returns a parameter table with values in the expected form.
+        /// </summary>
+        /// <returns>Affinity -> Kd</returns>
         public virtual Dictionary<ParameterType, FloatWithError> ReportParameters => new Dictionary<ParameterType, FloatWithError>();
 
         public virtual List<Tuple<string, string>> UISolutionParameters(FinalFigureDisplayParameters info)
