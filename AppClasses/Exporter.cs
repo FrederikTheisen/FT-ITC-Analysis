@@ -15,40 +15,6 @@ namespace AnalysisITC
         static char BlankChar = ' ';
         static ExportAccessoryViewSettings ExportSettings;
 
-        //public static void Export(ExportType type)
-        //{
-        //    ExportSettings = type == ExportType.Data ? ExportAccessoryViewController.ExportAccessoryViewSettings.DataDefault() : ExportAccessoryViewController.ExportAccessoryViewSettings.PeaksDefault();
-
-        //    var storyboard = NSStoryboard.FromName("Main", null);
-        //    var viewController = (ExportAccessoryViewController)storyboard.InstantiateControllerWithIdentifier("ExportAccessoryViewController");
-        //    viewController.Setup(ExportSettings);
-
-        //    var dlg = new NSSavePanel();
-        //    dlg.Title = "Export";
-        //    dlg.AccessoryView = viewController.View;
-        //    dlg.NameFieldStringValue = "out";
-
-        //    dlg.BeginSheet(NSApplication.SharedApplication.MainWindow, async (result) =>
-        //    {
-        //        if (result == 1)
-        //        {
-        //            StatusBarManager.StartInderminateProgress();
-        //            StatusBarManager.SetStatusScrolling("Saving file: " + dlg.Filename);
-        //            SetDelimiter(dlg.Url);
-        //            switch (ExportSettings.Export)
-        //            {
-        //                case ExportType.Data: await WriteDataFile(dlg.Filename);break;
-        //                case ExportType.Peaks: await WritePeakFile(dlg.Filename, ExportColumns.SelectionMinimal); break;
-        //                case ExportType.ITCsim: await WriteITCsimFile(dlg.Filename, ExportColumns.SelectionITCsim); break;
-        //                case ExportType.CSV: await WritePeakFile(dlg.Filename, ExportSettings.Columns); break;
-        //                case ExportType.MicroCal: await WriteMicroCalExportFile(dlg.Filename); break;
-        //                case ExportType.PYTC: await WritePytcExportFile(dlg.Filename); break;
-        //            }
-                    
-        //        }
-        //    });
-        //}
-
         public static void Export(ExportType type)
         {
             ExportSettings = type == ExportType.Data
@@ -599,7 +565,7 @@ namespace AnalysisITC
 
             foreach (var par in solution.Solutions[0].ReportParameters)
             {
-                var avg = new FloatWithError(solution.Solutions.Select(sol => sol.ReportParameters[par.Key]));
+                var avg = new FloatWithError(solution.Solutions.Select(sol => sol.ReportParameters[par.Key]).ToList());
 
                 switch (par.Key)
                 {
@@ -682,7 +648,7 @@ namespace AnalysisITC
                     case ExportColumns.Peak: return ExportSettings.ExportOffsetCorrected ? inj.OffsetEnthalpy.ToString("F3") : inj.Enthalpy.ToString("F3");
                     case ExportColumns.PeakError: return inj.SD.ToString("F2");
                     case ExportColumns.Temperature: return inj.Temperature.ToString("F2");
-                    case ExportColumns.IntegrationLength: return inj.IntegrationLength.ToString("F1");
+                    case ExportColumns.IntegrationLength: return inj.IntegrationEndOffset.ToString("F1");
                     case ExportColumns.Fit:
                         if (data.Solution != null) return data.Model.EvaluateEnthalpy(i, !ExportSettings.ExportOffsetCorrected).ToString("F3");
                         else return BlankChar.ToString();

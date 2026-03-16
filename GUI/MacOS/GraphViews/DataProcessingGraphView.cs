@@ -90,7 +90,7 @@ namespace AnalysisITC
                     if (SelectedPeak != -1 && isInjectionZoomed)
                     {
                         Console.WriteLine("Copying integration length...");
-                        var length = Data.Injections[SelectedPeak].IntegrationLength;
+                        var length = Data.Injections[SelectedPeak].IntegrationEndOffset;
                         SelectedPeak++;
                         Data.Injections[SelectedPeak].SetIntegrationLengthByTime(length);
                         FocusPeak();

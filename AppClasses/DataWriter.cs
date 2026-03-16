@@ -271,7 +271,7 @@ namespace AnalysisITC
                 injection += inj.Duration + ",";
                 injection += inj.Temperature + ",";
                 injection += inj.IntegrationStartDelay + ",";
-                injection += inj.IntegrationLength + ",";
+                injection += inj.IntegrationEndOffset + ",";
                 injection += inj.ActualCellConcentration + ",";
                 injection += inj.ActualTitrantConcentration + ",";
                 injection += inj.RawPeakArea.Value + ",";

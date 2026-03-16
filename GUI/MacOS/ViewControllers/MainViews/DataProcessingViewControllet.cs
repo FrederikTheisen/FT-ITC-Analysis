@@ -154,7 +154,7 @@ namespace AnalysisITC
                     IntegrationLengthControl.MaxValue = Data.Injections.Max(inj => inj.Delay);
                     IntegrationDelayControl.FloatValue = Data.Injections.Last().IntegrationStartDelay;
                     if (Processor.IntegrationLengthMode == InjectionData.IntegrationLengthMode.Factor) IntegrationLengthControl.FloatValue = FactorToSlider(Processor.IntegrationLengthFactor);
-                    else IntegrationLengthControl.FloatValue = Data.Injections.Last().IntegrationLength;
+                    else IntegrationLengthControl.FloatValue = Data.Injections.Last().IntegrationEndOffset;
                 }
 
                 BaselineHeader.StringValue = "Baseline Interpolator Options" + (Data.Processor.Interpolator.IsLocked ? " [LOCKED]" : "");
@@ -457,8 +457,8 @@ namespace AnalysisITC
             {
                 // Specific selection, set labels and sliders to corresponding peak
                 InjectionViewSegControl.SetLabel("injection #" + (BaselineGraphView.SelectedPeak + 1).ToString(), 1);
-                IntegrationLengthControl.FloatValue = Data.Injections[BaselineGraphView.SelectedPeak].IntegrationLength;
-                IntegrationLengthLabel.FloatValue = Data.Injections[BaselineGraphView.SelectedPeak].IntegrationLength;
+                IntegrationLengthControl.FloatValue = Data.Injections[BaselineGraphView.SelectedPeak].IntegrationEndOffset;
+                IntegrationLengthLabel.FloatValue = Data.Injections[BaselineGraphView.SelectedPeak].IntegrationEndOffset;
                 IntegrationStartDelayLabel.FloatValue = Data.Injections[BaselineGraphView.SelectedPeak].IntegrationStartDelay;
                 IntegrationDelayControl.FloatValue = Data.Injections[BaselineGraphView.SelectedPeak].IntegrationStartDelay;
             }
