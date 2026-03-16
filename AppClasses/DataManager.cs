@@ -257,7 +257,7 @@ namespace AnalysisITC
             if (Current.Processor.Interpolator == null) return;
 
             var int_delay = Current.Injections.Select(inj => inj.IntegrationStartDelay).ToArray();
-            var int_length = Current.Injections.Select(inj => inj.IntegrationLength).ToArray();
+            var int_length = Current.Injections.Select(inj => inj.IntegrationEndOffset).ToArray();
             var int_factor = Current.Processor.IntegrationLengthFactor;
             var int_mode = Current.Processor.IntegrationLengthMode;
 

@@ -458,9 +458,10 @@ namespace AnalysisITC
 
         public bool Include { get; private set; } = true;
         public float IntegrationStartDelay { get; private set; } = 0;
-        public float IntegrationLength { get; private set; } = 90;
+        public float IntegrationEndOffset { get; private set; } = 90;
         public float IntegrationStartTime => Time + IntegrationStartDelay;
-        public float IntegrationEndTime => Time + IntegrationLength;
+        public float IntegrationEndTime => Time + IntegrationEndOffset;
+        public float IntegrationLength => IntegrationEndOffset - IntegrationStartDelay;
         float MinimumIntegrationTime => 2 * (float)Experiment.TimeStep;
 
         public PeakHeatDirection HeatDirection { get; set; } = PeakHeatDirection.Unknown;
@@ -536,7 +537,7 @@ namespace AnalysisITC
                 Duration = float.Parse(parameters[5]),
                 Temperature = double.Parse(parameters[6]),
                 IntegrationStartDelay = float.Parse(parameters[7]),
-                IntegrationLength = float.Parse(parameters[8]),
+                IntegrationEndOffset = float.Parse(parameters[8]),
             };
 
             // Newer files contain additional information for the injections to handle tandem experiment data
@@ -626,7 +627,7 @@ namespace AnalysisITC
             Duration = float.Parse(parameters[5]);
             Temperature = double.Parse(parameters[6]);
             IntegrationStartDelay = float.Parse(parameters[7]);
-            IntegrationLength = float.Parse(parameters[8]);
+            IntegrationEndOffset = float.Parse(parameters[8]);
 
             // Newer files contain additional information for the injections to handle tandem experiment data
             if (parameters.Count() > 9)
@@ -662,7 +663,7 @@ namespace AnalysisITC
         public void InitializeIntegrationTimes()
         {
             IntegrationStartDelay = 0;
-            IntegrationLength = 0.8f * Delay;
+            IntegrationEndOffset = 0.8f * Delay;
         }
 
         public void SetIntegrationStartTime(float delay)
@@ -672,7 +673,7 @@ namespace AnalysisITC
             // DataPoints first because there might not be datapoinst from the first few seconds
             var absoluteminimum = Math.Max(-Delay, Experiment.DataPoints.First().Time - Time + MinimumIntegrationTime);
 
-            IntegrationStartDelay = Math.Clamp(delay, absoluteminimum, IntegrationLength - MinimumIntegrationTime);
+            IntegrationStartDelay = Math.Clamp(delay, absoluteminimum, IntegrationEndOffset - MinimumIntegrationTime);
         }
 
         public void SetIntegrationLengthByPeakFitting()
@@ -753,7 +754,7 @@ namespace AnalysisITC
                 double apexOffset = dps[apex].Time - Time;
                 double endOffset = apexOffset + factor * tReturn;
 
-                IntegrationLength = Math.Clamp((float)endOffset,
+                IntegrationEndOffset = Math.Clamp((float)endOffset,
                     IntegrationStartDelay + MinimumIntegrationTime,
                     Delay);
             }
@@ -766,7 +767,7 @@ namespace AnalysisITC
         public void SetIntegrationLengthByTime(float time)
         {
             // Keep between the start delay and the injection scope
-            IntegrationLength = Math.Clamp(time, IntegrationStartDelay + MinimumIntegrationTime, Delay);
+            IntegrationEndOffset = Math.Clamp(time, IntegrationStartDelay + MinimumIntegrationTime, Delay);
         }
 
         public void ToggleDataPointActive()
@@ -779,12 +780,9 @@ namespace AnalysisITC
 
         public void Integrate()
         {
-            var data = Experiment.BaseLineCorrectedDataPoints.Where(dp => dp.Time > IntegrationStartTime && dp.Time < IntegrationEndTime);
-
-            if (data.Count() <= 0) throw new Exception($"Cannot integrate peak with no data point(s)");
-
-            double area = 0;
-            float t = data.First().Time;
+            var data = Experiment.BaseLineCorrectedDataPoints.Where(dp => dp.Time > IntegrationStartTime && dp.Time < IntegrationEndTime).ToList();
+            var area = 0.0;
+            var t = IntegrationStartTime;
 
             foreach (var dp in data)
             {
@@ -797,6 +795,7 @@ namespace AnalysisITC
             var sd = EstimateError2();
             var peakarea = new FloatWithError(area, sd);
 
+            // Set the peak area and perform buffer subtraction if relevant
             SetPeakArea(peakarea);
         }
 
@@ -975,7 +974,7 @@ namespace AnalysisITC
                 Duration = this.Duration,
                 Temperature = this.Temperature,
                 IntegrationStartDelay = this.IntegrationStartDelay,
-                IntegrationLength = this.IntegrationLength,
+                IntegrationEndOffset = this.IntegrationEndOffset,
             };
 
             return inj;
