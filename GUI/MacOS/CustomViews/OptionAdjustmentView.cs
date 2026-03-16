@@ -58,7 +58,8 @@ namespace AnalysisITC.GUI.MacOS.CustomViews
 
             switch (Option.Key)
             {
-                case AttributeKey.NumberOfSites:
+                case AttributeKey.NumberOfSites2:
+                case AttributeKey.NumberOfSites1:
                     SetupLabel();
                     SetupStoichiometryOption();
                     break;
@@ -86,11 +87,18 @@ namespace AnalysisITC.GUI.MacOS.CustomViews
 
         public void UpdateState(IDictionary<AttributeKey,ExperimentAttribute> attributes)
         {
+            bool enable;
+
             switch (Option.Key)
             {
-                case AttributeKey.NumberOfSites:
-                    bool enable = attributes[AttributeKey.UseSyringeActiveFraction].BoolValue;
-                    Label.Enabled = enable;
+                case AttributeKey.NumberOfSites1:
+                    enable = attributes[AttributeKey.UseSyringeActiveFraction]?.BoolValue ?? false;
+                    Label.TextColor = enable ? NSColor.Label : NSColor.DisabledControlText;
+                    StoichiometryPopup.Enabled = enable;
+                    break;
+                case AttributeKey.NumberOfSites2:
+                    enable = (attributes[AttributeKey.UseSyringeActiveFraction]?.BoolValue ?? false) && (!attributes[AttributeKey.LockDuplicateParameter]?.BoolValue ?? true);
+                    Label.TextColor = enable ? NSColor.Label : NSColor.DisabledControlText;
                     StoichiometryPopup.Enabled = enable;
                     break;
             }
@@ -105,7 +113,7 @@ namespace AnalysisITC.GUI.MacOS.CustomViews
                 Editable = false,
                 AttributedStringValue = Utilities.MacStrings.FromMarkDownString(Option.OptionName, NSFont.SystemFontOfSize(NSFont.SmallSystemFontSize)),
                 //StringValue = Option.OptionName,
-                ToolTip = "Property Key: " + Option.Key.ToString(),
+                ToolTip = Option.Key.GetProperties().ToolTip,
                 TranslatesAutoresizingMaskIntoConstraints = false,
                 HorizontalContentSizeConstraintActive = false,
                 ControlSize = NSControlSize.Small,
@@ -117,15 +125,6 @@ namespace AnalysisITC.GUI.MacOS.CustomViews
 
         void SetupBoolOption()
         {
-            InputButton = NSButton.CreateCheckbox(Option.OptionName, () => Method());
-            InputButton.State = Option.BoolValue ? NSCellStateValue.On : NSCellStateValue.Off;
-            InputButton.ToolTip = "Property Key: " + Option.Key.ToString();
-            InputButton.ControlSize = NSControlSize.Small;
-            InputButton.Font = NSFont.SystemFontOfSize(NSFont.SmallSystemFontSize);
-            InputButton.ImagePosition = NSCellImagePosition.ImageTrailing;
-
-            InputButton.SetContentHuggingPriorityForOrientation(249, NSLayoutConstraintOrientation.Horizontal);
-
             Label = new NSTextField
             {
                 StringValue = Option.OptionName,
@@ -135,7 +134,7 @@ namespace AnalysisITC.GUI.MacOS.CustomViews
                 Selectable = false,
                 ControlSize = NSControlSize.Small,
                 Font = NSFont.SystemFontOfSize(NSFont.SmallSystemFontSize),
-                ToolTip = "Property Key: " + Option.Key.ToString()
+                ToolTip = Option.Key.GetProperties().ToolTip
             };
 
             Label.SetContentHuggingPriorityForOrientation(249, NSLayoutConstraintOrientation.Horizontal);
@@ -144,7 +143,7 @@ namespace AnalysisITC.GUI.MacOS.CustomViews
             {
                 State = Option.BoolValue ? (int)NSCellStateValue.On : (int)NSCellStateValue.Off,
                 ControlSize = NSControlSize.Mini,
-                ToolTip = "Property Key: " + Option.Key.ToString()
+                ToolTip = Option.Key.GetProperties().ToolTip,
             };
 
             InputSwitch.Activated += (s, e) => Method();
@@ -166,15 +165,12 @@ namespace AnalysisITC.GUI.MacOS.CustomViews
                 Font = NSFont.SystemFontOfSize(NSFont.SmallSystemFontSize),
                 Alignment = NSTextAlignment.Right,
             };
-            //InputField.Formatter = new NSNumberFormatter()
-            //{
-            //    NumberStyle = NSNumberFormatterStyle.None,
-            //    Minimum = 1,
-            //    Maximum = 10,
-            //    MaximumFractionDigits = 0,
-            //    MaximumIntegerDigits = 2,
-            //    RoundingIncrement = 1
-            //};
+            InputField.Formatter = new NSNumberFormatter()
+            {
+                NumberStyle = NSNumberFormatterStyle.None,
+                MaximumFractionDigits = 0,
+                RoundingIncrement = 1
+            };
             InputField.AddConstraint(NSLayoutConstraint.Create(InputField, NSLayoutAttribute.Width, NSLayoutRelation.Equal, 1, 80));
             InputField.AddConstraint(NSLayoutConstraint.Create(InputField, NSLayoutAttribute.Height, NSLayoutRelation.Equal, 1, 19));
 
@@ -238,7 +234,6 @@ namespace AnalysisITC.GUI.MacOS.CustomViews
                     InputButton.State = Option.BoolValue ? NSCellStateValue.On : NSCellStateValue.Off;
                     InputButton.BezelStyle = NSBezelStyle.Recessed;
                     InputButton.ControlSize = NSControlSize.Mini;
-                    //InputButton.Font = NSFont.SystemFontOfSize(10);
 
                     AddArrangedSubview(InputButton);
                     break;
@@ -246,7 +241,7 @@ namespace AnalysisITC.GUI.MacOS.CustomViews
 
             InputValueWithErrorField = new ValueWithErrorTextField(new CGRect(0, 0, 80, 19))
             {
-                ToolTip = "Value and optional uncertainty. Press space to enter uncertainty.",
+                ToolTip = "Value and optional uncertainty. Press space to enter uncertainty. " + Option.Key.GetProperties().ToolTip,
             };
 
             InputValueWithErrorField.SetValue(value.Value, value.SD);
@@ -268,7 +263,8 @@ namespace AnalysisITC.GUI.MacOS.CustomViews
                 TranslatesAutoresizingMaskIntoConstraints = false,
                 Font = NSFont.SystemFontOfSize(NSFont.SmallSystemFontSize),
                 BezelStyle = NSBezelStyle.Recessed,
-                ControlSize = NSControlSize.Small
+                ControlSize = NSControlSize.Small,
+                ToolTip = AttributeKey.NumberOfSites1.GetProperties().ToolTip
             };
 
             StoichiometryPopupBuilder.Populate(StoichiometryPopup);
@@ -331,6 +327,10 @@ namespace AnalysisITC.GUI.MacOS.CustomViews
         {
             if (InputButton != null)
             {
+                Option.BoolValue = InputButton.State == NSCellStateValue.On;
+            }
+            else if (InputSwitch != null)
+            {
                 Option.BoolValue = InputSwitch.State == (int)NSCellStateValue.On;
             }
 
@@ -338,7 +338,7 @@ namespace AnalysisITC.GUI.MacOS.CustomViews
             {
                 switch (Option.Key)
                 {
-                    case AttributeKey.NumberOfSites:
+                    case AttributeKey.NumberOfSites1:
                         var selected = StoichiometryPopupBuilder.GetSelected(StoichiometryPopup);
                         Option.DoubleValue = selected.Factor;
                         break;

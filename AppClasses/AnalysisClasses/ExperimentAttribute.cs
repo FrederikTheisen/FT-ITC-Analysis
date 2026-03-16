@@ -10,6 +10,7 @@ namespace AnalysisITC.AppClasses.AnalysisClasses
 	public class AttributeKeyAttribute : Attribute
 	{
 		public string Name { get; set; }
+		public string ToolTip { get; set; } = "";
 		public ExperimentAttribute.AttributeType Type { get; set; }
 
 		public bool AllowMultiple { get; set; } = false;
@@ -19,6 +20,8 @@ namespace AnalysisITC.AppClasses.AnalysisClasses
 			Name = type.ToString();
 			Type = type;
 			AllowMultiple = allowmultipleattributes;
+
+			ToolTip = type.ToString();
 		}
 
         public AttributeKeyAttribute(string name, ExperimentAttribute.AttributeType type, bool allowmultipleattributes = false)
@@ -26,17 +29,28 @@ namespace AnalysisITC.AppClasses.AnalysisClasses
 			Name = name;
             Type = type;
             AllowMultiple = allowmultipleattributes;
+
+            ToolTip = type.ToString();
+        }
+
+        public AttributeKeyAttribute(string name, string tooltip, ExperimentAttribute.AttributeType type, bool allowmultipleattributes = false)
+        {
+            Name = name;
+            Type = type;
+            AllowMultiple = allowmultipleattributes;
+
+			ToolTip = tooltip;
         }
     }
 
 	public enum AttributeKey
 	{
 		Null,
-		[AttributeKey("Prebound Ligand", ExperimentAttribute.AttributeType.ParameterConcentration)]
+		[AttributeKey("[Ligand]", "Concentration of ligand already bound before titration starts. This reduces the initially available binding capacity. Can be set directly or read from an experiment attribute.", ExperimentAttribute.AttributeType.ParameterConcentration)]
 		PreboundLigandConc,
-		[AttributeKey(ExperimentAttribute.AttributeType.ParameterAffinity)]
+		[AttributeKey("Ligand Affinity", "Previously determined affinity of the prebound ligand for the binding site. This determines how strongly the prebound species occupies the site before titration.", ExperimentAttribute.AttributeType.ParameterAffinity)]
 		PreboundLigandAffinity,
-		[AttributeKey(ExperimentAttribute.AttributeType.Parameter)]
+		[AttributeKey("Ligand Enthalpy", "Previously determined binding enthalpy of the prebound ligand. This is used when calculating heat changes associated with ligand displacement.", ExperimentAttribute.AttributeType.Parameter)]
 		PreboundLigandEnthalpy,
 		[AttributeKey(ExperimentAttribute.AttributeType.Bool)]
         PeptideInCell,
@@ -50,14 +64,16 @@ namespace AnalysisITC.AppClasses.AnalysisClasses
         EquilibriumConstant,
         [AttributeKey(ExperimentAttribute.AttributeType.Parameter)]
         Percentage,
-        [AttributeKey(ExperimentAttribute.AttributeType.Bool)]
+        [AttributeKey("Shared N-Values", "Force duplicated site parameters to share the same fitted value. Useful for symmetric or equivalent two-site models.", ExperimentAttribute.AttributeType.Bool)]
         LockDuplicateParameter,
         [AttributeKey("Buffer Subtraction", ExperimentAttribute.AttributeType.ReferenceExperiment)]
         BufferSubtraction,
-        [AttributeKey("N Sites", ExperimentAttribute.AttributeType.Int)]
-        NumberOfSites,
-        [AttributeKey("Use Syringe Correction", ExperimentAttribute.AttributeType.Bool)]
+        [AttributeKey("Stoichiometry", "Fixed stoichiometric site ratio used by the model. This controls how many binding sites are represented on the cell side.", ExperimentAttribute.AttributeType.Int)]
+        NumberOfSites1,
+        [AttributeKey("Use Syringe Correction", "Use a syringe concentration correction factor instead of fitting an apparent N - value.Useful when the active titrant concentration is uncertain.This changes the fitted affinity and enthalpy.", ExperimentAttribute.AttributeType.Bool)]
         UseSyringeActiveFraction,
+        [AttributeKey("Stoichiometry", "Fixed stoichiometric site ratio used by the model. This controls how many binding sites are represented on the cell side.", ExperimentAttribute.AttributeType.Int)]
+        NumberOfSites2,
     }
 
 	public class ExperimentAttribute
@@ -131,6 +147,16 @@ namespace AnalysisITC.AppClasses.AnalysisClasses
                 Key = key,
                 OptionName = name,
                 IntValue = value,
+            };
+        }
+
+        public static ExperimentAttribute Double(AttributeKey key, string name, double value)
+        {
+            return new ExperimentAttribute()
+            {
+                Key = key,
+                OptionName = name,
+                DoubleValue = value,
             };
         }
 

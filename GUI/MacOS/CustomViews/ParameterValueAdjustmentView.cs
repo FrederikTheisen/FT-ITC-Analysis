@@ -134,20 +134,6 @@ namespace AnalysisITC.GUI.MacOS.CustomViews
 
                 return targetImage;
             }
-
-            static NSImage MakeSymbolImage(string symbolName, nfloat size)
-            {
-                var img = NSImage.GetSystemSymbol(symbolName, null);
-                var frame = new CGRect(0, 0, size, size);
-                var output = new NSImage(frame.Size);
-
-                output.LockFocus();
-                output.Template = true;
-                img.Draw(frame, new CGRect(CGPoint.Empty, img.Size), NSCompositingOperation.SourceOver, 1f);
-                output.UnlockFocus();
-
-                return output;
-            }
         }
 
         private void ParameterOptionControl_Activated(object sender, EventArgs e)
@@ -188,6 +174,10 @@ namespace AnalysisITC.GUI.MacOS.CustomViews
             }
         }
 
+        /// <summary>
+        /// Disable input parameters depending on the attribute state of the model.
+        /// </summary>
+        /// <param name="attributes"></param>
         public void UpdateState(IDictionary<AttributeKey, ExperimentAttribute> attributes)
         {
             switch (this.Parameter.Key)
@@ -198,10 +188,11 @@ namespace AnalysisITC.GUI.MacOS.CustomViews
                     if (syrfactor) Label.StringValue = "Correction Factor";
                     else Label.StringValue = Parameter.Key.GetProperties().Description;
                     break;
-                case ParameterType.Nvalue2 when attributes.ContainsKey(AttributeKey.LockDuplicateParameter):
-                    bool disable = attributes[AttributeKey.LockDuplicateParameter].BoolValue;
+                case ParameterType.Nvalue2: // If shared N value or if using syringe correction, disable second N-value field
+                    bool disable = (attributes[AttributeKey.LockDuplicateParameter]?.BoolValue ?? false) || (attributes[AttributeKey.UseSyringeActiveFraction]?.BoolValue ?? false);
                     Input.Enabled = !disable;
                     Lock.Enabled = !disable;
+                    Label.TextColor = disable ? NSColor.DisabledControlText : NSColor.Label;
                     break;
             }
             //Layout();
