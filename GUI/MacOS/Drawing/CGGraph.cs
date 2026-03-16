@@ -1703,18 +1703,22 @@ namespace AnalysisITC
             layer.Context.SetStrokeColor(TertiaryLineColor);
             layer.Context.SetLineWidth(1);
 
-            var H = ExperimentData.Solution.TotalEnthalpy;
-            if (DrawWithOffset) H += ExperimentData.Solution.Parameters[AppClasses.Analysis2.ParameterType.Offset];
-            var e1 = GetRelativePosition(XAxis.Min, H);
-            var e2 = GetRelativePosition(XAxis.Max, H);
-            var enthalpy = new CGPath();
-            enthalpy.MoveToPoint(e1);
-            enthalpy.AddLineToPoint(e2);
-            layer.Context.AddPath(enthalpy);
+            // Enthalpy line. Only makes sense for single site model.
+            var Hs = ExperimentData.Solution.GetCorrectedEnthalpyGuides();
+            if (Hs.Count == 1)
+            {
+                var H = Hs[0];
+                if (DrawWithOffset) H += ExperimentData.Solution.Parameters[AppClasses.Analysis2.ParameterType.Offset];
+                var e1 = GetRelativePosition(XAxis.Min, H);
+                var e2 = GetRelativePosition(XAxis.Max, H);
+                var enthalpy = new CGPath();
+                enthalpy.MoveToPoint(e1);
+                enthalpy.AddLineToPoint(e2);
+                layer.Context.AddPath(enthalpy);
+            }
 
-            //var N = ExperimentData.Solution.N;
-            var Ns = ExperimentData.Solution.ParametersConformingToKey(AppClasses.Analysis2.ParameterType.Nvalue1);
-
+            // Stoichiometry lines
+            var Ns = ExperimentData.Solution.GetCorrectedStoichiometryGuides();
             foreach (var N in Ns)
             {
                 var n1 = GetRelativePosition(N, YAxis.Min);
