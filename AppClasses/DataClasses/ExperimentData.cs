@@ -481,7 +481,7 @@ namespace AnalysisITC
             {
                 if (Experiment.Solution == null) return Enthalpy;
                 //else return Enthalpy - Experiment.Solution.Offset; //A1 pattern
-                else return Enthalpy - Experiment.Solution.Parameters[ParameterType.Offset].Value;
+                else return Enthalpy - Experiment.Solution.Offset;
             }
         }
 
