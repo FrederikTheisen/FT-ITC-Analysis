@@ -317,7 +317,7 @@ namespace AnalysisITC.AppClasses.Analysis2
 			else
 			{
 				// No temperature dependence possible, slope is zero, intercept + error from distribution of model values
-				TemperatureDependence[key] = new LinearFitWithError(new(0), new(Model.Models.Select((m) => func(m.Solution))), MeanTemperature);
+				TemperatureDependence[key] = new LinearFitWithError(new(0), new(Model.Models.Select((m) => func(m.Solution)).ToList()), MeanTemperature);
             }
 		}
 

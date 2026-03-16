@@ -260,5 +260,4 @@ namespace AnalysisITC
             Name = name;
         }
     }
-
 }

@@ -2,6 +2,8 @@
 using AppKit;
 using System.Globalization;
 using Foundation;
+using System.Linq;
+using System.Collections.Generic;
 
 namespace AnalysisITC
 {
