@@ -515,6 +515,9 @@
     <Compile Include="Properties\AppVersion.cs" />
     <Compile Include="GUI\MacOS\CitationUI.cs" />
     <Compile Include="GUI\MacOS\CustomViews\ValueWithErrorTextField.cs" />
+    <Compile Include="AppClasses\Analysis2\Models\OneSetOfSitesSyringeUncertaintyModel.cs" />
+    <Compile Include="AppClasses\DataClasses\Stoichiometry.cs" />
+    <Compile Include="GUI\MacOS\StoichiometryBuilder.cs" />
   </ItemGroup>
   <ItemGroup>
     <InterfaceDefinition Include="Main.storyboard" />
