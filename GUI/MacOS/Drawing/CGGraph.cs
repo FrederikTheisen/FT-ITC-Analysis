@@ -1708,7 +1708,7 @@ namespace AnalysisITC
             if (Hs.Count == 1)
             {
                 var H = Hs[0];
-                if (DrawWithOffset) H += ExperimentData.Solution.Parameters[AppClasses.Analysis2.ParameterType.Offset];
+                if (DrawWithOffset) H += ExperimentData.Solution.Offset;
                 var e1 = GetRelativePosition(XAxis.Min, H);
                 var e2 = GetRelativePosition(XAxis.Max, H);
                 var enthalpy = new CGPath();
