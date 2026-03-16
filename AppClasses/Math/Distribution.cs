@@ -5,7 +5,7 @@ namespace AnalysisITC
 {
     static class Distribution
     {
-        static readonly Random Random = new Random();
+        private static readonly Random rng = new Random();
 
         public static DistributionType Selected { get; private set; } = DistributionType.Normal;
 
@@ -29,7 +29,7 @@ namespace AnalysisITC
         {
             if (distribution != null && Selected != DistributionType.None)
             {
-                if (rand == null) rand = Random;
+                rand ??= rng;
                 return distribution[rand.Next(distribution.Count)];
             }
             else return Selected switch
@@ -43,7 +43,7 @@ namespace AnalysisITC
         public static double Normal(FloatWithError number, Random rand = null) => Normal(number.Value, number.SD, rand);
         public static double Normal(double mean, double stdDev, Random rand = null)
         {
-            if (rand == null) rand = Random;
+            rand ??= rng;
             double u1 = 1.0 - rand.NextDouble(); //uniform(0,1] random doubles
             double u2 = 1.0 - rand.NextDouble();
             double randStdNormal = Math.Sqrt(-2.0 * Math.Log(u1)) * Math.Sin(2.0 * Math.PI * u2); //random normal(0,1)
@@ -55,7 +55,7 @@ namespace AnalysisITC
         public static double Constant(FloatWithError number, Random rand = null) => Constant(number.Value, number.SD, rand);
         public static double Constant(double mean, double stdDev, Random rand = null)
         {
-            if (rand == null) rand = Random;
+            rand ??= rng;
             double u = rand.NextDouble(); //uniform[0,1) random double
             double randStdCons = 2 * (0.5 - u); //uniform(-1,1] random double
             double randCons = mean + stdDev * randStdCons; //random constant within mean +/- SD
