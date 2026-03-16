@@ -294,6 +294,7 @@ namespace AnalysisITC.AppClasses.Analysis2
                 case AnalysisModel.PeptideProlineIsomerization: Model = new OneSiteIsomerization(data); break;
                 case AnalysisModel.SequentialBindingSites:
                 case AnalysisModel.Dissociation: Model = new Dissociation(data); break;
+                case AnalysisModel.OneSetOfSitesSyringeUncertainty: Model = new OneSetOfSitesSyringeUncertainty(data); break;
                 default: throw new NotImplementedException("The selected model has not been implemented yet.");
             }
         }

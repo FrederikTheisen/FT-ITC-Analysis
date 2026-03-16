@@ -22,6 +22,7 @@ namespace AnalysisITC.AppClasses.Analysis2.Models
                 AnalysisModel.TwoSetsOfSites,
                 AnalysisModel.CompetitiveBinding,
                 AnalysisModel.Dissociation,
+                AnalysisModel.OneSetOfSitesSyringeUncertainty,
                 //AnalysisModel.SequentialBindingSites,
                 //AnalysisModel.PeptideProlineIsomerization,
                 //AnalysisModel.TwoCompetingSites,
@@ -31,9 +32,9 @@ namespace AnalysisITC.AppClasses.Analysis2.Models
 
     public enum AnalysisModel
     {
-        [AnalysisModel("One Set of Sites", "Standard model to fit 1 or more identical binding sites that do not influence each other")]
+        [AnalysisModel("One-Set-of-Sites", "Standard model to fit 1 or more identical binding sites that do not influence each other")]
         OneSetOfSites,
-        [AnalysisModel("Two Sets of Sites", "")]
+        [AnalysisModel("Two-Sets-of-Sites", "")]
         TwoSetsOfSites,
         [AnalysisModel("Sequential Binding Sites")]
         SequentialBindingSites,
@@ -44,6 +45,8 @@ namespace AnalysisITC.AppClasses.Analysis2.Models
         [AnalysisModel("Proline Isomer Binding", "Fit interactions affected by proline cis/trans isomerization")]
         PeptideProlineIsomerization,
         [AnalysisModel("Two Competing Sites", "Protein contains two sites which compete for the ligand. Only one of the two sites can be occupied at a time")]
-        TwoCompetingSites
+        TwoCompetingSites,
+        [AnalysisModel("One-Set-of-Sites", "Standard model with uncertainty in the syringe concentration and discrete number of binding sites")]
+        OneSetOfSitesSyringeUncertainty
     }
 }
