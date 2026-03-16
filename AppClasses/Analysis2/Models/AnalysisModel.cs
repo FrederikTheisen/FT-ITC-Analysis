@@ -32,9 +32,9 @@ namespace AnalysisITC.AppClasses.Analysis2.Models
 
     public enum AnalysisModel
     {
-        [AnalysisModel("One-Set-of-Sites", "Standard model to fit 1 or more identical binding sites that do not influence each other")]
+        [AnalysisModel("One-Set-Of-Sites", "Standard model to fit 1 or more identical binding sites that do not influence each other")]
         OneSetOfSites,
-        [AnalysisModel("Two-Sets-of-Sites", "")]
+        [AnalysisModel("Two-Sets-Of-Sites", "")]
         TwoSetsOfSites,
         [AnalysisModel("Sequential Binding Sites")]
         SequentialBindingSites,
