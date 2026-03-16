@@ -21,7 +21,7 @@ namespace AnalysisITC.AppClasses.Analysis2.Models
 
         public int NumberOfParameters => Parameters.FittingParameterCount;
         public int NumberOfPoints => Data.Injections.Count(inj => inj.Include);
-        public string ModelName => ModelType.ToString();
+        public string ModelName => ModelType.GetProperties().Name;
         bool DataHasSolution => Data.Solution != null;
         bool SolutionHasParameter(ParameterType key) => DataHasSolution ? Data.Solution.Parameters.ContainsKey(key) : false;
 
@@ -262,7 +262,7 @@ namespace AnalysisITC.AppClasses.Analysis2.Models
 
         public AnalysisModel ModelType => Model.ModelType;
         public bool IsGlobalAnalysisSolution => ParentSolution != null && ParentSolution.Model.Parameters.Constraints.Where(con => con.Value != VariableConstraint.None).Count() > 0;
-        public string SolutionName => (IsGlobalAnalysisSolution ? "Global." : "") + Model.ModelName;
+        public string SolutionName => (IsGlobalAnalysisSolution ? "Global." : "") + Model.ModelName.Replace(" ", "").Replace("-", "");
         public ExperimentData Data => Model.Data;
         public double Temp => Data.MeasuredTemperature;
         public double TempKelvin => Temp + 273.15;
@@ -294,6 +294,46 @@ namespace AnalysisITC.AppClasses.Analysis2.Models
             }
         }
         public virtual Energy Offset => Parameters[ParameterType.Offset].Energy;
+
+        bool UseSyringeCorrectionMode
+        {
+            get
+            {
+                if (Model.ModelOptions.ContainsKey(AttributeKey.UseSyringeActiveFraction))
+                    return Model.ModelOptions[AttributeKey.UseSyringeActiveFraction].BoolValue;
+
+                return false;
+            }
+        }
+
+        public virtual List<FloatWithError> GetCorrectedStoichiometryGuides()
+        {
+            if (UseSyringeCorrectionMode)
+                return ParametersConformingToKey(ParameterType.Nvalue1).Select(n => 1.0 / n).ToList();
+
+            return ParametersConformingToKey(ParameterType.Nvalue1);
+        }
+
+        public virtual List<FloatWithError> GetCorrectedEnthalpyGuides()
+        {
+            if (UseSyringeCorrectionMode)
+            {
+                var ns = ParametersConformingToKey(ParameterType.Nvalue1);
+                var hs = new List<FloatWithError>(ns.Count);
+
+                int i = 0;
+                foreach (var h in ParametersConformingToKey(ParameterType.Enthalpy1))
+                {
+                    hs.Add(ns[i] * h);
+
+                    i++;
+                }
+
+                return hs;
+            }  
+
+            return ParametersConformingToKey(ParameterType.Enthalpy1);
+        }
 
         public void SetParentSolution(GlobalSolution parent)
         {
@@ -336,6 +376,7 @@ namespace AnalysisITC.AppClasses.Analysis2.Models
                 case AnalysisModel.TwoCompetingSites: solution = new TwoCompetingSites.ModelSolution(model); break;
                 case AnalysisModel.SequentialBindingSites:
 				case AnalysisModel.Dissociation: solution = new Dissociation.ModelSolution(model); break;
+                case AnalysisModel.OneSetOfSitesSyringeUncertainty: solution = new OneSetOfSitesSyringeUncertainty.ModelSolution(model); break;
 				default: throw new Exception("Model Solution not implemented");
 			}
 
