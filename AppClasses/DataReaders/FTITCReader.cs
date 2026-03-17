@@ -222,7 +222,7 @@ namespace DataReaders
                     }
                 }
 
-                AppEventHandler.Print(opt.ToString(), 2);
+                AppEventHandler.Print($"{opt.Key} {opt}", 2);
 
                 options.Add(opt);
             }
