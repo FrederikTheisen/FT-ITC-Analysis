@@ -263,7 +263,7 @@ namespace AnalysisITC
                     V_inj_total += v_inj;
 
                     // Inject titrant (mol)
-                    inj.InjectionMass = Cs * v_inj;
+                    //inj.InjectionMass = Cs * v_inj;
 
                     // Instant overflow recursion:
                     // 1) mix injected volume with active contents
