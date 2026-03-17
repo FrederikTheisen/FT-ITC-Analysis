@@ -4,17 +4,53 @@ namespace AnalysisITC
 {
     public static class FWEMath
     {
+        const double ln10 = 2.302585093;
+
+        /// <summary>
+        /// ln(number)
+        /// </summary>
+        /// <param name="number"></param>
+        /// <returns></returns>
         public static FloatWithError Log(FloatWithError number)
         {
             return new FloatWithError(Math.Log(number.Value), number.SD / number.Value);
         }
 
+        /// <summary>
+        /// log10(number)
+        /// </summary>
+        /// <param name="number"></param>
+        /// <returns></returns>
+        public static FloatWithError Log10(FloatWithError number)
+        {
+            return new FloatWithError(Math.Log10(number.Value), number.SD / (ln10 * number.Value));
+        }
+
+        /// <summary>
+        /// e^number
+        /// </summary>
+        /// <param name="number"></param>
+        /// <returns></returns>
         public static FloatWithError Exp(FloatWithError number)
         {
             var f = Math.Abs(Math.Exp(number.Value));
             var sd = Math.Abs(number.SD);
 
             return new FloatWithError(f, f * sd);
+        }
+
+        /// <summary>
+        /// a^number
+        /// </summary>
+        /// <param name="a"></param>
+        /// <param name="number"></param>
+        /// <returns></returns>
+        public static FloatWithError Pow(double a, FloatWithError number)
+        {
+            var value = Math.Pow(a, number.Value);
+            var sd = Math.Log(a) * value * number.SD;
+
+            return new FloatWithError(value, sd);
         }
 
         public static FloatWithError Average(FloatWithError a, FloatWithError b)
