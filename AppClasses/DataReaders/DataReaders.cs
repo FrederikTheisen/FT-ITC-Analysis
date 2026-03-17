@@ -154,7 +154,7 @@ namespace DataReaders
             foreach (var inj in experiment.Injections)
             {
                 deltaVolume += inj.Volume;
-                inj.InjectionMass = experiment.SyringeConcentration * inj.Volume;
+                //inj.InjectionMass = experiment.SyringeConcentration * inj.Volume;
                 inj.ActualCellConcentration = experiment.CellConcentration * ((1 - deltaVolume / x2vol0) / (1 + deltaVolume / x2vol0));
                 inj.ActualTitrantConcentration = experiment.SyringeConcentration * (deltaVolume / experiment.CellVolume) * (1 - deltaVolume / x2vol0);
 
