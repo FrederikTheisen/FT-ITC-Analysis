@@ -273,7 +273,7 @@ namespace AnalysisITC
             Processor = processor;
         }
 
-        List<InjectionData> GetBootstrappedResiduals()
+        List<InjectionData> GetBootstrappedResiduals(ExperimentData clone)
         {
             if (Solution == null) return Injections;
 
@@ -301,7 +301,7 @@ namespace AnalysisITC
                 var ressdarea = res.Item2 * inj.InjectionMass;
                 var fitarea = fit * inj.InjectionMass;
 
-                var syn_inj = new InjectionData(null, inj.ID, inj.Volume, inj.InjectionMass, inj.Include)
+                var syn_inj = new InjectionData(clone, inj.ID, inj.Volume, inj.InjectionMass, inj.Include)
                 {
                     Temperature = inj.Temperature,
                     ActualCellConcentration = inj.ActualCellConcentration,
@@ -351,7 +351,7 @@ namespace AnalysisITC
             switch (options.ErrorEstimationMethod)
             {
                 default:
-                case ErrorEstimationMethod.BootstrapResiduals: syninj = GetBootstrappedResiduals(); break;
+                case ErrorEstimationMethod.BootstrapResiduals: syninj = GetBootstrappedResiduals(clone); break;
                 case ErrorEstimationMethod.LeaveOneOut when options.IsGlobalClone: syninj = Injections; break;
                 case ErrorEstimationMethod.LeaveOneOut:
                     {
