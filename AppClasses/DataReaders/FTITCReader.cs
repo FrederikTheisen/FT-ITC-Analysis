@@ -196,8 +196,9 @@ namespace DataReaders
         {
             var options = new List<ExperimentAttribute>();
 
-            string line;
+            AppEventHandler.Print("Reading Attributes...", 1);
 
+            string line;
             while ((line = reader.ReadLine()) != EndListHeader)
             {
                 var dat = line.Split(';');
@@ -221,6 +222,8 @@ namespace DataReaders
                     }
                 }
 
+                AppEventHandler.Print(opt.ToString(), 2);
+
                 options.Add(opt);
             }
 
@@ -233,7 +236,13 @@ namespace DataReaders
 
             string line;
 
-            while ((line = reader.ReadLine()) != EndListHeader) injections.Add(InjectionData.FromFTITCLine(exp, line));
+            AppEventHandler.Print("Reading Injections...", 1);
+            while ((line = reader.ReadLine()) != EndListHeader)
+            {
+                var inj = InjectionData.FromFTITCLine(exp, line);
+                AppEventHandler.Print(inj.ToString(), 2);
+                injections.Add(inj);
+            }
 
             exp.Injections = injections;
         }
