@@ -446,7 +446,7 @@ namespace AnalysisITC
         public float Delay { get; private set; }
         public float Filter { get; private set; } = 5;
         public double Temperature { get; set; }
-        public double InjectionMass { get; set; }
+        public double InjectionMass => Experiment.SyringeConcentration * this.Volume; // { get; set; }
 
         public double ActualCellConcentration { get; set; }
         public double ActualTitrantConcentration { get; set; }
@@ -541,7 +541,7 @@ namespace AnalysisITC
             };
 
             // Newer files contain additional information for the injections to handle tandem experiment data
-            if (parameters.Count() > 9)
+            if (parameters.Count() >= 11)
             {
                 inj.ActualCellConcentration = double.Parse(parameters[9]);
                 inj.ActualTitrantConcentration = double.Parse(parameters[10]);
@@ -549,7 +549,7 @@ namespace AnalysisITC
             }
 
             // Newer files contain additional information
-            if (parameters.Count() > 11)
+            if (parameters.Count() >= 13)
             {
                 var peakarea = double.Parse(parameters[11]);
                 var peaksd = double.Parse(parameters[12]);
@@ -589,7 +589,7 @@ namespace AnalysisITC
             Experiment = experiment;
             ID = id;
             Volume = volume;
-            InjectionMass = mass;
+            //InjectionMass = mass;
             Include = include;
         }
 
@@ -606,36 +606,6 @@ namespace AnalysisITC
             Delay = float.Parse(data[2]);
             Filter = float.Parse(data[3]);
             Include = ID > 0;
-        }
-
-        /// <summary>
-        /// FT-ITC file format reader for injection data
-        /// </summary>
-        /// <param name="experiment"></param>
-        /// <param name="line"></param>
-        public InjectionData(ExperimentData experiment, string line)
-        {
-            Experiment = experiment;
-
-            var parameters = line.Split(',');
-
-            ID = int.Parse(parameters[0]);
-            Include = parameters[1] == "1";
-            Time = float.Parse(parameters[2]);
-            Volume = double.Parse(parameters[3]);
-            Delay = float.Parse(parameters[4]);
-            Duration = float.Parse(parameters[5]);
-            Temperature = double.Parse(parameters[6]);
-            IntegrationStartDelay = float.Parse(parameters[7]);
-            IntegrationEndOffset = float.Parse(parameters[8]);
-
-            // Newer files contain additional information for the injections to handle tandem experiment data
-            if (parameters.Count() > 9)
-            {
-                ActualCellConcentration = double.Parse(parameters[9]);
-                ActualTitrantConcentration = double.Parse(parameters[10]);
-                Ratio = ActualTitrantConcentration / ActualCellConcentration;
-            }
         }
 
         public InjectionData(ExperimentData data, float volume, float delay, float filter, float duration)
@@ -949,7 +919,7 @@ namespace AnalysisITC
         {
             var inj = new InjectionData(data, ID, Time, Volume, Delay, Duration, Temperature)
             {
-                InjectionMass = Volume * data.SyringeConcentration,
+                //InjectionMass = Volume * data.SyringeConcentration,
                 ActualCellConcentration = ActualCellConcentration,
                 ActualTitrantConcentration = ActualTitrantConcentration,
                 Ratio = Ratio,
