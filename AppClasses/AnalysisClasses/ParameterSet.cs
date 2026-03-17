@@ -334,7 +334,12 @@ namespace AnalysisITC.AppClasses.Analysis2
                                     ParameterType.Affinity2 => ParameterType.Gibbs2
                                 };
 
-                                par.Value.SetGlobal(Math.Exp(-GlobalTable[_par].Value / (Energy.R * paramset.ExperimentTemperature)));
+                                //par.Value.SetGlobal(Math.Exp(-GlobalTable[_par].Value / (Energy.R * paramset.ExperimentTemperature)));
+
+                                // Convert Gibbs free energy to a base‑10 logarithm of the association constant.
+                                double K_linear = Math.Exp(-GlobalTable[_par].Value / (Energy.R * paramset.ExperimentTemperature));
+                                double log10K = Math.Log10(K_linear);
+                                par.Value.SetGlobal(log10K);
                             }
                             break;
                         case ParameterType.IsomerizationEquilibriumConstant:
@@ -526,7 +531,7 @@ namespace AnalysisITC.AppClasses.Analysis2
         Enthalpy1,
         [ParameterTypeAttribute("Enthalpy 2", ParameterType.Enthalpy1)]
         Enthalpy2,
-        [ParameterTypeAttribute("Affinity", "*K*{d}", 100000, new double[] { 10, 1000000000000 }, ParameterType.Affinity1)]
+        [ParameterTypeAttribute("Affinity", "*K*{d}", 0.1, new double[] { -2, 12 }, ParameterType.Affinity1)]
         Affinity1,
         [ParameterTypeAttribute("Affinity 2", ParameterType.Affinity1)]
         Affinity2,
@@ -554,7 +559,7 @@ namespace AnalysisITC.AppClasses.Analysis2
         IsomerizationEquilibriumConstant,
         [ParameterTypeAttribute("Equilibrium constant", "%{cis}", 0.1, new double[] { 0 + float.Epsilon, 100 - float.Epsilon }, CisIsomerPopulationPercentage)]
         CisIsomerPopulationPercentage,
-        [ParameterTypeAttribute("Apparent *K*{d}", "*K*{d,app}", 100000, new double[] { 10, 100000000000 }, Affinity1)]
+        [ParameterTypeAttribute("Apparent *K*{d}", "*K*{d,app}", 0.1, new double[] { -2, 12 }, Affinity1)]
         ApparentAffinity,
     }
 }

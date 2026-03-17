@@ -17,8 +17,8 @@ namespace AnalysisITC.AppClasses.Analysis2.Models
         public double GuessN1() => 1;
         public double GuessN2() => 1;
 
-        public double GuessAffinity1() => 10000000;
-        public double GuessAffinity2() => 100000;
+        public double GuessAffinity1() => 7;
+        public double GuessAffinity2() => 5;
 
         bool ApplyNToSyringe => ModelOptions[AttributeKey.UseSyringeActiveFraction]?.BoolValue ?? false;
 
@@ -83,6 +83,8 @@ namespace AnalysisITC.AppClasses.Analysis2.Models
             else return GetDeltaHeat(injectionindex);
         }
 
+        double K1;
+        double K2;
         double Kd1;
         double Kd2;
         double N1;
@@ -90,8 +92,10 @@ namespace AnalysisITC.AppClasses.Analysis2.Models
 
         double GetDeltaHeat(int i)
         {
-            Kd1 = 1 / Parameters.Table[ParameterType.Affinity1].Value;
-            Kd2 = 1 / Parameters.Table[ParameterType.Affinity2].Value;
+            K1 = Math.Pow(10, Parameters.Table[ParameterType.Affinity1].Value);
+            K2 = Math.Pow(10, Parameters.Table[ParameterType.Affinity2].Value);
+            Kd1 = 1 / K1;
+            Kd2 = 1 / K2;
             N1 = GetSiteStoichiometry1();
             N2 = GetSiteStoichiometry2();
 
@@ -108,8 +112,8 @@ namespace AnalysisITC.AppClasses.Analysis2.Models
 
             var x = FindFreeTitrant(p, q, r, titrant * 0.05);
 
-            var theta1 = (Parameters.Table[ParameterType.Affinity1].Value * x) / (Parameters.Table[ParameterType.Affinity1].Value * x + 1);
-            var theta2 = (Parameters.Table[ParameterType.Affinity2].Value * x) / (Parameters.Table[ParameterType.Affinity2].Value * x + 1);
+            var theta1 = (K1 * x) / (K1 * x + 1);
+            var theta2 = (K2 * x) / (K2 * x + 1);
 
             return cellConc * Data.CellVolume *
                    (N1 * theta1 * Parameters.Table[ParameterType.Enthalpy1].Value +
@@ -141,11 +145,12 @@ namespace AnalysisITC.AppClasses.Analysis2.Models
 		{
             public Energy Enthalpy1 => new(Parameters[ParameterType.Enthalpy1]);
             public Energy Enthalpy2 => new(Parameters[ParameterType.Enthalpy2]);
-            public FloatWithError K1 => Parameters[ParameterType.Affinity1];
-            public FloatWithError K2 => Parameters[ParameterType.Affinity2];
+            private FloatWithError LogK1 => Parameters[ParameterType.Affinity1];
+            public FloatWithError K1 => FWEMath.Pow(10, LogK1);
+            private FloatWithError LogK2 => Parameters[ParameterType.Affinity2];
+            public FloatWithError K2 => FWEMath.Pow(10, LogK2);
             public FloatWithError N1 => Parameters[ParameterType.Nvalue1];
             public FloatWithError N2 => Parameters[ParameterType.Nvalue2];
-            override public Energy Offset => Parameters[ParameterType.Offset].Energy;
 
             public FloatWithError Kd1 => new FloatWithError(1) / K1;
             public Energy GibbsFreeEnergy1 => new(-1.0 * Energy.R.FloatWithError * TempKelvin * FWEMath.Log(K1));
@@ -165,19 +170,19 @@ namespace AnalysisITC.AppClasses.Analysis2.Models
 
             public override void ComputeErrorsFromBootstrapSolutions()
             {
-                var enthalpies1 = BootstrapSolutions.Select(s => (s as ModelSolution).Enthalpy1.FloatWithError.Value);
-                var enthalpies2 = BootstrapSolutions.Select(s => (s as ModelSolution).Enthalpy2.FloatWithError.Value);
-                var k1 = BootstrapSolutions.Select(s => (s as ModelSolution).K1.Value);
-                var k2 = BootstrapSolutions.Select(s => (s as ModelSolution).K2.Value);
+                var enthalpies1 = BootstrapSolutions.Select(s => (s as ModelSolution).Enthalpy1.Value);
+                var enthalpies2 = BootstrapSolutions.Select(s => (s as ModelSolution).Enthalpy2.Value);
+                var k1 = BootstrapSolutions.Select(s => (s as ModelSolution).LogK1.Value);
+                var k2 = BootstrapSolutions.Select(s => (s as ModelSolution).LogK2.Value);
                 var n1 = BootstrapSolutions.Select(s => (s as ModelSolution).N1.Value);
                 var n2 = BootstrapSolutions.Select(s => (s as ModelSolution).N2.Value);
                 var offsets = BootstrapSolutions.Select(s => (double)(s as ModelSolution).Offset);
 
                 Parameters[ParameterType.Enthalpy1] = new FloatWithError(enthalpies1, Enthalpy1);
-                Parameters[ParameterType.Affinity1] = new FloatWithError(k1, K1);
+                Parameters[ParameterType.Affinity1] = new FloatWithError(k1, LogK1);
                 Parameters[ParameterType.Nvalue1] = new FloatWithError(n1, N1);
                 Parameters[ParameterType.Enthalpy2] = new FloatWithError(enthalpies2, Enthalpy2);
-                Parameters[ParameterType.Affinity2] = new FloatWithError(k2, K2);
+                Parameters[ParameterType.Affinity2] = new FloatWithError(k2, LogK2);
                 Parameters[ParameterType.Nvalue2] = new FloatWithError(n2, N2);
                 Parameters[ParameterType.Offset] = new FloatWithError(offsets, Offset);
 

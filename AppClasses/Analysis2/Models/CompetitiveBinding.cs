@@ -22,12 +22,12 @@ namespace AnalysisITC.AppClasses.Analysis2.Models
 
             Parameters.AddOrUpdateParameter(ParameterType.Nvalue1, PreviousOrDefault(ParameterType.Nvalue1, this.GuessN()));
             Parameters.AddOrUpdateParameter(ParameterType.Enthalpy1, PreviousOrDefault(ParameterType.Enthalpy1, this.GuessEnthalpy()));
-            Parameters.AddOrUpdateParameter(ParameterType.Affinity1, 1E8); //We expect very high affinity if this model is used
+            Parameters.AddOrUpdateParameter(ParameterType.Affinity1, 8.0); //We expect very high affinity if this model is used
             Parameters.AddOrUpdateParameter(ParameterType.Offset, PreviousOrDefault(ParameterType.Offset, this.GuessOffset()));
 
             ModelOptions.Add(ExperimentAttribute.Concentration(AttributeKey.PreboundLigandConc, AttributeKey.PreboundLigandConc.GetProperties().Name, new FloatWithError(10e-6, 0)).DictionaryEntry);
             ModelOptions.Add(ExperimentAttribute.Parameter(AttributeKey.PreboundLigandEnthalpy, AttributeKey.PreboundLigandEnthalpy.GetProperties().Name, new FloatWithError(-40000, 0)).DictionaryEntry);
-            ModelOptions.Add(ExperimentAttribute.Affinity(AttributeKey.PreboundLigandAffinity, AttributeKey.PreboundLigandAffinity.GetProperties().Name, new(1000000, 0)).DictionaryEntry);
+            ModelOptions.Add(ExperimentAttribute.Affinity(AttributeKey.PreboundLigandAffinity, AttributeKey.PreboundLigandAffinity.GetProperties().Name, new(6.0, 0)).DictionaryEntry);
 
             ModelOptions.Add(ExperimentAttribute.Bool(AttributeKey.UseSyringeActiveFraction, AttributeKey.UseSyringeActiveFraction.GetProperties().Name, false).DictionaryEntry);
             ModelOptions.Add(ExperimentAttribute.Double(AttributeKey.NumberOfSites1, AttributeKey.NumberOfSites1.GetProperties().Name, 1).DictionaryEntry);
@@ -36,9 +36,9 @@ namespace AnalysisITC.AppClasses.Analysis2.Models
         public override double Evaluate(int injectionindex, bool withoffset = true)
         {
             // Extract the fitted parameters for the titrated ligand (A)
-            double n = Parameters.Table[ParameterType.Nvalue1].Value;              // number of binding sites per macromolecule
-            double dH_A = Parameters.Table[ParameterType.Enthalpy1].Value;         // binding enthalpy of ligand A (J/mol)
-            double K_A = Parameters.Table[ParameterType.Affinity1].Value;          // association constant of ligand A (1/M)
+            double n = Parameters.Table[ParameterType.Nvalue1].Value;                   // number of binding sites per macromolecule
+            double dH_A = Parameters.Table[ParameterType.Enthalpy1].Value;              // binding enthalpy of ligand A (J/mol)
+            double K_A = Math.Pow(10, Parameters.Table[ParameterType.Affinity1].Value); // association constant of ligand A (1/M)
 
             // Compute the reaction heat for this injection using the exact competitive binding model
             double dQ = GetDeltaHeatCompetitive(injectionindex, n, dH_A, K_A);
@@ -81,9 +81,9 @@ namespace AnalysisITC.AppClasses.Analysis2.Models
             var titrant = ApplyNToSyringe ? nOrFactor * titrantConc : titrantConc;
 
             // Retrieve parameters for the pre‑bound ligand (B)
-            double K_B = ModelOptions[AttributeKey.PreboundLigandAffinity].ParameterValue;      // association constant of ligand B
-            double dH_B = ModelOptions[AttributeKey.PreboundLigandEnthalpy].ParameterValue;     // binding enthalpy of ligand B (J/mol)
-            double B_0 = ModelOptions[AttributeKey.PreboundLigandConc].ParameterValue;          // initial concentration of ligand B (M)
+            double K_B = Math.Pow(10, ModelOptions[AttributeKey.PreboundLigandAffinity].ParameterValue);    // association constant of ligand B
+            double dH_B = ModelOptions[AttributeKey.PreboundLigandEnthalpy].ParameterValue;                 // binding enthalpy of ligand B (J/mol)
+            double B_0 = ModelOptions[AttributeKey.PreboundLigandConc].ParameterValue;                      // initial concentration of ligand B (M)
 
             // Compute the stoichiometric ratios rA and rB.  For a multivalent protein with stoich
             // identical and independent binding sites, [P]_0 in the theory of Sigurskjold is
@@ -170,7 +170,8 @@ namespace AnalysisITC.AppClasses.Analysis2.Models
             IDictionary<AttributeKey, ExperimentAttribute> opt => Model.ModelOptions;
 
             public Energy Enthalpy => Parameters[ParameterType.Enthalpy1].Energy;
-            public FloatWithError K => Parameters[ParameterType.Affinity1];
+            private FloatWithError LogK => Parameters[ParameterType.Affinity1];
+            public FloatWithError K => FWEMath.Pow(10, LogK);
             public FloatWithError N => Parameters[ParameterType.Nvalue1];
             //public Energy Offset => Parameters[ParameterType.Offset].Energy;
 
@@ -179,14 +180,16 @@ namespace AnalysisITC.AppClasses.Analysis2.Models
             public Energy TdS => GibbsFreeEnergy - Enthalpy;
             public Energy Entropy => TdS / TempKelvin;
 
-            public FloatWithError Kapp => K / (opt[AttributeKey.PreboundLigandAffinity].ParameterValue * opt[AttributeKey.PreboundLigandConc].ParameterValue + 1);
+            public FloatWithError Kapp => K / (FWEMath.Pow(10, opt[AttributeKey.PreboundLigandAffinity].ParameterValue) * opt[AttributeKey.PreboundLigandConc].ParameterValue + 1);
             public FloatWithError Kdapp => new FloatWithError(1) / Kapp;
             public Energy dHapp
             {
                 get
                 {
-                    var top = opt[AttributeKey.PreboundLigandEnthalpy].ParameterValue * opt[AttributeKey.PreboundLigandAffinity].ParameterValue * opt[AttributeKey.PreboundLigandConc].ParameterValue;
-                    var btm = (1 + opt[AttributeKey.PreboundLigandAffinity].ParameterValue * opt[AttributeKey.PreboundLigandConc].ParameterValue);
+                    var Kligand = FWEMath.Pow(10, opt[AttributeKey.PreboundLigandAffinity].ParameterValue);
+
+                    var top = opt[AttributeKey.PreboundLigandEnthalpy].ParameterValue * Kligand * opt[AttributeKey.PreboundLigandConc].ParameterValue;
+                    var btm = (1 + Kligand * opt[AttributeKey.PreboundLigandConc].ParameterValue);
 
                     var dh = Enthalpy.FloatWithError - top / btm;
 
@@ -203,12 +206,12 @@ namespace AnalysisITC.AppClasses.Analysis2.Models
             public override void ComputeErrorsFromBootstrapSolutions()
             {
                 var enthalpies = BootstrapSolutions.Select(s => (s as ModelSolution).Enthalpy.FloatWithError.Value);
-                var k = BootstrapSolutions.Select(s => (s as ModelSolution).K.Value);
+                var k = BootstrapSolutions.Select(s => (s as ModelSolution).LogK.Value);
                 var n = BootstrapSolutions.Select(s => (s as ModelSolution).N.Value);
                 var offsets = BootstrapSolutions.Select(s => (s as ModelSolution).Offset.Value);
 
                 Parameters[ParameterType.Enthalpy1] = new FloatWithError(enthalpies, Enthalpy);
-                Parameters[ParameterType.Affinity1] = new FloatWithError(k, K);
+                Parameters[ParameterType.Affinity1] = new FloatWithError(k, LogK);
                 Parameters[ParameterType.Nvalue1] = new FloatWithError(n, N);
                 Parameters[ParameterType.Offset] = new FloatWithError(offsets, Offset);
 

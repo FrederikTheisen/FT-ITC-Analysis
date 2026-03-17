@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.ComponentModel;
 using System.Linq;
 using System.Threading.Tasks;
-using AppKit;
+using AnalysisITC.AppClasses.Analysis2;
 
 namespace AnalysisITC.AppClasses.AnalysisClasses
 {
@@ -24,27 +24,29 @@ namespace AnalysisITC.AppClasses.AnalysisClasses
         {
             DataPoints = new List<Tuple<double, FloatWithError>>();
 
-            switch (Mode)
-            {
-                case DissocFitMode.CounterIonRelease:
-                    foreach (var sol in Data.Solution.Solutions)
-                    {
-                        if (SaltAttribute.GetIonActivity(sol.Data) > 0)
-                            DataPoints.Add(new Tuple<double, FloatWithError>(
-                                Math.Log(SaltAttribute.GetIonActivity(sol.Data)),
-                                FWEMath.Log(sol.Parameters[Analysis2.ParameterType.Affinity1])));
-                    }
-                    break;
-                default:
-                case DissocFitMode.DebyeHuckel:
-                    foreach (var sol in Data.Solution.Solutions)
-                    {
-                        DataPoints.Add(new Tuple<double, FloatWithError>(
-                            BufferAttribute.GetIonicStrength(sol.Data),
-                            sol.ReportParameters[Analysis2.ParameterType.Affinity1]));
-                    }
-                    break;
-            }
+            SetMode(Mode);
+
+            //switch (Mode)
+            //{
+            //    case DissocFitMode.CounterIonRelease:
+            //        foreach (var sol in Data.Solution.Solutions)
+            //        {
+            //            if (SaltAttribute.GetIonActivity(sol.Data) > 0)
+            //                DataPoints.Add(new Tuple<double, FloatWithError>(
+            //                    Math.Log(SaltAttribute.GetIonActivity(sol.Data)),
+            //                    FWEMath.Log(sol.ReportParameters[Analysis2.ParameterType.Affinity1])));
+            //        }
+            //        break;
+            //    default:
+            //    case DissocFitMode.DebyeHuckel:
+            //        foreach (var sol in Data.Solution.Solutions)
+            //        {
+            //            DataPoints.Add(new Tuple<double, FloatWithError>(
+            //                BufferAttribute.GetIonicStrength(sol.Data),
+            //                sol.ReportParameters[Analysis2.ParameterType.Affinity1]));
+            //        }
+            //        break;
+            //}
         }
 
         public void SetMode(DissocFitMode mode)
@@ -61,7 +63,7 @@ namespace AnalysisITC.AppClasses.AnalysisClasses
                         if (SaltAttribute.GetIonActivity(sol.Data) > 0)
                             DataPoints.Add(new Tuple<double, FloatWithError>(
                                 Math.Log(SaltAttribute.GetIonActivity(sol.Data)),
-                                FWEMath.Log(sol.Parameters[Analysis2.ParameterType.Affinity1])));
+                                FWEMath.Log(sol.ReportParameters[ParameterType.Affinity1])));
                     }
                     break;
                 default:
@@ -69,7 +71,7 @@ namespace AnalysisITC.AppClasses.AnalysisClasses
                     {
                         DataPoints.Add(new Tuple<double, FloatWithError>(
                             BufferAttribute.GetIonicStrength(sol.Data),
-                            sol.ReportParameters[Analysis2.ParameterType.Affinity1]));
+                            sol.ReportParameters[ParameterType.Affinity1]));
                     }
                     break;
             }
@@ -93,7 +95,7 @@ namespace AnalysisITC.AppClasses.AnalysisClasses
                 if (SaltAttribute.GetIonActivity(sol.Data) > 0)
                     dps.Add(new Tuple<double, FloatWithError>(
                         Math.Log(SaltAttribute.GetIonActivity(sol.Data)),
-                        FWEMath.Log(sol.Parameters[Analysis2.ParameterType.Affinity1])));
+                        FWEMath.Log(sol.ReportParameters[ParameterType.Affinity1])));
             }
 
             var result = FitLinear(dps.Select(dp => dp.Item1).ToArray(), dps.Select(dp => dp.Item2.Value).ToArray());

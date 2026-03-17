@@ -35,9 +35,9 @@ namespace AnalysisITC.AppClasses.Analysis2.Models
 
         public override double Evaluate(int injectionindex, bool withoffset = true)
         {
-            var dH = Parameters.Table[ParameterType.Enthalpy1].Value;   // J/mol dimer
-            var Ka = Parameters.Table[ParameterType.Affinity1].Value;   // 1/M
-            var off = Parameters.Table[ParameterType.Offset].Value;     // J/mol injectant
+            var dH = Parameters.Table[ParameterType.Enthalpy1].Value;               // J/mol dimer
+            var Ka = Math.Pow(10, Parameters.Table[ParameterType.Affinity1].Value); // 1/M
+            var off = Parameters.Table[ParameterType.Offset].Value;                 // J/mol injectant
 
             var q = GetDeltaHeat(injectionindex, dH, Ka);
 
@@ -108,7 +108,8 @@ namespace AnalysisITC.AppClasses.Analysis2.Models
         public class ModelSolution : SolutionInterface
         {
             public Energy Enthalpy => Parameters[ParameterType.Enthalpy1].Energy;
-            public FloatWithError K => Parameters[ParameterType.Affinity1];
+            public FloatWithError K => FWEMath.Pow(10, LogK);
+            private FloatWithError LogK => Parameters[ParameterType.Affinity1];
             override public Energy Offset => Parameters[ParameterType.Offset].Energy;
 
             public FloatWithError Kd => new FloatWithError(1) / K;
@@ -126,11 +127,11 @@ namespace AnalysisITC.AppClasses.Analysis2.Models
             public override void ComputeErrorsFromBootstrapSolutions()
             {
                 var enthalpies = BootstrapSolutions.Select(s => (s as ModelSolution).Enthalpy.FloatWithError.Value);
-                var k = BootstrapSolutions.Select(s => (s as ModelSolution).K.Value);
+                var k = BootstrapSolutions.Select(s => (s as ModelSolution).LogK.Value);
                 var offsets = BootstrapSolutions.Select(s => (s as ModelSolution).Offset.Value);
 
                 Parameters[ParameterType.Enthalpy1] = new FloatWithError(enthalpies, Enthalpy);
-                Parameters[ParameterType.Affinity1] = new FloatWithError(k, K);
+                Parameters[ParameterType.Affinity1] = new FloatWithError(k, LogK.Value);
                 Parameters[ParameterType.Offset] = new FloatWithError(offsets, Offset);
 
                 base.ComputeErrorsFromBootstrapSolutions();

@@ -31,8 +31,17 @@ namespace AnalysisITC.AppClasses.Analysis2.Models
 
         public override double Evaluate(int injectionindex, bool withoffset = true)
 		{
-			if (withoffset) return GetDeltaHeat(injectionindex, Parameters.Table[ParameterType.Nvalue1].Value, Parameters.Table[ParameterType.Enthalpy1].Value, Parameters.Table[ParameterType.Affinity1].Value) + Parameters.Table[ParameterType.Offset].Value * Data.Injections[injectionindex].InjectionMass;
-			else return GetDeltaHeat(injectionindex, Parameters.Table[ParameterType.Nvalue1].Value, Parameters.Table[ParameterType.Enthalpy1].Value, Parameters.Table[ParameterType.Affinity1].Value);
+            double logK = Parameters.Table[ParameterType.Affinity1].Value;
+            double K = Math.Pow(10.0, logK);
+
+            var dQ = GetDeltaHeat(
+                    injectionindex,
+                    Parameters.Table[ParameterType.Nvalue1].Value,
+                    Parameters.Table[ParameterType.Enthalpy1].Value,
+                    K);
+
+            if (withoffset) return dQ + Parameters.Table[ParameterType.Offset].Value * Data.Injections[injectionindex].InjectionMass;
+            else return dQ;
         }
 
         double GetDeltaHeat(int i, double n, double H, double K)
@@ -68,9 +77,9 @@ namespace AnalysisITC.AppClasses.Analysis2.Models
         public class ModelSolution : SolutionInterface
         {
             public Energy Enthalpy => Parameters[ParameterType.Enthalpy1].Energy;
-            public FloatWithError K => Parameters[ParameterType.Affinity1];
+            private FloatWithError LogK => Parameters[ParameterType.Affinity1];
+            public FloatWithError K => FWEMath.Pow(10.0, LogK);
             public FloatWithError N => Parameters[ParameterType.Nvalue1];
-            override public Energy Offset => Parameters[ParameterType.Offset].Energy;
 
             public FloatWithError Kd => new FloatWithError(1) / K;
             public Energy GibbsFreeEnergy => new(-1.0 * Energy.R.FloatWithError * TempKelvin * FWEMath.Log(K));
@@ -86,12 +95,12 @@ namespace AnalysisITC.AppClasses.Analysis2.Models
             public override void ComputeErrorsFromBootstrapSolutions()
             {
                 var enthalpies = BootstrapSolutions.Select(s => (s as ModelSolution).Enthalpy.FloatWithError.Value);
-                var k = BootstrapSolutions.Select(s => (s as ModelSolution).K.Value);
+                var k = BootstrapSolutions.Select(s => (s as ModelSolution).LogK.Value);
                 var n = BootstrapSolutions.Select(s => (s as ModelSolution).N.Value);
                 var offsets = BootstrapSolutions.Select(s => (s as ModelSolution).Offset.Value);
 
                 Parameters[ParameterType.Enthalpy1] = new FloatWithError(enthalpies, Enthalpy);
-                Parameters[ParameterType.Affinity1] = new FloatWithError(k, K);
+                Parameters[ParameterType.Affinity1] = new FloatWithError(k, LogK);
                 Parameters[ParameterType.Nvalue1] = new FloatWithError(n, N);
                 Parameters[ParameterType.Offset] = new FloatWithError(offsets, Offset);
 

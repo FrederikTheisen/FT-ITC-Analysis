@@ -55,7 +55,7 @@ namespace AnalysisITC.GUI.MacOS.CustomViews
 
                         if (Key.GetProperties().ParentType == ParameterType.Affinity1)
                         {
-                            if (AppSettings.InputAffinityAsDissociationConstant) return AppSettings.DefaultConcentrationUnit.GetProperties().Mod / value;
+                            if (AppSettings.InputAffinityAsDissociationConstant) return Math.Log10(AppSettings.DefaultConcentrationUnit.GetProperties().Mod / value);
                             else return value;
                         }
                         else if (ParameterTypeAttribute.IsEnergyUnitParameter(Key)) return Energy.ConvertToJoule(value, AppSettings.EnergyUnit);
@@ -251,7 +251,7 @@ namespace AnalysisITC.GUI.MacOS.CustomViews
             {
                 if (AppSettings.InputAffinityAsDissociationConstant)
                 {
-                    var number = (AppSettings.DefaultConcentrationUnit.GetProperties().Mod / (double)tmpvalue);
+                    var number = (AppSettings.DefaultConcentrationUnit.GetProperties().Mod / Math.Pow(10, (double)tmpvalue));
                     SetInputField(Convert.ToDouble(String.Format("{0:G3}", number)).ToString());
                 }
                 else SetInputField(((double)tmpvalue).ToString("G2"));

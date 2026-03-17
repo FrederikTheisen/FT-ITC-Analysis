@@ -144,8 +144,8 @@ namespace AnalysisITC.AppClasses.Analysis2.Models
             if (!withoff)
             {
                 val = new FloatWithError(
-                    results.Select(r => r - Solution.Parameters[ParameterType.Offset].Value),
-                    EvaluateEnthalpy(inj, withoffset: true) - Solution.Parameters[ParameterType.Offset].Value); 
+                    results.Select(r => r - Solution.Offset),
+                    EvaluateEnthalpy(inj, withoffset: true) - Solution.Offset); 
             }
             else
             {
@@ -246,7 +246,7 @@ namespace AnalysisITC.AppClasses.Analysis2.Models
             foreach (var opt in ModelOptions)
             {
                 var newopt = opt.Value.Copy();
-                if (newopt.ParameterValue != null) newopt.ParameterValue = new(newopt.ParameterValue.Sample());
+                newopt.ParameterValue = new(newopt.ParameterValue.Sample());
                 mdl.ModelOptions.Add(opt.Key, newopt);
             }
         }
@@ -299,6 +299,8 @@ namespace AnalysisITC.AppClasses.Analysis2.Models
                 return values;
             }
         }
+
+        //public virtual FloatWithError K => FWEMath.Pow(10.0, Parameters[ParameterType.Affinity1]);
         public virtual Energy Offset => Parameters[ParameterType.Offset].Energy;
 
         protected bool UseSyringeCorrectionMode

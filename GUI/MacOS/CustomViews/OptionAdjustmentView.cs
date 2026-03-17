@@ -208,7 +208,7 @@ namespace AnalysisITC.GUI.MacOS.CustomViews
             switch (Option.Key)
             {
                 case AttributeKey.PreboundLigandAffinity:
-                    value = new FloatWithError(1.0) / value;
+                    value = new FloatWithError(1.0) / FWEMath.Pow(10.0, value);
                     value *= AppSettings.DefaultConcentrationUnit.GetProperties().Mod;
                     break;
                 case AttributeKey.PreboundLigandConc:
@@ -389,7 +389,7 @@ namespace AnalysisITC.GUI.MacOS.CustomViews
 
                             var value = new FloatWithError(k, k_err);
 
-                            Option.ParameterValue = value;
+                            Option.ParameterValue = FWEMath.Log10(value);
                             break;
                         }
                     case AttributeKey.PreboundLigandEnthalpy:
