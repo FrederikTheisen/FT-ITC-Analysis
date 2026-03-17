@@ -124,7 +124,10 @@ namespace AnalysisITC.AppClasses.AnalysisClasses
 		{
 			switch (key)
 			{
+				case AttributeKey.NumberOfSites1:
+				case AttributeKey.NumberOfSites2: return Int(key, "", 1);
 				case AttributeKey.PreboundLigandConc: return Concentration(key, "", new(0));
+				case AttributeKey.UseSyringeActiveFraction:
 				case AttributeKey.PeptideInCell: return Bool(key, "", false);
 				default: return Parameter(key, "", new(0));
 			}
@@ -236,20 +239,26 @@ namespace AnalysisITC.AppClasses.AnalysisClasses
 
 		override public string ToString()
 		{
-			if (Key == AttributeKey.Buffer)
-				return $"{ParameterValue.Value} mM {((Buffer)IntValue).GetProperties().ListName} pH {DoubleValue}";
-			else if (Key == AttributeKey.Salt)
-				return $"{ParameterValue.Value} mM {((Salt)IntValue).GetProperties().Name}";
+            switch (Key)
+            {
+                case AttributeKey.Buffer:
+                    return $"{ParameterValue.Value} mM {((Buffer)IntValue).GetProperties().ListName} pH {DoubleValue}";
+                case AttributeKey.Salt:
+                    return $"{ParameterValue.Value} mM {((Salt)IntValue).GetProperties().Name}";
+                case AttributeKey.NumberOfSites1:
+                case AttributeKey.NumberOfSites2:
+                    return StoichiometryOptions.FormatStoichiometry(DoubleValue);
+            }
 
             switch (Key.GetProperties().Type)
 			{
-				case AttributeType.Bool: return BoolValue.ToString();
+				case AttributeType.Bool: return $"{BoolValue}";
 				case AttributeType.Enum:
-				case AttributeType.Int: return IntValue.ToString();
-				case AttributeType.Double: return DoubleValue.ToString();
+				case AttributeType.Int: return $"{IntValue}";
+				case AttributeType.Double: return $"{DoubleValue}";
 				case AttributeType.ParameterAffinity:
 				case AttributeType.ParameterConcentration:
-				case AttributeType.Parameter: return ParameterValue.ToString();
+				case AttributeType.Parameter: return $"{ParameterValue}";
 			}
 
 			return $"{Key} {StringValue} {IntValue} {BoolValue} {DoubleValue} {ParameterValue}";

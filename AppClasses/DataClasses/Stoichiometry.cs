@@ -69,9 +69,11 @@ namespace AnalysisITC
             return GetClosest(factor, tolerance).Title;
         }
 
-        public static string FormatStoichiometry(double value, double tolerance = 1e-4)
+        public static string FormatStoichiometry(double value)
         {
             if (double.IsNaN(value) || double.IsInfinity(value)) return "";
+
+            double tolerance = 1e-4;
 
             // General integer-like values (one or more)
             var rounded = Math.Round(value);
