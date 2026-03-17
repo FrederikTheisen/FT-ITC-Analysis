@@ -80,7 +80,7 @@ namespace DataReaders
             var injdata = GContent(InjectionList, data).Split(";");
             foreach (var inj in injdata)
             {
-                injections.Add(new InjectionData(exp, inj));
+                //injections.Add(new InjectionData(exp, inj));
             }
 
             exp.Injections = injections;

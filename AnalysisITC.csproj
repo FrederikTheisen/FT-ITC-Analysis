@@ -216,6 +216,7 @@
     <None Include="GUI\.DS_Store" />
     <None Include="GUI\MacOS\CustomViews\AutoExpandingTextField.swift" />
     <None Include="README.md" />
+    <None Include="AppClasses\DataReaders\FTITCReaderOld.cs" />
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Main.cs" />
@@ -498,7 +499,6 @@
     <Compile Include="AppClasses\DataReaders\DataReaders.cs" />
     <Compile Include="AppClasses\DataReaders\TAFileReader.cs" />
     <Compile Include="AppClasses\DataReaders\FTITCReader.cs" />
-    <Compile Include="AppClasses\DataReaders\FTITCReaderOld.cs" />
     <Compile Include="AppClasses\DataReaders\MicroCalITC200Reader.cs" />
     <Compile Include="AppClasses\DataReaders\IntegratedHeatReader.cs" />
     <Compile Include="AppClasses\DataReaders\ITCDataFormat.cs" />
