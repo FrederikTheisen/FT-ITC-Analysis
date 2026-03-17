@@ -14,7 +14,7 @@ static class CitationUI
         var alert = new NSAlert
         {
             MessageText = "How to cite FT-ITC Analysis",
-            InformativeText = "If you have used Copy a BibTeX formatted bibliographic entry or use the DOI in a citation manager."
+            InformativeText = "Copy a BibTeX formatted bibliographic entry or use the DOI in a citation manager."
         };
 
         alert.AccessoryView = BuildWrappedLabelAccessory(citation.ToMarkdownDisplayString());
