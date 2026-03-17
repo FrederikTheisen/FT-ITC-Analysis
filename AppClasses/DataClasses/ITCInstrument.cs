@@ -96,4 +96,14 @@ namespace DataReaders
 
         MicroCal = MicroCalITC200 | MalvernITC200 | MicroCalVPITC 
     }
+
+    public enum FeedbackMode
+    {
+        [FeedbackMode("None")]
+        None = 0,
+        [FeedbackMode("Low")]
+        Low = 1,
+        [FeedbackMode("High")]
+        High = 2
+    }
 }

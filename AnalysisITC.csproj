@@ -178,13 +178,11 @@
     <Folder Include="AppClasses\" />
     <Folder Include="GUI\" />
     <Folder Include="GUI\MacOS\" />
-    <Folder Include="Utils\" />
     <Folder Include="GUI\MacOS\GraphViews\" />
     <Folder Include="GUI\MacOS\Drawing\" />
     <Folder Include="GUI\MacOS\ViewControllers\" />
     <Folder Include="AppClasses\Math\" />
     <Folder Include="GUI\MacOS\PopOptionViewControllers\" />
-    <Folder Include="AppClasses\AnalysisClasses\" />
     <Folder Include="AppClasses\Analysis2\" />
     <Folder Include="GUI\MacOS\CustomViews\" />
     <Folder Include="AppClasses\Depreceated\" />
@@ -196,10 +194,12 @@
     <Folder Include="AppClasses\UnitClasses\" />
     <Folder Include="GUI\MacOS\PopOptionViewControllers\FinalFigureOptions\" />
     <Folder Include="AppClasses\Analysis2\Kinetics\" />
-    <Folder Include="AppClasses\AnalysisClasses\AdvancedAnalysis\" />
-    <Folder Include="AppClasses\AnalysisClasses\ResultAnalysis\" />
     <Folder Include="Resources\ToolTipsImages\" />
     <Folder Include="AppClasses\DataReaders\" />
+    <Folder Include="AppClasses\Analysis2\AdvancedAnalysis\" />
+    <Folder Include="AppClasses\DataExport\" />
+    <Folder Include="AppClasses\Utils\" />
+    <Folder Include="AppClasses\Properties\" />
   </ItemGroup>
   <ItemGroup>
     <None Include="Info.plist" />
@@ -221,10 +221,7 @@
   <ItemGroup>
     <Compile Include="Main.cs" />
     <Compile Include="AppDelegate.cs" />
-    <Compile Include="Utils\EnumExtensions.cs" />
-    <Compile Include="Utils\StringParsers.cs" />
     <Compile Include="AppClasses\DataProcessing.cs" />
-    <Compile Include="Utils\GUIutils.cs" />
     <Compile Include="AppClasses\DataManager.cs" />
     <Compile Include="GUI\MacOS\GraphViews\AnalysisGraphView.cs" />
     <Compile Include="GUI\MacOS\GraphViews\AnalysisGraphView.designer.cs">
@@ -260,7 +257,6 @@
       <DependentUpon>SideBarView.cs</DependentUpon>
     </Compile>
     <Compile Include="GUI\MacOS\Drawing\TemperatureDependenceGraph.cs" />
-    <Compile Include="AppClasses\DataWriter.cs" />
     <Compile Include="AppDelegate.designer.cs">
       <DependentUpon>AppDelegate.cs</DependentUpon>
     </Compile>
@@ -290,7 +286,6 @@
       <DependentUpon>TabControllerView.cs</DependentUpon>
     </Compile>
     <Compile Include="AppClasses\Math\ErrorPropagation.cs" />
-    <Compile Include="AppClasses\AnalysisClasses\SolverUtilities.cs" />
     <Compile Include="AppClasses\Analysis2\ModelFactory.cs" />
     <Compile Include="AppClasses\Analysis2\Solver.cs" />
     <Compile Include="AppClasses\Analysis2\GlobalModel.cs" />
@@ -327,13 +322,11 @@
     </Compile>
     <Compile Include="AppClasses\StateManager.cs" />
     <Compile Include="AppClasses\StatusBarManager.cs" />
-    <Compile Include="AppClasses\Logger.cs" />
     <Compile Include="GUI\MacOS\Drawing\ThermodynamicParameterBarPlot.cs" />
     <Compile Include="AppClasses\Analysis2\Models\OneSetOfSites.cs" />
     <Compile Include="AppClasses\Analysis2\Models\TwoSetsOfSites.cs" />
     <Compile Include="GUI\AppColors.cs" />
     <Compile Include="GUI\MacOS\MacColors.cs" />
-    <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="AppClasses\Analysis2\Models\OneSiteIsomerization.cs" />
     <Compile Include="GUI\MacOS\PopOptionViewControllers\AboutAppViewController.cs" />
     <Compile Include="GUI\MacOS\PopOptionViewControllers\AboutAppViewController.designer.cs">
@@ -341,9 +334,7 @@
     </Compile>
     <Compile Include="GUI\MacOS\CustomViews\CustomDrawingSegmentedControl.cs" />
     <Compile Include="AppClasses\Analysis2\Models\AnalysisModel.cs" />
-    <Compile Include="AppClasses\AnalysisClasses\ParameterSet.cs" />
     <Compile Include="AppClasses\Analysis2\Models\Models.cs" />
-    <Compile Include="AppClasses\AnalysisClasses\ExperimentAttribute.cs" />
     <Compile Include="AppClasses\Analysis2\Models\CompetitiveBinding.cs" />
     <Compile Include="GUI\MacOS\GraphViews\ExperimentDesignerGraphView.cs" />
     <Compile Include="GUI\MacOS\GraphViews\ExperimentDesignerGraphView.designer.cs">
@@ -353,7 +344,6 @@
     <Compile Include="GUI\MacOS\ViewControllers\ExperimentDesignerViewController2.designer.cs">
       <DependentUpon>ExperimentDesignerViewController2.cs</DependentUpon>
     </Compile>
-    <Compile Include="Properties\AppSettings.cs" />
     <Compile Include="GUI\MacOS\ViewControllers\ModelSelectionViewController.cs" />
     <Compile Include="GUI\MacOS\ViewControllers\ModelSelectionViewController.designer.cs">
       <DependentUpon>ModelSelectionViewController.cs</DependentUpon>
@@ -448,7 +438,6 @@
     <Compile Include="GUI\MacOS\CustomViews\AutoExpandingTextView2.designer.cs">
       <DependentUpon>AutoExpandingTextView2.cs</DependentUpon>
     </Compile>
-    <Compile Include="AppClasses\AnalysisClasses\ParameterChecker.cs" />
     <Compile Include="AppClasses\TandemConcatenationTool.cs" />
     <Compile Include="GUI\MacOS\ListViews\ExperimentMergerListViewCell.cs" />
     <Compile Include="GUI\MacOS\ListViews\ExperimentMergerListViewCell.designer.cs">
@@ -471,7 +460,6 @@
     <Compile Include="GUI\MacOS\AppWindow.designer.cs">
       <DependentUpon>AppWindow.cs</DependentUpon>
     </Compile>
-    <Compile Include="AppClasses\ExportType.cs" />
     <Compile Include="GUI\MacOS\Drawing\AnalysisFigure.cs" />
     <Compile Include="GUI\MacOS\Drawing\AnalysisGraph.cs" />
     <Compile Include="AppClasses\Analysis2\Solver2.cs" />
@@ -487,10 +475,6 @@
     <Compile Include="GuideHintViewController.designer.cs">
       <DependentUpon>GuideHintViewController.cs</DependentUpon>
     </Compile>
-    <Compile Include="AppClasses\AnalysisClasses\AdvancedAnalysis\AdvancedAnalysis.cs" />
-    <Compile Include="AppClasses\AnalysisClasses\AdvancedAnalysis\ElectrostaticsAnalysis.cs" />
-    <Compile Include="AppClasses\AnalysisClasses\AdvancedAnalysis\ProtonationAnalysis.cs" />
-    <Compile Include="AppClasses\AnalysisClasses\AdvancedAnalysis\SpolarRecordAnalysis.cs" />
     <Compile Include="AppClasses\DataClasses\BufferRegistry.cs" />
     <Compile Include="GuideHintViewController2.cs" />
     <Compile Include="GuideHintViewController2.designer.cs">
@@ -510,14 +494,32 @@
       <DependentUpon>TextInputMeniItemView.cs</DependentUpon>
     </Compile>
     <Compile Include="AppClasses\DataClasses\ITCDataContainer.cs" />
-    <Compile Include="AppClasses\Exporter.cs" />
-    <Compile Include="Properties\CitationManager.cs" />
-    <Compile Include="Properties\AppVersion.cs" />
     <Compile Include="GUI\MacOS\CitationUI.cs" />
     <Compile Include="GUI\MacOS\CustomViews\ValueWithErrorTextField.cs" />
     <Compile Include="AppClasses\Analysis2\Models\OneSetOfSitesSyringeUncertaintyModel.cs" />
     <Compile Include="AppClasses\DataClasses\Stoichiometry.cs" />
     <Compile Include="GUI\MacOS\StoichiometryBuilder.cs" />
+    <Compile Include="AppClasses\DataClasses\InjectionData.cs" />
+    <Compile Include="AppClasses\DataClasses\DataPoint.cs" />
+    <Compile Include="AppClasses\Analysis2\ExperimentAttribute.cs" />
+    <Compile Include="AppClasses\Analysis2\ParameterSet.cs" />
+    <Compile Include="AppClasses\Analysis2\SolverUtilities.cs" />
+    <Compile Include="AppClasses\Analysis2\ParameterChecker.cs" />
+    <Compile Include="AppClasses\Analysis2\AdvancedAnalysis\AdvancedAnalysis.cs" />
+    <Compile Include="AppClasses\Analysis2\AdvancedAnalysis\ElectrostaticsAnalysis.cs" />
+    <Compile Include="AppClasses\Analysis2\AdvancedAnalysis\ProtonationAnalysis.cs" />
+    <Compile Include="AppClasses\Analysis2\AdvancedAnalysis\SpolarRecordAnalysis.cs" />
+    <Compile Include="AppClasses\DataExport\DataWriter.cs" />
+    <Compile Include="AppClasses\DataExport\Exporter.cs" />
+    <Compile Include="AppClasses\DataExport\ExportType.cs" />
+    <Compile Include="AppClasses\Utils\EnumExtensions.cs" />
+    <Compile Include="AppClasses\Utils\GUIutils.cs" />
+    <Compile Include="AppClasses\Utils\StringParsers.cs" />
+    <Compile Include="AppClasses\Properties\AppSettings.cs" />
+    <Compile Include="AppClasses\Properties\AppVersion.cs" />
+    <Compile Include="AppClasses\Properties\AssemblyInfo.cs" />
+    <Compile Include="AppClasses\Utils\CitationManager.cs" />
+    <Compile Include="AppClasses\Utils\Logger.cs" />
   </ItemGroup>
   <ItemGroup>
     <InterfaceDefinition Include="Main.storyboard" />
