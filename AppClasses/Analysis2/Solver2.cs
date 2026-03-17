@@ -399,7 +399,7 @@ namespace AnalysisITC.AppClasses.Analysis2
             var limits = Model.Parameters.GetLimits();
             int n_par = Model.NumberOfParameters;
             int m = Model.Data.Injections.Count(inj => inj.Include);
-            double[] scale = guess.Select(g => Math.Max(1, g)).ToArray();
+            double[] scale = guess.Select(g => Math.Max(1, Math.Abs(g))).ToArray();
 
             alglib.minlmcreatev(n_par, m, guess, LevenbergMarquardtDifferentiationStepSize, out minlmstate state);
 
@@ -432,6 +432,8 @@ namespace AnalysisITC.AppClasses.Analysis2
             int failure = 0;
             var start = DateTime.Now;
             var bag = new ConcurrentBag<SolutionInterface>();
+
+            Model.GenerateSyntheticModel();
 
             Parallel.For(0, BootstrapIterations, (i) =>
             {
@@ -710,7 +712,7 @@ namespace AnalysisITC.AppClasses.Analysis2
             var parameters = Model.Parameters.GetFittedParameters();
             int n_par = Model.NumberOfParameters;
             int m = Model.GetNumberOfPoints();
-            double[] scale = guess.Select(g => Math.Max(1, g)).ToArray();
+            double[] scale = guess.Select(g => Math.Max(1, Math.Abs(g))).ToArray();
 
             alglib.minlmcreatev(n_par, m, guess, LevenbergMarquardtDifferentiationStepSize, out minlmstate state);
 
