@@ -108,7 +108,7 @@ namespace AnalysisITC.AppClasses.Analysis2.Models
         public class ModelSolution : SolutionInterface
         {
             public Energy Enthalpy => Parameters[ParameterType.Enthalpy1].Energy;
-            public FloatWithError K => FWEMath.Pow(10, LogK);
+            public FloatWithError K => FWEMath.Pow(10.0, LogK);
             private FloatWithError LogK => Parameters[ParameterType.Affinity1];
             override public Energy Offset => Parameters[ParameterType.Offset].Energy;
 

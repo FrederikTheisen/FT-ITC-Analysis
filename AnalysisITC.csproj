@@ -214,11 +214,8 @@
     <None Include="AppClasses\Depreceated\SolverParameters.cs" />
     <None Include="AppClasses\Depreceated\SolverOptions.cs" />
     <None Include="GUI\.DS_Store" />
-    <None Include="GUI\MacOS\CustomViews\AutoExpandingTextField.swift" />
     <None Include="README.md" />
     <None Include="AppClasses\DataReaders\FTITCReaderOld.cs" />
-    <None Include="GUI\MacOS\CustomViews\AutoExpandingTextView2.xib" />
-    <None Include="GUI\MacOS\CustomViews\ExperimentAttributeView.xib" />
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Main.cs" />
