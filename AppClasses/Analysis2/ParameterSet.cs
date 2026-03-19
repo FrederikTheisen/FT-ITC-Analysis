@@ -4,6 +4,7 @@ using System.ComponentModel;
 using System.Linq;
 using System.Text.RegularExpressions;
 using AnalysisITC.AppClasses.Analysis2.Models;
+using AnalysisITC.AppClasses.AnalysisClasses;
 
 namespace AnalysisITC.AppClasses.Analysis2
 {
@@ -471,10 +472,11 @@ namespace AnalysisITC.AppClasses.Analysis2
             return list.Where(p => p.GetProperties().ParentType == query).Count() > 1;
         }
 
-        public static string TableHeaderTitle(ParameterType key, bool containstwo)
+        public static string TableHeaderTitle(IDictionary<AttributeKey, ExperimentAttribute> options, ParameterType key, bool containstwo)
         {
             switch (key)
             {
+                case ParameterType.Nvalue1 when options[AttributeKey.UseSyringeActiveFraction]?.BoolValue ?? false: return "α";
                 case ParameterType.Nvalue1: return "N" + (containstwo ? "1" : "");
                 case ParameterType.Nvalue2: return "N2";
                 case ParameterType.Enthalpy1: return "∆H" + (containstwo ? "1" : "");
@@ -492,9 +494,9 @@ namespace AnalysisITC.AppClasses.Analysis2
             }
         }
 
-        public static string TableHeader(ParameterType key, bool containstwo, EnergyUnit energyunit, string kdunit)
+        public static string TableHeader(IDictionary<AttributeKey, ExperimentAttribute> options, ParameterType key, bool containstwo, EnergyUnit energyunit, string kdunit)
         {
-            string s = TableHeaderTitle(key, containstwo);
+            string s = TableHeaderTitle(options, key, containstwo);
 
             switch (key.GetProperties().ParentType)
             {

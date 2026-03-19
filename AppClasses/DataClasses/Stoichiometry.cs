@@ -53,7 +53,7 @@ namespace AnalysisITC
             return Presets.First(x => x.Preset == preset);
         }
 
-        public static StoichiometryOption GetClosest(double factor, double tolerance = 1e-9)
+        public static StoichiometryOption GetClosest(double factor, double tolerance = 1e-5)
         {
             foreach (var item in Presets)
             {
@@ -78,7 +78,7 @@ namespace AnalysisITC
             // General integer-like values (one or more)
             var rounded = Math.Round(value);
             if (Math.Abs(value - rounded) < tolerance)
-                return rounded.ToString("F0");
+                return rounded.ToString("F0") + ":1";
            
             // General reciprocal-style values (e.g. 0.2 -> 1:5)
             if (value > 0 && value < 1)

@@ -244,8 +244,9 @@ namespace AnalysisITC
             EvalResultDescField.AttributedStringValue = MacStrings.FromMarkDownString(string.Join(Environment.NewLine, eval_parameters), NSFont.SystemFontOfSize(11));
             ///
 
-            
+
             /// Populate Table View
+            var options = Solution.Solutions.First().ModelOptions;
             var kd = Solution.Solutions.Average(s => s.ReportParameters[AppClasses.Analysis2.ParameterType.Affinity1]);
 
             AppropriateAffinityUnit = ConcentrationUnitAttribute.FromConc(kd);
@@ -269,33 +270,22 @@ namespace AnalysisITC
             {
                 bool multiple = ParameterTypeAttribute.ContainsTwo(Solution.Solutions[0].Parameters.Select(p => p.Key), par);
 
-                var column = new NSTableColumn(ParameterTypeAttribute.TableHeaderTitle(par, true))
+                var column = new NSTableColumn(ParameterTypeAttribute.TableHeaderTitle(options, par, true))
                 {
-                    Title = ParameterTypeAttribute.TableHeader(par, multiple, EnergyUnit, AppropriateAffinityUnit.GetName()),
+                    Title = ParameterTypeAttribute.TableHeader(options, par, multiple, EnergyUnit, AppropriateAffinityUnit.GetName()),
                 };
                 column.HeaderCell.Alignment = NSTextAlignment.Center;
 
                 ResultsTableView.AddColumn(column);
             }
-            ResultsTableView.AddColumn(new NSTableColumn("Loss") { Title = "Loss" });
+            var losscolumn = new NSTableColumn("Loss") { Title = "Loss" };
+            losscolumn.HeaderCell.Alignment = NSTextAlignment.Center;
+            ResultsTableView.AddColumn(losscolumn);
             ///
 
 
             /// Temperature Dependence Lines
             SetConstraintsAndOptions();
-            //var parameters = new List<string>() { "Reference temperature / Unit:" };
-
-            //foreach (var dep in Solution.TemperatureDependence)
-            //    parameters.Add(dep.Key.GetProperties().Name + " (" + dep.Key.GetProperties().SymbolName + ")");
-
-            //TempDependenceResultDescField.AttributedStringValue = MacStrings.FromMarkDownString(string.Join(Environment.NewLine, parameters), NSFont.SystemFontOfSize(11));
-
-            //var dependencies = new List<string>() { refT.ToString("F2") + tempunit + " / " + EnergyUnit.GetUnit() + "/mol"};
-
-            //foreach (var dep in Solution.TemperatureDependence) dependencies.Add(dep.Value.ToString(EnergyUnit));
-
-            //TemperatureDependenceLabel.StringValue = string.Join(Environment.NewLine, dependencies);
-            ///
 
             EvaluateParameters();
             ResultsTableView.SizeToFit();
@@ -324,19 +314,23 @@ namespace AnalysisITC
                     var name = att.OptionName;
                     var value = att.ToString();
 
-                    if (key == AttributeKey.PreboundLigandAffinity)
+                    switch (key)
                     {
-                        name += $" ({MarkdownStrings.DissociationConstant})";
-                        value = $"{(1 / att.ParameterValue).AsConcentration(AppSettings.DefaultConcentrationUnit, withunit: true)}"; // Kd fix
-                    }
-                    else if (key == AttributeKey.PreboundLigandConc)
-                    {
-                        if (att.BoolValue) value = "From Experiment Attribute";
-                        else value += $" {AppSettings.DefaultConcentrationUnit}";
-                    }
-                    else if (key == AttributeKey.PreboundLigandEnthalpy)
-                    {
-                        value = new Energy(att.ParameterValue).ToFormattedString(AppSettings.EnergyUnit, true, true);
+                        case AttributeKey.PreboundLigandAffinity:
+                            name += $" ({MarkdownStrings.DissociationConstant})";
+                            value = $"{(1 / att.ParameterValue).AsConcentration(AppSettings.DefaultConcentrationUnit, withunit: true)}"; // Kd fix
+                            break;
+                        case AttributeKey.PreboundLigandConc:
+                            if (att.BoolValue) value = "From Experiment Attribute";
+                            else value += $" {AppSettings.DefaultConcentrationUnit}";
+                            break;
+                        case AttributeKey.PreboundLigandEnthalpy:
+                            value = new Energy(att.ParameterValue).ToFormattedString(AppSettings.EnergyUnit, true, true);
+                            break;
+                        case AttributeKey.NumberOfSites1:
+                        case AttributeKey.NumberOfSites2:
+                            if (!Solution.Model.UseSyringeCorrectionMode) continue;
+                            break;
                     }
 
                     if (string.IsNullOrWhiteSpace(name)) name = key.GetEnumDescription(); // Fall back

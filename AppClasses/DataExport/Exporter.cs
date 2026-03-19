@@ -552,6 +552,7 @@ namespace AnalysisITC
                 lines.Add(string.Join(delimiter, line).Replace('±', delimiter));
             }
 
+            // Add line with averages
             var averageline = new List<string>
             {
                 "mean",
@@ -596,9 +597,11 @@ namespace AnalysisITC
                 if (analysis.IsElectrostaticsAnalysisDependenceEnabled) header.Add("IS(mM)");
                 if (analysis.IsProtonationAnalysisEnabled) header.Add("∆Hbufferprotonation(" + eunit.GetUnit() + ")");
 
+                var options = solution.Solutions[0].ModelOptions;
+
                 foreach (var par in solution.IndividualModelReportParameters)
                 {
-                    var s = ParameterTypeAttribute.TableHeader(par, solution.Solutions[0].ParametersConformingToKey(par).Count > 1, eunit, kdunit.GetName());
+                    var s = ParameterTypeAttribute.TableHeader(options, par, solution.Solutions[0].ParametersConformingToKey(par).Count > 1, eunit, kdunit.GetName());
 
                     header.Add(s + "_value");
                     header.Add(s + "_sd");
