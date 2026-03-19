@@ -247,7 +247,7 @@ namespace AnalysisITC.AppClasses.AnalysisClasses
                     return $"{ParameterValue.Value} mM {((Salt)IntValue).GetProperties().Name}";
                 case AttributeKey.NumberOfSites1:
                 case AttributeKey.NumberOfSites2:
-                    return StoichiometryOptions.FormatStoichiometry(DoubleValue);
+                    return StoichiometryOptions.GetClosest(DoubleValue).Title;
             }
 
             switch (Key.GetProperties().Type)
