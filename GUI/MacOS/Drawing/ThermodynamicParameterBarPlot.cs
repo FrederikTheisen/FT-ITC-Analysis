@@ -36,7 +36,7 @@ namespace AnalysisITC
             View = view;
             Result = analysis;
 
-            var kd = Solution.Solutions.Average(s => s.ReportParameters[AppClasses.Analysis2.ParameterType.Affinity1]);
+            var kd = Solution.Solutions.Average(s => s.ReportParameters[ParameterType.Affinity1]);
 
             Mag = Math.Log10(kd);
 
@@ -138,13 +138,17 @@ namespace AnalysisITC
         {
             int index = Solution.Solutions.IndexOf(sol);
 
-            var color = MacColors.GetColor(index, Solution.Solutions.Count);
-            if (color == null) color = new CGColor[] { StrokeColor, StrokeColor };
+            var color = MacColors.GetColor(index, Solution.Solutions.Count) ?? (new CGColor[] { StrokeColor, StrokeColor });
 
             var barlayer = CGLayer.Create(gc, PlotSize);
             var errorlayer = CGLayer.Create(gc, PlotSize);
             var points = new CGPoint[DataCount];
             var barwidth = GetRelativePosition(CategoryWidth, 0).X - GetRelativePosition(0, 0).X - 2;
+
+            var drawmode = (sol == DataManager.SelectedResultSolution ? CGPathDrawingMode.Stroke : CGPathDrawingMode.FillStroke);
+
+            if (sol == DataManager.SelectedResultSolution)
+                color[0] = NSColor.ControlAccent.CGColor;
 
             foreach (var key in Parameters)
             {

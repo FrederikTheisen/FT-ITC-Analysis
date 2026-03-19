@@ -208,7 +208,7 @@ namespace AnalysisITC
                         if (Math.Abs(slope.Value) > 0)
                         {
                             var dCp = new Energy(slope);
-                            output.Add(new(MarkdownStrings.HeatCapacity + Sub(idx), dCp.ToFormattedString(energyUnit, true, true, true)));
+                            output.Add(new(MarkdownStrings.HeatCapacityChange + Sub(idx), dCp.ToFormattedString(energyUnit, true, true, true)));
                         }
                     }
                 }

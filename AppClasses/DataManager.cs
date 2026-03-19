@@ -2,6 +2,7 @@
 using AnalysisITC;
 using System.Collections.Generic;
 using System.Linq;
+using AnalysisITC.AppClasses.Analysis2.Models;
 
 namespace AnalysisITC
 {
@@ -13,6 +14,11 @@ namespace AnalysisITC
         public static event EventHandler<ExperimentData> SelectionDidChange;
         public static event EventHandler<AnalysisResult> AnalysisResultSelected;
         public static event EventHandler<int[]> RemoveListIndices;
+        public static event EventHandler<SolutionInterface> ResultSolutionSelectionDidChange;
+        public static event EventHandler<ExperimentData> ResultLinkedExperimentHighlightDidChange;
+
+        public static SolutionInterface SelectedResultSolution { get; private set; }
+        public static ExperimentData SelectedSolutionExperiment => SelectedResultSolution?.Data;
 
         public static AnalysisITCDataSource Source { get; private set; }
         public static List<ITCDataContainer> SourceItems => Source.Content;
@@ -88,6 +94,27 @@ namespace AnalysisITC
 
                 StateManager.GoToResultView();
             }
+
+            DataManager.ClearResultSolutionSelection();
+        }
+
+        public static void SelectResultSolution(SolutionInterface solution)
+        {
+            if (ReferenceEquals(SelectedResultSolution, solution)) return;
+
+            SelectedResultSolution = solution;
+            //highlightedResultExperiment = solution?.Data;
+
+            ResultSolutionSelectionDidChange?.Invoke(null, SelectedResultSolution);
+            ResultLinkedExperimentHighlightDidChange?.Invoke(null, SelectedSolutionExperiment);
+        }
+
+        public static void ClearResultSolutionSelection()
+        {
+            SelectedResultSolution = null;
+
+            ResultSolutionSelectionDidChange?.Invoke(null, null);
+            ResultLinkedExperimentHighlightDidChange?.Invoke(null, null);
         }
 
         public static void RemoveData2(int index)

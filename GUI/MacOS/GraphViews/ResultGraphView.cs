@@ -26,6 +26,7 @@ namespace AnalysisITC
 		void Initialize ()
 		{
             AppSettings.SettingsDidUpdate += (s, e) => Invalidate();
+            DataManager.ResultSolutionSelectionDidChange += (s, e) => Invalidate();
         }
 
         #endregion

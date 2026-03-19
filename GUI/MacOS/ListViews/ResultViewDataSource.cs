@@ -6,6 +6,7 @@ using AppKit;
 using AnalysisITC.AppClasses.Analysis2;
 using AnalysisITC.AppClasses.Analysis2.Models;
 using AnalysisITC.AppClasses.AnalysisClasses;
+using Foundation;
 
 namespace AnalysisITC
 {
@@ -85,6 +86,20 @@ namespace AnalysisITC
             }
 
             return view;
+        }
+
+        public override void SelectionDidChange(NSNotification notification)
+        {
+            if (notification.Object is not NSTableView tableView) return;
+
+            var row = (int)tableView.SelectedRow;
+            if (row < 0 || row >= DataSource.Data.Count)
+            {
+                DataManager.ClearResultSolutionSelection();
+                return;
+            }
+
+            DataManager.SelectResultSolution(DataSource.Data[row]);
         }
     }
 }

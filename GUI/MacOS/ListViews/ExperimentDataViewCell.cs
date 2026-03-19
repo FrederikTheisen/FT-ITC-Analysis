@@ -25,8 +25,10 @@ namespace AnalysisITC
 
 		public ExperimentDataViewCell (IntPtr handle) : base (handle)
 		{
-			
-		}
+			Console.WriteLine("Constructed");
+
+            DataManager.ResultLinkedExperimentHighlightDidChange += ResultHighlightChanged;
+        }
 
 		public void Setup(AnalysisITCDataSource source, ExperimentData data, int index)
         {
@@ -157,7 +159,26 @@ namespace AnalysisITC
 			ResizeRow?.Invoke(this, row);
 		}
 
-		void SetValidSolutionLabeling()
+        void ResultHighlightChanged(object sender, ExperimentData e)
+        {
+            NSApplication.SharedApplication.InvokeOnMainThread(() =>
+            {
+                SetSelectedSolutionHighlighting(e);
+            });
+        }
+
+		void SetSelectedSolutionHighlighting(ExperimentData highlight)
+		{
+			bool isselected = data != null && ReferenceEquals(highlight, data);
+
+			var color = isselected ? NSColor.ControlAccent : NSColor.Label;
+
+			ExpNameLabel.TextColor = color;
+			Line2.TextColor = color;
+			Line3.TextColor = color;
+        }
+
+        void SetValidSolutionLabeling()
         {
 			bool isvalid = false;
 			if (data.Solution != null) isvalid = data.Solution.IsValid;
