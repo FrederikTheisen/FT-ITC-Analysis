@@ -20,23 +20,23 @@ namespace AnalysisITC.AppClasses.Analysis2.Models
         public double GuessAffinity1() => 7;
         public double GuessAffinity2() => 5;
 
-        bool ApplyNToSyringe => ModelOptions[AttributeKey.UseSyringeActiveFraction]?.BoolValue ?? false;
+        bool UseSyringeCorrectionMode => ModelOptions[AttributeKey.UseSyringeActiveFraction]?.BoolValue ?? false;
 
         double GetSyringeFactor()
         {
-            return ApplyNToSyringe ? Parameters.Table[ParameterType.Nvalue1].Value : 1.0;
+            return UseSyringeCorrectionMode ? Parameters.Table[ParameterType.Nvalue1].Value : 1.0;
         }
 
         double GetSiteStoichiometry1()
         {
-            return ApplyNToSyringe
+            return UseSyringeCorrectionMode
                 ? ModelOptions[AttributeKey.NumberOfSites1].DoubleValue
                 : Parameters.Table[ParameterType.Nvalue1].Value;
         }
 
         double GetSiteStoichiometry2()
         {
-            return ApplyNToSyringe
+            return UseSyringeCorrectionMode
                 ? ModelOptions[AttributeKey.NumberOfSites2].DoubleValue
                 : Parameters.Table[ParameterType.Nvalue2].Value;
         }
@@ -68,7 +68,7 @@ namespace AnalysisITC.AppClasses.Analysis2.Models
         {
             base.ApplyModelOptions();
 
-            if (ModelOptions[AttributeKey.LockDuplicateParameter].BoolValue || ApplyNToSyringe)
+            if (ModelOptions[AttributeKey.LockDuplicateParameter].BoolValue || UseSyringeCorrectionMode)
             {
                 // Sets the parameter to be the same as N-value 1, also sets the parameter to not be fitted
                 // If Use Syringe Factor, we just don't need this parameter and IsGlobalFitted removes it from the parameter list

@@ -10,7 +10,7 @@ namespace AnalysisITC.AppClasses.Analysis2.Models
     {
         public override AnalysisModel ModelType => AnalysisModel.CompetitiveBinding;
 
-        bool ApplyNToSyringe => ModelOptions[AttributeKey.UseSyringeActiveFraction]?.BoolValue ?? false;
+        bool UseSyringeCorrectionMode => ModelOptions[AttributeKey.UseSyringeActiveFraction]?.BoolValue ?? false;
 
         public CompetitiveBinding(ExperimentData data) : base(data)
         {
@@ -77,8 +77,8 @@ namespace AnalysisITC.AppClasses.Analysis2.Models
             // If the macromolecule concentration is zero, there can be no heat content
             if (cellConc <= 0 || nOrFactor <= 0) return 0.0;
 
-            var stoich = ApplyNToSyringe ? ModelOptions[AttributeKey.NumberOfSites1].DoubleValue : nOrFactor;
-            var titrant = ApplyNToSyringe ? nOrFactor * titrantConc : titrantConc;
+            var stoich = UseSyringeCorrectionMode ? ModelOptions[AttributeKey.NumberOfSites1].DoubleValue : nOrFactor;
+            var titrant = UseSyringeCorrectionMode ? nOrFactor * titrantConc : titrantConc;
 
             // Retrieve parameters for the pre‑bound ligand (B)
             double K_B = Math.Pow(10, ModelOptions[AttributeKey.PreboundLigandAffinity].ParameterValue);    // association constant of ligand B

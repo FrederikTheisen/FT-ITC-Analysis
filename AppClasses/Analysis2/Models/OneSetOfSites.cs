@@ -10,7 +10,7 @@ namespace AnalysisITC.AppClasses.Analysis2.Models
 	{
         public override AnalysisModel ModelType => AnalysisModel.OneSetOfSites;
 
-        bool ApplyNToSyringe => ModelOptions[AttributeKey.UseSyringeActiveFraction]?.BoolValue ?? false;
+        bool UseSyringeCorrectionMode => ModelOptions[AttributeKey.UseSyringeActiveFraction]?.BoolValue ?? false;
 
         public OneSetOfSites(ExperimentData data) : base(data)
 		{
@@ -51,8 +51,8 @@ namespace AnalysisITC.AppClasses.Analysis2.Models
 
         double GetHeatContent(double cellConc, double titrantConc, double n, double H, double K)
         {
-            double nc = ApplyNToSyringe ? ModelOptions[AttributeKey.NumberOfSites1].DoubleValue : n;
-            double ns = ApplyNToSyringe ? n : 1;
+            double nc = UseSyringeCorrectionMode ? ModelOptions[AttributeKey.NumberOfSites1].DoubleValue : n;
+            double ns = UseSyringeCorrectionMode ? n : 1;
 
             var ncell = nc * cellConc;
             var ntit = ns * titrantConc;
