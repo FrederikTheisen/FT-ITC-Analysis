@@ -217,6 +217,8 @@
     <None Include="GUI\MacOS\CustomViews\AutoExpandingTextField.swift" />
     <None Include="README.md" />
     <None Include="AppClasses\DataReaders\FTITCReaderOld.cs" />
+    <None Include="GUI\MacOS\CustomViews\AutoExpandingTextView2.xib" />
+    <None Include="GUI\MacOS\CustomViews\ExperimentAttributeView.xib" />
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Main.cs" />
@@ -523,8 +525,6 @@
   </ItemGroup>
   <ItemGroup>
     <InterfaceDefinition Include="Main.storyboard" />
-    <InterfaceDefinition Include="GUI\MacOS\CustomViews\ExperimentAttributeView.xib" />
-    <InterfaceDefinition Include="GUI\MacOS\CustomViews\AutoExpandingTextView2.xib" />
   </ItemGroup>
   <ItemGroup>
     <BundleResource Include="Resources\HelpTextResource.txt" />
