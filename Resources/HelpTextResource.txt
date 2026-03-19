@@ -52,17 +52,20 @@ The integration range is defined by the start time and the stop delay. By defaul
 You can double-click or select injections in the injection list to set integration limits per injection. You can also drag the integration range markers to adjust them. Press **\space** to copy the select injection integration range to the next peak.
 # Setting Experiment Attributes
 If you perform experiments under different conditions, register those conditions as experiment attributes (for example, buffer identity and salt concentration). These attributes enable downstream analyses and comparisons across experiments.
-You can also note concentration errors. This information can improve uncertainty estimates for fitted parameters.
+You can also change and note concentration errors. This information can improve uncertainty estimates for fitted parameters.
 
 ## Analyzing Experiments
-# Fitting Your Experiment
-In most cases, you can analyze an experiment by clicking the **\btnfit** button on the analysis page. The app includes multiple models to support different interaction mechanisms.
-# Residual Plot
-The residual plot shows the difference between the observed integrated heats and the values predicted by the current fit. A good fit typically produces residuals that fluctuate around zero without clear structure. Use the residual plot to:
+# Fitting Experiments
+In most cases, you can analyze an experiment by clicking the **\btnfit** button on the analysis page. The app includes multiple models to support different interaction mechanisms. Binding models are only available if the cell concentration is not zero.
 # Global Fitting
 \appname can perform global fits of multiple experiments simultaneously. To enable global fitting, select the This is useful for difficult interactions and for applying constraints across experiments (for example, shared parameters). Global fitting stores its output as a new result object. If you have experiments at multiple temperatures, global fitting can be used to estimate the heat capacity change upon binding, which is often useful for thermodynamic interpretation.
+# Syringe correction mode
+By default, fitting follows the usual interpretation where the fitted N-value can compensate for apparent concentration or activity error on the cell side. If the dominant uncertainty is instead in the syringe concentration, enable syringe correction mode in the fitting options.
+Use this mode when independent information suggests that the cell concentration and the expected binding stoichiometry are reliable, but the syringe concentration may be inaccurate.
+# Residual Plot
+The residual plot shows the difference between the observed integrated heats and the values predicted by the current fit. A good fit typically produces residuals that fluctuate around zero without clear structure. Use the residual plot to:
 # Further Analysis
-After a global fit completes, a result view becomes available in the sidebar. There you can inspect fitted parameters and parameter correlations.
+When performing a \multexpanalysis, a result view becomes available in the sidebar. There you can inspect fitted parameters and parameter correlations.
 Additional analyses are available, such as evaluating temperature dependence to derive global thermodynamic parameters across experiments. These options are available if the fitted data covers appropriate variable ranges (eg temperature range).
 
 ## Presenting the Data

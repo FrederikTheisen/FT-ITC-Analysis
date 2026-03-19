@@ -9,7 +9,7 @@ The parameter values reported are not averages. They are the single best-fit val
 # Derived quantities
 Derived parameters, such \dg and \tds, are also reported with errors. These errors are calculated in the same way as fitted parameters by looking at the error estimation from the resampled and refitted distribution.
 # Concentration Uncertainty Propagation
-If you have entered concentration uncertainties for cell and syringe, \appname can propagate those into parameter errors by allowing the refits to include concentration perturbations within the provided uncertainty.
+If you have entered concentration uncertainties for cell and syringe, \appname can propagate those into parameter errors by allowing the refits to include concentration variation according to the provided uncertainty or based on an estimated .
 
 ## \multexp
 When you perform analyses multiple experiments, \appname fits multiple experiments simultaneously and produces an Analysis Result that is added to the list of files. \multexp analyses have different types of parameters. 
@@ -41,4 +41,7 @@ Here, *T*{int} is the integration length (seconds), and N{bl,eff} is an effectiv
 ## Model Formalism
 The analysis models in \appname are implemented in accordance with the MicroCal/Origin formal definitions. The implementation is also extended to the calculation mass balance / dilution bookkeeping. Thus parameter values from \appname are intended to be directly comparable to MicroCal-style analyses, although the baseline correction cannot be compared and might introduce small differences in fitted values.
 
-
+# Syringe Correction Mode
+In the default MicroCal-style interpretation, the fitted N-term can absorb apparent error in the effective concentration or activity of the species in the cell. This means that N is not always a pure stoichiometric parameter unless concentrations and active fractions are known accurately.
+Syringe correction mode provides an alternative parameterization in which the fitted correction factor is applied to the titrant concentration delivered from the syringe instead of being interpreted primarily on the cell side. The thermogram integration and heat values are unchanged; the difference is entirely in the mass-balance interpretation used during fitting.
+This distinction matters because syringe-side and cell-side concentration errors do not propagate identically into fitted affinity and enthalpy. Results obtained with and without syringe correction mode therefore should not be interpreted as strictly equivalent parameterizations of the same fit.
