@@ -233,7 +233,7 @@ namespace AnalysisITC.GUI.MacOS.CustomViews
             {
                 Bordered = false,
                 TranslatesAutoresizingMaskIntoConstraints = false,
-                PlaceholderString = "",
+                PlaceholderString = "auto",
                 BezelStyle = NSTextFieldBezelStyle.Rounded,
                 FocusRingType = NSFocusRingType.None,
                 Bezeled = true,
