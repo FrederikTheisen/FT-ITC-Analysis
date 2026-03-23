@@ -140,6 +140,11 @@ namespace AnalysisITC.Utilities
             var segments = MarkdownProcessor.GetSegments(str);
 
             var attstr = new NSMutableAttributedString();
+            var style = new NSMutableParagraphStyle()
+            {
+                Alignment = NSTextAlignment.Center,
+                MaximumLineHeight = 12
+            };
 
             foreach (var segment in segments)
             {
@@ -156,6 +161,8 @@ namespace AnalysisITC.Utilities
                     case MarkdownProperty.Small: attstr.Append(SmallText(segment.Text, font)); break;
                 }
             }
+
+            //attstr.AddAttribute(NSStringAttributeKey.ParagraphStyle, style, new NSRange(0, attstr.Length));
 
             if (iscg) attstr.AddAttributes(new CoreText.CTStringAttributes() //Necessary for correct textbox text color...
             {
