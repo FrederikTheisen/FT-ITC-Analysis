@@ -885,7 +885,6 @@ namespace AnalysisITC
     public class FileInfoGraph : DataGraph
     {
         GraphAxis TemperatureAxis { get; set; }
-        public List<string> Info { get; private set; }
 
         public bool DrawCursorPositionInfo { get; set; } = false;
         double CursorPosition { get; set; }
@@ -893,8 +892,6 @@ namespace AnalysisITC
 
         public FileInfoGraph(ExperimentData experiment, NSView view) : base(experiment, view)
         {
-            BuildInfoString(experiment);
-
             if (!ExperimentData.HasThermogram) return;
 
             var tamid = experiment.TargetTemperature;
@@ -903,50 +900,6 @@ namespace AnalysisITC
             TemperatureAxis.Position = AxisPosition.Right;
             TemperatureAxis.TickScale.SetMaxTicks(5);
             TemperatureAxis.LegendTitle = "Temperature (°C)";
-        }
-
-        void BuildInfoString(ExperimentData experiment)
-        {
-            string injdescription = "";
-
-            for (int i = 0; i < experiment.Injections.Count; i++)
-            {
-                var curr = experiment.Injections[i];
-                var next = i < experiment.InjectionCount - 1 ? experiment.Injections[i + 1] : null;
-                var prev = i > 0 ? experiment.Injections[i - 1] : null;
-
-                if (experiment.Injections.Where(inj => inj.ID > i).All(inj => inj.Volume == curr.Volume))
-                {
-                    injdescription += "#" + (i + 1).ToString() + "-" + experiment.Injections.Count.ToString() + ": " + (1000000 * curr.Volume).ToString("F1") + " µl, ";
-                    break;
-                }
-                else if (next != null && curr.Volume != next.Volume)
-                    injdescription += "#" + (i + 1).ToString() + ": " + (1000000 * curr.Volume).ToString("F1") + " µl, ";
-                else if (prev != null && curr.Volume != prev.Volume)
-                    injdescription += "#" + (i + 1).ToString() + ": " + (1000000 * curr.Volume).ToString("F1") + " µl, ";
-            }
-
-            injdescription = injdescription.Substring(0, injdescription.Length - 2);
-
-            Info = new List<string>();
-            Info.Add("**Filename:** " + experiment.FileName);
-            Info.Add("  **Date:** " + experiment.UILongDateWithTime);
-            if (experiment.Duration > TimeSpan.FromSeconds(1))
-                Info.Add($"  **Duration:** {experiment.Duration.ToReadableString()}");
-            Info.Add("**Instrument:** " + experiment.Instrument.GetProperties().Name);
-            Info.Add($"  **Cell Volume:** {1000000 * experiment.CellVolume:F1} µl");
-            if (DataReaders.ITCInstrument.MicroCal.HasFlag(experiment.Instrument))
-                Info.Add("  **Feedback Mode:** " + experiment.FeedBackMode.GetProperties().Name);
-            if (experiment.StirringSpeed > -1)
-                Info.Add("  **Stirring Speed:** " + experiment.StirringSpeed.ToString() + " rpm");
-            Info.Add("**Temperature:**");
-            Info.Add($"  **Target:** {experiment.TargetTemperature:G4} °C");
-            if (experiment.MeasuredTemperature != experiment.TargetTemperature)
-                Info.Add($"  **Measured:** {experiment.DataPoints.Min(dp => dp.Temperature):F4} - {experiment.DataPoints.Max(dp => dp.Temperature):F4} °C | Mean = {experiment.MeasuredTemperature:G4} °C");
-            Info.Add($"**Injections:** {experiment.InjectionCount} [{injdescription}]");
-            Info.Add($"**Concentrations:** Cell: {experiment.CellConcentration.AsConcentration(ConcentrationUnit.µM)} | Syringe: {experiment.SyringeConcentration.AsConcentration(ConcentrationUnit.µM)}");
-
-            if (!string.IsNullOrEmpty(experiment.Comments)) Info.Add("**Comment:** " + experiment.Comments);
         }
 
         public override void AutoSetFrame()

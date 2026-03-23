@@ -431,6 +431,53 @@ namespace AnalysisITC
         {
             _segmentStartLookup = null;
         }
+
+        public List<string> GetInfoString()
+        {
+            var info = new List<string>();
+
+            string injdescription = "";
+
+            for (int i = 0; i < this.Injections.Count; i++)
+            {
+                var curr = this.Injections[i];
+                var next = i < this.InjectionCount - 1 ? this.Injections[i + 1] : null;
+                var prev = i > 0 ? this.Injections[i - 1] : null;
+
+                if (this.Injections.Where(inj => inj.ID > i).All(inj => inj.Volume == curr.Volume))
+                {
+                    injdescription += "#" + (i + 1).ToString() + "-" + this.Injections.Count.ToString() + ": " + (1000000 * curr.Volume).ToString("F1") + " µl, ";
+                    break;
+                }
+                else if (next != null && curr.Volume != next.Volume)
+                    injdescription += "#" + (i + 1).ToString() + ": " + (1000000 * curr.Volume).ToString("F1") + " µl, ";
+                else if (prev != null && curr.Volume != prev.Volume)
+                    injdescription += "#" + (i + 1).ToString() + ": " + (1000000 * curr.Volume).ToString("F1") + " µl, ";
+            }
+
+            injdescription = injdescription.Substring(0, injdescription.Length - 2);
+
+            info.Add("**Filename:** " + this.FileName);
+            info.Add("  **Date:** " + this.UILongDateWithTime);
+            if (this.Duration > TimeSpan.FromSeconds(1))
+                info.Add($"  **Duration:** {this.Duration.ToReadableString()}");
+            info.Add("**Instrument:** " + this.Instrument.GetProperties().Name);
+            info.Add($"  **Cell Volume:** {1000000 * this.CellVolume:F1} µl");
+            if (DataReaders.ITCInstrument.MicroCal.HasFlag(this.Instrument))
+                info.Add("  **Feedback Mode:** " + this.FeedBackMode.GetProperties().Name);
+            if (this.StirringSpeed > -1)
+                info.Add("  **Stirring Speed:** " + this.StirringSpeed.ToString() + " rpm");
+            info.Add("**Temperature:**");
+            info.Add($"  **Target:** {this.TargetTemperature:G4} °C");
+            if (this.MeasuredTemperature != this.TargetTemperature)
+                info.Add($"  **Measured:** {this.DataPoints.Min(dp => dp.Temperature):F4} - {this.DataPoints.Max(dp => dp.Temperature):F4} °C | Mean = {this.MeasuredTemperature:G4} °C");
+            info.Add($"**Injections:** {this.InjectionCount} [{injdescription}]");
+            info.Add($"**Concentrations:** Cell: {this.CellConcentration.AsConcentration(ConcentrationUnit.µM)} | Syringe: {this.SyringeConcentration.AsConcentration(ConcentrationUnit.µM)}");
+
+            if (!string.IsNullOrEmpty(this.Comments)) info.Add("**Comment:** " + this.Comments);
+
+            return info;
+        }
     }
 
     public class TandemExperimentSegment
