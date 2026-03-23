@@ -40,6 +40,8 @@ namespace AnalysisITC.GUI
             new Color[] { Color.FromArgb(253, 231, 37), Color.FromArgb(0, 0, 0) },
         };
 
+        public static Color HoneyDew = Color.Honeydew;
+
         public AppColors()
 		{
 		}
