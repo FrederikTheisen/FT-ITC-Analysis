@@ -7,11 +7,17 @@ namespace AnalysisITC
 {
     public struct FloatWithError : IComparable
     {
+        const double asymmetry_threshold = 0.15;
+
         public double Value { get; private set; }
         public double SD { get; private set; }
         public double[] DistributionConfidence95 { get; private set; }
+        public readonly double Lower => DistributionConfidence95?[0] ?? Value;
+        public readonly double Upper => DistributionConfidence95?[1] ?? Value;
 
-        public double FractionSD
+        public bool IsAsymmetric { get; private set; }
+
+        public readonly double FractionSD
         {
             get
             {
@@ -20,7 +26,7 @@ namespace AnalysisITC
                 else return Math.Abs(SD / Value);
             }
         }
-        public bool HasError
+        public readonly bool HasError
         {
             get
             {
@@ -29,13 +35,15 @@ namespace AnalysisITC
             }
         }
 
-        public Energy Energy => new Energy(this);
+        public readonly Energy Energy => new Energy(this);
 
         public FloatWithError(double value = 0, double error = 0)
         {
             Value = value;
             SD = Math.Abs(error);
             DistributionConfidence95 = new double[] { Value - 1.96 * SD, Value + 1.96 * SD };
+
+            IsAsymmetric = false;
         }
 
         public FloatWithError(IEnumerable<double> distribution, double? mean = null)
@@ -53,6 +61,8 @@ namespace AnalysisITC
                 Value = average;
                 SD = Math.Abs(error);
                 DistributionConfidence95 = GetConfidenceInterval(list);
+                IsAsymmetric = false;
+                SetAsymmetricError();
             }
             else if (mean != null) this = new FloatWithError((double)mean, 0);
             else this = new FloatWithError(0, 0);
@@ -80,6 +90,9 @@ namespace AnalysisITC
                 Value = average;
                 SD = Math.Abs(error);
                 DistributionConfidence95 = GetConfidenceInterval(samples);
+                IsAsymmetric = false;
+
+                SetAsymmetricError();
             }
             else if (mean != null) this = new FloatWithError((double)mean, 0);
             else this = new FloatWithError(0, 0);
@@ -99,6 +112,8 @@ namespace AnalysisITC
 
             SD = Math.Abs(result);
             DistributionConfidence95 = GetConfidenceInterval(distribution.ToList());
+
+            SetAsymmetricError();
         }
 
         static double[] GetConfidenceInterval(List<double> distribution)
@@ -122,6 +137,27 @@ namespace AnalysisITC
             double upperValue = distribution[upperIndex];
 
             return new double[] { lowerValue, upperValue };
+        }
+
+        void SetAsymmetricError()
+        {
+            var score = GetConfidenceIntervalAsymmetryScore();
+
+            if (double.IsNaN(score)) IsAsymmetric = false;
+            else
+            {
+                IsAsymmetric = score >= asymmetry_threshold;
+            }
+        }
+
+        double GetConfidenceIntervalAsymmetryScore()
+        {
+            double a = Value - Lower;
+            double b = Upper - Value;
+
+            if (a <= 0 || b <= 0) return double.NaN;
+
+            return Math.Abs(b - a) / (a + b);
         }
 
         public enum ConfidenceLevel
@@ -322,6 +358,27 @@ namespace AnalysisITC
 
             if (obj is FloatWithError) return Value.CompareTo(((FloatWithError)obj).Value);
             else throw new Exception("value not FWE");
+        }
+
+        public string ToSaveString()
+        {
+            return $"{Value};{SD};{DistributionConfidence95[0]};{DistributionConfidence95[1]}";
+        }
+
+        public static FloatWithError FromSaveString(string s)
+        {
+            var pars = s.Split(';').Select(ss => double.Parse(ss)).ToList();
+
+            var fwe = new FloatWithError()
+            {
+                Value = pars[0],
+                SD = pars[1],
+                DistributionConfidence95 = new[] { pars[2], pars[3] },
+            };
+
+            fwe.SetAsymmetricError();
+
+            return fwe;
         }
     }
 

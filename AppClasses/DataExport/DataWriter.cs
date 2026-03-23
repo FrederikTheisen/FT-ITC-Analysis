@@ -98,7 +98,7 @@ namespace AnalysisITC
         public static string Variable(string header, string value) => header + ":" + value;
         public static string Variable(string header, double value) => Variable(header, value.ToString());
         public static string Variable(string header, bool value) => Variable(header, value ? "1" : "0");
-        public static string Variable(string header, FloatWithError value) => Variable(header, value.Value + "," + value.SD);
+        public static string Variable(string header, FloatWithError value) => Variable(header, value.ToSaveString());
         public static string Variable(string header, Energy value) => Variable(header, value.FloatWithError);
         public static string ListHeader(string header) => "LIST:" + header;
         public static string Attribute(ExperimentAttribute opt)
@@ -124,6 +124,8 @@ namespace AnalysisITC
         public static Energy EParse(string value) => new Energy(FWEParse(value));
         public static FloatWithError FWEParse(string value)
         {
+            if (value.Contains(';')) return FloatWithError.FromSaveString(value); // New save version
+
             var s = value.Split(",");
 
             if (s.Length > 1) return new FloatWithError(DParse(s[0]), DParse(s[1]));
