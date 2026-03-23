@@ -13,6 +13,9 @@ namespace AnalysisITC
 	partial class AnalysisResultTabViewController
 	{
 		[Outlet]
+		AnalysisITC.GUI.MacOS.CustomViews.ScrollHintFadeView BottomGradient { get; set; }
+
+		[Outlet]
 		AppKit.NSTextField ElectroResultDescField { get; set; }
 
 		[Outlet]
@@ -55,6 +58,9 @@ namespace AnalysisITC
 		AppKit.NSTextField ResultSummaryLabel { get; set; }
 
 		[Outlet]
+		AppKit.NSScrollView ScrollView { get; set; }
+
+		[Outlet]
 		AppKit.NSButton SRFitButton { get; set; }
 
 		[Outlet]
@@ -77,6 +83,9 @@ namespace AnalysisITC
 
 		[Outlet]
 		AppKit.NSTextField TemperatureDependenceLabel { get; set; }
+
+		[Outlet]
+		AnalysisITC.GUI.MacOS.CustomViews.ScrollHintFadeView TopGradient { get; set; }
 
 		[Action ("CopyToClipboard:")]
 		partial void CopyToClipboard (Foundation.NSObject sender);
@@ -107,6 +116,11 @@ namespace AnalysisITC
 		
 		void ReleaseDesignerOutlets ()
 		{
+			if (BottomGradient != null) {
+				BottomGradient.Dispose ();
+				BottomGradient = null;
+			}
+
 			if (ElectroResultDescField != null) {
 				ElectroResultDescField.Dispose ();
 				ElectroResultDescField = null;
@@ -177,6 +191,11 @@ namespace AnalysisITC
 				ResultSummaryLabel = null;
 			}
 
+			if (ScrollView != null) {
+				ScrollView.Dispose ();
+				ScrollView = null;
+			}
+
 			if (SRFitButton != null) {
 				SRFitButton.Dispose ();
 				SRFitButton = null;
@@ -215,6 +234,11 @@ namespace AnalysisITC
 			if (TemperatureDependenceLabel != null) {
 				TemperatureDependenceLabel.Dispose ();
 				TemperatureDependenceLabel = null;
+			}
+
+			if (TopGradient != null) {
+				TopGradient.Dispose ();
+				TopGradient = null;
 			}
 		}
 	}

@@ -519,6 +519,10 @@
     <Compile Include="AppClasses\Properties\AssemblyInfo.cs" />
     <Compile Include="AppClasses\Utils\CitationManager.cs" />
     <Compile Include="AppClasses\Utils\Logger.cs" />
+    <Compile Include="GUI\MacOS\CustomViews\ScrollHintFadeView.cs" />
+    <Compile Include="GUI\MacOS\CustomViews\ScrollHintFadeView.designer.cs">
+      <DependentUpon>ScrollHintFadeView.cs</DependentUpon>
+    </Compile>
   </ItemGroup>
   <ItemGroup>
     <InterfaceDefinition Include="Main.storyboard" />

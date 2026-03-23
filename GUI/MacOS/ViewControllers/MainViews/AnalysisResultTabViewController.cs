@@ -27,7 +27,7 @@ namespace AnalysisITC
         public bool UseKelvin => TempControl.SelectedSegment == 1;
 
         ResultGraphView.ResultGraphType DisplayedGraphType = ResultGraphView.ResultGraphType.Parameters;
-        //Saving tabview for removal and addition, extremily hack
+        //Saving tabview for removal and addition, hack
         NSTabViewItem FoldingAnalysisTab { get; set; }
         NSTabViewItem IonicStrengthAnalysisTab { get; set; }
         NSTabViewItem ProtonationAnalysisTab { get; set; }
@@ -35,6 +35,7 @@ namespace AnalysisITC
         public AnalysisResultTabViewController (IntPtr handle) : base (handle)
 		{
             DataManager.AnalysisResultSelected += DataManager_AnalysisResultSelected;
+            DataManager.ResultSolutionSelectionDidChange += DataManager_ResultSolutionSelectionDidChange;
             ResultAnalysisController.IterationFinished += ResultAnalysisProgressReport;
             ResultAnalysisController.AnalysisFinished += ResultsAnalysisCompleted;
             AppDelegate.StartPrintOperation += AppDelegate_StartPrintOperation;
@@ -70,7 +71,116 @@ namespace AnalysisITC
             base.ViewDidAppear();
 
             UpdateAnalysisViewSubState();
+            SetupScrollFades();
+            UpdateScrollFadeVisibility();
+
+            ScrollView.ContentView.ScrollPoint(new CoreGraphics.CGPoint(0, 0));
         }
+
+        public override void ViewWillDisappear()
+        {
+            RemoveScrollFadeObservers();
+
+            base.ViewWillDisappear();
+        }
+
+        #region Scroll View Fades
+
+        NSObject scrollObserver;
+        NSObject documentFrameObserver;
+
+        void SetupScrollFades()
+        {
+            RemoveScrollFadeObservers();
+
+            if (ScrollView == null) return;
+
+            TopGradient.Edge = GUI.MacOS.CustomViews.FadeEdge.Top;
+            BottomGradient.Edge = GUI.MacOS.CustomViews.FadeEdge.Bottom;
+
+            var clipView = ScrollView.ContentView;
+            if (clipView != null)
+            {
+                clipView.PostsBoundsChangedNotifications = true;
+
+                scrollObserver = NSNotificationCenter.DefaultCenter.AddObserver(
+                    NSView.BoundsChangedNotification,
+                    _ => UpdateScrollFadeVisibility(),
+                    clipView);
+            }
+
+            AttachDocumentViewObserver();
+        }
+
+        void AttachDocumentViewObserver()
+        {
+            if (ScrollView?.DocumentView == null) return;
+
+            var documentView = ScrollView.DocumentView as NSView;
+            documentView.PostsFrameChangedNotifications = true;
+
+            documentFrameObserver = NSNotificationCenter.DefaultCenter.AddObserver(
+                NSView.FrameChangedNotification,
+                _ => UpdateScrollFadeVisibility(),
+                documentView);
+        }
+
+        void RemoveScrollFadeObservers()
+        {
+            if (scrollObserver != null)
+            {
+                NSNotificationCenter.DefaultCenter.RemoveObserver(scrollObserver);
+                scrollObserver = null;
+            }
+
+            if (documentFrameObserver != null)
+            {
+                NSNotificationCenter.DefaultCenter.RemoveObserver(documentFrameObserver);
+                documentFrameObserver = null;
+            }
+        }
+
+        void UpdateScrollFadeVisibility()
+        {
+            if (ScrollView?.ContentView == null || ScrollView.DocumentView == null)
+            {
+                if (TopGradient != null) TopGradient.Hidden = true;
+                if (BottomGradient != null) BottomGradient.Hidden = true;
+                return;
+            }
+
+            var clipView = ScrollView.ContentView;
+            var documentView = ScrollView.DocumentView as NSView;
+
+            documentView.LayoutSubtreeIfNeeded();
+
+            nfloat visibleHeight = clipView.Bounds.Height;
+            nfloat documentHeight = documentView.Frame.Height;
+            nfloat offsetY = clipView.Bounds.Y;
+
+            nfloat maxOffsetY = -NMath.Max(0, documentHeight - visibleHeight);
+            nfloat epsilon = 1.0f;
+
+            bool canScroll = documentHeight > visibleHeight + epsilon;
+            bool atTop = offsetY >= -epsilon;
+            bool atBottom = offsetY <= maxOffsetY + epsilon;
+
+            nfloat offsetFromTop = -offsetY;
+            nfloat offsetFromBottom = -maxOffsetY + offsetY;
+
+            Console.WriteLine($"{offsetY} {offsetFromTop} {offsetFromBottom}");
+
+            //TopGradient.MaxAlpha = NMath.Min(0.95f, offsetFromTop / 10f);
+            //BottomGradient.MaxAlpha = NMath.Min(0.95f, offsetFromBottom / 10f);
+
+            //TopGradient.NeedsDisplay = true;
+            //BottomGradient.NeedsDisplay = true;
+
+            TopGradient.Hidden = !canScroll || atTop;
+            BottomGradient.Hidden = !canScroll || atBottom;
+        }
+
+        #endregion
 
         private void TabView_DidSelect(object sender, NSTabViewItemEventArgs e)
         {
@@ -371,13 +481,13 @@ namespace AnalysisITC
 
         void SetupGraphView(ResultGraphView.ResultGraphType type)
         {
-            switch (type)
+            switch (DisplayedGraphType)
             {
                 case ResultGraphView.ResultGraphType.Parameters:
-                    Graph.Setup(type, AnalysisResult);
+                    Graph.Setup(DisplayedGraphType, AnalysisResult);
                     break;
                 case ResultGraphView.ResultGraphType.TemperatureDependence:
-                    Graph.Setup(type, AnalysisResult);
+                    Graph.Setup(DisplayedGraphType, AnalysisResult);
                     SetupAnalyisResultView(AnalysisResult.SpolarRecordAnalysis);
                     break;
                 case ResultGraphView.ResultGraphType.ProtonationAnalysis:
@@ -429,6 +539,13 @@ namespace AnalysisITC
                     }
                     break;
             }
+        }
+
+        private void DataManager_ResultSolutionSelectionDidChange(object sender, AppClasses.Analysis2.Models.SolutionInterface e)
+        {
+            if (e == null) return;
+
+            ResultsTableView.SelectRow((ResultsTableView.DataSource as ResultViewDataSource).Data.IndexOf(e), false);
         }
 
         void ToggleFitButtons(bool enable)
@@ -575,7 +692,7 @@ namespace AnalysisITC
 
             SetupResultView();
 
-            Graph.Invalidate();
+            SetupGraphView(DisplayedGraphType);
         }
 
         partial void CopyToClipboard(NSObject sender)
