@@ -211,13 +211,18 @@ namespace AnalysisITC
                                 $"[Syringe]: {data.SyringeConcentration.AsConcentration(ConcentrationUnit.µM, true)}",
                                 $"[Cell]: {data.CellConcentration.AsConcentration(ConcentrationUnit.µM, true)}",
                                 $"Model: {data.Solution?.ModelType}",
-                                $"Solution: {data.Solution?.SolutionName}"
+                                $"Solution: {data.Solution?.SolutionName}",
+                                $"Loss: {data.Solution?.SolutionName}"
                         };
                         if (data.Solution != null)
+                        {
+                            foreach (var par in data.Solution?.Parameters)
+                                if (!data.Solution.ReportParameters.ContainsKey(par.Key))
+                                    parameters.Add($"{par.Key} = {par.Value}");
+
                             foreach (var par in data.Solution?.ReportParameters)
-                            {
                                 parameters.Add($"{par.Key} = {par.Value}");
-                            }
+                        }
 
                         var pdfInfo = new CGPDFInfo
                         {
