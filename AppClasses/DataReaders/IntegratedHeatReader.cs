@@ -88,6 +88,7 @@ namespace DataReaders
                 Instrument = ITCInstrument.Unknown,
                 DataSourceFormat = ITCDataFormat.IntegratedHeats,
                 CellConcentration = new(cCell_M),
+                TargetTemperature = AppSettings.ReferenceTemperature,
             };
 
             // Unit scaling for Xt/Mt
@@ -111,57 +112,12 @@ namespace DataReaders
 
                 var vinj_L = r.InjV_uL * 1e-6; // uL -> L
                 var heat_J = r.Dh_kJ * 1000.0; // kJ -> J
-
-                // Injection moles: prefer DH/NDH if NDH present; else fall back to Csyr * Vinj.
-                var injMol = 0.0;
-                if (double.IsFinite(r.Ndh_kJ_per_mol) && Math.Abs(r.Ndh_kJ_per_mol) > 0)
-                    injMol = r.Dh_kJ / r.Ndh_kJ_per_mol;
-                else
-                    injMol = csyr_M * vinj_L;
-
-                // Update concentrations using mixing model
-                // var frac = (vcell_L > 0) ? (vinj_L / vcell_L) : 0.0;
-                // frac = Math.Clamp(frac, 0.0, 0.1); // protect against nonsense Vcell; 0.1 is conservative
-
-                var mt_post = r.Mt / 1000;
-                var xt_post = r.Xt / 1000;
-
-                var ratio_post = (mt_post > 0) ? (xt_post / mt_post) : 0.0;
-
-                // Create InjectionData using the CSV-ctor to ensure Experiment is set (other ctor leaves Experiment null)
-                // Format: ID,Include,Time,Volume,Delay,Duration,Temperature,IntegrationStartDelay,IntegrationLength
-                // Delay/Duration/Temp are dummy placeholders for "integrated-only" imports.
-                var csv = string.Format(
-                    Inv,
-                    "{0},1,{1},{2},{3},{4},{5},0,0",
-                    i,
-                    (float)i,
-                    vinj_L,
-                    300.0f,
-                    1.0f,
-                    25.0
-                );
-
-                //var inj = new InjectionData(data, csv)
-
                 var inj = new InjectionData(data, vinj_L);
-
-                //var inj = new InjectionData(data, i, vinj_L, injMol, true)
-                //{
-                //    //InjectionMass = injMol,
-                //    Ratio = ratio_post,
-                //    ActualCellConcentration = mt_post,
-                //    ActualTitrantConcentration = xt_post,
-                //};
 
                 inj.SetPeakArea(new FloatWithError(heat_J, 0));
 
-                //injs.Add(inj);
-
                 data.Injections.Add(inj);
             }
-
-            //data.Injections = injs;
 
             // We need to recalculate concentrations for precision 
             RawDataReader.ProcessInjections(data);
