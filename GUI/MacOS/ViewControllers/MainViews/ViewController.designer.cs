@@ -13,10 +13,16 @@ namespace AnalysisITC
 	partial class ViewController
 	{
 		[Outlet]
+		AppKit.NSStackView ButtonStackView { get; set; }
+
+		[Outlet]
 		AppKit.NSButton ClearDataButton { get; set; }
 
 		[Outlet]
 		AppKit.NSButton ContinueButton { get; set; }
+
+		[Outlet]
+		AppKit.NSButton EditAttributesButton { get; set; }
 
 		[Outlet]
 		AnalysisITC.GraphView GVC { get; set; }
@@ -48,6 +54,12 @@ namespace AnalysisITC
 		[Action ("ContinueClick:")]
 		partial void ContinueClick (Foundation.NSObject sender);
 
+		[Action ("DuplicateDataAction:")]
+		partial void DuplicateDataAction (Foundation.NSObject sender);
+
+		[Action ("EditAttributesAction:")]
+		partial void EditAttributesAction (Foundation.NSObject sender);
+
 		[Action ("LoadDataButtonClick:")]
 		partial void LoadDataButtonClick (Foundation.NSObject sender);
 
@@ -56,14 +68,12 @@ namespace AnalysisITC
 
 		[Action ("OpenFileButtonClick:")]
 		partial void OpenFileButtonClick (Foundation.NSObject sender);
+
+		[Action ("ToggleInclusionAction:")]
+		partial void ToggleInclusionAction (Foundation.NSObject sender);
 		
 		void ReleaseDesignerOutlets ()
 		{
-			if (LoadLastButton != null) {
-				LoadLastButton.Dispose ();
-				LoadLastButton = null;
-			}
-
 			if (ClearDataButton != null) {
 				ClearDataButton.Dispose ();
 				ClearDataButton = null;
@@ -102,6 +112,21 @@ namespace AnalysisITC
 			if (LoadDataPrompt != null) {
 				LoadDataPrompt.Dispose ();
 				LoadDataPrompt = null;
+			}
+
+			if (LoadLastButton != null) {
+				LoadLastButton.Dispose ();
+				LoadLastButton = null;
+			}
+
+			if (EditAttributesButton != null) {
+				EditAttributesButton.Dispose ();
+				EditAttributesButton = null;
+			}
+
+			if (ButtonStackView != null) {
+				ButtonStackView.Dispose ();
+				ButtonStackView = null;
 			}
 		}
 	}

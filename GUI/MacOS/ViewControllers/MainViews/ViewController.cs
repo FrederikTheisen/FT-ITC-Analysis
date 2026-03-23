@@ -11,6 +11,10 @@ namespace AnalysisITC
 {
     public partial class ViewController : NSViewController
     {
+        public static event EventHandler UpdateTable;
+
+        ExperimentData Data => DataManager.Current;
+
         public ViewController(IntPtr handle) : base(handle)
         {
         }
@@ -62,14 +66,7 @@ namespace AnalysisITC
                 DataReaders.DataReader.Read(AppSettings.LastDocumentUrls);
             }
             else DataReaders.DataReader.Read(AppSettings.LastDocumentUrl);
-
-            //LoadDataPrompt.Hidden = true;
         }
-
-        //partial void OpenFileButtonClick(NSObject sender)
-        //{
-        //    LoadDataPrompt.Hidden = true;
-        //}
 
         private void OnSelectionChanged(object sender, ExperimentData e) => UpdateGraph();
         private void OnDataChanged(object sender, ExperimentData e) => UpdateGraph();
@@ -78,13 +75,18 @@ namespace AnalysisITC
         {
             GVC.Initialize(DataManager.Current);
 
+            ButtonStackView.Hidden = (Data == null);
+
             UpdateLabel();
         }
 
         void UpdateLabel()
         {
-            if (GVC.Graph != null) InfoLabel.AttributedStringValue = Utilities.MacStrings.FromMarkDownString((GVC.Graph as FileInfoGraph).Info.Aggregate((s1, s2) => s1 + "\n" + s2), InfoLabel.Font);
-            else InfoLabel.StringValue = "";
+            if (Data == null) InfoLabel.StringValue = "";
+            else
+            {
+                InfoLabel.AttributedStringValue = Utilities.MacStrings.FromMarkDownString(string.Join(Environment.NewLine, DataManager.Current.GetInfoString()), InfoLabel.Font);
+            }
         }
 
         partial void ClearButtonClick(NSObject sender)
@@ -95,6 +97,28 @@ namespace AnalysisITC
         partial void ContinueClick(NSObject sender)
         {
             
+        }
+
+        partial void EditAttributesAction(NSObject sender)
+        {
+            ExperimentDetailsPopoverController.Data = DataManager.Current;
+
+            PerformSegue("DetailsSegue", this);
+        }
+
+        partial void ToggleInclusionAction(NSObject sender)
+        {
+            if (Data != null)
+                Data.Include = !Data.Include;
+
+            DataManager.InvokeDataInclusionDidChange();
+
+            UpdateTable?.Invoke(null, null);
+        }
+
+        partial void DuplicateDataAction(NSObject sender)
+        {
+            DataManager.DuplicateSelectedData(Data);
         }
 
         async void ShowLoadDataPrompt()
