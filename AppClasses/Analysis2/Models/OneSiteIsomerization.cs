@@ -21,7 +21,7 @@ namespace AnalysisITC.AppClasses.Analysis2.Models
 
             Parameters.AddOrUpdateParameter(ParameterType.Nvalue1, this.GuessN());
             Parameters.AddOrUpdateParameter(ParameterType.Enthalpy1, this.GuessEnthalpy());
-            Parameters.AddOrUpdateParameter(ParameterType.Affinity1, this.GuessAffinity());
+            Parameters.AddOrUpdateParameter(ParameterType.Affinity1, this.GuessLogAffinity());
             Parameters.AddOrUpdateParameter(ParameterType.Offset, this.GuessOffset());
             //Parameters.AddOrUpdateParameter(ParameterType.IsomerizationEquilibriumConstant, 0.42, islocked: true);
 

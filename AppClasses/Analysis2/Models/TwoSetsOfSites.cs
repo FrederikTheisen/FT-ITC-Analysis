@@ -17,8 +17,8 @@ namespace AnalysisITC.AppClasses.Analysis2.Models
         public double GuessN1() => 1;
         public double GuessN2() => 1;
 
-        public double GuessAffinity1() => 7;
-        public double GuessAffinity2() => 5;
+        public double GuessLogAffinity1() => Math.Log10(1 / (Data.CellConcentration / 100));
+        public double GuessLogAffinity2() => Math.Log10(1 / Data.CellConcentration);
 
         bool UseSyringeCorrectionMode => ModelOptions[AttributeKey.UseSyringeActiveFraction]?.BoolValue ?? false;
 
@@ -52,10 +52,10 @@ namespace AnalysisITC.AppClasses.Analysis2.Models
 
             Parameters.AddOrUpdateParameter(ParameterType.Nvalue1, PreviousOrDefault(ParameterType.Nvalue1, this.GuessN1()));
             Parameters.AddOrUpdateParameter(ParameterType.Enthalpy1, PreviousOrDefault(ParameterType.Enthalpy1, this.GuessEnthalpy()));
-            Parameters.AddOrUpdateParameter(ParameterType.Affinity1, PreviousOrDefault(ParameterType.Affinity1, this.GuessAffinity1()));
+            Parameters.AddOrUpdateParameter(ParameterType.Affinity1, PreviousOrDefault(ParameterType.Affinity1, this.GuessLogAffinity1()));
             Parameters.AddOrUpdateParameter(ParameterType.Nvalue2, PreviousOrDefault(ParameterType.Nvalue2, this.GuessN2()));
             Parameters.AddOrUpdateParameter(ParameterType.Enthalpy2, PreviousOrDefault(ParameterType.Enthalpy2, this.EnthalpyMax()));
-            Parameters.AddOrUpdateParameter(ParameterType.Affinity2, PreviousOrDefault(ParameterType.Affinity2, this.GuessAffinity2()));
+            Parameters.AddOrUpdateParameter(ParameterType.Affinity2, PreviousOrDefault(ParameterType.Affinity2, this.GuessLogAffinity2()));
             Parameters.AddOrUpdateParameter(ParameterType.Offset, PreviousOrDefault(ParameterType.Offset, this.GuessOffset()));
 
             ModelOptions.Add(ExperimentAttribute.Bool(AttributeKey.LockDuplicateParameter, AttributeKey.LockDuplicateParameter.GetProperties().Name, false).DictionaryEntry);

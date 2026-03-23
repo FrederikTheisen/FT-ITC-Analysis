@@ -20,6 +20,9 @@ namespace AnalysisITC.AppClasses.Analysis2.Models
     {
         public override AnalysisModel ModelType => AnalysisModel.Dissociation;
 
+        double Lt => Data.SyringeConcentration * Data.Injections.First(inj => inj.Include).Volume / Data.CellVolume;
+        public override double GuessAffinity() => 1 / Lt;
+        public override double GuessEnthalpy() => -3 * base.GuessEnthalpy();
         public Dissociation(ExperimentData data) : base(data)
         {
         }
@@ -29,7 +32,7 @@ namespace AnalysisITC.AppClasses.Analysis2.Models
             base.InitializeParameters(data);
 
             Parameters.AddOrUpdateParameter(ParameterType.Enthalpy1, PreviousOrDefault(ParameterType.Enthalpy1, GuessEnthalpy()));
-            Parameters.AddOrUpdateParameter(ParameterType.Affinity1, PreviousOrDefault(ParameterType.Affinity1, GuessAssociationConstant(data)));
+            Parameters.AddOrUpdateParameter(ParameterType.Affinity1, PreviousOrDefault(ParameterType.Affinity1, GuessLogAffinity()));
             Parameters.AddOrUpdateParameter(ParameterType.Offset, PreviousOrDefault(ParameterType.Offset, GuessOffset()));
         }
 
@@ -82,20 +85,6 @@ namespace AnalysisITC.AppClasses.Analysis2.Models
             if (x <= 0) return 0.0;
 
             return Ka * x * x;
-        }
-
-        double GuessAssociationConstant(ExperimentData data)
-        {
-            // Conservative default based on syringe concentration (if available).
-            // Guess Kd ~ 0.1 * C_syr  => Ka ~ 10 / C_syr
-            // Falls back to the generic affinity guess if syringe concentration is missing/invalid.
-            if (data.SyringeConcentration > 0)
-            {
-                var kdGuess = 0.1 * data.SyringeConcentration;
-                if (kdGuess > 0) return 1.0 / kdGuess;
-            }
-
-            return GuessAffinity();
         }
 
         public override Model GenerateSyntheticModel()

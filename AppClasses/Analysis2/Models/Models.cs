@@ -29,10 +29,11 @@ namespace AnalysisITC.AppClasses.Analysis2.Models
         public virtual double EnthalpyMax() => Data.Injections.Where(inj => inj.Include).OrderBy(inj => Math.Abs(inj.Enthalpy)).Last().Enthalpy - GuessOffset();
         public virtual double GuessOffset() => 0.8 * Data.Injections.Where(inj => inj.Include).TakeLast(2).Average(inj => inj.Enthalpy);
         public virtual double GuessN() => Data.Injections.Last().Ratio / 2;
-        public virtual double GuessAffinity() => 6.0;
+        public virtual double GuessAffinity() => 1000000;
+        public double GuessLogAffinity() => Math.Log10(GuessAffinity());
         public virtual double GuessAffinityAsGibbs()
         {
-            double logK = GuessAffinity();
+            double logK = GuessLogAffinity();
             double K = Math.Pow(10.0, logK);
             return -Energy.R * Data.MeasuredTemperatureKelvin * Math.Log(K);
         }
@@ -172,6 +173,9 @@ namespace AnalysisITC.AppClasses.Analysis2.Models
                 var res = Residual(inj);
 
                 if (errorweighted) res /= Math.Max(inj.SD, 1);
+
+                if (inj.SD < 1)
+                    Console.WriteLine(inj.SD);
 
                 loss += res * res;
             }
