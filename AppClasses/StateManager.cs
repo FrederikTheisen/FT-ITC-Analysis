@@ -95,7 +95,7 @@ namespace AnalysisITC
 
             switch (state)
             {
-                case ProgramState.Load: return DataManager.Current == null || (DataManager.Current != null && DataManager.Current.HasThermogram);
+                case ProgramState.Load: return true; // DataManager.Current == null || (DataManager.Current != null && DataManager.Current.HasThermogram);
                 case ProgramState.Process: return DataManager.Current != null && DataManager.Current.HasThermogram;
                 case ProgramState.Analyze: return DataManager.Current != null && DataManager.Current.CanBeAnalyzed;
                 case ProgramState.Publish: return DataManager.AnyDataIsAnalyzed;
