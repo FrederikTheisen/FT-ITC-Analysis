@@ -42,11 +42,12 @@ namespace AnalysisITC
             DataManager.AnalysisResultSelected += DataManager_AnalysisResultSelected;
             DataManager.RemoveListIndices += DataManager_RemoveListIndices;
 
-            ExperimentDataViewCell.ExpandDataButtonClicked += ExperimentDataViewCell_ExpandDataButtonClicked;
+            ExperimentDataViewCell.ExpandDataButtonClicked += ExperimentDataViewCell_ShowDetails;
             AnalysisResultView.ExpandDataButtonClicked += AnalysisResultView_ExpandDataButtonClicked;
 
             ExperimentDetailsPopoverController.UpdateTable += ExperimentDetailsPopoverController_UpdateTable;
             BindingAnalysisViewController.UpdateTable += ExperimentDetailsPopoverController_UpdateTable;
+            ViewController.UpdateTable += ExperimentDetailsPopoverController_UpdateTable;
 
             AnalysisITCDataSource.SourceWasSorted += AnalysisITCDataSource_SourceWasSorted;
         }
@@ -69,7 +70,7 @@ namespace AnalysisITC
             DataManager.SelectIndex(idx);
         }
 
-        private void ExperimentDataViewCell_ExpandDataButtonClicked(object sender, ExperimentData e)
+        private void ExperimentDataViewCell_ShowDetails(object sender, ExperimentData e)
         {
             ExperimentDetailsPopoverController.Data = e;
 

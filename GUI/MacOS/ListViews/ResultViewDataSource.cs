@@ -42,6 +42,13 @@ namespace AnalysisITC
         public ResultViewDelegate(ResultViewDataSource datasource)
         {
             this.DataSource = datasource;
+
+            DataManager.ResultSolutionSelectionDidChange += DataManager_ResultSolutionSelectionDidChange;
+        }
+
+        private void DataManager_ResultSolutionSelectionDidChange(object sender, SolutionInterface e)
+        {
+            
         }
 
         public override NSView GetViewForItem(NSTableView tableView, NSTableColumn tableColumn, nint row)

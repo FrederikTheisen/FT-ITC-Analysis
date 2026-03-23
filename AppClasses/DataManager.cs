@@ -11,6 +11,7 @@ namespace AnalysisITC
         public static EnergyUnit Unit { get; set; } = EnergyUnit.Joule;
 
         public static event EventHandler<ExperimentData> DataDidChange;
+        public static event EventHandler<ExperimentData> DataInclusionDidChange;
         public static event EventHandler<ExperimentData> SelectionDidChange;
         public static event EventHandler<AnalysisResult> AnalysisResultSelected;
         public static event EventHandler<int[]> RemoveListIndices;
@@ -18,14 +19,17 @@ namespace AnalysisITC
         public static event EventHandler<ExperimentData> ResultLinkedExperimentHighlightDidChange;
 
         public static SolutionInterface SelectedResultSolution { get; private set; }
-        public static ExperimentData SelectedSolutionExperiment => SelectedResultSolution?.Data;
+        public static ExperimentData SelectedSolutionExperimentHighlight => SelectedResultSolution?.Data;
+        public static List<ExperimentData> SelectedSolutionExperiments => SelectedIsResult ? (SourceItems[selectedContentIndex] as AnalysisResult).Solution.Solutions.Select(sol => sol.Data).ToList() : new List<ExperimentData>();
 
         public static AnalysisITCDataSource Source { get; private set; }
         public static List<ITCDataContainer> SourceItems => Source.Content;
+        public static List<ITCDataContainerDeletionLog> DeletedDataList { get; } = new List<ITCDataContainerDeletionLog>();
         public static List<AnalysisResult> Results => SourceItems.Where(o => o is AnalysisResult).Select(o => o as AnalysisResult).ToList();
         public static List<ExperimentData> Data => SourceItems.Where(o => o is ExperimentData).Select(o => o as ExperimentData).ToList();
         public static IEnumerable<ExperimentData> IncludedData => Data.Where(d => d.Include);
         public static ExperimentData Current => SelectedDataIndex == -1 || (SelectedDataIndex >= Count) ? null : Data[SelectedDataIndex];
+        public static AnalysisResult SelectedResult => SelectedIsResult ? (SourceItems[selectedContentIndex] as AnalysisResult) : null;
         public static bool SelectedIsData
         {
             get
@@ -34,8 +38,14 @@ namespace AnalysisITC
                 return SelectedContentIndex < SourceItems.Count && SourceItems[SelectedContentIndex] is ExperimentData;
             }
         }
-
-        public static List<ITCDataContainerDeletionLog> DeletedDataList { get; } = new List<ITCDataContainerDeletionLog>();
+        public static bool SelectedIsResult
+        {
+            get
+            {
+                if (SelectedContentIndex == -1) return false;
+                return SelectedContentIndex < SourceItems.Count && SourceItems[SelectedContentIndex] is AnalysisResult;
+            }
+        }
 
         public static bool StopProcessCopying { get; set; } = false;
 
@@ -103,10 +113,9 @@ namespace AnalysisITC
             if (ReferenceEquals(SelectedResultSolution, solution)) return;
 
             SelectedResultSolution = solution;
-            //highlightedResultExperiment = solution?.Data;
 
             ResultSolutionSelectionDidChange?.Invoke(null, SelectedResultSolution);
-            ResultLinkedExperimentHighlightDidChange?.Invoke(null, SelectedSolutionExperiment);
+            ResultLinkedExperimentHighlightDidChange?.Invoke(null, SelectedSolutionExperimentHighlight);
         }
 
         public static void ClearResultSolutionSelection()
@@ -224,6 +233,11 @@ namespace AnalysisITC
         public static void InvokeDataDidChange()
         {
             DataDidChange?.Invoke(null, null);
+        }
+
+        public static void InvokeDataInclusionDidChange()
+        {
+            DataInclusionDidChange?.Invoke(null, null);
         }
 
         public static void Clear()

@@ -6,13 +6,15 @@ using System.Linq;
 using CoreGraphics;
 using AnalysisITC.GUI.MacOS;
 using AnalysisITC.AppClasses.Analysis2.Models;
+using Utilities;
 
 namespace AnalysisITC
 {
 	public class ThermodynamicParameterBarPlot : GraphBase
 	{
-        AnalysisResult Result { get; set; }
+        public AnalysisResult Result { get; set; }
         GlobalSolution Solution => Result.Solution;
+        List<FeatureBoundingBox> FeatureBoundingBoxes = new List<FeatureBoundingBox>();
 
         GraphAxis DissociationConstantAxis { get; set; }
         double Mag { get; set; }
@@ -23,6 +25,8 @@ namespace AnalysisITC
         int DataCount => Result.Solution.Solutions.Count;
         float BinWidth = 0.8f;
         float CategoryWidth => BinWidth / DataCount;
+
+
 
         float GetBarPosition(ParameterType key, int dataindex)
         {
@@ -111,6 +115,7 @@ namespace AnalysisITC
         void Draw(CGContext gc)
         {
             //foreach (var par in Parameters) DrawParameter(gc, par);
+            FeatureBoundingBoxes.Clear();
 
             foreach (var sol in Solution.Solutions)
             {
@@ -148,7 +153,11 @@ namespace AnalysisITC
             var drawmode = (sol == DataManager.SelectedResultSolution ? CGPathDrawingMode.Stroke : CGPathDrawingMode.FillStroke);
 
             if (sol == DataManager.SelectedResultSolution)
-                color[0] = NSColor.ControlAccent.CGColor;
+            {
+                var c = NSColor.ControlAccent.CGColor;
+                color[0] = MacColors.Adjust(c, -7);
+                color[1] = c;
+            }
 
             foreach (var key in Parameters)
             {
@@ -162,8 +171,10 @@ namespace AnalysisITC
 
                 points[index] = barpoint;
 
-                AddBarToLayer(barlayer, axis, barpoint, barwidth);
+                var rect = AddBarToLayer(barlayer, axis, barpoint, barwidth);
                 AddErrorBarToLayer(errorlayer, barpoint, errorpoint, barwidth);
+
+                FeatureBoundingBoxes.Add(new FeatureBoundingBox(MouseOverFeatureEvent.FeatureType.Bar, rect, Solution.Solutions.IndexOf(sol), Frame.Location, (int)key));
             }
 
             barlayer.Context.SetFillColor(color[0]);
@@ -209,7 +220,7 @@ namespace AnalysisITC
             gc.DrawLayer(errorlayer, Origin);
         }
 
-        void AddBarToLayer(CGLayer layer, GraphAxis axis, CGPoint value, nfloat barwidth)
+        CGRect AddBarToLayer(CGLayer layer, GraphAxis axis, CGPoint value, nfloat barwidth)
         {
             var zero = GetRelativePosition(XAxis.Min, 0, axis).Y;
             var height = zero - value.Y;
@@ -219,6 +230,8 @@ namespace AnalysisITC
             var rect = new CGRect(value, new CGSize(barwidth, height));
 
             layer.Context.AddRect(rect);
+
+            return rect;
         }
 
         void AddErrorBarToLayer(CGLayer layer, CGPoint bartop, CGPoint error, nfloat barwidth)
@@ -230,6 +243,17 @@ namespace AnalysisITC
             path.AddLineToPoint(error + new CGSize(barwidth / 3, 0));
 
             layer.Context.AddPath(path);
+        }
+
+        public MouseOverFeatureEvent CursorFeatureFromPos(CGPoint cursorpos)
+        {
+            foreach (var feature in FeatureBoundingBoxes)
+            {
+                if (feature.CursorInBox(cursorpos))
+                    return new MouseOverFeatureEvent(feature);
+            }
+
+            return new MouseOverFeatureEvent();
         }
     }
 }

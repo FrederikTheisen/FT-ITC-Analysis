@@ -119,6 +119,11 @@ namespace AnalysisITC
             Invalidate();
         }
 
+        public void UpdateAxisUnits()
+        {
+
+        }
+
         public override void DrawRect(CGRect dirtyRect)
         {
             base.DrawRect(dirtyRect);
@@ -145,6 +150,44 @@ namespace AnalysisITC
             op.RunOperation();
 
             Graph.DrawOnWhite = _drawOnWhite;
+        }
+
+        public override void MouseMoved(NSEvent theEvent)
+        {
+            base.MouseMoved(theEvent);
+
+            if (Graph is ThermodynamicParameterBarPlot graph)
+            {
+                var b = graph.CursorFeatureFromPos(CursorPositionInView);
+
+                if (b.IsMouseOverFeature) NSCursor.PointingHandCursor.Set();
+                else NSCursor.ArrowCursor.Set();
+            }
+        }
+
+        public override void MouseDown(NSEvent theEvent)
+        {
+            base.MouseDown(theEvent);
+
+            if (Graph is ThermodynamicParameterBarPlot graph)
+            {
+                var b = graph.CursorFeatureFromPos(CursorPositionInView);
+
+                if (b.IsMouseOverFeature)
+                {
+                    NSCursor.PointingHandCursor.Set();
+                    var sol = graph.Result.Solution.Solutions[b.FeatureID];
+                    DataManager.SelectResultSolution(sol);
+                }
+                else NSCursor.ArrowCursor.Set();
+
+                Invalidate();
+            }
+        }
+
+        public override void MouseUp(NSEvent theEvent)
+        {
+            base.MouseUp(theEvent);
         }
 
         public enum ResultGraphType

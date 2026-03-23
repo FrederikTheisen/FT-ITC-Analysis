@@ -178,7 +178,7 @@ namespace Utilities
             offset = boxoffset;
         }
 
-        public bool Contains(CGPoint point) => Rect.Contains(point);
+        public bool Contains(CGPoint point) => Normalize(Rect).Contains(point);
 
         public bool CursorInBox(CGPoint cursorpos) => Contains(cursorpos.Subtract(offset));
 
@@ -194,6 +194,16 @@ namespace Utilities
                 case MouseOverFeatureEvent.FeatureType.IntegrationRangeMarker: return tdist < 10;
                 default: return false;
             }
+        }
+
+        static CGRect Normalize(CGRect r)
+        {
+            var x1 = Math.Min(r.X, r.X + r.Width);
+            var y1 = Math.Min(r.Y, r.Y + r.Height);
+            var x2 = Math.Max(r.X, r.X + r.Width);
+            var y2 = Math.Max(r.Y, r.Y + r.Height);
+
+            return new CGRect(x1, y1, x2 - x1, y2 - y1);
         }
     }
 
@@ -313,7 +323,8 @@ namespace Utilities
             IntegrationRangeMarker,
             BaselineSplinePoint,
             BaselineSplineHandle,
-            DragZoom
+            DragZoom,
+            Bar,
         }
     }
 

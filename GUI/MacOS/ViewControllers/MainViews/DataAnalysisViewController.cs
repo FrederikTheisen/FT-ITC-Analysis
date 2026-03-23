@@ -67,6 +67,7 @@ namespace AnalysisITC
             SolverInterface.BootstrapIterationFinished += Analysis_BootstrapIterationFinished;
             DataManager.SelectionDidChange += DataManager_SelectionDidChange;
             DataManager.DataDidChange += DataManager_DataDidChange;
+            DataManager.DataInclusionDidChange += DataManager_DataDidChange;
             SolverInterface.SolverUpdated += SolverInterface_SolverUpdated;
             AppDelegate.StartPrintOperation += AppDelegate_StartPrintOperation;
             AnalysisITCDataSource.SourceWasSorted += AnalysisITCDataSource_SourceWasSorted;

@@ -6,6 +6,8 @@ using Foundation;
 using AppKit;
 using CoreGraphics;
 using static AnalysisITC.AppClasses.Analysis2.Models.SolutionInterface;
+using AnalysisITC.GUI.MacOS;
+using AnalysisITC.GUI;
 
 namespace AnalysisITC
 {
@@ -21,16 +23,29 @@ namespace AnalysisITC
 		public bool IsDetailedViewOpen { get; set; } = false;
 
 		public event EventHandler<int> RemoveData;
-		public event EventHandler<int> ResizeRow;
 
 		public ExperimentDataViewCell (IntPtr handle) : base (handle)
 		{
 			Console.WriteLine("Constructed");
 
             DataManager.ResultLinkedExperimentHighlightDidChange += ResultHighlightChanged;
+            DataManager.AnalysisResultSelected += DataManager_AnalysisResultSelected;
         }
 
-		public void Setup(AnalysisITCDataSource source, ExperimentData data, int index)
+        public override void Layout()
+        {
+            base.Layout();
+
+            IncludeDataButton.Image = SideBarViewController.DataDisabledImage;
+            IncludeDataButton.AlternateImage = SideBarViewController.DataEnabledImage;
+        }
+
+        private void DataManager_AnalysisResultSelected(object sender, AnalysisResult e)
+        {
+			NeedsDisplay = true;
+        }
+
+        public void Setup(AnalysisITCDataSource source, ExperimentData data, int index)
         {
             if (this.data != null)
             {
@@ -77,7 +92,9 @@ namespace AnalysisITC
 				IncludeDataButton.State = data.Include ? NSCellStateValue.On : NSCellStateValue.Off;
 
 				SetValidSolutionLabeling();
-			});
+
+                LayoutSubtreeIfNeeded();
+            });
 		}
 
         private void Data_SolutionChanged(object sender, EventArgs e)
@@ -115,7 +132,9 @@ namespace AnalysisITC
 				}
 
 				ShowFitDataButton.Enabled = data.Solution != null;
-			});
+
+                LayoutSubtreeIfNeeded();
+            });
 		}
 
         partial void RemoveClick(NSObject obj)
@@ -138,7 +157,7 @@ namespace AnalysisITC
         {
 			data.Include = sender.State == NSCellStateValue.On;
 
-			DataManager.InvokeDataDidChange();
+			DataManager.InvokeDataInclusionDidChange();
         }
 
         partial void ViewDetails(NSObject sender)
@@ -149,14 +168,8 @@ namespace AnalysisITC
         void UpdateFitLineVisibility()
         {
 			ModelFitLine.Hidden = !IsDetailedViewOpen;
-			AffinityLine.Hidden = true;// !IsDetailedViewOpen;
-			EntropyLine.Hidden = true;//!IsDetailedViewOpen;
-            EnthalpyLine.Hidden = true;//!IsDetailedViewOpen;
-            NvalueLine.Hidden = true;//!IsDetailedViewOpen;
 
             SetValidSolutionLabeling();
-
-			ResizeRow?.Invoke(this, row);
 		}
 
         void ResultHighlightChanged(object sender, ExperimentData e)
@@ -165,6 +178,8 @@ namespace AnalysisITC
             {
                 SetSelectedSolutionHighlighting(e);
             });
+
+            NeedsDisplay = true;
         }
 
 		void SetSelectedSolutionHighlighting(ExperimentData highlight)
@@ -176,6 +191,12 @@ namespace AnalysisITC
 			ExpNameLabel.TextColor = color;
 			Line2.TextColor = color;
 			Line3.TextColor = color;
+
+            if (ReferenceEquals(data.Solution, DataManager.SelectedResultSolution))
+            {
+                ModelFitLine.TextColor = color;
+            }
+            else SetValidSolutionLabeling();
         }
 
         void SetValidSolutionLabeling()
@@ -184,10 +205,37 @@ namespace AnalysisITC
 			if (data.Solution != null) isvalid = data.Solution.IsValid;
 
 			ModelFitLine.TextColor = isvalid ? NSColor.Label : NSColor.SystemRed;
-			//AffinityLine.TextColor = isvalid ? NSColor.Label : NSColor.SystemRed;
-			//EntropyLine.TextColor = isvalid ? NSColor.Label : NSColor.SystemRed;
-			//EnthalpyLine.TextColor = isvalid ? NSColor.Label : NSColor.SystemRed;
-			//NvalueLine.TextColor = isvalid ? NSColor.Label : NSColor.SystemRed;
 		}
+
+        public override void DrawRect(CGRect dirtyRect)
+        {
+            base.DrawRect(dirtyRect);
+
+            if (DataManager.SelectedIsResult && DataManager.SelectedSolutionExperiments.Contains(data))
+			{
+				var gc = NSGraphicsContext.CurrentContext.CGContext;
+				HighlightPartOfSelectedResult(gc);
+            }
+        }
+
+		void HighlightPartOfSelectedResult(CGContext gc)
+		{
+            var solutions = DataManager.SelectedResult?.Solution.Solutions ?? new();
+            var color = solutions.Contains(data.Solution) ? NSColor.Label.CGColor : NSColor.SecondaryLabel.CGColor;
+
+            var stroke = MacColors.WithAlpha(color, 0.5f);
+            var fill = MacColors.WithAlpha(stroke, 0.1f);
+
+            var size = new CGSize(6, Frame.Size.Height + 5);
+            var rect = new CGRect(new CGPoint(-13.5f, -2.0), size);
+            CGPath path = CGPath.FromRoundedRect(rect, 3, 3);
+
+            gc.AddPath(path);
+            gc.SetLineWidth(0.5f);
+            gc.SetFillColor(fill);
+            gc.SetStrokeColor(stroke);
+
+            gc.DrawPath(CGPathDrawingMode.FillStroke);
+        }
     }
 }
