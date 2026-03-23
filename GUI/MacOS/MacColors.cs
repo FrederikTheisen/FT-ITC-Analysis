@@ -12,6 +12,8 @@ namespace AnalysisITC.GUI.MacOS
 		//public static List<NSColor[]> Waves { get; } = ToNSColorArray(AppColors.Waves);
 		//public static List<NSColor[]> Viridis { get; } = ToNSColorArray(AppColors.Viridis);
 
+		public static CGColor ColorToCG(Color color) => new(color.R/255f, color.G/255f, color.B/255f, color.A/255f);
+
 		static List<CGColor[]> ToNSColorArray(List<Color[]> colors)
 		{
 			List<CGColor[]> list = new List<CGColor[]>();
@@ -66,6 +68,40 @@ namespace AnalysisITC.GUI.MacOS
 
 			return new CGColor[] { NSColor.FromCalibratedRgb(c1.R, c1.G, c1.B).CGColor, NSColor.FromCalibratedRgb(c2.R, c2.G, c2.B).CGColor };
         }
+
+		public static CGColor Add(CGColor c1, CGColor c2)
+		{
+			var red = (float)Math.Clamp(c1.Components[0] + c2.Components[0], 0, 1);
+            var green = (float)Math.Clamp(c1.Components[1] + c2.Components[1], 0, 1);
+            var blue = (float)Math.Clamp(c1.Components[2] + c2.Components[2], 0, 1);
+
+			return new CGColor(red, green, blue);
+        }
+
+        public static CGColor Subtract(CGColor c1, CGColor c2)
+        {
+            var red = (float)Math.Clamp(c1.Components[0] - c2.Components[0], 0, 1);
+            var green = (float)Math.Clamp(c1.Components[1] - c2.Components[1], 0, 1);
+            var blue = (float)Math.Clamp(c1.Components[2] - c2.Components[2], 0, 1);
+
+            return new CGColor(red, green, blue);
+        }
+
+        public static CGColor Adjust(CGColor c1, float value)
+        {
+			if (Math.Abs(value) >= 1)
+			{
+				if (value < 0) return Subtract(c1, new CGColor(-value / 255f, -value / 255f, -value / 255f));
+                return Add(c1, new CGColor(value / 255f, value / 255f, value / 255f));
+			}
+			else if (value < 0) return Add(c1, new CGColor(-value, -value, -value));
+			else return Subtract(c1, new CGColor(value, value, value));
+        }
+
+		public static CGColor WithAlpha(CGColor color, float alpha)
+		{
+			return new CGColor(color, alpha);
+		}
     }
 }
 
