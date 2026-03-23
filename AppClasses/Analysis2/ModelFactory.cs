@@ -224,8 +224,6 @@ namespace AnalysisITC.AppClasses.Analysis2
 
         public void InitializeModel(ExperimentData data)
         {
-            AppEventHandler.Print($"Initializing SingleModelFactory for {data.FileName}...");
-
             if (data.Injections.Where(inj => inj.Include).Count() == 0) throw new HandledException(HandledException.Severity.Error, "No valid peaks", "Please check that not all peaks are excluded");
 
             var parameters = Model?.Parameters.Table.Where(p => p.Value.ChangedByUser);
@@ -279,8 +277,6 @@ namespace AnalysisITC.AppClasses.Analysis2
                     }
                 }
             }
-
-            AppEventHandler.Print("OK", 1);
         }
 
         public void ConstructModel(ExperimentData data)
@@ -379,7 +375,6 @@ namespace AnalysisITC.AppClasses.Analysis2
 
             foreach (var data in datas)
             {
-                Console.WriteLine("Adding data: " + data.FileName);
                 var factory = new SingleModelFactory(ModelType);
 
                 factory.InitializeModel(data);
@@ -561,7 +556,6 @@ namespace AnalysisITC.AppClasses.Analysis2
 
             foreach (var data in datas)
             {
-                Console.WriteLine("Adding data: " + data.FileName);
                 var factory = new SingleModelFactory(ModelType);
 
                 factory.InitializeModel(data);
