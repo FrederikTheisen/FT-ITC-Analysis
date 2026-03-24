@@ -62,6 +62,7 @@ namespace AnalysisITC
             }
             set => include = value;
         }
+        public void ToggleInclude() { include = !include; DataManager.InvokeUpdateDataViewCells(); }
 
         public double MeasuredTemperatureKelvin => 273.15 + MeasuredTemperature;
         public double TimeStep
