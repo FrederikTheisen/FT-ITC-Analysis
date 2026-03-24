@@ -9455,10 +9455,10 @@ Free Energy (∆G):</string>
                                                                                         <rect key="frame" x="0.0" y="130" width="364" height="5"/>
                                                                                     </box>
                                                                                     <stackView distribution="fill" orientation="horizontal" alignment="firstBaseline" horizontalStackHuggingPriority="249.99998474121094" verticalStackHuggingPriority="249.99998474121094" verticalCompressionResistancePriority="1000" detachesHiddenViews="YES" translatesAutoresizingMaskIntoConstraints="NO" id="ixs-Xw-KbB">
-                                                                                        <rect key="frame" x="10" y="107" width="344" height="21"/>
+                                                                                        <rect key="frame" x="10" y="106" width="344" height="22"/>
                                                                                         <subviews>
                                                                                             <textField focusRingType="none" horizontalHuggingPriority="249" verticalHuggingPriority="750" verticalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="PGC-jg-2fH">
-                                                                                                <rect key="frame" x="-2" y="2" width="207" height="16"/>
+                                                                                                <rect key="frame" x="-2" y="3" width="207" height="16"/>
                                                                                                 <textFieldCell key="cell" lineBreakMode="clipping" title="Evaluation temperature:" id="rsb-rJ-uif">
                                                                                                     <font key="font" metaFont="systemMedium" size="13"/>
                                                                                                     <color key="textColor" name="labelColor" catalog="System" colorSpace="catalog"/>
@@ -9466,19 +9466,19 @@ Free Energy (∆G):</string>
                                                                                                 </textFieldCell>
                                                                                             </textField>
                                                                                             <textField focusRingType="none" verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="iP8-01-JzG">
-                                                                                                <rect key="frame" x="211" y="0.0" width="100" height="21"/>
+                                                                                                <rect key="frame" x="211" y="0.0" width="100" height="22"/>
                                                                                                 <constraints>
                                                                                                     <constraint firstAttribute="width" constant="100" id="oGp-9U-iAe"/>
                                                                                                 </constraints>
-                                                                                                <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" sendsActionOnEndEditing="YES" state="on" borderStyle="bezel" focusRingType="none" alignment="right" title="25" placeholderString="25" drawsBackground="YES" id="CdS-FE-bFe">
+                                                                                                <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" sendsActionOnEndEditing="YES" state="on" borderStyle="bezel" focusRingType="none" alignment="right" title="25" placeholderString="25" bezelStyle="round" id="CdS-FE-bFe">
                                                                                                     <numberFormatter key="formatter" formatterBehavior="default10_4" numberStyle="decimal" formatWidth="-1" minimumIntegerDigits="1" maximumIntegerDigits="2000000000" maximumFractionDigits="3" id="MRd-a5-6bt"/>
                                                                                                     <font key="font" metaFont="systemMedium" size="13"/>
                                                                                                     <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
-                                                                                                    <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
+                                                                                                    <color key="backgroundColor" name="tertiarySystemFillColor" catalog="System" colorSpace="catalog"/>
                                                                                                 </textFieldCell>
                                                                                             </textField>
                                                                                             <textField focusRingType="none" horizontalHuggingPriority="251" verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="VaH-GV-coy">
-                                                                                                <rect key="frame" x="317" y="2" width="29" height="16"/>
+                                                                                                <rect key="frame" x="317" y="3" width="29" height="16"/>
                                                                                                 <constraints>
                                                                                                     <constraint firstAttribute="width" constant="25" id="86S-bq-qM5"/>
                                                                                                 </constraints>
@@ -9501,7 +9501,7 @@ Free Energy (∆G):</string>
                                                                                         </customSpacing>
                                                                                     </stackView>
                                                                                     <button horizontalHuggingPriority="249" verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="YDq-XC-lF9">
-                                                                                        <rect key="frame" x="3" y="76" width="358" height="32"/>
+                                                                                        <rect key="frame" x="3" y="75" width="358" height="32"/>
                                                                                         <buttonCell key="cell" type="push" title="Evaluate Parameters" bezelStyle="rounded" alignment="center" borderStyle="border" imageScaling="proportionallyDown" inset="2" id="nOg-WW-tZ7">
                                                                                             <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
                                                                                             <font key="font" metaFont="system"/>
@@ -9511,7 +9511,7 @@ Free Energy (∆G):</string>
                                                                                         </connections>
                                                                                     </button>
                                                                                     <textField focusRingType="none" horizontalHuggingPriority="249" verticalHuggingPriority="750" verticalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="KjK-ZR-Chq">
-                                                                                        <rect key="frame" x="8" y="63" width="348" height="16"/>
+                                                                                        <rect key="frame" x="8" y="62" width="348" height="16"/>
                                                                                         <textFieldCell key="cell" lineBreakMode="clipping" alignment="center" title="Parameters" id="IFe-jh-ITD">
                                                                                             <font key="font" metaFont="systemBold"/>
                                                                                             <color key="textColor" name="labelColor" catalog="System" colorSpace="catalog"/>
@@ -9519,10 +9519,10 @@ Free Energy (∆G):</string>
                                                                                         </textFieldCell>
                                                                                     </textField>
                                                                                     <stackView distribution="fill" orientation="horizontal" alignment="top" horizontalStackHuggingPriority="249.99998474121094" verticalStackHuggingPriority="249.99998474121094" verticalCompressionResistancePriority="1000" detachesHiddenViews="YES" translatesAutoresizingMaskIntoConstraints="NO" id="2yl-vz-Xcu">
-                                                                                        <rect key="frame" x="10" y="0.0" width="344" height="59"/>
+                                                                                        <rect key="frame" x="10" y="0.0" width="344" height="58"/>
                                                                                         <subviews>
                                                                                             <textField focusRingType="none" verticalHuggingPriority="249" horizontalCompressionResistancePriority="250" verticalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="l9G-Fu-2Pd">
-                                                                                                <rect key="frame" x="-2" y="0.0" width="98" height="59"/>
+                                                                                                <rect key="frame" x="-2" y="0.0" width="98" height="58"/>
                                                                                                 <textFieldCell key="cell" controlSize="small" id="hiL-4I-98x">
                                                                                                     <font key="font" metaFont="smallSystem"/>
                                                                                                     <string key="title">Enthalpy (∆H):
@@ -9534,7 +9534,7 @@ Affinity (Kd):</string>
                                                                                                 </textFieldCell>
                                                                                             </textField>
                                                                                             <textField focusRingType="none" horizontalHuggingPriority="249" verticalHuggingPriority="249" horizontalCompressionResistancePriority="250" translatesAutoresizingMaskIntoConstraints="NO" id="es5-b9-z2P">
-                                                                                                <rect key="frame" x="100" y="0.0" width="246" height="59"/>
+                                                                                                <rect key="frame" x="100" y="0.0" width="246" height="58"/>
                                                                                                 <textFieldCell key="cell" controlSize="small" selectable="YES" alignment="right" id="c2v-iz-L9h">
                                                                                                     <font key="font" metaFont="smallSystem"/>
                                                                                                     <string key="title">---
