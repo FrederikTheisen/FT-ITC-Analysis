@@ -169,7 +169,7 @@ namespace AnalysisITC
         {
 			ModelFitLine.Hidden = !IsDetailedViewOpen;
 
-            SetValidSolutionLabeling();
+            //SetValidSolutionLabeling();
 		}
 
         void ResultHighlightChanged(object sender, ExperimentData e)
