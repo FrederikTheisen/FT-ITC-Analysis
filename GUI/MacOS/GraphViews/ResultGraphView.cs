@@ -11,7 +11,7 @@ namespace AnalysisITC
 	public partial class ResultGraphView : NSGraph
 	{
         ResultGraphType Type { get; set; }
-
+        AnalysisResult Result { get; set; }
         new GraphBase Graph { get; set; }
 
         #region Constructors
@@ -33,6 +33,8 @@ namespace AnalysisITC
 
         public void Setup(ResultGraphType type, AnalysisResult result)
         {
+            Result = result;
+
             Type = type;
 
             switch (Type)
@@ -119,11 +121,6 @@ namespace AnalysisITC
             Invalidate();
         }
 
-        public void UpdateAxisUnits()
-        {
-
-        }
-
         public override void DrawRect(CGRect dirtyRect)
         {
             base.DrawRect(dirtyRect);
@@ -156,12 +153,18 @@ namespace AnalysisITC
         {
             base.MouseMoved(theEvent);
 
-            if (Graph is ThermodynamicParameterBarPlot graph)
+            switch (Graph)
             {
-                var b = graph.CursorFeatureFromPos(CursorPositionInView);
+                case TemperatureDependenceGraph:
+                case ThermodynamicParameterBarPlot:
+                    {
+                        var b = Graph.CursorFeatureFromPos(CursorPositionInView);
 
-                if (b.IsMouseOverFeature) NSCursor.PointingHandCursor.Set();
-                else NSCursor.ArrowCursor.Set();
+                        if (b.IsMouseOverFeature) NSCursor.PointingHandCursor.Set();
+                        else NSCursor.ArrowCursor.Set();
+                        break;
+                    }
+                default: break;
             }
         }
 
@@ -169,19 +172,28 @@ namespace AnalysisITC
         {
             base.MouseDown(theEvent);
 
-            if (Graph is ThermodynamicParameterBarPlot graph)
+            switch (Graph)
             {
-                var b = graph.CursorFeatureFromPos(CursorPositionInView);
+                case TemperatureDependenceGraph:
+                case ThermodynamicParameterBarPlot:
+                    {
+                        var feature = Graph.CursorFeatureFromPos(CursorPositionInView);
 
-                if (b.IsMouseOverFeature)
-                {
-                    NSCursor.PointingHandCursor.Set();
-                    var sol = graph.Result.Solution.Solutions[b.FeatureID];
-                    DataManager.SelectResultSolution(sol);
-                }
-                else NSCursor.ArrowCursor.Set();
+                        if (feature.IsMouseOverFeature)
+                        {
+                            NSCursor.PointingHandCursor.Set();
+                            var sol = Result.Solution.Solutions[feature.FeatureID];
 
-                Invalidate();
+                            if (theEvent.ClickCount == 2) sol.Data.ToggleInclude();
+
+                            DataManager.SelectResultSolution(sol);
+                        }
+                        else NSCursor.ArrowCursor.Set();
+
+                        Invalidate();
+                        break;
+                    }
+                default: break;
             }
         }
 

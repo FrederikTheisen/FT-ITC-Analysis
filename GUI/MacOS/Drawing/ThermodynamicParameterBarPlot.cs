@@ -155,8 +155,8 @@ namespace AnalysisITC
             if (sol == DataManager.SelectedResultSolution)
             {
                 var c = NSColor.ControlAccent.CGColor;
-                color[0] = MacColors.Adjust(c, -7);
-                color[1] = c;
+                color[1] = MacColors.Adjust(c, -40);
+                color[0] = c;
             }
 
             foreach (var key in Parameters)
@@ -211,7 +211,7 @@ namespace AnalysisITC
             layer.Context.AddPath(path);
         }
 
-        public MouseOverFeatureEvent CursorFeatureFromPos(CGPoint cursorpos)
+        public override MouseOverFeatureEvent CursorFeatureFromPos(CGPoint cursorpos, bool isclick = false, bool ismouseup = false)
         {
             foreach (var feature in FeatureBoundingBoxes)
             {

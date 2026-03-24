@@ -30,6 +30,17 @@ namespace AnalysisITC
 
             DataManager.ResultLinkedExperimentHighlightDidChange += ResultHighlightChanged;
             DataManager.AnalysisResultSelected += DataManager_AnalysisResultSelected;
+            DataManager.UpdateViewCells += DataManager_UpdateViewCells;
+        }
+
+        private void DataManager_UpdateViewCells(object sender, EventArgs e)
+        {
+            NSApplication.SharedApplication.InvokeOnMainThread(() =>
+            {
+                IncludeDataButton.State = data.Include ? NSCellStateValue.On : NSCellStateValue.Off;
+            });
+
+            NeedsDisplay = true;
         }
 
         public override void Layout()
@@ -176,6 +187,8 @@ namespace AnalysisITC
         {
             NSApplication.SharedApplication.InvokeOnMainThread(() =>
             {
+                IncludeDataButton.State = data.Include ? NSCellStateValue.On : NSCellStateValue.Off;
+
                 SetSelectedSolutionHighlighting(e);
             });
 

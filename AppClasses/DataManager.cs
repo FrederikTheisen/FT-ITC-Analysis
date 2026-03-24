@@ -17,6 +17,8 @@ namespace AnalysisITC
         public static event EventHandler<int[]> RemoveListIndices;
         public static event EventHandler<SolutionInterface> ResultSolutionSelectionDidChange;
         public static event EventHandler<ExperimentData> ResultLinkedExperimentHighlightDidChange;
+        public static event EventHandler UpdateTable;
+        public static event EventHandler UpdateViewCells;
 
         public static SolutionInterface SelectedResultSolution { get; private set; }
         public static ExperimentData SelectedSolutionExperimentHighlight => SelectedResultSolution?.Data;
@@ -238,6 +240,11 @@ namespace AnalysisITC
         public static void InvokeDataInclusionDidChange()
         {
             DataInclusionDidChange?.Invoke(null, null);
+        }
+
+        public static void InvokeUpdateDataViewCells()
+        {
+            UpdateViewCells?.Invoke(null, null);
         }
 
         public static void Clear()

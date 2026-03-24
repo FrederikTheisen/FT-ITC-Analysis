@@ -4,12 +4,16 @@ using CoreGraphics;
 using System.Collections.Generic;
 using System.Linq;
 using AnalysisITC.AppClasses.Analysis2;
+using Utilities;
+using AnalysisITC.GUI.MacOS;
 
 namespace AnalysisITC
 {
     public class TemperatureDependenceGraph : GraphBase
     {
         AnalysisResult Result { get; set; }
+
+        List<FeatureBoundingBox> FeatureBoundingBoxes = new List<FeatureBoundingBox>();
 
         public TemperatureDependenceGraph(AnalysisResult analysis, NSView view)
         {
@@ -30,6 +34,8 @@ namespace AnalysisITC
         public override void PrepareDraw(CGContext gc, CGPoint center)
         {
             this.Center = center;
+
+            FeatureBoundingBoxes.Clear();
 
             AutoSetFrame();
 
@@ -127,12 +133,34 @@ namespace AnalysisITC
 
         void DrawDataPoints(CGContext gc, ParameterType key, SymbolShape symbol, bool fill)
         {
+            const float size = 10;
+
             var layer = CGLayer.Create(gc, PlotSize);
             var points = new List<CGPoint>();
+            var selectedpoint = new List<CGPoint>();
 
-            foreach (var sol in Result.Solution.Solutions) points.Add(GetRelativePosition(sol.Temp, sol.ReportParameters[key]));
+            for (int i = 0; i < Result.Solution.Solutions.Count; i++)
+            {
+                var sol = Result.Solution.Solutions[i];
+                var dp = GetRelativePosition(sol.Temp, sol.ReportParameters[key]);
 
-            DrawSymbolsAtPositions(layer, points.ToArray(), 10, symbol, fill, 1, null, 0);
+                FeatureBoundingBoxes.Add(new FeatureBoundingBox(MouseOverFeatureEvent.FeatureType.DataPoint, dp, size * 0.66f, i, Frame.Location));
+
+                points.Add(dp);
+
+                if (sol == DataManager.SelectedResultSolution)
+                    selectedpoint.Add(dp);
+            }
+
+            DrawSymbolsAtPositions(layer, points.ToArray(), size, symbol, fill, 1, null, 0);
+
+            if (selectedpoint.Count > 0)
+            {
+                var color = NSColor.ControlAccent.CGColor;
+                var edge = MacColors.Adjust(color, -40);
+                DrawSymbolsAtPositions(layer, selectedpoint.ToArray(), size * 1.2f, symbol, true, 1, color, 0);
+                DrawSymbolsAtPositions(layer, selectedpoint.ToArray(), size * 1.2f, symbol, false, 0.5f, edge, 0);
+            }
 
             gc.DrawLayer(layer, Origin);
         }
@@ -204,6 +232,17 @@ namespace AnalysisITC
             layer.Context.FillPath();
 
             gc.DrawLayer(layer, Frame.Location);
+        }
+
+        public override MouseOverFeatureEvent CursorFeatureFromPos(CGPoint cursorpos, bool isclick = false, bool ismouseup = false)
+        {
+            foreach (var feature in FeatureBoundingBoxes)
+            {
+                if (feature.CursorInBox(cursorpos))
+                    return new MouseOverFeatureEvent(feature);
+            }
+
+            return new MouseOverFeatureEvent();
         }
     }
 }

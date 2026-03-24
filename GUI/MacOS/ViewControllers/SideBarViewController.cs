@@ -41,6 +41,7 @@ namespace AnalysisITC
             DataManager.SelectionDidChange += DataManager_SelectionDidChange;
             DataManager.AnalysisResultSelected += DataManager_AnalysisResultSelected;
             DataManager.RemoveListIndices += DataManager_RemoveListIndices;
+            DataManager.UpdateTable += ExperimentDetailsPopoverController_UpdateTable;
 
             ExperimentDataViewCell.ExpandDataButtonClicked += ExperimentDataViewCell_ShowDetails;
             AnalysisResultView.ExpandDataButtonClicked += AnalysisResultView_ExpandDataButtonClicked;

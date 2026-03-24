@@ -108,12 +108,11 @@ namespace AnalysisITC
 
         partial void ToggleInclusionAction(NSObject sender)
         {
-            if (Data != null)
-                Data.Include = !Data.Include;
+            if (Data == null) return;
+
+            Data.ToggleInclude();
 
             DataManager.InvokeDataInclusionDidChange();
-
-            UpdateTable?.Invoke(null, null);
         }
 
         partial void DuplicateDataAction(NSObject sender)
