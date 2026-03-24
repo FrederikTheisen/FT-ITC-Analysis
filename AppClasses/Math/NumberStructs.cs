@@ -7,15 +7,17 @@ namespace AnalysisITC
 {
     public struct FloatWithError : IComparable
     {
-        const double asymmetry_threshold = 0.15;
+        const double asymmetry_threshold = 0.13;
 
         public double Value { get; private set; }
         public double SD { get; private set; }
         public double[] DistributionConfidence95 { get; private set; }
+        public bool IsAsymmetric { get; private set; }
+
         public readonly double Lower => DistributionConfidence95?[0] ?? Value;
         public readonly double Upper => DistributionConfidence95?[1] ?? Value;
-
-        public bool IsAsymmetric { get; private set; }
+        private double LowerWidth => Value - Lower;
+        private double UpperWidth => Upper - Value;
 
         public readonly double FractionSD
         {
@@ -37,6 +39,12 @@ namespace AnalysisITC
 
         public readonly Energy Energy => new Energy(this);
 
+        private static double Quad(double a, double b)
+        {
+            return Math.Sqrt(a * a + b * b);
+        }
+
+
         public FloatWithError(double value = 0, double error = 0)
         {
             Value = value;
@@ -44,6 +52,18 @@ namespace AnalysisITC
             DistributionConfidence95 = new double[] { Value - 1.96 * SD, Value + 1.96 * SD };
 
             IsAsymmetric = false;
+        }
+
+        public FloatWithError(double value, double error, double lower, double upper)
+        {
+            Value = value;
+            SD = Math.Abs(error);
+            DistributionConfidence95 = new[] { lower, upper };
+
+            IsAsymmetric = false;
+
+            // Set proper intervals and asymmetry
+            SetConfidenceInterval(lower, upper);
         }
 
         public FloatWithError(IEnumerable<double> distribution, double? mean = null)
@@ -139,6 +159,17 @@ namespace AnalysisITC
             return new double[] { lowerValue, upperValue };
         }
 
+        /// <summary>
+        /// Set the confidence interval of the number. The lower value is set to index 0 and the higher index 1
+        /// </summary>
+        public void SetConfidenceInterval(double b1, double b2)
+        {
+            if (b1 > b2) DistributionConfidence95 = new[] { b2, b1 };
+            else DistributionConfidence95 = new[] { b1, b2 };
+
+            SetAsymmetricError();
+        }
+
         void SetAsymmetricError()
         {
             var score = GetConfidenceIntervalAsymmetryScore();
@@ -182,19 +213,27 @@ namespace AnalysisITC
             return Distribution.Normal(this, rand);
         }
 
+        #region operators
+
         public static FloatWithError operator +(FloatWithError v1, FloatWithError v2)
         {
             var v = v1.Value + v2.Value;
             var sd = Math.Sqrt(v1.SD * v1.SD + v2.SD * v2.SD);
 
-            return new FloatWithError(v, sd);
+            double lowerWidth = Quad(v1.LowerWidth, v2.LowerWidth);
+            double upperWidth = Quad(v1.UpperWidth, v2.UpperWidth);
+
+            double lowerCI = v - lowerWidth;
+            double upperCI = v + upperWidth;
+
+            return new FloatWithError(v, sd, lowerCI, upperCI);
         }
 
-        public static FloatWithError operator +(FloatWithError v1, double v2)
+        public static FloatWithError operator +(FloatWithError v1, double scalar)
         {
-            var v = v1.Value + v2;
+            var v = v1.Value + scalar;
 
-            return new FloatWithError(v, v1.SD);
+            return new FloatWithError(v, v1.SD, v1.Lower + scalar, v1.Upper + scalar);
         }
 
         public static FloatWithError operator -(FloatWithError v1, FloatWithError v2)
@@ -202,69 +241,53 @@ namespace AnalysisITC
             var v = v1.Value - v2.Value;
             var sd = Math.Sqrt(v1.SD * v1.SD + v2.SD * v2.SD);
 
-            return new FloatWithError(v, sd);
+            double lowerWidth = Quad(v1.LowerWidth, v2.UpperWidth);
+            double upperWidth = Quad(v1.UpperWidth, v2.LowerWidth);
+
+            double lowerCI = v - lowerWidth;
+            double upperCI = v + upperWidth;
+
+            return new FloatWithError(v, sd, lowerCI, upperCI);
         }
 
-        public static FloatWithError operator -(FloatWithError v1, double v2)
+        public static FloatWithError operator -(FloatWithError v1, double scalar)
         {
-            var v = v1.Value - v2;
+            var v = v1.Value - scalar;
 
-            return new FloatWithError(v, v1.SD);
+            return new FloatWithError(v, v1.SD, v1.Lower - scalar, v1.Upper - scalar);
         }
 
         public static FloatWithError operator /(FloatWithError v1, FloatWithError v2)
         {
-            var v = v1.Value / v2.Value;
-
-            if (v1.SD + v2.SD < double.Epsilon) return new FloatWithError(v, 0);
-            if (v1.SD < double.Epsilon) return new FloatWithError(v, v2.FractionSD * v);
-            if (v2.SD < double.Epsilon) return new FloatWithError(v, v1.FractionSD * v);
-
-            var fv1 = v1.FractionSD;
-            var fv2 = v2.FractionSD;
-
-            var sd = v * Math.Sqrt(fv1 * fv1 + fv2 * fv2);
-
-            return new FloatWithError(v, sd);
+            return FWEMath.Divide(v1, v2);
         }
 
-        public static FloatWithError operator /(FloatWithError v1, double v2)
+        public static FloatWithError operator /(FloatWithError v1, double scalar)
         {
-            var v = v1.Value / v2;
+            var v = v1.Value / scalar;
 
-            return new FloatWithError(v, v1.FractionSD * v);
+            return new FloatWithError(v, v1.FractionSD * v, v1.Lower / scalar, v1.Upper / scalar);
         }
 
-        public static FloatWithError operator /(double v1, FloatWithError v2)
+        public static FloatWithError operator /(double scalar, FloatWithError v2)
         {
-            var v = v1 / v2.Value;
+            var v = scalar / v2.Value;
 
-            return new FloatWithError(v, v2.FractionSD * v);
+            return new FloatWithError(v, v2.FractionSD * v, scalar / v2.Upper, scalar / v2.Lower);
         }
 
         public static FloatWithError operator *(FloatWithError v1, FloatWithError v2)
         {
-            var v = v1.Value * v2.Value;
-
-            if (v1.SD + v2.SD < double.Epsilon) return new FloatWithError(v, 0);
-            if (v1.SD < double.Epsilon) return new FloatWithError(v, v2.FractionSD * v);
-            if (v2.SD < double.Epsilon) return new FloatWithError(v, v1.FractionSD * v);
-
-            var fv1 = v1.FractionSD;
-            var fv2 = v2.FractionSD;
-
-            var sd = v * Math.Sqrt(fv1 * fv1 + fv2 * fv2);
-
-            return new FloatWithError(v, sd);
+            return FWEMath.Multiply(v1, v2);
         }
 
-        public static FloatWithError operator *(FloatWithError v1, double v2) => v2 * v1;
+        public static FloatWithError operator *(FloatWithError v1, double scalar) => scalar * v1;
 
-        public static FloatWithError operator *(double v2, FloatWithError v1)
+        public static FloatWithError operator *(double scalar, FloatWithError v1)
         {
-            var v = v1.Value * v2;
+            var v = v1.Value * scalar;
 
-            return new FloatWithError(v, v1.FractionSD * v);
+            return new FloatWithError(v, v1.FractionSD * v, scalar * v1.Lower, scalar * v1.Upper);
         }
 
         public static explicit operator FloatWithError(double v)
@@ -277,14 +300,11 @@ namespace AnalysisITC
             return v.Value;
         }
 
+        #endregion
+
         public override string ToString()
         {
             return ToString("G3") + " | " + (100 * FractionSD).ToString("F1") + "%";
-        }
-
-        public string AsSaveString()
-        {
-            return Value.ToString("G5") + "," + SD.ToString("G5");
         }
 
         public string ToString(string format = "F1")
