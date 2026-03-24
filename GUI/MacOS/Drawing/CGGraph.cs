@@ -1703,7 +1703,10 @@ namespace AnalysisITC
                 }
             }
 
-            var position = ExperimentData.Model.Evaluate(0) > ExperimentData.Model.Evaluate(ExperimentData.InjectionCount - 1) ? NSRectAlignment.TopTrailing : NSRectAlignment.BottomTrailing;
+            var first = ExperimentData.Model.Evaluate(0, withoffset: false);
+            var last = ExperimentData.Model.Evaluate(ExperimentData.InjectionCount - 1, withoffset: false);
+
+            var position = first > last ? NSRectAlignment.TopTrailing : NSRectAlignment.BottomTrailing;
 
             DrawTextBoxConsistent(gc, lines, DrawOnWhite ? new CTFont(DefaultFont.DisplayName, 12) : new CTFont(DefaultFont.DisplayName, ParameterFontSize), position);
         }
