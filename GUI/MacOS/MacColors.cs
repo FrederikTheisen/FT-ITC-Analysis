@@ -100,16 +100,16 @@ namespace AnalysisITC.GUI.MacOS
 
         public static CGColor Adjust(CGColor c1, float value)
         {
-			if (Math.Abs(value) >= 1)
-			{
-				if (value < 0) return Subtract(c1, new CGColor(-value / 255f, -value / 255f, -value / 255f));
-                return Add(c1, new CGColor(value / 255f, value / 255f, value / 255f));
-			}
-			else if (value < 0) return Add(c1, new CGColor(-value, -value, -value));
-			else return Subtract(c1, new CGColor(value, value, value));
+			if (value < 0) return Subtract(c1, new CGColor(-value, -value, -value));
+			else return Add(c1, new CGColor(value, value, value));
         }
 
-		public static CGColor WithAlpha(CGColor color, float alpha)
+        public static CGColor Adjust(CGColor c1, int value)
+        {
+			return Adjust(c1, value / 255f);
+        }
+
+        public static CGColor WithAlpha(CGColor color, float alpha)
 		{
 			return new CGColor(color, alpha);
 		}
