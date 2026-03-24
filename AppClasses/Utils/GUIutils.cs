@@ -178,6 +178,15 @@ namespace Utilities
             offset = boxoffset;
         }
 
+        public FeatureBoundingBox(MouseOverFeatureEvent.FeatureType type, CGPoint point, float size, int id, CGPoint boxoffset, int sid = -1)
+        {
+            Type = type;
+            Rect = CGRect.FromLTRB(point.X - size, point.Y + size, point.X + size, point.Y - size);
+            FeatureID = id;
+            SubID = sid;
+            offset = boxoffset;
+        }
+
         public bool Contains(CGPoint point) => Normalize(Rect).Contains(point);
 
         public bool CursorInBox(CGPoint cursorpos) => Contains(cursorpos.Subtract(offset));
@@ -272,6 +281,7 @@ namespace Utilities
             FeatureID = inj.ID;
 
             tooltiplines.Add("Inj #" + (inj.ID + 1));
+            tooltiplines.Add($"Volume: {inj.Volume * 1000000:1F} µl");
             //tooltiplines.Add("Time: " + inj.Time.ToString("F1") + "s");
             tooltiplines.Add(graph.XAxis.LegendTitle + ": " + (graph.XAxis.ValueFactor * inj.Ratio).ToString("F2"));
             tooltiplines.Add("Enthalpy: " + inj.Enthalpy2.ToFormattedString(AppSettings.EnergyUnit, withunit: true, permole: true));
@@ -290,7 +300,8 @@ namespace Utilities
             int spaces = 2 * (longest - timestring.Length) - tooltiplines[0].Length;
             if (spaces < 1) spaces = 1;
 
-            tooltiplines[0] += new string(' ', spaces) + timestring;
+            if (inj.Experiment.HasThermogram)
+                tooltiplines[0] += new string(' ', spaces) + timestring;
         }
 
         public static MouseOverFeatureEvent BoundboxFeature(FeatureBoundingBox box, CGPoint cursorpos)
@@ -325,6 +336,7 @@ namespace Utilities
             BaselineSplineHandle,
             DragZoom,
             Bar,
+            DataPoint,
         }
     }
 
