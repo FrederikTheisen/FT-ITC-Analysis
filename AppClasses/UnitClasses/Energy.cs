@@ -129,12 +129,12 @@ namespace AnalysisITC
             return suffix;
         }
 
-        public string ToFormattedString(EnergyUnit unit, bool withunit = true, bool permole = false, bool perK = false)
+        public string ToFormattedString(EnergyUnit unit, bool withunit = true, bool permole = false, bool perK = false, bool withci = false)
         {
             var suffix = withunit ? unit.GetUnit() : "";
             suffix += Suffix(permole, perK);
 
-            return FloatWithError.AsFormattedEnergy(unit, suffix, withunit);
+            return FloatWithError.AsFormattedEnergy(unit, suffix, withunit, withci);
         }
 
         public string ToString(EnergyUnit unit, string formatter, bool withunit = true, bool permole = false, bool perK = false)

@@ -506,7 +506,7 @@ namespace AnalysisITC
 
                 var unit = EnergyUnit;
 
-                var s = await Task.Run(() =>
+                var (evaluated_parameters, tooltip) = await Task.Run(() =>
                 {
                     Energy H = new Energy(Solution.TemperatureDependence[AppClasses.Analysis2.ParameterType.Enthalpy1].Evaluate(T, 100000));
                     Energy S = new Energy(Solution.TemperatureDependence[AppClasses.Analysis2.ParameterType.EntropyContribution1].Evaluate(T, 100000));
@@ -527,34 +527,54 @@ namespace AnalysisITC
                         G.ToFormattedString(unit, permole: true),
                         Kd.AsFormattedConcentration(true)
                     };
+                    var tooltiplines = new List<string>()
+                    {
+                        $"∆H = {H.ToFormattedString(unit, permole: true, withci: true)}",
+                        $"-T∆S = {S.ToFormattedString(unit, permole: true, withci: true)}",
+                        $"∆G = {G.ToFormattedString(unit, permole: true, withci: true)}",
+                        $"Kd = {Kd.AsFormattedConcentration(true, withci: true)}",
+                    };
 
-                    if (H2 != null) lines.Add(((Energy)H2).ToFormattedString(unit, permole: true));
-                    if (S2 != null) lines.Add(((Energy)S2).ToFormattedString(unit, permole: true));
+                    if (H2 != null)
+                    {
+                        lines.Add(((Energy)H2).ToFormattedString(unit, permole: true));
+                        tooltiplines.Add($"∆H2 = {((Energy)H2).ToFormattedString(unit, permole: true, withci: true)}");
+                    }
+                    if (S2 != null)
+                    {
+                        lines.Add(((Energy)S2).ToFormattedString(unit, permole: true));
+                        tooltiplines.Add($"-T∆S2 = {((Energy)S2).ToFormattedString(unit, permole: true, withci: true)}");
+                    }
                     if (G2 != null)
                     {
                         lines.Add(((Energy)G2).ToFormattedString(unit, permole: true));
+                        tooltiplines.Add($"∆G2 = {((Energy)G2).ToFormattedString(unit, permole: true, withci: true)}");
 
                         var kdexponent2 = (Energy)G2 / (T * Energy.R);
                         var Kd2 = FWEMath.Exp(kdexponent2.FloatWithError);
 
                         lines.Add(Kd2.AsFormattedConcentration(true));
+                        tooltiplines.Add($"Kd2 = {Kd2.AsFormattedConcentration(true, withci: true)}");
                     }
 
                     if (AnalysisResult.IsTemperatureDependenceEnabled)
                     {
-                        lines.Insert(0, AnalysisResult.Solution.TemperatureDependence[ParameterType.Enthalpy1].Slope.Energy.ToFormattedString(unit, true, true, true));
+                        var dcp1 = AnalysisResult.Solution.TemperatureDependence[ParameterType.Enthalpy1].Slope.Energy;
+                        lines.Insert(0, dcp1.ToFormattedString(unit, true, true, true));
+                        tooltiplines.Insert(0, $"∆Cp = {dcp1.ToFormattedString(unit, true, true, true, true)}");
                         if (H2 != null)
                         {
-                            lines.Insert(0, AnalysisResult.Solution.TemperatureDependence[ParameterType.Enthalpy2].Slope.Energy.ToFormattedString(unit, true, true, true));
+                            var dcp2 = AnalysisResult.Solution.TemperatureDependence[ParameterType.Enthalpy2].Slope.Energy;
+                            lines.Insert(0, dcp2.ToFormattedString(unit, true, true, true));
+                            tooltiplines.Insert(0, $"∆Cp = {dcp2.ToFormattedString(unit, true, true, true, true)}");
                         }
                     }
 
-                    return string.Join(Environment.NewLine, lines);
+                    return (string.Join(Environment.NewLine, lines), string.Join(Environment.NewLine, tooltiplines));
                 });
 
-
-
-                EvaluationOutputLabel.StringValue = s;
+                EvaluationOutputLabel.StringValue = evaluated_parameters;
+                EvaluationOutputLabel.ToolTip = tooltip;
 
                 StatusBarManager.StopIndeterminateProgress();
                 StatusBarManager.ClearAppStatus();

@@ -9,6 +9,8 @@ namespace AnalysisITC
     {
         const double asymmetry_threshold = 0.13;
 
+        private double asymmscore = 0.0;
+
         public double Value { get; private set; }
         public double SD { get; private set; }
         public double[] DistributionConfidence95 { get; private set; }
@@ -172,12 +174,12 @@ namespace AnalysisITC
 
         void SetAsymmetricError()
         {
-            var score = GetConfidenceIntervalAsymmetryScore();
+            asymmscore = GetConfidenceIntervalAsymmetryScore();
 
-            if (double.IsNaN(score)) IsAsymmetric = false;
+            if (double.IsNaN(asymmscore)) IsAsymmetric = false;
             else
             {
-                IsAsymmetric = score >= asymmetry_threshold;
+                IsAsymmetric = asymmscore >= asymmetry_threshold;
             }
         }
 
@@ -315,7 +317,7 @@ namespace AnalysisITC
 
         public string AsNumber()
         {
-            return WithMod(1, "", false);
+            return WithMod(1, "", false, false);
         }
 
         public string AsConcentration(ConcentrationUnit unit, bool withunit = true)
@@ -336,16 +338,16 @@ namespace AnalysisITC
                 return s;
             }
         }
-        public string AsFormattedConcentration(bool withunit) => AsFormattedConcentration(ConcentrationUnitAttribute.FromConc(this.Value), withunit);
-        public string AsFormattedConcentration(ConcentrationUnit unit, bool withunit = true) => WithMod(unit.GetMod(), unit.GetName(), withunit);
+        public string AsFormattedConcentration(bool withunit, bool withci = false) => AsFormattedConcentration(ConcentrationUnitAttribute.FromConc(this.Value), withunit, withci);
+        public string AsFormattedConcentration(ConcentrationUnit unit, bool withunit = true, bool withci = false) => WithMod(unit.GetMod(), unit.GetName(), withunit, withci);
 
-        public string AsFormattedEnergy(EnergyUnit unit, string suffix, bool withunit = true) => WithMod(unit.GetMod(), suffix, withunit);
+        public string AsFormattedEnergy(EnergyUnit unit, string suffix, bool withunit = true, bool withci = false) => WithMod(unit.GetMod(), suffix, withunit, withci);
 
-        string WithMod(double mod, string unit, bool withunit)
+        string WithMod(double mod, string unit, bool withunit, bool withci)
         {
             var value = mod * this;
             double logerror;
-
+            string s;
             switch (AppSettings.NumberPrecision)
             {
                 case NumberPrecision.Standard when HasError:
@@ -355,9 +357,13 @@ namespace AnalysisITC
                     logerror = Math.Log10(value.SD);
                     break;
                 case NumberPrecision.SingleDecimal:
-                    return withunit ? value.ToString("F1") + " " + unit : value.ToString("F1");
+                    s = withunit ? value.ToString("F1") + " " + unit : value.ToString("F1");
+                    if (withci) s += $" [{value.Lower:F1} - {value.Upper:F1}";
+                    return s;
                 case NumberPrecision.AllDecimals:
-                    return withunit ? value.ToString("G5") + " " + unit : value.ToString("G5");
+                    s = withunit ? value.ToString("G5") + " " + unit : value.ToString("G5");
+                    if (withci) s += $" [{value.Lower:G5} - {value.Upper:G5}";
+                    return s;
                 default: return withunit ? value.Value.ToString("G5") + " " + unit : value.Value.ToString("G5");
             }
 
@@ -369,7 +375,11 @@ namespace AnalysisITC
             double roundedError = FWEMath.RoundApproximate(value.SD / scale) * scale;
             var output = roundedNumber.ToString(formatString) + " ± " + roundedError.ToString(formatString);
 
-            return withunit ? output + " " + unit : output;
+            s = withunit ? output + " " + unit : output;
+
+            if (withci) s += $" [{value.Lower.ToString(formatString)} - {value.Upper.ToString(formatString)}]";
+
+            return s;
         }
 
         public int CompareTo(object obj)
