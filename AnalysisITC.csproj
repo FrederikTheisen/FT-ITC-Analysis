@@ -30,11 +30,12 @@
     <UseSGen>true</UseSGen>
     <UseRefCounting>true</UseRefCounting>
     <AOTMode>None</AOTMode>
-    <LangVersion>9.0</LangVersion>
+    <LangVersion>10.0</LangVersion>
     <LinkMode>None</LinkMode>
     <PackageSigningKey>3rd Party Mac Developer Installer</PackageSigningKey>
     <CodesignProvision></CodesignProvision>
     <NoWarn>MMP</NoWarn>
+    <XamMacArch></XamMacArch>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
     <Optimize>true</Optimize>
@@ -50,7 +51,8 @@
     <CodeSignEntitlements>Entitlements.plist</CodeSignEntitlements>
     <LinkMode>None</LinkMode>
     <AOTMode>None</AOTMode>
-    <LangVersion>9.0</LangVersion>
+    <LangVersion>10.0</LangVersion>
+    <XamMacArch></XamMacArch>
   </PropertyGroup>
   <ItemGroup>
     <Reference Include="System">
