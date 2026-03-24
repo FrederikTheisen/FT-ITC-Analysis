@@ -43,6 +43,9 @@ namespace AnalysisITC
 		AnalysisITC.ResultGraphView Graph { get; set; }
 
 		[Outlet]
+		AppKit.NSTextField LabelWithQuinaryColor { get; set; }
+
+		[Outlet]
 		AppKit.NSTextField ProtonationAnalysisOutput { get; set; }
 
 		[Outlet]
@@ -239,6 +242,11 @@ namespace AnalysisITC
 			if (TopGradient != null) {
 				TopGradient.Dispose ();
 				TopGradient = null;
+			}
+
+			if (LabelWithQuinaryColor != null) {
+				LabelWithQuinaryColor.Dispose ();
+				LabelWithQuinaryColor = null;
 			}
 		}
 	}

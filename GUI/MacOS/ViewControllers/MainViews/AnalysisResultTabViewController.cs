@@ -71,15 +71,15 @@ namespace AnalysisITC
             base.ViewDidAppear();
 
             UpdateAnalysisViewSubState();
-            SetupScrollFades();
-            UpdateScrollFadeVisibility();
+            //SetupScrollFades();
+            //UpdateScrollFadeVisibility();
 
             ScrollView.ContentView.ScrollPoint(new CoreGraphics.CGPoint(0, 0));
         }
 
         public override void ViewWillDisappear()
         {
-            RemoveScrollFadeObservers();
+            //RemoveScrollFadeObservers();
 
             base.ViewWillDisappear();
         }
@@ -97,6 +97,11 @@ namespace AnalysisITC
 
             TopGradient.Edge = GUI.MacOS.CustomViews.FadeEdge.Top;
             BottomGradient.Edge = GUI.MacOS.CustomViews.FadeEdge.Bottom;
+
+            var c = View.Window.BackgroundColor;
+
+            TopGradient.BaseColor = c;
+            BottomGradient.BaseColor = c;
 
             var clipView = ScrollView.ContentView;
             if (clipView != null)
@@ -167,17 +172,11 @@ namespace AnalysisITC
 
             nfloat offsetFromTop = -offsetY;
             nfloat offsetFromBottom = -maxOffsetY + offsetY;
-
-            Console.WriteLine($"{offsetY} {offsetFromTop} {offsetFromBottom}");
-
             //TopGradient.MaxAlpha = NMath.Min(0.95f, offsetFromTop / 10f);
             //BottomGradient.MaxAlpha = NMath.Min(0.95f, offsetFromBottom / 10f);
 
-            //TopGradient.NeedsDisplay = true;
-            //BottomGradient.NeedsDisplay = true;
-
-            TopGradient.Hidden = !canScroll || atTop;
-            BottomGradient.Hidden = !canScroll || atBottom;
+            TopGradient.Hidden = true; // !canScroll || atTop;
+            BottomGradient.Hidden = true; // !canScroll || atBottom;
         }
 
         #endregion

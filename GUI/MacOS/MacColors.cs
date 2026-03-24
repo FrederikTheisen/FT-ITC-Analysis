@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Drawing;
 using AppKit;
 using CoreGraphics;
+using ObjCRuntime;
 
 namespace AnalysisITC.GUI.MacOS
 {
@@ -12,9 +13,19 @@ namespace AnalysisITC.GUI.MacOS
 		//public static List<NSColor[]> Waves { get; } = ToNSColorArray(AppColors.Waves);
 		//public static List<NSColor[]> Viridis { get; } = ToNSColorArray(AppColors.Viridis);
 
-		public static CGColor ColorToCG(Color color) => new(color.R/255f, color.G/255f, color.B/255f, color.A/255f);
+		public static readonly NSColor FadeDark = NSColor.FromCalibratedRgb(35, 35, 35);
+        public static readonly NSColor FadeLight = NSColor.Grid;
 
-		static List<CGColor[]> ToNSColorArray(List<Color[]> colors)
+        public static CGColor ColorToCG(Color color) => new(color.R/255f, color.G/255f, color.B/255f, color.A/255f);
+
+        public static NSColor ResolveAdaptive(NSColor light, NSColor dark)
+        {
+			bool b = NSAppearance.CurrentAppearance.Name == NSAppearance.NameDarkAqua;
+
+            return b ? dark : light;
+        }
+
+        static List<CGColor[]> ToNSColorArray(List<Color[]> colors)
 		{
 			List<CGColor[]> list = new List<CGColor[]>();
 

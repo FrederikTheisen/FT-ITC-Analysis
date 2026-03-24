@@ -523,6 +523,10 @@
     <Compile Include="GUI\MacOS\CustomViews\ScrollHintFadeView.designer.cs">
       <DependentUpon>ScrollHintFadeView.cs</DependentUpon>
     </Compile>
+    <Compile Include="GUI\MacOS\CustomViews\FadingScrollView.cs" />
+    <Compile Include="GUI\MacOS\CustomViews\FadingScrollView.designer.cs">
+      <DependentUpon>FadingScrollView.cs</DependentUpon>
+    </Compile>
   </ItemGroup>
   <ItemGroup>
     <InterfaceDefinition Include="Main.storyboard" />

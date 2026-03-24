@@ -18,7 +18,7 @@ namespace AnalysisITC.GUI.MacOS.CustomViews
         public FadeEdge Edge { get; set; } = FadeEdge.Bottom;
 
         // Use a semantic system color so it matches light/dark mode reasonably well.
-        public NSColor BaseColor { get; set; } = NSColor.Grid;
+        public NSColor BaseColor { get; set; } = NSColor.UnderPageBackground; //= NSColor.FromName("quinarySystemFill"); // MacColors.ResolveAdaptive(MacColors.FadeLight, MacColors.FadeDark);
 
         // How strong the fade should be at the solid edge.
         public nfloat MaxAlpha { get; set; } = 1f;
