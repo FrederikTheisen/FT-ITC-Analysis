@@ -459,6 +459,11 @@ namespace AnalysisITC
             return size;
         }
 
+        public virtual MouseOverFeatureEvent CursorFeatureFromPos(CGPoint cursorpos, bool isclick = false, bool ismouseup = false)
+        {
+            return new MouseOverFeatureEvent();
+        }
+
         public enum SymbolShape
         {
             Square,
@@ -768,11 +773,6 @@ namespace AnalysisITC
 
         #endregion
         #endregion
-
-        public virtual MouseOverFeatureEvent CursorFeatureFromPos(CGPoint cursorpos, bool isclick = false, bool ismouseup = false)
-        {
-            return new MouseOverFeatureEvent();
-        }
     }
 
     public class DataGraph : CGGraph
