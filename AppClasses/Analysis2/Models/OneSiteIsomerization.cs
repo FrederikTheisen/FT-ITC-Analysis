@@ -170,12 +170,11 @@ namespace AnalysisITC.AppClasses.Analysis2.Models
             public FloatWithError K_app => Parameters[ParameterType.Affinity1];
             public FloatWithError K => 1/(Kd_app / (1 + 1/IsomerizationEquilibriumConstant));
             public FloatWithError N => Parameters[ParameterType.Nvalue1];
-            public Energy Offset => Parameters[ParameterType.Offset].Energy;
             public FloatWithError PercentageCis => Model.ModelOptions[AttributeKey.Percentage].ParameterValue;
             public FloatWithError IsomerizationEquilibriumConstant => PercentageCis / (1 - PercentageCis);
 
-            public FloatWithError Kd => new FloatWithError(1) / K;
-            public FloatWithError Kd_app => new FloatWithError(1) / K_app;
+            public FloatWithError Kd => 1.0 / K;
+            public FloatWithError Kd_app => 1.0 / K_app;
             public Energy GibbsFreeEnergy => new(-1.0 * Energy.R.FloatWithError * TempKelvin * FWEMath.Log(K));
             public Energy TdS => GibbsFreeEnergy - Enthalpy;
             public Energy Entropy => TdS / TempKelvin;

@@ -180,13 +180,13 @@ namespace AnalysisITC.AppClasses.Analysis2.Models
             public FloatWithError N => Parameters[ParameterType.Nvalue1];
             //public Energy Offset => Parameters[ParameterType.Offset].Energy;
 
-            public FloatWithError Kd => new FloatWithError(1) / K;
+            public FloatWithError Kd => 1.0 / K;
             public Energy GibbsFreeEnergy => new(-1.0 * Energy.R.FloatWithError * TempKelvin * FWEMath.Log(K));
             public Energy TdS => GibbsFreeEnergy - Enthalpy;
             public Energy Entropy => TdS / TempKelvin;
 
             public FloatWithError Kapp => K / (FWEMath.Pow(10, opt[AttributeKey.PreboundLigandAffinity].ParameterValue) * opt[AttributeKey.PreboundLigandConc].ParameterValue + 1);
-            public FloatWithError Kdapp => new FloatWithError(1) / Kapp;
+            public FloatWithError Kdapp => 1.0 / Kapp;
             public Energy dHapp
             {
                 get
