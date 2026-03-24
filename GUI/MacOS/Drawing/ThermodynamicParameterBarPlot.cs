@@ -186,40 +186,6 @@ namespace AnalysisITC
             gc.DrawLayer(errorlayer, Origin);
         }
 
-        void DrawParameter(CGContext gc, ParameterType key)
-        {
-            int index = 0;
-
-            var barlayer = CGLayer.Create(gc, PlotSize);
-            var errorlayer = CGLayer.Create(gc, PlotSize);
-            var points = new CGPoint[DataCount];
-            var barwidth = GetRelativePosition(CategoryWidth, 0).X - GetRelativePosition(0, 0).X - 2;
-
-            foreach (var sol in Solution.Solutions)
-            {
-                GraphAxis axis = null;
-                if (key.GetProperties().ParentType == ParameterType.Affinity1) axis = DissociationConstantAxis;
-                var position = GetBarPosition(key, index);
-                var value = sol.ReportParameters[key];
-                var barpoint = GetRelativePosition(position, value, axis);
-                var errorpoint = GetRelativePosition(position, value.Value * (1 + value.FractionSD), axis);
-
-                points[index] = barpoint;
-
-                AddBarToLayer(barlayer, axis, barpoint, barwidth);
-                AddErrorBarToLayer(errorlayer, barpoint, errorpoint, barwidth);
-
-                index++;
-            }
-
-            barlayer.Context.SetFillColor(StrokeColor);
-            barlayer.Context.FillPath();
-            gc.DrawLayer(barlayer, Origin);
-            errorlayer.Context.SetStrokeColor(StrokeColor);
-            errorlayer.Context.StrokePath();
-            gc.DrawLayer(errorlayer, Origin);
-        }
-
         CGRect AddBarToLayer(CGLayer layer, GraphAxis axis, CGPoint value, nfloat barwidth)
         {
             var zero = GetRelativePosition(XAxis.Min, 0, axis).Y;
