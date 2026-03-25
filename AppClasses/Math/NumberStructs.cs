@@ -204,8 +204,8 @@ namespace AnalysisITC
             {
                 default:
                 case ConfidenceLevel.Conf95: return DistributionConfidence95;
-                case ConfidenceLevel.SD: return new double[] { Value + SD, Value - SD };
-                case ConfidenceLevel.Conf50: return new double[] { Value + 0.5 * SD, Value - 0.5 * SD };
+                case ConfidenceLevel.SD: return new double[] { Value - LowerWidth * 0.5, Value + UpperWidth * 0.5 };
+                case ConfidenceLevel.Conf50: return new double[] { Value - LowerWidth * 0.25, Value + UpperWidth * 0.25 };
             }
         }
 
