@@ -281,7 +281,7 @@ namespace Utilities
             FeatureID = inj.ID;
 
             tooltiplines.Add("Inj #" + (inj.ID + 1));
-            tooltiplines.Add($"Volume: {inj.Volume * 1000000:1F} µl");
+            tooltiplines.Add($"Volume: {inj.Volume * 1000000:F1} µl");
             //tooltiplines.Add("Time: " + inj.Time.ToString("F1") + "s");
             tooltiplines.Add(graph.XAxis.LegendTitle + ": " + (graph.XAxis.ValueFactor * inj.Ratio).ToString("F2"));
             tooltiplines.Add("Enthalpy: " + inj.Enthalpy2.ToFormattedString(AppSettings.EnergyUnit, withunit: true, permole: true));
