@@ -12,6 +12,8 @@ namespace AnalysisITC
 {
     public class FTITCFormat
     {
+        public const string FTITCVersion = "FTITCVersion";
+
         public const string ExperimentHeader = "Experiment";
         public const string TandemExperimentHeader = "TandemExperiment";
         public const string ID = "ID";
@@ -163,6 +165,15 @@ namespace AnalysisITC
             await WriteFile(CurrentAccessedAppDocumentPath);
         }
 
+        static StreamWriter GetFTITCStreamWriter(string path)
+        {
+            var sw = new StreamWriter(path);
+
+            sw.WriteLine(Variable(FTITCVersion, AppVersion.FullVersionString));
+
+            return sw;
+        }
+
         public static void SaveSelected(ITCDataContainer data)
         {
             var dlg = new NSSavePanel();
@@ -178,18 +189,19 @@ namespace AnalysisITC
                     switch (data)
                     {
                         case ExperimentData:
-                            using (var writer = new StreamWriter(dlg.Filename))
+                            using (var writer = GetFTITCStreamWriter(dlg.Filename))
                             {
                                 await WriteExperimentDataToFile(data as ExperimentData, writer);
                             }
                             break;
                         case AnalysisResult when dlg.Url.PathExtension == "ftitc":
-                            using (var writer = new StreamWriter(dlg.Filename))
+                            using (var writer = GetFTITCStreamWriter(dlg.Filename))
                             {
                                 await WriteAnalysisResultToFile(data as AnalysisResult, writer);
                             }
                             break;
-                        case AnalysisResult when dlg.Url.PathExtension == "csv": throw new NotImplementedException("CSV save not yet implemented");
+                        case AnalysisResult when dlg.Url.PathExtension == "csv":
+                            Exporter.Export(ExportType.CSV);
                             break;
                     }
 
@@ -202,7 +214,7 @@ namespace AnalysisITC
         {
             StatusBarManager.SetSavingFileMessage();
 
-            using (var writer = new StreamWriter(path))
+            using (var writer = GetFTITCStreamWriter(path))
             {
                 foreach (var data in DataManager.Data)
                 {
@@ -212,10 +224,6 @@ namespace AnalysisITC
                 {
                     await WriteAnalysisResultToFile(res, writer);
                 }
-                //foreach (var data in DataManager.Data.Where(d => d.Solution != null))
-                //{
-                //    await WriteSolutionToFile(data.Solution, writer);
-                //}
             }
 
             StatusBarManager.SetFileSaveSuccessfulMessage(path);
