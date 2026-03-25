@@ -344,7 +344,7 @@ namespace AnalysisITC
                             break;
                         case AttributeKey.NumberOfSites1:
                         case AttributeKey.NumberOfSites2:
-                            if (!Solution.Model.UseSyringeCorrectionMode) continue;
+                            if (!Solution.Model.UseSyringeCorrectionMode) continue; //These are not used if syringe mode is not used
                             break;
                     }
 
