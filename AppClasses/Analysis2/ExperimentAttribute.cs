@@ -117,7 +117,7 @@ namespace AnalysisITC.AppClasses.AnalysisClasses
 
         public ExperimentAttribute()
 		{
-			
+			ParameterValue = new();
 		}
 
 		public static ExperimentAttribute FromKey(AttributeKey key)
@@ -137,9 +137,10 @@ namespace AnalysisITC.AppClasses.AnalysisClasses
 		{
 			return new ExperimentAttribute()
 			{
-                Key = key,
-                OptionName = name,
+				Key = key,
+				OptionName = name,
 				BoolValue = value,
+				ParameterValue = new(),
 			};
 		}
 
@@ -150,6 +151,7 @@ namespace AnalysisITC.AppClasses.AnalysisClasses
                 Key = key,
                 OptionName = name,
                 IntValue = value,
+                ParameterValue = new(),
             };
         }
 
@@ -160,6 +162,7 @@ namespace AnalysisITC.AppClasses.AnalysisClasses
                 Key = key,
                 OptionName = name,
                 DoubleValue = value,
+                ParameterValue = new(),
             };
         }
 
@@ -200,6 +203,7 @@ namespace AnalysisITC.AppClasses.AnalysisClasses
                 Key = AttributeKey.BufferSubtraction,
                 OptionName = name,
                 StringValue = uniqueid,
+                ParameterValue = new(),
             };
         }
 
