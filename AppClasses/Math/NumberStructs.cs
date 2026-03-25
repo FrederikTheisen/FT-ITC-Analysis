@@ -11,15 +11,15 @@ namespace AnalysisITC
 
         private double asymmscore = 0.0;
 
-        public double Value { get; private set; }
-        public double SD { get; private set; }
-        public double[] DistributionConfidence95 { get; private set; }
-        public bool IsAsymmetric { get; private set; }
+        public double Value { get; private set; } = 0;
+        public double SD { get; private set; } = 0;
+        public double[] DistributionConfidence95 { get; private set; } = new double[] { 0, 0 };
+        public bool IsAsymmetric { get; private set; } = false;
 
         public readonly double Lower => DistributionConfidence95?[0] ?? Value;
         public readonly double Upper => DistributionConfidence95?[1] ?? Value;
-        private double LowerWidth => Value - Lower;
-        private double UpperWidth => Upper - Value;
+        private readonly double LowerWidth => Value - Lower;
+        private readonly double UpperWidth => Upper - Value;
 
         public readonly double FractionSD
         {
@@ -41,9 +41,9 @@ namespace AnalysisITC
 
         public readonly Energy Energy => new Energy(this);
 
-        private static double Quad(double a, double b)
+        public FloatWithError()
         {
-            return Math.Sqrt(a * a + b * b);
+
         }
 
         public FloatWithError(double value = 0, double error = 0)
@@ -63,7 +63,7 @@ namespace AnalysisITC
 
             IsAsymmetric = false;
 
-            // Set proper intervals and asymmetry
+            // Sets proper intervals and asymmetry
             SetConfidenceInterval(lower, upper);
         }
 
@@ -182,7 +182,7 @@ namespace AnalysisITC
             }
         }
 
-        double GetConfidenceIntervalAsymmetryScore()
+        private double GetConfidenceIntervalAsymmetryScore()
         {
             double a = Value - Lower;
             double b = Upper - Value;
@@ -215,6 +215,11 @@ namespace AnalysisITC
         }
 
         #region operators
+
+        private static double Quad(double a, double b)
+        {
+            return Math.Sqrt(a * a + b * b);
+        }
 
         public static FloatWithError operator +(FloatWithError v1, FloatWithError v2)
         {
@@ -303,6 +308,8 @@ namespace AnalysisITC
 
         #endregion
 
+        #region tostring
+
         public override string ToString()
         {
             return ToString("G3") + " | " + (100 * FractionSD).ToString("F1") + "%";
@@ -341,6 +348,8 @@ namespace AnalysisITC
         public string AsFormattedConcentration(ConcentrationUnit unit, bool withunit = true, bool withci = false) => WithMod(unit.GetMod(), unit.GetName(), withunit, withci);
 
         public string AsFormattedEnergy(EnergyUnit unit, string suffix, bool withunit = true, bool withci = false) => WithMod(unit.GetMod(), suffix, withunit, withci);
+
+        #endregion
 
         string WithMod(double mod, string unit, bool withunit, bool withci)
         {
@@ -393,7 +402,8 @@ namespace AnalysisITC
 
         public string ToSaveString()
         {
-            return $"{Value};{SD};{DistributionConfidence95[0]};{DistributionConfidence95[1]}";
+            if (DistributionConfidence95 != null || !HasError) return $"{Value};{SD};{DistributionConfidence95[0]};{DistributionConfidence95[1]}";
+            else return $"{Value};{SD}";
         }
 
         public static FloatWithError FromSaveString(string s)
@@ -403,11 +413,11 @@ namespace AnalysisITC
             var fwe = new FloatWithError()
             {
                 Value = pars[0],
-                SD = pars[1],
-                DistributionConfidence95 = new[] { pars[2], pars[3] },
+                SD = pars[1], 
             };
 
-            fwe.SetAsymmetricError();
+            if (pars.Count > 2) fwe.SetConfidenceInterval(pars[0], pars[1]);
+            else fwe.SetAsymmetricError();
 
             return fwe;
         }
