@@ -315,12 +315,25 @@ namespace AnalysisITC.AppClasses.Analysis2.Models
             }
         }
 
-        public virtual List<FloatWithError> GetCorrectedStoichiometryGuides()
+        public List<FloatWithError> GetCorrectedStoichiometryGuides()
         {
-            if (UseSyringeCorrectionMode)
-                return ParametersConformingToKey(ParameterType.Nvalue1).Select(n => 1.0 / n).ToList();
+            var nValues = ParametersConformingToKey(ParameterType.Nvalue1);
 
-            return ParametersConformingToKey(ParameterType.Nvalue1);
+            if (!UseSyringeCorrectionMode)
+                return nValues;
+
+            double site1 = ModelOptions[AttributeKey.NumberOfSites1].DoubleValue;
+            double site2 = ModelOptions.ContainsKey(AttributeKey.NumberOfSites2) ? ModelOptions[AttributeKey.NumberOfSites2].DoubleValue : site1;
+
+            var corrected = new List<FloatWithError>(nValues.Count);
+
+            for (int i = 0; i < nValues.Count; i++)
+            {
+                double siteScale = i == 1 ? site2 : site1;
+                corrected.Add((1.0 / nValues[i]) * siteScale);
+            }
+
+            return corrected;
         }
 
         public virtual List<FloatWithError> GetCorrectedEnthalpyGuides()
