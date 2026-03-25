@@ -264,7 +264,7 @@ namespace AnalysisITC.GUI.MacOS.CustomViews
                 Font = NSFont.SystemFontOfSize(NSFont.SmallSystemFontSize),
                 BezelStyle = NSBezelStyle.Recessed,
                 ControlSize = NSControlSize.Small,
-                ToolTip = AttributeKey.NumberOfSites1.GetProperties().ToolTip
+                ToolTip = Option.Key.GetProperties().ToolTip
             };
 
             StoichiometryPopupBuilder.Populate(StoichiometryPopup);
@@ -338,6 +338,7 @@ namespace AnalysisITC.GUI.MacOS.CustomViews
             {
                 switch (Option.Key)
                 {
+                    case AttributeKey.NumberOfSites2:
                     case AttributeKey.NumberOfSites1:
                         var selected = StoichiometryPopupBuilder.GetSelected(StoichiometryPopup);
                         Option.DoubleValue = selected.Factor;
