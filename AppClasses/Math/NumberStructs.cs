@@ -46,7 +46,6 @@ namespace AnalysisITC
             return Math.Sqrt(a * a + b * b);
         }
 
-
         public FloatWithError(double value = 0, double error = 0)
         {
             Value = value;
@@ -358,11 +357,11 @@ namespace AnalysisITC
                     break;
                 case NumberPrecision.SingleDecimal:
                     s = withunit ? value.ToString("F1") + " " + unit : value.ToString("F1");
-                    if (withci) s += $" [{value.Lower:F1} - {value.Upper:F1}";
+                    if (withci) s += ConfidenceIntervalString(Lower.ToString("F1"), Upper.ToString("F1"));
                     return s;
                 case NumberPrecision.AllDecimals:
                     s = withunit ? value.ToString("G5") + " " + unit : value.ToString("G5");
-                    if (withci) s += $" [{value.Lower:G5} - {value.Upper:G5}";
+                    if (withci) s += ConfidenceIntervalString(Lower.ToString("G5"), Upper.ToString("G5"));
                     return s;
                 default: return withunit ? value.Value.ToString("G5") + " " + unit : value.Value.ToString("G5");
             }
@@ -370,17 +369,19 @@ namespace AnalysisITC
             double floor = Math.Floor(logerror);
             int digits = (int)floor;
             double scale = Math.Pow(10, digits);
-            string formatString = $"F{Math.Max(0, -digits)}";
+            string format = $"F{Math.Max(0, -digits)}";
             double roundedNumber = FWEMath.RoundApproximate(value.Value / scale) * scale;
             double roundedError = FWEMath.RoundApproximate(value.SD / scale) * scale;
-            var output = roundedNumber.ToString(formatString) + " ± " + roundedError.ToString(formatString);
+            var output = roundedNumber.ToString(format) + " ± " + roundedError.ToString(format);
 
             s = withunit ? output + " " + unit : output;
 
-            if (withci) s += $" [{value.Lower.ToString(formatString)} - {value.Upper.ToString(formatString)}]";
+            if (withci) s += ConfidenceIntervalString(value.Lower.ToString(format),value. Upper.ToString(format));
 
             return s;
         }
+
+        readonly string ConfidenceIntervalString(string lower, string upper) => $" [{lower},{upper}]";
 
         public int CompareTo(object obj)
         {
