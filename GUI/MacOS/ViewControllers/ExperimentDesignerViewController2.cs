@@ -15,7 +15,7 @@ namespace AnalysisITC
 {
 	public partial class ExperimentDesignerViewController2 : NSViewController
 	{
-        public static bool AutoRunExperimentSimulation { get; set; } = true;
+        public static bool AutoRunExperimentSimulation { get; set; } = false;
 
         private ITCInstrument Instrument { get; set; } = ITCInstrument.MicroCalITC200;
         private ExperimentData Data { get; set; }
