@@ -174,9 +174,6 @@ namespace AnalysisITC.AppClasses.Analysis2.Models
 
                 if (errorweighted) res /= Math.Max(inj.SD, 1);
 
-                if (inj.SD < 1)
-                    Console.WriteLine(inj.SD);
-
                 loss += res * res;
             }
 
