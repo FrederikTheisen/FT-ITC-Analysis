@@ -473,14 +473,7 @@
     <Compile Include="GUI\MacOS\ViewControllers\BufferSubtractionTool.designer.cs">
       <DependentUpon>BufferSubtractionTool.cs</DependentUpon>
     </Compile>
-    <Compile Include="GuideHintViewController.designer.cs">
-      <DependentUpon>GuideHintViewController.cs</DependentUpon>
-    </Compile>
     <Compile Include="AppClasses\DataClasses\BufferRegistry.cs" />
-    <Compile Include="GuideHintViewController2.cs" />
-    <Compile Include="GuideHintViewController2.designer.cs">
-      <DependentUpon>GuideHintViewController2.cs</DependentUpon>
-    </Compile>
     <Compile Include="AppClasses\DataReaders\DataReaders.cs" />
     <Compile Include="AppClasses\DataReaders\TAFileReader.cs" />
     <Compile Include="AppClasses\DataReaders\FTITCReader.cs" />
@@ -490,10 +483,6 @@
     <Compile Include="AppClasses\DataReaders\PEAQReader.cs" />
     <Compile Include="AppClasses\DataReaders\DataValidator.cs" />
     <Compile Include="AppClasses\DataClasses\AnalysisResultNameParser.cs" />
-    <Compile Include="TextInputMeniItemView.cs" />
-    <Compile Include="TextInputMeniItemView.designer.cs">
-      <DependentUpon>TextInputMeniItemView.cs</DependentUpon>
-    </Compile>
     <Compile Include="AppClasses\DataClasses\ITCDataContainer.cs" />
     <Compile Include="GUI\MacOS\CitationUI.cs" />
     <Compile Include="GUI\MacOS\CustomViews\ValueWithErrorTextField.cs" />
@@ -530,6 +519,17 @@
       <DependentUpon>FadingScrollView.cs</DependentUpon>
     </Compile>
     <Compile Include="GUI\MacOS\EnergyUnitPrompt.cs" />
+    <Compile Include="GUI\MacOS\CustomViews\TextInputMeniItemView.cs" />
+    <Compile Include="GUI\MacOS\CustomViews\TextInputMeniItemView.designer.cs">
+      <DependentUpon>TextInputMeniItemView.cs</DependentUpon>
+    </Compile>
+    <Compile Include="GUI\MacOS\GuideHintViewController2.cs" />
+    <Compile Include="GUI\MacOS\GuideHintViewController2.designer.cs">
+      <DependentUpon>GuideHintViewController2.cs</DependentUpon>
+    </Compile>
+    <Compile Include="GUI\MacOS\GuideHintViewController.designer.cs">
+      <DependentUpon>GuideHintViewController.cs</DependentUpon>
+    </Compile>
   </ItemGroup>
   <ItemGroup>
     <InterfaceDefinition Include="Main.storyboard" />
@@ -538,12 +538,12 @@
     <BundleResource Include="Resources\HelpTextResource.txt" />
     <BundleResource Include="Resources\ScienceHelpResource.txt" />
     <BundleResource Include="Resources\Buffers.json" />
-    <BundleResource Include="GuideHintViewController.cs" />
     <BundleResource Include="Resources\ExperimentViewCell.png" />
     <BundleResource Include="Resources\HintImg_ExpDetails.jpg" />
     <BundleResource Include="Resources\AppIcon.icns" />
     <BundleResource Include="Resources\DataFileIcon.icns" />
     <BundleResource Include="Resources\ProjectFileIcon.icns" />
+    <BundleResource Include="GUI\MacOS\GuideHintViewController.cs" />
   </ItemGroup>
   <Import Project="$(MSBuildExtensionsPath)\Xamarin\Mac\Xamarin.Mac.CSharp.targets" />
   <Import Project="packages\Accord.3.8.0\build\Accord.targets" Condition="Exists('packages\Accord.3.8.0\build\Accord.targets')" />
