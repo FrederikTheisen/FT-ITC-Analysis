@@ -122,14 +122,20 @@ namespace AnalysisITC.AppClasses.Analysis2.Models
 
         double FindFreeTitrant(double p, double q, double r, double guess)
         {
-            bool b = MathNet.Numerics.RootFinding.RobustNewtonRaphson.TryFindRoot(
-                (x) => x * x * x + x * x * p + x * q + r,
-                (x) => 3 * x * x + 2 * x * p + q,
-                lowerBound: 0, upperBound: 1e-3,
-                accuracy: 1e-32, maxIterations: 500, subdivision: 20,
-                out double root);
+            if (double.IsFinite(p) && double.IsFinite(q) && double.IsFinite(r))
+            {
+                bool b = MathNet.Numerics.RootFinding.RobustNewtonRaphson.TryFindRoot(
+                    (x) => x * x * x + x * x * p + x * q + r,
+                    (x) => 3 * x * x + 2 * x * p + q,
+                    lowerBound: 0, upperBound: 1e-3,
+                    accuracy: 1e-32, maxIterations: 500, subdivision: 20,
+                    out double root);
 
-            return root;
+                if (b) return root;
+            }
+
+            // Unholy...
+            return guess;
         }
 
         public override Model GenerateSyntheticModel()
