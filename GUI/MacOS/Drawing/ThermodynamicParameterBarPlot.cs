@@ -167,12 +167,14 @@ namespace AnalysisITC
                 var position = GetBarPosition(key, index);
                 var value = sol.ReportParameters[key];
                 var barpoint = GetRelativePosition(position, value, axis);
-                var errorpoint = GetRelativePosition(position, value.Value * (1 + value.FractionSD), axis);
+                var errorpoint1 = GetRelativePosition(position, value.Upper, axis);
+                var errorpoint2 = GetRelativePosition(position, value.Lower, axis);
 
                 points[index] = barpoint;
 
                 var rect = AddBarToLayer(barlayer, axis, barpoint, barwidth);
-                AddErrorBarToLayer(errorlayer, barpoint, errorpoint, barwidth);
+                AddErrorBarToLayer(errorlayer, barpoint, errorpoint1, barwidth);
+                AddErrorBarToLayer(errorlayer, barpoint, errorpoint2, barwidth);
 
                 FeatureBoundingBoxes.Add(new FeatureBoundingBox(MouseOverFeatureEvent.FeatureType.Bar, rect, Solution.Solutions.IndexOf(sol), Frame.Location, (int)key));
             }
