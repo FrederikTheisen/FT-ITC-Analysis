@@ -72,7 +72,7 @@ namespace AnalysisITC
         public static bool UnifyTimeAxisForExport { get; set; } = true;
         public static bool ExportBaselineCorrectedData { get; set; } = true;
         public static bool ExportFitPointsWithPeaks { get; set; } = true;
-        public static ExportDataSelection ExportSelectionMode { get; set; } = ExportDataSelection.IncludedData;
+        public static ExportDataSelection ExportSelectionMode { get; set; } = ExportDataSelection.SelectedData;
         public static int NumOfDecimalsToExport { get; set; } = 2;
         public static ExportColumns ExportColumns { get; set; } = ExportColumns.Default;
 
