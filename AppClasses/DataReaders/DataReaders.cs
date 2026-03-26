@@ -133,7 +133,7 @@ namespace DataReaders
 
             switch (experiment.DataSourceFormat)
             {
-                case ITCDataFormat.TAITC:
+                case ITCDataFormat.TAITC: // For this input format, we need to update integration times
                     foreach (var inj in experiment.Injections) inj.InitializeIntegrationTimes();
                     ProcessInjectionsMicroCal(experiment); // We think this might be the same processing. Lack of information makes other assumptions hard.
                     break;
@@ -154,7 +154,6 @@ namespace DataReaders
             foreach (var inj in experiment.Injections)
             {
                 deltaVolume += inj.Volume;
-                //inj.InjectionMass = experiment.SyringeConcentration * inj.Volume;
                 inj.ActualCellConcentration = experiment.CellConcentration * ((1 - deltaVolume / x2vol0) / (1 + deltaVolume / x2vol0));
                 inj.ActualTitrantConcentration = experiment.SyringeConcentration * (deltaVolume / experiment.CellVolume) * (1 - deltaVolume / x2vol0);
 
@@ -165,6 +164,11 @@ namespace DataReaders
                     _ => inj.ActualTitrantConcentration / inj.ActualCellConcentration,
                 };
             }
+        }
+
+        static void ProcessInjectionsExponential(ExperimentData experiment)
+        {
+
         }
 
         /// <summary>

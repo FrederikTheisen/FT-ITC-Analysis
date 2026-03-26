@@ -47,8 +47,8 @@ namespace AnalysisITC
         {
             base.Layout();
 
-            IncludeDataButton.Image = SideBarViewController.DataDisabledImage;
-            IncludeDataButton.AlternateImage = SideBarViewController.DataEnabledImage;
+            //IncludeDataButton.Image = SideBarViewController.DataDisabledImage;
+            //IncludeDataButton.AlternateImage = SideBarViewController.DataEnabledImage;
         }
 
         private void DataManager_AnalysisResultSelected(object sender, AnalysisResult e)

@@ -40,8 +40,6 @@ namespace AnalysisITC
             ITCsimExportOffsetCorrectedControl.State = Settings.ExportOffsetCorrected ? NSCellStateValue.On : NSCellStateValue.Off;
 
             ExportSelectionControl.SelectSegment((int)Settings.Selection);
-
-            // TabView.SelectAt((int)Settings.Export);
         }
 
         partial void ExportTypeControlAction(NSSegmentedControl sender)

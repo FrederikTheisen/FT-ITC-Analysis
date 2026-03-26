@@ -10,6 +10,8 @@ namespace AnalysisITC.AppClasses.Analysis2
 {
     public class Parameter
     {
+        const float LimitFactor = 20;
+
         public ParameterType Key { get; private set; }
         public double Value { get; private set; }
         public bool IsLocked { get; private set; }
@@ -43,18 +45,18 @@ namespace AnalysisITC.AppClasses.Analysis2
             {
                 if (Limits[0] > 0) // Parameter can only be positive
                 {
-                    Limits[0] *= 0.1;
-                    Limits[1] *= 10;
+                    Limits[0] /= LimitFactor;
+                    Limits[1] *= LimitFactor;
                 }
                 else if (Limits[1] < 0) // Parameter can only be negative
                 {
-                    Limits[0] *= 10;
-                    Limits[1] *= 0.1;
+                    Limits[0] *= LimitFactor;
+                    Limits[1] /= LimitFactor;
                 }
                 else // Parameter can be both positive or negative or zero
                 {
-                    Limits[0] *= 10;
-                    Limits[1] *= 10;
+                    Limits[0] *= LimitFactor;
+                    Limits[1] *= LimitFactor;
                 }
             }
             else if (AppSettings.ParameterLimitSetting == ParameterLimitSetting.NoLimit)
@@ -79,11 +81,6 @@ namespace AnalysisITC.AppClasses.Analysis2
         public void Update(double value)
         {
             Value = value;
-
-#if false
-            if (value < Limits[0] || value > Limits[1])
-                throw new Exception("Parameter out of range: " + Key.ToString() + " " + value.ToString() + " [" + Limits[0].ToString() + " - " + Limits[1].ToString() + "]");
-#endif
         }
 
         public void Update(double value, bool lockpar)
