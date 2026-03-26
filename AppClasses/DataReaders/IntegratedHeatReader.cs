@@ -4,7 +4,7 @@ using System.Globalization;
 using System.IO;
 using System.Linq;
 using AnalysisITC;
-using Utilities;
+using AnalysisITC.GUI.MacOS;
 
 namespace DataReaders
 {
@@ -32,6 +32,7 @@ namespace DataReaders
 
             var ext = Path.GetExtension(filepath);
             if (ext.ToLower().Contains("aff")) separator = ';';
+            else separator = ',';
 
             var lines = File.ReadAllLines(filepath)
                 .Where(l => !string.IsNullOrWhiteSpace(l))
@@ -46,6 +47,7 @@ namespace DataReaders
             // Parse rows
             var rows = new List<Row>();
             var cCell_M = 0.0;
+            AppEventHandler.PrintAndLog("Reading Injections...", 0);
             for (int i = 1; i < lines.Count - 1; i++)
             {
                 var parts = SplitLine(lines[i]);
@@ -69,13 +71,15 @@ namespace DataReaders
 
                 rows.Add(new Row
                 {
-                    Dh_kJ = dh,
+                    DH = dh,
                     InjV_uL = injv,
                     Xt = xt,
                     Mt = mt,
                     Xmt = xmt,
-                    Ndh_kJ_per_mol = ndh
+                    NDH = ndh
                 });
+
+                AppEventHandler.PrintAndLog($"{injv}\t{xt}\t{mt}\t{dh}");
             }
 
             if (rows.Count == 0) throw new FormatException("No injection rows found in file.");
@@ -94,24 +98,36 @@ namespace DataReaders
             // Unit scaling for Xt/Mt
             var concScale = concentrationsAreMilliMolar ? 1e-3 : 1.0;
 
+            // Unit scale for heat
+            var maxv = rows.Max(r => Math.Abs(r.DH));
+
+            var unit = EnergyUnitPrompt.AskForEnergyUnit(null, filepath, maxv.ToString());
+            AppEventHandler.PrintAndLog($"Energy Unit Selected: {unit}");
+            if (unit == null) return null;
+
             // Infer cell volume from Mt dilution: Mt_{i+1} = Mt_i * (1 - Vinj/Vcell)
+            AppEventHandler.PrintAndLog("Inferring Cell Volume...");
             var vcell_L = InferCellVolumeLiters(rows, concScale);
             data.CellVolume = vcell_L;
+            AppEventHandler.PrintAndLog($"Volume = {vcell_L * 1000000} ul", 1);
 
             // Infer syringe concentration from injection moles / injection volume
-            // Injection moles are DH/NDH (kJ)/(kJ/mol) = mol
+            // Injection moles are DH/NDH = mol
+            AppEventHandler.PrintAndLog("Inferring Syringe Concentration...");
             var csyr_M = InferSyringeConcentration(rows);
             data.SyringeConcentration = new(csyr_M);
+            AppEventHandler.PrintAndLog($"Syringe Concentration = {1000000 * csyr_M} uM", 1);
 
             // Build injections
             var injs = new List<InjectionData>(rows.Count);
+
 
             for (int i = 0; i < rows.Count; i++)
             {
                 var r = rows[i];
 
-                var vinj_L = r.InjV_uL * 1e-6; // uL -> L
-                var heat_J = r.Dh_kJ * 1000.0; // kJ -> J
+                var vinj_L = r.InjV_L;
+                var heat_J = Energy.ConvertToJoule(r.DH, (EnergyUnit)unit);
                 var inj = new InjectionData(data, vinj_L);
 
                 inj.SetPeakArea(new FloatWithError(heat_J, 0));
@@ -187,17 +203,18 @@ namespace DataReaders
                 var f = r1.Mt / r0.Mt;
                 if (f <= 0 || f >= 1) continue;
 
-                var vinj_L = r0.InjV_uL * 1e-6;
+                var vinj_L = r0.InjV_L;
                 var vcell = vinj_L / (1.0 - f);
 
-                // Keep plausible ITC cell volumes (50 uL .. 5 mL)
-                if (double.IsFinite(vcell) && vcell > 50e-6 && vcell < 5e-3)
+                // Keep plausible ITC cell volumes (50 uL .. 10 mL)
+                if (double.IsFinite(vcell) && vcell > 50e-6 && vcell < 10e-3)
                     vCandidates.Add(vcell);
             }
 
             if (vCandidates.Count == 0)
             {
                 // Fallback: VP-ITC-ish 1.4 mL (safe default; user can edit later)
+                AppEventHandler.PrintAndLog("Could not determine cell volume", 1);
                 return 1.4e-3;
             }
 
@@ -211,12 +228,12 @@ namespace DataReaders
 
             foreach (var r in rows)
             {
-                var vinj_L = r.InjV_uL * 1e-6;
+                var vinj_L = r.InjV_uL;
                 if (vinj_L <= 0) continue;
 
-                if (double.IsFinite(r.Ndh_kJ_per_mol) && Math.Abs(r.Ndh_kJ_per_mol) > 0)
+                if (double.IsFinite(r.NDH) && Math.Abs(r.NDH) > 0)
                 {
-                    var injMol = r.Dh_kJ / r.Ndh_kJ_per_mol;
+                    var injMol = r.DH / r.NDH;
                     var c = injMol / vinj_L; // mol/L
                     if (double.IsFinite(c) && c > 0 && c < 50) cCandidates.Add(c);
                 }
@@ -225,6 +242,7 @@ namespace DataReaders
             if (cCandidates.Count == 0)
             {
                 // fallback: 1 mM
+                AppEventHandler.PrintAndLog("Could not determine syringe concentration", 1);
                 return 1e-3;
             }
 
@@ -234,12 +252,14 @@ namespace DataReaders
 
         private struct Row
         {
-            public double Dh_kJ;
+            public double DH;
             public double InjV_uL;
             public double Xt;
             public double Mt;
             public double Xmt;
-            public double Ndh_kJ_per_mol;
+            public double NDH;
+
+            public readonly double InjV_L => InjV_uL * 1E-6;
         }
     }
 }

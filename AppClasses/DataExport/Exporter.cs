@@ -363,7 +363,7 @@ namespace AnalysisITC
                     string DH; // Peak area
                     string INJV; // Inj vol
                     string Xt = "0.0"; // Actual titration conc
-                    string Mt = (1000 * data.CellConcentration).ToString(); // Actual cell conc
+                    string Mt = (1000 * data.CellConcentration).Value.ToString(); // Actual cell conc
                     string XMt; // Ratio
                     string NDH = "--"; // Enthalpy
                     string DY = "--"; // Fit residual
@@ -373,9 +373,10 @@ namespace AnalysisITC
                     {
                         string line = "";
 
-                        DH = inj.Enthalpy.ToString();
+                        DH = inj.PeakArea.Value.ToString();
                         INJV = (inj.Volume * 1000000).ToString();
                         XMt = inj.Ratio.ToString();
+                        NDH = (inj.PeakArea.Value / (1000000 * inj.InjectionMass)).ToString();
                         if (data.Solution != null && data.Solution.IsValid)
                         {
                             Fit = data.Model.EvaluateEnthalpy(inj.ID, true).ToString();
@@ -392,12 +393,10 @@ namespace AnalysisITC
 
                         Xt = (1000 * inj.ActualTitrantConcentration).ToString();
                         Mt = (1000 * inj.ActualCellConcentration).ToString();
-                        NDH = inj.Enthalpy.ToString();
 
                         if (data.Solution != null && data.Solution.IsValid)
                         {
                             DY = (inj.Enthalpy - data.Model.EvaluateEnthalpy(inj.ID, true)).ToString();
-                            
                         }
 
                         lines.Add(line);
@@ -415,7 +414,7 @@ namespace AnalysisITC
                 }
             });
 
-            StatusBarManager.SetStatus("Finished exporting " + Utilities.MarkdownStrings.ITCsimName, 3000);
+            StatusBarManager.SetStatus("Finished exporting file", 3000);
             StatusBarManager.StopIndeterminateProgress();
         }
 

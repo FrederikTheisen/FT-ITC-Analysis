@@ -202,14 +202,25 @@ namespace AnalysisITC
             LongName = name;
             Unit = unit;
         }
+
+        public static List<EnergyUnit> GetSelectableUnits()
+        {
+            return new List<EnergyUnit>()
+            {
+                EnergyUnit.Joule,
+                EnergyUnit.KiloJoule,
+                EnergyUnit.MicroCal,
+                EnergyUnit.Cal,
+                EnergyUnit.KCal
+            };
+        }
     }
 
-    //TODO add attribute with unit names and stuff
     public enum EnergyUnit
     {
-        [EnergyUnit("kiloJoule", "kJ")]
+        [EnergyUnit("kilojoule", "kJ")]
         KiloJoule,
-        [EnergyUnit("Joule", "J")]
+        [EnergyUnit("joule", "J")]
         Joule,
         [EnergyUnit("microcalorie", "µcal")]
         MicroCal,

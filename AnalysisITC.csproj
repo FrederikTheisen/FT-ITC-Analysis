@@ -510,7 +510,7 @@
     <Compile Include="AppClasses\Analysis2\AdvancedAnalysis\ElectrostaticsAnalysis.cs" />
     <Compile Include="AppClasses\Analysis2\AdvancedAnalysis\ProtonationAnalysis.cs" />
     <Compile Include="AppClasses\Analysis2\AdvancedAnalysis\SpolarRecordAnalysis.cs" />
-    <Compile Include="AppClasses\DataExport\DataWriter.cs" />
+    <Compile Include="AppClasses\DataExport\FTITCWriter.cs" />
     <Compile Include="AppClasses\DataExport\Exporter.cs" />
     <Compile Include="AppClasses\DataExport\ExportType.cs" />
     <Compile Include="AppClasses\Utils\EnumExtensions.cs" />
@@ -529,6 +529,7 @@
     <Compile Include="GUI\MacOS\CustomViews\FadingScrollView.designer.cs">
       <DependentUpon>FadingScrollView.cs</DependentUpon>
     </Compile>
+    <Compile Include="GUI\MacOS\EnergyUnitPrompt.cs" />
   </ItemGroup>
   <ItemGroup>
     <InterfaceDefinition Include="Main.storyboard" />
