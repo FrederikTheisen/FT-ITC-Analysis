@@ -63,7 +63,7 @@ namespace DataReaders
             double syringeConcentration = ParseDouble(experimentElement.Element("SyringeConcentration")?.Value);
             double averageTemperature = ParseDouble(experimentElement.Element("AverageTemperature")?.Value);
             double filter = ParseDouble(experimentElement.Element("FilterPeriod")?.Value);
-            var instrument = ITCInstrumentAttribute.GetInstrument(experimentElement.Element("CellID")?.Value);
+            var instrument = ITCInstrumentAttribute.TryResolveMicroCalInstrument(experimentElement.Element("CellID")?.Value);
             string comment = experimentElement.Element("Comment")?.Value;
             bool parseddate = DateTime.TryParse(experimentElement.Element("ModifiedDate").Value, out var date);
             double temperature = averageTemperature;

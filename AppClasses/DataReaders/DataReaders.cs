@@ -179,6 +179,8 @@ namespace DataReaders
         {
             experiment.MeasuredTemperature = experiment.DataPoints.Average(dp => dp.Temperature);
 
+            ITCInstrumentAttribute.ResolveInstrument(experiment);
+
             // Try to extract attributes from comments
             if (!string.IsNullOrEmpty(experiment.Comments))
             {

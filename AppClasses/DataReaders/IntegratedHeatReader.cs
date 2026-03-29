@@ -120,8 +120,6 @@ namespace DataReaders
 
             // Build injections
             var injs = new List<InjectionData>(rows.Count);
-
-
             for (int i = 0; i < rows.Count; i++)
             {
                 var r = rows[i];

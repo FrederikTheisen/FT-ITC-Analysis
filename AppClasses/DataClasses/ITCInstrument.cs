@@ -11,7 +11,7 @@ namespace DataReaders
 
         public string Name { get; set; }
         public string Description { get; set; }
-        public string Extension { get; set; }
+        public string InstrumentCode { get; set; }
         public double StandardCellVolume { get; private set; }
         public double StandardSyringeVolume { get; private set; }
         public double DeadVolume { get; private set; }
@@ -20,7 +20,7 @@ namespace DataReaders
         {
             Name = name;
             Description = description;
-            Extension = extension;
+            InstrumentCode = extension;
             StandardCellVolume = cellv / 1000000;
             StandardSyringeVolume = (syrv) / 1000000;
 
@@ -44,14 +44,59 @@ namespace DataReaders
             };
         }
 
-        public static ITCInstrument GetInstrument(string line)
+        public static ITCInstrument TryResolveMicroCalInstrument(string line)
         {
-            foreach (var ins in GetITCInstruments())
+            foreach (var instrument in GetITCInstruments())
             {
-                if (line.Contains(ins.GetProperties().Extension)) return ins;
+                if (line.Contains(instrument.GetProperties().InstrumentCode)) return instrument;
             }
 
             return ITCInstrument.Unknown;
+        }
+
+        public static void ResolveInstrument(ExperimentData data)
+        {
+            AppEventHandler.PrintAndLog("Resolving Instrument...");
+            if (data.Instrument != ITCInstrument.Unknown) return;
+            if (data.CellVolume <= 0) return;
+
+            var candidates = new List<(double, ITCInstrument)>();
+
+            foreach (var instrument in GetITCInstruments())
+            {
+                var instrument_cell_volume = instrument.GetProperties().StandardCellVolume;
+                var delta_v = Math.Abs(data.CellVolume - instrument_cell_volume);
+
+                if (delta_v < instrument_cell_volume * 0.3f)
+                    candidates.Add((delta_v, instrument));
+            }
+
+            if (candidates.Count > 0)
+            {
+                candidates.OrderBy(instr => instr.Item1);
+
+                data.Instrument = candidates.First().Item2;
+
+                AppEventHandler.PrintAndLog($"Setting Instrument: {data.Instrument}", 1);
+            }
+        }
+
+        public static string SourceInstrumentTitle(ExperimentData data)
+        {
+            switch (data.Instrument)
+            {
+                case ITCInstrument.TAInstrumentsITCStandard:
+                case ITCInstrument.TAInstrumentsITCLowVolume:
+                case ITCInstrument.MicroCalVPITC:
+                case ITCInstrument.MalvernITC200:
+                case ITCInstrument.MicroCalITC200: return data.Instrument.GetProperties().Name;
+                default:
+                    switch (data.DataSourceFormat)
+                    {
+                        case ITCDataFormat.IntegratedHeats: return "Integrated Heat File";
+                        default: return "Unknown Source Type";
+                    }
+            }
         }
     }
 

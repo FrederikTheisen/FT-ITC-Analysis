@@ -61,7 +61,7 @@ namespace DataReaders
                     }
                     else if (counter3 == 1)
                     {
-                        experiment.Instrument = ITCInstrumentAttribute.GetInstrument(line);
+                        experiment.Instrument = ITCInstrumentAttribute.TryResolveMicroCalInstrument(line);
                     }
                     else if (counter3 == 17)
                     {
