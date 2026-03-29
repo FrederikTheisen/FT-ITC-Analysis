@@ -8491,7 +8491,7 @@ DQ
                                                     <textField horizontalHuggingPriority="249" verticalHuggingPriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="NDy-Hs-WiD">
                                                         <rect key="frame" x="-2" y="6" width="385" height="16"/>
                                                         <textFieldCell key="cell" controlSize="large" lineBreakMode="clipping" title="MicroCal Data" id="06l-3x-GDW">
-                                                            <font key="font" metaFont="system"/>
+                                                            <font key="font" textStyle="headline" name=".SFNS-Bold"/>
                                                             <color key="textColor" name="labelColor" catalog="System" colorSpace="catalog"/>
                                                             <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
                                                         </textFieldCell>
@@ -8553,21 +8553,16 @@ DQ
                                             <real value="3.4028234663852886e+38"/>
                                         </customSpacing>
                                     </stackView>
-                                    <stackView distribution="fillEqually" orientation="horizontal" alignment="top" horizontalStackHuggingPriority="249.99998474121094" verticalStackHuggingPriority="249.99998474121094" verticalHuggingPriority="1000" detachesHiddenViews="YES" translatesAutoresizingMaskIntoConstraints="NO" id="CcE-Hy-c0t">
-                                        <rect key="frame" x="5" y="390" width="525" height="50"/>
-                                    </stackView>
                                     <customView translatesAutoresizingMaskIntoConstraints="NO" id="54f-ar-wQ3" customClass="GraphView">
-                                        <rect key="frame" x="5" y="5" width="525" height="377"/>
+                                        <rect key="frame" x="5" y="5" width="525" height="435"/>
                                     </customView>
                                 </subviews>
                                 <edgeInsets key="edgeInsets" left="5" right="5" top="5" bottom="5"/>
                                 <visibilityPriorities>
                                     <integer value="1000"/>
                                     <integer value="1000"/>
-                                    <integer value="1000"/>
                                 </visibilityPriorities>
                                 <customSpacing>
-                                    <real value="3.4028234663852886e+38"/>
                                     <real value="3.4028234663852886e+38"/>
                                     <real value="3.4028234663852886e+38"/>
                                 </customSpacing>
@@ -8690,7 +8685,6 @@ IA
                         </constraints>
                     </view>
                     <connections>
-                        <outlet property="ButtonStackView" destination="CcE-Hy-c0t" id="b5H-s7-Btn"/>
                         <outlet property="ClearDataButton" destination="Kvq-99-mYo" id="nRv-bt-0AT"/>
                         <outlet property="ContinueButton" destination="iS7-4Y-ebo" id="waz-OS-TUN"/>
                         <outlet property="EditAttributesButton" destination="m6w-C2-M1T" id="RK2-8x-KYL"/>

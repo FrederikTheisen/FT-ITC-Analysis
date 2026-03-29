@@ -75,7 +75,10 @@ namespace AnalysisITC
         {
             GVC.Initialize(DataManager.Current);
 
-            ButtonStackView.Hidden = (Data == null);
+            TitleLabel.StringValue = DataManager.Current?.Name ?? "No Data Selected";
+            TitleLabel.TextColor = DataManager.Current != null ? NSColor.Label : NSColor.DisabledControlText;
+
+            ExperimentMenuButton.Enabled = DataManager.Current != null;
 
             UpdateLabel();
         }
