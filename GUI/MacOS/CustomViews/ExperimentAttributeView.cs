@@ -454,30 +454,6 @@ namespace AnalysisITC.GUI.MacOS.CustomViews
                         Option.OptionName = "[Ligand]";
                         break;
                     }
-                //case AttributeKey.PreboundLigandAffinity:
-                //    {
-                //        if (!string.IsNullOrEmpty(ParameterField.StringValue))
-                //        {
-                //            var val = ParameterField.DoubleValue / AppSettings.DefaultConcentrationUnit.GetProperties().Mod;
-                //            var err = ParameterErrorField.DoubleValue / AppSettings.DefaultConcentrationUnit.GetProperties().Mod;
-
-                //            var value = new FloatWithError(val, err);
-
-                //            Option.ParameterValue = value;
-                //        }
-                //        break;
-                //    }
-
-                //case AttributeKey.PreboundLigandEnthalpy:
-                //    {
-                //        var val = ParameterField.DoubleValue;
-                //        var err = ParameterErrorField.DoubleValue;
-
-                //        var value = new Energy(new FloatWithError(val, err), AppSettings.EnergyUnit);
-
-                //        Option.ParameterValue = value.FloatWithError;
-                //        break;
-                //    }
                 case AttributeKey.Salt:
                     {
                         Option.IntValue = (int)EnumPopUpControl.SelectedTag;
