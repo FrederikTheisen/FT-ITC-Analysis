@@ -83,20 +83,19 @@ namespace DataReaders
 
         public static string SourceInstrumentTitle(ExperimentData data)
         {
-            switch (data.Instrument)
+            return data.Instrument switch
             {
-                case ITCInstrument.TAInstrumentsITCStandard:
-                case ITCInstrument.TAInstrumentsITCLowVolume:
-                case ITCInstrument.MicroCalVPITC:
-                case ITCInstrument.MalvernITC200:
-                case ITCInstrument.MicroCalITC200: return data.Instrument.GetProperties().Name;
-                default:
-                    switch (data.DataSourceFormat)
-                    {
-                        case ITCDataFormat.IntegratedHeats: return "Integrated Heat File";
-                        default: return "Unknown Source Type";
-                    }
-            }
+                ITCInstrument.TAInstrumentsITCStandard or
+                ITCInstrument.TAInstrumentsITCLowVolume or
+                ITCInstrument.MicroCalVPITC or
+                ITCInstrument.MalvernITC200 or
+                ITCInstrument.MicroCalITC200 => data.Instrument.GetProperties().Name,
+                _ => data.DataSourceFormat switch
+                {
+                    ITCDataFormat.IntegratedHeats => "Integrated Heat File",
+                    _ => "Unknown Source Type",
+                },
+            };
         }
     }
 
