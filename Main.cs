@@ -25,6 +25,7 @@ namespace AnalysisITC
             // Not implemented yet if ever
             // BufferRegistry.Registry = BufferRegistry.LoadFromFile("./Buffers.json");
 
+            AppEventHandler.PrintAndLog("Exceuting App Main Method...");
             NSApplication.Main(args);
         }
     }
