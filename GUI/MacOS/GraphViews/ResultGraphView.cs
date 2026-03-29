@@ -5,6 +5,7 @@ using Foundation;
 using AppKit;
 using CoreGraphics;
 using AnalysisITC.AppClasses.AnalysisClasses;
+using AnalysisITC.Utilities;
 
 namespace AnalysisITC
 {
@@ -78,7 +79,7 @@ namespace AnalysisITC
                         Graph = new ParameterDependenceGraph(this)
                         {
                             XLabel = "ln(*a*{salt})",
-                            YLabel = "ln(*K*{a})",
+                            YLabel = $"ln({MarkdownStrings.DissociationConstant})",
                             XValues = analysis.DataPoints.Select(dp => new FloatWithError(dp.Item1)).ToArray(),
                             YValues = analysis.DataPoints.Select(dp => dp.Item2).ToArray(),
                             XScaleFactor = 1,
@@ -92,28 +93,29 @@ namespace AnalysisITC
                 default:
                 case ElectrostaticsAnalysis.DissocFitMode.DebyeHuckel:
                     {
-                        var yvalues = analysis.DataPoints.Select(dp => dp.Item2).ToArray();
+                        var yvalues = analysis.DataPoints.Select(dp => FWEMath.Log10(dp.Item2)).ToArray();
 
                         Graph = new ParameterDependenceGraph(this)
                         {
-                            XLabel = "*Ionic Strength* (mM)",
-                            YLabel = "*K*{d} (" + unit.GetName() + ")",
-                            XValues = analysis.DataPoints.Select(dp => new FloatWithError(dp.Item1)).ToArray(),
+                            XLabel = "√(*Ionic Strength*)",
+                            YLabel = $"Log({MarkdownStrings.DissociationConstant})",
+                            XValues = analysis.DataPoints.Select(dp => new FloatWithError(Math.Sqrt(dp.Item1))).ToArray(),
                             YValues = yvalues,
                             XScaleFactor = ConcentrationUnit.mM.GetMod(),
-                            YScaleFactor = unit.GetMod(),
-                            Fit = analysis.DebyeHuckelFit,
+                            YScaleFactor = 1,
+                            Fit = analysis.IonicStrengthDependenceFit,
                         };
 
                         (Graph as ParameterDependenceGraph).Setup();
-                        Graph.XAxis.Min = 0;
-                        Graph.XAxis.Max *= 1.5f;
-                        Graph.XAxis.ValueFactor = ConcentrationUnit.mM.GetMod(); //should not be necessary
+                        Graph.XAxis.Min = -0.05f;
+                        Graph.XAxis.Max *= 1.2f;
+                        Graph.XAxis.HideUnwantedTicks = true;
+                        Graph.XAxis.ValueFactor = 1; //should not be necessary
 
-                        var logrange = Math.Log(yvalues.Max()) - Math.Log(yvalues.Min());
-                        var logmin = Math.Log(yvalues.Min()) - logrange * 2f;
-                        var logmax = Math.Log(yvalues.Max()) + logrange * 0.5f;
-                        Graph.YAxis.Set(Math.Exp(logmin), Math.Exp(logmax)); // We want a larger Y range
+                        //var logrange = Math.Log(yvalues.Max()) - Math.Log(yvalues.Min());
+                        //var logmin = yvalues.Min()) - 1;// - logrange * 2f;
+                        //var logmax = Math.Log(yvalues.Max()) + 1;// + logrange * 0.5f;
+                        //Graph.YAxis.Set(Math.Exp(logmin), Math.Exp(logmax)); // We want a larger Y range
                         break;
                     }
             }

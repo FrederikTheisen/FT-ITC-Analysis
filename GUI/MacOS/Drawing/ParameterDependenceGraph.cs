@@ -148,6 +148,9 @@ namespace AnalysisITC
                 case FitWithError f:
                     DrawFit(gc, f);
                     break;
+                case IonicStrengthDependenceFit f:
+                    DrawElectrostaticsFit(gc, f);
+                    break;
                 default: break;
             }
         }
@@ -192,9 +195,78 @@ namespace AnalysisITC
 
             foreach (var x in xpoints)
             {
-                var dx = x - fit.ReferenceX;
-                var y = fit.Evaluate(x,0);
-                var e = fit.MinMax(x);
+                var y = fit.Evaluate(x, 0);
+                var max = y.WithConfidence(FloatWithError.ConfidenceLevel.SD)[1]; //e[1];
+                var min = y.WithConfidence(FloatWithError.ConfidenceLevel.SD)[0];  //e[0];
+
+                line.Add(new CGPoint(GetRelativePosition(x, y)));
+                top.Add(new CGPoint(GetRelativePosition(x, max)));
+                bottom.Add(new CGPoint(GetRelativePosition(x, min)));
+            }
+
+            bottom.Reverse();
+
+            CGPath path = GetSplineFromPoints(top.ToArray());
+            GetSplineFromPoints(bottom.ToArray(), path);
+
+            var errorlayer = CGLayer.Create(gc, PlotSize);
+            errorlayer.Context.SetFillColor(new CGColor(StrokeColor, .25f));
+            errorlayer.Context.AddPath(path);
+            errorlayer.Context.FillPath();
+
+            CGPath fitpath = GetSplineFromPoints(line.ToArray());
+
+            var fitlayer = CGLayer.Create(gc, PlotSize);
+            fitlayer.Context.SetStrokeColor(StrokeColor);
+            fitlayer.Context.AddPath(fitpath);
+            fitlayer.Context.StrokePath();
+
+            gc.DrawLayer(errorlayer, Frame.Location);
+            gc.DrawLayer(fitlayer, Frame.Location);
+        }
+
+        void DrawElectrostaticsFit(CGContext gc, IonicStrengthDependenceFit fit)
+        {
+            const int segmentCount = 128;
+
+            var axisMin = XAxis.Min;
+            var axisMax = XAxis.Max;
+
+            if (axisMax <= axisMin) return;
+
+            // Ionic strength cannot be negative, so do not evaluate the fit there
+            var fitMin = Math.Max(0.0, axisMin);
+            var fitMax = axisMax;
+
+            if (fitMax < fitMin) return;
+
+            var line = new List<CGPoint>();
+            var top = new List<CGPoint>();
+            var bottom = new List<CGPoint>();
+            var xpoints = new List<double>();
+
+            void AddX(double x) { if (xpoints.Count == 0 || Math.Abs(xpoints[xpoints.Count - 1] - x) > 1e-12) { xpoints.Add(x); } }
+
+            // Force an exact point at zero if it is visible on the axis
+            if (axisMin <= 0 && axisMax >= 0)
+                AddX(0.0);
+
+            // Sample the valid plotting domain
+            for (int i = 0; i <= segmentCount; i++)
+            {
+                double t = (double)i / segmentCount;
+                double x = fitMin + (fitMax - fitMin) * t;
+                AddX(x);
+            }
+
+            xpoints.Sort();
+
+            foreach (var x in xpoints)
+            {
+                var y = fit.Evaluate(x);
+
+                if (FloatWithError.IsNaN(y)) continue;
+
                 var max = y.WithConfidence(FloatWithError.ConfidenceLevel.SD)[1]; //e[1];
                 var min = y.WithConfidence(FloatWithError.ConfidenceLevel.SD)[0];  //e[0];
 

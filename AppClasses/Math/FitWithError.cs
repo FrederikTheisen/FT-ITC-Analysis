@@ -28,10 +28,10 @@ namespace AnalysisITC
             return new(0);
         }
 
-        public virtual double[] MinMax(double x)
-        {
-            return new double[] { 0, 0 };
-        }
+        //public virtual double[] MinMax(double x)
+        //{
+        //    return new double[] { 0, 0 };
+        //}
     }
 
     public class LinearFit : Tuple<double, double, double>
@@ -115,85 +115,77 @@ namespace AnalysisITC
         }
     }
 
-    public class ElectrostaticsFit : FitWithError
+    public class ElectrostaticsFit
     {
-        public FloatWithError Kd0 => Parameters[0];
-        public virtual FloatWithError Plateau
-        {
-            get
-            {
-                return new(0);
-            }
-        }
-
         public ElectrostaticsFit()
         {
 
         }
 
-        public ElectrostaticsFit(FloatWithError[] parameters, double refx = 0) : base(parameters, refx)
+        public virtual FloatWithError Evaluate(double x)
         {
-
-        }
-
-        public ElectrostaticsFit(FloatWithError kd0, FloatWithError zz, double referencex = 0) : base(new[] { kd0, zz }, referencex)
-        {
+            throw new NotImplementedException();
         }
     }
 
-    public class DebyeHuckelFit : ElectrostaticsFit
-    {
-        public FloatWithError Charges => Parameters[1];
-        public override FloatWithError Plateau
-        {
-            get
-            {
-                return Kd0 * Math.Exp(-0.51 * Charges);
-            }
-        }
+    //public class DebyeHuckelFit : ElectrostaticsFit
+    //{
+    //    public override FloatWithError Plateau
+    //    {
+    //        get
+    //        {
+    //            return Kd0 * Math.Exp(-0.51 * Charges);
+    //        }
+    //    }
 
-        public DebyeHuckelFit(FloatWithError kd0, FloatWithError zz, double referencex = 0) : base(kd0, zz, referencex)
-        {
-        }
+    //    public DebyeHuckelFit(FloatWithError kd0, FloatWithError zz, double referencex = 0) : base(kd0, zz, referencex)
+    //    {
+    //    }
 
-        public override FloatWithError Evaluate(double x, int iterations = 2000)
-        {
-            if (x < 0) throw new ArgumentOutOfRangeException("X value cannot be negative for this function");
+    //    public override FloatWithError Evaluate(double x, int iterations = 0)
+    //    {
 
-            var rand = new Random();
-            var results = new List<double>();
-            var sqrtx = Math.Sqrt(x);
+    //    }
 
-            var result = Kd0 * Math.Exp(-0.51 * Charges * sqrtx / (1 + sqrtx));
+    //    public override FloatWithError Evaluate(double x, int iterations = 2000)
+    //    {
+    //        if (x < 0) throw new ArgumentOutOfRangeException("X value cannot be negative for this function");
 
-            if (iterations < 2) return result;
+    //        var rand = new Random();
+    //        var results = new List<double>();
+    //        var sqrtx = Math.Sqrt(x);
+    //        var oneoversqrtx = sqrtx / (1 + sqrtx);
 
-            //kd0 * Math.Exp(-0.51 * z * Math.Sqrt(x) / (1 + Math.Sqrt(x)))
-            for (int i = 0; i < iterations; i++)
-            {
-                var _kd0 = Kd0.Sample(rand);
-                var _z = Charges.Sample(rand);
+    //        var result = Kd0 * FWEMath.Exp(-0.51 * Charges * oneoversqrtx);
 
-                var f = _kd0 * Math.Exp(-0.51 * _z * sqrtx / (1 + sqrtx));
+    //        if (iterations < 2) return result;
 
-                results.Add(f);
-            }
+    //        //kd0 * Math.Exp(-0.51 * z * Math.Sqrt(x) / (1 + Math.Sqrt(x)))
+    //        for (int i = 0; i < iterations; i++)
+    //        {
+    //            var _kd0 = Kd0.Sample(rand);
+    //            var _z = Charges.Sample(rand);
 
-            return new FloatWithError(results, result);
-        }
+    //            var f = _kd0 * Math.Exp(-0.51 * _z * oneoversqrtx);
 
-        public override double[] MinMax(double x)
-        {
-            var r00 = Kd0.WithConfidence(FloatWithError.ConfidenceLevel.SD)[0] * Math.Exp(-0.51 * Charges.WithConfidence(FloatWithError.ConfidenceLevel.SD)[0] * Math.Sqrt(x) / (1 + Math.Sqrt(x)));
-            var r01 = Kd0.WithConfidence(FloatWithError.ConfidenceLevel.SD)[0] * Math.Exp(-0.51 * Charges.WithConfidence(FloatWithError.ConfidenceLevel.SD)[1] * Math.Sqrt(x) / (1 + Math.Sqrt(x)));
-            var r10 = Kd0.WithConfidence(FloatWithError.ConfidenceLevel.SD)[1] * Math.Exp(-0.51 * Charges.WithConfidence(FloatWithError.ConfidenceLevel.SD)[0] * Math.Sqrt(x) / (1 + Math.Sqrt(x)));
-            var r11 = Kd0.WithConfidence(FloatWithError.ConfidenceLevel.SD)[1] * Math.Exp(-0.51 * Charges.WithConfidence(FloatWithError.ConfidenceLevel.SD)[1] * Math.Sqrt(x) / (1 + Math.Sqrt(x)));
+    //            results.Add(f);
+    //        }
 
-            var vals = new double[] { r00, r01, r10, r11 };
+    //        return new FloatWithError(results, result);
+    //    }
 
-            return new double[] { vals.Min(), vals.Max() };
-        }
-    }
+    //    //public override double[] MinMax(double x)
+    //    //{
+    //    //    var r00 = Kd0.WithConfidence(FloatWithError.ConfidenceLevel.SD)[0] * Math.Exp(-0.51 * Charges.WithConfidence(FloatWithError.ConfidenceLevel.SD)[0] * Math.Sqrt(x) / (1 + Math.Sqrt(x)));
+    //    //    var r01 = Kd0.WithConfidence(FloatWithError.ConfidenceLevel.SD)[0] * Math.Exp(-0.51 * Charges.WithConfidence(FloatWithError.ConfidenceLevel.SD)[1] * Math.Sqrt(x) / (1 + Math.Sqrt(x)));
+    //    //    var r10 = Kd0.WithConfidence(FloatWithError.ConfidenceLevel.SD)[1] * Math.Exp(-0.51 * Charges.WithConfidence(FloatWithError.ConfidenceLevel.SD)[0] * Math.Sqrt(x) / (1 + Math.Sqrt(x)));
+    //    //    var r11 = Kd0.WithConfidence(FloatWithError.ConfidenceLevel.SD)[1] * Math.Exp(-0.51 * Charges.WithConfidence(FloatWithError.ConfidenceLevel.SD)[1] * Math.Sqrt(x) / (1 + Math.Sqrt(x)));
+
+    //    //    var vals = new double[] { r00, r01, r10, r11 };
+
+    //    //    return new double[] { vals.Min(), vals.Max() };
+    //    //}
+    //}
 
     public class CounterIonReleaseFit : ElectrostaticsFit
     {
@@ -204,101 +196,101 @@ namespace AnalysisITC
             Fit = new LinearFitWithError(slope, intercept, referencex);
         }
 
-        public override FloatWithError Evaluate(double x, int iterations = 5000)
+        public override FloatWithError Evaluate(double x)
         {
-            return Fit.Evaluate(x, iterations);
+            return Fit.Evaluate(x);
         }
 
-        public override double[] MinMax(double x)
-        {
-            return base.MinMax(x);
-        }
+        //public override double[] MinMax(double x)
+        //{
+        //    return base.MinMax(x);
+        //}
     }
 
-    public class SingleExponentialDecayFit : ElectrostaticsFit
-    {
-        public override FloatWithError Plateau => Parameters[1];
-        public FloatWithError K => Parameters[2];
+    //public class SingleExponentialDecayFit : ElectrostaticsFit
+    //{
+    //    public override FloatWithError Plateau => Parameters[1];
+    //    public FloatWithError K => Parameters[2];
 
-        public SingleExponentialDecayFit(FloatWithError kd0, FloatWithError plateau, FloatWithError k, double referencex = 0) : base(new FloatWithError[] { kd0, plateau, k }, referencex)
-        {
+    //    public SingleExponentialDecayFit(FloatWithError kd0, FloatWithError plateau, FloatWithError k, double referencex = 0) : base(new FloatWithError[] { kd0, plateau, k }, referencex)
+    //    {
 
-        }
+    //    }
 
-        double Function(double kd0, double p, double k, double dx)
-        {
-            return (kd0 - p) * Math.Exp(-k * dx) + p;
-        }
+    //    double Function(double kd0, double p, double k, double dx)
+    //    {
+    //        return (kd0 - p) * Math.Exp(-k * dx) + p;
+    //    }
 
-        public override FloatWithError Evaluate(double x, int iterations = 2000)
-        {
-            var rand = new Random();
-            var results = new List<double>();
+    //    public override FloatWithError Evaluate(double x, int iterations = 2000)
+    //    {
+    //        var rand = new Random();
+    //        var results = new List<double>();
 
-            var result = new FloatWithError(Function(Kd0, Plateau, K, x));
+    //        var result = new FloatWithError(Function(Kd0, Plateau, K, x));
 
-            if (iterations < 2) return result;
+    //        if (iterations < 2) return result;
 
-            for (int i = 0; i < iterations; i++)
-            {
-                var _kd0 = Kd0.Sample(rand);
-                var _p = Plateau.Sample(rand);
-                var _k = K.Sample(rand);
+    //        for (int i = 0; i < iterations; i++)
+    //        {
+    //            var _kd0 = Kd0.Sample(rand);
+    //            var _p = Plateau.Sample(rand);
+    //            var _k = K.Sample(rand);
 
-                results.Add(Function(_kd0, _p, _k, x));
-            }
+    //            results.Add(Function(_kd0, _p, _k, x));
+    //        }
 
-            return new FloatWithError(results, result);
-        }
+    //        return new FloatWithError(results, result);
+    //    }
 
-        public override double[] MinMax(double x)
-        {
-            var r000 = Function(
-                Kd0.WithConfidence(FloatWithError.ConfidenceLevel.Conf50)[0],
-                Plateau.WithConfidence(FloatWithError.ConfidenceLevel.Conf50)[0],
-                K.WithConfidence(FloatWithError.ConfidenceLevel.Conf50)[0], x);
+    //    //public override double[] MinMax(double x)
+    //    //{
+    //    //    var r000 = Function(
+    //    //        Kd0.WithConfidence(FloatWithError.ConfidenceLevel.Conf50)[0],
+    //    //        Plateau.WithConfidence(FloatWithError.ConfidenceLevel.Conf50)[0],
+    //    //        K.WithConfidence(FloatWithError.ConfidenceLevel.Conf50)[0], x);
 
-            var r001 = Function(
-                Kd0.WithConfidence(FloatWithError.ConfidenceLevel.Conf50)[0],
-                Plateau.WithConfidence(FloatWithError.ConfidenceLevel.Conf50)[0],
-                K.WithConfidence(FloatWithError.ConfidenceLevel.Conf50)[1], x);
+    //    //    var r001 = Function(
+    //    //        Kd0.WithConfidence(FloatWithError.ConfidenceLevel.Conf50)[0],
+    //    //        Plateau.WithConfidence(FloatWithError.ConfidenceLevel.Conf50)[0],
+    //    //        K.WithConfidence(FloatWithError.ConfidenceLevel.Conf50)[1], x);
 
-            var r010 = Function(
-                Kd0.WithConfidence(FloatWithError.ConfidenceLevel.Conf50)[0],
-                Plateau.WithConfidence(FloatWithError.ConfidenceLevel.Conf50)[1],
-                K.WithConfidence(FloatWithError.ConfidenceLevel.Conf50)[0], x);
+    //    //    var r010 = Function(
+    //    //        Kd0.WithConfidence(FloatWithError.ConfidenceLevel.Conf50)[0],
+    //    //        Plateau.WithConfidence(FloatWithError.ConfidenceLevel.Conf50)[1],
+    //    //        K.WithConfidence(FloatWithError.ConfidenceLevel.Conf50)[0], x);
 
-            var r100 = Function(
-                Kd0.WithConfidence(FloatWithError.ConfidenceLevel.Conf50)[1],
-                Plateau.WithConfidence(FloatWithError.ConfidenceLevel.Conf50)[0],
-                K.WithConfidence(FloatWithError.ConfidenceLevel.Conf50)[0], x);
+    //    //    var r100 = Function(
+    //    //        Kd0.WithConfidence(FloatWithError.ConfidenceLevel.Conf50)[1],
+    //    //        Plateau.WithConfidence(FloatWithError.ConfidenceLevel.Conf50)[0],
+    //    //        K.WithConfidence(FloatWithError.ConfidenceLevel.Conf50)[0], x);
 
-            var r011 = Function(
-                Kd0.WithConfidence(FloatWithError.ConfidenceLevel.Conf50)[0],
-                Plateau.WithConfidence(FloatWithError.ConfidenceLevel.Conf50)[1],
-                K.WithConfidence(FloatWithError.ConfidenceLevel.Conf50)[1], x);
+    //    //    var r011 = Function(
+    //    //        Kd0.WithConfidence(FloatWithError.ConfidenceLevel.Conf50)[0],
+    //    //        Plateau.WithConfidence(FloatWithError.ConfidenceLevel.Conf50)[1],
+    //    //        K.WithConfidence(FloatWithError.ConfidenceLevel.Conf50)[1], x);
 
-            var r110 = Function(
-                Kd0.WithConfidence(FloatWithError.ConfidenceLevel.Conf50)[1],
-                Plateau.WithConfidence(FloatWithError.ConfidenceLevel.Conf50)[1],
-                K.WithConfidence(FloatWithError.ConfidenceLevel.Conf50)[0], x);
+    //    //    var r110 = Function(
+    //    //        Kd0.WithConfidence(FloatWithError.ConfidenceLevel.Conf50)[1],
+    //    //        Plateau.WithConfidence(FloatWithError.ConfidenceLevel.Conf50)[1],
+    //    //        K.WithConfidence(FloatWithError.ConfidenceLevel.Conf50)[0], x);
 
-            var r101 = Function(
-                Kd0.WithConfidence(FloatWithError.ConfidenceLevel.Conf50)[1],
-                Plateau.WithConfidence(FloatWithError.ConfidenceLevel.Conf50)[0],
-                K.WithConfidence(FloatWithError.ConfidenceLevel.Conf50)[1], x);
+    //    //    var r101 = Function(
+    //    //        Kd0.WithConfidence(FloatWithError.ConfidenceLevel.Conf50)[1],
+    //    //        Plateau.WithConfidence(FloatWithError.ConfidenceLevel.Conf50)[0],
+    //    //        K.WithConfidence(FloatWithError.ConfidenceLevel.Conf50)[1], x);
 
-            var r111 = Function(
-                Kd0.WithConfidence(FloatWithError.ConfidenceLevel.Conf50)[1],
-                Plateau.WithConfidence(FloatWithError.ConfidenceLevel.Conf50)[1],
-                K.WithConfidence(FloatWithError.ConfidenceLevel.Conf50)[1], x);
+    //    //    var r111 = Function(
+    //    //        Kd0.WithConfidence(FloatWithError.ConfidenceLevel.Conf50)[1],
+    //    //        Plateau.WithConfidence(FloatWithError.ConfidenceLevel.Conf50)[1],
+    //    //        K.WithConfidence(FloatWithError.ConfidenceLevel.Conf50)[1], x);
 
-            var vals = new double[] { r000, r001, r010, r100, r101, r011, r110, r111 };
+    //    //    var vals = new double[] { r000, r001, r010, r100, r101, r011, r110, r111 };
 
-            var val = new FloatWithError(vals, Evaluate(x, 0));
-            return val.WithConfidence(FloatWithError.ConfidenceLevel.Conf50);
-            return new double[] { vals.Min(), vals.Max() };
-        }
-    }
+    //    //    var val = new FloatWithError(vals, Evaluate(x, 0));
+    //    //    return val.WithConfidence(FloatWithError.ConfidenceLevel.Conf50);
+    //    //    return new double[] { vals.Min(), vals.Max() };
+    //    //}
+    //}
 }
 

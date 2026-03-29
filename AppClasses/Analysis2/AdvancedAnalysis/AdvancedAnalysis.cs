@@ -11,7 +11,7 @@ namespace AnalysisITC.AppClasses.AnalysisClasses
         public static TerminationFlag TerminateAnalysisFlag { get; private set; } = new TerminationFlag();
 
         public static event EventHandler<TerminationFlag> AnalysisStarted;
-        public static event EventHandler<Tuple<int, int, float>> IterationFinished;
+        public static event EventHandler<Tuple<int, int, float, string>> IterationFinished;
         public static event EventHandler<Tuple<int, TimeSpan>> AnalysisFinished;
 
         public static int CalculationIterations { get; set; } = 1000;
@@ -21,11 +21,11 @@ namespace AnalysisITC.AppClasses.AnalysisClasses
             AnalysisStarted?.Invoke(null, TerminateAnalysisFlag);
         });
 
-        public static void ReportCalculationProgress(int iteration, int totaliterations = 0) => NSApplication.SharedApplication.InvokeOnMainThread(() =>
+        public static void ReportCalculationProgress(int iteration, int totaliterations = 0, string description = null) => NSApplication.SharedApplication.InvokeOnMainThread(() =>
         {
             var totiter = totaliterations > 0 ? totaliterations : CalculationIterations;
 
-            IterationFinished?.Invoke(null, new Tuple<int, int, float>(iteration, totiter, iteration / (float)totiter));
+            IterationFinished?.Invoke(null, new Tuple<int, int, float, string>(iteration, totiter, iteration / (float)totiter, description));
         });
 
         public static void ReportAnalysisFinished(object analysis, int iterations, TimeSpan time) => NSApplication.SharedApplication.InvokeOnMainThread(() =>
@@ -73,18 +73,19 @@ namespace AnalysisITC.AppClasses.AnalysisClasses
             
         }
 
-        internal List<Tuple<double,double>> GetErrorData(List<Tuple<double, FloatWithError>> dps)
+        internal List<(double,double)> GetErrorData(List<(double, FloatWithError)> dps)
         {
             switch (AppSettings.DefaultErrorEstimationMethod)
             {
                 default:
-                case ErrorEstimationMethod.BootstrapResiduals: return dps.Select(dp => new Tuple<double, double>(dp.Item1, dp.Item2.Sample())).ToList();
+                case ErrorEstimationMethod.BootstrapResiduals:
+                    return dps.Select(dp => (dp.Item1, dp.Item2.Sample())) .ToList();
                 case ErrorEstimationMethod.LeaveOneOut:
-                    var _dps = new List<Tuple<double, FloatWithError>>();
+                    var _dps = new List<(double, FloatWithError)>();
                     _dps.AddRange(dps);
                     _dps.RemoveAt(Rand.Next(dps.Count - 1));
 
-                    return _dps.Select(dp => new Tuple<double, double>(dp.Item1, dp.Item2.Value)).ToList();
+                    return _dps.Select(dp => (dp.Item1, dp.Item2.Value)).ToList();
             }
         }
     }

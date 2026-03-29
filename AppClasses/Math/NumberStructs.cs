@@ -10,6 +10,7 @@ namespace AnalysisITC
         const double asymmetry_threshold = 0.13;
 
         private double asymmscore = 0.0;
+        private bool isnan = false;
 
         public double Value { get; private set; } = 0;
         public double SD { get; private set; } = 0;
@@ -40,6 +41,13 @@ namespace AnalysisITC
         }
 
         public readonly Energy Energy => new Energy(this);
+
+        public static FloatWithError NaN
+        {
+            get => new FloatWithError() { isnan = true };
+        }
+
+        public static bool IsNaN(FloatWithError v) => v.isnan;
 
         public FloatWithError()
         {
@@ -198,6 +206,7 @@ namespace AnalysisITC
             SD,
             Conf50
         }
+
         public double[] WithConfidence(ConfidenceLevel conf = ConfidenceLevel.Conf95)
         {
             switch (conf)
@@ -402,13 +411,13 @@ namespace AnalysisITC
 
         public string ToSaveString()
         {
-            if (DistributionConfidence95 != null || !HasError) return $"{Value};{SD};{DistributionConfidence95[0]};{DistributionConfidence95[1]}";
-            else return $"{Value};{SD}";
+            if (DistributionConfidence95 != null || !HasError) return $"{Value},{SD},{DistributionConfidence95[0]},{DistributionConfidence95[1]}";
+            else return $"{Value},{SD}";
         }
 
         public static FloatWithError FromSaveString(string s)
         {
-            var pars = s.Split(';').Select(ss => double.Parse(ss)).ToList();
+            var pars = s.Split(',').Select(ss => double.Parse(ss)).ToList();
 
             var fwe = new FloatWithError()
             {

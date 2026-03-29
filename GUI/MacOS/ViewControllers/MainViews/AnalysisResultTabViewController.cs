@@ -138,10 +138,12 @@ namespace AnalysisITC
             ToggleFitButtons(true);
         }
 
-        private void ResultAnalysisProgressReport(object sender, Tuple<int, int, float> e)
+        private void ResultAnalysisProgressReport(object sender, Tuple<int, int, float, string> e)
         {
             StatusBarManager.SetProgress(e.Item3);
-            StatusBarManager.SetStatus("Calculating...", 0);
+            string msg = "Calculating";
+            if (e.Item4 != null) msg += " " + e.Item4;
+            StatusBarManager.SetStatus($"{msg}...", 0);
             StatusBarManager.SetSecondaryStatus(e.Item1 + "/" + e.Item2, 0);
         }
 

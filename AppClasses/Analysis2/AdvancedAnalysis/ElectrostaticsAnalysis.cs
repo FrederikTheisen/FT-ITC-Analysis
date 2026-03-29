@@ -13,11 +13,11 @@ namespace AnalysisITC.AppClasses.AnalysisClasses
 
         public bool Calculated { get; private set; } = false;
         public Energy ElectrostaticStrength { get; private set; } = new(0);
-        public FloatWithError CounterIonRelease { get; private set; } = new(0);
-        public FloatWithError Kd0 { get; private set; } = new(0);
-        public FloatWithError KdInf { get; private set; } = new(0);
+        public FloatWithError CounterIonRelease { get; private set; } = FloatWithError.NaN;
+        public FloatWithError Kd0 => IonicStrengthDependenceFit?.Kd0 ?? FloatWithError.NaN;
+        public FloatWithError KdInf { get; private set; } = FloatWithError.NaN;
 
-        public DebyeHuckelFit DebyeHuckelFit { get; private set; } = null;
+        public IonicStrengthDependenceFit IonicStrengthDependenceFit { get; private set; } = null;
         public LinearFitWithError CounterIonReleaseFit { get; private set; } = null;
 
         public ElectrostaticsAnalysis(AnalysisResult result) : base(result)
@@ -25,28 +25,6 @@ namespace AnalysisITC.AppClasses.AnalysisClasses
             DataPoints = new List<Tuple<double, FloatWithError>>();
 
             SetMode(Mode);
-
-            //switch (Mode)
-            //{
-            //    case DissocFitMode.CounterIonRelease:
-            //        foreach (var sol in Data.Solution.Solutions)
-            //        {
-            //            if (SaltAttribute.GetIonActivity(sol.Data) > 0)
-            //                DataPoints.Add(new Tuple<double, FloatWithError>(
-            //                    Math.Log(SaltAttribute.GetIonActivity(sol.Data)),
-            //                    FWEMath.Log(sol.ReportParameters[Analysis2.ParameterType.Affinity1])));
-            //        }
-            //        break;
-            //    default:
-            //    case DissocFitMode.DebyeHuckel:
-            //        foreach (var sol in Data.Solution.Solutions)
-            //        {
-            //            DataPoints.Add(new Tuple<double, FloatWithError>(
-            //                BufferAttribute.GetIonicStrength(sol.Data),
-            //                sol.ReportParameters[Analysis2.ParameterType.Affinity1]));
-            //        }
-            //        break;
-            //}
         }
 
         public void SetMode(DissocFitMode mode)
@@ -88,14 +66,31 @@ namespace AnalysisITC.AppClasses.AnalysisClasses
 
         void CalculateIonTransfer()
         {
-            var dps = new List<Tuple<double, FloatWithError>>();
+            AppEventHandler.PrintAndLog("Performing Ion Release Analysis...");
+
+            var dps = new List<(double x, FloatWithError y)>();
 
             foreach (var sol in Data.Solution.Solutions)
             {
-                if (SaltAttribute.GetIonActivity(sol.Data) > 0)
-                    dps.Add(new Tuple<double, FloatWithError>(
-                        Math.Log(SaltAttribute.GetIonActivity(sol.Data)),
-                        FWEMath.Log(sol.ReportParameters[ParameterType.Affinity1])));
+                var activity = SaltAttribute.GetIonActivity(sol.Data);
+                var affinity = sol.ReportParameters[ParameterType.Affinity1];
+
+                if (!double.IsFinite(activity) || activity <= 0) continue;
+                if (!double.IsFinite(affinity.Value) || affinity.Value <= 0) continue;
+
+                var x = Math.Log(activity);
+                var y = FWEMath.Log(affinity);
+
+                if (!double.IsFinite(x) || !double.IsFinite(y.Value)) continue;
+
+                dps.Add((x, y));
+            }
+
+            if (dps.Count < 3)
+            {
+                CounterIonRelease = FloatWithError.NaN;
+                CounterIonReleaseFit = null;
+                return;
             }
 
             var result = FitLinear(dps.Select(dp => dp.Item1).ToArray(), dps.Select(dp => dp.Item2.Value).ToArray());
@@ -107,7 +102,7 @@ namespace AnalysisITC.AppClasses.AnalysisClasses
 
                 results.Add(FitLinear(_dps.Select(dp => dp.Item1).ToArray(), _dps.Select(dp => dp.Item2).ToArray()));
 
-                ResultAnalysisController.ReportCalculationProgress(i + 1);
+                ResultAnalysisController.ReportCalculationProgress(i + 1, description: "Ion Transfer");
                 if (ResultAnalysisController.TerminateAnalysisFlag.Up) break;
             }
 
@@ -121,37 +116,72 @@ namespace AnalysisITC.AppClasses.AnalysisClasses
 
         void CalculateIonicStrengthDependence()
         {
-            var dps = new List<Tuple<double, FloatWithError>>();
+            AppEventHandler.PrintAndLog("Performing Electrostatics Analysis...");
+
+            var dps = new List<(double, FloatWithError)>();
 
             foreach (var sol in Data.Solution.Solutions)
             {
-                dps.Add(new Tuple<double, FloatWithError>(
-                    BufferAttribute.GetIonicStrength(sol.Data),
-                    sol.ReportParameters[Analysis2.ParameterType.Affinity1]));
+                double ionicStrength = BufferAttribute.GetIonicStrength(sol.Data);
+                var affinity = sol.ReportParameters[Analysis2.ParameterType.Affinity1];
+
+                dps.Add((ionicStrength, affinity));
             }
 
-            var result = FitDebyeHuckel(dps.Select(dp => dp.Item1).ToArray(), dps.Select(dp => dp.Item2.Value).ToArray(), dps.Min(dp => dp.Item2));
-            var results = new List<DebyeHuckel>();
+            if (dps.Count < 3)
+            {
+                IonicStrengthDependenceFit = null;
+                CompletedIterations = 0;
+                return;
+            }
+
+            var point = IonicStrengthDependence.FitIonicStrengthDependence(
+                dps.Select(dp => dp.Item1).ToArray(),
+                dps.Select(dp => dp.Item2.Value).ToArray());
+
+            if (point == null)
+            {
+                IonicStrengthDependenceFit = null;
+                CompletedIterations = 0;
+                return;
+            }
+
+            var results = new List<IonicStrengthDependence>();
 
             for (int i = 0; i < ResultAnalysisController.CalculationIterations; i++)
             {
                 var _dps = GetErrorData(dps);
 
-                var r = FitDebyeHuckel(_dps.Select(dp => dp.Item1).ToArray(), _dps.Select(dp => dp.Item2).ToArray(), result.Kd0, result.ZZ);
+                var r = IonicStrengthDependence.FitIonicStrengthDependence(
+                    _dps.Select(dp => dp.Item1).ToArray(),
+                    _dps.Select(dp => dp.Item2).ToArray());
 
                 if (r != null) results.Add(r);
 
-                ResultAnalysisController.ReportCalculationProgress(i + 1);
+                ResultAnalysisController.ReportCalculationProgress(i + 1, description: "Salt Dependence");
                 if (ResultAnalysisController.TerminateAnalysisFlag.Up) break;
             }
 
-            var zz = new FloatWithError(results.Select(r => r.ZZ), result.ZZ);
+            // Fall back to point estimate if bootstrap failed completely
+            var kd0 = results.Count > 0
+                ? new FloatWithError(results.Select(r => r.Kd0), point.Kd0)
+                : new FloatWithError(point.Kd0);
 
-            Kd0 = new(results.Select(r => r.Kd0), result.Kd0);
-            KdInf = new(results.Select(r => r.Kd0 * Math.Exp(-0.51 * r.ZZ)));
+            var sensitivity = results.Count > 0
+                ? new FloatWithError(results.Select(r => r.SaltSensitivity), point.SaltSensitivity)
+                : new FloatWithError(point.SaltSensitivity);
 
-            DebyeHuckelFit = new DebyeHuckelFit(Kd0, zz);
+            var curvature = results.Count > 0
+                ? new FloatWithError(results.Select(r => r.Curvature), point.Curvature)
+                : new FloatWithError(point.Curvature);
+
+            IonicStrengthDependenceFit = new IonicStrengthDependenceFit(kd0, sensitivity, curvature, point.UsesCurvature);
+
             CompletedIterations = results.Count;
+
+            AppEventHandler.PrintAndLog($"Kd0 = {kd0}", 1);
+            AppEventHandler.PrintAndLog($"sensitivity = {sensitivity}", 1);
+            AppEventHandler.PrintAndLog($"curvature = {curvature}", 1);
         }
 
         LinearFit FitLinear(double[] x, double[] y)
@@ -165,63 +195,6 @@ namespace AnalysisITC.AppClasses.AnalysisClasses
             catch
             {
                 return null;
-            }
-        }
-
-        DebyeHuckel FitDebyeHuckel(double[] x, double[] y, double guesskd0, double guessz = 0)
-        {
-            try
-            {
-                var fit = MathNet.Numerics.Fit.Curve(x, y,
-                            (kd0, z, x) => kd0 * Math.Exp(-0.51 * z * Math.Sqrt(x) / (1 + Math.Sqrt(x))),
-                            guesskd0, guessz, tolerance: 1.0E-14, 30000);
-                return new DebyeHuckel(fit.P0, fit.P1);
-            }
-            catch { return null; }
-        }
-
-        public void FitElectrostaticStrength()
-        {
-            return;
-
-            var dps = new List<Tuple<double, FloatWithError>>();
-
-            foreach (var sol in Data.Solution.Solutions)
-            {
-                var kdkd0 = sol.ReportParameters[Analysis2.ParameterType.Affinity1] / (Fit as ElectrostaticsFit).Kd0;
-
-                dps.Add(new Tuple<double, FloatWithError>(
-                    Math.Sqrt(BufferAttribute.GetIonicStrength(sol.Data)),
-                    new(Math.Log(kdkd0), Math.Log(kdkd0) * kdkd0.FractionSD)));
-            }
-
-            var results = new List<double>();
-            var x = dps.Select(dp => dp.Item1).ToArray();
-
-            for (int i = 0; i < 1000; i++)
-            {
-                var y = dps.Select(dp => dp.Item2.Sample(Rand)).ToArray();
-
-                var (inter, slope) = MathNet.Numerics.Fit.Line(x, y);
-
-                results.Add(slope * Energy.R * (273.15 + Data.Solution.MeanTemperature));
-
-                if (ResultAnalysisController.TerminateAnalysisFlag.Up) break;
-            }
-
-            ElectrostaticStrength = new Energy(new(results));
-        }
-
-        class DebyeHuckel
-        {
-            public double[] Pars { get; private set; } = null;
-
-            public double Kd0 => Pars[0];
-            public double ZZ => Pars[1];
-
-            public DebyeHuckel(double kd0, double zza)
-            {
-                Pars = new[] { kd0, zza };
             }
         }
 

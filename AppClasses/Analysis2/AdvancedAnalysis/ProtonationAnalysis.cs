@@ -31,7 +31,7 @@ namespace AnalysisITC.AppClasses.AnalysisClasses
             {
                 results.Add(Analyze(witherror: true));
 
-                ResultAnalysisController.ReportCalculationProgress(i + 1);
+                ResultAnalysisController.ReportCalculationProgress(i + 1, description: "Protonation Change");
 
                 if (ResultAnalysisController.TerminateAnalysisFlag.Up) break;
             }
