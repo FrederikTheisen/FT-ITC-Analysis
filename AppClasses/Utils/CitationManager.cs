@@ -87,11 +87,11 @@ $@"@article{{ftitc{year},
             return DefaultCitation;
         }
 
-        public static void TryFetchOnlineCitation()
+        public static async Task TryFetchOnlineCitation()
         {
             try
             {
-                Task.Run(async () =>
+                await Task.Run(() =>
                 {
                     AppEventHandler.PrintAndLog("Citation Manager: Trying to update citation info...");
                     string url = "https://raw.githubusercontent.com/FrederikTheisen/FT-ITC-Analysis/refs/heads/master/citation.json";
