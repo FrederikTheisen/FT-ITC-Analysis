@@ -12,6 +12,7 @@ namespace AnalysisITC
     public partial class ViewController : NSViewController
     {
         public static event EventHandler UpdateTable;
+        public static event EventHandler<int> RemoveData;
 
         ExperimentData Data => DataManager.Current;
 
@@ -29,6 +30,7 @@ namespace AnalysisITC
             DataManager.SelectionDidChange += OnSelectionChanged;
             StateManager.UpdateStateDependentUI += StateManager_UpdateStateDependentUI;
             AppDelegate.StartPrintOperation += AppDelegate_StartPrintOperation;
+            ExperimentMenuButton.Activated += OnSourcePopupChanged;
 
             ShowLoadDataPrompt();
         }
@@ -38,6 +40,41 @@ namespace AnalysisITC
             base.ViewDidAppear();
 
             UpdateGraph();
+        }
+
+        private void OnSourcePopupChanged(object sender, EventArgs e)
+        {
+            var popup = (NSPopUpButton)sender;
+            var item = popup.SelectedItem;
+
+            if (item == null) return;
+
+            var title = item.Title;
+            var index = popup.IndexOfSelectedItem;
+            var tag = item.Tag;
+            var iden = item.Identifier;
+
+            switch (iden)
+            {
+                case "openattributes":
+                    EditAttributesAction(null);
+                    break;
+                case "toggleinclude":
+                    ToggleInclusionAction(null);
+                    break;
+                case "duplicate":
+                    DataManager.DuplicateSelectedData(Data);
+                    break;
+                case "export": 
+                    Exporter.Export(ExportType.Data);
+                    break;
+                case "delete":
+                    int idx = DataManager.SelectedContentIndex;
+                    DataManager.RemoveData2(idx);
+                    RemoveData?.Invoke(this, idx);   // 2) then animate UI removal
+                    break;
+                default: break;
+            }
         }
 
         private void AppDelegate_StartPrintOperation(object sender, EventArgs e)

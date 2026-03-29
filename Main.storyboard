@@ -8504,13 +8504,13 @@ DQ
                                                             <menu key="menu" id="cfZ-gt-znL">
                                                                 <items>
                                                                     <menuItem title="Experiment Menu" hidden="YES" id="NRI-nq-Bkp"/>
-                                                                    <menuItem title="Edit attributes" id="lGa-Vr-Px7"/>
-                                                                    <menuItem title="Include global" state="on" id="IEU-1U-vSD"/>
+                                                                    <menuItem title="Edit attributes" identifier="openattributes" id="lGa-Vr-Px7"/>
+                                                                    <menuItem title="Toggle include global" identifier="toggleinclude" id="IEU-1U-vSD"/>
                                                                     <menuItem isSeparatorItem="YES" id="Bjc-Vx-rQB"/>
-                                                                    <menuItem title="Duplicate data" id="5SX-zc-QAp"/>
-                                                                    <menuItem title="Export data" id="bbi-sm-cZP"/>
+                                                                    <menuItem title="Duplicate data" identifier="duplicate" id="5SX-zc-QAp"/>
+                                                                    <menuItem title="Export data" identifier="export" id="bbi-sm-cZP"/>
                                                                     <menuItem isSeparatorItem="YES" id="n9q-ZG-8We"/>
-                                                                    <menuItem title="Delete" id="70R-oH-bXM">
+                                                                    <menuItem title="Delete" identifier="delete" id="70R-oH-bXM">
                                                                         <attributedString key="attributedTitle"/>
                                                                     </menuItem>
                                                                 </items>
@@ -8521,6 +8521,9 @@ DQ
                                                         </constraints>
                                                     </popUpButton>
                                                 </subviews>
+                                                <constraints>
+                                                    <constraint firstAttribute="height" constant="28" id="rp9-ZB-xSe"/>
+                                                </constraints>
                                                 <visibilityPriorities>
                                                     <integer value="1000"/>
                                                     <integer value="1000"/>

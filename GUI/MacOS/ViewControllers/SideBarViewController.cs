@@ -49,6 +49,7 @@ namespace AnalysisITC
             ExperimentDetailsPopoverController.UpdateTable += ExperimentDetailsPopoverController_UpdateTable;
             BindingAnalysisViewController.UpdateTable += ExperimentDetailsPopoverController_UpdateTable;
             ViewController.UpdateTable += ExperimentDetailsPopoverController_UpdateTable;
+            ViewController.RemoveData += OnRowRemoveEvent;
 
             AnalysisITCDataSource.SourceWasSorted += AnalysisITCDataSource_SourceWasSorted;
         }
