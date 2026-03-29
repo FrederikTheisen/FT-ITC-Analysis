@@ -59,7 +59,7 @@ namespace DataReaders
             string[] a = firstline.Split(':');
             var exp = new ExperimentData(a[2]);
 
-            StatusBarManager.SetStatus($"Loading {exp.FileName}", 0);
+            StatusBarManager.SetStatus($"Loading {exp.Name}", 0);
             await Task.Delay(1); //Necessary to update UI. Unclear why whole method has to be on UI thread.
 
             ReadExperimentData(reader, exp);
@@ -76,7 +76,7 @@ namespace DataReaders
             string[] a = firstline.Split(':');
             var exp = new ExperimentData(a[2]);
 
-            StatusBarManager.SetStatus($"Loading {exp.FileName}", 0);
+            StatusBarManager.SetStatus($"Loading {exp.Name}", 0);
             await Task.Delay(1); //Necessary to update UI. Unclear why whole method has to be on UI thread.
 
             ReadExperimentData(reader, exp);
@@ -102,6 +102,7 @@ namespace DataReaders
                 switch (v[0])
                 {
                     case ID: exp.SetID(v[1]); break;
+                    case AssignedName: exp.Name = v[1]; break;
                     case Date: exp.Date = DateTime.Parse(line[5..]); break;
                     case SourceFormat: exp.DataSourceFormat = (ITCDataFormat)IParse(v[1]); break;
                     case Comments: exp.Comments = v[1]; break;
@@ -277,10 +278,26 @@ namespace DataReaders
 
             try
             {
-                var info = firstline.Split(':')[2].Split(',');
-                var comments = reader.ReadLine().Split(':')[1];
-                var dateinfo = reader.ReadLine().Substring(Date.Length + 1);
-                var date = DateTime.Parse(dateinfo);
+                string line = firstline;
+                string[] info = firstline.Split(':')[2].Split(',');
+                string comments = "";
+                string dateinfo = "";
+                string name = "";
+                DateTime date = DateTime.Now;
+
+                while (!(line = reader.ReadLine()).Contains(GlobalSolutionHeader))
+                {
+                    var dat = line.Split(':');
+
+                    switch (dat[0])
+                    {
+                        case Comments: comments = dat[1]; break;
+                        case Date: dateinfo = line.Substring(Date.Length + 1); break;
+                        case AssignedName: name = dat[1]; break;
+                    }
+                }
+
+                if (!string.IsNullOrEmpty(dateinfo)) date = DateTime.Parse(dateinfo);
 
                 StatusBarManager.SetStatus($"Loading {(info.Length > 1 ? info[1] : "Analysis Result")}", 0);
                 await Task.Delay(1); //Necessary to update UI.
@@ -288,10 +305,11 @@ namespace DataReaders
                 var sol = ReadGlobalSolution(reader);
                 
                 string guid = info[0];
-                string name = info.Length > 1 ? info[1] : sol.SolutionName;
+                string filename = info.Length > 1 ? info[1] : sol.SolutionName;
                 AnalysisResult result = new AnalysisResult(sol);
                 result.SetID(guid);
-                result.FileName = name;
+                result.SetFileName(filename);
+                result.Name = name;
                 result.Comments = comments;
                 result.SetDate(date);
 
@@ -299,6 +317,7 @@ namespace DataReaders
             }
             catch (Exception ex)
             {
+                AppEventHandler.PrintAndLog(ex.Message);
                 AppEventHandler.PrintAndLog(ex.StackTrace);
                 AppEventHandler.DisplayHandledException(new HandledException(HandledException.Severity.Error,"File Reading Error", $"Analysis Result reading error.\nFile: {firstline}"));
 
@@ -464,6 +483,9 @@ namespace DataReaders
                                 bsols.Add(ReadSolution(reader, bsol, factory.Model.Data));
                             }
                             break;
+                        case "LIST" when v[1] == SolBootstrapParameters:
+                            bsols = ReadBootstrapParameterList(factory.Model, reader);
+                            break;
                         case "LIST" when v[1] == MdlOptions: ReadModelOptions(factory.Model, reader); break;
                         case "OBJECT" when v[1] == SolConvergence: conv = ReadConvergenceObject(reader); break;
 
@@ -496,6 +518,30 @@ namespace DataReaders
 
                 return null;
             }
+        }
+
+        private static List<SolutionInterface> ReadBootstrapParameterList(Model mdl, StreamReader reader)
+        {
+            var solutions = new List<SolutionInterface>();
+
+            string line;
+            while ((line = reader.ReadLine()) != EndListHeader)
+            {
+                while (line != EndListHeader)
+                {
+                    var dat = line.Split(':');
+                    var par = (ParameterType)int.Parse(dat[1]);
+                    var val = DParse(dat[2]);
+
+                    mdl.Parameters.AddOrUpdateParameter(par, val);
+
+                    line = reader.ReadLine();
+                }
+
+                solutions.Add(SolutionInterface.FromModel(mdl, null));
+            }
+
+            return solutions;
         }
 
         private static void ReadModelOptions(Model mdl, StreamReader reader)

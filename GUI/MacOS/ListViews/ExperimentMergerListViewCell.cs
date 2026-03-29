@@ -53,7 +53,7 @@ namespace AnalysisITC
             var item = source.Items[row];
             var data = item.Data;
 
-            TitleLabel.StringValue = data.FileName;
+            TitleLabel.StringValue = data.Name;
             DateLabel.StringValue = "Date: " + data.UIShortDateWithTime;
             if (!string.IsNullOrEmpty(data.Comments))
             {

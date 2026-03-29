@@ -105,7 +105,7 @@ namespace AnalysisITC
             var paths = new List<string>();
             foreach (var data in settings.Data)
             {
-                var fileName = $"{Path.GetFileNameWithoutExtension(data.FileName)}.{ext}";
+                var fileName = $"{Path.GetFileNameWithoutExtension(data.Name)}.{ext}";
 
                 paths.Add(Path.Combine(folderPath, fileName));
             }
@@ -145,7 +145,7 @@ namespace AnalysisITC
 
         static string GetDataFileName()
         {
-            return Path.GetFileNameWithoutExtension(ExportSettings.Data[0].FileName);
+            return Path.GetFileNameWithoutExtension(ExportSettings.Data[0].Name);
         }
 
         static async Task WriteDataFile(string path)
@@ -213,7 +213,7 @@ namespace AnalysisITC
                     prevtime = t;
                 }
 
-                newvalues[dat.FileName] = points;
+                newvalues[dat.Name] = points;
             }
 
             var lines = new List<string>();
@@ -243,7 +243,7 @@ namespace AnalysisITC
         {
             var lines = new List<string>();
             var header = "";
-            foreach (var dat in data) header += "time" + Delimiter + dat.FileName + Delimiter;
+            foreach (var dat in data) header += "time" + Delimiter + dat.Name + Delimiter;
             lines.Add(header.TrimEnd(Delimiter));
 
             int index = 0;
@@ -297,7 +297,7 @@ namespace AnalysisITC
             {
                 foreach (var data in ExportSettings.Data)
                 {
-                    var dataname = Path.GetFileNameWithoutExtension(data.FileName);
+                    var dataname = data.Name;
                     var ext = ExportType.Peaks.GetProperties().DotExtension();
                     var output = Path.Combine(path, dataname + ext);
 
@@ -323,7 +323,7 @@ namespace AnalysisITC
             {
                 foreach (var data in ExportSettings.Data)
                 {
-                    var dataname = Path.GetFileNameWithoutExtension(data.FileName);
+                    var dataname = data.Name;
                     var ext = ExportType.ITCsim.GetProperties().DotExtension();
                     var output = Path.Combine(path, dataname + ext);
 
@@ -351,7 +351,7 @@ namespace AnalysisITC
             {
                 foreach (var data in ExportSettings.Data)
                 {
-                    var dataname = Path.GetFileNameWithoutExtension(data.FileName);
+                    var dataname = data.Name;
                     var ext = ExportType.MicroCal.GetProperties().DotExtension();
                     var output = Path.Combine(path, dataname + ext);
 
@@ -424,7 +424,7 @@ namespace AnalysisITC
             {
                 foreach (var data in ExportSettings.Data)
                 {
-                    var dataname = Path.GetFileNameWithoutExtension(data.FileName);
+                    var dataname = data.Name;
                     var ext = ExportType.PYTC.GetProperties().DotExtension();
                     var output = Path.Combine(path, dataname + ext);
 
@@ -524,7 +524,7 @@ namespace AnalysisITC
             {
                 var line = new List<string>
                 {
-                    sol.Data.FileName,
+                    sol.Data.Name,
                     (usekelvin ? sol.TempKelvin : sol.Temp).ToString("F2")
                 };
 

@@ -46,7 +46,7 @@ namespace AnalysisITC
 
         void Setup()
         {
-            ExperimentNameField.StringValue = Data.FileName;
+            ExperimentNameField.StringValue = Data.Name;
             CellConcentrationField.DoubleValue = Data.CellConcentration.Value * 1000000;
             if (Data.CellConcentration.HasError) CellConcentrationErrorField.DoubleValue = Data.CellConcentration.SD * 1000000;
             SyringeConcentrationField.DoubleValue = Data.SyringeConcentration * 1000000;
@@ -130,7 +130,7 @@ namespace AnalysisITC
                 if (!string.IsNullOrEmpty(SyringeConcentrationField.StringValue)) Data.SyringeConcentration = new(SyringeConcentrationField.DoubleValue / 1000000, SyringeConcentrationErrorField.DoubleValue / 1000000);
                 if (!string.IsNullOrEmpty(CellConcentrationField.StringValue)) Data.CellConcentration = new(CellConcentrationField.DoubleValue / 1000000, CellConcentrationErrorField.DoubleValue / 1000000);
                 if (!string.IsNullOrEmpty(TemperatureField.StringValue)) Data.MeasuredTemperature = TemperatureField.DoubleValue;
-                if (!string.IsNullOrEmpty(ExperimentNameField.StringValue)) Data.FileName = ExperimentNameField.StringValue;
+                if (!string.IsNullOrEmpty(ExperimentNameField.StringValue)) Data.Name = ExperimentNameField.StringValue;
 
                 Data.Attributes.Clear();
 

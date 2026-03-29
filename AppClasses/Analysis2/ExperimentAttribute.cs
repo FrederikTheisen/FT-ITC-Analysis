@@ -111,7 +111,7 @@ namespace AnalysisITC.AppClasses.AnalysisClasses
 			get
 			{
 				int i = 0;
-				return DataManager.Data.Select(d => new Tuple<int, string, string, string>(i++, d.FileName, d.Date.ToString(), d.UniqueID));
+				return DataManager.Data.Select(d => new Tuple<int, string, string, string>(i++, d.Name, d.Date.ToString(), d.UniqueID));
 			}
 		}
 

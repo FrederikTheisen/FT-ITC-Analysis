@@ -61,7 +61,7 @@ namespace AnalysisITC
         {
             var curr = SelectedIndex > 0 ? Content[SelectedIndex] : null;
 
-            Content = Content.OrderBy(o => o.FileName).OrderBy(OrderOnType).ToList();
+            Content = Content.OrderBy(o => o.Name).OrderBy(OrderOnType).ToList();
 
             HandleSorted(curr);
         }

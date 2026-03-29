@@ -130,7 +130,7 @@ namespace AnalysisITC
 
             if (string.IsNullOrEmpty(fileName))
             {
-                fileName = "Tandem_" + first.FileName;
+                fileName = "Tandem_" + first.Name;
             }
 
             // Create experiment data from first experiment. Date is set to now.
@@ -360,7 +360,7 @@ namespace AnalysisITC
 
         static string BuildConcatComment(List<ExperimentData> experiments, string originalComment, string modeTag)
         {
-            var files = string.Join(" + ", experiments.Select(e => e.FileName));
+            var files = string.Join(" + ", experiments.Select(e => e.Name));
             var c = modeTag + Environment.NewLine + "Source files: " + files;
 
             if (!string.IsNullOrWhiteSpace(originalComment))

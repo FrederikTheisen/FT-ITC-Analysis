@@ -44,9 +44,9 @@ namespace AnalysisITC
         {
             string info = "";
 
-            if (this.NextResponder is NSWindow) (this.NextResponder as NSWindow).Title = Result.FileName;
+            if (this.NextResponder is NSWindow) (this.NextResponder as NSWindow).Title = Result.Name;
 
-            NameTextField.StringValue = Result.FileName;
+            NameTextField.StringValue = Result.Name;
             CommentTextField.StringValue = Result.Comments;
 
             info += Result.Solution.Solutions.Count + " experiments" + Environment.NewLine;
@@ -135,7 +135,7 @@ namespace AnalysisITC
         partial void Apply(NSObject sender)
         {
             if (!string.IsNullOrWhiteSpace(NameTextField.StringValue))
-                Result.FileName = NameTextField.StringValue;
+                Result.Name = NameTextField.StringValue;
 
             if (!string.IsNullOrWhiteSpace(CommentTextField.StringValue))
                 Result.Comments = CommentTextField.StringValue;

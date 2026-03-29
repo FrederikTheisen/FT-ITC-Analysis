@@ -530,6 +530,7 @@
     <Compile Include="GUI\MacOS\GuideHintViewController.designer.cs">
       <DependentUpon>GuideHintViewController.cs</DependentUpon>
     </Compile>
+    <Compile Include="AppClasses\Math\IonicStrengthDependence.cs" />
   </ItemGroup>
   <ItemGroup>
     <InterfaceDefinition Include="Main.storyboard" />

@@ -32,7 +32,7 @@ namespace AnalysisITC
             // Generate a descriptive name based on the experiments included in this result.
             // Falls back to the underlying solution name if no discriminating label can be generated.
             var suggested = AnalysisResultNameParser.GenerateSuggestedName(Solution);
-            FileName = EnsureUniqueName(suggested ?? solution.Model.Solution.SolutionName);
+            SetFileName(EnsureUniqueName(suggested ?? solution.Model.Solution.SolutionName));
 
 
             SetupAnalysisOptions();
@@ -111,8 +111,8 @@ namespace AnalysisITC
                 if (string.IsNullOrWhiteSpace(name)) return name;
 
                 var existing = DataManager.Results
-                    .Where(r => r != null && r != this && !string.IsNullOrWhiteSpace(r.FileName))
-                    .Select(r => r.FileName)
+                    .Where(r => r != null && r != this && !string.IsNullOrWhiteSpace(r.Name))
+                    .Select(r => r.Name)
                     .ToHashSet();
 
                 if (!existing.Contains(name)) return name;

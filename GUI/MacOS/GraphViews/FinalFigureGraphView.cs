@@ -201,11 +201,12 @@ namespace AnalysisITC
                     foreach (var data in datas)
                     {
                         var g = FinalFigureGraphView.SetupForExport(data);
-                        var filename = Path.GetFileNameWithoutExtension(data.FileName);
+                        var filename = data.Name;
                         var path = NSUrl.CreateFileUrl(dlg.Url.RelativePath + "/" + filename + ".pdf", null);
 
                         var parameters = new List<string>()
                         {
+                                $"Name: {data.Name}",
                                 $"File: {data.FileName}",
                                 $"File Date: {data.Date:yyyy-MM-dd}",
                                 $"[Syringe]: {data.SyringeConcentration.AsConcentration(ConcentrationUnit.µM, true)}",
@@ -226,7 +227,7 @@ namespace AnalysisITC
 
                         var pdfInfo = new CGPDFInfo
                         {
-                            Title = data.FileName,
+                            Title = data.Name,
                             Author = MarkdownStrings.AppName,
                             Creator = $"{MarkdownStrings.AppName} v{AppVersion.FullVersionString}",
                             Subject = $"ITC publication figure",

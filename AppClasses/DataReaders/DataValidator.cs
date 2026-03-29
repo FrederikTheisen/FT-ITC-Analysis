@@ -41,7 +41,7 @@ namespace AnalysisITC
                 using var alert = new NSAlert
                 {
                     AlertStyle = NSAlertStyle.Warning,
-                    MessageText = "Potential Error Detected: " + data.FileName,
+                    MessageText = "Potential Error Detected: " + data.Name,
                     InformativeText = issue.Message
                 };
 
@@ -99,12 +99,12 @@ namespace AnalysisITC
 
             // Avoid flagging self if re-validating an already-added dataset.
             var existingSameName = DataManager.Data
-                .FirstOrDefault(d => d.UniqueID != data.UniqueID && d.FileName == data.FileName);
+                .FirstOrDefault(d => d.UniqueID != data.UniqueID && d.Name == data.Name);
 
             if (existingSameName != null)
             {
                 return new ValidationIssue(
-                    $"An experiment with the same file name already exists: \"{existingSameName.FileName}\".\n" +
+                    $"An experiment with the same file name already exists: \"{existingSameName.Name}\".\n" +
                     "Attempt fix can rename the incoming dataset to a unique name.",
                     DataFixProtocol.FileExists);
             }
@@ -117,7 +117,7 @@ namespace AnalysisITC
             if (existingSameTemp != null)
             {
                 return new ValidationIssue(
-                    $"Another dataset has the same measured temperature ({data.MeasuredTemperature:G4} °C): \"{existingSameTemp.FileName}\".\n" +
+                    $"Another dataset has the same measured temperature ({data.MeasuredTemperature:G4} °C): \"{existingSameTemp.Name}\".\n" +
                     "This may be a duplicate import; verify before keeping.");
             }
 

@@ -68,7 +68,7 @@ namespace AnalysisITC
 			this.data = data;
 			this.row = index;
 
-			ExpNameLabel.StringValue = data.FileName;
+			ExpNameLabel.StringValue = data.Name;
 			Line2.StringValue = data.UIShortDateWithTime;
             Line3.StringValue = data.MeasuredTemperature.ToString("G3") + " °C | " + data.SyringeConcentration.AsFormattedConcentration(true) + " | " + data.CellConcentration.AsFormattedConcentration(true);
 

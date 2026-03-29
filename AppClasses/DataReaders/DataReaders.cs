@@ -129,7 +129,7 @@ namespace DataReaders
             // We cannot reprocess injections for tandem experiments
             if (experiment.IsTandemExperiment) return;
 
-            AppEventHandler.PrintAndLog("Proceesing injections for: " + experiment.FileName);
+            AppEventHandler.PrintAndLog("Proceesing injections for: " + experiment.FileName + " / " + experiment.Name);
 
             switch (experiment.DataSourceFormat)
             {

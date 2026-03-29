@@ -277,8 +277,8 @@ namespace AnalysisITC
             var name = "";
             try
             {
-                if (!string.IsNullOrWhiteSpace(d?.FileName))
-                    name = System.IO.Path.GetFileNameWithoutExtension(d.FileName);
+                if (!string.IsNullOrWhiteSpace(d?.Name))
+                    name = System.IO.Path.GetFileNameWithoutExtension(d.Name);
 
                 //var prop = d?.GetType().GetProperty("Comments");
                 //if (prop != null)

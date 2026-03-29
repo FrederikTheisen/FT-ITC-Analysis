@@ -169,12 +169,12 @@ namespace AnalysisITC
         public static void DuplicateSelectedData(ExperimentData data)
         {
             AppEventHandler.PrintAndLog("Duplicating Data: " + data.FileName);
-            StatusBarManager.SetStatus($"Duplicating Data: {data.FileName}", 3000);
+            StatusBarManager.SetStatus($"Duplicating Data: {data.Name}", 3000);
 
             var dps = new List<DataPoint>();
             foreach (var dp in data.DataPoints) dps.Add(dp.Copy());
 
-            var newdata = new ExperimentData(data.FileName + " [COPY]")
+            var newdata = new ExperimentData(data.Name + " [COPY]")
             {
                 Instrument = data.Instrument,
                 DataSourceFormat = data.DataSourceFormat,

@@ -27,7 +27,7 @@ namespace AnalysisITC
 
             foreach (var data in DataManager.Data)
             {
-                if (data.FileName.ToLower().Contains(token) || data.Comments.ToLower().Contains(token))
+                if (data.Name.ToLower().Contains(token) || data.Comments.ToLower().Contains(token))
                     data.Include = true;
 
                 data.UpdateProcessing(false);

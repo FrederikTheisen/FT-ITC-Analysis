@@ -8,8 +8,10 @@ namespace AnalysisITC
     {
         private static readonly CultureInfo UICulture = EnglishWithLocalFormats();
 
+        private string name = "";
+
         public string UniqueID { get; private set; } = Guid.NewGuid().ToString();
-        public string FileName { get; set; } = "";
+        public string FileName { get; private set; } = "";
         public string Comments { get; set; } = "";
         public DateTime Date { get; set; }
 
@@ -19,6 +21,14 @@ namespace AnalysisITC
         public void SetID(string id) => UniqueID = id;
 
         public void SetDate(DateTime date) => Date = date;
+
+        public void SetFileName(string filename) => FileName = filename;
+
+        public string Name
+        {
+            get => string.IsNullOrEmpty(name) ? System.IO.Path.GetFileNameWithoutExtension(FileName) : name;
+            set => name = value;
+        }
 
         string GetShortDateString()
         {

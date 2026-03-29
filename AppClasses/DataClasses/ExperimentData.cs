@@ -129,7 +129,7 @@ namespace AnalysisITC
 
         public ExperimentData(string file)
         {
-            FileName = file;
+            SetFileName(file);
 
             Processor = new DataProcessor(this);
         }
@@ -145,7 +145,7 @@ namespace AnalysisITC
                 v++;
             }
 
-            FileName = parts.First() + "_" + v.ToString() + string.Join("", parts.Skip(1));
+            Name = parts.First() + "_" + v.ToString() + string.Join("", parts.Skip(1));
         }
 
         public void AddInjection(string dataline)

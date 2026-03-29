@@ -17,6 +17,7 @@ namespace AnalysisITC
         public const string ExperimentHeader = "Experiment";
         public const string TandemExperimentHeader = "TandemExperiment";
         public const string ID = "ID";
+        public const string AssignedName = "Name";
         public const string FileName = "FileName";
         public const string Comments = "Comments";
         public const string Date = "Date";
@@ -63,6 +64,7 @@ namespace AnalysisITC
         public const string SolLoss = "Loss";
         public const string SolBootN = "BootstrapIterations";
         public const string SolBootstrapSolutions = "BootSolutions";
+        public const string SolBootstrapParameters = "BootParameters";
         public const string SolConvergence = "Conv";
         public const string SolIterations = "Iter";
         public const string SolConvMsg = "MSG";
@@ -234,6 +236,7 @@ namespace AnalysisITC
             var file = new List<string>
             {
                 FileHeader(ExperimentHeader, data.FileName),
+                Variable(AssignedName, data.Name),
                 Variable(ID, data.UniqueID),
                 Variable(Date, data.Date.ToString("O")),
                 Variable(SourceFormat, (int)data.DataSourceFormat),
@@ -378,20 +381,35 @@ namespace AnalysisITC
             }
             file.Add(EndListHeader);
 
+
             if (solution.BootstrapSolutions.Count > 0)
             {
-                file.Add(ListHeader(SolBootstrapSolutions));
+                file.Add(ListHeader(SolBootstrapParameters));
+
+                //file.Add(ListHeader(SolBootstrapSolutions));
                 foreach (var bsol in solution.BootstrapSolutions)
                 {
-                    var lines = GetSolutionLines(bsol);
+                    var lines = GetBootstrapSolutionLines(bsol);
 
                     file.AddRange(lines);
                 }
                 file.Add(EndListHeader);
             }
+
             file.Add(EndFileHeader);
 
             return file;
+        }
+
+        private static List<string> GetBootstrapSolutionLines(SolutionInterface solution)
+        {
+            var lines = new List<string>();
+            foreach (var par in solution.Model.Parameters.Table)
+            {
+                lines.Add(Variable(par.Key.ToString() + ":" + ((int)par.Key).ToString(), par.Value.Value));
+            }
+            lines.Add(EndListHeader);
+            return lines;
         }
 
         private static void AddConvergenceLine(SolverConvergence convergence, List<string> file)
@@ -416,6 +434,7 @@ namespace AnalysisITC
                 FileHeader(AnalysisResultHeader, new[] { result.UniqueID, result.FileName }),
                 Variable(Comments, result.Comments),
                 Variable(Date, result.Date.ToString("O")),
+                Variable(AssignedName, result.Name),
             };
             file.AddRange(GetGlobalSolutionLines(result.Solution));
             file.Add(EndFileHeader);

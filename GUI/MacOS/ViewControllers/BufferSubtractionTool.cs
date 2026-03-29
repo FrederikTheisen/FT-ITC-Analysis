@@ -56,7 +56,7 @@ namespace AnalysisITC
 
             foreach (var exp in DataManager.Data)
             {
-                var title = $"{exp.FileName} — {exp.Date:HH:mm}";
+                var title = $"{exp.Name} — {exp.Date:HH:mm}";
                 ReferenceExperimentSelection.AddItem(title);
             }
 
@@ -75,7 +75,7 @@ namespace AnalysisITC
 
             if (reference != null)
             {
-                info = "Experiment: " + reference.FileName + Environment.NewLine;
+                info = "Experiment: " + reference.Name + Environment.NewLine;
                 info += "Date: " + reference.UILongDateWithTime + Environment.NewLine;
                 info += "Details: " + reference.MeasuredTemperature.ToString("G3") + " °C | [syringe] = " + reference.SyringeConcentration.AsFormattedConcentration(true) + " | [cell] = " + reference.CellConcentration.AsFormattedConcentration(true) + Environment.NewLine;
                 if (!string.IsNullOrEmpty(reference.Comments)) info += "Comments: " + reference.Comments;
@@ -128,7 +128,7 @@ namespace AnalysisITC
                 {
                     if (target == reference) continue;
 
-                    AppEventHandler.PrintAndLog($"Adding buffer reference ({reference.FileName}) to {target.FileName}");
+                    AppEventHandler.PrintAndLog($"Adding buffer reference ({reference.Name}) to {target.Name}");
 
                     target.SetReferenceExperiment(reference);
                 }
