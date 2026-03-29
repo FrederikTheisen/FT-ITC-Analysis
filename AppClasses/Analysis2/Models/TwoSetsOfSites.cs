@@ -131,7 +131,7 @@ namespace AnalysisITC.AppClasses.Analysis2.Models
                     accuracy: 1e-32, maxIterations: 500, subdivision: 20,
                     out double root);
 
-                if (b) return root;
+                return root;
             }
 
             // Unholy...
