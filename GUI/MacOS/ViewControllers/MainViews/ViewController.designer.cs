@@ -25,6 +25,9 @@ namespace AnalysisITC
 		AppKit.NSButton EditAttributesButton { get; set; }
 
 		[Outlet]
+		AppKit.NSPopUpButton ExperimentMenuButton { get; set; }
+
+		[Outlet]
 		AnalysisITC.GraphView GVC { get; set; }
 
 		[Outlet]
@@ -44,6 +47,9 @@ namespace AnalysisITC
 
 		[Outlet]
 		AppKit.NSButton LoadLastButton { get; set; }
+
+		[Outlet]
+		AppKit.NSTextField TitleLabel { get; set; }
 
 		[Action ("ButtonClick:")]
 		partial void ButtonClick (AppKit.NSButton sender);
@@ -74,6 +80,11 @@ namespace AnalysisITC
 		
 		void ReleaseDesignerOutlets ()
 		{
+			if (ButtonStackView != null) {
+				ButtonStackView.Dispose ();
+				ButtonStackView = null;
+			}
+
 			if (ClearDataButton != null) {
 				ClearDataButton.Dispose ();
 				ClearDataButton = null;
@@ -82,6 +93,11 @@ namespace AnalysisITC
 			if (ContinueButton != null) {
 				ContinueButton.Dispose ();
 				ContinueButton = null;
+			}
+
+			if (EditAttributesButton != null) {
+				EditAttributesButton.Dispose ();
+				EditAttributesButton = null;
 			}
 
 			if (GVC != null) {
@@ -104,6 +120,11 @@ namespace AnalysisITC
 				Label2 = null;
 			}
 
+			if (ExperimentMenuButton != null) {
+				ExperimentMenuButton.Dispose ();
+				ExperimentMenuButton = null;
+			}
+
 			if (Label3 != null) {
 				Label3.Dispose ();
 				Label3 = null;
@@ -119,14 +140,9 @@ namespace AnalysisITC
 				LoadLastButton = null;
 			}
 
-			if (EditAttributesButton != null) {
-				EditAttributesButton.Dispose ();
-				EditAttributesButton = null;
-			}
-
-			if (ButtonStackView != null) {
-				ButtonStackView.Dispose ();
-				ButtonStackView = null;
+			if (TitleLabel != null) {
+				TitleLabel.Dispose ();
+				TitleLabel = null;
 			}
 		}
 	}
