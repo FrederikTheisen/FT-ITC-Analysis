@@ -59,6 +59,9 @@ namespace AnalysisITC
                 case "openattributes":
                     EditAttributesAction(null);
                     break;
+                case "copyattributes":
+                    DataManager.CopySelectedAttributesToAll();
+                    break;
                 case "toggleinclude":
                     ToggleInclusionAction(null);
                     break;

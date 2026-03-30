@@ -291,16 +291,16 @@ namespace AnalysisITC
             RemoveListIndices?.Invoke(null, idxs);
         }
 
-        public static void CopySelectedAttributesToAll()
+        public static void CopySelectedAttributesToAll(bool clear = false)
         {
             if (Current == null) return;
 
             var opt = Current.Attributes;
-            bool clear = false;
+            bool overwrite = false;
 
-            if (Data.Where(d => d != Current).Any(exp => exp.Attributes.Count > 0))
+            if (Data.Where(d => d != Current).Any(exp => exp.Attributes.Any(att => opt.Exists(att2 => att2.Key == att.Key))))
             {
-                clear = AppDelegate.PromptOverwrite("Remove and overwrite existing attributes?");
+                overwrite = AppDelegate.PromptOverwrite("Overwrite existing attributes?");
             }
 
             foreach (var exp in Data.Where(d => d != Current))
@@ -309,7 +309,13 @@ namespace AnalysisITC
 
                 foreach (var att in Current.Attributes)
                 {
-                    if (!clear && exp.Attributes.Exists(mo => mo.Key == att.Key)) continue;
+                    var existing = exp.Attributes.Find(a => a.Key == att.Key);
+
+                    if (existing != null)
+                    {
+                        if (!overwrite) continue;
+                        exp.Attributes.Remove(existing);
+                    }
 
                     exp.Attributes.Add(att.Copy());
                 }
