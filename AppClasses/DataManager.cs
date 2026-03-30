@@ -192,8 +192,9 @@ namespace AnalysisITC
             var dps = new List<DataPoint>();
             foreach (var dp in data.DataPoints) dps.Add(dp.Copy());
 
-            var newdata = new ExperimentData(data.Name + " [COPY]")
+            var newdata = new ExperimentData(data.FileName)
             {
+                Name = data.Name + " [COPY]",
                 Instrument = data.Instrument,
                 DataSourceFormat = data.DataSourceFormat,
                 DataPoints = dps.ToList(),
