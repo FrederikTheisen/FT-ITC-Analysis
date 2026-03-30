@@ -152,7 +152,15 @@ namespace AnalysisITC
         {
             await Task.Run(async () =>
             {
-                var lines = ExportSettings.UnifyTimeAxis ? GetUnifiedDataLines(ExportSettings.Data) : GetDataLines(ExportSettings.Data);
+                var exportdata = ExportSettings.Data.Where(d => d.HasThermogram).ToList();
+
+                if (exportdata.Count == 0)
+                {
+                    AppEventHandler.DisplayHandledException(new HandledException(HandledException.Severity.Warning, "No Valid Data", "No valid data could be exported"));
+                    return;
+                }
+
+                var lines = ExportSettings.UnifyTimeAxis ? GetUnifiedDataLines(exportdata) : GetDataLines(exportdata);
 
                 var filename = GetDataFileName() + ExportSettings.Export.GetProperties().DotExtension();
 
