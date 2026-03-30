@@ -194,7 +194,7 @@ namespace AnalysisITC
 
             var newdata = new ExperimentData(data.FileName)
             {
-                Name = data.Name + " [COPY]",
+                Name = data.Name,
                 Instrument = data.Instrument,
                 DataSourceFormat = data.DataSourceFormat,
                 DataPoints = dps.ToList(),
@@ -209,6 +209,7 @@ namespace AnalysisITC
                 MeasuredTemperature = data.MeasuredTemperature,
                 Date = data.Date,
             };
+            newdata.IterateCopyName();
 
             var injs = new List<InjectionData>();
             foreach (var inj in data.Injections)

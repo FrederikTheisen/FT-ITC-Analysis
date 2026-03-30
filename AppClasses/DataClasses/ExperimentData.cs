@@ -134,18 +134,24 @@ namespace AnalysisITC
             Processor = new DataProcessor(this);
         }
 
-        public void IterateFileName()
+        public void IterateCopyName()
         {
             var parts = FileName.Split('.');
 
-            int v = 2;
+            string basename = Name;
+            if (basename.Contains(" [COPY"))
+                basename = basename.Substring(0, basename.IndexOf(" [COPY"));
 
-            if (int.TryParse(parts.First().Last().ToString(), out v))
+            int i = 1;
+            var proposedname = $"{basename} [COPY{i}]";
+
+            while (DataManager.Data.Exists(d => d.Name == proposedname))
             {
-                v++;
+                i++;
+                proposedname = $"{basename} [COPY{i}]";
             }
 
-            Name = parts.First() + "_" + v.ToString() + string.Join("", parts.Skip(1));
+            Name = proposedname;
         }
 
         public void AddInjection(string dataline)

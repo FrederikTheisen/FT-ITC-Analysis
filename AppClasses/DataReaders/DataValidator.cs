@@ -104,7 +104,18 @@ namespace AnalysisITC
             if (existingSameName != null)
             {
                 return new ValidationIssue(
-                    $"An experiment with the same file name already exists: \"{existingSameName.Name}\".\n" +
+                    $"An experiment with the same name already exists: \"{existingSameName.Name}\".\n" +
+                    "Attempt fix can rename the incoming dataset to a unique name.",
+                    DataFixProtocol.FileExists);
+            }
+
+            var existingSameFile = DataManager.Data
+                .FirstOrDefault(d => d.UniqueID != data.UniqueID && d.FileName == data.FileName && d.Name == data.Name);
+
+            if (existingSameFile != null)
+            {
+                return new ValidationIssue(
+                    $"An experiment with the same file name and name already exists: \"{existingSameFile.FileName}\".\n" +
                     "Attempt fix can rename the incoming dataset to a unique name.",
                     DataFixProtocol.FileExists);
             }
@@ -153,7 +164,7 @@ namespace AnalysisITC
         {
             switch (fix)
             {
-                case DataFixProtocol.FileExists: data.IterateFileName(); break;
+                case DataFixProtocol.FileExists: data.IterateCopyName(); break;
                 case DataFixProtocol.InvalidInjection:
                     var injectiondata = new List<InjectionData>();
                     foreach (var inj in data.Injections)
