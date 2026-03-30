@@ -21,7 +21,6 @@ namespace AnalysisITC
         public static IEnumerable<AttributeKey> AllAddedOptions => Data.Attributes.Select(opt => opt.Key).Concat(tmpoptions.Select(mo => mo.Key).ToList());
         public static IEnumerable<AttributeKey> AvailableAttributes => tmpoptions.Select(mo => mo.Key).ToList();
 
-
         public ExperimentDetailsPopoverController() : base()
         {
 
@@ -133,7 +132,7 @@ namespace AnalysisITC
                 if (!string.IsNullOrEmpty(CellConcentrationField.StringValue)) Data.CellConcentration = new(CellConcentrationField.DoubleValue / 1000000, CellConcentrationErrorField.DoubleValue / 1000000);
                 if (!string.IsNullOrEmpty(TemperatureField.StringValue)) Data.MeasuredTemperature = TemperatureField.DoubleValue;
                 if (!string.IsNullOrEmpty(ExperimentNameField.StringValue)) Data.Name = ExperimentNameField.StringValue;
-                if (!string.IsNullOrEmpty(CellVolumeField.StringValue)) Data.CellVolume = CellVolumeField.DoubleValue;
+                if (!string.IsNullOrEmpty(CellVolumeField.StringValue)) Data.CellVolume = CellVolumeField.DoubleValue / 1000000;
 
                 Data.Attributes.Clear();
 
