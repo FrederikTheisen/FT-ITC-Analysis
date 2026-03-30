@@ -48,7 +48,6 @@ namespace AnalysisITC
             ElectroResultDescField.AttributedStringValue = MacStrings.FromMarkDownString(string.Join(Environment.NewLine, new List<string>()
             {
                 MarkdownStrings.DissociationConstant + " with no salt:",
-                MarkdownStrings.DissociationConstant + " at infinite salt:",
                 "Counter ion release (∆*n*{salt}):",
             }), NSFont.SystemFontOfSize(11));
 
@@ -418,7 +417,6 @@ namespace AnalysisITC
                     if (ea.Calculated) result = new List<string>()
                     {
                         ea.Kd0.AsFormattedConcentration(withunit: true),
-                        ea.KdInf.AsFormattedConcentration(withunit: true),
                         ea.CounterIonRelease.AsNumber(),
                     };
                     ElectrostaticAnalysisOutput.StringValue = string.Join(Environment.NewLine, result);

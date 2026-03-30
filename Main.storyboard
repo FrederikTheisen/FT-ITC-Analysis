@@ -9992,22 +9992,20 @@ A complementary mechanistic interpretation uses counterion release/uptake: the s
                                                                     <rect key="frame" x="5" y="0.0" width="354" height="87"/>
                                                                     <subviews>
                                                                         <textField horizontalHuggingPriority="251" verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="iGC-sY-pHL">
-                                                                            <rect key="frame" x="-2" y="45" width="180" height="42"/>
+                                                                            <rect key="frame" x="-2" y="59" width="180" height="28"/>
                                                                             <textFieldCell key="cell" controlSize="small" selectable="YES" alignment="left" allowsEditingTextAttributes="YES" id="ce0-Mn-0Va">
                                                                                 <font key="font" metaFont="smallSystem"/>
                                                                                 <string key="title">Kd with no salt:
-Kd at infinite salt:
 Electrostatic interaction strength:</string>
                                                                                 <color key="textColor" name="labelColor" catalog="System" colorSpace="catalog"/>
                                                                                 <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
                                                                             </textFieldCell>
                                                                         </textField>
                                                                         <textField horizontalHuggingPriority="249" horizontalCompressionResistancePriority="250" translatesAutoresizingMaskIntoConstraints="NO" id="pfo-19-XPn">
-                                                                            <rect key="frame" x="174" y="45" width="182" height="42"/>
+                                                                            <rect key="frame" x="174" y="59" width="182" height="28"/>
                                                                             <textFieldCell key="cell" controlSize="small" selectable="YES" alignment="right" id="hPU-2W-Eei">
                                                                                 <font key="font" metaFont="smallSystem"/>
                                                                                 <string key="title">---
----
 ---</string>
                                                                                 <color key="textColor" name="labelColor" catalog="System" colorSpace="catalog"/>
                                                                                 <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
