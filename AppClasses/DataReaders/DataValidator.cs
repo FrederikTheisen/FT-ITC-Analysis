@@ -109,18 +109,6 @@ namespace AnalysisITC
                     DataFixProtocol.FileExists);
             }
 
-            // This “identical experiment” heuristic is weak if based only on temperature;
-            // keep it if it’s useful, but make the warning explicit.
-            var existingSameTemp = DataManager.Data
-                .FirstOrDefault(d => d.UniqueID != data.UniqueID && d.MeasuredTemperature == data.MeasuredTemperature);
-
-            if (existingSameTemp != null)
-            {
-                return new ValidationIssue(
-                    $"Another dataset has the same measured temperature ({data.MeasuredTemperature:G4} °C): \"{existingSameTemp.Name}\".\n" +
-                    "This may be a duplicate import; verify before keeping.");
-            }
-
             if (injs == null || injs.Count == 0)
             {
                 return new ValidationIssue("No injections were found in the file.");
