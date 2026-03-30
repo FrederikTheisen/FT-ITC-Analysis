@@ -19,8 +19,8 @@ namespace AnalysisITC
 
         public readonly double Lower => DistributionConfidence95?[0] ?? Value;
         public readonly double Upper => DistributionConfidence95?[1] ?? Value;
-        private readonly double LowerWidth => Value - Lower;
-        private readonly double UpperWidth => Upper - Value;
+        public readonly double LowerWidth => Value - Lower;
+        public readonly double UpperWidth => Upper - Value;
 
         public readonly double FractionSD
         {

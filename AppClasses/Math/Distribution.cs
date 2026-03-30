@@ -40,7 +40,7 @@ namespace AnalysisITC
             };
         }
 
-        public static double Normal(FloatWithError number, Random rand = null) => Normal(number.Value, number.SD, rand);
+        public static double Normal(FloatWithError number, Random rand = null) => number.IsAsymmetric ? SampleSplitNormal(number, rand) : Normal(number.Value, number.SD, rand);
         public static double Normal(double mean, double stdDev, Random rand = null)
         {
             rand ??= rng;
@@ -50,6 +50,27 @@ namespace AnalysisITC
             double randNormal = mean + stdDev * randStdNormal; //random normal(mean,stdDev^2)
 
             return randNormal;
+        }
+        public static double SampleSplitNormal(FloatWithError fwe, Random rand = null)
+        {
+            rand ??= rng;
+
+            // If widths are 95% CI half-widths, convert approximately to sigma
+            double sigmaL = fwe.LowerWidth * 0.5102040816;
+            double sigmaR = fwe.UpperWidth * 0.5102040816;
+
+            // |N(0,1)|
+            double u1 = 1.0 - rand.NextDouble();
+            double u2 = 1.0 - rand.NextDouble();
+            double z = Math.Abs(Math.Sqrt(-2.0 * Math.Log(u1)) * Math.Cos(2.0 * Math.PI * u2));
+
+            // Proper split-normal side probability
+            double pRight = sigmaR / (sigmaL + sigmaR);
+
+            if (rand.NextDouble() < pRight)
+                return fwe.Value + z * sigmaR;
+            else
+                return fwe.Value - z * sigmaL;
         }
 
         public static double Constant(FloatWithError number, Random rand = null) => Constant(number.Value, number.SD, rand);
