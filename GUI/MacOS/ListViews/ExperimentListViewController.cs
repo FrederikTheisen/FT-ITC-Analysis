@@ -31,7 +31,7 @@ namespace AnalysisITC
 
             foreach (var mdl in analysisresult.Solution.Model.Models)
             {
-                lines.Add($"**{System.IO.Path.GetFileNameWithoutExtension(mdl.Data.Name)}**");
+                lines.Add($"**{mdl.Data.Name}**");
                 lines.Add($"  --Date: {mdl.Data.UIShortDateWithTime}");
                 lines.Add($"  Temperature: {mdl.Data.MeasuredTemperature:G3}--");
             }
