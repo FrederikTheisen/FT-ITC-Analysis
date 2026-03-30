@@ -1,4 +1,6 @@
 ﻿using System;
+using System.Collections.Generic;
+using System.Linq;
 
 namespace AnalysisITC
 {
@@ -195,6 +197,21 @@ namespace AnalysisITC
             var sd = 0.5 * Math.Sqrt(a.SD * a.SD + b.SD * b.SD);
 
             return new FloatWithError(value, sd);
+        }
+
+        public static FloatWithError Average(List<FloatWithError> values)
+        {
+            if (values.Count == 0) return FloatWithError.NaN;
+
+            var sum = values[0];
+            int count = values.Count;
+
+            foreach (var v in values.Skip(1))
+            {
+                sum += v;
+            }
+
+            return sum / count;
         }
 
         public static double RoundApproximate(double dbl)
