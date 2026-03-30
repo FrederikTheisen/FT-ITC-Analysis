@@ -25,6 +25,9 @@ namespace AnalysisITC
 		AppKit.NSTextField CellConcentrationField { get; set; }
 
 		[Outlet]
+		AppKit.NSTextField CellVolumeField { get; set; }
+
+		[Outlet]
 		AppKit.NSTextField CommentTextField { get; set; }
 
 		[Outlet]
@@ -93,6 +96,11 @@ namespace AnalysisITC
 			if (TemperatureField != null) {
 				TemperatureField.Dispose ();
 				TemperatureField = null;
+			}
+
+			if (CellVolumeField != null) {
+				CellVolumeField.Dispose ();
+				CellVolumeField = null;
 			}
 		}
 	}

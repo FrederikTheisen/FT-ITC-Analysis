@@ -53,6 +53,7 @@ namespace AnalysisITC
             if (Data.SyringeConcentration.HasError) SyringeConcentrationErrorField.DoubleValue = Data.SyringeConcentration.SD * 1000000;
             TemperatureField.DoubleValue = Data.MeasuredTemperature;
             CommentTextField.StringValue = Data.Comments;
+            CellVolumeField.DoubleValue = Data.CellVolume * 1000000;
 
             foreach (var opt in tmpoptions)
             {
@@ -62,6 +63,7 @@ namespace AnalysisITC
             // For tandem/merged experiments, we do not allow changing the concentrations
             if (Data.IsTandemExperiment)
             {
+                CellVolumeField.Enabled = false;
                 CellConcentrationField.Enabled = false;
                 CellConcentrationErrorField.Enabled = false;
                 SyringeConcentrationField.Enabled = false;
@@ -131,6 +133,7 @@ namespace AnalysisITC
                 if (!string.IsNullOrEmpty(CellConcentrationField.StringValue)) Data.CellConcentration = new(CellConcentrationField.DoubleValue / 1000000, CellConcentrationErrorField.DoubleValue / 1000000);
                 if (!string.IsNullOrEmpty(TemperatureField.StringValue)) Data.MeasuredTemperature = TemperatureField.DoubleValue;
                 if (!string.IsNullOrEmpty(ExperimentNameField.StringValue)) Data.Name = ExperimentNameField.StringValue;
+                if (!string.IsNullOrEmpty(CellVolumeField.StringValue)) Data.CellVolume = CellVolumeField.DoubleValue;
 
                 Data.Attributes.Clear();
 
