@@ -33,7 +33,7 @@ namespace AnalysisITC
         ITCsim,
         [ExportType("CSV", "Export in comma separated format. Select exported columns in preferences.", "csv")]
         CSV,
-        [ExportType("pytc", "Export a .dh file for analysis using pytc. pytc is a python software package for analyzing Isothermal Titration Calorimetry experiments. It does Bayesian and ML fitting. Performs global fits to multiple experiments, has a clean Python API, and is designed for easy extension with new models.", "dh")]
+        [ExportType("pytc", "Export a .dh file for analysis using pytc. pytc is a python software package for analyzing Isothermal Titration Calorimetry experiments. It does Bayesian and ML fitting. Performs global fits to multiple experiments.", "dh")]
         PYTC,
         [ExportType("MicroCal", "Export a MicroCal style table containing columns such as DH, INJV, Xt, Mt, XMt and so forth. The format is compatible with SEDPHAT analysis.", "dat")]
         MicroCal
