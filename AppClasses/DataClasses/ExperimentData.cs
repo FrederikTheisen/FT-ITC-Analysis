@@ -253,6 +253,8 @@ namespace AnalysisITC
 
         public void SetReferenceExperiment(ExperimentData reference)
         {
+            if (ReferenceExperiment != null) ReferenceExperiment.ProcessingUpdated -= Reference_ProcessingUpdated;
+
             // Check for self referencing.
             if (reference.UniqueID == this.UniqueID) throw new HandledException(HandledException.Severity.Warning, "Buffer Subtraction Error", "Attempting to set reference experiment to itself");
             if (reference.ReferenceExperiment != null) throw new HandledException(HandledException.Severity.Warning, "Buffer Subtraction Error", "Reference experiment already contains a buffer subtraction");
@@ -263,8 +265,14 @@ namespace AnalysisITC
             // Add reference experiment
             Attributes.Add(ExperimentAttribute.ExperimentReference("Reference", reference.UniqueID));
 
+            Reference_ProcessingUpdated(null, null);
+
+            reference.ProcessingUpdated += Reference_ProcessingUpdated;
+        }
+
+        private void Reference_ProcessingUpdated(object sender, EventArgs e)
+        {
             // Reintegrate peaks
-            // Processor?.IntegratePeaks(invalidate: true);
             foreach (var inj in Injections)
                 inj.UpdateCorrectedPeakArea();
         }
