@@ -216,16 +216,24 @@ namespace AnalysisITC
         public (List<double>, List<double>) GetValidTicks(bool includeborderticks = true)
         {
             var tickvalues = TickScale.Ticks();
+            var minortickvalues = tickvalues.Select(t => t + 0.5 * (tickvalues[0] - tickvalues[1])).ToList();
 
             if (HideUnwantedTicks)
             {
                 bool hideabovezero = tickvalues.Count(v => v < 0) > tickvalues.Count(v => v > 0);
 
-                if (hideabovezero) tickvalues.RemoveAll(v => v > 0);
-                else tickvalues.RemoveAll(v => v < 0);
+                if (hideabovezero)
+                {
+                    tickvalues.RemoveAll(v => v > 0);
+                    minortickvalues.RemoveAll(v => v > 0);
+                }
+                else
+                {
+                    tickvalues.RemoveAll(v => v < 0);
+                    minortickvalues.RemoveAll(v => v < 0);
+                }
             }
 
-            var minortickvalues = tickvalues.Select(t => t + 0.5 * (tickvalues[0] - tickvalues[1])).ToList();
             tickvalues.RemoveAll(v => v / ValueFactor < Min || v / ValueFactor > Max);
             if (!includeborderticks) tickvalues.RemoveAll(v => v == Min || v == Max);
 
