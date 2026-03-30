@@ -7765,13 +7765,13 @@ IA
                                                                 </button>
                                                                 <button toolTip="View fitting options" horizontalHuggingPriority="750" verticalHuggingPriority="248" horizontalCompressionResistancePriority="751" verticalCompressionResistancePriority="751" translatesAutoresizingMaskIntoConstraints="NO" id="QCw-pM-2ga">
                                                                     <rect key="frame" x="980" y="-1" width="30" height="29"/>
-                                                                    <buttonCell key="cell" type="recessed" bezelStyle="recessed" image="slider.horizontal.3" catalog="system" imagePosition="overlaps" alignment="left" controlSize="large" scrollable="YES" lineBreakMode="clipping" borderStyle="border" imageScaling="proportionallyDown" inset="2" id="Puf-N5-dga">
+                                                                    <buttonCell key="cell" type="recessed" bezelStyle="recessed" image="slider.horizontal.3" catalog="system" imagePosition="only" alignment="left" controlSize="large" scrollable="YES" lineBreakMode="clipping" borderStyle="border" imageScaling="proportionallyDown" inset="2" id="Puf-N5-dga">
                                                                         <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
                                                                         <font key="font" metaFont="system"/>
                                                                     </buttonCell>
                                                                     <color key="contentTintColor" name="labelColor" catalog="System" colorSpace="catalog"/>
                                                                     <constraints>
-                                                                        <constraint firstAttribute="width" constant="30" id="dSH-LN-Mje"/>
+                                                                        <constraint firstAttribute="width" constant="30" id="gzY-Gh-f3R"/>
                                                                     </constraints>
                                                                     <connections>
                                                                         <segue destination="Fk8-Gk-Fns" kind="popover" popoverAnchorView="QCw-pM-2ga" popoverBehavior="t" preferredEdge="maxY" id="syZ-No-OOc"/>
@@ -8541,10 +8541,11 @@ DQ
                                                                 <items>
                                                                     <menuItem title="Experiment Menu" hidden="YES" id="NRI-nq-Bkp"/>
                                                                     <menuItem title="Edit attributes" identifier="openattributes" id="lGa-Vr-Px7"/>
+                                                                    <menuItem title="Copy attributes to all" identifier="copyattributes" id="Qvf-0T-CFK"/>
                                                                     <menuItem title="Toggle include global" identifier="toggleinclude" id="IEU-1U-vSD"/>
                                                                     <menuItem isSeparatorItem="YES" id="Bjc-Vx-rQB"/>
-                                                                    <menuItem title="Duplicate data" identifier="duplicate" id="5SX-zc-QAp"/>
-                                                                    <menuItem title="Export data" identifier="export" id="bbi-sm-cZP"/>
+                                                                    <menuItem title="Duplicate" identifier="duplicate" id="5SX-zc-QAp"/>
+                                                                    <menuItem title="Export" identifier="export" id="bbi-sm-cZP"/>
                                                                     <menuItem isSeparatorItem="YES" id="n9q-ZG-8We"/>
                                                                     <menuItem title="Delete" identifier="delete" id="70R-oH-bXM">
                                                                         <attributedString key="attributedTitle"/>
@@ -9947,22 +9948,14 @@ A complementary mechanistic interpretation uses counterion release/uptake: the s
                                                                 <stackView distribution="fill" orientation="horizontal" alignment="firstBaseline" horizontalStackHuggingPriority="250" verticalStackHuggingPriority="750" detachesHiddenViews="YES" translatesAutoresizingMaskIntoConstraints="NO" id="n7k-SF-LYp">
                                                                     <rect key="frame" x="5" y="136" width="354" height="20"/>
                                                                     <subviews>
-                                                                        <textField horizontalHuggingPriority="249" verticalHuggingPriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="J3A-JO-FTu">
-                                                                            <rect key="frame" x="-2" y="3" width="93" height="16"/>
-                                                                            <textFieldCell key="cell" lineBreakMode="clipping" title="Plot" id="1hC-io-u4A">
-                                                                                <font key="font" metaFont="system"/>
-                                                                                <color key="textColor" name="labelColor" catalog="System" colorSpace="catalog"/>
-                                                                                <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
-                                                                            </textFieldCell>
-                                                                        </textField>
                                                                         <segmentedControl verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="5NV-bL-J7Y">
-                                                                            <rect key="frame" x="96" y="-2" width="259" height="23"/>
-                                                                            <segmentedCell key="cell" borderStyle="border" alignment="left" style="capsule" trackingMode="selectOne" id="6Xz-Dj-abd">
+                                                                            <rect key="frame" x="-1" y="-2" width="356" height="23"/>
+                                                                            <segmentedCell key="cell" borderStyle="border" alignment="left" segmentDistribution="fillProportionally" style="capsule" trackingMode="selectOne" id="6Xz-Dj-abd">
                                                                                 <font key="font" metaFont="system"/>
                                                                                 <segments>
-                                                                                    <segment label="Raw" toolTip="Simplified Debye-Hückel model where the charge state and radii are fitted as part of the model" selected="YES"/>
-                                                                                    <segment label="Transformed" toolTip="Analyse release of counter ions upon binding" tag="1"/>
-                                                                                    <segment label="Counter Ion Release"/>
+                                                                                    <segment label="Affinity vs Salt" toolTip="Simplified Debye-Hückel model where the charge state and radii are fitted as part of the model" selected="YES"/>
+                                                                                    <segment label="Debye–Hückel" toolTip="Analyse release of counter ions upon binding" tag="1"/>
+                                                                                    <segment label="Ion Transfer Analysis"/>
                                                                                 </segments>
                                                                             </segmentedCell>
                                                                             <connections>
@@ -9972,10 +9965,8 @@ A complementary mechanistic interpretation uses counterion release/uptake: the s
                                                                     </subviews>
                                                                     <visibilityPriorities>
                                                                         <integer value="1000"/>
-                                                                        <integer value="1000"/>
                                                                     </visibilityPriorities>
                                                                     <customSpacing>
-                                                                        <real value="3.4028234663852886e+38"/>
                                                                         <real value="3.4028234663852886e+38"/>
                                                                     </customSpacing>
                                                                 </stackView>

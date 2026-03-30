@@ -201,15 +201,13 @@ namespace AnalysisITC
 
         public static FloatWithError Average(List<FloatWithError> values)
         {
-            if (values.Count == 0) return FloatWithError.NaN;
+            if (values == null || values.Count == 0) return FloatWithError.NaN;
 
-            var sum = values[0];
             int count = values.Count;
 
-            foreach (var v in values.Skip(1))
-            {
-                sum += v;
-            }
+            var sum = values[0];
+            for (int i = 1; i < values.Count; i++)
+                sum += values[i];
 
             return sum / count;
         }

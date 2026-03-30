@@ -9,7 +9,7 @@ namespace AnalysisITC.AppClasses.AnalysisClasses
 {
     public class ElectrostaticsAnalysis : AdvancedAnalysis
     {
-        public DissocFitMode Mode { get; private set; } = DissocFitMode.DebyeHuckel;
+        public DissocFitMode Mode { get; private set; } = DissocFitMode.AffinityVsSalt;
 
         public bool Calculated { get; private set; } = false;
         public Energy ElectrostaticStrength { get; private set; } = new(0);
@@ -35,7 +35,19 @@ namespace AnalysisITC.AppClasses.AnalysisClasses
 
             switch (Mode)
             {
-                case DissocFitMode.CounterIonRelease:
+                case DissocFitMode.AffinityVsSalt: // Displace a bit around to show all points
+                    foreach (var sol in Data.Solution.Solutions)
+                    {
+                        double ions = 0.0;
+
+                        if (sol.Data.Attributes.Exists(att => att.Key == AttributeKey.Salt))
+                            ions = 1000 * sol.Data.Attributes.Find(att => att.Key == AttributeKey.Salt).ParameterValue;
+
+                        var kd = sol.ReportParameters[ParameterType.Affinity1];
+                        DataPoints.Add(new Tuple<double, FloatWithError>(ions, kd));
+                    }
+                    break;
+                case DissocFitMode.CounterIonRelease: // Join data points
                     foreach (var sol in Data.Solution.Solutions)
                     {
                         if (SaltAttribute.GetIonActivity(sol.Data) > 0)
@@ -44,7 +56,7 @@ namespace AnalysisITC.AppClasses.AnalysisClasses
                                 FWEMath.Log(sol.ReportParameters[ParameterType.Affinity1])));
                     }
                     break;
-                default:
+                case DissocFitMode.DebyeHuckel: // Join data points
                     foreach (var sol in Data.Solution.Solutions)
                     {
                         DataPoints.Add(new Tuple<double, FloatWithError>(
@@ -200,6 +212,8 @@ namespace AnalysisITC.AppClasses.AnalysisClasses
 
         public enum DissocFitMode 
         {
+            [Description("Affinity vs Salt")]
+            AffinityVsSalt,
             [Description("Debye-Hückel")]
             DebyeHuckel,
             [Description("Counter Ion Release")]

@@ -74,14 +74,47 @@ namespace AnalysisITC
 
             switch (analysis.Mode)
             {
+                case ElectrostaticsAnalysis.DissocFitMode.AffinityVsSalt:
+                    {
+                        var grouped = analysis.DataPoints.GroupBy(dp => dp.Item1).ToList();
+                        double jitter = (analysis.DataPoints.Max(dp => dp.Item1) - analysis.DataPoints.Min(dp => dp.Item1)) / 70;
+
+                        var dps = grouped.SelectMany(g =>
+                        {
+                            int i = 0;
+                            int n = g.Count();
+
+                            return g.Select(dp => new Tuple<double, FloatWithError>(
+                                dp.Item1 + (n == 1 ? 0.0 : (i++ - (n - 1) / 2.0) * jitter),
+                                dp.Item2));
+                        }).ToList();
+
+                        Graph = new ParameterDependenceGraph(this)
+                        {
+                            XLabel = "[Salt] (mM)",
+                            YLabel = $"{MarkdownStrings.DissociationConstant} ({analysis.Data.AppropriateAffinityUnit.GetProperties().Name})",
+                            XValues = dps.Select(dp => new FloatWithError(dp.Item1)).ToArray(),
+                            YValues = dps.Select(dp => dp.Item2).ToArray(),
+                            YScaleFactor = analysis.Data.AppropriateAffinityUnit.GetMod()
+                        };
+                        (Graph as ParameterDependenceGraph).Setup();
+                        Graph.YAxis.HideUnwantedTicks = true;
+                        Graph.XAxis.HideUnwantedTicks = true;
+                        break;
+                    }
                 case ElectrostaticsAnalysis.DissocFitMode.CounterIonRelease:
                     {
+                        var dps = analysis.DataPoints.GroupBy(dp => dp.Item1).ToList();
+
+                        var x = dps.Select(g => new FloatWithError(g.Select(v => v.Item1).ToList()));
+                        var y = dps.Select(g => new FloatWithError(g.Select(v => v.Item2).ToList()));
+
                         Graph = new ParameterDependenceGraph(this)
                         {
                             XLabel = "ln(*a*{salt})",
                             YLabel = $"ln({MarkdownStrings.DissociationConstant})",
-                            XValues = analysis.DataPoints.Select(dp => new FloatWithError(dp.Item1)).ToArray(),
-                            YValues = analysis.DataPoints.Select(dp => dp.Item2).ToArray(),
+                            XValues = x.ToArray(),
+                            YValues = y.ToArray(),
                             XScaleFactor = 1,
                             YScaleFactor = 1,
                             Fit = analysis.CounterIonReleaseFit,
@@ -93,14 +126,19 @@ namespace AnalysisITC
                 default:
                 case ElectrostaticsAnalysis.DissocFitMode.DebyeHuckel:
                     {
+                        var dps = analysis.DataPoints.GroupBy(dp => dp.Item1).ToList();
+
+                        var x = dps.Select(g => new FloatWithError(Math.Sqrt(g.Select(v => v.Item1).Average())));
+                        var y = dps.Select(g => FWEMath.Log10(new FloatWithError(g.Select(v => v.Item2).ToList())));
+
                         var yvalues = analysis.DataPoints.Select(dp => FWEMath.Log10(dp.Item2)).ToArray();
 
                         Graph = new ParameterDependenceGraph(this)
                         {
                             XLabel = "√(*Ionic Strength*)",
                             YLabel = $"Log({MarkdownStrings.DissociationConstant})",
-                            XValues = analysis.DataPoints.Select(dp => new FloatWithError(Math.Sqrt(dp.Item1))).ToArray(),
-                            YValues = yvalues,
+                            XValues = x.ToArray(),
+                            YValues = y.ToArray(),
                             XScaleFactor = ConcentrationUnit.mM.GetMod(),
                             YScaleFactor = 1,
                             Fit = analysis.IonicStrengthDependenceFit,

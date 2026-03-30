@@ -105,8 +105,8 @@ namespace AnalysisITC
                 points.Add(p);
 
                 var sd = y.SD;
-                var etop = GetRelativePosition(x, y + sd);
-                var ebottom = GetRelativePosition(x, y - sd);
+                var etop = GetRelativePosition(x, y.Upper);
+                var ebottom = GetRelativePosition(x, y.Lower);
 
                 if (Math.Abs(etop.Y - p.Y) > CGGraph.SymbolSize / 2)
                 {
