@@ -136,6 +136,9 @@ namespace DataReaders
             // We need to recalculate concentrations for precision 
             RawDataReader.ProcessInjections(data);
 
+            // Try to get the instrument based on cell volume
+            ITCInstrumentAttribute.ResolveInstrument(data);
+
             return data;
         }
 
