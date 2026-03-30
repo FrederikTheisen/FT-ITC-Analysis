@@ -41,8 +41,6 @@ namespace DataReaders
 
                     AppEventHandler.PrintAndLog($"Total time: {watch.ElapsedMilliseconds - startms}");
                 }
-
-                
             }
 
             watch.Stop();
@@ -124,14 +122,14 @@ namespace DataReaders
                     case "LIST" when v[1] == ExperimentAttributes:
                         ReadAttributes(exp, reader); break;
                     case "LIST" when v[1] == SegmentList:
-                        ReadSegmentList(exp, reader);  break;
+                        ReadSegmentList(exp, reader); break;
                     case "OBJECT" when v[1] == Processor:
                         ReadProcessor(exp, reader); break;
                     case "OBJECT" when v[1] == ExperimentSolutionHeader:
                         sol = ReadSolution(reader, reader.ReadLine(), exp);
                         exp.UpdateSolution(sol.Model);
                         break;
-                    //case "OBJECT" when v[1] == SolutionHeader: exp.UpdateSolution(ReadSolution(reader, line).Model); break; //Not certain about implementation
+                        //case "OBJECT" when v[1] == SolutionHeader: exp.UpdateSolution(ReadSolution(reader, line).Model); break; //Not certain about implementation
                 }
             }
 

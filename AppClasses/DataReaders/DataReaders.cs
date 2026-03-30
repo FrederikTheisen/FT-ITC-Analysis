@@ -85,6 +85,7 @@ namespace DataReaders
                 AppEventHandler.DisplayHandledException(ex);
             }
 
+            DataManager.ApplyOptions();
             StatusBarManager.ClearAppStatus();
             StatusBarManager.StopIndeterminateProgress();
         }

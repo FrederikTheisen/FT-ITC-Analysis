@@ -3,6 +3,7 @@ using AnalysisITC;
 using System.Collections.Generic;
 using System.Linq;
 using AnalysisITC.AppClasses.Analysis2.Models;
+using AnalysisITC.AppClasses.AnalysisClasses;
 
 namespace AnalysisITC
 {
@@ -164,6 +165,23 @@ namespace AnalysisITC
 
             if (data is ExperimentData) { DataDidChange.Invoke(null, data as ExperimentData); SelectIndex(SourceItems.Count - 1); SelectionDidChange?.Invoke(null, Current); }
             else DataDidChange.Invoke(null, null);
+        }
+
+        public static void ApplyOptions()
+        {
+            foreach (ExperimentData exp in Data)
+            {
+                var atts = exp.Attributes;
+
+                if (atts.Exists(a => a.Key == AttributeKey.BufferSubtraction))
+                {
+                    var att = atts.Find(a => a.Key == AttributeKey.BufferSubtraction);
+                    var refexp = Data.Exists(d => d.UniqueID == att.StringValue) ? Data.Find(d => d.UniqueID == att.StringValue) : null;
+
+                    if (refexp != null)
+                        exp.SetReferenceExperiment(refexp as ExperimentData);
+                }
+            }
         }
 
         public static void DuplicateSelectedData(ExperimentData data)
