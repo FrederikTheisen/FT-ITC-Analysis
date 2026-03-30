@@ -15,11 +15,15 @@ namespace AnalysisITC
         static char BlankChar = ' ';
         static ExportAccessoryViewSettings ExportSettings;
 
-        public static void Export(ExportType type)
+        public static void Export(ExportType type, ExportDataSelection? sel = null)
         {
+            var selection = sel.HasValue ? (ExportDataSelection)sel : AppSettings.ExportSelectionMode;
+
             ExportSettings = type == ExportType.Data
                 ? ExportAccessoryViewSettings.DataDefault()
                 : ExportAccessoryViewSettings.PeaksDefault();
+
+            ExportSettings.Selection = selection;
 
             var storyboard = NSStoryboard.FromName("Main", null);
             var viewController = (ExportAccessoryViewController)storyboard.InstantiateControllerWithIdentifier("ExportAccessoryViewController");

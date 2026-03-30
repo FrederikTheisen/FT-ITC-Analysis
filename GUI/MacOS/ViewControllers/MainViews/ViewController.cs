@@ -66,7 +66,7 @@ namespace AnalysisITC
                     DataManager.DuplicateSelectedData(Data);
                     break;
                 case "export": 
-                    Exporter.Export(ExportType.Data);
+                    Exporter.Export(ExportType.Data, ExportDataSelection.SelectedData);
                     break;
                 case "delete":
                     int idx = DataManager.SelectedContentIndex;
