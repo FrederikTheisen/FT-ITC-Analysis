@@ -24,7 +24,7 @@ namespace AnalysisITC.GUI.MacOS.CustomViews
         private CustomDrawingSegmentedControl ParameterOptionControl;
 
         public bool HasBeenAffectedFlag { get; private set; } = false;
-        public bool ShouldReInitializeParameter => string.IsNullOrEmpty(InputString);
+        public bool ShouldResetParameter => string.IsNullOrEmpty(InputString);
         public override CGSize IntrinsicContentSize => new CGSize(NSView.NoIntrinsicMetric, 16);
 
         public override nfloat Spacing { get => 1; set => base.Spacing = value; }

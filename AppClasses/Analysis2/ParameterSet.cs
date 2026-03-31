@@ -88,6 +88,13 @@ namespace AnalysisITC.AppClasses.Analysis2
             Update(value);
 
             IsLocked = lockpar;
+        }
+
+        public void SetValue(double value, bool lockpar)
+        {
+            Update(value);
+
+            IsLocked = lockpar;
             ChangedByUser = true;
         }
 

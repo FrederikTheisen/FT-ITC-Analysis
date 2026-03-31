@@ -114,13 +114,13 @@ namespace AnalysisITC
 
                 foreach (var sv in ParameterControls)
                 {
-                    if (sv.ShouldReInitializeParameter)
+                    if (sv.ShouldResetParameter)
                     {
                         ModelFactory.Factory.ReinitializeParameter(sv.Parameter);
                     }
                     else if (sv.HasBeenAffectedFlag)
                     {
-                        ModelFactory.Factory.SetCustomParameter(sv.Key, sv.Value, sv.Locked);
+                        ModelFactory.Factory.SetCustomParameterValue(sv.Key, sv.Value, sv.Locked);
                     }
                 }
                 foreach (var sv in OptionControls)

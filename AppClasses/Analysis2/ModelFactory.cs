@@ -116,9 +116,14 @@ namespace AnalysisITC.AppClasses.Analysis2
 			throw new NotImplementedException("ModelFactory.ReinitParam");
 		}
 
-		public virtual void SetCustomParameter(ParameterType key, double value, bool locked)
+		public virtual void UpdateParameter(ParameterType key, double value, bool locked)
 		{
             throw new NotImplementedException("ModelFactory.SetCustomParameter()");
+        }
+
+        public virtual void SetCustomParameterValue(ParameterType key, double value, bool locked)
+        {
+            throw new NotImplementedException("ModelFactory.SetCustomParameterValue()");
         }
 
         public virtual void SetModelOption(ExperimentAttribute opt)
@@ -183,9 +188,12 @@ namespace AnalysisITC.AppClasses.Analysis2
 
             var factory = InitializeFactory(Factory.ModelType, Factory.IsGlobalAnalysis);
 
+            AppEventHandler.Print("Factory Clear...");
             foreach (var par in Factory.GetExposedParameters())
             {
-				factory.SetCustomParameter(par.Key, par.Value, par.IsLocked);
+                AppEventHandler.Print($"Parameter {par.Key} = {par.Value} [FIT: {!par.IsLocked}] [USER: {par.ChangedByUser}]", 1);
+                if (par.ChangedByUser) factory.SetCustomParameterValue(par.Key, par.Value, par.IsLocked);
+                else factory.UpdateParameter(par.Key, par.Value, par.IsLocked);
             }
 
             foreach (var opt in Factory.GetExposedModelOptions())
@@ -226,8 +234,8 @@ namespace AnalysisITC.AppClasses.Analysis2
         {
             if (data.Injections.Where(inj => inj.Include).Count() == 0) throw new HandledException(HandledException.Severity.Error, "No valid peaks", "Please check that not all peaks are excluded");
 
-            var parameters = Model?.Parameters.Table.Where(p => p.Value.ChangedByUser);
-            //var options = Model?.ModelOptions;
+            var parameters = Model?.Parameters.Table.Where(p => p.Value.ChangedByUser).ToList();
+
             // Prefer current factory model options, else fall back to options stored on the loaded experiment model
             IDictionary<AttributeKey, ExperimentAttribute> options = null;
             if (Model?.ModelOptions != null && Model.ModelOptions.Count > 0)
@@ -243,9 +251,9 @@ namespace AnalysisITC.AppClasses.Analysis2
             {
                 foreach (var (key, par) in parameters)
                 {
-                    AppEventHandler.Print($"Parameter {key} = {par.Value}", 1);
+                    AppEventHandler.Print($"Replace Parameter {key} = {par.Value} [FIT: {!par.IsLocked}] [USER: {par.ChangedByUser}]", 1);
 
-                    if (Model.Parameters.Table.ContainsKey(key)) SetCustomParameter(par.Key, par.Value, par.IsLocked);
+                    if (Model.Parameters.Table.ContainsKey(key)) SetCustomParameterValue(par.Key, par.Value, par.IsLocked);
                 }
             }
 
@@ -300,10 +308,18 @@ namespace AnalysisITC.AppClasses.Analysis2
 			return Model.Parameters.Table.Values;
 		}
 
-        public override void SetCustomParameter(ParameterType key, double value, bool locked)
+        public override void UpdateParameter(ParameterType key, double value, bool locked)
         {
-			if (!Model.Parameters.Table.ContainsKey(key)) return; // throw new Exception("Parameter not found [File: GlobalFactory.SetCustomParameter]: " + key.ToString());
+			if (!Model.Parameters.Table.ContainsKey(key)) return;
+
             Model.Parameters.Table[key].Update(value, locked);
+        }
+
+        public override void SetCustomParameterValue(ParameterType key, double value, bool locked)
+        {
+            if (!Model.Parameters.Table.ContainsKey(key)) return;
+
+            Model.Parameters.Table[key].SetValue(value, locked);
         }
 
         public override void ReinitializeParameter(Parameter par)
@@ -527,10 +543,16 @@ namespace AnalysisITC.AppClasses.Analysis2
             return Model.ModelOptions;
         }
 
-        public override void SetCustomParameter(ParameterType key, double value, bool locked)
+        public override void UpdateParameter(ParameterType key, double value, bool locked)
         {
 			if (!GlobalModelParameters.GlobalTable.ContainsKey(key)) return; // throw new Exception("Parameter not found [File: GlobalFactory.SetCustomParameter]: " + key.ToString());
 			GlobalModelParameters.GlobalTable[key].Update(value, locked);
+        }
+
+        public override void SetCustomParameterValue(ParameterType key, double value, bool locked)
+        {
+            if (!GlobalModelParameters.GlobalTable.ContainsKey(key)) return; // throw new Exception("Parameter not found [File: GlobalFactory.SetCustomParameter]: " + key.ToString());
+            GlobalModelParameters.GlobalTable[key].SetValue(value, locked);
         }
 
         public override void ReinitializeParameter(Parameter par)

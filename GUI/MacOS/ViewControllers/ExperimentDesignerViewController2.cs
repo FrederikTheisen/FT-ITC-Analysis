@@ -268,7 +268,7 @@ namespace AnalysisITC
 
             foreach (var sv in ParameterControls)
             {
-                Factory.SetCustomParameter(sv.Key, sv.Value, false);
+                Factory.UpdateParameter(sv.Key, sv.Value, false);
             }
 
             foreach (var sv in OptionControls)
