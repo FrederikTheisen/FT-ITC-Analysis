@@ -107,7 +107,7 @@ namespace DataReaders
             var experiment = new ExperimentData(Path.GetFileName(path))
             {
                 Date = parseddate ? date : File.GetCreationTime(path),
-                DataSourceFormat = ITCDataFormat.IntegratedHeats,
+                DataSourceFormat = ITCDataFormat.PEAQITCProject,
                 CellVolume = cellVolume,
                 CellConcentration = new FloatWithError((float)cellConcentration),
                 SyringeConcentration = new FloatWithError((float)syringeConcentration),

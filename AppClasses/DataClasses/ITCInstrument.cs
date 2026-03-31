@@ -73,9 +73,7 @@ namespace DataReaders
 
             if (candidates.Count > 0)
             {
-                candidates.OrderBy(instr => instr.Item1);
-
-                data.Instrument = candidates.First().Item2;
+                data.Instrument = candidates.OrderBy(instr => instr.Item1).First().Item2;
 
                 AppEventHandler.PrintAndLog($"Setting Instrument: {data.Instrument}", 1);
             }

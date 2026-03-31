@@ -474,6 +474,7 @@ namespace AnalysisITC
 
             info.Add("**Filename:** " + this.FileName);
             info.Add("  **Date:** " + this.UILongDateWithTime);
+            info.Add("  **Format:** " + this.DataSourceFormat.GetProperties().Name);
             if (this.Duration > TimeSpan.FromSeconds(1))
                 info.Add($"  **Duration:** {this.Duration.ToReadableString()}");
             info.Add("**Instrument:** " + this.Instrument.GetProperties().Name);

@@ -38,7 +38,7 @@ namespace DataReaders
                 ITCDataFormat.TAITC,
                 ITCDataFormat.FTITC,
                 ITCDataFormat.IntegratedHeats,
-                ITCDataFormat.PEAQITC,
+                ITCDataFormat.PEAQITCProject,
             };
         }
 
@@ -83,18 +83,18 @@ namespace DataReaders
 
     public enum ITCDataFormat
     {
-        [ITCFormat("MicroCal ITC-200","Data format produced by the MicroCal ITC200 instrument", ".itc")]
+        [ITCFormat("MicroCal ITC Data File","Data format produced by the MicroCal ITC200 instrument", ".itc")]
         ITC200,
         [ITCFormat("VP-ITC", "Data format produced by the VP-ITC instrument", ".vpitc")]
         VPITC,
         [ITCFormat("FT-ITC", "Data format produced by this software", ".ftitc")]
         FTITC,
         Unknown,
-        [ITCFormat("TA Instruments", "Data format exported from NanoAnalyze", ".ta")]
+        [ITCFormat("TA Instruments Nano Analyze", "Data format exported from NanoAnalyze", ".ta")]
         TAITC,
-        [ITCFormat("Integrated Heats", "Exports from Origin", new[] { ".dat", ".aff" })]
+        [ITCFormat("Integrated Heats File", "Exports from Origin", new[] { ".dat", ".aff" })]
         IntegratedHeats,
-        [ITCFormat("PEAQ-ITC", "Exports from PEAQ-ITC", ".apj")]
-        PEAQITC
+        [ITCFormat("PEAQ-ITC Project File", "Exports from PEAQ-ITC", ".apj")]
+        PEAQITCProject
     }
 }

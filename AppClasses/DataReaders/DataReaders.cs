@@ -107,7 +107,7 @@ namespace DataReaders
                         return new ExperimentData[] { TAFileReader.ReadPath(path) };
                     case ITCDataFormat.IntegratedHeats:
                         return new ExperimentData[] { IntegratedHeatReader.ReadFile(path) };
-                    case ITCDataFormat.PEAQITC:
+                    case ITCDataFormat.PEAQITCProject:
                         return new ExperimentData[] { PEAQReader.ReadFile(path) };
                     case ITCDataFormat.Unknown:
                         AppEventHandler.PrintAndLog($"Unknown File Format: {path}");
@@ -139,7 +139,7 @@ namespace DataReaders
                     ProcessInjectionsMicroCal(experiment); // We think this might be the same processing. Lack of information makes other assumptions hard.
                     break;
                 default:
-                case ITCDataFormat.PEAQITC:
+                case ITCDataFormat.PEAQITCProject:
                 case ITCDataFormat.IntegratedHeats: // We absolutely need to recalculate concentrations since some programs export far too low precision 
                 case ITCDataFormat.ITC200:
                     ProcessInjectionsMicroCal(experiment);
