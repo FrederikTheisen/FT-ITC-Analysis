@@ -255,7 +255,7 @@ namespace AnalysisITC.AppClasses.Analysis2.Models
 
     public class SolutionInterface
 	{
-        public string Guid { get; private set; } = new Guid().ToString();
+        public string Guid { get; private set; } = System.Guid.NewGuid().ToString();
         public string ParentSolutionID { get; set; }
         public Model Model { get; protected set; }
         public ExperimentData Data => Model.Data;
@@ -314,6 +314,8 @@ namespace AnalysisITC.AppClasses.Analysis2.Models
                 return false;
             }
         }
+
+        public void SetID(string guid) => Guid = guid;
 
         public List<FloatWithError> GetCorrectedStoichiometryGuides()
         {

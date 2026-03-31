@@ -26,8 +26,6 @@ namespace AnalysisITC
 
 		public ExperimentDataViewCell (IntPtr handle) : base (handle)
 		{
-			Console.WriteLine("Constructed");
-
             DataManager.ResultLinkedExperimentHighlightDidChange += ResultHighlightChanged;
             DataManager.AnalysisResultSelected += DataManager_AnalysisResultSelected;
             DataManager.UpdateViewCells += DataManager_UpdateViewCells;
@@ -205,7 +203,7 @@ namespace AnalysisITC
 			Line2.TextColor = color;
 			Line3.TextColor = color;
 
-            if (ReferenceEquals(data.Solution, DataManager.SelectedResultSolution))
+            if (data.Solution.Guid == DataManager.SelectedResultSolution?.Guid)
             {
                 ModelFitLine.TextColor = color;
             }
@@ -234,7 +232,7 @@ namespace AnalysisITC
 		void HighlightPartOfSelectedResult(CGContext gc)
 		{
             var solutions = DataManager.SelectedResult?.Solution.Solutions ?? new();
-            var color = solutions.Contains(data.Solution) ? NSColor.Label.CGColor : NSColor.SecondaryLabel.CGColor;
+            var color = solutions.Exists(sol => sol.Guid == data.Solution.Guid) ? NSColor.Label.CGColor : NSColor.SecondaryLabel.CGColor;
 
             var stroke = MacColors.WithAlpha(color, 0.5f);
             var fill = MacColors.WithAlpha(stroke, 0.1f);

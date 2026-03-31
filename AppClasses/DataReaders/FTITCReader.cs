@@ -495,6 +495,7 @@ namespace DataReaders
 
                 var solution = SolutionInterface.FromModel(factory.Model, conv);
                 solution.UseWeightedFitting = useErrorWeightedFitting;
+                solution.SetID(guid);
                 if (!string.IsNullOrWhiteSpace(parentID)) solution.ParentSolutionID = parentID;
 
                 factory.Model.Solution = solution;
