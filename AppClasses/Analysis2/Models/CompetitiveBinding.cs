@@ -14,7 +14,7 @@ namespace AnalysisITC.AppClasses.Analysis2.Models
 
         public override double GuessAffinity()
         {
-            return 1 / ConcentrationUnit.nM.GetProperties().Mod; // Assume around 1 nM Kd if using this model
+            return ConcentrationUnit.nM.GetProperties().Mod; // Assume around 1 nM Kd if using this model
         }
 
         public CompetitiveBinding(ExperimentData data) : base(data)
