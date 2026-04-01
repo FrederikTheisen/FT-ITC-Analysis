@@ -1,12 +1,10 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Threading.Tasks;
-using AppKit;
 
 namespace AnalysisITC.AppClasses.AnalysisClasses
 {
-    public class ProtonationAnalysis : AnalysisITC.AppClasses.AnalysisClasses.AdvancedAnalysis
+    public class ProtonationAnalysis : AdvancedAnalysis
     {
         public Energy BindingEnthalpy { get; set; }
         public FloatWithError ProtonationChange { get; set; }

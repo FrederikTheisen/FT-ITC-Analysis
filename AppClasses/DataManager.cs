@@ -163,8 +163,8 @@ namespace AnalysisITC
 
             SourceItems.Add(data);
 
-            if (data is ExperimentData) { DataDidChange.Invoke(null, data as ExperimentData); SelectIndex(SourceItems.Count - 1); SelectionDidChange?.Invoke(null, Current); }
-            else DataDidChange.Invoke(null, null);
+            if (data is ExperimentData) { DataDidChange?.Invoke(null, data as ExperimentData); SelectIndex(SourceItems.Count - 1); SelectionDidChange?.Invoke(null, Current); }
+            else DataDidChange?.Invoke(null, null);
         }
 
         public static void ApplyOptions()

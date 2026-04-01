@@ -110,7 +110,7 @@ namespace AnalysisITC
                 csource = new CancellationTokenSource();
                 cToken = csource.Token;
 
-                await System.Threading.Tasks.Task.Run(() => Interpolator.Interpolate(cToken, replace));
+                await Task.Run(() => Interpolator.Interpolate(cToken, replace));
 
                 SubtractBaseline();
 
@@ -119,7 +119,8 @@ namespace AnalysisITC
             }
             catch (Exception ex)
             {
-                
+                AppEventHandler.PrintAndLog("Baseline Interpolation Error");
+                AppEventHandler.PrintAndLog(ex.Message);
             }
         }
 
@@ -512,9 +513,9 @@ namespace AnalysisITC
             await base.Interpolate(token, replace);
         }
 
-        MathNet.Numerics.LinearAlgebra.Double.SparseMatrix Diff(DiagonalMatrix m)
+        SparseMatrix Diff(DiagonalMatrix m)
         {
-            var dense = new MathNet.Numerics.LinearAlgebra.Double.SparseMatrix(m.RowCount, m.RowCount - 2);
+            var dense = new SparseMatrix(m.RowCount, m.RowCount - 2);
 
             var rows = m.EnumerateRows().ToList();
 
