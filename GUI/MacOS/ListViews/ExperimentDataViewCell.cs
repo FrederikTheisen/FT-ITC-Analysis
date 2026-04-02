@@ -203,7 +203,7 @@ namespace AnalysisITC
 			Line2.TextColor = color;
 			Line3.TextColor = color;
 
-            if (data.Solution.Guid == DataManager.SelectedResultSolution?.Guid)
+            if (data.Solution?.Guid == DataManager.SelectedResultSolution?.Guid)
             {
                 ModelFitLine.TextColor = color;
             }
