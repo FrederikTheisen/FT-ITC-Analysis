@@ -210,13 +210,11 @@
     <None Include="packages.config" />
     <None Include="GUI\MacOS\Drawing\CAGraph.cs" />
     <None Include="GUI\MacOS\Drawing\CALayerDrawingView.cs" />
-    <None Include=".DS_Store" />
     <None Include=".editorconfig" />
     <None Include="AppClasses\Depreceated\GlobalSolution.cs" />
     <None Include="AppClasses\Depreceated\Analysis.cs" />
     <None Include="AppClasses\Depreceated\SolverParameters.cs" />
     <None Include="AppClasses\Depreceated\SolverOptions.cs" />
-    <None Include="GUI\.DS_Store" />
     <None Include="README.md" />
     <None Include="AppClasses\DataReaders\FTITCReaderOld.cs" />
     <None Include="TestData\data_1.itc" />
