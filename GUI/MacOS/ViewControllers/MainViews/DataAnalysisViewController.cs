@@ -18,6 +18,8 @@ namespace AnalysisITC
         public static event EventHandler Invalidate;
         public static void InvalidateGraph() => Invalidate.Invoke(null, null);
 
+        bool _eventsUnsubscribed = false;
+
         public static AnalysisModel SelectedAnalysisModel
         {
             get => selectedAnalysisModel;
@@ -341,6 +343,32 @@ namespace AnalysisITC
         {
             FitSimplexButton.Enabled = enable;
             FitLMButton.Enabled = enable;
+        }
+
+        void UnsubscribeEvents()
+        {
+            if (_eventsUnsubscribed) return;
+            _eventsUnsubscribed = true;
+
+            AnalysisGlobalModeOptionsView2.ParameterContraintUpdated -= AnalysisGlobalModeOptionsView2_ParameterContraintUpdated;
+            SolverInterface.AnalysisFinished -= AnalysisFinished;
+            SolverInterface.AnalysisStepFinished -= Analysis_AnalysisIterationFinished;
+            SolverInterface.BootstrapIterationFinished -= Analysis_BootstrapIterationFinished;
+            DataManager.SelectionDidChange -= DataManager_SelectionDidChange;
+            DataManager.DataDidChange -= DataManager_DataDidChange;
+            DataManager.DataInclusionDidChange -= DataManager_DataDidChange;
+            SolverInterface.SolverUpdated -= SolverInterface_SolverUpdated;
+            AppDelegate.StartPrintOperation -= AppDelegate_StartPrintOperation;
+            AnalysisITCDataSource.SourceWasSorted -= AnalysisITCDataSource_SourceWasSorted;
+            DataAnalysisViewController.ModelChanged -= DataAnalysisViewController_ModelChanged;
+        }
+
+        protected override void Dispose(bool disposing)
+        {
+            if (disposing)
+                UnsubscribeEvents();
+
+            base.Dispose(disposing);
         }
     }
 }

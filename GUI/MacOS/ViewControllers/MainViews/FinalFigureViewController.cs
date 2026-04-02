@@ -9,7 +9,9 @@ namespace AnalysisITC
 {
 	public partial class FinalFigureViewController : NSViewController
 	{
-		public FinalFigureViewController (IntPtr handle) : base (handle)
+        bool _eventsUnsubscribed = false;
+
+        public FinalFigureViewController (IntPtr handle) : base (handle)
 		{
             AppDelegate.StartPrintOperation += AppDelegate_StartPrintOperation;
 		}
@@ -54,6 +56,22 @@ namespace AnalysisITC
             FinalFigureGraph.SetFrameOrigin(new CoreGraphics.CGPoint(x, y));
 
             base.ViewWillLayout();
+        }
+
+        void UnsubscribeEvents()
+        {
+            if (_eventsUnsubscribed) return;
+            _eventsUnsubscribed = true;
+
+            FinalFigureGraphView.PlotSizeChanged -= FinalFigureGraphView_PlotSizeChanged;
+        }
+
+        protected override void Dispose(bool disposing)
+        {
+            if (disposing)
+                UnsubscribeEvents();
+
+            base.Dispose(disposing);
         }
     }
 }
