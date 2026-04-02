@@ -130,19 +130,16 @@ namespace DataReaders
             // We cannot reprocess injections for tandem experiments
             if (experiment.IsTandemExperiment) return;
 
-            AppEventHandler.PrintAndLog("Proceesing injections for: " + experiment.FileName + " / " + experiment.Name);
+            AppEventHandler.PrintAndLog("Processing injections for: " + experiment.FileName + " / " + experiment.Name);
 
-            switch (experiment.DataSourceFormat)
+            switch (AppSettings.DilutionCalculationMethod)
             {
-                case ITCDataFormat.TAITC: // For this input format, we need to update integration times
-                    foreach (var inj in experiment.Injections) inj.InitializeIntegrationTimes();
-                    ProcessInjectionsMicroCal(experiment); // We think this might be the same processing. Lack of information makes other assumptions hard.
-                    break;
                 default:
-                case ITCDataFormat.PEAQITCProject:
-                case ITCDataFormat.IntegratedHeats: // We absolutely need to recalculate concentrations since some programs export far too low precision 
-                case ITCDataFormat.ITC200:
+                case DilutionMethod.MicroCal:
                     ProcessInjectionsMicroCal(experiment);
+                    break;
+                case DilutionMethod.Exponential:
+                    ProcessInjectionsExponential(experiment);
                     break;
             }
         }
@@ -169,7 +166,25 @@ namespace DataReaders
 
         static void ProcessInjectionsExponential(ExperimentData experiment)
         {
+            var deltaVolume = 0.0;
+            var cellVolume = experiment.CellVolume;
 
+            foreach (var inj in experiment.Injections)
+            {
+                deltaVolume += inj.Volume;
+
+                var dilutionFactor = Math.Exp(-deltaVolume / cellVolume);
+
+                inj.ActualCellConcentration = experiment.CellConcentration * dilutionFactor;
+                inj.ActualTitrantConcentration = experiment.SyringeConcentration * (1.0 - dilutionFactor);
+
+                inj.Ratio = experiment.AxisType switch
+                {
+                    AnalysisXAxisType.ID => (inj.ID + 1),
+                    AnalysisXAxisType.TitrantConcentration => inj.ActualTitrantConcentration,
+                    _ => inj.ActualTitrantConcentration / inj.ActualCellConcentration,
+                };
+            }
         }
 
         /// <summary>

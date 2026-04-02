@@ -65,6 +65,8 @@ namespace DataReaders
             experiment.InitialDelay = experiment.Injections.First().Time;
             experiment.Instrument = experiment.CellVolume > 0.2e-3 ? ITCInstrument.TAInstrumentsITCStandard : ITCInstrument.TAInstrumentsITCLowVolume;
 
+            foreach (var inj in experiment.Injections) inj.InitializeIntegrationTimes();
+
             ProcessInjections(experiment);
             ProcessExperiment(experiment);
 

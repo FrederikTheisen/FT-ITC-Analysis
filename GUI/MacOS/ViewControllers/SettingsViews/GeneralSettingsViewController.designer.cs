@@ -25,6 +25,9 @@ namespace AnalysisITC
 		AppKit.NSSegmentedControl ConcentrationUnitControl { get; set; }
 
 		[Outlet]
+		AppKit.NSSegmentedControl DilutionMathMethodControl { get; set; }
+
+		[Outlet]
 		AppKit.NSButton DiscardIntegrationRegionForBaseline { get; set; }
 
 		[Outlet]
@@ -83,11 +86,6 @@ namespace AnalysisITC
 		
 		void ReleaseDesignerOutlets ()
 		{
-			if (DiscardIntegrationRegionForBaseline != null) {
-				DiscardIntegrationRegionForBaseline.Dispose ();
-				DiscardIntegrationRegionForBaseline = null;
-			}
-
 			if (ColorGradientControl != null) {
 				ColorGradientControl.Dispose ();
 				ColorGradientControl = null;
@@ -98,6 +96,11 @@ namespace AnalysisITC
 				ColorMenu = null;
 			}
 
+			if (DilutionMathMethodControl != null) {
+				DilutionMathMethodControl.Dispose ();
+				DilutionMathMethodControl = null;
+			}
+
 			if (ColorThemeMenu != null) {
 				ColorThemeMenu.Dispose ();
 				ColorThemeMenu = null;
@@ -106,6 +109,11 @@ namespace AnalysisITC
 			if (ConcentrationUnitControl != null) {
 				ConcentrationUnitControl.Dispose ();
 				ConcentrationUnitControl = null;
+			}
+
+			if (DiscardIntegrationRegionForBaseline != null) {
+				DiscardIntegrationRegionForBaseline.Dispose ();
+				DiscardIntegrationRegionForBaseline = null;
 			}
 
 			if (EnergyUnitControl != null) {

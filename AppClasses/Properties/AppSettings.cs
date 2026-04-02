@@ -4,6 +4,7 @@ using Foundation;
 using System.Linq;
 using AnalysisITC.GUI;
 using static AnalysisITC.AppClasses.Analysis2.Models.SolutionInterface;
+using DataReaders;
 
 namespace AnalysisITC
 {
@@ -34,6 +35,7 @@ namespace AnalysisITC
         public static PeakFitAlgorithm PeakFitAlgorithm { get; set; } = PeakFitAlgorithm.SingleExponential;
         public static bool DiscardIntegrationRegionForBaseline { get; set; } = true;
         public static bool IncludeBufferInIonicStrengthCalc { get; set; } = true;
+        public static DilutionMethod DilutionCalculationMethod { get; set; } = DilutionMethod.MicroCal;
 
         //Fitting
         public static bool InputAffinityAsDissociationConstant { get; set; } = true;
@@ -129,6 +131,7 @@ namespace AnalysisITC
             Storage.SetInt((int)DefaultSolverAlgorithm, "SolverAlgorithm");
             Storage.SetBool(UseInjectionErrorWeightedFitting, "UseInjectionErrorWeightedFitting");
             Storage.SetBool(AutoAxesIgnoresBadData, "AutoAxesIgnoresBadData");
+            Storage.SetInt((int)DilutionCalculationMethod, "DilutionCalculationMethod");
 
             if (LastDocumentUrls != null) StoreArray(LastDocumentUrls.Select(url => url.ToString()).ToArray(), "LastDocumentUrls");
             StoreArray(FinalFigureDimensions, "FinalFigureDimensions");
@@ -186,6 +189,7 @@ namespace AnalysisITC
             DefaultSolverAlgorithm = (SolverAlgorithm)GetInt(dict, "SolverAlgorithm", (int)DefaultSolverAlgorithm);
             UseInjectionErrorWeightedFitting = GetBool(dict, "UseInjectionErrorWeightedFitting", UseInjectionErrorWeightedFitting);
             AutoAxesIgnoresBadData = GetBool(dict, "AutoAxesIgnoresBadData", AutoAxesIgnoresBadData);
+            DilutionCalculationMethod = (DilutionMethod)GetInt(dict, "DilutionCalculationMethod", (int)DilutionCalculationMethod);
 
             LastDocumentUrls = GetArray(dict, "LastDocumentUrls", new string[0]).Select(url => NSUrl.FromString(url)).ToArray();
 
@@ -236,6 +240,7 @@ namespace AnalysisITC
             ShowResidualGraphGap = true;
             UnifyResidualGraphAxis = false;
             AutoAxesIgnoresBadData = true;
+            DilutionCalculationMethod = DilutionMethod.MicroCal;
         }
 
         static void StoreArray(double[] arr, string key)

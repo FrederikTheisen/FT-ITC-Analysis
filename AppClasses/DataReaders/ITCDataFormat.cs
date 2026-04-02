@@ -97,4 +97,10 @@ namespace DataReaders
         [ITCFormat("PEAQ-ITC Project File", "Exports from PEAQ-ITC", ".apj")]
         PEAQITCProject
     }
+
+    public enum DilutionMethod
+    {
+        MicroCal,
+        Exponential,
+    }
 }

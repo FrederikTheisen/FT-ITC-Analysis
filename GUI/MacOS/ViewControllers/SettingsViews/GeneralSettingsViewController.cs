@@ -41,6 +41,7 @@ namespace AnalysisITC
             AppSettings.PeakFitAlgorithm = (PeakFitAlgorithm)(int)PeakFitAlgorithmControl.SelectedSegment;
             AppSettings.IncludeBufferInIonicStrengthCalc = IncludeBufferInIonicStrength.State == NSCellStateValue.On;
             AppSettings.DiscardIntegrationRegionForBaseline = DiscardIntegrationRegionForBaseline.State == NSCellStateValue.On;
+            AppSettings.DilutionCalculationMethod = (DataReaders.DilutionMethod)(int)DilutionMathMethodControl.SelectedSegment;
 
             //Color
             AppSettings.ColorScheme = ColorScheme;
@@ -76,6 +77,7 @@ namespace AnalysisITC
             ParameterRoundingSettingsControl.SelectedSegment = (int)AppSettings.NumberPrecision;
             IncludeBufferInIonicStrength.State = AppSettings.IncludeBufferInIonicStrengthCalc ? NSCellStateValue.On : NSCellStateValue.Off;
             DiscardIntegrationRegionForBaseline.State = AppSettings.DiscardIntegrationRegionForBaseline ? NSCellStateValue.On : NSCellStateValue.Off;
+            DilutionMathMethodControl.SelectSegment((int)AppSettings.DilutionCalculationMethod);
         }
 
         private void ColorMenuHandler(NSMenuItem sender, ColorSchemes e)
