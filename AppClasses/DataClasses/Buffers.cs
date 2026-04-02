@@ -454,7 +454,8 @@ namespace AnalysisITC
 				i += ((Salt)salt.IntValue).GetProperties().IonicStrength * salt.ParameterValue;
 			}
 
-			if (AppSettings.IncludeBufferInIonicStrengthCalc) foreach (var buffer in buffers)
+			if (AppSettings.IncludeBufferInIonicStrengthCalc)
+                foreach (var buffer in buffers)
 				{
 					i += ((Buffer)buffer.IntValue).GetProperties().GetBufferIonicStrength(buffer.DoubleValue, buffer.ParameterValue, data.MeasuredTemperature);
 				}
