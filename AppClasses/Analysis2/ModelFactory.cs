@@ -1,11 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using Accord.Math.Distances;
 using AnalysisITC.AppClasses.Analysis2.Models;
 using AnalysisITC.AppClasses.AnalysisClasses;
-//using Microsoft.SolverFoundation.Services;
-using static CoreFoundation.DispatchSource;
 
 namespace AnalysisITC.AppClasses.Analysis2
 {

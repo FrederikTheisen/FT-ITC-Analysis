@@ -8,8 +8,6 @@ using System.Threading;
 using AppKit;
 using Accord.Math;
 using static alglib;
-using Accord.IO;
-using static AnalysisITC.Extensions;
 using AnalysisITC.AppClasses.Analysis2.Models;
 
 namespace AnalysisITC.AppClasses.Analysis2

@@ -1,9 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Security.Cryptography;
 using AnalysisITC.AppClasses.AnalysisClasses;
-using Microsoft.SolverFoundation.Services;
 
 namespace AnalysisITC.AppClasses.Analysis2.Models
 {
