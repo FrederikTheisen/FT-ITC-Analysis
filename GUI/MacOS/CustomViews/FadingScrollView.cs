@@ -118,7 +118,7 @@ namespace AnalysisITC.GUI.MacOS.CustomViews
                 bool atBottom = visibleRect.GetMaxY() >= docHeight - 0.5f;
 
                 nfloat fadeFraction = FadeHeight / bounds.Height;
-                fadeFraction = NMath.Max(0f, NMath.Min(0.5f, fadeFraction));
+                fadeFraction = (nfloat)Math.Max(0f, Math.Min(0.5f, fadeFraction));
 
                 nfloat topSolidEnd = fadeFraction;
                 nfloat bottomSolidStart = 1f - fadeFraction;
