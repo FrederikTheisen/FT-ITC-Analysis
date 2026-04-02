@@ -223,6 +223,7 @@
     <None Include="TestData\data_3.itc" />
     <None Include="TestData\data_2.itc" />
     <None Include="TestData\results.txt" />
+    <None Include="TestData\data.ftitc" />
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Main.cs" />
