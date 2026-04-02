@@ -9973,8 +9973,8 @@ Structuring (R-value):</string>
                                                                     <rect key="frame" x="3" y="167" width="358" height="126"/>
                                                                     <textFieldCell key="cell" alignment="justified" id="ELJ-1W-6rL">
                                                                         <font key="font" metaFont="smallSystem"/>
-                                                                        <mutableString key="title">Salt/ionic-strength dependence of affinity is a standard way to probe electrostatic contributions to binding, because increasing ionic strength screens charge–charge interactions (Debye–Hückel-type screening), changing affinity in a predictable manner for many systems (Zhou and Pang, Chem. Rev. 2018).
-A complementary mechanistic interpretation uses counterion release/uptake: the slope of log K vs log [salt] can be used to estimate the thermodynamic extent of ion release associated with complex formation (Mascotti and Lohman, PNAS 1990).</mutableString>
+                                                                        <string key="title">Salt/ionic-strength dependence of affinity is a standard way to probe electrostatic contributions to binding, because increasing ionic strength screens charge–charge interactions (Debye–Hückel-type screening), changing affinity in a predictable manner for many systems (Zhou and Pang, Chem. Rev. 2018).
+A complementary mechanistic interpretation uses counterion release/uptake: the slope of log K vs log [salt] can be used to estimate the thermodynamic extent of ion release associated with complex formation (Mascotti and Lohman, PNAS 1990).</string>
                                                                         <color key="textColor" name="labelColor" catalog="System" colorSpace="catalog"/>
                                                                         <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
                                                                     </textFieldCell>
@@ -12882,7 +12882,7 @@ The models in \appname are implemented to match the **MicroCal/Origin formal def
         <image name="chevron.up" catalog="system" width="12" height="7"/>
         <image name="circle" catalog="system" width="15" height="15"/>
         <image name="circle.fill" catalog="system" width="15" height="15"/>
-        <image name="circle.inset.filled" catalog="system" width="15" height="15"/>
+        <image name="circle.inset.filled" catalog="system" width="13" height="13"/>
         <image name="circle.slash" catalog="system" width="16" height="17"/>
         <image name="cursorarrow.and.square.on.square.dashed" catalog="system" width="18" height="19"/>
         <image name="diamond.fill" catalog="system" width="17" height="17"/>
