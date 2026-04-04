@@ -1,7 +1,19 @@
+
+FT‑ITC Analysis – License and third‑party notices
+=================================================
+
+Copyright (c) 2026 Frederik Theisen
+
+This project, *FT‑ITC Analysis*, is distributed under the MIT License.  The
+following sections reproduce the text of the MIT License, followed by
+acknowledgements and licence summaries for the external libraries used by
+this application.  All system runtime libraries provided by the .NET and
+Xamarin frameworks are excluded from this listing.
+
 MIT License
+-----------
 
-Copyright (c) 2026 FrederikTheisen
-
+```
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
 in the Software without restriction, including without limitation the rights
@@ -9,13 +21,72 @@ to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
 copies of the Software, and to permit persons to whom the Software is
 furnished to do so, subject to the following conditions:
 
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
 
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
 AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+THE SOFTWARE.
+```
+
+Third‑party libraries
+---------------------
+
+This application incorporates a small number of third‑party libraries.  Each
+library retains its own licensing terms.  Where the library uses the MIT
+license, the text above applies verbatim.  Where the library uses the GNU
+Lesser General Public License (LGPL), a summary is provided along with a
+pointer to the full licence text.
+
+### Accord and Accord.Math (LGPL 2.1)
+
+* **Packages:** `Accord` 3.8.0, `Accord.Math` 3.8.0
+* **Licence:** GNU Lesser General Public License Version 2.1
+* **Summary:**
+  
+  Accord.NET is a machine‑learning and signal‑processing library which is
+  published under the LGPL 2.1.  The AForge.Video.FFMPEG component of
+  Accord/AForge is licensed under the GPL because it depends on the GPL build
+  of FFmpeg, but that video component is not used in this project.  A notice
+  on the AForge licence page explains that the framework is published under
+  LGPL v3.
+
+### MathNet.Numerics (MIT)
+
+* **Package:** `MathNet.Numerics` 5.0.0
+* **Licence:** MIT License
+* **Summary:**  MathNet.Numerics is an open‑source numerical library used for
+  optimisation and linear algebra.  The MIT licence allows use, copying,
+  modification and distribution of the library, provided that the copyright
+  notice and licence text are retained.  The library is distributed “as‑is” 
+  without warranty.
+
+### Newtonsoft.Json (MIT)
+
+* **Package:** `Newtonsoft.Json` 13.0.2
+* **Licence:** MIT License
+* **Summary:**  Newtonsoft.Json is a popular JSON serialisation library.  The
+  package is licensed under the MIT licence.  Users may
+  freely use, copy, modify and distribute the software provided that the
+  copyright notice and licence terms are included in any copies or substantial
+  portions of the software.  The library is provided without warranty.
+
+### System and Microsoft packages
+
+This project depends on many packages with names beginning with `System.` or
+`Microsoft.` which are part of the .NET runtime or the Xamarin/Mono
+environment (for example, `System.Text.Json`, `System.Runtime` and
+`Microsoft.Bcl.AsyncInterfaces`).  These libraries are redistributed under
+their respective Microsoft licences.  They are not explicitly listed here
+because they are considered part of the platform, and their licences are
+provided by Microsoft through the .NET SDK and runtime.
+
+Acknowledgements
+----------------
+
+Many thanks to the authors and maintainers of the open‑source projects above.
+Without their contributions, this application would not have been possible.
