@@ -31,10 +31,12 @@ namespace AnalysisITC
             //FileName = solution.Model.Solution.SolutionName;
             Date = DateTime.Now;
 
+            SetFileName(Solution.Solutions[0].SolutionName); // Should save (Global.)Model
+
             // Generate a descriptive name based on the experiments included in this result.
             // Falls back to the underlying solution name if no discriminating label can be generated.
             var suggested = AnalysisResultNameParser.GenerateSuggestedName(Solution);
-            SetFileName(EnsureUniqueName(suggested ?? solution.Model.Solution.SolutionName));
+            Name = EnsureUniqueName(suggested ?? solution.Model.Solution.SolutionName);
 
 
             SetupAnalysisOptions();

@@ -4,7 +4,6 @@ using System.ComponentModel;
 using System.Linq;
 using Accord.Math.Optimization;
 using AnalysisITC.AppClasses.Analysis2;
-using static alglib;
 using System.Threading.Tasks;
 using MathNet.Numerics.Optimization;
 
@@ -102,19 +101,19 @@ namespace AnalysisITC
             Failed = solver.Status != null && solver.Status.Equals(NelderMeadStatus.Failure);
         }
 
-        public SolverConvergence(minlmstate state, minlmreport rep, TimeSpan time, double loss)
-        {
-            Algorithm = SolverAlgorithm.LevenbergMarquardt;
-            Iterations = rep.iterationscount;
-            // Store the description of the termination type as the detailed message. See
-            // AlgLibTerminationCode for descriptions. This will be normalised later.
-            DetailedMessage = ((AlgLibTerminationCode)rep.terminationtype).GetEnumDescription();
-            Message = DetailedMessage;
-            Time = time;
-            Loss = loss;
+        //public SolverConvergence(minlmstate state, minlmreport rep, TimeSpan time, double loss)
+        //{
+        //    Algorithm = SolverAlgorithm.LevenbergMarquardt;
+        //    Iterations = rep.iterationscount;
+        //    // Store the description of the termination type as the detailed message. See
+        //    // AlgLibTerminationCode for descriptions. This will be normalised later.
+        //    DetailedMessage = ((AlgLibTerminationCode)rep.terminationtype).GetEnumDescription();
+        //    Message = DetailedMessage;
+        //    Time = time;
+        //    Loss = loss;
 
-            //Failed = rep.terminationtype > 2;
-        }
+        //    //Failed = rep.terminationtype > 2;
+        //}
 
         public SolverConvergence(NonlinearMinimizationResult result, TimeSpan time, double loss)
         {

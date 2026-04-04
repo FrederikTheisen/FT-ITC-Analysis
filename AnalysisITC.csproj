@@ -78,9 +78,6 @@
     <Reference Include="Accord.Math">
       <HintPath>packages\Accord.Math.3.8.0\lib\netstandard2.0\Accord.Math.dll</HintPath>
     </Reference>
-    <Reference Include="alglib.net">
-      <HintPath>packages\alglib.net.3.19.0\lib\netstandard2.1\alglib.net.dll</HintPath>
-    </Reference>
     <Reference Include="MathNet.Numerics">
       <HintPath>packages\MathNet.Numerics.5.0.0\lib\netstandard2.0\MathNet.Numerics.dll</HintPath>
       <Private>False</Private>

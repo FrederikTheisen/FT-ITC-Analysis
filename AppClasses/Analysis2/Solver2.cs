@@ -7,7 +7,6 @@ using System.Collections.Generic;
 using System.Threading;
 using AppKit;
 using Accord.Math;
-using static alglib;
 using AnalysisITC.AppClasses.Analysis2.Models;
 
 using MathNet.Numerics;
@@ -75,7 +74,6 @@ namespace AnalysisITC.AppClasses.Analysis2
         public double LevenbergMarquardtDifferentiationStepSize => Tolerance(15, 20);   // 1E-2 - 1E-6
         public double LevenbergMarquardtEpsilon => Tolerance(15, 20);              // 1E-5 - 1E-9
 
-        internal alglib.minlmstate LMOptimizerState { get; set; }
         public static CancellationTokenSource NelderMeadToken { get; set; }
         internal NonlinearMinimizationResult LmResult { get; set; }
 
@@ -170,17 +168,10 @@ namespace AnalysisITC.AppClasses.Analysis2
             // optimizer state or cancellation token has been disposed or reset concurrently, the
             // calls below will safely no-op. Each call is wrapped in its own try/catch to avoid
             // propagating disposal exceptions.
-            var state = LMOptimizerState;
             var token = NelderMeadToken;
 
             try
             {
-                if (state != null)
-                {
-                    // Suppress any errors thrown due to a disposed or invalid optimizer state.
-                    try { alglib.minlmrequesttermination(state); }
-                    catch { }
-                }
                 if (token != null)
                 {
                     // Suppress any errors thrown when cancelling a disposed token.
@@ -249,10 +240,6 @@ namespace AnalysisITC.AppClasses.Analysis2
             {
                 TerminateAnalysisFlag.WasRaised -= TerminateAnalysisFlag_WasRaised;
 
-                // Reset LM state so that a new LM run can be created fresh. If the solver is currently running
-                // (e.g. cancelled mid-run), this will allow minlmcreatev to be called again on the next Solve.
-                LMOptimizerState = null;
-
                 // Dispose of any cancellation token source used by Nelder–Mead. Without disposing the token,
                 // cancelling an NM solve leaves behind a cancelled token that will cause future solves to stop
                 // immediately.
@@ -301,23 +288,15 @@ namespace AnalysisITC.AppClasses.Analysis2
             for (int i = 0; i < solver.StepSize.Length; i++) solver.StepSize[i] = stepsize[i];
         }
 
-        internal void SetBounds(object solver, List<double[]> bounds)
+        internal void SetBounds(NelderMead solver, List<double[]> bounds)
         {
             var lower = bounds.Select(l => l[0]).ToArray();
             var upper = bounds.Select(l => l[1]).ToArray();
 
-            switch (solver)
+            for (int i = 0; i < solver.NumberOfVariables; i++)
             {
-                case NelderMead simplex:
-                    for (int i = 0; i < simplex.NumberOfVariables; i++)
-                    {
-                        simplex.LowerBounds[i] = lower[i];
-                        simplex.UpperBounds[i] = upper[i];
-                    }
-                    break;
-                case alglib.minlmstate state:
-                    alglib.minlmsetbc(state, lower, upper);
-                    break;
+                solver.LowerBounds[i] = lower[i];
+                solver.UpperBounds[i] = upper[i];
             }
         }
 
@@ -329,7 +308,7 @@ namespace AnalysisITC.AppClasses.Analysis2
                     NelderMeadToken = new CancellationTokenSource();
                     simplex.Token = NelderMeadToken.Token;
                     break;
-                case alglib.minlmstate minlm: LMOptimizerState = minlm; break;
+                //case alglib.minlmstate minlm: LMOptimizerState = minlm; break;
             }
         }
     }
@@ -400,36 +379,36 @@ namespace AnalysisITC.AppClasses.Analysis2
             return Model.Solution.Convergence;
         }
 
-        protected override SolverConvergence SolverWithLevenbergMarquardtAlgorithm()
-        {
-            DateTime start = DateTime.Now;
-            var guess = Model.Parameters.GetFittedParameterArray();
-            var limits = Model.Parameters.GetLimits();
-            int n_par = Model.NumberOfParameters;
-            int m = Model.Data.Injections.Count(inj => inj.Include);
-            double[] scale = guess.Select(g => Math.Max(1, Math.Abs(g))).ToArray();
+        //protected override SolverConvergence SolverWithLevenbergMarquardtAlgorithm()
+        //{
+        //    DateTime start = DateTime.Now;
+        //    var guess = Model.Parameters.GetFittedParameterArray();
+        //    var limits = Model.Parameters.GetLimits();
+        //    int n_par = Model.NumberOfParameters;
+        //    int m = Model.Data.Injections.Count(inj => inj.Include);
+        //    double[] scale = guess.Select(g => Math.Max(1, Math.Abs(g))).ToArray();
 
-            alglib.minlmcreatev(n_par, m, guess, LevenbergMarquardtDifferentiationStepSize, out minlmstate state);
+        //    alglib.minlmcreatev(n_par, m, guess, LevenbergMarquardtDifferentiationStepSize, out minlmstate state);
 
-            LMOptimizerState = state;
+        //    LMOptimizerState = state;
 
-            alglib.minlmsetcond(LMOptimizerState, LevenbergMarquardtEpsilon, MaxOptimizerIterations);
-            alglib.minlmsetscale(LMOptimizerState, scale);
-            alglib.minlmsetbc(LMOptimizerState, limits.Select(p => p[0]).ToArray(), limits.Select(p => p[1]).ToArray());
-            alglib.minlmoptimize(LMOptimizerState, (double[] x, double[] fi, object obj) =>
-            {
-                var res = Model.LossFunctionResiduals(x, UseErrorWeightedFitting);
-                for (int i = 0; i < res.Length; i++) fi[i] = res[i];
-            },
-            null, null);
-            alglib.minlmresults(LMOptimizerState, out double[] result, out minlmreport rep);
+        //    alglib.minlmsetcond(LMOptimizerState, LevenbergMarquardtEpsilon, MaxOptimizerIterations);
+        //    alglib.minlmsetscale(LMOptimizerState, scale);
+        //    alglib.minlmsetbc(LMOptimizerState, limits.Select(p => p[0]).ToArray(), limits.Select(p => p[1]).ToArray());
+        //    alglib.minlmoptimize(LMOptimizerState, (double[] x, double[] fi, object obj) =>
+        //    {
+        //        var res = Model.LossFunctionResiduals(x, UseErrorWeightedFitting);
+        //        for (int i = 0; i < res.Length; i++) fi[i] = res[i];
+        //    },
+        //    null, null);
+        //    alglib.minlmresults(LMOptimizerState, out double[] result, out minlmreport rep);
 
-            Model.Solution = SolutionInterface.FromModel(Model, new SolverConvergence(LMOptimizerState, rep, DateTime.Now - start, Model.Loss()));
-            Model.Solution.ErrorMethod = ErrorEstimationMethod;
-            Model.Solution.UseWeightedFitting = UseErrorWeightedFitting;
+        //    Model.Solution = SolutionInterface.FromModel(Model, new SolverConvergence(LMOptimizerState, rep, DateTime.Now - start, Model.Loss()));
+        //    Model.Solution.ErrorMethod = ErrorEstimationMethod;
+        //    Model.Solution.UseWeightedFitting = UseErrorWeightedFitting;
 
-            return Model.Solution.Convergence;
-        }
+        //    return Model.Solution.Convergence;
+        //}
 
         protected override SolverConvergence SolverWithLevenbergMarquardtAlgorithm2()
         {
@@ -763,36 +742,36 @@ namespace AnalysisITC.AppClasses.Analysis2
             return Model.Solution.Convergence;
         }
 
-        protected override SolverConvergence SolverWithLevenbergMarquardtAlgorithm()
-        {
-            DateTime start = DateTime.Now;
-            var guess = Model.Parameters.GetFittedParameterArray();
-            var limits = Model.Parameters.GetLimits();
-            var parameters = Model.Parameters.GetFittedParameters();
-            int n_par = Model.NumberOfParameters;
-            int m = Model.GetNumberOfPoints();
-            double[] scale = guess.Select(g => Math.Max(1, Math.Abs(g))).ToArray();
+        //protected override SolverConvergence SolverWithLevenbergMarquardtAlgorithm()
+        //{
+        //    DateTime start = DateTime.Now;
+        //    var guess = Model.Parameters.GetFittedParameterArray();
+        //    var limits = Model.Parameters.GetLimits();
+        //    var parameters = Model.Parameters.GetFittedParameters();
+        //    int n_par = Model.NumberOfParameters;
+        //    int m = Model.GetNumberOfPoints();
+        //    double[] scale = guess.Select(g => Math.Max(1, Math.Abs(g))).ToArray();
 
-            alglib.minlmcreatev(n_par, m, guess, LevenbergMarquardtDifferentiationStepSize, out minlmstate state);
+        //    alglib.minlmcreatev(n_par, m, guess, LevenbergMarquardtDifferentiationStepSize, out minlmstate state);
 
-            LMOptimizerState = state;
+        //    LMOptimizerState = state;
 
-            alglib.minlmsetcond(state, LevenbergMarquardtEpsilon, MaxOptimizerIterations);
-            alglib.minlmsetscale(state, scale);
-            alglib.minlmsetbc(state, limits.Select(p => p[0]).ToArray(), limits.Select(p => p[1]).ToArray());
-            alglib.minlmoptimize(state, (double[] x, double[] fi, object obj) =>
-            {
-                var res = Model.LossFunctionResiduals(x, UseErrorWeightedFitting);
-                for (int i = 0; i < res.Length; i++) fi[i] = res[i];
-            }, null, null);
-            alglib.minlmresults(state, out double[] result, out minlmreport rep);
+        //    alglib.minlmsetcond(state, LevenbergMarquardtEpsilon, MaxOptimizerIterations);
+        //    alglib.minlmsetscale(state, scale);
+        //    alglib.minlmsetbc(state, limits.Select(p => p[0]).ToArray(), limits.Select(p => p[1]).ToArray());
+        //    alglib.minlmoptimize(state, (double[] x, double[] fi, object obj) =>
+        //    {
+        //        var res = Model.LossFunctionResiduals(x, UseErrorWeightedFitting);
+        //        for (int i = 0; i < res.Length; i++) fi[i] = res[i];
+        //    }, null, null);
+        //    alglib.minlmresults(state, out double[] result, out minlmreport rep);
 
-            var loss = Model.LossFunction(result, UseErrorWeightedFitting);
+        //    var loss = Model.LossFunction(result, UseErrorWeightedFitting);
 
-            Model.Solution = new GlobalSolution(this, new SolverConvergence(LMOptimizerState, rep, DateTime.Now - start, loss));
+        //    Model.Solution = new GlobalSolution(this, new SolverConvergence(LMOptimizerState, rep, DateTime.Now - start, loss));
 
-            return Solution.Convergence;
-        }
+        //    return Solution.Convergence;
+        //}
 
         protected override SolverConvergence SolverWithLevenbergMarquardtAlgorithm2()
         {

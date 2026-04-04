@@ -71,6 +71,8 @@ namespace AnalysisITC
                 case "export": 
                     Exporter.Export(ExportType.Data, ExportDataSelection.SelectedData);
                     break;
+                case "clearsolution":
+                    break;
                 case "delete":
                     int idx = DataManager.SelectedContentIndex;
                     DataManager.RemoveData2(idx);
@@ -156,6 +158,13 @@ namespace AnalysisITC
             Data.ToggleInclude();
 
             DataManager.InvokeDataInclusionDidChange();
+        }
+
+        void RemoveSolution()
+        {
+            if (Data == null) return;
+
+            Data.SetModel(null);
         }
 
         partial void DuplicateDataAction(NSObject sender)
