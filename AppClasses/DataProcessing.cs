@@ -142,7 +142,7 @@ namespace AnalysisITC
                 Data.BaseLineCorrectedDataPoints.Add(bldp);
             }
 
-            Data.CalculatePeakHeatDirection();
+            Data.CalculateExperimentHeatDirection();
         }
 
         public void IntegratePeaks(bool invalidate = true)

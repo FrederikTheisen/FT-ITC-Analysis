@@ -11,7 +11,7 @@ namespace AnalysisITC.AppClasses.Analysis2
 	/// </summary>
 	public class ModelFactory
 	{
-		public static event EventHandler<ModelFactory> UpdateFactory;
+		//public static event EventHandler<ModelFactory> UpdateFactory;
 
         public static ModelFactory Factory { get; set; }
         public static List<ExperimentAttribute> PreviousAttributes { get; } = new List<ExperimentAttribute>();
@@ -29,43 +29,106 @@ namespace AnalysisITC.AppClasses.Analysis2
 		/// </summary>
 		/// <param name="isglobal"></param>
 		/// <returns></returns>
-		public static ModelFactory InitializeFactory(AnalysisModel model, bool isglobal)
-		{
-			try
-			{
-				if (!DataManager.DataIsLoaded) throw new Exception("No data loaded");
+		//public static ModelFactory InitializeFactory(AnalysisModel model, bool isglobal)
+		//{
+		//	try
+		//	{
+		//		if (!DataManager.DataIsLoaded) throw new Exception("No data loaded");
 
-				Console.WriteLine("Initializing ModelFactory...");
-				ModelFactory factory;
+		//		Console.WriteLine("Initializing ModelFactory...");
+		//		ModelFactory factory;
 
-				if (isglobal)
-				{
-					factory = new GlobalModelFactory(model);
+		//		if (isglobal)
+		//		{
+		//			factory = new GlobalModelFactory(model);
 
-					(factory as GlobalModelFactory).InitializeModel();
-				}
-				else
-				{
-					factory = new SingleModelFactory(model);
+		//			(factory as GlobalModelFactory).InitializeModel();
+		//		}
+		//		else
+		//		{
+		//			factory = new SingleModelFactory(model);
 
-					(factory as SingleModelFactory).InitializeModel(DataManager.Current);
-				}
+		//			(factory as SingleModelFactory).InitializeModel(DataManager.Current);
+		//		}
 
-				UpdateFactory?.Invoke(factory, null);
+		//		UpdateFactory?.Invoke(factory, null);
 
-				return factory;
-			}
-			catch (Exception ex)
-			{
-				AppEventHandler.PrintAndLog(ex.Message);
+		//		return factory;
+		//	}
+		//	catch (Exception ex)
+		//	{
+		//		AppEventHandler.PrintAndLog(ex.Message);
 
-				return null;
-			}
-		}
+		//		return null;
+		//	}
+		//}
 
-        public static void StorePreviousAttributes(List<ExperimentAttribute> atts) => atts.ForEach(att => StorePreviousAttribute(att));
+        public static ModelFactory InitializeFactory(AnalysisModel model, bool isglobal)
+        {
+            AppEventHandler.Print($"Initializing ModelFactory...", 0);
+
+            if (!DataManager.DataIsLoaded)
+                throw new Exception("No data loaded");
+
+            ModelFactory factory = isglobal
+                ? new GlobalModelFactory(model)
+                : new SingleModelFactory(model);
+
+            Factory = factory;
+
+            Factory.InitializeModel();
+
+            // Do not eagerly initialize here.
+            TryRefreshFactory();
+
+            return factory;
+        }
+
+        public static bool TryRefreshFactory()
+        {
+            if (Factory == null) return false;
+
+            bool ready = Factory switch
+            {
+                SingleModelFactory => IsAnalysisReady(DataManager.Current),
+                GlobalModelFactory => DataManager.IncludedData.All(IsAnalysisReady),
+                _ => false
+            };
+
+            if (!ready) return false;
+
+            Factory.UpdateData();
+            //UpdateFactory?.Invoke(Factory, null);
+            return true;
+        }
+
+        static bool IsAnalysisReady(ExperimentData data)
+        {
+            if (data == null) return false;
+            if (data.SyringeConcentration <= double.Epsilon) return false;
+            if (data.Injections == null) return false;
+
+            var included = data.Injections.Where(i => i.Include).ToList();
+            if (included.Count < 3) return false;
+
+            // Adjust these checks to your real “done processing” criteria
+            if (included.Any(i => double.IsNaN(i.Enthalpy))) return false;
+            if (included.All(i => Math.Abs(i.Enthalpy) < double.Epsilon)) return false;
+            if (included.Last().Ratio <= 0) return false;
+
+            return true;
+        }
+
+        public virtual void InitializeModel()
+        {
+            throw new NotImplementedException();
+        }
+
+        public static void StorePreviousAttributes(List<ExperimentAttribute> atts) => atts?.ForEach(att => StorePreviousAttribute(att));
         public static void StorePreviousAttribute(ExperimentAttribute att)
         {
+            if (att == null) return;
+
             PreviousAttributes.RemoveAll(a => a.Key == att.Key);
 
             PreviousAttributes.Add(att);
@@ -181,6 +244,8 @@ namespace AnalysisITC.AppClasses.Analysis2
 
         public static void Clear()
 		{
+            if (Factory == null) return;
+
             StorePreviousAttributes(Factory.GetExposedModelOptions().Select(att => att.Value).ToList());
 
             var factory = InitializeFactory(Factory.ModelType, Factory.IsGlobalAnalysis);
@@ -193,7 +258,8 @@ namespace AnalysisITC.AppClasses.Analysis2
                 else factory.UpdateParameter(par.Key, par.Value, par.IsLocked);
             }
 
-            foreach (var opt in Factory.GetExposedModelOptions())
+            var opts = Factory.GetExposedModelOptions().ToList();
+            foreach (var opt in opts)
             {
 				factory.SetModelOption(opt.Value.Copy());
             }
@@ -202,16 +268,16 @@ namespace AnalysisITC.AppClasses.Analysis2
 			{
 				
 			}
-			else if (Factory is GlobalModelFactory)
+			else if (Factory is GlobalModelFactory fac)
 			{
-				foreach (var con in ((GlobalModelFactory)Factory).GlobalModelParameters.Constraints)
+				foreach (var con in fac.GlobalModelParameters.Constraints)
 				{
 					(factory as GlobalModelFactory).GlobalModelParameters.Constraints.Add(con.Key, con.Value);
 				}
 
-                foreach (var par in ((GlobalModelFactory)Factory).GlobalModelParameters.GlobalTable)
+                foreach (var par in fac.GlobalModelParameters.GlobalTable)
                 {
-					(factory as GlobalModelFactory).GlobalModelParameters.AddorUpdateGlobalParameter(par.Key, par.Value.Value, par.Value.IsLocked, par.Value.Limits);
+                    (factory as GlobalModelFactory).GlobalModelParameters.AddorUpdateGlobalParameter(par.Key, par.Value.Value, par.Value.IsLocked, par.Value.Limits);
                 }
             }
 
@@ -225,6 +291,13 @@ namespace AnalysisITC.AppClasses.Analysis2
 
         public SingleModelFactory(AnalysisModel model) : base(model)
         {
+        }
+
+        public override void InitializeModel()
+        {
+            if (DataManager.Current == null) return;
+
+            InitializeModel(DataManager.Current);
         }
 
         public void InitializeModel(ExperimentData data)
@@ -336,7 +409,7 @@ namespace AnalysisITC.AppClasses.Analysis2
 
         public override void UpdateData()
         {
-			InitializeModel(DataManager.Current);
+			InitializeModel();
         }
 
         public override void BuildModel()
@@ -372,7 +445,7 @@ namespace AnalysisITC.AppClasses.Analysis2
 			}
 		}
 
-        public void InitializeModel()
+        public override void InitializeModel()
         {
             Console.WriteLine("Initializing GlobalModelFactory...");
 
@@ -386,18 +459,7 @@ namespace AnalysisITC.AppClasses.Analysis2
             Model = new GlobalModel();
             GlobalModelParameters = new GlobalModelParameters();
 
-            foreach (var data in datas)
-            {
-                var factory = new SingleModelFactory(ModelType);
-
-                factory.InitializeModel(data);
-
-                Model.AddModel(factory.Model);
-            }
-
-            InitializeExposedGlobalFittingOptions();
-
-            InitializeGlobalParameters();
+            AddData(datas);
         }
 
         public void InitializeGlobalParameters() //TODO implement global determined
@@ -571,14 +633,17 @@ namespace AnalysisITC.AppClasses.Analysis2
         {
 			Model.Models.Clear();
 
-            var datas = DataManager.Data.Where(d => d.Include).ToList();
+            var data = DataManager.Data.Where(d => d.Include).ToList();
 
-            foreach (var data in datas)
+            AddData(data);
+        }
+
+        void AddData(List<ExperimentData> data)
+        {
+            foreach (var dat in data)
             {
                 var factory = new SingleModelFactory(ModelType);
-
-                factory.InitializeModel(data);
-
+                factory.InitializeModel(dat);
                 Model.AddModel(factory.Model);
             }
 

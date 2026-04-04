@@ -10,6 +10,10 @@ using Accord.Math;
 using static alglib;
 using AnalysisITC.AppClasses.Analysis2.Models;
 
+using MathNet.Numerics;
+using MathNet.Numerics.LinearAlgebra;
+using MathNet.Numerics.Optimization;
+
 namespace AnalysisITC.AppClasses.Analysis2
 {
     public static class FittingOptionsController
@@ -68,11 +72,12 @@ namespace AnalysisITC.AppClasses.Analysis2
         }
 
         // LM parameters
-        public double LevenbergMarquardtDifferentiationStepSize => Tolerance(2, 4);   // 1E-2 - 1E-6
-        public double LevenbergMarquardtEpsilon => Tolerance(5, 11);              // 1E-5 - 1E-9
+        public double LevenbergMarquardtDifferentiationStepSize => Tolerance(15, 20);   // 1E-2 - 1E-6
+        public double LevenbergMarquardtEpsilon => Tolerance(15, 20);              // 1E-5 - 1E-9
 
         internal alglib.minlmstate LMOptimizerState { get; set; }
         public static CancellationTokenSource NelderMeadToken { get; set; }
+        internal NonlinearMinimizationResult LmResult { get; set; }
 
         protected DateTime starttime;
         protected DateTime endtime;
@@ -207,7 +212,7 @@ namespace AnalysisITC.AppClasses.Analysis2
                         convergence = SolveWithNelderMeadAlgorithm();
                         break;
                     case SolverAlgorithm.LevenbergMarquardt:
-                        convergence = SolverWithLevenbergMarquardtAlgorithm();
+                        convergence = SolverWithLevenbergMarquardtAlgorithm2();
                         break;
                     default:
                         throw new NotImplementedException("Solver algorithm not implemented");
@@ -265,6 +270,11 @@ namespace AnalysisITC.AppClasses.Analysis2
         }
 
         protected virtual SolverConvergence SolverWithLevenbergMarquardtAlgorithm()
+        {
+            throw new NotImplementedException();
+        }
+
+        protected virtual SolverConvergence SolverWithLevenbergMarquardtAlgorithm2()
         {
             throw new NotImplementedException();
         }
@@ -421,6 +431,57 @@ namespace AnalysisITC.AppClasses.Analysis2
             return Model.Solution.Convergence;
         }
 
+        protected override SolverConvergence SolverWithLevenbergMarquardtAlgorithm2()
+        {
+            DateTime start = DateTime.Now;
+
+            var limits = Model.Parameters.GetLimits();
+            int m = Model.NumberOfPoints;
+
+            var observedX = Vector<double>.Build.Dense(m, i => (double)i); // dummy x
+            var observedY = Vector<double>.Build.Dense(m, 0.0);            // fit residuals to zero
+
+            IObjectiveModel objective = ObjectiveFunction.NonlinearModel(
+                (Vector<double> p, Vector<double> x) =>
+                {
+                    var r = Model.LossFunctionResiduals(p.ToArray(), UseErrorWeightedFitting);
+                    return Vector<double>.Build.DenseOfArray(r);
+                },
+                observedX,
+                observedY
+            );
+
+            var minimizer = new LevenbergMarquardtMinimizer(
+                gradientTolerance: this.LevenbergMarquardtEpsilon,
+                functionTolerance: this.LevenbergMarquardtEpsilon,
+                stepTolerance: this.LevenbergMarquardtEpsilon,
+                maximumIterations: MaxOptimizerIterations);
+
+            double[] initialGuess = Model.Parameters.GetFittedParameterArray();
+            double[] lower = limits.Select(b => b[0]).ToArray();
+            double[] upper = limits.Select(b => b[1]).ToArray();
+            double[] scales = initialGuess.Select(g => Math.Max(1, Math.Abs(g))).ToArray();
+
+            var result = minimizer.FindMinimum(
+                objective,
+                initialGuess,
+                lower,
+                upper,
+                scales);
+
+            //LmResult = result;
+
+            var fitted = result.MinimizingPoint.ToArray();
+            Model.LossFunction(fitted, false);
+            var loss = Model.Loss();
+
+            Model.Solution = SolutionInterface.FromModel(Model, new SolverConvergence(result, DateTime.Now - start, loss));
+            Model.Solution.ErrorMethod = ErrorEstimationMethod;
+            Model.Solution.UseWeightedFitting = UseErrorWeightedFitting;
+
+            return Model.Solution.Convergence;
+        }
+
         protected override void BoostrapResiduals()
         {
             base.BoostrapResiduals();
@@ -430,8 +491,6 @@ namespace AnalysisITC.AppClasses.Analysis2
             int failure = 0;
             var start = DateTime.Now;
             var bag = new ConcurrentBag<SolutionInterface>();
-
-            Model.GenerateSyntheticModel();
 
             Parallel.For(0, BootstrapIterations, (i) =>
             {
@@ -454,6 +513,7 @@ namespace AnalysisITC.AppClasses.Analysis2
                         // are still considered successful for bootstrapping purposes.
                         if (rconv != null && !rconv.Failed && !rconv.Stopped)
                         {
+                            AppEventHandler.Print($"Bootstrap: {rconv.Iterations} {rconv.Loss} {rconv.DetailedMessage}");
                             bag.Add(solver.Model.Solution);
                             Interlocked.Increment(ref success);
                         }
@@ -461,13 +521,14 @@ namespace AnalysisITC.AppClasses.Analysis2
                         {
                             Interlocked.Increment(ref failure);
                         }
-                    }
+                    } 
                     catch (Exception ex)
                     {
                         // Classify and count any replicate exception as a failure. The
                         // exception is not propagated beyond the replicate level; logging is
                         // deferred to the outer scope.
                         Interlocked.Increment(ref failure);
+                        AppEventHandler.Print($"Bootstrap Error: {ex.Message}");
                     }
                 }
 
@@ -731,6 +792,55 @@ namespace AnalysisITC.AppClasses.Analysis2
             Model.Solution = new GlobalSolution(this, new SolverConvergence(LMOptimizerState, rep, DateTime.Now - start, loss));
 
             return Solution.Convergence;
+        }
+
+        protected override SolverConvergence SolverWithLevenbergMarquardtAlgorithm2()
+        {
+            DateTime start = DateTime.Now;
+
+            var limits = Model.Parameters.GetLimits();
+            int m = Model.GetNumberOfPoints();
+
+            var observedX = Vector<double>.Build.Dense(m, i => (double)i); // dummy x
+            var observedY = Vector<double>.Build.Dense(m, 0.0);            // fit residuals to zero
+
+            IObjectiveModel objective = ObjectiveFunction.NonlinearModel(
+                (Vector<double> p, Vector<double> x) =>
+                {
+                    var r = Model.LossFunctionResiduals(p.ToArray(), UseErrorWeightedFitting);
+                    return Vector<double>.Build.DenseOfArray(r);
+                },
+                observedX,
+                observedY
+            );
+
+            var minimizer = new LevenbergMarquardtMinimizer(
+                gradientTolerance: this.LevenbergMarquardtEpsilon,
+                functionTolerance: this.LevenbergMarquardtEpsilon,
+                stepTolerance: this.LevenbergMarquardtEpsilon,
+                maximumIterations: MaxOptimizerIterations);
+
+            double[] initialGuess = Model.Parameters.GetFittedParameterArray();
+            double[] lower = limits.Select(b => b[0]).ToArray();
+            double[] upper = limits.Select(b => b[1]).ToArray();
+            double[] scales = initialGuess.Select(g => Math.Max(1, Math.Abs(g))).ToArray();
+
+            var result = minimizer.FindMinimum(
+                objective,
+                initialGuess,
+                lower,
+                upper,
+                scales);
+
+            //LmResult = result;
+
+            var fitted = result.MinimizingPoint.ToArray();
+
+            var loss = Model.LossFunction(fitted, UseErrorWeightedFitting);
+
+            Model.Solution = new GlobalSolution(this, new SolverConvergence(result, DateTime.Now - start, loss));
+
+            return Model.Solution.Convergence;
         }
 
         protected override void BoostrapResiduals()

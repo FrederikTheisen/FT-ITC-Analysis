@@ -74,6 +74,8 @@ namespace AnalysisITC
             AppDelegate.StartPrintOperation += AppDelegate_StartPrintOperation;
             AnalysisITCDataSource.SourceWasSorted += AnalysisITCDataSource_SourceWasSorted;
             DataAnalysisViewController.ModelChanged += DataAnalysisViewController_ModelChanged;
+            DataProcessor.ProcessingCompleted += (s, e) => ModelFactory.TryRefreshFactory();
+
 
             GlobalAffinityStyle.Hidden = true;
             GlobalEnthalpyStyle.Hidden = true;
@@ -101,6 +103,8 @@ namespace AnalysisITC
         private void DataManager_DataDidChange(object sender, ExperimentData e)
         {
             SetEnableGlobalAnalysis();
+
+            ModelFactory.TryRefreshFactory();
         }
 
         private void AppDelegate_StartPrintOperation(object sender, EventArgs e)
@@ -249,7 +253,8 @@ namespace AnalysisITC
                 {
                     var model = ModelFactory.Factory.ModelType;
 
-                    if (ModelFactory.Factory.IsGlobalAnalysis != IsGlobalMode || model != SelectedAnalysisModel) ModelFactory.Factory = ModelFactory.InitializeFactory(SelectedAnalysisModel, IsGlobalMode);
+                    if (ModelFactory.Factory.IsGlobalAnalysis != IsGlobalMode || model != SelectedAnalysisModel)
+                        ModelFactory.Factory = ModelFactory.InitializeFactory(SelectedAnalysisModel, IsGlobalMode);
                 }
             }
 

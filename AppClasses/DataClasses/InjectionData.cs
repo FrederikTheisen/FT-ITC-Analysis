@@ -315,7 +315,7 @@ namespace AnalysisITC
             Include = !Include;
 
             // Heat direction depends only on included peaks to avoid artifacts
-            Experiment.CalculatePeakHeatDirection();
+            Experiment.CalculateExperimentHeatDirection();
         }
 
         public void Integrate()

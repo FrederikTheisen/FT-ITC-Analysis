@@ -6,6 +6,7 @@ using Accord.Math.Optimization;
 using AnalysisITC.AppClasses.Analysis2;
 using static alglib;
 using System.Threading.Tasks;
+using MathNet.Numerics.Optimization;
 
 namespace AnalysisITC
 {
@@ -113,6 +114,34 @@ namespace AnalysisITC
             Loss = loss;
 
             //Failed = rep.terminationtype > 2;
+        }
+
+        public SolverConvergence(NonlinearMinimizationResult result, TimeSpan time, double loss)
+        {
+            Algorithm = SolverAlgorithm.LevenbergMarquardt;
+            Iterations = result.Iterations;
+            DetailedMessage = result.ReasonForExit.ToString();
+            Message = DetailedMessage;
+            Time = time;
+            Loss = loss;
+
+            // Map ExitCondition to flags
+            switch (result.ReasonForExit)
+            {
+                default:
+                case ExitCondition.Converged:
+                    Failed = false; Stopped = false; MaxIterationsReached = false;
+                    break;
+                case ExitCondition.ExceedIterations:
+                    MaxIterationsReached = true; Failed = false;
+                    break;
+                case ExitCondition.ManuallyStopped:
+                    Stopped = true; Failed = false;
+                    break;
+                case ExitCondition.InvalidValues:
+                    Failed = true;
+                    break;
+            }
         }
 
         public SolverConvergence(List<SolverConvergence> list)

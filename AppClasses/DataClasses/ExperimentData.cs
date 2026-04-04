@@ -11,7 +11,6 @@ namespace AnalysisITC
 {
     public class ExperimentData : ITCDataContainer
     {
-        public static EnergyUnit Unit => DataManager.Unit;
         public static Random Rand = new Random();
 
         public event EventHandler ProcessingUpdated;
@@ -238,7 +237,7 @@ namespace AnalysisITC
             foreach (var inj in Injections) { inj.SetIntegrationStartTime(delay); }
         }
 
-        public void CalculatePeakHeatDirection()
+        public void CalculateExperimentHeatDirection()
         {
             bool positive = false;
             bool negative = false;
@@ -410,9 +409,16 @@ namespace AnalysisITC
         {
             if (Solution != null && invalidate) Solution.Invalidate();
 
-            CalculatePeakHeatDirection();
+            CalculateExperimentHeatDirection();
 
             ProcessingUpdated?.Invoke(Processor, null);
+        }
+
+        public void SetModel(Model model)
+        {
+            Model = model;
+
+            SolutionChanged?.Invoke(this, null);
         }
 
         public void UpdateSolution(Model mdl = null)

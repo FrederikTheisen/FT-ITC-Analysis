@@ -83,7 +83,7 @@ namespace DataReaders
 
             if (exp.Solution != null) exp.UpdateSolution(exp.Solution.Model);
 
-            exp.CalculatePeakHeatDirection();
+            exp.CalculateExperimentHeatDirection();
             return exp;
         }
 
