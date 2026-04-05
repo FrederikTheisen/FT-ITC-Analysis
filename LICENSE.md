@@ -4,7 +4,7 @@ FT‑ITC Analysis – License and third‑party notices
 
 Copyright (c) 2026 Frederik Theisen
 
-This project, *FT‑ITC Analysis*, is distributed under the MIT License.  The
+This project, **FT‑ITC Analysis**, is distributed under the MIT License.  The
 following sections reproduce the text of the MIT License, followed by
 acknowledgements and licence summaries for the external libraries used by
 this application.  All system runtime libraries provided by the .NET and
