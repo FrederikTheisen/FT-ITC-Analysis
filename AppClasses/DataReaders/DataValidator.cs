@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using AppKit;
+using CoreGraphics;
 using DataReaders;
 
 namespace AnalysisITC
@@ -17,6 +18,7 @@ namespace AnalysisITC
             public string Message { get; }
             public DataFixProtocol FixProtocol { get; }
             public bool Fixable => FixProtocol != DataFixProtocol.None;
+            public bool RequiresInput => FixProtocol == DataFixProtocol.Concentrations;
 
             public ValidationIssue(string message, DataFixProtocol fixProtocol = DataFixProtocol.None)
             {
@@ -31,7 +33,7 @@ namespace AnalysisITC
 
             // Integrated heats: allow import, but keep the logic here if you later decide
             // to do minimal sanity checks specific to this format.
-            if (data.DataSourceFormat == ITCDataFormat.IntegratedHeats) return true;
+            //if (data.DataSourceFormat == ITCDataFormat.IntegratedHeats) return true;
 
             while (true)
             {
@@ -46,6 +48,16 @@ namespace AnalysisITC
                 };
 
                 // Button order matters because RunModal returns 1000/1001/1002...
+                if (issue.RequiresInput)
+                {
+                    var view = new NSTextField(new CGRect(0, 0, 220, 26))
+                    {
+                        Alignment = NSTextAlignment.Center,
+                    };
+
+                    alert.AccessoryView = view;
+
+                }
                 if (issue.Fixable) alert.AddButton("Attempt Fix");
                 alert.AddButton("Discard");
                 alert.AddButton("Keep");
@@ -57,7 +69,7 @@ namespace AnalysisITC
                     switch (response)
                     {
                         case AlertFirst:
-                            var fixedData = AttemptDataFix(data, issue.FixProtocol);
+                            var fixedData = AttemptDataFix(data, issue.FixProtocol, alert.AccessoryView);
                             if (fixedData == null) return false; // fix failed -> discard
                             data = fixedData;
                             continue; // re-validate after fix
@@ -87,14 +99,37 @@ namespace AnalysisITC
 
         static ValidationIssue GetFirstIssue(ExperimentData data)
         {
-            // Defensive null checks (importers can leave these null).
-            var dps = data.DataPoints;
             var injs = data.Injections;
 
-            if (dps == null || dps.Count < 10)
+            // Defensive null checks (importers can leave these null).
+            if (data.DataSourceFormat != ITCDataFormat.IntegratedHeats)
             {
-                var n = dps?.Count ?? 0;
-                return new ValidationIssue($"Only {n} data points were found (expected > 10).");
+                var dps = data.DataPoints;
+                
+
+                if (dps == null || dps.Count < 10)
+                {
+                    var n = dps?.Count ?? 0;
+                    return new ValidationIssue($"Only {n} data points were found (expected > 10).");
+                }
+
+                // Optimize the original O(Ninj * Ndps) check to O(Ninj).
+                var maxDataTime = dps.Max(dp => dp.Time);
+                if (injs.All(inj => (inj.Time + 10) >= maxDataTime))
+                {
+                    var firstInj = injs.Min(i => i.Time);
+                    var lastInj = injs.Max(i => i.Time);
+                    return new ValidationIssue(
+                        "All injections appear to occur outside (or at the very end of) the recorded data range.\n" +
+                        $"Last data point: {maxDataTime:G4} s. Injection time range: {firstInj:G4}–{lastInj:G4} s.\n" +
+                        "Attempt fix can remove problematic injections.",
+                        DataFixProtocol.InvalidInjection);
+                }
+            }
+
+            if (injs == null || injs.Count == 0)
+            {
+                return new ValidationIssue("No injections were found in the file.");
             }
 
             // Avoid flagging self if re-validating an already-added dataset.
@@ -120,11 +155,6 @@ namespace AnalysisITC
                     DataFixProtocol.FileExists);
             }
 
-            if (injs == null || injs.Count == 0)
-            {
-                return new ValidationIssue("No injections were found in the file.");
-            }
-
             var negative = injs.Where(inj => inj.Time < 0).ToList();
             if (negative.Count > 0)
             {
@@ -136,19 +166,6 @@ namespace AnalysisITC
                     DataFixProtocol.InvalidInjection);
             }
 
-            // Optimize the original O(Ninj * Ndps) check to O(Ninj).
-            var maxDataTime = dps.Max(dp => dp.Time);
-            if (injs.All(inj => (inj.Time + 10) >= maxDataTime))
-            {
-                var firstInj = injs.Min(i => i.Time);
-                var lastInj = injs.Max(i => i.Time);
-                return new ValidationIssue(
-                    "All injections appear to occur outside (or at the very end of) the recorded data range.\n" +
-                    $"Last data point: {maxDataTime:G4} s. Injection time range: {firstInj:G4}–{lastInj:G4} s.\n" +
-                    "Attempt fix can remove problematic injections.",
-                    DataFixProtocol.InvalidInjection);
-            }
-
             var deltaT = Math.Abs(data.MeasuredTemperature - data.TargetTemperature);
             if (deltaT > 0.5)
             {
@@ -157,27 +174,51 @@ namespace AnalysisITC
                     $"Target: {data.TargetTemperature:G4} °C. Measured: {data.MeasuredTemperature:G4} °C.");
             }
 
+            if (data.CellConcentration > data.SyringeConcentration)
+            {
+                return new ValidationIssue(
+                    $"The syringe concentration ({data.SyringeConcentration.AsConcentration(ConcentrationUnit.µM, true)}) appears to be lower than the cell concentration ({data.CellConcentration.AsConcentration(ConcentrationUnit.µM, true)}).\n" +
+                    "There may be an error in the concentrations.\n\n" +
+                    "Provide an updated syringe concentration in micromolar here:",
+                    DataFixProtocol.Concentrations);
+            }
+
             return null;
         }
 
-        static ExperimentData AttemptDataFix(ExperimentData data, DataFixProtocol fix)
+        static ExperimentData AttemptDataFix(ExperimentData data, DataFixProtocol fix, NSView accessory)
         {
-            switch (fix)
+            try
             {
-                case DataFixProtocol.FileExists: data.IterateCopyName(); break;
-                case DataFixProtocol.InvalidInjection:
-                    var injectiondata = new List<InjectionData>();
-                    foreach (var inj in data.Injections)
-                    {
-                        if (inj.Time > 0)
-                            injectiondata.Add(inj);
-                    }
-                    data.Injections = injectiondata;
-                    break;
-                case DataFixProtocol.Concentrations: break;
-            }
+                switch (fix)
+                {
+                    case DataFixProtocol.FileExists: data.IterateCopyName(); break;
+                    case DataFixProtocol.InvalidInjection:
+                        var injectiondata = new List<InjectionData>();
+                        foreach (var inj in data.Injections)
+                        {
+                            if (inj.Time > 0)
+                                injectiondata.Add(inj);
+                        }
+                        data.Injections = injectiondata;
+                        break;
+                    case DataFixProtocol.Concentrations:
+                        var input = accessory as NSTextField;
+                        var conc = input.DoubleValue;
+                        AppEventHandler.Print(conc.ToString());
+                        data.SyringeConcentration = new FloatWithError(conc / 1000000);
 
-            return data;
+                        // We need to recalculate concentrations
+                        RawDataReader.ProcessInjections(data);
+                        break;
+                }
+
+                return data;
+            }
+            catch
+            {
+                return null;
+            }
         }
 
         enum DataFixProtocol
