@@ -228,9 +228,13 @@ namespace AnalysisITC
 
                             DataManager.SelectResultSolution(sol);
                         }
-                        else NSCursor.ArrowCursor.Set();
+                        else
+                        {
+                            NSCursor.ArrowCursor.Set();
+                            DataManager.ClearResultSolutionSelection();
+                        }
 
-                        Invalidate();
+                            Invalidate();
                         break;
                     }
                 default: break;

@@ -138,6 +138,28 @@ namespace AnalysisITC
             }
         }
 
+        public void AddErrorBar(CGPath bars, double x, FloatWithError y, CGSize barwidth)
+        {
+            var p = GetRelativePosition(x, y);
+            var etop = GetRelativePosition(x, y.Upper);
+            var ebottom = GetRelativePosition(x, y.Lower);
+
+            if (Math.Abs(etop.Y - p.Y) > CGGraph.SymbolSize / 2)
+            {
+                bars.MoveToPoint(etop);
+                bars.AddLineToPoint(CGPoint.Add(p, new CGSize(0, CGGraph.SymbolSize / 2)));
+
+                bars.MoveToPoint(ebottom);
+                bars.AddLineToPoint(CGPoint.Subtract(p, new CGSize(0, CGGraph.SymbolSize / 2)));
+
+                bars.MoveToPoint(CGPoint.Subtract(etop, barwidth));
+                bars.AddLineToPoint(CGPoint.Add(etop, barwidth));
+
+                bars.MoveToPoint(CGPoint.Subtract(ebottom, barwidth));
+                bars.AddLineToPoint(CGPoint.Add(ebottom, barwidth));
+            }
+        }
+
         /// <summary>
         /// Draws string to a given layer. Return size of string. Provide layer as null to get size.
         /// </summary>

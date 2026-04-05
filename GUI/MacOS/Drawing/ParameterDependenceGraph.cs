@@ -104,24 +104,7 @@ namespace AnalysisITC
                 var p = GetRelativePosition(x, y);
                 points.Add(p);
 
-                var sd = y.SD;
-                var etop = GetRelativePosition(x, y.Upper);
-                var ebottom = GetRelativePosition(x, y.Lower);
-
-                if (Math.Abs(etop.Y - p.Y) > CGGraph.SymbolSize / 2)
-                {
-                    bars.MoveToPoint(etop);
-                    bars.AddLineToPoint(CGPoint.Add(p, new CGSize(0, CGGraph.SymbolSize / 2)));
-
-                    bars.MoveToPoint(ebottom);
-                    bars.AddLineToPoint(CGPoint.Subtract(p, new CGSize(0, CGGraph.SymbolSize / 2)));
-
-                    bars.MoveToPoint(CGPoint.Subtract(etop, ErrorBarEndWidth));
-                    bars.AddLineToPoint(CGPoint.Add(etop, ErrorBarEndWidth));
-
-                    bars.MoveToPoint(CGPoint.Subtract(ebottom, ErrorBarEndWidth));
-                    bars.AddLineToPoint(CGPoint.Add(ebottom, ErrorBarEndWidth));
-                }
+                AddErrorBar(bars, x, y, ErrorBarEndWidth);
             }
 
             layer.Context.SetFillColor(StrokeColor);

@@ -134,23 +134,33 @@ namespace AnalysisITC
         void DrawDataPoints(CGContext gc, ParameterType key, SymbolShape symbol, bool fill)
         {
             const float size = 10;
+            CGSize barwidth = new(size / 2, 0);
 
             var layer = CGLayer.Create(gc, PlotSize);
             var points = new List<CGPoint>();
             var selectedpoint = new List<CGPoint>();
+            var bars = new CGPath();
 
             for (int i = 0; i < Result.Solution.Solutions.Count; i++)
             {
                 var sol = Result.Solution.Solutions[i];
-                var dp = GetRelativePosition(sol.Temp, sol.ReportParameters[key]);
+                var y = sol.ReportParameters[key];
+                var x = sol.Temp;
+                var dp = GetRelativePosition(x, y);
 
                 FeatureBoundingBoxes.Add(new FeatureBoundingBox(MouseOverFeatureEvent.FeatureType.DataPoint, dp, size * 0.66f, i, Frame.Location));
 
                 points.Add(dp);
 
+                AddErrorBar(bars, x, y, barwidth);
+
                 if (sol == DataManager.SelectedResultSolution)
                     selectedpoint.Add(dp);
             }
+
+            layer.Context.SetStrokeColor(StrokeColor);
+            layer.Context.AddPath(bars);
+            layer.Context.StrokePath();
 
             DrawSymbolsAtPositions(layer, points.ToArray(), size, symbol, fill, 1, null, 0);
 
