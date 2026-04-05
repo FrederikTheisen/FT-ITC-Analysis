@@ -507,7 +507,7 @@ namespace AnalysisITC.AppClasses.Analysis2
 
                                 GlobalModelParameters.AddorUpdateGlobalParameter(
 									key: par.Key == ParameterType.Enthalpy1 ? ParameterType.HeatCapacity1 : ParameterType.HeatCapacity2,
-									value: prevdCp != null ? prevdCp.Value : 0,
+									value: prevdCp != null ? prevdCp.Value : -1000,
 									islocked: prevdCp != null ? prevdCp.IsLocked : false);
                                 GlobalModelParameters.AddorUpdateGlobalParameter(
 									key: par.Key,
