@@ -64,6 +64,9 @@ namespace AnalysisITC
 		AppKit.NSSegmentedControl InterpolatorTypeControl { get; set; }
 
 		[Outlet]
+		AppKit.NSSegmentedControl PeakZoomSegControl { get; set; }
+
+		[Outlet]
 		AppKit.NSSegmentedControl PeakZoomWidthSegControl { get; set; }
 
 		[Outlet]
@@ -159,6 +162,9 @@ namespace AnalysisITC
 		[Action ("InterplolatorClicked:")]
 		partial void InterplolatorClicked (AppKit.NSSegmentedControl sender);
 
+		[Action ("PeakZoomAction:")]
+		partial void PeakZoomAction (AppKit.NSSegmentedControl sender);
+
 		[Action ("PeakZoomWidthClicked:")]
 		partial void PeakZoomWidthClicked (AppKit.NSSegmentedControl sender);
 
@@ -198,6 +204,9 @@ namespace AnalysisITC
 		[Action ("ZLimitChanged:")]
 		partial void ZLimitChanged (AppKit.NSSlider sender);
 
+		[Action ("ZoomResetButtonAction:")]
+		partial void ZoomResetButtonAction (Foundation.NSObject sender);
+
 		[Action ("ZoomSegControlClicked:")]
 		partial void ZoomSegControlClicked (AppKit.NSSegmentedControl sender);
 		
@@ -236,6 +245,11 @@ namespace AnalysisITC
 			if (DataZoomSegControl != null) {
 				DataZoomSegControl.Dispose ();
 				DataZoomSegControl = null;
+			}
+
+			if (PeakZoomSegControl != null) {
+				PeakZoomSegControl.Dispose ();
+				PeakZoomSegControl = null;
 			}
 
 			if (DrawFeatureSegControl != null) {
@@ -308,6 +322,11 @@ namespace AnalysisITC
 				PolynomialDegreeView = null;
 			}
 
+			if (PolynomialDiscardIntegrationRange != null) {
+				PolynomialDiscardIntegrationRange.Dispose ();
+				PolynomialDiscardIntegrationRange = null;
+			}
+
 			if (SelectedInjectionLabel != null) {
 				SelectedInjectionLabel.Dispose ();
 				SelectedInjectionLabel = null;
@@ -336,6 +355,11 @@ namespace AnalysisITC
 			if (SplineBaselineFractionView != null) {
 				SplineBaselineFractionView.Dispose ();
 				SplineBaselineFractionView = null;
+			}
+
+			if (SplineDiscardIntegrationRange != null) {
+				SplineDiscardIntegrationRange.Dispose ();
+				SplineDiscardIntegrationRange = null;
 			}
 
 			if (SplineFractionSliderControl != null) {
@@ -386,16 +410,6 @@ namespace AnalysisITC
 			if (ZLimitView != null) {
 				ZLimitView.Dispose ();
 				ZLimitView = null;
-			}
-
-			if (SplineDiscardIntegrationRange != null) {
-				SplineDiscardIntegrationRange.Dispose ();
-				SplineDiscardIntegrationRange = null;
-			}
-
-			if (PolynomialDiscardIntegrationRange != null) {
-				PolynomialDiscardIntegrationRange.Dispose ();
-				PolynomialDiscardIntegrationRange = null;
 			}
 		}
 	}

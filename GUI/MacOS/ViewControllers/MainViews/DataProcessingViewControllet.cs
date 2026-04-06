@@ -162,6 +162,7 @@ namespace AnalysisITC
 
                 InjectionViewSegControl.Enabled = Data.Injections.Count > 0;
                 DataZoomSegControl.Enabled = true;
+                PeakZoomSegControl.Enabled = true;
                 IntegrationModeSegControl.Enabled = true;
                 IntegrationModeSegControl.SelectedSegment = (int)Data.Processor.IntegrationLengthMode;
 
@@ -405,9 +406,27 @@ namespace AnalysisITC
             {
                 case 0: BaselineGraphView.ShowAllVertical(); break;
                 case 1: BaselineGraphView.ZoomBaseline(); break;
-                case 2: BaselineGraphView.FocusPeak(); break;
-                case 3: BaselineGraphView.UnfocusPeak();  break;
             }
+        }
+
+        partial void PeakZoomAction(NSSegmentedControl sender)
+        {
+            if (Data == null) return;
+
+            switch (sender.SelectedSegment)
+            {
+                case 0: BaselineGraphView.UnfocusPeak(); break;
+                case 1: BaselineGraphView.FocusPeak(); break;
+            }
+        }
+
+        partial void ZoomResetButtonAction(NSObject sender)
+        {
+            if (BaselineGraphView == null) return;
+            if (Data == null) return;
+
+            BaselineGraphView.ShowAllVertical();
+            BaselineGraphView.UnfocusPeak();
         }
 
         partial void PeakZoomWidthClicked(NSSegmentedControl sender)
@@ -453,6 +472,9 @@ namespace AnalysisITC
 
         void UpdateInjectionSelectionUI()
         {
+            InjectionViewSegControl.SetEnabled(BaselineGraphView.SelectedPeak > 0, 0);
+            InjectionViewSegControl.SetEnabled(BaselineGraphView.SelectedPeak < BaselineGraphView.Data.InjectionCount - 1, 2);
+
             if (BaselineGraphView.SelectedPeak != -1)
             {
                 // Specific selection, set labels and sliders to corresponding peak
@@ -464,7 +486,9 @@ namespace AnalysisITC
             }
             else
             {
-                InjectionViewSegControl.SetLabel("all selected", 1);
+                InjectionViewSegControl.SetLabel("All Selected", 1);
+                InjectionViewSegControl.SetEnabled(false, 0);
+                InjectionViewSegControl.SetEnabled(false, 2);
             }
 
             ViewPreviousControl.Enabled = BaselineGraphView.SelectedPeak > 0;

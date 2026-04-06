@@ -35,7 +35,6 @@
     <PackageSigningKey>3rd Party Mac Developer Installer</PackageSigningKey>
     <CodesignProvision></CodesignProvision>
     <NoWarn>MMP</NoWarn>
-    <XamMacArch></XamMacArch>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
     <Optimize>true</Optimize>
@@ -52,7 +51,6 @@
     <LinkMode>None</LinkMode>
     <AOTMode>None</AOTMode>
     <LangVersion>10.0</LangVersion>
-    <XamMacArch></XamMacArch>
   </PropertyGroup>
   <ItemGroup>
     <Reference Include="System">
@@ -162,6 +160,22 @@
     <ImageAsset Include="Assets.xcassets\AppIconOld.appiconset\32.png" />
     <ImageAsset Include="Assets.xcassets\AppIconOld.appiconset\256 1.png" />
     <ImageAsset Include="Assets.xcassets\AppIconOld.appiconset\Contents.json" />
+    <ImageAsset Include="Assets.xcassets\ftitc.zoom.data.symbolset\ftitc.zoom.data.svg" />
+    <ImageAsset Include="Assets.xcassets\ftitc.zoom.data.symbolset\Contents.json" />
+    <ImageAsset Include="Assets.xcassets\ftitc.zoom.baseline.symbolset\ftitc.zoom.baseline.svg" />
+    <ImageAsset Include="Assets.xcassets\ftitc.zoom.baseline.symbolset\Contents.json" />
+    <ImageAsset Include="Assets.xcassets\ftitc.zoom.peak.symbolset\Contents.json" />
+    <ImageAsset Include="Assets.xcassets\ftitc.zoom.peak.symbolset\ftitc.zoom.peak.svg" />
+    <ImageAsset Include="Assets.xcassets\ftitc.zoom.allpeaks.symbolset\Contents.json" />
+    <ImageAsset Include="Assets.xcassets\ftitc.zoom.allpeaks.symbolset\ftitc.zoom.allpeaks.svg" />
+    <ImageAsset Include="Assets.xcassets\ftitc.zoom.peak.2.symbolset\ftitc.zoom.peak.2.svg" />
+    <ImageAsset Include="Assets.xcassets\ftitc.zoom.peak.2.symbolset\Contents.json" />
+    <ImageAsset Include="Assets.xcassets\ftitc.zoom.baseline.2.symbolset\ftitc.zoom.baseline.2.svg" />
+    <ImageAsset Include="Assets.xcassets\ftitc.zoom.baseline.2.symbolset\Contents.json" />
+    <ImageAsset Include="Assets.xcassets\ftitc.zoom.allpeaks.2.symbolset\ftitc.zoom.allpeaks.2.svg" />
+    <ImageAsset Include="Assets.xcassets\ftitc.zoom.allpeaks.2.symbolset\Contents.json" />
+    <ImageAsset Include="Assets.xcassets\ftitc.zoom.data.2.symbolset\Contents.json" />
+    <ImageAsset Include="Assets.xcassets\ftitc.zoom.data.2.symbolset\ftitc.zoom.data.2.svg" />
   </ItemGroup>
   <ItemGroup>
     <Folder Include="Resources\" />
@@ -175,7 +189,6 @@
     <Folder Include="GUI\MacOS\PopOptionViewControllers\" />
     <Folder Include="AppClasses\Analysis2\" />
     <Folder Include="GUI\MacOS\CustomViews\" />
-    <Folder Include="AppClasses\Depreceated\" />
     <Folder Include="GUI\MacOS\ListViews\" />
     <Folder Include="AppClasses\Analysis2\Models\" />
     <Folder Include="AppClasses\DataClasses\" />
@@ -184,7 +197,6 @@
     <Folder Include="AppClasses\UnitClasses\" />
     <Folder Include="GUI\MacOS\PopOptionViewControllers\FinalFigureOptions\" />
     <Folder Include="AppClasses\Analysis2\Kinetics\" />
-    <Folder Include="Resources\ToolTipsImages\" />
     <Folder Include="AppClasses\DataReaders\" />
     <Folder Include="AppClasses\Analysis2\AdvancedAnalysis\" />
     <Folder Include="AppClasses\DataExport\" />
@@ -199,10 +211,6 @@
     <None Include="GUI\MacOS\Drawing\CAGraph.cs" />
     <None Include="GUI\MacOS\Drawing\CALayerDrawingView.cs" />
     <None Include=".editorconfig" />
-    <None Include="AppClasses\Depreceated\GlobalSolution.cs" />
-    <None Include="AppClasses\Depreceated\Analysis.cs" />
-    <None Include="AppClasses\Depreceated\SolverParameters.cs" />
-    <None Include="AppClasses\Depreceated\SolverOptions.cs" />
     <None Include="README.md" />
     <None Include="AppClasses\DataReaders\FTITCReaderOld.cs" />
     <None Include="TestData\data_1.itc" />
@@ -526,8 +534,6 @@
     <BundleResource Include="Resources\HelpTextResource.txt" />
     <BundleResource Include="Resources\ScienceHelpResource.txt" />
     <BundleResource Include="Resources\Buffers.json" />
-    <BundleResource Include="Resources\ExperimentViewCell.png" />
-    <BundleResource Include="Resources\HintImg_ExpDetails.jpg" />
     <BundleResource Include="Resources\AppIcon.icns" />
     <BundleResource Include="Resources\DataFileIcon.icns" />
     <BundleResource Include="Resources\ProjectFileIcon.icns" />
