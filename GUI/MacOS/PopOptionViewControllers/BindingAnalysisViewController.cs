@@ -4,7 +4,6 @@ using System;
 using System.Linq;
 using Foundation;
 using AppKit;
-using AnalysisITC.AppClasses.Analysis2;
 using AnalysisITC.Utilities;
 
 namespace AnalysisITC

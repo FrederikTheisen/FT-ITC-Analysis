@@ -1,9 +1,7 @@
 ﻿using System;
-using AnalysisITC.AppClasses.Analysis2;
 using Foundation;
 using System.Linq;
 using AnalysisITC.GUI;
-using static AnalysisITC.AppClasses.AnalysisClasses.Models.SolutionInterface;
 using DataReaders;
 using AnalysisITC.AppClasses.AnalysisClasses.Models;
 using AnalysisITC.AppClasses.AnalysisClasses;

@@ -1,9 +1,6 @@
 ﻿using System;
-using AnalysisITC.AppClasses.Analysis2;
 using System.Collections.Generic;
-using AnalysisITC.Utilities;
 using System.Linq;
-using AnalysisITC.GUI.MacOS.CustomViews;
 
 namespace AnalysisITC.AppClasses.AnalysisClasses
 {

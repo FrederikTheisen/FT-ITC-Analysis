@@ -1,7 +1,7 @@
 ﻿using System;
 using AnalysisITC.AppClasses.AnalysisClasses.Models;
 
-namespace AnalysisITC.AppClasses.Analysis2.Kinetics
+namespace AnalysisITC.AppClasses.AnalysisClasses.Kinetics
 {
 	public class KineticModel
 	{

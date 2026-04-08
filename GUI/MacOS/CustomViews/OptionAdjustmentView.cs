@@ -1,10 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
-using AnalysisITC.AppClasses.Analysis2;
 using AnalysisITC.AppClasses.AnalysisClasses;
 using AppKit;
 using CoreGraphics;
-//using static AnalysisITC.Analysis;
 using Foundation;
 
 namespace AnalysisITC.GUI.MacOS.CustomViews

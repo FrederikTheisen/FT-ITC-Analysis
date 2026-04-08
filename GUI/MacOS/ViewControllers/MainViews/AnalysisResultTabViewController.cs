@@ -270,7 +270,6 @@ namespace AnalysisITC
         private void PopulateTable()
         {
             var options = Solution.Solutions.First().ModelOptions;
-            //var kd = Solution.Solutions.Average(s => s.ReportParameters[AppClasses.Analysis2.ParameterType.Affinity1]);
 
             AppropriateAffinityUnit = AnalysisResult.AppropriateAffinityUnit; //ConcentrationUnitAttribute.FromConc(kd);
             ResultsTableView.SizeToFit();

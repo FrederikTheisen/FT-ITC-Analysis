@@ -2,7 +2,7 @@
 using System.Linq;
 using AppKit;
 
-namespace AnalysisITC.AppClasses.Analysis2
+namespace AnalysisITC.GUI.MacOS
 {
     public static class StoichiometryPopupBuilder
     {

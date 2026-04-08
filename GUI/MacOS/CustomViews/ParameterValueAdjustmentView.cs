@@ -1,11 +1,7 @@
 ﻿using System;
-using AnalysisITC.AppClasses.Analysis2;
 using AppKit;
 using CoreGraphics;
-using PrintCore;
-//using static AnalysisITC.Analysis;
 using System.Collections.Generic;
-using Foundation;
 using AnalysisITC.Utilities;
 using AnalysisITC.AppClasses.AnalysisClasses;
 

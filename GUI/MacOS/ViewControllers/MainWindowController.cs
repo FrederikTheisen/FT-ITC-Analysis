@@ -4,10 +4,7 @@ using System;
 using Foundation;
 using AppKit;
 using System.Threading.Tasks;
-using System.Collections.Generic;
-using AnalysisITC.AppClasses.Analysis2;
 using AnalysisITC.AppClasses.AnalysisClasses;
-using static CoreFoundation.DispatchSource;
 
 namespace AnalysisITC
 {
