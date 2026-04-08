@@ -2,7 +2,6 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
-using AnalysisITC.AppClasses.Analysis2;
 using AppKit;
 
 namespace AnalysisITC.AppClasses.AnalysisClasses

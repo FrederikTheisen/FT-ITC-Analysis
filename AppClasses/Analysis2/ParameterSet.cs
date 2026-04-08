@@ -3,10 +3,10 @@ using System.Collections.Generic;
 using System.ComponentModel;
 using System.Linq;
 using System.Text.RegularExpressions;
-using AnalysisITC.AppClasses.Analysis2.Models;
+using AnalysisITC.AppClasses.AnalysisClasses.Models;
 using AnalysisITC.AppClasses.AnalysisClasses;
 
-namespace AnalysisITC.AppClasses.Analysis2
+namespace AnalysisITC.AppClasses.AnalysisClasses
 {
     public class Parameter
     {

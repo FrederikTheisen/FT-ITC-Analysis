@@ -4,7 +4,7 @@ using System.Linq;
 using AnalysisITC.Utilities;
 using AnalysisITC.AppClasses.AnalysisClasses;
 
-namespace AnalysisITC.AppClasses.Analysis2.Models
+namespace AnalysisITC.AppClasses.AnalysisClasses.Models
 {
     public class OneSetOfSites : Model
 	{

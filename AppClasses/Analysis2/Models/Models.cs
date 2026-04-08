@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using AnalysisITC.AppClasses.AnalysisClasses;
 
-namespace AnalysisITC.AppClasses.Analysis2.Models
+namespace AnalysisITC.AppClasses.AnalysisClasses.Models
 {
     public class Model
     {
@@ -516,52 +516,52 @@ namespace AnalysisITC.AppClasses.Analysis2.Models
         //{
         //    return null;
         //}
+    }
 
-        [Flags]
-        public enum FinalFigureDisplayParameters
-        {
-            None = 0,
-            Model = 1,
-            Nvalue = 2,
-            Affinity = 4,
-            Enthalpy = 8,
-            Entropy = 16,
-            Gibbs = 32,
-            Offset = 64,
+    [Flags]
+    public enum FinalFigureDisplayParameters
+    {
+        None = 0,
+        Model = 1,
+        Nvalue = 2,
+        Affinity = 4,
+        Enthalpy = 8,
+        Entropy = 16,
+        Gibbs = 32,
+        Offset = 64,
 
-            Temperature = 128,
-            Concentrations = 256,
+        Temperature = 128,
+        Concentrations = 256,
 
-            Attributes = 512,
+        Attributes = 512,
 
-            Misc = 1024,
+        Misc = 1024,
 
-            Fitted = Nvalue | Affinity | Enthalpy,
-            Derived = Entropy | Gibbs,
+        Fitted = Nvalue | Affinity | Enthalpy,
+        Derived = Entropy | Gibbs,
 
-            Default = Model | Fitted | Derived | Temperature | Concentrations | Attributes,
-            All = Model | Fitted | Offset | Derived | Temperature | Concentrations | Attributes | Misc,
+        Default = Model | Fitted | Derived | Temperature | Concentrations | Attributes,
+        All = Model | Fitted | Offset | Derived | Temperature | Concentrations | Attributes | Misc,
 
-            ListView = Model | Affinity | Enthalpy,
-            AnalysisView = Model | Fitted | Derived | Offset | Misc
-        }
+        ListView = Model | Affinity | Enthalpy,
+        AnalysisView = Model | Fitted | Derived | Offset | Misc
+    }
 
-        [Flags]
-        public enum DisplayAttributeOptions
-        {
-            None = 0,
-            UsedInAnalysis = 1,
-            Buffer = 2,
-            Salt = 4,
-            IonicStrength = 8,
-            ProtonationEnthalpy = 16,
-            Competitor = 32,
+    [Flags]
+    public enum DisplayAttributeOptions
+    {
+        None = 0,
+        UsedInAnalysis = 1,
+        Buffer = 2,
+        Salt = 4,
+        IonicStrength = 8,
+        ProtonationEnthalpy = 16,
+        Competitor = 32,
 
-            All = Buffer | Salt | IonicStrength | ProtonationEnthalpy | Competitor,
-            Solvent = Buffer | Salt,
+        All = Buffer | Salt | IonicStrength | ProtonationEnthalpy | Competitor,
+        Solvent = Buffer | Salt,
 
-            Default = UsedInAnalysis,
-        }
+        Default = UsedInAnalysis,
     }
 
     public class BootstrappedEvaluationStorage

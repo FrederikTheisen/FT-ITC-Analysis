@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 
-namespace AnalysisITC.AppClasses.Analysis2.Models
+namespace AnalysisITC.AppClasses.AnalysisClasses.Models
 {
     /// <summary>
     /// Self-association by dilution (dimerization):

@@ -6,6 +6,7 @@ using System.Linq;
 using AnalysisITC.AppClasses.Analysis2;
 using Utilities;
 using AnalysisITC.GUI.MacOS;
+using AnalysisITC.AppClasses.AnalysisClasses;
 
 namespace AnalysisITC
 {

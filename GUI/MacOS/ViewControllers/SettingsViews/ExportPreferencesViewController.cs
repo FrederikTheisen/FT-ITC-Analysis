@@ -4,7 +4,8 @@ using System;
 
 using Foundation;
 using AppKit;
-using static AnalysisITC.AppClasses.Analysis2.Models.SolutionInterface;
+using static AnalysisITC.AppClasses.AnalysisClasses.Models.SolutionInterface;
+using AnalysisITC.AppClasses.AnalysisClasses.Models;
 
 namespace AnalysisITC
 {

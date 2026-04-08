@@ -4,7 +4,7 @@ using System.Linq;
 using AnalysisITC.AppClasses.AnalysisClasses;
 using AnalysisITC.Utilities;
 
-namespace AnalysisITC.AppClasses.Analysis2.Models
+namespace AnalysisITC.AppClasses.AnalysisClasses.Models
 {
     public class CompetitiveBinding : Model
     {

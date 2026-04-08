@@ -6,11 +6,10 @@ using Foundation;
 using AppKit;
 using System.Linq;
 using System.Collections.Generic;
-using AnalysisITC.AppClasses.Analysis2;
-using CoreServices;
 using System.Threading.Tasks;
 using AnalysisITC.AppClasses.AnalysisClasses;
 using AnalysisITC.Utilities;
+using AnalysisITC.AppClasses.AnalysisClasses.Models;
 
 namespace AnalysisITC
 {
@@ -218,7 +217,7 @@ namespace AnalysisITC
 
             if (AnalysisResult.IsTemperatureDependenceEnabled)
             {
-                if (AnalysisResult.Model.ModelType == AppClasses.Analysis2.Models.AnalysisModel.TwoSetsOfSites)
+                if (AnalysisResult.Model.ModelType == AnalysisModel.TwoSetsOfSites)
                 {
                     eval_parameters.Add($"Site 1 heat capacity change ({MarkdownStrings.HeatCapacityChange}" + "{,1})");
                     eval_parameters.Add($"Site 2 heat capacity change ({MarkdownStrings.HeatCapacityChange}" + "{,2}");
@@ -434,7 +433,7 @@ namespace AnalysisITC
             }
         }
 
-        private void DataManager_ResultSolutionSelectionDidChange(object sender, AppClasses.Analysis2.Models.SolutionInterface e)
+        private void DataManager_ResultSolutionSelectionDidChange(object sender, SolutionInterface e)
         {
             if (e == null) return;
 
@@ -508,12 +507,12 @@ namespace AnalysisITC
 
                 var (evaluated_parameters, tooltip) = await Task.Run(() =>
                 {
-                    Energy H = new Energy(Solution.TemperatureDependence[AppClasses.Analysis2.ParameterType.Enthalpy1].Evaluate(T, 100000));
-                    Energy S = new Energy(Solution.TemperatureDependence[AppClasses.Analysis2.ParameterType.EntropyContribution1].Evaluate(T, 100000));
-                    Energy G = new Energy(Solution.TemperatureDependence[AppClasses.Analysis2.ParameterType.Gibbs1].Evaluate(T, 100000));
-                    Energy? H2 = Solution.TemperatureDependence.ContainsKey(ParameterType.Enthalpy2) ? new Energy(Solution.TemperatureDependence[AppClasses.Analysis2.ParameterType.Enthalpy2].Evaluate(T, 100000)) : null;
-                    Energy? S2 = Solution.TemperatureDependence.ContainsKey(ParameterType.EntropyContribution2) ? new Energy(Solution.TemperatureDependence[AppClasses.Analysis2.ParameterType.EntropyContribution2].Evaluate(T, 100000)) : null;
-                    Energy? G2 = Solution.TemperatureDependence.ContainsKey(ParameterType.Gibbs2) ? new Energy(Solution.TemperatureDependence[AppClasses.Analysis2.ParameterType.Gibbs2].Evaluate(T, 100000)) : null;
+                    Energy H = new Energy(Solution.TemperatureDependence[ParameterType.Enthalpy1].Evaluate(T, 100000));
+                    Energy S = new Energy(Solution.TemperatureDependence[ParameterType.EntropyContribution1].Evaluate(T, 100000));
+                    Energy G = new Energy(Solution.TemperatureDependence[ParameterType.Gibbs1].Evaluate(T, 100000));
+                    Energy? H2 = Solution.TemperatureDependence.ContainsKey(ParameterType.Enthalpy2) ? new Energy(Solution.TemperatureDependence[ParameterType.Enthalpy2].Evaluate(T, 100000)) : null;
+                    Energy? S2 = Solution.TemperatureDependence.ContainsKey(ParameterType.EntropyContribution2) ? new Energy(Solution.TemperatureDependence[ParameterType.EntropyContribution2].Evaluate(T, 100000)) : null;
+                    Energy? G2 = Solution.TemperatureDependence.ContainsKey(ParameterType.Gibbs2) ? new Energy(Solution.TemperatureDependence[ParameterType.Gibbs2].Evaluate(T, 100000)) : null;
 
                     T += 273.15f;
 

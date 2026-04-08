@@ -1,7 +1,8 @@
 ﻿using System;
+using AnalysisITC.AppClasses.AnalysisClasses.Models;
 using AppKit;
 using CoreGraphics;
-using static AnalysisITC.AppClasses.Analysis2.Models.SolutionInterface;
+using static AnalysisITC.AppClasses.AnalysisClasses.Models.SolutionInterface;
 
 namespace AnalysisITC
 {

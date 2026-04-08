@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text.RegularExpressions;
 using AnalysisITC.AppClasses.Analysis2;
-using AnalysisITC.AppClasses.Analysis2.Models;
+using AnalysisITC.AppClasses.AnalysisClasses.Models;
 using AnalysisITC.AppClasses.AnalysisClasses;
 
 namespace AnalysisITC

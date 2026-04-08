@@ -6,6 +6,7 @@ using Accord.Math.Optimization;
 using AnalysisITC.AppClasses.Analysis2;
 using System.Threading.Tasks;
 using MathNet.Numerics.Optimization;
+using AnalysisITC.AppClasses.AnalysisClasses;
 
 namespace AnalysisITC
 {

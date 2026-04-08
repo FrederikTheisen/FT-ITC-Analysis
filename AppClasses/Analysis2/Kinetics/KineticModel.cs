@@ -1,5 +1,5 @@
 ﻿using System;
-using AnalysisITC.AppClasses.Analysis2.Models;
+using AnalysisITC.AppClasses.AnalysisClasses.Models;
 
 namespace AnalysisITC.AppClasses.Analysis2.Kinetics
 {

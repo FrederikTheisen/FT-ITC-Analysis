@@ -6,9 +6,9 @@ using Foundation;
 using System.Linq;
 using CoreText;
 using Utilities;
-using static AnalysisITC.AppClasses.Analysis2.Models.SolutionInterface;
 using MathNet.Numerics.Interpolation;
 using AnalysisITC.Utilities;
+using AnalysisITC.AppClasses.AnalysisClasses.Models;
 
 namespace AnalysisITC
 {

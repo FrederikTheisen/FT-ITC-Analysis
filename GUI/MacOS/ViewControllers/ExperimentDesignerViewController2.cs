@@ -6,10 +6,10 @@ using Foundation;
 using AppKit;
 using System.Collections.Generic;
 using DataReaders;
-using AnalysisITC.AppClasses.Analysis2.Models;
-using AnalysisITC.AppClasses.Analysis2;
+using AnalysisITC.AppClasses.AnalysisClasses.Models;
 using AnalysisITC.GUI.MacOS.CustomViews;
 using System.Linq;
+using AnalysisITC.AppClasses.AnalysisClasses;
 
 namespace AnalysisITC
 {

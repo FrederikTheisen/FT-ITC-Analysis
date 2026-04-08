@@ -1,10 +1,10 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using AnalysisITC.AppClasses.Analysis2.Models;
+using AnalysisITC.AppClasses.AnalysisClasses.Models;
 using AnalysisITC.AppClasses.AnalysisClasses;
 
-namespace AnalysisITC.AppClasses.Analysis2
+namespace AnalysisITC.AppClasses.AnalysisClasses
 {
 	/// <summary>
 	/// ModelFactory manufactures the model and is used to retrieve objects necessary to construct UI
@@ -23,45 +23,6 @@ namespace AnalysisITC.AppClasses.Analysis2
 		{
 			ModelType = type;
 		}
-
-		/// <summary>
-		/// Initialize model factory to build either individual or global fitting model
-		/// </summary>
-		/// <param name="isglobal"></param>
-		/// <returns></returns>
-		//public static ModelFactory InitializeFactory(AnalysisModel model, bool isglobal)
-		//{
-		//	try
-		//	{
-		//		if (!DataManager.DataIsLoaded) throw new Exception("No data loaded");
-
-		//		Console.WriteLine("Initializing ModelFactory...");
-		//		ModelFactory factory;
-
-		//		if (isglobal)
-		//		{
-		//			factory = new GlobalModelFactory(model);
-
-		//			(factory as GlobalModelFactory).InitializeModel();
-		//		}
-		//		else
-		//		{
-		//			factory = new SingleModelFactory(model);
-
-		//			(factory as SingleModelFactory).InitializeModel(DataManager.Current);
-		//		}
-
-		//		UpdateFactory?.Invoke(factory, null);
-
-		//		return factory;
-		//	}
-		//	catch (Exception ex)
-		//	{
-		//		AppEventHandler.PrintAndLog(ex.Message);
-
-		//		return null;
-		//	}
-		//}
 
         public static ModelFactory InitializeFactory(AnalysisModel model, bool isglobal)
         {
@@ -310,8 +271,6 @@ namespace AnalysisITC.AppClasses.Analysis2
             IDictionary<AttributeKey, ExperimentAttribute> options = null;
             if (Model?.ModelOptions != null && Model.ModelOptions.Count > 0)
                 options = Model.ModelOptions;
-            else if (data?.Model?.ModelOptions != null && data.Model.ModelOptions.Count > 0)
-                options = data.Model.ModelOptions;
 
             ConstructModel(data);
 
@@ -319,6 +278,7 @@ namespace AnalysisITC.AppClasses.Analysis2
 
             if (parameters != null)
             {
+                // Apply the saved options from the previous model or the data’s model
                 foreach (var (key, par) in parameters)
                 {
                     AppEventHandler.Print($"Replace Parameter {key} = {par.Value} [FIT: {!par.IsLocked}] [USER: {par.ChangedByUser}]", 1);
@@ -334,27 +294,29 @@ namespace AnalysisITC.AppClasses.Analysis2
                     if (Model.ModelOptions.ContainsKey(key))
                     {
                         var existing_att = opt.Copy();
-                        existing_att.OptionName = Model.ModelOptions[key].OptionName; // We may need to refresh the name
+                        // Refresh the display name using the new model’s option name
+                        existing_att.OptionName = Model.ModelOptions[key].OptionName;
                         SetModelOption(existing_att);
                     }
                 }
             }
-            else
+
+            // Attempt to recover missing options from the previous attribute list
+            var exposed = GetExposedModelOptions().ToList();
+            foreach (var (key, val) in exposed)
             {
-                var exposed = GetExposedModelOptions().ToList();
-                foreach (var (key, val) in exposed)
+                if (PreviousAttributes.Exists(att => att.Key == key))
                 {
-                    if (PreviousAttributes.Exists(att => att.Key == key))
-                    {
-                        var recovered_att = PreviousAttributes.Find(att => att.Key == key).Copy();
-                        recovered_att.OptionName = val.OptionName; // Update name to real model name just in case
+                    var recovered_att = PreviousAttributes.Find(att => att.Key == key).Copy();
+                    // Ensure the name matches the current model option’s name
+                    recovered_att.OptionName = val.OptionName;
 
-                        AppEventHandler.Print($"Setting {val.OptionName} = {recovered_att}", 1);
+                    AppEventHandler.Print($"Setting {val.OptionName} = {recovered_att}", 1);
 
-                        SetModelOption(recovered_att);
-                    }
+                    SetModelOption(recovered_att);
                 }
             }
+
         }
 
         public void ConstructModel(ExperimentData data)
@@ -399,7 +361,13 @@ namespace AnalysisITC.AppClasses.Analysis2
 
         public override void SetModelOption(ExperimentAttribute opt)
         {
-			Model.ModelOptions[opt.Key] = opt;
+            if (opt == null) return;
+
+            // Update the option on the current model
+            Model.ModelOptions[opt.Key] = opt;
+
+            // Store the option in the global list so it can be recovered on rebuilds
+            ModelFactory.StorePreviousAttribute(opt.Copy());
         }
 
         public override IDictionary<AttributeKey, ExperimentAttribute> GetExposedModelOptions()

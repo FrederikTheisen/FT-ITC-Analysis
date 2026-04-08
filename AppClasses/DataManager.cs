@@ -2,7 +2,7 @@
 using AnalysisITC;
 using System.Collections.Generic;
 using System.Linq;
-using AnalysisITC.AppClasses.Analysis2.Models;
+using AnalysisITC.AppClasses.AnalysisClasses.Models;
 using AnalysisITC.AppClasses.AnalysisClasses;
 
 namespace AnalysisITC
@@ -85,7 +85,7 @@ namespace AnalysisITC
         {
             Source = new AnalysisITCDataSource();
 
-            DataDidChange.Invoke(null, null);
+            DataDidChange?.Invoke(null, null);
         }
 
         public static void SelectIndex(int index)

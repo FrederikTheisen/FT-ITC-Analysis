@@ -3,11 +3,9 @@
 using System;
 using Foundation;
 using AppKit;
-using AnalysisITC.AppClasses.Analysis2;
-//using JavaScriptCore;
-//using System.Security.Cryptography;
+using AnalysisITC.AppClasses.AnalysisClasses;
 using System.Linq;
-using AnalysisITC.AppClasses.Analysis2.Models;
+using AnalysisITC.AppClasses.AnalysisClasses.Models;
 
 namespace AnalysisITC
 {

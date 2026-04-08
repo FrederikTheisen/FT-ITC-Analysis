@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using AnalysisITC.AppClasses.Analysis2;
 using AnalysisITC.AppClasses.AnalysisClasses;
 using AnalysisITC.Utilities;
 
@@ -13,7 +12,7 @@ namespace AnalysisITC
         public GlobalModel Model => Solution.Model;
         GlobalModelParameters Options => Model.Parameters;
 
-        public bool IsAdvancedAnalysisAvailable => Model.ModelType == AppClasses.Analysis2.Models.AnalysisModel.OneSetOfSites;
+        public bool IsAdvancedAnalysisAvailable => Model.ModelType == AppClasses.AnalysisClasses.Models.AnalysisModel.OneSetOfSites;
         public bool IsTemperatureDependenceEnabled => (GetMaximumTemperature() - GetMinimumTemperature()) > AppSettings.MinimumTemperatureSpanForFitting;
         public bool IsElectrostaticsAnalysisDependenceEnabled { get; private set; } = false;
         public bool IsProtonationAnalysisEnabled { get; private set; } = false;

@@ -2,7 +2,8 @@
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Linq;
-using AnalysisITC.AppClasses.Analysis2;
+using AnalysisITC.AppClasses.AnalysisClasses;
+using AnalysisITC.AppClasses.AnalysisClasses.Models;
 using AnalysisITC.Utilities;
 using AppKit;
 using CoreAnimation;
@@ -432,7 +433,7 @@ namespace AnalysisITC
         public static string GetXAxisTitle(ExperimentData data)
         {
             return data.AxisType.GetEnumDescription();
-            if (data.Model != null && data.Model.ModelType == AppClasses.Analysis2.Models.AnalysisModel.Dissociation) return "[Monomer] (µM)";
+            if (data.Model != null && data.Model.ModelType == AnalysisModel.Dissociation) return "[Monomer] (µM)";
             else if (data.CellConcentration < float.Epsilon) return "[Monomer] (µM)";
 
             return "Molar Ratio";
@@ -445,7 +446,7 @@ namespace AnalysisITC
                 case AnalysisXAxisType.TitrantConcentration: return 1000000;
                 default: return 1;
             }
-            if (data.Model != null && data.Model.ModelType == AppClasses.Analysis2.Models.AnalysisModel.Dissociation) return 1000000;
+            if (data.Model != null && data.Model.ModelType == AnalysisModel.Dissociation) return 1000000;
             else if (data.CellConcentration < float.Epsilon) return 1000000;
 
             return 1;

@@ -2,8 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using AnalysisITC.AppClasses.AnalysisClasses;
-using AnalysisITC.AppClasses.Analysis2;
-using AnalysisITC.AppClasses.Analysis2.Models;
+using AnalysisITC.AppClasses.AnalysisClasses.Models;
 using DataReaders;
 using Utilities;
 
@@ -414,11 +413,12 @@ namespace AnalysisITC
             ProcessingUpdated?.Invoke(Processor, null);
         }
 
-        public void SetModel(Model model)
+        public void RemoveModel()
         {
-            Model = model;
+            Model = null;
 
             SolutionChanged?.Invoke(this, null);
+            DataManager.InvokeDataDidChange();
         }
 
         public void UpdateSolution(Model mdl = null)

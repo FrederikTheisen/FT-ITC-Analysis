@@ -7,13 +7,13 @@ using System.Collections.Generic;
 using System.Threading;
 using AppKit;
 using Accord.Math;
-using AnalysisITC.AppClasses.Analysis2.Models;
+using AnalysisITC.AppClasses.AnalysisClasses.Models;
 
 using MathNet.Numerics;
 using MathNet.Numerics.LinearAlgebra;
 using MathNet.Numerics.Optimization;
 
-namespace AnalysisITC.AppClasses.Analysis2
+namespace AnalysisITC.AppClasses.AnalysisClasses
 {
     public static class FittingOptionsController
     {

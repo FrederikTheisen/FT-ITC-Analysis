@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using AnalysisITC.Utilities;
 
-namespace AnalysisITC.AppClasses.Analysis2.Models
+namespace AnalysisITC.AppClasses.AnalysisClasses.Models
 {
     public class OneSetOfSitesSyringeUncertainty : Model
 	{

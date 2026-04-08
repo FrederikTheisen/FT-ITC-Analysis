@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.ComponentModel;
 using System.Linq;
 using System.Threading.Tasks;
-using AnalysisITC.AppClasses.Analysis2;
 
 namespace AnalysisITC.AppClasses.AnalysisClasses
 {
@@ -135,7 +134,7 @@ namespace AnalysisITC.AppClasses.AnalysisClasses
             foreach (var sol in Data.Solution.Solutions)
             {
                 double ionicStrength = BufferAttribute.GetIonicStrength(sol.Data);
-                var affinity = sol.ReportParameters[Analysis2.ParameterType.Affinity1];
+                var affinity = sol.ReportParameters[ParameterType.Affinity1];
 
                 dps.Add((ionicStrength, affinity));
             }

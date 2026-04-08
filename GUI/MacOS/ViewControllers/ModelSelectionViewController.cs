@@ -5,7 +5,8 @@ using System;
 using Foundation;
 using AppKit;
 using CoreGraphics;
-using AnalysisITC.AppClasses.Analysis2.Models;
+using AnalysisITC.AppClasses.AnalysisClasses.Models;
+using AnalysisITC.AppClasses.AnalysisClasses;
 
 namespace AnalysisITC
 {
@@ -25,7 +26,7 @@ namespace AnalysisITC
             {
                 var att = type.GetProperties();
 
-                var valid = AppClasses.Analysis2.ModelFactory.InitializeFactory(type, false) != null;
+                var valid = ModelFactory.InitializeFactory(type, false) != null;
 
                 var btn = new NSButton(new CGRect(0, 0, 100, 19))
                 {

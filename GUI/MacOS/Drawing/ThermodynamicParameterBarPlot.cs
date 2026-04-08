@@ -1,12 +1,12 @@
 ﻿using System;
 using AppKit;
 using System.Collections.Generic;
-using AnalysisITC.AppClasses.Analysis2;
 using System.Linq;
 using CoreGraphics;
 using AnalysisITC.GUI.MacOS;
-using AnalysisITC.AppClasses.Analysis2.Models;
+using AnalysisITC.AppClasses.AnalysisClasses.Models;
 using Utilities;
+using AnalysisITC.AppClasses.AnalysisClasses;
 
 namespace AnalysisITC
 {

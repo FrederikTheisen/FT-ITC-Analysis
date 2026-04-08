@@ -3,9 +3,8 @@ using System.Collections.Generic;
 using System.Linq;
 using AnalysisITC.AppClasses.AnalysisClasses;
 using AnalysisITC.Utilities;
-using MathNet.Numerics;
 
-namespace AnalysisITC.AppClasses.Analysis2.Models
+namespace AnalysisITC.AppClasses.AnalysisClasses.Models
 {
     public class TwoSetsOfSites : Model
 	{

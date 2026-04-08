@@ -2,10 +2,10 @@
 using System.Collections.Generic;
 using System.Linq;
 using Accord.Math;
-using AnalysisITC.AppClasses.Analysis2.Models;
+using AnalysisITC.AppClasses.AnalysisClasses.Models;
 using AnalysisITC.AppClasses.AnalysisClasses;
 
-namespace AnalysisITC.AppClasses.Analysis2
+namespace AnalysisITC.AppClasses.AnalysisClasses
 {
 	public class GlobalModel
 	{

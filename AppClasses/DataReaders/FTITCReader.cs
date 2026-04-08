@@ -4,8 +4,7 @@ using AnalysisITC;
 using System.Collections.Generic;
 using System.Linq;
 using AnalysisITC.AppClasses.AnalysisClasses;
-using AnalysisITC.AppClasses.Analysis2.Models;
-using AnalysisITC.AppClasses.Analysis2;
+using AnalysisITC.AppClasses.AnalysisClasses.Models;
 using System.Threading.Tasks;
 
 namespace DataReaders

@@ -98,7 +98,7 @@
     </Reference>
     <Reference Include="System.Net.Http" />
     <Reference Include="System.Runtime.CompilerServices.Unsafe">
-      <HintPath>packages\System.Runtime.CompilerServices.Unsafe.6.0.0\lib\netstandard2.0\System.Runtime.CompilerServices.Unsafe.dll</HintPath>
+      <HintPath>packages\System.Runtime.CompilerServices.Unsafe.6.1.2\lib\netstandard2.0\System.Runtime.CompilerServices.Unsafe.dll</HintPath>
     </Reference>
     <Reference Include="System.Security.AccessControl">
       <HintPath>packages\System.Security.AccessControl.6.0.0\lib\netstandard2.0\System.Security.AccessControl.dll</HintPath>
@@ -160,14 +160,6 @@
     <ImageAsset Include="Assets.xcassets\AppIconOld.appiconset\32.png" />
     <ImageAsset Include="Assets.xcassets\AppIconOld.appiconset\256 1.png" />
     <ImageAsset Include="Assets.xcassets\AppIconOld.appiconset\Contents.json" />
-    <ImageAsset Include="Assets.xcassets\ftitc.zoom.data.symbolset\ftitc.zoom.data.svg" />
-    <ImageAsset Include="Assets.xcassets\ftitc.zoom.data.symbolset\Contents.json" />
-    <ImageAsset Include="Assets.xcassets\ftitc.zoom.baseline.symbolset\ftitc.zoom.baseline.svg" />
-    <ImageAsset Include="Assets.xcassets\ftitc.zoom.baseline.symbolset\Contents.json" />
-    <ImageAsset Include="Assets.xcassets\ftitc.zoom.peak.symbolset\Contents.json" />
-    <ImageAsset Include="Assets.xcassets\ftitc.zoom.peak.symbolset\ftitc.zoom.peak.svg" />
-    <ImageAsset Include="Assets.xcassets\ftitc.zoom.allpeaks.symbolset\Contents.json" />
-    <ImageAsset Include="Assets.xcassets\ftitc.zoom.allpeaks.symbolset\ftitc.zoom.allpeaks.svg" />
     <ImageAsset Include="Assets.xcassets\ftitc.zoom.peak.2.symbolset\ftitc.zoom.peak.2.svg" />
     <ImageAsset Include="Assets.xcassets\ftitc.zoom.peak.2.symbolset\Contents.json" />
     <ImageAsset Include="Assets.xcassets\ftitc.zoom.baseline.2.symbolset\ftitc.zoom.baseline.2.svg" />
@@ -176,6 +168,20 @@
     <ImageAsset Include="Assets.xcassets\ftitc.zoom.allpeaks.2.symbolset\Contents.json" />
     <ImageAsset Include="Assets.xcassets\ftitc.zoom.data.2.symbolset\Contents.json" />
     <ImageAsset Include="Assets.xcassets\ftitc.zoom.data.2.symbolset\ftitc.zoom.data.2.svg" />
+    <ImageAsset Include="Assets.xcassets\ftitc.zoom.box.allpower.symbolset\Contents.json" />
+    <ImageAsset Include="Assets.xcassets\ftitc.zoom.box.allpower.symbolset\ftitc.zoom.box.allpower.svg" />
+    <ImageAsset Include="Assets.xcassets\ftitc.zoom.box.allpeaks.symbolset\Contents.json" />
+    <ImageAsset Include="Assets.xcassets\ftitc.zoom.box.allpeaks.symbolset\ftitc.zoom.box.allpeaks.svg" />
+    <ImageAsset Include="Assets.xcassets\ftitc.zoom.box.baseline.symbolset\ftitc.zoom.box.baseline.svg" />
+    <ImageAsset Include="Assets.xcassets\ftitc.zoom.box.baseline.symbolset\Contents.json" />
+    <ImageAsset Include="Assets.xcassets\ftitc.zoom.box.singlepeak.symbolset\ftitc.zoom.box.singlepeak.svg" />
+    <ImageAsset Include="Assets.xcassets\ftitc.zoom.box.singlepeak.symbolset\Contents.json" />
+    <ImageAsset Include="Assets.xcassets\ftitc.zoom.bigbox.baseline.symbolset\ftitc.zoom.bigbox.baseline.svg" />
+    <ImageAsset Include="Assets.xcassets\ftitc.zoom.bigbox.baseline.symbolset\Contents.json" />
+    <ImageAsset Include="Assets.xcassets\ftitc.zoom.nobox.allpeaks.symbolset\ftitc.zoom.nobox.allpeaks.svg" />
+    <ImageAsset Include="Assets.xcassets\ftitc.zoom.nobox.allpeaks.symbolset\Contents.json" />
+    <ImageAsset Include="Assets.xcassets\ftitc.zoom.nobox.allpower.symbolset\ftitc.zoom.nobox.allpower.svg" />
+    <ImageAsset Include="Assets.xcassets\ftitc.zoom.nobox.allpower.symbolset\Contents.json" />
   </ItemGroup>
   <ItemGroup>
     <Folder Include="Resources\" />
@@ -526,6 +532,8 @@
       <DependentUpon>GuideHintViewController.cs</DependentUpon>
     </Compile>
     <Compile Include="AppClasses\Math\IonicStrengthDependence.cs" />
+    <Compile Include="AppClasses\Analysis2\ModelFactory2.cs" />
+    <Compile Include="AppClasses\Analysis2\AnalysisSessionState.cs" />
   </ItemGroup>
   <ItemGroup>
     <InterfaceDefinition Include="Main.storyboard" />

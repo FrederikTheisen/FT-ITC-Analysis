@@ -7,7 +7,7 @@ using AnalysisITC;
 using CoreGraphics;
 using DataReaders;
 using AnalysisITC.AppClasses.Analysis2;
-using AnalysisITC.AppClasses.Analysis2.Models;
+using AnalysisITC.AppClasses.AnalysisClasses.Models;
 using AnalysisITC.AppClasses.AnalysisClasses;
 
 namespace AnalysisITC

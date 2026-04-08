@@ -5,9 +5,9 @@ using System;
 using Foundation;
 using AppKit;
 using AnalysisITC.GUI.MacOS.CustomViews;
-using AnalysisITC.AppClasses.Analysis2;
 using System.Collections.Generic;
 using System.Linq;
+using AnalysisITC.AppClasses.AnalysisClasses;
 
 namespace AnalysisITC
 {

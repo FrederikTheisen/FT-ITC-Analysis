@@ -5,6 +5,7 @@ using System;
 using Foundation;
 using AppKit;
 using CoreText;
+using AnalysisITC.AppClasses.AnalysisClasses.Models;
 
 namespace AnalysisITC
 {
@@ -32,7 +33,7 @@ namespace AnalysisITC
             DataFittingGraph.UnifiedMolarRatioAxis = false;
             DataFittingGraph.UnifiedEnthalpyAxis = false;
             DataFittingGraph.ParameterFontSize = 12;
-            DataFittingGraph.AnalysisDisplayParameters = AppClasses.Analysis2.Models.SolutionInterface.FinalFigureDisplayParameters.Fitted;
+            DataFittingGraph.AnalysisDisplayParameters = FinalFigureDisplayParameters.Fitted;
 
             base.Invalidate();
         }
