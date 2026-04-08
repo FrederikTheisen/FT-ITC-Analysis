@@ -26,7 +26,7 @@ Releases are intended to be **Developer ID–signed and notarized** to reduce Ga
     - Correct concentrations if necessary
 2. Perform baseline fitting and peak integration.
 3. Review processed injection heats and perform standard model fitting.
-4. Grouped analysis of multiple experiments to for global fitting or derived parameters.
+4. Grouped analysis of multiple experiments for global fitting or further analysis.
 5. Export figures and/or processed results as needed.
 
 ## Citation
