@@ -72,13 +72,34 @@ namespace AnalysisITC
                     Exporter.Export(ExportType.Data, ExportDataSelection.SelectedData);
                     break;
                 case "clearsolution":
+                    RemoveSolution();
                     break;
                 case "delete":
-                    int idx = DataManager.SelectedContentIndex;
-                    DataManager.RemoveData2(idx);
-                    RemoveData?.Invoke(this, idx);   // 2) then animate UI removal
+                    DeleteDataAction();
                     break;
                 default: break;
+            }
+        }
+
+        void DeleteDataAction()
+        {
+            var alert = new NSAlert
+            {
+                InformativeText = $"Are you sure you wish to delete {DataManager.Current.Name}?",
+                MessageText = "Confirm Delete Data",
+                AlertStyle = NSAlertStyle.Warning,
+            };
+
+            alert.AddButton("Cancel");
+            alert.AddButton("Delete Data");
+
+            alert.Buttons[1].HasDestructiveAction = true;
+
+            if (alert.RunModal() == 1001)
+            {
+                int idx = DataManager.SelectedContentIndex;
+                DataManager.RemoveData2(idx);
+                RemoveData?.Invoke(this, idx);
             }
         }
 
@@ -164,7 +185,7 @@ namespace AnalysisITC
         {
             if (Data == null) return;
 
-            Data.SetModel(null);
+            Data.RemoveModel();
         }
 
         partial void DuplicateDataAction(NSObject sender)
