@@ -202,8 +202,8 @@ namespace AnalysisITC
 
             if (Factory == null) return;
 
-            ModelOptionsStackView.Subviews = new NSView[0];
-            ParameterStackView.Subviews = new NSView[0];
+            ClearStackView(ModelOptionsStackView);
+            ClearStackView(ParameterStackView);
 
             ParameterValueAdjustmentView[] tmppars = new ParameterValueAdjustmentView[ParameterControls.Count];
 
@@ -231,35 +231,79 @@ namespace AnalysisITC
                 ParameterStackView.AddArrangedSubview(sv);
             }
 
-            OptionAdjustmentView[] tmpopts = new OptionAdjustmentView[OptionControls.Count];
-            
+            foreach (var sv in OptionControls)
+            {
+                sv.ApplyOptions();
+            }
 
-            bool showoptions = (Factory.Model.ModelOptions.Count > 0);
+            var tmpopts = OptionControls.ToArray();
+            OptionControls.Clear();
+
+            bool showoptions = Factory.Model.ModelOptions.Count > 0;
             ModelOptionsStackView.Hidden = !showoptions;
             ModelOptionsLine.Hidden = !showoptions;
             ModelOptionsLabel.Hidden = !showoptions;
 
-            if (showoptions) //only do the option thing if options will be readded
+            if (showoptions)
             {
-                OptionControls.CopyTo(tmpopts);
-                OptionControls.Clear();
+                foreach (var opt in Factory.GetExposedModelOptions())
+                {
+                    var old = tmpopts.FirstOrDefault(v => v.Key == opt.Key);
+                    if (old != null)
+                    {
+                        opt.Value.BoolValue = old.Option.BoolValue;
+                        opt.Value.ParameterValue = old.Option.ParameterValue;
+                        opt.Value.IntValue = old.Option.IntValue;
+                        opt.Value.DoubleValue = old.Option.DoubleValue;
+                        opt.Value.StringValue = old.Option.StringValue;
+                    }
+
+                    var sv = new OptionAdjustmentView(
+                        new CoreGraphics.CGRect(0, 0, ModelOptionsStackView.Frame.Width, 20),
+                        opt.Value);
+
+                    sv.SetupDesignerLayout();
+                    OptionControls.Add(sv);
+                    ModelOptionsStackView.AddArrangedSubview(sv);
+                }
             }
 
-            foreach (var opt in Factory.GetExposedModelOptions())
+            UpdateWindowHeightToFitContent();
+
+            if (AutoRunExperimentSimulation)
+                ApplyModelSettings(null);
+        }
+
+        private static void ClearStackView(NSStackView stack)
+        {
+            foreach (var view in stack.ArrangedSubviews.ToArray())
             {
-                OptionAdjustmentView sv;
-
-                if (tmpopts.ToList().Exists(view => view.Key == opt.Key)) opt.Value.ParameterValue = tmpopts.ToList().Find(o => o.Key == opt.Key).Option.ParameterValue;
-                //else sv = new OptionAdjustmentView(new CoreGraphics.CGRect(0, 0, ModelOptionsStackView.Frame.Width, 20), opt.Value);
-
-                sv = new OptionAdjustmentView(new CoreGraphics.CGRect(0, 0, ModelOptionsStackView.Frame.Width, 20), opt.Value);
-
-                sv.SetupDesignerLayout();
-                OptionControls.Add(sv);
-                ModelOptionsStackView.AddArrangedSubview(sv);
+                stack.RemoveArrangedSubview(view);
+                view.RemoveFromSuperview();
             }
+        }
 
-            if (AutoRunExperimentSimulation) ApplyModelSettings(null);
+        private void UpdateWindowHeightToFitContent(bool animate = false)
+        {
+            var window = View.Window;
+            if (window == null) return;
+
+            View.NeedsLayout = true;
+            View.LayoutSubtreeIfNeeded();
+
+            var fitting = View.FittingSize;
+            var frame = window.Frame;
+            var contentRect = window.ContentRectFor(frame);
+
+            var targetHeight = fitting.Height;
+            var deltaHeight = targetHeight - contentRect.Height;
+
+            if (Math.Abs(deltaHeight) < 1) return;
+
+            frame.Y -= deltaHeight;      // keep top edge fixed
+            frame.Height += deltaHeight;
+
+            window.SetFrame(frame, true, animate);
         }
 
         partial void ApplyModelSettings(NSButton sender)
