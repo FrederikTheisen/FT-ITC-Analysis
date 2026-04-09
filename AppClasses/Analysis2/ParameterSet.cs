@@ -111,6 +111,9 @@ namespace AnalysisITC.AppClasses.AnalysisClasses
         public void ReinitializeParameter(Model model)
         {
             this.Value = ModelFactory.InitializeFactory(model.ModelType, false).GetExposedParameters().First(p => p.Key == this.Key).Value;
+
+            var defaultValue = AnalysisBuilder.GetDefaultParameterValue(model.ModelType, model.Data, this.Key);
+            Value = defaultValue;
             IsLocked = false;
             IsGloballyDetermined = false;
             ChangedByUser = false;

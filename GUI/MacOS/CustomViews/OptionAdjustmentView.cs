@@ -401,7 +401,7 @@ namespace AnalysisITC.GUI.MacOS.CustomViews
             }
 
             // Store in array of options
-            ModelFactory.StorePreviousAttribute(Option);
+            // ModelFactory.StorePreviousAttribute(Option);
         }
 
         public void Revert()

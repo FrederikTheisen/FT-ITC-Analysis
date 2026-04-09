@@ -11,105 +11,67 @@ namespace AnalysisITC
 {
     public partial class DataAnalysisViewController : NSViewController
     {
-        private static AnalysisModel selectedAnalysisModel = AnalysisModel.OneSetOfSites;
-        public static event EventHandler ModelChanged;
-        public static event EventHandler Invalidate;
-        public static void InvalidateGraph() => Invalidate.Invoke(null, null);
+        // ── Coordinator ────────────────────────────────────────────────────
+        // The workspace owns all analysis state. The controller only translates
+        // UI events → workspace calls, and workspace events → UI updates.
 
-        bool _eventsUnsubscribed = false;
+        public AnalysisWorkspace Workspace { get; } = new();
 
-        public static AnalysisModel SelectedAnalysisModel
-        {
-            get => selectedAnalysisModel;
-            set
-            {
-                selectedAnalysisModel = value;
+        // ── UI helpers ─────────────────────────────────────────────────────
 
-                ModelChanged?.Invoke(value, null);
-            }
-        }
-        AnalysisModel ModelFromSegmentedControl
-        {
-            get
-            {
-                switch (ModelTypeControl.SelectedSegment)
-                {
-                    default:
-                    case 0: return AnalysisModel.OneSetOfSites;
-                    case 1: return AnalysisModel.TwoSetsOfSites;
-                    case 2: return AnalysisModel.CompetitiveBinding;
-                    case 3: return AnalysisModel.Dissociation;
-                }
-            }
-        }//=> (AnalysisModel)(int)ModelTypeControl.SelectedSegment;
-
+        bool IsGlobalMode => AnalysisModeControl.SelectedSegment == 1;
         bool ShowPeakInfo => PeakInfoScopeButton.State == NSCellStateValue.On;
         bool ShowParameters => ParametersScopeButton.State == NSCellStateValue.On;
         bool SameAxes => AxesScopeButton.State == NSCellStateValue.On;
         bool ShowResidualGraph => ShowResidualGraphButton.State == NSCellStateValue.On;
-        bool IsGlobalMode => AnalysisModeControl.SelectedSegment == 1;
         bool ScaleToValid => ScaleToValidButton.State == NSCellStateValue.On;
 
-        public DataAnalysisViewController(IntPtr handle) : base(handle)
+        AnalysisModel ModelFromSegmentedControl => (int)ModelTypeControl.SelectedSegment switch
         {
-            
-        }
+            1 => AnalysisModel.TwoSetsOfSites,
+            2 => AnalysisModel.CompetitiveBinding,
+            3 => AnalysisModel.Dissociation,
+            _ => AnalysisModel.OneSetOfSites,
+        };
+
+        // ── Static graph invalidation (preserved for cross-VC callers) ─────
+
+        public static event EventHandler Invalidate;
+        public static void InvalidateGraph() => Invalidate?.Invoke(null, null);
+
+        // ── Lifecycle ──────────────────────────────────────────────────────
+
+        public DataAnalysisViewController(IntPtr handle) : base(handle) { }
 
         public override void ViewDidLoad()
         {
             base.ViewDidLoad();
 
-            Invalidate += Analysis_AnalysisIterationFinished;
+            // Workspace events
+            Workspace.ContextRebuilt += OnContextRebuilt;
 
-            AnalysisGlobalModeOptionsView2.ParameterContraintUpdated += AnalysisGlobalModeOptionsView2_ParameterContraintUpdated;
-            SolverInterface.AnalysisFinished += AnalysisFinished;
-            SolverInterface.AnalysisStepFinished += Analysis_AnalysisIterationFinished;
-            SolverInterface.BootstrapIterationFinished += Analysis_BootstrapIterationFinished;
-            DataManager.SelectionDidChange += DataManager_SelectionDidChange;
-            DataManager.DataDidChange += DataManager_DataDidChange;
-            DataManager.DataInclusionDidChange += DataManager_DataDidChange;
-            SolverInterface.SolverUpdated += SolverInterface_SolverUpdated;
-            AppDelegate.StartPrintOperation += AppDelegate_StartPrintOperation;
-            AnalysisITCDataSource.SourceWasSorted += AnalysisITCDataSource_SourceWasSorted;
-            DataAnalysisViewController.ModelChanged += DataAnalysisViewController_ModelChanged;
-            DataProcessor.ProcessingCompleted += (s, e) => ModelFactory.TryRefreshFactory();
+            // Solver events
+            SolverInterface.AnalysisFinished += OnAnalysisFinished;
+            SolverInterface.AnalysisStepFinished += (_, _) => GraphView.Invalidate();
+            SolverInterface.BootstrapIterationFinished += OnBootstrapIteration;
+            SolverInterface.SolverUpdated += (_, e) => e.SendToStatusBar();
 
+            // Data events
+            DataManager.SelectionDidChange += OnSelectionChanged;
+            DataManager.DataDidChange += OnDataChanged;
+            DataManager.DataInclusionDidChange += OnDataChanged;
+            DataProcessor.ProcessingCompleted += (_, _) => Workspace.TryRebuild();
 
+            // Misc events
+            Invalidate += (_, _) => GraphView.Invalidate();
+            AnalysisGlobalModeOptionsView2.ParameterContraintUpdated += OnConstraintUpdated;
+            AppDelegate.StartPrintOperation += OnPrintOperation;
+            AnalysisITCDataSource.SourceWasSorted += (_, _) => RefreshGlobalModeControls();
+
+            // Initial UI state
             GlobalAffinityStyle.Hidden = true;
             GlobalEnthalpyStyle.Hidden = true;
             GlobalNView.Hidden = true;
-        }
-
-        private void DataAnalysisViewController_ModelChanged(object sender, EventArgs e)
-        {
-            for (int i = 0; i < ModelTypeControl.SegmentCount; i++) ModelTypeControl.SetSelected(false, i);
-
-            switch (SelectedAnalysisModel)
-            {
-                case AnalysisModel.OneSetOfSites: ModelTypeControl.SetSelected(true, 0); break;
-                case AnalysisModel.TwoSetsOfSites: ModelTypeControl.SetSelected(true, 1); break;
-                case AnalysisModel.CompetitiveBinding: ModelTypeControl.SetSelected(true, 2); break;
-                case AnalysisModel.Dissociation: ModelTypeControl.SetSelected(true, 3); break;
-            }
-
-            InitializeFactory();
-        }
-
-        private void Analysis_AnalysisIterationFinished(object sender, EventArgs e) => GraphView.Invalidate();
-        private void AnalysisITCDataSource_SourceWasSorted(object sender, EventArgs e) => SetEnableGlobalAnalysis();
-        private void SolverInterface_SolverUpdated(object sender, SolverUpdate e) => e.SendToStatusBar();
-        private void DataManager_DataDidChange(object sender, ExperimentData e)
-        {
-            SetEnableGlobalAnalysis();
-
-            ModelFactory.TryRefreshFactory();
-        }
-
-        private void AppDelegate_StartPrintOperation(object sender, EventArgs e)
-        {
-            if (StateManager.CurrentState != ProgramState.Analyze) return;
-
-            GraphView.Print();
         }
 
         public override void ViewWillAppear()
@@ -121,6 +83,7 @@ namespace AnalysisITC
             AxesScopeButton.State = AnalysisGraphView.UseUnifiedAxes ? NSCellStateValue.On : NSCellStateValue.Off;
             ShowResidualGraphButton.State = AnalysisGraphView.ShowResidualGraph ? NSCellStateValue.On : NSCellStateValue.Off;
             LineSmoothnessControl.SelectedSegment = AnalysisGraphView.LineSmoothness == GraphBase.LineSmoothness.Linear ? 0 : 1;
+
             GraphView.Initialize(DataManager.Current);
         }
 
@@ -128,79 +91,26 @@ namespace AnalysisITC
         {
             base.ViewDidAppear();
 
-            SetEnableGlobalAnalysis();
-
-            if (ModelFactory.Factory == null) InitializeFactory();
+            RefreshGlobalModeControls();
+            Workspace.TryRebuild();
         }
 
-        private void AnalysisFinished(object sender, SolverConvergence e)
+        // ── UI action handlers ─────────────────────────────────────────────
+
+        partial void AnalysisModeClicked(NSSegmentedControl sender)
         {
-            AppEventHandler.PrintAndLog("Analysis Ended: " + e.Message);
-            AppEventHandler.PrintAndLog(e.DetailedMessage);
-            AppEventHandler.PrintAndLog("Warning: " + e.Warning);
-            AppEventHandler.PrintAndLog("Stopped: " + e.Stopped);
-            AppEventHandler.PrintAndLog("Failed:  " + e.Failed);
-
-            StatusBarManager.ClearAppStatus();
-            if (e.Success) StatusBarManager.SetStatus(e.Iterations + " iterations, RMSD = " + e.Loss.ToString("G4"), 6000);
-            StatusBarManager.SetStatus(e.Message + " | " + e.Time.TotalMilliseconds.ToString("F1") + "ms", 3000);
-            //StatusBarManager.SetStatus("Analysis Finished | " + e.Time.TotalMilliseconds.ToString("F1") + "ms", 1500);
-
-            GraphView.Invalidate();
-            ToggleFitButtons(true);
+            Workspace.SetGlobalMode(IsGlobalMode);
+            RefreshGlobalModeControls();
         }
 
-        private void Analysis_BootstrapIterationFinished(object sender, Tuple<int, int, float> e)
+        partial void AnalysisModelClicked(NSSegmentedControl sender)
         {
-            AppEventHandler.PrintAndLog("Bootstrap Iteration: " + e.Item1 + "/" + e.Item2);
-            StatusBarManager.SetProgress(e.Item3);
-            StatusBarManager.SetStatus("Bootstrapping...", 0, 2);
-            StatusBarManager.SetSecondaryStatus(e.Item1 + "/" + e.Item2, 0);
+            Workspace.SetModelType(ModelFromSegmentedControl);
+            RefreshModelAvailability();
         }
 
-        void SetEnableGlobalAnalysis()
-        {
-            bool enableglobal = DataManager.Data.Where(d => d.Include).Count() > 1;
-
-            AnalysisModeControl.SetEnabled(enableglobal, 1);
-
-            if (!enableglobal) AnalysisModeControl.SelectSegment(0);
-
-            if (ModelFactory.Factory is GlobalModelFactory)
-                if (!enableglobal) InitializeFactory();
-                else ModelFactory.Factory.UpdateData();
-
-            SetExposedFittingOptions();
-
-            SetAvailableModels();
-        }
-
-        void SetAvailableModels()
-        {
-            var models = new[] { AnalysisModel.OneSetOfSites, AnalysisModel.TwoSetsOfSites, AnalysisModel.CompetitiveBinding, AnalysisModel.Dissociation };
-
-            for (int i = 0; i < models.Length; i++)
-            {
-                var model = models[i];
-                var available = ModelFactory.IsModelAvailable(model, IsGlobalMode);
-
-                if (AppSettings.Verbose && !available && ModelFromSegmentedControl == model && ModelTypeControl.IsEnabled(i))
-                    AppEventHandler.DisplayHandledException(new HandledException(HandledException.Severity.Message, "Model Not Available", "The current data selection does not support analysis using the selected model"));
-
-                ModelTypeControl.SetEnabled(available, i);
-            }
-        }
-
-        private void DataManager_SelectionDidChange(object sender, ExperimentData e)
-        {
-            if (ModelFactory.Factory != null) ModelFactory.Factory.UpdateData();
-
-            SetExposedFittingOptions();
-
-            SetAvailableModels();
-
-            GraphView.Initialize(e);
-        }
+        partial void FitSimplex(NSObject sender) => RunFit();
+        partial void FitLM(NSObject sender) => RunFit();
 
         partial void FeatureDrawControlClicked(NSSegmentedControl sender)
         {
@@ -224,64 +134,69 @@ namespace AnalysisITC
 
         partial void LineSmoothnessAction(NSObject sender)
         {
-            switch (LineSmoothnessControl.SelectedSegment)
-            {
-                case 0: AnalysisGraphView.LineSmoothness = GraphBase.LineSmoothness.Linear; break;
-                case 1: AnalysisGraphView.LineSmoothness = GraphBase.LineSmoothness.Smooth; break;
-            }
-
+            AnalysisGraphView.LineSmoothness = LineSmoothnessControl.SelectedSegment == 0
+                ? GraphBase.LineSmoothness.Linear
+                : GraphBase.LineSmoothness.Smooth;
             ScopeButtonClicked(null);
         }
 
-        partial void AnalysisModeClicked(NSSegmentedControl sender) => InitializeFactory();
-        partial void AnalysisModelClicked(NSSegmentedControl sender)
-        {
-            SelectedAnalysisModel = ModelFromSegmentedControl;
+        // ── Data / selection changes ───────────────────────────────────────
 
-            InitializeFactory();
+        void OnSelectionChanged(object sender, ExperimentData e)
+        {
+            Workspace.TryRebuild();
+            RefreshGlobalModeControls();
+            GraphView.Initialize(e);
         }
 
-        void InitializeFactory()
+        void OnDataChanged(object sender, ExperimentData e)
         {
-            if (!DataManager.DataIsLoaded) ModelFactory.Factory = null; //don't even try
-            else
-            {
-                if (ModelFactory.Factory == null) ModelFactory.Factory = ModelFactory.InitializeFactory(SelectedAnalysisModel, IsGlobalMode);
-                else //Determine if model changed and update if it did.
-                {
-                    var model = ModelFactory.Factory.ModelType;
+            Workspace.TryRebuild();
+            RefreshGlobalModeControls();
+        }
 
-                    if (ModelFactory.Factory.IsGlobalAnalysis != IsGlobalMode || model != SelectedAnalysisModel)
-                        ModelFactory.Factory = ModelFactory.InitializeFactory(SelectedAnalysisModel, IsGlobalMode);
-                }
-            }
+        // ── Workspace callbacks ────────────────────────────────────────────
 
-            SetExposedFittingOptions();
-
-            SetAvailableModels();
-
-            // Update status bar to show model info
+        void OnContextRebuilt(object sender, EventArgs e)
+        {
+            RebuildConstraintOptionViews();
+            RefreshModelAvailability();
             StatusBarManager.Invalidate();
+            GraphView.Invalidate();
         }
 
-        void SetExposedFittingOptions()
+        // ── Constraint UI ──────────────────────────────────────────────────
+
+        void OnConstraintUpdated(object sender, EventArgs e)
         {
-            while (OptionsStackView.Views[2] is AnalysisGlobalModeOptionsView2)
+            // AnalysisGlobalModeOptionsView2 mutates GlobalModelParameters.Constraints directly.
+            // Read those back into session state, then rebuild so the new global parameter
+            // table is derived from the new constraints.
+            if (!Workspace.IsReady || !Workspace.Session.IsGlobal) return;
+
+            Workspace.ImportConstraints(Workspace.Context.GlobalModelParameters.Constraints);
+            Workspace.TryRebuild();
+        }
+
+        void RebuildConstraintOptionViews()
+        {
+            // Remove stale constraint views (always at index >= 2)
+            while (OptionsStackView.Views.Length > 2 && OptionsStackView.Views[2] is AnalysisGlobalModeOptionsView2)
             {
                 var view = OptionsStackView.Views[2];
                 OptionsStackView.RemoveView(view);
                 view.Dispose();
             }
 
-            if (ModelFactory.Factory != null && ModelFactory.Factory.IsGlobalAnalysis)
+            if (Workspace.IsReady && Workspace.Session.IsGlobal)
             {
-                var options = (ModelFactory.Factory as GlobalModelFactory).GetExposedConstraints();
+                var ctx = Workspace.Context;
 
-                foreach (var opt in options.Reverse())
+                foreach (var (paramType, constraintOptions) in ctx.ExposedConstraintOptions.Reverse())
                 {
-                    var control = new AnalysisGlobalModeOptionsView2(new CoreGraphics.CGRect(0, 0, OptionsStackView.Frame.Width, 20));
-                    control.Setup(opt.Key, opt.Value, (ModelFactory.Factory as GlobalModelFactory).GlobalModelParameters);
-
+                    var control = new AnalysisGlobalModeOptionsView2(
+                        new CoreGraphics.CGRect(0, 0, OptionsStackView.Frame.Width, 20));
+                    control.Setup(paramType, constraintOptions.ToList(), ctx.GlobalModelParameters);
                     OptionsStackView.InsertArrangedSubview(control, 2);
                 }
             }
@@ -289,57 +204,95 @@ namespace AnalysisITC
             OptionsStackView.Layout();
         }
 
-        private void AnalysisGlobalModeOptionsView2_ParameterContraintUpdated(object sender, EventArgs e)
-        {
-            if (ModelFactory.Factory != null && ModelFactory.Factory.IsGlobalAnalysis)
-            {
-                (ModelFactory.Factory as GlobalModelFactory).InitializeGlobalParameters();
-            }
-        }
+        // ── Fitting ────────────────────────────────────────────────────────
 
-        partial void FitSimplex(NSObject sender) => Fit2();
-        partial void FitLM(NSObject sender) => Fit2();
-        void Fit2()
+        void RunFit()
         {
-            if (!ModelFactory.IsModelAvailable(ModelFromSegmentedControl, IsGlobalMode))
+            if (!AnalysisBuilder.IsModelAvailable(ModelFromSegmentedControl, IsGlobalMode))
             {
-                AppEventHandler.DisplayHandledException( new HandledException(
-                        HandledException.Severity.Message,
-                        "Model Not Available",
-                        "The current data selection does not support analysis using the selected model"));
-
+                AppEventHandler.DisplayHandledException(new HandledException(
+                    HandledException.Severity.Message,
+                    "Model Not Available",
+                    "The current data selection does not support analysis using the selected model"));
                 return;
             }
 
             try
             {
                 AppEventHandler.PrintAndLog("Start Analysis");
-
                 ToggleFitButtons(false);
 
-                if (ModelFactory.Factory == null) InitializeFactory();
+                // Ensure we have a context even if no data-change event fired yet
+                if (!Workspace.IsReady) Workspace.Rebuild();
 
-                ModelFactory.Factory.BuildModel();
-                ModelFactory.RefreshParameterLimits();
-
-                var solver = SolverInterface.Initialize(ModelFactory.Factory);
+                var solver = Workspace.PrepareForSolve();
                 solver.SolverAlgorithm = FittingOptionsController.Algorithm;
                 solver.ErrorEstimationMethod = FittingOptionsController.ErrorEstimationMethod;
                 solver.BootstrapIterations = FittingOptionsController.BootstrapIterations;
 
                 solver.Analyze();
 
-                ModelFactory.Clear();
+                // Persist converged values so the next rebuild starts from the fit result,
+                // but do NOT rebuild now — the current context IS the fitted model.
+                // Workspace.PersistFittedParameters(); TODO figure out if this is relevant
             }
             catch (Exception ex)
             {
                 AppEventHandler.DisplayHandledException(ex);
-
                 StatusBarManager.ClearAppStatus();
                 ToggleFitButtons(true);
             }
+        }
 
-            //InitializeFactory();
+        // ── Solver event handlers ──────────────────────────────────────────
+
+        void OnAnalysisFinished(object sender, SolverConvergence e)
+        {
+            AppEventHandler.PrintAndLog("Analysis Ended: " + e.Message);
+            AppEventHandler.PrintAndLog(e.DetailedMessage);
+            AppEventHandler.PrintAndLog("Warning: " + e.Warning);
+            AppEventHandler.PrintAndLog("Stopped: " + e.Stopped);
+            AppEventHandler.PrintAndLog("Failed:  " + e.Failed);
+
+            StatusBarManager.ClearAppStatus();
+            if (e.Success) StatusBarManager.SetStatus(e.Iterations + " iterations, RMSD = " + e.Loss.ToString("G4"), 6000);
+            StatusBarManager.SetStatus(e.Message + " | " + e.Time.TotalMilliseconds.ToString("F1") + "ms", 3000);
+
+            GraphView.Invalidate();
+            ToggleFitButtons(true);
+        }
+
+        void OnBootstrapIteration(object sender, Tuple<int, int, float> e)
+        {
+            AppEventHandler.PrintAndLog($"Bootstrap Iteration: {e.Item1}/{e.Item2}");
+            StatusBarManager.SetProgress(e.Item3);
+            StatusBarManager.SetStatus("Bootstrapping...", 0, 2);
+            StatusBarManager.SetSecondaryStatus(e.Item1 + "/" + e.Item2, 0);
+        }
+
+        // ── Misc ───────────────────────────────────────────────────────────
+
+        void OnPrintOperation(object sender, EventArgs e)
+        {
+            if (StateManager.CurrentState != ProgramState.Analyze) return;
+            GraphView.Print();
+        }
+
+        void RefreshGlobalModeControls()
+        {
+            bool enableGlobal = DataManager.Data.Count(d => d.Include) > 1;
+            AnalysisModeControl.SetEnabled(enableGlobal, 1);
+            if (!enableGlobal) AnalysisModeControl.SelectSegment(0);
+            RefreshModelAvailability();
+        }
+
+        void RefreshModelAvailability()
+        {
+            var models = new[] { AnalysisModel.OneSetOfSites, AnalysisModel.TwoSetsOfSites, AnalysisModel.CompetitiveBinding, AnalysisModel.Dissociation };
+            bool isGlobal = IsGlobalMode;
+
+            for (int i = 0; i < models.Length; i++)
+                ModelTypeControl.SetEnabled(AnalysisBuilder.IsModelAvailable(models[i], isGlobal), i);
         }
 
         void ToggleFitButtons(bool enable)
@@ -348,30 +301,409 @@ namespace AnalysisITC
             FitLMButton.Enabled = enable;
         }
 
+        // ── Cleanup ────────────────────────────────────────────────────────
+
+        bool _eventsUnsubscribed;
+
         void UnsubscribeEvents()
         {
             if (_eventsUnsubscribed) return;
             _eventsUnsubscribed = true;
 
-            AnalysisGlobalModeOptionsView2.ParameterContraintUpdated -= AnalysisGlobalModeOptionsView2_ParameterContraintUpdated;
-            SolverInterface.AnalysisFinished -= AnalysisFinished;
-            SolverInterface.AnalysisStepFinished -= Analysis_AnalysisIterationFinished;
-            SolverInterface.BootstrapIterationFinished -= Analysis_BootstrapIterationFinished;
-            DataManager.SelectionDidChange -= DataManager_SelectionDidChange;
-            DataManager.DataDidChange -= DataManager_DataDidChange;
-            DataManager.DataInclusionDidChange -= DataManager_DataDidChange;
-            SolverInterface.SolverUpdated -= SolverInterface_SolverUpdated;
-            AppDelegate.StartPrintOperation -= AppDelegate_StartPrintOperation;
-            AnalysisITCDataSource.SourceWasSorted -= AnalysisITCDataSource_SourceWasSorted;
-            DataAnalysisViewController.ModelChanged -= DataAnalysisViewController_ModelChanged;
+            Workspace.ContextRebuilt -= OnContextRebuilt;
+            SolverInterface.AnalysisFinished -= OnAnalysisFinished;
+            SolverInterface.BootstrapIterationFinished -= OnBootstrapIteration;
+            DataManager.SelectionDidChange -= OnSelectionChanged;
+            DataManager.DataDidChange -= OnDataChanged;
+            DataManager.DataInclusionDidChange -= OnDataChanged;
+            AnalysisGlobalModeOptionsView2.ParameterContraintUpdated -= OnConstraintUpdated;
+            AppDelegate.StartPrintOperation -= OnPrintOperation;
         }
 
         protected override void Dispose(bool disposing)
         {
-            if (disposing)
-                UnsubscribeEvents();
+            if (disposing) UnsubscribeEvents();
 
             base.Dispose(disposing);
         }
     }
 }
+
+
+//// This file has been autogenerated from a class added in the UI designer.
+
+//using System;
+//using Foundation;
+//using AppKit;
+//using AnalysisITC.AppClasses.AnalysisClasses;
+//using System.Linq;
+//using AnalysisITC.AppClasses.AnalysisClasses.Models;
+
+//namespace AnalysisITC
+//{
+//    public partial class DataAnalysisViewController : NSViewController
+//    {
+//        private static AnalysisModel selectedAnalysisModel = AnalysisModel.OneSetOfSites;
+//        public static event EventHandler ModelChanged;
+//        public static event EventHandler Invalidate;
+//        public static void InvalidateGraph() => Invalidate.Invoke(null, null);
+
+//        bool _eventsUnsubscribed = false;
+
+//        public static AnalysisModel SelectedAnalysisModel
+//        {
+//            get => selectedAnalysisModel;
+//            set
+//            {
+//                selectedAnalysisModel = value;
+
+//                ModelChanged?.Invoke(value, null);
+//            }
+//        }
+//        AnalysisModel ModelFromSegmentedControl
+//        {
+//            get
+//            {
+//                switch (ModelTypeControl.SelectedSegment)
+//                {
+//                    default:
+//                    case 0: return AnalysisModel.OneSetOfSites;
+//                    case 1: return AnalysisModel.TwoSetsOfSites;
+//                    case 2: return AnalysisModel.CompetitiveBinding;
+//                    case 3: return AnalysisModel.Dissociation;
+//                }
+//            }
+//        }//=> (AnalysisModel)(int)ModelTypeControl.SelectedSegment;
+
+//        bool ShowPeakInfo => PeakInfoScopeButton.State == NSCellStateValue.On;
+//        bool ShowParameters => ParametersScopeButton.State == NSCellStateValue.On;
+//        bool SameAxes => AxesScopeButton.State == NSCellStateValue.On;
+//        bool ShowResidualGraph => ShowResidualGraphButton.State == NSCellStateValue.On;
+//        bool IsGlobalMode => AnalysisModeControl.SelectedSegment == 1;
+//        bool ScaleToValid => ScaleToValidButton.State == NSCellStateValue.On;
+
+//        public DataAnalysisViewController(IntPtr handle) : base(handle)
+//        {
+
+//        }
+
+//        public override void ViewDidLoad()
+//        {
+//            base.ViewDidLoad();
+
+//            Invalidate += Analysis_AnalysisIterationFinished;
+
+//            AnalysisGlobalModeOptionsView2.ParameterContraintUpdated += AnalysisGlobalModeOptionsView2_ParameterContraintUpdated;
+//            SolverInterface.AnalysisFinished += AnalysisFinished;
+//            SolverInterface.AnalysisStepFinished += Analysis_AnalysisIterationFinished;
+//            SolverInterface.BootstrapIterationFinished += Analysis_BootstrapIterationFinished;
+//            DataManager.SelectionDidChange += DataManager_SelectionDidChange;
+//            DataManager.DataDidChange += DataManager_DataDidChange;
+//            DataManager.DataInclusionDidChange += DataManager_DataDidChange;
+//            SolverInterface.SolverUpdated += SolverInterface_SolverUpdated;
+//            AppDelegate.StartPrintOperation += AppDelegate_StartPrintOperation;
+//            AnalysisITCDataSource.SourceWasSorted += AnalysisITCDataSource_SourceWasSorted;
+//            DataAnalysisViewController.ModelChanged += DataAnalysisViewController_ModelChanged;
+//            DataProcessor.ProcessingCompleted += (s, e) => ModelFactory.TryRefreshFactory();
+
+
+//            GlobalAffinityStyle.Hidden = true;
+//            GlobalEnthalpyStyle.Hidden = true;
+//            GlobalNView.Hidden = true;
+//        }
+
+//        private void DataAnalysisViewController_ModelChanged(object sender, EventArgs e)
+//        {
+//            for (int i = 0; i < ModelTypeControl.SegmentCount; i++) ModelTypeControl.SetSelected(false, i);
+
+//            switch (SelectedAnalysisModel)
+//            {
+//                case AnalysisModel.OneSetOfSites: ModelTypeControl.SetSelected(true, 0); break;
+//                case AnalysisModel.TwoSetsOfSites: ModelTypeControl.SetSelected(true, 1); break;
+//                case AnalysisModel.CompetitiveBinding: ModelTypeControl.SetSelected(true, 2); break;
+//                case AnalysisModel.Dissociation: ModelTypeControl.SetSelected(true, 3); break;
+//            }
+
+//            InitializeFactory();
+//        }
+
+//        private void Analysis_AnalysisIterationFinished(object sender, EventArgs e) => GraphView.Invalidate();
+//        private void AnalysisITCDataSource_SourceWasSorted(object sender, EventArgs e) => SetEnableGlobalAnalysis();
+//        private void SolverInterface_SolverUpdated(object sender, SolverUpdate e) => e.SendToStatusBar();
+//        private void DataManager_DataDidChange(object sender, ExperimentData e)
+//        {
+//            SetEnableGlobalAnalysis();
+
+//            ModelFactory.TryRefreshFactory();
+//        }
+
+//        private void AppDelegate_StartPrintOperation(object sender, EventArgs e)
+//        {
+//            if (StateManager.CurrentState != ProgramState.Analyze) return;
+
+//            GraphView.Print();
+//        }
+
+//        public override void ViewWillAppear()
+//        {
+//            base.ViewWillAppear();
+
+//            PeakInfoScopeButton.State = AnalysisGraphView.ShowPeakInfo ? NSCellStateValue.On : NSCellStateValue.Off;
+//            ParametersScopeButton.State = AnalysisGraphView.ShowFitParameters ? NSCellStateValue.On : NSCellStateValue.Off;
+//            AxesScopeButton.State = AnalysisGraphView.UseUnifiedAxes ? NSCellStateValue.On : NSCellStateValue.Off;
+//            ShowResidualGraphButton.State = AnalysisGraphView.ShowResidualGraph ? NSCellStateValue.On : NSCellStateValue.Off;
+//            LineSmoothnessControl.SelectedSegment = AnalysisGraphView.LineSmoothness == GraphBase.LineSmoothness.Linear ? 0 : 1;
+//            GraphView.Initialize(DataManager.Current);
+//        }
+
+//        public override void ViewDidAppear()
+//        {
+//            base.ViewDidAppear();
+
+//            SetEnableGlobalAnalysis();
+
+//            if (ModelFactory.Factory == null) InitializeFactory();
+//        }
+
+//        private void AnalysisFinished(object sender, SolverConvergence e)
+//        {
+//            AppEventHandler.PrintAndLog("Analysis Ended: " + e.Message);
+//            AppEventHandler.PrintAndLog(e.DetailedMessage);
+//            AppEventHandler.PrintAndLog("Warning: " + e.Warning);
+//            AppEventHandler.PrintAndLog("Stopped: " + e.Stopped);
+//            AppEventHandler.PrintAndLog("Failed:  " + e.Failed);
+
+//            StatusBarManager.ClearAppStatus();
+//            if (e.Success) StatusBarManager.SetStatus(e.Iterations + " iterations, RMSD = " + e.Loss.ToString("G4"), 6000);
+//            StatusBarManager.SetStatus(e.Message + " | " + e.Time.TotalMilliseconds.ToString("F1") + "ms", 3000);
+//            //StatusBarManager.SetStatus("Analysis Finished | " + e.Time.TotalMilliseconds.ToString("F1") + "ms", 1500);
+
+//            GraphView.Invalidate();
+//            ToggleFitButtons(true);
+//        }
+
+//        private void Analysis_BootstrapIterationFinished(object sender, Tuple<int, int, float> e)
+//        {
+//            AppEventHandler.PrintAndLog("Bootstrap Iteration: " + e.Item1 + "/" + e.Item2);
+//            StatusBarManager.SetProgress(e.Item3);
+//            StatusBarManager.SetStatus("Bootstrapping...", 0, 2);
+//            StatusBarManager.SetSecondaryStatus(e.Item1 + "/" + e.Item2, 0);
+//        }
+
+//        void SetEnableGlobalAnalysis()
+//        {
+//            bool enableglobal = DataManager.Data.Where(d => d.Include).Count() > 1;
+
+//            AnalysisModeControl.SetEnabled(enableglobal, 1);
+
+//            if (!enableglobal) AnalysisModeControl.SelectSegment(0);
+
+//            if (ModelFactory.Factory is GlobalModelFactory)
+//                if (!enableglobal) InitializeFactory();
+//                else ModelFactory.Factory.UpdateData();
+
+//            SetExposedFittingOptions();
+
+//            SetAvailableModels();
+//        }
+
+//        void SetAvailableModels()
+//        {
+//            var models = new[] { AnalysisModel.OneSetOfSites, AnalysisModel.TwoSetsOfSites, AnalysisModel.CompetitiveBinding, AnalysisModel.Dissociation };
+
+//            for (int i = 0; i < models.Length; i++)
+//            {
+//                var model = models[i];
+//                var available = ModelFactory.IsModelAvailable(model, IsGlobalMode);
+
+//                if (AppSettings.Verbose && !available && ModelFromSegmentedControl == model && ModelTypeControl.IsEnabled(i))
+//                    AppEventHandler.DisplayHandledException(new HandledException(HandledException.Severity.Message, "Model Not Available", "The current data selection does not support analysis using the selected model"));
+
+//                ModelTypeControl.SetEnabled(available, i);
+//            }
+//        }
+
+//        private void DataManager_SelectionDidChange(object sender, ExperimentData e)
+//        {
+//            if (ModelFactory.Factory != null) ModelFactory.Factory.UpdateData();
+
+//            SetExposedFittingOptions();
+
+//            SetAvailableModels();
+
+//            GraphView.Initialize(e);
+//        }
+
+//        partial void FeatureDrawControlClicked(NSSegmentedControl sender)
+//        {
+//            AnalysisGraphView.ShowPeakInfo = sender.IsSelectedForSegment(0);
+//            AnalysisGraphView.ShowFitParameters = sender.IsSelectedForSegment(1);
+//            AnalysisGraphView.UseUnifiedAxes = sender.IsSelectedForSegment(2);
+
+//            GraphView.Invalidate();
+//        }
+
+//        partial void ScopeButtonClicked(NSButton sender)
+//        {
+//            AnalysisGraphView.ShowPeakInfo = ShowPeakInfo;
+//            AnalysisGraphView.ShowFitParameters = ShowParameters;
+//            AnalysisGraphView.UseUnifiedAxes = SameAxes;
+//            AnalysisGraphView.ShowResidualGraph = ShowResidualGraph;
+//            AnalysisGraphView.ScaleToValidPoints = ScaleToValid;
+
+//            GraphView.Invalidate();
+//        }
+
+//        partial void LineSmoothnessAction(NSObject sender)
+//        {
+//            switch (LineSmoothnessControl.SelectedSegment)
+//            {
+//                case 0: AnalysisGraphView.LineSmoothness = GraphBase.LineSmoothness.Linear; break;
+//                case 1: AnalysisGraphView.LineSmoothness = GraphBase.LineSmoothness.Smooth; break;
+//            }
+
+//            ScopeButtonClicked(null);
+//        }
+
+//        partial void AnalysisModeClicked(NSSegmentedControl sender) => InitializeFactory();
+//        partial void AnalysisModelClicked(NSSegmentedControl sender)
+//        {
+//            SelectedAnalysisModel = ModelFromSegmentedControl;
+
+//            InitializeFactory();
+//        }
+
+//        void InitializeFactory()
+//        {
+//            if (!DataManager.DataIsLoaded) ModelFactory.Factory = null; //don't even try
+//            else
+//            {
+//                if (ModelFactory.Factory == null) ModelFactory.Factory = ModelFactory.InitializeFactory(SelectedAnalysisModel, IsGlobalMode);
+//                else //Determine if model changed and update if it did.
+//                {
+//                    var model = ModelFactory.Factory.ModelType;
+
+//                    if (ModelFactory.Factory.IsGlobalAnalysis != IsGlobalMode || model != SelectedAnalysisModel)
+//                        ModelFactory.Factory = ModelFactory.InitializeFactory(SelectedAnalysisModel, IsGlobalMode);
+//                }
+//            }
+
+//            SetExposedFittingOptions();
+
+//            SetAvailableModels();
+
+//            // Update status bar to show model info
+//            StatusBarManager.Invalidate();
+//        }
+
+//        void SetExposedFittingOptions()
+//        {
+//            while (OptionsStackView.Views[2] is AnalysisGlobalModeOptionsView2)
+//            {
+//                var view = OptionsStackView.Views[2];
+//                OptionsStackView.RemoveView(view);
+//                view.Dispose();
+//            }
+
+//            if (ModelFactory.Factory != null && ModelFactory.Factory.IsGlobalAnalysis)
+//            {
+//                var options = (ModelFactory.Factory as GlobalModelFactory).GetExposedConstraints();
+
+//                foreach (var opt in options.Reverse())
+//                {
+//                    var control = new AnalysisGlobalModeOptionsView2(new CoreGraphics.CGRect(0, 0, OptionsStackView.Frame.Width, 20));
+//                    control.Setup(opt.Key, opt.Value, (ModelFactory.Factory as GlobalModelFactory).GlobalModelParameters);
+
+//                    OptionsStackView.InsertArrangedSubview(control, 2);
+//                }
+//            }
+
+//            OptionsStackView.Layout();
+//        }
+
+//        private void AnalysisGlobalModeOptionsView2_ParameterContraintUpdated(object sender, EventArgs e)
+//        {
+//            if (ModelFactory.Factory != null && ModelFactory.Factory.IsGlobalAnalysis)
+//            {
+//                (ModelFactory.Factory as GlobalModelFactory).InitializeGlobalParameters();
+//            }
+//        }
+
+//        partial void FitSimplex(NSObject sender) => Fit2();
+//        partial void FitLM(NSObject sender) => Fit2();
+//        void Fit2()
+//        {
+//            if (!ModelFactory.IsModelAvailable(ModelFromSegmentedControl, IsGlobalMode))
+//            {
+//                AppEventHandler.DisplayHandledException( new HandledException(
+//                        HandledException.Severity.Message,
+//                        "Model Not Available",
+//                        "The current data selection does not support analysis using the selected model"));
+
+//                return;
+//            }
+
+//            try
+//            {
+//                AppEventHandler.PrintAndLog("Start Analysis");
+
+//                ToggleFitButtons(false);
+
+//                if (ModelFactory.Factory == null) InitializeFactory();
+
+//                ModelFactory.Factory.BuildModel();
+//                ModelFactory.RefreshParameterLimits();
+
+//                var solver = SolverInterface.Initialize(ModelFactory.Factory);
+//                solver.SolverAlgorithm = FittingOptionsController.Algorithm;
+//                solver.ErrorEstimationMethod = FittingOptionsController.ErrorEstimationMethod;
+//                solver.BootstrapIterations = FittingOptionsController.BootstrapIterations;
+
+//                solver.Analyze();
+
+//                ModelFactory.Clear();
+//            }
+//            catch (Exception ex)
+//            {
+//                AppEventHandler.DisplayHandledException(ex);
+
+//                StatusBarManager.ClearAppStatus();
+//                ToggleFitButtons(true);
+//            }
+
+//            //InitializeFactory();
+//        }
+
+//        void ToggleFitButtons(bool enable)
+//        {
+//            FitSimplexButton.Enabled = enable;
+//            FitLMButton.Enabled = enable;
+//        }
+
+//        void UnsubscribeEvents()
+//        {
+//            if (_eventsUnsubscribed) return;
+//            _eventsUnsubscribed = true;
+
+//            AnalysisGlobalModeOptionsView2.ParameterContraintUpdated -= AnalysisGlobalModeOptionsView2_ParameterContraintUpdated;
+//            SolverInterface.AnalysisFinished -= AnalysisFinished;
+//            SolverInterface.AnalysisStepFinished -= Analysis_AnalysisIterationFinished;
+//            SolverInterface.BootstrapIterationFinished -= Analysis_BootstrapIterationFinished;
+//            DataManager.SelectionDidChange -= DataManager_SelectionDidChange;
+//            DataManager.DataDidChange -= DataManager_DataDidChange;
+//            DataManager.DataInclusionDidChange -= DataManager_DataDidChange;
+//            SolverInterface.SolverUpdated -= SolverInterface_SolverUpdated;
+//            AppDelegate.StartPrintOperation -= AppDelegate_StartPrintOperation;
+//            AnalysisITCDataSource.SourceWasSorted -= AnalysisITCDataSource_SourceWasSorted;
+//            DataAnalysisViewController.ModelChanged -= DataAnalysisViewController_ModelChanged;
+//        }
+
+//        protected override void Dispose(bool disposing)
+//        {
+//            if (disposing)
+//                UnsubscribeEvents();
+
+//            base.Dispose(disposing);
+//        }
+//    }
+//}

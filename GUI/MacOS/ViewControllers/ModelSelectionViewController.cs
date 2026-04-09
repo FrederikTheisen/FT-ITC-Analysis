@@ -12,7 +12,7 @@ namespace AnalysisITC
 {
 	public partial class ModelSelectionViewController : NSViewController
 	{
-        public static AnalysisModel SelectedModel => DataAnalysisViewController.SelectedAnalysisModel;
+        public static AnalysisModel SelectedModel => AnalysisModel.OneSetOfSites; // DataAnalysisViewController.SelectedAnalysisModel;
 
 		public ModelSelectionViewController (IntPtr handle) : base (handle)
 		{
@@ -38,7 +38,7 @@ namespace AnalysisITC
                 };
                 btn.Cell.ShowsStateBy = 12;
                 btn.Activated += BtnClickHandler;
-                btn.Activated += (o, e) => { DataAnalysisViewController.SelectedAnalysisModel = type; };
+                //btn.Activated += (o, e) => { DataAnalysisViewController.SelectedAnalysisModel = type; };
 
                 StackView.AddArrangedSubview(btn);
             }
