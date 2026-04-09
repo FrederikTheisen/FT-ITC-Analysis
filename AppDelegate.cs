@@ -120,6 +120,17 @@ namespace AnalysisITC
             DataManager.SetAllIncludeState(false);
         }
 
+        partial void InvertActive(NSObject sender)
+        {
+            var included = DataManager.IncludedData;
+
+            DataManager.SetAllIncludeState(true);
+
+            foreach (var dat in included) dat.Include = false;
+
+            DataManager.InvokeDataInclusionDidChange();
+        }
+
         partial void Sort(NSObject sender)
         {
             var mode = (sender as NSMenuItem).Identifier switch

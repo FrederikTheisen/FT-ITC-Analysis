@@ -30,7 +30,7 @@ namespace AnalysisITC
         public static List<ITCDataContainerDeletionLog> DeletedDataList { get; } = new List<ITCDataContainerDeletionLog>();
         public static List<AnalysisResult> Results => SourceItems.Where(o => o is AnalysisResult).Select(o => o as AnalysisResult).ToList();
         public static List<ExperimentData> Data => SourceItems.Where(o => o is ExperimentData).Select(o => o as ExperimentData).ToList();
-        public static IEnumerable<ExperimentData> IncludedData => Data.Where(d => d.Include);
+        public static IEnumerable<ExperimentData> IncludedData => Data.Where(d => d.Include).ToList();
         public static ExperimentData Current => SelectedDataIndex == -1 || (SelectedDataIndex >= Count) ? null : Data[SelectedDataIndex];
         public static AnalysisResult SelectedResult => SelectedIsResult ? (SourceItems[selectedContentIndex] as AnalysisResult) : null;
         public static bool SelectedIsData

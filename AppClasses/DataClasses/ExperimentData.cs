@@ -329,24 +329,27 @@ namespace AnalysisITC
             return syntheticdata;
         }
 
-        void AddConcentrationVariance(List<InjectionData> injections, ModelCloneOptions options = null)
+        void AddConcentrationVariance(ExperimentData clone, ModelCloneOptions options = null)
         {
             var sd_cell = CellConcentration.FractionSD;
             var sd_syringe = SyringeConcentration.FractionSD;
 
             if (options.EnableAutoConcentrationVariance)
             {
-                if (sd_cell < 0.001) sd_cell = options.AutoConcentrationVariance;
-                if (sd_syringe < 0.001) sd_syringe = options.AutoConcentrationVariance;
+                if (!CellConcentration.HasError) sd_cell = options.AutoConcentrationVariance;
+                if (!SyringeConcentration.HasError) sd_syringe = options.AutoConcentrationVariance;
             }
 
-            var cell = 1 + (2 * Rand.NextDouble() - 1) * sd_cell;
-            var syringe = 1 + (2 * Rand.NextDouble() - 1) * sd_syringe;
+            var cell_factor = 1 + (2 * Rand.NextDouble() - 1) * sd_cell;
+            var syringe_factor = 1 + (2 * Rand.NextDouble() - 1) * sd_syringe;
 
-            foreach (var inj in injections)
+            clone.CellConcentration = cell_factor * CellConcentration;
+            clone.SyringeConcentration = syringe_factor * SyringeConcentration;
+
+            foreach (var inj in clone.Injections)
             {
-                inj.ActualCellConcentration *= cell;
-                inj.ActualTitrantConcentration *= syringe;
+                inj.ActualCellConcentration *= cell_factor;
+                inj.ActualTitrantConcentration *= syringe_factor;
             }
         }
 
@@ -387,9 +390,12 @@ namespace AnalysisITC
                     }
             }
 
-            if (options.IncludeConcentrationErrorsInBootstrap) AddConcentrationVariance(syninj, options);
-
             clone.Injections = syninj;
+
+            if (options.IncludeConcentrationErrorsInBootstrap)
+            {
+               AddConcentrationVariance(clone, options);
+            }
 
             clone.Segments = Segments?
                 .Select(s => new TandemExperimentSegment(s.FirstInjectionID, s.SegmentInitialActiveCellConc, s.SegmentInitialActiveTitrantConc))

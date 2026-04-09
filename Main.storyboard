@@ -2173,13 +2173,13 @@ In most cases, interpretation of affinities provided by ITC is straightforward, 
             <objects>
                 <customObject id="vgh-VZ-5mu" userLabel="First Responder" customClass="NSResponder" sceneMemberID="firstResponder"/>
                 <viewController id="Mvi-LU-4cl" customClass="ExperimentDesignerViewController2" sceneMemberID="viewController">
-                    <view key="view" horizontalCompressionResistancePriority="1000" misplaced="YES" translatesAutoresizingMaskIntoConstraints="NO" id="Gzx-f9-2qU">
+                    <view key="view" verticalHuggingPriority="1000" horizontalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="Gzx-f9-2qU">
                         <rect key="frame" x="0.0" y="0.0" width="400" height="739"/>
                         <subviews>
-                            <stackView distribution="fill" orientation="vertical" alignment="leading" horizontalStackHuggingPriority="1000" verticalStackHuggingPriority="250" horizontalCompressionResistancePriority="1000" detachesHiddenViews="YES" translatesAutoresizingMaskIntoConstraints="NO" id="kso-uB-xTj">
+                            <stackView distribution="fill" orientation="vertical" alignment="leading" horizontalStackHuggingPriority="1000" verticalStackHuggingPriority="250" verticalHuggingPriority="1000" horizontalCompressionResistancePriority="1000" detachesHiddenViews="YES" translatesAutoresizingMaskIntoConstraints="NO" id="kso-uB-xTj">
                                 <rect key="frame" x="0.0" y="0.0" width="400" height="739"/>
                                 <subviews>
-                                    <stackView distribution="fill" orientation="vertical" alignment="leading" horizontalStackHuggingPriority="1000" verticalStackHuggingPriority="750" verticalHuggingPriority="750" verticalCompressionResistancePriority="1000" detachesHiddenViews="YES" translatesAutoresizingMaskIntoConstraints="NO" id="19q-dU-1DB">
+                                    <stackView distribution="fill" orientation="vertical" alignment="leading" horizontalStackHuggingPriority="1000" verticalStackHuggingPriority="250" verticalHuggingPriority="1000" verticalCompressionResistancePriority="1000" detachesHiddenViews="YES" translatesAutoresizingMaskIntoConstraints="NO" id="19q-dU-1DB">
                                         <rect key="frame" x="10" y="506" width="380" height="223"/>
                                         <subviews>
                                             <box horizontalHuggingPriority="1000" verticalHuggingPriority="1000" horizontalCompressionResistancePriority="1000" verticalCompressionResistancePriority="1000" borderType="line" title="Box" titlePosition="noTitle" translatesAutoresizingMaskIntoConstraints="NO" id="rt1-T3-VwN">
@@ -2494,16 +2494,16 @@ In most cases, interpretation of affinities provided by ITC is straightforward, 
                                             <real value="3.4028234663852886e+38"/>
                                         </customSpacing>
                                     </stackView>
-                                    <box title="Box" titlePosition="noTitle" translatesAutoresizingMaskIntoConstraints="NO" id="d3H-UV-02x">
+                                    <box verticalHuggingPriority="1000" title="Box" titlePosition="noTitle" translatesAutoresizingMaskIntoConstraints="NO" id="d3H-UV-02x">
                                         <rect key="frame" x="7" y="304" width="386" height="196"/>
                                         <view key="contentView" id="WhK-bZ-5pf">
                                             <rect key="frame" x="4" y="5" width="378" height="188"/>
                                             <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
                                             <subviews>
-                                                <stackView distribution="fill" orientation="vertical" alignment="leading" spacing="4" horizontalStackHuggingPriority="249.99998474121094" verticalStackHuggingPriority="750" verticalCompressionResistancePriority="1000" detachesHiddenViews="YES" translatesAutoresizingMaskIntoConstraints="NO" id="GiZ-xG-nAY">
+                                                <stackView distribution="fill" orientation="vertical" alignment="leading" spacing="4" horizontalStackHuggingPriority="249.99998474121094" verticalStackHuggingPriority="1000" verticalHuggingPriority="750" verticalCompressionResistancePriority="1000" detachesHiddenViews="YES" translatesAutoresizingMaskIntoConstraints="NO" id="GiZ-xG-nAY">
                                                     <rect key="frame" x="0.0" y="0.0" width="378" height="188"/>
                                                     <subviews>
-                                                        <textField focusRingType="none" horizontalHuggingPriority="249" verticalHuggingPriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="LH1-vR-E8M">
+                                                        <textField focusRingType="none" horizontalHuggingPriority="249" verticalHuggingPriority="249" translatesAutoresizingMaskIntoConstraints="NO" id="LH1-vR-E8M">
                                                             <rect key="frame" x="3" y="167" width="372" height="16"/>
                                                             <textFieldCell key="cell" lineBreakMode="clipping" alignment="center" title="Interaction Model" id="sJn-dw-AcP">
                                                                 <font key="font" textStyle="headline" name=".SFNS-Bold"/>
@@ -2528,19 +2528,19 @@ In most cases, interpretation of affinities provided by ITC is straightforward, 
                                                                 <action selector="ModelControlAction:" target="Mvi-LU-4cl" id="qWZ-Cy-Xhe"/>
                                                             </connections>
                                                         </popUpButton>
-                                                        <box horizontalHuggingPriority="249" verticalHuggingPriority="750" boxType="separator" translatesAutoresizingMaskIntoConstraints="NO" id="S0q-2U-0fP">
+                                                        <box horizontalHuggingPriority="249" verticalHuggingPriority="1000" boxType="separator" translatesAutoresizingMaskIntoConstraints="NO" id="S0q-2U-0fP">
                                                             <rect key="frame" x="5" y="140" width="368" height="5"/>
                                                         </box>
-                                                        <stackView distribution="fill" orientation="vertical" alignment="leading" spacing="4" horizontalStackHuggingPriority="250" verticalStackHuggingPriority="1000" verticalHuggingPriority="750" verticalCompressionResistancePriority="1000" detachesHiddenViews="YES" translatesAutoresizingMaskIntoConstraints="NO" id="O07-Jb-RZa">
+                                                        <stackView distribution="fill" orientation="vertical" alignment="leading" spacing="4" horizontalStackHuggingPriority="250" verticalStackHuggingPriority="250" verticalHuggingPriority="1000" verticalCompressionResistancePriority="1000" detachesHiddenViews="YES" translatesAutoresizingMaskIntoConstraints="NO" id="O07-Jb-RZa">
                                                             <rect key="frame" x="5" y="88" width="368" height="50"/>
                                                         </stackView>
-                                                        <box horizontalHuggingPriority="249" verticalHuggingPriority="750" boxType="separator" translatesAutoresizingMaskIntoConstraints="NO" id="u0M-42-t8m">
+                                                        <box horizontalHuggingPriority="249" verticalHuggingPriority="1000" boxType="separator" translatesAutoresizingMaskIntoConstraints="NO" id="u0M-42-t8m">
                                                             <rect key="frame" x="5" y="81" width="368" height="5"/>
                                                         </box>
-                                                        <stackView distribution="fill" orientation="vertical" alignment="leading" spacing="4" horizontalStackHuggingPriority="250" verticalStackHuggingPriority="1000" verticalHuggingPriority="750" verticalCompressionResistancePriority="1000" detachesHiddenViews="YES" translatesAutoresizingMaskIntoConstraints="NO" id="24i-gR-XOS">
+                                                        <stackView distribution="fill" orientation="vertical" alignment="leading" spacing="4" horizontalStackHuggingPriority="250" verticalStackHuggingPriority="250" verticalHuggingPriority="1000" verticalCompressionResistancePriority="1000" detachesHiddenViews="YES" translatesAutoresizingMaskIntoConstraints="NO" id="24i-gR-XOS">
                                                             <rect key="frame" x="5" y="29" width="368" height="50"/>
                                                         </stackView>
-                                                        <button horizontalHuggingPriority="249" verticalHuggingPriority="750" verticalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="l35-fh-MlX">
+                                                        <button horizontalHuggingPriority="249" verticalHuggingPriority="1000" verticalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="l35-fh-MlX">
                                                             <rect key="frame" x="-2" y="-2" width="382" height="32"/>
                                                             <buttonCell key="cell" type="push" title="Apply" bezelStyle="rounded" alignment="center" borderStyle="border" imageScaling="proportionallyDown" inset="2" id="1fC-j0-jGy">
                                                                 <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
@@ -3966,12 +3966,12 @@ Each experiment is written as a separate file and includes experimental metadata
                                 </connections>
                             </segmentedControl>
                             <segmentedControl verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="4sB-M3-Gu6">
-                                <rect key="frame" x="393" y="96" width="156" height="23"/>
+                                <rect key="frame" x="407" y="96" width="142" height="23"/>
                                 <segmentedCell key="cell" borderStyle="border" alignment="left" style="capsule" trackingMode="selectOne" id="rNZ-UU-JJ7">
                                     <font key="font" metaFont="system"/>
                                     <segments>
                                         <segment label="Selected"/>
-                                        <segment label="Included" selected="YES" tag="1"/>
+                                        <segment label="Active" selected="YES" tag="1"/>
                                         <segment label="All"/>
                                     </segments>
                                 </segmentedCell>
@@ -4289,6 +4289,11 @@ For analysis and presentation of ITC data</string>
                                             <modifierMask key="keyEquivalentModifierMask"/>
                                             <connections>
                                                 <action selector="SetIncludeNone:" target="Voe-Tx-rLC" id="qKb-y3-egU"/>
+                                            </connections>
+                                        </menuItem>
+                                        <menuItem title="Invert Active" keyEquivalent="i" identifier="invertactive" id="1LI-BW-aFC">
+                                            <connections>
+                                                <action selector="InvertActive:" target="Voe-Tx-rLC" id="7gZ-Kl-fMq"/>
                                             </connections>
                                         </menuItem>
                                         <menuItem isSeparatorItem="YES" id="GSg-FO-Y4B"/>
@@ -6376,7 +6381,7 @@ DQ
                             <rect key="frame" x="0.0" y="0.0" width="454" height="52"/>
                             <subviews>
                                 <button verticalHuggingPriority="750" verticalCompressionResistancePriority="250" translatesAutoresizingMaskIntoConstraints="NO" id="Ibj-M0-dHf">
-                                    <rect key="frame" x="1" y="21" width="111" height="31"/>
+                                    <rect key="frame" x="1" y="-1" width="111" height="31"/>
                                     <buttonCell key="cell" type="recessed" title="Overview" bezelStyle="recessed" alignment="center" controlSize="large" lineBreakMode="truncatingTail" state="on" borderStyle="border" inset="2" id="ed1-E0-79d">
                                         <behavior key="behavior" lightByBackground="YES" lightByGray="YES" changeBackground="YES" changeGray="YES"/>
                                         <font key="font" metaFont="system"/>
@@ -7033,7 +7038,7 @@ DQ
                                         <size key="contentViewMargins" width="5" height="5"/>
                                     </box>
                                     <stackView distribution="fill" orientation="horizontal" alignment="firstBaseline" horizontalStackHuggingPriority="250" verticalStackHuggingPriority="750" verticalHuggingPriority="750" detachesHiddenViews="YES" translatesAutoresizingMaskIntoConstraints="NO" id="5oj-9h-hGH">
-                                        <rect key="frame" x="0.0" y="548" width="572" height="16"/>
+                                        <rect key="frame" x="338" y="548" width="572" height="16"/>
                                         <subviews>
                                             <button toolTip="Display the baseline" verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="jsQ-Vt-t9u">
                                                 <rect key="frame" x="5" y="-1" width="66" height="17"/>
@@ -7601,14 +7606,14 @@ DQ
             <objects>
                 <viewController title="Data Analyzer" id="YoK-Wd-3Fr" customClass="DataAnalysisViewController" sceneMemberID="viewController">
                     <customView key="view" verticalCompressionResistancePriority="250" id="Xsa-sz-SoY">
-                        <rect key="frame" x="0.0" y="0.0" width="1037" height="1286"/>
+                        <rect key="frame" x="0.0" y="0.0" width="1037" height="1285"/>
                         <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
                         <subviews>
                             <stackView distribution="fill" orientation="vertical" alignment="leading" horizontalStackHuggingPriority="1000" verticalStackHuggingPriority="1000" detachesHiddenViews="YES" translatesAutoresizingMaskIntoConstraints="NO" id="4ft-kK-FDc">
-                                <rect key="frame" x="0.0" y="0.0" width="1037" height="1253"/>
+                                <rect key="frame" x="0.0" y="0.0" width="1037" height="1252"/>
                                 <subviews>
                                     <box horizontalHuggingPriority="750" verticalCompressionResistancePriority="250" title="Box" titlePosition="noTitle" translatesAutoresizingMaskIntoConstraints="NO" id="Nvm-zn-9K4">
-                                        <rect key="frame" x="2" y="1034" width="1033" height="216"/>
+                                        <rect key="frame" x="2" y="1033" width="1033" height="216"/>
                                         <view key="contentView" id="X57-vF-3wf">
                                             <rect key="frame" x="9" y="10" width="1015" height="198"/>
                                             <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
@@ -7917,7 +7922,7 @@ IA
                                         <size key="contentViewMargins" width="5" height="5"/>
                                     </box>
                                     <stackView distribution="fill" orientation="horizontal" alignment="firstBaseline" horizontalStackHuggingPriority="249.99998474121094" verticalStackHuggingPriority="1000" horizontalClippingResistancePriority="750" verticalHuggingPriority="750" verticalCompressionResistancePriority="1000" detachesHiddenViews="YES" translatesAutoresizingMaskIntoConstraints="NO" id="4zS-F8-nkk">
-                                        <rect key="frame" x="5" y="1014" width="1027" height="16"/>
+                                        <rect key="frame" x="5" y="1013" width="1027" height="16"/>
                                         <subviews>
                                             <button verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="o7n-N9-bgG">
                                                 <rect key="frame" x="5" y="-1" width="70" height="17"/>
@@ -8000,7 +8005,7 @@ IA
                                         </customSpacing>
                                     </stackView>
                                     <customView horizontalCompressionResistancePriority="250" translatesAutoresizingMaskIntoConstraints="NO" id="TfV-6i-g26" customClass="AnalysisGraphView">
-                                        <rect key="frame" x="5" y="5" width="1027" height="1001"/>
+                                        <rect key="frame" x="5" y="5" width="1027" height="1000"/>
                                     </customView>
                                 </subviews>
                                 <edgeInsets key="edgeInsets" left="5" right="5" top="5" bottom="5"/>
@@ -8135,7 +8140,7 @@ IA
                     </connections>
                 </button>
             </objects>
-            <point key="canvasLocation" x="2296" y="1196"/>
+            <point key="canvasLocation" x="2336" y="1354"/>
         </scene>
         <!--Analysis Global Mode Options View Controller-->
         <scene sceneID="Bs4-76-Pq3">
@@ -12934,7 +12939,7 @@ The models in \appname are implemented to match the **MicroCal/Origin formal def
         <segue reference="fR7-7x-1Nh"/>
         <segue reference="Gzw-S4-4id"/>
         <segue reference="cas-ZM-y1q"/>
-        <segue reference="f0o-qO-was"/>
+        <segue reference="LMg-up-goO"/>
     </inferredMetricsTieBreakers>
     <resources>
         <image name="NSActionTemplate" width="20" height="20"/>
