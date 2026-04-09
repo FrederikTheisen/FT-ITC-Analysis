@@ -178,6 +178,7 @@ namespace AnalysisITC.AppClasses.AnalysisClasses.Models
             private FloatWithError LogK => Parameters[ParameterType.Affinity1];
             public FloatWithError K => FWEMath.Pow(10, LogK);
             public FloatWithError N => Parameters[ParameterType.Nvalue1];
+            public FloatWithError LigandK => FWEMath.Pow(10, opt[AttributeKey.PreboundLigandAffinity].ParameterValue);
             //public Energy Offset => Parameters[ParameterType.Offset].Energy;
 
             public FloatWithError Kd => 1.0 / K;
@@ -185,13 +186,13 @@ namespace AnalysisITC.AppClasses.AnalysisClasses.Models
             public Energy TdS => GibbsFreeEnergy - Enthalpy;
             public Energy Entropy => TdS / TempKelvin;
 
-            public FloatWithError Kapp => K / (FWEMath.Pow(10, opt[AttributeKey.PreboundLigandAffinity].ParameterValue) * opt[AttributeKey.PreboundLigandConc].ParameterValue + 1);
+            public FloatWithError Kapp => K / (LigandK * opt[AttributeKey.PreboundLigandConc].ParameterValue + 1);
             public FloatWithError Kdapp => 1.0 / Kapp;
             public Energy dHapp
             {
                 get
                 {
-                    var Kligand = FWEMath.Pow(10, opt[AttributeKey.PreboundLigandAffinity].ParameterValue);
+                    var Kligand = LigandK;
 
                     var top = opt[AttributeKey.PreboundLigandEnthalpy].ParameterValue * Kligand * opt[AttributeKey.PreboundLigandConc].ParameterValue;
                     var btm = (1 + Kligand * opt[AttributeKey.PreboundLigandConc].ParameterValue);
@@ -235,7 +236,6 @@ namespace AnalysisITC.AppClasses.AnalysisClasses.Models
                     }
                     else output.Add(new("N", N.AsNumber()));
 
-                //if (info.HasFlag(FinalFigureDisplayParameters.Nvalue)) output.Add(new("N", N.AsNumber()));
                 if (info.HasFlag(FinalFigureDisplayParameters.Affinity)) output.Add(new(Utilities.MarkdownStrings.ApparentDissociationConstant, Kdapp.AsFormattedConcentration(true)));
                 if (info.HasFlag(FinalFigureDisplayParameters.Affinity)) output.Add(new(Utilities.MarkdownStrings.DissociationConstant, Kd.AsFormattedConcentration(true)));
                 if (info.HasFlag(FinalFigureDisplayParameters.Enthalpy)) output.Add(new(Utilities.MarkdownStrings.Enthalpy, Enthalpy.ToFormattedString(ReportEnergyUnit, permole: true)));
