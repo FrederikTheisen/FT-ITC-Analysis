@@ -22,7 +22,7 @@ namespace AnalysisITC.AppClasses.AnalysisClasses.Models
                 AnalysisModel.TwoSetsOfSites,
                 AnalysisModel.CompetitiveBinding,
                 AnalysisModel.Dissociation,
-                AnalysisModel.OneSetOfSitesSyringeUncertainty,
+                //AnalysisModel.OneSetOfSitesSyringeUncertainty,
                 //AnalysisModel.SequentialBindingSites,
                 //AnalysisModel.PeptideProlineIsomerization,
                 //AnalysisModel.TwoCompetingSites,
