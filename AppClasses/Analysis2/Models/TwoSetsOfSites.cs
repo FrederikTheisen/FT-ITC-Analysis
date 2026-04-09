@@ -59,8 +59,8 @@ namespace AnalysisITC.AppClasses.AnalysisClasses.Models
 
             ModelOptions.Add(ExperimentAttribute.Bool(AttributeKey.LockDuplicateParameter, AttributeKey.LockDuplicateParameter.GetProperties().Name, false).DictionaryEntry);
             ModelOptions.Add(ExperimentAttribute.Bool(AttributeKey.UseSyringeActiveFraction, AttributeKey.UseSyringeActiveFraction.GetProperties().Name, false).DictionaryEntry);
-            ModelOptions.Add(ExperimentAttribute.Double(AttributeKey.NumberOfSites1, "1^{st} " + AttributeKey.NumberOfSites1.GetProperties().Name, 1).DictionaryEntry);
-            ModelOptions.Add(ExperimentAttribute.Double(AttributeKey.NumberOfSites2, "2^{nd} " + AttributeKey.NumberOfSites2.GetProperties().Name, 1).DictionaryEntry);
+            ModelOptions.Add(ExperimentAttribute.Double(AttributeKey.NumberOfSites1, "1^st^ " + AttributeKey.NumberOfSites1.GetProperties().Name, 1).DictionaryEntry);
+            ModelOptions.Add(ExperimentAttribute.Double(AttributeKey.NumberOfSites2, "2^nd^ " + AttributeKey.NumberOfSites2.GetProperties().Name, 1).DictionaryEntry);
         }
 
         public override void ApplyModelOptions()
@@ -132,7 +132,7 @@ namespace AnalysisITC.AppClasses.AnalysisClasses.Models
 
                 return root;
             }
-
+ 
             // Unholy...
             return guess;
         }
