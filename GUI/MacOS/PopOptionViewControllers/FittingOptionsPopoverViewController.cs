@@ -89,6 +89,8 @@ namespace AnalysisITC
 
             ErrorMethodControl.SelectedSegment = (int)FittingOptionsController.ErrorEstimationMethod;
 
+            UnlockParametersForErrorEstimationControl.State = FittingOptionsController.UnlockBootstrapParameters ? NSCellStateValue.On : NSCellStateValue.Off;
+
             // ── Model options views ───────────────────────────────────────
             if (!HasContext) return;
 
@@ -167,6 +169,7 @@ namespace AnalysisITC
                 FittingOptionsController.EnableAutoConcentrationVariance = IncludeConcErrorControl.SelectedSegment == 2;
                 FittingOptionsController.Algorithm = (SolverAlgorithm)(int)SolverAlgorithmControl.SelectedSegment;
                 FittingOptionsController.UseErrorWeightedFitting = UseWeightedControl.State == NSCellStateValue.On;
+                FittingOptionsController.UnlockBootstrapParameters = UnlockParametersForErrorEstimationControl.State == NSCellStateValue.On;
 
                 // ── Parameter overrides ───────────────────────────────────
                 foreach (var sv in ParameterControls)

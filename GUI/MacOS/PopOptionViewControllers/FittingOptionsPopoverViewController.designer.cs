@@ -49,6 +49,9 @@ namespace AnalysisITC
 		AppKit.NSStackView StackView { get; set; }
 
 		[Outlet]
+		AppKit.NSButton UnlockParametersForErrorEstimationControl { get; set; }
+
+		[Outlet]
 		AppKit.NSButton UseWeightedControl { get; set; }
 
 		[Action ("ApplyOptions:")]
@@ -72,6 +75,11 @@ namespace AnalysisITC
 			if (ErrorMethodControl != null) {
 				ErrorMethodControl.Dispose ();
 				ErrorMethodControl = null;
+			}
+
+			if (UnlockParametersForErrorEstimationControl != null) {
+				UnlockParametersForErrorEstimationControl.Dispose ();
+				UnlockParametersForErrorEstimationControl = null;
 			}
 
 			if (IncludeConcErrorControl != null) {
@@ -99,6 +107,16 @@ namespace AnalysisITC
 				ModelOptionsLine = null;
 			}
 
+			if (OptionStackView != null) {
+				OptionStackView.Dispose ();
+				OptionStackView = null;
+			}
+
+			if (ParameterStackView != null) {
+				ParameterStackView.Dispose ();
+				ParameterStackView = null;
+			}
+
 			if (SolverAlgorithmControl != null) {
 				SolverAlgorithmControl.Dispose ();
 				SolverAlgorithmControl = null;
@@ -107,16 +125,6 @@ namespace AnalysisITC
 			if (StackView != null) {
 				StackView.Dispose ();
 				StackView = null;
-			}
-
-			if (ParameterStackView != null) {
-				ParameterStackView.Dispose ();
-				ParameterStackView = null;
-			}
-
-			if (OptionStackView != null) {
-				OptionStackView.Dispose ();
-				OptionStackView = null;
 			}
 
 			if (UseWeightedControl != null) {
