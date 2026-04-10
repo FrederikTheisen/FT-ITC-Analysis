@@ -56,9 +56,10 @@ namespace DataReaders
 
         public static void ResolveInstrument(ExperimentData data)
         {
-            AppEventHandler.PrintAndLog("Resolving Instrument...");
             if (data.Instrument != ITCInstrument.Unknown) return;
             if (data.CellVolume <= 0) return;
+
+            AppEventHandler.PrintAndLog("Resolving Instrument...");
 
             var candidates = new List<(double, ITCInstrument)>();
 
@@ -77,6 +78,8 @@ namespace DataReaders
 
                 AppEventHandler.PrintAndLog($"Setting Instrument: {data.Instrument}", 1);
             }
+
+            AppEventHandler.PrintAndLog($"Instrument Detected: {data.Instrument}", 1);
         }
 
         public static string SourceInstrumentTitle(ExperimentData data)
