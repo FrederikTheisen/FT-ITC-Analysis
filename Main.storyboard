@@ -5110,7 +5110,7 @@ Gw
                                                                 <stackView distribution="fill" orientation="horizontal" alignment="top" spacing="0.0" horizontalStackHuggingPriority="249.99998474121094" verticalStackHuggingPriority="249.99998474121094" detachesHiddenViews="YES" translatesAutoresizingMaskIntoConstraints="NO" id="K51-0B-6My">
                                                                     <rect key="frame" x="0.0" y="0.0" width="219" height="100"/>
                                                                     <subviews>
-                                                                        <button toolTip="Enable/disable gobal fit inclusion" translatesAutoresizingMaskIntoConstraints="NO" id="tRd-Hy-NtA">
+                                                                        <button translatesAutoresizingMaskIntoConstraints="NO" id="tRd-Hy-NtA">
                                                                             <rect key="frame" x="0.0" y="82" width="18.5" height="21"/>
                                                                             <buttonCell key="cell" type="bevel" bezelStyle="regularSquare" image="chart.bar.doc.horizontal" catalog="system" imagePosition="only" alignment="center" controlSize="small" enabled="NO" inset="2" id="6XJ-m3-68r">
                                                                                 <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
@@ -12962,7 +12962,7 @@ The models in \appname are implemented to match the **MicroCal/Origin formal def
         <segue reference="fR7-7x-1Nh"/>
         <segue reference="M3R-ql-On8"/>
         <segue reference="cas-ZM-y1q"/>
-        <segue reference="LMg-up-goO"/>
+        <segue reference="f0o-qO-was"/>
     </inferredMetricsTieBreakers>
     <resources>
         <image name="NSActionTemplate" width="20" height="20"/>
