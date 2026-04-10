@@ -19,6 +19,8 @@ namespace AnalysisITC
         bool ShowCursorInfo => ShowCursorInfoButton.State == NSCellStateValue.On;
         bool DiscardIntegratedPoints { get; set; } = true;
 
+        private bool ContextIsValid => Data != null && Data.HasThermogram && BaselineGraphView != null;
+
         public DataProcessingViewControllet (IntPtr handle) : base (handle)
 		{
 		}
@@ -217,7 +219,7 @@ namespace AnalysisITC
 
         partial void InterplolatorClicked(NSSegmentedControl sender)
         {
-            if (Data == null) return;
+            if (!ContextIsValid) return;
 
             // Determine baseline type
             BaselineInterpolatorTypes interpolator = (int)sender.SelectedSegment switch { 0 => BaselineInterpolatorTypes.Spline, 1 => BaselineInterpolatorTypes.Polynomial };
@@ -231,7 +233,7 @@ namespace AnalysisITC
 
         partial void SplineAlgoClicked(NSSegmentedControl sender)
         {
-            if (Data == null) return;
+            if (!ContextIsValid) return;
 
             SplineInterpolator.SplineInterpolatorAlgorithm algorithm;
             switch (sender.SelectedSegment)
@@ -249,7 +251,7 @@ namespace AnalysisITC
 
         partial void SplineHandleModeControlClicked(NSSegmentedControl sender)
         {
-            if (Data == null) return;
+            if (!ContextIsValid) return;
 
             // Select between mean or median since segment 3 is not available
             (Processor.Interpolator as SplineInterpolator).HandleMode = (SplineInterpolator.SplineHandleMode)(int)sender.SelectedSegment;
@@ -259,7 +261,7 @@ namespace AnalysisITC
 
         partial void SplineBaselineFractionSliderChanged(NSSlider sender)
         {
-            if (Data == null) return;
+            if (!ContextIsValid) return;
 
             (Processor.Interpolator as SplineInterpolator).FractionBaseline = sender.FloatValue;
 
@@ -270,7 +272,7 @@ namespace AnalysisITC
 
         partial void PolynomialDegreeChanged(NSSlider sender)
         {
-            if (Data == null) return;
+            if (!ContextIsValid) return;
             if (Processor.Interpolator is not PolynomialLeastSquaresInterpolator) return;
 
             (Processor.Interpolator as PolynomialLeastSquaresInterpolator).Degree = sender.IntValue;
@@ -282,7 +284,7 @@ namespace AnalysisITC
 
         partial void ZLimitChanged(NSSlider sender)
         {
-            if (Data == null) return;
+            if (!ContextIsValid) return;
 
             (Processor.Interpolator as PolynomialLeastSquaresInterpolator).ZLimit = sender.FloatValue;
 
@@ -307,7 +309,7 @@ namespace AnalysisITC
 
         partial void IntegrationSegControlClicked(NSSegmentedControl sender)
         {
-            if (Data == null) return;
+            if (!ContextIsValid) return;
 
             Processor.IntegrationLengthMode = (InjectionData.IntegrationLengthMode)(int)sender.SelectedSegment;
 
@@ -349,7 +351,7 @@ namespace AnalysisITC
 
         void UpdateIntegrationEndPoint(float time_or_factor)
         {
-            if (Data == null) return;
+            if (!ContextIsValid) return;
 
             try
             {
@@ -384,7 +386,7 @@ namespace AnalysisITC
 
         void UpdateIntegrationStartTime(float delay)
         {
-            if (Data == null) return;
+            if (!ContextIsValid) return;
 
             if (BaselineGraphView.SelectedPeak == -1) Data.Injections.ForEach(inj => inj.SetIntegrationStartTime(delay));
             else Data.Injections[BaselineGraphView.SelectedPeak].SetIntegrationStartTime(delay);
@@ -400,7 +402,7 @@ namespace AnalysisITC
 
         partial void ZoomSegControlClicked(NSSegmentedControl sender)
         {
-            if (Data == null) return;
+            if (!ContextIsValid) return;
 
             switch (sender.SelectedSegment)
             {
@@ -411,7 +413,7 @@ namespace AnalysisITC
 
         partial void PeakZoomAction(NSSegmentedControl sender)
         {
-            if (Data == null) return;
+            if (!ContextIsValid) return;
 
             switch (sender.SelectedSegment)
             {
@@ -422,8 +424,7 @@ namespace AnalysisITC
 
         partial void ZoomResetButtonAction(NSObject sender)
         {
-            if (BaselineGraphView == null) return;
-            if (Data == null) return;
+            if (!ContextIsValid) return;
 
             BaselineGraphView.ShowAllVertical();
             BaselineGraphView.UnfocusPeak();
@@ -431,6 +432,8 @@ namespace AnalysisITC
 
         partial void PeakZoomWidthClicked(NSSegmentedControl sender)
         {
+            if (!ContextIsValid) return;
+
             BaselineGraphView.PeakZoomWidth = (int)sender.SelectedSegment;
 
             BaselineGraphView.SelectedPeak = BaselineGraphView.SelectedPeak;
@@ -438,6 +441,8 @@ namespace AnalysisITC
 
         partial void ViewPreviousInjection(NSButton sender)
         {
+            if (!ContextIsValid) return;
+
             BaselineGraphView.SelectedPeak--;
 
             UpdateInjectionSelectionUI();
@@ -445,6 +450,8 @@ namespace AnalysisITC
 
         partial void ViewNextInjection(NSButton sender)
         {
+            if (!ContextIsValid) return;
+
             BaselineGraphView.SelectedPeak++;
 
             UpdateInjectionSelectionUI();
@@ -452,6 +459,8 @@ namespace AnalysisITC
 
         partial void SelectAllInjections(NSButton sender)
         {
+            if (!ContextIsValid) return;
+
             BaselineGraphView.SelectedPeak = -1;
 
             UpdateInjectionSelectionUI();
@@ -459,6 +468,8 @@ namespace AnalysisITC
 
         partial void CopyToNextButtonAction(NSObject sender)
         {
+            if (!ContextIsValid) return;
+
             int selected = BaselineGraphView?.SelectedPeak ?? -1;
 
             if (selected != -1 && BaselineGraphView.IsInjectionZoomed)
@@ -475,7 +486,7 @@ namespace AnalysisITC
 
         partial void InjectionViewControlClicked(NSSegmentedControl sender)
         {
-            if (Data == null) return;
+            if (!ContextIsValid) return;
 
             switch (sender.SelectedSegment)
             {
@@ -488,6 +499,8 @@ namespace AnalysisITC
 
         void UpdateInjectionSelectionUI()
         {
+            if (!ContextIsValid) return;
+
             InjectionViewSegControl.SetEnabled(BaselineGraphView.SelectedPeak > 0, 0);
             InjectionViewSegControl.SetEnabled(BaselineGraphView.SelectedPeak < BaselineGraphView.Data.InjectionCount - 1, 2);
 
@@ -524,13 +537,15 @@ namespace AnalysisITC
 
         void UpdateProcessing(bool replace = true)
         {
-            if (Data == null) return;
+            if (!ContextIsValid) return;
 
             Data.Processor.ProcessData(replace);
         }
 
         private void OnSelectionChanged(object sender, ExperimentData e)
         {
+            if (!ContextIsValid) return;
+
             var current = DataManager.Current;
 
             BaselineGraphView.Initialize(current);
@@ -542,6 +557,8 @@ namespace AnalysisITC
 
         private void OnInterpolationCompleted(object sender, EventArgs e)
         {
+            if (!ContextIsValid) return;
+
             if (Processor.BaselineCompleted) BaselineGraphView.Invalidate();
 
             UpdateUI();
