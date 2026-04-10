@@ -343,17 +343,17 @@ namespace AnalysisITC
         }
         public string AsF1FormattedConcentration(bool withunit)
         {
-            if (this.HasError) return AsFormattedConcentration(ConcentrationUnitAttribute.FromConc(this.Value), withunit);
+            if (this.HasError) return AsFormattedConcentration(ConcentrationUnitAttribute.GetMagnitudeUnitFromConcentration(this.Value), withunit);
             else
             {
                 var _ = AppSettings.NumberPrecision;
                 AppSettings.NumberPrecision = NumberPrecision.SingleDecimal;
-                var s = AsFormattedConcentration(ConcentrationUnitAttribute.FromConc(this.Value), withunit);
+                var s = AsFormattedConcentration(ConcentrationUnitAttribute.GetMagnitudeUnitFromConcentration(this.Value), withunit);
                 AppSettings.NumberPrecision = _;
                 return s;
             }
         }
-        public string AsFormattedConcentration(bool withunit, bool withci = false) => AsFormattedConcentration(ConcentrationUnitAttribute.FromConc(this.Value), withunit, withci);
+        public string AsFormattedConcentration(bool withunit, bool withci = false) => AsFormattedConcentration(ConcentrationUnitAttribute.GetMagnitudeUnitFromConcentration(this.Value), withunit, withci);
         public string AsFormattedConcentration(ConcentrationUnit unit, bool withunit = true, bool withci = false) => WithMod(unit.GetMod(), unit.GetName(), withunit, withci);
 
         public string AsFormattedEnergy(EnergyUnit unit, string suffix, bool withunit = true, bool withci = false) => WithMod(unit.GetMod(), suffix, withunit, withci);

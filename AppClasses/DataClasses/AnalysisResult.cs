@@ -21,7 +21,7 @@ namespace AnalysisITC
         public ProtonationAnalysis ProtonationAnalysis { get; private set; }
         public ElectrostaticsAnalysis ElectrostaticsAnalysis { get; private set; }
 
-        public ConcentrationUnit AppropriateAffinityUnit => ConcentrationUnitAttribute.FromConc(Solution.Solutions.Average(s => s.ReportParameters[ParameterType.Affinity1]));
+        public ConcentrationUnit AppropriateAffinityUnit => ConcentrationUnitAttribute.GetMagnitudeUnitFromConcentration(Solution.Solutions.Average(s => s.ReportParameters[ParameterType.Affinity1]));
 
         public AnalysisResult(GlobalSolution solution)
         {

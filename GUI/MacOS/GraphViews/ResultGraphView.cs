@@ -70,7 +70,7 @@ namespace AnalysisITC
         public void Setup(ElectrostaticsAnalysis analysis)
         {
             Type = ResultGraphType.ProtonationAnalysis;
-            var unit = ConcentrationUnitAttribute.FromConc(analysis.DataPoints.Select(dp => dp.Item2.Value).Average());
+            var unit = ConcentrationUnitAttribute.GetMagnitudeUnitFromConcentration(analysis.DataPoints.Select(dp => dp.Item2.Value).Average());
 
             switch (analysis.Mode)
             {
