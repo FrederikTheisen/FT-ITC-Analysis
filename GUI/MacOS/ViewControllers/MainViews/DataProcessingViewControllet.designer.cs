@@ -28,6 +28,9 @@ namespace AnalysisITC
 		AppKit.NSButton ConfirmProcessingButton { get; set; }
 
 		[Outlet]
+		AppKit.NSButton CopyToNextButton { get; set; }
+
+		[Outlet]
 		AppKit.NSButton CorrectedScopeButton { get; set; }
 
 		[Outlet]
@@ -141,6 +144,9 @@ namespace AnalysisITC
 		[Action ("CopySettingsToAllClicked:")]
 		partial void CopySettingsToAllClicked (Foundation.NSObject sender);
 
+		[Action ("CopyToNextButtonAction:")]
+		partial void CopyToNextButtonAction (Foundation.NSObject sender);
+
 		[Action ("DiscardIntRangeAction:")]
 		partial void DiscardIntRangeAction (AppKit.NSButton sender);
 
@@ -227,6 +233,11 @@ namespace AnalysisITC
 				BaselineHeader = null;
 			}
 
+			if (CopyToNextButton != null) {
+				CopyToNextButton.Dispose ();
+				CopyToNextButton = null;
+			}
+
 			if (BaselineScopeButton != null) {
 				BaselineScopeButton.Dispose ();
 				BaselineScopeButton = null;
@@ -245,11 +256,6 @@ namespace AnalysisITC
 			if (DataZoomSegControl != null) {
 				DataZoomSegControl.Dispose ();
 				DataZoomSegControl = null;
-			}
-
-			if (PeakZoomSegControl != null) {
-				PeakZoomSegControl.Dispose ();
-				PeakZoomSegControl = null;
 			}
 
 			if (DrawFeatureSegControl != null) {
@@ -300,6 +306,11 @@ namespace AnalysisITC
 			if (InterpolatorTypeControl != null) {
 				InterpolatorTypeControl.Dispose ();
 				InterpolatorTypeControl = null;
+			}
+
+			if (PeakZoomSegControl != null) {
+				PeakZoomSegControl.Dispose ();
+				PeakZoomSegControl = null;
 			}
 
 			if (PeakZoomWidthSegControl != null) {

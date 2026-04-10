@@ -66,10 +66,12 @@ namespace AnalysisITC
 
                 Graph.SetFocusedInjection(selectedPeak);
 
-                if (isInjectionZoomed) FocusPeak();
+                if (IsInjectionZoomed) FocusPeak();
                 if (!isBaselineZoomed) ShowAllVertical();
             }
         }
+
+        public bool IsInjectionZoomed { get => isInjectionZoomed; set => isInjectionZoomed = value; }
 
         public DataProcessingGraphView(IntPtr handle) : base(handle)
         {
@@ -87,7 +89,7 @@ namespace AnalysisITC
             switch ((NSKey)theEvent.KeyCode)
             {
                 case NSKey.Space:
-                    if (SelectedPeak != -1 && isInjectionZoomed)
+                    if (SelectedPeak != -1 && IsInjectionZoomed)
                     {
                         Console.WriteLine("Copying integration length...");
                         var length = Data.Injections[SelectedPeak].IntegrationEndOffset;
@@ -207,7 +209,7 @@ namespace AnalysisITC
             //If first injection is #0, then start draw at t = 0
             Graph.SetXAxisRange(idx1 == 0 ? 0 : inj_first.Time - inj_first.Delay * 0.2f, inj_last.Time + inj_last.Delay * 1.2f);
 
-            isInjectionZoomed = true;
+            IsInjectionZoomed = true;
 
             if (isBaselineZoomed) ZoomBaseline();
             else ShowAllVertical();
@@ -222,7 +224,7 @@ namespace AnalysisITC
 
             Graph.SetXAxisRange(Graph.DataPoints.Min(dp => dp.Time), Graph.DataPoints.Max(dp => dp.Time), buffer: false);
 
-            isInjectionZoomed = false;
+            IsInjectionZoomed = false;
 
             if (isBaselineZoomed) ZoomBaseline();
             else ShowAllVertical();

@@ -457,6 +457,22 @@ namespace AnalysisITC
             UpdateInjectionSelectionUI();
         }
 
+        partial void CopyToNextButtonAction(NSObject sender)
+        {
+            int selected = BaselineGraphView?.SelectedPeak ?? -1;
+
+            if (selected != -1 && BaselineGraphView.IsInjectionZoomed)
+            {
+                Console.WriteLine("Copying integration length...");
+                var length = Data.Injections[selected].IntegrationEndOffset;
+                BaselineGraphView.SelectedPeak++;
+                Data.Injections[BaselineGraphView.SelectedPeak].SetIntegrationLengthByTime(length);
+                BaselineGraphView.FocusPeak();
+
+                Data.Processor.ProcessData();
+            }
+        }
+
         partial void InjectionViewControlClicked(NSSegmentedControl sender)
         {
             if (Data == null) return;
@@ -474,6 +490,8 @@ namespace AnalysisITC
         {
             InjectionViewSegControl.SetEnabled(BaselineGraphView.SelectedPeak > 0, 0);
             InjectionViewSegControl.SetEnabled(BaselineGraphView.SelectedPeak < BaselineGraphView.Data.InjectionCount - 1, 2);
+
+            CopyToNextButton.Enabled = BaselineGraphView.SelectedPeak >= 0 && BaselineGraphView.SelectedPeak < BaselineGraphView.Data.InjectionCount - 1;
 
             if (BaselineGraphView.SelectedPeak != -1)
             {
