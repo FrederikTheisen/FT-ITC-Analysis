@@ -31,10 +31,6 @@ namespace AnalysisITC
         {
             if (data == null) return false;
 
-            // Integrated heats: allow import, but keep the logic here if you later decide
-            // to do minimal sanity checks specific to this format.
-            //if (data.DataSourceFormat == ITCDataFormat.IntegratedHeats) return true;
-
             while (true)
             {
                 var issue = GetFirstIssue(data);
@@ -53,6 +49,7 @@ namespace AnalysisITC
                     var view = new NSTextField(new CGRect(0, 0, 220, 26))
                     {
                         Alignment = NSTextAlignment.Center,
+                        RefusesFirstResponder = true,
                     };
 
                     alert.AccessoryView = view;
@@ -167,7 +164,7 @@ namespace AnalysisITC
             }
 
             var deltaT = Math.Abs(data.MeasuredTemperature - data.TargetTemperature);
-            if (deltaT > 0.5)
+            if (deltaT > AppSettings.MinimumTemperatureSpanForFitting) // Probably 2C if not changed by user
             {
                 return new ValidationIssue(
                     $"Measured temperature deviates from target by {deltaT:F2} °C.\n" +
@@ -179,7 +176,7 @@ namespace AnalysisITC
                 return new ValidationIssue(
                     $"The syringe concentration ({data.SyringeConcentration.AsConcentration(ConcentrationUnit.µM, true)}) appears to be lower than the cell concentration ({data.CellConcentration.AsConcentration(ConcentrationUnit.µM, true)}).\n" +
                     "There may be an error in the concentrations.\n\n" +
-                    "Provide an updated syringe concentration in micromolar here:",
+                    $"Provide an updated syringe concentration (default unit: {AppSettings.DefaultConcentrationUnit}) here:",
                     DataFixProtocol.Concentrations);
             }
 
@@ -204,12 +201,17 @@ namespace AnalysisITC
                         break;
                     case DataFixProtocol.Concentrations:
                         var input = accessory as NSTextField;
-                        var conc = input.DoubleValue;
-                        AppEventHandler.Print(conc.ToString());
-                        data.SyringeConcentration = new FloatWithError(conc / 1000000);
+                        FloatWithError conc;
+                        var b = ConcentrationParser.TryParseMolarConcentration(input.StringValue, out conc);
 
-                        // We need to recalculate concentrations
-                        RawDataReader.ProcessInjections(data);
+                        if (b)
+                        {
+                            AppEventHandler.Print(conc.ToString());
+                            data.SyringeConcentration = conc;
+
+                            // We need to recalculate concentrations
+                            RawDataReader.ProcessInjections(data);
+                        }
                         break;
                 }
 

@@ -1,31 +1,108 @@
 ﻿using System;
 using System.Globalization;
 using System.Linq;
+using System.Text;
 using System.Text.RegularExpressions;
 
 namespace AnalysisITC
 {
-    public static partial class Extensions
+    public static class ConcentrationParser
     {
-        public static ConcentrationUnitAttribute GetProperties(this ConcentrationUnit value)
-        {
-            var fieldInfo = value.GetType().GetField(value.ToString());
-            var attribute = fieldInfo.GetCustomAttributes(typeof(ConcentrationUnitAttribute), false).FirstOrDefault() as ConcentrationUnitAttribute;
+        private static readonly Regex NumberRegex = new Regex(
+            @"[-+]?(?:\d+(?:[.,]\d+)?|[.,]\d+)(?:[eE][-+]?\d+)?",
+            RegexOptions.Compiled);
 
-            return attribute;
+        public static ConcentrationUnit FromString(string s)
+        {
+            if (string.IsNullOrWhiteSpace(s))
+                return AppSettings.DefaultConcentrationUnit;
+
+            string unitToken = ExtractUnitToken(s);
+
+            return unitToken switch
+            {
+                "m" => ConcentrationUnit.M,
+                "mm" => ConcentrationUnit.mM,
+                "um" => ConcentrationUnit.µM,
+                "µm" => ConcentrationUnit.µM,
+                "nm" => ConcentrationUnit.nM,
+                "pm" => ConcentrationUnit.pM,
+                _ => AppSettings.DefaultConcentrationUnit
+            };
         }
 
-        public static string GetName(this ConcentrationUnit value)
+        public static bool TryParseMolarConcentration(string s, out FloatWithError result)
         {
-            return value.GetProperties().Name;
+            result = default;
+
+            if (string.IsNullOrWhiteSpace(s))
+                return false;
+
+            var matches = NumberRegex.Matches(s);
+            if (matches.Count == 0 || matches.Count > 2)
+                return false;
+
+            if (!TryParseDouble(matches[0].Value, out double value))
+                return false;
+
+            double error = 0.0;
+            if (matches.Count == 2 && !TryParseDouble(matches[1].Value, out error))
+                return false;
+
+            var unit = FromString(s);
+            double factor = ToMolarFactor(unit);
+
+            result = new FloatWithError(value * factor, Math.Abs(error) * factor);
+            return true;
         }
 
-        /// <summary>
-        /// Factor to from Molar to the current unit (eg. 1 for 'M' and 1000 for 'mM')
-        /// </summary>
-        public static double GetMod(this ConcentrationUnit value)
+        private static string ExtractUnitToken(string s)
         {
-            return value.GetProperties().Mod;
+            // First remove numeric parts, including scientific notation.
+            string withoutNumbers = NumberRegex.Replace(s, "");
+
+            var sb = new StringBuilder(withoutNumbers.Length);
+
+            foreach (char ch in withoutNumbers)
+            {
+                if (char.IsLetter(ch) || ch == 'µ' || ch == 'μ')
+                {
+                    char c = char.ToLowerInvariant(ch);
+
+                    // Normalize micro symbols to plain 'u'
+                    if (c == 'µ' || c == 'μ')
+                        c = 'u';
+
+                    sb.Append(c);
+                }
+            }
+
+            return sb.ToString();
+        }
+
+        private static bool TryParseDouble(string s, out double value)
+        {
+            // Accept both dot and comma decimals in a simple way.
+            string normalized = s.Replace(',', '.');
+
+            return double.TryParse(
+                normalized,
+                NumberStyles.Float,
+                CultureInfo.InvariantCulture,
+                out value);
+        }
+
+        private static double ToMolarFactor(ConcentrationUnit unit)
+        {
+            return unit switch
+            {
+                ConcentrationUnit.M => 1.0,
+                ConcentrationUnit.mM => 1e-3,
+                ConcentrationUnit.µM => 1e-6,
+                ConcentrationUnit.nM => 1e-9,
+                ConcentrationUnit.pM => 1e-12,
+                _ => 1.0
+            };
         }
     }
 
@@ -43,7 +120,7 @@ namespace AnalysisITC
             Mod = mod;
         }
 
-        public static ConcentrationUnit FromMag(double mag)
+        private static ConcentrationUnit FromMag(double mag)
         {
             return mag switch
             {
@@ -56,32 +133,11 @@ namespace AnalysisITC
             };
         }
 
-        public static ConcentrationUnit FromConc(double conc)
+        public static ConcentrationUnit GetMagnitudeUnitFromConcentration(double conc)
         {
             var mag = Math.Log10(conc);
 
-            return mag switch
-            {
-                > 0 => ConcentrationUnit.M,
-                > -3 => ConcentrationUnit.mM,
-                > -6 => ConcentrationUnit.µM,
-                > -9 => ConcentrationUnit.nM,
-                > -12 => ConcentrationUnit.pM,
-                _ => ConcentrationUnit.pM
-            };
-        }
-
-        public static ConcentrationUnit? FromString(string s)
-        {
-            return s.ToLower() switch
-            {
-                "," => ConcentrationUnit.M,
-                "mm" => ConcentrationUnit.mM,
-                "um" => ConcentrationUnit.µM,
-                "nm" => ConcentrationUnit.nM,
-                "pm" => ConcentrationUnit.pM,
-                _ => null
-            };
+            return FromMag(mag);
         }
 
         static bool TryParseUnit(string s, out ConcentrationUnit unit)

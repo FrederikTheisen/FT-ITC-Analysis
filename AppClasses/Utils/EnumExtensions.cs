@@ -85,6 +85,14 @@ namespace AnalysisITC
             return attribute;
         }
 
+        public static ConcentrationUnitAttribute GetProperties(this ConcentrationUnit value)
+        {
+            var fieldInfo = value.GetType().GetField(value.ToString());
+            var attribute = fieldInfo.GetCustomAttributes(typeof(ConcentrationUnitAttribute), false).FirstOrDefault() as ConcentrationUnitAttribute;
+
+            return attribute;
+        }
+
         public static ParameterTypeAttribute GetProperties(this ParameterType value)
         {
             var fieldInfo = value.GetType().GetField(value.ToString());
@@ -116,8 +124,6 @@ namespace AnalysisITC
 
             return attribute;
         }
-
-
 
         public static CGRect WithMargin(this CGRect box, CGEdgeMargin margin, float mod = 1)
         {
@@ -173,6 +179,19 @@ namespace AnalysisITC
             if (string.IsNullOrEmpty(formatted)) formatted = "0 seconds";
 
             return formatted;
+        }
+
+        public static string GetName(this ConcentrationUnit value)
+        {
+            return value.GetProperties().Name;
+        }
+
+        /// <summary>
+        /// Factor to from Molar to the current unit (eg. 1 for 'M' and 1000 for 'mM')
+        /// </summary>
+        public static double GetMod(this ConcentrationUnit value)
+        {
+            return value.GetProperties().Mod;
         }
     }
 
