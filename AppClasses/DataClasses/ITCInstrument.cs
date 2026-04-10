@@ -75,11 +75,9 @@ namespace DataReaders
             if (candidates.Count > 0)
             {
                 data.Instrument = candidates.OrderBy(instr => instr.Item1).First().Item2;
-
-                AppEventHandler.PrintAndLog($"Setting Instrument: {data.Instrument}", 1);
             }
 
-            AppEventHandler.PrintAndLog($"Instrument Detected: {data.Instrument}", 1);
+            AppEventHandler.PrintAndLog($"{data.Instrument}", 1);
         }
 
         public static string SourceInstrumentTitle(ExperimentData data)
