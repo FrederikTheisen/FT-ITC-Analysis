@@ -529,7 +529,6 @@
       <DependentUpon>GuideHintViewController.cs</DependentUpon>
     </Compile>
     <Compile Include="AppClasses\Math\IonicStrengthDependence.cs" />
-    <Compile Include="AppClasses\Analysis2\ModelFactory2.cs" />
     <Compile Include="AppClasses\Analysis2\AnalysisSessionState.cs" />
     <Compile Include="AppClasses\Analysis2\AnalysisBuilder.cs" />
     <Compile Include="AppClasses\Analysis2\AnalysisWorkspace.cs" />
