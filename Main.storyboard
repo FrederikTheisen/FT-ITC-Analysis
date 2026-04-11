@@ -2531,13 +2531,13 @@ In most cases, interpretation of affinities provided by ITC is straightforward, 
                                                         <box horizontalHuggingPriority="249" verticalHuggingPriority="1000" boxType="separator" translatesAutoresizingMaskIntoConstraints="NO" id="S0q-2U-0fP">
                                                             <rect key="frame" x="5" y="140" width="368" height="5"/>
                                                         </box>
-                                                        <stackView distribution="fill" orientation="vertical" alignment="leading" spacing="4" horizontalStackHuggingPriority="250" verticalStackHuggingPriority="250" verticalHuggingPriority="1000" verticalCompressionResistancePriority="1000" detachesHiddenViews="YES" translatesAutoresizingMaskIntoConstraints="NO" id="O07-Jb-RZa">
+                                                        <stackView distribution="fill" orientation="vertical" alignment="leading" spacing="1" horizontalStackHuggingPriority="250" verticalStackHuggingPriority="250" verticalHuggingPriority="1000" verticalCompressionResistancePriority="1000" detachesHiddenViews="YES" translatesAutoresizingMaskIntoConstraints="NO" id="O07-Jb-RZa">
                                                             <rect key="frame" x="5" y="88" width="368" height="50"/>
                                                         </stackView>
                                                         <box horizontalHuggingPriority="249" verticalHuggingPriority="1000" boxType="separator" translatesAutoresizingMaskIntoConstraints="NO" id="u0M-42-t8m">
                                                             <rect key="frame" x="5" y="81" width="368" height="5"/>
                                                         </box>
-                                                        <stackView distribution="fill" orientation="vertical" alignment="leading" spacing="4" horizontalStackHuggingPriority="250" verticalStackHuggingPriority="250" verticalHuggingPriority="1000" verticalCompressionResistancePriority="1000" detachesHiddenViews="YES" translatesAutoresizingMaskIntoConstraints="NO" id="24i-gR-XOS">
+                                                        <stackView distribution="fill" orientation="vertical" alignment="leading" spacing="1" horizontalStackHuggingPriority="250" verticalStackHuggingPriority="250" verticalHuggingPriority="1000" verticalCompressionResistancePriority="1000" detachesHiddenViews="YES" translatesAutoresizingMaskIntoConstraints="NO" id="24i-gR-XOS">
                                                             <rect key="frame" x="5" y="29" width="368" height="50"/>
                                                         </stackView>
                                                         <button horizontalHuggingPriority="249" verticalHuggingPriority="1000" verticalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="l35-fh-MlX">
