@@ -29,6 +29,8 @@ namespace AnalysisITC.AppClasses.AnalysisClasses
 
     public class SolverInterface
     {
+        public const double ErrorEstimationToleranceModifier = 2;
+
         public static TerminationFlag TerminateAnalysisFlag { get; protected set; } = new TerminationFlag();
 
         public bool Silent { get; set; } = false;
@@ -62,7 +64,6 @@ namespace AnalysisITC.AppClasses.AnalysisClasses
         }
 
         // NM Parameters
-        // public double SolverFunctionTolerance { get; set; } = AppSettings.OptimizerTolerance;
         public double RelativeParameterTolerance => Tolerance(3, 10);
 
         protected double NMFunctionTolerance(double guessloss)
@@ -71,8 +72,8 @@ namespace AnalysisITC.AppClasses.AnalysisClasses
         }
 
         // LM parameters
-        public double LevenbergMarquardtDifferentiationStepSize => Tolerance(15, 20);   // 1E-2 - 1E-6
-        public double LevenbergMarquardtEpsilon => Tolerance(15, 20);              // 1E-5 - 1E-9
+        public double LevenbergMarquardtDifferentiationStepSize => Tolerance(17, 22);  
+        public double LevenbergMarquardtEpsilon => Tolerance(17, 22);             
 
         public static CancellationTokenSource NelderMeadToken { get; set; }
         internal NonlinearMinimizationResult LmResult { get; set; }
@@ -225,14 +226,6 @@ namespace AnalysisITC.AppClasses.AnalysisClasses
                 }
 
                 endtime = DateTime.Now;
-                // Normalise the convergence status and message before returning. This call
-                // infers termination conditions (e.g. user cancellation, iteration limits) from
-                // the underlying solver messages and ensures the user-facing message and flags
-                // are consistent across different algorithms.
-                if (convergence != null)
-                {
-                    convergence.Normalize();
-                }
 
                 return convergence;
             }
@@ -337,7 +330,6 @@ namespace AnalysisITC.AppClasses.AnalysisClasses
             {
                 var conv = SolverConvergence.FromException(ex, starttime);
                 conv.SetLoss(Model.Loss());
-                conv.Normalize();
 
                 // Log and notify the user only for genuine failures; user cancellations are
                 // considered non-error conditions.
@@ -378,37 +370,6 @@ namespace AnalysisITC.AppClasses.AnalysisClasses
 
             return Model.Solution.Convergence;
         }
-
-        //protected override SolverConvergence SolverWithLevenbergMarquardtAlgorithm()
-        //{
-        //    DateTime start = DateTime.Now;
-        //    var guess = Model.Parameters.GetFittedParameterArray();
-        //    var limits = Model.Parameters.GetLimits();
-        //    int n_par = Model.NumberOfParameters;
-        //    int m = Model.Data.Injections.Count(inj => inj.Include);
-        //    double[] scale = guess.Select(g => Math.Max(1, Math.Abs(g))).ToArray();
-
-        //    alglib.minlmcreatev(n_par, m, guess, LevenbergMarquardtDifferentiationStepSize, out minlmstate state);
-
-        //    LMOptimizerState = state;
-
-        //    alglib.minlmsetcond(LMOptimizerState, LevenbergMarquardtEpsilon, MaxOptimizerIterations);
-        //    alglib.minlmsetscale(LMOptimizerState, scale);
-        //    alglib.minlmsetbc(LMOptimizerState, limits.Select(p => p[0]).ToArray(), limits.Select(p => p[1]).ToArray());
-        //    alglib.minlmoptimize(LMOptimizerState, (double[] x, double[] fi, object obj) =>
-        //    {
-        //        var res = Model.LossFunctionResiduals(x, UseErrorWeightedFitting);
-        //        for (int i = 0; i < res.Length; i++) fi[i] = res[i];
-        //    },
-        //    null, null);
-        //    alglib.minlmresults(LMOptimizerState, out double[] result, out minlmreport rep);
-
-        //    Model.Solution = SolutionInterface.FromModel(Model, new SolverConvergence(LMOptimizerState, rep, DateTime.Now - start, Model.Loss()));
-        //    Model.Solution.ErrorMethod = ErrorEstimationMethod;
-        //    Model.Solution.UseWeightedFitting = UseErrorWeightedFitting;
-
-        //    return Model.Solution.Convergence;
-        //}
 
         protected override SolverConvergence SolverWithLevenbergMarquardtAlgorithm2()
         {
@@ -481,7 +442,7 @@ namespace AnalysisITC.AppClasses.AnalysisClasses
                         {
                             SolverAlgorithm = this.SolverAlgorithm,
                             Model = Model.GenerateSyntheticModel(),
-                            SolverToleranceModifier = 10,
+                            SolverToleranceModifier = ErrorEstimationToleranceModifier,
                             MaxOptimizerIterations = MaxBootstrapOptimizerIterations,
                             UseErrorWeightedFitting = this.UseErrorWeightedFitting,
                         };
@@ -490,9 +451,9 @@ namespace AnalysisITC.AppClasses.AnalysisClasses
                         // Treat replicate as successful only if it did not fail and was not
                         // stopped. Fits that reached iteration limits or produced warnings
                         // are still considered successful for bootstrapping purposes.
-                        if (rconv != null && !rconv.Failed && !rconv.Stopped)
+                        if (rconv?.IsUsableForErrorEstimation == true)
                         {
-                            AppEventHandler.Print($"Bootstrap: {rconv.Iterations} {rconv.Loss} {rconv.DetailedMessage}");
+                            AppEventHandler.Print($"Bootstrap: {rconv.Iterations} {rconv.Loss} {rconv.FailureReason}");
                             bag.Add(solver.Model.Solution);
                             Interlocked.Increment(ref success);
                         }
@@ -517,35 +478,8 @@ namespace AnalysisITC.AppClasses.AnalysisClasses
 
             var solutions = bag.ToList();
 
-            // Store only the successful solutions. The solver normalises convergence
-            // internally, so each Solution.Convergence already reflects the solver outcome.
             Solution.SetBootstrapSolutions(solutions);
-            Solution.Convergence.SetBootstrapTime(DateTime.Now - start);
-
-            // Determine whether to flag a warning. A warning is raised when at least one
-            // replicate failed but some succeeded. If no replicates succeeded the bootstrap is
-            // marked as failed; however the primary fit may still be valid and the warning
-            // flag will surface this without marking the entire fit as failed.
-            if (failure > 0)
-            {
-                // Flag a warning when there are failures and successes.
-                if (success > 0)
-                {
-                    Solution.Convergence.Warning = true;
-                    // Append the replicate summary to the detailed message for logging. This
-                    // summary is not shown directly to users but can help diagnose bootstrap
-                    // robustness issues.
-                    Solution.Convergence.DetailedMessage = $"Bootstrap: {success}/{BootstrapIterations} succeeded ({failure} failed)";
-                }
-                else if (success == 0 && BootstrapIterations > 0)
-                {
-                    // All replicates failed; mark the bootstrap run as warning. We do not
-                    // override the Failed flag here; normalization will use the highest
-                    // severity status between the main fit and bootstrap outcome.
-                    Solution.Convergence.Warning = true;
-                    Solution.Convergence.DetailedMessage = $"Bootstrap failed: 0/{BootstrapIterations} replicates succeeded";
-                }
-            }
+            Solution.Convergence.ApplyErrorEstimationResult(ErrorEstimationMethod, failure, success, DateTime.Now - start);
         }
 
         protected override void LeaveOneOut()
@@ -581,13 +515,13 @@ namespace AnalysisITC.AppClasses.AnalysisClasses
                         {
                             SolverAlgorithm = this.SolverAlgorithm,
                             Model = mdl,
-                            SolverToleranceModifier = 10,
+                            SolverToleranceModifier = ErrorEstimationToleranceModifier,
                             MaxOptimizerIterations = MaxBootstrapOptimizerIterations,
                             UseErrorWeightedFitting = this.UseErrorWeightedFitting,
                         };
 
                         var rconv = solver.Solve();
-                        if (rconv != null && !rconv.Failed && !rconv.Stopped)
+                        if (rconv?.IsUsableForErrorEstimation == true)
                         {
                             bag.Add(solver.Model.Solution);
                             Interlocked.Increment(ref success);
@@ -613,22 +547,7 @@ namespace AnalysisITC.AppClasses.AnalysisClasses
             var solutions = bag.ToList();
 
             Solution.SetBootstrapSolutions(solutions);
-            Solution.Convergence.SetBootstrapTime(DateTime.Now - start);
-
-            // Apply warnings based on replicate success/failure counts.
-            if (failure > 0)
-            {
-                if (success > 0)
-                {
-                    Solution.Convergence.Warning = true;
-                    Solution.Convergence.DetailedMessage = $"Leave-one-out: {success}/{models.Count} succeeded ({failure} failed)";
-                }
-                else if (success == 0 && models.Count > 0)
-                {
-                    Solution.Convergence.Warning = true;
-                    Solution.Convergence.DetailedMessage = $"Leave-one-out failed: 0/{models.Count} replicates succeeded";
-                }
-            }
+            Solution.Convergence.ApplyErrorEstimationResult(ErrorEstimationMethod, failure, success, DateTime.Now - start);
         }
     }
 
@@ -676,9 +595,7 @@ namespace AnalysisITC.AppClasses.AnalysisClasses
                             ReportSolverUpdate(new SolverUpdate(counter, Model.Models.Count) { Progress = (float)counter / Model.Models.Count });
                         }
 
-                        convergence = new SolverConvergence(convergences);
-                        // Normalise the aggregated convergence prior to creating the global solution.
-                        convergence.Normalize();
+                        convergence = SolverConvergence.FromMultiExperimentAnalysis(convergences);
 
                         Model.Solution = new GlobalSolution(this, Model.Models.Select(mdl => mdl.Solution).ToList(), convergence);
                     }
@@ -688,12 +605,6 @@ namespace AnalysisITC.AppClasses.AnalysisClasses
                         convergence.SetLoss(Model.Loss());
                     }
 
-                    // Normalise the convergence before reporting. Individual solves already
-                    // normalise their own results in Solve(), but aggregated solves require it.
-                    if (convergence != null)
-                    {
-                        convergence.Normalize();
-                    }
                     ReportAnalysisFinished(convergence);
                 });
 
@@ -704,7 +615,6 @@ namespace AnalysisITC.AppClasses.AnalysisClasses
                 // Build a convergence from the exception. Aggregate exceptions and cancellation
                 // are unwrapped inside FromException().
                 var conv = SolverConvergence.FromException(ex, starttime);
-                conv.Normalize();
                 // Only log and alert on genuine failures. User cancellations are considered
                 // non-error conditions.
                 if (!conv.Stopped)
@@ -741,37 +651,6 @@ namespace AnalysisITC.AppClasses.AnalysisClasses
 
             return Model.Solution.Convergence;
         }
-
-        //protected override SolverConvergence SolverWithLevenbergMarquardtAlgorithm()
-        //{
-        //    DateTime start = DateTime.Now;
-        //    var guess = Model.Parameters.GetFittedParameterArray();
-        //    var limits = Model.Parameters.GetLimits();
-        //    var parameters = Model.Parameters.GetFittedParameters();
-        //    int n_par = Model.NumberOfParameters;
-        //    int m = Model.GetNumberOfPoints();
-        //    double[] scale = guess.Select(g => Math.Max(1, Math.Abs(g))).ToArray();
-
-        //    alglib.minlmcreatev(n_par, m, guess, LevenbergMarquardtDifferentiationStepSize, out minlmstate state);
-
-        //    LMOptimizerState = state;
-
-        //    alglib.minlmsetcond(state, LevenbergMarquardtEpsilon, MaxOptimizerIterations);
-        //    alglib.minlmsetscale(state, scale);
-        //    alglib.minlmsetbc(state, limits.Select(p => p[0]).ToArray(), limits.Select(p => p[1]).ToArray());
-        //    alglib.minlmoptimize(state, (double[] x, double[] fi, object obj) =>
-        //    {
-        //        var res = Model.LossFunctionResiduals(x, UseErrorWeightedFitting);
-        //        for (int i = 0; i < res.Length; i++) fi[i] = res[i];
-        //    }, null, null);
-        //    alglib.minlmresults(state, out double[] result, out minlmreport rep);
-
-        //    var loss = Model.LossFunction(result, UseErrorWeightedFitting);
-
-        //    Model.Solution = new GlobalSolution(this, new SolverConvergence(LMOptimizerState, rep, DateTime.Now - start, loss));
-
-        //    return Solution.Convergence;
-        //}
 
         protected override SolverConvergence SolverWithLevenbergMarquardtAlgorithm2()
         {
@@ -845,16 +724,16 @@ namespace AnalysisITC.AppClasses.AnalysisClasses
                         {
                             Model = globalmodel,
                             SolverAlgorithm = SolverAlgorithm,
-                            SolverToleranceModifier = 10,
+                            SolverToleranceModifier = ErrorEstimationToleranceModifier,
                             MaxOptimizerIterations = MaxBootstrapOptimizerIterations
                         };
 
-                        var convergence = solver.Solve();
+                        var rconv = solver.Solve();
                         // Count replicate success/failure based on convergence flags. Success when
                         // not failed and not stopped.
-                        if (convergence != null && !convergence.Failed && !convergence.Stopped)
+                        if (rconv?.IsUsableForErrorEstimation == true)
                         {
-                            var solution = new GlobalSolution(solver, convergence);
+                            var solution = new GlobalSolution(solver, rconv);
                             bag.Add(solution);
                             Interlocked.Increment(ref success);
                         }
@@ -878,22 +757,7 @@ namespace AnalysisITC.AppClasses.AnalysisClasses
             var solutions = bag.ToList();
 
             Solution.SetBootstrapSolutions(solutions);
-            Solution.Convergence.SetBootstrapTime(DateTime.Now - start);
-
-            // Apply warnings based on replicate success/failure counts.
-            if (failure > 0)
-            {
-                if (success > 0)
-                {
-                    Solution.Convergence.Warning = true;
-                    Solution.Convergence.DetailedMessage = $"Global bootstrap: {success}/{BootstrapIterations} succeeded ({failure} failed)";
-                }
-                else if (success == 0 && BootstrapIterations > 0)
-                {
-                    Solution.Convergence.Warning = true;
-                    Solution.Convergence.DetailedMessage = $"Global bootstrap failed: 0/{BootstrapIterations} replicates succeeded";
-                }
-            }
+            Solution.Convergence.ApplyErrorEstimationResult(ErrorEstimationMethod, failure, success, DateTime.Now - start);
         }
 
         protected override void LeaveOneOut()
@@ -919,15 +783,14 @@ namespace AnalysisITC.AppClasses.AnalysisClasses
                         {
                             Model = globalmodel,
                             SolverAlgorithm = SolverAlgorithm,
-                            SolverToleranceModifier = 10,
+                            SolverToleranceModifier = ErrorEstimationToleranceModifier,
                             MaxOptimizerIterations = MaxBootstrapOptimizerIterations
                         };
 
-                        var convergence = solver.Solve();
-                        // Consider a replicate successful if the convergence did not fail and was not stopped.
-                        if (convergence != null && !convergence.Failed && !convergence.Stopped)
+                        var rconv = solver.Solve();
+                        if (rconv?.IsUsableForErrorEstimation == true)
                         {
-                            var solution = new GlobalSolution(solver, convergence);
+                            var solution = new GlobalSolution(solver, rconv);
                             bag.Add(solution);
                             Interlocked.Increment(ref success);
                         }
@@ -950,22 +813,7 @@ namespace AnalysisITC.AppClasses.AnalysisClasses
             var solutions = bag.ToList();
 
             Solution.SetBootstrapSolutions(solutions);
-            Solution.Convergence.SetBootstrapTime(DateTime.Now - start);
-
-            // Flag warnings based on replicate success/failure counts.
-            if (failure > 0)
-            {
-                if (success > 0)
-                {
-                    Solution.Convergence.Warning = true;
-                    Solution.Convergence.DetailedMessage = $"Global leave-one-out: {success}/{Model.Models.Count} succeeded ({failure} failed)";
-                }
-                else if (success == 0 && Model.Models.Count > 0)
-                {
-                    Solution.Convergence.Warning = true;
-                    Solution.Convergence.DetailedMessage = $"Global leave-one-out failed: 0/{Model.Models.Count} replicates succeeded";
-                }
-            }
+            Solution.Convergence.ApplyErrorEstimationResult(ErrorEstimationMethod, failure, success, DateTime.Now - start);
         }
     }
 }

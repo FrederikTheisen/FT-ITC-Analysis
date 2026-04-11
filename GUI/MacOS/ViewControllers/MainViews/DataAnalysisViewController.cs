@@ -248,15 +248,22 @@ namespace AnalysisITC
 
         void OnAnalysisFinished(object sender, SolverConvergence e)
         {
-            AppEventHandler.PrintAndLog("Analysis Ended: " + e.Message);
-            AppEventHandler.PrintAndLog(e.DetailedMessage);
-            AppEventHandler.PrintAndLog("Warning: " + e.Warning);
-            AppEventHandler.PrintAndLog("Stopped: " + e.Stopped);
-            AppEventHandler.PrintAndLog("Failed:  " + e.Failed);
+            AppEventHandler.PrintAndLog("Analysis Ended: " + e.Message, 0);
+            AppEventHandler.PrintAndLog("Iterations: " + e.Iterations, 1);
+            AppEventHandler.PrintAndLog("Time: " + e.Time.TotalMilliseconds + "ms", 1);
+            AppEventHandler.PrintAndLog("Time: " + e.ErrorEstimationTime.TotalMilliseconds + "ms", 1);
+            AppEventHandler.PrintAndLog("Message: " + e.Message, 1);
+            AppEventHandler.PrintAndLog("Failure Reason: " + e.FailureReason, 1);
+            AppEventHandler.PrintAndLog("Error Summary:" + e.ErrorEstimationSummary, 1);
+            AppEventHandler.PrintAndLog("Error Estimation: " + e.ErrorEstimationOutcome, 1);
+            AppEventHandler.PrintAndLog("Stopped: " + e.Stopped, 1);
+            AppEventHandler.PrintAndLog("Failed:  " + e.Failed, 1);
 
             StatusBarManager.ClearAppStatus();
-            if (e.Success) StatusBarManager.SetStatus(e.Iterations + " iterations, RMSD = " + e.Loss.ToString("G4"), 6000);
-            StatusBarManager.SetStatus(e.Message + " | " + e.Time.TotalMilliseconds.ToString("F1") + "ms", 3000);
+            if (e.ErrorEstimationOutcome != ErrorEstimationOutcome.None) StatusBarManager.SetStatus($"{e.ErrorEstimationSummary}", 10000);
+            if (e.Success) StatusBarManager.SetStatus($"{e.Algorithm.GetProperties().ShortName} | RMSD = {e.Loss:G4}", 8000);
+            StatusBarManager.SetStatus($"{e.Iterations} iterations | {TimeUnitAttribute.FormatTimeSpanShort(e.TotalTime)}", 6000);
+            StatusBarManager.SetStatus($"{e.Message}", 3000);
 
             GraphView.Invalidate();
             ToggleFitButtons(true);

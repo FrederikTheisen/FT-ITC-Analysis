@@ -193,7 +193,7 @@ namespace AnalysisITC.AppClasses.AnalysisClasses
 		
         public double Loss => Convergence.Loss;
 		public TimeSpan Time => Convergence.Time;
-		public TimeSpan BootstrapTime => Convergence.BootstrapTime;
+		public TimeSpan BootstrapTime => Convergence.ErrorEstimationTime;
 		public TimeSpan TotalTime => Time + BootstrapTime;
 
 		public string SolutionName => Solutions[0].SolutionName;
@@ -222,7 +222,7 @@ namespace AnalysisITC.AppClasses.AnalysisClasses
 
             foreach (var mdl in Model.Models)
             {
-                mdl.Solution = SolutionInterface.FromModel(mdl, new(convergence));
+                mdl.Solution = SolutionInterface.FromModel(mdl, convergence.Copy());
                 mdl.Solution.Convergence.SetLoss(mdl.Loss());
                 mdl.Solution.SetParentSolution(this);
             }
@@ -338,7 +338,7 @@ namespace AnalysisITC.AppClasses.AnalysisClasses
             {
                 var sols = BootstrapSolutions.SelectMany(gs => gs.Solutions.Where(s => s.Model.Data.UniqueID == model.Data.UniqueID)).ToList();
 
-				model.Solution.SetBootstrapSolutions(sols.Where(sol => !sol.Convergence.Failed).ToList());
+				model.Solution.SetBootstrapSolutions(sols.Where(sol => sol.Convergence.IsUsableForErrorEstimation).ToList());
             }
 
 			var tmp = new Dictionary<ParameterType, LinearFitWithError>();

@@ -5,153 +5,147 @@ using System.Linq;
 using Accord.Math.Optimization;
 using System.Threading.Tasks;
 using MathNet.Numerics.Optimization;
-using AnalysisITC.AppClasses.AnalysisClasses;
 
 namespace AnalysisITC
 {
     public class SolverConvergence
     {
-        public int Iterations { get; private set; } = 0;
-        /// <summary>
-        /// A short, user friendly description of the solver outcome. This string is normalized
-        /// by <see cref="Normalize"/> to map solver-specific messages onto a unified set of
-        /// completion statuses (e.g. "Completed", "Stopped by user", "Reached iteration limit",
-        /// "Completed with warnings", "Failed").
-        /// </summary>
-        public string Message { get; set; } = string.Empty;
-        public TimeSpan Time { get; set; } = new(0);
-        public TimeSpan BootstrapTime { get; private set; } = new(0);
-        public double Loss { get; private set; } = 0;
-        /// <summary>
-        /// Indicates that the solver hit an unrecoverable error. Note that a fit stopped by the
-        /// user or terminated due to reaching the maximum number of iterations is not considered
-        /// a failure. See <see cref="Stopped"/> and <see cref="MaxIterationsReached"/> for those
-        /// cases.
-        /// </summary>
-        public bool Failed { get; set; } = false;
-        /// <summary>
-        /// Indicates that the solver was cancelled by the user or externally. When true the fit
-        /// was aborted before completion; this flag always supersedes <see cref="Failed"/> and
-        /// <see cref="MaxIterationsReached"/>.
-        /// </summary>
-        public bool Stopped { get; set; } = false;
-        /// <summary>
-        /// Indicates that the solver reached its iteration or evaluation limit before
-        /// converging. This is not considered a fatal failure but should be surfaced to the
-        /// user as "Reached iteration limit".
-        /// </summary>
-        public bool MaxIterationsReached { get; set; } = false;
-        /// <summary>
-        /// Indicates that the fit completed successfully but some warnings occurred (e.g. during
-        /// bootstrapping some replicates failed). When true the user facing message will be
-        /// "Completed with warnings".
-        /// </summary>
-        public bool Warning { get; set; } = false;
-        /// <summary>
-        /// Stores the detailed solver or exception message prior to normalization. This is used
-        /// when generating the user friendly <see cref="Message"/> string. It may include the
-        /// description of the underlying termination code or an exception message. Do not show
-        /// this value directly to users.
-        /// </summary>
-        public string DetailedMessage { get; set; } = string.Empty;
-        /// <summary>
-        /// If the fit ended due to an exception then this property holds the root cause for
-        /// diagnostic logging. It is never shown directly to the user but may be passed to
-        /// <see cref="AppEventHandler.DisplayHandledException"/> for logging and alerting.
-        /// </summary>
-        public Exception RootCause { get; set; } = null;
         public SolverAlgorithm Algorithm { get; private set; }
+        public SolverTermination Termination { get; private set; } = SolverTermination.Unknown;
+        public ErrorEstimationOutcome ErrorEstimationOutcome { get; private set; } = ErrorEstimationOutcome.None;
 
-        public bool Success => (!Failed && !Stopped);
+        public int Iterations { get; private set; } = 0;
+        public double Loss { get; private set; } = 0;
 
-        public void SetBootstrapTime(TimeSpan time) => BootstrapTime = time;
+        public TimeSpan Time { get; private set; } = new(0);
+        public TimeSpan ErrorEstimationTime { get; private set; } = new(0);
+
+        public string FailureReason { get; private set; } = string.Empty;
+        public string ErrorEstimationSummary { get; private set; } = string.Empty;
+        public Exception RootCause { get; private set; } = null;
+
+        public TimeSpan TotalTime => Time + ErrorEstimationTime;
+
+        public string Message => GetDisplayMessage();
+
+        public bool Success =>
+            Termination == SolverTermination.Converged ||
+            Termination == SolverTermination.SmallStep ||
+            Termination == SolverTermination.SmallGradient ||
+            Termination == SolverTermination.ReachedTarget;
+
+        public bool Failed =>
+            Termination == SolverTermination.Failed ||
+            Termination == SolverTermination.InvalidValues;
+
+        public bool Stopped =>
+            Termination == SolverTermination.Cancelled;
+
+        public bool MaxIterationsReached =>
+            Termination == SolverTermination.IterationLimit ||
+            Termination == SolverTermination.EvaluationLimit ||
+            Termination == SolverTermination.TimeLimit;
+
+        public bool IsUsableForErrorEstimation => !Failed && !Stopped;
+
+        public bool HasErrorEstimationIssues =>
+            ErrorEstimationOutcome == ErrorEstimationOutcome.PartialFailure ||
+            ErrorEstimationOutcome == ErrorEstimationOutcome.CompleteFailure ||
+            ErrorEstimationOutcome == ErrorEstimationOutcome.Cancelled;
+
         public void SetLoss(double loss) => Loss = loss;
 
         private SolverConvergence() { }
-
-        public SolverConvergence(SolverConvergence conv)
-        {
-            Algorithm = conv.Algorithm;
-            Iterations = conv.Iterations;
-            Message = conv.Message;
-            Time = conv.Time;
-            Loss = conv.Loss;
-
-            Failed = conv.Failed;
-            Stopped = conv.Stopped;
-            MaxIterationsReached = conv.MaxIterationsReached;
-            Warning = conv.Warning;
-            DetailedMessage = conv.DetailedMessage;
-            RootCause = conv.RootCause;
-        }
 
         public SolverConvergence(NelderMead solver, double loss)
         {
             Algorithm = SolverAlgorithm.NelderMead;
             Iterations = solver.Convergence.Evaluations;
-            // Capture the raw status string as the detailed message. This will be
-            // normalized later by Normalize().
-            DetailedMessage = solver.Status != null ? solver.Status.ToString() : string.Empty;
-            Message = DetailedMessage;
             Time = DateTime.Now - solver.Convergence.StartTime;
-            Loss = loss; // solver.Value;
-            // Accord returns a Status that may indicate failure. Flag this for now; it will
-            // be normalised later. Typical statuses include Success, Failure, MaximumIterations,
-            // Stopped, etc.
-            Failed = solver.Status != null && solver.Status.Equals(NelderMeadStatus.Failure);
+            Loss = loss;
+
+            ApplyTermination(TranslateAccord(solver.Status));
         }
-
-        //public SolverConvergence(minlmstate state, minlmreport rep, TimeSpan time, double loss)
-        //{
-        //    Algorithm = SolverAlgorithm.LevenbergMarquardt;
-        //    Iterations = rep.iterationscount;
-        //    // Store the description of the termination type as the detailed message. See
-        //    // AlgLibTerminationCode for descriptions. This will be normalised later.
-        //    DetailedMessage = ((AlgLibTerminationCode)rep.terminationtype).GetEnumDescription();
-        //    Message = DetailedMessage;
-        //    Time = time;
-        //    Loss = loss;
-
-        //    //Failed = rep.terminationtype > 2;
-        //}
 
         public SolverConvergence(NonlinearMinimizationResult result, TimeSpan time, double loss)
         {
             Algorithm = SolverAlgorithm.LevenbergMarquardt;
             Iterations = result.Iterations;
-            DetailedMessage = result.ReasonForExit.ToString();
-            Message = DetailedMessage;
             Time = time;
             Loss = loss;
 
-            // Map ExitCondition to flags
-            switch (result.ReasonForExit)
-            {
-                default:
-                case ExitCondition.Converged:
-                    Failed = false; Stopped = false; MaxIterationsReached = false;
-                    break;
-                case ExitCondition.ExceedIterations:
-                    MaxIterationsReached = true; Failed = false;
-                    break;
-                case ExitCondition.ManuallyStopped:
-                    Stopped = true; Failed = false;
-                    break;
-                case ExitCondition.InvalidValues:
-                    Failed = true;
-                    break;
-            }
+            ApplyTermination(TranslateMathNet(result.ReasonForExit));
         }
 
-        public SolverConvergence(List<SolverConvergence> list)
+        private SolverConvergence(List<SolverConvergence> list)
         {
             Algorithm = list.First().Algorithm;
-            Iterations = list.First().Iterations;
-            Message = list.First().Message;
-            Time = TimeSpan.FromTicks(list.Sum(sc => sc.Time.Ticks));
-            Loss = list.Sum(sc => sc.Loss);
+            Iterations = list.Sum(c => c.Iterations);
+            Time = TimeSpan.FromTicks(list.Sum(c => c.Time.Ticks));
+            ErrorEstimationTime = TimeSpan.FromTicks(list.Sum(c => c.ErrorEstimationTime.Ticks));
+            Loss = list.Sum(c => c.Loss);
+            ErrorEstimationOutcome = AggregateErrorEstimationOutcome(list);
 
-            Failed = list.Any(con => con.Failed);
+            var term = AggregateTermination(list);
+
+            ApplyTermination(term);
+        }
+
+        public static SolverConvergence FromMultiExperimentAnalysis(List<SolverConvergence> list)
+        {
+            return new SolverConvergence(list);
+        }
+
+        public void ApplyErrorEstimationResult(ErrorEstimationMethod method, int failures, int succeeded, TimeSpan time)
+        {
+            if (method == ErrorEstimationMethod.None)
+            {
+                ErrorEstimationOutcome = ErrorEstimationOutcome.None;
+                ErrorEstimationSummary = "No error estimation";
+                return;
+            }
+
+            ErrorEstimationTime = time;
+
+            int total = failures + succeeded;
+
+            if (total <= 0)
+            {
+                ErrorEstimationOutcome = ErrorEstimationOutcome.NotRun;
+                ErrorEstimationSummary = $"{method} did not run";
+                return;
+            }
+
+            if (failures == 0)
+            {
+                ErrorEstimationOutcome = ErrorEstimationOutcome.Completed;
+                ErrorEstimationSummary = $"{method} completed successfully";
+                return;
+            }
+
+            ErrorEstimationOutcome = succeeded > 0 ? ErrorEstimationOutcome.PartialFailure : ErrorEstimationOutcome.CompleteFailure;
+
+            ErrorEstimationSummary = $"{method}: {succeeded}/{total} succeeded";
+        }
+
+        public SolverConvergence Copy()
+        {
+            return new()
+            {
+                Algorithm = this.Algorithm,
+                Termination = this.Termination,
+                ErrorEstimationOutcome = this.ErrorEstimationOutcome,
+
+                Iterations = this.Iterations,
+                Loss = this.Loss,
+
+                Time = this.Time,
+                ErrorEstimationTime = this.ErrorEstimationTime,
+
+                FailureReason = this.FailureReason,
+                ErrorEstimationSummary = this.ErrorEstimationSummary,
+                RootCause = this.RootCause,
+            };
         }
 
         public static SolverConvergence ReportFailed(DateTime starttime)
@@ -159,9 +153,7 @@ namespace AnalysisITC
             var conv = new SolverConvergence()
             {
                 Time = DateTime.Now - starttime,
-                Failed = true,
-                DetailedMessage = "Fitting failed",
-                Message = "Failed",
+                Termination = SolverTermination.Failed,
             };
 
             return conv;
@@ -172,10 +164,7 @@ namespace AnalysisITC
             var conv = new SolverConvergence()
             {
                 Time = DateTime.Now - starttime,
-                Stopped = true,
-                Failed = false,
-                DetailedMessage = "The optimization was stopped by the user",
-                Message = "Stopped by user",
+                Termination = SolverTermination.Cancelled,
             };
 
             return conv;
@@ -188,169 +177,224 @@ namespace AnalysisITC
                 Iterations = iter,
                 Loss = loss,
                 Time = time,
-                BootstrapTime = btime,
+                ErrorEstimationTime = btime,
                 Algorithm = algorithm,
-                Message = msg,
-                DetailedMessage = msg,
-                Failed = failed,
+                FailureReason = msg,
             };
         }
 
-        /// <summary>
-        /// Builds a <see cref="SolverConvergence"/> from an exception and records the root cause.
-        /// The returned convergence represents either a failure or a user cancellation, and
-        /// contains a preliminary message that will be normalised by <see cref="Normalize"/>.
-        /// </summary>
-        /// <param name="ex">The exception thrown during analysis.</param>
-        /// <param name="starttime">The time when the analysis started.</param>
         public static SolverConvergence FromException(Exception ex, DateTime starttime)
         {
             var conv = new SolverConvergence()
             {
                 Time = DateTime.Now - starttime,
                 RootCause = ex,
-                Failed = false,
-                Stopped = false,
-                MaxIterationsReached = false,
-                Warning = false,
             };
 
             if (ex is AggregateException agg)
             {
                 var flat = agg.Flatten().InnerExceptions;
-                // Look for any inner exception that represents a user cancellation. If found,
-                // classify this as a stopped fit; otherwise treat as a failure and use the
-                // first inner exception as the root cause.
-                var cancel = flat.FirstOrDefault(ix => ix is OptimizerStopException || ix is OperationCanceledException || ix is TaskCanceledException);
+
+                var cancel = flat.FirstOrDefault(ix =>
+                    ix is OptimizerStopException ||
+                    ix is OperationCanceledException ||
+                    ix is TaskCanceledException);
+
                 if (cancel != null)
                 {
-                    conv.Stopped = true;
-                    conv.Failed = false;
-                    conv.DetailedMessage = cancel.Message;
-                    conv.Message = cancel.Message;
-                    conv.RootCause = cancel;
+                    conv.ApplyTermination(
+                        SolverTermination.Cancelled,
+                        cancel.Message,
+                        cancel);
+
+                    return conv;
                 }
-                else
-                {
-                    conv.Failed = true;
-                    // Choose the first inner exception as the root cause for logging
-                    var cause = flat.FirstOrDefault();
-                    if (cause != null)
-                    {
-                        conv.DetailedMessage = cause.Message;
-                        conv.Message = cause.Message;
-                        conv.RootCause = cause;
-                    }
-                    else
-                    {
-                        conv.DetailedMessage = ex.Message;
-                        conv.Message = ex.Message;
-                    }
-                }
+
+                var cause = flat.FirstOrDefault() ?? ex;
+
+                conv.ApplyTermination(
+                    cause is OverflowException || cause is ArithmeticException
+                        ? SolverTermination.InvalidValues
+                        : SolverTermination.Failed,
+                    cause.Message,
+                    cause);
+
+                return conv;
             }
-            else if (ex is OptimizerStopException || ex is OperationCanceledException || ex is TaskCanceledException)
+
+            if (ex is OptimizerStopException ||
+                ex is OperationCanceledException ||
+                ex is TaskCanceledException)
             {
-                conv.Stopped = true;
-                conv.Failed = false;
-                conv.DetailedMessage = ex.Message;
-                conv.Message = ex.Message;
+                conv.ApplyTermination(
+                    SolverTermination.Cancelled,
+                    ex.Message,
+                    ex);
+
+                return conv;
             }
-            else
-            {
-                conv.Failed = true;
-                conv.DetailedMessage = ex.Message;
-                conv.Message = ex.Message;
-            }
+
+            conv.ApplyTermination(
+                ex is OverflowException || ex is ArithmeticException
+                    ? SolverTermination.InvalidValues
+                    : SolverTermination.Failed,
+                ex.Message,
+                ex);
 
             return conv;
         }
 
-        /// <summary>
-        /// Examines the current convergence result and normalises its status and message to a
-        /// unified set of completion outcomes. After calling this method the <see cref="Message"/>
-        /// property will contain one of:
-        /// "Completed", "Completed with warnings", "Stopped by user",
-        /// "Reached iteration limit", or a failure message. It will also adjust the
-        /// <see cref="Failed"/>, <see cref="Stopped"/>, <see cref="MaxIterationsReached"/>, and
-        /// <see cref="Warning"/> flags as necessary based on the contents of <see
-        /// cref="DetailedMessage"/>.
-        /// </summary>
-        public void Normalize()
+        private void ApplyTermination(SolverTermination termination, string failureReason = "", Exception rootCause = null)
         {
-            // If the fit was already explicitly marked as stopped or reaching the iteration limit
-            // by external logic then honour those flags. Otherwise attempt to infer these
-            // conditions from the detailed message.
-            var msg = (DetailedMessage ?? Message ?? string.Empty).ToLowerInvariant();
+            Termination = termination;
+            RootCause = rootCause;
 
-            // Infer stop and iteration-limit conditions from the detailed message when not
-            // already set. This handles cases where underlying libraries encode the result in
-            // text strings (e.g. "Terminated by user", "Optimizer iteration limit").
-            if (!Stopped && !MaxIterationsReached)
+            FailureReason =
+                termination == SolverTermination.Failed ||
+                termination == SolverTermination.InvalidValues ||
+                termination == SolverTermination.Cancelled
+                    ? (failureReason ?? string.Empty)
+                    : string.Empty;
+        }
+
+        private string GetPrimaryTerminationMessage()
+        {
+            return Termination switch
             {
-                // User-initiated cancellation
-                if (msg.Contains("term") && msg.Contains("user") || msg.Contains("stopped") || msg.Contains("cancel"))
-                {
-                    Stopped = true;
-                    Failed = false;
-                }
-                // Maximum iterations or evaluations reached
-                else if (msg.Contains("max") && msg.Contains("it"))
-                {
-                    MaxIterationsReached = true;
-                    Failed = false;
-                }
-                else if (msg.Contains("iteration") && msg.Contains("limit"))
-                {
-                    MaxIterationsReached = true;
-                    Failed = false;
-                }
-                else if (msg.Contains("maximum") && msg.Contains("evalu"))
-                {
-                    MaxIterationsReached = true;
-                    Failed = false;
-                }
-            }
+                SolverTermination.Converged => "Completed successfully",
+                SolverTermination.SmallStep => "Completed: small parameter change",
+                SolverTermination.SmallGradient => "Completed: small gradient",
+                SolverTermination.ReachedTarget => "Completed: target reached",
 
-            // Determine the normalised user message based on flags.
-            if (Stopped)
+                SolverTermination.IterationLimit => "Stopped: iteration limit reached",
+                SolverTermination.EvaluationLimit => "Stopped: evaluation limit reached",
+                SolverTermination.TimeLimit => "Stopped: time limit reached",
+                SolverTermination.Cancelled => "Stopped by user",
+
+                SolverTermination.InvalidValues => "Failed: invalid model values",
+                SolverTermination.Failed => string.IsNullOrWhiteSpace(FailureReason)
+                    ? "Failed"
+                    : "Failed: " + FailureReason.Trim(),
+
+                _ => "Stopped: unknown reason"
+            };
+        }
+
+        private string GetDisplayMessage()
+        {
+            var primary = GetPrimaryTerminationMessage();
+
+            if (!Success)
+                return primary;
+
+            return ErrorEstimationOutcome switch
             {
-                Message = "Stopped by user";
-                Failed = false;
-                MaxIterationsReached = false;
-                return;
-            }
+                ErrorEstimationOutcome.PartialFailure =>
+                    string.IsNullOrWhiteSpace(ErrorEstimationSummary)
+                        ? primary + "; error estimation partially failed"
+                        : primary + "; " + ErrorEstimationSummary,
 
-            if (MaxIterationsReached)
+                ErrorEstimationOutcome.CompleteFailure =>
+                    string.IsNullOrWhiteSpace(ErrorEstimationSummary)
+                        ? primary + "; error estimation failed"
+                        : primary + "; " + ErrorEstimationSummary,
+
+                ErrorEstimationOutcome.Cancelled =>
+                    string.IsNullOrWhiteSpace(ErrorEstimationSummary)
+                        ? primary + "; error estimation cancelled"
+                        : primary + "; " + ErrorEstimationSummary,
+
+                _ => primary
+            };
+        }
+
+        private static SolverTermination TranslateMathNet(ExitCondition code)
+        {
+            return code switch
             {
-                Message = "Reached iteration limit";
-                Failed = false;
-                return;
-            }
+                ExitCondition.Converged => SolverTermination.Converged,
+                ExitCondition.RelativePoints => SolverTermination.SmallStep,
+                ExitCondition.RelativeGradient => SolverTermination.SmallGradient,
+                ExitCondition.ExceedIterations => SolverTermination.IterationLimit,
+                ExitCondition.ManuallyStopped => SolverTermination.Cancelled,
+                ExitCondition.InvalidValues => SolverTermination.InvalidValues,
+                _ => SolverTermination.Failed,
+            };
+        }
 
-            if (Failed)
+        private static SolverTermination TranslateAccord(NelderMeadStatus code)
+        {
+            return code switch
             {
-                // Provide a concise failure message.
-                if (!string.IsNullOrEmpty(DetailedMessage))
-                {
-                    Message = "Failed: " + DetailedMessage.Trim();
-                }
-                else
-                {
-                    Message = "Failed";
-                }
-                return;
-            }
+                NelderMeadStatus.Success => SolverTermination.Converged,
+                NelderMeadStatus.FunctionToleranceReached => SolverTermination.Converged,
+                NelderMeadStatus.SolutionToleranceReached => SolverTermination.SmallStep,
+                NelderMeadStatus.MinimumAllowedValueReached => SolverTermination.ReachedTarget,
+                NelderMeadStatus.MaximumEvaluationsReached => SolverTermination.EvaluationLimit,
+                NelderMeadStatus.MaximumTimeReached => SolverTermination.TimeLimit,
+                NelderMeadStatus.ForcedStop => SolverTermination.Cancelled,
+                NelderMeadStatus.Failure => SolverTermination.Failed,
+                _ => SolverTermination.Failed,
+            };
+        }
 
-            // At this point the fit is not failed or stopped or limited. If warnings have
-            // occurred (e.g. bootstrap partial failures), surface them.
-            if (Warning)
-            {
-                Message = "Completed with warnings";
-                return;
-            }
+        private static SolverTermination AggregateTermination(IEnumerable<SolverConvergence> list)
+        {
+            var terms = list.Select(c => c.Termination).ToList();
 
-            // Otherwise the fit completed successfully.
-            Message = "Completed successfully";
+            if (terms.Any(t => t == SolverTermination.Cancelled))
+                return SolverTermination.Cancelled;
+
+            if (terms.Any(t =>
+                t == SolverTermination.Failed ||
+                t == SolverTermination.InvalidValues ||
+                t == SolverTermination.Unknown))
+                return SolverTermination.Failed;
+
+            if (terms.Any(t => t == SolverTermination.TimeLimit))
+                return SolverTermination.TimeLimit;
+
+            if (terms.Any(t => t == SolverTermination.EvaluationLimit))
+                return SolverTermination.EvaluationLimit;
+
+            if (terms.Any(t => t == SolverTermination.IterationLimit))
+                return SolverTermination.IterationLimit;
+
+            if (terms.Any(t => t == SolverTermination.SmallGradient))
+                return SolverTermination.SmallGradient;
+
+            if (terms.Any(t => t == SolverTermination.SmallStep))
+                return SolverTermination.SmallStep;
+
+            if (terms.Any(t => t == SolverTermination.ReachedTarget))
+                return SolverTermination.ReachedTarget;
+
+            return SolverTermination.Converged;
+        }
+
+        private static ErrorEstimationOutcome AggregateErrorEstimationOutcome(IEnumerable<SolverConvergence> list)
+        {
+            var outcomes = list.Select(c => c.ErrorEstimationOutcome).ToList();
+
+            if (outcomes.All(o => o == ErrorEstimationOutcome.None))
+                return ErrorEstimationOutcome.None;
+
+            if (outcomes.All(o => o == ErrorEstimationOutcome.None || o == ErrorEstimationOutcome.NotRun))
+                return ErrorEstimationOutcome.NotRun;
+
+            if (outcomes.All(o =>
+                o == ErrorEstimationOutcome.None ||
+                o == ErrorEstimationOutcome.NotRun ||
+                o == ErrorEstimationOutcome.Completed))
+                return ErrorEstimationOutcome.Completed;
+
+            if (outcomes.All(o => o == ErrorEstimationOutcome.Cancelled))
+                return ErrorEstimationOutcome.Cancelled;
+
+            if (outcomes.All(o => o == ErrorEstimationOutcome.CompleteFailure))
+                return ErrorEstimationOutcome.CompleteFailure;
+
+            return ErrorEstimationOutcome.PartialFailure;
         }
     }
 
@@ -420,46 +464,6 @@ namespace AnalysisITC
         }
     }
 
-    public class ModelCloneOptions
-    {
-        public bool IsGlobalClone { get; set; } = false;
-
-        public ErrorEstimationMethod ErrorEstimationMethod { get; set; } = ErrorEstimationMethod.None;
-        public bool IncludeConcentrationErrorsInBootstrap { get; set; } = false;
-        public bool EnableAutoConcentrationVariance { get; set; } = false;
-        public double AutoConcentrationVariance { get; set; } = 0.05f;
-        public int DiscardedDataPoint { get; set; } = 0;
-        public bool UnlockBootstrapParameters { get; set; } = false;
-
-        public ModelCloneOptions()
-        {
-            ErrorEstimationMethod = FittingOptionsController.ErrorEstimationMethod;
-            IncludeConcentrationErrorsInBootstrap = FittingOptionsController.IncludeConcentrationVariance;
-            EnableAutoConcentrationVariance = FittingOptionsController.EnableAutoConcentrationVariance;
-            AutoConcentrationVariance = FittingOptionsController.AutoConcentrationVariance;
-            UnlockBootstrapParameters = FittingOptionsController.UnlockBootstrapParameters;
-        }
-
-        public static ModelCloneOptions DefaultOptions
-        {
-            get
-            {
-                return new ModelCloneOptions();
-            }
-        }
-
-        public static ModelCloneOptions DefaultGlobalOptions
-        {
-            get
-            {
-                return new ModelCloneOptions()
-                {
-                    IsGlobalClone = true,
-                };
-            }
-        }
-    }
-
     [Description]
     public enum VariableConstraint
     {
@@ -498,29 +502,34 @@ namespace AnalysisITC
         LevenbergMarquardt
     }
 
-    public enum AlgLibTerminationCode
+    public enum SolverTermination
     {
-        [Description("Code0")]
-        Code0 = 0,
-        [Description("Loss function successfully converged")]
-        FunctionConverged = 1,
-        [Description("Step size smaller than limit")]
-        StepSizeTooSmall = 2,
-        [Description("Code3")]
-        Code3 = 3,
-        [Description("Gradient ")]
-        GradientIsFlat = 4,
-        [Description("Optimizer iteration limit")]
-        MaxIterations = 5,
-        Code6 = 6,
-        [Description("Not converging")]
-        NotReachingStopCriteria = 7,
-        [Description("Terminated by user")]
-        TerminatedByUser = 8,
-        [Description("NaN or infinity in function")]
-        CodeMinus8 = -8,
-        [Description("Rounding errors prevent further improvement")]
-        RoundingErrors = -2,
-        //1=relative function improvement is no more than EpsF. 2=relative step is no more than EpsX. 4=gradient norm is no more than EpsG. 5=MaxIts steps was taken. 7=stopping conditions are too stringent, further improvement is impossible, we return best X found so far. 8= terminated by user
+        Unknown = 0,
+
+        // Successful / acceptable termination
+        Converged,
+        SmallStep,
+        SmallGradient,
+        ReachedTarget,
+
+        // Incomplete termination
+        IterationLimit,
+        EvaluationLimit,
+        TimeLimit,
+        Cancelled,
+
+        // Bad termination
+        InvalidValues,
+        Failed
+    }
+
+    public enum ErrorEstimationOutcome
+    {
+        None = 0,
+        NotRun,
+        Completed,
+        PartialFailure,
+        CompleteFailure,
+        Cancelled
     }
 }
