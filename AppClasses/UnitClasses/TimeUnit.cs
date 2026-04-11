@@ -16,6 +16,26 @@ namespace AnalysisITC
             Letter = letter;
             Mod = mod;
         }
+
+        public static string FormatTimeSpanShort(TimeSpan time)
+        {
+            if (time < TimeSpan.Zero)
+                return "-" + FormatTimeSpanShort(time.Negate());
+
+            if (time.TotalSeconds < 1)
+                return $"{time.TotalMilliseconds:0} ms";
+
+            if (time.TotalMinutes < 1)
+                return $"{time.TotalSeconds:0.#} s";
+
+            if (time.TotalHours < 1)
+                return $"{time.TotalMinutes:0.#} min";
+
+            if (time.TotalDays < 1)
+                return $"{time.TotalHours:0.#} h";
+
+            return $"{time.TotalDays:0.#} d";
+        }
     }
 
     public enum TimeUnit
