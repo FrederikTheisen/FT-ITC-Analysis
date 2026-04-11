@@ -533,6 +533,7 @@
     <Compile Include="AppClasses\Analysis2\AnalysisBuilder.cs" />
     <Compile Include="AppClasses\Analysis2\AnalysisWorkspace.cs" />
     <Compile Include="AppClasses\Analysis2\AnalysisContext.cs" />
+    <Compile Include="AppClasses\Analysis2\ModelCloneOptions.cs" />
   </ItemGroup>
   <ItemGroup>
     <InterfaceDefinition Include="Main.storyboard" />
