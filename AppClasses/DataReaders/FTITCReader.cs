@@ -332,7 +332,8 @@ namespace DataReaders
             GlobalModelFactory factory = new GlobalModelFactory(mdl);
             var datas = new List<ExperimentData>();
             var solutions = new List<SolutionInterface>();
-            SolverConvergence conv = null;
+            SolverConvergence legacyConv = null;
+            SolverConvergence snapshotConv = null;
 
             while ((line = reader.ReadLine()) != EndFileHeader)
             {
@@ -392,11 +393,14 @@ namespace DataReaders
                         break;
                     case "OBJECT" when v[1] == SolConvergence:
                         {
-                            conv = ReadConvergenceObject(reader);
+                            legacyConv = ReadConvergenceObject(reader);
                             reader.ReadLine();
 
                             break;
                         }
+                    case "OBJECT" when v[1] == SolConvergenceSnapshot:
+                        snapshotConv = ReadConvergenceSnapshotObject(reader);
+                        break;
                     case "OBJECT" when v[1] == MdlCloneOptions:
                         {
                             var mco = new ModelCloneOptions();
@@ -423,7 +427,7 @@ namespace DataReaders
                 factory.Model.Solution = new GlobalSolution(new GlobalSolver()
                 {
                     Model = factory.Model, ErrorEstimationMethod = solutions[0].ErrorMethod
-                }, solutions, conv);
+                }, solutions, snapshotConv ?? legacyConv);
 
             factory.Model.Solution.UseWeightedFitting = useErrorWeightedFitting;
 
@@ -445,7 +449,8 @@ namespace DataReaders
                 if (experimentData == null)
                     factory.InitializeModel(Data.Find(d => d.UniqueID == dataref) as ExperimentData);
                 else factory.ConstructModel(experimentData);
-                SolverConvergence conv = null;
+                SolverConvergence legacyConv = null;
+                SolverConvergence snapshotConv = null;
                 double reference_loss_value = double.NaN;
                 List<Parameter> parameters = null;
                 List<SolutionInterface> bsols = null;
@@ -484,7 +489,13 @@ namespace DataReaders
                             bsols = ReadBootstrapParameterList(factory.Model, reader);
                             break;
                         case "LIST" when v[1] == MdlOptions: ReadModelOptions(factory.Model, reader); break;
-                        case "OBJECT" when v[1] == SolConvergence: conv = ReadConvergenceObject(reader); break;
+                        case "OBJECT" when v[1] == SolConvergence:
+                            legacyConv = ReadConvergenceObject(reader);
+                            reader.ReadLine();
+                            break;
+                        case "OBJECT" when v[1] == SolConvergenceSnapshot:
+                            snapshotConv = ReadConvergenceSnapshotObject(reader);
+                            break;
 
                     }
                 }
@@ -492,7 +503,7 @@ namespace DataReaders
                 foreach (var par in parameters)
                     factory.Model.Parameters.AddOrUpdateParameter(par.Key, par.Value);
 
-                var solution = SolutionInterface.FromModel(factory.Model, conv);
+                var solution = SolutionInterface.FromModel(factory.Model, snapshotConv ?? legacyConv);
                 solution.UseWeightedFitting = useErrorWeightedFitting;
                 solution.SetID(guid);
                 if (!string.IsNullOrWhiteSpace(parentID)) solution.ParentSolutionID = parentID;
@@ -564,7 +575,7 @@ namespace DataReaders
             foreach (var d in dat.Where(s => !string.IsNullOrEmpty(s)))
                 dict.Add(d.Split(':')[0], d.Split(':')[1]);
 
-            conv = SolverConvergence.FromSave(
+            conv = SolverConvergence.FromSaveLegacy(
                 IParse(dict[SolIterations]),
                 DParse(dict[SolLoss]),
                 TSParse(dict[SolConvTime]),
@@ -573,6 +584,59 @@ namespace DataReaders
                 dict[SolConvMsg],
                 BParse(dict[SolConvFailed]));
             return conv;
+        }
+
+        private static SolverConvergence ReadConvergenceSnapshotObject(StreamReader reader)
+        {
+            var dict = ReadObjectDictionary(reader);
+
+            var snapshot = new SolverConvergenceSnapshot()
+            {
+                SchemaVersion = dict.ContainsKey(SolConvSchemaVersion)
+                    ? IParse(dict[SolConvSchemaVersion])
+                    : SolverConvergenceSnapshot.CurrentSchemaVersion,
+                Iterations = dict.ContainsKey(SolIterations) ? IParse(dict[SolIterations]) : 0,
+                Loss = dict.ContainsKey(SolLoss) ? DParse(dict[SolLoss]) : 0,
+                TimeSeconds = dict.ContainsKey(SolConvTime) ? DParse(dict[SolConvTime]) : 0,
+                ErrorEstimationTimeSeconds = dict.ContainsKey(SolConvBootstrapTime) ? DParse(dict[SolConvBootstrapTime]) : 0,
+                Algorithm = dict.ContainsKey(SolConvAlgorithm)
+                    ? (SolverAlgorithm)IParse(dict[SolConvAlgorithm])
+                    : default,
+                Termination = dict.ContainsKey(SolConvTermination)
+                    ? (SolverTermination)IParse(dict[SolConvTermination])
+                    : SolverTermination.Unknown,
+                ErrorEstimationOutcome = dict.ContainsKey(SolConvErrorOutcome)
+                    ? (ErrorEstimationOutcome)IParse(dict[SolConvErrorOutcome])
+                    : ErrorEstimationOutcome.None,
+                FailureReason = dict.ContainsKey(SolConvFailureReason) ? DecodeText(dict[SolConvFailureReason]) : string.Empty,
+                ErrorEstimationSummary = dict.ContainsKey(SolConvErrorSummary) ? DecodeText(dict[SolConvErrorSummary]) : string.Empty,
+            };
+
+            return SolverConvergence.FromSnapshot(snapshot);
+        }
+
+        private static Dictionary<string, string> ReadObjectDictionary(StreamReader reader)
+        {
+            var dict = new Dictionary<string, string>();
+
+            string line;
+            while ((line = reader.ReadLine()) != EndObjectHeader)
+            {
+                int idx = line.IndexOf(':');
+
+                if (idx < 0)
+                {
+                    dict[line] = string.Empty;
+                    continue;
+                }
+
+                var key = line.Substring(0, idx);
+                var value = line.Substring(idx + 1);
+
+                dict[key] = value;
+            }
+
+            return dict;
         }
     }
 }

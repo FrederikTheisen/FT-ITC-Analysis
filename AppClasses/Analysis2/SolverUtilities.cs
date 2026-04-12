@@ -148,6 +148,41 @@ namespace AnalysisITC
             };
         }
 
+        public SolverConvergenceSnapshot ToSnapshot()
+        {
+            return new SolverConvergenceSnapshot()
+            {
+                SchemaVersion = SolverConvergenceSnapshot.CurrentSchemaVersion,
+                Algorithm = Algorithm,
+                Termination = Termination,
+                ErrorEstimationOutcome = ErrorEstimationOutcome,
+                Iterations = Iterations,
+                Loss = Loss,
+                TimeSeconds = Time.TotalSeconds,
+                ErrorEstimationTimeSeconds = ErrorEstimationTime.TotalSeconds,
+                FailureReason = FailureReason ?? string.Empty,
+                ErrorEstimationSummary = ErrorEstimationSummary ?? string.Empty,
+            };
+        }
+
+        public static SolverConvergence FromSnapshot(SolverConvergenceSnapshot snapshot)
+        {
+            if (snapshot == null) return null;
+
+            return new SolverConvergence()
+            {
+                Algorithm = snapshot.Algorithm,
+                Termination = snapshot.Termination,
+                ErrorEstimationOutcome = snapshot.ErrorEstimationOutcome,
+                Iterations = snapshot.Iterations,
+                Loss = snapshot.Loss,
+                Time = TimeSpan.FromSeconds(snapshot.TimeSeconds),
+                ErrorEstimationTime = TimeSpan.FromSeconds(snapshot.ErrorEstimationTimeSeconds),
+                FailureReason = snapshot.FailureReason ?? string.Empty,
+                ErrorEstimationSummary = snapshot.ErrorEstimationSummary ?? string.Empty,
+            };
+        }
+
         public static SolverConvergence ReportFailed(DateTime starttime)
         {
             var conv = new SolverConvergence()
@@ -170,7 +205,7 @@ namespace AnalysisITC
             return conv;
         }
 
-        public static SolverConvergence FromSave(int iter, double loss, TimeSpan time, TimeSpan btime, SolverAlgorithm algorithm, string msg, bool failed)
+        public static SolverConvergence FromSaveLegacy(int iter, double loss, TimeSpan time, TimeSpan btime, SolverAlgorithm algorithm, string msg, bool failed)
         {
             return new SolverConvergence()
             {
@@ -396,6 +431,22 @@ namespace AnalysisITC
 
             return ErrorEstimationOutcome.PartialFailure;
         }
+    }
+
+    public sealed class SolverConvergenceSnapshot
+    {
+        public const int CurrentSchemaVersion = 1;
+
+        public int SchemaVersion { get; set; } = CurrentSchemaVersion;
+        public SolverAlgorithm Algorithm { get; set; }
+        public SolverTermination Termination { get; set; } = SolverTermination.Unknown;
+        public ErrorEstimationOutcome ErrorEstimationOutcome { get; set; } = ErrorEstimationOutcome.None;
+        public int Iterations { get; set; }
+        public double Loss { get; set; }
+        public double TimeSeconds { get; set; }
+        public double ErrorEstimationTimeSeconds { get; set; }
+        public string FailureReason { get; set; } = string.Empty;
+        public string ErrorEstimationSummary { get; set; } = string.Empty;
     }
 
     public class TerminationFlag

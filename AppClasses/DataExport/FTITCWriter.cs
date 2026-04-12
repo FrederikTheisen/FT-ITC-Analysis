@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Threading.Tasks;
 using System.Linq;
+using System.Text;
 using AnalysisITC.AppClasses.AnalysisClasses.Models;
 using AnalysisITC.AppClasses.AnalysisClasses;
 
@@ -71,6 +72,12 @@ namespace AnalysisITC
         public const string SolConvBootstrapTime = "BTIME";
         public const string SolConvFailed = "Failed";
         public const string SolConvAlgorithm = "Algorithm";
+        public const string SolConvergenceSnapshot = "ConvSnapshot";
+        public const string SolConvSchemaVersion = "SchemaVersion";
+        public const string SolConvTermination = "Termination";
+        public const string SolConvErrorOutcome = "ErrorOutcome";
+        public const string SolConvFailureReason = "FailureReason";
+        public const string SolConvErrorSummary = "ErrorSummary";
         public const string SolWeightedError = "InjErrorWeighted";
         public const string MdlCloneOptions = "MdlClOpts";
         public const string MdlOptions = "MdlOpts";
@@ -125,6 +132,25 @@ namespace AnalysisITC
         public static int IParse(string value) => int.Parse(value);
         public static bool BParse(string value) => value == "1";
         public static Energy EParse(string value) => new Energy(FWEParse(value));
+        public static string EncodeText(string value)
+        {
+            if (string.IsNullOrEmpty(value)) return "";
+
+            return Convert.ToBase64String(Encoding.UTF8.GetBytes(value));
+        }
+        public static string DecodeText(string value)
+        {
+            if (string.IsNullOrEmpty(value)) return "";
+
+            try
+            {
+                return Encoding.UTF8.GetString(Convert.FromBase64String(value));
+            }
+            catch
+            {
+                return value;
+            }
+        }
         public static FloatWithError FWEParse(string value)
         {
             if (value.Contains(';')) return FloatWithError.FromSaveString(value); // New save version
@@ -365,6 +391,7 @@ namespace AnalysisITC
             if (solution.ParentSolution != null) file.Add(Variable(SolParent, solution.ParentSolution.UniqueID));
             if (solution.ErrorMethod != ErrorEstimationMethod.None) file.Add(Variable(SolErrorMethod, (int)solution.ErrorMethod));
             AddConvergenceLine(solution.Convergence, file);
+            AddConvergenceSnapshot(solution.Convergence, file);
 
             file.Add(ListHeader(SolParams));
             foreach (var par in solution.Model.Parameters.Table)
@@ -413,16 +440,38 @@ namespace AnalysisITC
 
         private static void AddConvergenceLine(SolverConvergence convergence, List<string> file)
         {
+            if (convergence == null) return;
+
             file.Add(ObjectHeader(SolConvergence));
             var conv = "";
             conv += Variable(SolIterations, convergence.Iterations) + ";";
             conv += Variable(SolConvMsg, convergence.Message) + ";";
             conv += Variable(SolConvTime, convergence.Time.TotalSeconds) + ";";
-            conv += Variable(SolConvBootstrapTime, convergence.BootstrapTime.TotalSeconds) + ";";
+            conv += Variable(SolConvBootstrapTime, convergence.ErrorEstimationTime.TotalSeconds) + ";";
             conv += Variable(SolLoss, convergence.Loss) + ";";
             conv += Variable(SolConvFailed, convergence.Failed) + ";";
             conv += Variable(SolConvAlgorithm, (int)convergence.Algorithm);
             file.Add(conv);
+            file.Add(EndObjectHeader);
+        }
+
+        private static void AddConvergenceSnapshot(SolverConvergence convergence, List<string> file)
+        {
+            if (convergence == null) return;
+
+            var snapshot = convergence.ToSnapshot();
+
+            file.Add(ObjectHeader(SolConvergenceSnapshot));
+            file.Add(Variable(SolConvSchemaVersion, snapshot.SchemaVersion));
+            file.Add(Variable(SolIterations, snapshot.Iterations));
+            file.Add(Variable(SolLoss, snapshot.Loss));
+            file.Add(Variable(SolConvTime, snapshot.TimeSeconds));
+            file.Add(Variable(SolConvBootstrapTime, snapshot.ErrorEstimationTimeSeconds));
+            file.Add(Variable(SolConvAlgorithm, (int)snapshot.Algorithm));
+            file.Add(Variable(SolConvTermination, (int)snapshot.Termination));
+            file.Add(Variable(SolConvErrorOutcome, (int)snapshot.ErrorEstimationOutcome));
+            file.Add(Variable(SolConvFailureReason, EncodeText(snapshot.FailureReason)));
+            file.Add(Variable(SolConvErrorSummary, EncodeText(snapshot.ErrorEstimationSummary)));
             file.Add(EndObjectHeader);
         }
 
@@ -480,7 +529,8 @@ namespace AnalysisITC
             file.Add(EndObjectHeader);
 
             //Convergence
-            AddConvergenceLine(solution.Convergence, file); 
+            AddConvergenceLine(solution.Convergence, file);
+            AddConvergenceSnapshot(solution.Convergence, file);
 
             file.Add(ListHeader(SolutionList));
             foreach (var sol in solution.Solutions)
