@@ -15,7 +15,9 @@ namespace AnalysisITC
 {
 	public partial class ExperimentDesignerViewController2 : NSViewController
 	{
-        public static bool AutoRunExperimentSimulation { get; set; } = false;
+        private bool _isrunning = false;
+
+        public static bool AutoRunExperimentSimulation { get; set; } = true;
 
         private ITCInstrument Instrument { get; set; } = ITCInstrument.MicroCalITC200;
         private ExperimentData Data { get; set; }
@@ -78,8 +80,8 @@ namespace AnalysisITC
             SolverInterface.AnalysisFinished += SolverInterface_AnalysisFinished;
         }
 
-        private void SolverInterface_AnalysisFinished(object sender, SolverConvergence e) => ApplyModelButton.Enabled = true;
-        private void SolverInterface_AnalysisStarted(object sender, TerminationFlag e) => ApplyModelButton.Enabled = false;
+        private void SolverInterface_AnalysisFinished(object sender, SolverConvergence e) { _isrunning = false; ApplyModelButton.Enabled = true; }
+        private void SolverInterface_AnalysisStarted(object sender, TerminationFlag e) { _isrunning = true; ApplyModelButton.Enabled = false; }
 
         partial void SyringeCellAction(NSObject sender)
         {
@@ -321,6 +323,13 @@ namespace AnalysisITC
             }
 
             Factory.BuildModel();
+
+            SimulateExperiment();
+        }
+
+        void SimulateExperiment()
+        {
+            if (_isrunning) return;
 
             Data.Model.Solution = SolutionInterface.FromModel(Data.Model, SolverConvergence.ReportStopped(DateTime.Now));
 
