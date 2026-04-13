@@ -53,7 +53,7 @@ namespace DataReaders
         private static ExperimentData ReadDelimitedIntegratedHeats(string filepath, List<string> lines, bool concentrationsAreMilliMolar)
         {
             var ext = Path.GetExtension(filepath);
-            separator = ext.ToLower().Contains("aff") ? ';' : ',';
+            separator = ResolveSeparator(lines[0]);
 
             // Header
             var header = SplitLine(lines[0]);
@@ -215,6 +215,15 @@ namespace DataReaders
             ITCInstrumentAttribute.ResolveInstrument(data);
 
             return data;
+        }
+
+        private static char ResolveSeparator(string line)
+        {
+            var separators = new[] { '\t', ';', ',' };
+
+            foreach (var sep in separators) if (line.Contains(sep)) return sep;
+
+            return ',';
         }
 
         private static string[] SplitLine(string line)
