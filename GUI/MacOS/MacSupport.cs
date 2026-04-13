@@ -77,7 +77,6 @@ namespace AnalysisITC.GUI.MacOS
             builder.AppendLine("---------------");
             builder.Append(AppEventHandler.GetRecentLogSummary());
             builder.AppendLine();
-            builder.AppendLine("Tip: Use Help > Copy Support Report to copy the full application log.");
 
             return builder.ToString();
         }
