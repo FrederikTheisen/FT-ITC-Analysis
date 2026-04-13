@@ -73,7 +73,9 @@ namespace AnalysisITC.AppClasses.AnalysisClasses
 
         // LM parameters
         public double LevenbergMarquardtDifferentiationStepSize => Tolerance(17, 22);  
-        public double LevenbergMarquardtEpsilon => Tolerance(17, 22);             
+        public double LevenbergMarquardtEpsilon => Tolerance(15, 22);
+        public double LevenbergMarquardtGradientTolerance => Tolerance(19, 24);
+        public double LevenbergMarquardtStepTolerance => Tolerance(18, 23);
 
         public static CancellationTokenSource NelderMeadToken { get; set; }
         internal NonlinearMinimizationResult LmResult { get; set; }
@@ -392,9 +394,9 @@ namespace AnalysisITC.AppClasses.AnalysisClasses
             );
 
             var minimizer = new LevenbergMarquardtMinimizer(
-                gradientTolerance: this.LevenbergMarquardtEpsilon,
+                gradientTolerance: this.LevenbergMarquardtGradientTolerance,
                 functionTolerance: this.LevenbergMarquardtEpsilon,
-                stepTolerance: this.LevenbergMarquardtEpsilon,
+                stepTolerance: this.LevenbergMarquardtStepTolerance,
                 maximumIterations: MaxOptimizerIterations);
 
             double[] initialGuess = Model.Parameters.GetFittedParameterArray();
@@ -673,9 +675,9 @@ namespace AnalysisITC.AppClasses.AnalysisClasses
             );
 
             var minimizer = new LevenbergMarquardtMinimizer(
-                gradientTolerance: this.LevenbergMarquardtEpsilon,
+                gradientTolerance: this.LevenbergMarquardtGradientTolerance,
                 functionTolerance: this.LevenbergMarquardtEpsilon,
-                stepTolerance: this.LevenbergMarquardtEpsilon,
+                stepTolerance: this.LevenbergMarquardtStepTolerance,
                 maximumIterations: MaxOptimizerIterations);
 
             double[] initialGuess = Model.Parameters.GetFittedParameterArray();

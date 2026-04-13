@@ -296,10 +296,10 @@ namespace AnalysisITC
         {
             return Termination switch
             {
-                SolverTermination.Converged => "Completed successfully",
-                SolverTermination.SmallStep => "Completed: small parameter change",
-                SolverTermination.SmallGradient => "Completed: small gradient",
-                SolverTermination.ReachedTarget => "Completed: target reached",
+                SolverTermination.Converged => "Completed Successfully",
+                SolverTermination.SmallStep => "Completed Successfully",
+                SolverTermination.SmallGradient => "Completed Successfully",
+                SolverTermination.ReachedTarget => "Completed Successfully",
 
                 SolverTermination.IterationLimit => "Stopped: iteration limit reached",
                 SolverTermination.EvaluationLimit => "Stopped: evaluation limit reached",
