@@ -296,22 +296,22 @@ namespace AnalysisITC
         {
             return Termination switch
             {
-                SolverTermination.Converged => "Completed Successfully",
-                SolverTermination.SmallStep => "Completed Successfully",
-                SolverTermination.SmallGradient => "Completed Successfully",
-                SolverTermination.ReachedTarget => "Completed Successfully",
+                SolverTermination.Converged => "Analysis Completed Successfully",
+                SolverTermination.SmallStep => "Analysis Completed Successfully",
+                SolverTermination.SmallGradient => "Analysis Completed Successfully",
+                SolverTermination.ReachedTarget => "Analysis Completed Successfully",
 
-                SolverTermination.IterationLimit => "Stopped: iteration limit reached",
-                SolverTermination.EvaluationLimit => "Stopped: evaluation limit reached",
-                SolverTermination.TimeLimit => "Stopped: time limit reached",
-                SolverTermination.Cancelled => "Stopped by user",
+                SolverTermination.IterationLimit => "Analysis Stopped: iteration limit reached",
+                SolverTermination.EvaluationLimit => "Analysis Stopped: evaluation limit reached",
+                SolverTermination.TimeLimit => "Analysis Stopped: time limit reached",
+                SolverTermination.Cancelled => "Analysis Stopped by user",
 
-                SolverTermination.InvalidValues => "Failed: invalid model values",
+                SolverTermination.InvalidValues => "Analysis Failed: invalid model values",
                 SolverTermination.Failed => string.IsNullOrWhiteSpace(FailureReason)
-                    ? "Failed"
-                    : "Failed: " + FailureReason.Trim(),
+                    ? "Analysis Failed"
+                    : "Analysis Failed: " + FailureReason.Trim(),
 
-                _ => "Stopped: unknown reason"
+                _ => "Analysis Stopped: unknown reason"
             };
         }
 
