@@ -37,6 +37,7 @@ namespace AnalysisITC
             AppEventHandler.ShowAppMessage += OnShowAppMessage;
 
             StateManager_UpdateStateDependentUI(null, null);
+            AppVersion.CheckForUpdatesInBackground();
         }
 
         private void AppDelegate_ShowCitation(object sender, EventArgs e)

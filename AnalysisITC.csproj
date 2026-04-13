@@ -13,6 +13,7 @@
     <TargetFrameworkIdentifier>Xamarin.Mac</TargetFrameworkIdentifier>
     <XamMacArch>x86_64,ARM64</XamMacArch>
     <ReleaseVersion>1.1</ReleaseVersion>
+    <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <DebugSymbols>true</DebugSymbols>
@@ -221,6 +222,7 @@
     <None Include="TestData\data_2.itc" />
     <None Include="TestData\results.txt" />
     <None Include="TestData\data.ftitc" />
+    <None Include="VERSION" />
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Main.cs" />
