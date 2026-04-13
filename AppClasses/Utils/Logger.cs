@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text;
 using AppKit;
 
 namespace AnalysisITC
@@ -9,32 +10,40 @@ namespace AnalysisITC
 	{
 		public static EventHandler<HandledException> ShowAppMessage;
 
+		static readonly object LogLock = new object();
 		static List<LogEntry> Log { get; } = new List<LogEntry>();
 
 		public static void AddLog(string msg)
 		{
-			Log.Add(new LogEntry(msg));
+			lock (LogLock)
+			{
+				Log.Add(new LogEntry(msg));
 
-			if (Log.Count > 1023) Log.RemoveAt(0);
+				if (Log.Count > 1023) Log.RemoveAt(0);
+			}
 		}
 
         public static void AddLog(Exception ex)
         {
-            Log.Add(new LogEntry(ex));
+			lock (LogLock)
+			{
+				Log.Add(new LogEntry(ex));
 
-            if (Log.Count > 1023) Log.RemoveAt(0);
+				if (Log.Count > 10000) Log.RemoveAt(0);
+			}
         }
 
-		public static void PrintAndLog(string msg, int indentation = 0)
+		public static void PrintAndLog(string msg, int indentation = 0, string code = null)
 		{
             Print(msg, indentation);
 
-			AddLog(msg);
+			if (code == null) AddLog(msg);
+			else AddLog($"[{code}] {msg}");
         }
 
 		public static void Print(string msg, int indentation = 0) => Console.WriteLine($"{new string(' ', 2*indentation)}{msg}");
 
-        public static void DisplayHandledException(Exception ex)
+		public static void DisplayHandledException(Exception ex)
 		{
 			AddLog(ex);
 
@@ -57,6 +66,84 @@ namespace AnalysisITC
 				default: NSApplication.SharedApplication.InvokeOnMainThread(() => { ShowAppMessage?.Invoke(null, new(ex)); StatusBarManager.ClearAppStatus(); }); break;
             }
         }
+
+		public static string GetLogReport()
+		{
+			lock (LogLock)
+			{
+				var builder = new StringBuilder();
+
+				foreach (var entry in Log)
+				{
+					builder.Append('[');
+					builder.Append(entry.DateTime.ToString("yyyy-MM-dd HH:mm:ss"));
+					builder.Append("] ");
+					builder.AppendLine(entry.Message);
+
+					if (entry.Exception == null) continue;
+
+					builder.Append("Exception: ");
+					builder.AppendLine(entry.Exception.GetType().FullName);
+
+					if (!string.IsNullOrWhiteSpace(entry.Exception.StackTrace))
+					{
+						builder.AppendLine(entry.Exception.StackTrace);
+					}
+
+					builder.AppendLine();
+				}
+
+				if (builder.Length == 0)
+				{
+					builder.AppendLine("No log entries recorded.");
+				}
+
+				return builder.ToString();
+			}
+		}
+
+		public static string GetRecentLogSummary(int maxEntries = 12, int maxMessageLength = 160)
+		{
+			lock (LogLock)
+			{
+				var builder = new StringBuilder();
+				var entries = Log.TakeLast(Math.Max(0, maxEntries));
+
+				foreach (var entry in entries)
+				{
+					builder.Append("- ");
+					builder.Append(entry.DateTime.ToString("HH:mm:ss"));
+					builder.Append("  ");
+					builder.AppendLine(Compact(entry.Message, maxMessageLength));
+				}
+
+				if (builder.Length == 0)
+				{
+					builder.AppendLine("- No recent log entries.");
+				}
+
+				return builder.ToString();
+			}
+		}
+
+		static string Compact(string value, int maxLength)
+		{
+			if (string.IsNullOrWhiteSpace(value))
+			{
+				return "(empty)";
+			}
+
+			var compact = string.Join(" ", value
+				.Split(new[] { '\r', '\n', '\t' }, StringSplitOptions.RemoveEmptyEntries))
+				.Trim();
+
+			if (compact.Length <= maxLength)
+			{
+				return compact;
+			}
+
+			return compact.Substring(0, Math.Max(0, maxLength - 3)) + "...";
+		}
 	}
 
 	public class LogEntry

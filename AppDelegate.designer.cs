@@ -20,6 +20,9 @@ namespace AnalysisITC
 		[Action ("CopyAttributesToAll:")]
 		partial void CopyAttributesToAll (Foundation.NSObject sender);
 
+		[Action ("CopySupportReport:")]
+		partial void CopySupportReport (Foundation.NSObject sender);
+
 		[Action ("DuplicateSelectedData:")]
 		partial void DuplicateSelectedData (Foundation.NSObject sender);
 

@@ -243,7 +243,12 @@ namespace AnalysisITC
 
         partial void StartSupport(NSObject sender)
         {
-            MacSupport.Test();
+            MacSupport.StartSupportEmail();
+        }
+
+        partial void CopySupportReport(NSObject sender)
+        {
+            MacSupport.CopySupportReportToClipboard();
         }
 
         public override void WillTerminate(NSNotification notification)
