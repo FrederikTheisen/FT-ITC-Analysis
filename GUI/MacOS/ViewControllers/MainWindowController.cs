@@ -107,8 +107,8 @@ namespace AnalysisITC
 
         private void DataProcessor_InterpolationCompleted(object sender, EventArgs e)
         {
-            ProcessSegControl.SetEnabled(DataManager.Current.Processor.BaselineCompleted, 1);
-            ProcessSegControl.SetEnabled(DataManager.AllDataIsBaselineProcessed, 2);
+            //ProcessSegControl.SetEnabled(DataManager.Current.Processor.BaselineCompleted, 1);
+            //ProcessSegControl.SetEnabled(DataManager.AllDataIsBaselineProcessed, 2);
         }
 
         private void DataManager_SelectionDidChange(object sender, ExperimentData e)
