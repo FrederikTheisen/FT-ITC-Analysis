@@ -61,8 +61,10 @@
 				<string>TA</string>
 				<string>dat</string>
 				<string>aff</string>
+				<string>dh</string>
 				<string>DAT</string>
 				<string>AFF</string>
+				<string>DH</string>
 				<string>apj</string>
 			</array>
 			<key>CFBundleTypeIconFile</key>
@@ -123,8 +125,10 @@
 					<string>TA</string>
 					<string>dat</string>
 					<string>aff</string>
+					<string>dh</string>
 					<string>DAT</string>
 					<string>AFF</string>
+					<string>DH</string>
 					<string>apj</string>
 				</array>
 			</dict>
@@ -158,6 +162,8 @@
 					<string>DAT</string>
 					<string>aff</string>
 					<string>AFF</string>
+					<string>dh</string>
+					<string>DH</string>
 				</array>
 			</dict>
 		</dict>
