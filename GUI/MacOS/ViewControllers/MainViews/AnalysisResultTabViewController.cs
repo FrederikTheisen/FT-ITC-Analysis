@@ -387,10 +387,15 @@ namespace AnalysisITC
                     SetupAnalyisResultView(AnalysisResult.ProtonationAnalysis);
                     break;
                 case ResultGraphView.ResultGraphType.IonicStrengthDependence:
-                    Graph.Setup(AnalysisResult.ElectrostaticsAnalysis);
+                    Graph.Setup(AnalysisResult.ElectrostaticsAnalysis, GetSelectedElectrostaticsMode());
                     SetupAnalyisResultView(AnalysisResult.ElectrostaticsAnalysis);
                     break;
             }
+        }
+
+        ElectrostaticsAnalysis.DissocFitMode GetSelectedElectrostaticsMode()
+        {
+            return (ElectrostaticsAnalysis.DissocFitMode)(int)ElectrostaticAnalysisModel.SelectedSegment;
         }
 
         void SetupAnalyisResultView(AdvancedAnalysis analysis)
@@ -474,15 +479,13 @@ namespace AnalysisITC
         {
             ToggleFitButtons(false);
 
-            AnalysisResult.ElectrostaticsAnalysis.SetMode((ElectrostaticsAnalysis.DissocFitMode)(int)ElectrostaticAnalysisModel.SelectedSegment);
             AnalysisResult.ElectrostaticsAnalysis.PerformAnalysis();
         }
 
         partial void ElectrostaticsAnalysisModeAction(NSSegmentedControl sender)
         {
-            AnalysisResult.ElectrostaticsAnalysis.SetMode((ElectrostaticsAnalysis.DissocFitMode)(int)ElectrostaticAnalysisModel.SelectedSegment);
-
-            Graph.Setup(AnalysisResult.ElectrostaticsAnalysis);
+            if (DisplayedGraphType == ResultGraphView.ResultGraphType.IonicStrengthDependence)
+                Graph.Setup(AnalysisResult.ElectrostaticsAnalysis, GetSelectedElectrostaticsMode());
         }
 
         partial void EvaluateParameters(NSObject sender)

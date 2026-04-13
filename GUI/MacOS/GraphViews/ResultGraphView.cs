@@ -67,17 +67,17 @@ namespace AnalysisITC
             Invalidate();
         }
 
-        public void Setup(ElectrostaticsAnalysis analysis)
+        public void Setup(ElectrostaticsAnalysis analysis, ElectrostaticsAnalysis.DissocFitMode mode)
         {
-            Type = ResultGraphType.ProtonationAnalysis;
-            var unit = ConcentrationUnitAttribute.GetMagnitudeUnitFromConcentration(analysis.DataPoints.Select(dp => dp.Item2.Value).Average());
+            Type = ResultGraphType.IonicStrengthDependence;
+            var dataPoints = analysis.GetDataPoints(mode);
 
-            switch (analysis.Mode)
+            switch (mode)
             {
                 case ElectrostaticsAnalysis.DissocFitMode.AffinityVsSalt:
                     {
-                        var grouped = analysis.DataPoints.GroupBy(dp => dp.Item1).ToList();
-                        double jitter = (analysis.DataPoints.Max(dp => dp.Item1) - analysis.DataPoints.Min(dp => dp.Item1)) / 70;
+                        var grouped = dataPoints.GroupBy(dp => dp.Item1).ToList();
+                        double jitter = (dataPoints.Max(dp => dp.Item1) - dataPoints.Min(dp => dp.Item1)) / 70;
 
                         var dps = grouped.SelectMany(g =>
                         {
@@ -104,7 +104,7 @@ namespace AnalysisITC
                     }
                 case ElectrostaticsAnalysis.DissocFitMode.CounterIonRelease:
                     {
-                        var dps = analysis.DataPoints.GroupBy(dp => dp.Item1).ToList();
+                        var dps = dataPoints.GroupBy(dp => dp.Item1).ToList();
 
                         var x = dps.Select(g => new FloatWithError(g.Select(v => v.Item1).ToList()));
                         var y = dps.Select(g => new FloatWithError(g.Select(v => v.Item2).ToList()));
@@ -126,12 +126,12 @@ namespace AnalysisITC
                 default:
                 case ElectrostaticsAnalysis.DissocFitMode.DebyeHuckel:
                     {
-                        var dps = analysis.DataPoints.GroupBy(dp => dp.Item1).ToList();
+                        var dps = dataPoints.GroupBy(dp => dp.Item1).ToList();
 
                         var x = dps.Select(g => new FloatWithError(Math.Sqrt(g.Select(v => v.Item1).Average())));
                         var y = dps.Select(g => FWEMath.Log10(new FloatWithError(g.Select(v => v.Item2).ToList())));
 
-                        var yvalues = analysis.DataPoints.Select(dp => FWEMath.Log10(dp.Item2)).ToArray();
+                        var yvalues = dataPoints.Select(dp => FWEMath.Log10(dp.Item2)).ToArray();
 
                         Graph = new ParameterDependenceGraph(this)
                         {

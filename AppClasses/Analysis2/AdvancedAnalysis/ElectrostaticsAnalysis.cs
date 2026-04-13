@@ -8,8 +8,6 @@ namespace AnalysisITC.AppClasses.AnalysisClasses
 {
     public class ElectrostaticsAnalysis : AdvancedAnalysis
     {
-        public DissocFitMode Mode { get; private set; } = DissocFitMode.AffinityVsSalt;
-
         public bool Calculated { get; private set; } = false;
         public Energy ElectrostaticStrength { get; private set; } = new(0);
         public FloatWithError CounterIonRelease { get; private set; } = FloatWithError.NaN;
@@ -21,18 +19,13 @@ namespace AnalysisITC.AppClasses.AnalysisClasses
 
         public ElectrostaticsAnalysis(AnalysisResult result) : base(result)
         {
-            DataPoints = new List<Tuple<double, FloatWithError>>();
-
-            SetMode(Mode);
         }
 
-        public void SetMode(DissocFitMode mode)
+        public List<Tuple<double, FloatWithError>> GetDataPoints(DissocFitMode mode)
         {
-            Mode = mode;
+            var dataPoints = new List<Tuple<double, FloatWithError>>();
 
-            DataPoints.Clear();
-
-            switch (Mode)
+            switch (mode)
             {
                 case DissocFitMode.AffinityVsSalt: // Displace a bit around to show all points
                     foreach (var sol in Data.Solution.Solutions)
@@ -43,14 +36,14 @@ namespace AnalysisITC.AppClasses.AnalysisClasses
                             ions = 1000 * sol.Data.Attributes.Find(att => att.Key == AttributeKey.Salt).ParameterValue;
 
                         var kd = sol.ReportParameters[ParameterType.Affinity1];
-                        DataPoints.Add(new Tuple<double, FloatWithError>(ions, kd));
+                        dataPoints.Add(new Tuple<double, FloatWithError>(ions, kd));
                     }
                     break;
                 case DissocFitMode.CounterIonRelease: // Join data points
                     foreach (var sol in Data.Solution.Solutions)
                     {
                         if (SaltAttribute.GetIonActivity(sol.Data) > 0)
-                            DataPoints.Add(new Tuple<double, FloatWithError>(
+                            dataPoints.Add(new Tuple<double, FloatWithError>(
                                 Math.Log(SaltAttribute.GetIonActivity(sol.Data)),
                                 FWEMath.Log(sol.ReportParameters[ParameterType.Affinity1])));
                     }
@@ -58,12 +51,14 @@ namespace AnalysisITC.AppClasses.AnalysisClasses
                 case DissocFitMode.DebyeHuckel: // Join data points
                     foreach (var sol in Data.Solution.Solutions)
                     {
-                        DataPoints.Add(new Tuple<double, FloatWithError>(
+                        dataPoints.Add(new Tuple<double, FloatWithError>(
                             BufferAttribute.GetIonicStrength(sol.Data),
                             sol.ReportParameters[ParameterType.Affinity1]));
                     }
                     break;
             }
+
+            return dataPoints;
         }
 
         protected override void Calculate()
@@ -220,5 +215,4 @@ namespace AnalysisITC.AppClasses.AnalysisClasses
         }
     }
 }
-
 
