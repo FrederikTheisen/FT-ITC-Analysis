@@ -180,6 +180,14 @@
     <ImageAsset Include="Assets.xcassets\ftitc.zoom.nobox.allpeaks.symbolset\Contents.json" />
     <ImageAsset Include="Assets.xcassets\ftitc.zoom.nobox.allpower.symbolset\ftitc.zoom.nobox.allpower.svg" />
     <ImageAsset Include="Assets.xcassets\ftitc.zoom.nobox.allpower.symbolset\Contents.json" />
+    <ImageAsset Include="Assets.xcassets\chevron.right.chevron.left.symbolset\chevron.right.chevron.left.svg" />
+    <ImageAsset Include="Assets.xcassets\chevron.right.chevron.left.symbolset\Contents.json" />
+    <ImageAsset Include="Assets.xcassets\chevron.down.chevron.up.symbolset\chevron.down.chevron.up.svg" />
+    <ImageAsset Include="Assets.xcassets\chevron.down.chevron.up.symbolset\Contents.json" />
+    <ImageAsset Include="Assets.xcassets\chevron.up.chevron.down.wide.symbolset\Contents.json" />
+    <ImageAsset Include="Assets.xcassets\chevron.up.chevron.down.wide.symbolset\chevron.up.chevron.down.wide.svg" />
+    <ImageAsset Include="Assets.xcassets\chevron.left.chevron.right.wide.symbolset\Contents.json" />
+    <ImageAsset Include="Assets.xcassets\chevron.left.chevron.right.wide.symbolset\chevron.left.chevron.right.wide.svg" />
   </ItemGroup>
   <ItemGroup>
     <Folder Include="Resources\" />
