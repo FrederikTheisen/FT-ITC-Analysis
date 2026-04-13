@@ -3,7 +3,6 @@ using AppKit;
 using Foundation;
 using System;
 using System.Collections.Generic;
-using System.IO;
 using System.Linq;
 using System.Net;
 using System.Text;
@@ -12,12 +11,6 @@ using System.Threading.Tasks;
 public static class AppVersion
 {
     const string VersionFileUrl = "https://raw.githubusercontent.com/FrederikTheisen/FT-ITC-Analysis/refs/heads/master/VERSION";
-
-    static string VersionCachePath =>
-        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "ftitc_version_cache.txt");
-
-    static string VersionStatePath =>
-        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "ftitc_version_state.txt");
 
     static bool AutomaticCheckStarted;
 
@@ -62,11 +55,13 @@ public static class AppVersion
 
     public static async Task<AppVersionCheckResult> CheckForUpdatesAsync(bool showUpToDateMessage = false, bool forceOnlineCheck = false)
     {
+        _ = forceOnlineCheck;
+
         try
         {
             AppEventHandler.PrintAndLog("AppVersion: Checking for updates...");
 
-            var versionFileText = await TryFetchVersionFile(forceOnlineCheck);
+            var versionFileText = await TryFetchVersionFile();
             if (string.IsNullOrWhiteSpace(versionFileText))
             {
                 AppEventHandler.PrintAndLog("AppVersion: No version file available");
@@ -90,14 +85,9 @@ public static class AppVersion
 
             if (result.IsUpdateAvailable)
             {
-                var shouldNotify = showUpToDateMessage || ShouldNotifyForVersion(result.LatestVersion);
                 AppEventHandler.PrintAndLog($"AppVersion: Update available ({FullVersionString} -> {result.LatestVersion})");
 
-                if (shouldNotify)
-                {
-                    ShowInfoAlert($"Update available: v{result.LatestVersion}", BuildUpdateMessage(result));
-                    SaveLastPromptedVersion(result.LatestVersion);
-                }
+                ShowInfoAlert($"Update available: v{result.LatestVersion}", BuildUpdateMessage(result));
             }
             else
             {
@@ -125,16 +115,9 @@ public static class AppVersion
         }
     }
 
-    static async Task<string> TryFetchVersionFile(bool forceOnlineCheck)
+    static async Task<string> TryFetchVersionFile()
     {
-        var online = await TryDownloadVersionFile();
-        if (!string.IsNullOrWhiteSpace(online))
-            return online;
-
-        if (forceOnlineCheck)
-            return null;
-
-        return TryLoadCachedVersionFile();
+        return await TryDownloadVersionFile();
     }
 
     static async Task<string> TryDownloadVersionFile()
@@ -144,43 +127,12 @@ public static class AppVersion
             return await Task.Run(() =>
             {
                 using var client = new WebClient();
-                var text = client.DownloadString(VersionFileUrl);
-
-                if (!string.IsNullOrWhiteSpace(text))
-                    SaveVersionCache(text);
-
-                return text;
+                return client.DownloadString(VersionFileUrl);
             });
         }
         catch
         {
             return null;
-        }
-    }
-
-    static string TryLoadCachedVersionFile()
-    {
-        try
-        {
-            if (!File.Exists(VersionCachePath))
-                return null;
-
-            return File.ReadAllText(VersionCachePath);
-        }
-        catch
-        {
-            return null;
-        }
-    }
-
-    static void SaveVersionCache(string versionFileText)
-    {
-        try
-        {
-            File.WriteAllText(VersionCachePath, versionFileText);
-        }
-        catch
-        {
         }
     }
 
@@ -263,39 +215,6 @@ public static class AppVersion
 
         version = parsedVersion;
         return true;
-    }
-
-    static bool ShouldNotifyForVersion(string latestVersion)
-    {
-        var lastPromptedVersion = TryLoadLastPromptedVersion();
-        return string.IsNullOrWhiteSpace(lastPromptedVersion) ||
-               !string.Equals(lastPromptedVersion, latestVersion, StringComparison.OrdinalIgnoreCase);
-    }
-
-    static string TryLoadLastPromptedVersion()
-    {
-        try
-        {
-            if (!File.Exists(VersionStatePath))
-                return null;
-
-            return File.ReadAllText(VersionStatePath).Trim();
-        }
-        catch
-        {
-            return null;
-        }
-    }
-
-    static void SaveLastPromptedVersion(string version)
-    {
-        try
-        {
-            File.WriteAllText(VersionStatePath, version ?? string.Empty);
-        }
-        catch
-        {
-        }
     }
 
     static bool TryParseVersion(string versionText, out Version version)
