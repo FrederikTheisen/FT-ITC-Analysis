@@ -7038,7 +7038,7 @@ DQ
                                         <size key="contentViewMargins" width="5" height="5"/>
                                     </box>
                                     <stackView distribution="fill" orientation="horizontal" alignment="firstBaseline" horizontalStackHuggingPriority="250" verticalStackHuggingPriority="750" verticalHuggingPriority="750" detachesHiddenViews="YES" translatesAutoresizingMaskIntoConstraints="NO" id="5oj-9h-hGH">
-                                        <rect key="frame" x="0.0" y="548" width="572" height="16"/>
+                                        <rect key="frame" x="338" y="548" width="572" height="16"/>
                                         <subviews>
                                             <button toolTip="Display the baseline" verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="jsQ-Vt-t9u">
                                                 <rect key="frame" x="5" y="-1" width="66" height="17"/>
