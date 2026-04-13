@@ -248,13 +248,13 @@ namespace AnalysisITC
 
         void OnAnalysisFinished(object sender, SolverConvergence e)
         {
-            AppEventHandler.PrintAndLog("Analysis Ended: " + e.Message, 0);
+            AppEventHandler.PrintAndLog("Analysis Ended: " + e.Termination, 0);
             AppEventHandler.PrintAndLog("Iterations: " + e.Iterations, 1);
             AppEventHandler.PrintAndLog("Time: " + e.Time.TotalMilliseconds + "ms", 1);
-            AppEventHandler.PrintAndLog("Time: " + e.ErrorEstimationTime.TotalMilliseconds + "ms", 1);
+            AppEventHandler.PrintAndLog("Error Time: " + e.ErrorEstimationTime.TotalMilliseconds + "ms", 1);
             AppEventHandler.PrintAndLog("Message: " + e.Message, 1);
             AppEventHandler.PrintAndLog("Failure Reason: " + e.FailureReason, 1);
-            AppEventHandler.PrintAndLog("Error Summary:" + e.ErrorEstimationSummary, 1);
+            AppEventHandler.PrintAndLog("Error Summary: " + e.ErrorEstimationSummary, 1);
             AppEventHandler.PrintAndLog("Error Estimation: " + e.ErrorEstimationOutcome, 1);
             AppEventHandler.PrintAndLog("Stopped: " + e.Stopped, 1);
             AppEventHandler.PrintAndLog("Failed:  " + e.Failed, 1);
