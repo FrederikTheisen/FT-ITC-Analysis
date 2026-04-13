@@ -85,6 +85,8 @@ namespace AnalysisITC
         //dpKa/T ref: doi.org/10.1016/j.chroma.2006.09.084
         [Buffer(new[] { "L-Histidine", "Histidine", "His" }, 6.07, -0.02, 1, "Histidine Buffer", new[] { 29500, 176.0 })]
 		Histidine,
+        [Buffer("Imidazole", 6.993, -0.0215, 1, "Imidazole Buffer", new[] { 36640, -0.009 })]
+        Imidazole,
     }
 
     public static partial class Extensions
@@ -493,6 +495,7 @@ namespace AnalysisITC
                 Buffer.Tris,
 				Buffer.MOPS,
 				Buffer.MES,
+                Buffer.Imidazole,
             };
         }
 
@@ -500,7 +503,7 @@ namespace AnalysisITC
 		{
 			var common = GetCommonBuffers();
 
-            return GetBuffers().Where(b => !common.Contains(b)).ToList();
+            return GetBuffers().Where(b => !common.Contains(b)).ToList().OrderBy(b => b.GetProperties().ListName).ToList();
 		}
 
         public static List<Buffer> GetBuffers()
