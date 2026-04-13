@@ -1,3 +1,6 @@
+#VERSION 1.8.1
+Test entry to check version feature
+
 #VERSION 1.8.0
 Added a simple online version file for update checks
 Shows newer version notes in the app when an update exists
