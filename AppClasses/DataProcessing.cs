@@ -121,6 +121,7 @@ namespace AnalysisITC
             {
                 AppEventHandler.PrintAndLog("Baseline Interpolation Error");
                 AppEventHandler.PrintAndLog(ex.Message);
+                AppEventHandler.PrintAndLog(ex.StackTrace);
             }
         }
 
