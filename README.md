@@ -9,7 +9,7 @@ This repository is open source and exists both to distribute end-user binaries (
 - **MicroCal raw data**: `.itc`
 - **TA Instruments / NanoAnalyze export**: `.TA`
 - **PEAQ ITC** project files: `.apj`
-- **Integrated Heats**: `.dat`
+- **Integrated Heats**: `.dat`, `.aff`, `.dh`
 
 ## Installation
 
