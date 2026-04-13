@@ -533,9 +533,9 @@ namespace AnalysisITC
 
             return new TandemExperimentSegment()
             {
-                FirstInjectionID = int.Parse(items[0]),
-                SegmentInitialActiveCellConc = double.Parse(items[1]),
-                SegmentInitialActiveTitrantConc = double.Parse(items[2])
+                FirstInjectionID = FTITCFormat.IParse(items[0]),
+                SegmentInitialActiveCellConc = FTITCFormat.DParse(items[1]),
+                SegmentInitialActiveTitrantConc = FTITCFormat.DParse(items[2])
             };
         }
 

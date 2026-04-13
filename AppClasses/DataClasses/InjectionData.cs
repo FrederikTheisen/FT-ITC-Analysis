@@ -26,7 +26,7 @@ namespace AnalysisITC
         /// </summary>
         public double Ratio { get; set; }
 
-        public bool Include { get; private set; } = true;
+        public bool Include { get; set; } = true;
         public float IntegrationStartDelay { get; private set; } = 0;
         public float IntegrationEndOffset { get; private set; } = 90;
         public float IntegrationStartTime => Time + IntegrationStartDelay;
@@ -99,30 +99,30 @@ namespace AnalysisITC
             var inj = new InjectionData()
             {
                 Experiment = experiment,
-                ID = int.Parse(parameters[0]),
+                ID = FTITCFormat.IParse(parameters[0]),
                 Include = parameters[1] == "1",
-                Time = float.Parse(parameters[2]),
-                Volume = double.Parse(parameters[3]),
-                Delay = float.Parse(parameters[4]),
-                Duration = float.Parse(parameters[5]),
-                Temperature = double.Parse(parameters[6]),
-                IntegrationStartDelay = float.Parse(parameters[7]),
-                IntegrationEndOffset = float.Parse(parameters[8]),
+                Time = FTITCFormat.FParse(parameters[2]),
+                Volume = FTITCFormat.DParse(parameters[3]),
+                Delay = FTITCFormat.FParse(parameters[4]),
+                Duration = FTITCFormat.FParse(parameters[5]),
+                Temperature = FTITCFormat.DParse(parameters[6]),
+                IntegrationStartDelay = FTITCFormat.FParse(parameters[7]),
+                IntegrationEndOffset = FTITCFormat.FParse(parameters[8]),
             };
 
             // Newer files contain additional information for the injections to handle tandem experiment data
             if (parameters.Count() >= 11)
             {
-                inj.ActualCellConcentration = double.Parse(parameters[9]);
-                inj.ActualTitrantConcentration = double.Parse(parameters[10]);
+                inj.ActualCellConcentration = FTITCFormat.DParse(parameters[9]);
+                inj.ActualTitrantConcentration = FTITCFormat.DParse(parameters[10]);
                 inj.Ratio = inj.ActualTitrantConcentration / inj.ActualCellConcentration;
             }
 
             // Newer files contain additional information
             if (parameters.Count() >= 13)
             {
-                var peakarea = double.Parse(parameters[11]);
-                var peaksd = double.Parse(parameters[12]);
+                var peakarea = FTITCFormat.DParse(parameters[11]);
+                var peaksd = FTITCFormat.DParse(parameters[12]);
 
                 inj.SetPeakArea(new FloatWithError(peakarea, peaksd));
             }

@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using System.Threading.Tasks;
 
@@ -411,13 +412,25 @@ namespace AnalysisITC
 
         public string ToSaveString()
         {
-            if (DistributionConfidence95 != null || !HasError) return $"{Value},{SD},{DistributionConfidence95[0]},{DistributionConfidence95[1]}";
-            else return $"{Value},{SD}";
+            if (HasError)
+            {
+                return string.Join(";",
+                    Value.ToString("R", CultureInfo.InvariantCulture),
+                    SD.ToString("R", CultureInfo.InvariantCulture),
+                    DistributionConfidence95[0].ToString("R", CultureInfo.InvariantCulture),
+                    DistributionConfidence95[1].ToString("R", CultureInfo.InvariantCulture));
+            }
+
+            return string.Join(";",
+                Value.ToString("R", CultureInfo.InvariantCulture),
+                "0.0");
         }
 
         public static FloatWithError FromSaveString(string s)
         {
-            var pars = s.Split(',').Select(ss => double.Parse(ss)).ToList();
+            var pars = s.Split(';')
+                .Select(ss => double.Parse(ss, NumberStyles.Float | NumberStyles.AllowThousands, CultureInfo.InvariantCulture))
+                .ToList();
 
             var fwe = new FloatWithError()
             {
@@ -425,7 +438,8 @@ namespace AnalysisITC
                 SD = pars[1], 
             };
 
-            if (pars.Count > 2) fwe.SetConfidenceInterval(pars[0], pars[1]);
+            if (pars.Count > 2)
+                fwe.SetConfidenceInterval(pars[2], pars[3]);
             else fwe.SetAsymmetricError();
 
             return fwe;

@@ -29,7 +29,7 @@ namespace DataReaders
                     var startms = watch.ElapsedMilliseconds;
                     AppEventHandler.PrintAndLog($"Read {line} Start: {watch.ElapsedMilliseconds}");
 
-                    var input = line.Split(':');
+                    var input = line.Split(new[] { ':' }, 3);
 
                     if (input[0] == "FILE")
                     {
@@ -53,8 +53,8 @@ namespace DataReaders
         {
             AppEventHandler.PrintAndLog("Loading Tandem Experiment Data...", 1);
 
-            string[] a = firstline.Split(':');
-            var exp = new ExperimentData(a[2]);
+            string[] a = firstline.Split(new[] { ':' }, 3);
+            var exp = new ExperimentData(DecodeText(a[2]));
 
             StatusBarManager.SetStatus($"Loading {exp.Name}", 0);
             await Task.Delay(1); //Necessary to update UI. Unclear why whole method has to be on UI thread.
@@ -70,8 +70,8 @@ namespace DataReaders
         {
             AppEventHandler.PrintAndLog("Loading Experiment Data...", 1);
 
-            string[] a = firstline.Split(':');
-            var exp = new ExperimentData(a[2]);
+            string[] a = firstline.Split(new[] { ':' }, 3);
+            var exp = new ExperimentData(DecodeText(a[2]));
 
             StatusBarManager.SetStatus($"Loading {exp.Name}", 0);
             await Task.Delay(1); //Necessary to update UI. Unclear why whole method has to be on UI thread.
@@ -94,37 +94,39 @@ namespace DataReaders
 
             while ((line = reader.ReadLine()) != EndFileHeader)
             {
-                string[] v = line.Split(':');
+                string[] v = SplitKeyValue(line);
+                string key = v[0];
+                string value = v.Length > 1 ? v[1] : string.Empty;
 
-                switch (v[0])
+                switch (key)
                 {
-                    case ID: exp.SetID(v[1]); break;
-                    case AssignedName: exp.Name = v[1]; break;
-                    case Date: exp.Date = DateTime.Parse(line[5..]); break;
-                    case SourceFormat: exp.DataSourceFormat = (ITCDataFormat)IParse(v[1]); break;
-                    case Comments: exp.Comments = v[1]; break;
-                    case SyringeConcentration: exp.SyringeConcentration = FWEParse(v[1]); break;
-                    case CellConcentration: exp.CellConcentration = FWEParse(v[1]); break;
-                    case CellVolume: exp.CellVolume = DParse(v[1]); break;
-                    case StirringSpeed: exp.StirringSpeed = DParse(v[1]); break;
-                    case TargetTemperature: exp.TargetTemperature = DParse(v[1]); break;
-                    case MeasuredTemperature: exp.MeasuredTemperature = DParse(v[1]); break;
-                    case InitialDelay: exp.InitialDelay = DParse(v[1]); break;
-                    case TargetPowerDiff: exp.TargetPowerDiff = DParse(v[1]); break;
-                    case FeedBackMode: exp.FeedBackMode = (FeedbackMode)int.Parse(v[1]); break;
-                    case Include: exp.Include = BParse(v[1]); break;
-                    case Instrument: exp.Instrument = (ITCInstrument)IParse(v[1]); break;
-                    case "LIST" when v[1] == InjectionList:
+                    case ID: exp.SetID(value); break;
+                    case AssignedName: exp.Name = DecodeText(value); break;
+                    case Date: exp.Date = DTParse(value); break;
+                    case SourceFormat: exp.DataSourceFormat = (ITCDataFormat)IParse(value); break;
+                    case Comments: exp.Comments = DecodeText(value); break;
+                    case SyringeConcentration: exp.SyringeConcentration = FWEParse(value); break;
+                    case CellConcentration: exp.CellConcentration = FWEParse(value); break;
+                    case CellVolume: exp.CellVolume = DParse(value); break;
+                    case StirringSpeed: exp.StirringSpeed = DParse(value); break;
+                    case TargetTemperature: exp.TargetTemperature = DParse(value); break;
+                    case MeasuredTemperature: exp.MeasuredTemperature = DParse(value); break;
+                    case InitialDelay: exp.InitialDelay = DParse(value); break;
+                    case TargetPowerDiff: exp.TargetPowerDiff = DParse(value); break;
+                    case FeedBackMode: exp.FeedBackMode = (FeedbackMode)IParse(value); break;
+                    case Include: exp.Include = BParse(value); break;
+                    case Instrument: exp.Instrument = (ITCInstrument)IParse(value); break;
+                    case "LIST" when value == InjectionList:
                         ReadInjectionList(exp, reader); break;
-                    case "LIST" when v[1] == DataPointList:
+                    case "LIST" when value == DataPointList:
                         ReadDataList(exp, reader); break;
-                    case "LIST" when v[1] == ExperimentAttributes:
+                    case "LIST" when value == ExperimentAttributes:
                         ReadAttributes(exp, reader); break;
-                    case "LIST" when v[1] == SegmentList:
+                    case "LIST" when value == SegmentList:
                         ReadSegmentList(exp, reader); break;
-                    case "OBJECT" when v[1] == Processor:
+                    case "OBJECT" when value == Processor:
                         ReadProcessor(exp, reader); break;
-                    case "OBJECT" when v[1] == ExperimentSolutionHeader:
+                    case "OBJECT" when value == ExperimentSolutionHeader:
                         sol = ReadSolution(reader, reader.ReadLine(), exp);
                         exp.UpdateSolution(sol.Model);
                         break;
@@ -140,7 +142,7 @@ namespace DataReaders
             var p = new DataProcessor(exp);
 
             string line = reader.ReadLine();
-            string[] v = line.Split(':');
+            string[] v = SplitKeyValue(line);
 
             if (v[0] != ProcessorType) return;
 
@@ -148,7 +150,7 @@ namespace DataReaders
 
             while ((line = reader.ReadLine()) != EndObjectHeader)
             {
-                v = line.Split(':');
+                v = SplitKeyValue(line);
 
                 switch (v[0])
                 {
@@ -175,8 +177,8 @@ namespace DataReaders
 
             while ((line = reader.ReadLine()) != EndListHeader)
             {
-                var _spdat = line.Split(',');
-                splinepoints.Add(new SplineInterpolator.SplinePoint(double.Parse(_spdat[0]), double.Parse(_spdat[1]), int.Parse(_spdat[2]), double.Parse(_spdat[3])));
+                var _spdat = SplitCsv(line);
+                splinepoints.Add(new SplineInterpolator.SplinePoint(DParse(_spdat[0]), DParse(_spdat[1]), IParse(_spdat[2]), DParse(_spdat[3])));
             }
 
             interpolator.SetSplinePoints(splinepoints) ;
@@ -205,9 +207,9 @@ namespace DataReaders
 
                 for (int i = 2; i < dat.Length; i++)
                 {
-                    var d = dat[i].Split(':');
+                    var d = dat[i].Split(new[] { ':' }, 2);
                     string type = d[0];
-                    string val = d[1];
+                    string val = d.Length > 1 ? d[1] : string.Empty;
 
                     switch (type)
                     {
@@ -215,8 +217,8 @@ namespace DataReaders
                         case "I": opt.IntValue = IParse(val); break;
                         case "D": opt.DoubleValue = DParse(val); break;
                         case "FWE": opt.ParameterValue = FWEParse(val); break;
-                        case "S": opt.StringValue = val; break;
-                        case "name": opt.OptionName = val; break;
+                        case "S": opt.StringValue = DecodeText(val); break;
+                        case "name": opt.OptionName = DecodeText(val); break;
                     }
                 }
 
@@ -253,8 +255,8 @@ namespace DataReaders
 
             while ((line = reader.ReadLine()) != EndListHeader)
             {
-                var dp = line.Split(',');
-                datapoints.Add(new DataPoint(float.Parse(dp[0]), float.Parse(dp[1]), float.Parse(dp[2]), shieldt: float.Parse(dp[3])));
+                var dp = SplitCsv(line);
+                datapoints.Add(new DataPoint(FParse(dp[0]), FParse(dp[1]), FParse(dp[2]), shieldt: FParse(dp[3])));
             }
 
             exp.DataPoints = datapoints;
@@ -276,7 +278,7 @@ namespace DataReaders
             try
             {
                 string line = firstline;
-                string[] info = firstline.Split(':')[2].Split(',');
+                string[] info = firstline.Split(new[] { ':' }, 3)[2].Split(',').Select(DecodeText).ToArray();
                 string comments = "";
                 string dateinfo = "";
                 string name = "";
@@ -284,17 +286,18 @@ namespace DataReaders
 
                 while (!(line = reader.ReadLine()).Contains(GlobalSolutionHeader))
                 {
-                    var dat = line.Split(':');
+                    var dat = SplitKeyValue(line);
+                    string value = dat.Length > 1 ? dat[1] : string.Empty;
 
                     switch (dat[0])
                     {
-                        case Comments: comments = dat[1]; break;
-                        case Date: dateinfo = line.Substring(Date.Length + 1); break;
-                        case AssignedName: name = dat[1]; break;
+                        case Comments: comments = DecodeText(value); break;
+                        case Date: dateinfo = value; break;
+                        case AssignedName: name = DecodeText(value); break;
                     }
                 }
 
-                if (!string.IsNullOrEmpty(dateinfo)) date = DateTime.Parse(dateinfo);
+                if (!string.IsNullOrEmpty(dateinfo)) date = DTParse(dateinfo);
 
                 StatusBarManager.SetStatus($"Loading {(info.Length > 1 ? info[1] : "Analysis Result")}", 0);
                 await Task.Delay(1); //Necessary to update UI.
@@ -326,9 +329,8 @@ namespace DataReaders
         {
             bool useErrorWeightedFitting = false;
 
-            reader.ReadLine(); //Header is empty
             string line = reader.ReadLine();
-            var mdl = (AnalysisModel)IParse(line.Split(':')[1]);
+            var mdl = (AnalysisModel)IParse(SplitKeyValue(line)[1]);
             GlobalModelFactory factory = new GlobalModelFactory(mdl);
             var datas = new List<ExperimentData>();
             var solutions = new List<SolutionInterface>();
@@ -407,7 +409,7 @@ namespace DataReaders
                             string mcoline;
                             while ((mcoline = reader.ReadLine()) != EndObjectHeader)
                             {
-                                var vv = mcoline.Split(':');
+                                var vv = SplitKeyValue(mcoline);
                                 switch (vv[0])
                                 {
                                     case SolErrorMethod: mco.ErrorEstimationMethod = (ErrorEstimationMethod)IParse(vv[1]); break;
@@ -439,11 +441,11 @@ namespace DataReaders
             try
             {
                 SingleModelFactory factory = null;
-                string guid = firstline.Split(':')[2];
-                string dataref = reader.ReadLine().Split(':')[1];
+                string guid = DecodeText(firstline.Split(new[] { ':' }, 3)[2]);
+                string dataref = SplitKeyValue(reader.ReadLine())[1];
                 string parentID = "";
                 bool useErrorWeightedFitting = false;
-                var mdltype = (AnalysisModel)IParse(reader.ReadLine().Split(':')[1]);
+                var mdltype = (AnalysisModel)IParse(SplitKeyValue(reader.ReadLine())[1]);
 
                 factory = new SingleModelFactory(mdltype);
                 if (experimentData == null)
@@ -463,7 +465,7 @@ namespace DataReaders
                     {
                         //case SolErrorMethod: factory.Model.MCO = (ErrorEstimationMethod)IParse(v[1]); break;
                         case SolWeightedError: useErrorWeightedFitting = BParse(v[1]); break;
-                        case SolParent: parentID = v[1]; break;
+                        case SolParent: parentID = DecodeText(v[1]); break;
                         case SolLoss: reference_loss_value = DParse(v[1]); break;
                         case "LIST" when v[1] == SolParams:
                             parameters = new List<Parameter>();
@@ -573,7 +575,10 @@ namespace DataReaders
             var dat = reader.ReadLine().Split(';');
             var dict = new Dictionary<string, string>();
             foreach (var d in dat.Where(s => !string.IsNullOrEmpty(s)))
-                dict.Add(d.Split(':')[0], d.Split(':')[1]);
+            {
+                var parts = SplitKeyValue(d);
+                dict.Add(parts[0], parts.Length > 1 ? parts[1] : string.Empty);
+            }
 
             conv = SolverConvergence.FromSaveLegacy(
                 IParse(dict[SolIterations]),
@@ -581,7 +586,7 @@ namespace DataReaders
                 TSParse(dict[SolConvTime]),
                 TSParse(dict[SolConvBootstrapTime]),
                 (SolverAlgorithm)IParse(dict[SolConvAlgorithm]),
-                dict[SolConvMsg],
+                DecodeText(dict[SolConvMsg]),
                 BParse(dict[SolConvFailed]));
             return conv;
         }

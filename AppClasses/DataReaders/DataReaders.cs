@@ -35,7 +35,7 @@ namespace DataReaders
         {
             try
             {
-                var ext = System.IO.Path.GetExtension(path);
+                var ext = System.IO.Path.GetExtension(path).ToLower();
 
                 foreach (var format in ITCFormatAttribute.GetAllFormats())
                 {

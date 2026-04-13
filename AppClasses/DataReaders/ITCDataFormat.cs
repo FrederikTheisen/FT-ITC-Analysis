@@ -61,6 +61,7 @@ namespace DataReaders
             types.AddRange(UTType.GetTypes("ta", UTTagClass.FilenameExtension, UTTypes.Data).ToList());
             types.AddRange(UTType.GetTypes("dat", UTTagClass.FilenameExtension, UTTypes.Data).ToList());
             types.AddRange(UTType.GetTypes("aff", UTTagClass.FilenameExtension, UTTypes.Data).ToList());
+            types.AddRange(UTType.GetTypes("dh", UTTagClass.FilenameExtension, UTTypes.Data).ToList());
             types.AddRange(UTType.GetTypes("apj", UTTagClass.FilenameExtension, UTTypes.Data).ToList());
 
             return types.ToArray();
@@ -92,7 +93,7 @@ namespace DataReaders
         Unknown,
         [ITCFormat("TA Instruments Nano Analyze", "Data format exported from NanoAnalyze", ".ta")]
         TAITC,
-        [ITCFormat("Integrated Heats File", "Exports from Origin", new[] { ".dat", ".aff" })]
+        [ITCFormat("Integrated Heats File", "Exports from Origin and legacy DH exports", new[] { ".dat", ".aff", ".dh" })]
         IntegratedHeats,
         [ITCFormat("PEAQ-ITC Project File", "Exports from PEAQ-ITC", ".apj")]
         PEAQITCProject

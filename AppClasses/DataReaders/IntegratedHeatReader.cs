@@ -14,6 +14,7 @@ namespace DataReaders
     ///
     /// Notes:
     /// - No thermogram exists in this format; this reader populates Injections with PeakArea and InjectionMass.
+    /// - Also supports legacy .DH integrated-heat files with a fixed metadata header followed by volume/heat rows.
     /// - DH is assumed to be in kJ.
     /// - NDH is assumed to be in kJ/mol -> InjectionMass (mol) is DH/NDH.
     /// - Xt and Mt are assumed to be in mM by default (set concentrationsAreMilliMolar=false if you want raw as M).
@@ -30,15 +31,29 @@ namespace DataReaders
             if (filepath == null) throw new ArgumentNullException(nameof(filepath));
             if (!File.Exists(filepath)) throw new FileNotFoundException("File not found", filepath);
 
-            var ext = Path.GetExtension(filepath);
-            if (ext.ToLower().Contains("aff")) separator = ';';
-            else separator = ',';
-
             var lines = File.ReadAllLines(filepath)
                 .Where(l => !string.IsNullOrWhiteSpace(l))
                 .ToList();
 
             if (lines.Count < 2) throw new FormatException("File contains too few lines.");
+
+            var data = LooksLikeDhFile(filepath, lines) ? ReadDhFile(filepath, lines) : ReadDelimitedIntegratedHeats(filepath, lines, concentrationsAreMilliMolar);
+
+            ProcessExperiment(data);
+
+            return data;
+        }
+
+        static void ProcessExperiment(ExperimentData data)
+        {
+            // Disable first injection
+            data.Injections.First().Include = false;
+        }
+
+        private static ExperimentData ReadDelimitedIntegratedHeats(string filepath, List<string> lines, bool concentrationsAreMilliMolar)
+        {
+            var ext = Path.GetExtension(filepath);
+            separator = ext.ToLower().Contains("aff") ? ';' : ',';
 
             // Header
             var header = SplitLine(lines[0]);
@@ -119,7 +134,6 @@ namespace DataReaders
             AppEventHandler.PrintAndLog($"Syringe Concentration = {1000000 * csyr_M} uM", 1);
 
             // Build injections
-            var injs = new List<InjectionData>(rows.Count);
             for (int i = 0; i < rows.Count; i++)
             {
                 var r = rows[i];
@@ -137,6 +151,67 @@ namespace DataReaders
             RawDataReader.ProcessInjections(data);
 
             // Try to get the instrument based on cell volume
+            ITCInstrumentAttribute.ResolveInstrument(data);
+
+            return data;
+        }
+
+        private static ExperimentData ReadDhFile(string filepath, List<string> lines)
+        {
+            if (lines.Count < 6) throw new FormatException("DH file contains too few lines.");
+
+            var metadata = ParseDhMetadata(lines);
+            var rows = new List<DhRow>();
+
+            AppEventHandler.PrintAndLog("Reading DH injections...", 0);
+            for (int i = 5; i < lines.Count; i++)
+            {
+                if (!TryParseDhNumbers(lines[i], out var values, minimumCount: 2))
+                    throw new FormatException($"Could not parse DH injection row {i + 1}: \"{lines[i]}\"");
+
+                rows.Add(new DhRow
+                {
+                    Volume_uL = values[0],
+                    Heat = values[1]
+                });
+
+                AppEventHandler.PrintAndLog($"{values[0]}\t{values[1]}");
+            }
+
+            if (rows.Count == 0) throw new FormatException("No injection rows found in DH file.");
+            if (metadata.InjectionCount > 0 && metadata.InjectionCount != rows.Count)
+            {
+                AppEventHandler.PrintAndLog(
+                    $"DH file declared {metadata.InjectionCount} injections but {rows.Count} rows were read.",
+                    1);
+            }
+
+            var maxv = rows.Max(r => Math.Abs(r.Heat));
+            var unit = EnergyUnitPrompt.AskForEnergyUnit(null, filepath, maxv.ToString(Inv));
+            AppEventHandler.PrintAndLog($"Energy Unit Selected: {unit}");
+            if (unit == null) return null;
+
+            var data = new ExperimentData(Path.GetFileName(filepath))
+            {
+                DataPoints = new List<DataPoint>(),
+                BaseLineCorrectedDataPoints = new List<DataPoint>(),
+                Date = File.GetCreationTime(filepath),
+                Instrument = ITCInstrument.Unknown,
+                DataSourceFormat = ITCDataFormat.IntegratedHeats,
+                CellConcentration = new(metadata.CellConcentration_M),
+                SyringeConcentration = new(metadata.SyringeConcentration_M),
+                CellVolume = metadata.CellVolume_L,
+                TargetTemperature = metadata.Temperature_C,
+            };
+
+            foreach (var row in rows)
+            {
+                var inj = new InjectionData(data, row.Volume_L);
+                inj.SetPeakArea(new FloatWithError(Energy.ConvertToJoule(row.Heat, (EnergyUnit)unit), 0));
+                data.Injections.Add(inj);
+            }
+
+            RawDataReader.ProcessInjections(data);
             ITCInstrumentAttribute.ResolveInstrument(data);
 
             return data;
@@ -185,6 +260,61 @@ namespace DataReaders
             s = s.Replace(',', '.');
 
             return double.TryParse(s, NumStyle, Inv, out value);
+        }
+
+        private static bool LooksLikeDhFile(string filepath, List<string> lines)
+        {
+            if (string.Equals(Path.GetExtension(filepath), ".dh", StringComparison.OrdinalIgnoreCase))
+                return true;
+
+            if (lines.Count < 6) return false;
+            if (!int.TryParse(lines[0].Trim(), NumberStyles.Integer, Inv, out _)) return false;
+            if (!TryParseDhNumbers(lines[1], out var secondLine, minimumCount: 2)) return false;
+            if (!TryParseDhNumbers(lines[2], out var thirdLine, minimumCount: 4)) return false;
+            if (!TryParseDhNumbers(lines[5], out var firstInjection, minimumCount: 2)) return false;
+
+            return secondLine.Length >= 2 && thirdLine.Length >= 4 && firstInjection.Length >= 2;
+        }
+
+        private static DhMetadata ParseDhMetadata(List<string> lines)
+        {
+            if (!TryParseDhNumbers(lines[1], out var line2, minimumCount: 2))
+                throw new FormatException("Could not parse DH header line 2.");
+            if (!TryParseDhNumbers(lines[2], out var line3, minimumCount: 4))
+                throw new FormatException("Could not parse DH header line 3.");
+
+            return new DhMetadata
+            {
+                InjectionCount = (int)Math.Round(line2[1]),
+                Temperature_C = line3[0],
+                CellConcentration_M = line3[1] * 1e-3,
+                SyringeConcentration_M = line3[2] * 1e-3,
+                CellVolume_L = line3[3] * 1e-3,
+            };
+        }
+
+        private static bool TryParseDhNumbers(string line, out double[] values, int minimumCount = 0)
+        {
+            values = Array.Empty<double>();
+
+            if (string.IsNullOrWhiteSpace(line)) return false;
+
+            var parts = line.Split(',')
+                .Select(p => p.Trim())
+                .Where(p => p.Length > 0)
+                .ToArray();
+
+            if (parts.Length < minimumCount) return false;
+
+            var parsed = new double[parts.Length];
+            for (int i = 0; i < parts.Length; i++)
+            {
+                if (!double.TryParse(parts[i], NumStyle, Inv, out parsed[i]))
+                    return false;
+            }
+
+            values = parsed;
+            return true;
         }
 
         private static double InferCellVolumeLiters(List<Row> rows, double concScale)
@@ -261,6 +391,23 @@ namespace DataReaders
             public double NDH;
 
             public readonly double InjV_L => InjV_uL * 1E-6;
+        }
+
+        private struct DhMetadata
+        {
+            public int InjectionCount;
+            public double Temperature_C;
+            public double CellConcentration_M;
+            public double SyringeConcentration_M;
+            public double CellVolume_L;
+        }
+
+        private struct DhRow
+        {
+            public double Volume_uL;
+            public double Heat;
+
+            public readonly double Volume_L => Volume_uL * 1e-6;
         }
     }
 }

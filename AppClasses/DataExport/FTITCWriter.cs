@@ -5,6 +5,7 @@ using System.IO;
 using System.Threading.Tasks;
 using System.Linq;
 using System.Text;
+using System.Globalization;
 using AnalysisITC.AppClasses.AnalysisClasses.Models;
 using AnalysisITC.AppClasses.AnalysisClasses;
 
@@ -12,6 +13,9 @@ namespace AnalysisITC
 {
     public class FTITCFormat
     {
+        static readonly CultureInfo Invariant = CultureInfo.InvariantCulture;
+        const NumberStyles NumericStyle = NumberStyles.Float | NumberStyles.AllowThousands;
+
         public const string FTITCVersion = "FTITCVersion";
 
         public const string ExperimentHeader = "Experiment";
@@ -102,11 +106,11 @@ namespace AnalysisITC
         public const string EndListHeader = "ENDLIST";
         public const string EndObjectHeader = "ENDOBJECT";
 
-        public static string FileHeader(string header, string filename) => "FILE:" + header + ":" + filename;
-        public static string FileHeader(string header, string[] args) => "FILE:" + header + ":" + string.Join(',', args);
+        public static string FileHeader(string header, string filename) => "FILE:" + header + ":" + EncodeText(filename);
+        public static string FileHeader(string header, string[] args) => "FILE:" + header + ":" + string.Join(',', args.Select(EncodeText));
         public static string ObjectHeader(string header) => "OBJECT:" + header; 
         public static string Variable(string header, string value) => header + ":" + value;
-        public static string Variable(string header, double value) => Variable(header, value.ToString());
+        public static string Variable(string header, double value) => Variable(header, FormatDouble(value));
         public static string Variable(string header, bool value) => Variable(header, value ? "1" : "0");
         public static string Variable(string header, FloatWithError value) => Variable(header, value.ToSaveString());
         public static string Variable(string header, Energy value) => Variable(header, value.FloatWithError);
@@ -120,16 +124,32 @@ namespace AnalysisITC
                 + Variable("B", opt.BoolValue) + ";"
                 + Variable("I", opt.IntValue) + ";"
                 + Variable("D", opt.DoubleValue) + ";"
-                + Variable("S", opt.StringValue) + ";"
+                + Variable("S", EncodeText(opt.StringValue)) + ";"
                 + Variable("FWE", opt.ParameterValue) + ";"
-                + Variable("name", opt.OptionName);
+                + Variable("name", EncodeText(opt.OptionName));
 
             return str;
         }
 
-        public static double DParse(string value) => double.Parse(value);
-        public static float FParse(string value) => float.Parse(value);
-        public static int IParse(string value) => int.Parse(value);
+        public static string FormatDouble(double value) => value.ToString("R", Invariant);
+        public static string FormatFloat(float value) => value.ToString("R", Invariant);
+        public static string FormatInt(int value) => value.ToString(Invariant);
+        public static string[] SplitKeyValue(string line) => (line ?? string.Empty).Split(new[] { ':' }, 2);
+        public static string[] SplitCsv(string line) => (line ?? string.Empty).Split(',');
+
+        public static double DParse(string value)
+        {
+            if (double.TryParse(value, NumericStyle, Invariant, out var result)) return result;
+            return double.Parse(value, NumericStyle, CultureInfo.CurrentCulture);
+        }
+
+        public static float FParse(string value)
+        {
+            if (float.TryParse(value, NumericStyle, Invariant, out var result)) return result;
+            return float.Parse(value, NumericStyle, CultureInfo.CurrentCulture);
+        }
+
+        public static int IParse(string value) => int.Parse(value, NumberStyles.Integer, Invariant);
         public static bool BParse(string value) => value == "1";
         public static Energy EParse(string value) => new Energy(FWEParse(value));
         public static string EncodeText(string value)
@@ -161,6 +181,12 @@ namespace AnalysisITC
             else return new FloatWithError(DParse(s[0]));
         }
         public static TimeSpan TSParse(string value) => TimeSpan.FromSeconds(DParse(value));
+        public static DateTime DTParse(string value)
+        {
+            if (DateTime.TryParseExact(value, "O", Invariant, DateTimeStyles.RoundtripKind, out var exact)) return exact;
+            if (DateTime.TryParse(value, Invariant, DateTimeStyles.RoundtripKind, out var parsed)) return parsed;
+            return DateTime.Parse(value, CultureInfo.CurrentCulture);
+        }
 
         public static string CurrentAccessedAppDocumentPath { get; set; } = "";
     }
@@ -261,11 +287,11 @@ namespace AnalysisITC
             var file = new List<string>
             {
                 FileHeader(ExperimentHeader, data.FileName),
-                Variable(AssignedName, data.Name),
+                Variable(AssignedName, EncodeText(data.Name)),
                 Variable(ID, data.UniqueID),
-                Variable(Date, data.Date.ToString("O")),
+                Variable(Date, data.Date.ToString("O", CultureInfo.InvariantCulture)),
                 Variable(SourceFormat, (int)data.DataSourceFormat),
-                Variable(Comments, data.Comments),
+                Variable(Comments, EncodeText(data.Comments)),
                 Variable(Include, data.Include),
                 Variable(SyringeConcentration, data.SyringeConcentration),
                 Variable(CellConcentration, data.CellConcentration),
@@ -299,23 +325,20 @@ namespace AnalysisITC
             file.Add(ListHeader(InjectionList));
             foreach (var inj in data.Injections)
             {
-                string injection = "";
-
-                injection += inj.ID + ",";
-                injection += (inj.Include ? 1 : 0) + ",";
-                injection += inj.Time + ",";
-                injection += inj.Volume + ",";
-                injection += inj.Delay + ",";
-                injection += inj.Duration + ",";
-                injection += inj.Temperature + ",";
-                injection += inj.IntegrationStartDelay + ",";
-                injection += inj.IntegrationEndOffset + ",";
-                injection += inj.ActualCellConcentration + ",";
-                injection += inj.ActualTitrantConcentration + ",";
-                injection += inj.RawPeakArea.Value + ",";
-                injection += inj.RawPeakArea.SD;
-
-                file.Add(injection);
+                file.Add(string.Join(",",
+                    FormatInt(inj.ID),
+                    inj.Include ? "1" : "0",
+                    FormatFloat(inj.Time),
+                    FormatDouble(inj.Volume),
+                    FormatFloat(inj.Delay),
+                    FormatFloat(inj.Duration),
+                    FormatDouble(inj.Temperature),
+                    FormatFloat(inj.IntegrationStartDelay),
+                    FormatFloat(inj.IntegrationEndOffset),
+                    FormatDouble(inj.ActualCellConcentration),
+                    FormatDouble(inj.ActualTitrantConcentration),
+                    FormatDouble(inj.RawPeakArea.Value),
+                    FormatDouble(inj.RawPeakArea.SD)));
             }
             file.Add(EndListHeader);
             if (data.Segments != null)
@@ -323,13 +346,10 @@ namespace AnalysisITC
                 file.Add(ListHeader(SegmentList));
                 foreach (var seg in data.Segments)
                 {
-                    var line = "";
-
-                    line += seg.FirstInjectionID.ToString() + ",";
-                    line += seg.SegmentInitialActiveCellConc.ToString() + ",";
-                    line += seg.SegmentInitialActiveTitrantConc.ToString();
-
-                    file.Add(line);
+                    file.Add(string.Join(",",
+                        FormatInt(seg.FirstInjectionID),
+                        FormatDouble(seg.SegmentInitialActiveCellConc),
+                        FormatDouble(seg.SegmentInitialActiveTitrantConc)));
                 }
             }
             file.Add(EndListHeader);
@@ -337,13 +357,11 @@ namespace AnalysisITC
             file.Add(ListHeader(DataPointList));
             foreach (var dp in data.DataPoints)
             {
-                string line = "";
-                line += dp.Time + ",";
-                line += dp.Power + ",";
-                line += dp.Temperature + ",";
-                line += dp.ShieldT.ToString();
-
-                file.Add(line);
+                file.Add(string.Join(",",
+                    FormatFloat(dp.Time),
+                    FormatFloat(dp.Power),
+                    FormatFloat(dp.Temperature),
+                    FormatFloat(dp.ShieldT)));
             }
             file.Add(EndListHeader);
 
@@ -365,7 +383,14 @@ namespace AnalysisITC
                         file.Add(Variable(SplineFraction, spinterpolator.FractionBaseline));
                         file.Add(Variable(SplineLocked, spinterpolator.IsLocked));
                         file.Add(ListHeader(SplinePointList));
-                        foreach (var sp in spinterpolator.SplinePoints) file.Add(sp.Time + "," + sp.Power + "," + sp.ID + "," + sp.Slope);
+                        foreach (var sp in spinterpolator.SplinePoints)
+                        {
+                            file.Add(string.Join(",",
+                                FormatDouble(sp.Time),
+                                FormatDouble(sp.Power),
+                                FormatInt(sp.ID),
+                                FormatDouble(sp.Slope)));
+                        }
                         file.Add(EndListHeader);
                         break;
                     default:
@@ -390,7 +415,7 @@ namespace AnalysisITC
             file.Add(Variable(SolWeightedError, solution.UseWeightedFitting));
             if (solution.ParentSolution != null) file.Add(Variable(SolParent, solution.ParentSolution.UniqueID));
             if (solution.ErrorMethod != ErrorEstimationMethod.None) file.Add(Variable(SolErrorMethod, (int)solution.ErrorMethod));
-            AddConvergenceLine(solution.Convergence, file);
+            //AddConvergenceLine(solution.Convergence, file);
             AddConvergenceSnapshot(solution.Convergence, file);
 
             file.Add(ListHeader(SolParams));
@@ -445,7 +470,7 @@ namespace AnalysisITC
             file.Add(ObjectHeader(SolConvergence));
             var conv = "";
             conv += Variable(SolIterations, convergence.Iterations) + ";";
-            conv += Variable(SolConvMsg, convergence.Message) + ";";
+            conv += Variable(SolConvMsg, EncodeText(convergence.Message)) + ";";
             conv += Variable(SolConvTime, convergence.Time.TotalSeconds) + ";";
             conv += Variable(SolConvBootstrapTime, convergence.ErrorEstimationTime.TotalSeconds) + ";";
             conv += Variable(SolLoss, convergence.Loss) + ";";
@@ -480,9 +505,9 @@ namespace AnalysisITC
             var file = new List<string>()
             {
                 FileHeader(AnalysisResultHeader, new[] { result.UniqueID, result.FileName }),
-                Variable(Comments, result.Comments),
-                Variable(Date, result.Date.ToString("O")),
-                Variable(AssignedName, result.Name),
+                Variable(Comments, EncodeText(result.Comments)),
+                Variable(Date, result.Date.ToString("O", CultureInfo.InvariantCulture)),
+                Variable(AssignedName, EncodeText(result.Name)),
             };
             file.AddRange(GetGlobalSolutionLines(result.Solution));
             file.Add(EndFileHeader);
@@ -529,7 +554,7 @@ namespace AnalysisITC
             file.Add(EndObjectHeader);
 
             //Convergence
-            AddConvergenceLine(solution.Convergence, file);
+            //AddConvergenceLine(solution.Convergence, file);
             AddConvergenceSnapshot(solution.Convergence, file);
 
             file.Add(ListHeader(SolutionList));
