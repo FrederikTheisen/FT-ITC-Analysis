@@ -316,6 +316,7 @@
       <DependentUpon>NSMarginButton.cs</DependentUpon>
     </Compile>
     <Compile Include="GUI\MacOS\ListViews\ExperimentDataSource.cs" />
+    <Compile Include="GUI\MacOS\ListViews\LoadedInjectionDataSource.cs" />
     <Compile Include="GUI\MacOS\ListViews\ResultViewDataSource.cs" />
     <Compile Include="GUI\MacOS\ListViews\AnalysisResultView.cs" />
     <Compile Include="GUI\MacOS\ListViews\AnalysisResultView.designer.cs">
