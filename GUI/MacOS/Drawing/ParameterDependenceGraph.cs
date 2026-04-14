@@ -47,6 +47,10 @@ namespace AnalysisITC
 
         public override void PrepareDraw(CGContext gc, CGPoint center)
         {
+            if (XValues == null || YValues == null) return;
+            if (XValues.Length == 0 || YValues.Length == 0) return;
+            if (XValues.Length != YValues.Length) return;
+
             this.Center = center;
 
             AutoSetFrame();

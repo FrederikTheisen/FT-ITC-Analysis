@@ -13,7 +13,7 @@ namespace AnalysisITC
         GlobalModelParameters Options => Model.Parameters;
 
         public bool IsAdvancedAnalysisAvailable => Model.ModelType == AppClasses.AnalysisClasses.Models.AnalysisModel.OneSetOfSites;
-        public bool IsTemperatureDependenceEnabled => (GetMaximumTemperature() - GetMinimumTemperature()) > AppSettings.MinimumTemperatureSpanForFitting;
+        public bool IsTemperatureDependenceEnabled { get; private set; } = false;
         public bool IsElectrostaticsAnalysisDependenceEnabled { get; private set; } = false;
         public bool IsProtonationAnalysisEnabled { get; private set; } = false;
 
@@ -45,13 +45,19 @@ namespace AnalysisITC
 
         void SetupAnalysisOptions()
         {
-            //IsTemperatureDependenceEnabled = (GetMaximumTemperature() - GetMinimumTemperature()) > AppSettings.MinimumTemperatureSpanForFitting;
+            // Check temperature variation is great enough
+            IsTemperatureDependenceEnabled = (GetMaximumTemperature() - GetMinimumTemperature()) > AppSettings.MinimumTemperatureSpanForFitting;
 
-            var averageIonicStrength = Solution.Solutions.Average(sol => BufferAttribute.GetIonicStrength(sol.Data));
             // Check if data has an ionic strength more than half the minimum span from the average
-            IsElectrostaticsAnalysisDependenceEnabled = Solution.Solutions
+            var averageIonicStrength = Solution.Solutions.Average(sol => BufferAttribute.GetIonicStrength(sol.Data));
+            bool variable_is = Solution.Solutions
                 .Select(sol => BufferAttribute.GetIonicStrength(sol.Data))
                 .Any(ionicStrength => Math.Abs(ionicStrength - averageIonicStrength) > AppSettings.MinimumIonSpanForFitting / 2.0);
+
+            // Check if all have salt attribute
+            bool allsalt = Solution.Solutions.All(sol => sol.Data.Attributes.Exists(att => att.Key == AttributeKey.Salt));
+
+            IsElectrostaticsAnalysisDependenceEnabled = variable_is && allsalt;
 
             //Check if all data has buffer info and figure out if any are different
             if (Solution.Solutions.All(sol => sol.Data.Attributes.Exists(att => att.Key == AttributeKey.Buffer)))

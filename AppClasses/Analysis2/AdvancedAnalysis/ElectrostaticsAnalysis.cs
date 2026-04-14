@@ -32,8 +32,7 @@ namespace AnalysisITC.AppClasses.AnalysisClasses
                     {
                         double ions = 0.0;
 
-                        if (sol.Data.Attributes.Exists(att => att.Key == AttributeKey.Salt))
-                            ions = 1000 * sol.Data.Attributes.Find(att => att.Key == AttributeKey.Salt).ParameterValue;
+                        ions = 1000 * sol.Data.Attributes.Find(att => att.Key == AttributeKey.Salt)?.ParameterValue ?? 0.0;
 
                         var kd = sol.ReportParameters[ParameterType.Affinity1];
                         dataPoints.Add(new Tuple<double, FloatWithError>(ions, kd));
