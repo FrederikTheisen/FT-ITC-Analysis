@@ -267,6 +267,11 @@ namespace AnalysisITC
             UpdateViewCells?.Invoke(null, null);
         }
 
+        public static void InvokeUpdateTable()
+        {
+            UpdateTable?.Invoke(null, null);
+        }
+
         public static void Clear()
         {
             DeletedDataList.Add(new(SourceItems));
@@ -291,11 +296,27 @@ namespace AnalysisITC
             RemoveListIndices?.Invoke(null, idxs);
         }
 
+        public static void CopySelectedAttributesToActive(bool clear = false)
+        {
+            if (Current == null) return;
+
+            var opt = Current.Attributes;
+
+            CopyAttributesTo(opt, Data.Where(d => d != Current && d.Include).ToList(), clear);
+
+            return;
+        }
+
         public static void CopySelectedAttributesToAll(bool clear = false)
         {
             if (Current == null) return;
 
             var opt = Current.Attributes;
+
+            CopyAttributesTo(opt, Data.Where(d => d != Current).ToList(), clear);
+
+            return;
+
             bool overwrite = false;
 
             if (Data.Where(d => d != Current).Any(exp => exp.Attributes.Any(att => opt.Exists(att2 => att2.Key == att.Key))))
@@ -318,6 +339,55 @@ namespace AnalysisITC
                     }
 
                     exp.Attributes.Add(att.Copy());
+                }
+            }
+        }
+
+        public static void CopySelectedAttributesToNameToken(string token, bool clear = false)
+        {
+            if (Current == null) return;
+
+            token = token?.Trim().ToLower();
+            if (string.IsNullOrWhiteSpace(token)) return;
+
+            var opt = Current.Attributes;
+
+            CopyAttributesTo(opt,
+                Data.Where(d => d != Current && d.Name.ToLower().Contains(token)).ToList(),
+                clear);
+        }
+
+        static void CopyAttributesTo(List<ExperimentAttribute> attributes, List<ExperimentData> target, bool clear = false)
+        {
+            AppEventHandler.PrintAndLog($"Copying Attributes ({attributes.Count}) To Target ({target.Count})...");
+            AppEventHandler.PrintAndLog($"Clear Existing: {clear}", 1);
+
+            bool overwrite = false;
+
+            if (target.Any(exp => exp.Attributes.Any(att => attributes.Exists(att2 => att2.Key == att.Key))))
+            {
+                overwrite = AppDelegate.PromptOverwrite("Overwrite existing attributes?");
+            }
+
+            AppEventHandler.PrintAndLog($"Overwrite Existing: {overwrite}", 1);
+
+            foreach (var exp in target)
+            {
+                if (clear) exp.Attributes.Clear();
+
+                foreach (var att in attributes)
+                {
+                    var existing = exp.Attributes.Find(a => a.Key == att.Key);
+
+                    if (existing != null)
+                    {
+                        if (!overwrite) continue;
+                        exp.Attributes.Remove(existing);
+                    }
+
+                    exp.Attributes.Add(att.Copy());
+
+                    AppEventHandler.PrintAndLog($"Adding {att.GetDisplayName()}", 1);
                 }
             }
         }
