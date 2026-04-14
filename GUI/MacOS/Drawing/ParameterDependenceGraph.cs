@@ -30,6 +30,9 @@ namespace AnalysisITC
         public void Setup()
         {
             if (XValues == null || YValues == null) return;
+            if (XValues.Length == 0 || YValues.Length == 0) return;
+            if (XValues.Length != YValues.Length) return;
+
             XAxis = GraphAxis.WithBuffer(this, XValues.Min(), XValues.Max(), buffer: .1, position: AxisPosition.Bottom);
             XAxis.HideUnwantedTicks = false;
             XAxis.ValueFactor = XScaleFactor;
