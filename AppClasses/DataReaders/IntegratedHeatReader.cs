@@ -46,6 +46,8 @@ namespace DataReaders
 
         static void ProcessExperiment(ExperimentData data)
         {
+            if (data == null) return;
+
             // Disable first injection
             data.Injections.First().Include = false;
         }
