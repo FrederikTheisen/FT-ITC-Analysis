@@ -238,31 +238,55 @@ namespace AnalysisITC.AppClasses.AnalysisClasses
 			};
 		}
 
-		override public string ToString()
-		{
+        public string GetDisplayName()
+        {
+            if (!string.IsNullOrWhiteSpace(OptionName)) return OptionName;
+
+            return Key.GetProperties()?.Name ?? Key.ToString();
+        }
+
+        public string GetDisplayValue(ExperimentData experiment = null)
+        {
             switch (Key)
             {
                 case AttributeKey.Buffer:
-                    return $"{ParameterValue.Value} mM {((Buffer)IntValue).GetProperties().ListName} pH {DoubleValue}";
+                    return $"{ParameterValue.AsConcentration(ConcentrationUnit.mM)} {((Buffer)IntValue).GetProperties().AttributedName} pH {DoubleValue:G4}";
                 case AttributeKey.Salt:
-                    return $"{ParameterValue.Value} mM {((Salt)IntValue).GetProperties().Name}";
+                    return $"{ParameterValue.AsConcentration(ConcentrationUnit.mM)} {((Salt)IntValue).GetProperties().AttributedName}";
+                case AttributeKey.IonicStrength:
+                    return ParameterValue.AsConcentration(ConcentrationUnit.mM);
+                case AttributeKey.BufferSubtraction:
+                    return experiment?.ReferenceExperiment?.Name
+                        ?? DataManager.Data.FirstOrDefault(d => d.UniqueID == StringValue)?.Name
+                        ?? "Missing reference experiment";
                 case AttributeKey.NumberOfSites1:
                 case AttributeKey.NumberOfSites2:
-                    return StoichiometryOptions.GetClosest(DoubleValue).Title;
+                    return $"{IntValue}";
+                case AttributeKey.PreboundLigandConc:
+                    return ParameterValue.AsFormattedConcentration(true);
             }
 
             switch (Key.GetProperties().Type)
-			{
-				case AttributeType.Bool: return $"{BoolValue}";
-				case AttributeType.Enum:
-				case AttributeType.Int: return $"{IntValue}";
-				case AttributeType.Double: return $"{DoubleValue}";
-				case AttributeType.ParameterAffinity:
-				case AttributeType.ParameterConcentration:
-				case AttributeType.Parameter: return $"{ParameterValue}";
-			}
+            {
+                case AttributeType.Bool: return BoolValue ? "Yes" : "No";
+                case AttributeType.Enum:
+                case AttributeType.Int: return $"{IntValue}";
+                case AttributeType.Double: return $"{DoubleValue:G4}";
+                case AttributeType.ParameterAffinity:
+                case AttributeType.ParameterConcentration:
+                case AttributeType.Parameter: return $"{ParameterValue}";
+                case AttributeType.ReferenceExperiment:
+                    return experiment?.ReferenceExperiment?.Name
+                        ?? DataManager.Data.FirstOrDefault(d => d.UniqueID == StringValue)?.Name
+                        ?? "Missing reference experiment";
+            }
 
-			return $"{Key} {StringValue} {IntValue} {BoolValue} {DoubleValue} {ParameterValue}";
+            return $"{Key} {StringValue} {IntValue} {BoolValue} {DoubleValue} {ParameterValue}";
+        }
+
+		override public string ToString()
+		{
+			return GetDisplayValue();
 		}
 
 		public static List<AttributeKey> AvailableExperimentAttributes
@@ -294,4 +318,3 @@ namespace AnalysisITC.AppClasses.AnalysisClasses
         }
 	}
 }
-

@@ -502,6 +502,21 @@ namespace AnalysisITC
             info.Add($"**Injections:** {this.InjectionCount} [{injdescription}]");
             info.Add($"**Concentrations:** Cell: {this.CellConcentration.AsConcentration(ConcentrationUnit.µM)} | Syringe: {this.SyringeConcentration.AsConcentration(ConcentrationUnit.µM)}");
 
+            var attributeInfo = Attributes
+                .Select(att => new { Name = att.GetDisplayName(), Value = att.GetDisplayValue(this) })
+                .Where(att => !string.IsNullOrWhiteSpace(att.Value))
+                .ToList();
+
+            if (attributeInfo.Count > 0)
+            {
+                info.Add("**Attributes:**");
+
+                foreach (var att in attributeInfo)
+                {
+                    info.Add($"  **{att.Name}:** {att.Value}");
+                }
+            }
+
             if (!string.IsNullOrEmpty(this.Comments)) info.Add("**Comment:** " + this.Comments);
 
             return info;

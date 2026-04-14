@@ -134,6 +134,7 @@ namespace AnalysisITC
                 }
 
                 DismissViewController(this);
+                DataManager.InvokeUpdateTable();
             }
             catch (Exception ex)
             {
