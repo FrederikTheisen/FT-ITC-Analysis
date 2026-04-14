@@ -60,7 +60,7 @@ namespace AnalysisITC
                 case "selectall": return DataManager.DataIsLoaded;
                 case "deselectall": return DataManager.DataIsLoaded;
                 case "sortbyname":
-                case "sortbytemp": return DataManager.DataIsLoaded;
+                case "sortbytemp": 
                 case "sortbydate": return DataManager.DataIsLoaded;
                 case "sortbytype": return DataManager.DataIsLoaded && DataManager.Results.Count > 0;
                 case "sortbyprotonation": return DataManager.DataIsLoaded && DataManager.Data.Any(d => d.Attributes.Count > 0);

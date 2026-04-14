@@ -20,7 +20,7 @@ namespace AnalysisITC
             // Ignore if token empty
             if (string.IsNullOrWhiteSpace(token)) return;
 
-            Console.WriteLine($"Including data based on: {token}");
+            AppEventHandler.Print($"Activating data based on: {token}");
 
             // Inactivate all
             DataManager.Data.ForEach(d => d.Include = false);
