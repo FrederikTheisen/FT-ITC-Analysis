@@ -507,6 +507,8 @@ namespace AnalysisITC
                 .Where(att => !string.IsNullOrWhiteSpace(att.Value))
                 .ToList();
 
+            if (!string.IsNullOrEmpty(this.Comments)) info.Add("**Comment:** " + this.Comments);
+
             if (attributeInfo.Count > 0)
             {
                 info.Add("**Attributes:**");
@@ -516,8 +518,6 @@ namespace AnalysisITC
                     info.Add($"  **{att.Name}:** {att.Value}");
                 }
             }
-
-            if (!string.IsNullOrEmpty(this.Comments)) info.Add("**Comment:** " + this.Comments);
 
             return info;
         }
