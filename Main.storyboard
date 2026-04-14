@@ -4474,23 +4474,23 @@ For analysis and presentation of ITC data</string>
                 <customObject id="Voe-Tx-rLC" customClass="AppDelegate"/>
                 <customObject id="YLy-65-1bz" customClass="NSFontManager"/>
                 <customView id="gyZ-EV-HHE" customClass="TextInputMeniItemView">
-                    <rect key="frame" x="0.0" y="0.0" width="186" height="22"/>
+                    <rect key="frame" x="0.0" y="0.0" width="191" height="22"/>
                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                     <subviews>
                         <stackView distribution="fill" orientation="horizontal" alignment="centerY" spacing="10" horizontalStackHuggingPriority="249.99998474121094" verticalStackHuggingPriority="750" verticalHuggingPriority="750" detachesHiddenViews="YES" translatesAutoresizingMaskIntoConstraints="NO" id="Hie-Rk-36e">
-                            <rect key="frame" x="0.0" y="0.0" width="186" height="22"/>
+                            <rect key="frame" x="0.0" y="0.0" width="191" height="22"/>
                             <subviews>
                                 <textField horizontalHuggingPriority="251" verticalHuggingPriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="IN6-pJ-sAG">
-                                    <rect key="frame" x="6" y="3" width="44" height="16"/>
-                                    <textFieldCell key="cell" lineBreakMode="clipping" title="Token:" id="SQ2-EQ-R8l">
+                                    <rect key="frame" x="6" y="3" width="49" height="16"/>
+                                    <textFieldCell key="cell" lineBreakMode="clipping" title="Enable:" id="SQ2-EQ-R8l">
                                         <font key="font" metaFont="system"/>
                                         <color key="textColor" name="labelColor" catalog="System" colorSpace="catalog"/>
                                         <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
                                     </textFieldCell>
                                 </textField>
-                                <textField focusRingType="none" verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="Sgi-07-2cE">
-                                    <rect key="frame" x="58" y="0.0" width="120" height="22"/>
-                                    <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" borderStyle="bezel" focusRingType="none" bezelStyle="round" id="Ipb-U9-ENy">
+                                <textField toolTip="Enable experiments by typing a part of their name here and hitting ENTER." focusRingType="none" verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="Sgi-07-2cE">
+                                    <rect key="frame" x="63" y="0.0" width="120" height="22"/>
+                                    <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" borderStyle="bezel" focusRingType="none" placeholderString="Token" bezelStyle="round" id="Ipb-U9-ENy">
                                         <font key="font" usesAppearanceFont="YES"/>
                                         <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                         <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
@@ -4520,7 +4520,7 @@ For analysis and presentation of ITC data</string>
                 </customView>
                 <customObject id="Ady-hI-5gd" userLabel="First Responder" customClass="NSResponder" sceneMemberID="firstResponder"/>
             </objects>
-            <point key="canvasLocation" x="246" y="-714"/>
+            <point key="canvasLocation" x="285" y="-561"/>
         </scene>
         <!--View Controller-->
         <scene sceneID="ZiX-nq-dpD">
@@ -8674,15 +8674,36 @@ DQ
                                                                 <items>
                                                                     <menuItem title="Experiment Menu" hidden="YES" id="NRI-nq-Bkp"/>
                                                                     <menuItem title="Experiment attributes..." image="slider.horizontal.3" catalog="system" identifier="openattributes" id="lGa-Vr-Px7"/>
-                                                                    <menuItem title="Copy attributes to all" image="plus.square.on.square" catalog="system" identifier="copyattributes" id="Qvf-0T-CFK"/>
-                                                                    <menuItem title="Toggle active" identifier="toggleinclude" id="IEU-1U-vSD">
-                                                                        <imageReference key="image" image="switch.2" catalog="system" symbolScale="default" variableValue="1"/>
+                                                                    <menuItem title="Copy attributes to all" hidden="YES" identifier="copyattributes" id="Qvf-0T-CFK"/>
+                                                                    <menuItem title="Copy attributes to" id="i5n-Tj-5PR">
+                                                                        <modifierMask key="keyEquivalentModifierMask"/>
+                                                                        <menu key="submenu" title="Copy attributes to" id="bie-d2-dqb">
+                                                                            <items>
+                                                                                <menuItem title="All" identifier="copyatttoall" id="2ZQ-LF-S3J">
+                                                                                    <modifierMask key="keyEquivalentModifierMask"/>
+                                                                                </menuItem>
+                                                                                <menuItem title="Active" identifier="copyatttoactive" id="QVY-kF-GTV">
+                                                                                    <modifierMask key="keyEquivalentModifierMask"/>
+                                                                                </menuItem>
+                                                                                <menuItem isSeparatorItem="YES" id="eNj-aP-3DA"/>
+                                                                                <menuItem title="Specific Experiments:" id="XEb-1Q-i07">
+                                                                                    <modifierMask key="keyEquivalentModifierMask"/>
+                                                                                </menuItem>
+                                                                                <menuItem title="Experiment..." id="BHi-dX-cJ1">
+                                                                                    <modifierMask key="keyEquivalentModifierMask"/>
+                                                                                    <connections>
+                                                                                        <outlet property="view" destination="nJM-d2-0ih" id="GfJ-Ol-V2e"/>
+                                                                                    </connections>
+                                                                                </menuItem>
+                                                                            </items>
+                                                                        </menu>
                                                                     </menuItem>
                                                                     <menuItem isSeparatorItem="YES" id="Bjc-Vx-rQB"/>
                                                                     <menuItem title="Duplicate data" image="document.on.document" catalog="system" identifier="duplicate" id="5SX-zc-QAp"/>
                                                                     <menuItem title="Export data..." image="square.and.arrow.up" catalog="system" identifier="export" id="bbi-sm-cZP"/>
                                                                     <menuItem isSeparatorItem="YES" id="n9q-ZG-8We"/>
-                                                                    <menuItem title="Clear solution" image="clear" catalog="system" identifier="clearsolution" id="CqF-Kz-qRT">
+                                                                    <menuItem title="Toggle active" identifier="toggleinclude" id="IEU-1U-vSD"/>
+                                                                    <menuItem title="Clear solution" identifier="clearsolution" id="CqF-Kz-qRT">
                                                                         <attributedString key="attributedTitle"/>
                                                                     </menuItem>
                                                                     <menuItem title="Delete data" image="trash" catalog="system" identifier="delete" id="70R-oH-bXM">
@@ -8863,9 +8884,6 @@ IA
                         </constraints>
                     </view>
                     <connections>
-                        <outlet property="ClearDataButton" destination="Kvq-99-mYo" id="nRv-bt-0AT"/>
-                        <outlet property="ContinueButton" destination="iS7-4Y-ebo" id="waz-OS-TUN"/>
-                        <outlet property="EditAttributesButton" destination="m6w-C2-M1T" id="RK2-8x-KYL"/>
                         <outlet property="ExperimentMenuButton" destination="PKB-Ww-3Sz" id="5t8-MH-MUV"/>
                         <outlet property="GVC" destination="54f-ar-wQ3" id="YXY-Fs-Ftf"/>
                         <outlet property="InfoLabel" destination="gBO-t1-y9P" id="Aeh-7b-fd9"/>
@@ -8876,85 +8894,51 @@ IA
                     </connections>
                 </viewController>
                 <customObject id="rPt-NT-nkU" userLabel="First Responder" customClass="NSResponder" sceneMemberID="firstResponder"/>
-                <menu id="dlv-Qu-eRa">
-                    <items>
-                        <menuItem title="Item 1" id="uVM-3a-3Q9">
-                            <modifierMask key="keyEquivalentModifierMask"/>
-                        </menuItem>
-                        <menuItem title="Item 2" id="tcX-LV-XvH">
-                            <modifierMask key="keyEquivalentModifierMask"/>
-                        </menuItem>
-                        <menuItem title="Item 3" id="YQL-lf-101">
-                            <modifierMask key="keyEquivalentModifierMask"/>
-                        </menuItem>
-                    </items>
-                </menu>
-                <button identifier="LoadDataButton" verticalHuggingPriority="750" id="urf-W4-VNI">
-                    <rect key="frame" x="0.0" y="0.0" width="107" height="32"/>
-                    <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMaxY="YES"/>
-                    <buttonCell key="cell" type="push" title="Add data" bezelStyle="rounded" alignment="center" borderStyle="border" imageScaling="proportionallyDown" inset="2" id="nik-aH-dzp">
-                        <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
-                        <font key="font" metaFont="system"/>
-                    </buttonCell>
-                    <connections>
-                        <action selector="ButtonClick:" target="XfG-lQ-9wD" id="PBv-Gi-PuR"/>
-                    </connections>
-                </button>
-                <button identifier="LoadDataButton" verticalHuggingPriority="750" id="Kvq-99-mYo">
-                    <rect key="frame" x="0.0" y="0.0" width="107" height="32"/>
-                    <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMaxY="YES"/>
-                    <buttonCell key="cell" type="push" title="Clear" bezelStyle="rounded" alignment="center" enabled="NO" borderStyle="border" imageScaling="proportionallyDown" inset="2" id="reY-gd-Jx5">
-                        <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
-                        <font key="font" metaFont="system"/>
-                    </buttonCell>
-                    <connections>
-                        <action selector="ClearButtonClick:" target="XfG-lQ-9wD" id="eCM-sI-nbC"/>
-                    </connections>
-                </button>
-                <button identifier="LoadDataButton" verticalHuggingPriority="750" id="iS7-4Y-ebo">
-                    <rect key="frame" x="0.0" y="0.0" width="127" height="32"/>
-                    <autoresizingMask key="autoresizingMask" flexibleMinX="YES" flexibleMaxY="YES"/>
-                    <buttonCell key="cell" type="push" title="Process Data" bezelStyle="rounded" alignment="center" enabled="NO" borderStyle="border" imageScaling="proportionallyDown" inset="2" id="v7L-E4-AQy">
-                        <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
-                        <font key="font" metaFont="system"/>
-                    </buttonCell>
-                    <connections>
-                        <action selector="ContinueClick:" target="XfG-lQ-9wD" id="Bsn-K9-Yc9"/>
-                    </connections>
-                </button>
-                <button verticalHuggingPriority="750" id="m6w-C2-M1T">
-                    <rect key="frame" x="0.0" y="0.0" width="172" height="32"/>
+                <customView id="nJM-d2-0ih" customClass="AttributeCopyTargetTokenView">
+                    <rect key="frame" x="0.0" y="0.0" width="202" height="26"/>
                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                    <buttonCell key="cell" type="push" title="Edit Attributes" bezelStyle="rounded" alignment="center" borderStyle="border" imageScaling="proportionallyDown" inset="2" id="dWR-Tp-Puo">
-                        <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
-                        <font key="font" metaFont="system"/>
-                    </buttonCell>
-                    <connections>
-                        <action selector="EditAttributesAction:" target="XfG-lQ-9wD" id="dhx-Nu-rE5"/>
-                    </connections>
-                </button>
-                <button verticalHuggingPriority="750" id="1wv-st-LzN">
-                    <rect key="frame" x="0.0" y="0.0" width="160" height="23"/>
-                    <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                    <buttonCell key="cell" type="roundTextured" title="Duplicate Data" bezelStyle="texturedRounded" alignment="center" borderStyle="border" imageScaling="proportionallyDown" inset="2" id="egx-gB-AH1">
-                        <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
-                        <font key="font" metaFont="system"/>
-                    </buttonCell>
-                    <connections>
-                        <action selector="DuplicateDataAction:" target="XfG-lQ-9wD" id="CKA-hr-nvU"/>
-                    </connections>
-                </button>
-                <button verticalHuggingPriority="750" id="5U6-6j-DB9">
-                    <rect key="frame" x="0.0" y="0.0" width="160" height="23"/>
-                    <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                    <buttonCell key="cell" type="roundTextured" title="Toggle Multifit Inclusion" bezelStyle="texturedRounded" alignment="center" borderStyle="border" imageScaling="proportionallyDown" inset="2" id="TkD-rV-WMh">
-                        <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
-                        <font key="font" metaFont="system"/>
-                    </buttonCell>
-                    <connections>
-                        <action selector="ToggleInclusionAction:" target="XfG-lQ-9wD" id="iz5-TZ-74x"/>
-                    </connections>
-                </button>
+                    <subviews>
+                        <stackView distribution="fill" orientation="horizontal" alignment="centerY" spacing="10" horizontalStackHuggingPriority="249.99998474121094" verticalStackHuggingPriority="750" verticalHuggingPriority="750" detachesHiddenViews="YES" translatesAutoresizingMaskIntoConstraints="NO" id="c1L-5o-CMg">
+                            <rect key="frame" x="0.0" y="0.0" width="202" height="26"/>
+                            <subviews>
+                                <textField horizontalHuggingPriority="251" verticalHuggingPriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="evn-06-MDT">
+                                    <rect key="frame" x="12" y="5" width="44" height="16"/>
+                                    <textFieldCell key="cell" lineBreakMode="clipping" title="Name:" id="t76-V1-EvR">
+                                        <font key="font" metaFont="system"/>
+                                        <color key="textColor" name="labelColor" catalog="System" colorSpace="catalog"/>
+                                        <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
+                                    </textFieldCell>
+                                </textField>
+                                <textField identifier="Copy to experiments by typing a part of their name here and hitting ENTER." focusRingType="none" verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="1ld-Mp-e91">
+                                    <rect key="frame" x="64" y="2" width="130" height="22"/>
+                                    <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" borderStyle="bezel" focusRingType="none" placeholderString="full or partial" bezelStyle="round" id="nqm-3S-3KZ">
+                                        <font key="font" metaFont="system"/>
+                                        <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
+                                        <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
+                                    </textFieldCell>
+                                    <connections>
+                                        <action selector="Action:" target="nJM-d2-0ih" id="d3a-96-Wpf"/>
+                                    </connections>
+                                </textField>
+                            </subviews>
+                            <edgeInsets key="edgeInsets" left="14" right="8" top="2" bottom="2"/>
+                            <visibilityPriorities>
+                                <integer value="1000"/>
+                                <integer value="1000"/>
+                            </visibilityPriorities>
+                            <customSpacing>
+                                <real value="3.4028234663852886e+38"/>
+                                <real value="3.4028234663852886e+38"/>
+                            </customSpacing>
+                        </stackView>
+                    </subviews>
+                    <constraints>
+                        <constraint firstAttribute="trailing" secondItem="c1L-5o-CMg" secondAttribute="trailing" id="GVo-nc-ZxL"/>
+                        <constraint firstAttribute="bottom" secondItem="c1L-5o-CMg" secondAttribute="bottom" id="PKb-lg-iKt"/>
+                        <constraint firstItem="c1L-5o-CMg" firstAttribute="top" secondItem="nJM-d2-0ih" secondAttribute="top" id="rop-C8-ww9"/>
+                        <constraint firstItem="c1L-5o-CMg" firstAttribute="leading" secondItem="nJM-d2-0ih" secondAttribute="leading" id="xWh-T5-bCX"/>
+                    </constraints>
+                </customView>
             </objects>
             <point key="canvasLocation" x="1363.5" y="1121"/>
         </scene>
@@ -12964,7 +12948,7 @@ The models in \appname are implemented to match the **MicroCal/Origin formal def
         <segue reference="fR7-7x-1Nh"/>
         <segue reference="M3R-ql-On8"/>
         <segue reference="cas-ZM-y1q"/>
-        <segue reference="f0o-qO-was"/>
+        <segue reference="LMg-up-goO"/>
     </inferredMetricsTieBreakers>
     <resources>
         <image name="NSActionTemplate" width="20" height="20"/>
@@ -12990,7 +12974,6 @@ The models in \appname are implemented to match the **MicroCal/Origin formal def
         <image name="circle.fill" catalog="system" width="15" height="15"/>
         <image name="circle.inset.filled" catalog="system" width="13" height="13"/>
         <image name="circle.slash" catalog="system" width="16" height="17"/>
-        <image name="clear" catalog="system" width="15" height="14"/>
         <image name="cursorarrow.and.square.on.square.dashed" catalog="system" width="18" height="19"/>
         <image name="diamond.fill" catalog="system" width="17" height="17"/>
         <image name="document.on.document" catalog="system" width="16" height="18"/>
@@ -13000,7 +12983,6 @@ The models in \appname are implemented to match the **MicroCal/Origin formal def
         <image name="play.fill" catalog="system" width="10" height="11"/>
         <image name="plus" catalog="system" width="14" height="13"/>
         <image name="plus.circle" catalog="system" width="15" height="15"/>
-        <image name="plus.square.on.square" catalog="system" width="17" height="16"/>
         <image name="printer" catalog="system" width="18" height="16"/>
         <image name="printer.dotmatrix" catalog="system" width="18" height="16"/>
         <image name="questionmark.bubble.fill" catalog="system" width="17" height="16"/>
@@ -13015,7 +12997,6 @@ The models in \appname are implemented to match the **MicroCal/Origin formal def
         <image name="square.and.arrow.up" catalog="system" width="15" height="18"/>
         <image name="square.fill" catalog="system" width="15" height="14"/>
         <image name="stop.circle.fill" catalog="system" width="15" height="15"/>
-        <image name="switch.2" catalog="system" width="16" height="14"/>
         <image name="trash" catalog="system" width="15" height="17"/>
         <image name="xmark" catalog="system" width="14" height="13"/>
     </resources>

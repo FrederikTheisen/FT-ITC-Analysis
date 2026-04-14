@@ -531,6 +531,10 @@
     <Compile Include="GUI\MacOS\CustomViews\TextInputMeniItemView.designer.cs">
       <DependentUpon>TextInputMeniItemView.cs</DependentUpon>
     </Compile>
+    <Compile Include="GUI\MacOS\CustomViews\AttributeCopyTargetTokenView.cs" />
+    <Compile Include="GUI\MacOS\CustomViews\AttributeCopyTargetTokenView.designer.cs">
+      <DependentUpon>AttributeCopyTargetTokenView.cs</DependentUpon>
+    </Compile>
     <Compile Include="GUI\MacOS\GuideHintViewController2.cs" />
     <Compile Include="GUI\MacOS\GuideHintViewController2.designer.cs">
       <DependentUpon>GuideHintViewController2.cs</DependentUpon>

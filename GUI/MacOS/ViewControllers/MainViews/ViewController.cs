@@ -30,28 +30,37 @@ namespace AnalysisITC
             DataManager.SelectionDidChange += OnSelectionChanged;
             StateManager.UpdateStateDependentUI += StateManager_UpdateStateDependentUI;
             AppDelegate.StartPrintOperation += AppDelegate_StartPrintOperation;
-            ExperimentMenuButton.Activated += OnSourcePopupChanged;
+            BindExperimentMenuActions(ExperimentMenuButton.Menu);
 
             ShowLoadDataPrompt();
         }
 
         public override void ViewDidAppear()
         {
-            base.ViewDidAppear();
+             base.ViewDidAppear();
 
             UpdateGraph();
         }
 
-        private void OnSourcePopupChanged(object sender, EventArgs e)
+        void BindExperimentMenuActions(NSMenu menu)
         {
-            var popup = (NSPopUpButton)sender;
-            var item = popup.SelectedItem;
+            if (menu == null) return;
 
+            foreach (var item in menu.Items)
+            {
+                item.Activated -= OnExperimentMenuItemActivated;
+                item.Activated += OnExperimentMenuItemActivated;
+
+                if (item.Submenu != null)
+                    BindExperimentMenuActions(item.Submenu);
+            }
+        }
+
+        private void OnExperimentMenuItemActivated(object sender, EventArgs e)
+        {
+            var item = sender as NSMenuItem;
             if (item == null) return;
 
-            var title = item.Title;
-            var index = popup.IndexOfSelectedItem;
-            var tag = item.Tag;
             var iden = item.Identifier;
 
             switch (iden)
@@ -59,6 +68,10 @@ namespace AnalysisITC
                 case "openattributes":
                     EditAttributesAction(null);
                     break;
+                case "copyatttoactive":
+                    DataManager.CopySelectedAttributesToActive();
+                    break;
+                case "copyatttoall":
                 case "copyattributes":
                     DataManager.CopySelectedAttributesToAll();
                     break;
