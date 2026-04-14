@@ -361,7 +361,6 @@ namespace AnalysisITC.AppClasses.AnalysisClasses.Models
         {
             if (parent != null) // Set directly
             {
-                AppEventHandler.Print($"Setting Parent Solution {parent.UniqueID} for {Data.UniqueID}");
                 ParentSolution = parent;
             }
             else if (!string.IsNullOrWhiteSpace(ParentSolutionID)) // Resolve from loaded ID
