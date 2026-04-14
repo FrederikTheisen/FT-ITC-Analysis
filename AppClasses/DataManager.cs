@@ -301,8 +301,14 @@ namespace AnalysisITC
             if (Current == null) return;
 
             var opt = Current.Attributes;
+            var target = Data.Where(d => d != Current && d.Include).ToList();
 
-            CopyAttributesTo(opt, Data.Where(d => d != Current && d.Include).ToList(), clear);
+            var copied = CopyAttributesTo(opt, target, clear);
+            StatusBarManager.SetStatus(
+                copied > 0
+                    ? $"Copied attributes to {copied} active experiment{(copied == 1 ? "" : "s")}"
+                    : "No active experiments available for attribute copy",
+                4000);
 
             return;
         }
@@ -312,8 +318,14 @@ namespace AnalysisITC
             if (Current == null) return;
 
             var opt = Current.Attributes;
+            var target = Data.Where(d => d != Current).ToList();
 
-            CopyAttributesTo(opt, Data.Where(d => d != Current).ToList(), clear);
+            var copied = CopyAttributesTo(opt, target, clear);
+            StatusBarManager.SetStatus(
+                copied > 0
+                    ? $"Copied attributes to {copied} experiment{(copied == 1 ? "" : "s")}"
+                    : "No other experiments available for attribute copy",
+                4000);
 
             return;
 
@@ -351,18 +363,23 @@ namespace AnalysisITC
             if (string.IsNullOrWhiteSpace(token)) return;
 
             var opt = Current.Attributes;
+            var target = Data.Where(d => d != Current && d.Name.ToLower().Contains(token)).ToList();
 
-            CopyAttributesTo(opt,
-                Data.Where(d => d != Current && d.Name.ToLower().Contains(token)).ToList(),
-                clear);
+            var copied = CopyAttributesTo(opt, target, clear);
+            StatusBarManager.SetStatus(
+                copied > 0
+                    ? $"Copied attributes to {copied} experiment{(copied == 1 ? "" : "s")} matching \"{token}\""
+                    : $"No experiments matched \"{token}\"",
+                4000);
         }
 
-        static void CopyAttributesTo(List<ExperimentAttribute> attributes, List<ExperimentData> target, bool clear = false)
+        static int CopyAttributesTo(List<ExperimentAttribute> attributes, List<ExperimentData> target, bool clear = false)
         {
             AppEventHandler.PrintAndLog($"Copying Attributes ({attributes.Count}) To Target ({target.Count})...");
             AppEventHandler.PrintAndLog($"Clear Existing: {clear}", 1);
 
             bool overwrite = false;
+            int copiedExperiments = 0;
 
             if (target.Any(exp => exp.Attributes.Any(att => attributes.Exists(att2 => att2.Key == att.Key))))
             {
@@ -373,6 +390,8 @@ namespace AnalysisITC
 
             foreach (var exp in target)
             {
+                bool didChange = false;
+
                 if (clear) exp.Attributes.Clear();
 
                 foreach (var att in attributes)
@@ -386,10 +405,15 @@ namespace AnalysisITC
                     }
 
                     exp.Attributes.Add(att.Copy());
+                    didChange = true;
 
                     AppEventHandler.PrintAndLog($"Adding {att.GetDisplayName()}", 1);
                 }
+
+                if (didChange) copiedExperiments++;
             }
+
+            return copiedExperiments;
         }
 
         public static async void CopySelectedProcessToAll()
