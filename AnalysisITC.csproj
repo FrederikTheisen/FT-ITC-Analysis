@@ -188,6 +188,16 @@
     <ImageAsset Include="Assets.xcassets\chevron.up.chevron.down.wide.symbolset\chevron.up.chevron.down.wide.svg" />
     <ImageAsset Include="Assets.xcassets\chevron.left.chevron.right.wide.symbolset\Contents.json" />
     <ImageAsset Include="Assets.xcassets\chevron.left.chevron.right.wide.symbolset\chevron.left.chevron.right.wide.svg" />
+    <ImageAsset Include="Assets.xcassets\chevron.up.chevron.down.wide.bars.symbolset\chevron.up.chevron.down.wide.bars.svg" />
+    <ImageAsset Include="Assets.xcassets\chevron.up.chevron.down.wide.bars.symbolset\Contents.json" />
+    <ImageAsset Include="Assets.xcassets\chevron.down.chevron.up.line.symbolset\Contents.json" />
+    <ImageAsset Include="Assets.xcassets\chevron.down.chevron.up.line.symbolset\chevron.down.chevron.up.line.svg" />
+    <ImageAsset Include="Assets.xcassets\chevron.right.chevron.left.line.symbolset\chevron.right.chevron.left.line.svg" />
+    <ImageAsset Include="Assets.xcassets\chevron.right.chevron.left.line.symbolset\Contents.json" />
+    <ImageAsset Include="Assets.xcassets\line.chevron.left.line.chevron.right.wide.symbolset\Contents.json" />
+    <ImageAsset Include="Assets.xcassets\line.chevron.left.line.chevron.right.wide.symbolset\line.chevron.left.line.chevron.right.wide.svg" />
+    <ImageAsset Include="Assets.xcassets\line.chevron.up.line.chevron.down.symbolset\Contents.json" />
+    <ImageAsset Include="Assets.xcassets\line.chevron.up.line.chevron.down.symbolset\line.chevron.up.line.chevron.down.svg" />
   </ItemGroup>
   <ItemGroup>
     <Folder Include="Resources\" />

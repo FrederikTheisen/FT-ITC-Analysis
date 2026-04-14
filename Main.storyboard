@@ -6397,7 +6397,7 @@ DQ
                                     <rect key="frame" x="111" y="1" width="5" height="50"/>
                                 </box>
                                 <button verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="zTg-QH-FPo">
-                                    <rect key="frame" x="115" y="0.0" width="111" height="31"/>
+                                    <rect key="frame" x="115" y="20" width="111" height="31"/>
                                     <buttonCell key="cell" type="recessed" title="Process Data" bezelStyle="recessed" alignment="center" controlSize="large" lineBreakMode="truncatingTail" borderStyle="border" inset="2" id="o5L-6P-mOP">
                                         <behavior key="behavior" lightByBackground="YES" lightByGray="YES" changeBackground="YES" changeGray="YES"/>
                                         <font key="font" metaFont="system"/>
@@ -7038,7 +7038,7 @@ DQ
                                         <size key="contentViewMargins" width="5" height="5"/>
                                     </box>
                                     <stackView distribution="fill" orientation="horizontal" alignment="firstBaseline" horizontalStackHuggingPriority="250" verticalStackHuggingPriority="750" verticalHuggingPriority="750" detachesHiddenViews="YES" translatesAutoresizingMaskIntoConstraints="NO" id="5oj-9h-hGH">
-                                        <rect key="frame" x="338" y="548" width="572" height="16"/>
+                                        <rect key="frame" x="0.0" y="548" width="572" height="16"/>
                                         <subviews>
                                             <button toolTip="Display the baseline" verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="jsQ-Vt-t9u">
                                                 <rect key="frame" x="5" y="-1" width="66" height="17"/>
@@ -7129,7 +7129,7 @@ DQ
                                         <beginningViews>
                                             <button toolTip="Reset zoom" horizontalHuggingPriority="500" verticalHuggingPriority="750" fixedFrame="YES" translatesAutoresizingMaskIntoConstraints="NO" id="g8C-SL-1UV">
                                                 <rect key="frame" x="-6" y="-6" width="45" height="40"/>
-                                                <buttonCell key="cell" type="push" bezelStyle="rounded" image="chevron.up.chevron.right.chevron.down.chevron.left" catalog="system" imagePosition="only" alignment="center" controlSize="large" borderStyle="border" imageScaling="proportionallyDown" inset="2" id="7ai-rv-oDu">
+                                                <buttonCell key="cell" type="push" bezelStyle="rounded" image="square.arrowtriangle.4.outward" catalog="system" imagePosition="only" alignment="center" controlSize="large" borderStyle="border" imageScaling="proportionallyDown" inset="2" id="7ai-rv-oDu">
                                                     <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
                                                     <font key="font" metaFont="system"/>
                                                 </buttonCell>
@@ -7142,8 +7142,8 @@ DQ
                                                 <segmentedCell key="cell" controlSize="large" borderStyle="border" alignment="left" style="rounded" trackingMode="momentary" id="WyM-Dy-gMe">
                                                     <font key="font" metaFont="system"/>
                                                     <segments>
-                                                        <segment toolTip="Zoom to all data" image="chevron.up.chevron.down.wide" imageScaling="none" width="32"/>
-                                                        <segment toolTip="Zoom to baseline" image="chevron.down.chevron.up" imageScaling="none" width="32"/>
+                                                        <segment toolTip="Zoom to all data" image="line.chevron.up.line.chevron.down" imageScaling="none" width="32"/>
+                                                        <segment toolTip="Zoom to baseline" image="chevron.down.chevron.up.line" imageScaling="none" width="32"/>
                                                     </segments>
                                                 </segmentedCell>
                                                 <connections>
@@ -7155,8 +7155,8 @@ DQ
                                                 <segmentedCell key="cell" controlSize="large" borderStyle="border" alignment="left" style="rounded" trackingMode="momentary" id="RnJ-rj-2dg">
                                                     <font key="font" metaFont="system"/>
                                                     <segments>
-                                                        <segment toolTip="Zoom to all peaks" image="chevron.left.chevron.right.wide" imageScaling="none" width="32"/>
-                                                        <segment toolTip="Zoom to selected peak" image="chevron.right.chevron.left" imageScaling="none" width="32" tag="1"/>
+                                                        <segment toolTip="Zoom to all peaks" image="line.chevron.left.line.chevron.right.wide" imageScaling="none" width="32"/>
+                                                        <segment toolTip="Zoom to selected peak" image="chevron.right.chevron.left.line" imageScaling="none" width="32" tag="1"/>
                                                     </segments>
                                                 </segmentedCell>
                                                 <connections>
@@ -8677,7 +8677,7 @@ DQ
                                                                     <menuItem title="Copy attributes to all" hidden="YES" identifier="copyattributes" id="Qvf-0T-CFK"/>
                                                                     <menuItem title="Copy attributes to" id="i5n-Tj-5PR">
                                                                         <modifierMask key="keyEquivalentModifierMask"/>
-                                                                        <menu key="submenu" title="Copy attributes to" id="bie-d2-dqb">
+                                                                        <menu key="submenu" title="Copy attributes to" autoenablesItems="NO" id="bie-d2-dqb">
                                                                             <items>
                                                                                 <menuItem title="All" identifier="copyatttoall" id="2ZQ-LF-S3J">
                                                                                     <modifierMask key="keyEquivalentModifierMask"/>
@@ -8686,7 +8686,7 @@ DQ
                                                                                     <modifierMask key="keyEquivalentModifierMask"/>
                                                                                 </menuItem>
                                                                                 <menuItem isSeparatorItem="YES" id="eNj-aP-3DA"/>
-                                                                                <menuItem title="Specific Experiments:" id="XEb-1Q-i07">
+                                                                                <menuItem title="Specific Experiments:" enabled="NO" id="XEb-1Q-i07">
                                                                                     <modifierMask key="keyEquivalentModifierMask"/>
                                                                                 </menuItem>
                                                                                 <menuItem title="Experiment..." id="BHi-dX-cJ1">
@@ -8909,9 +8909,9 @@ IA
                                         <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
                                     </textFieldCell>
                                 </textField>
-                                <textField identifier="Copy to experiments by typing a part of their name here and hitting ENTER." focusRingType="none" verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="1ld-Mp-e91">
+                                <textField identifier="Copy to experiments by typing a part of their name here and hitting ENTER." verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="1ld-Mp-e91">
                                     <rect key="frame" x="64" y="2" width="130" height="22"/>
-                                    <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" borderStyle="bezel" focusRingType="none" placeholderString="full or partial" bezelStyle="round" id="nqm-3S-3KZ">
+                                    <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" refusesFirstResponder="YES" borderStyle="bezel" placeholderString="Search" bezelStyle="round" id="nqm-3S-3KZ">
                                         <font key="font" metaFont="system"/>
                                         <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                         <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
@@ -12962,14 +12962,11 @@ The models in \appname are implemented to match the **MicroCal/Origin formal def
         <image name="chart.xyaxis.line" catalog="system" width="17" height="14"/>
         <image name="checkmark" catalog="system" width="14" height="13"/>
         <image name="chevron.down" catalog="system" width="12" height="7"/>
-        <image name="chevron.down.chevron.up" width="11" height="16"/>
+        <image name="chevron.down.chevron.up.line" width="11" height="16"/>
         <image name="chevron.left" catalog="system" width="10" height="14"/>
-        <image name="chevron.left.chevron.right.wide" width="21" height="11"/>
         <image name="chevron.right" catalog="system" width="10" height="14"/>
-        <image name="chevron.right.chevron.left" width="16" height="11"/>
+        <image name="chevron.right.chevron.left.line" width="16" height="11"/>
         <image name="chevron.up" catalog="system" width="12" height="7"/>
-        <image name="chevron.up.chevron.down.wide" width="11" height="21"/>
-        <image name="chevron.up.chevron.right.chevron.down.chevron.left" catalog="system" width="17" height="16"/>
         <image name="circle" catalog="system" width="15" height="15"/>
         <image name="circle.fill" catalog="system" width="15" height="15"/>
         <image name="circle.inset.filled" catalog="system" width="13" height="13"/>
@@ -12979,6 +12976,8 @@ The models in \appname are implemented to match the **MicroCal/Origin formal def
         <image name="document.on.document" catalog="system" width="16" height="18"/>
         <image name="folder" catalog="system" width="18" height="14"/>
         <image name="gearshape" catalog="system" width="16" height="16"/>
+        <image name="line.chevron.left.line.chevron.right.wide" width="23" height="11"/>
+        <image name="line.chevron.up.line.chevron.down" width="11" height="21"/>
         <image name="list.bullet.rectangle" catalog="system" width="18" height="14"/>
         <image name="play.fill" catalog="system" width="10" height="11"/>
         <image name="plus" catalog="system" width="14" height="13"/>
@@ -12995,6 +12994,7 @@ The models in \appname are implemented to match the **MicroCal/Origin formal def
         <image name="square.3.stack.3d.middle.filled" catalog="system" width="16" height="17"/>
         <image name="square.3.stack.3d.top.filled" catalog="system" width="16" height="17"/>
         <image name="square.and.arrow.up" catalog="system" width="15" height="18"/>
+        <image name="square.arrowtriangle.4.outward" catalog="system" width="17" height="16"/>
         <image name="square.fill" catalog="system" width="15" height="14"/>
         <image name="stop.circle.fill" catalog="system" width="15" height="15"/>
         <image name="trash" catalog="system" width="15" height="17"/>
