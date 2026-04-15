@@ -59,10 +59,8 @@
 				<string>ITC</string>
 				<string>ta</string>
 				<string>TA</string>
-				<string>dat</string>
 				<string>aff</string>
 				<string>dh</string>
-				<string>DAT</string>
 				<string>AFF</string>
 				<string>DH</string>
 				<string>apj</string>
@@ -78,7 +76,20 @@
 				<string>com.frederiktheisen.ftitc.itcdata</string>
 			</array>
 		</dict>
-	</array>
+		<dict>
+			<key>CFBundleTypeName</key>
+			<string>Integrated Heats File</string>
+			<key>CFBundleTypeExtensions</key>
+			<array>
+				<string>dat</string>
+				<string>DAT</string>
+			</array>
+			<key>CFBundleTypeRole</key>
+			<string>Viewer</string>
+			<key>LSHandlerRank</key>
+			<string>Alternate</string>
+			</dict>
+		</array>
 	<key>UTExportedTypeDeclarations</key>
 	<array>
 		<dict>
@@ -123,10 +134,8 @@
 					<string>ITC</string>
 					<string>ta</string>
 					<string>TA</string>
-					<string>dat</string>
 					<string>aff</string>
 					<string>dh</string>
-					<string>DAT</string>
 					<string>AFF</string>
 					<string>DH</string>
 					<string>apj</string>
@@ -158,8 +167,6 @@
 					<string>ITC</string>
 					<string>apj</string>
 					<string>ta</string>
-					<string>dat</string>
-					<string>DAT</string>
 					<string>aff</string>
 					<string>AFF</string>
 					<string>dh</string>
