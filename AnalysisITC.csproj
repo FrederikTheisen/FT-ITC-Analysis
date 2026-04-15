@@ -224,7 +224,6 @@
     <Folder Include="AppClasses\DataExport\" />
     <Folder Include="AppClasses\Utils\" />
     <Folder Include="AppClasses\Properties\" />
-    <Folder Include="TestData\" />
   </ItemGroup>
   <ItemGroup>
     <None Include="Info.plist" />
@@ -235,11 +234,6 @@
     <None Include=".editorconfig" />
     <None Include="README.md" />
     <None Include="AppClasses\DataReaders\FTITCReaderOld.cs" />
-    <None Include="TestData\data_1.itc" />
-    <None Include="TestData\data_3.itc" />
-    <None Include="TestData\data_2.itc" />
-    <None Include="TestData\results.txt" />
-    <None Include="TestData\data.ftitc" />
     <None Include="VERSION" />
   </ItemGroup>
   <ItemGroup>
