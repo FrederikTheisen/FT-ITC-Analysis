@@ -1837,6 +1837,7 @@ namespace AnalysisITC
             YAxis.LegendTitle = "";
             YAxis.ValueFactor = ParentYAxis.ValueFactor;
             YAxis.TickScale.SetMaxTicks(3);
+            YAxis.PreferCenteredTicks = true;
             YAxis.HideTitle = true;
 
             SetupAxes();

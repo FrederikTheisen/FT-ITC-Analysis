@@ -62,6 +62,7 @@ namespace AnalysisITC
 
         public bool UseNiceAxis { get; set; } = false;
         public bool HideUnwantedTicks { get; set; } = true;
+        public bool PreferCenteredTicks { get; set; } = false;
 
         public int DecimalPoints { get; set; } = 1;
         double valueFactor = 1;
@@ -217,7 +218,6 @@ namespace AnalysisITC
         public (List<double>, List<double>) GetValidTicks(bool includeborderticks = true)
         {
             var tickvalues = TickScale.Ticks();
-            var minortickvalues = tickvalues.Select(t => t + 0.5 * (tickvalues[0] - tickvalues[1])).ToList();
 
             if (HideUnwantedTicks)
             {
@@ -226,19 +226,44 @@ namespace AnalysisITC
                 if (hideabovezero)
                 {
                     tickvalues.RemoveAll(v => v > 0);
-                    minortickvalues.RemoveAll(v => v > 0);
                 }
                 else
                 {
                     tickvalues.RemoveAll(v => v < 0);
-                    minortickvalues.RemoveAll(v => v < 0);
                 }
             }
 
             tickvalues.RemoveAll(v => v / ValueFactor < Min || v / ValueFactor > Max);
             if (!includeborderticks) tickvalues.RemoveAll(v => v == Min || v == Max);
 
+            tickvalues = PreferThreeCenteredTicks(tickvalues);
+
+            var minortickvalues = tickvalues.Count > 1
+                ? tickvalues.Select(t => t + 0.5 * (tickvalues[0] - tickvalues[1])).ToList()
+                : new List<double>();
+
             return (tickvalues, minortickvalues);
+        }
+
+        List<double> PreferThreeCenteredTicks(List<double> tickvalues)
+        {
+            if (!PreferCenteredTicks || tickvalues.Count <= 3) return tickvalues;
+            if (!ContainsTick(tickvalues, 0)) return tickvalues;
+
+            foreach (var positive in tickvalues.Where(v => v > 0).OrderByDescending(v => v))
+            {
+                if (ContainsTick(tickvalues, -positive))
+                {
+                    return new List<double> { -positive, 0, positive };
+                }
+            }
+
+            return tickvalues;
+        }
+
+        static bool ContainsTick(IEnumerable<double> tickvalues, double target)
+        {
+            return tickvalues.Any(v => Math.Abs(v - target) < 1E-6);
         }
 
         public virtual void Draw(CGContext gc)
