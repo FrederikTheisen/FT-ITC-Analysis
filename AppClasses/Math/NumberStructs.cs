@@ -414,21 +414,21 @@ namespace AnalysisITC
         {
             if (HasError)
             {
-                return string.Join(";",
+                return string.Join(",",
                     Value.ToString("R", CultureInfo.InvariantCulture),
                     SD.ToString("R", CultureInfo.InvariantCulture),
                     DistributionConfidence95[0].ToString("R", CultureInfo.InvariantCulture),
                     DistributionConfidence95[1].ToString("R", CultureInfo.InvariantCulture));
             }
 
-            return string.Join(";",
+            return string.Join(",",
                 Value.ToString("R", CultureInfo.InvariantCulture),
                 "0.0");
         }
 
         public static FloatWithError FromSaveString(string s)
         {
-            var pars = s.Split(';')
+            var pars = s.Split(new[] {',', ';'})
                 .Select(ss => double.Parse(ss, NumberStyles.Float | NumberStyles.AllowThousands, CultureInfo.InvariantCulture))
                 .ToList();
 
