@@ -13,8 +13,8 @@ using AnalysisITC.AppClasses.AnalysisClasses.Models;
 
 namespace AnalysisITC
 {
-	public partial class AnalysisResultTabViewController : NSViewController
-	{
+    public partial class AnalysisResultTabViewController : NSViewController
+    {
         bool _eventsUnsubscribed = false;
         public static TerminationFlag AnalysisTerminationFlag { get; } = new TerminationFlag();
 
@@ -32,13 +32,13 @@ namespace AnalysisITC
         NSTabViewItem ProtonationAnalysisTab { get; set; }
 
         public AnalysisResultTabViewController (IntPtr handle) : base (handle)
-		{
+        {
             DataManager.AnalysisResultSelected += DataManager_AnalysisResultSelected;
             DataManager.ResultSolutionSelectionDidChange += DataManager_ResultSolutionSelectionDidChange;
             ResultAnalysisController.IterationFinished += ResultAnalysisProgressReport;
             ResultAnalysisController.AnalysisFinished += ResultsAnalysisCompleted;
             AppDelegate.StartPrintOperation += AppDelegate_StartPrintOperation;
-		}
+        }
 
         public override void ViewDidLoad()
         {
@@ -345,6 +345,8 @@ namespace AnalysisITC
                         case AttributeKey.NumberOfSites1:
                         case AttributeKey.NumberOfSites2:
                             if (!Solution.Model.UseSyringeCorrectionMode) continue; //These are not used if syringe mode is not used
+                            var stoich = att.DoubleValue > 0 ? att.DoubleValue : att.IntValue;
+                            value = StoichiometryOptions.FormatAsTitle(stoich);
                             break;
                     }
 

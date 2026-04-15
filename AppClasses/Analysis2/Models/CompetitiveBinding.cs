@@ -232,7 +232,7 @@ namespace AnalysisITC.AppClasses.AnalysisClasses.Models
                     if (UseSyringeCorrectionMode)
                     {
                         output.Add(new(MarkdownStrings.Alpha + "{syringe}", N.AsNumber()));
-                        output.Add(new("N{fixed}", ModelOptions[AttributeKey.NumberOfSites1].DoubleValue.ToString("G2")));
+                        output.Add(new("N{fixed}", StoichiometryOptions.FormatAsParameter(ModelOptions[AttributeKey.NumberOfSites1].DoubleValue)));
                     }
                     else output.Add(new("N", N.AsNumber()));
 

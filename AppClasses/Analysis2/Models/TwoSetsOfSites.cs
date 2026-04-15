@@ -203,7 +203,7 @@ namespace AnalysisITC.AppClasses.AnalysisClasses.Models
                     if (UseSyringeCorrectionMode)
                     {
                         output.Add(new(MarkdownStrings.Alpha + "{syringe}", N1.AsNumber()));
-                        output.Add(new("N{1,fixed}", StoichiometryOptions.FormatStoichiometry(ModelOptions[AttributeKey.NumberOfSites1].DoubleValue)));
+                        output.Add(new("N{1,fixed}", StoichiometryOptions.FormatAsParameter(ModelOptions[AttributeKey.NumberOfSites1].DoubleValue)));
                     }
                     else output.Add(new("N{1}", N1.AsNumber()));
 
@@ -215,7 +215,7 @@ namespace AnalysisITC.AppClasses.AnalysisClasses.Models
                 if (info.HasFlag(FinalFigureDisplayParameters.Nvalue))
                     if (UseSyringeCorrectionMode)
                     {
-                        output.Add(new("N{2,fixed}", StoichiometryOptions.FormatStoichiometry(ModelOptions[AttributeKey.NumberOfSites2].DoubleValue)));
+                        output.Add(new("N{2,fixed}", StoichiometryOptions.FormatAsParameter(ModelOptions[AttributeKey.NumberOfSites2].DoubleValue)));
                     }
                     else output.Add(new("N{2}", N2.AsNumber()));
 

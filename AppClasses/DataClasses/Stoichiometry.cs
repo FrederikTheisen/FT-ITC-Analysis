@@ -64,12 +64,12 @@ namespace AnalysisITC
             return Default;
         }
 
-        public static string Format(double factor, double tolerance = 1e-9)
+        public static string FormatAsTitle(double factor, double tolerance = 1e-9)
         {
             return GetClosest(factor, tolerance).Title;
         }
 
-        public static string FormatStoichiometry(double value)
+        public static string FormatAsParameter(double value)
         {
             if (double.IsNaN(value) || double.IsInfinity(value)) return "";
 

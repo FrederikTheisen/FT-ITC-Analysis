@@ -261,7 +261,7 @@ namespace AnalysisITC.AppClasses.AnalysisClasses
                         ?? "Missing reference experiment";
                 case AttributeKey.NumberOfSites1:
                 case AttributeKey.NumberOfSites2:
-                    return $"{IntValue}";
+                    return $"{StoichiometryOptions.FormatAsParameter(DoubleValue)}";
                 case AttributeKey.PreboundLigandConc:
                     return ParameterValue.AsFormattedConcentration(true);
             }
