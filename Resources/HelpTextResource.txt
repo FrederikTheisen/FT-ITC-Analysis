@@ -47,7 +47,7 @@ The default workflow is to analyze one experiment at a time. Select a model, set
 In most ITC workflows, a fitted N-value is interpreted in the traditional MicroCal-style way and mainly compensates for uncertainty in the effective concentration of the species placed in the cell.
 Syringe correction mode is intended for cases where the main uncertainty is instead in the concentration of the material loaded in the syringe. When this mode is enabled, the fitted stoichiometry term is interpreted as a correction of the syringe-side titrant concentration during fitting rather than as a correction of the cell-side concentration.
 # \multexp
-You can analyze multiple experiments at the same time using **\multexp** mode. In this mode, all included datasets are analyzed together and a combined Analysis Result is added to the data list.
+You can analyze multiple experiments at the same time using **\multexp** mode. In this mode, all active datasets are analyzed together and a combined Analysis Result is added to the data list.
 If the experiments were performed at different temperatures, the analysis result can consider this temperature variation to estimate temperature-dependent behavior, including the heat capacity change upon binding where applicable. Analysis results can also enable further analyses depending on temperature and buffer or salt conditions.
 # Global Fitting
 \appname can fit multiple experiments simultaneously using global optimization. Global fitting is useful for difficult interactions and for enforcing constraints across experiments, for example shared parameters across replicates, concentrations, or conditions.
