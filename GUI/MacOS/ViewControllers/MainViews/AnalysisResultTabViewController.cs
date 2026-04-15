@@ -71,6 +71,7 @@ namespace AnalysisITC
             UpdateAnalysisViewSubState();
 
             ScrollView.ContentView.ScrollPoint(new CoreGraphics.CGPoint(0, 0));
+            RefreshScrollHintFade();
         }
 
         private void TabView_DidSelect(object sender, NSTabViewItemEventArgs e)
@@ -209,6 +210,24 @@ namespace AnalysisITC
 
             EvaluateParameters();
             ResultsTableView.SizeToFit();
+            RefreshScrollHintFade();
+        }
+
+        void RefreshScrollHintFade()
+        {
+            View?.LayoutSubtreeIfNeeded();
+            ScrollView?.LayoutSubtreeIfNeeded();
+
+            if (ScrollView?.ContentView != null)
+                ScrollView.ReflectScrolledClipView(ScrollView.ContentView);
+
+            if (ScrollView is GUI.MacOS.CustomViews.FadingScrollView fadingScrollView)
+            {
+                fadingScrollView.RefreshFadeMask();
+
+                // Auto Layout updates from the rebuilt result view can land on the next run-loop turn.
+                BeginInvokeOnMainThread(fadingScrollView.RefreshFadeMask);
+            }
         }
 
         private void SetupEvalValueDescriptionLabels()

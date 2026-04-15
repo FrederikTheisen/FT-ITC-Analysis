@@ -83,6 +83,11 @@ namespace AnalysisITC.GUI.MacOS.CustomViews
             UpdateFadeMask();
         }
 
+        public void RefreshFadeMask()
+        {
+            UpdateFadeMask();
+        }
+
         private void UpdateFadeMask()
         {
             var clipView = ContentView;
