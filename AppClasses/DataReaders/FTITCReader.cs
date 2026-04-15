@@ -387,7 +387,23 @@ namespace DataReaders
                             {
                                 var sol = ReadSolution(reader, solline);
                                 if (sol == null) break;
-                                factory.Model.Models.Find(mdl => mdl.Data.UniqueID == sol.Data.UniqueID).Solution = sol;
+
+                                var model = factory.Model.Models.Find(mdl => mdl.Data.UniqueID == sol.Data.UniqueID);
+                                if (model == null) continue;
+
+                                // The per-solution reader reconstructs its own model instance and restores that
+                                // instance's saved options. Copy those options back to the GlobalModel-owned model
+                                // so result views read the persisted option values instead of freshly initialized defaults.
+                                foreach (var (key, opt) in sol.Model.ModelOptions)
+                                {
+                                    var restored = opt.Copy();
+                                    if (model.ModelOptions.ContainsKey(key))
+                                        restored.OptionName = model.ModelOptions[key].OptionName;
+
+                                    model.ModelOptions[key] = restored;
+                                }
+
+                                model.Solution = sol;
 
                                 solutions.Add(sol);
                             }
