@@ -1,104 +1,74 @@
-﻿## About \appname
-\appname is a macOS application for processing, analyzing, and presenting isothermal titration calorimetry (ITC) experiments. It takes you from raw instrument traces (power vs time), through baseline correction and peak integration, to model-based fitting. The app supports single-experiment fitting and global fitting across multiple experiments. It also includes utilities for planning experiments (\designer), combining tandem experiments (\merger), and generating publication-style figures and exports.
-# \appname focuses on:
-**Baseline correction and peak integration** with per-injection control.
-**Standard and advanced fitting workflows**, including global fitting with optional constraints.
-**Further analysis**, \appname provides derived analysis schemes for appropriate data sets.
-**Workflow utilities** (\designer, \merger, and export tools) to support planning, analysis, and reporting.
+## About \appname
+\appname is a macOS desktop application for processing, analyzing, and presenting isothermal titration calorimetry (ITC) data. It is a standalone graphical application that can be installed and launched like any other macOS program. All core workflows are available through the interface; no programming or scripting is required.
+# What you can do with it
+**Work on your own computer:** process and analyze ITC data away from the instrument workstation, whether in the office, at home, or while travelling.
+**Import data from multiple sources:** raw data from MicroCal-style instruments, exports from TA Instruments, PEAQ-ITC project files, integrated heats, and \appname project files.
+**Process thermograms:** define baselines and integration regions using automated tools, with manual adjustment where needed.
+**Fit models:** perform single-experiment fitting or global analysis across multiple experiments, including optional temperature-dependent constraints where applicable.
+**Export figures:** generate publication-ready plots in the classical calorimetric style, with optional residual plots for diagnostics.
 
 ## Getting Started
-When you open the app, you will see a dialog indicating that no data is loaded. The sections below provide a quick start guide; scroll down for more detailed descriptions of each part of the app.
-# Adding Data
-Press **\space** to open a file browser, navigate to your ITC data files, and open them.
-# Processing
-Go to the **Process Data** tab and start by selecting a baseline mode. Each mode has its own options. As a starting point, use the polynomial baseline and increase the degree if the baseline fit is poor.
-When you are satisfied with the baseline, review the peak integration options. Start by selecting **\peakfit**, which typically chooses reasonable integration regions for all injections.
-You can select individual injections and adjust the integration range by dragging the blue range markers.
-# Analysis
-Go to the **Analyze Data** tab and press **SPACE** to automatically fit the standard one-set-of-sites model using the Simplex algorithm.
-If you need a different model, select it and then click the appropriate fit button for the solver you want to use.
-If you have processed multiple data sets, you can enable **\multexp** to fit multiple experiments together, with or without constraints. Global fitting produces an *Analysis Results* item that can be inspected for additional insight.
-Use the **residual plot** to evaluate fit quality. Residuals highlight systematic deviations (for example, baseline bias, integration issues, or model mismatch) that may not be obvious from the fitted curve alone.
-# Presentation
-Go to the **Final Figure** tab and adjust the display options using the menus just below the tab bar. Export the figure(s) using the button in the top-right corner of the figure view.
+# Loading Data
+When the program opens, press **\enter** to browse for files or press **\space** to load the most recently used project or data file(s). After loading, inspect the dataset in the **Overview** tab.
+The overview displays experiment metadata such as instrument information, experiment date and duration, and cell and syringe concentrations. Concentrations, temperature, and other experiment attributes can be edited in the experiment details view.
+# Compatible File Formats
+\appname can read the following file types:
+**MicroCal-style raw data:** `.itc`
+**TA Instruments NanoAnalyze exports:** `.TA`
+**PEAQ-ITC project files:** `.apj`
+**Integrated heats:** `.dat`, `.aff`, `.dh`
+**\appname project files:** `.ftitc`
+Drag compatible files into the app window, or use **File > Open…** to select them manually.
+Once loaded, datasets behave the same in the application independent of instrument type. \appname does not modify raw data files. To make a project portable across computers, save it as a `.ftitc` file.
 
-## Reading Data Files
-# Compatible Formats
-\appname can read **MicroCal / Malvern Panalytical** and **TA Instruments NanoAnalyze Export** files.
-# Loading Files
-Drag a compatible file into the app window.
-Alternatively, use **File > Open…** and select the file you want to analyze. You can also press **\enter** to open the file browser or press **\space** to load the most recently opened file.
-# \merger
-Some workflows involve **tandem experiments**, where one titration immediately follows another and the combined sequence should be treated as a single dataset (for example, sequential titrations that are intended to form one continuous experiment).
-The tool combines tandem experiments into a single merged entry for downstream processing and analysis, while keeping the original inputs available.
-# Saving Files
-\appname can save processed experiments in the `.ftitc` format. The saved file contains everything needed to reopen, reprocess, and refit the experiment, including fitting results. It does not currently store downstream analyses such as Spolar–Record or protonation analysis results.
+## Processing Data
+Processing is the first step in ITC analysis. It consists of defining the baseline and the integration region for each injection.
+Integrated heats are calculated by numerically integrating the baseline-corrected thermogram over the selected integration window. In the **Processing** view, you can zoom using the control in the lower-left corner or by dragging a zoom region. To focus on a specific injection, double-click within its injection scope.
+# Selecting a Baseline Type
+\appname supports two baseline interpolators.
+**Spline baseline:** interpolates between baseline handle points. Handle points are placed automatically using averages of baseline regions around injections. The spline can be either smooth or linear. In handle mode, tangents can be adjusted, additional handle points can be added, and existing points can be moved vertically to improve the baseline.
+**Polynomial baseline:** fits a polynomial iteratively while rejecting outlier points such as peaks. This method offers less manual control but can perform well on low-noise thermograms. Lower degrees give a less flexible baseline and higher degrees give more flexibility but increase the risk of overfitting.
+By default, both baseline methods exclude points inside the integration regions. As a result, changing integration start or end positions also changes the baseline fit.
+# Setting the Integration Region
+Choosing an appropriate integration region is important both for accuracy and for noise reduction. Integrating over the full injection scope often adds unnecessary noise.
+\appname allows you to adjust all integration regions together using the **integration start delay** and **region length** controls. Time-based and factor-based integration lengths are available, and **\peakfit** can be used when you want the program to estimate integration end points from fitted peak shapes.
+You can also edit injections individually by dragging the blue region markers. When zoomed to a single injection, pressing **\space** copies the current integration length to the next injection and advances the view.
 
-## Processing Experimental Data
-# Adjusting the Baseline
-\appname provides two different baseline correction modes.
-**Spline baseline**  
-This mode estimates the baseline level for each injection delay period and interpolates a spline between these points. You can use custom spline handle modes for additional manual control. Additional points can be added anywhere for complete control.
-**Polynomial baseline with outlier rejection**  
-This mode is more robust to spikes and baseline artifacts, but it may perform poorly for interactions with slow kinetics or very short injection delays. You can convert a polynomial baseline to a spline baseline using the `>` button next to the baseline mode selector.
-# Setting the Integration Range
-The integration range is defined by the start time and the stop delay. By default, integration starts at the injection time and continues through most of the injection delay. To reduce integrated noise, shorten the integration length.
-
-\appname provides three options for setting the integration end point:
-**Time:** Set the integration end time directly.
-**Factor:** Set an integration length based on peak height.
-**\peakfit:** Fit an exponential function to each peak.
-
-You can double-click or select injections in the injection list to set integration limits per injection. You can also drag the integration range markers to adjust them. Press **\space** to copy the select injection integration range to the next peak.
-# Setting Experiment Attributes
-If you perform experiments under different conditions, register those conditions as experiment attributes (for example, buffer identity and salt concentration). These attributes enable downstream analyses and comparisons across experiments.
-You can also change and note concentration errors. This information can improve uncertainty estimates for fitted parameters.
-
-## Analyzing Experiments
-# Fitting Experiments
-In most cases, you can analyze an experiment by clicking the **\btnfit** button on the analysis page. The app includes multiple models to support different interaction mechanisms. Binding models are only available if the cell concentration is not zero.
+## Analyzing Data
+Model fitting is performed in the **Analysis** tab. \appname currently supports four standard models:
+**One-set-of-sites:** single binding process with one class of sites.
+**Two-sets-of-sites:** two independent classes of binding sites fitted simultaneously.
+**Competitive binding:** binding model including a competing species.
+**Dissociation:** model describing dissociation of a preformed complex during titration.
+All models are implemented according to MicroCal-style formalism.
+# Single-Experiment Analysis
+The default workflow is to analyze one experiment at a time. Select a model, set fitting options, and provide reasonable initial parameter guesses. Injections can be excluded prior to fitting if needed.
+# Syringe Correction Mode
+In most ITC workflows, a fitted N-value is interpreted in the traditional MicroCal-style way and mainly compensates for uncertainty in the effective concentration of the species placed in the cell.
+Syringe correction mode is intended for cases where the main uncertainty is instead in the concentration of the material loaded in the syringe. When this mode is enabled, the fitted stoichiometry term is interpreted as a correction of the syringe-side titrant concentration during fitting rather than as a correction of the cell-side concentration.
+# \multexp
+You can analyze multiple experiments at the same time using **\multexp** mode. In this mode, all included datasets are analyzed together and a combined Analysis Result is added to the data list.
+If the experiments were performed at different temperatures, the analysis result can consider this temperature variation to estimate temperature-dependent behavior, including the heat capacity change upon binding where applicable. Analysis results can also enable further analyses depending on temperature and buffer or salt conditions.
 # Global Fitting
-\appname can perform global fits of multiple experiments simultaneously. To enable global fitting, select the This is useful for difficult interactions and for applying constraints across experiments (for example, shared parameters). Global fitting stores its output as a new result object. If you have experiments at multiple temperatures, global fitting can be used to estimate the heat capacity change upon binding, which is often useful for thermodynamic interpretation.
-# Syringe correction mode
-By default, fitting follows the usual interpretation where the fitted N-value can compensate for apparent concentration or activity error on the cell side. If the dominant uncertainty is instead in the syringe concentration, enable syringe correction mode in the fitting options.
-Use this mode when independent information suggests that the cell concentration and the expected binding stoichiometry are reliable, but the syringe concentration may be inaccurate.
-# Residual Plot
-The residual plot shows the difference between the observed integrated heats and the values predicted by the current fit. A good fit typically produces residuals that fluctuate around zero without clear structure. Use the residual plot to:
-# Further Analysis
-When performing a \multexpanalysis, a result view becomes available in the sidebar. There you can inspect fitted parameters and parameter correlations.
-Additional analyses are available, such as evaluating temperature dependence to derive global thermodynamic parameters across experiments. These options are available if the fitted data covers appropriate variable ranges (eg temperature range).
+\appname can fit multiple experiments simultaneously using global optimization. Global fitting is useful for difficult interactions and for enforcing constraints across experiments, for example shared parameters across replicates, concentrations, or conditions.
+A typical workflow is to load and process the relevant experiments, mark the experiments you want to include, enable global fitting in the **Analysis** tab, choose which parameters are shared and which are allowed to vary, and then run the fit.
 
-## Presenting the Data
+## Presenting Data
+\appname is designed to produce consistent, publication-oriented plots directly from raw data.
 # Final Figure
-\appname can export publication-style figures from the Final Figure view. Use the three menus at the top of the view to adjust styling and layout.
-The displayed dimensions apply to the plot area only; they do not include space required for axis labels and legends. You can unify axes to use consistent axis limits across all currently active experiments.
-# Export Options
-\appname provides tools export data points (File > Export). It is possible to export **raw power-vs-time traces** for one or more experiments and **integrated heats per injection**. 
-Several predefined export formats are available. These formats may include metadata. For the CSV export format, the exported data can be defined in Preferences > Export.
+The publication figure layout follows the classical ITC presentation style: a thermogram together with integrated heats, model overlay, and optional residuals.
+Figures are generated from the current processing state and analysis result. Changing baseline or integration settings updates integrated heats, which in turn updates the fit and the final figure.
+# Exporting Data
+\appname includes export functions for processed results. Depending on the export tool, you can export integrated heats, associated uncertainties, raw power-vs-time traces, and fitted parameters from multi-experiment and global analyses.
+Export of data is done under **File > Export** in the menu bar. Fitted parameters can also be copied from the analysis result view.
 
-## Optimizing Your Experiment
+## Additional Features
 # \designer
-The \designer helps you plan an ITC experiment before you collect data. Use it to explore how choices such as cell concentration, syringe concentration, injection volumes, and the number of injections affect the expected titration curve and the information content of the experiment.
-# The Sample
-ITC does not require labeling, but it does require careful sample preparation and reliable concentration determination for accurate modeling.
-Remove bubbles before loading and consider degassing samples (vacuum degassing is common; high G centrifugation can also help reduce bubbles). Buffer mismatch between syringe and cell can produce large dilution heats that distort the baseline and bias fitted parameters.
-Degassing steps should be **done at the experimental temperature** to avoid later release of gas due to temperature changes.
-# Buffer Mismatch
-Buffer mismatch is often visible as unexpectedly large heats that do not disappear upon saturation of the binding partner in the cell. Offsets larger than ±10 kJ/mol can be consistent with buffer mismatch, depending on the system.
-Reducing agents can be particularly problematic. Avoid DTT when possible; consider alternatives such as TCEP.
-# Concentrations
-ITC experiments are highly concentration dependent. Consider stoichiometry, cell volume, and syringe concentration when designing an experiment. For one-to-one binding, a typical goal is to be at equal syringe to cell concentrations around the middle of the titration to obtain good baselines both before and after the transition region. This can be roughly estimated by calculating the concentration of the titrant molecule diluted into the cell volume. For MicroCal style instruments, you would typically want a syringe concentration around 10x of the concentration in the cell.
-Higher concentrations produce larger heats and steeper transitions. For high-affinity interactions (\kd < 50 nM), the transition can become too sharp to fit reliably unless sufficient signal and curvature are present. Increasing temperature can sometimes help by weakening binding and often increasing heat magnitude.
-
-## Interpreting Your Data
-Affinity interpretation is often straightforward, but many parameters are temperature dependent. Compare only when experiments were performed at similar temperatures.
-# Thermodynamic Parameters
-ITC directly measures binding enthalpy and affinity, allowing entropy to be derived via the Gibbs free energy. Entropy is often used as a proxy for conformational ordering, but it contains multiple contributions, including hydration effects that can be large and favorable. Measuring the heat capacity change upon binding enables more detailed thermodynamic interpretation.
-# Analysis of Structuring
-The level of structuring can be inferred from thermodynamic parameters using the Spolar–Record method. This requires estimating the heat capacity change upon binding from experiments across a temperature range. The method allows estimation of surface desolvation and the corresponding desolvation entropy, which can then be separated from the total entropy to obtain a term that more directly reflects conformational entropy changes upon binding.
-# Electrostatics Analysis
-The ionic-strength dependence of a protein–protein interaction affinity provides information about charge–charge contributions. By measuring the dissociation constant (\kd) at different ionic strengths, it is possible to estimate effective charges and characteristic length scales of the interaction. This can help interpret binding mechanisms and guide strategies to modulate or disrupt interactions.
-# Protonation Analysis
-If binding involves proton transfer, using buffers with different protonation enthalpies can reveal and quantify this contribution. By comparing binding enthalpies measured in different buffers, you can assess whether proton transfer accompanies binding. Quantification is typically performed by fitting the dependence of observed binding enthalpy on buffer protonation enthalpy. \appname supports this workflow by allowing buffer attributes to be assigned to experiments.
-
-
+The \designer supports planning ITC experiments from within \appname. It is intended for quickly checking experimental feasibility and setting up reasonable titration conditions before collecting data.
+# Experiment Attributes
+Experiment attributes are metadata attached to each dataset. They are used for derived analyses and for applying constraints in multi/global fitting. Attributes can be edited in the experiment details view and are stored in `.ftitc` project files.
+# Buffer Subtraction
+Buffer subtraction is provided as a dedicated tool. Select a reference buffer experiment, select one or more target experiments, and apply subtraction to generate buffer-corrected datasets. Buffer subtraction operates on loaded data within the project and does not modify raw data files.
+# Tandem Experiment Concatenation
+Tandem experiments can be collected by refilling the syringe during an ongoing sequence, producing multiple segments that should be treated as a single continuous titration. The tandem experiment merger combines these datasets into a single merged experiment.
+The merger tool preserves injection bookkeeping and concentration tracking across segments, so the merged dataset behaves like a single experiment in processing and analysis. A back-mixing mode is also available for cases where partial mixing during reload should be taken into account.
