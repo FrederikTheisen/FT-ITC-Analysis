@@ -48,7 +48,7 @@ namespace AnalysisITC
             switch (item.Identifier)
             {
                 case "saveas": return DataManager.DataIsLoaded;
-                case "save": return DataManager.DataIsLoaded && FTITCWriter.IsSaved;
+                case "save": return DataManager.DataIsLoaded;
                 case "saveselected": return DataManager.SelectedIsData;
                 case "export": return DataManager.Data.Count > 0;
                 case "exportdata": return DataManager.DataIsLoaded;
@@ -173,7 +173,14 @@ namespace AnalysisITC
 
         partial void SaveMenuClick(NSMenuItem sender)
         {
-            FTITCWriter.SaveWithPath();
+            if (FTITCWriter.IsSaved)
+            {
+                FTITCWriter.SaveWithPath();
+            }
+            else
+            {
+                FTITCWriter.SaveState2();
+            }
         }
 
         partial void SaveSelectedMenuClick(NSObject sender)
