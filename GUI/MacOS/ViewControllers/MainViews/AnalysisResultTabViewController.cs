@@ -332,7 +332,8 @@ namespace AnalysisITC
                     {
                         case AttributeKey.PreboundLigandAffinity:
                             name += $" ({MarkdownStrings.DissociationConstant})";
-                            value = $"{(1 / att.ParameterValue).AsConcentration(AppSettings.DefaultConcentrationUnit, withunit: true)}"; // Kd fix
+                            var kd = 1.0 / FWEMath.Pow(10.0, att.ParameterValue);
+                            value = kd.AsConcentration(AppSettings.DefaultConcentrationUnit, withunit: true);
                             break;
                         case AttributeKey.PreboundLigandConc:
                             if (att.BoolValue) value = "From Experiment Attribute";
