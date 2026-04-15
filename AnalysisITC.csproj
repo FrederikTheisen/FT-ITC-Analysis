@@ -49,7 +49,7 @@
     <UseSGen>true</UseSGen>
     <UseRefCounting>true</UseRefCounting>
     <CodeSignEntitlements>Entitlements.plist</CodeSignEntitlements>
-    <LinkMode>None</LinkMode>
+    <LinkMode>SdkOnly</LinkMode>
     <AOTMode>None</AOTMode>
     <LangVersion>10.0</LangVersion>
   </PropertyGroup>
