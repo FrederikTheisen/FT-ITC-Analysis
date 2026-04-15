@@ -6,12 +6,37 @@ using AppKit;
 using CoreGraphics;
 using System.Collections.Generic;
 using System.Linq;
+using AnalysisITC.AppClasses.AnalysisClasses;
+using AnalysisITC.AppClasses.AnalysisClasses.Models;
 using AnalysisITC.Utilities;
 
 namespace AnalysisITC
 {
     public partial class FinalFigureGraphView : NSView
     {
+        static readonly ParameterType[] PdfMetadataParameterOrder = new[]
+        {
+            ParameterType.Offset,
+            ParameterType.Nvalue1,
+            ParameterType.Nvalue2,
+            ParameterType.ApparentAffinity,
+            ParameterType.Affinity1,
+            ParameterType.Affinity2,
+            ParameterType.Enthalpy1,
+            ParameterType.Enthalpy2,
+            ParameterType.EntropyContribution1,
+            ParameterType.EntropyContribution2,
+            ParameterType.Gibbs1,
+            ParameterType.Gibbs2,
+            ParameterType.HeatCapacity1,
+            ParameterType.HeatCapacity2,
+            ParameterType.IsomerizationEquilibriumConstant,
+            ParameterType.IsomerizationRate,
+            ParameterType.CisIsomerPopulationPercentage,
+            ParameterType.Entropy1,
+            ParameterType.Entropy2,
+        };
+
         public static event EventHandler Invalidated;
         public static event EventHandler PlotSizeChanged;
 
@@ -182,8 +207,9 @@ namespace AnalysisITC
             }
 
             var dlg = new NSOpenPanel();
-            dlg.Title = "Save PDF File";
-            dlg.AllowedFileTypes = new string[] { "pdf" };
+            dlg.Title = "Export Figures";
+            dlg.Message = "Choose the output folder for the exported PDF figures.";
+            dlg.Prompt = "Export";
             dlg.CanChooseDirectories = true;
             dlg.CanCreateDirectories = true;
             dlg.CanChooseFiles = false;
@@ -198,27 +224,7 @@ namespace AnalysisITC
                         var g = FinalFigureGraphView.SetupForExport(data);
                         var filename = data.Name;
                         var path = NSUrl.CreateFileUrl(dlg.Url.RelativePath + "/" + filename + ".pdf", null);
-
-                        var parameters = new List<string>()
-                        {
-                                $"Name: {data.Name}",
-                                $"File: {data.FileName}",
-                                $"File Date: {data.Date:yyyy-MM-dd}",
-                                $"[Syringe]: {data.SyringeConcentration.AsConcentration(ConcentrationUnit.µM, true)}",
-                                $"[Cell]: {data.CellConcentration.AsConcentration(ConcentrationUnit.µM, true)}",
-                                $"Model: {data.Solution?.ModelType}",
-                                $"Solution: {data.Solution?.SolutionName}",
-                                $"Loss: {data.Solution?.SolutionName}"
-                        };
-                        if (data.Solution != null)
-                        {
-                            foreach (var par in data.Solution?.Parameters)
-                                if (!data.Solution.ReportParameters.ContainsKey(par.Key))
-                                    parameters.Add($"{par.Key} = {par.Value}");
-
-                            foreach (var par in data.Solution?.ReportParameters)
-                                parameters.Add($"{par.Key} = {par.Value}");
-                        }
+                        var parameters = BuildPdfMetadataKeywords(data);
 
                         var pdfInfo = new CGPDFInfo
                         {
@@ -238,6 +244,109 @@ namespace AnalysisITC
                     }
                 }
             });
+        }
+
+        static string[] BuildPdfMetadataKeywords(ExperimentData data)
+        {
+            var parameters = new List<string>()
+            {
+                $"Name: {data.Name}",
+                $"File: {data.FileName}",
+                $"File Date: {data.Date:yyyy-MM-dd}",
+                $"[Syringe]: {data.SyringeConcentration.AsConcentration(ConcentrationUnit.µM, true)}",
+                $"[Cell]: {data.CellConcentration.AsConcentration(ConcentrationUnit.µM, true)}",
+                $"Model: {GetModelMetadata(data)}",
+                $"Solution: {GetSolutionScope(data.Solution)}",
+                $"Loss: {GetLossMetadata(data.Solution)}"
+            };
+
+            if (data.Solution == null) return parameters.ToArray();
+
+            var reportParameters = data.Solution.ReportParameters ?? new Dictionary<ParameterType, FloatWithError>();
+            var ordered = new List<KeyValuePair<ParameterType, FloatWithError>>();
+
+            foreach (var key in PdfMetadataParameterOrder)
+            {
+                if (reportParameters.ContainsKey(key))
+                {
+                    ordered.Add(new KeyValuePair<ParameterType, FloatWithError>(key, reportParameters[key]));
+                    continue;
+                }
+
+                if (data.Solution.Parameters.ContainsKey(key))
+                {
+                    ordered.Add(new KeyValuePair<ParameterType, FloatWithError>(key, data.Solution.Parameters[key]));
+                }
+            }
+
+            foreach (var par in ordered)
+            {
+                parameters.Add($"{GetParameterMetadataLabel(par.Key)} = {FormatParameterMetadataValue(par.Key, par.Value)}");
+            }
+
+            return parameters.ToArray();
+        }
+
+        static string GetModelMetadata(ExperimentData data)
+        {
+            if (data?.Solution == null) return "";
+
+            return data.Solution.ModelType.GetProperties()?.Name ?? data.Solution.ModelType.ToString();
+        }
+
+        static string GetSolutionScope(SolutionInterface solution)
+        {
+            if (solution == null) return "";
+
+            return solution.IsGlobalAnalysisSolution ? "Global" : "Single";
+        }
+
+        static string GetLossMetadata(SolutionInterface solution)
+        {
+            if (solution == null) return "";
+
+            return solution.Loss.ToString("G3");
+        }
+
+        static string GetParameterMetadataLabel(ParameterType key)
+        {
+            return key switch
+            {
+                ParameterType.Nvalue1 => "N",
+                ParameterType.Nvalue2 => "N2",
+                ParameterType.Affinity1 => "Kd",
+                ParameterType.Affinity2 => "Kd2",
+                ParameterType.ApparentAffinity => "Kd app",
+                ParameterType.Enthalpy1 => "ΔH",
+                ParameterType.Enthalpy2 => "ΔH2",
+                ParameterType.EntropyContribution1 => "-TΔS",
+                ParameterType.EntropyContribution2 => "-TΔS2",
+                ParameterType.Gibbs1 => "ΔG",
+                ParameterType.Gibbs2 => "ΔG2",
+                ParameterType.HeatCapacity1 => "ΔCp",
+                ParameterType.HeatCapacity2 => "ΔCp2",
+                ParameterType.IsomerizationEquilibriumConstant => "Keq",
+                ParameterType.IsomerizationRate => "kiso",
+                ParameterType.CisIsomerPopulationPercentage => "%cis",
+                _ => key.GetProperties().Name
+            };
+        }
+
+        static string FormatParameterMetadataValue(ParameterType key, FloatWithError value)
+        {
+            var parent = key.GetProperties().ParentType;
+            var energyUnit = AppClasses.AnalysisClasses.Models.Model.ReportEnergyUnit;
+
+            return parent switch
+            {
+                ParameterType.Affinity1 => value.AsFormattedConcentration(withunit: true),
+                ParameterType.Enthalpy1 => value.Energy.ToFormattedString(energyUnit, permole: true),
+                ParameterType.EntropyContribution1 => value.Energy.ToFormattedString(energyUnit, permole: true),
+                ParameterType.Gibbs1 => value.Energy.ToFormattedString(energyUnit, permole: true),
+                ParameterType.Offset => value.Energy.ToFormattedString(energyUnit, permole: true),
+                ParameterType.HeatCapacity1 => value.Energy.ToFormattedString(energyUnit, permole: true, perK: true),
+                _ => value.AsNumber(),
+            };
         }
 
         void InitializeGraph()
