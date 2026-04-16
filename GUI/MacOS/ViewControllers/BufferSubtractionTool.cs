@@ -130,9 +130,10 @@ namespace AnalysisITC
 
                     AppEventHandler.PrintAndLog($"Adding buffer reference ({reference.Name}) to {target.Name}");
 
-                    target.SetReferenceExperiment(reference);
+                    target.SetReferenceExperiment(reference, notify: false);
                 }
 
+                DataManager.InvokeDataDidChange();
                 DismissViewController(this);
                 DataManager.InvokeUpdateTable();
             }

@@ -9,25 +9,74 @@ namespace AnalysisITC
         private static readonly CultureInfo UICulture = EnglishWithLocalFormats();
 
         private string name = "";
+        private string comments = "";
+        private DateTime date;
+        private bool isModified;
 
         public string UniqueID { get; private set; } = Guid.NewGuid().ToString();
         public string FileName { get; private set; } = "";
-        public string Comments { get; set; } = "";
-        public DateTime Date { get; set; }
+        public event EventHandler ModifiedChanged;
+
+        public string Comments
+        {
+            get => comments;
+            set
+            {
+                if (comments == value) return;
+
+                comments = value ?? "";
+                MarkModified();
+            }
+        }
+        public DateTime Date
+        {
+            get => date;
+            set
+            {
+                if (date == value) return;
+
+                date = value;
+                MarkModified();
+            }
+        }
+        public bool IsModified => isModified;
 
         public string UILongDateWithTime => GetLongDateString();// + " " + Date.ToString("HH:mm:ss");
         public string UIShortDateWithTime => GetShortDateString();
 
         public void SetID(string id) => UniqueID = id;
 
-        public void SetDate(DateTime date) => Date = date;
+        public void SetDate(DateTime date) => this.date = date;
 
         public void SetFileName(string filename) => FileName = filename;
 
         public string Name
         {
             get => string.IsNullOrEmpty(name) ? System.IO.Path.GetFileNameWithoutExtension(FileName) : name;
-            set => name = value;
+            set
+            {
+                var next = value ?? "";
+                if (name == next) return;
+
+                name = next;
+                MarkModified();
+            }
+        }
+
+        public void MarkModified()
+        {
+            if (isModified) return;
+
+            isModified = true;
+            ModifiedChanged?.Invoke(this, EventArgs.Empty);
+        }
+
+        public void MarkClean()
+        {
+            if (!isModified) return;
+
+            isModified = false;
+            ModifiedChanged?.Invoke(this, EventArgs.Empty);
         }
 
         string GetShortDateString()

@@ -140,11 +140,10 @@ namespace AnalysisITC
             else
             {
                 var current_selected_item = Source.Content[SelectedContentIndex];
-                var will_delete_selected = index == SelectedContentIndex;
 
                 Source.Content.RemoveAt(index);
 
-                if (will_delete_selected) DataDidChange.Invoke(null, null);
+                DataDidChange?.Invoke(null, null);
                 SelectIndex(Source.Content.IndexOf(current_selected_item));
             }
         }
@@ -328,31 +327,6 @@ namespace AnalysisITC
                 4000);
 
             return;
-
-            bool overwrite = false;
-
-            if (Data.Where(d => d != Current).Any(exp => exp.Attributes.Any(att => opt.Exists(att2 => att2.Key == att.Key))))
-            {
-                overwrite = AppDelegate.PromptOverwrite("Overwrite existing attributes?");
-            }
-
-            foreach (var exp in Data.Where(d => d != Current))
-            {
-                if (clear) exp.Attributes.Clear();
-
-                foreach (var att in Current.Attributes)
-                {
-                    var existing = exp.Attributes.Find(a => a.Key == att.Key);
-
-                    if (existing != null)
-                    {
-                        if (!overwrite) continue;
-                        exp.Attributes.Remove(existing);
-                    }
-
-                    exp.Attributes.Add(att.Copy());
-                }
-            }
         }
 
         public static void CopySelectedAttributesToNameToken(string token, bool clear = false)
@@ -390,27 +364,19 @@ namespace AnalysisITC
 
             foreach (var exp in target)
             {
-                bool didChange = false;
+                if (!exp.CopyAttributesFrom(attributes, clear, overwrite, notify: false)) continue;
 
-                if (clear) exp.Attributes.Clear();
+                copiedExperiments++;
 
                 foreach (var att in attributes)
                 {
-                    var existing = exp.Attributes.Find(a => a.Key == att.Key);
-
-                    if (existing != null)
-                    {
-                        if (!overwrite) continue;
-                        exp.Attributes.Remove(existing);
-                    }
-
-                    exp.Attributes.Add(att.Copy());
-                    didChange = true;
-
                     AppEventHandler.PrintAndLog($"Adding {att.GetDisplayName()}", 1);
                 }
+            }
 
-                if (didChange) copiedExperiments++;
+            if (copiedExperiments > 0)
+            {
+                InvokeDataDidChange();
             }
 
             return copiedExperiments;

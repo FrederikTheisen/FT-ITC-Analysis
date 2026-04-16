@@ -47,6 +47,7 @@ namespace AnalysisITC
 
             int idx = ContentIndex;
 
+            ViewController.NotifyWillRemoveData(this, idx);
             DataManager.RemoveData2(idx);
 
             RemoveData?.Invoke(this, idx);

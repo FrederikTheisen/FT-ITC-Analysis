@@ -13,6 +13,9 @@ namespace AnalysisITC
         public static NSImage DataDisabledImage { get; private set; } = null;
         public static NSImage DataEnabledImage { get; private set; } = null;
 
+        ExperimentDataDelegate _tableDelegate;
+        int? _pendingRemovedRow;
+
         #region Constructors
 
         // Called when created from unmanaged code
@@ -49,6 +52,7 @@ namespace AnalysisITC
             ExperimentDetailsPopoverController.UpdateTable += ExperimentDetailsPopoverController_UpdateTable;
             BindingAnalysisViewController.UpdateTable += ExperimentDetailsPopoverController_UpdateTable;
             ViewController.UpdateTable += ExperimentDetailsPopoverController_UpdateTable;
+            ViewController.WillRemoveData += OnRowWillRemoveEvent;
             ViewController.RemoveData += OnRowRemoveEvent;
 
             AnalysisITCDataSource.SourceWasSorted += AnalysisITCDataSource_SourceWasSorted;
@@ -58,7 +62,7 @@ namespace AnalysisITC
         {
             var item = DataManager.Source.SelectedItem;
 
-            TableView.ReloadData();
+            ReloadTable();
 
             DataManager.SelectIndex(DataManager.Source.Content.IndexOf(item));
         }
@@ -67,7 +71,7 @@ namespace AnalysisITC
         {
             int idx = DataManager.Source.SelectedIndex;
 
-            TableView.ReloadData();
+            ReloadTable();
 
             DataManager.SelectIndex(idx);
         }
@@ -103,13 +107,15 @@ namespace AnalysisITC
 
         private void DataManager_SelectionDidChange(object sender, ExperimentData e)
         {
-            TableView.SelectRow(DataManager.Source.SelectedIndex, false);
+            if (_pendingRemovedRow.HasValue) return;
+            SyncSelection();
         }
 
         private void DataManager_AnalysisResultSelected(object sender, AnalysisResult e)
         {
             //PerformSegue("ShowAnalysisResultSegue", this);
-            TableView.SelectRow(DataManager.Source.SelectedIndex, false);
+            if (_pendingRemovedRow.HasValue) return;
+            SyncSelection();
         }
 
         public override void ViewDidLoad()
@@ -121,50 +127,54 @@ namespace AnalysisITC
             DataNotProcessedImage = NotProcessedImage.Image;
             DataEnabledImage = IncludedImage.Image;
             DataDisabledImage = NotIncludedImage.Image;
+
+            EnsureTableBindings();
+            ReloadTable();
         }
 
         private void OnDataManagerUpdated(object sender, ExperimentData data)
         {
-            TableView.DataSource = DataManager.Source;
+            if (_pendingRemovedRow.HasValue) return;
+            ReloadTable();
+        }
 
-            var del = new ExperimentDataDelegate(DataManager.Source);
-            del.ExperimentDataViewClicked += OnDataViewClicked;
-            del.RemoveRow += OnRowRemoveEvent;
-
-            TableView.Delegate = del;
+        private void OnRowWillRemoveEvent(object sender, int e)
+        {
+            _pendingRemovedRow = e;
         }
 
         private void OnRowRemoveEvent(object sender, int e)
         {
-            //var item = (TableView.Delegate as ExperimentDataDelegate).Source.Content[e];
-            //Console.WriteLine("TV REMOVE: " + item.UniqueID + " " + e);
+            AppEventHandler.PrintAndLog($"TableView Remove Data: {e}");
+
+            if (!_pendingRemovedRow.HasValue)
+            {
+                ReloadTable();
+                return;
+            }
 
             try
             {
-                AppEventHandler.PrintAndLog($"TableView Remove Data: {e}");
-                TableView.RemoveRows(new NSIndexSet(e), NSTableViewAnimation.SlideLeft);
+                TableView.BeginUpdates();
+                TableView.RemoveRows(new NSIndexSet(_pendingRemovedRow.Value), NSTableViewAnimation.SlideLeft);
+                TableView.EndUpdates();
+                SyncSelection();
             }
             catch (Exception ex)
             {
                 AppEventHandler.AddLog(ex);
-
-                TableView.ReloadData();
+                ReloadTable();
+            }
+            finally
+            {
+                _pendingRemovedRow = null;
             }
         }
 
         private void DataManager_RemoveListIndices(object sender, int[] e)
         {
-            try
-            {
-                AppEventHandler.PrintAndLog($"TableView Remove Data: {e}");
-                TableView.RemoveRows(NSIndexSet.FromArray(e), NSTableViewAnimation.SlideLeft);
-            }
-            catch (Exception ex)
-            {
-                AppEventHandler.AddLog(ex);
-
-                TableView.ReloadData();
-            }
+            AppEventHandler.PrintAndLog($"TableView Remove Data: {e}");
+            ReloadTable();
         }
 
         private void OnDataViewClicked(object sender, EventArgs e)
@@ -175,5 +185,52 @@ namespace AnalysisITC
         
 
         #endregion
+
+        void EnsureTableBindings()
+        {
+            if (TableView == null || DataManager.Source == null) return;
+
+            if (!ReferenceEquals(TableView.DataSource, DataManager.Source))
+            {
+                TableView.DataSource = DataManager.Source;
+            }
+
+            if (_tableDelegate == null)
+            {
+                _tableDelegate = new ExperimentDataDelegate(DataManager.Source);
+                _tableDelegate.ExperimentDataViewClicked += OnDataViewClicked;
+                _tableDelegate.RemoveRow += OnRowRemoveEvent;
+            }
+
+            if (!ReferenceEquals(TableView.Delegate, _tableDelegate))
+            {
+                TableView.Delegate = _tableDelegate;
+            }
+        }
+
+        void ReloadTable()
+        {
+            if (TableView == null || DataManager.Source == null) return;
+
+            EnsureTableBindings();
+            TableView.ReloadData();
+
+            SyncSelection();
+        }
+
+        void SyncSelection()
+        {
+            if (TableView == null || DataManager.Source == null) return;
+
+            int idx = DataManager.Source.SelectedIndex;
+            if (idx >= 0 && idx < DataManager.Source.Content.Count)
+            {
+                TableView.SelectRow(idx, false);
+            }
+            else
+            {
+                TableView.DeselectAll(this);
+            }
+        }
     }
 }

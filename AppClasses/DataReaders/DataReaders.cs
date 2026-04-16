@@ -59,26 +59,33 @@ namespace DataReaders
             StatusBarManager.SetStatus("Reading data...", 0);
             StatusBarManager.StartInderminateProgress();
 
+            var urlList = urls?.Where(url => url != null).ToArray() ?? Array.Empty<NSUrl>();
+            var allFtitc = urlList.Length > 0 && urlList.All(url => GetFormat(url.Path) == ITCDataFormat.FTITC);
+            var wasEmptyDocument = DataManager.SourceItems == null || DataManager.SourceItems.Count == 0;
+
             try
             {
-                await Task.Delay(1);
-
-                foreach (var url in urls)
+                using (DocumentDirtyTracker.Suspend())
                 {
-                    StatusBarManager.SetStatus("Reading file: " + url.LastPathComponent, 0);
-                    await Task.Delay(1); //Necessary to update UI. Unclear why whole method has to be on UI thread.
-                    var dat = await ReadFile(url.Path);
+                    await Task.Delay(1);
 
-                    if (dat != null)
+                    foreach (var url in urlList)
                     {
-                        AddData(dat);
+                        StatusBarManager.SetStatus("Reading file: " + url.LastPathComponent, 0);
+                        await Task.Delay(1); //Necessary to update UI. Unclear why whole method has to be on UI thread.
+                        var dat = await ReadFile(url.Path);
 
-                        NSDocumentController.SharedDocumentController.NoteNewRecentDocumentURL(url);
-                        AppSettings.LastDocumentUrl = url;
+                        if (dat != null)
+                        {
+                            AddData(dat);
+
+                            NSDocumentController.SharedDocumentController.NoteNewRecentDocumentURL(url);
+                            AppSettings.LastDocumentUrl = url;
+                        }
                     }
-                }
 
-                AppSettings.LastDocumentUrls = urls.ToArray();
+                    AppSettings.LastDocumentUrls = urlList;
+                }
             }
             catch (Exception ex)
             {
@@ -88,6 +95,15 @@ namespace DataReaders
             DataManager.ApplyOptions();
             StatusBarManager.ClearAppStatus();
             StatusBarManager.StopIndeterminateProgress();
+
+            if (wasEmptyDocument && allFtitc)
+            {
+                DocumentDirtyTracker.MarkClean();
+            }
+            else if (urlList.Length > 0)
+            {
+                DocumentDirtyTracker.MarkDirty();
+            }
         }
 
         static async Task<ITCDataContainer[]> ReadFile(string path)

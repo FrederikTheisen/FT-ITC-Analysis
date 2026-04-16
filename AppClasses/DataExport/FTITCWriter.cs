@@ -197,25 +197,66 @@ namespace AnalysisITC
 
         public static void SaveState2()
         {
+            _ = SaveState2Async();
+        }
+
+        public static async Task<bool> SaveState2Async()
+        {
             var dlg = new NSSavePanel();
             dlg.Title = "Save FT-ITC File";
             dlg.AllowedFileTypes = new string[] { "ftitc" };
+            var tcs = new TaskCompletionSource<bool>();
 
             dlg.BeginSheet(NSApplication.SharedApplication.MainWindow, async (result) =>
             {
-                if (result == 1)
+                try
                 {
+                    if (result != 1 || string.IsNullOrWhiteSpace(dlg.Filename))
+                    {
+                        tcs.TrySetResult(false);
+                        return;
+                    }
+
                     await WriteFile(dlg.Filename);
 
                     CurrentAccessedAppDocumentPath = dlg.Filename;
                     AppSettings.LastDocumentUrl = dlg.Url;
+                    DocumentDirtyTracker.MarkClean();
+                    tcs.TrySetResult(true);
+                }
+                catch (Exception ex)
+                {
+                    AppEventHandler.DisplayHandledException(ex);
+                    tcs.TrySetResult(false);
                 }
             });
+
+            return await tcs.Task;
         }
 
-        public static async void SaveWithPath()
+        public static void SaveWithPath()
         {
-            await WriteFile(CurrentAccessedAppDocumentPath);
+            _ = SaveWithPathAsync();
+        }
+
+        public static async Task<bool> SaveWithPathAsync()
+        {
+            if (string.IsNullOrWhiteSpace(CurrentAccessedAppDocumentPath))
+            {
+                return false;
+            }
+
+            try
+            {
+                await WriteFile(CurrentAccessedAppDocumentPath);
+                DocumentDirtyTracker.MarkClean();
+                return true;
+            }
+            catch (Exception ex)
+            {
+                AppEventHandler.DisplayHandledException(ex);
+                return false;
+            }
         }
 
         static StreamWriter GetFTITCStreamWriter(string path)

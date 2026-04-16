@@ -508,7 +508,7 @@ namespace AnalysisITC.GUI.MacOS.CustomViews
                     }
             }
 
-            experiment.Attributes.Add(Option);
+            experiment.AddOrUpdateAttribute(Option);
         }
     }
 }

@@ -149,6 +149,7 @@ namespace AnalysisITC
             int idx = ContentIndex;
             if (idx < 0) return; // stale cell / already removed
 
+            ViewController.NotifyWillRemoveData(this, idx);
             DataManager.RemoveData2(idx);    // 1) update model first
             RemoveData?.Invoke(this, idx);   // 2) then animate UI removal
         }

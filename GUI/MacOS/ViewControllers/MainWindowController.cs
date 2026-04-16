@@ -10,6 +10,9 @@ namespace AnalysisITC
 {
 	public partial class MainWindowController : NSWindowController
 	{
+        DirtyTrackingWindowDelegate dirtyTrackingWindowDelegate;
+        bool allowDirtyClose;
+
         public MainWindowController (IntPtr handle) : base (handle)
 		{
 		}
@@ -35,9 +38,58 @@ namespace AnalysisITC
             AppDelegate.ShowCitation += AppDelegate_ShowCitation;
 
             AppEventHandler.ShowAppMessage += OnShowAppMessage;
+            DocumentDirtyTracker.DirtyStateChanged += DocumentDirtyTracker_DirtyStateChanged;
+            dirtyTrackingWindowDelegate = new DirtyTrackingWindowDelegate(this);
+            Window.Delegate = dirtyTrackingWindowDelegate;
 
             StateManager_UpdateStateDependentUI(null, null);
+            UpdateWindowDirtyState();
             AppVersion.CheckForUpdatesInBackground();
+        }
+
+        private void DocumentDirtyTracker_DirtyStateChanged(object sender, EventArgs e)
+        {
+            NSApplication.SharedApplication.InvokeOnMainThread(UpdateWindowDirtyState);
+        }
+
+        void UpdateWindowDirtyState()
+        {
+            if (Window == null) return;
+
+            Window.DocumentEdited = DocumentDirtyTracker.IsDirty;
+        }
+
+        internal bool ShouldAllowWindowClose()
+        {
+            if (allowDirtyClose || !DocumentDirtyTracker.IsDirty)
+            {
+                allowDirtyClose = false;
+                return true;
+            }
+
+            switch (AppDelegate.PromptSaveChanges())
+            {
+                case AppDelegate.PendingSaveAction.Save:
+                    _ = SaveBeforeCloseAsync();
+                    return false;
+                case AppDelegate.PendingSaveAction.Cancel:
+                    return false;
+                default:
+                    AppDelegate.AllowNextTerminateWithoutPrompt();
+                    return true;
+            }
+        }
+
+        async Task SaveBeforeCloseAsync()
+        {
+            var didSave = FTITCWriter.IsSaved
+                ? await FTITCWriter.SaveWithPathAsync()
+                : await FTITCWriter.SaveState2Async();
+
+            if (!didSave || Window == null) return;
+
+            allowDirtyClose = true;
+            Window.PerformClose(this);
         }
 
         private void AppDelegate_ShowCitation(object sender, EventArgs e)
@@ -186,6 +238,21 @@ namespace AnalysisITC
             //StepControl.SelectedSegment = (int)e;
 
             //StepControl.SetEnabled(true, (int)e);
+        }
+
+        sealed class DirtyTrackingWindowDelegate : NSWindowDelegate
+        {
+            readonly MainWindowController controller;
+
+            public DirtyTrackingWindowDelegate(MainWindowController controller)
+            {
+                this.controller = controller;
+            }
+
+            public override bool WindowShouldClose(NSObject sender)
+            {
+                return controller.ShouldAllowWindowClose();
+            }
         }
 
         partial void NavigationArrowControlClicked(NSSegmentedControl sender)

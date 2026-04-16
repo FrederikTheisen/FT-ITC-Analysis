@@ -13,7 +13,13 @@ namespace AnalysisITC
     public partial class ViewController : NSViewController
     {
         public static event EventHandler UpdateTable;
+        public static event EventHandler<int> WillRemoveData;
         public static event EventHandler<int> RemoveData;
+
+        public static void NotifyWillRemoveData(object sender, int index)
+        {
+            WillRemoveData?.Invoke(sender, index);
+        }
 
         ExperimentData Data => DataManager.Current;
 
@@ -31,6 +37,8 @@ namespace AnalysisITC
             base.ViewDidLoad();
 
             DataManager.Init();
+            DocumentDirtyTracker.Initialize();
+            DocumentDirtyTracker.MarkClean();
 
             DataManager.DataDidChange += OnDataChanged;
             DataManager.SelectionDidChange += OnSelectionChanged;
@@ -238,6 +246,7 @@ namespace AnalysisITC
             if (alert.RunModal() == 1001)
             {
                 int idx = DataManager.SelectedContentIndex;
+                NotifyWillRemoveData(this, idx);
                 DataManager.RemoveData2(idx);
                 RemoveData?.Invoke(this, idx);
             }

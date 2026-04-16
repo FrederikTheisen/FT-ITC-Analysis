@@ -128,6 +128,7 @@ namespace AnalysisITC
 
             DataManager.Data.ForEach(d => d.Include = solutionexp.Contains(d.UniqueID));
 
+            DataManager.InvokeDataInclusionDidChange();
             UpdateTable?.Invoke(this, null);
         }
 

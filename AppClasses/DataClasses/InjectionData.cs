@@ -26,7 +26,18 @@ namespace AnalysisITC
         /// </summary>
         public double Ratio { get; set; }
 
-        public bool Include { get; set; } = true;
+        bool include = true;
+        public bool Include
+        {
+            get => include;
+            set
+            {
+                if (include == value) return;
+
+                include = value;
+                Experiment?.MarkModified();
+            }
+        }
         public float IntegrationStartDelay { get; private set; } = 0;
         public float IntegrationEndOffset { get; private set; } = 90;
         public float IntegrationStartTime => Time + IntegrationStartDelay;
@@ -214,6 +225,7 @@ namespace AnalysisITC
             var absoluteminimum = Math.Max(-Delay, Experiment.DataPoints.First().Time - Time + MinimumIntegrationTime);
 
             IntegrationStartDelay = Math.Clamp(delay, absoluteminimum, IntegrationEndOffset - MinimumIntegrationTime);
+            Experiment?.MarkModified();
         }
 
         public void SetIntegrationLengthByPeakFitting()
@@ -297,6 +309,7 @@ namespace AnalysisITC
                 IntegrationEndOffset = Math.Clamp((float)endOffset,
                     IntegrationStartDelay + MinimumIntegrationTime,
                     Delay);
+                Experiment?.MarkModified();
             }
             catch (Exception ex)
             {
@@ -308,6 +321,7 @@ namespace AnalysisITC
         {
             // Keep between the start delay and the injection scope
             IntegrationEndOffset = Math.Clamp(time, IntegrationStartDelay + MinimumIntegrationTime, Delay);
+            Experiment?.MarkModified();
         }
 
         public void ToggleDataPointActive()

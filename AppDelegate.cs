@@ -5,18 +5,28 @@ using System;
 using System.Collections.Generic;
 using AnalysisITC.GUI.MacOS;
 using System.Linq;
+using System.Threading.Tasks;
 
 namespace AnalysisITC
 {
     [Register("AppDelegate")]
     public partial class AppDelegate : NSApplicationDelegate
     {
+        public enum PendingSaveAction
+        {
+            Save,
+            Cancel,
+            Discard
+        }
+
         public static event EventHandler OpenFileDialog;
         public static event EventHandler StartPrintOperation;
         public static event EventHandler OpenMergeTool;
         public static event EventHandler OpenSubtractionTool;
         public static event EventHandler ShowHint;
         public static event EventHandler ShowCitation;
+
+        static bool skipDirtyCheckOnNextTerminate;
 
         NSOpenPanel FileDialog { get; set; }
          
@@ -38,6 +48,31 @@ namespace AnalysisITC
             FileDialog.AllowsMultipleSelection = true;
             FileDialog.CanChooseDirectories = true;
             FileDialog.AllowedContentTypes = DataReaders.ITCFormatAttribute.GetAllUTTypes();
+        }
+
+        public override NSApplicationTerminateReply ApplicationShouldTerminate(NSApplication sender)
+        {
+            if (skipDirtyCheckOnNextTerminate)
+            {
+                skipDirtyCheckOnNextTerminate = false;
+                return NSApplicationTerminateReply.Now;
+            }
+
+            if (!DocumentDirtyTracker.IsDirty)
+            {
+                return NSApplicationTerminateReply.Now;
+            }
+
+            switch (PromptSaveChanges())
+            {
+                case PendingSaveAction.Save:
+                    _ = SaveBeforeTerminateAsync();
+                    return NSApplicationTerminateReply.Later;
+                case PendingSaveAction.Cancel:
+                    return NSApplicationTerminateReply.Cancel;
+                default:
+                    return NSApplicationTerminateReply.Now;
+            }
         }
 
         [Action("validateMenuItem:")]
@@ -82,10 +117,18 @@ namespace AnalysisITC
         [Export("application:openFile:")]
         public override bool OpenFile(NSApplication sender, string filename)
         {
-            var escapedstring = Uri.EscapeDataString(filename);
-            var url = NSUrl.FromString(escapedstring);
+            if (string.IsNullOrWhiteSpace(filename))
+            {
+                return false;
+            }
 
-            DataReader.Read(new List<NSUrl> { url });
+            var url = NSUrl.CreateFileUrl(filename, null);
+            if (url == null)
+            {
+                return false;
+            }
+
+            DataReader.Read(url);
 
             return true;
         }
@@ -138,8 +181,8 @@ namespace AnalysisITC
                 "sortbytemp" => DataManager.SortMode.Temperature,
                 "sortbytype" => DataManager.SortMode.Type,
                 "sortbyionic" => DataManager.SortMode.IonicStrength,
-                "sorttbyprotonation" => DataManager.SortMode.ProtonationEnthalpy,
-                "ortbydate" => DataManager.SortMode.Date,
+                "sortbyprotonation" => DataManager.SortMode.ProtonationEnthalpy,
+                "sortbydate" => DataManager.SortMode.Date,
                 _ => DataManager.SortMode.Name,
             };
             DataManager.SortContent(mode);
@@ -185,7 +228,12 @@ namespace AnalysisITC
 
         partial void SaveSelectedMenuClick(NSObject sender)
         {
-            
+            if (!DataManager.SelectedIsData || DataManager.Current == null)
+            {
+                return;
+            }
+
+            FTITCWriter.SaveSelected(DataManager.Current);
         }
 
         partial void DuplicateSelectedData(NSObject sender)
@@ -263,6 +311,15 @@ namespace AnalysisITC
             // Insert code here to tear down your application
         }
 
+        async Task SaveBeforeTerminateAsync()
+        {
+            var didSave = FTITCWriter.IsSaved
+                ? await FTITCWriter.SaveWithPathAsync()
+                : await FTITCWriter.SaveState2Async();
+
+            NSApplication.SharedApplication.ReplyToApplicationShouldTerminate(didSave);
+        }
+
         public static bool PromptOverwrite(string message, string peacebtn = "Keep", string destructbtn = "Overwrite")
         {
             var alert = new NSAlert();
@@ -274,6 +331,33 @@ namespace AnalysisITC
             alert.Buttons[1].HasDestructiveAction = true;
 
             return (alert.RunModal() == 1001);
+        }
+
+        public static PendingSaveAction PromptSaveChanges()
+        {
+            var alert = new NSAlert
+            {
+                MessageText = "Do you want to save changes before closing?",
+                InformativeText = "Unsaved changes will be lost.",
+                AlertStyle = NSAlertStyle.Warning
+            };
+
+            alert.AddButton("Save");
+            alert.AddButton("Cancel");
+            alert.AddButton("Don't Save");
+            alert.Buttons[2].HasDestructiveAction = true;
+
+            return (int)alert.RunModal() switch
+            {
+                1000 => PendingSaveAction.Save,
+                1001 => PendingSaveAction.Cancel,
+                _ => PendingSaveAction.Discard
+            };
+        }
+
+        public static void AllowNextTerminateWithoutPrompt()
+        {
+            skipDirtyCheckOnNextTerminate = true;
         }
 
         partial void OpenHint(NSObject sender)

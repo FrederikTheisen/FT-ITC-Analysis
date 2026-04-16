@@ -58,9 +58,20 @@ namespace AnalysisITC
                 if (!Injections.All(inj => inj.IsIntegrated)) return false;
                 else return include;
             }
-            set => include = value;
+            set
+            {
+                if (include == value) return;
+
+                include = value;
+                MarkModified();
+            }
         }
-        public void ToggleInclude() { include = !include; DataManager.InvokeUpdateDataViewCells(); }
+        public void ToggleInclude()
+        {
+            Include = !include;
+            DataManager.InvokeDataInclusionDidChange();
+            DataManager.InvokeUpdateDataViewCells();
+        }
 
         public double MeasuredTemperatureKelvin => 273.15 + MeasuredTemperature;
         public double TimeStep
@@ -255,13 +266,18 @@ namespace AnalysisITC
             else AverageHeatDirection = PeakHeatDirection.Unknown;
         }
 
-        public void SetReferenceExperiment(ExperimentData reference)
+        public bool SetReferenceExperiment(ExperimentData reference, bool notify = true)
         {
             if (ReferenceExperiment != null) ReferenceExperiment.ProcessingUpdated -= Reference_ProcessingUpdated;
 
             // Check for self referencing.
             if (reference.UniqueID == this.UniqueID) throw new HandledException(HandledException.Severity.Warning, "Buffer Subtraction Error", "Attempting to set reference experiment to itself");
             if (reference.ReferenceExperiment != null) throw new HandledException(HandledException.Severity.Warning, "Buffer Subtraction Error", "Reference experiment already contains a buffer subtraction");
+
+            if (ReferenceExperiment?.UniqueID == reference.UniqueID)
+            {
+                return false;
+            }
 
             // Clear previous setting
             Attributes.RemoveAll(att => att.Key == AttributeKey.BufferSubtraction);
@@ -272,6 +288,15 @@ namespace AnalysisITC
             Reference_ProcessingUpdated(null, null);
 
             reference.ProcessingUpdated += Reference_ProcessingUpdated;
+
+            MarkModified();
+
+            if (notify)
+            {
+                DataManager.InvokeDataDidChange();
+            }
+
+            return true;
         }
 
         private void Reference_ProcessingUpdated(object sender, EventArgs e)
@@ -284,6 +309,62 @@ namespace AnalysisITC
         public void SetProcessor(DataProcessor processor)
         {
             Processor = processor;
+        }
+
+        public bool AddOrUpdateAttribute(ExperimentAttribute attribute, bool notify = true)
+        {
+            if (attribute == null) return false;
+
+            var existing = Attributes.Find(att => att.Key == attribute.Key);
+            if (existing != null) Attributes.Remove(existing);
+
+            Attributes.Add(attribute);
+            MarkModified();
+
+            if (notify)
+            {
+                DataManager.InvokeDataDidChange();
+            }
+
+            return true;
+        }
+
+        public bool CopyAttributesFrom(IEnumerable<ExperimentAttribute> attributes, bool clear = false, bool overwriteExisting = true, bool notify = true)
+        {
+            if (attributes == null) return false;
+
+            bool didChange = false;
+
+            if (clear && Attributes.Count > 0)
+            {
+                Attributes.Clear();
+                didChange = true;
+            }
+
+            foreach (var att in attributes)
+            {
+                var existing = Attributes.Find(a => a.Key == att.Key);
+
+                if (existing != null)
+                {
+                    if (!overwriteExisting) continue;
+                    Attributes.Remove(existing);
+                }
+
+                Attributes.Add(att.Copy());
+                didChange = true;
+            }
+
+            if (!didChange) return false;
+
+            MarkModified();
+
+            if (notify)
+            {
+                DataManager.InvokeDataDidChange();
+            }
+
+            return true;
         }
 
         List<InjectionData> GetBootstrappedResiduals(ExperimentData clone)
@@ -415,6 +496,7 @@ namespace AnalysisITC
             if (Solution != null && invalidate) Solution.Invalidate();
 
             CalculateExperimentHeatDirection();
+            MarkModified();
 
             ProcessingUpdated?.Invoke(Processor, null);
         }
@@ -422,6 +504,7 @@ namespace AnalysisITC
         public void RemoveModel()
         {
             Model = null;
+            MarkModified();
 
             SolutionChanged?.Invoke(this, null);
             DataManager.InvokeDataDidChange();
@@ -430,6 +513,7 @@ namespace AnalysisITC
         public void UpdateSolution(Model mdl = null)
         {
             if (mdl != null) Model = mdl;
+            MarkModified();
 
             SolutionChanged?.Invoke(this, null);
         }
@@ -444,6 +528,7 @@ namespace AnalysisITC
                 + segment.SegmentInitialActiveTitrantConc.ToString());
 
             Segments.Add(segment);
+            MarkModified();
         }
 
         void EnsureSegmentStartLookup()
