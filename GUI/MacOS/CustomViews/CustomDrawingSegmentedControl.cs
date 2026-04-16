@@ -8,8 +8,6 @@ namespace AnalysisITC.GUI.MacOS.CustomViews
 {
 	public class CustomDrawingSegmentedControl : NSSegmentedControl
 	{
-        NSAttributedString[] attributedStrings;
-
         [Export("initWithFrame:")]
         public CustomDrawingSegmentedControl(CGRect frameRect) : base(frameRect)
         {

@@ -17,7 +17,6 @@ namespace AnalysisITC.GUI.MacOS.CustomViews
         private NSTextField Input;
         private NSColor DefaultFieldColor;
         private NSButton Lock;
-        private CustomDrawingSegmentedControl ParameterOptionControl;
 
         public bool HasBeenAffectedFlag { get; private set; } = false;
         public bool ShouldResetParameter => string.IsNullOrEmpty(InputString);

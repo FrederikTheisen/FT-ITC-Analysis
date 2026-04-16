@@ -14,16 +14,13 @@ namespace AnalysisITC.GUI.MacOS.CustomViews
         public ExperimentAttribute Option { get; private set; }
         public AttributeKey Key => Option.Key;
 
-        double tmpdouble;
         bool tmpbool;
 
         private NSTextField Label;
         private NSButton InputButton;
         private NSSwitch InputSwitch;
         private NSTextField InputField;
-        private NSTextField InputErrorField;
         private ValueWithErrorTextField InputValueWithErrorField;
-        private CustomDrawingSegmentedControl ParameterOptionControl;
         public NSPopUpButton StoichiometryPopup { get; set; }
 
         public bool HasBeenAffectedFlag { get; private set; } = false;
