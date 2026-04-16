@@ -98,7 +98,6 @@ namespace AnalysisITC.AppClasses.AnalysisClasses.Models
             public FloatWithError K1 => Parameters[ParameterType.Affinity1];
             public FloatWithError K2 => Parameters[ParameterType.Affinity2];
             public FloatWithError N => Parameters[ParameterType.Nvalue1];
-            public Energy Offset => new(Parameters[ParameterType.Offset]);
 
             public FloatWithError Kd1 => 1.0 / K1;
             public Energy GibbsFreeEnergy1 => new(-1.0 * Energy.R.FloatWithError * TempKelvin * FWEMath.Log(K1));
