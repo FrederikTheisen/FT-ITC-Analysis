@@ -47,7 +47,7 @@
 			<string>Owner</string>
 			<key>LSItemContentTypes</key>
 			<array>
-				<string>com.frederiktheisen.ftitc.project</string>
+				<string>com.frederiktheisen.ftitc-project</string>
 			</array>
 		</dict>
 		<dict>
