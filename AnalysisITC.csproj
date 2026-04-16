@@ -239,6 +239,7 @@
   <ItemGroup>
     <Compile Include="Main.cs" />
     <Compile Include="AppDelegate.cs" />
+    <Compile Include="AppClasses\DocumentDirtyTracker.cs" />
     <Compile Include="AppClasses\DataProcessing.cs" />
     <Compile Include="AppClasses\DataManager.cs" />
     <Compile Include="GUI\MacOS\GraphViews\AnalysisGraphView.cs" />
