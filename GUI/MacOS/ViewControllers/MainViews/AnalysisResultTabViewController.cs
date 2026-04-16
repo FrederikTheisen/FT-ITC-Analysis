@@ -46,14 +46,14 @@ namespace AnalysisITC
 
             ElectroResultDescField.AttributedStringValue = MacStrings.FromMarkDownString(string.Join(Environment.NewLine, new List<string>()
             {
-                MarkdownStrings.DissociationConstant + " with no salt:",
-                "Counter ion release (∆*n*{salt}):",
+                MarkdownStrings.DissociationConstant + " extrapolated to zero salt:",
+                "Counterion-release slope:",
             }), NSFont.SystemFontOfSize(11));
 
             ProtonationAnalysisResultDescriptionField.AttributedStringValue = MacStrings.FromMarkDownString(string.Join(Environment.NewLine, new List<string>()
             {
-                "Protein proton change upon binding:",
-                MarkdownStrings.Enthalpy + " at ∆*H*{prot,buffer} = 0:",
+                "Net proton change on binding:",
+                MarkdownStrings.Enthalpy + " at ∆*H*{buffer} = 0:",
             }), NSFont.SystemFontOfSize(11));
 
 
