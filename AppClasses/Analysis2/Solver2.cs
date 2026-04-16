@@ -610,7 +610,9 @@ namespace AnalysisITC.AppClasses.AnalysisClasses
                     ReportAnalysisFinished(convergence);
                 });
 
-                DataManager.AddData(new AnalysisResult(Model.Solution));
+                var result = new AnalysisResult(Model.Solution);
+                DataManager.AddData(result);
+                DataManager.SelectIndex(DataManager.SourceItems.IndexOf(result));
             }
             catch (Exception ex)
             {
@@ -819,4 +821,3 @@ namespace AnalysisITC.AppClasses.AnalysisClasses
         }
     }
 }
-
