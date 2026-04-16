@@ -230,14 +230,16 @@ namespace AnalysisITC
 		void HighlightPartOfSelectedResult(CGContext gc)
 		{
             var solutions = DataManager.SelectedResult?.Solution.Solutions ?? new();
-            var color = solutions.Exists(sol => sol.Guid == data.Solution.Guid) ? NSColor.Label.CGColor : NSColor.SecondaryLabel.CGColor;
+            var color = solutions.Exists(sol => sol.Guid == data.Solution?.Guid) ?
+                NSColor.Label.CGColor :         // Current solution
+                NSColor.SecondaryLabel.CGColor; // Not current solution
 
             var stroke = MacColors.WithAlpha(color, 0.5f);
             var fill = MacColors.WithAlpha(stroke, 0.1f);
 
             var size = new CGSize(6, Frame.Size.Height + 5);
             var rect = new CGRect(new CGPoint(-13.5f, -2.0), size);
-            CGPath path = CGPath.FromRoundedRect(rect, 3, 3);
+            var path = CGPath.FromRoundedRect(rect, 3, 3);
 
             gc.AddPath(path);
             gc.SetLineWidth(0.5f);
