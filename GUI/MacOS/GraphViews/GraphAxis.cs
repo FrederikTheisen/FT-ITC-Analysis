@@ -458,10 +458,6 @@ namespace AnalysisITC
         public static string GetXAxisTitle(ExperimentData data)
         {
             return data.AxisType.GetEnumDescription();
-            if (data.Model != null && data.Model.ModelType == AnalysisModel.Dissociation) return "[Monomer] (µM)";
-            else if (data.CellConcentration < float.Epsilon) return "[Monomer] (µM)";
-
-            return "Molar Ratio";
         }
 
         public static int GetXAxisScaleFactor(ExperimentData data)
@@ -471,10 +467,6 @@ namespace AnalysisITC
                 case AnalysisXAxisType.TitrantConcentration: return 1000000;
                 default: return 1;
             }
-            if (data.Model != null && data.Model.ModelType == AnalysisModel.Dissociation) return 1000000;
-            else if (data.CellConcentration < float.Epsilon) return 1000000;
-
-            return 1;
         }
     }
 
