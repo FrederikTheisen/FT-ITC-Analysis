@@ -612,7 +612,6 @@ namespace AnalysisITC.AppClasses.AnalysisClasses
 
                 var result = new AnalysisResult(Model.Solution);
                 DataManager.AddData(result);
-                DataManager.SelectIndex(DataManager.SourceItems.IndexOf(result));
             }
             catch (Exception ex)
             {
