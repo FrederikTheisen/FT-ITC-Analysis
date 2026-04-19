@@ -215,19 +215,25 @@ namespace AnalysisITC
 
         void RefreshScrollHintFade()
         {
-            View?.LayoutSubtreeIfNeeded();
-            ScrollView?.LayoutSubtreeIfNeeded();
+            void refreshIfVisible()
+            {
+                if (ScrollView?.ContentView == null) return;
 
-            if (ScrollView?.ContentView != null)
+                // Result views are also configured while importing .ftitc files, before the
+                // analysis tab is active. Forcing Auto Layout in that transient state can trip
+                // AppKit constraint assertions, so only refresh once the view is actually visible.
+                if (StateManager.CurrentState != ProgramState.AnalysisView || View?.Window == null) return;
+
                 ScrollView.ReflectScrolledClipView(ScrollView.ContentView);
 
-            if (ScrollView is GUI.MacOS.CustomViews.FadingScrollView fadingScrollView)
-            {
-                fadingScrollView.RefreshFadeMask();
-
-                // Auto Layout updates from the rebuilt result view can land on the next run-loop turn.
-                BeginInvokeOnMainThread(fadingScrollView.RefreshFadeMask);
+                if (ScrollView is GUI.MacOS.CustomViews.FadingScrollView fadingScrollView)
+                    fadingScrollView.RefreshFadeMask();
             }
+
+            refreshIfVisible();
+
+            // Auto Layout updates from the rebuilt result view can land on the next run-loop turn.
+            BeginInvokeOnMainThread(refreshIfVisible);
         }
 
         private void SetupEvalValueDescriptionLabels()
