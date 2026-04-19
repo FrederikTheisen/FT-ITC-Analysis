@@ -25,6 +25,22 @@ namespace DataReaders
         private static readonly CultureInfo Inv = CultureInfo.InvariantCulture;
         private const NumberStyles NumStyle = NumberStyles.Float | NumberStyles.AllowLeadingSign;
         private static char separator = ',';
+        private static EnergyUnit? queuedEnergyUnit;
+        private static bool cancelRemainingQueueItems;
+
+        public static bool CancelRemainingQueueItems => cancelRemainingQueueItems;
+
+        public static void BeginImportQueue()
+        {
+            queuedEnergyUnit = null;
+            cancelRemainingQueueItems = false;
+        }
+
+        public static void EndImportQueue()
+        {
+            queuedEnergyUnit = null;
+            cancelRemainingQueueItems = false;
+        }
 
         public static ExperimentData ReadFile(string filepath, bool concentrationsAreMilliMolar = true)
         {
@@ -118,8 +134,7 @@ namespace DataReaders
             // Unit scale for heat
             var maxv = rows.Max(r => Math.Abs(r.DH));
 
-            var unit = EnergyUnitPrompt.AskForEnergyUnit(null, filepath, maxv.ToString());
-            AppEventHandler.PrintAndLog($"Energy Unit Selected: {unit}");
+            var unit = ResolveEnergyUnit(filepath, maxv.ToString(Inv));
             if (unit == null) return null;
 
             // Infer cell volume from Mt dilution: Mt_{i+1} = Mt_i * (1 - Vinj/Vcell)
@@ -141,7 +156,7 @@ namespace DataReaders
                 var r = rows[i];
 
                 var vinj_L = r.InjV_L;
-                var heat_J = Energy.ConvertToJoule(r.DH, (EnergyUnit)unit);
+                var heat_J = Energy.ConvertToJoule(r.DH, unit.Value);
                 var inj = new InjectionData(data, vinj_L);
 
                 inj.SetPeakArea(new FloatWithError(heat_J, 0));
@@ -189,8 +204,7 @@ namespace DataReaders
             }
 
             var maxv = rows.Max(r => Math.Abs(r.Heat));
-            var unit = EnergyUnitPrompt.AskForEnergyUnit(null, filepath, maxv.ToString(Inv));
-            AppEventHandler.PrintAndLog($"Energy Unit Selected: {unit}");
+            var unit = ResolveEnergyUnit(filepath, maxv.ToString(Inv));
             if (unit == null) return null;
 
             var data = new ExperimentData(Path.GetFileName(filepath))
@@ -209,7 +223,7 @@ namespace DataReaders
             foreach (var row in rows)
             {
                 var inj = new InjectionData(data, row.Volume_L);
-                inj.SetPeakArea(new FloatWithError(Energy.ConvertToJoule(row.Heat, (EnergyUnit)unit), 0));
+                inj.SetPeakArea(new FloatWithError(Energy.ConvertToJoule(row.Heat, unit.Value), 0));
                 data.Injections.Add(inj);
             }
 
@@ -217,6 +231,37 @@ namespace DataReaders
             ITCInstrumentAttribute.ResolveInstrument(data);
 
             return data;
+        }
+
+        private static EnergyUnit? ResolveEnergyUnit(string filepath, string encounteredValue)
+        {
+            if (cancelRemainingQueueItems)
+            {
+                return null;
+            }
+
+            if (queuedEnergyUnit.HasValue)
+            {
+                AppEventHandler.PrintAndLog($"Energy Unit Reused From Queue: {queuedEnergyUnit}");
+                return queuedEnergyUnit;
+            }
+
+            var result = EnergyUnitPrompt.AskForEnergyUnit(null, filepath, encounteredValue, allowQueueReuse: true);
+            AppEventHandler.PrintAndLog($"Energy Unit Selected: {result.Unit}");
+
+            if (result.IsCancelled)
+            {
+                cancelRemainingQueueItems = true;
+                AppEventHandler.PrintAndLog("Integrated heats import canceled. Remaining queued files will be skipped.");
+                return null;
+            }
+
+            if (result.UseForRemainingFilesInQueue && result.Unit.HasValue)
+            {
+                queuedEnergyUnit = result.Unit.Value;
+            }
+
+            return result.Unit;
         }
 
         private static char ResolveSeparator(string line)

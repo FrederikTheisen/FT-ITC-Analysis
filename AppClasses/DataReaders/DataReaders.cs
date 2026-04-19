@@ -58,6 +58,7 @@ namespace DataReaders
         {
             StatusBarManager.SetStatus("Reading data...", 0);
             StatusBarManager.StartInderminateProgress();
+            IntegratedHeatReader.BeginImportQueue();
 
             var urlList = urls?.Where(url => url != null).ToArray() ?? Array.Empty<NSUrl>();
             var allFtitc = urlList.Length > 0 && urlList.All(url => GetFormat(url.Path) == ITCDataFormat.FTITC);
@@ -75,6 +76,11 @@ namespace DataReaders
                         await Task.Delay(1); //Necessary to update UI. Unclear why whole method has to be on UI thread.
                         var dat = await ReadFile(url.Path);
 
+                        if (IntegratedHeatReader.CancelRemainingQueueItems)
+                        {
+                            break;
+                        }
+
                         if (dat != null)
                         {
                             AddData(dat);
@@ -90,6 +96,10 @@ namespace DataReaders
             catch (Exception ex)
             {
                 AppEventHandler.DisplayHandledException(ex);
+            }
+            finally
+            {
+                IntegratedHeatReader.EndImportQueue();
             }
 
             DataManager.ApplyOptions();
