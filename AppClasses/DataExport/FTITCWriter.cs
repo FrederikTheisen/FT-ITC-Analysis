@@ -15,6 +15,7 @@ namespace AnalysisITC
     {
         static readonly CultureInfo Invariant = CultureInfo.InvariantCulture;
         const NumberStyles NumericStyle = NumberStyles.Float | NumberStyles.AllowThousands;
+        static string currentAccessedAppDocumentPath = "";
 
         public const string FTITCVersion = "FTITCVersion";
 
@@ -188,7 +189,20 @@ namespace AnalysisITC
             return DateTime.Parse(value, CultureInfo.CurrentCulture);
         }
 
-        public static string CurrentAccessedAppDocumentPath { get; set; } = "";
+        public static event EventHandler CurrentAccessedAppDocumentPathChanged;
+
+        public static string CurrentAccessedAppDocumentPath
+        {
+            get => currentAccessedAppDocumentPath;
+            set
+            {
+                var next = value ?? "";
+                if (currentAccessedAppDocumentPath == next) return;
+
+                currentAccessedAppDocumentPath = next;
+                CurrentAccessedAppDocumentPathChanged?.Invoke(null, EventArgs.Empty);
+            }
+        }
     }
 
     public class FTITCWriter : FTITCFormat

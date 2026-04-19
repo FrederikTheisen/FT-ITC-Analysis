@@ -11,8 +11,10 @@ namespace AnalysisITC
         static StatusMessage DefaultStatus => new StatusMessage(StateManager.ProgramStateString, false);
 
         private static readonly List<StatusMessage> status = new();
-        private static string secondarystatus = "";
+        private static string defaultSecondaryStatus = "";
+        private static string transientSecondaryStatus = "";
         private static bool abortscroll;
+        private static int secondaryStatusSuppressionCount;
         private static ProgressIndicatorEventData progressstate = new ProgressIndicatorEventData(1);
 
         public static event EventHandler UpdateContextButton;
@@ -40,12 +42,11 @@ namespace AnalysisITC
 
         static string SecondaryStatus
         {
-            get => secondarystatus;
-            set
+            get
             {
-                secondarystatus = value;
-
-                SecondaryStatusUpdated?.Invoke(null, secondarystatus);
+                if (secondaryStatusSuppressionCount > 0) return "";
+                if (!string.IsNullOrEmpty(transientSecondaryStatus)) return transientSecondaryStatus;
+                return defaultSecondaryStatus;
             }
         }
 
@@ -101,7 +102,8 @@ namespace AnalysisITC
             StopIndeterminateProgress();
             StatusUpdated?.Invoke(null, Status.Message);
 
-            SecondaryStatus = "";
+            transientSecondaryStatus = "";
+            PublishSecondaryStatus();
         }
 
         public static void SetProgress(double progress)
@@ -114,27 +116,37 @@ namespace AnalysisITC
             var tmp = status;
 
             abortscroll = false;
+            secondaryStatusSuppressionCount++;
+            PublishSecondaryStatus();
 
-            for (int i = 0; i < scrollcount; i++)
+            try
             {
-                tmp = status;
-
-                Status = new StatusMessage(tmp, false);
-                await Task.Delay(2000);
-
-                while (tmp.Length > 35)
+                for (int i = 0; i < scrollcount; i++)
                 {
-                    Status = new StatusMessage(tmp, false);
-                    tmp = tmp.Substring(1);
+                    tmp = status;
 
-                    await Task.Delay(1000 / scrollspeed);
+                    Status = new StatusMessage(tmp, false);
+                    await Task.Delay(2000);
+
+                    while (tmp.Length > 35)
+                    {
+                        Status = new StatusMessage(tmp, false);
+                        tmp = tmp.Substring(1);
+
+                        await Task.Delay(1000 / scrollspeed);
+
+                        if (abortscroll) break;
+                    }
 
                     if (abortscroll) break;
+                    await Task.Delay(2000);
+                    if (abortscroll) break;
                 }
-
-                if (abortscroll) break;
-                await Task.Delay(2000);
-                if (abortscroll) break;
+            }
+            finally
+            {
+                secondaryStatusSuppressionCount = Math.Max(0, secondaryStatusSuppressionCount - 1);
+                PublishSecondaryStatus();
             }
 
             ClearAppStatus();
@@ -142,16 +154,27 @@ namespace AnalysisITC
 
         public static async void SetSecondaryStatus(string status, int delay = 20000)
         {
-            SecondaryStatus = status;
+            transientSecondaryStatus = status ?? "";
+            PublishSecondaryStatus();
 
-            string c = status;
+            string c = transientSecondaryStatus;
 
             if (delay > 0)
             {
                 await Task.Delay(delay);
 
-                if (SecondaryStatus == c) SecondaryStatus = "";
+                if (transientSecondaryStatus == c)
+                {
+                    transientSecondaryStatus = "";
+                    PublishSecondaryStatus();
+                }
             }
+        }
+
+        public static void SetDefaultSecondaryStatus(string status)
+        {
+            defaultSecondaryStatus = status ?? "";
+            PublishSecondaryStatus();
         }
 
         public static void StartInderminateProgress()
@@ -176,6 +199,11 @@ namespace AnalysisITC
             ClearAppStatus();
 
             SetStatusScrolling("File Saved: " + path);
+        }
+
+        static void PublishSecondaryStatus()
+        {
+            SecondaryStatusUpdated?.Invoke(null, SecondaryStatus);
         }
 
         private struct StatusMessage

@@ -4,6 +4,7 @@ using System;
 using Foundation;
 using AppKit;
 using System.Threading.Tasks;
+using System.IO;
 using AnalysisITC.AppClasses.AnalysisClasses;
 
 namespace AnalysisITC
@@ -39,17 +40,31 @@ namespace AnalysisITC
 
             AppEventHandler.ShowAppMessage += OnShowAppMessage;
             DocumentDirtyTracker.DirtyStateChanged += DocumentDirtyTracker_DirtyStateChanged;
+            DataManager.DataDidChange += DataManager_DataDidChange;
+            FTITCFormat.CurrentAccessedAppDocumentPathChanged += FTITCFormat_CurrentAccessedAppDocumentPathChanged;
             dirtyTrackingWindowDelegate = new DirtyTrackingWindowDelegate(this);
             Window.Delegate = dirtyTrackingWindowDelegate;
 
             StateManager_UpdateStateDependentUI(null, null);
             UpdateWindowDirtyState();
+            UpdateDocumentStatus();
             AppVersion.CheckForUpdatesInBackground();
         }
 
         private void DocumentDirtyTracker_DirtyStateChanged(object sender, EventArgs e)
         {
             NSApplication.SharedApplication.InvokeOnMainThread(UpdateWindowDirtyState);
+            NSApplication.SharedApplication.InvokeOnMainThread(UpdateDocumentStatus);
+        }
+
+        private void DataManager_DataDidChange(object sender, ExperimentData e)
+        {
+            NSApplication.SharedApplication.InvokeOnMainThread(UpdateDocumentStatus);
+        }
+
+        private void FTITCFormat_CurrentAccessedAppDocumentPathChanged(object sender, EventArgs e)
+        {
+            NSApplication.SharedApplication.InvokeOnMainThread(UpdateDocumentStatus);
         }
 
         void UpdateWindowDirtyState()
@@ -57,6 +72,43 @@ namespace AnalysisITC
             if (Window == null) return;
 
             Window.DocumentEdited = DocumentDirtyTracker.IsDirty;
+        }
+
+        void UpdateDocumentStatus()
+        {
+            StatusBarManager.SetDefaultSecondaryStatus(GetDocumentStatusText());
+        }
+
+        string GetDocumentStatusText()
+        {
+            if (DataManager.SourceItems == null || DataManager.SourceItems.Count == 0)
+            {
+                return "";
+            }
+
+            if (!FTITCWriter.IsSaved)
+            {
+                return "Unsaved";
+            }
+
+            var path = FTITCFormat.CurrentAccessedAppDocumentPath;
+            var fileName = Path.GetFileName(path);
+            if (string.Equals(Path.GetExtension(fileName), ".ftitc", StringComparison.OrdinalIgnoreCase))
+            {
+                fileName = Path.GetFileNameWithoutExtension(fileName);
+            }
+
+            if (string.IsNullOrWhiteSpace(fileName))
+            {
+                fileName = "Unsaved";
+            }
+
+            if (DocumentDirtyTracker.IsDirty)
+            {
+                return $"{fileName} [M]";
+            }
+
+            return fileName;
         }
 
         internal bool ShouldAllowWindowClose()
