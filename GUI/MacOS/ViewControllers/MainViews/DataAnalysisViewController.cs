@@ -271,7 +271,6 @@ namespace AnalysisITC
 
         void OnBootstrapIteration(object sender, Tuple<int, int, float> e)
         {
-            AppEventHandler.PrintAndLog($"Bootstrap Iteration: {e.Item1}/{e.Item2}");
             StatusBarManager.SetProgress(e.Item3);
             StatusBarManager.SetStatus("Bootstrapping...", 0, 2);
             StatusBarManager.SetSecondaryStatus(e.Item1 + "/" + e.Item2, 0);
