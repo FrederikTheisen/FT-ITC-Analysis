@@ -1342,6 +1342,50 @@ namespace AnalysisITC
         {
         }
 
+        internal MouseOverFeatureEvent CursorFeatureFromInjectionPoints(
+            CGPoint cursorpos,
+            Func<InjectionData, CGPoint> getLocalPosition,
+            CGGraph tooltipGraph,
+            bool isclick,
+            bool ismouseup,
+            out bool isDirectHit)
+        {
+            foreach (var inj in ExperimentData.Injections)
+            {
+                var handleScreenPos = getLocalPosition(inj) + new CGSize(Origin);
+
+                if (Math.Abs(cursorpos.X - 2 - handleScreenPos.X) < 5.5 &&
+                    Math.Abs(cursorpos.Y + 1 - handleScreenPos.Y) < 5.5)
+                {
+                    if (isclick) mDownID = inj.ID;
+                    else if (ismouseup && mDownID == inj.ID)
+                    {
+                        inj.ToggleDataPointActive();
+                        mOverFeature = -1;
+                    }
+
+                    mOverFeature = inj.ID;
+                    isDirectHit = true;
+                    return new MouseOverFeatureEvent(inj, tooltipGraph);
+                }
+            }
+
+            isDirectHit = false;
+
+            if (isclick) mDownID = -1;
+            if (mOverFeature != -1)
+            {
+                var e = new MouseOverFeatureEvent()
+                {
+                    FeatureID = mOverFeature
+                };
+                mOverFeature = -1;
+                return e;
+            }
+
+            return new MouseOverFeatureEvent();
+        }
+
         protected virtual void SetupAxes()
         {
 
@@ -1771,34 +1815,23 @@ namespace AnalysisITC
 
         public override MouseOverFeatureEvent CursorFeatureFromPos(CGPoint cursorpos, bool isclick = false, bool ismouseup = false)
         {
-            foreach (var inj in ExperimentData.Injections)
-            {
-                // Get injection point position
-                var handle_screen_pos = GetRelativePosition(inj.Ratio, DrawWithOffset ? inj.Enthalpy : inj.OffsetEnthalpy) + new CGSize(Origin);
+            var fitEvent = CursorFeatureFromInjectionPoints(
+                cursorpos,
+                inj => GetRelativePosition(inj.Ratio, DrawWithOffset ? inj.Enthalpy : inj.OffsetEnthalpy),
+                this,
+                isclick,
+                ismouseup,
+                out bool fitHit);
 
-                if (Math.Abs(cursorpos.X - 2 - handle_screen_pos.X) < 5.5)
-                {
-                    if (Math.Abs(cursorpos.Y + 1 - handle_screen_pos.Y) < 5.5)
-                    {
-                        if (isclick) mDownID = inj.ID;
-                        else if (ismouseup && mDownID == inj.ID) { inj.ToggleDataPointActive(); mOverFeature = -1; }
-                        mOverFeature = inj.ID;
-                        return new MouseOverFeatureEvent(inj, this);
-                    }
-                }
+            MouseOverFeatureEvent residualEvent = new MouseOverFeatureEvent();
+            if (ResidualDisplayOptions.ShowResidualGraph)
+            {
+                residualEvent = ResidualGraph.CursorFeatureFromPos(cursorpos, isclick, ismouseup);
             }
 
-            if (isclick) mDownID = -1;
-            if (mOverFeature != -1)
-            {
-                var e = new MouseOverFeatureEvent()
-                {
-                    FeatureID = mOverFeature
-                };
-                mOverFeature = -1;
-                return e;
-            }
-            return new MouseOverFeatureEvent();
+            if (fitHit) return fitEvent;
+            if (residualEvent.IsMouseOverFeature) return residualEvent;
+            return fitEvent;
         }
 
         public class ResidualGraphOptions
@@ -1972,6 +2005,17 @@ namespace AnalysisITC
 
             gc.DrawLayer(layer, Frame.Location);
             gc.DrawLayer(infolayer, Frame.Location);
+        }
+
+        public override MouseOverFeatureEvent CursorFeatureFromPos(CGPoint cursorpos, bool isclick = false, bool ismouseup = false)
+        {
+            return CursorFeatureFromInjectionPoints(
+                cursorpos,
+                inj => GetRelativePosition(inj.Ratio, inj.ResidualEnthalpy),
+                DataFittingGraph,
+                isclick,
+                ismouseup,
+                out _);
         }
     }
 }
