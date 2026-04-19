@@ -380,6 +380,7 @@
     </Compile>
     <Compile Include="GUI\MacOS\Drawing\ParameterDependenceGraph.cs" />
     <Compile Include="AppClasses\DataClasses\ExperimentData.cs" />
+    <Compile Include="AppClasses\DataClasses\PeakShapeIntegrationEstimator.cs" />
     <Compile Include="AppClasses\DataClasses\Buffers.cs" />
     <Compile Include="AppClasses\DataClasses\Salt.cs" />
     <Compile Include="AppClasses\DataClasses\ITCInstrument.cs" />

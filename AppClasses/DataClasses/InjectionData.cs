@@ -230,91 +230,14 @@ namespace AnalysisITC
 
         public void SetIntegrationLengthByPeakFitting()
         {
-            SetIntegrationLengthByFactor(2.5f);
+            var endOffset = PeakShapeIntegrationEstimator.EstimateEndOffset(Experiment, this, PeakShapeIntegrationEstimator.DefaultFitFactor);
+            SetIntegrationLengthByTime(endOffset);
         }
 
         public void SetIntegrationLengthByFactor(float factor)
         {
-            const double tau = 8.0;
-
-            const double returnFrac = 0.02;
-            const double noiseFactor = 3.0;
-
-            // Time-based parameters (seconds)
-            const double smoothWindowSeconds = 5.0; // ~current behavior at 1 s sampling
-            const double tailWindowSeconds = 20.0;  // as per comment
-            const int minTailSamples = 10;          // keep some robustness
-
-            try
-            {
-                var dps = Experiment.BaseLineCorrectedDataPoints
-                    .Where(dp => dp.Time > Time && dp.Time < Time + Delay)
-                    .ToList();
-                if (dps.Count < 10) return;
-
-                int n = dps.Count;
-                double dt = Experiment.TimeStep;
-                if (!(dt > 0)) return;
-
-                // Convert time windows -> sample windows
-                int smoothHalfWin = Math.Max(1, (int)Math.Round((smoothWindowSeconds / dt) / 2.0));
-                int tailN = (int)Math.Round(tailWindowSeconds / dt);
-                tailN = Math.Clamp(tailN, minTailSamples, n);
-
-                // Smooth |power|
-                double[] sm = new double[n];
-                for (int i = 0; i < n; i++)
-                {
-                    double s = 0; int c = 0;
-                    int a = Math.Max(0, i - smoothHalfWin);
-                    int b = Math.Min(n - 1, i + smoothHalfWin);
-                    for (int j = a; j <= b; j++) { s += Math.Abs(dps[j].Power); c++; }
-                    sm[i] = s / c;
-                }
-
-                // Baseline + sigma from tail (last tailWindowSeconds)
-                var tail = sm.Skip(n - tailN).OrderBy(v => v).ToArray();
-                double baseline = tail[tail.Length / 2];
-
-                double sigma = Math.Sqrt(sm.Skip(n - tailN)
-                    .Average(v => (v - baseline) * (v - baseline)));
-
-                // Apex: turning point using the same time-scale neighborhood
-                // (keep your logic but with window derived from dt)
-                int apex = -1;
-                int k = Math.Max(2, smoothHalfWin); // ensure enough points for pattern
-                for (int i = k; i < n - k; i++)
-                {
-                    // require non-decreasing up to i and non-increasing after i over k steps
-                    bool up = true, down = true;
-                    for (int u = i - k; u < i; u++) if (sm[u] > sm[u + 1]) { up = false; break; }
-                    if (up)
-                    {
-                        for (int d = i; d < i + k; d++) if (sm[d] < sm[d + 1]) { down = false; break; }
-                        if (down) { apex = i; break; }
-                    }
-                }
-                if (apex < 0) return;
-
-                double A0 = sm[apex] - baseline;
-                if (A0 <= 0) return;
-
-                double thr = Math.Max(returnFrac * A0, noiseFactor * sigma);
-
-                double tReturn = (thr < A0) ? (tau * Math.Log(A0 / thr)) : 0.0;
-
-                double apexOffset = dps[apex].Time - Time;
-                double endOffset = apexOffset + factor * tReturn;
-
-                IntegrationEndOffset = Math.Clamp((float)endOffset,
-                    IntegrationStartDelay + MinimumIntegrationTime,
-                    Delay);
-                Experiment?.MarkModified();
-            }
-            catch (Exception ex)
-            {
-                AppEventHandler.DisplayHandledException(ex);
-            }
+            var endOffset = PeakShapeIntegrationEstimator.EstimateEndOffset(Experiment, this, factor);
+            SetIntegrationLengthByTime(endOffset);
         }
 
         public void SetIntegrationLengthByTime(float time)

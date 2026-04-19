@@ -174,10 +174,9 @@ namespace AnalysisITC
         {
             try
             {
-                foreach (var inj in Injections)
-                {
-                    inj.SetIntegrationLengthByPeakFitting();
-                }
+                var endOffsets = PeakShapeIntegrationEstimator.EstimateEndOffsets(this, PeakShapeIntegrationEstimator.DefaultFitFactor);
+                foreach (var (inj, endOffset) in Injections.Zip(endOffsets, (inj, endOffset) => (inj, endOffset)))
+                    inj.SetIntegrationLengthByTime(endOffset);
             }
             catch (Exception ex)
             {
@@ -189,10 +188,9 @@ namespace AnalysisITC
         {
             try
             {
-                foreach (var inj in Injections)
-                {
-                    inj.SetIntegrationLengthByFactor(factor);
-                }
+                var endOffsets = PeakShapeIntegrationEstimator.EstimateEndOffsets(this, factor);
+                foreach (var (inj, endOffset) in Injections.Zip(endOffsets, (inj, endOffset) => (inj, endOffset)))
+                    inj.SetIntegrationLengthByTime(endOffset);
             }
             catch (Exception ex)
             {
