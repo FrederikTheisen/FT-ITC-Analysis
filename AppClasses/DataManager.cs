@@ -129,36 +129,77 @@ namespace AnalysisITC
             ResultLinkedExperimentHighlightDidChange?.Invoke(null, null);
         }
 
+        static string DescribeItem(ITCDataContainer item)
+        {
+            if (item == null) return "<null>";
+
+            var type = item.GetType().Name;
+            var name = string.IsNullOrWhiteSpace(item.Name) ? item.FileName : item.Name;
+            return $"{type}[Name='{name}', ID='{item.UniqueID}']";
+        }
+
         public static void RemoveData2(int index)
         {
-            if (index == -1) return;
-            if (index >= Source.Content.Count) return;
+            AppEventHandler.PrintAndLog($"DataManager.RemoveData2 requested: index={index}, selectedContent={SelectedContentIndex}, totalContent={Source.Content.Count}, totalData={Count}");
 
-            DeletedDataList.Add(new ITCDataContainerDeletionLog(Source.Content[index]));
+            if (index == -1)
+            {
+                AppEventHandler.PrintAndLog("DataManager.RemoveData2 ignored: index was -1", 1);
+                return;
+            }
+            if (index >= Source.Content.Count)
+            {
+                AppEventHandler.PrintAndLog($"DataManager.RemoveData2 ignored: index {index} is outside content range 0..{Source.Content.Count - 1}", 1);
+                return;
+            }
 
-            if (SelectedContentIndex == -1) { Source.Content.RemoveAt(index); return; }
+            var removedItem = Source.Content[index];
+            AppEventHandler.PrintAndLog($"DataManager.RemoveData2 target: {DescribeItem(removedItem)}", 1);
+
+            DeletedDataList.Add(new ITCDataContainerDeletionLog(removedItem));
+
+            if (SelectedContentIndex == -1)
+            {
+                Source.Content.RemoveAt(index);
+                AppEventHandler.PrintAndLog($"DataManager.RemoveData2 completed without reselection: removed {DescribeItem(removedItem)}, totalContent={Source.Content.Count}, totalData={Count}");
+                return;
+            }
             else
             {
                 var current_selected_item = Source.Content[SelectedContentIndex];
+                AppEventHandler.PrintAndLog($"DataManager.RemoveData2 selection before remove: {DescribeItem(current_selected_item)}", 1);
 
                 Source.Content.RemoveAt(index);
 
                 DataDidChange?.Invoke(null, null);
                 SelectIndex(Source.Content.IndexOf(current_selected_item));
+
+                var selectedAfter = SelectedContentIndex >= 0 && SelectedContentIndex < Source.Content.Count
+                    ? Source.Content[SelectedContentIndex]
+                    : null;
+                AppEventHandler.PrintAndLog($"DataManager.RemoveData2 completed: removed {DescribeItem(removedItem)}, selectedAfter={DescribeItem(selectedAfter)}, totalContent={Source.Content.Count}, totalData={Count}");
             }
         }
 
         public static void UndoDeleteData()
         {
+            AppEventHandler.PrintAndLog($"DataManager.UndoDeleteData requested: deletedBatches={DeletedDataList.Count}, totalContent={SourceItems.Count}, totalData={Count}");
+
             var restoreddata = DeletedDataList.Last().Data;
+            AppEventHandler.PrintAndLog($"DataManager.UndoDeleteData restoring batch of {restoreddata.Count}: {string.Join(", ", restoreddata.Select(DescribeItem))}",1);
 
             foreach (var data in restoreddata) AddData(data);
             DeletedDataList.Remove(DeletedDataList.Last());
+
+            var selectedAfter = SelectedContentIndex >= 0 && SelectedContentIndex < SourceItems.Count
+                ? SourceItems[SelectedContentIndex]
+                : null;
+            AppEventHandler.PrintAndLog($"DataManager.UndoDeleteData completed: totalContent={SourceItems.Count}, totalData={Count}, selectedAfter={DescribeItem(selectedAfter)}");
         }
 
         public static void AddData(ITCDataContainer data)
         {
-            AppEventHandler.PrintAndLog("Adding Data: " + data.FileName);
+            AppEventHandler.PrintAndLog($"DataManager.AddData requested: item={DescribeItem(data)}, totalContentBefore={SourceItems.Count}, totalDataBefore={Count}, selectedContentIndex={SelectedContentIndex}");
 
             SourceItems.Add(data);
 
@@ -173,6 +214,11 @@ namespace AnalysisITC
                 DataDidChange?.Invoke(null, null);
                 SelectIndex(SourceItems.Count - 1);
             }
+
+            var selectedAfter = SelectedContentIndex >= 0 && SelectedContentIndex < SourceItems.Count
+                ? SourceItems[SelectedContentIndex]
+                : null;
+            AppEventHandler.PrintAndLog($"DataManager.AddData completed: item={DescribeItem(data)}, totalContentAfter={SourceItems.Count}, totalDataAfter={Count}, selectedAfter={DescribeItem(selectedAfter)}");
         }
 
         public static void ApplyOptions()
@@ -194,7 +240,7 @@ namespace AnalysisITC
 
         public static void DuplicateSelectedData(ExperimentData data)
         {
-            AppEventHandler.PrintAndLog("Duplicating Data: " + data.FileName);
+            AppEventHandler.PrintAndLog("DataManager.Duplicating Data: " + data.FileName);
             StatusBarManager.SetStatus($"Duplicating Data: {data.Name}", 3000);
 
             var dps = new List<DataPoint>();
@@ -239,6 +285,7 @@ namespace AnalysisITC
         public static void SortContent(SortMode mode)
         {
             AppEventHandler.PrintAndLog("Sorting content by " + mode.ToString() + "...");
+            StatusBarManager.SetStatus($"Sorting Content by {mode}", 3333);
 
             switch (mode)
             {

@@ -58,9 +58,19 @@ namespace AnalysisITC
             AnalysisITCDataSource.SourceWasSorted += AnalysisITCDataSource_SourceWasSorted;
         }
 
+        string DescribeItem(ITCDataContainer item)
+        {
+            if (item == null) return "<null>";
+
+            var name = string.IsNullOrWhiteSpace(item.Name) ? item.FileName : item.Name;
+            return $"{item.GetType().Name}[Name='{name}', ID='{item.UniqueID}']";
+        }
+
         private void AnalysisITCDataSource_SourceWasSorted(object sender, EventArgs e)
         {
             var item = DataManager.Source.SelectedItem;
+            AppEventHandler.PrintAndLog(
+                $"SideBar.SourceWasSorted: selectedBefore={DescribeItem(item)}, rows={DataManager.Source?.Content?.Count ?? -1}");
 
             ReloadTable();
 
@@ -70,6 +80,9 @@ namespace AnalysisITC
         private void ExperimentDetailsPopoverController_UpdateTable(object sender, EventArgs e)
         {
             int idx = DataManager.Source.SelectedIndex;
+            AppEventHandler.PrintAndLog(
+                $"SideBar.UpdateTable event: selectedIndex={idx}, rows={DataManager.Source?.Content?.Count ?? -1}, sender={sender?.GetType().Name ?? "<null>"}",
+                1);
 
             ReloadTable();
 
@@ -134,21 +147,36 @@ namespace AnalysisITC
 
         private void OnDataManagerUpdated(object sender, ExperimentData data)
         {
-            if (_pendingRemovedRow.HasValue) return;
+            AppEventHandler.PrintAndLog(
+                $"SideBar.OnDataManagerUpdated: pendingRemovedRow={_pendingRemovedRow?.ToString() ?? "<none>"}, payload={DescribeItem(data)}, rows={DataManager.Source?.Content?.Count ?? -1}, selectedIndex={DataManager.Source?.SelectedIndex ?? -1}",
+                1);
+
+            if (_pendingRemovedRow.HasValue)
+            {
+                AppEventHandler.PrintAndLog("SideBar.OnDataManagerUpdated: skipped reload due to pending row removal", 1);
+                return;
+            }
             ReloadTable();
         }
 
         private void OnRowWillRemoveEvent(object sender, int e)
         {
             _pendingRemovedRow = e;
+            var item = DataManager.Source != null && e >= 0 && e < DataManager.Source.Content.Count
+                ? DataManager.Source.Content[e]
+                : null;
+            AppEventHandler.PrintAndLog(
+                $"SideBar.OnRowWillRemoveEvent: row={e}, item={DescribeItem(item)}, rows={DataManager.Source?.Content?.Count ?? -1}, sender={sender?.GetType().Name ?? "<null>"}");
         }
 
         private void OnRowRemoveEvent(object sender, int e)
         {
-            AppEventHandler.PrintAndLog($"TableView Remove Data: {e}");
+            AppEventHandler.PrintAndLog(
+                $"SideBar.OnRowRemoveEvent: requestedRow={e}, pendingRemovedRow={_pendingRemovedRow?.ToString() ?? "<none>"}, rowsBefore={DataManager.Source?.Content?.Count ?? -1}, selectedIndexBefore={DataManager.Source?.SelectedIndex ?? -1}, sender={sender?.GetType().Name ?? "<null>"}");
 
             if (!_pendingRemovedRow.HasValue)
             {
+                AppEventHandler.PrintAndLog("SideBar.OnRowRemoveEvent: no pending row, falling back to full reload", 1);
                 ReloadTable();
                 return;
             }
@@ -159,21 +187,26 @@ namespace AnalysisITC
                 TableView.RemoveRows(new NSIndexSet(_pendingRemovedRow.Value), NSTableViewAnimation.SlideLeft);
                 TableView.EndUpdates();
                 SyncSelection();
+                AppEventHandler.PrintAndLog(
+                    $"SideBar.OnRowRemoveEvent completed animated removal: removedRow={_pendingRemovedRow.Value}, rowsAfter={DataManager.Source?.Content?.Count ?? -1}, selectedIndexAfter={DataManager.Source?.SelectedIndex ?? -1}");
             }
             catch (Exception ex)
             {
                 AppEventHandler.AddLog(ex);
+                AppEventHandler.PrintAndLog("SideBar.OnRowRemoveEvent: animated removal failed, reloading table", 1);
                 ReloadTable();
             }
             finally
             {
+                AppEventHandler.PrintAndLog($"SideBar.OnRowRemoveEvent: clearing pendingRemovedRow={_pendingRemovedRow?.ToString() ?? "<none>"}", 1);
                 _pendingRemovedRow = null;
             }
         }
 
         private void DataManager_RemoveListIndices(object sender, int[] e)
         {
-            AppEventHandler.PrintAndLog($"TableView Remove Data: {e}");
+            AppEventHandler.PrintAndLog(
+                $"SideBar.DataManager_RemoveListIndices: rows=[{string.Join(", ", e ?? Array.Empty<int>())}], rowsBeforeReload={DataManager.Source?.Content?.Count ?? -1}");
             ReloadTable();
         }
 
@@ -210,7 +243,15 @@ namespace AnalysisITC
 
         void ReloadTable()
         {
-            if (TableView == null || DataManager.Source == null) return;
+            if (TableView == null || DataManager.Source == null)
+            {
+                AppEventHandler.PrintAndLog("SideBar.ReloadTable skipped: table or source was null", 1);
+                return;
+            }
+
+            AppEventHandler.PrintAndLog(
+                $"SideBar.ReloadTable: rows={DataManager.Source.Content.Count}, selectedIndex={DataManager.Source.SelectedIndex}, pendingRemovedRow={_pendingRemovedRow?.ToString() ?? "<none>"}",
+                1);
 
             EnsureTableBindings();
             TableView.ReloadData();
@@ -220,16 +261,24 @@ namespace AnalysisITC
 
         void SyncSelection()
         {
-            if (TableView == null || DataManager.Source == null) return;
+            if (TableView == null || DataManager.Source == null)
+            {
+                AppEventHandler.PrintAndLog("SideBar.SyncSelection skipped: table or source was null", 1);
+                return;
+            }
 
             int idx = DataManager.Source.SelectedIndex;
             if (idx >= 0 && idx < DataManager.Source.Content.Count)
             {
                 TableView.SelectRow(idx, false);
+                AppEventHandler.PrintAndLog(
+                    $"SideBar.SyncSelection: selectedIndex={idx}, selectedItem={DescribeItem(DataManager.Source.Content[idx])}",
+                    1);
             }
             else
             {
                 TableView.DeselectAll(this);
+                AppEventHandler.PrintAndLog($"SideBar.SyncSelection: deselected all, selectedIndex={idx}, rows={DataManager.Source.Content.Count}", 1);
             }
         }
     }
