@@ -160,6 +160,9 @@ namespace DataReaders
                 var inj = new InjectionData(data, vinj_L);
 
                 inj.SetPeakArea(new FloatWithError(heat_J, 0));
+                inj.Ratio = r.Xmt;
+                inj.ActualCellConcentration = r.Mt / 1000;
+                inj.ActualTitrantConcentration = r.Xt / 1000;
 
                 data.Injections.Add(inj);
             }
