@@ -31,6 +31,7 @@ namespace AnalysisITC
         NSOpenPanel FileDialog { get; set; }
          
         public static void LaunchOpenFileDialog() => OpenFileDialog.Invoke(null,null);
+        public static void CloseAllData() => _ = CloseAllDataAsync();
 
         public AppDelegate()
         {
@@ -282,18 +283,7 @@ namespace AnalysisITC
 
         partial void ClearAllData(NSObject sender)
         {
-            var alert = new NSAlert();
-            alert.MessageText = "Close all open data. Any unsaved results will be lost.";
-            alert.AlertStyle = NSAlertStyle.Critical;
-            alert.AddButton("Cancel");
-            alert.AddButton("Remove Data");
-
-            alert.Buttons[1].HasDestructiveAction = true;
-
-            if (alert.RunModal() == 1001)
-            {
-                DataManager.Clear();
-            }
+            CloseAllData();
         }
 
         partial void StartSupport(NSObject sender)
@@ -358,6 +348,41 @@ namespace AnalysisITC
         public static void AllowNextTerminateWithoutPrompt()
         {
             skipDirtyCheckOnNextTerminate = true;
+        }
+
+        public static async Task<bool> CloseAllDataAsync()
+        {
+            if (DataManager.SourceItems == null || DataManager.SourceItems.Count == 0)
+            {
+                DataManager.Clear();
+                DocumentDirtyTracker.MarkClean();
+                return true;
+            }
+
+            if (DocumentDirtyTracker.IsDirty)
+            {
+                switch (PromptSaveChanges())
+                {
+                    case PendingSaveAction.Save:
+                        {
+                            var didSave = FTITCWriter.IsSaved
+                                ? await FTITCWriter.SaveWithPathAsync()
+                                : await FTITCWriter.SaveState2Async();
+
+                            if (!didSave) return false;
+                            break;
+                        }
+                    case PendingSaveAction.Cancel:
+                        return false;
+                    case PendingSaveAction.Discard:
+                        break;
+                }
+            }
+
+            DataManager.Clear();
+            DocumentDirtyTracker.MarkClean();
+
+            return true;
         }
 
         partial void OpenHint(NSObject sender)

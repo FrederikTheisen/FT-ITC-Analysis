@@ -326,7 +326,7 @@ namespace AnalysisITC
 
         partial void ClearButtonClick(NSObject sender)
         {
-            DataManager.Clear();
+            AppDelegate.CloseAllData();
         }
 
         partial void ContinueClick(NSObject sender)

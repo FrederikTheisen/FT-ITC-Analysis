@@ -270,7 +270,7 @@ namespace AnalysisITC
             switch (sender.SelectedSegment)
             {
                 case 0: AppDelegate.LaunchOpenFileDialog(); break;
-                case 1: DataManager.Clear(); break;
+                case 1: AppDelegate.CloseAllData(); break;
                 case 2: StateManager.SetProgramState(ProgramState.Process); break;
             }
         }
