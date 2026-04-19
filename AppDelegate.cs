@@ -26,11 +26,11 @@ namespace AnalysisITC
         public static event EventHandler ShowHint;
         public static event EventHandler ShowCitation;
 
-        static bool skipDirtyCheckOnNextTerminate;
+        private static bool skipDirtyCheckOnNextTerminate;
 
-        NSOpenPanel FileDialog { get; set; }
-         
-        public static void LaunchOpenFileDialog() => OpenFileDialog.Invoke(null,null);
+        private NSOpenPanel FileDialog { get; set; }
+
+        public static void LaunchOpenFileDialog() => OpenFileDialog.Invoke(null, null);
         public static void CloseAllData() => _ = CloseAllDataAsync();
 
         public AppDelegate()
@@ -96,7 +96,7 @@ namespace AnalysisITC
                 case "selectall": return DataManager.DataIsLoaded;
                 case "deselectall": return DataManager.DataIsLoaded;
                 case "sortbyname":
-                case "sortbytemp": 
+                case "sortbytemp":
                 case "sortbydate": return DataManager.DataIsLoaded;
                 case "sortbytype": return DataManager.DataIsLoaded && DataManager.Results.Count > 0;
                 case "sortbyprotonation": return DataManager.DataIsLoaded && DataManager.Data.Any(d => d.Attributes.Count > 0);
@@ -110,7 +110,7 @@ namespace AnalysisITC
         }
 
         [Export("openDocument:")]
-        void OpenDocumentMenuClicked(NSObject sender)
+        private void OpenDocumentMenuClicked(NSObject sender)
         {
             AppDelegate_OpenFileDialog(sender, null);
         }
@@ -301,7 +301,7 @@ namespace AnalysisITC
             // Insert code here to tear down your application
         }
 
-        async Task SaveBeforeTerminateAsync()
+        private async Task SaveBeforeTerminateAsync()
         {
             var didSave = FTITCWriter.IsSaved
                 ? await FTITCWriter.SaveWithPathAsync()
