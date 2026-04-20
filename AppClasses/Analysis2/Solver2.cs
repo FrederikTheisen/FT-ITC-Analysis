@@ -36,7 +36,7 @@ namespace AnalysisITC.AppClasses.AnalysisClasses
         public bool Silent { get; set; } = false;
 
         public static event EventHandler<TerminationFlag> AnalysisStarted;
-        public static event EventHandler<Tuple<int, int, float>> BootstrapIterationFinished;
+        public static event EventHandler<Tuple<int, int, float>> ErrorEstimationIterationCompleted;
         public static event EventHandler<SolverConvergence> AnalysisFinished;
         public static event EventHandler AnalysisStepFinished;
         public static event EventHandler<SolverUpdate> SolverUpdated;
@@ -120,13 +120,13 @@ namespace AnalysisITC.AppClasses.AnalysisClasses
 
         public void ReportBootstrapProgress(int iteration) => NSApplication.SharedApplication.InvokeOnMainThread(() =>
         {
-            if (!Silent) BootstrapIterationFinished?.Invoke(null, new Tuple<int, int, float>(iteration, BootstrapIterations, iteration / (float)BootstrapIterations));
+            if (!Silent) ErrorEstimationIterationCompleted?.Invoke(null, new Tuple<int, int, float>(iteration, BootstrapIterations, iteration / (float)BootstrapIterations));
             else SolverUpdated?.Invoke(null, SolverUpdate.BackgroundBootstrapUpdate(iteration, BootstrapIterations));
         });
 
         public void ReportLeaveOneOutProgress(int iteration, int models) => NSApplication.SharedApplication.InvokeOnMainThread(() =>
         {
-            if (!Silent) BootstrapIterationFinished?.Invoke(null, new Tuple<int, int, float>(iteration, models, iteration / (float)models));
+            if (!Silent) ErrorEstimationIterationCompleted?.Invoke(null, new Tuple<int, int, float>(iteration, models, iteration / (float)models));
             else SolverUpdated?.Invoke(null, SolverUpdate.BackgroundBootstrapUpdate(iteration, models));
         });
 
@@ -263,11 +263,15 @@ namespace AnalysisITC.AppClasses.AnalysisClasses
 
         protected virtual void BoostrapResiduals()
         {
+            AppEventHandler.Print($"Running Bootstrap Error with {BootstrapIterations} iterations...");
+
             ReportBootstrapProgress(0);
         }
 
         protected virtual void LeaveOneOut()
         {
+            AppEventHandler.Print($"Running LeaveOneOut Error...");
+
             if (this is GlobalSolver)
             {
                 ReportLeaveOneOutProgress(0, (this as GlobalSolver).Model.Models.Count);
@@ -455,7 +459,6 @@ namespace AnalysisITC.AppClasses.AnalysisClasses
                         // are still considered successful for bootstrapping purposes.
                         if (rconv?.IsUsableForErrorEstimation == true)
                         {
-                            AppEventHandler.Print($"Bootstrap: {rconv.Iterations} {rconv.Loss} {rconv.FailureReason}");
                             bag.Add(solver.Model.Solution);
                             Interlocked.Increment(ref success);
                         }
@@ -533,12 +536,13 @@ namespace AnalysisITC.AppClasses.AnalysisClasses
                             Interlocked.Increment(ref failure);
                         }
                     }
-                    catch (Exception)
+                    catch (Exception ex)
                     {
                         // Any exception during a replicate counts as a failure. Exceptions are
                         // not propagated beyond the replicate to avoid halting the entire
                         // leave-one-out procedure.
                         Interlocked.Increment(ref failure);
+                        AppEventHandler.Print($"Bootstrap Error: {ex.Message}");
                     }
                 }
 
@@ -745,11 +749,12 @@ namespace AnalysisITC.AppClasses.AnalysisClasses
                             Interlocked.Increment(ref failure);
                         }
                     }
-                    catch (Exception)
+                    catch (Exception ex)
                     {
                         // Any exception during a replicate counts as a failure and is not
                         // propagated.
                         Interlocked.Increment(ref failure);
+                        AppEventHandler.Print($"Bootstrap Error: {ex.Message}");
                     }
                 }
 
@@ -802,10 +807,11 @@ namespace AnalysisITC.AppClasses.AnalysisClasses
                             Interlocked.Increment(ref failure);
                         }
                     }
-                    catch (Exception)
+                    catch (Exception ex)
                     {
                         // Any exception during a replicate counts as a failure.
                         Interlocked.Increment(ref failure);
+                        AppEventHandler.Print($"Bootstrap Error: {ex.Message}");
                     }
                 }
 

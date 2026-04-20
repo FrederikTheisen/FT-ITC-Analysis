@@ -53,7 +53,7 @@ namespace AnalysisITC
             // Solver events
             SolverInterface.AnalysisFinished += OnAnalysisFinished;
             SolverInterface.AnalysisStepFinished += (_, _) => GraphView.Invalidate();
-            SolverInterface.BootstrapIterationFinished += OnBootstrapIteration;
+            SolverInterface.ErrorEstimationIterationCompleted += OnErrorIteration;
             SolverInterface.SolverUpdated += (_, e) => e.SendToStatusBar();
 
             // Data events
@@ -269,10 +269,10 @@ namespace AnalysisITC
             ToggleFitButtons(true);
         }
 
-        void OnBootstrapIteration(object sender, Tuple<int, int, float> e)
+        void OnErrorIteration(object sender, Tuple<int, int, float> e)
         {
             StatusBarManager.SetProgress(e.Item3);
-            StatusBarManager.SetStatus("Bootstrapping...", 0, 2);
+            StatusBarManager.SetStatus("Estimating Errors...", 0, 2);
             StatusBarManager.SetSecondaryStatus(e.Item1 + "/" + e.Item2, 0);
         }
 
@@ -318,7 +318,7 @@ namespace AnalysisITC
 
             Workspace.ContextRebuilt -= OnContextRebuilt;
             SolverInterface.AnalysisFinished -= OnAnalysisFinished;
-            SolverInterface.BootstrapIterationFinished -= OnBootstrapIteration;
+            SolverInterface.ErrorEstimationIterationCompleted -= OnErrorIteration;
             DataManager.SelectionDidChange -= OnSelectionChanged;
             DataManager.DataDidChange -= OnDataChanged;
             DataManager.DataInclusionDidChange -= OnDataChanged;
