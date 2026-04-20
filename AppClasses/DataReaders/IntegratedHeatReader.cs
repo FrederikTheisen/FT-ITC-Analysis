@@ -167,8 +167,7 @@ namespace DataReaders
                 data.Injections.Add(inj);
             }
 
-            // We need to recalculate concentrations for precision 
-            RawDataReader.ProcessInjections(data);
+            if (AppSettings.ReprocessIntegratedHeatDataOnLoad) RawDataReader.ProcessInjections(data);
 
             // Try to get the instrument based on cell volume
             ITCInstrumentAttribute.ResolveInstrument(data);

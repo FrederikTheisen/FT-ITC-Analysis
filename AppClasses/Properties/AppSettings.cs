@@ -36,6 +36,7 @@ namespace AnalysisITC
         public static bool DiscardIntegrationRegionForBaseline { get; set; } = true;
         public static bool IncludeBufferInIonicStrengthCalc { get; set; } = true;
         public static DilutionMethod DilutionCalculationMethod { get; set; } = DilutionMethod.MicroCal;
+        public static bool ReprocessIntegratedHeatDataOnLoad { get; set; } = true;
 
         //Fitting
         public static bool InputAffinityAsDissociationConstant { get; set; } = true;
@@ -132,6 +133,7 @@ namespace AnalysisITC
             Storage.SetBool(UseInjectionErrorWeightedFitting, "UseInjectionErrorWeightedFitting");
             Storage.SetBool(AutoAxesIgnoresBadData, "AutoAxesIgnoresBadData");
             Storage.SetInt((int)DilutionCalculationMethod, "DilutionCalculationMethod");
+            Storage.SetBool(ReprocessIntegratedHeatDataOnLoad, "ReprocessIntegratedHeatDataOnLoad");
 
             if (LastDocumentUrls != null) StoreArray(LastDocumentUrls.Select(url => url.ToString()).ToArray(), "LastDocumentUrls");
             StoreArray(FinalFigureDimensions, "FinalFigureDimensions");
@@ -190,6 +192,7 @@ namespace AnalysisITC
             UseInjectionErrorWeightedFitting = GetBool(dict, "UseInjectionErrorWeightedFitting", UseInjectionErrorWeightedFitting);
             AutoAxesIgnoresBadData = GetBool(dict, "AutoAxesIgnoresBadData", AutoAxesIgnoresBadData);
             DilutionCalculationMethod = (DilutionMethod)GetInt(dict, "DilutionCalculationMethod", (int)DilutionCalculationMethod);
+            ReprocessIntegratedHeatDataOnLoad = GetBool(dict, "ReprocessIntegratedHeatDataOnLoad", ReprocessIntegratedHeatDataOnLoad);
 
             LastDocumentUrls = GetArray(dict, "LastDocumentUrls", new string[0]).Select(url => NSUrl.FromString(url)).ToArray();
 
@@ -241,6 +244,7 @@ namespace AnalysisITC
             UnifyResidualGraphAxis = false;
             AutoAxesIgnoresBadData = true;
             DilutionCalculationMethod = DilutionMethod.MicroCal;
+            ReprocessIntegratedHeatDataOnLoad = true;
         }
 
         static void StoreArray(double[] arr, string key)
