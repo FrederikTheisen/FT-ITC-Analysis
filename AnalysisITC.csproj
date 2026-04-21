@@ -235,6 +235,7 @@
     <None Include="README.md" />
     <None Include="AppClasses\DataReaders\FTITCReaderOld.cs" />
     <None Include="VERSION" />
+    <None Include=".gitignore" />
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Main.cs" />
