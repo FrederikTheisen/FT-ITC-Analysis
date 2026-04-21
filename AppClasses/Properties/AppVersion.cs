@@ -87,7 +87,7 @@ public static class AppVersion
             {
                 AppEventHandler.PrintAndLog($"AppVersion: Update available ({FullVersionString} -> {result.LatestVersion})");
 
-                ShowInfoAlert($"Update available: v{result.LatestVersion}", BuildUpdateMessage(result));
+                ShowInfoAlert($"Update available: {FormatVersionTitle(result.LatestVersion, result.LatestTitle)}", BuildUpdateMessage(result));
             }
             else
             {
@@ -162,6 +162,7 @@ public static class AppVersion
         {
             CurrentVersion = FullVersionString,
             LatestVersion = latestEntry.Version,
+            LatestTitle = latestEntry.Title,
             IsUpdateAvailable = latest.CompareTo(current) > 0,
             NewerEntries = newerEntries
         };
@@ -178,9 +179,9 @@ public static class AppVersion
             if (string.IsNullOrWhiteSpace(line))
                 continue;
 
-            if (TryParseVersionHeader(line, out var version))
+            if (TryParseVersionHeader(line, out var version, out var title))
             {
-                currentEntry = new AppVersionEntry { Version = version };
+                currentEntry = new AppVersionEntry { Version = version, Title = title };
                 entries.Add(currentEntry);
                 continue;
             }
@@ -192,9 +193,10 @@ public static class AppVersion
         return entries;
     }
 
-    static bool TryParseVersionHeader(string line, out string version)
+    static bool TryParseVersionHeader(string line, out string version, out string title)
     {
         version = null;
+        title = null;
 
         const string compactPrefix = "#VERSION";
         const string spacedPrefix = "# VERSION";
@@ -209,11 +211,19 @@ public static class AppVersion
         if (remainder == null)
             return false;
 
-        var parsedVersion = remainder.Trim();
+        var headerParts = remainder.Trim().Split(new[] { ' ', '\t' }, 2, StringSplitOptions.RemoveEmptyEntries);
+        if (headerParts.Length == 0)
+            return false;
+
+        var parsedVersion = headerParts[0];
         if (!TryParseVersion(parsedVersion, out _))
             return false;
 
         version = parsedVersion;
+
+        if (headerParts.Length > 1)
+            title = headerParts[1].Trim().TrimStart('-', ':', ' ');
+
         return true;
     }
 
@@ -256,7 +266,7 @@ public static class AppVersion
     {
         var sb = new StringBuilder();
         sb.AppendLine($"Installed version: v{result.CurrentVersion}");
-        sb.AppendLine($"Newest version online: v{result.LatestVersion}");
+        sb.AppendLine($"Newest version online: {FormatVersionTitle(result.LatestVersion, result.LatestTitle)}");
 
         var entriesToShow = result.NewerEntries.Take(3).ToList();
         if (entriesToShow.Count > 0)
@@ -266,7 +276,7 @@ public static class AppVersion
 
             foreach (var entry in entriesToShow)
             {
-                sb.AppendLine($"v{entry.Version}");
+                sb.AppendLine(FormatVersionTitle(entry.Version, entry.Title));
 
                 foreach (var note in entry.Notes.Take(5))
                     sb.AppendLine($"- {note}");
@@ -277,11 +287,20 @@ public static class AppVersion
 
         return sb.ToString().Trim();
     }
+
+    static string FormatVersionTitle(string version, string title)
+    {
+        if (string.IsNullOrWhiteSpace(title))
+            return $"v{version}";
+
+        return $"v{version} - {title.Trim()}";
+    }
 }
 
 public class AppVersionEntry
 {
     public string Version { get; set; }
+    public string Title { get; set; }
     public List<string> Notes { get; } = new List<string>();
 }
 
@@ -289,6 +308,7 @@ public class AppVersionCheckResult
 {
     public string CurrentVersion { get; set; }
     public string LatestVersion { get; set; }
+    public string LatestTitle { get; set; }
     public bool IsUpdateAvailable { get; set; }
     public List<AppVersionEntry> NewerEntries { get; set; } = new List<AppVersionEntry>();
 }
