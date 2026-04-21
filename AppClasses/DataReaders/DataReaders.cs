@@ -63,10 +63,11 @@ namespace DataReaders
             var urlList = urls?.Where(url => url != null).ToArray() ?? Array.Empty<NSUrl>();
             var allFtitc = urlList.Length > 0 && urlList.All(url => GetFormat(url.Path) == ITCDataFormat.FTITC);
             var wasEmptyDocument = DataManager.SourceItems == null || DataManager.SourceItems.Count == 0;
+            var initialItemCount = DataManager.SourceItems?.Count ?? 0;
 
             try
             {
-                using (DocumentDirtyTracker.Suspend())
+                using (allFtitc ? DocumentDirtyTracker.RestoreDocument() : DocumentDirtyTracker.Suspend())
                 {
                     await Task.Delay(1);
 
@@ -91,6 +92,7 @@ namespace DataReaders
                     }
 
                     AppSettings.LastDocumentUrls = urlList;
+                    DataManager.ApplyOptions();
                 }
             }
             catch (Exception ex)
@@ -102,18 +104,22 @@ namespace DataReaders
                 IntegratedHeatReader.EndImportQueue();
             }
 
-            DataManager.ApplyOptions();
-            StatusBarManager.ClearAppStatus();
-            StatusBarManager.StopIndeterminateProgress();
+            var addedData = (DataManager.SourceItems?.Count ?? 0) > initialItemCount;
+            var openedCleanProject = wasEmptyDocument && allFtitc && urlList.Length == 1 && addedData;
 
-            if (wasEmptyDocument && allFtitc)
+            if (openedCleanProject)
             {
                 DocumentDirtyTracker.MarkClean();
+                await Task.Delay(1);
+                DocumentDirtyTracker.MarkClean();
             }
-            else if (urlList.Length > 0)
+            else if (addedData)
             {
                 DocumentDirtyTracker.MarkDirty();
             }
+
+            StatusBarManager.ClearAppStatus();
+            StatusBarManager.StopIndeterminateProgress();
         }
 
         static async Task<ITCDataContainer[]> ReadFile(string path)

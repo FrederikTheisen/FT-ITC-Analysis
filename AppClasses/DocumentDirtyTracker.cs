@@ -11,11 +11,13 @@ namespace AnalysisITC
         private static bool initialized;
         private static bool isDirty;
         private static int suspendCount;
+        private static int restoreDocumentCount;
 
         public static event EventHandler DirtyStateChanged;
 
         public static bool IsDirty => isDirty;
         public static bool IsSuspended => suspendCount > 0;
+        public static bool IsRestoringDocument => restoreDocumentCount > 0;
 
         public static void Initialize()
         {
@@ -35,6 +37,19 @@ namespace AnalysisITC
             suspendCount++;
             return new Scope(() =>
             {
+                suspendCount = Math.Max(0, suspendCount - 1);
+                ResubscribeContainers();
+            });
+        }
+
+        public static IDisposable RestoreDocument()
+        {
+            suspendCount++;
+            restoreDocumentCount++;
+
+            return new Scope(() =>
+            {
+                restoreDocumentCount = Math.Max(0, restoreDocumentCount - 1);
                 suspendCount = Math.Max(0, suspendCount - 1);
                 ResubscribeContainers();
             });

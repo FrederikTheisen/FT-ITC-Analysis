@@ -119,7 +119,7 @@ namespace AnalysisITC
                 return true;
             }
 
-            switch (AppDelegate.PromptSaveChanges())
+            switch (AppDelegate.PromptSaveChanges(AppDelegate.SavePromptReason.CloseWindow))
             {
                 case AppDelegate.PendingSaveAction.Save:
                     _ = SaveBeforeCloseAsync();

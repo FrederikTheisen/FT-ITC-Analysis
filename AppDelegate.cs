@@ -19,6 +19,13 @@ namespace AnalysisITC
             Discard
         }
 
+        public enum SavePromptReason
+        {
+            CloseWindow,
+            QuitApplication,
+            ClearAllData
+        }
+
         public static event EventHandler OpenFileDialog;
         public static event EventHandler StartPrintOperation;
         public static event EventHandler OpenMergeTool;
@@ -64,7 +71,7 @@ namespace AnalysisITC
                 return NSApplicationTerminateReply.Now;
             }
 
-            switch (PromptSaveChanges())
+            switch (PromptSaveChanges(SavePromptReason.QuitApplication))
             {
                 case PendingSaveAction.Save:
                     _ = SaveBeforeTerminateAsync();
@@ -323,18 +330,34 @@ namespace AnalysisITC
             return (alert.RunModal() == 1001);
         }
 
-        public static PendingSaveAction PromptSaveChanges()
+        public static PendingSaveAction PromptSaveChanges(SavePromptReason reason = SavePromptReason.CloseWindow)
         {
+            var (messageText, informativeText, discardButtonText) = reason switch
+            {
+                SavePromptReason.QuitApplication => (
+                    "Do you want to save changes before quitting?",
+                    "Unsaved changes will be lost if you quit without saving.",
+                    "Don't Save"),
+                SavePromptReason.ClearAllData => (
+                    "Do you want to save changes before clearing all data?",
+                    "Clearing all data will remove the current project from the program. Unsaved changes will be lost.",
+                    "Clear All"),
+                _ => (
+                    "Do you want to save changes before closing?",
+                    "Unsaved changes will be lost if you close without saving.",
+                    "Don't Save")
+            };
+
             var alert = new NSAlert
             {
-                MessageText = "Do you want to save changes before closing?",
-                InformativeText = "Unsaved changes will be lost.",
+                MessageText = messageText,
+                InformativeText = informativeText,
                 AlertStyle = NSAlertStyle.Warning
             };
 
             alert.AddButton("Save");
             alert.AddButton("Cancel");
-            alert.AddButton("Don't Save");
+            alert.AddButton(discardButtonText);
             alert.Buttons[2].HasDestructiveAction = true;
 
             return (int)alert.RunModal() switch
@@ -361,7 +384,7 @@ namespace AnalysisITC
 
             if (DocumentDirtyTracker.IsDirty)
             {
-                switch (PromptSaveChanges())
+                switch (PromptSaveChanges(SavePromptReason.ClearAllData))
                 {
                     case PendingSaveAction.Save:
                         {

@@ -65,6 +65,7 @@ namespace AnalysisITC
 
         public void MarkModified()
         {
+            if (DocumentDirtyTracker.IsRestoringDocument) return;
             if (isModified) return;
 
             isModified = true;
