@@ -46,7 +46,7 @@
         <!--Tab View Controller-->
         <scene sceneID="Fsb-vD-tZL">
             <objects>
-                <tabViewController selectedTabViewItemIndex="0" tabStyle="toolbar" id="6QL-58-hml" sceneMemberID="viewController">
+                <tabViewController selectedTabViewItemIndex="0" tabStyle="toolbar" id="6QL-58-hml" customClass="SettingsTabViewController" sceneMemberID="viewController">
                     <tabViewItems>
                         <tabViewItem label="General" identifier="" image="gearshape" catalog="system" id="kRB-ZW-gEt"/>
                         <tabViewItem label="Fitting" identifier="" image="chart.xyaxis.line" catalog="system" id="a42-bO-NLl"/>
@@ -368,9 +368,6 @@
                                                 <segment label="Exponential" width="91" tag="1"/>
                                             </segments>
                                         </segmentedCell>
-                                        <connections>
-                                            <action selector="EnergyUnitControlAction:" target="NPg-FK-jG9" id="7VD-kY-Sb7"/>
-                                        </connections>
                                     </segmentedControl>
                                 </subviews>
                                 <visibilityPriorities>

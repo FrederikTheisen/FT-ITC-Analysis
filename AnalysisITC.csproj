@@ -398,6 +398,7 @@
     <Compile Include="GUI\MacOS\ViewControllers\SettingsViews\GeneralSettingsViewController.designer.cs">
       <DependentUpon>GeneralSettingsViewController.cs</DependentUpon>
     </Compile>
+    <Compile Include="GUI\MacOS\ViewControllers\SettingsViews\SettingsTabViewController.cs" />
     <Compile Include="GUI\MacOS\ViewControllers\SettingsViews\ExportPreferencesViewController.cs" />
     <Compile Include="GUI\MacOS\ViewControllers\SettingsViews\ExportPreferencesViewController.designer.cs">
       <DependentUpon>ExportPreferencesViewController.cs</DependentUpon>
