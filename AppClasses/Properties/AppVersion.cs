@@ -1,5 +1,6 @@
 ﻿using AnalysisITC;
 using AppKit;
+using CoreGraphics;
 using Foundation;
 using System;
 using System.Collections.Generic;
@@ -87,7 +88,7 @@ public static class AppVersion
             {
                 AppEventHandler.PrintAndLog($"AppVersion: Update available ({FullVersionString} -> {result.LatestVersion})");
 
-                ShowInfoAlert($"Update available: {FormatVersionTitle(result.LatestVersion, result.LatestTitle)}", BuildUpdateMessage(result));
+                ShowInfoAlert("New Version Available!", BuildUpdateMessage(result), true);
             }
             else
             {
@@ -246,7 +247,7 @@ public static class AppVersion
         return TryParseVersion(versionText, out var parsed) ? parsed : new Version(0, 0);
     }
 
-    static void ShowInfoAlert(string title, string message)
+    static void ShowInfoAlert(string title, string message, bool useLeftAlignedAccessory = false)
     {
         NSApplication.SharedApplication.InvokeOnMainThread(() =>
         {
@@ -254,32 +255,81 @@ public static class AppVersion
             {
                 AlertStyle = NSAlertStyle.Informational,
                 MessageText = title,
-                InformativeText = message
+                InformativeText = useLeftAlignedAccessory ? string.Empty : message
             };
+
+            if (useLeftAlignedAccessory)
+                alert.AccessoryView = BuildLeftAlignedTextAccessory(message);
 
             alert.AddButton("OK");
             alert.RunModal();
         });
     }
 
+    static NSView BuildLeftAlignedTextAccessory(string text, float width = 420)
+    {
+        var font = NSFont.SystemFontOfSize(NSFont.SystemFontSize);
+        var paragraph = new NSMutableParagraphStyle
+        {
+            Alignment = NSTextAlignment.Left,
+            LineBreakMode = NSLineBreakMode.ByWordWrapping
+        };
+
+        var attributes = new NSStringAttributes
+        {
+            Font = font,
+            ParagraphStyle = paragraph
+        };
+
+        var attributedText = new NSAttributedString(text ?? string.Empty, attributes);
+        var bounds = attributedText.BoundingRectWithSize(
+            new CGSize(width, nfloat.MaxValue),
+            NSStringDrawingOptions.UsesLineFragmentOrigin | NSStringDrawingOptions.UsesFontLeading);
+
+        var height = (nfloat)Math.Ceiling(bounds.Height + 8);
+        var container = new NSView(new CGRect(0, 0, width, height));
+        var textField = new NSTextField(new CGRect(0, 0, width, height))
+        {
+            Alignment = NSTextAlignment.Left,
+            AttributedStringValue = attributedText,
+            Bordered = false,
+            DrawsBackground = false,
+            Editable = false,
+            Selectable = true
+        };
+
+        textField.Cell.Alignment = NSTextAlignment.Left;
+        textField.Cell.Wraps = true;
+        textField.Cell.Scrollable = false;
+        textField.Cell.UsesSingleLineMode = false;
+        textField.Cell.LineBreakMode = NSLineBreakMode.ByWordWrapping;
+
+        container.AddSubview(textField);
+        return container;
+    }
+
     static string BuildUpdateMessage(AppVersionCheckResult result)
     {
         var sb = new StringBuilder();
-        sb.AppendLine($"Installed version: v{result.CurrentVersion}");
-        sb.AppendLine($"Newest version online: {FormatVersionTitle(result.LatestVersion, result.LatestTitle)}");
+        if (!string.IsNullOrWhiteSpace(result.LatestTitle))
+        {
+            sb.AppendLine(result.LatestTitle.Trim());
+            sb.AppendLine();
+        }
+
+        sb.AppendLine($"Installed version: {result.CurrentVersion}");
+        sb.AppendLine($"Newest version: {FormatVersionTitle(result.LatestVersion, "")}");
 
         var entriesToShow = result.NewerEntries.Take(3).ToList();
         if (entriesToShow.Count > 0)
         {
             sb.AppendLine();
-            sb.AppendLine("New since your version:");
+            sb.AppendLine($"New in version {result.LatestVersion}:");
 
-            foreach (var entry in entriesToShow)
+            foreach (var entry in entriesToShow.Take(2))
             {
-                sb.AppendLine(FormatVersionTitle(entry.Version, entry.Title));
-
                 foreach (var note in entry.Notes.Take(5))
-                    sb.AppendLine($"- {note}");
+                    sb.AppendLine(" - " + note);
 
                 sb.AppendLine();
             }
@@ -291,9 +341,9 @@ public static class AppVersion
     static string FormatVersionTitle(string version, string title)
     {
         if (string.IsNullOrWhiteSpace(title))
-            return $"v{version}";
+            return version;
 
-        return $"v{version} - {title.Trim()}";
+        return $"{version} - {title.Trim()}";
     }
 }
 

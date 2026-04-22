@@ -1,4 +1,4 @@
-#VERSION 1.8.1 First public release of FT-ITC Analysis
+#VERSION 1.8.0 First public release of FT-ITC Analysis
 Added compatability with additional data file types
 Implemented tandem experiment merger and buffer subtraction
 Implemented dissociation and competition models
