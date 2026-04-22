@@ -23,6 +23,7 @@ namespace AnalysisITC
         public static ColorSchemeGradientMode ColorSchemeGradientMode { get; set; } = ColorSchemeGradientMode.Smooth;
         public static ConcentrationUnit DefaultConcentrationUnit { get; set; } = ConcentrationUnit.µM;
         public static int MaxDegreeOfParallelism { get; set; } = 10;
+        public static bool PerformOnlineChecksOnLaunch { get; set; } = true;
 
         public static bool Verbose { get; set; } = false;
 
@@ -134,6 +135,7 @@ namespace AnalysisITC
             Storage.SetBool(AutoAxesIgnoresBadData, "AutoAxesIgnoresBadData");
             Storage.SetInt((int)DilutionCalculationMethod, "DilutionCalculationMethod");
             Storage.SetBool(ReprocessIntegratedHeatDataOnLoad, "ReprocessIntegratedHeatDataOnLoad");
+            Storage.SetBool(PerformOnlineChecksOnLaunch, "PerformOnlineChecksOnLaunch");
 
             if (LastDocumentUrls != null) StoreArray(LastDocumentUrls.Select(url => url.ToString()).ToArray(), "LastDocumentUrls");
             StoreArray(FinalFigureDimensions, "FinalFigureDimensions");
@@ -193,6 +195,7 @@ namespace AnalysisITC
             AutoAxesIgnoresBadData = GetBool(dict, "AutoAxesIgnoresBadData", AutoAxesIgnoresBadData);
             DilutionCalculationMethod = (DilutionMethod)GetInt(dict, "DilutionCalculationMethod", (int)DilutionCalculationMethod);
             ReprocessIntegratedHeatDataOnLoad = GetBool(dict, "ReprocessIntegratedHeatDataOnLoad", ReprocessIntegratedHeatDataOnLoad);
+            PerformOnlineChecksOnLaunch = GetBool(dict, "PerformOnlineChecksOnLaunch", PerformOnlineChecksOnLaunch);
 
             LastDocumentUrls = GetArray(dict, "LastDocumentUrls", new string[0]).Select(url => NSUrl.FromString(url)).ToArray();
 
@@ -245,6 +248,7 @@ namespace AnalysisITC
             AutoAxesIgnoresBadData = true;
             DilutionCalculationMethod = DilutionMethod.MicroCal;
             ReprocessIntegratedHeatDataOnLoad = true;
+            PerformOnlineChecksOnLaunch = true;
         }
 
         static void StoreArray(double[] arr, string key)

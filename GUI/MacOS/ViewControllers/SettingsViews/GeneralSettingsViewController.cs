@@ -42,6 +42,7 @@ namespace AnalysisITC
             AppSettings.IncludeBufferInIonicStrengthCalc = IncludeBufferInIonicStrength.State == NSCellStateValue.On;
             AppSettings.DiscardIntegrationRegionForBaseline = DiscardIntegrationRegionForBaseline.State == NSCellStateValue.On;
             AppSettings.DilutionCalculationMethod = (DataReaders.DilutionMethod)(int)DilutionMathMethodControl.SelectedSegment;
+            AppSettings.PerformOnlineChecksOnLaunch = PerformOnlineChecksOnLaunch.State == NSCellStateValue.On;
 
             //Color
             AppSettings.ColorScheme = ColorScheme;
@@ -78,6 +79,7 @@ namespace AnalysisITC
             IncludeBufferInIonicStrength.State = AppSettings.IncludeBufferInIonicStrengthCalc ? NSCellStateValue.On : NSCellStateValue.Off;
             DiscardIntegrationRegionForBaseline.State = AppSettings.DiscardIntegrationRegionForBaseline ? NSCellStateValue.On : NSCellStateValue.Off;
             DilutionMathMethodControl.SelectSegment((int)AppSettings.DilutionCalculationMethod);
+            PerformOnlineChecksOnLaunch.State = AppSettings.PerformOnlineChecksOnLaunch ? NSCellStateValue.On : NSCellStateValue.Off;
         }
 
         private void ColorMenuHandler(NSMenuItem sender, ColorSchemes e)

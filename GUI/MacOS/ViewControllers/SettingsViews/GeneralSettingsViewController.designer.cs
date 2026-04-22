@@ -61,6 +61,9 @@ namespace AnalysisITC
 		AppKit.NSSegmentedControl PeakFitAlgorithmControl { get; set; }
 
 		[Outlet]
+		AppKit.NSButton PerformOnlineChecksOnLaunch { get; set; }
+
+		[Outlet]
 		AppKit.NSTextField RefTempField { get; set; }
 
 		[Action ("Apply:")]
@@ -86,6 +89,11 @@ namespace AnalysisITC
 		
 		void ReleaseDesignerOutlets ()
 		{
+			if (PerformOnlineChecksOnLaunch != null) {
+				PerformOnlineChecksOnLaunch.Dispose ();
+				PerformOnlineChecksOnLaunch = null;
+			}
+
 			if (ColorGradientControl != null) {
 				ColorGradientControl.Dispose ();
 				ColorGradientControl = null;
@@ -96,11 +104,6 @@ namespace AnalysisITC
 				ColorMenu = null;
 			}
 
-			if (DilutionMathMethodControl != null) {
-				DilutionMathMethodControl.Dispose ();
-				DilutionMathMethodControl = null;
-			}
-
 			if (ColorThemeMenu != null) {
 				ColorThemeMenu.Dispose ();
 				ColorThemeMenu = null;
@@ -109,6 +112,11 @@ namespace AnalysisITC
 			if (ConcentrationUnitControl != null) {
 				ConcentrationUnitControl.Dispose ();
 				ConcentrationUnitControl = null;
+			}
+
+			if (DilutionMathMethodControl != null) {
+				DilutionMathMethodControl.Dispose ();
+				DilutionMathMethodControl = null;
 			}
 
 			if (DiscardIntegrationRegionForBaseline != null) {
