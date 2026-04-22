@@ -49,6 +49,7 @@ namespace AnalysisITC
             UpdateWindowDirtyState();
             UpdateDocumentStatus();
             AppVersion.CheckForUpdatesInBackground();
+            _ = CitationManager.TryFetchOnlineCitation();
         }
 
         private void DocumentDirtyTracker_DirtyStateChanged(object sender, EventArgs e)

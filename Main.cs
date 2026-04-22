@@ -20,8 +20,6 @@ namespace AnalysisITC
             AppSettings.Locale = NSLocale.CurrentLocale.CollatorIdentifier; // We need to know for dates 
             CultureInfo.CurrentCulture = CultureInfo.GetCultureInfo("en-US"); // We keep this for other formating...
 
-            CitationManager.TryFetchOnlineCitation();
-
             // Not implemented yet if ever
             // BufferRegistry.Registry = BufferRegistry.LoadFromFile("./Buffers.json");
 
