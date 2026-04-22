@@ -87,8 +87,14 @@ $@"@article{{ftitc{year},
             return DefaultCitation;
         }
 
-        public static async Task TryFetchOnlineCitation()
+        public static async Task TryFetchOnlineCitation(bool forceOnlineCheck = false)
         {
+            if (!forceOnlineCheck && !AppSettings.PerformOnlineChecksOnLaunch)
+            {
+                AppEventHandler.PrintAndLog("Citation Manager: Online citation check skipped by launch preference");
+                return;
+            }
+
             try
             {
                 await Task.Run(() =>

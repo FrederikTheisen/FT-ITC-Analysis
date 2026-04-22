@@ -50,13 +50,23 @@ public static class AppVersion
         if (AutomaticCheckStarted)
             return;
 
+        if (!AppSettings.PerformOnlineChecksOnLaunch)
+        {
+            AppEventHandler.PrintAndLog("AppVersion: Online update check skipped by launch preference");
+            return;
+        }
+
         AutomaticCheckStarted = true;
         _ = CheckForUpdatesAsync(false, false);
     }
 
     public static async Task<AppVersionCheckResult> CheckForUpdatesAsync(bool showUpToDateMessage = false, bool forceOnlineCheck = false)
     {
-        _ = forceOnlineCheck;
+        if (!forceOnlineCheck && !showUpToDateMessage && !AppSettings.PerformOnlineChecksOnLaunch)
+        {
+            AppEventHandler.PrintAndLog("AppVersion: Online update check skipped by launch preference");
+            return null;
+        }
 
         try
         {
