@@ -19,7 +19,7 @@ The overview displays experiment metadata such as instrument information, experi
 **Integrated heats:** `.dat`, `.aff`, `.dh`
 **\appname project files:** `.ftitc`
 Drag compatible files into the app window, or use **File > Open…** to select them manually.
-Once loaded, datasets behave the same in the application independent of instrument type. \appname does not modify raw data files. To make a project portable across computers, save it as a `.ftitc` file.
+Once loaded, datasets behave the same in the application regardless of instrument type”. \appname does not modify raw data files. To make a project portable across computers, save it as a `.ftitc` file.
 
 ## Processing Data
 Processing is the first step in ITC analysis. It consists of defining the baseline and the integration region for each injection.
@@ -31,7 +31,7 @@ Integrated heats are calculated by numerically integrating the baseline-correcte
 By default, both baseline methods exclude points inside the integration regions. As a result, changing integration start or end positions also changes the baseline fit.
 # Setting the Integration Region
 Choosing an appropriate integration region is important both for accuracy and for noise reduction. Integrating over the full injection scope often adds unnecessary noise.
-\appname allows you to adjust all integration regions together using the **integration start delay** and **region length** controls. Time-based and factor-based integration lengths are available, and **\peakfit** can be used when you want the program to estimate integration end points from fitted peak shapes.
+\appname allows you to adjust all integration regions together using the **integration start delay** and **region length** controls. Time-based and factor-based integration lengths are available, and **\peakfit** can be used when you want the program to estimate integration endpoints from fitted peak shapes.
 You can also edit injections individually by dragging the blue region markers. When zoomed to a single injection, pressing **\space** copies the current integration length to the next injection and advances the view.
 
 ## Analyzing Data
@@ -48,7 +48,7 @@ In most ITC workflows, a fitted N-value is interpreted in the traditional MicroC
 Syringe correction mode is intended for cases where the main uncertainty is instead in the concentration of the material loaded in the syringe. When this mode is enabled, the fitted stoichiometry term is interpreted as a correction of the syringe-side titrant concentration during fitting rather than as a correction of the cell-side concentration.
 # \multexp
 You can analyze multiple experiments at the same time using **\multexp** mode. In this mode, all active datasets are analyzed together and a combined Analysis Result is added to the data list.
-If the experiments were performed at different temperatures, the analysis result can consider this temperature variation to estimate temperature-dependent behavior, including the heat capacity change upon binding where applicable. Analysis results can also enable further analyses depending on temperature and buffer or salt conditions.
+If the experiments were performed at different temperatures, the analysis result can consider this temperature variation to estimate temperature-dependent behavior, including the heat capacity change upon binding where applicable. Analysis results can also enable further analyses based on temperature, buffer, or salt conditions.
 # Global Fitting
 \appname can fit multiple experiments simultaneously using global optimization. Global fitting is useful for difficult interactions and for enforcing constraints across experiments, for example shared parameters across replicates, concentrations, or conditions.
 A typical workflow is to load and process the relevant experiments, mark the experiments you want to include, enable global fitting in the **Analysis** tab, choose which parameters are shared and which are allowed to vary, and then run the fit.
@@ -60,7 +60,7 @@ The publication figure layout follows the classical ITC presentation style: a th
 Figures are generated from the current processing state and analysis result. Changing baseline or integration settings updates integrated heats, which in turn updates the fit and the final figure.
 # Exporting Data
 \appname includes export functions for processed results. Depending on the export tool, you can export integrated heats, associated uncertainties, raw power-vs-time traces, and fitted parameters from multi-experiment and global analyses.
-Export of data is done under **File > Export** in the menu bar. Fitted parameters can also be copied from the analysis result view.
+Export data using **File > Export** in the menu bar. Fitted parameters can also be copied from the analysis result view.
 
 ## Additional Features
 # \designer
