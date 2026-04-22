@@ -266,7 +266,7 @@ public static class AppVersion
         });
     }
 
-    static NSView BuildLeftAlignedTextAccessory(string text, float width = 420)
+    static NSView BuildLeftAlignedTextAccessory(string text, float width = 350)
     {
         var font = NSFont.SystemFontOfSize(NSFont.SystemFontSize);
         var paragraph = new NSMutableParagraphStyle
