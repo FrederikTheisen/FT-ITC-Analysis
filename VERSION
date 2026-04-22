@@ -1,7 +1,3 @@
-#VERSION 1.8.1 Test Version Header
-Not much content
-No more
-
 #VERSION 1.8.0 First public release of FT-ITC Analysis
 Added compatability with additional data file types
 Implemented tandem experiment merger and buffer subtraction
