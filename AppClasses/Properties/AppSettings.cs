@@ -82,6 +82,8 @@ namespace AnalysisITC
 
         public static void Initialize()
         {
+            AppEventHandler.PrintAndLog("Initializing Settings...");
+
             Load();
         }
 

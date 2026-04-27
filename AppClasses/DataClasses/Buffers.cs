@@ -169,6 +169,8 @@ namespace AnalysisITC
 
 		public static void Init()
 		{
+            AppEventHandler.PrintAndLog("Initializing Buffers...");
+
             var tcvalues = new List<double>();
 
             var buffers = BufferAttribute.GetBuffers();

@@ -11,6 +11,7 @@ namespace AnalysisITC
     {
         static void Main(string[] args)
         {
+            AppEventHandler.PrintAndLog("Initializing Application...");
             NSApplication.Init();
 
             StateManager.Init();
@@ -23,7 +24,7 @@ namespace AnalysisITC
             // Not implemented yet if ever
             // BufferRegistry.Registry = BufferRegistry.LoadFromFile("./Buffers.json");
 
-            AppEventHandler.PrintAndLog("Exceuting App Main Method...");
+            AppEventHandler.PrintAndLog("Executing App Main Method...");
             NSApplication.Main(args);
         }
     }

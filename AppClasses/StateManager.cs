@@ -46,6 +46,8 @@ namespace AnalysisITC
 
         public static void Init()
         {
+            AppEventHandler.PrintAndLog("Initializing State Manager...");
+
             DataManager.DataDidChange += OnDataDidChange;
             DataManager.SelectionDidChange += OnDataDidChange;
             DataProcessor.ProcessingCompleted += OnAnyProcessingCompleted;
