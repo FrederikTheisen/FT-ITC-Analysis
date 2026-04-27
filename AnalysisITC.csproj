@@ -36,22 +36,28 @@
     <PackageSigningKey>3rd Party Mac Developer Installer</PackageSigningKey>
     <CodesignProvision></CodesignProvision>
     <NoWarn>MMP</NoWarn>
+    <XamMacArch></XamMacArch>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
     <Optimize>true</Optimize>
     <OutputPath>bin\Release</OutputPath>
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
-    <EnableCodeSigning>False</EnableCodeSigning>
-    <CreatePackage>true</CreatePackage>
+    <EnableCodeSigning>true</EnableCodeSigning>
+    <CodeSigningKey>Developer ID Application: Frederik Theisen (FXRUGDWRDY)</CodeSigningKey>
+    <CreatePackage>false</CreatePackage>
     <EnablePackageSigning>false</EnablePackageSigning>
     <IncludeMonoRuntime>true</IncludeMonoRuntime>
+    <UseHardenedRuntime>true</UseHardenedRuntime>
     <UseSGen>true</UseSGen>
     <UseRefCounting>true</UseRefCounting>
     <CodeSignEntitlements>Entitlements.plist</CodeSignEntitlements>
     <LinkMode>SdkOnly</LinkMode>
     <AOTMode>None</AOTMode>
     <LangVersion>10.0</LangVersion>
+    <CodesignProvision></CodesignProvision>
+    <PackageSigningKey>3rd Party Mac Developer Installer</PackageSigningKey>
+    <XamMacArch></XamMacArch>
   </PropertyGroup>
   <ItemGroup>
     <Reference Include="System">
