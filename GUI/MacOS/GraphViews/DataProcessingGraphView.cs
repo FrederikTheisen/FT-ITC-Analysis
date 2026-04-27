@@ -15,12 +15,27 @@ namespace AnalysisITC
 
         public event EventHandler<int> InjectionSelected;
         public event EventHandler BaselineChanged;
+        public event EventHandler ZoomModeChanged;
+
+        public enum VerticalZoomMode
+        {
+            None,
+            AllData,
+            Baseline
+        }
+
+        public enum HorizontalZoomMode
+        {
+            None,
+            AllPeaks,
+            SelectedPeak
+        }
 
         public new BaselineFittingGraph Graph => base.Graph as BaselineFittingGraph;
         MouseOverFeatureEvent SelectedFeature { get; set; } = null;
         public int PeakZoomWidth { get; set; } = 1;
-        bool isBaselineZoomed = false;
-        bool isInjectionZoomed = false;
+        public VerticalZoomMode CurrentVerticalZoomMode { get; private set; } = VerticalZoomMode.AllData;
+        public HorizontalZoomMode CurrentHorizontalZoomMode { get; private set; } = HorizontalZoomMode.AllPeaks;
         int selectedPeak = -1;
 
         NSBox ZoomSelectionBox = new NSBox() { BorderType = NSBorderType.LineBorder, Hidden = true, TitlePosition = NSTitlePosition.NoTitle, BoxType = NSBoxType.NSBoxCustom };
@@ -53,7 +68,15 @@ namespace AnalysisITC
             get => selectedPeak >= Data?.InjectionCount ? Data.InjectionCount - 1 : selectedPeak;
             set
             {
-                if (value == -1) selectedPeak = value;
+                if (value == -1)
+                {
+                    selectedPeak = value;
+                    if (CurrentHorizontalZoomMode == HorizontalZoomMode.SelectedPeak)
+                    {
+                        CurrentHorizontalZoomMode = HorizontalZoomMode.None;
+                        ZoomModeChanged?.Invoke(this, EventArgs.Empty);
+                    }
+                }
                 else
                 {
                     selectedPeak = value;
@@ -67,11 +90,11 @@ namespace AnalysisITC
                 Graph.SetFocusedInjection(selectedPeak);
 
                 if (IsInjectionZoomed) FocusPeak();
-                if (!isBaselineZoomed) ShowAllVertical();
+                if (CurrentVerticalZoomMode != VerticalZoomMode.Baseline) ShowAllVertical();
             }
         }
 
-        public bool IsInjectionZoomed { get => isInjectionZoomed; set => isInjectionZoomed = value; }
+        public bool IsInjectionZoomed => CurrentHorizontalZoomMode == HorizontalZoomMode.SelectedPeak;
 
         public DataProcessingGraphView(IntPtr handle) : base(handle)
         {
@@ -123,7 +146,9 @@ namespace AnalysisITC
             }
             else base.Graph = null;
 
-            isBaselineZoomed = false;
+            CurrentVerticalZoomMode = VerticalZoomMode.AllData;
+            CurrentHorizontalZoomMode = HorizontalZoomMode.AllPeaks;
+            ZoomModeChanged?.Invoke(this, EventArgs.Empty);
         }
 
         public void ZoomBaseline() //TODO fix view scaling when baselinecorrected
@@ -170,9 +195,10 @@ namespace AnalysisITC
 
             Graph.SetYAxisRange(baselinemin - delta * .5f, baselinemax + delta * .5f);
 
-            isBaselineZoomed = true;
+            CurrentVerticalZoomMode = VerticalZoomMode.Baseline;
 
             Invalidate();
+            ZoomModeChanged?.Invoke(this, EventArgs.Empty);
         }
 
         public void ShowAllVertical()
@@ -187,9 +213,10 @@ namespace AnalysisITC
 
             Graph.SetYAxisRange(dps.Where(dp => dp.Time > xmin).Min(dp => dp.Power), dps.Where(dp => dp.Time < xmax).Max(dp => dp.Power), buffer: true);
 
-            isBaselineZoomed = false;
+            CurrentVerticalZoomMode = VerticalZoomMode.AllData;
 
             Invalidate();
+            ZoomModeChanged?.Invoke(this, EventArgs.Empty);
         }
 
         public void FocusPeak()
@@ -209,12 +236,13 @@ namespace AnalysisITC
             //If first injection is #0, then start draw at t = 0
             Graph.SetXAxisRange(idx1 == 0 ? 0 : inj_first.Time - inj_first.Delay * 0.2f, inj_last.Time + inj_last.Delay * 1.2f);
 
-            IsInjectionZoomed = true;
+            CurrentHorizontalZoomMode = HorizontalZoomMode.SelectedPeak;
 
-            if (isBaselineZoomed) ZoomBaseline();
+            if (CurrentVerticalZoomMode == VerticalZoomMode.Baseline) ZoomBaseline();
             else ShowAllVertical();
 
             Invalidate();
+            ZoomModeChanged?.Invoke(this, EventArgs.Empty);
         }
 
         public void UnfocusPeak()
@@ -224,12 +252,13 @@ namespace AnalysisITC
 
             Graph.SetXAxisRange(Graph.DataPoints.Min(dp => dp.Time), Graph.DataPoints.Max(dp => dp.Time), buffer: false);
 
-            IsInjectionZoomed = false;
+            CurrentHorizontalZoomMode = HorizontalZoomMode.AllPeaks;
 
-            if (isBaselineZoomed) ZoomBaseline();
+            if (CurrentVerticalZoomMode == VerticalZoomMode.Baseline) ZoomBaseline();
             else ShowAllVertical();
 
             Invalidate();
+            ZoomModeChanged?.Invoke(this, EventArgs.Empty);
         }
 
         void ZoomRegion(CGRect region)
@@ -241,7 +270,11 @@ namespace AnalysisITC
             Graph.SetXAxisRange(region.Left, region.Right);
             Graph.SetYAxisRange(region.Bottom, region.Top);
 
+            CurrentVerticalZoomMode = VerticalZoomMode.None;
+            CurrentHorizontalZoomMode = HorizontalZoomMode.None;
+
             Invalidate();
+            ZoomModeChanged?.Invoke(this, EventArgs.Empty);
         }
 
         public void SetFeatureVisibility(NSSegmentedControl sender)

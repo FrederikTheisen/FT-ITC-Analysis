@@ -35,6 +35,7 @@ namespace AnalysisITC
             BaselineOptionsPopoverViewController.Updated += BaselineOptionsPopoverViewController_Updated;
             BaselineGraphView.InjectionSelected += BaselineGraphView_InjectionSelected;
             BaselineGraphView.BaselineChanged += BaselineGraphView_BaselineChanged;
+            BaselineGraphView.ZoomModeChanged += BaselineGraphView_ZoomModeChanged;
 
             BaselineScopeButton.State = NSCellStateValue.On;
             IntegrationScopeButton.State = NSCellStateValue.On;
@@ -65,6 +66,11 @@ namespace AnalysisITC
         private void BaselineGraphView_InjectionSelected(object sender, int e)
         {
             UpdateInjectionSelectionUI();
+        }
+
+        private void BaselineGraphView_ZoomModeChanged(object sender, EventArgs e)
+        {
+            UpdateZoomControlHighlighting();
         }
 
         public override void ViewWillAppear()
@@ -173,6 +179,7 @@ namespace AnalysisITC
 
             UpdateSliderLabels();
             UpdateInjectionSelectionUI();
+            UpdateZoomControlHighlighting();
 
             ConfirmProcessingButton.Enabled = DataManager.AllDataIsBaselineProcessed;
         }
@@ -182,6 +189,25 @@ namespace AnalysisITC
             for (int i = 0; i < control.SegmentCount; i++) control.SetSelected(false, i);
 
             if (segment > -0.5) control.SetSelected(true, segment);
+        }
+
+        void UpdateZoomControlHighlighting()
+        {
+            if (BaselineGraphView == null) return;
+
+            SetSelectedSegment(DataZoomSegControl, BaselineGraphView.CurrentVerticalZoomMode switch
+            {
+                DataProcessingGraphView.VerticalZoomMode.AllData => 0,
+                DataProcessingGraphView.VerticalZoomMode.Baseline => 1,
+                _ => -1
+            });
+
+            SetSelectedSegment(PeakZoomSegControl, BaselineGraphView.CurrentHorizontalZoomMode switch
+            {
+                DataProcessingGraphView.HorizontalZoomMode.AllPeaks => 0,
+                DataProcessingGraphView.HorizontalZoomMode.SelectedPeak => 1,
+                _ => -1
+            });
         }
 
         void UpdateSliderLabels()
@@ -409,6 +435,8 @@ namespace AnalysisITC
                 case 0: BaselineGraphView.ShowAllVertical(); break;
                 case 1: BaselineGraphView.ZoomBaseline(); break;
             }
+
+            UpdateZoomControlHighlighting();
         }
 
         partial void PeakZoomAction(NSSegmentedControl sender)
@@ -420,6 +448,8 @@ namespace AnalysisITC
                 case 0: BaselineGraphView.UnfocusPeak(); break;
                 case 1: BaselineGraphView.FocusPeak(); break;
             }
+
+            UpdateZoomControlHighlighting();
         }
 
         partial void ZoomResetButtonAction(NSObject sender)
@@ -428,6 +458,7 @@ namespace AnalysisITC
 
             BaselineGraphView.ShowAllVertical();
             BaselineGraphView.UnfocusPeak();
+            UpdateZoomControlHighlighting();
         }
 
         partial void PeakZoomWidthClicked(NSSegmentedControl sender)
@@ -437,6 +468,7 @@ namespace AnalysisITC
             BaselineGraphView.PeakZoomWidth = (int)sender.SelectedSegment;
 
             BaselineGraphView.SelectedPeak = BaselineGraphView.SelectedPeak;
+            UpdateZoomControlHighlighting();
         }
 
         partial void ViewPreviousInjection(NSButton sender)
@@ -446,6 +478,7 @@ namespace AnalysisITC
             BaselineGraphView.SelectedPeak--;
 
             UpdateInjectionSelectionUI();
+            UpdateZoomControlHighlighting();
         }
 
         partial void ViewNextInjection(NSButton sender)
@@ -455,6 +488,7 @@ namespace AnalysisITC
             BaselineGraphView.SelectedPeak++;
 
             UpdateInjectionSelectionUI();
+            UpdateZoomControlHighlighting();
         }
 
         partial void SelectAllInjections(NSButton sender)
@@ -464,6 +498,7 @@ namespace AnalysisITC
             BaselineGraphView.SelectedPeak = -1;
 
             UpdateInjectionSelectionUI();
+            UpdateZoomControlHighlighting();
         }
 
         partial void CopyToNextButtonAction(NSObject sender)
@@ -481,6 +516,7 @@ namespace AnalysisITC
                 BaselineGraphView.FocusPeak();
 
                 Data.Processor.ProcessData();
+                UpdateZoomControlHighlighting();
             }
         }
 
@@ -495,6 +531,7 @@ namespace AnalysisITC
             }
 
             UpdateInjectionSelectionUI();
+            UpdateZoomControlHighlighting();
         }
 
         void UpdateInjectionSelectionUI()

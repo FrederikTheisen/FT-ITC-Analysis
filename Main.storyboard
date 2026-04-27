@@ -7160,7 +7160,7 @@ DQ
                                             </button>
                                             <segmentedControl horizontalHuggingPriority="500" verticalHuggingPriority="249" fixedFrame="YES" translatesAutoresizingMaskIntoConstraints="NO" id="5Cm-nV-CpP">
                                                 <rect key="frame" x="35" y="-6" width="97" height="40"/>
-                                                <segmentedCell key="cell" controlSize="large" borderStyle="border" alignment="left" style="rounded" trackingMode="momentary" id="WyM-Dy-gMe">
+                                                <segmentedCell key="cell" controlSize="large" borderStyle="border" alignment="left" style="rounded" trackingMode="selectOne" id="WyM-Dy-gMe">
                                                     <font key="font" metaFont="system"/>
                                                     <segments>
                                                         <segment toolTip="Zoom to all data" image="line.chevron.up.line.chevron.down" imageScaling="none" width="32"/>
@@ -7173,7 +7173,7 @@ DQ
                                             </segmentedControl>
                                             <segmentedControl horizontalHuggingPriority="500" verticalHuggingPriority="750" fixedFrame="YES" translatesAutoresizingMaskIntoConstraints="NO" id="s03-cI-XJP">
                                                 <rect key="frame" x="128" y="-6" width="97" height="40"/>
-                                                <segmentedCell key="cell" controlSize="large" borderStyle="border" alignment="left" style="rounded" trackingMode="momentary" id="RnJ-rj-2dg">
+                                                <segmentedCell key="cell" controlSize="large" borderStyle="border" alignment="left" style="rounded" trackingMode="selectOne" id="RnJ-rj-2dg">
                                                     <font key="font" metaFont="system"/>
                                                     <segments>
                                                         <segment toolTip="Zoom to all peaks" image="line.chevron.left.line.chevron.right.wide" imageScaling="none" width="32"/>
