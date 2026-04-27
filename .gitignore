@@ -405,3 +405,10 @@ ASALocalRun/
 
 # Local History for Visual Studio
 .localhistory/
+
+# Local Apple code-signing material
+signing/
+*.certSigningRequest
+*.p12
+*.cer
+*.key
