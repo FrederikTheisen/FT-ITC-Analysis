@@ -233,16 +233,31 @@ namespace AnalysisITC
                 }
             }
 
+            var minortickvalues = GetMinorTickValues(tickvalues);
+
             tickvalues.RemoveAll(v => v / ValueFactor < Min || v / ValueFactor > Max);
             if (!includeborderticks) tickvalues.RemoveAll(v => v == Min || v == Max);
 
             tickvalues = PreferThreeCenteredTicks(tickvalues);
 
-            var minortickvalues = tickvalues.Count > 1
-                ? tickvalues.Select(t => t + 0.5 * (tickvalues[0] - tickvalues[1])).ToList()
-                : new List<double>();
-
             return (tickvalues, minortickvalues);
+        }
+
+        List<double> GetMinorTickValues(List<double> majorTickValues)
+        {
+            var minortickvalues = new List<double>();
+
+            for (int i = 0; i < majorTickValues.Count - 1; i++)
+            {
+                var minor = 0.5 * (majorTickValues[i] + majorTickValues[i + 1]);
+
+                if (minor / ValueFactor >= Min && minor / ValueFactor <= Max)
+                {
+                    minortickvalues.Add(minor);
+                }
+            }
+
+            return minortickvalues;
         }
 
         List<double> PreferThreeCenteredTicks(List<double> tickvalues)

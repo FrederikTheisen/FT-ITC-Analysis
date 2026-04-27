@@ -1484,11 +1484,13 @@ namespace AnalysisITC
             XAxis.UseNiceAxis = false;
             XAxis.LegendTitle = GraphAxis.GetXAxisTitle(experiment);
             XAxis.DecimalPoints = 1;
+            XAxis.MirrorTicks = true;
             XAxis.TickScale.SetMaxTicks(7);
             XAxis.ValueFactor = GraphAxis.GetXAxisScaleFactor(experiment);
 
             YAxis = new GraphAxis(this, 0, 1);
             YAxis.UseNiceAxis = false;
+            YAxis.MirrorTicks = true;
             YAxis.HideUnwantedTicks = false;
             YAxis.LegendTitle = AppSettings.EnergyUnit.GetUnit() + "/mol of injectant";
             YAxis.ValueFactor = Energy.ScaleFactor(AppSettings.EnergyUnit);
@@ -1871,6 +1873,7 @@ namespace AnalysisITC
             YAxis.ValueFactor = ParentYAxis.ValueFactor;
             YAxis.TickScale.SetMaxTicks(3);
             YAxis.PreferCenteredTicks = true;
+            YAxis.MirrorTicks = true;
             YAxis.HideTitle = true;
 
             SetupAxes();

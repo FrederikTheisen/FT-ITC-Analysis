@@ -201,9 +201,9 @@ namespace AnalysisITC
                 sanitizeticks = value;
 
                 if (DataGraph != null) DataGraph.XAxis.HideUnwantedTicks = sanitizeticks;
-                //if (DataGraph != null) DataGraph.YAxis.HideUnwantedTicks = sanitizeticks; // Never hide these
+                if (DataGraph != null) DataGraph.YAxis.HideUnwantedTicks = false; // Never hide these
                 IntegrationGraph.XAxis.HideUnwantedTicks = sanitizeticks;
-                //IntegrationGraph.YAxis.HideUnwantedTicks = sanitizeticks; // Never hide these
+                IntegrationGraph.YAxis.HideUnwantedTicks = false; // Never hide these
             }
         }
 
@@ -271,6 +271,7 @@ namespace AnalysisITC
             };
             DataGraph.YAxis.Buffer = .1f;
             DataGraph.YAxis.MirrorTicks = true;
+            DataGraph.YAxis.HideUnwantedTicks = false;
             DataGraph.XAxis.Buffer = .1f;
             DataGraph.XAxis.ValueFactor = 1.0 / 60;
             DataGraph.XAxis.LegendTitle = "Time (min)";
@@ -289,8 +290,7 @@ namespace AnalysisITC
                 ShowPeakInfo = false,
                 DrawWithOffset = false,
             };
-            IntegrationGraph.YAxis.MirrorTicks = true;
-            IntegrationGraph.XAxis.MirrorTicks = true;
+            IntegrationGraph.YAxis.HideUnwantedTicks = false;
             IntegrationGraph.ResidualDisplayOptions.GapGraphs = true;
             IntegrationGraph.ResidualGraph.MirrorAxisUnification = MirrorDataGraphAxisUnification;
         }
