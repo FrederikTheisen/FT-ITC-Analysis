@@ -22,7 +22,7 @@ namespace AnalysisITC
         {
             base.ViewWillAppear();
 
-            StatusBarManager.SetStatus(StateManager.ProgramSubStateString(ProgramSubState.SubtractionTool));
+            StatusBarManager.SetStatus(StateManager.ProgramSubStateString(ProgramSubState.SubtractionTool), -1);
         }
 
         public override void ViewDidLoad()

@@ -25,7 +25,7 @@ namespace AnalysisITC
         {
             base.ViewWillAppear();
 
-            StatusBarManager.SetStatus(StateManager.ProgramSubStateString(ProgramSubState.MergeTool));
+            StatusBarManager.SetStatus(StateManager.ProgramSubStateString(ProgramSubState.MergeTool), -1);
         }
 
         public override void ViewDidLoad()
