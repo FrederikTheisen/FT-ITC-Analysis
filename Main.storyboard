@@ -10634,7 +10634,7 @@ This approach is a standard part of ITC thermodynamic interpretation in biomolec
                                         </connections>
                                     </segmentedControl>
                                     <segmentedControl horizontalHuggingPriority="249" verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="EX2-p8-pFB">
-                                        <rect key="frame" x="110" y="-2" width="585" height="23"/>
+                                        <rect key="frame" x="110" y="-2" width="659" height="23"/>
                                         <segmentedCell key="cell" borderStyle="border" alignment="left" style="capsule" trackingMode="selectOne" id="ptV-do-doK">
                                             <font key="font" metaFont="system"/>
                                             <segments>
@@ -10649,8 +10649,8 @@ This approach is a standard part of ITC thermodynamic interpretation in biomolec
                                         </connections>
                                     </segmentedControl>
                                     <button verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="xhh-A0-tXX">
-                                        <rect key="frame" x="701" y="-2" width="168" height="23"/>
-                                        <buttonCell key="cell" type="roundTextured" title="Copy results to clipboard" bezelStyle="texturedRounded" alignment="center" borderStyle="border" imageScaling="proportionallyDown" inset="2" id="njJ-3d-vAz">
+                                        <rect key="frame" x="775" y="-2" width="94" height="23"/>
+                                        <buttonCell key="cell" type="roundTextured" title="Export result" bezelStyle="texturedRounded" alignment="center" borderStyle="border" imageScaling="proportionallyDown" inset="2" id="njJ-3d-vAz">
                                             <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
                                             <font key="font" metaFont="system"/>
                                         </buttonCell>
