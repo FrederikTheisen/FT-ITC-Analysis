@@ -237,6 +237,8 @@ namespace AnalysisITC
         MergeTool = 6,
         [Description("Buffer Subtraction Tool")]
         SubtractionTool = 7,
+        [Description("Analysis Result Exporter")]
+        ResultExporter = 8,
     }
 
     public enum UndoTask

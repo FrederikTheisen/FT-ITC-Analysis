@@ -30,6 +30,7 @@ namespace AnalysisITC
         public static event EventHandler StartPrintOperation;
         public static event EventHandler OpenMergeTool;
         public static event EventHandler OpenSubtractionTool;
+        public static event EventHandler OpenResultExporterTool;
         public static event EventHandler ShowHint;
         public static event EventHandler ShowCitation;
 
@@ -39,6 +40,7 @@ namespace AnalysisITC
 
         public static void LaunchOpenFileDialog() => OpenFileDialog.Invoke(null, null);
         public static void CloseAllData() => _ = CloseAllDataAsync();
+        public static void LaunchResultExporter() => OpenResultExporterTool?.Invoke(null, null);
 
         public AppDelegate()
         {
@@ -111,6 +113,7 @@ namespace AnalysisITC
                 case "copyattributes": return DataManager.DataIsLoaded && DataManager.SelectedIsData && DataManager.Current.Attributes.Count > 0;
                 case "mergetool": return DataManager.Data.Count(data => data.HasThermogram) >= 2;
                 case "buffersub": return DataManager.Data.Count >= 2;
+                case "resultexporter": return DataManager.Results.Count > 0;
             }
 
             return true;
@@ -149,6 +152,11 @@ namespace AnalysisITC
         partial void OpenBufferSubTool(NSObject sender)
         {
             OpenSubtractionTool?.Invoke(this, null);
+        }
+
+        partial void OpenResultExporter(NSObject sender)
+        {
+            OpenResultExporterTool?.Invoke(this, null);
         }
 
         partial void Print(NSMenuItem sender)

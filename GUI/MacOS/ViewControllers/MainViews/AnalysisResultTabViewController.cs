@@ -639,7 +639,7 @@ namespace AnalysisITC
 
         partial void CopyToClipboard(NSObject sender)
         {
-            Exporter.CopyToClipboard(AnalysisResult, AppropriateAffinityUnit, EnergyUnit, UseKelvin);
+            AppDelegate.LaunchResultExporter();
         }
 
         void UnsubscribeEvents()

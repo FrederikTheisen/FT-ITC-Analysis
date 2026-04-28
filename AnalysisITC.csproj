@@ -370,6 +370,10 @@
     <Compile Include="GUI\MacOS\ViewControllers\ModelSelectionViewController.designer.cs">
       <DependentUpon>ModelSelectionViewController.cs</DependentUpon>
     </Compile>
+    <Compile Include="GUI\MacOS\ViewControllers\AnalysisResultExporterViewController.cs" />
+    <Compile Include="GUI\MacOS\ViewControllers\AnalysisResultExporterViewController.designer.cs">
+      <DependentUpon>AnalysisResultExporterViewController.cs</DependentUpon>
+    </Compile>
     <Compile Include="GUI\MacOS\CustomViews\ExportAccessoryView.cs" />
     <Compile Include="GUI\MacOS\CustomViews\ExportAccessoryView.designer.cs">
       <DependentUpon>ExportAccessoryView.cs</DependentUpon>
@@ -524,6 +528,7 @@
     <Compile Include="AppClasses\Analysis2\AdvancedAnalysis\SpolarRecordAnalysis.cs" />
     <Compile Include="AppClasses\DataExport\FTITCWriter.cs" />
     <Compile Include="AppClasses\DataExport\Exporter.cs" />
+    <Compile Include="AppClasses\DataExport\AnalysisResultTableExporter.cs" />
     <Compile Include="AppClasses\DataExport\ExportType.cs" />
     <Compile Include="AppClasses\Utils\EnumExtensions.cs" />
     <Compile Include="AppClasses\Utils\GUIutils.cs" />
