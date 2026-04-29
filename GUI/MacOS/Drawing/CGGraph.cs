@@ -1901,7 +1901,7 @@ namespace AnalysisITC
             {
                 if (dat.Solution != null)
                 {
-                    foreach (var inj in dat.Injections.Where(inj => inj.Include))
+                    foreach (var inj in dat.Injections.Where(IncludeInjectionInAutoAxes))
                     {
                         var inj_v = Math.Abs(inj.ResidualEnthalpy);
                         var inj_min = Math.Abs(inj_v - inj.SD);
@@ -1914,6 +1914,16 @@ namespace AnalysisITC
 
             if (res.Count > 0) return 1.5 * Math.Max(res.Max(v => Math.Abs(v)), 1E-3);
             else return 1100;
+        }
+
+        bool ShouldDrawInjection(InjectionData inj)
+        {
+            return inj.Include || !DataFittingGraph.HideBadData;
+        }
+
+        bool IncludeInjectionInAutoAxes(InjectionData inj)
+        {
+            return inj.Include || (!DataFittingGraph.AutoAxesFocusesIncludedOnly && !DataFittingGraph.HideBadData);
         }
 
         public override void PrepareDraw(CGContext gc, CGPoint center)
@@ -1956,6 +1966,8 @@ namespace AnalysisITC
 
             foreach (var inj in ExperimentData.Injections)
             {
+                if (!ShouldDrawInjection(inj)) continue;
+
                 var res = inj.ResidualEnthalpy;
 
                 var p = GetRelativePosition(inj.Ratio, res);
