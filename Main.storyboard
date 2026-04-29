@@ -12987,15 +12987,15 @@ The models in \appname are implemented to match the **MicroCal/Origin formal def
         <scene sceneID="IkO-No-WlO">
             <objects>
                 <viewController title="Analysis Exporter" id="y9t-uG-ZTy" customClass="AnalysisResultExporterViewController" sceneMemberID="viewController">
-                    <view key="view" id="Ayy-Y8-Rxk">
-                        <rect key="frame" x="0.0" y="0.0" width="470" height="423"/>
+                    <view key="view" misplaced="YES" id="Ayy-Y8-Rxk">
+                        <rect key="frame" x="0.0" y="0.0" width="470" height="429"/>
                         <autoresizingMask key="autoresizingMask"/>
                         <subviews>
                             <stackView distribution="fill" orientation="vertical" alignment="leading" horizontalStackHuggingPriority="250" verticalStackHuggingPriority="250" horizontalHuggingPriority="750" verticalHuggingPriority="1000" detachesHiddenViews="YES" translatesAutoresizingMaskIntoConstraints="NO" id="8Ch-0V-BlW">
-                                <rect key="frame" x="0.0" y="0.0" width="470" height="423"/>
+                                <rect key="frame" x="0.0" y="0.0" width="470" height="441"/>
                                 <subviews>
                                     <textField focusRingType="none" verticalHuggingPriority="1000" horizontalCompressionResistancePriority="250" translatesAutoresizingMaskIntoConstraints="NO" id="yvk-oo-oX0">
-                                        <rect key="frame" x="18" y="339" width="434" height="64"/>
+                                        <rect key="frame" x="18" y="357" width="434" height="64"/>
                                         <textFieldCell key="cell" selectable="YES" alignment="justified" id="TyR-VS-i7k">
                                             <font key="font" metaFont="system"/>
                                             <string key="title">Select one or more analysis results to export. Summary rows report one aggregate row per analysis result, while all rows include every replicate in each selected result. Use the error and file-format options to choose publication-style tables or data-oriented exports.</string>
@@ -13004,13 +13004,13 @@ The models in \appname are implemented to match the **MicroCal/Origin formal def
                                         </textFieldCell>
                                     </textField>
                                     <box verticalHuggingPriority="750" boxType="separator" translatesAutoresizingMaskIntoConstraints="NO" id="3KS-a4-jdp">
-                                        <rect key="frame" x="20" y="328" width="447" height="5"/>
+                                        <rect key="frame" x="20" y="346" width="447" height="5"/>
                                     </box>
                                     <stackView distribution="fill" orientation="horizontal" alignment="top" horizontalStackHuggingPriority="249.99998474121094" verticalStackHuggingPriority="1000" verticalHuggingPriority="1000" detachesHiddenViews="YES" translatesAutoresizingMaskIntoConstraints="NO" id="NJQ-YR-hgg">
-                                        <rect key="frame" x="20" y="306" width="430" height="16"/>
+                                        <rect key="frame" x="20" y="318" width="430" height="22"/>
                                         <subviews>
-                                            <textField focusRingType="none" horizontalHuggingPriority="249" verticalHuggingPriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="rfK-GQ-YBL">
-                                                <rect key="frame" x="-2" y="0.0" width="176" height="16"/>
+                                            <textField focusRingType="none" horizontalHuggingPriority="249" translatesAutoresizingMaskIntoConstraints="NO" id="rfK-GQ-YBL">
+                                                <rect key="frame" x="-2" y="0.0" width="176" height="22"/>
                                                 <textFieldCell key="cell" lineBreakMode="clipping" title="Result style" id="nkD-KV-Xol">
                                                     <font key="font" usesAppearanceFont="YES"/>
                                                     <color key="textColor" name="labelColor" catalog="System" colorSpace="catalog"/>
@@ -13018,11 +13018,11 @@ The models in \appname are implemented to match the **MicroCal/Origin formal def
                                                 </textFieldCell>
                                             </textField>
                                             <segmentedControl toolTip="Choose whether to export one summary row per analysis result or every replicate row for each selected result." verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="rrb-Dc-dRW">
-                                                <rect key="frame" x="179" y="-2" width="252" height="19"/>
+                                                <rect key="frame" x="178" y="-1" width="254" height="24"/>
                                                 <constraints>
                                                     <constraint firstAttribute="width" constant="250" id="0Ry-7d-lUU"/>
                                                 </constraints>
-                                                <segmentedCell key="cell" borderStyle="border" alignment="left" segmentDistribution="fill" style="capsule" trackingMode="selectOne" id="aJc-GA-X0d">
+                                                <segmentedCell key="cell" borderStyle="border" alignment="left" segmentDistribution="fill" style="texturedRounded" trackingMode="selectOne" id="aJc-GA-X0d">
                                                     <font key="font" metaFont="system"/>
                                                     <segments>
                                                         <segment label="Summary Rows" selected="YES"/>
@@ -13041,10 +13041,10 @@ The models in \appname are implemented to match the **MicroCal/Origin formal def
                                         </customSpacing>
                                     </stackView>
                                     <stackView distribution="fill" orientation="horizontal" alignment="top" horizontalStackHuggingPriority="249.99998474121094" verticalStackHuggingPriority="1000" verticalHuggingPriority="1000" detachesHiddenViews="YES" translatesAutoresizingMaskIntoConstraints="NO" id="rfV-tY-DJU">
-                                        <rect key="frame" x="20" y="282" width="430" height="16"/>
+                                        <rect key="frame" x="20" y="288" width="430" height="22"/>
                                         <subviews>
-                                            <textField focusRingType="none" horizontalHuggingPriority="249" verticalHuggingPriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="WbI-BZ-CYg">
-                                                <rect key="frame" x="-2" y="0.0" width="176" height="16"/>
+                                            <textField focusRingType="none" horizontalHuggingPriority="249" translatesAutoresizingMaskIntoConstraints="NO" id="WbI-BZ-CYg">
+                                                <rect key="frame" x="-2" y="0.0" width="176" height="22"/>
                                                 <textFieldCell key="cell" lineBreakMode="clipping" title="Errors style" id="x1X-7n-H5a">
                                                     <font key="font" usesAppearanceFont="YES"/>
                                                     <color key="textColor" name="labelColor" catalog="System" colorSpace="catalog"/>
@@ -13052,11 +13052,11 @@ The models in \appname are implemented to match the **MicroCal/Origin formal def
                                                 </textFieldCell>
                                             </textField>
                                             <segmentedControl toolTip="Choose publication-style values with ± errors or data-style value and error columns." verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="klW-LP-K3h">
-                                                <rect key="frame" x="179" y="-2" width="252" height="19"/>
+                                                <rect key="frame" x="178" y="-1" width="254" height="24"/>
                                                 <constraints>
                                                     <constraint firstAttribute="width" constant="250" id="pjf-vx-aeI"/>
                                                 </constraints>
-                                                <segmentedCell key="cell" borderStyle="border" alignment="left" segmentDistribution="fill" style="capsule" trackingMode="selectOne" id="xg2-fs-QVn">
+                                                <segmentedCell key="cell" borderStyle="border" alignment="left" segmentDistribution="fill" style="texturedRounded" trackingMode="selectOne" id="xg2-fs-QVn">
                                                     <font key="font" metaFont="system"/>
                                                     <segments>
                                                         <segment label="Value ± Error" selected="YES"/>
@@ -13075,10 +13075,10 @@ The models in \appname are implemented to match the **MicroCal/Origin formal def
                                         </customSpacing>
                                     </stackView>
                                     <stackView distribution="fill" orientation="horizontal" alignment="top" horizontalStackHuggingPriority="249.99998474121094" verticalStackHuggingPriority="1000" verticalHuggingPriority="1000" detachesHiddenViews="YES" translatesAutoresizingMaskIntoConstraints="NO" id="u09-iH-APS">
-                                        <rect key="frame" x="20" y="258" width="430" height="16"/>
+                                        <rect key="frame" x="20" y="258" width="430" height="22"/>
                                         <subviews>
-                                            <textField focusRingType="none" horizontalHuggingPriority="249" verticalHuggingPriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="lIR-7H-zkB">
-                                                <rect key="frame" x="-2" y="0.0" width="176" height="16"/>
+                                            <textField focusRingType="none" horizontalHuggingPriority="249" translatesAutoresizingMaskIntoConstraints="NO" id="lIR-7H-zkB">
+                                                <rect key="frame" x="-2" y="0.0" width="176" height="22"/>
                                                 <textFieldCell key="cell" lineBreakMode="clipping" title="Output format" id="rnA-tk-hti">
                                                     <font key="font" usesAppearanceFont="YES"/>
                                                     <color key="textColor" name="labelColor" catalog="System" colorSpace="catalog"/>
@@ -13086,11 +13086,11 @@ The models in \appname are implemented to match the **MicroCal/Origin formal def
                                                 </textFieldCell>
                                             </textField>
                                             <segmentedControl toolTip="Choose comma-separated CSV or tab-separated TSV output." verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="T6X-Ah-64I">
-                                                <rect key="frame" x="179" y="-2" width="252" height="19"/>
+                                                <rect key="frame" x="178" y="-1" width="254" height="24"/>
                                                 <constraints>
                                                     <constraint firstAttribute="width" constant="250" id="I3x-QX-kVu"/>
                                                 </constraints>
-                                                <segmentedCell key="cell" borderStyle="border" alignment="left" segmentDistribution="fill" style="capsule" trackingMode="selectOne" id="HwC-Ug-5Q0">
+                                                <segmentedCell key="cell" borderStyle="border" alignment="left" segmentDistribution="fill" style="texturedRounded" trackingMode="selectOne" id="HwC-Ug-5Q0">
                                                     <font key="font" metaFont="system"/>
                                                     <segments>
                                                         <segment label="CSV" selected="YES"/>

@@ -237,7 +237,7 @@ namespace AnalysisITC
         MergeTool = 6,
         [Description("Buffer Subtraction Tool")]
         SubtractionTool = 7,
-        [Description("Analysis Result Exporter")]
+        [Description("Analysis Exporter")]
         ResultExporter = 8,
     }
 
