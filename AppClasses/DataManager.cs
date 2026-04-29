@@ -221,6 +221,24 @@ namespace AnalysisITC
             AppEventHandler.PrintAndLog($"DataManager.AddData completed: item={DescribeItem(data)}, totalContentAfter={SourceItems.Count}, totalDataAfter={Count}, selectedAfter={DescribeItem(selectedAfter)}");
         }
 
+        public static void AddData(IEnumerable<ITCDataContainer> data)
+        {
+            var items = data?.Where(item => item != null).ToList() ?? new List<ITCDataContainer>();
+            if (items.Count == 0) return;
+
+            AppEventHandler.PrintAndLog($"DataManager.AddData batch requested: items={items.Count}, totalContentBefore={SourceItems.Count}, totalDataBefore={Count}, selectedContentIndex={SelectedContentIndex}");
+
+            SourceItems.AddRange(items);
+
+            DataDidChange?.Invoke(null, null);
+            SelectIndex(SourceItems.Count - 1);
+
+            var selectedAfter = SelectedContentIndex >= 0 && SelectedContentIndex < SourceItems.Count
+                ? SourceItems[SelectedContentIndex]
+                : null;
+            AppEventHandler.PrintAndLog($"DataManager.AddData batch completed: items={items.Count}, totalContentAfter={SourceItems.Count}, totalDataAfter={Count}, selectedAfter={DescribeItem(selectedAfter)}");
+        }
+
         public static void ApplyOptions()
         {
             foreach (ExperimentData exp in Data)

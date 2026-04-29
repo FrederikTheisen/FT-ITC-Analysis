@@ -120,7 +120,7 @@ namespace DataReaders
 
                     exp.SetProcessor(processor);
 
-                    processor.ProcessData(replace: false);
+                    _ = processor.ProcessData(replace: false);
                 }
             }
 

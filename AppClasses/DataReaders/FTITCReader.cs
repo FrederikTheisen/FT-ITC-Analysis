@@ -59,7 +59,7 @@ namespace DataReaders
             StatusBarManager.SetStatus($"Loading {exp.Name}", 0);
             await Task.Delay(1); //Necessary to update UI. Unclear why whole method has to be on UI thread.
 
-            ReadExperimentData(reader, exp);
+            await ReadExperimentData(reader, exp);
 
             if (exp.Solution != null) exp.UpdateSolution(exp.Solution.Model);
 
@@ -76,7 +76,7 @@ namespace DataReaders
             StatusBarManager.SetStatus($"Loading {exp.Name}", 0);
             await Task.Delay(1); //Necessary to update UI. Unclear why whole method has to be on UI thread.
 
-            ReadExperimentData(reader, exp);
+            await ReadExperimentData(reader, exp);
 
             RawDataReader.ProcessInjections(exp);
 
@@ -86,7 +86,7 @@ namespace DataReaders
             return exp;
         }
 
-        static ExperimentData ReadExperimentData(StreamReader reader, ExperimentData exp)
+        static async Task<ExperimentData> ReadExperimentData(StreamReader reader, ExperimentData exp)
         {
             SolutionInterface sol = null;
 
@@ -125,7 +125,7 @@ namespace DataReaders
                     case "LIST" when value == SegmentList:
                         ReadSegmentList(exp, reader); break;
                     case "OBJECT" when value == Processor:
-                        ReadProcessor(exp, reader); break;
+                        await ReadProcessor(exp, reader); break;
                     case "OBJECT" when value == ExperimentSolutionHeader:
                         sol = ReadSolution(reader, reader.ReadLine(), exp);
                         exp.UpdateSolution(sol.Model);
@@ -137,7 +137,7 @@ namespace DataReaders
             return exp;
         }
 
-        private static void ReadProcessor(ExperimentData exp, StreamReader reader)
+        private static async Task ReadProcessor(ExperimentData exp, StreamReader reader)
         {
             var p = new DataProcessor(exp);
 
@@ -166,7 +166,7 @@ namespace DataReaders
 
             exp.SetProcessor(p);
 
-            p.ProcessData(replace: false, invalidate: false);
+            await p.ProcessData(replace: false, invalidate: false, showProgress: false);
         }
 
         static void ReadSplineList(SplineInterpolator interpolator, StreamReader reader)

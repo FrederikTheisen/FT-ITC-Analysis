@@ -8494,7 +8494,7 @@ IA
                                                 <constraints>
                                                     <constraint firstAttribute="width" constant="100" id="ENJ-LB-7zg"/>
                                                 </constraints>
-                                                <sliderCell key="cell" controlSize="mini" continuous="YES" state="on" alignment="left" minValue="1" maxValue="3" doubleValue="2" tickMarkPosition="above" numberOfTickMarks="7" sliderType="linear" id="Wt2-Ru-lTp"/>
+                                                <sliderCell key="cell" controlSize="mini" continuous="YES" state="on" alignment="left" minValue="1" maxValue="3" doubleValue="2" tickMarkPosition="above" numberOfTickMarks="5" sliderType="linear" id="Wt2-Ru-lTp"/>
                                                 <connections>
                                                     <action selector="ErrorIterationSliderChanged:" target="Fk8-Gk-Fns" id="1vn-q7-uo7"/>
                                                 </connections>

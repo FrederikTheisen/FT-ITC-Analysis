@@ -76,18 +76,18 @@ namespace AnalysisITC
             }
         }
 
-        public async void ProcessData(bool replace = true, bool invalidate = true)
+        public async Task ProcessData(bool replace = true, bool invalidate = true, bool showProgress = true)
         {
             if (BaselineType == BaselineInterpolatorTypes.None) return;
 
-            StatusBarManager.StartInderminateProgress();
+            if (showProgress) StatusBarManager.StartInderminateProgress();
 
             this.WillProcessData(invalidate);
             await this.InterpolateBaseline(replace);
             this.IntegratePeaks(invalidate);
             this.DidProcessData(invalidate);
 
-            StatusBarManager.StopIndeterminateProgress();
+            if (showProgress) StatusBarManager.StopIndeterminateProgress();
         }
 
         public void Lock() => IsLocked = true;
@@ -231,7 +231,7 @@ namespace AnalysisITC
             }
 
             Processor.Interpolator = interpolator;
-            Processor.ProcessData();
+            _ = Processor.ProcessData();
             Processor.Lock();
         }
     }
@@ -372,7 +372,7 @@ namespace AnalysisITC
 
             SplinePoints.ForEach(sp => sp.ID = SplinePoints.IndexOf(sp));
 
-            Processor.ProcessData(false);
+            _ = Processor.ProcessData(false);
         }
 
         public void InsertSplinePoint(double cursorpos, bool usedatavalue = false)
@@ -392,7 +392,7 @@ namespace AnalysisITC
             // Re-number points
             SplinePoints.ForEach(sp => sp.ID = SplinePoints.IndexOf(sp));
 
-            Processor.ProcessData(false);
+            _ = Processor.ProcessData(false);
         }
 
         public void SetSplinePoints(List<SplinePoint> points)

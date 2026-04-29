@@ -515,7 +515,7 @@ namespace AnalysisITC
                 Data.Injections[BaselineGraphView.SelectedPeak].SetIntegrationLengthByTime(length);
                 BaselineGraphView.FocusPeak();
 
-                Data.Processor.ProcessData();
+                _ = Data.Processor.ProcessData();
                 UpdateZoomControlHighlighting();
             }
         }
@@ -576,7 +576,7 @@ namespace AnalysisITC
         {
             if (!ContextIsValid) return;
 
-            Data.Processor.ProcessData(replace);
+            _ = Data.Processor.ProcessData(replace);
         }
 
         private void OnSelectionChanged(object sender, ExperimentData e)

@@ -14,21 +14,26 @@ namespace DataReaders
 {
     public static class DataReader
     {
-        static void AddData(ITCDataContainer data)
+        static ITCDataContainer GetValidData(ITCDataContainer data)
         {
-            if (data == null) return;
+            if (data == null) return null;
             bool valid = true;
             if (data is ExperimentData) valid = ImportValidator.ValidateData(data as ExperimentData);
 
-            if (valid) DataManager.AddData(data);
+            return valid ? data : null;
         }
 
-        static void AddData(ITCDataContainer[] data)
+        static bool AddData(ITCDataContainer[] data)
         {
-            foreach (var dat in data)
-            {
-                AddData(dat);
-            }
+            var validData = data?
+                .Select(GetValidData)
+                .Where(dat => dat != null)
+                .ToArray() ?? Array.Empty<ITCDataContainer>();
+
+            if (validData.Length == 0) return false;
+
+            DataManager.AddData(validData);
+            return true;
         }
 
         public static ITCDataFormat GetFormat(string path)
@@ -82,10 +87,8 @@ namespace DataReaders
                             break;
                         }
 
-                        if (dat != null)
+                        if (dat != null && AddData(dat))
                         {
-                            AddData(dat);
-
                             NSDocumentController.SharedDocumentController.NoteNewRecentDocumentURL(url);
                             AppSettings.LastDocumentUrl = url;
                         }
@@ -118,8 +121,9 @@ namespace DataReaders
                 DocumentDirtyTracker.MarkDirty();
             }
 
+            StatusBarManager.SetStatus("Rendering data...", 0);
+            await Task.Delay(1);
             StatusBarManager.ClearAppStatus();
-            StatusBarManager.StopIndeterminateProgress();
         }
 
         static async Task<ITCDataContainer[]> ReadFile(string path)
