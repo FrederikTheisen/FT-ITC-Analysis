@@ -1,6 +1,7 @@
 ﻿using System;
 using AppKit;
 using CoreGraphics;
+using Utilities;
 
 namespace AnalysisITC
 {
@@ -59,7 +60,7 @@ namespace AnalysisITC
         }
 
         public virtual void UpdateTrackingArea()
-        {
+        { 
             RemoveTrackingArea(trackingArea);
 
             trackingArea = new NSTrackingArea(TrackingFrame, NSTrackingAreaOptions.ActiveAlways | NSTrackingAreaOptions.MouseEnteredAndExited | NSTrackingAreaOptions.MouseMoved, this, null);

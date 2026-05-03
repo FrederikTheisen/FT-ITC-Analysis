@@ -234,7 +234,7 @@ namespace AnalysisITC
                             DataManager.ClearResultSolutionSelection();
                         }
 
-                            Invalidate();
+                        Invalidate();
                         break;
                     }
                 default: break;

@@ -1225,49 +1225,45 @@ namespace AnalysisITC
         void DrawIntegrationMarkers(CGContext gc)
         {
             var layer = CGLayer.Create(gc, Frame.Size);
-            var path = new CGPath();
-            var thickness = 1.5f;
+            var thickness = 1.0f;
+            var handleHitHalfWidth = 2f;
+
+            layer.Context.SetLineWidth(thickness);
 
             foreach (var inj in ExperimentData.Injections)
             {
+                // Check if injection time is inside data range
                 if (inj.Time < XAxis.Min || inj.Time > XAxis.Max) continue;
 
                 var s = GetRelativePosition(inj.IntegrationStartTime, DataPoints.Last(dp => dp.Time < inj.IntegrationStartTime).Power);
                 var e = GetRelativePosition(inj.IntegrationEndTime, DataPoints.Last(dp => dp.Time < inj.IntegrationEndTime).Power);
 
-                if (focused == -1 || focused == inj.ID) layer.Context.SetFillColor(NSColor.SystemBlue.ColorWithAlphaComponent(.5f).CGColor);
-                else layer.Context.SetFillColor(NSColor.SystemGray.ColorWithAlphaComponent(.5f).CGColor);
-                layer.Context.SetLineWidth(4);
+                var selected = focused == -1 || focused == inj.ID;
+                var color = selected ? NSColor.SystemBlue : NSColor.SystemGray;
+                var fillRect = new CGRect(Math.Min(s.X, e.X), 0, Math.Abs(e.X - s.X), Frame.Height);
 
-                var b = new CGRect(s.X - thickness, 0, 2 * thickness, Frame.Height);
-                var p = new CGPath();
-                p.MoveToPoint(s.X - thickness, thickness);
-                p.AddLineToPoint(s.X + thickness, thickness);
-                p.AddLineToPoint(s.X + thickness, Frame.Height - 3 * thickness);
-                p.AddLineToPoint(s.X + 10 + thickness, Frame.Height - 3 * thickness);
-                p.AddLineToPoint(s.X + 15 + thickness, Frame.Height - thickness);
-                p.AddLineToPoint(s.X - thickness, Frame.Height - thickness);
-                p.CloseSubpath();
-                layer.Context.AddPath(p);
+                layer.Context.SetFillColor(color.ColorWithAlphaComponent(.12f).CGColor);
+                layer.Context.FillRect(fillRect);
 
-                layer.Context.FillPath();
+                layer.Context.SetStrokeColor(color.ColorWithAlphaComponent(.85f).CGColor);
 
-                IntegrationHandleBoxes.Add(new FeatureBoundingBox(MouseOverFeatureEvent.FeatureType.IntegrationRangeMarker, b, inj.ID, Frame.Location, 0));
+                var integrationStartHandleBox = new CGRect(s.X - handleHitHalfWidth, 0, 2 * handleHitHalfWidth, Frame.Height);
+                var integrationStartLine = new CGPath();
+                integrationStartLine.MoveToPoint(s.X, 0);
+                integrationStartLine.AddLineToPoint(s.X, Frame.Height);
+                layer.Context.AddPath(integrationStartLine);
 
-                var b2 = new CGRect(e.X - thickness, 0, 2 * thickness, Frame.Height);
-                var p2 = new CGPath();
-                p2.MoveToPoint(e.X + thickness, Frame.Height - thickness);
-                p2.AddLineToPoint(e.X - thickness, Frame.Height - thickness);
-                p2.AddLineToPoint(e.X - thickness, 3 * thickness);
-                p2.AddLineToPoint(e.X - 10 - thickness, 3 * thickness);
-                p2.AddLineToPoint(e.X - 15 - thickness, thickness);
-                p2.AddLineToPoint(e.X + thickness, thickness);
-                p2.CloseSubpath();
-                layer.Context.AddPath(p2);
+                IntegrationHandleBoxes.Add(new FeatureBoundingBox(MouseOverFeatureEvent.FeatureType.IntegrationRangeMarker, integrationStartHandleBox, inj.ID, Frame.Location, 0));
 
-                IntegrationHandleBoxes.Add(new FeatureBoundingBox(MouseOverFeatureEvent.FeatureType.IntegrationRangeMarker, b2, inj.ID, Frame.Location, 1));
+                var integrationEndHandleBox = new CGRect(e.X - handleHitHalfWidth, 0, 2 * handleHitHalfWidth, Frame.Height);
+                var integrationEndLine = new CGPath();
+                integrationEndLine.MoveToPoint(e.X, Frame.Height);
+                integrationEndLine.AddLineToPoint(e.X, 0);
+                layer.Context.AddPath(integrationEndLine);
 
-                layer.Context.FillPath();
+                IntegrationHandleBoxes.Add(new FeatureBoundingBox(MouseOverFeatureEvent.FeatureType.IntegrationRangeMarker, integrationEndHandleBox, inj.ID, Frame.Location, 1));
+
+                layer.Context.StrokePath();
             }
 
             gc.DrawLayer(layer, Frame.Location);
@@ -1323,7 +1319,7 @@ namespace AnalysisITC
                 if (handle.CursorInBox(cursorpos)) return MouseOverFeatureEvent.BoundboxFeature(handle, cursorpos); //return new MouseOverFeatureEvent(handle);
 
             foreach (var handle in IntegrationHandleBoxes)
-                if (handle.ProximityX(cursorpos, (XAxis.Max - XAxis.Min) / (float)PlotPixelWidth)) return MouseOverFeatureEvent.BoundboxFeature(handle, cursorpos); //return new MouseOverFeatureEvent(handle);
+                if (handle.ProximityX(cursorpos, 3)) return MouseOverFeatureEvent.BoundboxFeature(handle, cursorpos); //return new MouseOverFeatureEvent(handle);
 
             if (isclick) return MouseOverFeatureEvent.MouseDragZoom(this, cursorpos);
             else return new MouseOverFeatureEvent();
