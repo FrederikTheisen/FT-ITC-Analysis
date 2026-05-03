@@ -16,6 +16,8 @@ namespace DataReaders
         public static async Task<ITCDataContainer[]> ReadPath(string path)
         {
             AppEventHandler.PrintAndLog("Loading File " + path, 0);
+            StatusBarManager.SetStatus($"Loading project: {Path.GetFileName(path)}", 0);
+
             var watch = System.Diagnostics.Stopwatch.StartNew();
 
             Data = new List<ITCDataContainer>();
@@ -56,7 +58,7 @@ namespace DataReaders
             string[] a = firstline.Split(new[] { ':' }, 3);
             var exp = new ExperimentData(DecodeText(a[2]));
 
-            StatusBarManager.SetStatus($"Loading {exp.Name}", 0);
+            StatusBarManager.SetSecondaryStatus($"{exp.Name}", 0);
             await Task.Delay(1); //Necessary to update UI. Unclear why whole method has to be on UI thread.
 
             await ReadExperimentData(reader, exp);
@@ -73,7 +75,7 @@ namespace DataReaders
             string[] a = firstline.Split(new[] { ':' }, 3);
             var exp = new ExperimentData(DecodeText(a[2]));
 
-            StatusBarManager.SetStatus($"Loading {exp.Name}", 0);
+            StatusBarManager.SetSecondaryStatus($"{exp.Name}", 0);
             await Task.Delay(1); //Necessary to update UI. Unclear why whole method has to be on UI thread.
 
             await ReadExperimentData(reader, exp);
@@ -299,7 +301,13 @@ namespace DataReaders
 
                 if (!string.IsNullOrEmpty(dateinfo)) date = DTParse(dateinfo);
 
-                StatusBarManager.SetStatus($"Loading {(info.Length > 1 ? info[1] : "Analysis Result")}", 0);
+                var statusName = !string.IsNullOrWhiteSpace(name)
+                    ? name
+                    : info.Length > 1 && !string.IsNullOrWhiteSpace(info[1])
+                        ? info[1]
+                        : "Analysis Result";
+
+                StatusBarManager.SetSecondaryStatus($"{statusName}", 0);
                 await Task.Delay(1); //Necessary to update UI.
 
                 var sol = ReadGlobalSolution(reader);

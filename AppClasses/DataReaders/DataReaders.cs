@@ -78,7 +78,13 @@ namespace DataReaders
 
                     foreach (var url in urlList)
                     {
-                        StatusBarManager.SetStatus("Reading file: " + url.LastPathComponent, 0);
+                        var format = GetFormat(url.Path);
+                        var isFtitc = format == ITCDataFormat.FTITC;
+
+                        StatusBarManager.SetStatus(isFtitc
+                            ? $"Loading project: {url.LastPathComponent}"
+                            : $"Reading file: {url.LastPathComponent}", 0);
+                        StatusBarManager.SetSecondaryStatus("", 0);
                         await Task.Delay(1); //Necessary to update UI. Unclear why whole method has to be on UI thread.
                         var dat = await ReadFile(url.Path);
 
