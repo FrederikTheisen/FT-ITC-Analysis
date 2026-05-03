@@ -7,6 +7,12 @@ using AnalysisITC.AppClasses.AnalysisClasses;
 
 namespace AnalysisITC.GUI.MacOS.CustomViews
 {
+    public enum ParameterValueAdjustmentViewMode
+    {
+        Analysis,
+        Designer
+    }
+
     public class ParameterValueAdjustmentView : NSStackView
     {
         public Parameter Parameter { get; set; }
@@ -17,6 +23,10 @@ namespace AnalysisITC.GUI.MacOS.CustomViews
         private NSTextField Input;
         private NSColor DefaultFieldColor;
         private NSButton Lock;
+        private NSSlider Slider;
+        private bool IsSyncingControls;
+
+        public event EventHandler ValueChanged;
 
         public bool HasBeenAffectedFlag { get; private set; } = false;
         public bool ShouldResetParameter => string.IsNullOrEmpty(InputString);
@@ -46,15 +56,16 @@ namespace AnalysisITC.GUI.MacOS.CustomViews
                 if (Input.StringValue.Length > 0)
                     try
                     {
-                        var value = double.Parse(input);
-
-                        if (Key.GetProperties().ParentType == ParameterType.Affinity1)
+                        if (double.TryParse(input, out var value))
                         {
-                            if (AppSettings.InputAffinityAsDissociationConstant) return Math.Log10(AppSettings.DefaultConcentrationUnit.GetProperties().Mod / value);
+                            if (Key.GetProperties().ParentType == ParameterType.Affinity1)
+                            {
+                                if (AppSettings.InputAffinityAsDissociationConstant) return Math.Log10(AppSettings.DefaultConcentrationUnit.GetProperties().Mod / value);
+                                else return value;
+                            }
+                            else if (ParameterTypeAttribute.IsEnergyUnitParameter(Key)) return Energy.ConvertToJoule(value, AppSettings.EnergyUnit);
                             else return value;
                         }
-                        else if (ParameterTypeAttribute.IsEnergyUnitParameter(Key)) return Energy.ConvertToJoule(value, AppSettings.EnergyUnit);
-                        else return value;
                     }
                     catch (Exception ex)
                     {
@@ -64,28 +75,52 @@ namespace AnalysisITC.GUI.MacOS.CustomViews
                 return Parameter.Value;
             }
         }
-        public bool Locked => Lock.State == NSCellStateValue.On;
-        public bool EnableLock { get; set; } = true;
+        public bool Locked => Lock?.State == NSCellStateValue.On;
+        public ParameterValueAdjustmentViewMode Mode { get; private set; } = ParameterValueAdjustmentViewMode.Analysis;
+        private bool ShowsLock => Mode == ParameterValueAdjustmentViewMode.Analysis;
+        private bool ShowsSlider => Mode == ParameterValueAdjustmentViewMode.Designer;
 
         public ParameterValueAdjustmentView(IntPtr handle) : base(handle)
         {
         }
 
-        public ParameterValueAdjustmentView(CGRect frameRect, Parameter par, bool enablelock = true) : base(frameRect)
+        public ParameterValueAdjustmentView(
+            CGRect frameRect,
+            Parameter par,
+            ParameterValueAdjustmentViewMode mode = ParameterValueAdjustmentViewMode.Analysis) : base(frameRect)
         {
             Frame = frameRect;
             Orientation = NSUserInterfaceLayoutOrientation.Horizontal;
             Distribution = NSStackViewDistribution.Fill;
             Alignment = NSLayoutAttribute.CenterY;
             Parameter = par;
-            EnableLock = enablelock;
+            Mode = mode;
 
             if (tmpvalue == null)
                 tmpvalue = Parameter.Value;
 
             SetupLabel();
+            if (ShowsSlider) SetupSlider();
             SetInputField();
-            SetupLockBtn();
+            if (ShowsLock) SetupLockBtn();
+            SyncSliderFromValue();
+        }
+
+        void SetupSlider()
+        {
+            Slider = new NSSlider(new CGRect(0, 0, 120, 16))
+            {
+                MinValue = 0,
+                MaxValue = 1,
+                DoubleValue = InternalValueToSlider((double)tmpvalue),
+                Continuous = true,
+                ControlSize = NSControlSize.Mini,
+                TranslatesAutoresizingMaskIntoConstraints = false,
+            };
+            Slider.AddConstraint(NSLayoutConstraint.Create(Slider, NSLayoutAttribute.Width, NSLayoutRelation.GreaterThanOrEqual, 1, 100));
+            Slider.Activated += Slider_Activated;
+
+            AddArrangedSubview(Slider);
         }
 
         void SetupLockBtn()
@@ -114,7 +149,6 @@ namespace AnalysisITC.GUI.MacOS.CustomViews
             Lock.Layout();
 
             Lock.State = Parameter.IsLocked ? NSCellStateValue.On : NSCellStateValue.Off;
-            if (!EnableLock) Lock.Hidden = true;
 
             AddArrangedSubview(Lock);
 
@@ -150,6 +184,25 @@ namespace AnalysisITC.GUI.MacOS.CustomViews
             HasBeenAffectedFlag = true;
 
             CheckInput();
+            if (!IsSyncingControls) SyncSliderFromValue();
+            ValueChanged?.Invoke(this, EventArgs.Empty);
+        }
+
+        private void Slider_Activated(object sender, EventArgs e)
+        {
+            if (IsSyncingControls) return;
+
+            IsSyncingControls = true;
+
+            var value = SliderToInternalValue(Slider.DoubleValue);
+            tmpvalue = value;
+            SetInputField(FormatInternalValue(value), forceInput: true);
+            Input.TextColor = IsWithinLimits(value) ? DefaultFieldColor : NSColor.SystemRed;
+
+            IsSyncingControls = false;
+
+            HasBeenAffectedFlag = true;
+            ValueChanged?.Invoke(this, EventArgs.Empty);
         }
 
         void CheckInput()
@@ -162,12 +215,54 @@ namespace AnalysisITC.GUI.MacOS.CustomViews
             if (double.TryParse(input, out double value))
             {
                 Console.WriteLine("Input field value changed: " + value.ToString());
-                tmpvalue = value;
+                var internalValue = Value;
+                tmpvalue = internalValue;
 
-                if (Value >= Parameter.Limits[0] && Value <= Parameter.Limits[1])
+                if (IsWithinLimits(internalValue))
                     Input.TextColor = DefaultFieldColor;
             }
         }
+
+        private bool IsWithinLimits(double value) => value >= Parameter.Limits[0] && value <= Parameter.Limits[1];
+
+        private (double Min, double Max) GetDesignerSliderRange()
+        {
+            switch (Key.GetProperties().ParentType)
+            {
+                case ParameterType.Nvalue1: return (0.1, 10.0);
+                case ParameterType.Affinity1: return (3.0, 9.0); // 1 mM to 1 nM Kd, stored as log10(Ka).
+                case ParameterType.Offset: return (-30000.0, 30000.0);
+                case ParameterType.Enthalpy1: return (-100000.0, 100000.0);
+                default: return (Parameter.Limits[0], Parameter.Limits[1]);
+            }
+        }
+
+        private double SliderToInternalValue(double sliderValue)
+        {
+            var range = GetDesignerSliderRange();
+            var slider = Clamp(sliderValue, 0, 1);
+
+            return range.Min + slider * (range.Max - range.Min);
+        }
+
+        private double InternalValueToSlider(double value)
+        {
+            var range = GetDesignerSliderRange();
+            if (range.Max <= range.Min) return 0;
+
+            return Clamp((value - range.Min) / (range.Max - range.Min), 0, 1);
+        }
+
+        private void SyncSliderFromValue()
+        {
+            if (Slider == null) return;
+
+            IsSyncingControls = true;
+            Slider.DoubleValue = InternalValueToSlider(Value);
+            IsSyncingControls = false;
+        }
+
+        private static double Clamp(double value, double min, double max) => Math.Max(min, Math.Min(max, value));
 
         /// <summary>
         /// Disable input parameters depending on the attribute state of the model.
@@ -186,7 +281,8 @@ namespace AnalysisITC.GUI.MacOS.CustomViews
                 case ParameterType.Nvalue2: // If shared N value or if using syringe correction, disable second N-value field
                     bool disable = (attributes[AttributeKey.LockDuplicateParameter]?.BoolValue ?? false) || (attributes[AttributeKey.UseSyringeActiveFraction]?.BoolValue ?? false);
                     Input.Enabled = !disable;
-                    Lock.Enabled = !disable;
+                    if (Slider != null) Slider.Enabled = !disable;
+                    if (Lock != null) Lock.Enabled = !disable;
                     Label.TextColor = disable ? NSColor.DisabledControlText : NSColor.Label;
                     break;
             }
@@ -213,6 +309,12 @@ namespace AnalysisITC.GUI.MacOS.CustomViews
                 Label.AttributedStringValue = MacStrings.FromMarkDownString($"{Label.StringValue} ({MarkdownStrings.DissociationConstant}, {AppSettings.DefaultConcentrationUnit})", Label.Font);
             else if (ParameterTypeAttribute.IsEnergyUnitParameter(Parameter.Key))
                 Label.StringValue += " (" + AppSettings.EnergyUnit.GetProperties().Unit + "/mol)";
+
+            if (ShowsSlider)
+            {
+                Label.AddConstraint(NSLayoutConstraint.Create(Label, NSLayoutAttribute.Width, NSLayoutRelation.Equal, 1, 145));
+                Label.SetContentCompressionResistancePriority(1000, NSLayoutConstraintOrientation.Horizontal);
+            }
 
             // Store the default color (not sure if relevant, why not just use NSColor.Label?
             DefaultFieldColor = Label.TextColor;
@@ -241,31 +343,34 @@ namespace AnalysisITC.GUI.MacOS.CustomViews
             Input.AddConstraint(NSLayoutConstraint.Create(Input, NSLayoutAttribute.Width, NSLayoutRelation.Equal, 1, 80));
             Input.AddConstraint(NSLayoutConstraint.Create(Input, NSLayoutAttribute.Height, NSLayoutRelation.Equal, 1, 19));
 
-            // If input is affinity, format with concentration unit
-            if (Parameter.Key.GetProperties().ParentType == ParameterType.Affinity1)
-            {
-                if (AppSettings.InputAffinityAsDissociationConstant)
-                {
-                    var number = (AppSettings.DefaultConcentrationUnit.GetProperties().Mod / Math.Pow(10, (double)tmpvalue));
-                    SetInputField(Convert.ToDouble(String.Format("{0:G3}", number)).ToString());
-                }
-                else SetInputField(((double)tmpvalue).ToString("G2"));
-            }
-            // if input is energy, format with energy unit scale
-            else if (ParameterTypeAttribute.IsEnergyUnitParameter(Parameter.Key))
-                SetInputField(new Energy((double)tmpvalue).ToString(AppSettings.EnergyUnit, "G3", withunit: false));
-            // Else it is just a number
-            else SetInputField(((double)tmpvalue).ToString("F3"));
+            SetInputField(FormatInternalValue((double)tmpvalue));
 
             // Add to stack
             AddArrangedSubview(Input);
         }
 
-        void SetInputField(string s)
+        private string FormatInternalValue(double value)
         {
-            if (Parameter.ChangedByUser) Input.StringValue = s;
+            if (Parameter.Key.GetProperties().ParentType == ParameterType.Affinity1)
+            {
+                if (AppSettings.InputAffinityAsDissociationConstant)
+                {
+                    var number = AppSettings.DefaultConcentrationUnit.GetProperties().Mod / Math.Pow(10, value);
+                    return Convert.ToDouble(String.Format("{0:G3}", number)).ToString();
+                }
+                return value.ToString("G2");
+            }
+
+            if (ParameterTypeAttribute.IsEnergyUnitParameter(Parameter.Key))
+                return new Energy(value).ToString(AppSettings.EnergyUnit, "G3", withunit: false);
+
+            return value.ToString("F3");
+        }
+
+        void SetInputField(string s, bool forceInput = false)
+        {
+            if (forceInput || Parameter.ChangedByUser) Input.StringValue = s;
             else Input.PlaceholderString = s;
         }
     }
 }
-

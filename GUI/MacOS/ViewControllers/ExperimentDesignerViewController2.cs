@@ -60,7 +60,7 @@ namespace AnalysisITC
             base.ViewDidLoad();
 
             ModelMenu.RemoveAllItems();
-            InstrumentMenu.RemoveAllItems();
+            //InstrumentMenu.RemoveAllItems();
 
             foreach (var instrument in DataReaders.ITCInstrumentAttribute.GetITCInstruments())
             {
@@ -226,8 +226,13 @@ namespace AnalysisITC
                 }
                 else
                 {
-                    sv = new ParameterValueAdjustmentView(new CoreGraphics.CGRect(0, 0, ParameterStackView.Frame.Width, 20), par, enablelock: false);
+                    sv = new ParameterValueAdjustmentView(
+                        new CoreGraphics.CGRect(0, 0, ParameterStackView.Frame.Width, 20),
+                        par,
+                        ParameterValueAdjustmentViewMode.Designer);
                 }
+                sv.ValueChanged -= ParameterControl_ValueChanged;
+                sv.ValueChanged += ParameterControl_ValueChanged;
                 ParameterControls.Add(sv);
 
                 ParameterStackView.AddArrangedSubview(sv);
@@ -270,10 +275,8 @@ namespace AnalysisITC
                 }
             }
 
-            UpdateWindowHeightToFitContent();
-
             if (AutoRunExperimentSimulation)
-                ApplyModelSettings(null);
+                UpdateSyntheticData();
         }
 
         private static void ClearStackView(NSStackView stack)
@@ -285,30 +288,28 @@ namespace AnalysisITC
             }
         }
 
-        private void UpdateWindowHeightToFitContent(bool animate = false)
+        partial void ApplyModelSettings(NSButton sender)
         {
-            var window = View.Window;
-            if (window == null) return;
-
-            View.NeedsLayout = true;
-            View.LayoutSubtreeIfNeeded();
-
-            var fitting = View.FittingSize;
-            var frame = window.Frame;
-            var contentRect = window.ContentRectFor(frame);
-
-            var targetHeight = fitting.Height;
-            var deltaHeight = targetHeight - contentRect.Height;
-
-            if (Math.Abs(deltaHeight) < 1) return;
-
-            frame.Y -= deltaHeight;      // keep top edge fixed
-            frame.Height += deltaHeight;
-
-            window.SetFrame(frame, true, animate);
+            UpdateSyntheticData();
+            FitSyntheticData();
         }
 
-        partial void ApplyModelSettings(NSButton sender)
+        private void ParameterControl_ValueChanged(object sender, EventArgs e)
+        {
+            if (AutoRunExperimentSimulation)
+                UpdateSyntheticData();
+        }
+
+        private void UpdateSyntheticData()
+        {
+            if (_isrunning || Factory == null) return;
+
+            ApplyDesignerInputsToFactory();
+            Factory.BuildModel();
+            SimulateSyntheticData();
+        }
+
+        private void ApplyDesignerInputsToFactory()
         {
             if (Factory == null) return;
 
@@ -321,15 +322,11 @@ namespace AnalysisITC
             {
                 sv.ApplyOptions();
             }
-
-            Factory.BuildModel();
-
-            SimulateExperiment();
         }
 
-        void SimulateExperiment()
+        private void SimulateSyntheticData()
         {
-            if (_isrunning) return;
+            if (Data?.Model == null) return;
 
             Data.Model.Solution = SolutionInterface.FromModel(Data.Model, SolverConvergence.ReportStopped(DateTime.Now));
 
@@ -345,6 +342,11 @@ namespace AnalysisITC
             }
 
             SimGraphView.Initialize(Data);
+        }
+
+        private void FitSyntheticData()
+        {
+            if (_isrunning || Factory == null || Data?.Model == null) return;
 
             var solver = Solver.Initialize(Factory);
             solver.SolverToleranceModifier = 2;
