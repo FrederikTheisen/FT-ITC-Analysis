@@ -9,6 +9,9 @@ namespace AnalysisITC
 {
 	public partial class FittingPreferencesViewController : NSViewController
 	{
+        const double BootstrapIterationMinExponent = 1;
+        const double BootstrapIterationMaxExponent = 3;
+
         public static void ApplySettings() => ShouldApplySettings?.Invoke(null, null);
         public static event EventHandler ShouldApplySettings;
 
@@ -25,7 +28,7 @@ namespace AnalysisITC
             IncludeConcVarianceCheck.State = AppSettings.IncludeConcentrationErrorsInBootstrap ? NSCellStateValue.On : NSCellStateValue.Off;
             AutoConcVarianceSlider.DoubleValue = 100 * AppSettings.ConcentrationAutoVariance;
             AutoConcField.StringValue = AppSettings.IsConcentrationAutoVarianceEnabled ? (100 * AppSettings.ConcentrationAutoVariance).ToString("F1") + "%" : "";
-            DefaultBootstrapIterationSlider.DoubleValue = Math.Log10(AppSettings.DefaultBootstrapIterations);
+            DefaultBootstrapIterationSlider.DoubleValue = BootstrapIterationExponent(AppSettings.DefaultBootstrapIterations);
             BootstrapIterField.StringValue = ((int)Math.Pow(10, DefaultBootstrapIterationSlider.DoubleValue)).ToString();
             FuncToleranceSlider.DoubleValue = AppSettings.OptimizerTolerance;
             MaxOptimizerIterationsSlider.DoubleValue = Math.Log10(AppSettings.MaximumOptimizerIterations);
@@ -59,7 +62,7 @@ namespace AnalysisITC
         {
             AppSettings.DefaultErrorEstimationMethod = (ErrorEstimationMethod)(int)DefaultErrorMethodControl.SelectedSegment;
             AppSettings.IncludeConcentrationErrorsInBootstrap = IncludeConcVarianceCheck.State == NSCellStateValue.On;
-            AppSettings.DefaultBootstrapIterations = (int)Math.Pow(10, DefaultBootstrapIterationSlider.DoubleValue);
+            AppSettings.DefaultBootstrapIterations = (int)Math.Pow(10, BootstrapIterationExponent(DefaultBootstrapIterationSlider.DoubleValue, isExponent: true));
             AppSettings.OptimizerTolerance = FuncToleranceSlider.DoubleValue;
             AppSettings.ConcentrationAutoVariance = AutoConcVarianceSlider.DoubleValue / 100;
             AppSettings.IsConcentrationAutoVarianceEnabled = AutoConcVarianceSlider.DoubleValue > double.Epsilon;
@@ -72,7 +75,13 @@ namespace AnalysisITC
 
         partial void BootstrapIterSliderAction(NSSlider sender)
         {
-            BootstrapIterField.StringValue = ((int)Math.Pow(10, sender.DoubleValue)).ToString();
+            BootstrapIterField.StringValue = ((int)Math.Pow(10, BootstrapIterationExponent(sender.DoubleValue, isExponent: true))).ToString();
+        }
+
+        static double BootstrapIterationExponent(double value, bool isExponent = false)
+        {
+            var exponent = isExponent ? value : Math.Log10(value);
+            return Math.Max(BootstrapIterationMinExponent, Math.Min(BootstrapIterationMaxExponent, exponent));
         }
 
         partial void FuncToleranceSliderAction(NSSlider sender)

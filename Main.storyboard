@@ -986,7 +986,7 @@
                                         <constraints>
                                             <constraint firstAttribute="width" constant="100" id="rED-HW-Li3"/>
                                         </constraints>
-                                        <sliderCell key="cell" controlSize="small" continuous="YES" state="on" alignment="left" maxValue="4" doubleValue="2" tickMarkPosition="above" numberOfTickMarks="5" sliderType="linear" id="JKI-Ps-UO0"/>
+                                        <sliderCell key="cell" controlSize="small" continuous="YES" state="on" alignment="left" minValue="1" maxValue="3" doubleValue="2" tickMarkPosition="above" numberOfTickMarks="5" sliderType="linear" id="JKI-Ps-UO0"/>
                                         <connections>
                                             <action selector="BootstrapIterSliderAction:" target="61H-cx-u55" id="LLE-1c-6Pt"/>
                                         </connections>

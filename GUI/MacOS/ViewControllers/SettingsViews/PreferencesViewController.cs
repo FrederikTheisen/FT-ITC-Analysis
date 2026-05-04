@@ -10,6 +10,9 @@ namespace AnalysisITC
 {
 	public partial class PreferencesViewController : NSViewController
 	{
+        const double BootstrapIterationMinExponent = 1;
+        const double BootstrapIterationMaxExponent = 3;
+
         ColorSchemes ColorScheme;
 
 		public PreferencesViewController (IntPtr handle) : base (handle)
@@ -44,7 +47,7 @@ namespace AnalysisITC
             TempSpanLabel.DoubleValue = AppSettings.MinimumTemperatureSpanForFitting;
             DefaultErrorMethodControl.SelectedSegment = (int)AppSettings.DefaultErrorEstimationMethod;
             IncludeConcVarianceCheck.State = AppSettings.IncludeConcentrationErrorsInBootstrap ? NSCellStateValue.On : NSCellStateValue.Off;
-            DefaultBootstrapIterationSlider.DoubleValue = Math.Log10(AppSettings.DefaultBootstrapIterations);
+            DefaultBootstrapIterationSlider.DoubleValue = BootstrapIterationExponent(AppSettings.DefaultBootstrapIterations);
             FuncToleranceSlider.DoubleValue = -Math.Sqrt(-Math.Log10(AppSettings.OptimizerTolerance));
             EnergyUnitControl.SelectedSegment = AppSettings.EnergyUnit.IsSI() ? 0 : 1;
             DefaultBootstrapIterationLabel.StringValue = ((int)Math.Pow(10, DefaultBootstrapIterationSlider.DoubleValue)).ToString();
@@ -72,7 +75,7 @@ namespace AnalysisITC
 
         partial void DefaultBootstrapIterationAction(NSSlider sender)
         {
-            DefaultBootstrapIterationLabel.StringValue = ((int)Math.Pow(10, DefaultBootstrapIterationSlider.DoubleValue)).ToString();
+            DefaultBootstrapIterationLabel.StringValue = ((int)Math.Pow(10, BootstrapIterationExponent(DefaultBootstrapIterationSlider.DoubleValue, isExponent: true))).ToString();
         }
 
         partial void FuncToleranceAction(NSSlider sender)
@@ -105,7 +108,7 @@ namespace AnalysisITC
             //Fitting
             AppSettings.DefaultErrorEstimationMethod = (ErrorEstimationMethod)(int)DefaultErrorMethodControl.SelectedSegment;
             AppSettings.IncludeConcentrationErrorsInBootstrap = IncludeConcVarianceCheck.State == NSCellStateValue.On;
-            AppSettings.DefaultBootstrapIterations = (int)Math.Pow(10, DefaultBootstrapIterationSlider.DoubleValue);
+            AppSettings.DefaultBootstrapIterations = (int)Math.Pow(10, BootstrapIterationExponent(DefaultBootstrapIterationSlider.DoubleValue, isExponent: true));
             AppSettings.OptimizerTolerance = Math.Max(Math.Pow(10, -(FuncToleranceSlider.DoubleValue * FuncToleranceSlider.DoubleValue)), double.Epsilon);
             AppSettings.ConcentrationAutoVariance = ConcentrationAutoVarianceSlider.DoubleValue / 100;
 
@@ -123,6 +126,12 @@ namespace AnalysisITC
         {
             if (value < double.Epsilon) value = double.Epsilon;
             FuncToleranceLabel.DoubleValue = value;
+        }
+
+        static double BootstrapIterationExponent(double value, bool isExponent = false)
+        {
+            var exponent = isExponent ? value : Math.Log10(value);
+            return Math.Max(BootstrapIterationMinExponent, Math.Min(BootstrapIterationMaxExponent, exponent));
         }
     }
 }
