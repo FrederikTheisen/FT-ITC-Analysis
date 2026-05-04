@@ -314,6 +314,7 @@
     <Compile Include="AppClasses\Math\ErrorPropagation.cs" />
     <Compile Include="AppClasses\Analysis2\ModelFactory.cs" />
     <Compile Include="AppClasses\Analysis2\GlobalModel.cs" />
+    <Compile Include="GUI\MacOS\CustomViews\DesignerAdjustmentView.cs" />
     <Compile Include="GUI\MacOS\CustomViews\ParameterValueAdjustmentView.cs" />
     <Compile Include="GUI\MacOS\ListViews\ExperimentDataViewCell.cs" />
     <Compile Include="GUI\MacOS\ListViews\ExperimentDataViewCell.designer.cs">

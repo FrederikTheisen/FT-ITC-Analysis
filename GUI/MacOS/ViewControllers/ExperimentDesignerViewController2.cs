@@ -114,7 +114,7 @@ namespace AnalysisITC
 
         partial void InstrumentControlAction(NSPopUpButton sender)
         {
-            Instrument = (DataReaders.ITCInstrument)(int)sender.SelectedItem.Tag;
+            Instrument = (ITCInstrument)(int)sender.SelectedItem.Tag;
 
             var instrumentinfo = "";
 
@@ -229,7 +229,7 @@ namespace AnalysisITC
                     sv = new ParameterValueAdjustmentView(
                         new CoreGraphics.CGRect(0, 0, ParameterStackView.Frame.Width, 20),
                         par,
-                        ParameterValueAdjustmentViewMode.Designer);
+                        AdjustmentViewMode.Designer);
                 }
                 sv.ValueChanged -= ParameterControl_ValueChanged;
                 sv.ValueChanged += ParameterControl_ValueChanged;
@@ -267,13 +267,18 @@ namespace AnalysisITC
 
                     var sv = new OptionAdjustmentView(
                         new CoreGraphics.CGRect(0, 0, ModelOptionsStackView.Frame.Width, 20),
-                        opt.Value);
+                        opt.Value,
+                        AdjustmentViewMode.Designer);
 
                     sv.SetupDesignerLayout();
+                    sv.ValueChanged -= OptionControl_ValueChanged;
+                    sv.ValueChanged += OptionControl_ValueChanged;
                     OptionControls.Add(sv);
                     ModelOptionsStackView.AddArrangedSubview(sv);
                 }
             }
+
+            RefreshDesignerControlStates();
 
             if (AutoRunExperimentSimulation)
                 UpdateSyntheticData();
@@ -298,6 +303,29 @@ namespace AnalysisITC
         {
             if (AutoRunExperimentSimulation)
                 UpdateSyntheticData();
+        }
+
+        private void OptionControl_ValueChanged(object sender, EventArgs e)
+        {
+            if (AutoRunExperimentSimulation)
+                UpdateSyntheticData();
+            else
+                ApplyDesignerInputsToFactory();
+
+            RefreshDesignerControlStates();
+        }
+
+        private void RefreshDesignerControlStates()
+        {
+            if (Factory == null) return;
+
+            var attributes = Factory.GetExposedModelOptions();
+
+            foreach (var sv in OptionControls)
+                sv.UpdateState(attributes);
+
+            foreach (var sv in ParameterControls)
+                sv.UpdateState(attributes);
         }
 
         private void UpdateSyntheticData()

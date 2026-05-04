@@ -7,13 +7,7 @@ using AnalysisITC.AppClasses.AnalysisClasses;
 
 namespace AnalysisITC.GUI.MacOS.CustomViews
 {
-    public enum ParameterValueAdjustmentViewMode
-    {
-        Analysis,
-        Designer
-    }
-
-    public class ParameterValueAdjustmentView : NSStackView
+    public class ParameterValueAdjustmentView : NSStackView, IDesignerAdjustmentView
     {
         public Parameter Parameter { get; set; }
 
@@ -76,9 +70,9 @@ namespace AnalysisITC.GUI.MacOS.CustomViews
             }
         }
         public bool Locked => Lock?.State == NSCellStateValue.On;
-        public ParameterValueAdjustmentViewMode Mode { get; private set; } = ParameterValueAdjustmentViewMode.Analysis;
-        private bool ShowsLock => Mode == ParameterValueAdjustmentViewMode.Analysis;
-        private bool ShowsSlider => Mode == ParameterValueAdjustmentViewMode.Designer;
+        public AdjustmentViewMode Mode { get; private set; } = AdjustmentViewMode.Analysis;
+        private bool ShowsLock => Mode == AdjustmentViewMode.Analysis;
+        private bool ShowsSlider => Mode == AdjustmentViewMode.Designer;
 
         public ParameterValueAdjustmentView(IntPtr handle) : base(handle)
         {
@@ -87,7 +81,7 @@ namespace AnalysisITC.GUI.MacOS.CustomViews
         public ParameterValueAdjustmentView(
             CGRect frameRect,
             Parameter par,
-            ParameterValueAdjustmentViewMode mode = ParameterValueAdjustmentViewMode.Analysis) : base(frameRect)
+            AdjustmentViewMode mode = AdjustmentViewMode.Analysis) : base(frameRect)
         {
             Frame = frameRect;
             Orientation = NSUserInterfaceLayoutOrientation.Horizontal;
@@ -225,32 +219,26 @@ namespace AnalysisITC.GUI.MacOS.CustomViews
 
         private bool IsWithinLimits(double value) => value >= Parameter.Limits[0] && value <= Parameter.Limits[1];
 
-        private (double Min, double Max) GetDesignerSliderRange()
+        private AdjustmentSliderRange GetDesignerSliderRange()
         {
             switch (Key.GetProperties().ParentType)
             {
-                case ParameterType.Nvalue1: return (0.1, 10.0);
-                case ParameterType.Affinity1: return (3.0, 9.0); // 1 mM to 1 nM Kd, stored as log10(Ka).
-                case ParameterType.Offset: return (-30000.0, 30000.0);
-                case ParameterType.Enthalpy1: return (-100000.0, 100000.0);
-                default: return (Parameter.Limits[0], Parameter.Limits[1]);
+                case ParameterType.Nvalue1: return new AdjustmentSliderRange(0.1, 10.0);
+                case ParameterType.Affinity1: return new AdjustmentSliderRange(3.0, 9.0); // 1 mM to 1 nM Kd, stored as log10(Ka).
+                case ParameterType.Offset: return new AdjustmentSliderRange(-30000.0, 30000.0);
+                case ParameterType.Enthalpy1: return new AdjustmentSliderRange(-100000.0, 100000.0);
+                default: return new AdjustmentSliderRange(Parameter.Limits[0], Parameter.Limits[1]);
             }
         }
 
         private double SliderToInternalValue(double sliderValue)
         {
-            var range = GetDesignerSliderRange();
-            var slider = Clamp(sliderValue, 0, 1);
-
-            return range.Min + slider * (range.Max - range.Min);
+            return AdjustmentSliderHelper.FromSliderValue(sliderValue, GetDesignerSliderRange());
         }
 
         private double InternalValueToSlider(double value)
         {
-            var range = GetDesignerSliderRange();
-            if (range.Max <= range.Min) return 0;
-
-            return Clamp((value - range.Min) / (range.Max - range.Min), 0, 1);
+            return AdjustmentSliderHelper.ToSliderValue(value, GetDesignerSliderRange());
         }
 
         private void SyncSliderFromValue()
@@ -261,8 +249,6 @@ namespace AnalysisITC.GUI.MacOS.CustomViews
             Slider.DoubleValue = InternalValueToSlider(Value);
             IsSyncingControls = false;
         }
-
-        private static double Clamp(double value, double min, double max) => Math.Max(min, Math.Min(max, value));
 
         /// <summary>
         /// Disable input parameters depending on the attribute state of the model.

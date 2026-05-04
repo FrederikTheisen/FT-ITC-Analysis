@@ -7,7 +7,7 @@ using Foundation;
 
 namespace AnalysisITC.GUI.MacOS.CustomViews
 {
-    public class OptionAdjustmentView : NSStackView
+    public class OptionAdjustmentView : NSStackView, IDesignerAdjustmentView
     {
         public static event EventHandler RefreshLists;
 
@@ -21,19 +21,49 @@ namespace AnalysisITC.GUI.MacOS.CustomViews
         private NSSwitch InputSwitch;
         private NSTextField InputField;
         private ValueWithErrorTextField InputValueWithErrorField;
+        private NSSlider Slider;
+        private bool IsSyncingControls;
         public NSPopUpButton StoichiometryPopup { get; set; }
+
+        public event EventHandler ValueChanged;
 
         public bool HasBeenAffectedFlag { get; private set; } = false;
 
         public override CGSize IntrinsicContentSize => new CGSize(NSView.NoIntrinsicMetric, 16);
         public override nfloat Spacing { get => 1; set => base.Spacing = value; }
         private NSColor DefaultFieldColor;
+        public AdjustmentViewMode Mode { get; private set; } = AdjustmentViewMode.Analysis;
+        private bool ShowsSlider => Mode == AdjustmentViewMode.Designer && SupportsSlider;
+        private bool SupportsSlider
+        {
+            get
+            {
+                switch (Key)
+                {
+                    case AttributeKey.Percentage:
+                    case AttributeKey.EquilibriumConstant:
+                    case AttributeKey.PreboundLigandConc:
+                    case AttributeKey.PreboundLigandAffinity:
+                    case AttributeKey.PreboundLigandEnthalpy:
+                        return true;
+                    default:
+                        return false;
+                }
+            }
+        }
 
         public void SetupDesignerLayout()
         {
             switch (Key)
             {
-                case AttributeKey.PreboundLigandConc: InputButton.Hidden = true; break;
+                case AttributeKey.PreboundLigandConc:
+                    if (InputButton != null)
+                    {
+                        InputButton.Hidden = true;
+                        InputButton.State = NSCellStateValue.Off;
+                        Option.BoolValue = false;
+                    }
+                    break;
             }
         }
 
@@ -41,13 +71,17 @@ namespace AnalysisITC.GUI.MacOS.CustomViews
         {
         }
 
-        public OptionAdjustmentView(CGRect frameRect, ExperimentAttribute option) : base(frameRect)
+        public OptionAdjustmentView(
+            CGRect frameRect,
+            ExperimentAttribute option,
+            AdjustmentViewMode mode = AdjustmentViewMode.Analysis) : base(frameRect)
         {
             Frame = frameRect;
             Orientation = NSUserInterfaceLayoutOrientation.Horizontal;
             Distribution = NSStackViewDistribution.Fill;
             Alignment = NSLayoutAttribute.CenterY;
             Option = option;
+            Mode = mode;
 
             tmpbool = Option.BoolValue;
 
@@ -116,6 +150,12 @@ namespace AnalysisITC.GUI.MacOS.CustomViews
             };
 
             AddArrangedSubview(Label);
+
+            if (ShowsSlider)
+            {
+                Label.AddConstraint(NSLayoutConstraint.Create(Label, NSLayoutAttribute.Width, NSLayoutRelation.Equal, 1, 145));
+                Label.SetContentCompressionResistancePriority(1000, NSLayoutConstraintOrientation.Horizontal);
+            }
         }
 
         void SetupBoolOption()
@@ -207,10 +247,10 @@ namespace AnalysisITC.GUI.MacOS.CustomViews
                     value *= AppSettings.DefaultConcentrationUnit.GetProperties().Mod;
                     break;
                 case AttributeKey.PreboundLigandConc:
-                    value *= 1000000;
+                    value *= AppSettings.DefaultConcentrationUnit.GetProperties().Mod;
                     break;
                 case AttributeKey.PreboundLigandEnthalpy:
-                    value /= 1000;
+                    value = new Energy(value).ToUnit(AppSettings.EnergyUnit).FloatWithError;
                     break;
                 case AttributeKey.Percentage:
                     value *= 100;
@@ -229,10 +269,13 @@ namespace AnalysisITC.GUI.MacOS.CustomViews
                     InputButton.State = Option.BoolValue ? NSCellStateValue.On : NSCellStateValue.Off;
                     InputButton.BezelStyle = NSBezelStyle.Recessed;
                     InputButton.ControlSize = NSControlSize.Mini;
+                    InputButton.Activated += InputButton_Activated;
 
                     AddArrangedSubview(InputButton);
                     break;
             }
+
+            if (ShowsSlider) SetupSlider(value.Value);
 
             InputValueWithErrorField = new ValueWithErrorTextField(new CGRect(0, 0, 80, 19))
             {
@@ -249,6 +292,23 @@ namespace AnalysisITC.GUI.MacOS.CustomViews
             DefaultFieldColor = InputValueWithErrorField.TextColor;
 
             return;
+        }
+
+        void SetupSlider(double displayValue)
+        {
+            Slider = new NSSlider(new CGRect(0, 0, 120, 16))
+            {
+                MinValue = 0,
+                MaxValue = 1,
+                DoubleValue = DisplayValueToSlider(displayValue),
+                Continuous = true,
+                ControlSize = NSControlSize.Mini,
+                TranslatesAutoresizingMaskIntoConstraints = false,
+            };
+            Slider.AddConstraint(NSLayoutConstraint.Create(Slider, NSLayoutAttribute.Width, NSLayoutRelation.GreaterThanOrEqual, 1, 100));
+            Slider.Activated += Slider_Activated;
+
+            AddArrangedSubview(Slider);
         }
 
         void SetupStoichiometryOption()
@@ -275,8 +335,16 @@ namespace AnalysisITC.GUI.MacOS.CustomViews
             Console.WriteLine($"InputButtonActivated [{Option.OptionName}]: " + InputSwitch.State.ToString());
 
             Option.BoolValue = InputSwitch.State == (int)NSCellStateValue.On;
+            HasBeenAffectedFlag = true;
 
             RefreshLists?.Invoke(this, null);
+            RaiseValueChanged();
+        }
+
+        void InputButton_Activated(object sender, EventArgs e)
+        {
+            HasBeenAffectedFlag = true;
+            RaiseValueChanged();
         }
 
         void ParameterInputChanged(object sender, EventArgs e)
@@ -284,6 +352,8 @@ namespace AnalysisITC.GUI.MacOS.CustomViews
             HasBeenAffectedFlag = true;
 
             CheckParameterInput();
+            if (!IsSyncingControls) SyncSliderFromValue();
+            RaiseValueChanged();
         }
 
         void CheckParameterInput()
@@ -303,6 +373,7 @@ namespace AnalysisITC.GUI.MacOS.CustomViews
         void InputChanged(object sender, EventArgs e)
         {
             HasBeenAffectedFlag = true;
+            RaiseValueChanged();
         }
 
         void StoichiometryPopup_Activated(object sender, EventArgs e)
@@ -310,12 +381,114 @@ namespace AnalysisITC.GUI.MacOS.CustomViews
             var selected = StoichiometryPopupBuilder.GetSelected(StoichiometryPopup);
 
             Console.WriteLine("Stoichiometry = " + selected);
+            Option.DoubleValue = selected.Factor;
+            HasBeenAffectedFlag = true;
 
             // Optional if you want to show a label somewhere else:
             // StoichiometryInfoLabel.StringValue = selected.Title;
 
             // Optional if your parameter list needs rebuilding after mode changes:
             // ReloadParameterList();
+            RaiseValueChanged();
+        }
+
+        void Slider_Activated(object sender, EventArgs e)
+        {
+            if (IsSyncingControls || InputValueWithErrorField == null) return;
+
+            IsSyncingControls = true;
+
+            var value = SliderToDisplayValue(Slider.DoubleValue);
+            InputValueWithErrorField.SetValue(value, InputValueWithErrorField.DoubleErrorPart);
+            CheckParameterInput();
+
+            IsSyncingControls = false;
+
+            HasBeenAffectedFlag = true;
+            RaiseValueChanged();
+        }
+
+        void SyncSliderFromValue()
+        {
+            if (Slider == null || InputValueWithErrorField == null) return;
+            if (!InputValueWithErrorField.TryGetValue(out double value, out _)) return;
+
+            IsSyncingControls = true;
+            Slider.DoubleValue = DisplayValueToSlider(value);
+            IsSyncingControls = false;
+        }
+
+        private AdjustmentSliderRange GetSliderRange()
+        {
+            switch (Key)
+            {
+                case AttributeKey.Percentage:
+                    return new AdjustmentSliderRange(0.0, 1.0);
+                case AttributeKey.EquilibriumConstant:
+                    return new AdjustmentSliderRange(-6.0, 5.0);
+                case AttributeKey.PreboundLigandConc:
+                    return new AdjustmentSliderRange(0.0, 0.001);
+                case AttributeKey.PreboundLigandAffinity:
+                    return new AdjustmentSliderRange(3.0, 9.0);
+                case AttributeKey.PreboundLigandEnthalpy:
+                    return new AdjustmentSliderRange(-100000.0, 100000.0);
+                default:
+                    return new AdjustmentSliderRange(0.0, 1.0);
+            }
+        }
+
+        private double SliderToDisplayValue(double sliderValue)
+        {
+            var value = AdjustmentSliderHelper.FromSliderValue(sliderValue, GetSliderRange());
+
+            switch (Key)
+            {
+                case AttributeKey.Percentage:
+                    return value * 100.0;
+                case AttributeKey.EquilibriumConstant:
+                    return Math.Pow(10.0, value);
+                case AttributeKey.PreboundLigandConc:
+                    return value * AppSettings.DefaultConcentrationUnit.GetProperties().Mod;
+                case AttributeKey.PreboundLigandAffinity:
+                    return AppSettings.DefaultConcentrationUnit.GetProperties().Mod / Math.Pow(10.0, value);
+                case AttributeKey.PreboundLigandEnthalpy:
+                    return Energy.ConvertFromJoule(value, AppSettings.EnergyUnit);
+                default:
+                    return value;
+            }
+        }
+
+        private double DisplayValueToSlider(double displayValue)
+        {
+            var value = DisplayValueToSliderDomain(displayValue);
+            if (double.IsNaN(value) || double.IsInfinity(value))
+                value = GetSliderRange().Min;
+
+            return AdjustmentSliderHelper.ToSliderValue(value, GetSliderRange());
+        }
+
+        private double DisplayValueToSliderDomain(double displayValue)
+        {
+            switch (Key)
+            {
+                case AttributeKey.Percentage:
+                    return displayValue / 100.0;
+                case AttributeKey.EquilibriumConstant:
+                    return Math.Log10(Math.Max(displayValue, 0.000001));
+                case AttributeKey.PreboundLigandConc:
+                    return displayValue / AppSettings.DefaultConcentrationUnit.GetProperties().Mod;
+                case AttributeKey.PreboundLigandAffinity:
+                    return Math.Log10(AppSettings.DefaultConcentrationUnit.GetProperties().Mod / Math.Max(displayValue, double.Epsilon));
+                case AttributeKey.PreboundLigandEnthalpy:
+                    return Energy.ConvertToJoule(displayValue, AppSettings.EnergyUnit);
+                default:
+                    return displayValue;
+            }
+        }
+
+        private void RaiseValueChanged()
+        {
+            ValueChanged?.Invoke(this, EventArgs.Empty);
         }
 
         public void ApplyOptions()
@@ -367,8 +540,9 @@ namespace AnalysisITC.GUI.MacOS.CustomViews
                         }
                     case AttributeKey.PreboundLigandConc:
                         {
-                            val /= 1000000;
-                            err /= 1000000;
+                            var unitMod = AppSettings.DefaultConcentrationUnit.GetProperties().Mod;
+                            val /= unitMod;
+                            err /= unitMod;
 
                             var value = new FloatWithError(val, err);
 
