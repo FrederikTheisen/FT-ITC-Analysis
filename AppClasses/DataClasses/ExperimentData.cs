@@ -16,6 +16,7 @@ namespace AnalysisITC
         public event EventHandler SolutionChanged;
 
         private double measuredTemperature = double.NaN;
+        private bool include = true;
 
         public ITCInstrument Instrument { get; set; } = ITCInstrument.Unknown;
         public ITCDataFormat DataSourceFormat { get; set; }
@@ -24,7 +25,7 @@ namespace AnalysisITC
         public List<DataPoint> BaseLineCorrectedDataPoints { get; set; }
         public List<InjectionData> Injections { get; set; } = new List<InjectionData>();
         public List<TandemExperimentSegment> Segments { get; private set; }
-        Dictionary<int, TandemExperimentSegment> _segmentStartLookup;
+        private Dictionary<int, TandemExperimentSegment> segmentStartLookup;
 
         public FloatWithError SyringeConcentration { get; set; }
         public FloatWithError CellConcentration { get; set; }
@@ -47,10 +48,7 @@ namespace AnalysisITC
         public int InjectionCount => Injections.Count;
         public PeakHeatDirection AverageHeatDirection { get; set; } = PeakHeatDirection.Unknown;
         public bool CanBeAnalyzed => Injections.All(inj => inj.IsIntegrated);
-        //public InjectionData.IntegrationLengthMode IntegrationLengthMode { get; set; } = InjectionData.IntegrationLengthMode.Time;
-        //public float IntegrationLengthFactor { get; set; } = 2;
-
-        bool include = true;
+        
         public bool Include
         {
             get
@@ -531,15 +529,15 @@ namespace AnalysisITC
 
         void EnsureSegmentStartLookup()
         {
-            if (_segmentStartLookup != null) return;
-            _segmentStartLookup = Segments?
+            if (segmentStartLookup != null) return;
+            segmentStartLookup = Segments?
                 .GroupBy(s => s.FirstInjectionID)
                 .ToDictionary(g => g.Key, g => g.First()) ?? new Dictionary<int, TandemExperimentSegment>();
         }
 
         public void InvalidateSegmentLookup()
         {
-            _segmentStartLookup = null;
+            segmentStartLookup = null;
         }
 
         public List<string> GetInfoString()
