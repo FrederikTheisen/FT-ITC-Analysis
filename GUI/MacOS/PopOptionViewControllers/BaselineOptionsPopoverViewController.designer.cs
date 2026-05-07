@@ -21,11 +21,20 @@ namespace AnalysisITC
 		[Outlet]
 		AppKit.NSButton ToSplineButton { get; set; }
 
+		[Action ("CopyToAllAction:")]
+		partial void CopyToAllAction (Foundation.NSObject sender);
+
+		[Action ("CopyToNonProcessed:")]
+		partial void CopyToNonProcessed (Foundation.NSObject sender);
+
 		[Action ("LockAction:")]
 		partial void LockAction (Foundation.NSObject sender);
 
 		[Action ("SplineAction:")]
 		partial void SplineAction (Foundation.NSObject sender);
+
+		[Action ("SplinePointsSliderChanged:")]
+		partial void SplinePointsSliderChanged (AppKit.NSSlider sender);
 		
 		void ReleaseDesignerOutlets ()
 		{
@@ -34,14 +43,14 @@ namespace AnalysisITC
 				LockButton = null;
 			}
 
-			if (ToSplineButton != null) {
-				ToSplineButton.Dispose ();
-				ToSplineButton = null;
-			}
-
 			if (SplinePointsSlider != null) {
 				SplinePointsSlider.Dispose ();
 				SplinePointsSlider = null;
+			}
+
+			if (ToSplineButton != null) {
+				ToSplineButton.Dispose ();
+				ToSplineButton = null;
 			}
 		}
 	}

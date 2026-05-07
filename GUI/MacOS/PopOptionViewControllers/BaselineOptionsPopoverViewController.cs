@@ -10,7 +10,6 @@ namespace AnalysisITC
 	public partial class BaselineOptionsPopoverViewController : NSViewController
 	{
 		ExperimentData Data => DataManager.Current;
-        static int DefaultSplinePoints = 2;
 
         public static event EventHandler Updated;
 
@@ -22,7 +21,9 @@ namespace AnalysisITC
         {
             base.ViewDidAppear();
 
-            SplinePointsSlider.IntValue = DefaultSplinePoints;
+            SplinePointsSlider.MinValue = SplineInterpolator.MinimumPointsPerInjection;
+            SplinePointsSlider.MaxValue = SplineInterpolator.MaximumPointsPerInjection;
+            SplinePointsSlider.IntValue = SplinePointsValue;
 
             if (Data.Processor.Interpolator != null)
             {
@@ -33,6 +34,20 @@ namespace AnalysisITC
             {
                 LockButton.Enabled = false;
                 ToSplineButton.Enabled = false;
+            }
+        }
+
+        int SplinePointsValue => ClampSplinePoints(Data?.Processor?.Interpolator is SplineInterpolator splineInterpolator ? splineInterpolator.PointsPerInjection : SplineInterpolator.DefaultPointsPerInjection);
+
+        partial void SplinePointsSliderChanged(NSSlider sender)
+        {
+            SplineInterpolator.DefaultPointsPerInjection = sender.IntValue;
+            sender.IntValue = SplineInterpolator.DefaultPointsPerInjection;
+
+            if (Data?.Processor?.Interpolator is SplineInterpolator splineInterpolator)
+            {
+                splineInterpolator.PointsPerInjection = SplineInterpolator.DefaultPointsPerInjection;
+                _ = Data.Processor.ProcessData();
             }
         }
 
@@ -47,11 +62,23 @@ namespace AnalysisITC
 
         partial void SplineAction(NSObject sender)
         {
-            DefaultSplinePoints = SplinePointsSlider.IntValue;
+            SplineInterpolator.DefaultPointsPerInjection = SplinePointsSlider.IntValue;
 
-            Data.Processor.Interpolator.ConvertToSpline((int)Math.Pow(2, SplinePointsSlider.IntValue - 1));
+            Data.Processor.Interpolator.ConvertToSpline(SplineInterpolator.DefaultPointsPerInjection);
 
             DismissViewController(this);
+        }
+
+        static int ClampSplinePoints(int value) => Math.Min(SplineInterpolator.MaximumPointsPerInjection, Math.Max(SplineInterpolator.MinimumPointsPerInjection, value));
+
+        partial void CopyToAllAction(NSObject sender)
+        {
+            DataManager.CopySelectedProcessToAll();
+        }
+
+        partial void CopyToNonProcessed(NSObject sender)
+        {
+            DataManager.CopySelectedProcessToNonProcessed();
         }
     }
 }

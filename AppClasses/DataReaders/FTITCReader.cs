@@ -15,9 +15,6 @@ namespace DataReaders
 
         public static async Task<ITCDataContainer[]> ReadPath(string path)
         {
-            AppEventHandler.PrintAndLog("Loading File " + path, 0);
-            StatusBarManager.SetStatus($"Loading project: {Path.GetFileName(path)}", 0);
-
             var watch = System.Diagnostics.Stopwatch.StartNew();
 
             Data = new List<ITCDataContainer>();
@@ -158,6 +155,7 @@ namespace DataReaders
                 {
                     case SplineHandleMode: (p.Interpolator as SplineInterpolator).HandleMode = (SplineInterpolator.SplineHandleMode)IParse(v[1]); break;
                     case SplineAlgorithm: (p.Interpolator as SplineInterpolator).Algorithm = (SplineInterpolator.SplineInterpolatorAlgorithm)IParse(v[1]); break;
+                    case SplinePointsPerInjection: (p.Interpolator as SplineInterpolator).PointsPerInjection = IParse(v[1]); break;
                     case SplineLocked: if (BParse(v[1])) p.Lock(); break;
                     case SplineFraction: (p.Interpolator as SplineInterpolator).FractionBaseline = FParse(v[1]); break;
                     case "LIST" when v[1] == SplinePointList: ReadSplineList(p.Interpolator as SplineInterpolator, reader); break;
@@ -180,7 +178,11 @@ namespace DataReaders
             while ((line = reader.ReadLine()) != EndListHeader)
             {
                 var _spdat = SplitCsv(line);
-                splinepoints.Add(new SplineInterpolator.SplinePoint(DParse(_spdat[0]), DParse(_spdat[1]), IParse(_spdat[2]), DParse(_spdat[3])));
+                var splinePoint = new SplineInterpolator.SplinePoint(DParse(_spdat[0]), DParse(_spdat[1]), IParse(_spdat[2]), DParse(_spdat[3]));
+                if (_spdat.Length > 4) splinePoint.Locked = BParse(_spdat[4]);
+                if (_spdat.Length > 5) splinePoint.UserDefined = BParse(_spdat[5]);
+
+                splinepoints.Add(splinePoint);
             }
 
             interpolator.SetSplinePoints(splinepoints) ;

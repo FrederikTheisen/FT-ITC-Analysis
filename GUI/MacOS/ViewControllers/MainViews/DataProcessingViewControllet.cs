@@ -137,9 +137,10 @@ namespace AnalysisITC
                         //ZLimitView.Hidden = true;
                         SetSelectedSegment(SplineAlgoControl, (Data.Processor.Interpolator as SplineInterpolator).Algorithm switch
                         {
-                            SplineInterpolator.SplineInterpolatorAlgorithm.Pchip => 0,
-                            SplineInterpolator.SplineInterpolatorAlgorithm.Linear => 1,
-                            SplineInterpolator.SplineInterpolatorAlgorithm.Handles => 2
+                            SplineInterpolator.SplineInterpolatorAlgorithm.Linear => 0,
+                            SplineInterpolator.SplineInterpolatorAlgorithm.Rigid => 1,
+                            SplineInterpolator.SplineInterpolatorAlgorithm.Smooth => 2,
+                            SplineInterpolator.SplineInterpolatorAlgorithm.Handles => 3
                         } );
                         SetSelectedSegment(SplineHandleModeControl, (int)(Data.Processor.Interpolator as SplineInterpolator).HandleMode);
                         //SplineFractionSliderControl.FloatValue = (Data.Processor.Interpolator as SplineInterpolator).FractionBaseline;
@@ -248,7 +249,10 @@ namespace AnalysisITC
             if (!ContextIsValid) return;
 
             // Determine baseline type
-            BaselineInterpolatorTypes interpolator = (int)sender.SelectedSegment switch { 0 => BaselineInterpolatorTypes.Spline, 1 => BaselineInterpolatorTypes.Polynomial };
+            BaselineInterpolatorTypes interpolator = (int)sender.SelectedSegment switch
+            {
+                0 => BaselineInterpolatorTypes.Spline,
+                1 => BaselineInterpolatorTypes.Polynomial };
 
             Processor.InitializeBaseline(interpolator);
 
@@ -265,9 +269,10 @@ namespace AnalysisITC
             switch (sender.SelectedSegment)
             {
                 default:
-                case 0: algorithm = SplineInterpolator.SplineInterpolatorAlgorithm.Pchip; break;
-                case 1: algorithm = SplineInterpolator.SplineInterpolatorAlgorithm.Linear; break;
-                case 2: algorithm = SplineInterpolator.SplineInterpolatorAlgorithm.Handles; break;
+                case 0: algorithm = SplineInterpolator.SplineInterpolatorAlgorithm.Linear; break;
+                case 1: algorithm = SplineInterpolator.SplineInterpolatorAlgorithm.Rigid; break;
+                case 2: algorithm = SplineInterpolator.SplineInterpolatorAlgorithm.Smooth; break;
+                case 3: algorithm = SplineInterpolator.SplineInterpolatorAlgorithm.Handles; break;
             }
 
             (Processor.Interpolator as SplineInterpolator).Algorithm = algorithm;
@@ -322,11 +327,6 @@ namespace AnalysisITC
         partial void ApplyToAllSwitchToggled(NSSwitch sender)
         {
             
-        }
-
-        partial void CopySettingsToAllClicked(NSObject sender)
-        {
-            DataManager.CopySelectedProcessToAll();
         }
 
         #endregion
@@ -567,9 +567,9 @@ namespace AnalysisITC
         partial void ScopeButtonClicked(NSObject sender) => BaselineGraphView.SetFeatureVisibility(ShowBaseline, ShowIntegrationRange, Corrected, ShowCursorInfo);
         partial void DrawFeatureControlClicked(NSSegmentedControl sender) => BaselineGraphView.SetFeatureVisibility(DrawFeatureSegControl);
 
-        partial void ConfirmProcessingButtonClicked(NSObject sender)
+        partial void CopySettingsToAllClicked(NSObject sender)
         {
-            
+            DataManager.CopySelectedProcessToActive();
         }
 
         void UpdateProcessing(bool replace = true)
@@ -584,10 +584,12 @@ namespace AnalysisITC
             if (!ContextIsValid) return;
 
             var current = DataManager.Current;
+            var verticalZoomMode = BaselineGraphView.CurrentVerticalZoomMode;
 
             BaselineGraphView.Initialize(current);
 
             BaselineGraphView.SetFeatureVisibility(ShowBaseline, ShowIntegrationRange, Corrected, ShowCursorInfo);
+            BaselineGraphView.ApplyVerticalZoomMode(verticalZoomMode);
 
             UpdateUI();
         }

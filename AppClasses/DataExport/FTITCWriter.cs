@@ -49,6 +49,7 @@ namespace AnalysisITC
         public const string SplineAlgorithm = "SAlgorithm";
         public const string SplineLocked = "SLocked";
         public const string SplineFraction = "SFraction";
+        public const string SplinePointsPerInjection = "SPointsPerInjection";
         public const string PolynomiumDegree = "PDegree";
         public const string PolynomiumLimit = "PLimit";
         public const string SplinePointList = "SPList";
@@ -435,6 +436,7 @@ namespace AnalysisITC
                         var spinterpolator = (data.Processor.Interpolator as SplineInterpolator);
                         file.Add(Variable(SplineAlgorithm, (int)spinterpolator.Algorithm));
                         file.Add(Variable(SplineHandleMode, (int)spinterpolator.HandleMode));
+                        file.Add(Variable(SplinePointsPerInjection, FormatInt(spinterpolator.PointsPerInjection)));
                         file.Add(Variable(SplineFraction, spinterpolator.FractionBaseline));
                         file.Add(Variable(SplineLocked, spinterpolator.IsLocked));
                         file.Add(ListHeader(SplinePointList));
@@ -444,7 +446,9 @@ namespace AnalysisITC
                                 FormatDouble(sp.Time),
                                 FormatDouble(sp.Power),
                                 FormatInt(sp.ID),
-                                FormatDouble(sp.Slope)));
+                                FormatDouble(sp.Slope),
+                                FormatInt(sp.Locked ? 1 : 0),
+                                FormatInt(sp.UserDefined ? 1 : 0)));
                         }
                         file.Add(EndListHeader);
                         break;

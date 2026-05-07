@@ -9,6 +9,7 @@ using Foundation;
 using AnalysisITC.AppClasses.AnalysisClasses;
 using System.Text.RegularExpressions;
 using System.Globalization;
+using System.IO;
 
 namespace DataReaders
 {
@@ -81,8 +82,9 @@ namespace DataReaders
                         var format = GetFormat(url.Path);
                         var isFtitc = format == ITCDataFormat.FTITC;
 
+                        AppEventHandler.PrintAndLog($"Loading File: {url.LastPathComponent}");
                         StatusBarManager.SetStatus(isFtitc
-                            ? $"Loading project: {url.LastPathComponent}"
+                            ? $"Loading: {Path.GetFileNameWithoutExtension(url.LastPathComponent)}"
                             : $"Reading file: {url.LastPathComponent}", 0);
                         StatusBarManager.SetSecondaryStatus("", 0);
                         await Task.Delay(1); //Necessary to update UI. Unclear why whole method has to be on UI thread.

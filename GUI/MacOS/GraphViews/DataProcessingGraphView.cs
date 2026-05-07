@@ -181,19 +181,15 @@ namespace AnalysisITC
                 baselinemax = 0;
             }
 
-            var mean = Graph.DataPoints.Where(dp => dp.Time > xmin && dp.Time < xmax).Select(dp => dp.Power).Average();
-            var ymin = Graph.DataPoints.Where(dp => dp.Time > xmin && dp.Time < xmax).Min(dp => dp.Power);
-            var ymax = Graph.DataPoints.Where(dp => dp.Time > xmin && dp.Time < xmax).Max(dp => dp.Power);
+            var datapoints = Data.Processor.Interpolator.GetInterpolatedDataPoints(xmin, xmax);
 
-            var delta = 0.0;
+            var mean = datapoints.Select(dp => dp.Power).Average();
+            var ymin = datapoints.Min(dp => dp.Power);
+            var ymax = datapoints.Max(dp => dp.Power);
 
-            var delta1 = mean - ymin;
-            var delta2 = ymax - mean;
+            var delta = Math.Min(mean - ymin, ymax - mean);
 
-            if (delta1 < delta2) delta = delta1;
-            else delta = delta2;
-
-            Graph.SetYAxisRange(baselinemin - delta * .5f, baselinemax + delta * .5f);
+            Graph.SetYAxisRange(baselinemin - delta * 3f, baselinemax + delta * 3f);
 
             CurrentVerticalZoomMode = VerticalZoomMode.Baseline;
 
@@ -217,6 +213,19 @@ namespace AnalysisITC
 
             Invalidate();
             ZoomModeChanged?.Invoke(this, EventArgs.Empty);
+        }
+
+        public void ApplyVerticalZoomMode(VerticalZoomMode zoomMode)
+        {
+            switch (zoomMode)
+            {
+                case VerticalZoomMode.Baseline:
+                    ZoomBaseline();
+                    break;
+                case VerticalZoomMode.AllData:
+                    ShowAllVertical();
+                    break;
+            }
         }
 
         public void FocusPeak()
@@ -337,8 +346,13 @@ namespace AnalysisITC
             {
                 if (feature.Type == MouseOverFeatureEvent.FeatureType.BaselineSplinePoint)
                 {
+                    var splinePoint = Data.Processor.Interpolator.SplineInterpolator.SplinePoints[feature.FeatureID];
 
                     NSMenu menu = new NSMenu("Spline Point Options");
+                    if (splinePoint.Locked)
+                        menu.AddItem(new NSMenuItem("Unlock", (s, e) => { splinePoint.Unlock(); _ = Data.Processor.ProcessData(); }));
+                    else
+                        menu.AddItem(new NSMenuItem("Lock", (s, e) => { splinePoint.Lock(); _ = Data.Processor.ProcessData(false); }));
                     menu.AddItem(new NSMenuItem("Remove", (s, e) => { Data.Processor.Interpolator.SplineInterpolator.RemoveSplinePoint(feature.FeatureID); }));
                     WillOpenMenu(menu, theEvent);
 
@@ -352,8 +366,8 @@ namespace AnalysisITC
 
                 NSMenu menu = new NSMenu("New Spline Point");
                 menu.AddItem(new NSMenuItem("New Spline Point..."));
-                menu.AddItem(new NSMenuItem("at data", (s, e) => { (Data.Processor.Interpolator as SplineInterpolator).InsertSplinePoint(time, true); Data.Processor.Lock();  }) { IndentationLevel = 1 });
-                menu.AddItem(new NSMenuItem("at baseline", (s, e) => { (Data.Processor.Interpolator as SplineInterpolator).InsertSplinePoint(time, false); Data.Processor.Lock(); }) { IndentationLevel = 1 });
+                menu.AddItem(new NSMenuItem("at data", (s, e) => { (Data.Processor.Interpolator as SplineInterpolator).InsertSplinePoint(time, true); }) { IndentationLevel = 1 });
+                menu.AddItem(new NSMenuItem("at baseline", (s, e) => { (Data.Processor.Interpolator as SplineInterpolator).InsertSplinePoint(time, false); }) { IndentationLevel = 1 });
                 NSMenu.PopUpContextMenu(menu, theEvent, this);
             }
         }
@@ -380,7 +394,7 @@ namespace AnalysisITC
                     {
                         var feature = (Data.Processor.Interpolator as SplineInterpolator).SplinePoints[SelectedFeature.FeatureID];
                         feature.Power = SelectedFeature.FeatureReferenceValue + deltaYUnits;
-                        Data.Processor.Lock();
+                        feature.Lock();
                         break;
                     }
                 case MouseOverFeatureEvent.FeatureType.BaselineSplineHandle:
@@ -396,7 +410,7 @@ namespace AnalysisITC
                         if (invert) dSlope = -dSlope;
 
                         feature.Slope = SelectedFeature.FeatureReferenceValue + dSlope;
-                        Data.Processor.Lock();
+                        feature.Lock();
                         break;
                     }
                 case MouseOverFeatureEvent.FeatureType.IntegrationRangeMarker:

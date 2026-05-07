@@ -174,7 +174,6 @@ namespace AnalysisITC
         internal List<Energy> Baseline { get; set; } = new List<Energy>();
         public bool IsLocked => Processor.IsLocked;
         
-
         internal ExperimentData Data => Processor.Data;
         public SplineInterpolator SplineInterpolator => this as SplineInterpolator;
         public PolynomialLeastSquaresInterpolator PolynomialLeastSquaresInterpolator => this as PolynomialLeastSquaresInterpolator;
@@ -194,6 +193,21 @@ namespace AnalysisITC
             return new BaselineInterpolator(processor);
         }
 
+        public List<DataPoint> GetInterpolatedDataPoints(double start, double end)
+        {
+            var datapoints = Data.DataPoints.Where(dp => dp.Time >= start && dp.Time <= end);
+
+            if (Processor.DiscardIntegratedPoints)
+            {
+                foreach (var inj in Data.Injections)
+                {
+                    datapoints = datapoints.Where(dp => dp.Time < inj.IntegrationStartTime || dp.Time > inj.IntegrationEndTime);
+                }
+            }
+
+            return datapoints.ToList();
+        }
+
         public async virtual Task Interpolate(CancellationToken token, bool replace = true)
         {
 
@@ -210,17 +224,21 @@ namespace AnalysisITC
         public void ConvertToSpline(int pointdensity = 2)
         {
             if (this is SplineInterpolator) return;
+            pointdensity = Math.Max(1, pointdensity);
 
             int num_of_points = (Data.InjectionCount + 1) * pointdensity;
 
-            int skip = Baseline.Count / (num_of_points + 1);
+            int skip = Math.Max(1, Baseline.Count / (num_of_points + 1));
 
-            var interpolator = new SplineInterpolator(Processor);
+            var interpolator = new SplineInterpolator(Processor)
+            {
+                PointsPerInjection = pointdensity
+            };
             
             //interpolator.IsLocked = true;
 
             int k = 0;
-            for (int i = skip; i < Baseline.Count; i += skip)
+            for (int i = skip; i < Baseline.Count - 1; i += skip)
             {
                 var time = Data.DataPoints[i].Time;
                 var val = Baseline[i].Value;
@@ -246,9 +264,26 @@ namespace AnalysisITC
 
     public class SplineInterpolator : BaselineInterpolator
     {
-        public int PointsPerInjection { get; set; } = 1;
+        public const int MinimumPointsPerInjection = 1;
+        public const int MaximumPointsPerInjection = 8;
+        static int defaultPointsPerInjection = 2;
+
+        int pointsPerInjection = DefaultPointsPerInjection;
+
+        public static int DefaultPointsPerInjection
+        {
+            get => defaultPointsPerInjection;
+            set => defaultPointsPerInjection = ClampPointsPerInjection(value);
+        }
+
+        public int PointsPerInjection
+        {
+            get => pointsPerInjection;
+            set => pointsPerInjection = ClampPointsPerInjection(value);
+        }
+
         public float FractionBaseline { get; set; } = 0.9f;
-        public SplineInterpolatorAlgorithm Algorithm { get; set; } = SplineInterpolatorAlgorithm.Pchip;
+        public SplineInterpolatorAlgorithm Algorithm { get; set; } = SplineInterpolatorAlgorithm.Smooth;
         public SplineHandleMode HandleMode { get; set; } = SplineHandleMode.Mean;
 
         public List<SplinePoint> SplinePoints { get; private set; } = new List<SplinePoint>();
@@ -259,6 +294,8 @@ namespace AnalysisITC
         {
             
         }
+
+        static int ClampPointsPerInjection(int value) => Math.Min(MaximumPointsPerInjection, Math.Max(MinimumPointsPerInjection, value));
 
         public override BaselineInterpolator Copy(DataProcessor processor)
         {
@@ -276,7 +313,7 @@ namespace AnalysisITC
         public List<SplinePoint> GetInitialPoints(int pointperinjection = 1, double fraction = 0.8f)
         {
             var points = new List<SplinePoint>();
-            var handles = 2 + pointperinjection * Data.InjectionCount;
+            pointperinjection = Math.Max(1, pointperinjection);
             var maxInjVol = Data.Injections.Max(inj => inj.Volume);
 
             //First points
@@ -286,22 +323,23 @@ namespace AnalysisITC
 
             foreach (var inj in Data.Injections)
             {
-                var _frac = 1 - (1 - fraction) / Math.Sqrt(maxInjVol / inj.Volume);
+                var _frac = inj.Volume > 0 && maxInjVol > 0 ? 1 - (1 - fraction) / Math.Sqrt(maxInjVol / inj.Volume) : fraction;
 
                 var start = inj.Time + inj.Delay * (1 - _frac);
-                var length = (inj.Delay * _frac - 5) / pointperinjection;
+                var end = inj.Time + inj.Delay - 5;
 
                 if (Processor.DiscardIntegratedPoints)
                 {
                     if (start < inj.IntegrationEndTime) start = inj.IntegrationEndTime;
                 }
 
-                var end = inj.Time + inj.Delay;
+                if (end <= start) start = Math.Max(inj.Time, end - Data.TimeStep);
+                var length = (end - start) / pointperinjection;
 
                 for (int j = 0; j < pointperinjection; j++)
                 {
-                    var s = start; // + j * length;
-                    var e = end; // s + length;
+                    var s = start + j * length;
+                    var e = s + length;
                     var time = (s + e) / 2;
 
                     double slope = SplineSlope(time, s, e);
@@ -313,11 +351,11 @@ namespace AnalysisITC
             return points;
         }
 
-        double SplineSlope(double time, double s = 0, double e = 1) => SplineFunction != null ? SplineFunction.Slope(time) : DataPoint.Slope(Data.DataPoints.Where(dp => dp.Time > s && dp.Time<e).ToList());
+        double SplineSlope(double time, double s = 0, double e = 1) => DataPoint.Slope(GetInterpolatedDataPoints(s, e));
 
         double GetDataRangeMean(double start, double end)
         {
-            List<DataPoint> points = Data.DataPoints.Where(dp => dp.Time > start && dp.Time < end).ToList();
+            List<DataPoint> points = GetInterpolatedDataPoints(start, end);
 
             if (points.Count < 1) points.Add(Data.DataPoints.Last(dp => dp.Time < end));
 
@@ -337,7 +375,7 @@ namespace AnalysisITC
 
             List<SplinePoint> splinePoints;
 
-            if (SplinePoints.Count == 0 || (replace && !IsLocked)) splinePoints = GetInitialPoints(PointsPerInjection, FractionBaseline);
+            if (SplinePoints.Count == 0 || (replace && !IsLocked)) splinePoints = MergeLockedSplinePoints(GetInitialPoints(PointsPerInjection, FractionBaseline));
             else splinePoints = SplinePoints;
 
             var x = splinePoints.Select(sp => sp.Time);
@@ -348,10 +386,10 @@ namespace AnalysisITC
             switch (Algorithm)
             {
                 default:
-                case SplineInterpolatorAlgorithm.Akima: spline = new Spline(CubicSpline.InterpolateAkima(x, y)); break;
-                case SplineInterpolatorAlgorithm.Handles: spline = new Spline(CubicSpline.InterpolateHermite(x, y, splinePoints.Select(s => s.Slope))); break;
-                case SplineInterpolatorAlgorithm.Pchip: spline = new Spline(CubicSpline.InterpolatePchip(x, y)); break;
                 case SplineInterpolatorAlgorithm.Linear: spline = new Spline(LinearSpline.Interpolate(x, y)); break;
+                case SplineInterpolatorAlgorithm.Rigid: spline = new Spline(CubicSpline.InterpolatePchip(x, y)); break;
+                case SplineInterpolatorAlgorithm.Smooth: spline = new Spline(CubicSpline.InterpolateHermite(x, y, SmoothSplineSlopes(splinePoints))); break;
+                case SplineInterpolatorAlgorithm.Handles: spline = new Spline(CubicSpline.InterpolateHermite(x, y, splinePoints.Select(s => s.Slope))); break;
             }
 
             var bsl = new List<Energy>();
@@ -370,7 +408,7 @@ namespace AnalysisITC
         {
             SplinePoints.RemoveAt(id);
 
-            SplinePoints.ForEach(sp => sp.ID = SplinePoints.IndexOf(sp));
+            SortAndRenumberSplinePoints();
 
             _ = Processor.ProcessData(false);
         }
@@ -383,28 +421,100 @@ namespace AnalysisITC
             if (usedatavalue) pointValue = cursorpos > Data.DataPoints.Last().Time ? Data.DataPoints.Last().Power : Data.DataPoints.First(dp => dp.Time > cursorpos).Power;
             else  pointValue = SplineFunction.Evaluate((float)cursorpos);
 
-            var newsp = new SplinePoint(cursorpos, pointValue, 0);
+            var newsp = new SplinePoint(cursorpos, pointValue, 0) { Locked = true, UserDefined = true };
 
             // Insert and order by time
             SplinePoints.Add(newsp);
-            SplinePoints = SplinePoints.OrderBy(sp => sp.Time).ToList();
-
-            // Re-number points
-            SplinePoints.ForEach(sp => sp.ID = SplinePoints.IndexOf(sp));
+            SortAndRenumberSplinePoints();
 
             _ = Processor.ProcessData(false);
         }
 
+        List<SplinePoint> MergeLockedSplinePoints(List<SplinePoint> generatedPoints)
+        {
+            foreach (var lockedPoint in SplinePoints.Where(sp => sp.Locked))
+            {
+                if (!lockedPoint.UserDefined && lockedPoint.ID >= 0 && lockedPoint.ID < generatedPoints.Count)
+                    generatedPoints[lockedPoint.ID] = lockedPoint;
+                else
+                    generatedPoints.Add(lockedPoint);
+            }
+
+            return SortAndRenumberSplinePoints(generatedPoints);
+        }
+
+        double[] SmoothSplineSlopes(List<SplinePoint> points)
+        {
+            if (points.Count < 2) return points.Select(_ => 0.0).ToArray();
+
+            var slopes = new double[points.Count - 1];
+            for (int i = 0; i < slopes.Length; i++)
+            {
+                var dx = points[i + 1].Time - points[i].Time;
+                slopes[i] = Math.Abs(dx) > double.Epsilon ? (points[i + 1].Power - points[i].Power) / dx : 0;
+            }
+
+            var tangents = new double[points.Count];
+            tangents[0] = SmoothEndpointSlope(slopes, 0);
+            tangents[points.Count - 1] = SmoothEndpointSlope(slopes, slopes.Length - 1);
+
+            for (int i = 1; i < points.Count - 1; i++)
+            {
+                var prevSlope = slopes[i - 1];
+                var nextSlope = slopes[i];
+
+                if (prevSlope * nextSlope <= 0)
+                {
+                    tangents[i] = 0;
+                    continue;
+                }
+
+                var prevDx = points[i].Time - points[i - 1].Time;
+                var nextDx = points[i + 1].Time - points[i].Time;
+                var totalDx = prevDx + nextDx;
+                var weightedAverage = Math.Abs(totalDx) > double.Epsilon ? (nextDx * prevSlope + prevDx * nextSlope) / totalDx : 0;
+                var limit = 3 * Math.Min(Math.Abs(prevSlope), Math.Abs(nextSlope));
+
+                tangents[i] = Math.Sign(weightedAverage) * Math.Min(Math.Abs(weightedAverage), limit);
+            }
+
+            return tangents;
+        }
+
+        double SmoothEndpointSlope(double[] slopes, int index)
+        {
+            if (slopes.Length == 1) return slopes[index];
+            var slope = slopes[index];
+            var neighbor = index == 0 ? slopes[1] : slopes[index - 1];
+
+            if (slope * neighbor <= 0) return 0;
+
+            return Math.Sign(slope) * Math.Min(Math.Abs(slope), 3 * Math.Abs(neighbor));
+        }
+
         public void SetSplinePoints(List<SplinePoint> points)
         {
-            SplinePoints = points;
+            SplinePoints = SortAndRenumberSplinePoints(points);
+        }
+
+        List<SplinePoint> SortAndRenumberSplinePoints(List<SplinePoint> points)
+        {
+            var sorted = points.OrderBy(sp => sp.Time).ToList();
+            sorted.ForEach(sp => sp.ID = sorted.IndexOf(sp));
+
+            return sorted;
+        }
+
+        void SortAndRenumberSplinePoints()
+        {
+            SplinePoints = SortAndRenumberSplinePoints(SplinePoints);
         }
 
         public enum SplineInterpolatorAlgorithm
         {
-            Akima,
+            Smooth,
             Handles,
-            Pchip,
+            Rigid,
             Linear
         }
 
@@ -456,6 +566,8 @@ namespace AnalysisITC
             public double Time;
             public double Power;
             public double Slope;
+            public bool Locked;
+            public bool UserDefined;
 
             public SplinePoint(double time, double power, int id, double slope = 0)
             {
@@ -464,6 +576,9 @@ namespace AnalysisITC
                 ID = id;
                 Slope = slope;
             }
+
+            public void Lock() => Locked = true;
+            public void Unlock() => Locked = false;
         }
     }
 
