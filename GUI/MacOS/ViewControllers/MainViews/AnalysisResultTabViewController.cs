@@ -524,7 +524,7 @@ namespace AnalysisITC
         async void EvaluateParameters()
         {
             StatusBarManager.StartInderminateProgress();
-            StatusBarManager.SetStatus("Evaluating...", 0);
+            StatusBarManager.SetSecondaryStatus("Evaluating...", 0);
 
             try
             {
