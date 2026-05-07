@@ -30,10 +30,8 @@ namespace AnalysisITC.AppClasses.AnalysisClasses
 
         public static bool IsModelAvailable(AnalysisModel model, bool isGlobal)
         {
-            if (DataManager.Current == null) return false;
-
             return isGlobal
-                ? DataManager.IncludedData.All(d => ModelAvailableForExperiment(model, d))
+                ? DataManager.IncludedData.Any() && DataManager.IncludedData.All(d => ModelAvailableForExperiment(model, d))
                 : ModelAvailableForExperiment(model, DataManager.Current);
         }
 

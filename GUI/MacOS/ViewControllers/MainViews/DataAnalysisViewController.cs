@@ -25,6 +25,7 @@ namespace AnalysisITC
         bool SameAxes => AxesScopeButton.State == NSCellStateValue.On;
         bool ShowResidualGraph => ShowResidualGraphButton.State == NSCellStateValue.On;
         bool ScaleToValid => ScaleToValidButton.State == NSCellStateValue.On;
+        bool HasActiveExperiments => DataManager.Data.Count(d => d.Include) > 0;
 
         AnalysisModel ModelFromSegmentedControl => (int)ModelTypeControl.SelectedSegment switch
         {
@@ -208,6 +209,9 @@ namespace AnalysisITC
 
         void RunFit()
         {
+            if (!HasActiveExperiments)
+                return;
+
             if (!AnalysisBuilder.IsModelAvailable(ModelFromSegmentedControl, IsGlobalMode))
             {
                 AppEventHandler.DisplayHandledException(new HandledException(
@@ -286,9 +290,7 @@ namespace AnalysisITC
 
         void RefreshGlobalModeControls()
         {
-            bool enableGlobal = DataManager.Data.Count(d => d.Include) > 1;
-            AnalysisModeControl.SetEnabled(enableGlobal, 1);
-            if (!enableGlobal) AnalysisModeControl.SelectSegment(0);
+            AnalysisModeControl.SetEnabled(true, 1);
             RefreshModelAvailability();
         }
 
@@ -299,12 +301,20 @@ namespace AnalysisITC
 
             for (int i = 0; i < models.Length; i++)
                 ModelTypeControl.SetEnabled(AnalysisBuilder.IsModelAvailable(models[i], isGlobal), i);
+
+            ToggleFitButtons(true);
         }
 
         void ToggleFitButtons(bool enable)
         {
-            FitSimplexButton.Enabled = enable;
-            FitLMButton.Enabled = enable;
+            bool canFit = enable && CanRunFit();
+            FitSimplexButton.Enabled = canFit;
+            FitLMButton.Enabled = canFit;
+        }
+
+        bool CanRunFit()
+        {
+            return HasActiveExperiments && AnalysisBuilder.IsModelAvailable(ModelFromSegmentedControl, IsGlobalMode);
         }
 
         // ── Cleanup ────────────────────────────────────────────────────────
