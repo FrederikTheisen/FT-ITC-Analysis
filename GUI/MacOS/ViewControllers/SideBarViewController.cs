@@ -228,8 +228,14 @@ namespace AnalysisITC
                 TableView.DataSource = DataManager.Source;
             }
 
-            if (_tableDelegate == null)
+            if (_tableDelegate == null || !ReferenceEquals(_tableDelegate.Source, DataManager.Source))
             {
+                if (_tableDelegate != null)
+                {
+                    _tableDelegate.ExperimentDataViewClicked -= OnDataViewClicked;
+                    _tableDelegate.RemoveRow -= OnRowRemoveEvent;
+                }
+
                 _tableDelegate = new ExperimentDataDelegate(DataManager.Source);
                 _tableDelegate.ExperimentDataViewClicked += OnDataViewClicked;
                 _tableDelegate.RemoveRow += OnRowRemoveEvent;

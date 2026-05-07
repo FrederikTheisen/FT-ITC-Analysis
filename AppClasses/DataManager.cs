@@ -84,6 +84,7 @@ namespace AnalysisITC
         public static void Init()
         {
             Source = new AnalysisITCDataSource();
+            SelectedContentIndex = -1;
 
             DataDidChange?.Invoke(null, null);
         }
@@ -456,36 +457,73 @@ namespace AnalysisITC
             return copiedExperiments;
         }
 
-        public static async void CopySelectedProcessToAll()
+        public static void CopySelectedProcessToAll()
+        {
+            var current = Current;
+            var target = Data.ToList();
+
+            if (current == null) return;
+            if (current.Processor == null) return;
+            if (current.Processor.Interpolator == null) return;
+
+            StatusBarManager.SetStatus("Copying to all...", 0);
+
+            CopySelectedProcessToSelection(current, target);
+        }
+
+        public static void CopySelectedProcessToActive()
+        {
+            var current = Current;
+            var target = IncludedData.ToList();
+
+            if (current == null) return;
+            if (current.Processor == null) return;
+            if (current.Processor.Interpolator == null) return;
+
+            StatusBarManager.SetStatus("Copying to active...", 0);
+
+            CopySelectedProcessToSelection(current, target);
+        }
+
+        public static void CopySelectedProcessToNonProcessed()
+        {
+            var current = Current;
+            var target = Data.Where(d => d.Processor == null || d.Processor.Interpolator == null).ToList();
+
+            if (current == null) return;
+            if (current.Processor == null) return;
+            if (current.Processor.Interpolator == null) return;
+
+            StatusBarManager.SetStatus("Copying to non-processed...", 0);
+
+            CopySelectedProcessToSelection(current, target);
+        }
+
+        public static async void CopySelectedProcessToSelection(ExperimentData current, List<ExperimentData> target)
         {
             StopProcessCopying = false;
 
-            if (Current == null) return;
-            if (Current.Processor == null) return;
-            if (Current.Processor.Interpolator == null) return;
+            var int_delay = current.Injections.Select(inj => inj.IntegrationStartDelay).ToArray();
+            var int_length = current.Injections.Select(inj => inj.IntegrationEndOffset).ToArray();
+            var int_factor = current.Processor.IntegrationLengthFactor;
+            var int_mode = current.Processor.IntegrationLengthMode;
 
-            var int_delay = Current.Injections.Select(inj => inj.IntegrationStartDelay).ToArray();
-            var int_length = Current.Injections.Select(inj => inj.IntegrationEndOffset).ToArray();
-            var int_factor = Current.Processor.IntegrationLengthFactor;
-            var int_mode = Current.Processor.IntegrationLengthMode;
-
-            StatusBarManager.SetStatus("Processing data...", 0);
             StatusBarManager.SetProgress(0);
 
             //Prepare the baseline interpolator
-            foreach (var data in Data)
+            foreach (var data in target)
             {
-                if (data == Current) continue;
+                if (data == current) continue;
 
                 if (data.Processor.Interpolator == null || !data.Processor.IsLocked && !data.Processor.Interpolator.IsLocked)
-                    data.SetProcessor(new DataProcessor(data, Current.Processor));
+                    data.SetProcessor(new DataProcessor(data, current.Processor));
             }
 
             float i = 0;
 
-            foreach (var data in Data)
+            foreach (var data in target)
             {
-                if (data == Current || StopProcessCopying) continue;
+                if (data == current || StopProcessCopying) continue;
 
                 i++;
 
@@ -515,7 +553,6 @@ namespace AnalysisITC
             StatusBarManager.SetProgress(1);
             StatusBarManager.ClearAppStatus();
             StatusBarManager.SetStatus("Data processed", 3000);
-
         }
 
         public static void IntegrateAllValidData()
