@@ -147,7 +147,11 @@ namespace AnalysisITC
         partial void RemoveClick(NSObject obj)
         {
             int idx = ContentIndex;
-            if (idx < 0) return; // stale cell / already removed
+            if (idx < 0)
+            {
+                AppEventHandler.PrintAndLog($"ExpViewCell.RemoveClick Ignored: index < 0");
+                return; // stale cell / already removed
+            }
 
             ViewController.NotifyWillRemoveData(this, idx);
             DataManager.RemoveData2(idx);    // 1) update model first
