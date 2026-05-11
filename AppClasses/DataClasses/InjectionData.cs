@@ -430,10 +430,12 @@ namespace AnalysisITC
                 ActualCellConcentration = ActualCellConcentration,
                 ActualTitrantConcentration = ActualTitrantConcentration,
                 Ratio = Ratio,
-                Include = Include
+                Include = Include,
+                IntegrationStartDelay = IntegrationStartDelay,
+                IntegrationEndOffset = IntegrationEndOffset
             };
 
-            inj.SetPeakArea(RawPeakArea);
+            if (IsIntegrated) inj.SetPeakArea(RawPeakArea);
 
             return inj;
         }
