@@ -464,7 +464,7 @@ namespace AnalysisITC
 
         void DrawSplineHandles()
         {
-            var points = new List<CGRect>();
+            var points = new List<CGPoint>();
 
             foreach (var sp in (ExperimentData.Processor.Interpolator as SplineInterpolator).SplinePoints)
             {
@@ -472,14 +472,12 @@ namespace AnalysisITC
 
                 if (ShowBaselineCorrected) m = GetRelativePosition((float)sp.Time, 0);
 
-                var r = new CGRect(m.X - 4, m.Y - 4, 8, 8);
-
-                points.Add(r);
+                points.Add(m);
             }
 
-            foreach (var r in points)
+            foreach (var point in points)
             {
-                DrawRectangle(r, 0, NSColor.SystemRedColor.CGColor);
+                DrawCircle(point, 5, 2, DefaultStrokeColor);
             }
         }
 
