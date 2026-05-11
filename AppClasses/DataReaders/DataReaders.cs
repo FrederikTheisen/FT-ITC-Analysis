@@ -62,11 +62,27 @@ namespace DataReaders
 
         public static async void Read(IEnumerable<NSUrl> urls)
         {
+            var urlList = urls?.Where(url => url != null).ToArray() ?? Array.Empty<NSUrl>();
+            var containsProjectFile = urlList.Any(url => GetFormat(url.Path) == ITCDataFormat.FTITC);
+
+            if (containsProjectFile && DataManager.SourceItems != null && DataManager.SourceItems.Count > 0)
+            {
+                switch (AppDelegate.PromptProjectLoadAction())
+                {
+                    case AppDelegate.ProjectLoadAction.Replace:
+                        if (!await AppDelegate.CloseAllDataAsync()) return;
+                        break;
+                    case AppDelegate.ProjectLoadAction.Cancel:
+                        return;
+                    case AppDelegate.ProjectLoadAction.Append:
+                        break;
+                }
+            }
+
             StatusBarManager.SetStatus("Reading data...", 0);
             StatusBarManager.StartInderminateProgress();
             IntegratedHeatReader.BeginImportQueue();
 
-            var urlList = urls?.Where(url => url != null).ToArray() ?? Array.Empty<NSUrl>();
             var allFtitc = urlList.Length > 0 && urlList.All(url => GetFormat(url.Path) == ITCDataFormat.FTITC);
             var wasEmptyDocument = DataManager.SourceItems == null || DataManager.SourceItems.Count == 0;
             var initialItemCount = DataManager.SourceItems?.Count ?? 0;

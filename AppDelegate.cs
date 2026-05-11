@@ -26,6 +26,13 @@ namespace AnalysisITC
             ClearAllData
         }
 
+        public enum ProjectLoadAction
+        {
+            Replace,
+            Append,
+            Cancel
+        }
+
         public static event EventHandler OpenFileDialog;
         public static event EventHandler StartPrintOperation;
         public static event EventHandler OpenMergeTool;
@@ -373,6 +380,28 @@ namespace AnalysisITC
                 1000 => PendingSaveAction.Save,
                 1001 => PendingSaveAction.Cancel,
                 _ => PendingSaveAction.Discard
+            };
+        }
+
+        public static ProjectLoadAction PromptProjectLoadAction()
+        {
+            var alert = new NSAlert
+            {
+                MessageText = "Load project into the current session?",
+                InformativeText = "You can replace the current data before loading this project, or append the project contents to what is already open.",
+                AlertStyle = NSAlertStyle.Warning
+            };
+
+            alert.AddButton("Replace Data");
+            alert.AddButton("Append");
+            alert.AddButton("Cancel");
+            alert.Buttons[0].HasDestructiveAction = true;
+
+            return (int)alert.RunModal() switch
+            {
+                1000 => ProjectLoadAction.Replace,
+                1001 => ProjectLoadAction.Append,
+                _ => ProjectLoadAction.Cancel
             };
         }
 
