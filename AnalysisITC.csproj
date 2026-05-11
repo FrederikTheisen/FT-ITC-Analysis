@@ -235,8 +235,6 @@
     <None Include="Info.plist" />
     <None Include="Entitlements.plist" />
     <None Include="packages.config" />
-    <None Include="GUI\MacOS\Drawing\CAGraph.cs" />
-    <None Include="GUI\MacOS\Drawing\CALayerDrawingView.cs" />
     <None Include=".editorconfig" />
     <None Include="README.md" />
     <None Include="AppClasses\DataReaders\FTITCReaderOld.cs" />
