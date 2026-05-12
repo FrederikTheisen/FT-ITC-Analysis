@@ -158,8 +158,8 @@ namespace AnalysisITC
 
         public float SymbolSize
         {
-            get => CGGraph.SymbolSize;
-            set => CGGraph.SymbolSize = value;
+            get => IntegrationGraph.InjectionSymbolSize;
+            set => IntegrationGraph.InjectionSymbolSize = value;
         }
 
         public bool ShouldDrawBaseline
