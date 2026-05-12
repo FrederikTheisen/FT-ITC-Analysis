@@ -298,6 +298,11 @@ namespace AnalysisITC
 
             DataReaders.RawDataReader.ProcessInjections(newdata);
 
+            if (data.BaseLineCorrectedDataPoints != null)
+                newdata.BaseLineCorrectedDataPoints = data.BaseLineCorrectedDataPoints.Select(dp => dp.Copy()).ToList();
+
+            newdata.SetProcessor(new DataProcessor(newdata, data.Processor));
+
             AddData(newdata);
         }
 
