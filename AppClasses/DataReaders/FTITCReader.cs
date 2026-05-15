@@ -160,8 +160,22 @@ namespace DataReaders
                     case SplinePointsPerInjection: (p.Interpolator as SplineInterpolator).PointsPerInjection = IParse(v[1]); break;
                     case SplineLocked: if (BParse(v[1])) p.Lock(); break;
                     case "LIST" when v[1] == SplinePointList: ReadSplineList(p.Interpolator as SplineInterpolator, reader); break;
-                    case PolynomiumDegree: (p.Interpolator as PolynomialLeastSquaresInterpolator).Degree = IParse(v[1]); break;
-                    case PolynomiumLimit: (p.Interpolator as PolynomialLeastSquaresInterpolator).ZLimit = DParse(v[1]); break;
+                    case PolynomiumDegree:
+                        {
+                            if (p.Interpolator is PolynomialLeastSquaresInterpolator polynomialInterpolator) polynomialInterpolator.Degree = IParse(v[1]);
+                            else if (p.Interpolator is SegmentedBaselineInterpolator segmentedInterpolator) segmentedInterpolator.Degree = IParse(v[1]);
+                            break;
+                        }
+                    case PolynomiumLimit:
+                        {
+                            if (p.Interpolator is PolynomialLeastSquaresInterpolator polynomialInterpolator) polynomialInterpolator.ZLimit = DParse(v[1]);
+                            break;
+                        }
+                    case SegmentedBaselineDegree:
+                        {
+                            if (p.Interpolator is SegmentedBaselineInterpolator segmentedInterpolator) segmentedInterpolator.Degree = IParse(v[1]);
+                            break;
+                        }
                 }
             }
 

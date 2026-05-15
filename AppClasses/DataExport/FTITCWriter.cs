@@ -53,6 +53,7 @@ namespace AnalysisITC
         public const string SplinePointsPerInjection = "SPointsPerInjection";
         public const string PolynomiumDegree = "PDegree";
         public const string PolynomiumLimit = "PLimit";
+        public const string SegmentedBaselineDegree = "SegDegree";
         public const string SplinePointList = "SPList";
         public const string SolutionGUID = "SolutionGUID";
         public const string ExperimentAttributes = "ExpAttributes";
@@ -432,6 +433,9 @@ namespace AnalysisITC
                     case BaselineInterpolatorTypes.Polynomial:
                         file.Add(Variable(PolynomiumDegree, (data.Processor.Interpolator as PolynomialLeastSquaresInterpolator).Degree));
                         file.Add(Variable(PolynomiumLimit, (data.Processor.Interpolator as PolynomialLeastSquaresInterpolator).ZLimit));
+                        break;
+                    case BaselineInterpolatorTypes.Segmented:
+                        file.Add(Variable(SegmentedBaselineDegree, (data.Processor.Interpolator as SegmentedBaselineInterpolator).Degree));
                         break;
                     case BaselineInterpolatorTypes.Spline:
                         var spinterpolator = (data.Processor.Interpolator as SplineInterpolator);

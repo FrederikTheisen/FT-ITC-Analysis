@@ -35,6 +35,7 @@ namespace AnalysisITC
                         case SplineInterpolator: return BaselineInterpolatorTypes.Spline;
                         case AssymetricLeastSquaresInterpolator: return BaselineInterpolatorTypes.ASL;
                         case PolynomialLeastSquaresInterpolator: return BaselineInterpolatorTypes.Polynomial;
+                        case SegmentedBaselineInterpolator: return BaselineInterpolatorTypes.Segmented;
                         default: return BaselineInterpolatorTypes.None;
                     }
                 }
@@ -73,6 +74,7 @@ namespace AnalysisITC
                 case BaselineInterpolatorTypes.None: break;
                 case BaselineInterpolatorTypes.Spline: Interpolator = new SplineInterpolator(this); break;
                 case BaselineInterpolatorTypes.Polynomial: Interpolator = new PolynomialLeastSquaresInterpolator(this); break;
+                case BaselineInterpolatorTypes.Segmented: Interpolator = new SegmentedBaselineInterpolator(this); break;
                 case BaselineInterpolatorTypes.ASL:
                 default: Interpolator = new SplineInterpolator(this); break;
             }
@@ -179,6 +181,7 @@ namespace AnalysisITC
         internal ExperimentData Data => Processor.Data;
         public SplineInterpolator SplineInterpolator => this as SplineInterpolator;
         public PolynomialLeastSquaresInterpolator PolynomialLeastSquaresInterpolator => this as PolynomialLeastSquaresInterpolator;
+        public SegmentedBaselineInterpolator SegmentedBaselineInterpolator => this as SegmentedBaselineInterpolator;
 
         public bool Finished => Baseline.Count > 0;
 
@@ -271,6 +274,238 @@ namespace AnalysisITC
         Spline = 0,
         ASL = 1,
         Polynomial = 2,
+        Segmented = 3,
+    }
+
+    public class SegmentedBaselineInterpolator : BaselineInterpolator
+    {
+        public const int MinimumDegree = 1;
+        public const int MaximumDegree = 2;
+
+        int degree = MinimumDegree;
+
+        public int Degree
+        {
+            get => degree;
+            set => degree = ClampDegree(value);
+        }
+
+        public List<BaselineSegment> Segments { get; private set; } = new List<BaselineSegment>();
+
+        public SegmentedBaselineInterpolator(DataProcessor processor) : base(processor)
+        {
+        }
+
+        public static int ClampDegree(int value) => Math.Min(MaximumDegree, Math.Max(MinimumDegree, value));
+
+        public override BaselineInterpolator Copy(DataProcessor processor)
+        {
+            var interpolator = new SegmentedBaselineInterpolator(processor)
+            {
+                Degree = this.Degree,
+            };
+
+            interpolator.Segments = Segments.Select(segment => segment.Copy()).ToList();
+            interpolator.CopyBaselineFrom(this);
+
+            return interpolator;
+        }
+
+        public override async Task Interpolate(CancellationToken token, bool replace = true)
+        {
+            await base.Interpolate(token, replace);
+
+            Segments = CreateSegments(token);
+            Baseline = Data.DataPoints.Select(dp => new Energy(EvaluateBaseline(dp.Time))).ToList();
+        }
+
+        List<BaselineSegment> CreateSegments(CancellationToken token)
+        {
+            var segments = new List<BaselineSegment>();
+
+            if (Data.DataPoints.Count == 0) return segments;
+
+            var firstTime = Data.DataPoints.First().Time;
+            var lastTime = Data.DataPoints.Last().Time;
+
+            if (Data.Injections.Count == 0)
+            {
+                segments.Add(FitSegment(BaselineSegmentKind.InitialDelay, -1, firstTime, lastTime));
+                return segments;
+            }
+
+            var firstInjection = Data.Injections.First();
+            segments.Add(FitSegment(
+                BaselineSegmentKind.InitialDelay,
+                -1,
+                firstTime,
+                Math.Min(lastTime, firstInjection.IntegrationStartTime)));
+
+            token.ThrowIfCancellationRequested();
+
+            for (int i = 0; i < Data.Injections.Count; i++)
+            {
+                var injection = Data.Injections[i];
+                var nextInjection = i < Data.Injections.Count - 1 ? Data.Injections[i + 1] : null;
+                var start = Math.Max(firstTime, injection.IntegrationEndTime);
+                var end = nextInjection != null ? nextInjection.IntegrationStartTime : lastTime;
+
+                if (end <= start)
+                {
+                    var scopeEnd = injection.Time + injection.Delay;
+                    end = scopeEnd > start ? scopeEnd : start;
+                }
+
+                segments.Add(FitSegment(
+                    BaselineSegmentKind.InjectionScope,
+                    injection.ID,
+                    Math.Min(start, lastTime),
+                    Math.Min(Math.Max(end, start), lastTime)));
+
+                token.ThrowIfCancellationRequested();
+            }
+
+            return segments;
+        }
+
+        BaselineSegment FitSegment(BaselineSegmentKind kind, int injectionID, double start, double end)
+        {
+            if (end < start) (start, end) = (end, start);
+
+            var points = GetSegmentDataPoints(start, end);
+            var center = 0.5 * (start + end);
+
+            if (points.Count == 0)
+                return new BaselineSegment(kind, injectionID, start, end, center, new[] { 0.0 });
+
+            var fitDegree = Math.Min(Degree, points.Count - 1);
+            if (fitDegree < MinimumDegree)
+                return new BaselineSegment(kind, injectionID, start, end, center, new[] { points.Average(dp => (double)dp.Power) });
+
+            var x = points.Select(dp => (double)dp.Time - center).ToArray();
+            var y = points.Select(dp => (double)dp.Power).ToArray();
+            var coefficients = MathNet.Numerics.Fit.Polynomial(x, y, fitDegree);
+
+            return new BaselineSegment(kind, injectionID, start, end, center, coefficients);
+        }
+
+        List<DataPoint> GetSegmentDataPoints(double start, double end)
+        {
+            var points = GetInterpolatedDataPoints(start, end);
+
+            if (points.Count == 0)
+                points = Data.DataPoints.Where(dp => dp.Time >= start && dp.Time <= end).ToList();
+
+            if (points.Count == 0)
+            {
+                var center = 0.5 * (start + end);
+                points = Data.DataPoints
+                    .OrderBy(dp => Math.Abs(dp.Time - center))
+                    .Take(1)
+                    .ToList();
+            }
+
+            return points.OrderBy(dp => dp.Time).ToList();
+        }
+
+        double EvaluateBaseline(double time)
+        {
+            if (Segments.Count == 0) return 0;
+
+            for (int i = 0; i < Data.Injections.Count; i++)
+            {
+                var injection = Data.Injections[i];
+                if (time < injection.IntegrationStartTime || time > injection.IntegrationEndTime) continue;
+
+                var left = SegmentBeforeInjection(i);
+                var right = SegmentForInjection(injection.ID);
+
+                return BlendSegments(left, right, time, injection.IntegrationStartTime, injection.IntegrationEndTime);
+            }
+
+            var containingSegment = Segments.FirstOrDefault(segment => segment.Contains(time));
+            if (containingSegment != null) return containingSegment.Evaluate(time);
+
+            var nearestPrevious = Segments.LastOrDefault(segment => segment.StartTime <= time);
+            if (nearestPrevious != null) return nearestPrevious.Evaluate(time);
+
+            return Segments.First().Evaluate(time);
+        }
+
+        BaselineSegment SegmentBeforeInjection(int injectionIndex)
+        {
+            if (injectionIndex <= 0)
+                return Segments.FirstOrDefault(segment => segment.Kind == BaselineSegmentKind.InitialDelay) ?? Segments.First();
+
+            return SegmentForInjection(Data.Injections[injectionIndex - 1].ID);
+        }
+
+        BaselineSegment SegmentForInjection(int injectionID)
+        {
+            return Segments.FirstOrDefault(segment => segment.Kind == BaselineSegmentKind.InjectionScope && segment.InjectionID == injectionID)
+                ?? Segments.Last();
+        }
+
+        static double BlendSegments(BaselineSegment left, BaselineSegment right, double time, double start, double end)
+        {
+            if (left == null && right == null) return 0;
+            if (left == null) return right.Evaluate(time);
+            if (right == null) return left.Evaluate(time);
+            if (end <= start) return right.Evaluate(time);
+
+            var weight = Math.Min(1, Math.Max(0, (time - start) / (end - start)));
+
+            return (1 - weight) * left.Evaluate(time) + weight * right.Evaluate(time);
+        }
+
+        public enum BaselineSegmentKind
+        {
+            InitialDelay,
+            InjectionScope,
+        }
+
+        public class BaselineSegment
+        {
+            public BaselineSegmentKind Kind { get; }
+            public int InjectionID { get; }
+            public double StartTime { get; }
+            public double EndTime { get; }
+            public double CenterTime { get; }
+            public double[] Coefficients { get; }
+            public int Degree => Math.Max(0, Coefficients.Length - 1);
+
+            public BaselineSegment(BaselineSegmentKind kind, int injectionID, double startTime, double endTime, double centerTime, double[] coefficients)
+            {
+                Kind = kind;
+                InjectionID = injectionID;
+                StartTime = startTime;
+                EndTime = endTime;
+                CenterTime = centerTime;
+                Coefficients = coefficients ?? new[] { 0.0 };
+            }
+
+            public bool Contains(double time) => time >= StartTime && time <= EndTime;
+
+            public double Evaluate(double time)
+            {
+                var x = time - CenterTime;
+                var value = 0.0;
+                var power = 1.0;
+
+                foreach (var coefficient in Coefficients)
+                {
+                    value += coefficient * power;
+                    power *= x;
+                }
+
+                return value;
+            }
+
+            public BaselineSegment Copy()
+            {
+                return new BaselineSegment(Kind, InjectionID, StartTime, EndTime, CenterTime, Coefficients.ToArray());
+            }
+        }
     }
 
     public class SplineInterpolator : BaselineInterpolator
@@ -281,6 +516,7 @@ namespace AnalysisITC
         const double DefaultSplinePointWeight = 200.0;
         const double LockedSplinePointWeight = 1000.0;
         static int defaultPointsPerInjection = 2;
+        static SplinePointDensity defaultPointDensity = SplinePointDensity.Balanced;
 
         SplineInterpolatorAlgorithm algorithm = SplineInterpolatorAlgorithm.Smooth;
         int pointsPerInjection = DefaultPointsPerInjection;
@@ -290,6 +526,17 @@ namespace AnalysisITC
         public static double AdditionalSplinePointSpacingFraction { get; set; } = 0.75;
         public static int MaximumAdditionalSplinePointsPerInjection { get; set; } = 1;
         public static double LockedSplinePointPlacementMarginFraction { get; set; } = 1.0 / 3.0;
+        public static SplineHandleMode DefaultHandleMode { get; set; } = SplineHandleMode.Mean;
+
+        public static SplinePointDensity DefaultPointDensity
+        {
+            get => defaultPointDensity;
+            set
+            {
+                defaultPointDensity = value;
+                DefaultPointsPerInjection = PointsPerInjectionForDensity(value);
+            }
+        }
 
         public static int DefaultPointsPerInjection
         {
@@ -327,7 +574,9 @@ namespace AnalysisITC
 
         public SplineInterpolator(DataProcessor processor) : base(processor)
         {
-            ApplyPointDensity();
+            PointDensity = DefaultPointDensity;
+            PointsPerInjection = DefaultPointsPerInjection;
+            HandleMode = DefaultHandleMode;
         }
 
         static int ClampPointsPerInjection(int value) => Math.Min(MaximumPointsPerInjection, Math.Max(MinimumPointsPerInjection, value));

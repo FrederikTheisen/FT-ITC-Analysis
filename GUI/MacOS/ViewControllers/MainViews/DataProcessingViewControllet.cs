@@ -52,7 +52,6 @@ namespace AnalysisITC
             SplineDiscardIntegrationRange.State = DiscardIntegratedPoints ? NSCellStateValue.On : NSCellStateValue.Off;
 
             ConfigureProcessingOptionsMenu();
-            InterpolatorTypeControl.SetEnabled(false, 2);
         }
 
         private void BaselineGraphView_BaselineChanged(object sender, EventArgs e)
@@ -134,8 +133,6 @@ namespace AnalysisITC
             }
             else
             {
-                InterpolatorTypeControl.SetEnabled(false, 2);
-
                 switch (Processor.BaselineType)
                 {
                     case BaselineInterpolatorTypes.Spline:
@@ -159,7 +156,15 @@ namespace AnalysisITC
                         SetSelectedSegment(InterpolatorTypeControl, 1);
                         SplineAlgorithmView.Hidden = true;
                         PolynomialDegreeView.Hidden = false;
+                        ConfigurePolynomialDegreeSlider(false);
                         PolynomialDegreeSlider.IntValue = SliderPositionFromPolynomialDegree((Data.Processor.Interpolator as PolynomialLeastSquaresInterpolator).Degree);
+                        break;
+                    case BaselineInterpolatorTypes.Segmented:
+                        SetSelectedSegment(InterpolatorTypeControl, 2);
+                        SplineAlgorithmView.Hidden = true;
+                        PolynomialDegreeView.Hidden = false;
+                        ConfigurePolynomialDegreeSlider(true);
+                        PolynomialDegreeSlider.IntValue = (Data.Processor.Interpolator as SegmentedBaselineInterpolator).Degree;
                         break;
                 }
                 
@@ -266,7 +271,7 @@ namespace AnalysisITC
 
             var hasProcessor = ContextIsValid && Processor?.Interpolator != null;
             var splineInterpolator = Processor?.Interpolator as SplineInterpolator;
-            var canConvertToSmoothSpline = hasProcessor && Processor.Interpolator is PolynomialLeastSquaresInterpolator;
+            var canConvertToSmoothSpline = hasProcessor && Processor.Interpolator is PolynomialLeastSquaresInterpolator or SegmentedBaselineInterpolator;
             var canConvertToLinearSpline = hasProcessor && (splineInterpolator == null || splineInterpolator.Algorithm != SplineInterpolator.SplineInterpolatorAlgorithm.Linear);
             var canConvertToAnySpline = canConvertToSmoothSpline || canConvertToLinearSpline;
             var hasSmoothSpline = splineInterpolator?.Algorithm == SplineInterpolator.SplineInterpolatorAlgorithm.Smooth;
@@ -358,7 +363,7 @@ namespace AnalysisITC
                 return;
             }
 
-            if (algorithm == SplineInterpolator.SplineInterpolatorAlgorithm.Smooth && Processor.Interpolator is not PolynomialLeastSquaresInterpolator) return;
+            if (algorithm == SplineInterpolator.SplineInterpolatorAlgorithm.Smooth && Processor.Interpolator is not PolynomialLeastSquaresInterpolator and not SegmentedBaselineInterpolator) return;
 
             SplineInterpolator.PolynomialToSplineConversionTargetAlgorithm = algorithm;
             Processor.Interpolator.ConvertToSpline(ProductSplinePointDensity(algorithm));
@@ -449,17 +454,12 @@ namespace AnalysisITC
         partial void InterplolatorClicked(NSSegmentedControl sender)
         {
             if (!ContextIsValid) return;
-            if (sender.SelectedSegment == 2)
-            {
-                UpdateUI();
-                return;
-            }
-
             // Determine baseline type
             BaselineInterpolatorTypes interpolator = (int)sender.SelectedSegment switch
             {
                 0 => BaselineInterpolatorTypes.Spline,
                 1 => BaselineInterpolatorTypes.Polynomial,
+                2 => BaselineInterpolatorTypes.Segmented,
                 _ => Processor.BaselineType,
             };
 
@@ -502,9 +502,17 @@ namespace AnalysisITC
         partial void PolynomialDegreeChanged(NSSlider sender)
         {
             if (!ContextIsValid) return;
-            if (Processor.Interpolator is not PolynomialLeastSquaresInterpolator) return;
+            if (Processor.Interpolator is PolynomialLeastSquaresInterpolator polynomialInterpolator)
+            {
+                polynomialInterpolator.Degree = PolynomialDegreeFromSlider(sender.IntValue);
+            }
+            else if (Processor.Interpolator is SegmentedBaselineInterpolator segmentedInterpolator)
+            {
+                segmentedInterpolator.Degree = SegmentedDegreeFromSlider(sender.IntValue);
+                sender.IntValue = segmentedInterpolator.Degree;
+            }
+            else return;
 
-            (Processor.Interpolator as PolynomialLeastSquaresInterpolator).Degree = PolynomialDegreeFromSlider(sender.IntValue);
 
             UpdateSliderLabels();
 
@@ -514,8 +522,9 @@ namespace AnalysisITC
         partial void ZLimitChanged(NSSlider sender)
         {
             if (!ContextIsValid) return;
+            if (Processor.Interpolator is not PolynomialLeastSquaresInterpolator polynomialInterpolator) return;
 
-            (Processor.Interpolator as PolynomialLeastSquaresInterpolator).ZLimit = sender.FloatValue;
+            polynomialInterpolator.ZLimit = sender.FloatValue;
 
             UpdateSliderLabels();
 
@@ -564,6 +573,11 @@ namespace AnalysisITC
             };
         }
 
+        int SegmentedDegreeFromSlider(int slidervalue)
+        {
+            return SegmentedBaselineInterpolator.ClampDegree(slidervalue);
+        }
+
         int SliderPositionFromPolynomialDegree(int degree)
         {
             return degree switch
@@ -581,6 +595,23 @@ namespace AnalysisITC
                 32 => 10,
                 _ => 5,
             };
+        }
+
+        void ConfigurePolynomialDegreeSlider(bool segmented)
+        {
+            if (PolynomialDegreeSlider == null) return;
+
+            if (segmented)
+            {
+                PolynomialDegreeSlider.MinValue = SegmentedBaselineInterpolator.MinimumDegree;
+                PolynomialDegreeSlider.MaxValue = SegmentedBaselineInterpolator.MaximumDegree;
+                PolynomialDegreeSlider.TickMarksCount = SegmentedBaselineInterpolator.MaximumDegree - SegmentedBaselineInterpolator.MinimumDegree + 1;
+                return;
+            }
+
+            PolynomialDegreeSlider.MinValue = 0;
+            PolynomialDegreeSlider.MaxValue = 10;
+            PolynomialDegreeSlider.TickMarksCount = 11;
         }
 
         #endregion
