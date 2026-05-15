@@ -38,10 +38,7 @@ namespace AnalysisITC
             AppSettings.DefaultConcentrationUnit = (ConcentrationUnit)(int)ConcentrationUnitControl.SelectedSegment;
             AppSettings.MinimumTemperatureSpanForFitting = MinTempSpanSlider.DoubleValue;
             AppSettings.MinimumIonSpanForFitting = MinSaltSpanSlider.DoubleValue / 1000;
-            AppSettings.PeakFitAlgorithm = (PeakFitAlgorithm)(int)PeakFitAlgorithmControl.SelectedSegment;
             AppSettings.IncludeBufferInIonicStrengthCalc = IncludeBufferInIonicStrength.State == NSCellStateValue.On;
-            AppSettings.DiscardIntegrationRegionForBaseline = DiscardIntegrationRegionForBaseline.State == NSCellStateValue.On;
-            AppSettings.DilutionCalculationMethod = (DataReaders.DilutionMethod)(int)DilutionMathMethodControl.SelectedSegment;
             AppSettings.PerformOnlineChecksOnLaunch = PerformOnlineChecksOnLaunch.State == NSCellStateValue.On;
 
             //Color
@@ -74,11 +71,8 @@ namespace AnalysisITC
             MinTempSpanField.DoubleValue = AppSettings.MinimumTemperatureSpanForFitting;
             MinSaltSpanSlider.DoubleValue = 1000 * AppSettings.MinimumIonSpanForFitting;
             MinSaltSpanField.DoubleValue = 1000 * AppSettings.MinimumIonSpanForFitting;
-            PeakFitAlgorithmControl.SelectedSegment = (int)AppSettings.PeakFitAlgorithm;
             ParameterRoundingSettingsControl.SelectedSegment = (int)AppSettings.NumberPrecision;
             IncludeBufferInIonicStrength.State = AppSettings.IncludeBufferInIonicStrengthCalc ? NSCellStateValue.On : NSCellStateValue.Off;
-            DiscardIntegrationRegionForBaseline.State = AppSettings.DiscardIntegrationRegionForBaseline ? NSCellStateValue.On : NSCellStateValue.Off;
-            DilutionMathMethodControl.SelectSegment((int)AppSettings.DilutionCalculationMethod);
             PerformOnlineChecksOnLaunch.State = AppSettings.PerformOnlineChecksOnLaunch ? NSCellStateValue.On : NSCellStateValue.Off;
         }
 
@@ -95,9 +89,10 @@ namespace AnalysisITC
 
         partial void Apply(NSObject sender)
         {
-            ApplySettings();
             GeneralSettingsViewController.ApplySettings();
+            ProcessingPreferencesViewController.ApplySettings();
             FittingPreferencesViewController.ApplySettings();
+            ExportPreferencesViewController.ApplySettings();
 
             AppSettings.Save();
 

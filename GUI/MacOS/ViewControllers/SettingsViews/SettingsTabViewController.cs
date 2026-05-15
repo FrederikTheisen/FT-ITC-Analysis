@@ -8,7 +8,7 @@ namespace AnalysisITC
     public class SettingsTabViewController : NSTabViewController
     {
         const int DefaultTabIndex = 0;
-        const int LastSettingsTabIndex = 2;
+        const int LastSettingsTabIndex = 3;
 
         static int selectedTabIndex = DefaultTabIndex;
 

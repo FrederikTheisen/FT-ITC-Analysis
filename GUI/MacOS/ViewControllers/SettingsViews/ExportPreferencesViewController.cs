@@ -103,9 +103,10 @@ namespace AnalysisITC
 
         partial void Apply(NSObject sender)
         {
-            ApplySettings();
             GeneralSettingsViewController.ApplySettings();
+            ProcessingPreferencesViewController.ApplySettings();
             FittingPreferencesViewController.ApplySettings();
+            ExportPreferencesViewController.ApplySettings();
 
             AppSettings.Save();
 
