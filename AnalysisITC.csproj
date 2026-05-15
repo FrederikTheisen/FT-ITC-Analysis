@@ -212,6 +212,10 @@
     <ImageAsset Include="Assets.xcassets\design.icon2.pencil.ruler.symbolset\design.icon2.pencil.ruler.svg" />
     <ImageAsset Include="Assets.xcassets\design.icon.curve.pencil.ruler.symbolset\Contents.json" />
     <ImageAsset Include="Assets.xcassets\design.icon.curve.pencil.ruler.symbolset\design.icon.curve.pencil.ruler.svg" />
+    <ImageAsset Include="Assets.xcassets\design.icon.curve.compass.ruler.symbolset\Contents.json" />
+    <ImageAsset Include="Assets.xcassets\design.icon.curve.compass.ruler.symbolset\design.icon.curve.compass.ruler.svg" />
+    <ImageAsset Include="Assets.xcassets\arrow.up.folder.symbolset\Contents.json" />
+    <ImageAsset Include="Assets.xcassets\arrow.up.folder.symbolset\arrow.up.folder.svg" />
   </ItemGroup>
   <ItemGroup>
     <Folder Include="Resources\" />
@@ -417,6 +421,10 @@
       <DependentUpon>GeneralSettingsViewController.cs</DependentUpon>
     </Compile>
     <Compile Include="GUI\MacOS\ViewControllers\SettingsViews\SettingsTabViewController.cs" />
+    <Compile Include="GUI\MacOS\ViewControllers\SettingsViews\ProcessingPreferencesViewController.cs" />
+    <Compile Include="GUI\MacOS\ViewControllers\SettingsViews\ProcessingPreferencesViewController.designer.cs">
+      <DependentUpon>ProcessingPreferencesViewController.cs</DependentUpon>
+    </Compile>
     <Compile Include="GUI\MacOS\ViewControllers\SettingsViews\ExportPreferencesViewController.cs" />
     <Compile Include="GUI\MacOS\ViewControllers\SettingsViews\ExportPreferencesViewController.designer.cs">
       <DependentUpon>ExportPreferencesViewController.cs</DependentUpon>
