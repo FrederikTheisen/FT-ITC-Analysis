@@ -204,6 +204,14 @@
     <ImageAsset Include="Assets.xcassets\line.chevron.left.line.chevron.right.wide.symbolset\line.chevron.left.line.chevron.right.wide.svg" />
     <ImageAsset Include="Assets.xcassets\line.chevron.up.line.chevron.down.symbolset\Contents.json" />
     <ImageAsset Include="Assets.xcassets\line.chevron.up.line.chevron.down.symbolset\line.chevron.up.line.chevron.down.svg" />
+    <ImageAsset Include="Assets.xcassets\design.icon.pencil.ruler.symbolset\design.icon.pencil.ruler.svg" />
+    <ImageAsset Include="Assets.xcassets\design.icon.pencil.ruler.symbolset\Contents.json" />
+    <ImageAsset Include="Assets.xcassets\design.icon.pencil.ruler.test.symbolset\design.icon.pencil.ruler.test.svg" />
+    <ImageAsset Include="Assets.xcassets\design.icon.pencil.ruler.test.symbolset\Contents.json" />
+    <ImageAsset Include="Assets.xcassets\design.icon2.pencil.ruler.symbolset\Contents.json" />
+    <ImageAsset Include="Assets.xcassets\design.icon2.pencil.ruler.symbolset\design.icon2.pencil.ruler.svg" />
+    <ImageAsset Include="Assets.xcassets\design.icon.curve.pencil.ruler.symbolset\Contents.json" />
+    <ImageAsset Include="Assets.xcassets\design.icon.curve.pencil.ruler.symbolset\design.icon.curve.pencil.ruler.svg" />
   </ItemGroup>
   <ItemGroup>
     <Folder Include="Resources\" />
@@ -240,6 +248,7 @@
     <None Include="AppClasses\DataReaders\FTITCReaderOld.cs" />
     <None Include="VERSION" />
     <None Include=".gitignore" />
+    <None Include=".DS_Store" />
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Main.cs" />
