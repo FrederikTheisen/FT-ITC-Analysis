@@ -1,0 +1,12 @@
+{
+  "info" : {
+    "author" : "xcode",
+    "version" : 1
+  },
+  "symbols" : [
+    {
+      "filename" : "design.icon.curve.compass.ruler.svg",
+      "idiom" : "universal"
+    }
+  ]
+}
