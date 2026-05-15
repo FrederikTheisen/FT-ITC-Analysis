@@ -101,11 +101,14 @@ namespace AnalysisITC
             {
                 case "saveas": return DataManager.DataIsLoaded;
                 case "save": return DataManager.DataIsLoaded;
+                case "toolbarsave": return DataManager.DataIsLoaded;
                 case "saveselected": return DataManager.SelectedIsData;
                 case "export": return DataManager.Data.Count > 0;
+                case "toolbarexport": return DataManager.Data.Count > 0;
                 case "exportdata": return DataManager.DataIsLoaded;
                 case "exportpeaks": return DataManager.AnyDataIsBaselineProcessed;
                 case "cleardata": return DataManager.DataIsLoaded;
+                case "toolbarcleardata": return DataManager.DataIsLoaded;
                 case "duplicatedata": return DataManager.SelectedIsData;
                 case "print": return StateManager.StateCanPrint();
                 case "undo": return StateManager.StateCanUndo();
@@ -119,8 +122,11 @@ namespace AnalysisITC
                 case "sortbyionic": return DataManager.DataIsLoaded && DataManager.Data.Any(d => d.Attributes.Count > 0);
                 case "copyattributes": return DataManager.DataIsLoaded && DataManager.SelectedIsData && DataManager.Current.Attributes.Count > 0;
                 case "mergetool": return DataManager.Data.Count(data => data.HasThermogram) >= 2;
+                case "toolbarmergetool": return DataManager.Data.Count(data => data.HasThermogram) >= 2;
                 case "buffersub": return DataManager.Data.Count >= 2;
+                case "toolbarbuffersub": return DataManager.Data.Count >= 2;
                 case "resultexporter": return DataManager.Results.Count > 0;
+                case "toolbarresultexporter": return DataManager.Results.Count > 0;
             }
 
             return true;
