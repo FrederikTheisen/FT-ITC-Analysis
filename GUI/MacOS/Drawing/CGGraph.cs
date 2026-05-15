@@ -1015,7 +1015,9 @@ namespace AnalysisITC
 
     public class BaselineDataGraph : DataGraph
     {
-        public static float BaselineThickness { get; set; } = 2;
+        public static float BaselineThickness { get; set; } = 3;
+        public static NSColor BaselineNSColor => NSColor.Red;
+        public static CGColor BaselineColor => BaselineNSColor.CGColor;
 
         public bool ShowBaseline { get; set; } = true;
         public bool ShowExperimentDetails { get; set; } = false;
@@ -1060,7 +1062,7 @@ namespace AnalysisITC
             path.AddLines(points.ToArray());
 
             layer.Context.AddPath(path);
-            layer.Context.SetStrokeColor(NSColor.Red.CGColor);
+            layer.Context.SetStrokeColor(BaselineColor);
             layer.Context.SetLineWidth(BaselineThickness);
             layer.Context.StrokePath();
             layer.Context.SetLineWidth(1);
@@ -1111,6 +1113,7 @@ namespace AnalysisITC
         List<FeatureBoundingBox> SplineHandlePoints { get; set; } = new List<FeatureBoundingBox>();
         List<FeatureBoundingBox> SplinePoints { get; set; } = new List<FeatureBoundingBox>();
         List<FeatureBoundingBox> IntegrationHandleBoxes { get; set; } = new List<FeatureBoundingBox>();
+        MouseOverFeatureEvent HoverFeature { get; set; } = new MouseOverFeatureEvent();
 
         public bool DrawCursorPositionInfo { get; set; } = false;
         double CursorPosition { get; set; }
@@ -1118,10 +1121,36 @@ namespace AnalysisITC
 
         public BaselineFittingGraph(ExperimentData experiment, NSView view) : base(experiment, view)
         {
+            YAxis.HideUnwantedTicks = false;
             SetYAxisRange(DataPoints.Min(dp => dp.Power), DataPoints.Max(dp => dp.Power), buffer: true);
         }
 
         public void SetFocusedInjection(int i = -1) => focused = i;
+
+        public bool SetHoverFeature(MouseOverFeatureEvent feature)
+        {
+            if (feature == null || !feature.IsMouseOverFeature) feature = new MouseOverFeatureEvent();
+
+            var hoverSubID = HoverFeature.IsMouseOverFeature ? (HoverFeature.Box?.SubID ?? -1) : -1;
+            var featureSubID = feature.IsMouseOverFeature ? (feature.Box?.SubID ?? -1) : -1;
+            var changed = HoverFeature.Type != feature.Type
+                || HoverFeature.FeatureID != feature.FeatureID
+                || hoverSubID != featureSubID;
+
+            HoverFeature = feature;
+
+            return changed;
+        }
+
+        bool IsHoverFeature(MouseOverFeatureEvent.FeatureType type, int featureID, int subID = -1)
+        {
+            if (HoverFeature == null) return false;
+            if (!HoverFeature.IsMouseOverFeature) return false;
+            if (HoverFeature.Type != type) return false;
+            if (HoverFeature.FeatureID != featureID) return false;
+
+            return subID < 0 || (HoverFeature.Box?.SubID ?? -1) == subID;
+        }
 
         internal override void Draw(CGContext gc)
         {
@@ -1133,7 +1162,7 @@ namespace AnalysisITC
 
             if (ShowBaseline && ExperimentData.Processor.Interpolator != null && ExperimentData.Processor.Interpolator.Finished)
             {
-                if (ExperimentData.Processor.Interpolator is SplineInterpolator) DrawSplineHandles(gc);
+                if (ExperimentData.Processor.Interpolator is SplineInterpolator) DrawSplinePoints(gc);
             }
 
             if (ShowInjections) DrawIntegrationMarkers(gc);
@@ -1141,24 +1170,38 @@ namespace AnalysisITC
             if (DrawCursorPositionInfo && CursorInfo.Count > 0) DrawTextBoxConsistent(gc, CursorInfo, alignment: NSRectAlignment.BottomTrailing);
         }
 
-        void DrawSplineHandles(CGContext gc)
+        void DrawSplinePoints(CGContext gc)
         {
             var layer = CGLayer.Create(gc, Frame.Size);
             var points = new List<CGRect>();
             var handles = new List<CGPath>();
+            var handleCores = new List<CGPath>();
             var slopelines = new List<CGPath>();
+            var pointCenters = new List<CGPoint>();
+            var highlightedPointCenters = new List<CGPoint>();
+            const float highlightOutset = 2f;
+            const float handleHitSize = 10;
+            const float pointHitSize = 12;
+            const float pointOutlineSize = 10;
+            const float pointHighlightSize = pointOutlineSize + 2 * highlightOutset;
+            const float pointDotSize = 3;
+            const float handleOutlineWidth = 1;
+            const float pointOutlineWidth = 1.25f;
+            var handleOutlineSize = BaselineThickness + handleOutlineWidth * 2;
+            var handleCoreSize = handleOutlineSize;
 
             foreach (var sp in (ExperimentData.Processor.Interpolator as SplineInterpolator).SplinePoints.Where(sp => sp.Time > XAxis.Min && sp.Time < XAxis.Max))
             {
                 var m = GetRelativePosition((float)sp.Time, (float)sp.Power);
 
                 if (ShowBaselineCorrected) m = GetRelativePosition((float)sp.Time, 0);
-                if ((ExperimentData.Processor.Interpolator as SplineInterpolator).Algorithm == SplineInterpolator.SplineInterpolatorAlgorithm.Handles)
+                if ((ExperimentData.Processor.Interpolator as SplineInterpolator).ShowHandles &&
+                    (ExperimentData.Processor.Interpolator as SplineInterpolator).Algorithm == SplineInterpolator.SplineInterpolatorAlgorithm.Smooth)
                 {
                     var handle = new CGPath();
                     var slopeline = new CGPath();
 
-                    var handlelengthtime = ExperimentData.Injections.Average(inj => inj.Delay / 3);
+                    var handlelengthtime = ExperimentData.Injections.Average(inj => inj.Delay / 5);
                     var y = ShowBaselineCorrected ? 0 : sp.Power;
                     var yoffset = sp.Slope * handlelengthtime;
 
@@ -1177,47 +1220,61 @@ namespace AnalysisITC
 
                     slopeline.MoveToPoint(h1);
                     slopeline.AddLineToPoint(h2);
-                    handle.AddEllipseInRect(GetRectAtPosition(h1, 8));
-                    handle.AddEllipseInRect(GetRectAtPosition(h2, 8));
+                    handle.AddEllipseInRect(GetRectAtPosition(h1, handleOutlineSize));
+                    handle.AddEllipseInRect(GetRectAtPosition(h2, handleOutlineSize));
 
-                    SplineHandlePoints.Add(new FeatureBoundingBox(MouseOverFeatureEvent.FeatureType.BaselineSplineHandle, GetRectAtPosition(h1, 8), sp.ID, boxoffset: Frame.Location, sid: 0) { FeatureReferenceValue = sp.Slope });
-                    SplineHandlePoints.Add(new FeatureBoundingBox(MouseOverFeatureEvent.FeatureType.BaselineSplineHandle, GetRectAtPosition(h2, 8), sp.ID, boxoffset: Frame.Location, sid: 1) { FeatureReferenceValue = sp.Slope });
+                    var handleCore = new CGPath();
+                    handleCore.AddEllipseInRect(GetRectAtPosition(h1, handleCoreSize));
+                    handleCore.AddEllipseInRect(GetRectAtPosition(h2, handleCoreSize));
+
+                    SplineHandlePoints.Add(new FeatureBoundingBox(MouseOverFeatureEvent.FeatureType.BaselineSplineHandle, GetRectAtPosition(h1, handleHitSize), sp.ID, boxoffset: Frame.Location, sid: 0) { FeatureReferenceValue = sp.Slope });
+                    SplineHandlePoints.Add(new FeatureBoundingBox(MouseOverFeatureEvent.FeatureType.BaselineSplineHandle, GetRectAtPosition(h2, handleHitSize), sp.ID, boxoffset: Frame.Location, sid: 1) { FeatureReferenceValue = sp.Slope });
 
                     handles.Add(handle);
+                    handleCores.Add(handleCore);
                     slopelines.Add(slopeline);
                 }
 
-                var r = new CGRect(m.X - 4, m.Y - 4, 8, 8);
+                var r = GetRectAtPosition(m, pointHitSize);
 
                 SplinePoints.Add(new FeatureBoundingBox(MouseOverFeatureEvent.FeatureType.BaselineSplinePoint, r, sp.ID, Frame.Location) { FeatureReferenceValue = sp.Power });
 
-                points.Add(r);
+                points.Add(GetRectAtPosition(m, pointOutlineSize));
+                pointCenters.Add(m);
+                if (IsHoverFeature(MouseOverFeatureEvent.FeatureType.BaselineSplinePoint, sp.ID)) highlightedPointCenters.Add(m);
             }
 
-            //Red slope line
-            layer.Context.SetStrokeColor(NSColor.Red.CGColor);
-            layer.Context.SetLineWidth(3);
+            layer.Context.SetStrokeColor(StrokeColor);
+            layer.Context.SetLineWidth(BaselineThickness);
             foreach (var l in slopelines) layer.Context.AddPath(l);
             layer.Context.StrokePath();
 
-            //Black slope line
-            layer.Context.SetStrokeColor(NSColor.Black.CGColor);
-            layer.Context.SetLineWidth(1);
-            foreach (var l in slopelines) layer.Context.AddPath(l);
-            layer.Context.StrokePath();
-
-            //red handle
-            layer.Context.SetFillColor(NSColor.Red.CGColor);
-            foreach (var h in handles) layer.Context.AddPath(h);
+            layer.Context.SetFillColor(StrokeColor);
+            foreach (var h in handleCores) layer.Context.AddPath(h);
             layer.Context.FillPath();
 
-            //black handle outline
+            layer.Context.SetStrokeColor(StrokeColor);
+            layer.Context.SetLineWidth(handleOutlineWidth);
             foreach (var h in handles) layer.Context.AddPath(h);
             layer.Context.StrokePath();
 
+            layer.Context.SetFillColor(BaselineNSColor.ColorWithAlphaComponent(.22f).CGColor);
+            foreach (var p in highlightedPointCenters) layer.Context.FillEllipseInRect(GetRectAtPosition(p, pointHighlightSize));
+
             //Draw points
-            layer.Context.SetFillColor(NSColor.Red.CGColor);
-            foreach (var r in points) layer.Context.FillRect(r);
+            layer.Context.SetFillColor(NSColor.White.CGColor);
+            foreach (var r in points) layer.Context.FillEllipseInRect(r);
+
+            layer.Context.SetStrokeColor(BaselineColor);
+            layer.Context.SetLineWidth(pointOutlineWidth);
+            foreach (var r in points) layer.Context.StrokeEllipseInRect(r);
+
+            layer.Context.SetFillColor(BaselineColor);
+            foreach (var p in pointCenters) layer.Context.FillEllipseInRect(GetRectAtPosition(p, pointDotSize));
+
+            layer.Context.SetStrokeColor(BaselineNSColor.ColorWithAlphaComponent(.35f).CGColor);
+            layer.Context.SetLineWidth(highlightOutset);
+            foreach (var p in highlightedPointCenters) layer.Context.StrokeEllipseInRect(GetRectAtPosition(p, pointHighlightSize));
 
             gc.DrawLayer(layer, Frame.Location);
         }
@@ -1227,31 +1284,31 @@ namespace AnalysisITC
             var layer = CGLayer.Create(gc, Frame.Size);
             var thickness = 1.0f;
             var handleHitHalfWidth = 2f;
+            const float highlightOutset = 1.5f;
+            var highlightThickness = thickness + 2 * highlightOutset;
 
             layer.Context.SetLineWidth(thickness);
 
             foreach (var inj in ExperimentData.Injections)
             {
-                // Check if injection time is inside data range
-                if (inj.Time < XAxis.Min || inj.Time > XAxis.Max) continue;
+                if (inj.IntegrationEndTime < XAxis.Min || inj.IntegrationStartTime > XAxis.Max) continue;
 
-                var s = GetRelativePosition(inj.IntegrationStartTime, DataPoints.Last(dp => dp.Time < inj.IntegrationStartTime).Power);
-                var e = GetRelativePosition(inj.IntegrationEndTime, DataPoints.Last(dp => dp.Time < inj.IntegrationEndTime).Power);
+                var s = GetRelativePosition(inj.IntegrationStartTime, YAxis.Min);
+                var e = GetRelativePosition(inj.IntegrationEndTime, YAxis.Min);
 
                 var selected = focused == -1 || focused == inj.ID;
                 var color = selected ? NSColor.SystemBlue : NSColor.SystemGray;
-                var fillRect = new CGRect(Math.Min(s.X, e.X), 0, Math.Abs(e.X - s.X), Frame.Height);
+                var fillLeft = Math.Max(0, Math.Min(s.X, e.X));
+                var fillRight = Math.Min(Frame.Width, Math.Max(s.X, e.X));
+                var fillRect = new CGRect(fillLeft, 0, fillRight - fillLeft, Frame.Height);
 
                 layer.Context.SetFillColor(color.ColorWithAlphaComponent(.12f).CGColor);
                 layer.Context.FillRect(fillRect);
-
-                layer.Context.SetStrokeColor(color.ColorWithAlphaComponent(.85f).CGColor);
 
                 var integrationStartHandleBox = new CGRect(s.X - handleHitHalfWidth, 0, 2 * handleHitHalfWidth, Frame.Height);
                 var integrationStartLine = new CGPath();
                 integrationStartLine.MoveToPoint(s.X, 0);
                 integrationStartLine.AddLineToPoint(s.X, Frame.Height);
-                layer.Context.AddPath(integrationStartLine);
 
                 IntegrationHandleBoxes.Add(new FeatureBoundingBox(MouseOverFeatureEvent.FeatureType.IntegrationRangeMarker, integrationStartHandleBox, inj.ID, Frame.Location, 0));
 
@@ -1259,10 +1316,28 @@ namespace AnalysisITC
                 var integrationEndLine = new CGPath();
                 integrationEndLine.MoveToPoint(e.X, Frame.Height);
                 integrationEndLine.AddLineToPoint(e.X, 0);
-                layer.Context.AddPath(integrationEndLine);
 
                 IntegrationHandleBoxes.Add(new FeatureBoundingBox(MouseOverFeatureEvent.FeatureType.IntegrationRangeMarker, integrationEndHandleBox, inj.ID, Frame.Location, 1));
 
+                layer.Context.SetStrokeColor(color.ColorWithAlphaComponent(.25f).CGColor);
+                layer.Context.SetLineWidth(highlightThickness);
+
+                if (IsHoverFeature(MouseOverFeatureEvent.FeatureType.IntegrationRangeMarker, inj.ID, 0))
+                {
+                    layer.Context.AddPath(integrationStartLine);
+                    layer.Context.StrokePath();
+                }
+
+                if (IsHoverFeature(MouseOverFeatureEvent.FeatureType.IntegrationRangeMarker, inj.ID, 1))
+                {
+                    layer.Context.AddPath(integrationEndLine);
+                    layer.Context.StrokePath();
+                }
+
+                layer.Context.SetStrokeColor(color.ColorWithAlphaComponent(.85f).CGColor);
+                layer.Context.SetLineWidth(thickness);
+                layer.Context.AddPath(integrationStartLine);
+                layer.Context.AddPath(integrationEndLine);
                 layer.Context.StrokePath();
             }
 
@@ -1332,6 +1407,8 @@ namespace AnalysisITC
         protected int mOverFeature = -1;
 
         public static CGSize ErrorBarEndWidth => new CGSize(CGGraph.SymbolSize / 2, 0);
+        public float InjectionSymbolSize { get; set; } = CGGraph.SymbolSize;
+        protected CGSize InjectionErrorBarEndWidth => new CGSize(InjectionSymbolSize / 2, 0);
         public LineSmoothness FitLineSmoothnessSetting { get; set; } = LineSmoothness.Spline;
 
         public ThermogramGraph(ExperimentData experiment, NSView view) : base(experiment, view)
@@ -1653,19 +1730,19 @@ namespace AnalysisITC
                     var etop = GetRelativePosition(inj.Ratio, enthalpy - inj.SD);
                     var ebottom = GetRelativePosition(inj.Ratio, enthalpy + inj.SD);
 
-                    if (Math.Abs(etop.Y - p.Y) > CGGraph.SymbolSize / 2)
+                    if (Math.Abs(etop.Y - p.Y) > InjectionSymbolSize / 2)
                     {
                         bars.MoveToPoint(etop);
-                        bars.AddLineToPoint(CGPoint.Add(p, new CGSize(0, CGGraph.SymbolSize / 2)));
+                        bars.AddLineToPoint(CGPoint.Add(p, new CGSize(0, InjectionSymbolSize / 2)));
 
                         bars.MoveToPoint(ebottom);
-                        bars.AddLineToPoint(CGPoint.Subtract(p, new CGSize(0, CGGraph.SymbolSize / 2)));
+                        bars.AddLineToPoint(CGPoint.Subtract(p, new CGSize(0, InjectionSymbolSize / 2)));
 
-                        bars.MoveToPoint(CGPoint.Subtract(etop, ErrorBarEndWidth));
-                        bars.AddLineToPoint(CGPoint.Add(etop, ErrorBarEndWidth));
+                        bars.MoveToPoint(CGPoint.Subtract(etop, InjectionErrorBarEndWidth));
+                        bars.AddLineToPoint(CGPoint.Add(etop, InjectionErrorBarEndWidth));
 
-                        bars.MoveToPoint(CGPoint.Subtract(ebottom, ErrorBarEndWidth));
-                        bars.AddLineToPoint(CGPoint.Add(ebottom, ErrorBarEndWidth));
+                        bars.MoveToPoint(CGPoint.Subtract(ebottom, InjectionErrorBarEndWidth));
+                        bars.AddLineToPoint(CGPoint.Add(ebottom, InjectionErrorBarEndWidth));
                     }
 
                     infop = new CGPoint(ebottom.X, Math.Max(ebottom.Y, etop.Y));
@@ -1690,8 +1767,8 @@ namespace AnalysisITC
             layer.Context.SetLineWidth(1);
             layer.Context.AddPath(bars);
             layer.Context.StrokePath();
-            DrawSymbolsAtPositions(layer, points.ToArray(), SymbolSize, InjectionSymbolShape, true);
-            DrawSymbolsAtPositions(layer, inv_points.ToArray(), SymbolSize, InjectionSymbolShape, false);
+            DrawSymbolsAtPositions(layer, points.ToArray(), InjectionSymbolSize, InjectionSymbolShape, true);
+            DrawSymbolsAtPositions(layer, inv_points.ToArray(), InjectionSymbolSize, InjectionSymbolShape, false);
 
             gc.DrawLayer(layer, Frame.Location);
             gc.DrawLayer(infolayer, Frame.Location);
@@ -1974,19 +2051,22 @@ namespace AnalysisITC
                     var etop = GetRelativePosition(inj.Ratio, res - inj.SD);
                     var ebottom = GetRelativePosition(inj.Ratio, res + inj.SD);
 
-                    if (Math.Abs(etop.Y - p.Y) > CGGraph.SymbolSize / 2)
+                    var symbolSize = DataFittingGraph.InjectionSymbolSize;
+                    var errorBarEndWidth = new CGSize(symbolSize / 2, 0);
+
+                    if (Math.Abs(etop.Y - p.Y) > symbolSize / 2)
                     {
                         bars.MoveToPoint(etop);
-                        bars.AddLineToPoint(CGPoint.Add(p, new CGSize(0, CGGraph.SymbolSize / 2)));
+                        bars.AddLineToPoint(CGPoint.Add(p, new CGSize(0, symbolSize / 2)));
 
                         bars.MoveToPoint(ebottom);
-                        bars.AddLineToPoint(CGPoint.Subtract(p, new CGSize(0, CGGraph.SymbolSize / 2)));
+                        bars.AddLineToPoint(CGPoint.Subtract(p, new CGSize(0, symbolSize / 2)));
 
-                        bars.MoveToPoint(CGPoint.Subtract(etop, ErrorBarEndWidth));
-                        bars.AddLineToPoint(CGPoint.Add(etop, ErrorBarEndWidth));
+                        bars.MoveToPoint(CGPoint.Subtract(etop, errorBarEndWidth));
+                        bars.AddLineToPoint(CGPoint.Add(etop, errorBarEndWidth));
 
-                        bars.MoveToPoint(CGPoint.Subtract(ebottom, ErrorBarEndWidth));
-                        bars.AddLineToPoint(CGPoint.Add(ebottom, ErrorBarEndWidth));
+                        bars.MoveToPoint(CGPoint.Subtract(ebottom, errorBarEndWidth));
+                        bars.AddLineToPoint(CGPoint.Add(ebottom, errorBarEndWidth));
                     }
 
                     infop = new CGPoint(ebottom.X, Math.Max(ebottom.Y, etop.Y));
@@ -2011,8 +2091,8 @@ namespace AnalysisITC
             layer.Context.SetLineWidth(1);
             layer.Context.AddPath(bars);
             layer.Context.StrokePath();
-            DrawSymbolsAtPositions(layer, points.ToArray(), SymbolSize, DataFittingGraph.InjectionSymbolShape, true);
-            DrawSymbolsAtPositions(layer, inv_points.ToArray(), SymbolSize, DataFittingGraph.InjectionSymbolShape, false);
+            DrawSymbolsAtPositions(layer, points.ToArray(), DataFittingGraph.InjectionSymbolSize, DataFittingGraph.InjectionSymbolShape, true);
+            DrawSymbolsAtPositions(layer, inv_points.ToArray(), DataFittingGraph.InjectionSymbolSize, DataFittingGraph.InjectionSymbolShape, false);
 
             gc.DrawLayer(layer, Frame.Location);
             gc.DrawLayer(infolayer, Frame.Location);

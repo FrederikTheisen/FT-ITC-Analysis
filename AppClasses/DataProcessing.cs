@@ -61,7 +61,9 @@ namespace AnalysisITC
             DiscardIntegratedPoints = dataProcessor.DiscardIntegratedPoints;
             IntegrationLengthFactor = dataProcessor.IntegrationLengthFactor;
             IntegrationLengthMode = dataProcessor.IntegrationLengthMode;
-            Interpolator = dataProcessor.Interpolator.Copy(this);
+            BaselineCompleted = dataProcessor.BaselineCompleted;
+            if (dataProcessor.Interpolator != null) Interpolator = dataProcessor.Interpolator.Copy(this);
+            if (dataProcessor.IsLocked) Lock();
         }
 
         public void InitializeBaseline(BaselineInterpolatorTypes mode)
@@ -190,7 +192,15 @@ namespace AnalysisITC
 
         public virtual BaselineInterpolator Copy(DataProcessor processor)
         {
-            return new BaselineInterpolator(processor);
+            var interpolator = new BaselineInterpolator(processor);
+            interpolator.CopyBaselineFrom(this);
+
+            return interpolator;
+        }
+
+        protected void CopyBaselineFrom(BaselineInterpolator interpolator)
+        {
+            Baseline = interpolator.Baseline.ToList();
         }
 
         public List<DataPoint> GetInterpolatedDataPoints(double start, double end)
@@ -232,7 +242,8 @@ namespace AnalysisITC
 
             var interpolator = new SplineInterpolator(Processor)
             {
-                PointsPerInjection = pointdensity
+                PointsPerInjection = pointdensity,
+                Algorithm = SplineInterpolator.PolynomialToSplineConversionTargetAlgorithm
             };
             
             //interpolator.IsLocked = true;
@@ -266,9 +277,19 @@ namespace AnalysisITC
     {
         public const int MinimumPointsPerInjection = 1;
         public const int MaximumPointsPerInjection = 8;
+        const double SmoothSplinePenalty = 1;
+        const double DefaultSplinePointWeight = 200.0;
+        const double LockedSplinePointWeight = 1000.0;
         static int defaultPointsPerInjection = 2;
 
+        SplineInterpolatorAlgorithm algorithm = SplineInterpolatorAlgorithm.Smooth;
         int pointsPerInjection = DefaultPointsPerInjection;
+
+        public static SplineInterpolatorAlgorithm PolynomialToSplineConversionTargetAlgorithm { get; set; } = SplineInterpolatorAlgorithm.Rigid;
+        public static double ExpectedBaselineFractionForSplinePointSpacing { get; set; } = 0.5;
+        public static double AdditionalSplinePointSpacingFraction { get; set; } = 0.75;
+        public static int MaximumAdditionalSplinePointsPerInjection { get; set; } = 1;
+        public static double LockedSplinePointPlacementMarginFraction { get; set; } = 1.0 / 3.0;
 
         public static int DefaultPointsPerInjection
         {
@@ -282,8 +303,22 @@ namespace AnalysisITC
             set => pointsPerInjection = ClampPointsPerInjection(value);
         }
 
-        public float FractionBaseline { get; set; } = 0.9f;
-        public SplineInterpolatorAlgorithm Algorithm { get; set; } = SplineInterpolatorAlgorithm.Smooth;
+        public SplineInterpolatorAlgorithm Algorithm
+        {
+            get => algorithm;
+            set
+            {
+                if (value == SplineInterpolatorAlgorithm.Handles)
+                {
+                    algorithm = SplineInterpolatorAlgorithm.Smooth;
+                    ShowHandles = true;
+                }
+                else algorithm = value;
+            }
+        }
+
+        public SplinePointDensity PointDensity { get; set; } = SplinePointDensity.Balanced;
+        public bool ShowHandles { get; set; } = false;
         public SplineHandleMode HandleMode { get; set; } = SplineHandleMode.Mean;
 
         public List<SplinePoint> SplinePoints { get; private set; } = new List<SplinePoint>();
@@ -292,29 +327,43 @@ namespace AnalysisITC
 
         public SplineInterpolator(DataProcessor processor) : base(processor)
         {
-            
+            ApplyPointDensity();
         }
 
         static int ClampPointsPerInjection(int value) => Math.Min(MaximumPointsPerInjection, Math.Max(MinimumPointsPerInjection, value));
+
+        public void ApplyPointDensity()
+        {
+            PointsPerInjection = PointsPerInjectionForDensity(PointDensity);
+        }
+
+        public static int PointsPerInjectionForDensity(SplinePointDensity density)
+        {
+            return ClampPointsPerInjection((int)density + 1);
+        }
 
         public override BaselineInterpolator Copy(DataProcessor processor)
         {
             var interpolator = new SplineInterpolator(processor)
             {
                 PointsPerInjection = this.PointsPerInjection,
-                FractionBaseline = this.FractionBaseline,
                 Algorithm = this.Algorithm,
+                PointDensity = this.PointDensity,
+                ShowHandles = this.ShowHandles,
                 HandleMode = this.HandleMode,
             };
+
+            interpolator.SetSplinePoints(SplinePoints.Select(sp => sp.Copy()).ToList());
+            interpolator.CopyBaselineFrom(this);
+            interpolator.RebuildSplineFunctionFromCurrentSplinePoints();
 
             return interpolator;
         }
 
-        public List<SplinePoint> GetInitialPoints(int pointperinjection = 1, double fraction = 0.8f)
+        public List<SplinePoint> GetInitialPoints(int pointperinjection = 1)
         {
             var points = new List<SplinePoint>();
             pointperinjection = Math.Max(1, pointperinjection);
-            var maxInjVol = Data.Injections.Max(inj => inj.Volume);
 
             //First points
             var segmmentL = (Data.InitialDelay - 5) / 4;
@@ -323,9 +372,7 @@ namespace AnalysisITC
 
             foreach (var inj in Data.Injections)
             {
-                var _frac = inj.Volume > 0 && maxInjVol > 0 ? 1 - (1 - fraction) / Math.Sqrt(maxInjVol / inj.Volume) : fraction;
-
-                var start = inj.Time + inj.Delay * (1 - _frac);
+                var start = inj.Time;
                 var end = inj.Time + inj.Delay - 5;
 
                 if (Processor.DiscardIntegratedPoints)
@@ -333,10 +380,13 @@ namespace AnalysisITC
                     if (start < inj.IntegrationEndTime) start = inj.IntegrationEndTime;
                 }
 
-                if (end <= start) start = Math.Max(inj.Time, end - Data.TimeStep);
-                var length = (end - start) / pointperinjection;
+                if (end <= start) start = (float)Math.Max(inj.Time, end - Data.TimeStep);
 
-                for (int j = 0; j < pointperinjection; j++)
+                var baselineLength = Math.Max(end - start, Data.TimeStep);
+                var pointCount = GetAutomaticSplinePointCount(inj.Delay, baselineLength, pointperinjection);
+                var length = baselineLength / pointCount;
+
+                for (int j = 0; j < pointCount; j++)
                 {
                     var s = start + j * length;
                     var e = s + length;
@@ -349,6 +399,31 @@ namespace AnalysisITC
             }
 
             return points;
+        }
+
+        int GetAutomaticSplinePointCount(double injectionDelay, double baselineLength, int requestedPoints)
+        {
+            requestedPoints = Math.Max(1, requestedPoints);
+
+            var expectedBaselineFraction = Math.Max(double.Epsilon, ExpectedBaselineFractionForSplinePointSpacing);
+            var expectedBaselineLength = Math.Max(Data.TimeStep, injectionDelay * expectedBaselineFraction);
+            var expectedPointSpacing = expectedBaselineLength / requestedPoints;
+
+            if (double.IsNaN(expectedPointSpacing) || double.IsInfinity(expectedPointSpacing) || expectedPointSpacing <= double.Epsilon)
+                return requestedPoints;
+
+            var scaledPointCount = baselineLength / expectedPointSpacing;
+            if (double.IsNaN(scaledPointCount) || double.IsInfinity(scaledPointCount) || scaledPointCount <= double.Epsilon)
+                return 1;
+
+            var pointCount = (int)Math.Floor(scaledPointCount);
+            var additionalPointThreshold = Math.Min(1, Math.Max(0, AdditionalSplinePointSpacingFraction));
+
+            if (scaledPointCount - pointCount >= additionalPointThreshold) pointCount++;
+
+            var maxPointCount = Math.Min(MaximumPointsPerInjection, requestedPoints + Math.Max(0, MaximumAdditionalSplinePointsPerInjection));
+
+            return Math.Min(maxPointCount, Math.Max(1, pointCount));
         }
 
         double SplineSlope(double time, double s = 0, double e = 1) => DataPoint.Slope(GetInterpolatedDataPoints(s, e));
@@ -375,33 +450,47 @@ namespace AnalysisITC
 
             List<SplinePoint> splinePoints;
 
-            if (SplinePoints.Count == 0 || (replace && !IsLocked)) splinePoints = MergeLockedSplinePoints(GetInitialPoints(PointsPerInjection, FractionBaseline));
+            if (SplinePoints.Count == 0 || (replace && !IsLocked)) splinePoints = MergeLockedSplinePoints(GetInitialPoints(PointsPerInjection));
             else splinePoints = SplinePoints;
 
-            var x = splinePoints.Select(sp => sp.Time);
-            var y = splinePoints.Select(sp => (double)sp.Power);
+            UpdateAutomaticSplineSlopes(splinePoints);
+            var spline = CreateSpline(splinePoints);
 
-            Spline spline;
+            Baseline = Data.DataPoints.Select(dp => spline.Evaluate(dp.Time)).ToList();
+            SplinePoints = splinePoints;
+            SplineFunction = spline;
+        }
+
+        public void RefreshBaselineFromCurrentSplinePoints()
+        {
+            if (SplinePoints.Count == 0) return;
+
+            UpdateAutomaticSplineSlopes(SplinePoints);
+            var spline = CreateSpline(SplinePoints);
+            Baseline = Data.DataPoints.Select(dp => spline.Evaluate(dp.Time)).ToList();
+            SplineFunction = spline;
+        }
+
+        void RebuildSplineFunctionFromCurrentSplinePoints()
+        {
+            if (SplinePoints.Count == 0) return;
+
+            SplineFunction = CreateSpline(SplinePoints);
+        }
+
+        Spline CreateSpline(List<SplinePoint> splinePoints)
+        {
+            var sortedPoints = splinePoints.OrderBy(sp => sp.Time).ToList();
+            var x = sortedPoints.Select(sp => sp.Time);
+            var y = sortedPoints.Select(sp => (double)sp.Power);
 
             switch (Algorithm)
             {
                 default:
-                case SplineInterpolatorAlgorithm.Linear: spline = new Spline(LinearSpline.Interpolate(x, y)); break;
-                case SplineInterpolatorAlgorithm.Rigid: spline = new Spline(CubicSpline.InterpolatePchip(x, y)); break;
-                case SplineInterpolatorAlgorithm.Smooth: spline = new Spline(CubicSpline.InterpolateHermite(x, y, SmoothSplineSlopes(splinePoints))); break;
-                case SplineInterpolatorAlgorithm.Handles: spline = new Spline(CubicSpline.InterpolateHermite(x, y, splinePoints.Select(s => s.Slope))); break;
+                case SplineInterpolatorAlgorithm.Linear: return new Spline(LinearSpline.Interpolate(x, y));
+                case SplineInterpolatorAlgorithm.Rigid: return new Spline(CubicSpline.InterpolatePchip(x, y));
+                case SplineInterpolatorAlgorithm.Smooth: return new Spline(CubicSpline.InterpolateHermite(x, y, sortedPoints.Select(s => s.Slope)), sortedPoints);
             }
-
-            var bsl = new List<Energy>();
-
-            foreach (var dp in Data.DataPoints)
-            {
-                bsl.Add(spline.Evaluate(dp.Time));
-            }
-
-            Baseline = bsl;
-            SplinePoints = splinePoints;
-            SplineFunction = spline;
         }
 
         public void RemoveSplinePoint(int id)
@@ -432,65 +521,140 @@ namespace AnalysisITC
 
         List<SplinePoint> MergeLockedSplinePoints(List<SplinePoint> generatedPoints)
         {
+            var placementMargin = GetLockedSplinePointPlacementMargin(generatedPoints);
+
             foreach (var lockedPoint in SplinePoints.Where(sp => sp.Locked))
             {
-                if (!lockedPoint.UserDefined && lockedPoint.ID >= 0 && lockedPoint.ID < generatedPoints.Count)
-                    generatedPoints[lockedPoint.ID] = lockedPoint;
-                else
+                var hasCloseGeneratedPoint = generatedPoints.Any(gp => !gp.Locked && IsWithinPlacementMargin(gp, lockedPoint, placementMargin));
+
+                if (hasCloseGeneratedPoint)
+                {
+                    generatedPoints.RemoveAll(gp => !gp.Locked && IsWithinPlacementMargin(gp, lockedPoint, placementMargin));
                     generatedPoints.Add(lockedPoint);
+                }
+                else if (!lockedPoint.UserDefined && lockedPoint.ID >= 0 && lockedPoint.ID < generatedPoints.Count)
+                {
+                    generatedPoints[lockedPoint.ID] = lockedPoint;
+                }
+                else
+                {
+                    generatedPoints.Add(lockedPoint);
+                }
             }
 
             return SortAndRenumberSplinePoints(generatedPoints);
         }
 
-        double[] SmoothSplineSlopes(List<SplinePoint> points)
+        double GetLockedSplinePointPlacementMargin(List<SplinePoint> generatedPoints)
         {
-            if (points.Count < 2) return points.Select(_ => 0.0).ToArray();
+            var expectedPointDistance = GetExpectedGeneratedSplinePointDistance(generatedPoints);
+            var margin = Math.Max(0, LockedSplinePointPlacementMarginFraction) * expectedPointDistance;
 
-            var slopes = new double[points.Count - 1];
-            for (int i = 0; i < slopes.Length; i++)
-            {
-                var dx = points[i + 1].Time - points[i].Time;
-                slopes[i] = Math.Abs(dx) > double.Epsilon ? (points[i + 1].Power - points[i].Power) / dx : 0;
-            }
-
-            var tangents = new double[points.Count];
-            tangents[0] = SmoothEndpointSlope(slopes, 0);
-            tangents[points.Count - 1] = SmoothEndpointSlope(slopes, slopes.Length - 1);
-
-            for (int i = 1; i < points.Count - 1; i++)
-            {
-                var prevSlope = slopes[i - 1];
-                var nextSlope = slopes[i];
-
-                if (prevSlope * nextSlope <= 0)
-                {
-                    tangents[i] = 0;
-                    continue;
-                }
-
-                var prevDx = points[i].Time - points[i - 1].Time;
-                var nextDx = points[i + 1].Time - points[i].Time;
-                var totalDx = prevDx + nextDx;
-                var weightedAverage = Math.Abs(totalDx) > double.Epsilon ? (nextDx * prevSlope + prevDx * nextSlope) / totalDx : 0;
-                var limit = 3 * Math.Min(Math.Abs(prevSlope), Math.Abs(nextSlope));
-
-                tangents[i] = Math.Sign(weightedAverage) * Math.Min(Math.Abs(weightedAverage), limit);
-            }
-
-            return tangents;
+            return double.IsNaN(margin) || double.IsInfinity(margin) ? 0 : margin;
         }
 
-        double SmoothEndpointSlope(double[] slopes, int index)
+        double GetExpectedGeneratedSplinePointDistance(List<SplinePoint> generatedPoints)
         {
-            if (slopes.Length == 1) return slopes[index];
-            var slope = slopes[index];
-            var neighbor = index == 0 ? slopes[1] : slopes[index - 1];
+            var spacings = generatedPoints
+                .Select(sp => sp.Time)
+                .OrderBy(time => time)
+                .Zip(generatedPoints.Select(sp => sp.Time).OrderBy(time => time).Skip(1), (left, right) => right - left)
+                .Where(spacing => spacing > double.Epsilon)
+                .OrderBy(spacing => spacing)
+                .ToList();
 
-            if (slope * neighbor <= 0) return 0;
+            if (spacings.Count == 0) return Math.Max(Data.TimeStep, double.Epsilon);
 
-            return Math.Sign(slope) * Math.Min(Math.Abs(slope), 3 * Math.Abs(neighbor));
+            return spacings[spacings.Count / 2];
         }
+
+        static bool IsWithinPlacementMargin(SplinePoint generatedPoint, SplinePoint lockedPoint, double placementMargin)
+        {
+            return Math.Abs(generatedPoint.Time - lockedPoint.Time) <= placementMargin;
+        }
+
+        void UpdateAutomaticSplineSlopes(List<SplinePoint> points)
+        {
+            if (Algorithm != SplineInterpolatorAlgorithm.Smooth) return;
+            if (points.Count < 2) return;
+
+            var guideSpline = CreatePenalizedSmoothingSpline(points);
+            foreach (var point in points.Where(point => !point.SlopeLocked))
+            {
+                point.Slope = guideSpline.Slope(point.Time);
+            }
+
+            ApplyLinearSegmentSlopes(points);
+        }
+
+        void ApplyLinearSegmentSlopes(List<SplinePoint> points)
+        {
+            var sortedPoints = points.OrderBy(sp => sp.Time).ToList();
+
+            for (int i = 0; i < sortedPoints.Count - 1; i++)
+            {
+                if (!IsLinearSegment(sortedPoints, i)) continue;
+
+                var slope = SplinePointSegmentSlope(sortedPoints[i], sortedPoints[i + 1]);
+                sortedPoints[i].Slope = slope;
+                sortedPoints[i + 1].Slope = slope;
+            }
+        }
+
+        static bool IsLinearSegment(List<SplinePoint> points, int index) => points[index].Linear && points[index + 1].Linear;
+
+        static double SplinePointSegmentSlope(SplinePoint left, SplinePoint right)
+        {
+            var dx = right.Time - left.Time;
+
+            return Math.Abs(dx) > double.Epsilon ? (right.Power - left.Power) / dx : 0;
+        }
+
+        Spline CreatePenalizedSmoothingSpline(List<SplinePoint> points)
+        {
+            if (points.Count < 3)
+            {
+                var x = points.Select(sp => sp.Time);
+                var y = points.Select(sp => (double)sp.Power);
+                if (points.Count < 2) return new Spline(points.Count == 0 ? 0 : points[0].Power);
+                return new Spline(CubicSpline.InterpolatePchip(x, y));
+            }
+
+            var sortedPoints = points.OrderBy(sp => sp.Time).ToList();
+            var xValues = sortedPoints.Select(sp => sp.Time).ToArray();
+            var yValues = sortedPoints.Select(sp => (double)sp.Power).ToArray();
+            var fitMatrix = DenseMatrix.Create(sortedPoints.Count, sortedPoints.Count, 0);
+            var fitTarget = DenseVector.Create(sortedPoints.Count, i =>
+            {
+                var weight = SplinePointFitWeight(sortedPoints[i]);
+                return weight * yValues[i];
+            });
+
+            for (int i = 0; i < sortedPoints.Count; i++)
+            {
+                fitMatrix[i, i] = SplinePointFitWeight(sortedPoints[i]);
+            }
+
+            // Penalize curvature by adding lambda * D'D for the second-difference operator.
+            for (int i = 1; i < sortedPoints.Count - 1; i++)
+            {
+                fitMatrix[i - 1, i - 1] += SmoothSplinePenalty;
+                fitMatrix[i - 1, i] -= 2 * SmoothSplinePenalty;
+                fitMatrix[i - 1, i + 1] += SmoothSplinePenalty;
+                fitMatrix[i, i - 1] -= 2 * SmoothSplinePenalty;
+                fitMatrix[i, i] += 4 * SmoothSplinePenalty;
+                fitMatrix[i, i + 1] -= 2 * SmoothSplinePenalty;
+                fitMatrix[i + 1, i - 1] += SmoothSplinePenalty;
+                fitMatrix[i + 1, i] -= 2 * SmoothSplinePenalty;
+                fitMatrix[i + 1, i + 1] += SmoothSplinePenalty;
+            }
+
+            var smoothedValues = fitMatrix.Solve(fitTarget).ToArray();
+
+            return new Spline(CubicSpline.InterpolateNaturalSorted(xValues, smoothedValues));
+        }
+
+        double SplinePointFitWeight(SplinePoint point) => point.Locked || point.UserDefined ? LockedSplinePointWeight : DefaultSplinePointWeight;
 
         public void SetSplinePoints(List<SplinePoint> points)
         {
@@ -512,10 +676,17 @@ namespace AnalysisITC
 
         public enum SplineInterpolatorAlgorithm
         {
-            Smooth,
-            Handles,
-            Rigid,
-            Linear
+            Smooth = 0,
+            Handles = 1,
+            Rigid = 2,
+            Linear = 3,
+        }
+
+        public enum SplinePointDensity
+        {
+            Sparse = 0,
+            Balanced = 1,
+            Dense = 2,
         }
 
         public enum SplineHandleMode
@@ -529,10 +700,21 @@ namespace AnalysisITC
         {
             CubicSpline CubicSplineFunction = null;
             LinearSpline LinearSplineFunction = null;
+            double? ConstantFunction = null;
+            double[] SegmentTimes = null;
+            double[] SegmentPowers = null;
+            bool[] LinearSegments = null;
 
             public Spline(CubicSpline spline)
             {
                 CubicSplineFunction = spline;
+            }
+
+            public Spline(CubicSpline spline, List<SplinePoint> points) : this(spline)
+            {
+                SegmentTimes = points.Select(sp => sp.Time).ToArray();
+                SegmentPowers = points.Select(sp => sp.Power).ToArray();
+                LinearSegments = points.Zip(points.Skip(1), (left, right) => left.Linear && right.Linear).ToArray();
             }
 
             public Spline(LinearSpline spline)
@@ -540,20 +722,58 @@ namespace AnalysisITC
                 LinearSplineFunction = spline;
             }
 
+            public Spline(double value)
+            {
+                ConstantFunction = value;
+            }
+
             public Energy Evaluate(float time)
             {
+                if (TryGetLinearSegment(time, out int index)) return new(EvaluateLinearSegment(index, time));
                 if (CubicSplineFunction != null) return new(CubicSplineFunction.Interpolate(time));
                 if (LinearSplineFunction != null) return new(LinearSplineFunction.Interpolate(time));
+                if (ConstantFunction.HasValue) return new(ConstantFunction.Value);
 
                 return new(0.0);
             }
 
             public double Slope(double time)
             {
+                if (TryGetLinearSegment(time, out int index)) return LinearSegmentSlope(index);
                 if (CubicSplineFunction != null) return CubicSplineFunction.Differentiate(time);
                 if (LinearSplineFunction != null) return LinearSplineFunction.Differentiate(time);
+                if (ConstantFunction.HasValue) return 0;
 
                 else return 0;
+            }
+
+            bool TryGetLinearSegment(double time, out int index)
+            {
+                index = -1;
+                if (LinearSegments == null) return false;
+
+                for (int i = 0; i < LinearSegments.Length; i++)
+                {
+                    if (!LinearSegments[i]) continue;
+                    if (time < SegmentTimes[i] || time > SegmentTimes[i + 1]) continue;
+
+                    index = i;
+                    return true;
+                }
+
+                return false;
+            }
+
+            double EvaluateLinearSegment(int index, double time)
+            {
+                return SegmentPowers[index] + LinearSegmentSlope(index) * (time - SegmentTimes[index]);
+            }
+
+            double LinearSegmentSlope(int index)
+            {
+                var dx = SegmentTimes[index + 1] - SegmentTimes[index];
+
+                return Math.Abs(dx) > double.Epsilon ? (SegmentPowers[index + 1] - SegmentPowers[index]) / dx : 0;
             }
         }
 
@@ -567,6 +787,8 @@ namespace AnalysisITC
             public double Power;
             public double Slope;
             public bool Locked;
+            public bool SlopeLocked;
+            public bool Linear;
             public bool UserDefined;
 
             public SplinePoint(double time, double power, int id, double slope = 0)
@@ -579,6 +801,19 @@ namespace AnalysisITC
 
             public void Lock() => Locked = true;
             public void Unlock() => Locked = false;
+            public void LockSlope() => SlopeLocked = true;
+            public void UnlockSlope() => SlopeLocked = false;
+
+            public SplinePoint Copy()
+            {
+                return new SplinePoint(Time, Power, ID, Slope)
+                {
+                    Locked = Locked,
+                    SlopeLocked = SlopeLocked,
+                    Linear = Linear,
+                    UserDefined = UserDefined
+                };
+            }
         }
     }
 
@@ -686,6 +921,8 @@ namespace AnalysisITC
                 Degree = this.Degree,
                 ZLimit = this.ZLimit,
             };
+
+            interpolator.CopyBaselineFrom(this);
 
             return interpolator;
         }

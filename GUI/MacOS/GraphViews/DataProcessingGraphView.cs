@@ -310,6 +310,7 @@ namespace AnalysisITC
 
             var b = Graph.CursorFeatureFromPos(CursorPositionInView);
             var update = Graph.SetCursorInfo(CursorPositionInView);
+            var hoverChanged = Graph.SetHoverFeature(b);
 
             if (b.IsMouseOverFeature)
             {
@@ -320,7 +321,7 @@ namespace AnalysisITC
             else if (update) NSCursor.CrosshairCursor.Set();
             else NSCursor.ArrowCursor.Set();
 
-            if (update) Invalidate();
+            if (update || hoverChanged) Invalidate();
         }
 
         public override void MouseDown(NSEvent theEvent)
@@ -350,9 +351,15 @@ namespace AnalysisITC
 
                     NSMenu menu = new NSMenu("Spline Point Options");
                     if (splinePoint.Locked)
-                        menu.AddItem(new NSMenuItem("Unlock", (s, e) => { splinePoint.Unlock(); _ = Data.Processor.ProcessData(); }));
+                        menu.AddItem(new NSMenuItem("Unlock", (s, e) => { splinePoint.Unlock(); splinePoint.UnlockSlope(); _ = Data.Processor.ProcessData(); }));
                     else
                         menu.AddItem(new NSMenuItem("Lock", (s, e) => { splinePoint.Lock(); _ = Data.Processor.ProcessData(false); }));
+                    menu.AddItem(new NSMenuItem(splinePoint.Linear ? "Unmark Linear" : "Mark Linear", (s, e) =>
+                    {
+                        splinePoint.Linear = !splinePoint.Linear;
+                        if (splinePoint.Linear) splinePoint.Lock();
+                        _ = Data.Processor.ProcessData(false);
+                    }));
                     menu.AddItem(new NSMenuItem("Remove", (s, e) => { Data.Processor.Interpolator.SplineInterpolator.RemoveSplinePoint(feature.FeatureID); }));
                     WillOpenMenu(menu, theEvent);
 
@@ -388,6 +395,8 @@ namespace AnalysisITC
             var yUnitsPerPixel = Graph.PointsPerUnit.Height != 0 ? 1.0 / (double)Graph.PointsPerUnit.Height : 0.0;
             var deltaYUnits = deltaYpx * yUnitsPerPixel * factor;
 
+            var shouldRefreshSplineBaseline = false;
+
             switch (SelectedFeature.Type)
             {
                 case MouseOverFeatureEvent.FeatureType.BaselineSplinePoint:
@@ -395,6 +404,7 @@ namespace AnalysisITC
                         var feature = (Data.Processor.Interpolator as SplineInterpolator).SplinePoints[SelectedFeature.FeatureID];
                         feature.Power = SelectedFeature.FeatureReferenceValue + deltaYUnits;
                         feature.Lock();
+                        shouldRefreshSplineBaseline = true;
                         break;
                     }
                 case MouseOverFeatureEvent.FeatureType.BaselineSplineHandle:
@@ -403,14 +413,16 @@ namespace AnalysisITC
 
                         var feature = (Data.Processor.Interpolator as SplineInterpolator).SplinePoints[SelectedFeature.FeatureID];
 
-                        // Handle visualization uses an average delay/3 as a time-length for handle placement.
+                        // Handle visualization uses an average delay/5 as a time-length for handle placement.
                         // A slope change of dSlope changes the handle point Y by dSlope * handleLengthTime.
-                        var handleLengthTime = Data.Injections.Average(inj => inj.Delay / 3);
+                        var handleLengthTime = Data.Injections.Average(inj => inj.Delay / 5);
                         var dSlope = handleLengthTime != 0 ? (deltaYUnits / handleLengthTime) : 0.0;
                         if (invert) dSlope = -dSlope;
 
                         feature.Slope = SelectedFeature.FeatureReferenceValue + dSlope;
                         feature.Lock();
+                        feature.LockSlope();
+                        shouldRefreshSplineBaseline = true;
                         break;
                     }
                 case MouseOverFeatureEvent.FeatureType.IntegrationRangeMarker:
@@ -438,8 +450,10 @@ namespace AnalysisITC
 
                         break;
                     }
-                    
+
             }
+
+            if (shouldRefreshSplineBaseline) RefreshSplineBaseline();
 
             Graph.SetCursorInfo(CursorPositionInView);
 
@@ -475,6 +489,7 @@ namespace AnalysisITC
                 if (Data == null) return;
 
                 var b = Graph.CursorFeatureFromPos(CursorPositionInView);
+                Graph.SetHoverFeature(b);
 
                 if (b.IsMouseOverFeature)
                 {
@@ -507,6 +522,8 @@ namespace AnalysisITC
 
             base.MouseExited(theEvent);
 
+            Graph.SetHoverFeature(null);
+
             Invalidate();
         }
 
@@ -521,6 +538,14 @@ namespace AnalysisITC
             Invalidate();
 
             Data.Processor.IntegratePeaks();
+        }
+
+        void RefreshSplineBaseline()
+        {
+            if (Data?.Processor?.Interpolator is not SplineInterpolator splineInterpolator) return;
+
+            splineInterpolator.RefreshBaselineFromCurrentSplinePoints();
+            Data.Processor.SubtractBaseline();
         }
     }
 }

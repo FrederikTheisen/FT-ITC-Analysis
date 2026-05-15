@@ -155,9 +155,10 @@ namespace DataReaders
                 {
                     case SplineHandleMode: (p.Interpolator as SplineInterpolator).HandleMode = (SplineInterpolator.SplineHandleMode)IParse(v[1]); break;
                     case SplineAlgorithm: (p.Interpolator as SplineInterpolator).Algorithm = (SplineInterpolator.SplineInterpolatorAlgorithm)IParse(v[1]); break;
+                    case SplineShowHandles: (p.Interpolator as SplineInterpolator).ShowHandles = BParse(v[1]); break;
+                    case SplinePointDensity: (p.Interpolator as SplineInterpolator).PointDensity = (SplineInterpolator.SplinePointDensity)IParse(v[1]); break;
                     case SplinePointsPerInjection: (p.Interpolator as SplineInterpolator).PointsPerInjection = IParse(v[1]); break;
                     case SplineLocked: if (BParse(v[1])) p.Lock(); break;
-                    case SplineFraction: (p.Interpolator as SplineInterpolator).FractionBaseline = FParse(v[1]); break;
                     case "LIST" when v[1] == SplinePointList: ReadSplineList(p.Interpolator as SplineInterpolator, reader); break;
                     case PolynomiumDegree: (p.Interpolator as PolynomialLeastSquaresInterpolator).Degree = IParse(v[1]); break;
                     case PolynomiumLimit: (p.Interpolator as PolynomialLeastSquaresInterpolator).ZLimit = DParse(v[1]); break;
@@ -181,6 +182,8 @@ namespace DataReaders
                 var splinePoint = new SplineInterpolator.SplinePoint(DParse(_spdat[0]), DParse(_spdat[1]), IParse(_spdat[2]), DParse(_spdat[3]));
                 if (_spdat.Length > 4) splinePoint.Locked = BParse(_spdat[4]);
                 if (_spdat.Length > 5) splinePoint.UserDefined = BParse(_spdat[5]);
+                if (_spdat.Length > 6) splinePoint.SlopeLocked = BParse(_spdat[6]);
+                if (_spdat.Length > 7) splinePoint.Linear = BParse(_spdat[7]);
 
                 splinepoints.Add(splinePoint);
             }

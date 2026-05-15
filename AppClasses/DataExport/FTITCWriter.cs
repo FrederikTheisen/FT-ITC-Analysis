@@ -47,8 +47,9 @@ namespace AnalysisITC
         public const string ProcessorType = "ProcessorType";
         public const string SplineHandleMode = "SHandleMode";
         public const string SplineAlgorithm = "SAlgorithm";
+        public const string SplineShowHandles = "SShowHandles";
+        public const string SplinePointDensity = "SPointDensity";
         public const string SplineLocked = "SLocked";
-        public const string SplineFraction = "SFraction";
         public const string SplinePointsPerInjection = "SPointsPerInjection";
         public const string PolynomiumDegree = "PDegree";
         public const string PolynomiumLimit = "PLimit";
@@ -435,9 +436,10 @@ namespace AnalysisITC
                     case BaselineInterpolatorTypes.Spline:
                         var spinterpolator = (data.Processor.Interpolator as SplineInterpolator);
                         file.Add(Variable(SplineAlgorithm, (int)spinterpolator.Algorithm));
+                        file.Add(Variable(SplineShowHandles, spinterpolator.ShowHandles));
+                        file.Add(Variable(SplinePointDensity, (int)spinterpolator.PointDensity));
                         file.Add(Variable(SplineHandleMode, (int)spinterpolator.HandleMode));
                         file.Add(Variable(SplinePointsPerInjection, FormatInt(spinterpolator.PointsPerInjection)));
-                        file.Add(Variable(SplineFraction, spinterpolator.FractionBaseline));
                         file.Add(Variable(SplineLocked, spinterpolator.IsLocked));
                         file.Add(ListHeader(SplinePointList));
                         foreach (var sp in spinterpolator.SplinePoints)
@@ -448,7 +450,9 @@ namespace AnalysisITC
                                 FormatInt(sp.ID),
                                 FormatDouble(sp.Slope),
                                 FormatInt(sp.Locked ? 1 : 0),
-                                FormatInt(sp.UserDefined ? 1 : 0)));
+                                FormatInt(sp.UserDefined ? 1 : 0),
+                                FormatInt(sp.SlopeLocked ? 1 : 0),
+                                FormatInt(sp.Linear ? 1 : 0)));
                         }
                         file.Add(EndListHeader);
                         break;

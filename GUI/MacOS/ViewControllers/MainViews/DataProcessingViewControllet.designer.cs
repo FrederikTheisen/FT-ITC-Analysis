@@ -85,6 +85,9 @@ namespace AnalysisITC
 		AppKit.NSButton PolynomialDiscardIntegrationRange { get; set; }
 
 		[Outlet]
+		AppKit.NSPopUpButton ProcessingOptionsMenuButton { get; set; }
+
+		[Outlet]
 		AppKit.NSTextField SelectedInjectionLabel { get; set; }
 
 		[Outlet]
@@ -97,22 +100,19 @@ namespace AnalysisITC
 		AppKit.NSStackView SplineAlgorithmView { get; set; }
 
 		[Outlet]
-		AppKit.NSTextField SplineBaselineFractionControl { get; set; }
-
-		[Outlet]
-		AppKit.NSStackView SplineBaselineFractionView { get; set; }
-
-		[Outlet]
 		AppKit.NSButton SplineDiscardIntegrationRange { get; set; }
 
 		[Outlet]
-		AppKit.NSSlider SplineFractionSliderControl { get; set; }
+		AppKit.NSSegmentedControl SplineConversionPointDensityControl { get; set; }
 
 		[Outlet]
 		AppKit.NSSegmentedControl SplineHandleModeControl { get; set; }
 
 		[Outlet]
 		AppKit.NSStackView SplineHandleModeView { get; set; }
+
+		[Outlet]
+		AppKit.NSSegmentedControl SplinePointDensityControl { get; set; }
 
 		[Outlet]
 		AppKit.NSSwitch UseFactorSwitch { get; set; }
@@ -186,11 +186,11 @@ namespace AnalysisITC
 		[Action ("SplineAlgoClicked:")]
 		partial void SplineAlgoClicked (AppKit.NSSegmentedControl sender);
 
-		[Action ("SplineBaselineFractionSliderChanged:")]
-		partial void SplineBaselineFractionSliderChanged (AppKit.NSSlider sender);
-
 		[Action ("SplineHandleModeControlClicked:")]
 		partial void SplineHandleModeControlClicked (AppKit.NSSegmentedControl sender);
+
+		[Action ("SplinePointDensityAction:")]
+		partial void SplinePointDensityAction (AppKit.NSSegmentedControl sender);
 
 		[Action ("ToggleShowCursorInfo:")]
 		partial void ToggleShowCursorInfo (Foundation.NSObject sender);
@@ -223,19 +223,24 @@ namespace AnalysisITC
 				ApplyToAllSwitch = null;
 			}
 
+			if (SplinePointDensityControl != null) {
+				SplinePointDensityControl.Dispose ();
+				SplinePointDensityControl = null;
+			}
+
 			if (BaselineGraphView != null) {
 				BaselineGraphView.Dispose ();
 				BaselineGraphView = null;
 			}
 
+			if (ProcessingOptionsMenuButton != null) {
+				ProcessingOptionsMenuButton.Dispose ();
+				ProcessingOptionsMenuButton = null;
+			}
+
 			if (BaselineHeader != null) {
 				BaselineHeader.Dispose ();
 				BaselineHeader = null;
-			}
-
-			if (CopyToNextButton != null) {
-				CopyToNextButton.Dispose ();
-				CopyToNextButton = null;
 			}
 
 			if (BaselineScopeButton != null) {
@@ -246,6 +251,11 @@ namespace AnalysisITC
 			if (ConfirmProcessingButton != null) {
 				ConfirmProcessingButton.Dispose ();
 				ConfirmProcessingButton = null;
+			}
+
+			if (CopyToNextButton != null) {
+				CopyToNextButton.Dispose ();
+				CopyToNextButton = null;
 			}
 
 			if (CorrectedScopeButton != null) {
@@ -358,24 +368,14 @@ namespace AnalysisITC
 				SplineAlgorithmView = null;
 			}
 
-			if (SplineBaselineFractionControl != null) {
-				SplineBaselineFractionControl.Dispose ();
-				SplineBaselineFractionControl = null;
-			}
-
-			if (SplineBaselineFractionView != null) {
-				SplineBaselineFractionView.Dispose ();
-				SplineBaselineFractionView = null;
+			if (SplineConversionPointDensityControl != null) {
+				SplineConversionPointDensityControl.Dispose ();
+				SplineConversionPointDensityControl = null;
 			}
 
 			if (SplineDiscardIntegrationRange != null) {
 				SplineDiscardIntegrationRange.Dispose ();
 				SplineDiscardIntegrationRange = null;
-			}
-
-			if (SplineFractionSliderControl != null) {
-				SplineFractionSliderControl.Dispose ();
-				SplineFractionSliderControl = null;
 			}
 
 			if (SplineHandleModeControl != null) {

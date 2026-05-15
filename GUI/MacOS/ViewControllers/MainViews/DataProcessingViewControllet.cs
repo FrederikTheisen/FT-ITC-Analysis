@@ -4,6 +4,7 @@ using System;
 
 using Foundation;
 using AppKit;
+using System.Collections.Generic;
 using System.Linq;
 
 namespace AnalysisITC
@@ -20,6 +21,13 @@ namespace AnalysisITC
         bool DiscardIntegratedPoints { get; set; } = true;
 
         private bool ContextIsValid => Data != null && Data.HasThermogram && BaselineGraphView != null;
+
+        const string LockProcessorMenuIdentifier = "lockprocessor";
+        const string ShowSplineHandlesMenuIdentifier = "showsplinehandles";
+        const string ConvertToSmoothSplineMenuIdentifier = "converttospline";
+        const string ConvertToLinearSplineMenuIdentifier = "converttolinearspline";
+        const string CopyToActiveMenuIdentifier = "copytoactive";
+        const string CopyToNonProcessedMenuIdentifier = "copytononprocessed";
 
         public DataProcessingViewControllet (IntPtr handle) : base (handle)
 		{
@@ -42,6 +50,9 @@ namespace AnalysisITC
             ShowCursorInfoButton.State = NSCellStateValue.On;
             PolynomialDiscardIntegrationRange.State = DiscardIntegratedPoints ? NSCellStateValue.On : NSCellStateValue.Off;
             SplineDiscardIntegrationRange.State = DiscardIntegratedPoints ? NSCellStateValue.On : NSCellStateValue.Off;
+
+            ConfigureProcessingOptionsMenu();
+            InterpolatorTypeControl.SetEnabled(false, 2);
         }
 
         private void BaselineGraphView_BaselineChanged(object sender, EventArgs e)
@@ -115,10 +126,7 @@ namespace AnalysisITC
                 SetSelectedSegment(InterpolatorTypeControl, -1);
 
                 SplineAlgorithmView.Hidden = true;
-                //SplineBaselineFractionView.Hidden = true;
-                SplineHandleModeView.Hidden = true;
                 PolynomialDegreeView.Hidden = true;
-                //ZLimitView.Hidden = true;
                 IntegrationModeSegControl.Enabled = false;
 
                 BaselineHeader.StringValue = "Baseline Interpolator Options";
@@ -126,35 +134,32 @@ namespace AnalysisITC
             }
             else
             {
+                InterpolatorTypeControl.SetEnabled(false, 2);
+
                 switch (Processor.BaselineType)
                 {
                     case BaselineInterpolatorTypes.Spline:
+                        var splineInterpolator = Data.Processor.Interpolator as SplineInterpolator;
                         SetSelectedSegment(InterpolatorTypeControl, 0);
                         SplineAlgorithmView.Hidden = false;
-                        SplineHandleModeView.Hidden = false;
-                        //SplineBaselineFractionView.Hidden = false;
                         PolynomialDegreeView.Hidden = true;
-                        //ZLimitView.Hidden = true;
-                        SetSelectedSegment(SplineAlgoControl, (Data.Processor.Interpolator as SplineInterpolator).Algorithm switch
+                        SetSelectedSegment(SplineAlgoControl, splineInterpolator.Algorithm switch
                         {
                             SplineInterpolator.SplineInterpolatorAlgorithm.Linear => 0,
                             SplineInterpolator.SplineInterpolatorAlgorithm.Rigid => 1,
-                            SplineInterpolator.SplineInterpolatorAlgorithm.Smooth => 2,
-                            SplineInterpolator.SplineInterpolatorAlgorithm.Handles => 3
+                            SplineInterpolator.SplineInterpolatorAlgorithm.Smooth => 1,
+                            SplineInterpolator.SplineInterpolatorAlgorithm.Handles => 1,
+                            _ => 1,
                         } );
-                        SetSelectedSegment(SplineHandleModeControl, (int)(Data.Processor.Interpolator as SplineInterpolator).HandleMode);
-                        //SplineFractionSliderControl.FloatValue = (Data.Processor.Interpolator as SplineInterpolator).FractionBaseline;
+                        SetSelectedSegment(SplinePointDensityControl, (int)splineInterpolator.PointDensity);
+                        SetSelectedSegment(SplineHandleModeControl, (int)splineInterpolator.HandleMode);
                         break;
                     case BaselineInterpolatorTypes.ASL:
                     case BaselineInterpolatorTypes.Polynomial:
                         SetSelectedSegment(InterpolatorTypeControl, 1);
                         SplineAlgorithmView.Hidden = true;
-                        SplineHandleModeView.Hidden = true;
-                        //SplineBaselineFractionView.Hidden = true;
                         PolynomialDegreeView.Hidden = false;
-                        //ZLimitView.Hidden = false;
-                        PolynomialDegreeSlider.IntValue = (Data.Processor.Interpolator as PolynomialLeastSquaresInterpolator).Degree;
-                        //ZLimitSlider.DoubleValue = (Data.Processor.Interpolator as PolynomialLeastSquaresInterpolator).ZLimit;
+                        PolynomialDegreeSlider.IntValue = SliderPositionFromPolynomialDegree((Data.Processor.Interpolator as PolynomialLeastSquaresInterpolator).Degree);
                         break;
                 }
                 
@@ -181,8 +186,206 @@ namespace AnalysisITC
             UpdateSliderLabels();
             UpdateInjectionSelectionUI();
             UpdateZoomControlHighlighting();
+            UpdateProcessingOptionsMenu();
+        }
 
-            ConfirmProcessingButton.Enabled = DataManager.AllDataIsBaselineProcessed;
+        void ConfigureProcessingOptionsMenu()
+        {
+            if (ProcessingOptionsMenuButton?.Menu == null) return;
+
+            EnsureShowSplineHandlesMenuItem();
+
+            foreach (var item in ProcessingOptionsMenuItems())
+            {
+                if (IsProcessingOptionsCommand(item))
+                    item.Activated += ProcessingOptionsMenuItemActivated;
+            }
+
+            UpdateProcessingOptionsMenu();
+        }
+
+        void EnsureShowSplineHandlesMenuItem()
+        {
+            if (ProcessingOptionsMenuItems().Any(item => item.Identifier == ShowSplineHandlesMenuIdentifier)) return;
+
+            var item = new NSMenuItem("Show spline handles")
+            {
+                Identifier = ShowSplineHandlesMenuIdentifier
+            };
+
+            var lockItemIndex = ProcessingOptionsMenuButton.Menu.Items
+                .Select((menuItem, index) => (menuItem, index))
+                .FirstOrDefault(pair => pair.menuItem.Identifier == LockProcessorMenuIdentifier).index;
+
+            ProcessingOptionsMenuButton.Menu.InsertItem(item, lockItemIndex + 1);
+        }
+
+        IEnumerable<NSMenuItem> ProcessingOptionsMenuItems()
+        {
+            if (ProcessingOptionsMenuButton?.Menu == null) yield break;
+
+            foreach (var item in ProcessingOptionsMenuButton.Menu.Items)
+            {
+                foreach (var child in MenuItemAndChildren(item))
+                    yield return child;
+            }
+        }
+
+        IEnumerable<NSMenuItem> MenuItemAndChildren(NSMenuItem item)
+        {
+            yield return item;
+
+            if (item.Submenu == null) yield break;
+
+            foreach (var child in item.Submenu.Items)
+            {
+                foreach (var descendant in MenuItemAndChildren(child))
+                    yield return descendant;
+            }
+        }
+
+        bool IsProcessingOptionsCommand(NSMenuItem item)
+        {
+            switch (item.Identifier)
+            {
+                case LockProcessorMenuIdentifier:
+                case ShowSplineHandlesMenuIdentifier:
+                case ConvertToSmoothSplineMenuIdentifier:
+                case ConvertToLinearSplineMenuIdentifier:
+                case CopyToActiveMenuIdentifier:
+                case CopyToNonProcessedMenuIdentifier:
+                    return true;
+                default:
+                    return false;
+            }
+        }
+
+        void UpdateProcessingOptionsMenu()
+        {
+            if (ProcessingOptionsMenuButton?.Menu == null) return;
+
+            var hasProcessor = ContextIsValid && Processor?.Interpolator != null;
+            var splineInterpolator = Processor?.Interpolator as SplineInterpolator;
+            var canConvertToSmoothSpline = hasProcessor && Processor.Interpolator is PolynomialLeastSquaresInterpolator;
+            var canConvertToLinearSpline = hasProcessor && (splineInterpolator == null || splineInterpolator.Algorithm != SplineInterpolator.SplineInterpolatorAlgorithm.Linear);
+            var canConvertToAnySpline = canConvertToSmoothSpline || canConvertToLinearSpline;
+            var hasSmoothSpline = splineInterpolator?.Algorithm == SplineInterpolator.SplineInterpolatorAlgorithm.Smooth;
+
+            foreach (var item in ProcessingOptionsMenuItems())
+            {
+                switch (item.Identifier)
+                {
+                    case LockProcessorMenuIdentifier:
+                        item.Title = Processor?.IsLocked == true ? "Unlock processor" : "Lock processor";
+                        item.Enabled = hasProcessor;
+                        break;
+                    case ShowSplineHandlesMenuIdentifier:
+                        item.Title = "Show spline handles";
+                        item.Enabled = hasSmoothSpline;
+                        item.State = splineInterpolator?.ShowHandles == true ? NSCellStateValue.On : NSCellStateValue.Off;
+                        break;
+                    case ConvertToSmoothSplineMenuIdentifier:
+                        item.Enabled = canConvertToSmoothSpline;
+                        break;
+                    case ConvertToLinearSplineMenuIdentifier:
+                        item.Enabled = canConvertToLinearSpline;
+                        break;
+                    case CopyToActiveMenuIdentifier:
+                    case CopyToNonProcessedMenuIdentifier:
+                        item.Enabled = hasProcessor;
+                        break;
+                    default:
+                        if (item.Title == "Convert to spline" || item.Title == "Point Density")
+                            item.Enabled = canConvertToAnySpline;
+                        break;
+                }
+            }
+
+            if (SplineConversionPointDensityControl != null)
+                SplineConversionPointDensityControl.Enabled = canConvertToAnySpline;
+
+            if (SplinePointDensityControl != null)
+                SplinePointDensityControl.Enabled = splineInterpolator != null;
+        }
+
+        void ProcessingOptionsMenuItemActivated(object sender, EventArgs e)
+        {
+            if (sender is not NSMenuItem item) return;
+
+            var splineInterpolator = Processor?.Interpolator as SplineInterpolator;
+
+            switch (item.Identifier)
+            {
+                case LockProcessorMenuIdentifier:
+                    if (!ContextIsValid || Processor == null) return;
+                    Processor.ToggleLock();
+                    UpdateUI();
+                    break;
+                case ShowSplineHandlesMenuIdentifier:
+                    if (splineInterpolator == null || splineInterpolator.Algorithm != SplineInterpolator.SplineInterpolatorAlgorithm.Smooth) return;
+                    splineInterpolator.ShowHandles = !splineInterpolator.ShowHandles;
+                    UpdateUI();
+                    BaselineGraphView.Invalidate();
+                    break;
+                case ConvertToSmoothSplineMenuIdentifier:
+                    ConvertCurrentProcessorToSpline(SplineInterpolator.SplineInterpolatorAlgorithm.Smooth);
+                    break;
+                case ConvertToLinearSplineMenuIdentifier:
+                    ConvertCurrentProcessorToSpline(SplineInterpolator.SplineInterpolatorAlgorithm.Linear);
+                    break;
+                case CopyToActiveMenuIdentifier:
+                    DataManager.CopySelectedProcessToActive();
+                    break;
+                case CopyToNonProcessedMenuIdentifier:
+                    DataManager.CopySelectedProcessToNonProcessed();
+                    break;
+            }
+        }
+
+        void ConvertCurrentProcessorToSpline(SplineInterpolator.SplineInterpolatorAlgorithm algorithm)
+        {
+            if (!ContextIsValid || Processor?.Interpolator == null) return;
+
+            if (Processor.Interpolator is SplineInterpolator splineInterpolator)
+            {
+                if (algorithm != SplineInterpolator.SplineInterpolatorAlgorithm.Linear) return;
+                if (splineInterpolator.Algorithm == SplineInterpolator.SplineInterpolatorAlgorithm.Linear) return;
+
+                splineInterpolator.Algorithm = SplineInterpolator.SplineInterpolatorAlgorithm.Linear;
+                splineInterpolator.ApplyPointDensity();
+                _ = Processor.ProcessData(false);
+                UpdateUI();
+                return;
+            }
+
+            if (algorithm == SplineInterpolator.SplineInterpolatorAlgorithm.Smooth && Processor.Interpolator is not PolynomialLeastSquaresInterpolator) return;
+
+            SplineInterpolator.PolynomialToSplineConversionTargetAlgorithm = algorithm;
+            Processor.Interpolator.ConvertToSpline(ProductSplinePointDensity(algorithm));
+            UpdateUI();
+        }
+
+        int ProductSplinePointDensity(SplineInterpolator.SplineInterpolatorAlgorithm algorithm)
+        {
+            var densitySegment = SplineConversionPointDensityControl?.SelectedSegment ?? 1;
+
+            return algorithm switch
+            {
+                SplineInterpolator.SplineInterpolatorAlgorithm.Linear => (int)densitySegment switch
+                {
+                    0 => 2,
+                    1 => 4,
+                    2 => 6,
+                    _ => 4,
+                },
+                _ => (int)densitySegment switch
+                {
+                    0 => 1,
+                    1 => 2,
+                    2 => 3,
+                    _ => 2,
+                },
+            };
         }
 
         void SetSelectedSegment(NSSegmentedControl control, int segment)
@@ -224,9 +427,8 @@ namespace AnalysisITC
                 IntegrationLengthControl.Enabled = Processor.IntegrationLengthMode != InjectionData.IntegrationLengthMode.Fit;
                 IntegrationLengthLabel.Enabled = Processor.IntegrationLengthMode != InjectionData.IntegrationLengthMode.Fit;
             }
-            //SplineBaselineFractionControl.StringValue = (SplineFractionSliderControl.FloatValue * 100).ToString("##0") + " %";
-            PolynomialDegreeLabel.StringValue = PolynomialDegreeSlider.IntValue.ToString();
-            //ZLimitLabel.StringValue = ZLimitSlider.FloatValue.ToString("G3");
+
+            PolynomialDegreeLabel.StringValue = PolynomialDegreeFromSlider(PolynomialDegreeSlider.IntValue).ToString();
         }
 
         partial void DiscardIntRangeAction(NSButton sender)
@@ -247,12 +449,19 @@ namespace AnalysisITC
         partial void InterplolatorClicked(NSSegmentedControl sender)
         {
             if (!ContextIsValid) return;
+            if (sender.SelectedSegment == 2)
+            {
+                UpdateUI();
+                return;
+            }
 
             // Determine baseline type
             BaselineInterpolatorTypes interpolator = (int)sender.SelectedSegment switch
             {
                 0 => BaselineInterpolatorTypes.Spline,
-                1 => BaselineInterpolatorTypes.Polynomial };
+                1 => BaselineInterpolatorTypes.Polynomial,
+                _ => Processor.BaselineType,
+            };
 
             Processor.InitializeBaseline(interpolator);
 
@@ -264,20 +473,20 @@ namespace AnalysisITC
         partial void SplineAlgoClicked(NSSegmentedControl sender)
         {
             if (!ContextIsValid) return;
+            if (Processor.Interpolator is not SplineInterpolator splineInterpolator) return;
 
             SplineInterpolator.SplineInterpolatorAlgorithm algorithm;
             switch (sender.SelectedSegment)
             {
                 default:
                 case 0: algorithm = SplineInterpolator.SplineInterpolatorAlgorithm.Linear; break;
-                case 1: algorithm = SplineInterpolator.SplineInterpolatorAlgorithm.Rigid; break;
-                case 2: algorithm = SplineInterpolator.SplineInterpolatorAlgorithm.Smooth; break;
-                case 3: algorithm = SplineInterpolator.SplineInterpolatorAlgorithm.Handles; break;
+                case 1: algorithm = SplineInterpolator.SplineInterpolatorAlgorithm.Smooth; break;
             }
 
-            (Processor.Interpolator as SplineInterpolator).Algorithm = algorithm;
+            splineInterpolator.Algorithm = algorithm;
+            splineInterpolator.ApplyPointDensity();
 
-            UpdateProcessing(false);
+            UpdateProcessing();
         }
 
         partial void SplineHandleModeControlClicked(NSSegmentedControl sender)
@@ -290,23 +499,12 @@ namespace AnalysisITC
             UpdateProcessing();
         }
 
-        partial void SplineBaselineFractionSliderChanged(NSSlider sender)
-        {
-            if (!ContextIsValid) return;
-
-            (Processor.Interpolator as SplineInterpolator).FractionBaseline = sender.FloatValue;
-
-            UpdateSliderLabels();
-
-            UpdateProcessing();
-        }
-
         partial void PolynomialDegreeChanged(NSSlider sender)
         {
             if (!ContextIsValid) return;
             if (Processor.Interpolator is not PolynomialLeastSquaresInterpolator) return;
 
-            (Processor.Interpolator as PolynomialLeastSquaresInterpolator).Degree = sender.IntValue;
+            (Processor.Interpolator as PolynomialLeastSquaresInterpolator).Degree = PolynomialDegreeFromSlider(sender.IntValue);
 
             UpdateSliderLabels();
 
@@ -326,7 +524,63 @@ namespace AnalysisITC
 
         partial void ApplyToAllSwitchToggled(NSSwitch sender)
         {
-            
+
+        }
+
+        partial void SplinePointDensityAction(NSSegmentedControl sender)
+        {
+            if (sender == SplineConversionPointDensityControl)
+            {
+                UpdateProcessingOptionsMenu();
+                return;
+            }
+
+            if (!ContextIsValid) return;
+            if (Processor.Interpolator is not SplineInterpolator splineInterpolator) return;
+
+            splineInterpolator.PointDensity = (SplineInterpolator.SplinePointDensity)(int)sender.SelectedSegment;
+            splineInterpolator.ApplyPointDensity();
+
+            UpdateProcessing();
+            UpdateProcessingOptionsMenu();
+        }
+
+        int PolynomialDegreeFromSlider(int slidervalue)
+        {
+            return slidervalue switch
+            {
+                0 => 0,
+                1 => 1,
+                2 => 2,
+                3 => 3,
+                4 => 4,
+                5 => 6,
+                6 => 8,
+                7 => 12,
+                8 => 16,
+                9 => 24,
+                10 => 32,
+                _ => 12,
+            };
+        }
+
+        int SliderPositionFromPolynomialDegree(int degree)
+        {
+            return degree switch
+            {
+                0 => 0,
+                1 => 1,
+                2 => 2,
+                3 => 3,
+                4 => 4,
+                6 => 5,
+                8 => 6,
+                12 => 7,
+                16 => 8,
+                24 => 9,
+                32 => 10,
+                _ => 5,
+            };
         }
 
         #endregion
@@ -559,8 +813,6 @@ namespace AnalysisITC
                 InjectionViewSegControl.SetEnabled(false, 2);
             }
 
-            ViewPreviousControl.Enabled = BaselineGraphView.SelectedPeak > 0;
-            ViewNextControl.Enabled = BaselineGraphView.SelectedPeak < Data?.InjectionCount;
             BaselineGraphView.Invalidate();
         }
 

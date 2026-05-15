@@ -99,7 +99,6 @@ namespace DataReaders
                         case BaselineInterpolatorTypes.Spline:
                             (processor.Interpolator as SplineInterpolator).Algorithm = (SplineInterpolator.SplineInterpolatorAlgorithm)int.Parse(GContent(SplineAlgorithm, processordata));
                             (processor.Interpolator as SplineInterpolator).HandleMode = (SplineInterpolator.SplineHandleMode)int.Parse(GContent(SplineHandleMode, processordata));
-                            (processor.Interpolator as SplineInterpolator).FractionBaseline = float.Parse(GContent(SplineFraction, processordata));
                             //(processor.Interpolator as SplineInterpolator).IsLocked = GContent(SplineLocked, processordata) == "1";
                             var splinepoints = new List<SplineInterpolator.SplinePoint>();
 
