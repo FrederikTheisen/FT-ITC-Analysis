@@ -409,6 +409,19 @@ namespace AnalysisITC
             return;
         }
 
+        public static void CopySelectedAttributesToExperiment(ExperimentData experiment, bool clear = false)
+        {
+            if (Current == null || experiment == null || experiment == Current) return;
+
+            var opt = Current.Attributes;
+            var copied = CopyAttributesTo(opt, new List<ExperimentData> { experiment }, clear);
+            StatusBarManager.SetStatus(
+                copied > 0
+                    ? $"Copied attributes to {experiment.Name}"
+                    : $"No attributes copied to {experiment.Name}",
+                4000);
+        }
+
         public static void CopySelectedAttributesToNameToken(string token, bool clear = false)
         {
             if (Current == null) return;

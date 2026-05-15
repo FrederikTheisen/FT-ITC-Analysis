@@ -5,6 +5,7 @@ using Foundation;
 using AppKit;
 using System.Threading.Tasks;
 using System.IO;
+using System.Linq;
 using AnalysisITC.AppClasses.AnalysisClasses;
 
 namespace AnalysisITC
@@ -13,6 +14,7 @@ namespace AnalysisITC
 	{
         DirtyTrackingWindowDelegate dirtyTrackingWindowDelegate;
         bool allowDirtyClose;
+        int toolbarSplineConversionPointDensitySegment = 1;
 
         public MainWindowController (IntPtr handle) : base (handle)
 		{
@@ -25,6 +27,7 @@ namespace AnalysisITC
             StateManager.ProgramStateChanged += OnProgramStateChanged;
             StateManager.UpdateStateDependentUI += StateManager_UpdateStateDependentUI;
             DataManager.SelectionDidChange += DataManager_SelectionDidChange;
+            DataManager.AnalysisResultSelected += DataManager_AnalysisResultSelected;
             DataProcessor.BaselineInterpolationCompleted += DataProcessor_InterpolationCompleted;
             StatusBarManager.ProgressUpdate += OnProgressUpdated;
             StatusBarManager.StatusUpdated += OnStatusUpdated;
@@ -47,6 +50,7 @@ namespace AnalysisITC
             Window.Delegate = dirtyTrackingWindowDelegate;
 
             UpdateSharedToolbarControl();
+            ConfigureContextToolbarMenu();
             StateManager_UpdateStateDependentUI(null, null);
             UpdateWindowDirtyState();
             UpdateDocumentStatus();
@@ -63,6 +67,7 @@ namespace AnalysisITC
         private void DataManager_DataDidChange(object sender, ExperimentData e)
         {
             NSApplication.SharedApplication.InvokeOnMainThread(UpdateSharedToolbarControl);
+            NSApplication.SharedApplication.InvokeOnMainThread(UpdateContextToolbarMenu);
             NSApplication.SharedApplication.InvokeOnMainThread(UpdateDocumentStatus);
         }
 
@@ -216,6 +221,7 @@ namespace AnalysisITC
         {
             NavigationArrowControl.SetEnabled(StateManager.PreviousState(true), 2);
             NavigationArrowControl.SetEnabled(StateManager.NextState(true), 3);
+            UpdateContextToolbarMenu();
         }
 
         private void DataProcessor_InterpolationCompleted(object sender, EventArgs e)
@@ -227,6 +233,7 @@ namespace AnalysisITC
         private void DataManager_SelectionDidChange(object sender, ExperimentData e)
         {
             UpdateSharedToolbarControl();
+            UpdateContextToolbarMenu();
 
             if (e == null)
             {
@@ -240,6 +247,12 @@ namespace AnalysisITC
             }
         }
 
+        private void DataManager_AnalysisResultSelected(object sender, AnalysisResult e)
+        {
+            UpdateSharedToolbarControl();
+            UpdateContextToolbarMenu();
+        }
+
         void UpdateSharedToolbarControl()
         {
             if (SharedToolbarControl == null) return;
@@ -247,6 +260,433 @@ namespace AnalysisITC
             SharedToolbarControl.SetEnabled(true, 0);
             SharedToolbarControl.SetEnabled(DataManager.DataIsLoaded, 1);
             SharedToolbarControl.SetEnabled(DataManager.Data.Count > 0, 2);
+        }
+
+        void ConfigureContextToolbarMenu()
+        {
+            UpdateContextToolbarMenu();
+        }
+
+        void UpdateContextToolbarMenu()
+        {
+            UpdateSelectedObjectToolbarMenu();
+            UpdateWorkflowToolbarMenu();
+        }
+
+        void UpdateSelectedObjectToolbarMenu()
+        {
+            if (ContextToolbarMenuButton == null) return;
+
+            var title = DataManager.SelectedIsResult ? "Result" : "Experiment";
+            var menu = new NSMenu(title) { AutoEnablesItems = false };
+            menu.AddItem(new NSMenuItem(title) { Hidden = true });
+
+            if (DataManager.SelectedIsResult)
+            {
+                PopulateResultToolbarMenu(menu);
+            }
+            else
+            {
+                PopulateExperimentToolbarMenu(menu);
+            }
+
+            ContextToolbarMenuButton.Menu = menu;
+            ContextToolbarMenuButton.Title = title;
+            ContextToolbarMenuButton.SelectItem(0);
+        }
+
+        void UpdateWorkflowToolbarMenu()
+        {
+            if (WorkflowToolbarMenuButton == null) return;
+
+            var title = "Options";
+            var menu = new NSMenu(title) { AutoEnablesItems = false };
+            menu.AddItem(new NSMenuItem(title) { Hidden = true });
+
+            switch (StateManager.CurrentState)
+            {
+                case ProgramState.Process:
+                    WorkflowToolbarMenuButton.Hidden = false;
+                    PopulateProcessingToolbarMenu(menu);
+                    break;
+                default:
+                    WorkflowToolbarMenuButton.Hidden = true;
+                    break;
+            }
+
+            WorkflowToolbarMenuButton.Menu = menu;
+            WorkflowToolbarMenuButton.Title = title;
+            WorkflowToolbarMenuButton.SelectItem(0);
+        }
+
+        void PopulateExperimentToolbarMenu(NSMenu menu)
+        {
+            var hasData = DataManager.SelectedIsData && DataManager.Current != null;
+            var hasAttributes = hasData && DataManager.Current.Attributes.Count > 0;
+
+            menu.AddItem(CreateContextMenuItem("Experiment attributes...", "openattributes", hasData, (s, e) => SendActionToResponder("EditAttributesAction:")));
+            menu.AddItem(CreateCopyAttributesMenuItem(hasAttributes));
+            menu.AddItem(NSMenuItem.SeparatorItem);
+            menu.AddItem(CreateContextMenuItem("Duplicate data", "duplicate", hasData, (s, e) => DataManager.DuplicateSelectedData(DataManager.Current)));
+            menu.AddItem(CreateContextMenuItem("Export data...", "exportselecteddata", hasData, (s, e) => Exporter.Export(ExportType.Data, ExportDataSelection.SelectedData)));
+            menu.AddItem(NSMenuItem.SeparatorItem);
+            menu.AddItem(CreateContextMenuItem(hasData && DataManager.Current.Include ? "Disable active" : "Enable active", "toggleinclude", hasData, (s, e) =>
+            {
+                DataManager.Current.ToggleInclude();
+                DataManager.InvokeDataInclusionDidChange();
+                UpdateContextToolbarMenu();
+            }));
+            menu.AddItem(CreateContextMenuItem("Clear solution", "clearsolution", hasData && DataManager.Current.Solution != null, (s, e) =>
+            {
+                DataManager.Current.RemoveModel();
+                UpdateContextToolbarMenu();
+            }));
+            menu.AddItem(CreateContextMenuItem("Remove data", "delete", hasData, (s, e) => DeleteSelectedItem()));
+        }
+
+        void PopulateResultToolbarMenu(NSMenu menu)
+        {
+            var result = DataManager.SelectedResult;
+            var hasResult = result != null;
+            var hasAnyResults = DataManager.Results.Count > 0;
+
+            menu.AddItem(CreateContextMenuItem("Export result...", "resultexporter", hasResult, (s, e) => AppDelegate.LaunchResultExporter()));
+            menu.AddItem(NSMenuItem.SeparatorItem);
+            menu.AddItem(CreateContextMenuItem("Set active experiments", "setactiveexperiments", hasResult, (s, e) => SetSelectedResultExperimentsActive()));
+            menu.AddItem(CreateContextMenuItem("Load solution to experiments", "loadsolutiontoexperiments", hasResult, (s, e) => LoadSelectedResultSolutionsToExperiments()));
+            menu.AddItem(NSMenuItem.SeparatorItem);
+            menu.AddItem(CreateContextMenuItem("Delete result", "deleteresult", hasResult, (s, e) => DeleteSelectedItem()));
+            menu.AddItem(CreateContextMenuItem("Delete all results", "deleteallresults", hasAnyResults, (s, e) => DeleteAllResults()));
+        }
+
+        void PopulateProcessingToolbarMenu(NSMenu menu)
+        {
+            var data = DataManager.Current;
+            var processor = data?.Processor;
+            var hasProcessor = data?.HasThermogram == true && processor?.Interpolator != null;
+            var splineInterpolator = processor?.Interpolator as SplineInterpolator;
+            var hasSmoothSpline = splineInterpolator?.Algorithm == SplineInterpolator.SplineInterpolatorAlgorithm.Smooth;
+            var canConvertToSmoothSpline = hasProcessor && (processor.Interpolator is PolynomialLeastSquaresInterpolator || processor.Interpolator is SegmentedBaselineInterpolator);
+            var canConvertToLinearSpline = hasProcessor && (splineInterpolator == null || splineInterpolator.Algorithm != SplineInterpolator.SplineInterpolatorAlgorithm.Linear);
+            var canConvertToAnySpline = canConvertToSmoothSpline || canConvertToLinearSpline;
+
+            menu.AddItem(CreateContextMenuItem(processor?.IsLocked == true ? "Unlock processor" : "Lock processor", "lockprocessor", hasProcessor, (s, e) =>
+            {
+                processor.ToggleLock();
+                UpdateContextToolbarMenu();
+            }));
+            menu.AddItem(CreateContextMenuItem("Show spline handles", "showsplinehandles", hasSmoothSpline, (s, e) =>
+            {
+                splineInterpolator.ShowHandles = !splineInterpolator.ShowHandles;
+                UpdateContextToolbarMenu();
+            }, splineInterpolator?.ShowHandles == true));
+            menu.AddItem(NSMenuItem.SeparatorItem);
+            menu.AddItem(CreateSplineConversionMenuItem(canConvertToAnySpline, canConvertToSmoothSpline, canConvertToLinearSpline));
+            menu.AddItem(NSMenuItem.SeparatorItem);
+            menu.AddItem(CreateContextMenuItem("Copy to active", "copytoactive", hasProcessor, (s, e) => DataManager.CopySelectedProcessToActive()));
+            menu.AddItem(CreateContextMenuItem("Copy to non-processed", "copytononprocessed", hasProcessor, (s, e) => DataManager.CopySelectedProcessToNonProcessed()));
+        }
+
+        void PopulateAnalysisToolbarMenu(NSMenu menu)
+        {
+            menu.AddItem(CreateContextMenuItem("Export result...", "resultexporter", DataManager.Results.Count > 0, (s, e) => AppDelegate.LaunchResultExporter()));
+            menu.AddItem(CreateContextMenuItem("Export data...", "exportdata", DataManager.DataIsLoaded, (s, e) => Exporter.Export(ExportType.Data)));
+        }
+
+        void PopulateFinalFigureToolbarMenu(NSMenu menu)
+        {
+            menu.AddItem(CreateContextMenuItem("Export figure...", "exportfigure", DataManager.AnyDataIsAnalyzed, (s, e) => SendActionToResponder("ExportGraphButtonClick:")));
+            menu.AddItem(CreateContextMenuItem("Export result...", "resultexporter", DataManager.Results.Count > 0, (s, e) => AppDelegate.LaunchResultExporter()));
+        }
+
+        void PopulateAnalysisResultToolbarMenu(NSMenu menu)
+        {
+            menu.AddItem(CreateContextMenuItem("Export result...", "resultexporter", DataManager.Results.Count > 0, (s, e) => AppDelegate.LaunchResultExporter()));
+            menu.AddItem(CreateContextMenuItem("Copy/export result...", "copyresult", DataManager.Results.Count > 0, (s, e) => SendActionToResponder("CopyToClipboard:")));
+        }
+
+        NSMenuItem CreateCopyAttributesMenuItem(bool hasAttributes)
+        {
+            var item = CreateContextMenuItem("Copy attributes to", "copyattributes", hasAttributes, null);
+            var submenu = new NSMenu("Copy attributes to") { AutoEnablesItems = false };
+            var hasOtherExperiments = DataManager.Data.Any(data => data != DataManager.Current);
+            var hasActiveTargets = DataManager.Data.Any(data => data != DataManager.Current && data.Include);
+
+            submenu.AddItem(CreateContextMenuItem("All", "copyatttoall", hasAttributes && hasOtherExperiments, (s, e) => DataManager.CopySelectedAttributesToAll()));
+            submenu.AddItem(CreateContextMenuItem("Active", "copyatttoactive", hasAttributes && hasActiveTargets, (s, e) => DataManager.CopySelectedAttributesToActive()));
+            submenu.AddItem(NSMenuItem.SeparatorItem);
+            submenu.AddItem(CreateContextMenuItem("Specific experiments:", null, false, null));
+
+            var targets = DataManager.Data
+                .Where(data => data != DataManager.Current)
+                .OrderBy(data => data.Name)
+                .ToList();
+
+            if (targets.Count == 0)
+            {
+                submenu.AddItem(CreateContextMenuItem("No other experiments", null, false, null));
+            }
+            else
+            {
+                foreach (var experiment in targets)
+                {
+                    var target = experiment;
+                    submenu.AddItem(CreateContextMenuItem(target.Name, "copyatttospecific", hasAttributes, (s, e) => DataManager.CopySelectedAttributesToExperiment(target)));
+                }
+            }
+
+            submenu.AddItem(NSMenuItem.SeparatorItem);
+            submenu.AddItem(CreateContextMenuItem("Name contains...", "copyattbyname", hasAttributes && hasOtherExperiments, (s, e) => PromptCopyAttributesToNameToken()));
+
+            item.Submenu = submenu;
+            return item;
+        }
+
+        void PromptCopyAttributesToNameToken()
+        {
+            var tokenField = new NSTextField(new CoreGraphics.CGRect(0, 0, 260, 24))
+            {
+                PlaceholderString = "Experiment name text",
+            };
+
+            var alert = new NSAlert
+            {
+                MessageText = "Copy attributes by name",
+                InformativeText = "Copy the current experiment attributes to experiments whose names contain this text.",
+                AccessoryView = tokenField,
+                AlertStyle = NSAlertStyle.Informational,
+            };
+
+            alert.AddButton("Copy");
+            alert.AddButton("Cancel");
+            if (alert.Window != null)
+            {
+                alert.Window.InitialFirstResponder = tokenField;
+            }
+
+            if (alert.RunModal() != 1000) return;
+
+            var token = tokenField.StringValue?.Trim();
+            if (string.IsNullOrWhiteSpace(token)) return;
+
+            DataManager.CopySelectedAttributesToNameToken(token);
+        }
+
+        NSMenuItem CreateSplineConversionMenuItem(bool enabled, bool canConvertToSmoothSpline, bool canConvertToLinearSpline)
+        {
+            var item = CreateContextMenuItem("Convert to spline", null, enabled, null);
+            var submenu = new NSMenu("Convert to spline") { AutoEnablesItems = false };
+
+            submenu.AddItem(CreateSplinePointDensityViewMenuItem(enabled));
+            submenu.AddItem(NSMenuItem.SeparatorItem);
+            submenu.AddItem(CreateContextMenuItem("Convert to smooth spline", "converttospline", canConvertToSmoothSpline, (s, e) => ConvertCurrentProcessorToSpline(SplineInterpolator.SplineInterpolatorAlgorithm.Smooth)));
+            submenu.AddItem(CreateContextMenuItem("Convert to linear spline", "converttolinearspline", canConvertToLinearSpline, (s, e) => ConvertCurrentProcessorToSpline(SplineInterpolator.SplineInterpolatorAlgorithm.Linear)));
+
+            item.Submenu = submenu;
+            return item;
+        }
+
+        NSMenuItem CreateSplinePointDensityViewMenuItem(bool enabled)
+        {
+            var view = new NSView(new CoreGraphics.CGRect(0, 0, 250, 30));
+
+            var label = new NSTextField(new CoreGraphics.CGRect(10, 7, 92, 17))
+            {
+                StringValue = "Point Density",
+                Editable = false,
+                Bordered = false,
+                DrawsBackground = false,
+                Selectable = false,
+            };
+
+            var control = new NSSegmentedControl(new CoreGraphics.CGRect(110, 2, 132, 24))
+            {
+                SegmentCount = 3,
+                SegmentStyle = NSSegmentStyle.Rounded,
+                SelectedSegment = toolbarSplineConversionPointDensitySegment,
+                Enabled = enabled,
+            };
+
+            control.SetLabel("Low", 0);
+            control.SetLabel("Med", 1);
+            control.SetLabel("High", 2);
+            control.SetWidth(42, 0);
+            control.SetWidth(42, 1);
+            control.SetWidth(42, 2);
+            control.Activated += (s, e) =>
+            {
+                toolbarSplineConversionPointDensitySegment = (int)control.SelectedSegment;
+            };
+
+            view.AddSubview(label);
+            view.AddSubview(control);
+
+            return new NSMenuItem
+            {
+                Enabled = false,
+                View = view,
+            };
+        }
+
+        NSMenuItem CreateContextMenuItem(string title, string identifier, bool enabled, EventHandler activated, bool isChecked = false)
+        {
+            var item = new NSMenuItem(title)
+            {
+                Enabled = enabled,
+                State = isChecked ? NSCellStateValue.On : NSCellStateValue.Off,
+            };
+
+            if (!string.IsNullOrEmpty(identifier)) item.Identifier = identifier;
+            if (activated != null) item.Activated += activated;
+
+            return item;
+        }
+
+        void SendActionToResponder(string selector)
+        {
+            NSApplication.SharedApplication.SendAction(new ObjCRuntime.Selector(selector), null, this);
+        }
+
+        void ConvertCurrentProcessorToSpline(SplineInterpolator.SplineInterpolatorAlgorithm algorithm)
+        {
+            var processor = DataManager.Current?.Processor;
+            if (processor?.Interpolator == null) return;
+
+            var splineInterpolator = processor.Interpolator as SplineInterpolator;
+            if (splineInterpolator != null)
+            {
+                if (algorithm != SplineInterpolator.SplineInterpolatorAlgorithm.Linear) return;
+                if (splineInterpolator.Algorithm == SplineInterpolator.SplineInterpolatorAlgorithm.Linear) return;
+
+                splineInterpolator.Algorithm = SplineInterpolator.SplineInterpolatorAlgorithm.Linear;
+                splineInterpolator.ApplyPointDensity();
+                _ = processor.ProcessData(false);
+                UpdateContextToolbarMenu();
+                return;
+            }
+
+            if (algorithm == SplineInterpolator.SplineInterpolatorAlgorithm.Smooth
+                && !(processor.Interpolator is PolynomialLeastSquaresInterpolator)
+                && !(processor.Interpolator is SegmentedBaselineInterpolator))
+            {
+                return;
+            }
+
+            SplineInterpolator.PolynomialToSplineConversionTargetAlgorithm = algorithm;
+            processor.Interpolator.ConvertToSpline(SplineConversionPointDensity(algorithm));
+            UpdateContextToolbarMenu();
+        }
+
+        int SplineConversionPointDensity(SplineInterpolator.SplineInterpolatorAlgorithm algorithm)
+        {
+            switch (algorithm)
+            {
+                case SplineInterpolator.SplineInterpolatorAlgorithm.Linear:
+                    switch (toolbarSplineConversionPointDensitySegment)
+                    {
+                        case 0:
+                            return 2;
+                        case 2:
+                            return 6;
+                        default:
+                            return 4;
+                    }
+                default:
+                    switch (toolbarSplineConversionPointDensitySegment)
+                    {
+                        case 0:
+                            return 1;
+                        case 2:
+                            return 3;
+                        default:
+                            return 2;
+                    }
+            }
+        }
+
+        void SetSelectedResultExperimentsActive()
+        {
+            var result = DataManager.SelectedResult;
+            if (result == null) return;
+
+            var solutionExperiments = result.Solution.Model.Models.Select(model => model.Data.UniqueID).ToList();
+            foreach (var data in DataManager.Data)
+            {
+                data.Include = solutionExperiments.Contains(data.UniqueID);
+            }
+
+            DataManager.InvokeDataInclusionDidChange();
+            UpdateContextToolbarMenu();
+        }
+
+        void LoadSelectedResultSolutionsToExperiments()
+        {
+            var result = DataManager.SelectedResult;
+            if (result == null) return;
+
+            StatusBarManager.SetStatus("Copying solutions to experiments...");
+
+            foreach (var solution in result.Solution.Solutions)
+            {
+                solution.Data.UpdateSolution(solution.Model);
+            }
+
+            StatusBarManager.ClearAppStatus();
+            StatusBarManager.SetStatus("Solutions updated", 2000);
+            DataAnalysisViewController.InvalidateGraph();
+            UpdateContextToolbarMenu();
+        }
+
+        void DeleteSelectedItem()
+        {
+            if (DataManager.SelectedContentIndex == -1) return;
+            if (DataManager.SelectedContentIndex >= DataManager.SourceItems.Count) return;
+
+            var item = DataManager.SourceItems[DataManager.SelectedContentIndex];
+            var itemType = item is AnalysisResult ? "Result" : "Data";
+            var itemName = string.IsNullOrWhiteSpace(item.Name) ? item.FileName : item.Name;
+
+            var alert = new NSAlert
+            {
+                InformativeText = $"Are you sure you wish to delete {itemName}?",
+                MessageText = $"Confirm Delete {itemType}",
+                AlertStyle = NSAlertStyle.Warning,
+            };
+
+            alert.AddButton("Cancel");
+            alert.AddButton($"Delete {itemType}");
+            alert.Buttons[1].HasDestructiveAction = true;
+
+            if (alert.RunModal() != 1001) return;
+
+            var idx = DataManager.SelectedContentIndex;
+            ViewController.NotifyWillRemoveData(this, idx);
+            DataManager.RemoveData2(idx);
+            ViewController.NotifyRemoveData(this, idx);
+            UpdateContextToolbarMenu();
+        }
+
+        void DeleteAllResults()
+        {
+            if (DataManager.Results.Count == 0) return;
+
+            var alert = new NSAlert
+            {
+                InformativeText = $"Are you sure you wish to delete all {DataManager.Results.Count} analysis results?",
+                MessageText = "Confirm Delete All Results",
+                AlertStyle = NSAlertStyle.Warning,
+            };
+
+            alert.AddButton("Cancel");
+            alert.AddButton("Delete All Results");
+            alert.Buttons[1].HasDestructiveAction = true;
+
+            if (alert.RunModal() != 1001) return;
+
+            DataManager.ClearProcessing();
+            var nextIndex = Math.Min(DataManager.SelectedContentIndex, DataManager.SourceItems.Count - 1);
+            DataManager.SelectIndex(nextIndex);
+            UpdateContextToolbarMenu();
         }
 
         private async void OnProgressUpdated(object sender, ProgressIndicatorEventData e)

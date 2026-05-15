@@ -38,6 +38,8 @@ namespace AnalysisITC
         public static bool IncludeBufferInIonicStrengthCalc { get; set; } = true;
         public static DilutionMethod DilutionCalculationMethod { get; set; } = DilutionMethod.MicroCal;
         public static bool ReprocessIntegratedHeatDataOnLoad { get; set; } = true;
+        public static SplineInterpolator.SplinePointDensity DefaultSplinePointDensity { get; set; } = SplineInterpolator.SplinePointDensity.Balanced;
+        public static SplineInterpolator.SplineHandleMode DefaultSplineHandleMode { get; set; } = SplineInterpolator.SplineHandleMode.Mean;
 
         //Fitting
         public static bool InputAffinityAsDissociationConstant { get; set; } = true;
@@ -137,6 +139,8 @@ namespace AnalysisITC
             Storage.SetBool(AutoAxesIgnoresBadData, "AutoAxesIgnoresBadData");
             Storage.SetInt((int)DilutionCalculationMethod, "DilutionCalculationMethod");
             Storage.SetBool(ReprocessIntegratedHeatDataOnLoad, "ReprocessIntegratedHeatDataOnLoad");
+            Storage.SetInt((int)DefaultSplinePointDensity, "DefaultSplinePointDensity");
+            Storage.SetInt((int)DefaultSplineHandleMode, "DefaultSplineHandleMode");
             Storage.SetBool(PerformOnlineChecksOnLaunch, "PerformOnlineChecksOnLaunch");
 
             if (LastDocumentUrls != null) StoreArray(LastDocumentUrls.Select(url => url.ToString()).ToArray(), "LastDocumentUrls");
@@ -197,6 +201,8 @@ namespace AnalysisITC
             AutoAxesIgnoresBadData = GetBool(dict, "AutoAxesIgnoresBadData", AutoAxesIgnoresBadData);
             DilutionCalculationMethod = (DilutionMethod)GetInt(dict, "DilutionCalculationMethod", (int)DilutionCalculationMethod);
             ReprocessIntegratedHeatDataOnLoad = GetBool(dict, "ReprocessIntegratedHeatDataOnLoad", ReprocessIntegratedHeatDataOnLoad);
+            DefaultSplinePointDensity = (SplineInterpolator.SplinePointDensity)GetInt(dict, "DefaultSplinePointDensity", (int)DefaultSplinePointDensity);
+            DefaultSplineHandleMode = (SplineInterpolator.SplineHandleMode)GetInt(dict, "DefaultSplineHandleMode", (int)DefaultSplineHandleMode);
             PerformOnlineChecksOnLaunch = GetBool(dict, "PerformOnlineChecksOnLaunch", PerformOnlineChecksOnLaunch);
 
             LastDocumentUrls = GetArray(dict, "LastDocumentUrls", new string[0]).Select(url => NSUrl.FromString(url)).ToArray();
@@ -250,6 +256,8 @@ namespace AnalysisITC
             AutoAxesIgnoresBadData = true;
             DilutionCalculationMethod = DilutionMethod.MicroCal;
             ReprocessIntegratedHeatDataOnLoad = true;
+            DefaultSplinePointDensity = SplineInterpolator.SplinePointDensity.Balanced;
+            DefaultSplineHandleMode = SplineInterpolator.SplineHandleMode.Mean;
             PerformOnlineChecksOnLaunch = true;
         }
 
@@ -351,6 +359,8 @@ namespace AnalysisITC
             FinalFigureGraphView.GapResidualGraph = ShowResidualGraphGap;
             FinalFigureGraphView.MirrorDataGraphAxisUnification = UnifyResidualGraphAxis;
             FinalFigureGraphView.AutoAxesIgnoresBadData = AutoAxesIgnoresBadData;
+            SplineInterpolator.DefaultPointDensity = DefaultSplinePointDensity;
+            SplineInterpolator.DefaultHandleMode = DefaultSplineHandleMode;
         }
     }
 

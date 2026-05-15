@@ -21,6 +21,11 @@ namespace AnalysisITC
             WillRemoveData?.Invoke(sender, index);
         }
 
+        public static void NotifyRemoveData(object sender, int index)
+        {
+            RemoveData?.Invoke(sender, index);
+        }
+
         ExperimentData Data => DataManager.Current;
 
         NSScrollView LoadedInjectionScrollView;

@@ -19,6 +19,12 @@ namespace AnalysisITC
 		AppKit.NSButton ContextButton { get; set; }
 
 		[Outlet]
+		AppKit.NSPopUpButton ContextToolbarMenuButton { get; set; }
+
+		[Outlet]
+		AppKit.NSPopUpButton WorkflowToolbarMenuButton { get; set; }
+
+		[Outlet]
 		AppKit.NSSegmentedControl DataLoadSegControl { get; set; }
 
 		[Outlet]
@@ -79,6 +85,16 @@ namespace AnalysisITC
 			if (ContextButton != null) {
 				ContextButton.Dispose ();
 				ContextButton = null;
+			}
+
+			if (ContextToolbarMenuButton != null) {
+				ContextToolbarMenuButton.Dispose ();
+				ContextToolbarMenuButton = null;
+			}
+
+			if (WorkflowToolbarMenuButton != null) {
+				WorkflowToolbarMenuButton.Dispose ();
+				WorkflowToolbarMenuButton = null;
 			}
 
 			if (DataLoadSegControl != null) {
