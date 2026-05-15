@@ -37,6 +37,9 @@ namespace AnalysisITC
 		AppKit.NSTextField StatusbarSecondaryLabel { get; set; }
 
 		[Outlet]
+		AppKit.NSSegmentedControl SharedToolbarControl { get; set; }
+
+		[Outlet]
 		AppKit.NSSegmentedControl StepControl { get; set; }
 
 		[Outlet]
@@ -56,6 +59,9 @@ namespace AnalysisITC
 
 		[Action ("ProcessSegControlClick:")]
 		partial void ProcessSegControlClick (AppKit.NSSegmentedControl sender);
+
+		[Action ("SharedToolbarControlClicked:")]
+		partial void SharedToolbarControlClicked (AppKit.NSSegmentedControl sender);
 
 		[Action ("StepControlClick:")]
 		partial void StepControlClick (AppKit.NSSegmentedControl sender);
@@ -103,6 +109,11 @@ namespace AnalysisITC
 			if (StatusbarSecondaryLabel != null) {
 				StatusbarSecondaryLabel.Dispose ();
 				StatusbarSecondaryLabel = null;
+			}
+
+			if (SharedToolbarControl != null) {
+				SharedToolbarControl.Dispose ();
+				SharedToolbarControl = null;
 			}
 
 			if (StepControl != null) {

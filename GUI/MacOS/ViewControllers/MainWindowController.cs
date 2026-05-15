@@ -46,6 +46,7 @@ namespace AnalysisITC
             dirtyTrackingWindowDelegate = new DirtyTrackingWindowDelegate(this);
             Window.Delegate = dirtyTrackingWindowDelegate;
 
+            UpdateSharedToolbarControl();
             StateManager_UpdateStateDependentUI(null, null);
             UpdateWindowDirtyState();
             UpdateDocumentStatus();
@@ -61,6 +62,7 @@ namespace AnalysisITC
 
         private void DataManager_DataDidChange(object sender, ExperimentData e)
         {
+            NSApplication.SharedApplication.InvokeOnMainThread(UpdateSharedToolbarControl);
             NSApplication.SharedApplication.InvokeOnMainThread(UpdateDocumentStatus);
         }
 
@@ -224,6 +226,8 @@ namespace AnalysisITC
 
         private void DataManager_SelectionDidChange(object sender, ExperimentData e)
         {
+            UpdateSharedToolbarControl();
+
             if (e == null)
             {
                 ProcessSegControl.SetEnabled(false, 1);
@@ -234,6 +238,15 @@ namespace AnalysisITC
                 ProcessSegControl.SetEnabled(e.Processor.BaselineCompleted, 1);
                 AnalysisSegControl.SetEnabled(e.Processor.BaselineCompleted, 1);
             }
+        }
+
+        void UpdateSharedToolbarControl()
+        {
+            if (SharedToolbarControl == null) return;
+
+            SharedToolbarControl.SetEnabled(true, 0);
+            SharedToolbarControl.SetEnabled(DataManager.DataIsLoaded, 1);
+            SharedToolbarControl.SetEnabled(DataManager.Data.Count > 0, 2);
         }
 
         private async void OnProgressUpdated(object sender, ProgressIndicatorEventData e)
@@ -322,6 +335,31 @@ namespace AnalysisITC
                 case 2: StateManager.PreviousState(); break;
                 case 3: StateManager.NextState(); break;
             }
+        }
+
+        partial void SharedToolbarControlClicked(NSSegmentedControl sender)
+        {
+            switch (sender.SelectedSegment)
+            {
+                case 0:
+                    AppDelegate.LaunchOpenFileDialog();
+                    break;
+                case 1:
+                    if (FTITCWriter.IsSaved)
+                    {
+                        FTITCWriter.SaveWithPath();
+                    }
+                    else
+                    {
+                        FTITCWriter.SaveState2();
+                    }
+                    break;
+                case 2:
+                    Exporter.Export(ExportType.Data);
+                    break;
+            }
+
+            UpdateSharedToolbarControl();
         }
 
         partial void DataLoadSegControlClick(NSSegmentedControl sender)
