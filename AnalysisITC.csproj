@@ -216,6 +216,8 @@
     <ImageAsset Include="Assets.xcassets\design.icon.curve.compass.ruler.symbolset\design.icon.curve.compass.ruler.svg" />
     <ImageAsset Include="Assets.xcassets\arrow.up.folder.symbolset\Contents.json" />
     <ImageAsset Include="Assets.xcassets\arrow.up.folder.symbolset\arrow.up.folder.svg" />
+    <ImageAsset Include="Assets.xcassets\InvertedSecondaryFill.colorset\Contents.json" />
+    <ImageAsset Include="Assets.xcassets\InvertedLabel.colorset\Contents.json" />
   </ItemGroup>
   <ItemGroup>
     <Folder Include="Resources\" />

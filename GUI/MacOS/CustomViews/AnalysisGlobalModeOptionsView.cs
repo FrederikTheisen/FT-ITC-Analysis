@@ -43,16 +43,22 @@ namespace AnalysisITC
                 SegmentStyle = NSSegmentStyle.Capsule,
                 TranslatesAutoresizingMaskIntoConstraints = false,
                 SelectedSegment = 0,
+                ControlSize = NSControlSize.Small,
+                Font = NSFont.SystemFontOfSize(NSFont.SmallSystemFontSize),
             };
             Control.Activated += SegmentedControlChanged;
 
-            Label = new NSTextField();
-            Label.BezelStyle = NSTextFieldBezelStyle.Rounded;
-            Label.Bordered = false;
-            Label.Editable = false;
-            Label.StringValue = "init";
-            Label.TranslatesAutoresizingMaskIntoConstraints = false;
-            Label.HorizontalContentSizeConstraintActive = false;
+            Label = new NSTextField
+            {
+                ControlSize = NSControlSize.Small,
+                BezelStyle = NSTextFieldBezelStyle.Rounded,
+                Bordered = false,
+                Editable = false,
+                StringValue = "init",
+                TranslatesAutoresizingMaskIntoConstraints = false,
+                HorizontalContentSizeConstraintActive = false,
+                Font = NSFont.SystemFontOfSize(NSFont.SmallSystemFontSize),
+            };
 
             AddArrangedSubview(Label);
             AddArrangedSubview(Control);
@@ -65,7 +71,7 @@ namespace AnalysisITC
             //AddConstraints(NSLayoutConstraint.FromVisualFormat("V:|-[stackView]-|", NSLayoutFormatOptions.AlignAllCenterX, null, new NSDictionary("stackView", this)));
         }
 
-        public override CGSize IntrinsicContentSize => new CGSize(150, 20);
+        public override CGSize IntrinsicContentSize => new CGSize(150, 19);
 
         public void Setup(ParameterType type, List<VariableConstraint> options, GlobalModelParameters modelparameters)
         {

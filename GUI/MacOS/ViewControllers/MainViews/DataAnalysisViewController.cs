@@ -26,6 +26,7 @@ namespace AnalysisITC
         bool ShowResidualGraph => ShowResidualGraphButton.State == NSCellStateValue.On;
         bool ScaleToValid => ScaleToValidButton.State == NSCellStateValue.On;
         bool HasActiveExperiments => DataManager.Data.Count(d => d.Include) > 0;
+        NSStackView constraintOptionsStackView;
 
         AnalysisModel ModelFromSegmentedControl => (int)ModelTypeControl.SelectedSegment switch
         {
@@ -69,10 +70,7 @@ namespace AnalysisITC
             AppDelegate.StartPrintOperation += OnPrintOperation;
             AnalysisITCDataSource.SourceWasSorted += (_, _) => RefreshGlobalModeControls();
 
-            // Initial UI state
-            GlobalAffinityStyle.Hidden = true;
-            GlobalEnthalpyStyle.Hidden = true;
-            GlobalNView.Hidden = true;
+            EnsureConstraintOptionsStackView();
         }
 
         public override void ViewWillAppear()
@@ -181,28 +179,56 @@ namespace AnalysisITC
 
         void RebuildConstraintOptionViews()
         {
-            // Remove stale constraint views (always at index >= 2)
-            while (OptionsStackView.Views.Length > 2 && OptionsStackView.Views[2] is AnalysisGlobalModeOptionsView2)
-            {
-                var view = OptionsStackView.Views[2];
-                OptionsStackView.RemoveView(view);
-                view.Dispose();
-            }
+            EnsureConstraintOptionsStackView();
+            ClearConstraintOptionViews();
 
             if (Workspace.IsReady && Workspace.Session.IsGlobal)
             {
                 var ctx = Workspace.Context;
 
-                foreach (var (paramType, constraintOptions) in ctx.ExposedConstraintOptions.Reverse())
+                foreach (var (paramType, constraintOptions) in ctx.ExposedConstraintOptions)
                 {
                     var control = new AnalysisGlobalModeOptionsView2(
-                        new CoreGraphics.CGRect(0, 0, OptionsStackView.Frame.Width, 20));
+                        new CoreGraphics.CGRect(0, 0, OptionsStackView.Frame.Width, 19));
                     control.Setup(paramType, constraintOptions.ToList(), ctx.GlobalModelParameters);
-                    OptionsStackView.InsertArrangedSubview(control, 2);
+                    constraintOptionsStackView.AddArrangedSubview(control);
                 }
             }
 
+            constraintOptionsStackView.Hidden = constraintOptionsStackView.Views.Length == 0;
+            constraintOptionsStackView.Layout();
             OptionsStackView.Layout();
+        }
+
+        void EnsureConstraintOptionsStackView()
+        {
+            if (constraintOptionsStackView != null) return;
+
+            constraintOptionsStackView = new NSStackView(new CoreGraphics.CGRect(0, 0, OptionsStackView.Frame.Width, 0))
+            {
+                Orientation = NSUserInterfaceLayoutOrientation.Vertical,
+                Distribution = NSStackViewDistribution.Fill,
+                Alignment = NSLayoutAttribute.Width,
+                Spacing = 1,
+                DetachesHiddenViews = true,
+                TranslatesAutoresizingMaskIntoConstraints = false,
+                Hidden = true,
+            };
+            constraintOptionsStackView.SetContentHuggingPriorityForOrientation(249, NSLayoutConstraintOrientation.Horizontal);
+            constraintOptionsStackView.SetContentHuggingPriorityForOrientation(1000, NSLayoutConstraintOrientation.Vertical);
+            constraintOptionsStackView.SetClippingResistancePriority(750, NSLayoutConstraintOrientation.Horizontal);
+
+            OptionsStackView.InsertArrangedSubview(constraintOptionsStackView, 2);
+            constraintOptionsStackView.WidthAnchor.ConstraintEqualToAnchor(OptionsStackView.WidthAnchor).Active = true;
+        }
+
+        void ClearConstraintOptionViews()
+        {
+            foreach (var view in constraintOptionsStackView.Views.ToArray())
+            {
+                constraintOptionsStackView.RemoveView(view);
+                view.Dispose();
+            }
         }
 
         // ── Fitting ────────────────────────────────────────────────────────
