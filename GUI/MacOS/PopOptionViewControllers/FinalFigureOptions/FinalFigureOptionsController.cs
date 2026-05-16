@@ -287,7 +287,6 @@ namespace AnalysisITC
             }
 
             controls.SymbolControl?.SetSelected(true, FinalFigureGraphView.SymbolShape);
-            PrepareSymbolImages(controls.SymbolControl);
             UpdateFitLabels(controls);
         }
 
@@ -456,25 +455,6 @@ namespace AnalysisITC
             if (control == null) return;
 
             control.State = enabled ? (int)NSCellStateValue.On : (int)NSCellStateValue.Off;
-        }
-
-        static void PrepareSymbolImages(NSSegmentedControl symbolControl)
-        {
-            if (symbolControl == null) return;
-
-            for (int i = 0; i < 3; i++)
-            {
-                var image = symbolControl.GetImage(i);
-                if (image == null) continue;
-
-                var targetFrame = new CGRect(0, 0, 10, 10);
-                var targetImage = new NSImage(targetFrame.Size) { Template = true };
-                targetImage.LockFocus();
-                image.Draw(targetFrame, new CGRect(CGPoint.Empty, image.Size), NSCompositingOperation.SourceOver, 1f);
-                targetImage.UnlockFocus();
-
-                symbolControl.SetImage(targetImage, i);
-            }
         }
     }
 }
