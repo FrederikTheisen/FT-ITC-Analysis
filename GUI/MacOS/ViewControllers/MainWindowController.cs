@@ -633,6 +633,7 @@ namespace AnalysisITC
 
             StatusBarManager.ClearAppStatus();
             StatusBarManager.SetStatus("Solutions updated", 2000);
+            DataManager.InvokeUpdateDataViewCells();
             DataAnalysisViewController.InvalidateGraph();
             UpdateContextToolbarMenu();
         }

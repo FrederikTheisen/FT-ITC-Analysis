@@ -471,6 +471,7 @@
     <Compile Include="GUI\MacOS\PopOptionViewControllers\FinalFigureOptions\GraphOptionsPopoverViewController.designer.cs">
       <DependentUpon>GraphOptionsPopoverViewController.cs</DependentUpon>
     </Compile>
+    <Compile Include="GUI\MacOS\PopOptionViewControllers\FinalFigureOptions\FinalFigureOptionsController.cs" />
     <Compile Include="GUI\MacOS\PopOptionViewControllers\FinalFigureOptions\ExportPopViewController.cs" />
     <Compile Include="GUI\MacOS\PopOptionViewControllers\FinalFigureOptions\ExportPopViewController.designer.cs">
       <DependentUpon>ExportPopViewController.cs</DependentUpon>

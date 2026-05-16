@@ -4,7 +4,6 @@ using System;
 
 using Foundation;
 using AppKit;
-using CoreGraphics;
 
 namespace AnalysisITC
 {
@@ -17,77 +16,36 @@ namespace AnalysisITC
         public override void ViewWillAppear()
         {
             base.ViewWillAppear();
-
-            UnifiedHeatAxis.State = FinalFigureGraphView.UnifiedEnthalpyAxis ? 1 : 0;
-            UnifiedMolarRatioAxis.State = FinalFigureGraphView.UseUnifiedMolarRatioAxis ? 1 : 0;
-            DrawZeroLine.State = FinalFigureGraphView.DrawZeroLine ? 1 : 0;
-            DrawErrorBars.State = FinalFigureGraphView.ShowErrorBars ? 1 : 0;
-            BadDataErrorBars.State = FinalFigureGraphView.ShowBadDataErrorBars ? 1 : 0;
-            DrawConfidence.State = FinalFigureGraphView.DrawConfidence ? 1 : 0;
-            HideBadData.State = FinalFigureGraphView.ShowBadData ? 1 : 0;
-            ShowResiduals.State = FinalFigureGraphView.ShowResiduals ? 1 : 0;
-            AddGapToResidualPlot.State = FinalFigureGraphView.GapResidualGraph ? 1 : 0;
-            SplineInterpolationControl.SelectedSegment = (int)FinalFigureGraphView.FitLineSmoothness;
-
-            if (FinalFigureGraphView.EnthalpyAxisTitleAxisTitleIsChanged) EnthalpyAxisTitleLabel.PlaceholderString = FinalFigureGraphView.EnthalpyAxisTitle;
-            if (FinalFigureGraphView.MolarRatioAxisTitleIsChanged) MolarRatioAxisTitleLabel.PlaceholderString = FinalFigureGraphView.MolarRatioAxisTitle;
-
-            XAxisTickStepper.IntValue = FinalFigureGraphView.FitXTickCount;
-            YAxisTickStepper.IntValue = FinalFigureGraphView.FitYTickCount;
-
-            SymbolSizeStepper.IntValue = (int)(2 * FinalFigureGraphView.SymbolSize);
-            //SymbolControl.SelectSegment(FinalFigureGraphView.SymbolShape);
-
-            SymbolControl.SetSelected(true, FinalFigureGraphView.SymbolShape);
-
-            for (int i = 0; i < 3; i++)
-            {
-                var targetFrame = new CGRect(0, 0, 10, 10);
-                var image = SymbolControl.GetImage(i);
-                var targetImage = new NSImage(targetFrame.Size);
-                targetImage.Template = true;
-                targetImage.LockFocus();
-                image.Draw(targetFrame, new CGRect(CGPoint.Empty, image.Size), NSCompositingOperation.SourceOver, 1f);
-                targetImage.UnlockFocus();
-
-                SymbolControl.SetImage(targetImage, i);
-            }
-
-            UpdateLabels();
+            FinalFigureOptionsController.SyncFit(Controls);
         }
 
         partial void ControlClicked(NSObject sender)
         {
-            UpdateLabels();
-
-            FinalFigureGraphView.UnifiedEnthalpyAxis = UnifiedHeatAxis.State == 1;
-            FinalFigureGraphView.UseUnifiedMolarRatioAxis = UnifiedMolarRatioAxis.State == 1;
-            FinalFigureGraphView.DrawZeroLine = DrawZeroLine.State == 1;
-            FinalFigureGraphView.ShowErrorBars = DrawErrorBars.State == 1;
-            FinalFigureGraphView.ShowBadDataErrorBars = BadDataErrorBars.State == 1;
-            FinalFigureGraphView.DrawConfidence = DrawConfidence.State == 1;
-            FinalFigureGraphView.ShowBadData = HideBadData.State == 1;
-            FinalFigureGraphView.ShowResiduals = ShowResiduals.State == 1;
-            FinalFigureGraphView.GapResidualGraph = AddGapToResidualPlot.State == 1;
-            FinalFigureGraphView.FitLineSmoothness = (GraphBase.LineSmoothness)(int)SplineInterpolationControl.SelectedSegment;
-
-            if (EnthalpyAxisTitleLabel.StringValue.Trim() != "") FinalFigureGraphView.EnthalpyAxisTitle = EnthalpyAxisTitleLabel.StringValue;
-            if (MolarRatioAxisTitleLabel.StringValue.Trim() != "") FinalFigureGraphView.MolarRatioAxisTitle = MolarRatioAxisTitleLabel.StringValue;
-
-            FinalFigureGraphView.FitXTickCount = XAxisTickStepper.IntValue;
-            FinalFigureGraphView.FitYTickCount = YAxisTickStepper.IntValue;
-
-            FinalFigureGraphView.SymbolSize = SymbolSizeStepper.IntValue / 2f;
-            FinalFigureGraphView.SymbolShape = (int)SymbolControl.SelectedSegment;
-
+            FinalFigureOptionsController.ApplyFit(Controls);
             FinalFigureGraphView.Invalidate();
         }
 
-        void UpdateLabels()
+        FinalFigureOptionsController.FitControls Controls => new()
         {
-            XTickLabel.IntValue = XAxisTickStepper.IntValue;
-            YTickLabel.IntValue = YAxisTickStepper.IntValue;
-            SymbolSizeLabel.StringValue = (SymbolSizeStepper.IntValue / 2f).ToString("F1");
-        }
+            AddGapToResidualPlot = AddGapToResidualPlot,
+            BadDataErrorBars = BadDataErrorBars,
+            DrawConfidence = DrawConfidence,
+            DrawErrorBars = DrawErrorBars,
+            DrawZeroLine = DrawZeroLine,
+            EnthalpyAxisTitleLabel = EnthalpyAxisTitleLabel,
+            HideBadData = HideBadData,
+            MolarRatioAxisTitleLabel = MolarRatioAxisTitleLabel,
+            ShowResiduals = ShowResiduals,
+            SplineInterpolationControl = SplineInterpolationControl,
+            SymbolControl = SymbolControl,
+            SymbolSizeLabel = SymbolSizeLabel,
+            SymbolSizeStepper = SymbolSizeStepper,
+            UnifiedHeatAxis = UnifiedHeatAxis,
+            UnifiedMolarRatioAxis = UnifiedMolarRatioAxis,
+            XAxisTickStepper = XAxisTickStepper,
+            XTickLabel = XTickLabel,
+            YAxisTickStepper = YAxisTickStepper,
+            YTickLabel = YTickLabel,
+        };
     }
 }

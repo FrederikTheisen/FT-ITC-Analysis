@@ -16,43 +16,27 @@ namespace AnalysisITC
         public override void ViewWillAppear()
         {
             base.ViewWillAppear();
-
-            UnifiedPowerAxis.State = FinalFigureGraphView.UnifiedPowerAxis ? 1 : 0;
-            DrawBaseline.State = FinalFigureGraphView.DrawBaseline ? 1 : 0;
-            DrawCorrected.State = FinalFigureGraphView.DrawBaselineCorrected ? 1 : 0;
-            TimeUnitControl.SelectSegment((int)FinalFigureGraphView.TimeAxisUnit);
-
-            if (FinalFigureGraphView.PowerAxisTitleIsChanged) PowerAxisTitleLabel.PlaceholderString = FinalFigureGraphView.PowerAxisTitle;
-            if (FinalFigureGraphView.TimeAxisTitleIsChanged) TimeAxisTitleLabel.PlaceholderString = FinalFigureGraphView.TimeAxisTitle;
-
-            XTickStepper.IntValue = FinalFigureGraphView.DataXTickCount;
-            YTickStepper.IntValue = FinalFigureGraphView.DataYTickCount;
-
-            UpdateTickLabels();
+            FinalFigureOptionsController.SyncData(Controls);
         }
 
         partial void ControlChanged(NSObject sender)
         {
-            UpdateTickLabels();
-
-            FinalFigureGraphView.UnifiedPowerAxis = UnifiedPowerAxis.State == 1;
-            FinalFigureGraphView.DrawBaseline = DrawBaseline.State == 1;
-            FinalFigureGraphView.DrawBaselineCorrected = DrawCorrected.State == 1;
-            FinalFigureGraphView.TimeAxisUnit = (TimeUnit)(int)TimeUnitControl.SelectedSegment;
-
-            if (PowerAxisTitleLabel.StringValue.Trim() != "") FinalFigureGraphView.PowerAxisTitle = PowerAxisTitleLabel.StringValue;
-            if (TimeAxisTitleLabel.StringValue.Trim() != "") FinalFigureGraphView.TimeAxisTitle = TimeAxisTitleLabel.StringValue;
-
-            FinalFigureGraphView.DataXTickCount = XTickStepper.IntValue;
-            FinalFigureGraphView.DataYTickCount = YTickStepper.IntValue;
-
+            FinalFigureOptionsController.ApplyData(Controls);
             FinalFigureGraphView.Invalidate();
         }
 
-        void UpdateTickLabels()
+        FinalFigureOptionsController.DataControls Controls => new()
         {
-            XTickLabel.IntValue = XTickStepper.IntValue;
-            YTickLabel.IntValue = YTickStepper.IntValue;
-        }
+            DrawBaseline = DrawBaseline,
+            DrawCorrected = DrawCorrected,
+            PowerAxisTitleLabel = PowerAxisTitleLabel,
+            TimeAxisTitleLabel = TimeAxisTitleLabel,
+            TimeUnitControl = TimeUnitControl,
+            UnifiedPowerAxis = UnifiedPowerAxis,
+            XTickLabel = XTickLabel,
+            XTickStepper = XTickStepper,
+            YTickLabel = YTickLabel,
+            YTickStepper = YTickStepper,
+        };
     }
 }

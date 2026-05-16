@@ -31,12 +31,15 @@ namespace AnalysisITC
 
         private void DataManager_UpdateViewCells(object sender, EventArgs e)
         {
+            if (data == null) return;
+
             NSApplication.SharedApplication.InvokeOnMainThread(() =>
             {
                 IncludeDataButton.State = data.Include ? NSCellStateValue.On : NSCellStateValue.Off;
+                ShowFitDataButton.Enabled = data.Solution != null;
+                SetSelectedSolutionHighlighting(DataManager.SelectedSolutionExperimentHighlight);
+                NeedsDisplay = true;
             });
-
-            NeedsDisplay = true;
         }
 
         public override void Layout()

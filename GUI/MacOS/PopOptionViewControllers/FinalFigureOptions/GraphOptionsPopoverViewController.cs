@@ -3,36 +3,11 @@
 using System;
 using Foundation;
 using AppKit;
-using System.Text.RegularExpressions;
-using AnalysisITC.AppClasses.AnalysisClasses.Models;
 
 namespace AnalysisITC
 {
 	public partial class GraphOptionsPopoverViewController : NSViewController
 	{
-        FinalFigureDisplayParameters GetParameterFlagForMenuIndex(int index)
-        {
-            return index switch
-            {
-                1 => FinalFigureDisplayParameters.Model,
-                2 => FinalFigureDisplayParameters.Fitted,
-                3 => FinalFigureDisplayParameters.Derived,
-
-                5 => FinalFigureDisplayParameters.Temperature,
-                6 => FinalFigureDisplayParameters.Concentrations,
-                7 => FinalFigureDisplayParameters.Attributes,
-
-                9 => FinalFigureDisplayParameters.Nvalue,
-                10 => FinalFigureDisplayParameters.Affinity,
-                11 => FinalFigureDisplayParameters.Enthalpy,
-                12 => FinalFigureDisplayParameters.Gibbs,
-                13 => FinalFigureDisplayParameters.Entropy,
-                14 => FinalFigureDisplayParameters.Offset,
-
-                _ => FinalFigureDisplayParameters.None,
-            };
-        }
-
         public GraphOptionsPopoverViewController (IntPtr handle) : base (handle)
 		{
 		}
@@ -40,98 +15,31 @@ namespace AnalysisITC
         public override void ViewWillAppear()
         {
             base.ViewWillAppear();
-            var unitnum = FinalFigureGraphView.EnergyUnit switch
-            {
-                EnergyUnit.KiloJoule => 0,
-                EnergyUnit.Joule => 0,
-                EnergyUnit.MicroCal => 1,
-                EnergyUnit.Cal => 1,
-                EnergyUnit.KCal => 1,
-                _ => 0,
-            };
-            EnergyUnitControl.SelectSegment(unitnum);
-            TimeUnitControl.SelectSegment((int)FinalFigureGraphView.TimeAxisUnit);
-
-            WidthLabel.StringValue = FinalFigureGraphView.Width.ToString("F1") + " cm";
-            HeightLabel.StringValue = FinalFigureGraphView.Height.ToString("F1") + " cm";
-
-            SanitizeTicks.State = FinalFigureGraphView.SanitizeTicks ? 1 : 0;
-
-            ShowParametersControl.State = FinalFigureGraphView.DrawFitParameters ? 1 : 0;
-
-            UpdateParameterDisplayMenu();
-
-            ShowDataGraphControl.State = FinalFigureGraphView.ShowDataGraph ? 1 : 0;
-        }
-
-        void SetParameterFlag(FinalFigureDisplayParameters flag, bool enabled)
-        {
-            if (flag == FinalFigureDisplayParameters.None) return;
-
-            if (enabled) AppSettings.FinalFigureParameterDisplay |= flag;
-            else AppSettings.FinalFigureParameterDisplay &= ~flag;
+            FinalFigureOptionsController.SyncGeneral(Controls);
         }
 
         partial void ParameterOptionAction(NSObject sender)
         {
-            if (sender is not NSPopUpButton btn) return;
-
-            int index = (int)btn.IndexOfSelectedItem;
-            var flag = GetParameterFlagForMenuIndex(index);
-            if (flag == FinalFigureDisplayParameters.None) return;
-
-            bool currentlyEnabled = AppSettings.FinalFigureParameterDisplay.HasFlag(flag);
-            SetParameterFlag(flag, !currentlyEnabled);
-
-            UpdateParameterDisplayMenu();
+            FinalFigureOptionsController.ToggleParameterOption(sender, ParameterDisplayOptionsControl);
             FinalFigureGraphView.Invalidate();
-        }
-
-        void UpdateParameterDisplayMenu()
-        {
-            for (int i = 1; i < ParameterDisplayOptionsControl.Items.Length; i++)
-            {
-                var item = ParameterDisplayOptionsControl.Items[i];
-                var flag = GetParameterFlagForMenuIndex(i);
-
-                if (flag == FinalFigureDisplayParameters.None) continue;
-
-                item.State = AppSettings.FinalFigureParameterDisplay.HasFlag(flag)
-                    ? NSCellStateValue.On
-                    : NSCellStateValue.Off;
-            }
         }
 
         partial void ControlChanged(NSObject sender)
         {
-            if (WidthLabel.StringValue.Length > 0)
-            {
-                string widthstring = Regex.Replace(WidthLabel.StringValue, "[^0-9.]", "");
-
-                if (float.TryParse(widthstring, out var w))
-                {
-                    FinalFigureGraphView.Width = w;
-                }
-            }
-
-            if (WidthLabel.StringValue.Length > 0)
-            {
-                string heightstring = Regex.Replace(HeightLabel.StringValue, "[^0-9.]", "");
-
-                if (float.TryParse(heightstring, out var h))
-                {
-                    FinalFigureGraphView.Height = h;
-                }
-            }
-
-            FinalFigureGraphView.ShowDataGraph = ShowDataGraphControl.State == 1;
-            FinalFigureGraphView.SanitizeTicks = SanitizeTicks.State == 1;
-            FinalFigureGraphView.DrawFitParameters = ShowParametersControl.State == 1;
-            FinalFigureGraphView.TimeAxisUnit = (TimeUnit)(int)TimeUnitControl.SelectedSegment;
-
-            AppSettings.EnergyUnit = EnergyUnitControl.SelectedSegment == 0 ? EnergyUnit.KiloJoule : EnergyUnit.KCal;
-
+            FinalFigureOptionsController.ApplyGeneral(Controls);
             FinalFigureGraphView.Invalidate();
         }
+
+        FinalFigureOptionsController.GeneralControls Controls => new()
+        {
+            ShowDataGraphControl = ShowDataGraphControl,
+            EnergyUnitControl = EnergyUnitControl,
+            TimeUnitControl = TimeUnitControl,
+            SanitizeTicks = SanitizeTicks,
+            WidthLabel = WidthLabel,
+            HeightLabel = HeightLabel,
+            ShowParametersControl = ShowParametersControl,
+            ParameterDisplayOptionsControl = ParameterDisplayOptionsControl,
+        };
     }
 }

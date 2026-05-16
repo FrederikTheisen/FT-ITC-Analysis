@@ -10,6 +10,7 @@ namespace AnalysisITC
 	public partial class FinalFigureViewController : NSViewController
 	{
         bool _eventsUnsubscribed = false;
+        bool _isSyncingEmbeddedOptions = false;
 
         public FinalFigureViewController (IntPtr handle) : base (handle)
 		{
@@ -28,11 +29,19 @@ namespace AnalysisITC
             base.ViewDidLoad();
 
             FinalFigureGraphView.PlotSizeChanged += FinalFigureGraphView_PlotSizeChanged;
+            SyncEmbeddedOptions();
         }
 
         public override void ViewDidAppear()
         {
+            SyncEmbeddedOptions();
             FinalFigureGraphView.Invalidate();
+        }
+
+        public override void ViewWillAppear()
+        {
+            base.ViewWillAppear();
+            SyncEmbeddedOptions();
         }
 
         private void FinalFigureGraphView_PlotSizeChanged(object sender, EventArgs e)
@@ -45,8 +54,137 @@ namespace AnalysisITC
 
         partial void ExportGraphButtonClick(NSObject sender)
         {
-            FinalFigureGraph.Export();
+            if (EmbeddedExportSelectionControl == null)
+            {
+                FinalFigureGraph.Export();
+                return;
+            }
+
+            FinalFigureGraphView.Export((ExportDataSelection)(int)EmbeddedExportSelectionControl.SelectedSegment);
         }
+
+        partial void PublishOptionsTabControlChanged(NSObject sender)
+        {
+            if (PublishOptionsTabView == null || PublishOptionsTabControl == null) return;
+
+            PublishOptionsTabView.SelectAt((int)PublishOptionsTabControl.SelectedSegment);
+            SyncEmbeddedOptions();
+        }
+
+        partial void ControlChanged(NSObject sender)
+        {
+            ApplyEmbeddedOptions();
+        }
+
+        partial void ControlClicked(NSObject sender)
+        {
+            ApplyEmbeddedOptions();
+        }
+
+        partial void ParameterOptionAction(NSObject sender)
+        {
+            if (_isSyncingEmbeddedOptions) return;
+
+            FinalFigureOptionsController.ToggleParameterOption(sender, EmbeddedParameterDisplayOptionsControl);
+            FinalFigureGraphView.Invalidate();
+            SyncEmbeddedOptions();
+        }
+
+        [Export("tabView:didSelectTabViewItem:")]
+        public void DidSelect(NSTabView tabView, NSTabViewItem item)
+        {
+            if (tabView != PublishOptionsTabView || item == null) return;
+
+            var selectedIndex = (int)tabView.IndexOf(item);
+            PublishOptionsTabControl?.SelectSegment(selectedIndex);
+            SyncEmbeddedOptions();
+        }
+
+        void ApplyEmbeddedOptions()
+        {
+            if (_isSyncingEmbeddedOptions) return;
+
+            FinalFigureOptionsController.ApplyGeneral(EmbeddedGeneralControls);
+            FinalFigureOptionsController.ApplyData(EmbeddedDataControls);
+            FinalFigureOptionsController.ApplyFit(EmbeddedFitControls);
+
+            FinalFigureGraphView.Invalidate();
+        }
+
+        void SyncEmbeddedOptions()
+        {
+            if (_isSyncingEmbeddedOptions) return;
+
+            try
+            {
+                _isSyncingEmbeddedOptions = true;
+
+                if (PublishOptionsTabView != null && PublishOptionsTabControl != null)
+                {
+                    var selectedItem = PublishOptionsTabView.Selected;
+                    if (selectedItem != null)
+                    {
+                        PublishOptionsTabControl.SelectSegment((int)PublishOptionsTabView.IndexOf(selectedItem));
+                    }
+                }
+
+                FinalFigureOptionsController.SyncGeneral(EmbeddedGeneralControls);
+                FinalFigureOptionsController.SyncData(EmbeddedDataControls);
+                FinalFigureOptionsController.SyncFit(EmbeddedFitControls);
+            }
+            finally
+            {
+                _isSyncingEmbeddedOptions = false;
+            }
+        }
+
+        FinalFigureOptionsController.GeneralControls EmbeddedGeneralControls => new()
+        {
+            ShowDataGraphControl = EmbeddedShowDataGraphControl,
+            EnergyUnitControl = EmbeddedEnergyUnitControl,
+            TimeUnitControl = EmbeddedTimeUnitControl,
+            SanitizeTicks = EmbeddedSanitizeTicks,
+            WidthLabel = EmbeddedWidthLabel,
+            HeightLabel = EmbeddedHeightLabel,
+            ShowParametersControl = EmbeddedShowParametersControl,
+            ParameterDisplayOptionsControl = EmbeddedParameterDisplayOptionsControl,
+        };
+
+        FinalFigureOptionsController.DataControls EmbeddedDataControls => new()
+        {
+            PowerAxisTitleLabel = EmbeddedPowerAxisTitleLabel,
+            TimeAxisTitleLabel = EmbeddedTimeAxisTitleLabel,
+            XTickLabel = EmbeddedDataXTickLabel,
+            XTickStepper = EmbeddedDataXTickStepper,
+            YTickLabel = EmbeddedDataYTickLabel,
+            YTickStepper = EmbeddedDataYTickStepper,
+            UnifiedPowerAxis = EmbeddedUnifiedPowerAxis,
+            DrawCorrected = EmbeddedDrawCorrected,
+            DrawBaseline = EmbeddedDrawBaseline,
+        };
+
+        FinalFigureOptionsController.FitControls EmbeddedFitControls => new()
+        {
+            EnthalpyAxisTitleLabel = EmbeddedEnthalpyAxisTitleLabel,
+            YAxisTickStepper = EmbeddedFitYTickStepper,
+            YTickLabel = EmbeddedFitYTickLabel,
+            MolarRatioAxisTitleLabel = EmbeddedMolarRatioAxisTitleLabel,
+            XAxisTickStepper = EmbeddedFitXTickStepper,
+            XTickLabel = EmbeddedFitXTickLabel,
+            SplineInterpolationControl = EmbeddedSplineInterpolationControl,
+            SymbolControl = EmbeddedSymbolControl,
+            SymbolSizeLabel = EmbeddedSymbolSizeLabel,
+            SymbolSizeStepper = EmbeddedSymbolSizeStepper,
+            UnifiedHeatAxis = EmbeddedUnifiedHeatAxis,
+            UnifiedMolarRatioAxis = EmbeddedUnifiedMolarRatioAxis,
+            ShowResiduals = EmbeddedShowResiduals,
+            AddGapToResidualPlot = EmbeddedAddGapToResidualPlot,
+            HideBadData = EmbeddedHideBadData,
+            DrawZeroLine = EmbeddedDrawZeroLine,
+            DrawErrorBars = EmbeddedDrawErrorBars,
+            BadDataErrorBars = EmbeddedBadDataErrorBars,
+            DrawConfidence = EmbeddedDrawConfidence,
+        };
 
         public override void ViewWillLayout()
         {
