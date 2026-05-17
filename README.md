@@ -6,7 +6,7 @@ This repository is open source and exists both to distribute end-user binaries t
 
 ## Features
 
-- Process raw thermograms with spline or polynomial baseline correction.
+- Process raw thermograms with spline, polynomial, or segmented baseline correction.
 - Adjust integration regions globally or per injection.
 - Fit standard ITC binding models, including one-set-of-sites, two-sets-of-sites, competitive binding, and dissociation models.
 - Run multi-experiment and global analyses with shared, free, fixed, or temperature-dependent parameters where applicable.
@@ -43,6 +43,18 @@ For distribution outside the Mac App Store, releases should be Developer ID sign
 5. Review residuals, uncertainty estimates, and derived thermodynamic values.
 6. Export figures, processed data, integrated heats, or fit parameters as needed.
 7. Save the session as a `.ftitc` project file to preserve the full analysis state.
+
+## Baseline Processing
+
+FT-ITC Analysis supports three baseline modes:
+
+- **Spline:** places baseline control points between injections and interpolates them with a linear or smooth spline. The sparse, balanced, and dense point-density settings control the target number of points per injection, while the app adapts the actual point count to the usable baseline length after each injection.
+- **Polynomial:** fits an outlier-discarding polynomial baseline across the thermogram.
+- **Segmented:** fits local baseline segments around injection regions.
+
+By default, points inside the selected integration regions are excluded from baseline fitting so peak area selection and baseline estimation stay coupled. Changing integration ranges can therefore change the fitted baseline unless the processor or relevant spline points are locked.
+
+Spline baselines can be edited directly. User-added or locked spline points are preserved when the baseline is reprocessed, and locked points replace nearby automatically generated points instead of being duplicated. Polynomial and segmented baselines can also be converted to spline baselines when manual editing is needed.
 
 ## Help and Support
 
