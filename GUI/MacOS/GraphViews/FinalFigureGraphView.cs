@@ -132,6 +132,7 @@ namespace AnalysisITC
         public FinalFigureGraphView (IntPtr handle) : base (handle)
 		{
             DataManager.SelectionDidChange += DataManager_SelectionDidChange;
+            DataManager.ResultLinkedExperimentHighlightDidChange += DataManager_SelectionDidChange;
             Invalidated += FinalFigureGraphView_Invalidated;
 
             LayerContentsRedrawPolicy = NSViewLayerContentsRedrawPolicy.OnSetNeedsDisplay;
@@ -197,13 +198,14 @@ namespace AnalysisITC
 
         public static void Export(ExportDataSelection selection)
         {
-            IEnumerable<ExperimentData> datas;
-            switch (selection)
+            var datas = GetExportData(selection).Where(d => d != null).ToList();
+            if (datas.Count == 0)
             {
-                default:
-                case ExportDataSelection.SelectedData: datas = new ExperimentData[] { DataManager.Current }; break;
-                case ExportDataSelection.IncludedData: datas = DataManager.IncludedData; break;
-                case ExportDataSelection.AllData: datas = DataManager.Data.Where(d => d.Solution != null); break;
+                AppEventHandler.DisplayHandledException(new HandledException(
+                    HandledException.Severity.Warning,
+                    "No Figures Selected",
+                    "No final figures matched the current export selection."));
+                return;
             }
 
             var dlg = new NSOpenPanel();
@@ -244,6 +246,41 @@ namespace AnalysisITC
                     }
                 }
             });
+        }
+
+        static IEnumerable<ExperimentData> GetExportData(ExportDataSelection selection)
+        {
+            switch (selection)
+            {
+                default:
+                case ExportDataSelection.SelectedData:
+                    return new[] { CurrentFigureData };
+                case ExportDataSelection.IncludedData:
+                    return DataManager.IncludedData;
+                case ExportDataSelection.AllData:
+                    return DataManager.Data.Where(d => d.Solution != null);
+            }
+        }
+
+        static ExperimentData CurrentFigureData
+        {
+            get
+            {
+                if (DataManager.SelectedSolutionExperimentHighlight != null)
+                {
+                    return DataManager.SelectedSolutionExperimentHighlight;
+                }
+
+                if (DataManager.SelectedIsData
+                    && DataManager.SelectedContentIndex >= 0
+                    && DataManager.SelectedContentIndex < DataManager.SourceItems.Count
+                    && DataManager.SourceItems[DataManager.SelectedContentIndex] is ExperimentData selectedData)
+                {
+                    return selectedData;
+                }
+
+                return DataManager.Current;
+            }
         }
 
         static string[] BuildPdfMetadataKeywords(ExperimentData data)
@@ -352,8 +389,10 @@ namespace AnalysisITC
         void InitializeGraph()
         {
             if (StateManager.CurrentState != ProgramState.Publish) return;
-            if (DataManager.Current == null) return;
-            graph = new FinalFigure(DataManager.Current, this)
+            var data = CurrentFigureData;
+            if (data == null) return;
+
+            graph = new FinalFigure(data, this)
             {
                 PlotDimensions = new CGSize(Width, Height),
                 SanitizeTicks = SanitizeTicks,
@@ -414,7 +453,7 @@ namespace AnalysisITC
         public override void DrawRect(CGRect dirtyRect)
         {
             if (StateManager.CurrentState != ProgramState.Publish) return;
-            if (DataManager.Current == null) return;
+            if (CurrentFigureData == null) return;
             if (graph == null) { InitializeGraph(); }
 
             base.DrawRect(dirtyRect);
