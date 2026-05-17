@@ -80,26 +80,11 @@ The app may contact this GitHub repository on launch to check for version inform
 
 ## Citation
 
-Citation information is available inside the program through **Help > Citation**. The repository also includes `CITATION.cff` and `citation.json` for software citation metadata.
+Citation information is available inside the program through **Help > Citation**.
 
 ## Development
 
-The project is a Xamarin.Mac / Mono application.
-
-Typical local build command:
-
-```sh
-msbuild AnalysisITC.sln /p:Configuration=Release
-```
-
-Before publishing a release, verify that:
-
-- the app builds in Release configuration,
-- version numbers match across `Info.plist`, `VERSION`, and citation metadata,
-- the app is signed, notarized, and stapled if distributed as a public macOS binary,
-- example files load correctly,
-- save/load round trips preserve processing and analysis results,
-- export workflows produce the expected files.
+The project is a Xamarin.Mac / Visual Studio for Mac / XCode application.
 
 ## License
 
