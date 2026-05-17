@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 using System.IO;
 using System.Linq;
 using AnalysisITC.AppClasses.AnalysisClasses;
+using AnalysisITC.AppClasses.AnalysisClasses.Models;
 
 namespace AnalysisITC
 {
@@ -300,6 +301,8 @@ namespace AnalysisITC
             if (WorkflowToolbarMenuButton == null) return;
 
             var title = "Options";
+            if (StateManager.CurrentState == ProgramState.Analyze) title = "Analysis";
+
             var menu = new NSMenu(title) { AutoEnablesItems = false };
             menu.AddItem(new NSMenuItem(title) { Hidden = true });
 
@@ -308,6 +311,10 @@ namespace AnalysisITC
                 case ProgramState.Process:
                     WorkflowToolbarMenuButton.Hidden = false;
                     PopulateProcessingToolbarMenu(menu);
+                    break;
+                case ProgramState.Analyze:
+                    WorkflowToolbarMenuButton.Hidden = false;
+                    PopulateAnalysisToolbarMenu(menu);
                     break;
                 default:
                     WorkflowToolbarMenuButton.Hidden = true;
@@ -389,8 +396,81 @@ namespace AnalysisITC
 
         void PopulateAnalysisToolbarMenu(NSMenu menu)
         {
-            menu.AddItem(CreateContextMenuItem("Export result...", "resultexporter", DataManager.Results.Count > 0, (s, e) => AppDelegate.LaunchResultExporter()));
-            menu.AddItem(CreateContextMenuItem("Export data...", "exportdata", DataManager.DataIsLoaded, (s, e) => Exporter.Export(ExportType.Data)));
+            menu.AddItem(CreateContextMenuItem("Auto open new result", "autoopennewresult", true, (s, e) =>
+            {
+                AppSettings.AutoOpenNewAnalysisResult = !AppSettings.AutoOpenNewAnalysisResult;
+                AppSettings.Save();
+                UpdateContextToolbarMenu();
+            }, AppSettings.AutoOpenNewAnalysisResult));
+            menu.AddItem(CreateParameterLimitSettingsMenuItem());
+            menu.AddItem(CreateAnalysisParameterDisplayMenuItem());
+            menu.AddItem(NSMenuItem.SeparatorItem);
+            menu.AddItem(CreateContextMenuItem("Restore analysis defaults", "restoreanalysisdefaults", true, (s, e) => RestoreAnalysisDefaults()));
+        }
+
+        NSMenuItem CreateParameterLimitSettingsMenuItem()
+        {
+            var item = CreateContextMenuItem("Parameter limit settings", null, true, null);
+            var submenu = new NSMenu("Parameter limit settings") { AutoEnablesItems = false };
+
+            submenu.AddItem(CreateContextMenuItem("Standard", "parameterlimitsstandard", true,
+                (s, e) => SetParameterLimitSetting(ParameterLimitSetting.Standard),
+                AppSettings.ParameterLimitSetting == ParameterLimitSetting.Standard));
+            submenu.AddItem(CreateContextMenuItem("Expanded", "parameterlimitsexpanded", true,
+                (s, e) => SetParameterLimitSetting(ParameterLimitSetting.Extended),
+                AppSettings.ParameterLimitSetting == ParameterLimitSetting.Extended));
+            submenu.AddItem(CreateContextMenuItem("No limits", "parameterlimitsnone", true,
+                (s, e) => SetParameterLimitSetting(ParameterLimitSetting.NoLimit),
+                AppSettings.ParameterLimitSetting == ParameterLimitSetting.NoLimit));
+
+            item.Submenu = submenu;
+            return item;
+        }
+
+        NSMenuItem CreateAnalysisParameterDisplayMenuItem()
+        {
+            var item = CreateContextMenuItem("Parameter box display", null, true, null);
+            var submenu = new NSMenu("Parameter box display") { AutoEnablesItems = false };
+
+            submenu.AddItem(CreateAnalysisParameterFlagMenuItem("Model", FinalFigureDisplayParameters.Model));
+            submenu.AddItem(CreateAnalysisParameterFlagMenuItem("Fitted", FinalFigureDisplayParameters.Fitted));
+            submenu.AddItem(CreateAnalysisParameterFlagMenuItem("Derived", FinalFigureDisplayParameters.Derived));
+
+            item.Submenu = submenu;
+            return item;
+        }
+
+        NSMenuItem CreateAnalysisParameterFlagMenuItem(string title, FinalFigureDisplayParameters flag)
+        {
+            return CreateContextMenuItem(title, $"analysisparameter{flag}", true, (s, e) =>
+            {
+                if (AppSettings.AnalysisParameterDisplay.HasFlag(flag))
+                    AppSettings.AnalysisParameterDisplay &= ~flag;
+                else
+                    AppSettings.AnalysisParameterDisplay |= flag;
+
+                AppSettings.Save();
+                UpdateContextToolbarMenu();
+            }, AppSettings.AnalysisParameterDisplay.HasFlag(flag));
+        }
+
+        void SetParameterLimitSetting(ParameterLimitSetting setting)
+        {
+            AppSettings.ParameterLimitSetting = setting;
+            AppSettings.EnableExtendedParameterLimits = setting != ParameterLimitSetting.Standard;
+            AppSettings.Save();
+            UpdateContextToolbarMenu();
+        }
+
+        void RestoreAnalysisDefaults()
+        {
+            AppSettings.AutoOpenNewAnalysisResult = true;
+            AppSettings.ParameterLimitSetting = ParameterLimitSetting.Standard;
+            AppSettings.EnableExtendedParameterLimits = false;
+            AppSettings.AnalysisParameterDisplay =
+                FinalFigureDisplayParameters.Model | FinalFigureDisplayParameters.Fitted | FinalFigureDisplayParameters.Derived;
+            AppSettings.Save();
+            UpdateContextToolbarMenu();
         }
 
         void PopulateFinalFigureToolbarMenu(NSMenu menu)

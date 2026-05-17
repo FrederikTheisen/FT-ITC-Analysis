@@ -4,6 +4,7 @@ using System;
 
 using Foundation;
 using AppKit;
+using AnalysisITC.AppClasses.AnalysisClasses.Models;
 using AnalysisITC.GUI.MacOS.Drawing;
 
 namespace AnalysisITC
@@ -18,6 +19,14 @@ namespace AnalysisITC
         static bool showResidualGraph = true;
         static bool scaleToValid = false;
         static GraphBase.LineSmoothness lineSmoothness = GraphBase.LineSmoothness.Linear;
+        static FinalFigureDisplayParameters analysisDisplayParameters =
+            FinalFigureDisplayParameters.Model | FinalFigureDisplayParameters.Fitted | FinalFigureDisplayParameters.Derived;
+
+        public static FinalFigureDisplayParameters AnalysisDisplayParameters
+        {
+            get => analysisDisplayParameters;
+            set { analysisDisplayParameters = value; UpdateViewParameters?.Invoke(null, null); }
+        }
 
         public static GraphBase.LineSmoothness LineSmoothness
         {
@@ -70,6 +79,7 @@ namespace AnalysisITC
             DataFittingGraph.HideBadData = false;
             DataFittingGraph.AutoAxesFocusesIncludedOnly = ScaleToValidPoints;
             DataFittingGraph.FitLineSmoothnessSetting = LineSmoothness;
+            DataFittingGraph.AnalysisDisplayParameters = AnalysisDisplayParameters;
 
             Invalidate();
         }

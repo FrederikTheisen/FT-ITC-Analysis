@@ -213,7 +213,10 @@ namespace AnalysisITC
             else
             {
                 DataDidChange?.Invoke(null, null);
-                SelectIndex(SourceItems.Count - 1);
+                if (!(data is AnalysisResult) || AppSettings.AutoOpenNewAnalysisResult)
+                {
+                    SelectIndex(SourceItems.Count - 1);
+                }
             }
 
             var selectedAfter = SelectedContentIndex >= 0 && SelectedContentIndex < SourceItems.Count

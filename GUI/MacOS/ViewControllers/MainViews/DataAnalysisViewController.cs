@@ -69,6 +69,7 @@ namespace AnalysisITC
             AnalysisGlobalModeOptionsView2.ParameterContraintUpdated += OnConstraintUpdated;
             AppDelegate.StartPrintOperation += OnPrintOperation;
             AnalysisITCDataSource.SourceWasSorted += (_, _) => RefreshGlobalModeControls();
+            AppSettings.SettingsDidUpdate += OnSettingsDidUpdate;
 
             EnsureConstraintOptionsStackView();
         }
@@ -177,6 +178,12 @@ namespace AnalysisITC
 
             Workspace.ImportConstraints(Workspace.Context.GlobalModelParameters.Constraints);
             Workspace.TryRebuild();
+        }
+
+        void OnSettingsDidUpdate(object sender, EventArgs e)
+        {
+            Workspace.TryRebuild();
+            GraphView.Invalidate();
         }
 
         void RebuildConstraintOptionViews()
@@ -362,6 +369,7 @@ namespace AnalysisITC
             DataManager.DataInclusionDidChange -= OnDataChanged;
             AnalysisGlobalModeOptionsView2.ParameterContraintUpdated -= OnConstraintUpdated;
             AppDelegate.StartPrintOperation -= OnPrintOperation;
+            AppSettings.SettingsDidUpdate -= OnSettingsDidUpdate;
         }
 
         protected override void Dispose(bool disposing)

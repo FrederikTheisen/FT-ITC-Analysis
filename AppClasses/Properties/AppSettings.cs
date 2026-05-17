@@ -61,6 +61,9 @@ namespace AnalysisITC
 
         //Analysis
         public static bool BuffersPreparedAtRoomTemperature { get; set; } = true;
+        public static bool AutoOpenNewAnalysisResult { get; set; } = true;
+        public static FinalFigureDisplayParameters AnalysisParameterDisplay { get; set; } =
+            FinalFigureDisplayParameters.Model | FinalFigureDisplayParameters.Fitted | FinalFigureDisplayParameters.Derived;
 
         //Final figure
         public static double[] FinalFigureDimensions { get; set; } = new double[2] { 6.5, 10.0 };
@@ -121,6 +124,8 @@ namespace AnalysisITC
             Storage.SetBool(EnableExtendedParameterLimits, "EnableExtendedParameterLimits");
             Storage.SetInt((int)ParameterLimitSetting, "ParameterLimitSetting");
             Storage.SetBool(BuffersPreparedAtRoomTemperature, "BuffersPreparedAtRoomTemperature");
+            Storage.SetBool(AutoOpenNewAnalysisResult, "AutoOpenNewAnalysisResult");
+            Storage.SetInt((int)AnalysisParameterDisplay, "AnalysisParameterDisplay");
             Storage.SetInt(NumOfDecimalsToExport, "NumOfDecimalsToExport");
             Storage.SetDouble(MinimumIonSpanForFitting, "MinimumIonSpanForFitting");
             Storage.SetBool(FinalFigureShowParameterBoxAsDefault, "FinalFigureShowParameterBoxAsDefault");
@@ -183,6 +188,8 @@ namespace AnalysisITC
             InputAffinityAsDissociationConstant = GetBool(dict, "InputAffinityAsDissociationConstant", InputAffinityAsDissociationConstant);
             lastDocumentUrl = GetUrl(dict, "LastDocumentUrl");
             BuffersPreparedAtRoomTemperature = GetBool(dict, "BuffersPreparedAtRoomTemperature", BuffersPreparedAtRoomTemperature);
+            AutoOpenNewAnalysisResult = GetBool(dict, "AutoOpenNewAnalysisResult", AutoOpenNewAnalysisResult);
+            AnalysisParameterDisplay = (FinalFigureDisplayParameters)GetInt(dict, "AnalysisParameterDisplay", (int)AnalysisParameterDisplay);
             NumOfDecimalsToExport = GetInt(dict, "NumOfDecimalsToExport", NumOfDecimalsToExport);
             MinimumIonSpanForFitting = GetDouble(dict, "MinimumIonSpanForFitting", MinimumIonSpanForFitting);
             FinalFigureShowParameterBoxAsDefault = GetBool(dict, "FinalFigureShowParameterBoxAsDefault", FinalFigureShowParameterBoxAsDefault);
@@ -239,6 +246,8 @@ namespace AnalysisITC
             LastDocumentUrls = null;
             IncludeBufferInIonicStrengthCalc = true;
             BuffersPreparedAtRoomTemperature = true;
+            AutoOpenNewAnalysisResult = true;
+            AnalysisParameterDisplay = FinalFigureDisplayParameters.Model | FinalFigureDisplayParameters.Fitted | FinalFigureDisplayParameters.Derived;
             NumOfDecimalsToExport = 1;
             MinimumIonSpanForFitting = 0.03;
             FinalFigureShowParameterBoxAsDefault = true;
@@ -361,6 +370,7 @@ namespace AnalysisITC
             FinalFigureGraphView.AutoAxesIgnoresBadData = AutoAxesIgnoresBadData;
             SplineInterpolator.DefaultPointDensity = DefaultSplinePointDensity;
             SplineInterpolator.DefaultHandleMode = DefaultSplineHandleMode;
+            AnalysisGraphView.AnalysisDisplayParameters = AnalysisParameterDisplay;
         }
     }
 
