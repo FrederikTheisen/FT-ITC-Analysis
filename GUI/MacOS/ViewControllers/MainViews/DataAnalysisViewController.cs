@@ -90,6 +90,8 @@ namespace AnalysisITC
         {
             base.ViewDidAppear();
 
+            ScopeButtonClicked(null);
+
             RefreshGlobalModeControls();
             Workspace.TryRebuild();
         }
