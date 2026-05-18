@@ -19,6 +19,12 @@ namespace AnalysisITC
 		AppKit.NSTextField HeightLabel { get; set; }
 
 		[Outlet]
+		AppKit.NSMenu AttributeDisplayOptionsControl { get; set; }
+
+		[Outlet]
+		AppKit.NSSwitch ModelInfoControl { get; set; }
+
+		[Outlet]
 		AppKit.NSMenu ParameterDisplayOptionsControl { get; set; }
 
 		[Outlet]
@@ -39,6 +45,9 @@ namespace AnalysisITC
 		[Action ("ControlChanged:")]
 		partial void ControlChanged (Foundation.NSObject sender);
 
+		[Action ("AttributeOptionAction:")]
+		partial void AttributeOptionAction (Foundation.NSObject sender);
+
 		[Action ("ParameterOptionAction:")]
 		partial void ParameterOptionAction (Foundation.NSObject sender);
 		
@@ -57,6 +66,16 @@ namespace AnalysisITC
 			if (HeightLabel != null) {
 				HeightLabel.Dispose ();
 				HeightLabel = null;
+			}
+
+			if (AttributeDisplayOptionsControl != null) {
+				AttributeDisplayOptionsControl.Dispose ();
+				AttributeDisplayOptionsControl = null;
+			}
+
+			if (ModelInfoControl != null) {
+				ModelInfoControl.Dispose ();
+				ModelInfoControl = null;
 			}
 
 			if (ParameterDisplayOptionsControl != null) {

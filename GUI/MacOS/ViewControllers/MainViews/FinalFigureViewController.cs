@@ -90,6 +90,15 @@ namespace AnalysisITC
             SyncEmbeddedOptions();
         }
 
+        partial void AttributeOptionAction(NSObject sender)
+        {
+            if (_isSyncingEmbeddedOptions) return;
+
+            FinalFigureOptionsController.ToggleAttributeOption(sender, EmbeddedAttributeDisplayOptionsControl);
+            FinalFigureGraphView.Invalidate();
+            SyncEmbeddedOptions();
+        }
+
         [Export("tabView:didSelectTabViewItem:")]
         public void DidSelect(NSTabView tabView, NSTabViewItem item)
         {
@@ -147,7 +156,9 @@ namespace AnalysisITC
             WidthLabel = EmbeddedWidthLabel,
             HeightLabel = EmbeddedHeightLabel,
             ShowParametersControl = EmbeddedShowParametersControl,
+            ModelInfoControl = EmbeddedModelInfoControl,
             ParameterDisplayOptionsControl = EmbeddedParameterDisplayOptionsControl,
+            AttributeDisplayOptionsControl = EmbeddedAttributeDisplayOptionsControl,
         };
 
         FinalFigureOptionsController.DataControls EmbeddedDataControls => new()

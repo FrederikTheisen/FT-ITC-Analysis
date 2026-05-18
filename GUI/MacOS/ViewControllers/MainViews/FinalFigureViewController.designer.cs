@@ -70,6 +70,9 @@ namespace AnalysisITC
 		AppKit.NSStepper EmbeddedFitYTickStepper { get; set; }
 
 		[Outlet]
+		AppKit.NSMenu EmbeddedAttributeDisplayOptionsControl { get; set; }
+
+		[Outlet]
 		AppKit.NSTextField EmbeddedHeightLabel { get; set; }
 
 		[Outlet]
@@ -77,6 +80,9 @@ namespace AnalysisITC
 
 		[Outlet]
 		AppKit.NSTextField EmbeddedMolarRatioAxisTitleLabel { get; set; }
+
+		[Outlet]
+		AppKit.NSSwitch EmbeddedModelInfoControl { get; set; }
 
 		[Outlet]
 		AppKit.NSMenu EmbeddedParameterDisplayOptionsControl { get; set; }
@@ -143,6 +149,9 @@ namespace AnalysisITC
 
 		[Action ("ExportGraphButtonClick:")]
 		partial void ExportGraphButtonClick (Foundation.NSObject sender);
+
+		[Action ("AttributeOptionAction:")]
+		partial void AttributeOptionAction (Foundation.NSObject sender);
 
 		[Action ("ParameterOptionAction:")]
 		partial void ParameterOptionAction (Foundation.NSObject sender);
@@ -247,6 +256,11 @@ namespace AnalysisITC
 				EmbeddedFitYTickStepper = null;
 			}
 
+			if (EmbeddedAttributeDisplayOptionsControl != null) {
+				EmbeddedAttributeDisplayOptionsControl.Dispose ();
+				EmbeddedAttributeDisplayOptionsControl = null;
+			}
+
 			if (EmbeddedHeightLabel != null) {
 				EmbeddedHeightLabel.Dispose ();
 				EmbeddedHeightLabel = null;
@@ -260,6 +274,11 @@ namespace AnalysisITC
 			if (EmbeddedMolarRatioAxisTitleLabel != null) {
 				EmbeddedMolarRatioAxisTitleLabel.Dispose ();
 				EmbeddedMolarRatioAxisTitleLabel = null;
+			}
+
+			if (EmbeddedModelInfoControl != null) {
+				EmbeddedModelInfoControl.Dispose ();
+				EmbeddedModelInfoControl = null;
 			}
 
 			if (EmbeddedParameterDisplayOptionsControl != null) {

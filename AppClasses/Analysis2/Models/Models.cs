@@ -431,7 +431,7 @@ namespace AnalysisITC.AppClasses.AnalysisClasses.Models
 
         public List<Tuple<string,string>> UIExperimentModelAttributes(DisplayAttributeOptions info)
         {
-            if (info == DisplayAttributeOptions.UsedInAnalysis)
+            if (info.HasFlag(DisplayAttributeOptions.UsedInAnalysis))
             {
                 if (Model.ModelType == AnalysisModel.CompetitiveBinding) info |= DisplayAttributeOptions.Competitor;
 
@@ -536,14 +536,15 @@ namespace AnalysisITC.AppClasses.AnalysisClasses.Models
 
         Misc = 1024,
 
-        Fitted = Nvalue | Affinity | Enthalpy,
+        Thermodynamic = Nvalue | Affinity | Enthalpy,
+        Fitted = Thermodynamic | Offset,
         Derived = Entropy | Gibbs,
 
-        Default = Model | Fitted | Derived | Temperature | Concentrations | Attributes,
+        Default = Model | Thermodynamic | Derived | Temperature | Concentrations | Attributes,
         All = Model | Fitted | Offset | Derived | Temperature | Concentrations | Attributes | Misc,
 
         ListView = Model | Affinity | Enthalpy,
-        AnalysisView = Model | Fitted | Derived | Offset | Misc
+        AnalysisView = Model | Fitted | Derived | Misc
     }
 
     [Flags]
@@ -607,4 +608,3 @@ namespace AnalysisITC.AppClasses.AnalysisClasses.Models
         }
     }
 }
-

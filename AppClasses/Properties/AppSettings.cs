@@ -70,6 +70,8 @@ namespace AnalysisITC
         public static FinalFigureDisplayParameters FinalFigureParameterDisplay { get; set; } = FinalFigureDisplayParameters.Default;
         public static DisplayAttributeOptions DisplayAttributeOptions { get; set; } = DisplayAttributeOptions.Default;
         public static bool FinalFigureShowParameterBoxAsDefault { get; set; } = true;
+        public static bool FinalFigureShowDetailsAsDefault { get; set; } = true;
+        public static bool FinalFigureShowModelInfoAsDefault { get; set; } = true;
         public static NumberPrecision NumberPrecision { get; set; } = NumberPrecision.Standard;
         public static bool ShowResidualGraph { get; set; } = true;
         public static bool ShowResidualGraphGap { get; set; } = true;
@@ -129,6 +131,8 @@ namespace AnalysisITC
             Storage.SetInt(NumOfDecimalsToExport, "NumOfDecimalsToExport");
             Storage.SetDouble(MinimumIonSpanForFitting, "MinimumIonSpanForFitting");
             Storage.SetBool(FinalFigureShowParameterBoxAsDefault, "FinalFigureShowParameterBoxAsDefault");
+            Storage.SetBool(FinalFigureShowDetailsAsDefault, "FinalFigureShowDetailsAsDefault");
+            Storage.SetBool(FinalFigureShowModelInfoAsDefault, "FinalFigureShowModelInfoAsDefault");
             Storage.SetInt((int)PeakFitAlgorithm, "PeakFitAlgorithm");
             Storage.SetInt((int)NumberPrecision, "NumberPrecision");
             Storage.SetBool(IncludeBufferInIonicStrengthCalc, "IncludeBufferInIonicStrengthCalc");
@@ -193,6 +197,8 @@ namespace AnalysisITC
             NumOfDecimalsToExport = GetInt(dict, "NumOfDecimalsToExport", NumOfDecimalsToExport);
             MinimumIonSpanForFitting = GetDouble(dict, "MinimumIonSpanForFitting", MinimumIonSpanForFitting);
             FinalFigureShowParameterBoxAsDefault = GetBool(dict, "FinalFigureShowParameterBoxAsDefault", FinalFigureShowParameterBoxAsDefault);
+            FinalFigureShowDetailsAsDefault = GetBool(dict, "FinalFigureShowDetailsAsDefault", FinalFigureShowDetailsAsDefault);
+            FinalFigureShowModelInfoAsDefault = GetBool(dict, "FinalFigureShowModelInfoAsDefault", FinalFigureShowModelInfoAsDefault);
             PeakFitAlgorithm = (PeakFitAlgorithm)GetInt(dict, "PeakFitAlgorithm", (int)PeakFitAlgorithm);
             NumberPrecision = (NumberPrecision)GetInt(dict, "NumberPrecision", (int)NumberPrecision);
             IncludeBufferInIonicStrengthCalc = GetBool(dict, "IncludeBufferInIonicStrengthCalc", IncludeBufferInIonicStrengthCalc);
@@ -251,6 +257,8 @@ namespace AnalysisITC
             NumOfDecimalsToExport = 1;
             MinimumIonSpanForFitting = 0.03;
             FinalFigureShowParameterBoxAsDefault = true;
+            FinalFigureShowDetailsAsDefault = true;
+            FinalFigureShowModelInfoAsDefault = true;
             PeakFitAlgorithm = PeakFitAlgorithm.SingleExponential;
             NumberPrecision = NumberPrecision.Standard;
             DisplayAttributeOptions = DisplayAttributeOptions.Default;
@@ -363,7 +371,9 @@ namespace AnalysisITC
             FittingOptionsController.UseErrorWeightedFitting = UseInjectionErrorWeightedFitting;
             FinalFigureGraphView.Width = (float)FinalFigureDimensions[0];
             FinalFigureGraphView.Height = (float)FinalFigureDimensions[1];
-            FinalFigureGraphView.DrawFitParameters = FinalFigureShowParameterBoxAsDefault;
+            FinalFigureGraphView.DrawExpDetails = FinalFigureShowDetailsAsDefault;
+            FinalFigureGraphView.DrawModelInfo = FinalFigureShowModelInfoAsDefault;
+            FinalFigureGraphView.UpdateParameterBoxVisibility();
             FinalFigureGraphView.ShowResiduals = ShowResidualGraph;
             FinalFigureGraphView.GapResidualGraph = ShowResidualGraphGap;
             FinalFigureGraphView.MirrorDataGraphAxisUnification = UnifyResidualGraphAxis;

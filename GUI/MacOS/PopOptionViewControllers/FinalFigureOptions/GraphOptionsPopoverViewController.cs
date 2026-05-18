@@ -24,6 +24,12 @@ namespace AnalysisITC
             FinalFigureGraphView.Invalidate();
         }
 
+        partial void AttributeOptionAction(NSObject sender)
+        {
+            FinalFigureOptionsController.ToggleAttributeOption(sender, AttributeDisplayOptionsControl);
+            FinalFigureGraphView.Invalidate();
+        }
+
         partial void ControlChanged(NSObject sender)
         {
             FinalFigureOptionsController.ApplyGeneral(Controls);
@@ -39,7 +45,9 @@ namespace AnalysisITC
             WidthLabel = WidthLabel,
             HeightLabel = HeightLabel,
             ShowParametersControl = ShowParametersControl,
+            ModelInfoControl = ModelInfoControl,
             ParameterDisplayOptionsControl = ParameterDisplayOptionsControl,
+            AttributeDisplayOptionsControl = AttributeDisplayOptionsControl,
         };
     }
 }

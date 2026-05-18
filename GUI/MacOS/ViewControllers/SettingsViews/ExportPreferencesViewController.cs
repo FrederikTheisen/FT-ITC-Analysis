@@ -40,8 +40,8 @@ namespace AnalysisITC
             ResidualPlotSettingsControl.SetSelected(AppSettings.ShowResidualGraphGap, 1);
             ResidualPlotSettingsControl.SetSelected(AppSettings.UnifyResidualGraphAxis, 2);
 
-            FinalFigParameterDisplayOptions.SetSelected(AppSettings.FinalFigureParameterDisplay.HasFlag(FinalFigureDisplayParameters.Model), 0);
-            FinalFigParameterDisplayOptions.SetSelected(AppSettings.FinalFigureParameterDisplay.HasFlag(FinalFigureDisplayParameters.Fitted), 1);
+            FinalFigParameterDisplayOptions.SetSelected(AppSettings.FinalFigureShowModelInfoAsDefault, 0);
+            FinalFigParameterDisplayOptions.SetSelected(AppSettings.FinalFigureParameterDisplay.HasFlag(FinalFigureDisplayParameters.Thermodynamic), 1);
             FinalFigParameterDisplayOptions.SetSelected(AppSettings.FinalFigureParameterDisplay.HasFlag(FinalFigureDisplayParameters.Derived), 2);
             FinalFigParameterDisplayOptions.SetSelected(AppSettings.FinalFigureParameterDisplay.HasFlag(FinalFigureDisplayParameters.Offset), 3);
             FinalFigParameterDisplayOptions.SetSelected(AppSettings.FinalFigureParameterDisplay.HasFlag(FinalFigureDisplayParameters.Temperature), 4);
@@ -80,8 +80,12 @@ namespace AnalysisITC
             AppSettings.FinalFigureParameterDisplay = FinalFigureDisplayParameters.None;
             AppSettings.DisplayAttributeOptions = DisplayAttributeOptions.None;
 
-            if (FinalFigParameterDisplayOptions.IsSelectedForSegment(0)) AppSettings.FinalFigureParameterDisplay |= FinalFigureDisplayParameters.Model;
-            if (FinalFigParameterDisplayOptions.IsSelectedForSegment(1)) AppSettings.FinalFigureParameterDisplay |= FinalFigureDisplayParameters.Fitted;
+            AppSettings.FinalFigureShowModelInfoAsDefault = FinalFigParameterDisplayOptions.IsSelectedForSegment(0);
+            AppSettings.FinalFigureShowDetailsAsDefault = FinalFigParameterDisplayOptions.IsSelectedForSegment(4) ||
+                FinalFigParameterDisplayOptions.IsSelectedForSegment(5) ||
+                FinalFigParameterDisplayOptions.IsSelectedForSegment(6);
+
+            if (FinalFigParameterDisplayOptions.IsSelectedForSegment(1)) AppSettings.FinalFigureParameterDisplay |= FinalFigureDisplayParameters.Thermodynamic;
             if (FinalFigParameterDisplayOptions.IsSelectedForSegment(2)) AppSettings.FinalFigureParameterDisplay |= FinalFigureDisplayParameters.Derived;
             if (FinalFigParameterDisplayOptions.IsSelectedForSegment(3)) AppSettings.FinalFigureParameterDisplay |= FinalFigureDisplayParameters.Offset;
             if (FinalFigParameterDisplayOptions.IsSelectedForSegment(4)) AppSettings.FinalFigureParameterDisplay |= FinalFigureDisplayParameters.Temperature;

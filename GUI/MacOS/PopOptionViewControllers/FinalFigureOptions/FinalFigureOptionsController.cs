@@ -18,7 +18,9 @@ namespace AnalysisITC
             public NSTextField WidthLabel { get; set; }
             public NSTextField HeightLabel { get; set; }
             public NSSwitch ShowParametersControl { get; set; }
+            public NSSwitch ModelInfoControl { get; set; }
             public NSMenu ParameterDisplayOptionsControl { get; set; }
+            public NSMenu AttributeDisplayOptionsControl { get; set; }
         }
 
         internal sealed class DataControls
@@ -86,9 +88,11 @@ namespace AnalysisITC
             }
 
             SetState(controls.SanitizeTicks, FinalFigureGraphView.SanitizeTicks);
-            SetState(controls.ShowParametersControl, FinalFigureGraphView.DrawFitParameters);
+            SetState(controls.ShowParametersControl, FinalFigureGraphView.DrawExpDetails);
+            SetState(controls.ModelInfoControl, FinalFigureGraphView.DrawModelInfo);
             SetState(controls.ShowDataGraphControl, FinalFigureGraphView.ShowDataGraph);
             UpdateParameterDisplayMenu(controls.ParameterDisplayOptionsControl);
+            UpdateAttributeDisplayMenu(controls.AttributeDisplayOptionsControl);
         }
 
         internal static void ApplyGeneral(GeneralControls controls)
@@ -117,8 +121,15 @@ namespace AnalysisITC
 
             if (controls.ShowParametersControl != null)
             {
-                FinalFigureGraphView.DrawFitParameters = IsOn(controls.ShowParametersControl);
+                FinalFigureGraphView.DrawExpDetails = IsOn(controls.ShowParametersControl);
             }
+
+            if (controls.ModelInfoControl != null)
+            {
+                FinalFigureGraphView.DrawModelInfo = IsOn(controls.ModelInfoControl);
+            }
+
+            FinalFigureGraphView.UpdateParameterBoxVisibility();
 
             if (controls.TimeUnitControl != null)
             {
@@ -143,6 +154,7 @@ namespace AnalysisITC
 
             bool currentlyEnabled = AppSettings.FinalFigureParameterDisplay.HasFlag(flag);
             SetParameterFlag(flag, !currentlyEnabled);
+            FinalFigureGraphView.UpdateParameterBoxVisibility();
             UpdateParameterDisplayMenu(menu);
         }
 
@@ -158,6 +170,36 @@ namespace AnalysisITC
                 if (flag == FinalFigureDisplayParameters.None) continue;
 
                 item.State = AppSettings.FinalFigureParameterDisplay.HasFlag(flag)
+                    ? NSCellStateValue.On
+                    : NSCellStateValue.Off;
+            }
+        }
+
+        internal static void ToggleAttributeOption(NSObject sender, NSMenu menu)
+        {
+            if (sender is not NSPopUpButton btn) return;
+
+            int index = (int)btn.IndexOfSelectedItem;
+            var flag = GetAttributeFlagForMenuIndex(index);
+            if (flag == DisplayAttributeOptions.None) return;
+
+            bool currentlyEnabled = AppSettings.DisplayAttributeOptions.HasFlag(flag);
+            SetAttributeFlag(flag, !currentlyEnabled);
+            UpdateAttributeDisplayMenu(menu);
+        }
+
+        internal static void UpdateAttributeDisplayMenu(NSMenu menu)
+        {
+            if (menu == null) return;
+
+            for (int i = 1; i < menu.Items.Length; i++)
+            {
+                var item = menu.Items[i];
+                var flag = GetAttributeFlagForMenuIndex(i);
+
+                if (flag == DisplayAttributeOptions.None) continue;
+
+                item.State = AppSettings.DisplayAttributeOptions.HasFlag(flag)
                     ? NSCellStateValue.On
                     : NSCellStateValue.Off;
             }
@@ -381,22 +423,33 @@ namespace AnalysisITC
         {
             return index switch
             {
-                1 => FinalFigureDisplayParameters.Model,
+                1 => FinalFigureDisplayParameters.Thermodynamic,
                 2 => FinalFigureDisplayParameters.Fitted,
                 3 => FinalFigureDisplayParameters.Derived,
 
-                5 => FinalFigureDisplayParameters.Temperature,
-                6 => FinalFigureDisplayParameters.Concentrations,
-                7 => FinalFigureDisplayParameters.Attributes,
-
-                9 => FinalFigureDisplayParameters.Nvalue,
-                10 => FinalFigureDisplayParameters.Affinity,
-                11 => FinalFigureDisplayParameters.Enthalpy,
-                12 => FinalFigureDisplayParameters.Gibbs,
-                13 => FinalFigureDisplayParameters.Entropy,
-                14 => FinalFigureDisplayParameters.Offset,
+                5 => FinalFigureDisplayParameters.Nvalue,
+                6 => FinalFigureDisplayParameters.Affinity,
+                7 => FinalFigureDisplayParameters.Enthalpy,
+                8 => FinalFigureDisplayParameters.Gibbs,
+                9 => FinalFigureDisplayParameters.Entropy,
+                10 => FinalFigureDisplayParameters.Offset,
 
                 _ => FinalFigureDisplayParameters.None,
+            };
+        }
+
+        static DisplayAttributeOptions GetAttributeFlagForMenuIndex(int index)
+        {
+            return index switch
+            {
+                1 => DisplayAttributeOptions.UsedInAnalysis,
+                2 => DisplayAttributeOptions.Buffer,
+                3 => DisplayAttributeOptions.Salt,
+                4 => DisplayAttributeOptions.IonicStrength,
+                5 => DisplayAttributeOptions.ProtonationEnthalpy,
+                6 => DisplayAttributeOptions.Competitor,
+
+                _ => DisplayAttributeOptions.None,
             };
         }
 
@@ -406,6 +459,14 @@ namespace AnalysisITC
 
             if (enabled) AppSettings.FinalFigureParameterDisplay |= flag;
             else AppSettings.FinalFigureParameterDisplay &= ~flag;
+        }
+
+        static void SetAttributeFlag(DisplayAttributeOptions flag, bool enabled)
+        {
+            if (flag == DisplayAttributeOptions.None) return;
+
+            if (enabled) AppSettings.DisplayAttributeOptions |= flag;
+            else AppSettings.DisplayAttributeOptions &= ~flag;
         }
 
         static void UpdateDataTickLabels(DataControls controls)
