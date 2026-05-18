@@ -36,6 +36,7 @@ namespace AnalysisITC
             mergeDelegate.SelectionChanged += (_, __) =>
             {
                 ValidateApplyButton();
+                UpdateGraph();
             };
 
             SelectListView.DataSource = mergeSource;
@@ -43,6 +44,7 @@ namespace AnalysisITC
             SelectListView.ReloadData();
 
             PopulateReferencePopup();
+            UpdateGraph();
             ValidateApplyButton();
         }
 
@@ -84,6 +86,7 @@ namespace AnalysisITC
 
             ReferenceExperimentInfoLabel.StringValue = info;
 
+            UpdateGraph();
             ValidateApplyButton();
         }
 
@@ -115,6 +118,16 @@ namespace AnalysisITC
             var targets = CaptureSelectedIDs(SelectListView, mergeSource);
 
             ApplyButton.Enabled = (reference != null && targets.Where(t => t != reference).Count() > 0);
+        }
+
+        void UpdateGraph()
+        {
+            var reference = GetSelectedReference();
+            var targets = CaptureSelectedIDs(SelectListView, mergeSource)
+                .Where(target => target != reference)
+                .ToList();
+
+            GraphView?.Initialize(reference, targets);
         }
 
         partial void Apply(NSObject sender)

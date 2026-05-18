@@ -19,6 +19,9 @@ namespace AnalysisITC
 		AppKit.NSScrollView ExperimentListView { get; set; }
 
 		[Outlet]
+		AnalysisITC.BufferSubtractionGraphView GraphView { get; set; }
+
+		[Outlet]
 		AppKit.NSTextField ReferenceExperimentInfoLabel { get; set; }
 
 		[Outlet]
@@ -43,6 +46,11 @@ namespace AnalysisITC
 			if (SelectListView != null) {
 				SelectListView.Dispose ();
 				SelectListView = null;
+			}
+
+			if (GraphView != null) {
+				GraphView.Dispose ();
+				GraphView = null;
 			}
 
 			if (ReferenceExperimentSelection != null) {
