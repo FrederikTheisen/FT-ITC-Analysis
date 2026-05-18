@@ -54,8 +54,6 @@ namespace AnalysisITC
         public double Enthalpy => PeakArea / InjectionMass;
         public double SD => PeakArea.SD / InjectionMass;
 
-        static bool IsValidReferenceInjection(InjectionData inj) => inj != null && inj.Include && inj.IsIntegrated;
-
         public double OffsetEnthalpy
         {
             get
@@ -296,62 +294,34 @@ namespace AnalysisITC
         public void UpdateCorrectedPeakArea()
         {
             var area = RawPeakArea;
+            var bufferSubtraction = Experiment?.BufferSubtractionSettings;
 
-            var reference = Experiment?.ReferenceExperiment;
-            if (reference != null && TryGetReferencePeakArea(reference, out var refHeat))
+            if (bufferSubtraction?.ReferenceExperiment != null)
             {
-                var newHeat = area.Value - refHeat.Value;
-                var newSd = Math.Sqrt(area.SD * area.SD + refHeat.SD * refHeat.SD);
-                area = new FloatWithError(newHeat, newSd);
+                var model = BufferSubtractionCalculator.BuildModel(bufferSubtraction.ReferenceExperiment, bufferSubtraction);
+                area = GetCorrectedPeakArea(model);
+            }
+            else
+            {
+                area = RawPeakArea;
             }
 
             PeakArea = area;
         }
 
-        bool TryGetReferencePeakArea(ExperimentData reference, out FloatWithError area)
+        public void UpdateCorrectedPeakArea(BufferSubtractionModel subtractionModel)
         {
-            area = default;
+            PeakArea = GetCorrectedPeakArea(subtractionModel);
+        }
 
-            if (reference.InjectionCount == 0) return false;
+        FloatWithError GetCorrectedPeakArea(BufferSubtractionModel subtractionModel)
+        {
+            var area = RawPeakArea;
 
-            // Prefer same injection if valid
-            var idx = Math.Clamp(ID, 0, reference.InjectionCount - 1);
-            var same = reference.Injections[idx];
-            if (IsValidReferenceInjection(same))
-            {
-                area = same.RawPeakArea;
-                return true;
-            }
+            if (BufferSubtractionCalculator.TryGetReferenceHeat(this, subtractionModel, out var referenceHeat))
+                area -= referenceHeat;
 
-            // Look for alternatives
-            InjectionData prev = null;
-            for (int i = idx - 1; i >= 0; i--)
-            {
-                var inj = reference.Injections[i];
-                if (IsValidReferenceInjection(inj))
-                {
-                    prev = inj;
-                    break;
-                }
-            }
-
-            InjectionData next = null;
-            for (int i = idx + 1; i < reference.InjectionCount; i++)
-            {
-                var inj = reference.Injections[i];
-                if (IsValidReferenceInjection(inj))
-                {
-                    next = inj;
-                    break;
-                }
-            }
-
-            // Prefer average over previous over next
-            if (prev != null && next != null) { area = FWEMath.Average(prev.RawPeakArea, next.RawPeakArea); return true; }
-            else if (prev != null) { area = prev.RawPeakArea; return true; }
-            else if (next != null) { area = next.RawPeakArea; return true; }
-
-            return false;
+            return area;
         }
 
         private double EstimateError2()

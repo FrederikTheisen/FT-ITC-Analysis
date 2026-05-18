@@ -2644,26 +2644,34 @@ In most cases, interpretation of affinities provided by ITC is straightforward, 
         <scene sceneID="4fC-rR-6HT">
             <objects>
                 <viewController title="Buffer Subtraction Tool" id="Bde-GA-GrI" customClass="BufferSubtractionTool" sceneMemberID="viewController">
-                    <view key="view" id="TAn-zL-CfY">
-                        <rect key="frame" x="0.0" y="0.0" width="470" height="603"/>
+                    <view key="view" misplaced="YES" id="TAn-zL-CfY">
+                        <rect key="frame" x="0.0" y="0.0" width="470" height="627"/>
                         <autoresizingMask key="autoresizingMask"/>
                         <subviews>
-                            <stackView distribution="fill" orientation="vertical" alignment="leading" horizontalStackHuggingPriority="250" verticalStackHuggingPriority="250" horizontalHuggingPriority="750" verticalHuggingPriority="1000" detachesHiddenViews="YES" translatesAutoresizingMaskIntoConstraints="NO" id="ixZ-yR-KeS">
-                                <rect key="frame" x="0.0" y="0.0" width="470" height="603"/>
+                            <stackView distribution="fill" orientation="vertical" alignment="leading" spacing="5" horizontalStackHuggingPriority="250" verticalStackHuggingPriority="250" horizontalHuggingPriority="750" verticalHuggingPriority="1000" detachesHiddenViews="YES" translatesAutoresizingMaskIntoConstraints="NO" id="ixZ-yR-KeS">
+                                <rect key="frame" x="0.0" y="0.0" width="470" height="627"/>
                                 <subviews>
+                                    <textField horizontalHuggingPriority="249" verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="1MC-aY-o3N">
+                                        <rect key="frame" x="18" y="591" width="434" height="16"/>
+                                        <textFieldCell key="cell" lineBreakMode="clipping" alignment="center" title="Buffer Subtraction Tool" id="Idz-hb-bFA">
+                                            <font key="font" textStyle="headline" name=".SFNS-Bold"/>
+                                            <color key="textColor" name="labelColor" catalog="System" colorSpace="catalog"/>
+                                            <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
+                                        </textFieldCell>
+                                    </textField>
                                     <textField verticalHuggingPriority="1000" horizontalCompressionResistancePriority="250" translatesAutoresizingMaskIntoConstraints="NO" id="MxE-8J-EPZ">
-                                        <rect key="frame" x="18" y="567" width="434" height="16"/>
-                                        <textFieldCell key="cell" selectable="YES" alignment="justified" title="Subtract buffer reference experiments to compensate dilution heats." id="gq9-Yj-t0I">
+                                        <rect key="frame" x="18" y="570" width="434" height="16"/>
+                                        <textFieldCell key="cell" selectable="YES" alignment="justified" title="Subtract buffer heats from selected experiments." id="gq9-Yj-t0I">
                                             <font key="font" metaFont="system"/>
                                             <color key="textColor" name="labelColor" catalog="System" colorSpace="catalog"/>
                                             <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
                                         </textFieldCell>
                                     </textField>
                                     <box verticalHuggingPriority="750" boxType="separator" translatesAutoresizingMaskIntoConstraints="NO" id="xdf-my-ax5">
-                                        <rect key="frame" x="20" y="556" width="447" height="5"/>
+                                        <rect key="frame" x="20" y="562" width="447" height="5"/>
                                     </box>
                                     <stackView distribution="fill" orientation="horizontal" alignment="firstBaseline" horizontalStackHuggingPriority="249.99998474121094" verticalStackHuggingPriority="249.99998474121094" verticalHuggingPriority="1000" detachesHiddenViews="YES" translatesAutoresizingMaskIntoConstraints="NO" id="jOo-PE-5MD">
-                                        <rect key="frame" x="20" y="530" width="430" height="20"/>
+                                        <rect key="frame" x="20" y="539" width="430" height="20"/>
                                         <subviews>
                                             <textField toolTip="The degree of mixing expected between the active cell volume and the dead volume." horizontalHuggingPriority="249" verticalHuggingPriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="tYD-Lu-quN">
                                                 <rect key="frame" x="-2" y="3" width="176" height="16"/>
@@ -2706,8 +2714,46 @@ In most cases, interpretation of affinities provided by ITC is straightforward, 
                                             <real value="3.4028234663852886e+38"/>
                                         </customSpacing>
                                     </stackView>
+                                    <stackView distribution="fill" orientation="horizontal" alignment="centerY" horizontalStackHuggingPriority="249.99998474121094" verticalStackHuggingPriority="1000" verticalHuggingPriority="1000" detachesHiddenViews="YES" translatesAutoresizingMaskIntoConstraints="NO" id="buf-method-row">
+                                        <rect key="frame" x="20" y="518" width="430" height="16"/>
+                                        <subviews>
+                                            <textField horizontalHuggingPriority="249" verticalHuggingPriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="buf-method-label">
+                                                <rect key="frame" x="-2" y="0.0" width="176" height="16"/>
+                                                <textFieldCell key="cell" lineBreakMode="clipping" title="Method" id="buf-method-label-cell">
+                                                    <font key="font" usesAppearanceFont="YES"/>
+                                                    <color key="textColor" name="labelColor" catalog="System" colorSpace="catalog"/>
+                                                    <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
+                                                </textFieldCell>
+                                            </textField>
+                                            <segmentedControl verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="buf-method-control">
+                                                <rect key="frame" x="178" y="-2" width="254" height="19"/>
+                                                <constraints>
+                                                    <constraint firstAttribute="width" constant="250" id="buf-method-width"/>
+                                                </constraints>
+                                                <segmentedCell key="cell" controlSize="small" borderStyle="border" alignment="left" segmentDistribution="fill" style="rounded" trackingMode="selectOne" id="buf-method-cell">
+                                                    <font key="font" metaFont="smallSystem"/>
+                                                    <segments>
+                                                        <segment label="Matched" toolTip="Subtract the matching buffer injection, with nearby valid injections used as fallback." selected="YES"/>
+                                                        <segment label="Linear" toolTip="Subtract a straight-line fit through the included buffer injections." tag="1"/>
+                                                        <segment label="Exp. decay" toolTip="Subtract a single exponential decay fit through the included buffer injections." tag="2"/>
+                                                    </segments>
+                                                </segmentedCell>
+                                                <connections>
+                                                    <action selector="MethodSelectionChanged:" target="Bde-GA-GrI" id="buf-method-action"/>
+                                                </connections>
+                                            </segmentedControl>
+                                        </subviews>
+                                        <visibilityPriorities>
+                                            <integer value="1000"/>
+                                            <integer value="1000"/>
+                                        </visibilityPriorities>
+                                        <customSpacing>
+                                            <real value="3.4028234663852886e+38"/>
+                                            <real value="3.4028234663852886e+38"/>
+                                        </customSpacing>
+                                    </stackView>
                                     <textField horizontalHuggingPriority="249" verticalHuggingPriority="1000" horizontalCompressionResistancePriority="250" translatesAutoresizingMaskIntoConstraints="NO" id="oVd-K0-1fE">
-                                        <rect key="frame" x="18" y="466" width="434" height="56"/>
+                                        <rect key="frame" x="18" y="457" width="434" height="56"/>
                                         <textFieldCell key="cell" controlSize="small" selectable="YES" alignment="left" id="ez6-x6-5bi">
                                             <font key="font" metaFont="smallSystem"/>
                                             <string key="title">Experiment:
@@ -2719,13 +2765,13 @@ Comments:</string>
                                         </textFieldCell>
                                     </textField>
                                     <customView translatesAutoresizingMaskIntoConstraints="NO" id="j0q-Cs-mAL" customClass="BufferSubtractionGraphView">
-                                        <rect key="frame" x="20" y="258" width="430" height="200"/>
+                                        <rect key="frame" x="20" y="252" width="430" height="200"/>
                                         <constraints>
                                             <constraint firstAttribute="height" constant="200" id="w8I-ga-Dqh"/>
                                         </constraints>
                                     </customView>
                                     <stackView distribution="fill" orientation="vertical" alignment="leading" spacing="0.0" horizontalStackHuggingPriority="249.99998474121094" verticalStackHuggingPriority="249.99998474121094" detachesHiddenViews="YES" translatesAutoresizingMaskIntoConstraints="NO" id="L5i-o4-19d">
-                                        <rect key="frame" x="20" y="48" width="447" height="202"/>
+                                        <rect key="frame" x="20" y="45" width="447" height="202"/>
                                         <subviews>
                                             <box verticalHuggingPriority="750" boxType="separator" translatesAutoresizingMaskIntoConstraints="NO" id="PSU-AK-D9g">
                                                 <rect key="frame" x="0.0" y="199" width="447" height="5"/>
@@ -2959,8 +3005,12 @@ Gw
                                     <integer value="1000"/>
                                     <integer value="1000"/>
                                     <integer value="1000"/>
+                                    <integer value="1000"/>
+                                    <integer value="1000"/>
                                 </visibilityPriorities>
                                 <customSpacing>
+                                    <real value="3.4028234663852886e+38"/>
+                                    <real value="3.4028234663852886e+38"/>
                                     <real value="3.4028234663852886e+38"/>
                                     <real value="3.4028234663852886e+38"/>
                                     <real value="3.4028234663852886e+38"/>
@@ -2986,6 +3036,7 @@ Gw
                         <outlet property="ReferenceExperimentInfoLabel" destination="oVd-K0-1fE" id="tKs-yA-sPc"/>
                         <outlet property="ReferenceExperimentSelection" destination="fa6-XX-Enp" id="dqB-2J-zew"/>
                         <outlet property="SelectListView" destination="bpG-Eu-mC9" id="acW-al-YDk"/>
+                        <outlet property="SubtractionMethodControl" destination="buf-method-control" id="buf-method-outlet"/>
                     </connections>
                 </viewController>
                 <customObject id="c0W-Zu-OH3" userLabel="First Responder" customClass="NSResponder" sceneMemberID="firstResponder"/>
@@ -2996,14 +3047,22 @@ Gw
         <scene sceneID="R60-Uv-ArZ">
             <objects>
                 <viewController id="Z6E-PS-hGv" customClass="ExperimentMergerViewController" sceneMemberID="viewController">
-                    <view key="view" verticalHuggingPriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="62W-Hl-eHA">
-                        <rect key="frame" x="0.0" y="0.0" width="487" height="459"/>
+                    <view key="view" verticalHuggingPriority="1000" misplaced="YES" translatesAutoresizingMaskIntoConstraints="NO" id="62W-Hl-eHA">
+                        <rect key="frame" x="0.0" y="0.0" width="487" height="479"/>
                         <subviews>
                             <stackView distribution="fill" orientation="vertical" alignment="leading" horizontalStackHuggingPriority="250" verticalStackHuggingPriority="250" horizontalHuggingPriority="750" verticalHuggingPriority="1000" detachesHiddenViews="YES" translatesAutoresizingMaskIntoConstraints="NO" id="Xga-ve-s9F">
-                                <rect key="frame" x="0.0" y="0.0" width="487" height="459"/>
+                                <rect key="frame" x="0.0" y="0.0" width="487" height="479"/>
                                 <subviews>
+                                    <textField horizontalHuggingPriority="249" verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="A3o-oQ-U88">
+                                        <rect key="frame" x="18" y="443" width="451" height="16"/>
+                                        <textFieldCell key="cell" lineBreakMode="clipping" alignment="center" title="Tandem Experiment Merger Tool" id="Vk8-uL-PBU">
+                                            <font key="font" textStyle="headline" name=".SFNS-Bold"/>
+                                            <color key="textColor" name="labelColor" catalog="System" colorSpace="catalog"/>
+                                            <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
+                                        </textFieldCell>
+                                    </textField>
                                     <textField verticalHuggingPriority="1000" horizontalCompressionResistancePriority="250" translatesAutoresizingMaskIntoConstraints="NO" id="U5t-Wi-st1">
-                                        <rect key="frame" x="18" y="375" width="451" height="64"/>
+                                        <rect key="frame" x="18" y="371" width="451" height="64"/>
                                         <textFieldCell key="cell" selectable="YES" alignment="justified" id="xB2-YH-iMx">
                                             <font key="font" metaFont="system"/>
                                             <string key="title">Combine multiple tandem ITC runs (syringe reloads on the same cell) into a single experiment for analysis. The stitched dataset recalculates concentrations and molar ratios across all injections, with an optional correction for partial remixing of displaced liquid between runs.</string>
@@ -3012,13 +3071,13 @@ Gw
                                         </textFieldCell>
                                     </textField>
                                     <box verticalHuggingPriority="750" boxType="separator" translatesAutoresizingMaskIntoConstraints="NO" id="CU8-2g-FEr">
-                                        <rect key="frame" x="20" y="364" width="447" height="5"/>
+                                        <rect key="frame" x="20" y="360" width="447" height="5"/>
                                     </box>
-                                    <stackView distribution="fill" orientation="horizontal" alignment="top" horizontalStackHuggingPriority="249.99998474121094" verticalStackHuggingPriority="249.99998474121094" verticalHuggingPriority="1000" detachesHiddenViews="YES" translatesAutoresizingMaskIntoConstraints="NO" id="nox-ag-2xm">
-                                        <rect key="frame" x="20" y="338" width="447" height="20"/>
+                                    <stackView distribution="fill" orientation="horizontal" alignment="top" horizontalStackHuggingPriority="249.99998474121094" verticalStackHuggingPriority="1000" verticalHuggingPriority="1000" detachesHiddenViews="YES" translatesAutoresizingMaskIntoConstraints="NO" id="nox-ag-2xm">
+                                        <rect key="frame" x="20" y="338" width="447" height="16"/>
                                         <subviews>
                                             <textField horizontalHuggingPriority="249" verticalHuggingPriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="gnm-Ne-Mo9">
-                                                <rect key="frame" x="-2" y="4" width="151" height="16"/>
+                                                <rect key="frame" x="-2" y="0.0" width="191" height="16"/>
                                                 <textFieldCell key="cell" lineBreakMode="clipping" title="Method" id="Peo-gN-Ms3">
                                                     <font key="font" usesAppearanceFont="YES"/>
                                                     <color key="textColor" name="labelColor" catalog="System" colorSpace="catalog"/>
@@ -3026,9 +3085,9 @@ Gw
                                                 </textFieldCell>
                                             </textField>
                                             <segmentedControl toolTip="Choose whether to export one summary row per analysis result or every replicate row for each selected result." verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="oF6-d8-meS">
-                                                <rect key="frame" x="153" y="-1" width="296" height="22"/>
-                                                <segmentedCell key="cell" borderStyle="border" alignment="left" style="rounded" trackingMode="selectOne" id="V2f-bh-Yrd">
-                                                    <font key="font" metaFont="system"/>
+                                                <rect key="frame" x="193" y="-2" width="256" height="19"/>
+                                                <segmentedCell key="cell" controlSize="small" borderStyle="border" alignment="left" style="rounded" trackingMode="selectOne" id="V2f-bh-Yrd">
+                                                    <font key="font" metaFont="smallSystem"/>
                                                     <segments>
                                                         <segment label="MicroCal Concat" selected="YES"/>
                                                         <segment label="Back-Mixing Compensation" tag="1"/>
@@ -3039,9 +3098,6 @@ Gw
                                                 </connections>
                                             </segmentedControl>
                                         </subviews>
-                                        <constraints>
-                                            <constraint firstAttribute="height" constant="20" id="THq-Bi-2Kk"/>
-                                        </constraints>
                                         <visibilityPriorities>
                                             <integer value="1000"/>
                                             <integer value="1000"/>
@@ -3384,8 +3440,10 @@ Gw
                                     <integer value="1000"/>
                                     <integer value="1000"/>
                                     <integer value="1000"/>
+                                    <integer value="1000"/>
                                 </visibilityPriorities>
                                 <customSpacing>
+                                    <real value="3.4028234663852886e+38"/>
                                     <real value="3.4028234663852886e+38"/>
                                     <real value="3.4028234663852886e+38"/>
                                     <real value="3.4028234663852886e+38"/>
@@ -6559,7 +6617,7 @@ DQ
                             <rect key="frame" x="0.0" y="0.0" width="454" height="52"/>
                             <subviews>
                                 <button verticalHuggingPriority="750" verticalCompressionResistancePriority="250" translatesAutoresizingMaskIntoConstraints="NO" id="Ibj-M0-dHf">
-                                    <rect key="frame" x="1" y="-1" width="111" height="31"/>
+                                    <rect key="frame" x="1" y="21" width="111" height="31"/>
                                     <buttonCell key="cell" type="recessed" title="Overview" bezelStyle="recessed" alignment="center" controlSize="large" lineBreakMode="truncatingTail" state="on" borderStyle="border" inset="2" id="ed1-E0-79d">
                                         <behavior key="behavior" lightByBackground="YES" lightByGray="YES" changeBackground="YES" changeGray="YES"/>
                                         <font key="font" metaFont="system"/>
@@ -6575,7 +6633,7 @@ DQ
                                     <rect key="frame" x="111" y="1" width="5" height="50"/>
                                 </box>
                                 <button verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="zTg-QH-FPo">
-                                    <rect key="frame" x="115" y="20" width="111" height="31"/>
+                                    <rect key="frame" x="115" y="0.0" width="111" height="31"/>
                                     <buttonCell key="cell" type="recessed" title="Process Data" bezelStyle="recessed" alignment="center" controlSize="large" lineBreakMode="truncatingTail" borderStyle="border" inset="2" id="o5L-6P-mOP">
                                         <behavior key="behavior" lightByBackground="YES" lightByGray="YES" changeBackground="YES" changeGray="YES"/>
                                         <font key="font" metaFont="system"/>
@@ -6591,7 +6649,7 @@ DQ
                                     <rect key="frame" x="225" y="1" width="5" height="50"/>
                                 </box>
                                 <button verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="v0f-iE-gM6">
-                                    <rect key="frame" x="229" y="20" width="110" height="31"/>
+                                    <rect key="frame" x="229" y="0.0" width="110" height="31"/>
                                     <buttonCell key="cell" type="recessed" title="Analyze Data" bezelStyle="recessed" alignment="center" controlSize="large" lineBreakMode="truncatingTail" borderStyle="border" inset="2" id="946-Qa-1ae">
                                         <behavior key="behavior" lightByBackground="YES" lightByGray="YES" changeBackground="YES" changeGray="YES"/>
                                         <font key="font" metaFont="system"/>
@@ -6607,7 +6665,7 @@ DQ
                                     <rect key="frame" x="338" y="1" width="5" height="50"/>
                                 </box>
                                 <button verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="DGH-oN-EAU">
-                                    <rect key="frame" x="342" y="20" width="111" height="31"/>
+                                    <rect key="frame" x="342" y="0.0" width="111" height="31"/>
                                     <buttonCell key="cell" type="recessed" title="Final Figure" bezelStyle="recessed" alignment="center" controlSize="large" lineBreakMode="truncatingTail" borderStyle="border" inset="2" id="Fgw-Bk-CyU">
                                         <behavior key="behavior" lightByBackground="YES" lightByGray="YES" changeBackground="YES" changeGray="YES"/>
                                         <font key="font" metaFont="system"/>
@@ -14896,15 +14954,23 @@ The models in \appname are implemented to match the **MicroCal/Origin formal def
         <scene sceneID="IkO-No-WlO">
             <objects>
                 <viewController title="Analysis Exporter" id="y9t-uG-ZTy" customClass="AnalysisResultExporterViewController" sceneMemberID="viewController">
-                    <view key="view" id="Ayy-Y8-Rxk">
-                        <rect key="frame" x="0.0" y="0.0" width="470" height="441"/>
+                    <view key="view" misplaced="YES" id="Ayy-Y8-Rxk">
+                        <rect key="frame" x="0.0" y="0.0" width="470" height="426"/>
                         <autoresizingMask key="autoresizingMask"/>
                         <subviews>
-                            <stackView distribution="fill" orientation="vertical" alignment="leading" horizontalStackHuggingPriority="250" verticalStackHuggingPriority="250" horizontalHuggingPriority="750" verticalHuggingPriority="1000" detachesHiddenViews="YES" translatesAutoresizingMaskIntoConstraints="NO" id="8Ch-0V-BlW">
-                                <rect key="frame" x="0.0" y="0.0" width="470" height="441"/>
+                            <stackView distribution="fill" orientation="vertical" alignment="leading" spacing="5" horizontalStackHuggingPriority="250" verticalStackHuggingPriority="250" horizontalHuggingPriority="750" verticalHuggingPriority="1000" detachesHiddenViews="YES" translatesAutoresizingMaskIntoConstraints="NO" id="8Ch-0V-BlW">
+                                <rect key="frame" x="0.0" y="0.0" width="470" height="426"/>
                                 <subviews>
+                                    <textField horizontalHuggingPriority="249" verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="oh4-ET-pGu">
+                                        <rect key="frame" x="18" y="390" width="434" height="16"/>
+                                        <textFieldCell key="cell" lineBreakMode="clipping" alignment="center" title="Analysis Result Exporter" id="H4Z-Oe-pXc">
+                                            <font key="font" textStyle="headline" name=".SFNS-Bold"/>
+                                            <color key="textColor" name="labelColor" catalog="System" colorSpace="catalog"/>
+                                            <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
+                                        </textFieldCell>
+                                    </textField>
                                     <textField verticalHuggingPriority="1000" horizontalCompressionResistancePriority="250" translatesAutoresizingMaskIntoConstraints="NO" id="yvk-oo-oX0">
-                                        <rect key="frame" x="18" y="357" width="434" height="64"/>
+                                        <rect key="frame" x="18" y="321" width="434" height="64"/>
                                         <textFieldCell key="cell" selectable="YES" alignment="justified" id="TyR-VS-i7k">
                                             <font key="font" metaFont="system"/>
                                             <string key="title">Select one or more analysis results to export. Summary rows report one aggregate row per analysis result, while all rows include every replicate in each selected result. Use the error and file-format options to choose publication-style tables or data-oriented exports.</string>
@@ -14913,13 +14979,13 @@ The models in \appname are implemented to match the **MicroCal/Origin formal def
                                         </textFieldCell>
                                     </textField>
                                     <box verticalHuggingPriority="750" boxType="separator" translatesAutoresizingMaskIntoConstraints="NO" id="3KS-a4-jdp">
-                                        <rect key="frame" x="20" y="346" width="447" height="5"/>
+                                        <rect key="frame" x="20" y="313" width="447" height="5"/>
                                     </box>
                                     <stackView distribution="fill" orientation="horizontal" alignment="top" horizontalStackHuggingPriority="249.99998474121094" verticalStackHuggingPriority="1000" verticalHuggingPriority="1000" detachesHiddenViews="YES" translatesAutoresizingMaskIntoConstraints="NO" id="NJQ-YR-hgg">
-                                        <rect key="frame" x="20" y="318" width="430" height="22"/>
+                                        <rect key="frame" x="20" y="294" width="430" height="16"/>
                                         <subviews>
-                                            <textField horizontalHuggingPriority="249" translatesAutoresizingMaskIntoConstraints="NO" id="rfK-GQ-YBL">
-                                                <rect key="frame" x="-2" y="0.0" width="176" height="22"/>
+                                            <textField horizontalHuggingPriority="249" verticalHuggingPriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="rfK-GQ-YBL">
+                                                <rect key="frame" x="-2" y="0.0" width="176" height="16"/>
                                                 <textFieldCell key="cell" lineBreakMode="clipping" title="Result style" id="nkD-KV-Xol">
                                                     <font key="font" usesAppearanceFont="YES"/>
                                                     <color key="textColor" name="labelColor" catalog="System" colorSpace="catalog"/>
@@ -14927,12 +14993,12 @@ The models in \appname are implemented to match the **MicroCal/Origin formal def
                                                 </textFieldCell>
                                             </textField>
                                             <segmentedControl toolTip="Choose whether to export one summary row per analysis result or every replicate row for each selected result." verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="rrb-Dc-dRW">
-                                                <rect key="frame" x="178" y="-1" width="254" height="24"/>
+                                                <rect key="frame" x="178" y="-2" width="254" height="19"/>
                                                 <constraints>
                                                     <constraint firstAttribute="width" constant="250" id="0Ry-7d-lUU"/>
                                                 </constraints>
-                                                <segmentedCell key="cell" borderStyle="border" alignment="left" segmentDistribution="fill" style="texturedRounded" trackingMode="selectOne" id="aJc-GA-X0d">
-                                                    <font key="font" metaFont="system"/>
+                                                <segmentedCell key="cell" controlSize="small" borderStyle="border" alignment="left" segmentDistribution="fill" style="texturedRounded" trackingMode="selectOne" id="aJc-GA-X0d">
+                                                    <font key="font" metaFont="smallSystem"/>
                                                     <segments>
                                                         <segment label="Summary Rows" selected="YES"/>
                                                         <segment label="All Rows" tag="1"/>
@@ -14950,10 +15016,10 @@ The models in \appname are implemented to match the **MicroCal/Origin formal def
                                         </customSpacing>
                                     </stackView>
                                     <stackView distribution="fill" orientation="horizontal" alignment="top" horizontalStackHuggingPriority="249.99998474121094" verticalStackHuggingPriority="1000" verticalHuggingPriority="1000" detachesHiddenViews="YES" translatesAutoresizingMaskIntoConstraints="NO" id="rfV-tY-DJU">
-                                        <rect key="frame" x="20" y="288" width="430" height="22"/>
+                                        <rect key="frame" x="20" y="273" width="430" height="16"/>
                                         <subviews>
-                                            <textField horizontalHuggingPriority="249" translatesAutoresizingMaskIntoConstraints="NO" id="WbI-BZ-CYg">
-                                                <rect key="frame" x="-2" y="0.0" width="176" height="22"/>
+                                            <textField horizontalHuggingPriority="249" verticalHuggingPriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="WbI-BZ-CYg">
+                                                <rect key="frame" x="-2" y="0.0" width="176" height="16"/>
                                                 <textFieldCell key="cell" lineBreakMode="clipping" title="Errors style" id="x1X-7n-H5a">
                                                     <font key="font" usesAppearanceFont="YES"/>
                                                     <color key="textColor" name="labelColor" catalog="System" colorSpace="catalog"/>
@@ -14961,12 +15027,12 @@ The models in \appname are implemented to match the **MicroCal/Origin formal def
                                                 </textFieldCell>
                                             </textField>
                                             <segmentedControl toolTip="Choose publication-style values with ± errors or data-style value and error columns." verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="klW-LP-K3h">
-                                                <rect key="frame" x="178" y="-1" width="254" height="24"/>
+                                                <rect key="frame" x="178" y="-2" width="254" height="19"/>
                                                 <constraints>
                                                     <constraint firstAttribute="width" constant="250" id="pjf-vx-aeI"/>
                                                 </constraints>
-                                                <segmentedCell key="cell" borderStyle="border" alignment="left" segmentDistribution="fill" style="texturedRounded" trackingMode="selectOne" id="xg2-fs-QVn">
-                                                    <font key="font" metaFont="system"/>
+                                                <segmentedCell key="cell" controlSize="small" borderStyle="border" alignment="left" segmentDistribution="fill" style="texturedRounded" trackingMode="selectOne" id="xg2-fs-QVn">
+                                                    <font key="font" metaFont="smallSystem"/>
                                                     <segments>
                                                         <segment label="Value ± Error" selected="YES"/>
                                                         <segment label="Separate Columns" tag="1"/>
@@ -14984,10 +15050,10 @@ The models in \appname are implemented to match the **MicroCal/Origin formal def
                                         </customSpacing>
                                     </stackView>
                                     <stackView distribution="fill" orientation="horizontal" alignment="top" horizontalStackHuggingPriority="249.99998474121094" verticalStackHuggingPriority="1000" verticalHuggingPriority="1000" detachesHiddenViews="YES" translatesAutoresizingMaskIntoConstraints="NO" id="u09-iH-APS">
-                                        <rect key="frame" x="20" y="258" width="430" height="22"/>
+                                        <rect key="frame" x="20" y="252" width="430" height="16"/>
                                         <subviews>
-                                            <textField horizontalHuggingPriority="249" translatesAutoresizingMaskIntoConstraints="NO" id="lIR-7H-zkB">
-                                                <rect key="frame" x="-2" y="0.0" width="176" height="22"/>
+                                            <textField horizontalHuggingPriority="249" verticalHuggingPriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="lIR-7H-zkB">
+                                                <rect key="frame" x="-2" y="0.0" width="176" height="16"/>
                                                 <textFieldCell key="cell" lineBreakMode="clipping" title="Output format" id="rnA-tk-hti">
                                                     <font key="font" usesAppearanceFont="YES"/>
                                                     <color key="textColor" name="labelColor" catalog="System" colorSpace="catalog"/>
@@ -14995,12 +15061,12 @@ The models in \appname are implemented to match the **MicroCal/Origin formal def
                                                 </textFieldCell>
                                             </textField>
                                             <segmentedControl toolTip="Choose comma-separated CSV or tab-separated TSV output." verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="T6X-Ah-64I">
-                                                <rect key="frame" x="178" y="-1" width="254" height="24"/>
+                                                <rect key="frame" x="178" y="-2" width="254" height="19"/>
                                                 <constraints>
                                                     <constraint firstAttribute="width" constant="250" id="I3x-QX-kVu"/>
                                                 </constraints>
-                                                <segmentedCell key="cell" borderStyle="border" alignment="left" segmentDistribution="fill" style="texturedRounded" trackingMode="selectOne" id="HwC-Ug-5Q0">
-                                                    <font key="font" metaFont="system"/>
+                                                <segmentedCell key="cell" controlSize="small" borderStyle="border" alignment="left" segmentDistribution="fill" style="texturedRounded" trackingMode="selectOne" id="HwC-Ug-5Q0">
+                                                    <font key="font" metaFont="smallSystem"/>
                                                     <segments>
                                                         <segment label="CSV" selected="YES"/>
                                                         <segment label="TSV" tag="1"/>
@@ -15018,7 +15084,7 @@ The models in \appname are implemented to match the **MicroCal/Origin formal def
                                         </customSpacing>
                                     </stackView>
                                     <stackView distribution="fill" orientation="vertical" alignment="leading" spacing="0.0" horizontalStackHuggingPriority="249.99998474121094" verticalStackHuggingPriority="249.99998474121094" detachesHiddenViews="YES" translatesAutoresizingMaskIntoConstraints="NO" id="QIj-n1-JgB">
-                                        <rect key="frame" x="20" y="48" width="447" height="202"/>
+                                        <rect key="frame" x="20" y="45" width="447" height="202"/>
                                         <subviews>
                                             <box verticalHuggingPriority="750" boxType="separator" translatesAutoresizingMaskIntoConstraints="NO" id="2G3-dZ-07j">
                                                 <rect key="frame" x="0.0" y="199" width="447" height="5"/>
@@ -15264,8 +15330,10 @@ Gw
                                     <integer value="1000"/>
                                     <integer value="1000"/>
                                     <integer value="1000"/>
+                                    <integer value="1000"/>
                                 </visibilityPriorities>
                                 <customSpacing>
+                                    <real value="3.4028234663852886e+38"/>
                                     <real value="3.4028234663852886e+38"/>
                                     <real value="3.4028234663852886e+38"/>
                                     <real value="3.4028234663852886e+38"/>

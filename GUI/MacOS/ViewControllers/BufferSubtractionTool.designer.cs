@@ -30,8 +30,14 @@ namespace AnalysisITC
 		[Outlet]
 		AppKit.NSTableView SelectListView { get; set; }
 
+		[Outlet]
+		AppKit.NSSegmentedControl SubtractionMethodControl { get; set; }
+
 		[Action ("Apply:")]
 		partial void Apply (Foundation.NSObject sender);
+
+		[Action ("MethodSelectionChanged:")]
+		partial void MethodSelectionChanged (AppKit.NSSegmentedControl sender);
 
 		[Action ("ReferenceSelectionChanged:")]
 		partial void ReferenceSelectionChanged (AppKit.NSPopUpButton sender);
@@ -66,6 +72,11 @@ namespace AnalysisITC
 			if (ApplyButton != null) {
 				ApplyButton.Dispose ();
 				ApplyButton = null;
+			}
+
+			if (SubtractionMethodControl != null) {
+				SubtractionMethodControl.Dispose ();
+				SubtractionMethodControl = null;
 			}
 		}
 	}

@@ -39,6 +39,18 @@ namespace AnalysisITC
                 UpdateGraph();
             };
 
+            if (SubtractionMethodControl != null)
+                SubtractionMethodControl.SelectedSegment = (int)BufferSubtractionMethod.MatchedInjection;
+
+            if (GraphView != null)
+            {
+                GraphView.BufferPointIncludeChanged += (_, __) =>
+                {
+                    GetSelectedReference()?.UpdateProcessing(invalidate: false);
+                    UpdateGraph();
+                };
+            }
+
             SelectListView.DataSource = mergeSource;
             SelectListView.Delegate = mergeDelegate;
             SelectListView.ReloadData();
@@ -46,6 +58,11 @@ namespace AnalysisITC
             PopulateReferencePopup();
             UpdateGraph();
             ValidateApplyButton();
+        }
+
+        partial void MethodSelectionChanged(NSSegmentedControl sender)
+        {
+            UpdateGraph();
         }
 
         void PopulateReferencePopup()
@@ -127,7 +144,27 @@ namespace AnalysisITC
                 .Where(target => target != reference)
                 .ToList();
 
-            GraphView?.Initialize(reference, targets);
+            var settings = reference == null
+                ? null
+                : new BufferSubtractionSettings(reference.UniqueID, SelectedSubtractionMethod);
+            var model = BufferSubtractionCalculator.BuildModel(reference, settings);
+
+            GraphView?.Initialize(reference, targets, model);
+        }
+
+        BufferSubtractionMethod SelectedSubtractionMethod
+        {
+            get
+            {
+                var selectedSegment = (int)(SubtractionMethodControl?.SelectedSegment ?? 0);
+
+                return selectedSegment switch
+                {
+                    1 => BufferSubtractionMethod.Linear,
+                    2 => BufferSubtractionMethod.ExponentialDecay,
+                    _ => BufferSubtractionMethod.MatchedInjection,
+                };
+            }
         }
 
         partial void Apply(NSObject sender)
@@ -143,7 +180,7 @@ namespace AnalysisITC
 
                     AppEventHandler.PrintAndLog($"Adding buffer reference ({reference.Name}) to {target.Name}");
 
-                    target.SetReferenceExperiment(reference, notify: false);
+                    target.SetBufferSubtraction(reference, SelectedSubtractionMethod, notify: false);
                 }
 
                 DataManager.InvokeDataDidChange();

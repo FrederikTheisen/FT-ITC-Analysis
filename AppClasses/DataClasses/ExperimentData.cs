@@ -86,22 +86,17 @@ namespace AnalysisITC
         public List<ExperimentAttribute> Attributes { get; } = new List<ExperimentAttribute>();
         public Model Model { get; set; }
         public SolutionInterface Solution => Model?.Solution;
-        public ExperimentData ReferenceExperiment
+        public BufferSubtractionSettings BufferSubtractionSettings
         {
             get
             {
-                if (Attributes.Exists(att => att.Key == AttributeKey.BufferSubtraction))
-                {
-                    var reference = Attributes.Find(att => att.Key == AttributeKey.BufferSubtraction);
-
-                    if (DataManager.Data.Exists(d => d.UniqueID == reference.StringValue))
-                    {
-                        return DataManager.Data.Find(d => d.UniqueID == reference.StringValue);
-                    }
-                }
-
-                return null;
+                var attribute = Attributes.Find(att => att.Key == AttributeKey.BufferSubtraction);
+                return BufferSubtractionSettings.FromAttribute(attribute);
             }
+        }
+        public ExperimentData ReferenceExperiment
+        {
+            get => BufferSubtractionSettings?.ReferenceExperiment;
         }
         public bool IsTandemExperiment => Segments != null ? Segments.Count > 0 : false;
         public TimeSpan Duration
@@ -264,42 +259,64 @@ namespace AnalysisITC
 
         public bool SetReferenceExperiment(ExperimentData reference, bool notify = true)
         {
-            if (ReferenceExperiment != null) ReferenceExperiment.ProcessingUpdated -= Reference_ProcessingUpdated;
+            return SetBufferSubtraction(reference, BufferSubtractionMethod.MatchedInjection, notify);
+        }
+
+        public bool SetBufferSubtraction(ExperimentData reference, BufferSubtractionMethod method, bool notify = true)
+        {
+            var previousReference = ReferenceExperiment;
 
             // Check for self referencing.
+            if (reference == null) throw new HandledException(HandledException.Severity.Warning, "Buffer Subtraction Error", "No reference experiment selected");
             if (reference.UniqueID == this.UniqueID) throw new HandledException(HandledException.Severity.Warning, "Buffer Subtraction Error", "Attempting to set reference experiment to itself");
             if (reference.ReferenceExperiment != null) throw new HandledException(HandledException.Severity.Warning, "Buffer Subtraction Error", "Reference experiment already contains a buffer subtraction");
 
-            if (ReferenceExperiment?.UniqueID == reference.UniqueID)
+            if (previousReference != null) previousReference.ProcessingUpdated -= Reference_ProcessingUpdated;
+
+            var currentSettings = BufferSubtractionSettings;
+            var settingsChanged = currentSettings == null
+                || currentSettings.ReferenceExperimentId != reference.UniqueID
+                || currentSettings.Method != method;
+
+            if (settingsChanged)
             {
-                return false;
+                // Clear previous setting
+                Attributes.RemoveAll(att => att.Key == AttributeKey.BufferSubtraction);
+
+                // Add reference experiment
+                Attributes.Add(new BufferSubtractionSettings(reference.UniqueID, method).ToAttribute());
             }
-
-            // Clear previous setting
-            Attributes.RemoveAll(att => att.Key == AttributeKey.BufferSubtraction);
-
-            // Add reference experiment
-            Attributes.Add(ExperimentAttribute.ExperimentReference("Reference", reference.UniqueID));
 
             Reference_ProcessingUpdated(null, null);
 
             reference.ProcessingUpdated += Reference_ProcessingUpdated;
 
-            MarkModified();
+            if (settingsChanged) MarkModified();
 
-            if (notify)
+            if (notify && settingsChanged)
             {
                 DataManager.InvokeDataDidChange();
             }
 
-            return true;
+            return settingsChanged;
         }
 
         private void Reference_ProcessingUpdated(object sender, EventArgs e)
         {
-            // Reintegrate peaks
-            foreach (var inj in Injections)
-                inj.UpdateCorrectedPeakArea();
+            var bufferSubtraction = BufferSubtractionSettings;
+
+            if (bufferSubtraction?.ReferenceExperiment != null)
+            {
+                var model = BufferSubtractionCalculator.BuildModel(bufferSubtraction.ReferenceExperiment, bufferSubtraction);
+
+                foreach (var inj in Injections)
+                    inj.UpdateCorrectedPeakArea(model);
+            }
+            else
+            {
+                foreach (var inj in Injections)
+                    inj.UpdateCorrectedPeakArea();
+            }
         }
 
         public void SetProcessor(DataProcessor processor)

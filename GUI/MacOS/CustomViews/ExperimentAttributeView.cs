@@ -30,6 +30,7 @@ namespace AnalysisITC.GUI.MacOS.CustomViews
         ValueWithErrorTextField CombinedParameterField { get; set; }
         NSColor DefaultFieldColor { get; set; }
         NSPopUpButton EnumPopUpControl { get; set; }
+        NSPopUpButton BufferSubtractionMethodControl { get; set; }
         NSSegmentedControl EnumSegControl { get; set; }
 
         #region Constructors
@@ -147,7 +148,7 @@ namespace AnalysisITC.GUI.MacOS.CustomViews
                     SetupConcentration(ConcentrationUnit.mM, false);
                     break;
                 case AttributeKey.BufferSubtraction:
-                    SetupReferenceExperiment();
+                    SetupBufferSubtraction();
                     break;
             }
         }
@@ -331,6 +332,44 @@ namespace AnalysisITC.GUI.MacOS.CustomViews
             if (selectedID != -1) { EnumPopUpControl.SelectItemWithTag(selectedID); EnumPopUpControl_Activated(null, null); }
         }
 
+        void SetupBufferSubtraction()
+        {
+            SetupReferenceExperiment();
+
+            BufferSubtractionMethodControl = DropDownMenuButton();
+            BufferSubtractionMethodControl.Activated -= EnumPopUpControl_Activated;
+            BufferSubtractionMethodControl.Menu.RemoveItemAt(0);
+            BufferSubtractionMethodControl.AddConstraint(NSLayoutConstraint.Create(BufferSubtractionMethodControl, NSLayoutAttribute.Width, NSLayoutRelation.LessThanOrEqual, 1, 90));
+            BufferSubtractionMethodControl.Activated += (_, __) =>
+            {
+                BufferSubtractionMethodControl.SynchronizeTitleAndSelectedItem();
+                BufferSubtractionMethodControl.Title = BufferSubtractionMethodControl.TitleOfSelectedItem;
+            };
+
+            BufferSubtractionMethodControl.Menu.AddItem(new NSMenuItem(BufferSubtractionMethod.MatchedInjection.GetDisplayName())
+            {
+                Tag = (int)BufferSubtractionMethod.MatchedInjection,
+                ToolTip = "Subtract the matching buffer injection, with nearby valid injections used as fallback.",
+            });
+            BufferSubtractionMethodControl.Menu.AddItem(new NSMenuItem(BufferSubtractionMethod.Linear.GetDisplayName())
+            {
+                Tag = (int)BufferSubtractionMethod.Linear,
+                ToolTip = "Subtract a straight-line fit through the included buffer injections.",
+            });
+            BufferSubtractionMethodControl.Menu.AddItem(new NSMenuItem(BufferSubtractionMethod.ExponentialDecay.GetDisplayName())
+            {
+                Tag = (int)BufferSubtractionMethod.ExponentialDecay,
+                ToolTip = "Subtract a single exponential decay fit through the included buffer injections.",
+            });
+
+            var method = BufferSubtractionSettings.FromAttribute(Option)?.Method ?? BufferSubtractionMethod.MatchedInjection;
+            BufferSubtractionMethodControl.SelectItemWithTag((int)method);
+            BufferSubtractionMethodControl.SynchronizeTitleAndSelectedItem();
+            BufferSubtractionMethodControl.Title = BufferSubtractionMethodControl.TitleOfSelectedItem;
+
+            AddArrangedSubview(BufferSubtractionMethodControl);
+        }
+
         #endregion
 
         public void UpdateKeyMenu()
@@ -500,7 +539,11 @@ namespace AnalysisITC.GUI.MacOS.CustomViews
                         if (idx != -1)
                         {
                             var reference = DataManager.Data[idx];
-                            experiment.SetReferenceExperiment(reference);
+                            var method = BufferSubtractionMethodControl == null
+                                ? BufferSubtractionMethod.MatchedInjection
+                                : (BufferSubtractionMethod)(int)BufferSubtractionMethodControl.SelectedTag;
+
+                            experiment.SetBufferSubtraction(reference, method);
 
                             return;
                         }

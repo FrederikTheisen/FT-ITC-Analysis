@@ -27,7 +27,10 @@ namespace AnalysisITC
         int mouseDownInjectionID = -1;
         int mouseOverInjectionID = -1;
 
+        public event EventHandler BufferPointIncludeChanged;
+
         public List<ExperimentData> TargetExperiments { get; private set; } = new();
+        public BufferSubtractionModel SubtractionModel { get; private set; }
 
         public bool ShowGrid { get; set; } = true;
         public bool ShowZero { get; set; } = true;
@@ -50,7 +53,7 @@ namespace AnalysisITC
 
         string HeatUnitLabel => DataManager.Unit.IsSI() ? "uJ" : "ucal";
 
-        public BufferSubtractionGraph(ExperimentData bufferExperiment, IEnumerable<ExperimentData> targetExperiments, NSView view)
+        public BufferSubtractionGraph(ExperimentData bufferExperiment, IEnumerable<ExperimentData> targetExperiments, BufferSubtractionModel subtractionModel, NSView view)
             : base(bufferExperiment, view)
         {
             XAxis = new GraphAxis(this, 0.5, 1.5)
@@ -74,15 +77,16 @@ namespace AnalysisITC
             };
             YAxis.TickScale.SetMaxTicks(5);
 
-            UpdateData(bufferExperiment, targetExperiments);
+            UpdateData(bufferExperiment, targetExperiments, subtractionModel);
         }
 
-        public void UpdateData(ExperimentData bufferExperiment, IEnumerable<ExperimentData> targetExperiments)
+        public void UpdateData(ExperimentData bufferExperiment, IEnumerable<ExperimentData> targetExperiments, BufferSubtractionModel subtractionModel)
         {
             BufferExperiment = bufferExperiment;
             TargetExperiments = targetExperiments?
                 .Where(exp => exp != null && exp != bufferExperiment)
                 .ToList() ?? new List<ExperimentData>();
+            SubtractionModel = subtractionModel;
 
             SetupAxes();
         }
@@ -122,6 +126,11 @@ namespace AnalysisITC
                 heatValues.Add(EvaluateAverageLine(XAxis.Max));
             }
 
+            if (SubtractionModel?.CanDrawLine == true)
+            {
+                heatValues.AddRange(SubtractionModel.GetLinePoints(XAxis.Min, XAxis.Max).Select(p => p.Heat));
+            }
+
             if (heatValues.Count == 0)
             {
                 YAxis.SetWithBuffer(-1E-6, 1E-6, 0.1);
@@ -142,6 +151,7 @@ namespace AnalysisITC
             if (ShowZero) DrawZero(gc);
 
             DrawTargetData(gc);
+            DrawSubtractionModelLine(gc);
             DrawAverageLine(gc);
             DrawBufferData(gc);
 
@@ -249,6 +259,27 @@ namespace AnalysisITC
             gc.DrawLayer(layer, Frame.Location);
         }
 
+        void DrawSubtractionModelLine(CGContext gc)
+        {
+            var points = SubtractionModel?.GetLinePoints(XAxis.Min, XAxis.Max);
+            if (points == null || points.Count < 2) return;
+
+            var line = new CGPath();
+            line.MoveToPoint(GetRelativePosition(points[0].InjectionNumber, points[0].Heat));
+
+            for (int i = 1; i < points.Count; i++)
+                line.AddLineToPoint(GetRelativePosition(points[i].InjectionNumber, points[i].Heat));
+
+            var layer = CGLayer.Create(gc, Frame.Size);
+            layer.Context.SetStrokeColor(NSColor.SystemRed.CGColor);
+            layer.Context.SetLineWidth(1.5f);
+            layer.Context.SetLineDash(0, new nfloat[] { 5, 3 });
+            layer.Context.AddPath(line);
+            layer.Context.StrokePath();
+
+            gc.DrawLayer(layer, Frame.Location);
+        }
+
         void DrawZero(CGContext gc)
         {
             if (YAxis.Min > 0 || YAxis.Max < 0) return;
@@ -345,6 +376,7 @@ namespace AnalysisITC
                 {
                     var inj = BufferExperiment?.Injections.FirstOrDefault(i => i.ID == box.FeatureID);
                     inj?.ToggleDataPointActive();
+                    BufferPointIncludeChanged?.Invoke(this, EventArgs.Empty);
                     mouseDownInjectionID = -1;
                 }
 

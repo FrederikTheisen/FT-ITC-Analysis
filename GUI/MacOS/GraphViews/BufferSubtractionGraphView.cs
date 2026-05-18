@@ -9,6 +9,8 @@ namespace AnalysisITC
     [Register("BufferSubtractionGraphView")]
     public partial class BufferSubtractionGraphView : NSGraph
     {
+        public event EventHandler BufferPointIncludeChanged;
+
         public BufferSubtractionGraph BufferSubtractionGraph => Graph as BufferSubtractionGraph;
 
         public BufferSubtractionGraphView(IntPtr handle) : base(handle)
@@ -16,15 +18,17 @@ namespace AnalysisITC
             State = ProgramState.AlwaysActive;
         }
 
-        public void Initialize(ExperimentData bufferExperiment, IEnumerable<ExperimentData> targetExperiments)
+        public void Initialize(ExperimentData bufferExperiment, IEnumerable<ExperimentData> targetExperiments, BufferSubtractionModel subtractionModel)
         {
             if (Graph is BufferSubtractionGraph graph)
             {
-                graph.UpdateData(bufferExperiment, targetExperiments);
+                graph.UpdateData(bufferExperiment, targetExperiments, subtractionModel);
             }
             else
             {
-                Graph = new BufferSubtractionGraph(bufferExperiment, targetExperiments, this);
+                graph = new BufferSubtractionGraph(bufferExperiment, targetExperiments, subtractionModel, this);
+                graph.BufferPointIncludeChanged += (_, __) => BufferPointIncludeChanged?.Invoke(this, EventArgs.Empty);
+                Graph = graph;
             }
 
             Invalidate();

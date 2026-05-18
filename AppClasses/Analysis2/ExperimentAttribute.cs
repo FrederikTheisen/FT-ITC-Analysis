@@ -256,9 +256,13 @@ namespace AnalysisITC.AppClasses.AnalysisClasses
                 case AttributeKey.IonicStrength:
                     return ParameterValue.AsConcentration(ConcentrationUnit.mM);
                 case AttributeKey.BufferSubtraction:
-                    return experiment?.ReferenceExperiment?.Name
+                    var bufferSubtraction = AnalysisITC.BufferSubtractionSettings.FromAttribute(this);
+                    var referenceName = experiment?.ReferenceExperiment?.Name
                         ?? DataManager.Data.FirstOrDefault(d => d.UniqueID == StringValue)?.Name
                         ?? "Missing reference experiment";
+                    return bufferSubtraction == null
+                        ? referenceName
+                        : $"{referenceName} ({bufferSubtraction.MethodDisplayName})";
                 case AttributeKey.NumberOfSites1:
                 case AttributeKey.NumberOfSites2:
                     return $"{StoichiometryOptions.FormatAsParameter(DoubleValue)}";

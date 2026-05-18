@@ -331,7 +331,7 @@ namespace AnalysisITC
             var hasData = DataManager.SelectedIsData && DataManager.Current != null;
             var hasAttributes = hasData && DataManager.Current.Attributes.Count > 0;
 
-            menu.AddItem(CreateContextMenuItem("Experiment attributes...", "openattributes", hasData, (s, e) => SendActionToResponder("EditAttributesAction:")));
+            menu.AddItem(CreateContextMenuItem("Experiment attributes...", "openattributes", hasData, (s, e) => OpenCurrentExperimentAttributes()));
             menu.AddItem(CreateCopyAttributesMenuItem(hasAttributes));
             menu.AddItem(NSMenuItem.SeparatorItem);
             menu.AddItem(CreateContextMenuItem("Duplicate data", "duplicate", hasData, (s, e) => DataManager.DuplicateSelectedData(DataManager.Current)));
@@ -550,6 +550,20 @@ namespace AnalysisITC
             if (string.IsNullOrWhiteSpace(token)) return;
 
             DataManager.CopySelectedAttributesToNameToken(token);
+        }
+
+        void OpenCurrentExperimentAttributes()
+        {
+            var data = DataManager.Current;
+            if (data == null) return;
+
+            ExperimentDetailsPopoverController.Data = data;
+
+            var presenter = Window?.ContentViewController;
+            var storyboard = presenter.Storyboard ?? NSStoryboard.FromName("Main", null);
+            var controller = storyboard?.InstantiateControllerWithIdentifier("DetailsPopover") as ExperimentDetailsPopoverController;
+
+            presenter.PresentViewControllerAsSheet(controller);
         }
 
         NSMenuItem CreateSplineConversionMenuItem(bool enabled, bool canConvertToSmoothSpline, bool canConvertToLinearSpline)
