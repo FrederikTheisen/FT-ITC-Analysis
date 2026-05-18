@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using System.Linq;
 using System.Text;
 using System.Globalization;
+using System.Text.RegularExpressions;
 using AnalysisITC.AppClasses.AnalysisClasses.Models;
 using AnalysisITC.AppClasses.AnalysisClasses;
 
@@ -15,6 +16,10 @@ namespace AnalysisITC
     {
         static readonly CultureInfo Invariant = CultureInfo.InvariantCulture;
         const NumberStyles NumericStyle = NumberStyles.Float | NumberStyles.AllowThousands;
+        const string TextPrefix = "text:";
+        const string EncodedTextPrefix = "b64:";
+        static readonly UTF8Encoding StrictUtf8 = new UTF8Encoding(false, true);
+        static readonly Regex Base64TextPattern = new Regex(@"^[A-Za-z0-9+/]*={0,2}$", RegexOptions.Compiled);
         static string currentAccessedAppDocumentPath = "";
 
         public const string FTITCVersion = "FTITCVersion";
@@ -160,20 +165,176 @@ namespace AnalysisITC
         {
             if (string.IsNullOrEmpty(value)) return "";
 
-            return Convert.ToBase64String(Encoding.UTF8.GetBytes(value));
+            if (!NeedsTextMarker(value)) return value;
+
+            return TextPrefix + EscapeText(value);
         }
         public static string DecodeText(string value)
         {
             if (string.IsNullOrEmpty(value)) return "";
 
+            if (value.StartsWith(TextPrefix, StringComparison.Ordinal))
+                return UnescapeText(value.Substring(TextPrefix.Length));
+
+            if (value.StartsWith(EncodedTextPrefix, StringComparison.Ordinal))
+                return DecodeBase64Text(value.Substring(EncodedTextPrefix.Length), value);
+
+            // Backward compatibility for files written before encoded text had an explicit marker.
+            // Legacy project files stored text directly, so only accept unmarked Base64 when it
+            // decodes to printable UTF-8. This prevents plain names like "test" or "AAAA" from
+            // turning into garbage-looking strings when old projects are loaded.
+            if (!LooksLikeBase64Text(value)) return value;
+
+            var decoded = DecodeBase64Text(value, null);
+            if (decoded == null || !IsPrintableText(decoded)) return value;
+
+            return decoded;
+        }
+
+        static bool NeedsTextMarker(string value)
+        {
+            if (value.StartsWith(TextPrefix, StringComparison.Ordinal)) return true;
+            if (value.StartsWith(EncodedTextPrefix, StringComparison.Ordinal)) return true;
+            if (LooksLikeBase64Text(value)) return true;
+
+            foreach (var c in value)
+            {
+                if (NeedsEscaping(c)) return true;
+            }
+
+            return false;
+        }
+
+        static string EscapeText(string value)
+        {
+            var text = new StringBuilder(value.Length);
+
+            foreach (var c in value)
+            {
+                switch (c)
+                {
+                    case '%':
+                        text.Append("%25");
+                        break;
+                    case ',':
+                        text.Append("%2C");
+                        break;
+                    case ';':
+                        text.Append("%3B");
+                        break;
+                    case '\r':
+                        text.Append("%0D");
+                        break;
+                    case '\n':
+                        text.Append("%0A");
+                        break;
+                    case '\t':
+                        text.Append("%09");
+                        break;
+                    default:
+                        if (char.IsControl(c)) text.Append("%u").Append(((int)c).ToString("X4", Invariant));
+                        else text.Append(c);
+                        break;
+                }
+            }
+
+            return text.ToString();
+        }
+
+        static string UnescapeText(string value)
+        {
+            var text = new StringBuilder(value.Length);
+
+            for (int i = 0; i < value.Length; i++)
+            {
+                if (value[i] == '%' && TryReadEscapedChar(value, i, out var c, out var consumed))
+                {
+                    text.Append(c);
+                    i += consumed - 1;
+                    continue;
+                }
+
+                text.Append(value[i]);
+            }
+
+            return text.ToString();
+        }
+
+        static bool TryReadEscapedChar(string value, int index, out char c, out int consumed)
+        {
+            c = default;
+            consumed = 0;
+
+            if (index + 2 < value.Length && IsHex(value[index + 1]) && IsHex(value[index + 2]))
+            {
+                c = (char)Convert.ToInt32(value.Substring(index + 1, 2), 16);
+                consumed = 3;
+                return true;
+            }
+
+            if (index + 5 < value.Length
+                && value[index + 1] == 'u'
+                && IsHex(value[index + 2])
+                && IsHex(value[index + 3])
+                && IsHex(value[index + 4])
+                && IsHex(value[index + 5]))
+            {
+                c = (char)Convert.ToInt32(value.Substring(index + 2, 4), 16);
+                consumed = 6;
+                return true;
+            }
+
+            return false;
+        }
+
+        static bool NeedsEscaping(char c)
+        {
+            return c == ','
+                || c == ';'
+                || c == '\r'
+                || c == '\n'
+                || c == '\t'
+                || char.IsControl(c);
+        }
+
+        static bool IsHex(char c)
+        {
+            return c >= '0' && c <= '9'
+                || c >= 'a' && c <= 'f'
+                || c >= 'A' && c <= 'F';
+        }
+
+        static string DecodeBase64Text(string value, string fallback)
+        {
             try
             {
-                return Encoding.UTF8.GetString(Convert.FromBase64String(value));
+                return StrictUtf8.GetString(Convert.FromBase64String(value));
             }
             catch
             {
-                return value;
+                return fallback;
             }
+        }
+
+        static bool LooksLikeBase64Text(string value)
+        {
+            if (string.IsNullOrEmpty(value)) return false;
+            if (value.Length % 4 != 0) return false;
+
+            return Base64TextPattern.IsMatch(value);
+        }
+
+        static bool IsPrintableText(string value)
+        {
+            if (string.IsNullOrEmpty(value)) return true;
+
+            foreach (var c in value)
+            {
+                if (char.IsControl(c) && c != '\r' && c != '\n' && c != '\t')
+                    return false;
+            }
+
+            return true;
         }
         public static FloatWithError FWEParse(string value)
         {

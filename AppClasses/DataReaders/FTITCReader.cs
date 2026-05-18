@@ -26,9 +26,8 @@ namespace DataReaders
                 while (!string.IsNullOrEmpty(line = reader.ReadLine()))
                 {
                     var startms = watch.ElapsedMilliseconds;
-                    AppEventHandler.PrintAndLog($"Read {line} Start: {watch.ElapsedMilliseconds}");
-
                     var input = line.Split(new[] { ':' }, 3);
+                    AppEventHandler.PrintAndLog($"Read {(input.Length == 3 ? $"{input[0]}:{input[1]}:{string.Join(",", input[2].Split(',').Select(DecodeText))}" : line)} Start: {watch.ElapsedMilliseconds}");
 
                     if (input[0] == "FILE")
                     {
