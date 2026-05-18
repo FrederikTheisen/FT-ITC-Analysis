@@ -252,10 +252,11 @@ namespace AnalysisITC
                 if (atts.Exists(a => a.Key == AttributeKey.BufferSubtraction))
                 {
                     var att = atts.Find(a => a.Key == AttributeKey.BufferSubtraction);
-                    var refexp = Data.Exists(d => d.UniqueID == att.StringValue) ? Data.Find(d => d.UniqueID == att.StringValue) : null;
+                    var settings = BufferSubtractionSettings.FromAttribute(att);
+                    var refexp = Data.Exists(d => d.UniqueID == settings?.ReferenceExperimentId) ? Data.Find(d => d.UniqueID == settings.ReferenceExperimentId) : null;
 
                     if (refexp != null)
-                        exp.SetReferenceExperiment(refexp as ExperimentData);
+                        exp.SetBufferSubtraction(refexp as ExperimentData, settings.Method);
                 }
             }
         }
