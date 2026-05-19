@@ -24,6 +24,7 @@ namespace AnalysisITC
         public static ConcentrationUnit DefaultConcentrationUnit { get; set; } = ConcentrationUnit.µM;
         public static int MaxDegreeOfParallelism { get; set; } = 10;
         public static bool PerformOnlineChecksOnLaunch { get; set; } = true;
+        public static bool ConfirmRemoveDelete { get; set; } = true;
 
         public static bool Verbose { get; set; } = false;
 
@@ -37,6 +38,7 @@ namespace AnalysisITC
         public static bool DiscardIntegrationRegionForBaseline { get; set; } = true;
         public static bool IncludeBufferInIonicStrengthCalc { get; set; } = true;
         public static DilutionMethod DilutionCalculationMethod { get; set; } = DilutionMethod.MicroCal;
+        public static BufferSubtractionMethod BufferSubtractionDefaultMethod { get; set; } = BufferSubtractionMethod.MatchedInjection;
         public static bool ReprocessIntegratedHeatDataOnLoad { get; set; } = true;
         public static SplineInterpolator.SplinePointDensity DefaultSplinePointDensity { get; set; } = SplineInterpolator.SplinePointDensity.Balanced;
         public static SplineInterpolator.SplineHandleMode DefaultSplineHandleMode { get; set; } = SplineInterpolator.SplineHandleMode.Mean;
@@ -147,10 +149,12 @@ namespace AnalysisITC
             Storage.SetBool(UseInjectionErrorWeightedFitting, "UseInjectionErrorWeightedFitting");
             Storage.SetBool(AutoAxesIgnoresBadData, "AutoAxesIgnoresBadData");
             Storage.SetInt((int)DilutionCalculationMethod, "DilutionCalculationMethod");
+            Storage.SetInt((int)BufferSubtractionDefaultMethod, "BufferSubtractionDefaultMethod");
             Storage.SetBool(ReprocessIntegratedHeatDataOnLoad, "ReprocessIntegratedHeatDataOnLoad");
             Storage.SetInt((int)DefaultSplinePointDensity, "DefaultSplinePointDensity");
             Storage.SetInt((int)DefaultSplineHandleMode, "DefaultSplineHandleMode");
             Storage.SetBool(PerformOnlineChecksOnLaunch, "PerformOnlineChecksOnLaunch");
+            Storage.SetBool(ConfirmRemoveDelete, "ConfirmRemoveDelete");
 
             if (LastDocumentUrls != null) StoreArray(LastDocumentUrls.Select(url => url.ToString()).ToArray(), "LastDocumentUrls");
             StoreArray(FinalFigureDimensions, "FinalFigureDimensions");
@@ -213,10 +217,12 @@ namespace AnalysisITC
             UseInjectionErrorWeightedFitting = GetBool(dict, "UseInjectionErrorWeightedFitting", UseInjectionErrorWeightedFitting);
             AutoAxesIgnoresBadData = GetBool(dict, "AutoAxesIgnoresBadData", AutoAxesIgnoresBadData);
             DilutionCalculationMethod = (DilutionMethod)GetInt(dict, "DilutionCalculationMethod", (int)DilutionCalculationMethod);
+            BufferSubtractionDefaultMethod = NormalizeBufferSubtractionMethod(GetInt(dict, "BufferSubtractionDefaultMethod", (int)BufferSubtractionDefaultMethod));
             ReprocessIntegratedHeatDataOnLoad = GetBool(dict, "ReprocessIntegratedHeatDataOnLoad", ReprocessIntegratedHeatDataOnLoad);
             DefaultSplinePointDensity = (SplineInterpolator.SplinePointDensity)GetInt(dict, "DefaultSplinePointDensity", (int)DefaultSplinePointDensity);
             DefaultSplineHandleMode = (SplineInterpolator.SplineHandleMode)GetInt(dict, "DefaultSplineHandleMode", (int)DefaultSplineHandleMode);
             PerformOnlineChecksOnLaunch = GetBool(dict, "PerformOnlineChecksOnLaunch", PerformOnlineChecksOnLaunch);
+            ConfirmRemoveDelete = GetBool(dict, "ConfirmRemoveDelete", ConfirmRemoveDelete);
 
             LastDocumentUrls = GetArray(dict, "LastDocumentUrls", new string[0]).Select(url => NSUrl.FromString(url)).ToArray();
 
@@ -272,10 +278,12 @@ namespace AnalysisITC
             UnifyResidualGraphAxis = false;
             AutoAxesIgnoresBadData = true;
             DilutionCalculationMethod = DilutionMethod.MicroCal;
+            BufferSubtractionDefaultMethod = BufferSubtractionMethod.MatchedInjection;
             ReprocessIntegratedHeatDataOnLoad = true;
             DefaultSplinePointDensity = SplineInterpolator.SplinePointDensity.Balanced;
             DefaultSplineHandleMode = SplineInterpolator.SplineHandleMode.Mean;
             PerformOnlineChecksOnLaunch = true;
+            ConfirmRemoveDelete = true;
         }
 
         static void StoreArray(double[] arr, string key)
@@ -360,6 +368,14 @@ namespace AnalysisITC
             return outarr;
         }
 
+        static BufferSubtractionMethod NormalizeBufferSubtractionMethod(int method)
+        {
+            if (Enum.IsDefined(typeof(BufferSubtractionMethod), method))
+                return (BufferSubtractionMethod)method;
+
+            return BufferSubtractionMethod.MatchedInjection;
+        }
+
         public static void ApplySettings()
         {
             FittingOptionsController.BootstrapIterations = DefaultBootstrapIterations;
@@ -371,7 +387,7 @@ namespace AnalysisITC
             FittingOptionsController.UseErrorWeightedFitting = UseInjectionErrorWeightedFitting;
             FinalFigureGraphView.Width = (float)FinalFigureDimensions[0];
             FinalFigureGraphView.Height = (float)FinalFigureDimensions[1];
-            FinalFigureGraphView.DrawExpDetails = FinalFigureShowDetailsAsDefault;
+            FinalFigureGraphView.DrawExpDetails = FinalFigureShowParameterBoxAsDefault;
             FinalFigureGraphView.DrawModelInfo = FinalFigureShowModelInfoAsDefault;
             FinalFigureGraphView.UpdateParameterBoxVisibility();
             FinalFigureGraphView.ShowResiduals = ShowResidualGraph;
