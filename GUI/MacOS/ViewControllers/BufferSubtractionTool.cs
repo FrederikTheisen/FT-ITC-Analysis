@@ -40,7 +40,7 @@ namespace AnalysisITC
             };
 
             if (SubtractionMethodControl != null)
-                SubtractionMethodControl.SelectedSegment = (int)BufferSubtractionMethod.MatchedInjection;
+                SubtractionMethodControl.SelectedSegment = (int)AppSettings.BufferSubtractionDefaultMethod;
 
             if (GraphView != null)
             {
@@ -61,6 +61,11 @@ namespace AnalysisITC
         }
 
         partial void MethodSelectionChanged(NSSegmentedControl sender)
+        {
+            UpdateGraph();
+        }
+
+        partial void FocusYAxisChanged(NSButton sender)
         {
             UpdateGraph();
         }
@@ -149,7 +154,7 @@ namespace AnalysisITC
                 : new BufferSubtractionSettings(reference.UniqueID, SelectedSubtractionMethod);
             var model = BufferSubtractionCalculator.BuildModel(reference, settings);
 
-            GraphView?.Initialize(reference, targets, model);
+            GraphView?.Initialize(reference, targets, model, FocusYAxisOnBufferData);
         }
 
         BufferSubtractionMethod SelectedSubtractionMethod
@@ -167,6 +172,8 @@ namespace AnalysisITC
             }
         }
 
+        bool FocusYAxisOnBufferData => FocusBufferYAxisControl?.State == NSCellStateValue.On;
+
         partial void Apply(NSObject sender)
         {
             try
@@ -182,6 +189,9 @@ namespace AnalysisITC
 
                     target.SetBufferSubtraction(reference, SelectedSubtractionMethod, notify: false);
                 }
+
+                // We are probably not going to fit the buffer data
+                reference.Include = false;
 
                 DataManager.InvokeDataDidChange();
                 DismissViewController(this);

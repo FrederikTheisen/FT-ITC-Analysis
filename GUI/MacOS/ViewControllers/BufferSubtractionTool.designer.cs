@@ -19,6 +19,9 @@ namespace AnalysisITC
 		AppKit.NSScrollView ExperimentListView { get; set; }
 
 		[Outlet]
+		AppKit.NSButton FocusBufferYAxisControl { get; set; }
+
+		[Outlet]
 		AnalysisITC.BufferSubtractionGraphView GraphView { get; set; }
 
 		[Outlet]
@@ -36,6 +39,9 @@ namespace AnalysisITC
 		[Action ("Apply:")]
 		partial void Apply (Foundation.NSObject sender);
 
+		[Action ("FocusYAxisChanged:")]
+		partial void FocusYAxisChanged (AppKit.NSButton sender);
+
 		[Action ("MethodSelectionChanged:")]
 		partial void MethodSelectionChanged (AppKit.NSSegmentedControl sender);
 
@@ -52,6 +58,11 @@ namespace AnalysisITC
 			if (SelectListView != null) {
 				SelectListView.Dispose ();
 				SelectListView = null;
+			}
+
+			if (FocusBufferYAxisControl != null) {
+				FocusBufferYAxisControl.Dispose ();
+				FocusBufferYAxisControl = null;
 			}
 
 			if (GraphView != null) {
