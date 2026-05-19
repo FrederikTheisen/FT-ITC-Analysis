@@ -156,6 +156,16 @@ namespace AnalysisITC
             }
         }
 
+        public InformationBoxPlacement InformationBoxPlacement
+        {
+            get => IntegrationGraph.InformationBoxPlacement;
+            set
+            {
+                IntegrationGraph.InformationBoxPlacement = value;
+                if (DataGraph != null) DataGraph.InformationBoxPlacement = value;
+            }
+        }
+
         public float SymbolSize
         {
             get => IntegrationGraph.InjectionSymbolSize;
