@@ -156,7 +156,10 @@ namespace AnalysisITC
             WidthLabel = EmbeddedWidthLabel,
             HeightLabel = EmbeddedHeightLabel,
             ShowParametersControl = EmbeddedShowParametersControl,
+            InformationBoxPositionControl = EmbeddedInformationBoxPositionControl,
             ModelInfoControl = EmbeddedModelInfoControl,
+            TemperatureDetailControl = EmbeddedTemperatureDetailControl,
+            ConcentrationDetailControl = EmbeddedConcentrationDetailControl,
             ParameterDisplayOptionsControl = EmbeddedParameterDisplayOptionsControl,
             AttributeDisplayOptionsControl = EmbeddedAttributeDisplayOptionsControl,
         };

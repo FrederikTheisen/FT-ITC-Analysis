@@ -22,6 +22,9 @@ namespace AnalysisITC
 		AppKit.NSSwitch EmbeddedBadDataErrorBars { get; set; }
 
 		[Outlet]
+		AppKit.NSSwitch EmbeddedConcentrationDetailControl { get; set; }
+
+		[Outlet]
 		AppKit.NSTextField EmbeddedDataXTickLabel { get; set; }
 
 		[Outlet]
@@ -76,6 +79,9 @@ namespace AnalysisITC
 		AppKit.NSTextField EmbeddedHeightLabel { get; set; }
 
 		[Outlet]
+		AppKit.NSSegmentedControl EmbeddedInformationBoxPositionControl { get; set; }
+
+		[Outlet]
 		AppKit.NSSwitch EmbeddedHideBadData { get; set; }
 
 		[Outlet]
@@ -113,6 +119,9 @@ namespace AnalysisITC
 
 		[Outlet]
 		AppKit.NSStepper EmbeddedSymbolSizeStepper { get; set; }
+
+		[Outlet]
+		AppKit.NSSwitch EmbeddedTemperatureDetailControl { get; set; }
 
 		[Outlet]
 		AppKit.NSTextField EmbeddedTimeAxisTitleLabel { get; set; }
@@ -174,6 +183,11 @@ namespace AnalysisITC
 			if (EmbeddedBadDataErrorBars != null) {
 				EmbeddedBadDataErrorBars.Dispose ();
 				EmbeddedBadDataErrorBars = null;
+			}
+
+			if (EmbeddedConcentrationDetailControl != null) {
+				EmbeddedConcentrationDetailControl.Dispose ();
+				EmbeddedConcentrationDetailControl = null;
 			}
 
 			if (EmbeddedDataXTickLabel != null) {
@@ -266,6 +280,11 @@ namespace AnalysisITC
 				EmbeddedHeightLabel = null;
 			}
 
+			if (EmbeddedInformationBoxPositionControl != null) {
+				EmbeddedInformationBoxPositionControl.Dispose ();
+				EmbeddedInformationBoxPositionControl = null;
+			}
+
 			if (EmbeddedHideBadData != null) {
 				EmbeddedHideBadData.Dispose ();
 				EmbeddedHideBadData = null;
@@ -329,6 +348,11 @@ namespace AnalysisITC
 			if (EmbeddedSymbolSizeStepper != null) {
 				EmbeddedSymbolSizeStepper.Dispose ();
 				EmbeddedSymbolSizeStepper = null;
+			}
+
+			if (EmbeddedTemperatureDetailControl != null) {
+				EmbeddedTemperatureDetailControl.Dispose ();
+				EmbeddedTemperatureDetailControl = null;
 			}
 
 			if (EmbeddedTimeAxisTitleLabel != null) {
