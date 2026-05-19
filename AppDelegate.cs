@@ -306,6 +306,12 @@ namespace AnalysisITC
 
         partial void ClearProcessingResult(NSObject sender)
         {
+            if (DataManager.Results.Count == 0) return;
+            if (!MacSupport.ConfirmRemoveOrDelete(
+                "Confirm Delete All Results",
+                $"Are you sure you wish to delete all {DataManager.Results.Count} analysis results?",
+                "Delete All Results")) return;
+
             DataManager.ClearProcessing();
         }
 
@@ -444,6 +450,11 @@ namespace AnalysisITC
                         break;
                 }
             }
+
+            if (!MacSupport.ConfirmRemoveOrDelete(
+                "Confirm Clear All Data",
+                $"Are you sure you wish to clear all {DataManager.SourceItems.Count} data and results?",
+                "Clear All Data")) return false;
 
             DataManager.Clear();
             DocumentDirtyTracker.MarkClean();
