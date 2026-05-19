@@ -18,7 +18,10 @@ namespace AnalysisITC
             public NSTextField WidthLabel { get; set; }
             public NSTextField HeightLabel { get; set; }
             public NSSwitch ShowParametersControl { get; set; }
+            public NSSegmentedControl InformationBoxPositionControl { get; set; }
             public NSSwitch ModelInfoControl { get; set; }
+            public NSSwitch TemperatureDetailControl { get; set; }
+            public NSSwitch ConcentrationDetailControl { get; set; }
             public NSMenu ParameterDisplayOptionsControl { get; set; }
             public NSMenu AttributeDisplayOptionsControl { get; set; }
         }
@@ -89,7 +92,10 @@ namespace AnalysisITC
 
             SetState(controls.SanitizeTicks, FinalFigureGraphView.SanitizeTicks);
             SetState(controls.ShowParametersControl, FinalFigureGraphView.DrawExpDetails);
+            controls.InformationBoxPositionControl?.SelectSegment((int)FinalFigureGraphView.InformationBoxPosition);
             SetState(controls.ModelInfoControl, FinalFigureGraphView.DrawModelInfo);
+            SetState(controls.TemperatureDetailControl, AppSettings.FinalFigureParameterDisplay.HasFlag(FinalFigureDisplayParameters.Temperature));
+            SetState(controls.ConcentrationDetailControl, AppSettings.FinalFigureParameterDisplay.HasFlag(FinalFigureDisplayParameters.Concentrations));
             SetState(controls.ShowDataGraphControl, FinalFigureGraphView.ShowDataGraph);
             UpdateParameterDisplayMenu(controls.ParameterDisplayOptionsControl);
             UpdateAttributeDisplayMenu(controls.AttributeDisplayOptionsControl);
@@ -124,9 +130,25 @@ namespace AnalysisITC
                 FinalFigureGraphView.DrawExpDetails = IsOn(controls.ShowParametersControl);
             }
 
+            if (controls.InformationBoxPositionControl != null)
+            {
+                FinalFigureGraphView.InformationBoxPosition =
+                    (InformationBoxPlacement)(int)controls.InformationBoxPositionControl.SelectedSegment;
+            }
+
             if (controls.ModelInfoControl != null)
             {
                 FinalFigureGraphView.DrawModelInfo = IsOn(controls.ModelInfoControl);
+            }
+
+            if (controls.TemperatureDetailControl != null)
+            {
+                SetParameterFlag(FinalFigureDisplayParameters.Temperature, IsOn(controls.TemperatureDetailControl));
+            }
+
+            if (controls.ConcentrationDetailControl != null)
+            {
+                SetParameterFlag(FinalFigureDisplayParameters.Concentrations, IsOn(controls.ConcentrationDetailControl));
             }
 
             FinalFigureGraphView.UpdateParameterBoxVisibility();

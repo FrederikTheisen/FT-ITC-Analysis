@@ -22,6 +22,9 @@ namespace AnalysisITC
 		AppKit.NSMenu AttributeDisplayOptionsControl { get; set; }
 
 		[Outlet]
+		AppKit.NSSwitch ConcentrationDetailControl { get; set; }
+
+		[Outlet]
 		AppKit.NSSwitch ModelInfoControl { get; set; }
 
 		[Outlet]
@@ -38,6 +41,9 @@ namespace AnalysisITC
 
 		[Outlet]
 		AppKit.NSSegmentedControl TimeUnitControl { get; set; }
+
+		[Outlet]
+		AppKit.NSSwitch TemperatureDetailControl { get; set; }
 
 		[Outlet]
 		AppKit.NSTextField WidthLabel { get; set; }
@@ -73,6 +79,11 @@ namespace AnalysisITC
 				AttributeDisplayOptionsControl = null;
 			}
 
+			if (ConcentrationDetailControl != null) {
+				ConcentrationDetailControl.Dispose ();
+				ConcentrationDetailControl = null;
+			}
+
 			if (ModelInfoControl != null) {
 				ModelInfoControl.Dispose ();
 				ModelInfoControl = null;
@@ -96,6 +107,11 @@ namespace AnalysisITC
 			if (TimeUnitControl != null) {
 				TimeUnitControl.Dispose ();
 				TimeUnitControl = null;
+			}
+
+			if (TemperatureDetailControl != null) {
+				TemperatureDetailControl.Dispose ();
+				TemperatureDetailControl = null;
 			}
 
 			if (WidthLabel != null) {
