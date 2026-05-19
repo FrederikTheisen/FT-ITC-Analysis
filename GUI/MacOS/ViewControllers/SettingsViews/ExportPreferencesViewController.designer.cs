@@ -28,6 +28,9 @@ namespace AnalysisITC
 		AppKit.NSSegmentedControl FinalFigAttributeDisplay { get; set; }
 
 		[Outlet]
+		AppKit.NSSegmentedControl FinalFigExperimentInfoOptions { get; set; }
+
+		[Outlet]
 		AppKit.NSTextField FinalFigHeightField { get; set; }
 
 		[Outlet]
@@ -43,13 +46,19 @@ namespace AnalysisITC
 		AppKit.NSSegmentedControl FitLineSmoothnessControl { get; set; }
 
 		[Outlet]
-		AppKit.NSSegmentedControl ResidualPlotSettingsControl { get; set; }
+		AppKit.NSButton ResidualGraphGapCheck { get; set; }
 
 		[Outlet]
 		AppKit.NSButton ShowParameterAsDefaultCheck { get; set; }
 
 		[Outlet]
+		AppKit.NSButton ShowResidualGraphCheck { get; set; }
+
+		[Outlet]
 		AppKit.NSSegmentedControl UnifyAxesControl { get; set; }
+
+		[Outlet]
+		AppKit.NSButton UnifyResidualGraphAxesCheck { get; set; }
 
 		[Action ("Apply:")]
 		partial void Apply (Foundation.NSObject sender);
@@ -65,6 +74,9 @@ namespace AnalysisITC
 
 		[Action ("Reset:")]
 		partial void Reset (Foundation.NSObject sender);
+
+		[Action ("ResidualGraphVisibilityAction:")]
+		partial void ResidualGraphVisibilityAction (AppKit.NSButton sender);
 
 		[Action ("UnifyAxesControlAcition:")]
 		partial void UnifyAxesControlAcition (AppKit.NSSegmentedControl sender);
@@ -96,6 +108,11 @@ namespace AnalysisITC
 				FinalFigAttributeDisplay = null;
 			}
 
+			if (FinalFigExperimentInfoOptions != null) {
+				FinalFigExperimentInfoOptions.Dispose ();
+				FinalFigExperimentInfoOptions = null;
+			}
+
 			if (FinalFigHeightField != null) {
 				FinalFigHeightField.Dispose ();
 				FinalFigHeightField = null;
@@ -121,9 +138,9 @@ namespace AnalysisITC
 				FitLineSmoothnessControl = null;
 			}
 
-			if (ResidualPlotSettingsControl != null) {
-				ResidualPlotSettingsControl.Dispose ();
-				ResidualPlotSettingsControl = null;
+			if (ResidualGraphGapCheck != null) {
+				ResidualGraphGapCheck.Dispose ();
+				ResidualGraphGapCheck = null;
 			}
 
 			if (ShowParameterAsDefaultCheck != null) {
@@ -131,9 +148,19 @@ namespace AnalysisITC
 				ShowParameterAsDefaultCheck = null;
 			}
 
+			if (ShowResidualGraphCheck != null) {
+				ShowResidualGraphCheck.Dispose ();
+				ShowResidualGraphCheck = null;
+			}
+
 			if (UnifyAxesControl != null) {
 				UnifyAxesControl.Dispose ();
 				UnifyAxesControl = null;
+			}
+
+			if (UnifyResidualGraphAxesCheck != null) {
+				UnifyResidualGraphAxesCheck.Dispose ();
+				UnifyResidualGraphAxesCheck = null;
 			}
 		}
 	}

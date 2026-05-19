@@ -40,6 +40,7 @@ namespace AnalysisITC
             AppSettings.MinimumIonSpanForFitting = MinSaltSpanSlider.DoubleValue / 1000;
             AppSettings.IncludeBufferInIonicStrengthCalc = IncludeBufferInIonicStrength.State == NSCellStateValue.On;
             AppSettings.PerformOnlineChecksOnLaunch = PerformOnlineChecksOnLaunch.State == NSCellStateValue.On;
+            AppSettings.ConfirmRemoveDelete = ConfirmRemoveDelete.State == NSCellStateValue.On;
 
             //Color
             AppSettings.ColorScheme = ColorScheme;
@@ -74,6 +75,7 @@ namespace AnalysisITC
             ParameterRoundingSettingsControl.SelectedSegment = (int)AppSettings.NumberPrecision;
             IncludeBufferInIonicStrength.State = AppSettings.IncludeBufferInIonicStrengthCalc ? NSCellStateValue.On : NSCellStateValue.Off;
             PerformOnlineChecksOnLaunch.State = AppSettings.PerformOnlineChecksOnLaunch ? NSCellStateValue.On : NSCellStateValue.Off;
+            ConfirmRemoveDelete.State = AppSettings.ConfirmRemoveDelete ? NSCellStateValue.On : NSCellStateValue.Off;
         }
 
         private void ColorMenuHandler(NSMenuItem sender, ColorSchemes e)

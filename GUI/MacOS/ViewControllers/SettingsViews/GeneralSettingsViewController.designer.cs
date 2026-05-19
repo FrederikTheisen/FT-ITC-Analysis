@@ -25,6 +25,9 @@ namespace AnalysisITC
 		AppKit.NSSegmentedControl ConcentrationUnitControl { get; set; }
 
 		[Outlet]
+		AppKit.NSButton ConfirmRemoveDelete { get; set; }
+
+		[Outlet]
 		AppKit.NSSegmentedControl DilutionMathMethodControl { get; set; }
 
 		[Outlet]
@@ -112,6 +115,11 @@ namespace AnalysisITC
 			if (ConcentrationUnitControl != null) {
 				ConcentrationUnitControl.Dispose ();
 				ConcentrationUnitControl = null;
+			}
+
+			if (ConfirmRemoveDelete != null) {
+				ConfirmRemoveDelete.Dispose ();
+				ConfirmRemoveDelete = null;
 			}
 
 			if (DilutionMathMethodControl != null) {

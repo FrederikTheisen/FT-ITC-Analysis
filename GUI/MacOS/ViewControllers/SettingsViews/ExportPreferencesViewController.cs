@@ -36,24 +36,22 @@ namespace AnalysisITC
             FinalFigHeightField.StringValue = AppSettings.FinalFigureDimensions[1].ToString();
             FinalFigWidthField.StringValue = AppSettings.FinalFigureDimensions[0].ToString();
 
-            ResidualPlotSettingsControl.SetSelected(AppSettings.ShowResidualGraph, 0);
-            ResidualPlotSettingsControl.SetSelected(AppSettings.ShowResidualGraphGap, 1);
-            ResidualPlotSettingsControl.SetSelected(AppSettings.UnifyResidualGraphAxis, 2);
+            ShowResidualGraphCheck.State = AppSettings.ShowResidualGraph ? NSCellStateValue.On : NSCellStateValue.Off;
+            ResidualGraphGapCheck.State = AppSettings.ShowResidualGraphGap ? NSCellStateValue.On : NSCellStateValue.Off;
+            UnifyResidualGraphAxesCheck.State = AppSettings.UnifyResidualGraphAxis ? NSCellStateValue.On : NSCellStateValue.Off;
+            SetResidualSuboptionAvailability();
 
             FinalFigParameterDisplayOptions.SetSelected(AppSettings.FinalFigureShowModelInfoAsDefault, 0);
             FinalFigParameterDisplayOptions.SetSelected(AppSettings.FinalFigureParameterDisplay.HasFlag(FinalFigureDisplayParameters.Thermodynamic), 1);
-            FinalFigParameterDisplayOptions.SetSelected(AppSettings.FinalFigureParameterDisplay.HasFlag(FinalFigureDisplayParameters.Derived), 2);
-            FinalFigParameterDisplayOptions.SetSelected(AppSettings.FinalFigureParameterDisplay.HasFlag(FinalFigureDisplayParameters.Offset), 3);
-            FinalFigParameterDisplayOptions.SetSelected(AppSettings.FinalFigureParameterDisplay.HasFlag(FinalFigureDisplayParameters.Temperature), 4);
-            FinalFigParameterDisplayOptions.SetSelected(AppSettings.FinalFigureParameterDisplay.HasFlag(FinalFigureDisplayParameters.Concentrations), 5);
-            FinalFigParameterDisplayOptions.SetSelected(AppSettings.FinalFigureParameterDisplay.HasFlag(FinalFigureDisplayParameters.Attributes), 6);
+            FinalFigParameterDisplayOptions.SetSelected(AppSettings.FinalFigureParameterDisplay.HasFlag(FinalFigureDisplayParameters.Offset), 2);
+            FinalFigParameterDisplayOptions.SetSelected(AppSettings.FinalFigureParameterDisplay.HasFlag(FinalFigureDisplayParameters.Derived), 3);
 
-            FinalFigAttributeDisplay.SetSelected(AppSettings.DisplayAttributeOptions.HasFlag(DisplayAttributeOptions.UsedInAnalysis), 0);
-            FinalFigAttributeDisplay.SetSelected(AppSettings.DisplayAttributeOptions.HasFlag(DisplayAttributeOptions.Buffer), 1);
-            FinalFigAttributeDisplay.SetSelected(AppSettings.DisplayAttributeOptions.HasFlag(DisplayAttributeOptions.Salt), 2);
-            FinalFigAttributeDisplay.SetSelected(AppSettings.DisplayAttributeOptions.HasFlag(DisplayAttributeOptions.IonicStrength), 3);
-            FinalFigAttributeDisplay.SetSelected(AppSettings.DisplayAttributeOptions.HasFlag(DisplayAttributeOptions.ProtonationEnthalpy), 4);
-            FinalFigAttributeDisplay.SetSelected(AppSettings.DisplayAttributeOptions.HasFlag(DisplayAttributeOptions.Competitor), 5);
+            FinalFigExperimentInfoOptions.SetSelected(AppSettings.FinalFigureParameterDisplay.HasFlag(FinalFigureDisplayParameters.Temperature), 0);
+            FinalFigExperimentInfoOptions.SetSelected(AppSettings.FinalFigureParameterDisplay.HasFlag(FinalFigureDisplayParameters.Concentrations), 1);
+            FinalFigExperimentInfoOptions.SetSelected(AppSettings.FinalFigureParameterDisplay.HasFlag(FinalFigureDisplayParameters.InjectionDelay), 2);
+            FinalFigExperimentInfoOptions.SetSelected(AppSettings.FinalFigureParameterDisplay.HasFlag(FinalFigureDisplayParameters.Instrument), 3);
+
+            FinalFigAttributeDisplay.SelectedSegment = AppSettings.DisplayAttributeOptions == DisplayAttributeOptions.All ? 1 : 0;
 
             AutoAxesIgnoresBadData.State = AppSettings.AutoAxesIgnoresBadData ? NSCellStateValue.On : NSCellStateValue.Off;
             ShowParameterAsDefaultCheck.State = AppSettings.FinalFigureShowParameterBoxAsDefault ? NSCellStateValue.On : NSCellStateValue.Off;
@@ -81,28 +79,38 @@ namespace AnalysisITC
             AppSettings.DisplayAttributeOptions = DisplayAttributeOptions.None;
 
             AppSettings.FinalFigureShowModelInfoAsDefault = FinalFigParameterDisplayOptions.IsSelectedForSegment(0);
-            AppSettings.FinalFigureShowDetailsAsDefault = FinalFigParameterDisplayOptions.IsSelectedForSegment(4) ||
-                FinalFigParameterDisplayOptions.IsSelectedForSegment(5) ||
-                FinalFigParameterDisplayOptions.IsSelectedForSegment(6);
+            AppSettings.FinalFigureShowDetailsAsDefault = AppSettings.FinalFigureShowParameterBoxAsDefault;
 
             if (FinalFigParameterDisplayOptions.IsSelectedForSegment(1)) AppSettings.FinalFigureParameterDisplay |= FinalFigureDisplayParameters.Thermodynamic;
-            if (FinalFigParameterDisplayOptions.IsSelectedForSegment(2)) AppSettings.FinalFigureParameterDisplay |= FinalFigureDisplayParameters.Derived;
-            if (FinalFigParameterDisplayOptions.IsSelectedForSegment(3)) AppSettings.FinalFigureParameterDisplay |= FinalFigureDisplayParameters.Offset;
-            if (FinalFigParameterDisplayOptions.IsSelectedForSegment(4)) AppSettings.FinalFigureParameterDisplay |= FinalFigureDisplayParameters.Temperature;
-            if (FinalFigParameterDisplayOptions.IsSelectedForSegment(5)) AppSettings.FinalFigureParameterDisplay |= FinalFigureDisplayParameters.Concentrations;
-            if (FinalFigParameterDisplayOptions.IsSelectedForSegment(6)) AppSettings.FinalFigureParameterDisplay |= FinalFigureDisplayParameters.Attributes;
+            if (FinalFigParameterDisplayOptions.IsSelectedForSegment(2)) AppSettings.FinalFigureParameterDisplay |= FinalFigureDisplayParameters.Offset;
+            if (FinalFigParameterDisplayOptions.IsSelectedForSegment(3)) AppSettings.FinalFigureParameterDisplay |= FinalFigureDisplayParameters.Derived;
 
-            if (FinalFigAttributeDisplay.IsSelectedForSegment(0)) AppSettings.DisplayAttributeOptions = DisplayAttributeOptions.UsedInAnalysis;
-            if (FinalFigAttributeDisplay.IsSelectedForSegment(1)) AppSettings.DisplayAttributeOptions |= DisplayAttributeOptions.Buffer;
-            if (FinalFigAttributeDisplay.IsSelectedForSegment(2)) AppSettings.DisplayAttributeOptions |= DisplayAttributeOptions.Salt;
-            if (FinalFigAttributeDisplay.IsSelectedForSegment(3)) AppSettings.DisplayAttributeOptions |= DisplayAttributeOptions.IonicStrength;
-            if (FinalFigAttributeDisplay.IsSelectedForSegment(4)) AppSettings.DisplayAttributeOptions |= DisplayAttributeOptions.ProtonationEnthalpy;
-            if (FinalFigAttributeDisplay.IsSelectedForSegment(5)) AppSettings.DisplayAttributeOptions |= DisplayAttributeOptions.Competitor;
+            if (FinalFigExperimentInfoOptions.IsSelectedForSegment(0)) AppSettings.FinalFigureParameterDisplay |= FinalFigureDisplayParameters.Temperature;
+            if (FinalFigExperimentInfoOptions.IsSelectedForSegment(1)) AppSettings.FinalFigureParameterDisplay |= FinalFigureDisplayParameters.Concentrations;
+            if (FinalFigExperimentInfoOptions.IsSelectedForSegment(2)) AppSettings.FinalFigureParameterDisplay |= FinalFigureDisplayParameters.InjectionDelay;
+            if (FinalFigExperimentInfoOptions.IsSelectedForSegment(3)) AppSettings.FinalFigureParameterDisplay |= FinalFigureDisplayParameters.Instrument;
 
-            AppSettings.ShowResidualGraph = ResidualPlotSettingsControl.IsSelectedForSegment(0);
-            AppSettings.ShowResidualGraphGap = ResidualPlotSettingsControl.IsSelectedForSegment(1);
-            AppSettings.UnifyResidualGraphAxis = ResidualPlotSettingsControl.IsSelectedForSegment(2);
+            AppSettings.FinalFigureParameterDisplay |= FinalFigureDisplayParameters.Attributes;
+            AppSettings.DisplayAttributeOptions = FinalFigAttributeDisplay.SelectedSegment == 1
+                ? DisplayAttributeOptions.All
+                : DisplayAttributeOptions.UsedInAnalysis;
+
+            AppSettings.ShowResidualGraph = ShowResidualGraphCheck.State == NSCellStateValue.On;
+            AppSettings.ShowResidualGraphGap = ResidualGraphGapCheck.State == NSCellStateValue.On;
+            AppSettings.UnifyResidualGraphAxis = UnifyResidualGraphAxesCheck.State == NSCellStateValue.On;
             AppSettings.FitLineSmoothness = (GraphBase.LineSmoothness)(int)FitLineSmoothnessControl.SelectedSegment;
+        }
+
+        void SetResidualSuboptionAvailability()
+        {
+            var enabled = ShowResidualGraphCheck.State == NSCellStateValue.On;
+            ResidualGraphGapCheck.Enabled = enabled;
+            UnifyResidualGraphAxesCheck.Enabled = enabled;
+        }
+
+        partial void ResidualGraphVisibilityAction(NSButton sender)
+        {
+            SetResidualSuboptionAvailability();
         }
 
         partial void Apply(NSObject sender)

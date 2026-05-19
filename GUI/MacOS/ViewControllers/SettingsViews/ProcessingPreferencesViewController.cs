@@ -27,6 +27,8 @@ namespace AnalysisITC
         void LoadSettingsFromAppSettings()
         {
             DilutionMathMethodControl.SelectedSegment = (int)AppSettings.DilutionCalculationMethod;
+            PeakFitAlgorithmControl.SelectedSegment = (int)AppSettings.PeakFitAlgorithm;
+            BufferSubtractionMethodControl.SelectedSegment = (int)AppSettings.BufferSubtractionDefaultMethod;
             DiscardIntegrationRegionForBaseline.State = AppSettings.DiscardIntegrationRegionForBaseline ? NSCellStateValue.On : NSCellStateValue.Off;
             SplinePointDensityControl.SelectedSegment = (int)AppSettings.DefaultSplinePointDensity;
             SplineHandleModeControl.SelectedSegment = HandleModeSegment(AppSettings.DefaultSplineHandleMode);
@@ -36,6 +38,8 @@ namespace AnalysisITC
         void ProcessingPreferencesViewController_ShouldApplySettings(object sender, EventArgs e)
         {
             AppSettings.DilutionCalculationMethod = (DilutionMethod)(int)DilutionMathMethodControl.SelectedSegment;
+            AppSettings.PeakFitAlgorithm = (PeakFitAlgorithm)(int)PeakFitAlgorithmControl.SelectedSegment;
+            AppSettings.BufferSubtractionDefaultMethod = (BufferSubtractionMethod)(int)BufferSubtractionMethodControl.SelectedSegment;
             AppSettings.DiscardIntegrationRegionForBaseline = DiscardIntegrationRegionForBaseline.State == NSCellStateValue.On;
             AppSettings.DefaultSplinePointDensity = (SplineInterpolator.SplinePointDensity)(int)SplinePointDensityControl.SelectedSegment;
             AppSettings.DefaultSplineHandleMode = HandleModeFromSegment(SplineHandleModeControl.SelectedSegment);

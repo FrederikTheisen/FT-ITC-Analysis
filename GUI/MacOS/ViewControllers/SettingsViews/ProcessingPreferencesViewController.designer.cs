@@ -13,10 +13,16 @@ namespace AnalysisITC
     partial class ProcessingPreferencesViewController
     {
         [Outlet]
+        AppKit.NSSegmentedControl BufferSubtractionMethodControl { get; set; }
+
+        [Outlet]
         AppKit.NSSegmentedControl DilutionMathMethodControl { get; set; }
 
         [Outlet]
         AppKit.NSButton DiscardIntegrationRegionForBaseline { get; set; }
+
+        [Outlet]
+        AppKit.NSSegmentedControl PeakFitAlgorithmControl { get; set; }
 
         [Outlet]
         AppKit.NSButton ReprocessIntegratedHeatDataOnLoad { get; set; }
@@ -38,6 +44,11 @@ namespace AnalysisITC
 
         void ReleaseDesignerOutlets ()
         {
+            if (BufferSubtractionMethodControl != null) {
+                BufferSubtractionMethodControl.Dispose ();
+                BufferSubtractionMethodControl = null;
+            }
+
             if (DilutionMathMethodControl != null) {
                 DilutionMathMethodControl.Dispose ();
                 DilutionMathMethodControl = null;
@@ -46,6 +57,11 @@ namespace AnalysisITC
             if (DiscardIntegrationRegionForBaseline != null) {
                 DiscardIntegrationRegionForBaseline.Dispose ();
                 DiscardIntegrationRegionForBaseline = null;
+            }
+
+            if (PeakFitAlgorithmControl != null) {
+                PeakFitAlgorithmControl.Dispose ();
+                PeakFitAlgorithmControl = null;
             }
 
             if (ReprocessIntegratedHeatDataOnLoad != null) {
