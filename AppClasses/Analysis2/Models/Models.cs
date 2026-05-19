@@ -535,13 +535,16 @@ namespace AnalysisITC.AppClasses.AnalysisClasses.Models
         Attributes = 512,
 
         Misc = 1024,
+        InjectionDelay = 2048,
+        Instrument = 4096,
 
         Thermodynamic = Nvalue | Affinity | Enthalpy,
         Fitted = Thermodynamic | Offset,
         Derived = Entropy | Gibbs,
+        ExperimentInfo = Temperature | Concentrations | InjectionDelay | Instrument,
 
         Default = Model | Thermodynamic | Derived | Temperature | Concentrations | Attributes,
-        All = Model | Fitted | Offset | Derived | Temperature | Concentrations | Attributes | Misc,
+        All = Model | Fitted | Offset | Derived | ExperimentInfo | Attributes | Misc,
 
         ListView = Model | Affinity | Enthalpy,
         AnalysisView = Model | Fitted | Derived | Misc
