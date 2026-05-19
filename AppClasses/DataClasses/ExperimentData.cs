@@ -17,6 +17,7 @@ namespace AnalysisITC
 
         private double measuredTemperature = double.NaN;
         private bool include = true;
+        private ExperimentData bufferSubtractionReferenceSubscription;
 
         public ITCInstrument Instrument { get; set; } = ITCInstrument.Unknown;
         public ITCDataFormat DataSourceFormat { get; set; }
@@ -264,14 +265,11 @@ namespace AnalysisITC
 
         public bool SetBufferSubtraction(ExperimentData reference, BufferSubtractionMethod method, bool notify = true)
         {
-            var previousReference = ReferenceExperiment;
-
+            // Central entry point for adding or changing buffer subtraction on a target experiment.
             // Check for self referencing.
             if (reference == null) throw new HandledException(HandledException.Severity.Warning, "Buffer Subtraction Error", "No reference experiment selected");
             if (reference.UniqueID == this.UniqueID) throw new HandledException(HandledException.Severity.Warning, "Buffer Subtraction Error", "Attempting to set reference experiment to itself");
             if (reference.ReferenceExperiment != null) throw new HandledException(HandledException.Severity.Warning, "Buffer Subtraction Error", "Reference experiment already contains a buffer subtraction");
-
-            if (previousReference != null) previousReference.ProcessingUpdated -= Reference_ProcessingUpdated;
 
             var currentSettings = BufferSubtractionSettings;
             var settingsChanged = currentSettings == null
@@ -287,9 +285,8 @@ namespace AnalysisITC
                 Attributes.Add(new BufferSubtractionSettings(reference.UniqueID, method).ToAttribute());
             }
 
+            SetBufferSubtractionReferenceSubscription(reference);
             Reference_ProcessingUpdated(null, null);
-
-            reference.ProcessingUpdated += Reference_ProcessingUpdated;
 
             if (settingsChanged) MarkModified();
 
@@ -301,8 +298,46 @@ namespace AnalysisITC
             return settingsChanged;
         }
 
+        public bool ClearBufferSubtraction(bool notify = true)
+        {
+            // Removal must also detach the buffer listener and restore corrected heats to raw heats.
+            var removed = Attributes.RemoveAll(att => att.Key == AttributeKey.BufferSubtraction) > 0;
+
+            ClearBufferSubtractionReferenceSubscription();
+            Reference_ProcessingUpdated(null, null);
+
+            if (removed) MarkModified();
+
+            if (notify && removed)
+            {
+                DataManager.InvokeDataDidChange();
+            }
+
+            return removed;
+        }
+
+        void SetBufferSubtractionReferenceSubscription(ExperimentData reference)
+        {
+            // Keep target heats current when the buffer integration or included points change.
+            if (bufferSubtractionReferenceSubscription == reference) return;
+
+            ClearBufferSubtractionReferenceSubscription();
+
+            bufferSubtractionReferenceSubscription = reference;
+            bufferSubtractionReferenceSubscription.ProcessingUpdated += Reference_ProcessingUpdated;
+        }
+
+        void ClearBufferSubtractionReferenceSubscription()
+        {
+            if (bufferSubtractionReferenceSubscription == null) return;
+
+            bufferSubtractionReferenceSubscription.ProcessingUpdated -= Reference_ProcessingUpdated;
+            bufferSubtractionReferenceSubscription = null;
+        }
+
         private void Reference_ProcessingUpdated(object sender, EventArgs e)
         {
+            // PeakArea is the downstream corrected value; RawPeakArea remains unchanged.
             var bufferSubtraction = BufferSubtractionSettings;
 
             if (bufferSubtraction?.ReferenceExperiment != null)
@@ -328,6 +363,17 @@ namespace AnalysisITC
         {
             if (attribute == null) return false;
 
+            if (attribute.Key == AttributeKey.BufferSubtraction)
+            {
+                // Buffer subtraction needs subscription and recalculation side effects.
+                var settings = BufferSubtractionSettings.FromAttribute(attribute);
+
+                if (settings?.ReferenceExperiment != null)
+                    return SetBufferSubtraction(settings.ReferenceExperiment, settings.Method, notify);
+
+                return ClearBufferSubtraction(notify);
+            }
+
             var existing = Attributes.Find(att => att.Key == attribute.Key);
             if (existing != null) Attributes.Remove(existing);
 
@@ -350,6 +396,7 @@ namespace AnalysisITC
 
             if (clear && Attributes.Count > 0)
             {
+                ClearBufferSubtraction(notify: false);
                 Attributes.Clear();
                 didChange = true;
             }
@@ -371,6 +418,12 @@ namespace AnalysisITC
             if (!didChange) return false;
 
             MarkModified();
+
+            var bufferSubtraction = BufferSubtractionSettings;
+            if (bufferSubtraction?.ReferenceExperiment != null)
+                SetBufferSubtraction(bufferSubtraction.ReferenceExperiment, bufferSubtraction.Method, notify: false);
+            else
+                ClearBufferSubtraction(notify: false);
 
             if (notify)
             {
@@ -598,6 +651,9 @@ namespace AnalysisITC
             if (this.MeasuredTemperature != this.TargetTemperature)
                 info.Add($"  **Measured:** {this.DataPoints.Min(dp => dp.Temperature):F4} - {this.DataPoints.Max(dp => dp.Temperature):F4} °C | Mean = {this.MeasuredTemperature:G4} °C");
             info.Add($"**Injections:** {this.InjectionCount} [{injdescription}]");
+            var injectionDelayInfo = GetInjectionDelayInfoString();
+            if (!string.IsNullOrEmpty(injectionDelayInfo))
+                info.Add("  **Injection Delay:** " + injectionDelayInfo);
             info.Add($"**Concentrations:** Cell: {this.CellConcentration.AsConcentration(ConcentrationUnit.µM)} | Syringe: {this.SyringeConcentration.AsConcentration(ConcentrationUnit.µM)}");
 
             var attributeInfo = Attributes
@@ -618,6 +674,26 @@ namespace AnalysisITC
             }
 
             return info;
+        }
+
+        public string GetInjectionDelayInfoString()
+        {
+            var delays = Injections
+                .Where(inj => inj.Delay > float.Epsilon)
+                .Select(inj => inj.Delay)
+                .ToList();
+
+            if (delays.Count == 0) return "";
+
+            var min = delays.Min();
+            var max = delays.Max();
+            var minText = min.ToString("F0");
+            var maxText = max.ToString("F0");
+            var delayText = minText == maxText
+                ? minText
+                : minText + " - " + maxText;
+
+            return delayText + " seconds";
         }
     }
 
