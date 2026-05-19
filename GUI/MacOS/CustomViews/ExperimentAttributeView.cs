@@ -254,9 +254,9 @@ namespace AnalysisITC.GUI.MacOS.CustomViews
             DefaultFieldColor = CombinedParameterField.TextColor;
         }
 
-        NSPopUpButton DropDownMenuButton()
+        NSPopUpButton DropDownMenuButton(bool pullsDown = true)
         {
-            var btn = new NSPopUpButton(new CGRect(0, 0, Frame.Width / 2, Frame.Height), true);
+            var btn = new NSPopUpButton(new CGRect(0, 0, Frame.Width / 2, Frame.Height), pullsDown);
             btn.BezelStyle = NSBezelStyle.Recessed;
             btn.Font = NSFont.SystemFontOfSize(NSFont.SmallSystemFontSize);
             btn.ControlSize = NSControlSize.Small;
@@ -336,9 +336,9 @@ namespace AnalysisITC.GUI.MacOS.CustomViews
         {
             SetupReferenceExperiment();
 
-            BufferSubtractionMethodControl = DropDownMenuButton();
+            BufferSubtractionMethodControl = DropDownMenuButton(pullsDown: false);
             BufferSubtractionMethodControl.Activated -= EnumPopUpControl_Activated;
-            BufferSubtractionMethodControl.Menu.RemoveItemAt(0);
+            BufferSubtractionMethodControl.Menu.RemoveAllItems();
             BufferSubtractionMethodControl.AddConstraint(NSLayoutConstraint.Create(BufferSubtractionMethodControl, NSLayoutAttribute.Width, NSLayoutRelation.LessThanOrEqual, 1, 90));
             BufferSubtractionMethodControl.Activated += (_, __) =>
             {
