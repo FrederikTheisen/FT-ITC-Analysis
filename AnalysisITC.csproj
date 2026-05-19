@@ -482,6 +482,7 @@
       <DependentUpon>ExportPopViewController.cs</DependentUpon>
     </Compile>
     <Compile Include="GUI\MacOS\MacSupport.cs" />
+    <Compile Include="GUI\MacOS\ConfirmationDialog.cs" />
     <Compile Include="AppClasses\Analysis2\Models\TwoCompetingSites.cs" />
     <Compile Include="AppClasses\Analysis2\Kinetics\KineticModel.cs" />
     <Compile Include="GUI\MacOS\CustomViews\AutoExpandingTextView2.cs" />
