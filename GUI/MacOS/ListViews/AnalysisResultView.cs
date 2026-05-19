@@ -4,6 +4,7 @@ using System;
 
 using Foundation;
 using AppKit;
+using AnalysisITC.GUI.MacOS;
 
 namespace AnalysisITC
 {
@@ -46,6 +47,13 @@ namespace AnalysisITC
             }
 
             int idx = ContentIndex;
+            if (idx < 0) return;
+
+            var resultName = string.IsNullOrWhiteSpace(data.Name) ? data.FileName : data.Name;
+            if (!ConfirmationDialog.ConfirmRemoveOrDelete(
+                "Confirm Delete Result",
+                $"Are you sure you wish to delete {resultName}?",
+                "Delete Result")) return;
 
             ViewController.NotifyWillRemoveData(this, idx);
             DataManager.RemoveData2(idx);

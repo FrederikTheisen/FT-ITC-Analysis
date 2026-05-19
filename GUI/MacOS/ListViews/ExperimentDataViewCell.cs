@@ -156,6 +156,12 @@ namespace AnalysisITC
                 return; // stale cell / already removed
             }
 
+            var dataName = string.IsNullOrWhiteSpace(data.Name) ? data.FileName : data.Name;
+            if (!ConfirmationDialog.ConfirmRemoveOrDelete(
+                "Confirm Remove Data",
+                $"Are you sure you wish to remove {dataName}?",
+                "Remove Data")) return;
+
             ViewController.NotifyWillRemoveData(this, idx);
             DataManager.RemoveData2(idx);    // 1) update model first
             RemoveData?.Invoke(this, idx);   // 2) then animate UI removal
