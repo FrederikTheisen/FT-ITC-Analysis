@@ -12,6 +12,13 @@ using AnalysisITC.AppClasses.AnalysisClasses.Models;
 
 namespace AnalysisITC
 {
+    public enum InformationBoxPlacement
+    {
+        Auto = 0,
+        Upper = 1,
+        Lower = 2,
+    }
+
     public class GraphBase
     {
         public const float PiHalf = (float)Math.PI / 2;
@@ -1022,6 +1029,7 @@ namespace AnalysisITC
         public bool ShowBaseline { get; set; } = true;
         public bool ShowExperimentDetails { get; set; } = false;
         public FinalFigureDisplayParameters FinalFigureDisplayParameters { get; set; } = FinalFigureDisplayParameters.None;
+        public InformationBoxPlacement InformationBoxPlacement { get; set; } = InformationBoxPlacement.Auto;
 
         public string SyringeName { get; set; } = "";
         public string CellName { get; set; } = "";
@@ -1086,6 +1094,8 @@ namespace AnalysisITC
             if (FinalFigureDisplayParameters.HasFlag(FinalFigureDisplayParameters.Temperature)) lines.Add(ExperimentData.MeasuredTemperature.ToString("F1") + " °C");
             if (FinalFigureDisplayParameters.HasFlag(FinalFigureDisplayParameters.Concentrations)) lines.Add(syr);
             if (FinalFigureDisplayParameters.HasFlag(FinalFigureDisplayParameters.Concentrations) && ExperimentData.CellConcentration > float.Epsilon) lines.Add(cell);
+            if (FinalFigureDisplayParameters.HasFlag(FinalFigureDisplayParameters.InjectionDelay)) AddInjectionDelayLine(lines);
+            if (FinalFigureDisplayParameters.HasFlag(FinalFigureDisplayParameters.Instrument)) AddInstrumentLine(lines);
 
             if (FinalFigureDisplayParameters.HasFlag(FinalFigureDisplayParameters.Attributes) && ExperimentData.Solution != null)
             {
@@ -1099,9 +1109,41 @@ namespace AnalysisITC
                 }
             }
 
-            var position = ExperimentData.AverageHeatDirection == PeakHeatDirection.Endothermal ? NSRectAlignment.TopTrailing : NSRectAlignment.BottomTrailing;
+            var position = GetExperimentDetailsBoxPosition();
 
             DrawTextBoxConsistent(gc, lines, DrawOnWhite ? new CTFont(DefaultFont.DisplayName, 12) : DefaultFont, position);
+        }
+
+        void AddInjectionDelayLine(List<string> lines)
+        {
+            var injectionDelayInfo = ExperimentData.GetInjectionDelayInfoString();
+
+            if (!string.IsNullOrEmpty(injectionDelayInfo))
+            {
+                lines.Add("Injection delay: " + injectionDelayInfo);
+            }
+        }
+
+        void AddInstrumentLine(List<string> lines)
+        {
+            var instrumentName = ExperimentData.Instrument.GetProperties()?.Name;
+
+            if (!string.IsNullOrWhiteSpace(instrumentName))
+            {
+                lines.Add("Instrument: " + instrumentName);
+            }
+        }
+
+        NSRectAlignment GetExperimentDetailsBoxPosition()
+        {
+            return InformationBoxPlacement switch
+            {
+                InformationBoxPlacement.Upper => NSRectAlignment.TopTrailing,
+                InformationBoxPlacement.Lower => NSRectAlignment.BottomTrailing,
+                _ => ExperimentData.AverageHeatDirection == PeakHeatDirection.Endothermal
+                    ? NSRectAlignment.TopTrailing
+                    : NSRectAlignment.BottomTrailing,
+            };
         }
     }
 
@@ -1530,6 +1572,7 @@ namespace AnalysisITC
         public bool HideBadData { get; set; } = false;
         public bool HideBadDataErrorBars { get; set; } = true;
         public SymbolShape InjectionSymbolShape { get; set; } = SymbolShape.Square;
+        public InformationBoxPlacement InformationBoxPlacement { get; set; } = InformationBoxPlacement.Auto;
 
         public FinalFigureDisplayParameters FinalFigureDisplayParameters { get; set; } = FinalFigureDisplayParameters.All;
         public FinalFigureDisplayParameters AnalysisDisplayParameters { get; set; } = FinalFigureDisplayParameters.AnalysisView;
@@ -1847,9 +1890,19 @@ namespace AnalysisITC
             var first = ExperimentData.Model.Evaluate(0, withoffset: false);
             var last = ExperimentData.Model.Evaluate(ExperimentData.InjectionCount - 1, withoffset: false);
 
-            var position = first > last ? NSRectAlignment.TopTrailing : NSRectAlignment.BottomTrailing;
+            var position = GetParameterBoxPosition(first, last);
 
             DrawTextBoxConsistent(gc, lines, DrawOnWhite ? new CTFont(DefaultFont.DisplayName, 12) : new CTFont(DefaultFont.DisplayName, ParameterFontSize), position);
+        }
+
+        NSRectAlignment GetParameterBoxPosition(double first, double last)
+        {
+            return InformationBoxPlacement switch
+            {
+                InformationBoxPlacement.Upper => NSRectAlignment.TopTrailing,
+                InformationBoxPlacement.Lower => NSRectAlignment.BottomTrailing,
+                _ => first > last ? NSRectAlignment.TopTrailing : NSRectAlignment.BottomTrailing,
+            };
         }
 
         void DrawConfidenceInterval(CGContext gc)
