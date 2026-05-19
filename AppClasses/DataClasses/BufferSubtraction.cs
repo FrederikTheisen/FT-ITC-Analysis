@@ -15,6 +15,7 @@ namespace AnalysisITC
 
     public sealed class BufferSubtractionSettings
     {
+        // Persisted buffer subtraction attribute: reference experiment ID plus model type.
         public string ReferenceExperimentId { get; }
         public BufferSubtractionMethod Method { get; }
         public string MethodDisplayName => Method.GetDisplayName();
@@ -40,6 +41,7 @@ namespace AnalysisITC
 
         public ExperimentAttribute ToAttribute()
         {
+            // Reference ID stays in StringValue; method is stored in IntValue.
             var attribute = ExperimentAttribute.ExperimentReference("Reference", ReferenceExperimentId);
             attribute.IntValue = (int)Method;
 
@@ -85,6 +87,7 @@ namespace AnalysisITC
 
     public sealed class BufferSubtractionModel
     {
+        // Common evaluator used by matched-point subtraction and fitted subtraction models.
         public delegate bool Evaluator(double injectionNumber, out FloatWithError heat);
 
         readonly Evaluator evaluator;
@@ -109,6 +112,7 @@ namespace AnalysisITC
 
         public List<BufferSubtractionModelPoint> GetLinePoints(double minInjectionNumber, double maxInjectionNumber)
         {
+            // Only fitted methods draw a continuous model line in the preview graph.
             var points = new List<BufferSubtractionModelPoint>();
             if (!CanDrawLine) return points;
 
@@ -138,6 +142,7 @@ namespace AnalysisITC
 
         public static BufferSubtractionModel BuildModel(ExperimentData referenceExperiment, BufferSubtractionSettings settings)
         {
+            // referenceExperiment is the buffer/reference data, not the target data being corrected.
             var method = settings?.Method ?? BufferSubtractionMethod.MatchedInjection;
             if (referenceExperiment == null) return BufferSubtractionModel.Empty(method);
 
@@ -152,17 +157,9 @@ namespace AnalysisITC
             }
         }
 
-        public static bool TryGetReferenceHeat(InjectionData targetInjection, BufferSubtractionSettings settings, out FloatWithError heat)
-        {
-            heat = default;
-            if (targetInjection == null || settings?.ReferenceExperiment == null) return false;
-
-            var model = BuildModel(settings.ReferenceExperiment, settings);
-            return TryGetReferenceHeat(targetInjection, model, out heat);
-        }
-
         public static bool TryGetReferenceHeat(InjectionData targetInjection, BufferSubtractionModel model, out FloatWithError heat)
         {
+            // Evaluate the buffer heat at the target injection's injection number.
             heat = default;
             if (targetInjection == null || model == null) return false;
 
@@ -171,6 +168,7 @@ namespace AnalysisITC
 
         static BufferSubtractionModel BuildMatchedInjectionModel(ExperimentData referenceExperiment)
         {
+            // Legacy behavior: same injection first, then nearby included buffer injections.
             return new BufferSubtractionModel(
                 BufferSubtractionMethod.MatchedInjection,
                 (double injectionNumber, out FloatWithError heat) => TryGetMatchedReferenceHeat(referenceExperiment, injectionNumber, out heat));
@@ -178,6 +176,7 @@ namespace AnalysisITC
 
         static BufferSubtractionModel BuildLinearModel(ExperimentData referenceExperiment)
         {
+            // Fits use included, integrated buffer injections only.
             var points = GetValidReferencePoints(referenceExperiment).ToList();
             if (points.Count < 2) return BufferSubtractionModel.Empty(BufferSubtractionMethod.Linear);
 
@@ -200,6 +199,7 @@ namespace AnalysisITC
 
         static BufferSubtractionModel BuildExponentialDecayModel(ExperimentData referenceExperiment)
         {
+            // Fits use included, integrated buffer injections only.
             var points = GetValidReferencePoints(referenceExperiment).ToList();
             if (points.Count < 3) return BufferSubtractionModel.Empty(BufferSubtractionMethod.ExponentialDecay);
 
@@ -236,6 +236,7 @@ namespace AnalysisITC
             }
             catch
             {
+                // Fit failure just disables subtraction for this model; the UI remains usable.
                 return BufferSubtractionModel.Empty(BufferSubtractionMethod.ExponentialDecay);
             }
         }
@@ -317,6 +318,7 @@ namespace AnalysisITC
 
         static double EstimateResidualSd(List<BufferSubtractionReferencePoint> points, Func<double, double> evaluate, int parameterCount)
         {
+            // Crude uncertainty estimate propagated with fitted buffer heats.
             if (points.Count <= parameterCount) return 0;
 
             var sum = points.Sum(p =>
