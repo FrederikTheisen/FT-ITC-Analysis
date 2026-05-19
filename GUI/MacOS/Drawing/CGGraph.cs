@@ -2011,7 +2011,7 @@ namespace AnalysisITC
 
             var list = new List<ExperimentData>();
 
-            if (DataFittingGraph.UnifiedEnthalpyAxis && MirrorAxisUnification) list.AddRange(DataManager.IncludedData);
+            if (MirrorAxisUnification) list.AddRange(DataManager.IncludedData);
             else list.Add(ExperimentData);
 
             var max = GetMaxResiduals(list);

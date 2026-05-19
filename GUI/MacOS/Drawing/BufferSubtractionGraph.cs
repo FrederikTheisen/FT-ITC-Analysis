@@ -36,6 +36,7 @@ namespace AnalysisITC
         public bool ShowZero { get; set; } = true;
         public bool ShowErrorBars { get; set; } = true;
         public bool ShowAverageLine { get; set; } = false;
+        public bool FocusYAxisOnBufferData { get; set; } = false;
         public double AverageLineSlope { get; set; } = 0;
         public double AverageLineIntercept { get; set; } = 0;
         public SymbolShape BufferSymbolShape { get; set; } = SymbolShape.Square;
@@ -53,9 +54,11 @@ namespace AnalysisITC
 
         string HeatUnitLabel => DataManager.Unit.IsSI() ? "uJ" : "ucal";
 
-        public BufferSubtractionGraph(ExperimentData bufferExperiment, IEnumerable<ExperimentData> targetExperiments, BufferSubtractionModel subtractionModel, NSView view)
+        public BufferSubtractionGraph(ExperimentData bufferExperiment, IEnumerable<ExperimentData> targetExperiments, BufferSubtractionModel subtractionModel, NSView view, bool focusYAxisOnBufferData = false)
             : base(bufferExperiment, view)
         {
+            FocusYAxisOnBufferData = focusYAxisOnBufferData;
+
             XAxis = new GraphAxis(this, 0.5, 1.5)
             {
                 UseNiceAxis = false,
@@ -114,8 +117,11 @@ namespace AnalysisITC
             XAxis.DecimalPoints = 0;
 
             var heatValues = new List<double>();
+            IEnumerable<ExperimentData> yAxisData = FocusYAxisOnBufferData && BufferExperiment != null
+                ? new[] { BufferExperiment }
+                : allData;
 
-            foreach (var exp in allData)
+            foreach (var exp in yAxisData)
             {
                 heatValues.AddRange(IntegratedInjections(exp).Select(inj => inj.RawPeakArea.Value));
             }

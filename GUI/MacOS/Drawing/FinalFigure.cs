@@ -61,8 +61,8 @@ namespace AnalysisITC
 
         public bool MirrorDataGraphAxisUnification
         {
-            get => IntegrationGraph.ResidualDisplayOptions.GapGraphs;
-            set => IntegrationGraph.ResidualDisplayOptions.GapGraphs = value;
+            get => IntegrationGraph.ResidualGraph.MirrorAxisUnification;
+            set => IntegrationGraph.ResidualGraph.MirrorAxisUnification = value;
         }
 
         public bool IncludeResidualGraphGap

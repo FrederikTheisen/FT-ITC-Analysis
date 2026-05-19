@@ -18,15 +18,16 @@ namespace AnalysisITC
             State = ProgramState.AlwaysActive;
         }
 
-        public void Initialize(ExperimentData bufferExperiment, IEnumerable<ExperimentData> targetExperiments, BufferSubtractionModel subtractionModel)
+        public void Initialize(ExperimentData bufferExperiment, IEnumerable<ExperimentData> targetExperiments, BufferSubtractionModel subtractionModel, bool focusYAxisOnBufferData)
         {
             if (Graph is BufferSubtractionGraph graph)
             {
+                graph.FocusYAxisOnBufferData = focusYAxisOnBufferData;
                 graph.UpdateData(bufferExperiment, targetExperiments, subtractionModel);
             }
             else
             {
-                graph = new BufferSubtractionGraph(bufferExperiment, targetExperiments, subtractionModel, this);
+                graph = new BufferSubtractionGraph(bufferExperiment, targetExperiments, subtractionModel, this, focusYAxisOnBufferData);
                 graph.BufferPointIncludeChanged += (_, __) => BufferPointIncludeChanged?.Invoke(this, EventArgs.Empty);
                 Graph = graph;
             }
