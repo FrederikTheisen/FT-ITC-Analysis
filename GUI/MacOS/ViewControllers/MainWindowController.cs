@@ -8,6 +8,8 @@ using System.IO;
 using System.Linq;
 using AnalysisITC.AppClasses.AnalysisClasses;
 using AnalysisITC.AppClasses.AnalysisClasses.Models;
+using AnalysisITC.GUI.MacOS;
+using DataReaders;
 
 namespace AnalysisITC
 {
@@ -330,9 +332,17 @@ namespace AnalysisITC
         {
             var hasData = DataManager.SelectedIsData && DataManager.Current != null;
             var hasAttributes = hasData && DataManager.Current.Attributes.Count > 0;
+            var canRecalculateActualConcentrations = CanRecalculateActualConcentrations(DataManager.Current);
 
             menu.AddItem(CreateContextMenuItem("Experiment attributes...", "openattributes", hasData, (s, e) => OpenCurrentExperimentAttributes()));
             menu.AddItem(CreateCopyAttributesMenuItem(hasAttributes));
+            menu.AddItem(NSMenuItem.SeparatorItem);
+            menu.AddItem(CreateContextMenuItem("Experiment merger...", "experimentmerger", DataManager.Data.Count > 0, OpenTool));
+            menu.AddItem(CreateContextMenuItem("Buffer subtraction...", "buffersubtraction", DataManager.Data.Count > 0, OpenSubtractionTool));
+            if (hasData && DataManager.Current.DataSourceFormat == ITCDataFormat.IntegratedHeats)
+            {
+                menu.AddItem(CreateContextMenuItem("Recalculate actual concentrations", "recalculateactualconcentrations", canRecalculateActualConcentrations, (s, e) => RecalculateActualConcentrations(DataManager.Current)));
+            }
             menu.AddItem(NSMenuItem.SeparatorItem);
             menu.AddItem(CreateContextMenuItem("Duplicate data", "duplicate", hasData, (s, e) => DataManager.DuplicateSelectedData(DataManager.Current)));
             menu.AddItem(CreateContextMenuItem("Export data...", "exportselecteddata", hasData, (s, e) => Exporter.Export(ExportType.Data, ExportDataSelection.SelectedData)));
@@ -345,6 +355,12 @@ namespace AnalysisITC
             }));
             menu.AddItem(CreateContextMenuItem("Clear solution", "clearsolution", hasData && DataManager.Current.Solution != null, (s, e) =>
             {
+                var dataName = string.IsNullOrWhiteSpace(DataManager.Current.Name) ? DataManager.Current.FileName : DataManager.Current.Name;
+                if (!ConfirmationDialog.ConfirmRemoveOrDelete(
+                    "Confirm Clear Solution",
+                    $"Are you sure you wish to clear the fitted solution for {dataName}?",
+                    "Clear Solution")) return;
+
                 DataManager.Current.RemoveModel();
                 UpdateContextToolbarMenu();
             }));
@@ -566,6 +582,31 @@ namespace AnalysisITC
             presenter.PresentViewControllerAsSheet(controller);
         }
 
+        bool CanRecalculateActualConcentrations(ExperimentData data)
+        {
+            return data != null
+                && data.DataSourceFormat == ITCDataFormat.IntegratedHeats
+                && !data.IsTandemExperiment
+                && data.Injections.Count > 0
+                && data.CellVolume > double.Epsilon
+                && (data.CellConcentration > double.Epsilon || data.SyringeConcentration > double.Epsilon);
+        }
+
+        void RecalculateActualConcentrations(ExperimentData data)
+        {
+            if (!CanRecalculateActualConcentrations(data)) return;
+
+            RawDataReader.ProcessInjections(data);
+            data.MarkModified();
+
+            DataManager.InvokeUpdateDataViewCells();
+            DataManager.InvokeUpdateTable();
+            DataAnalysisViewController.InvalidateGraph();
+            FinalFigureGraphView.Invalidate();
+            UpdateContextToolbarMenu();
+            StatusBarManager.SetStatus("Actual concentrations recalculated", 2000);
+        }
+
         NSMenuItem CreateSplineConversionMenuItem(bool enabled, bool canConvertToSmoothSpline, bool canConvertToLinearSpline)
         {
             var item = CreateContextMenuItem("Convert to spline", null, enabled, null);
@@ -741,18 +782,10 @@ namespace AnalysisITC
             var itemType = item is AnalysisResult ? "Result" : "Data";
             var itemName = string.IsNullOrWhiteSpace(item.Name) ? item.FileName : item.Name;
 
-            var alert = new NSAlert
-            {
-                InformativeText = $"Are you sure you wish to delete {itemName}?",
-                MessageText = $"Confirm Delete {itemType}",
-                AlertStyle = NSAlertStyle.Warning,
-            };
-
-            alert.AddButton("Cancel");
-            alert.AddButton($"Delete {itemType}");
-            alert.Buttons[1].HasDestructiveAction = true;
-
-            if (alert.RunModal() != 1001) return;
+            if (!ConfirmationDialog.ConfirmRemoveOrDelete(
+                $"Confirm Delete {itemType}",
+                $"Are you sure you wish to delete {itemName}?",
+                $"Delete {itemType}")) return;
 
             var idx = DataManager.SelectedContentIndex;
             ViewController.NotifyWillRemoveData(this, idx);
@@ -765,18 +798,10 @@ namespace AnalysisITC
         {
             if (DataManager.Results.Count == 0) return;
 
-            var alert = new NSAlert
-            {
-                InformativeText = $"Are you sure you wish to delete all {DataManager.Results.Count} analysis results?",
-                MessageText = "Confirm Delete All Results",
-                AlertStyle = NSAlertStyle.Warning,
-            };
-
-            alert.AddButton("Cancel");
-            alert.AddButton("Delete All Results");
-            alert.Buttons[1].HasDestructiveAction = true;
-
-            if (alert.RunModal() != 1001) return;
+            if (!ConfirmationDialog.ConfirmRemoveOrDelete(
+                "Confirm Delete All Results",
+                $"Are you sure you wish to delete all {DataManager.Results.Count} analysis results?",
+                "Delete All Results")) return;
 
             DataManager.ClearProcessing();
             var nextIndex = Math.Min(DataManager.SelectedContentIndex, DataManager.SourceItems.Count - 1);
