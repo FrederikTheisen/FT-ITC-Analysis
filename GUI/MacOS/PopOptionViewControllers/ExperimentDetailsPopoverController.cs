@@ -134,6 +134,7 @@ namespace AnalysisITC
                 if (!string.IsNullOrEmpty(ExperimentNameField.StringValue)) Data.Name = ExperimentNameField.StringValue;
                 if (!string.IsNullOrEmpty(CellVolumeField.StringValue)) Data.CellVolume = CellVolumeField.DoubleValue / 1000000;
 
+                Data.ClearBufferSubtraction(notify: false);
                 Data.Attributes.Clear();
 
                 foreach (var sv in AttributeStackView.Subviews)
