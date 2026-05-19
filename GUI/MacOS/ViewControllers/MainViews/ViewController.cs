@@ -7,6 +7,7 @@ using Foundation;
 using CoreGraphics;
 using MathNet.Numerics.LinearAlgebra.Solvers;
 using MathNet.Numerics.LinearAlgebra.Double;
+using AnalysisITC.GUI.MacOS;
 
 namespace AnalysisITC
 {
@@ -236,25 +237,16 @@ namespace AnalysisITC
 
         void DeleteDataAction()
         {
-            var alert = new NSAlert
-            {
-                InformativeText = $"Are you sure you wish to delete {DataManager.Current.Name}?",
-                MessageText = "Confirm Delete Data",
-                AlertStyle = NSAlertStyle.Warning,
-            };
+            var dataName = string.IsNullOrWhiteSpace(DataManager.Current.Name) ? DataManager.Current.FileName : DataManager.Current.Name;
+            if (!ConfirmationDialog.ConfirmRemoveOrDelete(
+                "Confirm Delete Data",
+                $"Are you sure you wish to delete {dataName}?",
+                "Delete Data")) return;
 
-            alert.AddButton("Cancel");
-            alert.AddButton("Delete Data");
-
-            alert.Buttons[1].HasDestructiveAction = true;
-
-            if (alert.RunModal() == 1001)
-            {
-                int idx = DataManager.SelectedContentIndex;
-                NotifyWillRemoveData(this, idx);
-                DataManager.RemoveData2(idx);
-                RemoveData?.Invoke(this, idx);
-            }
+            int idx = DataManager.SelectedContentIndex;
+            NotifyWillRemoveData(this, idx);
+            DataManager.RemoveData2(idx);
+            RemoveData?.Invoke(this, idx);
         }
 
         private void AppDelegate_StartPrintOperation(object sender, EventArgs e)
@@ -358,6 +350,11 @@ namespace AnalysisITC
         void RemoveSolution()
         {
             if (Data == null) return;
+            var dataName = string.IsNullOrWhiteSpace(Data.Name) ? Data.FileName : Data.Name;
+            if (!ConfirmationDialog.ConfirmRemoveOrDelete(
+                "Confirm Clear Solution",
+                $"Are you sure you wish to clear the fitted solution for {dataName}?",
+                "Clear Solution")) return;
 
             Data.RemoveModel();
         }
