@@ -126,6 +126,7 @@ namespace AnalysisITC.AppClasses.AnalysisClasses
 				case AttributeKey.PreboundLigandConc: return Concentration(key, "", new(0));
 				case AttributeKey.UseSyringeActiveFraction:
 				case AttributeKey.PeptideInCell: return Bool(key, "", false);
+                case AttributeKey.BufferSubtraction: return ExperimentReference("Reference", null);
 				default: return Parameter(key, "", new(0));
 			}
 		}
@@ -200,6 +201,7 @@ namespace AnalysisITC.AppClasses.AnalysisClasses
                 Key = AttributeKey.BufferSubtraction,
                 OptionName = name,
                 StringValue = uniqueid,
+                IntValue = (int)AppSettings.BufferSubtractionDefaultMethod,
                 ParameterValue = new(),
             };
         }
@@ -218,6 +220,10 @@ namespace AnalysisITC.AppClasses.AnalysisClasses
                 case AttributeKey.Salt:
                     ParameterValue = new(dp);
                     IntValue = -1;
+                    break;
+                case AttributeKey.BufferSubtraction:
+                    OptionName = "Reference";
+                    IntValue = (int)AppSettings.BufferSubtractionDefaultMethod;
                     break;
 				default:
 					break;
