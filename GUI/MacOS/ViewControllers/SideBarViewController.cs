@@ -15,6 +15,7 @@ namespace AnalysisITC
 
         ExperimentDataDelegate _tableDelegate;
         int? _pendingRemovedRow;
+        bool _suppressTableSelectionCallback;
 
         #region Constructors
 
@@ -212,6 +213,7 @@ namespace AnalysisITC
 
         private void OnDataViewClicked(object sender, EventArgs e)
         {
+            if (_suppressTableSelectionCallback) return;
             if ((int)TableView.SelectedRow != -1) DataManager.SelectIndex((int)TableView.SelectedRow);
         }
 
@@ -260,9 +262,16 @@ namespace AnalysisITC
                 1);
 
             EnsureTableBindings();
-            TableView.ReloadData();
-
-            SyncSelection();
+            try
+            {
+                _suppressTableSelectionCallback = true;
+                TableView.ReloadData();
+                SyncSelection();
+            }
+            finally
+            {
+                _suppressTableSelectionCallback = false;
+            }
         }
 
         void SyncSelection()
@@ -276,14 +285,32 @@ namespace AnalysisITC
             int idx = DataManager.Source.SelectedIndex;
             if (idx >= 0 && idx < DataManager.Source.Content.Count)
             {
-                TableView.SelectRow(idx, false);
+                var wasSuppressingSelectionCallback = _suppressTableSelectionCallback;
+                _suppressTableSelectionCallback = true;
+                try
+                {
+                    TableView.SelectRow(idx, false);
+                }
+                finally
+                {
+                    _suppressTableSelectionCallback = wasSuppressingSelectionCallback;
+                }
                 AppEventHandler.PrintAndLog(
                     $"SideBar.SyncSelection: selectedIndex={idx}, selectedItem={DescribeItem(DataManager.Source.Content[idx])}",
                     1);
             }
             else
             {
-                TableView.DeselectAll(this);
+                var wasSuppressingSelectionCallback = _suppressTableSelectionCallback;
+                _suppressTableSelectionCallback = true;
+                try
+                {
+                    TableView.DeselectAll(this);
+                }
+                finally
+                {
+                    _suppressTableSelectionCallback = wasSuppressingSelectionCallback;
+                }
                 AppEventHandler.PrintAndLog($"SideBar.SyncSelection: deselected all, selectedIndex={idx}, rows={DataManager.Source.Content.Count}", 1);
             }
         }
