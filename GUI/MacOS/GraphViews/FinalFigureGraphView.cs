@@ -125,6 +125,7 @@ namespace AnalysisITC
         public static bool DrawBaseline { get; set; } = false;
         public static bool DrawBaselineCorrected { get; set; } = true;
         public static TimeUnit TimeAxisUnit { get; set; } = TimeUnit.Minute;
+        public static InformationBoxPlacement InformationBoxPosition { get; set; } = InformationBoxPlacement.Auto;
 
         public static FinalFigureDisplayParameters ParameterDisplayFlags =>
             FinalFigureDisplayParameters.Thermodynamic |
@@ -134,12 +135,16 @@ namespace AnalysisITC
         public static FinalFigureDisplayParameters DetailDisplayFlags =>
             FinalFigureDisplayParameters.Temperature |
             FinalFigureDisplayParameters.Concentrations |
+            FinalFigureDisplayParameters.InjectionDelay |
+            FinalFigureDisplayParameters.Instrument |
             FinalFigureDisplayParameters.Attributes;
 
         public static FinalFigureDisplayParameters VisibleFinalFigureDisplayParameters
         {
             get
             {
+                if (!DrawExpDetails) return FinalFigureDisplayParameters.None;
+
                 var display = AppSettings.FinalFigureParameterDisplay & ParameterDisplayFlags;
 
                 if (DrawModelInfo)
@@ -147,13 +152,7 @@ namespace AnalysisITC
                     display |= FinalFigureDisplayParameters.Model;
                 }
 
-                if (DrawExpDetails)
-                {
-                    var detailDisplay = AppSettings.FinalFigureParameterDisplay & DetailDisplayFlags;
-                    display |= detailDisplay == FinalFigureDisplayParameters.None
-                        ? DetailDisplayFlags
-                        : detailDisplay;
-                }
+                display |= AppSettings.FinalFigureParameterDisplay & DetailDisplayFlags;
 
                 return display;
             }
@@ -161,7 +160,8 @@ namespace AnalysisITC
 
         public static void UpdateParameterBoxVisibility()
         {
-            DrawFitParameters = DrawModelInfo || (AppSettings.FinalFigureParameterDisplay & ParameterDisplayFlags) != FinalFigureDisplayParameters.None;
+            DrawFitParameters = DrawExpDetails
+                && (DrawModelInfo || (AppSettings.FinalFigureParameterDisplay & ParameterDisplayFlags) != FinalFigureDisplayParameters.None);
         }
 
         public static void Invalidate() => Invalidated?.Invoke(null, null);
@@ -219,6 +219,7 @@ namespace AnalysisITC
                 DrawFitParameters = DrawFitParameters,
                 DrawExpDetails = FinalFigureGraphView.DrawExpDetails,
                 FinalFigureDisplayParameters = FinalFigureGraphView.VisibleFinalFigureDisplayParameters,
+                InformationBoxPlacement = InformationBoxPosition,
                 SymbolShape = (CGGraph.SymbolShape)SymbolShape,
                 SymbolSize = SymbolSize,
                 ShowResiduals = ShowResiduals,
@@ -455,6 +456,7 @@ namespace AnalysisITC
                 DrawFitParameters = DrawFitParameters,
                 DrawExpDetails = FinalFigureGraphView.DrawExpDetails,
                 FinalFigureDisplayParameters = FinalFigureGraphView.VisibleFinalFigureDisplayParameters,
+                InformationBoxPlacement = InformationBoxPosition,
                 SymbolShape = (CGGraph.SymbolShape)SymbolShape,
                 SymbolSize = SymbolSize,
                 ShowResiduals = ShowResiduals,
