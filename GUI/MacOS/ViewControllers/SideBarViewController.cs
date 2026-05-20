@@ -225,6 +225,12 @@ namespace AnalysisITC
         {
             if (TableView == null || DataManager.Source == null) return;
 
+            if (TableView is ModifierClickTableView modifierClickTableView)
+            {
+                modifierClickTableView.RowModifierClicked -= OnTableRowModifierClicked;
+                modifierClickTableView.RowModifierClicked += OnTableRowModifierClicked;
+            }
+
             if (!ReferenceEquals(TableView.DataSource, DataManager.Source))
             {
                 TableView.DataSource = DataManager.Source;
@@ -247,6 +253,20 @@ namespace AnalysisITC
             {
                 TableView.Delegate = _tableDelegate;
             }
+        }
+
+        void OnTableRowModifierClicked(object sender, ModifierClickTableViewEventArgs e)
+        {
+            if (DataManager.Source == null) return;
+            if (e.Row < 0 || e.Row >= DataManager.Source.Content.Count) return;
+            if (DataManager.Source.Content[e.Row] is not ExperimentData data) return;
+            if (data.Processor?.IntegrationCompleted != true) return;
+
+            data.Include = !data.Include;
+            DataManager.InvokeDataInclusionDidChange();
+            DataManager.InvokeUpdateDataViewCells();
+
+            e.Handled = true;
         }
 
         void ReloadTable()

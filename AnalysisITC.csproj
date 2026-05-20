@@ -343,6 +343,7 @@
     <Compile Include="GUI\MacOS\CustomViews\NSMarginButton.designer.cs">
       <DependentUpon>NSMarginButton.cs</DependentUpon>
     </Compile>
+    <Compile Include="GUI\MacOS\CustomViews\ModifierClickTableView.cs" />
     <Compile Include="GUI\MacOS\ListViews\ExperimentDataSource.cs" />
     <Compile Include="GUI\MacOS\ListViews\LoadedInjectionDataSource.cs" />
     <Compile Include="GUI\MacOS\ListViews\ResultViewDataSource.cs" />
