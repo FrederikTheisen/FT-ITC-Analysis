@@ -1120,7 +1120,7 @@ namespace AnalysisITC
 
             if (!string.IsNullOrEmpty(injectionDelayInfo))
             {
-                lines.Add("Injection delay: " + injectionDelayInfo);
+                lines.Add("Delays: " + injectionDelayInfo);
             }
         }
 
@@ -1130,7 +1130,7 @@ namespace AnalysisITC
 
             if (!string.IsNullOrWhiteSpace(instrumentName))
             {
-                lines.Add("Instrument: " + instrumentName);
+                lines.Add(instrumentName);
             }
         }
 

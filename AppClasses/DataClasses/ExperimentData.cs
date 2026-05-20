@@ -702,7 +702,7 @@ namespace AnalysisITC
                 ? minText
                 : minText + " - " + maxText;
 
-            return delayText + " seconds";
+            return delayText + " sec";
         }
     }
 
