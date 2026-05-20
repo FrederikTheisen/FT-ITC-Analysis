@@ -307,7 +307,7 @@ namespace AnalysisITC
         partial void ClearProcessingResult(NSObject sender)
         {
             if (DataManager.Results.Count == 0) return;
-            if (!MacSupport.ConfirmRemoveOrDelete(
+            if (!ConfirmationDialog.ConfirmRemoveOrDelete(
                 "Confirm Delete All Results",
                 $"Are you sure you wish to delete all {DataManager.Results.Count} analysis results?",
                 "Delete All Results")) return;
@@ -451,7 +451,7 @@ namespace AnalysisITC
                 }
             }
 
-            if (!MacSupport.ConfirmRemoveOrDelete(
+            if (!ConfirmationDialog.ConfirmRemoveOrDelete(
                 "Confirm Clear All Data",
                 $"Are you sure you wish to clear all {DataManager.SourceItems.Count} data and results?",
                 "Clear All Data")) return false;
