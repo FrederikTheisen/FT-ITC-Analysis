@@ -293,10 +293,14 @@ namespace AnalysisITC
 
         public void SetFeatureVisibility(bool baseline, bool injections, bool corrected, bool cursorinfo)
         {
+            var verticalZoomMode = CurrentVerticalZoomMode;
+
             ShowBaseline = baseline;
             ShowInjections = injections;
             ShowBaselineCorrected = corrected;
             DrawCursorPositionInfo = cursorinfo;
+
+            ApplyVerticalZoomMode(verticalZoomMode);
 
             Invalidate();
         }
