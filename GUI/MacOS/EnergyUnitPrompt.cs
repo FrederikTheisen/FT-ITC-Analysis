@@ -66,8 +66,8 @@ namespace AnalysisITC.GUI.MacOS
             }
 
             string informativeText = fileName == null
-                ? "The imported file does not specify the heat unit. Choose the unit used in the file."
-                : $"The imported file \"{Path.GetFileName(fileName)}\" does not specify the heat unit. Choose the unit used in the file.";
+                ? "The imported file does not specify the energy unit. Choose the unit used in the file."
+                : $"The imported file \"{Path.GetFileName(fileName)}\" does not specify the energy unit. Choose the unit used in the file.";
 
             if (encounteredvalue != null)
             {
