@@ -248,9 +248,7 @@ namespace AnalysisITC
         public void ToggleDataPointActive()
         {
             Include = !Include;
-
-            // Heat direction depends only on included peaks to avoid artifacts
-            Experiment.CalculateExperimentHeatDirection();
+            Experiment?.OnInjectionIncludeChanged();
         }
 
         public void Integrate()

@@ -46,7 +46,6 @@ namespace AnalysisITC
             {
                 GraphView.BufferPointIncludeChanged += (_, __) =>
                 {
-                    GetSelectedReference()?.UpdateProcessing(invalidate: false);
                     UpdateGraph();
                 };
             }

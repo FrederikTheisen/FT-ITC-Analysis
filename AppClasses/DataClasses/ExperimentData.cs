@@ -12,6 +12,7 @@ namespace AnalysisITC
     {
         public static Random Rand = new Random();
 
+        public event EventHandler InjectionIncludeChanged;
         public event EventHandler ProcessingUpdated;
         public event EventHandler SolutionChanged;
 
@@ -258,6 +259,12 @@ namespace AnalysisITC
             else AverageHeatDirection = PeakHeatDirection.Unknown;
         }
 
+        internal void OnInjectionIncludeChanged()
+        {
+            CalculateExperimentHeatDirection();
+            InjectionIncludeChanged?.Invoke(this, EventArgs.Empty);
+        }
+
         public bool SetReferenceExperiment(ExperimentData reference, bool notify = true)
         {
             return SetBufferSubtraction(reference, BufferSubtractionMethod.MatchedInjection, notify);
@@ -324,6 +331,7 @@ namespace AnalysisITC
             ClearBufferSubtractionReferenceSubscription();
 
             bufferSubtractionReferenceSubscription = reference;
+            bufferSubtractionReferenceSubscription.InjectionIncludeChanged += Reference_ProcessingUpdated;
             bufferSubtractionReferenceSubscription.ProcessingUpdated += Reference_ProcessingUpdated;
         }
 
@@ -331,6 +339,7 @@ namespace AnalysisITC
         {
             if (bufferSubtractionReferenceSubscription == null) return;
 
+            bufferSubtractionReferenceSubscription.InjectionIncludeChanged -= Reference_ProcessingUpdated;
             bufferSubtractionReferenceSubscription.ProcessingUpdated -= Reference_ProcessingUpdated;
             bufferSubtractionReferenceSubscription = null;
         }
