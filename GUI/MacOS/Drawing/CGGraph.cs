@@ -1975,8 +1975,6 @@ namespace AnalysisITC
     {
         DataFittingGraph DataFittingGraph { get; set; }
 
-        public bool MirrorAxisUnification { get; set; } = true;
-
         GraphAxis ParentXAxis => DataFittingGraph.XAxis;
         GraphAxis ParentYAxis => DataFittingGraph.YAxis;
 
@@ -2011,7 +2009,7 @@ namespace AnalysisITC
 
             var list = new List<ExperimentData>();
 
-            if (MirrorAxisUnification) list.AddRange(DataManager.IncludedData);
+            if (DataFittingGraph.UnifiedEnthalpyAxis && AppSettings.UnifyResidualGraphAxis && DataManager.IncludedData.Count() > 0) list.AddRange(DataManager.IncludedData);
             else list.Add(ExperimentData);
 
             var max = GetMaxResiduals(list);

@@ -117,7 +117,6 @@ namespace AnalysisITC
         public static int SymbolShape { get; set; } = 0;
         public static bool ShowResiduals { get; set; } = false;
         public static bool GapResidualGraph { get; set; } = false;
-        public static bool MirrorDataGraphAxisUnification { get; set; } = false;
         public static GraphBase.LineSmoothness FitLineSmoothness { get; set; } = AppSettings.FitLineSmoothness;
         public static bool AutoAxesIgnoresBadData { get; set; } = true;
 

@@ -392,7 +392,6 @@ namespace AnalysisITC
             FinalFigureGraphView.UpdateParameterBoxVisibility();
             FinalFigureGraphView.ShowResiduals = ShowResidualGraph;
             FinalFigureGraphView.GapResidualGraph = ShowResidualGraphGap;
-            FinalFigureGraphView.MirrorDataGraphAxisUnification = UnifyResidualGraphAxis;
             FinalFigureGraphView.AutoAxesIgnoresBadData = AutoAxesIgnoresBadData;
             SplineInterpolator.DefaultPointDensity = DefaultSplinePointDensity;
             SplineInterpolator.DefaultHandleMode = DefaultSplineHandleMode;

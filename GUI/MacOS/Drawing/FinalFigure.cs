@@ -59,12 +59,6 @@ namespace AnalysisITC
             set => IntegrationGraph.FitLineSmoothnessSetting = value;
         }
 
-        public bool MirrorDataGraphAxisUnification
-        {
-            get => IntegrationGraph.ResidualGraph.MirrorAxisUnification;
-            set => IntegrationGraph.ResidualGraph.MirrorAxisUnification = value;
-        }
-
         public bool IncludeResidualGraphGap
         {
             get => IntegrationGraph.ResidualDisplayOptions.GapGraphs;
@@ -302,7 +296,6 @@ namespace AnalysisITC
             };
             IntegrationGraph.YAxis.HideUnwantedTicks = false;
             IntegrationGraph.ResidualDisplayOptions.GapGraphs = true;
-            IntegrationGraph.ResidualGraph.MirrorAxisUnification = MirrorDataGraphAxisUnification;
         }
 
         public void SetupFrames(nfloat width, nfloat height, CGPoint center)
