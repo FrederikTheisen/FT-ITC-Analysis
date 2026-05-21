@@ -44,6 +44,7 @@ namespace AnalysisITC.AppClasses.AnalysisClasses
         public SolverAlgorithm SolverAlgorithm { get; set; } = SolverAlgorithm.NelderMead;
         public int MaxOptimizerIterations { get; set; } = AppSettings.MaximumOptimizerIterations;
         public bool UseErrorWeightedFitting { get; set; } = false;
+        public bool CanCreateAnalysisResult { get; set; } = true;
 
         public ErrorEstimationMethod ErrorEstimationMethod { get; set; } = ErrorEstimationMethod.None;
         public int BootstrapIterations { get; set; } = 100;
@@ -313,7 +314,7 @@ namespace AnalysisITC.AppClasses.AnalysisClasses
 
         protected bool ShouldCreateAnalysisResult(SolverConvergence convergence)
         {
-            return convergence != null && !convergence.Failed && !convergence.Stopped;
+            return CanCreateAnalysisResult && convergence != null && !convergence.Failed && !convergence.Stopped;
         }
     }
 

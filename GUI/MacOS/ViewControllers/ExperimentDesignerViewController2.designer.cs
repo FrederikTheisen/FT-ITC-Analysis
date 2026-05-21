@@ -16,6 +16,9 @@ namespace AnalysisITC
 		AppKit.NSButton ApplyModelButton { get; set; }
 
 		[Outlet]
+		AppKit.NSButton AutoVolume { get; set; }
+
+		[Outlet]
 		AppKit.NSTextField CellConcErrorField { get; set; }
 
 		[Outlet]
@@ -34,16 +37,10 @@ namespace AnalysisITC
 		AppKit.NSTextField InjectionInfoField { get; set; }
 
 		[Outlet]
-		AppKit.NSButton TandemExperimentControl { get; set; }
+		AppKit.NSTextField InjectionVolumeField { get; set; }
 
 		[Outlet]
-		AppKit.NSTextField TandemSegmentCountField { get; set; }
-
-		[Outlet]
-		AppKit.NSTextField TandemSegmentCountLabel { get; set; }
-
-		[Outlet]
-		AppKit.NSStepper TandemSegmentCountStepper { get; set; }
+		AppKit.NSStepper InjectionVolumeStepper { get; set; }
 
 		[Outlet]
 		AppKit.NSTextField InstrumentDescriptionField { get; set; }
@@ -87,6 +84,18 @@ namespace AnalysisITC
 		[Outlet]
 		AppKit.NSTextField SyringeConcField { get; set; }
 
+		[Outlet]
+		AppKit.NSButton TandemExperimentControl { get; set; }
+
+		[Outlet]
+		AppKit.NSTextField TandemSegmentCountField { get; set; }
+
+		[Outlet]
+		AppKit.NSTextField TandemSegmentCountLabel { get; set; }
+
+		[Outlet]
+		AppKit.NSStepper TandemSegmentCountStepper { get; set; }
+
 		[Action ("ApplyModelSettings:")]
 		partial void ApplyModelSettings (AppKit.NSButton sender);
 
@@ -113,6 +122,11 @@ namespace AnalysisITC
 			if (ApplyModelButton != null) {
 				ApplyModelButton.Dispose ();
 				ApplyModelButton = null;
+			}
+
+			if (AutoVolume != null) {
+				AutoVolume.Dispose ();
+				AutoVolume = null;
 			}
 
 			if (CellConcErrorField != null) {
@@ -145,24 +159,14 @@ namespace AnalysisITC
 				InjectionInfoField = null;
 			}
 
-			if (TandemExperimentControl != null) {
-				TandemExperimentControl.Dispose ();
-				TandemExperimentControl = null;
+			if (InjectionVolumeField != null) {
+				InjectionVolumeField.Dispose ();
+				InjectionVolumeField = null;
 			}
 
-			if (TandemSegmentCountField != null) {
-				TandemSegmentCountField.Dispose ();
-				TandemSegmentCountField = null;
-			}
-
-			if (TandemSegmentCountLabel != null) {
-				TandemSegmentCountLabel.Dispose ();
-				TandemSegmentCountLabel = null;
-			}
-
-			if (TandemSegmentCountStepper != null) {
-				TandemSegmentCountStepper.Dispose ();
-				TandemSegmentCountStepper = null;
+			if (InjectionVolumeStepper != null) {
+				InjectionVolumeStepper.Dispose ();
+				InjectionVolumeStepper = null;
 			}
 
 			if (InstrumentDescriptionField != null) {
@@ -215,14 +219,14 @@ namespace AnalysisITC
 				SimulateNoiseControl = null;
 			}
 
-			if (SmallInitialInjControl != null) {
-				SmallInitialInjControl.Dispose ();
-				SmallInitialInjControl = null;
-			}
-
 			if (SmallInitialInjCheckmark != null) {
 				SmallInitialInjCheckmark.Dispose ();
 				SmallInitialInjCheckmark = null;
+			}
+
+			if (SmallInitialInjControl != null) {
+				SmallInitialInjControl.Dispose ();
+				SmallInitialInjControl = null;
 			}
 
 			if (SyringeConcErrorField != null) {
@@ -233,6 +237,26 @@ namespace AnalysisITC
 			if (SyringeConcField != null) {
 				SyringeConcField.Dispose ();
 				SyringeConcField = null;
+			}
+
+			if (TandemExperimentControl != null) {
+				TandemExperimentControl.Dispose ();
+				TandemExperimentControl = null;
+			}
+
+			if (TandemSegmentCountField != null) {
+				TandemSegmentCountField.Dispose ();
+				TandemSegmentCountField = null;
+			}
+
+			if (TandemSegmentCountLabel != null) {
+				TandemSegmentCountLabel.Dispose ();
+				TandemSegmentCountLabel = null;
+			}
+
+			if (TandemSegmentCountStepper != null) {
+				TandemSegmentCountStepper.Dispose ();
+				TandemSegmentCountStepper = null;
 			}
 		}
 	}

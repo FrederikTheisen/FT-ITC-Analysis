@@ -28,6 +28,9 @@ namespace AnalysisITC
 
         private const double DesignerTandemMixingFraction = 0.20;
         private const int DefaultTandemSegmentCount = 2;
+        private const double MicroliterToLiter = 1.0 / 1000000.0;
+        private const double LiterToMicroliter = 1000000.0;
+        private const double DefaultManualInjectionVolumeMicroliters = 2.0;
         private double SmallInjectionVolume = 0.5 / 1000000.0;
 
         private double GetConcFieldValue(NSTextField field, double def = 0) => field.StringValue.Length > 0 ? field.DoubleValue / 1000000 : def / 1000000;
@@ -36,9 +39,8 @@ namespace AnalysisITC
             get
             {
                 var conc = GetConcFieldValue(CellConcField, 10);
-                var error = GetConcFieldValue(CellConcErrorField);
 
-                return new FloatWithError(conc, error);
+                return new FloatWithError(conc, 0);
             }
         }
         private FloatWithError SyringeConcentration
@@ -46,14 +48,15 @@ namespace AnalysisITC
             get
             {
                 var conc = GetConcFieldValue(SyringeConcField, 100);
-                var error = GetConcFieldValue(SyringeConcErrorField);
 
-                return new FloatWithError(conc, error);
+                return new FloatWithError(conc, 0);
             }
         }
         private bool UseSmallFirstInjection => SmallInitialInjCheckmark.State == NSCellStateValue.On;
         private bool UseTandemExperiment => TandemExperimentControl?.State == NSCellStateValue.On;
         private int TandemSegmentCount => UseTandemExperiment ? Math.Max(TandemSegmentCountField?.IntValue ?? DefaultTandemSegmentCount, 2) : 1;
+        private bool UseAutoInjectionVolume => AutoVolume?.State != NSCellStateValue.Off;
+        private int InjectionCount => Math.Max(InjectionCountField?.IntValue ?? 2, 2);
 
         public ExperimentDesignerViewController2 (IntPtr handle) : base (handle)
 		{
@@ -78,11 +81,22 @@ namespace AnalysisITC
 
             InjectionCountField.Changed += InjectionCountField_Changed;
             InjectionCountStepper.Activated += InjectionCountStepper_Activated;
+            SetupInjectionVolumeControlEvents();
             SetupTandemExperimentControlEvents();
             ModelControl.Enabled = false;
 
             SolverInterface.AnalysisStarted += SolverInterface_AnalysisStarted;
             SolverInterface.AnalysisFinished += SolverInterface_AnalysisFinished;
+        }
+
+        private void SetupInjectionVolumeControlEvents()
+        {
+            if (InjectionVolumeField != null)
+                InjectionVolumeField.Changed += InjectionVolumeField_Changed;
+            if (InjectionVolumeStepper != null)
+                InjectionVolumeStepper.Activated += InjectionVolumeStepper_Activated;
+
+            UpdateInjectionVolumeControls(InjectionCount);
         }
 
         private void SetupTandemExperimentControlEvents()
@@ -142,6 +156,7 @@ namespace AnalysisITC
         private void InjectionCountStepper_Activated(object sender, EventArgs e)
         {
             InjectionCountField.IntValue = InjectionCountStepper.IntValue;
+            UpdateInjectionVolumeControls(InjectionCount);
 
             SetupExperiment();
         }
@@ -149,12 +164,30 @@ namespace AnalysisITC
         private void InjectionCountField_Changed(object sender, EventArgs e)
         {
             InjectionCountStepper.IntValue = InjectionCountField.IntValue;
+            UpdateInjectionVolumeControls(InjectionCount);
+
+            SetupExperiment();
+        }
+
+        private void InjectionVolumeField_Changed(object sender, EventArgs e)
+        {
+            SyncManualInjectionVolumeFromField();
+
+            SetupExperiment();
+        }
+
+        private void InjectionVolumeStepper_Activated(object sender, EventArgs e)
+        {
+            if (InjectionVolumeStepper == null) return;
+
+            SetInjectionVolumeControlValues(InjectionVolumeStepper.DoubleValue);
 
             SetupExperiment();
         }
 
         partial void InjectionInputChanged(NSObject sender)
         {
+            UpdateInjectionVolumeControls(InjectionCount);
             SetupExperiment();
         }
 
@@ -169,6 +202,7 @@ namespace AnalysisITC
 
             InstrumentDescriptionField.StringValue = instrumentinfo;
 
+            UpdateInjectionVolumeControls(InjectionCount);
             SetupExperiment();
         }
 
@@ -189,13 +223,8 @@ namespace AnalysisITC
             Data.CellConcentration = CellConcentration;
             Data.SyringeConcentration = SyringeConcentration;
 
-            int injcount = Math.Max(InjectionCountField.IntValue, 2);
-
-            double volume = UseSmallFirstInjection ?
-                (Instrument.GetProperties().StandardSyringeVolume - SmallInjectionVolume) / (injcount - 1) :
-                (Instrument.GetProperties().StandardSyringeVolume) / (injcount);
-
-            volume = Math.Floor(volume * 10000000) / 10000000;
+            int injcount = InjectionCount;
+            double volume = GetInjectionVolume(injcount);
 
             var segments = new List<TandemConcatenation.TandemInjectionSegment>();
 
@@ -228,6 +257,69 @@ namespace AnalysisITC
             ModelControl.Enabled = true;
 
             SetupModel();
+        }
+
+        private double GetInjectionVolume(int injcount)
+        {
+            if (UseAutoInjectionVolume)
+                return CalculateAutomaticInjectionVolume(injcount);
+
+            return GetManualInjectionVolumeMicroliters() * MicroliterToLiter;
+        }
+
+        private double CalculateAutomaticInjectionVolume(int injcount)
+        {
+            var volume = UseSmallFirstInjection ?
+                (Instrument.GetProperties().StandardSyringeVolume - SmallInjectionVolume) / (injcount - 1) :
+                Instrument.GetProperties().StandardSyringeVolume / injcount;
+
+            return Math.Floor(volume * 10000000) / 10000000;
+        }
+
+        private void UpdateInjectionVolumeControls(int injcount)
+        {
+            var auto = UseAutoInjectionVolume;
+
+            if (auto)
+                SetInjectionVolumeControlValues(CalculateAutomaticInjectionVolume(injcount) * LiterToMicroliter);
+            else
+                SyncManualInjectionVolumeFromField();
+
+            if (InjectionVolumeField != null)
+                InjectionVolumeField.Enabled = !auto;
+            if (InjectionVolumeStepper != null)
+                InjectionVolumeStepper.Enabled = !auto;
+        }
+
+        private void SyncManualInjectionVolumeFromField()
+        {
+            if (InjectionVolumeField == null) return;
+
+            SetInjectionVolumeControlValues(InjectionVolumeField.DoubleValue);
+        }
+
+        private double GetManualInjectionVolumeMicroliters()
+        {
+            return ValidateInjectionVolumeMicroliters(InjectionVolumeField?.DoubleValue ?? DefaultManualInjectionVolumeMicroliters);
+        }
+
+        private void SetInjectionVolumeControlValues(double volumeMicroliters)
+        {
+            var value = ValidateInjectionVolumeMicroliters(volumeMicroliters);
+
+            if (InjectionVolumeField != null)
+                InjectionVolumeField.DoubleValue = value;
+            if (InjectionVolumeStepper != null)
+                InjectionVolumeStepper.DoubleValue = value;
+        }
+
+        private double ValidateInjectionVolumeMicroliters(double volumeMicroliters)
+        {
+            var min = InjectionVolumeStepper?.MinValue ?? 0.1;
+            var max = InjectionVolumeStepper?.MaxValue ?? 20.0;
+            var value = volumeMicroliters > 0 ? volumeMicroliters : DefaultManualInjectionVolumeMicroliters;
+
+            return Math.Min(Math.Max(value, min), max);
         }
 
         private TandemConcatenation.BackMixingSettings CreateDesignerTandemBackMixingSettings()
@@ -310,6 +402,7 @@ namespace AnalysisITC
                 // Set some meaningful default value for enthalpy type variables
                 if (par.Key.GetProperties().ParentType == ParameterType.Enthalpy1)
                     par.Update(-30000);
+                if (par.Key.GetProperties().ParentType == ParameterType.Nvalue1) par.Update(1);
 
                 if (tmppars.ToList().Exists(view => view.Key == par.Key))
                 {
@@ -478,6 +571,7 @@ namespace AnalysisITC
             if (_isrunning || Factory == null || Data?.Model == null) return;
 
             var solver = Solver.Initialize(Factory);
+            solver.CanCreateAnalysisResult = false;
             solver.SolverToleranceModifier = 2;
             solver.ErrorEstimationMethod = SimulateNoiseControl.State == NSCellStateValue.On ? ErrorEstimationMethod.BootstrapResiduals : ErrorEstimationMethod.None;
             solver.BootstrapIterations = 50;
