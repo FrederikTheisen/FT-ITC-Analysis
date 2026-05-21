@@ -48,6 +48,8 @@ namespace AnalysisITC
             AppEventHandler.ShowAppMessage += OnShowAppMessage;
             DocumentDirtyTracker.DirtyStateChanged += DocumentDirtyTracker_DirtyStateChanged;
             DataManager.DataDidChange += DataManager_DataDidChange;
+            DataManager.DataInclusionDidChange += DataManager_DataDidChange;
+            DataAnalysisViewController.AnalysisModeDidChange += DataAnalysisViewController_AnalysisModeDidChange;
             FTITCFormat.CurrentAccessedAppDocumentPathChanged += FTITCFormat_CurrentAccessedAppDocumentPathChanged;
             dirtyTrackingWindowDelegate = new DirtyTrackingWindowDelegate(this);
             Window.Delegate = dirtyTrackingWindowDelegate;
@@ -72,6 +74,11 @@ namespace AnalysisITC
             NSApplication.SharedApplication.InvokeOnMainThread(UpdateSharedToolbarControl);
             NSApplication.SharedApplication.InvokeOnMainThread(UpdateContextToolbarMenu);
             NSApplication.SharedApplication.InvokeOnMainThread(UpdateDocumentStatus);
+        }
+
+        private void DataAnalysisViewController_AnalysisModeDidChange(object sender, EventArgs e)
+        {
+            NSApplication.SharedApplication.InvokeOnMainThread(UpdateContextToolbarMenu);
         }
 
         private void FTITCFormat_CurrentAccessedAppDocumentPathChanged(object sender, EventArgs e)
@@ -412,16 +419,38 @@ namespace AnalysisITC
 
         void PopulateAnalysisToolbarMenu(NSMenu menu)
         {
+            menu.AddItem(CreateAnalysisResultCreationMenuItem());
             menu.AddItem(CreateContextMenuItem("Auto open new result", "autoopennewresult", true, (s, e) =>
             {
                 AppSettings.AutoOpenNewAnalysisResult = !AppSettings.AutoOpenNewAnalysisResult;
                 AppSettings.Save();
                 UpdateContextToolbarMenu();
             }, AppSettings.AutoOpenNewAnalysisResult));
+            menu.AddItem(NSMenuItem.SeparatorItem);
             menu.AddItem(CreateParameterLimitSettingsMenuItem());
             menu.AddItem(CreateAnalysisParameterDisplayMenuItem());
             menu.AddItem(NSMenuItem.SeparatorItem);
             menu.AddItem(CreateContextMenuItem("Restore analysis defaults", "restoreanalysisdefaults", true, (s, e) => RestoreAnalysisDefaults()));
+        }
+
+        NSMenuItem CreateAnalysisResultCreationMenuItem()
+        {
+            var isGlobal = DataAnalysisViewController.CurrentAnalysisModeIsGlobal;
+            var canCreateResult = !isGlobal || DataManager.Data.Count(d => d.Include) > 1;
+            var isChecked = isGlobal
+                ? AppSettings.CreateGlobalAnalysisResult
+                : AppSettings.CreateSingleAnalysisResult;
+
+            return CreateContextMenuItem("Create analysis result", "createanalysisresult", canCreateResult, (s, e) =>
+            {
+                if (isGlobal)
+                    AppSettings.CreateGlobalAnalysisResult = !AppSettings.CreateGlobalAnalysisResult;
+                else
+                    AppSettings.CreateSingleAnalysisResult = !AppSettings.CreateSingleAnalysisResult;
+
+                AppSettings.Save();
+                UpdateContextToolbarMenu();
+            }, isChecked);
         }
 
         NSMenuItem CreateParameterLimitSettingsMenuItem()
@@ -480,6 +509,8 @@ namespace AnalysisITC
 
         void RestoreAnalysisDefaults()
         {
+            AppSettings.CreateSingleAnalysisResult = false;
+            AppSettings.CreateGlobalAnalysisResult = true;
             AppSettings.AutoOpenNewAnalysisResult = true;
             AppSettings.ParameterLimitSetting = ParameterLimitSetting.Standard;
             AppSettings.EnableExtendedParameterLimits = false;

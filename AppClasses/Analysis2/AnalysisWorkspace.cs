@@ -177,7 +177,7 @@ namespace AnalysisITC.AppClasses.AnalysisClasses
                     ? new List<ExperimentData> { DataManager.Current }
                     : new List<ExperimentData>();
 
-            if (requiredData.Count == 0 || !requiredData.All(AnalysisBuilder.IsAnalysisReady))
+            if (requiredData.Count == 0 || (Session.IsGlobal && requiredData.Count < 2) || !requiredData.All(AnalysisBuilder.IsAnalysisReady))
                 return false;
 
             try

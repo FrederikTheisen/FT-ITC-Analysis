@@ -439,8 +439,8 @@ namespace AnalysisITC.AppClasses.AnalysisClasses.Models
                 {
                     var result = DataManager.Results.Find(r => r.Solution == this.ParentSolution);
 
-                    if (result.IsElectrostaticsAnalysisDependenceEnabled) info |= DisplayAttributeOptions.Salt;
-                    if (result.IsProtonationAnalysisEnabled) info |= DisplayAttributeOptions.ProtonationEnthalpy;
+                    if (result?.IsElectrostaticsAnalysisDependenceEnabled == true) info |= DisplayAttributeOptions.Salt;
+                    if (result?.IsProtonationAnalysisEnabled == true) info |= DisplayAttributeOptions.ProtonationEnthalpy;
                 }
             }
 

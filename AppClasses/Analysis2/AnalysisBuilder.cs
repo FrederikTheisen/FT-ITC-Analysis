@@ -30,8 +30,10 @@ namespace AnalysisITC.AppClasses.AnalysisClasses
 
         public static bool IsModelAvailable(AnalysisModel model, bool isGlobal)
         {
+            var includedData = DataManager.IncludedData.ToList();
+
             return isGlobal
-                ? DataManager.IncludedData.Any() && DataManager.IncludedData.All(d => ModelAvailableForExperiment(model, d))
+                ? includedData.Count > 1 && includedData.All(d => ModelAvailableForExperiment(model, d))
                 : ModelAvailableForExperiment(model, DataManager.Current);
         }
 
@@ -85,8 +87,8 @@ namespace AnalysisITC.AppClasses.AnalysisClasses
 
         static AnalysisContext BuildGlobal(AnalysisModel modelType, List<ExperimentData> dataList, AnalysisState state)
         {
-            if (dataList == null || dataList.Count == 0)
-                throw new InvalidOperationException("No datasets included in global analysis.");
+            if (dataList == null || dataList.Count < 2)
+                throw new InvalidOperationException("Global analysis requires at least two included datasets.");
 
             var globalModel = new GlobalModel();
             var globalParams = new GlobalModelParameters();

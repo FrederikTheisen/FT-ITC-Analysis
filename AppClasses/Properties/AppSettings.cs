@@ -63,6 +63,8 @@ namespace AnalysisITC
 
         //Analysis
         public static bool BuffersPreparedAtRoomTemperature { get; set; } = true;
+        public static bool CreateSingleAnalysisResult { get; set; } = false;
+        public static bool CreateGlobalAnalysisResult { get; set; } = true;
         public static bool AutoOpenNewAnalysisResult { get; set; } = true;
         public static FinalFigureDisplayParameters AnalysisParameterDisplay { get; set; } =
             FinalFigureDisplayParameters.Model | FinalFigureDisplayParameters.Fitted | FinalFigureDisplayParameters.Derived;
@@ -128,6 +130,8 @@ namespace AnalysisITC
             Storage.SetBool(EnableExtendedParameterLimits, "EnableExtendedParameterLimits");
             Storage.SetInt((int)ParameterLimitSetting, "ParameterLimitSetting");
             Storage.SetBool(BuffersPreparedAtRoomTemperature, "BuffersPreparedAtRoomTemperature");
+            Storage.SetBool(CreateSingleAnalysisResult, "CreateSingleAnalysisResult");
+            Storage.SetBool(CreateGlobalAnalysisResult, "CreateGlobalAnalysisResult");
             Storage.SetBool(AutoOpenNewAnalysisResult, "AutoOpenNewAnalysisResult");
             Storage.SetInt((int)AnalysisParameterDisplay, "AnalysisParameterDisplay");
             Storage.SetInt(NumOfDecimalsToExport, "NumOfDecimalsToExport");
@@ -196,6 +200,8 @@ namespace AnalysisITC
             InputAffinityAsDissociationConstant = GetBool(dict, "InputAffinityAsDissociationConstant", InputAffinityAsDissociationConstant);
             lastDocumentUrl = GetUrl(dict, "LastDocumentUrl");
             BuffersPreparedAtRoomTemperature = GetBool(dict, "BuffersPreparedAtRoomTemperature", BuffersPreparedAtRoomTemperature);
+            CreateSingleAnalysisResult = GetBool(dict, "CreateSingleAnalysisResult", CreateSingleAnalysisResult);
+            CreateGlobalAnalysisResult = GetBool(dict, "CreateGlobalAnalysisResult", CreateGlobalAnalysisResult);
             AutoOpenNewAnalysisResult = GetBool(dict, "AutoOpenNewAnalysisResult", AutoOpenNewAnalysisResult);
             AnalysisParameterDisplay = (FinalFigureDisplayParameters)GetInt(dict, "AnalysisParameterDisplay", (int)AnalysisParameterDisplay);
             NumOfDecimalsToExport = GetInt(dict, "NumOfDecimalsToExport", NumOfDecimalsToExport);
@@ -258,6 +264,8 @@ namespace AnalysisITC
             LastDocumentUrls = null;
             IncludeBufferInIonicStrengthCalc = true;
             BuffersPreparedAtRoomTemperature = true;
+            CreateSingleAnalysisResult = false;
+            CreateGlobalAnalysisResult = true;
             AutoOpenNewAnalysisResult = true;
             AnalysisParameterDisplay = FinalFigureDisplayParameters.Model | FinalFigureDisplayParameters.Fitted | FinalFigureDisplayParameters.Derived;
             NumOfDecimalsToExport = 1;

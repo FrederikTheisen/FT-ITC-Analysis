@@ -17,6 +17,9 @@ namespace AnalysisITC
 
         public AnalysisWorkspace Workspace { get; } = new();
 
+        public static event EventHandler AnalysisModeDidChange;
+        public static bool CurrentAnalysisModeIsGlobal { get; private set; }
+
         // ── UI helpers ─────────────────────────────────────────────────────
 
         bool IsGlobalMode => AnalysisModeControl.SelectedSegment == 1;
@@ -26,6 +29,7 @@ namespace AnalysisITC
         bool ShowResidualGraph => ShowResidualGraphButton.State == NSCellStateValue.On;
         bool ScaleToValid => ScaleToValidButton.State == NSCellStateValue.On;
         bool HasActiveExperiments => DataManager.Data.Count(d => d.Include) > 0;
+        int ActiveExperimentCount => DataManager.Data.Count(d => d.Include);
         NSStackView constraintOptionsStackView;
 
         AnalysisModel ModelFromSegmentedControl => (int)ModelTypeControl.SelectedSegment switch
@@ -84,6 +88,7 @@ namespace AnalysisITC
             ShowResidualGraphButton.State = AnalysisGraphView.ShowResidualGraph ? NSCellStateValue.On : NSCellStateValue.Off;
             LineSmoothnessControl.SelectedSegment = AnalysisGraphView.LineSmoothness == GraphBase.LineSmoothness.Linear ? 0 : 1;
 
+            PublishAnalysisMode();
             GraphView.Initialize(DataManager.Current);
         }
 
@@ -94,6 +99,7 @@ namespace AnalysisITC
             ScopeButtonClicked(null);
 
             RefreshGlobalModeControls();
+            PublishAnalysisMode();
             Workspace.TryRebuild();
         }
 
@@ -103,6 +109,7 @@ namespace AnalysisITC
         {
             Workspace.SetGlobalMode(IsGlobalMode);
             RefreshGlobalModeControls();
+            PublishAnalysisMode();
         }
 
         partial void AnalysisModelClicked(NSSegmentedControl sender)
@@ -325,8 +332,26 @@ namespace AnalysisITC
 
         void RefreshGlobalModeControls()
         {
-            AnalysisModeControl.SetEnabled(true, 1);
+            var canUseGlobalMode = ActiveExperimentCount > 1;
+
+            if (!canUseGlobalMode && IsGlobalMode)
+            {
+                AnalysisModeControl.SelectedSegment = 0;
+                Workspace.SetGlobalMode(false);
+            }
+
+            AnalysisModeControl.SetEnabled(canUseGlobalMode, 1);
+            PublishAnalysisMode();
             RefreshModelAvailability();
+        }
+
+        void PublishAnalysisMode()
+        {
+            var isGlobal = IsGlobalMode;
+            if (CurrentAnalysisModeIsGlobal == isGlobal) return;
+
+            CurrentAnalysisModeIsGlobal = isGlobal;
+            AnalysisModeDidChange?.Invoke(this, EventArgs.Empty);
         }
 
         void RefreshModelAvailability()

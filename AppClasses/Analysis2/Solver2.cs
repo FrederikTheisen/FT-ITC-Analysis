@@ -310,6 +310,11 @@ namespace AnalysisITC.AppClasses.AnalysisClasses
                 //case alglib.minlmstate minlm: LMOptimizerState = minlm; break;
             }
         }
+
+        protected bool ShouldCreateAnalysisResult(SolverConvergence convergence)
+        {
+            return convergence != null && !convergence.Failed && !convergence.Stopped;
+        }
     }
 
     public class Solver : SolverInterface
@@ -322,15 +327,24 @@ namespace AnalysisITC.AppClasses.AnalysisClasses
             // Prepare analysis state and notify listeners.
             base.Analyze();
 
+            SolverConvergence convergence = null;
+
             try
             {
                 // Run the solve operation on a background thread. Any exceptions thrown during solving will
                 // propagate to the catch blocks below.
                 await Task.Run(() =>
                 {
-                    var convergence = Solve();
+                    convergence = Solve();
                     ReportAnalysisFinished(convergence);
                 });
+
+                if (AppSettings.CreateSingleAnalysisResult
+                    && ShouldCreateAnalysisResult(convergence)
+                    && Model?.Solution != null)
+                {
+                    DataManager.AddData(new AnalysisResult(GlobalSolution.FromSingleExperimentSolver(this)));
+                }
             }
             catch (Exception ex)
             {
@@ -569,12 +583,12 @@ namespace AnalysisITC.AppClasses.AnalysisClasses
             // This will not be called if fitting indivdually
             UseErrorWeightedFitting = FittingOptionsController.UseErrorWeightedFitting;
 
+            SolverConvergence convergence = null;
+
             try
             {
                 await Task.Run(() =>
                 {
-                    SolverConvergence convergence;
-
                     if (Model.ShouldFitIndividually)
                     {
                         ReportSolverUpdate(new SolverUpdate(0, Model.Models.Count) { Message = "Fitting individually...", Progress = 0 });
@@ -614,8 +628,13 @@ namespace AnalysisITC.AppClasses.AnalysisClasses
                     ReportAnalysisFinished(convergence);
                 });
 
-                var result = new AnalysisResult(Model.Solution);
-                DataManager.AddData(result);
+                if (AppSettings.CreateGlobalAnalysisResult
+                    && ShouldCreateAnalysisResult(convergence)
+                    && Model?.Solution != null)
+                {
+                    var result = new AnalysisResult(Model.Solution);
+                    DataManager.AddData(result);
+                }
             }
             catch (Exception ex)
             {

@@ -207,6 +207,35 @@ namespace AnalysisITC.AppClasses.AnalysisClasses
 
 		public bool UseWeightedFitting { get; set; } = false;
 
+        public static GlobalSolution FromSingleExperimentSolver(Solver solver)
+        {
+            if (solver?.Model?.Solution == null)
+                throw new InvalidOperationException("Cannot create an analysis result before the single experiment analysis has a solution.");
+
+            var globalModel = new GlobalModel(new List<Model> { solver.Model })
+            {
+                ModelCloneOptions = solver.Model.ModelCloneOptions ?? ModelCloneOptions.DefaultOptions,
+                Parameters = new GlobalModelParameters(),
+            };
+            globalModel.Parameters.AddIndivdualParameter(solver.Model.Parameters);
+
+            var globalSolver = new GlobalSolver
+            {
+                Model = globalModel,
+                ErrorEstimationMethod = solver.ErrorEstimationMethod,
+                UseErrorWeightedFitting = solver.UseErrorWeightedFitting,
+            };
+
+            var solution = new GlobalSolution(
+                globalSolver,
+                new List<SolutionInterface> { solver.Model.Solution },
+                solver.Model.Solution.Convergence);
+
+            globalModel.Solution = solution;
+
+            return solution;
+        }
+
         public void Invalidate()
 		{
 			IsValid = false;
@@ -355,4 +384,3 @@ namespace AnalysisITC.AppClasses.AnalysisClasses
         }
     }
 }
-

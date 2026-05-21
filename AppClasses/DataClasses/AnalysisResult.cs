@@ -84,7 +84,8 @@ namespace AnalysisITC
         /// <returns></returns>
         public string GetResultString()
         {
-            string s = "Fit of " + Solution.Solutions.Count.ToString() + " experiments" + Environment.NewLine;
+            var experimentCount = Solution.Solutions.Count;
+            string s = "Fit of " + experimentCount.ToString() + " experiment" + (experimentCount == 1 ? "" : "s") + Environment.NewLine;
             if (Options.Constraints.All(con => con.Value == VariableConstraint.None)) s += "All variables unconstrained" + Environment.NewLine;
             else
             {
