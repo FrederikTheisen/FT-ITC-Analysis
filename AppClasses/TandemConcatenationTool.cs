@@ -66,17 +66,17 @@ namespace AnalysisITC
             }
         }
 
-        struct SegmentInfo
+        public struct TandemInjectionSegment
         {
             public string Name;
             public int InjectionNumStart;
             public int InjectionCount;
 
-            public SegmentInfo(string name, int start, int count)
+            public TandemInjectionSegment(int start, int count, string name = null)
             {
-                Name = name;
                 InjectionNumStart = start;
                 InjectionCount = count;
+                Name = name ?? "";
             }
         }
 
@@ -119,7 +119,7 @@ namespace AnalysisITC
             return merged;
         }
 
-        static (ExperimentData result, List<SegmentInfo> segments) ConcatCore(List<ExperimentData> experiments, string fileName, string modeTag)
+        static (ExperimentData result, List<TandemInjectionSegment> segments) ConcatCore(List<ExperimentData> experiments, string fileName, string modeTag)
         {
             if (experiments == null) throw new ArgumentNullException(nameof(experiments));
             if (experiments.Count < 2) throw new ArgumentException("ConcatTandem requires at least two experiments.");
@@ -172,7 +172,7 @@ namespace AnalysisITC
 
             var datapoints = new List<DataPoint>();
             var injections = new List<InjectionData>();
-            var segments = new List<SegmentInfo>();
+            var segments = new List<TandemInjectionSegment>();
 
             float nextStartTime = 0f;
             int injId = 0;
@@ -213,7 +213,7 @@ namespace AnalysisITC
                     }
                 }
 
-                segments.Add(new SegmentInfo(exp.FileName, segStart, injections.Count - segStart));
+                segments.Add(new TandemInjectionSegment(segStart, injections.Count - segStart, exp.FileName));
 
                 nextStartTime = (segLastTime + shift) + 1f;
             }
@@ -224,7 +224,10 @@ namespace AnalysisITC
             return (merged, segments);
         }
 
-        static void ProcessInjections_BackMixingOverflowModel(ExperimentData experiment, List<SegmentInfo> segments, BackMixingSettings settings)
+        public static void ProcessInjectionsWithBackMixing(
+            ExperimentData experiment,
+            IList<TandemInjectionSegment> segments,
+            BackMixingSettings settings)
         {
             if (experiment == null) throw new ArgumentNullException(nameof(experiment));
             if (segments == null) throw new ArgumentNullException(nameof(segments));
@@ -305,6 +308,14 @@ namespace AnalysisITC
                     }
                 }
             }
+        }
+
+        static void ProcessInjections_BackMixingOverflowModel(
+            ExperimentData experiment,
+            List<TandemInjectionSegment> segments,
+            BackMixingSettings settings)
+        {
+            ProcessInjectionsWithBackMixing(experiment, segments, settings);
         }
 
         /// <summary>

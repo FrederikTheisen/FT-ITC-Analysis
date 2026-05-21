@@ -26,6 +26,8 @@ namespace AnalysisITC
         private List<ParameterValueAdjustmentView> ParameterControls = new List<ParameterValueAdjustmentView>();
         private List<OptionAdjustmentView> OptionControls = new List<OptionAdjustmentView>();
 
+        private const double DesignerTandemMixingFraction = 0.20;
+        private const int DefaultTandemSegmentCount = 2;
         private double SmallInjectionVolume = 0.5 / 1000000.0;
 
         private double GetConcFieldValue(NSTextField field, double def = 0) => field.StringValue.Length > 0 ? field.DoubleValue / 1000000 : def / 1000000;
@@ -50,6 +52,8 @@ namespace AnalysisITC
             }
         }
         private bool UseSmallFirstInjection => SmallInitialInjCheckmark.State == NSCellStateValue.On;
+        private bool UseTandemExperiment => TandemExperimentControl?.State == NSCellStateValue.On;
+        private int TandemSegmentCount => UseTandemExperiment ? Math.Max(TandemSegmentCountField?.IntValue ?? DefaultTandemSegmentCount, 2) : 1;
 
         public ExperimentDesignerViewController2 (IntPtr handle) : base (handle)
 		{
@@ -74,10 +78,52 @@ namespace AnalysisITC
 
             InjectionCountField.Changed += InjectionCountField_Changed;
             InjectionCountStepper.Activated += InjectionCountStepper_Activated;
+            SetupTandemExperimentControlEvents();
             ModelControl.Enabled = false;
 
             SolverInterface.AnalysisStarted += SolverInterface_AnalysisStarted;
             SolverInterface.AnalysisFinished += SolverInterface_AnalysisFinished;
+        }
+
+        private void SetupTandemExperimentControlEvents()
+        {
+            if (TandemSegmentCountField != null && TandemSegmentCountField.IntValue < 2)
+                TandemSegmentCountField.IntValue = DefaultTandemSegmentCount;
+
+            if (TandemSegmentCountStepper != null)
+                TandemSegmentCountStepper.IntValue = TandemSegmentCountField?.IntValue ?? DefaultTandemSegmentCount;
+
+            if (TandemExperimentControl != null)
+                TandemExperimentControl.Activated += TandemExperimentControl_Activated;
+            if (TandemSegmentCountField != null)
+                TandemSegmentCountField.Changed += TandemSegmentCountField_Changed;
+            if (TandemSegmentCountStepper != null)
+                TandemSegmentCountStepper.Activated += TandemSegmentCountStepper_Activated;
+        }
+
+        private void TandemExperimentControl_Activated(object sender, EventArgs e)
+        {
+            SetupExperiment();
+        }
+
+        private void TandemSegmentCountField_Changed(object sender, EventArgs e)
+        {
+            if (TandemSegmentCountField == null || TandemSegmentCountStepper == null) return;
+
+            var value = Math.Max(TandemSegmentCountField.IntValue, 2);
+            TandemSegmentCountField.IntValue = value;
+            TandemSegmentCountStepper.IntValue = value;
+
+            SetupExperiment();
+        }
+
+        private void TandemSegmentCountStepper_Activated(object sender, EventArgs e)
+        {
+            if (TandemSegmentCountField == null || TandemSegmentCountStepper == null) return;
+
+            TandemSegmentCountField.IntValue = TandemSegmentCountStepper.IntValue;
+
+            SetupExperiment();
         }
 
         private void SolverInterface_AnalysisFinished(object sender, SolverConvergence e) { _isrunning = false; ApplyModelButton.Enabled = true; }
@@ -151,22 +197,49 @@ namespace AnalysisITC
 
             volume = Math.Floor(volume * 10000000) / 10000000;
 
-            for (int i = 0; i < injcount; i++)
+            var segments = new List<TandemConcatenation.TandemInjectionSegment>();
+
+            for (int segment = 0; segment < TandemSegmentCount; segment++)
             {
-                if (i == 0 && UseSmallFirstInjection)
+                var segmentStart = Data.Injections.Count;
+
+                for (int i = 0; i < injcount; i++)
                 {
-                    Data.Injections.Add(new InjectionData(Data, i, SmallInjectionVolume, 0, false));
+                    var injectionID = Data.Injections.Count;
+
+                    if (i == 0 && UseSmallFirstInjection)
+                    {
+                        Data.Injections.Add(new InjectionData(Data, injectionID, SmallInjectionVolume, 0, false));
+                    }
+                    else Data.Injections.Add(new InjectionData(Data, injectionID, volume, 0, true));
                 }
-                else Data.Injections.Add(new InjectionData(Data, i, volume, 0, true));
+
+                if (UseTandemExperiment)
+                    segments.Add(new TandemConcatenation.TandemInjectionSegment(segmentStart, injcount, $"Load {segment + 1}"));
             }
 
-            RawDataReader.ProcessInjections(Data);
+            if (UseTandemExperiment)
+                TandemConcatenation.ProcessInjectionsWithBackMixing(Data, segments, CreateDesignerTandemBackMixingSettings());
+            else
+                RawDataReader.ProcessInjections(Data);
 
             SetInjectionDescription();
 
             ModelControl.Enabled = true;
 
             SetupModel();
+        }
+
+        private TandemConcatenation.BackMixingSettings CreateDesignerTandemBackMixingSettings()
+        {
+            return new TandemConcatenation.BackMixingSettings
+            {
+                UseBackMixingMethod = true,
+                DidRemoveOverflow = true,
+                DeadVolume = Instrument.GetProperties().DeadVolume,
+                MixingFraction = DesignerTandemMixingFraction,
+                RemoveOverflowVolume = 0.0,
+            };
         }
 
         private void SetInjectionDescription()
@@ -181,8 +254,26 @@ namespace AnalysisITC
 
                 if (Data.Injections.Where(inj => inj.ID > i).All(inj => inj.Volume == curr.Volume))
                 {
+                    // All subsequent are identical, finish up
                     injdescription += "#" + (i + 1).ToString() + "-" + Data.Injections.Count.ToString() + ": " + (1000000 * curr.Volume).ToString("F1") + " µl, ";
                     break;
+                }
+                else if (next != null && curr.Volume == next.Volume)
+                {
+                    string row = $"#{i + 1}-";
+
+                    while (i < Data.InjectionCount)
+                    {
+                        i++;
+
+                        next = i < Data.InjectionCount - 1 ? Data.Injections[i + 1] : null;
+
+                        if (next == null || curr.Volume != next.Volume) break;
+                    }
+
+                    row += $"{i + 1}: {1000000 * curr.Volume:F1} µl, ";
+
+                    injdescription += row;
                 }
                 else if (next != null && curr.Volume != next.Volume)
                     injdescription += "#" + (i + 1).ToString() + ": " + (1000000 * curr.Volume).ToString("F1") + " µl, ";
@@ -360,7 +451,7 @@ namespace AnalysisITC
 
             foreach (var inj in Data.Injections)
             {
-                var injmass = inj.ID == 0 && UseSmallFirstInjection ? inj.InjectionMass * 0.8 : inj.InjectionMass;
+                var injmass = IsSmallInitialInjection(inj) ? inj.InjectionMass * 0.8 : inj.InjectionMass;
                 var dH = Data.Model.EvaluateEnthalpy(inj.ID);
                 var noise = SimulateNoiseControl.State == NSCellStateValue.On ?
                     2000 / (Math.Sqrt(inj.InjectionMass * Math.Pow(10, 11))) :
@@ -370,6 +461,16 @@ namespace AnalysisITC
             }
 
             SimGraphView.Initialize(Data);
+        }
+
+        private bool IsSmallInitialInjection(InjectionData injection)
+        {
+            if (!UseSmallFirstInjection) return false;
+
+            if (Data?.Segments != null)
+                return Data.Segments.Any(segment => segment.FirstInjectionID == injection.ID);
+
+            return injection.ID == 0;
         }
 
         private void FitSyntheticData()

@@ -2246,7 +2246,7 @@ In most cases, interpretation of affinities provided by ITC is straightforward, 
                                                                     </textFieldCell>
                                                                 </textField>
                                                                 <button horizontalHuggingPriority="249" verticalHuggingPriority="750" verticalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="b4e-3e-rKl">
-                                                                    <rect key="frame" x="5" y="104" width="365" height="41"/>
+                                                                    <rect key="frame" x="5" y="127" width="365" height="18"/>
                                                                     <buttonCell key="cell" type="check" title="Simulate experiment noise" bezelStyle="regularSquare" imagePosition="trailing" inset="2" id="wR2-N7-mrq">
                                                                         <behavior key="behavior" pushIn="YES" changeContents="YES" lightByContents="YES"/>
                                                                         <font key="font" metaFont="system"/>
@@ -2256,10 +2256,10 @@ In most cases, interpretation of affinities provided by ITC is straightforward, 
                                                                     </connections>
                                                                 </button>
                                                                 <box verticalHuggingPriority="1000" verticalCompressionResistancePriority="1000" boxType="separator" translatesAutoresizingMaskIntoConstraints="NO" id="uy5-RP-Dzf">
-                                                                    <rect key="frame" x="5" y="98" width="368" height="5"/>
+                                                                    <rect key="frame" x="5" y="121" width="368" height="5"/>
                                                                 </box>
                                                                 <stackView distribution="fill" orientation="horizontal" alignment="firstBaseline" spacing="3" horizontalStackHuggingPriority="249.99998474121094" verticalStackHuggingPriority="1000" verticalCompressionResistancePriority="1000" detachesHiddenViews="YES" translatesAutoresizingMaskIntoConstraints="NO" id="UDc-Fb-ki2">
-                                                                    <rect key="frame" x="5" y="76" width="363" height="20"/>
+                                                                    <rect key="frame" x="5" y="99" width="363" height="20"/>
                                                                     <subviews>
                                                                         <textField horizontalHuggingPriority="249" verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="Tiz-Rf-5IW">
                                                                             <rect key="frame" x="-2" y="0.0" width="281" height="20"/>
@@ -2320,7 +2320,7 @@ In most cases, interpretation of affinities provided by ITC is straightforward, 
                                                                     </customSpacing>
                                                                 </stackView>
                                                                 <stackView distribution="fill" orientation="horizontal" alignment="firstBaseline" spacing="3" horizontalStackHuggingPriority="249.99998474121094" verticalStackHuggingPriority="1000" verticalHuggingPriority="1000" verticalCompressionResistancePriority="1000" detachesHiddenViews="YES" translatesAutoresizingMaskIntoConstraints="NO" id="aWr-mw-TEn">
-                                                                    <rect key="frame" x="5" y="52" width="363" height="20"/>
+                                                                    <rect key="frame" x="5" y="75" width="363" height="20"/>
                                                                     <subviews>
                                                                         <textField horizontalHuggingPriority="249" verticalHuggingPriority="751" horizontalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="MkK-1U-azZ">
                                                                             <rect key="frame" x="-2" y="0.0" width="281" height="20"/>
@@ -2381,8 +2381,56 @@ In most cases, interpretation of affinities provided by ITC is straightforward, 
                                                                     </customSpacing>
                                                                 </stackView>
                                                                 <box verticalHuggingPriority="1000" boxType="separator" translatesAutoresizingMaskIntoConstraints="NO" id="vSp-9g-x9E">
-                                                                    <rect key="frame" x="5" y="45" width="368" height="5"/>
+                                                                    <rect key="frame" x="5" y="69" width="368" height="4"/>
                                                                 </box>
+                                                                <stackView distribution="fill" orientation="horizontal" alignment="baseline" horizontalStackHuggingPriority="249.99998474121094" verticalStackHuggingPriority="999" verticalCompressionResistancePriority="1000" detachesHiddenViews="YES" translatesAutoresizingMaskIntoConstraints="NO" id="tDm-xP-Row">
+                                                                    <rect key="frame" x="5" y="47" width="363" height="20"/>
+                                                                    <subviews>
+                                                                        <button verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="tDm-xP-Chk">
+                                                                            <rect key="frame" x="0.0" y="-1" width="146" height="22"/>
+                                                                            <buttonCell key="cell" type="check" title="Tandem experiment" bezelStyle="regularSquare" imagePosition="right" inset="2" id="tDm-xP-Cel">
+                                                                                <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
+                                                                                <font key="font" metaFont="system"/>
+                                                                            </buttonCell>
+                                                                        </button>
+                                                                        <textField horizontalHuggingPriority="249" verticalHuggingPriority="750" verticalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="tDm-Ld-Lbl">
+                                                                            <rect key="frame" x="150" y="0.0" width="124" height="20"/>
+                                                                            <textFieldCell key="cell" lineBreakMode="clipping" alignment="right" title="Loads" id="tDm-Ld-LcL">
+                                                                                <font key="font" usesAppearanceFont="YES"/>
+                                                                                <color key="textColor" name="labelColor" catalog="System" colorSpace="catalog"/>
+                                                                                <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
+                                                                            </textFieldCell>
+                                                                        </textField>
+                                                                        <textField focusRingType="none" verticalHuggingPriority="1000" verticalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="tDm-Ld-Fld">
+                                                                            <rect key="frame" x="280" y="0.0" width="60" height="20"/>
+                                                                            <constraints>
+                                                                                <constraint firstAttribute="width" constant="60" id="tDm-Ld-Wdt"/>
+                                                                            </constraints>
+                                                                            <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" refusesFirstResponder="YES" sendsActionOnEndEditing="YES" borderStyle="border" focusRingType="none" alignment="right" title="2" placeholderString="2" id="tDm-Ld-FcL">
+                                                                                <font key="font" metaFont="system"/>
+                                                                                <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
+                                                                                <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
+                                                                            </textFieldCell>
+                                                                        </textField>
+                                                                        <stepper horizontalHuggingPriority="750" verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="tDm-Ld-Stp">
+                                                                            <rect key="frame" x="345" y="-4" width="19" height="28"/>
+                                                                            <stepperCell key="cell" continuous="YES" alignment="left" minValue="2" maxValue="10" doubleValue="2" id="tDm-Ld-ScL"/>
+                                                                        </stepper>
+                                                                    </subviews>
+                                                                    <edgeInsets key="edgeInsets" left="0.0" right="2" top="0.0" bottom="0.0"/>
+                                                                    <visibilityPriorities>
+                                                                        <integer value="1000"/>
+                                                                        <integer value="1000"/>
+                                                                        <integer value="1000"/>
+                                                                        <integer value="1000"/>
+                                                                    </visibilityPriorities>
+                                                                    <customSpacing>
+                                                                        <real value="3.4028234663852886e+38"/>
+                                                                        <real value="3.4028234663852886e+38"/>
+                                                                        <real value="3.4028234663852886e+38"/>
+                                                                        <real value="3.4028234663852886e+38"/>
+                                                                    </customSpacing>
+                                                                </stackView>
                                                                 <stackView distribution="fill" orientation="horizontal" alignment="baseline" horizontalStackHuggingPriority="249.99998474121094" verticalStackHuggingPriority="999" verticalCompressionResistancePriority="1000" detachesHiddenViews="YES" translatesAutoresizingMaskIntoConstraints="NO" id="RB6-fQ-MW3">
                                                                     <rect key="frame" x="5" y="23" width="363" height="20"/>
                                                                     <subviews>
@@ -2450,7 +2498,12 @@ In most cases, interpretation of affinities provided by ITC is straightforward, 
                                                                 </textField>
                                                             </subviews>
                                                             <edgeInsets key="edgeInsets" left="5" right="5" top="5" bottom="5"/>
+                                                            <constraints>
+                                                                <constraint firstAttribute="trailing" secondItem="ZeV-be-Hvb" secondAttribute="trailing" constant="5" id="iV4-Fk-Eat"/>
+                                                                <constraint firstItem="ZeV-be-Hvb" firstAttribute="leading" secondItem="uI0-iY-mTq" secondAttribute="leading" constant="5" id="zUK-LV-cVC"/>
+                                                            </constraints>
                                                             <visibilityPriorities>
+                                                                <integer value="1000"/>
                                                                 <integer value="1000"/>
                                                                 <integer value="1000"/>
                                                                 <integer value="1000"/>
@@ -2463,6 +2516,7 @@ In most cases, interpretation of affinities provided by ITC is straightforward, 
                                                                 <integer value="1000"/>
                                                             </visibilityPriorities>
                                                             <customSpacing>
+                                                                <real value="3.4028234663852886e+38"/>
                                                                 <real value="3.4028234663852886e+38"/>
                                                                 <real value="3.4028234663852886e+38"/>
                                                                 <real value="3.4028234663852886e+38"/>
@@ -2640,6 +2694,10 @@ In most cases, interpretation of affinities provided by ITC is straightforward, 
                         <outlet property="SmallInitialInjControl" destination="MCQ-u5-v5T" id="ti0-ZN-RqI"/>
                         <outlet property="SyringeConcErrorField" destination="Ydi-oc-Peu" id="eXe-M3-FFg"/>
                         <outlet property="SyringeConcField" destination="S2v-f2-v9O" id="0mV-Px-AhN"/>
+                        <outlet property="TandemExperimentControl" destination="tDm-xP-Chk" id="tDm-o1-Chk"/>
+                        <outlet property="TandemSegmentCountField" destination="tDm-Ld-Fld" id="tDm-o1-Fld"/>
+                        <outlet property="TandemSegmentCountLabel" destination="tDm-Ld-Lbl" id="tDm-o1-Lbl"/>
+                        <outlet property="TandemSegmentCountStepper" destination="tDm-Ld-Stp" id="tDm-o1-Stp"/>
                     </connections>
                 </viewController>
                 <stackView distribution="fill" orientation="vertical" alignment="leading" horizontalStackHuggingPriority="249.99998474121094" verticalStackHuggingPriority="1000" verticalHuggingPriority="1000" verticalCompressionResistancePriority="1000" detachesHiddenViews="YES" id="7s5-sy-mii">
@@ -2683,14 +2741,14 @@ In most cases, interpretation of affinities provided by ITC is straightforward, 
             <objects>
                 <viewController title="Buffer Subtraction Tool" id="Bde-GA-GrI" customClass="BufferSubtractionTool" sceneMemberID="viewController">
                     <view key="view" id="TAn-zL-CfY">
-                        <rect key="frame" x="0.0" y="0.0" width="470" height="627"/>
+                        <rect key="frame" x="0.0" y="0.0" width="470" height="626"/>
                         <autoresizingMask key="autoresizingMask"/>
                         <subviews>
                             <stackView distribution="fill" orientation="vertical" alignment="leading" spacing="5" horizontalStackHuggingPriority="250" verticalStackHuggingPriority="250" horizontalHuggingPriority="750" verticalHuggingPriority="1000" detachesHiddenViews="YES" translatesAutoresizingMaskIntoConstraints="NO" id="ixZ-yR-KeS">
-                                <rect key="frame" x="0.0" y="0.0" width="470" height="627"/>
+                                <rect key="frame" x="0.0" y="0.0" width="470" height="626"/>
                                 <subviews>
                                     <textField horizontalHuggingPriority="249" verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="1MC-aY-o3N">
-                                        <rect key="frame" x="18" y="591" width="434" height="16"/>
+                                        <rect key="frame" x="18" y="590" width="434" height="16"/>
                                         <textFieldCell key="cell" lineBreakMode="clipping" alignment="center" title="Buffer Subtraction Tool" id="Idz-hb-bFA">
                                             <font key="font" textStyle="headline" name=".SFNS-Bold"/>
                                             <color key="textColor" name="labelColor" catalog="System" colorSpace="catalog"/>
@@ -2698,7 +2756,7 @@ In most cases, interpretation of affinities provided by ITC is straightforward, 
                                         </textFieldCell>
                                     </textField>
                                     <textField verticalHuggingPriority="1000" horizontalCompressionResistancePriority="250" translatesAutoresizingMaskIntoConstraints="NO" id="MxE-8J-EPZ">
-                                        <rect key="frame" x="18" y="570" width="434" height="16"/>
+                                        <rect key="frame" x="18" y="569" width="434" height="16"/>
                                         <textFieldCell key="cell" selectable="YES" alignment="justified" title="Subtract buffer heats from selected experiments." id="gq9-Yj-t0I">
                                             <font key="font" metaFont="system"/>
                                             <color key="textColor" name="labelColor" catalog="System" colorSpace="catalog"/>
@@ -2706,10 +2764,10 @@ In most cases, interpretation of affinities provided by ITC is straightforward, 
                                         </textFieldCell>
                                     </textField>
                                     <box verticalHuggingPriority="750" boxType="separator" translatesAutoresizingMaskIntoConstraints="NO" id="xdf-my-ax5">
-                                        <rect key="frame" x="20" y="562" width="447" height="5"/>
+                                        <rect key="frame" x="20" y="561" width="447" height="5"/>
                                     </box>
                                     <stackView distribution="fill" orientation="horizontal" alignment="firstBaseline" horizontalStackHuggingPriority="249.99998474121094" verticalStackHuggingPriority="249.99998474121094" verticalHuggingPriority="1000" detachesHiddenViews="YES" translatesAutoresizingMaskIntoConstraints="NO" id="jOo-PE-5MD">
-                                        <rect key="frame" x="20" y="539" width="430" height="20"/>
+                                        <rect key="frame" x="20" y="538" width="430" height="20"/>
                                         <subviews>
                                             <textField toolTip="The degree of mixing expected between the active cell volume and the dead volume." horizontalHuggingPriority="249" verticalHuggingPriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="tYD-Lu-quN">
                                                 <rect key="frame" x="-2" y="3" width="176" height="16"/>
@@ -2753,7 +2811,7 @@ In most cases, interpretation of affinities provided by ITC is straightforward, 
                                         </customSpacing>
                                     </stackView>
                                     <stackView distribution="fill" orientation="horizontal" alignment="centerY" horizontalStackHuggingPriority="249.99998474121094" verticalStackHuggingPriority="1000" verticalHuggingPriority="1000" detachesHiddenViews="YES" translatesAutoresizingMaskIntoConstraints="NO" id="buf-method-row">
-                                        <rect key="frame" x="20" y="518" width="430" height="16"/>
+                                        <rect key="frame" x="20" y="517" width="430" height="16"/>
                                         <subviews>
                                             <textField horizontalHuggingPriority="249" verticalHuggingPriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="buf-method-label">
                                                 <rect key="frame" x="-2" y="0.0" width="176" height="16"/>
@@ -2791,10 +2849,10 @@ In most cases, interpretation of affinities provided by ITC is straightforward, 
                                         </customSpacing>
                                     </stackView>
                                     <stackView distribution="fill" orientation="horizontal" alignment="firstBaseline" horizontalStackHuggingPriority="249.99998474121094" verticalStackHuggingPriority="1000" verticalHuggingPriority="1000" detachesHiddenViews="YES" translatesAutoresizingMaskIntoConstraints="NO" id="buf-y-axis-row">
-                                        <rect key="frame" x="20" y="497" width="430" height="16"/>
+                                        <rect key="frame" x="20" y="498" width="430" height="14"/>
                                         <subviews>
                                             <textField horizontalHuggingPriority="249" verticalHuggingPriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="buf-y-axis-label">
-                                                <rect key="frame" x="-2" y="0.0" width="176" height="16"/>
+                                                <rect key="frame" x="-2" y="0.0" width="348" height="14"/>
                                                 <textFieldCell key="cell" lineBreakMode="clipping" title="Y axis" id="buf-y-axis-label-cell">
                                                     <font key="font" usesAppearanceFont="YES"/>
                                                     <color key="textColor" name="labelColor" catalog="System" colorSpace="catalog"/>
@@ -2802,7 +2860,7 @@ In most cases, interpretation of affinities provided by ITC is straightforward, 
                                                 </textFieldCell>
                                             </textField>
                                             <button toolTip="Scale the graph's Y axis from the buffer data only." verticalHuggingPriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="buf-y-axis-buffer-only">
-                                                <rect key="frame" x="173" y="-2" width="92" height="18"/>
+                                                <rect key="frame" x="352" y="-1" width="79" height="16"/>
                                                 <buttonCell key="cell" type="check" title="Buffer only" bezelStyle="regularSquare" imagePosition="right" alignment="left" controlSize="small" inset="2" id="buf-y-axis-buffer-only-cell">
                                                     <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                                     <font key="font" metaFont="smallSystem"/>
@@ -2822,7 +2880,7 @@ In most cases, interpretation of affinities provided by ITC is straightforward, 
                                         </customSpacing>
                                     </stackView>
                                     <textField horizontalHuggingPriority="249" verticalHuggingPriority="1000" horizontalCompressionResistancePriority="250" translatesAutoresizingMaskIntoConstraints="NO" id="oVd-K0-1fE">
-                                        <rect key="frame" x="18" y="436" width="434" height="56"/>
+                                        <rect key="frame" x="18" y="437" width="434" height="56"/>
                                         <textFieldCell key="cell" controlSize="small" selectable="YES" alignment="left" id="ez6-x6-5bi">
                                             <font key="font" metaFont="smallSystem"/>
                                             <string key="title">Experiment:
@@ -2834,7 +2892,7 @@ Comments:</string>
                                         </textFieldCell>
                                     </textField>
                                     <customView translatesAutoresizingMaskIntoConstraints="NO" id="j0q-Cs-mAL" customClass="BufferSubtractionGraphView">
-                                        <rect key="frame" x="20" y="251" width="430" height="180"/>
+                                        <rect key="frame" x="20" y="252" width="430" height="180"/>
                                         <constraints>
                                             <constraint firstAttribute="height" constant="180" id="w8I-ga-Dqh"/>
                                         </constraints>
@@ -6689,7 +6747,7 @@ DQ
                             <rect key="frame" x="0.0" y="0.0" width="454" height="52"/>
                             <subviews>
                                 <button verticalHuggingPriority="750" verticalCompressionResistancePriority="250" translatesAutoresizingMaskIntoConstraints="NO" id="Ibj-M0-dHf">
-                                    <rect key="frame" x="1" y="21" width="111" height="31"/>
+                                    <rect key="frame" x="1" y="-1" width="111" height="31"/>
                                     <buttonCell key="cell" type="recessed" title="Overview" bezelStyle="recessed" alignment="center" controlSize="large" lineBreakMode="truncatingTail" state="on" borderStyle="border" inset="2" id="ed1-E0-79d">
                                         <behavior key="behavior" lightByBackground="YES" lightByGray="YES" changeBackground="YES" changeGray="YES"/>
                                         <font key="font" metaFont="system"/>
@@ -6705,7 +6763,7 @@ DQ
                                     <rect key="frame" x="111" y="1" width="5" height="50"/>
                                 </box>
                                 <button verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="zTg-QH-FPo">
-                                    <rect key="frame" x="115" y="0.0" width="111" height="31"/>
+                                    <rect key="frame" x="115" y="20" width="111" height="31"/>
                                     <buttonCell key="cell" type="recessed" title="Process Data" bezelStyle="recessed" alignment="center" controlSize="large" lineBreakMode="truncatingTail" borderStyle="border" inset="2" id="o5L-6P-mOP">
                                         <behavior key="behavior" lightByBackground="YES" lightByGray="YES" changeBackground="YES" changeGray="YES"/>
                                         <font key="font" metaFont="system"/>
@@ -6721,7 +6779,7 @@ DQ
                                     <rect key="frame" x="225" y="1" width="5" height="50"/>
                                 </box>
                                 <button verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="v0f-iE-gM6">
-                                    <rect key="frame" x="229" y="0.0" width="110" height="31"/>
+                                    <rect key="frame" x="229" y="20" width="110" height="31"/>
                                     <buttonCell key="cell" type="recessed" title="Analyze Data" bezelStyle="recessed" alignment="center" controlSize="large" lineBreakMode="truncatingTail" borderStyle="border" inset="2" id="946-Qa-1ae">
                                         <behavior key="behavior" lightByBackground="YES" lightByGray="YES" changeBackground="YES" changeGray="YES"/>
                                         <font key="font" metaFont="system"/>
@@ -6737,7 +6795,7 @@ DQ
                                     <rect key="frame" x="338" y="1" width="5" height="50"/>
                                 </box>
                                 <button verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="DGH-oN-EAU">
-                                    <rect key="frame" x="342" y="0.0" width="111" height="31"/>
+                                    <rect key="frame" x="342" y="20" width="111" height="31"/>
                                     <buttonCell key="cell" type="recessed" title="Final Figure" bezelStyle="recessed" alignment="center" controlSize="large" lineBreakMode="truncatingTail" borderStyle="border" inset="2" id="Fgw-Bk-CyU">
                                         <behavior key="behavior" lightByBackground="YES" lightByGray="YES" changeBackground="YES" changeGray="YES"/>
                                         <font key="font" metaFont="system"/>
@@ -8273,7 +8331,7 @@ IA
                             <rect key="frame" x="0.0" y="0.0" width="722" height="23"/>
                             <subviews>
                                 <textField identifier="Label" horizontalHuggingPriority="249" horizontalCompressionResistancePriority="250" ambiguous="YES" translatesAutoresizingMaskIntoConstraints="NO" id="KWS-da-5xq">
-                                    <rect key="frame" x="3" y="7" width="313" height="16"/>
+                                    <rect key="frame" x="3" y="0.0" width="313" height="23"/>
                                     <textFieldCell key="cell" lineBreakMode="clipping" title="Enthalpy variable constraint" id="tl2-L4-NYq">
                                         <font key="font" metaFont="system"/>
                                         <color key="textColor" name="labelColor" catalog="System" colorSpace="catalog"/>
@@ -13920,7 +13978,7 @@ DQ
                                 <rect key="frame" x="0.0" y="0.0" width="600" height="338"/>
                                 <subviews>
                                     <textField verticalHuggingPriority="1000" verticalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="Hgi-Kf-czZ">
-                                        <rect key="frame" x="18" y="276" width="564" height="16"/>
+                                        <rect key="frame" x="18" y="302" width="564" height="16"/>
                                         <textFieldCell key="cell" lineBreakMode="clipping" alignment="left" title="Processor Settings" id="QKO-5o-YxO">
                                             <font key="font" metaFont="systemBold"/>
                                             <color key="textColor" name="labelColor" catalog="System" colorSpace="catalog"/>
@@ -13928,7 +13986,7 @@ DQ
                                         </textFieldCell>
                                     </textField>
                                     <stackView distribution="fill" orientation="horizontal" alignment="top" horizontalStackHuggingPriority="249.99998474121094" verticalStackHuggingPriority="1000" verticalHuggingPriority="1000" verticalCompressionResistancePriority="1000" detachesHiddenViews="YES" translatesAutoresizingMaskIntoConstraints="NO" id="3vW-Zq-dxd">
-                                        <rect key="frame" x="20" y="250" width="560" height="18"/>
+                                        <rect key="frame" x="20" y="276" width="560" height="18"/>
                                         <subviews>
                                             <textField toolTip="Method used to account for changing concentrations after each injection." horizontalHuggingPriority="249" verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="Sn8-dd-09Z">
                                                 <rect key="frame" x="-2" y="0.0" width="369" height="18"/>
@@ -13959,10 +14017,10 @@ DQ
                                         </customSpacing>
                                     </stackView>
                                     <stackView distribution="fill" orientation="horizontal" alignment="top" horizontalStackHuggingPriority="249.99998474121094" verticalStackHuggingPriority="1000" verticalHuggingPriority="1000" verticalCompressionResistancePriority="1000" detachesHiddenViews="YES" translatesAutoresizingMaskIntoConstraints="NO" id="peak-fit-row">
-                                        <rect key="frame" x="20" y="224" width="560" height="18"/>
+                                        <rect key="frame" x="20" y="250" width="560" height="18"/>
                                         <subviews>
                                             <textField toolTip="Default model used when fitting injection peaks during processing." horizontalHuggingPriority="249" verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="peak-fit-label">
-                                                <rect key="frame" x="-2" y="0.0" width="387" height="18"/>
+                                                <rect key="frame" x="-2" y="0.0" width="414" height="18"/>
                                                 <textFieldCell key="cell" lineBreakMode="clipping" title="Default peak fitting algorithm" id="peak-fit-label-cell">
                                                     <font key="font" usesAppearanceFont="YES"/>
                                                     <color key="textColor" name="labelColor" catalog="System" colorSpace="catalog"/>
@@ -13970,7 +14028,7 @@ DQ
                                                 </textFieldCell>
                                             </textField>
                                             <segmentedControl toolTip="Default model used when fitting injection peaks during processing." verticalHuggingPriority="750" verticalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="peak-fit-control">
-                                                <rect key="frame" x="389" y="-2" width="173" height="21"/>
+                                                <rect key="frame" x="416" y="-2" width="146" height="21"/>
                                                 <segmentedCell key="cell" controlSize="small" borderStyle="border" alignment="left" segmentDistribution="fill" style="rounded" trackingMode="selectOne" id="peak-fit-cell">
                                                     <font key="font" metaFont="smallSystem"/>
                                                     <segments>
@@ -14248,8 +14306,10 @@ DQ
                                     <integer value="1000"/>
                                     <integer value="1000"/>
                                     <integer value="1000"/>
+                                    <integer value="1000"/>
                                 </visibilityPriorities>
                                 <customSpacing>
+                                    <real value="3.4028234663852886e+38"/>
                                     <real value="3.4028234663852886e+38"/>
                                     <real value="3.4028234663852886e+38"/>
                                     <real value="3.4028234663852886e+38"/>

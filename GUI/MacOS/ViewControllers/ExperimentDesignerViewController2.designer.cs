@@ -34,6 +34,18 @@ namespace AnalysisITC
 		AppKit.NSTextField InjectionInfoField { get; set; }
 
 		[Outlet]
+		AppKit.NSButton TandemExperimentControl { get; set; }
+
+		[Outlet]
+		AppKit.NSTextField TandemSegmentCountField { get; set; }
+
+		[Outlet]
+		AppKit.NSTextField TandemSegmentCountLabel { get; set; }
+
+		[Outlet]
+		AppKit.NSStepper TandemSegmentCountStepper { get; set; }
+
+		[Outlet]
 		AppKit.NSTextField InstrumentDescriptionField { get; set; }
 
 		[Outlet]
@@ -131,6 +143,26 @@ namespace AnalysisITC
 			if (InjectionInfoField != null) {
 				InjectionInfoField.Dispose ();
 				InjectionInfoField = null;
+			}
+
+			if (TandemExperimentControl != null) {
+				TandemExperimentControl.Dispose ();
+				TandemExperimentControl = null;
+			}
+
+			if (TandemSegmentCountField != null) {
+				TandemSegmentCountField.Dispose ();
+				TandemSegmentCountField = null;
+			}
+
+			if (TandemSegmentCountLabel != null) {
+				TandemSegmentCountLabel.Dispose ();
+				TandemSegmentCountLabel = null;
+			}
+
+			if (TandemSegmentCountStepper != null) {
+				TandemSegmentCountStepper.Dispose ();
+				TandemSegmentCountStepper = null;
 			}
 
 			if (InstrumentDescriptionField != null) {
