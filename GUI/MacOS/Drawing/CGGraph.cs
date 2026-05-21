@@ -1120,7 +1120,7 @@ namespace AnalysisITC
 
             if (!string.IsNullOrEmpty(injectionDelayInfo))
             {
-                lines.Add("Delays: " + injectionDelayInfo);
+                lines.Add("Delay: " + injectionDelayInfo);
             }
         }
 
