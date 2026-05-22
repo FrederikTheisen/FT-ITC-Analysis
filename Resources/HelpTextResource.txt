@@ -1,16 +1,18 @@
 ## About \appname
-\appname is a macOS desktop application for processing, analyzing, and presenting isothermal titration calorimetry (ITC) data. It is a standalone graphical application that can be installed and launched like any other macOS program. All core workflows are available through the interface; no programming or scripting is required.
+\appname is a macOS desktop application for processing, analyzing, designing, and presenting isothermal titration calorimetry (ITC) experiments. It is a standalone graphical application that can be installed and launched like any other macOS program. All core workflows are available through the interface; no programming or scripting is required.
 # What you can do with it
 **Work on your own computer:** process and analyze ITC data away from the instrument workstation, whether in the office, at home, or while travelling.
 **Import data from multiple sources:** raw data from MicroCal-style instruments, exports from TA Instruments, PEAQ-ITC project files, integrated heats, and \appname project files.
 **Process thermograms:** define baselines and integration regions using automated tools, with manual adjustment where needed.
+**Design experiments:** simulate titration layouts, model parameters, injection volumes, small first injections, and tandem experiment designs before collecting data.
 **Fit models:** perform single-experiment fitting or global analysis across multiple experiments, including optional temperature-dependent constraints where applicable.
+**Review and export results:** inspect analysis results, derived thermodynamic values, advanced analyses, and export CSV/TSV result tables.
 **Export figures:** generate publication-ready plots in the classical calorimetric style, with optional residual plots for diagnostics.
 
 ## Getting Started
 # Loading Data
 When the program opens, press **\enter** to browse for files or press **\space** to load the most recently used project or data file(s). After loading, inspect the dataset in the **Overview** tab.
-The overview displays experiment metadata such as instrument information, experiment date and duration, and cell and syringe concentrations. Concentrations, temperature, and other experiment attributes can be edited in the experiment details view.
+The overview displays experiment metadata such as instrument information, experiment date and duration, cell and syringe concentrations. Concentrations, temperature, comments, and other experiment attributes can be edited in the experiment details view.
 # Compatible File Formats
 \appname can read the following file types:
 **MicroCal-style raw data:** `.itc`
@@ -18,40 +20,52 @@ The overview displays experiment metadata such as instrument information, experi
 **PEAQ-ITC project files:** `.apj`
 **Integrated heats:** `.dat`, `.aff`, `.dh`
 **\appname project files:** `.ftitc`
-Drag compatible files into the app window, or use **File > Open…** to select them manually.
-Once loaded, datasets behave the same in the application regardless of instrument type”. \appname does not modify raw data files. To make a project portable across computers, save it as a `.ftitc` file.
+Drag compatible files into the app window, or use **File > Open...** to select them manually.
+Once loaded, datasets behave the same in the application regardless of instrument type. \appname does not modify raw data files. To make a project portable across computers, save it as a `.ftitc` file.
 
 ## Processing Data
 Processing is the first step in ITC analysis. It consists of defining the baseline and the integration region for each injection.
-Integrated heats are calculated by numerically integrating the baseline-corrected thermogram over the selected integration window. In the **Processing** view, you can zoom using the control in the lower-left corner or by dragging a zoom region. To focus on a specific injection, double-click within its injection scope.
+Integrated heats are calculated by numerically integrating the baseline-corrected thermogram over the selected integration window. In the **Processing** view, you can zoom using the controls in the lower-left corner or by dragging a zoom region. To focus on a specific injection, double-click within its injection scope.
 # Selecting a Baseline Type
-\appname supports two baseline interpolators.
-**Spline baseline:** interpolates between baseline handle points. Handle points are placed automatically using averages of baseline regions around injections. The spline can be either smooth or linear. In handle mode, tangents can be adjusted, additional handle points can be added, and existing points can be moved vertically to improve the baseline.
-**Polynomial baseline:** fits a polynomial iteratively while rejecting outlier points such as peaks. This method offers less manual control but can perform well on low-noise thermograms. Lower degrees give a less flexible baseline and higher degrees give more flexibility but increase the risk of overfitting.
-By default, both baseline methods exclude points inside the integration regions. As a result, changing integration start or end positions also changes the baseline fit.
+\appname supports three baseline interpolators.
+**Spline baseline:** places baseline handle points around injection scopes and interpolates between them. The spline can be linear or smooth. Sparse, balanced, and dense point-density settings control the target number of points per injection, while the app adapts the actual point count to the usable baseline length. Handle values can be based on the mean or median of local baseline points. Spline points can be shown, moved, added, removed, or locked for manual correction.
+**Polynomial baseline:** fits a single polynomial across the thermogram while iteratively rejecting outlier points such as injection peaks. This method offers less manual control but can perform well on low-noise thermograms. Lower degrees give a less flexible baseline and higher degrees give more flexibility but increase the risk of overfitting.
+**Segmented baseline:** fits local linear or quadratic baseline segments before and after injection regions, then blends across the integrated peak windows. This mode is useful when the baseline drifts differently in different parts of the thermogram or when a single global polynomial is too rigid.
+By default, baseline fitting excludes points inside the integration regions. As a result, changing integration start or end positions can also change the fitted baseline. Lock the processor or lock/edit spline points when you want to preserve a baseline while adjusting other settings.
+Polynomial and segmented baselines can be converted to spline baselines when you need manual point-level editing after an automatic fit.
 # Setting the Integration Region
 Choosing an appropriate integration region is important both for accuracy and for noise reduction. Integrating over the full injection scope often adds unnecessary noise.
 \appname allows you to adjust all integration regions together using the **integration start delay** and **region length** controls. Time-based and factor-based integration lengths are available, and **\peakfit** can be used when you want the program to estimate integration endpoints from fitted peak shapes.
 You can also edit injections individually by dragging the blue region markers. When zoomed to a single injection, pressing **\space** copies the current integration length to the next injection and advances the view.
 
 ## Analyzing Data
-Model fitting is performed in the **Analysis** tab. \appname currently supports four standard models:
+Model fitting is performed in the **Analysis** tab. \appname currently exposes four standard fitting models:
 **One-set-of-sites:** single binding process with one class of sites.
 **Two-sets-of-sites:** two independent classes of binding sites fitted simultaneously.
 **Competitive binding:** binding model including a competing species.
-**Dissociation:** model describing dissociation of a preformed complex during titration.
-All models are implemented according to MicroCal-style formalism.
+**Dissociation:** dissociation of an injected preformed complex.
+All models are implemented according to MicroCal-style formalism and use the processed integrated heats from the active datasets.
 # Single-Experiment Analysis
-The default workflow is to analyze one experiment at a time. Select a model, set fitting options, and provide reasonable initial parameter guesses. Injections can be excluded prior to fitting if needed.
+The default workflow is to analyze one experiment at a time. Select a model, set fitting options, provide reasonable initial parameter guesses, and run **\btnfit**. Injections can be excluded prior to fitting if needed.
 # Syringe Correction Mode
 In most ITC workflows, a fitted N-value is interpreted in the traditional MicroCal-style way and mainly compensates for uncertainty in the effective concentration of the species placed in the cell.
-Syringe correction mode is intended for cases where the main uncertainty is instead in the concentration of the material loaded in the syringe. When this mode is enabled, the fitted stoichiometry term is interpreted as a correction of the syringe-side titrant concentration during fitting rather than as a correction of the cell-side concentration.
-# \multexp
+Syringe correction mode is intended for cases where the main uncertainty is instead in the concentration of the material loaded in the syringe. When this mode is enabled, the fitted stoichiometry term is interpreted as a correction of the syringe-side titrant concentration during fitting rather than as a correction of the cell-side concentration. The result table reports this term as α when syringe correction is active.
+# \multexp and Global Fitting
 You can analyze multiple experiments at the same time using **\multexp** mode. In this mode, all active datasets are analyzed together and a combined Analysis Result is added to the data list.
-If the experiments were performed at different temperatures, the analysis result can consider this temperature variation to estimate temperature-dependent behavior, including the heat capacity change upon binding where applicable. Analysis results can also enable further analyses based on temperature, buffer, or salt conditions.
-# Global Fitting
-\appname can fit multiple experiments simultaneously using global optimization. Global fitting is useful for difficult interactions and for enforcing constraints across experiments, for example shared parameters across replicates, concentrations, or conditions.
-A typical workflow is to load and process the relevant experiments, mark the experiments you want to include, enable global fitting in the **Analysis** tab, choose which parameters are shared and which are allowed to vary, and then run the fit.
+Global fitting is useful for difficult interactions and for enforcing constraints across experiments, for example shared parameters across replicates, concentrations, or conditions. A typical workflow is to load and process the relevant experiments, mark the experiments you want to include, choose which parameters are shared or allowed to vary, and then run the fit.
+If the experiments were performed at different temperatures, the analysis result can expose temperature-dependent values such as \dh°, \dg, \tds, \kd, and \dcp where applicable. Analysis results can also enable derived analyses based on temperature, buffer, or salt conditions.
+
+## Analysis Results
+Each completed fit creates an **Analysis Result** in the data list. Opening a result shows the included experiments, solver information, fitting loss, weighted fitting state, uncertainty method, model options, constraints, and a table of fitted parameters.
+# Result Evaluation
+The result view evaluates thermodynamic quantities at a chosen temperature. When temperature dependence is fitted, the reference temperature is used by default; otherwise the mean experiment temperature is used. The result view can report \dh, \dg, \tds, \kd, \dcp, N-values, and second-site parameters where the selected model provides them.
+# Derived Analyses
+For one-set-of-sites results, additional tabs appear when the loaded experiments contain the required variation and metadata:
+**Temperature dependence:** available when the temperature span is large enough, with Spolar-Record style thermodynamic structuring analysis.
+**Ionic-strength dependence:** available when salt metadata is present and ionic strength varies across experiments.
+**Protonation analysis:** available when buffer metadata varies across experiments.
+# Exporting Analysis Results
+Use **Export result...** from the context menu or analysis result view to open the analysis result exporter. You can select one or more results, export one summary row per result or all replicate rows, choose value-with-error or separate value/error columns, and write CSV or TSV output. The same configured table can also be copied to the clipboard.
 
 ## Presenting Data
 \appname is designed to produce consistent, publication-oriented plots directly from raw data.
@@ -59,16 +73,23 @@ A typical workflow is to load and process the relevant experiments, mark the exp
 The publication figure layout follows the classical ITC presentation style: a thermogram together with integrated heats, model overlay, and optional residuals.
 Figures are generated from the current processing state and analysis result. Changing baseline or integration settings updates integrated heats, which in turn updates the fit and the final figure.
 # Exporting Data
-\appname includes export functions for processed results. Depending on the export tool, you can export integrated heats, associated uncertainties, raw power-vs-time traces, and fitted parameters from multi-experiment and global analyses.
-Export data using **File > Export** in the menu bar. Fitted parameters can also be copied from the analysis result view.
+\appname includes export functions for processed results. Depending on the export tool, you can export integrated heats, associated uncertainties, raw power-vs-time traces, fitted parameters, analysis result tables, and publication-oriented figures.
+Export data using **File > Export** in the menu bar, from relevant context menus, or from the analysis result exporter. Fitted parameters can also be copied from the analysis result view.
 
-## Additional Features
-# \designer
+## Experiment Designer
 The \designer supports planning ITC experiments from within \appname. It is intended for quickly checking experimental feasibility and setting up reasonable titration conditions before collecting data.
+# What the Designer Simulates
+The designer builds a synthetic experiment from the selected instrument, cell concentration, syringe concentration, injection count, injection volume mode, and optional small first injection. Injection volume can be calculated automatically from the instrument syringe volume or entered manually.
+After a model is selected, the designer exposes the model parameters and model options used by the same fitting engine as the analysis workflow. The graph updates automatically when inputs change. The designer can also add synthetic noise and run a fit against the simulated data, which helps check whether a proposed experiment is likely to constrain the chosen model.
+# Tandem Designs
+The designer can simulate tandem experiments with multiple syringe loads. When tandem mode is enabled, the specified injection series is repeated for each segment and concentration bookkeeping is recalculated between segments using the tandem back-mixing model. Small first injections are applied at the start of each segment.
+
+## Additional Tools
 # Experiment Attributes
 Experiment attributes are metadata attached to each dataset. They are used for derived analyses and for applying constraints in multi/global fitting. Attributes can be edited in the experiment details view and are stored in `.ftitc` project files.
 # Buffer Subtraction
 Buffer subtraction is provided as a dedicated tool. Select a reference buffer experiment, select one or more target experiments, and apply subtraction to generate buffer-corrected datasets. Buffer subtraction operates on loaded data within the project and does not modify raw data files.
 # Tandem Experiment Concatenation
-Tandem experiments can be collected by refilling the syringe during an ongoing sequence, producing multiple segments that should be treated as a single continuous titration. The tandem experiment merger combines these datasets into a single merged experiment.
-The merger tool preserves injection bookkeeping and concentration tracking across segments, so the merged dataset behaves like a single experiment in processing and analysis. A back-mixing mode is also available for cases where partial mixing during reload should be taken into account.
+Tandem experiments can be collected by refilling the syringe during an ongoing sequence, producing multiple segments that should be treated as a single continuous titration. The tandem experiment merger combines selected loaded datasets into a single merged experiment.
+The standard merge concatenates time-shifted thermograms and recomputes injection concentrations and ratios across the combined titration. If an input experiment has already been baseline processed, the merger uses its baseline-corrected trace for that segment.
+Back-mixing mode adds a simple overflow/dead-volume model between syringe loads. You can set the dead volume, choose whether displaced titrated solution was removed between segments, and adjust the fraction of the dead volume that mixes back into the active cell. The merged experiment stores segment start concentrations so processing, fitting, and project saving treat it as one tandem dataset.
