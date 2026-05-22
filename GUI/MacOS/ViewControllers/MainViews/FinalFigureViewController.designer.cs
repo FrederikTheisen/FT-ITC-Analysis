@@ -43,6 +43,9 @@ namespace AnalysisITC
 		AppKit.NSSwitch EmbeddedDrawConfidence { get; set; }
 
 		[Outlet]
+		AppKit.NSSwitch EmbeddedDrawOffsetCorrected { get; set; }
+
+		[Outlet]
 		AppKit.NSSwitch EmbeddedDrawCorrected { get; set; }
 
 		[Outlet]
@@ -218,6 +221,11 @@ namespace AnalysisITC
 			if (EmbeddedDrawConfidence != null) {
 				EmbeddedDrawConfidence.Dispose ();
 				EmbeddedDrawConfidence = null;
+			}
+
+			if (EmbeddedDrawOffsetCorrected != null) {
+				EmbeddedDrawOffsetCorrected.Dispose ();
+				EmbeddedDrawOffsetCorrected = null;
 			}
 
 			if (EmbeddedDrawCorrected != null) {

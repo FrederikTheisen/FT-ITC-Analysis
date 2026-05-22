@@ -1564,11 +1564,21 @@ namespace AnalysisITC
         private bool _useUnifiedAxes = false;
         private bool _useUnifiedEnthalpyAxis = false;
         private bool _focusvaliddata = true;
+        private bool _drawWithOffset = true;
 
         public bool DrawConfidenceBands { get; set; } = true;
         public bool ShowFitParameters { get; set; } = true;
         public int ParameterFontSize { get; set; } = 18;
-        public bool DrawWithOffset { get; set; } = true;
+        public bool DrawWithOffset
+        {
+            get => _drawWithOffset;
+            set
+            {
+                if (_drawWithOffset == value) return;
+                _drawWithOffset = value;
+                if (XAxis != null && YAxis != null) SetupAxes();
+            }
+        }
         public bool ShowGrid { get; set; } = true;
         public bool ShowZero { get; set; } = true;
         public bool ShowPeakInfo { get; set; } = true;

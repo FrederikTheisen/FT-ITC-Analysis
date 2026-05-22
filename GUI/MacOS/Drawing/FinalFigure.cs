@@ -77,6 +77,12 @@ namespace AnalysisITC
             set => IntegrationGraph.DrawConfidenceBands = value;
         }
 
+        public bool DrawFitOffsetCorrected
+        {
+            get => !IntegrationGraph.DrawWithOffset;
+            set => IntegrationGraph.DrawWithOffset = !value;
+        }
+
         public bool ShowBadDataPoints
         {
             get => IntegrationGraph.HideBadData;

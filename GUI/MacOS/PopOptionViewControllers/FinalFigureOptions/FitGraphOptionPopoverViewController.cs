@@ -30,6 +30,7 @@ namespace AnalysisITC
             AddGapToResidualPlot = AddGapToResidualPlot,
             BadDataErrorBars = BadDataErrorBars,
             DrawConfidence = DrawConfidence,
+            DrawOffsetCorrected = DrawOffsetCorrected,
             DrawErrorBars = DrawErrorBars,
             DrawZeroLine = DrawZeroLine,
             EnthalpyAxisTitleLabel = EnthalpyAxisTitleLabel,

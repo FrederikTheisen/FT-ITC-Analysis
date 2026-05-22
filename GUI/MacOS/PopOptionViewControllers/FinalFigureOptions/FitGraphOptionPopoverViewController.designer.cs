@@ -22,6 +22,9 @@ namespace AnalysisITC
 		AppKit.NSSwitch DrawConfidence { get; set; }
 
 		[Outlet]
+		AppKit.NSSwitch DrawOffsetCorrected { get; set; }
+
+		[Outlet]
 		AppKit.NSSwitch DrawErrorBars { get; set; }
 
 		[Outlet]
@@ -95,6 +98,11 @@ namespace AnalysisITC
 			if (DrawConfidence != null) {
 				DrawConfidence.Dispose ();
 				DrawConfidence = null;
+			}
+
+			if (DrawOffsetCorrected != null) {
+				DrawOffsetCorrected.Dispose ();
+				DrawOffsetCorrected = null;
 			}
 
 			if (DrawErrorBars != null) {

@@ -109,6 +109,7 @@ namespace AnalysisITC
         public static bool ShowErrorBars { get; set; } = true;
         public static bool ShowBadDataErrorBars { get; set; } = false;
         public static bool DrawConfidence { get; set; } = true;
+        public static bool DrawFitOffsetCorrected { get; set; } = true;
         public static bool DrawFitParameters { get; set; } = false;
         public static bool DrawExpDetails { get; set; } = true;
         public static bool DrawModelInfo { get; set; } = true;
@@ -214,6 +215,7 @@ namespace AnalysisITC
                 ShowBadDataErrorBars = ShowBadDataErrorBars,
                 ShowErrorBars = ShowErrorBars,
                 DrawConfidence = DrawConfidence,
+                DrawFitOffsetCorrected = DrawFitOffsetCorrected,
                 DrawZeroLine = DrawZeroLine,
                 DrawFitParameters = DrawFitParameters,
                 DrawExpDetails = FinalFigureGraphView.DrawExpDetails,
@@ -451,6 +453,7 @@ namespace AnalysisITC
                 ShowBadDataErrorBars = ShowBadDataErrorBars,
                 ShowErrorBars = ShowErrorBars,
                 DrawConfidence = DrawConfidence,
+                DrawFitOffsetCorrected = DrawFitOffsetCorrected,
                 DrawZeroLine = DrawZeroLine,
                 DrawFitParameters = DrawFitParameters,
                 DrawExpDetails = FinalFigureGraphView.DrawExpDetails,

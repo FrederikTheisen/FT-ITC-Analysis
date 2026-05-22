@@ -198,6 +198,7 @@ namespace AnalysisITC
             DrawErrorBars = EmbeddedDrawErrorBars,
             BadDataErrorBars = EmbeddedBadDataErrorBars,
             DrawConfidence = EmbeddedDrawConfidence,
+            DrawOffsetCorrected = EmbeddedDrawOffsetCorrected,
         };
 
         public override void ViewWillLayout()
