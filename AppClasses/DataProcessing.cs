@@ -279,10 +279,10 @@ namespace AnalysisITC
 
     public class SegmentedBaselineInterpolator : BaselineInterpolator
     {
-        public const int MinimumDegree = 1;
+        public const int MinimumDegree = 0;
         public const int MaximumDegree = 2;
 
-        int degree = MinimumDegree;
+        int degree = 1;
 
         public int Degree
         {
