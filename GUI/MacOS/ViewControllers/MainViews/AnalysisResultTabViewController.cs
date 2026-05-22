@@ -548,13 +548,14 @@ namespace AnalysisITC
 
                     var kdexponent = G / (T * Energy.R);
                     var Kd = FWEMath.Exp(kdexponent.FloatWithError);
+                    var evaluationStyle = UncertaintyDisplayStyle.StandardDeviationAndConfidenceInterval;
 
                     var lines = new List<string>()
                     {
-                        H.ToFormattedString(unit, permole: true),
-                        S.ToFormattedString(unit, permole: true),
-                        G.ToFormattedString(unit, permole: true),
-                        Kd.AsFormattedConcentration(true)
+                        H.ToFormattedString(unit, permole: true, style: evaluationStyle),
+                        S.ToFormattedString(unit, permole: true, style: evaluationStyle),
+                        G.ToFormattedString(unit, permole: true, style: evaluationStyle),
+                        Kd.AsFormattedConcentration(true, style: evaluationStyle)
                     };
                     var tooltiplines = new List<string>()
                     {
@@ -566,35 +567,35 @@ namespace AnalysisITC
 
                     if (H2 != null)
                     {
-                        lines.Add(((Energy)H2).ToFormattedString(unit, permole: true));
+                        lines.Add(((Energy)H2).ToFormattedString(unit, permole: true, style: evaluationStyle));
                         tooltiplines.Add($"∆H2 = {((Energy)H2).ToFormattedString(unit, permole: true, withci: true)}");
                     }
                     if (S2 != null)
                     {
-                        lines.Add(((Energy)S2).ToFormattedString(unit, permole: true));
+                        lines.Add(((Energy)S2).ToFormattedString(unit, permole: true, style: evaluationStyle));
                         tooltiplines.Add($"-T∆S2 = {((Energy)S2).ToFormattedString(unit, permole: true, withci: true)}");
                     }
                     if (G2 != null)
                     {
-                        lines.Add(((Energy)G2).ToFormattedString(unit, permole: true));
+                        lines.Add(((Energy)G2).ToFormattedString(unit, permole: true, style: evaluationStyle));
                         tooltiplines.Add($"∆G2 = {((Energy)G2).ToFormattedString(unit, permole: true, withci: true)}");
 
                         var kdexponent2 = (Energy)G2 / (T * Energy.R);
                         var Kd2 = FWEMath.Exp(kdexponent2.FloatWithError);
 
-                        lines.Add(Kd2.AsFormattedConcentration(true));
+                        lines.Add(Kd2.AsFormattedConcentration(true, style: evaluationStyle));
                         tooltiplines.Add($"Kd2 = {Kd2.AsFormattedConcentration(true, withci: true)}");
                     }
 
                     if (AnalysisResult.IsTemperatureDependenceEnabled)
                     {
                         var dcp1 = AnalysisResult.Solution.TemperatureDependence[ParameterType.Enthalpy1].Slope.Energy;
-                        lines.Insert(0, dcp1.ToFormattedString(unit, true, true, true));
+                        lines.Insert(0, dcp1.ToFormattedString(unit, true, true, true, style: evaluationStyle));
                         tooltiplines.Insert(0, $"∆Cp = {dcp1.ToFormattedString(unit, true, true, true, true)}");
                         if (H2 != null)
                         {
                             var dcp2 = AnalysisResult.Solution.TemperatureDependence[ParameterType.Enthalpy2].Slope.Energy;
-                            lines.Insert(0, dcp2.ToFormattedString(unit, true, true, true));
+                            lines.Insert(0, dcp2.ToFormattedString(unit, true, true, true, style: evaluationStyle));
                             tooltiplines.Insert(0, $"∆Cp = {dcp2.ToFormattedString(unit, true, true, true, true)}");
                         }
                     }

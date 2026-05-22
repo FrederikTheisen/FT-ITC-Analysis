@@ -23,6 +23,9 @@ namespace AnalysisITC
 		[Outlet]
 		AnalysisITC.ToggleSelectTableView ListView { get; set; }
 
+		[Outlet]
+		AppKit.NSSegmentedControl UncertaintyStyleControl { get; set; }
+
 		[Action ("CopyToClipboard:")]
 		partial void CopyToClipboard (Foundation.NSObject sender);
 
@@ -49,6 +52,11 @@ namespace AnalysisITC
 			if (ListView != null) {
 				ListView.Dispose ();
 				ListView = null;
+			}
+
+			if (UncertaintyStyleControl != null) {
+				UncertaintyStyleControl.Dispose ();
+				UncertaintyStyleControl = null;
 			}
 		}
 	}

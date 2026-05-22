@@ -129,28 +129,30 @@ namespace AnalysisITC
             return suffix;
         }
 
-        public string ToFormattedString(EnergyUnit unit, bool withunit = true, bool permole = false, bool perK = false, bool withci = false)
+        public string ToFormattedString(EnergyUnit unit, bool withunit = true, bool permole = false, bool perK = false, bool withci = false, UncertaintyDisplayStyle? style = null)
         {
             var suffix = withunit ? unit.GetUnit() : "";
             suffix += Suffix(permole, perK);
 
-            return FloatWithError.AsFormattedEnergy(unit, suffix, withunit, withci);
+            return FloatWithError.AsFormattedEnergy(unit, suffix, withunit, withci, style);
         }
 
-        public string ToString(EnergyUnit unit, string formatter, bool withunit = true, bool permole = false, bool perK = false)
+        public string ToString(EnergyUnit unit, string formatter, bool withunit = true, bool permole = false, bool perK = false, UncertaintyDisplayStyle? style = null)
         {
             var suffix = withunit ? unit.GetUnit() : "";
             suffix += Suffix(permole, perK);
 
-            return unit switch
+            var output = unit switch
             {
-                EnergyUnit.Joule => FloatWithError.ToString(formatter) + " " + suffix,
-                EnergyUnit.MicroCal => (1000000 * JouleToCalFactor * FloatWithError).ToString(formatter) + " " + suffix,
-                EnergyUnit.Cal => (JouleToCalFactor * FloatWithError).ToString(formatter) + " " + suffix,
-                EnergyUnit.KiloJoule => (FloatWithError / 1000).ToString(formatter) + " " + suffix,
-                EnergyUnit.KCal => (JouleToCalFactor * FloatWithError / 1000).ToString(formatter) + " " + suffix,
-                _ => FloatWithError.ToString(formatter) + " " + suffix,
+                EnergyUnit.Joule => FloatWithError.ToString(formatter, style),
+                EnergyUnit.MicroCal => (1000000 * JouleToCalFactor * FloatWithError).ToString(formatter, style),
+                EnergyUnit.Cal => (JouleToCalFactor * FloatWithError).ToString(formatter, style),
+                EnergyUnit.KiloJoule => (FloatWithError / 1000).ToString(formatter, style),
+                EnergyUnit.KCal => (JouleToCalFactor * FloatWithError / 1000).ToString(formatter, style),
+                _ => FloatWithError.ToString(formatter, style),
             };
+
+            return withunit && !string.IsNullOrWhiteSpace(suffix) ? output + " " + suffix : output;
         }
 
         public int CompareTo(object obj)

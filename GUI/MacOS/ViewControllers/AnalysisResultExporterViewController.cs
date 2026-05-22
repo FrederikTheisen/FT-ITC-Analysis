@@ -89,15 +89,27 @@ namespace AnalysisITC
                 RowMode = ExportTypeControl.SelectedSegment == 1 ? AnalysisResultExportRowMode.AllRows : AnalysisResultExportRowMode.Summary,
                 ErrorStyle = ErrorTypeControl.SelectedSegment == 1 ? AnalysisResultExportErrorStyle.SeparateColumns : AnalysisResultExportErrorStyle.ValueWithError,
                 FileFormat = ExportFormatControl.SelectedSegment == 1 ? AnalysisResultExportFileFormat.TSV : AnalysisResultExportFileFormat.CSV,
+                UncertaintyDisplayStyle = ExportUncertaintyStyle(),
                 EnergyUnit = AppSettings.EnergyUnit,
                 UseKelvin = false,
+            };
+        }
+
+        UncertaintyDisplayStyle ExportUncertaintyStyle()
+        {
+            return (int)UncertaintyStyleControl.SelectedSegment switch
+            {
+                1 => UncertaintyDisplayStyle.ConfidenceInterval,
+                2 => UncertaintyDisplayStyle.StandardDeviationAndConfidenceInterval,
+                _ => UncertaintyDisplayStyle.StandardDeviation,
             };
         }
 
         void SetupToolTips()
         {
             ExportTypeControl.ToolTip = "Choose whether to export one summary row per analysis result or every replicate row for each selected result.";
-            ErrorTypeControl.ToolTip = "Choose publication-style values with ± errors or data-style value and error columns.";
+            ErrorTypeControl.ToolTip = "Choose inline publication-style values or data-style value and uncertainty columns.";
+            UncertaintyStyleControl.ToolTip = "Choose whether exported uncertainty is standard deviation, 95% confidence interval bounds, or both.";
             ExportFormatControl.ToolTip = "Choose comma-separated CSV or tab-separated TSV output.";
             ListView.ToolTip = "Select the analysis results to include in the export.";
 

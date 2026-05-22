@@ -30,6 +30,7 @@ namespace AnalysisITC
         public AnalysisResultExportRowMode RowMode { get; set; } = AnalysisResultExportRowMode.Summary;
         public AnalysisResultExportErrorStyle ErrorStyle { get; set; } = AnalysisResultExportErrorStyle.ValueWithError;
         public AnalysisResultExportFileFormat FileFormat { get; set; } = AnalysisResultExportFileFormat.CSV;
+        public UncertaintyDisplayStyle UncertaintyDisplayStyle { get; set; } = UncertaintyDisplayStyle.StandardDeviation;
         public EnergyUnit EnergyUnit { get; set; } = AppSettings.EnergyUnit;
         public bool UseKelvin { get; set; } = false;
 
@@ -140,8 +141,8 @@ namespace AnalysisITC
                 }
                 else
                 {
-                    header.Add(label + "_value");
-                    header.Add(label + "_error");
+                    foreach (var suffix in GetSeparateColumnSuffixes(options))
+                        header.Add(label + suffix);
                 }
             }
 
@@ -215,8 +216,15 @@ namespace AnalysisITC
         {
             if (FloatWithError.IsNaN(value))
             {
-                row.Add("");
-                if (options.ErrorStyle == AnalysisResultExportErrorStyle.SeparateColumns) row.Add("");
+                if (options.ErrorStyle == AnalysisResultExportErrorStyle.ValueWithError)
+                {
+                    row.Add("");
+                }
+                else
+                {
+                    foreach (var _ in GetSeparateColumnSuffixes(options))
+                        row.Add("");
+                }
                 return;
             }
 
@@ -227,18 +235,36 @@ namespace AnalysisITC
             }
 
             row.Add(FormatScalar(value.Value, parameter, concentrationUnits, options));
-            row.Add(FormatScalar(value.SD, parameter, concentrationUnits, options));
+
+            switch (NormalizeExportUncertaintyStyle(options.UncertaintyDisplayStyle))
+            {
+                case UncertaintyDisplayStyle.ConfidenceInterval:
+                    row.Add(FormatScalar(value.Lower, parameter, concentrationUnits, options));
+                    row.Add(FormatScalar(value.Upper, parameter, concentrationUnits, options));
+                    break;
+                case UncertaintyDisplayStyle.StandardDeviationAndConfidenceInterval:
+                    row.Add(FormatScalar(value.SD, parameter, concentrationUnits, options));
+                    row.Add(FormatScalar(value.Lower, parameter, concentrationUnits, options));
+                    row.Add(FormatScalar(value.Upper, parameter, concentrationUnits, options));
+                    break;
+                case UncertaintyDisplayStyle.StandardDeviation:
+                default:
+                    row.Add(FormatScalar(value.SD, parameter, concentrationUnits, options));
+                    break;
+            }
         }
 
         static string FormatValue(FloatWithError value, ParameterType parameter, Dictionary<ParameterType, ConcentrationUnit> concentrationUnits, AnalysisResultExportOptions options)
         {
+            var style = NormalizeExportUncertaintyStyle(options.UncertaintyDisplayStyle);
+
             if (IsConcentrationParameter(parameter))
-                return value.AsFormattedConcentration(concentrationUnits[parameter], withunit: false);
+                return value.AsFormattedConcentration(concentrationUnits[parameter], withunit: false, style: style);
 
             if (ParameterTypeAttribute.IsEnergyUnitParameter(parameter))
-                return new Energy(value).ToFormattedString(options.EnergyUnit, withunit: false);
+                return new Energy(value).ToFormattedString(options.EnergyUnit, withunit: false, style: style);
 
-            return value.ToString("G3");
+            return value.ToString("G3", style);
         }
 
         static string FormatScalar(double value, ParameterType parameter, Dictionary<ParameterType, ConcentrationUnit> concentrationUnits, AnalysisResultExportOptions options)
@@ -250,6 +276,27 @@ namespace AnalysisITC
                 return Energy.ConvertFromJoule(value, options.EnergyUnit).ToString("G5");
 
             return value.ToString("G5");
+        }
+
+        static UncertaintyDisplayStyle NormalizeExportUncertaintyStyle(UncertaintyDisplayStyle style)
+        {
+            return style == UncertaintyDisplayStyle.Automatic
+                ? UncertaintyDisplayStyle.StandardDeviationAndConfidenceInterval
+                : style;
+        }
+
+        static string[] GetSeparateColumnSuffixes(AnalysisResultExportOptions options)
+        {
+            switch (NormalizeExportUncertaintyStyle(options.UncertaintyDisplayStyle))
+            {
+                case UncertaintyDisplayStyle.ConfidenceInterval:
+                    return new[] { "_value", "_ci_lower", "_ci_upper" };
+                case UncertaintyDisplayStyle.StandardDeviationAndConfidenceInterval:
+                    return new[] { "_value", "_sd", "_ci_lower", "_ci_upper" };
+                case UncertaintyDisplayStyle.StandardDeviation:
+                default:
+                    return new[] { "_value", "_sd" };
+            }
         }
 
         static string GetParameterHeader(List<AnalysisResult> results, ParameterType parameter, Dictionary<ParameterType, ConcentrationUnit> concentrationUnits, AnalysisResultExportOptions options)

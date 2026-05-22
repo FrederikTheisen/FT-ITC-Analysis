@@ -8,7 +8,7 @@ namespace AnalysisITC
 {
     public struct FloatWithError : IComparable
     {
-        const double asymmetry_threshold = 0.13;
+        const double asymmetry_threshold = 0.18;
 
         private double asymmscore = 0.0;
         private bool isnan = false;
@@ -325,15 +325,16 @@ namespace AnalysisITC
             return ToString("G3") + " | " + (100 * FractionSD).ToString("F1") + "%";
         }
 
-        public string ToString(string format = "F1")
+        public string ToString(string format = "F1", UncertaintyDisplayStyle? style = null)
         {
-            if (!HasError) return Value.ToString(format);
-            else return Value.ToString(format) + " ± " + SD.ToString(format);
+            var displayStyle = ResolveDisplayStyle(this, style, includeConfidenceInterval: false);
+
+            return FormatNumberWithUncertainty(this, format, displayStyle);
         }
 
-        public string AsNumber()
+        public string AsNumber(UncertaintyDisplayStyle? style = null)
         {
-            return WithMod(1, "", false, false);
+            return WithMod(1, "", false, false, style);
         }
 
         public string AsConcentration(ConcentrationUnit unit, bool withunit = true)
@@ -354,35 +355,34 @@ namespace AnalysisITC
                 return s;
             }
         }
-        public string AsFormattedConcentration(bool withunit, bool withci = false) => AsFormattedConcentration(ConcentrationUnitAttribute.GetMagnitudeUnitFromConcentration(this.Value), withunit, withci);
-        public string AsFormattedConcentration(ConcentrationUnit unit, bool withunit = true, bool withci = false) => WithMod(unit.GetMod(), unit.GetName(), withunit, withci);
+        public string AsFormattedConcentration(bool withunit, bool withci = false, UncertaintyDisplayStyle? style = null) => AsFormattedConcentration(ConcentrationUnitAttribute.GetMagnitudeUnitFromConcentration(this.Value), withunit, withci, style);
+        public string AsFormattedConcentration(ConcentrationUnit unit, bool withunit = true, bool withci = false, UncertaintyDisplayStyle? style = null) => WithMod(unit.GetMod(), unit.GetName(), withunit, withci, style);
 
-        public string AsFormattedEnergy(EnergyUnit unit, string suffix, bool withunit = true, bool withci = false) => WithMod(unit.GetMod(), suffix, withunit, withci);
+        public string AsFormattedEnergy(EnergyUnit unit, string suffix, bool withunit = true, bool withci = false, UncertaintyDisplayStyle? style = null) => WithMod(unit.GetMod(), suffix, withunit, withci, style);
 
         #endregion
 
-        string WithMod(double mod, string unit, bool withunit, bool withci)
+        string WithMod(double mod, string unit, bool withunit, bool withci, UncertaintyDisplayStyle? style = null)
         {
             var value = mod * this;
+            var displayStyle = ResolveDisplayStyle(value, style, withci);
             double logerror;
             string s;
             switch (AppSettings.NumberPrecision)
             {
-                case NumberPrecision.Standard when HasError:
-                    logerror = Math.Log10(value.SD * 0.5); // Add digit for errors less than 2
+                case NumberPrecision.Standard when HasDisplayUncertainty(value, displayStyle):
+                    logerror = Math.Log10(UncertaintyMagnitude(value, displayStyle) * 0.5); // Add digit for errors less than 2
                     break;
-                case NumberPrecision.Strict when HasError:
-                    logerror = Math.Log10(value.SD);
+                case NumberPrecision.Strict when HasDisplayUncertainty(value, displayStyle):
+                    logerror = Math.Log10(UncertaintyMagnitude(value, displayStyle));
                     break;
                 case NumberPrecision.SingleDecimal:
-                    s = withunit ? value.ToString("F1") + " " + unit : value.ToString("F1");
-                    if (withci) s += ConfidenceIntervalString(Lower.ToString("F1"), Upper.ToString("F1"));
-                    return s;
+                    s = FormatNumberWithUncertainty(value, "F1", displayStyle);
+                    return AppendUnit(s, unit, withunit);
                 case NumberPrecision.AllDecimals:
-                    s = withunit ? value.ToString("G5") + " " + unit : value.ToString("G5");
-                    if (withci) s += ConfidenceIntervalString(Lower.ToString("G5"), Upper.ToString("G5"));
-                    return s;
-                default: return withunit ? value.Value.ToString("G5") + " " + unit : value.Value.ToString("G5");
+                    s = FormatNumberWithUncertainty(value, "G5", displayStyle);
+                    return AppendUnit(s, unit, withunit);
+                default: return AppendUnit(value.Value.ToString("G5"), unit, withunit);
             }
 
             double floor = Math.Floor(logerror);
@@ -390,17 +390,89 @@ namespace AnalysisITC
             double scale = Math.Pow(10, digits);
             string format = $"F{Math.Max(0, -digits)}";
             double roundedNumber = FWEMath.RoundApproximate(value.Value / scale) * scale;
-            double roundedError = FWEMath.RoundApproximate(value.SD / scale) * scale;
-            var output = roundedNumber.ToString(format) + " ± " + roundedError.ToString(format);
+            var roundedValue = new FloatWithError(
+                roundedNumber,
+                FWEMath.RoundApproximate(value.SD / scale) * scale,
+                FWEMath.RoundApproximate(value.Lower / scale) * scale,
+                FWEMath.RoundApproximate(value.Upper / scale) * scale);
 
-            s = withunit ? output + " " + unit : output;
+            s = FormatNumberWithUncertainty(roundedValue, format, displayStyle);
 
-            if (withci) s += ConfidenceIntervalString(value.Lower.ToString(format),value. Upper.ToString(format));
-
-            return s;
+            return AppendUnit(s, unit, withunit);
         }
 
-        readonly string ConfidenceIntervalString(string lower, string upper) => $" [{lower},{upper}]";
+        static UncertaintyDisplayStyle ResolveDisplayStyle(FloatWithError value, UncertaintyDisplayStyle? style, bool includeConfidenceInterval)
+        {
+            var displayStyle = style ?? (includeConfidenceInterval
+                ? UncertaintyDisplayStyle.StandardDeviationAndConfidenceInterval
+                : AppSettings.UncertaintyDisplayStyle);
+
+            if (displayStyle == UncertaintyDisplayStyle.Automatic)
+                return value.IsAsymmetric ? UncertaintyDisplayStyle.ConfidenceInterval : UncertaintyDisplayStyle.StandardDeviation;
+
+            return displayStyle;
+        }
+
+        static string FormatNumberWithUncertainty(FloatWithError value, string format, UncertaintyDisplayStyle displayStyle)
+        {
+            var output = value.Value.ToString(format);
+
+            if (!HasDisplayUncertainty(value, displayStyle)) return output;
+
+            if (displayStyle == UncertaintyDisplayStyle.StandardDeviation || displayStyle == UncertaintyDisplayStyle.StandardDeviationAndConfidenceInterval)
+            {
+                if (value.HasError) output += " ± " + value.SD.ToString(format);
+            }
+
+            if (displayStyle == UncertaintyDisplayStyle.ConfidenceInterval || displayStyle == UncertaintyDisplayStyle.StandardDeviationAndConfidenceInterval)
+            {
+                if (HasConfidenceInterval(value)) output += ConfidenceIntervalString(value, format);
+            }
+
+            return output;
+        }
+
+        static bool HasDisplayUncertainty(FloatWithError value, UncertaintyDisplayStyle displayStyle)
+        {
+            switch (displayStyle)
+            {
+                case UncertaintyDisplayStyle.ConfidenceInterval:
+                    return HasConfidenceInterval(value);
+                case UncertaintyDisplayStyle.StandardDeviationAndConfidenceInterval:
+                    return value.HasError || HasConfidenceInterval(value);
+                case UncertaintyDisplayStyle.StandardDeviation:
+                default:
+                    return value.HasError;
+            }
+        }
+
+        static bool HasConfidenceInterval(FloatWithError value)
+        {
+            return Math.Abs(value.Lower - value.Value) > 10E-8 || Math.Abs(value.Upper - value.Value) > 10E-8;
+        }
+
+        static double UncertaintyMagnitude(FloatWithError value, UncertaintyDisplayStyle displayStyle)
+        {
+            var candidates = new List<double>();
+
+            if (displayStyle == UncertaintyDisplayStyle.StandardDeviation || displayStyle == UncertaintyDisplayStyle.StandardDeviationAndConfidenceInterval)
+                candidates.Add(Math.Abs(value.SD));
+
+            if (displayStyle == UncertaintyDisplayStyle.ConfidenceInterval || displayStyle == UncertaintyDisplayStyle.StandardDeviationAndConfidenceInterval)
+            {
+                candidates.Add(Math.Abs(value.LowerWidth));
+                candidates.Add(Math.Abs(value.UpperWidth));
+            }
+
+            return candidates.Where(v => double.IsFinite(v) && v > 0).DefaultIfEmpty(double.Epsilon).Min();
+        }
+
+        static string AppendUnit(string value, string unit, bool withunit)
+        {
+            return withunit && !string.IsNullOrWhiteSpace(unit) ? value + " " + unit : value;
+        }
+
+        static string ConfidenceIntervalString(FloatWithError value, string format) => $" [{value.Lower.ToString(format)}, {value.Upper.ToString(format)}]";
 
         public int CompareTo(object obj)
         {
