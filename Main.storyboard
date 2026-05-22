@@ -88,7 +88,7 @@
             <objects>
                 <viewController id="NPg-FK-jG9" customClass="GeneralSettingsViewController" sceneMemberID="viewController">
                     <stackView key="view" distribution="fill" orientation="vertical" alignment="leading" horizontalStackHuggingPriority="1000" verticalStackHuggingPriority="1000" verticalCompressionResistancePriority="1000" detachesHiddenViews="YES" translatesAutoresizingMaskIntoConstraints="NO" id="zBa-ds-fuX">
-                        <rect key="frame" x="0.0" y="0.0" width="600" height="503"/>
+                        <rect key="frame" x="0.0" y="0.0" width="600" height="529"/>
                         <subviews>
                             <textField verticalHuggingPriority="1000" verticalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="ell-kv-J0Y">
                                 <rect key="frame" x="18" y="467" width="564" height="16"/>
@@ -195,6 +195,39 @@
                                                     <string key="toolTip">Shows value and error with one decimal point precision. For example, if the value is 123.45 ± 12.34, it will be rounded to 123.5 ± 12.3.</string>
                                                 </segment>
                                                 <segment label="None" toolTip="Show values with floating point precision"/>
+                                            </segments>
+                                        </segmentedCell>
+                                    </segmentedControl>
+                                </subviews>
+                                <visibilityPriorities>
+                                    <integer value="1000"/>
+                                    <integer value="1000"/>
+                                </visibilityPriorities>
+                                <customSpacing>
+                                    <real value="3.4028234663852886e+38"/>
+                                    <real value="3.4028234663852886e+38"/>
+                                </customSpacing>
+                            </stackView>
+                            <stackView distribution="fill" orientation="horizontal" alignment="baseline" horizontalStackHuggingPriority="249.99998474121094" verticalStackHuggingPriority="1000" verticalHuggingPriority="1000" verticalCompressionResistancePriority="1000" detachesHiddenViews="YES" translatesAutoresizingMaskIntoConstraints="NO" id="e3R-nA-U8J">
+                                <rect key="frame" x="20" y="363" width="560" height="18"/>
+                                <subviews>
+                                    <textField toolTip="Controls whether parameter values show standard deviations, 95% confidence intervals, or both." horizontalHuggingPriority="249" verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="idk-FP-giQ">
+                                        <rect key="frame" x="-2" y="0.0" width="314" height="18"/>
+                                        <textFieldCell key="cell" lineBreakMode="clipping" title="Uncertainty display" id="uFq-iW-cXb">
+                                            <font key="font" usesAppearanceFont="YES"/>
+                                            <color key="textColor" name="labelColor" catalog="System" colorSpace="catalog"/>
+                                            <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
+                                        </textFieldCell>
+                                    </textField>
+                                    <segmentedControl toolTip="Controls whether parameter values show standard deviations, 95% confidence intervals, or both." verticalHuggingPriority="750" verticalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="x23-Rp-rbF">
+                                        <rect key="frame" x="316" y="-2" width="246" height="21"/>
+                                        <segmentedCell key="cell" controlSize="small" borderStyle="border" alignment="left" style="rounded" trackingMode="selectOne" id="DiA-vF-i2Z">
+                                            <font key="font" metaFont="smallSystem"/>
+                                            <segments>
+                                                <segment label="Auto" selected="YES"/>
+                                                <segment label="SD" tag="1"/>
+                                                <segment label="95% CI" tag="2"/>
+                                                <segment label="Both" tag="3"/>
                                             </segments>
                                         </segmentedCell>
                                     </segmentedControl>
@@ -674,8 +707,10 @@
                             <integer value="1000"/>
                             <integer value="1000"/>
                             <integer value="1000"/>
+                            <integer value="1000"/>
                         </visibilityPriorities>
                         <customSpacing>
+                            <real value="3.4028234663852886e+38"/>
                             <real value="3.4028234663852886e+38"/>
                             <real value="3.4028234663852886e+38"/>
                             <real value="3.4028234663852886e+38"/>
@@ -712,6 +747,7 @@
                         <outlet property="ParameterRoundingSettingsControl" destination="6QI-Gg-OxA" id="ZiF-Uv-MHX"/>
                         <outlet property="PerformOnlineChecksOnLaunch" destination="7o7-Gq-5TF" id="dNP-QX-J0s"/>
                         <outlet property="RefTempField" destination="R0o-1M-maO" id="x3E-nC-zFZ"/>
+                        <outlet property="UncertaintyDisplayStyleControl" destination="x23-Rp-rbF" id="gSZ-RR-Fw4"/>
                     </connections>
                 </viewController>
                 <customObject id="XDN-IR-K6Z" userLabel="First Responder" customClass="NSResponder" sceneMemberID="firstResponder"/>
@@ -15564,11 +15600,11 @@ The models in \appname are implemented to match the **MicroCal/Origin formal def
             <objects>
                 <viewController title="Analysis Exporter" id="y9t-uG-ZTy" customClass="AnalysisResultExporterViewController" sceneMemberID="viewController">
                     <view key="view" id="Ayy-Y8-Rxk">
-                        <rect key="frame" x="0.0" y="0.0" width="470" height="426"/>
+                        <rect key="frame" x="0.0" y="0.0" width="470" height="447"/>
                         <autoresizingMask key="autoresizingMask"/>
                         <subviews>
                             <stackView distribution="fill" orientation="vertical" alignment="leading" spacing="5" horizontalStackHuggingPriority="250" verticalStackHuggingPriority="250" horizontalHuggingPriority="750" verticalHuggingPriority="1000" detachesHiddenViews="YES" translatesAutoresizingMaskIntoConstraints="NO" id="8Ch-0V-BlW">
-                                <rect key="frame" x="0.0" y="0.0" width="470" height="426"/>
+                                <rect key="frame" x="0.0" y="0.0" width="470" height="447"/>
                                 <subviews>
                                     <textField horizontalHuggingPriority="249" verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="oh4-ET-pGu">
                                         <rect key="frame" x="18" y="390" width="434" height="16"/>
@@ -15582,7 +15618,7 @@ The models in \appname are implemented to match the **MicroCal/Origin formal def
                                         <rect key="frame" x="18" y="321" width="434" height="64"/>
                                         <textFieldCell key="cell" selectable="YES" alignment="justified" id="TyR-VS-i7k">
                                             <font key="font" metaFont="system"/>
-                                            <string key="title">Select one or more analysis results to export. Summary rows report one aggregate row per analysis result, while all rows include every replicate in each selected result. Use the error and file-format options to choose publication-style tables or data-oriented exports.</string>
+                                            <string key="title">Select one or more analysis results to export. Summary rows report one aggregate row per analysis result, while all rows include every replicate in each selected result. Use the layout, uncertainty, and file-format options to choose publication-style tables or data-oriented exports.</string>
                                             <color key="textColor" name="labelColor" catalog="System" colorSpace="catalog"/>
                                             <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
                                         </textFieldCell>
@@ -15658,8 +15694,43 @@ The models in \appname are implemented to match the **MicroCal/Origin formal def
                                             <real value="3.4028234663852886e+38"/>
                                         </customSpacing>
                                     </stackView>
-                                    <stackView distribution="fill" orientation="horizontal" alignment="top" horizontalStackHuggingPriority="249.99998474121094" verticalStackHuggingPriority="1000" verticalHuggingPriority="1000" detachesHiddenViews="YES" translatesAutoresizingMaskIntoConstraints="NO" id="u09-iH-APS">
+                                    <stackView distribution="fill" orientation="horizontal" alignment="top" horizontalStackHuggingPriority="249.99998474121094" verticalStackHuggingPriority="1000" verticalHuggingPriority="1000" detachesHiddenViews="YES" translatesAutoresizingMaskIntoConstraints="NO" id="lha-W2-4eD">
                                         <rect key="frame" x="20" y="252" width="430" height="16"/>
+                                        <subviews>
+                                            <textField horizontalHuggingPriority="249" verticalHuggingPriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="SXA-la-HHN">
+                                                <rect key="frame" x="-2" y="0.0" width="176" height="16"/>
+                                                <textFieldCell key="cell" lineBreakMode="clipping" title="Uncertainty" id="Q2u-WN-9Zt">
+                                                    <font key="font" usesAppearanceFont="YES"/>
+                                                    <color key="textColor" name="labelColor" catalog="System" colorSpace="catalog"/>
+                                                    <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
+                                                </textFieldCell>
+                                            </textField>
+                                            <segmentedControl toolTip="Choose whether exported uncertainty is standard deviation, 95% confidence interval bounds, or both." verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="URB-C7-W7z">
+                                                <rect key="frame" x="178" y="-2" width="254" height="19"/>
+                                                <constraints>
+                                                    <constraint firstAttribute="width" constant="250" id="Fx7-89-2Hc"/>
+                                                </constraints>
+                                                <segmentedCell key="cell" controlSize="small" borderStyle="border" alignment="left" segmentDistribution="fill" style="texturedRounded" trackingMode="selectOne" id="mNY-F5-671">
+                                                    <font key="font" metaFont="smallSystem"/>
+                                                    <segments>
+                                                        <segment label="SD" selected="YES"/>
+                                                        <segment label="95% CI" tag="1"/>
+                                                        <segment label="SD + CI" tag="2"/>
+                                                    </segments>
+                                                </segmentedCell>
+                                            </segmentedControl>
+                                        </subviews>
+                                        <visibilityPriorities>
+                                            <integer value="1000"/>
+                                            <integer value="1000"/>
+                                        </visibilityPriorities>
+                                        <customSpacing>
+                                            <real value="3.4028234663852886e+38"/>
+                                            <real value="3.4028234663852886e+38"/>
+                                        </customSpacing>
+                                    </stackView>
+                                    <stackView distribution="fill" orientation="horizontal" alignment="top" horizontalStackHuggingPriority="249.99998474121094" verticalStackHuggingPriority="1000" verticalHuggingPriority="1000" detachesHiddenViews="YES" translatesAutoresizingMaskIntoConstraints="NO" id="u09-iH-APS">
+                                        <rect key="frame" x="20" y="231" width="430" height="16"/>
                                         <subviews>
                                             <textField horizontalHuggingPriority="249" verticalHuggingPriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="lIR-7H-zkB">
                                                 <rect key="frame" x="-2" y="0.0" width="176" height="16"/>
@@ -15940,8 +16011,10 @@ Gw
                                     <integer value="1000"/>
                                     <integer value="1000"/>
                                     <integer value="1000"/>
+                                    <integer value="1000"/>
                                 </visibilityPriorities>
                                 <customSpacing>
+                                    <real value="3.4028234663852886e+38"/>
                                     <real value="3.4028234663852886e+38"/>
                                     <real value="3.4028234663852886e+38"/>
                                     <real value="3.4028234663852886e+38"/>
@@ -15965,6 +16038,7 @@ Gw
                         <outlet property="ExportFormatControl" destination="T6X-Ah-64I" id="9WK-Ng-uJ6"/>
                         <outlet property="ExportTypeControl" destination="rrb-Dc-dRW" id="YbI-Ug-GRt"/>
                         <outlet property="ListView" destination="Hdt-EA-GcG" id="M4Z-ml-eAp"/>
+                        <outlet property="UncertaintyStyleControl" destination="URB-C7-W7z" id="H0h-ie-uMc"/>
                     </connections>
                 </viewController>
                 <customObject id="Mhl-0t-fdW" userLabel="First Responder" customClass="NSResponder" sceneMemberID="firstResponder"/>

@@ -78,6 +78,7 @@ namespace AnalysisITC
         public static bool FinalFigureShowDetailsAsDefault { get; set; } = true;
         public static bool FinalFigureShowModelInfoAsDefault { get; set; } = true;
         public static NumberPrecision NumberPrecision { get; set; } = NumberPrecision.Standard;
+        public static AnalysisITC.UncertaintyDisplayStyle UncertaintyDisplayStyle { get; set; } = AnalysisITC.UncertaintyDisplayStyle.StandardDeviation;
         public static bool ShowResidualGraph { get; set; } = true;
         public static bool ShowResidualGraphGap { get; set; } = true;
         public static bool UnifyResidualGraphAxis { get; set; } = false;
@@ -142,6 +143,7 @@ namespace AnalysisITC
             Storage.SetBool(FinalFigureShowModelInfoAsDefault, "FinalFigureShowModelInfoAsDefault");
             Storage.SetInt((int)PeakFitAlgorithm, "PeakFitAlgorithm");
             Storage.SetInt((int)NumberPrecision, "NumberPrecision");
+            Storage.SetInt((int)UncertaintyDisplayStyle, "UncertaintyDisplayStyle");
             Storage.SetBool(IncludeBufferInIonicStrengthCalc, "IncludeBufferInIonicStrengthCalc");
             Storage.SetInt((int)DisplayAttributeOptions, "DisplayAttributeOptions");
             Storage.SetInt((int)ExportColumns, "ExportColumns");
@@ -213,6 +215,7 @@ namespace AnalysisITC
             FinalFigureShowModelInfoAsDefault = GetBool(dict, "FinalFigureShowModelInfoAsDefault", FinalFigureShowModelInfoAsDefault);
             PeakFitAlgorithm = (PeakFitAlgorithm)GetInt(dict, "PeakFitAlgorithm", (int)PeakFitAlgorithm);
             NumberPrecision = (NumberPrecision)GetInt(dict, "NumberPrecision", (int)NumberPrecision);
+            UncertaintyDisplayStyle = (AnalysisITC.UncertaintyDisplayStyle)GetInt(dict, "UncertaintyDisplayStyle", (int)UncertaintyDisplayStyle);
             IncludeBufferInIonicStrengthCalc = GetBool(dict, "IncludeBufferInIonicStrengthCalc", IncludeBufferInIonicStrengthCalc);
             DisplayAttributeOptions = (DisplayAttributeOptions)GetInt(dict, "DisplayAttributeOptions", (int)DisplayAttributeOptions);
             ExportColumns = (ExportColumns)GetInt(dict, "ExportColumns", (int)ExportColumns.Default);
@@ -278,6 +281,7 @@ namespace AnalysisITC
             FinalFigureShowModelInfoAsDefault = true;
             PeakFitAlgorithm = PeakFitAlgorithm.SingleExponential;
             NumberPrecision = NumberPrecision.Standard;
+            UncertaintyDisplayStyle = AnalysisITC.UncertaintyDisplayStyle.StandardDeviation;
             DisplayAttributeOptions = DisplayAttributeOptions.Default;
             ExportColumns = ExportColumns.Default;
             UseInjectionErrorWeightedFitting = false;
@@ -424,6 +428,14 @@ namespace AnalysisITC
         Standard,
         SingleDecimal,
         AllDecimals,
+    }
+
+    public enum UncertaintyDisplayStyle
+    {
+        Automatic,
+        StandardDeviation,
+        ConfidenceInterval,
+        StandardDeviationAndConfidenceInterval,
     }
 
     public enum ParameterLimitSetting

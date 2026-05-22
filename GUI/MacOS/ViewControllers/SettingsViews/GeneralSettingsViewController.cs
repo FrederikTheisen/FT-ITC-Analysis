@@ -35,6 +35,7 @@ namespace AnalysisITC
             }
 
             AppSettings.NumberPrecision = (NumberPrecision)(int)ParameterRoundingSettingsControl.SelectedSegment;
+            AppSettings.UncertaintyDisplayStyle = (UncertaintyDisplayStyle)(int)UncertaintyDisplayStyleControl.SelectedSegment;
             AppSettings.DefaultConcentrationUnit = (ConcentrationUnit)(int)ConcentrationUnitControl.SelectedSegment;
             AppSettings.MinimumTemperatureSpanForFitting = MinTempSpanSlider.DoubleValue;
             AppSettings.MinimumIonSpanForFitting = MinSaltSpanSlider.DoubleValue / 1000;
@@ -73,6 +74,7 @@ namespace AnalysisITC
             MinSaltSpanSlider.DoubleValue = 1000 * AppSettings.MinimumIonSpanForFitting;
             MinSaltSpanField.DoubleValue = 1000 * AppSettings.MinimumIonSpanForFitting;
             ParameterRoundingSettingsControl.SelectedSegment = (int)AppSettings.NumberPrecision;
+            UncertaintyDisplayStyleControl.SelectedSegment = (int)AppSettings.UncertaintyDisplayStyle;
             IncludeBufferInIonicStrength.State = AppSettings.IncludeBufferInIonicStrengthCalc ? NSCellStateValue.On : NSCellStateValue.Off;
             PerformOnlineChecksOnLaunch.State = AppSettings.PerformOnlineChecksOnLaunch ? NSCellStateValue.On : NSCellStateValue.Off;
             ConfirmRemoveDelete.State = AppSettings.ConfirmRemoveDelete ? NSCellStateValue.On : NSCellStateValue.Off;

@@ -69,6 +69,9 @@ namespace AnalysisITC
 		[Outlet]
 		AppKit.NSTextField RefTempField { get; set; }
 
+		[Outlet]
+		AppKit.NSSegmentedControl UncertaintyDisplayStyleControl { get; set; }
+
 		[Action ("Apply:")]
 		partial void Apply (Foundation.NSObject sender);
 
@@ -185,6 +188,11 @@ namespace AnalysisITC
 			if (RefTempField != null) {
 				RefTempField.Dispose ();
 				RefTempField = null;
+			}
+
+			if (UncertaintyDisplayStyleControl != null) {
+				UncertaintyDisplayStyleControl.Dispose ();
+				UncertaintyDisplayStyleControl = null;
 			}
 		}
 	}
