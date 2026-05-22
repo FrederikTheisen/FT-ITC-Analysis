@@ -32,6 +32,7 @@ namespace AnalysisITC
             DiscardIntegrationRegionForBaseline.State = AppSettings.DiscardIntegrationRegionForBaseline ? NSCellStateValue.On : NSCellStateValue.Off;
             SplinePointDensityControl.SelectedSegment = (int)AppSettings.DefaultSplinePointDensity;
             SplineHandleModeControl.SelectedSegment = HandleModeSegment(AppSettings.DefaultSplineHandleMode);
+            SplinePointTimeDraggingDefaultControl.State = AppSettings.DefaultSplinePointTimeDragging ? NSCellStateValue.On : NSCellStateValue.Off;
             ReprocessIntegratedHeatDataOnLoad.State = AppSettings.ReprocessIntegratedHeatDataOnLoad ? NSCellStateValue.On : NSCellStateValue.Off;
         }
 
@@ -43,6 +44,7 @@ namespace AnalysisITC
             AppSettings.DiscardIntegrationRegionForBaseline = DiscardIntegrationRegionForBaseline.State == NSCellStateValue.On;
             AppSettings.DefaultSplinePointDensity = (SplineInterpolator.SplinePointDensity)(int)SplinePointDensityControl.SelectedSegment;
             AppSettings.DefaultSplineHandleMode = HandleModeFromSegment(SplineHandleModeControl.SelectedSegment);
+            AppSettings.DefaultSplinePointTimeDragging = SplinePointTimeDraggingDefaultControl.State == NSCellStateValue.On;
             AppSettings.ReprocessIntegratedHeatDataOnLoad = ReprocessIntegratedHeatDataOnLoad.State == NSCellStateValue.On;
         }
 

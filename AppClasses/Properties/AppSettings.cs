@@ -42,6 +42,7 @@ namespace AnalysisITC
         public static bool ReprocessIntegratedHeatDataOnLoad { get; set; } = true;
         public static SplineInterpolator.SplinePointDensity DefaultSplinePointDensity { get; set; } = SplineInterpolator.SplinePointDensity.Balanced;
         public static SplineInterpolator.SplineHandleMode DefaultSplineHandleMode { get; set; } = SplineInterpolator.SplineHandleMode.Mean;
+        public static bool DefaultSplinePointTimeDragging { get; set; } = false;
 
         //Fitting
         public static bool InputAffinityAsDissociationConstant { get; set; } = true;
@@ -157,6 +158,7 @@ namespace AnalysisITC
             Storage.SetBool(ReprocessIntegratedHeatDataOnLoad, "ReprocessIntegratedHeatDataOnLoad");
             Storage.SetInt((int)DefaultSplinePointDensity, "DefaultSplinePointDensity");
             Storage.SetInt((int)DefaultSplineHandleMode, "DefaultSplineHandleMode");
+            Storage.SetBool(DefaultSplinePointTimeDragging, "DefaultSplinePointTimeDragging");
             Storage.SetBool(PerformOnlineChecksOnLaunch, "PerformOnlineChecksOnLaunch");
             Storage.SetBool(ConfirmRemoveDelete, "ConfirmRemoveDelete");
 
@@ -227,6 +229,7 @@ namespace AnalysisITC
             ReprocessIntegratedHeatDataOnLoad = GetBool(dict, "ReprocessIntegratedHeatDataOnLoad", ReprocessIntegratedHeatDataOnLoad);
             DefaultSplinePointDensity = (SplineInterpolator.SplinePointDensity)GetInt(dict, "DefaultSplinePointDensity", (int)DefaultSplinePointDensity);
             DefaultSplineHandleMode = (SplineInterpolator.SplineHandleMode)GetInt(dict, "DefaultSplineHandleMode", (int)DefaultSplineHandleMode);
+            DefaultSplinePointTimeDragging = GetBool(dict, "DefaultSplinePointTimeDragging", DefaultSplinePointTimeDragging);
             PerformOnlineChecksOnLaunch = GetBool(dict, "PerformOnlineChecksOnLaunch", PerformOnlineChecksOnLaunch);
             ConfirmRemoveDelete = GetBool(dict, "ConfirmRemoveDelete", ConfirmRemoveDelete);
 
@@ -290,6 +293,7 @@ namespace AnalysisITC
             ReprocessIntegratedHeatDataOnLoad = true;
             DefaultSplinePointDensity = SplineInterpolator.SplinePointDensity.Balanced;
             DefaultSplineHandleMode = SplineInterpolator.SplineHandleMode.Mean;
+            DefaultSplinePointTimeDragging = false;
             PerformOnlineChecksOnLaunch = true;
             ConfirmRemoveDelete = true;
         }
@@ -403,6 +407,7 @@ namespace AnalysisITC
             FinalFigureGraphView.AutoAxesIgnoresBadData = AutoAxesIgnoresBadData;
             SplineInterpolator.DefaultPointDensity = DefaultSplinePointDensity;
             SplineInterpolator.DefaultHandleMode = DefaultSplineHandleMode;
+            SplineInterpolator.DefaultAllowPointTimeDragging = DefaultSplinePointTimeDragging;
             AnalysisGraphView.AnalysisDisplayParameters = AnalysisParameterDisplay;
         }
     }

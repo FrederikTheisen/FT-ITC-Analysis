@@ -1279,7 +1279,11 @@ namespace AnalysisITC
 
                 var r = GetRectAtPosition(m, pointHitSize);
 
-                SplinePoints.Add(new FeatureBoundingBox(MouseOverFeatureEvent.FeatureType.BaselineSplinePoint, r, sp.ID, Frame.Location) { FeatureReferenceValue = sp.Power });
+                SplinePoints.Add(new FeatureBoundingBox(MouseOverFeatureEvent.FeatureType.BaselineSplinePoint, r, sp.ID, Frame.Location)
+                {
+                    FeatureReferenceValue = sp.Power,
+                    SecondaryFeatureReferenceValue = sp.Time
+                });
 
                 points.Add(GetRectAtPosition(m, pointOutlineSize));
                 pointCenters.Add(m);

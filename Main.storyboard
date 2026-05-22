@@ -14081,11 +14081,11 @@ DQ
             <objects>
                 <viewController title="Processing" id="uCo-sK-LZa" customClass="ProcessingPreferencesViewController" sceneMemberID="viewController">
                     <view key="view" id="hE9-W5-sK0">
-                        <rect key="frame" x="0.0" y="0.0" width="600" height="338"/>
+                        <rect key="frame" x="0.0" y="0.0" width="600" height="364"/>
                         <autoresizingMask key="autoresizingMask"/>
                         <subviews>
                             <stackView distribution="fill" orientation="vertical" alignment="leading" horizontalStackHuggingPriority="1000" verticalStackHuggingPriority="1000" verticalCompressionResistancePriority="1000" detachesHiddenViews="YES" translatesAutoresizingMaskIntoConstraints="NO" id="Fbz-Iq-CnT">
-                                <rect key="frame" x="0.0" y="0.0" width="600" height="338"/>
+                                <rect key="frame" x="0.0" y="0.0" width="600" height="364"/>
                                 <subviews>
                                     <textField verticalHuggingPriority="1000" verticalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="Hgi-Kf-czZ">
                                         <rect key="frame" x="18" y="302" width="564" height="16"/>
@@ -14300,6 +14300,37 @@ DQ
                                             <real value="3.4028234663852886e+38"/>
                                         </customSpacing>
                                     </stackView>
+                                    <stackView distribution="fill" orientation="horizontal" alignment="top" horizontalStackHuggingPriority="249.99998474121094" verticalStackHuggingPriority="1000" verticalHuggingPriority="1000" verticalCompressionResistancePriority="1000" detachesHiddenViews="YES" translatesAutoresizingMaskIntoConstraints="NO" id="time-drag-default-row">
+                                        <rect key="frame" x="20" y="87" width="560" height="18"/>
+                                        <subviews>
+                                            <textField toolTip="Allow new spline baselines to drag control points horizontally as well as vertically." horizontalHuggingPriority="249" verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="time-drag-default-label">
+                                                <rect key="frame" x="-2" y="0.0" width="425" height="18"/>
+                                                <textFieldCell key="cell" lineBreakMode="clipping" title="Move spline points in time by default" id="time-drag-default-label-cell">
+                                                    <font key="font" usesAppearanceFont="YES"/>
+                                                    <color key="textColor" name="labelColor" catalog="System" colorSpace="catalog"/>
+                                                    <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
+                                                </textFieldCell>
+                                            </textField>
+                                            <button toolTip="Allow new spline baselines to drag control points horizontally as well as vertically." verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="time-drag-default-control">
+                                                <rect key="frame" x="427" y="-1" width="135" height="20"/>
+                                                <buttonCell key="cell" type="check" title="Move in time" bezelStyle="regularSquare" imagePosition="right" alignment="right" inset="2" id="time-drag-default-cell">
+                                                    <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
+                                                    <font key="font" metaFont="system"/>
+                                                </buttonCell>
+                                            </button>
+                                        </subviews>
+                                        <constraints>
+                                            <constraint firstAttribute="height" constant="18" id="time-drag-default-height"/>
+                                        </constraints>
+                                        <visibilityPriorities>
+                                            <integer value="1000"/>
+                                            <integer value="1000"/>
+                                        </visibilityPriorities>
+                                        <customSpacing>
+                                            <real value="3.4028234663852886e+38"/>
+                                            <real value="3.4028234663852886e+38"/>
+                                        </customSpacing>
+                                    </stackView>
                                     <stackView distribution="fill" orientation="horizontal" alignment="top" horizontalStackHuggingPriority="249.99998474121094" verticalStackHuggingPriority="1000" verticalHuggingPriority="1000" verticalCompressionResistancePriority="1000" detachesHiddenViews="YES" translatesAutoresizingMaskIntoConstraints="NO" id="mTG-dk-1vL">
                                         <rect key="frame" x="20" y="87" width="560" height="18"/>
                                         <subviews>
@@ -14417,8 +14448,10 @@ DQ
                                     <integer value="1000"/>
                                     <integer value="1000"/>
                                     <integer value="1000"/>
+                                    <integer value="1000"/>
                                 </visibilityPriorities>
                                 <customSpacing>
+                                    <real value="3.4028234663852886e+38"/>
                                     <real value="3.4028234663852886e+38"/>
                                     <real value="3.4028234663852886e+38"/>
                                     <real value="3.4028234663852886e+38"/>
@@ -14449,6 +14482,7 @@ DQ
                         <outlet property="ReprocessIntegratedHeatDataOnLoad" destination="xbR-Zd-h3x" id="jYs-D0-VO2"/>
                         <outlet property="SplineHandleModeControl" destination="pmt-eI-UZy" id="grJ-qj-Mh0"/>
                         <outlet property="SplinePointDensityControl" destination="MqL-NE-hdO" id="bBX-fG-MGj"/>
+                        <outlet property="SplinePointTimeDraggingDefaultControl" destination="time-drag-default-control" id="time-drag-default-outlet"/>
                     </connections>
                 </viewController>
                 <customObject id="H2N-Rp-Dsx" userLabel="First Responder" customClass="NSResponder" sceneMemberID="firstResponder"/>

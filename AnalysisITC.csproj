@@ -218,6 +218,7 @@
     <ImageAsset Include="Assets.xcassets\arrow.up.folder.symbolset\arrow.up.folder.svg" />
     <ImageAsset Include="Assets.xcassets\InvertedSecondaryFill.colorset\Contents.json" />
     <ImageAsset Include="Assets.xcassets\InvertedLabel.colorset\Contents.json" />
+    <ImageAsset Include="Assets.xcassets\ResponderControlColor.colorset\Contents.json" />
   </ItemGroup>
   <ItemGroup>
     <Folder Include="Resources\" />

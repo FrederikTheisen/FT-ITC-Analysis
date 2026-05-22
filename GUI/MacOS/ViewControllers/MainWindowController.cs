@@ -410,6 +410,11 @@ namespace AnalysisITC
                 splineInterpolator.ShowHandles = !splineInterpolator.ShowHandles;
                 UpdateContextToolbarMenu();
             }, splineInterpolator?.ShowHandles == true));
+            menu.AddItem(CreateContextMenuItem("Move spline points in time", "allowsplinepointtimedragging", splineInterpolator != null, (s, e) =>
+            {
+                splineInterpolator.AllowPointTimeDragging = !splineInterpolator.AllowPointTimeDragging;
+                UpdateContextToolbarMenu();
+            }, splineInterpolator?.AllowPointTimeDragging == true));
             menu.AddItem(NSMenuItem.SeparatorItem);
             menu.AddItem(CreateSplineConversionMenuItem(canConvertToAnySpline, canConvertToSmoothSpline, canConvertToLinearSpline));
             menu.AddItem(NSMenuItem.SeparatorItem);

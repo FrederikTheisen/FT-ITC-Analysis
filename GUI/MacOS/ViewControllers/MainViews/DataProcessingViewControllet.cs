@@ -24,6 +24,7 @@ namespace AnalysisITC
 
         const string LockProcessorMenuIdentifier = "lockprocessor";
         const string ShowSplineHandlesMenuIdentifier = "showsplinehandles";
+        const string AllowSplinePointTimeDraggingMenuIdentifier = "allowsplinepointtimedragging";
         const string ConvertToSmoothSplineMenuIdentifier = "converttospline";
         const string ConvertToLinearSplineMenuIdentifier = "converttolinearspline";
         const string CopyToActiveMenuIdentifier = "copytoactive";
@@ -199,6 +200,7 @@ namespace AnalysisITC
             if (ProcessingOptionsMenuButton?.Menu == null) return;
 
             EnsureShowSplineHandlesMenuItem();
+            EnsureAllowSplinePointTimeDraggingMenuItem();
 
             foreach (var item in ProcessingOptionsMenuItems())
             {
@@ -223,6 +225,22 @@ namespace AnalysisITC
                 .FirstOrDefault(pair => pair.menuItem.Identifier == LockProcessorMenuIdentifier).index;
 
             ProcessingOptionsMenuButton.Menu.InsertItem(item, lockItemIndex + 1);
+        }
+
+        void EnsureAllowSplinePointTimeDraggingMenuItem()
+        {
+            if (ProcessingOptionsMenuItems().Any(item => item.Identifier == AllowSplinePointTimeDraggingMenuIdentifier)) return;
+
+            var item = new NSMenuItem("Move spline points in time")
+            {
+                Identifier = AllowSplinePointTimeDraggingMenuIdentifier
+            };
+
+            var showHandlesItemIndex = ProcessingOptionsMenuButton.Menu.Items
+                .Select((menuItem, index) => (menuItem, index))
+                .FirstOrDefault(pair => pair.menuItem.Identifier == ShowSplineHandlesMenuIdentifier).index;
+
+            ProcessingOptionsMenuButton.Menu.InsertItem(item, showHandlesItemIndex + 1);
         }
 
         IEnumerable<NSMenuItem> ProcessingOptionsMenuItems()
@@ -255,6 +273,7 @@ namespace AnalysisITC
             {
                 case LockProcessorMenuIdentifier:
                 case ShowSplineHandlesMenuIdentifier:
+                case AllowSplinePointTimeDraggingMenuIdentifier:
                 case ConvertToSmoothSplineMenuIdentifier:
                 case ConvertToLinearSplineMenuIdentifier:
                 case CopyToActiveMenuIdentifier:
@@ -288,6 +307,11 @@ namespace AnalysisITC
                         item.Title = "Show spline handles";
                         item.Enabled = hasSmoothSpline;
                         item.State = splineInterpolator?.ShowHandles == true ? NSCellStateValue.On : NSCellStateValue.Off;
+                        break;
+                    case AllowSplinePointTimeDraggingMenuIdentifier:
+                        item.Title = "Move spline points in time";
+                        item.Enabled = splineInterpolator != null;
+                        item.State = splineInterpolator?.AllowPointTimeDragging == true ? NSCellStateValue.On : NSCellStateValue.Off;
                         break;
                     case ConvertToSmoothSplineMenuIdentifier:
                         item.Enabled = canConvertToSmoothSpline;
@@ -329,6 +353,12 @@ namespace AnalysisITC
                 case ShowSplineHandlesMenuIdentifier:
                     if (splineInterpolator == null || splineInterpolator.Algorithm != SplineInterpolator.SplineInterpolatorAlgorithm.Smooth) return;
                     splineInterpolator.ShowHandles = !splineInterpolator.ShowHandles;
+                    UpdateUI();
+                    BaselineGraphView.Invalidate();
+                    break;
+                case AllowSplinePointTimeDraggingMenuIdentifier:
+                    if (splineInterpolator == null) return;
+                    splineInterpolator.AllowPointTimeDragging = !splineInterpolator.AllowPointTimeDragging;
                     UpdateUI();
                     BaselineGraphView.Invalidate();
                     break;

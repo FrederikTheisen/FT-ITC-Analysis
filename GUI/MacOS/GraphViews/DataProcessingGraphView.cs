@@ -12,6 +12,7 @@ namespace AnalysisITC
     public partial class DataProcessingGraphView : NSGraph
     {
         const double SplineDragSlowFactor = 0.2; // Hold SHIFT to slow down point/handle dragging (fine adjust)
+        const double MinimumSplinePointTimeSpacingMultiplier = 1.0;
 
         public event EventHandler<int> InjectionSelected;
         public event EventHandler BaselineChanged;
@@ -318,7 +319,7 @@ namespace AnalysisITC
 
             if (b.IsMouseOverFeature)
             {
-                if (b.Type == MouseOverFeatureEvent.FeatureType.BaselineSplinePoint) NSCursor.ResizeUpDownCursor.Set();
+                if (b.Type == MouseOverFeatureEvent.FeatureType.BaselineSplinePoint) SetSplinePointCursor();
                 else if (b.Type == MouseOverFeatureEvent.FeatureType.BaselineSplineHandle) NSCursor.ResizeUpDownCursor.Set();
                 else if (b.Type == MouseOverFeatureEvent.FeatureType.IntegrationRangeMarker) NSCursor.ResizeLeftRightCursor.Set();
             }
@@ -398,6 +399,9 @@ namespace AnalysisITC
             var deltaYpx = position.Y - SelectedFeature.ClickCursorPosition.Y;
             var yUnitsPerPixel = Graph.PointsPerUnit.Height != 0 ? 1.0 / (double)Graph.PointsPerUnit.Height : 0.0;
             var deltaYUnits = deltaYpx * yUnitsPerPixel * factor;
+            var deltaXpx = position.X - SelectedFeature.ClickCursorPosition.X;
+            var xUnitsPerPixel = Graph.PointsPerUnit.Width != 0 ? 1.0 / (double)Graph.PointsPerUnit.Width : 0.0;
+            var deltaXUnits = deltaXpx * xUnitsPerPixel * factor;
 
             var shouldRefreshSplineBaseline = false;
 
@@ -405,8 +409,12 @@ namespace AnalysisITC
             {
                 case MouseOverFeatureEvent.FeatureType.BaselineSplinePoint:
                     {
-                        var feature = (Data.Processor.Interpolator as SplineInterpolator).SplinePoints[SelectedFeature.FeatureID];
+                        if (Data.Processor.Interpolator is not SplineInterpolator splineInterpolator) break;
+
+                        var feature = splineInterpolator.SplinePoints[SelectedFeature.FeatureID];
                         feature.Power = SelectedFeature.FeatureReferenceValue + deltaYUnits;
+                        if (splineInterpolator.AllowPointTimeDragging)
+                            feature.Time = ClampSplinePointDragTime(splineInterpolator, SelectedFeature.FeatureID, SelectedFeature.SecondaryFeatureReferenceValue + deltaXUnits);
                         feature.Lock();
                         shouldRefreshSplineBaseline = true;
                         break;
@@ -497,7 +505,7 @@ namespace AnalysisITC
 
                 if (b.IsMouseOverFeature)
                 {
-                    if (b.Type == MouseOverFeatureEvent.FeatureType.BaselineSplinePoint) NSCursor.ResizeUpDownCursor.Set();
+                    if (b.Type == MouseOverFeatureEvent.FeatureType.BaselineSplinePoint) SetSplinePointCursor();
                     else if (b.Type == MouseOverFeatureEvent.FeatureType.BaselineSplineHandle) NSCursor.ResizeUpDownCursor.Set();
                     else if (b.Type == MouseOverFeatureEvent.FeatureType.IntegrationRangeMarker) NSCursor.ResizeLeftRightCursor.Set();
                 }
@@ -550,6 +558,32 @@ namespace AnalysisITC
 
             splineInterpolator.RefreshBaselineFromCurrentSplinePoints();
             Data.Processor.SubtractBaseline();
+        }
+
+        void SetSplinePointCursor()
+        {
+            if (Data?.Processor?.Interpolator is SplineInterpolator splineInterpolator && splineInterpolator.AllowPointTimeDragging)
+                NSCursor.CrosshairCursor.Set();
+            else
+                NSCursor.ResizeUpDownCursor.Set();
+        }
+
+        double ClampSplinePointDragTime(SplineInterpolator splineInterpolator, int pointIndex, double proposedTime)
+        {
+            var points = splineInterpolator.SplinePoints;
+            if (Data?.DataPoints == null || Data.DataPoints.Count == 0) return proposedTime;
+            if (pointIndex < 0 || pointIndex >= points.Count) return proposedTime;
+
+            var minimumSpacing = Math.Max(Data.TimeStep * MinimumSplinePointTimeSpacingMultiplier, double.Epsilon);
+            double minTime = Data.DataPoints.First().Time;
+            double maxTime = Data.DataPoints.Last().Time;
+
+            if (pointIndex > 0) minTime = points[pointIndex - 1].Time + minimumSpacing;
+            if (pointIndex < points.Count - 1) maxTime = points[pointIndex + 1].Time - minimumSpacing;
+
+            if (minTime > maxTime) return points[pointIndex].Time;
+
+            return Math.Min(maxTime, Math.Max(minTime, proposedTime));
         }
     }
 }

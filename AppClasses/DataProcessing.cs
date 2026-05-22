@@ -527,6 +527,7 @@ namespace AnalysisITC
         public static int MaximumAdditionalSplinePointsPerInjection { get; set; } = 1;
         public static double LockedSplinePointPlacementMarginFraction { get; set; } = 1.0 / 3.0;
         public static SplineHandleMode DefaultHandleMode { get; set; } = SplineHandleMode.Mean;
+        public static bool DefaultAllowPointTimeDragging { get; set; } = false;
 
         public static SplinePointDensity DefaultPointDensity
         {
@@ -566,6 +567,7 @@ namespace AnalysisITC
 
         public SplinePointDensity PointDensity { get; set; } = SplinePointDensity.Balanced;
         public bool ShowHandles { get; set; } = false;
+        public bool AllowPointTimeDragging { get; set; } = false;
         public SplineHandleMode HandleMode { get; set; } = SplineHandleMode.Mean;
 
         public List<SplinePoint> SplinePoints { get; private set; } = new List<SplinePoint>();
@@ -577,6 +579,7 @@ namespace AnalysisITC
             PointDensity = DefaultPointDensity;
             PointsPerInjection = DefaultPointsPerInjection;
             HandleMode = DefaultHandleMode;
+            AllowPointTimeDragging = DefaultAllowPointTimeDragging;
         }
 
         static int ClampPointsPerInjection(int value) => Math.Min(MaximumPointsPerInjection, Math.Max(MinimumPointsPerInjection, value));
@@ -599,6 +602,7 @@ namespace AnalysisITC
                 Algorithm = this.Algorithm,
                 PointDensity = this.PointDensity,
                 ShowHandles = this.ShowHandles,
+                AllowPointTimeDragging = this.AllowPointTimeDragging,
                 HandleMode = this.HandleMode,
             };
 

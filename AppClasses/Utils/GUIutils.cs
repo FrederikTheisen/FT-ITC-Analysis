@@ -168,6 +168,7 @@ namespace Utilities
         public int FeatureID { get; set; } = -1;
         public int SubID { get; set; } = -1;
         public double FeatureReferenceValue { get; set; } = 0;
+        public double SecondaryFeatureReferenceValue { get; set; } = 0;
 
         public FeatureBoundingBox(MouseOverFeatureEvent.FeatureType type, CGRect rect, int id, CGPoint boxoffset, int sid = -1)
         {
@@ -226,6 +227,7 @@ namespace Utilities
 
         public CGPoint ClickCursorPosition { get; set; } = new CGPoint();
         public double FeatureReferenceValue { get; set; }
+        public double SecondaryFeatureReferenceValue { get; set; }
         public CGPoint CursorAxisClickPosition { get; set; }
 
         readonly List<string> tooltiplines = new List<string>();
@@ -272,6 +274,7 @@ namespace Utilities
             Type = box.Type;
             FeatureID = box.FeatureID;
             FeatureReferenceValue = box.FeatureReferenceValue;
+            SecondaryFeatureReferenceValue = box.SecondaryFeatureReferenceValue;
         }
 
         public MouseOverFeatureEvent(AnalysisITC.InjectionData inj, CGGraph graph)

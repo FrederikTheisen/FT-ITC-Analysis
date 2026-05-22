@@ -53,6 +53,7 @@ namespace AnalysisITC
         public const string SplineHandleMode = "SHandleMode";
         public const string SplineAlgorithm = "SAlgorithm";
         public const string SplineShowHandles = "SShowHandles";
+        public const string SplineAllowPointTimeDragging = "SAllowPointTimeDragging";
         public const string SplinePointDensity = "SPointDensity";
         public const string SplineLocked = "SLocked";
         public const string SplinePointsPerInjection = "SPointsPerInjection";
@@ -602,6 +603,7 @@ namespace AnalysisITC
                         var spinterpolator = (data.Processor.Interpolator as SplineInterpolator);
                         file.Add(Variable(SplineAlgorithm, (int)spinterpolator.Algorithm));
                         file.Add(Variable(SplineShowHandles, spinterpolator.ShowHandles));
+                        file.Add(Variable(SplineAllowPointTimeDragging, spinterpolator.AllowPointTimeDragging));
                         file.Add(Variable(SplinePointDensity, (int)spinterpolator.PointDensity));
                         file.Add(Variable(SplineHandleMode, (int)spinterpolator.HandleMode));
                         file.Add(Variable(SplinePointsPerInjection, FormatInt(spinterpolator.PointsPerInjection)));

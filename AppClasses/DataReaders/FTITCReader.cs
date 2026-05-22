@@ -155,6 +155,7 @@ namespace DataReaders
                     case SplineHandleMode: (p.Interpolator as SplineInterpolator).HandleMode = (SplineInterpolator.SplineHandleMode)IParse(v[1]); break;
                     case SplineAlgorithm: (p.Interpolator as SplineInterpolator).Algorithm = (SplineInterpolator.SplineInterpolatorAlgorithm)IParse(v[1]); break;
                     case SplineShowHandles: (p.Interpolator as SplineInterpolator).ShowHandles = BParse(v[1]); break;
+                    case SplineAllowPointTimeDragging: (p.Interpolator as SplineInterpolator).AllowPointTimeDragging = BParse(v[1]); break;
                     case SplinePointDensity: (p.Interpolator as SplineInterpolator).PointDensity = (SplineInterpolator.SplinePointDensity)IParse(v[1]); break;
                     case SplinePointsPerInjection: (p.Interpolator as SplineInterpolator).PointsPerInjection = IParse(v[1]); break;
                     case SplineLocked: if (BParse(v[1])) p.Lock(); break;

@@ -33,6 +33,9 @@ namespace AnalysisITC
         [Outlet]
         AppKit.NSSegmentedControl SplinePointDensityControl { get; set; }
 
+        [Outlet]
+        AppKit.NSButton SplinePointTimeDraggingDefaultControl { get; set; }
+
         [Action ("Apply:")]
         partial void Apply (Foundation.NSObject sender);
 
@@ -77,6 +80,11 @@ namespace AnalysisITC
             if (SplinePointDensityControl != null) {
                 SplinePointDensityControl.Dispose ();
                 SplinePointDensityControl = null;
+            }
+
+            if (SplinePointTimeDraggingDefaultControl != null) {
+                SplinePointTimeDraggingDefaultControl.Dispose ();
+                SplinePointTimeDraggingDefaultControl = null;
             }
         }
     }
