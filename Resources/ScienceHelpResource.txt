@@ -34,7 +34,7 @@ The uncertainty reported for each fitted model parameter is a statistical uncert
 For each parameter such as *N*, \dh, or \kd, \appname collects the distribution of fitted values across those refits. The reported error for a parameter is derived from that distribution, typically as a standard deviation.
 The parameter values reported are not averages. They are the single best-fit values that minimize the loss function. Only the uncertainties are derived from the resampling-and-refitting scheme.
 The general uncertainty style preference controls whether formatted values are shown with standard deviations, confidence intervals, or both where the relevant interval information is available. This is a display and export-format choice; it does not change the underlying fit.
-# Derived quantities
+# Derived Quantities
 Derived parameters such as \dg and \tds are also reported with errors. These are computed from the refitted parameter distributions in the same way as the fitted parameters, by evaluating the derived quantity for each refit and taking the spread of that distribution.
 # Concentration Uncertainty Propagation
 If concentration uncertainties are provided for cell and syringe solutions, \appname can propagate these into parameter uncertainties by allowing refits to include concentration perturbations within the entered uncertainty bounds.
