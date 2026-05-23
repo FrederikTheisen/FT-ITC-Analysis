@@ -22,6 +22,33 @@ namespace AnalysisITC
             Data = result.Solution.Solutions;
         }
 
+        public string GetCellValue(string columnIdentifier, int row)
+        {
+            var solution = Data[row];
+
+            switch (columnIdentifier)
+            {
+                case "Temp": return (solution.Temp + (UseKelvin ? 273.15 : 0)).ToString("F2");
+                case "IS": return (1000 * BufferAttribute.GetIonicStrength(solution.Data)).ToString("F1");
+                case "HPROT": return BufferAttribute.GetProtonationEnthalpy(solution.Data).ToString(EnergyUnit, "F1", withunit: false);
+                case "α":
+                case "N1": return solution.ReportParameters[ParameterType.Nvalue1].AsNumber();
+                case "N2": return solution.ReportParameters[ParameterType.Nvalue2].AsNumber();
+                case "Kd1": return solution.ReportParameters[ParameterType.Affinity1].AsFormattedConcentration(KdUnit, withunit: false);
+                case "Kd2": return solution.ReportParameters[ParameterType.Affinity2].AsFormattedConcentration(KdUnit, withunit: false);
+                case "∆H1": return solution.ReportParameters[ParameterType.Enthalpy1].Energy.ToFormattedString(EnergyUnit, withunit: false);
+                case "∆H2": return solution.ReportParameters[ParameterType.Enthalpy2].Energy.ToFormattedString(EnergyUnit, withunit: false);
+                case "-T∆S1": return solution.ReportParameters[ParameterType.EntropyContribution1].Energy.ToFormattedString(EnergyUnit, withunit: false);
+                case "-T∆S2": return solution.ReportParameters[ParameterType.EntropyContribution2].Energy.ToFormattedString(EnergyUnit, withunit: false);
+                case "∆G1": return solution.ReportParameters[ParameterType.Gibbs1].Energy.ToFormattedString(EnergyUnit, withunit: false);
+                case "∆G2": return solution.ReportParameters[ParameterType.Gibbs2].Energy.ToFormattedString(EnergyUnit, withunit: false);
+                case "Loss": return solution.Loss.ToString("G3");
+                case "Keq": return solution.ReportParameters[ParameterType.IsomerizationEquilibriumConstant].AsNumber();
+                case "Kd_app": return solution.ReportParameters[ParameterType.ApparentAffinity].AsFormattedConcentration(KdUnit, withunit: false);
+                default: return columnIdentifier ?? "";
+            }
+        }
+
         public override nint GetRowCount(NSTableView tableView)
         {
             return Data.Count;
@@ -66,30 +93,8 @@ namespace AnalysisITC
                 view.Editable = false;
             }
 
-            // Setup view based on the column selected
-            switch (tableColumn.Identifier)
-            {
-                case "Temp": view.StringValue = (DataSource.Data[(int)row].Temp + (UseKelvin ? 273.15 : 0)).ToString("F2"); break;
-                case "IS": view.StringValue = (1000 * BufferAttribute.GetIonicStrength(DataSource.Data[(int)row].Data)).ToString("F1"); break;
-                case "HPROT": view.StringValue = BufferAttribute.GetProtonationEnthalpy(DataSource.Data[(int)row].Data).ToString(EnergyUnit, "F1", withunit: false); break;
-                case "α":
-                case "N1": view.StringValue = DataSource.Data[(int)row].ReportParameters[ParameterType.Nvalue1].AsNumber(); view.Alignment = NSTextAlignment.Center; break;
-                case "N2": view.StringValue = DataSource.Data[(int)row].ReportParameters[ParameterType.Nvalue2].AsNumber(); view.Alignment = NSTextAlignment.Center; break;
-                case "Kd1": view.StringValue = DataSource.Data[(int)row].ReportParameters[ParameterType.Affinity1].AsFormattedConcentration(KdUnit, withunit: false); view.Alignment = NSTextAlignment.Center; break;
-                case "Kd2": view.StringValue = DataSource.Data[(int)row].ReportParameters[ParameterType.Affinity2].AsFormattedConcentration(KdUnit, withunit: false); view.Alignment = NSTextAlignment.Center; break;
-                case "∆H1": view.StringValue = DataSource.Data[(int)row].ReportParameters[ParameterType.Enthalpy1].Energy.ToFormattedString(EnergyUnit, withunit: false); view.Alignment = NSTextAlignment.Center; break;
-                case "∆H2": view.StringValue = DataSource.Data[(int)row].ReportParameters[ParameterType.Enthalpy2].Energy.ToFormattedString(EnergyUnit, withunit: false); view.Alignment = NSTextAlignment.Center; break;
-                case "-T∆S1": view.StringValue = DataSource.Data[(int)row].ReportParameters[ParameterType.EntropyContribution1].Energy.ToFormattedString(EnergyUnit, withunit: false); view.Alignment = NSTextAlignment.Center; break;
-                case "-T∆S2": view.StringValue = DataSource.Data[(int)row].ReportParameters[ParameterType.EntropyContribution2].Energy.ToFormattedString(EnergyUnit, withunit: false); view.Alignment = NSTextAlignment.Center; break;
-                case "∆G1": view.StringValue = DataSource.Data[(int)row].ReportParameters[ParameterType.Gibbs1].Energy.ToFormattedString(EnergyUnit, withunit: false); view.Alignment = NSTextAlignment.Center; break;
-                case "∆G2": view.StringValue = DataSource.Data[(int)row].ReportParameters[ParameterType.Gibbs2].Energy.ToFormattedString(EnergyUnit, withunit: false); view.Alignment = NSTextAlignment.Center; break;
-                case "Loss": view.StringValue = DataSource.Data[(int)row].Loss.ToString("G3"); view.Alignment = NSTextAlignment.Center; break;
-                case "Keq": view.StringValue = DataSource.Data[(int)row].ReportParameters[ParameterType.IsomerizationEquilibriumConstant].AsNumber(); view.Alignment = NSTextAlignment.Center; break;
-                case "Kd_app": view.StringValue = DataSource.Data[(int)row].ReportParameters[ParameterType.ApparentAffinity].AsFormattedConcentration(KdUnit, withunit: false); view.Alignment = NSTextAlignment.Center; break;
-                default:
-                    view.StringValue = tableColumn.Identifier;
-                    break;
-            }
+            view.StringValue = DataSource.GetCellValue(tableColumn.Identifier, (int)row);
+            view.Alignment = NSTextAlignment.Center;
 
             return view;
         }
