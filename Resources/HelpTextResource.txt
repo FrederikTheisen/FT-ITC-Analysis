@@ -65,7 +65,7 @@ For one-set-of-sites results, additional tabs appear when the loaded experiments
 **Ionic-strength dependence:** available when salt metadata is present and ionic strength varies across experiments.
 **Protonation analysis:** available when buffer metadata varies across experiments.
 # Exporting Analysis Results
-Use **Export result...** from the context menu or analysis result view to open the analysis result exporter. You can select one or more results, export one summary row per result or all replicate rows, choose value-with-error or separate value/error columns, and write CSV or TSV output. The same configured table can also be copied to the clipboard.
+Use **Export result...** from the context menu or analysis result view to open the analysis result exporter. You can select one or more results, export one summary row per result or all replicate rows, choose inline values or separate value/uncertainty columns, and write CSV or TSV output. Exported uncertainty can be standard deviation, 95% confidence interval bounds, or both. The same configured table can also be copied to the clipboard.
 
 ## Presenting Data
 \appname is designed to produce consistent, publication-oriented plots directly from raw data.

@@ -33,6 +33,7 @@ The uncertainty reported for each fitted model parameter is a statistical uncert
 
 For each parameter such as *N*, \dh, or \kd, \appname collects the distribution of fitted values across those refits. The reported error for a parameter is derived from that distribution, typically as a standard deviation.
 The parameter values reported are not averages. They are the single best-fit values that minimize the loss function. Only the uncertainties are derived from the resampling-and-refitting scheme.
+The general uncertainty style preference controls whether formatted values are shown with standard deviations, confidence intervals, or both where the relevant interval information is available. This is a display and export-format choice; it does not change the underlying fit.
 # Derived quantities
 Derived parameters such as \dg and \tds are also reported with errors. These are computed from the refitted parameter distributions in the same way as the fitted parameters, by evaluating the derived quantity for each refit and taking the spread of that distribution.
 # Concentration Uncertainty Propagation
@@ -43,7 +44,7 @@ When you analyze multiple experiments at the same time using \multexp, a combine
 Parameters in this result may be shared across experiments, fitted per experiment, or made dependent on an experimental variable such as temperature under the selected constraint scheme.
 The reported global parameters are not averages. They are the single best-fit values or dependence descriptors that minimize the total mismatch across the included datasets.
 
-Analysis Results keep the solver metadata, model options, parameter constraints, individual replicate rows, and evaluated thermodynamic quantities together. When temperature dependence is present, evaluated values are calculated at the selected evaluation temperature; otherwise they are evaluated at the mean experiment temperature. The result exporter can write either one summary row per result or all replicate rows. Summary rows aggregate parameter values across the result's replicate solutions, while all-row exports preserve the per-experiment fitted values and losses.
+Analysis Results keep the solver metadata, model options, parameter constraints, individual replicate rows, and evaluated thermodynamic quantities together. When temperature dependence is present, evaluated values are calculated at the selected evaluation temperature; otherwise they are evaluated at the mean experiment temperature. The result exporter can write either one summary row per result or all replicate rows. Summary rows aggregate parameter values across the result's replicate solutions, while all-row exports preserve the per-experiment fitted values and losses. Exported uncertainty can be formatted as standard deviation, 95% confidence interval lower and upper bounds, or both.
 
 Advanced result tabs are shown only when the result contains the required information. Temperature-dependent structuring analysis requires a sufficient temperature span. Ionic-strength analysis requires salt metadata and a meaningful ionic-strength variation. Protonation analysis requires buffer metadata that varies across the included experiments.
 
