@@ -509,6 +509,7 @@
     <Compile Include="GUI\MacOS\HelpViewController.designer.cs">
       <DependentUpon>HelpViewController.cs</DependentUpon>
     </Compile>
+    <Compile Include="GUI\MacOS\HelpDocumentView.cs" />
     <Compile Include="GUI\MacOS\AppWindow.cs" />
     <Compile Include="GUI\MacOS\AppWindow.designer.cs">
       <DependentUpon>AppWindow.cs</DependentUpon>

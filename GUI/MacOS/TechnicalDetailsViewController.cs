@@ -1,5 +1,4 @@
 ﻿using System;
-using System.IO;
 using Foundation;
 using AppKit;
 using System.Collections.Generic;
@@ -8,6 +7,8 @@ namespace AnalysisITC
 {
 	public partial class TechnicalDetailsViewController : AppKit.NSViewController
 	{
+        HelpDocumentView helpDocumentView;
+
 		#region Constructors
 
 		// Called when created from unmanaged code
@@ -39,15 +40,14 @@ namespace AnalysisITC
         public override void ViewDidAppear()
         {
             base.ViewDidAppear();
+        }
 
-            var text = File.ReadAllText("./ScienceHelpResource.txt");
-            var font = NSFont.FromFontName(TextField.Font.DisplayName, 13);
+        public override void ViewDidLoad()
+        {
+            base.ViewDidLoad();
 
-            var processed_text = Utilities.MarkdownProcessor.ProcessWrittenText(text);
-            var attstring = Utilities.MacStrings.FromMarkDownString(processed_text, font);
-
-            TextField.TextStorage.SetString(attstring);
-            TextField.TextColor = NSColor.Label;
+            helpDocumentView = new HelpDocumentView(this, TextField, "./ScienceHelpResource.txt");
+            helpDocumentView.Install();
         }
     }
 }
