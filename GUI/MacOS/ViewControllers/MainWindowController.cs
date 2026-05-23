@@ -50,6 +50,7 @@ namespace AnalysisITC
             DataManager.DataDidChange += DataManager_DataDidChange;
             DataManager.DataInclusionDidChange += DataManager_DataDidChange;
             DataAnalysisViewController.AnalysisModeDidChange += DataAnalysisViewController_AnalysisModeDidChange;
+            AnalysisResultTabViewController.DisplayOptionsDidChange += AnalysisResultTabViewController_DisplayOptionsDidChange;
             FTITCFormat.CurrentAccessedAppDocumentPathChanged += FTITCFormat_CurrentAccessedAppDocumentPathChanged;
             dirtyTrackingWindowDelegate = new DirtyTrackingWindowDelegate(this);
             Window.Delegate = dirtyTrackingWindowDelegate;
@@ -77,6 +78,11 @@ namespace AnalysisITC
         }
 
         private void DataAnalysisViewController_AnalysisModeDidChange(object sender, EventArgs e)
+        {
+            NSApplication.SharedApplication.InvokeOnMainThread(UpdateContextToolbarMenu);
+        }
+
+        private void AnalysisResultTabViewController_DisplayOptionsDidChange(object sender, EventArgs e)
         {
             NSApplication.SharedApplication.InvokeOnMainThread(UpdateContextToolbarMenu);
         }
@@ -309,8 +315,13 @@ namespace AnalysisITC
         {
             if (WorkflowToolbarMenuButton == null) return;
 
-            var title = "Options";
-            if (StateManager.CurrentState == ProgramState.Analyze) title = "Analysis";
+            var title = StateManager.CurrentState switch
+            {
+                ProgramState.Process => "Processing",
+                ProgramState.Analyze => "Analysis",
+                ProgramState.AnalysisView => "Result view",
+                _ => "Workflow",
+            };
 
             var menu = new NSMenu(title) { AutoEnablesItems = false };
             menu.AddItem(new NSMenuItem(title) { Hidden = true });
@@ -324,6 +335,10 @@ namespace AnalysisITC
                 case ProgramState.Analyze:
                     WorkflowToolbarMenuButton.Hidden = false;
                     PopulateAnalysisToolbarMenu(menu);
+                    break;
+                case ProgramState.AnalysisView:
+                    WorkflowToolbarMenuButton.Hidden = false;
+                    PopulateAnalysisResultToolbarMenu(menu);
                     break;
                 default:
                     WorkflowToolbarMenuButton.Hidden = true;
@@ -533,8 +548,93 @@ namespace AnalysisITC
 
         void PopulateAnalysisResultToolbarMenu(NSMenu menu)
         {
-            menu.AddItem(CreateContextMenuItem("Export result...", "resultexporter", DataManager.Results.Count > 0, (s, e) => AppDelegate.LaunchResultExporter()));
-            menu.AddItem(CreateContextMenuItem("Copy/export result...", "copyresult", DataManager.Results.Count > 0, (s, e) => SendActionToResponder("CopyToClipboard:")));
+            var hasResult = DataManager.SelectedResult != null;
+
+            menu.AddItem(CreateErrorStyleMenuItem(hasResult));
+            menu.AddItem(CreateTemperatureUnitMenuItem(hasResult));
+            menu.AddItem(CreateEnergyUnitMenuItem(hasResult));
+        }
+
+        NSMenuItem CreateErrorStyleMenuItem(bool enabled)
+        {
+            var item = CreateContextMenuItem("Error style", null, enabled, null);
+            var submenu = new NSMenu("Error style") { AutoEnablesItems = false };
+
+            submenu.AddItem(CreateContextMenuItem("Auto", "errorstyleauto", enabled,
+                (s, e) => SetAnalysisResultErrorStyle(UncertaintyDisplayStyle.Automatic),
+                AppSettings.UncertaintyDisplayStyle == UncertaintyDisplayStyle.Automatic));
+            submenu.AddItem(CreateContextMenuItem("Standard deviation", "errorstylesd", enabled,
+                (s, e) => SetAnalysisResultErrorStyle(UncertaintyDisplayStyle.StandardDeviation),
+                AppSettings.UncertaintyDisplayStyle == UncertaintyDisplayStyle.StandardDeviation));
+            submenu.AddItem(CreateContextMenuItem("95% confidence interval", "errorstyleci", enabled,
+                (s, e) => SetAnalysisResultErrorStyle(UncertaintyDisplayStyle.ConfidenceInterval),
+                AppSettings.UncertaintyDisplayStyle == UncertaintyDisplayStyle.ConfidenceInterval));
+            submenu.AddItem(CreateContextMenuItem("Standard deviation + 95% CI", "errorstyleboth", enabled,
+                (s, e) => SetAnalysisResultErrorStyle(UncertaintyDisplayStyle.StandardDeviationAndConfidenceInterval),
+                AppSettings.UncertaintyDisplayStyle == UncertaintyDisplayStyle.StandardDeviationAndConfidenceInterval));
+
+            item.Submenu = submenu;
+            return item;
+        }
+
+        NSMenuItem CreateTemperatureUnitMenuItem(bool enabled)
+        {
+            var item = CreateContextMenuItem("Temperature unit", null, enabled, null);
+            var submenu = new NSMenu("Temperature unit") { AutoEnablesItems = false };
+
+            submenu.AddItem(CreateContextMenuItem("Celsius", "temperaturecelsius", enabled,
+                (s, e) => SetAnalysisResultTemperatureUnit(useKelvin: false),
+                !AnalysisResultTabViewController.CurrentUseKelvin));
+            submenu.AddItem(CreateContextMenuItem("Kelvin", "temperaturekelvin", enabled,
+                (s, e) => SetAnalysisResultTemperatureUnit(useKelvin: true),
+                AnalysisResultTabViewController.CurrentUseKelvin));
+
+            item.Submenu = submenu;
+            return item;
+        }
+
+        NSMenuItem CreateEnergyUnitMenuItem(bool enabled)
+        {
+            var item = CreateContextMenuItem("Energy unit", null, enabled, null);
+            var submenu = new NSMenu("Energy unit") { AutoEnablesItems = false };
+
+            submenu.AddItem(CreateContextMenuItem("Joule", "energyjoule", enabled,
+                (s, e) => SetAnalysisResultEnergyUnit(EnergyUnit.Joule),
+                AppSettings.EnergyUnit == EnergyUnit.Joule));
+            submenu.AddItem(CreateContextMenuItem("Kilojoule", "energykilojoule", enabled,
+                (s, e) => SetAnalysisResultEnergyUnit(EnergyUnit.KiloJoule),
+                AppSettings.EnergyUnit == EnergyUnit.KiloJoule));
+            submenu.AddItem(CreateContextMenuItem("Calorie", "energycalorie", enabled,
+                (s, e) => SetAnalysisResultEnergyUnit(EnergyUnit.Cal),
+                AppSettings.EnergyUnit == EnergyUnit.Cal));
+            submenu.AddItem(CreateContextMenuItem("Kilocalorie", "energykilocalorie", enabled,
+                (s, e) => SetAnalysisResultEnergyUnit(EnergyUnit.KCal),
+                AppSettings.EnergyUnit == EnergyUnit.KCal));
+
+            item.Submenu = submenu;
+            return item;
+        }
+
+        void SetAnalysisResultErrorStyle(UncertaintyDisplayStyle style)
+        {
+            AppSettings.UncertaintyDisplayStyle = style;
+            AppSettings.Save();
+            AnalysisResultTabViewController.RequestDisplayRefresh();
+            UpdateContextToolbarMenu();
+        }
+
+        void SetAnalysisResultTemperatureUnit(bool useKelvin)
+        {
+            AnalysisResultTabViewController.RequestTemperatureUnit(useKelvin);
+            UpdateContextToolbarMenu();
+        }
+
+        void SetAnalysisResultEnergyUnit(EnergyUnit unit)
+        {
+            AppSettings.EnergyUnit = unit;
+            AppSettings.Save();
+            AnalysisResultTabViewController.RequestDisplayRefresh();
+            UpdateContextToolbarMenu();
         }
 
         NSMenuItem CreateCopyAttributesMenuItem(bool hasAttributes)
