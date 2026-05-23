@@ -71,6 +71,14 @@ namespace AnalysisITC.AppClasses.AnalysisClasses
         UseSyringeActiveFraction,
         [AttributeKey("Stoichiometry", "Fixed stoichiometric site ratio used by the model. This controls how many binding sites are represented on the cell side.", ExperimentAttribute.AttributeType.Int)]
         NumberOfSites2,
+        [AttributeKey("Species", "Name of a species in the ITC cell or syringe. This is annotation metadata for figures and exported results.", ExperimentAttribute.AttributeType.String, true)]
+        Species,
+    }
+
+    public enum ExperimentSpeciesLocation
+    {
+        Cell = 0,
+        Syringe = 1,
     }
 
 	public class ExperimentAttribute
@@ -103,6 +111,18 @@ namespace AnalysisITC.AppClasses.AnalysisClasses
 			}
 		}
 
+        public static IEnumerable<Tuple<int, string, string>> SpeciesLocationOptions
+        {
+            get
+            {
+                return new List<Tuple<int, string, string>>
+                {
+                    new((int)ExperimentSpeciesLocation.Cell, "Cell", "Species initially present in the cell."),
+                    new((int)ExperimentSpeciesLocation.Syringe, "Syringe", "Species initially present in the syringe."),
+                };
+            }
+        }
+
 		public IEnumerable<Tuple<int, string, string, string>> ExperimentReferenceOptions
 		{
 			get
@@ -127,6 +147,7 @@ namespace AnalysisITC.AppClasses.AnalysisClasses
 				case AttributeKey.UseSyringeActiveFraction:
 				case AttributeKey.PeptideInCell: return Bool(key, "", false);
                 case AttributeKey.BufferSubtraction: return ExperimentReference("Reference", null);
+                case AttributeKey.Species: return Species(ExperimentSpeciesLocation.Cell, "");
 				default: return Parameter(key, "", new(0));
 			}
 		}
@@ -206,9 +227,22 @@ namespace AnalysisITC.AppClasses.AnalysisClasses
             };
         }
 
+        public static ExperimentAttribute Species(ExperimentSpeciesLocation location, string speciesName)
+        {
+            return new ExperimentAttribute()
+            {
+                Key = AttributeKey.Species,
+                IntValue = (int)location,
+                StringValue = speciesName,
+                ParameterValue = new(),
+            };
+        }
+
         public void UpdateOptionKey(AttributeKey key, double dd = 0.0, double dp = 0.0)
 		{
 			Key = key;
+            OptionName = "";
+            StringValue = "";
 
 			switch(key)
 			{
@@ -224,6 +258,12 @@ namespace AnalysisITC.AppClasses.AnalysisClasses
                 case AttributeKey.BufferSubtraction:
                     OptionName = "Reference";
                     IntValue = (int)AppSettings.BufferSubtractionDefaultMethod;
+                    break;
+                case AttributeKey.Species:
+                    OptionName = "";
+                    IntValue = (int)ExperimentSpeciesLocation.Cell;
+                    StringValue = "";
+                    ParameterValue = new();
                     break;
 				default:
 					break;
@@ -274,6 +314,10 @@ namespace AnalysisITC.AppClasses.AnalysisClasses
                     return $"{StoichiometryOptions.FormatAsParameter(DoubleValue)}";
                 case AttributeKey.PreboundLigandConc:
                     return ParameterValue.AsFormattedConcentration(true);
+                case AttributeKey.Species:
+                    return string.IsNullOrWhiteSpace(StringValue)
+                        ? ""
+                        : $"{GetSpeciesLocationDisplayName(IntValue)}: {StringValue}";
             }
 
             switch (Key.GetProperties().Type)
@@ -289,6 +333,7 @@ namespace AnalysisITC.AppClasses.AnalysisClasses
                     return experiment?.ReferenceExperiment?.Name
                         ?? DataManager.Data.FirstOrDefault(d => d.UniqueID == StringValue)?.Name
                         ?? "Missing reference experiment";
+                case AttributeType.String: return StringValue ?? "";
             }
 
             return $"{Key} {StringValue} {IntValue} {BoolValue} {DoubleValue} {ParameterValue}";
@@ -298,6 +343,25 @@ namespace AnalysisITC.AppClasses.AnalysisClasses
 		{
 			return GetDisplayValue();
 		}
+
+        public static ExperimentSpeciesLocation NormalizeSpeciesLocation(int location)
+        {
+            if (Enum.IsDefined(typeof(ExperimentSpeciesLocation), location))
+                return (ExperimentSpeciesLocation)location;
+
+            return ExperimentSpeciesLocation.Cell;
+        }
+
+        public static string GetSpeciesLocationDisplayName(int location)
+        {
+            switch (NormalizeSpeciesLocation(location))
+            {
+                case ExperimentSpeciesLocation.Syringe:
+                    return "Syringe";
+                default:
+                    return "Cell";
+            }
+        }
 
 		public static List<AttributeKey> AvailableExperimentAttributes
 		{
@@ -310,7 +374,8 @@ namespace AnalysisITC.AppClasses.AnalysisClasses
 					 AttributeKey.Buffer,
 					 AttributeKey.Salt,
 					 AttributeKey.IonicStrength,
-					 AttributeKey.BufferSubtraction
+					 AttributeKey.BufferSubtraction,
+                     AttributeKey.Species
 				};
 			}
 		}
@@ -325,6 +390,7 @@ namespace AnalysisITC.AppClasses.AnalysisClasses
 			ParameterAffinity,
 			ParameterConcentration,
             ReferenceExperiment,
+            String,
         }
 	}
 }

@@ -32,6 +32,7 @@ namespace AnalysisITC.GUI.MacOS.CustomViews
         NSPopUpButton EnumPopUpControl { get; set; }
         NSPopUpButton BufferSubtractionMethodControl { get; set; }
         NSSegmentedControl EnumSegControl { get; set; }
+        NSTextField StringField { get; set; }
 
         #region Constructors
 
@@ -149,6 +150,9 @@ namespace AnalysisITC.GUI.MacOS.CustomViews
                     break;
                 case AttributeKey.BufferSubtraction:
                     SetupBufferSubtraction();
+                    break;
+                case AttributeKey.Species:
+                    SetupSpecies();
                     break;
             }
         }
@@ -370,6 +374,44 @@ namespace AnalysisITC.GUI.MacOS.CustomViews
             AddArrangedSubview(BufferSubtractionMethodControl);
         }
 
+        void SetupSpecies()
+        {
+            SetupDropdownMenu();
+
+            foreach (var opt in ExperimentAttribute.SpeciesLocationOptions)
+            {
+                EnumPopUpControl.Menu.AddItem(new NSMenuItem(opt.Item2)
+                {
+                    Tag = opt.Item1,
+                    ToolTip = opt.Item3,
+                });
+            }
+
+            AddArrangedSubview(EnumPopUpControl);
+
+            var location = ExperimentAttribute.NormalizeSpeciesLocation(Option.IntValue);
+            EnumPopUpControl.SelectItemWithTag((int)location);
+            EnumPopUpControl_Activated(null, null);
+
+            StringField = new NSTextField(new CGRect(0, 0, 120, 16))
+            {
+                Bordered = false,
+                TranslatesAutoresizingMaskIntoConstraints = false,
+                StringValue = Option.StringValue ?? "",
+                PlaceholderString = "Species name",
+                BezelStyle = NSTextFieldBezelStyle.Rounded,
+                FocusRingType = NSFocusRingType.None,
+                ControlSize = NSControlSize.Small,
+                Font = NSFont.SystemFontOfSize(NSFont.SmallSystemFontSize),
+                Alignment = NSTextAlignment.Left,
+                LineBreakMode = NSLineBreakMode.TruncatingTail,
+            };
+            StringField.AddConstraint(NSLayoutConstraint.Create(StringField, NSLayoutAttribute.Width, NSLayoutRelation.GreaterThanOrEqual, 1, 120));
+            StringField.SetContentHuggingPriorityForOrientation(249, NSLayoutConstraintOrientation.Horizontal);
+
+            AddArrangedSubview(StringField);
+        }
+
         #endregion
 
         public void UpdateKeyMenu()
@@ -421,6 +463,9 @@ namespace AnalysisITC.GUI.MacOS.CustomViews
                 case AttributeKey.BufferSubtraction:
                     // Set button text
                     SetPopUpButtonText(Option.ExperimentReferenceOptions.Single(e => e.Item1 == (int)EnumPopUpControl.SelectedTag).Item2);
+                    break;
+                case AttributeKey.Species:
+                    SetPopUpButtonText(ExperimentAttribute.GetSpeciesLocationDisplayName((int)EnumPopUpControl.SelectedTag));
                     break;
             }
             
@@ -547,6 +592,15 @@ namespace AnalysisITC.GUI.MacOS.CustomViews
 
                             return;
                         }
+                        break;
+                    }
+                case AttributeKey.Species:
+                    {
+                        Option.IntValue = (int)ExperimentAttribute.NormalizeSpeciesLocation((int)EnumPopUpControl.SelectedTag);
+                        Option.StringValue = StringField.StringValue?.Trim() ?? "";
+
+                        if (string.IsNullOrWhiteSpace(Option.StringValue)) return;
+
                         break;
                     }
             }

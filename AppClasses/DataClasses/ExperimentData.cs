@@ -383,8 +383,11 @@ namespace AnalysisITC
                 return ClearBufferSubtraction(notify);
             }
 
-            var existing = Attributes.Find(att => att.Key == attribute.Key);
-            if (existing != null) Attributes.Remove(existing);
+            if (attribute.Key.GetProperties()?.AllowMultiple != true)
+            {
+                var existing = Attributes.Find(att => att.Key == attribute.Key);
+                if (existing != null) Attributes.Remove(existing);
+            }
 
             Attributes.Add(attribute);
             MarkModified();
@@ -410,14 +413,34 @@ namespace AnalysisITC
                 didChange = true;
             }
 
-            foreach (var att in attributes)
-            {
-                var existing = Attributes.Find(a => a.Key == att.Key);
+            var incomingAttributes = attributes.Where(att => att != null).ToList();
+            var skippedKeys = new HashSet<AttributeKey>();
 
-                if (existing != null)
+            foreach (var key in incomingAttributes.Select(att => att.Key).Distinct())
+            {
+                var existing = Attributes.Where(a => a.Key == key).ToList();
+
+                if (existing.Count == 0) continue;
+                if (!overwriteExisting)
                 {
-                    if (!overwriteExisting) continue;
-                    Attributes.Remove(existing);
+                    skippedKeys.Add(key);
+                    continue;
+                }
+
+                foreach (var existingAttribute in existing)
+                {
+                    Attributes.Remove(existingAttribute);
+                }
+            }
+
+            foreach (var att in incomingAttributes)
+            {
+                if (skippedKeys.Contains(att.Key)) continue;
+
+                if (att.Key.GetProperties()?.AllowMultiple != true)
+                {
+                    var existing = Attributes.Find(a => a.Key == att.Key);
+                    if (existing != null) Attributes.Remove(existing);
                 }
 
                 Attributes.Add(att.Copy());
