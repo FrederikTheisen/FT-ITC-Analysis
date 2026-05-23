@@ -10,6 +10,7 @@ using System.Threading.Tasks;
 using AnalysisITC.AppClasses.AnalysisClasses;
 using AnalysisITC.Utilities;
 using AnalysisITC.AppClasses.AnalysisClasses.Models;
+using CoreGraphics;
 
 namespace AnalysisITC
 {
@@ -17,6 +18,13 @@ namespace AnalysisITC
     {
         bool _eventsUnsubscribed = false;
         public static TerminationFlag AnalysisTerminationFlag { get; } = new TerminationFlag();
+        public static event EventHandler DisplayOptionsDidChange;
+        public static event EventHandler RefreshDisplayRequested;
+        public static event Action<bool> TemperatureUnitRequested;
+        public static bool CurrentUseKelvin { get; private set; } = false;
+
+        public static void RequestDisplayRefresh() => RefreshDisplayRequested?.Invoke(null, EventArgs.Empty);
+        public static void RequestTemperatureUnit(bool useKelvin) => TemperatureUnitRequested?.Invoke(useKelvin);
 
         AnalysisResult AnalysisResult { get; set; }
         GlobalSolution Solution => AnalysisResult.Solution;
@@ -38,6 +46,18 @@ namespace AnalysisITC
             ResultAnalysisController.IterationFinished += ResultAnalysisProgressReport;
             ResultAnalysisController.AnalysisFinished += ResultsAnalysisCompleted;
             AppDelegate.StartPrintOperation += AppDelegate_StartPrintOperation;
+            RefreshDisplayRequested += AnalysisResultTabViewController_RefreshDisplayRequested;
+            TemperatureUnitRequested += AnalysisResultTabViewController_TemperatureUnitRequested;
+        }
+
+        private void AnalysisResultTabViewController_RefreshDisplayRequested(object sender, EventArgs e)
+        {
+            BeginInvokeOnMainThread(() => RefreshAnalysisResultDisplay(null));
+        }
+
+        private void AnalysisResultTabViewController_TemperatureUnitRequested(bool useKelvin)
+        {
+            BeginInvokeOnMainThread(() => SetResultTemperatureUnit(useKelvin));
         }
 
         public override void ViewDidLoad()
@@ -209,8 +229,9 @@ namespace AnalysisITC
             SetConstraintsAndOptions();
 
             EvaluateParameters();
-            ResultsTableView.SizeToFit();
+            ResizeResultsTableForHorizontalScrolling(ResultsTableView.DataSource as ResultViewDataSource);
             RefreshScrollHintFade();
+            NotifyDisplayOptionsDidChange();
         }
 
         void RefreshScrollHintFade()
@@ -297,7 +318,6 @@ namespace AnalysisITC
             var options = Solution.Solutions.First().ModelOptions;
 
             AppropriateAffinityUnit = AnalysisResult.AppropriateAffinityUnit; //ConcentrationUnitAttribute.FromConc(kd);
-            ResultsTableView.SizeToFit();
             var source = new ResultViewDataSource(AnalysisResult)
             {
                 KdUnit = AppropriateAffinityUnit,
@@ -309,25 +329,90 @@ namespace AnalysisITC
 
             while (ResultsTableView.ColumnCount > 0) ResultsTableView.RemoveColumn(ResultsTableView.TableColumns()[0]);
 
-            if (AnalysisResult.IsTemperatureDependenceEnabled) ResultsTableView.AddColumn(new NSTableColumn("Temp") { Title = "Temperature (" + (UseKelvin ? "K" : "°C") + ")" });
-            if (AnalysisResult.IsElectrostaticsAnalysisDependenceEnabled) ResultsTableView.AddColumn(new NSTableColumn("IS") { Title = "[Ions] (mM)" });
-            if (AnalysisResult.IsProtonationAnalysisEnabled) ResultsTableView.AddColumn(new NSTableColumn("HPROT") { Title = "∆H,prot (" + EnergyUnit.GetUnit() + "/mol)" });
+            ConfigureResultsTableForHorizontalScrolling();
+
+            if (AnalysisResult.IsTemperatureDependenceEnabled) AddResultColumn(source, "Temp", "Temperature (" + (UseKelvin ? "K" : "°C") + ")", 120);
+            if (AnalysisResult.IsElectrostaticsAnalysisDependenceEnabled) AddResultColumn(source, "IS", "[Ions] (mM)", 95);
+            if (AnalysisResult.IsProtonationAnalysisEnabled) AddResultColumn(source, "HPROT", "∆H,prot (" + EnergyUnit.GetUnit() + "/mol)", 120);
 
             foreach (var par in Solution.IndividualModelReportParameters)
             {
                 bool multiple = ParameterTypeAttribute.ContainsTwo(Solution.Solutions[0].Parameters.Select(p => p.Key), par);
+                var identifier = ParameterTypeAttribute.TableHeaderTitle(options, par, true);
+                var title = ParameterTypeAttribute.TableHeader(options, par, multiple, EnergyUnit, AppropriateAffinityUnit.GetName());
 
-                var column = new NSTableColumn(ParameterTypeAttribute.TableHeaderTitle(options, par, true))
-                {
-                    Title = ParameterTypeAttribute.TableHeader(options, par, multiple, EnergyUnit, AppropriateAffinityUnit.GetName()),
-                };
-                column.HeaderCell.Alignment = NSTextAlignment.Center;
-
-                ResultsTableView.AddColumn(column);
+                AddResultColumn(source, identifier, title, 82);
             }
-            var losscolumn = new NSTableColumn("Loss") { Title = "Loss" };
-            losscolumn.HeaderCell.Alignment = NSTextAlignment.Center;
-            ResultsTableView.AddColumn(losscolumn);
+
+            AddResultColumn(source, "Loss", "Loss", 72);
+            ResizeResultsTableForHorizontalScrolling(source);
+        }
+
+        void ConfigureResultsTableForHorizontalScrolling()
+        {
+            ResultsTableView.ColumnAutoresizingStyle = NSTableViewColumnAutoresizingStyle.None;
+            ResultsTableView.AutoresizingMask = NSViewResizingMask.HeightSizable;
+
+            var scrollView = ResultsTableView.EnclosingScrollView;
+            if (scrollView == null) return;
+
+            scrollView.HasHorizontalScroller = true;
+            scrollView.AutohidesScrollers = true;
+            scrollView.UsesPredominantAxisScrolling = false;
+            scrollView.HorizontalScrollElasticity = NSScrollElasticity.Allowed;
+        }
+
+        void AddResultColumn(ResultViewDataSource source, string identifier, string title, nfloat minWidth)
+        {
+            var width = CalculateResultColumnWidth(source, identifier, title, minWidth);
+            var column = new NSTableColumn(identifier)
+            {
+                Title = title,
+                Width = width,
+                MinWidth = minWidth,
+                MaxWidth = 1000,
+                Editable = false,
+                ResizingMask = NSTableColumnResizing.UserResizingMask,
+            };
+
+            column.HeaderCell.Alignment = NSTextAlignment.Center;
+            ResultsTableView.AddColumn(column);
+        }
+
+        float CalculateResultColumnWidth(ResultViewDataSource source, string identifier, string title, nfloat minWidth)
+        {
+            var headerFont = NSFont.SystemFontOfSize(NSFont.SmallSystemFontSize);
+            var cellFont = NSFont.SystemFontOfSize(NSFont.SystemFontSize);
+            var width = MeasureResultTextWidth(title, headerFont);
+
+            for (int row = 0; row < source.Data.Count; row++)
+                width = Math.Max(width, MeasureResultTextWidth(source.GetCellValue(identifier, row), cellFont));
+
+            return (float)Math.Ceiling(Math.Max(minWidth, width + 34));
+        }
+
+        static float MeasureResultTextWidth(string text, NSFont font)
+        {
+            var attributed = new NSAttributedString(text ?? string.Empty, new NSStringAttributes { Font = font });
+            var bounds = attributed.BoundingRectWithSize(
+                new CGSize(nfloat.MaxValue, nfloat.MaxValue),
+                NSStringDrawingOptions.UsesLineFragmentOrigin | NSStringDrawingOptions.UsesFontLeading);
+
+            return (float)Math.Ceiling(bounds.Width);
+        }
+
+        void ResizeResultsTableForHorizontalScrolling(ResultViewDataSource source)
+        {
+            if (source == null) return;
+
+            var columns = ResultsTableView.TableColumns();
+            var intercellWidth = ResultsTableView.IntercellSpacing.Width * Math.Max(columns.Length - 1, 0);
+            var tableWidth = columns.Sum(column => column.Width) + intercellWidth;
+            var visibleWidth = ResultsTableView.EnclosingScrollView?.ContentSize.Width ?? ResultsTableView.Frame.Width;
+            var headerHeight = ResultsTableView.HeaderView?.Frame.Height ?? 0;
+            var tableHeight = Math.Max(ResultsTableView.Frame.Height, headerHeight + ResultsTableView.RowHeight * source.Data.Count);
+
+            ResultsTableView.Frame = new CGRect(0, 0, Math.Max(tableWidth, visibleWidth), tableHeight);
         }
 
         void SetConstraintsAndOptions()
@@ -632,10 +717,48 @@ namespace AnalysisITC
         partial void EnergyControlClicked(NSSegmentedControl sender)
         {
             AppSettings.EnergyUnit = (int)EnergyControl.SelectedSegment switch { 0 => EnergyUnit.Joule, 1 => EnergyUnit.KiloJoule, 2 => EnergyUnit.Cal, 3 => EnergyUnit.KCal, _ => EnergyUnit.KiloJoule, };
+            AppSettings.Save();
 
             SetupResultView();
 
             SetupGraphView(DisplayedGraphType);
+        }
+
+        [Export("UseResultTemperatureCelsius:")]
+        public void UseResultTemperatureCelsius(NSObject sender)
+        {
+            SetResultTemperatureUnit(useKelvin: false);
+        }
+
+        [Export("UseResultTemperatureKelvin:")]
+        public void UseResultTemperatureKelvin(NSObject sender)
+        {
+            SetResultTemperatureUnit(useKelvin: true);
+        }
+
+        [Export("RefreshAnalysisResultDisplay:")]
+        public void RefreshAnalysisResultDisplay(NSObject sender)
+        {
+            if (AnalysisResult == null) return;
+
+            EnergyControl.SelectedSegment = AppSettings.EnergyUnit switch { EnergyUnit.Joule => 0, EnergyUnit.KiloJoule => 1, EnergyUnit.Cal => 2, EnergyUnit.KCal => 3, _ => 1, };
+            SetupResultView();
+            SetupGraphView(DisplayedGraphType);
+        }
+
+        void SetResultTemperatureUnit(bool useKelvin)
+        {
+            if (TempControl == null) return;
+
+            TempControl.SelectedSegment = useKelvin ? 1 : 0;
+            TempControlClicked(TempControl);
+            NotifyDisplayOptionsDidChange();
+        }
+
+        void NotifyDisplayOptionsDidChange()
+        {
+            CurrentUseKelvin = UseKelvin;
+            DisplayOptionsDidChange?.Invoke(this, EventArgs.Empty);
         }
 
         partial void CopyToClipboard(NSObject sender)
@@ -652,6 +775,8 @@ namespace AnalysisITC
             ResultAnalysisController.IterationFinished -= ResultAnalysisProgressReport;
             ResultAnalysisController.AnalysisFinished -= ResultsAnalysisCompleted;
             AppDelegate.StartPrintOperation -= AppDelegate_StartPrintOperation;
+            RefreshDisplayRequested -= AnalysisResultTabViewController_RefreshDisplayRequested;
+            TemperatureUnitRequested -= AnalysisResultTabViewController_TemperatureUnitRequested;
 
             if (TabView != null)
                 TabView.DidSelect -= TabView_DidSelect;
