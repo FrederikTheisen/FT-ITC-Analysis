@@ -28,6 +28,9 @@ namespace AnalysisITC
 		AppKit.NSButton ConfirmRemoveDelete { get; set; }
 
 		[Outlet]
+		AppKit.NSPopUpButton DefaultDesignerInstrumentControl { get; set; }
+
+		[Outlet]
 		AppKit.NSSegmentedControl DilutionMathMethodControl { get; set; }
 
 		[Outlet]
@@ -123,6 +126,11 @@ namespace AnalysisITC
 			if (ConfirmRemoveDelete != null) {
 				ConfirmRemoveDelete.Dispose ();
 				ConfirmRemoveDelete = null;
+			}
+
+			if (DefaultDesignerInstrumentControl != null) {
+				DefaultDesignerInstrumentControl.Dispose ();
+				DefaultDesignerInstrumentControl = null;
 			}
 
 			if (DilutionMathMethodControl != null) {

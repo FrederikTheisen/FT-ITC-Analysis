@@ -406,14 +406,12 @@
                                     </textField>
                                     <popUpButton verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="2hY-iu-Cdu">
                                         <rect key="frame" x="357" y="-4" width="207" height="23"/>
-                                        <popUpButtonCell key="cell" type="push" title="Item 1" bezelStyle="rounded" alignment="right" lineBreakMode="truncatingTail" state="on" borderStyle="borderAndBezel" imageScaling="proportionallyDown" inset="2" pullsDown="YES" selectedItem="Efl-Mp-q0Y" id="nYc-2G-36C">
+                                        <popUpButtonCell key="cell" type="push" title="MicroCal ITC200" bezelStyle="rounded" alignment="right" lineBreakMode="truncatingTail" state="on" borderStyle="borderAndBezel" imageScaling="proportionallyDown" inset="2" selectedItem="Efl-Mp-q0Y" id="nYc-2G-36C">
                                             <behavior key="behavior" lightByBackground="YES" lightByGray="YES"/>
                                             <font key="font" metaFont="message"/>
                                             <menu key="menu" id="CUT-ls-Uew">
                                                 <items>
-                                                    <menuItem title="Item 1" state="on" hidden="YES" id="Efl-Mp-q0Y"/>
-                                                    <menuItem title="Item 2" id="mzu-2L-DuY"/>
-                                                    <menuItem title="Item 3" id="ybX-8H-Vvh"/>
+                                                    <menuItem title="MicroCal ITC200" state="on" id="Efl-Mp-q0Y"/>
                                                 </items>
                                             </menu>
                                         </popUpButtonCell>
@@ -738,6 +736,7 @@
                         <outlet property="ColorThemeMenu" destination="xVF-hg-aUO" id="YjQ-CL-Zms"/>
                         <outlet property="ConcentrationUnitControl" destination="MyE-2f-o6P" id="nZM-OD-faa"/>
                         <outlet property="ConfirmRemoveDelete" destination="cRD-bt-q0s" id="cRD-ot-q0s"/>
+                        <outlet property="DefaultDesignerInstrumentControl" destination="2hY-iu-Cdu" id="UiE-IC-Cdu"/>
                         <outlet property="EnergyUnitControl" destination="59A-qn-ypu" id="MyT-2G-DCe"/>
                         <outlet property="IncludeBufferInIonicStrength" destination="t3e-ai-rlK" id="gk6-IS-p8A"/>
                         <outlet property="MinSaltSpanField" destination="Arf-vG-Jbz" id="tDO-Tp-CjI"/>
@@ -1502,16 +1501,16 @@
                                                 </box>
                                                 <scrollView borderType="none" horizontalLineScroll="10" horizontalPageScroll="10" verticalLineScroll="10" verticalPageScroll="10" hasHorizontalScroller="NO" horizontalScrollElasticity="none" translatesAutoresizingMaskIntoConstraints="NO" id="7kb-Kv-jT8">
                                                     <rect key="frame" x="0.0" y="0.0" width="700" height="397"/>
-                                                    <clipView key="contentView" drawsBackground="NO" id="ayY-jd-hCb">
+                                                    <clipView key="contentView" id="ayY-jd-hCb">
                                                         <rect key="frame" x="0.0" y="0.0" width="700" height="397"/>
                                                         <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
                                                         <subviews>
-                                                            <textView wantsLayer="YES" editable="NO" selectable="NO" drawsBackground="NO" importsGraphics="NO" richText="NO" verticallyResizable="YES" baseWritingDirection="leftToRight" findStyle="panel" smartInsertDelete="YES" translatesAutoresizingMaskIntoConstraints="NO" id="hif-Db-3cK">
-                                                                <rect key="frame" x="0.0" y="-1749" width="700" height="2270"/>
+                                                            <textView wantsLayer="YES" misplaced="YES" editable="NO" selectable="NO" drawsBackground="NO" importsGraphics="NO" richText="NO" verticallyResizable="YES" baseWritingDirection="leftToRight" findStyle="panel" smartInsertDelete="YES" translatesAutoresizingMaskIntoConstraints="NO" id="hif-Db-3cK">
+                                                                <rect key="frame" x="0.0" y="-1286" width="700" height="1807"/>
                                                                 <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
                                                                 <color key="textColor" name="textColor" catalog="System" colorSpace="catalog"/>
                                                                 <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
-                                                                <size key="minSize" width="0.0" height="397"/>
+                                                                <size key="minSize" width="700" height="397"/>
                                                                 <size key="maxSize" width="10000000" height="10000000"/>
                                                                 <attributedString key="textStorage">
                                                                     <fragment>
@@ -2016,7 +2015,7 @@ In most cases, interpretation of affinities provided by ITC is straightforward, 
                                                         <autoresizingMask key="autoresizingMask"/>
                                                     </scroller>
                                                     <scroller key="verticalScroller" wantsLayer="YES" verticalHuggingPriority="750" horizontal="NO" id="OUl-sm-p6i">
-                                                        <rect key="frame" x="464" y="0.0" width="16" height="397"/>
+                                                        <rect key="frame" x="679" y="0.0" width="16" height="397"/>
                                                         <autoresizingMask key="autoresizingMask"/>
                                                     </scroller>
                                                 </scrollView>
@@ -2040,7 +2039,7 @@ In most cases, interpretation of affinities provided by ITC is straightforward, 
                                         <constraint firstAttribute="bottom" secondItem="e4l-wi-sk0" secondAttribute="bottom" id="k7w-Xg-Tf8"/>
                                     </constraints>
                                 </view>
-                                <color key="fillColor" name="controlBackgroundColor" catalog="System" colorSpace="catalog"/>
+                                <color key="fillColor" name="windowBackgroundColor" catalog="System" colorSpace="catalog"/>
                             </box>
                         </subviews>
                         <constraints>
@@ -2244,7 +2243,7 @@ In most cases, interpretation of affinities provided by ITC is straightforward, 
                     </scroller>
                 </scrollView>
             </objects>
-            <point key="canvasLocation" x="-438" y="-1724"/>
+            <point key="canvasLocation" x="-335" y="-1759"/>
         </scene>
         <!--Window Controller-->
         <scene sceneID="kLO-qE-bNy">
@@ -2823,6 +2822,7 @@ In most cases, interpretation of affinities provided by ITC is straightforward, 
                         <outlet property="InjectionVolumeStepper" destination="MjD-rC-hkL" id="1Bz-3f-dYX"/>
                         <outlet property="InstrumentDescriptionField" destination="yju-xI-ZKp" id="WeS-fb-7cb"/>
                         <outlet property="InstrumentInfoField" destination="yju-xI-ZKp" id="oEB-hk-1aA"/>
+                        <outlet property="InstrumentControl" destination="2CD-ZA-QiI" id="Npq-ID-2CD"/>
                         <outlet property="InstrumentMenu" destination="hmp-1q-Ydu" id="hjf-v6-JXn"/>
                         <outlet property="ModelControl" destination="6Td-XY-u9z" id="7fZ-5e-jRV"/>
                         <outlet property="ModelMenu" destination="YAG-ma-3rL" id="KQa-Zo-MBh"/>
@@ -4831,12 +4831,6 @@ For analysis and presentation of ITC data</string>
                                         <menuItem title="Open Source" hidden="YES" enabled="NO" id="nF3-oU-vjF">
                                             <modifierMask key="keyEquivalentModifierMask"/>
                                         </menuItem>
-                                        <menuItem title="Hint" id="m3f-Vd-rOd">
-                                            <modifierMask key="keyEquivalentModifierMask"/>
-                                            <connections>
-                                                <action selector="OpenHint:" target="Voe-Tx-rLC" id="4xd-2E-LFA"/>
-                                            </connections>
-                                        </menuItem>
                                         <menuItem title="Support" id="Mx8-VC-e2I">
                                             <modifierMask key="keyEquivalentModifierMask"/>
                                             <connections>
@@ -4847,6 +4841,12 @@ For analysis and presentation of ITC data</string>
                                             <modifierMask key="keyEquivalentModifierMask"/>
                                             <connections>
                                                 <action selector="OpenCitation:" target="Voe-Tx-rLC" id="R9Z-fm-FJd"/>
+                                            </connections>
+                                        </menuItem>
+                                        <menuItem title="Deverloper" hidden="YES" id="m3f-Vd-rOd">
+                                            <modifierMask key="keyEquivalentModifierMask"/>
+                                            <connections>
+                                                <action selector="OpenHint:" target="Voe-Tx-rLC" id="4xd-2E-LFA"/>
                                             </connections>
                                         </menuItem>
                                     </items>
@@ -6920,7 +6920,7 @@ DQ
                                     <rect key="frame" x="225" y="1" width="5" height="50"/>
                                 </box>
                                 <button verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="v0f-iE-gM6">
-                                    <rect key="frame" x="229" y="0.0" width="110" height="31"/>
+                                    <rect key="frame" x="229" y="20" width="110" height="31"/>
                                     <buttonCell key="cell" type="recessed" title="Analyze Data" bezelStyle="recessed" alignment="center" controlSize="large" lineBreakMode="truncatingTail" borderStyle="border" inset="2" id="946-Qa-1ae">
                                         <behavior key="behavior" lightByBackground="YES" lightByGray="YES" changeBackground="YES" changeGray="YES"/>
                                         <font key="font" metaFont="system"/>
@@ -6936,7 +6936,7 @@ DQ
                                     <rect key="frame" x="338" y="1" width="5" height="50"/>
                                 </box>
                                 <button verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="DGH-oN-EAU">
-                                    <rect key="frame" x="342" y="20" width="111" height="31"/>
+                                    <rect key="frame" x="342" y="0.0" width="111" height="31"/>
                                     <buttonCell key="cell" type="recessed" title="Final Figure" bezelStyle="recessed" alignment="center" controlSize="large" lineBreakMode="truncatingTail" borderStyle="border" inset="2" id="Fgw-Bk-CyU">
                                         <behavior key="behavior" lightByBackground="YES" lightByGray="YES" changeBackground="YES" changeGray="YES"/>
                                         <font key="font" metaFont="system"/>
@@ -15365,7 +15365,7 @@ DQ
                                                                     </textFieldCell>
                                                                 </textField>
                                                                 <textField verticalHuggingPriority="1000" verticalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="634-eP-QdC">
-                                                                    <rect key="frame" x="-2" y="15" width="477" height="13"/>
+                                                                    <rect key="frame" x="-2" y="15" width="304" height="13"/>
                                                                     <textFieldCell key="cell" alignment="left" title="Technical description of how the program handles various tasks" id="XaT-aJ-L17">
                                                                         <font key="font" size="11" name="HelveticaNeue-Light"/>
                                                                         <color key="textColor" name="labelColor" catalog="System" colorSpace="catalog"/>
@@ -15404,11 +15404,11 @@ DQ
                                                         <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
                                                         <subviews>
                                                             <textView wantsLayer="YES" editable="NO" selectable="NO" drawsBackground="NO" importsGraphics="NO" richText="NO" verticallyResizable="YES" baseWritingDirection="leftToRight" findStyle="panel" spellingCorrection="YES" smartInsertDelete="YES" id="2ZM-7J-5o8">
-                                                                <rect key="frame" x="0.0" y="-1757" width="600" height="3046"/>
+                                                                <rect key="frame" x="0.0" y="-1141" width="600" height="2430"/>
                                                                 <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
                                                                 <color key="textColor" name="textColor" catalog="System" colorSpace="catalog"/>
                                                                 <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
-                                                                <size key="minSize" width="0.0" height="387"/>
+                                                                <size key="minSize" width="600" height="387"/>
                                                                 <size key="maxSize" width="10000000" height="10000000"/>
                                                                 <attributedString key="textStorage">
                                                                     <fragment>
@@ -15481,7 +15481,7 @@ The models in \appname are implemented to match the **MicroCal/Origin formal def
                                                         <autoresizingMask key="autoresizingMask"/>
                                                     </scroller>
                                                     <scroller key="verticalScroller" wantsLayer="YES" verticalHuggingPriority="750" horizontal="NO" id="D2v-cg-IQU">
-                                                        <rect key="frame" x="406" y="0.0" width="16" height="387"/>
+                                                        <rect key="frame" x="579" y="0.0" width="16" height="387"/>
                                                         <autoresizingMask key="autoresizingMask"/>
                                                     </scroller>
                                                 </scrollView>
@@ -15525,7 +15525,7 @@ The models in \appname are implemented to match the **MicroCal/Origin formal def
                 </viewController>
                 <customObject id="udY-nV-Xrg" userLabel="First Responder" customClass="NSResponder" sceneMemberID="firstResponder"/>
             </objects>
-            <point key="canvasLocation" x="-922" y="-1718"/>
+            <point key="canvasLocation" x="-1038" y="-1730"/>
         </scene>
         <!--Window Controller-->
         <scene sceneID="ZLo-zN-dmF">
@@ -16059,7 +16059,7 @@ Gw
         <segue reference="Gzw-S4-4id"/>
         <segue reference="cas-ZM-y1q"/>
         <segue reference="LMg-up-goO"/>
-        <segue reference="WvA-Zd-eDa"/>
+        <segue reference="aWY-ej-L34"/>
     </inferredMetricsTieBreakers>
     <resources>
         <image name="NSApplicationIcon" width="32" height="32"/>

@@ -5,6 +5,7 @@ using System;
 using Foundation;
 using AppKit;
 using AnalysisITC.GUI;
+using DataReaders;
 
 namespace AnalysisITC
 {
@@ -37,6 +38,7 @@ namespace AnalysisITC
             AppSettings.NumberPrecision = (NumberPrecision)(int)ParameterRoundingSettingsControl.SelectedSegment;
             AppSettings.UncertaintyDisplayStyle = (UncertaintyDisplayStyle)(int)UncertaintyDisplayStyleControl.SelectedSegment;
             AppSettings.DefaultConcentrationUnit = (ConcentrationUnit)(int)ConcentrationUnitControl.SelectedSegment;
+            AppSettings.DefaultDesignerInstrument = SelectedDefaultDesignerInstrument();
             AppSettings.MinimumTemperatureSpanForFitting = MinTempSpanSlider.DoubleValue;
             AppSettings.MinimumIonSpanForFitting = MinSaltSpanSlider.DoubleValue / 1000;
             AppSettings.IncludeBufferInIonicStrengthCalc = IncludeBufferInIonicStrength.State == NSCellStateValue.On;
@@ -68,6 +70,7 @@ namespace AnalysisITC
 
             EnergyUnitControl.SelectedSegment = AppSettings.EnergyUnit.IsSI() ? 0 : 1;
             ConcentrationUnitControl.SelectedSegment = (int)AppSettings.DefaultConcentrationUnit;
+            SetupDefaultDesignerInstrumentControl();
             RefTempField.StringValue = AppSettings.ReferenceTemperature.ToString("F2");
             MinTempSpanSlider.DoubleValue = AppSettings.MinimumTemperatureSpanForFitting;
             MinTempSpanField.DoubleValue = AppSettings.MinimumTemperatureSpanForFitting;
@@ -78,6 +81,40 @@ namespace AnalysisITC
             IncludeBufferInIonicStrength.State = AppSettings.IncludeBufferInIonicStrengthCalc ? NSCellStateValue.On : NSCellStateValue.Off;
             PerformOnlineChecksOnLaunch.State = AppSettings.PerformOnlineChecksOnLaunch ? NSCellStateValue.On : NSCellStateValue.Off;
             ConfirmRemoveDelete.State = AppSettings.ConfirmRemoveDelete ? NSCellStateValue.On : NSCellStateValue.Off;
+        }
+
+        private void SetupDefaultDesignerInstrumentControl()
+        {
+            if (DefaultDesignerInstrumentControl == null) return;
+
+            var instruments = ITCInstrumentAttribute.GetITCInstruments();
+
+            DefaultDesignerInstrumentControl.RemoveAllItems();
+
+            for (int i = 0; i < instruments.Count; i++)
+            {
+                var instrument = instruments[i];
+                DefaultDesignerInstrumentControl.AddItem(instrument.GetProperties().Name);
+                DefaultDesignerInstrumentControl.Menu.ItemAt(i).Tag = (int)instrument;
+            }
+
+            var selectedIndex = instruments.IndexOf(AppSettings.DefaultDesignerInstrument);
+            DefaultDesignerInstrumentControl.SelectItem(selectedIndex >= 0 ? selectedIndex : 0);
+        }
+
+        private ITCInstrument SelectedDefaultDesignerInstrument()
+        {
+            var selected = DefaultDesignerInstrumentControl?.SelectedItem;
+
+            if (selected == null)
+                return AppSettings.DefaultDesignerInstrument;
+
+            var instrument = (ITCInstrument)(int)selected.Tag;
+
+            if (ITCInstrumentAttribute.GetITCInstruments().Contains(instrument))
+                return instrument;
+
+            return ITCInstrument.MicroCalITC200;
         }
 
         private void ColorMenuHandler(NSMenuItem sender, ColorSchemes e)

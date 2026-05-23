@@ -22,6 +22,7 @@ namespace AnalysisITC
         public static ColorSchemes ColorScheme { get; set; } = ColorSchemes.Default;
         public static ColorSchemeGradientMode ColorSchemeGradientMode { get; set; } = ColorSchemeGradientMode.Smooth;
         public static ConcentrationUnit DefaultConcentrationUnit { get; set; } = ConcentrationUnit.µM;
+        public static ITCInstrument DefaultDesignerInstrument { get; set; } = ITCInstrument.MicroCalITC200;
         public static int MaxDegreeOfParallelism { get; set; } = 10;
         public static bool PerformOnlineChecksOnLaunch { get; set; } = true;
         public static bool ConfirmRemoveDelete { get; set; } = true;
@@ -127,6 +128,7 @@ namespace AnalysisITC
             Storage.SetInt((int)FinalFigureParameterDisplay, "FinalFigureParameterDisplay");
             Storage.SetBool(ExportBaselineCorrectedData, "ExportBaselineCorrectedData");
             Storage.SetInt((int)DefaultConcentrationUnit, "DefaultConcentrationUnit");
+            Storage.SetInt((int)DefaultDesignerInstrument, "DefaultDesignerInstrument");
             Storage.SetBool(InputAffinityAsDissociationConstant, "InputAffinityAsDissociationConstant");
             Storage.SetURL(LastDocumentUrl, "LastDocumentUrl");
             Storage.SetBool(EnableExtendedParameterLimits, "EnableExtendedParameterLimits");
@@ -201,6 +203,7 @@ namespace AnalysisITC
             FinalFigureDimensions = GetArray(dict, "FinalFigureDimensions", FinalFigureDimensions);
             ExportBaselineCorrectedData = GetBool(dict, "ExportBaselineCorrectedData", ExportBaselineCorrectedData);
             DefaultConcentrationUnit = (ConcentrationUnit)GetInt(dict, "DefaultConcentrationUnit", (int)DefaultConcentrationUnit);
+            DefaultDesignerInstrument = NormalizeDesignerInstrument(GetInt(dict, "DefaultDesignerInstrument", (int)DefaultDesignerInstrument));
             InputAffinityAsDissociationConstant = GetBool(dict, "InputAffinityAsDissociationConstant", InputAffinityAsDissociationConstant);
             lastDocumentUrl = GetUrl(dict, "LastDocumentUrl");
             BuffersPreparedAtRoomTemperature = GetBool(dict, "BuffersPreparedAtRoomTemperature", BuffersPreparedAtRoomTemperature);
@@ -265,6 +268,7 @@ namespace AnalysisITC
             FinalFigureDimensions = new double[] { 6.5, 10 };
             ExportBaselineCorrectedData = true;
             DefaultConcentrationUnit = ConcentrationUnit.µM;
+            DefaultDesignerInstrument = ITCInstrument.MicroCalITC200;
             InputAffinityAsDissociationConstant = true;
             lastDocumentUrl = null;
             LastDocumentUrls = null;
@@ -390,6 +394,16 @@ namespace AnalysisITC
                 return (BufferSubtractionMethod)method;
 
             return BufferSubtractionMethod.MatchedInjection;
+        }
+
+        static ITCInstrument NormalizeDesignerInstrument(int instrument)
+        {
+            var normalized = (ITCInstrument)instrument;
+
+            if (ITCInstrumentAttribute.GetITCInstruments().Contains(normalized))
+                return normalized;
+
+            return ITCInstrument.MicroCalITC200;
         }
 
         public static void ApplySettings()
