@@ -184,6 +184,8 @@ namespace AnalysisITC
 
             var datapoints = Data.Processor.Interpolator.GetInterpolatedDataPoints(xmin, xmax);
 
+            if (datapoints.Count == 0) return;
+
             var mean = datapoints.Select(dp => dp.Power).Average();
             var ymin = datapoints.Min(dp => dp.Power);
             var ymax = datapoints.Max(dp => dp.Power);
@@ -206,9 +208,11 @@ namespace AnalysisITC
             var xmin = Graph.XAxis.Min;
             var xmax = Graph.XAxis.Max;
 
-            var dps = Graph.DataPoints;
+            var dps = Graph.DataPoints.Where(dp => dp.Time > xmin && dp.Time < xmax);
 
-            Graph.SetYAxisRange(dps.Where(dp => dp.Time > xmin).Min(dp => dp.Power), dps.Where(dp => dp.Time < xmax).Max(dp => dp.Power), buffer: true);
+            if (dps.Count() < 2) return;
+
+            Graph.SetYAxisRange(dps.Min(dp => dp.Power), dps.Max(dp => dp.Power), buffer: true);
 
             CurrentVerticalZoomMode = VerticalZoomMode.AllData;
 
