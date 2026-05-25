@@ -48,6 +48,9 @@ namespace AnalysisITC
             public NSSwitch UnifiedPowerAxis { get; set; }
             public NSSwitch DrawCorrected { get; set; }
             public NSSwitch DrawBaseline { get; set; }
+            public NSSegmentedControl BaselineStyleControl { get; set; }
+            public NSStepper BaselineThicknessControl { get; set; }
+            public NSTextField BaselineThicknessLabel { get; set; }
         }
 
         internal sealed class FitControls
@@ -307,6 +310,16 @@ namespace AnalysisITC
                 controls.YTickStepper.IntValue = FinalFigureGraphView.DataYTickCount;
             }
 
+            if (controls.BaselineThicknessControl != null)
+            {
+                controls.BaselineThicknessControl.FloatValue = FinalFigureGraphView.BaselineThickness;
+            }
+
+            if (controls.BaselineStyleControl != null)
+            {
+                controls.BaselineStyleControl.SelectSegment((int)FinalFigureGraphView.BaselineDisplayStyle);
+            }
+
             SetOptionalDouble(controls.XMinField, FinalFigureGraphView.DataXAxisMin);
             SetOptionalDouble(controls.XMaxField, FinalFigureGraphView.DataXAxisMax);
             SetOptionalDouble(controls.YMinField, FinalFigureGraphView.DataYAxisMin);
@@ -358,6 +371,17 @@ namespace AnalysisITC
             if (controls.YTickStepper != null)
             {
                 FinalFigureGraphView.DataYTickCount = controls.YTickStepper.IntValue;
+            }
+
+            if (controls.BaselineStyleControl != null)
+            {
+                FinalFigureGraphView.BaselineDisplayStyle = (BaselineDisplayStyle)(int)controls.BaselineStyleControl.SelectedSegment;
+            }
+
+            if (controls.BaselineThicknessControl != null)
+            {
+                FinalFigureGraphView.BaselineThickness = controls.BaselineThicknessControl.FloatValue;
+
             }
 
             FinalFigureGraphView.DataXAxisMin = ReadOptionalDouble(controls.XMinField);
@@ -576,6 +600,11 @@ namespace AnalysisITC
             if (controls?.YTickLabel != null && controls.YTickStepper != null)
             {
                 controls.YTickLabel.IntValue = controls.YTickStepper.IntValue;
+            }
+
+            if (controls?.BaselineThicknessLabel != null && controls.BaselineThicknessControl != null)
+            {
+                controls.BaselineThicknessLabel.FloatValue = controls.BaselineThicknessControl.FloatValue;
             }
         }
 

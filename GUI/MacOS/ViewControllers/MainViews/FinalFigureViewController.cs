@@ -184,6 +184,9 @@ namespace AnalysisITC
             UnifiedPowerAxis = EmbeddedUnifiedPowerAxis,
             DrawCorrected = EmbeddedDrawCorrected,
             DrawBaseline = EmbeddedDrawBaseline,
+            BaselineStyleControl = EmbeddedBaselineStyleControl,
+            BaselineThicknessControl = EmbeddedBaselineThicknessControl,
+            BaselineThicknessLabel = EmbeddedBaselineThicknessLabel,
         };
 
         FinalFigureOptionsController.FitControls EmbeddedFitControls => new()

@@ -139,6 +139,8 @@ namespace AnalysisITC
         public static double? FitYAxisMax { get; set; }
         public static TimeUnit TimeAxisUnit { get; set; } = TimeUnit.Minute;
         public static InformationBoxPlacement InformationBoxPosition { get; set; } = InformationBoxPlacement.Auto;
+        public static BaselineDisplayStyle BaselineDisplayStyle { get; set; } = BaselineDisplayStyle.Solid;
+        public static float BaselineThickness { get; set; } = 2f;
 
         public static FinalFigureDisplayParameters ParameterDisplayFlags =>
             FinalFigureDisplayParameters.Thermodynamic |
@@ -220,6 +222,8 @@ namespace AnalysisITC
                 UseUnifiedDataAxes = UnifiedPowerAxis,
                 ShouldDrawBaseline = DrawBaseline,
                 DrawBaselineCorrected = DrawBaselineCorrected,
+                BaselineThickness = BaselineThickness,
+                BaselineDisplayStyle = BaselineDisplayStyle,
                 SyringeName = SyringeName,
                 CellName = CellName,
                 UseNameAttributes = UseNameAttributes,
@@ -471,6 +475,8 @@ namespace AnalysisITC
                 UseUnifiedDataAxes = UnifiedPowerAxis,
                 ShouldDrawBaseline = DrawBaseline,
                 DrawBaselineCorrected = DrawBaselineCorrected,
+                BaselineThickness = BaselineThickness,
+                BaselineDisplayStyle = BaselineDisplayStyle,
                 SyringeName = SyringeName,
                 CellName = CellName,
                 UseNameAttributes = UseNameAttributes,

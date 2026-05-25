@@ -27,6 +27,12 @@ namespace AnalysisITC
         NameAndCompartment = 2,
     }
 
+    public enum BaselineDisplayStyle
+    {
+        Solid,
+        Dashed
+    }
+
     public class GraphBase
     {
         public const float PiHalf = (float)Math.PI / 2;
@@ -1030,9 +1036,10 @@ namespace AnalysisITC
 
     public class BaselineDataGraph : DataGraph
     {
-        public static float BaselineThickness { get; set; } = 3;
-        public static NSColor BaselineNSColor => NSColor.Red;
-        public static CGColor BaselineColor => BaselineNSColor.CGColor;
+        public float BaselineThickness { get; set; } = 3;
+        public NSColor BaselineNSColor => NSColor.Red;
+        public CGColor BaselineColor => BaselineNSColor.CGColor;
+        public BaselineDisplayStyle BaselineDisplayStyle { get; set; } = BaselineDisplayStyle.Solid;
 
         public bool ShowBaseline { get; set; } = true;
         public bool ShowExperimentDetails { get; set; } = false;
@@ -1080,6 +1087,7 @@ namespace AnalysisITC
             path.AddLines(points.ToArray());
 
             layer.Context.AddPath(path);
+            if (BaselineDisplayStyle == BaselineDisplayStyle.Dashed) layer.Context.SetLineDash(0, new nfloat[] { 2f * BaselineThickness });
             layer.Context.SetStrokeColor(BaselineColor);
             layer.Context.SetLineWidth(BaselineThickness);
             layer.Context.StrokePath();

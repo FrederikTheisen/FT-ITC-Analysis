@@ -25,10 +25,19 @@ namespace AnalysisITC
 		AppKit.NSSwitch EmbeddedBadDataErrorBars { get; set; }
 
 		[Outlet]
-		AppKit.NSSwitch EmbeddedConcentrationDetailControl { get; set; }
+		AppKit.NSSegmentedControl EmbeddedBaselineStyleControl { get; set; }
+
+		[Outlet]
+		AppKit.NSStepper EmbeddedBaselineThicknessControl { get; set; }
+
+		[Outlet]
+		AppKit.NSTextField EmbeddedBaselineThicknessLabel { get; set; }
 
 		[Outlet]
 		AppKit.NSTextField EmbeddedCellNameField { get; set; }
+
+		[Outlet]
+		AppKit.NSSwitch EmbeddedConcentrationDetailControl { get; set; }
 
 		[Outlet]
 		AppKit.NSTextField EmbeddedDataXMaxField { get; set; }
@@ -133,6 +142,9 @@ namespace AnalysisITC
 		AppKit.NSSwitch EmbeddedSanitizeTicks { get; set; }
 
 		[Outlet]
+		AppKit.NSSwitch EmbeddedShowAxisTitles { get; set; }
+
+		[Outlet]
 		AppKit.NSSwitch EmbeddedShowDataGraphControl { get; set; }
 
 		[Outlet]
@@ -140,9 +152,6 @@ namespace AnalysisITC
 
 		[Outlet]
 		AppKit.NSSwitch EmbeddedShowResiduals { get; set; }
-
-		[Outlet]
-		AppKit.NSSwitch EmbeddedShowAxisTitles { get; set; }
 
 		[Outlet]
 		AppKit.NSSegmentedControl EmbeddedSplineInterpolationControl { get; set; }
@@ -222,6 +231,26 @@ namespace AnalysisITC
 				EmbeddedAddGapToResidualPlot = null;
 			}
 
+			if (EmbeddedBaselineStyleControl != null) {
+				EmbeddedBaselineStyleControl.Dispose ();
+				EmbeddedBaselineStyleControl = null;
+			}
+
+			if (EmbeddedAttributeDisplayOptionsControl != null) {
+				EmbeddedAttributeDisplayOptionsControl.Dispose ();
+				EmbeddedAttributeDisplayOptionsControl = null;
+			}
+
+			if (EmbeddedBaselineThicknessControl != null) {
+				EmbeddedBaselineThicknessControl.Dispose ();
+				EmbeddedBaselineThicknessControl = null;
+			}
+
+			if (EmbeddedBaselineThicknessLabel != null) {
+				EmbeddedBaselineThicknessLabel.Dispose ();
+				EmbeddedBaselineThicknessLabel = null;
+			}
+
 			if (EmbeddedBadDataErrorBars != null) {
 				EmbeddedBadDataErrorBars.Dispose ();
 				EmbeddedBadDataErrorBars = null;
@@ -257,11 +286,6 @@ namespace AnalysisITC
 				EmbeddedDataXTickStepper = null;
 			}
 
-			if (EmbeddedDataYTickLabel != null) {
-				EmbeddedDataYTickLabel.Dispose ();
-				EmbeddedDataYTickLabel = null;
-			}
-
 			if (EmbeddedDataYMaxField != null) {
 				EmbeddedDataYMaxField.Dispose ();
 				EmbeddedDataYMaxField = null;
@@ -270,6 +294,11 @@ namespace AnalysisITC
 			if (EmbeddedDataYMinField != null) {
 				EmbeddedDataYMinField.Dispose ();
 				EmbeddedDataYMinField = null;
+			}
+
+			if (EmbeddedDataYTickLabel != null) {
+				EmbeddedDataYTickLabel.Dispose ();
+				EmbeddedDataYTickLabel = null;
 			}
 
 			if (EmbeddedDataYTickStepper != null) {
@@ -287,11 +316,6 @@ namespace AnalysisITC
 				EmbeddedDrawConfidence = null;
 			}
 
-			if (EmbeddedDrawOffsetCorrected != null) {
-				EmbeddedDrawOffsetCorrected.Dispose ();
-				EmbeddedDrawOffsetCorrected = null;
-			}
-
 			if (EmbeddedDrawCorrected != null) {
 				EmbeddedDrawCorrected.Dispose ();
 				EmbeddedDrawCorrected = null;
@@ -300,6 +324,11 @@ namespace AnalysisITC
 			if (EmbeddedDrawErrorBars != null) {
 				EmbeddedDrawErrorBars.Dispose ();
 				EmbeddedDrawErrorBars = null;
+			}
+
+			if (EmbeddedDrawOffsetCorrected != null) {
+				EmbeddedDrawOffsetCorrected.Dispose ();
+				EmbeddedDrawOffsetCorrected = null;
 			}
 
 			if (EmbeddedDrawZeroLine != null) {
@@ -342,11 +371,6 @@ namespace AnalysisITC
 				EmbeddedFitXTickStepper = null;
 			}
 
-			if (EmbeddedFitYTickLabel != null) {
-				EmbeddedFitYTickLabel.Dispose ();
-				EmbeddedFitYTickLabel = null;
-			}
-
 			if (EmbeddedFitYMaxField != null) {
 				EmbeddedFitYMaxField.Dispose ();
 				EmbeddedFitYMaxField = null;
@@ -357,14 +381,14 @@ namespace AnalysisITC
 				EmbeddedFitYMinField = null;
 			}
 
+			if (EmbeddedFitYTickLabel != null) {
+				EmbeddedFitYTickLabel.Dispose ();
+				EmbeddedFitYTickLabel = null;
+			}
+
 			if (EmbeddedFitYTickStepper != null) {
 				EmbeddedFitYTickStepper.Dispose ();
 				EmbeddedFitYTickStepper = null;
-			}
-
-			if (EmbeddedAttributeDisplayOptionsControl != null) {
-				EmbeddedAttributeDisplayOptionsControl.Dispose ();
-				EmbeddedAttributeDisplayOptionsControl = null;
 			}
 
 			if (EmbeddedHeightLabel != null) {
@@ -372,14 +396,19 @@ namespace AnalysisITC
 				EmbeddedHeightLabel = null;
 			}
 
+			if (EmbeddedHideBadData != null) {
+				EmbeddedHideBadData.Dispose ();
+				EmbeddedHideBadData = null;
+			}
+
 			if (EmbeddedInformationBoxPositionControl != null) {
 				EmbeddedInformationBoxPositionControl.Dispose ();
 				EmbeddedInformationBoxPositionControl = null;
 			}
 
-			if (EmbeddedHideBadData != null) {
-				EmbeddedHideBadData.Dispose ();
-				EmbeddedHideBadData = null;
+			if (EmbeddedModelInfoControl != null) {
+				EmbeddedModelInfoControl.Dispose ();
+				EmbeddedModelInfoControl = null;
 			}
 
 			if (EmbeddedMolarRatioAxisTitleLabel != null) {
@@ -392,19 +421,9 @@ namespace AnalysisITC
 				EmbeddedNameDisplayModeControl = null;
 			}
 
-			if (EmbeddedModelInfoControl != null) {
-				EmbeddedModelInfoControl.Dispose ();
-				EmbeddedModelInfoControl = null;
-			}
-
 			if (EmbeddedParameterDisplayOptionsControl != null) {
 				EmbeddedParameterDisplayOptionsControl.Dispose ();
 				EmbeddedParameterDisplayOptionsControl = null;
-			}
-
-			if (EmbeddedUseNameAttributes != null) {
-				EmbeddedUseNameAttributes.Dispose ();
-				EmbeddedUseNameAttributes = null;
 			}
 
 			if (EmbeddedPowerAxisTitleLabel != null) {
@@ -490,6 +509,11 @@ namespace AnalysisITC
 			if (EmbeddedUnifiedPowerAxis != null) {
 				EmbeddedUnifiedPowerAxis.Dispose ();
 				EmbeddedUnifiedPowerAxis = null;
+			}
+
+			if (EmbeddedUseNameAttributes != null) {
+				EmbeddedUseNameAttributes.Dispose ();
+				EmbeddedUseNameAttributes = null;
 			}
 
 			if (EmbeddedWidthLabel != null) {

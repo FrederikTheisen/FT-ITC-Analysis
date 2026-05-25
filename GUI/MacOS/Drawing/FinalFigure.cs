@@ -184,6 +184,24 @@ namespace AnalysisITC
             }
         }
 
+        public float BaselineThickness
+        {
+            get => DataGraph?.BaselineThickness ?? 2;
+            set
+            {
+                if (DataGraph != null) DataGraph.BaselineThickness = value;
+            }
+        }
+
+        public BaselineDisplayStyle BaselineDisplayStyle
+        {
+            get => DataGraph?.BaselineDisplayStyle ?? BaselineDisplayStyle.Solid;
+            set
+            {
+                if (DataGraph != null) DataGraph.BaselineDisplayStyle = value;
+            }
+        }
+
         public bool DrawBaselineCorrected
         {
             get => DataGraph != null && DataGraph.ShowBaselineCorrected;
