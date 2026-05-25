@@ -19,16 +19,34 @@ namespace AnalysisITC
 		AppKit.NSSwitch EmbeddedAddGapToResidualPlot { get; set; }
 
 		[Outlet]
+		AppKit.NSMenu EmbeddedAttributeDisplayOptionsControl { get; set; }
+
+		[Outlet]
 		AppKit.NSSwitch EmbeddedBadDataErrorBars { get; set; }
 
 		[Outlet]
 		AppKit.NSSwitch EmbeddedConcentrationDetailControl { get; set; }
 
 		[Outlet]
+		AppKit.NSTextField EmbeddedCellNameField { get; set; }
+
+		[Outlet]
+		AppKit.NSTextField EmbeddedDataXMaxField { get; set; }
+
+		[Outlet]
+		AppKit.NSTextField EmbeddedDataXMinField { get; set; }
+
+		[Outlet]
 		AppKit.NSTextField EmbeddedDataXTickLabel { get; set; }
 
 		[Outlet]
 		AppKit.NSStepper EmbeddedDataXTickStepper { get; set; }
+
+		[Outlet]
+		AppKit.NSTextField EmbeddedDataYMaxField { get; set; }
+
+		[Outlet]
+		AppKit.NSTextField EmbeddedDataYMinField { get; set; }
 
 		[Outlet]
 		AppKit.NSTextField EmbeddedDataYTickLabel { get; set; }
@@ -43,13 +61,13 @@ namespace AnalysisITC
 		AppKit.NSSwitch EmbeddedDrawConfidence { get; set; }
 
 		[Outlet]
-		AppKit.NSSwitch EmbeddedDrawOffsetCorrected { get; set; }
-
-		[Outlet]
 		AppKit.NSSwitch EmbeddedDrawCorrected { get; set; }
 
 		[Outlet]
 		AppKit.NSSwitch EmbeddedDrawErrorBars { get; set; }
+
+		[Outlet]
+		AppKit.NSSwitch EmbeddedDrawOffsetCorrected { get; set; }
 
 		[Outlet]
 		AppKit.NSSwitch EmbeddedDrawZeroLine { get; set; }
@@ -64,10 +82,22 @@ namespace AnalysisITC
 		AppKit.NSSegmentedControl EmbeddedExportSelectionControl { get; set; }
 
 		[Outlet]
+		AppKit.NSTextField EmbeddedFitXMaxField { get; set; }
+
+		[Outlet]
+		AppKit.NSTextField EmbeddedFitXMinField { get; set; }
+
+		[Outlet]
 		AppKit.NSTextField EmbeddedFitXTickLabel { get; set; }
 
 		[Outlet]
 		AppKit.NSStepper EmbeddedFitXTickStepper { get; set; }
+
+		[Outlet]
+		AppKit.NSTextField EmbeddedFitYMaxField { get; set; }
+
+		[Outlet]
+		AppKit.NSTextField EmbeddedFitYMinField { get; set; }
 
 		[Outlet]
 		AppKit.NSTextField EmbeddedFitYTickLabel { get; set; }
@@ -76,22 +106,22 @@ namespace AnalysisITC
 		AppKit.NSStepper EmbeddedFitYTickStepper { get; set; }
 
 		[Outlet]
-		AppKit.NSMenu EmbeddedAttributeDisplayOptionsControl { get; set; }
-
-		[Outlet]
 		AppKit.NSTextField EmbeddedHeightLabel { get; set; }
-
-		[Outlet]
-		AppKit.NSSegmentedControl EmbeddedInformationBoxPositionControl { get; set; }
 
 		[Outlet]
 		AppKit.NSSwitch EmbeddedHideBadData { get; set; }
 
 		[Outlet]
-		AppKit.NSTextField EmbeddedMolarRatioAxisTitleLabel { get; set; }
+		AppKit.NSSegmentedControl EmbeddedInformationBoxPositionControl { get; set; }
 
 		[Outlet]
 		AppKit.NSSwitch EmbeddedModelInfoControl { get; set; }
+
+		[Outlet]
+		AppKit.NSTextField EmbeddedMolarRatioAxisTitleLabel { get; set; }
+
+		[Outlet]
+		AppKit.NSSegmentedControl EmbeddedNameDisplayModeControl { get; set; }
 
 		[Outlet]
 		AppKit.NSMenu EmbeddedParameterDisplayOptionsControl { get; set; }
@@ -112,6 +142,9 @@ namespace AnalysisITC
 		AppKit.NSSwitch EmbeddedShowResiduals { get; set; }
 
 		[Outlet]
+		AppKit.NSSwitch EmbeddedShowAxisTitles { get; set; }
+
+		[Outlet]
 		AppKit.NSSegmentedControl EmbeddedSplineInterpolationControl { get; set; }
 
 		[Outlet]
@@ -122,6 +155,9 @@ namespace AnalysisITC
 
 		[Outlet]
 		AppKit.NSStepper EmbeddedSymbolSizeStepper { get; set; }
+
+		[Outlet]
+		AppKit.NSTextField EmbeddedSyringeNameField { get; set; }
 
 		[Outlet]
 		AppKit.NSSwitch EmbeddedTemperatureDetailControl { get; set; }
@@ -142,6 +178,9 @@ namespace AnalysisITC
 		AppKit.NSSwitch EmbeddedUnifiedPowerAxis { get; set; }
 
 		[Outlet]
+		AppKit.NSSwitch EmbeddedUseNameAttributes { get; set; }
+
+		[Outlet]
 		AppKit.NSTextField EmbeddedWidthLabel { get; set; }
 
 		[Outlet]
@@ -153,6 +192,9 @@ namespace AnalysisITC
 		[Outlet]
 		AppKit.NSTabView PublishOptionsTabView { get; set; }
 
+		[Action ("AttributeOptionAction:")]
+		partial void AttributeOptionAction (Foundation.NSObject sender);
+
 		[Action ("ControlChanged:")]
 		partial void ControlChanged (Foundation.NSObject sender);
 
@@ -161,9 +203,6 @@ namespace AnalysisITC
 
 		[Action ("ExportGraphButtonClick:")]
 		partial void ExportGraphButtonClick (Foundation.NSObject sender);
-
-		[Action ("AttributeOptionAction:")]
-		partial void AttributeOptionAction (Foundation.NSObject sender);
 
 		[Action ("ParameterOptionAction:")]
 		partial void ParameterOptionAction (Foundation.NSObject sender);
@@ -193,6 +232,21 @@ namespace AnalysisITC
 				EmbeddedConcentrationDetailControl = null;
 			}
 
+			if (EmbeddedCellNameField != null) {
+				EmbeddedCellNameField.Dispose ();
+				EmbeddedCellNameField = null;
+			}
+
+			if (EmbeddedDataXMaxField != null) {
+				EmbeddedDataXMaxField.Dispose ();
+				EmbeddedDataXMaxField = null;
+			}
+
+			if (EmbeddedDataXMinField != null) {
+				EmbeddedDataXMinField.Dispose ();
+				EmbeddedDataXMinField = null;
+			}
+
 			if (EmbeddedDataXTickLabel != null) {
 				EmbeddedDataXTickLabel.Dispose ();
 				EmbeddedDataXTickLabel = null;
@@ -206,6 +260,16 @@ namespace AnalysisITC
 			if (EmbeddedDataYTickLabel != null) {
 				EmbeddedDataYTickLabel.Dispose ();
 				EmbeddedDataYTickLabel = null;
+			}
+
+			if (EmbeddedDataYMaxField != null) {
+				EmbeddedDataYMaxField.Dispose ();
+				EmbeddedDataYMaxField = null;
+			}
+
+			if (EmbeddedDataYMinField != null) {
+				EmbeddedDataYMinField.Dispose ();
+				EmbeddedDataYMinField = null;
 			}
 
 			if (EmbeddedDataYTickStepper != null) {
@@ -258,6 +322,16 @@ namespace AnalysisITC
 				EmbeddedExportSelectionControl = null;
 			}
 
+			if (EmbeddedFitXMaxField != null) {
+				EmbeddedFitXMaxField.Dispose ();
+				EmbeddedFitXMaxField = null;
+			}
+
+			if (EmbeddedFitXMinField != null) {
+				EmbeddedFitXMinField.Dispose ();
+				EmbeddedFitXMinField = null;
+			}
+
 			if (EmbeddedFitXTickLabel != null) {
 				EmbeddedFitXTickLabel.Dispose ();
 				EmbeddedFitXTickLabel = null;
@@ -271,6 +345,16 @@ namespace AnalysisITC
 			if (EmbeddedFitYTickLabel != null) {
 				EmbeddedFitYTickLabel.Dispose ();
 				EmbeddedFitYTickLabel = null;
+			}
+
+			if (EmbeddedFitYMaxField != null) {
+				EmbeddedFitYMaxField.Dispose ();
+				EmbeddedFitYMaxField = null;
+			}
+
+			if (EmbeddedFitYMinField != null) {
+				EmbeddedFitYMinField.Dispose ();
+				EmbeddedFitYMinField = null;
 			}
 
 			if (EmbeddedFitYTickStepper != null) {
@@ -303,6 +387,11 @@ namespace AnalysisITC
 				EmbeddedMolarRatioAxisTitleLabel = null;
 			}
 
+			if (EmbeddedNameDisplayModeControl != null) {
+				EmbeddedNameDisplayModeControl.Dispose ();
+				EmbeddedNameDisplayModeControl = null;
+			}
+
 			if (EmbeddedModelInfoControl != null) {
 				EmbeddedModelInfoControl.Dispose ();
 				EmbeddedModelInfoControl = null;
@@ -311,6 +400,11 @@ namespace AnalysisITC
 			if (EmbeddedParameterDisplayOptionsControl != null) {
 				EmbeddedParameterDisplayOptionsControl.Dispose ();
 				EmbeddedParameterDisplayOptionsControl = null;
+			}
+
+			if (EmbeddedUseNameAttributes != null) {
+				EmbeddedUseNameAttributes.Dispose ();
+				EmbeddedUseNameAttributes = null;
 			}
 
 			if (EmbeddedPowerAxisTitleLabel != null) {
@@ -338,6 +432,11 @@ namespace AnalysisITC
 				EmbeddedShowResiduals = null;
 			}
 
+			if (EmbeddedShowAxisTitles != null) {
+				EmbeddedShowAxisTitles.Dispose ();
+				EmbeddedShowAxisTitles = null;
+			}
+
 			if (EmbeddedSplineInterpolationControl != null) {
 				EmbeddedSplineInterpolationControl.Dispose ();
 				EmbeddedSplineInterpolationControl = null;
@@ -356,6 +455,11 @@ namespace AnalysisITC
 			if (EmbeddedSymbolSizeStepper != null) {
 				EmbeddedSymbolSizeStepper.Dispose ();
 				EmbeddedSymbolSizeStepper = null;
+			}
+
+			if (EmbeddedSyringeNameField != null) {
+				EmbeddedSyringeNameField.Dispose ();
+				EmbeddedSyringeNameField = null;
 			}
 
 			if (EmbeddedTemperatureDetailControl != null) {

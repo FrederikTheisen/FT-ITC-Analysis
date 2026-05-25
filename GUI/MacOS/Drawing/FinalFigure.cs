@@ -203,6 +203,10 @@ namespace AnalysisITC
         }
 
         bool sanitizeticks = true;
+        bool useNameAttributes = false;
+        string syringeName = "";
+        string cellName = "";
+        FinalFigureNameDisplayMode nameDisplayMode = FinalFigureNameDisplayMode.Name;
         public bool SanitizeTicks
         {
             get => sanitizeticks;
@@ -221,6 +225,55 @@ namespace AnalysisITC
         public string TimeAxisTitle { get; set; } = "Time (<unit>)";
         public string EnthalpyAxisTitle { get; set; } = "<unit> of injectant";
         public string MolarRatioAxisTitle { get; set; } = "Molar Ratio";
+        public bool ShowAxisTitles { get; set; } = true;
+        public double? DataXAxisMin { get; set; }
+        public double? DataXAxisMax { get; set; }
+        public double? DataYAxisMin { get; set; }
+        public double? DataYAxisMax { get; set; }
+        public double? FitXAxisMin { get; set; }
+        public double? FitXAxisMax { get; set; }
+        public double? FitYAxisMin { get; set; }
+        public double? FitYAxisMax { get; set; }
+
+        public string SyringeName
+        {
+            get => syringeName;
+            set
+            {
+                syringeName = value ?? "";
+                if (DataGraph != null) DataGraph.SyringeName = syringeName;
+            }
+        }
+
+        public string CellName
+        {
+            get => cellName;
+            set
+            {
+                cellName = value ?? "";
+                if (DataGraph != null) DataGraph.CellName = cellName;
+            }
+        }
+
+        public bool UseNameAttributes
+        {
+            get => useNameAttributes;
+            set
+            {
+                useNameAttributes = value;
+                if (DataGraph != null) DataGraph.UseNameAttributes = useNameAttributes;
+            }
+        }
+
+        public FinalFigureNameDisplayMode NameDisplayMode
+        {
+            get => nameDisplayMode;
+            set
+            {
+                nameDisplayMode = value;
+                if (DataGraph != null) DataGraph.NameDisplayMode = nameDisplayMode;
+            }
+        }
 
         public EnergyUnit EnergyUnit { get; set; } = EnergyUnit.KiloJoule;
         public TimeUnit TimeUnit { get; set; } = TimeUnit.Minute;
@@ -277,7 +330,11 @@ namespace AnalysisITC
             DataGraph = new BaselineDataGraph(Data, View)
             {
                 DrawOnWhite = true,
-                ShowBaselineCorrected = true
+                ShowBaselineCorrected = true,
+                SyringeName = syringeName,
+                CellName = cellName,
+                UseNameAttributes = useNameAttributes,
+                NameDisplayMode = nameDisplayMode,
             };
             DataGraph.YAxis.Buffer = .1f;
             DataGraph.YAxis.MirrorTicks = true;
@@ -340,13 +397,58 @@ namespace AnalysisITC
                 IntegrationGraph.XAxis.LegendTitle = MolarRatioAxisTitle;
         }
 
+        void ApplyAxisTitleVisibility()
+        {
+            SetAxisTitleVisibility(DataGraph?.XAxis);
+            SetAxisTitleVisibility(DataGraph?.YAxis);
+            SetAxisTitleVisibility(IntegrationGraph.XAxis);
+            SetAxisTitleVisibility(IntegrationGraph.YAxis);
+            SetAxisTitleVisibility(IntegrationGraph.ResidualGraph?.XAxis);
+            SetAxisTitleVisibility(IntegrationGraph.ResidualGraph?.YAxis);
+        }
+
+        void SetAxisTitleVisibility(GraphAxis axis)
+        {
+            if (axis == null) return;
+
+            axis.HideTitle = !ShowAxisTitles;
+        }
+
+        void ApplyManualAxisRanges()
+        {
+            if (DataGraph != null)
+            {
+                ApplyManualAxisRange(DataGraph.XAxis, DataXAxisMin, DataXAxisMax);
+                ApplyManualAxisRange(DataGraph.YAxis, DataYAxisMin, DataYAxisMax);
+            }
+
+            ApplyManualAxisRange(IntegrationGraph.XAxis, FitXAxisMin, FitXAxisMax);
+            ApplyManualAxisRange(IntegrationGraph.YAxis, FitYAxisMin, FitYAxisMax);
+        }
+
+        void ApplyManualAxisRange(GraphAxis axis, double? displayMin, double? displayMax)
+        {
+            if (axis == null || (!displayMin.HasValue && !displayMax.HasValue)) return;
+
+            var min = displayMin.HasValue ? displayMin.Value / axis.ValueFactor : axis.Min;
+            var max = displayMax.HasValue ? displayMax.Value / axis.ValueFactor : axis.Max;
+
+            if (!IsFinite(min) || !IsFinite(max) || max <= min) return;
+
+            axis.Set(min, max);
+        }
+
+        static bool IsFinite(double value) => !double.IsNaN(value) && !double.IsInfinity(value);
+
         public void Draw(CGContext gc, CGPoint center)
         {
             if (DataGraph != null) DataGraph.Center = center;
             IntegrationGraph.Center = center;
 
-            SetupFrames(PlotDimensions.Width, PlotDimensions.Height, center);
             UpdateAxisTitles();
+            ApplyAxisTitleVisibility();
+            ApplyManualAxisRanges();
+            SetupFrames(PlotDimensions.Width, PlotDimensions.Height, center);
 
             gc.SetFillColor(NSColor.White.CGColor);
             gc.FillRect(PlotBox.WithMargin(Margin));

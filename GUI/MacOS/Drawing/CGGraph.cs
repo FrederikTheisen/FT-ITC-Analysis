@@ -8,6 +8,7 @@ using CoreText;
 using Utilities;
 using MathNet.Numerics.Interpolation;
 using AnalysisITC.Utilities;
+using AnalysisITC.AppClasses.AnalysisClasses;
 using AnalysisITC.AppClasses.AnalysisClasses.Models;
 
 namespace AnalysisITC
@@ -17,6 +18,13 @@ namespace AnalysisITC
         Auto = 0,
         Upper = 1,
         Lower = 2,
+    }
+
+    public enum FinalFigureNameDisplayMode
+    {
+        Name = 0,
+        Compartment = 1,
+        NameAndCompartment = 2,
     }
 
     public class GraphBase
@@ -1033,6 +1041,8 @@ namespace AnalysisITC
 
         public string SyringeName { get; set; } = "";
         public string CellName { get; set; } = "";
+        public bool UseNameAttributes { get; set; } = false;
+        public FinalFigureNameDisplayMode NameDisplayMode { get; set; } = FinalFigureNameDisplayMode.Name;
 
         public BaselineDataGraph(ExperimentData experiment, NSView view) : base(experiment, view)
         {
@@ -1081,15 +1091,16 @@ namespace AnalysisITC
         void DrawExperimentDetails(CGContext gc)
         {
             var lines = new List<string>();
-            string syr = "";
-            if (!string.IsNullOrEmpty(SyringeName)) syr = "[" + SyringeName + "] = ";
-            else syr = "[Syringe] = ";
-            syr += ExperimentData.SyringeConcentration.AsFormattedConcentration(true);
-
-            string cell = "";
-            if (!string.IsNullOrEmpty(SyringeName)) cell = "[" + SyringeName + "] = ";
-            else cell = "[Cell] = ";
-            cell += ExperimentData.CellConcentration.AsFormattedConcentration(true);
+            var syr = FormatConcentrationLine(
+                ExperimentSpeciesLocation.Syringe,
+                SyringeName,
+                "Syringe",
+                ExperimentData.SyringeConcentration);
+            var cell = FormatConcentrationLine(
+                ExperimentSpeciesLocation.Cell,
+                CellName,
+                "Cell",
+                ExperimentData.CellConcentration);
 
             if (FinalFigureDisplayParameters.HasFlag(FinalFigureDisplayParameters.Temperature)) lines.Add(ExperimentData.MeasuredTemperature.ToString("F1") + " °C");
             if (FinalFigureDisplayParameters.HasFlag(FinalFigureDisplayParameters.Concentrations)) lines.Add(syr);
@@ -1112,6 +1123,41 @@ namespace AnalysisITC
             var position = GetExperimentDetailsBoxPosition();
 
             DrawTextBoxConsistent(gc, lines, DrawOnWhite ? new CTFont(DefaultFont.DisplayName, 12) : DefaultFont, position);
+        }
+
+        string FormatConcentrationLine(ExperimentSpeciesLocation location, string manualName, string defaultName, FloatWithError concentration)
+        {
+            var designation = GetCompartmentDesignation(location, manualName, defaultName);
+            return "[" + designation + "] = " + concentration.AsFormattedConcentration(true);
+        }
+
+        string GetCompartmentDesignation(ExperimentSpeciesLocation location, string manualName, string defaultName)
+        {
+            if (NameDisplayMode == FinalFigureNameDisplayMode.Compartment) return defaultName;
+
+            string designation = string.IsNullOrWhiteSpace(manualName)
+                ? defaultName
+                : manualName.Trim();
+
+            if (UseNameAttributes)
+            {
+                var names = ExperimentData.Attributes
+                    .Where(att => att.Key == AttributeKey.Species
+                        && ExperimentAttribute.NormalizeSpeciesLocation(att.IntValue) == location)
+                    .Select(att => att.StringValue?.Trim())
+                    .Where(name => !string.IsNullOrWhiteSpace(name))
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                    .ToList();
+
+                if (names.Count > 0)
+                {
+                    designation = string.Join(" + ", names);
+                }
+            }
+
+            return NameDisplayMode == FinalFigureNameDisplayMode.NameAndCompartment
+                        ? designation + ", " + defaultName.ToLowerInvariant()
+                        : designation;
         }
 
         void AddInjectionDelayLine(List<string> lines)

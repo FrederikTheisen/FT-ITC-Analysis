@@ -124,6 +124,19 @@ namespace AnalysisITC
         public static bool UnifiedPowerAxis { get; set; } = false;
         public static bool DrawBaseline { get; set; } = false;
         public static bool DrawBaselineCorrected { get; set; } = true;
+        public static string SyringeName { get; set; } = "";
+        public static string CellName { get; set; } = "";
+        public static bool UseNameAttributes { get; set; } = false;
+        public static FinalFigureNameDisplayMode NameDisplayMode { get; set; } = FinalFigureNameDisplayMode.Name;
+        public static bool ShowAxisTitles { get; set; } = true;
+        public static double? DataXAxisMin { get; set; }
+        public static double? DataXAxisMax { get; set; }
+        public static double? DataYAxisMin { get; set; }
+        public static double? DataYAxisMax { get; set; }
+        public static double? FitXAxisMin { get; set; }
+        public static double? FitXAxisMax { get; set; }
+        public static double? FitYAxisMin { get; set; }
+        public static double? FitYAxisMax { get; set; }
         public static TimeUnit TimeAxisUnit { get; set; } = TimeUnit.Minute;
         public static InformationBoxPlacement InformationBoxPosition { get; set; } = InformationBoxPlacement.Auto;
 
@@ -206,9 +219,22 @@ namespace AnalysisITC
                 UseUnifiedDataAxes = UnifiedPowerAxis,
                 ShouldDrawBaseline = DrawBaseline,
                 DrawBaselineCorrected = DrawBaselineCorrected,
+                SyringeName = SyringeName,
+                CellName = CellName,
+                UseNameAttributes = UseNameAttributes,
+                NameDisplayMode = NameDisplayMode,
+                ShowAxisTitles = ShowAxisTitles,
+                DataXAxisMin = DataXAxisMin,
+                DataXAxisMax = DataXAxisMax,
+                DataYAxisMin = DataYAxisMin,
+                DataYAxisMax = DataYAxisMax,
 
                 EnthalpyAxisTitle = EnthalpyAxisTitle,
                 MolarRatioAxisTitle = MolarRatioAxisTitle,
+                FitXAxisMin = FitXAxisMin,
+                FitXAxisMax = FitXAxisMax,
+                FitYAxisMin = FitYAxisMin,
+                FitYAxisMax = FitYAxisMax,
                 UseUnifiedAnalysisAxes = UseUnifiedMolarRatioAxis,
                 UnifiedEnthalpyAxis = UnifiedEnthalpyAxis,
                 ShowBadDataPoints = ShowBadData,
@@ -444,9 +470,22 @@ namespace AnalysisITC
                 UseUnifiedDataAxes = UnifiedPowerAxis,
                 ShouldDrawBaseline = DrawBaseline,
                 DrawBaselineCorrected = DrawBaselineCorrected,
+                SyringeName = SyringeName,
+                CellName = CellName,
+                UseNameAttributes = UseNameAttributes,
+                NameDisplayMode = NameDisplayMode,
+                ShowAxisTitles = ShowAxisTitles,
+                DataXAxisMin = DataXAxisMin,
+                DataXAxisMax = DataXAxisMax,
+                DataYAxisMin = DataYAxisMin,
+                DataYAxisMax = DataYAxisMax,
 
                 EnthalpyAxisTitle = EnthalpyAxisTitle,
                 MolarRatioAxisTitle = MolarRatioAxisTitle,
+                FitXAxisMin = FitXAxisMin,
+                FitXAxisMax = FitXAxisMax,
+                FitYAxisMin = FitYAxisMin,
+                FitYAxisMax = FitYAxisMax,
                 UseUnifiedAnalysisAxes = UseUnifiedMolarRatioAxis,
                 UnifiedEnthalpyAxis = UnifiedEnthalpyAxis,
                 ShowBadDataPoints = ShowBadData,

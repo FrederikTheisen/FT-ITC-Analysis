@@ -46,6 +46,9 @@ namespace AnalysisITC
 		AppKit.NSTextField InstrumentDescriptionField { get; set; }
 
 		[Outlet]
+		AppKit.NSPopUpButton InstrumentControl { get; set; }
+
+		[Outlet]
 		AppKit.NSMenu InstrumentMenu { get; set; }
 
 		[Outlet]
@@ -172,6 +175,11 @@ namespace AnalysisITC
 			if (InstrumentDescriptionField != null) {
 				InstrumentDescriptionField.Dispose ();
 				InstrumentDescriptionField = null;
+			}
+
+			if (InstrumentControl != null) {
+				InstrumentControl.Dispose ();
+				InstrumentControl = null;
 			}
 
 			if (InstrumentMenu != null) {

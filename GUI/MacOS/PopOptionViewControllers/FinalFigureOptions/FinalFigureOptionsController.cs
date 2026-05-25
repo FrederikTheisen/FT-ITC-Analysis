@@ -1,4 +1,5 @@
 using System;
+using System.Globalization;
 using System.Text.RegularExpressions;
 using AppKit;
 using CoreGraphics;
@@ -24,6 +25,11 @@ namespace AnalysisITC
             public NSSwitch ConcentrationDetailControl { get; set; }
             public NSMenu ParameterDisplayOptionsControl { get; set; }
             public NSMenu AttributeDisplayOptionsControl { get; set; }
+            public NSTextField SyringeNameField { get; set; }
+            public NSTextField CellNameField { get; set; }
+            public NSSwitch UseNameAttributes { get; set; }
+            public NSSegmentedControl NameDisplayModeControl { get; set; }
+            public NSSwitch ShowAxisTitles { get; set; }
         }
 
         internal sealed class DataControls
@@ -35,6 +41,10 @@ namespace AnalysisITC
             public NSStepper XTickStepper { get; set; }
             public NSTextField YTickLabel { get; set; }
             public NSStepper YTickStepper { get; set; }
+            public NSTextField XMinField { get; set; }
+            public NSTextField XMaxField { get; set; }
+            public NSTextField YMinField { get; set; }
+            public NSTextField YMaxField { get; set; }
             public NSSwitch UnifiedPowerAxis { get; set; }
             public NSSwitch DrawCorrected { get; set; }
             public NSSwitch DrawBaseline { get; set; }
@@ -48,6 +58,10 @@ namespace AnalysisITC
             public NSTextField MolarRatioAxisTitleLabel { get; set; }
             public NSStepper XAxisTickStepper { get; set; }
             public NSTextField XTickLabel { get; set; }
+            public NSTextField XMinField { get; set; }
+            public NSTextField XMaxField { get; set; }
+            public NSTextField YMinField { get; set; }
+            public NSTextField YMaxField { get; set; }
             public NSSegmentedControl SplineInterpolationControl { get; set; }
             public NSSegmentedControl SymbolControl { get; set; }
             public NSTextField SymbolSizeLabel { get; set; }
@@ -98,6 +112,11 @@ namespace AnalysisITC
             SetState(controls.TemperatureDetailControl, AppSettings.FinalFigureParameterDisplay.HasFlag(FinalFigureDisplayParameters.Temperature));
             SetState(controls.ConcentrationDetailControl, AppSettings.FinalFigureParameterDisplay.HasFlag(FinalFigureDisplayParameters.Concentrations));
             SetState(controls.ShowDataGraphControl, FinalFigureGraphView.ShowDataGraph);
+            SetText(controls.SyringeNameField, FinalFigureGraphView.SyringeName, "Syringe");
+            SetText(controls.CellNameField, FinalFigureGraphView.CellName, "Cell");
+            SetState(controls.UseNameAttributes, FinalFigureGraphView.UseNameAttributes);
+            controls.NameDisplayModeControl?.SelectSegment((int)FinalFigureGraphView.NameDisplayMode);
+            SetState(controls.ShowAxisTitles, FinalFigureGraphView.ShowAxisTitles);
             UpdateParameterDisplayMenu(controls.ParameterDisplayOptionsControl);
             UpdateAttributeDisplayMenu(controls.AttributeDisplayOptionsControl);
         }
@@ -150,6 +169,37 @@ namespace AnalysisITC
             if (controls.ConcentrationDetailControl != null)
             {
                 SetParameterFlag(FinalFigureDisplayParameters.Concentrations, IsOn(controls.ConcentrationDetailControl));
+            }
+
+            if (controls.SyringeNameField != null)
+            {
+                FinalFigureGraphView.SyringeName = ReadText(controls.SyringeNameField);
+            }
+
+            if (controls.CellNameField != null)
+            {
+                FinalFigureGraphView.CellName = ReadText(controls.CellNameField);
+            }
+
+            if (controls.UseNameAttributes != null)
+            {
+                FinalFigureGraphView.UseNameAttributes = IsOn(controls.UseNameAttributes);
+            }
+
+            if (controls.NameDisplayModeControl != null)
+            {
+                bool name = controls.NameDisplayModeControl.IsSelectedForSegment(0);
+                bool compartment = controls.NameDisplayModeControl.IsSelectedForSegment(1);
+
+                if (name && compartment) FinalFigureGraphView.NameDisplayMode = FinalFigureNameDisplayMode.NameAndCompartment;
+                else if (name) FinalFigureGraphView.NameDisplayMode = FinalFigureNameDisplayMode.Name;
+                else if (compartment) FinalFigureGraphView.NameDisplayMode = FinalFigureNameDisplayMode.Compartment;
+                else FinalFigureGraphView.NameDisplayMode = FinalFigureNameDisplayMode.Compartment;
+            }
+
+            if (controls.ShowAxisTitles != null)
+            {
+                FinalFigureGraphView.ShowAxisTitles = IsOn(controls.ShowAxisTitles);
             }
 
             FinalFigureGraphView.UpdateParameterBoxVisibility();
@@ -257,6 +307,10 @@ namespace AnalysisITC
                 controls.YTickStepper.IntValue = FinalFigureGraphView.DataYTickCount;
             }
 
+            SetOptionalDouble(controls.XMinField, FinalFigureGraphView.DataXAxisMin);
+            SetOptionalDouble(controls.XMaxField, FinalFigureGraphView.DataXAxisMax);
+            SetOptionalDouble(controls.YMinField, FinalFigureGraphView.DataYAxisMin);
+            SetOptionalDouble(controls.YMaxField, FinalFigureGraphView.DataYAxisMax);
             UpdateDataTickLabels(controls);
         }
 
@@ -305,6 +359,11 @@ namespace AnalysisITC
             {
                 FinalFigureGraphView.DataYTickCount = controls.YTickStepper.IntValue;
             }
+
+            FinalFigureGraphView.DataXAxisMin = ReadOptionalDouble(controls.XMinField);
+            FinalFigureGraphView.DataXAxisMax = ReadOptionalDouble(controls.XMaxField);
+            FinalFigureGraphView.DataYAxisMin = ReadOptionalDouble(controls.YMinField);
+            FinalFigureGraphView.DataYAxisMax = ReadOptionalDouble(controls.YMaxField);
         }
 
         internal static void SyncFit(FitControls controls)
@@ -352,6 +411,10 @@ namespace AnalysisITC
                 controls.SymbolSizeStepper.IntValue = (int)(2 * FinalFigureGraphView.SymbolSize);
             }
 
+            SetOptionalDouble(controls.XMinField, FinalFigureGraphView.FitXAxisMin);
+            SetOptionalDouble(controls.XMaxField, FinalFigureGraphView.FitXAxisMax);
+            SetOptionalDouble(controls.YMinField, FinalFigureGraphView.FitYAxisMin);
+            SetOptionalDouble(controls.YMaxField, FinalFigureGraphView.FitYAxisMax);
             controls.SymbolControl?.SetSelected(true, FinalFigureGraphView.SymbolShape);
             UpdateFitLabels(controls);
         }
@@ -446,6 +509,11 @@ namespace AnalysisITC
             {
                 FinalFigureGraphView.SymbolShape = (int)controls.SymbolControl.SelectedSegment;
             }
+
+            FinalFigureGraphView.FitXAxisMin = ReadOptionalDouble(controls.XMinField);
+            FinalFigureGraphView.FitXAxisMax = ReadOptionalDouble(controls.XMaxField);
+            FinalFigureGraphView.FitYAxisMin = ReadOptionalDouble(controls.YMinField);
+            FinalFigureGraphView.FitYAxisMax = ReadOptionalDouble(controls.YMaxField);
         }
 
         static FinalFigureDisplayParameters GetParameterFlagForMenuIndex(int index)
@@ -536,6 +604,39 @@ namespace AnalysisITC
 
             string number = Regex.Replace(textField.StringValue, "[^0-9.]", "");
             return float.TryParse(number, out value);
+        }
+
+        static void SetText(NSTextField field, string value, string placeholder)
+        {
+            if (field == null) return;
+
+            field.StringValue = value ?? "";
+            field.PlaceholderString = placeholder;
+        }
+
+        static string ReadText(NSTextField field) => field?.StringValue?.Trim() ?? "";
+
+        static void SetOptionalDouble(NSTextField field, double? value)
+        {
+            if (field == null) return;
+
+            field.PlaceholderString = "Auto";
+            field.StringValue = value.HasValue
+                ? value.Value.ToString("G4", CultureInfo.CurrentCulture)
+                : "";
+        }
+
+        static double? ReadOptionalDouble(NSTextField field)
+        {
+            if (field == null) return null;
+
+            var text = field.StringValue?.Trim();
+            if (string.IsNullOrWhiteSpace(text)) return null;
+
+            if (double.TryParse(text, NumberStyles.Float, CultureInfo.CurrentCulture, out var value)) return value;
+            if (double.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out value)) return value;
+
+            return null;
         }
 
         static bool IsOn(NSSwitch control) => control.State == (int)NSCellStateValue.On;

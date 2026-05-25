@@ -162,6 +162,11 @@ namespace AnalysisITC
             ConcentrationDetailControl = EmbeddedConcentrationDetailControl,
             ParameterDisplayOptionsControl = EmbeddedParameterDisplayOptionsControl,
             AttributeDisplayOptionsControl = EmbeddedAttributeDisplayOptionsControl,
+            SyringeNameField = EmbeddedSyringeNameField,
+            CellNameField = EmbeddedCellNameField,
+            UseNameAttributes = EmbeddedUseNameAttributes,
+            NameDisplayModeControl = EmbeddedNameDisplayModeControl,
+            ShowAxisTitles = EmbeddedShowAxisTitles,
         };
 
         FinalFigureOptionsController.DataControls EmbeddedDataControls => new()
@@ -172,6 +177,10 @@ namespace AnalysisITC
             XTickStepper = EmbeddedDataXTickStepper,
             YTickLabel = EmbeddedDataYTickLabel,
             YTickStepper = EmbeddedDataYTickStepper,
+            XMinField = EmbeddedDataXMinField,
+            XMaxField = EmbeddedDataXMaxField,
+            YMinField = EmbeddedDataYMinField,
+            YMaxField = EmbeddedDataYMaxField,
             UnifiedPowerAxis = EmbeddedUnifiedPowerAxis,
             DrawCorrected = EmbeddedDrawCorrected,
             DrawBaseline = EmbeddedDrawBaseline,
@@ -185,6 +194,10 @@ namespace AnalysisITC
             MolarRatioAxisTitleLabel = EmbeddedMolarRatioAxisTitleLabel,
             XAxisTickStepper = EmbeddedFitXTickStepper,
             XTickLabel = EmbeddedFitXTickLabel,
+            XMinField = EmbeddedFitXMinField,
+            XMaxField = EmbeddedFitXMaxField,
+            YMinField = EmbeddedFitYMinField,
+            YMaxField = EmbeddedFitYMaxField,
             SplineInterpolationControl = EmbeddedSplineInterpolationControl,
             SymbolControl = EmbeddedSymbolControl,
             SymbolSizeLabel = EmbeddedSymbolSizeLabel,

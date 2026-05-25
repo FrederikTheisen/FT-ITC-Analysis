@@ -19,7 +19,7 @@ namespace AnalysisITC
 
         public static bool AutoRunExperimentSimulation { get; set; } = true;
 
-        private ITCInstrument Instrument { get; set; } = ITCInstrument.MicroCalITC200;
+        private ITCInstrument Instrument { get; set; } = AppSettings.DefaultDesignerInstrument;
         private ExperimentData Data { get; set; }
         private AnalysisModel Model { get; set; } = AnalysisModel.OneSetOfSites;
         private SingleModelFactory Factory { get; set; }
@@ -74,6 +74,8 @@ namespace AnalysisITC
                 InstrumentMenu.AddItem(new NSMenuItem(instrument.GetProperties().Name) { Tag = (int)instrument });
             }
 
+            SetInstrument(AppSettings.DefaultDesignerInstrument);
+
             foreach (var type in AnalysisModelAttribute.GetAll())
             {
                 ModelMenu.AddItem(new NSMenuItem(type.GetProperties().Name) { Tag = (int)type, Enabled = true });
@@ -87,6 +89,8 @@ namespace AnalysisITC
 
             SolverInterface.AnalysisStarted += SolverInterface_AnalysisStarted;
             SolverInterface.AnalysisFinished += SolverInterface_AnalysisFinished;
+
+            SetupExperiment();
         }
 
         private void SetupInjectionVolumeControlEvents()
@@ -193,7 +197,25 @@ namespace AnalysisITC
 
         partial void InstrumentControlAction(NSPopUpButton sender)
         {
-            Instrument = (ITCInstrument)(int)sender.SelectedItem.Tag;
+            SetInstrument((ITCInstrument)(int)sender.SelectedItem.Tag);
+            UpdateInjectionVolumeControls(InjectionCount);
+            SetupExperiment();
+        }
+
+        private void SetInstrument(ITCInstrument instrument)
+        {
+            if (!ITCInstrumentAttribute.GetITCInstruments().Contains(instrument))
+                instrument = ITCInstrument.MicroCalITC200;
+
+            Instrument = instrument;
+
+            if (InstrumentControl?.Menu != null)
+            {
+                var selectedIndex = Array.FindIndex(InstrumentControl.Menu.Items, item => item.Tag == (int)instrument);
+
+                if (selectedIndex >= 0)
+                    InstrumentControl.SelectItem(selectedIndex);
+            }
 
             var instrumentinfo = "";
 
@@ -201,9 +223,6 @@ namespace AnalysisITC
             instrumentinfo += "Cell volume: \t " + (1000000 * Instrument.GetProperties().StandardCellVolume).ToString("F1") + " µl";
 
             InstrumentDescriptionField.StringValue = instrumentinfo;
-
-            UpdateInjectionVolumeControls(InjectionCount);
-            SetupExperiment();
         }
 
         partial void ModelControlAction(NSPopUpButton sender)

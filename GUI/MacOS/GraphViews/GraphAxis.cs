@@ -461,7 +461,9 @@ namespace AnalysisITC
                 if (_size.Height > ticklabelsize.Height) ticklabelsize.Height = _size.Height;
             }
 
-            var titlesize = string.IsNullOrEmpty(LegendTitle) ? new CGSize(0, 0) : CGGraph.MeasureString(Utilities.MacStrings.FromMarkDownString(LegendTitle, NSFont.FromCTFont(TitleFont), true), Position, false);
+            var titlesize = HideTitle || string.IsNullOrEmpty(LegendTitle)
+                ? new CGSize(0, 0)
+                : CGGraph.MeasureString(Utilities.MacStrings.FromMarkDownString(LegendTitle, NSFont.FromCTFont(TitleFont), true), Position, false);
 
             var margin = LabelOffset + TitleOffset;
             margin = margin.AbsoluteValueSize();
