@@ -47,7 +47,7 @@ namespace AnalysisITC
             /// Fraction (0..1) of the dead/overflow compartment that “exchanges” with the active cell between segments.
             /// 0 -> no back-mixing; 1 -> full dead compartment participates.
             /// </summary>
-            public double MixingFraction = 0.1;
+            public double MixingFraction = 0.2;
 
             public BackMixingSettings Copy()
             {
