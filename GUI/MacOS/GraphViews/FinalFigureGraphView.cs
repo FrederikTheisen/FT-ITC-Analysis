@@ -187,6 +187,7 @@ namespace AnalysisITC
             DataManager.SelectionDidChange += DataManager_SelectionDidChange;
             DataManager.ResultLinkedExperimentHighlightDidChange += DataManager_SelectionDidChange;
             Invalidated += FinalFigureGraphView_Invalidated;
+            AppSettings.SettingsDidUpdate += FinalFigureGraphView_Invalidated;
 
             LayerContentsRedrawPolicy = NSViewLayerContentsRedrawPolicy.OnSetNeedsDisplay;
 		}
