@@ -13,9 +13,9 @@
 	<key>LSApplicationCategoryType</key>
 	<string>public.app-category.productivity</string>
 	<key>CFBundleVersion</key>
-	<string>1.8.0</string>
+	<string>1.0.0</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.8.0</string>
+	<string>1.0.0</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleSignature</key>
@@ -88,8 +88,8 @@
 			<string>Viewer</string>
 			<key>LSHandlerRank</key>
 			<string>Alternate</string>
-			</dict>
-		</array>
+		</dict>
+	</array>
 	<key>UTExportedTypeDeclarations</key>
 	<array>
 		<dict>
