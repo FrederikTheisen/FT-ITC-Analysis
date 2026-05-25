@@ -219,7 +219,7 @@ namespace DataReaders
                 CellConcentration = new(metadata.CellConcentration_M),
                 SyringeConcentration = new(metadata.SyringeConcentration_M),
                 CellVolume = metadata.CellVolume_L,
-                TargetTemperature = metadata.Temperature_C,
+                TargetTemperature = Math.Round(4 * metadata.Temperature_C) / 4, //
             };
 
             foreach (var row in rows)
