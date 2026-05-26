@@ -135,7 +135,7 @@ namespace AnalysisITC
 
                         Graph = new ParameterDependenceGraph(this)
                         {
-                            XLabel = "√(*Ionic Strength*)",
+                            XLabel = "√(*Ionic Strength* / M)",
                             YLabel = $"Log({MarkdownStrings.DissociationConstant})",
                             XValues = x.ToArray(),
                             YValues = y.ToArray(),

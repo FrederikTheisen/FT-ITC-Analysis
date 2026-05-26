@@ -23,7 +23,7 @@ namespace AnalysisITC
         MgCl2,
         [Salt("KI", 1, 2)]
         KI,
-        [Salt("CaCl{2}", 1, 3)]
+        [Salt("CaCl{2}", 3, 3)]
         CaCl2
     }
 
@@ -79,4 +79,3 @@ namespace AnalysisITC
         }
     }
 }
-
