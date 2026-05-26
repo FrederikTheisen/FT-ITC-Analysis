@@ -30,6 +30,7 @@ namespace AnalysisITC.AppClasses.AnalysisClasses
         /// Replaced entirely on every rebuild — never partially mutated.
         /// </summary>
         public AnalysisContext Context { get; private set; }
+        bool reuseAttachedSolutionInitialValues = true;
 
         public bool IsReady => Context != null;
 
@@ -141,6 +142,7 @@ namespace AnalysisITC.AppClasses.AnalysisClasses
             ClearStoredState(Session.Single);
             ClearStoredState(Session.Global);
 
+            reuseAttachedSolutionInitialValues = false;
             Context = null;
             TryRebuild();
         }
@@ -174,7 +176,7 @@ namespace AnalysisITC.AppClasses.AnalysisClasses
         /// </summary>
         public void Rebuild()
         {
-            Context = AnalysisBuilder.Build(Session);
+            Context = AnalysisBuilder.Build(Session, reuseAttachedSolutionInitialValues);
 
             AppEventHandler.Print(
                 $"[AnalysisWorkspace] Rebuilt {Session.ModelType} ({(Session.IsGlobal ? "global" : "single")})", 0);
@@ -224,6 +226,7 @@ namespace AnalysisITC.AppClasses.AnalysisClasses
             if (Context == null)
                 throw new InvalidOperationException("No analysis context available. Ensure TryRebuild() succeeded before calling PrepareForSolve().");
 
+            reuseAttachedSolutionInitialValues = true;
             Context.FinalizeForSolver();
             Context.RefreshParameterLimits();
             return Context.CreateSolver();

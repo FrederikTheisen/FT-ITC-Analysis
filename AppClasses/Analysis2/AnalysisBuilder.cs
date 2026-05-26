@@ -58,16 +58,16 @@ namespace AnalysisITC.AppClasses.AnalysisClasses
         /// Build a fresh AnalysisContext from session state and the current DataManager.
         /// Throws if data is not in a ready state — callers should gate on IsAnalysisReady first.
         /// </summary>
-        public static AnalysisContext Build(AnalysisSessionState session)
+        public static AnalysisContext Build(AnalysisSessionState session, bool reuseAttachedSolutionInitialValues = true)
         {
             return session.IsGlobal
-                ? BuildGlobal(session.ModelType, DataManager.Data.Where(d => d.Include).ToList(), session.Global)
-                : BuildSingle(session.ModelType, DataManager.Current, session.Single);
+                ? BuildGlobal(session.ModelType, DataManager.Data.Where(d => d.Include).ToList(), session.Global, reuseAttachedSolutionInitialValues)
+                : BuildSingle(session.ModelType, DataManager.Current, session.Single, reuseAttachedSolutionInitialValues);
         }
 
         // ── Single ─────────────────────────────────────────────────────────
 
-        static AnalysisContext BuildSingle(AnalysisModel modelType, ExperimentData data, AnalysisState state)
+        static AnalysisContext BuildSingle(AnalysisModel modelType, ExperimentData data, AnalysisState state, bool reuseAttachedSolutionInitialValues)
         {
             if (data == null)
                 throw new InvalidOperationException("No experiment selected.");
@@ -75,6 +75,7 @@ namespace AnalysisITC.AppClasses.AnalysisClasses
                 throw new HandledException(HandledException.Severity.Error, "No valid peaks", "Please check that not all peaks are excluded");
 
             var model = ConstructModel(modelType, data);
+            model.ReuseAttachedSolutionInitialValues = reuseAttachedSolutionInitialValues;
             model.InitializeParameters(data);
 
             ApplyModelOptionsToModel(model, state);
@@ -85,7 +86,7 @@ namespace AnalysisITC.AppClasses.AnalysisClasses
 
         // ── Global ─────────────────────────────────────────────────────────
 
-        static AnalysisContext BuildGlobal(AnalysisModel modelType, List<ExperimentData> dataList, AnalysisState state)
+        static AnalysisContext BuildGlobal(AnalysisModel modelType, List<ExperimentData> dataList, AnalysisState state, bool reuseAttachedSolutionInitialValues)
         {
             if (dataList == null || dataList.Count < 2)
                 throw new InvalidOperationException("Global analysis requires at least two included datasets.");
@@ -99,6 +100,7 @@ namespace AnalysisITC.AppClasses.AnalysisClasses
             foreach (var data in dataList)
             {
                 var model = ConstructModel(modelType, data);
+                model.ReuseAttachedSolutionInitialValues = reuseAttachedSolutionInitialValues;
                 model.InitializeParameters(data);
                 globalModel.AddModel(model);
             }
@@ -334,6 +336,7 @@ namespace AnalysisITC.AppClasses.AnalysisClasses
         public static double GetDefaultParameterValue(AnalysisModel modelType, ExperimentData data, ParameterType key)
         {
             var model = ConstructModel(modelType, data);
+            model.ReuseAttachedSolutionInitialValues = false;
             model.InitializeParameters(data);
             return model.Parameters.Table.TryGetValue(key, out var par) ? par.Value : 0d;
         }

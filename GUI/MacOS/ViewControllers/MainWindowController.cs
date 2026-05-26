@@ -16,6 +16,7 @@ namespace AnalysisITC
 	public partial class MainWindowController : NSWindowController
 	{
         DirtyTrackingWindowDelegate dirtyTrackingWindowDelegate;
+        NSLayoutConstraint workflowToolbarMenuWidthConstraint;
         bool allowDirtyClose;
         bool stopableProcessRunning;
         int toolbarSplineConversionPointDensitySegment = 1;
@@ -287,6 +288,17 @@ namespace AnalysisITC
 
         void ConfigureContextToolbarMenu()
         {
+            if (WorkflowToolbarMenuButton != null && workflowToolbarMenuWidthConstraint == null)
+            {
+                workflowToolbarMenuWidthConstraint = NSLayoutConstraint.Create(
+                    WorkflowToolbarMenuButton,
+                    NSLayoutAttribute.Width,
+                    NSLayoutRelation.Equal,
+                    1,
+                    100);
+                WorkflowToolbarMenuButton.AddConstraint(workflowToolbarMenuWidthConstraint);
+            }
+
             UpdateContextToolbarMenu();
         }
 
@@ -305,6 +317,8 @@ namespace AnalysisITC
             menu.AddItem(CreateContextMenuItem("Open...", "toolbaropen", true, (s, e) => AppDelegate.LaunchOpenFileDialog()));
             menu.AddItem(CreateContextMenuItem("Save", "toolbarsave", hasDocumentContent, (s, e) => SaveCurrentDocument()));
             menu.AddItem(CreateContextMenuItem("Save As...", "toolbarsaveas", hasDocumentContent, (s, e) => SaveCurrentDocumentAs()));
+            menu.AddItem(NSMenuItem.SeparatorItem);
+            menu.AddItem(CreateContextMenuItem("Order by type", "sortbytype", DataManager.Results.Count > 0, (s, e) => DataManager.SortContent(DataManager.SortMode.Type)));
             menu.AddItem(NSMenuItem.SeparatorItem);
             menu.AddItem(CreateContextMenuItem("Remove all data and results", "toolbarremoveall", hasDocumentContent, (s, e) => AppDelegate.CloseAllData()));
 
@@ -366,7 +380,7 @@ namespace AnalysisITC
             {
                 ProgramState.Process => "Processing",
                 ProgramState.Analyze => "Analysis",
-                ProgramState.AnalysisView => "Result view",
+                ProgramState.AnalysisView => "Result View",
                 _ => "Workflow",
             };
 
@@ -419,7 +433,6 @@ namespace AnalysisITC
             menu.AddItem(CreateContextMenuItem(hasData && DataManager.Current.Include ? "Disable active" : "Enable active", "toggleinclude", hasData, (s, e) =>
             {
                 DataManager.Current.ToggleInclude();
-                DataManager.InvokeDataInclusionDidChange();
                 UpdateContextToolbarMenu();
             }));
             menu.AddItem(CreateContextMenuItem("Clear solution", "clearsolution", hasData && DataManager.Current.Solution != null, (s, e) =>
@@ -576,12 +589,6 @@ namespace AnalysisITC
 
         void RestoreAnalysisDefaults()
         {
-            var fittedExperimentCount = DataManager.Data.Count(d => d.Model != null);
-            if (fittedExperimentCount > 0 && !ConfirmationDialog.ConfirmRemoveOrDelete(
-                "Confirm Restore Analysis Defaults",
-                $"Restore analysis defaults and clear stored fitting state for {fittedExperimentCount} experiment(s)?",
-                "Restore Defaults")) return;
-
             AppSettings.CreateSingleAnalysisResult = false;
             AppSettings.CreateGlobalAnalysisResult = true;
             AppSettings.AutoOpenNewAnalysisResult = true;
@@ -594,14 +601,9 @@ namespace AnalysisITC
             ModelFactory.ResetStoredAnalysisState();
             DataAnalysisViewController.ResetStoredAnalysisState();
 
-            foreach (var data in DataManager.Data.Where(d => d.Model != null).ToList())
-                data.RemoveModel();
-
             AppSettings.Save();
-            DataManager.InvokeUpdateDataViewCells();
-            DataAnalysisViewController.InvalidateGraph();
             UpdateContextToolbarMenu();
-            StatusBarManager.SetStatus("Analysis defaults restored; stored fitting state cleared", 3000);
+            StatusBarManager.SetStatus("Analysis defaults restored; stored parameters and options cleared", 3000);
         }
 
         void PopulateFinalFigureToolbarMenu(NSMenu menu)

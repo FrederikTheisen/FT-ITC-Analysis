@@ -14,6 +14,7 @@ namespace AnalysisITC.AppClasses.AnalysisClasses.Models
 		public ModelParameters Parameters { get; set; }
         public ModelCloneOptions ModelCloneOptions { get; set; }
         public IDictionary<AttributeKey, ExperimentAttribute> ModelOptions { get; set; } = new Dictionary<AttributeKey, ExperimentAttribute>();
+        public bool ReuseAttachedSolutionInitialValues { get; set; } = true;
         
         public SolutionInterface Solution { get; set; }
 
@@ -41,7 +42,7 @@ namespace AnalysisITC.AppClasses.AnalysisClasses.Models
         //TODO consider implementing this feature, but not sure about how it should work yet
         public virtual double PreviousOrDefault(ParameterType key, double baseguess = 0)
         {
-            if (SolutionHasParameter(key))
+            if (ReuseAttachedSolutionInitialValues && SolutionHasParameter(key))
             {
                 return Data.Solution.Parameters[key];
             }
