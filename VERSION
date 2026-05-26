@@ -1,4 +1,4 @@
-#VERSION 1.1.0 First Public Release Version
+##VERSION 1.1.0 First Public Release Version
 
 #VERSION 1.0.1 Analysis Updates
 Implemented restore function to clear analysis state
@@ -17,4 +17,3 @@ Improved solver logic and numerical stability of affinity parameter
 And more
 
 #VERSION 0.2 First GitHub release
-Publicly available but requires explicit user permission to run
