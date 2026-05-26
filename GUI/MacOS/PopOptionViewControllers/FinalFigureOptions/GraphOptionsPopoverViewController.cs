@@ -45,9 +45,8 @@ namespace AnalysisITC
             WidthLabel = WidthLabel,
             HeightLabel = HeightLabel,
             ShowParametersControl = ShowParametersControl,
-            ModelInfoControl = ModelInfoControl,
-            TemperatureDetailControl = TemperatureDetailControl,
-            ConcentrationDetailControl = ConcentrationDetailControl,
+            ShowTextUncertaintiesControl = ShowTextUncertaintiesControl,
+            TextUncertaintyStyleControl = TextUncertaintyStyleControl,
             ParameterDisplayOptionsControl = ParameterDisplayOptionsControl,
             AttributeDisplayOptionsControl = AttributeDisplayOptionsControl,
         };

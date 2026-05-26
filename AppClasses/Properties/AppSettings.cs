@@ -419,6 +419,7 @@ namespace AnalysisITC
             FinalFigureGraphView.Height = (float)FinalFigureDimensions[1];
             FinalFigureGraphView.DrawExpDetails = FinalFigureShowParameterBoxAsDefault;
             FinalFigureGraphView.DrawModelInfo = FinalFigureShowModelInfoAsDefault;
+            FinalFigureGraphView.TextUncertaintyStyle = UncertaintyDisplayStyle;
             FinalFigureGraphView.UpdateParameterBoxVisibility();
             FinalFigureGraphView.ShowResiduals = ShowResidualGraph;
             FinalFigureGraphView.GapResidualGraph = ShowResidualGraphGap;
@@ -450,6 +451,7 @@ namespace AnalysisITC
         StandardDeviation,
         ConfidenceInterval,
         StandardDeviationAndConfidenceInterval,
+        None,
     }
 
     public enum ParameterLimitSetting

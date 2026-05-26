@@ -46,6 +46,8 @@ namespace AnalysisITC
         #region Properties
 
         public bool ShowDataGraph { get; set; } = true;
+        public bool ShowTextUncertainties { get; set; } = true;
+        public UncertaintyDisplayStyle TextUncertaintyStyle { get; set; } = AppSettings.UncertaintyDisplayStyle;
 
         public bool AutoAxesIgnoresBadData
         {
@@ -460,25 +462,37 @@ namespace AnalysisITC
 
         public void Draw(CGContext gc, CGPoint center)
         {
-            if (DataGraph != null) DataGraph.Center = center;
-            IntegrationGraph.Center = center;
+            var previousStyle = AppSettings.UncertaintyDisplayStyle;
+            AppSettings.UncertaintyDisplayStyle = ShowTextUncertainties
+                ? TextUncertaintyStyle
+                : UncertaintyDisplayStyle.None;
 
-            UpdateAxisTitles();
-            ApplyAxisTitleVisibility();
-            ApplyManualAxisRanges();
-            SetupFrames(PlotDimensions.Width, PlotDimensions.Height, center);
+            try
+            {
+                if (DataGraph != null) DataGraph.Center = center;
+                IntegrationGraph.Center = center;
 
-            gc.SetFillColor(NSColor.White.CGColor);
-            gc.FillRect(PlotBox.WithMargin(Margin));
+                UpdateAxisTitles();
+                ApplyAxisTitleVisibility();
+                ApplyManualAxisRanges();
+                SetupFrames(PlotDimensions.Width, PlotDimensions.Height, center);
 
-            DataGraph?.SetupAxisScalingUnits();
-            IntegrationGraph.SetupAxisScalingUnits();
+                gc.SetFillColor(NSColor.White.CGColor);
+                gc.FillRect(PlotBox.WithMargin(Margin));
 
-            DataGraph?.Draw(gc);
-            IntegrationGraph.Draw(gc);
+                DataGraph?.SetupAxisScalingUnits();
+                IntegrationGraph.SetupAxisScalingUnits();
 
-            DataGraph?.DrawFrame(gc);
-            IntegrationGraph.DrawFrame(gc);
+                DataGraph?.Draw(gc);
+                IntegrationGraph.Draw(gc);
+
+                DataGraph?.DrawFrame(gc);
+                IntegrationGraph.DrawFrame(gc);
+            }
+            finally
+            {
+                AppSettings.UncertaintyDisplayStyle = previousStyle;
+            }
         }
     }
 }

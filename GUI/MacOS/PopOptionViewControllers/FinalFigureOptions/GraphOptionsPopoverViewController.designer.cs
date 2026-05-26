@@ -40,6 +40,12 @@ namespace AnalysisITC
 		AppKit.NSSwitch ShowParametersControl { get; set; }
 
 		[Outlet]
+		AppKit.NSSwitch ShowTextUncertaintiesControl { get; set; }
+
+		[Outlet]
+		AppKit.NSSegmentedControl TextUncertaintyStyleControl { get; set; }
+
+		[Outlet]
 		AppKit.NSSegmentedControl TimeUnitControl { get; set; }
 
 		[Outlet]
@@ -102,6 +108,16 @@ namespace AnalysisITC
 			if (ShowParametersControl != null) {
 				ShowParametersControl.Dispose ();
 				ShowParametersControl = null;
+			}
+
+			if (ShowTextUncertaintiesControl != null) {
+				ShowTextUncertaintiesControl.Dispose ();
+				ShowTextUncertaintiesControl = null;
+			}
+
+			if (TextUncertaintyStyleControl != null) {
+				TextUncertaintyStyleControl.Dispose ();
+				TextUncertaintyStyleControl = null;
 			}
 
 			if (TimeUnitControl != null) {

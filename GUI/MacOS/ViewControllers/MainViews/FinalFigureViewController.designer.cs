@@ -151,6 +151,9 @@ namespace AnalysisITC
 		AppKit.NSSwitch EmbeddedShowParametersControl { get; set; }
 
 		[Outlet]
+		AppKit.NSSwitch EmbeddedShowTextUncertaintiesControl { get; set; }
+
+		[Outlet]
 		AppKit.NSSwitch EmbeddedShowResiduals { get; set; }
 
 		[Outlet]
@@ -173,6 +176,9 @@ namespace AnalysisITC
 
 		[Outlet]
 		AppKit.NSTextField EmbeddedTimeAxisTitleLabel { get; set; }
+
+		[Outlet]
+		AppKit.NSSegmentedControl EmbeddedTextUncertaintyStyleControl { get; set; }
 
 		[Outlet]
 		AppKit.NSSegmentedControl EmbeddedTimeUnitControl { get; set; }
@@ -446,6 +452,11 @@ namespace AnalysisITC
 				EmbeddedShowParametersControl = null;
 			}
 
+			if (EmbeddedShowTextUncertaintiesControl != null) {
+				EmbeddedShowTextUncertaintiesControl.Dispose ();
+				EmbeddedShowTextUncertaintiesControl = null;
+			}
+
 			if (EmbeddedShowResiduals != null) {
 				EmbeddedShowResiduals.Dispose ();
 				EmbeddedShowResiduals = null;
@@ -489,6 +500,11 @@ namespace AnalysisITC
 			if (EmbeddedTimeAxisTitleLabel != null) {
 				EmbeddedTimeAxisTitleLabel.Dispose ();
 				EmbeddedTimeAxisTitleLabel = null;
+			}
+
+			if (EmbeddedTextUncertaintyStyleControl != null) {
+				EmbeddedTextUncertaintyStyleControl.Dispose ();
+				EmbeddedTextUncertaintyStyleControl = null;
 			}
 
 			if (EmbeddedTimeUnitControl != null) {

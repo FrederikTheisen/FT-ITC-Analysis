@@ -113,6 +113,8 @@ namespace AnalysisITC
         public static bool DrawFitParameters { get; set; } = false;
         public static bool DrawExpDetails { get; set; } = true;
         public static bool DrawModelInfo { get; set; } = true;
+        public static bool ShowTextUncertainties { get; set; } = true;
+        public static UncertaintyDisplayStyle TextUncertaintyStyle { get; set; } = AppSettings.UncertaintyDisplayStyle;
         public static bool ShowBadData { get; set; } = true;
         public static float SymbolSize { get; set; } = CGGraph.SymbolSize;
         public static int SymbolShape { get; set; } = 0;
@@ -252,6 +254,8 @@ namespace AnalysisITC
                 DrawExpDetails = FinalFigureGraphView.DrawExpDetails,
                 FinalFigureDisplayParameters = FinalFigureGraphView.VisibleFinalFigureDisplayParameters,
                 InformationBoxPlacement = InformationBoxPosition,
+                ShowTextUncertainties = ShowTextUncertainties,
+                TextUncertaintyStyle = TextUncertaintyStyle,
                 SymbolShape = (CGGraph.SymbolShape)SymbolShape,
                 SymbolSize = SymbolSize,
                 ShowResiduals = ShowResiduals,
@@ -505,6 +509,8 @@ namespace AnalysisITC
                 DrawExpDetails = FinalFigureGraphView.DrawExpDetails,
                 FinalFigureDisplayParameters = FinalFigureGraphView.VisibleFinalFigureDisplayParameters,
                 InformationBoxPlacement = InformationBoxPosition,
+                ShowTextUncertainties = ShowTextUncertainties,
+                TextUncertaintyStyle = TextUncertaintyStyle,
                 SymbolShape = (CGGraph.SymbolShape)SymbolShape,
                 SymbolSize = SymbolSize,
                 ShowResiduals = ShowResiduals,

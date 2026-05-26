@@ -436,6 +436,8 @@ namespace AnalysisITC
         {
             switch (displayStyle)
             {
+                case UncertaintyDisplayStyle.None:
+                    return false;
                 case UncertaintyDisplayStyle.ConfidenceInterval:
                     return HasConfidenceInterval(value);
                 case UncertaintyDisplayStyle.StandardDeviationAndConfidenceInterval:
