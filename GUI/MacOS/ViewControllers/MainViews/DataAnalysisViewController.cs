@@ -44,6 +44,8 @@ namespace AnalysisITC
 
         public static event EventHandler Invalidate;
         public static void InvalidateGraph() => Invalidate?.Invoke(null, null);
+        public static event EventHandler ResetStoredAnalysisStateRequested;
+        public static void ResetStoredAnalysisState() => ResetStoredAnalysisStateRequested?.Invoke(null, EventArgs.Empty);
 
         // ── Lifecycle ──────────────────────────────────────────────────────
 
@@ -74,6 +76,7 @@ namespace AnalysisITC
             AppDelegate.StartPrintOperation += OnPrintOperation;
             AnalysisITCDataSource.SourceWasSorted += (_, _) => RefreshGlobalModeControls();
             AppSettings.SettingsDidUpdate += OnSettingsDidUpdate;
+            ResetStoredAnalysisStateRequested += OnResetStoredAnalysisStateRequested;
 
             EnsureConstraintOptionsStackView();
         }
@@ -190,6 +193,14 @@ namespace AnalysisITC
         void OnSettingsDidUpdate(object sender, EventArgs e)
         {
             Workspace.TryRebuild();
+            GraphView.Invalidate();
+        }
+
+        void OnResetStoredAnalysisStateRequested(object sender, EventArgs e)
+        {
+            Workspace.ResetStoredAnalysisState();
+            RebuildConstraintOptionViews();
+            RefreshModelAvailability();
             GraphView.Invalidate();
         }
 
@@ -395,6 +406,7 @@ namespace AnalysisITC
             AnalysisGlobalModeOptionsView2.ParameterContraintUpdated -= OnConstraintUpdated;
             AppDelegate.StartPrintOperation -= OnPrintOperation;
             AppSettings.SettingsDidUpdate -= OnSettingsDidUpdate;
+            ResetStoredAnalysisStateRequested -= OnResetStoredAnalysisStateRequested;
         }
 
         protected override void Dispose(bool disposing)

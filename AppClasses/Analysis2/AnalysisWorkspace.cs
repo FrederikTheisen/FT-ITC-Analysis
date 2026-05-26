@@ -133,6 +133,26 @@ namespace AnalysisITC.AppClasses.AnalysisClasses
         }
 
         /// <summary>
+        /// Clears saved analysis inputs for both single and global modes without changing
+        /// the user's selected analysis mode or model type.
+        /// </summary>
+        public void ResetStoredAnalysisState()
+        {
+            ClearStoredState(Session.Single);
+            ClearStoredState(Session.Global);
+
+            Context = null;
+            TryRebuild();
+        }
+
+        static void ClearStoredState(AnalysisState state)
+        {
+            state.ModelOptions.Clear();
+            state.ParameterOverrides.Clear();
+            state.Constraints.Clear();
+        }
+
+        /// <summary>
         /// Copies the current context's ExposedModelOptions back into session state.
         /// Use this after a third-party view (e.g. OptionAdjustmentView) has mutated the
         /// live options dict directly, so those changes survive the next rebuild.

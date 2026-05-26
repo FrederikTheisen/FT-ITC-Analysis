@@ -17,6 +17,7 @@ namespace AnalysisITC
 	{
         DirtyTrackingWindowDelegate dirtyTrackingWindowDelegate;
         bool allowDirtyClose;
+        bool stopableProcessRunning;
         int toolbarSplineConversionPointDensitySegment = 1;
 
         public MainWindowController (IntPtr handle) : base (handle)
@@ -183,13 +184,17 @@ namespace AnalysisITC
 
         private void StopableProcessFinished(object sender, object e)
         {
+            stopableProcessRunning = false;
             StopProcessButton.Hidden = true;
+            UpdateContextToolbarMenu();
         }
 
         private void StopableProcessStarted(object sender, TerminationFlag e)
         {
+            stopableProcessRunning = true;
             StopProcessButton.Enabled = true;
             StopProcessButton.Hidden = false;
+            UpdateContextToolbarMenu();
 
             e.WasRaised += (object flag, EventArgs e) => StopProcessButton.Enabled = false;
         }
@@ -492,7 +497,7 @@ namespace AnalysisITC
             menu.AddItem(CreateParameterLimitSettingsMenuItem());
             menu.AddItem(CreateAnalysisParameterDisplayMenuItem());
             menu.AddItem(NSMenuItem.SeparatorItem);
-            menu.AddItem(CreateContextMenuItem("Restore analysis defaults", "restoreanalysisdefaults", true, (s, e) => RestoreAnalysisDefaults()));
+            menu.AddItem(CreateContextMenuItem("Restore analysis defaults", "restoreanalysisdefaults", !stopableProcessRunning, (s, e) => RestoreAnalysisDefaults()));
         }
 
         NSMenuItem CreateAnalysisResultCreationMenuItem()
@@ -571,6 +576,12 @@ namespace AnalysisITC
 
         void RestoreAnalysisDefaults()
         {
+            var fittedExperimentCount = DataManager.Data.Count(d => d.Model != null);
+            if (fittedExperimentCount > 0 && !ConfirmationDialog.ConfirmRemoveOrDelete(
+                "Confirm Restore Analysis Defaults",
+                $"Restore analysis defaults and clear stored fitting state for {fittedExperimentCount} experiment(s)?",
+                "Restore Defaults")) return;
+
             AppSettings.CreateSingleAnalysisResult = false;
             AppSettings.CreateGlobalAnalysisResult = true;
             AppSettings.AutoOpenNewAnalysisResult = true;
@@ -578,8 +589,19 @@ namespace AnalysisITC
             AppSettings.EnableExtendedParameterLimits = false;
             AppSettings.AnalysisParameterDisplay =
                 FinalFigureDisplayParameters.Model | FinalFigureDisplayParameters.Fitted | FinalFigureDisplayParameters.Derived;
+
+            AnalysisSessionState.Reset();
+            ModelFactory.ResetStoredAnalysisState();
+            DataAnalysisViewController.ResetStoredAnalysisState();
+
+            foreach (var data in DataManager.Data.Where(d => d.Model != null).ToList())
+                data.RemoveModel();
+
             AppSettings.Save();
+            DataManager.InvokeUpdateDataViewCells();
+            DataAnalysisViewController.InvalidateGraph();
             UpdateContextToolbarMenu();
+            StatusBarManager.SetStatus("Analysis defaults restored; stored fitting state cleared", 3000);
         }
 
         void PopulateFinalFigureToolbarMenu(NSMenu menu)

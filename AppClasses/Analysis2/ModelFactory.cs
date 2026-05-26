@@ -95,6 +95,13 @@ namespace AnalysisITC.AppClasses.AnalysisClasses
             PreviousAttributes.Add(att);
         }
 
+        public static void ResetStoredAnalysisState()
+        {
+            Factory = null;
+            PreviousAttributes.Clear();
+            GlobalModelFactory.ClearPreviousParameters();
+        }
+
         public static bool DataSupportsAnalysis(ExperimentData experiment)
         {
             return AnalysisModelAttribute.GetAll().Any(mdl => ModelAvailableForExperiment(mdl, experiment));
@@ -391,6 +398,8 @@ namespace AnalysisITC.AppClasses.AnalysisClasses
 	public class GlobalModelFactory : ModelFactory
 	{
         private static List<Parameter> PrevParameters = new List<Parameter>();
+
+        internal static void ClearPreviousParameters() => PrevParameters.Clear();
 
         public GlobalModel Model { get; private set; }
 		public GlobalModelParameters GlobalModelParameters { get; private set; }
