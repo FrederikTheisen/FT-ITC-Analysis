@@ -22,6 +22,9 @@ namespace AnalysisITC
 		AppKit.NSPopUpButton ContextToolbarMenuButton { get; set; }
 
 		[Outlet]
+		AppKit.NSPopUpButton FileToolbarMenuButton { get; set; }
+
+		[Outlet]
 		AppKit.NSPopUpButton WorkflowToolbarMenuButton { get; set; }
 
 		[Outlet]
@@ -90,6 +93,11 @@ namespace AnalysisITC
 			if (ContextToolbarMenuButton != null) {
 				ContextToolbarMenuButton.Dispose ();
 				ContextToolbarMenuButton = null;
+			}
+
+			if (FileToolbarMenuButton != null) {
+				FileToolbarMenuButton.Dispose ();
+				FileToolbarMenuButton = null;
 			}
 
 			if (WorkflowToolbarMenuButton != null) {

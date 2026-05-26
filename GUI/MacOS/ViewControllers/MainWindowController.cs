@@ -56,6 +56,7 @@ namespace AnalysisITC
             Window.Delegate = dirtyTrackingWindowDelegate;
 
             UpdateSharedToolbarControl();
+            ConfigureFileToolbarMenu();
             ConfigureContextToolbarMenu();
             StateManager_UpdateStateDependentUI(null, null);
             UpdateWindowDirtyState();
@@ -73,6 +74,7 @@ namespace AnalysisITC
         private void DataManager_DataDidChange(object sender, ExperimentData e)
         {
             NSApplication.SharedApplication.InvokeOnMainThread(UpdateSharedToolbarControl);
+            NSApplication.SharedApplication.InvokeOnMainThread(UpdateFileToolbarMenu);
             NSApplication.SharedApplication.InvokeOnMainThread(UpdateContextToolbarMenu);
             NSApplication.SharedApplication.InvokeOnMainThread(UpdateDocumentStatus);
         }
@@ -283,10 +285,50 @@ namespace AnalysisITC
             UpdateContextToolbarMenu();
         }
 
+        void ConfigureFileToolbarMenu()
+        {
+            UpdateFileToolbarMenu();
+        }
+
+        void UpdateFileToolbarMenu()
+        {
+            if (FileToolbarMenuButton == null) return;
+
+            var hasDocumentContent = DataManager.SourceItems != null && DataManager.SourceItems.Count > 0;
+            var menu = new NSMenu("File") { AutoEnablesItems = false };
+            menu.AddItem(new NSMenuItem("File") { Hidden = true });
+            menu.AddItem(CreateContextMenuItem("Open...", "toolbaropen", true, (s, e) => AppDelegate.LaunchOpenFileDialog()));
+            menu.AddItem(CreateContextMenuItem("Save", "toolbarsave", hasDocumentContent, (s, e) => SaveCurrentDocument()));
+            menu.AddItem(CreateContextMenuItem("Save As...", "toolbarsaveas", hasDocumentContent, (s, e) => SaveCurrentDocumentAs()));
+            menu.AddItem(NSMenuItem.SeparatorItem);
+            menu.AddItem(CreateContextMenuItem("Remove all data and results", "toolbarremoveall", hasDocumentContent, (s, e) => AppDelegate.CloseAllData()));
+
+            FileToolbarMenuButton.Menu = menu;
+            FileToolbarMenuButton.Title = "File";
+            FileToolbarMenuButton.SelectItem(0);
+        }
+
         void UpdateContextToolbarMenu()
         {
             UpdateSelectedObjectToolbarMenu();
             UpdateWorkflowToolbarMenu();
+        }
+
+        void SaveCurrentDocument()
+        {
+            if (FTITCWriter.IsSaved)
+            {
+                FTITCWriter.SaveWithPath();
+            }
+            else
+            {
+                FTITCWriter.SaveState2();
+            }
+        }
+
+        void SaveCurrentDocumentAs()
+        {
+            FTITCWriter.SaveState2();
         }
 
         void UpdateSelectedObjectToolbarMenu()
@@ -1041,14 +1083,7 @@ namespace AnalysisITC
                     AppDelegate.LaunchOpenFileDialog();
                     break;
                 case 1:
-                    if (FTITCWriter.IsSaved)
-                    {
-                        FTITCWriter.SaveWithPath();
-                    }
-                    else
-                    {
-                        FTITCWriter.SaveState2();
-                    }
+                    SaveCurrentDocument();
                     break;
                 case 2:
                     Exporter.Export(ExportType.Data);
