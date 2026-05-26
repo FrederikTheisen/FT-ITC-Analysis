@@ -680,9 +680,10 @@ namespace AnalysisITC
                 info.Add("  **Stirring Speed:** " + this.StirringSpeed.ToString() + " rpm");
             info.Add("**Temperature:**");
             info.Add($"  **Target:** {this.TargetTemperature:G4} °C");
-            if (this.MeasuredTemperature != this.TargetTemperature)
-                info.Add($"  **Measured:** {this.DataPoints.Min(dp => dp.Temperature):F4} - {this.DataPoints.Max(dp => dp.Temperature):F4} °C | Mean = {this.MeasuredTemperature:G4} °C");
-            info.Add($"**Injections:** {this.InjectionCount} [{injdescription}]");
+            if (this.MeasuredTemperature != this.TargetTemperature && this.DataPoints != null && this.DataPoints.Count > 1)
+                info.Add($"  **Measured:** {this.DataPoints.Min(dp => dp.Temperature):F4} - {this.DataPoints.Max(dp => dp.Temperature):F4} °C | Mean = {this.MeasuredTemperature:G4} °C");     
+            else
+                info.Add($"**Injections:** {this.InjectionCount} [{injdescription}]");
             var injectionDelayInfo = GetInjectionDelayInfoString();
             if (!string.IsNullOrEmpty(injectionDelayInfo))
                 info.Add("  **Injection Delay:** " + injectionDelayInfo);
