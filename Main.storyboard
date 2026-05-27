@@ -5222,7 +5222,7 @@ Gw
                                     <nil key="toolTip"/>
                                     <popUpButton key="view" hidden="YES" tag="-1" verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="w4v-fK-TJu">
                                         <rect key="frame" x="3" y="14" width="83" height="25"/>
-                                        <autoresizingMask key="autoresizingMask" widthSizable="YES"/>
+                                        <autoresizingMask key="autoresizingMask"/>
                                         <popUpButtonCell key="cell" type="roundTextured" title="Options" bezelStyle="texturedRounded" alignment="center" lineBreakMode="truncatingTail" state="on" borderStyle="border" imageScaling="proportionallyDown" inset="2" pullsDown="YES" selectedItem="dgN-YZ-Syb" id="Bqo-Yi-tXU">
                                             <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
                                             <font key="font" metaFont="message"/>
@@ -8402,27 +8402,14 @@ IA
                                                     <action selector="ScopeButtonClicked:" target="YoK-Wd-3Fr" id="H65-Cf-uEn"/>
                                                 </connections>
                                             </button>
-                                            <textField horizontalHuggingPriority="249" verticalHuggingPriority="750" horizontalCompressionResistancePriority="250" translatesAutoresizingMaskIntoConstraints="NO" id="c1a-W7-cH8">
-                                                <rect key="frame" x="397" y="0.0" width="524" height="16"/>
-                                                <textFieldCell key="cell" controlSize="small" lineBreakMode="truncatingTail" alignment="right" title="Fit line interpolation:" id="LYR-eo-2sX">
+                                            <textField horizontalHuggingPriority="249" verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="3Yb-ua-siU">
+                                                <rect key="frame" x="397" y="0.0" width="627" height="16"/>
+                                                <textFieldCell key="cell" controlSize="small" lineBreakMode="clipping" id="Fjh-s3-kpn">
                                                     <font key="font" metaFont="smallSystem"/>
                                                     <color key="textColor" name="labelColor" catalog="System" colorSpace="catalog"/>
                                                     <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
                                                 </textFieldCell>
                                             </textField>
-                                            <segmentedControl verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="1my-Xn-JFr">
-                                                <rect key="frame" x="925" y="-2" width="99" height="19"/>
-                                                <segmentedCell key="cell" controlSize="small" borderStyle="border" alignment="left" style="rounded" trackingMode="selectOne" id="X33-ym-yEM">
-                                                    <font key="font" metaFont="smallSystem"/>
-                                                    <segments>
-                                                        <segment label="Linear"/>
-                                                        <segment label="Smooth" selected="YES" tag="1"/>
-                                                    </segments>
-                                                </segmentedCell>
-                                                <connections>
-                                                    <action selector="LineSmoothnessAction:" target="YoK-Wd-3Fr" id="5nl-dm-wTV"/>
-                                                </connections>
-                                            </segmentedControl>
                                         </subviews>
                                         <edgeInsets key="edgeInsets" left="5" right="5" top="0.0" bottom="0.0"/>
                                         <visibilityPriorities>
@@ -8431,10 +8418,8 @@ IA
                                             <integer value="1000"/>
                                             <integer value="1000"/>
                                             <integer value="1000"/>
-                                            <integer value="1000"/>
                                         </visibilityPriorities>
                                         <customSpacing>
-                                            <real value="3.4028234663852886e+38"/>
                                             <real value="3.4028234663852886e+38"/>
                                             <real value="3.4028234663852886e+38"/>
                                             <real value="3.4028234663852886e+38"/>
@@ -8472,7 +8457,6 @@ IA
                         <outlet property="FitLMButton" destination="ca8-Wo-Gfg" id="ttl-Nl-hAF"/>
                         <outlet property="FitSimplexButton" destination="USk-79-Be9" id="O1a-Gn-VfG"/>
                         <outlet property="GraphView" destination="TfV-6i-g26" id="vMa-EH-e8L"/>
-                        <outlet property="LineSmoothnessControl" destination="1my-Xn-JFr" id="U5U-za-faJ"/>
                         <outlet property="ModelTypeControl" destination="nAb-He-xRl" id="0wB-6L-xZU"/>
                         <outlet property="OptionsStackView" destination="dhw-Eq-SuD" id="Idc-5w-w6w"/>
                         <outlet property="ParametersScopeButton" destination="sZF-Rz-Jda" id="wP1-pi-E49"/>
@@ -9663,7 +9647,7 @@ IA
                                                                                                     <subviews>
                                                                                                         <textField verticalHuggingPriority="751" translatesAutoresizingMaskIntoConstraints="NO" id="ff-text-errors-label">
                                                                                                             <rect key="frame" x="-2" y="0.0" width="244" height="16"/>
-                                                                                                            <textFieldCell key="cell" lineBreakMode="clipping" title="Display errors" id="ff-text-errors-label-cell">
+                                                                                                            <textFieldCell key="cell" lineBreakMode="clipping" title="Parameter Errors" id="ff-text-errors-label-cell">
                                                                                                                 <font key="font" textStyle="headline" name=".SFNS-Bold"/>
                                                                                                                 <color key="textColor" name="labelColor" catalog="System" colorSpace="catalog"/>
                                                                                                                 <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
@@ -9973,7 +9957,7 @@ IA
                                                                                                     <subviews>
                                                                                                         <textField verticalHuggingPriority="751" horizontalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="ff-name-mode-label">
                                                                                                             <rect key="frame" x="-2" y="0.0" width="150" height="16"/>
-                                                                                                            <textFieldCell key="cell" lineBreakMode="clipping" title="Name Display" id="ff-name-mode-label-cell">
+                                                                                                            <textFieldCell key="cell" lineBreakMode="clipping" title="Display Species" id="ff-name-mode-label-cell">
                                                                                                                 <font key="font" textStyle="headline" name=".SFNS-Bold"/>
                                                                                                                 <color key="textColor" name="labelColor" catalog="System" colorSpace="catalog"/>
                                                                                                                 <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>

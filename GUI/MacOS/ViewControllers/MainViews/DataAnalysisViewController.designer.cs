@@ -61,9 +61,6 @@ namespace AnalysisITC
 		AppKit.NSTextField HstepTextField { get; set; }
 
 		[Outlet]
-		AppKit.NSSegmentedControl LineSmoothnessControl { get; set; }
-
-		[Outlet]
 		AppKit.NSSegmentedControl ModelTypeControl { get; set; }
 
 		[Outlet]
@@ -110,9 +107,6 @@ namespace AnalysisITC
 
 		[Action ("FitSimplex:")]
 		partial void FitSimplex (Foundation.NSObject sender);
-
-		[Action ("LineSmoothnessAction:")]
-		partial void LineSmoothnessAction (Foundation.NSObject sender);
 
 		[Action ("ScopeButtonClicked:")]
 		partial void ScopeButtonClicked (AppKit.NSButton sender);
@@ -249,10 +243,6 @@ namespace AnalysisITC
 				SolverStepSizeView = null;
 			}
 
-			if (LineSmoothnessControl != null) {
-				LineSmoothnessControl.Dispose ();
-				LineSmoothnessControl = null;
-			}
 		}
 	}
 }

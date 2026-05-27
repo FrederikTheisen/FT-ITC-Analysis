@@ -88,7 +88,6 @@ namespace AnalysisITC
             ParametersScopeButton.State = AnalysisGraphView.ShowFitParameters ? NSCellStateValue.On : NSCellStateValue.Off;
             AxesScopeButton.State = AnalysisGraphView.UseUnifiedAxes ? NSCellStateValue.On : NSCellStateValue.Off;
             ShowResidualGraphButton.State = AnalysisGraphView.ShowResidualGraph ? NSCellStateValue.On : NSCellStateValue.Off;
-            LineSmoothnessControl.SelectedSegment = AnalysisGraphView.LineSmoothness == GraphBase.LineSmoothness.Linear ? 0 : 1;
 
             PublishAnalysisMode();
             GraphView.Initialize(DataManager.Current);
@@ -141,14 +140,6 @@ namespace AnalysisITC
             AnalysisGraphView.ScaleToValidPoints = ScaleToValid;
 
             GraphView.Invalidate();
-        }
-
-        partial void LineSmoothnessAction(NSObject sender)
-        {
-            AnalysisGraphView.LineSmoothness = LineSmoothnessControl.SelectedSegment == 0
-                ? GraphBase.LineSmoothness.Linear
-                : GraphBase.LineSmoothness.Smooth;
-            ScopeButtonClicked(null);
         }
 
         // ── Data / selection changes ───────────────────────────────────────
