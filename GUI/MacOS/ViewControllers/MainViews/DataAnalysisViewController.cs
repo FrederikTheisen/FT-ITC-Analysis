@@ -28,7 +28,6 @@ namespace AnalysisITC
         bool SameAxes => AxesScopeButton.State == NSCellStateValue.On;
         bool ShowResidualGraph => ShowResidualGraphButton.State == NSCellStateValue.On;
         bool ScaleToValid => ScaleToValidButton.State == NSCellStateValue.On;
-        bool HasActiveExperiments => DataManager.Data.Count(d => d.Include) > 0;
         int ActiveExperimentCount => DataManager.Data.Count(d => d.Include);
         NSStackView constraintOptionsStackView;
 
@@ -262,9 +261,6 @@ namespace AnalysisITC
 
         void RunFit()
         {
-            if (!HasActiveExperiments)
-                return;
-
             if (!AnalysisBuilder.IsModelAvailable(ModelFromSegmentedControl, IsGlobalMode))
             {
                 AppEventHandler.DisplayHandledException(new HandledException(
@@ -385,7 +381,7 @@ namespace AnalysisITC
 
         bool CanRunFit()
         {
-            return HasActiveExperiments && AnalysisBuilder.IsModelAvailable(ModelFromSegmentedControl, IsGlobalMode);
+            return AnalysisBuilder.IsModelAvailable(ModelFromSegmentedControl, IsGlobalMode);
         }
 
         // ── Cleanup ────────────────────────────────────────────────────────
