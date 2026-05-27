@@ -414,6 +414,36 @@ namespace AnalysisITC
             return;
         }
 
+        public static void CopySelectedAttributeToAll(ExperimentAttribute attribute)
+        {
+            if (Current == null || attribute == null || !Current.Attributes.Contains(attribute)) return;
+
+            var target = Data.Where(d => d != Current).ToList();
+            var copied = CopyAttributesTo(new List<ExperimentAttribute> { attribute }, target);
+            var attributeName = attribute.GetDisplayName();
+
+            StatusBarManager.SetStatus(
+                copied > 0
+                    ? $"Copied {attributeName} to {copied} experiment{(copied == 1 ? "" : "s")}"
+                    : $"No other experiments available for {attributeName} copy",
+                4000);
+        }
+
+        public static void CopySelectedAttributeToActive(ExperimentAttribute attribute)
+        {
+            if (Current == null || attribute == null || !Current.Attributes.Contains(attribute)) return;
+
+            var target = Data.Where(d => d != Current && d.Include).ToList();
+            var copied = CopyAttributesTo(new List<ExperimentAttribute> { attribute }, target);
+            var attributeName = attribute.GetDisplayName();
+
+            StatusBarManager.SetStatus(
+                copied > 0
+                    ? $"Copied {attributeName} to {copied} active experiment{(copied == 1 ? "" : "s")}"
+                    : $"No active experiments available for {attributeName} copy",
+                4000);
+        }
+
         public static void CopySelectedAttributesToExperiment(ExperimentData experiment, bool clear = false)
         {
             if (Current == null || experiment == null || experiment == Current) return;
@@ -424,6 +454,21 @@ namespace AnalysisITC
                 copied > 0
                     ? $"Copied attributes to {experiment.Name}"
                     : $"No attributes copied to {experiment.Name}",
+                4000);
+        }
+
+        public static void CopySelectedAttributeToExperiment(ExperimentAttribute attribute, ExperimentData experiment)
+        {
+            if (Current == null || attribute == null || !Current.Attributes.Contains(attribute)) return;
+            if (experiment == null || experiment == Current) return;
+
+            var copied = CopyAttributesTo(new List<ExperimentAttribute> { attribute }, new List<ExperimentData> { experiment });
+            var attributeName = attribute.GetDisplayName();
+
+            StatusBarManager.SetStatus(
+                copied > 0
+                    ? $"Copied {attributeName} to {experiment.Name}"
+                    : $"No {attributeName} copied to {experiment.Name}",
                 4000);
         }
 
