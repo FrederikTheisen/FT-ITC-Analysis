@@ -33,6 +33,7 @@ namespace AnalysisITC
         NSTableView LoadedInjectionTableView;
         LoadedInjectionDataSource LoadedInjectionSource;
         LoadedInjectionTableDelegate LoadedInjectionDelegate;
+        bool isLoadingRecentData;
 
         public ViewController(IntPtr handle) : base(handle)
         {
@@ -268,13 +269,29 @@ namespace AnalysisITC
             AppDelegate.LaunchOpenFileDialog();
         }
 
-        partial void LoadLastFile(NSObject sender)
+        async partial void LoadLastFile(NSObject sender)
         {
-            if (AppSettings.LastDocumentUrls != null)
+            if (isLoadingRecentData) return;
+
+            isLoadingRecentData = true;
+            LoadLastButton.Enabled = false;
+
+            try
             {
-                DataReaders.DataReader.Read(AppSettings.LastDocumentUrls);
+                if (AppSettings.LastDocumentUrls != null)
+                {
+                    await DataReaders.DataReader.ReadAsync(AppSettings.LastDocumentUrls);
+                }
+                else
+                {
+                    await DataReaders.DataReader.ReadAsync(new[] { AppSettings.LastDocumentUrl });
+                }
             }
-            else DataReaders.DataReader.Read(AppSettings.LastDocumentUrl);
+            finally
+            {
+                isLoadingRecentData = false;
+                ShowLoadDataPrompt();
+            }
         }
 
         private void OnSelectionChanged(object sender, ExperimentData e) => UpdateGraph();
@@ -362,7 +379,7 @@ namespace AnalysisITC
             DataManager.DuplicateSelectedData(Data);
         }
 
-        async void ShowLoadDataPrompt()
+        void ShowLoadDataPrompt()
         {
             LoadLastButton.Enabled = false;
 
@@ -370,7 +387,7 @@ namespace AnalysisITC
             {
                 var format = DataReaders.DataReader.GetFormat(AppSettings.LastDocumentUrl.Path);
 
-                if (format != DataReaders.ITCDataFormat.Unknown) LoadLastButton.Enabled = true;
+                if (format != DataReaders.ITCDataFormat.Unknown && !isLoadingRecentData) LoadLastButton.Enabled = true;
 
                 LoadLastButton.ToolTip = $"Reload the last file ({Path.GetFileName(AppSettings.LastDocumentUrl.Path)}) [SPACE] ";
             }
