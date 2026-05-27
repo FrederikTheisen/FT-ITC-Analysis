@@ -58,9 +58,11 @@ namespace DataReaders
             return ITCDataFormat.Unknown;
         }
 
-        public static async void Read(NSUrl url) => Read(new NSUrl[] { url });
+        public static async void Read(NSUrl url) => await ReadAsync(new NSUrl[] { url });
 
-        public static async void Read(IEnumerable<NSUrl> urls)
+        public static async void Read(IEnumerable<NSUrl> urls) => await ReadAsync(urls);
+
+        public static async Task ReadAsync(IEnumerable<NSUrl> urls)
         {
             var urlList = urls?.Where(url => url != null).ToArray() ?? Array.Empty<NSUrl>();
             var containsProjectFile = urlList.Any(url => GetFormat(url.Path) == ITCDataFormat.FTITC);
