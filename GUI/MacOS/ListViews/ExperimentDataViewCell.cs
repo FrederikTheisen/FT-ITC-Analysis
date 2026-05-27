@@ -35,11 +35,37 @@ namespace AnalysisITC
 
             NSApplication.SharedApplication.InvokeOnMainThread(() =>
             {
-                IncludeDataButton.State = data.Include ? NSCellStateValue.On : NSCellStateValue.Off;
+                SetIncludeButtonImage();
+
                 ShowFitDataButton.Enabled = data.Solution != null;
                 SetSelectedSolutionHighlighting(DataManager.SelectedSolutionExperimentHighlight);
                 NeedsDisplay = true;
             });
+        }
+
+        void SetIncludeButtonImage()
+        {
+            if (data == null) return;
+
+            IncludeDataButton.State = NSCellStateValue.Off;
+
+            if (data.Processor != null && data.Processor.IntegrationCompleted)
+            {
+                IncludeDataButton.Enabled = true;
+
+                IncludeDataButton.Image = data.Include
+                    ? SideBarViewController.DataEnabledImage
+                    : SideBarViewController.DataDisabledImage;
+            }
+            else
+            {
+                IncludeDataButton.Enabled = false;
+
+                IncludeDataButton.Image = SideBarViewController.DataNotProcessedImage;
+            }
+
+            // The recessed control is momentary; only the bezel should change while clicked.
+            IncludeDataButton.AlternateImage = IncludeDataButton.Image;
         }
 
         public override void Layout()
@@ -75,7 +101,6 @@ namespace AnalysisITC
             data.ProcessingUpdated += Data_ProcessingCompleted;
 
 			ShowFitDataButton.Enabled = data.Solution != null;
-			IncludeDataButton.State = data.Include ? NSCellStateValue.On : NSCellStateValue.Off;
 
 			Data_ProcessingCompleted(null, null);
 
@@ -86,20 +111,7 @@ namespace AnalysisITC
         {
 			NSApplication.SharedApplication.InvokeOnMainThread(() =>
 			{
-				if (data.Processor.IntegrationCompleted)
-				{
-					IncludeDataButton.Image = SideBarViewController.DataDisabledImage;
-					IncludeDataButton.AlternateImage = SideBarViewController.DataEnabledImage;
-					IncludeDataButton.Enabled = true;
-				}
-				else
-				{
-					IncludeDataButton.Image = SideBarViewController.DataNotProcessedImage;
-					IncludeDataButton.AlternateImage = SideBarViewController.DataNotProcessedImage;
-					IncludeDataButton.Enabled = false;
-				}
-
-				IncludeDataButton.State = data.Include ? NSCellStateValue.On : NSCellStateValue.Off;
+                SetIncludeButtonImage();
 
 				SetValidSolutionLabeling();
 
@@ -176,9 +188,7 @@ namespace AnalysisITC
 
         partial void ToggleDataGlobalInclude(NSButton sender)
         {
-			data.Include = sender.State == NSCellStateValue.On;
-
-			DataManager.InvokeDataInclusionDidChange();
+            data.ToggleInclude();
         }
 
         partial void ViewDetails(NSObject sender)
@@ -197,8 +207,6 @@ namespace AnalysisITC
         {
             NSApplication.SharedApplication.InvokeOnMainThread(() =>
             {
-                IncludeDataButton.State = data.Include ? NSCellStateValue.On : NSCellStateValue.Off;
-
                 SetSelectedSolutionHighlighting(e);
             });
 

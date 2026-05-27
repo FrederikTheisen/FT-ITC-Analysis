@@ -264,7 +264,6 @@ namespace AnalysisITC
 
             data.Include = !data.Include;
             DataManager.InvokeDataInclusionDidChange();
-            DataManager.InvokeUpdateDataViewCells();
 
             e.Handled = true;
         }

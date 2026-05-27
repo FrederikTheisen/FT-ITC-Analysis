@@ -343,6 +343,7 @@ namespace AnalysisITC
         public static void InvokeDataInclusionDidChange()
         {
             DataInclusionDidChange?.Invoke(null, null);
+            InvokeUpdateDataViewCells();
         }
 
         public static void InvokeUpdateDataViewCells()

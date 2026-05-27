@@ -5220,9 +5220,9 @@ Gw
                                 </toolbarItem>
                                 <toolbarItem implicitItemIdentifier="1EB480C3-A3B4-4CDD-A282-4A8F88C818B2" label="Workflow Menu" paletteLabel="Workflow Menu" tag="-1" title="Options" sizingBehavior="auto" id="y4i-Qi-bZm">
                                     <nil key="toolTip"/>
-                                    <popUpButton key="view" hidden="YES" tag="-1" verticalHuggingPriority="750" id="w4v-fK-TJu">
+                                    <popUpButton key="view" hidden="YES" tag="-1" verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="w4v-fK-TJu">
                                         <rect key="frame" x="3" y="14" width="83" height="25"/>
-                                        <autoresizingMask key="autoresizingMask"/>
+                                        <autoresizingMask key="autoresizingMask" widthSizable="YES"/>
                                         <popUpButtonCell key="cell" type="roundTextured" title="Options" bezelStyle="texturedRounded" alignment="center" lineBreakMode="truncatingTail" state="on" borderStyle="border" imageScaling="proportionallyDown" inset="2" pullsDown="YES" selectedItem="dgN-YZ-Syb" id="Bqo-Yi-tXU">
                                             <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
                                             <font key="font" metaFont="message"/>
@@ -5237,7 +5237,7 @@ Gw
                                 <toolbarItem implicitItemIdentifier="93D76F9A-72E4-450E-B9BD-6D122217DEE8" label="Custom View" paletteLabel="Custom View" title="File" sizingBehavior="auto" id="As9-BO-Pvc">
                                     <nil key="toolTip"/>
                                     <popUpButton key="view" verticalHuggingPriority="750" id="PZA-d3-D2X">
-                                        <rect key="frame" x="8" y="14" width="60" height="30"/>
+                                        <rect key="frame" x="10" y="14" width="57" height="25"/>
                                         <autoresizingMask key="autoresizingMask"/>
                                         <popUpButtonCell key="cell" type="roundTextured" title="File" bezelStyle="texturedRounded" alignment="left" lineBreakMode="truncatingTail" state="on" borderStyle="border" imageScaling="proportionallyDown" inset="2" pullsDown="YES" id="bK1-LI-LBj">
                                             <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
@@ -5470,16 +5470,17 @@ Gw
                                                                         <stackView distribution="fill" orientation="vertical" alignment="leading" spacing="2" horizontalStackHuggingPriority="750" verticalStackHuggingPriority="750" horizontalCompressionResistancePriority="1000" verticalCompressionResistancePriority="1000" detachesHiddenViews="YES" translatesAutoresizingMaskIntoConstraints="NO" id="fCk-Bt-hpU">
                                                                             <rect key="frame" x="0.0" y="0.0" width="18" height="44"/>
                                                                             <subviews>
-                                                                                <button toolTip="Enable/disable gobal fit inclusion" translatesAutoresizingMaskIntoConstraints="NO" id="KKb-CB-tR9">
-                                                                                    <rect key="frame" x="0.0" y="26.5" width="18.5" height="19"/>
-                                                                                    <buttonCell key="cell" type="bevel" bezelStyle="regularSquare" imagePosition="only" alignment="center" controlSize="small" inset="2" id="Pv0-xI-xBO">
-                                                                                        <behavior key="behavior" pushIn="YES" changeContents="YES" lightByContents="YES"/>
-                                                                                        <font key="font" metaFont="smallSystem"/>
+                                                                                <button toolTip="Enable/disable gobal fit inclusion" verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="KKb-CB-tR9">
+                                                                                    <rect key="frame" x="0.0" y="27" width="18" height="16"/>
+                                                                                    <buttonCell key="cell" type="recessed" bezelStyle="recessed" imagePosition="only" alignment="center" borderStyle="border" inset="2" id="Pv0-xI-xBO">
+                                                                                        <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
+                                                                                        <font key="font" metaFont="cellTitle"/>
                                                                                         <imageReference key="image" image="inset.filled.circle" catalog="system" symbolScale="small"/>
-                                                                                        <imageReference key="alternateImage" image="play.fill" catalog="system" symbolScale="small"/>
+                                                                                        <imageReference key="alternateImage" image="play.fill" catalog="system" symbolScale="default"/>
                                                                                     </buttonCell>
                                                                                     <constraints>
                                                                                         <constraint firstAttribute="height" constant="15" id="go8-IT-nMo"/>
+                                                                                        <constraint firstAttribute="width" constant="18" id="n1b-ht-FcC"/>
                                                                                     </constraints>
                                                                                     <connections>
                                                                                         <action selector="ToggleDataGlobalInclude:" target="9gn-L9-3zZ" id="Jcb-Ji-FI9"/>
@@ -5493,6 +5494,9 @@ Gw
                                                                                         <imageReference key="image" image="chevron.down" catalog="system" symbolScale="small"/>
                                                                                         <imageReference key="alternateImage" image="chevron.up" catalog="system" symbolScale="small"/>
                                                                                     </buttonCell>
+                                                                                    <constraints>
+                                                                                        <constraint firstAttribute="width" constant="18" id="xuW-uh-s7Q"/>
+                                                                                    </constraints>
                                                                                     <connections>
                                                                                         <action selector="ShowFitDataButtonClick:" target="9gn-L9-3zZ" id="URf-eD-wbd"/>
                                                                                     </connections>
@@ -5771,9 +5775,15 @@ Gw
                     </connections>
                 </viewController>
                 <customObject id="Z6a-j3-fRI" userLabel="First Responder" customClass="NSResponder" sceneMemberID="firstResponder"/>
-                <imageCell controlSize="small" refusesFirstResponder="YES" alignment="left" imageScaling="proportionallyDown" image="circle.slash" catalog="system" id="qRg-Ci-cXy"/>
-                <imageCell controlSize="small" refusesFirstResponder="YES" alignment="left" imageScaling="proportionallyDown" image="circle.inset.filled" catalog="system" id="8FA-fV-PhM"/>
-                <imageCell controlSize="small" refusesFirstResponder="YES" alignment="left" imageScaling="proportionallyDown" image="circle" catalog="system" id="KOD-dU-kNm"/>
+                <imageCell controlSize="small" refusesFirstResponder="YES" alignment="left" imageScaling="proportionallyDown" id="qRg-Ci-cXy">
+                    <imageReference key="image" image="circle.slash" catalog="system" symbolScale="small"/>
+                </imageCell>
+                <imageCell controlSize="small" refusesFirstResponder="YES" alignment="left" imageScaling="proportionallyDown" id="8FA-fV-PhM">
+                    <imageReference key="image" image="circle.inset.filled" catalog="system" symbolScale="small"/>
+                </imageCell>
+                <imageCell controlSize="small" refusesFirstResponder="YES" alignment="left" imageScaling="proportionallyDown" id="KOD-dU-kNm">
+                    <imageReference key="image" image="circle" catalog="system" symbolScale="small"/>
+                </imageCell>
             </objects>
             <point key="canvasLocation" x="2203.5" y="-752"/>
         </scene>
@@ -6926,7 +6936,7 @@ DQ
                                     <rect key="frame" x="111" y="1" width="5" height="50"/>
                                 </box>
                                 <button verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="zTg-QH-FPo">
-                                    <rect key="frame" x="115" y="20" width="111" height="31"/>
+                                    <rect key="frame" x="115" y="0.0" width="111" height="31"/>
                                     <buttonCell key="cell" type="recessed" title="Process Data" bezelStyle="recessed" alignment="center" controlSize="large" lineBreakMode="truncatingTail" borderStyle="border" inset="2" id="o5L-6P-mOP">
                                         <behavior key="behavior" lightByBackground="YES" lightByGray="YES" changeBackground="YES" changeGray="YES"/>
                                         <font key="font" metaFont="system"/>
@@ -6942,7 +6952,7 @@ DQ
                                     <rect key="frame" x="225" y="1" width="5" height="50"/>
                                 </box>
                                 <button verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="v0f-iE-gM6">
-                                    <rect key="frame" x="229" y="20" width="110" height="31"/>
+                                    <rect key="frame" x="229" y="0.0" width="110" height="31"/>
                                     <buttonCell key="cell" type="recessed" title="Analyze Data" bezelStyle="recessed" alignment="center" controlSize="large" lineBreakMode="truncatingTail" borderStyle="border" inset="2" id="946-Qa-1ae">
                                         <behavior key="behavior" lightByBackground="YES" lightByGray="YES" changeBackground="YES" changeGray="YES"/>
                                         <font key="font" metaFont="system"/>
@@ -6958,7 +6968,7 @@ DQ
                                     <rect key="frame" x="338" y="1" width="5" height="50"/>
                                 </box>
                                 <button verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="DGH-oN-EAU">
-                                    <rect key="frame" x="342" y="20" width="111" height="31"/>
+                                    <rect key="frame" x="342" y="0.0" width="111" height="31"/>
                                     <buttonCell key="cell" type="recessed" title="Final Figure" bezelStyle="recessed" alignment="center" controlSize="large" lineBreakMode="truncatingTail" borderStyle="border" inset="2" id="Fgw-Bk-CyU">
                                         <behavior key="behavior" lightByBackground="YES" lightByGray="YES" changeBackground="YES" changeGray="YES"/>
                                         <font key="font" metaFont="system"/>
@@ -16766,7 +16776,7 @@ Gw
         <segue reference="fR7-7x-1Nh"/>
         <segue reference="Gzw-S4-4id"/>
         <segue reference="cas-ZM-y1q"/>
-        <segue reference="LMg-up-goO"/>
+        <segue reference="f0o-qO-was"/>
         <segue reference="WvA-Zd-eDa"/>
     </inferredMetricsTieBreakers>
     <resources>
@@ -16788,16 +16798,16 @@ Gw
         <image name="chevron.right" catalog="system" width="10" height="14"/>
         <image name="chevron.right.chevron.left.line" width="16" height="11"/>
         <image name="chevron.up" catalog="system" width="12" height="7"/>
-        <image name="circle" catalog="system" width="15" height="15"/>
+        <image name="circle" catalog="system" width="13" height="13"/>
         <image name="circle.fill" catalog="system" width="15" height="15"/>
-        <image name="circle.inset.filled" catalog="system" width="15" height="15"/>
-        <image name="circle.slash" catalog="system" width="16" height="17"/>
+        <image name="circle.inset.filled" catalog="system" width="13" height="13"/>
+        <image name="circle.slash" catalog="system" width="13" height="14"/>
         <image name="cursorarrow.and.square.on.square.dashed" catalog="system" width="18" height="19"/>
         <image name="design.icon.curve.compass.ruler" width="37" height="17"/>
         <image name="design.icon.pencil.ruler" width="25" height="15"/>
         <image name="diamond.fill" catalog="system" width="17" height="17"/>
         <image name="ellipsis.rectangle" catalog="system" width="17" height="11"/>
-        <image name="folder" catalog="system" width="23" height="18"/>
+        <image name="folder" catalog="system" width="18" height="14"/>
         <image name="folder.badge.plus" catalog="system" width="20" height="15"/>
         <image name="gearshape" catalog="system" width="16" height="16"/>
         <image name="gearshape.circle.fill" catalog="system" width="15" height="15"/>
@@ -16805,7 +16815,7 @@ Gw
         <image name="line.chevron.left.line.chevron.right.wide" width="23" height="11"/>
         <image name="line.chevron.up.line.chevron.down" width="11" height="21"/>
         <image name="list.bullet.rectangle" catalog="system" width="18" height="14"/>
-        <image name="play.fill" catalog="system" width="10" height="11"/>
+        <image name="play.fill" catalog="system" width="12" height="13"/>
         <image name="plus" catalog="system" width="14" height="13"/>
         <image name="plus.circle" catalog="system" width="15" height="15"/>
         <image name="printer.dotmatrix" catalog="system" width="18" height="16"/>

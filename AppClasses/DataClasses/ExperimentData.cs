@@ -70,7 +70,6 @@ namespace AnalysisITC
         {
             Include = !include;
             DataManager.InvokeDataInclusionDidChange();
-            DataManager.InvokeUpdateDataViewCells();
         }
 
         public double MeasuredTemperatureKelvin => 273.15 + MeasuredTemperature;

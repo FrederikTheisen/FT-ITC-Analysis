@@ -343,8 +343,6 @@ namespace AnalysisITC
             if (Data == null) return;
 
             Data.ToggleInclude();
-
-            DataManager.InvokeDataInclusionDidChange();
         }
 
         void RemoveSolution()
