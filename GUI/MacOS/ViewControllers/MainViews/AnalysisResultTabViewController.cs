@@ -633,7 +633,7 @@ namespace AnalysisITC
 
                     var kdexponent = G / (T * Energy.R);
                     var Kd = FWEMath.Exp(kdexponent.FloatWithError);
-                    var evaluationStyle = UncertaintyDisplayStyle.StandardDeviationAndConfidenceInterval;
+                    var evaluationStyle = AppSettings.UncertaintyDisplayStyle;
 
                     var lines = new List<string>()
                     {
