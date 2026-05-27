@@ -322,6 +322,27 @@ namespace AnalysisITC
             return removed;
         }
 
+        public bool ClearAttributes(bool notify = true)
+        {
+            if (Attributes.Count == 0) return false;
+
+            var clearedBufferSubtraction = Attributes.Any(att => att.Key == AttributeKey.BufferSubtraction);
+            if (clearedBufferSubtraction)
+            {
+                ClearBufferSubtraction(notify: false);
+            }
+            Attributes.Clear();
+
+            if (!clearedBufferSubtraction) MarkModified();
+
+            if (notify)
+            {
+                DataManager.InvokeDataDidChange();
+            }
+
+            return true;
+        }
+
         void SetBufferSubtractionReferenceSubscription(ExperimentData reference)
         {
             // Keep target heats current when the buffer integration or included points change.
