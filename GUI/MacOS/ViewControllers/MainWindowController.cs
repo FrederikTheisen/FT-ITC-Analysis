@@ -419,6 +419,18 @@ namespace AnalysisITC
 
             menu.AddItem(CreateContextMenuItem("Experiment attributes...", "openattributes", hasData, (s, e) => OpenCurrentExperimentAttributes()));
             menu.AddItem(CreateCopyAttributesMenuItem(hasAttributes));
+            menu.AddItem(CreateCopyAttributeMenuItem(hasAttributes));
+            menu.AddItem(CreateContextMenuItem("Clear attributes", "clearattributes", hasAttributes, (s, e) =>
+            {
+                var dataName = string.IsNullOrWhiteSpace(DataManager.Current.Name) ? DataManager.Current.FileName : DataManager.Current.Name;
+                if (!ConfirmationDialog.ConfirmRemoveOrDelete(
+                    "Confirm Clear Attributes",
+                    $"Are you sure you wish to clear all attributes for {dataName}?",
+                    "Clear Attributes")) return;
+
+                DataManager.Current.ClearAttributes();
+                UpdateContextToolbarMenu();
+            }));
             menu.AddItem(NSMenuItem.SeparatorItem);
             menu.AddItem(CreateContextMenuItem("Experiment merger...", "experimentmerger", DataManager.Data.Count > 0, OpenTool));
             menu.AddItem(CreateContextMenuItem("Buffer subtraction...", "buffersubtraction", DataManager.Data.Count > 0, OpenSubtractionTool));
@@ -507,6 +519,7 @@ namespace AnalysisITC
                 UpdateContextToolbarMenu();
             }, AppSettings.AutoOpenNewAnalysisResult));
             menu.AddItem(NSMenuItem.SeparatorItem);
+            menu.AddItem(CreateAnalysisFitLineInterpolationMenuItem());
             menu.AddItem(CreateParameterLimitSettingsMenuItem());
             menu.AddItem(CreateAnalysisParameterDisplayMenuItem());
             menu.AddItem(NSMenuItem.SeparatorItem);
@@ -531,6 +544,28 @@ namespace AnalysisITC
                 AppSettings.Save();
                 UpdateContextToolbarMenu();
             }, isChecked);
+        }
+
+        NSMenuItem CreateAnalysisFitLineInterpolationMenuItem()
+        {
+            var item = CreateContextMenuItem("Fit line interpolation", null, true, null);
+            var submenu = new NSMenu("Fit line interpolation") { AutoEnablesItems = false };
+
+            submenu.AddItem(CreateContextMenuItem("Linear", "analysisfitlinelinear", true,
+                (s, e) => SetAnalysisFitLineInterpolation(GraphBase.LineSmoothness.Linear),
+                AnalysisGraphView.LineSmoothness == GraphBase.LineSmoothness.Linear));
+            submenu.AddItem(CreateContextMenuItem("Smooth", "analysisfitlinesmooth", true,
+                (s, e) => SetAnalysisFitLineInterpolation(GraphBase.LineSmoothness.Smooth),
+                AnalysisGraphView.LineSmoothness == GraphBase.LineSmoothness.Smooth));
+
+            item.Submenu = submenu;
+            return item;
+        }
+
+        void SetAnalysisFitLineInterpolation(GraphBase.LineSmoothness interpolation)
+        {
+            AnalysisGraphView.LineSmoothness = interpolation;
+            UpdateContextToolbarMenu();
         }
 
         NSMenuItem CreateParameterLimitSettingsMenuItem()
@@ -738,6 +773,66 @@ namespace AnalysisITC
 
             item.Submenu = submenu;
             return item;
+        }
+
+        NSMenuItem CreateCopyAttributeMenuItem(bool hasAttributes)
+        {
+            var item = CreateContextMenuItem("Copy attribute", "copyattribute", hasAttributes, null);
+            var submenu = new NSMenu("Copy attribute") { AutoEnablesItems = false };
+            var source = DataManager.Current;
+            var targets = DataManager.Data
+                .Where(data => data != source)
+                .OrderBy(data => data.Name)
+                .ToList();
+            var hasActiveTargets = targets.Any(data => data.Include);
+
+            if (!hasAttributes || source == null)
+            {
+                item.Submenu = submenu;
+                return item;
+            }
+
+            foreach (var attribute in source.Attributes)
+            {
+                var sourceAttribute = attribute;
+                var title = AttributeCopyMenuTitle(sourceAttribute, source);
+                var attributeItem = CreateContextMenuItem(title, null, true, null);
+                var targetMenu = new NSMenu(title) { AutoEnablesItems = false };
+
+                targetMenu.AddItem(CreateContextMenuItem("All", "copysingleattributetoall", targets.Count > 0,
+                    (s, e) => DataManager.CopySelectedAttributeToAll(sourceAttribute)));
+                targetMenu.AddItem(CreateContextMenuItem("Active", "copysingleattributetoactive", hasActiveTargets,
+                    (s, e) => DataManager.CopySelectedAttributeToActive(sourceAttribute)));
+                targetMenu.AddItem(NSMenuItem.SeparatorItem);
+                targetMenu.AddItem(CreateContextMenuItem("Specific experiments:", null, false, null));
+
+                if (targets.Count == 0)
+                {
+                    targetMenu.AddItem(CreateContextMenuItem("No other experiments", null, false, null));
+                }
+                else
+                {
+                    foreach (var experiment in targets)
+                    {
+                        var target = experiment;
+                        targetMenu.AddItem(CreateContextMenuItem(target.Name, "copysingleattributetoexperiment", true,
+                            (s, e) => DataManager.CopySelectedAttributeToExperiment(sourceAttribute, target)));
+                    }
+                }
+
+                attributeItem.Submenu = targetMenu;
+                submenu.AddItem(attributeItem);
+            }
+
+            item.Submenu = submenu;
+            return item;
+        }
+
+        string AttributeCopyMenuTitle(ExperimentAttribute attribute, ExperimentData source)
+        {
+            var name = attribute.GetDisplayName();
+            var value = attribute.GetDisplayValue(source);
+            return string.IsNullOrWhiteSpace(value) ? name : $"{name}: {value}";
         }
 
         void PromptCopyAttributesToNameToken()
