@@ -116,8 +116,11 @@ namespace AnalysisITC
                     if (SelectedPeak != -1 && IsInjectionZoomed)
                     {
                         Console.WriteLine("Copying integration length...");
+                        var startDelay = Data.Injections[SelectedPeak].IntegrationStartDelay;
                         var length = Data.Injections[SelectedPeak].IntegrationEndOffset;
                         SelectedPeak++;
+                        if (AppSettings.IntegrationRegionCopyIncludesStart)
+                            Data.Injections[SelectedPeak].SetIntegrationStartTime(startDelay);
                         Data.Injections[SelectedPeak].SetIntegrationLengthByTime(length);
                         FocusPeak();
 
@@ -152,10 +155,10 @@ namespace AnalysisITC
             ZoomModeChanged?.Invoke(this, EventArgs.Empty);
         }
 
-        public void ZoomBaseline() //TODO fix view scaling when baselinecorrected
+        public void ZoomBaseline()
         {
             if (Data == null) return;
-            if (Data.Processor.Interpolator?.Baseline == null) return;
+            if (Data.Processor.Interpolator?.Baseline == null || Data.Processor.Interpolator?.Baseline.Count == 0) return;
             if (Graph == null) return;
 
             var xmin = Graph.XAxis.Min;
@@ -164,7 +167,8 @@ namespace AnalysisITC
             var baselinemin = double.MaxValue;
             var baselinemax = double.MinValue;
 
-            if (!ShowBaselineCorrected) for (int i = 0; i < Data.DataPoints.Count; i++)
+            if (!ShowBaselineCorrected)
+                for (int i = 0; i < Data.DataPoints.Count; i++)
                 {
                     DataPoint dp = Graph.DataPoints[i];
 

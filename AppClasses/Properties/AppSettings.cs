@@ -44,6 +44,7 @@ namespace AnalysisITC
         public static SplineInterpolator.SplinePointDensity DefaultSplinePointDensity { get; set; } = SplineInterpolator.SplinePointDensity.Balanced;
         public static SplineInterpolator.SplineHandleMode DefaultSplineHandleMode { get; set; } = SplineInterpolator.SplineHandleMode.Mean;
         public static bool DefaultSplinePointTimeDragging { get; set; } = false;
+        public static bool IntegrationRegionCopyIncludesStart { get; set; } = false;
 
         //Fitting
         public static bool InputAffinityAsDissociationConstant { get; set; } = true;
@@ -163,6 +164,7 @@ namespace AnalysisITC
             Storage.SetInt((int)DefaultSplinePointDensity, "DefaultSplinePointDensity");
             Storage.SetInt((int)DefaultSplineHandleMode, "DefaultSplineHandleMode");
             Storage.SetBool(DefaultSplinePointTimeDragging, "DefaultSplinePointTimeDragging");
+            Storage.SetBool(IntegrationRegionCopyIncludesStart, "IntegrationRegionCopyIncludesStart");
             Storage.SetBool(PerformOnlineChecksOnLaunch, "PerformOnlineChecksOnLaunch");
             Storage.SetBool(ConfirmRemoveDelete, "ConfirmRemoveDelete");
 
@@ -236,6 +238,7 @@ namespace AnalysisITC
             DefaultSplinePointDensity = (SplineInterpolator.SplinePointDensity)GetInt(dict, "DefaultSplinePointDensity", (int)DefaultSplinePointDensity);
             DefaultSplineHandleMode = (SplineInterpolator.SplineHandleMode)GetInt(dict, "DefaultSplineHandleMode", (int)DefaultSplineHandleMode);
             DefaultSplinePointTimeDragging = GetBool(dict, "DefaultSplinePointTimeDragging", DefaultSplinePointTimeDragging);
+            IntegrationRegionCopyIncludesStart = GetBool(dict, "IntegrationRegionCopyIncludesStart", IntegrationRegionCopyIncludesStart);
             PerformOnlineChecksOnLaunch = GetBool(dict, "PerformOnlineChecksOnLaunch", PerformOnlineChecksOnLaunch);
             ConfirmRemoveDelete = GetBool(dict, "ConfirmRemoveDelete", ConfirmRemoveDelete);
 
@@ -302,6 +305,7 @@ namespace AnalysisITC
             DefaultSplinePointDensity = SplineInterpolator.SplinePointDensity.Balanced;
             DefaultSplineHandleMode = SplineInterpolator.SplineHandleMode.Mean;
             DefaultSplinePointTimeDragging = false;
+            IntegrationRegionCopyIncludesStart = false;
             PerformOnlineChecksOnLaunch = true;
             ConfirmRemoveDelete = true;
         }

@@ -25,6 +25,9 @@ namespace AnalysisITC
         AppKit.NSSegmentedControl PeakFitAlgorithmControl { get; set; }
 
         [Outlet]
+        AppKit.NSButton IntegrationRegionCopyIncludesStartControl { get; set; }
+
+        [Outlet]
         AppKit.NSButton ReprocessIntegratedHeatDataOnLoad { get; set; }
 
         [Outlet]
@@ -65,6 +68,11 @@ namespace AnalysisITC
             if (PeakFitAlgorithmControl != null) {
                 PeakFitAlgorithmControl.Dispose ();
                 PeakFitAlgorithmControl = null;
+            }
+
+            if (IntegrationRegionCopyIncludesStartControl != null) {
+                IntegrationRegionCopyIncludesStartControl.Dispose ();
+                IntegrationRegionCopyIncludesStartControl = null;
             }
 
             if (ReprocessIntegratedHeatDataOnLoad != null) {

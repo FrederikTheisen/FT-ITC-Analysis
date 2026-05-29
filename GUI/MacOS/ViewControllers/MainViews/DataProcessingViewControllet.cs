@@ -25,6 +25,7 @@ namespace AnalysisITC
         const string LockProcessorMenuIdentifier = "lockprocessor";
         const string ShowSplineHandlesMenuIdentifier = "showsplinehandles";
         const string AllowSplinePointTimeDraggingMenuIdentifier = "allowsplinepointtimedragging";
+        const string IntegrationRegionCopyIncludesStartMenuIdentifier = "integrationregioncopyincludesstart";
         const string ConvertToSmoothSplineMenuIdentifier = "converttospline";
         const string ConvertToLinearSplineMenuIdentifier = "converttolinearspline";
         const string CopyToActiveMenuIdentifier = "copytoactive";
@@ -201,6 +202,7 @@ namespace AnalysisITC
 
             EnsureShowSplineHandlesMenuItem();
             EnsureAllowSplinePointTimeDraggingMenuItem();
+            EnsureIntegrationRegionCopyIncludesStartMenuItem();
 
             foreach (var item in ProcessingOptionsMenuItems())
             {
@@ -243,6 +245,22 @@ namespace AnalysisITC
             ProcessingOptionsMenuButton.Menu.InsertItem(item, showHandlesItemIndex + 1);
         }
 
+        void EnsureIntegrationRegionCopyIncludesStartMenuItem()
+        {
+            if (ProcessingOptionsMenuItems().Any(item => item.Identifier == IntegrationRegionCopyIncludesStartMenuIdentifier)) return;
+
+            var item = new NSMenuItem("Copy integration start to next")
+            {
+                Identifier = IntegrationRegionCopyIncludesStartMenuIdentifier
+            };
+
+            var timeDraggingItemIndex = ProcessingOptionsMenuButton.Menu.Items
+                .Select((menuItem, index) => (menuItem, index))
+                .FirstOrDefault(pair => pair.menuItem.Identifier == AllowSplinePointTimeDraggingMenuIdentifier).index;
+
+            ProcessingOptionsMenuButton.Menu.InsertItem(item, timeDraggingItemIndex + 1);
+        }
+
         IEnumerable<NSMenuItem> ProcessingOptionsMenuItems()
         {
             if (ProcessingOptionsMenuButton?.Menu == null) yield break;
@@ -274,6 +292,7 @@ namespace AnalysisITC
                 case LockProcessorMenuIdentifier:
                 case ShowSplineHandlesMenuIdentifier:
                 case AllowSplinePointTimeDraggingMenuIdentifier:
+                case IntegrationRegionCopyIncludesStartMenuIdentifier:
                 case ConvertToSmoothSplineMenuIdentifier:
                 case ConvertToLinearSplineMenuIdentifier:
                 case CopyToActiveMenuIdentifier:
@@ -312,6 +331,11 @@ namespace AnalysisITC
                         item.Title = "Move spline points in time";
                         item.Enabled = splineInterpolator != null;
                         item.State = splineInterpolator?.AllowPointTimeDragging == true ? NSCellStateValue.On : NSCellStateValue.Off;
+                        break;
+                    case IntegrationRegionCopyIncludesStartMenuIdentifier:
+                        item.Title = "Copy integration start to next";
+                        item.Enabled = true;
+                        item.State = AppSettings.IntegrationRegionCopyIncludesStart ? NSCellStateValue.On : NSCellStateValue.Off;
                         break;
                     case ConvertToSmoothSplineMenuIdentifier:
                         item.Enabled = canConvertToSmoothSpline;
@@ -361,6 +385,11 @@ namespace AnalysisITC
                     splineInterpolator.AllowPointTimeDragging = !splineInterpolator.AllowPointTimeDragging;
                     UpdateUI();
                     BaselineGraphView.Invalidate();
+                    break;
+                case IntegrationRegionCopyIncludesStartMenuIdentifier:
+                    AppSettings.IntegrationRegionCopyIncludesStart = !AppSettings.IntegrationRegionCopyIncludesStart;
+                    AppSettings.Save();
+                    UpdateUI();
                     break;
                 case ConvertToSmoothSplineMenuIdentifier:
                     ConvertCurrentProcessorToSpline(SplineInterpolator.SplineInterpolatorAlgorithm.Smooth);
@@ -825,8 +854,11 @@ namespace AnalysisITC
             if (selected != -1 && BaselineGraphView.IsInjectionZoomed)
             {
                 Console.WriteLine("Copying integration length...");
+                var startDelay = Data.Injections[selected].IntegrationStartDelay;
                 var length = Data.Injections[selected].IntegrationEndOffset;
                 BaselineGraphView.SelectedPeak++;
+                if (AppSettings.IntegrationRegionCopyIncludesStart)
+                    Data.Injections[BaselineGraphView.SelectedPeak].SetIntegrationStartTime(startDelay);
                 Data.Injections[BaselineGraphView.SelectedPeak].SetIntegrationLengthByTime(length);
                 BaselineGraphView.FocusPeak();
 

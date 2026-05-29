@@ -3429,7 +3429,7 @@ Gw
                                             <textField verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="PSo-Dw-3dd">
                                                 <rect key="frame" x="255" y="4" width="36" height="16"/>
                                                 <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" refusesFirstResponder="YES" sendsActionOnEndEditing="YES" state="on" alignment="right" title="50 %" id="Y3b-7N-cgx">
-                                                    <numberFormatter key="formatter" formatterBehavior="default10_4" numberStyle="percent" formatWidth="-1" minimumIntegerDigits="1" maximumIntegerDigits="2000000000" id="xZR-aH-qeY">
+                                                    <numberFormatter key="formatter" formatterBehavior="custom10_4" positiveFormat="#.0 %" numberStyle="percent" usesGroupingSeparator="NO" formatWidth="-1" groupingSize="0" minimumIntegerDigits="0" maximumIntegerDigits="2000000000" minimumFractionDigits="1" maximumFractionDigits="1" id="xZR-aH-qeY">
                                                         <integer key="multiplier" value="100"/>
                                                     </numberFormatter>
                                                     <font key="font" metaFont="system"/>
@@ -3445,7 +3445,7 @@ Gw
                                                 <constraints>
                                                     <constraint firstAttribute="width" constant="150" id="aE9-My-sMZ"/>
                                                 </constraints>
-                                                <sliderCell key="cell" controlSize="mini" continuous="YES" state="on" alignment="left" maxValue="1" doubleValue="0.5" tickMarkPosition="above" numberOfTickMarks="11" sliderType="linear" id="E6d-HN-qBQ"/>
+                                                <sliderCell key="cell" controlSize="mini" continuous="YES" state="on" alignment="left" maxValue="0.5" doubleValue="0.20000000000000001" tickMarkPosition="above" numberOfTickMarks="21" sliderType="linear" id="E6d-HN-qBQ"/>
                                                 <connections>
                                                     <action selector="takeFloatValueFrom:" target="Y3b-7N-cgx" id="uar-BV-ciL"/>
                                                     <outlet property="formatter" destination="xZR-aH-qeY" id="8nh-hl-V3K"/>
@@ -3516,25 +3516,34 @@ Gw
                                                                                         <stackView distribution="fill" orientation="vertical" alignment="leading" spacing="4" horizontalStackHuggingPriority="249.99998474121094" verticalStackHuggingPriority="250" horizontalCompressionResistancePriority="250" verticalCompressionResistancePriority="250" detachesHiddenViews="YES" translatesAutoresizingMaskIntoConstraints="NO" id="TUc-iv-T6z">
                                                                                             <rect key="frame" x="0.0" y="1" width="397" height="62"/>
                                                                                             <subviews>
-                                                                                                <textField horizontalHuggingPriority="249" verticalHuggingPriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="u4D-Cz-qRk">
+                                                                                                <textField horizontalHuggingPriority="249" verticalHuggingPriority="1000" verticalCompressionResistancePriority="250" translatesAutoresizingMaskIntoConstraints="NO" id="u4D-Cz-qRk">
                                                                                                     <rect key="frame" x="3" y="41" width="396" height="16"/>
-                                                                                                    <textFieldCell key="cell" lineBreakMode="truncatingTail" refusesFirstResponder="YES" title="Experiment File Name" id="4Cd-P6-78x">
+                                                                                                    <constraints>
+                                                                                                        <constraint firstAttribute="height" constant="16" id="neY-AY-4BG"/>
+                                                                                                    </constraints>
+                                                                                                    <textFieldCell key="cell" lineBreakMode="truncatingTail" refusesFirstResponder="YES" title="Experiment File Name" usesSingleLineMode="YES" id="4Cd-P6-78x">
                                                                                                         <font key="font" metaFont="systemMedium" size="13"/>
                                                                                                         <color key="textColor" name="labelColor" catalog="System" colorSpace="catalog"/>
                                                                                                         <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
                                                                                                     </textFieldCell>
                                                                                                 </textField>
-                                                                                                <textField horizontalHuggingPriority="249" verticalHuggingPriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="3gV-RN-gsa">
+                                                                                                <textField horizontalHuggingPriority="249" verticalHuggingPriority="1000" verticalCompressionResistancePriority="250" translatesAutoresizingMaskIntoConstraints="NO" id="3gV-RN-gsa">
                                                                                                     <rect key="frame" x="3" y="23" width="396" height="14"/>
-                                                                                                    <textFieldCell key="cell" controlSize="small" lineBreakMode="truncatingTail" refusesFirstResponder="YES" title="Date:" id="sF4-1P-rBD">
+                                                                                                    <constraints>
+                                                                                                        <constraint firstAttribute="height" constant="14" id="iNl-t3-S8C"/>
+                                                                                                    </constraints>
+                                                                                                    <textFieldCell key="cell" controlSize="small" lineBreakMode="truncatingTail" refusesFirstResponder="YES" title="Date:" usesSingleLineMode="YES" id="sF4-1P-rBD">
                                                                                                         <font key="font" metaFont="smallSystem"/>
                                                                                                         <color key="textColor" name="labelColor" catalog="System" colorSpace="catalog"/>
                                                                                                         <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
                                                                                                     </textFieldCell>
                                                                                                 </textField>
-                                                                                                <textField horizontalHuggingPriority="249" verticalHuggingPriority="1000" horizontalCompressionResistancePriority="250" translatesAutoresizingMaskIntoConstraints="NO" id="BLf-QV-7ZU">
+                                                                                                <textField horizontalHuggingPriority="249" verticalHuggingPriority="1000" horizontalCompressionResistancePriority="250" verticalCompressionResistancePriority="250" translatesAutoresizingMaskIntoConstraints="NO" id="BLf-QV-7ZU">
                                                                                                     <rect key="frame" x="3" y="5" width="396" height="14"/>
-                                                                                                    <textFieldCell key="cell" controlSize="small" lineBreakMode="truncatingTail" refusesFirstResponder="YES" title="Comment:" id="Xqf-fL-g23">
+                                                                                                    <constraints>
+                                                                                                        <constraint firstAttribute="height" constant="14" id="NIp-W3-ced"/>
+                                                                                                    </constraints>
+                                                                                                    <textFieldCell key="cell" controlSize="small" lineBreakMode="truncatingTail" refusesFirstResponder="YES" title="Comment:" usesSingleLineMode="YES" id="Xqf-fL-g23">
                                                                                                         <font key="font" metaFont="smallSystem"/>
                                                                                                         <color key="textColor" name="labelColor" catalog="System" colorSpace="catalog"/>
                                                                                                         <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
@@ -4847,6 +4856,12 @@ For analysis and presentation of ITC data</string>
                                             <modifierMask key="keyEquivalentModifierMask"/>
                                             <connections>
                                                 <action selector="OpenHint:" target="Voe-Tx-rLC" id="4xd-2E-LFA"/>
+                                            </connections>
+                                        </menuItem>
+                                        <menuItem title="Import Processed Tandem CSV..." hidden="YES" identifier="importprocessedtandemcsv" id="hKt-Lp-R8z">
+                                            <modifierMask key="keyEquivalentModifierMask"/>
+                                            <connections>
+                                                <action selector="ImportProcessedTandemCsv:" target="Voe-Tx-rLC" id="zCq-jT-Zr8"/>
                                             </connections>
                                         </menuItem>
                                     </items>
@@ -14876,14 +14891,14 @@ DQ
             <objects>
                 <viewController title="Processing" id="uCo-sK-LZa" customClass="ProcessingPreferencesViewController" sceneMemberID="viewController">
                     <view key="view" id="hE9-W5-sK0">
-                        <rect key="frame" x="0.0" y="0.0" width="600" height="364"/>
+                        <rect key="frame" x="0.0" y="0.0" width="600" height="390"/>
                         <autoresizingMask key="autoresizingMask"/>
                         <subviews>
                             <stackView distribution="fill" orientation="vertical" alignment="leading" horizontalStackHuggingPriority="1000" verticalStackHuggingPriority="1000" verticalCompressionResistancePriority="1000" detachesHiddenViews="YES" translatesAutoresizingMaskIntoConstraints="NO" id="Fbz-Iq-CnT">
-                                <rect key="frame" x="0.0" y="0.0" width="600" height="364"/>
+                                <rect key="frame" x="0.0" y="0.0" width="600" height="390"/>
                                 <subviews>
                                     <textField verticalHuggingPriority="1000" verticalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="Hgi-Kf-czZ">
-                                        <rect key="frame" x="18" y="328" width="564" height="16"/>
+                                        <rect key="frame" x="18" y="354" width="564" height="16"/>
                                         <textFieldCell key="cell" lineBreakMode="clipping" alignment="left" title="Processor Settings" id="QKO-5o-YxO">
                                             <font key="font" metaFont="systemBold"/>
                                             <color key="textColor" name="labelColor" catalog="System" colorSpace="catalog"/>
@@ -14891,7 +14906,7 @@ DQ
                                         </textFieldCell>
                                     </textField>
                                     <stackView distribution="fill" orientation="horizontal" alignment="top" horizontalStackHuggingPriority="249.99998474121094" verticalStackHuggingPriority="1000" verticalHuggingPriority="1000" verticalCompressionResistancePriority="1000" detachesHiddenViews="YES" translatesAutoresizingMaskIntoConstraints="NO" id="3vW-Zq-dxd">
-                                        <rect key="frame" x="20" y="302" width="560" height="18"/>
+                                        <rect key="frame" x="20" y="328" width="560" height="18"/>
                                         <subviews>
                                             <textField toolTip="Method used to account for changing concentrations after each injection." horizontalHuggingPriority="249" verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="Sn8-dd-09Z">
                                                 <rect key="frame" x="-2" y="0.0" width="369" height="18"/>
@@ -14922,7 +14937,7 @@ DQ
                                         </customSpacing>
                                     </stackView>
                                     <stackView distribution="fill" orientation="horizontal" alignment="top" horizontalStackHuggingPriority="249.99998474121094" verticalStackHuggingPriority="1000" verticalHuggingPriority="1000" verticalCompressionResistancePriority="1000" detachesHiddenViews="YES" translatesAutoresizingMaskIntoConstraints="NO" id="peak-fit-row">
-                                        <rect key="frame" x="20" y="276" width="560" height="18"/>
+                                        <rect key="frame" x="20" y="302" width="560" height="18"/>
                                         <subviews>
                                             <textField toolTip="Default model used when fitting injection peaks during processing." horizontalHuggingPriority="249" verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="peak-fit-label">
                                                 <rect key="frame" x="-2" y="0.0" width="414" height="18"/>
@@ -14953,7 +14968,7 @@ DQ
                                         </customSpacing>
                                     </stackView>
                                     <stackView distribution="fill" orientation="horizontal" alignment="top" horizontalStackHuggingPriority="249.99998474121094" verticalStackHuggingPriority="1000" verticalHuggingPriority="1000" verticalCompressionResistancePriority="1000" detachesHiddenViews="YES" translatesAutoresizingMaskIntoConstraints="NO" id="buf-default-row">
-                                        <rect key="frame" x="20" y="250" width="560" height="18"/>
+                                        <rect key="frame" x="20" y="276" width="560" height="18"/>
                                         <subviews>
                                             <textField toolTip="Default method selected when opening buffer subtraction tools." horizontalHuggingPriority="249" verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="buf-default-label">
                                                 <rect key="frame" x="-2" y="0.0" width="388" height="18"/>
@@ -14985,7 +15000,7 @@ DQ
                                         </customSpacing>
                                     </stackView>
                                     <stackView distribution="fill" orientation="horizontal" alignment="top" horizontalStackHuggingPriority="249.99998474121094" verticalStackHuggingPriority="1000" verticalHuggingPriority="1000" verticalCompressionResistancePriority="1000" detachesHiddenViews="YES" translatesAutoresizingMaskIntoConstraints="NO" id="FpR-wK-Qc2">
-                                        <rect key="frame" x="20" y="224" width="560" height="18"/>
+                                        <rect key="frame" x="20" y="250" width="560" height="18"/>
                                         <subviews>
                                             <textField toolTip="Rebuild processing state for integrated heat files when they are loaded." horizontalHuggingPriority="249" verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="bZw-DR-dBe">
                                                 <rect key="frame" x="-2" y="0.0" width="439" height="18"/>
@@ -15016,10 +15031,10 @@ DQ
                                         </customSpacing>
                                     </stackView>
                                     <box verticalHuggingPriority="750" boxType="separator" translatesAutoresizingMaskIntoConstraints="NO" id="6bu-Ih-SkT">
-                                        <rect key="frame" x="20" y="213" width="560" height="5"/>
+                                        <rect key="frame" x="20" y="239" width="560" height="5"/>
                                     </box>
                                     <textField verticalHuggingPriority="1000" verticalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="KYh-HW-6q5">
-                                        <rect key="frame" x="18" y="191" width="564" height="16"/>
+                                        <rect key="frame" x="18" y="217" width="564" height="16"/>
                                         <textFieldCell key="cell" lineBreakMode="clipping" alignment="left" title="Baseline Interpolation" id="Scg-qy-YVu">
                                             <font key="font" metaFont="systemBold"/>
                                             <color key="textColor" name="labelColor" catalog="System" colorSpace="catalog"/>
@@ -15027,7 +15042,7 @@ DQ
                                         </textFieldCell>
                                     </textField>
                                     <stackView distribution="fill" orientation="horizontal" alignment="top" horizontalStackHuggingPriority="249.99998474121094" verticalStackHuggingPriority="1000" verticalHuggingPriority="1000" verticalCompressionResistancePriority="1000" detachesHiddenViews="YES" translatesAutoresizingMaskIntoConstraints="NO" id="Ra1-DG-aSu">
-                                        <rect key="frame" x="20" y="165" width="560" height="18"/>
+                                        <rect key="frame" x="20" y="191" width="560" height="18"/>
                                         <subviews>
                                             <textField toolTip="Default number of baseline support points for spline interpolation." horizontalHuggingPriority="249" verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="wSd-uK-MZk">
                                                 <rect key="frame" x="-2" y="0.0" width="368" height="18"/>
@@ -15062,7 +15077,7 @@ DQ
                                         </customSpacing>
                                     </stackView>
                                     <stackView distribution="fill" orientation="horizontal" alignment="top" horizontalStackHuggingPriority="249.99998474121094" verticalStackHuggingPriority="1000" verticalHuggingPriority="1000" verticalCompressionResistancePriority="1000" detachesHiddenViews="YES" translatesAutoresizingMaskIntoConstraints="NO" id="l1D-BB-21q">
-                                        <rect key="frame" x="20" y="139" width="560" height="18"/>
+                                        <rect key="frame" x="20" y="165" width="560" height="18"/>
                                         <subviews>
                                             <textField toolTip="Statistic used to place automatic spline baseline points." horizontalHuggingPriority="249" verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="nZD-Hp-3Qc">
                                                 <rect key="frame" x="-2" y="0.0" width="451" height="18"/>
@@ -15096,7 +15111,7 @@ DQ
                                         </customSpacing>
                                     </stackView>
                                     <stackView distribution="fill" orientation="horizontal" alignment="top" horizontalStackHuggingPriority="249.99998474121094" verticalStackHuggingPriority="1000" verticalHuggingPriority="1000" verticalCompressionResistancePriority="1000" detachesHiddenViews="YES" translatesAutoresizingMaskIntoConstraints="NO" id="time-drag-default-row">
-                                        <rect key="frame" x="20" y="113" width="560" height="18"/>
+                                        <rect key="frame" x="20" y="139" width="560" height="18"/>
                                         <subviews>
                                             <textField toolTip="Allow new spline baselines to drag control points horizontally as well as vertically." horizontalHuggingPriority="249" verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="time-drag-default-label">
                                                 <rect key="frame" x="-2" y="0.0" width="455" height="18"/>
@@ -15116,6 +15131,37 @@ DQ
                                         </subviews>
                                         <constraints>
                                             <constraint firstAttribute="height" constant="18" id="time-drag-default-height"/>
+                                        </constraints>
+                                        <visibilityPriorities>
+                                            <integer value="1000"/>
+                                            <integer value="1000"/>
+                                        </visibilityPriorities>
+                                        <customSpacing>
+                                            <real value="3.4028234663852886e+38"/>
+                                            <real value="3.4028234663852886e+38"/>
+                                        </customSpacing>
+                                    </stackView>
+                                    <stackView distribution="fill" orientation="horizontal" alignment="top" horizontalStackHuggingPriority="249.99998474121094" verticalStackHuggingPriority="1000" verticalHuggingPriority="1000" verticalCompressionResistancePriority="1000" detachesHiddenViews="YES" translatesAutoresizingMaskIntoConstraints="NO" id="copy-start-default-row">
+                                        <rect key="frame" x="20" y="113" width="560" height="18"/>
+                                        <subviews>
+                                            <textField toolTip="When using copy to next for integration ranges, copy the start offset as well as the end offset." horizontalHuggingPriority="249" verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="copy-start-default-label">
+                                                <rect key="frame" x="-2" y="0.0" width="468" height="18"/>
+                                                <textFieldCell key="cell" lineBreakMode="clipping" title="Integration region copy includes start" id="copy-start-default-label-cell">
+                                                    <font key="font" usesAppearanceFont="YES"/>
+                                                    <color key="textColor" name="labelColor" catalog="System" colorSpace="catalog"/>
+                                                    <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
+                                                </textFieldCell>
+                                            </textField>
+                                            <button toolTip="When using copy to next for integration ranges, copy the start offset as well as the end offset." verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="copy-start-default-control">
+                                                <rect key="frame" x="472" y="-1" width="90" height="20"/>
+                                                <buttonCell key="cell" type="check" title="Copy start" bezelStyle="regularSquare" imagePosition="right" alignment="right" inset="2" id="copy-start-default-cell">
+                                                    <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
+                                                    <font key="font" metaFont="system"/>
+                                                </buttonCell>
+                                            </button>
+                                        </subviews>
+                                        <constraints>
+                                            <constraint firstAttribute="height" constant="18" id="copy-start-default-height"/>
                                         </constraints>
                                         <visibilityPriorities>
                                             <integer value="1000"/>
@@ -15244,8 +15290,10 @@ DQ
                                     <integer value="1000"/>
                                     <integer value="1000"/>
                                     <integer value="1000"/>
+                                    <integer value="1000"/>
                                 </visibilityPriorities>
                                 <customSpacing>
+                                    <real value="3.4028234663852886e+38"/>
                                     <real value="3.4028234663852886e+38"/>
                                     <real value="3.4028234663852886e+38"/>
                                     <real value="3.4028234663852886e+38"/>
@@ -15273,6 +15321,7 @@ DQ
                         <outlet property="BufferSubtractionMethodControl" destination="buf-default-method" id="buf-default-method-outlet"/>
                         <outlet property="DilutionMathMethodControl" destination="pPx-JN-IQm" id="DzB-uT-Gs4"/>
                         <outlet property="DiscardIntegrationRegionForBaseline" destination="7ZU-M3-gbp" id="xjN-z9-4eh"/>
+                        <outlet property="IntegrationRegionCopyIncludesStartControl" destination="copy-start-default-control" id="copy-start-default-outlet"/>
                         <outlet property="PeakFitAlgorithmControl" destination="peak-fit-control" id="peak-fit-outlet"/>
                         <outlet property="ReprocessIntegratedHeatDataOnLoad" destination="xbR-Zd-h3x" id="jYs-D0-VO2"/>
                         <outlet property="SplineHandleModeControl" destination="pmt-eI-UZy" id="grJ-qj-Mh0"/>
@@ -16791,7 +16840,7 @@ Gw
         <image name="design.icon.pencil.ruler" width="25" height="15"/>
         <image name="diamond.fill" catalog="system" width="17" height="17"/>
         <image name="ellipsis.rectangle" catalog="system" width="17" height="11"/>
-        <image name="folder" catalog="system" width="18" height="14"/>
+        <image name="folder" catalog="system" width="23" height="18"/>
         <image name="folder.badge.plus" catalog="system" width="20" height="15"/>
         <image name="gearshape" catalog="system" width="16" height="16"/>
         <image name="gearshape.circle.fill" catalog="system" width="15" height="15"/>
