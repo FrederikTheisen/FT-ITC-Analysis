@@ -534,6 +534,7 @@
     <Compile Include="AppClasses\DataReaders\IntegratedHeatReader.cs" />
     <Compile Include="AppClasses\DataReaders\ITCDataFormat.cs" />
     <Compile Include="AppClasses\DataReaders\PEAQReader.cs" />
+    <Compile Include="AppClasses\DataReaders\ProcessedTandemCsvReader.cs" />
     <Compile Include="AppClasses\DataReaders\DataValidator.cs" />
     <Compile Include="AppClasses\DataClasses\AnalysisResultNameParser.cs" />
     <Compile Include="AppClasses\DataClasses\ITCDataContainer.cs" />

@@ -6,6 +6,7 @@ using System.Collections.Generic;
 using AnalysisITC.GUI.MacOS;
 using System.Linq;
 using System.Threading.Tasks;
+using UniformTypeIdentifiers;
 
 namespace AnalysisITC
 {
@@ -65,6 +66,10 @@ namespace AnalysisITC
             FileDialog.AllowsMultipleSelection = true;
             FileDialog.CanChooseDirectories = true;
             FileDialog.AllowedContentTypes = DataReaders.ITCFormatAttribute.GetAllUTTypes();
+
+#if DEBUG
+            UnhideProcessedTandemCsvImporter();
+#endif
         }
 
         public override NSApplicationTerminateReply ApplicationShouldTerminate(NSApplication sender)
@@ -236,6 +241,78 @@ namespace AnalysisITC
             }
 
             FileDialog.Dispose();
+        }
+
+#if DEBUG
+        private void UnhideProcessedTandemCsvImporter()
+        {
+            var helpMenu = NSApplication.SharedApplication.MainMenu?
+                .Items.FirstOrDefault(item => item.Title == "Help")?
+                .Submenu;
+            if (helpMenu == null) return;
+
+            var importer = helpMenu.Items.FirstOrDefault(item => item.Identifier == "importprocessedtandemcsv");
+
+            if (importer != null) importer.Hidden = false;
+        }
+#endif
+
+        [Action("ImportProcessedTandemCsv:")]
+        private void ImportProcessedTandemCsv(NSObject sender)
+        {
+            var dialog = NSOpenPanel.OpenPanel;
+            dialog.Title = "Import Processed Tandem CSV";
+            dialog.CanChooseFiles = true;
+            dialog.CanChooseDirectories = false;
+            dialog.AllowsMultipleSelection = true;
+            dialog.AllowedContentTypes = UTType.GetTypes("csv", UTTagClass.FilenameExtension, UTTypes.Data);
+
+            if ((int)dialog.RunModal() != 1)
+            {
+                dialog.Dispose();
+                return;
+            }
+
+            StatusBarManager.SetStatus("Reading processed tandem data...", 0);
+            StatusBarManager.StartInderminateProgress();
+
+            try
+            {
+                var settings = new ProcessedTandemCsvImportSettings
+                {
+                    CellConcentration = 125e-6,
+                    SyringeConcentration = 1e-3,
+                    RegularInjectionVolume = 3e-6,
+                };
+                var reconstructed = ProcessedTandemCsvReader.ReadExperiments(
+                    dialog.Urls.Select(url => url.Path),
+                    settings);
+                var valid = reconstructed
+                    .Where(ImportValidator.ValidateData)
+                    .Cast<ITCDataContainer>()
+                    .ToArray();
+
+                if (valid.Length > 0)
+                {
+                    using (DocumentDirtyTracker.Suspend())
+                    {
+                        DataManager.AddData(valid);
+                        DataManager.ApplyOptions();
+                    }
+
+                    DocumentDirtyTracker.MarkDirty();
+                    StatusBarManager.SetStatus($"Imported {valid.Length} reconstructed experiments.", 4000);
+                }
+            }
+            catch (Exception ex)
+            {
+                AppEventHandler.DisplayHandledException(ex);
+            }
+            finally
+            {
+                StatusBarManager.StopIndeterminateProgress();
+                dialog.Dispose();
+            }
         }
 
         partial void SaveAsMenuClick(NSObject sender)
