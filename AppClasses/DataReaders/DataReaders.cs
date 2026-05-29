@@ -206,7 +206,7 @@ namespace DataReaders
             }
         }
 
-        static void ProcessInjectionsMicroCal(ExperimentData experiment)
+        internal static void ProcessInjectionsMicroCal(ExperimentData experiment)
         {
             var x2vol0 = 2 * experiment.CellVolume;
             var deltaVolume = 0.0;
