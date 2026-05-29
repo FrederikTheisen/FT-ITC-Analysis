@@ -142,6 +142,8 @@ namespace DataReaders
 
     public enum FeedbackMode
     {
+        [FeedbackMode("Null")]
+        Null = -1,
         [FeedbackMode("None")]
         None = 0,
         [FeedbackMode("Low")]

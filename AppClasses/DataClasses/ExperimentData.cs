@@ -33,7 +33,7 @@ namespace AnalysisITC
         public FloatWithError CellConcentration { get; set; }
         public double CellVolume { get; set; }
         public double StirringSpeed { get; set; } = -1;
-        public FeedbackMode FeedBackMode { get; set; }
+        public FeedbackMode FeedBackMode { get; set; } = FeedbackMode.Null;
 
         public double TargetTemperature { get; set; }
         public double InitialDelay { get; set; }
@@ -664,6 +664,8 @@ namespace AnalysisITC
 
         public List<string> GetInfoString()
         {
+            const float inj_volume_margin = 0.001e-6f;
+
             var info = new List<string>();
 
             string injdescription = "";
@@ -674,15 +676,35 @@ namespace AnalysisITC
                 var next = i < this.InjectionCount - 1 ? this.Injections[i + 1] : null;
                 var prev = i > 0 ? this.Injections[i - 1] : null;
 
-                if (this.Injections.Where(inj => inj.ID > i).All(inj => inj.Volume == curr.Volume))
+                // All remaining are identical
+                if (this.Injections.Where(inj => inj.ID > i).All(inj => Math.Abs(inj.Volume - curr.Volume) < inj_volume_margin))
                 {
                     injdescription += "#" + (i + 1).ToString() + "-" + this.Injections.Count.ToString() + ": " + (1000000 * curr.Volume).ToString("F1") + " µl, ";
                     break;
                 }
+                // Next has different volume
                 else if (next != null && curr.Volume != next.Volume)
                     injdescription += "#" + (i + 1).ToString() + ": " + (1000000 * curr.Volume).ToString("F1") + " µl, ";
-                else if (prev != null && curr.Volume != prev.Volume)
-                    injdescription += "#" + (i + 1).ToString() + ": " + (1000000 * curr.Volume).ToString("F1") + " µl, ";
+                else
+                {
+                    prev = curr;
+
+                    while (i < this.InjectionCount - 1)
+                    {
+                        i++;
+
+                        curr = this.Injections[i];
+                        next = i < this.InjectionCount - 1 ? this.Injections[i + 1] : null;
+
+                        if (next == null) break; // End of injections, should never happen
+                        if (Math.Abs(prev.Volume - next.Volume) > inj_volume_margin) break; // Next if different from starting, break
+                    }
+
+                    injdescription += $"#{prev.ID + 1}-{curr.ID + 1}: {1000000 * curr.Volume:F1} µl, ";
+                }
+                // Previous has different volume???
+                // else if (prev != null && curr.Volume != prev.Volume)
+                //    injdescription += "#" + (i + 1).ToString() + ": " + (1000000 * curr.Volume).ToString("F1") + " µl, ";
             }
 
             injdescription = injdescription.Substring(0, injdescription.Length - 2);
@@ -694,7 +716,7 @@ namespace AnalysisITC
                 info.Add($"  **Duration:** {this.Duration.ToReadableString()}");
             info.Add("**Instrument:** " + this.Instrument.GetProperties().Name);
             info.Add($"  **Cell Volume:** {1000000 * this.CellVolume:F1} µl");
-            if (DataReaders.ITCInstrument.MicroCal.HasFlag(this.Instrument))
+            if (this.FeedBackMode != FeedbackMode.Null)
                 info.Add("  **Feedback Mode:** " + this.FeedBackMode.GetProperties().Name);
             if (this.StirringSpeed > -1)
                 info.Add("  **Stirring Speed:** " + this.StirringSpeed.ToString() + " rpm");

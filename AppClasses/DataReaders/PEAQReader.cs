@@ -69,7 +69,7 @@ namespace DataReaders
             double temperature = averageTemperature;
             double initialDelay = 0;
             double stirringSpeed = 0;
-            var feedback = FeedbackMode.None;
+            var feedback = FeedbackMode.Null;
             double refPower = 5;
 
             var plannedInjectionScheme = new List<InjectionData>();
@@ -85,7 +85,7 @@ namespace DataReaders
                     "high" => FeedbackMode.High,
                     "low" => FeedbackMode.Low,
                     "none" => FeedbackMode.None,
-                    _ => FeedbackMode.None,
+                    _ => FeedbackMode.Null,
                 };
                 refPower = ParseDouble(methodElement.Element("ReferencePower")?.Value);
 
