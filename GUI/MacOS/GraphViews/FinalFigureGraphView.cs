@@ -374,7 +374,7 @@ namespace AnalysisITC
                 $"Loss: {GetLossMetadata(data.Solution)}"
             };
 
-            if (data.Solution == null) return parameters.ToArray();
+            if (data.Solution == null) return parameters.Select(p => p.Replace(",", "..")).ToArray();
 
             var reportParameters = data.Solution.ReportParameters ?? new Dictionary<ParameterType, FloatWithError>();
             var ordered = new List<KeyValuePair<ParameterType, FloatWithError>>();
@@ -398,7 +398,7 @@ namespace AnalysisITC
                 parameters.Add($"{GetParameterMetadataLabel(par.Key)} = {FormatParameterMetadataValue(par.Key, par.Value)}");
             }
 
-            return parameters.ToArray();
+            return parameters.Select(p => p.Replace(",", "..")).ToArray();
         }
 
         static string GetModelMetadata(ExperimentData data)
@@ -450,16 +450,17 @@ namespace AnalysisITC
         {
             var parent = key.GetProperties().ParentType;
             var energyUnit = AppClasses.AnalysisClasses.Models.Model.ReportEnergyUnit;
+            var uncertaintyStyle = UncertaintyDisplayStyle.StandardDeviationAndConfidenceInterval;
 
             return parent switch
             {
-                ParameterType.Affinity1 => value.AsFormattedConcentration(withunit: true),
-                ParameterType.Enthalpy1 => value.Energy.ToFormattedString(energyUnit, permole: true),
-                ParameterType.EntropyContribution1 => value.Energy.ToFormattedString(energyUnit, permole: true),
-                ParameterType.Gibbs1 => value.Energy.ToFormattedString(energyUnit, permole: true),
-                ParameterType.Offset => value.Energy.ToFormattedString(energyUnit, permole: true),
-                ParameterType.HeatCapacity1 => value.Energy.ToFormattedString(energyUnit, permole: true, perK: true),
-                _ => value.AsNumber(),
+                ParameterType.Affinity1 => value.AsFormattedConcentration(withunit: true, style: uncertaintyStyle),
+                ParameterType.Enthalpy1 => value.Energy.ToFormattedString(energyUnit, permole: true, style: uncertaintyStyle),
+                ParameterType.EntropyContribution1 => value.Energy.ToFormattedString(energyUnit, permole: true, style: uncertaintyStyle),
+                ParameterType.Gibbs1 => value.Energy.ToFormattedString(energyUnit, permole: true, style: uncertaintyStyle),
+                ParameterType.Offset => value.Energy.ToFormattedString(energyUnit, permole: true, style: uncertaintyStyle),
+                ParameterType.HeatCapacity1 => value.Energy.ToFormattedString(energyUnit, permole: true, perK: true, style: uncertaintyStyle),
+                _ => value.AsNumber(uncertaintyStyle),
             };
         }
 
