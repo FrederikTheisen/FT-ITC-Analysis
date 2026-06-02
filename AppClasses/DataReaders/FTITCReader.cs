@@ -304,6 +304,7 @@ namespace DataReaders
                 string dateinfo = "";
                 string name = "";
                 DateTime date = DateTime.Now;
+                AnalysisResultValiditySnapshot validitySnapshot = null;
 
                 while (!(line = reader.ReadLine()).Contains(GlobalSolutionHeader))
                 {
@@ -315,6 +316,9 @@ namespace DataReaders
                         case Comments: comments = DecodeText(value); break;
                         case Date: dateinfo = value; break;
                         case AssignedName: name = DecodeText(value); break;
+                        case AnalysisResultValiditySnapshotData:
+                            validitySnapshot = AnalysisResultValiditySnapshot.FromJson(DecodeText(value));
+                            break;
                     }
                 }
 
@@ -333,12 +337,13 @@ namespace DataReaders
                 
                 string guid = info[0];
                 string filename = info.Length > 1 ? info[1] : sol.SolutionName;
-                AnalysisResult result = new AnalysisResult(sol);
+                AnalysisResult result = new AnalysisResult(sol, captureValiditySnapshot: false);
                 result.SetID(guid);
                 result.SetFileName(filename);
                 result.Name = name;
                 result.Comments = comments;
                 result.SetDate(date);
+                result.SetValiditySnapshot(validitySnapshot);
 
                 return result;
             }
@@ -456,9 +461,11 @@ namespace DataReaders
                                 switch (vv[0])
                                 {
                                     case SolErrorMethod: mco.ErrorEstimationMethod = (ErrorEstimationMethod)IParse(vv[1]); break;
+                                    case SolCloneIsGlobal: mco.IsGlobalClone = BParse(vv[1]); break;
                                     case SolCloneConcentrationVariance: mco.IncludeConcentrationErrorsInBootstrap = BParse(vv[1]); break;
                                     case SolCloneAutoVariance: mco.EnableAutoConcentrationVariance = BParse(vv[1]); break;
                                     case SolCloneAutoVarianceValue: mco.AutoConcentrationVariance = DParse(vv[1]); break;
+                                    case SolCloneUnlockParameters: mco.UnlockBootstrapParameters = BParse(vv[1]); break;
                                 }
                             }
 

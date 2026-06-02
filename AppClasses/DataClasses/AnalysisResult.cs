@@ -24,8 +24,19 @@ namespace AnalysisITC
         public ConcentrationUnit AppropriateAffinityUnit => ConcentrationUnitAttribute.GetMagnitudeUnitFromConcentration(Solution.Solutions.Average(s => s.ReportParameters[ParameterType.Affinity1]));
 
         public AnalysisResult(GlobalSolution solution)
+            : this(solution, captureValiditySnapshot: true)
+        {
+        }
+
+        public AnalysisResultValiditySnapshot ValiditySnapshot { get; private set; }
+        public AnalysisResultValidityReport ValidityReport => ValiditySnapshot?.Compare(Solution)
+            ?? AnalysisResultValidityReport.Unknown("No validity snapshot is stored for this analysis result.");
+        public bool IsValidForCurrentData => ValidityReport.Status == AnalysisResultValidity.Valid;
+
+        public AnalysisResult(GlobalSolution solution, bool captureValiditySnapshot)
         {
             Solution = solution;
+            if (captureValiditySnapshot) ValiditySnapshot = AnalysisResultValiditySnapshot.Capture(solution);
 
             //FileName = solution.Model.Solution.SolutionName;
             Date = DateTime.Now;
@@ -41,6 +52,11 @@ namespace AnalysisITC
             SetupAnalysisOptions();
 
             InitializeAnalyses();
+        }
+
+        public void SetValiditySnapshot(AnalysisResultValiditySnapshot snapshot)
+        {
+            ValiditySnapshot = snapshot;
         }
 
         void SetupAnalysisOptions()

@@ -290,7 +290,7 @@ namespace AnalysisITC
 
         private void SetupSolutionInformation()
         {
-            ExperimentListButton.Title = Solution.Solutions.Count + " experiments";
+            SetupExperimentListButton();
 
             var solverdesc = new List<string>()
             {
@@ -311,6 +311,29 @@ namespace AnalysisITC
             }
 
             ResultSummaryLabel.StringValue = string.Join(Environment.NewLine, solverdesc);
+        }
+
+        void SetupExperimentListButton()
+        {
+            if (ExperimentListButton == null || AnalysisResult == null) return;
+
+            var report = AnalysisResult.ValidityReport;
+            var buttonColor = AnalysisResultValidityPresentation.ButtonColor(report);
+            ExperimentListButton.WantsLayer = true;
+            if (ExperimentListButton.Layer != null)
+            {
+                ExperimentListButton.Layer.BackgroundColor = buttonColor.ColorWithAlphaComponent(0.18f).CGColor;
+                ExperimentListButton.Layer.BorderColor = buttonColor.ColorWithAlphaComponent(0.65f).CGColor;
+                ExperimentListButton.Layer.BorderWidth = 1;
+                ExperimentListButton.Layer.CornerRadius = 5;
+                ExperimentListButton.Layer.MasksToBounds = true;
+            }
+
+            ExperimentListButton.Title = AnalysisResultValidityPresentation.ButtonTitle(AnalysisResult, report);
+            ExperimentListButton.AttributedTitle = AnalysisResultValidityPresentation.ButtonAttributedTitle(AnalysisResult, report);
+            ExperimentListButton.ToolTip = AnalysisResultValidityPresentation.ButtonTooltip(AnalysisResult, report);
+            ExperimentListButton.Image = null;
+            ExperimentListButton.SizeToFit();
         }
 
         private void PopulateTable()

@@ -13,10 +13,18 @@ namespace AnalysisITC
 	partial class ExperimentListViewController
 	{
 		[Outlet]
+		AppKit.NSTextField ExperimentListLabel { get; set; }
+
+		[Outlet]
 		AppKit.NSTextField Label { get; set; }
 		
 		void ReleaseDesignerOutlets ()
 		{
+			if (ExperimentListLabel != null) {
+				ExperimentListLabel.Dispose ();
+				ExperimentListLabel = null;
+			}
+
 			if (Label != null) {
 				Label.Dispose ();
 				Label = null;

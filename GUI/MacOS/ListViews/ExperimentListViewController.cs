@@ -4,8 +4,6 @@ using System;
 
 using Foundation;
 using AppKit;
-using System.Collections.Generic;
-using AnalysisITC.Utilities;
 
 namespace AnalysisITC
 {
@@ -26,17 +24,10 @@ namespace AnalysisITC
             var analysisresult = result as AnalysisResult;
 
             Label.StringValue = "";
+            Label.AttributedStringValue = AnalysisResultValidityPresentation.ReportText(analysisresult, Label.Font);
 
-            var lines = new List<string>();
-
-            foreach (var mdl in analysisresult.Solution.Model.Models)
-            {
-                lines.Add($"**{mdl.Data.Name}**");
-                lines.Add($"  --Date: {mdl.Data.UIShortDateWithTime}");
-                lines.Add($"  Temperature: {mdl.Data.MeasuredTemperature:G3}--");
-            }
-
-            Label.AttributedStringValue = MacStrings.FromMarkDownString(string.Join(Environment.NewLine, lines), Label.Font);
+            ExperimentListLabel.StringValue = "";
+            ExperimentListLabel.AttributedStringValue = AnalysisResultValidityPresentation.ExperimentListText(analysisresult, ExperimentListLabel.Font);
         }
     }
 }

@@ -401,6 +401,7 @@
       <DependentUpon>ExportAccessoryViewController.cs</DependentUpon>
     </Compile>
     <Compile Include="GUI\MacOS\CustomViews\OptionAdjustmentView.cs" />
+    <Compile Include="GUI\MacOS\AnalysisResultValidityPresentation.cs" />
     <Compile Include="GUI\MacOS\MacStrings.cs" />
     <Compile Include="GUI\AppStrings.cs" />
     <Compile Include="GUI\MacOS\CustomViews\ExperimentAttributeView.cs" />
@@ -415,6 +416,7 @@
     <Compile Include="AppClasses\DataClasses\Salt.cs" />
     <Compile Include="AppClasses\DataClasses\ITCInstrument.cs" />
     <Compile Include="AppClasses\DataClasses\AnalysisResult.cs" />
+    <Compile Include="AppClasses\DataClasses\AnalysisResultValiditySnapshot.cs" />
     <Compile Include="GUI\MacOS\GraphViews\ResultGraphView.cs" />
     <Compile Include="GUI\MacOS\GraphViews\ResultGraphView.designer.cs">
       <DependentUpon>ResultGraphView.cs</DependentUpon>

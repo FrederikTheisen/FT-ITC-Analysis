@@ -72,6 +72,8 @@ namespace AnalysisITC
         public const string SolCloneConcentrationVariance = "ConcVar";
         public const string SolCloneAutoVariance = "AutoConcVar";
         public const string SolCloneAutoVarianceValue = "AutoConcVarValue";
+        public const string SolCloneIsGlobal = "IsGlobalClone";
+        public const string SolCloneUnlockParameters = "UnlockBootParams";
         public const string SolParamsRaw = "RawParameters";
         public const string SolParams = "Parameters";
         public const string SolConstraints = "SolCons";
@@ -101,6 +103,7 @@ namespace AnalysisITC
         public const string SolutionList = "SolutionList";
 
         public const string AnalysisResultHeader = "AnalysisResult";
+        public const string AnalysisResultValiditySnapshotData = "AnalysisResultValiditySnapshot";
 
         //ftitc_old formatting
         public static string OldHeader(string header) => "<" + header + ">";
@@ -739,6 +742,9 @@ namespace AnalysisITC
                 Variable(Date, result.Date.ToString("O", CultureInfo.InvariantCulture)),
                 Variable(AssignedName, EncodeText(result.Name)),
             };
+            if (result.ValiditySnapshot != null)
+                file.Add(Variable(AnalysisResultValiditySnapshotData, EncodeText(result.ValiditySnapshot.ToJson())));
+
             file.AddRange(GetGlobalSolutionLines(result.Solution));
             file.Add(EndFileHeader);
             foreach (var line in file) await stream.WriteLineAsync(line);
@@ -778,9 +784,11 @@ namespace AnalysisITC
             //ModelCloneOptions
             file.Add(ObjectHeader(MdlCloneOptions));
             file.Add(Variable(SolErrorMethod, (int)solution.Model.ModelCloneOptions.ErrorEstimationMethod));
+            file.Add(Variable(SolCloneIsGlobal, solution.Model.ModelCloneOptions.IsGlobalClone));
             file.Add(Variable(SolCloneConcentrationVariance, solution.Model.ModelCloneOptions.IncludeConcentrationErrorsInBootstrap));
             file.Add(Variable(SolCloneAutoVariance, solution.Model.ModelCloneOptions.EnableAutoConcentrationVariance));
-            file.Add(Variable(SolCloneAutoVarianceValue, solution.Model.ModelCloneOptions.AutoConcentrationVariance));     
+            file.Add(Variable(SolCloneAutoVarianceValue, solution.Model.ModelCloneOptions.AutoConcentrationVariance));
+            file.Add(Variable(SolCloneUnlockParameters, solution.Model.ModelCloneOptions.UnlockBootstrapParameters));
             file.Add(EndObjectHeader);
 
             //Convergence
