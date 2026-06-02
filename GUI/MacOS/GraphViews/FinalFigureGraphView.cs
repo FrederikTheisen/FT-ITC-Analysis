@@ -5,6 +5,7 @@ using Foundation;
 using AppKit;
 using CoreGraphics;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using AnalysisITC.AppClasses.AnalysisClasses;
 using AnalysisITC.AppClasses.AnalysisClasses.Models;
@@ -296,13 +297,20 @@ namespace AnalysisITC
 
             dlg.BeginSheet(NSApplication.SharedApplication.MainWindow, (result) =>
             {
-                if (result == 1)
+                if (result == (int)NSModalResponse.OK)
                 {
-                    foreach (var data in datas)
+                    var folderPath = dlg.Url?.Path;
+                    if (string.IsNullOrWhiteSpace(folderPath)) return;
+
+                    var exportTargets = CreateFigureExportTargets(datas, folderPath);
+                    if (!ConfirmOverwriteIfNeeded(NSApplication.SharedApplication.MainWindow, exportTargets.Select(t => t.Path)))
+                        return;
+
+                    foreach (var target in exportTargets)
                     {
+                        var data = target.Data;
                         var g = FinalFigureGraphView.SetupForExport(data);
-                        var filename = data.Name;
-                        var path = NSUrl.CreateFileUrl(dlg.Url.RelativePath + "/" + filename + ".pdf", null);
+                        var path = NSUrl.CreateFileUrl(target.Path, null);
                         var parameters = BuildPdfMetadataKeywords(data);
 
                         var pdfInfo = new CGPDFInfo
@@ -323,6 +331,75 @@ namespace AnalysisITC
                     }
                 }
             });
+        }
+
+        static List<FigureExportTarget> CreateFigureExportTargets(List<ExperimentData> datas, string folderPath)
+        {
+            var targets = new List<FigureExportTarget>();
+            var usedFileNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+            foreach (var data in datas)
+            {
+                var baseFileName = SanitizeFileName(data.Name);
+                var fileName = baseFileName + ".pdf";
+                var suffix = 2;
+
+                while (usedFileNames.Contains(fileName))
+                {
+                    fileName = $"{baseFileName} ({suffix}).pdf";
+                    suffix++;
+                }
+
+                usedFileNames.Add(fileName);
+                targets.Add(new FigureExportTarget(data, Path.Combine(folderPath, fileName)));
+            }
+
+            return targets;
+        }
+
+        static string SanitizeFileName(string name)
+        {
+            var cleanName = string.IsNullOrWhiteSpace(name) ? "Untitled Figure" : name.Trim();
+
+            foreach (var invalidChar in Path.GetInvalidFileNameChars())
+            {
+                cleanName = cleanName.Replace(invalidChar, '_');
+            }
+
+            return string.IsNullOrWhiteSpace(cleanName) ? "Untitled Figure" : cleanName;
+        }
+
+        static bool ConfirmOverwriteIfNeeded(NSWindow parent, IEnumerable<string> outputPaths)
+        {
+            var existing = outputPaths.Where(File.Exists).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+            if (existing.Count == 0) return true;
+
+            var alert = new NSAlert
+            {
+                AlertStyle = NSAlertStyle.Warning,
+                MessageText = "File already exists.",
+                InformativeText = existing.Count == 1
+                    ? $"This export will overwrite:\n{Path.GetFileName(existing[0])}"
+                    : $"This export will overwrite {existing.Count} files."
+            };
+
+            alert.AddButton("Overwrite");
+            alert.AddButton("Cancel");
+
+            var response = parent != null ? alert.RunSheetModal(parent) : alert.RunModal();
+            return response == (int)NSAlertButtonReturn.First;
+        }
+
+        class FigureExportTarget
+        {
+            public FigureExportTarget(ExperimentData data, string path)
+            {
+                Data = data;
+                Path = path;
+            }
+
+            public ExperimentData Data { get; }
+            public string Path { get; }
         }
 
         static IEnumerable<ExperimentData> GetExportData(ExportDataSelection selection)
