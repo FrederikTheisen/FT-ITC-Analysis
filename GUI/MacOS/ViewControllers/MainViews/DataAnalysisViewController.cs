@@ -273,6 +273,7 @@ namespace AnalysisITC
                 solver.SolverAlgorithm = FittingOptionsController.Algorithm;
                 solver.ErrorEstimationMethod = FittingOptionsController.ErrorEstimationMethod;
                 solver.BootstrapIterations = FittingOptionsController.BootstrapIterations;
+                solver.UseErrorWeightedFitting = FittingOptionsController.UseErrorWeightedFitting;
 
                 solver.Analyze();
 

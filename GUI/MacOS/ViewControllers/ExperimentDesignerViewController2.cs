@@ -594,6 +594,7 @@ namespace AnalysisITC
             solver.SolverToleranceModifier = 2;
             solver.ErrorEstimationMethod = SimulateNoiseControl.State == NSCellStateValue.On ? ErrorEstimationMethod.BootstrapResiduals : ErrorEstimationMethod.None;
             solver.BootstrapIterations = 50;
+            solver.UseErrorWeightedFitting = FittingOptionsController.UseErrorWeightedFitting;
             var mco = (solver as Solver).Model.ModelCloneOptions;
             mco.IncludeConcentrationErrorsInBootstrap = true;
             mco.EnableAutoConcentrationVariance = false;

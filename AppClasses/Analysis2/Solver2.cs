@@ -139,7 +139,7 @@ namespace AnalysisITC.AppClasses.AnalysisClasses
 
         public void ReportAnalysisFinished(SolverConvergence convergence) => NSApplication.SharedApplication.InvokeOnMainThread(() =>
         {
-            if (!Silent) AnalysisFinished?.Invoke(null, convergence);
+            if (!Silent) AnalysisFinished?.Invoke(this, convergence);
         });
 
         public void ReportSolverUpdate(SolverUpdate update) => NSApplication.SharedApplication.InvokeOnMainThread(() =>
@@ -193,8 +193,6 @@ namespace AnalysisITC.AppClasses.AnalysisClasses
 
         public virtual SolverConvergence Solve()
         {
-            UseErrorWeightedFitting = FittingOptionsController.UseErrorWeightedFitting;
-
             // Subscribe to the termination flag so we can stop the underlying solver when requested.
             TerminateAnalysisFlag.WasRaised += TerminateAnalysisFlag_WasRaised;
             try
@@ -580,9 +578,6 @@ namespace AnalysisITC.AppClasses.AnalysisClasses
         public override async void Analyze()
         {
             base.Analyze();
-
-            // This will not be called if fitting indivdually
-            UseErrorWeightedFitting = FittingOptionsController.UseErrorWeightedFitting;
 
             SolverConvergence convergence = null;
 
