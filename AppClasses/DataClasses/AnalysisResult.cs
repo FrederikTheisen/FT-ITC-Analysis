@@ -59,6 +59,26 @@ namespace AnalysisITC
             ValiditySnapshot = snapshot;
         }
 
+        public void UpdateSolution(GlobalSolution solution)
+        {
+            if (solution == null) throw new ArgumentNullException(nameof(solution));
+
+            Solution = solution;
+            Date = DateTime.Now;
+            ValiditySnapshot = AnalysisResultValiditySnapshot.Capture(solution);
+
+            IsTemperatureDependenceEnabled = false;
+            IsElectrostaticsAnalysisDependenceEnabled = false;
+            IsProtonationAnalysisEnabled = false;
+            SpolarRecordAnalysis = null;
+            ProtonationAnalysis = null;
+            ElectrostaticsAnalysis = null;
+
+            SetupAnalysisOptions();
+            InitializeAnalyses();
+            MarkModified();
+        }
+
         void SetupAnalysisOptions()
         {
             // Check temperature variation is great enough
