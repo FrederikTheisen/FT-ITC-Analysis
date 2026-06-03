@@ -13,6 +13,8 @@ namespace AnalysisITC
     {
         const double SplineDragSlowFactor = 0.2; // Hold SHIFT to slow down point/handle dragging (fine adjust)
         const double MinimumSplinePointTimeSpacingMultiplier = 1.0;
+        const float SplinePointMoveCursorSize = 21f;
+        const float ZoomDragCursorSize = 25f;
 
         public event EventHandler<int> InjectionSelected;
         public event EventHandler BaselineChanged;
@@ -38,8 +40,15 @@ namespace AnalysisITC
         public VerticalZoomMode CurrentVerticalZoomMode { get; private set; } = VerticalZoomMode.AllData;
         public HorizontalZoomMode CurrentHorizontalZoomMode { get; private set; } = HorizontalZoomMode.AllPeaks;
         int selectedPeak = -1;
+        static NSCursor splinePointMoveCursor;
+        static NSCursor splinePointVerticalMoveCursor;
+        static NSCursor zoomDragCursor;
 
         NSBox ZoomSelectionBox = new NSBox() { BorderType = NSBorderType.LineBorder, Hidden = true, TitlePosition = NSTitlePosition.NoTitle, BoxType = NSBoxType.NSBoxCustom };
+
+        static NSCursor SplinePointMoveCursor => splinePointMoveCursor ??= CreateSplinePointMoveCursor();
+        static NSCursor SplinePointVerticalMoveCursor => splinePointVerticalMoveCursor ??= CreateSplinePointVerticalMoveCursor();
+        static NSCursor ZoomDragCursor => zoomDragCursor ??= CreateZoomDragCursor();
 
         bool ShowBaselineCorrected
         {
@@ -328,7 +337,7 @@ namespace AnalysisITC
             if (b.IsMouseOverFeature)
             {
                 if (b.Type == MouseOverFeatureEvent.FeatureType.BaselineSplinePoint) SetSplinePointCursor();
-                else if (b.Type == MouseOverFeatureEvent.FeatureType.BaselineSplineHandle) NSCursor.ResizeUpDownCursor.Set();
+                else if (b.Type == MouseOverFeatureEvent.FeatureType.BaselineSplineHandle) SplinePointVerticalMoveCursor.Set();
                 else if (b.Type == MouseOverFeatureEvent.FeatureType.IntegrationRangeMarker) NSCursor.ResizeLeftRightCursor.Set();
             }
             else if (update) NSCursor.CrosshairCursor.Set();
@@ -345,6 +354,9 @@ namespace AnalysisITC
             if (Graph == null) return;
 
             SelectedFeature = Graph.CursorFeatureFromPos(CursorPositionInView, true);
+
+            if (SelectedFeature.Type == MouseOverFeatureEvent.FeatureType.DragZoom)
+                ZoomDragCursor.Set();
         }
 
         public override void RightMouseDown(NSEvent theEvent)
@@ -465,6 +477,8 @@ namespace AnalysisITC
                     }
                 case MouseOverFeatureEvent.FeatureType.DragZoom:
                     {
+                        ZoomDragCursor.Set();
+
                         ZoomSelectionBox.Frame = SelectedFeature.GetZoomRect(Graph, position);
                         ZoomSelectionBox.Hidden = false;
 
@@ -514,7 +528,7 @@ namespace AnalysisITC
                 if (b.IsMouseOverFeature)
                 {
                     if (b.Type == MouseOverFeatureEvent.FeatureType.BaselineSplinePoint) SetSplinePointCursor();
-                    else if (b.Type == MouseOverFeatureEvent.FeatureType.BaselineSplineHandle) NSCursor.ResizeUpDownCursor.Set();
+                    else if (b.Type == MouseOverFeatureEvent.FeatureType.BaselineSplineHandle) SplinePointVerticalMoveCursor.Set();
                     else if (b.Type == MouseOverFeatureEvent.FeatureType.IntegrationRangeMarker) NSCursor.ResizeLeftRightCursor.Set();
                 }
                 else NSCursor.ArrowCursor.Set();
@@ -571,9 +585,111 @@ namespace AnalysisITC
         void SetSplinePointCursor()
         {
             if (Data?.Processor?.Interpolator is SplineInterpolator splineInterpolator && splineInterpolator.AllowPointTimeDragging)
-                NSCursor.CrosshairCursor.Set();
+                SplinePointMoveCursor.Set();
             else
-                NSCursor.ResizeUpDownCursor.Set();
+                SplinePointVerticalMoveCursor.Set();
+        }
+
+        static NSCursor CreateSplinePointMoveCursor() => CreateSplinePointCursor(includeHorizontalArrows: true);
+
+        static NSCursor CreateSplinePointVerticalMoveCursor() => CreateSplinePointCursor(includeHorizontalArrows: false);
+
+        static NSCursor CreateZoomDragCursor()
+        {
+            var size = new CGSize(ZoomDragCursorSize, ZoomDragCursorSize);
+            var center = new CGPoint(size.Width / 2, size.Height / 2);
+            var image = new NSImage(size);
+
+            image.LockFocus();
+            DrawZoomDragCursorGlyph(NSColor.White, 4f);
+            DrawZoomDragCursorGlyph(NSColor.Black, 2f);
+            image.UnlockFocus();
+
+            return new NSCursor(image, center);
+        }
+
+        static void DrawZoomDragCursorGlyph(NSColor color, float lineWidth)
+        {
+            var gc = NSGraphicsContext.CurrentContext.CGContext;
+            gc.SetStrokeColor(color.CGColor);
+            gc.SetLineWidth(lineWidth);
+            gc.SetLineCap(CGLineCap.Round);
+            gc.SetLineJoin(CGLineJoin.Round);
+
+            gc.BeginPath();
+            gc.AddEllipseInRect(new CGRect(5f, 8f, 10f, 10f));
+            gc.MoveTo(14f, 7f);
+            gc.AddLineToPoint(20f, 1f);
+            gc.MoveTo(10f, 11f);
+            gc.AddLineToPoint(10f, 15f);
+            gc.MoveTo(8f, 13f);
+            gc.AddLineToPoint(12f, 13f);
+            gc.StrokePath();
+        }
+
+        static NSCursor CreateSplinePointCursor(bool includeHorizontalArrows)
+        {
+            var size = new CGSize(SplinePointMoveCursorSize, SplinePointMoveCursorSize);
+            var center = new CGPoint(size.Width / 2, size.Height / 2);
+            var image = new NSImage(size);
+
+            image.LockFocus();
+            DrawSplinePointMoveCursorGlyph(NSColor.White, 4f, center, includeHorizontalArrows);
+            DrawSplinePointMoveCursorGlyph(NSColor.Black, 2f, center, includeHorizontalArrows);
+            image.UnlockFocus();
+
+            return new NSCursor(image, center);
+        }
+
+        static void DrawSplinePointMoveCursorGlyph(NSColor color, float lineWidth, CGPoint center, bool includeHorizontalArrows)
+        {
+            const float inner = 4f;
+            const float outer = 9f;
+            const float arrowOffset = 3f;
+
+            var gc = NSGraphicsContext.CurrentContext.CGContext;
+            gc.SetStrokeColor(color.CGColor);
+            gc.SetLineWidth(lineWidth);
+            gc.SetLineCap(CGLineCap.Round);
+            gc.SetLineJoin(CGLineJoin.Round);
+
+            gc.BeginPath();
+
+            DrawCursorArrow(gc, center, new CGPoint(center.X, center.Y + inner), new CGPoint(center.X, center.Y + outer), arrowOffset);
+            DrawCursorArrow(gc, center, new CGPoint(center.X, center.Y - inner), new CGPoint(center.X, center.Y - outer), arrowOffset);
+            if (includeHorizontalArrows)
+            {
+                DrawCursorArrow(gc, center, new CGPoint(center.X - inner, center.Y), new CGPoint(center.X - outer, center.Y), arrowOffset);
+                DrawCursorArrow(gc, center, new CGPoint(center.X + inner, center.Y), new CGPoint(center.X + outer, center.Y), arrowOffset);
+            }
+
+            gc.StrokePath();
+        }
+
+        static void DrawCursorArrow(CGContext gc, CGPoint center, CGPoint shaftStart, CGPoint arrowTip, float arrowOffset)
+        {
+            gc.MoveTo(shaftStart.X, shaftStart.Y);
+            gc.AddLineToPoint(arrowTip.X, arrowTip.Y);
+
+            var dx = arrowTip.X - center.X;
+            var dy = arrowTip.Y - center.Y;
+
+            if (Math.Abs(dx) > Math.Abs(dy))
+            {
+                var direction = Math.Sign(dx);
+                gc.MoveTo(arrowTip.X, arrowTip.Y);
+                gc.AddLineToPoint(arrowTip.X - direction * arrowOffset, arrowTip.Y + arrowOffset);
+                gc.MoveTo(arrowTip.X, arrowTip.Y);
+                gc.AddLineToPoint(arrowTip.X - direction * arrowOffset, arrowTip.Y - arrowOffset);
+            }
+            else
+            {
+                var direction = Math.Sign(dy);
+                gc.MoveTo(arrowTip.X, arrowTip.Y);
+                gc.AddLineToPoint(arrowTip.X + arrowOffset, arrowTip.Y - direction * arrowOffset);
+                gc.MoveTo(arrowTip.X, arrowTip.Y);
+                gc.AddLineToPoint(arrowTip.X - arrowOffset, arrowTip.Y - direction * arrowOffset);
+            }
         }
 
         double ClampSplinePointDragTime(SplineInterpolator splineInterpolator, int pointIndex, double proposedTime)
