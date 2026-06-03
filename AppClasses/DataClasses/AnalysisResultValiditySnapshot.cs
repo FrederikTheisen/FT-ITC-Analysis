@@ -11,6 +11,7 @@ namespace AnalysisITC
     {
         Unknown,
         Valid,
+        PartialInvalid,
         Invalid
     }
 
@@ -29,6 +30,12 @@ namespace AnalysisITC
         public static AnalysisResultValidityReport Invalid(IEnumerable<string> reasons) => new()
         {
             Status = AnalysisResultValidity.Invalid,
+            Reasons = reasons?.ToList() ?? new List<string>()
+        };
+
+        public static AnalysisResultValidityReport PartialInvalid(IEnumerable<string> reasons) => new()
+        {
+            Status = AnalysisResultValidity.PartialInvalid,
             Reasons = reasons?.ToList() ?? new List<string>()
         };
 
@@ -83,17 +90,19 @@ namespace AnalysisITC
 
             try
             {
-                var reasons = new List<string>();
                 var model = solution.Model;
 
                 // The validity snapshot answers whether the stored analysis still matches
                 // the experiment inputs. Later solutions or model settings attached to the
                 // same experiments do not invalidate this analysis result.
-                CompareExperiments(model, reasons);
+                var comparison = CompareExperiments(model);
 
-                return reasons.Count == 0
-                    ? AnalysisResultValidityReport.Valid()
-                    : AnalysisResultValidityReport.Invalid(reasons);
+                if (comparison.Reasons.Count == 0)
+                    return AnalysisResultValidityReport.Valid();
+
+                return IsPartiallyInvalidResult(solution, comparison)
+                    ? AnalysisResultValidityReport.PartialInvalid(comparison.Reasons)
+                    : AnalysisResultValidityReport.Invalid(comparison.Reasons);
             }
             catch (Exception ex)
             {
@@ -101,8 +110,12 @@ namespace AnalysisITC
             }
         }
 
-        void CompareExperiments(GlobalModel model, List<string> reasons)
+        ExperimentComparisonSummary CompareExperiments(GlobalModel model)
         {
+            var summary = new ExperimentComparisonSummary
+            {
+                MemberCount = Experiments.Count
+            };
             var currentModels = model.Models ?? new List<Model>();
             var currentIds = currentModels
                 .Where(m => m?.Data != null)
@@ -116,7 +129,8 @@ namespace AnalysisITC
 
             if (!storedIds.SequenceEqual(currentIds))
             {
-                reasons.Add("Included experiment set changed.");
+                summary.HasResultLevelInvalidity = true;
+                summary.Reasons.Add("Included experiment set changed.");
             }
 
             foreach (var experiment in Experiments)
@@ -125,12 +139,29 @@ namespace AnalysisITC
 
                 if (currentModel == null)
                 {
-                    reasons.Add($"Experiment missing: {experiment.DisplayNameOrID}.");
+                    summary.HasResultLevelInvalidity = true;
+                    summary.Reasons.Add($"Experiment missing: {experiment.DisplayNameOrID}.");
                     continue;
                 }
 
-                experiment.Compare(currentModel, reasons);
+                if (experiment.Compare(currentModel, summary.Reasons))
+                    summary.ModifiedMemberCount++;
             }
+
+            return summary;
+        }
+
+        static bool IsPartiallyInvalidResult(GlobalSolution solution, ExperimentComparisonSummary comparison)
+        {
+            var parameters = solution?.Model?.Parameters;
+            var hasGlobalConstraints = parameters?.Constraints?.Any(con => con.Value != VariableConstraint.None) == true;
+            var requiresGlobalFitting = parameters?.RequiresGlobalFitting == true || hasGlobalConstraints;
+
+            return !requiresGlobalFitting
+                && !comparison.HasResultLevelInvalidity
+                && comparison.MemberCount > 1
+                && comparison.ModifiedMemberCount > 0
+                && comparison.ModifiedMemberCount < comparison.MemberCount;
         }
 
         internal static bool SameDouble(double stored, double current)
@@ -143,6 +174,14 @@ namespace AnalysisITC
         }
     }
 
+    sealed class ExperimentComparisonSummary
+    {
+        public List<string> Reasons { get; } = new();
+        public int MemberCount { get; set; }
+        public int ModifiedMemberCount { get; set; }
+        public bool HasResultLevelInvalidity { get; set; }
+    }
+
     public sealed class ExperimentFitInputSnapshot
     {
         public string ExperimentID { get; set; }
@@ -152,6 +191,7 @@ namespace AnalysisITC
         public double SyringeConcentration { get; set; }
         public double SyringeConcentrationSD { get; set; }
         public double CellVolume { get; set; }
+        public ExperimentProcessingSnapshot Processing { get; set; }
         public List<ExperimentAttributeSnapshot> Attributes { get; set; } = new();
         public List<InjectionFitInputSnapshot> IncludedInjections { get; set; } = new();
         public List<TandemSegmentSnapshot> Segments { get; set; } = new();
@@ -173,6 +213,7 @@ namespace AnalysisITC
                 SyringeConcentration = data.SyringeConcentration.Value,
                 SyringeConcentrationSD = data.SyringeConcentration.SD,
                 CellVolume = data.CellVolume,
+                Processing = ExperimentProcessingSnapshot.Capture(data),
                 Attributes = ExperimentAttributeSnapshot.Capture(data.Attributes),
                 IncludedInjections = data.Injections?
                     .Where(inj => inj.Include)
@@ -185,26 +226,37 @@ namespace AnalysisITC
             };
         }
 
-        public void Compare(Model currentModel, List<string> reasons)
+        public bool Compare(Model currentModel, List<string> reasons)
         {
             var data = currentModel.Data;
             var label = DisplayNameOrID;
             var offenses = new List<string>();
 
-            AddOffenseIfDifferent(offenses, CellConcentration, data.CellConcentration.Value, "cell concentration");
-            AddOffenseIfDifferent(offenses, CellConcentrationSD, data.CellConcentration.SD, "cell concentration uncertainty");
-            AddOffenseIfDifferent(offenses, SyringeConcentration, data.SyringeConcentration.Value, "syringe concentration");
-            AddOffenseIfDifferent(offenses, SyringeConcentrationSD, data.SyringeConcentration.SD, "syringe concentration uncertainty");
-            AddOffenseIfDifferent(offenses, CellVolume, data.CellVolume, "cell volume");
+            if (!AnalysisResultValiditySnapshot.SameDouble(CellConcentration, data.CellConcentration.Value)
+                || !AnalysisResultValiditySnapshot.SameDouble(CellConcentrationSD, data.CellConcentration.SD))
+            {
+                offenses.Add("cell concentration changed");
+            }
+
+            if (!AnalysisResultValiditySnapshot.SameDouble(SyringeConcentration, data.SyringeConcentration.Value)
+                || !AnalysisResultValiditySnapshot.SameDouble(SyringeConcentrationSD, data.SyringeConcentration.SD))
+            {
+                offenses.Add("syringe concentration changed");
+            }
+
+            AddOffenseIfDifferent(offenses, CellVolume, data.CellVolume, "cell volume changed");
+            var baselineChanged = Processing?.BaselineChangedComparedTo(ExperimentProcessingSnapshot.Capture(data)) ?? false;
             CompareAttributes(Attributes, ExperimentAttributeSnapshot.Capture(data.Attributes), offenses);
-            CompareInjections(data, offenses);
+            CompareInjections(data, offenses, baselineChanged);
             CompareSegments(data, offenses);
 
-            if (offenses.Count > 0)
-                reasons.Add($"{label}: {string.Join("; ", offenses.Distinct())}.");
+            if (offenses.Count == 0) return false;
+
+            reasons.Add($"{label}: {string.Join("; ", offenses.Distinct())}.");
+            return true;
         }
 
-        void CompareInjections(ExperimentData data, List<string> offenses)
+        void CompareInjections(ExperimentData data, List<string> offenses, bool baselineChanged)
         {
             var current = data.Injections?
                 .Where(inj => inj.Include)
@@ -216,13 +268,13 @@ namespace AnalysisITC
 
             if (!storedIds.SequenceEqual(currentIds))
             {
-                offenses.Add("injection inclusion");
+                offenses.Add("injection inclusion changed");
                 return;
             }
 
             for (int i = 0; i < IncludedInjections.Count; i++)
             {
-                IncludedInjections[i].Compare(current[i], offenses);
+                IncludedInjections[i].Compare(current[i], offenses, baselineChanged);
             }
         }
 
@@ -235,7 +287,7 @@ namespace AnalysisITC
 
             if (Segments.Count != current.Count)
             {
-                offenses.Add("tandem segment layout");
+                offenses.Add("tandem segment layout changed");
                 return;
             }
 
@@ -286,9 +338,9 @@ namespace AnalysisITC
         {
             return key switch
             {
-                AttributeKey.PreboundLigandConc => "ligand concentration attribute",
-                AttributeKey.BufferSubtraction => "buffer subtraction settings",
-                _ => "experiment attributes"
+                AttributeKey.PreboundLigandConc => "ligand concentration attribute changed",
+                AttributeKey.BufferSubtraction => "buffer subtraction settings changed",
+                _ => "fit-relevant experiment attributes changed"
             };
         }
 
@@ -299,10 +351,52 @@ namespace AnalysisITC
         }
     }
 
+    public sealed class ExperimentProcessingSnapshot
+    {
+        public BaselineInterpolatorTypes BaselineType { get; set; }
+        public int BaselinePointCount { get; set; }
+        public double BaselineFirstValue { get; set; }
+        public double BaselineLastValue { get; set; }
+        public double BaselineValueSum { get; set; }
+        public double BaselineValueSumSquares { get; set; }
+
+        public static ExperimentProcessingSnapshot Capture(ExperimentData data)
+        {
+            var interpolator = data?.Processor?.Interpolator;
+            var baseline = interpolator?.Baseline ?? new List<Energy>();
+
+            return new ExperimentProcessingSnapshot
+            {
+                BaselineType = data?.Processor?.BaselineType ?? BaselineInterpolatorTypes.None,
+                BaselinePointCount = baseline.Count,
+                BaselineFirstValue = baseline.Count > 0 ? baseline.First().Value : 0,
+                BaselineLastValue = baseline.Count > 0 ? baseline.Last().Value : 0,
+                BaselineValueSum = baseline.Sum(point => point.Value),
+                BaselineValueSumSquares = baseline.Sum(point => point.Value * point.Value)
+            };
+        }
+
+        public bool BaselineChangedComparedTo(ExperimentProcessingSnapshot current)
+        {
+            if (current == null) return false;
+
+            return BaselineType != current.BaselineType
+                || BaselinePointCount != current.BaselinePointCount
+                || !AnalysisResultValiditySnapshot.SameDouble(BaselineFirstValue, current.BaselineFirstValue)
+                || !AnalysisResultValiditySnapshot.SameDouble(BaselineLastValue, current.BaselineLastValue)
+                || !AnalysisResultValiditySnapshot.SameDouble(BaselineValueSum, current.BaselineValueSum)
+                || !AnalysisResultValiditySnapshot.SameDouble(BaselineValueSumSquares, current.BaselineValueSumSquares);
+        }
+    }
+
     public sealed class InjectionFitInputSnapshot
     {
         public int ID { get; set; }
         public double Volume { get; set; }
+        public double? IntegrationStartDelay { get; set; }
+        public double? IntegrationEndOffset { get; set; }
+        public double? RawPeakArea { get; set; }
+        public double? RawPeakAreaSD { get; set; }
         public double PeakArea { get; set; }
         public double PeakAreaSD { get; set; }
         public double ActualCellConcentration { get; set; }
@@ -315,6 +409,10 @@ namespace AnalysisITC
             {
                 ID = injection.ID,
                 Volume = injection.Volume,
+                IntegrationStartDelay = injection.IntegrationStartDelay,
+                IntegrationEndOffset = injection.IntegrationEndOffset,
+                RawPeakArea = injection.RawPeakArea.Value,
+                RawPeakAreaSD = injection.RawPeakArea.SD,
                 PeakArea = injection.PeakArea.Value,
                 PeakAreaSD = injection.PeakArea.SD,
                 ActualCellConcentration = injection.ActualCellConcentration,
@@ -323,17 +421,40 @@ namespace AnalysisITC
             };
         }
 
-        public void Compare(InjectionFitInputSnapshot current, List<string> offenses)
+        public void Compare(InjectionFitInputSnapshot current, List<string> offenses, bool baselineChanged)
         {
-            AddOffenseIfDifferent(offenses, Volume, current.Volume, "injection volumes");
-            AddOffenseIfDifferent(offenses, PeakArea, current.PeakArea, "integrated heats");
-            AddOffenseIfDifferent(offenses, PeakAreaSD, current.PeakAreaSD, "integrated heat uncertainties");
+            AddOffenseIfDifferent(offenses, Volume, current.Volume, "injection volumes changed");
+
+            var integrationWindowChanged =
+                NullableDifferent(IntegrationStartDelay, current.IntegrationStartDelay)
+                || NullableDifferent(IntegrationEndOffset, current.IntegrationEndOffset);
+            var rawHeatChanged =
+                NullableDifferent(RawPeakArea, current.RawPeakArea)
+                || NullableDifferent(RawPeakAreaSD, current.RawPeakAreaSD);
+            var correctedHeatChanged =
+                !AnalysisResultValiditySnapshot.SameDouble(PeakArea, current.PeakArea)
+                || !AnalysisResultValiditySnapshot.SameDouble(PeakAreaSD, current.PeakAreaSD);
+
+            if (rawHeatChanged || correctedHeatChanged)
+            {
+                var bufferSubtractionOnlyChange =
+                    correctedHeatChanged
+                    && !rawHeatChanged
+                    && offenses.Contains("buffer subtraction settings changed");
+
+                if (integrationWindowChanged && rawHeatChanged)
+                    offenses.Add("integration windows changed");
+                else if (baselineChanged && rawHeatChanged)
+                    offenses.Add("baseline correction changed");
+                else if (!bufferSubtractionOnlyChange)
+                    offenses.Add("processed heat values changed");
+            }
 
             if (!AnalysisResultValiditySnapshot.SameDouble(ActualCellConcentration, current.ActualCellConcentration)
                 || !AnalysisResultValiditySnapshot.SameDouble(ActualTitrantConcentration, current.ActualTitrantConcentration)
                 || !AnalysisResultValiditySnapshot.SameDouble(Ratio, current.Ratio))
             {
-                offenses.Add("concentration state");
+                offenses.Add("injection concentration state changed");
             }
         }
 
@@ -341,6 +462,13 @@ namespace AnalysisITC
         {
             if (!AnalysisResultValiditySnapshot.SameDouble(stored, current))
                 offenses.Add(offense);
+        }
+
+        static bool NullableDifferent(double? stored, double? current)
+        {
+            if (!stored.HasValue || !current.HasValue) return false;
+
+            return !AnalysisResultValiditySnapshot.SameDouble(stored.Value, current.Value);
         }
     }
 
@@ -363,12 +491,12 @@ namespace AnalysisITC
         public void Compare(TandemSegmentSnapshot current, List<string> offenses)
         {
             if (FirstInjectionID != current.FirstInjectionID)
-                offenses.Add("tandem segment layout");
+                offenses.Add("tandem segment layout changed");
 
             if (!AnalysisResultValiditySnapshot.SameDouble(SegmentInitialActiveCellConc, current.SegmentInitialActiveCellConc)
                 || !AnalysisResultValiditySnapshot.SameDouble(SegmentInitialActiveTitrantConc, current.SegmentInitialActiveTitrantConc))
             {
-                offenses.Add("tandem segment concentrations");
+                offenses.Add("tandem segment concentrations changed");
             }
         }
     }

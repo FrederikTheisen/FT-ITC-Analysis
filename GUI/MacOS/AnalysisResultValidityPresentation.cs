@@ -43,20 +43,20 @@ namespace AnalysisITC
         public static NSMutableAttributedString ReportText(AnalysisResult result, NSFont font)
         {
             var report = result?.ValidityReport ?? AnalysisResultValidityReport.Unknown("No analysis result is selected.");
-            var statusText = StatusText(report.Status);
-            var heading = "Validity: " + statusText;
+            var statusText = ReportHeaderMessage(report.Status);
+            var heading = "Status: " + statusText;
             var markdown = BuildReportMarkdown(result, report, heading);
             var attributed = new NSMutableAttributedString();
             attributed.Append(MacStrings.FromMarkDownString(markdown, font));
 
-            var headingLength = Math.Min(heading.Length, attributed.Value.Length);
-            if (headingLength > 0)
-            {
-                attributed.AddAttribute(
-                    NSStringAttributeKey.ForegroundColor,
-                    StatusColor(report.Status),
-                    new NSRange(0, headingLength));
-            }
+            //var headingLength = Math.Min(heading.Length, attributed.Value.Length);
+            //if (headingLength > 0)
+            //{
+            //    attributed.AddAttribute(
+            //        NSStringAttributeKey.ForegroundColor,
+            //        StatusColor(report.Status),
+            //        new NSRange(0, headingLength));
+            //}
 
             return attributed;
         }
@@ -71,15 +71,15 @@ namespace AnalysisITC
             if (report.Reasons.Count > 0)
             {
                 foreach (var reason in report.Reasons)
-                    lines.Add("- " + reason);
+                    lines.Add("--" + reason + "--");
             }
             else if (report.Status == AnalysisResultValidity.Valid)
             {
-                lines.Add("Stored fit inputs match the current data.");
+                lines.Add("--Cached data matches current.--");
             }
             else
             {
-                lines.Add("Validity could not be determined.");
+                lines.Add("--Validity could not be determined.--");
             }
 
             return string.Join(Environment.NewLine, lines);
@@ -107,7 +107,7 @@ namespace AnalysisITC
 
                 lines.Add($"**{mdl.Data.Name}**");
                 lines.Add($"  --Date: {mdl.Data.UIShortDateWithTime}");
-                lines.Add($"  Temperature: {mdl.Data.MeasuredTemperature:G3}--");
+                lines.Add($"  Temperature: {mdl.Data.MeasuredTemperature:G3} °C--");
             }
 
             return lines;
@@ -118,8 +118,20 @@ namespace AnalysisITC
             return status switch
             {
                 AnalysisResultValidity.Valid => "Analysis is Valid",
-                AnalysisResultValidity.Invalid => "Invalid Analysis",
+                AnalysisResultValidity.PartialInvalid => "Partially Invalid",
+                AnalysisResultValidity.Invalid => "Invalid",
                 _ => "Unknown Status"
+            };
+        }
+
+        static string ReportHeaderMessage(AnalysisResultValidity status)
+        {
+            return status switch
+            {
+                AnalysisResultValidity.Valid => "The analysis is valid.",
+                AnalysisResultValidity.PartialInvalid => "Partially invalid analysis.",
+                AnalysisResultValidity.Invalid => "Invalid analysis.",
+                _ => "Validity could not be determined."
             };
         }
 
@@ -128,6 +140,7 @@ namespace AnalysisITC
             return status switch
             {
                 AnalysisResultValidity.Valid => NSColor.SystemGreen, // NSColor.FromCalibratedRgb(0.22f, 0.72f, 0.34f),
+                AnalysisResultValidity.PartialInvalid => NSColor.SystemOrange,
                 AnalysisResultValidity.Invalid => NSColor.SystemRed, // NSColor.FromCalibratedRgb(0.95f, 0.36f, 0.32f),
                 _ => NSColor.SystemYellow // NSColor.FromCalibratedRgb(0.95f, 0.69f, 0.20f)
             }; // ; ;
