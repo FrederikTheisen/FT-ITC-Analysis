@@ -1,9 +1,9 @@
 {
-  "title": "FT-ITC Analysis: software for processing and analysis of isothermal titration calorimetry experiments",
-  "authors": "Frederik Friis Theisen",
-  "journal": "Not Yet Published",
-  "year": "2026",
-  "doi": "10.5281/zenodo.14832177",
-  "message": "Please cite this paper when using FT-ITC Analysis.",
-  "version": "0.0"
+    "title": "FT-ITC Analysis: a macOS desktop application for processing and analysis of isothermal titration calorimetry data",
+    "authors": "Frederik Friis Theisen",
+    "journal": "Not Yet Published",
+    "year": "2026",
+    "doi": "10.5281/zenodo.14832177",
+    "message": "Please cite this paper when using FT-ITC Analysis.",
+    "version": "1.1.0"
 }
