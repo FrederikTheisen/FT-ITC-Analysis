@@ -183,6 +183,8 @@ namespace AnalysisITC
             UnifiedPowerAxis = EmbeddedUnifiedPowerAxis,
             DrawCorrected = EmbeddedDrawCorrected,
             DrawBaseline = EmbeddedDrawBaseline,
+            ShowIntegrationRegions = EmbeddedShowIntegrationRegions,
+            IntegrationRegionStyleControl = EmbeddedIntegrationRegionStyleControl,
             BaselineStyleControl = EmbeddedBaselineStyleControl,
             BaselineThicknessControl = EmbeddedBaselineThicknessControl,
             BaselineThicknessLabel = EmbeddedBaselineThicknessLabel,

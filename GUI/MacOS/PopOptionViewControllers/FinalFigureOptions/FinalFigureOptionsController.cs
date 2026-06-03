@@ -47,6 +47,8 @@ namespace AnalysisITC
             public NSSwitch UnifiedPowerAxis { get; set; }
             public NSSwitch DrawCorrected { get; set; }
             public NSSwitch DrawBaseline { get; set; }
+            public NSSwitch ShowIntegrationRegions { get; set; }
+            public NSSegmentedControl IntegrationRegionStyleControl { get; set; }
             public NSSegmentedControl BaselineStyleControl { get; set; }
             public NSStepper BaselineThicknessControl { get; set; }
             public NSTextField BaselineThicknessLabel { get; set; }
@@ -307,7 +309,9 @@ namespace AnalysisITC
 
             SetState(controls.UnifiedPowerAxis, FinalFigureGraphView.UnifiedPowerAxis);
             SetState(controls.DrawBaseline, FinalFigureGraphView.DrawBaseline);
+            SetState(controls.ShowIntegrationRegions, FinalFigureGraphView.ShowIntegrationRegions);
             SetState(controls.DrawCorrected, FinalFigureGraphView.DrawBaselineCorrected);
+            controls.IntegrationRegionStyleControl?.SelectSegment((int)FinalFigureGraphView.IntegrationRegionDisplayStyle);
             controls.TimeUnitControl?.SelectSegment((int)FinalFigureGraphView.TimeAxisUnit);
 
             if (controls.PowerAxisTitleLabel != null && FinalFigureGraphView.PowerAxisTitleIsChanged)
@@ -361,6 +365,16 @@ namespace AnalysisITC
             if (controls.DrawBaseline != null)
             {
                 FinalFigureGraphView.DrawBaseline = IsOn(controls.DrawBaseline);
+            }
+
+            if (controls.ShowIntegrationRegions != null)
+            {
+                FinalFigureGraphView.ShowIntegrationRegions = IsOn(controls.ShowIntegrationRegions);
+            }
+
+            if (controls.IntegrationRegionStyleControl != null)
+            {
+                FinalFigureGraphView.IntegrationRegionDisplayStyle = (IntegrationRegionDisplayStyle)(int)controls.IntegrationRegionStyleControl.SelectedSegment;
             }
 
             if (controls.DrawCorrected != null)

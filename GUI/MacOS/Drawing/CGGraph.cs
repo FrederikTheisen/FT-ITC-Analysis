@@ -33,6 +33,13 @@ namespace AnalysisITC
         Dashed
     }
 
+    public enum IntegrationRegionDisplayStyle
+    {
+        Bar = 0,
+        Fill = 1,
+        Line = 2,
+    }
+
     public class GraphBase
     {
         public const float PiHalf = (float)Math.PI / 2;
@@ -1042,6 +1049,8 @@ namespace AnalysisITC
         public BaselineDisplayStyle BaselineDisplayStyle { get; set; } = BaselineDisplayStyle.Solid;
 
         public bool ShowBaseline { get; set; } = true;
+        public bool ShowIntegrationRegions { get; set; } = false;
+        public IntegrationRegionDisplayStyle IntegrationRegionDisplayStyle { get; set; } = IntegrationRegionDisplayStyle.Fill;
         public bool ShowExperimentDetails { get; set; } = false;
         public FinalFigureDisplayParameters FinalFigureDisplayParameters { get; set; } = FinalFigureDisplayParameters.None;
         public InformationBoxPlacement InformationBoxPlacement { get; set; } = InformationBoxPlacement.Auto;
@@ -1057,12 +1066,228 @@ namespace AnalysisITC
 
         internal override void Draw(CGContext gc)
         {
+            if (ShouldDrawIntegrationRegions && IntegrationRegionDisplayStyle == IntegrationRegionDisplayStyle.Fill)
+            {
+                DrawIntegrationRegions(gc);
+            }
+
             base.Draw(gc);
 
             if (ShowBaseline && ExperimentData.Processor.Interpolator != null && ExperimentData.Processor.Interpolator.Finished) DrawBaseline(gc);
 
+            if (ShouldDrawIntegrationRegions && IntegrationRegionDisplayStyle != IntegrationRegionDisplayStyle.Fill)
+            {
+                DrawIntegrationRegions(gc);
+            }
+
             if (ShowExperimentDetails) DrawExperimentDetails(gc);
         }
+
+        void DrawIntegrationRegions(CGContext gc)
+        {
+            switch (IntegrationRegionDisplayStyle)
+            {
+                case IntegrationRegionDisplayStyle.Bar:
+                    DrawIntegrationRegionBars(gc);
+                    break;
+                case IntegrationRegionDisplayStyle.Line:
+                    DrawIntegrationRegionEndpointLines(gc);
+                    break;
+                case IntegrationRegionDisplayStyle.Fill:
+                default:
+                    DrawIntegratedPeakAreas(gc);
+                    break;
+            }
+        }
+
+        void DrawIntegratedPeakAreas(CGContext gc)
+        {
+            if (ExperimentData.Injections == null || ExperimentData.Injections.Count == 0) return;
+            if (DataPoints == null || DataPoints.Count == 0) return;
+            if (!ShowBaselineCorrected && !HasInterpolatedBaseline) return;
+
+            var layer = CGLayer.Create(gc, Frame.Size);
+            var fillColor = NSColor.Black.CGColor;
+
+            layer.Context.SetFillColor(fillColor);
+
+            foreach (var inj in ExperimentData.Injections.Where(inj => inj.Include))
+            {
+                if (inj.IntegrationEndTime < XAxis.Min || inj.IntegrationStartTime > XAxis.Max) continue;
+
+                var start = Math.Max(inj.IntegrationStartTime, XAxis.Min);
+                var end = Math.Min(inj.IntegrationEndTime, XAxis.Max);
+                if (end <= start) continue;
+
+                var areaTimes = IntegrationAreaTimes(start, end);
+                if (areaTimes.Count < 2) continue;
+
+                var peakPoints = areaTimes.Select(DataPointAt).ToList();
+                var baselinePoints = areaTimes.Select(BaselinePointAt).ToList();
+
+                var path = new CGPath();
+                path.MoveToPoint(baselinePoints[0]);
+
+                foreach (var point in peakPoints)
+                {
+                    path.AddLineToPoint(point);
+                }
+
+                foreach (var point in baselinePoints.AsEnumerable().Reverse())
+                {
+                    path.AddLineToPoint(point);
+                }
+
+                path.CloseSubpath();
+
+                layer.Context.AddPath(path);
+                layer.Context.FillPath();
+            }
+
+            gc.DrawLayer(layer, Frame.Location);
+        }
+
+        List<double> IntegrationAreaTimes(double start, double end)
+        {
+            var times = new List<double>
+            {
+                start
+            };
+
+            foreach (var dp in DataPoints.Where(dp => dp.Time > start && dp.Time < end))
+            {
+                times.Add(dp.Time);
+            }
+
+            times.Add(end);
+            return times;
+        }
+
+        CGPoint DataPointAt(double time)
+        {
+            return GetRelativePosition(time, InterpolatePower(DataPoints, time));
+        }
+
+        CGPoint BaselinePointAt(double time)
+        {
+            return GetRelativePosition(time, ShowBaselineCorrected ? 0 : InterpolateBaseline(time));
+        }
+
+        double InterpolatePower(List<DataPoint> points, double time)
+        {
+            if (time <= points.First().Time) return points.First().Power;
+            if (time >= points.Last().Time) return points.Last().Power;
+
+            for (int i = 1; i < points.Count; i++)
+            {
+                if (points[i].Time < time) continue;
+
+                var previous = points[i - 1];
+                var current = points[i];
+                return Interpolate(time, previous.Time, previous.Power, current.Time, current.Power);
+            }
+
+            return points.Last().Power;
+        }
+
+        double InterpolateBaseline(double time)
+        {
+            var rawPoints = ExperimentData.DataPoints;
+            var baseline = ExperimentData.Processor.Interpolator.Baseline;
+
+            if (time <= rawPoints.First().Time) return baseline.First().Value;
+            if (time >= rawPoints.Last().Time) return baseline.Last().Value;
+
+            for (int i = 1; i < rawPoints.Count; i++)
+            {
+                if (rawPoints[i].Time < time) continue;
+
+                return Interpolate(time, rawPoints[i - 1].Time, baseline[i - 1].Value, rawPoints[i].Time, baseline[i].Value);
+            }
+
+            return baseline.Last().Value;
+        }
+
+        bool HasInterpolatedBaseline =>
+            ExperimentData.Processor?.Interpolator != null &&
+            ExperimentData.Processor.Interpolator.Finished &&
+            ExperimentData.Processor.Interpolator.Baseline.Count == ExperimentData.DataPoints.Count;
+
+        static double Interpolate(double x, double x1, double y1, double x2, double y2)
+        {
+            if (Math.Abs(x2 - x1) < double.Epsilon) return y1;
+
+            var fraction = (x - x1) / (x2 - x1);
+            return y1 + fraction * (y2 - y1);
+        }
+
+        void DrawIntegrationRegionBars(CGContext gc)
+        {
+            if (ExperimentData.Injections == null || ExperimentData.Injections.Count == 0) return;
+
+            var layer = CGLayer.Create(gc, Frame.Size);
+            const float barHeight = 3f;
+            const float margin = 5f;
+            var placeAtTop = ExperimentData.AverageHeatDirection != PeakHeatDirection.Endothermal;
+            var y = placeAtTop ? Frame.Height - margin - barHeight : margin;
+            var fillColor = NSColor.SystemGray.ColorWithAlphaComponent(.5f).CGColor;
+
+            layer.Context.SetFillColor(fillColor);
+
+            foreach (var inj in ExperimentData.Injections.Where(inj => inj.Include))
+            {
+                if (inj.IntegrationEndTime < XAxis.Min || inj.IntegrationStartTime > XAxis.Max) continue;
+
+                var start = GetRelativePosition(inj.IntegrationStartTime, YAxis.Min);
+                var end = GetRelativePosition(inj.IntegrationEndTime, YAxis.Min);
+                var left = Math.Max(0, Math.Min(start.X, end.X));
+                var right = Math.Min(Frame.Width, Math.Max(start.X, end.X));
+
+                if (right <= left) continue;
+
+                layer.Context.FillRect(new CGRect(left, y, right - left, barHeight));
+            }
+
+            gc.DrawLayer(layer, Frame.Location);
+        }
+
+        void DrawIntegrationRegionEndpointLines(CGContext gc)
+        {
+            if (ExperimentData.Injections == null || ExperimentData.Injections.Count == 0) return;
+            if (!ShowBaselineCorrected && !HasInterpolatedBaseline) return;
+
+            var layer = CGLayer.Create(gc, Frame.Size);
+            const float lineHeight = 8f;
+            const float lineWidth = 1f;
+            var halfHeight = lineHeight / 2;
+            var color = NSColor.SystemGray.ColorWithAlphaComponent(.5f).CGColor;
+
+            layer.Context.SetStrokeColor(color);
+            layer.Context.SetLineWidth(lineWidth);
+
+            foreach (var inj in ExperimentData.Injections.Where(inj => inj.Include))
+            {
+                DrawIntegrationRegionEndpointLine(layer.Context, inj.IntegrationStartTime, halfHeight);
+                DrawIntegrationRegionEndpointLine(layer.Context, inj.IntegrationEndTime, halfHeight);
+            }
+
+            gc.DrawLayer(layer, Frame.Location);
+        }
+
+        void DrawIntegrationRegionEndpointLine(CGContext context, double time, float halfHeight)
+        {
+            if (time < XAxis.Min || time > XAxis.Max) return;
+
+            var center = BaselinePointAt(time);
+            var y1 = (float)Math.Max(0, center.Y - halfHeight);
+            var y2 = (float)Math.Min(Frame.Height, center.Y + halfHeight);
+
+            context.MoveTo(center.X, y1);
+            context.AddLineToPoint(center.X, y2);
+            context.StrokePath();
+        }
+
+        bool ShouldDrawIntegrationRegions => ExperimentData.HasThermogram && ShowIntegrationRegions;
 
         internal void DrawBaseline(CGContext gc)
         {

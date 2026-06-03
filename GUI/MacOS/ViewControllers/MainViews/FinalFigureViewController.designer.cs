@@ -124,6 +124,9 @@ namespace AnalysisITC
 		AppKit.NSSegmentedControl EmbeddedInformationBoxPositionControl { get; set; }
 
 		[Outlet]
+		AppKit.NSSegmentedControl EmbeddedIntegrationRegionStyleControl { get; set; }
+
+		[Outlet]
 		AppKit.NSSwitch EmbeddedModelInfoControl { get; set; }
 
 		[Outlet]
@@ -146,6 +149,9 @@ namespace AnalysisITC
 
 		[Outlet]
 		AppKit.NSSwitch EmbeddedShowDataGraphControl { get; set; }
+
+		[Outlet]
+		AppKit.NSSwitch EmbeddedShowIntegrationRegions { get; set; }
 
 		[Outlet]
 		AppKit.NSSwitch EmbeddedShowParametersControl { get; set; }
@@ -412,6 +418,11 @@ namespace AnalysisITC
 				EmbeddedInformationBoxPositionControl = null;
 			}
 
+			if (EmbeddedIntegrationRegionStyleControl != null) {
+				EmbeddedIntegrationRegionStyleControl.Dispose ();
+				EmbeddedIntegrationRegionStyleControl = null;
+			}
+
 			if (EmbeddedModelInfoControl != null) {
 				EmbeddedModelInfoControl.Dispose ();
 				EmbeddedModelInfoControl = null;
@@ -445,6 +456,11 @@ namespace AnalysisITC
 			if (EmbeddedShowDataGraphControl != null) {
 				EmbeddedShowDataGraphControl.Dispose ();
 				EmbeddedShowDataGraphControl = null;
+			}
+
+			if (EmbeddedShowIntegrationRegions != null) {
+				EmbeddedShowIntegrationRegions.Dispose ();
+				EmbeddedShowIntegrationRegions = null;
 			}
 
 			if (EmbeddedShowParametersControl != null) {

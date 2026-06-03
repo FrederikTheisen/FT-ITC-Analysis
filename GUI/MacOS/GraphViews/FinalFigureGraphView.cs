@@ -126,6 +126,8 @@ namespace AnalysisITC
 
         public static bool UnifiedPowerAxis { get; set; } = false;
         public static bool DrawBaseline { get; set; } = false;
+        public static bool ShowIntegrationRegions { get; set; } = false;
+        public static IntegrationRegionDisplayStyle IntegrationRegionDisplayStyle { get; set; } = IntegrationRegionDisplayStyle.Fill;
         public static bool DrawBaselineCorrected { get; set; } = true;
         public static string SyringeName { get; set; } = "";
         public static string CellName { get; set; } = "";
@@ -224,6 +226,8 @@ namespace AnalysisITC
                 TimeAxisTitle = TimeAxisTitle,
                 UseUnifiedDataAxes = UnifiedPowerAxis,
                 ShouldDrawBaseline = DrawBaseline,
+                ShowIntegrationRegions = ShowIntegrationRegions,
+                IntegrationRegionDisplayStyle = IntegrationRegionDisplayStyle,
                 DrawBaselineCorrected = DrawBaselineCorrected,
                 BaselineThickness = BaselineThickness,
                 BaselineDisplayStyle = BaselineDisplayStyle,
@@ -308,39 +312,116 @@ namespace AnalysisITC
 
                     foreach (var target in exportTargets)
                     {
-                        var data = target.Data;
-                        var g = FinalFigureGraphView.SetupForExport(data);
-                        var path = NSUrl.CreateFileUrl(target.Path, null);
-                        var parameters = BuildPdfMetadataKeywords(data);
-
-                        var pdfInfo = new CGPDFInfo
-                        {
-                            Title = data.Name,
-                            Author = MarkdownStrings.AppName,
-                            Creator = $"{MarkdownStrings.AppName} v{AppVersion.FullVersionString}",
-                            Subject = $"ITC publication figure",
-                            Keywords = parameters.ToArray(),
-                        };
-
-                        var x = new CGContextPDF(path, pdfInfo);
-                        x.BeginPage(new CGRect(new CGPoint(0, 0), g.PrintBox.Size));
-                        g.Draw(x, new CGPoint(g.PrintBox.Width / 2, g.PrintBox.Height / 2));
-                        x.EndPage();
-                        x.Close();
-                        path.Dispose();
+                        WriteFigurePdf(target.Data, target.Path);
                     }
                 }
             });
         }
 
+        public static void Export(AnalysisResult result)
+        {
+            if (result == null)
+            {
+                AppEventHandler.DisplayHandledException(new HandledException(
+                    HandledException.Severity.Warning,
+                    "No Analysis Result Selected",
+                    "Select an analysis result before exporting associated final figures."));
+                return;
+            }
+
+            var validityReport = result.ValidityReport;
+            if (!validityReport.IsValid)
+            {
+                var reasons = validityReport.Reasons ?? new List<string>();
+                var reason = reasons.Count > 0
+                    ? string.Join(Environment.NewLine, reasons)
+                    : "The analysis result does not match the current experiment data.";
+
+                AppEventHandler.DisplayHandledException(new HandledException(
+                    HandledException.Severity.Warning,
+                    "Invalid Analysis Result",
+                    "Associated final figures can only be exported for analysis results that are valid for the current data."
+                    + Environment.NewLine + Environment.NewLine + reason));
+                return;
+            }
+
+            var datas = result.Solution?.Solutions?
+                .Where(solution => solution?.Data != null)
+                .Select(solution => solution.Data)
+                .ToList() ?? new List<ExperimentData>();
+
+            if (datas.Count == 0)
+            {
+                AppEventHandler.DisplayHandledException(new HandledException(
+                    HandledException.Severity.Warning,
+                    "No Figures Selected",
+                    "The selected analysis result does not contain any experiments to export."));
+                return;
+            }
+
+            var dlg = new NSOpenPanel();
+            dlg.Title = "Export Analysis Result Figures";
+            dlg.Message = "Choose the parent folder for the exported PDF figures.";
+            dlg.Prompt = "Export";
+            dlg.CanChooseDirectories = true;
+            dlg.CanCreateDirectories = true;
+            dlg.CanChooseFiles = false;
+
+            dlg.BeginSheet(NSApplication.SharedApplication.MainWindow, (modalResult) =>
+            {
+                if (modalResult != (int)NSModalResponse.OK) return;
+
+                var parentFolderPath = dlg.Url?.Path;
+                if (string.IsNullOrWhiteSpace(parentFolderPath)) return;
+
+                var resultFolderPath = Path.Combine(parentFolderPath, SanitizeFileName(result.Name));
+                var exportTargets = CreateFigureExportTargets(
+                    datas,
+                    resultFolderPath,
+                    data => $"{data.Name}");
+
+                if (!ConfirmOverwriteIfNeeded(NSApplication.SharedApplication.MainWindow, exportTargets.Select(t => t.Path)))
+                    return;
+
+                try
+                {
+                    Directory.CreateDirectory(resultFolderPath);
+                }
+                catch (Exception ex)
+                {
+                    AppEventHandler.DisplayHandledException(new HandledException(
+                        HandledException.Severity.Error,
+                        "Could Not Create Export Folder",
+                        $"Could not create the export folder:\n{resultFolderPath}\n\n{ex.Message}"));
+                    return;
+                }
+
+                DataManager.LoadResultSolutionsToExperiments(result);
+                DataManager.InvokeUpdateDataViewCells();
+                DataAnalysisViewController.InvalidateGraph();
+
+                foreach (var target in exportTargets)
+                {
+                    WriteFigurePdf(target.Data, target.Path);
+                }
+
+                StatusBarManager.SetStatus("Analysis result figures exported", 3000);
+            });
+        }
+
         static List<FigureExportTarget> CreateFigureExportTargets(List<ExperimentData> datas, string folderPath)
+        {
+            return CreateFigureExportTargets(datas, folderPath, data => data.Name);
+        }
+
+        static List<FigureExportTarget> CreateFigureExportTargets(IEnumerable<ExperimentData> datas, string folderPath, Func<ExperimentData, string> nameFactory)
         {
             var targets = new List<FigureExportTarget>();
             var usedFileNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
             foreach (var data in datas)
             {
-                var baseFileName = SanitizeFileName(data.Name);
+                var baseFileName = SanitizeFileName(nameFactory(data));
                 var fileName = baseFileName + ".pdf";
                 var suffix = 2;
 
@@ -355,6 +436,29 @@ namespace AnalysisITC
             }
 
             return targets;
+        }
+
+        static void WriteFigurePdf(ExperimentData data, string outputPath)
+        {
+            var g = FinalFigureGraphView.SetupForExport(data);
+            var path = NSUrl.CreateFileUrl(outputPath, null);
+            var parameters = BuildPdfMetadataKeywords(data);
+
+            var pdfInfo = new CGPDFInfo
+            {
+                Title = data.Name,
+                Author = MarkdownStrings.AppName,
+                Creator = $"{MarkdownStrings.AppName} v{AppVersion.FullVersionString}",
+                Subject = $"ITC publication figure",
+                Keywords = parameters.ToArray(),
+            };
+
+            var x = new CGContextPDF(path, pdfInfo);
+            x.BeginPage(new CGRect(new CGPoint(0, 0), g.PrintBox.Size));
+            g.Draw(x, new CGPoint(g.PrintBox.Width / 2, g.PrintBox.Height / 2));
+            x.EndPage();
+            x.Close();
+            path.Dispose();
         }
 
         static string SanitizeFileName(string name)
@@ -556,6 +660,8 @@ namespace AnalysisITC
                 TimeAxisTitle = TimeAxisTitle,
                 UseUnifiedDataAxes = UnifiedPowerAxis,
                 ShouldDrawBaseline = DrawBaseline,
+                ShowIntegrationRegions = ShowIntegrationRegions,
+                IntegrationRegionDisplayStyle = IntegrationRegionDisplayStyle,
                 DrawBaselineCorrected = DrawBaselineCorrected,
                 BaselineThickness = BaselineThickness,
                 BaselineDisplayStyle = BaselineDisplayStyle,

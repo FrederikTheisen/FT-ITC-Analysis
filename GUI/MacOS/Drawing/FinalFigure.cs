@@ -186,6 +186,30 @@ namespace AnalysisITC
             }
         }
 
+        public bool ShowIntegrationRegions
+        {
+            get => DataGraph != null && DataGraph.ShowIntegrationRegions;
+            set
+            {
+                if (DataGraph != null)
+                {
+                    DataGraph.ShowIntegrationRegions = value;
+                }
+            }
+        }
+
+        public IntegrationRegionDisplayStyle IntegrationRegionDisplayStyle
+        {
+            get => DataGraph?.IntegrationRegionDisplayStyle ?? IntegrationRegionDisplayStyle.Fill;
+            set
+            {
+                if (DataGraph != null)
+                {
+                    DataGraph.IntegrationRegionDisplayStyle = value;
+                }
+            }
+        }
+
         public float BaselineThickness
         {
             get => DataGraph?.BaselineThickness ?? 2;
