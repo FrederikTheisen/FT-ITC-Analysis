@@ -6,6 +6,10 @@ Tandem experiment back-mixing compensated merging function now uses data based o
 ##VERSION 1.2.0
 Implemented feature to allow drawing a reference buffer titration in the same plot
 
+#VERSION 1.1.2
+Updated the spline point movement cursor design
+Added processing graph zoom rectangle zoom icon
+
 #VERSION 1.1.1
 Updated the Final Figure integration region display style
 
