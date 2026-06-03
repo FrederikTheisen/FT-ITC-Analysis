@@ -130,6 +130,16 @@ namespace AnalysisITC
             ResultLinkedExperimentHighlightDidChange?.Invoke(null, null);
         }
 
+        public static void LoadResultSolutionsToExperiments(AnalysisResult result)
+        {
+            if (result?.Solution?.Solutions == null) return;
+
+            foreach (var solution in result.Solution.Solutions)
+            {
+                solution?.Data?.UpdateSolution(solution.Model);
+            }
+        }
+
         static string DescribeItem(ITCDataContainer item)
         {
             if (item == null) return "<null>";
