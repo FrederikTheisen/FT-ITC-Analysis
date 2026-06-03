@@ -63,11 +63,6 @@ The application includes built-in help and science notes covering data loading, 
 If you report a bug, please include:
 
 - the application version,
-- the macOS version,
-- the input file type,
-- what you expected to happen,
-- what happened instead,
-- steps to reproduce the issue,
 - a minimal example dataset or exported project when possible.
 
 The app can generate a support report from the Help menu. Review the report before sending it if your log or data file names may contain sensitive information.
