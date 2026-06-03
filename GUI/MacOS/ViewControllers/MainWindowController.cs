@@ -470,6 +470,7 @@ namespace AnalysisITC
             menu.AddItem(CreateContextMenuItem("Export result...", "resultexporter", hasResult, (s, e) => AppDelegate.LaunchResultExporter()));
             menu.AddItem(CreateContextMenuItem("Export associated final figures...", "exportresultfigures", CanExportSelectedResultFinalFigures(), (s, e) => ExportSelectedResultFinalFigures()));
             menu.AddItem(NSMenuItem.SeparatorItem);
+            menu.AddItem(CreateContextMenuItem("Update result", "updateresult", hasResult && !stopableProcessRunning, async (s, e) => await UpdateSelectedResult()));
             menu.AddItem(CreateContextMenuItem("Set active experiments", "setactiveexperiments", hasResult, (s, e) => SetSelectedResultExperimentsActive()));
             menu.AddItem(CreateContextMenuItem("Load solution to experiments", "loadsolutiontoexperiments", hasResult, (s, e) => LoadSelectedResultSolutionsToExperiments()));
             menu.AddItem(NSMenuItem.SeparatorItem);
@@ -658,6 +659,8 @@ namespace AnalysisITC
         {
             var hasResult = DataManager.SelectedResult != null;
 
+            menu.AddItem(CreateContextMenuItem("Update result", "updateresult", hasResult && !stopableProcessRunning, async (s, e) => await UpdateSelectedResult()));
+            menu.AddItem(NSMenuItem.SeparatorItem);
             menu.AddItem(CreateErrorStyleMenuItem(hasResult));
             menu.AddItem(CreateTemperatureUnitMenuItem(hasResult));
             menu.AddItem(CreateEnergyUnitMenuItem(hasResult));
@@ -1072,6 +1075,36 @@ namespace AnalysisITC
             DataManager.InvokeUpdateDataViewCells();
             DataAnalysisViewController.InvalidateGraph();
             UpdateContextToolbarMenu();
+        }
+
+        async Task UpdateSelectedResult()
+        {
+            var result = DataManager.SelectedResult;
+            if (result == null) return;
+
+            StatusBarManager.SetStatus("Updating analysis result...", 0, priority: 1);
+
+            try
+            {
+                var convergence = await AnalysisResultUpdater.UpdateAsync(result);
+
+                StatusBarManager.ClearAppStatus();
+                StatusBarManager.SetStatus($"{convergence.Algorithm.GetProperties().ShortName} | RMSD = {convergence.Loss:G4}", 8000);
+                StatusBarManager.SetStatus("Analysis result updated", 3000);
+
+                DataManager.InvokeUpdateDataViewCells();
+                DataManager.InvokeUpdateTable();
+                DataAnalysisViewController.InvalidateGraph();
+                FinalFigureGraphView.Invalidate();
+                AnalysisResultTabViewController.RequestDisplayRefresh();
+                UpdateContextToolbarMenu();
+            }
+            catch (Exception ex)
+            {
+                StatusBarManager.ClearAppStatus();
+                AppEventHandler.DisplayHandledException(ex);
+                UpdateContextToolbarMenu();
+            }
         }
 
         bool CanExportSelectedResultFinalFigures()
