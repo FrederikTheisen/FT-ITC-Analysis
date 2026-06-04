@@ -4,7 +4,10 @@
 Tandem experiment back-mixing compensated merging function now uses data based optimal mixing fraction of XXXX%
 Implemented feature to allow drawing a reference buffer titration in the same plot
 
-##VERSION 1.2.0
+##VERSION 1.2.1
+Minor user interface bug fixes
+
+#VERSION 1.2.0
 NEW FEATURE: Added option to re-analyze existing result using the same settings and constraints
 
 #VERSION 1.1.2
