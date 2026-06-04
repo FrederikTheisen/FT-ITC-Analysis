@@ -649,6 +649,13 @@ namespace AnalysisITC
             MarkModified();
         }
 
+        public void ReplaceSegments(IEnumerable<TandemExperimentSegment> segments)
+        {
+            Segments = segments?.ToList();
+            InvalidateSegmentLookup();
+            MarkModified();
+        }
+
         void EnsureSegmentStartLookup()
         {
             if (segmentStartLookup != null) return;

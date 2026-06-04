@@ -80,7 +80,7 @@ namespace AnalysisITC
         {
             // Open experiments are DataManager.Data
             Items = DataManager.Data
-                .Where(d => d.HasThermogram || !musthavethermogram)
+                .Where(d => (d.HasThermogram || !musthavethermogram) && !d.IsTandemExperiment)
                 .Select(d => new MergeExperimentItem(d, active: defaultActiveFromInclude ? d.Include : true))
                 .ToList();
 

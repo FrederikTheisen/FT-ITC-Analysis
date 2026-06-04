@@ -123,6 +123,9 @@ namespace AnalysisITC
         {
             if (experiments == null) throw new ArgumentNullException(nameof(experiments));
             if (experiments.Count < 2) throw new ArgumentException("ConcatTandem requires at least two experiments.");
+            if (experiments.Any(experiment => experiment == null)) throw new ArgumentException("ConcatTandem cannot use null experiments.");
+            if (experiments.Any(experiment => experiment.IsTandemExperiment))
+                throw new ArgumentException("Concatenated tandem experiments cannot be used as inputs for another tandem concatenation.");
 
             AppEventHandler.PrintAndLog("Creating tandem experiment...");
 
@@ -220,6 +223,8 @@ namespace AnalysisITC
 
             merged.DataPoints = datapoints;
             merged.Injections = injections;
+            merged.Processor.InitializeBaseline(BaselineInterpolatorTypes.Polynomial);
+            (merged.Processor.Interpolator as PolynomialLeastSquaresInterpolator).Degree = 0;
 
             return (merged, segments);
         }
@@ -229,9 +234,25 @@ namespace AnalysisITC
             IList<TandemInjectionSegment> segments,
             BackMixingSettings settings)
         {
+            var transitionMixingFractions = Enumerable
+                .Repeat(settings?.MixingFraction ?? 0.0, Math.Max(0, (segments?.Count ?? 0) - 1))
+                .ToList();
+
+            ProcessInjectionsWithBackMixing(experiment, segments, settings, transitionMixingFractions);
+        }
+
+        public static void ProcessInjectionsWithBackMixing(
+            ExperimentData experiment,
+            IList<TandemInjectionSegment> segments,
+            BackMixingSettings settings,
+            IReadOnlyList<double> transitionMixingFractions)
+        {
             if (experiment == null) throw new ArgumentNullException(nameof(experiment));
             if (segments == null) throw new ArgumentNullException(nameof(segments));
             if (settings == null) throw new ArgumentNullException(nameof(settings));
+            if (transitionMixingFractions == null) throw new ArgumentNullException(nameof(transitionMixingFractions));
+            if (transitionMixingFractions.Count != Math.Max(0, segments.Count - 1))
+                throw new ArgumentException("A mixing fraction must be supplied for each transition between tandem segments.", nameof(transitionMixingFractions));
 
             if (experiment.Injections == null || experiment.Injections.Count == 0) return;
             if (experiment.CellVolume <= 0) throw new InvalidOperationException("CellVolume must be > 0.");
@@ -239,10 +260,10 @@ namespace AnalysisITC
             // Clamp settings
             double Vdead = settings.DeadVolume;
             double Vremove = settings.RemoveOverflowVolume; // Obsolete currently, assumes Vremove = V_inj_total
-            double mixFrac = Math.Clamp(settings.MixingFraction, 0.0, 1.0);
             double Vcell = experiment.CellVolume;
             double Cs = experiment.SyringeConcentration.Value;
             double M0 = experiment.CellConcentration.Value; // initial macromolecule concentration in active cell
+            var derivedSegments = new List<TandemExperimentSegment>();
 
             // State variables (amounts in mol)
             double nM_active = M0 * Vcell;
@@ -256,7 +277,7 @@ namespace AnalysisITC
                 var seg = segments[s];
                 var V_inj_total = 0.0;
 
-                experiment.AddSegment(new TandemExperimentSegment(seg.InjectionNumStart, nM_active / Vcell, nL_active / Vcell));
+                derivedSegments.Add(new TandemExperimentSegment(seg.InjectionNumStart, nM_active / Vcell, nL_active / Vcell));
 
                 // Segment injections
                 for (int i = seg.InjectionNumStart; i < seg.InjectionNumStart + seg.InjectionCount; i++)
@@ -296,6 +317,8 @@ namespace AnalysisITC
                 // Between segments: removal + back-mixing (skip after last segment)
                 if (s < segments.Count - 1)
                 {
+                    var mixFrac = Math.Clamp(transitionMixingFractions[s], 0.0, 1.0);
+
                     if (settings.DidRemoveOverflow) ApplyOverflowRemoval(ref Vdead, ref nM_dead, ref nL_dead, V_inj_total);
 
                     if (mixFrac > 0 && Vdead > 0)
@@ -308,6 +331,8 @@ namespace AnalysisITC
                     }
                 }
             }
+
+            experiment.ReplaceSegments(derivedSegments);
         }
 
         static void ProcessInjections_BackMixingOverflowModel(

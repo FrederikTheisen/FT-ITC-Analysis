@@ -134,7 +134,7 @@ namespace AnalysisITC
             SetupMethodControls();
         }
 
-        partial void CreateNewMergedExperimentAction(NSObject sender)
+        async partial void CreateNewMergedExperimentAction(NSObject sender)
         {
             MergeSettings.DeadVolume = DeadVolumeTextField.FloatValue * 1e-6;
             MergeSettings.MixingFraction = BackMixingSliderControl.FloatValue;
@@ -146,6 +146,7 @@ namespace AnalysisITC
             if (MergeSettings.UseBackMixingMethod) mergeddata = TandemConcatenation.ConcatTandemWithBackMixing(exps, MergeSettings);
             else mergeddata = TandemConcatenation.ConcatTandem(exps);
 
+            await mergeddata.Processor.ProcessData();
             DataManager.AddData(mergeddata);
 
             DismissViewController(this);

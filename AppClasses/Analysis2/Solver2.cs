@@ -45,6 +45,7 @@ namespace AnalysisITC.AppClasses.AnalysisClasses
         public int MaxOptimizerIterations { get; set; } = AppSettings.MaximumOptimizerIterations;
         public bool UseErrorWeightedFitting { get; set; } = false;
         public bool CanCreateAnalysisResult { get; set; } = true;
+        public bool CanReportAnalysisStepFinished { get; set; } = true;
 
         public ErrorEstimationMethod ErrorEstimationMethod { get; set; } = ErrorEstimationMethod.None;
         public int BootstrapIterations { get; set; } = 100;
@@ -131,11 +132,15 @@ namespace AnalysisITC.AppClasses.AnalysisClasses
             else SolverUpdated?.Invoke(null, SolverUpdate.BackgroundBootstrapUpdate(iteration, models));
         });
 
-        public void ReportAnalysisStepFinished() => NSApplication.SharedApplication.InvokeOnMainThread(() =>
+        public void ReportAnalysisStepFinished()
         {
-            //if (!Silent)
-            AnalysisStepFinished?.Invoke(null, null);
-        });
+            if (!CanReportAnalysisStepFinished) return;
+
+            NSApplication.SharedApplication.InvokeOnMainThread(() =>
+            {
+                AnalysisStepFinished?.Invoke(null, null);
+            });
+        }
 
         public void ReportAnalysisFinished(SolverConvergence convergence) => NSApplication.SharedApplication.InvokeOnMainThread(() =>
         {

@@ -28,6 +28,9 @@ namespace AnalysisITC
 		AppKit.NSTextField CstepTextField { get; set; }
 
 		[Outlet]
+		AppKit.NSTextField DataAnalysisSummaryLabel { get; set; }
+
+		[Outlet]
 		AppKit.NSSegmentedControl EnthalpyStyleSegControl { get; set; }
 
 		[Outlet]
@@ -113,14 +116,14 @@ namespace AnalysisITC
 		
 		void ReleaseDesignerOutlets ()
 		{
+			if (DataAnalysisSummaryLabel != null) {
+				DataAnalysisSummaryLabel.Dispose ();
+				DataAnalysisSummaryLabel = null;
+			}
+
 			if (AffinityStyleSegControl != null) {
 				AffinityStyleSegControl.Dispose ();
 				AffinityStyleSegControl = null;
-			}
-
-			if (ScaleToValidButton != null) {
-				ScaleToValidButton.Dispose ();
-				ScaleToValidButton = null;
 			}
 
 			if (AnalysisModeControl != null) {
@@ -233,6 +236,11 @@ namespace AnalysisITC
 				PeakInfoScopeButton = null;
 			}
 
+			if (ScaleToValidButton != null) {
+				ScaleToValidButton.Dispose ();
+				ScaleToValidButton = null;
+			}
+
 			if (ShowResidualGraphButton != null) {
 				ShowResidualGraphButton.Dispose ();
 				ShowResidualGraphButton = null;
@@ -242,7 +250,6 @@ namespace AnalysisITC
 				SolverStepSizeView.Dispose ();
 				SolverStepSizeView = null;
 			}
-
 		}
 	}
 }

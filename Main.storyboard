@@ -6973,7 +6973,7 @@ DQ
                             <rect key="frame" x="0.0" y="0.0" width="454" height="52"/>
                             <subviews>
                                 <button verticalHuggingPriority="750" verticalCompressionResistancePriority="250" translatesAutoresizingMaskIntoConstraints="NO" id="Ibj-M0-dHf">
-                                    <rect key="frame" x="1" y="-1" width="111" height="31"/>
+                                    <rect key="frame" x="1" y="21" width="111" height="31"/>
                                     <buttonCell key="cell" type="recessed" title="Overview" bezelStyle="recessed" alignment="center" controlSize="large" lineBreakMode="truncatingTail" state="on" borderStyle="border" inset="2" id="ed1-E0-79d">
                                         <behavior key="behavior" lightByBackground="YES" lightByGray="YES" changeBackground="YES" changeGray="YES"/>
                                         <font key="font" metaFont="system"/>
@@ -8334,12 +8334,12 @@ DQ
                                                                 </constraints>
                                                             </view>
                                                         </box>
-                                                        <stackView distribution="fill" orientation="horizontal" alignment="firstBaseline" horizontalStackHuggingPriority="250" verticalStackHuggingPriority="250" horizontalClippingResistancePriority="750" horizontalHuggingPriority="750" verticalHuggingPriority="750" verticalCompressionResistancePriority="1000" detachesHiddenViews="YES" translatesAutoresizingMaskIntoConstraints="NO" id="kgW-ot-hVU">
+                                                        <stackView distribution="fill" orientation="horizontal" alignment="firstBaseline" horizontalStackHuggingPriority="250" verticalStackHuggingPriority="750" horizontalClippingResistancePriority="750" horizontalHuggingPriority="750" verticalHuggingPriority="750" verticalCompressionResistancePriority="1000" detachesHiddenViews="YES" translatesAutoresizingMaskIntoConstraints="NO" id="kgW-ot-hVU">
                                                             <rect key="frame" x="5" y="0.0" width="1005" height="29"/>
                                                             <subviews>
                                                                 <textField focusRingType="none" horizontalHuggingPriority="248" verticalHuggingPriority="249" horizontalCompressionResistancePriority="250" translatesAutoresizingMaskIntoConstraints="NO" id="JU3-FV-Yr9">
-                                                                    <rect key="frame" x="-2" y="0.0" width="764" height="22"/>
-                                                                    <textFieldCell key="cell" controlSize="small" title="test \r\n test" id="egg-ml-Knk">
+                                                                    <rect key="frame" x="-2" y="0.0" width="764" height="29"/>
+                                                                    <textFieldCell key="cell" controlSize="small" id="egg-ml-Knk">
                                                                         <font key="font" metaFont="smallSystem"/>
                                                                         <color key="textColor" name="labelColor" catalog="System" colorSpace="catalog"/>
                                                                         <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
@@ -8507,6 +8507,7 @@ IA
                     <connections>
                         <outlet property="AnalysisModeControl" destination="wVz-5I-bbX" id="oeF-V2-Oi0"/>
                         <outlet property="AxesScopeButton" destination="0ax-DW-n6N" id="EmK-4N-dkr"/>
+                        <outlet property="DataAnalysisSummaryLabel" destination="JU3-FV-Yr9" id="P8x-4R-Ajm"/>
                         <outlet property="FitLMButton" destination="ca8-Wo-Gfg" id="ttl-Nl-hAF"/>
                         <outlet property="FitSimplexButton" destination="USk-79-Be9" id="O1a-Gn-VfG"/>
                         <outlet property="GraphView" destination="TfV-6i-g26" id="vMa-EH-e8L"/>
@@ -8541,7 +8542,7 @@ IA
                             <rect key="frame" x="0.0" y="0.0" width="722" height="23"/>
                             <subviews>
                                 <textField identifier="Label" focusRingType="none" horizontalHuggingPriority="249" horizontalCompressionResistancePriority="250" ambiguous="YES" translatesAutoresizingMaskIntoConstraints="NO" id="KWS-da-5xq">
-                                    <rect key="frame" x="3" y="7" width="313" height="16"/>
+                                    <rect key="frame" x="3" y="0.0" width="313" height="23"/>
                                     <textFieldCell key="cell" lineBreakMode="clipping" title="Enthalpy variable constraint" id="tl2-L4-NYq">
                                         <font key="font" metaFont="system"/>
                                         <color key="textColor" name="labelColor" catalog="System" colorSpace="catalog"/>
@@ -16948,7 +16949,7 @@ Gw
         <image name="design.icon.pencil.ruler" width="25" height="15"/>
         <image name="diamond.fill" catalog="system" width="17" height="17"/>
         <image name="ellipsis.rectangle" catalog="system" width="17" height="11"/>
-        <image name="folder" catalog="system" width="18" height="14"/>
+        <image name="folder" catalog="system" width="23" height="18"/>
         <image name="folder.badge.plus" catalog="system" width="20" height="15"/>
         <image name="gearshape" catalog="system" width="16" height="16"/>
         <image name="gearshape.circle.fill" catalog="system" width="15" height="15"/>

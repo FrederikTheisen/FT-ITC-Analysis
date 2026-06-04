@@ -4,6 +4,7 @@ using DataReaders;
 using System;
 using System.Collections.Generic;
 using AnalysisITC.GUI.MacOS;
+using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using UniformTypeIdentifiers;
@@ -69,6 +70,7 @@ namespace AnalysisITC
 
 #if DEBUG
             UnhideProcessedTandemCsvImporter();
+            AddTandemMixingScanMenuItem();
 #endif
         }
 
@@ -126,8 +128,8 @@ namespace AnalysisITC
                 case "sortbyprotonation": return DataManager.DataIsLoaded && DataManager.Data.Any(d => d.Attributes.Count > 0);
                 case "sortbyionic": return DataManager.DataIsLoaded && DataManager.Data.Any(d => d.Attributes.Count > 0);
                 case "copyattributes": return DataManager.DataIsLoaded && DataManager.SelectedIsData && DataManager.Current.Attributes.Count > 0;
-                case "mergetool": return DataManager.Data.Count(data => data.HasThermogram) >= 2;
-                case "toolbarmergetool": return DataManager.Data.Count(data => data.HasThermogram) >= 2;
+                case "mergetool": return DataManager.Data.Count(data => data.HasThermogram && !data.IsTandemExperiment) >= 2;
+                case "toolbarmergetool": return DataManager.Data.Count(data => data.HasThermogram && !data.IsTandemExperiment) >= 2;
                 case "buffersub": return DataManager.Data.Count >= 2;
                 case "toolbarbuffersub": return DataManager.Data.Count >= 2;
                 case "resultexporter": return DataManager.Results.Count > 0;
@@ -254,6 +256,81 @@ namespace AnalysisITC
             var importer = helpMenu.Items.FirstOrDefault(item => item.Identifier == "importprocessedtandemcsv");
 
             if (importer != null) importer.Hidden = false;
+        }
+
+        private void AddTandemMixingScanMenuItem()
+        {
+            const string identifier = "runtandemmixingscan";
+            var helpMenu = NSApplication.SharedApplication.MainMenu?
+                .Items.FirstOrDefault(item => item.Title == "Help")?
+                .Submenu;
+            if (helpMenu == null || helpMenu.Items.Any(item => item.Identifier == identifier)) return;
+
+            var scanItem = new NSMenuItem("Run Tandem Back-Mixing Scan...", async (_, __) => await RunTandemMixingScan())
+            {
+                Identifier = identifier,
+            };
+            helpMenu.AddItem(scanItem);
+        }
+
+        private async Task RunTandemMixingScan()
+        {
+            var sources = DataManager.IncludedData
+                .Where(experiment => !experiment.IsTandemExperiment)
+                .ToList();
+            if (sources.Count != 3)
+                throw new InvalidOperationException("Include exactly three non-tandem base experiments before running the tandem back-mixing scan.");
+
+            var savePanel = NSSavePanel.SavePanel;
+            savePanel.Title = "Save Tandem Back-Mixing RMSD Matrix";
+            savePanel.NameFieldStringValue = $"tandem_mixing_scan_{DateTime.Now:yyyyMMdd_HHmmss}.csv";
+            savePanel.AllowedFileTypes = new[] { "csv" };
+            savePanel.CanCreateDirectories = true;
+
+            if ((int)savePanel.RunModal() != (int)NSModalResponse.OK || savePanel.Url == null)
+            {
+                savePanel.Dispose();
+                return;
+            }
+
+            var matrixPath = savePanel.Url.Path;
+            savePanel.Dispose();
+            var summaryPath = Path.Combine(
+                Path.GetDirectoryName(matrixPath),
+                Path.GetFileNameWithoutExtension(matrixPath) + "_summary.csv");
+            var settings = TandemConcatenation.BackMixingSettings.MicroCalDefault();
+            settings.UseBackMixingMethod = true;
+            settings.DidRemoveOverflow = true;
+            var gridSize = TandemMixingScanner.DefaultMixingFractions.Count;
+            var totalPoints = gridSize * gridSize;
+
+            StatusBarManager.SetStatus("Running two-dimensional tandem back-mixing scan...", 0, priority: 1);
+            StatusBarManager.SetSecondaryStatus($"0/{totalPoints}", 0);
+            StatusBarManager.SetProgress(0);
+
+            try
+            {
+                var result = await Task.Run(() => TandemMixingScanner.Run(
+                    sources,
+                    settings,
+                    (completed, total) => NSApplication.SharedApplication.BeginInvokeOnMainThread(() =>
+                    {
+                        StatusBarManager.SetProgress(completed / (double)total);
+                        StatusBarManager.SetSecondaryStatus($"{completed}/{total}", 0);
+                    })));
+
+                File.WriteAllText(matrixPath, result.BuildMatrixCsv());
+                File.WriteAllText(summaryPath, result.BuildSummaryCsv());
+
+                StatusBarManager.SetProgress(1);
+                StatusBarManager.SetSecondaryStatus("", 0);
+                StatusBarManager.SetStatus($"Tandem back-mixing scan saved: {Path.GetFileName(matrixPath)}", 6000, priority: 1);
+            }
+            catch (Exception ex)
+            {
+                StatusBarManager.ClearAppStatus();
+                AppEventHandler.DisplayHandledException(ex);
+            }
         }
 #endif
 
