@@ -53,6 +53,9 @@ namespace AnalysisITC
 
             MergeTableView.DataSource = mergeSource;
             MergeTableView.Delegate = mergeDelegate;
+            if (MergeTableView is ToggleSelectTableView toggleSelectTableView)
+                toggleSelectTableView.MoveSelectedRowsRequested += (_, offset) =>
+                    mergeDelegate.MoveSelectedRows(MergeTableView, offset);
 
             MergeTableView.ReloadData();
 

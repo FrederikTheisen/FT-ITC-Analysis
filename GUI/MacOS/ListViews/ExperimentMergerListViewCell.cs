@@ -191,6 +191,46 @@ namespace AnalysisITC
             return Source.Items.Where(o => ids.Contains(o.UniqueID)).Select(o => o.Data).ToList();
         }
 
+        public void MoveSelectedRows(NSTableView tableView, int offset)
+        {
+            if (offset != -1 && offset != 1) return;
+
+            var ids = CaptureSelectedIDs(tableView);
+            if (ids.Count == 0) return;
+
+            var changed = false;
+            if (offset < 0)
+            {
+                for (var i = 1; i < Source.Items.Count; i++)
+                {
+                    if (!ids.Contains(Source.Items[i].UniqueID)
+                        || ids.Contains(Source.Items[i - 1].UniqueID))
+                        continue;
+
+                    Source.Move(i, i - 1);
+                    changed = true;
+                }
+            }
+            else
+            {
+                for (var i = Source.Items.Count - 2; i >= 0; i--)
+                {
+                    if (!ids.Contains(Source.Items[i].UniqueID)
+                        || ids.Contains(Source.Items[i + 1].UniqueID))
+                        continue;
+
+                    Source.Move(i, i + 1);
+                    changed = true;
+                }
+            }
+
+            if (!changed) return;
+
+            tableView.ReloadData();
+            RestoreSelectedIDs(tableView, ids);
+            QueueChanged?.Invoke(this, null);
+        }
+
         HashSet<string> CaptureSelectedIDs(NSTableView tableView)
         {
             var ids = new HashSet<string>();

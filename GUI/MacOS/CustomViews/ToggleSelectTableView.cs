@@ -9,9 +9,29 @@ namespace AnalysisITC
 {
 	public partial class ToggleSelectTableView : NSTableView
 	{
+        public event EventHandler<int> MoveSelectedRowsRequested;
+
 		public ToggleSelectTableView (IntPtr handle) : base (handle)
 		{
 		}
+
+        public override void KeyDown(NSEvent theEvent)
+        {
+            if (MoveSelectedRowsRequested != null)
+            {
+                switch ((NSKey)theEvent.KeyCode)
+                {
+                    case NSKey.UpArrow:
+                        MoveSelectedRowsRequested.Invoke(this, -1);
+                        return;
+                    case NSKey.DownArrow:
+                        MoveSelectedRowsRequested.Invoke(this, 1);
+                        return;
+                }
+            }
+
+            base.KeyDown(theEvent);
+        }
 
         public override void MouseDown(NSEvent theEvent)
         {
