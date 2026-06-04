@@ -118,7 +118,8 @@ namespace AnalysisITC.AppClasses.AnalysisClasses
                 var target = targetModel.Models.FirstOrDefault(model => model.Data.UniqueID == source.Data.UniqueID);
                 if (target == null) continue;
 
-                foreach (var parameter in source.Parameters.Table.Values)
+                var sourceParameters = source.Solution?.Model?.Parameters ?? source.Parameters;
+                foreach (var parameter in sourceParameters.Table.Values)
                 {
                     if (target.Parameters.Table.ContainsKey(parameter.Key))
                         target.Parameters.AddOrUpdateParameter(parameter.Copy());

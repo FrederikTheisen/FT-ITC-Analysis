@@ -407,8 +407,9 @@ namespace DataReaders
                                 var dat = line2.Split(':');
                                 var par = (ParameterType)int.Parse(dat[1]);
                                 var val = DParse(dat[2]);
+                                var locked = dat.Length > 3 && BParse(dat[3]);
 
-                                factory.Model.Parameters.AddorUpdateGlobalParameter(par, val);
+                                factory.Model.Parameters.AddorUpdateGlobalParameter(par, val, locked);
                             }
                         }
                         break;
@@ -525,8 +526,9 @@ namespace DataReaders
                                 var dat = line2.Split(':');
                                 var par = (ParameterType)int.Parse(dat[1]);
                                 var val = DParse(dat[2]);
+                                var locked = dat.Length > 3 && BParse(dat[3]);
 
-                                parameters.Add(new Parameter(par, val));
+                                parameters.Add(new Parameter(par, val, locked));
                             }
                             break;
                         case "LIST" when v[1] == SolBootstrapSolutions:
@@ -553,7 +555,7 @@ namespace DataReaders
                 }
 
                 foreach (var par in parameters)
-                    factory.Model.Parameters.AddOrUpdateParameter(par.Key, par.Value);
+                    factory.Model.Parameters.AddOrUpdateParameter(par);
 
                 var solution = SolutionInterface.FromModel(factory.Model, snapshotConv ?? legacyConv);
                 solution.UseWeightedFitting = useErrorWeightedFitting;

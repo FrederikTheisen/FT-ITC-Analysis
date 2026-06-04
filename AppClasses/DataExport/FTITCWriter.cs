@@ -654,7 +654,7 @@ namespace AnalysisITC
             file.Add(ListHeader(SolParams));
             foreach (var par in solution.Model.Parameters.Table)
             {
-                file.Add(Variable(par.Key.ToString() + ":" + ((int)par.Key).ToString(), par.Value.Value));
+                file.Add(ParameterLine(par.Key, par.Value));
             }
             file.Add(EndListHeader);
 
@@ -777,7 +777,7 @@ namespace AnalysisITC
             file.Add(ListHeader(SolParams));
             foreach (var par in solution.Model.Parameters.GlobalTable)
             {
-                file.Add(Variable(par.Key.ToString() + ":" + ((int)par.Key).ToString(), par.Value.Value));
+                file.Add(ParameterLine(par.Key, par.Value));
             }
             file.Add(EndListHeader);
 
@@ -805,6 +805,12 @@ namespace AnalysisITC
             file.Add(EndFileHeader);
 
             return file;
+        }
+
+        static string ParameterLine(ParameterType key, Parameter parameter)
+        {
+            return Variable(key.ToString() + ":" + ((int)key).ToString(), parameter.Value)
+                + ":" + FormatInt(parameter.IsLocked ? 1 : 0);
         }
     }
 }
