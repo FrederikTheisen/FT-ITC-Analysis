@@ -2,9 +2,10 @@
 
 ##VERSION 1.x.0 Implemented Data Based Optimal Tandem Back-Mixing
 Tandem experiment back-mixing compensated merging function now uses data based optimal mixing fraction of XXXX%
+Implemented feature to allow drawing a reference buffer titration in the same plot
 
 ##VERSION 1.2.0
-Implemented feature to allow drawing a reference buffer titration in the same plot
+NEW FEATURE: Added option to re-analyze existing result using the same settings and constraints
 
 #VERSION 1.1.2
 Updated the spline point movement cursor design
