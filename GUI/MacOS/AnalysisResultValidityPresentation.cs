@@ -66,13 +66,14 @@ namespace AnalysisITC
             var lines = new List<string>
             {
                 $"**{heading}**",
-                "--",
             };
 
             if (report.Reasons.Count > 0)
             {
+                lines.Add("--");
                 foreach (var reason in report.Reasons)
-                    lines.Add("--" + reason + "--");
+                    lines.Add(reason);
+                lines.Add("--");
             }
             else if (report.Status == AnalysisResultValidity.Valid)
             {
@@ -83,7 +84,7 @@ namespace AnalysisITC
                 lines.Add("--Validity could not be determined.--");
             }
 
-            lines.Add("--");
+            
 
             return string.Join(Environment.NewLine, lines);
         }
