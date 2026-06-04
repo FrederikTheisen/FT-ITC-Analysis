@@ -65,7 +65,8 @@ namespace AnalysisITC
         {
             var lines = new List<string>
             {
-                $"**{heading}**"
+                $"**{heading}**",
+                "--",
             };
 
             if (report.Reasons.Count > 0)
@@ -81,6 +82,8 @@ namespace AnalysisITC
             {
                 lines.Add("--Validity could not be determined.--");
             }
+
+            lines.Add("--");
 
             return string.Join(Environment.NewLine, lines);
         }
