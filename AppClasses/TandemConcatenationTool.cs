@@ -119,6 +119,37 @@ namespace AnalysisITC
             return merged;
         }
 
+        /// <summary>
+        /// Tandem stitching with a separate back-mixing fraction for each transition between segments.
+        /// </summary>
+        public static ExperimentData ConcatTandemWithBackMixing(
+            List<ExperimentData> experiments,
+            BackMixingSettings settings,
+            IReadOnlyList<double> transitionMixingFractions,
+            string fileName = null)
+        {
+            if (experiments == null) throw new ArgumentNullException(nameof(experiments));
+            if (settings == null) throw new ArgumentNullException(nameof(settings));
+            if (transitionMixingFractions == null) throw new ArgumentNullException(nameof(transitionMixingFractions));
+            if (transitionMixingFractions.Count != Math.Max(0, experiments.Count - 1))
+                throw new ArgumentException("A mixing fraction must be supplied for each transition between tandem experiments.", nameof(transitionMixingFractions));
+
+            var formattedFractions = string.Join(
+                " / ",
+                transitionMixingFractions.Select(fraction => $"{(100 * fraction).ToString("F1", CultureInfo.InvariantCulture)}%"));
+            var tag = "Tandem concatenation (per-transition back-mixing): " +
+                      $"DeadVolume={(1000000 * settings.DeadVolume).ToString("G", CultureInfo.InvariantCulture)} µL, " +
+                      $"RemoveOverflow={settings.DidRemoveOverflow}, " +
+                      $"MixFrac={formattedFractions}";
+
+            var (merged, segments) = ConcatCore(experiments, fileName, modeTag: tag);
+
+            ProcessInjectionsWithBackMixing(merged, segments, settings, transitionMixingFractions);
+            RawDataReader.ProcessExperiment(merged);
+
+            return merged;
+        }
+
         static (ExperimentData result, List<TandemInjectionSegment> segments) ConcatCore(List<ExperimentData> experiments, string fileName, string modeTag)
         {
             if (experiments == null) throw new ArgumentNullException(nameof(experiments));

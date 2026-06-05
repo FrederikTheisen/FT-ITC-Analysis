@@ -281,6 +281,9 @@ namespace AnalysisITC
             if (sources.Count != 3)
                 throw new InvalidOperationException("Include exactly three non-tandem base experiments before running the tandem back-mixing scan.");
 
+            var removeOverflowModes = PromptTandemMixingScanSettings();
+            if (removeOverflowModes == null) return;
+
             var savePanel = NSSavePanel.SavePanel;
             savePanel.Title = "Save Tandem Back-Mixing RMSD Matrix";
             savePanel.NameFieldStringValue = $"tandem_mixing_scan_{DateTime.Now:yyyyMMdd_HHmmss}.csv";
@@ -295,14 +298,9 @@ namespace AnalysisITC
 
             var matrixPath = savePanel.Url.Path;
             savePanel.Dispose();
-            var summaryPath = Path.Combine(
-                Path.GetDirectoryName(matrixPath),
-                Path.GetFileNameWithoutExtension(matrixPath) + "_summary.csv");
-            var settings = TandemConcatenation.BackMixingSettings.MicroCalDefault();
-            settings.UseBackMixingMethod = true;
-            settings.DidRemoveOverflow = true;
             var gridSize = TandemMixingScanner.DefaultMixingFractions.Count;
-            var totalPoints = gridSize * gridSize;
+            var pointsPerScan = gridSize * gridSize;
+            var totalPoints = pointsPerScan * removeOverflowModes.Count;
 
             StatusBarManager.SetStatus("Running two-dimensional tandem back-mixing scan...", 0, priority: 1);
             StatusBarManager.SetSecondaryStatus($"0/{totalPoints}", 0);
@@ -310,27 +308,110 @@ namespace AnalysisITC
 
             try
             {
-                var result = await Task.Run(() => TandemMixingScanner.Run(
-                    sources,
-                    settings,
-                    (completed, total) => NSApplication.SharedApplication.BeginInvokeOnMainThread(() =>
-                    {
-                        StatusBarManager.SetProgress(completed / (double)total);
-                        StatusBarManager.SetSecondaryStatus($"{completed}/{total}", 0);
-                    })));
+                var results = await Task.Run(() =>
+                {
+                    var scanResults = new List<(bool removeOverflow, TandemMixingScanResult result)>();
 
-                File.WriteAllText(matrixPath, result.BuildMatrixCsv());
-                File.WriteAllText(summaryPath, result.BuildSummaryCsv());
+                    for (var scanIndex = 0; scanIndex < removeOverflowModes.Count; scanIndex++)
+                    {
+                        var index = scanIndex;
+                        var removeOverflow = removeOverflowModes[index];
+                        var settings = TandemConcatenation.BackMixingSettings.MicroCalDefault();
+                        settings.UseBackMixingMethod = true;
+                        settings.DidRemoveOverflow = removeOverflow;
+
+                        var result = TandemMixingScanner.Run(
+                            sources,
+                            settings,
+                            (completed, total) => NSApplication.SharedApplication.BeginInvokeOnMainThread(() =>
+                            {
+                                var overallCompleted = index * total + completed;
+                                var overallTotal = total * removeOverflowModes.Count;
+                                StatusBarManager.SetProgress(overallCompleted / (double)overallTotal);
+                                StatusBarManager.SetSecondaryStatus($"{overallCompleted}/{overallTotal}", 0);
+                            }));
+                        scanResults.Add((removeOverflow, result));
+                    }
+
+                    return scanResults;
+                });
+
+                foreach (var (removeOverflow, result) in results)
+                {
+                    var suffix = results.Count > 1
+                        ? removeOverflow ? "_remove_overflow" : "_keep_overflow"
+                        : "";
+                    var resultMatrixPath = AddFileNameSuffix(matrixPath, suffix);
+                    var resultSummaryPath = AddFileNameSuffix(matrixPath, suffix + "_summary");
+
+                    File.WriteAllText(resultMatrixPath, result.BuildMatrixCsv());
+                    File.WriteAllText(resultSummaryPath, result.BuildSummaryCsv());
+                }
 
                 StatusBarManager.SetProgress(1);
                 StatusBarManager.SetSecondaryStatus("", 0);
-                StatusBarManager.SetStatus($"Tandem back-mixing scan saved: {Path.GetFileName(matrixPath)}", 6000, priority: 1);
+                StatusBarManager.SetStatus(
+                    results.Count > 1
+                        ? $"Tandem back-mixing scans saved with prefix: {Path.GetFileNameWithoutExtension(matrixPath)}"
+                        : $"Tandem back-mixing scan saved: {Path.GetFileName(matrixPath)}",
+                    6000,
+                    priority: 1);
             }
             catch (Exception ex)
             {
                 StatusBarManager.ClearAppStatus();
                 AppEventHandler.DisplayHandledException(ex);
             }
+        }
+
+        private List<bool> PromptTandemMixingScanSettings()
+        {
+            var accessory = new NSView(new CoreGraphics.CGRect(0, 0, 340, 48));
+            var removeOverflow = MakeTandemMixingScanCheckbox("Scan with overflow liquid removal", 26);
+            var keepOverflow = MakeTandemMixingScanCheckbox("Scan without overflow liquid removal", 0);
+            accessory.AddSubview(removeOverflow);
+            accessory.AddSubview(keepOverflow);
+
+            using var alert = new NSAlert
+            {
+                AlertStyle = NSAlertStyle.Informational,
+                MessageText = "Tandem Back-Mixing Scan Settings",
+                InformativeText = "Each selected mode scans both transitions from 0% to 50% in 2% steps.",
+                AccessoryView = accessory,
+            };
+            alert.AddButton("Run Scan");
+            alert.AddButton("Cancel");
+            alert.Layout();
+
+            if ((int)alert.RunModal() != 1000) return null;
+
+            var modes = new List<bool>();
+            if (removeOverflow.State == NSCellStateValue.On) modes.Add(true);
+            if (keepOverflow.State == NSCellStateValue.On) modes.Add(false);
+            if (modes.Count == 0)
+                throw new InvalidOperationException("Select at least one overflow liquid removal mode.");
+
+            return modes;
+        }
+
+        private NSButton MakeTandemMixingScanCheckbox(string title, nfloat y)
+        {
+            var checkbox = new NSButton(new CoreGraphics.CGRect(0, y, 330, 20))
+            {
+                Title = title,
+                State = NSCellStateValue.On,
+                ControlSize = NSControlSize.Small,
+                Font = NSFont.SystemFontOfSize(NSFont.SmallSystemFontSize),
+            };
+            checkbox.SetButtonType(NSButtonType.Switch);
+            return checkbox;
+        }
+
+        private string AddFileNameSuffix(string path, string suffix)
+        {
+            return Path.Combine(
+                Path.GetDirectoryName(path),
+                Path.GetFileNameWithoutExtension(path) + suffix + Path.GetExtension(path));
         }
 #endif
 

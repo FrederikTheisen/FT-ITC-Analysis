@@ -24,8 +24,11 @@ namespace AnalysisITC
 
     public sealed class TandemMixingScanPoint
     {
-        public double FirstTransitionMixingFraction { get; }
-        public double SecondTransitionMixingFraction { get; }
+        public IReadOnlyList<double> TransitionMixingFractions { get; }
+        public double FirstTransitionMixingFraction => TransitionMixingFractions.ElementAtOrDefault(0);
+        public double SecondTransitionMixingFraction => TransitionMixingFractions.Count > 1
+            ? TransitionMixingFractions[1]
+            : double.NaN;
         public double Rmsd { get; }
         public double N { get; }
         public double LogK { get; }
@@ -37,8 +40,7 @@ namespace AnalysisITC
         public bool IsValid => IsFinite(Rmsd);
 
         public TandemMixingScanPoint(
-            double firstTransitionMixingFraction,
-            double secondTransitionMixingFraction,
+            IReadOnlyList<double> transitionMixingFractions,
             double rmsd,
             double n,
             double logK,
@@ -47,8 +49,8 @@ namespace AnalysisITC
             string termination,
             int iterations)
         {
-            FirstTransitionMixingFraction = firstTransitionMixingFraction;
-            SecondTransitionMixingFraction = secondTransitionMixingFraction;
+            TransitionMixingFractions = transitionMixingFractions?.ToList()
+                ?? throw new ArgumentNullException(nameof(transitionMixingFractions));
             Rmsd = rmsd;
             N = n;
             LogK = logK;
@@ -58,11 +60,10 @@ namespace AnalysisITC
             Iterations = iterations;
         }
 
-        internal static TandemMixingScanPoint Failed(double firstFraction, double secondFraction, string termination)
+        internal static TandemMixingScanPoint Failed(IReadOnlyList<double> transitionMixingFractions, string termination)
         {
             return new TandemMixingScanPoint(
-                firstFraction,
-                secondFraction,
+                transitionMixingFractions,
                 double.NaN,
                 double.NaN,
                 double.NaN,
@@ -105,11 +106,14 @@ namespace AnalysisITC
             DeadVolume = settings.DeadVolume;
             DidRemoveOverflow = settings.DidRemoveOverflow;
             BestPoint = Points.Where(point => point.IsValid).OrderBy(point => point.Rmsd).FirstOrDefault();
-            BestSharedMixingPoint = Points
-                .Where(point => point.IsValid
-                    && Math.Abs(point.FirstTransitionMixingFraction - point.SecondTransitionMixingFraction) < 1e-12)
-                .OrderBy(point => point.Rmsd)
-                .FirstOrDefault();
+            BestSharedMixingPoint = sources.Count == 3
+                ? Points
+                    .Where(point => point.IsValid
+                        && point.TransitionMixingFractions.Skip(1)
+                            .All(fraction => Math.Abs(fraction - point.FirstTransitionMixingFraction) < 1e-12))
+                    .OrderBy(point => point.Rmsd)
+                    .FirstOrDefault()
+                : null;
 
             SetFileName("tandem_mixing_scan.csv");
             Date = DateTime.Now;
@@ -118,6 +122,22 @@ namespace AnalysisITC
         public string BuildMatrixCsv()
         {
             var builder = new StringBuilder();
+
+            if (Sources.Count == 2)
+            {
+                builder.AppendLine("transition_1_percent,rmsd");
+
+                for (var row = 0; row < MixingFractions.Count; row++)
+                {
+                    builder.Append(FormatPercent(MixingFractions[row]));
+                    builder.Append(',');
+                    builder.Append(FormatNumber(RmsdMatrix[row, 0]));
+                    builder.AppendLine();
+                }
+
+                return builder.ToString();
+            }
+
             builder.Append("transition_1_percent\\transition_2_percent");
 
             foreach (var fraction in MixingFractions)
@@ -165,8 +185,8 @@ namespace AnalysisITC
                 : "0");
             AppendSummaryValue(builder, "failed_fit_count", Points.Count(point => !point.IsValid).ToString(Invariant));
 
-            AppendPoint(builder, "best_2d", BestPoint);
-            AppendPoint(builder, "best_shared", BestSharedMixingPoint);
+            AppendPoint(builder, Sources.Count == 2 ? "best_1d" : "best_2d", BestPoint);
+            if (Sources.Count == 3) AppendPoint(builder, "best_shared", BestSharedMixingPoint);
 
             return builder.ToString();
         }
@@ -179,8 +199,14 @@ namespace AnalysisITC
                 return;
             }
 
-            AppendSummaryValue(builder, prefix + "_transition_1_percent", FormatPercent(point.FirstTransitionMixingFraction));
-            AppendSummaryValue(builder, prefix + "_transition_2_percent", FormatPercent(point.SecondTransitionMixingFraction));
+            for (var i = 0; i < point.TransitionMixingFractions.Count; i++)
+            {
+                AppendSummaryValue(
+                    builder,
+                    prefix + $"_transition_{i + 1}_percent",
+                    FormatPercent(point.TransitionMixingFractions[i]));
+            }
+
             AppendSummaryValue(builder, prefix + "_rmsd", FormatNumber(point.Rmsd));
             AppendSummaryValue(builder, prefix + "_n", FormatNumber(point.N));
             AppendSummaryValue(builder, prefix + "_log_k", FormatNumber(point.LogK));
@@ -237,7 +263,8 @@ namespace AnalysisITC
         {
             if (sources == null) throw new ArgumentNullException(nameof(sources));
             if (settings == null) throw new ArgumentNullException(nameof(settings));
-            if (sources.Count != 3) throw new ArgumentException("The two-dimensional tandem mixing scan requires exactly three source experiments.", nameof(sources));
+            if (sources.Count < 2 || sources.Count > 3)
+                throw new ArgumentException("The tandem mixing scan requires two or three source experiments.", nameof(sources));
             if (sources.Any(source => source == null)) throw new ArgumentException("The scan cannot use null source experiments.", nameof(sources));
             if (sources.Any(source => source.IsTandemExperiment))
                 throw new ArgumentException("Concatenated tandem experiments cannot be used as tandem mixing scan sources.", nameof(sources));
@@ -248,19 +275,21 @@ namespace AnalysisITC
 
             var fractions = DefaultMixingFractions;
             var (scanExperiment, segments) = BuildScanExperiment(sources);
-            var matrix = new double[fractions.Count, fractions.Count];
-            var points = new List<TandemMixingScanPoint>(fractions.Count * fractions.Count);
-            var total = fractions.Count * fractions.Count;
+            var secondTransitionCount = sources.Count == 3 ? fractions.Count : 1;
+            var matrix = new double[fractions.Count, secondTransitionCount];
+            var points = new List<TandemMixingScanPoint>(fractions.Count * secondTransitionCount);
+            var total = fractions.Count * secondTransitionCount;
             var completed = 0;
 
             SolverInterface.TerminateAnalysisFlag.Lower();
 
             for (var firstIndex = 0; firstIndex < fractions.Count; firstIndex++)
             {
-                for (var secondIndex = 0; secondIndex < fractions.Count; secondIndex++)
+                for (var secondIndex = 0; secondIndex < secondTransitionCount; secondIndex++)
                 {
-                    var firstFraction = fractions[firstIndex];
-                    var secondFraction = fractions[secondIndex];
+                    var transitionMixingFractions = sources.Count == 3
+                        ? new[] { fractions[firstIndex], fractions[secondIndex] }
+                        : new[] { fractions[firstIndex] };
                     TandemMixingScanPoint point;
 
                     try
@@ -269,14 +298,13 @@ namespace AnalysisITC
                             scanExperiment,
                             segments,
                             settings,
-                            firstFraction,
-                            secondFraction);
+                            transitionMixingFractions);
                     }
                     catch (Exception ex)
                     {
                         AppEventHandler.PrintAndLog(
-                            $"Tandem mixing scan fit failed at {100 * firstFraction:G4}% / {100 * secondFraction:G4}%:\n{ex}");
-                        point = TandemMixingScanPoint.Failed(firstFraction, secondFraction, ex.GetType().Name);
+                            $"Tandem mixing scan fit failed at {string.Join(" / ", transitionMixingFractions.Select(fraction => $"{100 * fraction:G4}%"))}:\n{ex}");
+                        point = TandemMixingScanPoint.Failed(transitionMixingFractions, ex.GetType().Name);
                     }
 
                     matrix[firstIndex, secondIndex] = point.Rmsd;
@@ -293,14 +321,13 @@ namespace AnalysisITC
             ExperimentData experiment,
             IList<TandemConcatenation.TandemInjectionSegment> segments,
             TandemConcatenation.BackMixingSettings settings,
-            double firstFraction,
-            double secondFraction)
+            IReadOnlyList<double> transitionMixingFractions)
         {
             TandemConcatenation.ProcessInjectionsWithBackMixing(
                 experiment,
                 segments,
                 settings,
-                new[] { firstFraction, secondFraction });
+                transitionMixingFractions);
 
             if (!AnalysisBuilder.IsAnalysisReady(experiment))
                 throw new InvalidOperationException("The temporary tandem scan experiment is not ready for one-site analysis.");
@@ -308,6 +335,7 @@ namespace AnalysisITC
             var model = AnalysisBuilder.ConstructModel(AnalysisModel.OneSetOfSites, experiment);
             model.ReuseAttachedSolutionInitialValues = true;
             model.InitializeParameters(experiment);
+            model.Parameters.Table[ParameterType.Nvalue1].Update(1.0);
             model.SetModelOptions();
             model.ModelCloneOptions = ModelCloneOptions.DefaultOptions;
 
@@ -322,14 +350,12 @@ namespace AnalysisITC
             if (convergence == null || convergence.Failed || convergence.Stopped || !TandemMixingScanPoint.IsFinite(convergence.Loss))
             {
                 return TandemMixingScanPoint.Failed(
-                    firstFraction,
-                    secondFraction,
+                    transitionMixingFractions,
                     convergence?.Termination.ToString() ?? "No convergence result");
             }
 
             return new TandemMixingScanPoint(
-                firstFraction,
-                secondFraction,
+                transitionMixingFractions,
                 convergence.Loss,
                 ParameterValue(model, ParameterType.Nvalue1),
                 ParameterValue(model, ParameterType.Affinity1),
@@ -364,7 +390,7 @@ namespace AnalysisITC
                 InitialDelay = first.InitialDelay,
                 TargetPowerDiff = first.TargetPowerDiff,
                 Date = DateTime.Now,
-                Comments = "Temporary integrated-heat experiment for a two-dimensional tandem mixing scan.",
+                Comments = "Temporary integrated-heat experiment for a tandem mixing scan.",
             };
             var segments = new List<TandemConcatenation.TandemInjectionSegment>();
             var injections = new List<InjectionData>();

@@ -16,6 +16,9 @@ namespace AnalysisITC
 		AppKit.NSTextField BackMixFracLabel { get; set; }
 
 		[Outlet]
+		AppKit.NSButton AutoBackMixingControl { get; set; }
+
+		[Outlet]
 		AppKit.NSSlider BackMixingSliderControl { get; set; }
 
 		[Outlet]
@@ -42,11 +45,19 @@ namespace AnalysisITC
 		[Action ("CreateNewMergedExperimentAction:")]
 		partial void CreateNewMergedExperimentAction (Foundation.NSObject sender);
 
+		[Action ("AutoBackMixingControlAction:")]
+		partial void AutoBackMixingControlAction (Foundation.NSObject sender);
+
 		[Action ("MergeMethodControlAction:")]
 		partial void MergeMethodControlAction (AppKit.NSSegmentedControl sender);
 		
 		void ReleaseDesignerOutlets ()
 		{
+			if (AutoBackMixingControl != null) {
+				AutoBackMixingControl.Dispose ();
+				AutoBackMixingControl = null;
+			}
+
 			if (BackMixLabel != null) {
 				BackMixLabel.Dispose ();
 				BackMixLabel = null;

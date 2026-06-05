@@ -7,6 +7,7 @@ using AppKit;
 using System.Collections.Generic;
 using static AnalysisITC.TandemConcatenation;
 using System.Linq;
+using System.Threading.Tasks;
 
 namespace AnalysisITC
 {
@@ -16,6 +17,12 @@ namespace AnalysisITC
 
         ExperimentMergeQueueDataSource mergeSource;
         ExperimentMergeQueueDelegate mergeDelegate;
+        Dictionary<NSControl, bool> ToolControlEnabledStates;
+        bool IsCreatingMergedExperiment;
+
+        bool IsAutoBackMixingEnabled =>
+            MergeSettings.UseBackMixingMethod
+            && AutoBackMixingControl.State == NSCellStateValue.On;
 
         public ExperimentMergerViewController (IntPtr handle) : base (handle)
 		{
@@ -59,6 +66,8 @@ namespace AnalysisITC
 
             MergeTableView.ReloadData();
 
+            SetMixingSliderValue(MergeSettings.MixingFraction);
+            DeadVolumeTextField.DoubleValue = 1000000 * GetFirstSelectedExperimentOrDefault().Instrument.GetProperties().DeadVolume;
             SetupMethodControls();
 
             ValidateMergeButton();
@@ -66,16 +75,15 @@ namespace AnalysisITC
 
         void SetupMethodControls()
         {
-            SetMixingSliderValue(MergeSettings.MixingFraction);
-
-            DeadVolumeTextField.DoubleValue = 1000000 * GetFirstSelectedExperimentOrDefault().Instrument.GetProperties().DeadVolume;
-
+            AutoBackMixingControl.Enabled = MergeSettings.UseBackMixingMethod;
             DeadVolumeTextField.Enabled = MergeSettings.UseBackMixingMethod;
-            BackMixingSliderControl.Enabled = MergeSettings.UseBackMixingMethod;
+            BackMixingSliderControl.Enabled = MergeSettings.UseBackMixingMethod && !IsAutoBackMixingEnabled;
             RemovedTitratedAfterExperimentControl.Enabled = MergeSettings.UseBackMixingMethod;
-            BackMixFracLabel.TextColor = MergeSettings.UseBackMixingMethod ? NSColor.Label : NSColor.TertiaryLabel;
+            BackMixFracLabel.TextColor = BackMixingSliderControl.Enabled ? NSColor.Label : NSColor.TertiaryLabel;
             BackMixLabel.TextColor = MergeSettings.UseBackMixingMethod ? NSColor.Label : NSColor.TertiaryLabel;
             DeadVolLabel.TextColor = MergeSettings.UseBackMixingMethod ? NSColor.Label : NSColor.TertiaryLabel;
+
+            ValidateMergeButton();
         }
 
         void SetMixingSliderValue(double value)
@@ -88,7 +96,41 @@ namespace AnalysisITC
         {
             var n = mergeDelegate.GetSelectedExperiments(MergeTableView).Count;
 
-            MergeButtonControl.Enabled = n > 1;
+            MergeButtonControl.Enabled = !IsCreatingMergedExperiment
+                && n > 1
+                && (!IsAutoBackMixingEnabled || n <= 3);
+        }
+
+        void SetToolInteractionEnabled(bool enabled)
+        {
+            if (!enabled)
+            {
+                ToolControlEnabledStates = FindControls(View)
+                    .ToDictionary(control => control, control => control.Enabled);
+
+                foreach (var control in ToolControlEnabledStates.Keys)
+                    control.Enabled = false;
+
+                return;
+            }
+
+            if (ToolControlEnabledStates == null) return;
+
+            foreach (var state in ToolControlEnabledStates)
+                state.Key.Enabled = state.Value;
+
+            ToolControlEnabledStates = null;
+        }
+
+        IEnumerable<NSControl> FindControls(NSView view)
+        {
+            foreach (var subview in view.Subviews)
+            {
+                if (subview is NSControl control) yield return control;
+
+                foreach (var nestedControl in FindControls(subview))
+                    yield return nestedControl;
+            }
         }
 
         ExperimentData GetFirstSelectedExperimentOrDefault()
@@ -134,6 +176,11 @@ namespace AnalysisITC
             SetupMethodControls();
         }
 
+        partial void AutoBackMixingControlAction(NSObject sender)
+        {
+            SetupMethodControls();
+        }
+
         async partial void CreateNewMergedExperimentAction(NSObject sender)
         {
             MergeSettings.DeadVolume = DeadVolumeTextField.FloatValue * 1e-6;
@@ -141,15 +188,67 @@ namespace AnalysisITC
             MergeSettings.DidRemoveOverflow = RemovedTitratedAfterExperimentControl.State == NSCellStateValue.On;
 
             var exps = mergeDelegate.GetSelectedExperiments(MergeTableView);
+            var autoBackMixingEnabled = IsAutoBackMixingEnabled;
 
-            ExperimentData mergeddata;
-            if (MergeSettings.UseBackMixingMethod) mergeddata = TandemConcatenation.ConcatTandemWithBackMixing(exps, MergeSettings);
-            else mergeddata = TandemConcatenation.ConcatTandem(exps);
+            IsCreatingMergedExperiment = true;
+            if (autoBackMixingEnabled) SetToolInteractionEnabled(false);
+            ValidateMergeButton();
 
-            await mergeddata.Processor.ProcessData();
-            DataManager.AddData(mergeddata);
+            try
+            {
+                ExperimentData mergeddata;
+                if (autoBackMixingEnabled)
+                {
+                    StatusBarManager.SetStatus("Scanning tandem back-mixing degrees...", 0, priority: 1);
+                    StatusBarManager.SetSecondaryStatus("", 0);
+                    StatusBarManager.SetProgress(0);
 
-            DismissViewController(this);
+                    var scanResult = await Task.Run(() => TandemMixingScanner.Run(
+                        exps,
+                        MergeSettings.Copy(),
+                        (completed, total) => NSApplication.SharedApplication.BeginInvokeOnMainThread(() =>
+                        {
+                            StatusBarManager.SetProgress(completed / (double)total);
+                            StatusBarManager.SetSecondaryStatus($"{completed}/{total}", 0);
+                        })));
+                    var bestPoint = scanResult.BestPoint
+                        ?? throw new InvalidOperationException("The tandem back-mixing scan did not produce a valid fit.");
+
+                    StatusBarManager.SetStatus("Creating merged experiment...", 0, priority: 1);
+                    StatusBarManager.SetSecondaryStatus("", 0);
+                    StatusBarManager.SetProgress(1);
+                    mergeddata = TandemConcatenation.ConcatTandemWithBackMixing(
+                        exps,
+                        MergeSettings,
+                        bestPoint.TransitionMixingFractions);
+                }
+                else if (MergeSettings.UseBackMixingMethod)
+                {
+                    mergeddata = TandemConcatenation.ConcatTandemWithBackMixing(exps, MergeSettings);
+                }
+                else
+                {
+                    mergeddata = TandemConcatenation.ConcatTandem(exps);
+                }
+
+                await mergeddata.Processor.ProcessData();
+                DataManager.AddData(mergeddata);
+
+                DismissViewController(this);
+            }
+            finally
+            {
+                IsCreatingMergedExperiment = false;
+                if (autoBackMixingEnabled)
+                {
+                    SetToolInteractionEnabled(true);
+                    SetupMethodControls();
+                }
+                else
+                {
+                    ValidateMergeButton();
+                }
+            }
         }
 
         public override void ViewWillDisappear()

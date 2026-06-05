@@ -3419,7 +3419,7 @@ Gw
                                         <rect key="frame" x="20" y="282" width="447" height="20"/>
                                         <subviews>
                                             <textField toolTip="The degree of mixing expected between the active cell volume and the dead volume." focusRingType="none" horizontalHuggingPriority="249" verticalHuggingPriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="78Y-Th-WTR">
-                                                <rect key="frame" x="-2" y="4" width="242" height="16"/>
+                                                <rect key="frame" x="-2" y="4" width="188" height="16"/>
                                                 <textFieldCell key="cell" lineBreakMode="clipping" title="Back-mixing degree" id="wQw-oq-yFk">
                                                     <font key="font" usesAppearanceFont="YES"/>
                                                     <color key="textColor" name="labelColor" catalog="System" colorSpace="catalog"/>
@@ -3427,7 +3427,7 @@ Gw
                                                 </textFieldCell>
                                             </textField>
                                             <textField focusRingType="none" verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="PSo-Dw-3dd">
-                                                <rect key="frame" x="244" y="4" width="47" height="16"/>
+                                                <rect key="frame" x="190" y="4" width="47" height="16"/>
                                                 <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" refusesFirstResponder="YES" sendsActionOnEndEditing="YES" state="on" alignment="right" title="50.0 %" id="Y3b-7N-cgx">
                                                     <numberFormatter key="formatter" formatterBehavior="custom10_4" positiveFormat="#.0 %" numberStyle="percent" usesGroupingSeparator="NO" formatWidth="-1" groupingSize="0" minimumIntegerDigits="0" maximumIntegerDigits="2000000000" minimumFractionDigits="1" maximumFractionDigits="1" id="xZR-aH-qeY">
                                                         <integer key="multiplier" value="100"/>
@@ -3441,7 +3441,7 @@ Gw
                                                 </textFieldCell>
                                             </textField>
                                             <slider toolTip="The degree of mixing expected between the active cell volume and the dead volume." verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="8iq-Xq-uui">
-                                                <rect key="frame" x="295" y="5" width="154" height="17"/>
+                                                <rect key="frame" x="241" y="5" width="154" height="17"/>
                                                 <constraints>
                                                     <constraint firstAttribute="width" constant="150" id="aE9-My-sMZ"/>
                                                 </constraints>
@@ -3451,6 +3451,16 @@ Gw
                                                     <outlet property="formatter" destination="xZR-aH-qeY" id="8nh-hl-V3K"/>
                                                 </connections>
                                             </slider>
+                                            <button toolTip="Find the back-mixing fraction for each transition using a one-site fit." verticalHuggingPriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="Ftm-Kq-AuT">
+                                                <rect key="frame" x="401" y="2" width="48" height="16"/>
+                                                <buttonCell key="cell" type="check" title="Auto" bezelStyle="regularSquare" imagePosition="right" controlSize="small" enabled="NO" inset="2" id="Jmo-jP-2yQ">
+                                                    <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
+                                                    <font key="font" metaFont="smallSystem"/>
+                                                </buttonCell>
+                                                <connections>
+                                                    <action selector="AutoBackMixingControlAction:" target="Z6E-PS-hGv" id="Gtb-xn-xXx"/>
+                                                </connections>
+                                            </button>
                                         </subviews>
                                         <constraints>
                                             <constraint firstAttribute="height" constant="20" id="lDe-Dw-4Ve"/>
@@ -3459,8 +3469,10 @@ Gw
                                             <integer value="1000"/>
                                             <integer value="1000"/>
                                             <integer value="1000"/>
+                                            <integer value="1000"/>
                                         </visibilityPriorities>
                                         <customSpacing>
+                                            <real value="3.4028234663852886e+38"/>
                                             <real value="3.4028234663852886e+38"/>
                                             <real value="3.4028234663852886e+38"/>
                                             <real value="3.4028234663852886e+38"/>
@@ -3743,6 +3755,7 @@ Gw
                         </constraints>
                     </view>
                     <connections>
+                        <outlet property="AutoBackMixingControl" destination="Ftm-Kq-AuT" id="Zda-9V-PcK"/>
                         <outlet property="BackMixFracLabel" destination="PSo-Dw-3dd" id="Qjk-P6-2Jq"/>
                         <outlet property="BackMixLabel" destination="78Y-Th-WTR" id="Hjq-hN-3xA"/>
                         <outlet property="BackMixingSliderControl" destination="8iq-Xq-uui" id="b74-AJ-mRQ"/>
