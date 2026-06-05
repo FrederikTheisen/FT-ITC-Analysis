@@ -721,21 +721,25 @@ namespace AnalysisITC
             info.Add("  **Date:** " + this.UILongDateWithTime);
             if (this.Duration > TimeSpan.FromSeconds(1))
                 info.Add($"  **Duration:** {this.Duration.ToReadableString()}");
+
             info.Add("**Instrument:** " + this.Instrument.GetProperties().Name);
             info.Add($"  **Cell Volume:** {1000000 * this.CellVolume:F1} µl");
             if (this.FeedBackMode != FeedbackMode.Null)
                 info.Add("  **Feedback Mode:** " + this.FeedBackMode.GetProperties().Name);
+
             if (this.StirringSpeed > -1)
                 info.Add("  **Stirring Speed:** " + this.StirringSpeed.ToString() + " rpm");
+
             info.Add("**Temperature:**");
             info.Add($"  **Target:** {this.TargetTemperature:G4} °C");
             if (this.MeasuredTemperature != this.TargetTemperature && this.DataPoints != null && this.DataPoints.Count > 1)
                 info.Add($"  **Measured:** {this.DataPoints.Min(dp => dp.Temperature):F4} - {this.DataPoints.Max(dp => dp.Temperature):F4} °C | Mean = {this.MeasuredTemperature:G4} °C");     
-            else
-                info.Add($"**Injections:** {this.InjectionCount} [{injdescription}]");
+
+            info.Add($"**Injections:** {this.InjectionCount} [{injdescription}]");
             var injectionDelayInfo = GetInjectionDelayInfoString();
             if (!string.IsNullOrEmpty(injectionDelayInfo))
                 info.Add("  **Injection Delay:** " + injectionDelayInfo);
+
             info.Add($"**Concentrations:** Cell: {this.CellConcentration.AsConcentration(ConcentrationUnit.µM)} | Syringe: {this.SyringeConcentration.AsConcentration(ConcentrationUnit.µM)}");
 
             var attributeInfo = Attributes
