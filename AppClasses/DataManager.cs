@@ -69,7 +69,9 @@ namespace AnalysisITC
             get => selectedContentIndex;
             set
             {
-                if (value >= SourceItems.Count) selectedContentIndex = SourceItems.Count - 1;
+                if (SourceItems.Count == 0) selectedContentIndex = -1;
+                else if (value < 0) selectedContentIndex = -1;
+                else if (value >= SourceItems.Count) selectedContentIndex = SourceItems.Count - 1;
                 else selectedContentIndex = value;
             }
         }
@@ -92,6 +94,7 @@ namespace AnalysisITC
         public static void SelectIndex(int index)
         {
             SelectedContentIndex = index;
+            index = SelectedContentIndex;
 
             if (index == -1) return;
             if (SourceItems[index] is ExperimentData)
@@ -153,9 +156,9 @@ namespace AnalysisITC
         {
             AppEventHandler.PrintAndLog($"DataManager.RemoveData2 requested: index={index}, selectedContent={SelectedContentIndex}, totalContent={Source.Content.Count}, totalData={Count}");
 
-            if (index == -1)
+            if (index < 0)
             {
-                AppEventHandler.PrintAndLog("DataManager.RemoveData2 ignored: index was -1", 1);
+                AppEventHandler.PrintAndLog($"DataManager.RemoveData2 ignored: index was {index}", 1);
                 return;
             }
             if (index >= Source.Content.Count)
@@ -169,27 +172,31 @@ namespace AnalysisITC
 
             DeletedDataList.Add(new ITCDataContainerDeletionLog(removedItem));
 
-            if (SelectedContentIndex == -1)
+            var currentSelectedItem = SelectedContentIndex >= 0 && SelectedContentIndex < Source.Content.Count
+                ? Source.Content[SelectedContentIndex]
+                : null;
+
+            AppEventHandler.PrintAndLog($"DataManager.RemoveData2 selection before remove: {DescribeItem(currentSelectedItem)}", 1);
+
+            Source.Content.RemoveAt(index);
+
+            var selectedIndexAfterRemove = currentSelectedItem == null
+                ? -1
+                : Source.Content.IndexOf(currentSelectedItem);
+
+            SelectedContentIndex = selectedIndexAfterRemove;
+            if (SelectedContentIndex >= 0 && SelectedContentIndex < SourceItems.Count && SourceItems[SelectedContentIndex] is ExperimentData selectedData)
             {
-                Source.Content.RemoveAt(index);
-                AppEventHandler.PrintAndLog($"DataManager.RemoveData2 completed without reselection: removed {DescribeItem(removedItem)}, totalContent={Source.Content.Count}, totalData={Count}");
-                return;
+                SelectedDataIndex = Data.IndexOf(selectedData);
             }
-            else
-            {
-                var current_selected_item = Source.Content[SelectedContentIndex];
-                AppEventHandler.PrintAndLog($"DataManager.RemoveData2 selection before remove: {DescribeItem(current_selected_item)}", 1);
 
-                Source.Content.RemoveAt(index);
+            DataDidChange?.Invoke(null, null);
+            SelectIndex(selectedIndexAfterRemove);
 
-                DataDidChange?.Invoke(null, null);
-                SelectIndex(Source.Content.IndexOf(current_selected_item));
-
-                var selectedAfter = SelectedContentIndex >= 0 && SelectedContentIndex < Source.Content.Count
-                    ? Source.Content[SelectedContentIndex]
-                    : null;
-                AppEventHandler.PrintAndLog($"DataManager.RemoveData2 completed: removed {DescribeItem(removedItem)}, selectedAfter={DescribeItem(selectedAfter)}, totalContent={Source.Content.Count}, totalData={Count}");
-            }
+            var selectedAfter = SelectedContentIndex >= 0 && SelectedContentIndex < Source.Content.Count
+                ? Source.Content[SelectedContentIndex]
+                : null;
+            AppEventHandler.PrintAndLog($"DataManager.RemoveData2 completed: removed {DescribeItem(removedItem)}, selectedAfter={DescribeItem(selectedAfter)}, totalContent={Source.Content.Count}, totalData={Count}");
         }
 
         public static void UndoDeleteData()
