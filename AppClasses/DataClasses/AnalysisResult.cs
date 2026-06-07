@@ -143,9 +143,10 @@ namespace AnalysisITC
                 }
             }
 
+            var energyUnit = AppSettings.EnergyUnit;
             s += Model.TemperatureDependenceExposed ? "∆H° = " : "∆H = ";
-            s += new Energy(Solution.GetStandardParameterValue(ParameterType.Enthalpy1)).ToFormattedString(EnergyUnit.KiloJoule, permole: true) + Environment.NewLine;
-            if (Model.TemperatureDependenceExposed) s += "∆Cₚ = " + new Energy(Solution.TemperatureDependence[ParameterType.Enthalpy1].Slope).ToString(EnergyUnit.Joule, "F0", permole: true, perK: true);
+            s += new Energy(Solution.GetStandardParameterValue(ParameterType.Enthalpy1)).ToFormattedString(energyUnit, permole: true) + Environment.NewLine;
+            if (Model.TemperatureDependenceExposed) s += "∆Cₚ = " + new Energy(Solution.TemperatureDependence[ParameterType.Enthalpy1].Slope).ToFormattedString(energyUnit, permole: true, perK: true);
 
             return s.Trim();
         }

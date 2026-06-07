@@ -15,6 +15,9 @@ namespace AnalysisITC
 
         ExperimentDataDelegate _tableDelegate;
         int? _pendingRemovedRow;
+        AnalysisITCDataSource _pendingRemovalSource;
+        int _pendingRemovalRowsBefore = -1;
+        bool _pendingRemovalModelUpdateObserved;
         bool _suppressTableSelectionCallback;
 
         #region Constructors
@@ -57,6 +60,7 @@ namespace AnalysisITC
             ViewController.RemoveData += OnRowRemoveEvent;
 
             AnalysisITCDataSource.SourceWasSorted += AnalysisITCDataSource_SourceWasSorted;
+            AppSettings.SettingsDidUpdate += AppSettings_SettingsDidUpdate;
         }
 
         string DescribeItem(ITCDataContainer item)
@@ -88,6 +92,11 @@ namespace AnalysisITC
             ReloadTable();
 
             DataManager.SelectIndex(idx);
+        }
+
+        private void AppSettings_SettingsDidUpdate(object sender, EventArgs e)
+        {
+            ReloadTable();
         }
 
         private void ExperimentDataViewCell_ShowDetails(object sender, ExperimentData e)
@@ -148,21 +157,33 @@ namespace AnalysisITC
 
         private void OnDataManagerUpdated(object sender, ExperimentData data)
         {
+            var rows = DataManager.Source?.Content?.Count ?? -1;
+            var selectedIndex = DataManager.Source?.SelectedIndex ?? -1;
             AppEventHandler.PrintAndLog(
-                $"SideBar.OnDataManagerUpdated: pendingRemovedRow={_pendingRemovedRow?.ToString() ?? "<none>"}, payload={DescribeItem(data)}, rows={DataManager.Source?.Content?.Count ?? -1}, selectedIndex={DataManager.Source?.SelectedIndex ?? -1}",
+                $"SideBar.OnDataManagerUpdated: pendingRemovedRow={_pendingRemovedRow?.ToString() ?? "<none>"}, payload={DescribeItem(data)}, rows={rows}, selectedIndex={selectedIndex}",
                 1);
 
             if (_pendingRemovedRow.HasValue)
             {
-                AppEventHandler.PrintAndLog("SideBar.OnDataManagerUpdated: skipped reload due to pending row removal", 1);
-                return;
+                if (IsExpectedPendingRemovalUpdate(rows))
+                {
+                    _pendingRemovalModelUpdateObserved = true;
+                    AppEventHandler.PrintAndLog("SideBar.OnDataManagerUpdated: skipped reload due to pending row removal", 1);
+                    return;
+                }
+
+                ClearPendingRemoval("model update no longer matches pending row removal");
             }
+
             ReloadTable();
         }
 
         private void OnRowWillRemoveEvent(object sender, int e)
         {
             _pendingRemovedRow = e;
+            _pendingRemovalSource = DataManager.Source;
+            _pendingRemovalRowsBefore = DataManager.Source?.Content?.Count ?? -1;
+            _pendingRemovalModelUpdateObserved = false;
             var item = DataManager.Source != null && e >= 0 && e < DataManager.Source.Content.Count
                 ? DataManager.Source.Content[e]
                 : null;
@@ -199,8 +220,7 @@ namespace AnalysisITC
             }
             finally
             {
-                AppEventHandler.PrintAndLog($"SideBar.OnRowRemoveEvent: clearing pendingRemovedRow={_pendingRemovedRow?.ToString() ?? "<none>"}", 1);
-                _pendingRemovedRow = null;
+                ClearPendingRemoval("row remove event completed");
             }
         }
 
@@ -208,7 +228,38 @@ namespace AnalysisITC
         {
             AppEventHandler.PrintAndLog(
                 $"SideBar.DataManager_RemoveListIndices: rows=[{string.Join(", ", e ?? Array.Empty<int>())}], rowsBeforeReload={DataManager.Source?.Content?.Count ?? -1}");
+            ClearPendingRemoval("batch removal reload");
             ReloadTable();
+        }
+
+        bool IsExpectedPendingRemovalUpdate(int rows)
+        {
+            if (!_pendingRemovedRow.HasValue) return false;
+            if (_pendingRemovalModelUpdateObserved) return false;
+            if (!ReferenceEquals(DataManager.Source, _pendingRemovalSource)) return false;
+            if (_pendingRemovalRowsBefore <= 0) return false;
+            if (_pendingRemovedRow.Value < 0 || _pendingRemovedRow.Value >= _pendingRemovalRowsBefore) return false;
+
+            return rows == _pendingRemovalRowsBefore - 1;
+        }
+
+        void ClearPendingRemoval(string reason)
+        {
+            if (!_pendingRemovedRow.HasValue)
+            {
+                _pendingRemovalSource = null;
+                _pendingRemovalRowsBefore = -1;
+                _pendingRemovalModelUpdateObserved = false;
+                return;
+            }
+
+            AppEventHandler.PrintAndLog(
+                $"SideBar: clearing pendingRemovedRow={_pendingRemovedRow.Value} ({reason})",
+                1);
+            _pendingRemovedRow = null;
+            _pendingRemovalSource = null;
+            _pendingRemovalRowsBefore = -1;
+            _pendingRemovalModelUpdateObserved = false;
         }
 
         private void OnDataViewClicked(object sender, EventArgs e)
@@ -270,6 +321,8 @@ namespace AnalysisITC
 
         void ReloadTable()
         {
+            ClearPendingRemoval("full table reload");
+
             if (TableView == null || DataManager.Source == null)
             {
                 AppEventHandler.PrintAndLog("SideBar.ReloadTable skipped: table or source was null", 1);

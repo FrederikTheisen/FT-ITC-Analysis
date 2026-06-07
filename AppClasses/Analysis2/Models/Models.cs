@@ -7,7 +7,7 @@ namespace AnalysisITC.AppClasses.AnalysisClasses.Models
 {
     public class Model
     {
-        public static EnergyUnit ReportEnergyUnit => AppSettings.EnergyUnit.IsSI() ? EnergyUnit.KiloJoule : EnergyUnit.KCal;
+        public static EnergyUnit ReportEnergyUnit => AppSettings.EnergyUnit;
 
 		public ExperimentData Data { get; private set; }
 		public virtual AnalysisModel ModelType => AnalysisModel.OneSetOfSites;
