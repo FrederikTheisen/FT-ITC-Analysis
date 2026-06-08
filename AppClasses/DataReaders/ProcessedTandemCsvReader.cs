@@ -851,12 +851,7 @@ namespace DataReaders
 
         string BuildImportComment(ResolvedImportMetadata metadata)
         {
-            return "Reconstructed from processed MicroCal tandem export: " + Path.GetFileName(SourcePath)
-                + Environment.NewLine
-                + $"Inferred PEAQ cell volume {metadata.CellVolume * 1e6:G4} uL; concentrations "
-                + $"{metadata.CellConcentration * 1e6:G4} uM cell / {metadata.SyringeConcentration * 1e6:G4} uM syringe."
-                + Environment.NewLine
-                + "Excluded injections do not have measured NDH values in the processed export.";
+            return "Reconstructed from: " + Path.GetFileName(SourcePath);
         }
 
         static bool TryFindMeasuredHeat(
