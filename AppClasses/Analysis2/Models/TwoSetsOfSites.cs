@@ -109,7 +109,7 @@ namespace AnalysisITC.AppClasses.AnalysisClasses.Models
             var q = (Kd2 * N1 + Kd1 * N2) * cellConc - (Kd1 + Kd2) * titrant + Kd1 * Kd2;
             var r = -titrant * Kd1 * Kd2;
 
-            var x = FindFreeTitrant(p, q, r, titrant * 0.05);
+            var x = FindFreeTitrantBisection(p, q, r, titrant * 0.05);
 
             var theta1 = (K1 * x) / (K1 * x + 1);
             var theta2 = (K2 * x) / (K2 * x + 1);
@@ -123,18 +123,75 @@ namespace AnalysisITC.AppClasses.AnalysisClasses.Models
         {
             if (double.IsFinite(p) && double.IsFinite(q) && double.IsFinite(r))
             {
-                bool b = MathNet.Numerics.RootFinding.RobustNewtonRaphson.TryFindRoot(
+                bool rootFound = MathNet.Numerics.RootFinding.RobustNewtonRaphson.TryFindRoot(
                     (x) => x * x * x + x * x * p + x * q + r,
                     (x) => 3 * x * x + 2 * x * p + q,
                     lowerBound: 0, upperBound: 1e-3,
                     accuracy: 1e-32, maxIterations: 500, subdivision: 20,
                     out double root);
 
-                return root;
+                //if (rootFound && double.IsFinite(root) && root >= 0 && root <= 1e-3)
+                    return root;
             }
  
-            // Unholy...
-            return guess;
+            return Math.Min(Math.Max(guess, 0), 1e-3);
+        }
+
+        double FindFreeTitrantBisection(double p, double q, double r, double guess)
+        {
+            const double lowerBound = 0;
+            const double upperBound = 1e-3;
+            const double concentrationAccuracy = 1e-32;
+            const int maxIterations = 500;
+
+            if (!double.IsFinite(p) || !double.IsFinite(q) || !double.IsFinite(r))
+                return ClampFreeTitrant(guess, lowerBound, upperBound);
+
+            var lower = lowerBound;
+            var upper = upperBound;
+            var fLower = FreeTitrantPolynomial(lower, p, q, r);
+            var fUpper = FreeTitrantPolynomial(upper, p, q, r);
+
+            if (!double.IsFinite(fLower) || !double.IsFinite(fUpper))
+                return ClampFreeTitrant(guess, lowerBound, upperBound);
+
+            if (fLower == 0) return lower;
+            if (fUpper == 0) return upper;
+            if (Math.Sign(fLower) == Math.Sign(fUpper))
+                return ClampFreeTitrant(guess, lowerBound, upperBound);
+
+            for (int i = 0; i < maxIterations && upper - lower > concentrationAccuracy; i++)
+            {
+                var mid = 0.5 * (lower + upper);
+                var fMid = FreeTitrantPolynomial(mid, p, q, r);
+
+                if (!double.IsFinite(fMid))
+                    return ClampFreeTitrant(guess, lowerBound, upperBound);
+
+                if (fMid == 0) return mid;
+
+                if (Math.Sign(fMid) == Math.Sign(fLower))
+                {
+                    lower = mid;
+                    fLower = fMid;
+                }
+                else
+                {
+                    upper = mid;
+                }
+            }
+
+            return 0.5 * (lower + upper);
+        }
+
+        double FreeTitrantPolynomial(double x, double p, double q, double r)
+        {
+            return x * x * x + x * x * p + x * q + r;
+        }
+
+        double ClampFreeTitrant(double x, double lowerBound, double upperBound)
+        {
+            return Math.Min(Math.Max(x, lowerBound), upperBound);
         }
 
         public override Model GenerateSyntheticModel()
@@ -278,4 +335,3 @@ namespace AnalysisITC.AppClasses.AnalysisClasses.Models
         }
     }
 }
-
