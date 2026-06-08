@@ -248,18 +248,24 @@ namespace AnalysisITC
         public const double DefaultMinimumMixingFraction = 0.0;
         public const double DefaultMaximumMixingFraction = 0.5;
         public const double DefaultMixingFractionStep = 0.02;
+        public const double AdaptiveRefinementStep = 0.002;
+        public const double AdaptiveRefinementRadius = 0.02;
 
         public static IReadOnlyList<double> DefaultMixingFractions =>
+            MixingFractionsForStep(DefaultMixingFractionStep);
+
+        public static IReadOnlyList<double> MixingFractionsForStep(double step) =>
             Enumerable.Range(
                     0,
-                    (int)Math.Round((DefaultMaximumMixingFraction - DefaultMinimumMixingFraction) / DefaultMixingFractionStep) + 1)
-                .Select(index => DefaultMinimumMixingFraction + index * DefaultMixingFractionStep)
+                    (int)Math.Round((DefaultMaximumMixingFraction - DefaultMinimumMixingFraction) / step) + 1)
+                .Select(index => DefaultMinimumMixingFraction + index * step)
                 .ToList();
 
         public static TandemMixingScanResult Run(
             IReadOnlyList<ExperimentData> sources,
             TandemConcatenation.BackMixingSettings settings,
-            Action<int, int> reportProgress = null)
+            Action<int, int> reportProgress = null,
+            IReadOnlyList<double> mixingFractions = null)
         {
             if (sources == null) throw new ArgumentNullException(nameof(sources));
             if (settings == null) throw new ArgumentNullException(nameof(settings));
@@ -273,7 +279,7 @@ namespace AnalysisITC
             if (sources.Any(source => source.Injections.Where(injection => injection.Include).Any(injection => !injection.IsIntegrated)))
                 throw new ArgumentException("All included injections must be integrated before running a tandem mixing scan.", nameof(sources));
 
-            var fractions = DefaultMixingFractions;
+            var fractions = (mixingFractions ?? DefaultMixingFractions).ToList();
             var (scanExperiment, segments) = BuildScanExperiment(sources);
             var secondTransitionCount = sources.Count == 3 ? fractions.Count : 1;
             var matrix = new double[fractions.Count, secondTransitionCount];
@@ -281,6 +287,7 @@ namespace AnalysisITC
             var total = fractions.Count * secondTransitionCount;
             var completed = 0;
 
+            LogScanStart("grid", sources, settings, fractions, total);
             SolverInterface.TerminateAnalysisFlag.Lower();
 
             for (var firstIndex = 0; firstIndex < fractions.Count; firstIndex++)
@@ -314,7 +321,155 @@ namespace AnalysisITC
                 }
             }
 
-            return new TandemMixingScanResult(sources, fractions, points, matrix, settings.Copy());
+            var result = new TandemMixingScanResult(sources, fractions, points, matrix, settings.Copy());
+            AppEventHandler.PrintAndLog(
+                $"Tandem mixing scan complete: {FormatPoint(result.BestPoint)}, failed={result.Points.Count(point => !point.IsValid)}/{result.Points.Count}");
+
+            return result;
+        }
+
+        public static TandemMixingScanPoint FindBestAdaptive(
+            IReadOnlyList<ExperimentData> sources,
+            TandemConcatenation.BackMixingSettings settings,
+            Action<int, int> reportProgress = null)
+        {
+            var transitionCount = Math.Max(0, sources?.Count - 1 ?? 0);
+            var coarsePointCount = (int)Math.Pow(DefaultMixingFractions.Count, transitionCount);
+            var refinementPointCount = (int)Math.Pow(
+                (int)Math.Round((2 * AdaptiveRefinementRadius) / AdaptiveRefinementStep) + 1,
+                transitionCount);
+            var progressTotal = coarsePointCount + refinementPointCount;
+
+            AppEventHandler.PrintAndLog(
+                $"Adaptive tandem mixing scan: coarseStep={FormatMixingFraction(DefaultMixingFractionStep)}, " +
+                $"refineRadius={FormatMixingFraction(AdaptiveRefinementRadius)}, refineStep={FormatMixingFraction(AdaptiveRefinementStep)}, " +
+                $"points={progressTotal}");
+            var coarseResult = Run(
+                sources,
+                settings,
+                (completed, total) => reportProgress?.Invoke(completed, progressTotal));
+            var bestPoint = coarseResult.BestPoint;
+            if (bestPoint == null) return null;
+
+            var coarseBestPoint = bestPoint;
+            AppEventHandler.PrintAndLog($"Adaptive tandem mixing scan coarse best: {FormatPoint(coarseBestPoint)}", 1);
+
+            var localFractions = bestPoint.TransitionMixingFractions
+                .Select(fraction => MixingFractionsAround(fraction, AdaptiveRefinementRadius, AdaptiveRefinementStep))
+                .ToList();
+            AppEventHandler.PrintAndLog(
+                "Adaptive tandem mixing scan refinement windows: " +
+                string.Join(", ", localFractions.Select((fractions, index) =>
+                    $"T{index + 1}={FormatMixingFraction(fractions.First())}-{FormatMixingFraction(fractions.Last())} ({fractions.Count})")),
+                1);
+            var (scanExperiment, segments) = BuildScanExperiment(sources);
+            var completedFine = 0;
+
+            foreach (var transitionFractions in EnumerateTransitionFractionGrid(localFractions))
+            {
+                TandemMixingScanPoint point;
+
+                try
+                {
+                    point = FitPoint(scanExperiment, segments, settings, transitionFractions);
+                }
+                catch (Exception ex)
+                {
+                    AppEventHandler.PrintAndLog(
+                        $"Tandem mixing refinement fit failed at {string.Join(" / ", transitionFractions.Select(fraction => $"{100 * fraction:G4}%"))}:\n{ex}");
+                    point = TandemMixingScanPoint.Failed(transitionFractions, ex.GetType().Name);
+                }
+
+                if (point.IsValid && point.Rmsd < bestPoint.Rmsd)
+                    bestPoint = point;
+
+                completedFine++;
+                reportProgress?.Invoke(Math.Min(coarsePointCount + completedFine, progressTotal), progressTotal);
+            }
+
+            reportProgress?.Invoke(progressTotal, progressTotal);
+            AppEventHandler.PrintAndLog(
+                $"Adaptive tandem mixing scan final best: {FormatPoint(bestPoint)} " +
+                $"(coarse={FormatPoint(coarseBestPoint)})",
+                1);
+
+            return bestPoint;
+        }
+
+        static void LogScanStart(
+            string mode,
+            IReadOnlyList<ExperimentData> sources,
+            TandemConcatenation.BackMixingSettings settings,
+            IReadOnlyList<double> fractions,
+            int total)
+        {
+            AppEventHandler.PrintAndLog(
+                $"Tandem mixing {mode} scan start: sources={sources.Count}, transitions={sources.Count - 1}, " +
+                $"deadVolume={FormatMicroliters(settings.DeadVolume)}, removeOverflow={settings.DidRemoveOverflow}, " +
+                $"grid={FormatMixingFraction(fractions.First())}-{FormatMixingFraction(fractions.Last())} ({fractions.Count}), points={total}");
+            AppEventHandler.PrintAndLog(
+                "Source order: " + string.Join(" -> ", sources.Select((source, index) =>
+                    $"{index + 1}:{source.Name} [{source.Injections.Count(injection => injection.Include)}/{source.Injections.Count} included]")),
+                1);
+        }
+
+        static string FormatPoint(TandemMixingScanPoint point)
+        {
+            if (point == null) return "none";
+
+            return $"mix={FormatTransitionFractions(point.TransitionMixingFractions)}, " +
+                   $"rmsd={FormatNumber(point.Rmsd)}, n={FormatNumber(point.N)}, logK={FormatNumber(point.LogK)}, " +
+                   $"H={FormatNumber(point.Enthalpy)}, offset={FormatNumber(point.Offset)}, " +
+                   $"termination={point.Termination}, iterations={point.Iterations}";
+        }
+
+        static string FormatTransitionFractions(IReadOnlyList<double> fractions)
+        {
+            return string.Join("/", fractions.Select(FormatMixingFraction));
+        }
+
+        static string FormatMixingFraction(double fraction)
+        {
+            return $"{(100 * fraction).ToString("0.###", CultureInfo.InvariantCulture)}%";
+        }
+
+        static string FormatMicroliters(double volume)
+        {
+            return $"{(1000000 * volume).ToString("G6", CultureInfo.InvariantCulture)} uL";
+        }
+
+        static string FormatNumber(double value)
+        {
+            return TandemMixingScanPoint.IsFinite(value)
+                ? value.ToString("G6", CultureInfo.InvariantCulture)
+                : "NaN";
+        }
+
+        static IReadOnlyList<double> MixingFractionsAround(double center, double radius, double step)
+        {
+            var min = Math.Max(DefaultMinimumMixingFraction, center - radius);
+            var max = Math.Min(DefaultMaximumMixingFraction, center + radius);
+            var count = (int)Math.Round((max - min) / step) + 1;
+
+            return Enumerable.Range(0, count)
+                .Select(index => Math.Round(min + index * step, 10))
+                .ToList();
+        }
+
+        static IEnumerable<IReadOnlyList<double>> EnumerateTransitionFractionGrid(
+            IReadOnlyList<IReadOnlyList<double>> transitionFractions)
+        {
+            if (transitionFractions.Count == 1)
+            {
+                foreach (var first in transitionFractions[0])
+                    yield return new[] { first };
+            }
+            else if (transitionFractions.Count == 2)
+            {
+                foreach (var first in transitionFractions[0])
+                    foreach (var second in transitionFractions[1])
+                        yield return new[] { first, second };
+            }
         }
 
         static TandemMixingScanPoint FitPoint(
