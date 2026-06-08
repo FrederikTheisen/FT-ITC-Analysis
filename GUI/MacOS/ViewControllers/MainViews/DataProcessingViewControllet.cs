@@ -20,7 +20,7 @@ namespace AnalysisITC
         bool ShowCursorInfo => ShowCursorInfoButton.State == NSCellStateValue.On;
         bool DiscardIntegratedPoints { get; set; } = true;
 
-        private bool ContextIsValid => Data != null && Data.HasThermogram && BaselineGraphView != null;
+        private bool ContextIsValid => Data != null && Data.HasThermogram && BaselineGraphView != null && BaselineGraphView.Data != null; // Added BGV Data null check
 
         const string LockProcessorMenuIdentifier = "lockprocessor";
         const string ShowSplineHandlesMenuIdentifier = "showsplinehandles";
