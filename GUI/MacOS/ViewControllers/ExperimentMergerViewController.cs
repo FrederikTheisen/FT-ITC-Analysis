@@ -203,7 +203,7 @@ namespace AnalysisITC
                     StatusBarManager.SetSecondaryStatus("", 0);
                     StatusBarManager.SetProgress(0);
 
-                    var scanResult = await Task.Run(() => TandemMixingScanner.Run(
+                    var bestPoint = await Task.Run(() => TandemMixingScanner.FindBestAdaptive(
                         exps,
                         MergeSettings.Copy(),
                         (completed, total) => NSApplication.SharedApplication.BeginInvokeOnMainThread(() =>
@@ -211,8 +211,8 @@ namespace AnalysisITC
                             StatusBarManager.SetProgress(completed / (double)total);
                             StatusBarManager.SetSecondaryStatus($"{completed}/{total}", 0);
                         })));
-                    var bestPoint = scanResult.BestPoint
-                        ?? throw new InvalidOperationException("The tandem back-mixing scan did not produce a valid fit.");
+                    if (bestPoint == null)
+                        throw new InvalidOperationException("The tandem back-mixing scan did not produce a valid fit.");
 
                     StatusBarManager.SetStatus("Creating merged experiment...", 0, priority: 1);
                     StatusBarManager.SetSecondaryStatus("", 0);
