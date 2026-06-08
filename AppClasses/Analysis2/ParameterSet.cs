@@ -11,6 +11,7 @@ namespace AnalysisITC.AppClasses.AnalysisClasses
     public class Parameter
     {
         const float LimitFactor = 20;
+        const float NoLimitFactor = 2000;
 
         public ParameterType Key { get; private set; }
         public double Value { get; private set; }
@@ -41,30 +42,29 @@ namespace AnalysisITC.AppClasses.AnalysisClasses
         public void RefreshLimits()
         {
             Limits = this.Key.GetProperties().DefaultLimits;
-            if (AppSettings.ParameterLimitSetting == ParameterLimitSetting.Extended)
+
+            var factor = AppSettings.ParameterLimitSetting switch
             {
-                if (Limits[0] > 0) // Parameter can only be positive
-                {
-                    Limits[0] /= LimitFactor;
-                    Limits[1] *= LimitFactor;
-                }
-                else if (Limits[1] < 0) // Parameter can only be negative
-                {
-                    Limits[0] *= LimitFactor;
-                    Limits[1] /= LimitFactor;
-                }
-                else // Parameter can be both positive or negative or zero
-                {
-                    Limits[0] *= LimitFactor;
-                    Limits[1] *= LimitFactor;
-                }
+                ParameterLimitSetting.Standard => 1f,
+                ParameterLimitSetting.Extended => LimitFactor,
+                ParameterLimitSetting.NoLimit => NoLimitFactor,
+                _ => 1,
+            };
+
+            if (Limits[0] > 0) // Parameter can only be positive
+            {
+                Limits[0] /= factor;
+                Limits[1] *= factor;
             }
-            else if (AppSettings.ParameterLimitSetting == ParameterLimitSetting.NoLimit)
+            else if (Limits[1] < 0) // Parameter can only be negative
             {
-                if (Limits[0] > 0) // we retain a limit for parameters that should not be negative or zero
-                    Limits = new double[] { float.Epsilon, float.MaxValue };
-                else
-                    Limits = new double[] { float.MinValue, float.MaxValue };
+                Limits[0] *= factor;
+                Limits[1] /= factor;
+            }
+            else // Parameter can be both positive or negative or zero
+            {
+                Limits[0] *= factor;
+                Limits[1] *= factor;
             }
         }
 
