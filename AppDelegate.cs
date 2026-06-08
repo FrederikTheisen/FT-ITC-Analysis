@@ -298,7 +298,8 @@ namespace AnalysisITC
 
             var matrixPath = savePanel.Url.Path;
             savePanel.Dispose();
-            var gridSize = TandemMixingScanner.DefaultMixingFractions.Count;
+            var scanFractions = TandemMixingScanner.MixingFractionsForStep(0.01);
+            var gridSize = scanFractions.Count;
             var pointsPerScan = gridSize * gridSize;
             var totalPoints = pointsPerScan * removeOverflowModes.Count;
 
@@ -329,7 +330,8 @@ namespace AnalysisITC
                                 var overallTotal = total * removeOverflowModes.Count;
                                 StatusBarManager.SetProgress(overallCompleted / (double)overallTotal);
                                 StatusBarManager.SetSecondaryStatus($"{overallCompleted}/{overallTotal}", 0);
-                            }));
+                            }),
+                            scanFractions);
                         scanResults.Add((removeOverflow, result));
                     }
 
@@ -376,7 +378,7 @@ namespace AnalysisITC
             {
                 AlertStyle = NSAlertStyle.Informational,
                 MessageText = "Tandem Back-Mixing Scan Settings",
-                InformativeText = "Each selected mode scans both transitions from 0% to 50% in 2% steps.",
+                InformativeText = "Each selected mode scans both transitions from 0% to 50% in 1% steps.",
                 AccessoryView = accessory,
             };
             alert.AddButton("Run Scan");
