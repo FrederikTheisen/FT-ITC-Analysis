@@ -154,25 +154,49 @@ namespace AnalysisITC
         public string GetListDescriptionString()
         {
             var experimentCount = Solution.Solutions.Count;
-            var experimentLabel = experimentCount == 1 ? "exp" : "exp";
+            var experimentLabel = experimentCount == 1 ? "experiment" : "experiments";
             var modelName = Solution.SolutionName;
             var rmsd = Solution.Loss.ToString("G3");
 
-            var line1 = $"Fit of {experimentCount} {experimentLabel}; {modelName}; RMSD {rmsd}";
-            var line2 = "Constraints: " + GetListConstraintSummary();
-            var line3 = string.Join("; ", GetListFitOptionSummary());
+            var line1 = $"Fit of {experimentCount} {experimentLabel}"; 
+            var line2 = $"{modelName}; RMSD {rmsd}";
+            var line3 = GetConstraintSummary();
 
             return string.Join(Environment.NewLine, line1, line2, line3);
         }
 
-        string GetListConstraintSummary()
+        string GetConstraintSummary()
         {
-            var constraints = Options.Constraints
-                .Where(con => con.Value != VariableConstraint.None)
-                .Select(con => $"{GetListParameterName(con.Key)} {GetListConstraintName(con.Value)}")
-                .ToList();
+            string constraints = "";
 
-            return constraints.Count == 0 ? "none" : string.Join("; ", constraints);
+            if (Options.Constraints.All(con => con.Value == VariableConstraint.None)) constraints += "All variables unconstrained";
+            else
+            {
+                bool containstwo = Model.ModelType == AppClasses.AnalysisClasses.Models.AnalysisModel.TwoSetsOfSites; // Not very flexible
+
+                foreach (var con in Options.Constraints)
+                {
+                    if (con.Value != VariableConstraint.None)
+                    {
+                        switch (con.Key)
+                        {
+                            case ParameterType.Nvalue1: constraints += $"N-value{(containstwo ? "1" : "")}: "; break;
+                            case ParameterType.Nvalue2: constraints += "N-value2: "; break;
+                            case ParameterType.Enthalpy1: constraints += $"Enthalpy{(containstwo ? "1" : "")}: "; break;
+                            case ParameterType.Enthalpy2: constraints += "Enthalpy2: "; break;
+                            case ParameterType.Affinity1:
+                            case ParameterType.Gibbs1: constraints += $"Affinity{(containstwo ? "1" : "")}: "; break;
+                            case ParameterType.Affinity2:
+                            case ParameterType.Gibbs2: constraints += "Affinity2: "; break;
+                            default: constraints += con.Key.GetProperties().Description + ": "; break;
+                        }
+
+                        constraints += con.Value.GetEnumDescription() + Environment.NewLine;
+                    }
+                }
+            }
+
+            return constraints.Trim();
         }
 
         List<string> GetListFitOptionSummary()
@@ -216,11 +240,11 @@ namespace AnalysisITC
             return key switch
             {
                 ParameterType.Nvalue1 => "N",
-                ParameterType.Nvalue2 => "N2",
-                ParameterType.Enthalpy1 => "dH",
-                ParameterType.Enthalpy2 => "dH2",
-                ParameterType.Affinity1 => "Kd",
-                ParameterType.Affinity2 => "Kd2",
+                ParameterType.Nvalue2 => "N{2}",
+                ParameterType.Enthalpy1 => MarkdownStrings.Enthalpy,
+                ParameterType.Enthalpy2 => MarkdownStrings.Enthalpy + "{2}",
+                ParameterType.Affinity1 => MarkdownStrings.DissociationConstant,
+                ParameterType.Affinity2 => MarkdownStrings.DissociationConstant + "{,2}",
                 ParameterType.Gibbs1 => "dG",
                 ParameterType.Gibbs2 => "dG2",
                 ParameterType.EntropyContribution1 => "-TdS",
