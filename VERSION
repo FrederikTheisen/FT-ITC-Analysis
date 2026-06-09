@@ -4,7 +4,7 @@
 Tandem experiment back-mixing compensated merging function now uses data based optimal mixing fraction of XXXX%
 Implemented feature to allow drawing a reference buffer titration in the same plot
 
-##VERSION 1.3.0
+#VERSION 1.3.0
 NEW FEATURE: Added tandem concat auto back-mixing mode.
 Auto mode scans back-mixing degree and returns the mixing conditions that produced the best model fit
 Fixed data list bug resulting stale items
