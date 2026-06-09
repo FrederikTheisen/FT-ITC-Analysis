@@ -41,6 +41,7 @@ namespace AnalysisITC
         public static event EventHandler<ExperimentData> DataInclusionDidChange;
         public static event EventHandler<ExperimentData> SelectionDidChange;
         public static event EventHandler<AnalysisResult> AnalysisResultSelected;
+        public static event EventHandler<int> SourceItemRemoved;
         public static event EventHandler<SolutionInterface> ResultSolutionSelectionDidChange;
         public static event EventHandler<ExperimentData> ResultLinkedExperimentHighlightDidChange;
         public static event EventHandler UpdateTable;
@@ -221,6 +222,7 @@ namespace AnalysisITC
                 }
             }
 
+            SourceItemRemoved?.Invoke(null, index);
             NotifySourceItemsChanged(selectedIndexAfterRemove);
 
             var selectedAfter = SelectedContentIndex >= 0 && SelectedContentIndex < SourceItems.Count

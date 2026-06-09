@@ -17,6 +17,7 @@ namespace AnalysisITC
         readonly AnalysisITCDataSource _tableSource = new AnalysisITCDataSource();
         ExperimentDataDelegate _tableDelegate;
         bool _suppressTableSelectionCallback;
+        bool _skipNextReloadForAnimatedRemoval;
         bool _eventsUnsubscribed;
 
         #region Constructors
@@ -46,6 +47,7 @@ namespace AnalysisITC
             DataManager.DataDidChange += OnDataManagerUpdated;
             DataManager.SelectionDidChange += DataManager_SelectionDidChange;
             DataManager.AnalysisResultSelected += DataManager_AnalysisResultSelected;
+            DataManager.SourceItemRemoved += DataManager_SourceItemRemoved;
             DataManager.UpdateTable += ExperimentDetailsPopoverController_UpdateTable;
 
             ExperimentDataViewCell.ExpandDataButtonClicked += ExperimentDataViewCell_ShowDetails;
@@ -136,6 +138,13 @@ namespace AnalysisITC
 
         private void OnDataManagerUpdated(object sender, ExperimentData data)
         {
+            if (_skipNextReloadForAnimatedRemoval)
+            {
+                _skipNextReloadForAnimatedRemoval = false;
+                SyncSelection();
+                return;
+            }
+
             ReloadTable();
         }
 
@@ -216,6 +225,56 @@ namespace AnalysisITC
             DataManager.RemoveSourceItemAt(index);
         }
 
+        void DataManager_SourceItemRemoved(object sender, int index)
+        {
+            _skipNextReloadForAnimatedRemoval = AnimateRemovedRow(index);
+        }
+
+        bool AnimateRemovedRow(int index)
+        {
+            if (TableView == null) return false;
+
+            EnsureTableBindings();
+
+            var rowsBeforeAnimation = (int)TableView.RowCount;
+            if (index < 0 || index >= rowsBeforeAnimation) return false;
+            if (rowsBeforeAnimation != DataManager.SourceItems.Count + 1) return false;
+
+            var wasSuppressingSelectionCallback = _suppressTableSelectionCallback;
+            var updatesStarted = false;
+            _suppressTableSelectionCallback = true;
+            try
+            {
+                TableView.BeginUpdates();
+                updatesStarted = true;
+                TableView.RemoveRows(new NSIndexSet(index), NSTableViewAnimation.SlideLeft);
+                TableView.EndUpdates();
+                updatesStarted = false;
+                return true;
+            }
+            catch (Exception ex)
+            {
+                AppEventHandler.AddLog(ex);
+                if (updatesStarted)
+                {
+                    try
+                    {
+                        TableView.EndUpdates();
+                    }
+                    catch (Exception endUpdatesException)
+                    {
+                        AppEventHandler.AddLog(endUpdatesException);
+                    }
+                }
+
+                return false;
+            }
+            finally
+            {
+                _suppressTableSelectionCallback = wasSuppressingSelectionCallback;
+            }
+        }
+
         void ReloadTable()
         {
             if (TableView == null)
@@ -282,6 +341,7 @@ namespace AnalysisITC
             DataManager.DataDidChange -= OnDataManagerUpdated;
             DataManager.SelectionDidChange -= DataManager_SelectionDidChange;
             DataManager.AnalysisResultSelected -= DataManager_AnalysisResultSelected;
+            DataManager.SourceItemRemoved -= DataManager_SourceItemRemoved;
             DataManager.UpdateTable -= ExperimentDetailsPopoverController_UpdateTable;
 
             ExperimentDataViewCell.ExpandDataButtonClicked -= ExperimentDataViewCell_ShowDetails;
