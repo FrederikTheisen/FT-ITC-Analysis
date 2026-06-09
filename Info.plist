@@ -13,9 +13,9 @@
 	<key>LSApplicationCategoryType</key>
 	<string>public.app-category.productivity</string>
 	<key>CFBundleVersion</key>
-	<string>1.2.0</string>
+	<string>1.3.0</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.2.0</string>
+	<string>1.3.0</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleSignature</key>
@@ -75,19 +75,6 @@
 			<array>
 				<string>com.frederiktheisen.ftitc.itcdata</string>
 			</array>
-		</dict>
-		<dict>
-			<key>CFBundleTypeName</key>
-			<string>Integrated Heats File</string>
-			<key>CFBundleTypeExtensions</key>
-			<array>
-				<string>dat</string>
-				<string>DAT</string>
-			</array>
-			<key>CFBundleTypeRole</key>
-			<string>Viewer</string>
-			<key>LSHandlerRank</key>
-			<string>Alternate</string>
 		</dict>
 	</array>
 	<key>UTExportedTypeDeclarations</key>
