@@ -208,8 +208,9 @@ namespace AnalysisITC
                         MergeSettings.Copy(),
                         (completed, total) => NSApplication.SharedApplication.BeginInvokeOnMainThread(() =>
                         {
-                            StatusBarManager.SetProgress(completed / (double)total);
-                            StatusBarManager.SetSecondaryStatus($"{completed}/{total}", 0);
+                            var progress = completed / (double)total;
+                            StatusBarManager.SetProgress(progress);
+                            StatusBarManager.SetSecondaryStatus($"{100 * progress:0}%", 0);
                         })));
                     if (bestPoint == null)
                         throw new InvalidOperationException("The tandem back-mixing scan did not produce a valid fit.");

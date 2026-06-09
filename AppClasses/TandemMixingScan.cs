@@ -250,15 +250,19 @@ namespace AnalysisITC
         public const double DefaultMixingFractionStep = 0.02;
         public const double AdaptiveRefinementStep = 0.002;
         public const double AdaptiveRefinementRadius = 0.02;
+        public static bool ReportPercentage { get; set; } = true;
 
         public static IReadOnlyList<double> DefaultMixingFractions =>
             MixingFractionsForStep(DefaultMixingFractionStep);
 
         public static IReadOnlyList<double> MixingFractionsForStep(double step) =>
+            MixingFractionsForStep(DefaultMinimumMixingFraction, DefaultMaximumMixingFraction, step);
+
+        public static IReadOnlyList<double> MixingFractionsForStep(double minimum, double maximum, double step) =>
             Enumerable.Range(
                     0,
-                    (int)Math.Round((DefaultMaximumMixingFraction - DefaultMinimumMixingFraction) / step) + 1)
-                .Select(index => DefaultMinimumMixingFraction + index * step)
+                    (int)Math.Round((maximum - minimum) / step) + 1)
+                .Select(index => minimum + index * step)
                 .ToList();
 
         public static TandemMixingScanResult Run(
