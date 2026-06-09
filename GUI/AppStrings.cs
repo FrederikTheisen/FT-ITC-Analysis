@@ -15,6 +15,7 @@ namespace AnalysisITC.Utilities
         public const string ApparentDissociationConstant = "*K*{d,app}";
         public const string IsomerizationEquilibriumConstant = "*K*{eq}";
         public const string Enthalpy = "∆*H*";
+        public const string StandardEnthalpy = "∆*H*°";
         public const string GibbsFreeEnergy = "∆*G*";
         public const string EntropyContribution = "-*T*∆*S*";
         public const string ProtonationEnthalpy = "∆*H*{buffer}";
