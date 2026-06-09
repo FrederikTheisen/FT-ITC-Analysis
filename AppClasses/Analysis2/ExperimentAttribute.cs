@@ -67,7 +67,7 @@ namespace AnalysisITC.AppClasses.AnalysisClasses
         BufferSubtraction,
         [AttributeKey("Stoichiometry", "Fixed stoichiometric site ratio used by the model. This controls how many binding sites are represented on the cell side.", ExperimentAttribute.AttributeType.Int)]
         NumberOfSites1,
-        [AttributeKey("Use Syringe Correction", "Use a syringe concentration correction factor instead of fitting an apparent N - value.Useful when the active titrant concentration is uncertain.This changes the fitted affinity and enthalpy.", ExperimentAttribute.AttributeType.Bool)]
+        [AttributeKey("Use Syringe Correction", "Use a syringe concentration correction factor instead of fitting an apparent N-value. Useful when the active titrant concentration is uncertain. This changes the fitted affinity and enthalpy.", ExperimentAttribute.AttributeType.Bool)]
         UseSyringeActiveFraction,
         [AttributeKey("Stoichiometry", "Fixed stoichiometric site ratio used by the model. This controls how many binding sites are represented on the cell side.", ExperimentAttribute.AttributeType.Int)]
         NumberOfSites2,

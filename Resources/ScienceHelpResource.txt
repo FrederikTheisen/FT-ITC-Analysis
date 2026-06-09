@@ -1,7 +1,7 @@
 ## Baseline and Integration
 The integrated heat for each injection is calculated from the baseline-corrected thermogram over the selected integration window. Baseline choice and integration range are therefore coupled: changing the selected peak region can change which points are used to estimate the baseline and can also change the integrated area directly.
 
-\appname supports three baseline strategies:
+# \appname supports three baseline strategies:
 **Spline baseline:** local baseline estimates are placed around injection scopes and interpolated with a linear or smooth spline. Sparse, balanced, and dense point-density settings change the target number of control points per injection. The program adapts the actual point count to the usable baseline length, especially when integrated peak regions remove much of the available baseline.
 **Polynomial baseline:** a single polynomial is fit across the thermogram while outlier points are iteratively rejected. This is a global description of baseline drift and is most appropriate when the baseline is smooth across the full experiment.
 **Segmented baseline:** local polynomial segments are fit in the baseline regions surrounding each injection and blended across integration windows. This is useful when baseline drift changes locally and should not be forced into one global polynomial.

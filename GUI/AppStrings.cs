@@ -32,9 +32,9 @@ namespace AnalysisITC.Utilities
         public const string AppName = "FT-ITC Analysis";
         public const string ITCsimName = "ITCsim";
         public const string PeakFitBtn = "Fit Peak Shapes";
-        public const string MultExpString = "Mutiple Experiments";
+        public const string MultExpString = "Multiple Experiments";
         public const string DataFitBtn = "Fit Model";
-        public const string ExpMerger = "Mutiple Experiments";
+        public const string ExpMerger = "Experiment Merger";
         public const string KeyEnter = "ENTER";
         public const string KeySpace = "SPACE";
 
