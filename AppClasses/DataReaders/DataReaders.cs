@@ -72,7 +72,7 @@ namespace DataReaders
                 switch (AppDelegate.PromptProjectLoadAction())
                 {
                     case AppDelegate.ProjectLoadAction.Replace:
-                        if (!await AppDelegate.CloseAllDataAsync()) return;
+                        if (!await AppDelegate.CloseAllDataAsync(DataClearMode.ResetSession)) return;
                         break;
                     case AppDelegate.ProjectLoadAction.Cancel:
                         return;

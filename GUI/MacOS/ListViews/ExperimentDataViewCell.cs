@@ -13,14 +13,10 @@ namespace AnalysisITC
 	{
 		public static event EventHandler<ExperimentData> ExpandDataButtonClicked;
 
-		AnalysisITCDataSource source;
-		ExperimentData data;
-		int row;
-		int ContentIndex => source?.Content?.FindIndex(x => x.UniqueID == data.UniqueID) ?? -1;
-        int DataIndex => DataManager.Data.IndexOf(data);
-		public bool IsDetailedViewOpen { get; set; } = false;
-
-		public event EventHandler<int> RemoveData;
+        ExperimentData data;
+        Action<ITCDataContainer> removeRequested;
+        bool eventsUnsubscribed;
+        public bool IsDetailedViewOpen { get; set; } = false;
 
 		public ExperimentDataViewCell (IntPtr handle) : base (handle)
 		{
@@ -81,17 +77,16 @@ namespace AnalysisITC
 			NeedsDisplay = true;
         }
 
-        public void Setup(AnalysisITCDataSource source, ExperimentData data, int index)
-        {
-            if (this.data != null)
-            {
-                this.data.SolutionChanged -= Data_SolutionChanged;
-                this.data.ProcessingUpdated -= Data_ProcessingCompleted;
-            }
+		public void Setup(ExperimentData data, Action<ITCDataContainer> removeRequested)
+		{
+			if (this.data != null)
+			{
+				this.data.SolutionChanged -= Data_SolutionChanged;
+				this.data.ProcessingUpdated -= Data_ProcessingCompleted;
+			}
 
-            this.source = source;
 			this.data = data;
-			this.row = index;
+			this.removeRequested = removeRequested;
 
 			ExpNameLabel.StringValue = data.Name;
 			Line2.StringValue = data.UIShortDateWithTime;
@@ -109,37 +104,44 @@ namespace AnalysisITC
 
         private void Data_ProcessingCompleted(object sender, EventArgs e)
         {
-			NSApplication.SharedApplication.InvokeOnMainThread(() =>
-			{
-                SetIncludeButtonImage();
+            var eventData = sender as ExperimentData ?? data;
 
-				SetValidSolutionLabeling();
+            NSApplication.SharedApplication.InvokeOnMainThread(() =>
+            {
+                if (eventData == null || !ReferenceEquals(data, eventData)) return;
+
+                SetIncludeButtonImage();
+                SetValidSolutionLabeling();
 
                 LayoutSubtreeIfNeeded();
             });
-		}
+        }
 
         private void Data_SolutionChanged(object sender, EventArgs e)
         {
-			source.InvokeOnMainThread(() =>
-			{
-				if (data.Solution != null)
-				{
-					SetValidSolutionLabeling();
+            var eventData = sender as ExperimentData ?? data;
 
-					ModelFitLine.UsesSingleLineMode = false;
+            NSApplication.SharedApplication.InvokeOnMainThread(() =>
+            {
+                if (eventData == null || !ReferenceEquals(data, eventData)) return;
 
-					var line = new NSMutableAttributedString("");
+                if (eventData.Solution != null)
+                {
+                    SetValidSolutionLabeling();
 
-					foreach (var par in data.Solution.UISolutionParameters(FinalFigureDisplayParameters.ListView))
-					{
-						// First line is model line, treat special
-						if (line.Length == 0)
-						{
+                    ModelFitLine.UsesSingleLineMode = false;
+
+                    var line = new NSMutableAttributedString("");
+
+                    foreach (var par in eventData.Solution.UISolutionParameters(FinalFigureDisplayParameters.ListView))
+                    {
+                        // First line is model line, treat special
+                        if (line.Length == 0)
+                        {
                             line.Append(Utilities.MacStrings.FromMarkDownString($"{par.Item1} | RMSD = {par.Item2}", ModelFitLine.Font));
                         }
-						else
-						{
+                        else
+                        {
                             line.Append(Utilities.MacStrings.FromMarkDownString(Environment.NewLine + par.Item1 + " = ", ModelFitLine.Font));
                             line.Append(Utilities.MacStrings.FromMarkDownString(par.Item2, ModelFitLine.Font));
                         }                      
@@ -147,36 +149,23 @@ namespace AnalysisITC
 
                     ModelFitLine.AttributedStringValue = line;
                 }
-				else
-				{
-					IsDetailedViewOpen = false;
-					UpdateFitLineVisibility();
-				}
+                else
+                {
+                    IsDetailedViewOpen = false;
+                    UpdateFitLineVisibility();
+                }
 
-				ShowFitDataButton.Enabled = data.Solution != null;
+                ShowFitDataButton.Enabled = eventData.Solution != null;
 
                 LayoutSubtreeIfNeeded();
             });
-		}
+        }
 
         partial void RemoveClick(NSObject obj)
         {
-            int idx = ContentIndex;
-            if (idx < 0)
-            {
-                AppEventHandler.PrintAndLog($"ExpViewCell.RemoveClick Ignored: index < 0");
-                return; // stale cell / already removed
-            }
+            if (data == null) return;
 
-            var dataName = string.IsNullOrWhiteSpace(data.Name) ? data.FileName : data.Name;
-            if (!ConfirmationDialog.ConfirmRemoveOrDelete(
-                "Confirm Remove Data",
-                $"Are you sure you wish to remove {dataName}?",
-                "Remove Data")) return;
-
-            ViewController.NotifyWillRemoveData(this, idx);
-            DataManager.RemoveData2(idx);    // 1) update model first
-            RemoveData?.Invoke(this, idx);   // 2) then animate UI removal
+            removeRequested?.Invoke(data);
         }
 
         partial void ShowFitDataButtonClick(NSObject sender)
@@ -233,7 +222,7 @@ namespace AnalysisITC
         void SetValidSolutionLabeling()
         {
 			bool isvalid = false;
-			if (data.Solution != null) isvalid = data.Solution.IsValid;
+			if (data?.Solution != null) isvalid = data.Solution.IsValid;
 
 			ModelFitLine.TextColor = isvalid ? NSColor.Label : NSColor.SystemRed;
 		}
@@ -249,12 +238,12 @@ namespace AnalysisITC
             }
         }
 
-		void HighlightPartOfSelectedResult(CGContext gc)
-		{
+        void HighlightPartOfSelectedResult(CGContext gc)
+        {
             var solutions = DataManager.SelectedResult?.Solution.Solutions ?? new();
-            var color = solutions.Exists(sol => sol.Guid == data.Solution?.Guid) ?
-                NSColor.Label.CGColor :         // Current solution
-                NSColor.SecondaryLabel.CGColor; // Not current solution
+            var color = solutions.Exists(sol => sol.Guid == data.Solution?.Guid)
+                ? NSColor.Label.CGColor           // Current solution
+                : NSColor.SecondaryLabel.CGColor; // Not current solution
 
             var stroke = MacColors.WithAlpha(color, 0.5f);
             var fill = MacColors.WithAlpha(stroke, 0.1f);
@@ -269,6 +258,32 @@ namespace AnalysisITC
             gc.SetStrokeColor(stroke);
 
             gc.DrawPath(CGPathDrawingMode.FillStroke);
+        }
+
+        void UnsubscribeEvents()
+        {
+            if (eventsUnsubscribed) return;
+            eventsUnsubscribed = true;
+
+            DataManager.ResultLinkedExperimentHighlightDidChange -= ResultHighlightChanged;
+            DataManager.AnalysisResultSelected -= DataManager_AnalysisResultSelected;
+            DataManager.UpdateViewCells -= DataManager_UpdateViewCells;
+
+            if (data != null)
+            {
+                data.SolutionChanged -= Data_SolutionChanged;
+                data.ProcessingUpdated -= Data_ProcessingCompleted;
+            }
+
+            data = null;
+            removeRequested = null;
+        }
+
+        protected override void Dispose(bool disposing)
+        {
+            if (disposing) UnsubscribeEvents();
+
+            base.Dispose(disposing);
         }
     }
 }

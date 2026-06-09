@@ -14,18 +14,6 @@ namespace AnalysisITC
     public partial class ViewController : NSViewController
     {
         public static event EventHandler UpdateTable;
-        public static event EventHandler<int> WillRemoveData;
-        public static event EventHandler<int> RemoveData;
-
-        public static void NotifyWillRemoveData(object sender, int index)
-        {
-            WillRemoveData?.Invoke(sender, index);
-        }
-
-        public static void NotifyRemoveData(object sender, int index)
-        {
-            RemoveData?.Invoke(sender, index);
-        }
 
         ExperimentData Data => DataManager.Current;
 
@@ -244,10 +232,7 @@ namespace AnalysisITC
                 $"Are you sure you wish to delete {dataName}?",
                 "Delete Data")) return;
 
-            int idx = DataManager.SelectedContentIndex;
-            NotifyWillRemoveData(this, idx);
-            DataManager.RemoveData2(idx);
-            RemoveData?.Invoke(this, idx);
+            DataManager.RemoveSourceItemAt(DataManager.SelectedContentIndex);
         }
 
         private void AppDelegate_StartPrintOperation(object sender, EventArgs e)

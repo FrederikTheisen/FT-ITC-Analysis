@@ -4,6 +4,7 @@ using System;
 
 using Foundation;
 using AppKit;
+using AnalysisITC.GUI.MacOS;
 
 namespace AnalysisITC
 {
@@ -13,12 +14,10 @@ namespace AnalysisITC
         public static NSImage DataDisabledImage { get; private set; } = null;
         public static NSImage DataEnabledImage { get; private set; } = null;
 
+        readonly AnalysisITCDataSource _tableSource = new AnalysisITCDataSource();
         ExperimentDataDelegate _tableDelegate;
-        int? _pendingRemovedRow;
-        AnalysisITCDataSource _pendingRemovalSource;
-        int _pendingRemovalRowsBefore = -1;
-        bool _pendingRemovalModelUpdateObserved;
         bool _suppressTableSelectionCallback;
+        bool _eventsUnsubscribed;
 
         #region Constructors
 
@@ -47,7 +46,6 @@ namespace AnalysisITC
             DataManager.DataDidChange += OnDataManagerUpdated;
             DataManager.SelectionDidChange += DataManager_SelectionDidChange;
             DataManager.AnalysisResultSelected += DataManager_AnalysisResultSelected;
-            DataManager.RemoveListIndices += DataManager_RemoveListIndices;
             DataManager.UpdateTable += ExperimentDetailsPopoverController_UpdateTable;
 
             ExperimentDataViewCell.ExpandDataButtonClicked += ExperimentDataViewCell_ShowDetails;
@@ -56,10 +54,7 @@ namespace AnalysisITC
             ExperimentDetailsPopoverController.UpdateTable += ExperimentDetailsPopoverController_UpdateTable;
             BindingAnalysisViewController.UpdateTable += ExperimentDetailsPopoverController_UpdateTable;
             ViewController.UpdateTable += ExperimentDetailsPopoverController_UpdateTable;
-            ViewController.WillRemoveData += OnRowWillRemoveEvent;
-            ViewController.RemoveData += OnRowRemoveEvent;
 
-            AnalysisITCDataSource.SourceWasSorted += AnalysisITCDataSource_SourceWasSorted;
             AppSettings.SettingsDidUpdate += AppSettings_SettingsDidUpdate;
         }
 
@@ -71,23 +66,9 @@ namespace AnalysisITC
             return $"{item.GetType().Name}[Name='{name}', ID='{item.UniqueID}']";
         }
 
-        private void AnalysisITCDataSource_SourceWasSorted(object sender, EventArgs e)
-        {
-            var item = DataManager.Source.SelectedItem;
-            AppEventHandler.PrintAndLog(
-                $"SideBar.SourceWasSorted: selectedBefore={DescribeItem(item)}, rows={DataManager.Source?.Content?.Count ?? -1}");
-
-            ReloadTable();
-
-            DataManager.SelectIndex(DataManager.Source.Content.IndexOf(item));
-        }
-
         private void ExperimentDetailsPopoverController_UpdateTable(object sender, EventArgs e)
         {
-            int idx = DataManager.Source.SelectedIndex;
-            AppEventHandler.PrintAndLog(
-                $"SideBar.UpdateTable event: selectedIndex={idx}, rows={DataManager.Source?.Content?.Count ?? -1}, sender={sender?.GetType().Name ?? "<null>"}",
-                1);
+            int idx = DataManager.SelectedContentIndex;
 
             ReloadTable();
 
@@ -105,7 +86,7 @@ namespace AnalysisITC
 
             try
             {
-                DataManager.SelectIndex(DataManager.SourceItems.IndexOf(e));
+                DataManager.SelectIndex(DataManager.IndexOfSourceItem(e));
             }
             catch
             {
@@ -130,14 +111,12 @@ namespace AnalysisITC
 
         private void DataManager_SelectionDidChange(object sender, ExperimentData e)
         {
-            if (_pendingRemovedRow.HasValue) return;
             SyncSelection();
         }
 
         private void DataManager_AnalysisResultSelected(object sender, AnalysisResult e)
         {
             //PerformSegue("ShowAnalysisResultSegue", this);
-            if (_pendingRemovedRow.HasValue) return;
             SyncSelection();
         }
 
@@ -157,109 +136,7 @@ namespace AnalysisITC
 
         private void OnDataManagerUpdated(object sender, ExperimentData data)
         {
-            var rows = DataManager.Source?.Content?.Count ?? -1;
-            var selectedIndex = DataManager.Source?.SelectedIndex ?? -1;
-            AppEventHandler.PrintAndLog(
-                $"SideBar.OnDataManagerUpdated: pendingRemovedRow={_pendingRemovedRow?.ToString() ?? "<none>"}, payload={DescribeItem(data)}, rows={rows}, selectedIndex={selectedIndex}",
-                1);
-
-            if (_pendingRemovedRow.HasValue)
-            {
-                if (IsExpectedPendingRemovalUpdate(rows))
-                {
-                    _pendingRemovalModelUpdateObserved = true;
-                    AppEventHandler.PrintAndLog("SideBar.OnDataManagerUpdated: skipped reload due to pending row removal", 1);
-                    return;
-                }
-
-                ClearPendingRemoval("model update no longer matches pending row removal");
-            }
-
             ReloadTable();
-        }
-
-        private void OnRowWillRemoveEvent(object sender, int e)
-        {
-            _pendingRemovedRow = e;
-            _pendingRemovalSource = DataManager.Source;
-            _pendingRemovalRowsBefore = DataManager.Source?.Content?.Count ?? -1;
-            _pendingRemovalModelUpdateObserved = false;
-            var item = DataManager.Source != null && e >= 0 && e < DataManager.Source.Content.Count
-                ? DataManager.Source.Content[e]
-                : null;
-            AppEventHandler.PrintAndLog(
-                $"SideBar.OnRowWillRemoveEvent: row={e}, item={DescribeItem(item)}, rows={DataManager.Source?.Content?.Count ?? -1}, sender={sender?.GetType().Name ?? "<null>"}");
-        }
-
-        private void OnRowRemoveEvent(object sender, int e)
-        {
-            AppEventHandler.PrintAndLog(
-                $"SideBar.OnRowRemoveEvent: requestedRow={e}, pendingRemovedRow={_pendingRemovedRow?.ToString() ?? "<none>"}, rowsBefore={DataManager.Source?.Content?.Count ?? -1}, selectedIndexBefore={DataManager.Source?.SelectedIndex ?? -1}, sender={sender?.GetType().Name ?? "<null>"}");
-
-            if (!_pendingRemovedRow.HasValue)
-            {
-                AppEventHandler.PrintAndLog("SideBar.OnRowRemoveEvent: no pending row, falling back to full reload", 1);
-                ReloadTable();
-                return;
-            }
-
-            try
-            {
-                TableView.BeginUpdates();
-                TableView.RemoveRows(new NSIndexSet(_pendingRemovedRow.Value), NSTableViewAnimation.SlideLeft);
-                TableView.EndUpdates();
-                SyncSelection();
-                AppEventHandler.PrintAndLog(
-                    $"SideBar.OnRowRemoveEvent completed animated removal: removedRow={_pendingRemovedRow.Value}, rowsAfter={DataManager.Source?.Content?.Count ?? -1}, selectedIndexAfter={DataManager.Source?.SelectedIndex ?? -1}");
-            }
-            catch (Exception ex)
-            {
-                AppEventHandler.AddLog(ex);
-                AppEventHandler.PrintAndLog("SideBar.OnRowRemoveEvent: animated removal failed, reloading table", 1);
-                ReloadTable();
-            }
-            finally
-            {
-                ClearPendingRemoval("row remove event completed");
-            }
-        }
-
-        private void DataManager_RemoveListIndices(object sender, int[] e)
-        {
-            AppEventHandler.PrintAndLog(
-                $"SideBar.DataManager_RemoveListIndices: rows=[{string.Join(", ", e ?? Array.Empty<int>())}], rowsBeforeReload={DataManager.Source?.Content?.Count ?? -1}");
-            ClearPendingRemoval("batch removal reload");
-            ReloadTable();
-        }
-
-        bool IsExpectedPendingRemovalUpdate(int rows)
-        {
-            if (!_pendingRemovedRow.HasValue) return false;
-            if (_pendingRemovalModelUpdateObserved) return false;
-            if (!ReferenceEquals(DataManager.Source, _pendingRemovalSource)) return false;
-            if (_pendingRemovalRowsBefore <= 0) return false;
-            if (_pendingRemovedRow.Value < 0 || _pendingRemovedRow.Value >= _pendingRemovalRowsBefore) return false;
-
-            return rows == _pendingRemovalRowsBefore - 1;
-        }
-
-        void ClearPendingRemoval(string reason)
-        {
-            if (!_pendingRemovedRow.HasValue)
-            {
-                _pendingRemovalSource = null;
-                _pendingRemovalRowsBefore = -1;
-                _pendingRemovalModelUpdateObserved = false;
-                return;
-            }
-
-            AppEventHandler.PrintAndLog(
-                $"SideBar: clearing pendingRemovedRow={_pendingRemovedRow.Value} ({reason})",
-                1);
-            _pendingRemovedRow = null;
-            _pendingRemovalSource = null;
-            _pendingRemovalRowsBefore = -1;
-            _pendingRemovalModelUpdateObserved = false;
         }
 
         private void OnDataViewClicked(object sender, EventArgs e)
@@ -268,13 +145,11 @@ namespace AnalysisITC
             if ((int)TableView.SelectedRow != -1) DataManager.SelectIndex((int)TableView.SelectedRow);
         }
 
-        
-
         #endregion
 
         void EnsureTableBindings()
         {
-            if (TableView == null || DataManager.Source == null) return;
+            if (TableView == null) return;
 
             if (TableView is ModifierClickTableView modifierClickTableView)
             {
@@ -282,22 +157,22 @@ namespace AnalysisITC
                 modifierClickTableView.RowModifierClicked += OnTableRowModifierClicked;
             }
 
-            if (!ReferenceEquals(TableView.DataSource, DataManager.Source))
+            if (!ReferenceEquals(TableView.DataSource, _tableSource))
             {
-                TableView.DataSource = DataManager.Source;
+                TableView.DataSource = _tableSource;
             }
 
-            if (_tableDelegate == null || !ReferenceEquals(_tableDelegate.Source, DataManager.Source))
+            if (_tableDelegate == null || !ReferenceEquals(_tableDelegate.Source, _tableSource))
             {
                 if (_tableDelegate != null)
                 {
                     _tableDelegate.ExperimentDataViewClicked -= OnDataViewClicked;
-                    _tableDelegate.RemoveRow -= OnRowRemoveEvent;
+                    _tableDelegate.RemoveItemRequested -= OnRemoveItemRequested;
                 }
 
-                _tableDelegate = new ExperimentDataDelegate(DataManager.Source);
+                _tableDelegate = new ExperimentDataDelegate(_tableSource);
                 _tableDelegate.ExperimentDataViewClicked += OnDataViewClicked;
-                _tableDelegate.RemoveRow += OnRowRemoveEvent;
+                _tableDelegate.RemoveItemRequested += OnRemoveItemRequested;
             }
 
             if (!ReferenceEquals(TableView.Delegate, _tableDelegate))
@@ -308,9 +183,8 @@ namespace AnalysisITC
 
         void OnTableRowModifierClicked(object sender, ModifierClickTableViewEventArgs e)
         {
-            if (DataManager.Source == null) return;
-            if (e.Row < 0 || e.Row >= DataManager.Source.Content.Count) return;
-            if (DataManager.Source.Content[e.Row] is not ExperimentData data) return;
+            if (e.Row < 0 || e.Row >= DataManager.SourceItems.Count) return;
+            if (DataManager.SourceItems[e.Row] is not ExperimentData data) return;
             if (data.Processor?.IntegrationCompleted != true) return;
 
             data.Include = !data.Include;
@@ -319,19 +193,36 @@ namespace AnalysisITC
             e.Handled = true;
         }
 
-        void ReloadTable()
+        void OnRemoveItemRequested(object sender, ITCDataContainer item)
         {
-            ClearPendingRemoval("full table reload");
+            if (item == null) return;
 
-            if (TableView == null || DataManager.Source == null)
+            var index = DataManager.IndexOfSourceItem(item);
+            if (index < 0)
             {
-                AppEventHandler.PrintAndLog("SideBar.ReloadTable skipped: table or source was null", 1);
+                AppEventHandler.PrintAndLog(
+                    $"SideBar.OnRemoveItemRequested ignored stale item: {DescribeItem(item)}",
+                    1);
                 return;
             }
 
-            AppEventHandler.PrintAndLog(
-                $"SideBar.ReloadTable: rows={DataManager.Source.Content.Count}, selectedIndex={DataManager.Source.SelectedIndex}, pendingRemovedRow={_pendingRemovedRow?.ToString() ?? "<none>"}",
-                1);
+            var itemName = string.IsNullOrWhiteSpace(item.Name) ? item.FileName : item.Name;
+            var isResult = item is AnalysisResult;
+            if (!ConfirmationDialog.ConfirmRemoveOrDelete(
+                isResult ? "Confirm Delete Result" : "Confirm Remove Data",
+                $"Are you sure you wish to {(isResult ? "delete" : "remove")} {itemName}?",
+                isResult ? "Delete Result" : "Remove Data")) return;
+
+            DataManager.RemoveSourceItemAt(index);
+        }
+
+        void ReloadTable()
+        {
+            if (TableView == null)
+            {
+                AppEventHandler.PrintAndLog("SideBar.ReloadTable skipped: table was null", 1);
+                return;
+            }
 
             EnsureTableBindings();
             try
@@ -348,14 +239,14 @@ namespace AnalysisITC
 
         void SyncSelection()
         {
-            if (TableView == null || DataManager.Source == null)
+            if (TableView == null)
             {
-                AppEventHandler.PrintAndLog("SideBar.SyncSelection skipped: table or source was null", 1);
+                AppEventHandler.PrintAndLog("SideBar.SyncSelection skipped: table was null", 1);
                 return;
             }
 
-            int idx = DataManager.Source.SelectedIndex;
-            if (idx >= 0 && idx < DataManager.Source.Content.Count)
+            int idx = DataManager.SelectedContentIndex;
+            if (idx >= 0 && idx < DataManager.SourceItems.Count)
             {
                 var wasSuppressingSelectionCallback = _suppressTableSelectionCallback;
                 _suppressTableSelectionCallback = true;
@@ -367,9 +258,6 @@ namespace AnalysisITC
                 {
                     _suppressTableSelectionCallback = wasSuppressingSelectionCallback;
                 }
-                AppEventHandler.PrintAndLog(
-                    $"SideBar.SyncSelection: selectedIndex={idx}, selectedItem={DescribeItem(DataManager.Source.Content[idx])}",
-                    1);
             }
             else
             {
@@ -383,8 +271,45 @@ namespace AnalysisITC
                 {
                     _suppressTableSelectionCallback = wasSuppressingSelectionCallback;
                 }
-                AppEventHandler.PrintAndLog($"SideBar.SyncSelection: deselected all, selectedIndex={idx}, rows={DataManager.Source.Content.Count}", 1);
             }
+        }
+
+        void UnsubscribeEvents()
+        {
+            if (_eventsUnsubscribed) return;
+            _eventsUnsubscribed = true;
+
+            DataManager.DataDidChange -= OnDataManagerUpdated;
+            DataManager.SelectionDidChange -= DataManager_SelectionDidChange;
+            DataManager.AnalysisResultSelected -= DataManager_AnalysisResultSelected;
+            DataManager.UpdateTable -= ExperimentDetailsPopoverController_UpdateTable;
+
+            ExperimentDataViewCell.ExpandDataButtonClicked -= ExperimentDataViewCell_ShowDetails;
+            AnalysisResultView.ExpandDataButtonClicked -= AnalysisResultView_ExpandDataButtonClicked;
+
+            ExperimentDetailsPopoverController.UpdateTable -= ExperimentDetailsPopoverController_UpdateTable;
+            BindingAnalysisViewController.UpdateTable -= ExperimentDetailsPopoverController_UpdateTable;
+            ViewController.UpdateTable -= ExperimentDetailsPopoverController_UpdateTable;
+
+            AppSettings.SettingsDidUpdate -= AppSettings_SettingsDidUpdate;
+
+            if (TableView is ModifierClickTableView modifierClickTableView)
+            {
+                modifierClickTableView.RowModifierClicked -= OnTableRowModifierClicked;
+            }
+
+            if (_tableDelegate != null)
+            {
+                _tableDelegate.ExperimentDataViewClicked -= OnDataViewClicked;
+                _tableDelegate.RemoveItemRequested -= OnRemoveItemRequested;
+            }
+        }
+
+        protected override void Dispose(bool disposing)
+        {
+            if (disposing) UnsubscribeEvents();
+
+            base.Dispose(disposing);
         }
     }
 }

@@ -27,7 +27,6 @@ namespace AnalysisITC
 
             DataManager.DataDidChange += OnSourceItemsChanged;
             DataManager.DataInclusionDidChange += OnDocumentContentChanged;
-            DataManager.RemoveListIndices += OnSourceItemsRemoved;
 
             ResubscribeContainers();
         }
@@ -72,12 +71,6 @@ namespace AnalysisITC
         }
 
         static void OnSourceItemsChanged(object sender, ExperimentData e)
-        {
-            ResubscribeContainers();
-            MarkDirty();
-        }
-
-        static void OnSourceItemsRemoved(object sender, int[] e)
         {
             ResubscribeContainers();
             MarkDirty();

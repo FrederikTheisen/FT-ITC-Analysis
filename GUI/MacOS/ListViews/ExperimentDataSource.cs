@@ -1,179 +1,31 @@
 ﻿using System;
-using System.Collections.Generic;
 using AppKit;
 using Foundation;
-using System.Linq;
-using DataReaders;
 
 namespace AnalysisITC
 {
-    public class ITCDataContainerDeletionLog
-    {
-        public List<ITCDataContainer> Data { get; private set; } = new List<ITCDataContainer>();
-
-        public ITCDataContainerDeletionLog(List<ITCDataContainer> data)
-        {
-            Data.AddRange(data);
-        }
-
-        public ITCDataContainerDeletionLog(ITCDataContainer data)
-        {
-            Data.Add(data);
-        }
-    }
-
     public class AnalysisITCDataSource : NSTableViewDataSource
     {
-        public static event EventHandler SourceWasSorted;
-
-        public int SelectedIndex => DataManager.SelectedContentIndex;
-
-        public List<ITCDataContainer> Content { get; private set; } = new List<ITCDataContainer>();
-
-        public ITCDataContainer SelectedItem
-        {
-            get
-            {
-                if (SelectedIndex < 0) return null;
-                else if (SelectedIndex >= Content.Count) return null;
-                else return Content[SelectedIndex];
-            }
-        }
-
         #region Constructors
 
-        public AnalysisITCDataSource()
-        {
-            //Data = new List<ExperimentData>();
-            Content = new List<ITCDataContainer>();
-        }
+        public AnalysisITCDataSource() { }
 
         #endregion
 
         #region Override Methods
         public override nint GetRowCount(NSTableView tableView)
         {
-            return Content.Count;
+            return DataManager.SourceItems.Count;
         }
         #endregion
-
-        public void SortByName()
-        {
-            var curr = SelectedIndex > 0 ? Content[SelectedIndex] : null;
-
-            Content = Content.OrderBy(o => o.Name).OrderBy(OrderOnType).ToList();
-
-            HandleSorted(curr);
-        }
-
-        public void SortByDate()
-        {
-            var curr = SelectedIndex > 0 ? Content[SelectedIndex] : null;
-
-            Content = Content.OrderBy(o => o.Date).OrderBy(OrderOnType).ToList();
-
-            HandleSorted(curr);
-        }
-
-        public void SortByTemperature()
-        {
-            var curr = SelectedIndex > 0 ? Content[SelectedIndex] : null;
-
-            Content = Content.OrderBy(OrderOnTemperature).ToList();
-
-            HandleSorted(curr);
-        }
-
-        public void SortByType()
-        {
-            var curr = SelectedIndex > 0 ? Content[SelectedIndex] : null;
-
-            Content = Content.OrderBy(OrderOnType).ToList();
-
-            HandleSorted(curr);
-        }
-
-        public void SortByIonicStrength()
-        {
-            var curr = SelectedIndex > 0 ? Content[SelectedIndex] : null;
-
-            Content = Content.OrderBy(OrderOnIonicStrength).ToList();
-
-            HandleSorted(curr);
-        }
-
-        public void SortByProtonationEnthalpy()
-        {
-            var curr = SelectedIndex > 0 ? Content[SelectedIndex] : null;
-
-            Content = Content.OrderBy(OrderOnIonicProtonationEnthalpy).ToList();
-
-            HandleSorted(curr);
-        }
-
-        public void SetAllIncludeState(bool includeall)
-        {
-            var curr = SelectedIndex > 0 ? Content[SelectedIndex] : null;
-
-            Content.Where(o => o is ExperimentData).Select(o => o as ExperimentData).ToList().ForEach(d => d.Include = includeall);
-
-            HandleSorted(curr);
-        }
-
-        private void HandleSorted(ITCDataContainer prev)
-        {
-            DataManager.InvokeDataDidChange();
-
-            SourceWasSorted?.Invoke(this, null);
-
-            if (prev != null)
-            {
-                int idx = Content.IndexOf(prev);
-
-                DataManager.SelectIndex(idx);
-            }
-        }
-
-        private static double OrderOnTemperature(ITCDataContainer item)
-        {
-            if (item is ExperimentData) return ((ExperimentData)item).MeasuredTemperature;
-            else return double.MaxValue;
-        }
-
-        private static int OrderOnType(ITCDataContainer item)
-        {
-            if (item is ExperimentData)
-                return 0;
-            if (item is AnalysisResult)
-                return 1;
-            return 2;
-        }
-
-        private static double OrderOnIonicStrength(ITCDataContainer item)
-        {
-            if (item is ExperimentData)
-            {
-                return BufferAttribute.GetIonicStrength(item as ExperimentData);
-            }    
-            return double.MaxValue;
-        }
-
-        private static double OrderOnIonicProtonationEnthalpy(ITCDataContainer item)
-        {
-            if (item is ExperimentData)
-            {
-                return BufferAttribute.GetProtonationEnthalpy(item as ExperimentData);
-            }
-            return double.MaxValue;
-        }
     }
 
     public class ExperimentDataDelegate : NSTableViewDelegate
     {
         public event EventHandler ExperimentDataViewClicked;
+        public event EventHandler<ITCDataContainer> RemoveItemRequested;
 
         public AnalysisITCDataSource Source { get; }
-        public EventHandler<int> RemoveRow;
 
         public ExperimentDataDelegate(AnalysisITCDataSource source)
         {
@@ -192,31 +44,24 @@ namespace AnalysisITC
             // If a non-null view is returned, you modify it enough to reflect the new data
             ITCDataContainer content = DataManager.SourceItems[(int)row];
 
-            var view = tableView.MakeView(content.UniqueID, this);
+            var view = tableView.MakeView(GetCellIdentifier(content), this);
 
-            if (view == null)
+            if (content is ExperimentData experimentData)
             {
-                view = tableView.MakeView(GetCellIdentifier(content), this);
-                view.SetIdentifier(content.UniqueID);
-
-                switch (content)
-                {
-                    case ExperimentData: (view as ExperimentDataViewCell).RemoveData += OnRemoveDataButtonClick; break;
-                    case AnalysisResult: (view as AnalysisResultView).RemoveData += OnRemoveDataButtonClick; break;
-                    default: break;
-                }
+                (view as ExperimentDataViewCell).Setup(experimentData, OnRemoveItemRequested);
             }
-
-            if (content is ExperimentData) (view as ExperimentDataViewCell).Setup(Source, content as ExperimentData, (int)row);
-            else if (content is AnalysisResult) (view as AnalysisResultView).Setup(Source, content as AnalysisResult, (int)row);
+            else if (content is AnalysisResult analysisResult)
+            {
+                (view as AnalysisResultView).Setup(analysisResult, OnRemoveItemRequested);
+            }
 
             return view;
         }
 
-        private void OnRemoveDataButtonClick(object sender, int e) => RemoveRow?.Invoke(this, e);
+        void OnRemoveItemRequested(ITCDataContainer item) => RemoveItemRequested?.Invoke(this, item);
 
         [Export("tableViewSelectionDidChange:")]
-        public override void SelectionDidChange(NSNotification notification) => ExperimentDataViewClicked.Invoke(this, null);
+        public override void SelectionDidChange(NSNotification notification) => ExperimentDataViewClicked?.Invoke(this, null);
 
         [Export("tableView:heightOfRow:")]
         public override nfloat GetRowHeight(NSTableView tableView, nint row) => 48;

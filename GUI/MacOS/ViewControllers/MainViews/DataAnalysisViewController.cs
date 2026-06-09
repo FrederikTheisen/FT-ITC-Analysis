@@ -73,7 +73,6 @@ namespace AnalysisITC
             Invalidate += (_, _) => GraphView.Invalidate();
             AnalysisGlobalModeOptionsView2.ParameterContraintUpdated += OnConstraintUpdated;
             AppDelegate.StartPrintOperation += OnPrintOperation;
-            AnalysisITCDataSource.SourceWasSorted += (_, _) => RefreshGlobalModeControls();
             AppSettings.SettingsDidUpdate += OnSettingsDidUpdate;
             ResetStoredAnalysisStateRequested += OnResetStoredAnalysisStateRequested;
 

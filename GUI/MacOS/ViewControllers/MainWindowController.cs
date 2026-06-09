@@ -1135,10 +1135,7 @@ namespace AnalysisITC
                 $"Are you sure you wish to delete {itemName}?",
                 $"Delete {itemType}")) return;
 
-            var idx = DataManager.SelectedContentIndex;
-            ViewController.NotifyWillRemoveData(this, idx);
-            DataManager.RemoveData2(idx);
-            ViewController.NotifyRemoveData(this, idx);
+            DataManager.RemoveSourceItemAt(DataManager.SelectedContentIndex);
             UpdateContextToolbarMenu();
         }
 
@@ -1152,8 +1149,6 @@ namespace AnalysisITC
                 "Delete All Results")) return;
 
             DataManager.ClearProcessing();
-            var nextIndex = Math.Min(DataManager.SelectedContentIndex, DataManager.SourceItems.Count - 1);
-            DataManager.SelectIndex(nextIndex);
             UpdateContextToolbarMenu();
         }
 

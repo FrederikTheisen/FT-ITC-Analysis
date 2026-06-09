@@ -616,7 +616,7 @@ namespace AnalysisITC
             CalculateExperimentHeatDirection();
             MarkModified();
 
-            ProcessingUpdated?.Invoke(Processor, null);
+            ProcessingUpdated?.Invoke(this, null);
         }
 
         public void RemoveModel()

@@ -187,6 +187,7 @@ namespace AnalysisITC
         public static void Invalidate() => Invalidated?.Invoke(null, null);
 
         FinalFigure graph;
+        bool eventsUnsubscribed;
         public CGPoint Center { get; set; } = new CGPoint();
 
         public FinalFigureGraphView (IntPtr handle) : base (handle)
@@ -755,6 +756,24 @@ namespace AnalysisITC
             op.PrintInfo.RightMargin = 0;
             op.PrintInfo.ScalingFactor = scalingfactor;
             op.RunOperation();
+        }
+
+        void UnsubscribeEvents()
+        {
+            if (eventsUnsubscribed) return;
+            eventsUnsubscribed = true;
+
+            DataManager.SelectionDidChange -= DataManager_SelectionDidChange;
+            DataManager.ResultLinkedExperimentHighlightDidChange -= DataManager_SelectionDidChange;
+            Invalidated -= FinalFigureGraphView_Invalidated;
+            AppSettings.SettingsDidUpdate -= FinalFigureGraphView_Invalidated;
+        }
+
+        protected override void Dispose(bool disposing)
+        {
+            if (disposing) UnsubscribeEvents();
+
+            base.Dispose(disposing);
         }
     }
 }

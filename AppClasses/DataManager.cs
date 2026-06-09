@@ -7,6 +7,32 @@ using AnalysisITC.AppClasses.AnalysisClasses;
 
 namespace AnalysisITC
 {
+    public class ITCDataContainerDeletionLog
+    {
+        readonly List<ITCDataContainer> data = new List<ITCDataContainer>();
+        readonly IReadOnlyList<ITCDataContainer> dataView;
+
+        public IReadOnlyList<ITCDataContainer> Data => dataView;
+
+        public ITCDataContainerDeletionLog(IEnumerable<ITCDataContainer> data)
+        {
+            dataView = this.data.AsReadOnly();
+            if (data != null) this.data.AddRange(data.Where(item => item != null));
+        }
+
+        public ITCDataContainerDeletionLog(ITCDataContainer data)
+        {
+            dataView = this.data.AsReadOnly();
+            if (data != null) this.data.Add(data);
+        }
+    }
+
+    public enum DataClearMode
+    {
+        RecordUndo,
+        ResetSession
+    }
+
     public static class DataManager
     {
         public static EnergyUnit Unit { get; set; } = EnergyUnit.Joule;
@@ -15,7 +41,6 @@ namespace AnalysisITC
         public static event EventHandler<ExperimentData> DataInclusionDidChange;
         public static event EventHandler<ExperimentData> SelectionDidChange;
         public static event EventHandler<AnalysisResult> AnalysisResultSelected;
-        public static event EventHandler<int[]> RemoveListIndices;
         public static event EventHandler<SolutionInterface> ResultSolutionSelectionDidChange;
         public static event EventHandler<ExperimentData> ResultLinkedExperimentHighlightDidChange;
         public static event EventHandler UpdateTable;
@@ -23,15 +48,19 @@ namespace AnalysisITC
 
         public static SolutionInterface SelectedResultSolution { get; private set; }
         public static ExperimentData SelectedSolutionExperimentHighlight => SelectedResultSolution?.Data;
-        public static List<ExperimentData> SelectedSolutionExperiments => SelectedIsResult ? (SourceItems[selectedContentIndex] as AnalysisResult).Solution.Solutions.Select(sol => sol.Data).ToList() : new List<ExperimentData>();
+        public static List<ExperimentData> SelectedSolutionExperiments => SelectedResult?.Solution?.Solutions?.Select(sol => sol.Data).ToList() ?? new List<ExperimentData>();
 
-        public static AnalysisITCDataSource Source { get; private set; }
-        public static List<ITCDataContainer> SourceItems => Source.Content;
-        public static List<ITCDataContainerDeletionLog> DeletedDataList { get; } = new List<ITCDataContainerDeletionLog>();
+        static readonly List<ITCDataContainer> sourceItems = new List<ITCDataContainer>();
+        static readonly IReadOnlyList<ITCDataContainer> sourceItemsView = sourceItems.AsReadOnly();
+        static readonly List<ITCDataContainerDeletionLog> deletedDataList = new List<ITCDataContainerDeletionLog>();
+        static readonly IReadOnlyList<ITCDataContainerDeletionLog> deletedDataListView = deletedDataList.AsReadOnly();
+
+        public static IReadOnlyList<ITCDataContainer> SourceItems => sourceItemsView;
+        public static IReadOnlyList<ITCDataContainerDeletionLog> DeletedDataList => deletedDataListView;
         public static List<AnalysisResult> Results => SourceItems.Where(o => o is AnalysisResult).Select(o => o as AnalysisResult).ToList();
         public static List<ExperimentData> Data => SourceItems.Where(o => o is ExperimentData).Select(o => o as ExperimentData).ToList();
         public static IEnumerable<ExperimentData> IncludedData => Data.Where(d => d.Include).ToList();
-        public static ExperimentData Current => SelectedDataIndex == -1 || (SelectedDataIndex >= Count) ? null : Data[SelectedDataIndex];
+        public static ExperimentData Current => SelectedIsData ? SourceItems[SelectedContentIndex] as ExperimentData : null;
         public static AnalysisResult SelectedResult => SelectedIsResult ? (SourceItems[selectedContentIndex] as AnalysisResult) : null;
         public static bool SelectedIsData
         {
@@ -52,22 +81,11 @@ namespace AnalysisITC
 
         public static bool StopProcessCopying { get; set; } = false;
 
-        static int selectedDataIndex = 0;
-        public static int SelectedDataIndex
-        {
-            get => selectedDataIndex;
-            set
-            {
-                if (value < 0) selectedDataIndex = 0;
-                else if (value >= Count) selectedDataIndex = Count - 1;
-                else selectedDataIndex = value;
-            }
-        }
         static int selectedContentIndex = 0;
         public static int SelectedContentIndex
         {
             get => selectedContentIndex;
-            set
+            private set
             {
                 if (SourceItems.Count == 0) selectedContentIndex = -1;
                 else if (value < 0) selectedContentIndex = -1;
@@ -78,29 +96,39 @@ namespace AnalysisITC
 
         public static int Count => Data.Count();
 
-        public static bool DataIsLoaded => Source.Content.Exists(o => o is ExperimentData);
+        public static bool DataIsLoaded => SourceItems.Any(o => o is ExperimentData);
         public static bool AllDataIsBaselineProcessed => Data.All(d => d.Processor.BaselineCompleted);
         public static bool AnyDataIsBaselineProcessed => Data.Any(d => d.Processor.BaselineCompleted);
         public static bool AnyDataIsAnalyzed => Data.Any(d => d.Solution != null);
 
         public static void Init()
         {
-            Source = new AnalysisITCDataSource();
-            SelectedContentIndex = -1;
-
-            DataDidChange?.Invoke(null, null);
+            sourceItems.Clear();
+            NotifySourceItemsChanged(-1);
         }
+
+        static void ReplaceSourceItems(IEnumerable<ITCDataContainer> items)
+        {
+            sourceItems.Clear();
+            if (items != null) sourceItems.AddRange(items);
+        }
+
+        public static int IndexOfSourceItem(ITCDataContainer item) => sourceItems.IndexOf(item);
 
         public static void SelectIndex(int index)
         {
             SelectedContentIndex = index;
             index = SelectedContentIndex;
 
-            if (index == -1) return;
+            if (index == -1)
+            {
+                SelectionDidChange?.Invoke(null, null);
+                ClearResultSolutionSelection();
+                return;
+            }
+
             if (SourceItems[index] is ExperimentData)
             {
-                SelectedDataIndex = Data.IndexOf(SourceItems[index] as ExperimentData);
-
                 SelectionDidChange?.Invoke(null, Current);
 
                 StateManager.ManagedReturnToAnalysisViewState();
@@ -152,62 +180,92 @@ namespace AnalysisITC
             return $"{type}[Name='{name}', ID='{item.UniqueID}']";
         }
 
-        public static void RemoveData2(int index)
+        public static void RemoveSourceItemAt(int index)
         {
-            AppEventHandler.PrintAndLog($"DataManager.RemoveData2 requested: index={index}, selectedContent={SelectedContentIndex}, totalContent={Source.Content.Count}, totalData={Count}");
+            AppEventHandler.PrintAndLog($"DataManager.RemoveSourceItemAt requested: index={index}, selectedContent={SelectedContentIndex}, totalContent={SourceItems.Count}, totalData={Count}");
 
             if (index < 0)
             {
-                AppEventHandler.PrintAndLog($"DataManager.RemoveData2 ignored: index was {index}", 1);
+                AppEventHandler.PrintAndLog($"DataManager.RemoveSourceItemAt ignored: index was {index}", 1);
                 return;
             }
-            if (index >= Source.Content.Count)
+            if (index >= SourceItems.Count)
             {
-                AppEventHandler.PrintAndLog($"DataManager.RemoveData2 ignored: index {index} is outside content range 0..{Source.Content.Count - 1}", 1);
+                AppEventHandler.PrintAndLog($"DataManager.RemoveSourceItemAt ignored: index {index} is outside content range 0..{SourceItems.Count - 1}", 1);
                 return;
             }
 
-            var removedItem = Source.Content[index];
-            AppEventHandler.PrintAndLog($"DataManager.RemoveData2 target: {DescribeItem(removedItem)}", 1);
+            var removedItem = SourceItems[index];
+            AppEventHandler.PrintAndLog($"DataManager.RemoveSourceItemAt target: {DescribeItem(removedItem)}", 1);
 
-            DeletedDataList.Add(new ITCDataContainerDeletionLog(removedItem));
+            deletedDataList.Add(new ITCDataContainerDeletionLog(removedItem));
 
-            var currentSelectedItem = SelectedContentIndex >= 0 && SelectedContentIndex < Source.Content.Count
-                ? Source.Content[SelectedContentIndex]
+            var currentSelectedItem = SelectedContentIndex >= 0 && SelectedContentIndex < SourceItems.Count
+                ? SourceItems[SelectedContentIndex]
                 : null;
 
-            AppEventHandler.PrintAndLog($"DataManager.RemoveData2 selection before remove: {DescribeItem(currentSelectedItem)}", 1);
+            AppEventHandler.PrintAndLog($"DataManager.RemoveSourceItemAt selection before remove: {DescribeItem(currentSelectedItem)}", 1);
 
-            Source.Content.RemoveAt(index);
+            sourceItems.RemoveAt(index);
 
-            var selectedIndexAfterRemove = currentSelectedItem == null
-                ? -1
-                : Source.Content.IndexOf(currentSelectedItem);
-
-            SelectedContentIndex = selectedIndexAfterRemove;
-            if (SelectedContentIndex >= 0 && SelectedContentIndex < SourceItems.Count && SourceItems[SelectedContentIndex] is ExperimentData selectedData)
+            var selectedIndexAfterRemove = -1;
+            if (sourceItems.Count > 0)
             {
-                SelectedDataIndex = Data.IndexOf(selectedData);
+                selectedIndexAfterRemove = currentSelectedItem != null
+                    ? sourceItems.IndexOf(currentSelectedItem)
+                    : -1;
+
+                if (selectedIndexAfterRemove < 0)
+                {
+                    selectedIndexAfterRemove = Math.Min(index, sourceItems.Count - 1);
+                }
             }
 
-            DataDidChange?.Invoke(null, null);
-            SelectIndex(selectedIndexAfterRemove);
+            NotifySourceItemsChanged(selectedIndexAfterRemove);
 
-            var selectedAfter = SelectedContentIndex >= 0 && SelectedContentIndex < Source.Content.Count
-                ? Source.Content[SelectedContentIndex]
+            var selectedAfter = SelectedContentIndex >= 0 && SelectedContentIndex < SourceItems.Count
+                ? SourceItems[SelectedContentIndex]
                 : null;
-            AppEventHandler.PrintAndLog($"DataManager.RemoveData2 completed: removed {DescribeItem(removedItem)}, selectedAfter={DescribeItem(selectedAfter)}, totalContent={Source.Content.Count}, totalData={Count}");
+            AppEventHandler.PrintAndLog($"DataManager.RemoveSourceItemAt completed: removed {DescribeItem(removedItem)}, selectedAfter={DescribeItem(selectedAfter)}, totalContent={SourceItems.Count}, totalData={Count}");
         }
 
         public static void UndoDeleteData()
         {
-            AppEventHandler.PrintAndLog($"DataManager.UndoDeleteData requested: deletedBatches={DeletedDataList.Count}, totalContent={SourceItems.Count}, totalData={Count}");
+            AppEventHandler.PrintAndLog($"DataManager.UndoDeleteData requested: deletedBatches={deletedDataList.Count}, totalContent={SourceItems.Count}, totalData={Count}");
 
-            var restoreddata = DeletedDataList.Last().Data;
-            AppEventHandler.PrintAndLog($"DataManager.UndoDeleteData restoring batch of {restoreddata.Count}: {string.Join(", ", restoreddata.Select(DescribeItem))}",1);
+            if (deletedDataList.Count == 0)
+            {
+                AppEventHandler.PrintAndLog("DataManager.UndoDeleteData ignored: no deleted data batches", 1);
+                return;
+            }
 
-            foreach (var data in restoreddata) AddData(data);
-            DeletedDataList.Remove(DeletedDataList.Last());
+            var deletionLog = deletedDataList.Last();
+            var restoredData = deletionLog.Data.Where(data => data != null).ToList();
+            AppEventHandler.PrintAndLog($"DataManager.UndoDeleteData restoring batch of {restoredData.Count}: {string.Join(", ", restoredData.Select(DescribeItem))}", 1);
+
+            if (restoredData.Count == 0)
+            {
+                deletedDataList.Remove(deletionLog);
+                AppEventHandler.PrintAndLog("DataManager.UndoDeleteData ignored empty deleted data batch", 1);
+                return;
+            }
+
+            var selectedItem = SelectedContentIndex >= 0 && SelectedContentIndex < SourceItems.Count
+                ? SourceItems[SelectedContentIndex]
+                : null;
+
+            foreach (var data in restoredData)
+            {
+                sourceItems.Add(data);
+                if (ShouldSelectAddedItem(data))
+                {
+                    selectedItem = data;
+                }
+            }
+
+            deletedDataList.Remove(deletionLog);
+
+            NotifySourceItemsChanged(selectedItem, restoredData.Count == 1 ? restoredData[0] as ExperimentData : null);
 
             var selectedAfter = SelectedContentIndex >= 0 && SelectedContentIndex < SourceItems.Count
                 ? SourceItems[SelectedContentIndex]
@@ -217,22 +275,27 @@ namespace AnalysisITC
 
         public static void AddData(ITCDataContainer data)
         {
+            if (data == null) return;
+
             AppEventHandler.PrintAndLog($"DataManager.AddData requested: item={DescribeItem(data)}, totalContentBefore={SourceItems.Count}, totalDataBefore={Count}, selectedContentIndex={SelectedContentIndex}");
 
-            SourceItems.Add(data);
+            sourceItems.Add(data);
 
-            if (data is ExperimentData)
+            var selectedIndexAfterAdd = SourceItems.Count - 1;
+
+            if (data is ExperimentData experimentData)
             {
-                DataDidChange?.Invoke(null, data as ExperimentData);
-                SelectIndex(SourceItems.Count - 1);
-                SelectionDidChange?.Invoke(null, Current);
+                NotifySourceItemsChanged(selectedIndexAfterAdd, experimentData);
             }
             else
             {
-                DataDidChange?.Invoke(null, null);
-                if (!(data is AnalysisResult) || AppSettings.AutoOpenNewAnalysisResult)
+                if (!ShouldSelectAddedItem(data))
                 {
-                    SelectIndex(SourceItems.Count - 1);
+                    DataDidChange?.Invoke(null, null);
+                }
+                else
+                {
+                    NotifySourceItemsChanged(selectedIndexAfterAdd);
                 }
             }
 
@@ -249,15 +312,19 @@ namespace AnalysisITC
 
             AppEventHandler.PrintAndLog($"DataManager.AddData batch requested: items={items.Count}, totalContentBefore={SourceItems.Count}, totalDataBefore={Count}, selectedContentIndex={SelectedContentIndex}");
 
-            SourceItems.AddRange(items);
+            sourceItems.AddRange(items);
 
-            DataDidChange?.Invoke(null, null);
-            SelectIndex(SourceItems.Count - 1);
+            NotifySourceItemsChanged(SourceItems.Count - 1);
 
             var selectedAfter = SelectedContentIndex >= 0 && SelectedContentIndex < SourceItems.Count
                 ? SourceItems[SelectedContentIndex]
                 : null;
             AppEventHandler.PrintAndLog($"DataManager.AddData batch completed: items={items.Count}, totalContentAfter={SourceItems.Count}, totalDataAfter={Count}, selectedAfter={DescribeItem(selectedAfter)}");
+        }
+
+        static bool ShouldSelectAddedItem(ITCDataContainer data)
+        {
+            return data is not AnalysisResult || AppSettings.AutoOpenNewAnalysisResult;
         }
 
         public static void ApplyOptions()
@@ -332,15 +399,33 @@ namespace AnalysisITC
             AppEventHandler.PrintAndLog("Sorting content by " + mode.ToString() + "...");
             StatusBarManager.SetStatus($"Sorting Content by {mode}", 3333);
 
+            var selectedItem = SelectedContentIndex >= 0 && SelectedContentIndex < SourceItems.Count
+                ? SourceItems[SelectedContentIndex]
+                : null;
+
             switch (mode)
             {
-                case SortMode.Name: Source.SortByName(); break;
-                case SortMode.Temperature: Source.SortByTemperature(); break;
-                case SortMode.Type: Source.SortByType(); break;
-                case SortMode.IonicStrength: Source.SortByIonicStrength(); break;
-                case SortMode.ProtonationEnthalpy: Source.SortByProtonationEnthalpy(); break;
-                case SortMode.Date: Source.SortByDate(); break;
+                case SortMode.Name:
+                    ReplaceSourceItems(SourceItems.OrderBy(OrderOnType).ThenBy(o => o.Name).ToList());
+                    break;
+                case SortMode.Temperature:
+                    ReplaceSourceItems(SourceItems.OrderBy(OrderOnTemperature).ToList());
+                    break;
+                case SortMode.Type:
+                    ReplaceSourceItems(SourceItems.OrderBy(OrderOnType).ToList());
+                    break;
+                case SortMode.IonicStrength:
+                    ReplaceSourceItems(SourceItems.OrderBy(OrderOnIonicStrength).ToList());
+                    break;
+                case SortMode.ProtonationEnthalpy:
+                    ReplaceSourceItems(SourceItems.OrderBy(OrderOnIonicProtonationEnthalpy).ToList());
+                    break;
+                case SortMode.Date:
+                    ReplaceSourceItems(SourceItems.OrderBy(OrderOnType).ThenBy(o => o.Date).ToList());
+                    break;
             }
+
+            NotifySourceItemsChanged(selectedItem);
 
             AppEventHandler.PrintAndLog("Sort completed");
         }
@@ -349,7 +434,67 @@ namespace AnalysisITC
         {
             AppEventHandler.PrintAndLog("Change IncludeState: " + includeall.ToString());
 
-            Source.SetAllIncludeState(includeall);
+            foreach (var data in SourceItems.OfType<ExperimentData>())
+            {
+                data.Include = includeall;
+            }
+
+            InvokeDataInclusionDidChange();
+        }
+
+        static void NotifySourceItemsChanged(ITCDataContainer selectedItem)
+        {
+            NotifySourceItemsChanged(selectedItem, null);
+        }
+
+        static void NotifySourceItemsChanged(ITCDataContainer selectedItem, ExperimentData changedData)
+        {
+            RestoreSelectedItem(selectedItem);
+            DataDidChange?.Invoke(null, changedData);
+            SelectIndex(SelectedContentIndex);
+        }
+
+        static void NotifySourceItemsChanged(int selectedIndex, ExperimentData changedData = null)
+        {
+            SelectedContentIndex = selectedIndex;
+            DataDidChange?.Invoke(null, changedData);
+            SelectIndex(SelectedContentIndex);
+        }
+
+        static void RestoreSelectedItem(ITCDataContainer item)
+        {
+            if (item == null)
+            {
+                SelectedContentIndex = -1;
+                return;
+            }
+
+            SelectedContentIndex = sourceItems.IndexOf(item);
+        }
+
+        static double OrderOnTemperature(ITCDataContainer item)
+        {
+            if (item is ExperimentData data) return data.MeasuredTemperature;
+            return double.MaxValue;
+        }
+
+        static int OrderOnType(ITCDataContainer item)
+        {
+            if (item is ExperimentData) return 0;
+            if (item is AnalysisResult) return 1;
+            return 2;
+        }
+
+        static double OrderOnIonicStrength(ITCDataContainer item)
+        {
+            if (item is ExperimentData data) return BufferAttribute.GetIonicStrength(data);
+            return double.MaxValue;
+        }
+
+        static double OrderOnIonicProtonationEnthalpy(ITCDataContainer item)
+        {
+            if (item is ExperimentData data) return BufferAttribute.GetProtonationEnthalpy(data);
+            return double.MaxValue;
         }
 
         public static void InvokeDataDidChange()
@@ -373,28 +518,40 @@ namespace AnalysisITC
             UpdateTable?.Invoke(null, null);
         }
 
-        public static void Clear()
+        public static void Clear(DataClearMode mode = DataClearMode.RecordUndo)
         {
-            DeletedDataList.Add(new(SourceItems));
+            if (mode == DataClearMode.ResetSession)
+            {
+                deletedDataList.Clear();
+            }
+            else if (sourceItems.Count > 0)
+            {
+                deletedDataList.Add(new(sourceItems));
+            }
 
             Init();
-
-            DataDidChange?.Invoke(null, null);
 
             FTITCFormat.CurrentAccessedAppDocumentPath = ""; //Remove save file path
         }
 
         public static void ClearProcessing()
         {
-            DeletedDataList.Add(new(SourceItems.Where(data => data is AnalysisResult).ToList()));
-            var idxs = Source.Content
-                .Select((item, index) => new { Item = item, Index = index })
-                .Where(x => x.Item is AnalysisResult)
-                .Select(x => x.Index)
-                .ToArray();
-            Source.Content.RemoveAll(data => data is AnalysisResult);
+            var removedResults = sourceItems.Where(data => data is AnalysisResult).ToList();
+            if (removedResults.Count == 0) return;
 
-            RemoveListIndices?.Invoke(null, idxs);
+            var previousSelectedIndex = SelectedContentIndex;
+            var previousSelectedItem = previousSelectedIndex >= 0 && previousSelectedIndex < SourceItems.Count
+                ? SourceItems[previousSelectedIndex]
+                : null;
+
+            deletedDataList.Add(new(removedResults));
+            sourceItems.RemoveAll(data => data is AnalysisResult);
+
+            var selectedIndexAfterRemove = previousSelectedItem != null && sourceItems.Contains(previousSelectedItem)
+                ? sourceItems.IndexOf(previousSelectedItem)
+                : Math.Min(previousSelectedIndex, sourceItems.Count - 1);
+
+            NotifySourceItemsChanged(selectedIndexAfterRemove);
         }
 
         public static void CopySelectedAttributesToActive(bool clear = false)

@@ -659,11 +659,11 @@ namespace AnalysisITC
             skipDirtyCheckOnNextTerminate = true;
         }
 
-        public static async Task<bool> CloseAllDataAsync()
+        public static async Task<bool> CloseAllDataAsync(DataClearMode clearMode = DataClearMode.RecordUndo)
         {
             if (DataManager.SourceItems == null || DataManager.SourceItems.Count == 0)
             {
-                DataManager.Clear();
+                DataManager.Clear(clearMode);
                 DocumentDirtyTracker.MarkClean();
                 return true;
             }
@@ -693,7 +693,7 @@ namespace AnalysisITC
                 $"Are you sure you wish to clear all {DataManager.SourceItems.Count} data and results?",
                 "Clear All Data")) return false;
 
-            DataManager.Clear();
+            DataManager.Clear(clearMode);
             DocumentDirtyTracker.MarkClean();
 
             return true;

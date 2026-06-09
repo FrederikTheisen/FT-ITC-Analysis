@@ -10,13 +10,13 @@ namespace AnalysisITC
     {
         const double asymmetry_threshold = 0.18;
 
-        private double asymmscore = 0.0;
-        private bool isnan = false;
+        private double asymmscore;
+        private bool isnan;
 
-        public double Value { get; private set; } = 0;
-        public double SD { get; private set; } = 0;
-        public double[] DistributionConfidence95 { get; private set; } = new double[] { 0, 0 };
-        public bool IsAsymmetric { get; private set; } = false;
+        public double Value { get; private set; }
+        public double SD { get; private set; }
+        public double[] DistributionConfidence95 { get; private set; }
+        public bool IsAsymmetric { get; private set; }
 
         public readonly double Lower => DistributionConfidence95?[0] ?? Value;
         public readonly double Upper => DistributionConfidence95?[1] ?? Value;
@@ -50,13 +50,10 @@ namespace AnalysisITC
 
         public static bool IsNaN(FloatWithError v) => v.isnan;
 
-        public FloatWithError()
-        {
-
-        }
-
         public FloatWithError(double value = 0, double error = 0)
         {
+            asymmscore = 0;
+            isnan = false;
             Value = value;
             SD = Math.Abs(error);
             DistributionConfidence95 = new double[] { Value - 1.96 * SD, Value + 1.96 * SD };
@@ -66,6 +63,8 @@ namespace AnalysisITC
 
         public FloatWithError(double value, double error, double lower, double upper)
         {
+            asymmscore = 0;
+            isnan = false;
             Value = value;
             SD = Math.Abs(error);
             DistributionConfidence95 = new[] { lower, upper };
@@ -82,6 +81,8 @@ namespace AnalysisITC
 
             if (list != null && list.Any())
             {
+                asymmscore = 0;
+                isnan = false;
                 double error = 0;
                 double average = list.Average();
                 if (mean != null) average = (double)mean;
@@ -102,6 +103,8 @@ namespace AnalysisITC
         {
             if (distribution != null && distribution.Any())
             {
+                asymmscore = 0;
+                isnan = false;
                 var rng = new Random();
                 double error = 0;
                 double average = 0;
