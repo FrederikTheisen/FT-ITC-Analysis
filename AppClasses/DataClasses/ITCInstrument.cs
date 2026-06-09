@@ -80,22 +80,22 @@ namespace DataReaders
             AppEventHandler.PrintAndLog($"{data.Instrument}", 1);
         }
 
-        public static string SourceInstrumentTitle(ExperimentData data)
-        {
-            return data.Instrument switch
-            {
-                ITCInstrument.TAInstrumentsITCStandard or
-                ITCInstrument.TAInstrumentsITCLowVolume or
-                ITCInstrument.MicroCalVPITC or
-                ITCInstrument.MalvernITC200 or
-                ITCInstrument.MicroCalITC200 => data.Instrument.GetProperties().Name,
-                _ => data.DataSourceFormat switch
-                {
-                    ITCDataFormat.IntegratedHeats => "Integrated Heat File",
-                    _ => "Unknown Source Type",
-                },
-            };
-        }
+        //public static string SourceInstrumentTitle(ExperimentData data)
+        //{
+        //    return data.Instrument switch
+        //    {
+        //        ITCInstrument.TAInstrumentsITCStandard or
+        //        ITCInstrument.TAInstrumentsITCLowVolume or
+        //        ITCInstrument.MicroCalVPITC or
+        //        ITCInstrument.MalvernITC200 or
+        //        ITCInstrument.MicroCalITC200 => data.Instrument.GetProperties().Name,
+        //        _ => data.DataSourceFormat switch
+        //        {
+        //            ITCDataFormat.IntegratedHeats => "Integrated Heat File",
+        //            _ => "Unknown Source Type",
+        //        },
+        //    };
+        //}
     }
 
     [Flags]
