@@ -5,31 +5,31 @@ using System;
 using Foundation;
 using AppKit;
 using AnalysisITC.GUI.MacOS;
+using AnalysisITC.Utilities;
 
 namespace AnalysisITC
 {
 	public partial class AnalysisResultView : NSView
 	{
-        public event EventHandler<int> RemoveData;
         public static event EventHandler<AnalysisResult> ExpandDataButtonClicked;
 
-        AnalysisITCDataSource source;
         AnalysisResult data;
-        int ContentIndex => source?.Content?.FindIndex(x => x.UniqueID == data.UniqueID) ?? -1;
-        int row = -1;
+        Action<ITCDataContainer> removeRequested;
 
         public AnalysisResultView (IntPtr handle) : base (handle)
 		{
 		}
 
-        internal void Setup(AnalysisITCDataSource source, AnalysisResult analysisResult, int row)
+        internal void Setup(AnalysisResult analysisResult, Action<ITCDataContainer> removeRequested)
         {
-            this.source = source;
             this.data = analysisResult;
-            this.row = row;
+            this.removeRequested = removeRequested;
 
             ResultTitleLabel.StringValue = analysisResult.Name;
-            ResultContentLabel.StringValue = analysisResult.GetResultString();
+
+            var attstring = MacStrings.FromMarkDownString(analysisResult.GetListDescriptionString(), ResultContentLabel.Font);
+
+            ResultContentLabel.AttributedStringValue = attstring;
         }
 
         partial void ViewResultClick(NSObject sender)
@@ -39,26 +39,20 @@ namespace AnalysisITC
 
         partial void RemoveButtonClick(NSObject sender)
         {
-            Console.WriteLine("BTN CLICK: " + data.UniqueID + " " + ContentIndex);
-            foreach (var item in source.Content)
+            if (data == null) return;
+
+            removeRequested?.Invoke(data);
+        }
+
+        protected override void Dispose(bool disposing)
+        {
+            if (disposing)
             {
-                if (item is AnalysisResult)
-                    Console.WriteLine("  " + item.UniqueID);
+                data = null;
+                removeRequested = null;
             }
 
-            int idx = ContentIndex;
-            if (idx < 0) return;
-
-            var resultName = string.IsNullOrWhiteSpace(data.Name) ? data.FileName : data.Name;
-            if (!ConfirmationDialog.ConfirmRemoveOrDelete(
-                "Confirm Delete Result",
-                $"Are you sure you wish to delete {resultName}?",
-                "Delete Result")) return;
-
-            ViewController.NotifyWillRemoveData(this, idx);
-            DataManager.RemoveData2(idx);
-
-            RemoveData?.Invoke(this, idx);
+            base.Dispose(disposing);
         }
     }
 }

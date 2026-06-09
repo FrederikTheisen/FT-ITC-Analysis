@@ -151,6 +151,86 @@ namespace AnalysisITC
             return s.Trim();
         }
 
+        public string GetListDescriptionString()
+        {
+            var experimentCount = Solution.Solutions.Count;
+            var experimentLabel = experimentCount == 1 ? "exp" : "exp";
+            var modelName = Solution.SolutionName;
+            var rmsd = Solution.Loss.ToString("G3");
+
+            var line1 = $"Fit of {experimentCount} {experimentLabel}; {modelName}; RMSD {rmsd}";
+            var line2 = "Constraints: " + GetListConstraintSummary();
+            var line3 = string.Join("; ", GetListFitOptionSummary());
+
+            return string.Join(Environment.NewLine, line1, line2, line3);
+        }
+
+        string GetListConstraintSummary()
+        {
+            var constraints = Options.Constraints
+                .Where(con => con.Value != VariableConstraint.None)
+                .Select(con => $"{GetListParameterName(con.Key)} {GetListConstraintName(con.Value)}")
+                .ToList();
+
+            return constraints.Count == 0 ? "none" : string.Join("; ", constraints);
+        }
+
+        List<string> GetListFitOptionSummary()
+        {
+            var items = new List<string>
+            {
+                Solution.UseWeightedFitting ? "weighted inj errors" : "unweighted",
+                GetListErrorEstimationSummary(),
+                $"{Model.NumberOfParameters} fitted pars",
+            };
+
+            return items.Where(item => !string.IsNullOrWhiteSpace(item)).ToList();
+        }
+
+        string GetListErrorEstimationSummary()
+        {
+            if (Solution.ErrorEstimationMethod == ErrorEstimationMethod.None) return "no error estimation";
+
+            var method = Solution.ErrorEstimationMethod switch
+            {
+                ErrorEstimationMethod.BootstrapResiduals => "bootstrap",
+                ErrorEstimationMethod.LeaveOneOut => "leave-one-out",
+                _ => Solution.ErrorEstimationMethod.Description(),
+            };
+
+            return $"{method} x {Solution.BootstrapIterations}";
+        }
+
+        static string GetListConstraintName(VariableConstraint constraint)
+        {
+            return constraint switch
+            {
+                VariableConstraint.SameForAll => "shared",
+                VariableConstraint.TemperatureDependent => "temp-dependent",
+                _ => constraint.GetEnumDescription(),
+            };
+        }
+
+        static string GetListParameterName(ParameterType key)
+        {
+            return key switch
+            {
+                ParameterType.Nvalue1 => "N",
+                ParameterType.Nvalue2 => "N2",
+                ParameterType.Enthalpy1 => "dH",
+                ParameterType.Enthalpy2 => "dH2",
+                ParameterType.Affinity1 => "Kd",
+                ParameterType.Affinity2 => "Kd2",
+                ParameterType.Gibbs1 => "dG",
+                ParameterType.Gibbs2 => "dG2",
+                ParameterType.EntropyContribution1 => "-TdS",
+                ParameterType.EntropyContribution2 => "-TdS2",
+                ParameterType.HeatCapacity1 => "dCp",
+                ParameterType.HeatCapacity2 => "dCp2",
+                _ => key.GetProperties().Name,
+            };
+        }
+
         string EnsureUniqueName(string name)
         {
             try
