@@ -26,10 +26,26 @@ namespace AnalysisITC
             this.removeRequested = removeRequested;
 
             ResultTitleLabel.StringValue = analysisResult.Name;
+            ResultContentLabel.LineBreakMode = NSLineBreakMode.TruncatingTail;
+            ResultContentLabel.Cell.LineBreakMode = NSLineBreakMode.TruncatingTail;
 
             var attstring = MacStrings.FromMarkDownString(analysisResult.GetListDescriptionString(), ResultContentLabel.Font);
 
-            ResultContentLabel.AttributedStringValue = attstring;
+            ResultContentLabel.AttributedStringValue = WithTruncatingLineBreaks(attstring);
+        }
+
+        NSAttributedString WithTruncatingLineBreaks(NSAttributedString attributedString)
+        {
+            var mutable = new NSMutableAttributedString(attributedString);
+            var range = new NSRange(0, mutable.Length);
+            var paragraph = new NSMutableParagraphStyle
+            {
+                LineBreakMode = NSLineBreakMode.TruncatingTail,
+            };
+
+            mutable.AddAttribute(NSStringAttributeKey.ParagraphStyle, paragraph, range);
+
+            return mutable;
         }
 
         partial void ViewResultClick(NSObject sender)
