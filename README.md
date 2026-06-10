@@ -39,8 +39,6 @@ Raw input files are read by the application but are not modified. Save work as a
 2. Open the DMG and drag `FT-ITC-Analysis.app` to `/Applications`.
 3. Launch the application.
 
-For distribution outside the Mac App Store, releases should be Developer ID signed and notarized. If macOS blocks first launch for an unsigned or locally built copy, use Finder to open the app explicitly and confirm that you want to run it.
-
 ## Basic Workflow
 
 1. Open one or more supported data files using **File > Open...** or drag-and-drop.
