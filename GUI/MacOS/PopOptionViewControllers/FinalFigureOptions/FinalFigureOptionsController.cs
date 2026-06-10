@@ -50,6 +50,7 @@ namespace AnalysisITC
             public NSSwitch ShowIntegrationRegions { get; set; }
             public NSSegmentedControl IntegrationRegionStyleControl { get; set; }
             public NSSegmentedControl BaselineStyleControl { get; set; }
+            public NSSegmentedControl BaselineLayerControl { get; set; }
             public NSStepper BaselineThicknessControl { get; set; }
             public NSTextField BaselineThicknessLabel { get; set; }
         }
@@ -344,6 +345,11 @@ namespace AnalysisITC
                 controls.BaselineStyleControl.SelectSegment((int)FinalFigureGraphView.BaselineDisplayStyle);
             }
 
+            if (controls.BaselineLayerControl != null)
+            {
+                controls.BaselineLayerControl.SelectSegment((int)FinalFigureGraphView.BaselineLayerPosition);
+            }
+
             SetOptionalDouble(controls.XMinField, FinalFigureGraphView.DataXAxisMin);
             SetOptionalDouble(controls.XMaxField, FinalFigureGraphView.DataXAxisMax);
             SetOptionalDouble(controls.YMinField, FinalFigureGraphView.DataYAxisMin);
@@ -410,6 +416,11 @@ namespace AnalysisITC
             if (controls.BaselineStyleControl != null)
             {
                 FinalFigureGraphView.BaselineDisplayStyle = (BaselineDisplayStyle)(int)controls.BaselineStyleControl.SelectedSegment;
+            }
+
+            if (controls.BaselineLayerControl != null)
+            {
+                FinalFigureGraphView.BaselineLayerPosition = (BaselineLayerPosition)(int)controls.BaselineLayerControl.SelectedSegment;
             }
 
             if (controls.BaselineThicknessControl != null)

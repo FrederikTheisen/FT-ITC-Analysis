@@ -186,6 +186,7 @@ namespace AnalysisITC
             ShowIntegrationRegions = EmbeddedShowIntegrationRegions,
             IntegrationRegionStyleControl = EmbeddedIntegrationRegionStyleControl,
             BaselineStyleControl = EmbeddedBaselineStyleControl,
+            BaselineLayerControl = EmbeddedBaselineLayerControl,
             BaselineThicknessControl = EmbeddedBaselineThicknessControl,
             BaselineThicknessLabel = EmbeddedBaselineThicknessLabel,
         };

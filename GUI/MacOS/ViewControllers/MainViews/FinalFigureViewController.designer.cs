@@ -25,6 +25,9 @@ namespace AnalysisITC
 		AppKit.NSSwitch EmbeddedBadDataErrorBars { get; set; }
 
 		[Outlet]
+		AppKit.NSSegmentedControl EmbeddedBaselineLayerControl { get; set; }
+
+		[Outlet]
 		AppKit.NSSegmentedControl EmbeddedBaselineStyleControl { get; set; }
 
 		[Outlet]
@@ -241,6 +244,11 @@ namespace AnalysisITC
 			if (EmbeddedAddGapToResidualPlot != null) {
 				EmbeddedAddGapToResidualPlot.Dispose ();
 				EmbeddedAddGapToResidualPlot = null;
+			}
+
+			if (EmbeddedBaselineLayerControl != null) {
+				EmbeddedBaselineLayerControl.Dispose ();
+				EmbeddedBaselineLayerControl = null;
 			}
 
 			if (EmbeddedBaselineStyleControl != null) {

@@ -228,6 +228,15 @@ namespace AnalysisITC
             }
         }
 
+        public BaselineLayerPosition BaselineLayerPosition
+        {
+            get => DataGraph?.BaselineLayerPosition ?? BaselineLayerPosition.OverData;
+            set
+            {
+                if (DataGraph != null) DataGraph.BaselineLayerPosition = value;
+            }
+        }
+
         public bool DrawBaselineCorrected
         {
             get => DataGraph != null && DataGraph.ShowBaselineCorrected;

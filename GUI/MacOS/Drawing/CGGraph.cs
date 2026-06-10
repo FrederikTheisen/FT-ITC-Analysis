@@ -33,6 +33,12 @@ namespace AnalysisITC
         Dashed
     }
 
+    public enum BaselineLayerPosition
+    {
+        UnderData = 0,
+        OverData = 1,
+    }
+
     public enum IntegrationRegionDisplayStyle
     {
         Bar = 0,
@@ -1047,6 +1053,7 @@ namespace AnalysisITC
         public NSColor BaselineNSColor => NSColor.Red;
         public CGColor BaselineColor => BaselineNSColor.CGColor;
         public BaselineDisplayStyle BaselineDisplayStyle { get; set; } = BaselineDisplayStyle.Solid;
+        public BaselineLayerPosition BaselineLayerPosition { get; set; } = BaselineLayerPosition.OverData;
 
         public bool ShowBaseline { get; set; } = true;
         public bool ShowIntegrationRegions { get; set; } = false;
@@ -1071,9 +1078,11 @@ namespace AnalysisITC
                 DrawIntegrationRegions(gc);
             }
 
+            if (ShouldDrawBaseline && BaselineLayerPosition == BaselineLayerPosition.UnderData) DrawBaseline(gc);
+
             base.Draw(gc);
 
-            if (ShowBaseline && ExperimentData.Processor.Interpolator != null && ExperimentData.Processor.Interpolator.Finished) DrawBaseline(gc);
+            if (ShouldDrawBaseline && BaselineLayerPosition == BaselineLayerPosition.OverData) DrawBaseline(gc);
 
             if (ShouldDrawIntegrationRegions && IntegrationRegionDisplayStyle != IntegrationRegionDisplayStyle.Fill)
             {
@@ -1082,6 +1091,10 @@ namespace AnalysisITC
 
             if (ShowExperimentDetails) DrawExperimentDetails(gc);
         }
+
+        bool ShouldDrawBaseline => ShowBaseline
+            && ExperimentData.Processor?.Interpolator != null
+            && ExperimentData.Processor.Interpolator.Finished;
 
         void DrawIntegrationRegions(CGContext gc)
         {

@@ -145,6 +145,7 @@ namespace AnalysisITC
         public static TimeUnit TimeAxisUnit { get; set; } = TimeUnit.Minute;
         public static InformationBoxPlacement InformationBoxPosition { get; set; } = InformationBoxPlacement.Auto;
         public static BaselineDisplayStyle BaselineDisplayStyle { get; set; } = BaselineDisplayStyle.Solid;
+        public static BaselineLayerPosition BaselineLayerPosition { get; set; } = BaselineLayerPosition.OverData;
         public static float BaselineThickness { get; set; } = 2f;
 
         public static FinalFigureDisplayParameters ParameterDisplayFlags =>
@@ -232,6 +233,7 @@ namespace AnalysisITC
                 DrawBaselineCorrected = DrawBaselineCorrected,
                 BaselineThickness = BaselineThickness,
                 BaselineDisplayStyle = BaselineDisplayStyle,
+                BaselineLayerPosition = BaselineLayerPosition,
                 SyringeName = SyringeName,
                 CellName = CellName,
                 UseNameAttributes = UseNameAttributes,
@@ -666,6 +668,7 @@ namespace AnalysisITC
                 DrawBaselineCorrected = DrawBaselineCorrected,
                 BaselineThickness = BaselineThickness,
                 BaselineDisplayStyle = BaselineDisplayStyle,
+                BaselineLayerPosition = BaselineLayerPosition,
                 SyringeName = SyringeName,
                 CellName = CellName,
                 UseNameAttributes = UseNameAttributes,
