@@ -35,9 +35,45 @@ Raw input files are read by the application but are not modified. Save work as a
 
 ## Installation
 
-1. Download the latest `.dmg` from GitHub Releases.
-2. Open the DMG and drag `FT-ITC-Analysis.app` to `/Applications`.
-3. Launch the application.
+FT-ITC Analysis is distributed as a macOS app through
+[GitHub Releases](https://github.com/FrederikTheisen/FT-ITC-Analysis/releases).
+There is no command-line installer and no separate runtime to install.
+
+### Requirements
+
+- macOS 11.1 or newer.
+- Apple silicon or Intel Mac. Release builds are universal binaries.
+- A normal user account with permission to copy apps into `/Applications`.
+
+### Install the Release Build
+
+1. Download the latest `FT-ITC_Installer.dmg` from the Releases page.
+2. Open the DMG.
+3. Drag `FT-ITC.app` into the `Applications` folder shown in the installer window.
+4. Eject the DMG and launch **FT-ITC Analysis** from Applications, Launchpad, Spotlight, or by opening a supported data file.
+
+The release DMG is signed and notarized for macOS Gatekeeper. On first launch,
+macOS may still ask you to confirm that you want to open an app downloaded from
+the internet.
+
+### Updating
+
+Download the newest DMG from GitHub Releases and replace the older
+`/Applications/FT-ITC.app`. Existing `.ftitc` project files and exported data are
+not stored inside the application bundle and are not removed by replacing the
+app.
+
+### Uninstalling
+
+Quit FT-ITC Analysis and move `/Applications/FT-ITC.app` to the Trash. Removing
+the app does not delete your `.ftitc` projects or original ITC data files.
+
+### Building From Source
+
+Building from source is intended for developers. The project is a Xamarin.Mac
+application and requires the macOS/Xcode/Xamarin build toolchain plus the NuGet
+packages listed in `packages.config`. Most users should install the prebuilt DMG
+instead.
 
 ## Basic Workflow
 
