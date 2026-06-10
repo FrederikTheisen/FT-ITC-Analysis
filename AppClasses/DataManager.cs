@@ -295,6 +295,11 @@ namespace AnalysisITC
                 {
                     DataDidChange?.Invoke(null, null);
                 }
+                else if (data is AnalysisResult)
+                {
+                    DataDidChange?.Invoke(null, null);
+                    SelectIndex(selectedIndexAfterAdd);
+                }
                 else
                 {
                     NotifySourceItemsChanged(selectedIndexAfterAdd);
