@@ -1,10 +1,11 @@
 # FT-ITC Analysis
-<p align="center">
- 
-![Dynamic XML Badge](https://img.shields.io/badge/dynamic/xml?url=https%3A%2F%2Fraw.githubusercontent.com%2FFrederikTheisen%2FFT-ITC-Analysis%2Frefs%2Fheads%2Fmaster%2FInfo.plist&query=plist%2Fdict%2Fkey%5B.%3D%22CFBundleVersion%22%5D%2Ffollowing-sibling%3A%3Astring%5B1%5D&label=version&color=green)
- [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.14832177.svg)](https://doi.org/10.5281/zenodo.14832177) ![Static Badge](https://img.shields.io/badge/publication-pending-orange) ![GitHub Downloads (all assets, all releases)](https://img.shields.io/github/downloads/FrederikTheisen/FT-ITC-Analysis/total?style=flat)
+![Dynamic XML Badge](https://img.shields.io/badge/dynamic/xml?url=https%3A%2F%2Fraw.githubusercontent.com%2FFrederikTheisen%2FFT-ITC-Analysis%2Frefs%2Fheads%2Fmaster%2FInfo.plist&query=plist%2Fdict%2Fkey%5B.%3D%22CFBundleVersion%22%5D%2Ffollowing-sibling%3A%3Astring%5B1%5D&label=version&color=green) 
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.14832177.svg)](https://doi.org/10.5281/zenodo.14832177) 
+![GitHub Downloads (all assets, all releases)](https://img.shields.io/github/downloads/FrederikTheisen/FT-ITC-Analysis/total?style=flat) 
+![Endpoint Badge](https://img.shields.io/endpoint?url=https%3A%2F%2Fapi.juleskreuer.eu%2Fcitation-badge.php%3Fshield%26doi%3D10.5281%2Fzenodo.14832177)
 
-</p>
+![Static Badge](https://img.shields.io/badge/publication-pending-orange)
+
 
 FT-ITC Analysis is a macOS desktop application for processing, analyzing, and presenting isothermal titration calorimetry (ITC) experiments. It is intended for working with ITC data away from the instrument workstation, with tools for baseline correction, peak integration, model fitting, multi-experiment analysis, and export of publication-style figures and processed data. 
  
