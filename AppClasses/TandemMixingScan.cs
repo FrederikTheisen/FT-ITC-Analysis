@@ -248,6 +248,10 @@ namespace AnalysisITC
         public const double DefaultMinimumMixingFraction = 0.0;
         public const double DefaultMaximumMixingFraction = 0.5;
         public const double DefaultMixingFractionStep = 0.02;
+        public const double AdaptiveMaximumMixingFraction = 1.0;
+        public const double AdaptiveBroadMixingFractionStep = 0.05;
+        public const double AdaptiveMediumRefinementStep = 0.01;
+        public const double AdaptiveMediumRefinementRadius = 0.06;
         public const double AdaptiveRefinementStep = 0.002;
         public const double AdaptiveRefinementRadius = 0.02;
         public static bool ReportPercentage { get; set; } = true;
@@ -338,36 +342,102 @@ namespace AnalysisITC
             Action<int, int> reportProgress = null)
         {
             var transitionCount = Math.Max(0, sources?.Count - 1 ?? 0);
-            var coarsePointCount = (int)Math.Pow(DefaultMixingFractions.Count, transitionCount);
-            var refinementPointCount = (int)Math.Pow(
-                (int)Math.Round((2 * AdaptiveRefinementRadius) / AdaptiveRefinementStep) + 1,
+            var broadFractions = MixingFractionsForStep(
+                DefaultMinimumMixingFraction,
+                AdaptiveMaximumMixingFraction,
+                AdaptiveBroadMixingFractionStep);
+            var broadPointCount = (int)Math.Pow(broadFractions.Count, transitionCount);
+            var mediumPointCount = AdaptiveRefinementPointCount(
+                AdaptiveMediumRefinementRadius,
+                AdaptiveMediumRefinementStep,
                 transitionCount);
-            var progressTotal = coarsePointCount + refinementPointCount;
+            var finePointCount = AdaptiveRefinementPointCount(
+                AdaptiveRefinementRadius,
+                AdaptiveRefinementStep,
+                transitionCount);
+            var progressTotal = broadPointCount + mediumPointCount + finePointCount;
 
             AppEventHandler.PrintAndLog(
-                $"Adaptive tandem mixing scan: coarseStep={FormatMixingFraction(DefaultMixingFractionStep)}, " +
-                $"refineRadius={FormatMixingFraction(AdaptiveRefinementRadius)}, refineStep={FormatMixingFraction(AdaptiveRefinementStep)}, " +
+                $"Adaptive tandem mixing scan: broad=0%-100%/{FormatMixingFraction(AdaptiveBroadMixingFractionStep)}, " +
+                $"mediumRadius={FormatMixingFraction(AdaptiveMediumRefinementRadius)}, mediumStep={FormatMixingFraction(AdaptiveMediumRefinementStep)}, " +
+                $"fineRadius={FormatMixingFraction(AdaptiveRefinementRadius)}, fineStep={FormatMixingFraction(AdaptiveRefinementStep)}, " +
                 $"points={progressTotal}");
-            var coarseResult = Run(
+            var broadResult = Run(
                 sources,
                 settings,
-                (completed, total) => reportProgress?.Invoke(completed, progressTotal));
-            var bestPoint = coarseResult.BestPoint;
+                (completed, total) => reportProgress?.Invoke(completed, progressTotal),
+                broadFractions);
+            var bestPoint = broadResult.BestPoint;
             if (bestPoint == null) return null;
 
-            var coarseBestPoint = bestPoint;
-            AppEventHandler.PrintAndLog($"Adaptive tandem mixing scan coarse best: {FormatPoint(coarseBestPoint)}", 1);
+            var broadBestPoint = bestPoint;
+            AppEventHandler.PrintAndLog($"Adaptive tandem mixing scan broad best: {FormatPoint(broadBestPoint)}", 1);
 
-            var localFractions = bestPoint.TransitionMixingFractions
-                .Select(fraction => MixingFractionsAround(fraction, AdaptiveRefinementRadius, AdaptiveRefinementStep))
+            var completedAdaptive = broadPointCount;
+            bestPoint = RefineAdaptiveStage(
+                "medium",
+                sources,
+                settings,
+                bestPoint,
+                AdaptiveMediumRefinementRadius,
+                AdaptiveMediumRefinementStep,
+                completedAdaptive,
+                progressTotal,
+                reportProgress,
+                out var completedMedium);
+            completedAdaptive += completedMedium;
+
+            var mediumBestPoint = bestPoint;
+            bestPoint = RefineAdaptiveStage(
+                "fine",
+                sources,
+                settings,
+                bestPoint,
+                AdaptiveRefinementRadius,
+                AdaptiveRefinementStep,
+                completedAdaptive,
+                progressTotal,
+                reportProgress,
+                out _);
+
+            reportProgress?.Invoke(progressTotal, progressTotal);
+            AppEventHandler.PrintAndLog(
+                $"Adaptive tandem mixing scan final best: {FormatPoint(bestPoint)} " +
+                $"(broad={FormatPoint(broadBestPoint)}, medium={FormatPoint(mediumBestPoint)})",
+                1);
+
+            return bestPoint;
+        }
+
+        static int AdaptiveRefinementPointCount(double radius, double step, int transitionCount)
+        {
+            return (int)Math.Pow((int)Math.Round((2 * radius) / step) + 1, transitionCount);
+        }
+
+        static TandemMixingScanPoint RefineAdaptiveStage(
+            string stageName,
+            IReadOnlyList<ExperimentData> sources,
+            TandemConcatenation.BackMixingSettings settings,
+            TandemMixingScanPoint seedPoint,
+            double radius,
+            double step,
+            int progressOffset,
+            int progressTotal,
+            Action<int, int> reportProgress,
+            out int completed)
+        {
+            var bestPoint = seedPoint;
+            var localFractions = seedPoint.TransitionMixingFractions
+                .Select(fraction => MixingFractionsAround(fraction, radius, step))
                 .ToList();
             AppEventHandler.PrintAndLog(
-                "Adaptive tandem mixing scan refinement windows: " +
+                $"Adaptive tandem mixing scan {stageName} windows: " +
                 string.Join(", ", localFractions.Select((fractions, index) =>
                     $"T{index + 1}={FormatMixingFraction(fractions.First())}-{FormatMixingFraction(fractions.Last())} ({fractions.Count})")),
                 1);
+
             var (scanExperiment, segments) = BuildScanExperiment(sources);
-            var completedFine = 0;
+            completed = 0;
 
             foreach (var transitionFractions in EnumerateTransitionFractionGrid(localFractions))
             {
@@ -380,22 +450,18 @@ namespace AnalysisITC
                 catch (Exception ex)
                 {
                     AppEventHandler.PrintAndLog(
-                        $"Tandem mixing refinement fit failed at {string.Join(" / ", transitionFractions.Select(fraction => $"{100 * fraction:G4}%"))}:\n{ex}");
+                        $"Tandem mixing {stageName} refinement fit failed at {string.Join(" / ", transitionFractions.Select(fraction => $"{100 * fraction:G4}%"))}:\n{ex}");
                     point = TandemMixingScanPoint.Failed(transitionFractions, ex.GetType().Name);
                 }
 
                 if (point.IsValid && point.Rmsd < bestPoint.Rmsd)
                     bestPoint = point;
 
-                completedFine++;
-                reportProgress?.Invoke(Math.Min(coarsePointCount + completedFine, progressTotal), progressTotal);
+                completed++;
+                reportProgress?.Invoke(Math.Min(progressOffset + completed, progressTotal), progressTotal);
             }
 
-            reportProgress?.Invoke(progressTotal, progressTotal);
-            AppEventHandler.PrintAndLog(
-                $"Adaptive tandem mixing scan final best: {FormatPoint(bestPoint)} " +
-                $"(coarse={FormatPoint(coarseBestPoint)})",
-                1);
+            AppEventHandler.PrintAndLog($"Adaptive tandem mixing scan {stageName} best: {FormatPoint(bestPoint)}", 1);
 
             return bestPoint;
         }
@@ -452,7 +518,7 @@ namespace AnalysisITC
         static IReadOnlyList<double> MixingFractionsAround(double center, double radius, double step)
         {
             var min = Math.Max(DefaultMinimumMixingFraction, center - radius);
-            var max = Math.Min(DefaultMaximumMixingFraction, center + radius);
+            var max = Math.Min(AdaptiveMaximumMixingFraction, center + radius);
             var count = (int)Math.Round((max - min) / step) + 1;
 
             return Enumerable.Range(0, count)
