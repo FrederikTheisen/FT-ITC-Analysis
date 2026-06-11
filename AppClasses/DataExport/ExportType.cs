@@ -25,7 +25,7 @@ namespace AnalysisITC
     {
         [ExportType("Thermogram Data", "Export the thermogram data with optional baseline correction.", "csv")]
         Data,
-        [ExportType("Peak", "Export a file containing injections and heats.", "csv")]
+        [ExportType("Integrated Peaks", "Export a file containing injections and integrated peaks.", "csv")]
         Peaks,
         [ExportType("Third Party", "Export a file containing injections and heats.", "csv")]
         ThirdParty,

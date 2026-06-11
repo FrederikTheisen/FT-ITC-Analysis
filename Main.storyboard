@@ -4081,7 +4081,7 @@ Gw
                                                             <rect key="frame" x="-2" y="41" width="244" height="28"/>
                                                             <textFieldCell key="cell" controlSize="small" lineBreakMode="clipping" id="s6R-Pt-DZb">
                                                                 <font key="font" metaFont="smallSystem"/>
-                                                                <string key="title">Export baseline correct datapoints.
+                                                                <string key="title">Export baseline-corrected datapoints.
 Requires that all selected data has a baseline.</string>
                                                                 <color key="textColor" name="labelColor" catalog="System" colorSpace="catalog"/>
                                                                 <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
@@ -4176,8 +4176,8 @@ Requires that a model has been fitted for all selected data.</string>
                                                             </connections>
                                                         </button>
                                                         <textField horizontalHuggingPriority="251" verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="6K7-7Y-bp9">
-                                                            <rect key="frame" x="-2" y="0.0" width="164" height="61"/>
-                                                            <textFieldCell key="cell" controlSize="small" lineBreakMode="clipping" title="Export offset corrected peaks." id="jPv-ma-1ID">
+                                                            <rect key="frame" x="-2" y="0.0" width="223" height="61"/>
+                                                            <textFieldCell key="cell" controlSize="small" lineBreakMode="clipping" title="Export offset-corrected integrated peaks." id="jPv-ma-1ID">
                                                                 <font key="font" metaFont="smallSystem"/>
                                                                 <color key="textColor" name="labelColor" catalog="System" colorSpace="catalog"/>
                                                                 <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
@@ -5498,7 +5498,7 @@ Gw
                                                                         <stackView distribution="fill" orientation="vertical" alignment="leading" spacing="2" horizontalStackHuggingPriority="750" verticalStackHuggingPriority="750" horizontalCompressionResistancePriority="1000" verticalCompressionResistancePriority="1000" detachesHiddenViews="YES" translatesAutoresizingMaskIntoConstraints="NO" id="fCk-Bt-hpU">
                                                                             <rect key="frame" x="0.0" y="0.0" width="18" height="44"/>
                                                                             <subviews>
-                                                                                <button toolTip="Enable/disable gobal fit inclusion" verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="KKb-CB-tR9">
+                                                                                <button toolTip="Enable/disable global fit inclusion" verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="KKb-CB-tR9">
                                                                                     <rect key="frame" x="0.0" y="27" width="18" height="16"/>
                                                                                     <buttonCell key="cell" type="recessed" bezelStyle="recessed" imagePosition="only" alignment="center" borderStyle="border" inset="2" id="Pv0-xI-xBO">
                                                                                         <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
@@ -7034,7 +7034,7 @@ DQ
                                     <rect key="frame" x="338" y="1" width="5" height="50"/>
                                 </box>
                                 <button verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="DGH-oN-EAU">
-                                    <rect key="frame" x="342" y="20" width="111" height="31"/>
+                                    <rect key="frame" x="342" y="0.0" width="111" height="31"/>
                                     <buttonCell key="cell" type="recessed" title="Final Figure" bezelStyle="recessed" alignment="center" controlSize="large" lineBreakMode="truncatingTail" borderStyle="border" inset="2" id="Fgw-Bk-CyU">
                                         <behavior key="behavior" lightByBackground="YES" lightByGray="YES" changeBackground="YES" changeGray="YES"/>
                                         <font key="font" metaFont="system"/>
@@ -7923,8 +7923,8 @@ DQ
                         <action selector="CopySettingsToAllClicked:" target="HbJ-1n-Qa7" id="fHM-jz-5b5"/>
                     </connections>
                 </button>
-                <button toolTip="See options to convert the polynomium to a spline or lock the baseline to avoid external changes." horizontalHuggingPriority="251" verticalCompressionResistancePriority="1000" id="yNb-DQ-02U">
-                    <rect key="frame" x="0.0" y="0.0" width="63" height="23"/>
+                <button toolTip="See options to convert the polynomial to a spline or lock the baseline to avoid external changes." horizontalHuggingPriority="251" verticalCompressionResistancePriority="1000" id="yNb-DQ-02U">
+                    <rect key="frame" x="0.0" y="0.0" width="314" height="23"/>
                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                     <buttonCell key="cell" type="recessed" title="Options" bezelStyle="recessed" imagePosition="right" alignment="center" state="on" borderStyle="border" inset="2" id="4p2-2T-e7a">
                         <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
@@ -8555,7 +8555,7 @@ IA
                             <rect key="frame" x="0.0" y="0.0" width="722" height="23"/>
                             <subviews>
                                 <textField identifier="Label" horizontalHuggingPriority="249" horizontalCompressionResistancePriority="250" ambiguous="YES" translatesAutoresizingMaskIntoConstraints="NO" id="KWS-da-5xq">
-                                    <rect key="frame" x="3" y="7" width="313" height="16"/>
+                                    <rect key="frame" x="3" y="0.0" width="313" height="23"/>
                                     <textFieldCell key="cell" lineBreakMode="clipping" title="Enthalpy variable constraint" id="tl2-L4-NYq">
                                         <font key="font" metaFont="system"/>
                                         <color key="textColor" name="labelColor" catalog="System" colorSpace="catalog"/>
@@ -12694,7 +12694,7 @@ Affinity (Kd):</string>
                                                                                         <font key="font" metaFont="system"/>
                                                                                         <segments>
                                                                                             <segment label="Isoentropic" selected="YES">
-                                                                                                <string key="toolTip">Evaluate at the isoentropic temperature. This is the approach previously descibed in literature. If the isoentrpoic temperature (T for ∆S = 0) is not within the experimental temperature, this may introduce significant error in the calculation.</string>
+                                                                                                <string key="toolTip">Evaluate at the isoentropic temperature. This is the approach previously described in literature. If the isoentropoic temperature (T for ∆S = 0) is not within the experimental temperature, this may introduce significant error in the calculation.</string>
                                                                                             </segment>
                                                                                             <segment label="Data Set Mean" toolTip="Evaluate at the mean temperature. This options will produce the smallest calculation error." tag="1"/>
                                                                                             <segment label="Custom" toolTip="Evaluate at the application global reference temperature (changed in preferences). Might be useful for comparing results."/>
