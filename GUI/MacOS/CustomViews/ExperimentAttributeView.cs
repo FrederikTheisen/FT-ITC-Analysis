@@ -403,7 +403,7 @@ namespace AnalysisITC.GUI.MacOS.CustomViews
                 FocusRingType = NSFocusRingType.None,
                 ControlSize = NSControlSize.Small,
                 Font = NSFont.SystemFontOfSize(NSFont.SmallSystemFontSize),
-                Alignment = NSTextAlignment.Left,
+                Alignment = NSTextAlignment.Right,
                 LineBreakMode = NSLineBreakMode.TruncatingTail,
             };
             StringField.AddConstraint(NSLayoutConstraint.Create(StringField, NSLayoutAttribute.Width, NSLayoutRelation.GreaterThanOrEqual, 1, 120));
