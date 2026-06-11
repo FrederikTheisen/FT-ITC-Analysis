@@ -1,5 +1,5 @@
 # FT-ITC Analysis
-![Static Badge](https://img.shields.io/badge/github-FT--ITC--Analysis-blue?logo=github)
+![Static Badge](https://img.shields.io/badge/github-FT--ITC--Analysis-blue?logo=github&color=lightblue)
  ![Dynamic XML Badge](https://img.shields.io/badge/dynamic/xml?url=https%3A%2F%2Fraw.githubusercontent.com%2FFrederikTheisen%2FFT-ITC-Analysis%2Frefs%2Fheads%2Fmaster%2FInfo.plist&query=plist%2Fdict%2Fkey%5B.%3D%22CFBundleVersion%22%5D%2Ffollowing-sibling%3A%3Astring%5B1%5D&label=version&color=green) 
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.14832177.svg)](https://doi.org/10.5281/zenodo.14832177) 
 ![GitHub Downloads (all assets, all releases)](https://img.shields.io/github/downloads/FrederikTheisen/FT-ITC-Analysis/total?style=flat) 
