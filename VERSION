@@ -1,4 +1,10 @@
-##VERSION 1.x.0 Meta Paper Release Version
+##VERSION 1.x.0 PAPER PUBLICATION RELEASE VERSION
+
+#VERSION 1.3.2
+Expanded the tandem merger tool auto mixing search range to 100%
+Updated citationUI
+Updated in-app documentation
+Minor UI improvements
 
 #VERSION 1.3.1
 Implemented VP ITC reader fix to account for differences between other MircoCal files
