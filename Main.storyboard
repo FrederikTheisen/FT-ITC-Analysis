@@ -2898,7 +2898,7 @@ In most cases, interpretation of affinities provided by ITC is straightforward, 
                                     </textField>
                                     <textField verticalHuggingPriority="1000" horizontalCompressionResistancePriority="250" translatesAutoresizingMaskIntoConstraints="NO" id="MxE-8J-EPZ">
                                         <rect key="frame" x="18" y="569" width="434" height="16"/>
-                                        <textFieldCell key="cell" selectable="YES" alignment="justified" title="Subtract buffer heats from selected experiments." id="gq9-Yj-t0I">
+                                        <textFieldCell key="cell" selectable="YES" alignment="justified" title="Subtract reference experiment buffer heats from selected experiments." id="gq9-Yj-t0I">
                                             <font key="font" metaFont="system"/>
                                             <color key="textColor" name="labelColor" catalog="System" colorSpace="catalog"/>
                                             <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
@@ -3081,6 +3081,9 @@ Comments:</string>
                                                                                             <subviews>
                                                                                                 <textField horizontalHuggingPriority="249" verticalHuggingPriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="fEJ-9W-wDD">
                                                                                                     <rect key="frame" x="3" y="41" width="421" height="16"/>
+                                                                                                    <constraints>
+                                                                                                        <constraint firstAttribute="height" constant="16" id="y3t-AU-D10"/>
+                                                                                                    </constraints>
                                                                                                     <textFieldCell key="cell" lineBreakMode="truncatingTail" refusesFirstResponder="YES" title="Experiment File Name" id="FuJ-Ml-j7b">
                                                                                                         <font key="font" metaFont="systemMedium" size="13"/>
                                                                                                         <color key="textColor" name="labelColor" catalog="System" colorSpace="catalog"/>
@@ -3089,6 +3092,9 @@ Comments:</string>
                                                                                                 </textField>
                                                                                                 <textField horizontalHuggingPriority="249" verticalHuggingPriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="JQ1-DW-yrh">
                                                                                                     <rect key="frame" x="3" y="23" width="421" height="14"/>
+                                                                                                    <constraints>
+                                                                                                        <constraint firstAttribute="height" constant="14" id="aqF-7s-82Q"/>
+                                                                                                    </constraints>
                                                                                                     <textFieldCell key="cell" controlSize="small" lineBreakMode="truncatingTail" refusesFirstResponder="YES" title="Date:" id="fFl-zW-IxK">
                                                                                                         <font key="font" metaFont="smallSystem"/>
                                                                                                         <color key="textColor" name="labelColor" catalog="System" colorSpace="catalog"/>
@@ -3097,6 +3103,9 @@ Comments:</string>
                                                                                                 </textField>
                                                                                                 <textField horizontalHuggingPriority="249" verticalHuggingPriority="1000" horizontalCompressionResistancePriority="250" translatesAutoresizingMaskIntoConstraints="NO" id="vaF-IM-7wH">
                                                                                                     <rect key="frame" x="3" y="5" width="421" height="14"/>
+                                                                                                    <constraints>
+                                                                                                        <constraint firstAttribute="height" constant="14" id="b1d-YV-4dr"/>
+                                                                                                    </constraints>
                                                                                                     <textFieldCell key="cell" controlSize="small" lineBreakMode="truncatingTail" refusesFirstResponder="YES" title="Comment:" id="9g2-qM-NPo">
                                                                                                         <font key="font" metaFont="smallSystem"/>
                                                                                                         <color key="textColor" name="labelColor" catalog="System" colorSpace="catalog"/>
@@ -16727,6 +16736,9 @@ The models in \appname are implemented to match the **MicroCal/Origin formal def
                                                                                             <subviews>
                                                                                                 <textField horizontalHuggingPriority="249" verticalHuggingPriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="y7N-hd-8lI">
                                                                                                     <rect key="frame" x="3" y="41" width="421" height="16"/>
+                                                                                                    <constraints>
+                                                                                                        <constraint firstAttribute="height" constant="16" id="DeB-Ql-Hj3"/>
+                                                                                                    </constraints>
                                                                                                     <textFieldCell key="cell" lineBreakMode="truncatingTail" refusesFirstResponder="YES" title="Experiment File Name" id="jos-2j-riV">
                                                                                                         <font key="font" metaFont="systemMedium" size="13"/>
                                                                                                         <color key="textColor" name="labelColor" catalog="System" colorSpace="catalog"/>
@@ -16735,6 +16747,9 @@ The models in \appname are implemented to match the **MicroCal/Origin formal def
                                                                                                 </textField>
                                                                                                 <textField horizontalHuggingPriority="249" verticalHuggingPriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="fPa-R3-N5b">
                                                                                                     <rect key="frame" x="3" y="23" width="421" height="14"/>
+                                                                                                    <constraints>
+                                                                                                        <constraint firstAttribute="height" constant="14" id="2m5-6g-mPK"/>
+                                                                                                    </constraints>
                                                                                                     <textFieldCell key="cell" controlSize="small" lineBreakMode="truncatingTail" refusesFirstResponder="YES" title="Date:" id="T6F-CW-HOu">
                                                                                                         <font key="font" metaFont="smallSystem"/>
                                                                                                         <color key="textColor" name="labelColor" catalog="System" colorSpace="catalog"/>
@@ -16743,6 +16758,9 @@ The models in \appname are implemented to match the **MicroCal/Origin formal def
                                                                                                 </textField>
                                                                                                 <textField horizontalHuggingPriority="249" verticalHuggingPriority="1000" horizontalCompressionResistancePriority="250" translatesAutoresizingMaskIntoConstraints="NO" id="ACA-wf-Ttv">
                                                                                                     <rect key="frame" x="3" y="5" width="421" height="14"/>
+                                                                                                    <constraints>
+                                                                                                        <constraint firstAttribute="height" constant="14" id="B6h-Us-epJ"/>
+                                                                                                    </constraints>
                                                                                                     <textFieldCell key="cell" controlSize="small" lineBreakMode="truncatingTail" refusesFirstResponder="YES" title="Comment:" id="5K8-Ot-yOK">
                                                                                                         <font key="font" metaFont="smallSystem"/>
                                                                                                         <color key="textColor" name="labelColor" catalog="System" colorSpace="catalog"/>
