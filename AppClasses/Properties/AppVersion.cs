@@ -12,6 +12,7 @@ using System.Threading.Tasks;
 public static class AppVersion
 {
     const string VersionFileUrl = "https://raw.githubusercontent.com/FrederikTheisen/FT-ITC-Analysis/refs/heads/master/VERSION";
+    const string ReleasesPageUrl = "https://github.com/FrederikTheisen/FT-ITC-Analysis/releases";
 
     static bool AutomaticCheckStarted;
 
@@ -98,7 +99,7 @@ public static class AppVersion
             {
                 AppEventHandler.PrintAndLog($"AppVersion: Update available ({FullVersionString} -> {result.LatestVersion})");
 
-                ShowInfoAlert("New Version Available!", BuildUpdateMessage(result), true);
+                ShowInfoAlert("New Version Available!", BuildUpdateMessage(result), true, ReleasesPageUrl);
             }
             else
             {
@@ -257,7 +258,7 @@ public static class AppVersion
         return TryParseVersion(versionText, out var parsed) ? parsed : new Version(0, 0);
     }
 
-    static void ShowInfoAlert(string title, string message, bool useLeftAlignedAccessory = false)
+    static void ShowInfoAlert(string title, string message, bool useLeftAlignedAccessory = false, string actionUrl = null)
     {
         NSApplication.SharedApplication.InvokeOnMainThread(() =>
         {
@@ -271,8 +272,14 @@ public static class AppVersion
             if (useLeftAlignedAccessory)
                 alert.AccessoryView = BuildLeftAlignedTextAccessory(message);
 
+            if (!string.IsNullOrWhiteSpace(actionUrl))
+                alert.AddButton("Open Releases");
+
             alert.AddButton("OK");
-            alert.RunModal();
+
+            var response = alert.RunModal();
+            if (response == (int)NSAlertButtonReturn.First && !string.IsNullOrWhiteSpace(actionUrl))
+                NSWorkspace.SharedWorkspace.OpenUrl(new NSUrl(actionUrl));
         });
     }
 

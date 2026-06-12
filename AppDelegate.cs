@@ -567,6 +567,11 @@ namespace AnalysisITC
             MacSupport.CopySupportReportToClipboard();
         }
 
+        partial void OpenSourceRepository(NSObject sender)
+        {
+            NSWorkspace.SharedWorkspace.OpenUrl(new NSUrl(CitationInfo.SoftwareRepositoryUrl));
+        }
+
         public override void WillTerminate(NSNotification notification)
         {
             // Insert code here to tear down your application

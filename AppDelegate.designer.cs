@@ -56,6 +56,9 @@ namespace AnalysisITC
 		[Action ("OpenResultExporter:")]
 		partial void OpenResultExporter (Foundation.NSObject sender);
 
+		[Action ("OpenSourceRepository:")]
+		partial void OpenSourceRepository (Foundation.NSObject sender);
+
 		[Action ("Print:")]
 		partial void Print (AppKit.NSMenuItem sender);
 

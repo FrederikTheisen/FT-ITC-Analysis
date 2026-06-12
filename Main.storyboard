@@ -4859,8 +4859,11 @@ For analysis and presentation of ITC data</string>
                                                 <segue destination="fNZ-eA-ZYe" kind="show" id="dm5-JF-QZc"/>
                                             </connections>
                                         </menuItem>
-                                        <menuItem title="Open Source" hidden="YES" enabled="NO" id="nF3-oU-vjF">
+                                        <menuItem title="Source Code on GitHub" identifier="opensource" id="nF3-oU-vjF">
                                             <modifierMask key="keyEquivalentModifierMask"/>
+                                            <connections>
+                                                <action selector="OpenSourceRepository:" target="Voe-Tx-rLC" id="P2k-Sc-g1H"/>
+                                            </connections>
                                         </menuItem>
                                         <menuItem title="Support" id="Mx8-VC-e2I">
                                             <modifierMask key="keyEquivalentModifierMask"/>
