@@ -16,7 +16,7 @@ static class CitationUI
         var alert = new NSAlert
         {
             MessageText = "How to cite FT-ITC Analysis",
-            InformativeText = "Cite the paper for scholarly credit. Export writes both citation records for citation managers."
+            InformativeText = "Export writes both citation records for citation managers."
         };
 
         alert.AccessoryView = BuildCitationAccessory(
