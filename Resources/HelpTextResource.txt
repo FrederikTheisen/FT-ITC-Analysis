@@ -89,7 +89,12 @@ The designer can simulate tandem experiments with multiple syringe loads. When t
 Experiment attributes are metadata attached to each dataset. They are used for derived analyses and for applying constraints in multi/global fitting. Attributes can be edited in the experiment details view and are stored in `.ftitc` project files.
 # Buffer Subtraction
 Buffer subtraction is provided as a dedicated tool. Select a reference buffer experiment, select one or more target experiments, and apply subtraction to generate buffer-corrected datasets. Buffer subtraction operates on loaded data within the project and does not modify raw data files.
+Three subtraction modes are available:
+**Matched:** subtracts the matching buffer injection, with nearby valid injections used as fallback.
+**Linear:** subtracts a straight-line fit through the included buffer injections.
+**Exp. decay:** subtracts a single exponential decay fit through the included buffer injections.
 # Tandem Experiment Concatenation
 Tandem experiments can be collected by refilling the syringe during an ongoing sequence, producing multiple segments that should be treated as a single continuous titration. The tandem experiment merger combines selected loaded datasets into a single merged experiment.
 The standard merge concatenates time-shifted thermograms and recomputes injection concentrations and ratios across the combined titration. If an input experiment has already been baseline processed, the merger uses its baseline-corrected trace for that segment.
 Back-mixing mode adds a simple overflow/dead-volume model between syringe loads. You can set the dead volume, choose whether displaced titrated solution was removed between segments, and adjust the fraction of the dead volume that mixes back into the active cell. The merged experiment stores segment start concentrations so processing, fitting, and project saving treat it as one tandem dataset.
+Automatic back-mixing scans possible mixing fractions and selects the best value automatically. It can optimize one or two reload transitions.
