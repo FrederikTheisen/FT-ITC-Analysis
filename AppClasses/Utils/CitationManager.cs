@@ -5,11 +5,18 @@ using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
 using System.Text.Json.Serialization;
+using Foundation;
 
 namespace AnalysisITC
 {
     public class CitationInfo
     {
+        public const string SoftwareTitle = "FT-ITC Analysis";
+        public const string SoftwareAuthors = "Frederik Friis Theisen";
+        public const string SoftwareDoi = "10.5281/zenodo.14832177";
+        public const string SoftwareDoiUrl = "https://doi.org/10.5281/zenodo.14832177";
+        public const string SoftwareRepositoryUrl = "https://github.com/FrederikTheisen/FT-ITC-Analysis";
+
         [JsonPropertyName("title")]
         public string Title { get; set; }
 
@@ -28,9 +35,18 @@ namespace AnalysisITC
         [JsonPropertyName("version")]
         public string Version { get; set; }
 
-        public string ToMarkdownDisplayString()
+        [JsonPropertyName("message")]
+        public string Message { get; set; }
+
+        public string ToMarkdownDisplayString(bool includeVersion = false, string label = null)
         {
             var sb = new StringBuilder();
+
+            if (!string.IsNullOrWhiteSpace(label))
+                sb.AppendLine($"**{label}**");
+
+            if (!string.IsNullOrWhiteSpace(Message))
+                sb.AppendLine(Message);
 
             if (!string.IsNullOrWhiteSpace(Title))
                 sb.AppendLine(Title);
@@ -42,25 +58,90 @@ namespace AnalysisITC
             if (!string.IsNullOrWhiteSpace(DOI))
                 sb.AppendLine("**DOI**: " + DOI);
 
-            if (!string.IsNullOrWhiteSpace(Version))
-                sb.AppendLine("**Version**: " + AppVersion.ShortVersionString);
+            if (includeVersion && !string.IsNullOrWhiteSpace(Version))
+                sb.AppendLine("**Version**: " + Version);
 
             return sb.ToString().Trim();
         }
 
-        public string ToBibTeX()
+        public string ToPaperBibTeX()
         {
             string year = string.IsNullOrWhiteSpace(Year) ? DateTime.Now.Year.ToString() : Year;
 
             return
-$@"@article{{ftitc{year},
-  title = {{{Title}}},
-  author = {{{Authors}}},
-  journal = {{{Journal}}},
-  year = {{{year}}},
-  doi = {{{DOI}}},
-  version = {{{AppVersion.ShortVersionString}}}
+$@"@article{{ftitc-paper-{SanitizeBibTeXKeyPart(year)},
+  title = {{{EscapeBibTeXValue(Title)}}},
+  author = {{{EscapeBibTeXValue(Authors)}}},
+  journal = {{{EscapeBibTeXValue(Journal)}}},
+  year = {{{EscapeBibTeXValue(year)}}}{FormatBibTeXOptionalField("doi", DOI)}
 }}";
+        }
+
+        public string ToSoftwareBibTeX()
+        {
+            string year = DateTime.Now.Year.ToString();
+
+            return
+$@"@software{{ftitc-analysis-{SanitizeBibTeXKeyPart(Version)},
+  title = {{{EscapeBibTeXValue(Title)}}},
+  author = {{{EscapeBibTeXValue(Authors)}}},
+  year = {{{year}}},
+  version = {{{EscapeBibTeXValue(Version)}}},
+  doi = {{{EscapeBibTeXValue(DOI)}}},
+  url = {{{EscapeBibTeXValue(SoftwareDoiUrl)}}},
+  repository = {{{EscapeBibTeXValue(SoftwareRepositoryUrl)}}}
+}}";
+        }
+
+        static string FormatBibTeXOptionalField(string fieldName, string value)
+        {
+            if (string.IsNullOrWhiteSpace(value))
+                return "";
+
+            return $",\n  {fieldName} = {{{EscapeBibTeXValue(value)}}}";
+        }
+
+        static string EscapeBibTeXValue(string value)
+        {
+            if (string.IsNullOrEmpty(value))
+                return "";
+
+            var sb = new StringBuilder();
+            foreach (var c in value)
+            {
+                switch (c)
+                {
+                    case '\\':
+                        sb.Append("\\textbackslash{}");
+                        break;
+                    case '{':
+                        sb.Append("\\{");
+                        break;
+                    case '}':
+                        sb.Append("\\}");
+                        break;
+                    default:
+                        sb.Append(c);
+                        break;
+                }
+            }
+
+            return sb.ToString();
+        }
+
+        static string SanitizeBibTeXKeyPart(string value)
+        {
+            if (string.IsNullOrWhiteSpace(value))
+                return "current";
+
+            var sb = new StringBuilder();
+            foreach (var c in value)
+            {
+                if (char.IsLetterOrDigit(c))
+                    sb.Append(char.ToLowerInvariant(c));
+            }
+
+            return sb.Length == 0 ? "current" : sb.ToString();
         }
     }
 
@@ -75,16 +156,36 @@ $@"@article{{ftitc{year},
             Journal = "Not Yet Published",
             Year = "2026",
             DOI = "",
-            Version = AppVersion.ShortVersionString
+            //Message = "Please cite this paper when using FT-ITC Analysis."
         };
 
-        public static CitationInfo GetCitation()
+        public static CitationInfo SoftwareCitation => new CitationInfo
+        {
+            Title = CitationInfo.SoftwareTitle,
+            Authors = CitationInfo.SoftwareAuthors,
+            Journal = "Zenodo",
+            Year = DateTime.Now.Year.ToString(),
+            DOI = CitationInfo.SoftwareDoi,
+            Version = AppVersion.FullVersionString,
+            //Message = "Cite the software version when exact reproducibility matters."
+        };
+
+        public static CitationInfo GetPaperCitation()
         {
             var cached = TryLoadCache();
             if (cached != null)
                 return cached;
 
+            var bundled = TryLoadBundledCitation();
+            if (bundled != null)
+                return bundled;
+
             return DefaultCitation;
+        }
+
+        public static string BuildCombinedBibTeX()
+        {
+            return GetPaperCitation().ToPaperBibTeX() + Environment.NewLine + Environment.NewLine + SoftwareCitation.ToSoftwareBibTeX() + Environment.NewLine;
         }
 
         public static async Task TryFetchOnlineCitation(bool forceOnlineCheck = false)
@@ -130,8 +231,28 @@ $@"@article{{ftitc{year},
             }
         }
 
+        private static CitationInfo TryLoadBundledCitation()
+        {
+            try
+            {
+                var path = NSBundle.MainBundle.PathForResource("citation", "json");
+                if (string.IsNullOrWhiteSpace(path) || !File.Exists(path))
+                    return null;
+
+                string json = File.ReadAllText(path);
+                return JsonSerializer.Deserialize<CitationInfo>(json);
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
         private static void SaveCache(CitationInfo citation)
         {
+            if (citation == null)
+                return;
+
             try
             {
                 string json = JsonSerializer.Serialize(citation);
