@@ -250,12 +250,10 @@
     <None Include="Info.plist" />
     <None Include="Entitlements.plist" />
     <None Include="packages.config" />
-    <None Include=".editorconfig" />
     <None Include="README.md" />
     <None Include="AppClasses\DataReaders\FTITCReaderOld.cs" />
     <None Include="VERSION" />
     <None Include=".gitignore" />
-    <None Include=".DS_Store" />
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Main.cs" />
