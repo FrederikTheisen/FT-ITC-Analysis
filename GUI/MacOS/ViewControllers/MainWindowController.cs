@@ -468,7 +468,6 @@ namespace AnalysisITC
             var hasAnyResults = DataManager.Results.Count > 0;
 
             menu.AddItem(CreateContextMenuItem("Export result...", "resultexporter", hasResult, (s, e) => AppDelegate.LaunchResultExporter()));
-            menu.AddItem(CreateContextMenuItem("Export associated final figures...", "exportresultfigures", CanExportSelectedResultFinalFigures(), (s, e) => ExportSelectedResultFinalFigures()));
             menu.AddItem(NSMenuItem.SeparatorItem);
             menu.AddItem(CreateContextMenuItem("Update result", "updateresult", hasResult && !stopableProcessRunning, async (s, e) => await UpdateSelectedResult()));
             menu.AddItem(CreateContextMenuItem("Set active experiments", "setactiveexperiments", hasResult, (s, e) => SetSelectedResultExperimentsActive()));
@@ -660,6 +659,7 @@ namespace AnalysisITC
             var hasResult = DataManager.SelectedResult != null;
 
             menu.AddItem(CreateContextMenuItem("Update result", "updateresult", hasResult && !stopableProcessRunning, async (s, e) => await UpdateSelectedResult()));
+            menu.AddItem(CreateContextMenuItem("Export associated final figures...", "exportresultfigures", CanExportSelectedResultFinalFigures(), (s, e) => ExportSelectedResultFinalFigures()));
             menu.AddItem(NSMenuItem.SeparatorItem);
             menu.AddItem(CreateErrorStyleMenuItem(hasResult));
             menu.AddItem(CreateTemperatureUnitMenuItem(hasResult));
