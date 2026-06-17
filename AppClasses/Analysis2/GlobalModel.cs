@@ -73,8 +73,8 @@ namespace AnalysisITC.AppClasses.AnalysisClasses
 
             foreach (var model in Models)
             {
-                var loss = model.LossFunction(Parameters.GetParametersForModel(this, model).GetFittedParameterArray(), errorweighted); //Loss Function = RMSD
-                totalloss += loss * loss; //Unclear if correct loss function
+                var loss = model.LossFunction(Parameters.GetParametersForModel(this, model).GetFittedParameterArray(), errorweighted);
+                totalloss += loss;
             }
 
             return totalloss;
@@ -109,7 +109,7 @@ namespace AnalysisITC.AppClasses.AnalysisClasses
 			return res.ToArray();
 		}
 
-		public double Loss()
+        public double Loss()
 		{
 			double totalloss = 0;
 

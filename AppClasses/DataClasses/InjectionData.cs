@@ -50,6 +50,7 @@ namespace AnalysisITC
         public bool IsIntegrated { get; set; } = false;
         public FloatWithError RawPeakArea { get; private set; } = new();
         public FloatWithError PeakArea { get; private set; } = new();
+        public double PeakAreaError => PeakArea.SD;
         public Energy Enthalpy2 => new(PeakArea / InjectionMass);
         public double Enthalpy => PeakArea / InjectionMass;
         public double SD => PeakArea.SD / InjectionMass;

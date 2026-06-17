@@ -165,13 +165,15 @@ namespace AnalysisITC.AppClasses.AnalysisClasses.Models
 		{
             LossFunctionMisc(parameters);
 
+            var included = Data.Injections.Where(i => i.Include).ToList();
+
             double loss = 0;
 
-            foreach (var inj in Data.Injections.Where(i => i.Include))
+            foreach (var inj in included)
             {
                 var res = Residual(inj);
 
-                if (errorweighted) res /= Math.Max(inj.SD, 1);
+                if (errorweighted) res /= GetSigmaForWeighting(inj, included);
 
                 loss += res * res;
             }
@@ -183,19 +185,41 @@ namespace AnalysisITC.AppClasses.AnalysisClasses.Models
         {
             LossFunctionMisc(parameters);
 
-            double[] loss = new double[Data.Injections.Count(i => i.Include)];
+            var included = Data.Injections.Where(i => i.Include).ToList();
+
+            double[] loss = new double[included.Count()];
 
             int i = 0;
-            foreach (var inj in Data.Injections.Where(i => i.Include))
+            foreach (var inj in included)
             {
                 var res = Residual(inj);
-                if (errorweighted) res /= Math.Max(inj.SD, 1);
+                if (errorweighted) res /= GetSigmaForWeighting(inj, included);
                 loss[i] = res;
 
                 i++;
             }
 
             return loss;
+        }
+
+        double GetSigmaForWeighting(InjectionData inj, IEnumerable<InjectionData> includedInjections)
+        {
+            double sigma = inj.PeakAreaError;
+
+            if (double.IsFinite(sigma) && sigma > 0)
+                return sigma;
+
+            // Invalid sigma means "unknown", not "perfect measurement".
+            var fallback = includedInjections
+                .Select(i => i.PeakAreaError)
+                .Where(s => double.IsFinite(s) && s > 0)
+                .Average();
+
+            if (double.IsFinite(fallback) && fallback > 0)
+                return fallback;
+
+            // Last-resort numerical guard.
+            return 1.0e-10;
         }
 
         void LossFunctionMisc(double[] parameters)
@@ -209,6 +233,10 @@ namespace AnalysisITC.AppClasses.AnalysisClasses.Models
             ApplyModelOptions();
         }
 
+        /// <summary>
+        /// Get the unweighted model loss in microjoule
+        /// </summary>
+        /// <returns></returns>
 		public double Loss()
 		{
 			double loss = 0;
