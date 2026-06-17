@@ -19,7 +19,7 @@ namespace AnalysisITC
 			{
 				Log.Add(new LogEntry(msg));
 
-				if (Log.Count > 1023) Log.RemoveAt(0);
+				if (Log.Count > 4000) Log.RemoveAt(0);
 			}
 		}
 

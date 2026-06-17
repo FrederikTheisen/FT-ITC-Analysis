@@ -25,6 +25,7 @@ namespace AnalysisITC.AppClasses.AnalysisClasses
         public static double AutoConcentrationVariance { get; set; } = 0.05;
         public static SolverAlgorithm Algorithm { get; set; } = SolverAlgorithm.NelderMead;
         public static bool UseErrorWeightedFitting { get; set; } = false;
+        public static bool EnableSolverDiagnostics { get; set; } = false;
     }
 
     public class SolverInterface
@@ -46,6 +47,7 @@ namespace AnalysisITC.AppClasses.AnalysisClasses
         public bool UseErrorWeightedFitting { get; set; } = false;
         public bool CanCreateAnalysisResult { get; set; } = true;
         public bool CanReportAnalysisStepFinished { get; set; } = true;
+        public bool EnableSolverDiagnostics { get; set; } = true;
 
         public ErrorEstimationMethod ErrorEstimationMethod { get; set; } = ErrorEstimationMethod.None;
         public int BootstrapIterations { get; set; } = 100;
@@ -315,6 +317,103 @@ namespace AnalysisITC.AppClasses.AnalysisClasses
             }
         }
 
+        private static bool IsMeaningfullyWorse(double candidateObjective, double baselineObjective)
+        {
+            if (!double.IsFinite(baselineObjective)) return false;
+            if (!double.IsFinite(candidateObjective)) return true;
+
+            var tolerance = Math.Max(1e-12, Math.Abs(baselineObjective) * 1e-10);
+            return candidateObjective > baselineObjective + tolerance;
+        }
+
+        protected bool SolverDiagnosticsEnabled => EnableSolverDiagnostics && (FittingOptionsController.EnableSolverDiagnostics || AppSettings.Verbose);
+
+        protected void LogSolverInput(string scope, IReadOnlyList<Parameter> parameters, double[] initial, double[] stepSizes, List<double[]> bounds)
+        {
+            if (!SolverDiagnosticsEnabled) return;
+
+            AppEventHandler.PrintAndLog(
+                $"[FitDiag] {scope} input: algorithm={SolverAlgorithm}, weighted={UseErrorWeightedFitting}, tolerance={AppSettings.OptimizerTolerance:G17}, maxIterations={MaxOptimizerIterations}, fittedParameters={initial.Length}");
+
+            for (int i = 0; i < initial.Length; i++)
+            {
+                var parameter = i < parameters.Count ? parameters[i] : null;
+                var key = parameter?.Key.ToString() ?? $"p{i}";
+                var lower = i < bounds.Count ? bounds[i][0] : double.NaN;
+                var upper = i < bounds.Count ? bounds[i][1] : double.NaN;
+                var step = i < stepSizes.Length ? stepSizes[i] : double.NaN;
+
+                AppEventHandler.PrintAndLog(
+                    $"[FitDiag] {scope} input[{i}] {key}: value={initial[i]:G17}, step={step:G17}, bounds=[{lower:G17}, {upper:G17}]",
+                    1);
+            }
+        }
+
+        protected void LogSolverOutput(
+            string scope,
+            IReadOnlyList<Parameter> parameters,
+            double[] initial,
+            double[] fitted,
+            double initialObjective,
+            double fittedObjective,
+            double initialLoss,
+            double fittedLoss,
+            bool acceptedFitted)
+        {
+            if (!SolverDiagnosticsEnabled) return;
+
+            AppEventHandler.PrintAndLog(
+                $"[FitDiag] {scope} output: accepted={(acceptedFitted ? "optimizer" : "initial")}, initialObjective={initialObjective:G17}, fittedObjective={fittedObjective:G17}, initialRMSD={initialLoss:G17}, fittedRMSD={fittedLoss:G17}");
+
+            for (int i = 0; i < initial.Length; i++)
+            {
+                var parameter = i < parameters.Count ? parameters[i] : null;
+                var key = parameter?.Key.ToString() ?? $"p{i}";
+                var fittedValue = i < fitted.Length ? fitted[i] : double.NaN;
+                var delta = fittedValue - initial[i];
+
+                AppEventHandler.PrintAndLog(
+                    $"[FitDiag] {scope} output[{i}] {key}: initial={initial[i]:G17}, optimizer={fittedValue:G17}, delta={delta:G17}",
+                    1);
+            }
+        }
+
+        protected double ApplyBestFittedParameters(Model model, double[] initial, double[] fitted, bool errorWeighted, string scope, IReadOnlyList<Parameter> parameters)
+        {
+            var initialObjective = model.LossFunction(initial, errorWeighted);
+            var initialLoss = model.Loss();
+
+            var fittedObjective = model.LossFunction(fitted, errorWeighted);
+            var fittedLoss = model.Loss();
+            var acceptedFitted = !IsMeaningfullyWorse(fittedObjective, initialObjective);
+
+            LogSolverOutput(scope, parameters, initial, fitted, initialObjective, fittedObjective, initialLoss, fittedLoss, acceptedFitted);
+
+            if (acceptedFitted)
+                return fittedLoss;
+
+            model.LossFunction(initial, false);
+            return initialLoss;
+        }
+
+        protected double ApplyBestFittedParameters(GlobalModel model, double[] initial, double[] fitted, bool errorWeighted, string scope, IReadOnlyList<Parameter> parameters)
+        {
+            var initialObjective = model.LossFunction(initial, errorWeighted);
+            var initialLoss = model.Loss();
+
+            var fittedObjective = model.LossFunction(fitted, errorWeighted);
+            var fittedLoss = model.Loss();
+            var acceptedFitted = !IsMeaningfullyWorse(fittedObjective, initialObjective);
+
+            LogSolverOutput(scope, parameters, initial, fitted, initialObjective, fittedObjective, initialLoss, fittedLoss, acceptedFitted);
+
+            if (acceptedFitted)
+                return fittedLoss;
+
+            model.LossFunction(initial, false);
+            return initialLoss;
+        }
+
         protected bool ShouldCreateAnalysisResult(SolverConvergence convergence)
         {
             return CanCreateAnalysisResult && convergence != null && !convergence.Failed && !convergence.Stopped;
@@ -379,16 +478,21 @@ namespace AnalysisITC.AppClasses.AnalysisClasses
                 StartTime = DateTime.Now,
             };
 
-            SetStepSizes(solver, Model.Parameters.GetStepSizes());
-            SetBounds(solver, Model.Parameters.GetLimits());
+            var fittedParameters = Model.Parameters.GetFittedParameters();
+            var stepSizes = Model.Parameters.GetStepSizes();
+            var bounds = Model.Parameters.GetLimits();
+            SetStepSizes(solver, stepSizes);
+            SetBounds(solver, bounds);
             // Allow the solver to be cancelled via the TerminateAnalysisFlag by associating it with a CancellationToken.
             SetCancellationToken(solver);
 
-            solver.Minimize(Model.Parameters.GetFittedParameterArray());
+            var initialGuess = Model.Parameters.GetFittedParameterArray();
+            LogSolverInput("Single/NelderMead", fittedParameters, initialGuess, stepSizes, bounds);
+            solver.Minimize(initialGuess);
 
-            var mdl_pars = Model.Parameters.GetFittedParameters();
+            var loss = ApplyBestFittedParameters(Model, initialGuess, solver.Solution, UseErrorWeightedFitting, "Single/NelderMead", fittedParameters);
 
-            Model.Solution = SolutionInterface.FromModel(Model, new SolverConvergence(solver, Model.Loss()));
+            Model.Solution = SolutionInterface.FromModel(Model, new SolverConvergence(solver, loss));
             Model.Solution.ErrorMethod = ErrorEstimationMethod;
             Model.Solution.UseWeightedFitting = UseErrorWeightedFitting;
 
@@ -399,6 +503,7 @@ namespace AnalysisITC.AppClasses.AnalysisClasses
         {
             DateTime start = DateTime.Now;
 
+            var fittedParameters = Model.Parameters.GetFittedParameters();
             var limits = Model.Parameters.GetLimits();
             int m = Model.NumberOfPoints;
 
@@ -425,6 +530,7 @@ namespace AnalysisITC.AppClasses.AnalysisClasses
             double[] lower = limits.Select(b => b[0]).ToArray();
             double[] upper = limits.Select(b => b[1]).ToArray();
             double[] scales = initialGuess.Select(g => Math.Max(1, Math.Abs(g))).ToArray();
+            LogSolverInput("Single/LevenbergMarquardt", fittedParameters, initialGuess, scales, limits);
 
             var result = minimizer.FindMinimum(
                 objective,
@@ -436,8 +542,7 @@ namespace AnalysisITC.AppClasses.AnalysisClasses
             //LmResult = result;
 
             var fitted = result.MinimizingPoint.ToArray();
-            Model.LossFunction(fitted, false);
-            var loss = Model.Loss();
+            var loss = ApplyBestFittedParameters(Model, initialGuess, fitted, UseErrorWeightedFitting, "Single/LevenbergMarquardt", fittedParameters);
 
             Model.Solution = SolutionInterface.FromModel(Model, new SolverConvergence(result, DateTime.Now - start, loss));
             Model.Solution.ErrorMethod = ErrorEstimationMethod;
@@ -469,6 +574,7 @@ namespace AnalysisITC.AppClasses.AnalysisClasses
                             SolverToleranceModifier = ErrorEstimationToleranceModifier,
                             MaxOptimizerIterations = MaxBootstrapOptimizerIterations,
                             UseErrorWeightedFitting = this.UseErrorWeightedFitting,
+                            EnableSolverDiagnostics = false,
                         };
 
                         var rconv = solver.Solve();
@@ -541,6 +647,7 @@ namespace AnalysisITC.AppClasses.AnalysisClasses
                             SolverToleranceModifier = ErrorEstimationToleranceModifier,
                             MaxOptimizerIterations = MaxBootstrapOptimizerIterations,
                             UseErrorWeightedFitting = this.UseErrorWeightedFitting,
+                            EnableSolverDiagnostics = false,
                         };
 
                         var rconv = solver.Solve();
@@ -666,15 +773,20 @@ namespace AnalysisITC.AppClasses.AnalysisClasses
                 StartTime = DateTime.Now,
             };
 
-            SetStepSizes(solver, Model.Parameters.GetStepSizes());
-            SetBounds(solver, Model.Parameters.GetLimits());
+            var fittedParameters = Model.Parameters.GetFittedParameters();
+            var stepSizes = Model.Parameters.GetStepSizes();
+            var bounds = Model.Parameters.GetLimits();
+            SetStepSizes(solver, stepSizes);
+            SetBounds(solver, bounds);
             SetCancellationToken(solver);
 
-            solver.Minimize(Model.Parameters.GetFittedParameterArray());
+            var initialGuess = Model.Parameters.GetFittedParameterArray();
+            LogSolverInput("Global/NelderMead", fittedParameters, initialGuess, stepSizes, bounds);
+            solver.Minimize(initialGuess);
 
-            var mdl_pars = Model.Parameters.GetFittedParameters();
+            var loss = ApplyBestFittedParameters(Model, initialGuess, solver.Solution, UseErrorWeightedFitting, "Global/NelderMead", fittedParameters);
 
-            Model.Solution = new GlobalSolution(this, new SolverConvergence(solver, Model.Loss()));
+            Model.Solution = new GlobalSolution(this, new SolverConvergence(solver, loss));
 
             return Model.Solution.Convergence;
         }
@@ -683,6 +795,7 @@ namespace AnalysisITC.AppClasses.AnalysisClasses
         {
             DateTime start = DateTime.Now;
 
+            var fittedParameters = Model.Parameters.GetFittedParameters();
             var limits = Model.Parameters.GetLimits();
             int m = Model.GetNumberOfPoints();
 
@@ -709,6 +822,7 @@ namespace AnalysisITC.AppClasses.AnalysisClasses
             double[] lower = limits.Select(b => b[0]).ToArray();
             double[] upper = limits.Select(b => b[1]).ToArray();
             double[] scales = initialGuess.Select(g => Math.Max(1, Math.Abs(g))).ToArray();
+            LogSolverInput("Global/LevenbergMarquardt", fittedParameters, initialGuess, scales, limits);
 
             var result = minimizer.FindMinimum(
                 objective,
@@ -721,7 +835,7 @@ namespace AnalysisITC.AppClasses.AnalysisClasses
 
             var fitted = result.MinimizingPoint.ToArray();
 
-            var loss = Model.LossFunction(fitted, UseErrorWeightedFitting);
+            var loss = ApplyBestFittedParameters(Model, initialGuess, fitted, UseErrorWeightedFitting, "Global/LevenbergMarquardt", fittedParameters);
 
             Model.Solution = new GlobalSolution(this, new SolverConvergence(result, DateTime.Now - start, loss));
 
@@ -752,7 +866,9 @@ namespace AnalysisITC.AppClasses.AnalysisClasses
                             Model = globalmodel,
                             SolverAlgorithm = SolverAlgorithm,
                             SolverToleranceModifier = ErrorEstimationToleranceModifier,
-                            MaxOptimizerIterations = MaxBootstrapOptimizerIterations
+                            MaxOptimizerIterations = MaxBootstrapOptimizerIterations,
+                            UseErrorWeightedFitting = this.UseErrorWeightedFitting,
+                            EnableSolverDiagnostics = false,
                         };
 
                         var rconv = solver.Solve();
@@ -812,7 +928,9 @@ namespace AnalysisITC.AppClasses.AnalysisClasses
                             Model = globalmodel,
                             SolverAlgorithm = SolverAlgorithm,
                             SolverToleranceModifier = ErrorEstimationToleranceModifier,
-                            MaxOptimizerIterations = MaxBootstrapOptimizerIterations
+                            MaxOptimizerIterations = MaxBootstrapOptimizerIterations,
+                            UseErrorWeightedFitting = this.UseErrorWeightedFitting,
+                            EnableSolverDiagnostics = false,
                         };
 
                         var rconv = solver.Solve();

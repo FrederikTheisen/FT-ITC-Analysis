@@ -174,6 +174,13 @@ namespace AnalysisITC
                 // ── Parameter overrides ───────────────────────────────────
                 foreach (var sv in ParameterControls)
                 {
+                    if (FittingOptionsController.EnableSolverDiagnostics || AppSettings.Verbose)
+                    {
+                        AppEventHandler.PrintAndLog(
+                            $"[FitDiag] Options parameter {sv.Key}: value={sv.Value:G17}, locked={sv.Locked}, reset={sv.ShouldResetParameter}, affected={sv.HasBeenAffectedFlag}, sourceValue={sv.Parameter.Value:G17}, sourceLocked={sv.Parameter.IsLocked}, sourceChangedByUser={sv.Parameter.ChangedByUser}",
+                            1);
+                    }
+
                     if (sv.ShouldResetParameter)
                     {
                         // Remove the stored override; the next rebuild restores the data default.

@@ -226,6 +226,17 @@ namespace AnalysisITC.AppClasses.AnalysisClasses
             if (Context == null)
                 throw new InvalidOperationException("No analysis context available. Ensure TryRebuild() succeeded before calling PrepareForSolve().");
 
+            if (FittingOptionsController.EnableSolverDiagnostics || AppSettings.Verbose)
+            {
+                AppEventHandler.PrintAndLog($"[FitDiag] Workspace prepare: mode={(Context.IsGlobal ? "global" : "single")}, model={Context.ModelType}");
+                foreach (var par in Context.ExposedParameters)
+                {
+                    AppEventHandler.PrintAndLog(
+                        $"[FitDiag] Workspace parameter {par.Key}: value={par.Value:G17}, locked={par.IsLocked}, globallyDetermined={par.IsGloballyDetermined}, changedByUser={par.ChangedByUser}, fitted={par.IsFitted}",
+                        1);
+                }
+            }
+
             reuseAttachedSolutionInitialValues = true;
             Context.FinalizeForSolver();
             Context.RefreshParameterLimits();
