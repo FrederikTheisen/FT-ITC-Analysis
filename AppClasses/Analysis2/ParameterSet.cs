@@ -41,7 +41,8 @@ namespace AnalysisITC.AppClasses.AnalysisClasses
 
         public void RefreshLimits()
         {
-            Limits = this.Key.GetProperties().DefaultLimits;
+            Limits = this.Key.GetProperties().DefaultLimits?.ToArray();
+            if (Limits == null) return;
 
             var factor = AppSettings.ParameterLimitSetting switch
             {
@@ -540,7 +541,9 @@ namespace AnalysisITC.AppClasses.AnalysisClasses
         Enthalpy1,
         [ParameterTypeAttribute("Enthalpy 2", ParameterType.Enthalpy1)]
         Enthalpy2,
-        [ParameterTypeAttribute("Affinity", "*K*{d}", 0.1, new double[] { -2, 12 }, ParameterType.Affinity1)]
+        // Affinity parameters are stored as log10(Ka). The upper bound is kept
+        // consistent with the Gibbs-energy range used for constrained global fits.
+        [ParameterTypeAttribute("Affinity", "*K*{d}", 0.1, new double[] { -2, 20 }, ParameterType.Affinity1)]
         Affinity1,
         [ParameterTypeAttribute("Affinity 2", ParameterType.Affinity1)]
         Affinity2,
@@ -568,8 +571,7 @@ namespace AnalysisITC.AppClasses.AnalysisClasses
         IsomerizationEquilibriumConstant,
         [ParameterTypeAttribute("Equilibrium constant", "%{cis}", 0.1, new double[] { 0 + float.Epsilon, 100 - float.Epsilon }, CisIsomerPopulationPercentage)]
         CisIsomerPopulationPercentage,
-        [ParameterTypeAttribute("Apparent *K*{d}", "*K*{d,app}", 0.1, new double[] { -2, 12 }, Affinity1)]
+        [ParameterTypeAttribute("Apparent *K*{d}", "*K*{d,app}", 0.1, new double[] { -2, 20 }, Affinity1)]
         ApparentAffinity,
     }
 }
-
