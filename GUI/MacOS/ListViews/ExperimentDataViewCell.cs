@@ -90,7 +90,12 @@ namespace AnalysisITC
 
 			ExpNameLabel.StringValue = data.Name;
 			Line2.StringValue = data.UIShortDateWithTime;
-            Line3.StringValue = data.MeasuredTemperature.ToString("G3") + " °C | " + data.SyringeConcentration.AsFormattedConcentration(true) + " | " + data.CellConcentration.AsFormattedConcentration(true);
+            Line3.LineBreakMode = NSLineBreakMode.TruncatingTail;
+            Line3.Cell.LineBreakMode = NSLineBreakMode.TruncatingTail;
+
+            var line3Text = data.MeasuredTemperature.ToString("G3") + " °C | " + data.SyringeConcentration.AsFormattedConcentration(true) + " | " + data.CellConcentration.AsFormattedConcentration(true);
+            var line3Attributed = Utilities.MacStrings.FromMarkDownString(line3Text, Line3.Font);
+            Line3.AttributedStringValue = WithTruncatingLineBreaks(line3Attributed);
 
             data.SolutionChanged += Data_SolutionChanged;
             data.ProcessingUpdated += Data_ProcessingCompleted;
@@ -100,6 +105,20 @@ namespace AnalysisITC
 			Data_ProcessingCompleted(null, null);
 
 			Data_SolutionChanged(null, null);
+        }
+
+        NSAttributedString WithTruncatingLineBreaks(NSAttributedString attributedString)
+        {
+            var mutable = new NSMutableAttributedString(attributedString);
+            var range = new NSRange(0, mutable.Length);
+            var paragraph = new NSMutableParagraphStyle
+            {
+                LineBreakMode = NSLineBreakMode.TruncatingTail,
+            };
+
+            mutable.AddAttribute(NSStringAttributeKey.ParagraphStyle, paragraph, range);
+
+            return mutable;
         }
 
         private void Data_ProcessingCompleted(object sender, EventArgs e)
