@@ -209,14 +209,17 @@ namespace AnalysisITC.AppClasses.AnalysisClasses.Models
             if (double.IsFinite(sigma) && sigma > 0)
                 return sigma;
 
-            // Invalid sigma means "unknown", not "perfect measurement".
             var fallback = includedInjections
                 .Select(i => i.PeakAreaError)
-                .Where(s => double.IsFinite(s) && s > 0)
-                .Average();
+                .Where(s => double.IsFinite(s) && s > 0);
 
-            if (double.IsFinite(fallback) && fallback > 0)
-                return fallback;
+            if (fallback.Count() > 0)
+            {
+                var fallbackvalue = fallback.Average();
+
+                if (double.IsFinite(fallbackvalue) && fallbackvalue > 0)
+                    return fallbackvalue;
+            }
 
             // Last-resort numerical guard.
             return 1.0e-10;
