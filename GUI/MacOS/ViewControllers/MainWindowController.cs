@@ -432,7 +432,7 @@ namespace AnalysisITC
                 UpdateContextToolbarMenu();
             }));
             menu.AddItem(NSMenuItem.SeparatorItem);
-            menu.AddItem(CreateContextMenuItem("Experiment merger...", "experimentmerger", DataManager.Data.Count > 0, OpenTool));
+            menu.AddItem(CreateContextMenuItem("Experiment merger...", "experimentmerger", DataManager.TandemMergerToolEnabled, OpenTool));
             menu.AddItem(CreateContextMenuItem("Buffer subtraction...", "buffersubtraction", DataManager.Data.Count > 0, OpenSubtractionTool));
             if (hasData && DataManager.Current.DataSourceFormat == ITCDataFormat.IntegratedHeats)
             {

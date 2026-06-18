@@ -128,8 +128,8 @@ namespace AnalysisITC
                 case "sortbyprotonation": return DataManager.DataIsLoaded && DataManager.Data.Any(d => d.Attributes.Count > 0);
                 case "sortbyionic": return DataManager.DataIsLoaded && DataManager.Data.Any(d => d.Attributes.Count > 0);
                 case "copyattributes": return DataManager.DataIsLoaded && DataManager.SelectedIsData && DataManager.Current.Attributes.Count > 0;
-                case "mergetool": return DataManager.Data.Count(data => data.HasThermogram && !data.IsTandemExperiment) >= 2;
-                case "toolbarmergetool": return DataManager.Data.Count(data => data.HasThermogram && !data.IsTandemExperiment) >= 2;
+                case "mergetool":
+                case "toolbarmergetool": return DataManager.TandemMergerToolEnabled;
                 case "buffersub": return DataManager.Data.Count >= 2;
                 case "toolbarbuffersub": return DataManager.Data.Count >= 2;
                 case "resultexporter": return DataManager.Results.Count > 0;

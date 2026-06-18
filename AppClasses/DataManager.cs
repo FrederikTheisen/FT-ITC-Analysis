@@ -102,6 +102,8 @@ namespace AnalysisITC
         public static bool AnyDataIsBaselineProcessed => Data.Any(d => d.Processor.BaselineCompleted);
         public static bool AnyDataIsAnalyzed => Data.Any(d => d.Solution != null);
 
+        public static bool TandemMergerToolEnabled => Data.Count(data => data.HasThermogram && !data.IsTandemExperiment) >= 2;
+
         public static void Init()
         {
             sourceItems.Clear();
