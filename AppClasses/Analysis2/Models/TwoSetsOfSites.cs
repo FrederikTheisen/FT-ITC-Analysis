@@ -304,33 +304,29 @@ namespace AnalysisITC.AppClasses.AnalysisClasses.Models
                 get
                 {
                     var dict = new Dictionary<ParameterType, FloatWithError>()
-                    { 
+                    {
+                        { ParameterType.Nvalue1, N1 }, // We always have N1
+
                         // Site 1
                         { ParameterType.Affinity1, Kd1 },
                         { ParameterType.Enthalpy1, Enthalpy1.FloatWithError },
-                        { ParameterType.EntropyContribution1, TdS1.FloatWithError} ,
+                        { ParameterType.EntropyContribution1, TdS1.FloatWithError },
                         { ParameterType.Gibbs1, GibbsFreeEnergy1.FloatWithError },
 
-                        // Site 2
-                        { ParameterType.Affinity2, Kd2 },
-                        { ParameterType.Enthalpy2, Enthalpy2.FloatWithError },
-                        { ParameterType.EntropyContribution2, TdS2.FloatWithError} ,
-                        { ParameterType.Gibbs2, GibbsFreeEnergy2.FloatWithError },
                     };
 
-                    if (UseSyringeCorrectionMode)
+                    if (!UseSyringeCorrectionMode) //We only have one N if syringe correction mode is used
                     {
-                        dict.Add(ParameterType.Nvalue1, N1);
-                    }
-                    else
-                    {
-                        dict.Add(ParameterType.Nvalue1, N1);
                         dict.Add(ParameterType.Nvalue2, N2);
                     }
 
+                    dict.Add(ParameterType.Affinity2, Kd2);
+                    dict.Add(ParameterType.Enthalpy2, Enthalpy2.FloatWithError);
+                    dict.Add(ParameterType.EntropyContribution2, TdS2.FloatWithError);
+                    dict.Add(ParameterType.Gibbs2, GibbsFreeEnergy2.FloatWithError);
+
                     return dict;
                 }
-                
             }
         }
     }

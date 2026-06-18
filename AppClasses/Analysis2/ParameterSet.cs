@@ -477,7 +477,11 @@ namespace AnalysisITC.AppClasses.AnalysisClasses
 
         public static bool ContainsTwo(IEnumerable<ParameterType> list, ParameterType query)
         {
-            return list.Where(p => p.GetProperties().ParentType == query).Count() > 1;
+            if (query.GetProperties().ParentType == ParameterType.Gibbs1) // Look for affinities
+            {
+                return list.Where(p => p.GetProperties().ParentType == ParameterType.Affinity1).Count() > 1;
+            }
+            else return list.Where(p => p.GetProperties().ParentType == query).Count() > 1;
         }
 
         public static string TableHeaderTitle(IDictionary<AttributeKey, ExperimentAttribute> options, ParameterType key, bool containstwo)
