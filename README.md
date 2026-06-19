@@ -19,7 +19,7 @@ This repository is open source and exists both to distribute end-user binaries t
 - Process raw thermograms with spline, polynomial, or segmented baseline correction.
 - Adjust integration regions globally or per injection.
 - Fit standard ITC binding models, including one-set-of-sites, two-sets-of-sites, competitive binding, and dissociation models.
-- Run multi-experiment and global analyses with shared, free, fixed, or temperature-dependent parameters where applicable.
+- Run **multi-experiment and global analyses** with shared, free, fixed, or temperature-dependent parameters where applicable.
 - Estimate parameter uncertainty using resampling-based methods.
 - Analyze temperature, salt, and buffer-dependent experiments for derived thermodynamic interpretation.
 - Merge tandem titration experiments and perform buffer subtraction.
