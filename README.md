@@ -16,15 +16,15 @@ This repository is open source and exists both to distribute end-user binaries t
 
 ## Features
 
-- Process raw thermograms with spline, polynomial, or segmented baseline correction.
-- Adjust integration regions globally or per injection.
+- **Process raw thermograms** with spline, polynomial, or segmented baseline correction.
+- Adjust integration regions **globally or per injection**.
 - Fit standard ITC binding models, including one-set-of-sites, two-sets-of-sites, competitive binding, and dissociation models.
 - Run **multi-experiment and global analyses** with shared, free, fixed, or temperature-dependent parameters where applicable.
-- Estimate parameter uncertainty using resampling-based methods.
-- Analyze temperature, salt, and buffer-dependent experiments for derived thermodynamic interpretation.
-- Merge tandem titration experiments and perform buffer subtraction.
-- Export integrated heats, processed data, fit results, and publication-oriented figures.
-- Save portable `.ftitc` project files containing data, processing state, fit results, and analysis results.
+- **Estimate parameter uncertainty** using resampling-based methods.
+- **Analyze temperature, salt, and buffer-dependent** experiments for derived **thermodynamic interpretation**.
+- **Merge tandem titration experiments** and perform buffer subtraction.
+- Export integrated heats, processed data, fit results, and **publication-oriented figures**.
+- **Save portable `.ftitc` project files** containing data, processing state, fit results, and analysis results.
 
 ## Supported Data Files
 
