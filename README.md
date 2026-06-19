@@ -16,15 +16,13 @@ README CONTENT
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.14832177.svg)](https://doi.org/10.5281/zenodo.14832177) 
 ![GitHub Downloads (all assets, all releases)](https://img.shields.io/github/downloads/FrederikTheisen/FT-ITC-Analysis/total?style=flat) ![Endpoint Badge](https://img.shields.io/endpoint?url=https%3A%2F%2Fapi.juleskreuer.eu%2Fcitation-badge.php%3Fshield%26doi%3D10.5281%2Fzenodo.14832177&style=flat&label=citations&color=salmon)
 
-# FT-ITC Analysis
-
 ![Static Badge](https://img.shields.io/badge/publication-submitted-yellow)
 
-
-FT-ITC Analysis is a macOS desktop application for processing, analyzing, and presenting isothermal titration calorimetry (ITC) experiments. It is intended for working with ITC data away from the instrument workstation, with tools for baseline correction, peak integration, model fitting, multi-experiment analysis, and export of publication-style figures and processed data. 
+# FT-ITC Analysis
+FT-ITC Analysis is a macOS desktop application for processing, analyzing, and presenting isothermal titration calorimetry (ITC) data. It is intended for working with ITC data away from the instrument workstation, with tools for baseline correction, peak integration, model fitting, multi-experiment analysis, and export of publication-style figures and processed data. 
  
 
-This repository is open source and exists both to distribute end-user application bundles through [GitHub Releases](https://github.com/FrederikTheisen/FT-ITC-Analysis/releases) and to provide versioned software record.
+This repository is open source and exists both to distribute end-user application bundles through [GitHub Releases](https://github.com/FrederikTheisen/FT-ITC-Analysis/releases) and to provide a versioned software record.
 
 [![][downloadlink-shield]][downloadlink]
 
@@ -43,7 +41,7 @@ This repository is open source and exists both to distribute end-user applicatio
 ## Supported Data Files
 
 - **MicroCal-style raw data:** `.itc`
-- **TA Instruments / NanoAnalyze exports:** `.TA`, `.ta`
+- **TA Instruments / NanoAnalyze exports:** `.TA`
 - **PEAQ-ITC project files:** `.apj`
 - **Integrated heats:** `.dat`, `.aff`, `.dh`
 - **FT-ITC Analysis project files:** `.ftitc`
