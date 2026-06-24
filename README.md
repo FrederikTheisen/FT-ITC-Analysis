@@ -2,7 +2,7 @@
 VARIABLES
 -->
 [downloadlink]: https://github.com/FrederikTheisen/FT-ITC-Analysis/releases/download/v1.3.3/FT-ITC_Installer.dmg
-[downloadlink-shield]: https://img.shields.io/badge/download-FT--ITC_Analysis_v1.3.3-skyblue?style=for-the-badge
+[downloadlink-shield]: https://img.shields.io/badge/download-FT--ITC_Analysis-skyblue?style=for-the-badge
 
 [repolink]: https://github.com/FrederikTheisen/FT-ITC-Analysis/releases/download/v1.3.3/FT-ITC_Installer.dmg
 [repolink-shield]: https://img.shields.io/badge/download-FT--ITC_Analysis_v1.3.3-green
@@ -23,7 +23,7 @@ README CONTENT
 [![][downloadstat-shield]][downloadstat-link] 
 ![Endpoint Badge](https://img.shields.io/endpoint?url=https%3A%2F%2Fapi.juleskreuer.eu%2Fcitation-badge.php%3Fshield%26doi%3D10.5281%2Fzenodo.14832177&style=flat&label=citations&color=salmon)
 
-![Static Badge](https://img.shields.io/badge/publication-submitted-yellow)
+![Static Badge](https://img.shields.io/badge/publication-work_in_process-yellow)
 
 # FT-ITC Analysis
 FT-ITC Analysis is a macOS desktop application for processing, analyzing, and presenting isothermal titration calorimetry (ITC) data. It is intended for working with ITC data away from the instrument workstation, with tools for baseline correction, peak integration, model fitting, multi-experiment analysis, and export of publication-style figures and processed data. 
