@@ -2,7 +2,13 @@
 using System.Collections.Generic;
 using System.Linq;
 
-namespace AnalysisITC.AppClasses.AnalysisClasses
+using AnalysisITC.Core.Data;
+using Buffer = AnalysisITC.Core.Data.Buffer;
+using AnalysisITC.Core.Numerics;
+using AnalysisITC.Core.Units;
+using AnalysisITC.Core.Utilities;
+
+namespace AnalysisITC.Core.Analysis
 {
     public class ProtonationAnalysis : AdvancedAnalysis
     {

@@ -2,10 +2,14 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.Json;
-using AnalysisITC.AppClasses.AnalysisClasses;
-using AnalysisITC.AppClasses.AnalysisClasses.Models;
+using AnalysisITC.Core.Analysis;
+using AnalysisITC.Core.Analysis.Models;
 
-namespace AnalysisITC
+using AnalysisITC.Core.Processing;
+using AnalysisITC.Core.Units;
+using AnalysisITC.Core.Utilities;
+
+namespace AnalysisITC.Core.Data
 {
     public enum AnalysisResultValidity
     {

@@ -7,9 +7,14 @@ using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
 using AnalysisITC;
-using Utilities;
+using AnalysisITC.Core.Utilities;
 
-namespace DataReaders
+using AnalysisITC.Core.Application;
+using AnalysisITC.Core.Data;
+using AnalysisITC.Core.Numerics;
+using AnalysisITC.Core.Units;
+
+namespace AnalysisITC.Core.DataReaders
 {
     /// <summary>
     /// Reads processed tandem CSV exports containing the DP, baseline, fit and NDH

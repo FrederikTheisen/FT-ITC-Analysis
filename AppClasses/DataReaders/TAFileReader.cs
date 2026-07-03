@@ -2,9 +2,13 @@
 using System.IO;
 using AnalysisITC;
 using System.Linq;
-using Utilities;
+using AnalysisITC.Core.Utilities;
 
-namespace DataReaders
+using AnalysisITC.Core.Data;
+using AnalysisITC.Core.Numerics;
+using AnalysisITC.Core.Units;
+
+namespace AnalysisITC.Core.DataReaders
 {
     class TAFileReader : RawDataReader
     {
@@ -80,7 +84,7 @@ namespace DataReaders
 
         static void AddInjection(ExperimentData experiment, string line)
         {
-            var data = Utilities.StringParsers.ParseLine(line.Substring(1));
+            var data = StringParsers.ParseLine(line.Substring(1));
             int id = (int)data[0] - 1;
             double v = data[1] * 1e-6;
 

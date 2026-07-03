@@ -5,7 +5,11 @@ using System.Linq;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
-namespace AnalysisITC
+using AnalysisITC.Core.Analysis;
+using AnalysisITC.Core.Analysis.Models;
+using AnalysisITC.Core.Utilities;
+
+namespace AnalysisITC.Core.Data
 {
     /// <summary>
     /// Loads buffer thermodynamic/acid-base properties from JSON and provides lookup by id/alias/legacy enum.

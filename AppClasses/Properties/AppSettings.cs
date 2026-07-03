@@ -1,19 +1,24 @@
 ﻿using System;
-using Foundation;
 using System.Linq;
-using AnalysisITC.GUI;
-using DataReaders;
-using AnalysisITC.AppClasses.AnalysisClasses.Models;
-using AnalysisITC.AppClasses.AnalysisClasses;
 
-namespace AnalysisITC
+using AnalysisITC.Platform;
+using AnalysisITC.Core.DataReaders;
+using AnalysisITC.Core.Analysis.Models;
+using AnalysisITC.Core.Analysis;
+using AnalysisITC.Core.Data;
+using AnalysisITC.Core.Export;
+using AnalysisITC.Core.Processing;
+using AnalysisITC.Core.Units;
+using AnalysisITC.Core.Presentation;
+
+namespace AnalysisITC.Core.Application
 {
     public static class AppSettings
     {
         public static event EventHandler SettingsDidUpdate;
+        public static event EventHandler SettingsApplied;
 
-        static NSDictionary Default = new NSDictionary();
-        static NSUserDefaults Storage => NSUserDefaults.StandardUserDefaults;
+        static ISettingsStore Storage => PlatformServices.SettingsStore;
         public static string Locale { get; set; } = "en-US";
 
         //General
@@ -29,10 +34,10 @@ namespace AnalysisITC
 
         public static bool Verbose { get; set; } = false;
 
-        private static NSUrl lastDocumentUrl = null;
-        private static NSUrl[] lastDocumentUrls = null;
-        public static NSUrl LastDocumentUrl { get => lastDocumentUrl; set { lastDocumentUrl = value; Save(); } }
-        public static NSUrl[] LastDocumentUrls { get => lastDocumentUrls; set { lastDocumentUrls = value; Save(); } }
+        private static string lastDocumentPath = null;
+        private static string[] lastDocumentPaths = null;
+        public static string LastDocumentPath { get => lastDocumentPath; set { lastDocumentPath = NormalizeDocumentPath(value); Save(); } }
+        public static string[] LastDocumentPaths { get => lastDocumentPaths; set { lastDocumentPaths = NormalizeDocumentPaths(value); Save(); } }
 
         //Processing
         public static PeakFitAlgorithm PeakFitAlgorithm { get; set; } = PeakFitAlgorithm.SingleExponential;
@@ -80,11 +85,11 @@ namespace AnalysisITC
         public static bool FinalFigureShowDetailsAsDefault { get; set; } = true;
         public static bool FinalFigureShowModelInfoAsDefault { get; set; } = true;
         public static NumberPrecision NumberPrecision { get; set; } = NumberPrecision.Standard;
-        public static AnalysisITC.UncertaintyDisplayStyle UncertaintyDisplayStyle { get; set; } = AnalysisITC.UncertaintyDisplayStyle.StandardDeviation;
+        public static UncertaintyDisplayStyle UncertaintyDisplayStyle { get; set; } = UncertaintyDisplayStyle.StandardDeviation;
         public static bool ShowResidualGraph { get; set; } = true;
         public static bool ShowResidualGraphGap { get; set; } = true;
         public static bool UnifyResidualGraphAxis { get; set; } = false;
-        public static GraphBase.LineSmoothness FitLineSmoothness { get; set; } = GraphBase.LineSmoothness.Spline;
+        public static LineSmoothness FitLineSmoothness { get; set; } = LineSmoothness.Spline;
         public static bool AutoAxesIgnoresBadData { get; set; } = true;
 
         //Export
@@ -112,137 +117,134 @@ namespace AnalysisITC
 
         static void SaveToStorage()
         {
-            Storage.SetDouble(ReferenceTemperature, "ReferenceTemperature");
-            Storage.SetInt((int)EnergyUnit, "EnergyUnit");
-            Storage.SetInt((int)DefaultErrorEstimationMethod, "DefaultErrorEstimationMethod");
-            Storage.SetInt(DefaultBootstrapIterations, "DefaultBootstrapIterations");
-            Storage.SetDouble(MinimumTemperatureSpanForFitting, "MinimumTemperatureSpanForFitting");
-            Storage.SetBool(IncludeConcentrationErrorsInBootstrap, "IncludeConcentrationErrorsInBootstrap");
-            Storage.SetDouble(OptimizerTolerance, "OptimizerTolerance");
-            Storage.SetInt(MaximumOptimizerIterations, "MaximumOptimizerIterations");
-            Storage.SetInt((int)ColorScheme, "ColorScheme");
-            Storage.SetInt((int)ColorSchemeGradientMode, "ColorShcemeGradientMode");
-            Storage.SetDouble(ConcentrationAutoVariance, "ConcentrationAutoVariance");
-            Storage.SetBool(UnifyTimeAxisForExport, "UnifyTimeAxisForExport");
-            Storage.SetBool(ExportFitPointsWithPeaks, "ExportFitPointsWithPeaks");
-            Storage.SetInt((int)ExportSelectionMode, "ExportSelectionMode");
-            Storage.SetInt((int)FinalFigureParameterDisplay, "FinalFigureParameterDisplay");
-            Storage.SetBool(ExportBaselineCorrectedData, "ExportBaselineCorrectedData");
-            Storage.SetInt((int)DefaultConcentrationUnit, "DefaultConcentrationUnit");
-            Storage.SetInt((int)DefaultDesignerInstrument, "DefaultDesignerInstrument");
-            Storage.SetBool(InputAffinityAsDissociationConstant, "InputAffinityAsDissociationConstant");
-            Storage.SetURL(LastDocumentUrl, "LastDocumentUrl");
-            Storage.SetBool(EnableExtendedParameterLimits, "EnableExtendedParameterLimits");
-            Storage.SetInt((int)ParameterLimitSetting, "ParameterLimitSetting");
-            Storage.SetBool(BuffersPreparedAtRoomTemperature, "BuffersPreparedAtRoomTemperature");
-            Storage.SetBool(CreateSingleAnalysisResult, "CreateSingleAnalysisResult");
-            Storage.SetBool(CreateGlobalAnalysisResult, "CreateGlobalAnalysisResult");
-            Storage.SetBool(AutoOpenNewAnalysisResult, "AutoOpenNewAnalysisResult");
-            Storage.SetInt((int)AnalysisParameterDisplay, "AnalysisParameterDisplay");
-            Storage.SetInt(NumOfDecimalsToExport, "NumOfDecimalsToExport");
-            Storage.SetDouble(MinimumIonSpanForFitting, "MinimumIonSpanForFitting");
-            Storage.SetBool(FinalFigureShowParameterBoxAsDefault, "FinalFigureShowParameterBoxAsDefault");
-            Storage.SetBool(FinalFigureShowDetailsAsDefault, "FinalFigureShowDetailsAsDefault");
-            Storage.SetBool(FinalFigureShowModelInfoAsDefault, "FinalFigureShowModelInfoAsDefault");
-            Storage.SetInt((int)PeakFitAlgorithm, "PeakFitAlgorithm");
-            Storage.SetInt((int)NumberPrecision, "NumberPrecision");
-            Storage.SetInt((int)UncertaintyDisplayStyle, "UncertaintyDisplayStyle");
-            Storage.SetBool(IncludeBufferInIonicStrengthCalc, "IncludeBufferInIonicStrengthCalc");
-            Storage.SetInt((int)DisplayAttributeOptions, "DisplayAttributeOptions");
-            Storage.SetInt((int)ExportColumns, "ExportColumns");
-            Storage.SetBool(ShowResidualGraph, "ShowResidualGraph");
-            Storage.SetBool(ShowResidualGraphGap, "ShowResidualGraphGap");
-            Storage.SetBool(UnifyResidualGraphAxis, "UnifyResidualGraphAxis");
-            Storage.SetInt((int)FitLineSmoothness, "FitLineSmoothness");
-            Storage.SetBool(DiscardIntegrationRegionForBaseline, "DiscardIntegrationRegionForBaseline");
-            Storage.SetInt((int)DefaultSolverAlgorithm, "SolverAlgorithm");
-            Storage.SetBool(UseInjectionErrorWeightedFitting, "UseInjectionErrorWeightedFitting");
-            Storage.SetBool(AutoAxesIgnoresBadData, "AutoAxesIgnoresBadData");
-            Storage.SetInt((int)DilutionCalculationMethod, "DilutionCalculationMethod");
-            Storage.SetInt((int)BufferSubtractionDefaultMethod, "BufferSubtractionDefaultMethod");
-            Storage.SetBool(ReprocessIntegratedHeatDataOnLoad, "ReprocessIntegratedHeatDataOnLoad");
-            Storage.SetInt((int)DefaultSplinePointDensity, "DefaultSplinePointDensity");
-            Storage.SetInt((int)DefaultSplineHandleMode, "DefaultSplineHandleMode");
-            Storage.SetBool(DefaultSplinePointTimeDragging, "DefaultSplinePointTimeDragging");
-            Storage.SetBool(IntegrationRegionCopyIncludesStart, "IntegrationRegionCopyIncludesStart");
-            Storage.SetBool(PerformOnlineChecksOnLaunch, "PerformOnlineChecksOnLaunch");
-            Storage.SetBool(ConfirmRemoveDelete, "ConfirmRemoveDelete");
+            Storage.SetDouble("ReferenceTemperature", ReferenceTemperature);
+            Storage.SetInt("EnergyUnit", (int)EnergyUnit);
+            Storage.SetInt("DefaultErrorEstimationMethod", (int)DefaultErrorEstimationMethod);
+            Storage.SetInt("DefaultBootstrapIterations", DefaultBootstrapIterations);
+            Storage.SetDouble("MinimumTemperatureSpanForFitting", MinimumTemperatureSpanForFitting);
+            Storage.SetBool("IncludeConcentrationErrorsInBootstrap", IncludeConcentrationErrorsInBootstrap);
+            Storage.SetDouble("OptimizerTolerance", OptimizerTolerance);
+            Storage.SetInt("MaximumOptimizerIterations", MaximumOptimizerIterations);
+            Storage.SetInt("ColorScheme", (int)ColorScheme);
+            Storage.SetInt("ColorShcemeGradientMode", (int)ColorSchemeGradientMode);
+            Storage.SetDouble("ConcentrationAutoVariance", ConcentrationAutoVariance);
+            Storage.SetBool("UnifyTimeAxisForExport", UnifyTimeAxisForExport);
+            Storage.SetBool("ExportFitPointsWithPeaks", ExportFitPointsWithPeaks);
+            Storage.SetInt("ExportSelectionMode", (int)ExportSelectionMode);
+            Storage.SetInt("FinalFigureParameterDisplay", (int)FinalFigureParameterDisplay);
+            Storage.SetBool("ExportBaselineCorrectedData", ExportBaselineCorrectedData);
+            Storage.SetInt("DefaultConcentrationUnit", (int)DefaultConcentrationUnit);
+            Storage.SetInt("DefaultDesignerInstrument", (int)DefaultDesignerInstrument);
+            Storage.SetBool("InputAffinityAsDissociationConstant", InputAffinityAsDissociationConstant);
+            Storage.SetString("LastDocumentUrl", LastDocumentPath);
+            Storage.SetBool("EnableExtendedParameterLimits", EnableExtendedParameterLimits);
+            Storage.SetInt("ParameterLimitSetting", (int)ParameterLimitSetting);
+            Storage.SetBool("BuffersPreparedAtRoomTemperature", BuffersPreparedAtRoomTemperature);
+            Storage.SetBool("CreateSingleAnalysisResult", CreateSingleAnalysisResult);
+            Storage.SetBool("CreateGlobalAnalysisResult", CreateGlobalAnalysisResult);
+            Storage.SetBool("AutoOpenNewAnalysisResult", AutoOpenNewAnalysisResult);
+            Storage.SetInt("AnalysisParameterDisplay", (int)AnalysisParameterDisplay);
+            Storage.SetInt("NumOfDecimalsToExport", NumOfDecimalsToExport);
+            Storage.SetDouble("MinimumIonSpanForFitting", MinimumIonSpanForFitting);
+            Storage.SetBool("FinalFigureShowParameterBoxAsDefault", FinalFigureShowParameterBoxAsDefault);
+            Storage.SetBool("FinalFigureShowDetailsAsDefault", FinalFigureShowDetailsAsDefault);
+            Storage.SetBool("FinalFigureShowModelInfoAsDefault", FinalFigureShowModelInfoAsDefault);
+            Storage.SetInt("PeakFitAlgorithm", (int)PeakFitAlgorithm);
+            Storage.SetInt("NumberPrecision", (int)NumberPrecision);
+            Storage.SetInt("UncertaintyDisplayStyle", (int)UncertaintyDisplayStyle);
+            Storage.SetBool("IncludeBufferInIonicStrengthCalc", IncludeBufferInIonicStrengthCalc);
+            Storage.SetInt("DisplayAttributeOptions", (int)DisplayAttributeOptions);
+            Storage.SetInt("ExportColumns", (int)ExportColumns);
+            Storage.SetBool("ShowResidualGraph", ShowResidualGraph);
+            Storage.SetBool("ShowResidualGraphGap", ShowResidualGraphGap);
+            Storage.SetBool("UnifyResidualGraphAxis", UnifyResidualGraphAxis);
+            Storage.SetInt("FitLineSmoothness", (int)FitLineSmoothness);
+            Storage.SetBool("DiscardIntegrationRegionForBaseline", DiscardIntegrationRegionForBaseline);
+            Storage.SetInt("SolverAlgorithm", (int)DefaultSolverAlgorithm);
+            Storage.SetBool("UseInjectionErrorWeightedFitting", UseInjectionErrorWeightedFitting);
+            Storage.SetBool("AutoAxesIgnoresBadData", AutoAxesIgnoresBadData);
+            Storage.SetInt("DilutionCalculationMethod", (int)DilutionCalculationMethod);
+            Storage.SetInt("BufferSubtractionDefaultMethod", (int)BufferSubtractionDefaultMethod);
+            Storage.SetBool("ReprocessIntegratedHeatDataOnLoad", ReprocessIntegratedHeatDataOnLoad);
+            Storage.SetInt("DefaultSplinePointDensity", (int)DefaultSplinePointDensity);
+            Storage.SetInt("DefaultSplineHandleMode", (int)DefaultSplineHandleMode);
+            Storage.SetBool("DefaultSplinePointTimeDragging", DefaultSplinePointTimeDragging);
+            Storage.SetBool("IntegrationRegionCopyIncludesStart", IntegrationRegionCopyIncludesStart);
+            Storage.SetBool("PerformOnlineChecksOnLaunch", PerformOnlineChecksOnLaunch);
+            Storage.SetBool("ConfirmRemoveDelete", ConfirmRemoveDelete);
 
-            if (LastDocumentUrls != null) StoreArray(LastDocumentUrls.Select(url => url.ToString()).ToArray(), "LastDocumentUrls");
-            StoreArray(FinalFigureDimensions, "FinalFigureDimensions");
+            Storage.SetStringArray("LastDocumentUrls", LastDocumentPaths);
+            Storage.SetDoubleArray("FinalFigureDimensions", FinalFigureDimensions);
 
-            Storage.SetBool(true, "IsSaved");
+            Storage.SetBool("IsSaved", true);
         }
 
         public static void Load()
         {
-            NSDictionary dict = Storage.ToDictionary();
-
-            // Check if the dictionary is empty or not
-            if (!dict.ContainsKey(NSObject.FromObject("IsSaved")) || !Storage.BoolForKey("IsSaved"))
+            if (!Storage.Contains("IsSaved") || !Storage.GetBool("IsSaved"))
             {
-                Console.WriteLine("No settings are stored in NSUserDefaults.");
+                Console.WriteLine("No settings are stored.");
             }
-            else Console.WriteLine("There are {0} settings stored in NSUserDefaults.", dict.Count);
+            else Console.WriteLine("There are {0} settings stored.", Storage.Count);
 
-            ReferenceTemperature = GetDouble(dict, "ReferenceTemperature", ReferenceTemperature);
-            EnergyUnit = (EnergyUnit)GetInt(dict, "EnergyUnit", (int)EnergyUnit);
-            DefaultErrorEstimationMethod = (ErrorEstimationMethod)GetInt(dict, "DefaultErrorEstimationMethod", (int)DefaultErrorEstimationMethod);
-            DefaultBootstrapIterations = GetInt(dict, "DefaultBootstrapIterations", DefaultBootstrapIterations);
-            MinimumTemperatureSpanForFitting = GetDouble(dict, "MinimumTemperatureSpanForFitting", MinimumTemperatureSpanForFitting);
-            IncludeConcentrationErrorsInBootstrap = GetBool(dict, "IncludeConcentrationErrorsInBootstrap", IncludeConcentrationErrorsInBootstrap);
-            OptimizerTolerance = GetDouble(dict, "OptimizerTolerance", OptimizerTolerance);
-            MaximumOptimizerIterations = GetInt(dict, "MaximumOptimizerIterations", MaximumOptimizerIterations);
-            ColorScheme = (ColorSchemes)GetInt(dict, "ColorScheme", (int)ColorScheme);
-            ColorSchemeGradientMode = (ColorSchemeGradientMode)GetInt(dict, "ColorShcemeGradientMode", (int)ColorSchemeGradientMode);
-            ConcentrationAutoVariance = GetDouble(dict, "ConcentrationAutoVariance", ConcentrationAutoVariance);
-            UnifyTimeAxisForExport = GetBool(dict, "UnifyTimeAxisForExport", UnifyTimeAxisForExport);
-            ExportFitPointsWithPeaks = GetBool(dict, "ExportFitPointsWithPeaks", ExportFitPointsWithPeaks);
-            ExportSelectionMode = (ExportDataSelection)GetInt(dict, "ExportSelectionMode", (int)ExportSelectionMode);
-            EnableExtendedParameterLimits = GetBool(dict, "EnableExtendedParameterLimits", EnableExtendedParameterLimits);
-            ParameterLimitSetting = (ParameterLimitSetting)GetInt(dict, "ParameterLimitSetting", (int)ParameterLimitSetting);
-            FinalFigureParameterDisplay = (FinalFigureDisplayParameters)GetInt(dict, "FinalFigureParameterDisplay", (int)FinalFigureParameterDisplay);
-            FinalFigureDimensions = GetArray(dict, "FinalFigureDimensions", FinalFigureDimensions);
-            ExportBaselineCorrectedData = GetBool(dict, "ExportBaselineCorrectedData", ExportBaselineCorrectedData);
-            DefaultConcentrationUnit = (ConcentrationUnit)GetInt(dict, "DefaultConcentrationUnit", (int)DefaultConcentrationUnit);
-            DefaultDesignerInstrument = NormalizeDesignerInstrument(GetInt(dict, "DefaultDesignerInstrument", (int)DefaultDesignerInstrument));
-            InputAffinityAsDissociationConstant = GetBool(dict, "InputAffinityAsDissociationConstant", InputAffinityAsDissociationConstant);
-            lastDocumentUrl = GetUrl(dict, "LastDocumentUrl");
-            BuffersPreparedAtRoomTemperature = GetBool(dict, "BuffersPreparedAtRoomTemperature", BuffersPreparedAtRoomTemperature);
-            CreateSingleAnalysisResult = GetBool(dict, "CreateSingleAnalysisResult", CreateSingleAnalysisResult);
-            CreateGlobalAnalysisResult = GetBool(dict, "CreateGlobalAnalysisResult", CreateGlobalAnalysisResult);
-            AutoOpenNewAnalysisResult = GetBool(dict, "AutoOpenNewAnalysisResult", AutoOpenNewAnalysisResult);
-            AnalysisParameterDisplay = (FinalFigureDisplayParameters)GetInt(dict, "AnalysisParameterDisplay", (int)AnalysisParameterDisplay);
-            NumOfDecimalsToExport = GetInt(dict, "NumOfDecimalsToExport", NumOfDecimalsToExport);
-            MinimumIonSpanForFitting = GetDouble(dict, "MinimumIonSpanForFitting", MinimumIonSpanForFitting);
-            FinalFigureShowParameterBoxAsDefault = GetBool(dict, "FinalFigureShowParameterBoxAsDefault", FinalFigureShowParameterBoxAsDefault);
-            FinalFigureShowDetailsAsDefault = GetBool(dict, "FinalFigureShowDetailsAsDefault", FinalFigureShowDetailsAsDefault);
-            FinalFigureShowModelInfoAsDefault = GetBool(dict, "FinalFigureShowModelInfoAsDefault", FinalFigureShowModelInfoAsDefault);
-            PeakFitAlgorithm = (PeakFitAlgorithm)GetInt(dict, "PeakFitAlgorithm", (int)PeakFitAlgorithm);
-            NumberPrecision = (NumberPrecision)GetInt(dict, "NumberPrecision", (int)NumberPrecision);
-            UncertaintyDisplayStyle = (AnalysisITC.UncertaintyDisplayStyle)GetInt(dict, "UncertaintyDisplayStyle", (int)UncertaintyDisplayStyle);
-            IncludeBufferInIonicStrengthCalc = GetBool(dict, "IncludeBufferInIonicStrengthCalc", IncludeBufferInIonicStrengthCalc);
-            DisplayAttributeOptions = (DisplayAttributeOptions)GetInt(dict, "DisplayAttributeOptions", (int)DisplayAttributeOptions);
-            ExportColumns = (ExportColumns)GetInt(dict, "ExportColumns", (int)ExportColumns.Default);
-            ShowResidualGraph = GetBool(dict, "ShowResidualGraph", ShowResidualGraph);
-            ShowResidualGraphGap = GetBool(dict, "ShowResidualGraphGap", ShowResidualGraphGap);
-            UnifyResidualGraphAxis = GetBool(dict, "UnifyResidualGraphAxis", UnifyResidualGraphAxis);
-            FitLineSmoothness = (GraphBase.LineSmoothness)GetInt(dict, "FitLineSmoothness", (int)FitLineSmoothness);
-            DiscardIntegrationRegionForBaseline = GetBool(dict, "DiscardIntegrationRegionForBaseline", DiscardIntegrationRegionForBaseline);
-            DefaultSolverAlgorithm = (SolverAlgorithm)GetInt(dict, "SolverAlgorithm", (int)DefaultSolverAlgorithm);
-            UseInjectionErrorWeightedFitting = GetBool(dict, "UseInjectionErrorWeightedFitting", UseInjectionErrorWeightedFitting);
-            AutoAxesIgnoresBadData = GetBool(dict, "AutoAxesIgnoresBadData", AutoAxesIgnoresBadData);
-            DilutionCalculationMethod = (DilutionMethod)GetInt(dict, "DilutionCalculationMethod", (int)DilutionCalculationMethod);
-            BufferSubtractionDefaultMethod = NormalizeBufferSubtractionMethod(GetInt(dict, "BufferSubtractionDefaultMethod", (int)BufferSubtractionDefaultMethod));
-            ReprocessIntegratedHeatDataOnLoad = GetBool(dict, "ReprocessIntegratedHeatDataOnLoad", ReprocessIntegratedHeatDataOnLoad);
-            DefaultSplinePointDensity = (SplineInterpolator.SplinePointDensity)GetInt(dict, "DefaultSplinePointDensity", (int)DefaultSplinePointDensity);
-            DefaultSplineHandleMode = (SplineInterpolator.SplineHandleMode)GetInt(dict, "DefaultSplineHandleMode", (int)DefaultSplineHandleMode);
-            DefaultSplinePointTimeDragging = GetBool(dict, "DefaultSplinePointTimeDragging", DefaultSplinePointTimeDragging);
-            IntegrationRegionCopyIncludesStart = GetBool(dict, "IntegrationRegionCopyIncludesStart", IntegrationRegionCopyIncludesStart);
-            PerformOnlineChecksOnLaunch = GetBool(dict, "PerformOnlineChecksOnLaunch", PerformOnlineChecksOnLaunch);
-            ConfirmRemoveDelete = GetBool(dict, "ConfirmRemoveDelete", ConfirmRemoveDelete);
+            ReferenceTemperature = Storage.GetDouble("ReferenceTemperature", ReferenceTemperature);
+            EnergyUnit = (EnergyUnit)Storage.GetInt("EnergyUnit", (int)EnergyUnit);
+            DefaultErrorEstimationMethod = (ErrorEstimationMethod)Storage.GetInt("DefaultErrorEstimationMethod", (int)DefaultErrorEstimationMethod);
+            DefaultBootstrapIterations = Storage.GetInt("DefaultBootstrapIterations", DefaultBootstrapIterations);
+            MinimumTemperatureSpanForFitting = Storage.GetDouble("MinimumTemperatureSpanForFitting", MinimumTemperatureSpanForFitting);
+            IncludeConcentrationErrorsInBootstrap = Storage.GetBool("IncludeConcentrationErrorsInBootstrap", IncludeConcentrationErrorsInBootstrap);
+            OptimizerTolerance = Storage.GetDouble("OptimizerTolerance", OptimizerTolerance);
+            MaximumOptimizerIterations = Storage.GetInt("MaximumOptimizerIterations", MaximumOptimizerIterations);
+            ColorScheme = (ColorSchemes)Storage.GetInt("ColorScheme", (int)ColorScheme);
+            ColorSchemeGradientMode = (ColorSchemeGradientMode)Storage.GetInt("ColorShcemeGradientMode", (int)ColorSchemeGradientMode);
+            ConcentrationAutoVariance = Storage.GetDouble("ConcentrationAutoVariance", ConcentrationAutoVariance);
+            UnifyTimeAxisForExport = Storage.GetBool("UnifyTimeAxisForExport", UnifyTimeAxisForExport);
+            ExportFitPointsWithPeaks = Storage.GetBool("ExportFitPointsWithPeaks", ExportFitPointsWithPeaks);
+            ExportSelectionMode = (ExportDataSelection)Storage.GetInt("ExportSelectionMode", (int)ExportSelectionMode);
+            EnableExtendedParameterLimits = Storage.GetBool("EnableExtendedParameterLimits", EnableExtendedParameterLimits);
+            ParameterLimitSetting = (ParameterLimitSetting)Storage.GetInt("ParameterLimitSetting", (int)ParameterLimitSetting);
+            FinalFigureParameterDisplay = (FinalFigureDisplayParameters)Storage.GetInt("FinalFigureParameterDisplay", (int)FinalFigureParameterDisplay);
+            FinalFigureDimensions = Storage.GetDoubleArray("FinalFigureDimensions", FinalFigureDimensions);
+            ExportBaselineCorrectedData = Storage.GetBool("ExportBaselineCorrectedData", ExportBaselineCorrectedData);
+            DefaultConcentrationUnit = (ConcentrationUnit)Storage.GetInt("DefaultConcentrationUnit", (int)DefaultConcentrationUnit);
+            DefaultDesignerInstrument = NormalizeDesignerInstrument(Storage.GetInt("DefaultDesignerInstrument", (int)DefaultDesignerInstrument));
+            InputAffinityAsDissociationConstant = Storage.GetBool("InputAffinityAsDissociationConstant", InputAffinityAsDissociationConstant);
+            lastDocumentPath = NormalizeDocumentPath(Storage.GetString("LastDocumentUrl"));
+            BuffersPreparedAtRoomTemperature = Storage.GetBool("BuffersPreparedAtRoomTemperature", BuffersPreparedAtRoomTemperature);
+            CreateSingleAnalysisResult = Storage.GetBool("CreateSingleAnalysisResult", CreateSingleAnalysisResult);
+            CreateGlobalAnalysisResult = Storage.GetBool("CreateGlobalAnalysisResult", CreateGlobalAnalysisResult);
+            AutoOpenNewAnalysisResult = Storage.GetBool("AutoOpenNewAnalysisResult", AutoOpenNewAnalysisResult);
+            AnalysisParameterDisplay = (FinalFigureDisplayParameters)Storage.GetInt("AnalysisParameterDisplay", (int)AnalysisParameterDisplay);
+            NumOfDecimalsToExport = Storage.GetInt("NumOfDecimalsToExport", NumOfDecimalsToExport);
+            MinimumIonSpanForFitting = Storage.GetDouble("MinimumIonSpanForFitting", MinimumIonSpanForFitting);
+            FinalFigureShowParameterBoxAsDefault = Storage.GetBool("FinalFigureShowParameterBoxAsDefault", FinalFigureShowParameterBoxAsDefault);
+            FinalFigureShowDetailsAsDefault = Storage.GetBool("FinalFigureShowDetailsAsDefault", FinalFigureShowDetailsAsDefault);
+            FinalFigureShowModelInfoAsDefault = Storage.GetBool("FinalFigureShowModelInfoAsDefault", FinalFigureShowModelInfoAsDefault);
+            PeakFitAlgorithm = (PeakFitAlgorithm)Storage.GetInt("PeakFitAlgorithm", (int)PeakFitAlgorithm);
+            NumberPrecision = (NumberPrecision)Storage.GetInt("NumberPrecision", (int)NumberPrecision);
+            UncertaintyDisplayStyle = (UncertaintyDisplayStyle)Storage.GetInt("UncertaintyDisplayStyle", (int)UncertaintyDisplayStyle);
+            IncludeBufferInIonicStrengthCalc = Storage.GetBool("IncludeBufferInIonicStrengthCalc", IncludeBufferInIonicStrengthCalc);
+            DisplayAttributeOptions = (DisplayAttributeOptions)Storage.GetInt("DisplayAttributeOptions", (int)DisplayAttributeOptions);
+            ExportColumns = (ExportColumns)Storage.GetInt("ExportColumns", (int)ExportColumns.Default);
+            ShowResidualGraph = Storage.GetBool("ShowResidualGraph", ShowResidualGraph);
+            ShowResidualGraphGap = Storage.GetBool("ShowResidualGraphGap", ShowResidualGraphGap);
+            UnifyResidualGraphAxis = Storage.GetBool("UnifyResidualGraphAxis", UnifyResidualGraphAxis);
+            FitLineSmoothness = (LineSmoothness)Storage.GetInt("FitLineSmoothness", (int)FitLineSmoothness);
+            DiscardIntegrationRegionForBaseline = Storage.GetBool("DiscardIntegrationRegionForBaseline", DiscardIntegrationRegionForBaseline);
+            DefaultSolverAlgorithm = (SolverAlgorithm)Storage.GetInt("SolverAlgorithm", (int)DefaultSolverAlgorithm);
+            UseInjectionErrorWeightedFitting = Storage.GetBool("UseInjectionErrorWeightedFitting", UseInjectionErrorWeightedFitting);
+            AutoAxesIgnoresBadData = Storage.GetBool("AutoAxesIgnoresBadData", AutoAxesIgnoresBadData);
+            DilutionCalculationMethod = (DilutionMethod)Storage.GetInt("DilutionCalculationMethod", (int)DilutionCalculationMethod);
+            BufferSubtractionDefaultMethod = NormalizeBufferSubtractionMethod(Storage.GetInt("BufferSubtractionDefaultMethod", (int)BufferSubtractionDefaultMethod));
+            ReprocessIntegratedHeatDataOnLoad = Storage.GetBool("ReprocessIntegratedHeatDataOnLoad", ReprocessIntegratedHeatDataOnLoad);
+            DefaultSplinePointDensity = (SplineInterpolator.SplinePointDensity)Storage.GetInt("DefaultSplinePointDensity", (int)DefaultSplinePointDensity);
+            DefaultSplineHandleMode = (SplineInterpolator.SplineHandleMode)Storage.GetInt("DefaultSplineHandleMode", (int)DefaultSplineHandleMode);
+            DefaultSplinePointTimeDragging = Storage.GetBool("DefaultSplinePointTimeDragging", DefaultSplinePointTimeDragging);
+            IntegrationRegionCopyIncludesStart = Storage.GetBool("IntegrationRegionCopyIncludesStart", IntegrationRegionCopyIncludesStart);
+            PerformOnlineChecksOnLaunch = Storage.GetBool("PerformOnlineChecksOnLaunch", PerformOnlineChecksOnLaunch);
+            ConfirmRemoveDelete = Storage.GetBool("ConfirmRemoveDelete", ConfirmRemoveDelete);
 
-            LastDocumentUrls = GetArray(dict, "LastDocumentUrls", new string[0]).Select(url => NSUrl.FromString(url)).ToArray();
+            lastDocumentPaths = NormalizeDocumentPaths(Storage.GetStringArray("LastDocumentUrls"));
 
             ApplySettings();
 
@@ -273,8 +275,8 @@ namespace AnalysisITC
             DefaultConcentrationUnit = ConcentrationUnit.µM;
             DefaultDesignerInstrument = ITCInstrument.MicroCalITC200;
             InputAffinityAsDissociationConstant = true;
-            lastDocumentUrl = null;
-            LastDocumentUrls = null;
+            lastDocumentPath = null;
+            lastDocumentPaths = null;
             IncludeBufferInIonicStrengthCalc = true;
             BuffersPreparedAtRoomTemperature = true;
             CreateSingleAnalysisResult = false;
@@ -288,13 +290,13 @@ namespace AnalysisITC
             FinalFigureShowModelInfoAsDefault = true;
             PeakFitAlgorithm = PeakFitAlgorithm.SingleExponential;
             NumberPrecision = NumberPrecision.Standard;
-            UncertaintyDisplayStyle = AnalysisITC.UncertaintyDisplayStyle.StandardDeviation;
+            UncertaintyDisplayStyle = UncertaintyDisplayStyle.StandardDeviation;
             DisplayAttributeOptions = DisplayAttributeOptions.Default;
             ExportColumns = ExportColumns.Default;
             UseInjectionErrorWeightedFitting = false;
             DefaultSolverAlgorithm = SolverAlgorithm.NelderMead;
             DiscardIntegrationRegionForBaseline = true;
-            FitLineSmoothness = GraphBase.LineSmoothness.Spline;
+            FitLineSmoothness = LineSmoothness.Spline;
             ShowResidualGraph = true;
             ShowResidualGraphGap = true;
             UnifyResidualGraphAxis = false;
@@ -310,86 +312,24 @@ namespace AnalysisITC
             ConfirmRemoveDelete = true;
         }
 
-        static void StoreArray(double[] arr, string key)
+        static string NormalizeDocumentPath(string path)
         {
-            // Create an NSMutableArray to hold the NSNumber objects
-            var array = new NSMutableArray();
+            if (string.IsNullOrWhiteSpace(path)) return null;
 
-            // Convert each double to an NSNumber object and add it to the NSMutableArray
-            foreach (double d in arr) array.Add(new NSNumber(d));
+            if (Uri.TryCreate(path, UriKind.Absolute, out var uri) && uri.IsFile)
+                return uri.LocalPath;
 
-            // Store the NSMutableArray as an array with a specific key
-            Storage.SetValueForKey(array, new NSString(key));
+            return path;
         }
 
-        static void StoreArray(string[] arr, string key)
+        static string[] NormalizeDocumentPaths(string[] paths)
         {
-            // Create an NSMutableArray to hold the NSNumber objects
-            var array = new NSMutableArray();
+            if (paths == null) return null;
 
-            // Convert each double to an NSNumber object and add it to the NSMutableArray
-            foreach (string s in arr) array.Add(new NSString(s));
-
-            // Store the NSMutableArray as an array with a specific key
-            Storage.SetValueForKey(array, new NSString(key));
-        }
-
-        static int GetInt(NSDictionary dict, string key, int def = 0)
-        {
-            if (dict.ContainsKey(NSObject.FromObject(key)))
-                return (int)Storage.IntForKey(key);
-            else return def;
-        }
-
-        static double GetDouble(NSDictionary dict, string key, double def = 0)
-        {
-            if (dict.ContainsKey(NSObject.FromObject(key)))
-                return Storage.DoubleForKey(key);
-            else return def;
-        }
-
-        static bool GetBool(NSDictionary dict, string key, bool def = false)
-        {
-            if (dict.ContainsKey(NSObject.FromObject(key)))
-                return Storage.BoolForKey(key);
-            else return def;
-        }
-
-        private static NSUrl GetUrl(NSDictionary dict, string key)
-        {
-            if (dict.ContainsKey(NSObject.FromObject(key)))
-                return Storage.URLForKey(key);
-            else return null;
-        }
-
-        static double[] GetArray(NSDictionary dict, string key, double[] def = null)
-        {
-            if (!dict.ContainsKey(NSObject.FromObject(key))) return def;
-
-            var arr = Storage.ArrayForKey(key);
-            var doubleArray = new double[arr.Count()];
-
-            for (int i = 0; i < arr.Count(); i++)
-            {
-                doubleArray[i] = ((NSNumber)arr.GetValue(i)).DoubleValue;
-            }
-
-            return doubleArray;
-        }
-
-        static string[] GetArray(NSDictionary dict, string key, string[] def = null)
-        {
-            if (!dict.ContainsKey(NSObject.FromObject(key))) return def;
-
-            var arr = Storage.ArrayForKey(key);
-            var outarr = new string[arr.Count()];
-
-            for (int i = 0; i < arr.Count(); i++)
-            {
-                outarr[i] = (NSString)arr.ToArray()[i];
-            }
-
-            return outarr;
+            return paths
+                .Select(NormalizeDocumentPath)
+                .Where(path => !string.IsNullOrWhiteSpace(path))
+                .ToArray();
         }
 
         static BufferSubtractionMethod NormalizeBufferSubtractionMethod(int method)
@@ -419,19 +359,7 @@ namespace AnalysisITC
             FittingOptionsController.EnableAutoConcentrationVariance = IsConcentrationAutoVarianceEnabled;
             FittingOptionsController.Algorithm = DefaultSolverAlgorithm;
             FittingOptionsController.UseErrorWeightedFitting = UseInjectionErrorWeightedFitting;
-            FinalFigureGraphView.Width = (float)FinalFigureDimensions[0];
-            FinalFigureGraphView.Height = (float)FinalFigureDimensions[1];
-            FinalFigureGraphView.DrawExpDetails = FinalFigureShowParameterBoxAsDefault;
-            FinalFigureGraphView.DrawModelInfo = FinalFigureShowModelInfoAsDefault;
-            FinalFigureGraphView.TextUncertaintyStyle = UncertaintyDisplayStyle;
-            FinalFigureGraphView.UpdateParameterBoxVisibility();
-            FinalFigureGraphView.ShowResiduals = ShowResidualGraph;
-            FinalFigureGraphView.GapResidualGraph = ShowResidualGraphGap;
-            FinalFigureGraphView.AutoAxesIgnoresBadData = AutoAxesIgnoresBadData;
-            SplineInterpolator.DefaultPointDensity = DefaultSplinePointDensity;
-            SplineInterpolator.DefaultHandleMode = DefaultSplineHandleMode;
-            SplineInterpolator.DefaultAllowPointTimeDragging = DefaultSplinePointTimeDragging;
-            AnalysisGraphView.AnalysisDisplayParameters = AnalysisParameterDisplay;
+            SettingsApplied?.Invoke(null, null);
         }
     }
 

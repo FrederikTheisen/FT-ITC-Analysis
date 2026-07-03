@@ -1,6 +1,6 @@
-﻿using AnalysisITC.AppClasses.AnalysisClasses;
+﻿using AnalysisITC.Core.Application;
 
-namespace AnalysisITC
+namespace AnalysisITC.Core.Analysis
 {
     public class ModelCloneOptions
     {

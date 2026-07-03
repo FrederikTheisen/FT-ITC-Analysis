@@ -3,11 +3,17 @@ using System.IO;
 using AnalysisITC;
 using System.Collections.Generic;
 using System.Linq;
-using AnalysisITC.AppClasses.AnalysisClasses;
-using AnalysisITC.AppClasses.AnalysisClasses.Models;
+using AnalysisITC.Core.Analysis;
+using AnalysisITC.Core.Analysis.Models;
 using System.Threading.Tasks;
 
-namespace DataReaders
+using AnalysisITC.Core.Application;
+using AnalysisITC.Core.Data;
+using AnalysisITC.Core.Export;
+using AnalysisITC.Core.Processing;
+using AnalysisITC.Core.Utilities;
+
+namespace AnalysisITC.Core.DataReaders
 {
     class FTITCReader : FTITCFormat
     {

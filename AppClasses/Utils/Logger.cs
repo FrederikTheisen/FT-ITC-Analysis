@@ -2,9 +2,10 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
-using AppKit;
 
-namespace AnalysisITC
+using AnalysisITC.Platform;
+
+namespace AnalysisITC.Core.Application
 {
 	public static class AppEventHandler
 	{
@@ -55,15 +56,15 @@ namespace AnalysisITC
 			switch (ex)
 			{
 				case HandledException:
-					NSApplication.SharedApplication.InvokeOnMainThread(() =>
+					PlatformServices.MainThreadDispatcher.Invoke(() =>
 						{
 							ShowAppMessage?.Invoke(null, ex as HandledException);
 							StatusBarManager.ClearAppStatus();
 						});
 					break;
                 case OptimizerStopException: break;
-                case AggregateException: NSApplication.SharedApplication.InvokeOnMainThread(() => { ShowAppMessage?.Invoke(null, new(ex.InnerException)); StatusBarManager.ClearAppStatus(); }); break;
-				default: NSApplication.SharedApplication.InvokeOnMainThread(() => { ShowAppMessage?.Invoke(null, new(ex)); StatusBarManager.ClearAppStatus(); }); break;
+                case AggregateException: PlatformServices.MainThreadDispatcher.Invoke(() => { ShowAppMessage?.Invoke(null, new(ex.InnerException)); StatusBarManager.ClearAppStatus(); }); break;
+				default: PlatformServices.MainThreadDispatcher.Invoke(() => { ShowAppMessage?.Invoke(null, new(ex)); StatusBarManager.ClearAppStatus(); }); break;
             }
         }
 

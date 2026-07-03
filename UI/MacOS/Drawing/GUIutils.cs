@@ -3,9 +3,22 @@ using AppKit;
 using System.Collections.Generic;
 using CoreGraphics;
 using AnalysisITC;
+using AnalysisITC.UI.MacOS.Drawing;
 using System.Linq;
 
-namespace Utilities
+using AnalysisITC.Core.Application;
+using AnalysisITC.Core.Analysis;
+using AnalysisITC.Core.Analysis.Models;
+using AnalysisITC.Core.Data;
+using AnalysisITC.Core.DataReaders;
+using AnalysisITC.Core.Export;
+using AnalysisITC.Core.Numerics;
+using AnalysisITC.Core.Presentation;
+using AnalysisITC.Core.Processing;
+using AnalysisITC.Core.Units;
+using AnalysisITC.Core.Utilities;
+
+namespace AnalysisITC.UI.MacOS.Drawing
 {
     public class NiceScale
     {
@@ -277,7 +290,7 @@ namespace Utilities
             SecondaryFeatureReferenceValue = box.SecondaryFeatureReferenceValue;
         }
 
-        public MouseOverFeatureEvent(AnalysisITC.InjectionData inj, CGGraph graph)
+        public MouseOverFeatureEvent(InjectionData inj, CGGraph graph)
         {
             Type = FeatureType.IntegratedInjectionPoint;
             FeatureID = inj.ID;
@@ -349,11 +362,6 @@ namespace Utilities
             var offsetpos = position.Subtract(frame.Location);
 
             return new CGPoint(offsetpos.X / frame.Width, offsetpos.Y / frame.Height);
-        }
-
-        public static CGPoint Subtract(this CGPoint p1, CGPoint p2)
-        {
-            return new CGPoint(p1.X - p2.X, p1.Y - p2.Y);
         }
     }
 

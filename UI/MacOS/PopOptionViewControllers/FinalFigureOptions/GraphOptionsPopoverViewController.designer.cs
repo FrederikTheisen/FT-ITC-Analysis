@@ -1,0 +1,151 @@
+// WARNING
+//
+// This file has been generated automatically by Visual Studio to store outlets and
+// actions made in the UI designer. If it is removed, they will be lost.
+// Manual changes to this file may not be handled correctly.
+//
+using Foundation;
+using System.CodeDom.Compiler;
+
+using AnalysisITC.Core.Application;
+using AnalysisITC.Core.Analysis;
+using AnalysisITC.Core.Analysis.Models;
+using AnalysisITC.Core.Data;
+using AnalysisITC.Core.DataReaders;
+using AnalysisITC.Core.Export;
+using AnalysisITC.Core.Numerics;
+using AnalysisITC.Core.Presentation;
+using AnalysisITC.Core.Processing;
+using AnalysisITC.Core.Units;
+using AnalysisITC.Core.Utilities;
+
+namespace AnalysisITC
+{
+	[Register ("GraphOptionsPopoverViewController")]
+	partial class GraphOptionsPopoverViewController
+	{
+		[Outlet]
+		AppKit.NSSegmentedControl EnergyUnitControl { get; set; }
+
+		[Outlet]
+		AppKit.NSTextField HeightLabel { get; set; }
+
+		[Outlet]
+		AppKit.NSMenu AttributeDisplayOptionsControl { get; set; }
+
+		[Outlet]
+		AppKit.NSSwitch ConcentrationDetailControl { get; set; }
+
+		[Outlet]
+		AppKit.NSSwitch ModelInfoControl { get; set; }
+
+		[Outlet]
+		AppKit.NSMenu ParameterDisplayOptionsControl { get; set; }
+
+		[Outlet]
+		AppKit.NSSwitch SanitizeTicks { get; set; }
+
+		[Outlet]
+		AppKit.NSSwitch ShowDataGraphControl { get; set; }
+
+		[Outlet]
+		AppKit.NSSwitch ShowParametersControl { get; set; }
+
+		[Outlet]
+		AppKit.NSSwitch ShowTextUncertaintiesControl { get; set; }
+
+		[Outlet]
+		AppKit.NSSegmentedControl TextUncertaintyStyleControl { get; set; }
+
+		[Outlet]
+		AppKit.NSSegmentedControl TimeUnitControl { get; set; }
+
+		[Outlet]
+		AppKit.NSSwitch TemperatureDetailControl { get; set; }
+
+		[Outlet]
+		AppKit.NSTextField WidthLabel { get; set; }
+
+		[Action ("ControlChanged:")]
+		partial void ControlChanged (Foundation.NSObject sender);
+
+		[Action ("AttributeOptionAction:")]
+		partial void AttributeOptionAction (Foundation.NSObject sender);
+
+		[Action ("ParameterOptionAction:")]
+		partial void ParameterOptionAction (Foundation.NSObject sender);
+		
+		void ReleaseDesignerOutlets ()
+		{
+			if (ShowDataGraphControl != null) {
+				ShowDataGraphControl.Dispose ();
+				ShowDataGraphControl = null;
+			}
+
+			if (EnergyUnitControl != null) {
+				EnergyUnitControl.Dispose ();
+				EnergyUnitControl = null;
+			}
+
+			if (HeightLabel != null) {
+				HeightLabel.Dispose ();
+				HeightLabel = null;
+			}
+
+			if (AttributeDisplayOptionsControl != null) {
+				AttributeDisplayOptionsControl.Dispose ();
+				AttributeDisplayOptionsControl = null;
+			}
+
+			if (ConcentrationDetailControl != null) {
+				ConcentrationDetailControl.Dispose ();
+				ConcentrationDetailControl = null;
+			}
+
+			if (ModelInfoControl != null) {
+				ModelInfoControl.Dispose ();
+				ModelInfoControl = null;
+			}
+
+			if (ParameterDisplayOptionsControl != null) {
+				ParameterDisplayOptionsControl.Dispose ();
+				ParameterDisplayOptionsControl = null;
+			}
+
+			if (SanitizeTicks != null) {
+				SanitizeTicks.Dispose ();
+				SanitizeTicks = null;
+			}
+
+			if (ShowParametersControl != null) {
+				ShowParametersControl.Dispose ();
+				ShowParametersControl = null;
+			}
+
+			if (ShowTextUncertaintiesControl != null) {
+				ShowTextUncertaintiesControl.Dispose ();
+				ShowTextUncertaintiesControl = null;
+			}
+
+			if (TextUncertaintyStyleControl != null) {
+				TextUncertaintyStyleControl.Dispose ();
+				TextUncertaintyStyleControl = null;
+			}
+
+			if (TimeUnitControl != null) {
+				TimeUnitControl.Dispose ();
+				TimeUnitControl = null;
+			}
+
+			if (TemperatureDetailControl != null) {
+				TemperatureDetailControl.Dispose ();
+				TemperatureDetailControl = null;
+			}
+
+			if (WidthLabel != null) {
+				WidthLabel.Dispose ();
+				WidthLabel = null;
+			}
+		}
+	}
+}

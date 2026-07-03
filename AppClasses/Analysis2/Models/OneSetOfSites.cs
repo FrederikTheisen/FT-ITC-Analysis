@@ -1,10 +1,14 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using AnalysisITC.Utilities;
-using AnalysisITC.AppClasses.AnalysisClasses;
+using AnalysisITC.Core.Utilities;
+using AnalysisITC.Core.Analysis;
 
-namespace AnalysisITC.AppClasses.AnalysisClasses.Models
+using AnalysisITC.Core.Data;
+using AnalysisITC.Core.Numerics;
+using AnalysisITC.Core.Units;
+
+namespace AnalysisITC.Core.Analysis.Models
 {
     public class OneSetOfSites : Model
 	{

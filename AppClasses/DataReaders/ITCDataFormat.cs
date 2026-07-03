@@ -2,12 +2,12 @@
 using System.Collections.Generic;
 using System.Linq;
 using AnalysisITC;
-using AppKit;
-using Foundation;
-using UniformTypeIdentifiers;
-using Utilities;
+using AnalysisITC.Core.Utilities;
 
-namespace DataReaders
+using AnalysisITC.Core.Data;
+using AnalysisITC.Core.Units;
+
+namespace AnalysisITC.Core.DataReaders
 {
     public class ITCFormatAttribute : Attribute
     {
@@ -53,33 +53,6 @@ namespace DataReaders
             return extensions.ToArray();
         }
 
-        public static UTType[] DataFiles()
-        {
-            List<UTType> types = new List<UTType>();
-
-            types.AddRange(UTType.GetTypes("itc", UTTagClass.FilenameExtension, UTTypes.Data).ToList());
-            types.AddRange(UTType.GetTypes("ta", UTTagClass.FilenameExtension, UTTypes.Data).ToList());
-            types.AddRange(UTType.GetTypes("dat", UTTagClass.FilenameExtension, UTTypes.Data).ToList());
-            types.AddRange(UTType.GetTypes("aff", UTTagClass.FilenameExtension, UTTypes.Data).ToList());
-            types.AddRange(UTType.GetTypes("dh", UTTagClass.FilenameExtension, UTTypes.Data).ToList());
-            types.AddRange(UTType.GetTypes("apj", UTTagClass.FilenameExtension, UTTypes.Data).ToList());
-
-            return types.ToArray();
-        }
-
-        public static UTType[] ProjectFile()
-        {
-            return UTType.GetTypes("ftitc", UTTagClass.FilenameExtension, UTTypes.Data);
-        }
-
-        public static UTType[] GetAllUTTypes()
-        {
-            var list = new List<UTType>();
-            list.AddRange(DataFiles());
-            list.AddRange(ProjectFile());
-
-            return list.ToArray();
-        }
     }
 
     public enum ITCDataFormat

@@ -1,13 +1,12 @@
-﻿using AnalysisITC;
-using AppKit;
-using CoreGraphics;
-using Foundation;
+﻿using AnalysisITC.Platform;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Net;
 using System.Text;
 using System.Threading.Tasks;
+
+namespace AnalysisITC.Core.Application
+{
 
 public static class AppVersion
 {
@@ -17,10 +16,10 @@ public static class AppVersion
     static bool AutomaticCheckStarted;
 
     static string ShortVersion =>
-        NSBundle.MainBundle.ObjectForInfoDictionary("CFBundleShortVersionString")?.ToString();
+        PlatformServices.AppEnvironment.ShortVersion;
 
     static string BuildVersion =>
-        NSBundle.MainBundle.ObjectForInfoDictionary("CFBundleVersion")?.ToString();
+        PlatformServices.AppEnvironment.BuildVersion;
 
     /// <summary>
     /// Returns the full app version x.y.z...
@@ -129,18 +128,9 @@ public static class AppVersion
 
     static async Task<string> TryFetchVersionFile()
     {
-        return await TryDownloadVersionFile();
-    }
-
-    static async Task<string> TryDownloadVersionFile()
-    {
         try
         {
-            return await Task.Run(() =>
-            {
-                using var client = new WebClient();
-                return client.DownloadString(VersionFileUrl);
-            });
+            return await PlatformServices.TextDownloadService.DownloadStringAsync(VersionFileUrl);
         }
         catch
         {
@@ -260,69 +250,7 @@ public static class AppVersion
 
     static void ShowInfoAlert(string title, string message, bool useLeftAlignedAccessory = false, string actionUrl = null)
     {
-        NSApplication.SharedApplication.InvokeOnMainThread(() =>
-        {
-            using var alert = new NSAlert
-            {
-                AlertStyle = NSAlertStyle.Informational,
-                MessageText = title,
-                InformativeText = useLeftAlignedAccessory ? string.Empty : message
-            };
-
-            if (useLeftAlignedAccessory)
-                alert.AccessoryView = BuildLeftAlignedTextAccessory(message);
-
-            if (!string.IsNullOrWhiteSpace(actionUrl))
-                alert.AddButton("Open Releases");
-
-            alert.AddButton("OK");
-
-            var response = alert.RunModal();
-            if (response == (int)NSAlertButtonReturn.First && !string.IsNullOrWhiteSpace(actionUrl))
-                NSWorkspace.SharedWorkspace.OpenUrl(new NSUrl(actionUrl));
-        });
-    }
-
-    static NSView BuildLeftAlignedTextAccessory(string text, float width = 350)
-    {
-        var font = NSFont.SystemFontOfSize(NSFont.SystemFontSize);
-        var paragraph = new NSMutableParagraphStyle
-        {
-            Alignment = NSTextAlignment.Left,
-            LineBreakMode = NSLineBreakMode.ByWordWrapping
-        };
-
-        var attributes = new NSStringAttributes
-        {
-            Font = font,
-            ParagraphStyle = paragraph
-        };
-
-        var attributedText = new NSAttributedString(text ?? string.Empty, attributes);
-        var bounds = attributedText.BoundingRectWithSize(
-            new CGSize(width, nfloat.MaxValue),
-            NSStringDrawingOptions.UsesLineFragmentOrigin | NSStringDrawingOptions.UsesFontLeading);
-
-        var height = (nfloat)Math.Ceiling(bounds.Height + 8);
-        var container = new NSView(new CGRect(0, 0, width, height));
-        var textField = new NSTextField(new CGRect(0, 0, width, height))
-        {
-            Alignment = NSTextAlignment.Left,
-            AttributedStringValue = attributedText,
-            Bordered = false,
-            DrawsBackground = false,
-            Editable = false,
-            Selectable = true
-        };
-
-        textField.Cell.Alignment = NSTextAlignment.Left;
-        textField.Cell.Wraps = true;
-        textField.Cell.Scrollable = false;
-        textField.Cell.UsesSingleLineMode = false;
-        textField.Cell.LineBreakMode = NSLineBreakMode.ByWordWrapping;
-
-        container.AddSubview(textField);
-        return container;
+        PlatformServices.AppNotificationService.ShowInfoAlert(title, message, useLeftAlignedAccessory, actionUrl);
     }
 
     static string BuildUpdateMessage(AppVersionCheckResult result)
@@ -378,4 +306,6 @@ public class AppVersionCheckResult
     public string LatestTitle { get; set; }
     public bool IsUpdateAvailable { get; set; }
     public List<AppVersionEntry> NewerEntries { get; set; } = new List<AppVersionEntry>();
+}
+
 }

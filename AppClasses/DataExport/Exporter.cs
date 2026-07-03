@@ -1,13 +1,19 @@
 ﻿using System;
-using AppKit;
-using Foundation;
 using System.Collections.Generic;
 using System.IO;
 using System.Threading.Tasks;
 using System.Linq;
-using AnalysisITC.AppClasses.AnalysisClasses;
+using AnalysisITC.Platform;
+using AnalysisITC.Core.Analysis;
 
-namespace AnalysisITC
+using AnalysisITC.Core.Application;
+using AnalysisITC.Core.Analysis.Models;
+using AnalysisITC.Core.Data;
+using AnalysisITC.Core.Numerics;
+using AnalysisITC.Core.Units;
+using AnalysisITC.Core.Utilities;
+
+namespace AnalysisITC.Core.Export
 {
     public class Exporter
     {
@@ -17,6 +23,11 @@ namespace AnalysisITC
 
         public static void Export(ExportType type, ExportDataSelection? sel = null)
         {
+            _ = ExportAsync(type, sel);
+        }
+
+        public static async Task ExportAsync(ExportType type, ExportDataSelection? sel = null)
+        {
             var selection = sel.HasValue ? (ExportDataSelection)sel : AppSettings.ExportSelectionMode;
 
             ExportSettings = type == ExportType.Data
@@ -25,80 +36,50 @@ namespace AnalysisITC
 
             ExportSettings.Selection = selection;
 
-            var storyboard = NSStoryboard.FromName("Main", null);
-            var viewController = (ExportAccessoryViewController)storyboard.InstantiateControllerWithIdentifier("ExportAccessoryViewController");
-            viewController.Setup(ExportSettings);
+            var folderPath = await PlatformServices.ExportPromptService.ChooseExportFolderAsync(ExportSettings);
+            if (string.IsNullOrWhiteSpace(folderPath)) return;
 
-            // Use OpenPanel as "choose destination folder"
-            var dlg = NSOpenPanel.OpenPanel;
-            dlg.Title = "Export";
-            dlg.AccessoryView = viewController.View;
-            dlg.RespondsToSelector(new ObjCRuntime.Selector("setAccessoryViewDisclosed:"));
-            dlg.PerformSelector(new ObjCRuntime.Selector("setAccessoryViewDisclosed:"), NSNumber.FromBoolean(true), 0);
-            dlg.CanChooseDirectories = true;
-            dlg.CanChooseFiles = false;
-            dlg.AllowsMultipleSelection = false;
-            dlg.CanCreateDirectories = true;
+            var outputPaths = GetPlannedOutputPaths(folderPath, ExportSettings);
+            if (!PlatformServices.ExportPromptService.ConfirmOverwrite(outputPaths)) return;
 
-            dlg.Prompt = "Export";
+            StatusBarManager.StartInderminateProgress();
 
-            var parent = NSApplication.SharedApplication.MainWindow;
-
-            dlg.BeginSheet(parent, async (result) =>
+            try
             {
-                if (result != (int)NSModalResponse.OK) return;
+                StatusBarManager.SetStatusScrolling($"Saving to {folderPath}...");
 
-                var folderUrl = dlg.Url;
-                if (folderUrl == null) return;
-
-                // Create the list of output paths (could be many later).
-                var outputPaths = GetPlannedOutputPaths(folderUrl.Path, ExportSettings);
-
-                // Overwrite control (single prompt)
-                if (!ConfirmOverwriteIfNeeded(parent, outputPaths))
-                    return;
-
-                StatusBarManager.StartInderminateProgress();
-
-                try
+                switch (ExportSettings.Export)
                 {
-                    var path = Path.GetDirectoryName(outputPaths[0]);
+                    case ExportType.Data:
+                        await WriteDataFile(folderPath);
+                        break;
 
-                    StatusBarManager.SetStatusScrolling($"Saving to {path}...");
+                    case ExportType.Peaks:
+                        await WritePeakFile(folderPath, ExportColumns.SelectionMinimal);
+                        break;
 
-                    switch (ExportSettings.Export)
-                    {
-                        case ExportType.Data:
-                            await WriteDataFile(path);
-                            break;
+                    case ExportType.ITCsim:
+                        await WriteITCsimFile(folderPath);
+                        break;
 
-                        case ExportType.Peaks:
-                            await WritePeakFile(path, ExportColumns.SelectionMinimal);
-                            break;
+                    default:
+                    case ExportType.CSV:
+                        await WritePeakFile(folderPath, ExportSettings.Columns);
+                        break;
 
-                        case ExportType.ITCsim:
-                            await WriteITCsimFile(path);
-                            break;
+                    case ExportType.MicroCal:
+                        await WriteMicroCalExportFile(folderPath);
+                        break;
 
-                        default:
-                        case ExportType.CSV:
-                            await WritePeakFile(path, ExportSettings.Columns);
-                            break;
-
-                        case ExportType.MicroCal:
-                            await WriteMicroCalExportFile(path);
-                            break;
-
-                        case ExportType.PYTC:
-                            await WritePytcExportFile(path);
-                            break;
-                    }
+                    case ExportType.PYTC:
+                        await WritePytcExportFile(folderPath);
+                        break;
                 }
-                finally
-                {
-                    // If you have a "stop progress" method, call it here.
-                }
-            });
+            }
+            finally
+            {
+                // If you have a "stop progress" method, call it here.
+            }
         }
 
         static List<string> GetPlannedOutputPaths(string folderPath, ExportAccessoryViewSettings settings)
@@ -115,36 +96,6 @@ namespace AnalysisITC
             }
 
             return paths;
-        }
-
-        static bool ConfirmOverwriteIfNeeded(NSWindow parent, IEnumerable<string> outputPaths)
-        {
-            var existing = outputPaths.Where(File.Exists).Distinct().ToList();
-            if (existing.Count == 0) return true;
-
-            var alert = new NSAlert
-            {
-                AlertStyle = NSAlertStyle.Warning,
-                MessageText = "File already exists.",
-                InformativeText = existing.Count == 1
-                    ? $"This export will overwrite:\n{Path.GetFileName(existing[0])}"
-                    : $"This export will overwrite {existing.Count} files."
-            };
-
-            alert.AddButton("Overwrite");
-            alert.AddButton("Cancel");
-
-            var response = parent != null ? alert.RunSheetModal(parent) : alert.RunModal();
-            return response == (int)NSAlertButtonReturn.First;
-        }
-
-        static void SetDelimiter(NSUrl url)
-        {
-            switch (url.PathExtension)
-            {
-                case "csv": Delimiter = ','; BlankChar = ' ';  break;
-                case "txt": Delimiter = ' '; BlankChar = '.';  break;
-            }
         }
 
         static string GetDataFileName()
@@ -353,7 +304,7 @@ namespace AnalysisITC
                 }
             });
 
-            StatusBarManager.SetStatus("Finished exporting " + Utilities.MarkdownStrings.ITCsimName, 3000);
+            StatusBarManager.SetStatus("Finished exporting " + MarkdownStrings.ITCsimName, 3000);
             StatusBarManager.StopIndeterminateProgress();
         }
 
@@ -523,8 +474,6 @@ namespace AnalysisITC
 
         public static void CopyToClipboard(AnalysisResult analysis, ConcentrationUnit kdunit, EnergyUnit eunit, bool usekelvin)
         {
-            NSPasteboard.GeneralPasteboard.ClearContents();
-
             var solution = analysis.Solution;
             var delimiter = ',';
             var lines = new List<string>()
@@ -597,7 +546,7 @@ namespace AnalysisITC
 
             var paste = string.Join(Environment.NewLine, lines);
 
-            NSPasteboard.GeneralPasteboard.SetStringForType(paste, "NSStringPboardType");
+            PlatformServices.ClipboardService.SetString(paste);
 
             StatusBarManager.SetStatus("Results copied to clipboard", 3333);
 

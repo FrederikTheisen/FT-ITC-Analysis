@@ -1,9 +1,16 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using AnalysisITC.AppClasses.AnalysisClasses;
+using AnalysisITC.Core.Analysis;
 
-namespace AnalysisITC.AppClasses.AnalysisClasses.Models
+using AnalysisITC.Core.Application;
+using AnalysisITC.Core.Data;
+using Buffer = AnalysisITC.Core.Data.Buffer;
+using AnalysisITC.Core.Numerics;
+using AnalysisITC.Core.Units;
+using AnalysisITC.Core.Utilities;
+
+namespace AnalysisITC.Core.Analysis.Models
 {
     public class Model
     {
@@ -501,7 +508,7 @@ namespace AnalysisITC.AppClasses.AnalysisClasses.Models
 
             if (info.HasFlag(DisplayAttributeOptions.ProtonationEnthalpy) && Model.Data.Attributes.Exists(att => att.Key == AttributeKey.Buffer))
             {
-                output.Add(new(Utilities.MarkdownStrings.ProtonationEnthalpy, BufferAttribute.GetProtonationEnthalpy(Model.Data).ToString(AppSettings.EnergyUnit, "F1", true, true)));
+                output.Add(new(MarkdownStrings.ProtonationEnthalpy, BufferAttribute.GetProtonationEnthalpy(Model.Data).ToString(AppSettings.EnergyUnit, "F1", true, true)));
             }
 
             return output;

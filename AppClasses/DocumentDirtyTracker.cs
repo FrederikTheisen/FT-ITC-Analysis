@@ -2,7 +2,9 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 
-namespace AnalysisITC
+using AnalysisITC.Core.Data;
+
+namespace AnalysisITC.Core.Application
 {
     public static class DocumentDirtyTracker
     {

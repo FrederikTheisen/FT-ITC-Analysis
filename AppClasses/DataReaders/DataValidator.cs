@@ -1,18 +1,18 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using AppKit;
-using CoreGraphics;
-using DataReaders;
+using AnalysisITC.Platform;
 
-namespace AnalysisITC
+using AnalysisITC.Core.Application;
+using AnalysisITC.Core.Data;
+using AnalysisITC.Core.Numerics;
+using AnalysisITC.Core.Units;
+using AnalysisITC.Core.Utilities;
+
+namespace AnalysisITC.Core.DataReaders
 {
     static class ImportValidator
     {
-        const int AlertFirst = 1000;
-        const int AlertSecond = 1001;
-        const int AlertThird = 1002;
-
         sealed class ValidationIssue
         {
             public string Message { get; }
@@ -36,57 +36,35 @@ namespace AnalysisITC
                 var issue = GetFirstIssue(data);
                 if (issue == null) return true;
 
-                using var alert = new NSAlert
-                {
-                    AlertStyle = NSAlertStyle.Warning,
-                    MessageText = "Potential Error Detected: " + data.Name,
-                    InformativeText = issue.Message
-                };
-
-                // Button order matters because RunModal returns 1000/1001/1002...
-                if (issue.RequiresInput)
-                {
-                    var view = new NSTextField(new CGRect(0, 0, 220, 26))
-                    {
-                        Alignment = NSTextAlignment.Center,
-                        RefusesFirstResponder = true,
-                    };
-
-                    alert.AccessoryView = view;
-
-                }
-                if (issue.Fixable) alert.AddButton("Attempt Fix");
-                alert.AddButton("Discard");
-                alert.AddButton("Keep");
-
-                var response = (int)alert.RunModal();
+                var response = PlatformServices.DataValidationPromptService.AskValidationIssue(
+                    "Potential Error Detected: " + data.Name,
+                    issue.Message,
+                    issue.Fixable,
+                    issue.RequiresInput);
 
                 if (issue.Fixable)
                 {
-                    switch (response)
+                    switch (response.Action)
                     {
-                        case AlertFirst:
-                            var fixedData = AttemptDataFix(data, issue.FixProtocol, alert.AccessoryView);
+                        case DataValidationPromptAction.AttemptFix:
+                            var fixedData = AttemptDataFix(data, issue.FixProtocol, response.Input);
                             if (fixedData == null) return false; // fix failed -> discard
                             data = fixedData;
                             continue; // re-validate after fix
-                        case AlertSecond:
+                        case DataValidationPromptAction.Discard:
                             return false;
-                        case AlertThird:
+                        case DataValidationPromptAction.Keep:
                         default:
                             return true;
                     }
                 }
                 else
                 {
-                    // Only Discard/Keep are relevant; they are buttons 1000/1001 in this branch,
-                    // but we still added 2 or 3 buttons consistently, so map to label semantics.
-                    // Since we always add Discard then Keep (and no Attempt Fix here), we can:
-                    switch (response)
+                    switch (response.Action)
                     {
-                        case AlertFirst:  // Discard
+                        case DataValidationPromptAction.Discard:
                             return false;
-                        case AlertSecond: // Keep
+                        case DataValidationPromptAction.Keep:
                         default:
                             return true;
                     }
@@ -183,7 +161,7 @@ namespace AnalysisITC
             return null;
         }
 
-        static ExperimentData AttemptDataFix(ExperimentData data, DataFixProtocol fix, NSView accessory)
+        static ExperimentData AttemptDataFix(ExperimentData data, DataFixProtocol fix, string inputValue)
         {
             try
             {
@@ -200,9 +178,8 @@ namespace AnalysisITC
                         data.Injections = injectiondata;
                         break;
                     case DataFixProtocol.Concentrations:
-                        var input = accessory as NSTextField;
                         FloatWithError conc;
-                        var b = ConcentrationParser.TryParseMolarConcentration(input.StringValue, out conc);
+                        var b = ConcentrationParser.TryParseMolarConcentration(inputValue ?? "", out conc);
 
                         if (b)
                         {
@@ -232,4 +209,3 @@ namespace AnalysisITC
         }
     }
 }
-

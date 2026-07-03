@@ -5,15 +5,19 @@ using System.Threading.Tasks;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Threading;
-using AppKit;
 using Accord.Math;
-using AnalysisITC.AppClasses.AnalysisClasses.Models;
+using AnalysisITC.Core.Analysis.Models;
+using AnalysisITC.Platform;
 
 using MathNet.Numerics;
 using MathNet.Numerics.LinearAlgebra;
 using MathNet.Numerics.Optimization;
 
-namespace AnalysisITC.AppClasses.AnalysisClasses
+using AnalysisITC.Core.Application;
+using AnalysisITC.Core.Data;
+using AnalysisITC.Core.Utilities;
+
+namespace AnalysisITC.Core.Analysis
 {
     public static class FittingOptionsController
     {
@@ -122,13 +126,13 @@ namespace AnalysisITC.AppClasses.AnalysisClasses
             return solver;
         }
 
-        public void ReportBootstrapProgress(int iteration) => NSApplication.SharedApplication.InvokeOnMainThread(() =>
+        public void ReportBootstrapProgress(int iteration) => PlatformServices.MainThreadDispatcher.Invoke(() =>
         {
             if (!Silent) ErrorEstimationIterationCompleted?.Invoke(null, new Tuple<int, int, float>(iteration, BootstrapIterations, iteration / (float)BootstrapIterations));
             else SolverUpdated?.Invoke(null, SolverUpdate.BackgroundBootstrapUpdate(iteration, BootstrapIterations));
         });
 
-        public void ReportLeaveOneOutProgress(int iteration, int models) => NSApplication.SharedApplication.InvokeOnMainThread(() =>
+        public void ReportLeaveOneOutProgress(int iteration, int models) => PlatformServices.MainThreadDispatcher.Invoke(() =>
         {
             if (!Silent) ErrorEstimationIterationCompleted?.Invoke(null, new Tuple<int, int, float>(iteration, models, iteration / (float)models));
             else SolverUpdated?.Invoke(null, SolverUpdate.BackgroundBootstrapUpdate(iteration, models));
@@ -138,18 +142,18 @@ namespace AnalysisITC.AppClasses.AnalysisClasses
         {
             if (!CanReportAnalysisStepFinished) return;
 
-            NSApplication.SharedApplication.InvokeOnMainThread(() =>
+            PlatformServices.MainThreadDispatcher.Invoke(() =>
             {
                 AnalysisStepFinished?.Invoke(null, null);
             });
         }
 
-        public void ReportAnalysisFinished(SolverConvergence convergence) => NSApplication.SharedApplication.InvokeOnMainThread(() =>
+        public void ReportAnalysisFinished(SolverConvergence convergence) => PlatformServices.MainThreadDispatcher.Invoke(() =>
         {
             if (!Silent) AnalysisFinished?.Invoke(this, convergence);
         });
 
-        public void ReportSolverUpdate(SolverUpdate update) => NSApplication.SharedApplication.InvokeOnMainThread(() =>
+        public void ReportSolverUpdate(SolverUpdate update) => PlatformServices.MainThreadDispatcher.Invoke(() =>
         {
             if (!Silent) SolverUpdated?.Invoke(null, update);
         });

@@ -1,12 +1,19 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using AnalysisITC.AppClasses.AnalysisClasses;
-using AnalysisITC.AppClasses.AnalysisClasses.Models;
-using DataReaders;
-using Utilities;
+using AnalysisITC.Core.Analysis;
+using AnalysisITC.Core.Analysis.Models;
+using AnalysisITC.Core;
+using AnalysisITC.Core.DataReaders;
+using AnalysisITC.Core.Utilities;
 
-namespace AnalysisITC
+using AnalysisITC.Core.Application;
+using AnalysisITC.Core.Export;
+using AnalysisITC.Core.Numerics;
+using AnalysisITC.Core.Processing;
+using AnalysisITC.Core.Units;
+
+namespace AnalysisITC.Core.Data
 {
     public class ExperimentData : ITCDataContainer
     {

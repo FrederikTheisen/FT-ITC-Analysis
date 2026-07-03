@@ -1,8 +1,11 @@
 ﻿using System;
-using Foundation;
+using AnalysisITC.Platform;
 using System.Globalization;
 
-namespace AnalysisITC
+using AnalysisITC.Core.Application;
+using AnalysisITC.Core.Utilities;
+
+namespace AnalysisITC.Core.Data
 {
     public class ITCDataContainer
     {
@@ -123,7 +126,7 @@ namespace AnalysisITC
 
         private static CultureInfo EnglishWithLocalFormats()
         {
-            var local = (CultureInfo)CultureInfo.GetCultureInfo(NSLocale.CurrentLocale.CollatorIdentifier).Clone();
+            var local = (CultureInfo)CultureInfo.GetCultureInfo(PlatformServices.AppEnvironment.LocaleIdentifier).Clone();
             var culture = (CultureInfo)CultureInfo.GetCultureInfo("en").Clone();
 
             

@@ -1,7 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
 
-namespace AnalysisITC
+
+namespace AnalysisITC.Core.Numerics
 {
     static class Distribution
     {

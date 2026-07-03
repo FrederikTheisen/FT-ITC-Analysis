@@ -3,7 +3,11 @@ using System.Collections.Generic;
 using System.Linq;
 using AnalysisITC;
 
-namespace DataReaders
+using AnalysisITC.Core.Application;
+using AnalysisITC.Core.DataReaders;
+using AnalysisITC.Core.Utilities;
+
+namespace AnalysisITC.Core.Data
 {
     public class ITCInstrumentAttribute : Attribute
     {

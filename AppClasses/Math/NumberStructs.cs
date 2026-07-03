@@ -4,7 +4,11 @@ using System.Globalization;
 using System.Linq;
 using System.Threading.Tasks;
 
-namespace AnalysisITC
+using AnalysisITC.Core.Application;
+using AnalysisITC.Core.Units;
+using AnalysisITC.Core.Utilities;
+
+namespace AnalysisITC.Core.Numerics
 {
     public struct FloatWithError : IComparable
     {

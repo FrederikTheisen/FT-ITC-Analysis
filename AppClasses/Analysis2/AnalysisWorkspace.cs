@@ -1,9 +1,13 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using AnalysisITC.AppClasses.AnalysisClasses.Models;
+using AnalysisITC.Core.Analysis.Models;
 
-namespace AnalysisITC.AppClasses.AnalysisClasses
+using AnalysisITC.Core.Application;
+using AnalysisITC.Core.Data;
+using AnalysisITC.Core.Utilities;
+
+namespace AnalysisITC.Core.Analysis
 {
     /// <summary>
     /// Coordinator that owns session state and the current built AnalysisContext.

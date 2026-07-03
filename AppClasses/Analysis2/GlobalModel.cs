@@ -2,10 +2,15 @@
 using System.Collections.Generic;
 using System.Linq;
 using Accord.Math;
-using AnalysisITC.AppClasses.AnalysisClasses.Models;
-using AnalysisITC.AppClasses.AnalysisClasses;
+using AnalysisITC.Core.Analysis.Models;
 
-namespace AnalysisITC.AppClasses.AnalysisClasses
+using AnalysisITC.Core.Application;
+using AnalysisITC.Core.Data;
+using AnalysisITC.Core.Numerics;
+using AnalysisITC.Core.Units;
+using AnalysisITC.Core.Utilities;
+
+namespace AnalysisITC.Core.Analysis
 {
 	public class GlobalModel
 	{
@@ -126,7 +131,7 @@ namespace AnalysisITC.AppClasses.AnalysisClasses
             GlobalModel model = new GlobalModel();
 
 			var mdls = new List<Model>(Models);
-			mdls.Shuffle();
+            global::AnalysisITC.Core.Utilities.Extensions.Shuffle(mdls);
 
 			foreach (var mdl in mdls)
 			{

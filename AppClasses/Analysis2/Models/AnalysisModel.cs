@@ -1,7 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
 
-namespace AnalysisITC.AppClasses.AnalysisClasses.Models
+using AnalysisITC.Core.Utilities;
+
+namespace AnalysisITC.Core.Analysis.Models
 {
     public class AnalysisModelAttribute : Attribute
     {

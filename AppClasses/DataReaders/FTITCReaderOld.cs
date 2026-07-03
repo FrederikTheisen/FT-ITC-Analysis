@@ -5,7 +5,11 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text.RegularExpressions;
 
-namespace DataReaders
+using AnalysisITC.Core.Data;
+using AnalysisITC.Core.Export;
+using AnalysisITC.Core.Processing;
+
+namespace AnalysisITC.Core.DataReaders
 {
     /// <summary>
     /// Obsolete class

@@ -4,9 +4,15 @@ using System.Globalization;
 using System.IO;
 using System.Linq;
 using AnalysisITC;
-using AnalysisITC.GUI.MacOS;
+using AnalysisITC.Platform;
 
-namespace DataReaders
+using AnalysisITC.Core.Application;
+using AnalysisITC.Core.Data;
+using AnalysisITC.Core.Numerics;
+using AnalysisITC.Core.Units;
+using AnalysisITC.Core.Utilities;
+
+namespace AnalysisITC.Core.DataReaders
 {
     /// <summary>
     /// Reader for integrated-heats exports.
@@ -249,7 +255,7 @@ namespace DataReaders
                 return queuedEnergyUnit;
             }
 
-            var result = EnergyUnitPrompt.AskForEnergyUnit(null, filepath, encounteredValue, allowQueueReuse: true);
+            var result = PlatformServices.ImportPromptService.AskForEnergyUnit(filepath, encounteredValue, allowQueueReuse: true);
             AppEventHandler.PrintAndLog($"Energy Unit Selected: {result.Unit}");
 
             if (result.IsCancelled)

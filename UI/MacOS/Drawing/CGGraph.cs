@@ -1,0 +1,2478 @@
+﻿using System;
+using System.Collections.Generic;
+using AppKit;
+using CoreGraphics;
+using Foundation;
+using System.Linq;
+using CoreText;
+using AnalysisITC.UI.MacOS.Drawing;
+using MathNet.Numerics.Interpolation;
+using AnalysisITC.Core.Utilities;
+using AnalysisITC.Core.Analysis;
+using AnalysisITC.Core.Analysis.Models;
+
+using AnalysisITC.Core.Application;
+using AnalysisITC.Core.Data;
+using AnalysisITC.Core.DataReaders;
+using AnalysisITC.Core.Export;
+using AnalysisITC.Core.Numerics;
+using AnalysisITC.Core.Presentation;
+using AnalysisITC.Core.Processing;
+using AnalysisITC.Core.Units;
+
+namespace AnalysisITC.UI.MacOS.Drawing
+{
+    public enum InformationBoxPlacement
+    {
+        Auto = 0,
+        Upper = 1,
+        Lower = 2,
+    }
+
+    public enum FinalFigureNameDisplayMode
+    {
+        Name = 0,
+        Compartment = 1,
+        NameAndCompartment = 2,
+    }
+
+    public enum BaselineDisplayStyle
+    {
+        Solid,
+        Dashed
+    }
+
+    public enum BaselineLayerPosition
+    {
+        UnderData = 0,
+        OverData = 1,
+    }
+
+    public enum IntegrationRegionDisplayStyle
+    {
+        Bar = 0,
+        Fill = 1,
+        Line = 2,
+    }
+
+    public class GraphBase
+    {
+        public const float PiHalf = (float)Math.PI / 2;
+        public const float PPcm = 0.5f * 227 / 2.54f;
+
+        public nfloat PlotWidthCM = 7.0f;
+        public nfloat PlotPixelWidth { get => PlotWidthCM * PPcm; set => PlotWidthCM = value / PPcm; }
+
+        private nfloat PlotHeightCM = 5.0f;
+        private nfloat PlotPixelHeight { get => PlotHeightCM * PPcm; set => PlotHeightCM = value / PPcm; }
+
+        internal CGSize PointsPerUnit;
+        public CGPoint Center;
+        public CGSize PlotSize;
+        public CGPoint Origin;
+
+        /// <summary>
+        /// The graph frame defining the plotting area. Derived from Origin and PlotSize.
+        /// </summary>
+        public CGRect Frame { get { if (PlotSize.Width == 0) AutoSetFrame(); return new CGRect(Origin, PlotSize); } }
+        public NSView View;
+
+        public bool DrawOnWhite = false;
+        public CGColor StrokeColor => DrawOnWhite ? NSColor.Black.CGColor : NSColor.Label.CGColor;
+        public CGColor SecondaryLineColor => DrawOnWhite ? NSColor.Gray.CGColor : NSColor.SecondaryLabel.CGColor;
+        public CGColor TertiaryLineColor => DrawOnWhite ? NSColor.LightGray.CGColor : NSColor.TertiaryLabel.CGColor;
+
+        GraphAxis xaxis;
+        GraphAxis yaxis;
+
+        public GraphAxis XAxis
+        {
+            get => xaxis;
+            set
+            {
+                if (value.Position == AxisPosition.Unknown)
+                {
+                    value.Position = AxisPosition.Bottom;
+                    value.DecimalPoints = 0;
+                    value.ValueFactor = 1;
+                    value.LegendTitle = "Time (s)";
+                }
+
+                xaxis = value;
+            }
+        }
+        public GraphAxis YAxis
+        {
+            get => yaxis;
+            set
+            {
+                if (value.Position == AxisPosition.Unknown)
+                {
+                    value.Position = AxisPosition.Left;
+                    value.ValueFactor = 1000000;
+                    value.DecimalPoints = 2;
+                    value.LegendTitle = "Differential Power (µW)";
+                }
+
+                yaxis = value;
+            }
+        }
+
+        public void SetXAxisRange(double min, double max, bool buffer = false) => SetAxisRange(XAxis, min, max, buffer);
+        public void SetYAxisRange(double min, double max, bool buffer = false) => SetAxisRange(YAxis, min, max, buffer);
+
+        void SetAxisRange(GraphAxis axis, double? min, double? max, bool buffer = false)
+        {
+            if (min == null) min = axis.ActualMin;
+            if (max == null) max = axis.ActualMax;
+
+            if (min >= max)
+            {
+                var _min = min;
+
+                min = max;
+                max = _min;
+            }
+
+            if (buffer) axis.SetWithBuffer((double)min, (double)max);
+            else axis.Set((float)min, (float)max);
+        }
+
+        public virtual void PrepareDraw(CGContext gc, CGPoint center)
+        {
+
+        }
+
+        /// <summary>
+        /// Returns the frame that should be used for cursor tracking. By default this is the same as <see cref="Frame"/>.
+        /// Derived graph types that contain multiple plotting regions can override this to return the bounding rectangle
+        /// encompassing all interactive plot areas.
+        /// </summary>
+        /// <returns>A rectangle in view coordinates representing the interactive region.</returns>
+        public virtual CGRect GetTrackingFrame()
+        {
+            return Frame;
+        }
+
+        internal CGPoint GetRelativePosition(DataPoint dp, GraphAxis axis = null)
+        {
+            return GetRelativePosition(dp.Time, dp.Power, axis);
+        }
+
+        public virtual CGPoint GetRelativePosition(double x, double y, GraphAxis axis = null)
+        {
+            switch (axis)
+            {
+                case null:
+                    return new CGPoint((x - XAxis.Min) * PointsPerUnit.Width, (y - YAxis.Min) * PointsPerUnit.Height);
+                default:
+                    if (axis.IsHorizontal)
+                    {
+                        var rely = (y - YAxis.Min) * PointsPerUnit.Height;
+                        var pppw = PlotSize.Width / (axis.Max - axis.Min);
+                        return new CGPoint((x - axis.Min) * pppw, rely);
+                    }
+                    else
+                    {
+                        var relx = (x - XAxis.Min) * PointsPerUnit.Width;
+                        var ppph = PlotSize.Height / (axis.Max - axis.Min);
+                        return new CGPoint(relx, (y - axis.Min) * ppph);
+                    }
+            }
+        }
+
+        public void AddErrorBar(CGPath bars, double x, FloatWithError y, CGSize barwidth)
+        {
+            var p = GetRelativePosition(x, y);
+            var etop = GetRelativePosition(x, y.Upper);
+            var ebottom = GetRelativePosition(x, y.Lower);
+
+            if (Math.Abs(etop.Y - p.Y) > CGGraph.SymbolSize / 2)
+            {
+                bars.MoveToPoint(etop);
+                bars.AddLineToPoint(CGPoint.Add(p, new CGSize(0, CGGraph.SymbolSize / 2)));
+
+                bars.MoveToPoint(ebottom);
+                bars.AddLineToPoint(CGPoint.Subtract(p, new CGSize(0, CGGraph.SymbolSize / 2)));
+
+                bars.MoveToPoint(CGPoint.Subtract(etop, barwidth));
+                bars.AddLineToPoint(CGPoint.Add(etop, barwidth));
+
+                bars.MoveToPoint(CGPoint.Subtract(ebottom, barwidth));
+                bars.AddLineToPoint(CGPoint.Add(ebottom, barwidth));
+            }
+        }
+
+        /// <summary>
+        /// Draws string to a given layer. Return size of string. Provide layer as null to get size.
+        /// </summary>
+        /// <returns></returns>
+        public CGSize DrawString(CGLayer layer, string s, CGPoint position, CTFont font, CTStringAttributes attr = null, TextAlignment horizontalignment = TextAlignment.Center, TextAlignment verticalalignment = TextAlignment.Center, CGColor textcolor = null, float rotation = 0)
+        {
+            if (textcolor == null) textcolor = StrokeColor;
+            if (attr == null) attr = new CTStringAttributes
+            {
+                ForegroundColorFromContext = true,
+                Font = font,
+                StrokeColor = textcolor,
+            };
+
+            var attributedString = new NSAttributedString(s, attr);
+            var textLine = new CTLine(attributedString);
+            var boxsize = textLine.GetBounds(CTLineBoundsOptions.UseOpticalBounds).Size;
+            var size = textLine.GetBounds(CTLineBoundsOptions.UseGlyphPathBounds).Size;
+
+            if (layer != null)
+            {
+                CGPoint ctm = new CGPoint(0, 0);
+
+                switch (horizontalignment)
+                {
+                    case TextAlignment.Right: ctm.X -= boxsize.Width; break;
+                    case TextAlignment.Center: ctm.X -= boxsize.Width / 2; break;
+                }
+
+                switch (verticalalignment)
+                {
+                    case TextAlignment.Top: ctm.Y -= size.Height; break;
+                    case TextAlignment.Center: ctm.Y -= size.Height / 2; break;
+                }
+
+                layer.Context.SaveState();
+                layer.Context.TranslateCTM(position.X, position.Y);
+                layer.Context.RotateCTM(rotation);
+                layer.Context.TranslateCTM(ctm.X, ctm.Y);
+                layer.Context.TextPosition = new CGPoint(0, 0);// position;
+                textLine.Draw(layer.Context);
+                layer.Context.RestoreState();
+                textLine.Dispose();
+            }
+
+            return size;
+        }
+
+        public CGSize DrawString2(CGLayer layer, NSAttributedString str, CGPoint position, TextAlignment horizontalignment = TextAlignment.Center, TextAlignment verticalalignment = TextAlignment.Center, CGColor textcolor = null, float rotation = 0)
+        {
+            if (textcolor == null) textcolor = StrokeColor;
+
+            var textLine = new CTLine(str);
+            var optical = textLine.GetBounds(CTLineBoundsOptions.UseOpticalBounds);
+            var glyph = textLine.GetBounds(CTLineBoundsOptions.UseGlyphPathBounds);
+
+            if (layer != null)
+            {
+                CGPoint ctm = new CGPoint(0, 0);
+
+                switch (horizontalignment)
+                {
+                    case TextAlignment.Right: ctm.X -= (optical.X + optical.Width); break;
+                    case TextAlignment.Center: ctm.X -= (optical.X + optical.Width / 2); break;
+                }
+
+                switch (verticalalignment)
+                {
+                    case TextAlignment.Top: ctm.Y -= (glyph.Y + glyph.Height); break;
+                    case TextAlignment.Center: ctm.Y -= (glyph.Y + glyph.Height / 2); break;
+                }
+
+                layer.Context.SaveState();
+                layer.Context.TranslateCTM(position.X, position.Y);
+                layer.Context.RotateCTM(rotation);
+                layer.Context.TranslateCTM(ctm.X, ctm.Y);
+                layer.Context.TextPosition = new CGPoint(0, 0);// position;
+                layer.Context.SetFillColor(textcolor);
+                textLine.Draw(layer.Context);
+                layer.Context.RestoreState();
+                textLine.Dispose();
+            }
+
+            return optical.Size;
+        }
+
+        public void DrawRectsAtPositions(CGLayer layer, CGPoint[] points, float size, bool circle = false, bool fill = false, float width = 1, CGColor color = null, float roundedradius = 0)
+        {
+            if (color == null) color = StrokeColor;
+
+            foreach (var p in points)
+            {
+                if (circle) AddCircleAtPosition(layer, p, size);
+                else AddRectAtPosition(layer, p, size, roundedradius);
+            }
+
+            if (fill) layer.Context.SetFillColor(color);
+            else layer.Context.SetStrokeColor(color);
+
+            layer.Context.SetLineWidth(width);
+            if (fill) layer.Context.FillPath();
+            else layer.Context.StrokePath();
+        }
+
+        public void DrawDiamondsAtPositions(CGLayer layer, CGPoint[] points, float size, bool fill = false, float width = 1, CGColor color = null, float roundedradius = 0)
+        {
+            if (color == null) color = StrokeColor;
+
+            foreach (var p in points)
+            {
+                var rect = GetRectAtPosition(new CGPoint(0, 0), size);
+
+                layer.Context.TranslateCTM(p.X, p.Y);
+
+                layer.Context.RotateCTM(PiHalf / 2f);
+                if (roundedradius > 0) layer.Context.AddPath(CGPath.FromRoundedRect(rect, roundedradius, roundedradius));
+                else layer.Context.AddPath(CGPath.FromRect(rect));
+                layer.Context.RotateCTM(-PiHalf / 2f);
+
+                layer.Context.TranslateCTM(-p.X, -p.Y);
+            }
+
+            if (fill) layer.Context.SetFillColor(color);
+            else layer.Context.SetStrokeColor(color);
+
+            layer.Context.SetLineWidth(width);
+            if (fill) layer.Context.FillPath();
+            else layer.Context.StrokePath();
+        }
+
+        public void DrawCircle(CGContext gc, CGPoint position, float radius, bool fill = false, CGColor color = null)
+        {
+            if (color == null) color = StrokeColor;
+
+            gc.SetStrokeColor(color);
+            gc.SetFillColor(color);
+
+            if (fill) gc.FillEllipseInRect(GetRectAtPosition(position, radius));
+            else gc.StrokeEllipseInRect(GetRectAtPosition(position, radius));
+        }
+
+        public CGRect GetRectAtPosition(CGPoint point, double size)
+        {
+            return new CGRect(point.X - size / 2, point.Y - size / 2, size, size);
+        }
+
+        public void DrawSymbolsAtPositions(CGLayer layer, CGPoint[] points, float size, SymbolShape shape, bool fill = false, float width = 1, CGColor color = null, float roundedradius = 0)
+        {
+            switch (shape)
+            {
+                case SymbolShape.Square: DrawRectsAtPositions(layer, points, size, false, fill, width, color, roundedradius); break;
+                case SymbolShape.Circle: DrawRectsAtPositions(layer, points, size, true, fill, width, color, roundedradius); break;
+                case SymbolShape.Diamond: DrawDiamondsAtPositions(layer, points, size, fill, width, color, roundedradius); break;
+            }
+        }
+
+        internal void AddCircleAtPosition(CGLayer layer, CGPoint p, double size)
+        {
+            var rect = GetRectAtPosition(p, size);
+
+            layer.Context.AddPath(CGPath.EllipseFromRect(rect));
+        }
+
+        internal void AddRectAtPosition(CGLayer layer, CGPoint p, double size, float roundedradius)
+        {
+            var rect = GetRectAtPosition(p, size);
+
+            if (roundedradius > 0) layer.Context.AddPath(CGPath.FromRoundedRect(rect, roundedradius, roundedradius));
+            else layer.Context.AddRect(rect);
+        }
+
+        public void FillPathShape(CGContext gc, CGPath path, CGColor color)
+        {
+            var layer = CGLayer.Create(gc, Frame.Size);
+            layer.Context.SetFillColor(color);
+            layer.Context.AddPath(path);
+            layer.Context.FillPath();
+
+            gc.DrawLayer(layer, Frame.Location);
+        }
+
+        public virtual void AutoSetFrame()
+        {
+            var ymargin = YAxis.EstimateLabelMargin();
+            var xmargin = XAxis.EstimateLabelMargin();
+
+            PlotSize = new CGSize(View.Frame.Width - ymargin - 5, View.Frame.Height - xmargin - 5);
+            Origin = new CGPoint(ymargin, xmargin);
+        }
+
+        public CGPath GetSplineFromPoints(CGPoint[] points, CGPath path = null, float linewidth = 1, LineSmoothness smoothness = LineSmoothness.Spline)
+        {
+            bool continued = path != null;
+            if (path == null) path = new CGPath();
+
+            int pointCount = points.Length;
+
+            if (pointCount > 0)
+            {
+                CGPoint p0 = points.First();
+                if (!continued) path.MoveToPoint(p0);
+                else path.AddLineToPoint(p0);
+
+                if (pointCount == 1) //draw dot
+                {
+                    CGRect pointRect = new CGRect(p0.X - linewidth / 2.0, p0.Y - linewidth / 2.0, linewidth, linewidth);
+                    path.AddPath(CGPath.EllipseFromRect(pointRect));
+                }
+                else if (pointCount == 2) //draw line
+                {
+                    CGPoint p1 = points[1];
+                    path.AddLineToPoint(p1);
+                }
+                else //draw spline
+                {
+                    switch (smoothness)
+                    {
+                        case LineSmoothness.Smooth: AddSmoothSpline(points, path); break;
+                        default:
+                        case LineSmoothness.Spline: AddCubicSpline(points, path); break;
+                        case LineSmoothness.Linear: AddLinearInterpolation(points, path); break;
+                    }
+                }
+            }
+
+            return path;
+        }
+
+        void AddCubicSpline(CGPoint[] points, CGPath path)
+        {
+            try
+            {
+                var x = points.Select(p => (double)p.X);
+                var y = points.Select(p => (double)p.Y);
+                var spline = CubicSpline.InterpolatePchip(x, y);
+
+                bool reverse = points[0].X > points[^1].X;
+
+                for (double i = points[0].X;
+                    (!reverse && i <= points[^1].X) || (reverse && i >= points[^1].X);
+                    i += reverse ? -1 : 1)
+                {
+                    var point = spline.Interpolate(i);
+                    path.AddLineToPoint((float)i, (float)point);
+                }
+
+                path.AddLineToPoint(points[^1]);
+            }
+            catch
+            {
+                AddLinearInterpolation(points, path);
+            }
+        }
+
+        void AddSmoothSpline(CGPoint[] points, CGPath path)
+        {
+            CGPoint p1 = points.First();
+            CGPoint p2;
+            for (int i = 0; i < points.Count() - 1; i++)
+            {
+                p2 = points[i + 1];
+                CGPoint midPoint = new CGPoint((p1.X + p2.X) / 2, (p1.Y + p2.Y) / 2);
+                path.AddQuadCurveToPoint(p1.X, p1.Y, midPoint.X, midPoint.Y);
+                p1 = p2;
+            }
+            path.AddLineToPoint(points.Last());
+        }
+
+        void AddLinearInterpolation(CGPoint[] points, CGPath path)
+        {
+            CGPoint p1 = points.First();
+            CGPoint p2;
+            for (int i = 0; i < points.Count() - 1; i++)
+            {
+                p2 = points[i + 1];
+                path.AddLineToPoint(p1.X, p1.Y);
+                p1 = p2;
+            }
+            path.AddLineToPoint(points.Last());
+        }
+
+        public void DrawFrame(CGContext gc)
+        {
+            gc.SetStrokeColor(StrokeColor);
+            gc.StrokeRectWithWidth(Frame, 1);
+        }
+
+        public static CGSize MeasureString(string s, CTFont font, CTStringAttributes attr = null, AxisPosition position = AxisPosition.Bottom, bool ignoreoptical = true)
+        {
+            if (attr == null) attr = new CTStringAttributes
+            {
+                ForegroundColorFromContext = true,
+                Font = font,
+            };
+
+            var attributedString = new NSAttributedString(s, attr);
+
+            return MeasureString(attributedString, position, ignoreoptical);
+        }
+
+        public static CGSize MeasureString(NSAttributedString attributedString, AxisPosition position = AxisPosition.Bottom, bool ignoreoptical = true)
+        {
+            CGSize size;
+
+            var textLine = new CTLine(attributedString);
+
+            //if (!ignoreoptical && (position == AxisPosition.Bottom || position == AxisPosition.Right))
+            if (!ignoreoptical)
+            {
+                size = textLine.GetBounds(CTLineBoundsOptions.UseOpticalBounds).Size;
+            }
+            else
+            {
+                size = textLine.GetBounds(CTLineBoundsOptions.UseGlyphPathBounds).Size;
+            }
+
+            textLine.Dispose();
+
+            return size;
+        }
+
+        public virtual MouseOverFeatureEvent CursorFeatureFromPos(CGPoint cursorpos, bool isclick = false, bool ismouseup = false)
+        {
+            return new MouseOverFeatureEvent();
+        }
+
+        public enum SymbolShape
+        {
+            Square,
+            Circle,
+            Diamond,
+        }
+
+        public enum LineSmoothness
+        {
+            Smooth,
+            Spline,
+            Linear,
+        }
+    }
+
+    public class CGGraph : GraphBase
+    {
+        public ExperimentData ExperimentData;
+
+        public CTFont DefaultFont = new CTFont("Helvetica Neue Light", 12);
+        internal nfloat DefaultFontHeight => DefaultFont.CapHeightMetric + 5;
+        internal static CGColor HighlightColor => NSColor.Label.ColorWithAlphaComponent(0.2f).CGColor;
+        internal static CGColor ActivatedHighlightColor => NSColor.Label.ColorWithAlphaComponent(0.35f).CGColor;
+        public static float SymbolSize { get; set; } = 8;
+
+        public bool IsMouseDown { get; set; } = false;
+
+        public CGGraph(ExperimentData experiment, NSView view)
+        {
+            ExperimentData = experiment;
+            View = view;
+        }
+
+        public override void PrepareDraw(CGContext gc, CGPoint center)
+        {
+            this.Center = center;
+
+            AutoSetFrame();
+
+            SetupAxisScalingUnits();
+
+            Draw(gc);
+
+            DrawFrame(gc);
+        }
+
+        public void SetupAxisScalingUnits()
+        {
+            if (Frame.Size.Width * Frame.Size.Height < 0) return;
+
+            var pppw = PlotSize.Width / (XAxis.Max - XAxis.Min);
+            var ppph = PlotSize.Height / (YAxis.Max - YAxis.Min);
+
+            PointsPerUnit = new CGSize(pppw, ppph);
+        }
+
+        internal virtual void Draw(CGContext cg)
+        {
+
+        }
+
+        #region Drawing
+
+        #region Drawing Methods
+
+        public void DrawDataSeries(CGContext gc, List<CGPoint> points, float linewidth, CGColor color)
+        {
+            var layer = CGLayer.Create(gc, Frame.Size);
+
+            if (points.Count == 0) return;
+            if (points.Count == 1) { DrawCircle(gc, points[0], 2, true, color); return; }
+
+            var path = new CGPath();
+
+            path.MoveToPoint(points[0]);
+
+            for (int i = 1; i < points.Count; i++)
+            {
+                CGPoint p = points[i];
+                path.AddLineToPoint(p);
+            }
+
+            layer.Context.AddPath(path);
+            layer.Context.SetStrokeColor(color);
+            layer.Context.SetLineWidth(linewidth);
+            layer.Context.SetLineJoin(CGLineJoin.Round);
+            layer.Context.SetLineCap(CGLineCap.Round);
+            layer.Context.StrokePath();
+
+            gc.DrawLayer(layer, Origin);
+        }
+
+        public void DrawSpline(CGContext gc, CGPoint[] points, float linewidth, CGColor color, LineSmoothness smoothness)
+        {
+            var path = GetSplineFromPoints(points, smoothness: smoothness);
+
+            DrawPath(gc, path, linewidth, color);
+        }
+
+        void DrawPath(CGContext gc, CGPath path, float linewidth, CGColor color)
+        {
+            var layer = CGLayer.Create(gc, Frame.Size);
+
+            DrawPathToLayer(layer, path, linewidth, color);
+
+            gc.DrawLayer(layer, Frame.Location);
+        }
+
+        public void DrawTextBox(CGContext gc, List<string> lines, CTFont font = null, NSRectAlignment alignment = NSRectAlignment.BottomTrailing, CGColor textcolor = null)
+        {
+            if (font == null) font = DefaultFont;
+            if (textcolor == null) textcolor = StrokeColor;
+            if (lines.Count == 0) return;
+
+            nfloat width = 0;
+            nfloat height = 0;
+
+            var attstr_lines = new List<NSAttributedString>();
+            var nsfont = NSFont.FromCTFont(font);
+
+            foreach (var line in lines)
+            {
+                var attstr = AnalysisITC.UI.MacOS.MacStrings.FromMarkDownString(line, nsfont, true);
+                attstr_lines.Add(attstr);
+
+                var size = MeasureString(attstr, AxisPosition.Unknown, ignoreoptical: false); //DrawString2(null, attstr, new CGPoint(0, 0), horizontalignment: TextAlignment.Left);
+
+                if (size.Width > width) width = size.Width;
+                height += size.Height + font.Size * 0.4f;
+            }
+
+            var boxsize = new CGSize(width + 12, height + 6);
+            var xpos = alignment switch
+            {
+                NSRectAlignment.Top or NSRectAlignment.None or NSRectAlignment.Bottom => Frame.Width / 2 - boxsize.Width / 2,
+                NSRectAlignment.BottomTrailing or NSRectAlignment.Trailing or NSRectAlignment.TopTrailing => Frame.Width - boxsize.Width - 7,
+                _ => 7,
+            };
+            var ypos = alignment switch
+            {
+                NSRectAlignment.Leading or NSRectAlignment.None or NSRectAlignment.Trailing => Frame.Height / 2 - boxsize.Height / 2,
+                NSRectAlignment.Top or NSRectAlignment.TopLeading or NSRectAlignment.TopTrailing => Frame.Height - boxsize.Height - 7,
+                _ => 7,
+            };
+
+            var pos = new CGPoint(xpos + Frame.X, ypos + Frame.Y);
+            var tpos = new CGPoint(6, boxsize.Height - 0.75f * font.Size);
+            var layer = CGLayer.Create(gc, boxsize);
+            var textlayer = CGLayer.Create(gc, boxsize);
+
+            foreach (var line in attstr_lines)
+            {
+                var size = DrawString2(textlayer, line, tpos, horizontalignment: TextAlignment.Left);
+
+                tpos.Y -= size.Height + font.Size * 0.4f;
+            }
+
+            layer.Context.SetFillColor(DrawOnWhite ? NSColor.White.CGColor : NSColor.TextBackground.CGColor);
+            layer.Context.FillRect(new CGRect(1, 1, boxsize.Width - 2, boxsize.Height - 2));
+            layer.Context.StrokeRect(new CGRect(1, 1, boxsize.Width - 2, boxsize.Height - 2));
+
+            gc.DrawLayer(layer, pos);
+            gc.DrawLayer(textlayer, pos);
+        }
+
+        public void DrawTextBoxConsistent(
+            CGContext gc,
+            IList<string> lines,
+            CTFont font = null,
+            NSRectAlignment alignment = NSRectAlignment.BottomTrailing,
+            CGColor textcolor = null,
+            float paddingX = 6,
+            float paddingY = 4,
+            float lineSpacing = 0)
+        {
+            if (font == null) font = DefaultFont;
+            if (textcolor == null) textcolor = StrokeColor;
+            if (lines == null || lines.Count == 0) return;
+
+            var nsfont = NSFont.FromCTFont(font);
+            var attLines = new List<NSAttributedString>(lines.Count);
+
+            foreach (var line in lines)
+                attLines.Add(AnalysisITC.UI.MacOS.MacStrings.FromMarkDownString(line, nsfont, true));
+
+            DrawTextBoxConsistent(gc, attLines, font, alignment, textcolor, paddingX, paddingY, lineSpacing);
+        }
+
+        public void DrawTextBoxConsistent(
+            CGContext gc,
+            IList<NSAttributedString> lines,
+            CTFont font = null,
+            NSRectAlignment alignment = NSRectAlignment.BottomTrailing,
+            CGColor textcolor = null,
+            float paddingX = 6,
+            float paddingY = 4,
+            float lineSpacing = 0)
+        { 
+            if (font == null) font = DefaultFont;
+            if (textcolor == null) textcolor = StrokeColor;
+            if (lines == null || lines.Count == 0) return;
+
+            if (lineSpacing <= 0) lineSpacing = (float)font.Size * 0.30f; // similar to your old spacing, but now fixed
+
+            // Precompute CTLines + bounds; pick a fixed line advance = max glyph-height + spacing
+            var ctLines = new List<CTLine>(lines.Count);
+            var glyphBounds = new List<CGRect>(lines.Count);
+
+            nfloat maxWidth = 0;
+            nfloat maxLineHeight = 0;
+
+            try
+            {
+                for (int i = 0; i < lines.Count; i++)
+                {
+                    // Ensure we can drive color via the CGContext fill color
+                    var mut = new NSMutableAttributedString(lines[i]);
+                    mut.AddAttribute(CTStringAttributeKey.ForegroundColorFromContext, NSNumber.FromBoolean(true), new NSRange(0, mut.Length));
+
+                    var line = new CTLine(mut);
+                    ctLines.Add(line);
+
+                    var b = line.GetBounds(CTLineBoundsOptions.UseGlyphPathBounds);
+                    glyphBounds.Add(b);
+
+                    if (b.Width > maxWidth) maxWidth = b.Width;
+                    if (b.Height > maxLineHeight) maxLineHeight = b.Height;
+                }
+
+                var lineAdvance = maxLineHeight + lineSpacing;
+                var textHeight = lines.Count * lineAdvance - lineSpacing; // no extra after last line
+
+                var boxSize = new CGSize(maxWidth + 2 * paddingX, textHeight + 2 * paddingY);
+
+                var xpos = alignment switch
+                {
+                    NSRectAlignment.Top or NSRectAlignment.None or NSRectAlignment.Bottom => Frame.Width / 2 - boxSize.Width / 2,
+                    NSRectAlignment.BottomTrailing or NSRectAlignment.Trailing or NSRectAlignment.TopTrailing => Frame.Width - boxSize.Width - 7,
+                    _ => 7,
+                };
+                var ypos = alignment switch
+                {
+                    NSRectAlignment.Leading or NSRectAlignment.None or NSRectAlignment.Trailing => Frame.Height / 2 - boxSize.Height / 2,
+                    NSRectAlignment.Top or NSRectAlignment.TopLeading or NSRectAlignment.TopTrailing => Frame.Height - boxSize.Height - 7,
+                    _ => 7,
+                };
+
+                var pos = new CGPoint(xpos + Frame.X, ypos + Frame.Y);
+
+                var boxLayer = CGLayer.Create(gc, boxSize);
+                var textLayer = CGLayer.Create(gc, boxSize);
+
+                // Background box
+                boxLayer.Context.SaveState();
+                boxLayer.Context.SetFillColor(DrawOnWhite ? NSColor.White.CGColor : NSColor.TextBackground.CGColor);
+                boxLayer.Context.FillRect(new CGRect(1, 1, boxSize.Width - 2, boxSize.Height - 2));
+                boxLayer.Context.SetStrokeColor(StrokeColor);
+                boxLayer.Context.StrokeRect(new CGRect(1, 1, boxSize.Width - 2, boxSize.Height - 2));
+                boxLayer.Context.RestoreState();
+
+                // Text
+                textLayer.Context.SaveState();
+                textLayer.Context.SetFillColor(textcolor);
+
+                // We place each line by aligning its *glyph bounds top* to a descending "top cursor".
+                nfloat top = (nfloat)boxSize.Height - paddingY;
+
+                for (int i = 0; i < ctLines.Count; i++)
+                {
+                    var line = ctLines[i];
+                    var b = glyphBounds[i];
+
+                    // Baseline position that makes (b.Y + b.Height) land at "top"
+                    var baselineX = paddingX - b.X;                 // keep left ink at padding
+                    var baselineY = top - (b.Y + b.Height);         // include bounds.Y so subscripts count
+
+                    textLayer.Context.TextPosition = new CGPoint(baselineX, baselineY);
+                    line.Draw(textLayer.Context);
+
+                    top -= lineAdvance;
+                }
+
+                textLayer.Context.RestoreState();
+
+                gc.DrawLayer(boxLayer, pos);
+                gc.DrawLayer(textLayer, pos);
+            }
+            finally
+            {
+                // CTLine is disposable; be explicit
+                foreach (var l in ctLines) l.Dispose();
+            }
+        }
+
+
+        #endregion
+
+        #region Add shapes to existing layer functions
+
+        void DrawPathToLayer(CGLayer layer, CGPath path, float linewidth, CGColor color)
+        {
+            layer.Context.AddPath(path);
+            layer.Context.SetStrokeColor(color);
+            layer.Context.SetLineWidth(linewidth);
+            layer.Context.StrokePath();
+        }
+
+        #endregion
+        #endregion
+    }
+
+    public class DataGraph : CGGraph
+    {
+        private bool _useUnifiedAxes = false;
+        private bool _showBaselineCorrected = false;
+
+        public bool ShowBaselineCorrected
+        {
+            get => _showBaselineCorrected;
+            set
+            {
+                bool _value = _showBaselineCorrected;
+                _showBaselineCorrected = value;
+
+                if (value != _value) SetYAxisRange(DataPoints.Min(dp => dp.Power), DataPoints.Max(dp => dp.Power), buffer: true);
+            }
+        }
+
+        public bool UseUnifiedAxes { get => _useUnifiedAxes; set { _useUnifiedAxes = value; SetupYAxes(); } }
+
+        public List<DataPoint> DataPoints => ShowBaselineCorrected && ExperimentData.BaseLineCorrectedDataPoints != null
+                    ? ExperimentData.BaseLineCorrectedDataPoints
+                    : ExperimentData.DataPoints;
+
+        public DataGraph(ExperimentData experiment, NSView view) : base(experiment, view)
+        {
+            if (!experiment.HasThermogram)
+            {
+                XAxis = new GraphAxis(this, 0, 1) { UseNiceAxis = false, LegendTitle = "Time (s)" };
+                YAxis = new GraphAxis(this, -1, 1) { UseNiceAxis = false, LegendTitle = "Power" };
+                return;
+            }
+
+            XAxis = new GraphAxis(this, 0, DataPoints.Max(dp => dp.Time))
+            {
+                UseNiceAxis = false,
+            };
+            YAxis = GraphAxis.WithBuffer(this, DataPoints.Min(dp => dp.Power), DataPoints.Max(dp => dp.Power));
+
+            SetupYAxes();
+        }
+
+        void SetupYAxes()
+        {
+            IEnumerable<ExperimentData> data;
+
+            if (UseUnifiedAxes) data = DataManager.IncludedData;
+            else data = new ExperimentData[] { ExperimentData };
+
+            var minmax = Method(data);
+
+            YAxis.SetWithBuffer(minmax[0], minmax[1], YAxis.Buffer);
+        }
+
+        double[] Method(IEnumerable<ExperimentData> data)
+        {
+            PeakHeatDirection direction;
+            if (data.All(exp => exp.AverageHeatDirection == PeakHeatDirection.Exothermal)) direction = PeakHeatDirection.Exothermal;
+            else if (data.All(exp => exp.AverageHeatDirection == PeakHeatDirection.Endothermal)) direction = PeakHeatDirection.Endothermal;
+            else direction = PeakHeatDirection.Unknown;
+
+            double max = 0;
+            double min = 0;
+
+            switch (direction)
+            {
+                case PeakHeatDirection.Exothermal when ShowBaselineCorrected: min = data.Min(exp => local_getdatapoints(exp).Min(dp => dp.Power)); break;
+                case PeakHeatDirection.Endothermal when ShowBaselineCorrected: max = data.Max(exp => local_getdatapoints(exp).Max(dp => dp.Power)); break;
+                default:
+                    min = data.Min(exp => local_getdatapoints(exp).Min(dp => dp.Power));
+                    max = data.Max(exp => local_getdatapoints(exp).Max(dp => dp.Power));
+                    break;
+            }
+
+            return new double[] { min, max };
+
+            List<DataPoint> local_getdatapoints(ExperimentData _exp)
+            {
+                if (ShowBaselineCorrected && _exp.BaseLineCorrectedDataPoints != null) return _exp.BaseLineCorrectedDataPoints;
+                else return _exp.DataPoints;
+            }
+        }
+
+        internal override void Draw(CGContext gc)
+        {
+            if (!ExperimentData.HasThermogram)
+            {
+                XAxis.Draw(gc);
+                YAxis.Draw(gc);
+                DrawTextBox(gc, new List<string> {
+                    "No raw thermogram available.",
+                    "This file contains integrated heats only."
+                }, alignment: NSRectAlignment.BottomTrailing);
+                return;
+            }
+
+            var points = new List<CGPoint>();
+
+            foreach (var p in DataPoints) { if (p.Time > XAxis.Min && p.Time < XAxis.Max) points.Add(GetRelativePosition(p)); }
+
+            gc.SetStrokeColor(StrokeColor);
+            DrawDataSeries(gc, points, 1, StrokeColor);
+
+            XAxis.Draw(gc);
+            YAxis.Draw(gc);
+        }
+    }
+
+    public class FileInfoGraph : DataGraph
+    {
+        GraphAxis TemperatureAxis { get; set; }
+
+        public bool DrawCursorPositionInfo { get; set; } = false;
+        double CursorPosition { get; set; }
+        List<string> CursorInfo { get; set; } = new List<string>();
+
+        public FileInfoGraph(ExperimentData experiment, NSView view) : base(experiment, view)
+        {
+            if (!ExperimentData.HasThermogram) return;
+
+            var tamid = experiment.TargetTemperature;
+            var delta = Math.Max(Math.Abs(experiment.DataPoints.Min(dp => Math.Min(dp.Temperature, dp.ShieldT)) - tamid), Math.Abs(experiment.DataPoints.Max(dp => Math.Max(dp.Temperature, dp.ShieldT)) - tamid));
+            TemperatureAxis = GraphAxis.WithBuffer(this, tamid - delta, tamid + delta, position: AxisPosition.Right);
+            TemperatureAxis.Position = AxisPosition.Right;
+            TemperatureAxis.TickScale.SetMaxTicks(5);
+            TemperatureAxis.LegendTitle = "Temperature (°C)";
+        }
+
+        public override void AutoSetFrame()
+        {
+            base.AutoSetFrame();
+
+            PlotSize.Width -= TemperatureAxis.EstimateLabelMargin();
+        }
+
+        internal override void Draw(CGContext gc)
+        {
+            if (!ExperimentData.HasThermogram) return;
+
+            DrawTemperature(gc);
+
+            TemperatureAxis.Draw(gc);
+
+            base.Draw(gc);
+
+            if (DrawCursorPositionInfo) DrawInfo(gc);
+        }
+
+        void DrawTemperature(CGContext gc)
+        {
+            var temperature = new List<CGPoint>();
+            var jacket = new List<CGPoint>();
+
+            for (int i = 0; i < DataPoints.Count - 1; i += 10) //Skip some datapoints
+            {
+                DataPoint p = DataPoints[i];
+                if (p.Time > XAxis.Min && p.Time < XAxis.Max)
+                {
+                    temperature.Add(GetRelativePosition(p.Time, p.Temperature, TemperatureAxis));
+                    jacket.Add(GetRelativePosition(p.Time, p.ShieldT, TemperatureAxis));
+                }
+            }
+
+            temperature.Add(GetRelativePosition(DataPoints.Last().Time, DataPoints.Last().Temperature, TemperatureAxis)); //add final datapoint
+            jacket.Add(GetRelativePosition(DataPoints.Last().Time, DataPoints.Last().ShieldT, TemperatureAxis));
+
+            DrawDataSeries(gc, temperature, 1, NSColor.SystemRed.CGColor);
+            DrawDataSeries(gc, jacket, 1, NSColor.SystemRed.CGColor);
+        }
+
+        void DrawInfo(CGContext gc)
+        {
+            var layer = CGLayer.Create(gc, Frame.Size);
+            var textlayer = CGLayer.Create(gc, Frame.Size);
+            textlayer.Context.SetFillColor(StrokeColor);
+
+            var datapoint = CursorPosition > ExperimentData.DataPoints.Last().Time ? ExperimentData.DataPoints.Last() : ExperimentData.DataPoints.First(dp => dp.Time > CursorPosition);
+
+            var power = GetRelativePosition(CursorPosition, datapoint.Power);
+            var max = new CGPoint(power.X, Frame.Height);
+
+            layer.Context.MoveTo(power.X, 0);
+            layer.Context.AddLineToPoint(power.X, Frame.Height);
+            layer.Context.StrokePath();
+            DrawRectsAtPositions(layer, new CGPoint[] { power }, 5, true, true);
+
+            DrawTextBoxConsistent(gc, CursorInfo, alignment: NSRectAlignment.BottomTrailing);
+
+            gc.DrawLayer(layer, Frame.Location);
+            gc.DrawLayer(textlayer, Frame.Location);
+        }
+
+        public bool SetCursorInfo(CGPoint cursorpos)
+        {
+            if (Frame.Contains(cursorpos))
+            {
+                DrawCursorPositionInfo = true;
+
+                var xfraction = (cursorpos.X - Frame.X) / Frame.Width;
+
+                CursorPosition = xfraction * (XAxis.Max - XAxis.Min);
+
+                CursorInfo = new List<string>();
+
+                var datapoint = CursorPosition > ExperimentData.DataPoints.Last().Time ? ExperimentData.DataPoints.Last() : ExperimentData.DataPoints.First(dp => dp.Time > CursorPosition);
+
+                CursorInfo.Add("Time: " + datapoint.Time.ToString() + "s");
+                CursorInfo.Add("DP: " + (DataManager.Unit.IsSI() ? (datapoint.Power * 1000000).ToString("F1") + " µW" : (datapoint.Power * 1000000 * Energy.JouleToCalFactor).ToString("F1") + " µCal"));
+                CursorInfo.Add("Temperature: " + datapoint.Temperature.ToString("F3") + " °C");
+                CursorInfo.Add("Jacket Temp: " + datapoint.ShieldT.ToString("F3") + " °C");
+            }
+            else DrawCursorPositionInfo = false;
+
+            return DrawCursorPositionInfo;
+        }
+    }
+
+    public class BaselineDataGraph : DataGraph
+    {
+        public float BaselineThickness { get; set; } = 3;
+        public NSColor BaselineNSColor => NSColor.Red;
+        public CGColor BaselineColor => BaselineNSColor.CGColor;
+        public BaselineDisplayStyle BaselineDisplayStyle { get; set; } = BaselineDisplayStyle.Solid;
+        public BaselineLayerPosition BaselineLayerPosition { get; set; } = BaselineLayerPosition.OverData;
+
+        public bool ShowBaseline { get; set; } = true;
+        public bool ShowIntegrationRegions { get; set; } = false;
+        public IntegrationRegionDisplayStyle IntegrationRegionDisplayStyle { get; set; } = IntegrationRegionDisplayStyle.Fill;
+        public bool ShowExperimentDetails { get; set; } = false;
+        public FinalFigureDisplayParameters FinalFigureDisplayParameters { get; set; } = FinalFigureDisplayParameters.None;
+        public InformationBoxPlacement InformationBoxPlacement { get; set; } = InformationBoxPlacement.Auto;
+
+        public string SyringeName { get; set; } = "";
+        public string CellName { get; set; } = "";
+        public bool UseNameAttributes { get; set; } = false;
+        public FinalFigureNameDisplayMode NameDisplayMode { get; set; } = FinalFigureNameDisplayMode.Name;
+
+        public BaselineDataGraph(ExperimentData experiment, NSView view) : base(experiment, view)
+        {
+        }
+
+        internal override void Draw(CGContext gc)
+        {
+            if (ShouldDrawIntegrationRegions && IntegrationRegionDisplayStyle == IntegrationRegionDisplayStyle.Fill)
+            {
+                DrawIntegrationRegions(gc);
+            }
+
+            if (ShouldDrawBaseline && BaselineLayerPosition == BaselineLayerPosition.UnderData) DrawBaseline(gc);
+
+            base.Draw(gc);
+
+            if (ShouldDrawBaseline && BaselineLayerPosition == BaselineLayerPosition.OverData) DrawBaseline(gc);
+
+            if (ShouldDrawIntegrationRegions && IntegrationRegionDisplayStyle != IntegrationRegionDisplayStyle.Fill)
+            {
+                DrawIntegrationRegions(gc);
+            }
+
+            if (ShowExperimentDetails) DrawExperimentDetails(gc);
+        }
+
+        bool ShouldDrawBaseline => ShowBaseline
+            && ExperimentData.Processor?.Interpolator != null
+            && ExperimentData.Processor.Interpolator.Finished;
+
+        void DrawIntegrationRegions(CGContext gc)
+        {
+            switch (IntegrationRegionDisplayStyle)
+            {
+                case IntegrationRegionDisplayStyle.Bar:
+                    DrawIntegrationRegionBars(gc);
+                    break;
+                case IntegrationRegionDisplayStyle.Line:
+                    DrawIntegrationRegionEndpointLines(gc);
+                    break;
+                case IntegrationRegionDisplayStyle.Fill:
+                default:
+                    DrawIntegratedPeakAreas(gc);
+                    break;
+            }
+        }
+
+        void DrawIntegratedPeakAreas(CGContext gc)
+        {
+            if (ExperimentData.Injections == null || ExperimentData.Injections.Count == 0) return;
+            if (DataPoints == null || DataPoints.Count == 0) return;
+            if (!ShowBaselineCorrected && !HasInterpolatedBaseline) return;
+
+            var layer = CGLayer.Create(gc, Frame.Size);
+            var fillColor = NSColor.Black.CGColor;
+
+            layer.Context.SetFillColor(fillColor);
+
+            foreach (var inj in ExperimentData.Injections.Where(inj => inj.Include))
+            {
+                if (inj.IntegrationEndTime < XAxis.Min || inj.IntegrationStartTime > XAxis.Max) continue;
+
+                var start = Math.Max(inj.IntegrationStartTime, XAxis.Min);
+                var end = Math.Min(inj.IntegrationEndTime, XAxis.Max);
+                if (end <= start) continue;
+
+                var areaTimes = IntegrationAreaTimes(start, end);
+                if (areaTimes.Count < 2) continue;
+
+                var peakPoints = areaTimes.Select(DataPointAt).ToList();
+                var baselinePoints = areaTimes.Select(BaselinePointAt).ToList();
+
+                var path = new CGPath();
+                path.MoveToPoint(baselinePoints[0]);
+
+                foreach (var point in peakPoints)
+                {
+                    path.AddLineToPoint(point);
+                }
+
+                foreach (var point in baselinePoints.AsEnumerable().Reverse())
+                {
+                    path.AddLineToPoint(point);
+                }
+
+                path.CloseSubpath();
+
+                layer.Context.AddPath(path);
+                layer.Context.FillPath();
+            }
+
+            gc.DrawLayer(layer, Frame.Location);
+        }
+
+        List<double> IntegrationAreaTimes(double start, double end)
+        {
+            var times = new List<double>
+            {
+                start
+            };
+
+            foreach (var dp in DataPoints.Where(dp => dp.Time > start && dp.Time < end))
+            {
+                times.Add(dp.Time);
+            }
+
+            times.Add(end);
+            return times;
+        }
+
+        CGPoint DataPointAt(double time)
+        {
+            return GetRelativePosition(time, InterpolatePower(DataPoints, time));
+        }
+
+        CGPoint BaselinePointAt(double time)
+        {
+            return GetRelativePosition(time, ShowBaselineCorrected ? 0 : InterpolateBaseline(time));
+        }
+
+        double InterpolatePower(List<DataPoint> points, double time)
+        {
+            if (time <= points.First().Time) return points.First().Power;
+            if (time >= points.Last().Time) return points.Last().Power;
+
+            for (int i = 1; i < points.Count; i++)
+            {
+                if (points[i].Time < time) continue;
+
+                var previous = points[i - 1];
+                var current = points[i];
+                return Interpolate(time, previous.Time, previous.Power, current.Time, current.Power);
+            }
+
+            return points.Last().Power;
+        }
+
+        double InterpolateBaseline(double time)
+        {
+            var rawPoints = ExperimentData.DataPoints;
+            var baseline = ExperimentData.Processor.Interpolator.Baseline;
+
+            if (time <= rawPoints.First().Time) return baseline.First().Value;
+            if (time >= rawPoints.Last().Time) return baseline.Last().Value;
+
+            for (int i = 1; i < rawPoints.Count; i++)
+            {
+                if (rawPoints[i].Time < time) continue;
+
+                return Interpolate(time, rawPoints[i - 1].Time, baseline[i - 1].Value, rawPoints[i].Time, baseline[i].Value);
+            }
+
+            return baseline.Last().Value;
+        }
+
+        bool HasInterpolatedBaseline =>
+            ExperimentData.Processor?.Interpolator != null &&
+            ExperimentData.Processor.Interpolator.Finished &&
+            ExperimentData.Processor.Interpolator.Baseline.Count == ExperimentData.DataPoints.Count;
+
+        static double Interpolate(double x, double x1, double y1, double x2, double y2)
+        {
+            if (Math.Abs(x2 - x1) < double.Epsilon) return y1;
+
+            var fraction = (x - x1) / (x2 - x1);
+            return y1 + fraction * (y2 - y1);
+        }
+
+        void DrawIntegrationRegionBars(CGContext gc)
+        {
+            if (ExperimentData.Injections == null || ExperimentData.Injections.Count == 0) return;
+
+            var layer = CGLayer.Create(gc, Frame.Size);
+            const float barHeight = 3f;
+            const float margin = 5f;
+            var placeAtTop = ExperimentData.AverageHeatDirection != PeakHeatDirection.Endothermal;
+            var y = placeAtTop ? Frame.Height - margin - barHeight : margin;
+            var fillColor = NSColor.SystemGray.ColorWithAlphaComponent(.5f).CGColor;
+
+            layer.Context.SetFillColor(fillColor);
+
+            foreach (var inj in ExperimentData.Injections.Where(inj => inj.Include))
+            {
+                if (inj.IntegrationEndTime < XAxis.Min || inj.IntegrationStartTime > XAxis.Max) continue;
+
+                var start = GetRelativePosition(inj.IntegrationStartTime, YAxis.Min);
+                var end = GetRelativePosition(inj.IntegrationEndTime, YAxis.Min);
+                var left = Math.Max(0, Math.Min(start.X, end.X));
+                var right = Math.Min(Frame.Width, Math.Max(start.X, end.X));
+
+                if (right <= left) continue;
+
+                layer.Context.FillRect(new CGRect(left, y, right - left, barHeight));
+            }
+
+            gc.DrawLayer(layer, Frame.Location);
+        }
+
+        void DrawIntegrationRegionEndpointLines(CGContext gc)
+        {
+            if (ExperimentData.Injections == null || ExperimentData.Injections.Count == 0) return;
+            if (!ShowBaselineCorrected && !HasInterpolatedBaseline) return;
+
+            var layer = CGLayer.Create(gc, Frame.Size);
+            const float lineHeight = 8f;
+            const float lineWidth = 1f;
+            var halfHeight = lineHeight / 2;
+            var color = NSColor.SystemGray.ColorWithAlphaComponent(.5f).CGColor;
+
+            layer.Context.SetStrokeColor(color);
+            layer.Context.SetLineWidth(lineWidth);
+
+            foreach (var inj in ExperimentData.Injections.Where(inj => inj.Include))
+            {
+                DrawIntegrationRegionEndpointLine(layer.Context, inj.IntegrationStartTime, halfHeight);
+                DrawIntegrationRegionEndpointLine(layer.Context, inj.IntegrationEndTime, halfHeight);
+            }
+
+            gc.DrawLayer(layer, Frame.Location);
+        }
+
+        void DrawIntegrationRegionEndpointLine(CGContext context, double time, float halfHeight)
+        {
+            if (time < XAxis.Min || time > XAxis.Max) return;
+
+            var center = BaselinePointAt(time);
+            var y1 = (float)Math.Max(0, center.Y - halfHeight);
+            var y2 = (float)Math.Min(Frame.Height, center.Y + halfHeight);
+
+            context.MoveTo(center.X, y1);
+            context.AddLineToPoint(center.X, y2);
+            context.StrokePath();
+        }
+
+        bool ShouldDrawIntegrationRegions => ExperimentData.HasThermogram && ShowIntegrationRegions;
+
+        internal void DrawBaseline(CGContext gc)
+        {
+            var layer = CGLayer.Create(gc, Frame.Size);
+            var path = new CGPath();
+            var points = new List<CGPoint>();
+
+            if (!ShowBaselineCorrected) for (int i = 0; i < ExperimentData.DataPoints.Count; i++)
+                {
+                    var p = ExperimentData.DataPoints[i];
+                    var b = ExperimentData.Processor.Interpolator.Baseline[i];
+
+                    if (p.Time > XAxis.Min && p.Time < XAxis.Max)
+                        points.Add(GetRelativePosition(p.Time, b.FloatWithError));
+                }
+            else points = new List<CGPoint>
+            {
+                GetRelativePosition(ExperimentData.DataPoints.First().Time, 0),
+                GetRelativePosition(ExperimentData.DataPoints.Last().Time, 0)
+            };
+
+            path.AddLines(points.ToArray());
+
+            layer.Context.AddPath(path);
+            if (BaselineDisplayStyle == BaselineDisplayStyle.Dashed) layer.Context.SetLineDash(0, new nfloat[] { 2f * BaselineThickness });
+            layer.Context.SetStrokeColor(BaselineColor);
+            layer.Context.SetLineWidth(BaselineThickness);
+            layer.Context.StrokePath();
+            layer.Context.SetLineWidth(1);
+
+            gc.DrawLayer(layer, Frame.Location);
+        }
+
+        void DrawExperimentDetails(CGContext gc)
+        {
+            var lines = new List<string>();
+            var syr = FormatConcentrationLine(
+                ExperimentSpeciesLocation.Syringe,
+                SyringeName,
+                "Syringe",
+                ExperimentData.SyringeConcentration);
+            var cell = FormatConcentrationLine(
+                ExperimentSpeciesLocation.Cell,
+                CellName,
+                "Cell",
+                ExperimentData.CellConcentration);
+
+            if (FinalFigureDisplayParameters.HasFlag(FinalFigureDisplayParameters.Temperature)) lines.Add(ExperimentData.MeasuredTemperature.ToString("F1") + " °C");
+            if (FinalFigureDisplayParameters.HasFlag(FinalFigureDisplayParameters.Concentrations)) lines.Add(syr);
+            if (FinalFigureDisplayParameters.HasFlag(FinalFigureDisplayParameters.Concentrations) && ExperimentData.CellConcentration > float.Epsilon) lines.Add(cell);
+            if (FinalFigureDisplayParameters.HasFlag(FinalFigureDisplayParameters.InjectionDelay)) AddInjectionDelayLine(lines);
+            if (FinalFigureDisplayParameters.HasFlag(FinalFigureDisplayParameters.Instrument)) AddInstrumentLine(lines);
+
+            if (FinalFigureDisplayParameters.HasFlag(FinalFigureDisplayParameters.Attributes) && ExperimentData.Solution != null)
+            {
+                var attlines = ExperimentData.Model.Solution.UIExperimentModelAttributes(AppSettings.DisplayAttributeOptions);
+
+                foreach (var att in attlines)
+                {
+                    var l = att.Item1;
+                    if (!string.IsNullOrEmpty(att.Item2)) l += " = " + att.Item2;
+                    lines.Add(l);
+                }
+            }
+
+            var position = GetExperimentDetailsBoxPosition();
+
+            DrawTextBoxConsistent(gc, lines, DrawOnWhite ? new CTFont(DefaultFont.DisplayName, 12) : DefaultFont, position);
+        }
+
+        string FormatConcentrationLine(ExperimentSpeciesLocation location, string manualName, string defaultName, FloatWithError concentration)
+        {
+            var designation = GetCompartmentDesignation(location, manualName, defaultName);
+            return "[" + designation + "] = " + concentration.AsFormattedConcentration(true);
+        }
+
+        string GetCompartmentDesignation(ExperimentSpeciesLocation location, string manualName, string defaultName)
+        {
+            if (NameDisplayMode == FinalFigureNameDisplayMode.Compartment) return defaultName;
+
+            string designation = string.IsNullOrWhiteSpace(manualName)
+                ? defaultName
+                : manualName.Trim();
+
+            if (UseNameAttributes)
+            {
+                var names = ExperimentData.Attributes
+                    .Where(att => att.Key == AttributeKey.Species
+                        && ExperimentAttribute.NormalizeSpeciesLocation(att.IntValue) == location)
+                    .Select(att => att.StringValue?.Trim())
+                    .Where(name => !string.IsNullOrWhiteSpace(name))
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                    .ToList();
+
+                if (names.Count > 0)
+                {
+                    designation = string.Join(" + ", names);
+                }
+            }
+
+            return NameDisplayMode == FinalFigureNameDisplayMode.NameAndCompartment
+                        ? designation + ", " + defaultName.ToLowerInvariant()
+                        : designation;
+        }
+
+        void AddInjectionDelayLine(List<string> lines)
+        {
+            var injectionDelayInfo = ExperimentData.GetInjectionDelayInfoString();
+
+            if (!string.IsNullOrEmpty(injectionDelayInfo))
+            {
+                lines.Add("Delay: " + injectionDelayInfo);
+            }
+        }
+
+        void AddInstrumentLine(List<string> lines)
+        {
+            var instrumentName = ExperimentData.Instrument.GetProperties()?.Name;
+
+            if (!string.IsNullOrWhiteSpace(instrumentName))
+            {
+                lines.Add(instrumentName);
+            }
+        }
+
+        NSRectAlignment GetExperimentDetailsBoxPosition()
+        {
+            return InformationBoxPlacement switch
+            {
+                InformationBoxPlacement.Upper => NSRectAlignment.TopTrailing,
+                InformationBoxPlacement.Lower => NSRectAlignment.BottomTrailing,
+                _ => ExperimentData.AverageHeatDirection == PeakHeatDirection.Endothermal
+                    ? NSRectAlignment.TopTrailing
+                    : NSRectAlignment.BottomTrailing,
+            };
+        }
+    }
+
+    public class BaselineFittingGraph : BaselineDataGraph
+    {
+        int focused = -1;
+
+        public bool ShowInjections { get; set; } = true;
+        List<FeatureBoundingBox> SplineHandlePoints { get; set; } = new List<FeatureBoundingBox>();
+        List<FeatureBoundingBox> SplinePoints { get; set; } = new List<FeatureBoundingBox>();
+        List<FeatureBoundingBox> IntegrationHandleBoxes { get; set; } = new List<FeatureBoundingBox>();
+        MouseOverFeatureEvent HoverFeature { get; set; } = new MouseOverFeatureEvent();
+
+        public bool DrawCursorPositionInfo { get; set; } = false;
+        double CursorPosition { get; set; }
+        List<string> CursorInfo { get; set; } = new List<string>();
+
+        public BaselineFittingGraph(ExperimentData experiment, NSView view) : base(experiment, view)
+        {
+            YAxis.HideUnwantedTicks = false;
+            SetYAxisRange(DataPoints.Min(dp => dp.Power), DataPoints.Max(dp => dp.Power), buffer: true);
+        }
+
+        public void SetFocusedInjection(int i = -1) => focused = i;
+
+        public bool SetHoverFeature(MouseOverFeatureEvent feature)
+        {
+            if (feature == null || !feature.IsMouseOverFeature) feature = new MouseOverFeatureEvent();
+
+            var hoverSubID = HoverFeature.IsMouseOverFeature ? (HoverFeature.Box?.SubID ?? -1) : -1;
+            var featureSubID = feature.IsMouseOverFeature ? (feature.Box?.SubID ?? -1) : -1;
+            var changed = HoverFeature.Type != feature.Type
+                || HoverFeature.FeatureID != feature.FeatureID
+                || hoverSubID != featureSubID;
+
+            HoverFeature = feature;
+
+            return changed;
+        }
+
+        bool IsHoverFeature(MouseOverFeatureEvent.FeatureType type, int featureID, int subID = -1)
+        {
+            if (HoverFeature == null) return false;
+            if (!HoverFeature.IsMouseOverFeature) return false;
+            if (HoverFeature.Type != type) return false;
+            if (HoverFeature.FeatureID != featureID) return false;
+
+            return subID < 0 || (HoverFeature.Box?.SubID ?? -1) == subID;
+        }
+
+        internal override void Draw(CGContext gc)
+        {
+            base.Draw(gc);
+
+            IntegrationHandleBoxes.Clear();
+            SplineHandlePoints.Clear();
+            SplinePoints.Clear();
+
+            if (ShowBaseline && ExperimentData.Processor.Interpolator != null && ExperimentData.Processor.Interpolator.Finished)
+            {
+                if (ExperimentData.Processor.Interpolator is SplineInterpolator) DrawSplinePoints(gc);
+            }
+
+            if (ShowInjections) DrawIntegrationMarkers(gc);
+
+            if (DrawCursorPositionInfo && CursorInfo.Count > 0) DrawTextBoxConsistent(gc, CursorInfo, alignment: NSRectAlignment.BottomTrailing);
+        }
+
+        void DrawSplinePoints(CGContext gc)
+        {
+            var layer = CGLayer.Create(gc, Frame.Size);
+            var points = new List<CGRect>();
+            var handles = new List<CGPath>();
+            var handleCores = new List<CGPath>();
+            var slopelines = new List<CGPath>();
+            var pointCenters = new List<CGPoint>();
+            var highlightedPointCenters = new List<CGPoint>();
+            const float highlightOutset = 2f;
+            const float handleHitSize = 10;
+            const float pointHitSize = 12;
+            const float pointOutlineSize = 10;
+            const float pointHighlightSize = pointOutlineSize + 2 * highlightOutset;
+            const float pointDotSize = 3;
+            const float handleOutlineWidth = 1;
+            const float pointOutlineWidth = 1.25f;
+            var handleOutlineSize = BaselineThickness + handleOutlineWidth * 2;
+            var handleCoreSize = handleOutlineSize;
+
+            foreach (var sp in (ExperimentData.Processor.Interpolator as SplineInterpolator).SplinePoints.Where(sp => sp.Time > XAxis.Min && sp.Time < XAxis.Max))
+            {
+                var m = GetRelativePosition((float)sp.Time, (float)sp.Power);
+
+                if (ShowBaselineCorrected) m = GetRelativePosition((float)sp.Time, 0);
+                if ((ExperimentData.Processor.Interpolator as SplineInterpolator).ShowHandles &&
+                    (ExperimentData.Processor.Interpolator as SplineInterpolator).Algorithm == SplineInterpolator.SplineInterpolatorAlgorithm.Smooth)
+                {
+                    var handle = new CGPath();
+                    var slopeline = new CGPath();
+
+                    var handlelengthtime = ExperimentData.Injections.Average(inj => inj.Delay / 5);
+                    var y = ShowBaselineCorrected ? 0 : sp.Power;
+                    var yoffset = sp.Slope * handlelengthtime;
+
+                    var h1 = GetRelativePosition((float)sp.Time - handlelengthtime, (float)y - yoffset);
+                    var h2 = GetRelativePosition((float)sp.Time + handlelengthtime, (float)y + yoffset);
+
+                    var slope = (h2.Y - h1.Y) / (h2.X - h1.X);
+                    var theta = Math.Atan(slope);
+
+                    var handlelengthpixels = m.X - h1.X;
+                    var _xoffset = (float)Math.Cos(theta) * (float)handlelengthpixels;
+                    var _yoffset = (float)Math.Sin(theta) * (float)handlelengthpixels;
+
+                    h1 = m.Subtract(_xoffset, _yoffset);
+                    h2 = m.Add(_xoffset, _yoffset);
+
+                    slopeline.MoveToPoint(h1);
+                    slopeline.AddLineToPoint(h2);
+                    handle.AddEllipseInRect(GetRectAtPosition(h1, handleOutlineSize));
+                    handle.AddEllipseInRect(GetRectAtPosition(h2, handleOutlineSize));
+
+                    var handleCore = new CGPath();
+                    handleCore.AddEllipseInRect(GetRectAtPosition(h1, handleCoreSize));
+                    handleCore.AddEllipseInRect(GetRectAtPosition(h2, handleCoreSize));
+
+                    SplineHandlePoints.Add(new FeatureBoundingBox(MouseOverFeatureEvent.FeatureType.BaselineSplineHandle, GetRectAtPosition(h1, handleHitSize), sp.ID, boxoffset: Frame.Location, sid: 0) { FeatureReferenceValue = sp.Slope });
+                    SplineHandlePoints.Add(new FeatureBoundingBox(MouseOverFeatureEvent.FeatureType.BaselineSplineHandle, GetRectAtPosition(h2, handleHitSize), sp.ID, boxoffset: Frame.Location, sid: 1) { FeatureReferenceValue = sp.Slope });
+
+                    handles.Add(handle);
+                    handleCores.Add(handleCore);
+                    slopelines.Add(slopeline);
+                }
+
+                var r = GetRectAtPosition(m, pointHitSize);
+
+                SplinePoints.Add(new FeatureBoundingBox(MouseOverFeatureEvent.FeatureType.BaselineSplinePoint, r, sp.ID, Frame.Location)
+                {
+                    FeatureReferenceValue = sp.Power,
+                    SecondaryFeatureReferenceValue = sp.Time
+                });
+
+                points.Add(GetRectAtPosition(m, pointOutlineSize));
+                pointCenters.Add(m);
+                if (IsHoverFeature(MouseOverFeatureEvent.FeatureType.BaselineSplinePoint, sp.ID)) highlightedPointCenters.Add(m);
+            }
+
+            layer.Context.SetStrokeColor(StrokeColor);
+            layer.Context.SetLineWidth(BaselineThickness);
+            foreach (var l in slopelines) layer.Context.AddPath(l);
+            layer.Context.StrokePath();
+
+            layer.Context.SetFillColor(StrokeColor);
+            foreach (var h in handleCores) layer.Context.AddPath(h);
+            layer.Context.FillPath();
+
+            layer.Context.SetStrokeColor(StrokeColor);
+            layer.Context.SetLineWidth(handleOutlineWidth);
+            foreach (var h in handles) layer.Context.AddPath(h);
+            layer.Context.StrokePath();
+
+            layer.Context.SetFillColor(BaselineNSColor.ColorWithAlphaComponent(.22f).CGColor);
+            foreach (var p in highlightedPointCenters) layer.Context.FillEllipseInRect(GetRectAtPosition(p, pointHighlightSize));
+
+            //Draw points
+            layer.Context.SetFillColor(NSColor.White.CGColor);
+            foreach (var r in points) layer.Context.FillEllipseInRect(r);
+
+            layer.Context.SetStrokeColor(BaselineColor);
+            layer.Context.SetLineWidth(pointOutlineWidth);
+            foreach (var r in points) layer.Context.StrokeEllipseInRect(r);
+
+            layer.Context.SetFillColor(BaselineColor);
+            foreach (var p in pointCenters) layer.Context.FillEllipseInRect(GetRectAtPosition(p, pointDotSize));
+
+            layer.Context.SetStrokeColor(BaselineNSColor.ColorWithAlphaComponent(.35f).CGColor);
+            layer.Context.SetLineWidth(highlightOutset);
+            foreach (var p in highlightedPointCenters) layer.Context.StrokeEllipseInRect(GetRectAtPosition(p, pointHighlightSize));
+
+            gc.DrawLayer(layer, Frame.Location);
+        }
+
+        void DrawIntegrationMarkers(CGContext gc)
+        {
+            var layer = CGLayer.Create(gc, Frame.Size);
+            var thickness = 1.0f;
+            var handleHitHalfWidth = 2f;
+            const float highlightOutset = 1.5f;
+            var highlightThickness = thickness + 2 * highlightOutset;
+
+            layer.Context.SetLineWidth(thickness);
+
+            foreach (var inj in ExperimentData.Injections)
+            {
+                if (inj.IntegrationEndTime < XAxis.Min || inj.IntegrationStartTime > XAxis.Max) continue;
+
+                var s = GetRelativePosition(inj.IntegrationStartTime, YAxis.Min);
+                var e = GetRelativePosition(inj.IntegrationEndTime, YAxis.Min);
+
+                var selected = focused == -1 || focused == inj.ID;
+                var color = selected ? NSColor.SystemBlue : NSColor.SystemGray;
+                var fillLeft = Math.Max(0, Math.Min(s.X, e.X));
+                var fillRight = Math.Min(Frame.Width, Math.Max(s.X, e.X));
+                var fillRect = new CGRect(fillLeft, 0, fillRight - fillLeft, Frame.Height);
+
+                layer.Context.SetFillColor(color.ColorWithAlphaComponent(.12f).CGColor);
+                layer.Context.FillRect(fillRect);
+
+                var integrationStartHandleBox = new CGRect(s.X - handleHitHalfWidth, 0, 2 * handleHitHalfWidth, Frame.Height);
+                var integrationStartLine = new CGPath();
+                integrationStartLine.MoveToPoint(s.X, 0);
+                integrationStartLine.AddLineToPoint(s.X, Frame.Height);
+
+                IntegrationHandleBoxes.Add(new FeatureBoundingBox(MouseOverFeatureEvent.FeatureType.IntegrationRangeMarker, integrationStartHandleBox, inj.ID, Frame.Location, 0));
+
+                var integrationEndHandleBox = new CGRect(e.X - handleHitHalfWidth, 0, 2 * handleHitHalfWidth, Frame.Height);
+                var integrationEndLine = new CGPath();
+                integrationEndLine.MoveToPoint(e.X, Frame.Height);
+                integrationEndLine.AddLineToPoint(e.X, 0);
+
+                IntegrationHandleBoxes.Add(new FeatureBoundingBox(MouseOverFeatureEvent.FeatureType.IntegrationRangeMarker, integrationEndHandleBox, inj.ID, Frame.Location, 1));
+
+                layer.Context.SetStrokeColor(color.ColorWithAlphaComponent(.25f).CGColor);
+                layer.Context.SetLineWidth(highlightThickness);
+
+                if (IsHoverFeature(MouseOverFeatureEvent.FeatureType.IntegrationRangeMarker, inj.ID, 0))
+                {
+                    layer.Context.AddPath(integrationStartLine);
+                    layer.Context.StrokePath();
+                }
+
+                if (IsHoverFeature(MouseOverFeatureEvent.FeatureType.IntegrationRangeMarker, inj.ID, 1))
+                {
+                    layer.Context.AddPath(integrationEndLine);
+                    layer.Context.StrokePath();
+                }
+
+                layer.Context.SetStrokeColor(color.ColorWithAlphaComponent(.85f).CGColor);
+                layer.Context.SetLineWidth(thickness);
+                layer.Context.AddPath(integrationStartLine);
+                layer.Context.AddPath(integrationEndLine);
+                layer.Context.StrokePath();
+            }
+
+            gc.DrawLayer(layer, Frame.Location);
+        }
+
+        public bool SetCursorInfo(CGPoint cursorpos)
+        {
+            if (Frame.Contains(cursorpos))
+            {
+                CursorInfo = new List<string>();
+
+                var xfraction = (cursorpos.X - Frame.X) / Frame.Width;
+
+                CursorPosition = xfraction * (XAxis.Max - XAxis.Min) + XAxis.Min;
+                var datapoint = CursorPosition > ExperimentData.DataPoints.Last().Time ? ExperimentData.DataPoints.Last() : ExperimentData.DataPoints.First(dp => dp.Time > CursorPosition);
+                var clickedinj = ExperimentData.Injections.Where(inj => inj.IntegrationStartTime < datapoint.Time && inj.IntegrationEndTime + 1 > datapoint.Time);
+
+                if (clickedinj.Count() > 0)
+                {
+                    var inj = clickedinj.First();
+                    string line1 = "Inj #" + (inj.ID + 1).ToString() + " | ";
+                    if (double.IsFinite(inj.Enthalpy)) line1 += inj.Enthalpy2.ToFormattedString(AppSettings.EnergyUnit, withunit: true, permole: true);
+                    else line1 += (1000000 * inj.PeakArea).ToString() + " µJ";
+
+                    CursorInfo.Add(line1);
+                    CursorInfo.Add("Heat: " + inj.HeatDirection.GetEnumDescription());
+                }
+                
+                CursorInfo.Add("Time: " + datapoint.Time.ToString() + "s");
+                CursorInfo.Add("DP: " + (DataManager.Unit.IsSI() ? (datapoint.Power * 1000000).ToString("F1") + " µW" : (datapoint.Power * 1000000 * Energy.JouleToCalFactor).ToString("F1") + " µCal"));
+
+                if (ExperimentData.BaseLineCorrectedDataPoints != null && ExperimentData.BaseLineCorrectedDataPoints.Count > 0)
+                {
+                    var bldp = CursorPosition > ExperimentData.BaseLineCorrectedDataPoints.Last().Time ? ExperimentData.BaseLineCorrectedDataPoints.Last() : ExperimentData.BaseLineCorrectedDataPoints.First(dp => dp.Time > CursorPosition);
+
+                    CursorInfo.Add("∆DP: " + (DataManager.Unit.IsSI() ? (bldp.Power * 1000000).ToString("F2") + " µW" : (bldp.Power * 1000000 * Energy.JouleToCalFactor).ToString("F2") + " µCal"));
+                }
+            }
+            else return false;
+
+            return true;
+        }
+
+        public override MouseOverFeatureEvent CursorFeatureFromPos(CGPoint cursorpos, bool isclick = false, bool ismouseup = false)
+        {
+            foreach (var handle in SplineHandlePoints)
+                if (handle.CursorInBox(cursorpos)) return MouseOverFeatureEvent.BoundboxFeature(handle, cursorpos); //return new MouseOverFeatureEvent(handle);
+
+            foreach (var point in SplinePoints)
+                if (point.CursorInBox(cursorpos)) return MouseOverFeatureEvent.BoundboxFeature(point, cursorpos); //return new MouseOverFeatureEvent(point);
+
+            foreach (var handle in IntegrationHandleBoxes)
+                if (handle.CursorInBox(cursorpos)) return MouseOverFeatureEvent.BoundboxFeature(handle, cursorpos); //return new MouseOverFeatureEvent(handle);
+
+            foreach (var handle in IntegrationHandleBoxes)
+                if (handle.ProximityX(cursorpos, 3)) return MouseOverFeatureEvent.BoundboxFeature(handle, cursorpos); //return new MouseOverFeatureEvent(handle);
+
+            if (isclick) return MouseOverFeatureEvent.MouseDragZoom(this, cursorpos);
+            else return new MouseOverFeatureEvent();
+        }
+    }
+
+    public class ThermogramGraph : CGGraph
+    { 
+        protected int mDownID = -1;
+        protected int mOverFeature = -1;
+
+        public static CGSize ErrorBarEndWidth => new CGSize(CGGraph.SymbolSize / 2, 0);
+        public float InjectionSymbolSize { get; set; } = CGGraph.SymbolSize;
+        protected CGSize InjectionErrorBarEndWidth => new CGSize(InjectionSymbolSize / 2, 0);
+        public LineSmoothness FitLineSmoothnessSetting { get; set; } = LineSmoothness.Spline;
+
+        public ThermogramGraph(ExperimentData experiment, NSView view) : base(experiment, view)
+        {
+        }
+
+        internal MouseOverFeatureEvent CursorFeatureFromInjectionPoints(
+            CGPoint cursorpos,
+            Func<InjectionData, CGPoint> getLocalPosition,
+            CGGraph tooltipGraph,
+            bool isclick,
+            bool ismouseup,
+            out bool isDirectHit)
+        {
+            foreach (var inj in ExperimentData.Injections)
+            {
+                var handleScreenPos = getLocalPosition(inj) + new CGSize(Origin);
+
+                if (Math.Abs(cursorpos.X - 2 - handleScreenPos.X) < 5.5 &&
+                    Math.Abs(cursorpos.Y + 1 - handleScreenPos.Y) < 5.5)
+                {
+                    if (isclick) mDownID = inj.ID;
+                    else if (ismouseup && mDownID == inj.ID)
+                    {
+                        inj.ToggleDataPointActive();
+                        mOverFeature = -1;
+                    }
+
+                    mOverFeature = inj.ID;
+                    isDirectHit = true;
+                    return new MouseOverFeatureEvent(inj, tooltipGraph);
+                }
+            }
+
+            isDirectHit = false;
+
+            if (isclick) mDownID = -1;
+            if (mOverFeature != -1)
+            {
+                var e = new MouseOverFeatureEvent()
+                {
+                    FeatureID = mOverFeature
+                };
+                mOverFeature = -1;
+                return e;
+            }
+
+            return new MouseOverFeatureEvent();
+        }
+
+        protected virtual void SetupAxes()
+        {
+
+        }
+
+        protected void DrawZero(CGContext gc)
+        {
+            CGLayer layer = CGLayer.Create(gc, Frame.Size);
+
+            var zero = new CGPath();
+            zero.MoveToPoint(GetRelativePosition(XAxis.Min, 0));
+            zero.AddLineToPoint(GetRelativePosition(XAxis.Max, 0));
+            layer.Context.AddPath(zero);
+            layer.Context.SetStrokeColor(SecondaryLineColor);
+            layer.Context.SetLineWidth(1);
+            layer.Context.StrokePath();
+
+            gc.DrawLayer(layer, Frame.Location);
+        }
+
+        protected void DrawGrid(CGContext gc)
+        {
+            var yticks = YAxis.GetValidTicks(false).Item1;
+            var xticks = XAxis.GetValidTicks(false).Item1;
+
+            var grid = new CGPath();
+
+            foreach (var t in yticks.Where(v => v != 0))
+            {
+                var y = GetRelativePosition(0, t / YAxis.ValueFactor).Y;
+
+                grid.MoveToPoint(0, y);
+                grid.AddLineToPoint(PlotSize.Width, y);
+            }
+
+            foreach (var t in xticks)
+            {
+                var x = GetRelativePosition(t / XAxis.ValueFactor, 0).X;
+
+                grid.MoveToPoint(x, 0);
+                grid.AddLineToPoint(x, PlotSize.Height);
+            }
+
+            CGLayer layer = CGLayer.Create(gc, Frame.Size);
+            layer.Context.SetLineWidth(1);
+            layer.Context.SetStrokeColor(TertiaryLineColor);
+            layer.Context.SetLineDash(3, new nfloat[] { 10 });
+            layer.Context.AddPath(grid);
+            layer.Context.StrokePath();
+
+            gc.DrawLayer(layer, Frame.Location);
+        }
+    }
+
+    public class DataFittingGraph : ThermogramGraph
+    {
+        private bool _useUnifiedAxes = false;
+        private bool _useUnifiedEnthalpyAxis = false;
+        private bool _focusvaliddata = true;
+        private bool _drawWithOffset = true;
+
+        public bool DrawConfidenceBands { get; set; } = true;
+        public bool ShowFitParameters { get; set; } = true;
+        public int ParameterFontSize { get; set; } = 18;
+        public bool DrawWithOffset
+        {
+            get => _drawWithOffset;
+            set
+            {
+                if (_drawWithOffset == value) return;
+                _drawWithOffset = value;
+                if (XAxis != null && YAxis != null) SetupAxes();
+            }
+        }
+        public bool ShowGrid { get; set; } = true;
+        public bool ShowZero { get; set; } = true;
+        public bool ShowPeakInfo { get; set; } = true;
+        public bool ShowErrorBars { get; set; } = true;
+        public bool HideBadData { get; set; } = false;
+        public bool HideBadDataErrorBars { get; set; } = true;
+        public SymbolShape InjectionSymbolShape { get; set; } = SymbolShape.Square;
+        public InformationBoxPlacement InformationBoxPlacement { get; set; } = InformationBoxPlacement.Auto;
+
+        public FinalFigureDisplayParameters FinalFigureDisplayParameters { get; set; } = FinalFigureDisplayParameters.All;
+        public FinalFigureDisplayParameters AnalysisDisplayParameters { get; set; } = FinalFigureDisplayParameters.AnalysisView;
+
+        public ResidualGraph ResidualGraph { get; set; }
+        public ResidualGraphOptions ResidualDisplayOptions { get; private set; }
+
+        public bool UnifiedMolarRatioAxis { get => _useUnifiedAxes; set { _useUnifiedAxes = value; SetupAxes(); } }
+        public bool UnifiedEnthalpyAxis { get => _useUnifiedEnthalpyAxis; set { _useUnifiedEnthalpyAxis = value; SetupAxes(); } }
+        public bool AutoAxesFocusesIncludedOnly { get => _focusvaliddata; set { _focusvaliddata = value; SetupAxes(); } }
+
+        bool ShowBadData => !HideBadData;
+        bool AutoAxesIncludesBadData => (!AutoAxesFocusesIncludedOnly && ShowBadData);
+
+        public CGPoint GetCompositeOrigin()
+        {
+            if (ResidualDisplayOptions.ShowResidualGraph) return ResidualGraph.Origin;
+            else return base.Origin;
+        }
+
+        public DataFittingGraph(ExperimentData experiment, NSView view) : base(experiment, view)
+        {
+            XAxis = new GraphAxis(this, 0, 1);
+            XAxis.SetWithBuffer(0, Math.Max(Math.Floor(XAxis.Max + 0.33f), XAxis.Max), 0.05);
+            XAxis.UseNiceAxis = false;
+            XAxis.LegendTitle = GraphAxis.GetXAxisTitle(experiment);
+            XAxis.DecimalPoints = 1;
+            XAxis.MirrorTicks = true;
+            XAxis.TickScale.SetMaxTicks(7);
+            XAxis.ValueFactor = GraphAxis.GetXAxisScaleFactor(experiment);
+
+            YAxis = new GraphAxis(this, 0, 1);
+            YAxis.UseNiceAxis = false;
+            YAxis.MirrorTicks = true;
+            YAxis.HideUnwantedTicks = false;
+            YAxis.LegendTitle = AppSettings.EnergyUnit.GetUnit() + "/mol of injectant";
+            YAxis.ValueFactor = Energy.ScaleFactor(AppSettings.EnergyUnit);
+
+            SetupAxes();
+
+            ResidualGraph = new ResidualGraph(this);
+            ResidualDisplayOptions = new ResidualGraphOptions();
+        }
+
+        public override CGRect GetTrackingFrame()
+        {
+            if (ResidualDisplayOptions != null && ResidualDisplayOptions.ShowResidualGraph && ResidualGraph != null)
+            {
+                // Compute the union of the fit graph frame and the residual graph frame.
+                var fitFrame = base.Frame;
+                var resFrame = ResidualGraph.Frame;
+                return CGRect.Union(fitFrame, resFrame);
+            }
+            return base.Frame;
+        }
+
+        protected override void SetupAxes()
+        {
+            XAxis.LegendTitle = GraphAxis.GetXAxisTitle(ExperimentData);
+            XAxis.ValueFactor = GraphAxis.GetXAxisScaleFactor(ExperimentData);
+
+            if (UnifiedMolarRatioAxis && DataManager.IncludedData.Count() > 0)
+            {
+                var xmax = DataManager.IncludedData.Max(d => d.Injections.Last().Ratio);
+                XAxis.SetWithBuffer(0, xmax, 0.05);
+            }
+            else XAxis.SetWithBuffer(0, ExperimentData.Injections.Last().Ratio, 0.05);
+            
+            if (UnifiedEnthalpyAxis && DataManager.IncludedData.Count() > 0)
+            {
+                var minmax = GetMinMaxEnthalpy(DataManager.IncludedData);
+                YAxis.SetWithBuffer(minmax[0], minmax[1], 0.1);
+            }
+            else
+            {
+                var minmax = GetMinMaxEnthalpy(new ExperimentData[] { ExperimentData });
+                YAxis.SetWithBuffer(minmax[0], minmax[1], 0.1);
+            }
+
+            XAxis.SetWithBuffer(0, Math.Max(Math.Floor(XAxis.Max + 0.33f), XAxis.Max), 0.05);
+        }
+
+        double[] GetMinMaxEnthalpy(IEnumerable<ExperimentData> includeddata)
+        {
+            var evals = new List<double>();
+
+            foreach (var data in includeddata)
+                if (data.Solution != null)
+                    for (int i = 0; i < data.InjectionCount; i++)
+                        evals.Add(data.Model.EvaluateEnthalpy(i, withoffset: DrawWithOffset));
+
+            // Consider only data points which were included for fitting, or if we explicitly show bad data
+            var maxpoints = includeddata.Select(d => d.Injections.Where(inj => inj.Include || AutoAxesIncludesBadData).Max(inj => DrawWithOffset ? inj.Enthalpy : inj.OffsetEnthalpy));
+            var minpoints = includeddata.Select(d => d.Injections.Where(inj => inj.Include || AutoAxesIncludesBadData).Min(inj => DrawWithOffset ? inj.Enthalpy : inj.OffsetEnthalpy));
+
+            if (evals.Count(v => double.IsFinite(v)) == 0) evals = new List<double> { 0 };
+            if (maxpoints.Count(v => double.IsFinite(v)) == 0) maxpoints = new double[] { 0 };
+            if (minpoints.Count(v => double.IsFinite(v)) == 0) minpoints = new double[] { 0 };
+
+            var max = Math.Max(maxpoints.Max(), evals.Max());
+            var min = Math.Min(minpoints.Min(), evals.Min());
+
+            return new double[] { Math.Min(min, 0), Math.Max(max, 0) };
+        }
+
+        public override void AutoSetFrame()
+        {
+            var ymargin = YAxis.EstimateLabelMargin();
+            var xmargin = XAxis.EstimateLabelMargin();
+
+            var viable_height = View.Frame.Height - xmargin - 5;
+            var viable_width = View.Frame.Width - ymargin - 5;
+
+            SetFrame(new CGSize(viable_width, viable_height), new CGPoint(ymargin, xmargin));
+        }
+
+        public void SetFrame(CGSize viable_size, CGPoint origin)
+        {
+            var ymargin = origin.X;
+            var xmargin = origin.Y;
+
+            var viable_height = viable_size.Height;
+            var viable_width = viable_size.Width;
+
+            if (ResidualDisplayOptions.ShowResidualGraph)
+            {
+                var frac = ResidualDisplayOptions.ResidualFraction;
+                var fit_plot_height = viable_height * (1 - frac);
+                var res_plot_height = viable_height * (frac);
+                var origin_x = ymargin;
+                var origin_y_fit = xmargin + res_plot_height;
+                var origin_y_res = xmargin;
+
+                if (ResidualDisplayOptions.GapGraphs) res_plot_height -= ResidualDisplayOptions.GapSize;
+
+                base.PlotSize = new CGSize(viable_width, fit_plot_height);
+                base.Origin = new CGPoint(origin_x, origin_y_fit);
+
+                ResidualGraph.PlotSize = new CGSize(viable_width, res_plot_height);
+                ResidualGraph.Origin = new CGPoint(origin_x, origin_y_res);
+
+                XAxis.HideLabels = true;
+            }
+            else
+            {
+                base.PlotSize = viable_size;
+                base.Origin = origin;
+
+                XAxis.HideLabels = false;
+            }
+        }
+
+        internal override void Draw(CGContext gc)
+        {
+            base.Draw(gc);
+
+            if (ShowGrid) DrawGrid(gc);
+
+            if (ShowZero) DrawZero(gc);
+
+            if (ExperimentData.Solution != null)
+            {
+                if (DrawConfidenceBands) DrawConfidenceInterval(gc);
+                DrawFit(gc);
+            }
+
+            if (ExperimentData.Processor.IntegrationCompleted) DrawInjectionsPoints(gc);
+
+            XAxis.Draw(gc);
+            YAxis.Draw(gc);
+
+            if (ShowFitParameters && ExperimentData.Solution != null) DrawParameters(gc);
+
+            // Draw the residual graph after the fit graph, if enabled.
+            if (ResidualDisplayOptions.ShowResidualGraph) ResidualGraph.PrepareDraw(gc, Center);
+        }
+
+        void DrawInjectionsPoints(CGContext gc)
+        {
+            var layer = CGLayer.Create(gc, Frame.Size);
+            var points = new List<CGPoint>();
+            var inv_points = new List<CGPoint>();
+            var infolayer = CGLayer.Create(gc, Frame.Size);
+            infolayer.Context.SetFillColor(StrokeColor);
+            var bars = new CGPath();
+
+            foreach (var inj in ExperimentData.Injections)
+            {
+                if (HideBadData && !inj.Include) continue; //Ignore datapoint if 'bad' and hidebaddata is true
+
+                var enthalpy = DrawWithOffset ? inj.Enthalpy : inj.OffsetEnthalpy;
+
+                var p = GetRelativePosition(inj.Ratio, enthalpy);
+                var infop = p;
+
+                if ((ShowPeakInfo || ShowErrorBars) && !(HideBadDataErrorBars && !inj.Include))
+                {
+                    var etop = GetRelativePosition(inj.Ratio, enthalpy - inj.SD);
+                    var ebottom = GetRelativePosition(inj.Ratio, enthalpy + inj.SD);
+
+                    if (Math.Abs(etop.Y - p.Y) > InjectionSymbolSize / 2)
+                    {
+                        bars.MoveToPoint(etop);
+                        bars.AddLineToPoint(CGPoint.Add(p, new CGSize(0, InjectionSymbolSize / 2)));
+
+                        bars.MoveToPoint(ebottom);
+                        bars.AddLineToPoint(CGPoint.Subtract(p, new CGSize(0, InjectionSymbolSize / 2)));
+
+                        bars.MoveToPoint(CGPoint.Subtract(etop, InjectionErrorBarEndWidth));
+                        bars.AddLineToPoint(CGPoint.Add(etop, InjectionErrorBarEndWidth));
+
+                        bars.MoveToPoint(CGPoint.Subtract(ebottom, InjectionErrorBarEndWidth));
+                        bars.AddLineToPoint(CGPoint.Add(ebottom, InjectionErrorBarEndWidth));
+                    }
+
+                    infop = new CGPoint(ebottom.X, Math.Max(ebottom.Y, etop.Y));
+                }
+
+                if (ShowPeakInfo)
+                {
+                    DrawString(infolayer, "#" + (inj.ID + 1).ToString(), infop + new CGSize(0,10), DefaultFont, verticalalignment: TextAlignment.Bottom, textcolor: StrokeColor);
+                }
+
+                if (inj.ID == mOverFeature) DrawRectsAtPositions(
+                    layer, new CGPoint[] { p },
+                    size: 14, circle: false, fill: true, width: 0, roundedradius: 4,
+                    color: IsMouseDown ? ActivatedHighlightColor : HighlightColor);
+
+                if (inj.Include) points.Add(p);
+                else inv_points.Add(p);
+            }
+
+            layer.Context.SetFillColor(StrokeColor);
+            layer.Context.SetStrokeColor(StrokeColor);
+            layer.Context.SetLineWidth(1);
+            layer.Context.AddPath(bars);
+            layer.Context.StrokePath();
+            DrawSymbolsAtPositions(layer, points.ToArray(), InjectionSymbolSize, InjectionSymbolShape, true);
+            DrawSymbolsAtPositions(layer, inv_points.ToArray(), InjectionSymbolSize, InjectionSymbolShape, false);
+
+            gc.DrawLayer(layer, Frame.Location);
+            gc.DrawLayer(infolayer, Frame.Location);
+        }
+
+        void DrawFit(CGContext gc)
+        {
+            var points = new List<CGPoint>();
+
+            foreach (var inj in ExperimentData.Injections)
+            {
+                var x = inj.Ratio;
+                var y = ExperimentData.Model.EvaluateEnthalpy(inj.ID, withoffset: DrawWithOffset);
+
+                points.Add(GetRelativePosition(x, y));
+            }
+
+            DrawSpline(gc, points.OrderBy(p => p.X).ToArray(), 2, StrokeColor, FitLineSmoothnessSetting);
+
+            //DrawRectsAtPositions(layer, points.ToArray(), 8, true, false, color: NSColor.PlaceholderTextColor.CGColor);
+        }
+
+        void DrawParameters(CGContext gc)
+        {
+            CGLayer layer = CGLayer.Create(gc, Frame.Size);
+            layer.Context.SetStrokeColor(TertiaryLineColor);
+            layer.Context.SetLineWidth(1);
+
+            // Enthalpy line. Only makes sense for single site model.
+            var Hs = ExperimentData.Solution.GetCorrectedEnthalpyGuides();
+            if (Hs.Count == 1)
+            {
+                var H = Hs[0];
+                if (DrawWithOffset) H += ExperimentData.Solution.Offset;
+                var e1 = GetRelativePosition(XAxis.Min, H);
+                var e2 = GetRelativePosition(XAxis.Max, H);
+                var enthalpy = new CGPath();
+                enthalpy.MoveToPoint(e1);
+                enthalpy.AddLineToPoint(e2);
+                layer.Context.AddPath(enthalpy);
+            }
+
+            // Stoichiometry lines
+            var Ns = ExperimentData.Solution.GetCorrectedStoichiometryGuides();
+            foreach (var N in Ns)
+            {
+                var n1 = GetRelativePosition(N, YAxis.Min);
+                var n2 = GetRelativePosition(N, YAxis.Max);
+
+                var n = new CGPath();
+                n.MoveToPoint(n1);
+                n.AddLineToPoint(n2);
+                layer.Context.AddPath(n);
+
+                layer.Context.SetLineDash(3, new nfloat[] { 3 });
+                layer.Context.StrokePath();
+            }
+
+            gc.DrawLayer(layer, Frame.Location);
+
+            var lines = new List<string>();
+
+            var display = DrawOnWhite ? FinalFigureDisplayParameters : AnalysisDisplayParameters;
+            foreach (var par in ExperimentData.Solution.UISolutionParameters(display))
+            {
+                if (display.HasFlag(FinalFigureDisplayParameters.Model) && lines.Count == 0)
+                {
+                    lines.Add($"{par.Item1} | RMSD = {par.Item2}");
+                }
+                else
+                {
+                    lines.Add($"{par.Item1} = {par.Item2}");
+                }
+            }
+
+            var first = ExperimentData.Model.Evaluate(0, withoffset: false);
+            var last = ExperimentData.Model.Evaluate(ExperimentData.InjectionCount - 1, withoffset: false);
+
+            var position = GetParameterBoxPosition(first, last);
+
+            DrawTextBoxConsistent(gc, lines, DrawOnWhite ? new CTFont(DefaultFont.DisplayName, 12) : new CTFont(DefaultFont.DisplayName, ParameterFontSize), position);
+        }
+
+        NSRectAlignment GetParameterBoxPosition(double first, double last)
+        {
+            return InformationBoxPlacement switch
+            {
+                InformationBoxPlacement.Upper => NSRectAlignment.TopTrailing,
+                InformationBoxPlacement.Lower => NSRectAlignment.BottomTrailing,
+                _ => first > last ? NSRectAlignment.TopTrailing : NSRectAlignment.BottomTrailing,
+            };
+        }
+
+        void DrawConfidenceInterval(CGContext gc)
+        {
+            if (ExperimentData.Solution == null) return;
+            if (ExperimentData.Solution.BootstrapSolutions == null) return;
+            if (ExperimentData.Solution.BootstrapSolutions.Count == 0) return;
+
+            var top = new List<CGPoint>();
+            var bottom = new List<CGPoint>();
+
+            foreach (var inj in ExperimentData.Injections)
+            {
+                var x = inj.Ratio;
+                var y = ExperimentData.Model.EvaluateBootstrap(inj.ID, DrawWithOffset).WithConfidence();
+
+                top.Add(GetRelativePosition(x, y[0]));
+                bottom.Add(GetRelativePosition(x, y[1]));
+            }
+
+            top = top.OrderBy(p => p.X).ToList();
+            bottom = bottom.OrderBy(p => p.X).ToList();
+
+            bottom.Reverse();
+
+            CGPath path = GetSplineFromPoints(top.ToArray(), smoothness: FitLineSmoothnessSetting);
+            GetSplineFromPoints(bottom.ToArray(), path, smoothness: FitLineSmoothnessSetting);
+
+            FillPathShape(gc, path, TertiaryLineColor);
+        }
+
+        public override CGPoint GetRelativePosition(double x, double y, GraphAxis axis = null)
+        {
+            var point = base.GetRelativePosition(x, y, axis);
+
+            return point;
+        }
+
+        public override MouseOverFeatureEvent CursorFeatureFromPos(CGPoint cursorpos, bool isclick = false, bool ismouseup = false)
+        {
+            var fitEvent = CursorFeatureFromInjectionPoints(
+                cursorpos,
+                inj => GetRelativePosition(inj.Ratio, DrawWithOffset ? inj.Enthalpy : inj.OffsetEnthalpy),
+                this,
+                isclick,
+                ismouseup,
+                out bool fitHit);
+
+            MouseOverFeatureEvent residualEvent = new MouseOverFeatureEvent();
+            if (ResidualDisplayOptions.ShowResidualGraph)
+            {
+                residualEvent = ResidualGraph.CursorFeatureFromPos(cursorpos, isclick, ismouseup);
+            }
+
+            if (fitHit) return fitEvent;
+            if (residualEvent.IsMouseOverFeature) return residualEvent;
+            return fitEvent;
+        }
+
+        public class ResidualGraphOptions
+        {
+            public bool ShowResidualGraph { get; set; } = true;
+            public bool GapGraphs { get; set; } = true;
+            public float ResidualFraction { get; set; } = 0.2f;
+            public float GapSize { get; set; } = 5f;
+        }
+    }
+
+    public class ResidualGraph : ThermogramGraph
+    {
+        DataFittingGraph DataFittingGraph { get; set; }
+
+        GraphAxis ParentXAxis => DataFittingGraph.XAxis;
+        GraphAxis ParentYAxis => DataFittingGraph.YAxis;
+
+        public ResidualGraph(DataFittingGraph dataFittingGraph) : base(dataFittingGraph.ExperimentData, dataFittingGraph.View)
+        {
+            DataFittingGraph = dataFittingGraph;
+
+            XAxis = new GraphAxis(this, 0, 1);
+            XAxis.UseNiceAxis = ParentXAxis.UseNiceAxis;
+            XAxis.LegendTitle = ParentXAxis.LegendTitle;
+            XAxis.DecimalPoints = ParentXAxis.DecimalPoints;
+            XAxis.TickScale.SetMaxTicks(7);
+            XAxis.MirrorTicks = true;
+            XAxis.ValueFactor = ParentXAxis.ValueFactor;
+
+            YAxis = new GraphAxis(this, 0, 1);
+            YAxis.UseNiceAxis = ParentYAxis.UseNiceAxis;
+            YAxis.HideUnwantedTicks = ParentYAxis.HideUnwantedTicks;
+            YAxis.LegendTitle = "";
+            YAxis.ValueFactor = ParentYAxis.ValueFactor;
+            YAxis.TickScale.SetMaxTicks(3);
+            YAxis.PreferCenteredTicks = true;
+            YAxis.MirrorTicks = true;
+            YAxis.HideTitle = true;
+
+            SetupAxes();
+        }
+
+        protected override void SetupAxes()
+        {
+            XAxis.Set(ParentXAxis.ActualMin, ParentXAxis.Max);
+
+            var list = new List<ExperimentData>();
+
+            if (DataFittingGraph.UnifiedEnthalpyAxis && AppSettings.UnifyResidualGraphAxis && DataManager.IncludedData.Count() > 0) list.AddRange(DataManager.IncludedData);
+            else list.Add(ExperimentData);
+
+            var max = GetMaxResiduals(list);
+
+            YAxis.Set(-max, max);
+        }
+
+        double GetMaxResiduals(IEnumerable<ExperimentData> data)
+        {
+            var res = new List<double>();
+
+            foreach (var dat in data)
+            {
+                if (dat.Solution != null)
+                {
+                    foreach (var inj in dat.Injections.Where(IncludeInjectionInAutoAxes))
+                    {
+                        var inj_v = Math.Abs(inj.ResidualEnthalpy);
+                        var inj_min = Math.Abs(inj_v - inj.SD);
+                        var inj_max = Math.Abs(inj_v + inj.SD);
+                        if (DataFittingGraph.ShowErrorBars) res.Add(Math.Max(inj_v, Math.Min(inj_min, inj_max)));
+                        else res.Add(inj_v);
+                    }
+                }
+            }
+
+            if (res.Count > 0) return 1.5 * Math.Max(res.Max(v => Math.Abs(v)), 1E-3);
+            else return 1100;
+        }
+
+        bool ShouldDrawInjection(InjectionData inj)
+        {
+            return inj.Include || !DataFittingGraph.HideBadData;
+        }
+
+        bool IncludeInjectionInAutoAxes(InjectionData inj)
+        {
+            return inj.Include || (!DataFittingGraph.AutoAxesFocusesIncludedOnly && !DataFittingGraph.HideBadData);
+        }
+
+        public override void PrepareDraw(CGContext gc, CGPoint center)
+        {
+            SetupAxes();
+
+            DrawOnWhite = DataFittingGraph.DrawOnWhite;
+            base.SetupAxisScalingUnits();
+
+            Draw(gc);
+
+            DrawFrame(gc);
+        }
+
+        internal override void Draw(CGContext gc)
+        {
+            base.Draw(gc);
+
+            if (DataFittingGraph.ShowGrid) DrawGrid(gc);
+
+            DrawZero(gc);
+
+            if (ExperimentData.Solution != null)
+            {
+                DrawResidual(gc);
+            }
+
+            XAxis.Draw(gc);
+            YAxis.Draw(gc);
+        }
+
+        void DrawResidual(CGContext gc)
+        {
+            var layer = CGLayer.Create(gc, Frame.Size);
+            var points = new List<CGPoint>();
+            var inv_points = new List<CGPoint>();
+            var infolayer = CGLayer.Create(gc, Frame.Size);
+            infolayer.Context.SetFillColor(StrokeColor);
+            var bars = new CGPath();
+
+            foreach (var inj in ExperimentData.Injections)
+            {
+                if (!ShouldDrawInjection(inj)) continue;
+
+                var res = inj.ResidualEnthalpy;
+
+                var p = GetRelativePosition(inj.Ratio, res);
+                var infop = p;
+
+                if ((DataFittingGraph.ShowPeakInfo || DataFittingGraph.ShowErrorBars) && !(DataFittingGraph.HideBadDataErrorBars && !inj.Include))
+                {
+                    var etop = GetRelativePosition(inj.Ratio, res - inj.SD);
+                    var ebottom = GetRelativePosition(inj.Ratio, res + inj.SD);
+
+                    var symbolSize = DataFittingGraph.InjectionSymbolSize;
+                    var errorBarEndWidth = new CGSize(symbolSize / 2, 0);
+
+                    if (Math.Abs(etop.Y - p.Y) > symbolSize / 2)
+                    {
+                        bars.MoveToPoint(etop);
+                        bars.AddLineToPoint(CGPoint.Add(p, new CGSize(0, symbolSize / 2)));
+
+                        bars.MoveToPoint(ebottom);
+                        bars.AddLineToPoint(CGPoint.Subtract(p, new CGSize(0, symbolSize / 2)));
+
+                        bars.MoveToPoint(CGPoint.Subtract(etop, errorBarEndWidth));
+                        bars.AddLineToPoint(CGPoint.Add(etop, errorBarEndWidth));
+
+                        bars.MoveToPoint(CGPoint.Subtract(ebottom, errorBarEndWidth));
+                        bars.AddLineToPoint(CGPoint.Add(ebottom, errorBarEndWidth));
+                    }
+
+                    infop = new CGPoint(ebottom.X, Math.Max(ebottom.Y, etop.Y));
+                }
+
+                if (DataFittingGraph.ShowPeakInfo)
+                {
+                    DrawString(infolayer, "#" + (inj.ID + 1).ToString(), infop + new CGSize(0, 10), DefaultFont, verticalalignment: TextAlignment.Bottom, textcolor: StrokeColor);
+                }
+
+                if (inj.ID == mOverFeature) DrawRectsAtPositions(
+                    layer, new CGPoint[] { p },
+                    size: 14, circle: false, fill: true, width: 0, roundedradius: 4,
+                    color: IsMouseDown ? ActivatedHighlightColor : HighlightColor);
+
+                if (inj.Include) points.Add(p);
+                else inv_points.Add(p);
+            }
+
+            layer.Context.SetFillColor(StrokeColor);
+            layer.Context.SetStrokeColor(StrokeColor);
+            layer.Context.SetLineWidth(1);
+            layer.Context.AddPath(bars);
+            layer.Context.StrokePath();
+            DrawSymbolsAtPositions(layer, points.ToArray(), DataFittingGraph.InjectionSymbolSize, DataFittingGraph.InjectionSymbolShape, true);
+            DrawSymbolsAtPositions(layer, inv_points.ToArray(), DataFittingGraph.InjectionSymbolSize, DataFittingGraph.InjectionSymbolShape, false);
+
+            gc.DrawLayer(layer, Frame.Location);
+            gc.DrawLayer(infolayer, Frame.Location);
+        }
+
+        public override MouseOverFeatureEvent CursorFeatureFromPos(CGPoint cursorpos, bool isclick = false, bool ismouseup = false)
+        {
+            return CursorFeatureFromInjectionPoints(
+                cursorpos,
+                inj => GetRelativePosition(inj.Ratio, inj.ResidualEnthalpy),
+                DataFittingGraph,
+                isclick,
+                ismouseup,
+                out _);
+        }
+    }
+}

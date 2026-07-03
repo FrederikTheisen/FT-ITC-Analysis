@@ -1,7 +1,12 @@
 ﻿using System;
 using System.Collections.Generic;
 
-namespace AnalysisITC
+using AnalysisITC.Core.Application;
+using AnalysisITC.Core.Data;
+using AnalysisITC.Core.Numerics;
+using AnalysisITC.Core.Utilities;
+
+namespace AnalysisITC.Core.Units
 {
     public struct Energy : IComparable
     {

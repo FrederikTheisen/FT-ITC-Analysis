@@ -1,10 +1,15 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using AnalysisITC.AppClasses.AnalysisClasses;
-using AnalysisITC.Utilities;
+using AnalysisITC.Core.Analysis;
+using AnalysisITC.Core.Utilities;
 
-namespace AnalysisITC
+using AnalysisITC.Core.Application;
+using AnalysisITC.Core.Analysis.Models;
+using AnalysisITC.Core.Numerics;
+using AnalysisITC.Core.Units;
+
+namespace AnalysisITC.Core.Data
 {
     public class AnalysisResult : ITCDataContainer
     {
@@ -12,7 +17,7 @@ namespace AnalysisITC
         public GlobalModel Model => Solution.Model;
         GlobalModelParameters Options => Model.Parameters;
 
-        public bool IsAdvancedAnalysisAvailable => Model.ModelType == AppClasses.AnalysisClasses.Models.AnalysisModel.OneSetOfSites;
+        public bool IsAdvancedAnalysisAvailable => Model.ModelType == AnalysisITC.Core.Analysis.Models.AnalysisModel.OneSetOfSites;
         public bool IsTemperatureDependenceEnabled { get; private set; } = false;
         public bool IsElectrostaticsAnalysisDependenceEnabled { get; private set; } = false;
         public bool IsProtonationAnalysisEnabled { get; private set; } = false;
@@ -172,7 +177,7 @@ namespace AnalysisITC
             if (Options.Constraints.All(con => con.Value == VariableConstraint.None)) constraints += "All variables unconstrained";
             else
             {
-                bool containstwo = Model.ModelType == AppClasses.AnalysisClasses.Models.AnalysisModel.TwoSetsOfSites; // Not very flexible
+                bool containstwo = Model.ModelType == AnalysisITC.Core.Analysis.Models.AnalysisModel.TwoSetsOfSites; // Not very flexible
 
                 foreach (var con in Options.Constraints)
                 {

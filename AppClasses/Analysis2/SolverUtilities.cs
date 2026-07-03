@@ -6,7 +6,10 @@ using Accord.Math.Optimization;
 using System.Threading.Tasks;
 using MathNet.Numerics.Optimization;
 
-namespace AnalysisITC
+using AnalysisITC.Core.Application;
+using AnalysisITC.Core.Utilities;
+
+namespace AnalysisITC.Core.Analysis
 {
     public class SolverConvergence
     {

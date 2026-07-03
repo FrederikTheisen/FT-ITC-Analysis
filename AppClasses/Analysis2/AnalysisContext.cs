@@ -1,9 +1,10 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using AnalysisITC.AppClasses.AnalysisClasses.Models;
+using AnalysisITC.Core.Analysis.Models;
 
-namespace AnalysisITC.AppClasses.AnalysisClasses
+
+namespace AnalysisITC.Core.Analysis
 {
     /// <summary>
     /// An immutable snapshot of a built analysis, produced by AnalysisBuilder.

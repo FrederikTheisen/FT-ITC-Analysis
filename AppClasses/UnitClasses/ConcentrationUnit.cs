@@ -4,7 +4,11 @@ using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
 
-namespace AnalysisITC
+using AnalysisITC.Core.Application;
+using AnalysisITC.Core.Numerics;
+using AnalysisITC.Core.Utilities;
+
+namespace AnalysisITC.Core.Units
 {
     public static class ConcentrationParser
     {

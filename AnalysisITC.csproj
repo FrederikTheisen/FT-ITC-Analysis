@@ -31,7 +31,7 @@
     <UseSGen>true</UseSGen>
     <UseRefCounting>true</UseRefCounting>
     <AOTMode>None</AOTMode>
-    <LangVersion>10.0</LangVersion>
+    <LangVersion>latest</LangVersion>
     <LinkMode>None</LinkMode>
     <PackageSigningKey>3rd Party Mac Developer Installer</PackageSigningKey>
     <CodesignProvision></CodesignProvision>
@@ -54,7 +54,7 @@
     <CodeSignEntitlements>Entitlements.plist</CodeSignEntitlements>
     <LinkMode>SdkOnly</LinkMode>
     <AOTMode>None</AOTMode>
-    <LangVersion>10.0</LangVersion>
+    <LangVersion>latest</LangVersion>
     <CodesignProvision></CodesignProvision>
     <PackageSigningKey>3rd Party Mac Developer Installer</PackageSigningKey>
     <XamMacArch>x86_64,ARM64</XamMacArch>
@@ -223,191 +223,209 @@
   <ItemGroup>
     <Folder Include="Resources\" />
     <Folder Include="AppClasses\" />
-    <Folder Include="GUI\" />
-    <Folder Include="GUI\MacOS\" />
-    <Folder Include="GUI\MacOS\GraphViews\" />
-    <Folder Include="GUI\MacOS\Drawing\" />
-    <Folder Include="GUI\MacOS\ViewControllers\" />
+    <Folder Include="UI\MacOS\" />
+    <Folder Include="UI\MacOS\GraphViews\" />
+    <Folder Include="UI\MacOS\Drawing\" />
+    <Folder Include="UI\MacOS\ViewControllers\" />
     <Folder Include="AppClasses\Math\" />
-    <Folder Include="GUI\MacOS\PopOptionViewControllers\" />
+    <Folder Include="UI\MacOS\PopOptionViewControllers\" />
     <Folder Include="AppClasses\Analysis2\" />
-    <Folder Include="GUI\MacOS\CustomViews\" />
-    <Folder Include="GUI\MacOS\ListViews\" />
+    <Folder Include="UI\MacOS\CustomViews\" />
+    <Folder Include="UI\MacOS\ListViews\" />
     <Folder Include="AppClasses\Analysis2\Models\" />
     <Folder Include="AppClasses\DataClasses\" />
-    <Folder Include="GUI\MacOS\ViewControllers\SettingsViews\" />
-    <Folder Include="GUI\MacOS\ViewControllers\MainViews\" />
+    <Folder Include="UI\MacOS\ViewControllers\SettingsViews\" />
+    <Folder Include="UI\MacOS\ViewControllers\MainViews\" />
     <Folder Include="AppClasses\UnitClasses\" />
-    <Folder Include="GUI\MacOS\PopOptionViewControllers\FinalFigureOptions\" />
+    <Folder Include="UI\MacOS\PopOptionViewControllers\FinalFigureOptions\" />
     <Folder Include="AppClasses\Analysis2\Kinetics\" />
     <Folder Include="AppClasses\DataReaders\" />
     <Folder Include="AppClasses\Analysis2\AdvancedAnalysis\" />
     <Folder Include="AppClasses\DataExport\" />
     <Folder Include="AppClasses\Utils\" />
     <Folder Include="AppClasses\Properties\" />
+    <Folder Include="AppClasses\Platform\" />
+    <Folder Include="Platforms\MacOS\" />
+    <Folder Include="UI\" />
   </ItemGroup>
   <ItemGroup>
-    <None Include="Info.plist" />
-    <None Include="Entitlements.plist" />
     <None Include="packages.config" />
     <None Include="README.md" />
-    <None Include="AppClasses\DataReaders\FTITCReaderOld.cs" />
     <None Include="VERSION" />
     <None Include=".gitignore" />
+    <None Include="Info.plist" />
+    <None Include="Entitlements.plist" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="Main.cs" />
-    <Compile Include="AppDelegate.cs" />
+    <Compile Include="AppClasses\Platform\ISettingsStore.cs" />
+    <Compile Include="AppClasses\Platform\IMainThreadDispatcher.cs" />
+    <Compile Include="AppClasses\Platform\IAppEnvironment.cs" />
+    <Compile Include="AppClasses\Platform\IAppNotificationService.cs" />
+    <Compile Include="AppClasses\Platform\IImportPromptService.cs" />
+    <Compile Include="AppClasses\Platform\IExportPromptService.cs" />
+    <Compile Include="AppClasses\Platform\IFileSavePromptService.cs" />
+    <Compile Include="AppClasses\Platform\IDataValidationPromptService.cs" />
+    <Compile Include="AppClasses\Platform\ITandemImportPromptService.cs" />
+    <Compile Include="AppClasses\Platform\IClipboardService.cs" />
+    <Compile Include="AppClasses\Platform\IConfirmationPromptService.cs" />
+    <Compile Include="AppClasses\Platform\ITextDownloadService.cs" />
+    <Compile Include="AppClasses\Platform\InMemorySettingsStore.cs" />
+    <Compile Include="AppClasses\Platform\PlatformServices.cs" />
+    <Compile Include="AppClasses\DataClasses\AnalysisXAxisType.cs" />
+    <Compile Include="AppClasses\Properties\ColorScheme.cs" />
+    <Compile Include="AppClasses\Properties\LineSmoothness.cs" />
+    <Compile Include="Platforms\MacOS\MacUserDefaultsSettingsStore.cs" />
+    <Compile Include="Platforms\MacOS\MacMainThreadDispatcher.cs" />
+    <Compile Include="Platforms\MacOS\MacAppEnvironment.cs" />
+    <Compile Include="Platforms\MacOS\MacPlatformBootstrapper.cs" />
     <Compile Include="AppClasses\DocumentDirtyTracker.cs" />
     <Compile Include="AppClasses\DataProcessing.cs" />
     <Compile Include="AppClasses\DataManager.cs" />
-    <Compile Include="GUI\MacOS\GraphViews\AnalysisGraphView.cs" />
-    <Compile Include="GUI\MacOS\GraphViews\AnalysisGraphView.designer.cs">
+    <Compile Include="UI\MacOS\GraphViews\AnalysisGraphView.cs" />
+    <Compile Include="UI\MacOS\GraphViews\AnalysisGraphView.designer.cs">
       <DependentUpon>AnalysisGraphView.cs</DependentUpon>
     </Compile>
-    <Compile Include="GUI\MacOS\GraphViews\FinalFigureGraphView.cs" />
-    <Compile Include="GUI\MacOS\GraphViews\FinalFigureGraphView.designer.cs">
+    <Compile Include="UI\MacOS\GraphViews\FinalFigureGraphView.cs" />
+    <Compile Include="UI\MacOS\GraphViews\FinalFigureGraphView.designer.cs">
       <DependentUpon>FinalFigureGraphView.cs</DependentUpon>
     </Compile>
-    <Compile Include="GUI\MacOS\GraphViews\DataInfoGraphView.cs" />
-    <Compile Include="GUI\MacOS\GraphViews\DataProcessingGraphView.cs" />
-    <Compile Include="GUI\MacOS\GraphViews\DataProcessingGraphView.designer.cs">
+    <Compile Include="UI\MacOS\GraphViews\DataInfoGraphView.cs" />
+    <Compile Include="UI\MacOS\GraphViews\DataProcessingGraphView.cs" />
+    <Compile Include="UI\MacOS\GraphViews\DataProcessingGraphView.designer.cs">
       <DependentUpon>DataProcessingGraphView.cs</DependentUpon>
     </Compile>
-    <Compile Include="GUI\MacOS\GraphViews\BufferSubtractionGraphView.cs" />
-    <Compile Include="GUI\MacOS\Drawing\CGGraph.cs" />
-    <Compile Include="GUI\MacOS\Drawing\BufferSubtractionGraph.cs" />
-    <Compile Include="GUI\MacOS\Drawing\NSGraph.cs" />
-    <Compile Include="GUI\MacOS\GraphViews\GraphAxis.cs" />
-    <Compile Include="GUI\MacOS\Drawing\FinalFigure.cs" />
-    <Compile Include="GUI\MacOS\ViewControllers\SideBarViewController.cs" />
-    <Compile Include="GUI\MacOS\ViewControllers\SideBarViewController.designer.cs">
+    <Compile Include="UI\MacOS\GraphViews\BufferSubtractionGraphView.cs" />
+    <Compile Include="UI\MacOS\Drawing\CGGraph.cs" />
+    <Compile Include="UI\MacOS\Drawing\CoreGraphicsExtensions.cs" />
+    <Compile Include="UI\MacOS\Drawing\BufferSubtractionGraph.cs" />
+    <Compile Include="UI\MacOS\Drawing\NSGraph.cs" />
+    <Compile Include="UI\MacOS\Drawing\GraphAxis.cs" />
+    <Compile Include="UI\MacOS\Drawing\FinalFigure.cs" />
+    <Compile Include="UI\MacOS\ViewControllers\SideBarViewController.cs" />
+    <Compile Include="UI\MacOS\ViewControllers\SideBarViewController.designer.cs">
       <DependentUpon>SideBarViewController.cs</DependentUpon>
     </Compile>
-    <Compile Include="GUI\MacOS\ViewControllers\MainTabViewController.cs" />
-    <Compile Include="GUI\MacOS\ViewControllers\MainTabViewController.designer.cs">
+    <Compile Include="UI\MacOS\ViewControllers\MainTabViewController.cs" />
+    <Compile Include="UI\MacOS\ViewControllers\MainTabViewController.designer.cs">
       <DependentUpon>MainTabViewController.cs</DependentUpon>
     </Compile>
-    <Compile Include="GUI\MacOS\ViewControllers\MainWindowController.cs" />
-    <Compile Include="GUI\MacOS\ViewControllers\MainWindowController.designer.cs">
+    <Compile Include="UI\MacOS\ViewControllers\MainWindowController.cs" />
+    <Compile Include="UI\MacOS\ViewControllers\MainWindowController.designer.cs">
       <DependentUpon>MainWindowController.cs</DependentUpon>
     </Compile>
-    <Compile Include="GUI\MacOS\SideBarView.cs" />
-    <Compile Include="GUI\MacOS\SideBarView.designer.cs">
+    <Compile Include="UI\MacOS\SideBarView.cs" />
+    <Compile Include="UI\MacOS\SideBarView.designer.cs">
       <DependentUpon>SideBarView.cs</DependentUpon>
     </Compile>
-    <Compile Include="GUI\MacOS\Drawing\TemperatureDependenceGraph.cs" />
-    <Compile Include="AppDelegate.designer.cs">
-      <DependentUpon>AppDelegate.cs</DependentUpon>
-    </Compile>
+    <Compile Include="UI\MacOS\Drawing\TemperatureDependenceGraph.cs" />
     <Compile Include="AppClasses\Math\Distribution.cs" />
-    <Compile Include="GUI\MacOS\GraphViews\TemperatureDependenceGraphView.cs" />
-    <Compile Include="GUI\MacOS\GraphViews\TemperatureDependenceGraphView.designer.cs">
+    <Compile Include="UI\MacOS\GraphViews\TemperatureDependenceGraphView.cs" />
+    <Compile Include="UI\MacOS\GraphViews\TemperatureDependenceGraphView.designer.cs">
       <DependentUpon>TemperatureDependenceGraphView.cs</DependentUpon>
     </Compile>
-    <Compile Include="GUI\MacOS\PopOptionViewControllers\FittingOptionsPopoverViewController.cs" />
-    <Compile Include="GUI\MacOS\PopOptionViewControllers\FittingOptionsPopoverViewController.designer.cs">
+    <Compile Include="UI\MacOS\PopOptionViewControllers\FittingOptionsPopoverViewController.cs" />
+    <Compile Include="UI\MacOS\PopOptionViewControllers\FittingOptionsPopoverViewController.designer.cs">
       <DependentUpon>FittingOptionsPopoverViewController.cs</DependentUpon>
     </Compile>
-    <Compile Include="GUI\MacOS\PopOptionViewControllers\BaselineOptionsPopoverViewController.cs" />
-    <Compile Include="GUI\MacOS\PopOptionViewControllers\BaselineOptionsPopoverViewController.designer.cs">
+    <Compile Include="UI\MacOS\PopOptionViewControllers\BaselineOptionsPopoverViewController.cs" />
+    <Compile Include="UI\MacOS\PopOptionViewControllers\BaselineOptionsPopoverViewController.designer.cs">
       <DependentUpon>BaselineOptionsPopoverViewController.cs</DependentUpon>
     </Compile>
-    <Compile Include="GUI\MacOS\PopOptionViewControllers\ExperimentDetailsPopoverController.cs" />
-    <Compile Include="GUI\MacOS\PopOptionViewControllers\ExperimentDetailsPopoverController.designer.cs">
+    <Compile Include="UI\MacOS\PopOptionViewControllers\ExperimentDetailsPopoverController.cs" />
+    <Compile Include="UI\MacOS\PopOptionViewControllers\ExperimentDetailsPopoverController.designer.cs">
       <DependentUpon>ExperimentDetailsPopoverController.cs</DependentUpon>
     </Compile>
-    <Compile Include="GUI\MacOS\PopOptionViewControllers\BindingAnalysisViewController.cs" />
-    <Compile Include="GUI\MacOS\PopOptionViewControllers\BindingAnalysisViewController.designer.cs">
+    <Compile Include="UI\MacOS\PopOptionViewControllers\BindingAnalysisViewController.cs" />
+    <Compile Include="UI\MacOS\PopOptionViewControllers\BindingAnalysisViewController.designer.cs">
       <DependentUpon>BindingAnalysisViewController.cs</DependentUpon>
     </Compile>
-    <Compile Include="GUI\MacOS\TabControllerView.cs" />
-    <Compile Include="GUI\MacOS\TabControllerView.designer.cs">
+    <Compile Include="UI\MacOS\TabControllerView.cs" />
+    <Compile Include="UI\MacOS\TabControllerView.designer.cs">
       <DependentUpon>TabControllerView.cs</DependentUpon>
     </Compile>
     <Compile Include="AppClasses\Math\ErrorPropagation.cs" />
     <Compile Include="AppClasses\Analysis2\ModelFactory.cs" />
     <Compile Include="AppClasses\Analysis2\GlobalModel.cs" />
     <Compile Include="AppClasses\Analysis2\AnalysisResultUpdater.cs" />
-    <Compile Include="GUI\MacOS\CustomViews\DesignerAdjustmentView.cs" />
-    <Compile Include="GUI\MacOS\CustomViews\ParameterValueAdjustmentView.cs" />
-    <Compile Include="GUI\MacOS\ListViews\ExperimentDataViewCell.cs" />
-    <Compile Include="GUI\MacOS\ListViews\ExperimentDataViewCell.designer.cs">
+    <Compile Include="UI\MacOS\CustomViews\DesignerAdjustmentView.cs" />
+    <Compile Include="UI\MacOS\CustomViews\ParameterValueAdjustmentView.cs" />
+    <Compile Include="UI\MacOS\ListViews\ExperimentDataViewCell.cs" />
+    <Compile Include="UI\MacOS\ListViews\ExperimentDataViewCell.designer.cs">
       <DependentUpon>ExperimentDataViewCell.cs</DependentUpon>
     </Compile>
-    <Compile Include="GUI\MacOS\CustomViews\HuggingTextView.cs" />
-    <Compile Include="GUI\MacOS\CustomViews\HuggingTextView.designer.cs">
+    <Compile Include="UI\MacOS\CustomViews\HuggingTextView.cs" />
+    <Compile Include="UI\MacOS\CustomViews\HuggingTextView.designer.cs">
       <DependentUpon>HuggingTextView.cs</DependentUpon>
     </Compile>
-    <Compile Include="GUI\MacOS\CustomViews\NSMarginButton.cs" />
-    <Compile Include="GUI\MacOS\CustomViews\NSMarginButton.designer.cs">
+    <Compile Include="UI\MacOS\CustomViews\NSMarginButton.cs" />
+    <Compile Include="UI\MacOS\CustomViews\NSMarginButton.designer.cs">
       <DependentUpon>NSMarginButton.cs</DependentUpon>
     </Compile>
-    <Compile Include="GUI\MacOS\CustomViews\ModifierClickTableView.cs" />
-    <Compile Include="GUI\MacOS\ListViews\ExperimentDataSource.cs" />
-    <Compile Include="GUI\MacOS\ListViews\LoadedInjectionDataSource.cs" />
-    <Compile Include="GUI\MacOS\ListViews\ResultViewDataSource.cs" />
-    <Compile Include="GUI\MacOS\ListViews\AnalysisResultView.cs" />
-    <Compile Include="GUI\MacOS\ListViews\AnalysisResultView.designer.cs">
+    <Compile Include="UI\MacOS\CustomViews\ModifierClickTableView.cs" />
+    <Compile Include="UI\MacOS\ListViews\ExperimentDataSource.cs" />
+    <Compile Include="UI\MacOS\ListViews\LoadedInjectionDataSource.cs" />
+    <Compile Include="UI\MacOS\ListViews\ResultViewDataSource.cs" />
+    <Compile Include="UI\MacOS\ListViews\AnalysisResultView.cs" />
+    <Compile Include="UI\MacOS\ListViews\AnalysisResultView.designer.cs">
       <DependentUpon>AnalysisResultView.cs</DependentUpon>
     </Compile>
-    <Compile Include="GUI\MacOS\ListViews\ExperimentListViewController.cs" />
-    <Compile Include="GUI\MacOS\ListViews\ExperimentListViewController.designer.cs">
+    <Compile Include="UI\MacOS\ListViews\ExperimentListViewController.cs" />
+    <Compile Include="UI\MacOS\ListViews\ExperimentListViewController.designer.cs">
       <DependentUpon>ExperimentListViewController.cs</DependentUpon>
     </Compile>
-    <Compile Include="GUI\MacOS\CustomViews\AnalysisGlobalModeOptionsView.cs" />
-    <Compile Include="GUI\MacOS\CustomViews\AnalysisGlobalModeOptionsView.designer.cs">
+    <Compile Include="UI\MacOS\CustomViews\AnalysisGlobalModeOptionsView.cs" />
+    <Compile Include="UI\MacOS\CustomViews\AnalysisGlobalModeOptionsView.designer.cs">
       <DependentUpon>AnalysisGlobalModeOptionsView.cs</DependentUpon>
     </Compile>
     <Compile Include="AppClasses\StateManager.cs" />
     <Compile Include="AppClasses\StatusBarManager.cs" />
-    <Compile Include="GUI\MacOS\Drawing\ThermodynamicParameterBarPlot.cs" />
+    <Compile Include="UI\MacOS\Drawing\ThermodynamicParameterBarPlot.cs" />
     <Compile Include="AppClasses\Analysis2\Models\OneSetOfSites.cs" />
     <Compile Include="AppClasses\Analysis2\Models\TwoSetsOfSites.cs" />
-    <Compile Include="GUI\AppColors.cs" />
-    <Compile Include="GUI\MacOS\MacColors.cs" />
+    <Compile Include="UI\AppColors.cs" />
+    <Compile Include="UI\MacOS\MacColors.cs" />
     <Compile Include="AppClasses\Analysis2\Models\OneSiteIsomerization.cs" />
-    <Compile Include="GUI\MacOS\PopOptionViewControllers\AboutAppViewController.cs" />
-    <Compile Include="GUI\MacOS\PopOptionViewControllers\AboutAppViewController.designer.cs">
+    <Compile Include="UI\MacOS\PopOptionViewControllers\AboutAppViewController.cs" />
+    <Compile Include="UI\MacOS\PopOptionViewControllers\AboutAppViewController.designer.cs">
       <DependentUpon>AboutAppViewController.cs</DependentUpon>
     </Compile>
-    <Compile Include="GUI\MacOS\CustomViews\CustomDrawingSegmentedControl.cs" />
+    <Compile Include="UI\MacOS\CustomViews\CustomDrawingSegmentedControl.cs" />
     <Compile Include="AppClasses\Analysis2\Models\AnalysisModel.cs" />
     <Compile Include="AppClasses\Analysis2\Models\Models.cs" />
     <Compile Include="AppClasses\Analysis2\Models\CompetitiveBinding.cs" />
-    <Compile Include="GUI\MacOS\GraphViews\ExperimentDesignerGraphView.cs" />
-    <Compile Include="GUI\MacOS\GraphViews\ExperimentDesignerGraphView.designer.cs">
+    <Compile Include="UI\MacOS\GraphViews\ExperimentDesignerGraphView.cs" />
+    <Compile Include="UI\MacOS\GraphViews\ExperimentDesignerGraphView.designer.cs">
       <DependentUpon>ExperimentDesignerGraphView.cs</DependentUpon>
     </Compile>
-    <Compile Include="GUI\MacOS\ViewControllers\ExperimentDesignerViewController2.cs" />
-    <Compile Include="GUI\MacOS\ViewControllers\ExperimentDesignerViewController2.designer.cs">
+    <Compile Include="UI\MacOS\ViewControllers\ExperimentDesignerViewController2.cs" />
+    <Compile Include="UI\MacOS\ViewControllers\ExperimentDesignerViewController2.designer.cs">
       <DependentUpon>ExperimentDesignerViewController2.cs</DependentUpon>
     </Compile>
-    <Compile Include="GUI\MacOS\ViewControllers\ModelSelectionViewController.cs" />
-    <Compile Include="GUI\MacOS\ViewControllers\ModelSelectionViewController.designer.cs">
+    <Compile Include="UI\MacOS\ViewControllers\ModelSelectionViewController.cs" />
+    <Compile Include="UI\MacOS\ViewControllers\ModelSelectionViewController.designer.cs">
       <DependentUpon>ModelSelectionViewController.cs</DependentUpon>
     </Compile>
-    <Compile Include="GUI\MacOS\ViewControllers\AnalysisResultExporterViewController.cs" />
-    <Compile Include="GUI\MacOS\ViewControllers\AnalysisResultExporterViewController.designer.cs">
+    <Compile Include="UI\MacOS\ViewControllers\AnalysisResultExporterViewController.cs" />
+    <Compile Include="UI\MacOS\ViewControllers\AnalysisResultExporterViewController.designer.cs">
       <DependentUpon>AnalysisResultExporterViewController.cs</DependentUpon>
     </Compile>
-    <Compile Include="GUI\MacOS\CustomViews\ExportAccessoryView.cs" />
-    <Compile Include="GUI\MacOS\CustomViews\ExportAccessoryView.designer.cs">
+    <Compile Include="UI\MacOS\CustomViews\ExportAccessoryView.cs" />
+    <Compile Include="UI\MacOS\CustomViews\ExportAccessoryView.designer.cs">
       <DependentUpon>ExportAccessoryView.cs</DependentUpon>
     </Compile>
-    <Compile Include="GUI\MacOS\ExportAccessoryViewController.cs" />
-    <Compile Include="GUI\MacOS\ExportAccessoryViewController.designer.cs">
+    <Compile Include="UI\MacOS\ExportAccessoryViewController.cs" />
+    <Compile Include="UI\MacOS\ExportAccessoryViewController.designer.cs">
       <DependentUpon>ExportAccessoryViewController.cs</DependentUpon>
     </Compile>
-    <Compile Include="GUI\MacOS\CustomViews\OptionAdjustmentView.cs" />
-    <Compile Include="GUI\MacOS\AnalysisResultValidityPresentation.cs" />
-    <Compile Include="GUI\MacOS\MacStrings.cs" />
-    <Compile Include="GUI\AppStrings.cs" />
-    <Compile Include="GUI\MacOS\CustomViews\ExperimentAttributeView.cs" />
-    <Compile Include="GUI\MacOS\CustomViews\ExperimentAttributeView.designer.cs">
+    <Compile Include="UI\MacOS\CustomViews\OptionAdjustmentView.cs" />
+    <Compile Include="UI\MacOS\AnalysisResultValidityPresentation.cs" />
+    <Compile Include="UI\MacOS\MacStrings.cs" />
+    <Compile Include="AppClasses\Utils\AppStrings.cs" />
+    <Compile Include="UI\MacOS\CustomViews\ExperimentAttributeView.cs" />
+    <Compile Include="UI\MacOS\CustomViews\ExperimentAttributeView.designer.cs">
       <DependentUpon>ExperimentAttributeView.cs</DependentUpon>
     </Compile>
-    <Compile Include="GUI\MacOS\Drawing\ParameterDependenceGraph.cs" />
+    <Compile Include="UI\MacOS\Drawing\ParameterDependenceGraph.cs" />
     <Compile Include="AppClasses\DataClasses\ExperimentData.cs" />
     <Compile Include="AppClasses\DataClasses\BufferSubtraction.cs" />
     <Compile Include="AppClasses\DataClasses\PeakShapeIntegrationEstimator.cs" />
@@ -416,49 +434,49 @@
     <Compile Include="AppClasses\DataClasses\ITCInstrument.cs" />
     <Compile Include="AppClasses\DataClasses\AnalysisResult.cs" />
     <Compile Include="AppClasses\DataClasses\AnalysisResultValiditySnapshot.cs" />
-    <Compile Include="GUI\MacOS\GraphViews\ResultGraphView.cs" />
-    <Compile Include="GUI\MacOS\GraphViews\ResultGraphView.designer.cs">
+    <Compile Include="UI\MacOS\GraphViews\ResultGraphView.cs" />
+    <Compile Include="UI\MacOS\GraphViews\ResultGraphView.designer.cs">
       <DependentUpon>ResultGraphView.cs</DependentUpon>
     </Compile>
-    <Compile Include="GUI\MacOS\ViewControllers\SettingsViews\FittingPreferencesViewController.cs" />
-    <Compile Include="GUI\MacOS\ViewControllers\SettingsViews\FittingPreferencesViewController.designer.cs">
+    <Compile Include="UI\MacOS\ViewControllers\SettingsViews\FittingPreferencesViewController.cs" />
+    <Compile Include="UI\MacOS\ViewControllers\SettingsViews\FittingPreferencesViewController.designer.cs">
       <DependentUpon>FittingPreferencesViewController.cs</DependentUpon>
     </Compile>
-    <Compile Include="GUI\MacOS\ViewControllers\SettingsViews\GeneralSettingsViewController.cs" />
-    <Compile Include="GUI\MacOS\ViewControllers\SettingsViews\GeneralSettingsViewController.designer.cs">
+    <Compile Include="UI\MacOS\ViewControllers\SettingsViews\GeneralSettingsViewController.cs" />
+    <Compile Include="UI\MacOS\ViewControllers\SettingsViews\GeneralSettingsViewController.designer.cs">
       <DependentUpon>GeneralSettingsViewController.cs</DependentUpon>
     </Compile>
-    <Compile Include="GUI\MacOS\ViewControllers\SettingsViews\SettingsTabViewController.cs" />
-    <Compile Include="GUI\MacOS\ViewControllers\SettingsViews\ProcessingPreferencesViewController.cs" />
-    <Compile Include="GUI\MacOS\ViewControllers\SettingsViews\ProcessingPreferencesViewController.designer.cs">
+    <Compile Include="UI\MacOS\ViewControllers\SettingsViews\SettingsTabViewController.cs" />
+    <Compile Include="UI\MacOS\ViewControllers\SettingsViews\ProcessingPreferencesViewController.cs" />
+    <Compile Include="UI\MacOS\ViewControllers\SettingsViews\ProcessingPreferencesViewController.designer.cs">
       <DependentUpon>ProcessingPreferencesViewController.cs</DependentUpon>
     </Compile>
-    <Compile Include="GUI\MacOS\ViewControllers\SettingsViews\ExportPreferencesViewController.cs" />
-    <Compile Include="GUI\MacOS\ViewControllers\SettingsViews\ExportPreferencesViewController.designer.cs">
+    <Compile Include="UI\MacOS\ViewControllers\SettingsViews\ExportPreferencesViewController.cs" />
+    <Compile Include="UI\MacOS\ViewControllers\SettingsViews\ExportPreferencesViewController.designer.cs">
       <DependentUpon>ExportPreferencesViewController.cs</DependentUpon>
     </Compile>
-    <Compile Include="GUI\MacOS\ViewControllers\SettingsViews\PreferencesViewController.cs" />
-    <Compile Include="GUI\MacOS\ViewControllers\SettingsViews\PreferencesViewController.designer.cs">
+    <Compile Include="UI\MacOS\ViewControllers\SettingsViews\PreferencesViewController.cs" />
+    <Compile Include="UI\MacOS\ViewControllers\SettingsViews\PreferencesViewController.designer.cs">
       <DependentUpon>PreferencesViewController.cs</DependentUpon>
     </Compile>
-    <Compile Include="GUI\MacOS\ViewControllers\MainViews\AnalysisResultTabViewController.cs" />
-    <Compile Include="GUI\MacOS\ViewControllers\MainViews\AnalysisResultTabViewController.designer.cs">
+    <Compile Include="UI\MacOS\ViewControllers\MainViews\AnalysisResultTabViewController.cs" />
+    <Compile Include="UI\MacOS\ViewControllers\MainViews\AnalysisResultTabViewController.designer.cs">
       <DependentUpon>AnalysisResultTabViewController.cs</DependentUpon>
     </Compile>
-    <Compile Include="GUI\MacOS\ViewControllers\MainViews\DataAnalysisViewController.cs" />
-    <Compile Include="GUI\MacOS\ViewControllers\MainViews\DataAnalysisViewController.designer.cs">
+    <Compile Include="UI\MacOS\ViewControllers\MainViews\DataAnalysisViewController.cs" />
+    <Compile Include="UI\MacOS\ViewControllers\MainViews\DataAnalysisViewController.designer.cs">
       <DependentUpon>DataAnalysisViewController.cs</DependentUpon>
     </Compile>
-    <Compile Include="GUI\MacOS\ViewControllers\MainViews\DataProcessingViewControllet.cs" />
-    <Compile Include="GUI\MacOS\ViewControllers\MainViews\DataProcessingViewControllet.designer.cs">
+    <Compile Include="UI\MacOS\ViewControllers\MainViews\DataProcessingViewControllet.cs" />
+    <Compile Include="UI\MacOS\ViewControllers\MainViews\DataProcessingViewControllet.designer.cs">
       <DependentUpon>DataProcessingViewControllet.cs</DependentUpon>
     </Compile>
-    <Compile Include="GUI\MacOS\ViewControllers\MainViews\ViewController.cs" />
-    <Compile Include="GUI\MacOS\ViewControllers\MainViews\ViewController.designer.cs">
+    <Compile Include="UI\MacOS\ViewControllers\MainViews\ViewController.cs" />
+    <Compile Include="UI\MacOS\ViewControllers\MainViews\ViewController.designer.cs">
       <DependentUpon>ViewController.cs</DependentUpon>
     </Compile>
-    <Compile Include="GUI\MacOS\ViewControllers\MainViews\FinalFigureViewController.cs" />
-    <Compile Include="GUI\MacOS\ViewControllers\MainViews\FinalFigureViewController.designer.cs">
+    <Compile Include="UI\MacOS\ViewControllers\MainViews\FinalFigureViewController.cs" />
+    <Compile Include="UI\MacOS\ViewControllers\MainViews\FinalFigureViewController.designer.cs">
       <DependentUpon>FinalFigureViewController.cs</DependentUpon>
     </Compile>
     <Compile Include="AppClasses\UnitClasses\TimeUnit.cs" />
@@ -467,65 +485,76 @@
     <Compile Include="AppClasses\Math\NumberStructs.cs" />
     <Compile Include="AppClasses\Math\FWEMath.cs" />
     <Compile Include="AppClasses\UnitClasses\ConcentrationUnit.cs" />
-    <Compile Include="GUI\MacOS\PopOptionViewControllers\FinalFigureOptions\FitGraphOptionPopoverViewController.cs" />
-    <Compile Include="GUI\MacOS\PopOptionViewControllers\FinalFigureOptions\FitGraphOptionPopoverViewController.designer.cs">
+    <Compile Include="UI\MacOS\PopOptionViewControllers\FinalFigureOptions\FitGraphOptionPopoverViewController.cs" />
+    <Compile Include="UI\MacOS\PopOptionViewControllers\FinalFigureOptions\FitGraphOptionPopoverViewController.designer.cs">
       <DependentUpon>FitGraphOptionPopoverViewController.cs</DependentUpon>
     </Compile>
-    <Compile Include="GUI\MacOS\PopOptionViewControllers\FinalFigureOptions\DataGraphOptionPopoverViewController.cs" />
-    <Compile Include="GUI\MacOS\PopOptionViewControllers\FinalFigureOptions\DataGraphOptionPopoverViewController.designer.cs">
+    <Compile Include="UI\MacOS\PopOptionViewControllers\FinalFigureOptions\DataGraphOptionPopoverViewController.cs" />
+    <Compile Include="UI\MacOS\PopOptionViewControllers\FinalFigureOptions\DataGraphOptionPopoverViewController.designer.cs">
       <DependentUpon>DataGraphOptionPopoverViewController.cs</DependentUpon>
     </Compile>
-    <Compile Include="GUI\MacOS\PopOptionViewControllers\FinalFigureOptions\GraphOptionsPopoverViewController.cs" />
-    <Compile Include="GUI\MacOS\PopOptionViewControllers\FinalFigureOptions\GraphOptionsPopoverViewController.designer.cs">
+    <Compile Include="UI\MacOS\PopOptionViewControllers\FinalFigureOptions\GraphOptionsPopoverViewController.cs" />
+    <Compile Include="UI\MacOS\PopOptionViewControllers\FinalFigureOptions\GraphOptionsPopoverViewController.designer.cs">
       <DependentUpon>GraphOptionsPopoverViewController.cs</DependentUpon>
     </Compile>
-    <Compile Include="GUI\MacOS\PopOptionViewControllers\FinalFigureOptions\FinalFigureOptionsController.cs" />
-    <Compile Include="GUI\MacOS\PopOptionViewControllers\FinalFigureOptions\ExportPopViewController.cs" />
-    <Compile Include="GUI\MacOS\PopOptionViewControllers\FinalFigureOptions\ExportPopViewController.designer.cs">
+    <Compile Include="UI\MacOS\PopOptionViewControllers\FinalFigureOptions\FinalFigureOptionsController.cs" />
+    <Compile Include="UI\MacOS\PopOptionViewControllers\FinalFigureOptions\ExportPopViewController.cs" />
+    <Compile Include="UI\MacOS\PopOptionViewControllers\FinalFigureOptions\ExportPopViewController.designer.cs">
       <DependentUpon>ExportPopViewController.cs</DependentUpon>
     </Compile>
-    <Compile Include="GUI\MacOS\MacSupport.cs" />
-    <Compile Include="GUI\MacOS\ConfirmationDialog.cs" />
+    <Compile Include="UI\MacOS\MacSupport.cs" />
+    <Compile Include="UI\MacOS\MacAppNotificationService.cs" />
+    <Compile Include="UI\MacOS\MacClipboardService.cs" />
+    <Compile Include="UI\MacOS\MacConfirmationPromptService.cs" />
+    <Compile Include="UI\MacOS\MacDataReader.cs" />
+    <Compile Include="UI\MacOS\MacExportPromptService.cs" />
+    <Compile Include="UI\MacOS\MacFileSavePromptService.cs" />
+    <Compile Include="UI\MacOS\MacDataValidationPromptService.cs" />
+    <Compile Include="UI\MacOS\MacITCFormatTypes.cs" />
+    <Compile Include="UI\MacOS\MacImportPromptService.cs" />
+    <Compile Include="UI\MacOS\MacSettingsApplier.cs" />
+    <Compile Include="UI\MacOS\MacTandemImportPromptService.cs" />
+    <Compile Include="UI\MacOS\ConfirmationDialog.cs" />
     <Compile Include="AppClasses\Analysis2\Models\TwoCompetingSites.cs" />
     <Compile Include="AppClasses\Analysis2\Kinetics\KineticModel.cs" />
-    <Compile Include="GUI\MacOS\CustomViews\AutoExpandingTextView2.cs" />
-    <Compile Include="GUI\MacOS\CustomViews\AutoExpandingTextView2.designer.cs">
+    <Compile Include="UI\MacOS\CustomViews\AutoExpandingTextView2.cs" />
+    <Compile Include="UI\MacOS\CustomViews\AutoExpandingTextView2.designer.cs">
       <DependentUpon>AutoExpandingTextView2.cs</DependentUpon>
     </Compile>
     <Compile Include="AppClasses\TandemConcatenationTool.cs" />
     <Compile Include="AppClasses\TandemMixingScan.cs" />
-    <Compile Include="GUI\MacOS\ListViews\ExperimentMergerListViewCell.cs" />
-    <Compile Include="GUI\MacOS\ListViews\ExperimentMergerListViewCell.designer.cs">
+    <Compile Include="UI\MacOS\ListViews\ExperimentMergerListViewCell.cs" />
+    <Compile Include="UI\MacOS\ListViews\ExperimentMergerListViewCell.designer.cs">
       <DependentUpon>ExperimentMergerListViewCell.cs</DependentUpon>
     </Compile>
-    <Compile Include="GUI\MacOS\ViewControllers\ExperimentMergerViewController.cs" />
-    <Compile Include="GUI\MacOS\ViewControllers\ExperimentMergerViewController.designer.cs">
+    <Compile Include="UI\MacOS\ViewControllers\ExperimentMergerViewController.cs" />
+    <Compile Include="UI\MacOS\ViewControllers\ExperimentMergerViewController.designer.cs">
       <DependentUpon>ExperimentMergerViewController.cs</DependentUpon>
     </Compile>
     <Compile Include="AppClasses\Analysis2\Models\Dissociation.cs" />
-    <Compile Include="GUI\MacOS\CustomViews\ToggleSelectTableView.cs" />
-    <Compile Include="GUI\MacOS\CustomViews\ToggleSelectTableView.designer.cs">
+    <Compile Include="UI\MacOS\CustomViews\ToggleSelectTableView.cs" />
+    <Compile Include="UI\MacOS\CustomViews\ToggleSelectTableView.designer.cs">
       <DependentUpon>ToggleSelectTableView.cs</DependentUpon>
     </Compile>
-    <Compile Include="GUI\MacOS\HelpViewController.cs" />
-    <Compile Include="GUI\MacOS\HelpViewController.designer.cs">
+    <Compile Include="UI\MacOS\HelpViewController.cs" />
+    <Compile Include="UI\MacOS\HelpViewController.designer.cs">
       <DependentUpon>HelpViewController.cs</DependentUpon>
     </Compile>
-    <Compile Include="GUI\MacOS\HelpDocumentView.cs" />
-    <Compile Include="GUI\MacOS\AppWindow.cs" />
-    <Compile Include="GUI\MacOS\AppWindow.designer.cs">
+    <Compile Include="UI\MacOS\HelpDocumentView.cs" />
+    <Compile Include="UI\MacOS\AppWindow.cs" />
+    <Compile Include="UI\MacOS\AppWindow.designer.cs">
       <DependentUpon>AppWindow.cs</DependentUpon>
     </Compile>
-    <Compile Include="GUI\MacOS\Drawing\AnalysisFigure.cs" />
-    <Compile Include="GUI\MacOS\Drawing\AnalysisGraph.cs" />
+    <Compile Include="UI\MacOS\Drawing\AnalysisFigure.cs" />
+    <Compile Include="UI\MacOS\Drawing\AnalysisGraph.cs" />
     <Compile Include="AppClasses\Analysis2\Solver2.cs" />
-    <Compile Include="GUI\MacOS\TechnicalDetailsViewController.cs" />
-    <Compile Include="GUI\MacOS\TechnicalDetailsViewController.designer.cs">
+    <Compile Include="UI\MacOS\TechnicalDetailsViewController.cs" />
+    <Compile Include="UI\MacOS\TechnicalDetailsViewController.designer.cs">
       <DependentUpon>TechnicalDetailsViewController.cs</DependentUpon>
     </Compile>
     <Compile Include="AppClasses\Math\Statistics.cs" />
-    <Compile Include="GUI\MacOS\ViewControllers\BufferSubtractionTool.cs" />
-    <Compile Include="GUI\MacOS\ViewControllers\BufferSubtractionTool.designer.cs">
+    <Compile Include="UI\MacOS\ViewControllers\BufferSubtractionTool.cs" />
+    <Compile Include="UI\MacOS\ViewControllers\BufferSubtractionTool.designer.cs">
       <DependentUpon>BufferSubtractionTool.cs</DependentUpon>
     </Compile>
     <Compile Include="AppClasses\DataClasses\BufferRegistry.cs" />
@@ -540,11 +569,11 @@
     <Compile Include="AppClasses\DataReaders\DataValidator.cs" />
     <Compile Include="AppClasses\DataClasses\AnalysisResultNameParser.cs" />
     <Compile Include="AppClasses\DataClasses\ITCDataContainer.cs" />
-    <Compile Include="GUI\MacOS\CitationUI.cs" />
-    <Compile Include="GUI\MacOS\CustomViews\ValueWithErrorTextField.cs" />
+    <Compile Include="UI\MacOS\CitationUI.cs" />
+    <Compile Include="UI\MacOS\CustomViews\ValueWithErrorTextField.cs" />
     <Compile Include="AppClasses\Analysis2\Models\OneSetOfSitesSyringeUncertaintyModel.cs" />
     <Compile Include="AppClasses\DataClasses\Stoichiometry.cs" />
-    <Compile Include="GUI\MacOS\StoichiometryBuilder.cs" />
+    <Compile Include="UI\MacOS\StoichiometryBuilder.cs" />
     <Compile Include="AppClasses\DataClasses\InjectionData.cs" />
     <Compile Include="AppClasses\DataClasses\DataPoint.cs" />
     <Compile Include="AppClasses\Analysis2\ExperimentAttribute.cs" />
@@ -560,35 +589,35 @@
     <Compile Include="AppClasses\DataExport\AnalysisResultTableExporter.cs" />
     <Compile Include="AppClasses\DataExport\ExportType.cs" />
     <Compile Include="AppClasses\Utils\EnumExtensions.cs" />
-    <Compile Include="AppClasses\Utils\GUIutils.cs" />
+    <Compile Include="UI\MacOS\Drawing\GUIutils.cs" />
     <Compile Include="AppClasses\Utils\StringParsers.cs" />
     <Compile Include="AppClasses\Properties\AppSettings.cs" />
     <Compile Include="AppClasses\Properties\AppVersion.cs" />
     <Compile Include="AppClasses\Properties\AssemblyInfo.cs" />
     <Compile Include="AppClasses\Utils\CitationManager.cs" />
     <Compile Include="AppClasses\Utils\Logger.cs" />
-    <Compile Include="GUI\MacOS\CustomViews\ScrollHintFadeView.cs" />
-    <Compile Include="GUI\MacOS\CustomViews\ScrollHintFadeView.designer.cs">
+    <Compile Include="UI\MacOS\CustomViews\ScrollHintFadeView.cs" />
+    <Compile Include="UI\MacOS\CustomViews\ScrollHintFadeView.designer.cs">
       <DependentUpon>ScrollHintFadeView.cs</DependentUpon>
     </Compile>
-    <Compile Include="GUI\MacOS\CustomViews\FadingScrollView.cs" />
-    <Compile Include="GUI\MacOS\CustomViews\FadingScrollView.designer.cs">
+    <Compile Include="UI\MacOS\CustomViews\FadingScrollView.cs" />
+    <Compile Include="UI\MacOS\CustomViews\FadingScrollView.designer.cs">
       <DependentUpon>FadingScrollView.cs</DependentUpon>
     </Compile>
-    <Compile Include="GUI\MacOS\EnergyUnitPrompt.cs" />
-    <Compile Include="GUI\MacOS\CustomViews\TextInputMeniItemView.cs" />
-    <Compile Include="GUI\MacOS\CustomViews\TextInputMeniItemView.designer.cs">
+    <Compile Include="UI\MacOS\EnergyUnitPrompt.cs" />
+    <Compile Include="UI\MacOS\CustomViews\TextInputMeniItemView.cs" />
+    <Compile Include="UI\MacOS\CustomViews\TextInputMeniItemView.designer.cs">
       <DependentUpon>TextInputMeniItemView.cs</DependentUpon>
     </Compile>
-    <Compile Include="GUI\MacOS\CustomViews\AttributeCopyTargetTokenView.cs" />
-    <Compile Include="GUI\MacOS\CustomViews\AttributeCopyTargetTokenView.designer.cs">
+    <Compile Include="UI\MacOS\CustomViews\AttributeCopyTargetTokenView.cs" />
+    <Compile Include="UI\MacOS\CustomViews\AttributeCopyTargetTokenView.designer.cs">
       <DependentUpon>AttributeCopyTargetTokenView.cs</DependentUpon>
     </Compile>
-    <Compile Include="GUI\MacOS\GuideHintViewController2.cs" />
-    <Compile Include="GUI\MacOS\GuideHintViewController2.designer.cs">
+    <Compile Include="UI\MacOS\GuideHintViewController2.cs" />
+    <Compile Include="UI\MacOS\GuideHintViewController2.designer.cs">
       <DependentUpon>GuideHintViewController2.cs</DependentUpon>
     </Compile>
-    <Compile Include="GUI\MacOS\GuideHintViewController.designer.cs">
+    <Compile Include="UI\MacOS\GuideHintViewController.designer.cs">
       <DependentUpon>GuideHintViewController.cs</DependentUpon>
     </Compile>
     <Compile Include="AppClasses\Math\IonicStrengthDependence.cs" />
@@ -597,9 +626,14 @@
     <Compile Include="AppClasses\Analysis2\AnalysisWorkspace.cs" />
     <Compile Include="AppClasses\Analysis2\AnalysisContext.cs" />
     <Compile Include="AppClasses\Analysis2\ModelCloneOptions.cs" />
+    <Compile Include="UI\MacOS\AppDelegate.cs" />
+    <Compile Include="UI\MacOS\AppDelegate.designer.cs">
+      <DependentUpon>AppDelegate.cs</DependentUpon>
+    </Compile>
+    <Compile Include="UI\MacOS\Main.cs" />
   </ItemGroup>
   <ItemGroup>
-    <InterfaceDefinition Include="Main.storyboard" />
+    <InterfaceDefinition Include="UI\MacOS\Main.storyboard" />
   </ItemGroup>
   <ItemGroup>
     <BundleResource Include="Resources\HelpTextResource.txt" />
@@ -608,7 +642,7 @@
     <BundleResource Include="Resources\AppIcon.icns" />
     <BundleResource Include="Resources\DataFileIcon.icns" />
     <BundleResource Include="Resources\ProjectFileIcon.icns" />
-    <BundleResource Include="GUI\MacOS\GuideHintViewController.cs" />
+    <BundleResource Include="UI\MacOS\GuideHintViewController.cs" />
     <BundleResource Include="citation.json" />
   </ItemGroup>
   <Import Project="$(MSBuildExtensionsPath)\Xamarin\Mac\Xamarin.Mac.CSharp.targets" />

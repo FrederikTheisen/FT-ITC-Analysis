@@ -5,9 +5,13 @@ using System.IO;
 using System.Linq;
 using System.Xml.Linq;
 using AnalysisITC;
-using Utilities;
+using AnalysisITC.Core.Utilities;
 
-namespace DataReaders
+using AnalysisITC.Core.Data;
+using AnalysisITC.Core.Numerics;
+using AnalysisITC.Core.Units;
+
+namespace AnalysisITC.Core.DataReaders
 {
     /// <summary>
     /// Reader for MicroCal PEAQ-ITC Analysis (.apj) files.

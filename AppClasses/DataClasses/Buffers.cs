@@ -3,10 +3,14 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using System.Text.RegularExpressions;
-using AnalysisITC.AppClasses.AnalysisClasses;
-using AnalysisITC.Utilities;
+using AnalysisITC.Core.Analysis;
+using AnalysisITC.Core.Utilities;
 
-namespace AnalysisITC
+using AnalysisITC.Core.Application;
+using AnalysisITC.Core.Numerics;
+using AnalysisITC.Core.Units;
+
+namespace AnalysisITC.Core.Data
 {
 	public enum Buffer
 	{

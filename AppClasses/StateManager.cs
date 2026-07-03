@@ -2,9 +2,13 @@
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Linq;
-using AnalysisITC.AppClasses.AnalysisClasses;
+using AnalysisITC.Core.Analysis;
 
-namespace AnalysisITC
+using AnalysisITC.Core.Data;
+using AnalysisITC.Core.Processing;
+using AnalysisITC.Core.Utilities;
+
+namespace AnalysisITC.Core.Application
 {
     public static class StateManager
     {
@@ -28,7 +32,7 @@ namespace AnalysisITC
         {
             get
             {
-                string status = Utilities.MarkdownStrings.AppName + " 〉" + CurrentState.GetEnumDescription().ToString();
+                string status = MarkdownStrings.AppName + " 〉" + CurrentState.GetEnumDescription().ToString();
 
                 if (currentState == ProgramState.Analyze && ModelFactory.Factory != null)
                 {
@@ -42,7 +46,7 @@ namespace AnalysisITC
                 return status;
             }          
         }
-        public static string ProgramSubStateString(ProgramSubState substate) => Utilities.MarkdownStrings.AppName + " 〉" + substate.GetEnumDescription().ToString();
+        public static string ProgramSubStateString(ProgramSubState substate) => MarkdownStrings.AppName + " 〉" + substate.GetEnumDescription().ToString();
 
         public static void Init()
         {

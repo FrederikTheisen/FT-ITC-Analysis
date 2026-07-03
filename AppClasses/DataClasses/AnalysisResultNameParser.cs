@@ -2,10 +2,14 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.RegularExpressions;
-using AnalysisITC.AppClasses.AnalysisClasses.Models;
-using AnalysisITC.AppClasses.AnalysisClasses;
+using AnalysisITC.Core.Analysis.Models;
+using AnalysisITC.Core.Analysis;
 
-namespace AnalysisITC
+using AnalysisITC.Core.Application;
+using AnalysisITC.Core.Numerics;
+using AnalysisITC.Core.Utilities;
+
+namespace AnalysisITC.Core.Data
 {
 	public static class AnalysisResultNameParser
 	{

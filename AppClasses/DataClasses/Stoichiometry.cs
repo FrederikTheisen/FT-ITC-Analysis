@@ -1,9 +1,10 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using AppKit;
 
-namespace AnalysisITC
+using AnalysisITC.Core.Utilities;
+
+namespace AnalysisITC.Core.Data
 {
     public enum StoichiometryPreset
     {

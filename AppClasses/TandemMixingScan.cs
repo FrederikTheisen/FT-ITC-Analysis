@@ -3,10 +3,15 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using System.Text;
-using AnalysisITC.AppClasses.AnalysisClasses;
-using AnalysisITC.AppClasses.AnalysisClasses.Models;
+using AnalysisITC.Core.Analysis;
+using AnalysisITC.Core.Analysis.Models;
 
-namespace AnalysisITC
+using AnalysisITC.Core.Application;
+using AnalysisITC.Core.Data;
+using AnalysisITC.Core.Numerics;
+using AnalysisITC.Core.Utilities;
+
+namespace AnalysisITC.Core.Processing
 {
     public sealed class TandemMixingScanSource
     {

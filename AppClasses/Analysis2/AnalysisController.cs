@@ -1,9 +1,12 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using AnalysisITC.AppClasses.AnalysisClasses.Models;
+using AnalysisITC.Core.Analysis.Models;
 
-namespace AnalysisITC.AppClasses.AnalysisClasses
+using AnalysisITC.Core.Data;
+using AnalysisITC.Core.Utilities;
+
+namespace AnalysisITC.Core.Analysis
 {
     /// <summary>
     /// The AnalysisCoordinator orchestrates the analysis workflow. It owns the persistent

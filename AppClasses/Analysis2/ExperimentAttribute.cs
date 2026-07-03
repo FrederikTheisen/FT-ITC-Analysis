@@ -2,7 +2,14 @@
 using System.Collections.Generic;
 using System.Linq;
 
-namespace AnalysisITC.AppClasses.AnalysisClasses
+using AnalysisITC.Core.Application;
+using AnalysisITC.Core.Data;
+using Buffer = AnalysisITC.Core.Data.Buffer;
+using AnalysisITC.Core.Numerics;
+using AnalysisITC.Core.Units;
+using AnalysisITC.Core.Utilities;
+
+namespace AnalysisITC.Core.Analysis
 {
 	public class AttributeKeyAttribute : Attribute
 	{
@@ -302,7 +309,7 @@ namespace AnalysisITC.AppClasses.AnalysisClasses
                 case AttributeKey.IonicStrength:
                     return ParameterValue.AsConcentration(ConcentrationUnit.mM);
                 case AttributeKey.BufferSubtraction:
-                    var bufferSubtraction = AnalysisITC.BufferSubtractionSettings.FromAttribute(this);
+                    var bufferSubtraction = BufferSubtractionSettings.FromAttribute(this);
                     var referenceName = experiment?.ReferenceExperiment?.Name
                         ?? DataManager.Data.FirstOrDefault(d => d.UniqueID == StringValue)?.Name
                         ?? "Missing reference experiment";

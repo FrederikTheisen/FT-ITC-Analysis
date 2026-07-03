@@ -1,5 +1,4 @@
 ﻿using System;
-using AppKit;
 using System.Collections.Generic;
 using System.IO;
 using System.Threading.Tasks;
@@ -7,10 +6,18 @@ using System.Linq;
 using System.Text;
 using System.Globalization;
 using System.Text.RegularExpressions;
-using AnalysisITC.AppClasses.AnalysisClasses.Models;
-using AnalysisITC.AppClasses.AnalysisClasses;
+using AnalysisITC.Platform;
+using AnalysisITC.Core.Analysis.Models;
+using AnalysisITC.Core.Analysis;
 
-namespace AnalysisITC
+using AnalysisITC.Core.Application;
+using AnalysisITC.Core.Data;
+using AnalysisITC.Core.Numerics;
+using AnalysisITC.Core.Processing;
+using AnalysisITC.Core.Units;
+using AnalysisITC.Core.Utilities;
+
+namespace AnalysisITC.Core.Export
 {
     public class FTITCFormat
     {
@@ -384,36 +391,23 @@ namespace AnalysisITC
 
         public static async Task<bool> SaveState2Async()
         {
-            var dlg = new NSSavePanel();
-            dlg.Title = "Save FT-ITC File";
-            dlg.AllowedFileTypes = new string[] { "ftitc" };
-            var tcs = new TaskCompletionSource<bool>();
+            var path = await PlatformServices.FileSavePromptService.ChooseSaveFilePathAsync("Save FT-ITC File", new[] { "ftitc" });
+            if (string.IsNullOrWhiteSpace(path)) return false;
 
-            dlg.BeginSheet(NSApplication.SharedApplication.MainWindow, async (result) =>
+            try
             {
-                try
-                {
-                    if (result != 1 || string.IsNullOrWhiteSpace(dlg.Filename))
-                    {
-                        tcs.TrySetResult(false);
-                        return;
-                    }
+                await WriteFile(path);
 
-                    await WriteFile(dlg.Filename);
-
-                    CurrentAccessedAppDocumentPath = dlg.Filename;
-                    AppSettings.LastDocumentUrl = dlg.Url;
-                    DocumentDirtyTracker.MarkClean();
-                    tcs.TrySetResult(true);
-                }
-                catch (Exception ex)
-                {
-                    AppEventHandler.DisplayHandledException(ex);
-                    tcs.TrySetResult(false);
-                }
-            });
-
-            return await tcs.Task;
+                CurrentAccessedAppDocumentPath = path;
+                AppSettings.LastDocumentPath = path;
+                DocumentDirtyTracker.MarkClean();
+                return true;
+            }
+            catch (Exception ex)
+            {
+                AppEventHandler.DisplayHandledException(ex);
+                return false;
+            }
         }
 
         public static void SaveWithPath()
@@ -452,38 +446,47 @@ namespace AnalysisITC
 
         public static void SaveSelected(ITCDataContainer data)
         {
-            var dlg = new NSSavePanel();
-            dlg.Title = "Save FT-ITC " + (data is ExperimentData ? "Experiment Data" : "Analysis Results");
-            dlg.AllowedFileTypes = (data is ExperimentData ? new string[] { "ftitc" } : new string[] { "ftitc", "csv" });
+            _ = SaveSelectedAsync(data);
+        }
 
-            dlg.BeginSheet(NSApplication.SharedApplication.MainWindow, async (result) =>
+        public static async Task<bool> SaveSelectedAsync(ITCDataContainer data)
+        {
+            var title = "Save FT-ITC " + (data is ExperimentData ? "Experiment Data" : "Analysis Results");
+            var allowedFileTypes = data is ExperimentData ? new[] { "ftitc" } : new[] { "ftitc", "csv" };
+            var path = await PlatformServices.FileSavePromptService.ChooseSaveFilePathAsync(title, allowedFileTypes);
+            if (string.IsNullOrWhiteSpace(path)) return false;
+
+            try
             {
-                if (result == 1)
+                StatusBarManager.SetSavingFileMessage();
+
+                switch (data)
                 {
-                    StatusBarManager.SetSavingFileMessage();
-
-                    switch (data)
-                    {
-                        case ExperimentData:
-                            using (var writer = GetFTITCStreamWriter(dlg.Filename))
-                            {
-                                await WriteExperimentDataToFile(data as ExperimentData, writer);
-                            }
-                            break;
-                        case AnalysisResult when dlg.Url.PathExtension == "ftitc":
-                            using (var writer = GetFTITCStreamWriter(dlg.Filename))
-                            {
-                                await WriteAnalysisResultToFile(data as AnalysisResult, writer);
-                            }
-                            break;
-                        case AnalysisResult when dlg.Url.PathExtension == "csv":
-                            Exporter.Export(ExportType.CSV);
-                            break;
-                    }
-
-                    StatusBarManager.SetFileSaveSuccessfulMessage(dlg.Filename);
+                    case ExperimentData:
+                        using (var writer = GetFTITCStreamWriter(path))
+                        {
+                            await WriteExperimentDataToFile(data as ExperimentData, writer);
+                        }
+                        break;
+                    case AnalysisResult when Path.GetExtension(path).TrimStart('.').ToLowerInvariant() == "ftitc":
+                        using (var writer = GetFTITCStreamWriter(path))
+                        {
+                            await WriteAnalysisResultToFile(data as AnalysisResult, writer);
+                        }
+                        break;
+                    case AnalysisResult when Path.GetExtension(path).TrimStart('.').ToLowerInvariant() == "csv":
+                        Exporter.Export(ExportType.CSV);
+                        break;
                 }
-            });
+
+                StatusBarManager.SetFileSaveSuccessfulMessage(path);
+                return true;
+            }
+            catch (Exception ex)
+            {
+                AppEventHandler.DisplayHandledException(ex);
+                return false;
+            }
         }
 
         static async Task WriteFile(string path)

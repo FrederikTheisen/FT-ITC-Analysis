@@ -2,9 +2,12 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
-using AnalysisITC.AppClasses.AnalysisClasses.Models;
+using AnalysisITC.Core.Analysis.Models;
 
-namespace AnalysisITC.AppClasses.AnalysisClasses
+using AnalysisITC.Core.Application;
+using AnalysisITC.Core.Data;
+
+namespace AnalysisITC.Core.Analysis
 {
     public static class AnalysisResultUpdater
     {

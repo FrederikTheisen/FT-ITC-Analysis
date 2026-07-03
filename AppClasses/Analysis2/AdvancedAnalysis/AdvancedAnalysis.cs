@@ -2,9 +2,13 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
-using AppKit;
+using AnalysisITC.Platform;
 
-namespace AnalysisITC.AppClasses.AnalysisClasses
+using AnalysisITC.Core.Application;
+using AnalysisITC.Core.Data;
+using AnalysisITC.Core.Numerics;
+
+namespace AnalysisITC.Core.Analysis
 {
     public static class ResultAnalysisController
     {
@@ -16,19 +20,19 @@ namespace AnalysisITC.AppClasses.AnalysisClasses
 
         public static int CalculationIterations { get; set; } = 1000;
 
-        public static void ReportCalculationStarted() => NSApplication.SharedApplication.InvokeOnMainThread(() =>
+        public static void ReportCalculationStarted() => PlatformServices.MainThreadDispatcher.Invoke(() =>
         {
             AnalysisStarted?.Invoke(null, TerminateAnalysisFlag);
         });
 
-        public static void ReportCalculationProgress(int iteration, int totaliterations = 0, string description = null) => NSApplication.SharedApplication.InvokeOnMainThread(() =>
+        public static void ReportCalculationProgress(int iteration, int totaliterations = 0, string description = null) => PlatformServices.MainThreadDispatcher.Invoke(() =>
         {
             var totiter = totaliterations > 0 ? totaliterations : CalculationIterations;
 
             IterationFinished?.Invoke(null, new Tuple<int, int, float, string>(iteration, totiter, iteration / (float)totiter, description));
         });
 
-        public static void ReportAnalysisFinished(object analysis, int iterations, TimeSpan time) => NSApplication.SharedApplication.InvokeOnMainThread(() =>
+        public static void ReportAnalysisFinished(object analysis, int iterations, TimeSpan time) => PlatformServices.MainThreadDispatcher.Invoke(() =>
         {
             AnalysisFinished?.Invoke(analysis, new Tuple<int, TimeSpan>(iterations, time));
         });
@@ -90,4 +94,3 @@ namespace AnalysisITC.AppClasses.AnalysisClasses
         }
     }
 }
-

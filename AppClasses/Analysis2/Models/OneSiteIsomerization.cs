@@ -1,9 +1,14 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using AnalysisITC.AppClasses.AnalysisClasses;
+using AnalysisITC.Core.Analysis;
 
-namespace AnalysisITC.AppClasses.AnalysisClasses.Models
+using AnalysisITC.Core.Data;
+using AnalysisITC.Core.Numerics;
+using AnalysisITC.Core.Units;
+using AnalysisITC.Core.Utilities;
+
+namespace AnalysisITC.Core.Analysis.Models
 {
     public class OneSiteIsomerization : Model
     {
@@ -25,7 +30,7 @@ namespace AnalysisITC.AppClasses.AnalysisClasses.Models
             Parameters.AddOrUpdateParameter(ParameterType.Offset, this.GuessOffset());
             //Parameters.AddOrUpdateParameter(ParameterType.IsomerizationEquilibriumConstant, 0.42, islocked: true);
 
-            ModelOptions.Add(AnalysisClasses.ExperimentAttribute.Parameter(AttributeKey.Percentage, "*Cis* population (0-100%)", new FloatWithError(0.37,0.02)).DictionaryEntry);
+            ModelOptions.Add(ExperimentAttribute.Parameter(AttributeKey.Percentage, "*Cis* population (0-100%)", new FloatWithError(0.37,0.02)).DictionaryEntry);
         }
 
         public override double Evaluate(int injectionindex, bool withoffset = true)
@@ -209,16 +214,16 @@ namespace AnalysisITC.AppClasses.AnalysisClasses.Models
                 if (info.HasFlag(FinalFigureDisplayParameters.Nvalue)) output.Add(new("N", N.AsNumber()));
                 if (info.HasFlag(FinalFigureDisplayParameters.Affinity))
                 {
-                    output.Add(new(Utilities.MarkdownStrings.DissociationConstant, Kd.AsFormattedConcentration(true)));
+                    output.Add(new(MarkdownStrings.DissociationConstant, Kd.AsFormattedConcentration(true)));
                     if (info.HasFlag(FinalFigureDisplayParameters.Misc))
                     {
-                        output.Add(new(Utilities.MarkdownStrings.ApparentDissociationConstant, Kd_app.AsFormattedConcentration(true)));
-                        output.Add(new(Utilities.MarkdownStrings.IsomerizationEquilibriumConstant, IsomerizationEquilibriumConstant.AsNumber()));
+                        output.Add(new(MarkdownStrings.ApparentDissociationConstant, Kd_app.AsFormattedConcentration(true)));
+                        output.Add(new(MarkdownStrings.IsomerizationEquilibriumConstant, IsomerizationEquilibriumConstant.AsNumber()));
                     }
                 }
-                if (info.HasFlag(FinalFigureDisplayParameters.Enthalpy)) output.Add(new(Utilities.MarkdownStrings.Enthalpy, Enthalpy.ToFormattedString(ReportEnergyUnit, permole: true)));
-                if (info.HasFlag(FinalFigureDisplayParameters.Entropy)) output.Add(new(Utilities.MarkdownStrings.EntropyContribution, TdS.ToFormattedString(ReportEnergyUnit, permole: true)));
-                if (info.HasFlag(FinalFigureDisplayParameters.Gibbs)) output.Add(new(Utilities.MarkdownStrings.GibbsFreeEnergy, GibbsFreeEnergy.ToFormattedString(ReportEnergyUnit, permole: true)));
+                if (info.HasFlag(FinalFigureDisplayParameters.Enthalpy)) output.Add(new(MarkdownStrings.Enthalpy, Enthalpy.ToFormattedString(ReportEnergyUnit, permole: true)));
+                if (info.HasFlag(FinalFigureDisplayParameters.Entropy)) output.Add(new(MarkdownStrings.EntropyContribution, TdS.ToFormattedString(ReportEnergyUnit, permole: true)));
+                if (info.HasFlag(FinalFigureDisplayParameters.Gibbs)) output.Add(new(MarkdownStrings.GibbsFreeEnergy, GibbsFreeEnergy.ToFormattedString(ReportEnergyUnit, permole: true)));
 
                 if (info.HasFlag(FinalFigureDisplayParameters.Offset)) output.Add(new("Offset", Offset.ToFormattedString(ReportEnergyUnit, permole: true)));
 

@@ -1,5 +1,7 @@
-﻿using System;
-namespace Utilities
+﻿
+using System;
+
+namespace AnalysisITC.Core.Utilities
 {
     public static class StringParsers
     {

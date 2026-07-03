@@ -1,13 +1,13 @@
 ﻿using System;
 using System.IO;
-using System.Net;
 using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
 using System.Text.Json.Serialization;
-using Foundation;
 
-namespace AnalysisITC
+using AnalysisITC.Platform;
+
+namespace AnalysisITC.Core.Application
 {
     public class CitationInfo
     {
@@ -147,7 +147,7 @@ $@"@software{{ftitc-analysis-{SanitizeBibTeXKeyPart(Version)},
 
     public static class CitationManager
     {
-        private static string CachePath => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "citation_cache.json");
+        private static string CachePath => Path.Combine(PlatformServices.AppEnvironment.ApplicationDataDirectory, "citation_cache.json");
 
         public static CitationInfo DefaultCitation => new CitationInfo
         {
@@ -198,16 +198,12 @@ $@"@software{{ftitc-analysis-{SanitizeBibTeXKeyPart(Version)},
 
             try
             {
-                await Task.Run(() =>
-                {
-                    AppEventHandler.PrintAndLog("Citation Manager: Trying to update citation info...");
-                    string url = "https://raw.githubusercontent.com/FrederikTheisen/FT-ITC-Analysis/refs/heads/master/citation.json";
-                    using var client = new WebClient();
-                    string json = client.DownloadString(url);
+                AppEventHandler.PrintAndLog("Citation Manager: Trying to update citation info...");
+                string url = "https://raw.githubusercontent.com/FrederikTheisen/FT-ITC-Analysis/refs/heads/master/citation.json";
+                string json = await PlatformServices.TextDownloadService.DownloadStringAsync(url);
 
-                    SaveCache(JsonSerializer.Deserialize<CitationInfo>(json));
-                    AppEventHandler.PrintAndLog("Citation Manager: Successfully retrieved citation from online source");
-                });
+                SaveCache(JsonSerializer.Deserialize<CitationInfo>(json));
+                AppEventHandler.PrintAndLog("Citation Manager: Successfully retrieved citation from online source");
             }
             catch
             {
@@ -235,7 +231,7 @@ $@"@software{{ftitc-analysis-{SanitizeBibTeXKeyPart(Version)},
         {
             try
             {
-                var path = NSBundle.MainBundle.PathForResource("citation", "json");
+                var path = PlatformServices.AppEnvironment.GetResourcePath("citation", "json");
                 if (string.IsNullOrWhiteSpace(path) || !File.Exists(path))
                     return null;
 
@@ -256,6 +252,7 @@ $@"@software{{ftitc-analysis-{SanitizeBibTeXKeyPart(Version)},
             try
             {
                 string json = JsonSerializer.Serialize(citation);
+                Directory.CreateDirectory(Path.GetDirectoryName(CachePath));
                 File.WriteAllText(CachePath, json);
             }
             catch

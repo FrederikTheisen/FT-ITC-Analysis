@@ -1,0 +1,60 @@
+// WARNING
+//
+// This file has been generated automatically by Visual Studio to store outlets and
+// actions made in the UI designer. If it is removed, they will be lost.
+// Manual changes to this file may not be handled correctly.
+//
+using Foundation;
+using System.CodeDom.Compiler;
+
+using AnalysisITC.Core.Application;
+using AnalysisITC.Core.Analysis;
+using AnalysisITC.Core.Analysis.Models;
+using AnalysisITC.Core.Data;
+using AnalysisITC.Core.DataReaders;
+using AnalysisITC.Core.Export;
+using AnalysisITC.Core.Numerics;
+using AnalysisITC.Core.Presentation;
+using AnalysisITC.Core.Processing;
+using AnalysisITC.Core.Units;
+using AnalysisITC.Core.Utilities;
+
+namespace AnalysisITC
+{
+	[Register ("AnalysisResultView")]
+	partial class AnalysisResultView
+	{
+		[Outlet]
+		AppKit.NSButton AnalysisResultIcon { get; set; }
+
+		[Outlet]
+		AppKit.NSTextField ResultContentLabel { get; set; }
+
+		[Outlet]
+		AppKit.NSTextField ResultTitleLabel { get; set; }
+
+		[Action ("RemoveButtonClick:")]
+		partial void RemoveButtonClick (Foundation.NSObject sender);
+
+		[Action ("ViewResultClick:")]
+		partial void ViewResultClick (Foundation.NSObject sender);
+		
+		void ReleaseDesignerOutlets ()
+		{
+			if (AnalysisResultIcon != null) {
+				AnalysisResultIcon.Dispose ();
+				AnalysisResultIcon = null;
+			}
+
+			if (ResultContentLabel != null) {
+				ResultContentLabel.Dispose ();
+				ResultContentLabel = null;
+			}
+
+			if (ResultTitleLabel != null) {
+				ResultTitleLabel.Dispose ();
+				ResultTitleLabel = null;
+			}
+		}
+	}
+}

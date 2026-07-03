@@ -2,7 +2,8 @@
 using System.Collections.Generic;
 using System.Linq;
 
-namespace AnalysisITC
+
+namespace AnalysisITC.Core.Numerics
 {
     public class ErrorPropagation
     {

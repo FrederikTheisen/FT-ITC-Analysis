@@ -4,7 +4,13 @@ using System.ComponentModel;
 using System.Linq;
 using System.Threading.Tasks;
 
-namespace AnalysisITC.AppClasses.AnalysisClasses
+using AnalysisITC.Core.Application;
+using AnalysisITC.Core.Data;
+using AnalysisITC.Core.Numerics;
+using AnalysisITC.Core.Units;
+using AnalysisITC.Core.Utilities;
+
+namespace AnalysisITC.Core.Analysis
 {
     public class ElectrostaticsAnalysis : AdvancedAnalysis
     {

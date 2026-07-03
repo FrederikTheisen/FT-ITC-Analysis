@@ -4,7 +4,9 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace AnalysisITC
+using AnalysisITC.Core.Utilities;
+
+namespace AnalysisITC.Core.Application
 {
     public static class StatusBarManager
     {

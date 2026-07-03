@@ -19,10 +19,13 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
-using DataReaders;
-using Utilities;
+using AnalysisITC.Core.DataReaders;
+using AnalysisITC.Core.Utilities;
 
-namespace AnalysisITC
+using AnalysisITC.Core.Application;
+using AnalysisITC.Core.Data;
+
+namespace AnalysisITC.Core.Processing
 {
     public static class TandemConcatenation
     {

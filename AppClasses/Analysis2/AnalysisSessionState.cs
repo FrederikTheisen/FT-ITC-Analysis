@@ -1,8 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
-using AnalysisITC.AppClasses.AnalysisClasses.Models;
+using AnalysisITC.Core.Analysis.Models;
 
-namespace AnalysisITC.AppClasses.AnalysisClasses
+
+namespace AnalysisITC.Core.Analysis
 {
 	public sealed class AnalysisSessionState
 	{

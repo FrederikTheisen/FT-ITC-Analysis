@@ -1,10 +1,14 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using AnalysisITC.AppClasses.AnalysisClasses;
+using AnalysisITC.Core.Analysis;
 using MathNet.Numerics;
 
-namespace AnalysisITC
+using AnalysisITC.Core.Application;
+using AnalysisITC.Core.Numerics;
+using AnalysisITC.Core.Utilities;
+
+namespace AnalysisITC.Core.Data
 {
     public enum BufferSubtractionMethod
     {

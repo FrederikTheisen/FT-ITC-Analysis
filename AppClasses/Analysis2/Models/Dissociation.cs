@@ -2,7 +2,13 @@
 using System.Collections.Generic;
 using System.Linq;
 
-namespace AnalysisITC.AppClasses.AnalysisClasses.Models
+using AnalysisITC.Core.Analysis;
+using AnalysisITC.Core.Data;
+using AnalysisITC.Core.Numerics;
+using AnalysisITC.Core.Units;
+using AnalysisITC.Core.Utilities;
+
+namespace AnalysisITC.Core.Analysis.Models
 {
     /// <summary>
     /// Self-association by dilution (dimerization):
@@ -131,16 +137,16 @@ namespace AnalysisITC.AppClasses.AnalysisClasses.Models
                 var output = base.UISolutionParameters(info);
 
                 if (info.HasFlag(FinalFigureDisplayParameters.Affinity))
-                    output.Add(new(Utilities.MarkdownStrings.DissociationConstant, Kd.AsFormattedConcentration(withunit: true)));
+                    output.Add(new(MarkdownStrings.DissociationConstant, Kd.AsFormattedConcentration(withunit: true)));
 
                 if (info.HasFlag(FinalFigureDisplayParameters.Enthalpy))
-                    output.Add(new(Utilities.MarkdownStrings.Enthalpy, Enthalpy.ToFormattedString(ReportEnergyUnit, permole: true)));
+                    output.Add(new(MarkdownStrings.Enthalpy, Enthalpy.ToFormattedString(ReportEnergyUnit, permole: true)));
 
                 if (info.HasFlag(FinalFigureDisplayParameters.Entropy))
-                    output.Add(new(Utilities.MarkdownStrings.EntropyContribution, TdS.ToFormattedString(ReportEnergyUnit, permole: true)));
+                    output.Add(new(MarkdownStrings.EntropyContribution, TdS.ToFormattedString(ReportEnergyUnit, permole: true)));
 
                 if (info.HasFlag(FinalFigureDisplayParameters.Gibbs))
-                    output.Add(new(Utilities.MarkdownStrings.GibbsFreeEnergy, GibbsFreeEnergy.ToFormattedString(ReportEnergyUnit, permole: true)));
+                    output.Add(new(MarkdownStrings.GibbsFreeEnergy, GibbsFreeEnergy.ToFormattedString(ReportEnergyUnit, permole: true)));
 
                 if (info.HasFlag(FinalFigureDisplayParameters.Offset))
                     output.Add(new("Offset", Offset.ToFormattedString(ReportEnergyUnit, permole: true)));

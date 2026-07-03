@@ -1,15 +1,20 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using AnalysisITC.Utilities;
+using AnalysisITC.Core.Utilities;
 
-namespace AnalysisITC.AppClasses.AnalysisClasses.Models
+using AnalysisITC.Core.Analysis;
+using AnalysisITC.Core.Data;
+using AnalysisITC.Core.Numerics;
+using AnalysisITC.Core.Units;
+
+namespace AnalysisITC.Core.Analysis.Models
 {
     public class OneSetOfSitesSyringeUncertainty : Model
 	{
         public override AnalysisModel ModelType => AnalysisModel.OneSetOfSitesSyringeUncertainty;
 
-        bool ApplyNToSyringe => ModelOptions[AnalysisClasses.AttributeKey.UseSyringeActiveFraction].BoolValue;
+        bool ApplyNToSyringe => ModelOptions[AttributeKey.UseSyringeActiveFraction].BoolValue;
 
         public OneSetOfSitesSyringeUncertainty(ExperimentData data) : base(data)
 		{
@@ -24,8 +29,8 @@ namespace AnalysisITC.AppClasses.AnalysisClasses.Models
             Parameters.AddOrUpdateParameter(ParameterType.Affinity1, PreviousOrDefault(ParameterType.Affinity1, this.GuessLogAffinity()));
             Parameters.AddOrUpdateParameter(ParameterType.Offset, PreviousOrDefault(ParameterType.Offset, this.GuessOffset()));
 
-            ModelOptions.Add(AnalysisClasses.ExperimentAttribute.Bool(AnalysisClasses.AttributeKey.UseSyringeActiveFraction, AnalysisClasses.AttributeKey.UseSyringeActiveFraction.GetProperties().Name, false).DictionaryEntry);
-            ModelOptions.Add(AnalysisClasses.ExperimentAttribute.Int(AnalysisClasses.AttributeKey.NumberOfSites1, "Stoichiometry", 1).DictionaryEntry);
+            ModelOptions.Add(ExperimentAttribute.Bool(AttributeKey.UseSyringeActiveFraction, AttributeKey.UseSyringeActiveFraction.GetProperties().Name, false).DictionaryEntry);
+            ModelOptions.Add(ExperimentAttribute.Int(AttributeKey.NumberOfSites1, "Stoichiometry", 1).DictionaryEntry);
         }
 
         public override double Evaluate(int injectionindex, bool withoffset = true)
@@ -41,7 +46,7 @@ namespace AnalysisITC.AppClasses.AnalysisClasses.Models
 
         double GetHeatContent(double cellConc, double titrantConc, double n, double H, double K)
         {
-            double nc = ApplyNToSyringe ? ModelOptions[AnalysisClasses.AttributeKey.NumberOfSites1].DoubleValue : n;
+            double nc = ApplyNToSyringe ? ModelOptions[AttributeKey.NumberOfSites1].DoubleValue : n;
             double ns = ApplyNToSyringe ? n : 1;
 
             var ncell = nc * cellConc;
@@ -102,10 +107,10 @@ namespace AnalysisITC.AppClasses.AnalysisClasses.Models
                 var output = base.UISolutionParameters(info);
 
                 if (info.HasFlag(FinalFigureDisplayParameters.Nvalue))
-                    if (Model.ModelOptions[AnalysisClasses.AttributeKey.UseSyringeActiveFraction].BoolValue)
+                    if (Model.ModelOptions[AttributeKey.UseSyringeActiveFraction].BoolValue)
                     {
                         output.Add(new(MarkdownStrings.Alpha + "{syringe}", N.AsNumber()));
-                        output.Add(new("N{fixed}", Model.ModelOptions[AnalysisClasses.AttributeKey.NumberOfSites1].DoubleValue.ToString("G2")));
+                        output.Add(new("N{fixed}", Model.ModelOptions[AttributeKey.NumberOfSites1].DoubleValue.ToString("G2")));
                     }
                     else output.Add(new("N", N.AsNumber()));
 

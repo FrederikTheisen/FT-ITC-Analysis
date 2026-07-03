@@ -1,9 +1,12 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using AnalysisITC.Utilities;
+using AnalysisITC.Core.Utilities;
 
-namespace AnalysisITC
+using AnalysisITC.Core.Application;
+using AnalysisITC.Core.Data;
+
+namespace AnalysisITC.Core.Export
 {
     public class ExportTypeAttribute : Attribute
     {

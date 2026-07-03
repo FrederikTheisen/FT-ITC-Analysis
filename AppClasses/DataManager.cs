@@ -1,11 +1,17 @@
 ﻿using System;
-using AnalysisITC;
 using System.Collections.Generic;
 using System.Linq;
-using AnalysisITC.AppClasses.AnalysisClasses.Models;
-using AnalysisITC.AppClasses.AnalysisClasses;
+using AnalysisITC.Platform;
+using AnalysisITC.Core.Analysis.Models;
+using AnalysisITC.Core.Analysis;
 
-namespace AnalysisITC
+using AnalysisITC.Core.Data;
+using AnalysisITC.Core.Export;
+using AnalysisITC.Core.Processing;
+using AnalysisITC.Core.Units;
+using AnalysisITC.Core.Utilities;
+
+namespace AnalysisITC.Core.Application
 {
     public class ITCDataContainerDeletionLog
     {
@@ -393,7 +399,7 @@ namespace AnalysisITC
             if (data.Segments != null)
                 foreach (var seg in data.Segments) newdata.AddSegment(seg);
 
-            DataReaders.RawDataReader.ProcessInjections(newdata);
+            AnalysisITC.Core.DataReaders.RawDataReader.ProcessInjections(newdata);
 
             if (data.BaseLineCorrectedDataPoints != null)
                 newdata.BaseLineCorrectedDataPoints = data.BaseLineCorrectedDataPoints.Select(dp => dp.Copy()).ToList();
@@ -683,7 +689,7 @@ namespace AnalysisITC
 
             if (target.Any(exp => exp.Attributes.Any(att => attributes.Exists(att2 => att2.Key == att.Key))))
             {
-                overwrite = AppDelegate.PromptOverwrite("Overwrite existing attributes?");
+                overwrite = PlatformServices.ConfirmationPromptService.ConfirmDestructiveAction("Overwrite existing attributes?");
             }
 
             AppEventHandler.PrintAndLog($"Overwrite Existing: {overwrite}", 1);

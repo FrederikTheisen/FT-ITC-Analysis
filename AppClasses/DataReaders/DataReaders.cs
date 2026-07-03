@@ -1,19 +1,24 @@
 ﻿using System;
 using AnalysisITC;
+using AnalysisITC.Core;
 using System.Collections.Generic;
 using System.Linq;
-using AppKit;
 using System.Threading.Tasks;
-using UniformTypeIdentifiers;
-using Foundation;
-using AnalysisITC.AppClasses.AnalysisClasses;
+using AnalysisITC.Core.Analysis;
 using System.Text.RegularExpressions;
 using System.Globalization;
 using System.IO;
 
-namespace DataReaders
+using AnalysisITC.Core.Application;
+using AnalysisITC.Core.Data;
+using Buffer = AnalysisITC.Core.Data.Buffer;
+using AnalysisITC.Core.Numerics;
+using AnalysisITC.Core.Units;
+using AnalysisITC.Core.Utilities;
+
+namespace AnalysisITC.Core.DataReaders
 {
-    public static class DataReader
+    public static partial class DataReader
     {
         static ITCDataContainer GetValidData(ITCDataContainer data)
         {
@@ -58,34 +63,19 @@ namespace DataReaders
             return ITCDataFormat.Unknown;
         }
 
-        public static async void Read(NSUrl url) => await ReadAsync(new NSUrl[] { url });
+        public static async void Read(string path) => await ReadPathsAsync(new[] { path });
 
-        public static async void Read(IEnumerable<NSUrl> urls) => await ReadAsync(urls);
+        public static async void Read(IEnumerable<string> paths) => await ReadPathsAsync(paths);
 
-        public static async Task ReadAsync(IEnumerable<NSUrl> urls)
+        public static async Task ReadPathsAsync(IEnumerable<string> paths, Action<string> didReadPath = null)
         {
-            var urlList = urls?.Where(url => url != null).ToArray() ?? Array.Empty<NSUrl>();
-            var containsProjectFile = urlList.Any(url => GetFormat(url.Path) == ITCDataFormat.FTITC);
-
-            if (containsProjectFile && DataManager.SourceItems != null && DataManager.SourceItems.Count > 0)
-            {
-                switch (AppDelegate.PromptProjectLoadAction())
-                {
-                    case AppDelegate.ProjectLoadAction.Replace:
-                        if (!await AppDelegate.CloseAllDataAsync(DataClearMode.ResetSession)) return;
-                        break;
-                    case AppDelegate.ProjectLoadAction.Cancel:
-                        return;
-                    case AppDelegate.ProjectLoadAction.Append:
-                        break;
-                }
-            }
+            var pathList = paths?.Where(path => !string.IsNullOrWhiteSpace(path)).ToArray() ?? Array.Empty<string>();
 
             StatusBarManager.SetStatus("Reading data...", 0);
             StatusBarManager.StartInderminateProgress();
             IntegratedHeatReader.BeginImportQueue();
 
-            var allFtitc = urlList.Length > 0 && urlList.All(url => GetFormat(url.Path) == ITCDataFormat.FTITC);
+            var allFtitc = pathList.Length > 0 && pathList.All(path => GetFormat(path) == ITCDataFormat.FTITC);
             var wasEmptyDocument = DataManager.SourceItems == null || DataManager.SourceItems.Count == 0;
             var initialItemCount = DataManager.SourceItems?.Count ?? 0;
 
@@ -95,18 +85,19 @@ namespace DataReaders
                 {
                     await Task.Delay(1);
 
-                    foreach (var url in urlList)
+                    foreach (var path in pathList)
                     {
-                        var format = GetFormat(url.Path);
+                        var format = GetFormat(path);
                         var isFtitc = format == ITCDataFormat.FTITC;
+                        var fileName = Path.GetFileName(path);
 
-                        AppEventHandler.PrintAndLog($"Loading File: {url.LastPathComponent}");
+                        AppEventHandler.PrintAndLog($"Loading File: {fileName}");
                         StatusBarManager.SetStatus(isFtitc
-                            ? $"Loading: {Path.GetFileNameWithoutExtension(url.LastPathComponent)}"
-                            : $"Reading file: {url.LastPathComponent}", 0);
+                            ? $"Loading: {Path.GetFileNameWithoutExtension(fileName)}"
+                            : $"Reading file: {fileName}", 0);
                         StatusBarManager.SetSecondaryStatus("", 0);
                         await Task.Delay(1); //Necessary to update UI. Unclear why whole method has to be on UI thread.
-                        var dat = await ReadFile(url.Path);
+                        var dat = await ReadFile(path);
 
                         if (IntegratedHeatReader.CancelRemainingQueueItems)
                         {
@@ -115,12 +106,12 @@ namespace DataReaders
 
                         if (dat != null && AddData(dat))
                         {
-                            NSDocumentController.SharedDocumentController.NoteNewRecentDocumentURL(url);
-                            AppSettings.LastDocumentUrl = url;
+                            didReadPath?.Invoke(path);
+                            AppSettings.LastDocumentPath = path;
                         }
                     }
 
-                    AppSettings.LastDocumentUrls = urlList;
+                    AppSettings.LastDocumentPaths = pathList;
                     DataManager.ApplyOptions();
                 }
             }
@@ -134,7 +125,7 @@ namespace DataReaders
             }
 
             var addedData = (DataManager.SourceItems?.Count ?? 0) > initialItemCount;
-            var openedCleanProject = wasEmptyDocument && allFtitc && urlList.Length == 1 && addedData;
+            var openedCleanProject = wasEmptyDocument && allFtitc && pathList.Length == 1 && addedData;
 
             if (openedCleanProject)
             {
@@ -273,9 +264,9 @@ namespace DataReaders
 
                 // Special buffers (expand into explicit components)
                 if (Regex.IsMatch(comment, @"\b(1x)?PBS\b", RegexOptions.IgnoreCase))
-                    BufferAttribute.SetupSpecialBuffer(experiment.Attributes, AnalysisITC.Buffer.PBS);
+                    BufferAttribute.SetupSpecialBuffer(experiment.Attributes, global::AnalysisITC.Core.Data.Buffer.PBS);
                 if (Regex.IsMatch(comment, @"\b(1x)?TBS\b", RegexOptions.IgnoreCase))
-                    BufferAttribute.SetupSpecialBuffer(experiment.Attributes, AnalysisITC.Buffer.TBS);
+                    BufferAttribute.SetupSpecialBuffer(experiment.Attributes, global::AnalysisITC.Core.Data.Buffer.TBS);
 
                 // ---------- Salt ----------
                 foreach (var salt in SaltAttribute.GetSalts())

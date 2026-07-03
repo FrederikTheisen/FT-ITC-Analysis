@@ -2,7 +2,10 @@
 using System.Collections.Generic;
 using System.Linq;
 
-namespace AnalysisITC
+using AnalysisITC.Core.Data;
+using AnalysisITC.Core.Utilities;
+
+namespace AnalysisITC.Core.Numerics
 {
 	public static class Statistics
 	{

@@ -1,5 +1,6 @@
 ﻿using System;
-namespace AnalysisITC.AppClasses.AnalysisClasses
+
+namespace AnalysisITC.Core.Analysis
 {
     public class ParameterChecker
     {

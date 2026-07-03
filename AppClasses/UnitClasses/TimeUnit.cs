@@ -1,6 +1,7 @@
 ﻿using System;
 
-namespace AnalysisITC
+
+namespace AnalysisITC.Core.Units
 {
     public class TimeUnitAttribute : Attribute
     {

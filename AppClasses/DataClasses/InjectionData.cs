@@ -1,7 +1,13 @@
 ﻿using System;
 using System.Linq;
 
-namespace AnalysisITC
+using AnalysisITC.Core.Analysis.Models;
+using AnalysisITC.Core.Export;
+using AnalysisITC.Core.Numerics;
+using AnalysisITC.Core.Units;
+using AnalysisITC.Core.Utilities;
+
+namespace AnalysisITC.Core.Data
 {
     public class InjectionData
     {
