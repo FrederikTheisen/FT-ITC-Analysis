@@ -251,7 +251,7 @@ namespace AnalysisITC.Core.Data
 
             if (referenceExperiment == null || referenceExperiment.InjectionCount == 0) return false;
 
-            var idx = Math.Clamp((int)Math.Round(injectionNumber) - 1, 0, referenceExperiment.InjectionCount - 1);
+            var idx = FWEMath.Clamp((int)Math.Round(injectionNumber) - 1, 0, referenceExperiment.InjectionCount - 1);
             var same = referenceExperiment.Injections[idx];
             if (IsValidReferenceInjection(same))
             {

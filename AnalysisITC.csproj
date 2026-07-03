@@ -36,14 +36,14 @@
     <PackageSigningKey>3rd Party Mac Developer Installer</PackageSigningKey>
     <CodesignProvision></CodesignProvision>
     <NoWarn>MMP</NoWarn>
-    <XamMacArch>x86_64,ARM64</XamMacArch>
+    <XamMacArch></XamMacArch>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
     <Optimize>true</Optimize>
     <OutputPath>bin\Release</OutputPath>
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
-    <EnableCodeSigning>true</EnableCodeSigning>
+    <EnableCodeSigning>True</EnableCodeSigning>
     <CodeSigningKey>Developer ID Application: Frederik Theisen (FXRUGDWRDY)</CodeSigningKey>
     <CreatePackage>false</CreatePackage>
     <EnablePackageSigning>false</EnablePackageSigning>
@@ -57,7 +57,7 @@
     <LangVersion>latest</LangVersion>
     <CodesignProvision></CodesignProvision>
     <PackageSigningKey>3rd Party Mac Developer Installer</PackageSigningKey>
-    <XamMacArch>x86_64,ARM64</XamMacArch>
+    <XamMacArch></XamMacArch>
   </PropertyGroup>
   <ItemGroup>
     <Reference Include="System">
@@ -222,31 +222,19 @@
   </ItemGroup>
   <ItemGroup>
     <Folder Include="Resources\" />
-    <Folder Include="AppClasses\" />
     <Folder Include="UI\MacOS\" />
     <Folder Include="UI\MacOS\GraphViews\" />
     <Folder Include="UI\MacOS\Drawing\" />
     <Folder Include="UI\MacOS\ViewControllers\" />
-    <Folder Include="AppClasses\Math\" />
     <Folder Include="UI\MacOS\PopOptionViewControllers\" />
-    <Folder Include="AppClasses\Analysis2\" />
     <Folder Include="UI\MacOS\CustomViews\" />
     <Folder Include="UI\MacOS\ListViews\" />
-    <Folder Include="AppClasses\Analysis2\Models\" />
-    <Folder Include="AppClasses\DataClasses\" />
     <Folder Include="UI\MacOS\ViewControllers\SettingsViews\" />
     <Folder Include="UI\MacOS\ViewControllers\MainViews\" />
-    <Folder Include="AppClasses\UnitClasses\" />
     <Folder Include="UI\MacOS\PopOptionViewControllers\FinalFigureOptions\" />
-    <Folder Include="AppClasses\Analysis2\Kinetics\" />
-    <Folder Include="AppClasses\DataReaders\" />
-    <Folder Include="AppClasses\Analysis2\AdvancedAnalysis\" />
-    <Folder Include="AppClasses\DataExport\" />
-    <Folder Include="AppClasses\Utils\" />
-    <Folder Include="AppClasses\Properties\" />
-    <Folder Include="AppClasses\Platform\" />
     <Folder Include="Platforms\MacOS\" />
     <Folder Include="UI\" />
+    <Folder Include="Properties\" />
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />
@@ -257,30 +245,11 @@
     <None Include="Entitlements.plist" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="AppClasses\Platform\ISettingsStore.cs" />
-    <Compile Include="AppClasses\Platform\IMainThreadDispatcher.cs" />
-    <Compile Include="AppClasses\Platform\IAppEnvironment.cs" />
-    <Compile Include="AppClasses\Platform\IAppNotificationService.cs" />
-    <Compile Include="AppClasses\Platform\IImportPromptService.cs" />
-    <Compile Include="AppClasses\Platform\IExportPromptService.cs" />
-    <Compile Include="AppClasses\Platform\IFileSavePromptService.cs" />
-    <Compile Include="AppClasses\Platform\IDataValidationPromptService.cs" />
-    <Compile Include="AppClasses\Platform\ITandemImportPromptService.cs" />
-    <Compile Include="AppClasses\Platform\IClipboardService.cs" />
-    <Compile Include="AppClasses\Platform\IConfirmationPromptService.cs" />
-    <Compile Include="AppClasses\Platform\ITextDownloadService.cs" />
-    <Compile Include="AppClasses\Platform\InMemorySettingsStore.cs" />
-    <Compile Include="AppClasses\Platform\PlatformServices.cs" />
-    <Compile Include="AppClasses\DataClasses\AnalysisXAxisType.cs" />
-    <Compile Include="AppClasses\Properties\ColorScheme.cs" />
-    <Compile Include="AppClasses\Properties\LineSmoothness.cs" />
+    <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Platforms\MacOS\MacUserDefaultsSettingsStore.cs" />
     <Compile Include="Platforms\MacOS\MacMainThreadDispatcher.cs" />
     <Compile Include="Platforms\MacOS\MacAppEnvironment.cs" />
     <Compile Include="Platforms\MacOS\MacPlatformBootstrapper.cs" />
-    <Compile Include="AppClasses\DocumentDirtyTracker.cs" />
-    <Compile Include="AppClasses\DataProcessing.cs" />
-    <Compile Include="AppClasses\DataManager.cs" />
     <Compile Include="UI\MacOS\GraphViews\AnalysisGraphView.cs" />
     <Compile Include="UI\MacOS\GraphViews\AnalysisGraphView.designer.cs">
       <DependentUpon>AnalysisGraphView.cs</DependentUpon>
@@ -318,7 +287,6 @@
       <DependentUpon>SideBarView.cs</DependentUpon>
     </Compile>
     <Compile Include="UI\MacOS\Drawing\TemperatureDependenceGraph.cs" />
-    <Compile Include="AppClasses\Math\Distribution.cs" />
     <Compile Include="UI\MacOS\GraphViews\TemperatureDependenceGraphView.cs" />
     <Compile Include="UI\MacOS\GraphViews\TemperatureDependenceGraphView.designer.cs">
       <DependentUpon>TemperatureDependenceGraphView.cs</DependentUpon>
@@ -343,10 +311,6 @@
     <Compile Include="UI\MacOS\TabControllerView.designer.cs">
       <DependentUpon>TabControllerView.cs</DependentUpon>
     </Compile>
-    <Compile Include="AppClasses\Math\ErrorPropagation.cs" />
-    <Compile Include="AppClasses\Analysis2\ModelFactory.cs" />
-    <Compile Include="AppClasses\Analysis2\GlobalModel.cs" />
-    <Compile Include="AppClasses\Analysis2\AnalysisResultUpdater.cs" />
     <Compile Include="UI\MacOS\CustomViews\DesignerAdjustmentView.cs" />
     <Compile Include="UI\MacOS\CustomViews\ParameterValueAdjustmentView.cs" />
     <Compile Include="UI\MacOS\ListViews\ExperimentDataViewCell.cs" />
@@ -377,22 +341,14 @@
     <Compile Include="UI\MacOS\CustomViews\AnalysisGlobalModeOptionsView.designer.cs">
       <DependentUpon>AnalysisGlobalModeOptionsView.cs</DependentUpon>
     </Compile>
-    <Compile Include="AppClasses\StateManager.cs" />
-    <Compile Include="AppClasses\StatusBarManager.cs" />
     <Compile Include="UI\MacOS\Drawing\ThermodynamicParameterBarPlot.cs" />
-    <Compile Include="AppClasses\Analysis2\Models\OneSetOfSites.cs" />
-    <Compile Include="AppClasses\Analysis2\Models\TwoSetsOfSites.cs" />
     <Compile Include="UI\AppColors.cs" />
     <Compile Include="UI\MacOS\MacColors.cs" />
-    <Compile Include="AppClasses\Analysis2\Models\OneSiteIsomerization.cs" />
     <Compile Include="UI\MacOS\PopOptionViewControllers\AboutAppViewController.cs" />
     <Compile Include="UI\MacOS\PopOptionViewControllers\AboutAppViewController.designer.cs">
       <DependentUpon>AboutAppViewController.cs</DependentUpon>
     </Compile>
     <Compile Include="UI\MacOS\CustomViews\CustomDrawingSegmentedControl.cs" />
-    <Compile Include="AppClasses\Analysis2\Models\AnalysisModel.cs" />
-    <Compile Include="AppClasses\Analysis2\Models\Models.cs" />
-    <Compile Include="AppClasses\Analysis2\Models\CompetitiveBinding.cs" />
     <Compile Include="UI\MacOS\GraphViews\ExperimentDesignerGraphView.cs" />
     <Compile Include="UI\MacOS\GraphViews\ExperimentDesignerGraphView.designer.cs">
       <DependentUpon>ExperimentDesignerGraphView.cs</DependentUpon>
@@ -420,20 +376,11 @@
     <Compile Include="UI\MacOS\CustomViews\OptionAdjustmentView.cs" />
     <Compile Include="UI\MacOS\AnalysisResultValidityPresentation.cs" />
     <Compile Include="UI\MacOS\MacStrings.cs" />
-    <Compile Include="AppClasses\Utils\AppStrings.cs" />
     <Compile Include="UI\MacOS\CustomViews\ExperimentAttributeView.cs" />
     <Compile Include="UI\MacOS\CustomViews\ExperimentAttributeView.designer.cs">
       <DependentUpon>ExperimentAttributeView.cs</DependentUpon>
     </Compile>
     <Compile Include="UI\MacOS\Drawing\ParameterDependenceGraph.cs" />
-    <Compile Include="AppClasses\DataClasses\ExperimentData.cs" />
-    <Compile Include="AppClasses\DataClasses\BufferSubtraction.cs" />
-    <Compile Include="AppClasses\DataClasses\PeakShapeIntegrationEstimator.cs" />
-    <Compile Include="AppClasses\DataClasses\Buffers.cs" />
-    <Compile Include="AppClasses\DataClasses\Salt.cs" />
-    <Compile Include="AppClasses\DataClasses\ITCInstrument.cs" />
-    <Compile Include="AppClasses\DataClasses\AnalysisResult.cs" />
-    <Compile Include="AppClasses\DataClasses\AnalysisResultValiditySnapshot.cs" />
     <Compile Include="UI\MacOS\GraphViews\ResultGraphView.cs" />
     <Compile Include="UI\MacOS\GraphViews\ResultGraphView.designer.cs">
       <DependentUpon>ResultGraphView.cs</DependentUpon>
@@ -479,12 +426,6 @@
     <Compile Include="UI\MacOS\ViewControllers\MainViews\FinalFigureViewController.designer.cs">
       <DependentUpon>FinalFigureViewController.cs</DependentUpon>
     </Compile>
-    <Compile Include="AppClasses\UnitClasses\TimeUnit.cs" />
-    <Compile Include="AppClasses\UnitClasses\Energy.cs" />
-    <Compile Include="AppClasses\Math\FitWithError.cs" />
-    <Compile Include="AppClasses\Math\NumberStructs.cs" />
-    <Compile Include="AppClasses\Math\FWEMath.cs" />
-    <Compile Include="AppClasses\UnitClasses\ConcentrationUnit.cs" />
     <Compile Include="UI\MacOS\PopOptionViewControllers\FinalFigureOptions\FitGraphOptionPopoverViewController.cs" />
     <Compile Include="UI\MacOS\PopOptionViewControllers\FinalFigureOptions\FitGraphOptionPopoverViewController.designer.cs">
       <DependentUpon>FitGraphOptionPopoverViewController.cs</DependentUpon>
@@ -515,14 +456,10 @@
     <Compile Include="UI\MacOS\MacSettingsApplier.cs" />
     <Compile Include="UI\MacOS\MacTandemImportPromptService.cs" />
     <Compile Include="UI\MacOS\ConfirmationDialog.cs" />
-    <Compile Include="AppClasses\Analysis2\Models\TwoCompetingSites.cs" />
-    <Compile Include="AppClasses\Analysis2\Kinetics\KineticModel.cs" />
     <Compile Include="UI\MacOS\CustomViews\AutoExpandingTextView2.cs" />
     <Compile Include="UI\MacOS\CustomViews\AutoExpandingTextView2.designer.cs">
       <DependentUpon>AutoExpandingTextView2.cs</DependentUpon>
     </Compile>
-    <Compile Include="AppClasses\TandemConcatenationTool.cs" />
-    <Compile Include="AppClasses\TandemMixingScan.cs" />
     <Compile Include="UI\MacOS\ListViews\ExperimentMergerListViewCell.cs" />
     <Compile Include="UI\MacOS\ListViews\ExperimentMergerListViewCell.designer.cs">
       <DependentUpon>ExperimentMergerListViewCell.cs</DependentUpon>
@@ -531,7 +468,6 @@
     <Compile Include="UI\MacOS\ViewControllers\ExperimentMergerViewController.designer.cs">
       <DependentUpon>ExperimentMergerViewController.cs</DependentUpon>
     </Compile>
-    <Compile Include="AppClasses\Analysis2\Models\Dissociation.cs" />
     <Compile Include="UI\MacOS\CustomViews\ToggleSelectTableView.cs" />
     <Compile Include="UI\MacOS\CustomViews\ToggleSelectTableView.designer.cs">
       <DependentUpon>ToggleSelectTableView.cs</DependentUpon>
@@ -547,55 +483,18 @@
     </Compile>
     <Compile Include="UI\MacOS\Drawing\AnalysisFigure.cs" />
     <Compile Include="UI\MacOS\Drawing\AnalysisGraph.cs" />
-    <Compile Include="AppClasses\Analysis2\Solver2.cs" />
     <Compile Include="UI\MacOS\TechnicalDetailsViewController.cs" />
     <Compile Include="UI\MacOS\TechnicalDetailsViewController.designer.cs">
       <DependentUpon>TechnicalDetailsViewController.cs</DependentUpon>
     </Compile>
-    <Compile Include="AppClasses\Math\Statistics.cs" />
     <Compile Include="UI\MacOS\ViewControllers\BufferSubtractionTool.cs" />
     <Compile Include="UI\MacOS\ViewControllers\BufferSubtractionTool.designer.cs">
       <DependentUpon>BufferSubtractionTool.cs</DependentUpon>
     </Compile>
-    <Compile Include="AppClasses\DataClasses\BufferRegistry.cs" />
-    <Compile Include="AppClasses\DataReaders\DataReaders.cs" />
-    <Compile Include="AppClasses\DataReaders\TAFileReader.cs" />
-    <Compile Include="AppClasses\DataReaders\FTITCReader.cs" />
-    <Compile Include="AppClasses\DataReaders\MicroCalITC200Reader.cs" />
-    <Compile Include="AppClasses\DataReaders\IntegratedHeatReader.cs" />
-    <Compile Include="AppClasses\DataReaders\ITCDataFormat.cs" />
-    <Compile Include="AppClasses\DataReaders\PEAQReader.cs" />
-    <Compile Include="AppClasses\DataReaders\ProcessedTandemCsvReader.cs" />
-    <Compile Include="AppClasses\DataReaders\DataValidator.cs" />
-    <Compile Include="AppClasses\DataClasses\AnalysisResultNameParser.cs" />
-    <Compile Include="AppClasses\DataClasses\ITCDataContainer.cs" />
     <Compile Include="UI\MacOS\CitationUI.cs" />
     <Compile Include="UI\MacOS\CustomViews\ValueWithErrorTextField.cs" />
-    <Compile Include="AppClasses\Analysis2\Models\OneSetOfSitesSyringeUncertaintyModel.cs" />
-    <Compile Include="AppClasses\DataClasses\Stoichiometry.cs" />
     <Compile Include="UI\MacOS\StoichiometryBuilder.cs" />
-    <Compile Include="AppClasses\DataClasses\InjectionData.cs" />
-    <Compile Include="AppClasses\DataClasses\DataPoint.cs" />
-    <Compile Include="AppClasses\Analysis2\ExperimentAttribute.cs" />
-    <Compile Include="AppClasses\Analysis2\ParameterSet.cs" />
-    <Compile Include="AppClasses\Analysis2\SolverUtilities.cs" />
-    <Compile Include="AppClasses\Analysis2\ParameterChecker.cs" />
-    <Compile Include="AppClasses\Analysis2\AdvancedAnalysis\AdvancedAnalysis.cs" />
-    <Compile Include="AppClasses\Analysis2\AdvancedAnalysis\ElectrostaticsAnalysis.cs" />
-    <Compile Include="AppClasses\Analysis2\AdvancedAnalysis\ProtonationAnalysis.cs" />
-    <Compile Include="AppClasses\Analysis2\AdvancedAnalysis\SpolarRecordAnalysis.cs" />
-    <Compile Include="AppClasses\DataExport\FTITCWriter.cs" />
-    <Compile Include="AppClasses\DataExport\Exporter.cs" />
-    <Compile Include="AppClasses\DataExport\AnalysisResultTableExporter.cs" />
-    <Compile Include="AppClasses\DataExport\ExportType.cs" />
-    <Compile Include="AppClasses\Utils\EnumExtensions.cs" />
     <Compile Include="UI\MacOS\Drawing\GUIutils.cs" />
-    <Compile Include="AppClasses\Utils\StringParsers.cs" />
-    <Compile Include="AppClasses\Properties\AppSettings.cs" />
-    <Compile Include="AppClasses\Properties\AppVersion.cs" />
-    <Compile Include="AppClasses\Properties\AssemblyInfo.cs" />
-    <Compile Include="AppClasses\Utils\CitationManager.cs" />
-    <Compile Include="AppClasses\Utils\Logger.cs" />
     <Compile Include="UI\MacOS\CustomViews\ScrollHintFadeView.cs" />
     <Compile Include="UI\MacOS\CustomViews\ScrollHintFadeView.designer.cs">
       <DependentUpon>ScrollHintFadeView.cs</DependentUpon>
@@ -620,12 +519,6 @@
     <Compile Include="UI\MacOS\GuideHintViewController.designer.cs">
       <DependentUpon>GuideHintViewController.cs</DependentUpon>
     </Compile>
-    <Compile Include="AppClasses\Math\IonicStrengthDependence.cs" />
-    <Compile Include="AppClasses\Analysis2\AnalysisSessionState.cs" />
-    <Compile Include="AppClasses\Analysis2\AnalysisBuilder.cs" />
-    <Compile Include="AppClasses\Analysis2\AnalysisWorkspace.cs" />
-    <Compile Include="AppClasses\Analysis2\AnalysisContext.cs" />
-    <Compile Include="AppClasses\Analysis2\ModelCloneOptions.cs" />
     <Compile Include="UI\MacOS\AppDelegate.cs" />
     <Compile Include="UI\MacOS\AppDelegate.designer.cs">
       <DependentUpon>AppDelegate.cs</DependentUpon>
@@ -644,6 +537,12 @@
     <BundleResource Include="Resources\ProjectFileIcon.icns" />
     <BundleResource Include="UI\MacOS\GuideHintViewController.cs" />
     <BundleResource Include="citation.json" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="AnalysisITC.Core\AnalysisITC.Core.csproj">
+      <Project>{F32343FC-8657-4362-8B8B-F1C885E1F3B0}</Project>
+      <Name>AnalysisITC.Core</Name>
+    </ProjectReference>
   </ItemGroup>
   <Import Project="$(MSBuildExtensionsPath)\Xamarin\Mac\Xamarin.Mac.CSharp.targets" />
   <Import Project="packages\Accord.3.8.0\build\Accord.targets" Condition="Exists('packages\Accord.3.8.0\build\Accord.targets')" />

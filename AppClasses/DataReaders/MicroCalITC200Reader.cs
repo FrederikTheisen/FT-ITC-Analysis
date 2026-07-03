@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.IO;
-using AnalysisITC;
 using AnalysisITC.Platform;
 using System.Linq;
 using AnalysisITC.Core.Utilities;

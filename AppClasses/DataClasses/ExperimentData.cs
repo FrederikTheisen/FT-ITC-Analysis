@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Linq;
 using AnalysisITC.Core.Analysis;
 using AnalysisITC.Core.Analysis.Models;
-using AnalysisITC.Core;
 using AnalysisITC.Core.DataReaders;
 using AnalysisITC.Core.Utilities;
 
@@ -52,7 +51,7 @@ namespace AnalysisITC.Core.Data
                 if (double.IsNaN(measuredTemperature)) return TargetTemperature;
                 else return measuredTemperature;
             }
-            internal set => measuredTemperature = value;
+            set => measuredTemperature = value;
         }
         public int InjectionCount => Injections.Count;
         public PeakHeatDirection AverageHeatDirection { get; set; } = PeakHeatDirection.Unknown;
@@ -205,7 +204,7 @@ namespace AnalysisITC.Core.Data
             foreach (var inj in Injections)
             {
                 float length;
-                if (i >= lengths.Length) length = lengths[^1];
+                if (i >= lengths.Length) length = lengths[lengths.Length - 1];
                 else length = lengths[i];
 
                 inj.SetIntegrationLengthByTime(length);
@@ -232,7 +231,7 @@ namespace AnalysisITC.Core.Data
             foreach (var inj in Injections)
             {
                 float delay;
-                if (i >= delays.Length) delay = delays[^1];
+                if (i >= delays.Length) delay = delays[delays.Length - 1];
                 else delay = delays[i];
 
                 inj.SetIntegrationStartTime(delay);

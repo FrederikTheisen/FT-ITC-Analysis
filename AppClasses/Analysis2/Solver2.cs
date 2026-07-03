@@ -15,6 +15,7 @@ using MathNet.Numerics.Optimization;
 
 using AnalysisITC.Core.Application;
 using AnalysisITC.Core.Data;
+using AnalysisITC.Core.Numerics;
 using AnalysisITC.Core.Utilities;
 
 namespace AnalysisITC.Core.Analysis
@@ -323,8 +324,8 @@ namespace AnalysisITC.Core.Analysis
 
         private static bool IsMeaningfullyWorse(double candidateObjective, double baselineObjective)
         {
-            if (!double.IsFinite(baselineObjective)) return false;
-            if (!double.IsFinite(candidateObjective)) return true;
+            if (!FWEMath.IsFinite(baselineObjective)) return false;
+            if (!FWEMath.IsFinite(candidateObjective)) return true;
 
             var tolerance = Math.Max(1e-12, Math.Abs(baselineObjective) * 1e-10);
             return candidateObjective > baselineObjective + tolerance;

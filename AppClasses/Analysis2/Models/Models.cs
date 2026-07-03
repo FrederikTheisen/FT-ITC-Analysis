@@ -33,7 +33,11 @@ namespace AnalysisITC.Core.Analysis.Models
 
         public virtual double GuessEnthalpy() => Data.Injections.First(inj => inj.Include).Enthalpy - GuessOffset();
         public virtual double EnthalpyMax() => Data.Injections.Where(inj => inj.Include).OrderBy(inj => Math.Abs(inj.Enthalpy)).Last().Enthalpy - GuessOffset();
-        public virtual double GuessOffset() => 0.8 * Data.Injections.Where(inj => inj.Include).TakeLast(2).Average(inj => inj.Enthalpy);
+        public virtual double GuessOffset()
+        {
+            var included = Data.Injections.Where(inj => inj.Include).ToList();
+            return 0.8 * included.Skip(Math.Max(0, included.Count - 2)).Average(inj => inj.Enthalpy);
+        }
         public virtual double GuessN() => Data.Injections.Last().Ratio / 2;
         public virtual double GuessAffinity() => 1000000;
         public double GuessLogAffinity() => Math.Log10(GuessAffinity());
@@ -213,18 +217,18 @@ namespace AnalysisITC.Core.Analysis.Models
         {
             double sigma = inj.PeakAreaError;
 
-            if (double.IsFinite(sigma) && sigma > 0)
+            if (FWEMath.IsFinite(sigma) && sigma > 0)
                 return sigma;
 
             var fallback = includedInjections
                 .Select(i => i.PeakAreaError)
-                .Where(s => double.IsFinite(s) && s > 0);
+                .Where(s => FWEMath.IsFinite(s) && s > 0);
 
             if (fallback.Count() > 0)
             {
                 var fallbackvalue = fallback.Average();
 
-                if (double.IsFinite(fallbackvalue) && fallbackvalue > 0)
+                if (FWEMath.IsFinite(fallbackvalue) && fallbackvalue > 0)
                     return fallbackvalue;
             }
 

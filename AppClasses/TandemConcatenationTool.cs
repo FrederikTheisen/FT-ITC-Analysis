@@ -24,6 +24,7 @@ using AnalysisITC.Core.Utilities;
 
 using AnalysisITC.Core.Application;
 using AnalysisITC.Core.Data;
+using AnalysisITC.Core.Numerics;
 
 namespace AnalysisITC.Core.Processing
 {
@@ -351,7 +352,7 @@ namespace AnalysisITC.Core.Processing
                 // Between segments: removal + back-mixing (skip after last segment)
                 if (s < segments.Count - 1)
                 {
-                    var mixFrac = Math.Clamp(transitionMixingFractions[s], 0.0, 1.0);
+                    var mixFrac = FWEMath.Clamp(transitionMixingFractions[s], 0.0, 1.0);
 
                     if (settings.DidRemoveOverflow) ApplyOverflowRemoval(ref Vdead, ref nM_dead, ref nL_dead, V_inj_total);
 

@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using AnalysisITC;
 
 using AnalysisITC.Core.Application;
 using AnalysisITC.Core.DataReaders;

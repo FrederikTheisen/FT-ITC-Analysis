@@ -127,7 +127,7 @@ namespace AnalysisITC.Core.Export
         public const string EndObjectHeader = "ENDOBJECT";
 
         public static string FileHeader(string header, string filename) => "FILE:" + header + ":" + EncodeText(filename);
-        public static string FileHeader(string header, string[] args) => "FILE:" + header + ":" + string.Join(',', args.Select(EncodeText));
+        public static string FileHeader(string header, string[] args) => "FILE:" + header + ":" + string.Join(",", args.Select(EncodeText));
         public static string ObjectHeader(string header) => "OBJECT:" + header; 
         public static string Variable(string header, string value) => header + ":" + value;
         public static string Variable(string header, double value) => Variable(header, FormatDouble(value));
@@ -351,7 +351,7 @@ namespace AnalysisITC.Core.Export
         {
             if (value.Contains(';')) return FloatWithError.FromSaveString(value); // New save version
 
-            var s = value.Split(",");
+            var s = value.Split(',');
 
             if (s.Length > 1) return new FloatWithError(DParse(s[0]), DParse(s[1]));
             else return new FloatWithError(DParse(s[0]));

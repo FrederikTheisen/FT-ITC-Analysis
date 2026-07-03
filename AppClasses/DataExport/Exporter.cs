@@ -475,7 +475,7 @@ namespace AnalysisITC.Core.Export
         public static void CopyToClipboard(AnalysisResult analysis, ConcentrationUnit kdunit, EnergyUnit eunit, bool usekelvin)
         {
             var solution = analysis.Solution;
-            var delimiter = ',';
+            var delimiter = ",";
             var lines = new List<string>()
             {
                 string.Join(delimiter, Header())
@@ -509,7 +509,7 @@ namespace AnalysisITC.Core.Export
                             line.Add(new Energy(par.Value).ToString(eunit, formatter: "G3", withunit: false)); break;
                     }
                 }
-                lines.Add(string.Join(delimiter, line).Replace('±', delimiter));
+                lines.Add(string.Join(delimiter, line).Replace("±", delimiter));
             }
 
             // Add line with averages
@@ -542,7 +542,7 @@ namespace AnalysisITC.Core.Export
                 }
             }
 
-            lines.Add(string.Join(delimiter, averageline).Replace('±', delimiter));
+            lines.Add(string.Join(delimiter, averageline).Replace("±", delimiter));
 
             var paste = string.Join(Environment.NewLine, lines);
 

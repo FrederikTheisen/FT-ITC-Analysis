@@ -86,13 +86,13 @@ namespace AnalysisITC.Core.Analysis
                 var activity = SaltAttribute.GetIonActivity(sol.Data);
                 var affinity = sol.ReportParameters[ParameterType.Affinity1];
 
-                if (!double.IsFinite(activity) || activity <= 0) continue;
-                if (!double.IsFinite(affinity.Value) || affinity.Value <= 0) continue;
+                if (!FWEMath.IsFinite(activity) || activity <= 0) continue;
+                if (!FWEMath.IsFinite(affinity.Value) || affinity.Value <= 0) continue;
 
                 var x = Math.Log(activity);
                 var y = FWEMath.Log(affinity);
 
-                if (!double.IsFinite(x) || !double.IsFinite(y.Value)) continue;
+                if (!FWEMath.IsFinite(x) || !FWEMath.IsFinite(y.Value)) continue;
 
                 dps.Add((x, y));
             }

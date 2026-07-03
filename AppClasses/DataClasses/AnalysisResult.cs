@@ -268,13 +268,13 @@ namespace AnalysisITC.Core.Data
 
                 var existing = DataManager.Results
                     .Where(r => r != null && r != this && !string.IsNullOrWhiteSpace(r.Name))
-                    .Select(r => r.Name)
-                    .ToHashSet();
+                    .Select(r => r.Name);
+                var existingNames = new HashSet<string>(existing);
 
-                if (!existing.Contains(name)) return name;
+                if (!existingNames.Contains(name)) return name;
 
                 int i = 2;
-                while (existing.Contains($"{name} ({i})")) i++;
+                while (existingNames.Contains($"{name} ({i})")) i++;
                 return $"{name} ({i})";
             }
             catch
@@ -283,9 +283,9 @@ namespace AnalysisITC.Core.Data
             }
         }
 
-        internal double GetMinimumTemperature() => Solution.Solutions.Min(s => s.Temp);
+        public double GetMinimumTemperature() => Solution.Solutions.Min(s => s.Temp);
 
-        internal double GetMaximumTemperature() => Solution.Solutions.Max(s => s.Temp);
+        public double GetMaximumTemperature() => Solution.Solutions.Max(s => s.Temp);
 
         public double[] GetMinMaxIonicStrength()
         {
@@ -293,7 +293,7 @@ namespace AnalysisITC.Core.Data
             return new double[2] { list.Min(), list.Max() };
         }
 
-        internal double GetMaximumParameter()
+        public double GetMaximumParameter()
         {
             double max = double.MinValue;
 
@@ -311,7 +311,7 @@ namespace AnalysisITC.Core.Data
             return max;
         }
 
-        internal double GetMinimumParameter()
+        public double GetMinimumParameter()
         {
             double min = double.MaxValue;
 

@@ -56,8 +56,8 @@ namespace AnalysisITC.Core.Application
 
         public static ErrorEstimationMethod DefaultErrorEstimationMethod { get; set; } = ErrorEstimationMethod.BootstrapResiduals;
         public static int DefaultBootstrapIterations { get; set; } = 100;
-        public static double MinimumTemperatureSpanForFitting { get; internal set; } = 2;
-        public static double MinimumIonSpanForFitting { get; internal set; } = 0.01;
+        public static double MinimumTemperatureSpanForFitting { get; set; } = 2;
+        public static double MinimumIonSpanForFitting { get; set; } = 0.01;
         public static bool IncludeConcentrationErrorsInBootstrap { get; set; } = false;
         public static double ConcentrationAutoVariance { get; set; } = 0.05;
         public static bool IsConcentrationAutoVarianceEnabled { get; set; } = ConcentrationAutoVariance > 0.001;

@@ -69,6 +69,15 @@ namespace AnalysisITC.Core.Analysis
                 : BuildSingle(session.ModelType, DataManager.Current, session.Single, reuseAttachedSolutionInitialValues);
         }
 
+        public static AnalysisContext Build(AnalysisSessionState session, IEnumerable<ExperimentData> experiments, bool reuseAttachedSolutionInitialValues = true)
+        {
+            var dataList = experiments?.Where(d => d != null).ToList() ?? new List<ExperimentData>();
+
+            return session.IsGlobal
+                ? BuildGlobal(session.ModelType, dataList, session.Global, reuseAttachedSolutionInitialValues)
+                : BuildSingle(session.ModelType, dataList.FirstOrDefault(), session.Single, reuseAttachedSolutionInitialValues);
+        }
+
         // ── Single ─────────────────────────────────────────────────────────
 
         static AnalysisContext BuildSingle(AnalysisModel modelType, ExperimentData data, AnalysisState state, bool reuseAttachedSolutionInitialValues)

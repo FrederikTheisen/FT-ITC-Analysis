@@ -125,7 +125,7 @@ namespace AnalysisITC.Core.Analysis.Models
 
         double FindFreeTitrant(double p, double q, double r, double guess)
         {
-            if (double.IsFinite(p) && double.IsFinite(q) && double.IsFinite(r))
+            if (FWEMath.IsFinite(p) && FWEMath.IsFinite(q) && FWEMath.IsFinite(r))
             {
                 bool rootFound = MathNet.Numerics.RootFinding.RobustNewtonRaphson.TryFindRoot(
                     (x) => x * x * x + x * x * p + x * q + r,
@@ -134,7 +134,7 @@ namespace AnalysisITC.Core.Analysis.Models
                     accuracy: 1e-32, maxIterations: 500, subdivision: 20,
                     out double root);
 
-                //if (rootFound && double.IsFinite(root) && root >= 0 && root <= 1e-3)
+                //if (rootFound && FWEMath.IsFinite(root) && root >= 0 && root <= 1e-3)
                     return root;
             }
  
@@ -148,7 +148,7 @@ namespace AnalysisITC.Core.Analysis.Models
             const double concentrationAccuracy = 1e-32;
             const int maxIterations = 500;
 
-            if (!double.IsFinite(p) || !double.IsFinite(q) || !double.IsFinite(r))
+            if (!FWEMath.IsFinite(p) || !FWEMath.IsFinite(q) || !FWEMath.IsFinite(r))
                 return ClampFreeTitrant(guess, lowerBound, upperBound);
 
             var lower = lowerBound;
@@ -156,7 +156,7 @@ namespace AnalysisITC.Core.Analysis.Models
             var fLower = FreeTitrantPolynomial(lower, p, q, r);
             var fUpper = FreeTitrantPolynomial(upper, p, q, r);
 
-            if (!double.IsFinite(fLower) || !double.IsFinite(fUpper))
+            if (!FWEMath.IsFinite(fLower) || !FWEMath.IsFinite(fUpper))
                 return ClampFreeTitrant(guess, lowerBound, upperBound);
 
             if (fLower == 0) return lower;
@@ -169,7 +169,7 @@ namespace AnalysisITC.Core.Analysis.Models
                 var mid = 0.5 * (lower + upper);
                 var fMid = FreeTitrantPolynomial(mid, p, q, r);
 
-                if (!double.IsFinite(fMid))
+                if (!FWEMath.IsFinite(fMid))
                     return ClampFreeTitrant(guess, lowerBound, upperBound);
 
                 if (fMid == 0) return mid;

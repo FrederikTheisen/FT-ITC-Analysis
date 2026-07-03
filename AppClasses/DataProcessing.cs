@@ -178,7 +178,7 @@ namespace AnalysisITC.Core.Processing
     public class BaselineInterpolator
     {
         public DataProcessor Processor { get; set; }
-        internal List<Energy> Baseline { get; set; } = new List<Energy>();
+        public List<Energy> Baseline { get; set; } = new List<Energy>();
         public bool IsLocked => Processor.IsLocked;
         
         internal ExperimentData Data => Processor.Data;

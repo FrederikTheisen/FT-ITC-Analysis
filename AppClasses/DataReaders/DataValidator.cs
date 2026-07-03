@@ -11,7 +11,7 @@ using AnalysisITC.Core.Utilities;
 
 namespace AnalysisITC.Core.DataReaders
 {
-    static class ImportValidator
+    public static class ImportValidator
     {
         sealed class ValidationIssue
         {

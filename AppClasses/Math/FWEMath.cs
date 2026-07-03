@@ -214,6 +214,29 @@ namespace AnalysisITC.Core.Numerics
             return sum / count;
         }
 
+        public static double Clamp(double value, double min, double max)
+        {
+            if (max < min) throw new ArgumentException("Max must be greater than or equal to min.", nameof(max));
+            return Math.Min(Math.Max(value, min), max);
+        }
+
+        public static float Clamp(float value, float min, float max)
+        {
+            if (max < min) throw new ArgumentException("Max must be greater than or equal to min.", nameof(max));
+            return Math.Min(Math.Max(value, min), max);
+        }
+
+        public static int Clamp(int value, int min, int max)
+        {
+            if (max < min) throw new ArgumentException("Max must be greater than or equal to min.", nameof(max));
+            return Math.Min(Math.Max(value, min), max);
+        }
+
+        public static bool IsFinite(double value)
+        {
+            return !double.IsNaN(value) && !double.IsInfinity(value);
+        }
+
         public static double RoundApproximate(double dbl)
         {
             double margin = 8e-8;

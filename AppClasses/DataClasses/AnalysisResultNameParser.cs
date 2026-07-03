@@ -312,7 +312,7 @@ namespace AnalysisITC.Core.Data
                 .Select(t => StripTrailingReplicateTag(t))    // TEST 
                 .ToList();
 
-            return tokens.ToHashSet();
+            return new HashSet<string>(tokens);
         }
 
         static string StripTrailingReplicateTag(string name)
@@ -368,4 +368,3 @@ namespace AnalysisITC.Core.Data
         };
     }
 }
-

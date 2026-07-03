@@ -112,7 +112,7 @@ namespace AnalysisITC.Core.Numerics
                 var rng = new Random();
                 double error = 0;
                 double average = 0;
-                int n = Math.Clamp(10000 / distribution.Count(), 10, 200);
+                int n = FWEMath.Clamp(10000 / distribution.Count(), 10, 200);
                 var samples = new List<double>(n * distribution.Count());
 
                 foreach (var fwe in distribution)
@@ -473,7 +473,7 @@ namespace AnalysisITC.Core.Numerics
                 candidates.Add(Math.Abs(value.UpperWidth));
             }
 
-            return candidates.Where(v => double.IsFinite(v) && v > 0).DefaultIfEmpty(double.Epsilon).Min();
+            return candidates.Where(v => FWEMath.IsFinite(v) && v > 0).DefaultIfEmpty(double.Epsilon).Min();
         }
 
         static string AppendUnit(string value, string unit, bool withunit)

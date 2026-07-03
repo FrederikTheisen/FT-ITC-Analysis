@@ -1,6 +1,5 @@
 ﻿using System;
 using System.IO;
-using AnalysisITC;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.RegularExpressions;
@@ -25,7 +24,7 @@ namespace AnalysisITC.Core.DataReaders
             Regex regex = new Regex(OldReaderPattern(ExperimentHeader), RegexOptions.Singleline | RegexOptions.Compiled);
             var v = regex.Matches(file);
 
-            foreach (var m in v.AsEnumerable())
+            foreach (Match m in v)
             {
                 var result = m.Value;
 
@@ -42,7 +41,7 @@ namespace AnalysisITC.Core.DataReaders
 
             if (v.Count == 0) return null;
 
-            var result = v.First().Value;
+            var result = v[0].Value;
 
             return result.Substring(header.Length + 2, result.Length - (2 * header.Length + 5));
         }
@@ -70,7 +69,7 @@ namespace AnalysisITC.Core.DataReaders
 
             var datapoints = new List<DataPoint>();
 
-            var dpdata = GContent(DataPointList, data).Split(";");
+            var dpdata = GContent(DataPointList, data).Split(';');
             foreach (var dp in dpdata)
             {
                 var _dp = dp.Split(',');
@@ -81,7 +80,7 @@ namespace AnalysisITC.Core.DataReaders
 
             var injections = new List<InjectionData>();
 
-            var injdata = GContent(InjectionList, data).Split(";");
+            var injdata = GContent(InjectionList, data).Split(';');
             foreach (var inj in injdata)
             {
                 //injections.Add(new InjectionData(exp, inj));
@@ -106,7 +105,7 @@ namespace AnalysisITC.Core.DataReaders
                             //(processor.Interpolator as SplineInterpolator).IsLocked = GContent(SplineLocked, processordata) == "1";
                             var splinepoints = new List<SplineInterpolator.SplinePoint>();
 
-                            var spdata = GContent(SplinePointList, data).Split(";");
+                            var spdata = GContent(SplinePointList, data).Split(';');
                             foreach (var sp in spdata)
                             {
                                 var _spdat = sp.Split(',');

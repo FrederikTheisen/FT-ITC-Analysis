@@ -48,7 +48,7 @@ namespace AnalysisITC.Core.Application
 		{
 			AddLog(ex);
 
-			var stacktrace = ex.StackTrace?.Split(Environment.NewLine) ?? new[] { "" };
+			var stacktrace = ex.StackTrace?.Split(new[] { Environment.NewLine }, StringSplitOptions.None) ?? new[] { "" };
 
             Console.WriteLine(ex.Message);
             foreach (var line in stacktrace) Console.WriteLine(line);
@@ -108,7 +108,8 @@ namespace AnalysisITC.Core.Application
 			lock (LogLock)
 			{
 				var builder = new StringBuilder();
-				var entries = Log.TakeLast(Math.Max(0, maxEntries));
+				var count = Math.Max(0, maxEntries);
+				var entries = Log.Skip(Math.Max(0, Log.Count - count));
 
 				foreach (var entry in entries)
 				{

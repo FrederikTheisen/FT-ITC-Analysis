@@ -164,7 +164,7 @@ namespace AnalysisITC.Core.Analysis.Models
             //Bootstrap value for error estimation //TODO does this work with LeaveOneOut?
             var limits = ParameterType.CisIsomerPopulationPercentage.GetProperties().DefaultLimits;
             mdl.ModelOptions[AttributeKey.Percentage].ParameterValue =
-                new FloatWithError(Math.Clamp(ModelOptions[AttributeKey.Percentage].ParameterValue.Sample(), limits[0], limits[1]), 0);
+                new FloatWithError(FWEMath.Clamp(ModelOptions[AttributeKey.Percentage].ParameterValue.Sample(), limits[0], limits[1]), 0);
 
             return mdl;
         }
@@ -250,4 +250,3 @@ namespace AnalysisITC.Core.Analysis.Models
         }
     }
 }
-

@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Linq;
-using AnalysisITC;
 using AnalysisITC.Platform;
 
 using AnalysisITC.Core.Application;
@@ -392,7 +391,7 @@ namespace AnalysisITC.Core.DataReaders
                 var r0 = rows[i];
                 var r1 = rows[i + 1];
 
-                if (!double.IsFinite(r0.Mt) || !double.IsFinite(r1.Mt)) continue;
+                if (!FWEMath.IsFinite(r0.Mt) || !FWEMath.IsFinite(r1.Mt)) continue;
                 if (r0.Mt <= 0 || r1.Mt <= 0) continue;
 
                 // Pre->pre relationship: Mt_{i+1} is post-injection i (and pre for i+1)
@@ -403,7 +402,7 @@ namespace AnalysisITC.Core.DataReaders
                 var vcell = vinj_L / (1.0 - f);
 
                 // Keep plausible ITC cell volumes (50 uL .. 10 mL)
-                if (double.IsFinite(vcell) && vcell > 50e-6 && vcell < 10e-3)
+                if (FWEMath.IsFinite(vcell) && vcell > 50e-6 && vcell < 10e-3)
                     vCandidates.Add(vcell);
             }
 
@@ -427,11 +426,11 @@ namespace AnalysisITC.Core.DataReaders
                 var vinj_L = r.InjV_uL;
                 if (vinj_L <= 0) continue;
 
-                if (double.IsFinite(r.NDH) && Math.Abs(r.NDH) > 0)
+                if (FWEMath.IsFinite(r.NDH) && Math.Abs(r.NDH) > 0)
                 {
                     var injMol = r.DH / r.NDH;
                     var c = injMol / vinj_L; // mol/L
-                    if (double.IsFinite(c) && c > 0 && c < 50) cCandidates.Add(c);
+                    if (FWEMath.IsFinite(c) && c > 0 && c < 50) cCandidates.Add(c);
                 }
             }
 

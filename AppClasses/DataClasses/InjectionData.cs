@@ -229,7 +229,7 @@ namespace AnalysisITC.Core.Data
             // DataPoints first because there might not be datapoinst from the first few seconds
             var absoluteminimum = Math.Max(-Delay, Experiment.DataPoints.First().Time - Time + MinimumIntegrationTime);
 
-            IntegrationStartDelay = Math.Clamp(delay, absoluteminimum, IntegrationEndOffset - MinimumIntegrationTime);
+            IntegrationStartDelay = FWEMath.Clamp(delay, absoluteminimum, IntegrationEndOffset - MinimumIntegrationTime);
             Experiment?.MarkModified();
         }
 
@@ -248,7 +248,7 @@ namespace AnalysisITC.Core.Data
         public void SetIntegrationLengthByTime(float time)
         {
             // Keep between the start delay and the injection scope
-            IntegrationEndOffset = Math.Clamp(time, IntegrationStartDelay + MinimumIntegrationTime, Delay);
+            IntegrationEndOffset = FWEMath.Clamp(time, IntegrationStartDelay + MinimumIntegrationTime, Delay);
             Experiment?.MarkModified();
         }
 
