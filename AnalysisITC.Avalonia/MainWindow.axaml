@@ -1,0 +1,142 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:local="using:AnalysisITC.Avalonia"
+        xmlns:processing="using:AnalysisITC.Avalonia.Processing"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d" d:DesignWidth="1200" d:DesignHeight="760"
+        x:Class="AnalysisITC.Avalonia.MainWindow"
+        Title="FT-ITC Analysis"
+        Width="1200"
+        Height="760"
+        MinWidth="900"
+        MinHeight="600">
+    <Grid RowDefinitions="Auto,*,Auto" Background="#F5F7FA">
+        <Border Grid.Row="0" Background="#FFFFFF" BorderBrush="#D4DAE1" BorderThickness="0,0,0,1" Padding="8">
+            <DockPanel>
+                <StackPanel Orientation="Horizontal" Spacing="8" DockPanel.Dock="Left">
+                    <Button x:Name="OpenButton" Content="Open" MinWidth="72" />
+                    <Button x:Name="ClearButton" Content="Clear" MinWidth="72" />
+                    <Button x:Name="FitViewButton" Content="Fit View" MinWidth="84" />
+                </StackPanel>
+                <TextBlock x:Name="ToolbarStatusText"
+                           Margin="16,0,0,0"
+                           VerticalAlignment="Center"
+                           Foreground="#4D5A66"
+                           TextTrimming="CharacterEllipsis" />
+            </DockPanel>
+        </Border>
+
+        <Grid Grid.Row="1" ColumnDefinitions="300,Auto,*">
+            <Border Grid.Column="0" Background="#FFFFFF" BorderBrush="#D4DAE1" BorderThickness="0,0,1,0">
+                <Grid RowDefinitions="Auto,*">
+                    <TextBlock Grid.Row="0"
+                               Text="Data / Results"
+                               FontSize="15"
+                               FontWeight="SemiBold"
+                               Foreground="#202832"
+                               Margin="12,10,12,8" />
+                    <ListBox x:Name="ItemsList"
+                             Grid.Row="1"
+                             Margin="8,0,8,8"
+                             Background="#FFFFFF"
+                             BorderThickness="0" />
+                </Grid>
+            </Border>
+
+            <GridSplitter Grid.Column="1"
+                          Width="4"
+                          ResizeDirection="Columns"
+                          Background="#E3E7EC" />
+
+            <Grid Grid.Column="2" RowDefinitions="Auto,*" Margin="12">
+                <Border Grid.Row="0" Background="#FFFFFF" BorderBrush="#D4DAE1" BorderThickness="1" CornerRadius="4" Padding="12">
+                    <Grid ColumnDefinitions="*,Auto">
+                        <StackPanel>
+                            <TextBlock x:Name="SelectedTitleText"
+                                       FontSize="17"
+                                       FontWeight="SemiBold"
+                                       Foreground="#202832"
+                                       Text="No Selection" />
+                            <TextBlock x:Name="SelectedSummaryText"
+                                       Margin="0,4,0,0"
+                                       Foreground="#5E6A75"
+                                       TextTrimming="CharacterEllipsis" />
+                        </StackPanel>
+                        <TextBlock x:Name="ItemCountText"
+                                   Grid.Column="1"
+                                   VerticalAlignment="Center"
+                                   Foreground="#5E6A75" />
+                    </Grid>
+                </Border>
+
+                <TabControl x:Name="WorkspaceTabs" Grid.Row="1" Margin="0,10,0,0">
+                    <TabItem Header="Overview">
+                        <Border Background="#FFFFFF" BorderBrush="#D4DAE1" BorderThickness="1" Padding="16">
+                            <TextBlock x:Name="OverviewText" Foreground="#202832" TextWrapping="Wrap" />
+                        </Border>
+                    </TabItem>
+                    <TabItem Header="Process Data">
+                        <processing:ProcessingWorkspaceControl x:Name="ProcessingWorkspace" />
+                    </TabItem>
+                    <TabItem Header="Analyze Data">
+                        <Border Background="#FFFFFF" BorderBrush="#D4DAE1" BorderThickness="1" Padding="16">
+                            <TextBlock x:Name="AnalyzeText" Foreground="#202832" TextWrapping="Wrap" />
+                        </Border>
+                    </TabItem>
+                    <TabItem Header="Final Figure">
+                        <Grid RowDefinitions="Auto,*">
+                            <Border Grid.Row="0" Background="#FFFFFF" BorderBrush="#D4DAE1" BorderThickness="1" Padding="8">
+                                <DockPanel>
+                                    <StackPanel Orientation="Horizontal" Spacing="10" DockPanel.Dock="Left">
+                                        <Button x:Name="FitFigureButton" Content="Fit Page" MinWidth="82" />
+                                        <Button x:Name="ExportFigureButton" Content="Export PDF" MinWidth="94" />
+                                        <CheckBox x:Name="FinalFigureResidualsCheck" Content="Residuals" IsChecked="True" VerticalAlignment="Center" />
+                                        <CheckBox x:Name="FinalFigureDetailsCheck" Content="Details" IsChecked="True" VerticalAlignment="Center" />
+                                        <CheckBox x:Name="FinalFigureConfidenceCheck" Content="Confidence" IsChecked="True" VerticalAlignment="Center" />
+                                        <CheckBox x:Name="FinalFigureErrorBarsCheck" Content="Error bars" IsChecked="True" VerticalAlignment="Center" />
+                                    </StackPanel>
+                                    <TextBlock x:Name="FinalFigureText"
+                                               Margin="16,0,0,0"
+                                               VerticalAlignment="Center"
+                                               Foreground="#4D5A66"
+                                               TextTrimming="CharacterEllipsis" />
+                                </DockPanel>
+                            </Border>
+                            <Border x:Name="FinalFigurePreviewHost"
+                                    Grid.Row="1"
+                                    Margin="0,10,0,0"
+                                    Background="#F1F4F7"
+                                    BorderBrush="#D4DAE1"
+                                    BorderThickness="1"
+                                    Padding="12">
+                                <Viewbox Stretch="Uniform">
+                                    <Image x:Name="FinalFigureImage"
+                                           Stretch="Uniform"
+                                           RenderOptions.BitmapInterpolationMode="HighQuality" />
+                                </Viewbox>
+                            </Border>
+                        </Grid>
+                    </TabItem>
+                    <TabItem Header="Result">
+                        <Border Background="#FFFFFF" BorderBrush="#D4DAE1" BorderThickness="1" Padding="16">
+                            <TextBlock x:Name="ResultText" Foreground="#202832" TextWrapping="Wrap" />
+                        </Border>
+                    </TabItem>
+                </TabControl>
+            </Grid>
+        </Grid>
+
+        <Border Grid.Row="2" Background="#FFFFFF" BorderBrush="#D4DAE1" BorderThickness="0,1,0,0" Padding="8,5">
+            <Grid ColumnDefinitions="*,Auto">
+                <TextBlock x:Name="StatusText"
+                           Foreground="#4D5A66"
+                           TextTrimming="CharacterEllipsis" />
+                <TextBlock x:Name="SecondaryStatusText"
+                           Grid.Column="1"
+                           Margin="16,0,0,0"
+                           Foreground="#6B7682" />
+            </Grid>
+        </Border>
+    </Grid>
+</Window>

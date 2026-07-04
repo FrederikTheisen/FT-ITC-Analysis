@@ -7,6 +7,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AnalysisITC", "AnalysisITC.
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AnalysisITC.Core", "AnalysisITC.Core\AnalysisITC.Core.csproj", "{F32343FC-8657-4362-8B8B-F1C885E1F3B0}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AnalysisITC.Avalonia", "AnalysisITC.Avalonia\AnalysisITC.Avalonia.csproj", "{04D51352-2551-4485-8381-1E12871E9E2B}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -22,6 +24,12 @@ Global
 		{F32343FC-8657-4362-8B8B-F1C885E1F3B0}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{F32343FC-8657-4362-8B8B-F1C885E1F3B0}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{F32343FC-8657-4362-8B8B-F1C885E1F3B0}.Release|Any CPU.Build.0 = Release|Any CPU
+		{04D51352-2551-4485-8381-1E12871E9E2B}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{04D51352-2551-4485-8381-1E12871E9E2B}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{04D51352-2551-4485-8381-1E12871E9E2B}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{04D51352-2551-4485-8381-1E12871E9E2B}.Release|Any CPU.Build.0 = Release|Any CPU
+		{04D51352-2551-4485-8381-1E12871E9E2B}.Arm64|Any CPU.ActiveCfg = Debug|Any CPU
+		{04D51352-2551-4485-8381-1E12871E9E2B}.Arm64|Any CPU.Build.0 = Debug|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

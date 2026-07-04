@@ -1,0 +1,17 @@
+using AnalysisITC.Platform;
+
+namespace AnalysisITC.Platform.Avalonia
+{
+    public static class AvaloniaPlatformBootstrapper
+    {
+        public static void Register()
+        {
+            var environment = new AvaloniaAppEnvironment();
+
+            PlatformServices.RegisterAppEnvironment(environment);
+            PlatformServices.RegisterSettingsStore(new AvaloniaJsonSettingsStore(environment.ApplicationDataDirectory));
+            PlatformServices.RegisterMainThreadDispatcher(new AvaloniaMainThreadDispatcher());
+            PlatformServices.RegisterAppNotificationService(new AvaloniaAppNotificationService());
+        }
+    }
+}
