@@ -34,13 +34,15 @@ public partial class MainWindow : Window
 
         OpenButton.Click += async (_, _) => await OpenFilesAsync();
         ClearButton.Click += (_, _) => ClearData();
-        FitViewButton.Click += (_, _) => ProcessingWorkspace.FitToData();
+        FitViewButton.Click += (_, _) => FitActiveWorkspace();
         FitFigureButton.Click += (_, _) => RefreshFinalFigurePreview(force: true);
         ExportFigureButton.Click += async (_, _) => await ExportFinalFigurePdfAsync();
         ItemsList.SelectionChanged += (_, _) => SelectListItem();
         FinalFigurePreviewHost.SizeChanged += (_, _) => RefreshFinalFigurePreview();
         ProcessingWorkspace.StatusChanged += OnProcessingStatusChanged;
         ProcessingWorkspace.ProcessingChanged += OnProcessingChanged;
+        AnalysisWorkspace.StatusChanged += OnAnalysisStatusChanged;
+        AnalysisWorkspace.GraphChanged += OnAnalysisGraphChanged;
 
         WireFinalFigureOption(FinalFigureResidualsCheck);
         WireFinalFigureOption(FinalFigureDetailsCheck);
@@ -74,6 +76,8 @@ public partial class MainWindow : Window
         AppEventHandler.ShowAppMessage -= OnAppMessage;
         ProcessingWorkspace.StatusChanged -= OnProcessingStatusChanged;
         ProcessingWorkspace.ProcessingChanged -= OnProcessingChanged;
+        AnalysisWorkspace.StatusChanged -= OnAnalysisStatusChanged;
+        AnalysisWorkspace.GraphChanged -= OnAnalysisGraphChanged;
 
         finalFigureBitmap?.Dispose();
 
@@ -177,10 +181,10 @@ public partial class MainWindow : Window
         SelectedTitleText.Text = item?.Name ?? "No Selection";
         SelectedSummaryText.Text = item == null ? "" : BuildShortSummary(item);
         OverviewText.Text = item == null ? "No loaded data." : BuildOverview(item);
-        AnalyzeText.Text = item is ExperimentData ? "Analysis workspace" : "";
         ResultText.Text = item is AnalysisResult result ? BuildResultSummary(result) : "No result selected.";
         UpdateFinalFigureContext(item);
         ProcessingWorkspace.Experiment = item as ExperimentData;
+        AnalysisWorkspace.Experiment = item as ExperimentData;
 
         if (item is ExperimentData experiment)
         {
@@ -478,6 +482,34 @@ public partial class MainWindow : Window
         finalFigureCacheKey = null;
         if (finalFigureExperiment != null)
             RefreshFinalFigurePreview(force: true);
+    }
+
+    void OnAnalysisStatusChanged(object? sender, string status)
+    {
+        SetStatus(status);
+    }
+
+    void OnAnalysisGraphChanged(object? sender, EventArgs e)
+    {
+        finalFigureCacheKey = null;
+        if (finalFigureExperiment != null)
+            RefreshFinalFigurePreview(force: true);
+    }
+
+    void FitActiveWorkspace()
+    {
+        switch (WorkspaceTabs.SelectedIndex)
+        {
+            case 1:
+                ProcessingWorkspace.FitToData();
+                break;
+            case 2:
+                AnalysisWorkspace.FitToData();
+                break;
+            case 3:
+                RefreshFinalFigurePreview(force: true);
+                break;
+        }
     }
 
     void SetStatus(string status)
