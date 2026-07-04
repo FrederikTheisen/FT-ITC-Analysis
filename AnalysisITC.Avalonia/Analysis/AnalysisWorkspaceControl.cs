@@ -1,42 +1,68 @@
 using System;
+using System.Globalization;
+using System.Linq;
 
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.Primitives;
+using Avalonia.Input;
 using Avalonia.Layout;
 using Avalonia.Media;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 
+using AnalysisITC.Core.Analysis;
+using AnalysisITC.Core.Analysis.Models;
 using AnalysisITC.Core.Application;
 using AnalysisITC.Core.Data;
+using AnalysisITC.Core.Numerics;
+using AnalysisITC.Core.Utilities;
+using CoreAnalysisWorkspace = AnalysisITC.Core.Analysis.AnalysisWorkspace;
 
 namespace AnalysisITC.Avalonia.Analysis
 {
     public sealed class AnalysisWorkspaceControl : UserControl
     {
         readonly IntegratedHeatsGraphControl graph = new IntegratedHeatsGraphControl();
-        readonly TextBlock statusText = Text();
-        readonly CheckBox fitCheck = Check("Fit", true);
+        readonly CoreAnalysisWorkspace workspace = new CoreAnalysisWorkspace();
+
+        readonly ComboBox modelCombo = Combo(210);
+        readonly ComboBox algorithmCombo = Combo(new[] { "Nelder-Mead", "Levenberg-Marquardt" }, 210);
+        readonly ComboBox errorMethodCombo = Combo(new[] { "None", "Bootstrap residuals", "Leave-one-out" }, 210);
+        readonly TextBox bootstrapIterationsBox = TextBox("100");
+        readonly CheckBox weightedFitCheck = Check("Weight by injection error", false);
+        readonly Button runFitButton = Button("Run Fit", 92);
+        readonly Button stopFitButton = Button("Stop", 70);
+        readonly TextBlock fitStatusText = Text();
+
+        readonly StackPanel parameterPanel = new StackPanel { Spacing = 6 };
+        readonly StackPanel optionPanel = new StackPanel { Spacing = 6 };
+
+        readonly CheckBox fitCheck = Check("Fit line", true);
         readonly CheckBox residualsCheck = Check("Residuals", true);
         readonly CheckBox errorBarsCheck = Check("Error bars", true);
-        readonly CheckBox confidenceCheck = Check("Confidence", true);
-        readonly CheckBox labelsCheck = Check("Labels", true);
-        readonly CheckBox parametersCheck = Check("Parameters", true);
-        readonly CheckBox excludedCheck = Check("Excluded", true);
-        readonly CheckBox scaleIncludedCheck = Check("Scale included", false);
-        readonly CheckBox offsetCheck = Check("Offset", true);
-        readonly Button fitViewButton = Button("Fit View", 80);
+        readonly CheckBox confidenceCheck = Check("Confidence band", true);
+        readonly CheckBox labelsCheck = Check("Point labels", true);
+        readonly CheckBox parametersCheck = Check("Parameter box", true);
+        readonly CheckBox excludedCheck = Check("Excluded points", true);
+        readonly CheckBox scaleIncludedCheck = Check("Scale to included", false);
+        readonly CheckBox offsetCheck = Check("Show fitted offset", true);
+        readonly Button fitViewButton = Button("Fit View", 92);
 
         ExperimentData? experiment;
+        bool isUpdatingControls;
+        bool isFitting;
 
         public event EventHandler<string>? StatusChanged;
         public event EventHandler? GraphChanged;
+        public event EventHandler? FittingChanged;
 
         public AnalysisWorkspaceControl()
         {
             BuildLayout();
             WireEvents();
-            ApplyOptions();
+            RefreshModelChoices();
+            ApplyGraphOptions();
             UpdateStatus();
         }
 
@@ -51,6 +77,7 @@ namespace AnalysisITC.Avalonia.Analysis
                 experiment = value;
                 graph.Experiment = value;
                 SubscribeExperiment();
+                RebuildAnalysisContext();
                 UpdateStatus();
             }
         }
@@ -60,80 +87,131 @@ namespace AnalysisITC.Avalonia.Analysis
             graph.FitToData();
         }
 
+        protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
+        {
+            base.OnAttachedToVisualTree(e);
+
+            workspace.ContextRebuilt += OnContextRebuilt;
+            workspace.RebuildFailed += OnRebuildFailed;
+            SolverInterface.AnalysisFinished += OnAnalysisFinished;
+            SolverInterface.AnalysisStepFinished += OnAnalysisStepFinished;
+            SolverInterface.ErrorEstimationIterationCompleted += OnErrorIteration;
+            SolverInterface.SolverUpdated += OnSolverUpdated;
+        }
+
         protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
         {
             UnsubscribeExperiment();
+            workspace.ContextRebuilt -= OnContextRebuilt;
+            workspace.RebuildFailed -= OnRebuildFailed;
+            SolverInterface.AnalysisFinished -= OnAnalysisFinished;
+            SolverInterface.AnalysisStepFinished -= OnAnalysisStepFinished;
+            SolverInterface.ErrorEstimationIterationCompleted -= OnErrorIteration;
+            SolverInterface.SolverUpdated -= OnSolverUpdated;
+
             base.OnDetachedFromVisualTree(e);
         }
 
         void BuildLayout()
         {
-            var controls = new StackPanel
+            algorithmCombo.SelectedIndex = FittingOptionsController.Algorithm == SolverAlgorithm.LevenbergMarquardt ? 1 : 0;
+            errorMethodCombo.SelectedIndex = FittingOptionsController.ErrorEstimationMethod switch
             {
-                Orientation = Orientation.Horizontal,
-                Spacing = 10,
-                VerticalAlignment = VerticalAlignment.Center
+                ErrorEstimationMethod.BootstrapResiduals => 1,
+                ErrorEstimationMethod.LeaveOneOut => 2,
+                _ => 0,
             };
-
-            controls.Children.Add(fitViewButton);
-            controls.Children.Add(fitCheck);
-            controls.Children.Add(residualsCheck);
-            controls.Children.Add(errorBarsCheck);
-            controls.Children.Add(confidenceCheck);
-            controls.Children.Add(labelsCheck);
-            controls.Children.Add(parametersCheck);
-            controls.Children.Add(excludedCheck);
-            controls.Children.Add(scaleIncludedCheck);
-            controls.Children.Add(offsetCheck);
-            controls.Children.Add(statusText);
+            weightedFitCheck.IsChecked = FittingOptionsController.UseErrorWeightedFitting;
+            bootstrapIterationsBox.Text = FittingOptionsController.BootstrapIterations.ToString(CultureInfo.CurrentCulture);
 
             var root = new Grid
             {
-                RowDefinitions = new RowDefinitions("Auto,*"),
+                ColumnDefinitions = new ColumnDefinitions("*,330"),
                 Background = Solid("#F5F7FA")
             };
-
-            var controlsBorder = new Border
-            {
-                Background = Brushes.White,
-                BorderBrush = Solid("#D4DAE1"),
-                BorderThickness = new Thickness(1),
-                Padding = new Thickness(10),
-                Child = controls
-            };
-            Grid.SetRow(controlsBorder, 0);
 
             var graphBorder = new Border
             {
                 Background = Brushes.White,
                 BorderBrush = Solid("#D4DAE1"),
                 BorderThickness = new Thickness(1),
-                Margin = new Thickness(0, 10, 0, 0),
                 Child = graph
             };
-            Grid.SetRow(graphBorder, 1);
+            Grid.SetColumn(graphBorder, 0);
 
-            root.Children.Add(controlsBorder);
+            var inspector = new TabControl
+            {
+                Margin = new Thickness(10, 0, 0, 0)
+            };
+            inspector.Items.Add(Tab("Fit", BuildFitTab()));
+            inspector.Items.Add(Tab("Parameters", Scroll(parameterPanel)));
+            inspector.Items.Add(Tab("Options", Scroll(optionPanel)));
+            inspector.Items.Add(Tab("Graph", BuildGraphTab()));
+            Grid.SetColumn(inspector, 1);
+
             root.Children.Add(graphBorder);
+            root.Children.Add(inspector);
             Content = root;
+        }
+
+        Control BuildFitTab()
+        {
+            var panel = new StackPanel { Spacing = 10 };
+            panel.Children.Add(Section("Model", new Control[]
+            {
+                Labeled("Model", modelCombo),
+                Labeled("Algorithm", algorithmCombo),
+                Labeled("Errors", errorMethodCombo),
+                Labeled("Bootstrap", bootstrapIterationsBox),
+                weightedFitCheck
+            }));
+            panel.Children.Add(Section("Run", new Control[]
+            {
+                Row(runFitButton, stopFitButton),
+                fitStatusText
+            }));
+
+            return Scroll(panel);
+        }
+
+        Control BuildGraphTab()
+        {
+            return Scroll(Section("Display", new Control[]
+            {
+                fitViewButton,
+                fitCheck,
+                residualsCheck,
+                errorBarsCheck,
+                confidenceCheck,
+                labelsCheck,
+                parametersCheck,
+                excludedCheck,
+                scaleIncludedCheck,
+                offsetCheck
+            }));
         }
 
         void WireEvents()
         {
+            modelCombo.SelectionChanged += (_, _) => ChangeModel();
+            runFitButton.Click += (_, _) => RunFit();
+            stopFitButton.Click += (_, _) => StopFit();
+
             fitViewButton.Click += (_, _) => graph.FitToData();
-            fitCheck.IsCheckedChanged += (_, _) => ApplyOptions(refit: false);
-            residualsCheck.IsCheckedChanged += (_, _) => ApplyOptions(refit: true);
-            errorBarsCheck.IsCheckedChanged += (_, _) => ApplyOptions(refit: true);
-            confidenceCheck.IsCheckedChanged += (_, _) => ApplyOptions(refit: false);
-            labelsCheck.IsCheckedChanged += (_, _) => ApplyOptions(refit: false);
-            parametersCheck.IsCheckedChanged += (_, _) => ApplyOptions(refit: false);
-            excludedCheck.IsCheckedChanged += (_, _) => ApplyOptions(refit: true);
-            scaleIncludedCheck.IsCheckedChanged += (_, _) => ApplyOptions(refit: true);
-            offsetCheck.IsCheckedChanged += (_, _) => ApplyOptions(refit: true);
+            fitCheck.IsCheckedChanged += (_, _) => ApplyGraphOptions(refit: false);
+            residualsCheck.IsCheckedChanged += (_, _) => ApplyGraphOptions(refit: true);
+            errorBarsCheck.IsCheckedChanged += (_, _) => ApplyGraphOptions(refit: true);
+            confidenceCheck.IsCheckedChanged += (_, _) => ApplyGraphOptions(refit: false);
+            labelsCheck.IsCheckedChanged += (_, _) => ApplyGraphOptions(refit: false);
+            parametersCheck.IsCheckedChanged += (_, _) => ApplyGraphOptions(refit: false);
+            excludedCheck.IsCheckedChanged += (_, _) => ApplyGraphOptions(refit: true);
+            scaleIncludedCheck.IsCheckedChanged += (_, _) => ApplyGraphOptions(refit: true);
+            offsetCheck.IsCheckedChanged += (_, _) => ApplyGraphOptions(refit: true);
 
             graph.StatusChanged += (_, status) => StatusChanged?.Invoke(this, status);
             graph.GraphChanged += (_, _) =>
             {
+                RebuildAnalysisContext();
                 UpdateStatus();
                 GraphChanged?.Invoke(this, EventArgs.Empty);
             };
@@ -161,13 +239,407 @@ namespace AnalysisITC.Avalonia.Analysis
         {
             Dispatcher.UIThread.Post(() =>
             {
+                RebuildAnalysisContext();
                 graph.FitToData();
                 UpdateStatus();
                 GraphChanged?.Invoke(this, EventArgs.Empty);
             });
         }
 
-        void ApplyOptions(bool refit = false)
+        void RebuildAnalysisContext()
+        {
+            if (isFitting) return;
+
+            RefreshModelChoices();
+
+            if (experiment == null)
+            {
+                parameterPanel.Children.Clear();
+                optionPanel.Children.Clear();
+                return;
+            }
+
+            workspace.SetGlobalMode(false);
+            workspace.TryRebuild();
+            RefreshWorkspaceViews();
+        }
+
+        void OnContextRebuilt(object? sender, EventArgs e)
+        {
+            Dispatcher.UIThread.Post(RefreshWorkspaceViews);
+        }
+
+        void OnRebuildFailed(object? sender, Exception e)
+        {
+            Dispatcher.UIThread.Post(() =>
+            {
+                fitStatusText.Text = e.Message;
+                UpdateFitButtonState();
+            });
+        }
+
+        void RefreshWorkspaceViews()
+        {
+            RefreshModelChoices();
+            RebuildParameterRows();
+            RebuildOptionRows();
+            UpdateStatus();
+            UpdateFitButtonState();
+            graph.InvalidateVisual();
+        }
+
+        void RefreshModelChoices()
+        {
+            isUpdatingControls = true;
+
+            try
+            {
+                var selectedModel = workspace.Session.ModelType;
+                var items = AnalysisModelAttribute.GetAll()
+                    .Select(model =>
+                    {
+                        var available = AnalysisBuilder.IsModelAvailable(model, false);
+                        return new ComboBoxItem
+                        {
+                            Content = available ? model.GetProperties().Name : model.GetProperties().Name + " (unavailable)",
+                            Tag = model,
+                            IsEnabled = available
+                        };
+                    })
+                    .ToArray();
+
+                modelCombo.Items.Clear();
+                foreach (var item in items)
+                    modelCombo.Items.Add(item);
+
+                var selectedIndex = Array.FindIndex(items, item => item.Tag is AnalysisModel model && model == selectedModel);
+                modelCombo.SelectedIndex = selectedIndex >= 0 ? selectedIndex : 0;
+            }
+            finally
+            {
+                isUpdatingControls = false;
+            }
+        }
+
+        void ChangeModel()
+        {
+            if (isUpdatingControls) return;
+            if (modelCombo.SelectedItem is not ComboBoxItem item || item.Tag is not AnalysisModel model || !item.IsEnabled) return;
+
+            workspace.SetModelType(model);
+            RefreshWorkspaceViews();
+        }
+
+        void RebuildParameterRows()
+        {
+            parameterPanel.Children.Clear();
+
+            if (!workspace.IsReady)
+            {
+                parameterPanel.Children.Add(Text("No analysis model is ready."));
+                return;
+            }
+
+            foreach (var parameter in workspace.Context.ExposedParameters)
+                parameterPanel.Children.Add(BuildParameterRow(parameter));
+        }
+
+        Control BuildParameterRow(Parameter parameter)
+        {
+            var name = parameter.Key.GetProperties();
+            var valueBox = TextBox(parameter.Value.ToString("G6", CultureInfo.CurrentCulture));
+            var lockCheck = Check("Lock", parameter.IsLocked);
+            var resetButton = Button("Reset", 60);
+            var state = Text(parameter.IsFitted ? "fitted" : parameter.IsGloballyDetermined ? "global" : "locked");
+
+            void ApplyParameter()
+            {
+                if (isUpdatingControls) return;
+                if (!double.TryParse(valueBox.Text, NumberStyles.Float, CultureInfo.CurrentCulture, out var value))
+                {
+                    fitStatusText.Text = $"Invalid value for {name.Name}";
+                    return;
+                }
+
+                workspace.SetParameterOverride(parameter.Key, value, lockCheck.IsChecked == true);
+                fitStatusText.Text = $"{name.Name} updated";
+                FittingChanged?.Invoke(this, EventArgs.Empty);
+            }
+
+            valueBox.LostFocus += (_, _) => ApplyParameter();
+            valueBox.KeyDown += (_, e) =>
+            {
+                if (e.Key == Key.Enter) ApplyParameter();
+            };
+            lockCheck.IsCheckedChanged += (_, _) => ApplyParameter();
+            resetButton.Click += (_, _) =>
+            {
+                workspace.ResetParameterOverride(parameter.Key);
+                fitStatusText.Text = $"{name.Name} reset";
+                FittingChanged?.Invoke(this, EventArgs.Empty);
+            };
+
+            var row = new Grid
+            {
+                ColumnDefinitions = new ColumnDefinitions("*,78,58,60"),
+                ColumnSpacing = 6
+            };
+            row.Children.Add(new TextBlock
+            {
+                Text = string.IsNullOrWhiteSpace(name.SymbolName) ? name.Name : $"{name.Name} ({name.SymbolName})",
+                VerticalAlignment = VerticalAlignment.Center,
+                Foreground = Solid("#202832"),
+                TextWrapping = TextWrapping.Wrap
+            });
+            Grid.SetColumn(valueBox, 1);
+            Grid.SetColumn(lockCheck, 2);
+            Grid.SetColumn(resetButton, 3);
+            row.Children.Add(valueBox);
+            row.Children.Add(lockCheck);
+            row.Children.Add(resetButton);
+
+            var panel = new StackPanel { Spacing = 3 };
+            panel.Children.Add(row);
+            panel.Children.Add(state);
+
+            return new Border
+            {
+                BorderBrush = Solid("#E3E7EC"),
+                BorderThickness = new Thickness(0, 0, 0, 1),
+                Padding = new Thickness(0, 0, 0, 7),
+                Child = panel
+            };
+        }
+
+        void RebuildOptionRows()
+        {
+            optionPanel.Children.Clear();
+
+            if (!workspace.IsReady || workspace.Context.ExposedModelOptions.Count == 0)
+            {
+                optionPanel.Children.Add(Text("No model options for this model."));
+                return;
+            }
+
+            foreach (var option in workspace.Context.ExposedModelOptions)
+                optionPanel.Children.Add(BuildOptionRow(option.Key, option.Value));
+        }
+
+        Control BuildOptionRow(AttributeKey key, ExperimentAttribute option)
+        {
+            var properties = key.GetProperties();
+            var title = new TextBlock
+            {
+                Text = properties.Name,
+                FontWeight = FontWeight.SemiBold,
+                Foreground = Solid("#202832"),
+                TextWrapping = TextWrapping.Wrap
+            };
+
+            Control editor = properties.Type switch
+            {
+                ExperimentAttribute.AttributeType.Bool => BoolOptionEditor(key, option),
+                ExperimentAttribute.AttributeType.Int => NumericOptionEditor(key, option, option.IntValue.ToString(CultureInfo.CurrentCulture), true),
+                ExperimentAttribute.AttributeType.Double => NumericOptionEditor(key, option, option.DoubleValue.ToString("G6", CultureInfo.CurrentCulture), false),
+                ExperimentAttribute.AttributeType.Parameter => NumericOptionEditor(key, option, option.ParameterValue.Value.ToString("G6", CultureInfo.CurrentCulture), false, true),
+                ExperimentAttribute.AttributeType.ParameterAffinity => NumericOptionEditor(key, option, option.ParameterValue.Value.ToString("G6", CultureInfo.CurrentCulture), false, true),
+                ExperimentAttribute.AttributeType.ParameterConcentration => NumericOptionEditor(key, option, option.ParameterValue.Value.ToString("G6", CultureInfo.CurrentCulture), false, true),
+                ExperimentAttribute.AttributeType.String => StringOptionEditor(key, option),
+                _ => Text($"Read-only: {option.GetDisplayValue()}"),
+            };
+
+            var panel = new StackPanel { Spacing = 5 };
+            panel.Children.Add(title);
+            panel.Children.Add(editor);
+
+            if (!string.IsNullOrWhiteSpace(properties.ToolTip))
+                panel.Children.Add(Text(properties.ToolTip));
+
+            return new Border
+            {
+                BorderBrush = Solid("#E3E7EC"),
+                BorderThickness = new Thickness(0, 0, 0, 1),
+                Padding = new Thickness(0, 0, 0, 9),
+                Child = panel
+            };
+        }
+
+        Control BoolOptionEditor(AttributeKey key, ExperimentAttribute option)
+        {
+            var check = Check("Enabled", option.BoolValue);
+            check.IsCheckedChanged += (_, _) =>
+            {
+                var copy = option.Copy();
+                copy.BoolValue = check.IsChecked == true;
+                workspace.SetModelOption(key, copy);
+                FittingChanged?.Invoke(this, EventArgs.Empty);
+            };
+            return check;
+        }
+
+        Control StringOptionEditor(AttributeKey key, ExperimentAttribute option)
+        {
+            var textBox = TextBox(option.StringValue ?? "");
+            textBox.LostFocus += (_, _) =>
+            {
+                var copy = option.Copy();
+                copy.StringValue = textBox.Text ?? "";
+                workspace.SetModelOption(key, copy);
+                FittingChanged?.Invoke(this, EventArgs.Empty);
+            };
+            return textBox;
+        }
+
+        Control NumericOptionEditor(AttributeKey key, ExperimentAttribute option, string text, bool integer, bool parameter = false)
+        {
+            var textBox = TextBox(text);
+            textBox.LostFocus += (_, _) =>
+            {
+                var copy = option.Copy();
+
+                if (integer)
+                {
+                    if (!int.TryParse(textBox.Text, NumberStyles.Integer, CultureInfo.CurrentCulture, out var value))
+                    {
+                        fitStatusText.Text = $"Invalid value for {key.GetProperties().Name}";
+                        return;
+                    }
+
+                    copy.IntValue = value;
+                }
+                else
+                {
+                    if (!double.TryParse(textBox.Text, NumberStyles.Float, CultureInfo.CurrentCulture, out var value))
+                    {
+                        fitStatusText.Text = $"Invalid value for {key.GetProperties().Name}";
+                        return;
+                    }
+
+                    if (parameter)
+                        copy.ParameterValue = new FloatWithError(value);
+                    else
+                        copy.DoubleValue = value;
+                }
+
+                workspace.SetModelOption(key, copy);
+                FittingChanged?.Invoke(this, EventArgs.Empty);
+            };
+            return textBox;
+        }
+
+        void RunFit()
+        {
+            if (experiment == null)
+            {
+                fitStatusText.Text = "No experiment selected";
+                return;
+            }
+
+            if (!workspace.IsReady)
+                workspace.Rebuild();
+
+            if (!workspace.IsReady)
+            {
+                fitStatusText.Text = "Analysis model is not ready";
+                return;
+            }
+
+            try
+            {
+                isFitting = true;
+                UpdateFitButtonState();
+                fitStatusText.Text = "Fitting...";
+                StatusChanged?.Invoke(this, "Fitting data...");
+
+                var solver = workspace.PrepareForSolve();
+                solver.SolverAlgorithm = SelectedAlgorithm();
+                solver.ErrorEstimationMethod = SelectedErrorMethod();
+                solver.BootstrapIterations = BootstrapIterations();
+                solver.UseErrorWeightedFitting = weightedFitCheck.IsChecked == true;
+
+                FittingOptionsController.Algorithm = solver.SolverAlgorithm;
+                FittingOptionsController.ErrorEstimationMethod = solver.ErrorEstimationMethod;
+                FittingOptionsController.BootstrapIterations = solver.BootstrapIterations;
+                FittingOptionsController.UseErrorWeightedFitting = solver.UseErrorWeightedFitting;
+
+                solver.Analyze();
+            }
+            catch (Exception ex)
+            {
+                isFitting = false;
+                UpdateFitButtonState();
+                AppEventHandler.DisplayHandledException(ex);
+                fitStatusText.Text = $"Fit failed: {ex.Message}";
+            }
+        }
+
+        void StopFit()
+        {
+            SolverInterface.TerminateAnalysisFlag.Raise();
+            fitStatusText.Text = "Stopping fit...";
+        }
+
+        void OnAnalysisFinished(object? sender, SolverConvergence convergence)
+        {
+            Dispatcher.UIThread.Post(() =>
+            {
+                isFitting = false;
+                fitStatusText.Text = convergence.Success
+                    ? $"{convergence.Algorithm.GetProperties().ShortName}: RMSD {convergence.Loss:G4}, {convergence.Iterations} iterations"
+                    : convergence.Message;
+                graph.FitToData();
+                RefreshWorkspaceViews();
+                FittingChanged?.Invoke(this, EventArgs.Empty);
+                StatusChanged?.Invoke(this, fitStatusText.Text);
+            });
+        }
+
+        void OnAnalysisStepFinished(object? sender, EventArgs e)
+        {
+            Dispatcher.UIThread.Post(() => graph.InvalidateVisual());
+        }
+
+        void OnErrorIteration(object? sender, Tuple<int, int, float> e)
+        {
+            Dispatcher.UIThread.Post(() => fitStatusText.Text = $"Estimating errors {e.Item1}/{e.Item2}");
+        }
+
+        void OnSolverUpdated(object? sender, SolverUpdate update)
+        {
+            Dispatcher.UIThread.Post(() =>
+            {
+                if (!string.IsNullOrWhiteSpace(update.Message))
+                    fitStatusText.Text = update.Message;
+                else if (update.Progress >= 0)
+                    fitStatusText.Text = $"Fitting progress {update.Progress:P0}";
+            });
+        }
+
+        SolverAlgorithm SelectedAlgorithm()
+        {
+            return algorithmCombo.SelectedIndex == 1
+                ? SolverAlgorithm.LevenbergMarquardt
+                : SolverAlgorithm.NelderMead;
+        }
+
+        ErrorEstimationMethod SelectedErrorMethod()
+        {
+            return errorMethodCombo.SelectedIndex switch
+            {
+                1 => ErrorEstimationMethod.BootstrapResiduals,
+                2 => ErrorEstimationMethod.LeaveOneOut,
+                _ => ErrorEstimationMethod.None,
+            };
+        }
+
+        int BootstrapIterations()
+        {
+            return int.TryParse(bootstrapIterationsBox.Text, NumberStyles.Integer, CultureInfo.CurrentCulture, out var value)
+                ? Math.Max(0, value)
+                : FittingOptionsController.BootstrapIterations;
+        }
+
+        void ApplyGraphOptions(bool refit = false)
         {
             graph.ShowFit = fitCheck.IsChecked == true;
             graph.ShowResiduals = residualsCheck.IsChecked == true;
@@ -187,20 +659,146 @@ namespace AnalysisITC.Avalonia.Analysis
         {
             if (experiment == null)
             {
-                statusText.Text = "No experiment selected";
+                fitStatusText.Text = "No experiment selected";
+                UpdateFitButtonState();
                 return;
             }
 
             if (!experiment.Processor.IntegrationCompleted)
             {
-                statusText.Text = "Process data before analysis";
+                fitStatusText.Text = "Process data before fitting";
+                UpdateFitButtonState();
                 return;
             }
 
             var included = experiment.Injections.FindAll(injection => injection.Include).Count;
-            statusText.Text = experiment.Solution == null
+            fitStatusText.Text = experiment.Solution == null
                 ? $"{included}/{experiment.InjectionCount} integrated points"
                 : $"{included}/{experiment.InjectionCount} points with fitted solution";
+            UpdateFitButtonState();
+        }
+
+        void UpdateFitButtonState()
+        {
+            var canFit = experiment != null && workspace.IsReady && !isFitting && AnalysisBuilder.IsModelAvailable(workspace.Session.ModelType, false);
+            runFitButton.IsEnabled = canFit;
+            stopFitButton.IsEnabled = isFitting;
+            modelCombo.IsEnabled = !isFitting;
+            algorithmCombo.IsEnabled = !isFitting;
+            errorMethodCombo.IsEnabled = !isFitting;
+            bootstrapIterationsBox.IsEnabled = !isFitting;
+            weightedFitCheck.IsEnabled = !isFitting;
+            parameterPanel.IsEnabled = !isFitting;
+            optionPanel.IsEnabled = !isFitting;
+        }
+
+        static TabItem Tab(string header, Control content)
+        {
+            return new TabItem { Header = header, Content = content };
+        }
+
+        static Control Scroll(Control content)
+        {
+            return new Border
+            {
+                Background = Brushes.White,
+                BorderBrush = Solid("#D4DAE1"),
+                BorderThickness = new Thickness(1),
+                Child = new ScrollViewer
+                {
+                    HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
+                    VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
+                    Content = new Border
+                    {
+                        Padding = new Thickness(10),
+                        Child = content
+                    }
+                }
+            };
+        }
+
+        static Border Section(string title, Control[] controls)
+        {
+            var panel = new StackPanel { Spacing = 7 };
+            panel.Children.Add(new TextBlock
+            {
+                Text = title,
+                FontWeight = FontWeight.SemiBold,
+                Foreground = Solid("#202832")
+            });
+            foreach (var control in controls)
+                panel.Children.Add(control);
+
+            return new Border
+            {
+                BorderBrush = Solid("#E3E7EC"),
+                BorderThickness = new Thickness(0, 0, 0, 1),
+                Padding = new Thickness(0, 0, 0, 10),
+                Child = panel
+            };
+        }
+
+        static Border Labeled(string label, Control control)
+        {
+            var panel = new Grid
+            {
+                ColumnDefinitions = new ColumnDefinitions("90,*")
+            };
+            panel.Children.Add(new TextBlock
+            {
+                Text = label,
+                VerticalAlignment = VerticalAlignment.Center,
+                Foreground = Solid("#607080"),
+                FontSize = 11
+            });
+            Grid.SetColumn(control, 1);
+            panel.Children.Add(control);
+
+            return new Border { Child = panel };
+        }
+
+        static StackPanel Row(params Control[] controls)
+        {
+            var row = new StackPanel
+            {
+                Orientation = Orientation.Horizontal,
+                Spacing = 6
+            };
+            foreach (var control in controls)
+                row.Children.Add(control);
+            return row;
+        }
+
+        static ComboBox Combo(double width)
+        {
+            return new ComboBox
+            {
+                Width = width,
+                MinHeight = 28,
+                VerticalAlignment = VerticalAlignment.Center
+            };
+        }
+
+        static ComboBox Combo(string[] items, double width)
+        {
+            return new ComboBox
+            {
+                ItemsSource = items,
+                SelectedIndex = 0,
+                Width = width,
+                MinHeight = 28,
+                VerticalAlignment = VerticalAlignment.Center
+            };
+        }
+
+        static TextBox TextBox(string text)
+        {
+            return new TextBox
+            {
+                Text = text,
+                MinHeight = 28,
+                VerticalContentAlignment = VerticalAlignment.Center
+            };
         }
 
         static Button Button(string text, double width)
@@ -225,13 +823,14 @@ namespace AnalysisITC.Avalonia.Analysis
             };
         }
 
-        static TextBlock Text()
+        static TextBlock Text(string text = "")
         {
             return new TextBlock
             {
+                Text = text,
                 Foreground = Solid("#4D5A66"),
                 VerticalAlignment = VerticalAlignment.Center,
-                TextTrimming = TextTrimming.CharacterEllipsis
+                TextWrapping = TextWrapping.Wrap
             };
         }
 

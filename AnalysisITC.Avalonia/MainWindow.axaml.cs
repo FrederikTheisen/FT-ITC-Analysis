@@ -43,6 +43,7 @@ public partial class MainWindow : Window
         ProcessingWorkspace.ProcessingChanged += OnProcessingChanged;
         AnalysisWorkspace.StatusChanged += OnAnalysisStatusChanged;
         AnalysisWorkspace.GraphChanged += OnAnalysisGraphChanged;
+        AnalysisWorkspace.FittingChanged += OnAnalysisFittingChanged;
 
         WireFinalFigureOption(FinalFigureResidualsCheck);
         WireFinalFigureOption(FinalFigureDetailsCheck);
@@ -78,6 +79,7 @@ public partial class MainWindow : Window
         ProcessingWorkspace.ProcessingChanged -= OnProcessingChanged;
         AnalysisWorkspace.StatusChanged -= OnAnalysisStatusChanged;
         AnalysisWorkspace.GraphChanged -= OnAnalysisGraphChanged;
+        AnalysisWorkspace.FittingChanged -= OnAnalysisFittingChanged;
 
         finalFigureBitmap?.Dispose();
 
@@ -178,8 +180,6 @@ public partial class MainWindow : Window
     {
         selectedItem = item;
 
-        SelectedTitleText.Text = item?.Name ?? "No Selection";
-        SelectedSummaryText.Text = item == null ? "" : BuildShortSummary(item);
         OverviewText.Text = item == null ? "No loaded data." : BuildOverview(item);
         ResultText.Text = item is AnalysisResult result ? BuildResultSummary(result) : "No result selected.";
         UpdateFinalFigureContext(item);
@@ -188,11 +188,15 @@ public partial class MainWindow : Window
 
         if (item is ExperimentData experiment)
         {
+            WorkspaceTabs.IsVisible = true;
+            ResultWorkspace.IsVisible = false;
             WorkspaceTabs.SelectedIndex = 1;
         }
         else
         {
-            WorkspaceTabs.SelectedIndex = item is AnalysisResult ? 4 : 0;
+            WorkspaceTabs.IsVisible = item is not AnalysisResult;
+            ResultWorkspace.IsVisible = item is AnalysisResult;
+            WorkspaceTabs.SelectedIndex = 0;
         }
     }
 
@@ -479,9 +483,7 @@ public partial class MainWindow : Window
 
     void OnProcessingChanged(object? sender, EventArgs e)
     {
-        finalFigureCacheKey = null;
-        if (finalFigureExperiment != null)
-            RefreshFinalFigurePreview(force: true);
+        InvalidateFinalFigurePreview();
     }
 
     void OnAnalysisStatusChanged(object? sender, string status)
@@ -490,6 +492,16 @@ public partial class MainWindow : Window
     }
 
     void OnAnalysisGraphChanged(object? sender, EventArgs e)
+    {
+        InvalidateFinalFigurePreview();
+    }
+
+    void OnAnalysisFittingChanged(object? sender, EventArgs e)
+    {
+        InvalidateFinalFigurePreview();
+    }
+
+    void InvalidateFinalFigurePreview()
     {
         finalFigureCacheKey = null;
         if (finalFigureExperiment != null)

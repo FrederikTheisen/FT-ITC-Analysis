@@ -31,12 +31,17 @@
         <Grid Grid.Row="1" ColumnDefinitions="300,Auto,*">
             <Border Grid.Column="0" Background="#FFFFFF" BorderBrush="#D4DAE1" BorderThickness="0,0,1,0">
                 <Grid RowDefinitions="Auto,*">
-                    <TextBlock Grid.Row="0"
-                               Text="Data / Results"
-                               FontSize="15"
-                               FontWeight="SemiBold"
-                               Foreground="#202832"
-                               Margin="12,10,12,8" />
+                    <DockPanel Grid.Row="0" Margin="12,10,12,8">
+                        <TextBlock DockPanel.Dock="Left"
+                                   Text="Data / Results"
+                                   FontSize="15"
+                                   FontWeight="SemiBold"
+                                   Foreground="#202832" />
+                        <TextBlock x:Name="ItemCountText"
+                                   DockPanel.Dock="Right"
+                                   HorizontalAlignment="Right"
+                                   Foreground="#5E6A75" />
+                    </DockPanel>
                     <ListBox x:Name="ItemsList"
                              Grid.Row="1"
                              Margin="8,0,8,8"
@@ -50,28 +55,8 @@
                           ResizeDirection="Columns"
                           Background="#E3E7EC" />
 
-            <Grid Grid.Column="2" RowDefinitions="Auto,*" Margin="12">
-                <Border Grid.Row="0" Background="#FFFFFF" BorderBrush="#D4DAE1" BorderThickness="1" CornerRadius="4" Padding="12">
-                    <Grid ColumnDefinitions="*,Auto">
-                        <StackPanel>
-                            <TextBlock x:Name="SelectedTitleText"
-                                       FontSize="17"
-                                       FontWeight="SemiBold"
-                                       Foreground="#202832"
-                                       Text="No Selection" />
-                            <TextBlock x:Name="SelectedSummaryText"
-                                       Margin="0,4,0,0"
-                                       Foreground="#5E6A75"
-                                       TextTrimming="CharacterEllipsis" />
-                        </StackPanel>
-                        <TextBlock x:Name="ItemCountText"
-                                   Grid.Column="1"
-                                   VerticalAlignment="Center"
-                                   Foreground="#5E6A75" />
-                    </Grid>
-                </Border>
-
-                <TabControl x:Name="WorkspaceTabs" Grid.Row="1" Margin="0,10,0,0">
+            <Grid Grid.Column="2" Margin="12">
+                <TabControl x:Name="WorkspaceTabs">
                     <TabItem Header="Overview">
                         <Border Background="#FFFFFF" BorderBrush="#D4DAE1" BorderThickness="1" Padding="16">
                             <TextBlock x:Name="OverviewText" Foreground="#202832" TextWrapping="Wrap" />
@@ -117,12 +102,15 @@
                             </Border>
                         </Grid>
                     </TabItem>
-                    <TabItem Header="Result">
-                        <Border Background="#FFFFFF" BorderBrush="#D4DAE1" BorderThickness="1" Padding="16">
-                            <TextBlock x:Name="ResultText" Foreground="#202832" TextWrapping="Wrap" />
-                        </Border>
-                    </TabItem>
                 </TabControl>
+                <Border x:Name="ResultWorkspace"
+                        Background="#FFFFFF"
+                        BorderBrush="#D4DAE1"
+                        BorderThickness="1"
+                        Padding="16"
+                        IsVisible="False">
+                    <TextBlock x:Name="ResultText" Foreground="#202832" TextWrapping="Wrap" />
+                </Border>
             </Grid>
         </Grid>
 

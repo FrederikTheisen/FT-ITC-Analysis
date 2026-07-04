@@ -104,77 +104,84 @@ namespace AnalysisITC.Avalonia.Processing
 
         void BuildLayout()
         {
+            splineOptionsPanel.Orientation = Orientation.Vertical;
             splineOptionsPanel.Children.Add(Labeled("Spline", splineAlgorithmCombo));
             splineOptionsPanel.Children.Add(Labeled("Density", splineDensityCombo));
             splineOptionsPanel.Children.Add(Labeled("Handle", splineHandleCombo));
 
+            degreePanel.Orientation = Orientation.Vertical;
             degreePanel.Children.Add(Labeled("Degree", degreeSlider));
             degreePanel.Children.Add(degreeLabel);
 
-            var baselineRow = Horizontal(8);
-            baselineRow.Children.Add(baselineHeader);
-            baselineRow.Children.Add(Labeled("Type", baselineTypeCombo));
-            baselineRow.Children.Add(splineOptionsPanel);
-            baselineRow.Children.Add(degreePanel);
-            baselineRow.Children.Add(discardIntegratedCheck);
-            baselineRow.Children.Add(lockProcessorButton);
-            baselineRow.Children.Add(copyActiveButton);
-            baselineRow.Children.Add(copyNewButton);
-
-            var integrationRow = Horizontal(8);
-            integrationRow.Children.Add(integrationHeader);
-            integrationRow.Children.Add(Labeled("Mode", integrationModeCombo));
-            integrationRow.Children.Add(Labeled("Start", integrationStartSlider));
-            integrationRow.Children.Add(startLabel);
-            integrationRow.Children.Add(Labeled("Length", integrationLengthSlider));
-            integrationRow.Children.Add(lengthLabel);
-            integrationRow.Children.Add(allInjectionButton);
-            integrationRow.Children.Add(previousButton);
-            integrationRow.Children.Add(nextButton);
-            integrationRow.Children.Add(copyNextButton);
-            integrationRow.Children.Add(selectionLabel);
-
-            var viewRow = Horizontal(8);
-            viewRow.Children.Add(showBaselineCheck);
-            viewRow.Children.Add(showIntegrationCheck);
-            viewRow.Children.Add(correctedCheck);
-            viewRow.Children.Add(cursorInfoCheck);
-            viewRow.Children.Add(allDataButton);
-            viewRow.Children.Add(baselineZoomButton);
-            viewRow.Children.Add(allPeaksButton);
-            viewRow.Children.Add(focusPeakButton);
-            viewRow.Children.Add(Labeled("Width", peakWidthCombo));
-            viewRow.Children.Add(summaryText);
-
-            controlsPanel.Children.Add(baselineRow);
-            controlsPanel.Children.Add(integrationRow);
-            controlsPanel.Children.Add(viewRow);
+            controlsPanel.Children.Add(Section(baselineHeader, new Control[]
+            {
+                Labeled("Type", baselineTypeCombo),
+                splineOptionsPanel,
+                degreePanel
+            }));
+            controlsPanel.Children.Add(Section(integrationHeader, new Control[]
+            {
+                Labeled("Mode", integrationModeCombo),
+                Labeled("Start", integrationStartSlider),
+                startLabel,
+                Labeled("Length", integrationLengthSlider),
+                lengthLabel,
+                discardIntegratedCheck
+            }));
+            controlsPanel.Children.Add(Section("Selection", new Control[]
+            {
+                selectionLabel,
+                Row(allInjectionButton, previousButton, nextButton),
+                copyNextButton,
+                Labeled("Peak width", peakWidthCombo)
+            }));
+            controlsPanel.Children.Add(Section("View", new Control[]
+            {
+                showBaselineCheck,
+                showIntegrationCheck,
+                correctedCheck,
+                cursorInfoCheck,
+                Row(allDataButton, baselineZoomButton),
+                Row(allPeaksButton, focusPeakButton)
+            }));
+            controlsPanel.Children.Add(Section("Processing", new Control[]
+            {
+                lockProcessorButton,
+                copyActiveButton,
+                copyNewButton,
+                summaryText
+            }));
 
             var root = new Grid
             {
-                RowDefinitions = new RowDefinitions("Auto,*"),
+                ColumnDefinitions = new ColumnDefinitions("*,300"),
                 Background = Solid("#F5F7FA")
             };
 
-            var controlsBorder = new Border
-            {
-                Background = Brushes.White,
-                BorderBrush = Solid("#D4DAE1"),
-                BorderThickness = new Thickness(1),
-                Padding = new Thickness(10),
-                Child = controlsPanel
-            };
-            Grid.SetRow(controlsBorder, 0);
-
             var graphBorder = new Border
             {
-                Margin = new Thickness(0, 10, 0, 0),
                 Background = Brushes.White,
                 BorderBrush = Solid("#D4DAE1"),
                 BorderThickness = new Thickness(1),
                 Child = graph
             };
-            Grid.SetRow(graphBorder, 1);
+            Grid.SetColumn(graphBorder, 0);
+
+            var controlsBorder = new Border
+            {
+                Margin = new Thickness(10, 0, 0, 0),
+                Background = Brushes.White,
+                BorderBrush = Solid("#D4DAE1"),
+                BorderThickness = new Thickness(1),
+                Child = new ScrollViewer
+                {
+                    Padding = new Thickness(10),
+                    HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
+                    VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
+                    Content = controlsPanel
+                }
+            };
+            Grid.SetColumn(controlsBorder, 1);
 
             root.Children.Add(controlsBorder);
             root.Children.Add(graphBorder);
@@ -776,7 +783,10 @@ namespace AnalysisITC.Avalonia.Processing
 
         static Border Labeled(string label, Control control)
         {
-            var panel = Horizontal(4);
+            var panel = new Grid
+            {
+                ColumnDefinitions = new ColumnDefinitions("92,*")
+            };
             panel.Children.Add(new TextBlock
             {
                 Text = label,
@@ -784,9 +794,41 @@ namespace AnalysisITC.Avalonia.Processing
                 Foreground = Solid("#607080"),
                 FontSize = 11
             });
+            Grid.SetColumn(control, 1);
             panel.Children.Add(control);
 
             return new Border { Child = panel };
+        }
+
+        static Border Section(string title, Control[] controls)
+        {
+            return Section(Header(title), controls);
+        }
+
+        static Border Section(TextBlock header, Control[] controls)
+        {
+            var panel = new StackPanel { Spacing = 7 };
+            header.Width = double.NaN;
+            panel.Children.Add(header);
+            foreach (var control in controls)
+                panel.Children.Add(control);
+
+            return new Border
+            {
+                BorderBrush = Solid("#D4DAE1"),
+                BorderThickness = new Thickness(0, 0, 0, 1),
+                Padding = new Thickness(0, 0, 0, 10),
+                Margin = new Thickness(0, 0, 0, 2),
+                Child = panel
+            };
+        }
+
+        static StackPanel Row(params Control[] controls)
+        {
+            var row = Horizontal(6);
+            foreach (var control in controls)
+                row.Children.Add(control);
+            return row;
         }
 
         static StackPanel Horizontal(double spacing)
