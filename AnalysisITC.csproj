@@ -524,6 +524,14 @@
       <DependentUpon>AppDelegate.cs</DependentUpon>
     </Compile>
     <Compile Include="UI\MacOS\Main.cs" />
+    <Compile Include="UI\MacOS\AnalysisGlobalModeOptionsView.cs" />
+    <Compile Include="UI\MacOS\AnalysisGlobalModeOptionsView.designer.cs">
+      <DependentUpon>AnalysisGlobalModeOptionsView.cs</DependentUpon>
+    </Compile>
+    <Compile Include="UI\MacOS\AnalysisGlobalModeOptionsViewController.cs" />
+    <Compile Include="UI\MacOS\AnalysisGlobalModeOptionsViewController.designer.cs">
+      <DependentUpon>AnalysisGlobalModeOptionsViewController.cs</DependentUpon>
+    </Compile>
   </ItemGroup>
   <ItemGroup>
     <InterfaceDefinition Include="UI\MacOS\Main.storyboard" />
