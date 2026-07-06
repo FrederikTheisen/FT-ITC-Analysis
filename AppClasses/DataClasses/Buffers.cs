@@ -475,10 +475,20 @@ namespace AnalysisITC.Core.Data
 
 		public static Energy GetProtonationEnthalpy(ExperimentData data)
 		{
-			var buffer = (Buffer)data.Attributes.Find(att => att.Key == AttributeKey.Buffer).IntValue;
+			return TryGetProtonationEnthalpy(data, out var enthalpy) ? enthalpy : new Energy(0);
+		}
 
-			return new (buffer.GetProtonationEnthalpy(data.MeasuredTemperature));
-        }
+		public static bool TryGetProtonationEnthalpy(ExperimentData data, out Energy enthalpy)
+		{
+			enthalpy = new Energy(0);
+
+			var bufferAttribute = data?.Attributes?.Find(att => att.Key == AttributeKey.Buffer);
+			if (bufferAttribute == null) return false;
+
+			var buffer = (Buffer)bufferAttribute.IntValue;
+			enthalpy = new Energy(buffer.GetProtonationEnthalpy(data.MeasuredTemperature));
+			return true;
+		}
 
         public static List<Buffer> GetUIBuffers()
 		{
@@ -552,4 +562,3 @@ namespace AnalysisITC.Core.Data
         }
     }
 }
-

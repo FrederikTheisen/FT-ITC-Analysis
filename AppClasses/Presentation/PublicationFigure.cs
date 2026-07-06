@@ -67,6 +67,7 @@ namespace AnalysisITC.Core.Presentation
         public bool DrawFitOffsetCorrected { get; set; } = true;
         public bool ShowBadData { get; set; } = true;
         public bool ShowBadDataErrorBars { get; set; } = false;
+        public bool AutoAxesIgnoresBadData { get; set; } = true;
         public bool IncludeResidualGraphGap { get; set; } = true;
         public bool SanitizeTicks { get; set; } = true;
         public bool DrawBaselineCorrected { get; set; } = true;
@@ -124,6 +125,7 @@ namespace AnalysisITC.Core.Presentation
                     DrawFitOffsetCorrected.ToString(),
                     ShowBadData.ToString(),
                     ShowBadDataErrorBars.ToString(),
+                    AutoAxesIgnoresBadData.ToString(),
                     IncludeResidualGraphGap.ToString(),
                     SanitizeTicks.ToString(),
                     DrawBaselineCorrected.ToString(),
@@ -580,9 +582,15 @@ namespace AnalysisITC.Core.Presentation
                 }
             }
 
-            var values = injectionPoints.Select(point => point.Y).ToList();
-            values.AddRange(injectionPoints.Select(point => point.LowerY));
-            values.AddRange(injectionPoints.Select(point => point.UpperY));
+            var scalingPoints = injectionPoints
+                .Where(point => point.Included || !options.AutoAxesIgnoresBadData)
+                .ToList();
+            if (scalingPoints.Count == 0)
+                scalingPoints = injectionPoints;
+
+            var values = scalingPoints.Select(point => point.Y).ToList();
+            values.AddRange(scalingPoints.Select(point => point.LowerY));
+            values.AddRange(scalingPoints.Select(point => point.UpperY));
             values.AddRange(fitPoints.Select(point => point.Y));
             values.Add(0);
 
@@ -655,9 +663,15 @@ namespace AnalysisITC.Core.Presentation
                 });
             }
 
-            var max = points.Count == 0
+            var scalingPoints = points
+                .Where(point => point.Included || !options.AutoAxesIgnoresBadData)
+                .ToList();
+            if (scalingPoints.Count == 0)
+                scalingPoints = points;
+
+            var max = scalingPoints.Count == 0
                 ? 1
-                : 1.5 * Math.Max(points.SelectMany(point => new[]
+                : 1.5 * Math.Max(scalingPoints.SelectMany(point => new[]
                 {
                     Math.Abs(point.Y),
                     Math.Abs(point.LowerY),

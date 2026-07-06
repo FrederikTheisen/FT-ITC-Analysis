@@ -40,7 +40,9 @@ namespace AnalysisITC
             {
                 case "Temp": return (solution.Temp + (UseKelvin ? 273.15 : 0)).ToString("F2");
                 case "IS": return (1000 * BufferAttribute.GetIonicStrength(solution.Data)).ToString("F1");
-                case "HPROT": return BufferAttribute.GetProtonationEnthalpy(solution.Data).ToString(EnergyUnit, "F1", withunit: false);
+                case "HPROT": return BufferAttribute.TryGetProtonationEnthalpy(solution.Data, out var enthalpy)
+                    ? enthalpy.ToString(EnergyUnit, "F1", withunit: false)
+                    : "";
                 case "α":
                 case "N1": return solution.ReportParameters[ParameterType.Nvalue1].AsNumber();
                 case "N2": return solution.ReportParameters[ParameterType.Nvalue2].AsNumber();

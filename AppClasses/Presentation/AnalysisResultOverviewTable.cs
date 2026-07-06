@@ -113,7 +113,7 @@ namespace AnalysisITC.Core.Presentation
                 ["Experiment"] = solution?.Data?.Name ?? "",
                 ["Temp"] = solution == null ? "" : (solution.Temp + (useKelvin ? 273.15 : 0)).ToString("F2", CultureInfo.CurrentCulture),
                 ["IS"] = solution?.Data == null ? "" : (1000 * BufferAttribute.GetIonicStrength(solution.Data)).ToString("F1", CultureInfo.CurrentCulture),
-                ["HPROT"] = solution?.Data == null ? "" : BufferAttribute.GetProtonationEnthalpy(solution.Data).ToString(energyUnit, "F1", withunit: false),
+                ["HPROT"] = FormatProtonationEnthalpy(solution?.Data, energyUnit),
                 ["Loss"] = solution?.Loss.ToString("G3", CultureInfo.CurrentCulture) ?? ""
             };
 
@@ -138,6 +138,13 @@ namespace AnalysisITC.Core.Presentation
                 ParameterType.EntropyContribution1 => value.Energy.ToFormattedString(energyUnit, withunit: false),
                 _ => value.AsNumber()
             };
+        }
+
+        static string FormatProtonationEnthalpy(ExperimentData data, EnergyUnit energyUnit)
+        {
+            return BufferAttribute.TryGetProtonationEnthalpy(data, out var enthalpy)
+                ? enthalpy.ToString(energyUnit, "F1", withunit: false)
+                : "";
         }
 
         static ConcentrationUnit ResolveAffinityUnit(AnalysisResult result)

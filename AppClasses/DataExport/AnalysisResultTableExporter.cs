@@ -201,7 +201,7 @@ namespace AnalysisITC.Core.Export
                 row.Add(result.IsElectrostaticsAnalysisDependenceEnabled ? (1000 * BufferAttribute.GetIonicStrength(solution.Data)).ToString("F2") : "");
 
             if (includeProtonation)
-                row.Add(result.IsProtonationAnalysisEnabled ? BufferAttribute.GetProtonationEnthalpy(solution.Data).ToString(options.EnergyUnit, "F1", withunit: false) : "");
+                row.Add(result.IsProtonationAnalysisEnabled ? FormatProtonationEnthalpy(solution.Data, options.EnergyUnit) : "");
 
             foreach (var parameter in parameters)
             {
@@ -216,6 +216,13 @@ namespace AnalysisITC.Core.Export
             row.Add(solution.Loss.ToString("G3"));
 
             return row;
+        }
+
+        static string FormatProtonationEnthalpy(ExperimentData data, EnergyUnit energyUnit)
+        {
+            return BufferAttribute.TryGetProtonationEnthalpy(data, out var enthalpy)
+                ? enthalpy.ToString(energyUnit, "F1", withunit: false)
+                : "";
         }
 
         static void AddValue(List<string> row, FloatWithError value, ParameterType parameter, Dictionary<ParameterType, ConcentrationUnit> concentrationUnits, AnalysisResultExportOptions options)

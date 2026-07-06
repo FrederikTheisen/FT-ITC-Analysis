@@ -493,7 +493,9 @@ namespace AnalysisITC.Core.Export
                     line.Add((1000 * BufferAttribute.GetIonicStrength(sol.Data)).ToString("F2"));
 
                 if (analysis.IsProtonationAnalysisEnabled)
-                    line.Add(BufferAttribute.GetProtonationEnthalpy(sol.Data).ToString(eunit, "F1", withunit: false));
+                    line.Add(BufferAttribute.TryGetProtonationEnthalpy(sol.Data, out var enthalpy)
+                        ? enthalpy.ToString(eunit, "F1", withunit: false)
+                        : "");
 
                 foreach (var par in sol.ReportParameters)
                 {
