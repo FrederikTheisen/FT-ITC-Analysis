@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using AppKit;
 using Foundation;
 
@@ -20,19 +21,22 @@ namespace AnalysisITC
     public class LoadedInjectionDataSource : NSTableViewDataSource
     {
         public ExperimentData Data { get; private set; }
-        public List<InjectionData> Injections => Data?.Injections ?? new List<InjectionData>();
+        public ExperimentOverviewTable Table { get; private set; } = ExperimentOverviewTable.Build(null);
+        public IReadOnlyList<ExperimentOverviewColumn> Columns => Table.Columns.Where(column => column.IsVisible).ToList();
+        public IReadOnlyList<ExperimentOverviewRow> Rows => Table.Rows;
 
         public LoadedInjectionDataSource(ExperimentData data)
         {
-            Data = data;
+            SetData(data);
         }
 
         public void SetData(ExperimentData data)
         {
             Data = data;
+            Table = ExperimentOverviewTable.Build(data);
         }
 
-        public override nint GetRowCount(NSTableView tableView) => Injections.Count;
+        public override nint GetRowCount(NSTableView tableView) => Rows.Count;
     }
 
     public class LoadedInjectionTableDelegate : NSTableViewDelegate
@@ -63,45 +67,32 @@ namespace AnalysisITC
                 };
             }
 
-            if (row < 0 || row >= DataSource.Injections.Count)
+            if (row < 0 || row >= DataSource.Rows.Count)
             {
                 view.StringValue = "";
                 return view;
             }
 
-            var inj = DataSource.Injections[(int)row];
-            view.Alignment = NSTextAlignment.Right;
-
-            switch (tableColumn.Identifier)
-            {
-                case "ID":
-                    view.StringValue = (inj.ID + 1).ToString();
-                    view.Alignment = NSTextAlignment.Center;
-                    break;
-                case "Volume":
-                    view.StringValue = (1000000 * inj.Volume).ToString("F1");
-                    break;
-                case "M":
-                    view.StringValue = new FloatWithError(inj.ActualCellConcentration).AsConcentration(ConcentrationUnit.µM, withunit: false);
-                    break;
-                case "L":
-                    view.StringValue = new FloatWithError(inj.ActualTitrantConcentration).AsConcentration(ConcentrationUnit.µM, withunit: false);
-                    break;
-                case "Ratio":
-                    view.StringValue = inj.Ratio.ToString("G5");
-                    break;
-                case "NormHeat":
-                    view.StringValue = inj.Enthalpy2.ToFormattedString(AppSettings.EnergyUnit, withunit: false, permole: true);
-                    break;
-                default:
-                    view.StringValue = "";
-                    break;
-            }
+            var rowData = DataSource.Rows[(int)row];
+            var column = DataSource.Columns.FirstOrDefault(item => item.Id == tableColumn.Identifier);
+            view.Alignment = AlignmentFor(column?.Alignment ?? ExperimentOverviewColumnAlignment.Right);
+            view.TextColor = rowData.IsIncluded ? NSColor.Label : NSColor.SecondaryLabel;
+            view.StringValue = rowData[tableColumn.Identifier];
 
             return view;
         }
 
         [Export("tableView:heightOfRow:")]
         public override nfloat GetRowHeight(NSTableView tableView, nint row) => 22;
+
+        static NSTextAlignment AlignmentFor(ExperimentOverviewColumnAlignment alignment)
+        {
+            switch (alignment)
+            {
+                case ExperimentOverviewColumnAlignment.Left: return NSTextAlignment.Left;
+                case ExperimentOverviewColumnAlignment.Center: return NSTextAlignment.Center;
+                default: return NSTextAlignment.Right;
+            }
+        }
     }
 }

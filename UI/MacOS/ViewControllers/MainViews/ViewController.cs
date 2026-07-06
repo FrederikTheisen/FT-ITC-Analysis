@@ -34,6 +34,16 @@ namespace AnalysisITC
         LoadedInjectionDataSource LoadedInjectionSource;
         LoadedInjectionTableDelegate LoadedInjectionDelegate;
         bool isLoadingRecentData;
+        public static bool OverviewShowsInjections { get; private set; }
+        public static event EventHandler OverviewDisplayModeDidChange;
+
+        public static void SetOverviewDisplayMode(bool showInjections)
+        {
+            if (OverviewShowsInjections == showInjections) return;
+
+            OverviewShowsInjections = showInjections;
+            OverviewDisplayModeDidChange?.Invoke(null, EventArgs.Empty);
+        }
 
         public ViewController(IntPtr handle) : base(handle)
         {
@@ -49,6 +59,7 @@ namespace AnalysisITC
 
             DataManager.DataDidChange += OnDataChanged;
             DataManager.SelectionDidChange += OnSelectionChanged;
+            OverviewDisplayModeDidChange += OnOverviewDisplayModeDidChange;
             StateManager.UpdateStateDependentUI += StateManager_UpdateStateDependentUI;
             AppDelegate.StartPrintOperation += AppDelegate_StartPrintOperation;
             BindExperimentMenuActions(ExperimentMenuButton.Menu);
@@ -70,6 +81,8 @@ namespace AnalysisITC
 
             ResizeLoadedInjectionColumns();
         }
+
+        void OnOverviewDisplayModeDidChange(object sender, EventArgs e) => UpdateGraph();
 
         void BindExperimentMenuActions(NSMenu menu)
         {
@@ -102,17 +115,11 @@ namespace AnalysisITC
             LoadedInjectionTableView.Frame = GVC.Frame;
             LoadedInjectionTableView.AutoresizingMask = NSViewResizingMask.WidthSizable | NSViewResizingMask.HeightSizable;
 
-            AddColumn("ID", "#", 20, headerAlignment: NSTextAlignment.Center);
-            AddColumn("Volume", "Vol. (µl)", 50);
-            AddColumn("M", "[M] (µM)", 60);
-            AddColumn("L", "[L] (µM)", 60);
-            AddColumn("Ratio", "Ratio", 50);
-            AddColumn("NormHeat", $"Norm. Heat ({AppSettings.EnergyUnit.GetUnit()}/mol)", 80);
-
             LoadedInjectionSource = new LoadedInjectionDataSource(null);
             LoadedInjectionDelegate = new LoadedInjectionTableDelegate(LoadedInjectionSource);
             LoadedInjectionTableView.DataSource = LoadedInjectionSource;
             LoadedInjectionTableView.Delegate = LoadedInjectionDelegate;
+            RebuildLoadedInjectionColumns();
 
             LoadedInjectionScrollView = new NSScrollView
             {
@@ -138,18 +145,29 @@ namespace AnalysisITC
             });
         }
 
-        void AddColumn(string identifier, string title, nfloat width, NSTextAlignment headerAlignment = NSTextAlignment.Right)
+        void RebuildLoadedInjectionColumns()
         {
-            var column = new NSTableColumn(identifier)
+            if (LoadedInjectionTableView == null || LoadedInjectionSource == null) return;
+
+            foreach (var column in LoadedInjectionTableView.TableColumns())
+                LoadedInjectionTableView.RemoveColumn(column);
+
+            foreach (var column in LoadedInjectionSource.Columns)
+                AddColumn(column);
+        }
+
+        void AddColumn(ExperimentOverviewColumn overviewColumn)
+        {
+            var column = new NSTableColumn(overviewColumn.Id)
             {
-                Identifier = identifier,
-                Width = width,
-                MinWidth = width,
+                Identifier = overviewColumn.Id,
+                Width = (nfloat)overviewColumn.PreferredWidth,
+                MinWidth = (nfloat)Math.Min(overviewColumn.PreferredWidth, 60),
                 ResizingMask = NSTableColumnResizing.UserResizingMask,
                 Editable = false,
-                HeaderCell = new NSTableHeaderCell(title)
+                HeaderCell = new NSTableHeaderCell(overviewColumn.Title)
                 {
-                    Alignment = headerAlignment,
+                    Alignment = HeaderAlignmentFor(overviewColumn.Alignment),
                 },
             };
 
@@ -168,25 +186,15 @@ namespace AnalysisITC
             var columns = LoadedInjectionTableView.TableColumns();
             if (columns.Length == 0) return;
 
-            var fixedWidths = new Dictionary<string, nfloat>
-            {
-                { "ID", 42f },
-                { "Volume", 72f },
-                { "M", 92f },
-                { "L", 92f },
-                { "Ratio", 72f },
-            };
-
             var intercellWidth = LoadedInjectionTableView.IntercellSpacing.Width * Math.Max(columns.Length - 1, 0);
             var usableWidth = Math.Max(width - intercellWidth - 2, 240);
-            var fixedWidthSum = fixedWidths.Values.Sum(v => v);
-            var remainingWidth = Math.Max(usableWidth - fixedWidthSum, 120) - 20;
+            var preferredWidth = LoadedInjectionSource.Columns.Sum(column => column.PreferredWidth);
+            var widthFactor = preferredWidth > 0 ? Math.Max(1, usableWidth / preferredWidth) : 1;
 
             foreach (var column in columns)
             {
-                var columnWidth = fixedWidths.TryGetValue(column.Identifier, out var value)
-                    ? value
-                    : remainingWidth;
+                var overviewColumn = LoadedInjectionSource.Columns.FirstOrDefault(item => item.Id == column.Identifier);
+                var columnWidth = (overviewColumn?.PreferredWidth ?? 80) * widthFactor;
 
                 column.Width = (nfloat)columnWidth;
                 column.MinWidth = (nfloat)Math.Min(columnWidth, 60);
@@ -194,8 +202,18 @@ namespace AnalysisITC
 
             var headerHeight = LoadedInjectionTableView.HeaderView?.Frame.Height ?? 0;
             var rowHeight = LoadedInjectionDelegate?.GetRowHeight(LoadedInjectionTableView, 0) ?? 22;
-            var tableHeight = Math.Max(LoadedInjectionScrollView?.ContentSize.Height ?? 0, headerHeight + rowHeight * LoadedInjectionSource.Injections.Count);
+            var tableHeight = Math.Max(LoadedInjectionScrollView?.ContentSize.Height ?? 0, headerHeight + rowHeight * LoadedInjectionSource.Rows.Count);
             LoadedInjectionTableView.Frame = new CGRect(0, 0, width, tableHeight);
+        }
+
+        static NSTextAlignment HeaderAlignmentFor(ExperimentOverviewColumnAlignment alignment)
+        {
+            switch (alignment)
+            {
+                case ExperimentOverviewColumnAlignment.Left: return NSTextAlignment.Left;
+                case ExperimentOverviewColumnAlignment.Center: return NSTextAlignment.Center;
+                default: return NSTextAlignment.Right;
+            }
         }
 
         private void OnExperimentMenuItemActivated(object sender, EventArgs e)
@@ -297,8 +315,10 @@ namespace AnalysisITC
 
         private void UpdateGraph()
         {
-            var showLoadedInjectionTable = DataManager.Current != null && !DataManager.Current.HasThermogram;
+            var showLoadedInjectionTable = DataManager.Current != null && OverviewShowsInjections;
 
+            //GVC.Hidden = DataManager.Current == null;
+            GVC.AlphaValue = showLoadedInjectionTable ? 0 : 1;
             LoadedInjectionScrollView.Hidden = !showLoadedInjectionTable;
             LoadedInjectionTableView.Hidden = !showLoadedInjectionTable;
 
@@ -307,6 +327,7 @@ namespace AnalysisITC
             if (showLoadedInjectionTable)
             {
                 LoadedInjectionSource.SetData(DataManager.Current);
+                RebuildLoadedInjectionColumns();
                 View.LayoutSubtreeIfNeeded();
                 ResizeLoadedInjectionColumns();
                 LoadedInjectionTableView.ReloadData();

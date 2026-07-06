@@ -61,6 +61,7 @@ namespace AnalysisITC
             DocumentDirtyTracker.DirtyStateChanged += DocumentDirtyTracker_DirtyStateChanged;
             DataManager.DataDidChange += DataManager_DataDidChange;
             DataManager.DataInclusionDidChange += DataManager_DataDidChange;
+            ViewController.OverviewDisplayModeDidChange += ViewController_OverviewDisplayModeDidChange;
             DataAnalysisViewController.AnalysisModeDidChange += DataAnalysisViewController_AnalysisModeDidChange;
             AnalysisResultTabViewController.DisplayOptionsDidChange += AnalysisResultTabViewController_DisplayOptionsDidChange;
             FTITCFormat.CurrentAccessedAppDocumentPathChanged += FTITCFormat_CurrentAccessedAppDocumentPathChanged;
@@ -97,6 +98,11 @@ namespace AnalysisITC
         }
 
         private void AnalysisResultTabViewController_DisplayOptionsDidChange(object sender, EventArgs e)
+        {
+            NSApplication.SharedApplication.InvokeOnMainThread(UpdateContextToolbarMenu);
+        }
+
+        private void ViewController_OverviewDisplayModeDidChange(object sender, EventArgs e)
         {
             NSApplication.SharedApplication.InvokeOnMainThread(UpdateContextToolbarMenu);
         }
@@ -388,6 +394,7 @@ namespace AnalysisITC
 
             var title = StateManager.CurrentState switch
             {
+                ProgramState.Load => "Overview",
                 ProgramState.Process => "Processing",
                 ProgramState.Analyze => "Analysis",
                 ProgramState.AnalysisView => "Result View",
@@ -399,6 +406,10 @@ namespace AnalysisITC
 
             switch (StateManager.CurrentState)
             {
+                case ProgramState.Load:
+                    WorkflowToolbarMenuButton.Hidden = false;
+                    PopulateOverviewToolbarMenu(menu);
+                    break;
                 case ProgramState.Process:
                     WorkflowToolbarMenuButton.Hidden = false;
                     PopulateProcessingToolbarMenu(menu);
@@ -419,6 +430,22 @@ namespace AnalysisITC
             WorkflowToolbarMenuButton.Menu = menu;
             WorkflowToolbarMenuButton.Title = title;
             WorkflowToolbarMenuButton.SelectItem(0);
+        }
+
+        void PopulateOverviewToolbarMenu(NSMenu menu)
+        {
+            var hasData = DataManager.Current != null;
+
+            menu.AddItem(CreateContextMenuItem("Raw Data", "overviewrawdata", hasData, (s, e) =>
+            {
+                ViewController.SetOverviewDisplayMode(false);
+                UpdateContextToolbarMenu();
+            }, !ViewController.OverviewShowsInjections));
+            menu.AddItem(CreateContextMenuItem("Injections", "overviewinjections", hasData, (s, e) =>
+            {
+                ViewController.SetOverviewDisplayMode(true);
+                UpdateContextToolbarMenu();
+            }, ViewController.OverviewShowsInjections));
         }
 
         void PopulateExperimentToolbarMenu(NSMenu menu)
