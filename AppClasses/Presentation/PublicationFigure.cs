@@ -68,6 +68,9 @@ namespace AnalysisITC.Core.Presentation
         public bool ShowBadData { get; set; } = true;
         public bool ShowBadDataErrorBars { get; set; } = false;
         public bool IncludeResidualGraphGap { get; set; } = true;
+        public bool SanitizeTicks { get; set; } = true;
+        public bool DrawBaselineCorrected { get; set; } = true;
+        public bool ShowZeroLine { get; set; } = true;
 
         public int DataXTickCount { get; set; } = 7;
         public int DataYTickCount { get; set; } = 7;
@@ -84,6 +87,17 @@ namespace AnalysisITC.Core.Presentation
         public string TimeAxisTitle { get; set; } = "Time (<unit>)";
         public string EnthalpyAxisTitle { get; set; } = "<unit> of injectant";
         public string XAxisTitle { get; set; }
+
+        public double? DataXAxisMinimum { get; set; }
+        public double? DataXAxisMaximum { get; set; }
+        public double? DataYAxisMinimum { get; set; }
+        public double? DataYAxisMaximum { get; set; }
+        public double? FitXAxisMinimum { get; set; }
+        public double? FitXAxisMaximum { get; set; }
+        public double? FitYAxisMinimum { get; set; }
+        public double? FitYAxisMaximum { get; set; }
+        public double? ResidualYAxisMinimum { get; set; }
+        public double? ResidualYAxisMaximum { get; set; }
 
         public FinalFigureDisplayParameters DisplayParameters { get; set; } = FinalFigureDisplayParameters.Default;
         public DisplayAttributeOptions AttributeOptions { get; set; } = DisplayAttributeOptions.Default;
@@ -111,6 +125,9 @@ namespace AnalysisITC.Core.Presentation
                     ShowBadData.ToString(),
                     ShowBadDataErrorBars.ToString(),
                     IncludeResidualGraphGap.ToString(),
+                    SanitizeTicks.ToString(),
+                    DrawBaselineCorrected.ToString(),
+                    ShowZeroLine.ToString(),
                     DataXTickCount.ToString(),
                     DataYTickCount.ToString(),
                     FitXTickCount.ToString(),
@@ -124,11 +141,26 @@ namespace AnalysisITC.Core.Presentation
                     TimeAxisTitle ?? "",
                     EnthalpyAxisTitle ?? "",
                     XAxisTitle ?? "",
+                    NullableKey(DataXAxisMinimum),
+                    NullableKey(DataXAxisMaximum),
+                    NullableKey(DataYAxisMinimum),
+                    NullableKey(DataYAxisMaximum),
+                    NullableKey(FitXAxisMinimum),
+                    NullableKey(FitXAxisMaximum),
+                    NullableKey(FitYAxisMinimum),
+                    NullableKey(FitYAxisMaximum),
+                    NullableKey(ResidualYAxisMinimum),
+                    NullableKey(ResidualYAxisMaximum),
                     ((int)DisplayParameters).ToString(),
                     ((int)AttributeOptions).ToString(),
                     ((int)TextUncertaintyStyle).ToString()
                 });
             }
+        }
+
+        static string NullableKey(double? value)
+        {
+            return value.HasValue ? value.Value.ToString("G17") : "";
         }
     }
 
@@ -177,7 +209,7 @@ namespace AnalysisITC.Core.Presentation
 
     public sealed class PublicationAxis
     {
-        public PublicationAxis(string title, PublicationAxisPlacement placement, double minimum, double maximum, int maxTicks, bool preferCenteredTicks = false)
+        public PublicationAxis(string title, PublicationAxisPlacement placement, double minimum, double maximum, int maxTicks, bool preferCenteredTicks = false, bool sanitizeTicks = true)
         {
             Title = title ?? "";
             Placement = placement;
@@ -185,6 +217,7 @@ namespace AnalysisITC.Core.Presentation
             Maximum = maximum;
             MaxTicks = maxTicks;
             PreferCenteredTicks = preferCenteredTicks;
+            SanitizeTicks = sanitizeTicks;
 
             NormalizeRange();
             BuildTicks();
@@ -196,6 +229,7 @@ namespace AnalysisITC.Core.Presentation
         public double Maximum { get; private set; }
         public int MaxTicks { get; private set; }
         public bool PreferCenteredTicks { get; private set; }
+        public bool SanitizeTicks { get; private set; }
         public double TickSpacing { get; private set; }
         public int DecimalPlaces { get; private set; }
         public List<double> MajorTicks { get; private set; } = new List<double>();
@@ -233,6 +267,12 @@ namespace AnalysisITC.Core.Presentation
 
         void BuildTicks()
         {
+            if (!SanitizeTicks)
+            {
+                BuildLinearTicks();
+                return;
+            }
+
             var ticks = NiceTicks(Minimum, Maximum, Math.Max(2, MaxTicks), out var spacing);
             TickSpacing = spacing;
 
@@ -240,6 +280,20 @@ namespace AnalysisITC.Core.Presentation
             ticks = PreferThreeCenteredTicks(ticks);
 
             MajorTicks = ticks.Select(NormalizeZero).ToList();
+            MinorTicks = BuildMinorTicks(MajorTicks);
+            DecimalPlaces = EstimateDecimalPlaces(MajorTicks, spacing);
+        }
+
+        void BuildLinearTicks()
+        {
+            var tickCount = Math.Max(2, MaxTicks);
+            var spacing = (Maximum - Minimum) / Math.Max(1, tickCount - 1);
+            if (!IsFinite(spacing) || Math.Abs(spacing) < double.Epsilon) spacing = 1;
+
+            TickSpacing = spacing;
+            MajorTicks = Enumerable.Range(0, tickCount)
+                .Select(index => NormalizeZero(Minimum + spacing * index))
+                .ToList();
             MinorTicks = BuildMinorTicks(MajorTicks);
             DecimalPlaces = EstimateDecimalPlaces(MajorTicks, spacing);
         }
@@ -444,12 +498,14 @@ namespace AnalysisITC.Core.Presentation
             var xMin = 0;
             var xMax = points.Count > 0 ? points.Max(point => point.X) : 1;
             var yRange = RangeWithBuffer(points.Select(point => point.Y), 0.1, includeZero: false);
+            var xRange = ApplyAxisOverrides(xMin, xMax, options.DataXAxisMinimum, options.DataXAxisMaximum);
+            yRange = ApplyAxisOverrides(yRange[0], yRange[1], options.DataYAxisMinimum, options.DataYAxisMaximum);
 
             var panel = new PublicationFigurePanel
             {
                 Kind = PublicationPanelKind.Thermogram,
-                XAxis = new PublicationAxis(FormatAxisTitle(options.TimeAxisTitle, options.TimeUnit.GetProperties().Short), PublicationAxisPlacement.Top, xMin, xMax, options.DataXTickCount),
-                YAxis = new PublicationAxis(FormatAxisTitle(options.PowerAxisTitle, options.EnergyUnit.IsSI() ? "µW" : "µcal/s"), PublicationAxisPlacement.Left, yRange[0], yRange[1], options.DataYTickCount)
+                XAxis = new PublicationAxis(FormatAxisTitle(options.TimeAxisTitle, options.TimeUnit.GetProperties().Short), PublicationAxisPlacement.Top, xRange[0], xRange[1], options.DataXTickCount, sanitizeTicks: options.SanitizeTicks),
+                YAxis = new PublicationAxis(FormatAxisTitle(options.PowerAxisTitle, options.EnergyUnit.IsSI() ? "µW" : "µcal/s"), PublicationAxisPlacement.Left, yRange[0], yRange[1], options.DataYTickCount, sanitizeTicks: options.SanitizeTicks)
             };
 
             panel.Series.Add(new PublicationSeries
@@ -473,7 +529,7 @@ namespace AnalysisITC.Core.Presentation
 
             List<PublicationPoint> GetThermogramPoints(ExperimentData experiment)
             {
-                var source = experiment.BaseLineCorrectedDataPoints != null && experiment.BaseLineCorrectedDataPoints.Count > 0
+                var source = options.DrawBaselineCorrected && experiment.BaseLineCorrectedDataPoints != null && experiment.BaseLineCorrectedDataPoints.Count > 0
                     ? experiment.BaseLineCorrectedDataPoints
                     : experiment.DataPoints;
 
@@ -486,7 +542,6 @@ namespace AnalysisITC.Core.Presentation
 
         static PublicationFigurePanel BuildFitPanel(ExperimentData data, PublicationFigureOptions options)
         {
-            var xScale = GetAnalysisXAxisScale(data);
             var energyScale = Energy.ScaleFactor(options.EnergyUnit);
             var drawWithOffset = !options.DrawFitOffsetCorrected;
             var injectionPoints = new List<PublicationErrorPoint>();
@@ -497,12 +552,13 @@ namespace AnalysisITC.Core.Presentation
 
                 var y = drawWithOffset ? injection.Enthalpy : injection.OffsetEnthalpy;
                 var sd = options.ShowErrorBars && (options.ShowBadDataErrorBars || injection.Include) ? injection.SD : 0;
+                var x = AnalysisXValue(data, injection);
 
-                if (!IsFinite(injection.Ratio) || !IsFinite(y)) continue;
+                if (!IsFinite(x) || !IsFinite(y)) continue;
 
                 injectionPoints.Add(new PublicationErrorPoint
                 {
-                    X = injection.Ratio * xScale,
+                    X = x,
                     Y = y * energyScale,
                     LowerY = (y - sd) * energyScale,
                     UpperY = (y + sd) * energyScale,
@@ -516,9 +572,10 @@ namespace AnalysisITC.Core.Presentation
                 foreach (var injection in data.Injections)
                 {
                     var y = data.Model.EvaluateEnthalpy(injection.ID, drawWithOffset);
-                    if (IsFinite(injection.Ratio) && IsFinite(y))
+                    var x = AnalysisXValue(data, injection);
+                    if (IsFinite(x) && IsFinite(y))
                     {
-                        fitPoints.Add(new PublicationPoint(injection.Ratio * xScale, y * energyScale));
+                        fitPoints.Add(new PublicationPoint(x, y * energyScale));
                     }
                 }
             }
@@ -529,10 +586,12 @@ namespace AnalysisITC.Core.Presentation
             values.AddRange(fitPoints.Select(point => point.Y));
             values.Add(0);
 
-            var xMax = data.Injections.Count > 0 ? data.Injections.Last().Ratio * xScale : 1;
-            xMax = Math.Max(xMax, 1);
-            var xRange = RangeWithBuffer(new[] { 0, xMax }, 0.05, includeZero: true);
+            var xValues = injectionPoints.Select(point => point.X).Concat(fitPoints.Select(point => point.X)).ToList();
+            if (xValues.Count == 0) xValues.AddRange(new[] { 0.0, 1.0 });
+            var xRange = RangeWithBuffer(xValues, 0.05, includeZero: true);
             var yRange = RangeWithBuffer(values, 0.1, includeZero: true);
+            xRange = ApplyAxisOverrides(xRange[0], xRange[1], options.FitXAxisMinimum, options.FitXAxisMaximum);
+            yRange = ApplyAxisOverrides(yRange[0], yRange[1], options.FitYAxisMinimum, options.FitYAxisMaximum);
             var xAxisTitle = string.IsNullOrWhiteSpace(options.XAxisTitle)
                 ? data.AxisType.GetEnumDescription()
                 : options.XAxisTitle;
@@ -540,9 +599,9 @@ namespace AnalysisITC.Core.Presentation
             var panel = new PublicationFigurePanel
             {
                 Kind = PublicationPanelKind.Fit,
-                XAxis = new PublicationAxis(xAxisTitle, PublicationAxisPlacement.Bottom, xRange[0], xRange[1], options.FitXTickCount),
-                YAxis = new PublicationAxis(FormatAxisTitle(options.EnthalpyAxisTitle, options.EnergyUnit.GetUnit() + "/mol"), PublicationAxisPlacement.Left, yRange[0], yRange[1], options.FitYTickCount),
-                DrawZeroLine = true
+                XAxis = new PublicationAxis(xAxisTitle, PublicationAxisPlacement.Bottom, xRange[0], xRange[1], options.FitXTickCount, sanitizeTicks: options.SanitizeTicks),
+                YAxis = new PublicationAxis(FormatAxisTitle(options.EnthalpyAxisTitle, options.EnergyUnit.GetUnit() + "/mol"), PublicationAxisPlacement.Left, yRange[0], yRange[1], options.FitYTickCount, sanitizeTicks: options.SanitizeTicks),
+                DrawZeroLine = options.ShowZeroLine
             };
 
             panel.Points.AddRange(injectionPoints);
@@ -558,7 +617,7 @@ namespace AnalysisITC.Core.Presentation
 
             if (options.ShowConfidenceBand)
             {
-                var band = BuildConfidenceBand(data, options, drawWithOffset, xScale, energyScale);
+                var band = BuildConfidenceBand(data, options, drawWithOffset, energyScale);
                 if (band.Upper.Count > 0 && band.Lower.Count > 0) panel.Bands.Add(band);
             }
 
@@ -573,7 +632,6 @@ namespace AnalysisITC.Core.Presentation
 
         static PublicationFigurePanel BuildResidualPanel(ExperimentData data, PublicationFigureOptions options, PublicationAxis parentXAxis)
         {
-            var xScale = GetAnalysisXAxisScale(data);
             var energyScale = Energy.ScaleFactor(options.EnergyUnit);
             var points = new List<PublicationErrorPoint>();
 
@@ -583,12 +641,13 @@ namespace AnalysisITC.Core.Presentation
 
                 var residual = injection.ResidualEnthalpy;
                 var sd = options.ShowErrorBars && (options.ShowBadDataErrorBars || injection.Include) ? injection.SD : 0;
+                var x = AnalysisXValue(data, injection);
 
-                if (!IsFinite(injection.Ratio) || !IsFinite(residual)) continue;
+                if (!IsFinite(x) || !IsFinite(residual)) continue;
 
                 points.Add(new PublicationErrorPoint
                 {
-                    X = injection.Ratio * xScale,
+                    X = x,
                     Y = residual * energyScale,
                     LowerY = (residual - sd) * energyScale,
                     UpperY = (residual + sd) * energyScale,
@@ -604,20 +663,21 @@ namespace AnalysisITC.Core.Presentation
                     Math.Abs(point.LowerY),
                     Math.Abs(point.UpperY)
                 }).Max(), 1E-3);
+            var yRange = ApplyAxisOverrides(-max, max, options.ResidualYAxisMinimum, options.ResidualYAxisMaximum);
 
             var panel = new PublicationFigurePanel
             {
                 Kind = PublicationPanelKind.Residual,
-                XAxis = new PublicationAxis(parentXAxis.Title, PublicationAxisPlacement.Bottom, parentXAxis.Minimum, parentXAxis.Maximum, options.FitXTickCount),
-                YAxis = new PublicationAxis("", PublicationAxisPlacement.Left, -max, max, options.ResidualYTickCount, preferCenteredTicks: true),
-                DrawZeroLine = true
+                XAxis = new PublicationAxis(parentXAxis.Title, PublicationAxisPlacement.Bottom, parentXAxis.Minimum, parentXAxis.Maximum, options.FitXTickCount, sanitizeTicks: options.SanitizeTicks),
+                YAxis = new PublicationAxis("", PublicationAxisPlacement.Left, yRange[0], yRange[1], options.ResidualYTickCount, preferCenteredTicks: true, sanitizeTicks: options.SanitizeTicks),
+                DrawZeroLine = options.ShowZeroLine
             };
 
             panel.Points.AddRange(points);
             return panel;
         }
 
-        static PublicationBand BuildConfidenceBand(ExperimentData data, PublicationFigureOptions options, bool drawWithOffset, double xScale, double energyScale)
+        static PublicationBand BuildConfidenceBand(ExperimentData data, PublicationFigureOptions options, bool drawWithOffset, double energyScale)
         {
             var band = new PublicationBand();
 
@@ -629,10 +689,11 @@ namespace AnalysisITC.Core.Presentation
             foreach (var injection in data.Injections)
             {
                 var y = data.Model.EvaluateBootstrap(injection.ID, drawWithOffset).WithConfidence();
-                if (!IsFinite(injection.Ratio) || y == null || y.Length < 2 || !IsFinite(y[0]) || !IsFinite(y[1])) continue;
+                var x = AnalysisXValue(data, injection);
+                if (!IsFinite(x) || y == null || y.Length < 2 || !IsFinite(y[0]) || !IsFinite(y[1])) continue;
 
-                band.Upper.Add(new PublicationPoint(injection.Ratio * xScale, y[1] * energyScale));
-                band.Lower.Add(new PublicationPoint(injection.Ratio * xScale, y[0] * energyScale));
+                band.Upper.Add(new PublicationPoint(x, y[1] * energyScale));
+                band.Lower.Add(new PublicationPoint(x, y[0] * energyScale));
             }
 
             band.Upper = band.Upper.OrderBy(point => point.X).ToList();
@@ -744,9 +805,14 @@ namespace AnalysisITC.Core.Presentation
             return keywords.Select(keyword => keyword.Replace(",", "..")).ToList();
         }
 
-        static double GetAnalysisXAxisScale(ExperimentData data)
+        static double AnalysisXValue(ExperimentData data, InjectionData injection)
         {
-            return data.AxisType == AnalysisXAxisType.TitrantConcentration ? 1000000 : 1;
+            return data.AxisType switch
+            {
+                AnalysisXAxisType.TitrantConcentration => injection.ActualTitrantConcentration * 1000000,
+                AnalysisXAxisType.ID => injection.ID + 1,
+                _ => injection.Ratio
+            };
         }
 
         static double PowerScale(EnergyUnit energyUnit)
@@ -779,6 +845,17 @@ namespace AnalysisITC.Core.Presentation
                 min - delta * buffer,
                 max + delta * buffer
             };
+        }
+
+        static double[] ApplyAxisOverrides(double minimum, double maximum, double? overrideMinimum, double? overrideMaximum)
+        {
+            if (overrideMinimum.HasValue && IsFinite(overrideMinimum.Value))
+                minimum = overrideMinimum.Value;
+
+            if (overrideMaximum.HasValue && IsFinite(overrideMaximum.Value))
+                maximum = overrideMaximum.Value;
+
+            return new[] { minimum, maximum };
         }
 
         static bool IsFinite(double value)
