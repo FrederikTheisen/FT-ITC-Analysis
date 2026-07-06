@@ -726,7 +726,7 @@ namespace AnalysisITC.Core.Data
             info.Add("  **Format:** " + this.DataSourceFormat.GetProperties().Name);
             info.Add("  **Date:** " + this.UILongDateWithTime);
             if (this.Duration > TimeSpan.FromSeconds(1))
-                info.Add($"  **Duration:** {this.Duration.ToReadableString()}");
+                info.Add($"  **Duration:** {this.Duration.ToReadableString()} | {this.DataPoints.Count} points | {this.TimeStep:F1}s sampling");
 
             info.Add("**Instrument:** " + this.Instrument.GetProperties().Name);
             info.Add($"  **Cell Volume:** {1000000 * this.CellVolume:F1} µl");
