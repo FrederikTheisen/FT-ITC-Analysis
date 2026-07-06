@@ -58,7 +58,7 @@ namespace AnalysisITC.Avalonia.Processing
 
         readonly StackPanel splineOptionsPanel = Horizontal(6);
         readonly StackPanel degreePanel = Horizontal(6);
-        readonly StackPanel controlsPanel = new StackPanel { Spacing = 8 };
+        readonly TabControl controlsPanel = new TabControl();
 
         ExperimentData? experiment;
         bool isUpdatingControls;
@@ -113,48 +113,14 @@ namespace AnalysisITC.Avalonia.Processing
             degreePanel.Children.Add(Labeled("Degree", degreeSlider));
             degreePanel.Children.Add(degreeLabel);
 
-            controlsPanel.Children.Add(Section(baselineHeader, new Control[]
-            {
-                Labeled("Type", baselineTypeCombo),
-                splineOptionsPanel,
-                degreePanel
-            }));
-            controlsPanel.Children.Add(Section(integrationHeader, new Control[]
-            {
-                Labeled("Mode", integrationModeCombo),
-                Labeled("Start", integrationStartSlider),
-                startLabel,
-                Labeled("Length", integrationLengthSlider),
-                lengthLabel,
-                discardIntegratedCheck
-            }));
-            controlsPanel.Children.Add(Section("Selection", new Control[]
-            {
-                selectionLabel,
-                Row(allInjectionButton, previousButton, nextButton),
-                copyNextButton,
-                Labeled("Peak width", peakWidthCombo)
-            }));
-            controlsPanel.Children.Add(Section("View", new Control[]
-            {
-                showBaselineCheck,
-                showIntegrationCheck,
-                correctedCheck,
-                cursorInfoCheck,
-                Row(allDataButton, baselineZoomButton),
-                Row(allPeaksButton, focusPeakButton)
-            }));
-            controlsPanel.Children.Add(Section("Processing", new Control[]
-            {
-                lockProcessorButton,
-                copyActiveButton,
-                copyNewButton,
-                summaryText
-            }));
+            controlsPanel.Margin = new Thickness(10, 0, 0, 0);
+            controlsPanel.Items.Add(Tab("Processing", BuildProcessingTab()));
+            controlsPanel.Items.Add(Tab("Selection", BuildSelectionTab()));
+            controlsPanel.Items.Add(Tab("View", BuildViewTab()));
 
             var root = new Grid
             {
-                ColumnDefinitions = new ColumnDefinitions("*,300"),
+                ColumnDefinitions = new ColumnDefinitions("*,330"),
                 Background = Solid("#F5F7FA")
             };
 
@@ -167,26 +133,64 @@ namespace AnalysisITC.Avalonia.Processing
             };
             Grid.SetColumn(graphBorder, 0);
 
-            var controlsBorder = new Border
-            {
-                Margin = new Thickness(10, 0, 0, 0),
-                Background = Brushes.White,
-                BorderBrush = Solid("#D4DAE1"),
-                BorderThickness = new Thickness(1),
-                Child = new ScrollViewer
-                {
-                    Padding = new Thickness(10),
-                    HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
-                    VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
-                    Content = controlsPanel
-                }
-            };
-            Grid.SetColumn(controlsBorder, 1);
+            Grid.SetColumn(controlsPanel, 1);
 
-            root.Children.Add(controlsBorder);
             root.Children.Add(graphBorder);
+            root.Children.Add(controlsPanel);
 
             Content = root;
+        }
+
+        Control BuildProcessingTab()
+        {
+            var panel = new StackPanel { Spacing = 10 };
+            panel.Children.Add(Section(baselineHeader, new Control[]
+            {
+                Labeled("Type", baselineTypeCombo),
+                splineOptionsPanel,
+                degreePanel
+            }));
+            panel.Children.Add(Section(integrationHeader, new Control[]
+            {
+                Labeled("Mode", integrationModeCombo),
+                Labeled("Start", integrationStartSlider),
+                startLabel,
+                Labeled("Length", integrationLengthSlider),
+                lengthLabel,
+                discardIntegratedCheck
+            }));
+            panel.Children.Add(Section("Apply", new Control[]
+            {
+                lockProcessorButton,
+                Row(copyActiveButton, copyNewButton),
+                summaryText
+            }));
+
+            return Scroll(panel);
+        }
+
+        Control BuildSelectionTab()
+        {
+            return Scroll(Section("Selection", new Control[]
+            {
+                selectionLabel,
+                Row(allInjectionButton, previousButton, nextButton),
+                copyNextButton,
+                Labeled("Peak width", peakWidthCombo)
+            }));
+        }
+
+        Control BuildViewTab()
+        {
+            return Scroll(Section("View", new Control[]
+            {
+                showBaselineCheck,
+                showIntegrationCheck,
+                correctedCheck,
+                cursorInfoCheck,
+                Row(allDataButton, baselineZoomButton),
+                Row(allPeaksButton, focusPeakButton)
+            }));
         }
 
         void WireEvents()
@@ -803,6 +807,40 @@ namespace AnalysisITC.Avalonia.Processing
         static Border Section(string title, Control[] controls)
         {
             return Section(Header(title), controls);
+        }
+
+        static TabItem Tab(string header, Control content)
+        {
+            return new TabItem
+            {
+                Header = new TextBlock
+                {
+                    Text = header,
+                    FontSize = 11,
+                    TextWrapping = TextWrapping.NoWrap
+                },
+                Content = content
+            };
+        }
+
+        static Control Scroll(Control content)
+        {
+            return new Border
+            {
+                Background = Brushes.White,
+                BorderBrush = Solid("#D4DAE1"),
+                BorderThickness = new Thickness(1),
+                Child = new ScrollViewer
+                {
+                    HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
+                    VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
+                    Content = new Border
+                    {
+                        Padding = new Thickness(10),
+                        Child = content
+                    }
+                }
+            };
         }
 
         static Border Section(TextBlock header, Control[] controls)

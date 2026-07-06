@@ -1,8 +1,8 @@
 <Application xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              x:Class="AnalysisITC.Avalonia.App"
-             RequestedThemeVariant="Default">
-             <!-- "Default" ThemeVariant follows system theme variant. "Dark" or "Light" are other available options. -->
+             RequestedThemeVariant="Light">
+             <!-- The current Avalonia shell and graph controls use a fixed light palette. Keep Fluent controls light until a full dark palette exists. -->
 
     <Application.Styles>
         <FluentTheme />

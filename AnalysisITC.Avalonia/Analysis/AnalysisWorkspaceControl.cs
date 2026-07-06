@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 
@@ -26,9 +27,10 @@ namespace AnalysisITC.Avalonia.Analysis
         readonly IntegratedHeatsGraphControl graph = new IntegratedHeatsGraphControl();
         readonly CoreAnalysisWorkspace workspace = new CoreAnalysisWorkspace();
 
-        readonly ComboBox modelCombo = Combo(210);
-        readonly ComboBox algorithmCombo = Combo(new[] { "Nelder-Mead", "Levenberg-Marquardt" }, 210);
-        readonly ComboBox errorMethodCombo = Combo(new[] { "None", "Bootstrap residuals", "Leave-one-out" }, 210);
+        readonly ComboBox modeCombo = Combo(new[] { "Single experiment", "Global included" }, 190);
+        readonly ComboBox modelCombo = Combo(190);
+        readonly ComboBox algorithmCombo = Combo(new[] { "Nelder-Mead", "Levenberg-Marquardt" }, 190);
+        readonly ComboBox errorMethodCombo = Combo(new[] { "None", "Bootstrap residuals", "Leave-one-out" }, 190);
         readonly TextBox bootstrapIterationsBox = TextBox("100");
         readonly CheckBox weightedFitCheck = Check("Weight by injection error", false);
         readonly Button runFitButton = Button("Run Fit", 92);
@@ -46,8 +48,11 @@ namespace AnalysisITC.Avalonia.Analysis
         readonly CheckBox parametersCheck = Check("Parameter box", true);
         readonly CheckBox excludedCheck = Check("Excluded points", true);
         readonly CheckBox scaleIncludedCheck = Check("Scale to included", false);
+        readonly CheckBox unifiedXCheck = Check("Unified X axis", false);
+        readonly CheckBox unifiedYCheck = Check("Unified Y axis", false);
         readonly CheckBox offsetCheck = Check("Show fitted offset", true);
         readonly Button fitViewButton = Button("Fit View", 92);
+        readonly AnalysisModel[] modelChoices = AnalysisModelAttribute.GetAll().ToArray();
 
         ExperimentData? experiment;
         bool isUpdatingControls;
@@ -56,6 +61,8 @@ namespace AnalysisITC.Avalonia.Analysis
         public event EventHandler<string>? StatusChanged;
         public event EventHandler? GraphChanged;
         public event EventHandler? FittingChanged;
+
+        public bool IsGlobalMode => modeCombo.SelectedIndex == 1 && GlobalModeAvailable();
 
         public AnalysisWorkspaceControl()
         {
@@ -93,6 +100,7 @@ namespace AnalysisITC.Avalonia.Analysis
 
             workspace.ContextRebuilt += OnContextRebuilt;
             workspace.RebuildFailed += OnRebuildFailed;
+            DataManager.DataInclusionDidChange += OnDataInclusionDidChange;
             SolverInterface.AnalysisFinished += OnAnalysisFinished;
             SolverInterface.AnalysisStepFinished += OnAnalysisStepFinished;
             SolverInterface.ErrorEstimationIterationCompleted += OnErrorIteration;
@@ -102,6 +110,7 @@ namespace AnalysisITC.Avalonia.Analysis
         protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
         {
             UnsubscribeExperiment();
+            DataManager.DataInclusionDidChange -= OnDataInclusionDidChange;
             workspace.ContextRebuilt -= OnContextRebuilt;
             workspace.RebuildFailed -= OnRebuildFailed;
             SolverInterface.AnalysisFinished -= OnAnalysisFinished;
@@ -157,8 +166,9 @@ namespace AnalysisITC.Avalonia.Analysis
         Control BuildFitTab()
         {
             var panel = new StackPanel { Spacing = 10 };
-            panel.Children.Add(Section("Model", new Control[]
+            panel.Children.Add(Section("Fit setup", new Control[]
             {
+                Labeled("Mode", modeCombo),
                 Labeled("Model", modelCombo),
                 Labeled("Algorithm", algorithmCombo),
                 Labeled("Errors", errorMethodCombo),
@@ -187,12 +197,15 @@ namespace AnalysisITC.Avalonia.Analysis
                 parametersCheck,
                 excludedCheck,
                 scaleIncludedCheck,
+                unifiedXCheck,
+                unifiedYCheck,
                 offsetCheck
             }));
         }
 
         void WireEvents()
         {
+            modeCombo.SelectionChanged += (_, _) => ChangeMode();
             modelCombo.SelectionChanged += (_, _) => ChangeModel();
             runFitButton.Click += (_, _) => RunFit();
             stopFitButton.Click += (_, _) => StopFit();
@@ -206,6 +219,8 @@ namespace AnalysisITC.Avalonia.Analysis
             parametersCheck.IsCheckedChanged += (_, _) => ApplyGraphOptions(refit: false);
             excludedCheck.IsCheckedChanged += (_, _) => ApplyGraphOptions(refit: true);
             scaleIncludedCheck.IsCheckedChanged += (_, _) => ApplyGraphOptions(refit: true);
+            unifiedXCheck.IsCheckedChanged += (_, _) => ApplyGraphOptions(refit: true);
+            unifiedYCheck.IsCheckedChanged += (_, _) => ApplyGraphOptions(refit: true);
             offsetCheck.IsCheckedChanged += (_, _) => ApplyGraphOptions(refit: true);
 
             graph.StatusChanged += (_, status) => StatusChanged?.Invoke(this, status);
@@ -246,6 +261,23 @@ namespace AnalysisITC.Avalonia.Analysis
             });
         }
 
+        void OnDataInclusionDidChange(object? sender, ExperimentData? e)
+        {
+            Dispatcher.UIThread.Post(RefreshIncludedDataState);
+        }
+
+        public void RefreshIncludedDataState()
+        {
+            var globalAvailable = GlobalModeAvailable();
+
+            if (!globalAvailable && modeCombo.SelectedIndex == 1)
+                modeCombo.SelectedIndex = 0;
+
+            RebuildAnalysisContext();
+            graph.FitToData();
+            UpdateStatus();
+        }
+
         void RebuildAnalysisContext()
         {
             if (isFitting) return;
@@ -259,7 +291,7 @@ namespace AnalysisITC.Avalonia.Analysis
                 return;
             }
 
-            workspace.SetGlobalMode(false);
+            workspace.SetGlobalMode(IsGlobalMode);
             workspace.TryRebuild();
             RefreshWorkspaceViews();
         }
@@ -295,25 +327,33 @@ namespace AnalysisITC.Avalonia.Analysis
             try
             {
                 var selectedModel = workspace.Session.ModelType;
-                var items = AnalysisModelAttribute.GetAll()
-                    .Select(model =>
+
+                if (modelCombo.Items.Count == 0)
+                {
+                    foreach (var model in modelChoices)
                     {
-                        var available = AnalysisBuilder.IsModelAvailable(model, false);
-                        return new ComboBoxItem
+                        modelCombo.Items.Add(new ComboBoxItem
                         {
-                            Content = available ? model.GetProperties().Name : model.GetProperties().Name + " (unavailable)",
-                            Tag = model,
-                            IsEnabled = available
-                        };
-                    })
-                    .ToArray();
+                            Tag = model
+                        });
+                    }
+                }
 
-                modelCombo.Items.Clear();
-                foreach (var item in items)
-                    modelCombo.Items.Add(item);
+                for (var i = 0; i < modelChoices.Length; i++)
+                {
+                    if (modelCombo.Items[i] is not ComboBoxItem item) continue;
 
-                var selectedIndex = Array.FindIndex(items, item => item.Tag is AnalysisModel model && model == selectedModel);
-                modelCombo.SelectedIndex = selectedIndex >= 0 ? selectedIndex : 0;
+                    var model = modelChoices[i];
+                    var available = AnalysisBuilder.IsModelAvailable(model, workspace.Session.IsGlobal);
+                    item.Content = available ? model.GetProperties().Name : model.GetProperties().Name + " (unavailable)";
+                    item.IsEnabled = available;
+                }
+
+                var selectedIndex = Array.FindIndex(modelChoices, model => model == selectedModel);
+                if (selectedIndex < 0) selectedIndex = 0;
+
+                if (modelCombo.SelectedIndex != selectedIndex)
+                    modelCombo.SelectedIndex = selectedIndex;
             }
             finally
             {
@@ -330,6 +370,26 @@ namespace AnalysisITC.Avalonia.Analysis
             RefreshWorkspaceViews();
         }
 
+        void ChangeMode()
+        {
+            if (isUpdatingControls) return;
+
+            if (modeCombo.SelectedIndex == 1 && !GlobalModeAvailable())
+            {
+                fitStatusText.Text = "Global fitting needs at least two included, processed experiments";
+                isUpdatingControls = true;
+                modeCombo.SelectedIndex = 0;
+                isUpdatingControls = false;
+            }
+
+            workspace.SetGlobalMode(IsGlobalMode);
+            RefreshModelChoices();
+            workspace.TryRebuild();
+            RefreshWorkspaceViews();
+            graph.FitToData();
+            FittingChanged?.Invoke(this, EventArgs.Empty);
+        }
+
         void RebuildParameterRows()
         {
             parameterPanel.Children.Clear();
@@ -340,8 +400,51 @@ namespace AnalysisITC.Avalonia.Analysis
                 return;
             }
 
+            if (workspace.Session.IsGlobal)
+                AddConstraintRows();
+
             foreach (var parameter in workspace.Context.ExposedParameters)
                 parameterPanel.Children.Add(BuildParameterRow(parameter));
+        }
+
+        void AddConstraintRows()
+        {
+            var constraints = workspace.Context.ExposedConstraintOptions;
+            if (constraints.Count == 0) return;
+
+            var panel = new StackPanel { Spacing = 7 };
+            foreach (var constraint in constraints)
+                panel.Children.Add(BuildConstraintRow(constraint.Key, constraint.Value));
+
+            parameterPanel.Children.Add(Section("Global constraints", new Control[] { panel }));
+        }
+
+        Control BuildConstraintRow(ParameterType key, IReadOnlyList<VariableConstraint> options)
+        {
+            var combo = Combo(170);
+            foreach (var option in options)
+            {
+                combo.Items.Add(new ComboBoxItem
+                {
+                    Tag = option,
+                    Content = option.GetEnumDescription()
+                });
+            }
+
+            var selected = workspace.Session.Active.Constraints.TryGetValue(key, out var stored)
+                ? stored
+                : VariableConstraint.None;
+            var index = options.ToList().IndexOf(selected);
+            combo.SelectedIndex = index >= 0 ? index : 0;
+            combo.SelectionChanged += (_, _) =>
+            {
+                if (combo.SelectedItem is not ComboBoxItem item || item.Tag is not VariableConstraint constraint) return;
+                workspace.SetConstraint(key, constraint);
+                fitStatusText.Text = $"{key.GetProperties().Name}: {constraint.GetEnumDescription()}";
+                FittingChanged?.Invoke(this, EventArgs.Empty);
+            };
+
+            return Labeled(key.GetProperties().Name, combo);
         }
 
         Control BuildParameterRow(Parameter parameter)
@@ -649,6 +752,8 @@ namespace AnalysisITC.Avalonia.Analysis
             graph.ShowFitParameters = parametersCheck.IsChecked == true;
             graph.ShowExcludedPoints = excludedCheck.IsChecked == true;
             graph.ScaleToIncludedPoints = scaleIncludedCheck.IsChecked == true;
+            graph.UnifiedXAxis = unifiedXCheck.IsChecked == true;
+            graph.UnifiedYAxis = unifiedYCheck.IsChecked == true;
             graph.DrawWithOffset = offsetCheck.IsChecked == true;
 
             if (refit) graph.FitToData();
@@ -660,6 +765,17 @@ namespace AnalysisITC.Avalonia.Analysis
             if (experiment == null)
             {
                 fitStatusText.Text = "No experiment selected";
+                UpdateFitButtonState();
+                return;
+            }
+
+            if (workspace.Session.IsGlobal)
+            {
+                var includedExperiments = DataManager.IncludedData.ToList();
+                var ready = includedExperiments.Count(AnalysisBuilder.IsAnalysisReady);
+                fitStatusText.Text = workspace.IsReady
+                    ? $"Global fit: {ready}/{includedExperiments.Count} included experiments ready"
+                    : $"Global fit needs at least two ready included experiments ({ready}/{includedExperiments.Count})";
                 UpdateFitButtonState();
                 return;
             }
@@ -680,9 +796,10 @@ namespace AnalysisITC.Avalonia.Analysis
 
         void UpdateFitButtonState()
         {
-            var canFit = experiment != null && workspace.IsReady && !isFitting && AnalysisBuilder.IsModelAvailable(workspace.Session.ModelType, false);
+            var canFit = experiment != null && workspace.IsReady && !isFitting && AnalysisBuilder.IsModelAvailable(workspace.Session.ModelType, workspace.Session.IsGlobal);
             runFitButton.IsEnabled = canFit;
             stopFitButton.IsEnabled = isFitting;
+            modeCombo.IsEnabled = !isFitting;
             modelCombo.IsEnabled = !isFitting;
             algorithmCombo.IsEnabled = !isFitting;
             errorMethodCombo.IsEnabled = !isFitting;
@@ -692,9 +809,24 @@ namespace AnalysisITC.Avalonia.Analysis
             optionPanel.IsEnabled = !isFitting;
         }
 
+        bool GlobalModeAvailable()
+        {
+            var included = DataManager.IncludedData.ToList();
+            return included.Count >= 2 && included.All(AnalysisBuilder.IsAnalysisReady);
+        }
+
         static TabItem Tab(string header, Control content)
         {
-            return new TabItem { Header = header, Content = content };
+            return new TabItem
+            {
+                Header = new TextBlock
+                {
+                    Text = header,
+                    FontSize = 11,
+                    TextWrapping = TextWrapping.NoWrap
+                },
+                Content = content
+            };
         }
 
         static Control Scroll(Control content)

@@ -3,6 +3,8 @@
         xmlns:local="using:AnalysisITC.Avalonia"
         xmlns:processing="using:AnalysisITC.Avalonia.Processing"
         xmlns:analysis="using:AnalysisITC.Avalonia.Analysis"
+        xmlns:finalfigure="using:AnalysisITC.Avalonia.FinalFigure"
+        xmlns:results="using:AnalysisITC.Avalonia.Results"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         mc:Ignorable="d" d:DesignWidth="1200" d:DesignHeight="760"
@@ -31,22 +33,77 @@
         <Grid Grid.Row="1" ColumnDefinitions="300,Auto,*">
             <Border Grid.Column="0" Background="#FFFFFF" BorderBrush="#D4DAE1" BorderThickness="0,0,1,0">
                 <Grid RowDefinitions="Auto,*">
-                    <DockPanel Grid.Row="0" Margin="12,10,12,8">
-                        <TextBlock DockPanel.Dock="Left"
-                                   Text="Data / Results"
+                    <Grid Grid.Row="0" Margin="12,10,12,8" RowDefinitions="Auto,Auto" ColumnDefinitions="*,Auto">
+                        <TextBlock Text="Data / Results"
                                    FontSize="15"
                                    FontWeight="SemiBold"
                                    Foreground="#202832" />
                         <TextBlock x:Name="ItemCountText"
-                                   DockPanel.Dock="Right"
+                                   Grid.Column="1"
                                    HorizontalAlignment="Right"
                                    Foreground="#5E6A75" />
-                    </DockPanel>
+                        <StackPanel Grid.Row="1"
+                                    Grid.ColumnSpan="2"
+                                    Orientation="Horizontal"
+                                    Spacing="6"
+                                    Margin="0,7,0,0">
+                            <Button x:Name="IncludeAllButton" Content="All" MinWidth="42" MinHeight="24" />
+                            <Button x:Name="IncludeNoneButton" Content="None" MinWidth="52" MinHeight="24" />
+                            <TextBlock x:Name="IncludedCountText"
+                                       VerticalAlignment="Center"
+                                       Foreground="#5E6A75"
+                                       FontSize="11" />
+                        </StackPanel>
+                    </Grid>
                     <ListBox x:Name="ItemsList"
                              Grid.Row="1"
                              Margin="8,0,8,8"
                              Background="#FFFFFF"
-                             BorderThickness="0" />
+                             BorderThickness="0">
+                        <ListBox.ItemTemplate>
+                            <DataTemplate>
+                                <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto,Auto" Margin="0,2" MinHeight="48" RowSpacing="1">
+                                    <CheckBox IsVisible="{Binding CanInclude}"
+                                              IsChecked="{Binding IsIncluded}"
+                                              IsEnabled="{Binding CanIncludeActive}"
+                                              VerticalAlignment="Top"
+                                              Margin="0,0,6,0" />
+                                    <Grid Grid.Column="1" ColumnDefinitions="*,Auto">
+                                        <TextBlock Text="{Binding Title}"
+                                                   Foreground="#202832"
+                                                   FontSize="12"
+                                                   FontWeight="SemiBold"
+                                                   TextTrimming="CharacterEllipsis" />
+                                        <TextBlock Grid.Column="1"
+                                                   Text="{Binding KindLabel}"
+                                                   Foreground="#607080"
+                                                   FontSize="10"
+                                                   Margin="8,1,0,0" />
+                                    </Grid>
+                                    <TextBlock Grid.Column="1"
+                                               Grid.Row="1"
+                                               Text="{Binding DateLine}"
+                                               Foreground="#607080"
+                                               FontSize="10.5"
+                                               TextTrimming="CharacterEllipsis" />
+                                    <TextBlock Grid.Column="1"
+                                               Grid.Row="2"
+                                               Text="{Binding DetailLine}"
+                                               Foreground="#4D5A66"
+                                               FontSize="10.5"
+                                               TextTrimming="CharacterEllipsis"
+                                               MaxLines="1" />
+                                    <TextBlock Grid.Column="1"
+                                               Grid.Row="3"
+                                               Text="{Binding FitLine}"
+                                               Foreground="#202832"
+                                               FontSize="10.5"
+                                               TextWrapping="Wrap"
+                                               MaxLines="2" />
+                                </Grid>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
                 </Grid>
             </Border>
 
@@ -58,9 +115,37 @@
             <Grid Grid.Column="2" Margin="12">
                 <TabControl x:Name="WorkspaceTabs">
                     <TabItem Header="Overview">
-                        <Border Background="#FFFFFF" BorderBrush="#D4DAE1" BorderThickness="1" Padding="16">
-                            <TextBlock x:Name="OverviewText" Foreground="#202832" TextWrapping="Wrap" />
-                        </Border>
+                        <Grid RowDefinitions="Auto,*" Background="#FFFFFF">
+                            <Border Grid.Row="0" Background="#FFFFFF" BorderBrush="#D4DAE1" BorderThickness="1,1,1,0" Padding="10">
+                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                    <ToggleButton x:Name="OverviewRawButton" Content="Raw Data" IsChecked="True" MinWidth="86" />
+                                    <ToggleButton x:Name="OverviewInjectionsButton" Content="Injections" MinWidth="86" />
+                                </StackPanel>
+                            </Border>
+                            <Grid Grid.Row="1">
+                                <Border x:Name="OverviewRawHost" Background="#FFFFFF" BorderBrush="#D4DAE1" BorderThickness="1" Padding="0">
+                                    <Grid>
+                                        <local:ThermogramGraphControl x:Name="OverviewThermogram" />
+                                        <TextBlock x:Name="OverviewText"
+                                                   Margin="16"
+                                                   Foreground="#202832"
+                                                   TextWrapping="Wrap"
+                                                   IsVisible="False" />
+                                    </Grid>
+                                </Border>
+                                <Border x:Name="OverviewInjectionsHost"
+                                        Background="#FFFFFF"
+                                        BorderBrush="#D4DAE1"
+                                        BorderThickness="1"
+                                        IsVisible="False">
+                                    <ScrollViewer HorizontalScrollBarVisibility="Auto"
+                                                  VerticalScrollBarVisibility="Auto">
+                                        <StackPanel x:Name="OverviewInjectionTable"
+                                                    Spacing="0" />
+                                    </ScrollViewer>
+                                </Border>
+                            </Grid>
+                        </Grid>
                     </TabItem>
                     <TabItem Header="Process Data">
                         <processing:ProcessingWorkspaceControl x:Name="ProcessingWorkspace" />
@@ -69,48 +154,11 @@
                         <analysis:AnalysisWorkspaceControl x:Name="AnalysisWorkspace" />
                     </TabItem>
                     <TabItem Header="Final Figure">
-                        <Grid RowDefinitions="Auto,*">
-                            <Border Grid.Row="0" Background="#FFFFFF" BorderBrush="#D4DAE1" BorderThickness="1" Padding="8">
-                                <DockPanel>
-                                    <StackPanel Orientation="Horizontal" Spacing="10" DockPanel.Dock="Left">
-                                        <Button x:Name="FitFigureButton" Content="Fit Page" MinWidth="82" />
-                                        <Button x:Name="ExportFigureButton" Content="Export PDF" MinWidth="94" />
-                                        <CheckBox x:Name="FinalFigureResidualsCheck" Content="Residuals" IsChecked="True" VerticalAlignment="Center" />
-                                        <CheckBox x:Name="FinalFigureDetailsCheck" Content="Details" IsChecked="True" VerticalAlignment="Center" />
-                                        <CheckBox x:Name="FinalFigureConfidenceCheck" Content="Confidence" IsChecked="True" VerticalAlignment="Center" />
-                                        <CheckBox x:Name="FinalFigureErrorBarsCheck" Content="Error bars" IsChecked="True" VerticalAlignment="Center" />
-                                    </StackPanel>
-                                    <TextBlock x:Name="FinalFigureText"
-                                               Margin="16,0,0,0"
-                                               VerticalAlignment="Center"
-                                               Foreground="#4D5A66"
-                                               TextTrimming="CharacterEllipsis" />
-                                </DockPanel>
-                            </Border>
-                            <Border x:Name="FinalFigurePreviewHost"
-                                    Grid.Row="1"
-                                    Margin="0,10,0,0"
-                                    Background="#F1F4F7"
-                                    BorderBrush="#D4DAE1"
-                                    BorderThickness="1"
-                                    Padding="12">
-                                <Viewbox Stretch="Uniform">
-                                    <Image x:Name="FinalFigureImage"
-                                           Stretch="Uniform"
-                                           RenderOptions.BitmapInterpolationMode="HighQuality" />
-                                </Viewbox>
-                            </Border>
-                        </Grid>
+                        <finalfigure:FinalFigureWorkspaceControl x:Name="FinalFigureWorkspace" />
                     </TabItem>
                 </TabControl>
-                <Border x:Name="ResultWorkspace"
-                        Background="#FFFFFF"
-                        BorderBrush="#D4DAE1"
-                        BorderThickness="1"
-                        Padding="16"
-                        IsVisible="False">
-                    <TextBlock x:Name="ResultText" Foreground="#202832" TextWrapping="Wrap" />
-                </Border>
+                <results:AnalysisResultWorkspaceControl x:Name="ResultWorkspace"
+                                                        IsVisible="False" />
             </Grid>
         </Grid>
 

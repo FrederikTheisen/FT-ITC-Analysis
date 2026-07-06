@@ -4,18 +4,19 @@ using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 
+using Avalonia;
 using Avalonia.Controls;
-using Avalonia.Media.Imaging;
+using Avalonia.Layout;
+using Avalonia.Media;
 using Avalonia.Platform.Storage;
 using Avalonia.Threading;
 
-using SkiaSharp;
-
-using AnalysisITC.Avalonia.Drawing;
+using AnalysisITC.Core.Analysis.Models;
 using AnalysisITC.Core.Application;
 using AnalysisITC.Core.Data;
 using AnalysisITC.Core.DataReaders;
 using AnalysisITC.Core.Presentation;
+using AnalysisITC.Core.Utilities;
 
 namespace AnalysisITC.Avalonia;
 
@@ -23,10 +24,7 @@ public partial class MainWindow : Window
 {
     List<DataListEntry> entries = new List<DataListEntry>();
     ITCDataContainer? selectedItem;
-    readonly SkiaFigureRenderer finalFigureRenderer = new SkiaFigureRenderer();
-    Bitmap? finalFigureBitmap;
-    ExperimentData? finalFigureExperiment;
-    string? finalFigureCacheKey;
+    bool isUpdatingOverviewMode;
 
     public MainWindow()
     {
@@ -35,22 +33,21 @@ public partial class MainWindow : Window
         OpenButton.Click += async (_, _) => await OpenFilesAsync();
         ClearButton.Click += (_, _) => ClearData();
         FitViewButton.Click += (_, _) => FitActiveWorkspace();
-        FitFigureButton.Click += (_, _) => RefreshFinalFigurePreview(force: true);
-        ExportFigureButton.Click += async (_, _) => await ExportFinalFigurePdfAsync();
+        IncludeAllButton.Click += (_, _) => SetAllExperimentInclusion(true);
+        IncludeNoneButton.Click += (_, _) => SetAllExperimentInclusion(false);
+        OverviewRawButton.IsCheckedChanged += (_, _) => SelectOverviewMode(rawData: true);
+        OverviewInjectionsButton.IsCheckedChanged += (_, _) => SelectOverviewMode(rawData: false);
         ItemsList.SelectionChanged += (_, _) => SelectListItem();
-        FinalFigurePreviewHost.SizeChanged += (_, _) => RefreshFinalFigurePreview();
         ProcessingWorkspace.StatusChanged += OnProcessingStatusChanged;
         ProcessingWorkspace.ProcessingChanged += OnProcessingChanged;
         AnalysisWorkspace.StatusChanged += OnAnalysisStatusChanged;
         AnalysisWorkspace.GraphChanged += OnAnalysisGraphChanged;
         AnalysisWorkspace.FittingChanged += OnAnalysisFittingChanged;
-
-        WireFinalFigureOption(FinalFigureResidualsCheck);
-        WireFinalFigureOption(FinalFigureDetailsCheck);
-        WireFinalFigureOption(FinalFigureConfidenceCheck);
-        WireFinalFigureOption(FinalFigureErrorBarsCheck);
+        FinalFigureWorkspace.StatusChanged += OnFinalFigureStatusChanged;
+        ResultWorkspace.StatusChanged += OnResultStatusChanged;
 
         DataManager.DataDidChange += OnDataDidChange;
+        DataManager.DataInclusionDidChange += OnDataInclusionDidChange;
         DataManager.UpdateTable += OnDataManagerUpdate;
         DataManager.UpdateViewCells += OnDataManagerUpdate;
         StatusBarManager.StatusUpdated += OnStatusUpdated;
@@ -62,14 +59,10 @@ public partial class MainWindow : Window
         SetStatus("Ready");
     }
 
-    void WireFinalFigureOption(CheckBox checkBox)
-    {
-        checkBox.IsCheckedChanged += (_, _) => RefreshFinalFigurePreview(force: true);
-    }
-
     protected override void OnClosed(EventArgs e)
     {
         DataManager.DataDidChange -= OnDataDidChange;
+        DataManager.DataInclusionDidChange -= OnDataInclusionDidChange;
         DataManager.UpdateTable -= OnDataManagerUpdate;
         DataManager.UpdateViewCells -= OnDataManagerUpdate;
         StatusBarManager.StatusUpdated -= OnStatusUpdated;
@@ -80,8 +73,8 @@ public partial class MainWindow : Window
         AnalysisWorkspace.StatusChanged -= OnAnalysisStatusChanged;
         AnalysisWorkspace.GraphChanged -= OnAnalysisGraphChanged;
         AnalysisWorkspace.FittingChanged -= OnAnalysisFittingChanged;
-
-        finalFigureBitmap?.Dispose();
+        FinalFigureWorkspace.StatusChanged -= OnFinalFigureStatusChanged;
+        ResultWorkspace.StatusChanged -= OnResultStatusChanged;
 
         base.OnClosed(e);
     }
@@ -149,7 +142,7 @@ public partial class MainWindow : Window
             .ToList();
 
         ItemsList.ItemsSource = entries;
-        ItemCountText.Text = $"{entries.Count} item{(entries.Count == 1 ? "" : "s")}";
+        UpdateListHeader();
 
         var nextIndex = previous == null
             ? DataManager.SelectedContentIndex
@@ -176,12 +169,33 @@ public partial class MainWindow : Window
         UpdateSelection(entry.Item);
     }
 
+    void SetAllExperimentInclusion(bool include)
+    {
+        DataManager.SetAllIncludeState(include);
+        RefreshDataList();
+        AnalysisWorkspace.RefreshIncludedDataState();
+        InvalidateFinalFigurePreview();
+    }
+
+    void UpdateListHeader()
+    {
+        var experimentCount = DataManager.Data.Count;
+        var includedCount = DataManager.IncludedData.Count();
+        ItemCountText.Text = $"{entries.Count} item{(entries.Count == 1 ? "" : "s")}";
+        IncludedCountText.Text = experimentCount == 0
+            ? "No experiments"
+            : $"{includedCount}/{experimentCount} included";
+        IncludeAllButton.IsEnabled = experimentCount > 0 && includedCount < experimentCount;
+        IncludeNoneButton.IsEnabled = experimentCount > 0 && includedCount > 0;
+    }
+
     void UpdateSelection(ITCDataContainer? item)
     {
         selectedItem = item;
 
         OverviewText.Text = item == null ? "No loaded data." : BuildOverview(item);
-        ResultText.Text = item is AnalysisResult result ? BuildResultSummary(result) : "No result selected.";
+        RefreshOverview(item);
+        ResultWorkspace.Result = item as AnalysisResult;
         UpdateFinalFigureContext(item);
         ProcessingWorkspace.Experiment = item as ExperimentData;
         AnalysisWorkspace.Experiment = item as ExperimentData;
@@ -200,214 +214,145 @@ public partial class MainWindow : Window
         }
     }
 
-    void UpdateFinalFigureContext(ITCDataContainer? item)
+    void SelectOverviewMode(bool rawData)
     {
-        finalFigureCacheKey = null;
+        if (isUpdatingOverviewMode) return;
 
-        if (item is ExperimentData experiment)
+        var selectedButton = rawData ? OverviewRawButton : OverviewInjectionsButton;
+        if (selectedButton.IsChecked != true)
         {
-            finalFigureExperiment = experiment;
-            RefreshFinalFigurePreview(force: true);
+            selectedButton.IsChecked = true;
             return;
         }
 
-        if (item is AnalysisResult result)
-        {
-            DataManager.LoadResultSolutionsToExperiments(result);
-            finalFigureExperiment = GetResultExperiments(result).FirstOrDefault();
-            RefreshFinalFigurePreview(force: true);
-            return;
-        }
+        isUpdatingOverviewMode = true;
+        OverviewRawButton.IsChecked = rawData;
+        OverviewInjectionsButton.IsChecked = !rawData;
+        isUpdatingOverviewMode = false;
 
-        finalFigureExperiment = null;
-        finalFigureBitmap?.Dispose();
-        finalFigureBitmap = null;
-        FinalFigureImage.Source = null;
-        FinalFigureText.Text = "No figure selected";
+        UpdateOverviewVisibility();
     }
 
-    void RefreshFinalFigurePreview(bool force = false)
+    void UpdateOverviewVisibility()
     {
-        var experiment = finalFigureExperiment;
+        var showRaw = OverviewRawButton.IsChecked == true;
+        OverviewRawHost.IsVisible = showRaw;
+        OverviewInjectionsHost.IsVisible = !showRaw;
+    }
+
+    void RefreshOverview(ITCDataContainer? item = null)
+    {
+        item ??= selectedItem;
+        var experiment = item as ExperimentData;
+
+        OverviewThermogram.Experiment = experiment?.HasThermogram == true ? experiment : null;
+        OverviewThermogram.IsVisible = experiment?.HasThermogram == true;
+        OverviewText.IsVisible = experiment?.HasThermogram != true;
+        OverviewText.Text = item == null ? "No loaded data." : BuildOverview(item);
+
+        BuildOverviewInjectionTable(experiment);
+        UpdateOverviewVisibility();
+    }
+
+    void BuildOverviewInjectionTable(ExperimentData? experiment)
+    {
+        OverviewInjectionTable.Children.Clear();
 
         if (experiment == null)
         {
-            FinalFigureText.Text = "No figure selected";
+            OverviewInjectionTable.Children.Add(OverviewMessage("No experiment selected."));
             return;
         }
 
-        var options = BuildFinalFigureOptions();
-        var hostWidth = FinalFigurePreviewHost.Bounds.Width;
-        var pixelWidth = Math.Max(850, Math.Min(2200, (int)Math.Round((hostWidth > 1 ? hostWidth : 1000) * 2)));
-        var solutionKey = experiment.Solution == null ? "no-solution" : experiment.Solution.GetHashCode().ToString();
-        var cacheKey = $"{experiment.UniqueID}|{solutionKey}|{pixelWidth}|{options.CacheKey}";
-
-        if (!force && cacheKey == finalFigureCacheKey) return;
-
-        try
+        var table = ExperimentOverviewTable.Build(experiment);
+        var columns = table.Columns.Where(column => column.IsVisible).ToList();
+        if (columns.Count == 0 || table.Rows.Count == 0)
         {
-            var document = PublicationFigureBuilder.Build(experiment, options);
-            using var bitmap = finalFigureRenderer.RenderBitmap(document, pixelWidth);
-            var nextBitmap = ToAvaloniaBitmap(bitmap);
+            OverviewInjectionTable.Children.Add(OverviewMessage("No injections available."));
+            return;
+        }
 
-            finalFigureBitmap?.Dispose();
-            finalFigureBitmap = nextBitmap;
-            FinalFigureImage.Source = nextBitmap;
-            finalFigureCacheKey = cacheKey;
-            FinalFigureText.Text = experiment.Solution == null
-                ? $"{experiment.Name}: preview without fitted solution"
-                : $"{experiment.Name}: publication figure";
-        }
-        catch (Exception ex)
+        var grid = new Grid
         {
-            FinalFigureText.Text = $"Could not render figure: {ex.Message}";
-            finalFigureBitmap?.Dispose();
-            finalFigureBitmap = null;
-            FinalFigureImage.Source = null;
+            Background = Solid("#FFFFFF")
+        };
+
+        foreach (var column in columns)
+            grid.ColumnDefinitions.Add(new ColumnDefinition(column.PreferredWidth, GridUnitType.Pixel));
+
+        grid.RowDefinitions.Add(new RowDefinition(GridLength.Auto));
+        for (int i = 0; i < table.Rows.Count; i++)
+            grid.RowDefinitions.Add(new RowDefinition(GridLength.Auto));
+
+        for (int columnIndex = 0; columnIndex < columns.Count; columnIndex++)
+            AddOverviewCell(grid, columns[columnIndex].Title, columnIndex, 0, columns[columnIndex].Alignment, isHeader: true, isIncluded: true);
+
+        for (int rowIndex = 0; rowIndex < table.Rows.Count; rowIndex++)
+        {
+            var row = table.Rows[rowIndex];
+            for (int columnIndex = 0; columnIndex < columns.Count; columnIndex++)
+            {
+                var column = columns[columnIndex];
+                AddOverviewCell(grid, row[column.Id], columnIndex, rowIndex + 1, column.Alignment, isHeader: false, row.IsIncluded);
+            }
         }
+
+        OverviewInjectionTable.Children.Add(grid);
     }
 
-    PublicationFigureOptions BuildFinalFigureOptions()
+    Control OverviewMessage(string message)
     {
-        return new PublicationFigureOptions
+        return new TextBlock
         {
-            ShowResiduals = FinalFigureResidualsCheck.IsChecked == true,
-            ShowExperimentDetails = FinalFigureDetailsCheck.IsChecked == true,
-            ShowFitParameters = FinalFigureDetailsCheck.IsChecked == true,
-            ShowConfidenceBand = FinalFigureConfidenceCheck.IsChecked == true,
-            ShowErrorBars = FinalFigureErrorBarsCheck.IsChecked == true,
-            EnergyUnit = AppSettings.EnergyUnit,
-            DisplayParameters = AppSettings.FinalFigureParameterDisplay,
-            AttributeOptions = AppSettings.DisplayAttributeOptions,
-            TextUncertaintyStyle = AppSettings.UncertaintyDisplayStyle
+            Text = message,
+            Foreground = Solid("#607080"),
+            Margin = new Thickness(16),
+            TextWrapping = TextWrapping.Wrap
         };
     }
 
-    async Task ExportFinalFigurePdfAsync()
+    void AddOverviewCell(Grid grid, string text, int column, int row, ExperimentOverviewColumnAlignment alignment, bool isHeader, bool isIncluded)
     {
-        if (selectedItem is AnalysisResult result)
+        var textBlock = new TextBlock
         {
-            await ExportResultFiguresAsync(result);
-            return;
-        }
+            Text = text,
+            Margin = new Thickness(8, 5),
+            FontSize = isHeader ? 11 : 12,
+            FontWeight = isHeader ? FontWeight.SemiBold : FontWeight.Normal,
+            Foreground = isHeader ? Solid("#202832") : isIncluded ? Solid("#202832") : Solid("#7B8794"),
+            TextTrimming = TextTrimming.CharacterEllipsis,
+            HorizontalAlignment = HorizontalAlignmentFor(alignment)
+        };
 
-        if (finalFigureExperiment == null)
+        var border = new Border
         {
-            SetStatus("No figure selected");
-            return;
-        }
+            BorderBrush = Solid("#E3E7EC"),
+            BorderThickness = new Thickness(0, 0, 1, 1),
+            Background = isHeader ? Solid("#F5F7FA") : row % 2 == 0 ? Solid("#FFFFFF") : Solid("#FAFBFC"),
+            Child = textBlock,
+            MinHeight = isHeader ? 30 : 28
+        };
 
-        var file = await StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
-        {
-            Title = "Export Final Figure",
-            SuggestedFileName = SanitizeFileName(finalFigureExperiment.Name) + ".pdf",
-            FileTypeChoices = new[]
-            {
-                new FilePickerFileType("PDF figure") { Patterns = new[] { "*.pdf" } },
-                FilePickerFileTypes.All
-            }
-        });
-
-        var path = file == null ? null : GetLocalPath(file);
-        if (string.IsNullOrWhiteSpace(path)) return;
-        if (!path.EndsWith(".pdf", StringComparison.OrdinalIgnoreCase)) path += ".pdf";
-
-        ExportExperimentFigure(finalFigureExperiment, path);
-        SetStatus("Final figure exported");
+        Grid.SetColumn(border, column);
+        Grid.SetRow(border, row);
+        grid.Children.Add(border);
     }
 
-    async Task ExportResultFiguresAsync(AnalysisResult result)
+    static HorizontalAlignment HorizontalAlignmentFor(ExperimentOverviewColumnAlignment alignment)
     {
-        DataManager.LoadResultSolutionsToExperiments(result);
-        var experiments = GetResultExperiments(result).ToList();
-
-        if (experiments.Count == 0)
+        return alignment switch
         {
-            SetStatus("Selected result has no experiment figures");
-            return;
-        }
-
-        var folders = await StorageProvider.OpenFolderPickerAsync(new FolderPickerOpenOptions
-        {
-            Title = "Choose Figure Export Folder",
-            AllowMultiple = false
-        });
-
-        var folderPath = folders.FirstOrDefault()?.TryGetLocalPath();
-        if (string.IsNullOrWhiteSpace(folderPath)) return;
-
-        Directory.CreateDirectory(folderPath);
-
-        foreach (var target in CreateFigureExportTargets(experiments, folderPath))
-        {
-            ExportExperimentFigure(target.Experiment, target.Path);
-        }
-
-        SetStatus($"{experiments.Count} final figure{(experiments.Count == 1 ? "" : "s")} exported");
+            ExperimentOverviewColumnAlignment.Left => HorizontalAlignment.Left,
+            ExperimentOverviewColumnAlignment.Center => HorizontalAlignment.Center,
+            _ => HorizontalAlignment.Right,
+        };
     }
 
-    void ExportExperimentFigure(ExperimentData experiment, string path)
+    static IBrush Solid(string color) => new SolidColorBrush(Color.Parse(color));
+
+    void UpdateFinalFigureContext(ITCDataContainer? item)
     {
-        var document = PublicationFigureBuilder.Build(experiment, BuildFinalFigureOptions());
-        finalFigureRenderer.WritePdf(document, path);
-    }
-
-    static IEnumerable<ExperimentData> GetResultExperiments(AnalysisResult result)
-    {
-        return result.Solution?.Solutions?
-            .Where(solution => solution?.Data != null)
-            .Select(solution => solution.Data)
-            .Where(experiment => experiment != null)
-            .GroupBy(experiment => experiment.UniqueID)
-            .Select(group => group.First())
-            ?? Enumerable.Empty<ExperimentData>();
-    }
-
-    static List<FigureExportTarget> CreateFigureExportTargets(IEnumerable<ExperimentData> experiments, string folderPath)
-    {
-        var targets = new List<FigureExportTarget>();
-        var usedNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-
-        foreach (var experiment in experiments)
-        {
-            var baseName = SanitizeFileName(experiment.Name);
-            var fileName = baseName + ".pdf";
-            var suffix = 2;
-
-            while (usedNames.Contains(fileName))
-            {
-                fileName = $"{baseName} ({suffix}).pdf";
-                suffix++;
-            }
-
-            usedNames.Add(fileName);
-            targets.Add(new FigureExportTarget(experiment, Path.Combine(folderPath, fileName)));
-        }
-
-        return targets;
-    }
-
-    static string SanitizeFileName(string name)
-    {
-        var cleanName = string.IsNullOrWhiteSpace(name) ? "Untitled Figure" : name.Trim();
-
-        foreach (var invalidChar in Path.GetInvalidFileNameChars())
-        {
-            cleanName = cleanName.Replace(invalidChar, '_');
-        }
-
-        return string.IsNullOrWhiteSpace(cleanName) ? "Untitled Figure" : cleanName;
-    }
-
-    static Bitmap ToAvaloniaBitmap(SKBitmap bitmap)
-    {
-        using var image = SKImage.FromBitmap(bitmap);
-        using var data = image.Encode(SKEncodedImageFormat.Png, 100);
-        using var stream = new MemoryStream();
-        data.SaveTo(stream);
-        stream.Position = 0;
-
-        return new Bitmap(stream);
+        FinalFigureWorkspace.SelectedItem = item;
     }
 
     static string BuildShortSummary(ITCDataContainer item)
@@ -456,6 +401,16 @@ public partial class MainWindow : Window
         Dispatcher.UIThread.Post(RefreshDataList);
     }
 
+    void OnDataInclusionDidChange(object? sender, ExperimentData? e)
+    {
+        Dispatcher.UIThread.Post(() =>
+        {
+            RefreshDataList();
+            AnalysisWorkspace.RefreshIncludedDataState();
+            InvalidateFinalFigurePreview();
+        });
+    }
+
     void OnDataManagerUpdate(object? sender, EventArgs e)
     {
         Dispatcher.UIThread.Post(RefreshDataList);
@@ -483,6 +438,7 @@ public partial class MainWindow : Window
 
     void OnProcessingChanged(object? sender, EventArgs e)
     {
+        RefreshOverview();
         InvalidateFinalFigurePreview();
     }
 
@@ -493,19 +449,29 @@ public partial class MainWindow : Window
 
     void OnAnalysisGraphChanged(object? sender, EventArgs e)
     {
+        RefreshOverview();
         InvalidateFinalFigurePreview();
     }
 
     void OnAnalysisFittingChanged(object? sender, EventArgs e)
     {
+        RefreshOverview();
         InvalidateFinalFigurePreview();
+    }
+
+    void OnFinalFigureStatusChanged(object? sender, string status)
+    {
+        SetStatus(status);
+    }
+
+    void OnResultStatusChanged(object? sender, string status)
+    {
+        SetStatus(status);
     }
 
     void InvalidateFinalFigurePreview()
     {
-        finalFigureCacheKey = null;
-        if (finalFigureExperiment != null)
-            RefreshFinalFigurePreview(force: true);
+        FinalFigureWorkspace.InvalidatePreview();
     }
 
     void FitActiveWorkspace()
@@ -519,9 +485,12 @@ public partial class MainWindow : Window
                 AnalysisWorkspace.FitToData();
                 break;
             case 3:
-                RefreshFinalFigurePreview(force: true);
+                FinalFigureWorkspace.FitToPage();
                 break;
         }
+
+        if (ResultWorkspace.IsVisible)
+            ResultWorkspace.FitToData();
     }
 
     void SetStatus(string status)
@@ -530,35 +499,104 @@ public partial class MainWindow : Window
         ToolbarStatusText.Text = status ?? "";
     }
 
-    sealed class DataListEntry
+    public sealed class DataListEntry
     {
         public ITCDataContainer Item { get; }
-        readonly string text;
+        readonly ExperimentData? experiment;
 
-        DataListEntry(ITCDataContainer item, string text)
+        DataListEntry(ITCDataContainer item, string kindLabel, string dateLine, string detailLine, string fitLine)
         {
             Item = item;
-            this.text = text;
+            experiment = item as ExperimentData;
+            KindLabel = kindLabel;
+            DateLine = dateLine;
+            DetailLine = detailLine;
+            FitLine = fitLine;
+        }
+
+        public string Title => Item.Name;
+        public string KindLabel { get; }
+        public string DateLine { get; }
+        public string DetailLine { get; }
+        public string FitLine { get; }
+        public bool CanInclude => experiment != null;
+        public bool CanIncludeActive => experiment?.Processor?.IntegrationCompleted == true;
+        public bool IsIncluded
+        {
+            get => experiment?.Include == true;
+            set
+            {
+                if (experiment == null || experiment.Include == value) return;
+                experiment.ToggleInclude();
+            }
         }
 
         public static DataListEntry From(ITCDataContainer item)
         {
-            var kind = item is AnalysisResult ? "Result" : "Data";
-            return new DataListEntry(item, $"{kind}: {item.Name}{Environment.NewLine}{BuildShortSummary(item)}");
+            return item switch
+            {
+                ExperimentData experiment => FromExperiment(experiment),
+                AnalysisResult result => FromResult(result),
+                _ => new DataListEntry(item, item.GetType().Name, item.UIShortDateWithTime, BuildShortSummary(item), "")
+            };
         }
 
-        public override string ToString() => text;
-    }
-
-    sealed class FigureExportTarget
-    {
-        public FigureExportTarget(ExperimentData experiment, string path)
+        static DataListEntry FromExperiment(ExperimentData experiment)
         {
-            Experiment = experiment;
-            Path = path;
+            var detail = $"{experiment.MeasuredTemperature:G3} °C | {experiment.SyringeConcentration.AsFormattedConcentration(true)} | {experiment.CellConcentration.AsFormattedConcentration(true)}";
+            var fit = BuildExperimentFitLine(experiment);
+
+            if (string.IsNullOrWhiteSpace(fit))
+            {
+                var processing = experiment.Processor?.IntegrationCompleted == true
+                    ? $"{experiment.InjectionCount} integrated injections"
+                    : $"{experiment.InjectionCount} injections, not processed";
+                fit = $"{processing} | {System.IO.Path.GetFileName(experiment.FileName)}";
+            }
+
+            return new DataListEntry(experiment, "DATA", experiment.UIShortDateWithTime, detail, fit);
         }
 
-        public ExperimentData Experiment { get; }
-        public string Path { get; }
+        static DataListEntry FromResult(AnalysisResult result)
+        {
+            var description = PlainListText(result.GetListDescriptionString());
+            var lines = description
+                .Split(new[] { Environment.NewLine }, StringSplitOptions.None)
+                .Where(line => !string.IsNullOrWhiteSpace(line))
+                .ToList();
+
+            var dateLine = lines.Count > 0 ? lines[0] : BuildResultSummary(result);
+            var detailLine = lines.Count > 1 ? lines[1] : "";
+            var fitLine = lines.Count > 2 ? string.Join(Environment.NewLine, lines.Skip(2)) : "";
+
+            return new DataListEntry(result, "RESULT", dateLine, detailLine, fitLine);
+        }
+
+        static string BuildExperimentFitLine(ExperimentData experiment)
+        {
+            if (experiment.Solution == null) return "";
+
+            var lines = new List<string>();
+            foreach (var parameter in experiment.Solution.UISolutionParameters(FinalFigureDisplayParameters.ListView))
+            {
+                if (lines.Count == 0)
+                    lines.Add($"{parameter.Item1} | RMSD = {parameter.Item2}");
+                else
+                    lines.Add($"{parameter.Item1} = {parameter.Item2}");
+            }
+
+            return PlainListText(string.Join(Environment.NewLine, lines));
+        }
+
+        static string PlainListText(string text)
+        {
+            if (string.IsNullOrWhiteSpace(text)) return "";
+
+            return string.Concat(MarkdownProcessor.GetSegments(text).Select(segment => segment.Text))
+                .Replace("∆", "Δ")
+                .Trim();
+        }
+
+        public override string ToString() => Title;
     }
 }

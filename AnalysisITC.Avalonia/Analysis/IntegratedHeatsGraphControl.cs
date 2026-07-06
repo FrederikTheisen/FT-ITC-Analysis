@@ -86,6 +86,8 @@ namespace AnalysisITC.Avalonia.Analysis
         public bool ShowFitParameters { get; set; } = true;
         public bool ShowExcludedPoints { get; set; } = true;
         public bool ScaleToIncludedPoints { get; set; }
+        public bool UnifiedXAxis { get; set; }
+        public bool UnifiedYAxis { get; set; }
         public bool DrawWithOffset { get; set; } = true;
 
         EnergyDisplay Energy => EnergyDisplay.Current;
@@ -104,9 +106,17 @@ namespace AnalysisITC.Avalonia.Analysis
                 return;
             }
 
-            var xValues = points.Select(point => point.X).Concat(fitPoints.Select(point => point.X)).ToList();
-            var yValues = points.SelectMany(point => new[] { point.Y, point.LowerY, point.UpperY })
-                .Concat(fitPoints.Select(point => point.Y))
+            var scalingPoints = UnifiedXAxis || UnifiedYAxis
+                ? ScalingPoints().ToList()
+                : points.Concat(fitPoints).ToList();
+            if (scalingPoints.Count == 0)
+                scalingPoints = points.Concat(fitPoints).ToList();
+
+            var xSource = UnifiedXAxis ? scalingPoints : points.Concat(fitPoints).ToList();
+            var ySource = UnifiedYAxis ? scalingPoints : points.Concat(fitPoints).ToList();
+
+            var xValues = xSource.Select(point => point.X).ToList();
+            var yValues = ySource.SelectMany(point => new[] { point.Y, point.LowerY, point.UpperY })
                 .Concat(new[] { 0.0 })
                 .Where(double.IsFinite)
                 .ToList();
@@ -502,7 +512,11 @@ namespace AnalysisITC.Avalonia.Analysis
 
         IEnumerable<GraphPoint> PlotPoints(bool includeExcluded)
         {
-            var data = Experiment;
+            return PlotPointsFor(Experiment, includeExcluded);
+        }
+
+        IEnumerable<GraphPoint> PlotPointsFor(ExperimentData? data, bool includeExcluded)
+        {
             if (data?.Injections == null) yield break;
 
             foreach (var injection in data.Injections)
@@ -510,8 +524,8 @@ namespace AnalysisITC.Avalonia.Analysis
                 if (!injection.IsIntegrated) continue;
                 if (!injection.Include && !includeExcluded) continue;
 
-                var x = XValue(injection);
-                var y = YValue(injection);
+                var x = XValue(data, injection);
+                var y = YValue(data, injection);
                 var sd = Safe(injection.SD) ? injection.SD * Energy.Scale : 0;
 
                 if (!Safe(x) || !Safe(y)) continue;
@@ -542,16 +556,32 @@ namespace AnalysisITC.Avalonia.Analysis
 
         IEnumerable<GraphPoint> FitPoints()
         {
-            var data = Experiment;
+            return FitPointsFor(Experiment);
+        }
+
+        IEnumerable<GraphPoint> FitPointsFor(ExperimentData? data)
+        {
             if (data?.Solution == null || data.Model == null) yield break;
 
             foreach (var injection in data.Injections)
             {
-                var x = XValue(injection);
+                var x = XValue(data, injection);
                 var y = data.Model.EvaluateEnthalpy(injection.ID, DrawWithOffset) * Energy.Scale;
                 if (!Safe(x) || !Safe(y)) continue;
 
                 yield return new GraphPoint(injection, x, y, y, y, true);
+            }
+        }
+
+        IEnumerable<GraphPoint> ScalingPoints()
+        {
+            foreach (var data in DataManager.IncludedData)
+            {
+                foreach (var point in PlotPointsFor(data, !ScaleToIncludedPoints && ShowExcludedPoints))
+                    yield return point;
+
+                foreach (var point in FitPointsFor(data))
+                    yield return point;
             }
         }
 
@@ -576,7 +606,12 @@ namespace AnalysisITC.Avalonia.Analysis
 
         double XValue(InjectionData injection)
         {
-            return Experiment?.AxisType switch
+            return XValue(Experiment, injection);
+        }
+
+        static double XValue(ExperimentData? data, InjectionData injection)
+        {
+            return data?.AxisType switch
             {
                 AnalysisXAxisType.TitrantConcentration => injection.ActualTitrantConcentration * 1_000_000,
                 AnalysisXAxisType.ID => injection.ID + 1,
@@ -592,6 +627,11 @@ namespace AnalysisITC.Avalonia.Analysis
         }
 
         double YValue(InjectionData injection)
+        {
+            return YValue(Experiment, injection);
+        }
+
+        double YValue(ExperimentData? data, InjectionData injection)
         {
             return (DrawWithOffset ? injection.Enthalpy : injection.OffsetEnthalpy) * Energy.Scale;
         }
