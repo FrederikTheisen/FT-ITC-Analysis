@@ -17,6 +17,7 @@ using AnalysisITC.Core.Data;
 using AnalysisITC.Core.DataReaders;
 using AnalysisITC.Core.Presentation;
 using AnalysisITC.Core.Utilities;
+using AnalysisITC.Avalonia.Details;
 
 namespace AnalysisITC.Avalonia;
 
@@ -32,11 +33,11 @@ public partial class MainWindow : Window
 
         OpenButton.Click += async (_, _) => await OpenFilesAsync();
         ClearButton.Click += (_, _) => ClearData();
-        FitViewButton.Click += (_, _) => FitActiveWorkspace();
         IncludeAllButton.Click += (_, _) => SetAllExperimentInclusion(true);
         IncludeNoneButton.Click += (_, _) => SetAllExperimentInclusion(false);
         OverviewRawButton.IsCheckedChanged += (_, _) => SelectOverviewMode(rawData: true);
         OverviewInjectionsButton.IsCheckedChanged += (_, _) => SelectOverviewMode(rawData: false);
+        OverviewDetailsButton.Click += async (_, _) => await OpenSelectedDetailsAsync();
         ItemsList.SelectionChanged += (_, _) => SelectListItem();
         ProcessingWorkspace.StatusChanged += OnProcessingStatusChanged;
         ProcessingWorkspace.ProcessingChanged += OnProcessingChanged;
@@ -45,6 +46,7 @@ public partial class MainWindow : Window
         AnalysisWorkspace.FittingChanged += OnAnalysisFittingChanged;
         FinalFigureWorkspace.StatusChanged += OnFinalFigureStatusChanged;
         ResultWorkspace.StatusChanged += OnResultStatusChanged;
+        ResultWorkspace.DetailsRequested += OnResultDetailsRequested;
 
         DataManager.DataDidChange += OnDataDidChange;
         DataManager.DataInclusionDidChange += OnDataInclusionDidChange;
@@ -75,6 +77,7 @@ public partial class MainWindow : Window
         AnalysisWorkspace.FittingChanged -= OnAnalysisFittingChanged;
         FinalFigureWorkspace.StatusChanged -= OnFinalFigureStatusChanged;
         ResultWorkspace.StatusChanged -= OnResultStatusChanged;
+        ResultWorkspace.DetailsRequested -= OnResultDetailsRequested;
 
         base.OnClosed(e);
     }
@@ -199,6 +202,7 @@ public partial class MainWindow : Window
         UpdateFinalFigureContext(item);
         ProcessingWorkspace.Experiment = item as ExperimentData;
         AnalysisWorkspace.Experiment = item as ExperimentData;
+        OverviewDetailsButton.IsEnabled = item is ExperimentData or AnalysisResult;
 
         if (item is ExperimentData experiment)
         {
@@ -249,9 +253,96 @@ public partial class MainWindow : Window
         OverviewThermogram.IsVisible = experiment?.HasThermogram == true;
         OverviewText.IsVisible = experiment?.HasThermogram != true;
         OverviewText.Text = item == null ? "No loaded data." : BuildOverview(item);
+        BuildOverviewDescription(item);
 
         BuildOverviewInjectionTable(experiment);
         UpdateOverviewVisibility();
+    }
+
+    void BuildOverviewDescription(ITCDataContainer? item)
+    {
+        OverviewDescriptionPanel.Children.Clear();
+
+        var lines = BuildOverviewDescriptionLines(item)
+            .Select(PlainText)
+            .Select(line => line.Trim())
+            .Where(line => !string.IsNullOrWhiteSpace(line))
+            .ToList();
+
+        if (lines.Count == 0)
+        {
+            OverviewDescriptionPanel.Children.Add(OverviewMessage("No loaded data."));
+            return;
+        }
+
+        foreach (var line in lines)
+            OverviewDescriptionPanel.Children.Add(OverviewDescriptionLine(line));
+    }
+
+    static IEnumerable<string> BuildOverviewDescriptionLines(ITCDataContainer? item)
+    {
+        if (item == null)
+        {
+            yield return "No loaded data.";
+            yield break;
+        }
+
+        if (item is ExperimentData experiment)
+        {
+            foreach (var line in experiment.GetInfoString())
+                yield return line;
+            yield break;
+        }
+
+        if (item is AnalysisResult result)
+        {
+            foreach (var line in result.GetListDescriptionString().Split(new[] { Environment.NewLine }, StringSplitOptions.None))
+                yield return line;
+
+            yield return $"Date: {result.UILongDateWithTime}";
+            yield return $"Solver: {result.Solution.Convergence?.Algorithm.GetProperties().Name ?? ""}";
+            yield return $"Fitting: {(result.Solution.UseWeightedFitting ? "Weighted injection errors" : "Unweighted")}";
+            yield break;
+        }
+
+        yield return item.Name;
+    }
+
+    static Control OverviewDescriptionLine(string line)
+    {
+        var separator = line.IndexOf(':');
+        if (separator > 0 && separator < 28)
+        {
+            var grid = new Grid
+            {
+                ColumnDefinitions = new ColumnDefinitions("135,*"),
+                ColumnSpacing = 8
+            };
+            grid.Children.Add(new TextBlock
+            {
+                Text = line.Substring(0, separator).Trim(),
+                Foreground = Solid("#607080"),
+                FontSize = 12
+            });
+            var value = new TextBlock
+            {
+                Text = line.Substring(separator + 1).Trim(),
+                Foreground = Solid("#202832"),
+                FontSize = 12,
+                TextWrapping = TextWrapping.Wrap
+            };
+            Grid.SetColumn(value, 1);
+            grid.Children.Add(value);
+            return grid;
+        }
+
+        return new TextBlock
+        {
+            Text = line,
+            Foreground = Solid("#202832"),
+            FontSize = 12,
+            TextWrapping = TextWrapping.Wrap
+        };
     }
 
     void BuildOverviewInjectionTable(ExperimentData? experiment)
@@ -396,6 +487,15 @@ public partial class MainWindow : Window
         return $"{result.Name}, {fitCount} fitted experiment{(fitCount == 1 ? "" : "s")}";
     }
 
+    static string PlainText(string text)
+    {
+        if (string.IsNullOrWhiteSpace(text)) return "";
+
+        return string.Concat(MarkdownProcessor.GetSegments(text).Select(segment => segment.Text))
+            .Replace("∆", "Δ")
+            .Trim();
+    }
+
     void OnDataDidChange(object? sender, ExperimentData? e)
     {
         Dispatcher.UIThread.Post(RefreshDataList);
@@ -469,28 +569,48 @@ public partial class MainWindow : Window
         SetStatus(status);
     }
 
+    async void OnResultDetailsRequested(object? sender, EventArgs e)
+    {
+        await OpenSelectedDetailsAsync();
+    }
+
+    async Task OpenSelectedDetailsAsync()
+    {
+        switch (selectedItem)
+        {
+            case ExperimentData experiment:
+            {
+                var dialog = new ExperimentDetailsWindow(experiment);
+                var applied = await dialog.ShowDialog<bool?>(this);
+                if (applied == true || dialog.Applied)
+                    RefreshAfterDetailsEdit();
+                break;
+            }
+            case AnalysisResult result:
+            {
+                var dialog = new AnalysisResultDetailsWindow(result);
+                var applied = await dialog.ShowDialog<bool?>(this);
+                if (applied == true || dialog.Applied)
+                    RefreshAfterDetailsEdit();
+                break;
+            }
+        }
+    }
+
+    void RefreshAfterDetailsEdit()
+    {
+        RefreshDataList();
+        RefreshOverview();
+        ProcessingWorkspace.Experiment = selectedItem as ExperimentData;
+        AnalysisWorkspace.Experiment = selectedItem as ExperimentData;
+        ResultWorkspace.Refresh();
+        AnalysisWorkspace.RefreshIncludedDataState();
+        InvalidateFinalFigurePreview();
+    }
+
     void InvalidateFinalFigurePreview()
     {
         FinalFigureWorkspace.InvalidatePreview();
-    }
-
-    void FitActiveWorkspace()
-    {
-        switch (WorkspaceTabs.SelectedIndex)
-        {
-            case 1:
-                ProcessingWorkspace.FitToData();
-                break;
-            case 2:
-                AnalysisWorkspace.FitToData();
-                break;
-            case 3:
-                FinalFigureWorkspace.FitToPage();
-                break;
-        }
-
-        if (ResultWorkspace.IsVisible)
-            ResultWorkspace.FitToData();
     }
 
     void SetStatus(string status)

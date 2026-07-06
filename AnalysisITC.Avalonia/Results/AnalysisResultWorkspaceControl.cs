@@ -30,14 +30,21 @@ namespace AnalysisITC.Avalonia.Results
         readonly StackPanel experimentsPanel = new StackPanel { Spacing = 8 };
         readonly StackPanel modelPanel = new StackPanel { Spacing = 10 };
         readonly ComboBox temperatureUnitCombo = Combo(new[] { "Celsius", "Kelvin" }, 0, 120);
+        readonly Border displaySection;
 
         AnalysisResult? result;
         bool isUpdatingSelection;
 
         public event EventHandler<string>? StatusChanged;
+        public event EventHandler? DetailsRequested;
 
         public AnalysisResultWorkspaceControl()
         {
+            displaySection = Section("Display", new Control[]
+            {
+                Labeled("Temperature", temperatureUnitCombo)
+            });
+
             BuildLayout();
             WireEvents();
             Refresh();
@@ -145,7 +152,7 @@ namespace AnalysisITC.Avalonia.Results
             graph.InvalidateVisual();
         }
 
-        void Refresh()
+        public void Refresh()
         {
             RefreshSummary();
             RefreshExperiments();
@@ -167,6 +174,16 @@ namespace AnalysisITC.Avalonia.Results
             var solution = result.Solution;
             var convergence = solution.Convergence;
             var report = result.ValidityReport;
+            var detailsButton = new Button
+            {
+                Content = "Details...",
+                MinHeight = 26,
+                Padding = new Thickness(8, 1),
+                HorizontalAlignment = HorizontalAlignment.Left
+            };
+            detailsButton.Click += (_, _) => DetailsRequested?.Invoke(this, EventArgs.Empty);
+
+            summaryPanel.Children.Add(detailsButton);
 
             summaryPanel.Children.Add(Section("Result", new Control[]
             {
@@ -185,11 +202,7 @@ namespace AnalysisITC.Avalonia.Results
                 Pair("Bootstrap", solution.BootstrapIterations.ToString(CultureInfo.CurrentCulture))
             }));
 
-            summaryPanel.Children.Add(Section("Display", new Control[]
-            {
-                Labeled("Temperature", temperatureUnitCombo)
-            }));
-
+            summaryPanel.Children.Add(displaySection);
             summaryPanel.Children.Add(BuildValiditySection(report));
         }
 

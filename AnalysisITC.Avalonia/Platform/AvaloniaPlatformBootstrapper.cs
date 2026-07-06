@@ -12,6 +12,7 @@ namespace AnalysisITC.Platform.Avalonia
             PlatformServices.RegisterSettingsStore(new AvaloniaJsonSettingsStore(environment.ApplicationDataDirectory));
             PlatformServices.RegisterMainThreadDispatcher(new AvaloniaMainThreadDispatcher());
             PlatformServices.RegisterAppNotificationService(new AvaloniaAppNotificationService());
+            PlatformServices.RegisterClipboardService(new AvaloniaClipboardService());
         }
     }
 }

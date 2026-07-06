@@ -48,7 +48,6 @@ namespace AnalysisITC.Avalonia.FinalFigure
         };
         readonly TextBlock statusText = Text();
 
-        readonly Button fitPageButton = Button("Fit Page", 86);
         readonly Button exportPdfButton = Button("Export PDF", 96);
 
         readonly TextBox widthBox = TextBox("6");
@@ -91,10 +90,6 @@ namespace AnalysisITC.Avalonia.FinalFigure
         readonly TextBox fitXMaxBox = TextBox("");
         readonly TextBox fitYMinBox = TextBox("");
         readonly TextBox fitYMaxBox = TextBox("");
-        readonly TextBox residualYMinBox = TextBox("");
-        readonly TextBox residualYMaxBox = TextBox("");
-        readonly TextBox residualYTickBox = TextBox("3");
-        readonly TextBox residualFractionBox = TextBox("0.2");
         readonly TextBox symbolSizeBox = TextBox("6");
         readonly ComboBox symbolCombo = Combo(new[] { "Square", "Circle" }, 0, 126);
         readonly CheckBox residualsCheck = Check("Residuals", true);
@@ -134,11 +129,6 @@ namespace AnalysisITC.Avalonia.FinalFigure
             }
         }
 
-        public void FitToPage()
-        {
-            RefreshPreview(force: true);
-        }
-
         public void InvalidatePreview()
         {
             cacheKey = null;
@@ -146,22 +136,37 @@ namespace AnalysisITC.Avalonia.FinalFigure
                 RefreshPreview(force: true);
         }
 
+        protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
+        {
+            base.OnAttachedToVisualTree(e);
+
+            if (figureExperiment != null && image.Source == null)
+                RefreshPreview(force: true);
+        }
+
         protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
         {
-            bitmap?.Dispose();
+            ClearBitmap();
             base.OnDetachedFromVisualTree(e);
         }
 
         void BuildLayout()
         {
+            image.Stretch = Stretch.None;
             previewHost.Background = Solid("#F1F4F7");
             previewHost.BorderBrush = Solid("#D4DAE1");
             previewHost.BorderThickness = new Thickness(1);
             previewHost.Padding = new Thickness(12);
-            previewHost.Child = new Viewbox
+            previewHost.Child = new ScrollViewer
             {
-                Stretch = Stretch.Uniform,
-                Child = image
+                HorizontalScrollBarVisibility = ScrollBarVisibility.Auto,
+                VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
+                Content = new Border
+                {
+                    HorizontalAlignment = HorizontalAlignment.Center,
+                    VerticalAlignment = VerticalAlignment.Center,
+                    Child = image
+                }
             };
 
             var root = new Grid
@@ -188,10 +193,9 @@ namespace AnalysisITC.Avalonia.FinalFigure
 
         Control BuildGeneralTab()
         {
-            var panel = new StackPanel { Spacing = 10 };
+            var panel = new StackPanel { Spacing = 6 };
             panel.Children.Add(Section("Page", new Control[]
             {
-                Row(fitPageButton),
                 Labeled("Width cm", widthBox),
                 Labeled("Height cm", heightBox),
                 Labeled("Energy", energyUnitCombo),
@@ -242,7 +246,7 @@ namespace AnalysisITC.Avalonia.FinalFigure
 
         Control BuildFitGraphTab()
         {
-            var panel = new StackPanel { Spacing = 10 };
+            var panel = new StackPanel { Spacing = 6 };
             panel.Children.Add(Section("Fit graph", new Control[]
             {
                 Labeled("Y title", enthalpyAxisTitleBox),
@@ -259,11 +263,7 @@ namespace AnalysisITC.Avalonia.FinalFigure
             panel.Children.Add(Section("Residuals", new Control[]
             {
                 residualsCheck,
-                residualGapCheck,
-                Labeled("Y ticks", residualYTickBox),
-                Labeled("Height", residualFractionBox),
-                Labeled("Y min", residualYMinBox),
-                Labeled("Y max", residualYMaxBox)
+                residualGapCheck
             }));
             panel.Children.Add(Section("Display", new Control[]
             {
@@ -289,7 +289,6 @@ namespace AnalysisITC.Avalonia.FinalFigure
         void WireEvents()
         {
             previewHost.SizeChanged += (_, _) => RefreshPreview();
-            fitPageButton.Click += (_, _) => RefreshPreview(force: true);
             exportPdfButton.Click += async (_, _) => await ExportPdfAsync();
 
             foreach (var check in AllChecks())
@@ -373,10 +372,6 @@ namespace AnalysisITC.Avalonia.FinalFigure
                 fitXMaxBox,
                 fitYMinBox,
                 fitYMaxBox,
-                residualYMinBox,
-                residualYMaxBox,
-                residualYTickBox,
-                residualFractionBox,
                 symbolSizeBox
             };
         }
@@ -401,9 +396,7 @@ namespace AnalysisITC.Avalonia.FinalFigure
             }
 
             figureExperiment = null;
-            bitmap?.Dispose();
-            bitmap = null;
-            image.Source = null;
+            ClearBitmap();
             statusText.Text = "No figure selected";
         }
 
@@ -416,22 +409,20 @@ namespace AnalysisITC.Avalonia.FinalFigure
             }
 
             var options = BuildOptions();
-            var hostWidth = previewHost.Bounds.Width;
-            var pixelWidth = Math.Max(850, Math.Min(2200, (int)Math.Round((hostWidth > 1 ? hostWidth : 1000) * 2)));
             var solutionKey = figureExperiment.Solution == null ? "no-solution" : figureExperiment.Solution.GetHashCode().ToString();
-            var nextKey = $"{figureExperiment.UniqueID}|{solutionKey}|{pixelWidth}|{options.CacheKey}";
-
-            if (!force && cacheKey == nextKey) return;
 
             try
             {
                 var document = PublicationFigureBuilder.Build(figureExperiment, options);
+                var pixelWidth = PreviewPixelWidth(document);
+                var nextKey = $"{figureExperiment.UniqueID}|{solutionKey}|{pixelWidth}|{options.CacheKey}";
+
+                if (!force && cacheKey == nextKey) return;
+
                 using var rendered = renderer.RenderBitmap(document, pixelWidth);
                 var nextBitmap = ToAvaloniaBitmap(rendered);
 
-                bitmap?.Dispose();
-                bitmap = nextBitmap;
-                image.Source = nextBitmap;
+                ReplaceBitmap(nextBitmap);
                 cacheKey = nextKey;
                 statusText.Text = figureExperiment.Solution == null
                     ? $"{figureExperiment.Name}: preview without fitted solution"
@@ -439,11 +430,32 @@ namespace AnalysisITC.Avalonia.FinalFigure
             }
             catch (Exception ex)
             {
-                bitmap?.Dispose();
-                bitmap = null;
-                image.Source = null;
+                ClearBitmap();
                 statusText.Text = $"Could not render figure: {ex.Message}";
             }
+        }
+
+        int PreviewPixelWidth(PublicationFigureDocument document)
+        {
+            var pageSize = renderer.GetPageSize(document);
+            return Math.Max(200, Math.Min(2400, (int)Math.Round(pageSize.Width)));
+        }
+
+        void ReplaceBitmap(Bitmap nextBitmap)
+        {
+            var oldBitmap = bitmap;
+            bitmap = nextBitmap;
+            image.Source = nextBitmap;
+            oldBitmap?.Dispose();
+        }
+
+        void ClearBitmap()
+        {
+            var oldBitmap = bitmap;
+            bitmap = null;
+            cacheKey = null;
+            image.Source = null;
+            oldBitmap?.Dispose();
         }
 
         PublicationFigureOptions BuildOptions()
@@ -467,6 +479,7 @@ namespace AnalysisITC.Avalonia.FinalFigure
                 DrawFitOffsetCorrected = offsetCorrectedCheck.IsChecked == true,
                 ShowBadData = excludedCheck.IsChecked == true,
                 ShowBadDataErrorBars = excludedErrorBarsCheck.IsChecked == true,
+                AutoAxesIgnoresBadData = true,
                 IncludeResidualGraphGap = residualGapCheck.IsChecked == true,
                 SanitizeTicks = sanitizeTicksCheck.IsChecked == true,
                 DrawBaselineCorrected = correctedDataCheck.IsChecked == true,
@@ -475,8 +488,6 @@ namespace AnalysisITC.Avalonia.FinalFigure
                 DataYTickCount = ParseInt(dataYTickBox.Text, defaults.DataYTickCount, 2, 12),
                 FitXTickCount = ParseInt(fitXTickBox.Text, defaults.FitXTickCount, 2, 12),
                 FitYTickCount = ParseInt(fitYTickBox.Text, defaults.FitYTickCount, 2, 12),
-                ResidualYTickCount = ParseInt(residualYTickBox.Text, defaults.ResidualYTickCount, 2, 7),
-                ResidualPanelFraction = ParseDouble(residualFractionBox.Text, defaults.ResidualPanelFraction, 0.05, 0.5),
                 InformationBoxPlacement = SelectedInfoBoxPlacement(),
                 SymbolShape = symbolCombo.SelectedIndex == 1 ? PublicationSymbolShape.Circle : PublicationSymbolShape.Square,
                 SymbolSize = ParseDouble(symbolSizeBox.Text, defaults.SymbolSize, 3, 14),
@@ -492,8 +503,6 @@ namespace AnalysisITC.Avalonia.FinalFigure
                 FitXAxisMaximum = ParseOptionalDouble(fitXMaxBox.Text),
                 FitYAxisMinimum = ParseOptionalDouble(fitYMinBox.Text),
                 FitYAxisMaximum = ParseOptionalDouble(fitYMaxBox.Text),
-                ResidualYAxisMinimum = ParseOptionalDouble(residualYMinBox.Text),
-                ResidualYAxisMaximum = ParseOptionalDouble(residualYMaxBox.Text),
                 DisplayParameters = display,
                 AttributeOptions = AppSettings.DisplayAttributeOptions,
                 TextUncertaintyStyle = SelectedUncertaintyStyle()
@@ -744,7 +753,7 @@ namespace AnalysisITC.Avalonia.FinalFigure
                 Header = new TextBlock
                 {
                     Text = header,
-                    FontSize = 11,
+                    FontSize = 12,
                     TextWrapping = TextWrapping.NoWrap
                 },
                 Content = content
@@ -764,7 +773,7 @@ namespace AnalysisITC.Avalonia.FinalFigure
                     VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
                     Content = new Border
                     {
-                        Padding = new Thickness(10),
+                        Padding = new Thickness(8),
                         Child = content
                     }
                 }
@@ -773,7 +782,7 @@ namespace AnalysisITC.Avalonia.FinalFigure
 
         static Border Section(string title, Control[] controls)
         {
-            var panel = new StackPanel { Spacing = 7 };
+            var panel = new StackPanel { Spacing = 2 };
             panel.Children.Add(new TextBlock
             {
                 Text = title,
@@ -787,7 +796,7 @@ namespace AnalysisITC.Avalonia.FinalFigure
             {
                 BorderBrush = Solid("#E3E7EC"),
                 BorderThickness = new Thickness(0, 0, 0, 1),
-                Padding = new Thickness(0, 0, 0, 10),
+                Padding = new Thickness(0, 0, 0, 6),
                 Child = panel
             };
         }
@@ -802,8 +811,7 @@ namespace AnalysisITC.Avalonia.FinalFigure
             {
                 Text = label,
                 VerticalAlignment = VerticalAlignment.Center,
-                Foreground = Solid("#607080"),
-                FontSize = 11
+                Foreground = Solid("#607080")
             });
             Grid.SetColumn(control, 1);
             panel.Children.Add(control);
@@ -830,7 +838,8 @@ namespace AnalysisITC.Avalonia.FinalFigure
                 ItemsSource = items,
                 SelectedIndex = selectedIndex,
                 Width = width,
-                MinHeight = 28,
+                Height = 24,
+                Padding = new Thickness(8, 0),
                 VerticalAlignment = VerticalAlignment.Center
             };
         }
@@ -840,7 +849,8 @@ namespace AnalysisITC.Avalonia.FinalFigure
             return new TextBox
             {
                 Text = text,
-                MinHeight = 28,
+                Height = 24,
+                Padding = new Thickness(6, 1),
                 VerticalContentAlignment = VerticalAlignment.Center
             };
         }
@@ -851,7 +861,8 @@ namespace AnalysisITC.Avalonia.FinalFigure
             {
                 Content = text,
                 MinWidth = width,
-                MinHeight = 28,
+                Height = 24,
+                Padding = new Thickness(8, 1),
                 HorizontalContentAlignment = HorizontalAlignment.Center,
                 VerticalContentAlignment = VerticalAlignment.Center
             };
@@ -863,6 +874,7 @@ namespace AnalysisITC.Avalonia.FinalFigure
             {
                 Content = text,
                 IsChecked = isChecked,
+                Height = 20,
                 VerticalAlignment = VerticalAlignment.Center
             };
         }

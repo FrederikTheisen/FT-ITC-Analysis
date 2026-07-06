@@ -42,7 +42,7 @@ namespace AnalysisITC.Avalonia.Processing
         readonly CheckBox showIntegrationCheck = Check("Regions", true);
         readonly CheckBox correctedCheck = Check("Corrected", false);
         readonly CheckBox cursorInfoCheck = Check("Cursor", true);
-        readonly CheckBox discardIntegratedCheck = Check("Discard regions", true);
+        readonly CheckBox discardIntegratedCheck = Check("Discard integrated regions", true);
 
         readonly Button lockProcessorButton = Button("Lock", 72);
         readonly Button copyActiveButton = Button("Copy active", 94);
@@ -143,7 +143,7 @@ namespace AnalysisITC.Avalonia.Processing
 
         Control BuildProcessingTab()
         {
-            var panel = new StackPanel { Spacing = 10 };
+            var panel = new StackPanel { Spacing = 6 };
             panel.Children.Add(Section(baselineHeader, new Control[]
             {
                 Labeled("Type", baselineTypeCombo),
@@ -795,8 +795,7 @@ namespace AnalysisITC.Avalonia.Processing
             {
                 Text = label,
                 VerticalAlignment = VerticalAlignment.Center,
-                Foreground = Solid("#607080"),
-                FontSize = 11
+                Foreground = Solid("#607080")
             });
             Grid.SetColumn(control, 1);
             panel.Children.Add(control);
@@ -816,7 +815,7 @@ namespace AnalysisITC.Avalonia.Processing
                 Header = new TextBlock
                 {
                     Text = header,
-                    FontSize = 11,
+                    FontSize = 12,
                     TextWrapping = TextWrapping.NoWrap
                 },
                 Content = content
@@ -845,7 +844,7 @@ namespace AnalysisITC.Avalonia.Processing
 
         static Border Section(TextBlock header, Control[] controls)
         {
-            var panel = new StackPanel { Spacing = 7 };
+            var panel = new StackPanel { Spacing = 2 };
             header.Width = double.NaN;
             panel.Children.Add(header);
             foreach (var control in controls)
@@ -885,7 +884,8 @@ namespace AnalysisITC.Avalonia.Processing
             {
                 ItemsSource = items,
                 Width = width,
-                MinHeight = 28,
+                Height = 24,
+                Padding = new Thickness(8, 0),
                 VerticalAlignment = VerticalAlignment.Center
             };
         }
@@ -908,7 +908,7 @@ namespace AnalysisITC.Avalonia.Processing
             {
                 Content = text,
                 MinWidth = width,
-                MinHeight = 28,
+                Height = 28,
                 HorizontalContentAlignment = HorizontalAlignment.Center,
                 VerticalContentAlignment = VerticalAlignment.Center
             };
@@ -920,6 +920,7 @@ namespace AnalysisITC.Avalonia.Processing
             {
                 Content = text,
                 IsChecked = isChecked,
+                Height = 20,
                 VerticalAlignment = VerticalAlignment.Center
             };
         }

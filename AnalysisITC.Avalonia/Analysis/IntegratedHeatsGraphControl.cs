@@ -96,24 +96,26 @@ namespace AnalysisITC.Avalonia.Analysis
 
         public void FitToData()
         {
-            var points = PlotPoints(includeExcluded: !ScaleToIncludedPoints && ShowExcludedPoints).ToList();
+            var displayPoints = PlotPoints(includeExcluded: ShowExcludedPoints).ToList();
+            var yScalingPoints = PlotPoints(includeExcluded: !ScaleToIncludedPoints && ShowExcludedPoints).ToList();
             var fitPoints = FitPoints().ToList();
 
-            if (points.Count == 0 && fitPoints.Count == 0)
+            if (displayPoints.Count == 0 && fitPoints.Count == 0)
             {
                 hasView = false;
                 InvalidateVisual();
                 return;
             }
 
-            var scalingPoints = UnifiedXAxis || UnifiedYAxis
-                ? ScalingPoints().ToList()
-                : points.Concat(fitPoints).ToList();
-            if (scalingPoints.Count == 0)
-                scalingPoints = points.Concat(fitPoints).ToList();
+            var unifiedXPoints = UnifiedXAxis ? ScalingPoints(includeExcluded: ShowExcludedPoints).ToList() : new List<GraphPoint>();
+            var unifiedYPoints = UnifiedYAxis ? ScalingPoints(includeExcluded: !ScaleToIncludedPoints && ShowExcludedPoints).ToList() : new List<GraphPoint>();
+            if (unifiedXPoints.Count == 0)
+                unifiedXPoints = displayPoints.Concat(fitPoints).ToList();
+            if (unifiedYPoints.Count == 0)
+                unifiedYPoints = yScalingPoints.Concat(fitPoints).ToList();
 
-            var xSource = UnifiedXAxis ? scalingPoints : points.Concat(fitPoints).ToList();
-            var ySource = UnifiedYAxis ? scalingPoints : points.Concat(fitPoints).ToList();
+            var xSource = UnifiedXAxis ? unifiedXPoints : displayPoints.Concat(fitPoints).ToList();
+            var ySource = UnifiedYAxis ? unifiedYPoints : yScalingPoints.Concat(fitPoints).ToList();
 
             var xValues = xSource.Select(point => point.X).ToList();
             var yValues = ySource.SelectMany(point => new[] { point.Y, point.LowerY, point.UpperY })
@@ -573,11 +575,11 @@ namespace AnalysisITC.Avalonia.Analysis
             }
         }
 
-        IEnumerable<GraphPoint> ScalingPoints()
+        IEnumerable<GraphPoint> ScalingPoints(bool includeExcluded)
         {
             foreach (var data in DataManager.IncludedData)
             {
-                foreach (var point in PlotPointsFor(data, !ScaleToIncludedPoints && ShowExcludedPoints))
+                foreach (var point in PlotPointsFor(data, includeExcluded))
                     yield return point;
 
                 foreach (var point in FitPointsFor(data))

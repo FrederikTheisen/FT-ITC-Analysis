@@ -51,7 +51,6 @@ namespace AnalysisITC.Avalonia.Analysis
         readonly CheckBox unifiedXCheck = Check("Unified X axis", false);
         readonly CheckBox unifiedYCheck = Check("Unified Y axis", false);
         readonly CheckBox offsetCheck = Check("Show fitted offset", true);
-        readonly Button fitViewButton = Button("Fit View", 92);
         readonly AnalysisModel[] modelChoices = AnalysisModelAttribute.GetAll().ToArray();
 
         ExperimentData? experiment;
@@ -165,7 +164,7 @@ namespace AnalysisITC.Avalonia.Analysis
 
         Control BuildFitTab()
         {
-            var panel = new StackPanel { Spacing = 10 };
+            var panel = new StackPanel { Spacing = 6 };
             panel.Children.Add(Section("Fit setup", new Control[]
             {
                 Labeled("Mode", modeCombo),
@@ -188,7 +187,6 @@ namespace AnalysisITC.Avalonia.Analysis
         {
             return Scroll(Section("Display", new Control[]
             {
-                fitViewButton,
                 fitCheck,
                 residualsCheck,
                 errorBarsCheck,
@@ -210,7 +208,6 @@ namespace AnalysisITC.Avalonia.Analysis
             runFitButton.Click += (_, _) => RunFit();
             stopFitButton.Click += (_, _) => StopFit();
 
-            fitViewButton.Click += (_, _) => graph.FitToData();
             fitCheck.IsCheckedChanged += (_, _) => ApplyGraphOptions(refit: false);
             residualsCheck.IsCheckedChanged += (_, _) => ApplyGraphOptions(refit: true);
             errorBarsCheck.IsCheckedChanged += (_, _) => ApplyGraphOptions(refit: true);
@@ -412,7 +409,7 @@ namespace AnalysisITC.Avalonia.Analysis
             var constraints = workspace.Context.ExposedConstraintOptions;
             if (constraints.Count == 0) return;
 
-            var panel = new StackPanel { Spacing = 7 };
+            var panel = new StackPanel { Spacing = 2 };
             foreach (var constraint in constraints)
                 panel.Children.Add(BuildConstraintRow(constraint.Key, constraint.Value));
 
@@ -822,7 +819,7 @@ namespace AnalysisITC.Avalonia.Analysis
                 Header = new TextBlock
                 {
                     Text = header,
-                    FontSize = 11,
+                    FontSize = 12,
                     TextWrapping = TextWrapping.NoWrap
                 },
                 Content = content
@@ -842,7 +839,7 @@ namespace AnalysisITC.Avalonia.Analysis
                     VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
                     Content = new Border
                     {
-                        Padding = new Thickness(10),
+                        Padding = new Thickness(8),
                         Child = content
                     }
                 }
@@ -851,7 +848,7 @@ namespace AnalysisITC.Avalonia.Analysis
 
         static Border Section(string title, Control[] controls)
         {
-            var panel = new StackPanel { Spacing = 7 };
+            var panel = new StackPanel { Spacing = 2 };
             panel.Children.Add(new TextBlock
             {
                 Text = title,
@@ -865,7 +862,7 @@ namespace AnalysisITC.Avalonia.Analysis
             {
                 BorderBrush = Solid("#E3E7EC"),
                 BorderThickness = new Thickness(0, 0, 0, 1),
-                Padding = new Thickness(0, 0, 0, 10),
+                Padding = new Thickness(0, 0, 0, 6),
                 Child = panel
             };
         }
@@ -880,8 +877,7 @@ namespace AnalysisITC.Avalonia.Analysis
             {
                 Text = label,
                 VerticalAlignment = VerticalAlignment.Center,
-                Foreground = Solid("#607080"),
-                FontSize = 11
+                Foreground = Solid("#607080")
             });
             Grid.SetColumn(control, 1);
             panel.Children.Add(control);
@@ -906,7 +902,8 @@ namespace AnalysisITC.Avalonia.Analysis
             return new ComboBox
             {
                 Width = width,
-                MinHeight = 28,
+                Height = 24,
+                Padding = new Thickness(8, 0),
                 VerticalAlignment = VerticalAlignment.Center
             };
         }
@@ -918,7 +915,8 @@ namespace AnalysisITC.Avalonia.Analysis
                 ItemsSource = items,
                 SelectedIndex = 0,
                 Width = width,
-                MinHeight = 28,
+                Height = 24,
+                Padding = new Thickness(8, 0),
                 VerticalAlignment = VerticalAlignment.Center
             };
         }
@@ -928,7 +926,8 @@ namespace AnalysisITC.Avalonia.Analysis
             return new TextBox
             {
                 Text = text,
-                MinHeight = 28,
+                Height = 24,
+                Padding = new Thickness(6, 1),
                 VerticalContentAlignment = VerticalAlignment.Center
             };
         }
@@ -939,7 +938,8 @@ namespace AnalysisITC.Avalonia.Analysis
             {
                 Content = text,
                 MinWidth = width,
-                MinHeight = 28,
+                Height = 24,
+                Padding = new Thickness(8, 1),
                 HorizontalContentAlignment = HorizontalAlignment.Center,
                 VerticalContentAlignment = VerticalAlignment.Center
             };
@@ -951,6 +951,7 @@ namespace AnalysisITC.Avalonia.Analysis
             {
                 Content = text,
                 IsChecked = isChecked,
+                Height = 20,
                 VerticalAlignment = VerticalAlignment.Center
             };
         }
