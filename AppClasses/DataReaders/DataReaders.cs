@@ -65,9 +65,10 @@ namespace AnalysisITC.Core.DataReaders
 
         public static async void Read(IEnumerable<string> paths) => await ReadPathsAsync(paths);
 
-        public static async Task ReadPathsAsync(IEnumerable<string> paths, Action<string> didReadPath = null)
+        public static async Task<DataReadResult> ReadPathsAsync(IEnumerable<string> paths, Action<string> didReadPath = null)
         {
             var pathList = paths?.Where(path => !string.IsNullOrWhiteSpace(path)).ToArray() ?? Array.Empty<string>();
+            var loadedPaths = new List<string>();
 
             StatusBarManager.SetStatus("Reading data...", 0);
             StatusBarManager.StartInderminateProgress();
@@ -104,6 +105,7 @@ namespace AnalysisITC.Core.DataReaders
 
                         if (dat != null && AddData(dat))
                         {
+                            loadedPaths.Add(path);
                             didReadPath?.Invoke(path);
                             AppSettings.LastDocumentPath = path;
                         }
@@ -139,6 +141,13 @@ namespace AnalysisITC.Core.DataReaders
             StatusBarManager.SetStatus("Rendering data...", 0);
             await Task.Delay(1);
             StatusBarManager.ClearAppStatus();
+
+            return new DataReadResult(
+                requestedPathCount: pathList.Length,
+                loadedPaths: loadedPaths,
+                initialItemCount: initialItemCount,
+                finalItemCount: DataManager.SourceItems?.Count ?? 0,
+                openedCleanProject: openedCleanProject);
         }
 
         static async Task<ITCDataContainer[]> ReadFile(string path)
@@ -172,6 +181,29 @@ namespace AnalysisITC.Core.DataReaders
 
             return null;
         }
+    }
+
+    public sealed class DataReadResult
+    {
+        public DataReadResult(int requestedPathCount, IEnumerable<string> loadedPaths, int initialItemCount, int finalItemCount, bool openedCleanProject)
+        {
+            RequestedPathCount = Math.Max(0, requestedPathCount);
+            LoadedPaths = loadedPaths?.ToArray() ?? Array.Empty<string>();
+            InitialItemCount = Math.Max(0, initialItemCount);
+            FinalItemCount = Math.Max(0, finalItemCount);
+            OpenedCleanProject = openedCleanProject;
+        }
+
+        public int RequestedPathCount { get; }
+        public IReadOnlyList<string> LoadedPaths { get; }
+        public int LoadedPathCount => LoadedPaths.Count;
+        public int FailedOrSkippedPathCount => Math.Max(0, RequestedPathCount - LoadedPathCount);
+        public int InitialItemCount { get; }
+        public int FinalItemCount { get; }
+        public int AddedItemCount => Math.Max(0, FinalItemCount - InitialItemCount);
+        public bool OpenedCleanProject { get; }
+        public bool LoadedAny => LoadedPathCount > 0 || AddedItemCount > 0;
+        public bool LoadedAllRequested => RequestedPathCount > 0 && FailedOrSkippedPathCount == 0;
     }
 
     public class RawDataReader
