@@ -64,6 +64,7 @@ namespace AnalysisITC.Core.Presentation
         public bool ShowExperimentDetails { get; set; } = true;
         public bool ShowFitParameters { get; set; } = true;
         public bool ShowAxisTitles { get; set; } = true;
+        public bool ShowFitLine { get; set; } = true;
         public bool DrawFitOffsetCorrected { get; set; } = true;
         public bool ShowBadData { get; set; } = true;
         public bool ShowBadDataErrorBars { get; set; } = false;
@@ -83,6 +84,8 @@ namespace AnalysisITC.Core.Presentation
         public PublicationInfoBoxPlacement InformationBoxPlacement { get; set; } = PublicationInfoBoxPlacement.Auto;
         public PublicationSymbolShape SymbolShape { get; set; } = PublicationSymbolShape.Square;
         public double SymbolSize { get; set; } = 8;
+        public double FitLineWidth { get; set; } = 2;
+        public LineSmoothness FitLineSmoothness { get; set; } = AppSettings.FitLineSmoothness;
 
         public string PowerAxisTitle { get; set; } = "Differential Power (<unit>)";
         public string TimeAxisTitle { get; set; } = "Time (<unit>)";
@@ -122,6 +125,7 @@ namespace AnalysisITC.Core.Presentation
                     ShowExperimentDetails.ToString(),
                     ShowFitParameters.ToString(),
                     ShowAxisTitles.ToString(),
+                    ShowFitLine.ToString(),
                     DrawFitOffsetCorrected.ToString(),
                     ShowBadData.ToString(),
                     ShowBadDataErrorBars.ToString(),
@@ -139,6 +143,8 @@ namespace AnalysisITC.Core.Presentation
                     ((int)InformationBoxPlacement).ToString(),
                     ((int)SymbolShape).ToString(),
                     SymbolSize.ToString("G17"),
+                    FitLineWidth.ToString("G17"),
+                    ((int)FitLineSmoothness).ToString(),
                     PowerAxisTitle ?? "",
                     TimeAxisTitle ?? "",
                     EnthalpyAxisTitle ?? "",
@@ -621,7 +627,7 @@ namespace AnalysisITC.Core.Presentation
 
             panel.Points.AddRange(injectionPoints);
 
-            if (fitPoints.Count > 0)
+            if (options.ShowFitLine && fitPoints.Count > 0)
             {
                 panel.Series.Add(new PublicationSeries
                 {

@@ -29,7 +29,7 @@ public static class AppVersion
         get
         {
             var v = ShortVersion ?? BuildVersion ?? "?.?.?";
-            return v;
+            return FormatVersion(v, 3);
         }
     }
 
@@ -43,6 +43,19 @@ public static class AppVersion
             var vs = FullVersionString.Split('.');
             return vs.Length >= 2 ? $"{vs[0]}.{vs[1]}" : FullVersionString;
         }
+    }
+
+    static string FormatVersion(string version, int maxComponents)
+    {
+        if (string.IsNullOrWhiteSpace(version))
+            return "?.?.?";
+
+        var components = version
+            .Split('.')
+            .Take(maxComponents)
+            .ToArray();
+
+        return components.Length == 0 ? version : string.Join(".", components);
     }
 
     public static void CheckForUpdatesInBackground()
