@@ -29,8 +29,22 @@ namespace AnalysisITC.Avalonia.Workspace
         public static Thickness ComboPadding => new Thickness(8, 0);
         public static Thickness TextBoxPadding => new Thickness(6, 1);
         public static Thickness ButtonPadding => new Thickness(8, 1);
+        public static Thickness InspectorFooterPadding => new Thickness(10, 8);
 
-        public static Grid WorkspaceGrid()
+        public static Grid Workspace(Control mainContent, Control inspectorContent, Control? inspectorFooter = null)
+        {
+            var root = WorkspaceGrid();
+            Grid.SetColumn(mainContent, 0);
+            root.Children.Add(mainContent);
+
+            var inspectorHost = InspectorHost(inspectorContent, inspectorFooter);
+            Grid.SetColumn(inspectorHost, 1);
+            root.Children.Add(inspectorHost);
+
+            return root;
+        }
+
+        static Grid WorkspaceGrid()
         {
             return new Grid
             {
@@ -52,9 +66,55 @@ namespace AnalysisITC.Avalonia.Workspace
 
         public static TabControl Inspector()
         {
-            return new TabControl
+            return new TabControl()
             {
+                Padding = new Thickness(0, 0, 0, 10),
+            };
+        }
+
+        public static TabControl Inspector(params InspectorTabDefinition[] tabs)
+        {
+            var inspector = Inspector();
+            foreach (var tab in tabs)
+                inspector.Items.Add(Tab(tab.Header, Scroll(tab.Content)));
+
+            return inspector;
+        }
+
+        public static InspectorTabDefinition InspectorTab(string header, Control content)
+        {
+            return new InspectorTabDefinition(header, content);
+        }
+
+        public static Grid InspectorHost(Control inspectorContent, Control? footer = null)
+        {
+            var host = new Grid
+            {
+                RowDefinitions = footer == null ? new RowDefinitions("*") : new RowDefinitions("*,Auto"),
                 Margin = new Thickness(InspectorGap, 0, 0, 0)
+            };
+
+            Grid.SetRow(inspectorContent, 0);
+            host.Children.Add(inspectorContent);
+
+            if (footer != null)
+            {
+                Grid.SetRow(footer, 1);
+                host.Children.Add(footer);
+            }
+
+            return host;
+        }
+
+        public static Border InspectorFooter(Control content)
+        {
+            return new Border
+            {
+                Background = PanelBackgroundBrush,
+                BorderBrush = PanelBorderBrush,
+                BorderThickness = new Thickness(1, 1, 1, 1),
+                Padding = InspectorFooterPadding,
+                Child = content
             };
         }
 
@@ -74,10 +134,22 @@ namespace AnalysisITC.Avalonia.Workspace
                 {
                     Text = header,
                     FontSize = 12,
-                    TextWrapping = TextWrapping.NoWrap
+                    TextWrapping = TextWrapping.NoWrap,
                 },
                 Content = content
             };
+        }
+
+        public readonly struct InspectorTabDefinition
+        {
+            public InspectorTabDefinition(string header, Control content)
+            {
+                Header = header;
+                Content = content;
+            }
+
+            public string Header { get; }
+            public Control Content { get; }
         }
 
         public static Control Scroll(Control content)
@@ -107,7 +179,8 @@ namespace AnalysisITC.Avalonia.Workspace
                 Text = title,
                 FontWeight = FontWeight.SemiBold,
                 Foreground = SectionHeaderBrush,
-                VerticalAlignment = VerticalAlignment.Center
+                VerticalAlignment = VerticalAlignment.Center,
+                Padding = new Thickness(0, 0, 0, 4)
             };
 
             return Section(header, controls);
@@ -135,9 +208,12 @@ namespace AnalysisITC.Avalonia.Workspace
 
         public static Border Labeled(string label, Control control)
         {
+            StretchFieldControl(control);
+
             var panel = new Grid
             {
-                ColumnDefinitions = new ColumnDefinitions($"{RowLabelWidth},*")
+                ColumnDefinitions = new ColumnDefinitions($"{RowLabelWidth},*"),
+                ColumnSpacing = RowSpacing
             };
             panel.Children.Add(new TextBlock
             {
@@ -173,6 +249,15 @@ namespace AnalysisITC.Avalonia.Workspace
             };
         }
 
+        public static StackPanel VerticalGroup()
+        {
+            return new StackPanel
+            {
+                Orientation = Orientation.Vertical,
+                Spacing = SectionControlSpacing
+            };
+        }
+
         public static ComboBox Combo(double width)
         {
             return new ComboBox
@@ -183,6 +268,8 @@ namespace AnalysisITC.Avalonia.Workspace
                 VerticalAlignment = VerticalAlignment.Center
             };
         }
+
+        public static ComboBox Combo(string[] items) => Combo(items, InspectorFieldWidth);
 
         public static ComboBox Combo(string[] items, double width)
         {
@@ -197,6 +284,18 @@ namespace AnalysisITC.Avalonia.Workspace
             var combo = Combo(items, width);
             combo.SelectedIndex = selectedIndex;
             return combo;
+        }
+
+        public static Slider Slider(double min, double max, double tickFrequency, double width = InspectorFieldWidth)
+        {
+            return new Slider
+            {
+                Minimum = min,
+                Maximum = max,
+                TickFrequency = tickFrequency,
+                Width = width,
+                VerticalAlignment = VerticalAlignment.Center
+            };
         }
 
         public static TextBox TextBox(string text)
@@ -271,8 +370,18 @@ namespace AnalysisITC.Avalonia.Workspace
 
         public static void ApplyControlMargin(Control control)
         {
+            if (control is Panel)
+                return;
+
             if (IsZero(control.Margin))
                 control.Margin = ControlMargin;
+        }
+
+        static void StretchFieldControl(Control control)
+        {
+            control.Width = double.NaN;
+            control.MinWidth = 0;
+            control.HorizontalAlignment = HorizontalAlignment.Stretch;
         }
 
         static bool IsZero(Thickness margin)

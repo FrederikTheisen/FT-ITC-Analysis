@@ -69,7 +69,7 @@ namespace AnalysisITC.Avalonia.Analysis
 
             var header = new Grid
             {
-                ColumnDefinitions = new ColumnDefinitions("*,Auto")
+                ColumnDefinitions = new ColumnDefinitions("*,Auto"),
             };
             header.Children.Add(BuildTitle(display));
             Grid.SetColumn(lockCheck, 1);
@@ -84,18 +84,9 @@ namespace AnalysisITC.Avalonia.Analysis
                     VerticalAlignment = VerticalAlignment.Center
                 });
 
-            var state = new TextBlock
-            {
-                Text = StateText(parameter),
-                FontSize = 12,
-                Foreground = WorkspaceControlBuilder.LabelBrush,
-                Margin = WorkspaceControlBuilder.ControlMargin
-            };
-
             var panel = new StackPanel { Spacing = 1 };
             panel.Children.Add(header);
             panel.Children.Add(editor);
-            panel.Children.Add(state);
 
             return new Border
             {

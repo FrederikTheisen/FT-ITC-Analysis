@@ -3,6 +3,7 @@ using AnalysisITC.Platform;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
+using Avalonia.Controls.Primitives;
 using Avalonia.Layout;
 using Avalonia.Media;
 using Avalonia.Threading;
@@ -42,10 +43,10 @@ namespace AnalysisITC.Platform.Avalonia
                 this.actionUrl = actionUrl;
 
                 Title = title;
-                Width = 460;
-                Height = 260;
+                Width = 500;
+                Height = 420;
                 MinWidth = 380;
-                MinHeight = 200;
+                MinHeight = 260;
                 WindowStartupLocation = WindowStartupLocation.CenterOwner;
                 CanResize = false;
 
@@ -63,6 +64,12 @@ namespace AnalysisITC.Platform.Avalonia
                     Text = message ?? "",
                     TextWrapping = TextWrapping.Wrap,
                     Foreground = Brush("#202832")
+                };
+                var messageScroll = new ScrollViewer
+                {
+                    Content = messageText,
+                    VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
+                    HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled
                 };
 
                 var ok = DialogButton("OK");
@@ -88,29 +95,24 @@ namespace AnalysisITC.Platform.Avalonia
 
                 buttons.Children.Add(ok);
 
+                var layout = new Grid
+                {
+                    RowDefinitions = new RowDefinitions("Auto,*,Auto"),
+                    RowSpacing = 14
+                };
+                Grid.SetRow(titleText, 0);
+                Grid.SetRow(messageScroll, 1);
+                Grid.SetRow(buttons, 2);
+                layout.Children.Add(titleText);
+                layout.Children.Add(messageScroll);
+                layout.Children.Add(buttons);
+
                 Content = new Border
                 {
                     Background = Brushes.White,
                     Padding = new Thickness(18),
-                    Child = new DockPanel
-                    {
-                        LastChildFill = true,
-                        Children =
-                        {
-                            buttons,
-                            new StackPanel
-                            {
-                                Children =
-                                {
-                                    titleText,
-                                    messageText
-                                }
-                            }
-                        }
-                    }
+                    Child = layout
                 };
-
-                DockPanel.SetDock(buttons, Dock.Bottom);
             }
 
             void OpenUrl()

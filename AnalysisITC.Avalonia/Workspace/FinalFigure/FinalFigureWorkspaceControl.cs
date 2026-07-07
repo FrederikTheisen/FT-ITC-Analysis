@@ -25,6 +25,7 @@ using AnalysisITC.Core.Data;
 using AnalysisITC.Core.Presentation;
 using AnalysisITC.Core.Units;
 using AnalysisITC.Core.Utilities;
+using static AnalysisITC.Avalonia.Workspace.WorkspaceControlBuilder;
 
 namespace AnalysisITC.Avalonia.FinalFigure
 {
@@ -207,39 +208,22 @@ namespace AnalysisITC.Avalonia.FinalFigure
                 }
             };
 
-            var root = WorkspaceControlBuilder.WorkspaceGrid();
-            Grid.SetColumn(previewHost, 0);
+            var inspector = WorkspaceControlBuilder.Inspector(
+                InspectorTab("General", BuildGeneralTab()),
+                InspectorTab("Data Graph", BuildDataGraphTab()),
+                InspectorTab("Fit Graph", BuildFitGraphTab()));
 
-            var inspectorHost = new Grid
-            {
-                RowDefinitions = new RowDefinitions("*,Auto"),
-                Margin = new Thickness(10, 0, 0, 0)
-            };
+            var footer = WorkspaceControlBuilder.Section("Export", Row(new Control[]
+                {
+                    exportPdfButton,
+                    Button("Export PDF", 96),
+                    Button("Export PDF", 96)
+                }));
 
-            var inspector = WorkspaceControlBuilder.Inspector();
-            inspector.Margin = new Thickness(0);
-            inspector.Items.Add(Tab("General", BuildGeneralTab()));
-            inspector.Items.Add(Tab("Data Graph", BuildDataGraphTab()));
-            inspector.Items.Add(Tab("Fit Graph", BuildFitGraphTab()));
-            Grid.SetRow(inspector, 0);
-
-            var exportFooter = new Border
-            {
-                Background = WorkspaceControlBuilder.PanelBackgroundBrush,
-                BorderBrush = WorkspaceControlBuilder.PanelBorderBrush,
-                BorderThickness = new Thickness(1, 0, 1, 1),
-                Padding = new Thickness(10, 8),
-                Child = exportPdfButton
-            };
-            Grid.SetRow(exportFooter, 1);
-
-            inspectorHost.Children.Add(inspector);
-            inspectorHost.Children.Add(exportFooter);
-            Grid.SetColumn(inspectorHost, 1);
-
-            root.Children.Add(previewHost);
-            root.Children.Add(inspectorHost);
-            Content = root;
+            Content = WorkspaceControlBuilder.Workspace(
+                previewHost,
+                inspector,
+                WorkspaceControlBuilder.InspectorFooter(footer));
         }
 
         Control BuildGeneralTab()
@@ -276,12 +260,12 @@ namespace AnalysisITC.Avalonia.FinalFigure
             }));
             panel.Children.Add(statusText);
 
-            return Scroll(panel);
+            return panel;
         }
 
         Control BuildDataGraphTab()
         {
-            return Scroll(Section("Data graph", new Control[]
+            return Section("Data graph", new Control[]
             {
                 Labeled("Power title", powerAxisTitleBox),
                 Labeled("Time title", timeAxisTitleBox),
@@ -292,7 +276,7 @@ namespace AnalysisITC.Avalonia.FinalFigure
                 Labeled("Y min", dataYMinBox),
                 Labeled("Y max", dataYMaxBox),
                 correctedDataCheck
-            }));
+            });
         }
 
         Control BuildFitGraphTab()
@@ -326,7 +310,7 @@ namespace AnalysisITC.Avalonia.FinalFigure
                 offsetCorrectedCheck
             }));
 
-            return Scroll(panel);
+            return panel;
         }
 
         void WireEvents()
@@ -796,28 +780,6 @@ namespace AnalysisITC.Avalonia.FinalFigure
 
             return Math.Max(minimum, Math.Min(maximum, value));
         }
-
-        static TabItem Tab(string header, Control content) => WorkspaceControlBuilder.Tab(header, content);
-
-        static Control Scroll(Control content) => WorkspaceControlBuilder.Scroll(content);
-
-        static Border Section(string title, Control[] controls) => WorkspaceControlBuilder.Section(title, controls);
-
-        static Border Labeled(string label, Control control) => WorkspaceControlBuilder.Labeled(label, control);
-
-        static StackPanel Row(params Control[] controls) => WorkspaceControlBuilder.Row(controls);
-
-        static ComboBox Combo(string[] items, int selectedIndex, double width) => WorkspaceControlBuilder.Combo(items, selectedIndex, width);
-
-        static TextBox TextBox(string text) => WorkspaceControlBuilder.TextBox(text);
-
-        static Button Button(string text, double width) => WorkspaceControlBuilder.Button(text, width);
-
-        static CheckBox Check(string text, bool isChecked) => WorkspaceControlBuilder.Check(text, isChecked);
-
-        static TextBlock Text(string text = "") => WorkspaceControlBuilder.Text(text);
-
-        static IBrush Solid(string color) => WorkspaceControlBuilder.Solid(color);
 
         sealed class FigureExportTarget
         {

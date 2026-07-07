@@ -20,6 +20,7 @@ using AnalysisITC.Core.Data;
 using AnalysisITC.Core.Numerics;
 using AnalysisITC.Core.Utilities;
 using CoreAnalysisWorkspace = AnalysisITC.Core.Analysis.AnalysisWorkspace;
+using static AnalysisITC.Avalonia.Workspace.WorkspaceControlBuilder;
 
 namespace AnalysisITC.Avalonia.Analysis
 {
@@ -133,21 +134,15 @@ namespace AnalysisITC.Avalonia.Analysis
             weightedFitCheck.IsChecked = FittingOptionsController.UseErrorWeightedFitting;
             bootstrapIterationsBox.Text = FittingOptionsController.BootstrapIterations.ToString(CultureInfo.CurrentCulture);
 
-            var root = WorkspaceControlBuilder.WorkspaceGrid();
-
             var graphBorder = WorkspaceControlBuilder.ContentBorder(graph);
-            Grid.SetColumn(graphBorder, 0);
 
-            var inspector = WorkspaceControlBuilder.Inspector();
-            inspector.Items.Add(Tab("Fit", BuildFitTab()));
-            inspector.Items.Add(Tab("Parameters", Scroll(parameterPanel)));
-            inspector.Items.Add(Tab("Options", Scroll(optionPanel)));
-            inspector.Items.Add(Tab("Graph", BuildGraphTab()));
-            Grid.SetColumn(inspector, 1);
+            var inspector = WorkspaceControlBuilder.Inspector(
+                InspectorTab("Fit", BuildFitTab()),
+                InspectorTab("Parameters", parameterPanel),
+                InspectorTab("Options", optionPanel),
+                InspectorTab("Graph", BuildGraphTab()));
 
-            root.Children.Add(graphBorder);
-            root.Children.Add(inspector);
-            Content = root;
+            Content = WorkspaceControlBuilder.Workspace(graphBorder, inspector);
         }
 
         Control BuildFitTab()
@@ -168,12 +163,12 @@ namespace AnalysisITC.Avalonia.Analysis
                 fitStatusText
             }));
 
-            return Scroll(panel);
+            return panel;
         }
 
         Control BuildGraphTab()
         {
-            return Scroll(Section("Display", new Control[]
+            return Section("Display", new Control[]
             {
                 fitCheck,
                 residualsCheck,
@@ -186,7 +181,7 @@ namespace AnalysisITC.Avalonia.Analysis
                 unifiedXCheck,
                 unifiedYCheck,
                 offsetCheck
-            }));
+            });
         }
 
         void WireEvents()
@@ -751,28 +746,5 @@ namespace AnalysisITC.Avalonia.Analysis
             return included.Count >= 2 && included.All(AnalysisBuilder.IsAnalysisReady);
         }
 
-        static TabItem Tab(string header, Control content) => WorkspaceControlBuilder.Tab(header, content);
-
-        static Control Scroll(Control content) => WorkspaceControlBuilder.Scroll(content);
-
-        static Border Section(string title, Control[] controls) => WorkspaceControlBuilder.Section(title, controls);
-
-        static Border Labeled(string label, Control control) => WorkspaceControlBuilder.Labeled(label, control);
-
-        static StackPanel Row(params Control[] controls) => WorkspaceControlBuilder.Row(controls);
-
-        static ComboBox Combo(double width) => WorkspaceControlBuilder.Combo(width);
-
-        static ComboBox Combo(string[] items, double width) => WorkspaceControlBuilder.Combo(items, width);
-
-        static TextBox TextBox(string text) => WorkspaceControlBuilder.TextBox(text);
-
-        static Button Button(string text, double width) => WorkspaceControlBuilder.Button(text, width);
-
-        static CheckBox Check(string text, bool isChecked) => WorkspaceControlBuilder.Check(text, isChecked);
-
-        static TextBlock Text(string text = "") => WorkspaceControlBuilder.Text(text);
-
-        static IBrush Solid(string color) => new SolidColorBrush(Color.Parse(color));
     }
 }

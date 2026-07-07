@@ -14,19 +14,20 @@ using AnalysisITC.Avalonia.Workspace;
 using AnalysisITC.Core.Application;
 using AnalysisITC.Core.Data;
 using AnalysisITC.Core.Processing;
+using static AnalysisITC.Avalonia.Workspace.WorkspaceControlBuilder;
 
 namespace AnalysisITC.Avalonia.Processing
 {
     public sealed class ProcessingWorkspaceControl : UserControl
     {
         readonly ProcessingGraphControl graph = new ProcessingGraphControl();
-        readonly TextBlock summaryText = Text();
+        readonly TextBlock summaryText = TrimmingText();
         readonly TextBlock baselineHeader = Header("Baseline");
         readonly TextBlock integrationHeader = Header("Integration");
-        readonly TextBlock degreeLabel = Text();
-        readonly TextBlock startLabel = Text();
-        readonly TextBlock lengthLabel = Text();
-        readonly TextBlock selectionLabel = Text();
+        readonly TextBlock degreeLabel = TrimmingText();
+        readonly TextBlock startLabel = TrimmingText();
+        readonly TextBlock lengthLabel = TrimmingText();
+        readonly TextBlock selectionLabel = TrimmingText();
 
         readonly ComboBox baselineTypeCombo = Combo(new[] { "Spline", "Polynomial", "Segmented" });
         readonly ComboBox splineAlgorithmCombo = Combo(new[] { "Linear", "Smooth" });
@@ -57,9 +58,9 @@ namespace AnalysisITC.Avalonia.Processing
         readonly Button allPeaksButton = Button("All peaks", 84);
         readonly Button focusPeakButton = Button("Focus", 68);
 
-        readonly StackPanel splineOptionsPanel = Horizontal(6);
-        readonly StackPanel degreePanel = Horizontal(6);
-        readonly TabControl controlsPanel = WorkspaceControlBuilder.Inspector();
+        readonly StackPanel splineOptionsPanel = VerticalGroup();
+        readonly StackPanel degreePanel = VerticalGroup();
+        TabControl controlsPanel = new TabControl();
 
         ExperimentData? experiment;
         bool isUpdatingControls;
@@ -105,29 +106,19 @@ namespace AnalysisITC.Avalonia.Processing
 
         void BuildLayout()
         {
-            splineOptionsPanel.Orientation = Orientation.Vertical;
             splineOptionsPanel.Children.Add(Labeled("Spline", splineAlgorithmCombo));
             splineOptionsPanel.Children.Add(Labeled("Density", splineDensityCombo));
             splineOptionsPanel.Children.Add(Labeled("Handle", splineHandleCombo));
 
-            degreePanel.Orientation = Orientation.Vertical;
             degreePanel.Children.Add(Labeled("Degree", degreeSlider));
             degreePanel.Children.Add(degreeLabel);
 
-            controlsPanel.Items.Add(Tab("Processing", BuildProcessingTab()));
-            controlsPanel.Items.Add(Tab("Selection / View", BuildSelectionViewTab()));
-
-            var root = WorkspaceControlBuilder.WorkspaceGrid();
+            controlsPanel = WorkspaceControlBuilder.Inspector(
+                InspectorTab("Processing", BuildProcessingTab()),
+                InspectorTab("Selection / View", BuildSelectionViewTab()));
 
             var graphBorder = WorkspaceControlBuilder.ContentBorder(graph);
-            Grid.SetColumn(graphBorder, 0);
-
-            Grid.SetColumn(controlsPanel, 1);
-
-            root.Children.Add(graphBorder);
-            root.Children.Add(controlsPanel);
-
-            Content = root;
+            Content = WorkspaceControlBuilder.Workspace(graphBorder, controlsPanel);
         }
 
         Control BuildProcessingTab()
@@ -155,7 +146,7 @@ namespace AnalysisITC.Avalonia.Processing
                 summaryText
             }));
 
-            return Scroll(panel);
+            return panel;
         }
 
         Control BuildSelectionViewTab()
@@ -178,7 +169,7 @@ namespace AnalysisITC.Avalonia.Processing
                 Labeled("Peak width", peakWidthCombo)
             }));
 
-            return Scroll(panel);
+            return panel;
         }
 
         void WireEvents()
@@ -773,40 +764,5 @@ namespace AnalysisITC.Avalonia.Processing
             };
         }
 
-        static Border Labeled(string label, Control control) => WorkspaceControlBuilder.Labeled(label, control);
-
-        static Border Section(string title, Control[] controls) => WorkspaceControlBuilder.Section(title, controls);
-
-        static TabItem Tab(string header, Control content) => WorkspaceControlBuilder.Tab(header, content);
-
-        static Control Scroll(Control content) => WorkspaceControlBuilder.Scroll(content);
-
-        static Border Section(TextBlock header, Control[] controls) => WorkspaceControlBuilder.Section(header, controls);
-
-        static StackPanel Row(params Control[] controls) => WorkspaceControlBuilder.Row(controls);
-
-        static StackPanel Horizontal(double spacing) => WorkspaceControlBuilder.Horizontal(spacing);
-
-        static ComboBox Combo(string[] items) => WorkspaceControlBuilder.Combo(items, WorkspaceControlBuilder.InspectorFieldWidth);
-
-        static Slider Slider(double min, double max, double tickFrequency)
-        {
-            return new Slider
-            {
-                Minimum = min,
-                Maximum = max,
-                TickFrequency = tickFrequency,
-                Width = WorkspaceControlBuilder.InspectorFieldWidth,
-                VerticalAlignment = VerticalAlignment.Center
-            };
-        }
-
-        static Button Button(string text, double width) => WorkspaceControlBuilder.Button(text, width);
-
-        static CheckBox Check(string text, bool isChecked) => WorkspaceControlBuilder.Check(text, isChecked);
-
-        static TextBlock Text() => WorkspaceControlBuilder.TrimmingText();
-
-        static TextBlock Header(string text) => WorkspaceControlBuilder.Header(text);
     }
 }

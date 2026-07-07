@@ -172,19 +172,25 @@ public partial class MainWindow : Window
 
     internal async Task ClearDataWithConfirmationAsync()
     {
-        if (!HasDocumentContent()) return;
+        await TryClearDataWithConfirmationAsync();
+    }
+
+    async Task<bool> TryClearDataWithConfirmationAsync()
+    {
+        if (!HasDocumentContent()) return true;
 
         if (!await PromptSaveChangesIfNeededAsync(SavePromptReason.ClearAllData))
-            return;
+            return false;
 
         if (!await ConfirmAsync(
             "Remove All Data/Results",
             "Are you sure you want to remove all loaded data and analysis results?",
             "Keep",
             "Remove"))
-            return;
+            return false;
 
         ClearData();
+        return true;
     }
 
     internal async Task ExportDataAsync(bool selectedOnly)
@@ -531,6 +537,20 @@ public partial class MainWindow : Window
                 .ToArray();
 
             if (paths.Length == 0) return;
+
+            if (paths.Any(path => DataReader.GetFormat(path) == ITCDataFormat.FTITC) && HasDocumentContent())
+            {
+                switch (await ProjectLoadDialogWindow.PromptAsync(this))
+                {
+                    case ProjectLoadAction.Replace:
+                        if (!await TryClearDataWithConfirmationAsync()) return;
+                        break;
+                    case ProjectLoadAction.Append:
+                        break;
+                    default:
+                        return;
+                }
+            }
 
             SetStatus("Opening data...");
             await DataReader.ReadPathsAsync(paths);
@@ -1156,6 +1176,82 @@ public partial class MainWindow : Window
         CloseWindow,
         QuitApplication,
         ClearAllData
+    }
+
+    enum ProjectLoadAction
+    {
+        Replace,
+        Append,
+        Cancel
+    }
+
+    sealed class ProjectLoadDialogWindow : Window
+    {
+        ProjectLoadDialogWindow()
+        {
+            Title = "Load Project";
+            Width = 460;
+            Height = 205;
+            MinWidth = 380;
+            MinHeight = 180;
+            WindowStartupLocation = WindowStartupLocation.CenterOwner;
+            CanResize = false;
+
+            var messageText = new TextBlock
+            {
+                Text = "You can replace the current data before loading this project, or append the project contents to what is already open.",
+                TextWrapping = TextWrapping.Wrap,
+                Foreground = Solid("#202832"),
+                Margin = new Thickness(0, 0, 0, 18)
+            };
+
+            var replace = DialogButton("Replace Data");
+            replace.Click += (_, _) => Close(ProjectLoadAction.Replace);
+
+            var append = DialogButton("Append");
+            append.Click += (_, _) => Close(ProjectLoadAction.Append);
+
+            var cancel = DialogButton("Cancel");
+            cancel.Click += (_, _) => Close(ProjectLoadAction.Cancel);
+
+            var buttons = new StackPanel
+            {
+                Orientation = Orientation.Horizontal,
+                HorizontalAlignment = HorizontalAlignment.Right,
+                Spacing = 8,
+                Children = { replace, append, cancel }
+            };
+
+            Content = new Border
+            {
+                Background = Brushes.White,
+                Padding = new Thickness(16),
+                Child = new DockPanel
+                {
+                    LastChildFill = true,
+                    Children =
+                    {
+                        buttons,
+                        messageText
+                    }
+                }
+            };
+
+            DockPanel.SetDock(buttons, Dock.Bottom);
+        }
+
+        static Button DialogButton(string text) => new()
+        {
+            Content = text,
+            MinWidth = 82,
+            HorizontalAlignment = HorizontalAlignment.Right
+        };
+
+        public static async Task<ProjectLoadAction> PromptAsync(Window owner)
+        {
+            var dialog = new ProjectLoadDialogWindow();
+            return await dialog.ShowDialog<ProjectLoadAction>(owner);
+        }
     }
 
     sealed class SaveChangesDialogWindow : Window
