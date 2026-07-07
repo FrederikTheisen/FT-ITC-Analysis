@@ -231,9 +231,9 @@ internal sealed class PreferencesWindow : Window
         }));
         panel.Children.Add(Section("Analysis Context", new Control[]
         {
-            Row("Reference temperature (C)", referenceTemperatureBox),
-            Row("Minimum temperature span (C)", minimumTemperatureSpanBox),
-            Row("Minimum ionic-strength span (mM)", minimumIonSpanBox),
+            Row("Reference temperature (°C)", referenceTemperatureBox),
+            Row("Minimum temperature span (°C)", minimumTemperatureSpanBox),
+            Row("Minimum salt span (mM)", minimumIonSpanBox),
             includeBufferInIonicStrengthCheck
         }));
         panel.Children.Add(Section("Behavior", new Control[]
@@ -691,7 +691,6 @@ internal sealed class PreferencesWindow : Window
             Content = text,
             FontSize = 13,
             MinHeight = 24,
-            Padding = new Thickness(0, 1)
         };
     }
 

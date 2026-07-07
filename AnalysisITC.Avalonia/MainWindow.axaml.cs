@@ -36,6 +36,7 @@ public partial class MainWindow : Window
     bool isUpdatingOverviewMode;
     bool allowDirtyClose;
     bool isHandlingDirtyClose;
+    int activeExperimentWorkspaceIndex;
 
     public MainWindow()
     {
@@ -49,7 +50,7 @@ public partial class MainWindow : Window
         OverviewInjectionsButton.IsCheckedChanged += (_, _) => SelectOverviewMode(rawData: false);
         OverviewDetailsButton.Click += async (_, _) => await OpenSelectedDetailsAsync();
         ItemsList.SelectionChanged += (_, _) => SelectListItem();
-        WorkspaceTabs.SelectionChanged += (_, _) => RefreshMenuState();
+        WorkspaceTabs.SelectionChanged += (_, _) => OnWorkspaceTabChanged();
         ProcessingWorkspace.StatusChanged += OnProcessingStatusChanged;
         ProcessingWorkspace.ProcessingChanged += OnProcessingChanged;
         AnalysisWorkspace.StatusChanged += OnAnalysisStatusChanged;
@@ -74,6 +75,7 @@ public partial class MainWindow : Window
         menuController = new AppMenuController(this);
         menuController.Install();
 
+        activeExperimentWorkspaceIndex = Math.Max(WorkspaceTabs.SelectedIndex, 0);
         RefreshDataList();
         UpdateDocumentStatus();
         UpdateSelection(null);
@@ -289,6 +291,7 @@ public partial class MainWindow : Window
         {
             WorkspaceTabs.IsVisible = true;
             ResultWorkspace.IsVisible = false;
+            activeExperimentWorkspaceIndex = index;
             WorkspaceTabs.SelectedIndex = index;
             RefreshMenuState();
         }
@@ -619,6 +622,19 @@ public partial class MainWindow : Window
         UpdateSelection(entry.Item);
     }
 
+    void OnWorkspaceTabChanged()
+    {
+        if (WorkspaceTabs.IsVisible
+            && selectedItem is ExperimentData
+            && WorkspaceTabs.SelectedIndex >= 0
+            && WorkspaceTabs.SelectedIndex < WorkspaceTabs.Items.Count)
+        {
+            activeExperimentWorkspaceIndex = WorkspaceTabs.SelectedIndex;
+        }
+
+        RefreshMenuState();
+    }
+
     void SetAllExperimentInclusion(bool include)
     {
         DataManager.SetAllIncludeState(include);
@@ -656,16 +672,23 @@ public partial class MainWindow : Window
         {
             WorkspaceTabs.IsVisible = true;
             ResultWorkspace.IsVisible = false;
-            WorkspaceTabs.SelectedIndex = 1;
+            WorkspaceTabs.SelectedIndex = ValidExperimentWorkspaceIndex();
         }
         else
         {
             WorkspaceTabs.IsVisible = item is not AnalysisResult;
             ResultWorkspace.IsVisible = item is AnalysisResult;
-            WorkspaceTabs.SelectedIndex = 0;
+            if (item == null)
+                WorkspaceTabs.SelectedIndex = ValidExperimentWorkspaceIndex();
         }
 
         RefreshMenuState();
+    }
+
+    int ValidExperimentWorkspaceIndex()
+    {
+        if (WorkspaceTabs.Items.Count == 0) return -1;
+        return Math.Clamp(activeExperimentWorkspaceIndex, 0, WorkspaceTabs.Items.Count - 1);
     }
 
     void SelectOverviewMode(bool rawData)

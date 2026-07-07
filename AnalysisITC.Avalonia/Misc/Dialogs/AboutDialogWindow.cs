@@ -31,10 +31,18 @@ internal sealed class AboutDialogWindow : Window
 
         var version = new TextBlock
         {
-            Text = $"Version {AppVersion.FullVersionString}",
+            Text = $"Version {AppVersion.ShortVersionString}",
             FontSize = 13,
             Foreground = Brush("#607080"),
             Margin = new Thickness(0, 4, 0, 0)
+        };
+        var showingBuildVersion = false;
+        version.PointerPressed += (_, _) =>
+        {
+            showingBuildVersion = !showingBuildVersion;
+            version.Text = showingBuildVersion
+                ? $"Version {AppVersion.FullVersionString}"
+                : $"Version {AppVersion.ShortVersionString}";
         };
 
         var description = new TextBlock
@@ -47,7 +55,7 @@ internal sealed class AboutDialogWindow : Window
 
         var note = new TextBlock
         {
-            Text = "Avalonia cross-platform application preview.",
+            Text = "Copyright © 2026 Frederik Theisen. All rights reserved.",
             FontSize = 12,
             Foreground = Brush("#607080"),
             Margin = new Thickness(0, 8, 0, 0)

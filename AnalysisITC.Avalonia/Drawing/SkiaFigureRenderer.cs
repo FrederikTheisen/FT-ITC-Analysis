@@ -35,8 +35,8 @@ public sealed class SkiaFigureRenderer
     internal const float AxisTitleOffset = 7f;
     internal const float AnnotationInset = 7f;
     internal const float AnnotationPaddingX = 6f;
-    internal const float AnnotationPaddingY = 4f;
-    internal const float AnnotationLineSpacingFactor = 0.30f;
+    internal const float AnnotationPaddingY = 2f;
+    internal const float AnnotationLineSpacingFactor = 0.15f;
     internal const float ResidualGraphGap = 5f;
 
     public SKSize GetPageSize(PublicationFigureDocument document)
@@ -142,7 +142,7 @@ public sealed class SkiaFigureRenderer
 
         foreach (var series in panel.Series)
         {
-            DrawSeries(drawing, panel, rect, series);
+            DrawSeries(drawing, document.Options, panel, rect, series);
         }
 
         foreach (var point in panel.Points)
@@ -161,7 +161,7 @@ public sealed class SkiaFigureRenderer
         }
     }
 
-    void DrawSeries(SkiaDrawingContext drawing, PublicationFigurePanel panel, SKRect rect, PublicationSeries series)
+    void DrawSeries(SkiaDrawingContext drawing, PublicationFigureOptions options, PublicationFigurePanel panel, SKRect rect, PublicationSeries series)
     {
         if (series.Points.Count < 2) return;
 
@@ -173,8 +173,8 @@ public sealed class SkiaFigureRenderer
         if (points.Count < 2) return;
 
         var color = series.Role == PublicationSeriesRole.Fit ? Black : Black;
-        var width = series.Role == PublicationSeriesRole.Fit ? FitStrokeWidth : DataStrokeWidth;
-        var smooth = series.Role == PublicationSeriesRole.Fit;
+        var width = series.Role == PublicationSeriesRole.Fit ? (float)Math.Max(0.25, options.FitLineWidth) : DataStrokeWidth;
+        var smooth = series.Role == PublicationSeriesRole.Fit && options.FitLineSmoothness != LineSmoothness.Linear;
 
         drawing.DrawPolyline(points, color, width, smooth);
     }
@@ -330,7 +330,7 @@ public sealed class SkiaFigureRenderer
         drawing.FillRect(boxRect, AnnotationBackground);
         drawing.DrawRect(boxRect, AnnotationBorder, AxisStrokeWidth);
 
-        var textY = y + AnnotationPaddingY;
+        var textY = y;// + AnnotationPaddingY;
         foreach (var line in box.Lines)
         {
             drawing.DrawRichText(line, new SKPoint(x + AnnotationPaddingX, textY), AnnotationTextSize, Black);

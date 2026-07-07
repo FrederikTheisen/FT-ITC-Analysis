@@ -10,9 +10,10 @@
         mc:Ignorable="d" d:DesignWidth="1200" d:DesignHeight="760"
         x:Class="AnalysisITC.Avalonia.MainWindow"
         Title="FT-ITC Analysis"
+        Icon="/Resources/appicon.ico"
         Width="1200"
         Height="760"
-        MinWidth="900"
+        MinWidth="1000"
         MinHeight="600">
     <Grid RowDefinitions="Auto,*,Auto" Background="#F5F7FA">
         <Border Grid.Row="0" Background="#FFFFFF" BorderBrush="#D4DAE1" BorderThickness="0,0,0,1">
@@ -203,14 +204,16 @@
         </Grid>
 
         <Border Grid.Row="2" Background="#FFFFFF" BorderBrush="#D4DAE1" BorderThickness="0,1,0,0" Padding="8,5">
-            <Grid ColumnDefinitions="*,Auto">
+            <Grid ColumnDefinitions="*,Auto" RowDefinitions="20">
                 <TextBlock x:Name="StatusText"
                            Foreground="#4D5A66"
-                           TextTrimming="CharacterEllipsis" />
+                           TextTrimming="CharacterEllipsis"
+                           VerticalAlignment="Center" />
                 <TextBlock x:Name="SecondaryStatusText"
                            Grid.Column="1"
                            Margin="16,0,0,0"
-                           Foreground="#6B7682" />
+                           Foreground="#6B7682"
+                           VerticalAlignment="Center" />
             </Grid>
         </Border>
     </Grid>

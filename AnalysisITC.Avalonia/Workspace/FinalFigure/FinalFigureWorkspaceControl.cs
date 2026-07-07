@@ -33,6 +33,12 @@ namespace AnalysisITC.Avalonia.FinalFigure
     {
         static readonly EnergyUnit[] EnergyUnits = EnergyUnitAttribute.GetSelectableUnits().ToArray();
         static readonly TimeUnit[] TimeUnits = { TimeUnit.Second, TimeUnit.Minute, TimeUnit.Hour };
+        static readonly LineSmoothness[] FitLineSmoothnessOptions =
+        {
+            LineSmoothness.Smooth,
+            LineSmoothness.Spline,
+            LineSmoothness.Linear
+        };
         static readonly UncertaintyDisplayStyle[] UncertaintyStyles =
         {
             UncertaintyDisplayStyle.Automatic,
@@ -94,7 +100,10 @@ namespace AnalysisITC.Avalonia.FinalFigure
         readonly TextBox fitYMinBox = TextBox("");
         readonly TextBox fitYMaxBox = TextBox("");
         readonly TextBox symbolSizeBox = TextBox("8");
+        readonly TextBox fitLineWidthBox = TextBox("2");
         readonly ComboBox symbolCombo = Combo(new[] { "Square", "Circle" }, 0, 126);
+        readonly ComboBox fitLineSmoothnessCombo = Combo(FitLineSmoothnessOptions.Select(DisplayName).ToArray(), 1, 126);
+        readonly CheckBox fitLineCheck = Check("Fit line", true);
         readonly CheckBox residualsCheck = Check("Residuals", true);
         readonly CheckBox residualGapCheck = Check("Residual gap", true);
         readonly CheckBox zeroLineCheck = Check("Zero line", true);
@@ -148,6 +157,7 @@ namespace AnalysisITC.Avalonia.FinalFigure
                 if (dimensions.Length > 1) heightBox.Text = dimensions[1].ToString("G6", CultureInfo.CurrentCulture);
 
                 energyUnitCombo.SelectedIndex = Math.Max(0, Array.IndexOf(EnergyUnits, AppSettings.EnergyUnit));
+                fitLineSmoothnessCombo.SelectedIndex = Math.Max(0, Array.IndexOf(FitLineSmoothnessOptions, AppSettings.FitLineSmoothness));
                 uncertaintyCombo.SelectedIndex = Math.Max(0, Array.IndexOf(UncertaintyStyles, AppSettings.UncertaintyDisplayStyle));
                 experimentDetailsCheck.IsChecked = AppSettings.FinalFigureShowDetailsAsDefault;
                 modelInfoCheck.IsChecked = AppSettings.FinalFigureShowModelInfoAsDefault;
@@ -213,17 +223,10 @@ namespace AnalysisITC.Avalonia.FinalFigure
                 InspectorTab("Data Graph", BuildDataGraphTab()),
                 InspectorTab("Fit Graph", BuildFitGraphTab()));
 
-            var footer = WorkspaceControlBuilder.Section("Export", Row(new Control[]
-                {
-                    exportPdfButton,
-                    Button("Export PDF", 96),
-                    Button("Export PDF", 96)
-                }));
-
             Content = WorkspaceControlBuilder.Workspace(
                 previewHost,
                 inspector,
-                WorkspaceControlBuilder.InspectorFooter(footer));
+                WorkspaceControlBuilder.InspectorFooter(WorkspaceControlBuilder.Section("Export", exportPdfButton)));
         }
 
         Control BuildGeneralTab()
@@ -295,6 +298,12 @@ namespace AnalysisITC.Avalonia.FinalFigure
                 Labeled("Symbol", symbolCombo),
                 Labeled("Symbol size", symbolSizeBox)
             }));
+            panel.Children.Add(Section("Fit line", new Control[]
+            {
+                fitLineCheck,
+                Labeled("Width", fitLineWidthBox),
+                Labeled("Smoothness", fitLineSmoothnessCombo)
+            }));
             panel.Children.Add(Section("Residuals", new Control[]
             {
                 residualsCheck,
@@ -362,6 +371,7 @@ namespace AnalysisITC.Avalonia.FinalFigure
                 correctedDataCheck,
                 residualsCheck,
                 residualGapCheck,
+                fitLineCheck,
                 zeroLineCheck,
                 confidenceCheck,
                 errorBarsCheck,
@@ -379,7 +389,8 @@ namespace AnalysisITC.Avalonia.FinalFigure
                 timeUnitCombo,
                 uncertaintyCombo,
                 infoPlacementCombo,
-                symbolCombo
+                symbolCombo,
+                fitLineSmoothnessCombo
             };
         }
 
@@ -405,7 +416,8 @@ namespace AnalysisITC.Avalonia.FinalFigure
                 fitXMaxBox,
                 fitYMinBox,
                 fitYMaxBox,
-                symbolSizeBox
+                symbolSizeBox,
+                fitLineWidthBox
             };
         }
 
@@ -511,6 +523,7 @@ namespace AnalysisITC.Avalonia.FinalFigure
                 ShowExperimentDetails = experimentDetailsCheck.IsChecked == true,
                 ShowFitParameters = modelInfoCheck.IsChecked == true || fitParametersCheck.IsChecked == true,
                 ShowAxisTitles = axisTitlesCheck.IsChecked == true,
+                ShowFitLine = fitLineCheck.IsChecked == true,
                 DrawFitOffsetCorrected = offsetCorrectedCheck.IsChecked == true,
                 ShowBadData = excludedCheck.IsChecked == true,
                 ShowBadDataErrorBars = excludedErrorBarsCheck.IsChecked == true,
@@ -526,6 +539,8 @@ namespace AnalysisITC.Avalonia.FinalFigure
                 InformationBoxPlacement = SelectedInfoBoxPlacement(),
                 SymbolShape = symbolCombo.SelectedIndex == 1 ? PublicationSymbolShape.Circle : PublicationSymbolShape.Square,
                 SymbolSize = ParseDouble(symbolSizeBox.Text, defaults.SymbolSize, 3, 14),
+                FitLineWidth = ParseDouble(fitLineWidthBox.Text, defaults.FitLineWidth, 0.25, 8),
+                FitLineSmoothness = SelectedFitLineSmoothness(),
                 PowerAxisTitle = string.IsNullOrWhiteSpace(powerAxisTitleBox.Text) ? defaults.PowerAxisTitle : powerAxisTitleBox.Text!,
                 TimeAxisTitle = string.IsNullOrWhiteSpace(timeAxisTitleBox.Text) ? defaults.TimeAxisTitle : timeAxisTitleBox.Text!,
                 EnthalpyAxisTitle = string.IsNullOrWhiteSpace(enthalpyAxisTitleBox.Text) ? defaults.EnthalpyAxisTitle : enthalpyAxisTitleBox.Text!,
@@ -606,6 +621,24 @@ namespace AnalysisITC.Avalonia.FinalFigure
                 1 => PublicationInfoBoxPlacement.Upper,
                 2 => PublicationInfoBoxPlacement.Lower,
                 _ => PublicationInfoBoxPlacement.Auto
+            };
+        }
+
+        LineSmoothness SelectedFitLineSmoothness()
+        {
+            return fitLineSmoothnessCombo.SelectedIndex >= 0 && fitLineSmoothnessCombo.SelectedIndex < FitLineSmoothnessOptions.Length
+                ? FitLineSmoothnessOptions[fitLineSmoothnessCombo.SelectedIndex]
+                : AppSettings.FitLineSmoothness;
+        }
+
+        static string DisplayName(LineSmoothness smoothness)
+        {
+            return smoothness switch
+            {
+                LineSmoothness.Linear => "Linear",
+                LineSmoothness.Smooth => "Smooth",
+                LineSmoothness.Spline => "Spline",
+                _ => smoothness.ToString()
             };
         }
 
