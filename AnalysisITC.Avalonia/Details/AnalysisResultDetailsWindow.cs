@@ -31,19 +31,21 @@ namespace AnalysisITC.Avalonia.Details
             this.result = result ?? throw new ArgumentNullException(nameof(result));
 
             Title = "Result Details";
-            Width = 700;
-            Height = 620;
+            Width = 760;
+            Height = 660;
             MinWidth = 600;
             MinHeight = 500;
             WindowStartupLocation = WindowStartupLocation.CenterOwner;
 
-            nameBox = Box(result.Name, 280);
+            nameBox = Box(result.Name, 300);
             commentsBox = new TextBox
             {
                 Text = result.Comments ?? "",
                 AcceptsReturn = true,
                 TextWrapping = TextWrapping.Wrap,
-                MinHeight = 90
+                MinHeight = 90,
+                Padding = new Thickness(8, 6),
+                FontSize = 13
             };
 
             BuildLayout();
@@ -61,7 +63,7 @@ namespace AnalysisITC.Avalonia.Details
             {
                 ColumnDefinitions = new ColumnDefinitions("*,Auto,Auto"),
                 ColumnSpacing = 8,
-                Margin = new Thickness(12)
+                Margin = new Thickness(12, 10)
             };
             footer.Children.Add(statusText);
 
@@ -75,25 +77,41 @@ namespace AnalysisITC.Avalonia.Details
             Grid.SetColumn(apply, 2);
             footer.Children.Add(apply);
 
-            DockPanel.SetDock(footer, Dock.Bottom);
-            root.Children.Add(footer);
+            var footerBorder = new Border
+            {
+                Background = Brushes.White,
+                BorderBrush = Solid("#D4DAE1"),
+                BorderThickness = new Thickness(0, 1, 0, 0),
+                Child = footer
+            };
+            DockPanel.SetDock(footerBorder, Dock.Bottom);
+            root.Children.Add(footerBorder);
 
-            var content = new StackPanel { Spacing = 10, Margin = new Thickness(12) };
-            content.Children.Add(Section("Result", new Control[]
+            var header = Header("Result Details", result.Name, result.GetListDescriptionString().Replace(Environment.NewLine, " | "));
+            DockPanel.SetDock(header, Dock.Top);
+            root.Children.Add(header);
+
+            var details = new StackPanel { Spacing = 10 };
+            details.Children.Add(Section("Result", new Control[]
             {
                 Labeled("Name", nameBox),
                 Labeled("Date", Text(result.UILongDateWithTime))
             }));
-            content.Children.Add(Section("Comments", new Control[] { commentsBox }));
-            content.Children.Add(BuildSummarySection());
-            content.Children.Add(BuildActionsSection());
+            details.Children.Add(Section("Comments", new Control[] { commentsBox }));
+            details.Children.Add(BuildSummarySection());
 
-            root.Children.Add(new ScrollViewer
+            var tabs = new TabControl
             {
-                HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
-                VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
-                Content = content
-            });
+                Margin = new Thickness(12),
+                Items =
+                {
+                    Tab("Details", Scroll(details)),
+                    Tab("Experiments", Scroll(BuildExperimentsSection())),
+                    Tab("Actions", Scroll(BuildActionsSection()))
+                }
+            };
+
+            root.Children.Add(tabs);
 
             Content = root;
         }
@@ -178,6 +196,27 @@ namespace AnalysisITC.Avalonia.Details
             });
         }
 
+        Control BuildExperimentsSection()
+        {
+            var panel = new StackPanel { Spacing = 10 };
+
+            foreach (var solution in result.Solution.Solutions)
+            {
+                var data = solution.Data;
+                panel.Children.Add(Section(data?.Name ?? solution.SolutionName, new Control[]
+                {
+                    Pair("Date", data?.UIShortDateWithTime ?? ""),
+                    Pair("Temperature", data == null ? "" : $"{data.MeasuredTemperature:G3} C"),
+                    Pair("Status", solution.IsValid ? "Solution valid" : "Solution invalid")
+                }));
+            }
+
+            if (panel.Children.Count == 0)
+                panel.Children.Add(Section("Experiments", new Control[] { Text("No experiments are attached to this result.") }));
+
+            return panel;
+        }
+
         void Apply()
         {
             var name = nameBox.Text?.Trim() ?? "";
@@ -214,7 +253,7 @@ namespace AnalysisITC.Avalonia.Details
 
         static Border Section(string title, Control[] controls)
         {
-            var panel = new StackPanel { Spacing = 6 };
+            var panel = new StackPanel { Spacing = 7 };
             panel.Children.Add(new TextBlock
             {
                 Text = title,
@@ -229,8 +268,70 @@ namespace AnalysisITC.Avalonia.Details
                 Background = Brushes.White,
                 BorderBrush = Solid("#D4DAE1"),
                 BorderThickness = new Thickness(1),
-                Padding = new Thickness(10),
+                Padding = new Thickness(12, 10),
                 Child = panel
+            };
+        }
+
+        static Border Header(string title, string primary, string secondary)
+        {
+            var panel = new StackPanel { Spacing = 2 };
+            panel.Children.Add(new TextBlock
+            {
+                Text = title,
+                FontSize = 16,
+                FontWeight = FontWeight.SemiBold,
+                Foreground = Solid("#202832")
+            });
+            panel.Children.Add(new TextBlock
+            {
+                Text = primary,
+                Foreground = Solid("#202832"),
+                TextTrimming = TextTrimming.CharacterEllipsis
+            });
+            panel.Children.Add(new TextBlock
+            {
+                Text = secondary,
+                Foreground = Solid("#607080"),
+                FontSize = 12,
+                TextTrimming = TextTrimming.CharacterEllipsis
+            });
+
+            return new Border
+            {
+                Background = Brushes.White,
+                BorderBrush = Solid("#D4DAE1"),
+                BorderThickness = new Thickness(0, 0, 0, 1),
+                Padding = new Thickness(14, 12),
+                Child = panel
+            };
+        }
+
+        static TabItem Tab(string header, Control content)
+        {
+            return new TabItem
+            {
+                Header = new TextBlock
+                {
+                    Text = header,
+                    FontSize = 12,
+                    TextWrapping = TextWrapping.NoWrap
+                },
+                Content = content
+            };
+        }
+
+        static Control Scroll(Control content)
+        {
+            return new ScrollViewer
+            {
+                HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
+                VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
+                Content = new Border
+                {
+                    Padding = new Thickness(0, 10, 0, 0),
+                    Child = content
+                }
             };
         }
 
@@ -238,9 +339,11 @@ namespace AnalysisITC.Avalonia.Details
         {
             var grid = new Grid
             {
-                ColumnDefinitions = new ColumnDefinitions("132,*")
+                ColumnDefinitions = new ColumnDefinitions("132,Auto"),
+                ColumnSpacing = 10,
+                MinHeight = 32
             };
-            grid.Children.Add(Text(label));
+            grid.Children.Add(FormLabel(label));
             Grid.SetColumn(control, 1);
             grid.Children.Add(control);
             return grid;
@@ -251,9 +354,10 @@ namespace AnalysisITC.Avalonia.Details
             var grid = new Grid
             {
                 ColumnDefinitions = new ColumnDefinitions("132,*"),
-                ColumnSpacing = 8
+                ColumnSpacing = 10,
+                MinHeight = 28
             };
-            grid.Children.Add(Text(label));
+            grid.Children.Add(FormLabel(label));
             var valueText = Text(value);
             valueText.Foreground = Solid("#202832");
             Grid.SetColumn(valueText, 1);
@@ -267,8 +371,12 @@ namespace AnalysisITC.Avalonia.Details
             {
                 Text = text,
                 Width = width,
-                Height = 24,
-                Padding = new Thickness(6, 1),
+                Height = 30,
+                MinHeight = 30,
+                MaxHeight = 30,
+                Padding = new Thickness(8, 0),
+                FontSize = 13,
+                HorizontalAlignment = HorizontalAlignment.Left,
                 VerticalContentAlignment = VerticalAlignment.Center
             };
         }
@@ -295,6 +403,18 @@ namespace AnalysisITC.Avalonia.Details
                 Foreground = Solid("#4D5A66"),
                 VerticalAlignment = VerticalAlignment.Center,
                 TextWrapping = TextWrapping.Wrap
+            };
+        }
+
+        static TextBlock FormLabel(string text)
+        {
+            return new TextBlock
+            {
+                Text = text,
+                Foreground = Solid("#4D5A66"),
+                FontSize = 13,
+                VerticalAlignment = VerticalAlignment.Center,
+                TextWrapping = TextWrapping.NoWrap
             };
         }
 

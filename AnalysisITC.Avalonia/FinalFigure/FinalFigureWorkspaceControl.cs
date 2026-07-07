@@ -39,12 +39,13 @@ namespace AnalysisITC.Avalonia.FinalFigure
             UncertaintyDisplayStyle.StandardDeviationAndConfidenceInterval,
             UncertaintyDisplayStyle.None
         };
+        const double PreviewRenderScale = 4.0;
 
         readonly SkiaFigureRenderer renderer = new SkiaFigureRenderer();
         readonly Border previewHost = new Border();
         readonly Image image = new Image
         {
-            Stretch = Stretch.Uniform
+            Stretch = Stretch.Fill
         };
         readonly TextBlock statusText = Text();
 
@@ -68,8 +69,8 @@ namespace AnalysisITC.Avalonia.FinalFigure
         readonly CheckBox offsetParameterCheck = Check("Offset parameter", false);
         readonly CheckBox temperatureCheck = Check("Temperature", true);
         readonly CheckBox concentrationsCheck = Check("Concentrations", true);
-        readonly CheckBox injectionDelayCheck = Check("Injection delay", false);
-        readonly CheckBox instrumentCheck = Check("Instrument", false);
+        readonly CheckBox injectionDelayCheck = Check("Injection delay", true);
+        readonly CheckBox instrumentCheck = Check("Instrument", true);
         readonly CheckBox attributesCheck = Check("Attributes", true);
 
         readonly TextBox powerAxisTitleBox = TextBox("Differential Power (<unit>)");
@@ -90,7 +91,7 @@ namespace AnalysisITC.Avalonia.FinalFigure
         readonly TextBox fitXMaxBox = TextBox("");
         readonly TextBox fitYMinBox = TextBox("");
         readonly TextBox fitYMaxBox = TextBox("");
-        readonly TextBox symbolSizeBox = TextBox("6");
+        readonly TextBox symbolSizeBox = TextBox("8");
         readonly ComboBox symbolCombo = Combo(new[] { "Square", "Circle" }, 0, 126);
         readonly CheckBox residualsCheck = Check("Residuals", true);
         readonly CheckBox residualGapCheck = Check("Residual gap", true);
@@ -105,6 +106,7 @@ namespace AnalysisITC.Avalonia.FinalFigure
         ITCDataContainer? selectedItem;
         ExperimentData? figureExperiment;
         string? cacheKey;
+        bool isApplyingSettingsDefaults;
 
         public event EventHandler<string>? StatusChanged;
 
@@ -112,10 +114,7 @@ namespace AnalysisITC.Avalonia.FinalFigure
         {
             BuildLayout();
             WireEvents();
-            energyUnitCombo.SelectedIndex = Array.IndexOf(EnergyUnits, AppSettings.EnergyUnit);
-            if (energyUnitCombo.SelectedIndex < 0) energyUnitCombo.SelectedIndex = 0;
-            uncertaintyCombo.SelectedIndex = Array.IndexOf(UncertaintyStyles, AppSettings.UncertaintyDisplayStyle);
-            if (uncertaintyCombo.SelectedIndex < 0) uncertaintyCombo.SelectedIndex = 1;
+            ApplySettingsDefaults();
         }
 
         public ITCDataContainer? SelectedItem
@@ -131,6 +130,44 @@ namespace AnalysisITC.Avalonia.FinalFigure
 
         public void InvalidatePreview()
         {
+            cacheKey = null;
+            if (figureExperiment != null)
+                RefreshPreview(force: true);
+        }
+
+        public void ApplySettingsDefaults()
+        {
+            try
+            {
+                isApplyingSettingsDefaults = true;
+
+                var dimensions = AppSettings.FinalFigureDimensions;
+                if (dimensions.Length > 0) widthBox.Text = dimensions[0].ToString("G6", CultureInfo.CurrentCulture);
+                if (dimensions.Length > 1) heightBox.Text = dimensions[1].ToString("G6", CultureInfo.CurrentCulture);
+
+                energyUnitCombo.SelectedIndex = Math.Max(0, Array.IndexOf(EnergyUnits, AppSettings.EnergyUnit));
+                uncertaintyCombo.SelectedIndex = Math.Max(0, Array.IndexOf(UncertaintyStyles, AppSettings.UncertaintyDisplayStyle));
+                experimentDetailsCheck.IsChecked = AppSettings.FinalFigureShowDetailsAsDefault;
+                modelInfoCheck.IsChecked = AppSettings.FinalFigureShowModelInfoAsDefault;
+                fitParametersCheck.IsChecked = AppSettings.FinalFigureShowParameterBoxAsDefault;
+                residualsCheck.IsChecked = AppSettings.ShowResidualGraph;
+                residualGapCheck.IsChecked = AppSettings.ShowResidualGraphGap;
+
+                var display = AppSettings.FinalFigureParameterDisplay;
+                thermodynamicCheck.IsChecked = display.HasFlag(FinalFigureDisplayParameters.Thermodynamic);
+                derivedCheck.IsChecked = display.HasFlag(FinalFigureDisplayParameters.Derived);
+                offsetParameterCheck.IsChecked = display.HasFlag(FinalFigureDisplayParameters.Offset);
+                temperatureCheck.IsChecked = display.HasFlag(FinalFigureDisplayParameters.Temperature);
+                concentrationsCheck.IsChecked = display.HasFlag(FinalFigureDisplayParameters.Concentrations);
+                injectionDelayCheck.IsChecked = display.HasFlag(FinalFigureDisplayParameters.InjectionDelay);
+                instrumentCheck.IsChecked = display.HasFlag(FinalFigureDisplayParameters.Instrument);
+                attributesCheck.IsChecked = display.HasFlag(FinalFigureDisplayParameters.Attributes);
+            }
+            finally
+            {
+                isApplyingSettingsDefaults = false;
+            }
+
             cacheKey = null;
             if (figureExperiment != null)
                 RefreshPreview(force: true);
@@ -152,7 +189,7 @@ namespace AnalysisITC.Avalonia.FinalFigure
 
         void BuildLayout()
         {
-            image.Stretch = Stretch.None;
+            image.Stretch = Stretch.Fill;
             previewHost.Background = Solid("#F1F4F7");
             previewHost.BorderBrush = Solid("#D4DAE1");
             previewHost.BorderThickness = new Thickness(1);
@@ -176,18 +213,37 @@ namespace AnalysisITC.Avalonia.FinalFigure
             };
             Grid.SetColumn(previewHost, 0);
 
+            var inspectorHost = new Grid
+            {
+                RowDefinitions = new RowDefinitions("*,Auto"),
+                Margin = new Thickness(10, 0, 0, 0)
+            };
+
             var inspector = new TabControl
             {
-                Margin = new Thickness(10, 0, 0, 0)
+                Margin = new Thickness(0)
             };
             inspector.Items.Add(Tab("General", BuildGeneralTab()));
             inspector.Items.Add(Tab("Data Graph", BuildDataGraphTab()));
             inspector.Items.Add(Tab("Fit Graph", BuildFitGraphTab()));
-            inspector.Items.Add(Tab("Export", BuildExportTab()));
-            Grid.SetColumn(inspector, 1);
+            Grid.SetRow(inspector, 0);
+
+            var exportFooter = new Border
+            {
+                Background = Brushes.White,
+                BorderBrush = Solid("#D4DAE1"),
+                BorderThickness = new Thickness(1, 0, 1, 1),
+                Padding = new Thickness(10, 8),
+                Child = exportPdfButton
+            };
+            Grid.SetRow(exportFooter, 1);
+
+            inspectorHost.Children.Add(inspector);
+            inspectorHost.Children.Add(exportFooter);
+            Grid.SetColumn(inspectorHost, 1);
 
             root.Children.Add(previewHost);
-            root.Children.Add(inspector);
+            root.Children.Add(inspectorHost);
             Content = root;
         }
 
@@ -278,24 +334,22 @@ namespace AnalysisITC.Avalonia.FinalFigure
             return Scroll(panel);
         }
 
-        Control BuildExportTab()
-        {
-            return Scroll(Section("Export", new Control[]
-            {
-                exportPdfButton
-            }));
-        }
-
         void WireEvents()
         {
             previewHost.SizeChanged += (_, _) => RefreshPreview();
             exportPdfButton.Click += async (_, _) => await ExportPdfAsync();
 
             foreach (var check in AllChecks())
-                check.IsCheckedChanged += (_, _) => RefreshPreview(force: true);
+                check.IsCheckedChanged += (_, _) =>
+                {
+                    if (!isApplyingSettingsDefaults) RefreshPreview(force: true);
+                };
 
             foreach (var combo in AllCombos())
-                combo.SelectionChanged += (_, _) => RefreshPreview(force: true);
+                combo.SelectionChanged += (_, _) =>
+                {
+                    if (!isApplyingSettingsDefaults) RefreshPreview(force: true);
+                };
 
             foreach (var textBox in AllTextBoxes())
             {
@@ -414,7 +468,8 @@ namespace AnalysisITC.Avalonia.FinalFigure
             try
             {
                 var document = PublicationFigureBuilder.Build(figureExperiment, options);
-                var pixelWidth = PreviewPixelWidth(document);
+                var pageSize = renderer.GetPageSize(document);
+                var pixelWidth = PreviewPixelWidth(pageSize);
                 var nextKey = $"{figureExperiment.UniqueID}|{solutionKey}|{pixelWidth}|{options.CacheKey}";
 
                 if (!force && cacheKey == nextKey) return;
@@ -422,6 +477,8 @@ namespace AnalysisITC.Avalonia.FinalFigure
                 using var rendered = renderer.RenderBitmap(document, pixelWidth);
                 var nextBitmap = ToAvaloniaBitmap(rendered);
 
+                image.Width = pageSize.Width;
+                image.Height = pageSize.Height;
                 ReplaceBitmap(nextBitmap);
                 cacheKey = nextKey;
                 statusText.Text = figureExperiment.Solution == null
@@ -435,10 +492,9 @@ namespace AnalysisITC.Avalonia.FinalFigure
             }
         }
 
-        int PreviewPixelWidth(PublicationFigureDocument document)
+        int PreviewPixelWidth(SKSize pageSize)
         {
-            var pageSize = renderer.GetPageSize(document);
-            return Math.Max(200, Math.Min(2400, (int)Math.Round(pageSize.Width)));
+            return Math.Max(800, Math.Min(4096, (int)Math.Round(pageSize.Width * PreviewRenderScale)));
         }
 
         void ReplaceBitmap(Bitmap nextBitmap)
@@ -479,7 +535,7 @@ namespace AnalysisITC.Avalonia.FinalFigure
                 DrawFitOffsetCorrected = offsetCorrectedCheck.IsChecked == true,
                 ShowBadData = excludedCheck.IsChecked == true,
                 ShowBadDataErrorBars = excludedErrorBarsCheck.IsChecked == true,
-                AutoAxesIgnoresBadData = true,
+                AutoAxesIgnoresBadData = AppSettings.AutoAxesIgnoresBadData,
                 IncludeResidualGraphGap = residualGapCheck.IsChecked == true,
                 SanitizeTicks = sanitizeTicksCheck.IsChecked == true,
                 DrawBaselineCorrected = correctedDataCheck.IsChecked == true,
@@ -574,7 +630,7 @@ namespace AnalysisITC.Avalonia.FinalFigure
             };
         }
 
-        async Task ExportPdfAsync()
+        public async Task ExportPdfAsync()
         {
             if (selectedItem is AnalysisResult result)
             {

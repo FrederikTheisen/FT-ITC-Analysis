@@ -6,18 +6,25 @@ using System.Threading.Tasks;
 
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Layout;
 using Avalonia.Media;
 using Avalonia.Platform.Storage;
 using Avalonia.Threading;
 
+using AnalysisITC.Core.Analysis;
 using AnalysisITC.Core.Analysis.Models;
 using AnalysisITC.Core.Application;
 using AnalysisITC.Core.Data;
 using AnalysisITC.Core.DataReaders;
+using AnalysisITC.Core.Export;
 using AnalysisITC.Core.Presentation;
+using AnalysisITC.Core.Units;
 using AnalysisITC.Core.Utilities;
 using AnalysisITC.Avalonia.Details;
+using AnalysisITC.Avalonia.Dialogs;
+using AnalysisITC.Avalonia.Menus;
+using AnalysisITC.Avalonia.Preferences;
 
 namespace AnalysisITC.Avalonia;
 
@@ -25,13 +32,14 @@ public partial class MainWindow : Window
 {
     List<DataListEntry> entries = new List<DataListEntry>();
     ITCDataContainer? selectedItem;
+    AppMenuController? menuController;
     bool isUpdatingOverviewMode;
 
     public MainWindow()
     {
         InitializeComponent();
 
-        OpenButton.Click += async (_, _) => await OpenFilesAsync();
+        OpenButton.Click += async (_, _) => await OpenFilesFromMenuAsync();
         ClearButton.Click += (_, _) => ClearData();
         IncludeAllButton.Click += (_, _) => SetAllExperimentInclusion(true);
         IncludeNoneButton.Click += (_, _) => SetAllExperimentInclusion(false);
@@ -39,6 +47,7 @@ public partial class MainWindow : Window
         OverviewInjectionsButton.IsCheckedChanged += (_, _) => SelectOverviewMode(rawData: false);
         OverviewDetailsButton.Click += async (_, _) => await OpenSelectedDetailsAsync();
         ItemsList.SelectionChanged += (_, _) => SelectListItem();
+        WorkspaceTabs.SelectionChanged += (_, _) => RefreshMenuState();
         ProcessingWorkspace.StatusChanged += OnProcessingStatusChanged;
         ProcessingWorkspace.ProcessingChanged += OnProcessingChanged;
         AnalysisWorkspace.StatusChanged += OnAnalysisStatusChanged;
@@ -55,6 +64,9 @@ public partial class MainWindow : Window
         StatusBarManager.StatusUpdated += OnStatusUpdated;
         StatusBarManager.SecondaryStatusUpdated += OnSecondaryStatusUpdated;
         AppEventHandler.ShowAppMessage += OnAppMessage;
+
+        menuController = new AppMenuController(this);
+        menuController.Install();
 
         RefreshDataList();
         UpdateSelection(null);
@@ -80,6 +92,379 @@ public partial class MainWindow : Window
         ResultWorkspace.DetailsRequested -= OnResultDetailsRequested;
 
         base.OnClosed(e);
+    }
+
+    internal Menu MenuHost => InWindowMenu;
+    internal int ActiveWorkspaceIndex => WorkspaceTabs.IsVisible ? WorkspaceTabs.SelectedIndex : -1;
+
+    internal bool HasDocumentContent() => DataManager.SourceItems.Count > 0;
+    internal bool HasDataLoaded() => DataManager.DataIsLoaded;
+    internal bool HasSelectedItem() => selectedItem != null;
+    internal bool HasSelectedExperiment() => selectedItem is ExperimentData;
+    internal bool HasSelectedResult() => selectedItem is AnalysisResult;
+    internal bool HasAnyResults() => DataManager.Results.Count > 0;
+    internal bool HasAnyProcessedData() => DataManager.AnyDataIsBaselineProcessed;
+    internal bool CanUndoDelete() => StateManager.StateCanUndo();
+    internal bool HasExperimentsWithAttributes() => DataManager.Data.Any(data => data.Attributes.Count > 0);
+    internal bool CanEnableAnyExperiment() => DataManager.Data.Any(data => !data.Include);
+    internal bool CanDisableAnyExperiment() => DataManager.Data.Any(data => data.Include);
+    internal bool SelectedExperimentHasAttributes() => selectedItem is ExperimentData data && data.Attributes.Count > 0;
+    internal bool SelectedExperimentHasSolution() => selectedItem is ExperimentData data && data.Solution != null;
+    internal bool HasSelectedProcessor() => selectedItem is ExperimentData data && data.HasThermogram && data.Processor?.Interpolator != null;
+    internal bool CanExportFinalFigure() => selectedItem is ExperimentData or AnalysisResult;
+    internal bool IsAutoOpenResultEnabled() => AppSettings.AutoOpenNewAnalysisResult;
+
+    internal Task OpenFilesFromMenuAsync() => OpenFilesAsync();
+
+    internal async Task SaveDocumentAsync()
+    {
+        if (!HasDocumentContent()) return;
+
+        var saved = FTITCWriter.IsSaved
+            ? await FTITCWriter.SaveWithPathAsync()
+            : await FTITCWriter.SaveState2Async();
+
+        if (saved) StatusBarManager.SetFileSaveSuccessfulMessage(FTITCFormat.CurrentAccessedAppDocumentPath);
+        RefreshMenuState();
+    }
+
+    internal async Task SaveDocumentAsAsync()
+    {
+        if (!HasDocumentContent()) return;
+
+        var saved = await FTITCWriter.SaveState2Async();
+        if (saved) StatusBarManager.SetFileSaveSuccessfulMessage(FTITCFormat.CurrentAccessedAppDocumentPath);
+        RefreshMenuState();
+    }
+
+    internal async Task SaveSelectedAsync()
+    {
+        if (selectedItem == null) return;
+
+        var saved = await FTITCWriter.SaveSelectedAsync(selectedItem);
+        if (saved) StatusBarManager.SetStatus("Selected item saved", 3000);
+    }
+
+    internal async Task ClearDataWithConfirmationAsync()
+    {
+        if (!HasDocumentContent()) return;
+
+        if (!await ConfirmAsync(
+            "Remove All Data/Results",
+            "Are you sure you want to remove all loaded data and analysis results?",
+            "Keep",
+            "Remove"))
+            return;
+
+        ClearData();
+    }
+
+    internal async Task ExportDataAsync(bool selectedOnly)
+    {
+        await Exporter.ExportAsync(ExportType.Data, selectedOnly ? ExportDataSelection.SelectedData : null);
+        RefreshMenuState();
+    }
+
+    internal async Task ExportPeaksAsync()
+    {
+        await Exporter.ExportAsync(ExportType.Peaks);
+        RefreshMenuState();
+    }
+
+    internal async Task ExportFinalFigureAsync()
+    {
+        await FinalFigureWorkspace.ExportPdfAsync();
+        RefreshMenuState();
+    }
+
+    internal Task UndoDeleteAsync()
+    {
+        StateManager.Undo();
+        RefreshDataList();
+        RefreshMenuState();
+        return Task.CompletedTask;
+    }
+
+    internal Task DuplicateSelectedDataAsync()
+    {
+        if (selectedItem is not ExperimentData experiment) return Task.CompletedTask;
+
+        DataManager.DuplicateSelectedData(experiment);
+        RefreshDataList();
+        RefreshMenuState();
+        return Task.CompletedTask;
+    }
+
+    internal Task CopyAttributesToAllAsync()
+    {
+        DataManager.CopySelectedAttributesToAll();
+        StatusBarManager.SetStatus("Attributes copied to all experiments", 3000);
+        RefreshMenuState();
+        return Task.CompletedTask;
+    }
+
+    internal async Task ClearProcessingResultsAsync()
+    {
+        if (!HasAnyResults()) return;
+
+        if (!await ConfirmAsync(
+            "Clear Processing/Results",
+            $"Are you sure you want to remove all {DataManager.Results.Count} analysis results?",
+            "Keep",
+            "Remove"))
+            return;
+
+        DataManager.ClearProcessing();
+        RefreshDataList();
+        InvalidateFinalFigurePreview();
+        RefreshMenuState();
+    }
+
+    internal Task SetAllExperimentInclusionAsync(bool include)
+    {
+        SetAllExperimentInclusion(include);
+        RefreshMenuState();
+        return Task.CompletedTask;
+    }
+
+    internal Task InvertExperimentInclusionAsync()
+    {
+        var included = DataManager.IncludedData.ToList();
+        DataManager.SetAllIncludeState(true);
+
+        foreach (var data in included)
+            data.Include = false;
+
+        DataManager.InvokeDataInclusionDidChange();
+        RefreshDataList();
+        RefreshMenuState();
+        return Task.CompletedTask;
+    }
+
+    internal Task SortDataAsync(DataManager.SortMode mode)
+    {
+        DataManager.SortContent(mode);
+        RefreshDataList();
+        RefreshMenuState();
+        return Task.CompletedTask;
+    }
+
+    internal Task SelectWorkspaceAsync(int index)
+    {
+        if (selectedItem is ExperimentData && index >= 0 && index < WorkspaceTabs.Items.Count)
+        {
+            WorkspaceTabs.IsVisible = true;
+            ResultWorkspace.IsVisible = false;
+            WorkspaceTabs.SelectedIndex = index;
+            RefreshMenuState();
+        }
+
+        return Task.CompletedTask;
+    }
+
+    internal Task ShowResultViewAsync()
+    {
+        if (selectedItem is AnalysisResult)
+        {
+            WorkspaceTabs.IsVisible = false;
+            ResultWorkspace.IsVisible = true;
+            RefreshMenuState();
+        }
+
+        return Task.CompletedTask;
+    }
+
+    internal Task OpenSelectedDetailsFromMenuAsync() => OpenSelectedDetailsAsync();
+
+    internal Task ToggleSelectedExperimentInclusionAsync()
+    {
+        if (selectedItem is ExperimentData experiment)
+        {
+            experiment.ToggleInclude();
+            RefreshDataList();
+            AnalysisWorkspace.RefreshIncludedDataState();
+            InvalidateFinalFigurePreview();
+            RefreshMenuState();
+        }
+
+        return Task.CompletedTask;
+    }
+
+    internal async Task ClearSelectedExperimentSolutionAsync()
+    {
+        if (selectedItem is not ExperimentData experiment || experiment.Solution == null) return;
+
+        if (!await ConfirmAsync(
+            "Clear Solution",
+            $"Are you sure you want to clear the fitted solution for {experiment.Name}?",
+            "Keep",
+            "Clear"))
+            return;
+
+        experiment.RemoveModel();
+        RefreshOverview();
+        InvalidateFinalFigurePreview();
+        RefreshMenuState();
+    }
+
+    internal async Task RemoveSelectedItemAsync()
+    {
+        if (selectedItem == null) return;
+
+        var itemType = selectedItem is AnalysisResult ? "Result" : "Data";
+        var itemName = string.IsNullOrWhiteSpace(selectedItem.Name) ? selectedItem.FileName : selectedItem.Name;
+
+        if (!await ConfirmAsync(
+            $"Remove {itemType}",
+            $"Are you sure you want to remove {itemName}?",
+            "Keep",
+            "Remove"))
+            return;
+
+        DataManager.RemoveSourceItemAt(DataManager.SelectedContentIndex);
+        RefreshDataList();
+        RefreshMenuState();
+    }
+
+    internal Task ToggleSelectedProcessorLockAsync()
+    {
+        if (selectedItem is ExperimentData experiment && experiment.Processor != null)
+        {
+            experiment.Processor.ToggleLock();
+            ProcessingWorkspace.Experiment = experiment;
+            RefreshMenuState();
+        }
+
+        return Task.CompletedTask;
+    }
+
+    internal Task CopyProcessingToActiveAsync()
+    {
+        DataManager.CopySelectedProcessToActive();
+        RefreshMenuState();
+        return Task.CompletedTask;
+    }
+
+    internal Task CopyProcessingToNonProcessedAsync()
+    {
+        DataManager.CopySelectedProcessToNonProcessed();
+        RefreshMenuState();
+        return Task.CompletedTask;
+    }
+
+    internal Task ToggleAutoOpenResultAsync()
+    {
+        AppSettings.AutoOpenNewAnalysisResult = !AppSettings.AutoOpenNewAnalysisResult;
+        AppSettings.Save();
+        RefreshMenuState();
+        return Task.CompletedTask;
+    }
+
+    internal Task RestoreAnalysisDefaultsAsync()
+    {
+        AppSettings.CreateSingleAnalysisResult = false;
+        AppSettings.CreateGlobalAnalysisResult = true;
+        AppSettings.AutoOpenNewAnalysisResult = true;
+        AppSettings.ParameterLimitSetting = ParameterLimitSetting.Standard;
+        AppSettings.EnableExtendedParameterLimits = false;
+        AppSettings.AnalysisParameterDisplay =
+            FinalFigureDisplayParameters.Model | FinalFigureDisplayParameters.Fitted | FinalFigureDisplayParameters.Derived;
+
+        AnalysisSessionState.Reset();
+        ModelFactory.ResetStoredAnalysisState();
+        AppSettings.Save();
+
+        StatusBarManager.SetStatus("Analysis defaults restored", 3000);
+        AnalysisWorkspace.Experiment = selectedItem as ExperimentData;
+        RefreshMenuState();
+        return Task.CompletedTask;
+    }
+
+    internal Task CopyResultTableAsync()
+    {
+        if (selectedItem is AnalysisResult result)
+        {
+            Exporter.CopyToClipboard(result, result.AppropriateAffinityUnit, AppSettings.EnergyUnit, usekelvin: false);
+            StatusBarManager.SetStatus("Result table copied", 3000);
+        }
+
+        return Task.CompletedTask;
+    }
+
+    internal Task LoadSelectedResultSolutionsAsync()
+    {
+        if (selectedItem is AnalysisResult result)
+        {
+            DataManager.LoadResultSolutionsToExperiments(result);
+            DataManager.InvokeDataDidChange();
+            DataManager.InvokeUpdateTable();
+            RefreshDataList();
+            InvalidateFinalFigurePreview();
+            StatusBarManager.SetStatus("Result solutions loaded into experiments", 3000);
+        }
+
+        return Task.CompletedTask;
+    }
+
+    internal Task SelectResultExperimentsAsync()
+    {
+        if (selectedItem is not AnalysisResult result) return Task.CompletedTask;
+
+        var ids = result.Solution.Solutions
+            .Select(solution => solution.Data?.UniqueID)
+            .Where(id => !string.IsNullOrWhiteSpace(id))
+            .ToHashSet();
+
+        foreach (var data in DataManager.Data)
+            data.Include = ids.Contains(data.UniqueID);
+
+        DataManager.InvokeDataInclusionDidChange();
+        DataManager.InvokeUpdateTable();
+        RefreshDataList();
+        AnalysisWorkspace.RefreshIncludedDataState();
+        InvalidateFinalFigurePreview();
+        StatusBarManager.SetStatus("Experiments used by result selected", 3000);
+
+        return Task.CompletedTask;
+    }
+
+    internal Task NotImplementedAsync()
+    {
+        StatusBarManager.SetStatus("This menu item is not available in the Avalonia app yet", 3000);
+        return Task.CompletedTask;
+    }
+
+    internal async Task ShowAboutAsync()
+    {
+        await AboutDialogWindow.ShowAsync(this);
+    }
+
+    internal async Task OpenPreferencesAsync()
+    {
+        var dialog = new PreferencesWindow();
+        var applied = await dialog.ShowDialog<bool?>(this);
+        if (applied == true || dialog.Applied)
+            RefreshAfterPreferencesApplied();
+    }
+
+    internal Task QuitAsync()
+    {
+        if (Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
+            desktop.Shutdown();
+        else
+            Close();
+
+        return Task.CompletedTask;
+    }
+
+    async Task<bool> ConfirmAsync(string title, string message, string cancelButton, string confirmButton)
+    {
+        return await ConfirmationDialogWindow.ConfirmAsync(this, title, message, cancelButton, confirmButton);
+    }
+
+    void RefreshMenuState()
+    {
+        menuController?.Refresh();
     }
 
     async Task OpenFilesAsync()
@@ -113,6 +498,7 @@ public partial class MainWindow : Window
             SetStatus("Opening data...");
             await DataReader.ReadPathsAsync(paths);
             RefreshDataList();
+            RefreshMenuState();
         }
         finally
         {
@@ -134,6 +520,7 @@ public partial class MainWindow : Window
         DataManager.Clear(DataClearMode.ResetSession);
         RefreshDataList();
         StatusBarManager.SetStatus("Data cleared", 3000);
+        RefreshMenuState();
     }
 
     void RefreshDataList()
@@ -156,6 +543,7 @@ public partial class MainWindow : Window
 
         var next = ItemsList.SelectedItem is DataListEntry entry ? entry.Item : null;
         UpdateSelection(next);
+        RefreshMenuState();
     }
 
     void SelectListItem()
@@ -190,6 +578,7 @@ public partial class MainWindow : Window
             : $"{includedCount}/{experimentCount} included";
         IncludeAllButton.IsEnabled = experimentCount > 0 && includedCount < experimentCount;
         IncludeNoneButton.IsEnabled = experimentCount > 0 && includedCount > 0;
+        RefreshMenuState();
     }
 
     void UpdateSelection(ITCDataContainer? item)
@@ -216,6 +605,8 @@ public partial class MainWindow : Window
             ResultWorkspace.IsVisible = item is AnalysisResult;
             WorkspaceTabs.SelectedIndex = 0;
         }
+
+        RefreshMenuState();
     }
 
     void SelectOverviewMode(bool rawData)
@@ -606,6 +997,20 @@ public partial class MainWindow : Window
         ResultWorkspace.Refresh();
         AnalysisWorkspace.RefreshIncludedDataState();
         InvalidateFinalFigurePreview();
+    }
+
+    void RefreshAfterPreferencesApplied()
+    {
+        RefreshDataList();
+        RefreshOverview();
+        ProcessingWorkspace.Experiment = selectedItem as ExperimentData;
+        AnalysisWorkspace.Experiment = selectedItem as ExperimentData;
+        AnalysisWorkspace.RefreshIncludedDataState();
+        ResultWorkspace.Refresh();
+        FinalFigureWorkspace.ApplySettingsDefaults();
+        InvalidateFinalFigurePreview();
+        RefreshMenuState();
+        StatusBarManager.SetStatus("Preferences updated", 2500);
     }
 
     void InvalidateFinalFigurePreview()

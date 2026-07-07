@@ -13,6 +13,8 @@ namespace AnalysisITC.Platform.Avalonia
             PlatformServices.RegisterMainThreadDispatcher(new AvaloniaMainThreadDispatcher());
             PlatformServices.RegisterAppNotificationService(new AvaloniaAppNotificationService());
             PlatformServices.RegisterClipboardService(new AvaloniaClipboardService());
+            PlatformServices.RegisterFileSavePromptService(new AvaloniaFileSavePromptService());
+            PlatformServices.RegisterExportPromptService(new AvaloniaExportPromptService());
         }
     }
 }

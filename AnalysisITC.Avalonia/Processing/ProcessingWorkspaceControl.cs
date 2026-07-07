@@ -115,8 +115,7 @@ namespace AnalysisITC.Avalonia.Processing
 
             controlsPanel.Margin = new Thickness(10, 0, 0, 0);
             controlsPanel.Items.Add(Tab("Processing", BuildProcessingTab()));
-            controlsPanel.Items.Add(Tab("Selection", BuildSelectionTab()));
-            controlsPanel.Items.Add(Tab("View", BuildViewTab()));
+            controlsPanel.Items.Add(Tab("Selection / View", BuildSelectionViewTab()));
 
             var root = new Grid
             {
@@ -169,28 +168,27 @@ namespace AnalysisITC.Avalonia.Processing
             return Scroll(panel);
         }
 
-        Control BuildSelectionTab()
+        Control BuildSelectionViewTab()
         {
-            return Scroll(Section("Selection", new Control[]
+            var panel = new StackPanel { Spacing = 6 };
+            panel.Children.Add(Section("Selection", new Control[]
             {
                 selectionLabel,
                 Row(allInjectionButton, previousButton, nextButton),
-                copyNextButton,
-                Labeled("Peak width", peakWidthCombo)
+                copyNextButton
             }));
-        }
-
-        Control BuildViewTab()
-        {
-            return Scroll(Section("View", new Control[]
+            panel.Children.Add(Section("View", new Control[]
             {
                 showBaselineCheck,
                 showIntegrationCheck,
                 correctedCheck,
                 cursorInfoCheck,
                 Row(allDataButton, baselineZoomButton),
-                Row(allPeaksButton, focusPeakButton)
+                Row(allPeaksButton, focusPeakButton),
+                Labeled("Peak width", peakWidthCombo)
             }));
+
+            return Scroll(panel);
         }
 
         void WireEvents()

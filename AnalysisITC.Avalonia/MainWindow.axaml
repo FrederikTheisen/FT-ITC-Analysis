@@ -15,8 +15,12 @@
         MinWidth="900"
         MinHeight="600">
     <Grid RowDefinitions="Auto,*,Auto" Background="#F5F7FA">
-        <Border Grid.Row="0" Background="#FFFFFF" BorderBrush="#D4DAE1" BorderThickness="0,0,0,1" Padding="8">
-            <DockPanel>
+        <Border Grid.Row="0" Background="#FFFFFF" BorderBrush="#D4DAE1" BorderThickness="0,0,0,1">
+            <Grid RowDefinitions="Auto,Auto">
+                <Menu x:Name="InWindowMenu"
+                      Grid.Row="0"
+                      Background="#FFFFFF" />
+                <DockPanel Grid.Row="1" Margin="8">
                 <StackPanel Orientation="Horizontal" Spacing="8" DockPanel.Dock="Left">
                     <Button x:Name="OpenButton" Content="Open" MinWidth="72" />
                     <Button x:Name="ClearButton" Content="Clear" MinWidth="72" />
@@ -26,7 +30,8 @@
                            VerticalAlignment="Center"
                            Foreground="#4D5A66"
                            TextTrimming="CharacterEllipsis" />
-            </DockPanel>
+                </DockPanel>
+            </Grid>
         </Border>
 
         <Grid Grid.Row="1" ColumnDefinitions="300,Auto,*">
@@ -58,7 +63,7 @@
                              Grid.Row="1"
                              Margin="8,0,8,8"
                              Background="#FFFFFF"
-                             BorderThickness="1">
+                             BorderThickness="0">
                         <ListBox.Styles>
                             <Style Selector="ListBoxItem">
                                 <Setter Property="MinHeight" Value="0" />
@@ -96,14 +101,14 @@
                                     <TextBlock Grid.Column="1"
                                                Grid.Row="1"
                                                Text="{Binding DateLine}"
-                                               Foreground="#607080"
+                                               Foreground="#202832"
                                                FontSize="10.5"
                                                LineHeight="11.5"
                                                TextTrimming="CharacterEllipsis" />
                                     <TextBlock Grid.Column="1"
                                                Grid.Row="2"
                                                Text="{Binding DetailLine}"
-                                               Foreground="#4D5A66"
+                                               Foreground="#202832"
                                                FontSize="10.5"
                                                LineHeight="11.5"
                                                TextTrimming="CharacterEllipsis"

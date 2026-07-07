@@ -2,6 +2,7 @@ using System.Globalization;
 
 using AnalysisITC.Core.Application;
 using AnalysisITC.Core.Data;
+using AnalysisITC.Avalonia.Preferences;
 using AnalysisITC.Platform;
 using AnalysisITC.Platform.Avalonia;
 
@@ -21,6 +22,7 @@ namespace AnalysisITC.Avalonia
 
             StateManager.Init();
             AppSettings.Initialize();
+            AvaloniaSettingsApplier.Register();
             BufferAttribute.Init();
 
             AppSettings.Locale = PlatformServices.AppEnvironment.LocaleIdentifier;

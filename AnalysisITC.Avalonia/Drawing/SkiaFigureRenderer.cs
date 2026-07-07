@@ -17,17 +17,27 @@ public sealed class SkiaFigureRenderer
     static readonly SKColor Gray = new SKColor(120, 120, 120);
     static readonly SKColor LightGray = new SKColor(205, 205, 205);
     static readonly SKColor BandGray = new SKColor(190, 190, 190, 85);
-    static readonly SKColor AnnotationBackground = new SKColor(255, 255, 255, 238);
-    static readonly SKColor AnnotationBorder = new SKColor(210, 210, 210);
+    static readonly SKColor AnnotationBackground = SKColors.White;
+    static readonly SKColor AnnotationBorder = SKColors.Black;
 
-    const float AxisStrokeWidth = 1.35f;
-    const float DataStrokeWidth = 1.15f;
-    const float FitStrokeWidth = 1.8f;
-    const float TickLength = 5.5f;
-    const float MinorTickLength = 3f;
-    const float TickTextSize = 10.5f;
-    const float AxisTitleSize = 12.5f;
-    const float AnnotationTextSize = 10.5f;
+    internal const float PointsPerCentimeter = 0.5f * 227f / 2.54f;
+    internal const float PageInset = 0.1f * PointsPerCentimeter;
+    internal const float AxisStrokeWidth = 1f;
+    internal const float DataStrokeWidth = 1f;
+    internal const float FitStrokeWidth = 2f;
+    internal const float TickStrokeWidth = AxisStrokeWidth;
+    internal const float TickLength = 6f;
+    internal const float MinorTickLength = 3f;
+    internal const float TickTextSize = 14f;
+    internal const float AxisTitleSize = 16f;
+    internal const float AnnotationTextSize = 12f;
+    internal const float AxisLabelOffset = 7f;
+    internal const float AxisTitleOffset = 7f;
+    internal const float AnnotationInset = 7f;
+    internal const float AnnotationPaddingX = 6f;
+    internal const float AnnotationPaddingY = 4f;
+    internal const float AnnotationLineSpacingFactor = 0.30f;
+    internal const float ResidualGraphGap = 5f;
 
     public SKSize GetPageSize(PublicationFigureDocument document)
     {
@@ -121,7 +131,7 @@ public sealed class SkiaFigureRenderer
         if (panel.DrawZeroLine && panel.YAxis.Minimum < 0 && panel.YAxis.Maximum > 0)
         {
             var zero = Transform(panel, rect, 0, 0);
-            drawing.DrawLine(new SKPoint(rect.Left, zero.Y), new SKPoint(rect.Right, zero.Y), Gray, 0.9f);
+            drawing.DrawLine(new SKPoint(rect.Left, zero.Y), new SKPoint(rect.Right, zero.Y), Gray, AxisStrokeWidth);
         }
 
         foreach (var marker in panel.Markers)
@@ -197,10 +207,10 @@ public sealed class SkiaFigureRenderer
         if (Math.Abs(top.Y - bottom.Y) > symbolSize * 0.7f)
         {
             var cap = symbolSize * 0.45f;
-            drawing.DrawLine(new SKPoint(center.X, top.Y), new SKPoint(center.X, center.Y - symbolSize * 0.5f), Black, 0.9f);
-            drawing.DrawLine(new SKPoint(center.X, center.Y + symbolSize * 0.5f), new SKPoint(center.X, bottom.Y), Black, 0.9f);
-            drawing.DrawLine(new SKPoint(center.X - cap, top.Y), new SKPoint(center.X + cap, top.Y), Black, 0.9f);
-            drawing.DrawLine(new SKPoint(center.X - cap, bottom.Y), new SKPoint(center.X + cap, bottom.Y), Black, 0.9f);
+            drawing.DrawLine(new SKPoint(center.X, top.Y), new SKPoint(center.X, center.Y - symbolSize * 0.5f), Black, AxisStrokeWidth);
+            drawing.DrawLine(new SKPoint(center.X, center.Y + symbolSize * 0.5f), new SKPoint(center.X, bottom.Y), Black, AxisStrokeWidth);
+            drawing.DrawLine(new SKPoint(center.X - cap, top.Y), new SKPoint(center.X + cap, top.Y), Black, AxisStrokeWidth);
+            drawing.DrawLine(new SKPoint(center.X - cap, bottom.Y), new SKPoint(center.X + cap, bottom.Y), Black, AxisStrokeWidth);
         }
 
         DrawSymbol(drawing, center, symbolSize, options.SymbolShape, point.Included);
@@ -232,41 +242,49 @@ public sealed class SkiaFigureRenderer
     void DrawXAxis(SkiaDrawingContext drawing, PublicationFigureDocument document, PublicationFigurePanel panel, SKRect rect, bool drawLabels)
     {
         var labelsAtTop = panel.XAxis.Placement == PublicationAxisPlacement.Top;
-        var labelY = labelsAtTop ? rect.Top - 8 : rect.Bottom + 8;
         var tickStart = labelsAtTop ? rect.Top : rect.Bottom;
         var tickDirection = labelsAtTop ? 1 : -1;
+        var tickLabelHeight = MaxTickLabelHeight(panel.XAxis);
 
         foreach (var tick in panel.XAxis.MinorTicks)
         {
             var x = TransformX(panel, rect, tick);
-            drawing.DrawLine(new SKPoint(x, tickStart), new SKPoint(x, tickStart + tickDirection * MinorTickLength), Black, 0.75f);
-            drawing.DrawLine(new SKPoint(x, labelsAtTop ? rect.Bottom : rect.Top), new SKPoint(x, (labelsAtTop ? rect.Bottom : rect.Top) - tickDirection * MinorTickLength), Black, 0.75f);
+            drawing.DrawLine(new SKPoint(x, tickStart), new SKPoint(x, tickStart + tickDirection * MinorTickLength), Black, TickStrokeWidth);
+            drawing.DrawLine(new SKPoint(x, labelsAtTop ? rect.Bottom : rect.Top), new SKPoint(x, (labelsAtTop ? rect.Bottom : rect.Top) - tickDirection * MinorTickLength), Black, TickStrokeWidth);
         }
 
         foreach (var tick in panel.XAxis.MajorTicks)
         {
             var x = TransformX(panel, rect, tick);
-            drawing.DrawLine(new SKPoint(x, tickStart), new SKPoint(x, tickStart + tickDirection * TickLength), Black, 0.95f);
-            drawing.DrawLine(new SKPoint(x, labelsAtTop ? rect.Bottom : rect.Top), new SKPoint(x, (labelsAtTop ? rect.Bottom : rect.Top) - tickDirection * TickLength), Black, 0.95f);
+            drawing.DrawLine(new SKPoint(x, tickStart), new SKPoint(x, tickStart + tickDirection * TickLength), Black, TickStrokeWidth);
+            drawing.DrawLine(new SKPoint(x, labelsAtTop ? rect.Bottom : rect.Top), new SKPoint(x, (labelsAtTop ? rect.Bottom : rect.Top) - tickDirection * TickLength), Black, TickStrokeWidth);
 
             if (drawLabels)
             {
                 var text = panel.XAxis.FormatTick(tick);
                 if (labelsAtTop)
                 {
-                    drawing.DrawTextCentered(text, new SKPoint(x, labelY - TickTextSize), TickTextSize, Black);
+                    drawing.DrawTextCenteredBottom(text, new SKPoint(x, rect.Top - AxisLabelOffset), TickTextSize, Black);
                 }
                 else
                 {
-                    drawing.DrawTextCentered(text, new SKPoint(x, labelY + 1), TickTextSize, Black);
+                    drawing.DrawTextCenteredTop(text, new SKPoint(x, rect.Bottom + AxisLabelOffset), TickTextSize, Black);
                 }
             }
         }
 
         if (document.Options.ShowAxisTitles && drawLabels && !string.IsNullOrWhiteSpace(panel.XAxis.Title))
         {
-            var y = labelsAtTop ? rect.Top - 28 : rect.Bottom + 31;
-            drawing.DrawTextCentered(panel.XAxis.Title, new SKPoint(rect.MidX, y), AxisTitleSize, Black);
+            if (labelsAtTop)
+            {
+                var bottom = rect.Top - AxisLabelOffset - tickLabelHeight - AxisTitleOffset;
+                drawing.DrawTextCenteredBottom(panel.XAxis.Title, new SKPoint(rect.MidX, bottom), AxisTitleSize, Black);
+            }
+            else
+            {
+                var top = rect.Bottom + AxisLabelOffset + tickLabelHeight + AxisTitleOffset;
+                drawing.DrawTextCenteredTop(panel.XAxis.Title, new SKPoint(rect.MidX, top), AxisTitleSize, Black);
+            }
         }
     }
 
@@ -275,21 +293,23 @@ public sealed class SkiaFigureRenderer
         foreach (var tick in panel.YAxis.MinorTicks)
         {
             var y = TransformY(panel, rect, tick);
-            drawing.DrawLine(new SKPoint(rect.Left, y), new SKPoint(rect.Left + MinorTickLength, y), Black, 0.75f);
-            drawing.DrawLine(new SKPoint(rect.Right, y), new SKPoint(rect.Right - MinorTickLength, y), Black, 0.75f);
+            drawing.DrawLine(new SKPoint(rect.Left, y), new SKPoint(rect.Left + MinorTickLength, y), Black, TickStrokeWidth);
+            drawing.DrawLine(new SKPoint(rect.Right, y), new SKPoint(rect.Right - MinorTickLength, y), Black, TickStrokeWidth);
         }
 
         foreach (var tick in panel.YAxis.MajorTicks)
         {
             var y = TransformY(panel, rect, tick);
-            drawing.DrawLine(new SKPoint(rect.Left, y), new SKPoint(rect.Left + TickLength, y), Black, 0.95f);
-            drawing.DrawLine(new SKPoint(rect.Right, y), new SKPoint(rect.Right - TickLength, y), Black, 0.95f);
-            drawing.DrawTextRight(panel.YAxis.FormatTick(tick), new SKPoint(rect.Left - 8, y + TickTextSize * 0.35f), TickTextSize, Black);
+            drawing.DrawLine(new SKPoint(rect.Left, y), new SKPoint(rect.Left + TickLength, y), Black, TickStrokeWidth);
+            drawing.DrawLine(new SKPoint(rect.Right, y), new SKPoint(rect.Right - TickLength, y), Black, TickStrokeWidth);
+            drawing.DrawTextRightMiddle(panel.YAxis.FormatTick(tick), new SKPoint(rect.Left - AxisLabelOffset, y), TickTextSize, Black);
         }
 
         if (document.Options.ShowAxisTitles && !string.IsNullOrWhiteSpace(panel.YAxis.Title))
         {
-            drawing.DrawTextRotated(panel.YAxis.Title, new SKPoint(rect.Left - 50, rect.MidY), AxisTitleSize, Black, -90);
+            var titleHeight = drawing.MeasureText(panel.YAxis.Title, AxisTitleSize).Height;
+            var titleCenterX = PageInset + titleHeight * 0.5f;
+            drawing.DrawTextRotated(panel.YAxis.Title, new SKPoint(titleCenterX, rect.MidY), AxisTitleSize, Black, -90);
         }
     }
 
@@ -297,26 +317,23 @@ public sealed class SkiaFigureRenderer
     {
         if (box.Lines.Count == 0) return;
 
-        const float paddingX = 6;
-        const float paddingY = 5;
-        const float lineGap = 2;
-
         var widths = box.Lines.Select(line => drawing.MeasureRichText(line, AnnotationTextSize).Width).ToList();
-        var lineHeight = AnnotationTextSize * 1.25f;
-        var width = widths.Max() + paddingX * 2;
-        var height = box.Lines.Count * lineHeight + (box.Lines.Count - 1) * lineGap + paddingY * 2;
+        var lineHeight = AnnotationTextSize;
+        var lineGap = AnnotationTextSize * AnnotationLineSpacingFactor;
+        var width = widths.Max() + AnnotationPaddingX * 2;
+        var height = box.Lines.Count * lineHeight + (box.Lines.Count - 1) * lineGap + AnnotationPaddingY * 2;
         var upper = ResolveBoxUpperPlacement(panel, box);
-        var x = rect.Right - width - 8;
-        var y = upper ? rect.Top + 8 : rect.Bottom - height - 8;
+        var x = rect.Right - width - AnnotationInset;
+        var y = upper ? rect.Top + AnnotationInset : rect.Bottom - height - AnnotationInset;
         var boxRect = new SKRect(x, y, x + width, y + height);
 
         drawing.FillRect(boxRect, AnnotationBackground);
-        drawing.DrawRect(boxRect, AnnotationBorder, 0.75f);
+        drawing.DrawRect(boxRect, AnnotationBorder, AxisStrokeWidth);
 
-        var textY = y + paddingY;
+        var textY = y + AnnotationPaddingY;
         foreach (var line in box.Lines)
         {
-            drawing.DrawRichText(line, new SKPoint(x + paddingX, textY), AnnotationTextSize, Black);
+            drawing.DrawRichText(line, new SKPoint(x + AnnotationPaddingX, textY), AnnotationTextSize, Black);
             textY += lineHeight + lineGap;
         }
     }
@@ -370,6 +387,20 @@ public sealed class SkiaFigureRenderer
     {
         return !double.IsNaN(value) && !double.IsInfinity(value);
     }
+
+    internal static float MaxTickLabelWidth(PublicationAxis axis)
+    {
+        return axis.MajorTicks.Count == 0
+            ? 0
+            : axis.MajorTicks.Max(tick => SkiaDrawingContext.MeasureTextValue(axis.FormatTick(tick), TickTextSize).Width);
+    }
+
+    internal static float MaxTickLabelHeight(PublicationAxis axis)
+    {
+        return axis.MajorTicks.Count == 0
+            ? 0
+            : axis.MajorTicks.Max(tick => SkiaDrawingContext.MeasureTextValue(axis.FormatTick(tick), TickTextSize).Height);
+    }
 }
 
 sealed class PublicationFigureLayout
@@ -382,14 +413,12 @@ sealed class PublicationFigureLayout
 
     public static PublicationFigureLayout Create(PublicationFigureDocument document)
     {
-        const float leftMargin = 70;
-        const float rightMargin = 12;
-        const float topMargin = 38;
-        const float bottomMargin = 54;
-        const float residualGap = 6;
-
         var plotWidth = (float)Math.Max(120, document.PlotWidth);
         var plotHeight = (float)Math.Max(160, document.PlotHeight);
+        var leftMargin = EstimateLeftMargin(document);
+        var rightMargin = SkiaFigureRenderer.PageInset;
+        var topMargin = EstimateTopMargin(document);
+        var bottomMargin = EstimateBottomMargin(document);
         var pageWidth = leftMargin + plotWidth + rightMargin;
         var pageHeight = topMargin + plotHeight + bottomMargin;
         var plotLeft = leftMargin;
@@ -406,7 +435,7 @@ sealed class PublicationFigureLayout
 
         if (hasResidual)
         {
-            gap = document.Options.IncludeResidualGraphGap ? residualGap : 0;
+            gap = document.Options.IncludeResidualGraphGap ? SkiaFigureRenderer.ResidualGraphGap : 0;
             residualHeight = Math.Max(35, fitCompositeHeight * residualFraction);
             fitHeight = Math.Max(60, fitCompositeHeight - residualHeight - gap);
         }
@@ -423,6 +452,53 @@ sealed class PublicationFigureLayout
                 ? new SKRect(plotLeft, fitCompositeTop + fitHeight + gap, plotLeft + plotWidth, fitCompositeTop + fitHeight + gap + residualHeight)
                 : SKRect.Empty
         };
+    }
+
+    static float EstimateLeftMargin(PublicationFigureDocument document)
+    {
+        return document.Panels
+            .Select(panel => EstimateVerticalAxisMargin(panel.YAxis, document.Options.ShowAxisTitles))
+            .DefaultIfEmpty(SkiaFigureRenderer.PageInset)
+            .Max();
+    }
+
+    static float EstimateTopMargin(PublicationFigureDocument document)
+    {
+        return document.ThermogramPanel != null
+            ? EstimateHorizontalAxisMargin(document.ThermogramPanel.XAxis, document.Options.ShowAxisTitles)
+            : SkiaFigureRenderer.PageInset;
+    }
+
+    static float EstimateBottomMargin(PublicationFigureDocument document)
+    {
+        var axis = document.ResidualPanel?.XAxis ?? document.FitPanel?.XAxis;
+        return axis != null
+            ? EstimateHorizontalAxisMargin(axis, document.Options.ShowAxisTitles)
+            : SkiaFigureRenderer.PageInset;
+    }
+
+    static float EstimateHorizontalAxisMargin(PublicationAxis axis, bool showAxisTitle)
+    {
+        var titleHeight = showAxisTitle && !string.IsNullOrWhiteSpace(axis.Title)
+            ? SkiaDrawingContext.MeasureTextValue(axis.Title, SkiaFigureRenderer.AxisTitleSize).Height
+            : 0;
+
+        return SkiaFigureRenderer.AxisLabelOffset
+            + SkiaFigureRenderer.AxisTitleOffset
+            + SkiaFigureRenderer.MaxTickLabelHeight(axis)
+            + titleHeight;
+    }
+
+    static float EstimateVerticalAxisMargin(PublicationAxis axis, bool showAxisTitle)
+    {
+        var titleHeight = showAxisTitle && !string.IsNullOrWhiteSpace(axis.Title)
+            ? SkiaDrawingContext.MeasureTextValue(axis.Title, SkiaFigureRenderer.AxisTitleSize).Height
+            : 0;
+
+        return SkiaFigureRenderer.AxisLabelOffset
+            + SkiaFigureRenderer.AxisTitleOffset
+            + SkiaFigureRenderer.MaxTickLabelWidth(axis)
+            + titleHeight;
     }
 }
 
@@ -486,24 +562,67 @@ sealed class SkiaDrawingContext
         canvas.DrawPath(path, paint);
     }
 
-    public void DrawTextCentered(string text, SKPoint point, float size, SKColor color)
+    public void DrawTextCenteredBaseline(string text, SKPoint baseline, float size, SKColor color)
     {
-        var metrics = MeasureText(text, size);
-        DrawText(text, new SKPoint(point.X - metrics.Width / 2, point.Y + metrics.Height), size, color);
+        using var paint = TextPaint(color);
+        using var font = TextFont(size, bold: false, italic: false);
+        var width = font.MeasureText(text ?? "", paint);
+        canvas.DrawText(text ?? "", baseline.X - width / 2, baseline.Y, SKTextAlign.Left, font, paint);
     }
 
-    public void DrawTextRight(string text, SKPoint point, float size, SKColor color)
+    public void DrawTextRightBaseline(string text, SKPoint baseline, float size, SKColor color)
     {
-        var metrics = MeasureText(text, size);
-        DrawText(text, new SKPoint(point.X - metrics.Width, point.Y), size, color);
+        using var paint = TextPaint(color);
+        using var font = TextFont(size, bold: false, italic: false);
+        var width = font.MeasureText(text ?? "", paint);
+        canvas.DrawText(text ?? "", baseline.X - width, baseline.Y, SKTextAlign.Left, font, paint);
+    }
+
+    public void DrawTextCenteredTop(string text, SKPoint topCenter, float size, SKColor color)
+    {
+        using var paint = TextPaint(color);
+        using var font = TextFont(size, bold: false, italic: false);
+        var value = text ?? "";
+        var width = font.MeasureText(value, paint);
+        var metrics = font.Metrics;
+        var baseline = topCenter.Y - metrics.Ascent;
+        canvas.DrawText(value, topCenter.X - width / 2, baseline, SKTextAlign.Left, font, paint);
+    }
+
+    public void DrawTextCenteredBottom(string text, SKPoint bottomCenter, float size, SKColor color)
+    {
+        using var paint = TextPaint(color);
+        using var font = TextFont(size, bold: false, italic: false);
+        var value = text ?? "";
+        var width = font.MeasureText(value, paint);
+        var metrics = font.Metrics;
+        var baseline = bottomCenter.Y - metrics.Descent;
+        canvas.DrawText(value, bottomCenter.X - width / 2, baseline, SKTextAlign.Left, font, paint);
+    }
+
+    public void DrawTextRightMiddle(string text, SKPoint rightCenter, float size, SKColor color)
+    {
+        using var paint = TextPaint(color);
+        using var font = TextFont(size, bold: false, italic: false);
+        var value = text ?? "";
+        var width = font.MeasureText(value, paint);
+        var metrics = font.Metrics;
+        var baseline = rightCenter.Y - (metrics.Ascent + metrics.Descent) * 0.5f;
+        canvas.DrawText(value, rightCenter.X - width, baseline, SKTextAlign.Left, font, paint);
     }
 
     public void DrawTextRotated(string text, SKPoint point, float size, SKColor color, float degrees)
     {
+        using var paint = TextPaint(color);
+        using var font = TextFont(size, bold: false, italic: false);
+        var width = font.MeasureText(text ?? "", paint);
+        var metrics = font.Metrics;
+        var baseline = -(metrics.Ascent + metrics.Descent) * 0.5f;
+
         canvas.Save();
         canvas.Translate(point);
         canvas.RotateDegrees(degrees);
-        DrawTextCentered(text, new SKPoint(0, -size), size, color);
+        canvas.DrawText(text ?? "", -width / 2, baseline, SKTextAlign.Left, font, paint);
         canvas.Restore();
     }
 
@@ -517,6 +636,11 @@ sealed class SkiaDrawingContext
     }
 
     public SKSize MeasureText(string text, float size, bool bold = false, bool italic = false)
+    {
+        return MeasureTextValue(text, size, bold, italic);
+    }
+
+    public static SKSize MeasureTextValue(string text, float size, bool bold = false, bool italic = false)
     {
         using var paint = TextPaint(SKColors.Black);
         using var font = TextFont(size, bold, italic);
@@ -542,12 +666,17 @@ sealed class SkiaDrawingContext
 
     public SKSize MeasureRichText(string text, float size)
     {
+        return MeasureRichTextValue(text, size);
+    }
+
+    public static SKSize MeasureRichTextValue(string text, float size)
+    {
         var width = 0f;
         var height = size * 1.25f;
 
         foreach (var part in RichTextParts(text, size))
         {
-            width += MeasureText(part.Text, part.Size, part.Bold, part.Italic).Width;
+            width += MeasureTextValue(part.Text, part.Size, part.Bold, part.Italic).Width;
         }
 
         return new SKSize(width, height);
@@ -614,12 +743,22 @@ sealed class SkiaDrawingContext
 
     static SKFont TextFont(float size, bool bold, bool italic)
     {
-        return new SKFont
+        var font = new SKFont(TextTypeface, size)
         {
-            Size = size,
             Embolden = bold,
             SkewX = italic ? -0.25f : 0
         };
+
+        return font;
+    }
+
+    static readonly SKTypeface TextTypeface = CreateTextTypeface();
+
+    static SKTypeface CreateTextTypeface()
+    {
+        return SKTypeface.FromFamilyName("Helvetica Neue", SKFontStyleWeight.Light, SKFontStyleWidth.Normal, SKFontStyleSlant.Upright)
+            ?? SKTypeface.FromFamilyName("Helvetica Neue")
+            ?? SKTypeface.Default;
     }
 
     static SKPath LinearPath(IReadOnlyList<SKPoint> points)

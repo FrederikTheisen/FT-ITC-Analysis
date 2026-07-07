@@ -6,6 +6,7 @@ using System.Linq;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Layout;
+using Avalonia.Media;
 
 using AnalysisITC.Core.Analysis;
 using AnalysisITC.Core.Application;
@@ -21,8 +22,17 @@ namespace AnalysisITC.Avalonia.Details
     {
         readonly ExperimentAttribute attribute;
         readonly Func<ExperimentAttribute, AttributeKey, bool> canUseKey;
-        readonly ComboBox keyCombo = new ComboBox { Width = 150, Height = 24 };
-        readonly StackPanel editorPanel = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 4, VerticalAlignment = VerticalAlignment.Center };
+        readonly ComboBox keyCombo = new ComboBox
+        {
+            Width = 148,
+            Height = 28,
+            MinHeight = 28,
+            MaxHeight = 28,
+            FontSize = 13,
+            Padding = new Thickness(7, 0),
+            Margin = new Thickness(0, 0, 4, 3)
+        };
+        readonly WrapPanel editorPanel = new WrapPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
 
         ComboBox? enumCombo;
         ComboBox? referenceCombo;
@@ -104,8 +114,7 @@ namespace AnalysisITC.Avalonia.Details
             var root = new Grid
             {
                 ColumnDefinitions = new ColumnDefinitions("Auto,Auto,*"),
-                ColumnSpacing = 4,
-                Margin = new Thickness(0, 1)
+                ColumnSpacing = 4
             };
 
             root.Children.Add(removeButton);
@@ -114,7 +123,15 @@ namespace AnalysisITC.Avalonia.Details
             Grid.SetColumn(editorPanel, 2);
             root.Children.Add(editorPanel);
 
-            Content = root;
+            Content = new Border
+            {
+                Background = Solid("#FAFBFC"),
+                BorderBrush = Solid("#E3E7EC"),
+                BorderThickness = new Thickness(1),
+                Padding = new Thickness(6, 5),
+                Margin = new Thickness(0, 0, 0, 4),
+                Child = root
+            };
             BuildEditor();
         }
 
@@ -403,7 +420,8 @@ namespace AnalysisITC.Avalonia.Details
             return new TextBlock
             {
                 Text = text,
-                VerticalAlignment = VerticalAlignment.Center
+                VerticalAlignment = VerticalAlignment.Center,
+                Margin = new Thickness(0, 0, 4, 3)
             };
         }
 
@@ -413,8 +431,13 @@ namespace AnalysisITC.Avalonia.Details
             {
                 Text = text,
                 Width = width,
-                Height = 24,
-                Padding = new Thickness(6, 1),
+                Height = 28,
+                MinHeight = 28,
+                MaxHeight = 28,
+                Margin = new Thickness(0, 0, 4, 3),
+                Padding = new Thickness(7, 0),
+                FontSize = 13,
+                HorizontalAlignment = HorizontalAlignment.Left,
                 VerticalContentAlignment = VerticalAlignment.Center
             };
         }
@@ -426,8 +449,12 @@ namespace AnalysisITC.Avalonia.Details
                 ItemsSource = choices,
                 SelectedItem = selected ?? choices.FirstOrDefault(),
                 Width = width,
-                Height = 24,
-                Padding = new Thickness(6, 0),
+                Height = 28,
+                MinHeight = 28,
+                MaxHeight = 28,
+                Margin = new Thickness(0, 0, 4, 3),
+                Padding = new Thickness(7, 0),
+                FontSize = 13,
                 VerticalAlignment = VerticalAlignment.Center
             };
         }
@@ -444,5 +471,7 @@ namespace AnalysisITC.Avalonia.Details
             public string Label { get; }
             public override string ToString() => Label;
         }
+
+        static IBrush Solid(string color) => new SolidColorBrush(Color.Parse(color));
     }
 }
