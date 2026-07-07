@@ -38,8 +38,8 @@ namespace AnalysisITC.Avalonia.Analysis
         readonly Button stopFitButton = Button("Stop", 70);
         readonly TextBlock fitStatusText = Text();
 
-        readonly StackPanel parameterPanel = new StackPanel { Spacing = 6 };
-        readonly StackPanel optionPanel = new StackPanel { Spacing = 6 };
+        readonly StackPanel parameterPanel = WorkspaceControlBuilder.InspectorPanel();
+        readonly StackPanel optionPanel = WorkspaceControlBuilder.InspectorPanel();
 
         readonly CheckBox fitCheck = Check("Fit line", true);
         readonly CheckBox residualsCheck = Check("Residuals", true);
@@ -152,7 +152,7 @@ namespace AnalysisITC.Avalonia.Analysis
 
         Control BuildFitTab()
         {
-            var panel = new StackPanel { Spacing = 6 };
+            var panel = WorkspaceControlBuilder.InspectorPanel();
             panel.Children.Add(Section("Fit setup", new Control[]
             {
                 Labeled("Mode", modeCombo),
@@ -434,69 +434,20 @@ namespace AnalysisITC.Avalonia.Analysis
 
         Control BuildParameterRow(Parameter parameter)
         {
-            var name = parameter.Key.GetProperties();
-            var valueBox = TextBox(parameter.Value.ToString("G6", CultureInfo.CurrentCulture));
-            var lockCheck = Check("Lock", parameter.IsLocked);
-            var resetButton = Button("Reset", 60);
-            var state = Text(parameter.IsFitted ? "fitted" : parameter.IsGloballyDetermined ? "global" : "locked");
-
-            void ApplyParameter()
-            {
-                if (isUpdatingControls) return;
-                if (!double.TryParse(valueBox.Text, NumberStyles.Float, CultureInfo.CurrentCulture, out var value))
+            return AnalysisParameterRowBuilder.Build(
+                parameter,
+                apply: (key, value, isLocked) =>
                 {
-                    fitStatusText.Text = $"Invalid value for {name.Name}";
-                    return;
-                }
-
-                workspace.SetParameterOverride(parameter.Key, value, lockCheck.IsChecked == true);
-                fitStatusText.Text = $"{name.Name} updated";
-                FittingChanged?.Invoke(this, EventArgs.Empty);
-            }
-
-            valueBox.LostFocus += (_, _) => ApplyParameter();
-            valueBox.KeyDown += (_, e) =>
-            {
-                if (e.Key == Key.Enter) ApplyParameter();
-            };
-            lockCheck.IsCheckedChanged += (_, _) => ApplyParameter();
-            resetButton.Click += (_, _) =>
-            {
-                workspace.ResetParameterOverride(parameter.Key);
-                fitStatusText.Text = $"{name.Name} reset";
-                FittingChanged?.Invoke(this, EventArgs.Empty);
-            };
-
-            var row = new Grid
-            {
-                ColumnDefinitions = new ColumnDefinitions("*,78,58,60"),
-                ColumnSpacing = 6
-            };
-            row.Children.Add(new TextBlock
-            {
-                Text = string.IsNullOrWhiteSpace(name.SymbolName) ? name.Name : $"{name.Name} ({name.SymbolName})",
-                VerticalAlignment = VerticalAlignment.Center,
-                Foreground = Solid("#202832"),
-                TextWrapping = TextWrapping.Wrap
-            });
-            Grid.SetColumn(valueBox, 1);
-            Grid.SetColumn(lockCheck, 2);
-            Grid.SetColumn(resetButton, 3);
-            row.Children.Add(valueBox);
-            row.Children.Add(lockCheck);
-            row.Children.Add(resetButton);
-
-            var panel = new StackPanel { Spacing = 3 };
-            panel.Children.Add(row);
-            panel.Children.Add(state);
-
-            return new Border
-            {
-                BorderBrush = Solid("#E3E7EC"),
-                BorderThickness = new Thickness(0, 0, 0, 1),
-                Padding = new Thickness(0, 0, 0, 7),
-                Child = panel
-            };
+                    workspace.SetParameterOverride(key, value, isLocked);
+                    FittingChanged?.Invoke(this, EventArgs.Empty);
+                },
+                reset: key =>
+                {
+                    workspace.ResetParameterOverride(key);
+                    FittingChanged?.Invoke(this, EventArgs.Empty);
+                },
+                setStatus: message => fitStatusText.Text = message,
+                isUpdating: () => isUpdatingControls);
         }
 
         void RebuildOptionRows()

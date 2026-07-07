@@ -28,16 +28,16 @@ namespace AnalysisITC.Avalonia.Processing
         readonly TextBlock lengthLabel = Text();
         readonly TextBlock selectionLabel = Text();
 
-        readonly ComboBox baselineTypeCombo = Combo(new[] { "Spline", "Polynomial", "Segmented" }, 118);
-        readonly ComboBox splineAlgorithmCombo = Combo(new[] { "Linear", "Smooth" }, 105);
-        readonly ComboBox splineDensityCombo = Combo(new[] { "Sparse", "Balanced", "Dense" }, 112);
-        readonly ComboBox splineHandleCombo = Combo(new[] { "Mean", "Median", "Min volatility" }, 132);
-        readonly ComboBox integrationModeCombo = Combo(new[] { "Time", "Factor", "Fit" }, 94);
-        readonly ComboBox peakWidthCombo = Combo(new[] { "1", "3", "5" }, 76);
+        readonly ComboBox baselineTypeCombo = Combo(new[] { "Spline", "Polynomial", "Segmented" });
+        readonly ComboBox splineAlgorithmCombo = Combo(new[] { "Linear", "Smooth" });
+        readonly ComboBox splineDensityCombo = Combo(new[] { "Sparse", "Balanced", "Dense" });
+        readonly ComboBox splineHandleCombo = Combo(new[] { "Mean", "Median", "Min volatility" });
+        readonly ComboBox integrationModeCombo = Combo(new[] { "Time", "Factor", "Fit" });
+        readonly ComboBox peakWidthCombo = Combo(new[] { "1", "3", "5" });
 
-        readonly Slider degreeSlider = Slider(0, 10, 1, 130);
-        readonly Slider integrationStartSlider = Slider(-30, 30, 0.1, 150);
-        readonly Slider integrationLengthSlider = Slider(0, 120, 0.1, 170);
+        readonly Slider degreeSlider = Slider(0, 10, 1);
+        readonly Slider integrationStartSlider = Slider(-30, 30, 0.1);
+        readonly Slider integrationLengthSlider = Slider(0, 120, 0.1);
 
         readonly CheckBox showBaselineCheck = Check("Baseline", true);
         readonly CheckBox showIntegrationCheck = Check("Regions", true);
@@ -132,7 +132,7 @@ namespace AnalysisITC.Avalonia.Processing
 
         Control BuildProcessingTab()
         {
-            var panel = new StackPanel { Spacing = 6 };
+            var panel = WorkspaceControlBuilder.InspectorPanel();
             panel.Children.Add(Section(baselineHeader, new Control[]
             {
                 Labeled("Type", baselineTypeCombo),
@@ -160,7 +160,7 @@ namespace AnalysisITC.Avalonia.Processing
 
         Control BuildSelectionViewTab()
         {
-            var panel = new StackPanel { Spacing = 6 };
+            var panel = WorkspaceControlBuilder.InspectorPanel();
             panel.Children.Add(Section("Selection", new Control[]
             {
                 selectionLabel,
@@ -787,16 +787,16 @@ namespace AnalysisITC.Avalonia.Processing
 
         static StackPanel Horizontal(double spacing) => WorkspaceControlBuilder.Horizontal(spacing);
 
-        static ComboBox Combo(string[] items, double width) => WorkspaceControlBuilder.Combo(items, width);
+        static ComboBox Combo(string[] items) => WorkspaceControlBuilder.Combo(items, WorkspaceControlBuilder.InspectorFieldWidth);
 
-        static Slider Slider(double min, double max, double tickFrequency, double width)
+        static Slider Slider(double min, double max, double tickFrequency)
         {
             return new Slider
             {
                 Minimum = min,
                 Maximum = max,
                 TickFrequency = tickFrequency,
-                Width = width,
+                Width = WorkspaceControlBuilder.InspectorFieldWidth,
                 VerticalAlignment = VerticalAlignment.Center
             };
         }

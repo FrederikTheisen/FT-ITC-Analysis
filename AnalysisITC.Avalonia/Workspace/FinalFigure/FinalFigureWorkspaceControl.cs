@@ -244,7 +244,7 @@ namespace AnalysisITC.Avalonia.FinalFigure
 
         Control BuildGeneralTab()
         {
-            var panel = new StackPanel { Spacing = 6 };
+            var panel = WorkspaceControlBuilder.InspectorPanel();
             panel.Children.Add(Section("Page", new Control[]
             {
                 Labeled("Width cm", widthBox),
@@ -297,7 +297,7 @@ namespace AnalysisITC.Avalonia.FinalFigure
 
         Control BuildFitGraphTab()
         {
-            var panel = new StackPanel { Spacing = 6 };
+            var panel = WorkspaceControlBuilder.InspectorPanel();
             panel.Children.Add(Section("Fit graph", new Control[]
             {
                 Labeled("Y title", enthalpyAxisTitleBox),

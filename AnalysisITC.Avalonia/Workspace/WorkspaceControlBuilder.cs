@@ -11,6 +11,10 @@ namespace AnalysisITC.Avalonia.Workspace
         public const double InspectorWidth = 330;
         public const double InspectorGap = 10;
         public const double RowLabelWidth = 94;
+        public const double InspectorFieldWidth = 170;
+        public const double InspectorSectionSpacing = 6;
+        public const double SectionControlSpacing = 0;
+        public const double RowSpacing = 6;
 
         public static readonly IBrush WorkspaceBackgroundBrush = Solid("#F5F7FA");
         public static readonly IBrush PanelBackgroundBrush = Brushes.White;
@@ -19,6 +23,12 @@ namespace AnalysisITC.Avalonia.Workspace
         public static readonly IBrush SectionHeaderBrush = Solid("#202832");
         public static readonly IBrush LabelBrush = Solid("#607080");
         public static readonly IBrush TextBrush = Solid("#4D5A66");
+        public static Thickness ControlMargin => new Thickness(0, 1);
+        public static Thickness ScrollContentPadding => new Thickness(8);
+        public static Thickness SectionPadding => new Thickness(0, 0, 0, 6);
+        public static Thickness ComboPadding => new Thickness(8, 0);
+        public static Thickness TextBoxPadding => new Thickness(6, 1);
+        public static Thickness ButtonPadding => new Thickness(8, 1);
 
         public static Grid WorkspaceGrid()
         {
@@ -45,6 +55,14 @@ namespace AnalysisITC.Avalonia.Workspace
             return new TabControl
             {
                 Margin = new Thickness(InspectorGap, 0, 0, 0)
+            };
+        }
+
+        public static StackPanel InspectorPanel()
+        {
+            return new StackPanel
+            {
+                Spacing = InspectorSectionSpacing
             };
         }
 
@@ -75,7 +93,7 @@ namespace AnalysisITC.Avalonia.Workspace
                     VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
                     Content = new Border
                     {
-                        Padding = new Thickness(8),
+                        Padding = ScrollContentPadding,
                         Child = content
                     }
                 }
@@ -97,17 +115,20 @@ namespace AnalysisITC.Avalonia.Workspace
 
         public static Border Section(TextBlock header, params Control[] controls)
         {
-            var panel = new StackPanel { Spacing = 2 };
+            var panel = new StackPanel { Spacing = SectionControlSpacing };
             header.Width = double.NaN;
             panel.Children.Add(header);
             foreach (var control in controls)
+            {
+                ApplyControlMargin(control);
                 panel.Children.Add(control);
+            }
 
             return new Border
             {
                 BorderBrush = SectionBorderBrush,
                 BorderThickness = new Thickness(0, 0, 0, 1),
-                Padding = new Thickness(0, 0, 0, 6),
+                Padding = SectionPadding,
                 Child = panel
             };
         }
@@ -127,12 +148,17 @@ namespace AnalysisITC.Avalonia.Workspace
             Grid.SetColumn(control, 1);
             panel.Children.Add(control);
 
-            return new Border { Child = panel };
+            return new Border
+            {
+                Margin = ControlMargin,
+                Child = panel
+            };
         }
 
         public static StackPanel Row(params Control[] controls)
         {
-            var row = Horizontal(6);
+            var row = Horizontal(RowSpacing);
+            row.Margin = ControlMargin;
             foreach (var control in controls)
                 row.Children.Add(control);
             return row;
@@ -153,7 +179,7 @@ namespace AnalysisITC.Avalonia.Workspace
             {
                 Width = width,
                 Height = 24,
-                Padding = new Thickness(8, 0),
+                Padding = ComboPadding,
                 VerticalAlignment = VerticalAlignment.Center
             };
         }
@@ -179,7 +205,7 @@ namespace AnalysisITC.Avalonia.Workspace
             {
                 Text = text,
                 Height = 24,
-                Padding = new Thickness(6, 1),
+                Padding = TextBoxPadding,
                 VerticalContentAlignment = VerticalAlignment.Center
             };
         }
@@ -191,7 +217,7 @@ namespace AnalysisITC.Avalonia.Workspace
                 Content = text,
                 MinWidth = width,
                 Height = 24,
-                Padding = new Thickness(8, 1),
+                Padding = ButtonPadding,
                 HorizontalContentAlignment = HorizontalAlignment.Center,
                 VerticalContentAlignment = VerticalAlignment.Center
             };
@@ -204,6 +230,7 @@ namespace AnalysisITC.Avalonia.Workspace
                 Content = text,
                 IsChecked = isChecked,
                 Height = 20,
+                Margin = ControlMargin,
                 VerticalAlignment = VerticalAlignment.Center
             };
         }
@@ -214,6 +241,7 @@ namespace AnalysisITC.Avalonia.Workspace
             {
                 Text = text,
                 Foreground = TextBrush,
+                Margin = ControlMargin,
                 VerticalAlignment = VerticalAlignment.Center,
                 TextWrapping = TextWrapping.Wrap
             };
@@ -224,6 +252,7 @@ namespace AnalysisITC.Avalonia.Workspace
             return new TextBlock
             {
                 Foreground = TextBrush,
+                Margin = ControlMargin,
                 VerticalAlignment = VerticalAlignment.Center,
                 TextTrimming = TextTrimming.CharacterEllipsis
             };
@@ -238,6 +267,20 @@ namespace AnalysisITC.Avalonia.Workspace
                 Foreground = SectionHeaderBrush,
                 VerticalAlignment = VerticalAlignment.Center
             };
+        }
+
+        public static void ApplyControlMargin(Control control)
+        {
+            if (IsZero(control.Margin))
+                control.Margin = ControlMargin;
+        }
+
+        static bool IsZero(Thickness margin)
+        {
+            return margin.Left == 0
+                && margin.Top == 0
+                && margin.Right == 0
+                && margin.Bottom == 0;
         }
 
         public static IBrush Solid(string color) => new SolidColorBrush(Color.Parse(color));

@@ -34,13 +34,15 @@ public partial class MainWindow : Window
     ITCDataContainer? selectedItem;
     AppMenuController? menuController;
     bool isUpdatingOverviewMode;
+    bool allowDirtyClose;
+    bool isHandlingDirtyClose;
 
     public MainWindow()
     {
         InitializeComponent();
 
         OpenButton.Click += async (_, _) => await OpenFilesFromMenuAsync();
-        ClearButton.Click += (_, _) => ClearData();
+        ClearButton.Click += async (_, _) => await ClearDataWithConfirmationAsync();
         IncludeAllButton.Click += (_, _) => SetAllExperimentInclusion(true);
         IncludeNoneButton.Click += (_, _) => SetAllExperimentInclusion(false);
         OverviewRawButton.IsCheckedChanged += (_, _) => SelectOverviewMode(rawData: true);
@@ -61,6 +63,10 @@ public partial class MainWindow : Window
         DataManager.DataInclusionDidChange += OnDataInclusionDidChange;
         DataManager.UpdateTable += OnDataManagerUpdate;
         DataManager.UpdateViewCells += OnDataManagerUpdate;
+        DocumentDirtyTracker.Initialize();
+        DocumentDirtyTracker.MarkClean();
+        DocumentDirtyTracker.DirtyStateChanged += OnDirtyStateChanged;
+        FTITCFormat.CurrentAccessedAppDocumentPathChanged += OnCurrentDocumentPathChanged;
         StatusBarManager.StatusUpdated += OnStatusUpdated;
         StatusBarManager.SecondaryStatusUpdated += OnSecondaryStatusUpdated;
         AppEventHandler.ShowAppMessage += OnAppMessage;
@@ -69,8 +75,25 @@ public partial class MainWindow : Window
         menuController.Install();
 
         RefreshDataList();
+        UpdateDocumentStatus();
         UpdateSelection(null);
         SetStatus("Ready");
+        AppVersion.CheckForUpdatesInBackground();
+    }
+
+    protected override void OnClosing(WindowClosingEventArgs e)
+    {
+        if (allowDirtyClose || !DocumentDirtyTracker.IsDirty)
+        {
+            allowDirtyClose = false;
+            base.OnClosing(e);
+            return;
+        }
+
+        e.Cancel = true;
+
+        if (!isHandlingDirtyClose)
+            _ = CloseWithDirtyPromptAsync(SavePromptReason.CloseWindow);
     }
 
     protected override void OnClosed(EventArgs e)
@@ -79,6 +102,8 @@ public partial class MainWindow : Window
         DataManager.DataInclusionDidChange -= OnDataInclusionDidChange;
         DataManager.UpdateTable -= OnDataManagerUpdate;
         DataManager.UpdateViewCells -= OnDataManagerUpdate;
+        DocumentDirtyTracker.DirtyStateChanged -= OnDirtyStateChanged;
+        FTITCFormat.CurrentAccessedAppDocumentPathChanged -= OnCurrentDocumentPathChanged;
         StatusBarManager.StatusUpdated -= OnStatusUpdated;
         StatusBarManager.SecondaryStatusUpdated -= OnSecondaryStatusUpdated;
         AppEventHandler.ShowAppMessage -= OnAppMessage;
@@ -148,6 +173,9 @@ public partial class MainWindow : Window
     internal async Task ClearDataWithConfirmationAsync()
     {
         if (!HasDocumentContent()) return;
+
+        if (!await PromptSaveChangesIfNeededAsync(SavePromptReason.ClearAllData))
+            return;
 
         if (!await ConfirmAsync(
             "Remove All Data/Results",
@@ -449,10 +477,19 @@ public partial class MainWindow : Window
 
     internal Task QuitAsync()
     {
-        if (Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
+        if (DocumentDirtyTracker.IsDirty)
+        {
+            if (!isHandlingDirtyClose)
+                _ = CloseWithDirtyPromptAsync(SavePromptReason.QuitApplication);
+        }
+        else if (Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
+        {
             desktop.Shutdown();
+        }
         else
+        {
             Close();
+        }
 
         return Task.CompletedTask;
     }
@@ -518,7 +555,9 @@ public partial class MainWindow : Window
     {
         selectedItem = null;
         DataManager.Clear(DataClearMode.ResetSession);
+        DocumentDirtyTracker.MarkClean();
         RefreshDataList();
+        UpdateDocumentStatus();
         StatusBarManager.SetStatus("Data cleared", 3000);
         RefreshMenuState();
     }
@@ -889,7 +928,11 @@ public partial class MainWindow : Window
 
     void OnDataDidChange(object? sender, ExperimentData? e)
     {
-        Dispatcher.UIThread.Post(RefreshDataList);
+        Dispatcher.UIThread.Post(() =>
+        {
+            RefreshDataList();
+            UpdateDocumentStatus();
+        });
     }
 
     void OnDataInclusionDidChange(object? sender, ExperimentData? e)
@@ -899,12 +942,23 @@ public partial class MainWindow : Window
             RefreshDataList();
             AnalysisWorkspace.RefreshIncludedDataState();
             InvalidateFinalFigurePreview();
+            UpdateDocumentStatus();
         });
     }
 
     void OnDataManagerUpdate(object? sender, EventArgs e)
     {
         Dispatcher.UIThread.Post(RefreshDataList);
+    }
+
+    void OnDirtyStateChanged(object? sender, EventArgs e)
+    {
+        Dispatcher.UIThread.Post(UpdateDocumentStatus);
+    }
+
+    void OnCurrentDocumentPathChanged(object? sender, EventArgs e)
+    {
+        Dispatcher.UIThread.Post(UpdateDocumentStatus);
     }
 
     void OnStatusUpdated(object? sender, string status)
@@ -1022,6 +1076,171 @@ public partial class MainWindow : Window
     {
         StatusText.Text = status ?? "";
         ToolbarStatusText.Text = status ?? "";
+    }
+
+    async Task CloseWithDirtyPromptAsync(SavePromptReason reason)
+    {
+        isHandlingDirtyClose = true;
+
+        try
+        {
+            if (!await PromptSaveChangesIfNeededAsync(reason))
+                return;
+
+            allowDirtyClose = true;
+            if (Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
+                desktop.Shutdown();
+            else
+                Close();
+        }
+        finally
+        {
+            isHandlingDirtyClose = false;
+        }
+    }
+
+    async Task<bool> PromptSaveChangesIfNeededAsync(SavePromptReason reason)
+    {
+        if (!DocumentDirtyTracker.IsDirty) return true;
+
+        switch (await SaveChangesDialogWindow.PromptAsync(this, reason))
+        {
+            case PendingSaveAction.Save:
+                return FTITCWriter.IsSaved
+                    ? await FTITCWriter.SaveWithPathAsync()
+                    : await FTITCWriter.SaveState2Async();
+            case PendingSaveAction.Discard:
+                return true;
+            default:
+                return false;
+        }
+    }
+
+    void UpdateDocumentStatus()
+    {
+        var documentStatus = GetDocumentStatusText();
+        StatusBarManager.SetDefaultSecondaryStatus(documentStatus);
+        Title = string.IsNullOrWhiteSpace(documentStatus)
+            ? "FT-ITC Analysis"
+            : $"FT-ITC Analysis - {documentStatus}";
+    }
+
+    static string GetDocumentStatusText()
+    {
+        if (DataManager.SourceItems == null || DataManager.SourceItems.Count == 0)
+            return "";
+
+        if (!FTITCWriter.IsSaved)
+            return "Unsaved";
+
+        var path = FTITCFormat.CurrentAccessedAppDocumentPath;
+        var fileName = Path.GetFileName(path);
+        if (string.Equals(Path.GetExtension(fileName), ".ftitc", StringComparison.OrdinalIgnoreCase))
+            fileName = Path.GetFileNameWithoutExtension(fileName);
+
+        if (string.IsNullOrWhiteSpace(fileName))
+            fileName = "Unsaved";
+
+        return DocumentDirtyTracker.IsDirty ? $"{fileName} [M]" : fileName;
+    }
+
+    enum PendingSaveAction
+    {
+        Save,
+        Cancel,
+        Discard
+    }
+
+    enum SavePromptReason
+    {
+        CloseWindow,
+        QuitApplication,
+        ClearAllData
+    }
+
+    sealed class SaveChangesDialogWindow : Window
+    {
+        SaveChangesDialogWindow(SavePromptReason reason)
+        {
+            var (title, message, discardButtonText) = reason switch
+            {
+                SavePromptReason.QuitApplication => (
+                    "Save Changes Before Quitting?",
+                    "Unsaved changes will be lost if you quit without saving.",
+                    "Don't Save"),
+                SavePromptReason.ClearAllData => (
+                    "Save Changes Before Clearing?",
+                    "Clearing all data will remove the current project from the program. Unsaved changes will be lost.",
+                    "Clear All"),
+                _ => (
+                    "Save Changes Before Closing?",
+                    "Unsaved changes will be lost if you close without saving.",
+                    "Don't Save")
+            };
+
+            Title = title;
+            Width = 440;
+            Height = 200;
+            MinWidth = 380;
+            MinHeight = 180;
+            WindowStartupLocation = WindowStartupLocation.CenterOwner;
+            CanResize = false;
+
+            var messageText = new TextBlock
+            {
+                Text = message,
+                TextWrapping = TextWrapping.Wrap,
+                Foreground = Solid("#202832"),
+                Margin = new Thickness(0, 0, 0, 18)
+            };
+
+            var save = DialogButton("Save");
+            save.Click += (_, _) => Close(PendingSaveAction.Save);
+
+            var cancel = DialogButton("Cancel");
+            cancel.Click += (_, _) => Close(PendingSaveAction.Cancel);
+
+            var discard = DialogButton(discardButtonText);
+            discard.Click += (_, _) => Close(PendingSaveAction.Discard);
+
+            var buttons = new StackPanel
+            {
+                Orientation = Orientation.Horizontal,
+                HorizontalAlignment = HorizontalAlignment.Right,
+                Spacing = 8,
+                Children = { save, cancel, discard }
+            };
+
+            Content = new Border
+            {
+                Background = Brushes.White,
+                Padding = new Thickness(16),
+                Child = new DockPanel
+                {
+                    LastChildFill = true,
+                    Children =
+                    {
+                        buttons,
+                        messageText
+                    }
+                }
+            };
+
+            DockPanel.SetDock(buttons, Dock.Bottom);
+        }
+
+        static Button DialogButton(string text) => new()
+        {
+            Content = text,
+            MinWidth = 82,
+            HorizontalAlignment = HorizontalAlignment.Right
+        };
+
+        public static async Task<PendingSaveAction> PromptAsync(Window owner, SavePromptReason reason)
+        {
+            var dialog = new SaveChangesDialogWindow(reason);
+            return await dialog.ShowDialog<PendingSaveAction>(owner);
+        }
     }
 
     public sealed class DataListEntry
