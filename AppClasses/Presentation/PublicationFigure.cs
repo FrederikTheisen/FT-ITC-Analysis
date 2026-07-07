@@ -82,7 +82,7 @@ namespace AnalysisITC.Core.Presentation
         public double ResidualPanelFraction { get; set; } = 0.2;
         public PublicationInfoBoxPlacement InformationBoxPlacement { get; set; } = PublicationInfoBoxPlacement.Auto;
         public PublicationSymbolShape SymbolShape { get; set; } = PublicationSymbolShape.Square;
-        public double SymbolSize { get; set; } = 6;
+        public double SymbolSize { get; set; } = 8;
 
         public string PowerAxisTitle { get; set; } = "Differential Power (<unit>)";
         public string TimeAxisTitle { get; set; } = "Time (<unit>)";
@@ -242,7 +242,7 @@ namespace AnalysisITC.Core.Presentation
             if (Math.Abs(value) < 1E-12) value = 0;
             if (DecimalPlaces <= 0) return value.ToString("0");
 
-            return value.ToString("0." + new string('#', DecimalPlaces));
+            return value.ToString("0." + new string('0', DecimalPlaces));
         }
 
         void NormalizeRange()
@@ -330,24 +330,28 @@ namespace AnalysisITC.Core.Presentation
 
         static int EstimateDecimalPlaces(List<double> ticks, double spacing)
         {
-            var places = 0;
-            var absSpacing = Math.Abs(spacing);
-
-            if (absSpacing > 0 && absSpacing < 1)
-            {
-                places = Math.Min(6, Math.Max(1, (int)Math.Ceiling(-Math.Log10(absSpacing)) + 1));
-            }
+            var places = RequiredDecimalPlaces(spacing);
 
             foreach (var tick in ticks)
             {
-                var text = tick.ToString("G12");
-                var decimalIndex = text.IndexOf('.');
-                if (decimalIndex < 0) continue;
-
-                places = Math.Max(places, Math.Min(6, text.Length - decimalIndex - 1));
+                places = Math.Max(places, RequiredDecimalPlaces(tick));
             }
 
             return places;
+        }
+
+        static int RequiredDecimalPlaces(double value)
+        {
+            if (!IsFinite(value)) return 0;
+
+            value = Math.Abs(value);
+            for (int places = 0; places <= 6; places++)
+            {
+                if (Math.Abs(value - Math.Round(value, places)) < 1E-9)
+                    return places;
+            }
+
+            return 6;
         }
 
         static List<double> NiceTicks(double minimum, double maximum, int maxTicks, out double spacing)
@@ -462,6 +466,10 @@ namespace AnalysisITC.Core.Presentation
 
     public static class PublicationFigureBuilder
     {
+        const double DataXAxisBuffer = 0.05;
+        const double FitXAxisBuffer = 0.05;
+        const double FitXAxisRoundPadding = 0.33;
+
         public static PublicationFigureDocument Build(ExperimentData data, PublicationFigureOptions options)
         {
             if (data == null) throw new ArgumentNullException(nameof(data));
@@ -497,11 +505,10 @@ namespace AnalysisITC.Core.Presentation
             var timeScale = options.TimeUnit.GetProperties().Mod;
             var points = GetThermogramPoints(data);
 
-            var xMin = 0;
-            var xMax = points.Count > 0 ? points.Max(point => point.X) : 1;
             var yRange = RangeWithBuffer(points.Select(point => point.Y), 0.1, includeZero: false);
-            var xRange = ApplyAxisOverrides(xMin, xMax, options.DataXAxisMinimum, options.DataXAxisMaximum);
+            var xRange = RangeWithBuffer(points.Select(point => point.X), DataXAxisBuffer, includeZero: true);
             yRange = ApplyAxisOverrides(yRange[0], yRange[1], options.DataYAxisMinimum, options.DataYAxisMaximum);
+            xRange = ApplyAxisOverrides(xRange[0], xRange[1], options.DataXAxisMinimum, options.DataXAxisMaximum);
 
             var panel = new PublicationFigurePanel
             {
@@ -596,7 +603,7 @@ namespace AnalysisITC.Core.Presentation
 
             var xValues = injectionPoints.Select(point => point.X).Concat(fitPoints.Select(point => point.X)).ToList();
             if (xValues.Count == 0) xValues.AddRange(new[] { 0.0, 1.0 });
-            var xRange = RangeWithBuffer(xValues, 0.05, includeZero: true);
+            var xRange = FitXAxisRangeWithMacBuffer(xValues);
             var yRange = RangeWithBuffer(values, 0.1, includeZero: true);
             xRange = ApplyAxisOverrides(xRange[0], xRange[1], options.FitXAxisMinimum, options.FitXAxisMaximum);
             yRange = ApplyAxisOverrides(yRange[0], yRange[1], options.FitYAxisMinimum, options.FitYAxisMaximum);
@@ -859,6 +866,17 @@ namespace AnalysisITC.Core.Presentation
                 min - delta * buffer,
                 max + delta * buffer
             };
+        }
+
+        static double[] FitXAxisRangeWithMacBuffer(IEnumerable<double> values)
+        {
+            var finite = values.Where(IsFinite).ToList();
+            if (finite.Count == 0) finite.Add(1);
+
+            var firstPass = RangeWithBuffer(new[] { 0, finite.Max() }, FitXAxisBuffer, includeZero: false);
+            var roundedMaximum = Math.Max(Math.Floor(firstPass[1] + FitXAxisRoundPadding), firstPass[1]);
+
+            return RangeWithBuffer(new[] { 0, roundedMaximum }, FitXAxisBuffer, includeZero: false);
         }
 
         static double[] ApplyAxisOverrides(double minimum, double maximum, double? overrideMinimum, double? overrideMaximum)
