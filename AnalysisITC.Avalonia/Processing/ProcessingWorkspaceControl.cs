@@ -10,6 +10,7 @@ using Avalonia.Media;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 
+using AnalysisITC.Avalonia.Workspace;
 using AnalysisITC.Core.Application;
 using AnalysisITC.Core.Data;
 using AnalysisITC.Core.Processing;
@@ -58,7 +59,7 @@ namespace AnalysisITC.Avalonia.Processing
 
         readonly StackPanel splineOptionsPanel = Horizontal(6);
         readonly StackPanel degreePanel = Horizontal(6);
-        readonly TabControl controlsPanel = new TabControl();
+        readonly TabControl controlsPanel = WorkspaceControlBuilder.Inspector();
 
         ExperimentData? experiment;
         bool isUpdatingControls;
@@ -113,23 +114,12 @@ namespace AnalysisITC.Avalonia.Processing
             degreePanel.Children.Add(Labeled("Degree", degreeSlider));
             degreePanel.Children.Add(degreeLabel);
 
-            controlsPanel.Margin = new Thickness(10, 0, 0, 0);
             controlsPanel.Items.Add(Tab("Processing", BuildProcessingTab()));
             controlsPanel.Items.Add(Tab("Selection / View", BuildSelectionViewTab()));
 
-            var root = new Grid
-            {
-                ColumnDefinitions = new ColumnDefinitions("*,330"),
-                Background = Solid("#F5F7FA")
-            };
+            var root = WorkspaceControlBuilder.WorkspaceGrid();
 
-            var graphBorder = new Border
-            {
-                Background = Brushes.White,
-                BorderBrush = Solid("#D4DAE1"),
-                BorderThickness = new Thickness(1),
-                Child = graph
-            };
+            var graphBorder = WorkspaceControlBuilder.ContentBorder(graph);
             Grid.SetColumn(graphBorder, 0);
 
             Grid.SetColumn(controlsPanel, 1);
@@ -783,110 +773,21 @@ namespace AnalysisITC.Avalonia.Processing
             };
         }
 
-        static Border Labeled(string label, Control control)
-        {
-            var panel = new Grid
-            {
-                ColumnDefinitions = new ColumnDefinitions("92,*")
-            };
-            panel.Children.Add(new TextBlock
-            {
-                Text = label,
-                VerticalAlignment = VerticalAlignment.Center,
-                Foreground = Solid("#607080")
-            });
-            Grid.SetColumn(control, 1);
-            panel.Children.Add(control);
+        static Border Labeled(string label, Control control) => WorkspaceControlBuilder.Labeled(label, control);
 
-            return new Border { Child = panel };
-        }
+        static Border Section(string title, Control[] controls) => WorkspaceControlBuilder.Section(title, controls);
 
-        static Border Section(string title, Control[] controls)
-        {
-            return Section(Header(title), controls);
-        }
+        static TabItem Tab(string header, Control content) => WorkspaceControlBuilder.Tab(header, content);
 
-        static TabItem Tab(string header, Control content)
-        {
-            return new TabItem
-            {
-                Header = new TextBlock
-                {
-                    Text = header,
-                    FontSize = 12,
-                    TextWrapping = TextWrapping.NoWrap
-                },
-                Content = content
-            };
-        }
+        static Control Scroll(Control content) => WorkspaceControlBuilder.Scroll(content);
 
-        static Control Scroll(Control content)
-        {
-            return new Border
-            {
-                Background = Brushes.White,
-                BorderBrush = Solid("#D4DAE1"),
-                BorderThickness = new Thickness(1),
-                Child = new ScrollViewer
-                {
-                    HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
-                    VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
-                    Content = new Border
-                    {
-                        Padding = new Thickness(10),
-                        Child = content
-                    }
-                }
-            };
-        }
+        static Border Section(TextBlock header, Control[] controls) => WorkspaceControlBuilder.Section(header, controls);
 
-        static Border Section(TextBlock header, Control[] controls)
-        {
-            var panel = new StackPanel { Spacing = 2 };
-            header.Width = double.NaN;
-            panel.Children.Add(header);
-            foreach (var control in controls)
-                panel.Children.Add(control);
+        static StackPanel Row(params Control[] controls) => WorkspaceControlBuilder.Row(controls);
 
-            return new Border
-            {
-                BorderBrush = Solid("#D4DAE1"),
-                BorderThickness = new Thickness(0, 0, 0, 1),
-                Padding = new Thickness(0, 0, 0, 10),
-                Margin = new Thickness(0, 0, 0, 2),
-                Child = panel
-            };
-        }
+        static StackPanel Horizontal(double spacing) => WorkspaceControlBuilder.Horizontal(spacing);
 
-        static StackPanel Row(params Control[] controls)
-        {
-            var row = Horizontal(6);
-            foreach (var control in controls)
-                row.Children.Add(control);
-            return row;
-        }
-
-        static StackPanel Horizontal(double spacing)
-        {
-            return new StackPanel
-            {
-                Orientation = Orientation.Horizontal,
-                Spacing = spacing,
-                VerticalAlignment = VerticalAlignment.Center
-            };
-        }
-
-        static ComboBox Combo(string[] items, double width)
-        {
-            return new ComboBox
-            {
-                ItemsSource = items,
-                Width = width,
-                Height = 24,
-                Padding = new Thickness(8, 0),
-                VerticalAlignment = VerticalAlignment.Center
-            };
-        }
+        static ComboBox Combo(string[] items, double width) => WorkspaceControlBuilder.Combo(items, width);
 
         static Slider Slider(double min, double max, double tickFrequency, double width)
         {
@@ -900,51 +801,12 @@ namespace AnalysisITC.Avalonia.Processing
             };
         }
 
-        static Button Button(string text, double width)
-        {
-            return new Button
-            {
-                Content = text,
-                MinWidth = width,
-                Height = 28,
-                HorizontalContentAlignment = HorizontalAlignment.Center,
-                VerticalContentAlignment = VerticalAlignment.Center
-            };
-        }
+        static Button Button(string text, double width) => WorkspaceControlBuilder.Button(text, width);
 
-        static CheckBox Check(string text, bool isChecked)
-        {
-            return new CheckBox
-            {
-                Content = text,
-                IsChecked = isChecked,
-                Height = 20,
-                VerticalAlignment = VerticalAlignment.Center
-            };
-        }
+        static CheckBox Check(string text, bool isChecked) => WorkspaceControlBuilder.Check(text, isChecked);
 
-        static TextBlock Text()
-        {
-            return new TextBlock
-            {
-                Foreground = Solid("#4D5A66"),
-                VerticalAlignment = VerticalAlignment.Center,
-                TextTrimming = TextTrimming.CharacterEllipsis
-            };
-        }
+        static TextBlock Text() => WorkspaceControlBuilder.TrimmingText();
 
-        static TextBlock Header(string text)
-        {
-            return new TextBlock
-            {
-                Text = text,
-                FontWeight = FontWeight.SemiBold,
-                Foreground = Solid("#202832"),
-                VerticalAlignment = VerticalAlignment.Center,
-                Width = 120
-            };
-        }
-
-        static IBrush Solid(string color) => new SolidColorBrush(Color.Parse(color));
+        static TextBlock Header(string text) => WorkspaceControlBuilder.Header(text);
     }
 }

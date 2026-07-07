@@ -18,6 +18,7 @@ using Avalonia.VisualTree;
 using SkiaSharp;
 
 using AnalysisITC.Avalonia.Drawing;
+using AnalysisITC.Avalonia.Workspace;
 using AnalysisITC.Core.Analysis.Models;
 using AnalysisITC.Core.Application;
 using AnalysisITC.Core.Data;
@@ -206,11 +207,7 @@ namespace AnalysisITC.Avalonia.FinalFigure
                 }
             };
 
-            var root = new Grid
-            {
-                ColumnDefinitions = new ColumnDefinitions("*,330"),
-                Background = Solid("#F5F7FA")
-            };
+            var root = WorkspaceControlBuilder.WorkspaceGrid();
             Grid.SetColumn(previewHost, 0);
 
             var inspectorHost = new Grid
@@ -219,10 +216,8 @@ namespace AnalysisITC.Avalonia.FinalFigure
                 Margin = new Thickness(10, 0, 0, 0)
             };
 
-            var inspector = new TabControl
-            {
-                Margin = new Thickness(0)
-            };
+            var inspector = WorkspaceControlBuilder.Inspector();
+            inspector.Margin = new Thickness(0);
             inspector.Items.Add(Tab("General", BuildGeneralTab()));
             inspector.Items.Add(Tab("Data Graph", BuildDataGraphTab()));
             inspector.Items.Add(Tab("Fit Graph", BuildFitGraphTab()));
@@ -230,8 +225,8 @@ namespace AnalysisITC.Avalonia.FinalFigure
 
             var exportFooter = new Border
             {
-                Background = Brushes.White,
-                BorderBrush = Solid("#D4DAE1"),
+                Background = WorkspaceControlBuilder.PanelBackgroundBrush,
+                BorderBrush = WorkspaceControlBuilder.PanelBorderBrush,
                 BorderThickness = new Thickness(1, 0, 1, 1),
                 Padding = new Thickness(10, 8),
                 Child = exportPdfButton
@@ -802,151 +797,27 @@ namespace AnalysisITC.Avalonia.FinalFigure
             return Math.Max(minimum, Math.Min(maximum, value));
         }
 
-        static TabItem Tab(string header, Control content)
-        {
-            return new TabItem
-            {
-                Header = new TextBlock
-                {
-                    Text = header,
-                    FontSize = 12,
-                    TextWrapping = TextWrapping.NoWrap
-                },
-                Content = content
-            };
-        }
+        static TabItem Tab(string header, Control content) => WorkspaceControlBuilder.Tab(header, content);
 
-        static Control Scroll(Control content)
-        {
-            return new Border
-            {
-                Background = Brushes.White,
-                BorderBrush = Solid("#D4DAE1"),
-                BorderThickness = new Thickness(1),
-                Child = new ScrollViewer
-                {
-                    HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
-                    VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
-                    Content = new Border
-                    {
-                        Padding = new Thickness(8),
-                        Child = content
-                    }
-                }
-            };
-        }
+        static Control Scroll(Control content) => WorkspaceControlBuilder.Scroll(content);
 
-        static Border Section(string title, Control[] controls)
-        {
-            var panel = new StackPanel { Spacing = 2 };
-            panel.Children.Add(new TextBlock
-            {
-                Text = title,
-                FontWeight = FontWeight.SemiBold,
-                Foreground = Solid("#202832")
-            });
-            foreach (var control in controls)
-                panel.Children.Add(control);
+        static Border Section(string title, Control[] controls) => WorkspaceControlBuilder.Section(title, controls);
 
-            return new Border
-            {
-                BorderBrush = Solid("#E3E7EC"),
-                BorderThickness = new Thickness(0, 0, 0, 1),
-                Padding = new Thickness(0, 0, 0, 6),
-                Child = panel
-            };
-        }
+        static Border Labeled(string label, Control control) => WorkspaceControlBuilder.Labeled(label, control);
 
-        static Border Labeled(string label, Control control)
-        {
-            var panel = new Grid
-            {
-                ColumnDefinitions = new ColumnDefinitions("94,*")
-            };
-            panel.Children.Add(new TextBlock
-            {
-                Text = label,
-                VerticalAlignment = VerticalAlignment.Center,
-                Foreground = Solid("#607080")
-            });
-            Grid.SetColumn(control, 1);
-            panel.Children.Add(control);
+        static StackPanel Row(params Control[] controls) => WorkspaceControlBuilder.Row(controls);
 
-            return new Border { Child = panel };
-        }
+        static ComboBox Combo(string[] items, int selectedIndex, double width) => WorkspaceControlBuilder.Combo(items, selectedIndex, width);
 
-        static StackPanel Row(params Control[] controls)
-        {
-            var row = new StackPanel
-            {
-                Orientation = Orientation.Horizontal,
-                Spacing = 6
-            };
-            foreach (var control in controls)
-                row.Children.Add(control);
-            return row;
-        }
+        static TextBox TextBox(string text) => WorkspaceControlBuilder.TextBox(text);
 
-        static ComboBox Combo(string[] items, int selectedIndex, double width)
-        {
-            return new ComboBox
-            {
-                ItemsSource = items,
-                SelectedIndex = selectedIndex,
-                Width = width,
-                Height = 24,
-                Padding = new Thickness(8, 0),
-                VerticalAlignment = VerticalAlignment.Center
-            };
-        }
+        static Button Button(string text, double width) => WorkspaceControlBuilder.Button(text, width);
 
-        static TextBox TextBox(string text)
-        {
-            return new TextBox
-            {
-                Text = text,
-                Height = 24,
-                Padding = new Thickness(6, 1),
-                VerticalContentAlignment = VerticalAlignment.Center
-            };
-        }
+        static CheckBox Check(string text, bool isChecked) => WorkspaceControlBuilder.Check(text, isChecked);
 
-        static Button Button(string text, double width)
-        {
-            return new Button
-            {
-                Content = text,
-                MinWidth = width,
-                Height = 24,
-                Padding = new Thickness(8, 1),
-                HorizontalContentAlignment = HorizontalAlignment.Center,
-                VerticalContentAlignment = VerticalAlignment.Center
-            };
-        }
+        static TextBlock Text(string text = "") => WorkspaceControlBuilder.Text(text);
 
-        static CheckBox Check(string text, bool isChecked)
-        {
-            return new CheckBox
-            {
-                Content = text,
-                IsChecked = isChecked,
-                Height = 20,
-                VerticalAlignment = VerticalAlignment.Center
-            };
-        }
-
-        static TextBlock Text(string text = "")
-        {
-            return new TextBlock
-            {
-                Text = text,
-                Foreground = Solid("#4D5A66"),
-                VerticalAlignment = VerticalAlignment.Center,
-                TextWrapping = TextWrapping.Wrap
-            };
-        }
-
-        static IBrush Solid(string color) => new SolidColorBrush(Color.Parse(color));
+        static IBrush Solid(string color) => WorkspaceControlBuilder.Solid(color);
 
         sealed class FigureExportTarget
         {

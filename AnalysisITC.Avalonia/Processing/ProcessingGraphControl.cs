@@ -18,33 +18,7 @@ namespace AnalysisITC.Avalonia.Processing
 {
     public sealed class ProcessingGraphControl : Control
     {
-        static readonly IBrush CanvasBrush = Solid("#F4F7FA");
-        static readonly IBrush PlotBrush = Brushes.White;
-        static readonly IBrush TextBrush = Solid("#202832");
-        static readonly IBrush MutedTextBrush = Solid("#607080");
-        static readonly IBrush DataBrush = Solid("#1E5F84");
-        static readonly IBrush CorrectedDataBrush = Solid("#365D41");
-        static readonly IBrush BaselineBrush = Solid("#BE3A34");
-        static readonly IBrush SplinePointBrush = Solid("#BE3A34");
-        static readonly IBrush RegionBrush = Solid("#2563EB");
-        static readonly IBrush RegionMutedBrush = Solid("#7B8794");
-        static readonly IBrush HoverBrush = Solid("#26323D");
-        static readonly IBrush HoverBackgroundBrush = Solid("#FFFFFF");
-        static readonly IBrush ZoomBrush = new SolidColorBrush(Color.FromArgb(50, 37, 99, 235));
-
-        static readonly Pen FramePen = new Pen(Solid("#AEB8C2"), 1);
-        static readonly Pen AxisPen = new Pen(Solid("#26323D"), 1);
-        static readonly Pen MajorGridPen = new Pen(Solid("#D8DEE6"), 1);
-        static readonly Pen MinorGridPen = new Pen(Solid("#EEF2F6"), 1);
-        static readonly Pen DataPen = new Pen(DataBrush, 1.2);
-        static readonly Pen CorrectedDataPen = new Pen(CorrectedDataBrush, 1.2);
-        static readonly Pen BaselinePen = new Pen(BaselineBrush, 1.8);
-        static readonly Pen HoverPen = new Pen(HoverBrush, 1);
-        static readonly Pen ZoomPen = new Pen(Solid("#2563EB"), 1);
-
-        const double MarkerHitWidth = 8;
-        const double DragThreshold = 5;
-        const double SplinePointRadius = 4.5;
+        static AvaloniaGraphTheme GraphTheme => AvaloniaGraphSettings.Current;
 
         ExperimentData? experiment;
         GraphViewport view;
@@ -154,7 +128,7 @@ namespace AnalysisITC.Avalonia.Processing
             var yMin = points.Min(point => power.Convert(point.Power));
             var yMax = points.Max(point => power.Convert(point.Power));
 
-            view = GraphViewport.WithPadding(xMin, xMax, yMin, yMax, xPaddingFraction: 0.015, yPaddingFraction: 0.08);
+            view = GraphViewport.WithPadding(xMin, xMax, yMin, yMax, AvaloniaGraphSettings.DefaultXPaddingFraction, AvaloniaGraphSettings.DefaultYPaddingFraction);
             hasView = true;
             hoverPoint = null;
             hoverData = null;
@@ -215,7 +189,7 @@ namespace AnalysisITC.Avalonia.Processing
                 points.Min(point => power.Convert(point.Power)),
                 points.Max(point => power.Convert(point.Power)),
                 xPaddingFraction: 0,
-                yPaddingFraction: 0.08);
+                yPaddingFraction: AvaloniaGraphSettings.DefaultYPaddingFraction);
 
             CurrentVerticalZoomMode = VerticalZoomMode.AllData;
             InvalidateVisual();
@@ -292,13 +266,13 @@ namespace AnalysisITC.Avalonia.Processing
             base.Render(context);
 
             var bounds = Bounds;
-            context.DrawRectangle(CanvasBrush, null, bounds);
+            context.DrawRectangle(GraphTheme.CanvasBrush, null, bounds);
 
             if (bounds.Width < 140 || bounds.Height < 140)
                 return;
 
             var graph = GraphLayout.Create(bounds, view, Power);
-            context.DrawRectangle(PlotBrush, FramePen, graph.Plot);
+            context.DrawRectangle(GraphTheme.PlotBrush, GraphTheme.FramePen, graph.Plot);
 
             if (Experiment?.HasThermogram != true || !hasView)
             {
@@ -393,7 +367,7 @@ namespace AnalysisITC.Avalonia.Processing
 
             var graph = GraphLayout.Create(Bounds, view, Power);
             var point = e.GetPosition(this);
-            var moved = Distance(dragStart, point) > DragThreshold;
+            var moved = Distance(dragStart, point) > AvaloniaGraphSettings.ProcessingDragThreshold;
             var wasIntegrationDrag = dragTarget.Kind == HitKind.IntegrationStart || dragTarget.Kind == HitKind.IntegrationEnd;
 
             isPointerCaptured = false;
@@ -463,8 +437,8 @@ namespace AnalysisITC.Avalonia.Processing
 
         void DrawEmptyState(DrawingContext context, Rect plot)
         {
-            DrawText(context, "No thermogram selected", new Point(plot.Left + 18, plot.Top + 18), 14, FontWeight.SemiBold, MutedTextBrush);
-            DrawText(context, "Open an ITC file and select an experiment to process baseline and injections.", new Point(plot.Left + 18, plot.Top + 43), 12, FontWeight.Normal, MutedTextBrush);
+            DrawText(context, "No thermogram selected", new Point(plot.Left + AvaloniaGraphSettings.EmptyStateXOffset, plot.Top + AvaloniaGraphSettings.EmptyStateTitleYOffset), AvaloniaGraphSettings.EmptyTitleFontSize, FontWeight.SemiBold, GraphTheme.MutedTextBrush);
+            DrawText(context, "Open an ITC file and select an experiment to process baseline and injections.", new Point(plot.Left + AvaloniaGraphSettings.EmptyStateXOffset, plot.Top + AvaloniaGraphSettings.EmptyStateBodyYOffset), AvaloniaGraphSettings.EmptyBodyFontSize, FontWeight.Normal, GraphTheme.MutedTextBrush);
         }
 
         void DrawGrid(DrawingContext context, GraphLayout graph)
@@ -474,41 +448,41 @@ namespace AnalysisITC.Avalonia.Processing
                 foreach (var tick in graph.XTicks.Minor)
                 {
                     var x = Crisp(graph.Transform.X(tick));
-                    context.DrawLine(MinorGridPen, new Point(x, graph.Plot.Top), new Point(x, graph.Plot.Bottom));
+                    context.DrawLine(GraphTheme.MinorGridPen, new Point(x, graph.Plot.Top), new Point(x, graph.Plot.Bottom));
                 }
 
                 foreach (var tick in graph.YTicks.Minor)
                 {
                     var y = Crisp(graph.Transform.Y(tick));
-                    context.DrawLine(MinorGridPen, new Point(graph.Plot.Left, y), new Point(graph.Plot.Right, y));
+                    context.DrawLine(GraphTheme.MinorGridPen, new Point(graph.Plot.Left, y), new Point(graph.Plot.Right, y));
                 }
 
                 foreach (var tick in graph.XTicks.Major)
                 {
                     var x = Crisp(graph.Transform.X(tick));
-                    context.DrawLine(MajorGridPen, new Point(x, graph.Plot.Top), new Point(x, graph.Plot.Bottom));
+                    context.DrawLine(GraphTheme.MajorGridPen, new Point(x, graph.Plot.Top), new Point(x, graph.Plot.Bottom));
                 }
 
                 foreach (var tick in graph.YTicks.Major)
                 {
                     var y = Crisp(graph.Transform.Y(tick));
-                    context.DrawLine(MajorGridPen, new Point(graph.Plot.Left, y), new Point(graph.Plot.Right, y));
+                    context.DrawLine(GraphTheme.MajorGridPen, new Point(graph.Plot.Left, y), new Point(graph.Plot.Right, y));
                 }
             }
         }
 
         void DrawAxes(DrawingContext context, GraphLayout graph)
         {
-            context.DrawLine(AxisPen, new Point(graph.Plot.Left, graph.Plot.Bottom), new Point(graph.Plot.Right, graph.Plot.Bottom));
-            context.DrawLine(AxisPen, new Point(graph.Plot.Left, graph.Plot.Top), new Point(graph.Plot.Left, graph.Plot.Bottom));
+            context.DrawLine(GraphTheme.AxisPen, new Point(graph.Plot.Left, graph.Plot.Bottom), new Point(graph.Plot.Right, graph.Plot.Bottom));
+            context.DrawLine(GraphTheme.AxisPen, new Point(graph.Plot.Left, graph.Plot.Top), new Point(graph.Plot.Left, graph.Plot.Bottom));
 
             foreach (var tick in graph.XTicks.Major)
             {
                 if (!view.ContainsX(tick)) continue;
 
                 var x = Crisp(graph.Transform.X(tick));
-                context.DrawLine(AxisPen, new Point(x, graph.Plot.Bottom), new Point(x, graph.Plot.Bottom + 5));
-                DrawCenteredText(context, graph.XTicks.Format(tick), new Point(x, graph.Plot.Bottom + 9), 11, MutedTextBrush);
+                context.DrawLine(GraphTheme.AxisPen, new Point(x, graph.Plot.Bottom), new Point(x, graph.Plot.Bottom + AvaloniaGraphSettings.TickLength));
+                DrawCenteredText(context, graph.XTicks.Format(tick), new Point(x, graph.Plot.Bottom + AvaloniaGraphSettings.TickLabelOffset), AvaloniaGraphSettings.TickLabelFontSize, GraphTheme.MutedTextBrush);
             }
 
             foreach (var tick in graph.YTicks.Major)
@@ -516,12 +490,12 @@ namespace AnalysisITC.Avalonia.Processing
                 if (!view.ContainsY(tick)) continue;
 
                 var y = Crisp(graph.Transform.Y(tick));
-                context.DrawLine(AxisPen, new Point(graph.Plot.Left - 5, y), new Point(graph.Plot.Left, y));
-                DrawRightAlignedText(context, graph.YTicks.Format(tick), new Point(graph.Plot.Left - 9, y - 7), 11, MutedTextBrush);
+                context.DrawLine(GraphTheme.AxisPen, new Point(graph.Plot.Left - AvaloniaGraphSettings.TickLength, y), new Point(graph.Plot.Left, y));
+                DrawRightAlignedText(context, graph.YTicks.Format(tick), new Point(graph.Plot.Left - AvaloniaGraphSettings.TickLabelOffset, y - AvaloniaGraphSettings.YTickLabelYOffset), AvaloniaGraphSettings.TickLabelFontSize, GraphTheme.MutedTextBrush);
             }
 
-            DrawCenteredText(context, "Time (s)", new Point(graph.Plot.Left + graph.Plot.Width / 2, graph.Plot.Bottom + 35), 12, TextBrush);
-            DrawText(context, $"Power ({Power.UnitLabel})", new Point(graph.Plot.Left, graph.Plot.Top - 24), 12, FontWeight.SemiBold, TextBrush);
+            DrawCenteredText(context, "Time (s)", new Point(graph.Plot.Left + graph.Plot.Width / 2, graph.Plot.Bottom + AvaloniaGraphSettings.XAxisTitleOffset), AvaloniaGraphSettings.AxisTitleFontSize, GraphTheme.TextBrush);
+            DrawText(context, $"Power ({Power.UnitLabel})", new Point(graph.Plot.Left, graph.Plot.Top - AvaloniaGraphSettings.AxisTitleOffset), AvaloniaGraphSettings.AxisTitleFontSize, FontWeight.SemiBold, GraphTheme.TextBrush);
         }
 
         void DrawData(DrawingContext context, GraphLayout graph)
@@ -529,7 +503,7 @@ namespace AnalysisITC.Avalonia.Processing
             var points = BuildDisplayPoints(DisplayDataPoints(), graph);
             if (points.Count < 2) return;
 
-            DrawPolyline(context, graph.Plot, points, ShowBaselineCorrected ? CorrectedDataPen : DataPen);
+            DrawPolyline(context, graph.Plot, points, ShowBaselineCorrected ? GraphTheme.CorrectedDataPen : GraphTheme.DataPen);
         }
 
         void DrawBaseline(DrawingContext context, GraphLayout graph)
@@ -540,7 +514,7 @@ namespace AnalysisITC.Avalonia.Processing
             var points = BuildDisplayPoints(BaselinePoints(), graph);
             if (points.Count < 2) return;
 
-            DrawPolyline(context, graph.Plot, points, BaselinePen);
+            DrawPolyline(context, graph.Plot, points, GraphTheme.BaselinePen);
         }
 
         void DrawSplinePoints(DrawingContext context, GraphLayout graph)
@@ -559,8 +533,8 @@ namespace AnalysisITC.Avalonia.Processing
                     if (!view.ContainsY(y)) continue;
 
                     var screen = graph.Transform.ToScreen(point.Time, y);
-                    context.DrawEllipse(Brushes.White, new Pen(SplinePointBrush, 1.2), screen, SplinePointRadius, SplinePointRadius);
-                    context.DrawEllipse(SplinePointBrush, null, screen, 1.7, 1.7);
+                    context.DrawEllipse(GraphTheme.PlotBrush, new Pen(GraphTheme.SplinePointBrush, AvaloniaGraphSettings.PointStroke), screen, AvaloniaGraphSettings.ProcessingSplinePointRadius, AvaloniaGraphSettings.ProcessingSplinePointRadius);
+                    context.DrawEllipse(GraphTheme.SplinePointBrush, null, screen, AvaloniaGraphSettings.ProcessingSplinePointInnerRadius, AvaloniaGraphSettings.ProcessingSplinePointInnerRadius);
                 }
             }
         }
@@ -582,9 +556,9 @@ namespace AnalysisITC.Avalonia.Processing
                     if (right <= left) continue;
 
                     var selected = SelectedInjectionIndex == injection.ID;
-                    var baseBrush = selected ? RegionBrush : RegionMutedBrush;
-                    var fill = new SolidColorBrush(((SolidColorBrush)baseBrush).Color, selected ? 0.16 : 0.08);
-                    var line = new Pen(new SolidColorBrush(((SolidColorBrush)baseBrush).Color, selected ? 0.9 : 0.45), selected ? 1.25 : 1);
+                    var baseBrush = selected ? GraphTheme.RegionBrush : GraphTheme.MutedRegionBrush;
+                    var fill = new SolidColorBrush(((SolidColorBrush)baseBrush).Color, selected ? AvaloniaGraphSettings.ProcessingSelectedRegionOpacity : AvaloniaGraphSettings.ProcessingMutedRegionOpacity);
+                    var line = new Pen(new SolidColorBrush(((SolidColorBrush)baseBrush).Color, selected ? AvaloniaGraphSettings.ProcessingSelectedRegionLineOpacity : AvaloniaGraphSettings.ProcessingMutedRegionLineOpacity), selected ? AvaloniaGraphSettings.ProcessingSelectedRegionStroke : AvaloniaGraphSettings.ProcessingMutedRegionStroke);
 
                     context.DrawRectangle(fill, null, new Rect(left, graph.Plot.Top, right - left, graph.Plot.Height));
                     context.DrawLine(line, new Point(Crisp(startX), graph.Plot.Top), new Point(Crisp(startX), graph.Plot.Bottom));
@@ -595,10 +569,10 @@ namespace AnalysisITC.Avalonia.Processing
 
         void DrawZoomSelection(DrawingContext context)
         {
-            if (!isZoomDragging || Distance(dragStart, dragCurrent) <= DragThreshold) return;
+            if (!isZoomDragging || Distance(dragStart, dragCurrent) <= AvaloniaGraphSettings.ProcessingDragThreshold) return;
 
             var rect = RectFromPoints(dragStart, dragCurrent);
-            context.DrawRectangle(ZoomBrush, ZoomPen, rect);
+            context.DrawRectangle(GraphTheme.ZoomBrush, GraphTheme.ZoomPen, rect);
         }
 
         void DrawHover(DrawingContext context, GraphLayout graph)
@@ -616,8 +590,8 @@ namespace AnalysisITC.Avalonia.Processing
 
             using (context.PushClip(graph.Plot))
             {
-                context.DrawLine(HoverPen, new Point(x, graph.Plot.Top), new Point(x, graph.Plot.Bottom));
-                context.DrawEllipse(Brushes.White, HoverPen, screen, 4, 4);
+                context.DrawLine(GraphTheme.HoverPen, new Point(x, graph.Plot.Top), new Point(x, graph.Plot.Bottom));
+                context.DrawEllipse(GraphTheme.PlotBrush, GraphTheme.HoverPen, screen, AvaloniaGraphSettings.HoverMarkerRadius, AvaloniaGraphSettings.HoverMarkerRadius);
             }
 
             var lines = BuildHoverLines(data).ToArray();
@@ -652,29 +626,25 @@ namespace AnalysisITC.Avalonia.Processing
         {
             if (lines.Count == 0) return;
 
-            const double paddingX = 9;
-            const double paddingY = 7;
-            const double lineGap = 3;
+            var texts = lines.Select(line => CreateText(line, AvaloniaGraphSettings.HoverFontSize, FontWeight.Normal, GraphTheme.TextBrush)).ToArray();
+            var width = texts.Max(text => text.Width) + AvaloniaGraphSettings.HoverPaddingX * 2;
+            var height = texts.Sum(text => text.Height) + AvaloniaGraphSettings.HoverLineGap * (texts.Length - 1) + AvaloniaGraphSettings.HoverPaddingY * 2;
 
-            var texts = lines.Select(line => CreateText(line, 11, FontWeight.Normal, TextBrush)).ToArray();
-            var width = texts.Max(text => text.Width) + paddingX * 2;
-            var height = texts.Sum(text => text.Height) + lineGap * (texts.Length - 1) + paddingY * 2;
+            var x = anchor.X + AvaloniaGraphSettings.HoverAnchorXOffset;
+            var y = anchor.Y - height - AvaloniaGraphSettings.HoverAnchorYOffset;
 
-            var x = anchor.X + 12;
-            var y = anchor.Y - height - 10;
-
-            if (x + width > plot.Right - 8) x = anchor.X - width - 12;
-            if (y < plot.Top + 8) y = anchor.Y + 12;
-            if (y + height > plot.Bottom - 8) y = plot.Bottom - height - 8;
+            if (x + width > plot.Right - AvaloniaGraphSettings.HoverPlotInset) x = anchor.X - width - AvaloniaGraphSettings.HoverAnchorXOffset;
+            if (y < plot.Top + AvaloniaGraphSettings.HoverPlotInset) y = anchor.Y + AvaloniaGraphSettings.HoverAnchorXOffset;
+            if (y + height > plot.Bottom - AvaloniaGraphSettings.HoverPlotInset) y = plot.Bottom - height - AvaloniaGraphSettings.HoverPlotInset;
 
             var rect = new Rect(x, y, width, height);
-            context.DrawRectangle(HoverBackgroundBrush, new Pen(Solid("#B6C0CA"), 1), rect, 4);
+            context.DrawRectangle(GraphTheme.HoverBackgroundBrush, GraphTheme.HoverBorderPen, rect, AvaloniaGraphSettings.HoverCornerRadius);
 
-            var lineY = y + paddingY;
+            var lineY = y + AvaloniaGraphSettings.HoverPaddingY;
             foreach (var text in texts)
             {
-                context.DrawText(text, new Point(x + paddingX, lineY));
-                lineY += text.Height + lineGap;
+                context.DrawText(text, new Point(x + AvaloniaGraphSettings.HoverPaddingX, lineY));
+                lineY += text.Height + AvaloniaGraphSettings.HoverLineGap;
             }
         }
 
@@ -735,10 +705,10 @@ namespace AnalysisITC.Avalonia.Processing
                 var startX = graph.Transform.X(injection.IntegrationStartTime);
                 var endX = graph.Transform.X(injection.IntegrationEndTime);
 
-                if (Math.Abs(point.X - startX) <= MarkerHitWidth / 2)
+                if (Math.Abs(point.X - startX) <= AvaloniaGraphSettings.ProcessingMarkerHitWidth / 2)
                     return new HitTarget(HitKind.IntegrationStart, injection.ID);
 
-                if (Math.Abs(point.X - endX) <= MarkerHitWidth / 2)
+                if (Math.Abs(point.X - endX) <= AvaloniaGraphSettings.ProcessingMarkerHitWidth / 2)
                     return new HitTarget(HitKind.IntegrationEnd, injection.ID);
             }
 
@@ -900,8 +870,6 @@ namespace AnalysisITC.Avalonia.Processing
 
         static double Crisp(double value) => Math.Round(value) + 0.5;
 
-        static IBrush Solid(string color) => new SolidColorBrush(Color.Parse(color));
-
         static FormattedText CreateText(string text, double size, FontWeight weight, IBrush brush)
         {
             return new FormattedText(
@@ -1016,17 +984,17 @@ namespace AnalysisITC.Avalonia.Processing
 
             public static GraphLayout Create(Rect bounds, GraphViewport view, PowerDisplay power)
             {
-                var xTicks = AxisTicks.Create(view.XMin, view.XMax, Math.Max(4, Math.Min(9, (int)(bounds.Width / 135))));
-                var yTicks = AxisTicks.Create(view.YMin, view.YMax, Math.Max(4, Math.Min(8, (int)(bounds.Height / 85))));
+                var xTicks = AxisTicks.Create(view.XMin, view.XMax, Math.Max(4, Math.Min(9, (int)(bounds.Width / AvaloniaGraphSettings.ThermogramXTickDivisor))));
+                var yTicks = AxisTicks.Create(view.YMin, view.YMax, Math.Max(4, Math.Min(8, (int)(bounds.Height / AvaloniaGraphSettings.ThermogramYTickDivisor))));
 
                 var yLabelWidth = yTicks.Major.Count == 0
-                    ? 44
-                    : yTicks.Major.Max(tick => MeasureText(yTicks.Format(tick), 11).Width);
+                    ? AvaloniaGraphSettings.YLabelFallbackWidth
+                    : yTicks.Major.Max(tick => MeasureText(yTicks.Format(tick), AvaloniaGraphSettings.TickLabelFontSize).Width);
 
-                var left = Math.Max(74, yLabelWidth + 24);
-                const double top = 38;
-                const double right = 22;
-                const double bottom = 58;
+                var left = Math.Max(AvaloniaGraphSettings.GraphMarginLeftMinimum, yLabelWidth + AvaloniaGraphSettings.GraphMarginLeftTickBuffer);
+                double top = AvaloniaGraphSettings.GraphMarginTop;
+                double right = AvaloniaGraphSettings.GraphMarginRight;
+                double bottom = AvaloniaGraphSettings.GraphMarginBottom;
 
                 var plot = new Rect(
                     left,
@@ -1039,7 +1007,7 @@ namespace AnalysisITC.Avalonia.Processing
 
             static Size MeasureText(string text, double size)
             {
-                var formatted = CreateText(text, size, FontWeight.Normal, Brushes.Black);
+                var formatted = CreateText(text, size, FontWeight.Normal, GraphTheme.TextBrush);
                 return new Size(formatted.Width, formatted.Height);
             }
         }
