@@ -22,15 +22,13 @@
                       Grid.Row="0"
                       Background="#FFFFFF" />
                 <DockPanel Grid.Row="1" Margin="8">
-                <StackPanel Orientation="Horizontal" Spacing="8" DockPanel.Dock="Left">
-                    <Button x:Name="OpenButton" Content="Open" MinWidth="72" />
-                    <Button x:Name="ClearButton" Content="Clear" MinWidth="72" />
-                </StackPanel>
-                <TextBlock x:Name="ToolbarStatusText"
-                           Margin="16,0,0,0"
-                           VerticalAlignment="Center"
-                           Foreground="#4D5A66"
-                           TextTrimming="CharacterEllipsis" />
+                    <StackPanel Orientation="Horizontal" Spacing="8" DockPanel.Dock="Left">
+                        <Button x:Name="OpenButton" Content="Open" MinWidth="72" />
+                        <Button x:Name="ClearButton" Content="Clear" MinWidth="72" />
+                        <Button x:Name="FileToolbarMenuButton" Content="File" MinWidth="72" />
+                        <Button x:Name="ObjectToolbarMenuButton" Content="Experiment" MinWidth="96" />
+                        <Button x:Name="WorkflowToolbarMenuButton" Content="Overview" MinWidth="104" />
+                    </StackPanel>
                 </DockPanel>
             </Grid>
         </Border>
@@ -79,9 +77,9 @@
                                               IsEnabled="{Binding CanIncludeActive}"
                                               Grid.RowSpan="4"
                                               Width="22"
-                                              Height="26"
+                                              Height="40"
                                               MinWidth="22"
-                                              MinHeight="26"
+                                              MinHeight="40"
                                               Padding="0"
                                               VerticalAlignment="Top"
                                               Margin="0,0,6,0" />

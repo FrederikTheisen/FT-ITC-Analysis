@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
+using System.Threading.Tasks;
 
 using Avalonia;
 using Avalonia.Controls;
@@ -52,10 +53,12 @@ namespace AnalysisITC.Avalonia.Results
         AnalysisResult? result;
         bool isUpdatingSelection;
         bool isUpdatingEvaluationControls;
+        bool isUpdatingResult;
         bool evaluationUseKelvin;
 
         public event EventHandler<string>? StatusChanged;
         public event EventHandler? DetailsRequested;
+        public event EventHandler? ResultUpdated;
 
         public AnalysisResultWorkspaceControl()
         {
@@ -89,6 +92,67 @@ namespace AnalysisITC.Avalonia.Results
         public void FitToData()
         {
             graph.FitToData();
+        }
+
+        public bool UseKelvinTemperature => UseKelvin;
+        public EnergyUnit DisplayEnergyUnit => SelectedEvaluationEnergyUnit();
+
+        public void SetTemperatureDisplay(bool kelvin)
+        {
+            temperatureUnitCombo.SelectedIndex = kelvin ? 1 : 0;
+            RefreshTable();
+            graph.InvalidateVisual();
+        }
+
+        public void SetEnergyDisplay(EnergyUnit unit)
+        {
+            SetEvaluationEnergyUnit(unit);
+            if (AppSettings.EnergyUnit != unit)
+            {
+                AppSettings.EnergyUnit = unit;
+                AppSettings.Save();
+            }
+
+            RefreshTable();
+            graph.InvalidateVisual();
+            RefreshParameterEvaluation();
+        }
+
+        public void SetUncertaintyDisplay(UncertaintyDisplayStyle style)
+        {
+            AppSettings.UncertaintyDisplayStyle = style;
+            AppSettings.Save();
+            RefreshTable();
+            RefreshParameterEvaluation();
+        }
+
+        public async Task UpdateResultAsync()
+        {
+            if (result == null || isUpdatingResult) return;
+
+            try
+            {
+                isUpdatingResult = true;
+                RefreshSummary();
+                StatusChanged?.Invoke(this, "Updating analysis result...");
+
+                var convergence = await AnalysisResultUpdater.UpdateAsync(result);
+
+                Refresh();
+                ResultUpdated?.Invoke(this, EventArgs.Empty);
+                StatusChanged?.Invoke(this, $"{convergence.Algorithm.GetProperties().ShortName} | RMSD = {convergence.Loss:G4}");
+            }
+            catch (Exception ex)
+            {
+                AppEventHandler.DisplayHandledException(ex);
+                StatusChanged?.Invoke(this, $"Result update failed: {ex.Message}");
+                RefreshSummary();
+            }
+            finally
+            {
+                isUpdatingResult = false;
+                RefreshSummary();
+            }
         }
 
         protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
@@ -219,7 +283,17 @@ namespace AnalysisITC.Avalonia.Results
             };
             detailsButton.Click += (_, _) => DetailsRequested?.Invoke(this, EventArgs.Empty);
 
-            summaryPanel.Children.Add(detailsButton);
+            var updateButton = new Button
+            {
+                Content = isUpdatingResult ? "Updating..." : "Update Result",
+                MinHeight = 26,
+                Padding = new Thickness(8, 1),
+                HorizontalAlignment = HorizontalAlignment.Left,
+                IsEnabled = !isUpdatingResult && result.Solution?.Model != null
+            };
+            updateButton.Click += async (_, _) => await UpdateResultAsync();
+
+            summaryPanel.Children.Add(WorkspaceControlBuilder.Row(detailsButton, updateButton));
 
             summaryPanel.Children.Add(Section("Result", new Control[]
             {

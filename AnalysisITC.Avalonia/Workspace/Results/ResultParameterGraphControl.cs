@@ -22,18 +22,8 @@ namespace AnalysisITC.Avalonia.Results
 {
     public sealed class ResultParameterGraphControl : Control
     {
-        static readonly IBrush CanvasBrush = Solid("#F4F7FA");
-        static readonly IBrush PlotBrush = Brushes.White;
-        static readonly IBrush TextBrush = Solid("#202832");
-        static readonly IBrush MutedTextBrush = Solid("#607080");
-        static readonly IBrush SelectedBrush = new SolidColorBrush(Color.FromArgb(36, 37, 99, 235));
-        static readonly Pen FramePen = new Pen(Solid("#AEB8C2"), 1);
-        static readonly Pen GridPen = new Pen(Solid("#E3E7EC"), 1);
-        static readonly Pen ZeroPen = new Pen(Solid("#334155"), 1.2);
-        static readonly Pen ErrorPen = new Pen(Solid("#202832"), 1.1);
-        static readonly Pen SelectedPen = new Pen(Solid("#2563EB"), 2);
-        static readonly IBrush BarBrush = Solid("#64748B");
-        static readonly Pen BarPen = new Pen(Solid("#475569"), 1);
+        static AvaloniaGraphTheme GraphTheme => AvaloniaGraphSettings.Current;
+
         static readonly ParameterType[] ThermodynamicParameters =
         {
             ParameterType.Enthalpy1,
@@ -90,36 +80,61 @@ namespace AnalysisITC.Avalonia.Results
         {
             base.Render(context);
 
-            var bounds = Bounds;
-            context.DrawRectangle(CanvasBrush, null, bounds);
-
-            var plot = new Rect(64, 22, Math.Max(1, bounds.Width - 84), Math.Max(1, bounds.Height - 70));
-            context.DrawRectangle(PlotBrush, FramePen, plot);
-
             var solutions = result?.Solution?.Solutions ?? new List<SolutionInterface>();
             var parameters = AvailableThermodynamicParameters(solutions);
+            var yRange = BuildValueRange(solutions, parameters);
+            var ticks = BuildTicks(yRange.Minimum, yRange.Maximum);
+
+            var bounds = Bounds;
+            context.DrawRectangle(GraphTheme.CanvasBrush, null, bounds);
+
+            var yLabelWidth = ticks.Count == 0
+                    ? AvaloniaGraphSettings.YLabelFallbackWidth
+                    : ticks.Max(tick => MeasureText(FormatAxisValue(tick), AvaloniaGraphSettings.TickLabelFontSize).Width);
+
+            var left = Math.Max(AvaloniaGraphSettings.GraphMarginLeftMinimum, yLabelWidth + AvaloniaGraphSettings.GraphMarginLeftTickBuffer);
+            double top = AvaloniaGraphSettings.GraphMarginTop;
+            double right = AvaloniaGraphSettings.GraphMarginRight;
+            double bottom = AvaloniaGraphSettings.GraphMarginBottom;
+
+            var plot = new Rect(
+                left,
+                top,
+                Math.Max(1, bounds.Width - left - right),
+                Math.Max(1, bounds.Height - top - bottom + 20));
+
+            context.DrawRectangle(GraphTheme.PlotBrush, GraphTheme.FramePen, plot);
 
             if (solutions.Count == 0 || parameters.Count == 0 || plot.Width < 80 || plot.Height < 80)
             {
-                DrawText(context, "No thermodynamic result parameters", new Point(plot.Left + 16, plot.Top + 16), 14, FontWeight.SemiBold, MutedTextBrush);
+                DrawText(
+                    context,
+                    "No thermodynamic result parameters",
+                    new Point(plot.Left + AvaloniaGraphSettings.EmptyStateXOffset, plot.Top + AvaloniaGraphSettings.EmptyStateTitleYOffset),
+                    AvaloniaGraphSettings.EmptyTitleFontSize,
+                    FontWeight.SemiBold,
+                    GraphTheme.MutedTextBrush);
                 return;
             }
 
             var selected = DataManager.SelectedResultSolution;
-            var yRange = BuildValueRange(solutions, parameters);
-            var ticks = BuildTicks(yRange.Minimum, yRange.Maximum);
 
             foreach (var tick in ticks)
             {
                 var y = YForValue(plot, yRange.Minimum, yRange.Maximum, tick);
-                context.DrawLine(GridPen, new Point(plot.Left, y), new Point(plot.Right, y));
-                DrawRightAlignedText(context, FormatAxisValue(tick), new Point(plot.Left - 8, y - 7), 10, MutedTextBrush);
+                context.DrawLine(GraphTheme.MajorGridPen, new Point(plot.Left, y), new Point(plot.Right, y));
+                DrawRightAlignedText(
+                    context,
+                    FormatAxisValue(tick),
+                    new Point(plot.Left - AvaloniaGraphSettings.TickLabelOffset, y - AvaloniaGraphSettings.YTickLabelYOffset),
+                    AvaloniaGraphSettings.TickLabelFontSize,
+                    GraphTheme.MutedTextBrush);
             }
 
             var zeroY = YForValue(plot, yRange.Minimum, yRange.Maximum, 0);
-            context.DrawLine(ZeroPen, new Point(plot.Left, zeroY), new Point(plot.Right, zeroY));
+            context.DrawLine(GraphTheme.ZeroPen, new Point(plot.Left, zeroY), new Point(plot.Right, zeroY));
 
-            DrawText(context, $"Energy ({AppSettings.EnergyUnit.GetUnit()}/mol)", new Point(8, plot.Top + 4), 11, FontWeight.SemiBold, TextBrush);
+            DrawText(context, $"Energy ({AppSettings.EnergyUnit.GetUnit()}/mol)", new Point(plot.Left, plot.Top - AvaloniaGraphSettings.AxisTitleOffset), AvaloniaGraphSettings.AxisTitleFontSize, FontWeight.SemiBold, GraphTheme.TextBrush);
 
             var categoryWidth = plot.Width / parameters.Count;
             for (int parameterIndex = 0; parameterIndex < parameters.Count; parameterIndex++)
@@ -129,13 +144,17 @@ namespace AnalysisITC.Avalonia.Results
                 var categoryCenter = categoryLeft + categoryWidth * 0.5;
 
                 if (parameterIndex > 0)
-                    context.DrawLine(GridPen, new Point(categoryLeft, plot.Top), new Point(categoryLeft, plot.Bottom));
+                    context.DrawLine(GraphTheme.MinorGridPen, new Point(categoryLeft, plot.Top), new Point(categoryLeft, plot.Bottom));
 
                 DrawParameterBars(context, plot, yRange, solutions, selected, parameter, categoryLeft, categoryWidth);
-                DrawCenteredText(context, ParameterLabel(parameter), new Point(categoryCenter, plot.Bottom + 8), 11, TextBrush);
+                DrawCenteredText(context, ParameterLabel(parameter), new Point(categoryCenter, plot.Bottom + AvaloniaGraphSettings.TickLabelOffset), AvaloniaGraphSettings.TickLabelFontSize, GraphTheme.TextBrush);
             }
+        }
 
-            DrawSolutionLegend(context, plot, solutions, selected);
+        static Size MeasureText(string text, double size)
+        {
+            var formatted = CreateText(text, size, FontWeight.Normal, GraphTheme.TextBrush);
+            return new Size(formatted.Width, formatted.Height);
         }
 
         protected override void OnPointerPressed(PointerPressedEventArgs e)
@@ -150,7 +169,31 @@ namespace AnalysisITC.Avalonia.Results
             }
 
             var bounds = Bounds;
-            var plot = new Rect(64, 22, Math.Max(1, bounds.Width - 84), Math.Max(1, bounds.Height - 70));
+            var parameters = AvailableThermodynamicParameters(solutions);
+            if (parameters.Count == 0)
+            {
+                DataManager.ClearResultSolutionSelection();
+                return;
+            }
+
+            var yRange = BuildValueRange(solutions, parameters);
+            var ticks = BuildTicks(yRange.Minimum, yRange.Maximum);
+
+            var yLabelWidth = ticks.Count == 0
+                    ? AvaloniaGraphSettings.YLabelFallbackWidth
+                    : ticks.Max(tick => MeasureText(FormatAxisValue(tick), AvaloniaGraphSettings.TickLabelFontSize).Width);
+
+            var left = Math.Max(AvaloniaGraphSettings.GraphMarginLeftMinimum, yLabelWidth + AvaloniaGraphSettings.GraphMarginLeftTickBuffer);
+            double top = AvaloniaGraphSettings.GraphMarginTop;
+            double right = AvaloniaGraphSettings.GraphMarginRight;
+            double bottom = AvaloniaGraphSettings.GraphMarginBottom;
+
+            var plot = new Rect(
+                left,
+                top,
+                Math.Max(1, bounds.Width - left - right),
+                Math.Max(1, bounds.Height - top - bottom + 20));
+
             var point = e.GetPosition(this);
 
             if (!plot.Contains(point))
@@ -160,10 +203,39 @@ namespace AnalysisITC.Avalonia.Results
                 return;
             }
 
-            var parameters = AvailableThermodynamicParameters(solutions);
-            var index = SolutionIndexForPoint(plot, parameters.Count, solutions.Count, point.X);
-            if (index >= 0 && index < solutions.Count)
-                DataManager.SelectResultSolution(solutions[index]);
+            var found = false;
+            var categoryWidth = plot.Width / Math.Max(1, parameters.Count);
+            for (int parameterIndex = 0; parameterIndex < parameters.Count && !found; parameterIndex++)
+            {
+                var parameter = parameters[parameterIndex];
+                var categoryLeft = plot.Left + parameterIndex * categoryWidth;
+                var binWidth = categoryWidth * 0.8;
+                var perSolutionWidth = binWidth / Math.Max(1, solutions.Count);
+                var barWidth = Math.Max(3, perSolutionWidth - 2);
+
+                for (int i = 0; i < solutions.Count; i++)
+                {
+                    var value = ParameterValue(solutions[i], parameter);
+                    if (!value.HasValue) continue;
+
+                    var x = categoryLeft + categoryWidth * 0.1 + i * perSolutionWidth + (perSolutionWidth - barWidth) * 0.5;
+                    var y = YForValue(plot, yRange.Minimum, yRange.Maximum, value.Value);
+                    var zeroY = YForValue(plot, yRange.Minimum, yRange.Maximum, 0);
+                    var topRect = Math.Min(y, zeroY);
+                    var height = Math.Abs(zeroY - y);
+                    var rect = new Rect(x, topRect, barWidth, Math.Max(1, height));
+
+                    if (rect.Contains(point))
+                    {
+                        DataManager.SelectResultSolution(solutions[i]);
+                        found = true;
+                        break;
+                    }
+                }
+            }
+
+            if (!found)
+                DataManager.ClearResultSolutionSelection();
 
             e.Handled = true;
         }
@@ -193,9 +265,10 @@ namespace AnalysisITC.Avalonia.Results
                 var height = Math.Abs(zeroY - y);
                 var rect = new Rect(x, top, barWidth, Math.Max(1, height));
                 var selectedBar = ReferenceEquals(solutions[i], selected);
-                var pen = selectedBar ? SelectedPen : BarPen;
+                var pen = !selectedBar ? GraphTheme.FitPen : GraphTheme.DataPen;
+                var brush = !selectedBar ? GraphTheme.FitBrush : GraphTheme.DataBrush;
 
-                context.DrawRectangle(BarBrush, pen, rect);
+                context.DrawRectangle(brush, pen, rect);
 
                 if (value.Lower.HasValue && value.Upper.HasValue)
                 {
@@ -203,9 +276,9 @@ namespace AnalysisITC.Avalonia.Results
                     var upperY = YForValue(plot, yRange.Minimum, yRange.Maximum, value.Upper.Value);
                     var centerX = rect.Left + rect.Width * 0.5;
                     var cap = Math.Max(3, rect.Width * 0.35);
-                    context.DrawLine(ErrorPen, new Point(centerX, upperY), new Point(centerX, lowerY));
-                    context.DrawLine(ErrorPen, new Point(centerX - cap, upperY), new Point(centerX + cap, upperY));
-                    context.DrawLine(ErrorPen, new Point(centerX - cap, lowerY), new Point(centerX + cap, lowerY));
+                    context.DrawLine(GraphTheme.PointPen, new Point(centerX, upperY), new Point(centerX, lowerY));
+                    context.DrawLine(GraphTheme.PointPen, new Point(centerX - cap, upperY), new Point(centerX + cap, upperY));
+                    context.DrawLine(GraphTheme.PointPen, new Point(centerX - cap, lowerY), new Point(centerX + cap, lowerY));
                 }
             }
         }
@@ -334,8 +407,8 @@ namespace AnalysisITC.Avalonia.Results
             for (int i = 0; i < solutions.Count; i++)
             {
                 var rect = new Rect(x, y + 2, 10, 10);
-                context.DrawRectangle(BarBrush, ReferenceEquals(solutions[i], selected) ? SelectedPen : BarPen, rect);
-                DrawText(context, (i + 1).ToString(CultureInfo.CurrentCulture), new Point(x + 14, y - 1), 10, FontWeight.Normal, MutedTextBrush);
+                context.DrawRectangle(GraphTheme.DataBrush, ReferenceEquals(solutions[i], selected) ? GraphTheme.FitPen : GraphTheme.DataPen, rect);
+                DrawText(context, (i + 1).ToString(CultureInfo.CurrentCulture), new Point(x + 14, y - 1), AvaloniaGraphSettings.TickLabelFontSize, FontWeight.Normal, GraphTheme.MutedTextBrush);
                 x += 36;
                 if (x > plot.Right - 28) break;
             }
@@ -352,8 +425,6 @@ namespace AnalysisITC.Avalonia.Results
         {
             return !double.IsNaN(value) && !double.IsInfinity(value);
         }
-
-        static IBrush Solid(string color) => new SolidColorBrush(Color.Parse(color));
 
         static FormattedText CreateText(string text, double size, FontWeight weight, IBrush brush)
         {

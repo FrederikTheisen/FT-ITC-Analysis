@@ -220,6 +220,12 @@ namespace AnalysisITC.Avalonia.Processing
             graph.SelectedInjectionChanged += (_, _) => UpdateControls();
             graph.IntegrationEdited += (_, _) => UpdateControls();
             graph.IntegrationEditCompleted += async (_, _) => await CompleteGraphIntegrationEditAsync();
+            graph.SplineEdited += (_, _) =>
+            {
+                UpdateControls();
+                ProcessingChanged?.Invoke(this, EventArgs.Empty);
+            };
+            graph.SplineEditCompleted += async (_, _) => await CompleteGraphSplineEditAsync();
             graph.CopySelectedIntegrationToNextRequested += async (_, _) => await CopySelectedIntegrationToNextAsync();
         }
 
@@ -451,6 +457,13 @@ namespace AnalysisITC.Avalonia.Processing
             }
         }
 
+        async Task CompleteGraphSplineEditAsync()
+        {
+            if (!ContextIsValid) return;
+
+            await ProcessDataAsync(replace: false, status: "Spline baseline updated");
+        }
+
         async Task ProcessDataAsync(bool replace, string status)
         {
             if (!ContextIsValid) return;
@@ -489,6 +502,58 @@ namespace AnalysisITC.Avalonia.Processing
 
             experiment!.Processor.ToggleLock();
             UpdateControls();
+        }
+
+        public void ToggleSplineHandles()
+        {
+            if (!ContextIsValid || experiment!.Processor.Interpolator is not SplineInterpolator spline) return;
+            if (spline.Algorithm != SplineInterpolator.SplineInterpolatorAlgorithm.Smooth) return;
+
+            spline.ShowHandles = !spline.ShowHandles;
+            UpdateControls();
+            graph.InvalidateVisual();
+        }
+
+        public void ToggleSplinePointTimeDragging()
+        {
+            if (!ContextIsValid || experiment!.Processor.Interpolator is not SplineInterpolator spline) return;
+
+            spline.AllowPointTimeDragging = !spline.AllowPointTimeDragging;
+            UpdateControls();
+        }
+
+        public void ToggleIntegrationRegionCopyIncludesStart()
+        {
+            AppSettings.IntegrationRegionCopyIncludesStart = !AppSettings.IntegrationRegionCopyIncludesStart;
+            AppSettings.Save();
+        }
+
+        public async Task ConvertCurrentProcessorToSplineAsync(SplineInterpolator.SplineInterpolatorAlgorithm algorithm)
+        {
+            if (!ContextIsValid || experiment!.Processor.Interpolator == null) return;
+
+            var interpolator = experiment.Processor.Interpolator;
+            if (interpolator is SplineInterpolator spline)
+            {
+                if (algorithm != SplineInterpolator.SplineInterpolatorAlgorithm.Linear) return;
+                if (spline.Algorithm == SplineInterpolator.SplineInterpolatorAlgorithm.Linear) return;
+
+                spline.Algorithm = SplineInterpolator.SplineInterpolatorAlgorithm.Linear;
+                spline.ApplyPointDensity();
+                await ProcessDataAsync(replace: false, status: "Converted to linear spline");
+                return;
+            }
+
+            if (algorithm == SplineInterpolator.SplineInterpolatorAlgorithm.Smooth
+                && interpolator is not PolynomialLeastSquaresInterpolator
+                && interpolator is not SegmentedBaselineInterpolator)
+                return;
+
+            SplineInterpolator.PolynomialToSplineConversionTargetAlgorithm = algorithm;
+            interpolator.ConvertToSpline(SplineConversionPointDensity(algorithm));
+            await ProcessDataAsync(replace: true, status: algorithm == SplineInterpolator.SplineInterpolatorAlgorithm.Linear
+                ? "Converted to linear spline"
+                : "Converted to smooth spline");
         }
 
         void CopyProcessingToActive()
@@ -732,6 +797,11 @@ namespace AnalysisITC.Avalonia.Processing
         }
 
         bool ContextIsValid => experiment != null && experiment.HasThermogram && experiment.Processor != null;
+
+        static int SplineConversionPointDensity(SplineInterpolator.SplineInterpolatorAlgorithm algorithm)
+        {
+            return algorithm == SplineInterpolator.SplineInterpolatorAlgorithm.Linear ? 4 : 2;
+        }
 
         static int PolynomialDegreeFromSlider(int sliderValue)
         {

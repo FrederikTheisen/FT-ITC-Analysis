@@ -66,6 +66,10 @@ public static class AvaloniaGraphSettings
     public static double ProcessingDragThreshold => 5;
     public static double ProcessingSplinePointRadius => 4.5;
     public static double ProcessingSplinePointInnerRadius => 1.7;
+    public static double ProcessingSplinePointHitRadius => 8;
+    public static double ProcessingSplineHandleRadius => 3.5;
+    public static double ProcessingSplineHandleHitRadius => 7;
+    public static double ProcessingSplineHandleStroke => 1;
     public static double ProcessingSelectedRegionOpacity => 0.16;
     public static double ProcessingMutedRegionOpacity => 0.08;
     public static double ProcessingSelectedRegionLineOpacity => 0.9;

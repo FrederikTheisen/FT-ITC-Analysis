@@ -28,6 +28,9 @@ namespace AnalysisITC.Avalonia.Processing
         HitTarget dragTarget;
         Point dragStart;
         Point dragCurrent;
+        double dragReferenceTime;
+        double dragReferencePower;
+        double dragReferenceSlope;
         Point? hoverPoint;
         DataPoint? hoverData;
         int pressedClickCount;
@@ -36,6 +39,8 @@ namespace AnalysisITC.Avalonia.Processing
         public event EventHandler<int>? SelectedInjectionChanged;
         public event EventHandler? IntegrationEdited;
         public event EventHandler? IntegrationEditCompleted;
+        public event EventHandler? SplineEdited;
+        public event EventHandler? SplineEditCompleted;
         public event EventHandler? CopySelectedIntegrationToNextRequested;
 
         public enum VerticalZoomMode
@@ -305,12 +310,21 @@ namespace AnalysisITC.Avalonia.Processing
             dragStart = point;
             dragCurrent = point;
             dragTarget = HitTest(point, graph);
+            CaptureSplineDragReference();
             isPointerCaptured = true;
             e.Pointer.Capture(this);
 
             if (dragTarget.Kind == HitKind.IntegrationStart || dragTarget.Kind == HitKind.IntegrationEnd)
             {
                 Cursor = new Cursor(StandardCursorType.SizeWestEast);
+            }
+            else if (dragTarget.Kind == HitKind.SplinePoint)
+            {
+                Cursor = SplinePointCursor();
+            }
+            else if (dragTarget.Kind == HitKind.SplineHandleLeft || dragTarget.Kind == HitKind.SplineHandleRight)
+            {
+                Cursor = new Cursor(StandardCursorType.SizeNorthSouth);
             }
             else
             {
@@ -343,6 +357,14 @@ namespace AnalysisITC.Avalonia.Processing
                 {
                     UpdateIntegrationMarker(point, graph);
                 }
+                else if (dragTarget.Kind == HitKind.SplinePoint)
+                {
+                    UpdateSplinePoint(point, graph);
+                }
+                else if (dragTarget.Kind == HitKind.SplineHandleLeft || dragTarget.Kind == HitKind.SplineHandleRight)
+                {
+                    UpdateSplineHandle(point, graph);
+                }
 
                 InvalidateVisual();
                 e.Handled = true;
@@ -351,9 +373,13 @@ namespace AnalysisITC.Avalonia.Processing
 
             UpdateHover(point, graph);
             var hit = HitTest(point, graph);
-            Cursor = hit.Kind == HitKind.IntegrationStart || hit.Kind == HitKind.IntegrationEnd
-                ? new Cursor(StandardCursorType.SizeWestEast)
-                : new Cursor(StandardCursorType.Cross);
+            Cursor = hit.Kind switch
+            {
+                HitKind.IntegrationStart or HitKind.IntegrationEnd => new Cursor(StandardCursorType.SizeWestEast),
+                HitKind.SplinePoint => SplinePointCursor(),
+                HitKind.SplineHandleLeft or HitKind.SplineHandleRight => new Cursor(StandardCursorType.SizeNorthSouth),
+                _ => new Cursor(StandardCursorType.Cross)
+            };
 
             InvalidateVisual();
         }
@@ -369,6 +395,7 @@ namespace AnalysisITC.Avalonia.Processing
             var point = e.GetPosition(this);
             var moved = Distance(dragStart, point) > AvaloniaGraphSettings.ProcessingDragThreshold;
             var wasIntegrationDrag = dragTarget.Kind == HitKind.IntegrationStart || dragTarget.Kind == HitKind.IntegrationEnd;
+            var wasSplineDrag = dragTarget.Kind == HitKind.SplinePoint || dragTarget.Kind == HitKind.SplineHandleLeft || dragTarget.Kind == HitKind.SplineHandleRight;
 
             isPointerCaptured = false;
             isZoomDragging = false;
@@ -377,6 +404,11 @@ namespace AnalysisITC.Avalonia.Processing
             if (wasIntegrationDrag)
             {
                 IntegrationEditCompleted?.Invoke(this, EventArgs.Empty);
+            }
+            else if (wasSplineDrag)
+            {
+                if (moved)
+                    SplineEditCompleted?.Invoke(this, EventArgs.Empty);
             }
             else if (moved)
             {
@@ -533,10 +565,31 @@ namespace AnalysisITC.Avalonia.Processing
                     if (!view.ContainsY(y)) continue;
 
                     var screen = graph.Transform.ToScreen(point.Time, y);
-                    context.DrawEllipse(GraphTheme.PlotBrush, new Pen(GraphTheme.SplinePointBrush, AvaloniaGraphSettings.PointStroke), screen, AvaloniaGraphSettings.ProcessingSplinePointRadius, AvaloniaGraphSettings.ProcessingSplinePointRadius);
-                    context.DrawEllipse(GraphTheme.SplinePointBrush, null, screen, AvaloniaGraphSettings.ProcessingSplinePointInnerRadius, AvaloniaGraphSettings.ProcessingSplinePointInnerRadius);
+                    var fill = point.Locked ? GraphTheme.SplinePointBrush : GraphTheme.PlotBrush;
+                    context.DrawEllipse(fill, new Pen(GraphTheme.SplinePointBrush, AvaloniaGraphSettings.PointStroke), screen, AvaloniaGraphSettings.ProcessingSplinePointRadius, AvaloniaGraphSettings.ProcessingSplinePointRadius);
+
+                    if (!point.Locked)
+                        context.DrawEllipse(GraphTheme.SplinePointBrush, null, screen, AvaloniaGraphSettings.ProcessingSplinePointInnerRadius, AvaloniaGraphSettings.ProcessingSplinePointInnerRadius);
+
+                    if (spline.ShowHandles && spline.Algorithm == SplineInterpolator.SplineInterpolatorAlgorithm.Smooth)
+                        DrawSplineHandles(context, graph, point, screen);
                 }
             }
+        }
+
+        void DrawSplineHandles(DrawingContext context, GraphLayout graph, SplineInterpolator.SplinePoint point, Point screen)
+        {
+            var handleLength = SplineHandleLengthTime();
+            if (handleLength <= double.Epsilon) return;
+
+            var left = graph.Transform.ToScreen(point.Time - handleLength, Power.Convert(point.Power - point.Slope * handleLength));
+            var right = graph.Transform.ToScreen(point.Time + handleLength, Power.Convert(point.Power + point.Slope * handleLength));
+            var pen = new Pen(GraphTheme.SplinePointBrush, AvaloniaGraphSettings.ProcessingSplineHandleStroke);
+
+            context.DrawLine(pen, left, right);
+            context.DrawEllipse(GraphTheme.PlotBrush, pen, left, AvaloniaGraphSettings.ProcessingSplineHandleRadius, AvaloniaGraphSettings.ProcessingSplineHandleRadius);
+            context.DrawEllipse(GraphTheme.PlotBrush, pen, right, AvaloniaGraphSettings.ProcessingSplineHandleRadius, AvaloniaGraphSettings.ProcessingSplineHandleRadius);
+            context.DrawEllipse(GraphTheme.SplinePointBrush, null, screen, AvaloniaGraphSettings.ProcessingSplinePointInnerRadius, AvaloniaGraphSettings.ProcessingSplinePointInnerRadius);
         }
 
         void DrawIntegrationRegions(DrawingContext context, GraphLayout graph)
@@ -682,6 +735,45 @@ namespace AnalysisITC.Avalonia.Processing
             IntegrationEdited?.Invoke(this, EventArgs.Empty);
         }
 
+        void UpdateSplinePoint(Point point, GraphLayout graph)
+        {
+            var data = Experiment;
+            if (data?.Processor?.Interpolator is not SplineInterpolator spline) return;
+            if (dragTarget.Index < 0 || dragTarget.Index >= spline.SplinePoints.Count) return;
+
+            var dataPoint = graph.Transform.ToData(point);
+            var time = spline.AllowPointTimeDragging
+                ? ClampSplinePointTime(spline, dragTarget.Index, dataPoint.X)
+                : dragReferenceTime;
+            var power = ShowBaselineCorrected ? dataPoint.Y / Power.Scale + BaselinePowerAt(time) : dataPoint.Y / Power.Scale;
+
+            spline.MoveSplinePoint(dragTarget.Index, time, power);
+            data.Processor.SubtractBaseline();
+            data.Processor.IntegratePeaks(false);
+            SplineEdited?.Invoke(this, EventArgs.Empty);
+        }
+
+        void UpdateSplineHandle(Point point, GraphLayout graph)
+        {
+            var data = Experiment;
+            if (data?.Processor?.Interpolator is not SplineInterpolator spline) return;
+            if (dragTarget.Index < 0 || dragTarget.Index >= spline.SplinePoints.Count) return;
+
+            var handleLength = SplineHandleLengthTime();
+            if (handleLength <= double.Epsilon) return;
+
+            var deltaY = (point.Y - dragStart.Y) / Math.Max(double.Epsilon, graph.Plot.Height) * (view.YMax - view.YMin);
+            var deltaPower = -deltaY / Power.Scale;
+            var deltaSlope = deltaPower / handleLength;
+            if (dragTarget.Kind == HitKind.SplineHandleLeft)
+                deltaSlope = -deltaSlope;
+
+            spline.SetSplinePointSlope(dragTarget.Index, dragReferenceSlope + deltaSlope);
+            data.Processor.SubtractBaseline();
+            data.Processor.IntegratePeaks(false);
+            SplineEdited?.Invoke(this, EventArgs.Empty);
+        }
+
         void ZoomRegion(Point start, Point end, GraphLayout graph)
         {
             var rect = RectFromPoints(start, end);
@@ -699,6 +791,10 @@ namespace AnalysisITC.Avalonia.Processing
         {
             var data = Experiment;
             if (data?.Injections == null || !graph.Plot.Contains(point)) return HitTarget.None;
+
+            var splineHit = HitTestSpline(point, graph);
+            if (splineHit.Kind != HitKind.None)
+                return splineHit;
 
             foreach (var injection in data.Injections)
             {
@@ -724,6 +820,94 @@ namespace AnalysisITC.Avalonia.Processing
             }
 
             return new HitTarget(HitKind.Plot, -1);
+        }
+
+        HitTarget HitTestSpline(Point point, GraphLayout graph)
+        {
+            if (!ShowBaseline) return HitTarget.None;
+            if (Experiment?.Processor?.Interpolator is not SplineInterpolator spline) return HitTarget.None;
+
+            for (var i = 0; i < spline.SplinePoints.Count; i++)
+            {
+                var splinePoint = spline.SplinePoints[i];
+                var y = ShowBaselineCorrected ? 0 : Power.Convert(splinePoint.Power);
+                if (!view.ContainsX(splinePoint.Time) || !view.ContainsY(y)) continue;
+
+                var screen = graph.Transform.ToScreen(splinePoint.Time, y);
+                if (Distance(point, screen) <= AvaloniaGraphSettings.ProcessingSplinePointHitRadius)
+                    return new HitTarget(HitKind.SplinePoint, i);
+
+                if (!spline.ShowHandles || spline.Algorithm != SplineInterpolator.SplineInterpolatorAlgorithm.Smooth)
+                    continue;
+
+                var handleLength = SplineHandleLengthTime();
+                if (handleLength <= double.Epsilon) continue;
+
+                var left = graph.Transform.ToScreen(splinePoint.Time - handleLength, Power.Convert(splinePoint.Power - splinePoint.Slope * handleLength));
+                if (Distance(point, left) <= AvaloniaGraphSettings.ProcessingSplineHandleHitRadius)
+                    return new HitTarget(HitKind.SplineHandleLeft, i);
+
+                var right = graph.Transform.ToScreen(splinePoint.Time + handleLength, Power.Convert(splinePoint.Power + splinePoint.Slope * handleLength));
+                if (Distance(point, right) <= AvaloniaGraphSettings.ProcessingSplineHandleHitRadius)
+                    return new HitTarget(HitKind.SplineHandleRight, i);
+            }
+
+            return HitTarget.None;
+        }
+
+        void CaptureSplineDragReference()
+        {
+            dragReferenceTime = 0;
+            dragReferencePower = 0;
+            dragReferenceSlope = 0;
+
+            if (Experiment?.Processor?.Interpolator is not SplineInterpolator spline) return;
+            if (dragTarget.Index < 0 || dragTarget.Index >= spline.SplinePoints.Count) return;
+
+            var point = spline.SplinePoints[dragTarget.Index];
+            dragReferenceTime = point.Time;
+            dragReferencePower = point.Power;
+            dragReferenceSlope = point.Slope;
+        }
+
+        double ClampSplinePointTime(SplineInterpolator spline, int index, double time)
+        {
+            var minSpacing = Math.Max(Experiment?.TimeStep ?? 0.001, 0.001);
+            var ordered = spline.SplinePoints.OrderBy(point => point.Time).ToList();
+            var point = index >= 0 && index < spline.SplinePoints.Count ? spline.SplinePoints[index] : null;
+            var sortedIndex = point == null ? -1 : ordered.IndexOf(point);
+
+            var min = sortedIndex > 0 ? ordered[sortedIndex - 1].Time + minSpacing : Experiment?.DataPoints.FirstOrDefault().Time ?? view.XMin;
+            var max = sortedIndex >= 0 && sortedIndex < ordered.Count - 1 ? ordered[sortedIndex + 1].Time - minSpacing : Experiment?.DataPoints.LastOrDefault().Time ?? view.XMax;
+
+            return Math.Min(max, Math.Max(min, time));
+        }
+
+        double SplineHandleLengthTime()
+        {
+            var injections = Experiment?.Injections;
+            if (injections == null || injections.Count == 0) return 0;
+
+            return injections.Average(injection => injection.Delay / 5.0);
+        }
+
+        double BaselinePowerAt(double time)
+        {
+            var data = Experiment;
+            var baseline = data?.Processor?.Interpolator?.Baseline;
+            if (data == null || baseline == null || baseline.Count == 0 || data.DataPoints.Count == 0) return 0;
+
+            var nearest = FindNearestDataPoint(data.DataPoints, time);
+            if (!nearest.HasValue) return 0;
+
+            var index = data.DataPoints.IndexOf(nearest.Value);
+            return index >= 0 && index < baseline.Count ? baseline[index].Value : 0;
+        }
+
+        Cursor SplinePointCursor()
+        {
+            var spline = Experiment?.Processor?.Interpolator as SplineInterpolator;
+            return new Cursor(spline?.AllowPointTimeDragging == true ? StandardCursorType.SizeAll : StandardCursorType.SizeNorthSouth);
         }
 
         IReadOnlyList<DataPoint> DisplayDataPoints()
@@ -1211,14 +1395,15 @@ namespace AnalysisITC.Avalonia.Processing
         {
             public static readonly HitTarget None = new HitTarget(HitKind.None, -1);
 
-            public HitTarget(HitKind kind, int injectionIndex)
+            public HitTarget(HitKind kind, int index)
             {
                 Kind = kind;
-                InjectionIndex = injectionIndex;
+                Index = index;
             }
 
             public HitKind Kind { get; }
-            public int InjectionIndex { get; }
+            public int Index { get; }
+            public int InjectionIndex => Index;
         }
 
         enum HitKind
@@ -1227,7 +1412,10 @@ namespace AnalysisITC.Avalonia.Processing
             Plot,
             IntegrationRegion,
             IntegrationStart,
-            IntegrationEnd
+            IntegrationEnd,
+            SplinePoint,
+            SplineHandleLeft,
+            SplineHandleRight
         }
     }
 }

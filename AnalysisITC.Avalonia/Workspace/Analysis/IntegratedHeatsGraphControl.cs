@@ -63,6 +63,7 @@ namespace AnalysisITC.Avalonia.Analysis
         public bool UnifiedXAxis { get; set; }
         public bool UnifiedYAxis { get; set; }
         public bool DrawWithOffset { get; set; } = true;
+        public LineSmoothness FitLineSmoothness { get; set; } = LineSmoothness.Linear;
 
         EnergyDisplay Energy => EnergyDisplay.Current;
 
@@ -345,7 +346,11 @@ namespace AnalysisITC.Avalonia.Analysis
                 .ToList();
             if (points.Count < 2) return;
 
-            DrawPolyline(context, layout.FitPlot, points.Select(point => layout.FitTransform.ToScreen(point.X, point.Y)).ToList(), GraphTheme.FitPen);
+            var screenPoints = points.Select(point => layout.FitTransform.ToScreen(point.X, point.Y)).ToList();
+            if (FitLineSmoothness == LineSmoothness.Linear)
+                DrawPolyline(context, layout.FitPlot, screenPoints, GraphTheme.FitPen);
+            else
+                DrawSmoothPolyline(context, layout.FitPlot, screenPoints, GraphTheme.FitPen);
         }
 
         void DrawConfidenceBand(DrawingContext context, GraphLayout layout)
@@ -650,6 +655,37 @@ namespace AnalysisITC.Avalonia.Analysis
             {
                 stream.BeginFigure(points[0], false);
                 for (int i = 1; i < points.Count; i++) stream.LineTo(points[i]);
+            }
+
+            using (context.PushClip(clip))
+            {
+                context.DrawGeometry(null, pen, geometry);
+            }
+        }
+
+        static void DrawSmoothPolyline(DrawingContext context, Rect clip, IReadOnlyList<Point> points, Pen pen)
+        {
+            if (points.Count < 3)
+            {
+                DrawPolyline(context, clip, points, pen);
+                return;
+            }
+
+            var geometry = new StreamGeometry();
+            using (var stream = geometry.Open())
+            {
+                stream.BeginFigure(points[0], false);
+                for (var i = 0; i < points.Count - 1; i++)
+                {
+                    var p0 = i == 0 ? points[i] : points[i - 1];
+                    var p1 = points[i];
+                    var p2 = points[i + 1];
+                    var p3 = i + 2 < points.Count ? points[i + 2] : p2;
+
+                    var c1 = new Point(p1.X + (p2.X - p0.X) / 6.0, p1.Y + (p2.Y - p0.Y) / 6.0);
+                    var c2 = new Point(p2.X - (p3.X - p1.X) / 6.0, p2.Y - (p3.Y - p1.Y) / 6.0);
+                    stream.CubicBezierTo(c1, c2, p2);
+                }
             }
 
             using (context.PushClip(clip))

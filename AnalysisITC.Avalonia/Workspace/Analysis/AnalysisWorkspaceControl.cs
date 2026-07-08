@@ -5,10 +5,6 @@ using System.Linq;
 
 using Avalonia;
 using Avalonia.Controls;
-using Avalonia.Controls.Primitives;
-using Avalonia.Input;
-using Avalonia.Layout;
-using Avalonia.Media;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 
@@ -17,7 +13,7 @@ using AnalysisITC.Core.Analysis;
 using AnalysisITC.Core.Analysis.Models;
 using AnalysisITC.Core.Application;
 using AnalysisITC.Core.Data;
-using AnalysisITC.Core.Numerics;
+using AnalysisITC.Core.Presentation;
 using AnalysisITC.Core.Utilities;
 using CoreAnalysisWorkspace = AnalysisITC.Core.Analysis.AnalysisWorkspace;
 using static AnalysisITC.Avalonia.Workspace.WorkspaceControlBuilder;
@@ -456,112 +452,19 @@ namespace AnalysisITC.Avalonia.Analysis
             }
 
             foreach (var option in workspace.Context.ExposedModelOptions)
-                optionPanel.Children.Add(BuildOptionRow(option.Key, option.Value));
-        }
-
-        Control BuildOptionRow(AttributeKey key, ExperimentAttribute option)
-        {
-            var properties = key.GetProperties();
-            var title = new TextBlock
-            {
-                Text = properties.Name,
-                FontWeight = FontWeight.SemiBold,
-                Foreground = Solid("#202832"),
-                TextWrapping = TextWrapping.Wrap
-            };
-
-            Control editor = properties.Type switch
-            {
-                ExperimentAttribute.AttributeType.Bool => BoolOptionEditor(key, option),
-                ExperimentAttribute.AttributeType.Int => NumericOptionEditor(key, option, option.IntValue.ToString(CultureInfo.CurrentCulture), true),
-                ExperimentAttribute.AttributeType.Double => NumericOptionEditor(key, option, option.DoubleValue.ToString("G6", CultureInfo.CurrentCulture), false),
-                ExperimentAttribute.AttributeType.Parameter => NumericOptionEditor(key, option, option.ParameterValue.Value.ToString("G6", CultureInfo.CurrentCulture), false, true),
-                ExperimentAttribute.AttributeType.ParameterAffinity => NumericOptionEditor(key, option, option.ParameterValue.Value.ToString("G6", CultureInfo.CurrentCulture), false, true),
-                ExperimentAttribute.AttributeType.ParameterConcentration => NumericOptionEditor(key, option, option.ParameterValue.Value.ToString("G6", CultureInfo.CurrentCulture), false, true),
-                ExperimentAttribute.AttributeType.String => StringOptionEditor(key, option),
-                _ => Text($"Read-only: {option.GetDisplayValue()}"),
-            };
-
-            var panel = new StackPanel { Spacing = 5 };
-            panel.Children.Add(title);
-            panel.Children.Add(editor);
-
-            if (!string.IsNullOrWhiteSpace(properties.ToolTip))
-                panel.Children.Add(Text(properties.ToolTip));
-
-            return new Border
-            {
-                BorderBrush = Solid("#E3E7EC"),
-                BorderThickness = new Thickness(0, 0, 0, 1),
-                Padding = new Thickness(0, 0, 0, 9),
-                Child = panel
-            };
-        }
-
-        Control BoolOptionEditor(AttributeKey key, ExperimentAttribute option)
-        {
-            var check = Check("Enabled", option.BoolValue);
-            check.IsCheckedChanged += (_, _) =>
-            {
-                var copy = option.Copy();
-                copy.BoolValue = check.IsChecked == true;
-                workspace.SetModelOption(key, copy);
-                FittingChanged?.Invoke(this, EventArgs.Empty);
-            };
-            return check;
-        }
-
-        Control StringOptionEditor(AttributeKey key, ExperimentAttribute option)
-        {
-            var textBox = TextBox(option.StringValue ?? "");
-            textBox.LostFocus += (_, _) =>
-            {
-                var copy = option.Copy();
-                copy.StringValue = textBox.Text ?? "";
-                workspace.SetModelOption(key, copy);
-                FittingChanged?.Invoke(this, EventArgs.Empty);
-            };
-            return textBox;
-        }
-
-        Control NumericOptionEditor(AttributeKey key, ExperimentAttribute option, string text, bool integer, bool parameter = false)
-        {
-            var textBox = TextBox(text);
-            textBox.LostFocus += (_, _) =>
-            {
-                var copy = option.Copy();
-
-                if (integer)
-                {
-                    if (!int.TryParse(textBox.Text, NumberStyles.Integer, CultureInfo.CurrentCulture, out var value))
+                optionPanel.Children.Add(ModelOptionRowBuilder.Build(
+                    option.Key,
+                    option.Value,
+                    workspace.Context.ExposedModelOptions,
+                    apply: (key, copy) =>
                     {
-                        fitStatusText.Text = $"Invalid value for {key.GetProperties().Name}";
-                        return;
-                    }
-
-                    copy.IntValue = value;
-                }
-                else
-                {
-                    if (!double.TryParse(textBox.Text, NumberStyles.Float, CultureInfo.CurrentCulture, out var value))
-                    {
-                        fitStatusText.Text = $"Invalid value for {key.GetProperties().Name}";
-                        return;
-                    }
-
-                    if (parameter)
-                        copy.ParameterValue = new FloatWithError(value);
-                    else
-                        copy.DoubleValue = value;
-                }
-
-                workspace.SetModelOption(key, copy);
-                FittingChanged?.Invoke(this, EventArgs.Empty);
-            };
-            return textBox;
+                        workspace.SetModelOption(key, copy);
+                        FittingChanged?.Invoke(this, EventArgs.Empty);
+                    },
+                    setStatus: message => fitStatusText.Text = message));
         }
 
-        void RunFit()
+        public void RunFit()
         {
             if (experiment == null)
             {
@@ -607,7 +510,7 @@ namespace AnalysisITC.Avalonia.Analysis
             }
         }
 
-        void StopFit()
+        public void StopFit()
         {
             SolverInterface.TerminateAnalysisFlag.Raise();
             fitStatusText.Text = "Stopping fit...";
@@ -686,6 +589,7 @@ namespace AnalysisITC.Avalonia.Analysis
             graph.UnifiedXAxis = unifiedXCheck.IsChecked == true;
             graph.UnifiedYAxis = unifiedYCheck.IsChecked == true;
             graph.DrawWithOffset = offsetCheck.IsChecked == true;
+            graph.FitLineSmoothness = AnalysisFitLineSmoothness();
 
             if (refit) graph.FitToData();
             else graph.InvalidateVisual();
@@ -738,6 +642,95 @@ namespace AnalysisITC.Avalonia.Analysis
             weightedFitCheck.IsEnabled = !isFitting;
             parameterPanel.IsEnabled = !isFitting;
             optionPanel.IsEnabled = !isFitting;
+        }
+
+        public bool CanRunFit => runFitButton.IsEnabled;
+        public bool CanStopFit => stopFitButton.IsEnabled;
+
+        public bool CanCreateAnalysisResult()
+        {
+            if (experiment == null) return false;
+            return !IsGlobalMode || DataManager.Data.Count(data => data.Include) > 1;
+        }
+
+        public bool IsCreateAnalysisResultEnabled()
+        {
+            return IsGlobalMode ? AppSettings.CreateGlobalAnalysisResult : AppSettings.CreateSingleAnalysisResult;
+        }
+
+        public void ToggleCreateAnalysisResult()
+        {
+            if (IsGlobalMode)
+                AppSettings.CreateGlobalAnalysisResult = !AppSettings.CreateGlobalAnalysisResult;
+            else
+                AppSettings.CreateSingleAnalysisResult = !AppSettings.CreateSingleAnalysisResult;
+
+            AppSettings.Save();
+            FittingChanged?.Invoke(this, EventArgs.Empty);
+        }
+
+        public void ToggleAutoOpenNewResult()
+        {
+            AppSettings.AutoOpenNewAnalysisResult = !AppSettings.AutoOpenNewAnalysisResult;
+            AppSettings.Save();
+        }
+
+        public void SetFitLineSmoothness(LineSmoothness smoothness)
+        {
+            AppSettings.FitLineSmoothness = smoothness;
+            AppSettings.Save();
+            graph.FitLineSmoothness = AnalysisFitLineSmoothness();
+            graph.InvalidateVisual();
+            GraphChanged?.Invoke(this, EventArgs.Empty);
+        }
+
+        public static LineSmoothness AnalysisFitLineSmoothness()
+        {
+            return AppSettings.FitLineSmoothness == LineSmoothness.Linear
+                ? LineSmoothness.Linear
+                : LineSmoothness.Smooth;
+        }
+
+        public void SetParameterLimitSetting(ParameterLimitSetting setting)
+        {
+            AppSettings.ParameterLimitSetting = setting;
+            AppSettings.EnableExtendedParameterLimits = setting != ParameterLimitSetting.Standard;
+            AppSettings.Save();
+            RebuildAnalysisContext();
+            FittingChanged?.Invoke(this, EventArgs.Empty);
+        }
+
+        public void ToggleAnalysisParameterDisplay(FinalFigureDisplayParameters flag)
+        {
+            if (AppSettings.AnalysisParameterDisplay.HasFlag(flag))
+                AppSettings.AnalysisParameterDisplay &= ~flag;
+            else
+                AppSettings.AnalysisParameterDisplay |= flag;
+
+            AppSettings.Save();
+            graph.InvalidateVisual();
+            GraphChanged?.Invoke(this, EventArgs.Empty);
+        }
+
+        public void RestoreAnalysisDefaults()
+        {
+            AppSettings.CreateSingleAnalysisResult = false;
+            AppSettings.CreateGlobalAnalysisResult = true;
+            AppSettings.AutoOpenNewAnalysisResult = true;
+            AppSettings.ParameterLimitSetting = ParameterLimitSetting.Standard;
+            AppSettings.EnableExtendedParameterLimits = false;
+            AppSettings.AnalysisParameterDisplay =
+                FinalFigureDisplayParameters.Model | FinalFigureDisplayParameters.Fitted | FinalFigureDisplayParameters.Derived;
+
+            AnalysisSessionState.Reset();
+            ModelFactory.ResetStoredAnalysisState();
+            AppSettings.Save();
+
+            RebuildAnalysisContext();
+            graph.FitToData();
+            fitStatusText.Text = "Analysis defaults restored";
+            StatusChanged?.Invoke(this, "Analysis defaults restored");
+            FittingChanged?.Invoke(this, EventArgs.Empty);
         }
 
         bool GlobalModeAvailable()

@@ -186,7 +186,7 @@ namespace AnalysisITC.Avalonia.Details
             var choices = BufferAttribute.GetUIBuffers()
                 .Select(buffer => new Choice<BufferKind>(buffer, buffer.GetProperties().AttributedName.Replace("{", "").Replace("}", "")))
                 .ToList();
-            enumCombo = Combo(choices, choices.FirstOrDefault(choice => (int)choice.Value == attribute.IntValue), 116);
+            enumCombo = Combo(choices, choices.FirstOrDefault(choice => (int)choice.Value == attribute.IntValue), 116, 220);
             enumCombo.SelectionChanged += (_, _) =>
             {
                 if (enumCombo.SelectedItem is not Choice<BufferKind> choice) return;
@@ -206,7 +206,7 @@ namespace AnalysisITC.Avalonia.Details
             var choices = SaltAttribute.GetSalts()
                 .Select(salt => new Choice<Salt>(salt, salt.GetProperties().AttributedName.Replace("{", "").Replace("}", "")))
                 .ToList();
-            enumCombo = Combo(choices, choices.FirstOrDefault(choice => (int)choice.Value == attribute.IntValue), 116);
+            enumCombo = Combo(choices, choices.FirstOrDefault(choice => (int)choice.Value == attribute.IntValue), 116, 190);
             editorPanel.Children.Add(enumCombo);
             AddValueWithUnit("mM", attribute.ParameterValue.Value * 1000, attribute.ParameterValue.SD * 1000, includeError: false);
         }
@@ -216,7 +216,7 @@ namespace AnalysisITC.Avalonia.Details
             var refs = DataManager.Data
                 .Select(data => new Choice<string>(data.UniqueID, data.Name))
                 .ToList();
-            referenceCombo = Combo(refs, refs.FirstOrDefault(choice => choice.Value == attribute.StringValue), 150);
+            referenceCombo = Combo(refs, refs.FirstOrDefault(choice => choice.Value == attribute.StringValue), 150, 260);
             editorPanel.Children.Add(referenceCombo);
 
             var methods = new[]
@@ -225,7 +225,7 @@ namespace AnalysisITC.Avalonia.Details
                 BufferSubtractionMethod.Linear,
                 BufferSubtractionMethod.ExponentialDecay
             }.Select(method => new Choice<BufferSubtractionMethod>(method, method.GetDisplayName())).ToList();
-            methodCombo = Combo(methods, methods.FirstOrDefault(choice => (int)choice.Value == attribute.IntValue), 88);
+            methodCombo = Combo(methods, methods.FirstOrDefault(choice => (int)choice.Value == attribute.IntValue), 88, 180);
             editorPanel.Children.Add(methodCombo);
         }
 
@@ -234,7 +234,7 @@ namespace AnalysisITC.Avalonia.Details
             var choices = ExperimentAttribute.SpeciesLocationOptions
                 .Select(option => new Choice<int>(option.Item1, option.Item2))
                 .ToList();
-            enumCombo = Combo(choices, choices.FirstOrDefault(choice => choice.Value == attribute.IntValue), 84);
+            enumCombo = Combo(choices, choices.FirstOrDefault(choice => choice.Value == attribute.IntValue), 84, 120);
             editorPanel.Children.Add(enumCombo);
 
             stringBox = Box(attribute.StringValue ?? "", 140);
@@ -442,13 +442,17 @@ namespace AnalysisITC.Avalonia.Details
             };
         }
 
-        static ComboBox Combo<T>(IReadOnlyList<Choice<T>> choices, Choice<T>? selected, double width)
+        static ComboBox Combo<T>(IReadOnlyList<Choice<T>> choices, Choice<T>? selected, double minWidth, double maxWidth)
         {
+            var width = DynamicComboWidth(choices, minWidth, maxWidth);
+
             return new ComboBox
             {
                 ItemsSource = choices,
                 SelectedItem = selected ?? choices.FirstOrDefault(),
                 Width = width,
+                MinWidth = minWidth,
+                MaxWidth = maxWidth,
                 Height = 28,
                 MinHeight = 28,
                 MaxHeight = 28,
@@ -457,6 +461,14 @@ namespace AnalysisITC.Avalonia.Details
                 FontSize = 13,
                 VerticalAlignment = VerticalAlignment.Center
             };
+        }
+
+        static double DynamicComboWidth<T>(IReadOnlyList<Choice<T>> choices, double minWidth, double maxWidth)
+        {
+            var widest = choices.Count == 0 ? 0 : choices.Max(choice => choice.Label?.Length ?? 0);
+            var estimatedWidth = 38 + widest * 7.2;
+
+            return Math.Max(minWidth, Math.Min(maxWidth, estimatedWidth));
         }
 
         sealed class Choice<T>
