@@ -434,7 +434,7 @@ namespace AnalysisITC.Avalonia.FinalFigure
 
             if (selectedItem is AnalysisResult result)
             {
-                DataManager.LoadResultSolutionsToExperiments(result);
+                DataManager.LoadResultSolutionsToExperiments(result, markDocumentDirty: false);
                 figureExperiment = GetResultExperiments(result).FirstOrDefault();
                 RefreshPreview(force: true);
                 return;
@@ -680,7 +680,7 @@ namespace AnalysisITC.Avalonia.FinalFigure
 
         async Task ExportResultFiguresAsync(AnalysisResult result)
         {
-            DataManager.LoadResultSolutionsToExperiments(result);
+            DataManager.LoadResultSolutionsToExperiments(result, markDocumentDirty: false);
             var experiments = GetResultExperiments(result).ToList();
 
             if (experiments.Count == 0)

@@ -129,9 +129,12 @@ namespace AnalysisITC.Core.DataReaders
 
             if (openedCleanProject)
             {
-                DocumentDirtyTracker.MarkClean();
-                await Task.Delay(1);
-                DocumentDirtyTracker.MarkClean();
+                using (DocumentDirtyTracker.RestoreDocument())
+                {
+                    DocumentDirtyTracker.MarkClean();
+                    await Task.Delay(1);
+                    DocumentDirtyTracker.MarkClean();
+                }
             }
             else if (addedData)
             {

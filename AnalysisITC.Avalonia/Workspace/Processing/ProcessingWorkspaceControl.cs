@@ -264,6 +264,13 @@ namespace AnalysisITC.Avalonia.Processing
                 return;
             }
 
+            if (DocumentDirtyTracker.IsRestoringDocument)
+            {
+                graph.FitToData();
+                UpdateControls();
+                return;
+            }
+
             experiment.Processor.InitializeBaseline(BaselineInterpolatorTypes.Spline);
 
             if (experiment.Injections.Count > 0)

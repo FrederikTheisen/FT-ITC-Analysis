@@ -170,10 +170,25 @@ namespace AnalysisITC.Core.Application
             ResultLinkedExperimentHighlightDidChange?.Invoke(null, null);
         }
 
-        public static void LoadResultSolutionsToExperiments(AnalysisResult result)
+        public static void LoadResultSolutionsToExperiments(AnalysisResult result, bool markDocumentDirty = true)
         {
             if (result?.Solution?.Solutions == null) return;
 
+            if (!markDocumentDirty)
+            {
+                using (DocumentDirtyTracker.RestoreDocument())
+                {
+                    LoadResultSolutionsToExperimentsCore(result);
+                }
+
+                return;
+            }
+
+            LoadResultSolutionsToExperimentsCore(result);
+        }
+
+        static void LoadResultSolutionsToExperimentsCore(AnalysisResult result)
+        {
             foreach (var solution in result.Solution.Solutions)
             {
                 solution?.Data?.UpdateSolution(solution.Model);
