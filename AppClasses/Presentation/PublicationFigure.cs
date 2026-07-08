@@ -529,10 +529,10 @@ namespace AnalysisITC.Core.Presentation
                 Points = points
             });
 
-            foreach (var injection in data.Injections)
-            {
-                panel.Markers.Add(new PublicationMarker(injection.Time * timeScale));
-            }
+            // foreach (var injection in data.Injections)
+            // {
+            //     panel.Markers.Add(new PublicationMarker(injection.Time * timeScale));
+            // }
 
             if (options.ShowExperimentDetails)
             {
