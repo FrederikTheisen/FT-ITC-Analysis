@@ -203,7 +203,7 @@ namespace AnalysisITC.Platform
                 return Task.Run(() =>
                 {
                     using var client = new WebClient();
-                    return client.DownloadString(url);
+                    return client.DownloadString(url); //TODO might crash is no connection
                 });
             }
         }
