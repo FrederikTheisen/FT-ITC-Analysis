@@ -758,6 +758,29 @@ namespace AnalysisITC.Core.Processing
             _ = Processor.ProcessData(false);
         }
 
+        public void MoveSplinePoint(int id, double time, double power)
+        {
+            if (id < 0 || id >= SplinePoints.Count) return;
+
+            var point = SplinePoints[id];
+            point.Time = time;
+            point.Power = power;
+            point.Lock();
+            SortAndRenumberSplinePoints();
+            RefreshBaselineFromCurrentSplinePoints();
+        }
+
+        public void SetSplinePointSlope(int id, double slope)
+        {
+            if (id < 0 || id >= SplinePoints.Count) return;
+
+            var point = SplinePoints[id];
+            point.Slope = slope;
+            point.Lock();
+            point.LockSlope();
+            RefreshBaselineFromCurrentSplinePoints();
+        }
+
         public void InsertSplinePoint(double cursorpos, bool usedatavalue = false)
         {
             if (Baseline.Count == 0) return;
