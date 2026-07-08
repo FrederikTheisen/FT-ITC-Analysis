@@ -136,7 +136,7 @@ namespace AnalysisITC.Core.Analysis.Models
 
         public FloatWithError EvaluateBootstrap(int inj, bool withoff = true)
         {
-            if (Solution.BootstrapSolutions.Count == 0) return new (EvaluateEnthalpy(inj, withoff));
+            if (Solution?.BootstrapSolutions == null || Solution.BootstrapSolutions.Count == 0) return new (EvaluateEnthalpy(inj, withoff));
             if (BootstrappedEvaluationStorage != null && BootstrappedEvaluationStorage.IsValid(this, inj, withoff)) return BootstrappedEvaluationStorage.GetDataPoint(inj, withoff);
             if (BootstrappedEvaluationStorage == null) BootstrappedEvaluationStorage = new BootstrappedEvaluationStorage(this);
 
@@ -145,6 +145,7 @@ namespace AnalysisITC.Core.Analysis.Models
             //Evaluates with offset to include errors in offset (offset error covaries with enthalpy and must therefore be included)
             foreach (var sol in Solution.BootstrapSolutions)
             {
+                if (sol?.Model == null) continue;
                 results.Add(sol.Model.EvaluateEnthalpy(inj, withoffset: true));
             }
 
@@ -528,9 +529,11 @@ namespace AnalysisITC.Core.Analysis.Models
         List<SolutionInterface> ValidateBootstrapSolution(List<SolutionInterface> list)
         {
             var validated = new List<SolutionInterface>();
+            if (list == null) return validated;
 
             foreach (var sol in list)
             {
+                if (sol?.Model == null) continue;
                 bool valid = true;
 
                 foreach (var par in sol.Parameters)
