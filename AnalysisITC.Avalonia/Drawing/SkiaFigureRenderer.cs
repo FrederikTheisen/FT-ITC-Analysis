@@ -31,9 +31,10 @@ public sealed class SkiaFigureRenderer
     internal const float TickTextSize = 14f;
     internal const float AxisTitleSize = 16f;
     internal const float AnnotationTextSize = 12f;
-    internal const float AxisLabelOffset = 7f;
+    internal const float AxisLabelHorizontalOffset = 6f;
+    internal const float AxisLabelVerticalOffset = 2f;
     internal const float AxisTitleOffset = 7f;
-    internal const float AnnotationInset = 7f;
+    internal const float AnnotationInset = 8f;
     internal const float AnnotationPaddingX = 6f;
     internal const float AnnotationPaddingY = 2f;
     internal const float AnnotationLineSpacingFactor = 0.15f;
@@ -264,11 +265,11 @@ public sealed class SkiaFigureRenderer
                 var text = panel.XAxis.FormatTick(tick);
                 if (labelsAtTop)
                 {
-                    drawing.DrawTextCenteredBottom(text, new SKPoint(x, rect.Top - AxisLabelOffset), TickTextSize, Black);
+                    drawing.DrawTextCenteredBottom(text, new SKPoint(x, rect.Top - AxisLabelVerticalOffset), TickTextSize, Black);
                 }
                 else
                 {
-                    drawing.DrawTextCenteredTop(text, new SKPoint(x, rect.Bottom + AxisLabelOffset), TickTextSize, Black);
+                    drawing.DrawTextCenteredTop(text, new SKPoint(x, rect.Bottom + AxisLabelVerticalOffset), TickTextSize, Black);
                 }
             }
         }
@@ -277,12 +278,12 @@ public sealed class SkiaFigureRenderer
         {
             if (labelsAtTop)
             {
-                var bottom = rect.Top - AxisLabelOffset - tickLabelHeight - AxisTitleOffset;
+                var bottom = rect.Top - AxisLabelVerticalOffset - tickLabelHeight - AxisTitleOffset;
                 drawing.DrawTextCenteredBottom(panel.XAxis.Title, new SKPoint(rect.MidX, bottom), AxisTitleSize, Black);
             }
             else
             {
-                var top = rect.Bottom + AxisLabelOffset + tickLabelHeight + AxisTitleOffset;
+                var top = rect.Bottom + AxisLabelVerticalOffset + tickLabelHeight + AxisTitleOffset;
                 drawing.DrawTextCenteredTop(panel.XAxis.Title, new SKPoint(rect.MidX, top), AxisTitleSize, Black);
             }
         }
@@ -302,7 +303,7 @@ public sealed class SkiaFigureRenderer
             var y = TransformY(panel, rect, tick);
             drawing.DrawLine(new SKPoint(rect.Left, y), new SKPoint(rect.Left + TickLength, y), Black, TickStrokeWidth);
             drawing.DrawLine(new SKPoint(rect.Right, y), new SKPoint(rect.Right - TickLength, y), Black, TickStrokeWidth);
-            drawing.DrawTextRightMiddle(panel.YAxis.FormatTick(tick), new SKPoint(rect.Left - AxisLabelOffset, y), TickTextSize, Black);
+            drawing.DrawTextRightMiddle(panel.YAxis.FormatTick(tick), new SKPoint(rect.Left - AxisLabelHorizontalOffset, y), TickTextSize, Black);
         }
 
         if (document.Options.ShowAxisTitles && !string.IsNullOrWhiteSpace(panel.YAxis.Title))
@@ -483,7 +484,7 @@ sealed class PublicationFigureLayout
             ? SkiaDrawingContext.MeasureTextValue(axis.Title, SkiaFigureRenderer.AxisTitleSize).Height
             : 0;
 
-        return SkiaFigureRenderer.AxisLabelOffset
+        return SkiaFigureRenderer.AxisLabelHorizontalOffset
             + SkiaFigureRenderer.AxisTitleOffset
             + SkiaFigureRenderer.MaxTickLabelHeight(axis)
             + titleHeight;
@@ -495,7 +496,7 @@ sealed class PublicationFigureLayout
             ? SkiaDrawingContext.MeasureTextValue(axis.Title, SkiaFigureRenderer.AxisTitleSize).Height
             : 0;
 
-        return SkiaFigureRenderer.AxisLabelOffset
+        return SkiaFigureRenderer.AxisLabelHorizontalOffset
             + SkiaFigureRenderer.AxisTitleOffset
             + SkiaFigureRenderer.MaxTickLabelWidth(axis)
             + titleHeight;
