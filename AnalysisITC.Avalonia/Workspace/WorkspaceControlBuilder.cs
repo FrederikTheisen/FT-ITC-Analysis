@@ -30,11 +30,15 @@ namespace AnalysisITC.Avalonia.Workspace
         public static Thickness TextBoxPadding => new Thickness(6, 1);
         public static Thickness ButtonPadding => new Thickness(8, 1);
         public static Thickness InspectorFooterPadding => new Thickness(10, 8);
-        public static Thickness InspectorHostMargin => new Thickness(InspectorGap, 0, InspectorGap, 0);
+        public static Thickness WorkspaceOuterMargin => new Thickness(InspectorGap);
+        public static Thickness InspectorGapMargin => new Thickness(InspectorGap, 0, 0, 0);
+        public static Thickness FooterGapMargin => new Thickness(0, InspectorGap, 0, 0);
 
-        public static Grid Workspace(Control mainContent, Control inspectorContent, Control? inspectorFooter = null)
+        public static Grid Workspace(Control mainContent, Control inspectorContent, Control? inspectorFooter = null, bool useOuterMargin = false)
         {
             var root = WorkspaceGrid();
+            root.Margin = useOuterMargin ? WorkspaceOuterMargin : new Thickness(0);
+            mainContent.Margin = new Thickness(0);
             Grid.SetColumn(mainContent, 0);
             root.Children.Add(mainContent);
 
@@ -69,7 +73,7 @@ namespace AnalysisITC.Avalonia.Workspace
         {
             return new TabControl()
             {
-                Padding = new Thickness(0, 0, 0, 10),
+                Padding = new Thickness(0, 0, 0, 0),
             };
         }
 
@@ -92,7 +96,7 @@ namespace AnalysisITC.Avalonia.Workspace
             var host = new Grid
             {
                 RowDefinitions = footer == null ? new RowDefinitions("*") : new RowDefinitions("*,Auto"),
-                Margin = InspectorHostMargin
+                Margin = InspectorGapMargin
             };
 
             Grid.SetRow(inspectorContent, 0);
@@ -100,6 +104,7 @@ namespace AnalysisITC.Avalonia.Workspace
 
             if (footer != null)
             {
+                footer.Margin = FooterGapMargin;
                 Grid.SetRow(footer, 1);
                 host.Children.Add(footer);
             }
