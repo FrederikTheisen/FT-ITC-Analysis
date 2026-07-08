@@ -8,6 +8,13 @@
     <Application.Styles>
         <FluentTheme />
     </Application.Styles>
+    <TrayIcon.Icons>
+        <TrayIcons>
+            <TrayIcon Icon="/Resources/appicon.ico"
+                      ToolTipText="FT-ITC Analysis"
+                      IsVisible="True" />
+        </TrayIcons>
+    </TrayIcon.Icons>
     <NativeMenu.Menu>
         <NativeMenu>
             <NativeMenuItem Header="About FT-ITC Analysis" />

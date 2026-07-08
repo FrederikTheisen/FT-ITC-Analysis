@@ -27,6 +27,7 @@ namespace AnalysisITC.Avalonia
 
             AppSettings.Locale = PlatformServices.AppEnvironment.LocaleIdentifier;
             CultureInfo.CurrentCulture = CultureInfo.GetCultureInfo("en-US");
+            _ = CitationManager.TryFetchOnlineCitation();
         }
     }
 }

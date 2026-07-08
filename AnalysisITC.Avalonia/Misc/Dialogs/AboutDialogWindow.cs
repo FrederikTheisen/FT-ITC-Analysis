@@ -6,6 +6,8 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Layout;
 using Avalonia.Media;
+using Avalonia.Media.Imaging;
+using Avalonia.Platform;
 
 namespace AnalysisITC.Avalonia.Dialogs;
 
@@ -15,18 +17,28 @@ internal sealed class AboutDialogWindow : Window
     {
         Title = "About FT-ITC Analysis";
         Width = 420;
-        Height = 260;
+        Height = 310;
         MinWidth = 380;
-        MinHeight = 240;
+        MinHeight = 290;
         WindowStartupLocation = WindowStartupLocation.CenterOwner;
         CanResize = false;
+
+        var icon = new Image
+        {
+            Source = new Bitmap(AssetLoader.Open(new System.Uri("avares://AnalysisITC.Avalonia/Resources/appicon.ico"))),
+            Width = 72,
+            Height = 72,
+            Margin = new Thickness(0, 0, 0, 12),
+            HorizontalAlignment = HorizontalAlignment.Center
+        };
 
         var title = new TextBlock
         {
             Text = "FT-ITC Analysis",
             FontSize = 22,
             FontWeight = FontWeight.SemiBold,
-            Foreground = Brush("#202832")
+            Foreground = Brush("#202832"),
+            HorizontalAlignment = HorizontalAlignment.Center
         };
 
         var version = new TextBlock
@@ -34,7 +46,8 @@ internal sealed class AboutDialogWindow : Window
             Text = $"Version {AppVersion.ShortVersionString}",
             FontSize = 13,
             Foreground = Brush("#607080"),
-            Margin = new Thickness(0, 4, 0, 0)
+            Margin = new Thickness(0, 4, 0, 0),
+            HorizontalAlignment = HorizontalAlignment.Center
         };
         var showingBuildVersion = false;
         version.PointerPressed += (_, _) =>
@@ -59,6 +72,28 @@ internal sealed class AboutDialogWindow : Window
             FontSize = 12,
             Foreground = Brush("#607080"),
             Margin = new Thickness(0, 8, 0, 0)
+        };
+
+        var textContent = new StackPanel
+        {
+            HorizontalAlignment = HorizontalAlignment.Center,
+            Children =
+            {
+                icon,
+                title,
+                version
+            }
+        };
+
+        var content = new StackPanel
+        {
+            Children =
+            {
+                textContent,
+                description,
+                note
+            },
+            Margin = new Thickness(0, 0, 0, 16)
         };
 
         var ok = new Button
@@ -86,16 +121,7 @@ internal sealed class AboutDialogWindow : Window
                 Children =
                 {
                     buttons,
-                    new StackPanel
-                    {
-                        Children =
-                        {
-                            title,
-                            version,
-                            description,
-                            note
-                        }
-                    }
+                    content
                 }
             }
         };

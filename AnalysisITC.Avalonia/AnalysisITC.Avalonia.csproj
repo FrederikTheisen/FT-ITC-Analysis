@@ -13,6 +13,10 @@
 
   <ItemGroup>
     <AvaloniaResource Include="..\Resources\appicon.ico" Link="Resources\appicon.ico" />
+    <AvaloniaResource Include="..\Resources\HelpTextResource.txt" Link="Resources\HelpTextResource.txt" />
+    <AvaloniaResource Include="..\Resources\ScienceHelpResource.txt" Link="Resources\ScienceHelpResource.txt" />
+    <Content Include="..\Resources\AppIcon.icns" Link="Resources\AppIcon.icns" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="..\citation.json" Link="citation.json" CopyToOutputDirectory="PreserveNewest" />
     <PackageReference Include="Avalonia" Version="12.0.5" />
     <PackageReference Include="Avalonia.Desktop" Version="12.0.5" />
     <PackageReference Include="Avalonia.Themes.Fluent" Version="12.0.5" />

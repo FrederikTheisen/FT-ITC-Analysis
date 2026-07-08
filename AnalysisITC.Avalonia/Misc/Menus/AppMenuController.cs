@@ -128,6 +128,10 @@ internal sealed class AppMenuController
         Add("createanalysisresult", "Create Analysis Result", window.NotImplementedAsync, () => false);
         Add("autoopenresult", "Auto Open New Result", window.ToggleAutoOpenResultAsync, () => true, window.IsAutoOpenResultEnabled);
         Add("restoreanalysisdefaults", "Restore Analysis Defaults", window.RestoreAnalysisDefaultsAsync);
+        Add("experimentdesigner", "Experiment Designer...", window.OpenExperimentDesignerAsync);
+        Add("experimentmerger", "Experiment Merger...", window.OpenTandemMergerAsync, window.CanOpenTandemMergerTool);
+        Add("buffersubtraction", "Buffer Subtraction...", window.OpenBufferSubtractionToolAsync, window.CanOpenBufferSubtractionTool);
+        Add("analysisresultexporter", "Analysis Result Exporter...", window.OpenAnalysisResultExporterAsync, window.HasAnyResults);
 
         Add("resultdetails", "Details...", window.OpenSelectedDetailsFromMenuAsync, window.HasSelectedResult);
         Add("copyresulttable", "Copy Result Table", window.CopyResultTableAsync, window.HasSelectedResult);
@@ -137,6 +141,12 @@ internal sealed class AppMenuController
         Add("about", "About FT-ITC Analysis", window.ShowAboutAsync);
         Add("preferences", "Preferences...", window.OpenPreferencesAsync, gesture: new KeyGesture(Key.OemComma, commandModifier));
         Add("quit", "Quit FT-ITC Analysis", window.QuitAsync, gesture: new KeyGesture(Key.Q, commandModifier));
+        Add("helpguide", "Help and Guide", window.OpenHelpGuideAsync, gesture: new KeyGesture(Key.F1, KeyModifiers.None));
+        Add("technicalhelp", "Technical Details", window.OpenTechnicalHelpAsync);
+        Add("citation", "Citation", window.OpenCitationAsync);
+        Add("support", "Contact Support...", window.OpenSupportAsync);
+        Add("copysupportreport", "Copy Support Report", window.CopySupportReportAsync);
+        Add("opensourcerepository", "Open Source Repository", window.OpenSourceRepositoryAsync);
 
     }
 
@@ -188,14 +198,20 @@ internal sealed class AppMenuController
                 Disabled("Parameter Display"),
                 Disabled("Parameter Limits")),
             Separator(),
-            Disabled("Experiment Designer"),
-            Disabled("Experiment Merger"),
-            Disabled("Buffer Subtraction"),
-            Disabled("Analysis Result Exporter")));
+            Command("experimentdesigner"),
+            Command("experimentmerger"),
+            Command("buffersubtraction"),
+            Command("analysisresultexporter")));
 
         windowMenuNodes.Add(Menu("Help",
-            Disabled("Help and Guide"),
-            Disabled("Citation")));
+            Command("helpguide"),
+            Command("technicalhelp"),
+            Separator(),
+            Command("citation"),
+            Separator(),
+            Command("support"),
+            Command("copysupportreport"),
+            Command("opensourcerepository")));
     }
 
     void Add(

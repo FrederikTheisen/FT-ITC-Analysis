@@ -23,8 +23,11 @@ using AnalysisITC.Core.Units;
 using AnalysisITC.Core.Utilities;
 using AnalysisITC.Avalonia.Details;
 using AnalysisITC.Avalonia.Dialogs;
+using AnalysisITC.Avalonia.Help;
 using AnalysisITC.Avalonia.Menus;
 using AnalysisITC.Avalonia.Preferences;
+using AnalysisITC.Avalonia.Support;
+using AnalysisITC.Avalonia.Tools;
 
 namespace AnalysisITC.Avalonia;
 
@@ -133,6 +136,8 @@ public partial class MainWindow : Window
     internal bool HasAnyProcessedData() => DataManager.AnyDataIsBaselineProcessed;
     internal bool CanUndoDelete() => StateManager.StateCanUndo();
     internal bool HasExperimentsWithAttributes() => DataManager.Data.Any(data => data.Attributes.Count > 0);
+    internal bool CanOpenBufferSubtractionTool() => DataManager.Data.Count >= 2;
+    internal bool CanOpenTandemMergerTool() => DataManager.TandemMergerToolEnabled;
     internal bool CanEnableAnyExperiment() => DataManager.Data.Any(data => !data.Include);
     internal bool CanDisableAnyExperiment() => DataManager.Data.Any(data => data.Include);
     internal bool SelectedExperimentHasAttributes() => selectedItem is ExperimentData data && data.Attributes.Count > 0;
@@ -145,23 +150,12 @@ public partial class MainWindow : Window
 
     internal async Task SaveDocumentAsync()
     {
-        if (!HasDocumentContent()) return;
-
-        var saved = FTITCWriter.IsSaved
-            ? await FTITCWriter.SaveWithPathAsync()
-            : await FTITCWriter.SaveState2Async();
-
-        if (saved) StatusBarManager.SetFileSaveSuccessfulMessage(FTITCFormat.CurrentAccessedAppDocumentPath);
-        RefreshMenuState();
+        await SaveCurrentDocumentAsync(forcePrompt: false);
     }
 
     internal async Task SaveDocumentAsAsync()
     {
-        if (!HasDocumentContent()) return;
-
-        var saved = await FTITCWriter.SaveState2Async();
-        if (saved) StatusBarManager.SetFileSaveSuccessfulMessage(FTITCFormat.CurrentAccessedAppDocumentPath);
-        RefreshMenuState();
+        await SaveCurrentDocumentAsync(forcePrompt: true);
     }
 
     internal async Task SaveSelectedAsync()
@@ -169,7 +163,14 @@ public partial class MainWindow : Window
         if (selectedItem == null) return;
 
         var saved = await FTITCWriter.SaveSelectedAsync(selectedItem);
-        if (saved) StatusBarManager.SetStatus("Selected item saved", 3000);
+        if (saved)
+        {
+            var itemType = selectedItem is AnalysisResult ? "result" : "experiment";
+            StatusBarManager.SetStatus($"Selected {itemType} saved: {selectedItem.Name}", 3000);
+        }
+
+        UpdateDocumentStatus();
+        RefreshMenuState();
     }
 
     internal async Task ClearDataWithConfirmationAsync()
@@ -484,6 +485,81 @@ public partial class MainWindow : Window
             RefreshAfterPreferencesApplied();
     }
 
+    internal async Task OpenHelpGuideAsync()
+    {
+        await HelpWindow.ShowAsync(this, "Help and Guide", "HelpTextResource.txt");
+    }
+
+    internal async Task OpenTechnicalHelpAsync()
+    {
+        await HelpWindow.ShowAsync(this, "Technical Details", "ScienceHelpResource.txt");
+    }
+
+    internal async Task OpenCitationAsync()
+    {
+        await CitationWindow.ShowAsync(this);
+    }
+
+    internal async Task OpenSupportAsync()
+    {
+        await SupportWindow.ShowAsync(this);
+    }
+
+    internal Task CopySupportReportAsync()
+    {
+        SupportWindow.CopyReportToClipboard();
+        StatusBarManager.SetStatus("Support report copied", 3000);
+        return Task.CompletedTask;
+    }
+
+    internal Task OpenSourceRepositoryAsync()
+    {
+        if (!ExternalLinkLauncher.TryOpen(CitationInfo.SoftwareRepositoryUrl))
+            StatusBarManager.SetStatus("Could not open source repository", 3000);
+
+        return Task.CompletedTask;
+    }
+
+    internal async Task OpenExperimentDesignerAsync()
+    {
+        var dialog = new ExperimentDesignerWindow();
+        await dialog.ShowDialog(this);
+        RefreshMenuState();
+    }
+
+    internal async Task OpenBufferSubtractionToolAsync()
+    {
+        if (!CanOpenBufferSubtractionTool()) return;
+
+        var dialog = new BufferSubtractionWindow();
+        var applied = await dialog.ShowDialog<bool?>(this);
+        if (applied == true || dialog.Applied)
+            RefreshAfterAuxiliaryToolChange("Buffer subtraction applied");
+        else
+            RefreshMenuState();
+    }
+
+    internal async Task OpenTandemMergerAsync()
+    {
+        if (!CanOpenTandemMergerTool()) return;
+
+        var dialog = new TandemMergerWindow();
+        var created = await dialog.ShowDialog<bool?>(this);
+        if (created == true || dialog.Created)
+            RefreshAfterAuxiliaryToolChange("Tandem experiment created");
+        else
+            RefreshMenuState();
+    }
+
+    internal async Task OpenAnalysisResultExporterAsync()
+    {
+        if (!HasAnyResults()) return;
+
+        var dialog = new AnalysisResultExporterWindow();
+        await dialog.ShowDialog(this);
+        RefreshMenuState();
+    }
+
     internal Task QuitAsync()
     {
         if (DocumentDirtyTracker.IsDirty)
@@ -556,8 +632,10 @@ public partial class MainWindow : Window
             }
 
             SetStatus("Opening data...");
-            await DataReader.ReadPathsAsync(paths);
+            var result = await DataReader.ReadPathsAsync(paths);
             RefreshDataList();
+            SetOpenResultStatus(result);
+            UpdateDocumentStatus();
             RefreshMenuState();
         }
         finally
@@ -572,6 +650,43 @@ public partial class MainWindow : Window
         if (!string.IsNullOrWhiteSpace(path)) return path;
 
         return file.Path.IsFile ? file.Path.LocalPath : null;
+    }
+
+    async Task<bool> SaveCurrentDocumentAsync(bool forcePrompt)
+    {
+        if (!HasDocumentContent()) return false;
+
+        var saved = forcePrompt || !FTITCWriter.IsSaved
+            ? await FTITCWriter.SaveState2Async()
+            : await FTITCWriter.SaveWithPathAsync();
+
+        UpdateDocumentStatus();
+        RefreshMenuState();
+        return saved;
+    }
+
+    void SetOpenResultStatus(DataReadResult result)
+    {
+        if (result.RequestedPathCount <= 0) return;
+
+        if (!result.LoadedAny)
+        {
+            StatusBarManager.SetStatus("No compatible data opened", 4000);
+            return;
+        }
+
+        var itemText = result.AddedItemCount == 1 ? "item" : "items";
+        var fileText = result.LoadedPathCount == 1 ? "file" : "files";
+
+        if (result.LoadedAllRequested)
+        {
+            StatusBarManager.SetStatus($"Opened {result.AddedItemCount} {itemText} from {result.LoadedPathCount} {fileText}", 3500);
+            return;
+        }
+
+        StatusBarManager.SetStatus(
+            $"Opened {result.AddedItemCount} {itemText}; {result.FailedOrSkippedPathCount} file{(result.FailedOrSkippedPathCount == 1 ? "" : "s")} skipped or failed",
+            6000);
     }
 
     void ClearData()
@@ -1110,6 +1225,19 @@ public partial class MainWindow : Window
         StatusBarManager.SetStatus("Preferences updated", 2500);
     }
 
+    void RefreshAfterAuxiliaryToolChange(string status)
+    {
+        RefreshDataList();
+        RefreshOverview();
+        ProcessingWorkspace.Experiment = selectedItem as ExperimentData;
+        AnalysisWorkspace.Experiment = selectedItem as ExperimentData;
+        AnalysisWorkspace.RefreshIncludedDataState();
+        ResultWorkspace.Refresh();
+        InvalidateFinalFigurePreview();
+        RefreshMenuState();
+        StatusBarManager.SetStatus(status, 3000);
+    }
+
     void InvalidateFinalFigurePreview()
     {
         FinalFigureWorkspace.InvalidatePreview();
@@ -1149,9 +1277,7 @@ public partial class MainWindow : Window
         switch (await SaveChangesDialogWindow.PromptAsync(this, reason))
         {
             case PendingSaveAction.Save:
-                return FTITCWriter.IsSaved
-                    ? await FTITCWriter.SaveWithPathAsync()
-                    : await FTITCWriter.SaveState2Async();
+                return await SaveCurrentDocumentAsync(forcePrompt: false);
             case PendingSaveAction.Discard:
                 return true;
             default:

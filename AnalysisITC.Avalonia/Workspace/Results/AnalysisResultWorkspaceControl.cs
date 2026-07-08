@@ -20,20 +20,39 @@ using AnalysisITC.Core.Presentation;
 using AnalysisITC.Core.Units;
 using AnalysisITC.Core.Utilities;
 
+using AnalysisITC.Avalonia.Workspace;
+
 namespace AnalysisITC.Avalonia.Results
 {
     public sealed class AnalysisResultWorkspaceControl : UserControl
     {
+        static readonly EnergyUnit[] EvaluationEnergyUnits =
+        {
+            EnergyUnit.Joule,
+            EnergyUnit.KiloJoule,
+            EnergyUnit.Cal,
+            EnergyUnit.KCal
+        };
+
+        static readonly string[] EvaluationEnergyUnitNames = { "J", "kJ", "cal", "kcal" };
+
         readonly ResultParameterGraphControl graph = new ResultParameterGraphControl();
         readonly StackPanel tableHost = new StackPanel { Spacing = 0 };
         readonly StackPanel summaryPanel = new StackPanel { Spacing = 10 };
         readonly StackPanel experimentsPanel = new StackPanel { Spacing = 8 };
         readonly StackPanel modelPanel = new StackPanel { Spacing = 10 };
         readonly ComboBox temperatureUnitCombo = Combo(new[] { "Celsius", "Kelvin" }, 0, 120);
+        readonly TextBox evaluationTemperatureBox = WorkspaceControlBuilder.TextBox("");
+        readonly ComboBox evaluationTemperatureUnitCombo = WorkspaceControlBuilder.Combo(new[] { "Celsius", "Kelvin" }, 0, 170);
+        readonly ComboBox evaluationEnergyUnitCombo = WorkspaceControlBuilder.Combo(EvaluationEnergyUnitNames, 1, 170);
+        readonly StackPanel evaluationRowsPanel = WorkspaceControlBuilder.VerticalGroup();
         readonly Border displaySection;
+        readonly Border parameterEvaluationSection;
 
         AnalysisResult? result;
         bool isUpdatingSelection;
+        bool isUpdatingEvaluationControls;
+        bool evaluationUseKelvin;
 
         public event EventHandler<string>? StatusChanged;
         public event EventHandler? DetailsRequested;
@@ -44,7 +63,9 @@ namespace AnalysisITC.Avalonia.Results
             {
                 Labeled("Temperature", temperatureUnitCombo)
             });
+            parameterEvaluationSection = BuildParameterEvaluationSection();
 
+            SetEvaluationEnergyUnit(AppSettings.EnergyUnit);
             BuildLayout();
             WireEvents();
             Refresh();
@@ -60,6 +81,7 @@ namespace AnalysisITC.Avalonia.Results
                 result = value;
                 graph.Result = value;
                 DataManager.ClearResultSolutionSelection();
+                ResetEvaluationTemperature();
                 Refresh();
             }
         }
@@ -141,7 +163,21 @@ namespace AnalysisITC.Avalonia.Results
 
         void WireEvents()
         {
-            temperatureUnitCombo.SelectionChanged += (_, _) => RefreshTable();
+            temperatureUnitCombo.SelectionChanged += (_, _) =>
+            {
+                RefreshTable();
+                graph.InvalidateVisual();
+            };
+            evaluationTemperatureBox.LostFocus += (_, _) => RefreshParameterEvaluation();
+            evaluationTemperatureBox.KeyDown += (_, e) =>
+            {
+                if (e.Key != Key.Enter) return;
+
+                RefreshParameterEvaluation();
+                e.Handled = true;
+            };
+            evaluationTemperatureUnitCombo.SelectionChanged += (_, _) => ChangeEvaluationTemperatureUnit();
+            evaluationEnergyUnitCombo.SelectionChanged += (_, _) => ChangeEvaluationEnergyUnit();
         }
 
         void OnResultSolutionSelectionChanged(object? sender, SolutionInterface? e)
@@ -203,7 +239,113 @@ namespace AnalysisITC.Avalonia.Results
             }));
 
             summaryPanel.Children.Add(displaySection);
+            summaryPanel.Children.Add(parameterEvaluationSection);
             summaryPanel.Children.Add(BuildValiditySection(report));
+            RefreshParameterEvaluation();
+        }
+
+        Border BuildParameterEvaluationSection()
+        {
+            return WorkspaceControlBuilder.Section(
+                "Parameter Evaluation",
+                WorkspaceControlBuilder.Labeled("Temperature", evaluationTemperatureBox),
+                WorkspaceControlBuilder.Labeled("Temp unit", evaluationTemperatureUnitCombo),
+                WorkspaceControlBuilder.Labeled("Energy", evaluationEnergyUnitCombo),
+                evaluationRowsPanel);
+        }
+
+        void ResetEvaluationTemperature()
+        {
+            isUpdatingEvaluationControls = true;
+            try
+            {
+                evaluationUseKelvin = evaluationTemperatureUnitCombo.SelectedIndex == 1;
+                SetEvaluationEnergyUnit(AppSettings.EnergyUnit);
+
+                if (result == null)
+                    evaluationTemperatureBox.Text = "";
+                else
+                    SetEvaluationTemperatureText(AnalysisResultParameterEvaluator.DefaultEvaluationTemperatureCelsius(result));
+            }
+            finally
+            {
+                isUpdatingEvaluationControls = false;
+            }
+        }
+
+        void ChangeEvaluationTemperatureUnit()
+        {
+            if (isUpdatingEvaluationControls) return;
+
+            var temperatureCelsius = TryReadEvaluationTemperatureCelsius(out var parsedTemperature)
+                ? parsedTemperature
+                : result == null
+                    ? 25.0
+                    : AnalysisResultParameterEvaluator.DefaultEvaluationTemperatureCelsius(result);
+
+            evaluationUseKelvin = evaluationTemperatureUnitCombo.SelectedIndex == 1;
+            SetEvaluationTemperatureText(temperatureCelsius);
+            RefreshParameterEvaluation();
+        }
+
+        void ChangeEvaluationEnergyUnit()
+        {
+            if (isUpdatingEvaluationControls) return;
+
+            var energyUnit = SelectedEvaluationEnergyUnit();
+            if (AppSettings.EnergyUnit != energyUnit)
+            {
+                AppSettings.EnergyUnit = energyUnit;
+                AppSettings.Save();
+            }
+
+            RefreshTable();
+            graph.InvalidateVisual();
+            RefreshParameterEvaluation();
+            StatusChanged?.Invoke(this, "Result energy unit updated.");
+        }
+
+        void RefreshParameterEvaluation()
+        {
+            evaluationRowsPanel.Children.Clear();
+
+            if (result == null)
+            {
+                evaluationRowsPanel.Children.Add(WorkspaceControlBuilder.Text("No analysis result selected."));
+                return;
+            }
+
+            if (!TryReadEvaluationTemperatureCelsius(out var temperatureCelsius))
+            {
+                evaluationRowsPanel.Children.Add(WorkspaceControlBuilder.Text("Invalid evaluation temperature."));
+                return;
+            }
+
+            if (temperatureCelsius < -273.15)
+            {
+                temperatureCelsius = -273.15;
+                SetEvaluationTemperatureText(temperatureCelsius);
+            }
+
+            var evaluation = AnalysisResultParameterEvaluator.Evaluate(
+                result,
+                temperatureCelsius,
+                SelectedEvaluationEnergyUnit(),
+                AppSettings.UncertaintyDisplayStyle);
+
+            if (!evaluation.IsAvailable)
+            {
+                evaluationRowsPanel.Children.Add(WorkspaceControlBuilder.Text(evaluation.Message));
+                return;
+            }
+
+            foreach (var row in evaluation.Rows)
+            {
+                var pair = Pair(row.Label, row.Value);
+                if (!string.IsNullOrWhiteSpace(row.Tooltip))
+                    ToolTip.SetTip(pair, row.Tooltip);
+                evaluationRowsPanel.Children.Add(pair);
+            }
         }
 
         void RefreshExperiments()
@@ -396,6 +538,45 @@ namespace AnalysisITC.Avalonia.Results
             Grid.SetColumn(border, column);
             Grid.SetRow(border, row);
             grid.Children.Add(border);
+        }
+
+        EnergyUnit SelectedEvaluationEnergyUnit()
+        {
+            var index = evaluationEnergyUnitCombo.SelectedIndex;
+            return index >= 0 && index < EvaluationEnergyUnits.Length
+                ? EvaluationEnergyUnits[index]
+                : EnergyUnit.KiloJoule;
+        }
+
+        void SetEvaluationEnergyUnit(EnergyUnit unit)
+        {
+            var index = Array.IndexOf(EvaluationEnergyUnits, unit);
+            if (index < 0)
+                index = Array.IndexOf(EvaluationEnergyUnits, EnergyUnit.KiloJoule);
+
+            evaluationEnergyUnitCombo.SelectedIndex = Math.Max(0, index);
+        }
+
+        bool TryReadEvaluationTemperatureCelsius(out double temperatureCelsius)
+        {
+            temperatureCelsius = 0;
+            var text = evaluationTemperatureBox.Text?.Trim();
+            if (string.IsNullOrWhiteSpace(text)) return false;
+
+            if (!double.TryParse(text, NumberStyles.Float, CultureInfo.CurrentCulture, out var displayed) &&
+                !double.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out displayed))
+            {
+                return false;
+            }
+
+            temperatureCelsius = evaluationUseKelvin ? displayed - 273.15 : displayed;
+            return true;
+        }
+
+        void SetEvaluationTemperatureText(double temperatureCelsius)
+        {
+            var displayed = evaluationUseKelvin ? temperatureCelsius + 273.15 : temperatureCelsius;
+            evaluationTemperatureBox.Text = displayed.ToString("G6", CultureInfo.CurrentCulture);
         }
 
         bool UseKelvin => temperatureUnitCombo.SelectedIndex == 1;

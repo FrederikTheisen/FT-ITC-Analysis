@@ -350,10 +350,20 @@ namespace AnalysisITC.Avalonia.Analysis
 
         void DrawConfidenceBand(DrawingContext context, GraphLayout layout)
         {
-            var band = ConfidenceBand()
-                .Where(point => view.ContainsX(point.X))
-                .OrderBy(point => point.X)
-                .ToList();
+            List<GraphPoint> band;
+            try
+            {
+                band = ConfidenceBand()
+                    .Where(point => view.ContainsX(point.X))
+                    .OrderBy(point => point.X)
+                    .ToList();
+            }
+            catch (Exception ex)
+            {
+                AppEventHandler.AddLog(ex);
+                return;
+            }
+
             if (band.Count < 2) return;
 
             var upper = band.Select(point => layout.FitTransform.ToScreen(point.X, point.UpperY)).ToList();
@@ -561,6 +571,7 @@ namespace AnalysisITC.Avalonia.Analysis
         {
             var data = Experiment;
             if (data?.Solution?.BootstrapSolutions == null || data.Solution.BootstrapSolutions.Count == 0 || data.Model == null) yield break;
+            if (!data.Solution.BootstrapSolutions.Any(solution => solution?.Model != null)) yield break;
 
             foreach (var injection in data.Injections)
             {

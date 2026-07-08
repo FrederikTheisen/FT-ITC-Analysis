@@ -4,6 +4,8 @@ using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Input;
 using Avalonia.Markup.Xaml;
 
+using AnalysisITC.Platform.Avalonia;
+
 namespace AnalysisITC.Avalonia;
 
 public partial class App : Application
@@ -18,6 +20,7 @@ public partial class App : Application
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
             CoreStartup.Initialize();
+            MacDockIcon.Apply();
             var mainWindow = new MainWindow();
             desktop.MainWindow = mainWindow;
             WireNativeApplicationMenu(mainWindow);

@@ -30,6 +30,7 @@ namespace AnalysisITC.Avalonia.Workspace
         public static Thickness TextBoxPadding => new Thickness(6, 1);
         public static Thickness ButtonPadding => new Thickness(8, 1);
         public static Thickness InspectorFooterPadding => new Thickness(10, 8);
+        public static Thickness InspectorHostMargin => new Thickness(InspectorGap, 0, InspectorGap, 0);
 
         public static Grid Workspace(Control mainContent, Control inspectorContent, Control? inspectorFooter = null)
         {
@@ -91,7 +92,7 @@ namespace AnalysisITC.Avalonia.Workspace
             var host = new Grid
             {
                 RowDefinitions = footer == null ? new RowDefinitions("*") : new RowDefinitions("*,Auto"),
-                Margin = new Thickness(InspectorGap, 0, 0, 0)
+                Margin = InspectorHostMargin
             };
 
             Grid.SetRow(inspectorContent, 0);
