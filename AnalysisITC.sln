@@ -3,7 +3,7 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 16
 VisualStudioVersion = 16.0.810.17
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AnalysisITC", "AnalysisITC.csproj", "{4629D00B-869F-4003-8F6E-228C01A22994}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AnalysisITC.MacOS", "AnalysisITC.MacOS\AnalysisITC.MacOS.csproj", "{4629D00B-869F-4003-8F6E-228C01A22994}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AnalysisITC.Core", "AnalysisITC.Core\AnalysisITC.Core.csproj", "{F32343FC-8657-4362-8B8B-F1C885E1F3B0}"
 EndProject

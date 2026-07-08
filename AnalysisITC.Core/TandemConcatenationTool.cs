@@ -1,4 +1,4 @@
-﻿// AppClasses/AnalysisClasses/TandemConcatenation.cs
+﻿// AnalysisITC.Core/TandemConcatenationTool.cs
 //
 // Tandem stitching (syringe reload / continue on same cell content)
 //
