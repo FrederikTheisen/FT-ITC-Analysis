@@ -39,6 +39,7 @@ namespace AnalysisITC.Avalonia.Tools
             MinWidth = 720;
             MinHeight = 500;
             WindowStartupLocation = WindowStartupLocation.CenterOwner;
+            Background = WorkspaceBackgroundBrush;
 
             BuildLayout();
             PopulateReferenceExperiments();
@@ -66,7 +67,8 @@ namespace AnalysisITC.Avalonia.Tools
                 Scroll(inspector),
                 InspectorFooter(Section("Apply",
                     applyButton,
-                    statusText)));
+                    statusText)),
+                useOuterMargin: true);
         }
 
         void PopulateReferenceExperiments()

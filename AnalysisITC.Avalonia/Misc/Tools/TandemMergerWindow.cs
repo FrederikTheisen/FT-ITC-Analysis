@@ -51,6 +51,7 @@ namespace AnalysisITC.Avalonia.Tools
             MinWidth = 660;
             MinHeight = 480;
             WindowStartupLocation = WindowStartupLocation.CenterOwner;
+            Background = WorkspaceBackgroundBrush;
 
             BuildLayout();
             PopulateList(selectAll: true);
@@ -70,6 +71,7 @@ namespace AnalysisITC.Avalonia.Tools
 
             var listPanel = new DockPanel { LastChildFill = true };
             var moveButtons = Row(moveUpButton, moveDownButton);
+            moveButtons.Margin = WorkspaceControlBuilder.ScrollContentPadding;
             DockPanel.SetDock(moveButtons, Dock.Bottom);
             listPanel.Children.Add(moveButtons);
             listPanel.Children.Add(experimentList);
@@ -78,7 +80,8 @@ namespace AnalysisITC.Avalonia.Tools
             inspector.Children.Add(Section("Merge", Labeled("Mode", modeCombo)));
             inspector.Children.Add(Section("Back-mixing",
                 Labeled("Dead vol. uL", deadVolumeBox),
-                Labeled("Mixing", Row(mixingSlider, mixingLabel)),
+                Labeled("Mixing", mixingSlider),
+                Labeled("", mixingLabel),
                 removeOverflowCheck));
             inspector.Children.Add(Section("Selection", Text("Select experiments in the order they were measured. Use Up/Down to reorder selected rows.")));
 
@@ -87,7 +90,8 @@ namespace AnalysisITC.Avalonia.Tools
                 Scroll(inspector),
                 InspectorFooter(Section("Create",
                     createButton,
-                    statusPanel)));
+                    statusPanel)),
+                useOuterMargin: true);
         }
 
         void WireEvents()
@@ -98,7 +102,7 @@ namespace AnalysisITC.Avalonia.Tools
             {
                 if (e.Property == global::Avalonia.Controls.Slider.ValueProperty)
                 {
-                    mixingLabel.Text = $"{100 * mixingSlider.Value:0}%";
+                    mixingLabel.Text = $"{100 * mixingSlider.Value:0}% back-mixing";
                     RefreshControls();
                 }
             };
@@ -191,14 +195,14 @@ namespace AnalysisITC.Avalonia.Tools
 
                 if (mode == MergeMode.AutoBackMixing)
                 {
-                    SetStatus("Scanning tandem back-mixing degrees...");
+                    SetStatus("Scanning tandem back-mixing...");
                     var bestPoint = await Task.Run(() => TandemMixingScanner.FindBestAdaptive(
                         selected,
                         settings.Copy(),
                         (completed, total) => Dispatcher.UIThread.Post(() =>
                         {
                             progressBar.Value = total <= 0 ? 0 : completed / (double)total;
-                            SetStatus($"Scanning tandem back-mixing degrees... {100 * progressBar.Value:0}%");
+                            SetStatus($"Scanning tandem back-mixing... {100 * progressBar.Value:0}%");
                         })));
 
                     if (bestPoint == null)

@@ -71,6 +71,7 @@ namespace AnalysisITC.Avalonia.Tools
             MinWidth = 780;
             MinHeight = 560;
             WindowStartupLocation = WindowStartupLocation.CenterOwner;
+            Background = WorkspaceBackgroundBrush;
 
             BuildLayout();
             PopulateSelectors();
@@ -123,7 +124,8 @@ namespace AnalysisITC.Avalonia.Tools
                 tabs,
                 InspectorFooter(Section("Fit",
                     fitButton,
-                    statusText)));
+                    statusText)),
+                useOuterMargin: true);
         }
 
         void PopulateSelectors()
