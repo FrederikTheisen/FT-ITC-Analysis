@@ -18,7 +18,7 @@ README CONTENT
 -->
 
 ![Static Badge](https://img.shields.io/badge/github-FT--ITC--Analysis-blue?logo=github&color=%23e86767)
-![Dynamic XML Badge](https://img.shields.io/badge/dynamic/xml?url=https%3A%2F%2Fraw.githubusercontent.com%2FFrederikTheisen%2FFT-ITC-Analysis%2Frefs%2Fheads%2Fmaster%2FInfo.plist&query=plist%2Fdict%2Fkey%5B.%3D%22CFBundleVersion%22%5D%2Ffollowing-sibling%3A%3Astring%5B1%5D&label=version&color=green) 
+![Dynamic XML Badge](https://img.shields.io/badge/dynamic/xml?url=https%3A%2F%2Fraw.githubusercontent.com%2FFrederikTheisen%2FFT-ITC-Analysis%2Frefs%2Fheads%2Fmaster%2FAnalysisITC.MacOS%2FInfo.plist&query=plist%2Fdict%2Fkey%5B.%3D%22CFBundleVersion%22%5D%2Ffollowing-sibling%3A%3Astring%5B1%5D&label=version&color=green) 
 [![][doi-shield]][doi-link] 
 [![][downloadstat-shield]][downloadstat-link] 
 ![Endpoint Badge](https://img.shields.io/endpoint?url=https%3A%2F%2Fapi.juleskreuer.eu%2Fcitation-badge.php%3Fshield%26doi%3D10.5281%2Fzenodo.14832177&style=flat&label=citations&color=salmon)
