@@ -59,7 +59,7 @@ namespace AnalysisITC.Avalonia.Analysis
         public bool ShowPointLabels { get; set; } = true;
         public bool ShowFitParameters { get; set; } = true;
         public bool ShowExcludedPoints { get; set; } = true;
-        public bool ScaleToIncludedPoints { get; set; }
+        public bool ScaleToIncludedPoints { get; set; } = true;
         public bool UnifiedXAxis { get; set; }
         public bool UnifiedYAxis { get; set; }
         public bool DrawWithOffset { get; set; } = true;

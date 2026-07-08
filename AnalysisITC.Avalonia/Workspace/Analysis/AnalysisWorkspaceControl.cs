@@ -49,7 +49,7 @@ namespace AnalysisITC.Avalonia.Analysis
         readonly CheckBox labelsCheck = Check("Point labels", true);
         readonly CheckBox parametersCheck = Check("Parameter box", true);
         readonly CheckBox excludedCheck = Check("Excluded points", true);
-        readonly CheckBox scaleIncludedCheck = Check("Scale to included", false);
+        readonly CheckBox scaleIncludedCheck = Check("Scale to included", true);
         readonly CheckBox unifiedXCheck = Check("Unified X axis", false);
         readonly CheckBox unifiedYCheck = Check("Unified Y axis", false);
         readonly CheckBox offsetCheck = Check("Show fitted offset", true);
