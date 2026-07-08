@@ -26,8 +26,8 @@ internal sealed class AboutDialogWindow : Window
         var icon = new Image
         {
             Source = new Bitmap(AssetLoader.Open(new System.Uri("avares://AnalysisITC.Avalonia/Resources/appicon.ico"))),
-            Width = 100,
-            Height = 100,
+            Width = 120,
+            Height = 120,
             Margin = new Thickness(0, 0, 0, 12),
             HorizontalAlignment = HorizontalAlignment.Center
         };
