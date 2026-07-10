@@ -1,0 +1,39 @@
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <ResourceDictionary.ThemeDictionaries>
+        <ResourceDictionary x:Key="Light">
+            <SolidColorBrush x:Key="WorkspaceBackground" Color="#F5F7FA" />
+            <SolidColorBrush x:Key="PanelBackground" Color="#FFFFFF" />
+            <SolidColorBrush x:Key="PanelBorder" Color="#D4DAE1" />
+            <SolidColorBrush x:Key="SectionBorder" Color="#E3E7EC" />
+            <SolidColorBrush x:Key="PrimaryText" Color="#202832" />
+            <SolidColorBrush x:Key="SecondaryText" Color="#4D5A66" />
+            <SolidColorBrush x:Key="MutedText" Color="#607080" />
+            <SolidColorBrush x:Key="DisabledText" Color="#7B8794" />
+            <SolidColorBrush x:Key="TableHeaderBackground" Color="#F5F7FA" />
+            <SolidColorBrush x:Key="TableAlternateRow" Color="#FAFBFC" />
+            <SolidColorBrush x:Key="SelectionBackground" Color="#EAF1FF" />
+            <SolidColorBrush x:Key="PreviewBackground" Color="#F1F4F7" />
+            <SolidColorBrush x:Key="StatusValid" Color="#22863A" />
+            <SolidColorBrush x:Key="StatusWarning" Color="#B7791F" />
+            <SolidColorBrush x:Key="StatusError" Color="#C53030" />
+        </ResourceDictionary>
+        <ResourceDictionary x:Key="Dark">
+            <SolidColorBrush x:Key="WorkspaceBackground" Color="#101820" />
+            <SolidColorBrush x:Key="PanelBackground" Color="#17212B" />
+            <SolidColorBrush x:Key="PanelBorder" Color="#34404C" />
+            <SolidColorBrush x:Key="SectionBorder" Color="#24303B" />
+            <SolidColorBrush x:Key="PrimaryText" Color="#E7EDF4" />
+            <SolidColorBrush x:Key="SecondaryText" Color="#CBD5DF" />
+            <SolidColorBrush x:Key="MutedText" Color="#A8B4C0" />
+            <SolidColorBrush x:Key="DisabledText" Color="#8D99A6" />
+            <SolidColorBrush x:Key="TableHeaderBackground" Color="#1F2A35" />
+            <SolidColorBrush x:Key="TableAlternateRow" Color="#141D26" />
+            <SolidColorBrush x:Key="SelectionBackground" Color="#263B59" />
+            <SolidColorBrush x:Key="PreviewBackground" Color="#0F1720" />
+            <SolidColorBrush x:Key="StatusValid" Color="#89B891" />
+            <SolidColorBrush x:Key="StatusWarning" Color="#D6A05C" />
+            <SolidColorBrush x:Key="StatusError" Color="#E17872" />
+        </ResourceDictionary>
+    </ResourceDictionary.ThemeDictionaries>
+</ResourceDictionary>
