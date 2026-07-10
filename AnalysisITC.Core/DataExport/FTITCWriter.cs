@@ -691,7 +691,7 @@ namespace AnalysisITC.Core.Export
         private static List<string> GetBootstrapSolutionLines(SolutionInterface solution)
         {
             var lines = new List<string>();
-            foreach (var par in solution.Model.Parameters.Table)
+            foreach (var par in solution.Parameters)
             {
                 lines.Add(Variable(par.Key.ToString() + ":" + ((int)par.Key).ToString(), par.Value.Value));
             }
