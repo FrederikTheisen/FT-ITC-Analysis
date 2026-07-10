@@ -154,6 +154,9 @@ namespace AnalysisITC.Core.Presentation
                 rows.Add(EnergyRow(ParameterName(gibbsKey), "∆G", gibbs, energyUnit, uncertaintyStyle));
 
                 var kelvin = temperatureCelsius + 273.15;
+
+                if (kelvin <= 0) return;
+
                 var kdExponent = gibbs / (kelvin * Energy.R);
                 var kd = FWEMath.Exp(kdExponent.FloatWithError);
                 rows.Add(new AnalysisResultParameterEvaluationRow(

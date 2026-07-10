@@ -280,16 +280,17 @@ namespace AnalysisITC.Core.Analysis
             int min_error_sol_count = solutions.Min(sol => sol.BootstrapSolutions.Count);
             if (min_error_sol_count != 0)
 			{
-                // Create a set of error solutions based on the minimum amount of successful refits. This does not take any time.
-                // Build the model sets once, preserving bootstrap index order
-                var sets = new List<Model>[min_error_sol_count];
+                // Create global error solutions from each experiment's saved refit at the same bootstrap index.
+                // Use the SolutionInterface instances directly so reconstructed project files keep the
+                // bootstrap parameter values copied into SolutionInterface.Parameters.
+                var sets = new List<SolutionInterface>[min_error_sol_count];
 
                 for (int i = 0; i < min_error_sol_count; i++)
                 {
-                    var set = new List<Model>(solutions.Count);
+                    var set = new List<SolutionInterface>(solutions.Count);
 
                     foreach (var sol in solutions)
-                        set.Add(sol.BootstrapSolutions[i].Model);
+                        set.Add(sol.BootstrapSolutions[i]);
 
                     sets[i] = set;
                 }
@@ -300,35 +301,24 @@ namespace AnalysisITC.Core.Analysis
 
                 System.Threading.Tasks.Parallel.For(0, min_error_sol_count, i =>
                 {
-                    bootstrapSolutions[i] = new GlobalSolution(new GlobalModel(sets[i]));
+                    bootstrapSolutions[i] = new GlobalSolution(sets[i]);
                 });
 
                 BootstrapSolutions = bootstrapSolutions.ToList();
 
-                // Set the solution dependency based on refit distributions
-                // Currently forces the average to be the best fit value and derives the error from the distribution of refits around this mean
-                var tmp = new Dictionary<ParameterType, LinearFitWithError>();
-                foreach (var par in TemperatureDependence)
-                {
-                    var slope = new List<FloatWithError>(BootstrapSolutions.Count);
-                    var intercept = new List<FloatWithError>(BootstrapSolutions.Count);
-
-                    foreach (var gsol in BootstrapSolutions)
-                    {
-                        slope.Add(gsol.TemperatureDependence[par.Key].Slope);
-                        intercept.Add(gsol.TemperatureDependence[par.Key].Intercept);
-                    }
-
-                    tmp[par.Key] = new LinearFitWithError(
-                        new(slope, mean: TemperatureDependence[par.Key].Slope),
-                        new(intercept, mean: TemperatureDependence[par.Key].Intercept),
-                        MeanTemperature);
-                }
-
-                TemperatureDependence = tmp;
+                SetTemperatureDependenceErrorsFromBootstrapSolutions(BootstrapSolutions);
             }
 
 			foreach (var sol in solutions) sol.SetParentSolution(this);
+        }
+
+        private GlobalSolution(List<SolutionInterface> solutions)
+        {
+            Model = new GlobalModel(solutions.Select(sol => sol.Model).ToList());
+
+            var dependencies = solutions[0].DependenciesToReport;
+
+            foreach (var dep in dependencies) SetParameterTemperatureDependence(dep.Item1, dep.Item2, solutions);
         }
 
 		private GlobalSolution(GlobalModel model)
@@ -341,10 +331,15 @@ namespace AnalysisITC.Core.Analysis
         }
 
         void SetParameterTemperatureDependence(ParameterType key, Func<SolutionInterface, FloatWithError> func)
+        {
+            SetParameterTemperatureDependence(key, func, Solutions);
+        }
+
+        void SetParameterTemperatureDependence(ParameterType key, Func<SolutionInterface, FloatWithError> func, IReadOnlyList<SolutionInterface> solutions)
 		{
 			if (Model.TemperatureDependenceExposed)
 			{
-				var xy = Model.Models.Select((m, i) => new double[] { m.Data.MeasuredTemperature - Model.MeanTemperature, func(m.Solution) }).ToArray();
+				var xy = solutions.Select(sol => new double[] { sol.Data.MeasuredTemperature - Model.MeanTemperature, func(sol) }).ToArray();
 				var reg = MathNet.Numerics.LinearRegression.SimpleRegression.Fit(xy.GetColumn(0), xy.GetColumn(1));
 
 				TemperatureDependence[key] = new LinearFitWithError(reg.B, reg.A, MeanTemperature);
@@ -352,7 +347,7 @@ namespace AnalysisITC.Core.Analysis
 			else
 			{
 				// No temperature dependence possible, slope is zero, intercept + error from distribution of model values
-				TemperatureDependence[key] = new LinearFitWithError(new(0), new(Model.Models.Select((m) => func(m.Solution)).ToList()), MeanTemperature);
+				TemperatureDependence[key] = new LinearFitWithError(new(0), new(solutions.Select(func).ToList()), MeanTemperature);
             }
 		}
 
@@ -375,17 +370,25 @@ namespace AnalysisITC.Core.Analysis
 				model.Solution.SetBootstrapSolutions(sols.Where(sol => sol.Convergence.IsUsableForErrorEstimation).ToList());
             }
 
-			var tmp = new Dictionary<ParameterType, LinearFitWithError>();
+            SetTemperatureDependenceErrorsFromBootstrapSolutions(BootstrapSolutions);
+        }
+
+        void SetTemperatureDependenceErrorsFromBootstrapSolutions(List<GlobalSolution> solutions)
+        {
+            var tmp = new Dictionary<ParameterType, LinearFitWithError>();
 
             foreach (var par in TemperatureDependence)
-			{
-                var slope = solutions.Select(gsol => gsol.TemperatureDependence[par.Key].Slope.Value).ToList();
-                var intercept = solutions.Select(gsol => gsol.TemperatureDependence[par.Key].Intercept.Value).ToList();
+            {
+                var slope = solutions.Select(gsol => gsol.TemperatureDependence[par.Key].Slope).ToList();
+                var intercept = solutions.Select(gsol => gsol.TemperatureDependence[par.Key].Intercept).ToList();
 
-                tmp[par.Key] = new LinearFitWithError(new(slope), new(intercept), MeanTemperature);
+                tmp[par.Key] = new LinearFitWithError(
+                    new(slope, mean: TemperatureDependence[par.Key].Slope),
+                    new(intercept, mean: TemperatureDependence[par.Key].Intercept),
+                    MeanTemperature);
             }
 
-			TemperatureDependence = tmp;
+            TemperatureDependence = tmp;
         }
     }
 }
