@@ -4,6 +4,8 @@ using Avalonia.Controls.Primitives;
 using Avalonia.Layout;
 using Avalonia.Media;
 
+using AnalysisITC.Avalonia.Styling;
+
 namespace AnalysisITC.Avalonia.Workspace
 {
     static class WorkspaceControlBuilder
@@ -15,14 +17,15 @@ namespace AnalysisITC.Avalonia.Workspace
         public const double InspectorSectionSpacing = 6;
         public const double SectionControlSpacing = 0;
         public const double RowSpacing = 6;
+        public const double InspectorTabFontSize = 13;
 
-        public static readonly IBrush WorkspaceBackgroundBrush = Solid("#F5F7FA");
-        public static readonly IBrush PanelBackgroundBrush = Brushes.White;
-        public static readonly IBrush PanelBorderBrush = Solid("#D4DAE1");
-        public static readonly IBrush SectionBorderBrush = Solid("#E3E7EC");
-        public static readonly IBrush SectionHeaderBrush = Solid("#202832");
-        public static readonly IBrush LabelBrush = Solid("#607080");
-        public static readonly IBrush TextBrush = Solid("#4D5A66");
+        public static IBrush WorkspaceBackgroundBrush => AppTheme.Brush(AppTheme.WorkspaceBackground);
+        public static IBrush PanelBackgroundBrush => AppTheme.Brush(AppTheme.PanelBackground);
+        public static IBrush PanelBorderBrush => AppTheme.Brush(AppTheme.PanelBorder);
+        public static IBrush SectionBorderBrush => AppTheme.Brush(AppTheme.SectionBorder);
+        public static IBrush SectionHeaderBrush => AppTheme.Brush(AppTheme.PrimaryText);
+        public static IBrush LabelBrush => AppTheme.Brush(AppTheme.MutedText);
+        public static IBrush TextBrush => AppTheme.Brush(AppTheme.SecondaryText);
         public static Thickness ControlMargin => new Thickness(0, 1);
         public static Thickness ScrollContentPadding => new Thickness(8);
         public static Thickness SectionPadding => new Thickness(0, 0, 0, 6);
@@ -51,22 +54,24 @@ namespace AnalysisITC.Avalonia.Workspace
 
         static Grid WorkspaceGrid()
         {
-            return new Grid
+            var grid = new Grid
             {
-                ColumnDefinitions = new ColumnDefinitions($"*,{InspectorWidth}"),
-                Background = WorkspaceBackgroundBrush
+                ColumnDefinitions = new ColumnDefinitions($"*,{InspectorWidth}")
             };
+            AppTheme.Bind(grid, Panel.BackgroundProperty, AppTheme.WorkspaceBackground);
+            return grid;
         }
 
         public static Border ContentBorder(Control content)
         {
-            return new Border
+            var border = new Border
             {
-                Background = PanelBackgroundBrush,
-                BorderBrush = PanelBorderBrush,
                 BorderThickness = new Thickness(1),
                 Child = content
             };
+            AppTheme.Bind(border, Border.BackgroundProperty, AppTheme.PanelBackground);
+            AppTheme.Bind(border, Border.BorderBrushProperty, AppTheme.PanelBorder);
+            return border;
         }
 
         public static TabControl Inspector()
@@ -114,14 +119,15 @@ namespace AnalysisITC.Avalonia.Workspace
 
         public static Border InspectorFooter(Control content)
         {
-            return new Border
+            var border = new Border
             {
-                Background = PanelBackgroundBrush,
-                BorderBrush = PanelBorderBrush,
                 BorderThickness = new Thickness(1, 1, 1, 1),
                 Padding = InspectorFooterPadding,
                 Child = content
             };
+            AppTheme.Bind(border, Border.BackgroundProperty, AppTheme.PanelBackground);
+            AppTheme.Bind(border, Border.BorderBrushProperty, AppTheme.PanelBorder);
+            return border;
         }
 
         public static StackPanel InspectorPanel()
@@ -139,7 +145,7 @@ namespace AnalysisITC.Avalonia.Workspace
                 Header = new TextBlock
                 {
                     Text = header,
-                    FontSize = 12,
+                    FontSize = InspectorTabFontSize,
                     TextWrapping = TextWrapping.NoWrap,
                 },
                 Content = content
@@ -160,22 +166,25 @@ namespace AnalysisITC.Avalonia.Workspace
 
         public static Control Scroll(Control content)
         {
-            return new Border
+            var contentBorder = new Border
             {
-                Background = PanelBackgroundBrush,
-                BorderBrush = PanelBorderBrush,
+                Padding = ScrollContentPadding,
+                Child = content
+            };
+
+            var border = new Border
+            {
                 BorderThickness = new Thickness(1),
                 Child = new ScrollViewer
                 {
                     HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
                     VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
-                    Content = new Border
-                    {
-                        Padding = ScrollContentPadding,
-                        Child = content
-                    }
+                    Content = contentBorder
                 }
             };
+            AppTheme.Bind(border, Border.BackgroundProperty, AppTheme.PanelBackground);
+            AppTheme.Bind(border, Border.BorderBrushProperty, AppTheme.PanelBorder);
+            return border;
         }
 
         public static Border Section(string title, params Control[] controls)
@@ -183,10 +192,6 @@ namespace AnalysisITC.Avalonia.Workspace
             var header = new TextBlock
             {
                 Text = title,
-                FontWeight = FontWeight.SemiBold,
-                Foreground = SectionHeaderBrush,
-                VerticalAlignment = VerticalAlignment.Center,
-                Padding = new Thickness(0, 0, 0, 4)
             };
 
             return Section(header, controls);
@@ -194,6 +199,10 @@ namespace AnalysisITC.Avalonia.Workspace
 
         public static Border Section(TextBlock header, params Control[] controls)
         {
+            header.FontWeight = FontWeight.SemiBold;
+            AppTheme.Bind(header, TextBlock.ForegroundProperty, AppTheme.PrimaryText);
+            header.VerticalAlignment = VerticalAlignment.Center;
+            header.Padding = new Thickness(0, 0, 0, 4);
             var panel = new StackPanel { Spacing = SectionControlSpacing };
             header.Width = double.NaN;
             panel.Children.Add(header);
@@ -203,13 +212,14 @@ namespace AnalysisITC.Avalonia.Workspace
                 panel.Children.Add(control);
             }
 
-            return new Border
+            var border = new Border
             {
-                BorderBrush = SectionBorderBrush,
                 BorderThickness = new Thickness(0, 0, 0, 1),
                 Padding = SectionPadding,
                 Child = panel
             };
+            AppTheme.Bind(border, Border.BorderBrushProperty, AppTheme.SectionBorder);
+            return border;
         }
 
         public static Border Labeled(string label, Control control)
@@ -221,12 +231,13 @@ namespace AnalysisITC.Avalonia.Workspace
                 ColumnDefinitions = new ColumnDefinitions($"{RowLabelWidth},*"),
                 ColumnSpacing = RowSpacing
             };
-            panel.Children.Add(new TextBlock
+            var labelBlock = new TextBlock
             {
                 Text = label,
-                VerticalAlignment = VerticalAlignment.Center,
-                Foreground = LabelBrush
-            });
+                VerticalAlignment = VerticalAlignment.Center
+            };
+            AppTheme.Bind(labelBlock, TextBlock.ForegroundProperty, AppTheme.MutedText);
+            panel.Children.Add(labelBlock);
             Grid.SetColumn(control, 1);
             panel.Children.Add(control);
 
@@ -342,36 +353,39 @@ namespace AnalysisITC.Avalonia.Workspace
 
         public static TextBlock Text(string text = "")
         {
-            return new TextBlock
+            var textBlock = new TextBlock
             {
                 Text = text,
-                Foreground = TextBrush,
                 Margin = ControlMargin,
                 VerticalAlignment = VerticalAlignment.Center,
                 TextWrapping = TextWrapping.Wrap
             };
+            AppTheme.Bind(textBlock, TextBlock.ForegroundProperty, AppTheme.SecondaryText);
+            return textBlock;
         }
 
         public static TextBlock TrimmingText()
         {
-            return new TextBlock
+            var textBlock = new TextBlock
             {
-                Foreground = TextBrush,
                 Margin = ControlMargin,
                 VerticalAlignment = VerticalAlignment.Center,
                 TextTrimming = TextTrimming.CharacterEllipsis
             };
+            AppTheme.Bind(textBlock, TextBlock.ForegroundProperty, AppTheme.SecondaryText);
+            return textBlock;
         }
 
         public static TextBlock Header(string text)
         {
-            return new TextBlock
+            var textBlock = new TextBlock
             {
                 Text = text,
                 FontWeight = FontWeight.SemiBold,
-                Foreground = SectionHeaderBrush,
                 VerticalAlignment = VerticalAlignment.Center
             };
+            AppTheme.Bind(textBlock, TextBlock.ForegroundProperty, AppTheme.PrimaryText);
+            return textBlock;
         }
 
         public static void ApplyControlMargin(Control control)
@@ -397,7 +411,5 @@ namespace AnalysisITC.Avalonia.Workspace
                 && margin.Right == 0
                 && margin.Bottom == 0;
         }
-
-        public static IBrush Solid(string color) => new SolidColorBrush(Color.Parse(color));
     }
 }

@@ -54,6 +54,9 @@ namespace AnalysisITC.Avalonia.Tools
             var exportButton = Button("Export...", 96);
             exportButton.Click += async (_, _) => await ExportToFileAsync();
 
+            var cancelButton = Button("Cancel", 82);
+            cancelButton.Click += (_, _) => Close(false);
+
             resultList.ItemTemplate = new FuncDataTemplate<AnalysisResult>((result, _) => ResultCell(result));
 
             var optionsPanel = InspectorPanel();
@@ -69,7 +72,7 @@ namespace AnalysisITC.Avalonia.Tools
                 ContentBorder(resultList),
                 Scroll(optionsPanel),
                 InspectorFooter(Section("Export",
-                    Row(copyButton, exportButton),
+                    Row(cancelButton, copyButton, exportButton),
                     statusText)),
                 useOuterMargin: true);
         }

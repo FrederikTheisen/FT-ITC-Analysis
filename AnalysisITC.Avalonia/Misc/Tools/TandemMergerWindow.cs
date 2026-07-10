@@ -31,6 +31,7 @@ namespace AnalysisITC.Avalonia.Tools
         readonly CheckBox removeOverflowCheck = Check("Remove titrated overflow", true);
         readonly TextBlock statusText = Text();
         readonly Button createButton = Button("Create", 82);
+        readonly Button cancelButton = Button("Cancel", 82);
         readonly Button moveUpButton = Button("Up", 56);
         readonly Button moveDownButton = Button("Down", 70);
         readonly ProgressBar progressBar = new ProgressBar { Minimum = 0, Maximum = 1, Height = 7 };
@@ -63,6 +64,7 @@ namespace AnalysisITC.Avalonia.Tools
         void BuildLayout()
         {
             createButton.Click += async (_, _) => await CreateMergedExperimentAsync();
+            cancelButton.Click += (_, _) => Close(false);
             var statusPanel = new StackPanel { Spacing = 4 };
             statusPanel.Children.Add(statusText);
             statusPanel.Children.Add(progressBar);
@@ -89,7 +91,7 @@ namespace AnalysisITC.Avalonia.Tools
                 ContentBorder(listPanel),
                 Scroll(inspector),
                 InspectorFooter(Section("Create",
-                    createButton,
+                    Row(cancelButton, createButton),
                     statusPanel)),
                 useOuterMargin: true);
         }
@@ -168,6 +170,7 @@ namespace AnalysisITC.Avalonia.Tools
             experimentList.IsEnabled = !isBusy;
             modeCombo.IsEnabled = !isBusy;
             createButton.IsEnabled = !isBusy && selected.Count >= 2 && autoAllowed && TryReadSettings(out _);
+            cancelButton.IsEnabled = !isBusy;
 
             if (selected.Count < 2)
                 SetStatus("Select at least two experiments.");

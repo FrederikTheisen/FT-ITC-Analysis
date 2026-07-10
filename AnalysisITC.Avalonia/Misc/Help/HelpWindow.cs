@@ -13,6 +13,7 @@ using Avalonia.Threading;
 
 using AnalysisITC.Core.Presentation;
 using AnalysisITC.Core.Utilities;
+using AnalysisITC.Avalonia.Styling;
 
 namespace AnalysisITC.Avalonia.Help;
 
@@ -65,9 +66,9 @@ public sealed class HelpWindow : Window
     {
         var root = new DockPanel
         {
-            LastChildFill = true,
-            Background = new SolidColorBrush(Color.FromRgb(244, 247, 250))
+            LastChildFill = true
         };
+        AppTheme.Bind(root, Panel.BackgroundProperty, AppTheme.WorkspaceBackground);
 
         topicList.ItemsSource = topicItems;
         topicList.ItemTemplate = new FuncDataTemplate<HelpTopicListItem>((item, _) => TopicCell(item));
@@ -76,11 +77,11 @@ public sealed class HelpWindow : Window
         var topicPane = new Border
         {
             Width = 260,
-            Background = Brushes.White,
-            BorderBrush = new SolidColorBrush(Color.FromRgb(212, 220, 228)),
             BorderThickness = new Thickness(0, 0, 1, 0),
             Child = topicList
         };
+        AppTheme.Bind(topicPane, Border.BackgroundProperty, AppTheme.PanelBackground);
+        AppTheme.Bind(topicPane, Border.BorderBrushProperty, AppTheme.PanelBorder);
 
         DockPanel.SetDock(topicPane, Dock.Left);
         root.Children.Add(topicPane);
@@ -94,17 +95,16 @@ public sealed class HelpWindow : Window
     {
         if (item == null) return new TextBlock();
 
-        return new TextBlock
+        var textBlock = new TextBlock
         {
             Text = PlainText(item.Topic.Title),
             FontSize = item.Topic.Level == 2 ? 13 : 12,
             FontWeight = item.Topic.Level == 2 ? FontWeight.SemiBold : FontWeight.Normal,
-            Foreground = item.Topic.Level == 2
-                ? new SolidColorBrush(Color.FromRgb(29, 38, 48))
-                : new SolidColorBrush(Color.FromRgb(82, 96, 110)),
             Margin = new Thickness(item.Indent, 4, 8, 4),
             TextTrimming = TextTrimming.CharacterEllipsis
         };
+        AppTheme.Bind(textBlock, TextBlock.ForegroundProperty, item.Topic.Level == 2 ? AppTheme.PrimaryText : AppTheme.SecondaryText);
+        return textBlock;
     }
 
     void SelectInitialTopic()
@@ -176,13 +176,14 @@ public sealed class HelpWindow : Window
     void RenderMessage(string message)
     {
         documentPanel.Children.Clear();
-        documentPanel.Children.Add(new TextBlock
+        var textBlock = new TextBlock
         {
             Text = message,
             FontSize = 14,
-            Foreground = new SolidColorBrush(Color.FromRgb(82, 96, 110)),
             TextWrapping = TextWrapping.Wrap
-        });
+        };
+        AppTheme.Bind(textBlock, TextBlock.ForegroundProperty, AppTheme.SecondaryText);
+        documentPanel.Children.Add(textBlock);
     }
 
     static IEnumerable<string> SplitBlocks(string text)
@@ -225,15 +226,16 @@ public sealed class HelpWindow : Window
 
     static TextBlock Heading(string text, double size, FontWeight weight)
     {
-        return new TextBlock
+        var textBlock = new TextBlock
         {
             Text = PlainText(text),
             FontSize = size,
             FontWeight = weight,
-            Foreground = new SolidColorBrush(Color.FromRgb(28, 37, 47)),
             TextWrapping = TextWrapping.Wrap,
             Margin = new Thickness(0, size > 20 ? 0 : 8, 0, 0)
         };
+        AppTheme.Bind(textBlock, TextBlock.ForegroundProperty, AppTheme.PrimaryText);
+        return textBlock;
     }
 
     static TextBlock Paragraph(string text)
@@ -242,9 +244,9 @@ public sealed class HelpWindow : Window
         {
             FontSize = 13,
             LineHeight = 19,
-            Foreground = new SolidColorBrush(Color.FromRgb(36, 46, 58)),
             TextWrapping = TextWrapping.Wrap
         };
+        AppTheme.Bind(textBlock, TextBlock.ForegroundProperty, AppTheme.SecondaryText);
 
         foreach (var segment in MarkdownProcessor.GetSegments(text ?? ""))
             AddInline(textBlock, segment);

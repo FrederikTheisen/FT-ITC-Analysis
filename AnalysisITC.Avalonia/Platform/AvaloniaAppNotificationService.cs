@@ -9,6 +9,7 @@ using Avalonia.Media;
 using Avalonia.Threading;
 using System;
 using System.Diagnostics;
+using AnalysisITC.Avalonia.Styling;
 
 namespace AnalysisITC.Platform.Avalonia
 {
@@ -55,16 +56,16 @@ namespace AnalysisITC.Platform.Avalonia
                     Text = title,
                     FontSize = 16,
                     FontWeight = FontWeight.SemiBold,
-                    Foreground = Brush("#202832"),
                     Margin = new Thickness(0, 0, 0, 10)
                 };
+                AppTheme.Bind(titleText, TextBlock.ForegroundProperty, AppTheme.PrimaryText);
 
                 var messageText = new TextBlock
                 {
                     Text = message ?? "",
-                    TextWrapping = TextWrapping.Wrap,
-                    Foreground = Brush("#202832")
+                    TextWrapping = TextWrapping.Wrap
                 };
+                AppTheme.Bind(messageText, TextBlock.ForegroundProperty, AppTheme.PrimaryText);
                 var messageScroll = new ScrollViewer
                 {
                     Content = messageText,
@@ -107,12 +108,13 @@ namespace AnalysisITC.Platform.Avalonia
                 layout.Children.Add(messageScroll);
                 layout.Children.Add(buttons);
 
-                Content = new Border
+                var border = new Border
                 {
-                    Background = Brushes.White,
                     Padding = new Thickness(18),
                     Child = layout
                 };
+                AppTheme.Bind(border, Border.BackgroundProperty, AppTheme.PanelBackground);
+                Content = border;
             }
 
             void OpenUrl()
@@ -135,8 +137,6 @@ namespace AnalysisITC.Platform.Avalonia
                 MinWidth = 82,
                 HorizontalAlignment = HorizontalAlignment.Right
             };
-
-            static IBrush Brush(string color) => new SolidColorBrush(Color.Parse(color));
         }
     }
 }

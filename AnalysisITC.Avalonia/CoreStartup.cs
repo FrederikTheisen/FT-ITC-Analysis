@@ -2,6 +2,7 @@ using System.Globalization;
 
 using AnalysisITC.Core.Application;
 using AnalysisITC.Core.Data;
+using AnalysisITC.Avalonia.Styling;
 using AnalysisITC.Avalonia.Preferences;
 using AnalysisITC.Platform;
 using AnalysisITC.Platform.Avalonia;
@@ -22,6 +23,7 @@ namespace AnalysisITC.Avalonia
 
             StateManager.Init();
             AppSettings.Initialize();
+            AvaloniaThemeService.Register();
             AvaloniaSettingsApplier.Register();
             BufferAttribute.Init();
 

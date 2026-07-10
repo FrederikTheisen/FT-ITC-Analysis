@@ -18,6 +18,7 @@ using Avalonia.VisualTree;
 using SkiaSharp;
 
 using AnalysisITC.Avalonia.Drawing;
+using AnalysisITC.Avalonia.Styling;
 using AnalysisITC.Avalonia.Workspace;
 using AnalysisITC.Core.Analysis.Models;
 using AnalysisITC.Core.Application;
@@ -57,7 +58,9 @@ namespace AnalysisITC.Avalonia.FinalFigure
         };
         readonly TextBlock statusText = Text();
 
-        readonly Button exportPdfButton = Button("Export PDF", 96);
+        readonly Button exportCurrentButton = Button("Export Current", 96);
+        readonly Button exportActiveButton = Button("Export Active", 96);
+        readonly Button exportAllButton = Button("Export All", 96);
 
         readonly TextBox widthBox = TextBox("6");
         readonly TextBox heightBox = TextBox("10");
@@ -202,8 +205,8 @@ namespace AnalysisITC.Avalonia.FinalFigure
         void BuildLayout()
         {
             image.Stretch = Stretch.Fill;
-            previewHost.Background = Solid("#F1F4F7");
-            previewHost.BorderBrush = Solid("#D4DAE1");
+            AppTheme.Bind(previewHost, Border.BackgroundProperty, AppTheme.PreviewBackground);
+            AppTheme.Bind(previewHost, Border.BorderBrushProperty, AppTheme.PanelBorder);
             previewHost.BorderThickness = new Thickness(1);
             previewHost.Padding = new Thickness(12);
             previewHost.Child = new ScrollViewer
@@ -226,7 +229,10 @@ namespace AnalysisITC.Avalonia.FinalFigure
             Content = WorkspaceControlBuilder.Workspace(
                 previewHost,
                 inspector,
-                WorkspaceControlBuilder.InspectorFooter(WorkspaceControlBuilder.Section("Export", exportPdfButton)));
+                WorkspaceControlBuilder.InspectorFooter(WorkspaceControlBuilder.Section(
+                    "Export",
+                    WorkspaceControlBuilder.Row(exportCurrentButton, exportActiveButton),
+                    exportAllButton)));
         }
 
         Control BuildGeneralTab()
@@ -325,7 +331,9 @@ namespace AnalysisITC.Avalonia.FinalFigure
         void WireEvents()
         {
             previewHost.SizeChanged += (_, _) => RefreshPreview();
-            exportPdfButton.Click += async (_, _) => await ExportPdfAsync();
+            exportCurrentButton.Click += async (_, _) => await ExportCurrentPdfAsync();
+            exportActiveButton.Click += async (_, _) => await ExportActivePdfAsync();
+            exportAllButton.Click += async (_, _) => await ExportAllPdfAsync();
 
             foreach (var check in AllChecks())
                 check.IsCheckedChanged += (_, _) =>
@@ -676,6 +684,89 @@ namespace AnalysisITC.Avalonia.FinalFigure
 
             ExportExperimentFigure(figureExperiment, path);
             StatusChanged?.Invoke(this, "Final figure exported");
+        }
+
+        public async Task ExportCurrentPdfAsync()
+        {
+            if (figureExperiment == null)
+            {
+                StatusChanged?.Invoke(this, "No figure selected");
+                return;
+            }
+
+            await ExportSingleFigureAsync(figureExperiment);
+        }
+
+        public async Task ExportActivePdfAsync()
+        {
+            var experiments = DataManager.Data
+                .Where(experiment => experiment.Include)
+                .ToList();
+
+            await ExportExperimentSetAsync(experiments, "Choose Active Figure Export Folder");
+        }
+
+        public async Task ExportAllPdfAsync()
+        {
+            await ExportExperimentSetAsync(DataManager.Data.ToList(), "Choose Figure Export Folder");
+        }
+
+        async Task ExportSingleFigureAsync(ExperimentData experiment)
+        {
+            var storage = TopLevel.GetTopLevel(this)?.StorageProvider;
+            if (storage == null) return;
+
+            var file = await storage.SaveFilePickerAsync(new FilePickerSaveOptions
+            {
+                Title = "Export Final Figure",
+                SuggestedFileName = SanitizeFileName(experiment.Name) + ".pdf",
+                FileTypeChoices = new[]
+                {
+                    new FilePickerFileType("PDF figure") { Patterns = new[] { "*.pdf" } },
+                    FilePickerFileTypes.All
+                }
+            });
+
+            var path = file == null ? null : GetLocalPath(file);
+            if (string.IsNullOrWhiteSpace(path)) return;
+            if (!path.EndsWith(".pdf", StringComparison.OrdinalIgnoreCase)) path += ".pdf";
+
+            ExportExperimentFigure(experiment, path);
+            StatusChanged?.Invoke(this, "Final figure exported");
+        }
+
+        async Task ExportExperimentSetAsync(IReadOnlyList<ExperimentData> experiments, string title)
+        {
+            var exportable = experiments
+                .Where(experiment => experiment != null)
+                .GroupBy(experiment => experiment.UniqueID)
+                .Select(group => group.First())
+                .ToList();
+
+            if (exportable.Count == 0)
+            {
+                StatusChanged?.Invoke(this, "No experiment figures to export");
+                return;
+            }
+
+            var storage = TopLevel.GetTopLevel(this)?.StorageProvider;
+            if (storage == null) return;
+
+            var folders = await storage.OpenFolderPickerAsync(new FolderPickerOpenOptions
+            {
+                Title = title,
+                AllowMultiple = false
+            });
+
+            var folderPath = folders.FirstOrDefault()?.TryGetLocalPath();
+            if (string.IsNullOrWhiteSpace(folderPath)) return;
+
+            Directory.CreateDirectory(folderPath);
+
+            foreach (var target in CreateFigureExportTargets(exportable, folderPath))
+                ExportExperimentFigure(target.Experiment, target.Path);
+
+            StatusChanged?.Invoke(this, $"{exportable.Count} final figure{(exportable.Count == 1 ? "" : "s")} exported");
         }
 
         async Task ExportResultFiguresAsync(AnalysisResult result)

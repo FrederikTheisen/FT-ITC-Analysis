@@ -1,10 +1,15 @@
 <Application xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              x:Class="AnalysisITC.Avalonia.App"
-             Name="FT-ITC Analysis"
-             RequestedThemeVariant="Light">
-             <!-- The current Avalonia shell and graph controls use a fixed light palette. Keep Fluent controls light until a full dark palette exists. -->
+             Name="FT-ITC Analysis">
 
+    <Application.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceInclude Source="avares://AnalysisITC.Avalonia/Styling/AppTheme.axaml" />
+            </ResourceDictionary.MergedDictionaries>
+        </ResourceDictionary>
+    </Application.Resources>
     <Application.Styles>
         <FluentTheme />
     </Application.Styles>

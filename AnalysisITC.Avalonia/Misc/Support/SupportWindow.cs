@@ -9,13 +9,14 @@ using Avalonia.Media;
 using Avalonia.Platform.Storage;
 
 using AnalysisITC.Core.Application;
+using AnalysisITC.Avalonia.Styling;
 using AnalysisITC.Platform;
 
 namespace AnalysisITC.Avalonia.Support;
 
 public sealed class SupportWindow : Window
 {
-    readonly TextBlock statusText = Text("", 12, "#607080");
+    readonly TextBlock statusText = Text("", 12, AppTheme.MutedText);
 
     SupportWindow()
     {
@@ -26,12 +27,12 @@ public sealed class SupportWindow : Window
         MinHeight = 400;
         WindowStartupLocation = WindowStartupLocation.CenterOwner;
 
-        var title = Text("Contact Support", 20, "#202832", FontWeight.SemiBold);
+        var title = Text("Contact Support", 20, AppTheme.PrimaryText, FontWeight.SemiBold);
         var summary = Text(
             $"Support email: {SupportReportBuilder.SupportAddress}\n\n" +
             "The support report includes the app version, operating system, recent activity, and the full application log.",
             13,
-            "#202832");
+            AppTheme.PrimaryText);
 
         var preview = new TextBox
         {
@@ -40,18 +41,18 @@ public sealed class SupportWindow : Window
             AcceptsReturn = true,
             TextWrapping = TextWrapping.Wrap,
             FontFamily = FontFamily.Parse("Menlo, Consolas, monospace"),
-            FontSize = 12,
-            Background = Brushes.White,
-            Foreground = Brush("#202832")
+            FontSize = 12
         };
+        AppTheme.Bind(preview, TextBox.BackgroundProperty, AppTheme.PanelBackground);
+        AppTheme.Bind(preview, TextBox.ForegroundProperty, AppTheme.PrimaryText);
 
         var previewBorder = new Border
         {
-            Background = Brushes.White,
-            BorderBrush = Brush("#d3dce5"),
             BorderThickness = new Thickness(1),
             Child = preview
         };
+        AppTheme.Bind(previewBorder, Border.BackgroundProperty, AppTheme.PanelBackground);
+        AppTheme.Bind(previewBorder, Border.BorderBrushProperty, AppTheme.PanelBorder);
 
         var copy = Button("Copy Report");
         copy.Click += (_, _) => CopyReport("Support report copied");
@@ -102,12 +103,13 @@ public sealed class SupportWindow : Window
         layout.Children.Add(previewBorder);
         layout.Children.Add(actions);
 
-        Content = new Border
+        var content = new Border
         {
-            Background = Brush("#f4f7fa"),
             Padding = new Thickness(18),
             Child = layout
         };
+        AppTheme.Bind(content, Border.BackgroundProperty, AppTheme.WorkspaceBackground);
+        Content = content;
     }
 
     public static Task ShowAsync(Window owner)
@@ -196,14 +198,16 @@ public sealed class SupportWindow : Window
         Padding = new Thickness(10, 6)
     };
 
-    static TextBlock Text(string text, double size, string color, FontWeight weight = default) => new()
+    static TextBlock Text(string text, double size, string resourceKey, FontWeight weight = default)
     {
-        Text = text,
-        FontSize = size,
-        FontWeight = weight == default ? FontWeight.Normal : weight,
-        Foreground = Brush(color),
-        TextWrapping = TextWrapping.Wrap
-    };
-
-    static IBrush Brush(string color) => new SolidColorBrush(Color.Parse(color));
+        var textBlock = new TextBlock
+        {
+            Text = text,
+            FontSize = size,
+            FontWeight = weight == default ? FontWeight.Normal : weight,
+            TextWrapping = TextWrapping.Wrap
+        };
+        AppTheme.Bind(textBlock, TextBlock.ForegroundProperty, resourceKey);
+        return textBlock;
+    }
 }

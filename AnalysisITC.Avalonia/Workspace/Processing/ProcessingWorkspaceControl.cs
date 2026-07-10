@@ -115,7 +115,7 @@ namespace AnalysisITC.Avalonia.Processing
 
             controlsPanel = WorkspaceControlBuilder.Inspector(
                 InspectorTab("Processing", BuildProcessingTab()),
-                InspectorTab("Selection / View", BuildSelectionViewTab()));
+                InspectorTab("Display", BuildSelectionViewTab()));
 
             var graphBorder = WorkspaceControlBuilder.ContentBorder(graph);
             Content = WorkspaceControlBuilder.Workspace(graphBorder, controlsPanel);
@@ -220,11 +220,6 @@ namespace AnalysisITC.Avalonia.Processing
             graph.SelectedInjectionChanged += (_, _) => UpdateControls();
             graph.IntegrationEdited += (_, _) => UpdateControls();
             graph.IntegrationEditCompleted += async (_, _) => await CompleteGraphIntegrationEditAsync();
-            graph.SplineEdited += (_, _) =>
-            {
-                UpdateControls();
-                ProcessingChanged?.Invoke(this, EventArgs.Empty);
-            };
             graph.SplineEditCompleted += async (_, _) => await CompleteGraphSplineEditAsync();
             graph.CopySelectedIntegrationToNextRequested += async (_, _) => await CopySelectedIntegrationToNextAsync();
         }

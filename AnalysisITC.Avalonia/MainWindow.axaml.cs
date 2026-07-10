@@ -12,6 +12,7 @@ using Avalonia.Layout;
 using Avalonia.Media;
 using Avalonia.Platform.Storage;
 using Avalonia.Threading;
+using Avalonia.VisualTree;
 
 using AnalysisITC.Core.Analysis;
 using AnalysisITC.Core.Analysis.Models;
@@ -29,6 +30,8 @@ using AnalysisITC.Avalonia.Dialogs;
 using AnalysisITC.Avalonia.Help;
 using AnalysisITC.Avalonia.Menus;
 using AnalysisITC.Avalonia.Preferences;
+using AnalysisITC.Avalonia.Results;
+using AnalysisITC.Avalonia.Styling;
 using AnalysisITC.Avalonia.Support;
 using AnalysisITC.Avalonia.Tools;
 
@@ -39,7 +42,7 @@ public partial class MainWindow : Window
     List<DataListEntry> entries = new List<DataListEntry>();
     ITCDataContainer? selectedItem;
     AppMenuController? menuController;
-    bool isUpdatingOverviewMode;
+    bool overviewShowsRawData = true;
     bool allowDirtyClose;
     bool isHandlingDirtyClose;
     int activeExperimentWorkspaceIndex;
@@ -50,12 +53,11 @@ public partial class MainWindow : Window
 
         OpenButton.Click += async (_, _) => await OpenFilesFromMenuAsync();
         ClearButton.Click += async (_, _) => await ClearDataWithConfirmationAsync();
+        ExperimentDesignerButton.Click += async (_, _) => await OpenExperimentDesignerAsync();
         IncludeAllButton.Click += (_, _) => SetAllExperimentInclusion(true);
         IncludeNoneButton.Click += (_, _) => SetAllExperimentInclusion(false);
-        OverviewRawButton.IsCheckedChanged += (_, _) => SelectOverviewMode(rawData: true);
-        OverviewInjectionsButton.IsCheckedChanged += (_, _) => SelectOverviewMode(rawData: false);
-        OverviewDetailsButton.Click += async (_, _) => await OpenSelectedDetailsAsync();
         ItemsList.SelectionChanged += (_, _) => SelectListItem();
+        ItemsList.PointerReleased += OnItemsListPointerReleased;
         WorkspaceTabs.SelectionChanged += (_, _) => OnWorkspaceTabChanged();
         ProcessingWorkspace.StatusChanged += OnProcessingStatusChanged;
         ProcessingWorkspace.ProcessingChanged += OnProcessingChanged;
@@ -77,6 +79,7 @@ public partial class MainWindow : Window
         FTITCFormat.CurrentAccessedAppDocumentPathChanged += OnCurrentDocumentPathChanged;
         StatusBarManager.StatusUpdated += OnStatusUpdated;
         StatusBarManager.SecondaryStatusUpdated += OnSecondaryStatusUpdated;
+        StatusBarManager.ProgressUpdate += OnProgressUpdated;
         AppEventHandler.ShowAppMessage += OnAppMessage;
 
         menuController = new AppMenuController(this);
@@ -115,6 +118,7 @@ public partial class MainWindow : Window
         FTITCFormat.CurrentAccessedAppDocumentPathChanged -= OnCurrentDocumentPathChanged;
         StatusBarManager.StatusUpdated -= OnStatusUpdated;
         StatusBarManager.SecondaryStatusUpdated -= OnSecondaryStatusUpdated;
+        StatusBarManager.ProgressUpdate -= OnProgressUpdated;
         AppEventHandler.ShowAppMessage -= OnAppMessage;
         ProcessingWorkspace.StatusChanged -= OnProcessingStatusChanged;
         ProcessingWorkspace.ProcessingChanged -= OnProcessingChanged;
@@ -743,33 +747,69 @@ public partial class MainWindow : Window
         UpdateSelection(entry.Item);
     }
 
+    void OnItemsListPointerReleased(object? sender, PointerReleasedEventArgs e)
+    {
+        if (e.InitialPressMouseButton != MouseButton.Right) return;
+
+        var source = e.Source as Visual;
+        var itemContainer = source?.FindAncestorOfType<ListBoxItem>();
+        if (itemContainer?.DataContext is not DataListEntry entry) return;
+
+        ItemsList.SelectedItem = entry;
+        var index = entries.IndexOf(entry);
+        if (index >= 0) DataManager.SelectIndex(index);
+        UpdateSelection(entry.Item);
+
+        BuildDataListItemMenu(entry.Item).ShowAt(itemContainer);
+        e.Handled = true;
+    }
+
+    MenuFlyout BuildDataListItemMenu(ITCDataContainer item)
+    {
+        return item is AnalysisResult
+            ? BuildResultListItemMenu()
+            : BuildExperimentListItemMenu();
+    }
+
+    MenuFlyout BuildExperimentListItemMenu()
+    {
+        var menu = new MenuFlyout();
+        menu.Items.Add(ToolbarItem("Details...", OpenSelectedDetailsAsync, HasSelectedExperiment()));
+        menu.Items.Add(ToolbarItem("Duplicate Data", DuplicateSelectedDataAsync, HasSelectedExperiment()));
+        menu.Items.Add(ToolbarItem("Export Selected Data...", () => ExportDataAsync(selectedOnly: true), HasSelectedExperiment()));
+        menu.Items.Add(new Separator());
+        menu.Items.Add(ToolbarItem(selectedItem is ExperimentData experiment && experiment.Include ? "Disable Active" : "Enable Active", ToggleSelectedExperimentInclusionAsync, HasSelectedExperiment()));
+        menu.Items.Add(new Separator());
+        menu.Items.Add(ToolbarItem("Remove Data", RemoveSelectedItemAsync, HasSelectedExperiment()));
+        return menu;
+    }
+
+    MenuFlyout BuildResultListItemMenu()
+    {
+        var menu = new MenuFlyout();
+        menu.Items.Add(ToolbarItem("Details...", OpenSelectedDetailsAsync, HasSelectedResult()));
+        menu.Items.Add(ToolbarItem("Copy Result Table", CopyResultTableAsync, HasSelectedResult()));
+        menu.Items.Add(new Separator());
+        menu.Items.Add(ToolbarItem("Load Solutions to Experiments", LoadSelectedResultSolutionsAsync, HasSelectedResult()));
+        menu.Items.Add(ToolbarItem("Set Active Experiments", SelectResultExperimentsAsync, HasSelectedResult()));
+        menu.Items.Add(ToolbarItem("Export Associated Final Figures...", ExportFinalFigureAsync, CanExportFinalFigure()));
+        menu.Items.Add(new Separator());
+        menu.Items.Add(ToolbarItem("Remove Result", RemoveSelectedItemAsync, HasSelectedResult()));
+        return menu;
+    }
+
     void RefreshToolbarContextMenus()
     {
-        FileToolbarMenuButton.Flyout = BuildFileToolbarMenu();
-        FileToolbarMenuButton.IsEnabled = true;
-
         ObjectToolbarMenuButton.Content = selectedItem is AnalysisResult ? "Result" : "Experiment";
         ObjectToolbarMenuButton.IsEnabled = selectedItem is ExperimentData or AnalysisResult;
         ObjectToolbarMenuButton.Flyout = BuildSelectedObjectToolbarMenu();
 
         WorkflowToolbarMenuButton.Content = CurrentWorkflowMenuTitle();
-        WorkflowToolbarMenuButton.IsEnabled = selectedItem is ExperimentData or AnalysisResult;
+        WorkflowToolbarMenuButton.IsVisible = selectedItem is AnalysisResult || ActiveWorkspaceIndex != 3;
+        WorkflowToolbarMenuButton.IsEnabled = (selectedItem is ExperimentData or AnalysisResult) && WorkflowToolbarMenuButton.IsVisible;
         WorkflowToolbarMenuButton.Flyout = BuildWorkflowToolbarMenu();
-    }
 
-    MenuFlyout BuildFileToolbarMenu()
-    {
-        var menu = new MenuFlyout();
-        menu.Items.Add(ToolbarItem("Open...", OpenFilesFromMenuAsync));
-        menu.Items.Add(ToolbarItem("Save", SaveDocumentAsync, HasDocumentContent()));
-        menu.Items.Add(ToolbarItem("Save As...", SaveDocumentAsAsync, HasDocumentContent()));
-        menu.Items.Add(ToolbarItem("Save Selected...", SaveSelectedAsync, HasSelectedItem()));
-        menu.Items.Add(new Separator());
-        menu.Items.Add(ToolbarItem("Export Data...", () => ExportDataAsync(selectedOnly: false), HasDataLoaded()));
-        menu.Items.Add(ToolbarItem("Export Integrated Peaks...", ExportPeaksAsync, HasAnyProcessedData()));
-        menu.Items.Add(new Separator());
-        menu.Items.Add(ToolbarItem("Remove All Data/Results", ClearDataWithConfirmationAsync, HasDocumentContent()));
-        return menu;
+        ExperimentDesignerButton.IsEnabled = true;
     }
 
     MenuFlyout BuildSelectedObjectToolbarMenu()
@@ -829,8 +869,10 @@ public partial class MainWindow : Window
     MenuFlyout BuildOverviewToolbarMenu()
     {
         var menu = new MenuFlyout();
-        menu.Items.Add(ToolbarItem("Raw Data", () => SelectOverviewModeFromMenu(rawData: true), HasSelectedExperiment(), OverviewRawButton.IsChecked == true, hasCheckState: true));
-        menu.Items.Add(ToolbarItem("Injections", () => SelectOverviewModeFromMenu(rawData: false), HasSelectedExperiment(), OverviewInjectionsButton.IsChecked == true, hasCheckState: true));
+        menu.Items.Add(ToolbarItem("Raw Data", () => SelectOverviewModeFromMenu(rawData: true), HasSelectedExperiment(), overviewShowsRawData, hasCheckState: true));
+        menu.Items.Add(ToolbarItem("Injections", () => SelectOverviewModeFromMenu(rawData: false), HasSelectedExperiment(), !overviewShowsRawData, hasCheckState: true));
+        menu.Items.Add(new Separator());
+        menu.Items.Add(ToolbarItem("Details...", OpenSelectedDetailsAsync, HasSelectedItem()));
         return menu;
     }
 
@@ -875,9 +917,6 @@ public partial class MainWindow : Window
             ToolbarItem("Fitted", () => ToggleAnalysisParameterDisplayFromMenuAsync(FinalFigureDisplayParameters.Fitted), true, AppSettings.AnalysisParameterDisplay.HasFlag(FinalFigureDisplayParameters.Fitted), hasCheckState: true),
             ToolbarItem("Derived", () => ToggleAnalysisParameterDisplayFromMenuAsync(FinalFigureDisplayParameters.Derived), true, AppSettings.AnalysisParameterDisplay.HasFlag(FinalFigureDisplayParameters.Derived), hasCheckState: true)));
         menu.Items.Add(new Separator());
-        menu.Items.Add(ToolbarItem("Run Fit", RunFitFromMenuAsync, AnalysisWorkspace.CanRunFit));
-        menu.Items.Add(ToolbarItem("Stop Fit", StopFitFromMenuAsync, AnalysisWorkspace.CanStopFit));
-        menu.Items.Add(new Separator());
         menu.Items.Add(ToolbarItem("Restore Analysis Defaults", RestoreAnalysisDefaultsFromMenuAsync, true));
         return menu;
     }
@@ -895,6 +934,13 @@ public partial class MainWindow : Window
         var menu = new MenuFlyout();
         menu.Items.Add(ToolbarItem("Update Result", UpdateSelectedResultAsync, hasResult));
         menu.Items.Add(ToolbarItem("Export Associated Final Figures...", ExportFinalFigureAsync, CanExportFinalFigure()));
+        menu.Items.Add(new Separator());
+        menu.Items.Add(Submenu("View",
+            ToolbarItem("Parameters", () => SetResultAnalysisViewModeFromMenuAsync(ResultAnalysisViewMode.Parameters), hasResult, ResultWorkspace.ActiveViewMode == ResultAnalysisViewMode.Parameters, hasCheckState: true),
+            ToolbarItem("Temperature", () => SetResultAnalysisViewModeFromMenuAsync(ResultAnalysisViewMode.Temperature), hasResult && ResultWorkspace.IsResultViewModeAvailable(ResultAnalysisViewMode.Temperature), ResultWorkspace.ActiveViewMode == ResultAnalysisViewMode.Temperature, hasCheckState: true),
+            ToolbarItem("Salt", () => SetResultAnalysisViewModeFromMenuAsync(ResultAnalysisViewMode.Salt), hasResult && ResultWorkspace.IsResultViewModeAvailable(ResultAnalysisViewMode.Salt), ResultWorkspace.ActiveViewMode == ResultAnalysisViewMode.Salt, hasCheckState: true),
+            ToolbarItem("Protonation", () => SetResultAnalysisViewModeFromMenuAsync(ResultAnalysisViewMode.Protonation), hasResult && ResultWorkspace.IsResultViewModeAvailable(ResultAnalysisViewMode.Protonation), ResultWorkspace.ActiveViewMode == ResultAnalysisViewMode.Protonation, hasCheckState: true)));
+        menu.Items.Add(ToolbarItem("Run Advanced Analysis", RunActiveResultAnalysisFromMenuAsync, hasResult && ResultWorkspace.ActiveViewMode != ResultAnalysisViewMode.Parameters));
         menu.Items.Add(new Separator());
         menu.Items.Add(Submenu("Error Style",
             ToolbarItem("Auto", () => SetResultUncertaintyStyleFromMenuAsync(UncertaintyDisplayStyle.Automatic), hasResult, AppSettings.UncertaintyDisplayStyle == UncertaintyDisplayStyle.Automatic, hasCheckState: true),
@@ -914,7 +960,7 @@ public partial class MainWindow : Window
 
     string CurrentWorkflowMenuTitle()
     {
-        if (selectedItem is AnalysisResult) return "Result View";
+        if (selectedItem is AnalysisResult) return "Result";
 
         return ActiveWorkspaceIndex switch
         {
@@ -1065,6 +1111,19 @@ public partial class MainWindow : Window
         return Task.CompletedTask;
     }
 
+    Task SetResultAnalysisViewModeFromMenuAsync(ResultAnalysisViewMode mode)
+    {
+        ResultWorkspace.SetResultViewMode(mode);
+        RefreshMenuState();
+        return Task.CompletedTask;
+    }
+
+    async Task RunActiveResultAnalysisFromMenuAsync()
+    {
+        await ResultWorkspace.RunActiveAdvancedAnalysisAsync();
+        RefreshMenuState();
+    }
+
     void OnWorkspaceTabChanged()
     {
         if (WorkspaceTabs.IsVisible
@@ -1104,12 +1163,14 @@ public partial class MainWindow : Window
         selectedItem = item;
 
         OverviewText.Text = item == null ? "No loaded data." : BuildOverview(item);
+        OverviewTitleText.Text = item == null
+            ? "No Selection"
+            : string.IsNullOrWhiteSpace(item.Name) ? item.FileName : item.Name;
         RefreshOverview(item);
         ResultWorkspace.Result = item as AnalysisResult;
         UpdateFinalFigureContext(item);
         ProcessingWorkspace.Experiment = item as ExperimentData;
         AnalysisWorkspace.Experiment = item as ExperimentData;
-        OverviewDetailsButton.IsEnabled = item is ExperimentData or AnalysisResult;
 
         if (item is ExperimentData experiment)
         {
@@ -1136,28 +1197,15 @@ public partial class MainWindow : Window
 
     void SelectOverviewMode(bool rawData)
     {
-        if (isUpdatingOverviewMode) return;
-
-        var selectedButton = rawData ? OverviewRawButton : OverviewInjectionsButton;
-        if (selectedButton.IsChecked != true)
-        {
-            selectedButton.IsChecked = true;
-            return;
-        }
-
-        isUpdatingOverviewMode = true;
-        OverviewRawButton.IsChecked = rawData;
-        OverviewInjectionsButton.IsChecked = !rawData;
-        isUpdatingOverviewMode = false;
-
+        overviewShowsRawData = rawData;
         UpdateOverviewVisibility();
+        RefreshMenuState();
     }
 
     void UpdateOverviewVisibility()
     {
-        var showRaw = OverviewRawButton.IsChecked == true;
-        OverviewRawHost.IsVisible = showRaw;
-        OverviewInjectionsHost.IsVisible = !showRaw;
+        OverviewRawHost.IsVisible = overviewShowsRawData;
+        OverviewInjectionsHost.IsVisible = !overviewShowsRawData;
     }
 
     void RefreshOverview(ITCDataContainer? item = null)
@@ -1234,31 +1282,33 @@ public partial class MainWindow : Window
                 ColumnDefinitions = new ColumnDefinitions("135,*"),
                 ColumnSpacing = 8
             };
-            grid.Children.Add(new TextBlock
+            var label = new TextBlock
             {
                 Text = line.Substring(0, separator).Trim(),
-                Foreground = Solid("#607080"),
                 FontSize = 12
-            });
+            };
+            AppTheme.Bind(label, TextBlock.ForegroundProperty, AppTheme.MutedText);
+            grid.Children.Add(label);
             var value = new TextBlock
             {
                 Text = line.Substring(separator + 1).Trim(),
-                Foreground = Solid("#202832"),
                 FontSize = 12,
                 TextWrapping = TextWrapping.Wrap
             };
+            AppTheme.Bind(value, TextBlock.ForegroundProperty, AppTheme.PrimaryText);
             Grid.SetColumn(value, 1);
             grid.Children.Add(value);
             return grid;
         }
 
-        return new TextBlock
+        var textBlock = new TextBlock
         {
             Text = line,
-            Foreground = Solid("#202832"),
             FontSize = 12,
             TextWrapping = TextWrapping.Wrap
         };
+        AppTheme.Bind(textBlock, TextBlock.ForegroundProperty, AppTheme.PrimaryText);
+        return textBlock;
     }
 
     void BuildOverviewInjectionTable(ExperimentData? experiment)
@@ -1279,10 +1329,8 @@ public partial class MainWindow : Window
             return;
         }
 
-        var grid = new Grid
-        {
-            Background = Solid("#FFFFFF")
-        };
+        var grid = new Grid();
+        AppTheme.Bind(grid, Panel.BackgroundProperty, AppTheme.PanelBackground);
 
         foreach (var column in columns)
             grid.ColumnDefinitions.Add(new ColumnDefinition(column.PreferredWidth, GridUnitType.Pixel));
@@ -1309,13 +1357,14 @@ public partial class MainWindow : Window
 
     Control OverviewMessage(string message)
     {
-        return new TextBlock
+        var textBlock = new TextBlock
         {
             Text = message,
-            Foreground = Solid("#607080"),
             Margin = new Thickness(16),
             TextWrapping = TextWrapping.Wrap
         };
+        AppTheme.Bind(textBlock, TextBlock.ForegroundProperty, AppTheme.MutedText);
+        return textBlock;
     }
 
     void AddOverviewCell(Grid grid, string text, int column, int row, ExperimentOverviewColumnAlignment alignment, bool isHeader, bool isIncluded)
@@ -1326,19 +1375,21 @@ public partial class MainWindow : Window
             Margin = new Thickness(8, 5),
             FontSize = isHeader ? 11 : 12,
             FontWeight = isHeader ? FontWeight.SemiBold : FontWeight.Normal,
-            Foreground = isHeader ? Solid("#202832") : isIncluded ? Solid("#202832") : Solid("#7B8794"),
             TextTrimming = TextTrimming.CharacterEllipsis,
             HorizontalAlignment = HorizontalAlignmentFor(alignment)
         };
+        AppTheme.Bind(textBlock, TextBlock.ForegroundProperty, !isHeader && !isIncluded ? AppTheme.DisabledText : AppTheme.PrimaryText);
 
         var border = new Border
         {
-            BorderBrush = Solid("#E3E7EC"),
             BorderThickness = new Thickness(0, 0, 1, 1),
-            Background = isHeader ? Solid("#F5F7FA") : row % 2 == 0 ? Solid("#FFFFFF") : Solid("#FAFBFC"),
             Child = textBlock,
             MinHeight = isHeader ? 30 : 28
         };
+        AppTheme.Bind(border, Border.BorderBrushProperty, AppTheme.SectionBorder);
+        AppTheme.Bind(border, Border.BackgroundProperty, isHeader
+            ? AppTheme.TableHeaderBackground
+            : row % 2 == 0 ? AppTheme.PanelBackground : AppTheme.TableAlternateRow);
 
         Grid.SetColumn(border, column);
         Grid.SetRow(border, row);
@@ -1354,8 +1405,6 @@ public partial class MainWindow : Window
             _ => HorizontalAlignment.Right,
         };
     }
-
-    static IBrush Solid(string color) => new SolidColorBrush(Color.Parse(color));
 
     void UpdateFinalFigureContext(ITCDataContainer? item)
     {
@@ -1455,6 +1504,11 @@ public partial class MainWindow : Window
     void OnSecondaryStatusUpdated(object? sender, string status)
     {
         Dispatcher.UIThread.Post(() => SecondaryStatusText.Text = status ?? "");
+    }
+
+    void OnProgressUpdated(object? sender, ProgressIndicatorEventData progress)
+    {
+        Dispatcher.UIThread.Post(() => SetProgressState(progress.Progress));
     }
 
     void OnAppMessage(object? sender, HandledException message)
@@ -1600,6 +1654,35 @@ public partial class MainWindow : Window
         StatusText.Text = status ?? "";
     }
 
+    void SetProgressState(double progress)
+    {
+        if (progress < 0)
+        {
+            var isActiveIndeterminate = Math.Abs(Math.Abs(progress) - 1) > double.Epsilon;
+            StatusProgressBar.IsVisible = isActiveIndeterminate;
+            StatusProgressBar.IsIndeterminate = isActiveIndeterminate;
+            StatusProgressText.IsVisible = false;
+            StatusProgressText.Text = "";
+            return;
+        }
+
+        if (progress >= 1)
+        {
+            StatusProgressBar.IsVisible = false;
+            StatusProgressBar.IsIndeterminate = false;
+            StatusProgressText.IsVisible = false;
+            StatusProgressText.Text = "";
+            return;
+        }
+
+        var percent = Math.Clamp(progress, 0, 1);
+        StatusProgressBar.IsVisible = true;
+        StatusProgressBar.IsIndeterminate = false;
+        StatusProgressBar.Value = percent * 100;
+        StatusProgressText.IsVisible = true;
+        StatusProgressText.Text = percent.ToString("P0");
+    }
+
     async Task CloseWithDirtyPromptAsync(SavePromptReason reason)
     {
         isHandlingDirtyClose = true;
@@ -1701,9 +1784,9 @@ public partial class MainWindow : Window
             {
                 Text = "You can replace the current data before loading this project, or append the project contents to what is already open.",
                 TextWrapping = TextWrapping.Wrap,
-                Foreground = Solid("#202832"),
                 Margin = new Thickness(0, 0, 0, 18)
             };
+            AppTheme.Bind(messageText, TextBlock.ForegroundProperty, AppTheme.PrimaryText);
 
             var replace = DialogButton("Replace Data");
             replace.Click += (_, _) => Close(ProjectLoadAction.Replace);
@@ -1722,9 +1805,8 @@ public partial class MainWindow : Window
                 Children = { replace, append, cancel }
             };
 
-            Content = new Border
+            var content = new Border
             {
-                Background = Brushes.White,
                 Padding = new Thickness(16),
                 Child = new DockPanel
                 {
@@ -1736,6 +1818,8 @@ public partial class MainWindow : Window
                     }
                 }
             };
+            AppTheme.Bind(content, Border.BackgroundProperty, AppTheme.PanelBackground);
+            Content = content;
 
             DockPanel.SetDock(buttons, Dock.Bottom);
         }
@@ -1786,9 +1870,9 @@ public partial class MainWindow : Window
             {
                 Text = message,
                 TextWrapping = TextWrapping.Wrap,
-                Foreground = Solid("#202832"),
                 Margin = new Thickness(0, 0, 0, 18)
             };
+            AppTheme.Bind(messageText, TextBlock.ForegroundProperty, AppTheme.PrimaryText);
 
             var save = DialogButton("Save");
             save.Click += (_, _) => Close(PendingSaveAction.Save);
@@ -1807,9 +1891,8 @@ public partial class MainWindow : Window
                 Children = { save, cancel, discard }
             };
 
-            Content = new Border
+            var content = new Border
             {
-                Background = Brushes.White,
                 Padding = new Thickness(16),
                 Child = new DockPanel
                 {
@@ -1821,6 +1904,8 @@ public partial class MainWindow : Window
                     }
                 }
             };
+            AppTheme.Bind(content, Border.BackgroundProperty, AppTheme.PanelBackground);
+            Content = content;
 
             DockPanel.SetDock(buttons, Dock.Bottom);
         }

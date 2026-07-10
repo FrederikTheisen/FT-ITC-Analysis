@@ -21,7 +21,9 @@ using AnalysisITC.Core.Presentation;
 using AnalysisITC.Core.Units;
 using AnalysisITC.Core.Utilities;
 
+using AnalysisITC.Avalonia.Styling;
 using AnalysisITC.Avalonia.Workspace;
+using static AnalysisITC.Avalonia.Workspace.WorkspaceControlBuilder;
 
 namespace AnalysisITC.Avalonia.Results
 {
@@ -36,13 +38,17 @@ namespace AnalysisITC.Avalonia.Results
         };
 
         static readonly string[] EvaluationEnergyUnitNames = { "J", "kJ", "cal", "kcal" };
+        static readonly string[] SaltModeNames = { "Affinity vs Salt", "Debye-Huckel", "Counter Ion Release" };
 
         readonly ResultParameterGraphControl graph = new ResultParameterGraphControl();
+        readonly ResultDependenceGraphControl dependenceGraph = new ResultDependenceGraphControl();
+        readonly ContentControl graphHost = new ContentControl();
         readonly StackPanel tableHost = new StackPanel { Spacing = 0 };
-        readonly StackPanel summaryPanel = new StackPanel { Spacing = 10 };
-        readonly StackPanel experimentsPanel = new StackPanel { Spacing = 8 };
-        readonly StackPanel modelPanel = new StackPanel { Spacing = 10 };
-        readonly ComboBox temperatureUnitCombo = Combo(new[] { "Celsius", "Kelvin" }, 0, 120);
+        readonly StackPanel summaryPanel = WorkspaceControlBuilder.InspectorPanel();
+        readonly StackPanel experimentsPanel = WorkspaceControlBuilder.InspectorPanel();
+        readonly StackPanel modelPanel = WorkspaceControlBuilder.InspectorPanel();
+        readonly StackPanel analysisPanel = WorkspaceControlBuilder.InspectorPanel();
+        readonly ComboBox temperatureUnitCombo = WorkspaceControlBuilder.Combo(new[] { "Celsius", "Kelvin" }, 0, 170);
         readonly TextBox evaluationTemperatureBox = WorkspaceControlBuilder.TextBox("");
         readonly ComboBox evaluationTemperatureUnitCombo = WorkspaceControlBuilder.Combo(new[] { "Celsius", "Kelvin" }, 0, 170);
         readonly ComboBox evaluationEnergyUnitCombo = WorkspaceControlBuilder.Combo(EvaluationEnergyUnitNames, 1, 170);
@@ -51,9 +57,15 @@ namespace AnalysisITC.Avalonia.Results
         readonly Border parameterEvaluationSection;
 
         AnalysisResult? result;
+        ResultAnalysisViewMode activeViewMode = ResultAnalysisViewMode.Parameters;
+        readonly List<ResultAnalysisViewMode> availableViewModes = new List<ResultAnalysisViewMode>();
+        FTSRMethod.SRFoldedMode selectedSrFoldedMode = FTSRMethod.SRFoldedMode.Glob;
+        FTSRMethod.SRTempMode selectedSrTemperatureMode = FTSRMethod.SRTempMode.IsoEntropicPoint;
+        ElectrostaticsAnalysis.DissocFitMode selectedSaltMode = ElectrostaticsAnalysis.DissocFitMode.DebyeHuckel;
         bool isUpdatingSelection;
         bool isUpdatingEvaluationControls;
         bool isUpdatingResult;
+        bool isRunningAdvancedAnalysis;
         bool evaluationUseKelvin;
 
         public event EventHandler<string>? StatusChanged;
@@ -83,6 +95,7 @@ namespace AnalysisITC.Avalonia.Results
 
                 result = value;
                 graph.Result = value;
+                dependenceGraph.Result = value;
                 DataManager.ClearResultSolutionSelection();
                 ResetEvaluationTemperature();
                 Refresh();
@@ -91,17 +104,54 @@ namespace AnalysisITC.Avalonia.Results
 
         public void FitToData()
         {
-            graph.FitToData();
+            if (activeViewMode == ResultAnalysisViewMode.Parameters)
+                graph.FitToData();
+            else
+                dependenceGraph.FitToData();
         }
 
         public bool UseKelvinTemperature => UseKelvin;
         public EnergyUnit DisplayEnergyUnit => SelectedEvaluationEnergyUnit();
+        public ResultAnalysisViewMode ActiveViewMode => activeViewMode;
+
+        public bool IsResultViewModeAvailable(ResultAnalysisViewMode mode)
+        {
+            return availableViewModes.Contains(mode);
+        }
+
+        public void SetResultViewMode(ResultAnalysisViewMode mode)
+        {
+            RefreshAvailableViewModes();
+            if (!availableViewModes.Contains(mode)) return;
+
+            activeViewMode = mode;
+            SyncModeCombo();
+            RefreshGraphMode();
+            RefreshAnalysis();
+        }
+
+        public async Task RunActiveAdvancedAnalysisAsync()
+        {
+            switch (activeViewMode)
+            {
+                case ResultAnalysisViewMode.Temperature:
+                    await RunTemperatureAnalysisAsync();
+                    break;
+                case ResultAnalysisViewMode.Salt:
+                    await RunSaltAnalysisAsync();
+                    break;
+                case ResultAnalysisViewMode.Protonation:
+                    await RunProtonationAnalysisAsync();
+                    break;
+            }
+        }
 
         public void SetTemperatureDisplay(bool kelvin)
         {
             temperatureUnitCombo.SelectedIndex = kelvin ? 1 : 0;
             RefreshTable();
             graph.InvalidateVisual();
+            dependenceGraph.Rebuild();
         }
 
         public void SetEnergyDisplay(EnergyUnit unit)
@@ -115,6 +165,7 @@ namespace AnalysisITC.Avalonia.Results
 
             RefreshTable();
             graph.InvalidateVisual();
+            dependenceGraph.Rebuild();
             RefreshParameterEvaluation();
         }
 
@@ -124,6 +175,7 @@ namespace AnalysisITC.Avalonia.Results
             AppSettings.Save();
             RefreshTable();
             RefreshParameterEvaluation();
+            RefreshAnalysis();
         }
 
         public async Task UpdateResultAsync()
@@ -159,70 +211,52 @@ namespace AnalysisITC.Avalonia.Results
         {
             base.OnAttachedToVisualTree(e);
             DataManager.ResultSolutionSelectionDidChange += OnResultSolutionSelectionChanged;
+            ResultAnalysisController.AnalysisStarted += OnAdvancedAnalysisStarted;
+            ResultAnalysisController.IterationFinished += OnAdvancedAnalysisIterationFinished;
+            ResultAnalysisController.AnalysisFinished += OnAdvancedAnalysisFinished;
         }
 
         protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
         {
             DataManager.ResultSolutionSelectionDidChange -= OnResultSolutionSelectionChanged;
+            ResultAnalysisController.AnalysisStarted -= OnAdvancedAnalysisStarted;
+            ResultAnalysisController.IterationFinished -= OnAdvancedAnalysisIterationFinished;
+            ResultAnalysisController.AnalysisFinished -= OnAdvancedAnalysisFinished;
             base.OnDetachedFromVisualTree(e);
         }
 
         void BuildLayout()
         {
-            var root = new Grid
-            {
-                ColumnDefinitions = new ColumnDefinitions("*,330"),
-                Background = Solid("#F5F7FA")
-            };
-
             var main = new Grid
             {
                 RowDefinitions = new RowDefinitions("*,Auto"),
-                RowSpacing = 10
+                RowSpacing = WorkspaceControlBuilder.InspectorGap
             };
 
-            var graphBorder = new Border
-            {
-                Background = Brushes.White,
-                BorderBrush = Solid("#D4DAE1"),
-                BorderThickness = new Thickness(1),
-                Child = graph
-            };
+            graphHost.Content = graph;
+            var graphBorder = WorkspaceControlBuilder.ContentBorder(graphHost);
             Grid.SetRow(graphBorder, 0);
 
-            var tableBorder = new Border
+            var tableBorder = WorkspaceControlBuilder.ContentBorder(new ScrollViewer
             {
-                Background = Brushes.White,
-                BorderBrush = Solid("#D4DAE1"),
-                BorderThickness = new Thickness(1),
-                MinHeight = 190,
-                MaxHeight = 270,
-                Child = new ScrollViewer
-                {
-                    HorizontalScrollBarVisibility = ScrollBarVisibility.Auto,
-                    VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
-                    Content = tableHost
-                }
-            };
+                HorizontalScrollBarVisibility = ScrollBarVisibility.Auto,
+                VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
+                Content = tableHost
+            });
+            tableBorder.MinHeight = 190;
+            tableBorder.MaxHeight = 270;
             Grid.SetRow(tableBorder, 1);
 
             main.Children.Add(graphBorder);
             main.Children.Add(tableBorder);
 
-            var inspector = new TabControl
-            {
-                Margin = new Thickness(10, 0, 0, 0)
-            };
-            inspector.Items.Add(Tab("Summary", Scroll(summaryPanel)));
-            inspector.Items.Add(Tab("Experiments", Scroll(experimentsPanel)));
-            inspector.Items.Add(Tab("Model", Scroll(modelPanel)));
+            var inspector = WorkspaceControlBuilder.Inspector(
+                InspectorTab("Summary", summaryPanel),
+                InspectorTab("Analysis", analysisPanel),
+                InspectorTab("Experiments", experimentsPanel),
+                InspectorTab("Model", modelPanel));
 
-            Grid.SetColumn(main, 0);
-            Grid.SetColumn(inspector, 1);
-            root.Children.Add(main);
-            root.Children.Add(inspector);
-
-            Content = root;
+            Content = WorkspaceControlBuilder.Workspace(main, inspector);
         }
 
         void WireEvents()
@@ -231,6 +265,7 @@ namespace AnalysisITC.Avalonia.Results
             {
                 RefreshTable();
                 graph.InvalidateVisual();
+                dependenceGraph.Rebuild();
             };
             evaluationTemperatureBox.LostFocus += (_, _) => RefreshParameterEvaluation();
             evaluationTemperatureBox.KeyDown += (_, e) =>
@@ -244,21 +279,110 @@ namespace AnalysisITC.Avalonia.Results
             evaluationEnergyUnitCombo.SelectionChanged += (_, _) => ChangeEvaluationEnergyUnit();
         }
 
+        void RefreshAvailableViewModes()
+        {
+            availableViewModes.Clear();
+            availableViewModes.Add(ResultAnalysisViewMode.Parameters);
+
+            if (result?.IsAdvancedAnalysisAvailable == true)
+            {
+                if (result.IsTemperatureDependenceEnabled) availableViewModes.Add(ResultAnalysisViewMode.Temperature);
+                if (result.IsElectrostaticsAnalysisDependenceEnabled) availableViewModes.Add(ResultAnalysisViewMode.Salt);
+                if (result.IsProtonationAnalysisEnabled) availableViewModes.Add(ResultAnalysisViewMode.Protonation);
+            }
+
+        }
+
+        void SyncModeCombo()
+        {
+        }
+
+        void ChangeResultViewModeFromCombo(ComboBox combo)
+        {
+            var index = combo.SelectedIndex;
+            if (index < 0 || index >= availableViewModes.Count) return;
+
+            activeViewMode = availableViewModes[index];
+            RefreshGraphMode();
+            RefreshAnalysis();
+        }
+
+        void RefreshGraphMode()
+        {
+            if (activeViewMode == ResultAnalysisViewMode.Parameters)
+            {
+                graphHost.Content = graph;
+                graph.Result = result;
+                graph.InvalidateVisual();
+                return;
+            }
+
+            graphHost.Content = dependenceGraph;
+            dependenceGraph.Result = result;
+            dependenceGraph.Mode = activeViewMode;
+            dependenceGraph.SaltMode = selectedSaltMode;
+            dependenceGraph.Rebuild();
+        }
+
+        void ChangeSaltMode()
+        {
+            dependenceGraph.SaltMode = selectedSaltMode;
+            dependenceGraph.Rebuild();
+            RefreshAnalysis();
+        }
+
         void OnResultSolutionSelectionChanged(object? sender, SolutionInterface? e)
         {
             if (isUpdatingSelection) return;
 
             RefreshTable();
             graph.InvalidateVisual();
+            dependenceGraph.InvalidateVisual();
+        }
+
+        void OnAdvancedAnalysisStarted(object? sender, TerminationFlag e)
+        {
+            isRunningAdvancedAnalysis = true;
+            RefreshAnalysis();
+            StatusBarManager.StartInderminateProgress();
+            StatusBarManager.SetStatus("Advanced analysis started...", 0, priority: 1);
+            StatusChanged?.Invoke(this, "Advanced analysis started...");
+        }
+
+        void OnAdvancedAnalysisIterationFinished(object? sender, Tuple<int, int, float, string> e)
+        {
+            var status = string.IsNullOrWhiteSpace(e.Item4)
+                ? $"Advanced analysis {100 * e.Item3:F0}%"
+                : $"{e.Item4}: {100 * e.Item3:F0}%";
+            StatusBarManager.SetProgress(e.Item3);
+            StatusBarManager.SetStatus(status, 1000, priority: 1);
+            StatusChanged?.Invoke(this, status);
+        }
+
+        void OnAdvancedAnalysisFinished(object? sender, Tuple<int, TimeSpan> e)
+        {
+            isRunningAdvancedAnalysis = false;
+            dependenceGraph.Rebuild();
+            RefreshAnalysis();
+            var status = $"Advanced analysis completed ({e.Item1} iterations).";
+            StatusBarManager.ClearAppStatus();
+            StatusBarManager.SetStatus(status, 5000);
+            StatusChanged?.Invoke(this, status);
         }
 
         public void Refresh()
         {
+            RefreshAvailableViewModes();
+            if (!availableViewModes.Contains(activeViewMode))
+                activeViewMode = ResultAnalysisViewMode.Parameters;
+            SyncModeCombo();
+            RefreshGraphMode();
             RefreshSummary();
             RefreshExperiments();
             RefreshModel();
+            RefreshAnalysis();
             RefreshTable();
-            graph.FitToData();
+            FitToData();
         }
 
         void RefreshSummary()
@@ -293,7 +417,7 @@ namespace AnalysisITC.Avalonia.Results
             };
             updateButton.Click += async (_, _) => await UpdateResultAsync();
 
-            summaryPanel.Children.Add(WorkspaceControlBuilder.Row(detailsButton, updateButton));
+            //summaryPanel.Children.Add(WorkspaceControlBuilder.Row(detailsButton, updateButton));
 
             summaryPanel.Children.Add(Section("Result", new Control[]
             {
@@ -313,7 +437,6 @@ namespace AnalysisITC.Avalonia.Results
             }));
 
             summaryPanel.Children.Add(displaySection);
-            summaryPanel.Children.Add(parameterEvaluationSection);
             summaryPanel.Children.Add(BuildValiditySection(report));
             RefreshParameterEvaluation();
         }
@@ -415,7 +538,7 @@ namespace AnalysisITC.Avalonia.Results
 
             foreach (var row in evaluation.Rows)
             {
-                var pair = Pair(row.Label, row.Value);
+                var pair = ParameterPair(row.Label, row.Value);
                 if (!string.IsNullOrWhiteSpace(row.Tooltip))
                     ToolTip.SetTip(pair, row.Tooltip);
                 evaluationRowsPanel.Children.Add(pair);
@@ -482,6 +605,246 @@ namespace AnalysisITC.Avalonia.Results
             }
         }
 
+        void RefreshAnalysis()
+        {
+            analysisPanel.Children.Clear();
+
+            if (result == null)
+            {
+                analysisPanel.Children.Add(Text("No analysis result selected."));
+                return;
+            }
+
+            analysisPanel.Children.Add(BuildResultViewSection());
+            analysisPanel.Children.Add(parameterEvaluationSection);
+
+            if (!result.IsAdvancedAnalysisAvailable)
+            {
+                analysisPanel.Children.Add(Section("Advanced Analysis", new Control[]
+                {
+                    Text("Advanced analyses are available for OneSetOfSites results.")
+                }));
+                return;
+            }
+
+            switch (activeViewMode)
+            {
+                case ResultAnalysisViewMode.Parameters:
+                    analysisPanel.Children.Add(Section("Advanced Analysis", new Control[]
+                    {
+                        Text("Select Temperature, Salt, or Protonation to run an advanced result analysis.")
+                    }));
+                    analysisPanel.Children.Add(BuildAvailabilitySection());
+                    break;
+                case ResultAnalysisViewMode.Temperature:
+                    RefreshTemperatureAnalysis();
+                    break;
+                case ResultAnalysisViewMode.Salt:
+                    RefreshSaltAnalysis();
+                    break;
+                case ResultAnalysisViewMode.Protonation:
+                    RefreshProtonationAnalysis();
+                    break;
+            }
+        }
+
+        Border BuildResultViewSection()
+        {
+            var combo = WorkspaceControlBuilder.Combo(availableViewModes.Select(ModeTitle).ToArray(), Math.Max(0, availableViewModes.IndexOf(activeViewMode)), 170);
+            combo.SelectionChanged += (_, _) => ChangeResultViewModeFromCombo(combo);
+
+            return Section("View", new Control[]
+            {
+                Labeled("Result", combo)
+            });
+        }
+
+        Border BuildAvailabilitySection()
+        {
+            return Section("Available Analyses", new Control[]
+            {
+                Pair("Temperature", result?.IsTemperatureDependenceEnabled == true ? "Available" : "Unavailable"),
+                Pair("Salt", result?.IsElectrostaticsAnalysisDependenceEnabled == true ? "Available" : "Unavailable"),
+                Pair("Protonation", result?.IsProtonationAnalysisEnabled == true ? "Available" : "Unavailable")
+            });
+        }
+
+        void RefreshTemperatureAnalysis()
+        {
+            if (result?.SpolarRecordAnalysis == null)
+            {
+                analysisPanel.Children.Add(Section("Temperature", new Control[] { Text("Temperature dependence is not available for this result.") }));
+                return;
+            }
+
+            var runButton = WorkspaceControlBuilder.Button(isRunningAdvancedAnalysis ? "Running..." : "Run Analysis", 120);
+            runButton.IsEnabled = !isRunningAdvancedAnalysis;
+            runButton.Click += async (_, _) => await RunTemperatureAnalysisAsync();
+            var foldedModeCombo = WorkspaceControlBuilder.Combo(new[] { "Globular", "ID interaction" }, selectedSrFoldedMode == FTSRMethod.SRFoldedMode.ID ? 1 : 0, 170);
+            foldedModeCombo.SelectionChanged += (_, _) =>
+            {
+                selectedSrFoldedMode = foldedModeCombo.SelectedIndex == 1
+                    ? FTSRMethod.SRFoldedMode.ID
+                    : FTSRMethod.SRFoldedMode.Glob;
+                RefreshAnalysis();
+            };
+            var temperatureModeCombo = WorkspaceControlBuilder.Combo(new[] { "Isoentropic point", "Mean temperature", "Reference temperature" }, selectedSrTemperatureMode switch
+            {
+                FTSRMethod.SRTempMode.MeanTemperature => 1,
+                FTSRMethod.SRTempMode.ReferenceTemperature => 2,
+                _ => 0
+            }, 170);
+            temperatureModeCombo.SelectionChanged += (_, _) =>
+            {
+                selectedSrTemperatureMode = temperatureModeCombo.SelectedIndex switch
+                {
+                    1 => FTSRMethod.SRTempMode.MeanTemperature,
+                    2 => FTSRMethod.SRTempMode.ReferenceTemperature,
+                    _ => FTSRMethod.SRTempMode.IsoEntropicPoint
+                };
+                RefreshAnalysis();
+            };
+
+            analysisPanel.Children.Add(Section("Temperature", new Control[]
+            {
+                Labeled("Folded mode", foldedModeCombo),
+                Labeled("Temp mode", temperatureModeCombo),
+                WorkspaceControlBuilder.Row(runButton)
+            }));
+
+            var analysis = result.SpolarRecordAnalysis;
+            if (analysis.Result == null)
+            {
+                analysisPanel.Children.Add(Section("Output", new Control[] { Text("Run the analysis to calculate Spolar record values.") }));
+                return;
+            }
+
+            var evaluationTemperature = analysis.EvalutationTemperature(false);
+            analysisPanel.Children.Add(Section("Output", new Control[]
+            {
+                Pair("Mode", analysis.FoldedMode switch
+                {
+                    FTSRMethod.SRFoldedMode.ID => "ID interaction",
+                    FTSRMethod.SRFoldedMode.Intermediate => "Intermediate",
+                    _ => "Globular"
+                }),
+                Pair("Reference T", analysis.Result.ReferenceTemperature.AsNumber() + " °C"),
+                Pair("Hydration", new Energy(analysis.Result.HydrationContribution(evaluationTemperature)).ToFormattedString(AppSettings.EnergyUnit, permole: true)),
+                Pair("Conformation", new Energy(analysis.Result.ConformationalContribution(evaluationTemperature)).ToFormattedString(AppSettings.EnergyUnit, permole: true)),
+                Pair("Residues", analysis.Result.Rvalue.AsNumber())
+            }));
+        }
+
+        void RefreshSaltAnalysis()
+        {
+            if (result?.ElectrostaticsAnalysis == null)
+            {
+                analysisPanel.Children.Add(Section("Salt", new Control[] { Text("Salt dependence is not available for this result.") }));
+                return;
+            }
+
+            var runButton = WorkspaceControlBuilder.Button(isRunningAdvancedAnalysis ? "Running..." : "Run Analysis", 120);
+            runButton.IsEnabled = !isRunningAdvancedAnalysis;
+            runButton.Click += async (_, _) => await RunSaltAnalysisAsync();
+            var saltModeCombo = WorkspaceControlBuilder.Combo(SaltModeNames, selectedSaltMode switch
+            {
+                ElectrostaticsAnalysis.DissocFitMode.AffinityVsSalt => 0,
+                ElectrostaticsAnalysis.DissocFitMode.CounterIonRelease => 2,
+                _ => 1
+            }, 170);
+            saltModeCombo.SelectionChanged += (_, _) =>
+            {
+                selectedSaltMode = saltModeCombo.SelectedIndex switch
+                {
+                    0 => ElectrostaticsAnalysis.DissocFitMode.AffinityVsSalt,
+                    2 => ElectrostaticsAnalysis.DissocFitMode.CounterIonRelease,
+                    _ => ElectrostaticsAnalysis.DissocFitMode.DebyeHuckel
+                };
+                ChangeSaltMode();
+            };
+
+            analysisPanel.Children.Add(Section("Salt", new Control[]
+            {
+                Labeled("Graph mode", saltModeCombo),
+                WorkspaceControlBuilder.Row(runButton)
+            }));
+
+            var analysis = result.ElectrostaticsAnalysis;
+            if (!analysis.Calculated)
+            {
+                analysisPanel.Children.Add(Section("Output", new Control[] { Text("Run the analysis to calculate electrostatic parameters.") }));
+                return;
+            }
+
+            analysisPanel.Children.Add(Section("Output", new Control[]
+            {
+                Pair("Kd0", analysis.Kd0.AsFormattedConcentration(withunit: true)),
+                Pair("Counter ion", analysis.CounterIonRelease.AsNumber()),
+                Pair("Iterations", analysis.CompletedIterations.ToString(CultureInfo.CurrentCulture))
+            }));
+        }
+
+        void RefreshProtonationAnalysis()
+        {
+            if (result?.ProtonationAnalysis == null)
+            {
+                analysisPanel.Children.Add(Section("Protonation", new Control[] { Text("Protonation analysis is not available for this result.") }));
+                return;
+            }
+
+            var runButton = WorkspaceControlBuilder.Button(isRunningAdvancedAnalysis ? "Running..." : "Run Analysis", 120);
+            runButton.IsEnabled = !isRunningAdvancedAnalysis;
+            runButton.Click += async (_, _) => await RunProtonationAnalysisAsync();
+
+            analysisPanel.Children.Add(Section("Protonation", new Control[]
+            {
+                WorkspaceControlBuilder.Row(runButton)
+            }));
+
+            var analysis = result.ProtonationAnalysis;
+            if (analysis.Fit == null)
+            {
+                analysisPanel.Children.Add(Section("Output", new Control[] { Text("Run the analysis to calculate protonation-corrected binding parameters.") }));
+                return;
+            }
+
+            var fit = analysis.Fit as LinearFitWithError;
+            analysisPanel.Children.Add(Section("Output", new Control[]
+            {
+                Pair("Protons", fit == null ? analysis.ProtonationChange.AsNumber() : (-1 * fit.Slope).AsNumber()),
+                Pair("Binding H", fit == null
+                    ? analysis.BindingEnthalpy.ToFormattedString(AppSettings.EnergyUnit, permole: true)
+                    : new Energy(fit.Evaluate(0)).ToFormattedString(AppSettings.EnergyUnit, true, true, false)),
+                Pair("Iterations", analysis.CompletedIterations.ToString(CultureInfo.CurrentCulture))
+            }));
+        }
+
+        Task RunTemperatureAnalysisAsync()
+        {
+            if (result?.SpolarRecordAnalysis == null || isRunningAdvancedAnalysis) return Task.CompletedTask;
+
+            result.SpolarRecordAnalysis.FoldedMode = selectedSrFoldedMode;
+            result.SpolarRecordAnalysis.TempMode = selectedSrTemperatureMode;
+            result.SpolarRecordAnalysis.PerformAnalysis();
+            return Task.CompletedTask;
+        }
+
+        Task RunSaltAnalysisAsync()
+        {
+            if (result?.ElectrostaticsAnalysis == null || isRunningAdvancedAnalysis) return Task.CompletedTask;
+
+            result.ElectrostaticsAnalysis.PerformAnalysis();
+            return Task.CompletedTask;
+        }
+
+        Task RunProtonationAnalysisAsync()
+        {
+            if (result?.ProtonationAnalysis == null || isRunningAdvancedAnalysis) return Task.CompletedTask;
+
+            result.ProtonationAnalysis.PerformAnalysis();
+            return Task.CompletedTask;
+        }
+
         void RefreshTable()
         {
             tableHost.Children.Clear();
@@ -499,10 +862,8 @@ namespace AnalysisITC.Avalonia.Results
                 return;
             }
 
-            var grid = new Grid
-            {
-                Background = Brushes.White
-            };
+            var grid = new Grid();
+            AppTheme.Bind(grid, Panel.BackgroundProperty, AppTheme.PanelBackground);
 
             foreach (var column in table.Columns)
                 grid.ColumnDefinitions.Add(new ColumnDefinition(column.PreferredWidth, GridUnitType.Pixel));
@@ -536,22 +897,21 @@ namespace AnalysisITC.Avalonia.Results
         {
             var color = report.Status switch
             {
-                AnalysisResultValidity.Valid => "#22863A",
-                AnalysisResultValidity.PartialInvalid => "#B7791F",
-                AnalysisResultValidity.Invalid => "#C53030",
-                _ => "#B7791F"
+                AnalysisResultValidity.Valid => AppTheme.StatusValid,
+                AnalysisResultValidity.PartialInvalid => AppTheme.StatusWarning,
+                AnalysisResultValidity.Invalid => AppTheme.StatusError,
+                _ => AppTheme.StatusWarning
             };
 
-            var lines = new List<Control>
+            var title = new TextBlock
             {
-                new TextBlock
-                {
-                    Text = ValidityTitle(report.Status),
-                    Foreground = Solid(color),
-                    FontWeight = FontWeight.SemiBold,
-                    TextWrapping = TextWrapping.Wrap
-                }
+                Text = ValidityTitle(report.Status),
+                FontWeight = FontWeight.SemiBold,
+                TextWrapping = TextWrapping.Wrap
             };
+            AppTheme.Bind(title, TextBlock.ForegroundProperty, color);
+
+            var lines = new List<Control> { title };
 
             if (report.Reasons.Count == 0)
             {
@@ -576,23 +936,23 @@ namespace AnalysisITC.Avalonia.Results
                 Margin = new Thickness(8, 5),
                 FontSize = isHeader ? 11 : 12,
                 FontWeight = isHeader ? FontWeight.SemiBold : FontWeight.Normal,
-                Foreground = isHeader ? Solid("#202832") : Solid("#202832"),
                 TextTrimming = TextTrimming.CharacterEllipsis,
                 HorizontalAlignment = HorizontalAlignmentFor(alignment)
             };
+            AppTheme.Bind(textBlock, TextBlock.ForegroundProperty, AppTheme.PrimaryText);
 
             var border = new Border
             {
-                BorderBrush = Solid("#E3E7EC"),
                 BorderThickness = new Thickness(0, 0, 1, 1),
-                Background = isHeader
-                    ? Solid("#F5F7FA")
-                    : isSelected
-                        ? Solid("#EAF1FF")
-                        : row % 2 == 0 ? Solid("#FFFFFF") : Solid("#FAFBFC"),
                 Child = textBlock,
                 MinHeight = isHeader ? 30 : 28
             };
+            AppTheme.Bind(border, Border.BorderBrushProperty, AppTheme.SectionBorder);
+            AppTheme.Bind(border, Border.BackgroundProperty, isHeader
+                ? AppTheme.TableHeaderBackground
+                : isSelected
+                    ? AppTheme.SelectionBackground
+                    : row % 2 == 0 ? AppTheme.PanelBackground : AppTheme.TableAlternateRow);
 
             if (!isHeader && solution != null)
             {
@@ -655,6 +1015,17 @@ namespace AnalysisITC.Avalonia.Results
 
         bool UseKelvin => temperatureUnitCombo.SelectedIndex == 1;
 
+        static string ModeTitle(ResultAnalysisViewMode mode)
+        {
+            return mode switch
+            {
+                ResultAnalysisViewMode.Temperature => "Temperature",
+                ResultAnalysisViewMode.Salt => "Salt",
+                ResultAnalysisViewMode.Protonation => "Protonation",
+                _ => "Parameters"
+            };
+        }
+
         static string ValidityTitle(AnalysisResultValidity status)
         {
             return status switch
@@ -696,113 +1067,67 @@ namespace AnalysisITC.Avalonia.Results
             };
         }
 
-        static TabItem Tab(string header, Control content)
-        {
-            return new TabItem
-            {
-                Header = new TextBlock
-                {
-                    Text = header,
-                    FontSize = 11,
-                    TextWrapping = TextWrapping.NoWrap
-                },
-                Content = content
-            };
-        }
-
-        static Control Scroll(Control content)
-        {
-            return new Border
-            {
-                Background = Brushes.White,
-                BorderBrush = Solid("#D4DAE1"),
-                BorderThickness = new Thickness(1),
-                Child = new ScrollViewer
-                {
-                    HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
-                    VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
-                    Content = new Border
-                    {
-                        Padding = new Thickness(10),
-                        Child = content
-                    }
-                }
-            };
-        }
-
-        static Border Section(string title, Control[] controls)
-        {
-            var panel = new StackPanel { Spacing = 7 };
-            panel.Children.Add(new TextBlock
-            {
-                Text = title,
-                FontWeight = FontWeight.SemiBold,
-                Foreground = Solid("#202832")
-            });
-            foreach (var control in controls)
-                panel.Children.Add(control);
-
-            return new Border
-            {
-                BorderBrush = Solid("#E3E7EC"),
-                BorderThickness = new Thickness(0, 0, 0, 1),
-                Padding = new Thickness(0, 0, 0, 10),
-                Child = panel
-            };
-        }
-
-        static Border Labeled(string label, Control control)
-        {
-            var panel = new Grid
-            {
-                ColumnDefinitions = new ColumnDefinitions("92,*")
-            };
-            panel.Children.Add(new TextBlock
-            {
-                Text = label,
-                VerticalAlignment = VerticalAlignment.Center,
-                Foreground = Solid("#607080"),
-                FontSize = 11
-            });
-            Grid.SetColumn(control, 1);
-            panel.Children.Add(control);
-
-            return new Border { Child = panel };
-        }
-
         static Border Pair(string label, string value)
         {
             var panel = new Grid
             {
-                ColumnDefinitions = new ColumnDefinitions("92,*"),
-                ColumnSpacing = 8
+                ColumnDefinitions = new ColumnDefinitions($"Auto,*"),
+                ColumnSpacing = RowSpacing,
             };
             panel.Children.Add(new TextBlock
             {
                 Text = label,
-                Foreground = Solid("#607080"),
-                FontSize = 11,
+                Foreground = WorkspaceControlBuilder.LabelBrush,
                 VerticalAlignment = VerticalAlignment.Top
             });
             var valueText = new TextBlock
             {
                 Text = value ?? "",
-                Foreground = Solid("#202832"),
-                TextWrapping = TextWrapping.Wrap
+                Foreground = WorkspaceControlBuilder.SectionHeaderBrush,
+                TextWrapping = TextWrapping.Wrap,
+                VerticalAlignment = VerticalAlignment.Center,
+                TextAlignment = TextAlignment.Right
             };
             Grid.SetColumn(valueText, 1);
             panel.Children.Add(valueText);
 
-            return new Border { Child = panel };
+            return new Border
+            {
+                Margin = WorkspaceControlBuilder.ControlMargin,
+                Child = panel
+            };
         }
 
-        static TextBlock Text(string text = "")
+        static Border ParameterPair(string label, string value)
         {
-            return new TextBlock
+            var panel = new Grid
             {
-                Text = text ?? "",
-                Foreground = Solid("#4D5A66"),
-                TextWrapping = TextWrapping.Wrap
+                //ColumnDefinitions = new ColumnDefinitions($"*,*"),
+                RowDefinitions = new RowDefinitions($"*,*"),
+                RowSpacing = 0,
+            };
+            panel.Children.Add(new TextBlock
+            {
+                Text = label,
+                FontSize = 10,
+                Foreground = WorkspaceControlBuilder.LabelBrush,
+                VerticalAlignment = VerticalAlignment.Top
+            });
+            var valueText = new TextBlock
+            {
+                Text = value ?? "",
+                Foreground = WorkspaceControlBuilder.SectionHeaderBrush,
+                TextWrapping = TextWrapping.Wrap,
+                VerticalAlignment = VerticalAlignment.Center,
+                TextAlignment = TextAlignment.Left
+            };
+            Grid.SetRow(valueText, 1);
+            panel.Children.Add(valueText);
+
+            return new Border
+            {
+                Margin = WorkspaceControlBuilder.ControlMargin,
+                Child = panel
             };
         }
 
@@ -811,24 +1136,10 @@ namespace AnalysisITC.Avalonia.Results
             return new TextBlock
             {
                 Text = text,
-                Foreground = Solid("#607080"),
+                Foreground = WorkspaceControlBuilder.LabelBrush,
                 Margin = new Thickness(16),
                 TextWrapping = TextWrapping.Wrap
             };
         }
-
-        static ComboBox Combo(string[] items, int selectedIndex, double width)
-        {
-            return new ComboBox
-            {
-                ItemsSource = items,
-                SelectedIndex = selectedIndex,
-                Width = width,
-                MinHeight = 28,
-                VerticalAlignment = VerticalAlignment.Center
-            };
-        }
-
-        static IBrush Solid(string color) => new SolidColorBrush(Color.Parse(color));
     }
 }

@@ -19,6 +19,7 @@ using AnalysisITC.Core.Presentation;
 using AnalysisITC.Core.Processing;
 using AnalysisITC.Core.Units;
 using AnalysisITC.Core.Utilities;
+using AnalysisITC.Avalonia.Styling;
 
 namespace AnalysisITC.Avalonia.Preferences;
 
@@ -157,9 +158,9 @@ internal sealed class PreferencesWindow : Window
     {
         var root = new DockPanel
         {
-            LastChildFill = true,
-            Background = Solid("#F5F7FA")
+            LastChildFill = true
         };
+        AppTheme.Bind(root, Panel.BackgroundProperty, AppTheme.WorkspaceBackground);
 
         var footer = new Grid
         {
@@ -191,11 +192,11 @@ internal sealed class PreferencesWindow : Window
 
         var footerBorder = new Border
         {
-            Background = Brushes.White,
-            BorderBrush = Solid("#D4DAE1"),
             BorderThickness = new Thickness(0, 1, 0, 0),
             Child = footer
         };
+        AppTheme.Bind(footerBorder, Border.BackgroundProperty, AppTheme.PanelBackground);
+        AppTheme.Bind(footerBorder, Border.BorderBrushProperty, AppTheme.PanelBorder);
         DockPanel.SetDock(footerBorder, Dock.Bottom);
         root.Children.Add(footerBorder);
 
@@ -564,50 +565,55 @@ internal sealed class PreferencesWindow : Window
     static Border Header()
     {
         var panel = new StackPanel { Spacing = 2 };
-        panel.Children.Add(new TextBlock
+        var title = new TextBlock
         {
             Text = "Preferences",
             FontSize = 16,
-            FontWeight = FontWeight.SemiBold,
-            Foreground = Solid("#202832")
-        });
-        panel.Children.Add(new TextBlock
+            FontWeight = FontWeight.SemiBold
+        };
+        AppTheme.Bind(title, TextBlock.ForegroundProperty, AppTheme.PrimaryText);
+        panel.Children.Add(title);
+        var subtitle = new TextBlock
         {
             Text = "Global application settings",
-            Foreground = Solid("#607080"),
             FontSize = 12
-        });
+        };
+        AppTheme.Bind(subtitle, TextBlock.ForegroundProperty, AppTheme.MutedText);
+        panel.Children.Add(subtitle);
 
-        return new Border
+        var border = new Border
         {
-            Background = Brushes.White,
-            BorderBrush = Solid("#D4DAE1"),
             BorderThickness = new Thickness(0, 0, 0, 1),
             Padding = new Thickness(14, 12),
             Child = panel
         };
+        AppTheme.Bind(border, Border.BackgroundProperty, AppTheme.PanelBackground);
+        AppTheme.Bind(border, Border.BorderBrushProperty, AppTheme.PanelBorder);
+        return border;
     }
 
     static Border Section(string title, Control[] controls)
     {
         var panel = new StackPanel { Spacing = 7 };
-        panel.Children.Add(new TextBlock
+        var titleBlock = new TextBlock
         {
             Text = title,
-            FontWeight = FontWeight.SemiBold,
-            Foreground = Solid("#202832")
-        });
+            FontWeight = FontWeight.SemiBold
+        };
+        AppTheme.Bind(titleBlock, TextBlock.ForegroundProperty, AppTheme.PrimaryText);
+        panel.Children.Add(titleBlock);
         foreach (var control in controls)
             panel.Children.Add(control);
 
-        return new Border
+        var border = new Border
         {
-            Background = Brushes.White,
-            BorderBrush = Solid("#D4DAE1"),
             BorderThickness = new Thickness(1),
             Padding = new Thickness(12, 10),
             Child = panel
         };
+        AppTheme.Bind(border, Border.BackgroundProperty, AppTheme.PanelBackground);
+        AppTheme.Bind(border, Border.BorderBrushProperty, AppTheme.PanelBorder);
+        return border;
     }
 
     static Control Row(string label, Control control)
@@ -724,26 +730,28 @@ internal sealed class PreferencesWindow : Window
 
     static TextBlock Label(string text)
     {
-        return new TextBlock
+        var textBlock = new TextBlock
         {
             Text = text,
-            Foreground = Solid("#4D5A66"),
             FontSize = 13,
             VerticalAlignment = VerticalAlignment.Center,
             TextWrapping = TextWrapping.NoWrap
         };
+        AppTheme.Bind(textBlock, TextBlock.ForegroundProperty, AppTheme.SecondaryText);
+        return textBlock;
     }
 
     static TextBlock Text(string text)
     {
-        return new TextBlock
+        var textBlock = new TextBlock
         {
             Text = text,
-            Foreground = Solid("#4D5A66"),
             FontSize = 12,
             VerticalAlignment = VerticalAlignment.Center,
             TextWrapping = TextWrapping.Wrap
         };
+        AppTheme.Bind(textBlock, TextBlock.ForegroundProperty, AppTheme.SecondaryText);
+        return textBlock;
     }
 
     static PreferenceOption<T> Option<T>(string label, T value) => new(label, value);
@@ -757,9 +765,6 @@ internal sealed class PreferencesWindow : Window
     {
         return combo.SelectedItem is PreferenceOption<T> option ? option.Value : fallback;
     }
-
-    static IBrush Solid(string color) => new SolidColorBrush(Color.Parse(color));
-
     sealed class PreferenceOption<T>
     {
         public PreferenceOption(string label, T value)

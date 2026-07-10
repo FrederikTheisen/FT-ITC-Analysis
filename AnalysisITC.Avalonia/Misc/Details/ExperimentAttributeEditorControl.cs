@@ -5,6 +5,7 @@ using System.Linq;
 
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.Shapes;
 using Avalonia.Layout;
 using Avalonia.Media;
 
@@ -14,20 +15,22 @@ using AnalysisITC.Core.Data;
 using AnalysisITC.Core.Numerics;
 using AnalysisITC.Core.Units;
 using AnalysisITC.Core.Utilities;
+using AnalysisITC.Avalonia.Styling;
 using BufferKind = AnalysisITC.Core.Data.Buffer;
 
 namespace AnalysisITC.Avalonia.Details
 {
     public sealed class ExperimentAttributeEditorControl : UserControl
     {
+        const double ControlHeight = 28;
         readonly ExperimentAttribute attribute;
         readonly Func<ExperimentAttribute, AttributeKey, bool> canUseKey;
         readonly ComboBox keyCombo = new ComboBox
         {
-            Width = 148,
-            Height = 28,
-            MinHeight = 28,
-            MaxHeight = 28,
+            Width = 160,
+            Height = ControlHeight,
+            MinHeight = ControlHeight,
+            MaxHeight = ControlHeight,
             FontSize = 13,
             Padding = new Thickness(7, 0),
             Margin = new Thickness(0, 0, 4, 3)
@@ -91,12 +94,26 @@ namespace AnalysisITC.Avalonia.Details
 
         void Build()
         {
+            var removeIcon = new Path
+            {
+                Data = Geometry.Parse("M6,6 L14,14 M14,6 L6,14"),
+                StrokeThickness = 1,
+                StrokeLineCap = PenLineCap.Round,
+                Width = 12,
+                Height = 12,
+                HorizontalAlignment = HorizontalAlignment.Center,
+                VerticalAlignment = VerticalAlignment.Center,
+                Stretch = Stretch.Uniform
+            };
+            AppTheme.Bind(removeIcon, Shape.StrokeProperty, AppTheme.SecondaryText);
+
             var removeButton = new Button
             {
-                Content = "-",
-                Width = 24,
-                Height = 24,
-                Padding = new Thickness(0)
+                Content = removeIcon,
+                Width = ControlHeight,
+                Height = ControlHeight,
+                Padding = new Thickness(0),
+                Margin = new Thickness(0, 0, 4, 3),
             };
             removeButton.Click += (_, _) => RemoveRequested?.Invoke(this, EventArgs.Empty);
 
@@ -123,15 +140,16 @@ namespace AnalysisITC.Avalonia.Details
             Grid.SetColumn(editorPanel, 2);
             root.Children.Add(editorPanel);
 
-            Content = new Border
+            var content = new Border
             {
-                Background = Solid("#FAFBFC"),
-                BorderBrush = Solid("#E3E7EC"),
                 BorderThickness = new Thickness(1),
                 Padding = new Thickness(6, 5),
                 Margin = new Thickness(0, 0, 0, 4),
                 Child = root
             };
+            AppTheme.Bind(content, Border.BackgroundProperty, AppTheme.TableAlternateRow);
+            AppTheme.Bind(content, Border.BorderBrushProperty, AppTheme.SectionBorder);
+            Content = content;
             BuildEditor();
         }
 
@@ -483,7 +501,5 @@ namespace AnalysisITC.Avalonia.Details
             public string Label { get; }
             public override string ToString() => Label;
         }
-
-        static IBrush Solid(string color) => new SolidColorBrush(Color.Parse(color));
     }
 }

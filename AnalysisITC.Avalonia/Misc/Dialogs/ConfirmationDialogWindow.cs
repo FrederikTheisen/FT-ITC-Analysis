@@ -5,6 +5,8 @@ using Avalonia.Controls;
 using Avalonia.Layout;
 using Avalonia.Media;
 
+using AnalysisITC.Avalonia.Styling;
+
 namespace AnalysisITC.Avalonia.Dialogs;
 
 internal sealed class ConfirmationDialogWindow : Window
@@ -23,9 +25,9 @@ internal sealed class ConfirmationDialogWindow : Window
         {
             Text = message,
             TextWrapping = TextWrapping.Wrap,
-            Foreground = new SolidColorBrush(Color.Parse("#202832")),
             Margin = new Thickness(0, 0, 0, 18)
         };
+        AppTheme.Bind(messageText, TextBlock.ForegroundProperty, AppTheme.PrimaryText);
 
         var cancel = new Button
         {
@@ -51,9 +53,8 @@ internal sealed class ConfirmationDialogWindow : Window
             Children = { cancel, confirm }
         };
 
-        Content = new Border
+        var border = new Border
         {
-            Background = Brushes.White,
             Padding = new Thickness(16),
             Child = new DockPanel
             {
@@ -65,6 +66,8 @@ internal sealed class ConfirmationDialogWindow : Window
                 }
             }
         };
+        AppTheme.Bind(border, Border.BackgroundProperty, AppTheme.PanelBackground);
+        Content = border;
 
         DockPanel.SetDock(buttons, Dock.Bottom);
     }

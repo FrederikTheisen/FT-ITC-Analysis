@@ -5,6 +5,7 @@ using System.Linq;
 
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using Avalonia.Media;
 
@@ -39,7 +40,6 @@ namespace AnalysisITC.Avalonia.Processing
         public event EventHandler<int>? SelectedInjectionChanged;
         public event EventHandler? IntegrationEdited;
         public event EventHandler? IntegrationEditCompleted;
-        public event EventHandler? SplineEdited;
         public event EventHandler? SplineEditCompleted;
         public event EventHandler? CopySelectedIntegrationToNextRequested;
 
@@ -304,6 +304,12 @@ namespace AnalysisITC.Avalonia.Processing
             var graph = GraphLayout.Create(Bounds, view, Power);
             var point = e.GetPosition(this);
             if (!graph.Plot.Contains(point)) return;
+
+            if (e.GetCurrentPoint(this).Properties.IsRightButtonPressed)
+            {
+                e.Handled = TryShowSplineContextMenu(point, graph);
+                return;
+            }
 
             Focus();
             pressedClickCount = e.ClickCount;
@@ -748,9 +754,6 @@ namespace AnalysisITC.Avalonia.Processing
             var power = ShowBaselineCorrected ? dataPoint.Y / Power.Scale + BaselinePowerAt(time) : dataPoint.Y / Power.Scale;
 
             spline.MoveSplinePoint(dragTarget.Index, time, power);
-            data.Processor.SubtractBaseline();
-            data.Processor.IntegratePeaks(false);
-            SplineEdited?.Invoke(this, EventArgs.Empty);
         }
 
         void UpdateSplineHandle(Point point, GraphLayout graph)
@@ -769,9 +772,6 @@ namespace AnalysisITC.Avalonia.Processing
                 deltaSlope = -deltaSlope;
 
             spline.SetSplinePointSlope(dragTarget.Index, dragReferenceSlope + deltaSlope);
-            data.Processor.SubtractBaseline();
-            data.Processor.IntegratePeaks(false);
-            SplineEdited?.Invoke(this, EventArgs.Empty);
         }
 
         void ZoomRegion(Point start, Point end, GraphLayout graph)
@@ -853,6 +853,123 @@ namespace AnalysisITC.Avalonia.Processing
             }
 
             return HitTarget.None;
+        }
+
+        bool TryShowSplineContextMenu(Point point, GraphLayout graph)
+        {
+            if (Experiment?.Processor?.Interpolator is not SplineInterpolator spline) return false;
+
+            var hit = HitTest(point, graph);
+            if (hit.Kind == HitKind.SplinePoint)
+            {
+                ShowSplinePointContextMenu(spline, hit.Index);
+                return true;
+            }
+
+            if (hit.Kind == HitKind.Plot)
+            {
+                ShowNewSplinePointContextMenu(spline, graph.Transform.ToData(point).X);
+                return true;
+            }
+
+            return false;
+        }
+
+        void ShowSplinePointContextMenu(SplineInterpolator spline, int pointIndex)
+        {
+            if (pointIndex < 0 || pointIndex >= spline.SplinePoints.Count) return;
+
+            var point = spline.SplinePoints[pointIndex];
+            var menu = CreateContextMenu();
+            var lockItem = new MenuItem { Header = point.Locked ? "Unlock" : "Lock" };
+            lockItem.Click += async (_, _) =>
+            {
+                if (Experiment?.Processor?.Interpolator is not SplineInterpolator currentSpline) return;
+                if (pointIndex < 0 || pointIndex >= currentSpline.SplinePoints.Count) return;
+
+                var currentPoint = currentSpline.SplinePoints[pointIndex];
+                if (currentPoint.Locked)
+                {
+                    currentPoint.Unlock();
+                    currentPoint.UnlockSlope();
+                    await Experiment.Processor.ProcessData();
+                }
+                else
+                {
+                    currentPoint.Lock();
+                    await Experiment.Processor.ProcessData(false);
+                }
+
+                InvalidateVisual();
+            };
+
+            var linearItem = new MenuItem { Header = point.Linear ? "Unmark Linear" : "Mark Linear" };
+            linearItem.Click += async (_, _) =>
+            {
+                if (Experiment?.Processor?.Interpolator is not SplineInterpolator currentSpline) return;
+                if (pointIndex < 0 || pointIndex >= currentSpline.SplinePoints.Count) return;
+
+                var currentPoint = currentSpline.SplinePoints[pointIndex];
+                currentPoint.Linear = !currentPoint.Linear;
+                if (currentPoint.Linear) currentPoint.Lock();
+                await Experiment.Processor.ProcessData(false);
+                InvalidateVisual();
+            };
+
+            var removeItem = new MenuItem { Header = "Remove" };
+            removeItem.Click += (_, _) =>
+            {
+                if (Experiment?.Processor?.Interpolator is not SplineInterpolator currentSpline) return;
+                if (pointIndex < 0 || pointIndex >= currentSpline.SplinePoints.Count) return;
+
+                currentSpline.RemoveSplinePoint(pointIndex);
+                InvalidateVisual();
+            };
+
+            menu.Items.Add(lockItem);
+            menu.Items.Add(linearItem);
+            menu.Items.Add(removeItem);
+            menu.Open(this);
+        }
+
+        void ShowNewSplinePointContextMenu(SplineInterpolator spline, double time)
+        {
+            var menu = CreateContextMenu();
+            menu.Items.Add(new MenuItem
+            {
+                Header = "New Spline Point...",
+                IsEnabled = false
+            });
+
+            var dataItem = new MenuItem { Header = "At Data" };
+            dataItem.Click += (_, _) =>
+            {
+                if (Experiment?.Processor?.Interpolator is not SplineInterpolator currentSpline) return;
+
+                currentSpline.InsertSplinePoint(time, usedatavalue: true);
+                InvalidateVisual();
+            };
+
+            var baselineItem = new MenuItem { Header = "At Baseline" };
+            baselineItem.Click += (_, _) =>
+            {
+                if (Experiment?.Processor?.Interpolator is not SplineInterpolator currentSpline) return;
+
+                currentSpline.InsertSplinePoint(time, usedatavalue: false);
+                InvalidateVisual();
+            };
+
+            menu.Items.Add(dataItem);
+            menu.Items.Add(baselineItem);
+            menu.Open(this);
+        }
+
+        static ContextMenu CreateContextMenu()
+        {
+            return new ContextMenu
+            {
+                Placement = PlacementMode.Pointer
+            };
         }
 
         void CaptureSplineDragReference()

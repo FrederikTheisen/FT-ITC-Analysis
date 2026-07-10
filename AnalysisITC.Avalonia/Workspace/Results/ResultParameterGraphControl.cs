@@ -157,6 +157,78 @@ namespace AnalysisITC.Avalonia.Results
             return new Size(formatted.Width, formatted.Height);
         }
 
+        protected override void OnPointerMoved(PointerEventArgs e)
+        {
+            base.OnPointerMoved(e);
+
+            var solutions = result?.Solution?.Solutions ?? new List<SolutionInterface>();
+            if (solutions.Count == 0)
+            {
+                return;
+            }
+
+            var bounds = Bounds;
+            var point = e.GetPosition(this);
+            var parameters = AvailableThermodynamicParameters(solutions);
+            if (parameters.Count == 0)
+            {
+                return;
+            }
+
+            var yRange = BuildValueRange(solutions, parameters);
+            var ticks = BuildTicks(yRange.Minimum, yRange.Maximum);
+
+            var yLabelWidth = ticks.Count == 0
+                    ? AvaloniaGraphSettings.YLabelFallbackWidth
+                    : ticks.Max(tick => MeasureText(FormatAxisValue(tick), AvaloniaGraphSettings.TickLabelFontSize).Width);
+
+            var left = Math.Max(AvaloniaGraphSettings.GraphMarginLeftMinimum, yLabelWidth + AvaloniaGraphSettings.GraphMarginLeftTickBuffer);
+            double top = AvaloniaGraphSettings.GraphMarginTop;
+            double right = AvaloniaGraphSettings.GraphMarginRight;
+            double bottom = AvaloniaGraphSettings.GraphMarginBottom;
+
+            var plot = new Rect(
+                left,
+                top,
+                Math.Max(1, bounds.Width - left - right),
+                Math.Max(1, bounds.Height - top - bottom + 20));
+
+            var found = false;
+            var categoryWidth = plot.Width / Math.Max(1, parameters.Count);
+            for (int parameterIndex = 0; parameterIndex < parameters.Count && !found; parameterIndex++)
+            {
+                var parameter = parameters[parameterIndex];
+                var categoryLeft = plot.Left + parameterIndex * categoryWidth;
+                var binWidth = categoryWidth * 0.8;
+                var perSolutionWidth = binWidth / Math.Max(1, solutions.Count);
+                var barWidth = Math.Max(3, perSolutionWidth - 2);
+
+                for (int i = 0; i < solutions.Count; i++)
+                {
+                    var value = ParameterValue(solutions[i], parameter);
+                    if (!value.HasValue) continue;
+
+                    var x = categoryLeft + categoryWidth * 0.1 + i * perSolutionWidth + (perSolutionWidth - barWidth) * 0.5;
+                    var y = YForValue(plot, yRange.Minimum, yRange.Maximum, value.Value);
+                    var zeroY = YForValue(plot, yRange.Minimum, yRange.Maximum, 0);
+                    var topRect = Math.Min(y, zeroY);
+                    var height = Math.Abs(zeroY - y);
+                    var rect = new Rect(x, topRect, barWidth, Math.Max(1, height));
+
+                    if (rect.Contains(point))
+                    {
+                        found = true;
+                        break;
+                    }
+                }
+            }
+
+            if (!found) Cursor = new Cursor(StandardCursorType.Arrow);
+            else Cursor = new Cursor(StandardCursorType.Hand);
+
+            e.Handled = true;
+        }
+
         protected override void OnPointerPressed(PointerPressedEventArgs e)
         {
             base.OnPointerPressed(e);

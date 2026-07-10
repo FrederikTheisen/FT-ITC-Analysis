@@ -136,7 +136,7 @@ namespace AnalysisITC.Avalonia.Analysis
                 InspectorTab("Fit", BuildFitTab()),
                 InspectorTab("Parameters", parameterPanel),
                 InspectorTab("Options", optionPanel),
-                InspectorTab("Graph", BuildGraphTab()));
+                InspectorTab("Display", BuildGraphTab()));
 
             Content = WorkspaceControlBuilder.Workspace(graphBorder, inspector);
         }
@@ -486,6 +486,8 @@ namespace AnalysisITC.Avalonia.Analysis
                 isFitting = true;
                 UpdateFitButtonState();
                 fitStatusText.Text = "Fitting...";
+                StatusBarManager.StartInderminateProgress();
+                StatusBarManager.SetStatus("Fitting data...", 0, priority: 1);
                 StatusChanged?.Invoke(this, "Fitting data...");
 
                 var solver = workspace.PrepareForSolve();
@@ -505,8 +507,10 @@ namespace AnalysisITC.Avalonia.Analysis
             {
                 isFitting = false;
                 UpdateFitButtonState();
+                StatusBarManager.ClearAppStatus();
                 AppEventHandler.DisplayHandledException(ex);
                 fitStatusText.Text = $"Fit failed: {ex.Message}";
+                StatusBarManager.SetStatus(fitStatusText.Text, 5000);
             }
         }
 
@@ -514,6 +518,7 @@ namespace AnalysisITC.Avalonia.Analysis
         {
             SolverInterface.TerminateAnalysisFlag.Raise();
             fitStatusText.Text = "Stopping fit...";
+            StatusBarManager.SetStatus("Stopping fit...", 1000, priority: 1);
         }
 
         void OnAnalysisFinished(object? sender, SolverConvergence convergence)
@@ -527,6 +532,8 @@ namespace AnalysisITC.Avalonia.Analysis
                 graph.FitToData();
                 RefreshWorkspaceViews();
                 FittingChanged?.Invoke(this, EventArgs.Empty);
+                StatusBarManager.ClearAppStatus();
+                StatusBarManager.SetStatus(fitStatusText.Text, 5000);
                 StatusChanged?.Invoke(this, fitStatusText.Text);
             });
         }
@@ -538,7 +545,12 @@ namespace AnalysisITC.Avalonia.Analysis
 
         void OnErrorIteration(object? sender, Tuple<int, int, float> e)
         {
-            Dispatcher.UIThread.Post(() => fitStatusText.Text = $"Estimating errors {e.Item1}/{e.Item2}");
+            Dispatcher.UIThread.Post(() =>
+            {
+                fitStatusText.Text = $"Estimating errors {e.Item1}/{e.Item2}";
+                StatusBarManager.SetProgress(e.Item3);
+                StatusBarManager.SetStatus(fitStatusText.Text, 1000, priority: 1);
+            });
         }
 
         void OnSolverUpdated(object? sender, SolverUpdate update)
@@ -546,9 +558,16 @@ namespace AnalysisITC.Avalonia.Analysis
             Dispatcher.UIThread.Post(() =>
             {
                 if (!string.IsNullOrWhiteSpace(update.Message))
+                {
                     fitStatusText.Text = update.Message;
+                    StatusBarManager.SetStatus(update.Message, 1000, priority: 1);
+                }
                 else if (update.Progress >= 0)
+                {
                     fitStatusText.Text = $"Fitting progress {update.Progress:P0}";
+                    StatusBarManager.SetProgress(update.Progress);
+                    StatusBarManager.SetStatus(fitStatusText.Text, 1000, priority: 1);
+                }
             });
         }
 

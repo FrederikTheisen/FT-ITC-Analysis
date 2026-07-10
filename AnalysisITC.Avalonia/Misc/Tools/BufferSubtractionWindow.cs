@@ -26,6 +26,7 @@ namespace AnalysisITC.Avalonia.Tools
         readonly TextBlock referenceInfoText = Text();
         readonly TextBlock statusText = Text();
         readonly Button applyButton = Button("Apply", 82);
+        readonly Button cancelButton = Button("Cancel", 82);
 
         readonly List<ExperimentData> experiments = DataManager.Data.ToList();
 
@@ -51,6 +52,7 @@ namespace AnalysisITC.Avalonia.Tools
         void BuildLayout()
         {
             applyButton.Click += (_, _) => Apply();
+            cancelButton.Click += (_, _) => Close(false);
 
             var inspector = InspectorPanel();
             inspector.Children.Add(Section("Reference",
@@ -66,7 +68,7 @@ namespace AnalysisITC.Avalonia.Tools
                 ContentBorder(graph),
                 Scroll(inspector),
                 InspectorFooter(Section("Apply",
-                    applyButton,
+                    Row(cancelButton, applyButton),
                     statusText)),
                 useOuterMargin: true);
         }

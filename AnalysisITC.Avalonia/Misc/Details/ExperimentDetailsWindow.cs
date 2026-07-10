@@ -16,6 +16,7 @@ using AnalysisITC.Core.DataReaders;
 using AnalysisITC.Core.Numerics;
 using AnalysisITC.Core.Processing;
 using AnalysisITC.Core.Utilities;
+using AnalysisITC.Avalonia.Styling;
 
 namespace AnalysisITC.Avalonia.Details
 {
@@ -83,9 +84,9 @@ namespace AnalysisITC.Avalonia.Details
         {
             var root = new DockPanel
             {
-                LastChildFill = true,
-                Background = Solid("#F5F7FA")
+                LastChildFill = true
             };
+            AppTheme.Bind(root, Panel.BackgroundProperty, AppTheme.WorkspaceBackground);
 
             var footer = new Grid
             {
@@ -107,11 +108,11 @@ namespace AnalysisITC.Avalonia.Details
 
             var footerBorder = new Border
             {
-                Background = Brushes.White,
-                BorderBrush = Solid("#D4DAE1"),
                 BorderThickness = new Thickness(0, 1, 0, 0),
                 Child = footer
             };
+            AppTheme.Bind(footerBorder, Border.BackgroundProperty, AppTheme.PanelBackground);
+            AppTheme.Bind(footerBorder, Border.BorderBrushProperty, AppTheme.PanelBorder);
             DockPanel.SetDock(footerBorder, Dock.Bottom);
             root.Children.Add(footerBorder);
 
@@ -314,57 +315,63 @@ namespace AnalysisITC.Avalonia.Details
         static Border Section(string title, Control[] controls)
         {
             var panel = new StackPanel { Spacing = 7 };
-            panel.Children.Add(new TextBlock
+            var titleBlock = new TextBlock
             {
                 Text = title,
-                FontWeight = FontWeight.SemiBold,
-                Foreground = Solid("#202832")
-            });
+                FontWeight = FontWeight.SemiBold
+            };
+            AppTheme.Bind(titleBlock, TextBlock.ForegroundProperty, AppTheme.PrimaryText);
+            panel.Children.Add(titleBlock);
             foreach (var control in controls)
                 panel.Children.Add(control);
 
-            return new Border
+            var border = new Border
             {
-                Background = Brushes.White,
-                BorderBrush = Solid("#D4DAE1"),
                 BorderThickness = new Thickness(1),
                 Padding = new Thickness(12, 10),
                 Child = panel
             };
+            AppTheme.Bind(border, Border.BackgroundProperty, AppTheme.PanelBackground);
+            AppTheme.Bind(border, Border.BorderBrushProperty, AppTheme.PanelBorder);
+            return border;
         }
 
         static Border Header(string title, string primary, string secondary)
         {
             var panel = new StackPanel { Spacing = 2 };
-            panel.Children.Add(new TextBlock
+            var titleBlock = new TextBlock
             {
                 Text = title,
                 FontSize = 16,
-                FontWeight = FontWeight.SemiBold,
-                Foreground = Solid("#202832")
-            });
-            panel.Children.Add(new TextBlock
+                FontWeight = FontWeight.SemiBold
+            };
+            AppTheme.Bind(titleBlock, TextBlock.ForegroundProperty, AppTheme.PrimaryText);
+            panel.Children.Add(titleBlock);
+            var primaryBlock = new TextBlock
             {
                 Text = primary,
-                Foreground = Solid("#202832"),
                 TextTrimming = TextTrimming.CharacterEllipsis
-            });
-            panel.Children.Add(new TextBlock
+            };
+            AppTheme.Bind(primaryBlock, TextBlock.ForegroundProperty, AppTheme.PrimaryText);
+            panel.Children.Add(primaryBlock);
+            var secondaryBlock = new TextBlock
             {
                 Text = secondary,
-                Foreground = Solid("#607080"),
                 FontSize = 12,
                 TextTrimming = TextTrimming.CharacterEllipsis
-            });
+            };
+            AppTheme.Bind(secondaryBlock, TextBlock.ForegroundProperty, AppTheme.MutedText);
+            panel.Children.Add(secondaryBlock);
 
-            return new Border
+            var border = new Border
             {
-                Background = Brushes.White,
-                BorderBrush = Solid("#D4DAE1"),
                 BorderThickness = new Thickness(0, 0, 0, 1),
                 Padding = new Thickness(14, 12),
                 Child = panel
             };
+            AppTheme.Bind(border, Border.BackgroundProperty, AppTheme.PanelBackground);
+            AppTheme.Bind(border, Border.BorderBrushProperty, AppTheme.PanelBorder);
+            return border;
         }
 
         static TabItem Tab(string header, Control content)
@@ -489,39 +496,40 @@ namespace AnalysisITC.Avalonia.Details
 
         static TextBlock Note(string text)
         {
-            return new TextBlock
+            var textBlock = new TextBlock
             {
                 Text = text,
-                Foreground = Solid("#607080"),
                 FontSize = 12,
                 TextWrapping = TextWrapping.Wrap,
                 VerticalAlignment = VerticalAlignment.Center
             };
+            AppTheme.Bind(textBlock, TextBlock.ForegroundProperty, AppTheme.MutedText);
+            return textBlock;
         }
 
         static TextBlock Text(string text)
         {
-            return new TextBlock
+            var textBlock = new TextBlock
             {
                 Text = text,
-                Foreground = Solid("#4D5A66"),
                 VerticalAlignment = VerticalAlignment.Center,
                 TextWrapping = TextWrapping.Wrap
             };
+            AppTheme.Bind(textBlock, TextBlock.ForegroundProperty, AppTheme.SecondaryText);
+            return textBlock;
         }
 
         static TextBlock FormLabel(string text)
         {
-            return new TextBlock
+            var textBlock = new TextBlock
             {
                 Text = text,
-                Foreground = Solid("#4D5A66"),
                 FontSize = 13,
                 VerticalAlignment = VerticalAlignment.Center,
                 TextWrapping = TextWrapping.NoWrap
             };
+            AppTheme.Bind(textBlock, TextBlock.ForegroundProperty, AppTheme.SecondaryText);
+            return textBlock;
         }
-
-        static IBrush Solid(string color) => new SolidColorBrush(Color.Parse(color));
     }
 }

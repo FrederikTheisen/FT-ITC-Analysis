@@ -13,6 +13,7 @@ using Avalonia.Platform.Storage;
 
 using AnalysisITC.Core.Application;
 using AnalysisITC.Core.Utilities;
+using AnalysisITC.Avalonia.Styling;
 using AnalysisITC.Platform;
 
 namespace AnalysisITC.Avalonia.Support;
@@ -21,7 +22,7 @@ public sealed class CitationWindow : Window
 {
     readonly CitationInfo paperCitation = CitationManager.GetPaperCitation();
     readonly CitationInfo softwareCitation = CitationManager.SoftwareCitation;
-    readonly TextBlock statusText = Text("", 12, "#607080");
+    readonly TextBlock statusText = Text("", 12, AppTheme.MutedText);
 
     CitationWindow()
     {
@@ -35,14 +36,12 @@ public sealed class CitationWindow : Window
         var display = MarkdownBlock(BuildCitationDisplayText(paperCitation, softwareCitation));
         var displayScroll = new ScrollViewer
         {
-            Content = new Border
+            Content = ThemedBorder(new Border
             {
-                Background = Brushes.White,
-                BorderBrush = Brush("#d3dce5"),
                 BorderThickness = new Thickness(1),
                 Padding = new Thickness(14),
                 Child = display
-            },
+            }, AppTheme.PanelBackground, AppTheme.PanelBorder),
             VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
             HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled
         };
@@ -88,8 +87,8 @@ public sealed class CitationWindow : Window
         Grid.SetColumn(close, 2);
         actionGrid.Children.Add(close);
 
-        var title = Text("How to cite FT-ITC Analysis", 20, "#202832", FontWeight.SemiBold);
-        var description = Text("Export writes both citation records for citation managers.", 13, "#607080");
+        var title = Text("How to cite FT-ITC Analysis", 20, AppTheme.PrimaryText, FontWeight.SemiBold);
+        var description = Text("Export writes both citation records for citation managers.", 13, AppTheme.MutedText);
 
         var layout = new Grid
         {
@@ -105,12 +104,13 @@ public sealed class CitationWindow : Window
         layout.Children.Add(displayScroll);
         layout.Children.Add(actionGrid);
 
-        Content = new Border
+        var content = new Border
         {
-            Background = Brush("#f4f7fa"),
             Padding = new Thickness(18),
             Child = layout
         };
+        AppTheme.Bind(content, Border.BackgroundProperty, AppTheme.WorkspaceBackground);
+        Content = content;
     }
 
     public static Task ShowAsync(Window owner)
@@ -178,7 +178,7 @@ public sealed class CitationWindow : Window
 
     static TextBlock MarkdownBlock(string text)
     {
-        var textBlock = Text("", 13, "#202832");
+        var textBlock = Text("", 13, AppTheme.PrimaryText);
         textBlock.LineHeight = 20;
         textBlock.TextWrapping = TextWrapping.Wrap;
 
@@ -235,14 +235,23 @@ public sealed class CitationWindow : Window
         Padding = new Thickness(10, 6)
     };
 
-    static TextBlock Text(string text, double size, string color, FontWeight weight = default) => new()
+    static Border ThemedBorder(Border border, string background, string borderBrush)
     {
-        Text = text,
-        FontSize = size,
-        FontWeight = weight == default ? FontWeight.Normal : weight,
-        Foreground = Brush(color),
-        TextWrapping = TextWrapping.Wrap
-    };
+        AppTheme.Bind(border, Border.BackgroundProperty, background);
+        AppTheme.Bind(border, Border.BorderBrushProperty, borderBrush);
+        return border;
+    }
 
-    static IBrush Brush(string color) => new SolidColorBrush(Color.Parse(color));
+    static TextBlock Text(string text, double size, string resourceKey, FontWeight weight = default)
+    {
+        var textBlock = new TextBlock
+        {
+            Text = text,
+            FontSize = size,
+            FontWeight = weight == default ? FontWeight.Normal : weight,
+            TextWrapping = TextWrapping.Wrap
+        };
+        AppTheme.Bind(textBlock, TextBlock.ForegroundProperty, resourceKey);
+        return textBlock;
+    }
 }
