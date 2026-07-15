@@ -235,9 +235,6 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />
-    <None Include="..\README.md" />
-    <None Include="..\VERSION" />
-    <None Include="..\.gitignore" />
     <None Include="Info.plist" />
     <None Include="Entitlements.plist" />
   </ItemGroup>
@@ -267,6 +264,7 @@
     <Compile Include="Drawing\NSGraph.cs" />
     <Compile Include="Drawing\GraphAxis.cs" />
     <Compile Include="Drawing\FinalFigure.cs" />
+    <Compile Include="Drawing\CoreGraphicsFigureCanvasRenderer.cs" />
     <Compile Include="ViewControllers\SideBarViewController.cs" />
     <Compile Include="ViewControllers\SideBarViewController.designer.cs">
       <DependentUpon>SideBarViewController.cs</DependentUpon>
@@ -279,6 +277,7 @@
     <Compile Include="ViewControllers\MainWindowController.designer.cs">
       <DependentUpon>MainWindowController.cs</DependentUpon>
     </Compile>
+    <Compile Include="ViewControllers\SupportingFigureCanvasWindowController.cs" />
     <Compile Include="SideBarView.cs" />
     <Compile Include="SideBarView.designer.cs">
       <DependentUpon>SideBarView.cs</DependentUpon>
@@ -553,9 +552,6 @@
       <Link>Resources\ProjectFileIcon.icns</Link>
     </BundleResource>
     <BundleResource Include="GuideHintViewController.cs" />
-    <BundleResource Include="..\citation.json">
-      <Link>citation.json</Link>
-    </BundleResource>
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\AnalysisITC.Core\AnalysisITC.Core.csproj">

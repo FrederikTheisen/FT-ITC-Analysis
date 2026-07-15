@@ -57,6 +57,7 @@ namespace AnalysisITC
         private static bool skipDirtyCheckOnNextTerminate;
 
         private NSOpenPanel FileDialog { get; set; }
+        private NSMenuItem supportingFigureMenuItem;
 
         public static void LaunchOpenFileDialog() => OpenFileDialog.Invoke(null, null);
         public static void CloseAllData() => _ = CloseAllDataAsync();
@@ -79,10 +80,34 @@ namespace AnalysisITC
             FileDialog.CanChooseDirectories = true;
             FileDialog.AllowedContentTypes = MacITCFormatTypes.GetAllUTTypes();
 
+            AddSupportingFigureMenuItem();
+
 #if DEBUG
             UnhideProcessedTandemCsvImporter();
             AddTandemMixingScanMenuItem();
 #endif
+        }
+
+        private void AddSupportingFigureMenuItem()
+        {
+            var toolsMenu = NSApplication.SharedApplication.MainMenu?
+                .Items.FirstOrDefault(item => item.Title == "Tools")?
+                .Submenu;
+            if (toolsMenu == null || toolsMenu.Items.Any(item => item.Identifier == "supportingfigurecanvas")) return;
+
+            supportingFigureMenuItem = new NSMenuItem("Supporting Figure...", (sender, e) =>
+            {
+                var controller = NSApplication.SharedApplication.MainWindow?.WindowController as MainWindowController;
+                controller?.OpenSupportingFigureTool();
+            })
+            {
+                Identifier = "supportingfigurecanvas",
+            };
+            supportingFigureMenuItem.Enabled = DataManager.SourceItems != null && DataManager.SourceItems.Count > 0;
+            DataManager.DataDidChange += (sender, data) =>
+                NSApplication.SharedApplication.InvokeOnMainThread(() =>
+                    supportingFigureMenuItem.Enabled = DataManager.SourceItems != null && DataManager.SourceItems.Count > 0);
+            toolsMenu.AddItem(supportingFigureMenuItem);
         }
 
         public override NSApplicationTerminateReply ApplicationShouldTerminate(NSApplication sender)

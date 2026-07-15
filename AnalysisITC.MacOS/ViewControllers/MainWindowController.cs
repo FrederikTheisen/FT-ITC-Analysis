@@ -30,6 +30,7 @@ namespace AnalysisITC
         bool allowDirtyClose;
         bool stopableProcessRunning;
         int toolbarSplineConversionPointDensitySegment = 1;
+        SupportingFigureCanvasWindowController supportingFigureController;
 
         public MainWindowController (IntPtr handle) : base (handle)
 		{
@@ -255,6 +256,15 @@ namespace AnalysisITC
         private void OpenResultExporterTool(object sender, EventArgs e)
         {
             PerformSegue("ShowAnalysisResultExporterSegue", this);
+        }
+
+        internal void OpenSupportingFigureTool()
+        {
+            if (supportingFigureController != null || DataManager.SourceItems == null || DataManager.SourceItems.Count == 0)
+                return;
+
+            supportingFigureController = SupportingFigureCanvasWindowController.CreateForCurrentSelection();
+            supportingFigureController.ShowSheet(Window, () => supportingFigureController = null);
         }
 
         private void StateManager_UpdateStateDependentUI(object sender, EventArgs e)

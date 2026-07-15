@@ -39,6 +39,10 @@ namespace AnalysisITC.Core.Presentation
         Circle = 1
     }
 
+    public enum PublicationBaselineStyle { Solid, Dashed }
+    public enum PublicationBaselineLayer { UnderData, OverData }
+    public enum PublicationIntegrationRegionStyle { Bar, Fill, Line }
+
     public enum PublicationSeriesRole
     {
         Thermogram,
@@ -53,6 +57,7 @@ namespace AnalysisITC.Core.Presentation
         public double PlotWidthCentimeters { get; set; } = 6;
         public double PlotHeightCentimeters { get; set; } = 10;
         public double PointsPerCentimeter { get; set; } = DefaultPointsPerCentimeter;
+        public double FontSize { get; set; } = 14;
 
         public EnergyUnit EnergyUnit { get; set; } = AppSettings.EnergyUnit;
         public TimeUnit TimeUnit { get; set; } = TimeUnit.Minute;
@@ -72,6 +77,12 @@ namespace AnalysisITC.Core.Presentation
         public bool IncludeResidualGraphGap { get; set; } = true;
         public bool SanitizeTicks { get; set; } = true;
         public bool DrawBaselineCorrected { get; set; } = true;
+        public bool ShowBaseline { get; set; } = false;
+        public PublicationBaselineStyle BaselineStyle { get; set; } = PublicationBaselineStyle.Solid;
+        public PublicationBaselineLayer BaselineLayer { get; set; } = PublicationBaselineLayer.OverData;
+        public double BaselineWidth { get; set; } = 2;
+        public bool ShowIntegrationRegions { get; set; }
+        public PublicationIntegrationRegionStyle IntegrationRegionStyle { get; set; } = PublicationIntegrationRegionStyle.Fill;
         public bool ShowZeroLine { get; set; } = true;
 
         public int DataXTickCount { get; set; } = 7;
@@ -116,6 +127,7 @@ namespace AnalysisITC.Core.Presentation
                     PlotWidthCentimeters.ToString("G17"),
                     PlotHeightCentimeters.ToString("G17"),
                     PointsPerCentimeter.ToString("G17"),
+                    FontSize.ToString("G17"),
                     ((int)EnergyUnit).ToString(),
                     ((int)TimeUnit).ToString(),
                     ShowThermogram.ToString(),
@@ -133,6 +145,12 @@ namespace AnalysisITC.Core.Presentation
                     IncludeResidualGraphGap.ToString(),
                     SanitizeTicks.ToString(),
                     DrawBaselineCorrected.ToString(),
+                    ShowBaseline.ToString(),
+                    ((int)BaselineStyle).ToString(),
+                    ((int)BaselineLayer).ToString(),
+                    BaselineWidth.ToString("G17"),
+                    ShowIntegrationRegions.ToString(),
+                    ((int)IntegrationRegionStyle).ToString(),
                     ShowZeroLine.ToString(),
                     DataXTickCount.ToString(),
                     DataYTickCount.ToString(),
@@ -212,6 +230,7 @@ namespace AnalysisITC.Core.Presentation
         public List<PublicationBand> Bands { get; set; } = new List<PublicationBand>();
         public List<PublicationErrorPoint> Points { get; set; } = new List<PublicationErrorPoint>();
         public List<PublicationMarker> Markers { get; set; } = new List<PublicationMarker>();
+        public List<PublicationIntegrationRegion> IntegrationRegions { get; set; } = new List<PublicationIntegrationRegion>();
         public List<PublicationAnnotationBox> AnnotationBoxes { get; set; } = new List<PublicationAnnotationBox>();
     }
 
@@ -283,12 +302,13 @@ namespace AnalysisITC.Core.Presentation
 
             var ticks = NiceTicks(Minimum, Maximum, Math.Max(2, MaxTicks), out var spacing);
             TickSpacing = spacing;
+            var minorTicks = BuildMinorTicks(ticks);
 
             ticks.RemoveAll(tick => tick < Minimum - spacing * 0.001 || tick > Maximum + spacing * 0.001);
             ticks = PreferThreeCenteredTicks(ticks);
 
             MajorTicks = ticks.Select(NormalizeZero).ToList();
-            MinorTicks = BuildMinorTicks(MajorTicks);
+            MinorTicks = minorTicks;
             DecimalPlaces = EstimateDecimalPlaces(MajorTicks, spacing);
         }
 
@@ -427,6 +447,13 @@ namespace AnalysisITC.Core.Presentation
         public List<PublicationPoint> Points { get; set; } = new List<PublicationPoint>();
     }
 
+    public sealed class PublicationIntegrationRegion
+    {
+        public List<PublicationPoint> Data { get; set; } = new List<PublicationPoint>();
+        public List<PublicationPoint> Baseline { get; set; } = new List<PublicationPoint>();
+        public bool BarAtTop { get; set; }
+    }
+
     public sealed class PublicationBand
     {
         public List<PublicationPoint> Upper { get; set; } = new List<PublicationPoint>();
@@ -470,6 +497,18 @@ namespace AnalysisITC.Core.Presentation
         public List<string> Lines { get; private set; } = new List<string>();
     }
 
+    public sealed class PublicationFigureSource
+    {
+        public PublicationFigureSource(ExperimentData experiment, SolutionInterface solution = null)
+        {
+            Experiment = experiment ?? throw new ArgumentNullException(nameof(experiment));
+            Solution = solution;
+        }
+
+        public ExperimentData Experiment { get; private set; }
+        public SolutionInterface Solution { get; private set; }
+    }
+
     public static class PublicationFigureBuilder
     {
         const double DataXAxisBuffer = 0.05;
@@ -479,7 +518,15 @@ namespace AnalysisITC.Core.Presentation
         public static PublicationFigureDocument Build(ExperimentData data, PublicationFigureOptions options)
         {
             if (data == null) throw new ArgumentNullException(nameof(data));
+            return Build(new PublicationFigureSource(data, data.Solution), options);
+        }
+
+        public static PublicationFigureDocument Build(PublicationFigureSource source, PublicationFigureOptions options)
+        {
+            if (source == null) throw new ArgumentNullException(nameof(source));
             options = options ?? new PublicationFigureOptions();
+            var data = source.Experiment;
+            var solution = source.Solution;
 
             var document = new PublicationFigureDocument(options)
             {
@@ -491,27 +538,36 @@ namespace AnalysisITC.Core.Presentation
 
             if (options.ShowThermogram && data.HasThermogram)
             {
-                document.ThermogramPanel = BuildThermogramPanel(data, options);
+                document.ThermogramPanel = BuildThermogramPanel(data, solution, options);
             }
 
-            document.FitPanel = BuildFitPanel(data, options);
+            document.FitPanel = BuildFitPanel(data, solution, options);
 
-            if (options.ShowResiduals && data.Solution != null)
+            if (options.ShowResiduals && solution != null)
             {
-                document.ResidualPanel = BuildResidualPanel(data, options, document.FitPanel.XAxis);
+                document.ResidualPanel = BuildResidualPanel(data, solution, options, document.FitPanel.XAxis);
             }
 
-            document.MetadataKeywords.AddRange(BuildMetadataKeywords(data, options));
+            document.MetadataKeywords.AddRange(BuildMetadataKeywords(data, solution, options));
             return document;
         }
 
-        static PublicationFigurePanel BuildThermogramPanel(ExperimentData data, PublicationFigureOptions options)
+        static PublicationFigurePanel BuildThermogramPanel(ExperimentData data, SolutionInterface solution, PublicationFigureOptions options)
         {
             var powerScale = PowerScale(options.EnergyUnit);
             var timeScale = options.TimeUnit.GetProperties().Mod;
             var points = GetThermogramPoints(data);
 
-            var yRange = RangeWithBuffer(points.Select(point => point.Y), 0.1, includeZero: false);
+            var yValues = points.Select(point => point.Y).ToList();
+            if (options.DrawBaselineCorrected && yValues.Count > 0)
+            {
+                if (data.AverageHeatDirection == PeakHeatDirection.Exothermal)
+                    yValues = new[] { yValues.Min(), 0.0 }.ToList();
+                else if (data.AverageHeatDirection == PeakHeatDirection.Endothermal)
+                    yValues = new[] { 0.0, yValues.Max() }.ToList();
+            }
+
+            var yRange = RangeWithBuffer(yValues, 0.1, includeZero: false);
             var xRange = RangeWithBuffer(points.Select(point => point.X), DataXAxisBuffer, includeZero: true);
             yRange = ApplyAxisOverrides(yRange[0], yRange[1], options.DataYAxisMinimum, options.DataYAxisMaximum);
             xRange = ApplyAxisOverrides(xRange[0], xRange[1], options.DataXAxisMinimum, options.DataXAxisMaximum);
@@ -523,11 +579,20 @@ namespace AnalysisITC.Core.Presentation
                 YAxis = new PublicationAxis(FormatAxisTitle(options.PowerAxisTitle, options.EnergyUnit.IsSI() ? "µW" : "µcal/s"), PublicationAxisPlacement.Left, yRange[0], yRange[1], options.DataYTickCount, sanitizeTicks: options.SanitizeTicks)
             };
 
-            panel.Series.Add(new PublicationSeries
+            var thermogram = new PublicationSeries
             {
                 Role = PublicationSeriesRole.Thermogram,
                 Points = points
-            });
+            };
+            var baseline = BuildBaselineSeries(data, options, powerScale, timeScale);
+            if (baseline != null && options.BaselineLayer == PublicationBaselineLayer.UnderData)
+                panel.Series.Add(baseline);
+            panel.Series.Add(thermogram);
+            if (baseline != null && options.BaselineLayer == PublicationBaselineLayer.OverData)
+                panel.Series.Add(baseline);
+
+            if (options.ShowIntegrationRegions)
+                panel.IntegrationRegions.AddRange(BuildIntegrationRegions(data, options, points, powerScale, timeScale));
 
             // foreach (var injection in data.Injections)
             // {
@@ -536,7 +601,7 @@ namespace AnalysisITC.Core.Presentation
 
             if (options.ShowExperimentDetails)
             {
-                var box = BuildExperimentDetailsBox(data, options);
+                var box = BuildExperimentDetailsBox(data, solution, options);
                 if (box.Lines.Count > 0) panel.AnnotationBoxes.Add(box);
             }
 
@@ -555,7 +620,77 @@ namespace AnalysisITC.Core.Presentation
             }
         }
 
-        static PublicationFigurePanel BuildFitPanel(ExperimentData data, PublicationFigureOptions options)
+        static PublicationSeries BuildBaselineSeries(ExperimentData data, PublicationFigureOptions options, double powerScale, double timeScale)
+        {
+            if (!options.ShowBaseline) return null;
+            var points = BuildBaselinePoints(data, options, powerScale, timeScale);
+            return points == null ? null : new PublicationSeries { Role = PublicationSeriesRole.Baseline, Points = points };
+        }
+
+        static List<PublicationPoint> BuildBaselinePoints(ExperimentData data, PublicationFigureOptions options, double powerScale, double timeScale)
+        {
+            if (data.DataPoints == null || data.DataPoints.Count < 2) return null;
+
+            var points = new List<PublicationPoint>();
+            if (options.DrawBaselineCorrected)
+            {
+                points.Add(new PublicationPoint(data.DataPoints.First().Time * timeScale, 0));
+                points.Add(new PublicationPoint(data.DataPoints.Last().Time * timeScale, 0));
+            }
+            else
+            {
+                var baseline = data.Processor?.Interpolator?.Baseline;
+                if (baseline == null || baseline.Count != data.DataPoints.Count) return null;
+                for (var i = 0; i < data.DataPoints.Count; i++)
+                    points.Add(new PublicationPoint(data.DataPoints[i].Time * timeScale, baseline[i].Value * powerScale));
+            }
+
+            return points;
+        }
+
+        static IEnumerable<PublicationIntegrationRegion> BuildIntegrationRegions(ExperimentData data, PublicationFigureOptions options, List<PublicationPoint> thermogram, double powerScale, double timeScale)
+        {
+            if (data.Injections == null || thermogram.Count < 2) yield break;
+            var baseline = BuildBaselinePoints(data, options, powerScale, timeScale);
+            if (baseline == null) yield break;
+
+            foreach (var injection in data.Injections.Where(item => item.Include))
+            {
+                var start = injection.IntegrationStartTime * timeScale;
+                var end = injection.IntegrationEndTime * timeScale;
+                if (end <= start) continue;
+
+                var times = thermogram.Where(point => point.X > start && point.X < end).Select(point => point.X).ToList();
+                times.Insert(0, start);
+                times.Add(end);
+
+                yield return new PublicationIntegrationRegion
+                {
+                    Data = times.Select(time => new PublicationPoint(time, Interpolate(thermogram, time))).ToList(),
+                    Baseline = times.Select(time => new PublicationPoint(time, Interpolate(baseline, time))).ToList(),
+                    BarAtTop = data.AverageHeatDirection != PeakHeatDirection.Endothermal
+                };
+            }
+        }
+
+        static double Interpolate(List<PublicationPoint> points, double x)
+        {
+            if (x <= points[0].X) return points[0].Y;
+            if (x >= points[points.Count - 1].X) return points[points.Count - 1].Y;
+
+            for (var i = 1; i < points.Count; i++)
+            {
+                if (points[i].X < x) continue;
+                var previous = points[i - 1];
+                var next = points[i];
+                if (Math.Abs(next.X - previous.X) < double.Epsilon) return previous.Y;
+                return previous.Y + (x - previous.X) / (next.X - previous.X) * (next.Y - previous.Y);
+            }
+
+            return points[points.Count - 1].Y;
+        }
+
+        static PublicationFigurePanel BuildFitPanel(ExperimentData data, SolutionInterface solution, PublicationFigureOptions options)
         {
             var energyScale = Energy.ScaleFactor(options.EnergyUnit);
             var drawWithOffset = !options.DrawFitOffsetCorrected;
@@ -565,7 +700,9 @@ namespace AnalysisITC.Core.Presentation
             {
                 if (!options.ShowBadData && !injection.Include) continue;
 
-                var y = drawWithOffset ? injection.Enthalpy : injection.OffsetEnthalpy;
+                var y = drawWithOffset || solution == null
+                    ? injection.Enthalpy
+                    : injection.Enthalpy - solution.Offset;
                 var sd = options.ShowErrorBars && (options.ShowBadDataErrorBars || injection.Include) ? injection.SD : 0;
                 var x = AnalysisXValue(data, injection);
 
@@ -582,11 +719,11 @@ namespace AnalysisITC.Core.Presentation
             }
 
             var fitPoints = new List<PublicationPoint>();
-            if (data.Solution != null && data.Model != null)
+            if (solution?.Model != null)
             {
                 foreach (var injection in data.Injections)
                 {
-                    var y = data.Model.EvaluateEnthalpy(injection.ID, drawWithOffset);
+                    var y = solution.Model.EvaluateEnthalpy(injection.ID, drawWithOffset);
                     var x = AnalysisXValue(data, injection);
                     if (IsFinite(x) && IsFinite(y))
                     {
@@ -638,20 +775,20 @@ namespace AnalysisITC.Core.Presentation
 
             if (options.ShowConfidenceBand)
             {
-                var band = BuildConfidenceBand(data, options, drawWithOffset, energyScale);
+                var band = BuildConfidenceBand(data, solution, options, drawWithOffset, energyScale);
                 if (band.Upper.Count > 0 && band.Lower.Count > 0) panel.Bands.Add(band);
             }
 
-            if (options.ShowFitParameters && data.Solution != null)
+            if (options.ShowFitParameters && solution != null)
             {
-                var box = BuildFitParameterBox(data, options);
+                var box = BuildFitParameterBox(solution, options);
                 if (box.Lines.Count > 0) panel.AnnotationBoxes.Add(box);
             }
 
             return panel;
         }
 
-        static PublicationFigurePanel BuildResidualPanel(ExperimentData data, PublicationFigureOptions options, PublicationAxis parentXAxis)
+        static PublicationFigurePanel BuildResidualPanel(ExperimentData data, SolutionInterface solution, PublicationFigureOptions options, PublicationAxis parentXAxis)
         {
             var energyScale = Energy.ScaleFactor(options.EnergyUnit);
             var points = new List<PublicationErrorPoint>();
@@ -660,7 +797,9 @@ namespace AnalysisITC.Core.Presentation
             {
                 if (!options.ShowBadData && !injection.Include) continue;
 
-                var residual = injection.ResidualEnthalpy;
+                var residual = solution?.Model == null || injection.InjectionMass == 0
+                    ? 0
+                    : solution.Model.Residual(injection) / injection.InjectionMass;
                 var sd = options.ShowErrorBars && (options.ShowBadDataErrorBars || injection.Include) ? injection.SD : 0;
                 var x = AnalysisXValue(data, injection);
 
@@ -704,18 +843,18 @@ namespace AnalysisITC.Core.Presentation
             return panel;
         }
 
-        static PublicationBand BuildConfidenceBand(ExperimentData data, PublicationFigureOptions options, bool drawWithOffset, double energyScale)
+        static PublicationBand BuildConfidenceBand(ExperimentData data, SolutionInterface solution, PublicationFigureOptions options, bool drawWithOffset, double energyScale)
         {
             var band = new PublicationBand();
 
-            if (data.Solution?.BootstrapSolutions == null || data.Solution.BootstrapSolutions.Count == 0 || data.Model == null)
+            if (solution?.BootstrapSolutions == null || solution.BootstrapSolutions.Count == 0 || solution.Model == null)
             {
                 return band;
             }
 
             foreach (var injection in data.Injections)
             {
-                var y = data.Model.EvaluateBootstrap(injection.ID, drawWithOffset).WithConfidence();
+                var y = solution.Model.EvaluateBootstrap(injection.ID, drawWithOffset).WithConfidence();
                 var x = AnalysisXValue(data, injection);
                 if (!IsFinite(x) || y == null || y.Length < 2 || !IsFinite(y[0]) || !IsFinite(y[1])) continue;
 
@@ -728,7 +867,7 @@ namespace AnalysisITC.Core.Presentation
             return band;
         }
 
-        static PublicationAnnotationBox BuildExperimentDetailsBox(ExperimentData data, PublicationFigureOptions options)
+        static PublicationAnnotationBox BuildExperimentDetailsBox(ExperimentData data, SolutionInterface solution, PublicationFigureOptions options)
         {
             var box = new PublicationAnnotationBox
             {
@@ -762,9 +901,9 @@ namespace AnalysisITC.Core.Presentation
                 if (!string.IsNullOrWhiteSpace(instrument)) box.Lines.Add(instrument);
             }
 
-            if (options.DisplayParameters.HasFlag(FinalFigureDisplayParameters.Attributes) && data.Solution != null)
+            if (options.DisplayParameters.HasFlag(FinalFigureDisplayParameters.Attributes) && solution != null)
             {
-                var attributes = data.Solution.UIExperimentModelAttributes(options.AttributeOptions);
+                var attributes = solution.UIExperimentModelAttributes(options.AttributeOptions);
                 foreach (var attribute in attributes)
                 {
                     var line = attribute.Item1;
@@ -776,7 +915,7 @@ namespace AnalysisITC.Core.Presentation
             return box;
         }
 
-        static PublicationAnnotationBox BuildFitParameterBox(ExperimentData data, PublicationFigureOptions options)
+        static PublicationAnnotationBox BuildFitParameterBox(SolutionInterface solution, PublicationFigureOptions options)
         {
             var box = new PublicationAnnotationBox
             {
@@ -788,7 +927,7 @@ namespace AnalysisITC.Core.Presentation
 
             try
             {
-                foreach (var parameter in data.Solution.UISolutionParameters(options.DisplayParameters))
+                foreach (var parameter in solution.UISolutionParameters(options.DisplayParameters))
                 {
                     if (options.DisplayParameters.HasFlag(FinalFigureDisplayParameters.Model) && box.Lines.Count == 0)
                     {
@@ -808,7 +947,7 @@ namespace AnalysisITC.Core.Presentation
             return box;
         }
 
-        static List<string> BuildMetadataKeywords(ExperimentData data, PublicationFigureOptions options)
+        static List<string> BuildMetadataKeywords(ExperimentData data, SolutionInterface solution, PublicationFigureOptions options)
         {
             var keywords = new List<string>
             {
@@ -817,14 +956,14 @@ namespace AnalysisITC.Core.Presentation
                 $"File Date: {data.Date:yyyy-MM-dd}",
                 $"[Syringe]: {data.SyringeConcentration.AsConcentration(ConcentrationUnit.µM, true)}",
                 $"[Cell]: {data.CellConcentration.AsConcentration(ConcentrationUnit.µM, true)}",
-                $"Model: {(data.Solution == null ? "" : data.Solution.ModelType.GetProperties()?.Name ?? data.Solution.ModelType.ToString())}",
-                $"Solution: {(data.Solution == null ? "" : data.Solution.IsGlobalAnalysisSolution ? "Global" : "Single")}",
-                $"Loss: {(data.Solution == null ? "" : data.Solution.Loss.ToString("G3"))}"
+                $"Model: {(solution == null ? "" : solution.ModelType.GetProperties()?.Name ?? solution.ModelType.ToString())}",
+                $"Solution: {(solution == null ? "" : solution.IsGlobalAnalysisSolution ? "Global" : "Single")}",
+                $"Loss: {(solution == null ? "" : solution.Loss.ToString("G3"))}"
             };
 
-            if (data.Solution == null) return keywords.Select(keyword => keyword.Replace(",", "..")).ToList();
+            if (solution == null) return keywords.Select(keyword => keyword.Replace(",", "..")).ToList();
 
-            foreach (var parameter in data.Solution.UISolutionParameters(options.DisplayParameters))
+            foreach (var parameter in solution.UISolutionParameters(options.DisplayParameters))
             {
                 keywords.Add($"{parameter.Item1} = {parameter.Item2}");
             }
