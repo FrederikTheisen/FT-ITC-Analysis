@@ -25,6 +25,9 @@ namespace AnalysisITC
 {
     public partial class FinalFigureGraphView : NSView
     {
+        const float PdfPointsPerCentimeter = 72f / 2.54f;
+        static readonly nfloat FinalFigurePdfScale = PdfPointsPerCentimeter / CGGraph.PPcm;
+
         static readonly ParameterType[] PdfMetadataParameterOrder = new[]
         {
             ParameterType.Offset,
@@ -467,8 +470,15 @@ namespace AnalysisITC
             };
 
             var x = new CGContextPDF(path, pdfInfo);
-            x.BeginPage(new CGRect(new CGPoint(0, 0), g.PrintBox.Size));
-            g.Draw(x, new CGPoint(g.PrintBox.Width / 2, g.PrintBox.Height / 2));
+            var legacyPrintBox = g.PrintBox;
+            var pdfSize = new CGSize(
+                legacyPrintBox.Width * FinalFigurePdfScale,
+                legacyPrintBox.Height * FinalFigurePdfScale);
+            x.BeginPage(new CGRect(CGPoint.Empty, pdfSize));
+            x.SaveState();
+            x.ScaleCTM(FinalFigurePdfScale, FinalFigurePdfScale);
+            g.Draw(x, new CGPoint(legacyPrintBox.Width / 2, legacyPrintBox.Height / 2));
+            x.RestoreState();
             x.EndPage();
             x.Close();
             path.Dispose();

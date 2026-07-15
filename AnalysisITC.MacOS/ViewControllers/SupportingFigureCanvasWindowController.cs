@@ -24,6 +24,9 @@ namespace AnalysisITC
     {
         const string CompositionPasteboardType = "com.frederiktheisen.ftitc.supporting-figure-row";
 
+        const float InspectorSectionGridSpacing = 0;
+        const float InspectorSectionSpacing = 5;
+
         readonly PublicationFigureOptions figureOptions;
         readonly PublicationFigureCanvasOptions defaults = new PublicationFigureCanvasOptions();
         readonly CoreGraphicsFigureCanvasRenderer renderer = new CoreGraphicsFigureCanvasRenderer();
@@ -329,7 +332,7 @@ namespace AnalysisITC
                 Orientation = NSUserInterfaceLayoutOrientation.Vertical,
                 Distribution = NSStackViewDistribution.Fill,
                 Alignment = NSLayoutAttribute.Width,
-                Spacing = 12,
+                Spacing = 8,
                 TranslatesAutoresizingMaskIntoConstraints = false,
             };
             document.AddSubview(stack);
@@ -376,9 +379,9 @@ namespace AnalysisITC
             }));
             AddFullWidth(stack, InspectorSection("Labels", new[]
             {
-                InspectorRow("Panel letters", TrailingControl(panelLettersSwitch)),
-                InspectorRow("Group result figures", TrailingControl(groupResultsSwitch)),
-                InspectorRow("Information boxes", TrailingControl(informationBoxesSwitch)),
+                InspectorRow("Panel letters", panelLettersSwitch),
+                InspectorRow("Group result figures", groupResultsSwitch),
+                InspectorRow("Information boxes", informationBoxesSwitch),
             }));
         }
 
@@ -1057,6 +1060,8 @@ namespace AnalysisITC
             Selectable = false,
             Alignment = NSTextAlignment.Left,
             Font = NSFont.SystemFontOfSize(NSFont.SystemFontSize),
+            LineBreakMode = NSLineBreakMode.TruncatingTail,
+            MaximumNumberOfLines = 1,
         };
 
         static NSTextField Header(string text)
@@ -1093,10 +1098,8 @@ namespace AnalysisITC
                 SelectedSegment = 1,
                 ToolTip = "Choose 0.5 pt lines with short ticks or 1 pt lines with standard ticks",
             };
-            control.SetLabel("0.5 · Short", 0);
-            control.SetLabel("1 · Standard", 1);
-            control.SetWidth(76, 0);
-            control.SetWidth(76, 1);
+            control.SetLabel("Light", 0);
+            control.SetLabel("Standard", 1);
             SetAccessibilityLabel(control, "Line width and tick length");
             return control;
         }
@@ -1131,7 +1134,7 @@ namespace AnalysisITC
         {
             var control = new NSSwitch
             {
-                ControlSize = NSControlSize.Mini,
+                ControlSize = NSControlSize.Regular,
                 ToolTip = accessibilityLabel,
             };
             SetAccessibilityLabel(control, accessibilityLabel);
@@ -1180,19 +1183,6 @@ namespace AnalysisITC
             return stack;
         }
 
-        static NSView TrailingControl(NSView control)
-        {
-            var container = new NSView(new CGRect(0, 0, 120, 22));
-            control.TranslatesAutoresizingMaskIntoConstraints = false;
-            container.AddSubview(control);
-            NSLayoutConstraint.ActivateConstraints(new[]
-            {
-                control.TrailingAnchor.ConstraintEqualToAnchor(container.TrailingAnchor),
-                control.CenterYAnchor.ConstraintEqualToAnchor(container.CenterYAnchor),
-            });
-            return container;
-        }
-
         static NSView[] InspectorRow(string title, NSView value)
             => new[] { Label(title), value };
 
@@ -1209,7 +1199,7 @@ namespace AnalysisITC
                 Orientation = NSUserInterfaceLayoutOrientation.Vertical,
                 Distribution = NSStackViewDistribution.Fill,
                 Alignment = NSLayoutAttribute.Width,
-                Spacing = 8,
+                Spacing = InspectorSectionSpacing,
             };
             var separator = Separator();
             separator.HeightAnchor.ConstraintEqualToConstant(1).Active = true;
@@ -1217,13 +1207,21 @@ namespace AnalysisITC
             header.Font = NSFont.BoldSystemFontOfSize(12);
             var grid = NSGridView.Create(rows);
             grid.ColumnSpacing = 10;
-            grid.RowSpacing = 8;
+            grid.RowSpacing = InspectorSectionGridSpacing;
             grid.RowAlignment = NSGridRowAlignment.FirstBaseline;
             grid.X = NSGridCellPlacement.Fill;
             grid.Y = NSGridCellPlacement.Center;
-            grid.GetColumn(0).Width = 112;
+            grid.GetColumn(0).Width = 136;
             grid.GetColumn(0).X = NSGridCellPlacement.Leading;
             grid.GetColumn(1).X = NSGridCellPlacement.Fill;
+            for (var rowIndex = 0; rowIndex < rows.Length; rowIndex++)
+            {
+                if (!(rows[rowIndex][1] is NSSwitch)) continue;
+                var row = grid.GetRow(rowIndex);
+                row.Height = 32;
+                row.RowAlignment = NSGridRowAlignment.None;
+                grid.GetCell(1, rowIndex).X = NSGridCellPlacement.Trailing;
+            }
             AddFullWidth(stack, separator);
             AddFullWidth(stack, header);
             AddFullWidth(stack, grid);
