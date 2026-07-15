@@ -123,6 +123,7 @@ public sealed class SkiaFigureRenderer
     void DrawPanel(SkiaDrawingContext drawing, PublicationFigureDocument document, PublicationFigurePanel panel, SKRect rect, bool drawXAxisLabels, PublicationFigureRenderSettings settings, float pageLeft)
     {
         var fontSize = settings.FontSize ?? (float)document.Options.FontSize;
+        var strokeWidth = settings.StrokeWidth ?? AxisStrokeWidth;
         drawing.FillRect(rect, White);
 
         drawing.Save();
@@ -139,7 +140,7 @@ public sealed class SkiaFigureRenderer
         if (panel.DrawZeroLine && panel.YAxis.Minimum < 0 && panel.YAxis.Maximum > 0)
         {
             var zero = Transform(panel, rect, 0, 0);
-            drawing.DrawLine(new SKPoint(rect.Left, zero.Y), new SKPoint(rect.Right, zero.Y), Gray, AxisStrokeWidth);
+            drawing.DrawLine(new SKPoint(rect.Left, zero.Y), new SKPoint(rect.Right, zero.Y), Gray, strokeWidth);
         }
 
         foreach (var marker in panel.Markers)
@@ -150,28 +151,28 @@ public sealed class SkiaFigureRenderer
 
         foreach (var series in panel.Series)
         {
-            DrawSeries(drawing, document.Options, panel, rect, series);
+            DrawSeries(drawing, document.Options, panel, rect, series, strokeWidth);
         }
 
         if (document.Options.IntegrationRegionStyle != PublicationIntegrationRegionStyle.Fill)
-            foreach (var region in panel.IntegrationRegions) DrawIntegrationRegionMarker(drawing, document.Options, panel, rect, region);
+            foreach (var region in panel.IntegrationRegions) DrawIntegrationRegionMarker(drawing, document.Options, panel, rect, region, strokeWidth);
 
         foreach (var point in panel.Points)
         {
-            DrawErrorPoint(drawing, document.Options, panel, rect, point, settings.SymbolSize ?? (float)document.Options.SymbolSize);
+            DrawErrorPoint(drawing, document.Options, panel, rect, point, settings.SymbolSize ?? (float)document.Options.SymbolSize, strokeWidth);
         }
 
         drawing.Restore();
 
-        drawing.DrawRect(rect, Black, AxisStrokeWidth);
+        drawing.DrawRect(rect, Black, strokeWidth);
         DrawAxes(drawing, document, panel, rect, drawXAxisLabels, settings, pageLeft);
 
         if (settings.ShowAnnotationBoxes)
             foreach (var box in panel.AnnotationBoxes)
-                DrawAnnotationBox(drawing, panel, rect, box, settings.AnnotationFontSize ?? 12f);
+                DrawAnnotationBox(drawing, panel, rect, box, settings.AnnotationFontSize ?? 12f, strokeWidth);
     }
 
-    void DrawSeries(SkiaDrawingContext drawing, PublicationFigureOptions options, PublicationFigurePanel panel, SKRect rect, PublicationSeries series)
+    void DrawSeries(SkiaDrawingContext drawing, PublicationFigureOptions options, PublicationFigurePanel panel, SKRect rect, PublicationSeries series, float strokeWidth)
     {
         if (series.Points.Count < 2) return;
 
@@ -185,9 +186,9 @@ public sealed class SkiaFigureRenderer
         var color = series.Role == PublicationSeriesRole.Baseline ? BaselineRed : Black;
         var width = series.Role switch
         {
-            PublicationSeriesRole.Fit => (float)Math.Max(0.25, options.FitLineWidth),
-            PublicationSeriesRole.Baseline => (float)Math.Max(0.25, options.BaselineWidth),
-            _ => DataStrokeWidth
+            PublicationSeriesRole.Fit => (float)Math.Max(0.25, options.FitLineWidth * strokeWidth),
+            PublicationSeriesRole.Baseline => (float)Math.Max(0.25, options.BaselineWidth * strokeWidth),
+            _ => strokeWidth
         };
         var smooth = series.Role == PublicationSeriesRole.Fit && options.FitLineSmoothness != LineSmoothness.Linear;
 
@@ -208,7 +209,7 @@ public sealed class SkiaFigureRenderer
         drawing.FillPath(path, Black);
     }
 
-    void DrawIntegrationRegionMarker(SkiaDrawingContext drawing, PublicationFigureOptions options, PublicationFigurePanel panel, SKRect rect, PublicationIntegrationRegion region)
+    void DrawIntegrationRegionMarker(SkiaDrawingContext drawing, PublicationFigureOptions options, PublicationFigurePanel panel, SKRect rect, PublicationIntegrationRegion region, float strokeWidth)
     {
         if (region.Baseline.Count < 2) return;
         var color = new SKColor(120, 120, 120, 128);
@@ -224,7 +225,7 @@ public sealed class SkiaFigureRenderer
         foreach (var endpoint in new[] { region.Baseline.First(), region.Baseline.Last() })
         {
             var center = Transform(panel, rect, endpoint.X, endpoint.Y);
-            drawing.DrawLine(new SKPoint(center.X, center.Y - 4), new SKPoint(center.X, center.Y + 4), color, 1);
+            drawing.DrawLine(new SKPoint(center.X, center.Y - 4), new SKPoint(center.X, center.Y + 4), color, strokeWidth);
         }
     }
 
@@ -246,7 +247,7 @@ public sealed class SkiaFigureRenderer
         drawing.FillPath(path, BandGray);
     }
 
-    void DrawErrorPoint(SkiaDrawingContext drawing, PublicationFigureOptions options, PublicationFigurePanel panel, SKRect rect, PublicationErrorPoint point, float symbolSize)
+    void DrawErrorPoint(SkiaDrawingContext drawing, PublicationFigureOptions options, PublicationFigurePanel panel, SKRect rect, PublicationErrorPoint point, float symbolSize, float strokeWidth)
     {
         var center = Transform(panel, rect, point.X, point.Y);
         var top = Transform(panel, rect, point.X, point.UpperY);
@@ -256,16 +257,16 @@ public sealed class SkiaFigureRenderer
         if (Math.Abs(top.Y - bottom.Y) > symbolSize * 0.7f)
         {
             var cap = symbolSize * 0.45f;
-            drawing.DrawLine(new SKPoint(center.X, top.Y), new SKPoint(center.X, center.Y - symbolSize * 0.5f), Black, AxisStrokeWidth);
-            drawing.DrawLine(new SKPoint(center.X, center.Y + symbolSize * 0.5f), new SKPoint(center.X, bottom.Y), Black, AxisStrokeWidth);
-            drawing.DrawLine(new SKPoint(center.X - cap, top.Y), new SKPoint(center.X + cap, top.Y), Black, AxisStrokeWidth);
-            drawing.DrawLine(new SKPoint(center.X - cap, bottom.Y), new SKPoint(center.X + cap, bottom.Y), Black, AxisStrokeWidth);
+            drawing.DrawLine(new SKPoint(center.X, top.Y), new SKPoint(center.X, center.Y - symbolSize * 0.5f), Black, strokeWidth);
+            drawing.DrawLine(new SKPoint(center.X, center.Y + symbolSize * 0.5f), new SKPoint(center.X, bottom.Y), Black, strokeWidth);
+            drawing.DrawLine(new SKPoint(center.X - cap, top.Y), new SKPoint(center.X + cap, top.Y), Black, strokeWidth);
+            drawing.DrawLine(new SKPoint(center.X - cap, bottom.Y), new SKPoint(center.X + cap, bottom.Y), Black, strokeWidth);
         }
 
-        DrawSymbol(drawing, center, symbolSize, options.SymbolShape, point.Included);
+        DrawSymbol(drawing, center, symbolSize, options.SymbolShape, point.Included, strokeWidth);
     }
 
-    void DrawSymbol(SkiaDrawingContext drawing, SKPoint center, float size, PublicationSymbolShape shape, bool filled)
+    void DrawSymbol(SkiaDrawingContext drawing, SKPoint center, float size, PublicationSymbolShape shape, bool filled, float strokeWidth)
     {
         var half = size * 0.5f;
         var rect = new SKRect(center.X - half, center.Y - half, center.X + half, center.Y + half);
@@ -274,12 +275,12 @@ public sealed class SkiaFigureRenderer
         if (shape == PublicationSymbolShape.Circle)
         {
             drawing.FillOval(rect, fill);
-            drawing.DrawOval(rect, Black, 1);
+            drawing.DrawOval(rect, Black, strokeWidth);
             return;
         }
 
         drawing.FillRect(rect, fill);
-        drawing.DrawRect(rect, Black, 1);
+        drawing.DrawRect(rect, Black, strokeWidth);
     }
 
     void DrawAxes(SkiaDrawingContext drawing, PublicationFigureDocument document, PublicationFigurePanel panel, SKRect rect, bool drawXAxisLabels, PublicationFigureRenderSettings settings, float pageLeft)
@@ -288,29 +289,32 @@ public sealed class SkiaFigureRenderer
         var showXAxisLabels = drawXAxisLabels && (isTopAxis ? settings.ShowTopXAxisTickLabels : settings.ShowBottomXAxisTickLabels);
         var showXAxisTitle = isTopAxis ? settings.ShowTopXAxisTitle : settings.ShowBottomXAxisTitle;
         var fontSize = settings.FontSize ?? (float)document.Options.FontSize;
-        DrawXAxis(drawing, document, panel, rect, showXAxisLabels, drawXAxisLabels && showXAxisTitle, fontSize);
-        DrawYAxis(drawing, document, panel, rect, settings.ShowYAxisTickLabels, settings.ShowYAxisTitle, pageLeft, fontSize);
+        DrawXAxis(drawing, document, panel, rect, showXAxisLabels, drawXAxisLabels && showXAxisTitle, fontSize, settings);
+        DrawYAxis(drawing, document, panel, rect, settings.ShowYAxisTickLabels, settings.ShowYAxisTitle, pageLeft, fontSize, settings);
     }
 
-    void DrawXAxis(SkiaDrawingContext drawing, PublicationFigureDocument document, PublicationFigurePanel panel, SKRect rect, bool drawLabels, bool drawTitle, float fontSize)
+    void DrawXAxis(SkiaDrawingContext drawing, PublicationFigureDocument document, PublicationFigurePanel panel, SKRect rect, bool drawLabels, bool drawTitle, float fontSize, PublicationFigureRenderSettings settings)
     {
         var labelsAtTop = panel.XAxis.Placement == PublicationAxisPlacement.Top;
         var tickStart = labelsAtTop ? rect.Top : rect.Bottom;
         var tickDirection = labelsAtTop ? 1 : -1;
         var tickLabelHeight = drawLabels ? MaxTickLabelHeight(panel.XAxis, fontSize) : 0;
+        var strokeWidth = settings.StrokeWidth ?? TickStrokeWidth;
+        var majorTickLength = settings.MajorTickLength ?? TickLength;
+        var minorTickLength = settings.MinorTickLength ?? MinorTickLength;
 
         foreach (var tick in panel.XAxis.MinorTicks)
         {
             var x = TransformX(panel, rect, tick);
-            drawing.DrawLine(new SKPoint(x, tickStart), new SKPoint(x, tickStart + tickDirection * MinorTickLength), Black, TickStrokeWidth);
-            drawing.DrawLine(new SKPoint(x, labelsAtTop ? rect.Bottom : rect.Top), new SKPoint(x, (labelsAtTop ? rect.Bottom : rect.Top) - tickDirection * MinorTickLength), Black, TickStrokeWidth);
+            drawing.DrawLine(new SKPoint(x, tickStart), new SKPoint(x, tickStart + tickDirection * minorTickLength), Black, strokeWidth);
+            drawing.DrawLine(new SKPoint(x, labelsAtTop ? rect.Bottom : rect.Top), new SKPoint(x, (labelsAtTop ? rect.Bottom : rect.Top) - tickDirection * minorTickLength), Black, strokeWidth);
         }
 
         foreach (var tick in panel.XAxis.MajorTicks)
         {
             var x = TransformX(panel, rect, tick);
-            drawing.DrawLine(new SKPoint(x, tickStart), new SKPoint(x, tickStart + tickDirection * TickLength), Black, TickStrokeWidth);
-            drawing.DrawLine(new SKPoint(x, labelsAtTop ? rect.Bottom : rect.Top), new SKPoint(x, (labelsAtTop ? rect.Bottom : rect.Top) - tickDirection * TickLength), Black, TickStrokeWidth);
+            drawing.DrawLine(new SKPoint(x, tickStart), new SKPoint(x, tickStart + tickDirection * majorTickLength), Black, strokeWidth);
+            drawing.DrawLine(new SKPoint(x, labelsAtTop ? rect.Bottom : rect.Top), new SKPoint(x, (labelsAtTop ? rect.Bottom : rect.Top) - tickDirection * majorTickLength), Black, strokeWidth);
 
             if (drawLabels)
             {
@@ -341,20 +345,23 @@ public sealed class SkiaFigureRenderer
         }
     }
 
-    void DrawYAxis(SkiaDrawingContext drawing, PublicationFigureDocument document, PublicationFigurePanel panel, SKRect rect, bool drawLabels, bool drawTitle, float pageLeft, float fontSize)
+    void DrawYAxis(SkiaDrawingContext drawing, PublicationFigureDocument document, PublicationFigurePanel panel, SKRect rect, bool drawLabels, bool drawTitle, float pageLeft, float fontSize, PublicationFigureRenderSettings settings)
     {
+        var strokeWidth = settings.StrokeWidth ?? TickStrokeWidth;
+        var majorTickLength = settings.MajorTickLength ?? TickLength;
+        var minorTickLength = settings.MinorTickLength ?? MinorTickLength;
         foreach (var tick in panel.YAxis.MinorTicks)
         {
             var y = TransformY(panel, rect, tick);
-            drawing.DrawLine(new SKPoint(rect.Left, y), new SKPoint(rect.Left + MinorTickLength, y), Black, TickStrokeWidth);
-            drawing.DrawLine(new SKPoint(rect.Right, y), new SKPoint(rect.Right - MinorTickLength, y), Black, TickStrokeWidth);
+            drawing.DrawLine(new SKPoint(rect.Left, y), new SKPoint(rect.Left + minorTickLength, y), Black, strokeWidth);
+            drawing.DrawLine(new SKPoint(rect.Right, y), new SKPoint(rect.Right - minorTickLength, y), Black, strokeWidth);
         }
 
         foreach (var tick in panel.YAxis.MajorTicks)
         {
             var y = TransformY(panel, rect, tick);
-            drawing.DrawLine(new SKPoint(rect.Left, y), new SKPoint(rect.Left + TickLength, y), Black, TickStrokeWidth);
-            drawing.DrawLine(new SKPoint(rect.Right, y), new SKPoint(rect.Right - TickLength, y), Black, TickStrokeWidth);
+            drawing.DrawLine(new SKPoint(rect.Left, y), new SKPoint(rect.Left + majorTickLength, y), Black, strokeWidth);
+            drawing.DrawLine(new SKPoint(rect.Right, y), new SKPoint(rect.Right - majorTickLength, y), Black, strokeWidth);
             if (drawLabels)
             {
                 var point = new SKPoint(rect.Left - AxisLabelHorizontalOffset * fontSize / 12f, y);
@@ -370,7 +377,7 @@ public sealed class SkiaFigureRenderer
         }
     }
 
-    void DrawAnnotationBox(SkiaDrawingContext drawing, PublicationFigurePanel panel, SKRect rect, PublicationAnnotationBox box, float fontSize)
+    void DrawAnnotationBox(SkiaDrawingContext drawing, PublicationFigurePanel panel, SKRect rect, PublicationAnnotationBox box, float fontSize, float strokeWidth)
     {
         if (box.Lines.Count == 0) return;
 
@@ -386,7 +393,7 @@ public sealed class SkiaFigureRenderer
         var boxRect = new SKRect(x, y, x + width, y + height);
 
         drawing.FillRect(boxRect, AnnotationBackground);
-        drawing.DrawRect(boxRect, AnnotationBorder, AxisStrokeWidth);
+        drawing.DrawRect(boxRect, AnnotationBorder, strokeWidth);
 
         var textY = y;// + AnnotationPaddingY;
         foreach (var line in box.Lines)
@@ -468,6 +475,9 @@ sealed class PublicationFigureRenderSettings
     public float? FontSize { get; set; }
     public float? AnnotationFontSize { get; set; }
     public float? SymbolSize { get; set; }
+    public float? StrokeWidth { get; set; }
+    public float? MajorTickLength { get; set; }
+    public float? MinorTickLength { get; set; }
     public bool ShowAnnotationBoxes { get; set; } = true;
     public bool ShowTopXAxisTickLabels { get; set; } = true;
     public bool ShowBottomXAxisTickLabels { get; set; } = true;

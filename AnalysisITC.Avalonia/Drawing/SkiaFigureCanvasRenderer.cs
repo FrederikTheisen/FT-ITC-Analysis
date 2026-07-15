@@ -55,6 +55,8 @@ sealed class SkiaFigureCanvasRenderer
         var plotHeight = (float)plotHeightCentimeters * PdfPointsPerCentimeter;
         var fontSize = (float)document.Options.FontSize;
         var symbolSize = (float)document.Options.SymbolSize;
+        var strokeWidth = (float)document.Options.StrokeWidth;
+        var tickLength = SkiaFigureRenderer.TickLength * (strokeWidth <= 0.5f ? 0.5f : 1f);
 
         var settings = document.Cells
             .Select(cell => new PublicationFigureRenderSettings
@@ -62,6 +64,9 @@ sealed class SkiaFigureCanvasRenderer
                 FontSize = fontSize,
                 AnnotationFontSize = 6f,
                 SymbolSize = symbolSize,
+                StrokeWidth = strokeWidth,
+                MajorTickLength = tickLength,
+                MinorTickLength = tickLength * 0.5f,
                 ShowAnnotationBoxes = document.Options.ShowInformationBoxes,
                 ShowTopXAxisTickLabels = true,
                 ShowBottomXAxisTickLabels = true,

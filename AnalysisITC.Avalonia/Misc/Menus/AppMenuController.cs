@@ -217,6 +217,7 @@ internal sealed class AppMenuController
             Command("experimentdesigner"),
             Command("experimentmerger"),
             Command("buffersubtraction"),
+            Separator(),
             Command("analysisresultexporter"),
             Command("supportingfigurecanvas")));
 

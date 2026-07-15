@@ -45,6 +45,7 @@ namespace AnalysisITC.Avalonia.Tools
         readonly TextBox symbolSizeBox = TextBox();
         readonly TextBox columnsBox = TextBox();
         readonly TextBox rowsBox = TextBox();
+        readonly ComboBox strokeWidthCombo = Combo(new[] { "0.5 pt · Short ticks", "1 pt · Standard ticks" });
         readonly CheckBox panelLettersCheck = Check("Panel letters");
         readonly CheckBox groupResultsCheck = Check("Group result figures");
         readonly CheckBox informationBoxesCheck = Check("Parameter / info boxes");
@@ -160,6 +161,8 @@ namespace AnalysisITC.Avalonia.Tools
                 Text("Ticks use the base size; axis titles use base + 1 pt; parameter and info boxes use 6 pt; panel letters use 10 pt.")));
             inspector.Children.Add(Section("Data points",
                 Labeled("Size pt", symbolSizeBox)));
+            inspector.Children.Add(Section("Lines and ticks",
+                Labeled("Weight", strokeWidthCombo)));
             inspector.Children.Add(Section("Labels",
                 panelLettersCheck,
                 groupResultsCheck,
@@ -183,6 +186,7 @@ namespace AnalysisITC.Avalonia.Tools
             plotHeightBox.TextChanged += (_, _) => RefreshPreview();
             fontSizeBox.TextChanged += (_, _) => RefreshPreview();
             symbolSizeBox.TextChanged += (_, _) => RefreshPreview();
+            strokeWidthCombo.SelectionChanged += (_, _) => RefreshPreview();
             columnsBox.TextChanged += (_, _) => RefreshPreview();
             rowsBox.TextChanged += (_, _) => RefreshPreview();
             panelLettersCheck.IsCheckedChanged += (_, _) => RefreshPreview();
@@ -387,6 +391,7 @@ namespace AnalysisITC.Avalonia.Tools
                 PlotHeightCentimeters = ParseDouble(plotHeightBox.Text, canvasDefaults.PlotHeightCentimeters),
                 FontSize = ParseDouble(fontSizeBox.Text, canvasDefaults.FontSize),
                 SymbolSize = ParseDouble(symbolSizeBox.Text, canvasDefaults.SymbolSize),
+                StrokeWidth = strokeWidthCombo.SelectedIndex == 0 ? 0.5 : 1,
                 Columns = ParseInt(columnsBox.Text, canvasDefaults.Columns),
                 Rows = ParseInt(rowsBox.Text, canvasDefaults.Rows),
                 ShowPanelLetters = panelLettersCheck.IsChecked ?? canvasDefaults.ShowPanelLetters,
@@ -401,6 +406,7 @@ namespace AnalysisITC.Avalonia.Tools
             plotHeightBox.Text = canvasDefaults.PlotHeightCentimeters.ToString("G6", CultureInfo.CurrentCulture);
             fontSizeBox.Text = canvasDefaults.FontSize.ToString("G6", CultureInfo.CurrentCulture);
             symbolSizeBox.Text = canvasDefaults.SymbolSize.ToString("G6", CultureInfo.CurrentCulture);
+            strokeWidthCombo.SelectedIndex = canvasDefaults.StrokeWidth <= 0.5 ? 0 : 1;
             columnsBox.Text = canvasDefaults.Columns.ToString(CultureInfo.CurrentCulture);
             rowsBox.Text = canvasDefaults.Rows.ToString(CultureInfo.CurrentCulture);
             panelLettersCheck.IsChecked = canvasDefaults.ShowPanelLetters;
