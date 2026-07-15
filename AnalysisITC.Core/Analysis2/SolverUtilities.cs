@@ -119,16 +119,13 @@ namespace AnalysisITC.Core.Analysis
                 return;
             }
 
-            if (failures == 0)
-            {
-                ErrorEstimationOutcome = ErrorEstimationOutcome.Completed;
-                ErrorEstimationSummary = $"{method} completed successfully";
-                return;
-            }
+            ErrorEstimationOutcome = failures == 0
+                ? ErrorEstimationOutcome.Completed
+                : succeeded > 0
+                    ? ErrorEstimationOutcome.PartialFailure
+                    : ErrorEstimationOutcome.CompleteFailure;
 
-            ErrorEstimationOutcome = succeeded > 0 ? ErrorEstimationOutcome.PartialFailure : ErrorEstimationOutcome.CompleteFailure;
-
-            ErrorEstimationSummary = $"{method}: {succeeded}/{total} succeeded";
+            ErrorEstimationSummary = $"{method}: succeeded={succeeded}, failed={failures}, total={total}";
         }
 
         public SolverConvergence Copy()
