@@ -475,8 +475,16 @@ namespace AnalysisITC.Avalonia.Processing
 
         void DrawEmptyState(DrawingContext context, Rect plot)
         {
-            DrawText(context, "No thermogram selected", new Point(plot.Left + AvaloniaGraphSettings.EmptyStateXOffset, plot.Top + AvaloniaGraphSettings.EmptyStateTitleYOffset), AvaloniaGraphSettings.EmptyTitleFontSize, FontWeight.SemiBold, GraphTheme.MutedTextBrush);
-            DrawText(context, "Open an ITC file and select an experiment to process baseline and injections.", new Point(plot.Left + AvaloniaGraphSettings.EmptyStateXOffset, plot.Top + AvaloniaGraphSettings.EmptyStateBodyYOffset), AvaloniaGraphSettings.EmptyBodyFontSize, FontWeight.Normal, GraphTheme.MutedTextBrush);
+            var hasSelection = Experiment != null;
+            var title = hasSelection ? "No raw thermogram available" : "No experiment selected";
+            var message = hasSelection
+                ? "The selected item contains integrated heats only and cannot be processed for baseline or injections."
+                : "Open an ITC file and select an experiment to process baseline and injections.";
+
+            var x = plot.Left + AvaloniaGraphSettings.EmptyStateXOffset;
+            var width = Math.Max(40, plot.Right - x - AvaloniaGraphSettings.EmptyStateXOffset);
+            AvaloniaGraphText.DrawWrappedText(context, title, new Point(x, plot.Top + AvaloniaGraphSettings.EmptyStateTitleYOffset), width, AvaloniaGraphSettings.EmptyTitleFontSize, FontWeight.SemiBold, GraphTheme.MutedTextBrush);
+            AvaloniaGraphText.DrawWrappedText(context, message, new Point(x, plot.Top + AvaloniaGraphSettings.EmptyStateBodyYOffset), width, AvaloniaGraphSettings.EmptyBodyFontSize, FontWeight.Normal, GraphTheme.MutedTextBrush);
         }
 
         void DrawGrid(DrawingContext context, GraphLayout graph)

@@ -45,14 +45,19 @@ namespace AnalysisITC.Avalonia.Processing
         readonly CheckBox correctedCheck = Check("Corrected", false);
         readonly CheckBox cursorInfoCheck = Check("Cursor", true);
         readonly CheckBox discardIntegratedCheck = Check("Discard integrated regions", true);
+        readonly CheckBox showSplineHandlesCheck = Check("Show spline handles", false);
+        readonly CheckBox moveSplinePointsCheck = Check("Move spline points in time", false);
+        readonly CheckBox copyIntegrationStartCheck = Check("Copy start time to next", true);
 
         readonly Button lockProcessorButton = Button("Lock", 72);
-        readonly Button copyActiveButton = Button("Copy active", 94);
-        readonly Button copyNewButton = Button("Copy new", 84);
+        readonly Button copyActiveButton = Button("Active", 96);
+        readonly Button copyNewButton = Button("New", 96);
+        readonly Button convertSmoothButton = Button("Smooth", 96);
+        readonly Button convertLinearButton = Button("Linear", 96);
         readonly Button allInjectionButton = Button("All", 56);
         readonly Button previousButton = Button("<", 38);
         readonly Button nextButton = Button(">", 38);
-        readonly Button copyNextButton = Button("Copy next", 88);
+        readonly Button copyNextButton = Button("Copy to next peak", 124);
         readonly Button allDataButton = Button("All Y", 64);
         readonly Button baselineZoomButton = Button("Baseline Y", 88);
         readonly Button allPeaksButton = Button("All peaks", 84);
@@ -128,7 +133,9 @@ namespace AnalysisITC.Avalonia.Processing
             {
                 Labeled("Type", baselineTypeCombo),
                 splineOptionsPanel,
-                degreePanel
+                degreePanel,
+                showSplineHandlesCheck,
+                moveSplinePointsCheck
             }));
             panel.Children.Add(Section(integrationHeader, new Control[]
             {
@@ -137,11 +144,16 @@ namespace AnalysisITC.Avalonia.Processing
                 startLabel,
                 Labeled("Length", integrationLengthSlider),
                 lengthLabel,
-                discardIntegratedCheck
+                discardIntegratedCheck,
+                copyIntegrationStartCheck,
+                copyNextButton
             }));
-            panel.Children.Add(Section("Apply", new Control[]
+            panel.Children.Add(Section("Processing Actions", new Control[]
             {
                 lockProcessorButton,
+                Text("Convert to spline"),
+                Row(convertLinearButton, convertSmoothButton),
+                Text("Copy processing"),
                 Row(copyActiveButton, copyNewButton),
                 summaryText
             }));
@@ -155,8 +167,7 @@ namespace AnalysisITC.Avalonia.Processing
             panel.Children.Add(Section("Selection", new Control[]
             {
                 selectionLabel,
-                Row(allInjectionButton, previousButton, nextButton),
-                copyNextButton
+                Row(allInjectionButton, previousButton, nextButton)
             }));
             panel.Children.Add(Section("View", new Control[]
             {
@@ -204,8 +215,13 @@ namespace AnalysisITC.Avalonia.Processing
             correctedCheck.IsCheckedChanged += (_, _) => ApplyViewOptions(refit: true);
             cursorInfoCheck.IsCheckedChanged += (_, _) => ApplyViewOptions();
             discardIntegratedCheck.IsCheckedChanged += async (_, _) => await ChangeDiscardIntegratedAsync();
+            showSplineHandlesCheck.IsCheckedChanged += (_, _) => SetSplineHandlesFromControl();
+            moveSplinePointsCheck.IsCheckedChanged += (_, _) => SetSplinePointTimeDraggingFromControl();
+            copyIntegrationStartCheck.IsCheckedChanged += (_, _) => SetIntegrationStartCopyFromControl();
 
             lockProcessorButton.Click += (_, _) => ToggleLock();
+            convertSmoothButton.Click += async (_, _) => await ConvertCurrentProcessorToSplineAsync(SplineInterpolator.SplineInterpolatorAlgorithm.Smooth);
+            convertLinearButton.Click += async (_, _) => await ConvertCurrentProcessorToSplineAsync(SplineInterpolator.SplineInterpolatorAlgorithm.Linear);
             copyActiveButton.Click += (_, _) => CopyProcessingToActive();
             copyNewButton.Click += (_, _) => CopyProcessingToNonProcessed();
             allInjectionButton.Click += (_, _) => SelectAllInjections();
@@ -521,6 +537,27 @@ namespace AnalysisITC.Avalonia.Processing
         {
             AppSettings.IntegrationRegionCopyIncludesStart = !AppSettings.IntegrationRegionCopyIncludesStart;
             AppSettings.Save();
+            UpdateControls();
+        }
+
+        void SetSplineHandlesFromControl()
+        {
+            if (isUpdatingControls || experiment?.Processor.Interpolator is not SplineInterpolator spline) return;
+            if (spline.ShowHandles == (showSplineHandlesCheck.IsChecked == true)) return;
+            ToggleSplineHandles();
+        }
+
+        void SetSplinePointTimeDraggingFromControl()
+        {
+            if (isUpdatingControls || experiment?.Processor.Interpolator is not SplineInterpolator spline) return;
+            if (spline.AllowPointTimeDragging == (moveSplinePointsCheck.IsChecked == true)) return;
+            ToggleSplinePointTimeDragging();
+        }
+
+        void SetIntegrationStartCopyFromControl()
+        {
+            if (isUpdatingControls || AppSettings.IntegrationRegionCopyIncludesStart == (copyIntegrationStartCheck.IsChecked == true)) return;
+            ToggleIntegrationRegionCopyIncludesStart();
         }
 
         public async Task ConvertCurrentProcessorToSplineAsync(SplineInterpolator.SplineInterpolatorAlgorithm algorithm)
@@ -669,7 +706,26 @@ namespace AnalysisITC.Avalonia.Processing
                     splineAlgorithmCombo.SelectedIndex = spline.Algorithm == SplineInterpolator.SplineInterpolatorAlgorithm.Linear ? 0 : 1;
                     splineDensityCombo.SelectedIndex = (int)spline.PointDensity;
                     splineHandleCombo.SelectedIndex = (int)spline.HandleMode;
+                    showSplineHandlesCheck.IsChecked = spline.ShowHandles;
+                    moveSplinePointsCheck.IsChecked = spline.AllowPointTimeDragging;
                 }
+                else
+                {
+                    showSplineHandlesCheck.IsChecked = false;
+                    moveSplinePointsCheck.IsChecked = false;
+                }
+
+                showSplineHandlesCheck.IsEnabled = processor.Interpolator is SplineInterpolator
+                {
+                    Algorithm: SplineInterpolator.SplineInterpolatorAlgorithm.Smooth
+                };
+                moveSplinePointsCheck.IsEnabled = processor.Interpolator is SplineInterpolator;
+                copyIntegrationStartCheck.IsChecked = AppSettings.IntegrationRegionCopyIncludesStart;
+                convertSmoothButton.IsEnabled = processor.Interpolator is PolynomialLeastSquaresInterpolator or SegmentedBaselineInterpolator;
+                convertLinearButton.IsEnabled = processor.Interpolator is not SplineInterpolator
+                {
+                    Algorithm: SplineInterpolator.SplineInterpolatorAlgorithm.Linear
+                };
 
                 ConfigureDegreeControls();
                 ConfigureIntegrationControls();

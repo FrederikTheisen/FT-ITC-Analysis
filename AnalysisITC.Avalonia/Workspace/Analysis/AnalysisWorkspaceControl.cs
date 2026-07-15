@@ -14,6 +14,7 @@ using AnalysisITC.Core.Analysis.Models;
 using AnalysisITC.Core.Application;
 using AnalysisITC.Core.Data;
 using AnalysisITC.Core.Presentation;
+using AnalysisITC.Core.Units;
 using AnalysisITC.Core.Utilities;
 using CoreAnalysisWorkspace = AnalysisITC.Core.Analysis.AnalysisWorkspace;
 using static AnalysisITC.Avalonia.Workspace.WorkspaceControlBuilder;
@@ -31,8 +32,12 @@ namespace AnalysisITC.Avalonia.Analysis
         readonly ComboBox errorMethodCombo = Combo(new[] { "None", "Bootstrap residuals", "Leave-one-out" }, 190);
         readonly TextBox bootstrapIterationsBox = TextBox("100");
         readonly CheckBox weightedFitCheck = Check("Weight by injection error", false);
+        readonly ComboBox parameterLimitsCombo = Combo(new[] { "Standard", "Expanded", "No limits" }, 190);
+        readonly CheckBox createResultCheck = Check("Create analysis result", true);
+        readonly CheckBox autoOpenResultCheck = Check("Auto-open new result", true);
         readonly Button runFitButton = Button("Run Fit", 92);
         readonly Button stopFitButton = Button("Stop", 70);
+        readonly Button restoreDefaultsButton = Button("Restore defaults", 124);
         readonly TextBlock fitStatusText = Text();
 
         readonly StackPanel parameterPanel = WorkspaceControlBuilder.InspectorPanel();
@@ -49,9 +54,15 @@ namespace AnalysisITC.Avalonia.Analysis
         readonly CheckBox unifiedXCheck = Check("Unified X axis", false);
         readonly CheckBox unifiedYCheck = Check("Unified Y axis", false);
         readonly CheckBox offsetCheck = Check("Show fitted offset", true);
+        readonly ComboBox fitLineInterpolationCombo = Combo(new[] { "Linear", "Smooth" }, 170);
+        readonly CheckBox displayModelCheck = Check("Model parameters", true);
+        readonly CheckBox displayFittedCheck = Check("Fitted parameters", true);
+        readonly CheckBox displayDerivedCheck = Check("Derived parameters", true);
         readonly AnalysisModel[] modelChoices = AnalysisModelAttribute.GetAll().ToArray();
 
         ExperimentData? experiment;
+        SolverInterface? activeSolver;
+        ErrorEstimationMethod activeErrorMethod;
         bool isUpdatingControls;
         bool isFitting;
 
@@ -129,6 +140,7 @@ namespace AnalysisITC.Avalonia.Analysis
             };
             weightedFitCheck.IsChecked = FittingOptionsController.UseErrorWeightedFitting;
             bootstrapIterationsBox.Text = FittingOptionsController.BootstrapIterations.ToString(CultureInfo.CurrentCulture);
+            SyncPreferenceControls();
 
             var graphBorder = WorkspaceControlBuilder.ContentBorder(graph);
 
@@ -138,7 +150,14 @@ namespace AnalysisITC.Avalonia.Analysis
                 InspectorTab("Options", optionPanel),
                 InspectorTab("Display", BuildGraphTab()));
 
-            Content = WorkspaceControlBuilder.Workspace(graphBorder, inspector);
+            Content = WorkspaceControlBuilder.Workspace(
+                graphBorder,
+                inspector,
+                WorkspaceControlBuilder.InspectorFooter(Section("Fit", new Control[]
+                {
+                    Row(runFitButton, stopFitButton),
+                    fitStatusText
+                })));
         }
 
         Control BuildFitTab()
@@ -151,12 +170,17 @@ namespace AnalysisITC.Avalonia.Analysis
                 Labeled("Algorithm", algorithmCombo),
                 Labeled("Errors", errorMethodCombo),
                 Labeled("Bootstrap", bootstrapIterationsBox),
+                Labeled("Limits", parameterLimitsCombo),
                 weightedFitCheck
             }));
-            panel.Children.Add(Section("Run", new Control[]
+            panel.Children.Add(Section("Result", new Control[]
             {
-                Row(runFitButton, stopFitButton),
-                fitStatusText
+                createResultCheck,
+                autoOpenResultCheck
+            }));
+            panel.Children.Add(Section("Actions", new Control[]
+            {
+                restoreDefaultsButton
             }));
 
             return panel;
@@ -164,7 +188,8 @@ namespace AnalysisITC.Avalonia.Analysis
 
         Control BuildGraphTab()
         {
-            return Section("Display", new Control[]
+            var panel = WorkspaceControlBuilder.InspectorPanel();
+            panel.Children.Add(Section("Graph", new Control[]
             {
                 fitCheck,
                 residualsCheck,
@@ -177,7 +202,18 @@ namespace AnalysisITC.Avalonia.Analysis
                 unifiedXCheck,
                 unifiedYCheck,
                 offsetCheck
-            });
+            }));
+            panel.Children.Add(Section("Fit line", new Control[]
+            {
+                Labeled("Interpolation", fitLineInterpolationCombo)
+            }));
+            panel.Children.Add(Section("Parameter box", new Control[]
+            {
+                displayModelCheck,
+                displayFittedCheck,
+                displayDerivedCheck
+            }));
+            return panel;
         }
 
         void WireEvents()
@@ -186,6 +222,14 @@ namespace AnalysisITC.Avalonia.Analysis
             modelCombo.SelectionChanged += (_, _) => ChangeModel();
             runFitButton.Click += (_, _) => RunFit();
             stopFitButton.Click += (_, _) => StopFit();
+            restoreDefaultsButton.Click += (_, _) => RestoreAnalysisDefaults();
+            parameterLimitsCombo.SelectionChanged += (_, _) => ChangeParameterLimits();
+            createResultCheck.IsCheckedChanged += (_, _) => ChangeCreateResult();
+            autoOpenResultCheck.IsCheckedChanged += (_, _) => ChangeAutoOpenResult();
+            fitLineInterpolationCombo.SelectionChanged += (_, _) => ChangeFitLineInterpolation();
+            displayModelCheck.IsCheckedChanged += (_, _) => ChangeParameterDisplay(FinalFigureDisplayParameters.Model, displayModelCheck);
+            displayFittedCheck.IsCheckedChanged += (_, _) => ChangeParameterDisplay(FinalFigureDisplayParameters.Fitted, displayFittedCheck);
+            displayDerivedCheck.IsCheckedChanged += (_, _) => ChangeParameterDisplay(FinalFigureDisplayParameters.Derived, displayDerivedCheck);
 
             fitCheck.IsCheckedChanged += (_, _) => ApplyGraphOptions(refit: false);
             residualsCheck.IsCheckedChanged += (_, _) => ApplyGraphOptions(refit: true);
@@ -291,6 +335,7 @@ namespace AnalysisITC.Avalonia.Analysis
             RefreshModelChoices();
             RebuildParameterRows();
             RebuildOptionRows();
+            SyncPreferenceControls();
             UpdateStatus();
             UpdateFitButtonState();
             graph.InvalidateVisual();
@@ -485,10 +530,6 @@ namespace AnalysisITC.Avalonia.Analysis
             {
                 isFitting = true;
                 UpdateFitButtonState();
-                fitStatusText.Text = "Fitting...";
-                StatusBarManager.StartInderminateProgress();
-                StatusBarManager.SetStatus("Fitting data...", 0, priority: 1);
-                StatusChanged?.Invoke(this, "Fitting data...");
 
                 var solver = workspace.PrepareForSolve();
                 solver.SolverAlgorithm = SelectedAlgorithm();
@@ -501,15 +542,28 @@ namespace AnalysisITC.Avalonia.Analysis
                 FittingOptionsController.BootstrapIterations = solver.BootstrapIterations;
                 FittingOptionsController.UseErrorWeightedFitting = solver.UseErrorWeightedFitting;
 
+                activeSolver = solver;
+                activeErrorMethod = solver.ErrorEstimationMethod;
+
+                var fitDescription = DescribeFit(solver);
+                fitStatusText.Text = fitDescription;
+                StatusBarManager.StartInderminateProgress();
+                StatusBarManager.SetStatus(fitDescription, 0, priority: 1);
+                StatusChanged?.Invoke(this, fitDescription);
+                AppEventHandler.PrintAndLog(
+                    $"Fit started: {DescribeFitScope(solver)}, model={DescribeFitModel(solver)}, optimizer={solver.SolverAlgorithm.GetProperties().ShortName}, errors={solver.ErrorEstimationMethod}");
+
                 solver.Analyze();
             }
             catch (Exception ex)
             {
                 isFitting = false;
+                activeSolver = null;
                 UpdateFitButtonState();
                 StatusBarManager.ClearAppStatus();
                 AppEventHandler.DisplayHandledException(ex);
                 fitStatusText.Text = $"Fit failed: {ex.Message}";
+                AppEventHandler.PrintAndLog(fitStatusText.Text);
                 StatusBarManager.SetStatus(fitStatusText.Text, 5000);
             }
         }
@@ -518,17 +572,29 @@ namespace AnalysisITC.Avalonia.Analysis
         {
             SolverInterface.TerminateAnalysisFlag.Raise();
             fitStatusText.Text = "Stopping fit...";
-            StatusBarManager.SetStatus("Stopping fit...", 1000, priority: 1);
+            StatusBarManager.SetStatus("Stopping fit...", 0, priority: 3);
         }
 
         void OnAnalysisFinished(object? sender, SolverConvergence convergence)
         {
+            if (!ReferenceEquals(sender, activeSolver)) return;
+
             Dispatcher.UIThread.Post(() =>
             {
                 isFitting = false;
-                fitStatusText.Text = convergence.Success
-                    ? $"{convergence.Algorithm.GetProperties().ShortName}: RMSD {convergence.Loss:G4}, {convergence.Iterations} iterations"
-                    : convergence.Message;
+                var elapsed = TimeUnitAttribute.FormatTimeSpanShort(convergence.TotalTime);
+                fitStatusText.Text = $"{convergence.Termination} | RMSD {convergence.Loss:G4} | {convergence.Iterations} iterations | {elapsed}";
+
+                AppEventHandler.PrintAndLog(
+                    $"Fit ended: outcome={convergence.Termination}, iterations={convergence.Iterations}, RMSD={convergence.Loss:G17}, optimizerTime={convergence.Time.TotalMilliseconds:0.###}ms, totalTime={convergence.TotalTime.TotalMilliseconds:0.###}ms");
+                if (activeErrorMethod != ErrorEstimationMethod.None)
+                {
+                    AppEventHandler.PrintAndLog(
+                        $"Error estimation ended: method={activeErrorMethod}, outcome={convergence.ErrorEstimationOutcome}, {convergence.ErrorEstimationSummary}, time={convergence.ErrorEstimationTime.TotalMilliseconds:0.###}ms");
+                }
+
+                activeSolver = null;
+                activeErrorMethod = ErrorEstimationMethod.None;
                 graph.FitToData();
                 RefreshWorkspaceViews();
                 FittingChanged?.Invoke(this, EventArgs.Empty);
@@ -540,36 +606,79 @@ namespace AnalysisITC.Avalonia.Analysis
 
         void OnAnalysisStepFinished(object? sender, EventArgs e)
         {
-            Dispatcher.UIThread.Post(() => graph.InvalidateVisual());
+            if (!isFitting) return;
+
+            Dispatcher.UIThread.Post(() =>
+            {
+                graph.InvalidateVisual();
+                if (activeErrorMethod == ErrorEstimationMethod.None) return;
+
+                fitStatusText.Text = $"Starting {DescribeErrorMethod(activeErrorMethod)}...";
+                StatusBarManager.SetProgress(0);
+                StatusBarManager.SetStatus(fitStatusText.Text, 0, priority: 1);
+            });
         }
 
         void OnErrorIteration(object? sender, Tuple<int, int, float> e)
         {
+            if (!isFitting || activeErrorMethod == ErrorEstimationMethod.None) return;
+
             Dispatcher.UIThread.Post(() =>
             {
-                fitStatusText.Text = $"Estimating errors {e.Item1}/{e.Item2}";
+                fitStatusText.Text = $"{DescribeErrorMethod(activeErrorMethod)} {e.Item1}/{e.Item2}";
                 StatusBarManager.SetProgress(e.Item3);
-                StatusBarManager.SetStatus(fitStatusText.Text, 1000, priority: 1);
+                StatusBarManager.SetStatus(fitStatusText.Text, 0, priority: 1);
             });
         }
 
         void OnSolverUpdated(object? sender, SolverUpdate update)
         {
+            if (!isFitting) return;
+
             Dispatcher.UIThread.Post(() =>
             {
+                if (activeSolver is GlobalSolver globalSolver && globalSolver.Model.ShouldFitIndividually && update.Progress >= 0)
+                {
+                    var total = globalSolver.Model.Models.Count;
+                    var completed = Math.Clamp((int)Math.Round(update.Progress * total), 0, total);
+                    fitStatusText.Text = $"Fitting experiments {completed}/{total}";
+                    StatusBarManager.SetProgress(update.Progress);
+                    StatusBarManager.SetStatus(fitStatusText.Text, 0, priority: 1);
+                    return;
+                }
+
                 if (!string.IsNullOrWhiteSpace(update.Message))
                 {
                     fitStatusText.Text = update.Message;
-                    StatusBarManager.SetStatus(update.Message, 1000, priority: 1);
+                    StatusBarManager.SetStatus(update.Message, 0, priority: 1);
                 }
                 else if (update.Progress >= 0)
                 {
                     fitStatusText.Text = $"Fitting progress {update.Progress:P0}";
                     StatusBarManager.SetProgress(update.Progress);
-                    StatusBarManager.SetStatus(fitStatusText.Text, 1000, priority: 1);
+                    StatusBarManager.SetStatus(fitStatusText.Text, 0, priority: 1);
                 }
             });
         }
+
+        static string DescribeFit(SolverInterface solver) =>
+            $"Fitting {DescribeFitScope(solver)} {DescribeFitModel(solver)} using {solver.SolverAlgorithm.GetProperties().ShortName}...";
+
+        static string DescribeFitScope(SolverInterface solver) => solver is GlobalSolver ? "global" : "single";
+
+        static string DescribeFitModel(SolverInterface solver) => solver switch
+        {
+            Solver single => single.Model.ModelType.ToString(),
+            GlobalSolver global => global.Model.ModelType.ToString(),
+            _ => "unknown",
+        };
+
+        static string DescribeErrorMethod(ErrorEstimationMethod method) => method switch
+        {
+            ErrorEstimationMethod.BootstrapResiduals => "Bootstrap residuals",
+            ErrorEstimationMethod.LeaveOneOut => "Leave-one-out",
+            _ => "Error estimation",
+        };
 
         SolverAlgorithm SelectedAlgorithm()
         {
@@ -659,6 +768,10 @@ namespace AnalysisITC.Avalonia.Analysis
             errorMethodCombo.IsEnabled = !isFitting;
             bootstrapIterationsBox.IsEnabled = !isFitting;
             weightedFitCheck.IsEnabled = !isFitting;
+            parameterLimitsCombo.IsEnabled = !isFitting;
+            createResultCheck.IsEnabled = !isFitting && CanCreateAnalysisResult();
+            autoOpenResultCheck.IsEnabled = !isFitting;
+            restoreDefaultsButton.IsEnabled = !isFitting;
             parameterPanel.IsEnabled = !isFitting;
             optionPanel.IsEnabled = !isFitting;
         }
@@ -685,6 +798,7 @@ namespace AnalysisITC.Avalonia.Analysis
                 AppSettings.CreateSingleAnalysisResult = !AppSettings.CreateSingleAnalysisResult;
 
             AppSettings.Save();
+            SyncPreferenceControls();
             FittingChanged?.Invoke(this, EventArgs.Empty);
         }
 
@@ -692,12 +806,14 @@ namespace AnalysisITC.Avalonia.Analysis
         {
             AppSettings.AutoOpenNewAnalysisResult = !AppSettings.AutoOpenNewAnalysisResult;
             AppSettings.Save();
+            SyncPreferenceControls();
         }
 
         public void SetFitLineSmoothness(LineSmoothness smoothness)
         {
             AppSettings.FitLineSmoothness = smoothness;
             AppSettings.Save();
+            SyncPreferenceControls();
             graph.FitLineSmoothness = AnalysisFitLineSmoothness();
             graph.InvalidateVisual();
             GraphChanged?.Invoke(this, EventArgs.Empty);
@@ -715,6 +831,7 @@ namespace AnalysisITC.Avalonia.Analysis
             AppSettings.ParameterLimitSetting = setting;
             AppSettings.EnableExtendedParameterLimits = setting != ParameterLimitSetting.Standard;
             AppSettings.Save();
+            SyncPreferenceControls();
             RebuildAnalysisContext();
             FittingChanged?.Invoke(this, EventArgs.Empty);
         }
@@ -727,6 +844,7 @@ namespace AnalysisITC.Avalonia.Analysis
                 AppSettings.AnalysisParameterDisplay |= flag;
 
             AppSettings.Save();
+            SyncPreferenceControls();
             graph.InvalidateVisual();
             GraphChanged?.Invoke(this, EventArgs.Empty);
         }
@@ -744,12 +862,73 @@ namespace AnalysisITC.Avalonia.Analysis
             AnalysisSessionState.Reset();
             ModelFactory.ResetStoredAnalysisState();
             AppSettings.Save();
+            SyncPreferenceControls();
 
             RebuildAnalysisContext();
             graph.FitToData();
             fitStatusText.Text = "Analysis defaults restored";
             StatusChanged?.Invoke(this, "Analysis defaults restored");
             FittingChanged?.Invoke(this, EventArgs.Empty);
+        }
+
+        void ChangeParameterLimits()
+        {
+            if (isUpdatingControls || parameterLimitsCombo.SelectedIndex < 0) return;
+            SetParameterLimitSetting(parameterLimitsCombo.SelectedIndex switch
+            {
+                1 => ParameterLimitSetting.Extended,
+                2 => ParameterLimitSetting.NoLimit,
+                _ => ParameterLimitSetting.Standard
+            });
+        }
+
+        void ChangeCreateResult()
+        {
+            if (isUpdatingControls || IsCreateAnalysisResultEnabled() == (createResultCheck.IsChecked == true)) return;
+            ToggleCreateAnalysisResult();
+        }
+
+        void ChangeAutoOpenResult()
+        {
+            if (isUpdatingControls || AppSettings.AutoOpenNewAnalysisResult == (autoOpenResultCheck.IsChecked == true)) return;
+            ToggleAutoOpenNewResult();
+        }
+
+        void ChangeFitLineInterpolation()
+        {
+            if (isUpdatingControls || fitLineInterpolationCombo.SelectedIndex < 0) return;
+            SetFitLineSmoothness(fitLineInterpolationCombo.SelectedIndex == 0 ? LineSmoothness.Linear : LineSmoothness.Smooth);
+        }
+
+        void ChangeParameterDisplay(FinalFigureDisplayParameters flag, CheckBox control)
+        {
+            if (isUpdatingControls || AppSettings.AnalysisParameterDisplay.HasFlag(flag) == (control.IsChecked == true)) return;
+            ToggleAnalysisParameterDisplay(flag);
+        }
+
+        void SyncPreferenceControls()
+        {
+            isUpdatingControls = true;
+            try
+            {
+                parameterLimitsCombo.SelectedIndex = AppSettings.ParameterLimitSetting switch
+                {
+                    ParameterLimitSetting.Extended => 1,
+                    ParameterLimitSetting.NoLimit => 2,
+                    _ => 0
+                };
+                createResultCheck.IsChecked = IsCreateAnalysisResultEnabled();
+                createResultCheck.IsEnabled = CanCreateAnalysisResult();
+                autoOpenResultCheck.IsChecked = AppSettings.AutoOpenNewAnalysisResult;
+                fitLineInterpolationCombo.SelectedIndex = AnalysisFitLineSmoothness() == LineSmoothness.Linear ? 0 : 1;
+                displayModelCheck.IsChecked = AppSettings.AnalysisParameterDisplay.HasFlag(FinalFigureDisplayParameters.Model);
+                displayFittedCheck.IsChecked = AppSettings.AnalysisParameterDisplay.HasFlag(FinalFigureDisplayParameters.Fitted);
+                displayDerivedCheck.IsChecked = AppSettings.AnalysisParameterDisplay.HasFlag(FinalFigureDisplayParameters.Derived);
+            }
+            finally
+            {
+                isUpdatingControls = false;
+            }
         }
 
         bool GlobalModeAvailable()

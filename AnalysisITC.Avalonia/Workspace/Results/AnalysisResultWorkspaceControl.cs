@@ -38,6 +38,7 @@ namespace AnalysisITC.Avalonia.Results
         };
 
         static readonly string[] EvaluationEnergyUnitNames = { "J", "kJ", "cal", "kcal" };
+        static readonly string[] UncertaintyStyleNames = { "Automatic", "Standard deviation", "95% confidence interval", "SD + 95% CI" };
         static readonly string[] SaltModeNames = { "Affinity vs Salt", "Debye-Huckel", "Counter Ion Release" };
 
         readonly ResultParameterGraphControl graph = new ResultParameterGraphControl();
@@ -49,9 +50,9 @@ namespace AnalysisITC.Avalonia.Results
         readonly StackPanel modelPanel = WorkspaceControlBuilder.InspectorPanel();
         readonly StackPanel analysisPanel = WorkspaceControlBuilder.InspectorPanel();
         readonly ComboBox temperatureUnitCombo = WorkspaceControlBuilder.Combo(new[] { "Celsius", "Kelvin" }, 0, 170);
+        readonly ComboBox displayEnergyUnitCombo = WorkspaceControlBuilder.Combo(EvaluationEnergyUnitNames, 1, 170);
+        readonly ComboBox uncertaintyStyleCombo = WorkspaceControlBuilder.Combo(UncertaintyStyleNames, 0, 170);
         readonly TextBox evaluationTemperatureBox = WorkspaceControlBuilder.TextBox("");
-        readonly ComboBox evaluationTemperatureUnitCombo = WorkspaceControlBuilder.Combo(new[] { "Celsius", "Kelvin" }, 0, 170);
-        readonly ComboBox evaluationEnergyUnitCombo = WorkspaceControlBuilder.Combo(EvaluationEnergyUnitNames, 1, 170);
         readonly StackPanel evaluationRowsPanel = WorkspaceControlBuilder.VerticalGroup();
         readonly Border displaySection;
         readonly Border parameterEvaluationSection;
@@ -67,20 +68,22 @@ namespace AnalysisITC.Avalonia.Results
         bool isUpdatingResult;
         bool isRunningAdvancedAnalysis;
         bool evaluationUseKelvin;
+        bool isUpdatingDisplayControls;
 
         public event EventHandler<string>? StatusChanged;
-        public event EventHandler? DetailsRequested;
         public event EventHandler? ResultUpdated;
 
         public AnalysisResultWorkspaceControl()
         {
             displaySection = Section("Display", new Control[]
             {
-                Labeled("Temperature", temperatureUnitCombo)
+                Labeled("Errors", uncertaintyStyleCombo),
+                Labeled("Temperature", temperatureUnitCombo),
+                Labeled("Energy", displayEnergyUnitCombo)
             });
             parameterEvaluationSection = BuildParameterEvaluationSection();
 
-            SetEvaluationEnergyUnit(AppSettings.EnergyUnit);
+            SyncDisplayControls();
             BuildLayout();
             WireEvents();
             Refresh();
@@ -110,8 +113,6 @@ namespace AnalysisITC.Avalonia.Results
                 dependenceGraph.FitToData();
         }
 
-        public bool UseKelvinTemperature => UseKelvin;
-        public EnergyUnit DisplayEnergyUnit => SelectedEvaluationEnergyUnit();
         public ResultAnalysisViewMode ActiveViewMode => activeViewMode;
 
         public bool IsResultViewModeAvailable(ResultAnalysisViewMode mode)
@@ -149,14 +150,20 @@ namespace AnalysisITC.Avalonia.Results
         public void SetTemperatureDisplay(bool kelvin)
         {
             temperatureUnitCombo.SelectedIndex = kelvin ? 1 : 0;
-            RefreshTable();
-            graph.InvalidateVisual();
-            dependenceGraph.Rebuild();
         }
 
         public void SetEnergyDisplay(EnergyUnit unit)
         {
-            SetEvaluationEnergyUnit(unit);
+            isUpdatingDisplayControls = true;
+            try
+            {
+                SetDisplayEnergyUnit(unit);
+            }
+            finally
+            {
+                isUpdatingDisplayControls = false;
+            }
+
             if (AppSettings.EnergyUnit != unit)
             {
                 AppSettings.EnergyUnit = unit;
@@ -167,6 +174,7 @@ namespace AnalysisITC.Avalonia.Results
             graph.InvalidateVisual();
             dependenceGraph.Rebuild();
             RefreshParameterEvaluation();
+            SyncDisplayControls();
         }
 
         public void SetUncertaintyDisplay(UncertaintyDisplayStyle style)
@@ -176,6 +184,7 @@ namespace AnalysisITC.Avalonia.Results
             RefreshTable();
             RefreshParameterEvaluation();
             RefreshAnalysis();
+            SyncDisplayControls();
         }
 
         public async Task UpdateResultAsync()
@@ -263,10 +272,11 @@ namespace AnalysisITC.Avalonia.Results
         {
             temperatureUnitCombo.SelectionChanged += (_, _) =>
             {
-                RefreshTable();
-                graph.InvalidateVisual();
-                dependenceGraph.Rebuild();
+                if (isUpdatingDisplayControls) return;
+                ChangeTemperatureDisplay();
             };
+            displayEnergyUnitCombo.SelectionChanged += (_, _) => ChangeDisplayEnergyUnit();
+            uncertaintyStyleCombo.SelectionChanged += (_, _) => ChangeUncertaintyStyle();
             evaluationTemperatureBox.LostFocus += (_, _) => RefreshParameterEvaluation();
             evaluationTemperatureBox.KeyDown += (_, e) =>
             {
@@ -275,8 +285,6 @@ namespace AnalysisITC.Avalonia.Results
                 RefreshParameterEvaluation();
                 e.Handled = true;
             };
-            evaluationTemperatureUnitCombo.SelectionChanged += (_, _) => ChangeEvaluationTemperatureUnit();
-            evaluationEnergyUnitCombo.SelectionChanged += (_, _) => ChangeEvaluationEnergyUnit();
         }
 
         void RefreshAvailableViewModes()
@@ -388,6 +396,7 @@ namespace AnalysisITC.Avalonia.Results
         void RefreshSummary()
         {
             summaryPanel.Children.Clear();
+            SyncDisplayControls();
 
             if (result == null)
             {
@@ -398,15 +407,6 @@ namespace AnalysisITC.Avalonia.Results
             var solution = result.Solution;
             var convergence = solution.Convergence;
             var report = result.ValidityReport;
-            var detailsButton = new Button
-            {
-                Content = "Details...",
-                MinHeight = 26,
-                Padding = new Thickness(8, 1),
-                HorizontalAlignment = HorizontalAlignment.Left
-            };
-            detailsButton.Click += (_, _) => DetailsRequested?.Invoke(this, EventArgs.Empty);
-
             var updateButton = new Button
             {
                 Content = isUpdatingResult ? "Updating..." : "Update Result",
@@ -416,8 +416,6 @@ namespace AnalysisITC.Avalonia.Results
                 IsEnabled = !isUpdatingResult && result.Solution?.Model != null
             };
             updateButton.Click += async (_, _) => await UpdateResultAsync();
-
-            //summaryPanel.Children.Add(WorkspaceControlBuilder.Row(detailsButton, updateButton));
 
             summaryPanel.Children.Add(Section("Result", new Control[]
             {
@@ -437,6 +435,10 @@ namespace AnalysisITC.Avalonia.Results
             }));
 
             summaryPanel.Children.Add(displaySection);
+            summaryPanel.Children.Add(Section("Actions", new Control[]
+            {
+                updateButton
+            }));
             summaryPanel.Children.Add(BuildValiditySection(report));
             RefreshParameterEvaluation();
         }
@@ -446,8 +448,6 @@ namespace AnalysisITC.Avalonia.Results
             return WorkspaceControlBuilder.Section(
                 "Parameter Evaluation",
                 WorkspaceControlBuilder.Labeled("Temperature", evaluationTemperatureBox),
-                WorkspaceControlBuilder.Labeled("Temp unit", evaluationTemperatureUnitCombo),
-                WorkspaceControlBuilder.Labeled("Energy", evaluationEnergyUnitCombo),
                 evaluationRowsPanel);
         }
 
@@ -456,8 +456,7 @@ namespace AnalysisITC.Avalonia.Results
             isUpdatingEvaluationControls = true;
             try
             {
-                evaluationUseKelvin = evaluationTemperatureUnitCombo.SelectedIndex == 1;
-                SetEvaluationEnergyUnit(AppSettings.EnergyUnit);
+                evaluationUseKelvin = UseKelvin;
 
                 if (result == null)
                     evaluationTemperatureBox.Text = "";
@@ -470,7 +469,7 @@ namespace AnalysisITC.Avalonia.Results
             }
         }
 
-        void ChangeEvaluationTemperatureUnit()
+        void ChangeTemperatureDisplay()
         {
             if (isUpdatingEvaluationControls) return;
 
@@ -480,26 +479,12 @@ namespace AnalysisITC.Avalonia.Results
                     ? 25.0
                     : AnalysisResultParameterEvaluator.DefaultEvaluationTemperatureCelsius(result);
 
-            evaluationUseKelvin = evaluationTemperatureUnitCombo.SelectedIndex == 1;
+            evaluationUseKelvin = UseKelvin;
             SetEvaluationTemperatureText(temperatureCelsius);
-            RefreshParameterEvaluation();
-        }
-
-        void ChangeEvaluationEnergyUnit()
-        {
-            if (isUpdatingEvaluationControls) return;
-
-            var energyUnit = SelectedEvaluationEnergyUnit();
-            if (AppSettings.EnergyUnit != energyUnit)
-            {
-                AppSettings.EnergyUnit = energyUnit;
-                AppSettings.Save();
-            }
-
             RefreshTable();
             graph.InvalidateVisual();
+            dependenceGraph.Rebuild();
             RefreshParameterEvaluation();
-            StatusChanged?.Invoke(this, "Result energy unit updated.");
         }
 
         void RefreshParameterEvaluation()
@@ -527,7 +512,7 @@ namespace AnalysisITC.Avalonia.Results
             var evaluation = AnalysisResultParameterEvaluator.Evaluate(
                 result,
                 temperatureCelsius,
-                SelectedEvaluationEnergyUnit(),
+                AppSettings.EnergyUnit,
                 AppSettings.UncertaintyDisplayStyle);
 
             if (!evaluation.IsAvailable)
@@ -780,7 +765,6 @@ namespace AnalysisITC.Avalonia.Results
             {
                 Pair("Kd0", analysis.Kd0.AsFormattedConcentration(withunit: true)),
                 Pair("Counter ion", analysis.CounterIonRelease.AsNumber()),
-                Pair("Iterations", analysis.CompletedIterations.ToString(CultureInfo.CurrentCulture))
             }));
         }
 
@@ -815,7 +799,6 @@ namespace AnalysisITC.Avalonia.Results
                 Pair("Binding H", fit == null
                     ? analysis.BindingEnthalpy.ToFormattedString(AppSettings.EnergyUnit, permole: true)
                     : new Energy(fit.Evaluate(0)).ToFormattedString(AppSettings.EnergyUnit, true, true, false)),
-                Pair("Iterations", analysis.CompletedIterations.ToString(CultureInfo.CurrentCulture))
             }));
         }
 
@@ -974,21 +957,50 @@ namespace AnalysisITC.Avalonia.Results
             grid.Children.Add(border);
         }
 
-        EnergyUnit SelectedEvaluationEnergyUnit()
-        {
-            var index = evaluationEnergyUnitCombo.SelectedIndex;
-            return index >= 0 && index < EvaluationEnergyUnits.Length
-                ? EvaluationEnergyUnits[index]
-                : EnergyUnit.KiloJoule;
-        }
-
-        void SetEvaluationEnergyUnit(EnergyUnit unit)
+        void SetDisplayEnergyUnit(EnergyUnit unit)
         {
             var index = Array.IndexOf(EvaluationEnergyUnits, unit);
-            if (index < 0)
-                index = Array.IndexOf(EvaluationEnergyUnits, EnergyUnit.KiloJoule);
+            displayEnergyUnitCombo.SelectedIndex = index >= 0 ? index : 1;
+        }
 
-            evaluationEnergyUnitCombo.SelectedIndex = Math.Max(0, index);
+        void ChangeDisplayEnergyUnit()
+        {
+            if (isUpdatingDisplayControls) return;
+            var index = displayEnergyUnitCombo.SelectedIndex;
+            if (index < 0 || index >= EvaluationEnergyUnits.Length) return;
+            SetEnergyDisplay(EvaluationEnergyUnits[index]);
+        }
+
+        void ChangeUncertaintyStyle()
+        {
+            if (isUpdatingDisplayControls) return;
+            SetUncertaintyDisplay(uncertaintyStyleCombo.SelectedIndex switch
+            {
+                1 => UncertaintyDisplayStyle.StandardDeviation,
+                2 => UncertaintyDisplayStyle.ConfidenceInterval,
+                3 => UncertaintyDisplayStyle.StandardDeviationAndConfidenceInterval,
+                _ => UncertaintyDisplayStyle.Automatic
+            });
+        }
+
+        void SyncDisplayControls()
+        {
+            isUpdatingDisplayControls = true;
+            try
+            {
+                SetDisplayEnergyUnit(AppSettings.EnergyUnit);
+                uncertaintyStyleCombo.SelectedIndex = AppSettings.UncertaintyDisplayStyle switch
+                {
+                    UncertaintyDisplayStyle.StandardDeviation => 1,
+                    UncertaintyDisplayStyle.ConfidenceInterval => 2,
+                    UncertaintyDisplayStyle.StandardDeviationAndConfidenceInterval => 3,
+                    _ => 0
+                };
+            }
+            finally
+            {
+                isUpdatingDisplayControls = false;
+            }
         }
 
         bool TryReadEvaluationTemperatureCelsius(out double temperatureCelsius)

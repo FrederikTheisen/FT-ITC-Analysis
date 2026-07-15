@@ -21,8 +21,6 @@ using AnalysisITC.Core.Data;
 using AnalysisITC.Core.DataReaders;
 using AnalysisITC.Core.Export;
 using AnalysisITC.Core.Presentation;
-using AnalysisITC.Core.Processing;
-using AnalysisITC.Core.Units;
 using AnalysisITC.Core.Utilities;
 using AnalysisITC.Avalonia.Analysis;
 using AnalysisITC.Avalonia.Details;
@@ -45,20 +43,22 @@ public partial class MainWindow : Window
     bool overviewShowsRawData = true;
     bool allowDirtyClose;
     bool isHandlingDirtyClose;
+    bool isReloadingLastFile;
     int activeExperimentWorkspaceIndex;
 
     public MainWindow()
     {
         InitializeComponent();
 
-        OpenButton.Click += async (_, _) => await OpenFilesFromMenuAsync();
-        ClearButton.Click += async (_, _) => await ClearDataWithConfirmationAsync();
-        ExperimentDesignerButton.Click += async (_, _) => await OpenExperimentDesignerAsync();
         IncludeAllButton.Click += (_, _) => SetAllExperimentInclusion(true);
         IncludeNoneButton.Click += (_, _) => SetAllExperimentInclusion(false);
+        WelcomeOpenButton.Click += async (_, _) => await OpenFilesAsync();
+        WelcomeReloadButton.Click += async (_, _) => await ReloadLastFilesAsync();
         ItemsList.SelectionChanged += (_, _) => SelectListItem();
         ItemsList.PointerReleased += OnItemsListPointerReleased;
         WorkspaceTabs.SelectionChanged += (_, _) => OnWorkspaceTabChanged();
+        OverviewRawButton.Click += (_, _) => SelectOverviewMode(rawData: true);
+        OverviewInjectionsButton.Click += (_, _) => SelectOverviewMode(rawData: false);
         ProcessingWorkspace.StatusChanged += OnProcessingStatusChanged;
         ProcessingWorkspace.ProcessingChanged += OnProcessingChanged;
         AnalysisWorkspace.StatusChanged += OnAnalysisStatusChanged;
@@ -66,7 +66,6 @@ public partial class MainWindow : Window
         AnalysisWorkspace.FittingChanged += OnAnalysisFittingChanged;
         FinalFigureWorkspace.StatusChanged += OnFinalFigureStatusChanged;
         ResultWorkspace.StatusChanged += OnResultStatusChanged;
-        ResultWorkspace.DetailsRequested += OnResultDetailsRequested;
         ResultWorkspace.ResultUpdated += OnResultUpdated;
 
         DataManager.DataDidChange += OnDataDidChange;
@@ -127,14 +126,12 @@ public partial class MainWindow : Window
         AnalysisWorkspace.FittingChanged -= OnAnalysisFittingChanged;
         FinalFigureWorkspace.StatusChanged -= OnFinalFigureStatusChanged;
         ResultWorkspace.StatusChanged -= OnResultStatusChanged;
-        ResultWorkspace.DetailsRequested -= OnResultDetailsRequested;
         ResultWorkspace.ResultUpdated -= OnResultUpdated;
 
         base.OnClosed(e);
     }
 
     internal Menu MenuHost => InWindowMenu;
-    internal int ActiveWorkspaceIndex => WorkspaceTabs.IsVisible ? WorkspaceTabs.SelectedIndex : -1;
 
     internal bool HasDocumentContent() => DataManager.SourceItems.Count > 0;
     internal bool HasDataLoaded() => DataManager.DataIsLoaded;
@@ -151,9 +148,7 @@ public partial class MainWindow : Window
     internal bool CanDisableAnyExperiment() => DataManager.Data.Any(data => data.Include);
     internal bool SelectedExperimentHasAttributes() => selectedItem is ExperimentData data && data.Attributes.Count > 0;
     internal bool SelectedExperimentHasSolution() => selectedItem is ExperimentData data && data.Solution != null;
-    internal bool HasSelectedProcessor() => selectedItem is ExperimentData data && data.HasThermogram && data.Processor?.Interpolator != null;
     internal bool CanExportFinalFigure() => selectedItem is ExperimentData or AnalysisResult;
-    internal bool IsAutoOpenResultEnabled() => AppSettings.AutoOpenNewAnalysisResult;
 
     internal Task OpenFilesFromMenuAsync() => OpenFilesAsync();
 
@@ -295,32 +290,6 @@ public partial class MainWindow : Window
         return Task.CompletedTask;
     }
 
-    internal Task SelectWorkspaceAsync(int index)
-    {
-        if (selectedItem is ExperimentData && index >= 0 && index < WorkspaceTabs.Items.Count)
-        {
-            WorkspaceTabs.IsVisible = true;
-            ResultWorkspace.IsVisible = false;
-            activeExperimentWorkspaceIndex = index;
-            WorkspaceTabs.SelectedIndex = index;
-            RefreshMenuState();
-        }
-
-        return Task.CompletedTask;
-    }
-
-    internal Task ShowResultViewAsync()
-    {
-        if (selectedItem is AnalysisResult)
-        {
-            WorkspaceTabs.IsVisible = false;
-            ResultWorkspace.IsVisible = true;
-            RefreshMenuState();
-        }
-
-        return Task.CompletedTask;
-    }
-
     internal Task OpenSelectedDetailsFromMenuAsync() => OpenSelectedDetailsAsync();
 
     internal Task ToggleSelectedExperimentInclusionAsync()
@@ -371,60 +340,6 @@ public partial class MainWindow : Window
         DataManager.RemoveSourceItemAt(DataManager.SelectedContentIndex);
         RefreshDataList();
         RefreshMenuState();
-    }
-
-    internal Task ToggleSelectedProcessorLockAsync()
-    {
-        if (selectedItem is ExperimentData experiment && experiment.Processor != null)
-        {
-            experiment.Processor.ToggleLock();
-            ProcessingWorkspace.Experiment = experiment;
-            RefreshMenuState();
-        }
-
-        return Task.CompletedTask;
-    }
-
-    internal Task CopyProcessingToActiveAsync()
-    {
-        DataManager.CopySelectedProcessToActive();
-        RefreshMenuState();
-        return Task.CompletedTask;
-    }
-
-    internal Task CopyProcessingToNonProcessedAsync()
-    {
-        DataManager.CopySelectedProcessToNonProcessed();
-        RefreshMenuState();
-        return Task.CompletedTask;
-    }
-
-    internal Task ToggleAutoOpenResultAsync()
-    {
-        AppSettings.AutoOpenNewAnalysisResult = !AppSettings.AutoOpenNewAnalysisResult;
-        AppSettings.Save();
-        RefreshMenuState();
-        return Task.CompletedTask;
-    }
-
-    internal Task RestoreAnalysisDefaultsAsync()
-    {
-        AppSettings.CreateSingleAnalysisResult = false;
-        AppSettings.CreateGlobalAnalysisResult = true;
-        AppSettings.AutoOpenNewAnalysisResult = true;
-        AppSettings.ParameterLimitSetting = ParameterLimitSetting.Standard;
-        AppSettings.EnableExtendedParameterLimits = false;
-        AppSettings.AnalysisParameterDisplay =
-            FinalFigureDisplayParameters.Model | FinalFigureDisplayParameters.Fitted | FinalFigureDisplayParameters.Derived;
-
-        AnalysisSessionState.Reset();
-        ModelFactory.ResetStoredAnalysisState();
-        AppSettings.Save();
-
-        StatusBarManager.SetStatus("Analysis defaults restored", 3000);
-        AnalysisWorkspace.Experiment = selectedItem as ExperimentData;
-        RefreshMenuState();
-        return Task.CompletedTask;
     }
 
     internal Task CopyResultTableAsync()
@@ -569,6 +484,15 @@ public partial class MainWindow : Window
         RefreshMenuState();
     }
 
+    internal async Task OpenSupportingFigureCanvasAsync()
+    {
+        if (!HasDocumentContent()) return;
+
+        var dialog = new SupportingFigureCanvasWindow(FinalFigureWorkspace.GetOptionsSnapshot(), selectedItem);
+        await dialog.ShowDialog(this);
+        RefreshMenuState();
+    }
+
     internal Task QuitAsync()
     {
         if (DocumentDirtyTracker.IsDirty)
@@ -596,62 +520,92 @@ public partial class MainWindow : Window
     void RefreshMenuState()
     {
         menuController?.Refresh();
-        RefreshToolbarContextMenus();
     }
 
     async Task OpenFilesAsync()
     {
-        OpenButton.IsEnabled = false;
+        var patterns = ITCFormatAttribute.GetAllExtensions()
+            .Select(extension => "*" + extension)
+            .ToList();
 
+        var files = await StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
+        {
+            Title = "Open ITC Data",
+            AllowMultiple = true,
+            FileTypeFilter = new[]
+            {
+                new FilePickerFileType("ITC data") { Patterns = patterns },
+                FilePickerFileTypes.All
+            }
+        });
+
+        var paths = files
+            .Select(GetLocalPath)
+            .Where(path => !string.IsNullOrWhiteSpace(path))
+            .Select(path => path!)
+            .ToArray();
+
+        await OpenPathsAsync(paths);
+    }
+
+    async Task ReloadLastFilesAsync()
+    {
+        if (isReloadingLastFile) return;
+
+        var paths = LastDocumentPaths().Where(File.Exists).ToArray();
+        if (paths.Length == 0)
+        {
+            UpdateEmptyWorkspaceState();
+            StatusBarManager.SetStatus("The last opened file is no longer available", 4000);
+            return;
+        }
+
+        isReloadingLastFile = true;
+        UpdateEmptyWorkspaceState();
         try
         {
-            var patterns = ITCFormatAttribute.GetAllExtensions()
-                .Select(extension => "*" + extension)
-                .ToList();
-
-            var files = await StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
-            {
-                Title = "Open ITC Data",
-                AllowMultiple = true,
-                FileTypeFilter = new[]
-                {
-                    new FilePickerFileType("ITC data") { Patterns = patterns },
-                    FilePickerFileTypes.All
-                }
-            });
-
-            var paths = files
-                .Select(GetLocalPath)
-                .Where(path => !string.IsNullOrWhiteSpace(path))
-                .ToArray();
-
-            if (paths.Length == 0) return;
-
-            if (paths.Any(path => DataReader.GetFormat(path) == ITCDataFormat.FTITC) && HasDocumentContent())
-            {
-                switch (await ProjectLoadDialogWindow.PromptAsync(this))
-                {
-                    case ProjectLoadAction.Replace:
-                        if (!await TryClearDataWithConfirmationAsync()) return;
-                        break;
-                    case ProjectLoadAction.Append:
-                        break;
-                    default:
-                        return;
-                }
-            }
-
-            SetStatus("Opening data...");
-            var result = await DataReader.ReadPathsAsync(paths);
-            RefreshDataList();
-            SetOpenResultStatus(result);
-            UpdateDocumentStatus();
-            RefreshMenuState();
+            await OpenPathsAsync(paths);
         }
         finally
         {
-            OpenButton.IsEnabled = true;
+            isReloadingLastFile = false;
+            UpdateEmptyWorkspaceState();
         }
+    }
+
+    async Task OpenPathsAsync(string[] paths)
+    {
+        if (paths.Length == 0) return;
+
+        if (paths.Any(path => DataReader.GetFormat(path) == ITCDataFormat.FTITC) && HasDocumentContent())
+        {
+            switch (await ProjectLoadDialogWindow.PromptAsync(this))
+            {
+                case ProjectLoadAction.Replace:
+                    if (!await TryClearDataWithConfirmationAsync()) return;
+                    break;
+                case ProjectLoadAction.Append:
+                    break;
+                default:
+                    return;
+            }
+        }
+
+        SetStatus("Opening data...");
+        var result = await DataReader.ReadPathsAsync(paths);
+        RefreshDataList();
+        SetOpenResultStatus(result);
+        UpdateDocumentStatus();
+        RefreshMenuState();
+    }
+
+    static IEnumerable<string> LastDocumentPaths()
+    {
+        var paths = AppSettings.LastDocumentPaths ?? Array.Empty<string>();
+        if (paths.Length == 0 && !string.IsNullOrWhiteSpace(AppSettings.LastDocumentPath))
+            paths = new[] { AppSettings.LastDocumentPath };
+
+        return paths.Where(path => !string.IsNullOrWhiteSpace(path)).Distinct();
     }
 
     static string? GetLocalPath(IStorageFile file)
@@ -720,6 +674,7 @@ public partial class MainWindow : Window
 
         ItemsList.ItemsSource = entries;
         UpdateListHeader();
+        UpdateEmptyWorkspaceState();
 
         var nextIndex = previous == null
             ? DataManager.SelectedContentIndex
@@ -731,6 +686,22 @@ public partial class MainWindow : Window
         var next = ItemsList.SelectedItem is DataListEntry entry ? entry.Item : null;
         UpdateSelection(next);
         RefreshMenuState();
+    }
+
+    void UpdateEmptyWorkspaceState()
+    {
+        var isEmpty = entries.Count == 0;
+        EmptyWorkspacePanel.IsVisible = isEmpty;
+        if (!isEmpty) return;
+
+        var lastPaths = LastDocumentPaths().Where(File.Exists).ToArray();
+        WelcomeReloadButton.IsEnabled = !isReloadingLastFile && lastPaths.Length > 0;
+        WelcomeLastFileText.Text = lastPaths.Length switch
+        {
+            0 => "No previous file is available to reload.",
+            1 => $"Last file: {Path.GetFileName(lastPaths[0])}",
+            _ => $"Reload {lastPaths.Length} files from the previous session."
+        };
     }
 
     void SelectListItem()
@@ -798,187 +769,6 @@ public partial class MainWindow : Window
         return menu;
     }
 
-    void RefreshToolbarContextMenus()
-    {
-        ObjectToolbarMenuButton.Content = selectedItem is AnalysisResult ? "Result" : "Experiment";
-        ObjectToolbarMenuButton.IsEnabled = selectedItem is ExperimentData or AnalysisResult;
-        ObjectToolbarMenuButton.Flyout = BuildSelectedObjectToolbarMenu();
-
-        WorkflowToolbarMenuButton.Content = CurrentWorkflowMenuTitle();
-        WorkflowToolbarMenuButton.IsVisible = selectedItem is AnalysisResult || ActiveWorkspaceIndex != 3;
-        WorkflowToolbarMenuButton.IsEnabled = (selectedItem is ExperimentData or AnalysisResult) && WorkflowToolbarMenuButton.IsVisible;
-        WorkflowToolbarMenuButton.Flyout = BuildWorkflowToolbarMenu();
-
-        ExperimentDesignerButton.IsEnabled = true;
-    }
-
-    MenuFlyout BuildSelectedObjectToolbarMenu()
-    {
-        return selectedItem is AnalysisResult
-            ? BuildResultToolbarMenu()
-            : BuildExperimentToolbarMenu();
-    }
-
-    MenuFlyout BuildExperimentToolbarMenu()
-    {
-        var menu = new MenuFlyout();
-        menu.Items.Add(ToolbarItem("Details...", OpenSelectedDetailsAsync, HasSelectedExperiment()));
-        menu.Items.Add(ToolbarItem("Duplicate Data", DuplicateSelectedDataAsync, HasSelectedExperiment()));
-        menu.Items.Add(ToolbarItem("Save Selected...", SaveSelectedAsync, HasSelectedExperiment()));
-        menu.Items.Add(ToolbarItem("Export Selected Data...", () => ExportDataAsync(selectedOnly: true), HasSelectedExperiment()));
-        menu.Items.Add(new Separator());
-        menu.Items.Add(ToolbarItem(selectedItem is ExperimentData experiment && experiment.Include ? "Disable Active" : "Enable Active", ToggleSelectedExperimentInclusionAsync, HasSelectedExperiment()));
-        menu.Items.Add(ToolbarItem("Clear Solution", ClearSelectedExperimentSolutionAsync, SelectedExperimentHasSolution()));
-        menu.Items.Add(new Separator());
-        menu.Items.Add(ToolbarItem("Experiment Merger...", OpenTandemMergerAsync, CanOpenTandemMergerTool()));
-        menu.Items.Add(ToolbarItem("Buffer Subtraction...", OpenBufferSubtractionToolAsync, CanOpenBufferSubtractionTool()));
-        menu.Items.Add(new Separator());
-        menu.Items.Add(ToolbarItem("Remove Data", RemoveSelectedItemAsync, HasSelectedExperiment()));
-        return menu;
-    }
-
-    MenuFlyout BuildResultToolbarMenu()
-    {
-        var menu = new MenuFlyout();
-        menu.Items.Add(ToolbarItem("Details...", OpenSelectedDetailsAsync, HasSelectedResult()));
-        menu.Items.Add(ToolbarItem("Save Selected...", SaveSelectedAsync, HasSelectedResult()));
-        menu.Items.Add(ToolbarItem("Copy Result Table", CopyResultTableAsync, HasSelectedResult()));
-        menu.Items.Add(new Separator());
-        menu.Items.Add(ToolbarItem("Update Result", UpdateSelectedResultAsync, HasSelectedResult()));
-        menu.Items.Add(ToolbarItem("Load Solutions to Experiments", LoadSelectedResultSolutionsAsync, HasSelectedResult()));
-        menu.Items.Add(ToolbarItem("Set Active Experiments", SelectResultExperimentsAsync, HasSelectedResult()));
-        menu.Items.Add(ToolbarItem("Export Associated Final Figures...", ExportFinalFigureAsync, CanExportFinalFigure()));
-        menu.Items.Add(new Separator());
-        menu.Items.Add(ToolbarItem("Remove Result", RemoveSelectedItemAsync, HasSelectedResult()));
-        return menu;
-    }
-
-    MenuFlyout BuildWorkflowToolbarMenu()
-    {
-        return selectedItem is AnalysisResult
-            ? BuildResultViewToolbarMenu()
-            : ActiveWorkspaceIndex switch
-            {
-                1 => BuildProcessingToolbarMenu(),
-                2 => BuildAnalysisToolbarMenu(),
-                3 => BuildFinalFigureToolbarMenu(),
-                _ => BuildOverviewToolbarMenu()
-            };
-    }
-
-    MenuFlyout BuildOverviewToolbarMenu()
-    {
-        var menu = new MenuFlyout();
-        menu.Items.Add(ToolbarItem("Raw Data", () => SelectOverviewModeFromMenu(rawData: true), HasSelectedExperiment(), overviewShowsRawData, hasCheckState: true));
-        menu.Items.Add(ToolbarItem("Injections", () => SelectOverviewModeFromMenu(rawData: false), HasSelectedExperiment(), !overviewShowsRawData, hasCheckState: true));
-        menu.Items.Add(new Separator());
-        menu.Items.Add(ToolbarItem("Details...", OpenSelectedDetailsAsync, HasSelectedItem()));
-        return menu;
-    }
-
-    MenuFlyout BuildProcessingToolbarMenu()
-    {
-        var processor = selectedItem is ExperimentData data ? data.Processor : null;
-        var hasProcessor = HasSelectedProcessor();
-        var spline = processor?.Interpolator as SplineInterpolator;
-        var hasSmoothSpline = spline?.Algorithm == SplineInterpolator.SplineInterpolatorAlgorithm.Smooth;
-        var canConvertToSmoothSpline = hasProcessor && processor!.Interpolator is PolynomialLeastSquaresInterpolator or SegmentedBaselineInterpolator;
-        var canConvertToLinearSpline = hasProcessor && (spline == null || spline.Algorithm != SplineInterpolator.SplineInterpolatorAlgorithm.Linear);
-
-        var menu = new MenuFlyout();
-        menu.Items.Add(ToolbarItem(processor?.IsLocked == true ? "Unlock Processor" : "Lock Processor", ToggleSelectedProcessorLockAsync, hasProcessor));
-        menu.Items.Add(ToolbarItem("Show Spline Handles", ToggleSplineHandlesFromMenuAsync, hasSmoothSpline, spline?.ShowHandles == true, hasCheckState: true));
-        menu.Items.Add(ToolbarItem("Move Spline Points In Time", ToggleSplinePointTimeDraggingFromMenuAsync, spline != null, spline?.AllowPointTimeDragging == true, hasCheckState: true));
-        menu.Items.Add(ToolbarItem("Copy Integration Start To Next", ToggleIntegrationRegionCopyIncludesStartFromMenuAsync, true, AppSettings.IntegrationRegionCopyIncludesStart, hasCheckState: true));
-        menu.Items.Add(new Separator());
-        menu.Items.Add(ToolbarItem("Convert To Smooth Spline", () => ConvertCurrentProcessorToSplineFromMenuAsync(SplineInterpolator.SplineInterpolatorAlgorithm.Smooth), canConvertToSmoothSpline));
-        menu.Items.Add(ToolbarItem("Convert To Linear Spline", () => ConvertCurrentProcessorToSplineFromMenuAsync(SplineInterpolator.SplineInterpolatorAlgorithm.Linear), canConvertToLinearSpline));
-        menu.Items.Add(new Separator());
-        menu.Items.Add(ToolbarItem("Copy Processing To Active", CopyProcessingToActiveAsync, hasProcessor));
-        menu.Items.Add(ToolbarItem("Copy Processing To Non-Processed", CopyProcessingToNonProcessedAsync, hasProcessor));
-        return menu;
-    }
-
-    MenuFlyout BuildAnalysisToolbarMenu()
-    {
-        var menu = new MenuFlyout();
-        menu.Items.Add(ToolbarItem("Create Analysis Result", ToggleCreateAnalysisResultFromMenuAsync, AnalysisWorkspace.CanCreateAnalysisResult(), AnalysisWorkspace.IsCreateAnalysisResultEnabled(), hasCheckState: true));
-        menu.Items.Add(ToolbarItem("Auto Open New Result", ToggleAutoOpenResultFromMenuAsync, true, AppSettings.AutoOpenNewAnalysisResult, hasCheckState: true));
-        menu.Items.Add(new Separator());
-        menu.Items.Add(Submenu("Fit Line Interpolation",
-            ToolbarItem("Linear", () => SetFitLineSmoothnessFromMenuAsync(LineSmoothness.Linear), true, AnalysisWorkspaceControl.AnalysisFitLineSmoothness() == LineSmoothness.Linear, hasCheckState: true),
-            ToolbarItem("Smooth", () => SetFitLineSmoothnessFromMenuAsync(LineSmoothness.Smooth), true, AnalysisWorkspaceControl.AnalysisFitLineSmoothness() != LineSmoothness.Linear, hasCheckState: true)));
-        menu.Items.Add(Submenu("Parameter Limit Settings",
-            ToolbarItem("Standard", () => SetParameterLimitSettingFromMenuAsync(ParameterLimitSetting.Standard), true, AppSettings.ParameterLimitSetting == ParameterLimitSetting.Standard, hasCheckState: true),
-            ToolbarItem("Expanded", () => SetParameterLimitSettingFromMenuAsync(ParameterLimitSetting.Extended), true, AppSettings.ParameterLimitSetting == ParameterLimitSetting.Extended, hasCheckState: true),
-            ToolbarItem("No Limits", () => SetParameterLimitSettingFromMenuAsync(ParameterLimitSetting.NoLimit), true, AppSettings.ParameterLimitSetting == ParameterLimitSetting.NoLimit, hasCheckState: true)));
-        menu.Items.Add(Submenu("Parameter Box Display",
-            ToolbarItem("Model", () => ToggleAnalysisParameterDisplayFromMenuAsync(FinalFigureDisplayParameters.Model), true, AppSettings.AnalysisParameterDisplay.HasFlag(FinalFigureDisplayParameters.Model), hasCheckState: true),
-            ToolbarItem("Fitted", () => ToggleAnalysisParameterDisplayFromMenuAsync(FinalFigureDisplayParameters.Fitted), true, AppSettings.AnalysisParameterDisplay.HasFlag(FinalFigureDisplayParameters.Fitted), hasCheckState: true),
-            ToolbarItem("Derived", () => ToggleAnalysisParameterDisplayFromMenuAsync(FinalFigureDisplayParameters.Derived), true, AppSettings.AnalysisParameterDisplay.HasFlag(FinalFigureDisplayParameters.Derived), hasCheckState: true)));
-        menu.Items.Add(new Separator());
-        menu.Items.Add(ToolbarItem("Restore Analysis Defaults", RestoreAnalysisDefaultsFromMenuAsync, true));
-        return menu;
-    }
-
-    MenuFlyout BuildFinalFigureToolbarMenu()
-    {
-        var menu = new MenuFlyout();
-        menu.Items.Add(ToolbarItem("Export Current Figure...", ExportFinalFigureAsync, CanExportFinalFigure()));
-        return menu;
-    }
-
-    MenuFlyout BuildResultViewToolbarMenu()
-    {
-        var hasResult = HasSelectedResult();
-        var menu = new MenuFlyout();
-        menu.Items.Add(ToolbarItem("Update Result", UpdateSelectedResultAsync, hasResult));
-        menu.Items.Add(ToolbarItem("Export Associated Final Figures...", ExportFinalFigureAsync, CanExportFinalFigure()));
-        menu.Items.Add(new Separator());
-        menu.Items.Add(Submenu("View",
-            ToolbarItem("Parameters", () => SetResultAnalysisViewModeFromMenuAsync(ResultAnalysisViewMode.Parameters), hasResult, ResultWorkspace.ActiveViewMode == ResultAnalysisViewMode.Parameters, hasCheckState: true),
-            ToolbarItem("Temperature", () => SetResultAnalysisViewModeFromMenuAsync(ResultAnalysisViewMode.Temperature), hasResult && ResultWorkspace.IsResultViewModeAvailable(ResultAnalysisViewMode.Temperature), ResultWorkspace.ActiveViewMode == ResultAnalysisViewMode.Temperature, hasCheckState: true),
-            ToolbarItem("Salt", () => SetResultAnalysisViewModeFromMenuAsync(ResultAnalysisViewMode.Salt), hasResult && ResultWorkspace.IsResultViewModeAvailable(ResultAnalysisViewMode.Salt), ResultWorkspace.ActiveViewMode == ResultAnalysisViewMode.Salt, hasCheckState: true),
-            ToolbarItem("Protonation", () => SetResultAnalysisViewModeFromMenuAsync(ResultAnalysisViewMode.Protonation), hasResult && ResultWorkspace.IsResultViewModeAvailable(ResultAnalysisViewMode.Protonation), ResultWorkspace.ActiveViewMode == ResultAnalysisViewMode.Protonation, hasCheckState: true)));
-        menu.Items.Add(ToolbarItem("Run Advanced Analysis", RunActiveResultAnalysisFromMenuAsync, hasResult && ResultWorkspace.ActiveViewMode != ResultAnalysisViewMode.Parameters));
-        menu.Items.Add(new Separator());
-        menu.Items.Add(Submenu("Error Style",
-            ToolbarItem("Auto", () => SetResultUncertaintyStyleFromMenuAsync(UncertaintyDisplayStyle.Automatic), hasResult, AppSettings.UncertaintyDisplayStyle == UncertaintyDisplayStyle.Automatic, hasCheckState: true),
-            ToolbarItem("Standard Deviation", () => SetResultUncertaintyStyleFromMenuAsync(UncertaintyDisplayStyle.StandardDeviation), hasResult, AppSettings.UncertaintyDisplayStyle == UncertaintyDisplayStyle.StandardDeviation, hasCheckState: true),
-            ToolbarItem("95% Confidence Interval", () => SetResultUncertaintyStyleFromMenuAsync(UncertaintyDisplayStyle.ConfidenceInterval), hasResult, AppSettings.UncertaintyDisplayStyle == UncertaintyDisplayStyle.ConfidenceInterval, hasCheckState: true),
-            ToolbarItem("SD + 95% CI", () => SetResultUncertaintyStyleFromMenuAsync(UncertaintyDisplayStyle.StandardDeviationAndConfidenceInterval), hasResult, AppSettings.UncertaintyDisplayStyle == UncertaintyDisplayStyle.StandardDeviationAndConfidenceInterval, hasCheckState: true)));
-        menu.Items.Add(Submenu("Temperature Unit",
-            ToolbarItem("Celsius", () => SetResultTemperatureFromMenuAsync(kelvin: false), hasResult, !ResultWorkspace.UseKelvinTemperature, hasCheckState: true),
-            ToolbarItem("Kelvin", () => SetResultTemperatureFromMenuAsync(kelvin: true), hasResult, ResultWorkspace.UseKelvinTemperature, hasCheckState: true)));
-        menu.Items.Add(Submenu("Energy Unit",
-            ToolbarItem("Joule", () => SetResultEnergyFromMenuAsync(EnergyUnit.Joule), hasResult, ResultWorkspace.DisplayEnergyUnit == EnergyUnit.Joule, hasCheckState: true),
-            ToolbarItem("Kilojoule", () => SetResultEnergyFromMenuAsync(EnergyUnit.KiloJoule), hasResult, ResultWorkspace.DisplayEnergyUnit == EnergyUnit.KiloJoule, hasCheckState: true),
-            ToolbarItem("Calorie", () => SetResultEnergyFromMenuAsync(EnergyUnit.Cal), hasResult, ResultWorkspace.DisplayEnergyUnit == EnergyUnit.Cal, hasCheckState: true),
-            ToolbarItem("Kilocalorie", () => SetResultEnergyFromMenuAsync(EnergyUnit.KCal), hasResult, ResultWorkspace.DisplayEnergyUnit == EnergyUnit.KCal, hasCheckState: true)));
-        return menu;
-    }
-
-    string CurrentWorkflowMenuTitle()
-    {
-        if (selectedItem is AnalysisResult) return "Result";
-
-        return ActiveWorkspaceIndex switch
-        {
-            1 => "Processing",
-            2 => "Analysis",
-            3 => "Final Figure",
-            _ => "Overview"
-        };
-    }
-
-    static MenuItem Submenu(string header, params MenuItem[] children)
-    {
-        var item = new MenuItem { Header = header };
-        foreach (var child in children)
-            item.Items.Add(child);
-        return item;
-    }
-
     static MenuItem ToolbarItem(string header, Action action, bool isEnabled = true, bool isChecked = false, bool hasCheckState = false)
     {
         return ToolbarItem(header, () =>
@@ -999,129 +789,6 @@ public partial class MainWindow : Window
         };
         item.Click += async (_, _) => await action();
         return item;
-    }
-
-    void SelectOverviewModeFromMenu(bool rawData)
-    {
-        SelectOverviewMode(rawData);
-        RefreshMenuState();
-    }
-
-    Task ToggleSplineHandlesFromMenuAsync()
-    {
-        ProcessingWorkspace.ToggleSplineHandles();
-        RefreshMenuState();
-        return Task.CompletedTask;
-    }
-
-    Task ToggleSplinePointTimeDraggingFromMenuAsync()
-    {
-        ProcessingWorkspace.ToggleSplinePointTimeDragging();
-        RefreshMenuState();
-        return Task.CompletedTask;
-    }
-
-    Task ToggleIntegrationRegionCopyIncludesStartFromMenuAsync()
-    {
-        ProcessingWorkspace.ToggleIntegrationRegionCopyIncludesStart();
-        RefreshMenuState();
-        return Task.CompletedTask;
-    }
-
-    async Task ConvertCurrentProcessorToSplineFromMenuAsync(SplineInterpolator.SplineInterpolatorAlgorithm algorithm)
-    {
-        await ProcessingWorkspace.ConvertCurrentProcessorToSplineAsync(algorithm);
-        RefreshMenuState();
-    }
-
-    Task ToggleCreateAnalysisResultFromMenuAsync()
-    {
-        AnalysisWorkspace.ToggleCreateAnalysisResult();
-        RefreshMenuState();
-        return Task.CompletedTask;
-    }
-
-    Task ToggleAutoOpenResultFromMenuAsync()
-    {
-        AnalysisWorkspace.ToggleAutoOpenNewResult();
-        RefreshMenuState();
-        return Task.CompletedTask;
-    }
-
-    Task SetFitLineSmoothnessFromMenuAsync(LineSmoothness smoothness)
-    {
-        AnalysisWorkspace.SetFitLineSmoothness(smoothness);
-        RefreshMenuState();
-        return Task.CompletedTask;
-    }
-
-    Task SetParameterLimitSettingFromMenuAsync(ParameterLimitSetting setting)
-    {
-        AnalysisWorkspace.SetParameterLimitSetting(setting);
-        RefreshMenuState();
-        return Task.CompletedTask;
-    }
-
-    Task ToggleAnalysisParameterDisplayFromMenuAsync(FinalFigureDisplayParameters flag)
-    {
-        AnalysisWorkspace.ToggleAnalysisParameterDisplay(flag);
-        RefreshMenuState();
-        return Task.CompletedTask;
-    }
-
-    Task RunFitFromMenuAsync()
-    {
-        AnalysisWorkspace.RunFit();
-        RefreshMenuState();
-        return Task.CompletedTask;
-    }
-
-    Task StopFitFromMenuAsync()
-    {
-        AnalysisWorkspace.StopFit();
-        RefreshMenuState();
-        return Task.CompletedTask;
-    }
-
-    Task RestoreAnalysisDefaultsFromMenuAsync()
-    {
-        AnalysisWorkspace.RestoreAnalysisDefaults();
-        RefreshMenuState();
-        return Task.CompletedTask;
-    }
-
-    Task SetResultUncertaintyStyleFromMenuAsync(UncertaintyDisplayStyle style)
-    {
-        ResultWorkspace.SetUncertaintyDisplay(style);
-        RefreshMenuState();
-        return Task.CompletedTask;
-    }
-
-    Task SetResultTemperatureFromMenuAsync(bool kelvin)
-    {
-        ResultWorkspace.SetTemperatureDisplay(kelvin);
-        RefreshMenuState();
-        return Task.CompletedTask;
-    }
-
-    Task SetResultEnergyFromMenuAsync(EnergyUnit unit)
-    {
-        ResultWorkspace.SetEnergyDisplay(unit);
-        RefreshMenuState();
-        return Task.CompletedTask;
-    }
-
-    Task SetResultAnalysisViewModeFromMenuAsync(ResultAnalysisViewMode mode)
-    {
-        ResultWorkspace.SetResultViewMode(mode);
-        RefreshMenuState();
-        return Task.CompletedTask;
-    }
-
-    async Task RunActiveResultAnalysisFromMenuAsync()
-    {
-        await ResultWorkspace.RunActiveAdvancedAnalysisAsync();
-        RefreshMenuState();
     }
 
     void OnWorkspaceTabChanged()
@@ -1198,6 +865,8 @@ public partial class MainWindow : Window
     void SelectOverviewMode(bool rawData)
     {
         overviewShowsRawData = rawData;
+        OverviewRawButton.IsChecked = rawData;
+        OverviewInjectionsButton.IsChecked = !rawData;
         UpdateOverviewVisibility();
         RefreshMenuState();
     }
@@ -1212,6 +881,9 @@ public partial class MainWindow : Window
     {
         item ??= selectedItem;
         var experiment = item as ExperimentData;
+
+        OverviewRawButton.IsEnabled = experiment != null;
+        OverviewInjectionsButton.IsEnabled = experiment != null;
 
         OverviewThermogram.Experiment = experiment?.HasThermogram == true ? experiment : null;
         OverviewThermogram.IsVisible = experiment?.HasThermogram == true;
@@ -1559,12 +1231,7 @@ public partial class MainWindow : Window
         RefreshAfterResultUpdate();
     }
 
-    async void OnResultDetailsRequested(object? sender, EventArgs e)
-    {
-        await OpenSelectedDetailsAsync();
-    }
-
-    async Task UpdateSelectedResultAsync()
+    internal async Task UpdateSelectedResultAsync()
     {
         if (selectedItem is not AnalysisResult result) return;
 

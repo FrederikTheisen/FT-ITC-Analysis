@@ -204,8 +204,10 @@ namespace AnalysisITC.Avalonia
 
         void DrawEmptyState(DrawingContext context, Rect plot)
         {
-            DrawText(context, "No thermogram selected", new Point(plot.Left + AvaloniaGraphSettings.EmptyStateXOffset, plot.Top + AvaloniaGraphSettings.EmptyStateTitleYOffset), AvaloniaGraphSettings.EmptyTitleFontSize, FontWeight.SemiBold, GraphTheme.MutedTextBrush);
-            DrawText(context, "Open an ITC file and select an experiment to render raw differential power.", new Point(plot.Left + AvaloniaGraphSettings.EmptyStateXOffset, plot.Top + AvaloniaGraphSettings.EmptyStateBodyYOffset), AvaloniaGraphSettings.EmptyBodyFontSize, FontWeight.Normal, GraphTheme.MutedTextBrush);
+            var x = plot.Left + AvaloniaGraphSettings.EmptyStateXOffset;
+            var width = Math.Max(40, plot.Right - x - AvaloniaGraphSettings.EmptyStateXOffset);
+            AvaloniaGraphText.DrawWrappedText(context, "No thermogram selected", new Point(x, plot.Top + AvaloniaGraphSettings.EmptyStateTitleYOffset), width, AvaloniaGraphSettings.EmptyTitleFontSize, FontWeight.SemiBold, GraphTheme.MutedTextBrush);
+            AvaloniaGraphText.DrawWrappedText(context, "Open an ITC file and select an experiment to render raw differential power.", new Point(x, plot.Top + AvaloniaGraphSettings.EmptyStateBodyYOffset), width, AvaloniaGraphSettings.EmptyBodyFontSize, FontWeight.Normal, GraphTheme.MutedTextBrush);
         }
 
         void DrawGrid(DrawingContext context, GraphLayout graph)

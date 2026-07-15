@@ -23,6 +23,7 @@ namespace AnalysisITC.Avalonia.Results
     public sealed class ResultDependenceGraphControl : Control
     {
         static AvaloniaGraphTheme GraphTheme => AvaloniaGraphSettings.Current;
+        const int FitSampleCount = 400;
 
         AnalysisResult? result;
         ResultAnalysisViewMode mode = ResultAnalysisViewMode.Temperature;
@@ -124,10 +125,11 @@ namespace AnalysisITC.Avalonia.Results
 
             if (cachedSeries.Count == 0 || cachedSeries.All(series => series.Points.Count == 0) || plot.Width < 80 || plot.Height < 80)
             {
-                DrawText(
+                AvaloniaGraphText.DrawWrappedText(
                     context,
                     EmptyMessage(),
                     new Point(plot.Left + AvaloniaGraphSettings.EmptyStateXOffset, plot.Top + AvaloniaGraphSettings.EmptyStateTitleYOffset),
+                    Math.Max(40, plot.Width - 2 * AvaloniaGraphSettings.EmptyStateXOffset),
                     AvaloniaGraphSettings.EmptyTitleFontSize,
                     FontWeight.SemiBold,
                     GraphTheme.MutedTextBrush);
@@ -226,32 +228,12 @@ namespace AnalysisITC.Avalonia.Results
 
         void DrawFit(DrawingContext context, Rect plot, GraphRange range, GraphSeries series)
         {
-            if (series.Fit == null) return;
+            if (series.Fit == null || series.Fit.Line.Count < 2) return;
 
-            var fitDomain = FitDomain(series);
-            if (fitDomain == null) return;
-
-            var line = new List<Point>();
-            var upper = new List<Point>();
-            var lower = new List<Point>();
-            var segmentCount = 96;
-
-            for (int i = 0; i <= segmentCount; i++)
+            if (series.Fit.Upper.Count > 1 && series.Fit.Lower.Count > 1)
             {
-                var x = fitDomain.Value.Min + (fitDomain.Value.Max - fitDomain.Value.Min) * i / segmentCount;
-                var y = series.Fit(x);
-                if (!IsFinite(y.Value)) continue;
-
-                line.Add(ToScreen(plot, range, x, y.Value));
-                if (IsFinite(y.Lower) && IsFinite(y.Upper) && Math.Abs(y.Upper - y.Lower) > 1E-12)
-                {
-                    upper.Add(ToScreen(plot, range, x, y.Upper));
-                    lower.Add(ToScreen(plot, range, x, y.Lower));
-                }
-            }
-
-            if (upper.Count > 1 && lower.Count > 1)
-            {
+                var upper = series.Fit.Upper.Select(point => ToScreen(plot, range, point.X, point.Y)).ToList();
+                var lower = series.Fit.Lower.Select(point => ToScreen(plot, range, point.X, point.Y)).ToList();
                 var geometry = new StreamGeometry();
                 using (var ctx = geometry.Open())
                 {
@@ -263,6 +245,7 @@ namespace AnalysisITC.Avalonia.Results
                 context.DrawGeometry(GraphTheme.ConfidenceBandBrush, null, geometry);
             }
 
+            var line = series.Fit.Line.Select(point => ToScreen(plot, range, point.X, point.Y)).ToList();
             if (line.Count < 2) return;
             var path = new StreamGeometry();
             using (var ctx = path.Open())
@@ -339,13 +322,10 @@ namespace AnalysisITC.Avalonia.Results
                     var fit = result.Solution.TemperatureDependence[parameter];
                     return new GraphSeries(
                         parameter.GetProperties().Name,
-                        result.Solution.Solutions
+                        SortFinitePoints(result.Solution.Solutions
                             .Where(solution => solution.ReportParameters.ContainsKey(parameter))
-                            .Select(solution => PointFrom(solution.Temp, solution.ReportParameters[parameter], solution, Energy.ScaleFactor(AppSettings.EnergyUnit)))
-                            .Where(point => point.HasValue)
-                            .OrderBy(point => point.X)
-                            .ToList(),
-                        x => ValueFrom(fit.Evaluate(x, 400), Energy.ScaleFactor(AppSettings.EnergyUnit)),
+                            .Select(solution => PointFrom(solution.Temp, solution.ReportParameters[parameter], solution, Energy.ScaleFactor(AppSettings.EnergyUnit)))),
+                        BuildTemperatureFit(parameter, fit, Energy.ScaleFactor(AppSettings.EnergyUnit)),
                         SymbolForSeries(index));
                 })
                 .Where(series => series.Points.Count > 0)
@@ -399,7 +379,7 @@ namespace AnalysisITC.Avalonia.Results
                             new GraphSeries(
                                 "Counter Ion Release",
                                 points,
-                                analysis.CounterIonReleaseFit == null ? null : x => ValueFrom(analysis.CounterIonReleaseFit.Evaluate(x, 400), 1))
+                                BuildLinearFit(points, analysis.CounterIonReleaseFit, 1))
                         };
                     }
                 default:
@@ -421,7 +401,7 @@ namespace AnalysisITC.Avalonia.Results
                             new GraphSeries(
                                 "Debye-Huckel",
                                 points,
-                                analysis.IonicStrengthDependenceFit == null ? null : x => ValueFrom(analysis.IonicStrengthDependenceFit.Evaluate(x * x), 1))
+                                BuildSampledFit(points, x => ValueFrom(analysis.IonicStrengthDependenceFit.Evaluate(x * x), 1)))
                         };
                     }
             }
@@ -453,7 +433,7 @@ namespace AnalysisITC.Avalonia.Results
                 new GraphSeries(
                     "Protonation",
                     points,
-                    analysis.Fit == null ? null : x => ValueFrom(analysis.Fit.Evaluate(x / scale, 400), scale))
+                    BuildLinearFit(points, analysis.Fit as LinearFitWithError, scale, xScale: scale))
             };
         }
 
@@ -545,9 +525,118 @@ namespace AnalysisITC.Avalonia.Results
             return new GraphValue(value.Value * scale, value.Lower * scale, value.Upper * scale);
         }
 
-        static (double Min, double Max)? FitDomain(GraphSeries series)
+        GraphFitSeries? BuildTemperatureFit(ParameterType parameter, LinearFitWithError fit, double scale)
         {
-            var xs = series.Points
+            var points = result?.Solution?.Solutions
+                .Where(solution => solution.ReportParameters.ContainsKey(parameter))
+                .Select(solution => PointFrom(solution.Temp, solution.ReportParameters[parameter], solution, scale))
+                .Where(point => point.HasValue)
+                .ToList() ?? new List<GraphPoint>();
+
+            var bootstrapFits = result?.Solution?.BootstrapSolutions
+                .Where(solution => solution.TemperatureDependence.ContainsKey(parameter))
+                .Select(solution => solution.TemperatureDependence[parameter])
+                .ToList() ?? new List<LinearFitWithError>();
+
+            return BuildLinearFit(points, fit, scale, bootstrapFits: bootstrapFits);
+        }
+
+        static GraphFitSeries? BuildLinearFit(
+            IReadOnlyList<GraphPoint> points,
+            LinearFitWithError? fit,
+            double yScale,
+            double xScale = 1,
+            IReadOnlyList<LinearFitWithError>? bootstrapFits = null)
+        {
+            if (fit == null) return null;
+
+            var xs = SampleXs(points);
+            if (xs.Count < 2) return null;
+
+            var line = xs
+                .Select(x => new GraphFitPoint(x, DeterministicLinearValue(fit, x / xScale) * yScale))
+                .Where(point => IsFinite(point.X) && IsFinite(point.Y))
+                .ToList();
+
+            var lower = new List<GraphFitPoint>();
+            var upper = new List<GraphFitPoint>();
+
+            if (bootstrapFits != null && bootstrapFits.Count > 1)
+            {
+                foreach (var x in xs)
+                {
+                    var values = bootstrapFits
+                        .Select(bootstrap => DeterministicLinearValue(bootstrap, x / xScale) * yScale)
+                        .Where(IsFinite)
+                        .OrderBy(value => value)
+                        .ToList();
+
+                    if (values.Count < 2) continue;
+
+                    lower.Add(new GraphFitPoint(x, PercentileSorted(values, 0.025)));
+                    upper.Add(new GraphFitPoint(x, PercentileSorted(values, 0.975)));
+                }
+            }
+            else
+            {
+                foreach (var x in xs)
+                {
+                    var values = LinearCornerValues(fit, x / xScale)
+                        .Select(value => value * yScale)
+                        .Where(IsFinite)
+                        .OrderBy(value => value)
+                        .ToList();
+
+                    if (values.Count < 2 || Math.Abs(values.Last() - values.First()) < 1E-12) continue;
+
+                    lower.Add(new GraphFitPoint(x, values.First()));
+                    upper.Add(new GraphFitPoint(x, values.Last()));
+                }
+            }
+
+            return line.Count < 2 ? null : new GraphFitSeries(line, lower, upper);
+        }
+
+        static GraphFitSeries? BuildSampledFit(IReadOnlyList<GraphPoint> points, Func<double, GraphValue>? fit)
+        {
+            if (fit == null) return null;
+
+            var xs = SampleXs(points);
+            if (xs.Count < 2) return null;
+
+            var line = new List<GraphFitPoint>();
+            var lower = new List<GraphFitPoint>();
+            var upper = new List<GraphFitPoint>();
+
+            foreach (var x in xs)
+            {
+                var value = fit(x);
+                if (IsFinite(value.Value))
+                    line.Add(new GraphFitPoint(x, value.Value));
+
+                if (IsFinite(value.Lower) && IsFinite(value.Upper) && Math.Abs(value.Upper - value.Lower) > 1E-12)
+                {
+                    lower.Add(new GraphFitPoint(x, value.Lower));
+                    upper.Add(new GraphFitPoint(x, value.Upper));
+                }
+            }
+
+            return line.Count < 2 ? null : new GraphFitSeries(line, lower, upper);
+        }
+
+        static List<double> SampleXs(IReadOnlyList<GraphPoint> points)
+        {
+            var domain = BuildDataXDomain(points);
+            if (domain == null) return new List<double>();
+
+            return Enumerable.Range(0, FitSampleCount + 1)
+                .Select(i => domain.Value.Min + (domain.Value.Max - domain.Value.Min) * i / FitSampleCount)
+                .ToList();
+        }
+
+        static (double Min, double Max)? BuildDataXDomain(IEnumerable<GraphPoint> points)
+        {
+            var xs = points
                 .Where(point => point.HasValue)
                 .Select(point => point.X)
                 .Where(IsFinite)
@@ -556,13 +645,53 @@ namespace AnalysisITC.Avalonia.Results
                 .ToList();
 
             if (xs.Count == 0) return null;
-            if (xs.Count == 1)
-            {
-                var delta = Math.Max(Math.Abs(xs[0]) * 0.05, 1E-6);
-                return (xs[0] - delta, xs[0] + delta);
-            }
 
-            return (xs.First(), xs.Last());
+            var min = xs.First();
+            var max = xs.Last();
+            var delta = max - min;
+            if (Math.Abs(delta) < 1E-12)
+                delta = Math.Max(1, Math.Abs(max));
+
+            return (
+                min - delta * AvaloniaGraphSettings.AnalysisXPaddingFraction,
+                max + delta * AvaloniaGraphSettings.AnalysisXPaddingFraction);
+        }
+
+        static double DeterministicLinearValue(LinearFitWithError fit, double x)
+        {
+            return (x - fit.ReferenceT) * fit.Slope.Value + fit.Intercept.Value;
+        }
+
+        static IEnumerable<double> LinearCornerValues(LinearFitWithError fit, double x)
+        {
+            var slopes = new[] { fit.Slope.Lower, fit.Slope.Upper, fit.Slope.Value };
+            var intercepts = new[] { fit.Intercept.Lower, fit.Intercept.Upper, fit.Intercept.Value };
+
+            foreach (var slope in slopes)
+            foreach (var intercept in intercepts)
+                yield return (x - fit.ReferenceT) * slope + intercept;
+        }
+
+        static double PercentileSorted(IReadOnlyList<double> sortedValues, double percentile)
+        {
+            if (sortedValues.Count == 0) return double.NaN;
+            if (sortedValues.Count == 1) return sortedValues[0];
+
+            var position = Math.Clamp(percentile, 0, 1) * (sortedValues.Count - 1);
+            var lowerIndex = (int)Math.Floor(position);
+            var upperIndex = (int)Math.Ceiling(position);
+            if (lowerIndex == upperIndex) return sortedValues[lowerIndex];
+
+            var weight = position - lowerIndex;
+            return sortedValues[lowerIndex] * (1 - weight) + sortedValues[upperIndex] * weight;
+        }
+
+        static List<GraphPoint> SortFinitePoints(IEnumerable<GraphPoint> points)
+        {
+            return points
+                .Where(point => point.HasValue)
+                .OrderBy(point => point.X)
+                .ToList();
         }
 
         string EmptyMessage()
@@ -580,7 +709,8 @@ namespace AnalysisITC.Avalonia.Results
         {
             var xs = new List<double>();
             var ys = new List<double> { 0 };
-            foreach (var point in series.SelectMany(s => s.Points))
+            var dataPoints = series.SelectMany(s => s.Points).Where(point => point.HasValue).ToList();
+            foreach (var point in dataPoints)
             {
                 xs.Add(point.X);
                 ys.Add(point.Y);
@@ -590,18 +720,9 @@ namespace AnalysisITC.Avalonia.Results
 
             foreach (var fit in series.Select(s => s.Fit).Where(fit => fit != null))
             {
-                var finiteX = xs.Where(IsFinite).ToList();
-                if (finiteX.Count == 0) continue;
-                var min = finiteX.Min();
-                var max = finiteX.Max();
-                var span = Math.Max(1E-9, max - min);
-                for (int i = 0; i <= 24; i++)
+                foreach (var point in fit!.AllPoints)
                 {
-                    var x = min + span * i / 24;
-                    var y = fit!(x);
-                    ys.Add(y.Value);
-                    ys.Add(y.Lower);
-                    ys.Add(y.Upper);
+                    ys.Add(point.Y);
                 }
             }
 
@@ -614,13 +735,18 @@ namespace AnalysisITC.Avalonia.Results
             var xMax = finiteXs.Max();
             var yMin = finiteYs.Min();
             var yMax = finiteYs.Max();
-            var xDelta = xMax - xMin;
+            var xDomain = BuildDataXDomain(dataPoints);
+            if (xDomain != null)
+            {
+                xMin = xDomain.Value.Min;
+                xMax = xDomain.Value.Max;
+            }
+
             var yDelta = yMax - yMin;
-            if (Math.Abs(xDelta) < 1E-12) xDelta = Math.Max(1, Math.Abs(xMax));
             if (Math.Abs(yDelta) < 1E-12) yDelta = Math.Max(1, Math.Abs(yMax));
             return new GraphRange(
-                xMin - xDelta * AvaloniaGraphSettings.AnalysisXPaddingFraction,
-                xMax + xDelta * AvaloniaGraphSettings.AnalysisXPaddingFraction,
+                xMin,
+                xMax,
                 yMin - yDelta * AvaloniaGraphSettings.AnalysisYPaddingFraction,
                 yMax + yDelta * AvaloniaGraphSettings.AnalysisYPaddingFraction);
         }
@@ -729,7 +855,7 @@ namespace AnalysisITC.Avalonia.Results
 
         sealed class GraphSeries
         {
-            public GraphSeries(string name, IReadOnlyList<GraphPoint> points, Func<double, GraphValue>? fit, GraphSymbol symbol = GraphSymbol.Circle)
+            public GraphSeries(string name, IReadOnlyList<GraphPoint> points, GraphFitSeries? fit, GraphSymbol symbol = GraphSymbol.Circle)
             {
                 Name = name;
                 Points = points;
@@ -739,8 +865,36 @@ namespace AnalysisITC.Avalonia.Results
 
             public string Name { get; }
             public IReadOnlyList<GraphPoint> Points { get; }
-            public Func<double, GraphValue>? Fit { get; }
+            public GraphFitSeries? Fit { get; }
             public GraphSymbol Symbol { get; }
+        }
+
+        sealed class GraphFitSeries
+        {
+            public GraphFitSeries(IReadOnlyList<GraphFitPoint> line, IReadOnlyList<GraphFitPoint> lower, IReadOnlyList<GraphFitPoint> upper)
+            {
+                Line = line;
+                Lower = lower;
+                Upper = upper;
+            }
+
+            public IReadOnlyList<GraphFitPoint> Line { get; }
+            public IReadOnlyList<GraphFitPoint> Lower { get; }
+            public IReadOnlyList<GraphFitPoint> Upper { get; }
+
+            public IEnumerable<GraphFitPoint> AllPoints => Line.Concat(Lower).Concat(Upper);
+        }
+
+        readonly struct GraphFitPoint
+        {
+            public GraphFitPoint(double x, double y)
+            {
+                X = x;
+                Y = y;
+            }
+
+            public double X { get; }
+            public double Y { get; }
         }
 
         readonly struct GraphPoint

@@ -17,28 +17,16 @@
         MinHeight="600">
     <Grid RowDefinitions="Auto,*,Auto" Background="{DynamicResource WorkspaceBackground}">
         <Border Grid.Row="0" Background="{DynamicResource PanelBackground}" BorderBrush="{DynamicResource PanelBorder}" BorderThickness="0,0,0,1">
-            <Grid RowDefinitions="Auto,Auto">
-                <Menu x:Name="InWindowMenu"
-                      Grid.Row="0"
-                      Background="{DynamicResource PanelBackground}" />
-                <DockPanel Grid.Row="1" Margin="8,5" LastChildFill="False">
-                    <StackPanel Orientation="Horizontal" Spacing="8" DockPanel.Dock="Left">
-                        <Button x:Name="OpenButton" Content="Open" MinWidth="72" />
-                        <Button x:Name="ClearButton" Content="Clear" MinWidth="72" />
-                        <Button x:Name="ObjectToolbarMenuButton" Content="Experiment" MinWidth="96" />
-                    </StackPanel>
-                    <StackPanel Orientation="Horizontal"
-                                Spacing="8"
-                                DockPanel.Dock="Right"
-                                HorizontalAlignment="Right">
-                        <Button x:Name="WorkflowToolbarMenuButton" Content="Overview" MinWidth="104" />
-                        <Button x:Name="ExperimentDesignerButton" Content="Experiment Designer" MinWidth="142" />
-                    </StackPanel>
-                </DockPanel>
-            </Grid>
+            <Menu x:Name="InWindowMenu"
+                  Background="{DynamicResource PanelBackground}" />
         </Border>
 
-        <Grid Grid.Row="1" ColumnDefinitions="300,Auto,*">
+        <Grid Grid.Row="1">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="300" MinWidth="220" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
             <Border Grid.Column="0" Background="{DynamicResource PanelBackground}" BorderBrush="{DynamicResource PanelBorder}" BorderThickness="0,0,1,0">
                 <Grid RowDefinitions="Auto,*">
                     <Grid Grid.Row="0" Margin="12,10,12,8" RowDefinitions="Auto,Auto" ColumnDefinitions="*,Auto">
@@ -142,12 +130,30 @@
                     <TabItem Header="Overview">
                         <Grid RowDefinitions="Auto,Auto,*" Background="{DynamicResource PanelBackground}">
                             <Border Grid.Row="0" Background="{DynamicResource PanelBackground}" BorderBrush="{DynamicResource PanelBorder}" BorderThickness="1,1,1,0" Padding="10">
-                                <TextBlock x:Name="OverviewTitleText"
-                                           Text="No Selection"
-                                           FontSize="22"
-                                           FontWeight="SemiBold"
-                                           Foreground="{DynamicResource PrimaryText}"
-                                           TextTrimming="CharacterEllipsis" />
+                                <Grid ColumnDefinitions="*,Auto">
+                                    <TextBlock x:Name="OverviewTitleText"
+                                               Text="No Selection"
+                                               FontSize="22"
+                                               FontWeight="SemiBold"
+                                               Foreground="{DynamicResource PrimaryText}"
+                                               TextTrimming="CharacterEllipsis"
+                                               VerticalAlignment="Center" />
+                                    <StackPanel Grid.Column="1"
+                                                Orientation="Horizontal"
+                                                Spacing="4"
+                                                Margin="12,0,0,0"
+                                                VerticalAlignment="Center">
+                                        <ToggleButton x:Name="OverviewRawButton"
+                                                      Content="Raw Data"
+                                                      MinWidth="74"
+                                                      Padding="8,1"
+                                                      IsChecked="True" />
+                                        <ToggleButton x:Name="OverviewInjectionsButton"
+                                                      Content="Injections"
+                                                      MinWidth="78"
+                                                      Padding="8,1" />
+                                    </StackPanel>
+                                </Grid>
                             </Border>
                             <Border Grid.Row="1"
                                     Background="{DynamicResource PanelBackground}"
@@ -199,6 +205,47 @@
                 <results:AnalysisResultWorkspaceControl x:Name="ResultWorkspace"
                                                         IsVisible="False" />
             </Grid>
+            <Border x:Name="EmptyWorkspacePanel"
+                    Grid.Column="2"
+                    Margin="12"
+                    Padding="36"
+                    Background="{DynamicResource PanelBackground}"
+                    BorderBrush="{DynamicResource PanelBorder}"
+                    BorderThickness="1"
+                    IsVisible="False">
+                <StackPanel HorizontalAlignment="Center"
+                            VerticalAlignment="Center"
+                            MaxWidth="440"
+                            Spacing="12">
+                    <TextBlock Text="Welcome to FT-ITC Analysis"
+                               HorizontalAlignment="Center"
+                               FontSize="22"
+                               FontWeight="SemiBold"
+                               Foreground="{DynamicResource PrimaryText}" />
+                    <TextBlock Text="Open ITC data to begin processing, analysis, and figure preparation."
+                               HorizontalAlignment="Center"
+                               TextAlignment="Center"
+                               TextWrapping="Wrap"
+                               Foreground="{DynamicResource MutedText}" />
+                    <StackPanel Orientation="Horizontal"
+                                HorizontalAlignment="Center"
+                                Spacing="8"
+                                Margin="0,8,0,0">
+                        <Button x:Name="WelcomeOpenButton"
+                                Content="Open File…"
+                                MinWidth="110" />
+                        <Button x:Name="WelcomeReloadButton"
+                                Content="Reload Last File"
+                                MinWidth="130" />
+                    </StackPanel>
+                    <TextBlock x:Name="WelcomeLastFileText"
+                               HorizontalAlignment="Center"
+                               TextAlignment="Center"
+                               TextWrapping="Wrap"
+                               Foreground="{DynamicResource MutedText}"
+                               FontSize="11" />
+                </StackPanel>
+            </Border>
         </Grid>
 
         <Border Grid.Row="2" Background="{DynamicResource PanelBackground}" BorderBrush="{DynamicResource PanelBorder}" BorderThickness="0,1,0,0" Padding="8,4">

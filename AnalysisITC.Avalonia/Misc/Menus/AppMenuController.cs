@@ -14,7 +14,8 @@ internal sealed class AppMenuController
     readonly Dictionary<string, AppMenuCommand> commands = new();
     readonly List<MenuNode> applicationMenuNodes = new();
     readonly List<MenuNode> windowMenuNodes = new();
-    readonly List<(NativeMenuItem Item, AppMenuCommand Command)> nativeCommandItems = new();
+    readonly List<(NativeMenuItem Item, AppMenuCommand Command, MenuNode Node)> nativeCommandItems = new();
+    readonly List<(NativeMenuItem Item, MenuNode Node)> nativeMenuItems = new();
     bool nativeMenuInstalled;
 
     public AppMenuController(MainWindow window)
@@ -38,6 +39,7 @@ internal sealed class AppMenuController
         if (OperatingSystem.IsMacOS())
         {
             nativeCommandItems.Clear();
+            nativeMenuItems.Clear();
             NativeMenu.SetMenu(window, CreateNativeMenu(windowMenuNodes, trackNativeCommands: true));
             nativeMenuInstalled = true;
         }
@@ -72,11 +74,19 @@ internal sealed class AppMenuController
     {
         if (!nativeMenuInstalled) return;
 
-        foreach (var (item, command) in nativeCommandItems)
+        foreach (var (item, command, node) in nativeCommandItems)
         {
+            item.IsVisible = node.IsVisible;
             item.IsEnabled = command.CanExecute(null);
             item.ToggleType = command.HasCheckState ? MenuItemToggleType.CheckBox : MenuItemToggleType.None;
             item.IsChecked = command.IsChecked;
+        }
+
+        for (var i = nativeMenuItems.Count - 1; i >= 0; i--)
+        {
+            var (item, node) = nativeMenuItems[i];
+            item.IsVisible = node.IsVisible;
+            item.IsEnabled = node.Children.Any(child => !child.IsSeparator && child.IsVisible);
         }
     }
 
@@ -109,35 +119,25 @@ internal sealed class AppMenuController
         Add("sortionic", "By Ionic Strength", () => window.SortDataAsync(AnalysisITC.Core.Application.DataManager.SortMode.IonicStrength), window.HasExperimentsWithAttributes);
         Add("sortprotonation", "By Protonation Enthalpy", () => window.SortDataAsync(AnalysisITC.Core.Application.DataManager.SortMode.ProtonationEnthalpy), window.HasExperimentsWithAttributes);
 
-        Add("overview", "Overview", () => window.SelectWorkspaceAsync(0), window.HasSelectedExperiment, () => window.ActiveWorkspaceIndex == 0);
-        Add("process", "Process Data", () => window.SelectWorkspaceAsync(1), window.HasSelectedExperiment, () => window.ActiveWorkspaceIndex == 1);
-        Add("analyze", "Analyze Data", () => window.SelectWorkspaceAsync(2), window.HasSelectedExperiment, () => window.ActiveWorkspaceIndex == 2);
-        Add("figure", "Final Figure", () => window.SelectWorkspaceAsync(3), window.HasSelectedExperiment, () => window.ActiveWorkspaceIndex == 3);
-        Add("resultview", "Result View", window.ShowResultViewAsync, window.HasSelectedResult, window.HasSelectedResult);
-
         Add("experimentdetails", "Details...", window.OpenSelectedDetailsFromMenuAsync, window.HasSelectedExperiment);
         Add("exportselecteddata", "Export Selected Data...", () => window.ExportDataAsync(selectedOnly: true), window.HasSelectedExperiment);
         Add("toggleinclude", "Enable/Disable Active", window.ToggleSelectedExperimentInclusionAsync, window.HasSelectedExperiment);
         Add("clearsolution", "Clear Solution", window.ClearSelectedExperimentSolutionAsync, window.SelectedExperimentHasSolution);
         Add("removedata", "Remove Data", window.RemoveSelectedItemAsync, window.HasSelectedExperiment);
 
-        Add("lockprocessor", "Lock/Unlock Processor", window.ToggleSelectedProcessorLockAsync, window.HasSelectedProcessor);
-        Add("copyprocesstoactive", "Copy Processing to Active", window.CopyProcessingToActiveAsync, window.HasSelectedProcessor);
-        Add("copyprocesstononprocessed", "Copy Processing to Non-Processed", window.CopyProcessingToNonProcessedAsync, window.HasSelectedProcessor);
-
-        Add("createanalysisresult", "Create Analysis Result", window.NotImplementedAsync, () => false);
-        Add("autoopenresult", "Auto Open New Result", window.ToggleAutoOpenResultAsync, () => true, window.IsAutoOpenResultEnabled);
-        Add("restoreanalysisdefaults", "Restore Analysis Defaults", window.RestoreAnalysisDefaultsAsync);
         Add("experimentdesigner", "Experiment Designer...", window.OpenExperimentDesignerAsync);
         Add("experimentmerger", "Experiment Merger...", window.OpenTandemMergerAsync, window.CanOpenTandemMergerTool);
         Add("buffersubtraction", "Buffer Subtraction...", window.OpenBufferSubtractionToolAsync, window.CanOpenBufferSubtractionTool);
         Add("analysisresultexporter", "Analysis Result Exporter...", window.OpenAnalysisResultExporterAsync, window.HasAnyResults);
+        Add("supportingfigurecanvas", "Supporting Figure...", window.OpenSupportingFigureCanvasAsync, window.HasDocumentContent);
 
         Add("resultdetails", "Details...", window.OpenSelectedDetailsFromMenuAsync, window.HasSelectedResult);
+        Add("updateresult", "Update Result", window.UpdateSelectedResultAsync, window.HasSelectedResult);
         Add("copyresulttable", "Copy Result Table", window.CopyResultTableAsync, window.HasSelectedResult);
         Add("loadresultsolutions", "Load Solutions to Experiments", window.LoadSelectedResultSolutionsAsync, window.HasSelectedResult);
         Add("selectresultexperiments", "Select Result Experiments", window.SelectResultExperimentsAsync, window.HasSelectedResult);
         Add("exportresultfigures", "Export Associated Final Figures...", window.ExportFinalFigureAsync, window.CanExportFinalFigure);
+        Add("removeresult", "Remove Result", window.RemoveSelectedItemAsync, window.HasSelectedResult);
         Add("about", "About FT-ITC Analysis", window.ShowAboutAsync);
         Add("preferences", "Preferences...", window.OpenPreferencesAsync, gesture: new KeyGesture(Key.OemComma, commandModifier));
         Add("quit", "Quit FT-ITC Analysis", window.QuitAsync, gesture: new KeyGesture(Key.Q, commandModifier));
@@ -191,17 +191,34 @@ internal sealed class AppMenuController
                 Command("sortionic"),
                 Command("sortprotonation"))));
 
-        windowMenuNodes.Add(Menu("Tools",
-            Menu("Analysis",
-                Command("autoopenresult"),
-                Command("restoreanalysisdefaults"),
-                Disabled("Parameter Display"),
-                Disabled("Parameter Limits")),
+        windowMenuNodes.Add(Menu("Selection",
+            Command("experimentdetails", window.HasSelectedExperiment),
+            Command("duplicate", window.HasSelectedExperiment),
+            Command("resultdetails", window.HasSelectedResult),
             Separator(),
+            Command("saveselected", window.HasSelectedExperiment),
+            Command("exportselecteddata", window.HasSelectedExperiment),
+            Command("saveselected", window.HasSelectedResult),
+            Command("copyresulttable", window.HasSelectedResult),
+            Separator(),
+            Command("toggleinclude", window.HasSelectedExperiment),
+            Command("clearsolution", window.HasSelectedExperiment),
+            Command("updateresult", window.HasSelectedResult),
+            Command("loadresultsolutions", window.HasSelectedResult),
+            Command("selectresultexperiments", window.HasSelectedResult),
+            Command("exportresultfigures", window.HasSelectedResult),
+            Separator(),
+            Command("experimentmerger", window.HasSelectedExperiment),
+            Command("buffersubtraction", window.HasSelectedExperiment),
+            Command("removedata", window.HasSelectedExperiment),
+            Command("removeresult", window.HasSelectedResult)));
+
+        windowMenuNodes.Add(Menu("Tools",
             Command("experimentdesigner"),
             Command("experimentmerger"),
             Command("buffersubtraction"),
-            Command("analysisresultexporter")));
+            Command("analysisresultexporter"),
+            Command("supportingfigurecanvas")));
 
         windowMenuNodes.Add(Menu("Help",
             Command("helpguide"),
@@ -225,8 +242,7 @@ internal sealed class AppMenuController
         commands[id] = new AppMenuCommand(id, title, execute, canExecute, isChecked, gesture);
     }
 
-    MenuNode Command(string id) => new(commands[id]);
-    static MenuNode Disabled(string title) => new(title);
+    MenuNode Command(string id, Func<bool>? isVisible = null) => new(commands[id], isVisible);
     static MenuNode Separator() => MenuNode.Separator;
     static MenuNode Menu(string title, params MenuNode[] children) => new(title, children.ToList());
 
@@ -249,14 +265,16 @@ internal sealed class AppMenuController
                 Command = node.Command,
                 InputGesture = node.Command.Gesture,
                 ToggleType = node.Command.HasCheckState ? MenuItemToggleType.CheckBox : MenuItemToggleType.None,
-                IsChecked = node.Command.IsChecked
+                IsChecked = node.Command.IsChecked,
+                IsVisible = node.IsVisible
             };
         }
 
         var item = new MenuItem
         {
             Header = node.Title,
-            IsEnabled = node.Children.Count > 0
+            IsEnabled = node.Children.Any(child => !child.IsSeparator && child.IsVisible),
+            IsVisible = node.IsVisible
         };
 
         foreach (var child in node.Children)
@@ -294,11 +312,12 @@ internal sealed class AppMenuController
                 Gesture = node.Command.Gesture,
                 ToggleType = node.Command.HasCheckState ? MenuItemToggleType.CheckBox : MenuItemToggleType.None,
                 IsChecked = node.Command.IsChecked,
-                IsEnabled = node.Command.CanExecute(null)
+                IsEnabled = node.Command.CanExecute(null),
+                IsVisible = node.IsVisible
             };
 
             if (trackNativeCommands)
-                nativeCommandItems.Add((commandItem, node.Command));
+                nativeCommandItems.Add((commandItem, node.Command, node));
 
             return commandItem;
         }
@@ -306,11 +325,15 @@ internal sealed class AppMenuController
         var item = new NativeMenuItem
         {
             Header = node.Title,
-            IsEnabled = node.Children.Count > 0
+            IsEnabled = node.Children.Any(child => !child.IsSeparator && child.IsVisible),
+            IsVisible = node.IsVisible
         };
 
         if (node.Children.Count > 0)
             item.Menu = CreateNativeMenu(node.Children, trackNativeCommands);
+
+        if (trackNativeCommands)
+            nativeMenuItems.Add((item, node));
 
         return item;
     }
@@ -326,11 +349,12 @@ internal sealed class AppMenuController
             Children = new List<MenuNode>();
         }
 
-        public MenuNode(AppMenuCommand command)
+        public MenuNode(AppMenuCommand command, Func<bool>? isVisible = null)
         {
             Command = command;
             Title = command.Title;
             Children = new List<MenuNode>();
+            this.isVisible = isVisible;
         }
 
         public MenuNode(string title)
@@ -349,5 +373,7 @@ internal sealed class AppMenuController
         public AppMenuCommand? Command { get; }
         public List<MenuNode> Children { get; }
         public bool IsSeparator { get; }
+        readonly Func<bool>? isVisible;
+        public bool IsVisible => isVisible?.Invoke() ?? true;
     }
 }

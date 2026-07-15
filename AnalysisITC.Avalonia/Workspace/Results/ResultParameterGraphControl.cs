@@ -107,10 +107,11 @@ namespace AnalysisITC.Avalonia.Results
 
             if (solutions.Count == 0 || parameters.Count == 0 || plot.Width < 80 || plot.Height < 80)
             {
-                DrawText(
+                AvaloniaGraphText.DrawWrappedText(
                     context,
                     "No thermodynamic result parameters",
                     new Point(plot.Left + AvaloniaGraphSettings.EmptyStateXOffset, plot.Top + AvaloniaGraphSettings.EmptyStateTitleYOffset),
+                    Math.Max(40, plot.Width - 2 * AvaloniaGraphSettings.EmptyStateXOffset),
                     AvaloniaGraphSettings.EmptyTitleFontSize,
                     FontWeight.SemiBold,
                     GraphTheme.MutedTextBrush);

@@ -9,6 +9,7 @@
     <ApplicationIcon>..\Resources\appicon.ico</ApplicationIcon>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <AvaloniaUseCompiledBindingsByDefault>false</AvaloniaUseCompiledBindingsByDefault>
+    <ReleaseVersion>1.1</ReleaseVersion>
   </PropertyGroup>
 
   <ItemGroup>

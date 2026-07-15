@@ -315,7 +315,7 @@ namespace AnalysisITC.Avalonia.Workspace
             };
         }
 
-        public static TextBox TextBox(string text)
+        public static TextBox TextBox(string text = "")
         {
             return new TextBox
             {
@@ -339,7 +339,7 @@ namespace AnalysisITC.Avalonia.Workspace
             };
         }
 
-        public static CheckBox Check(string text, bool isChecked)
+        public static CheckBox Check(string text, bool isChecked = false)
         {
             return new CheckBox
             {

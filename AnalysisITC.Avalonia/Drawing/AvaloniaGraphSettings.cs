@@ -1,3 +1,7 @@
+using System;
+using System.Globalization;
+
+using Avalonia;
 using Avalonia.Media;
 
 public static class AvaloniaGraphSettings
@@ -95,6 +99,55 @@ public static class AvaloniaGraphSettings
     public static IBrush Brush(string color, double opacity) => new SolidColorBrush(Color.Parse(color), opacity);
 
     public static Pen Pen(IBrush brush, double thickness) => new Pen(brush, thickness);
+}
+
+public static class AvaloniaGraphText
+{
+    public static void DrawWrappedText(DrawingContext context, string text, Point point, double maximumWidth, double size, FontWeight weight, IBrush brush)
+    {
+        var typeface = new Typeface("Inter", FontStyle.Normal, weight);
+        var lineHeight = 0.0;
+        var y = point.Y;
+
+        foreach (var paragraph in (text ?? "").Split('\n'))
+        {
+            var line = "";
+            foreach (var word in paragraph.Split(' ', StringSplitOptions.RemoveEmptyEntries))
+            {
+                var candidate = string.IsNullOrEmpty(line) ? word : line + " " + word;
+                var candidateText = CreateText(candidate, typeface, size, brush);
+                if (!string.IsNullOrEmpty(line) && candidateText.Width > maximumWidth)
+                {
+                    var formatted = CreateText(line, typeface, size, brush);
+                    context.DrawText(formatted, new Point(point.X, y));
+                    lineHeight = Math.Max(lineHeight, formatted.Height);
+                    y += formatted.Height + 2;
+                    line = word;
+                }
+                else
+                {
+                    line = candidate;
+                }
+            }
+
+            if (!string.IsNullOrEmpty(line))
+            {
+                var formatted = CreateText(line, typeface, size, brush);
+                context.DrawText(formatted, new Point(point.X, y));
+                lineHeight = Math.Max(lineHeight, formatted.Height);
+                y += formatted.Height + 2;
+            }
+            else if (paragraph.Length == 0 && lineHeight > 0)
+            {
+                y += lineHeight + 2;
+            }
+        }
+    }
+
+    static FormattedText CreateText(string text, Typeface typeface, double size, IBrush brush)
+    {
+        return new FormattedText(text, CultureInfo.CurrentCulture, FlowDirection.LeftToRight, typeface, size, brush);
+    }
 }
 
 public sealed class AvaloniaGraphTheme

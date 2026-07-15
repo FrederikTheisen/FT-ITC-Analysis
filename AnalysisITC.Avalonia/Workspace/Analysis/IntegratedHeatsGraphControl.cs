@@ -217,8 +217,10 @@ namespace AnalysisITC.Avalonia.Analysis
 
         void DrawEmptyState(DrawingContext context, Rect plot)
         {
-            DrawText(context, "No integrated heats selected", new Point(plot.Left + AvaloniaGraphSettings.EmptyStateXOffset, plot.Top + AvaloniaGraphSettings.EmptyStateTitleYOffset), AvaloniaGraphSettings.EmptyTitleFontSize, FontWeight.SemiBold, GraphTheme.MutedTextBrush);
-            DrawText(context, "Process an experiment, then switch to Analyze Data to inspect injection heats.", new Point(plot.Left + AvaloniaGraphSettings.EmptyStateXOffset, plot.Top + AvaloniaGraphSettings.EmptyStateBodyYOffset), AvaloniaGraphSettings.EmptyBodyFontSize, FontWeight.Normal, GraphTheme.MutedTextBrush);
+            var x = plot.Left + AvaloniaGraphSettings.EmptyStateXOffset;
+            var width = Math.Max(40, plot.Right - x - AvaloniaGraphSettings.EmptyStateXOffset);
+            AvaloniaGraphText.DrawWrappedText(context, "No integrated heats selected", new Point(x, plot.Top + AvaloniaGraphSettings.EmptyStateTitleYOffset), width, AvaloniaGraphSettings.EmptyTitleFontSize, FontWeight.SemiBold, GraphTheme.MutedTextBrush);
+            AvaloniaGraphText.DrawWrappedText(context, "Process an experiment, then switch to Analyze Data to inspect injection heats.", new Point(x, plot.Top + AvaloniaGraphSettings.EmptyStateBodyYOffset), width, AvaloniaGraphSettings.EmptyBodyFontSize, FontWeight.Normal, GraphTheme.MutedTextBrush);
         }
 
         void DrawGrid(DrawingContext context, Rect plot, PlotTransform transform, AxisTicks xTicks, AxisTicks yTicks)

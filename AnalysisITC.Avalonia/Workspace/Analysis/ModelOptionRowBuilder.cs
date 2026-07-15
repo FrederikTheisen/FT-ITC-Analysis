@@ -22,6 +22,7 @@ namespace AnalysisITC.Avalonia.Analysis
     static class ModelOptionRowBuilder
     {
         const double NumericWidth = 132;
+        const double ErrorNumericWidth = 82;
 
         public static Control Build(
             AttributeKey key,
@@ -77,7 +78,7 @@ namespace AnalysisITC.Avalonia.Analysis
                 AttributeKey.PreboundLigandEnthalpy =>
                     EnergyEditor(key, option, apply, setStatus),
                 AttributeKey.Percentage =>
-                    NumericParameterEditor(key, option, option.ParameterValue.Value * 100.0, "%", value => value / 100.0, apply, setStatus),
+                    NumericParameterEditor(key, option, option.ParameterValue.Value * 100.0, option.ParameterValue.SD * 100.0, "%", value => value / 100.0, apply, setStatus),
                 _ => BuildDefaultEditor(key, option, allOptions, enabled, apply, setStatus)
             };
         }
@@ -97,7 +98,7 @@ namespace AnalysisITC.Avalonia.Analysis
                 ExperimentAttribute.AttributeType.Double => DoubleEditor(key, option, enabled, apply, setStatus),
                 ExperimentAttribute.AttributeType.ParameterAffinity => AffinityEditor(key, option, apply, setStatus),
                 ExperimentAttribute.AttributeType.ParameterConcentration => ConcentrationEditor(key, option, apply, setStatus, allowFromAttributes: false),
-                ExperimentAttribute.AttributeType.Parameter => NumericParameterEditor(key, option, option.ParameterValue.Value, "", value => value, apply, setStatus),
+                ExperimentAttribute.AttributeType.Parameter => NumericParameterEditor(key, option, option.ParameterValue.Value, option.ParameterValue.SD, "", value => value, apply, setStatus),
                 ExperimentAttribute.AttributeType.String => StringEditor(key, option, enabled, apply, setStatus),
                 _ => WorkspaceControlBuilder.Text($"Read-only: {option.GetDisplayValue()}")
             };
@@ -213,24 +214,29 @@ namespace AnalysisITC.Avalonia.Analysis
             AttributeKey key,
             ExperimentAttribute option,
             double displayValue,
+            double displayError,
             string unitLabel,
             Func<double, double> toStoredValue,
             Action<AttributeKey, ExperimentAttribute> apply,
             Action<string> setStatus)
         {
-            return NumericTextEditor(
+            return ParameterTextEditor(
                 key,
                 option,
                 Format(displayValue),
+                Format(displayError),
                 unitLabel,
                 true,
-                value =>
+                (value, error) =>
                 {
                     var copy = option.Copy();
-                    copy.ParameterValue = WithExistingError(option.ParameterValue, toStoredValue(value));
+                    copy.ParameterValue = new FloatWithError(toStoredValue(value), Math.Abs(toStoredValue(error)));
                     return copy;
                 },
-                value => !double.IsNaN(toStoredValue(value)) && !double.IsInfinity(toStoredValue(value)),
+                (value, error) => !double.IsNaN(toStoredValue(value))
+                    && !double.IsInfinity(toStoredValue(value))
+                    && !double.IsNaN(toStoredValue(error))
+                    && !double.IsInfinity(toStoredValue(error)),
                 apply,
                 setStatus);
         }
@@ -244,19 +250,20 @@ namespace AnalysisITC.Avalonia.Analysis
         {
             var unit = AppSettings.DefaultConcentrationUnit;
             var manualInputEnabled = !allowFromAttributes || !option.BoolValue;
-            var textEditor = NumericTextEditor(
+            var textEditor = ParameterTextEditor(
                 key,
                 option,
                 Format(option.ParameterValue.Value * unit.GetMod()),
+                Format(option.ParameterValue.SD * unit.GetMod()),
                 unit.GetName(),
                 true,
-                value =>
+                (value, error) =>
                 {
                     var copy = option.Copy();
-                    copy.ParameterValue = WithExistingError(option.ParameterValue, value / unit.GetMod());
+                    copy.ParameterValue = new FloatWithError(value / unit.GetMod(), Math.Abs(error) / unit.GetMod());
                     return copy;
                 },
-                value => value >= 0,
+                (value, error) => value >= 0 && error >= 0,
                 apply,
                 setStatus,
                 canApply: () => manualInputEnabled);
@@ -291,21 +298,23 @@ namespace AnalysisITC.Avalonia.Analysis
             Action<string> setStatus)
         {
             var unit = AppSettings.DefaultConcentrationUnit;
-            var kd = Math.Pow(10.0, -option.ParameterValue.Value) * unit.GetMod();
+            var kd = 1.0 / FWEMath.Pow(10.0, option.ParameterValue);
 
-            return NumericTextEditor(
+            return ParameterTextEditor(
                 key,
                 option,
-                Format(kd),
+                Format(kd.Value * unit.GetMod()),
+                Format(kd.SD * unit.GetMod()),
                 $"Kd, {unit.GetName()}",
                 true,
-                value =>
+                (value, error) =>
                 {
                     var copy = option.Copy();
-                    copy.ParameterValue = WithExistingError(option.ParameterValue, -Math.Log10(value / unit.GetMod()));
+                    var kdInput = new FloatWithError(value / unit.GetMod(), error / unit.GetMod());
+                    copy.ParameterValue = new FloatWithError(0) - FWEMath.Log10(kdInput);
                     return copy;
                 },
-                value => value > 0,
+                (value, error) => value > 0 && error >= 0,
                 apply,
                 setStatus);
         }
@@ -318,19 +327,22 @@ namespace AnalysisITC.Avalonia.Analysis
         {
             var unit = AppSettings.EnergyUnit;
 
-            return NumericTextEditor(
+            return ParameterTextEditor(
                 key,
                 option,
                 Format(Energy.ConvertFromJoule(option.ParameterValue.Value, unit)),
+                Format(Math.Abs(Energy.ConvertFromJoule(option.ParameterValue.SD, unit))),
                 unit.GetUnit() + "/mol",
                 true,
-                value =>
+                (value, error) =>
                 {
                     var copy = option.Copy();
-                    copy.ParameterValue = WithExistingError(option.ParameterValue, Energy.ConvertToJoule(value, unit));
+                    copy.ParameterValue = new FloatWithError(
+                        Energy.ConvertToJoule(value, unit),
+                        Math.Abs(Energy.ConvertToJoule(error, unit)));
                     return copy;
                 },
-                _ => true,
+                (_, error) => error >= 0,
                 apply,
                 setStatus);
         }
@@ -407,6 +419,81 @@ namespace AnalysisITC.Avalonia.Analysis
                 });
         }
 
+        static Control ParameterTextEditor(
+            AttributeKey key,
+            ExperimentAttribute option,
+            string valueText,
+            string errorText,
+            string unitLabel,
+            bool enabled,
+            Func<double, double, ExperimentAttribute> copyWithValue,
+            Func<double, double, bool> validate,
+            Action<AttributeKey, ExperimentAttribute> apply,
+            Action<string> setStatus,
+            Func<bool>? canApply = null)
+        {
+            var valueBox = WorkspaceControlBuilder.TextBox(valueText);
+            valueBox.Width = ErrorNumericWidth;
+            valueBox.IsEnabled = enabled;
+
+            var errorBox = WorkspaceControlBuilder.TextBox(errorText);
+            errorBox.Width = ErrorNumericWidth;
+            errorBox.IsEnabled = enabled;
+
+            void ApplyValue()
+            {
+                if (!valueBox.IsEnabled) return;
+                if (canApply?.Invoke() == false) return;
+
+                if (!TryParseDouble(valueBox.Text, out var value)
+                    || !TryParseDouble(errorBox.Text, out var error)
+                    || !validate(value, error))
+                {
+                    setStatus($"Invalid value or error for {CleanTitle(option.GetDisplayName())}");
+                    return;
+                }
+
+                apply(key, copyWithValue(value, error));
+                setStatus($"{CleanTitle(option.GetDisplayName())} updated");
+            }
+
+            valueBox.LostFocus += (_, _) => ApplyValue();
+            errorBox.LostFocus += (_, _) => ApplyValue();
+            valueBox.KeyDown += (_, e) =>
+            {
+                if (e.Key == Key.Enter) ApplyValue();
+            };
+            errorBox.KeyDown += (_, e) =>
+            {
+                if (e.Key == Key.Enter) ApplyValue();
+            };
+
+            var controls = new List<Control>
+            {
+                valueBox,
+                new TextBlock
+                {
+                    Text = "±",
+                    Foreground = WorkspaceControlBuilder.LabelBrush,
+                    VerticalAlignment = VerticalAlignment.Center
+                },
+                errorBox
+            };
+
+            if (!string.IsNullOrWhiteSpace(unitLabel))
+            {
+                controls.Add(new TextBlock
+                {
+                    Text = unitLabel,
+                    Foreground = WorkspaceControlBuilder.LabelBrush,
+                    VerticalAlignment = VerticalAlignment.Center,
+                    TextWrapping = TextWrapping.NoWrap
+                });
+            }
+
+            return WorkspaceControlBuilder.Row(controls.ToArray());
+        }
+
         static bool IsOptionEnabled(AttributeKey key, IDictionary<AttributeKey, ExperimentAttribute> allOptions)
         {
             var useSyringeCorrection = allOptions.TryGetValue(AttributeKey.UseSyringeActiveFraction, out var syringeOption)
@@ -420,11 +507,6 @@ namespace AnalysisITC.Avalonia.Analysis
                 AttributeKey.NumberOfSites2 => useSyringeCorrection && !lockDuplicateParameter,
                 _ => true
             };
-        }
-
-        static FloatWithError WithExistingError(FloatWithError current, double value)
-        {
-            return new FloatWithError(value, current.SD);
         }
 
         static bool TryParseDouble(string? text, out double value)

@@ -141,8 +141,8 @@ namespace AnalysisITC.Avalonia.Details
 
             var concentrationRows = new List<Control>
             {
-                TwoValueRow("Cell (uM)", cellBox, "SD", cellErrorBox),
-                TwoValueRow("Syringe (uM)", syringeBox, "SD", syringeErrorBox)
+                TwoValueRow("Cell (uM)", cellBox, "±", cellErrorBox),
+                TwoValueRow("Syringe (uM)", syringeBox, "±", syringeErrorBox)
             };
             if (data.IsTandemExperiment)
                 concentrationRows.Add(Note("Concentrations and cell volume are controlled by the tandem experiment."));

@@ -77,6 +77,8 @@ namespace AnalysisITC.Avalonia.Details
                         return ApplySalt(out error);
                     case AttributeKey.IonicStrength:
                         return ApplyConcentration(out error);
+                    case AttributeKey.PreboundLigandConc:
+                        return ApplyPreboundLigandConcentration(out error);
                     case AttributeKey.BufferSubtraction:
                         return ApplyBufferSubtraction(experiment, out error);
                     case AttributeKey.Species:
@@ -178,6 +180,8 @@ namespace AnalysisITC.Avalonia.Details
 
             switch (attribute.Key)
             {
+                case AttributeKey.Null:
+                    break;
                 case AttributeKey.Buffer:
                     AddBufferEditor();
                     break;
@@ -186,6 +190,9 @@ namespace AnalysisITC.Avalonia.Details
                     break;
                 case AttributeKey.IonicStrength:
                     AddValueWithUnit("mM", attribute.ParameterValue.Value * 1000, attribute.ParameterValue.SD * 1000, includeError: false);
+                    break;
+                case AttributeKey.PreboundLigandConc:
+                    AddPreboundLigandConcentrationEditor();
                     break;
                 case AttributeKey.BufferSubtraction:
                     AddReferenceEditor();
@@ -197,6 +204,16 @@ namespace AnalysisITC.Avalonia.Details
                     AddGenericEditor();
                     break;
             }
+        }
+
+        void AddPreboundLigandConcentrationEditor()
+        {
+            var unit = AppSettings.DefaultConcentrationUnit;
+            AddValueWithUnit(
+                unit.GetName(),
+                attribute.ParameterValue.Value * unit.GetMod(),
+                attribute.ParameterValue.SD * unit.GetMod(),
+                includeError: true);
         }
 
         void AddBufferEditor()
@@ -293,6 +310,7 @@ namespace AnalysisITC.Avalonia.Details
             editorPanel.Children.Add(valueBox);
             if (includeError)
             {
+                editorPanel.Children.Add(Label("±"));
                 errorBox = Box(error.ToString("G6", CultureInfo.CurrentCulture), 72);
                 errorBox.PlaceholderText = "SD";
                 editorPanel.Children.Add(errorBox);
@@ -343,6 +361,24 @@ namespace AnalysisITC.Avalonia.Details
         {
             if (!TryReadDouble(valueBox, "concentration", out var concentration, out error)) return false;
             attribute.ParameterValue = new FloatWithError(concentration / 1000);
+            return true;
+        }
+
+        bool ApplyPreboundLigandConcentration(out string error)
+        {
+            var unit = AppSettings.DefaultConcentrationUnit;
+            if (!TryReadDouble(valueBox, "ligand concentration", out var concentration, out error)) return false;
+            if (!TryReadDouble(errorBox, "ligand concentration error", out var concentrationError, out error)) return false;
+            if (concentration < 0 || concentrationError < 0)
+            {
+                error = "Ligand concentration and its error cannot be negative.";
+                return false;
+            }
+
+            attribute.OptionName = "[Ligand]";
+            attribute.ParameterValue = new FloatWithError(
+                concentration / unit.GetMod(),
+                concentrationError / unit.GetMod());
             return true;
         }
 

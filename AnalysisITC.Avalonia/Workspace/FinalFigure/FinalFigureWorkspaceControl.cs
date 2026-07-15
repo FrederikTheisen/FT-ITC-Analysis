@@ -64,6 +64,7 @@ namespace AnalysisITC.Avalonia.FinalFigure
 
         readonly TextBox widthBox = TextBox("6");
         readonly TextBox heightBox = TextBox("10");
+        readonly TextBox fontSizeBox = TextBox("14");
         readonly ComboBox energyUnitCombo = Combo(EnergyUnits.Select(unit => unit.GetUnit()).ToArray(), 0, 126);
         readonly ComboBox timeUnitCombo = Combo(TimeUnits.Select(unit => unit.GetProperties().Name).ToArray(), 1, 126);
         readonly ComboBox uncertaintyCombo = Combo(new[] { "Automatic", "SD", "CI", "SD + CI", "None" }, 1, 126);
@@ -93,6 +94,12 @@ namespace AnalysisITC.Avalonia.FinalFigure
         readonly TextBox dataYMinBox = TextBox("");
         readonly TextBox dataYMaxBox = TextBox("");
         readonly CheckBox correctedDataCheck = Check("Corrected data", true);
+        readonly CheckBox baselineCheck = Check("Baseline", false);
+        readonly ComboBox baselineStyleCombo = Combo(new[] { "Solid", "Dashed" }, 0, 126);
+        readonly ComboBox baselineLayerCombo = Combo(new[] { "Under data", "Over data" }, 1, 126);
+        readonly TextBox baselineWidthBox = TextBox("2");
+        readonly CheckBox integrationRegionsCheck = Check("Integration ranges", false);
+        readonly ComboBox integrationRegionStyleCombo = Combo(new[] { "Bar", "Fill", "Endpoint lines" }, 1, 126);
 
         readonly TextBox enthalpyAxisTitleBox = TextBox("<unit> of injectant");
         readonly TextBox fitXAxisTitleBox = TextBox("");
@@ -242,6 +249,8 @@ namespace AnalysisITC.Avalonia.FinalFigure
             {
                 Labeled("Width cm", widthBox),
                 Labeled("Height cm", heightBox),
+                Labeled("Base font pt", fontSizeBox),
+                Text("Ticks use the base size; axis titles use base + 1 pt; parameter boxes use 12 pt."),
                 Labeled("Energy", energyUnitCombo),
                 Labeled("Time", timeUnitCombo)
             }));
@@ -274,7 +283,8 @@ namespace AnalysisITC.Avalonia.FinalFigure
 
         Control BuildDataGraphTab()
         {
-            return Section("Data graph", new Control[]
+            var panel = WorkspaceControlBuilder.InspectorPanel();
+            panel.Children.Add(Section("Data graph", new Control[]
             {
                 Labeled("Power title", powerAxisTitleBox),
                 Labeled("Time title", timeAxisTitleBox),
@@ -285,7 +295,20 @@ namespace AnalysisITC.Avalonia.FinalFigure
                 Labeled("Y min", dataYMinBox),
                 Labeled("Y max", dataYMaxBox),
                 correctedDataCheck
-            });
+            }));
+            panel.Children.Add(Section("Baseline", new Control[]
+            {
+                baselineCheck,
+                Labeled("Style", baselineStyleCombo),
+                Labeled("Layer", baselineLayerCombo),
+                Labeled("Width", baselineWidthBox)
+            }));
+            panel.Children.Add(Section("Integration ranges", new Control[]
+            {
+                integrationRegionsCheck,
+                Labeled("Display", integrationRegionStyleCombo)
+            }));
+            return panel;
         }
 
         Control BuildFitGraphTab()
@@ -302,7 +325,7 @@ namespace AnalysisITC.Avalonia.FinalFigure
                 Labeled("Y min", fitYMinBox),
                 Labeled("Y max", fitYMaxBox),
                 Labeled("Symbol", symbolCombo),
-                Labeled("Symbol size", symbolSizeBox)
+                Labeled("Data point size", symbolSizeBox)
             }));
             panel.Children.Add(Section("Fit line", new Control[]
             {
@@ -377,6 +400,8 @@ namespace AnalysisITC.Avalonia.FinalFigure
                 instrumentCheck,
                 attributesCheck,
                 correctedDataCheck,
+                baselineCheck,
+                integrationRegionsCheck,
                 residualsCheck,
                 residualGapCheck,
                 fitLineCheck,
@@ -398,7 +423,10 @@ namespace AnalysisITC.Avalonia.FinalFigure
                 uncertaintyCombo,
                 infoPlacementCombo,
                 symbolCombo,
-                fitLineSmoothnessCombo
+                fitLineSmoothnessCombo,
+                baselineStyleCombo,
+                baselineLayerCombo,
+                integrationRegionStyleCombo
             };
         }
 
@@ -408,6 +436,7 @@ namespace AnalysisITC.Avalonia.FinalFigure
             {
                 widthBox,
                 heightBox,
+                fontSizeBox,
                 powerAxisTitleBox,
                 timeAxisTitleBox,
                 dataXTickBox,
@@ -416,6 +445,7 @@ namespace AnalysisITC.Avalonia.FinalFigure
                 dataXMaxBox,
                 dataYMinBox,
                 dataYMaxBox,
+                baselineWidthBox,
                 enthalpyAxisTitleBox,
                 fitXAxisTitleBox,
                 fitXTickBox,
@@ -522,6 +552,7 @@ namespace AnalysisITC.Avalonia.FinalFigure
             {
                 PlotWidthCentimeters = ParseDouble(widthBox.Text, defaults.PlotWidthCentimeters, 3, 20),
                 PlotHeightCentimeters = ParseDouble(heightBox.Text, defaults.PlotHeightCentimeters, 4, 28),
+                FontSize = ParseDouble(fontSizeBox.Text, defaults.FontSize, 5, 24),
                 EnergyUnit = SelectedEnergyUnit(),
                 TimeUnit = SelectedTimeUnit(),
                 ShowThermogram = showThermogramCheck.IsChecked == true,
@@ -539,6 +570,12 @@ namespace AnalysisITC.Avalonia.FinalFigure
                 IncludeResidualGraphGap = residualGapCheck.IsChecked == true,
                 SanitizeTicks = sanitizeTicksCheck.IsChecked == true,
                 DrawBaselineCorrected = correctedDataCheck.IsChecked == true,
+                ShowBaseline = baselineCheck.IsChecked == true,
+                BaselineStyle = baselineStyleCombo.SelectedIndex == 1 ? PublicationBaselineStyle.Dashed : PublicationBaselineStyle.Solid,
+                BaselineLayer = baselineLayerCombo.SelectedIndex == 0 ? PublicationBaselineLayer.UnderData : PublicationBaselineLayer.OverData,
+                BaselineWidth = ParseDouble(baselineWidthBox.Text, defaults.BaselineWidth, 0.25, 8),
+                ShowIntegrationRegions = integrationRegionsCheck.IsChecked == true,
+                IntegrationRegionStyle = (PublicationIntegrationRegionStyle)Math.Max(0, integrationRegionStyleCombo.SelectedIndex),
                 ShowZeroLine = zeroLineCheck.IsChecked == true,
                 DataXTickCount = ParseInt(dataXTickBox.Text, defaults.DataXTickCount, 2, 12),
                 DataYTickCount = ParseInt(dataYTickBox.Text, defaults.DataYTickCount, 2, 12),
@@ -565,6 +602,11 @@ namespace AnalysisITC.Avalonia.FinalFigure
                 AttributeOptions = AppSettings.DisplayAttributeOptions,
                 TextUncertaintyStyle = SelectedUncertaintyStyle()
             };
+        }
+
+        internal PublicationFigureOptions GetOptionsSnapshot()
+        {
+            return BuildOptions();
         }
 
         FinalFigureDisplayParameters BuildDisplayParameters()

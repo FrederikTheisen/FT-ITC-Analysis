@@ -15,6 +15,7 @@ namespace AnalysisITC.Platform.Avalonia
             PlatformServices.RegisterClipboardService(new AvaloniaClipboardService());
             PlatformServices.RegisterFileSavePromptService(new AvaloniaFileSavePromptService());
             PlatformServices.RegisterExportPromptService(new AvaloniaExportPromptService());
+            PlatformServices.RegisterImportPromptService(new AvaloniaImportPromptService());
         }
     }
 }
