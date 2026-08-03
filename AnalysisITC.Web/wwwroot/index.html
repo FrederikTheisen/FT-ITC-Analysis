@@ -1,0 +1,180 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <title>FT-ITC Analysis Viewer</title>
+  <link rel="stylesheet" href="/styles.css">
+  <script src="/vendor/viewer-charts-2.35.3.min.js"></script>
+  <script src="/app.js" defer></script>
+</head>
+<body>
+  <header class="site-header">
+    <a class="brand" href="/" aria-label="FT-ITC Analysis home">
+      <span class="brand-mark">FT</span>
+      <span>FT-ITC Analysis</span>
+    </a>
+    <span class="product-label">Read-only viewer</span>
+  </header>
+
+  <main>
+    <section id="upload-panel" class="upload-panel">
+      <div>
+        <p class="eyebrow">Inspect an experiment</p>
+        <h1>Open an ITC data file</h1>
+        <p class="lede">View thermograms, integrations, processing, and saved fits without changing the source file.</p>
+      </div>
+      <form id="upload-form" enctype="multipart/form-data">
+        <label class="file-picker" for="file-input">
+          <span id="file-label">Choose a .ftitc or .itc file</span>
+          <input id="file-input" name="file" type="file" accept=".ftitc,.itc" required>
+        </label>
+        <button id="open-button" type="submit">Open file</button>
+        <p class="upload-note">Maximum file size: 50 MB. Files are parsed in memory and are not stored.</p>
+      </form>
+      <div id="upload-error" class="notice error" role="alert" hidden></div>
+    </section>
+
+    <section id="viewer" hidden>
+      <div class="viewer-heading">
+        <div>
+          <p id="document-format" class="eyebrow"></p>
+          <h1 id="document-name"></h1>
+          <p id="document-summary" class="lede"></p>
+        </div>
+        <button id="new-file-button" class="secondary" type="button">Open another file</button>
+      </div>
+
+      <div id="document-warnings" class="notice warning" hidden></div>
+
+      <nav id="workspace-tabs" class="workspace-tabs" aria-label="Document workspace">
+        <button id="experiments-workspace-button" type="button" aria-selected="true">Experiments</button>
+        <button id="results-workspace-button" type="button" aria-selected="false" hidden>Results</button>
+      </nav>
+
+      <section id="experiments-workspace" aria-label="Experiments workspace">
+        <div class="workspace-layout">
+          <aside class="selection-sidebar" aria-labelledby="experiment-list-heading">
+            <p class="eyebrow">Project contents</p>
+            <h2 id="experiment-list-heading">Experiments</h2>
+            <ul id="experiment-list" class="selection-list"></ul>
+          </aside>
+
+          <div class="workspace-content">
+            <div id="fit-toolbar" class="experiment-bar" hidden>
+              <label id="fit-select-label" for="fit-select">Saved fit</label>
+              <select id="fit-select"></select>
+            </div>
+
+            <section id="overview" class="overview-card" aria-labelledby="experiment-name">
+              <div class="experiment-heading">
+                <p class="eyebrow">Experiment overview</p>
+                <h2 id="experiment-name"></h2>
+                <p id="experiment-source" class="muted"></p>
+              </div>
+              <dl id="overview-grid" class="overview-grid"></dl>
+              <div id="experiment-comments" class="comments-block" hidden>
+                <p class="comments-label">Comments</p>
+                <p id="experiment-comments-text" class="comments-text"></p>
+              </div>
+            </section>
+
+            <nav id="tabs" class="tabs" aria-label="Experiment views"></nav>
+            <section class="view-panel">
+              <div id="view-message" class="notice" hidden></div>
+              <div id="processed-controls" class="trace-mode-controls" role="group" aria-label="Processing trace" hidden>
+                <span>Display</span>
+                <button id="processed-mode-raw" type="button" aria-pressed="true">Raw</button>
+                <button id="processed-mode-corrected" type="button" aria-pressed="false">Corrected</button>
+              </div>
+              <dl id="fit-plot-summary" class="fit-plot-summary" hidden></dl>
+              <div id="plot" class="plot" aria-label="Interactive data graph"></div>
+              <div id="fit-parameters" class="parameters" hidden></div>
+              <dl id="metadata-grid" class="metadata-grid" hidden></dl>
+            </section>
+          </div>
+        </div>
+      </section>
+
+      <section id="results-workspace" class="results-workspace" aria-label="Analysis results workspace" hidden>
+        <div class="workspace-layout">
+          <aside class="selection-sidebar" aria-labelledby="result-list-heading">
+            <p class="eyebrow">Saved analyses</p>
+            <h2 id="result-list-heading">Results</h2>
+            <ul id="result-list" class="selection-list"></ul>
+          </aside>
+
+          <div class="workspace-content results-content">
+            <section class="result-card result-heading" aria-labelledby="result-name">
+              <div>
+                <p class="eyebrow">Analysis result</p>
+                <h2 id="result-name"></h2>
+                <p id="result-subtitle" class="muted"></p>
+              </div>
+              <div id="result-validity" class="validity-banner" role="status"></div>
+              <dl id="result-summary-grid" class="overview-grid"></dl>
+              <div id="result-comments" class="comments-block" hidden>
+                <p class="comments-label">Comments</p>
+                <p id="result-comments-text" class="comments-text"></p>
+              </div>
+              <div id="result-warnings" class="notice warning" hidden></div>
+            </section>
+
+            <section class="result-card" aria-labelledby="comparison-heading">
+              <div class="section-heading">
+                <div>
+                  <p class="eyebrow">Across experiments</p>
+                  <h2 id="comparison-heading">Parameter comparison</h2>
+                </div>
+                <p class="muted">Reported thermodynamic parameters with saved uncertainty.</p>
+              </div>
+              <div id="result-comparison-message" class="notice" hidden></div>
+              <div id="result-comparison-plot" class="plot result-comparison-plot" aria-label="Parameter comparison graph"></div>
+              <div id="result-parameter-table" class="table-scroll" tabindex="0" aria-label="Result parameter table"></div>
+            </section>
+
+            <section class="result-card" aria-labelledby="member-fit-heading">
+              <div class="section-heading member-heading">
+                <div>
+                  <p class="eyebrow">Result member</p>
+                  <h2 id="member-fit-heading">Isotherm and residuals</h2>
+                </div>
+                <div>
+                  <label for="result-member-select">Experiment</label>
+                  <select id="result-member-select"></select>
+                </div>
+              </div>
+              <div id="result-member-message" class="notice" hidden></div>
+              <dl id="result-fit-plot-summary" class="fit-plot-summary" hidden></dl>
+              <div id="result-fit-plot" class="plot" aria-label="Selected result isotherm and residual graph"></div>
+              <div id="result-fit-parameters" class="parameters" hidden></div>
+            </section>
+
+            <section class="result-card" aria-labelledby="details-heading">
+              <p class="eyebrow">Saved configuration</p>
+              <h2 id="details-heading">Model and solver details</h2>
+              <div class="details-columns">
+                <div>
+                  <h3>Solver</h3>
+                  <dl id="result-solver-details" class="details-grid"></dl>
+                </div>
+                <div>
+                  <h3>Model options</h3>
+                  <dl id="result-model-options" class="details-grid"></dl>
+                </div>
+                <div>
+                  <h3>Active constraints</h3>
+                  <dl id="result-constraints" class="details-grid"></dl>
+                </div>
+              </div>
+            </section>
+          </div>
+        </div>
+      </section>
+    </section>
+  </main>
+
+  <footer>FT-ITC Analysis · Files remain in this browser session only</footer>
+</body>
+</html>
