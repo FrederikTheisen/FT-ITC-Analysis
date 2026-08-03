@@ -175,6 +175,11 @@ internal sealed class ExportDataWindow : Window
             : settings.Columns & ~ExportColumns.Fit;
         settings.ExportFittedPeaks = settings.Columns.HasFlag(ExportColumns.Fit);
         settings.SetData();
+        if (settings.Data.Count == 0)
+        {
+            statusText.Text = "Select an experiment or choose Included data or All data.";
+            return;
+        }
         Close(true);
     }
 
