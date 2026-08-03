@@ -9,8 +9,6 @@ namespace AnalysisITC.Core.Data
 {
     internal static class PeakShapeIntegrationEstimator
     {
-        public const float DefaultFitFactor = 1.0f;
-
         const double NominalReturnTauMultiples = 3.0;
         const double DefaultTauFractionOfDelay = 0.07;
         const double MinTauScaleVsGlobal = 0.2;
@@ -39,6 +37,9 @@ namespace AnalysisITC.Core.Data
                 return Array.Empty<float>();
 
             factor = Math.Max(0.1f, factor);
+
+            if (experiment.DataPoints == null || experiment.DataPoints.Count == 0)
+                return Array.Empty<float>();
 
             var descriptors = experiment.Injections
                 .Select(inj => AnalyzeInjection(experiment, inj))

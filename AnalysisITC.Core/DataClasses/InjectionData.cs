@@ -233,12 +233,6 @@ namespace AnalysisITC.Core.Data
             Experiment?.MarkModified();
         }
 
-        public void SetIntegrationLengthByPeakFitting()
-        {
-            var endOffset = PeakShapeIntegrationEstimator.EstimateEndOffset(Experiment, this, PeakShapeIntegrationEstimator.DefaultFitFactor);
-            SetIntegrationLengthByTime(endOffset);
-        }
-
         public void SetIntegrationLengthByFactor(float factor)
         {
             var endOffset = PeakShapeIntegrationEstimator.EstimateEndOffset(Experiment, this, factor);
@@ -247,9 +241,14 @@ namespace AnalysisITC.Core.Data
 
         public void SetIntegrationLengthByTime(float time)
         {
+            SetIntegrationLengthByTime(time, markModified: true);
+        }
+
+        internal void SetIntegrationLengthByTime(float time, bool markModified)
+        {
             // Keep between the start delay and the injection scope
             IntegrationEndOffset = FWEMath.Clamp(time, IntegrationStartDelay + MinimumIntegrationTime, Delay);
-            Experiment?.MarkModified();
+            if (markModified) Experiment?.MarkModified();
         }
 
         public void ToggleDataPointActive()

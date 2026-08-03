@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading.Tasks;
 using AnalysisITC.Core.Analysis;
 using AnalysisITC.Core.Analysis.Models;
 using AnalysisITC.Core.DataReaders;
@@ -170,19 +171,11 @@ namespace AnalysisITC.Core.Data
             Injections.Add(inj);
         }
 
-        public void FitIntegrationPeaks()
-        {
-            try
-            {
-                var endOffsets = PeakShapeIntegrationEstimator.EstimateEndOffsets(this, PeakShapeIntegrationEstimator.DefaultFitFactor);
-                foreach (var (inj, endOffset) in Injections.Zip(endOffsets, (inj, endOffset) => (inj, endOffset)))
-                    inj.SetIntegrationLengthByTime(endOffset);
-            }
-            catch (Exception ex)
-            {
-                AppEventHandler.DisplayHandledException(ex);
-            }
-        }
+        public Task<PeakFitResult> FitIntegrationPeaksAsync() =>
+            Processor.FitIntegrationPeaksAsync();
+
+        public Task<PeakFitResult> FitIntegrationPeakAsync(InjectionData injection) =>
+            Processor.FitIntegrationPeaksAsync(new[] { injection });
 
         public void SetIntegrationLengthByFactor(float factor)
         {
@@ -755,15 +748,15 @@ namespace AnalysisITC.Core.Data
 
             if (!string.IsNullOrEmpty(this.Comments)) info.Add("**Comment:** " + this.Comments);
 
-            if (attributeInfo.Count > 0)
-            {
-                info.Add("**Attributes:**");
-
-                foreach (var att in attributeInfo)
-                {
-                    info.Add($"  **{att.Name}:** {att.Value}");
-                }
-            }
+            //if (attributeInfo.Count > 0)
+            //{
+            //    info.Add("**Attributes:**");
+            //
+            //    foreach (var att in attributeInfo)
+            //    {
+            //        info.Add($"  **{att.Name}:** {att.Value}");
+            //    }
+            //}
 
             return info;
         }
