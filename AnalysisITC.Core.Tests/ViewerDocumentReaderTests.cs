@@ -1,0 +1,272 @@
+using System;
+using System.IO;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+using AnalysisITC.Core.Viewer;
+using Xunit;
+
+namespace AnalysisITC.Core.Tests
+{
+    public sealed class ViewerDocumentReaderTests
+    {
+        readonly ViewerDocumentReader reader = new ViewerDocumentReader();
+
+        [Fact]
+        public async Task ReadsRawMicroCalFileWithActualSamplesAndInjections()
+        {
+            var path = Fixture("data_1.itc");
+            using var stream = File.OpenRead(path);
+
+            var document = await reader.ReadAsync(stream, "data_1.itc", ViewerFileFormat.Itc);
+
+            var experiment = Assert.Single(document.Experiments);
+            Assert.Equal(19, experiment.InjectionCount);
+            Assert.NotNull(experiment.Raw);
+            Assert.True(experiment.Raw.TimeSeconds.Length > 2_900);
+            Assert.Equal(experiment.Raw.TimeSeconds.Length, experiment.Raw.PowerMicrowatts.Length);
+            Assert.Equal(experiment.Raw.TimeSeconds.Length, experiment.Raw.TemperatureCelsius.Length);
+            Assert.Equal(19, experiment.Raw.InjectionTimesSeconds.Length);
+            Assert.Equal(37, experiment.TargetTemperatureCelsius.GetValueOrDefault(), 3);
+            Assert.Equal(2_020, experiment.SyringeConcentrationMicromolar.GetValueOrDefault(), 1);
+            Assert.Contains(experiment.Metadata, item => item.Value.Contains("°C"));
+            Assert.Contains(experiment.Metadata, item => item.Value.Contains("µM"));
+            Assert.Contains(experiment.Metadata, item => item.Value.Contains("µL"));
+            Assert.Contains("raw", experiment.AvailableViews);
+            Assert.DoesNotContain("processed", experiment.AvailableViews);
+            Assert.DoesNotContain("fit", experiment.AvailableViews);
+        }
+
+        [Fact]
+        public async Task ReadsNestedFtitcProjectWithIntegratedProcessedAndFitData()
+        {
+            using var stream = File.OpenRead(Fixture("one-set.ftitc"));
+
+            var document = await reader.ReadAsync(stream, "data.ftitc", ViewerFileFormat.Ftitc);
+
+            Assert.Equal(new[] { 19, 19, 16 }, document.Experiments.Select(item => item.InjectionCount).ToArray());
+            var result = Assert.Single(document.AnalysisResults);
+            Assert.Equal(3, result.ExperimentCount);
+            Assert.Equal(3, result.Members.Count);
+            Assert.All(result.Members, member =>
+            {
+                Assert.False(string.IsNullOrWhiteSpace(member.ExperimentKey));
+                Assert.False(string.IsNullOrWhiteSpace(member.FitKey));
+                var experiment = Assert.Single(document.Experiments, item => item.Key == member.ExperimentKey);
+                var fit = Assert.Single(experiment.Fits, item => item.Key == member.FitKey);
+                Assert.Equal(result.Key, fit.ResultKey);
+                Assert.Equal(member.Loss, fit.Loss);
+            });
+            foreach (var experiment in document.Experiments)
+            {
+                Assert.NotNull(experiment.Raw);
+                Assert.NotNull(experiment.Integrated);
+                Assert.Equal(experiment.InjectionCount, experiment.Integrated.InjectionNumbers.Length);
+                Assert.Equal(experiment.InjectionCount, experiment.Integrated.CorrectedHeatMicrojoules.Length);
+                Assert.Contains(experiment.Integrated.RawHeatMicrojoules, item => item.HasValue && Math.Abs(item.Value) > 0);
+                Assert.NotNull(experiment.Processed);
+                Assert.Equal(experiment.Raw.TimeSeconds.Length, experiment.Processed.CorrectedPowerMicrowatts.Length);
+                Assert.NotEmpty(experiment.Fits);
+                Assert.Contains(experiment.Fits.SelectMany(item => item.Parameters), item => item.Key.Contains("Affinity"));
+                Assert.Contains(experiment.Fits.SelectMany(item => item.Parameters), item => item.Unit == "µM");
+                Assert.Contains(experiment.Fits.SelectMany(item => item.Parameters), item => item.Unit == "kJ/mol");
+                Assert.Contains(experiment.Fits.SelectMany(item => item.FittedKilojoulesPerMole), item => item.HasValue);
+                Assert.All(experiment.Fits, fit => Assert.Equal(experiment.InjectionCount, fit.ResidualKilojoulesPerMole.Length));
+            }
+        }
+
+        [Fact]
+        public async Task ProjectsDistinctSavedResultsInNewestFirstOrder()
+        {
+            using var stream = File.OpenRead(Fixture("jors.ftitc"));
+            var document = await reader.ReadAsync(stream, "jors.ftitc", ViewerFileFormat.Ftitc);
+
+            Assert.Equal(3, document.AnalysisResults.Count);
+            Assert.Equal(document.AnalysisResults.OrderByDescending(item => item.Date).Select(item => item.Key),
+                document.AnalysisResults.Select(item => item.Key));
+            Assert.Equal(3, document.AnalysisResults.Select(item => item.Key).Distinct().Count());
+            Assert.All(document.AnalysisResults, item => Assert.Matches("^result-[0-9]+$", item.Key));
+            Assert.Contains(document.AnalysisResults, item => item.IsGlobal);
+            Assert.Contains(document.AnalysisResults, item => !item.IsGlobal);
+            Assert.All(document.AnalysisResults, result =>
+            {
+                Assert.Equal(3, result.Members.Count);
+                Assert.False(string.IsNullOrWhiteSpace(result.ModelName));
+                Assert.NotNull(result.Solver);
+                Assert.False(string.IsNullOrWhiteSpace(result.Solver.Algorithm));
+                Assert.NotNull(result.Solver.Iterations);
+                Assert.NotNull(result.Validity);
+                Assert.Contains(result.Validity.Status, new[] { "valid", "partialInvalid", "invalid", "unknown" });
+                Assert.All(result.Members, member =>
+                {
+                    var experiment = Assert.Single(document.Experiments, item => item.Key == member.ExperimentKey);
+                    var fit = Assert.Single(experiment.Fits, item => item.Key == member.FitKey);
+                    Assert.Equal(result.Key, fit.ResultKey);
+                    Assert.StartsWith(result.Key + ":member-", fit.Key);
+                    Assert.NotNull(member.Loss);
+                });
+            });
+            Assert.All(document.AnalysisResults.Where(item => item.IsGlobal), item => Assert.NotEmpty(item.Constraints));
+            Assert.Contains(document.AnalysisResults, item => item.ModelOptions.Count > 0);
+            Assert.Contains(document.AnalysisResults, item => item.Solver.WeightedFitting);
+            Assert.Contains(document.AnalysisResults, item => item.Solver.BootstrapIterations > 0);
+            Assert.Contains(document.AnalysisResults, item => item.Validity.Status == "unknown");
+        }
+
+        [Theory]
+        [InlineData("two-sites.ftitc", true)]
+        [InlineData("competitive.ftitc", false)]
+        public async Task ProjectsModelSpecificResultMembersWithoutCrossResultCollapse(string fixture, bool expectSecondSite)
+        {
+            using var stream = File.OpenRead(Fixture(fixture));
+            var document = await reader.ReadAsync(stream, fixture, ViewerFileFormat.Ftitc);
+
+            Assert.NotEmpty(document.AnalysisResults);
+            Assert.All(document.AnalysisResults.SelectMany(item => item.Members), member =>
+            {
+                var experiment = Assert.Single(document.Experiments, item => item.Key == member.ExperimentKey);
+                var fit = Assert.Single(experiment.Fits, item => item.Key == member.FitKey);
+                Assert.NotEmpty(fit.Parameters);
+                Assert.Equal(document.AnalysisResults.Single(item => item.Key == fit.ResultKey).Key, fit.ResultKey);
+            });
+            if (expectSecondSite)
+                Assert.Contains(document.Experiments.SelectMany(item => item.Fits).SelectMany(item => item.Parameters),
+                    item => item.Key.EndsWith("2", StringComparison.Ordinal));
+        }
+
+        [Fact]
+        public async Task EmbeddedTemperatureSeriesFitsAreNotSynthesizedIntoResults()
+        {
+            using var stream = File.OpenRead(Fixture("temperature-series.ftitc"));
+            var document = await reader.ReadAsync(stream, "temperature-series.ftitc", ViewerFileFormat.Ftitc);
+
+            Assert.Empty(document.AnalysisResults);
+            Assert.All(document.Experiments, experiment =>
+            {
+                Assert.NotEmpty(experiment.Fits);
+                Assert.All(experiment.Fits, fit => Assert.Null(fit.ResultKey));
+            });
+        }
+
+        [Theory]
+        [InlineData("temperature-series.ftitc", 4)]
+        [InlineData("jors.ftitc", 3)]
+        [InlineData("two-sites.ftitc", 2)]
+        [InlineData("competitive.ftitc", 5)]
+        public async Task ReadsRepresentativeProjectModels(string fixture, int experimentCount)
+        {
+            using var stream = File.OpenRead(Fixture(fixture));
+            var document = await reader.ReadAsync(stream, fixture, ViewerFileFormat.Ftitc);
+
+            Assert.Equal(experimentCount, document.Experiments.Count);
+            Assert.All(document.Experiments, item => Assert.NotNull(item.Raw));
+            Assert.Contains(document.Experiments, item => item.Fits.Count > 0);
+        }
+
+        [Fact]
+        public async Task ValidFtitcWithoutProcessingOrFitMarksViewsUnavailable()
+        {
+            using var stream = TextStream(MinimalFtitc);
+            var document = await reader.ReadAsync(stream, "minimal.ftitc", ViewerFileFormat.Ftitc);
+
+            var experiment = Assert.Single(document.Experiments);
+            Assert.Equal(1, experiment.InjectionCount);
+            Assert.Contains("raw", experiment.AvailableViews);
+            Assert.DoesNotContain("integrated", experiment.AvailableViews);
+            Assert.DoesNotContain("processed", experiment.AvailableViews);
+            Assert.DoesNotContain("fit", experiment.AvailableViews);
+        }
+
+        [Fact]
+        public async Task MissingOptionalTemperatureChannelIsReported()
+        {
+            using var stream = TextStream(MinimalFtitc.Replace(",25,25", ",NaN,25"));
+            var document = await reader.ReadAsync(stream, "missing-temperature.ftitc", ViewerFileFormat.Ftitc);
+
+            var raw = Assert.Single(document.Experiments).Raw;
+            Assert.Null(raw.TemperatureCelsius);
+            Assert.Contains(raw.UnavailableChannels, message => message.Contains("Temperature"));
+        }
+
+        [Fact]
+        public async Task RejectsMismatchedAndMalformedFilesWithSafeCodes()
+        {
+            using var mismatch = TextStream("$ITC\n$ 1\n");
+            var mismatchError = await Assert.ThrowsAsync<ViewerFileException>(() =>
+                reader.ReadAsync(mismatch, "wrong.ftitc", ViewerFileFormat.Ftitc));
+            Assert.Equal("format_mismatch", mismatchError.Code);
+
+            using var malformed = TextStream("FTITCVersion:1.1\nFILE:Experiment:broken.itc\nLIST:InjectionList\nnot,a,valid,row\n");
+            var malformedError = await Assert.ThrowsAsync<ViewerFileException>(() =>
+                reader.ReadAsync(malformed, "broken.ftitc", ViewerFileFormat.Ftitc));
+            Assert.Equal("malformed_file", malformedError.Code);
+
+            using var incompleteRaw = TextStream("$ITC\n$ 1\n");
+            var rawError = await Assert.ThrowsAsync<ViewerFileException>(() =>
+                reader.ReadAsync(incompleteRaw, "broken.itc", ViewerFileFormat.Itc));
+            Assert.Equal("malformed_file", rawError.Code);
+
+            using var missingEndFile = TextStream(MinimalFtitc.Replace("ENDFILE", string.Empty));
+            var endFileError = await Assert.ThrowsAsync<ViewerFileException>(() =>
+                reader.ReadAsync(missingEndFile, "missing-end-file.ftitc", ViewerFileFormat.Ftitc));
+            Assert.Equal("malformed_file", endFileError.Code);
+
+            var lastEndList = MinimalFtitc.LastIndexOf("ENDLIST", StringComparison.Ordinal);
+            using var truncatedList = TextStream(MinimalFtitc.Substring(0, lastEndList));
+            var endListError = await Assert.ThrowsAsync<ViewerFileException>(() =>
+                reader.ReadAsync(truncatedList, "missing-end-list.ftitc", ViewerFileFormat.Ftitc));
+            Assert.Equal("malformed_file", endListError.Code);
+        }
+
+        [Fact]
+        public async Task ConcurrentReadsDoNotShareProjectState()
+        {
+            async Task<ViewerDocument> Read(string fixture)
+            {
+                using var stream = File.OpenRead(Fixture(fixture));
+                return await new ViewerDocumentReader().ReadAsync(stream, fixture, ViewerFileFormat.Ftitc);
+            }
+
+            var documents = await Task.WhenAll(Read("one-set.ftitc"), Read("temperature-series.ftitc"));
+
+            Assert.Equal(3, documents[0].Experiments.Count);
+            Assert.Equal(4, documents[1].Experiments.Count);
+            Assert.DoesNotContain(documents[0].Experiments.Select(item => item.Name),
+                name => documents[1].Experiments.Any(item => item.Name == name));
+        }
+
+        static string Fixture(string name) => Path.Combine(AppContext.BaseDirectory, "Fixtures", name);
+
+        static MemoryStream TextStream(string text) => new MemoryStream(Encoding.UTF8.GetBytes(text));
+
+        const string MinimalFtitc = """
+FTITCVersion:1.1
+FILE:Experiment:minimal.itc
+Name:Minimal
+ID:minimal-id
+Date:2026-01-01T00:00:00.0000000Z
+Source:0
+Comments:
+Include:1
+SyringeConcentration:0.001,0
+CellConcentration:0.0001,0
+CellVolume:0.0002
+StirringSpeed:750
+TargetTemperature:25
+MeasuredTemperature:25
+InitialDelay:10
+TargetPowerDiff:10
+FeedBackMode:1
+Instrument:1
+LIST:InjectionList
+0,0,1,0.000001,10,1,25,0,8
+ENDLIST
+LIST:DataPointList
+0,0,25,25
+1,0.000001,25,25
+2,0,25,25
+ENDLIST
+ENDFILE
+""";
+    }
+}
