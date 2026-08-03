@@ -26,7 +26,7 @@ namespace AnalysisITC.Avalonia.Analysis
         GraphViewport residualView;
         bool hasView;
         Point? hoverPoint;
-        GraphPoint? hoverGraphPoint;
+        GraphHit? hoverGraphPoint;
 
         public event EventHandler? GraphChanged;
         public event EventHandler<string>? StatusChanged;
@@ -164,7 +164,7 @@ namespace AnalysisITC.Avalonia.Analysis
             var hit = HitTest(e.GetPosition(this), layout);
             if (!hit.HasValue) return;
 
-            var injection = hit.Value.Injection;
+            var injection = hit.Value.Point.Injection;
             injection.ToggleDataPointActive();
             GraphChanged?.Invoke(this, EventArgs.Empty);
             StatusChanged?.Invoke(this, injection.Include
@@ -203,7 +203,7 @@ namespace AnalysisITC.Avalonia.Analysis
             DrawAxes(context, layout.FitPlot, layout.FitTransform, layout.XTicks, layout.YTicks, layout.XAxisTitle, layout.YAxisTitle, hideXAxisLabels: HasResidualPanel);
 
             if (Experiment?.Solution != null && ShowFitParameters)
-                DrawParameterBox(context, layout.FitPlot);
+                DrawParameterBox(context, layout);
         }
 
         void DrawResidualPanel(DrawingContext context, GraphLayout layout)
@@ -420,32 +420,45 @@ namespace AnalysisITC.Avalonia.Analysis
             }
         }
 
-        void DrawParameterBox(DrawingContext context, Rect plot)
+        void DrawParameterBox(DrawingContext context, GraphLayout layout)
         {
             var data = Experiment;
-            if (data?.Solution == null) return;
+            if (data?.Solution == null || data.Model == null || data.InjectionCount == 0) return;
 
-            var lines = data.Solution.UISolutionParameters(FinalFigureDisplayParameters.Model | FinalFigureDisplayParameters.Fitted | FinalFigureDisplayParameters.Derived)
-                .Select(parameter => $"{parameter.Item1} = {parameter.Item2}")
-                .Where(line => !string.IsNullOrWhiteSpace(line))
-                .Take(8)
-                .ToList();
+            var display = AppSettings.AnalysisParameterDisplay;
+            var lines = new List<string>();
+            foreach (var parameter in data.Solution.UISolutionParameters(display))
+            {
+                if (display.HasFlag(FinalFigureDisplayParameters.Model) && lines.Count == 0)
+                    lines.Add($"{parameter.Item1} | RMSD = {parameter.Item2}");
+                else
+                    lines.Add($"{parameter.Item1} = {parameter.Item2}");
+            }
 
             if (lines.Count == 0) return;
 
-            DrawInfoBox(context, lines, plot, new Point(plot.Right - 14, plot.Top + 14), alignRight: true);
+            var first = data.Model.Evaluate(0, withoffset: false);
+            var last = data.Model.Evaluate(data.InjectionCount - 1, withoffset: false);
+            var anchor = first > last
+                ? new Point(layout.FitPlot.Right - 14, layout.FitPlot.Top + 14)
+                : new Point(layout.FitPlot.Right - 14, layout.FitPlot.Bottom - 14);
+
+            DrawRichInfoBox(context, lines, layout.FitPlot, anchor, alignRight: true);
         }
 
         void DrawHover(DrawingContext context, GraphLayout layout)
         {
             if (!hoverPoint.HasValue || !hoverGraphPoint.HasValue) return;
 
-            var point = hoverGraphPoint.Value;
-            var screen = layout.FitTransform.ToScreen(point.X, point.Y);
+            var hit = hoverGraphPoint.Value;
+            var point = hit.Point;
+            var plot = hit.IsResidual ? layout.ResidualPlot : layout.FitPlot;
+            var transform = hit.IsResidual ? layout.ResidualTransform : layout.FitTransform;
+            var screen = transform.ToScreen(point.X, point.Y);
 
-            using (context.PushClip(layout.FitPlot))
+            using (context.PushClip(plot))
             {
-                context.DrawLine(GraphTheme.HoverPen, new Point(screen.X, layout.FitPlot.Top), new Point(screen.X, layout.FitPlot.Bottom));
+                context.DrawLine(GraphTheme.HoverPen, new Point(screen.X, plot.Top), new Point(screen.X, plot.Bottom));
                 context.DrawRectangle(GraphTheme.ZoomBrush, null, new Rect(screen.X - AvaloniaGraphSettings.AnalysisHoverMarkerSize / 2, screen.Y - AvaloniaGraphSettings.AnalysisHoverMarkerSize / 2, AvaloniaGraphSettings.AnalysisHoverMarkerSize, AvaloniaGraphSettings.AnalysisHoverMarkerSize), AvaloniaGraphSettings.AnalysisHoverMarkerCornerRadius);
             }
 
@@ -453,14 +466,14 @@ namespace AnalysisITC.Avalonia.Analysis
             {
                 $"Injection #{point.Injection.ID + 1}",
                 $"{layout.XAxisTitle}: {point.X:G4}",
-                $"Heat: {Energy.Format(point.Y)}",
+                hit.IsResidual ? $"Residual: {Energy.Format(point.Y)}" : $"Heat: {Energy.Format(point.Y)}",
                 point.Included ? "Included" : "Excluded"
             };
 
-            if (Experiment?.Solution != null)
+            if (!hit.IsResidual && Experiment?.Solution != null)
                 lines.Add($"Residual: {Energy.Format(point.Injection.ResidualEnthalpy * Energy.Scale)}");
 
-            DrawInfoBox(context, lines, layout.FitPlot, screen, alignRight: false);
+            DrawInfoBox(context, lines, plot, screen, alignRight: false);
         }
 
         void DrawInfoBox(DrawingContext context, IReadOnlyList<string> lines, Rect plot, Point anchor, bool alignRight)
@@ -487,13 +500,48 @@ namespace AnalysisITC.Avalonia.Analysis
             }
         }
 
-        GraphPoint? HitTest(Point point, GraphLayout layout)
+        void DrawRichInfoBox(DrawingContext context, IReadOnlyList<string> lines, Rect plot, Point anchor, bool alignRight)
+        {
+            var richLines = lines
+                .Select(line => RichTextLine.Create(line, AvaloniaGraphSettings.HoverFontSize, GraphTheme.TextBrush))
+                .ToArray();
+            var width = richLines.Max(line => line.Width) + AvaloniaGraphSettings.HoverPaddingX * 2;
+            var height = richLines.Sum(line => line.Height) + AvaloniaGraphSettings.HoverLineGap * (richLines.Length - 1) + AvaloniaGraphSettings.HoverPaddingY * 2;
+            var x = alignRight ? anchor.X - width : anchor.X + AvaloniaGraphSettings.HoverAnchorXOffset;
+            var y = alignRight ? anchor.Y : anchor.Y - height - AvaloniaGraphSettings.HoverAnchorYOffset;
+
+            if (x + width > plot.Right - AvaloniaGraphSettings.HoverPlotInset) x = anchor.X - width - AvaloniaGraphSettings.HoverAnchorXOffset;
+            if (x < plot.Left + AvaloniaGraphSettings.HoverPlotInset) x = plot.Left + AvaloniaGraphSettings.HoverPlotInset;
+            if (y < plot.Top + AvaloniaGraphSettings.HoverPlotInset) y = anchor.Y + AvaloniaGraphSettings.HoverAnchorXOffset;
+            if (y + height > plot.Bottom - AvaloniaGraphSettings.HoverPlotInset) y = plot.Bottom - height - AvaloniaGraphSettings.HoverPlotInset;
+
+            var rect = new Rect(x, y, width, height);
+            context.DrawRectangle(GraphTheme.HoverBackgroundBrush, GraphTheme.HoverBorderPen, rect, AvaloniaGraphSettings.HoverCornerRadius);
+
+            var lineY = y + AvaloniaGraphSettings.HoverPaddingY;
+            foreach (var line in richLines)
+            {
+                line.Draw(context, new Point(x + AvaloniaGraphSettings.HoverPaddingX, lineY));
+                lineY += line.Height + AvaloniaGraphSettings.HoverLineGap;
+            }
+        }
+
+        GraphHit? HitTest(Point point, GraphLayout layout)
         {
             foreach (var graphPoint in PlotPoints(includeExcluded: ShowExcludedPoints))
             {
                 var screen = layout.FitTransform.ToScreen(graphPoint.X, graphPoint.Y);
                 if (Math.Abs(screen.X - point.X) <= AvaloniaGraphSettings.AnalysisHitSize / 2 && Math.Abs(screen.Y - point.Y) <= AvaloniaGraphSettings.AnalysisHitSize / 2)
-                    return graphPoint;
+                    return new GraphHit(graphPoint, isResidual: false);
+            }
+
+            if (!HasResidualPanel) return null;
+
+            foreach (var graphPoint in ResidualPoints(includeExcluded: ShowExcludedPoints))
+            {
+                var screen = layout.ResidualTransform.ToScreen(graphPoint.X, graphPoint.Y);
+                if (Math.Abs(screen.X - point.X) <= AvaloniaGraphSettings.AnalysisHitSize / 2 && Math.Abs(screen.Y - point.Y) <= AvaloniaGraphSettings.AnalysisHitSize / 2)
+                    return new GraphHit(graphPoint, isResidual: true);
             }
 
             return null;
@@ -760,6 +808,105 @@ namespace AnalysisITC.Avalonia.Analysis
             public double LowerY { get; }
             public double UpperY { get; }
             public bool Included { get; }
+        }
+
+        readonly struct GraphHit
+        {
+            public GraphHit(GraphPoint point, bool isResidual)
+            {
+                Point = point;
+                IsResidual = isResidual;
+            }
+
+            public GraphPoint Point { get; }
+            public bool IsResidual { get; }
+        }
+
+        sealed class RichTextLine
+        {
+            readonly IReadOnlyList<RichTextSegment> segments;
+            readonly double topOffset;
+
+            RichTextLine(IReadOnlyList<RichTextSegment> segments, double width, double height, double topOffset)
+            {
+                this.segments = segments;
+                Width = width;
+                Height = height;
+                this.topOffset = topOffset;
+            }
+
+            public double Width { get; }
+            public double Height { get; }
+
+            public static RichTextLine Create(string text, double fontSize, IBrush brush)
+            {
+                var segments = new List<RichTextSegment>();
+                var x = 0.0;
+                var top = 0.0;
+                var bottom = 0.0;
+
+                foreach (var segment in MarkdownProcessor.GetSegments(text ?? ""))
+                {
+                    var run = RichTextSegment.Create(segment, fontSize, brush, x);
+                    segments.Add(run);
+                    x += run.Text.Width;
+                    top = Math.Min(top, run.VerticalOffset);
+                    bottom = Math.Max(bottom, run.VerticalOffset + run.Text.Height);
+                }
+
+                return new RichTextLine(segments, x, bottom - top, top);
+            }
+
+            public void Draw(DrawingContext context, Point origin)
+            {
+                foreach (var segment in segments)
+                    context.DrawText(segment.Text, new Point(origin.X + segment.X, origin.Y + segment.VerticalOffset - topOffset));
+            }
+        }
+
+        readonly struct RichTextSegment
+        {
+            RichTextSegment(FormattedText text, double x, double verticalOffset)
+            {
+                Text = text;
+                X = x;
+                VerticalOffset = verticalOffset;
+            }
+
+            public FormattedText Text { get; }
+            public double X { get; }
+            public double VerticalOffset { get; }
+
+            public static RichTextSegment Create(Segment segment, double baseFontSize, IBrush brush, double x)
+            {
+                var sizeFactor = segment.Property switch
+                {
+                    MarkdownProperty.Subscript or MarkdownProperty.Superscript => 0.7,
+                    MarkdownProperty.Small => 0.8,
+                    MarkdownProperty.Header1 => 1.2,
+                    MarkdownProperty.Header2 => 1.8,
+                    _ => 1.0
+                };
+                var fontStyle = segment.Property == MarkdownProperty.Cursive ? FontStyle.Italic : FontStyle.Normal;
+                var weight = segment.Property is MarkdownProperty.Bold or MarkdownProperty.Header1 or MarkdownProperty.Header2
+                    ? FontWeight.SemiBold
+                    : FontWeight.Normal;
+                var verticalOffset = segment.Property switch
+                {
+                    MarkdownProperty.Subscript => baseFontSize * 0.24,
+                    MarkdownProperty.Superscript => -baseFontSize * 0.24,
+                    _ => 0.0
+                };
+                var formatted = new FormattedText(
+                    segment.Text,
+                    CultureInfo.CurrentCulture,
+                    FlowDirection.LeftToRight,
+                    new Typeface("Inter", fontStyle, weight),
+                    baseFontSize * sizeFactor,
+                    brush);
+
+                return new RichTextSegment(formatted, x, verticalOffset);
+            }
         }
 
         readonly struct GraphViewport

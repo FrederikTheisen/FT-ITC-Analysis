@@ -4,6 +4,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Layout;
 using Avalonia.Media;
+using Avalonia.Threading;
 
 using AnalysisITC.Avalonia.Styling;
 
@@ -81,5 +82,22 @@ internal sealed class ConfirmationDialogWindow : Window
     {
         var dialog = new ConfirmationDialogWindow(title, message, cancelButton, confirmButton);
         return await dialog.ShowDialog<bool>(owner);
+    }
+
+    public static bool ConfirmModal(
+        Window owner,
+        string title,
+        string message,
+        string cancelButton = "Cancel",
+        string confirmButton = "Confirm")
+    {
+        var dialog = new ConfirmationDialogWindow(title, message, cancelButton, confirmButton);
+        var task = dialog.ShowDialog<bool>(owner);
+        var frame = new DispatcherFrame();
+
+        task.ContinueWith(_ => Dispatcher.UIThread.Post(() => frame.Continue = false));
+        Dispatcher.UIThread.PushFrame(frame);
+
+        return task.IsCompletedSuccessfully && task.Result;
     }
 }

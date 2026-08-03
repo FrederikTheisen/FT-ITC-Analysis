@@ -33,7 +33,6 @@ namespace AnalysisITC.Avalonia.Processing
         readonly ComboBox splineAlgorithmCombo = Combo(new[] { "Linear", "Smooth" });
         readonly ComboBox splineDensityCombo = Combo(new[] { "Sparse", "Balanced", "Dense" });
         readonly ComboBox splineHandleCombo = Combo(new[] { "Mean", "Median", "Min volatility" });
-        readonly ComboBox integrationModeCombo = Combo(new[] { "Time", "Factor", "Fit" });
         readonly ComboBox peakWidthCombo = Combo(new[] { "1", "3", "5" });
 
         readonly Slider degreeSlider = Slider(0, 10, 1);
@@ -54,21 +53,25 @@ namespace AnalysisITC.Avalonia.Processing
         readonly Button copyNewButton = Button("New", 96);
         readonly Button convertSmoothButton = Button("Smooth", 96);
         readonly Button convertLinearButton = Button("Linear", 96);
-        readonly Button allInjectionButton = Button("All", 56);
+        readonly Button fitPeaksButton = Button("Fit Peaks", 120);
+        readonly Button clearSelectionButton = Button("Clear Selection", 112);
         readonly Button previousButton = Button("<", 38);
         readonly Button nextButton = Button(">", 38);
         readonly Button copyNextButton = Button("Copy to next peak", 124);
-        readonly Button allDataButton = Button("All Y", 64);
-        readonly Button baselineZoomButton = Button("Baseline Y", 88);
-        readonly Button allPeaksButton = Button("All peaks", 84);
-        readonly Button focusPeakButton = Button("Focus", 68);
+        readonly ToggleButton allDataButton = Toggle("All Y", 64);
+        readonly ToggleButton baselineZoomButton = Toggle("Baseline Y", 88);
+        readonly ToggleButton allPeaksButton = Toggle("All Peaks", 84);
+        readonly ToggleButton focusPeakButton = Toggle("Selected Peak", 104);
 
         readonly StackPanel splineOptionsPanel = VerticalGroup();
         readonly StackPanel degreePanel = VerticalGroup();
+        readonly StackPanel baselineEditingPanel = VerticalGroup();
+        readonly StackPanel integrationEditingPanel = VerticalGroup();
         TabControl controlsPanel = new TabControl();
 
         ExperimentData? experiment;
         bool isUpdatingControls;
+        bool isPeakFitting;
 
         public event EventHandler<string>? StatusChanged;
         public event EventHandler? ProcessingChanged;
@@ -118,12 +121,29 @@ namespace AnalysisITC.Avalonia.Processing
             degreePanel.Children.Add(Labeled("Degree", degreeSlider));
             degreePanel.Children.Add(degreeLabel);
 
+            baselineEditingPanel.Children.Add(Labeled("Type", baselineTypeCombo));
+            baselineEditingPanel.Children.Add(splineOptionsPanel);
+            baselineEditingPanel.Children.Add(degreePanel);
+
+            fitPeaksButton.HorizontalAlignment = HorizontalAlignment.Stretch;
+            integrationEditingPanel.Children.Add(Labeled("Start", integrationStartSlider));
+            integrationEditingPanel.Children.Add(startLabel);
+            integrationEditingPanel.Children.Add(Labeled("Length", integrationLengthSlider));
+            integrationEditingPanel.Children.Add(lengthLabel);
+            integrationEditingPanel.Children.Add(fitPeaksButton);
+            copyNextButton.MinWidth = 0;
+            copyNextButton.HorizontalAlignment = HorizontalAlignment.Stretch;
+            integrationEditingPanel.Children.Add(copyNextButton);
+
             controlsPanel = WorkspaceControlBuilder.Inspector(
                 InspectorTab("Processing", BuildProcessingTab()),
                 InspectorTab("Display", BuildSelectionViewTab()));
 
             var graphBorder = WorkspaceControlBuilder.ContentBorder(graph);
-            Content = WorkspaceControlBuilder.Workspace(graphBorder, controlsPanel);
+            var graphContent = WorkspaceControlBuilder.ContentWithFooter(
+                graphBorder,
+                WorkspaceControlBuilder.InspectorFooter(BuildGraphFooter()));
+            Content = WorkspaceControlBuilder.Workspace(graphContent, controlsPanel);
         }
 
         Control BuildProcessingTab()
@@ -131,22 +151,15 @@ namespace AnalysisITC.Avalonia.Processing
             var panel = WorkspaceControlBuilder.InspectorPanel();
             panel.Children.Add(Section(baselineHeader, new Control[]
             {
-                Labeled("Type", baselineTypeCombo),
-                splineOptionsPanel,
-                degreePanel,
+                baselineEditingPanel,
                 showSplineHandlesCheck,
                 moveSplinePointsCheck
             }));
             panel.Children.Add(Section(integrationHeader, new Control[]
             {
-                Labeled("Mode", integrationModeCombo),
-                Labeled("Start", integrationStartSlider),
-                startLabel,
-                Labeled("Length", integrationLengthSlider),
-                lengthLabel,
+                integrationEditingPanel,
                 discardIntegratedCheck,
-                copyIntegrationStartCheck,
-                copyNextButton
+                copyIntegrationStartCheck
             }));
             panel.Children.Add(Section("Processing Actions", new Control[]
             {
@@ -164,23 +177,39 @@ namespace AnalysisITC.Avalonia.Processing
         Control BuildSelectionViewTab()
         {
             var panel = WorkspaceControlBuilder.InspectorPanel();
-            panel.Children.Add(Section("Selection", new Control[]
-            {
-                selectionLabel,
-                Row(allInjectionButton, previousButton, nextButton)
-            }));
             panel.Children.Add(Section("View", new Control[]
             {
                 showBaselineCheck,
                 showIntegrationCheck,
                 correctedCheck,
                 cursorInfoCheck,
-                Row(allDataButton, baselineZoomButton),
-                Row(allPeaksButton, focusPeakButton),
                 Labeled("Peak width", peakWidthCombo)
             }));
 
             return panel;
+        }
+
+        Control BuildGraphFooter()
+        {
+            selectionLabel.Width = 120;
+            selectionLabel.TextAlignment = TextAlignment.Center;
+
+            var footer = new Grid
+            {
+                RowDefinitions = new RowDefinitions("Auto,Auto")
+            };
+
+            var zoomControls = Row(allDataButton, baselineZoomButton, allPeaksButton, focusPeakButton);
+            zoomControls.HorizontalAlignment = HorizontalAlignment.Center;
+            Grid.SetRow(zoomControls, 0);
+            footer.Children.Add(zoomControls);
+
+            var selectionControls = Row(previousButton, selectionLabel, nextButton, clearSelectionButton);
+            selectionControls.HorizontalAlignment = HorizontalAlignment.Center;
+            Grid.SetRow(selectionControls, 1);
+            footer.Children.Add(selectionControls);
+
+            return footer;
         }
 
         void WireEvents()
@@ -189,7 +218,6 @@ namespace AnalysisITC.Avalonia.Processing
             splineAlgorithmCombo.SelectionChanged += async (_, _) => await ChangeSplineAlgorithmAsync();
             splineDensityCombo.SelectionChanged += async (_, _) => await ChangeSplineDensityAsync();
             splineHandleCombo.SelectionChanged += async (_, _) => await ChangeSplineHandleModeAsync();
-            integrationModeCombo.SelectionChanged += async (_, _) => await ChangeIntegrationModeAsync();
             peakWidthCombo.SelectionChanged += (_, _) => ChangePeakWidth();
 
             degreeSlider.PropertyChanged += async (_, e) =>
@@ -224,7 +252,8 @@ namespace AnalysisITC.Avalonia.Processing
             convertLinearButton.Click += async (_, _) => await ConvertCurrentProcessorToSplineAsync(SplineInterpolator.SplineInterpolatorAlgorithm.Linear);
             copyActiveButton.Click += (_, _) => CopyProcessingToActive();
             copyNewButton.Click += (_, _) => CopyProcessingToNonProcessed();
-            allInjectionButton.Click += (_, _) => SelectAllInjections();
+            fitPeaksButton.Click += async (_, _) => await RunPeakFitAsync();
+            clearSelectionButton.Click += (_, _) => SelectAllInjections();
             previousButton.Click += (_, _) => SelectPreviousInjection();
             nextButton.Click += (_, _) => SelectNextInjection();
             copyNextButton.Click += async (_, _) => await CopySelectedIntegrationToNextAsync();
@@ -234,6 +263,7 @@ namespace AnalysisITC.Avalonia.Processing
             focusPeakButton.Click += (_, _) => graph.FocusSelectedInjection();
 
             graph.SelectedInjectionChanged += (_, _) => UpdateControls();
+            graph.ViewModeChanged += (_, _) => UpdateGraphFooter();
             graph.IntegrationEdited += (_, _) => UpdateControls();
             graph.IntegrationEditCompleted += async (_, _) => await CompleteGraphIntegrationEditAsync();
             graph.SplineEditCompleted += async (_, _) => await CompleteGraphSplineEditAsync();
@@ -299,7 +329,7 @@ namespace AnalysisITC.Avalonia.Processing
 
         async Task ChangeBaselineTypeAsync()
         {
-            if (isUpdatingControls || !ContextIsValid) return;
+            if (isUpdatingControls || !ProcessingIsEditable) return;
 
             var type = baselineTypeCombo.SelectedIndex switch
             {
@@ -316,7 +346,7 @@ namespace AnalysisITC.Avalonia.Processing
 
         async Task ChangeSplineAlgorithmAsync()
         {
-            if (isUpdatingControls || !ContextIsValid) return;
+            if (isUpdatingControls || !ProcessingIsEditable) return;
             if (experiment!.Processor.Interpolator is not SplineInterpolator spline) return;
 
             spline.Algorithm = splineAlgorithmCombo.SelectedIndex == 0
@@ -329,7 +359,7 @@ namespace AnalysisITC.Avalonia.Processing
 
         async Task ChangeSplineDensityAsync()
         {
-            if (isUpdatingControls || !ContextIsValid) return;
+            if (isUpdatingControls || !ProcessingIsEditable) return;
             if (experiment!.Processor.Interpolator is not SplineInterpolator spline) return;
             if (splineDensityCombo.SelectedIndex < 0) return;
 
@@ -341,7 +371,7 @@ namespace AnalysisITC.Avalonia.Processing
 
         async Task ChangeSplineHandleModeAsync()
         {
-            if (isUpdatingControls || !ContextIsValid) return;
+            if (isUpdatingControls || !ProcessingIsEditable) return;
             if (experiment!.Processor.Interpolator is not SplineInterpolator spline) return;
             if (splineHandleCombo.SelectedIndex < 0) return;
 
@@ -352,7 +382,7 @@ namespace AnalysisITC.Avalonia.Processing
 
         async Task ChangeDegreeAsync()
         {
-            if (isUpdatingControls || !ContextIsValid) return;
+            if (isUpdatingControls || !ProcessingIsEditable) return;
 
             if (experiment!.Processor.Interpolator is PolynomialLeastSquaresInterpolator polynomial)
             {
@@ -368,20 +398,11 @@ namespace AnalysisITC.Avalonia.Processing
             await ProcessDataAsync(replace: true, status: "Baseline degree updated");
         }
 
-        async Task ChangeIntegrationModeAsync()
-        {
-            if (isUpdatingControls || !ContextIsValid) return;
-            if (integrationModeCombo.SelectedIndex < 0) return;
-
-            experiment!.Processor.IntegrationLengthMode = (InjectionData.IntegrationLengthMode)integrationModeCombo.SelectedIndex;
-            UpdateIntegrationLabels();
-            await ApplyIntegrationLengthAsync();
-        }
-
         async Task ChangeIntegrationStartAsync()
         {
-            if (isUpdatingControls || !ContextIsValid) return;
+            if (isUpdatingControls || !ProcessingIsEditable) return;
 
+            UseTimeModeForLegacyFit();
             if (graph.SelectedInjectionIndex == -1)
                 experiment!.SetIntegrationStartTime((float)integrationStartSlider.Value);
             else
@@ -393,14 +414,15 @@ namespace AnalysisITC.Avalonia.Processing
 
         async Task ChangeIntegrationLengthAsync()
         {
-            if (isUpdatingControls || !ContextIsValid) return;
+            if (isUpdatingControls || !ProcessingIsEditable) return;
 
+            UseTimeModeForLegacyFit();
             await ApplyIntegrationLengthAsync();
         }
 
         async Task ChangeDiscardIntegratedAsync()
         {
-            if (isUpdatingControls || !ContextIsValid) return;
+            if (isUpdatingControls || !ProcessingIsEditable) return;
 
             experiment!.Processor.DiscardIntegratedPoints = discardIntegratedCheck.IsChecked == true;
             await ProcessDataAsync(replace: true, status: "Processing updated");
@@ -408,7 +430,7 @@ namespace AnalysisITC.Avalonia.Processing
 
         async Task ApplyIntegrationLengthAsync()
         {
-            if (!ContextIsValid) return;
+            if (!ProcessingIsEditable) return;
 
             var parameter = GetLengthSliderParameter();
             var selected = graph.SelectedInjectionIndex;
@@ -416,6 +438,7 @@ namespace AnalysisITC.Avalonia.Processing
             switch (experiment!.Processor.IntegrationLengthMode)
             {
                 case InjectionData.IntegrationLengthMode.Time:
+                case InjectionData.IntegrationLengthMode.Fit:
                     if (selected == -1) experiment.SetIntegrationLengthByTime(parameter);
                     else experiment.Injections[selected].SetIntegrationLengthByTime(parameter);
                     break;
@@ -424,19 +447,60 @@ namespace AnalysisITC.Avalonia.Processing
                     if (selected == -1) experiment.SetIntegrationLengthByFactor(parameter);
                     else experiment.Injections[selected].SetIntegrationLengthByFactor(parameter);
                     break;
-                case InjectionData.IntegrationLengthMode.Fit:
-                    if (selected == -1) experiment.FitIntegrationPeaks();
-                    else experiment.Injections[selected].SetIntegrationLengthByPeakFitting();
-                    break;
             }
 
             UpdateIntegrationLabels();
             await ProcessOrIntegrateAfterRangeChangeAsync();
         }
 
+        async Task RunPeakFitAsync()
+        {
+            if (!ContextIsValid || experiment!.InjectionCount == 0 || experiment.Processor.IsLocked || isPeakFitting)
+                return;
+
+            var targetExperiment = experiment!;
+            isPeakFitting = true;
+            UpdateControls();
+            StatusChanged?.Invoke(this, "Fitting integration peaks...");
+
+            try
+            {
+                var fitResult = await targetExperiment.FitIntegrationPeaksAsync();
+                targetExperiment.Processor.IntegrationLengthMode = InjectionData.IntegrationLengthMode.Time;
+
+                if (!ReferenceEquals(experiment, targetExperiment))
+                    return;
+
+                ConfigureIntegrationControls();
+                graph.InvalidateVisual();
+                ProcessingChanged?.Invoke(this, EventArgs.Empty);
+                StatusChanged?.Invoke(this, PeakFitStatusMessage(fitResult));
+            }
+            catch (Exception ex)
+            {
+                AppEventHandler.DisplayHandledException(ex);
+                if (ReferenceEquals(experiment, targetExperiment))
+                    StatusChanged?.Invoke(this, $"Peak fitting failed: {ex.Message}");
+            }
+            finally
+            {
+                isPeakFitting = false;
+                UpdateControls();
+            }
+        }
+
+        static string PeakFitStatusMessage(PeakFitResult result) => result.Status switch
+        {
+            PeakFitStatus.Converged => $"Peaks fitted ({result.Iterations} pass{(result.Iterations == 1 ? "" : "es")})",
+            PeakFitStatus.CycleResolved => "Peaks fitted; a stable cycle was resolved",
+            PeakFitStatus.NonConvergent => "Peak fitting did not converge; integration regions were unchanged",
+            PeakFitStatus.NoData => "No peak data available to fit",
+            _ => "Peak fitting failed; integration regions were unchanged",
+        };
+
         async Task ProcessOrIntegrateAfterRangeChangeAsync()
         {
-            if (!ContextIsValid) return;
+            if (!ProcessingIsEditable) return;
 
             if (experiment!.Processor.DiscardIntegratedPoints)
                 await ProcessDataAsync(replace: true, status: "Integration updated");
@@ -451,11 +515,7 @@ namespace AnalysisITC.Avalonia.Processing
 
         async Task CompleteGraphIntegrationEditAsync()
         {
-            if (!ContextIsValid) return;
-
-            isUpdatingControls = true;
-            integrationModeCombo.SelectedIndex = (int)InjectionData.IntegrationLengthMode.Time;
-            isUpdatingControls = false;
+            if (!ProcessingIsEditable) return;
 
             if (experiment!.Processor.BaselineCompleted && experiment.Processor.DiscardIntegratedPoints)
                 await ProcessDataAsync(replace: true, status: "Integration updated");
@@ -470,7 +530,7 @@ namespace AnalysisITC.Avalonia.Processing
 
         async Task CompleteGraphSplineEditAsync()
         {
-            if (!ContextIsValid) return;
+            if (!ProcessingIsEditable) return;
 
             await ProcessDataAsync(replace: false, status: "Spline baseline updated");
         }
@@ -509,7 +569,7 @@ namespace AnalysisITC.Avalonia.Processing
 
         void ToggleLock()
         {
-            if (!ContextIsValid) return;
+            if (!ContextIsValid || isPeakFitting) return;
 
             experiment!.Processor.ToggleLock();
             UpdateControls();
@@ -517,7 +577,7 @@ namespace AnalysisITC.Avalonia.Processing
 
         public void ToggleSplineHandles()
         {
-            if (!ContextIsValid || experiment!.Processor.Interpolator is not SplineInterpolator spline) return;
+            if (!ProcessingIsEditable || experiment!.Processor.Interpolator is not SplineInterpolator spline) return;
             if (spline.Algorithm != SplineInterpolator.SplineInterpolatorAlgorithm.Smooth) return;
 
             spline.ShowHandles = !spline.ShowHandles;
@@ -527,7 +587,7 @@ namespace AnalysisITC.Avalonia.Processing
 
         public void ToggleSplinePointTimeDragging()
         {
-            if (!ContextIsValid || experiment!.Processor.Interpolator is not SplineInterpolator spline) return;
+            if (!ProcessingIsEditable || experiment!.Processor.Interpolator is not SplineInterpolator spline) return;
 
             spline.AllowPointTimeDragging = !spline.AllowPointTimeDragging;
             UpdateControls();
@@ -535,6 +595,8 @@ namespace AnalysisITC.Avalonia.Processing
 
         public void ToggleIntegrationRegionCopyIncludesStart()
         {
+            if (!ProcessingIsEditable) return;
+
             AppSettings.IntegrationRegionCopyIncludesStart = !AppSettings.IntegrationRegionCopyIncludesStart;
             AppSettings.Save();
             UpdateControls();
@@ -562,7 +624,7 @@ namespace AnalysisITC.Avalonia.Processing
 
         public async Task ConvertCurrentProcessorToSplineAsync(SplineInterpolator.SplineInterpolatorAlgorithm algorithm)
         {
-            if (!ContextIsValid || experiment!.Processor.Interpolator == null) return;
+            if (!ProcessingIsEditable || experiment!.Processor.Interpolator == null) return;
 
             var interpolator = experiment.Processor.Interpolator;
             if (interpolator is SplineInterpolator spline)
@@ -590,7 +652,7 @@ namespace AnalysisITC.Avalonia.Processing
 
         void CopyProcessingToActive()
         {
-            if (!ContextIsValid) return;
+            if (!ContextIsValid || isPeakFitting) return;
 
             DataManager.CopySelectedProcessToActive();
             StatusChanged?.Invoke(this, "Processing copied to active data");
@@ -598,7 +660,7 @@ namespace AnalysisITC.Avalonia.Processing
 
         void CopyProcessingToNonProcessed()
         {
-            if (!ContextIsValid) return;
+            if (!ContextIsValid || isPeakFitting) return;
 
             DataManager.CopySelectedProcessToNonProcessed();
             StatusChanged?.Invoke(this, "Processing copied to unprocessed data");
@@ -630,10 +692,10 @@ namespace AnalysisITC.Avalonia.Processing
 
         async Task CopySelectedIntegrationToNextAsync()
         {
-            if (!ContextIsValid) return;
+            if (!ContextIsValid || experiment!.Processor.IsLocked || isPeakFitting) return;
 
             var selected = graph.SelectedInjectionIndex;
-            if (selected < 0 || selected >= experiment!.InjectionCount - 1) return;
+            if (selected < 0 || selected >= experiment.InjectionCount - 1) return;
 
             var source = experiment.Injections[selected];
             var target = experiment.Injections[selected + 1];
@@ -670,10 +732,15 @@ namespace AnalysisITC.Avalonia.Processing
             {
                 var valid = ContextIsValid;
                 controlsPanel.IsEnabled = valid;
+                baselineEditingPanel.IsEnabled = false;
+                integrationEditingPanel.IsEnabled = false;
+                lockProcessorButton.IsEnabled = valid && !isPeakFitting;
+                graph.IsEditingEnabled = false;
 
                 if (experiment == null)
                 {
                     summaryText.Text = "No experiment selected";
+                    UpdateGraphFooter();
                     graph.InvalidateVisual();
                     return;
                 }
@@ -681,14 +748,22 @@ namespace AnalysisITC.Avalonia.Processing
                 if (!experiment.HasThermogram)
                 {
                     summaryText.Text = "Selected item has no raw thermogram";
+                    UpdateGraphFooter();
                     graph.InvalidateVisual();
                     return;
                 }
 
                 var processor = experiment.Processor;
+                var hasInjections = experiment.InjectionCount > 0;
+                var canEdit = !processor.IsLocked && !isPeakFitting;
                 summaryText.Text = $"{experiment.DataPoints.Count} points, {experiment.InjectionCount} injections";
                 baselineHeader.Text = processor.IsLocked ? "Baseline [locked]" : "Baseline";
-                integrationHeader.Text = processor.IntegrationCompleted ? "Integration [complete]" : "Integration";
+                integrationHeader.Text = isPeakFitting
+                    ? "Integration [fitting]"
+                    : "Integration";
+                baselineEditingPanel.IsEnabled = canEdit;
+                integrationEditingPanel.IsEnabled = hasInjections && canEdit;
+                graph.IsEditingEnabled = canEdit;
 
                 baselineTypeCombo.SelectedIndex = processor.BaselineType switch
                 {
@@ -715,31 +790,38 @@ namespace AnalysisITC.Avalonia.Processing
                     moveSplinePointsCheck.IsChecked = false;
                 }
 
-                showSplineHandlesCheck.IsEnabled = processor.Interpolator is SplineInterpolator
+                showSplineHandlesCheck.IsEnabled = canEdit && processor.Interpolator is SplineInterpolator
                 {
                     Algorithm: SplineInterpolator.SplineInterpolatorAlgorithm.Smooth
                 };
-                moveSplinePointsCheck.IsEnabled = processor.Interpolator is SplineInterpolator;
+                moveSplinePointsCheck.IsEnabled = canEdit && processor.Interpolator is SplineInterpolator;
                 copyIntegrationStartCheck.IsChecked = AppSettings.IntegrationRegionCopyIncludesStart;
-                convertSmoothButton.IsEnabled = processor.Interpolator is PolynomialLeastSquaresInterpolator or SegmentedBaselineInterpolator;
-                convertLinearButton.IsEnabled = processor.Interpolator is not SplineInterpolator
+                copyIntegrationStartCheck.IsEnabled = canEdit;
+                discardIntegratedCheck.IsEnabled = canEdit;
+                convertSmoothButton.IsEnabled = canEdit
+                    && (processor.Interpolator is PolynomialLeastSquaresInterpolator or SegmentedBaselineInterpolator);
+                convertLinearButton.IsEnabled = canEdit && processor.Interpolator is not SplineInterpolator
                 {
                     Algorithm: SplineInterpolator.SplineInterpolatorAlgorithm.Linear
                 };
+                copyActiveButton.IsEnabled = !isPeakFitting;
+                copyNewButton.IsEnabled = !isPeakFitting;
 
                 ConfigureDegreeControls();
                 ConfigureIntegrationControls();
 
                 discardIntegratedCheck.IsChecked = processor.DiscardIntegratedPoints;
                 lockProcessorButton.Content = processor.IsLocked ? "Unlock" : "Lock";
-                copyNextButton.IsEnabled = graph.SelectedInjectionIndex >= 0 && graph.SelectedInjectionIndex < experiment.InjectionCount - 1;
-                previousButton.IsEnabled = graph.SelectedInjectionIndex > 0;
-                nextButton.IsEnabled = graph.SelectedInjectionIndex < experiment.InjectionCount - 1;
+                fitPeaksButton.IsEnabled = hasInjections && canEdit;
+                copyNextButton.IsEnabled = canEdit
+                    && graph.SelectedInjectionIndex >= 0
+                    && graph.SelectedInjectionIndex < experiment.InjectionCount - 1;
 
                 selectionLabel.Text = graph.SelectedInjectionIndex == -1
                     ? "All injections"
                     : $"Injection #{graph.SelectedInjectionIndex + 1}";
 
+                UpdateGraphFooter();
                 graph.InvalidateVisual();
             }
             finally
@@ -772,9 +854,6 @@ namespace AnalysisITC.Avalonia.Processing
         {
             if (!ContextIsValid || experiment!.InjectionCount == 0)
             {
-                integrationModeCombo.SelectedIndex = -1;
-                integrationStartSlider.IsEnabled = false;
-                integrationLengthSlider.IsEnabled = false;
                 startLabel.Text = "";
                 lengthLabel.Text = "";
                 return;
@@ -787,7 +866,6 @@ namespace AnalysisITC.Avalonia.Processing
             var maxDelay = Math.Max(1, experiment.Injections.Max(inj => inj.Delay));
             var minDelay = Math.Min(-maxDelay, experiment.Injections.Min(inj => -inj.Delay));
 
-            integrationModeCombo.SelectedIndex = (int)processor.IntegrationLengthMode;
             integrationStartSlider.Minimum = minDelay;
             integrationStartSlider.Maximum = maxDelay;
             integrationStartSlider.Value = injection.IntegrationStartDelay;
@@ -796,7 +874,6 @@ namespace AnalysisITC.Avalonia.Processing
             integrationLengthSlider.Value = processor.IntegrationLengthMode == InjectionData.IntegrationLengthMode.Factor
                 ? FactorToSlider(processor.IntegrationLengthFactor)
                 : injection.IntegrationEndOffset;
-            integrationLengthSlider.IsEnabled = processor.IntegrationLengthMode != InjectionData.IntegrationLengthMode.Fit;
 
             UpdateIntegrationLabels();
         }
@@ -824,9 +901,7 @@ namespace AnalysisITC.Avalonia.Processing
 
             lengthLabel.Text = experiment.Processor.IntegrationLengthMode == InjectionData.IntegrationLengthMode.Factor
                 ? $"{GetLengthSliderParameter():F1}x"
-                : experiment.Processor.IntegrationLengthMode == InjectionData.IntegrationLengthMode.Fit
-                    ? "fit"
-                    : $"{GetLengthSliderParameter():F1} s";
+                : $"{integrationLengthSlider.Value:F1} s";
         }
 
         float GetLengthSliderParameter()
@@ -836,9 +911,38 @@ namespace AnalysisITC.Avalonia.Processing
             return experiment!.Processor.IntegrationLengthMode switch
             {
                 InjectionData.IntegrationLengthMode.Factor => (float)Math.Pow(5, integrationLengthSlider.Value / Math.Max(1, integrationLengthSlider.Maximum)),
-                InjectionData.IntegrationLengthMode.Fit => 0,
                 _ => (float)integrationLengthSlider.Value
             };
+        }
+
+        void UseTimeModeForLegacyFit()
+        {
+            if (experiment?.Processor.IntegrationLengthMode == InjectionData.IntegrationLengthMode.Fit)
+                experiment.Processor.IntegrationLengthMode = InjectionData.IntegrationLengthMode.Time;
+        }
+
+        void UpdateGraphFooter()
+        {
+            var valid = ContextIsValid;
+            var selected = graph.SelectedInjectionIndex;
+            var hasSelection = valid && selected >= 0;
+
+            allDataButton.IsEnabled = valid;
+            baselineZoomButton.IsEnabled = valid;
+            allPeaksButton.IsEnabled = valid;
+            focusPeakButton.IsEnabled = hasSelection;
+            previousButton.IsEnabled = hasSelection && selected > 0;
+            nextButton.IsEnabled = hasSelection && selected < experiment!.InjectionCount - 1;
+            clearSelectionButton.IsEnabled = hasSelection;
+
+            allDataButton.IsChecked = graph.CurrentVerticalZoomMode == ProcessingGraphControl.VerticalZoomMode.AllData;
+            baselineZoomButton.IsChecked = graph.CurrentVerticalZoomMode == ProcessingGraphControl.VerticalZoomMode.Baseline;
+            allPeaksButton.IsChecked = graph.CurrentHorizontalZoomMode == ProcessingGraphControl.HorizontalZoomMode.AllPeaks;
+            focusPeakButton.IsChecked = graph.CurrentHorizontalZoomMode == ProcessingGraphControl.HorizontalZoomMode.SelectedPeak;
+
+            selectionLabel.Text = hasSelection
+                ? $"Injection #{selected + 1}"
+                : valid ? "All injections" : "No selection";
         }
 
         float FactorToSlider(float value)
@@ -848,6 +952,7 @@ namespace AnalysisITC.Avalonia.Processing
         }
 
         bool ContextIsValid => experiment != null && experiment.HasThermogram && experiment.Processor != null;
+        bool ProcessingIsEditable => ContextIsValid && !experiment!.Processor.IsLocked && !isPeakFitting;
 
         static int SplineConversionPointDensity(SplineInterpolator.SplineInterpolatorAlgorithm algorithm)
         {

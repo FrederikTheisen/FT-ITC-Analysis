@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=FT-ITC Analysis
+Comment=Process, analyze, and present isothermal titration calorimetry data
+Exec=/opt/ft-itc-analysis/AnalysisITC.Avalonia %F
+Icon=io.github.FrederikTheisen.FTITCAnalysis
+Terminal=false
+Categories=Science;Education;
+MimeType=application/x-ftitc-project;
+StartupNotify=true

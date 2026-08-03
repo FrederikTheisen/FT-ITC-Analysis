@@ -52,6 +52,23 @@ namespace AnalysisITC.Avalonia.Workspace
             return root;
         }
 
+        public static Grid ContentWithFooter(Control content, Control footer)
+        {
+            var host = new Grid
+            {
+                RowDefinitions = new RowDefinitions("*,Auto")
+            };
+
+            Grid.SetRow(content, 0);
+            host.Children.Add(content);
+
+            footer.Margin = FooterGapMargin;
+            Grid.SetRow(footer, 1);
+            host.Children.Add(footer);
+
+            return host;
+        }
+
         static Grid WorkspaceGrid()
         {
             var grid = new Grid
@@ -329,6 +346,19 @@ namespace AnalysisITC.Avalonia.Workspace
         public static Button Button(string text, double width)
         {
             return new Button
+            {
+                Content = text,
+                MinWidth = width,
+                Height = 24,
+                Padding = ButtonPadding,
+                HorizontalContentAlignment = HorizontalAlignment.Center,
+                VerticalContentAlignment = VerticalAlignment.Center
+            };
+        }
+
+        public static ToggleButton Toggle(string text, double width)
+        {
+            return new ToggleButton
             {
                 Content = text,
                 MinWidth = width,

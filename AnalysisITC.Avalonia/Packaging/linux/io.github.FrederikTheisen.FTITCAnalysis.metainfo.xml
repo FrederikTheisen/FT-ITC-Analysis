@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>io.github.FrederikTheisen.FTITCAnalysis</id>
+  <name>FT-ITC Analysis</name>
+  <summary>Process and analyze isothermal titration calorimetry data</summary>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>MIT</project_license>
+  <description>
+    <p>FT-ITC Analysis processes, analyzes, fits, and presents isothermal titration calorimetry data.</p>
+  </description>
+  <launchable type="desktop-id">io.github.FrederikTheisen.FTITCAnalysis.desktop</launchable>
+  <url type="homepage">https://ft-itc.org</url>
+  <url type="bugtracker">https://github.com/FrederikTheisen/FT-ITC-Analysis/issues</url>
+  <provides>
+    <binary>AnalysisITC.Avalonia</binary>
+    <mediatype>application/x-ftitc-project</mediatype>
+  </provides>
+</component>

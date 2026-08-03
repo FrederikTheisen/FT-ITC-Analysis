@@ -70,6 +70,8 @@ public static class AvaloniaGraphSettings
     public static double ProcessingDragThreshold => 5;
     public static double ProcessingSplinePointRadius => 4.5;
     public static double ProcessingSplinePointInnerRadius => 1.7;
+    public static double ProcessingSplinePointHoverRadius => 7;
+    public static double ProcessingSplinePointHoverStroke => 1.5;
     public static double ProcessingSplinePointHitRadius => 8;
     public static double ProcessingSplineHandleRadius => 3.5;
     public static double ProcessingSplineHandleHitRadius => 7;
@@ -191,6 +193,8 @@ public sealed class AvaloniaGraphTheme
         CorrectedDataBrush = AvaloniaGraphSettings.Brush(correctedData);
         BaselineBrush = AvaloniaGraphSettings.Brush(baseline);
         SplinePointBrush = BaselineBrush;
+        SplinePointHoverBrush = AvaloniaGraphSettings.Brush(baseline, 0.22);
+        SplinePointHoverPen = AvaloniaGraphSettings.Pen(AvaloniaGraphSettings.Brush(baseline, 0.42), AvaloniaGraphSettings.ProcessingSplinePointHoverStroke);
         RegionBrush = AvaloniaGraphSettings.Brush(region);
         MutedRegionBrush = AvaloniaGraphSettings.Brush(mutedRegion);
         InjectionBrush = AvaloniaGraphSettings.Brush(injection);
@@ -291,6 +295,8 @@ public sealed class AvaloniaGraphTheme
     public IBrush CorrectedDataBrush { get; }
     public IBrush BaselineBrush { get; }
     public IBrush SplinePointBrush { get; }
+    public IBrush SplinePointHoverBrush { get; }
+    public Pen SplinePointHoverPen { get; }
     public IBrush RegionBrush { get; }
     public IBrush MutedRegionBrush { get; }
     public IBrush InjectionBrush { get; }

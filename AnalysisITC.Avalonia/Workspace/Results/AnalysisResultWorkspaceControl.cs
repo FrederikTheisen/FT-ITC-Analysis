@@ -352,7 +352,6 @@ namespace AnalysisITC.Avalonia.Results
         {
             isRunningAdvancedAnalysis = true;
             RefreshAnalysis();
-            StatusBarManager.StartInderminateProgress();
             StatusBarManager.SetStatus("Advanced analysis started...", 0, priority: 1);
             StatusChanged?.Invoke(this, "Advanced analysis started...");
         }
@@ -362,7 +361,6 @@ namespace AnalysisITC.Avalonia.Results
             var status = string.IsNullOrWhiteSpace(e.Item4)
                 ? $"Advanced analysis {100 * e.Item3:F0}%"
                 : $"{e.Item4}: {100 * e.Item3:F0}%";
-            StatusBarManager.SetProgress(e.Item3);
             StatusBarManager.SetStatus(status, 1000, priority: 1);
             StatusChanged?.Invoke(this, status);
         }
@@ -373,7 +371,6 @@ namespace AnalysisITC.Avalonia.Results
             dependenceGraph.Rebuild();
             RefreshAnalysis();
             var status = $"Advanced analysis completed ({e.Item1} iterations).";
-            StatusBarManager.ClearAppStatus();
             StatusBarManager.SetStatus(status, 5000);
             StatusChanged?.Invoke(this, status);
         }
@@ -417,6 +414,8 @@ namespace AnalysisITC.Avalonia.Results
             };
             updateButton.Click += async (_, _) => await UpdateResultAsync();
 
+            summaryPanel.Children.Add(BuildValiditySection(report));
+
             summaryPanel.Children.Add(Section("Result", new Control[]
             {
                 Pair("Name", result.Name),
@@ -439,7 +438,6 @@ namespace AnalysisITC.Avalonia.Results
             {
                 updateButton
             }));
-            summaryPanel.Children.Add(BuildValiditySection(report));
             RefreshParameterEvaluation();
         }
 
@@ -543,7 +541,10 @@ namespace AnalysisITC.Avalonia.Results
             foreach (var solution in result.Solution.Solutions)
             {
                 var data = solution.Data;
-                experimentsPanel.Children.Add(Section(data?.Name ?? "Experiment", new Control[]
+                var experimentName = Header(data?.Name ?? "Experiment");
+                experimentName.TextWrapping = TextWrapping.Wrap;
+
+                experimentsPanel.Children.Add(Section(experimentName, new Control[]
                 {
                     Pair("Date", data?.UIShortDateWithTime ?? ""),
                     Pair("Temperature", data == null ? "" : $"{data.MeasuredTemperature:G3} °C"),

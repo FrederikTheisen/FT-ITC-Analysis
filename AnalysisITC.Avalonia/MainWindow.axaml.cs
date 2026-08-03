@@ -8,6 +8,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Input;
+using Avalonia.Interactivity;
 using Avalonia.Layout;
 using Avalonia.Media;
 using Avalonia.Platform.Storage;
@@ -54,6 +55,10 @@ public partial class MainWindow : Window
         IncludeNoneButton.Click += (_, _) => SetAllExperimentInclusion(false);
         WelcomeOpenButton.Click += async (_, _) => await OpenFilesAsync();
         WelcomeReloadButton.Click += async (_, _) => await ReloadLastFilesAsync();
+        DragDrop.SetAllowDrop(this, true);
+        DragDrop.AddDragOverHandler(this, OnDragOver);
+        DragDrop.AddDragLeaveHandler(this, OnDragLeave);
+        DragDrop.AddDropHandler(this, OnDrop);
         ItemsList.SelectionChanged += (_, _) => SelectListItem();
         ItemsList.PointerReleased += OnItemsListPointerReleased;
         WorkspaceTabs.SelectionChanged += (_, _) => OnWorkspaceTabChanged();
@@ -109,6 +114,9 @@ public partial class MainWindow : Window
 
     protected override void OnClosed(EventArgs e)
     {
+        DragDrop.RemoveDragOverHandler(this, OnDragOver);
+        DragDrop.RemoveDragLeaveHandler(this, OnDragLeave);
+        DragDrop.RemoveDropHandler(this, OnDrop);
         DataManager.DataDidChange -= OnDataDidChange;
         DataManager.DataInclusionDidChange -= OnDataInclusionDidChange;
         DataManager.UpdateTable -= OnDataManagerUpdate;
@@ -202,7 +210,7 @@ public partial class MainWindow : Window
 
     internal async Task ExportDataAsync(bool selectedOnly)
     {
-        await Exporter.ExportAsync(ExportType.Data, selectedOnly ? ExportDataSelection.SelectedData : null);
+        await Exporter.ExportAsync(null, selectedOnly ? ExportDataSelection.SelectedData : null);
         RefreshMenuState();
     }
 
@@ -599,6 +607,60 @@ public partial class MainWindow : Window
         RefreshMenuState();
     }
 
+    void OnDragOver(object? sender, DragEventArgs e)
+    {
+        if (!e.DataTransfer.Contains(DataFormat.File))
+        {
+            e.DragEffects = DragDropEffects.None;
+            return;
+        }
+
+        e.DragEffects = DragDropEffects.Copy;
+        StatusBarManager.SetStatus("Drop supported files to open", 0);
+    }
+
+    void OnDragLeave(object? sender, RoutedEventArgs e)
+    {
+        StatusBarManager.ClearAppStatus();
+    }
+
+    async void OnDrop(object? sender, DragEventArgs e)
+    {
+        e.DragEffects = DragDropEffects.None;
+        StatusBarManager.ClearAppStatus();
+
+        var files = e.DataTransfer.TryGetFiles();
+        var paths = files?
+            .OfType<IStorageFile>()
+            .Select(GetLocalPath)
+            .Where(path => !string.IsNullOrWhiteSpace(path) && File.Exists(path))
+            .Select(path => path!)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray() ?? Array.Empty<string>();
+
+        var supportedPaths = paths
+            .Where(path => DataReader.GetFormat(path) != ITCDataFormat.Unknown)
+            .ToArray();
+
+        if (supportedPaths.Length == 0)
+        {
+            StatusBarManager.SetStatus("No supported data files were dropped", 4000);
+            return;
+        }
+
+        await OpenPathsAsync(supportedPaths);
+    }
+
+    internal Task OpenExternalPathsAsync(IEnumerable<string> paths)
+    {
+        var existingPaths = paths
+            .Where(path => !string.IsNullOrWhiteSpace(path) && File.Exists(path))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        return OpenPathsAsync(existingPaths);
+    }
+
     static IEnumerable<string> LastDocumentPaths()
     {
         var paths = AppSettings.LastDocumentPaths ?? Array.Empty<string>();
@@ -901,7 +963,7 @@ public partial class MainWindow : Window
 
         var lines = BuildOverviewDescriptionLines(item)
             .Select(PlainText)
-            .Select(line => line.Trim())
+            .Select(line => line.TrimEnd())
             .Where(line => !string.IsNullOrWhiteSpace(line))
             .ToList();
 
@@ -956,7 +1018,7 @@ public partial class MainWindow : Window
             };
             var label = new TextBlock
             {
-                Text = line.Substring(0, separator).Trim(),
+                Text = line.Substring(0, separator).TrimEnd(),
                 FontSize = 12
             };
             AppTheme.Bind(label, TextBlock.ForegroundProperty, AppTheme.MutedText);
@@ -1130,7 +1192,7 @@ public partial class MainWindow : Window
 
         return string.Concat(MarkdownProcessor.GetSegments(text).Select(segment => segment.Text))
             .Replace("∆", "Δ")
-            .Trim();
+            .TrimEnd();
     }
 
     void OnDataDidChange(object? sender, ExperimentData? e)
@@ -1180,7 +1242,9 @@ public partial class MainWindow : Window
 
     void OnProgressUpdated(object? sender, ProgressIndicatorEventData progress)
     {
-        Dispatcher.UIThread.Post(() => SetProgressState(progress.Progress));
+        var value = progress.Progress;
+        if (Dispatcher.UIThread.CheckAccess()) SetProgressState(value);
+        else Dispatcher.UIThread.Post(() => SetProgressState(value));
     }
 
     void OnAppMessage(object? sender, HandledException message)

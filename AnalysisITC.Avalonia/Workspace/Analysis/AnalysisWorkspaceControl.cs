@@ -38,6 +38,7 @@ namespace AnalysisITC.Avalonia.Analysis
         readonly Button runFitButton = Button("Run Fit", 92);
         readonly Button stopFitButton = Button("Stop", 70);
         readonly Button restoreDefaultsButton = Button("Restore defaults", 124);
+        readonly TextBlock analysisSummaryText = Text("No analysis ready");
         readonly TextBlock fitStatusText = Text();
 
         readonly StackPanel parameterPanel = WorkspaceControlBuilder.InspectorPanel();
@@ -156,7 +157,8 @@ namespace AnalysisITC.Avalonia.Analysis
                 WorkspaceControlBuilder.InspectorFooter(Section("Fit", new Control[]
                 {
                     Row(runFitButton, stopFitButton),
-                    fitStatusText
+                    fitStatusText,
+                    analysisSummaryText
                 })));
         }
 
@@ -308,6 +310,7 @@ namespace AnalysisITC.Avalonia.Analysis
             {
                 parameterPanel.Children.Clear();
                 optionPanel.Children.Clear();
+                RefreshAnalysisSummary();
                 return;
             }
 
@@ -325,6 +328,7 @@ namespace AnalysisITC.Avalonia.Analysis
         {
             Dispatcher.UIThread.Post(() =>
             {
+                analysisSummaryText.Text = "No analysis ready";
                 fitStatusText.Text = e.Message;
                 UpdateFitButtonState();
             });
@@ -336,9 +340,30 @@ namespace AnalysisITC.Avalonia.Analysis
             RebuildParameterRows();
             RebuildOptionRows();
             SyncPreferenceControls();
+            RefreshAnalysisSummary();
             UpdateStatus();
             UpdateFitButtonState();
             graph.InvalidateVisual();
+        }
+
+        void RefreshAnalysisSummary()
+        {
+            analysisSummaryText.Text = AnalysisInputsAreReady() && workspace.IsReady
+                ? AnalysisContextSummaryPresentation.BuildText(workspace.Context)
+                : "No analysis ready";
+        }
+
+        bool AnalysisInputsAreReady()
+        {
+            var requiredData = workspace.Session.IsGlobal
+                ? DataManager.IncludedData.ToList()
+                : experiment == null
+                    ? new List<ExperimentData>()
+                    : new List<ExperimentData> { experiment };
+
+            return requiredData.Count > 0
+                && (!workspace.Session.IsGlobal || requiredData.Count > 1)
+                && requiredData.All(AnalysisBuilder.IsAnalysisReady);
         }
 
         void RefreshModelChoices()
@@ -547,7 +572,6 @@ namespace AnalysisITC.Avalonia.Analysis
 
                 var fitDescription = DescribeFit(solver);
                 fitStatusText.Text = fitDescription;
-                StatusBarManager.StartInderminateProgress();
                 StatusBarManager.SetStatus(fitDescription, 0, priority: 1);
                 StatusChanged?.Invoke(this, fitDescription);
                 AppEventHandler.PrintAndLog(
@@ -579,8 +603,10 @@ namespace AnalysisITC.Avalonia.Analysis
         {
             if (!ReferenceEquals(sender, activeSolver)) return;
 
-            Dispatcher.UIThread.Post(() =>
+            RunOnUiThread(() =>
             {
+                if (!ReferenceEquals(sender, activeSolver)) return;
+
                 isFitting = false;
                 var elapsed = TimeUnitAttribute.FormatTimeSpanShort(convergence.TotalTime);
                 fitStatusText.Text = $"{convergence.Termination} | RMSD {convergence.Loss:G4} | {convergence.Iterations} iterations | {elapsed}";
@@ -598,7 +624,6 @@ namespace AnalysisITC.Avalonia.Analysis
                 graph.FitToData();
                 RefreshWorkspaceViews();
                 FittingChanged?.Invoke(this, EventArgs.Empty);
-                StatusBarManager.ClearAppStatus();
                 StatusBarManager.SetStatus(fitStatusText.Text, 5000);
                 StatusChanged?.Invoke(this, fitStatusText.Text);
             });
@@ -608,13 +633,14 @@ namespace AnalysisITC.Avalonia.Analysis
         {
             if (!isFitting) return;
 
-            Dispatcher.UIThread.Post(() =>
+            RunOnUiThread(() =>
             {
+                if (!isFitting) return;
+
                 graph.InvalidateVisual();
                 if (activeErrorMethod == ErrorEstimationMethod.None) return;
 
                 fitStatusText.Text = $"Starting {DescribeErrorMethod(activeErrorMethod)}...";
-                StatusBarManager.SetProgress(0);
                 StatusBarManager.SetStatus(fitStatusText.Text, 0, priority: 1);
             });
         }
@@ -623,10 +649,11 @@ namespace AnalysisITC.Avalonia.Analysis
         {
             if (!isFitting || activeErrorMethod == ErrorEstimationMethod.None) return;
 
-            Dispatcher.UIThread.Post(() =>
+            RunOnUiThread(() =>
             {
+                if (!isFitting || activeErrorMethod == ErrorEstimationMethod.None) return;
+
                 fitStatusText.Text = $"{DescribeErrorMethod(activeErrorMethod)} {e.Item1}/{e.Item2}";
-                StatusBarManager.SetProgress(e.Item3);
                 StatusBarManager.SetStatus(fitStatusText.Text, 0, priority: 1);
             });
         }
@@ -635,14 +662,15 @@ namespace AnalysisITC.Avalonia.Analysis
         {
             if (!isFitting) return;
 
-            Dispatcher.UIThread.Post(() =>
+            RunOnUiThread(() =>
             {
+                if (!isFitting) return;
+
                 if (activeSolver is GlobalSolver globalSolver && globalSolver.Model.ShouldFitIndividually && update.Progress >= 0)
                 {
                     var total = globalSolver.Model.Models.Count;
                     var completed = Math.Clamp((int)Math.Round(update.Progress * total), 0, total);
                     fitStatusText.Text = $"Fitting experiments {completed}/{total}";
-                    StatusBarManager.SetProgress(update.Progress);
                     StatusBarManager.SetStatus(fitStatusText.Text, 0, priority: 1);
                     return;
                 }
@@ -655,10 +683,15 @@ namespace AnalysisITC.Avalonia.Analysis
                 else if (update.Progress >= 0)
                 {
                     fitStatusText.Text = $"Fitting progress {update.Progress:P0}";
-                    StatusBarManager.SetProgress(update.Progress);
                     StatusBarManager.SetStatus(fitStatusText.Text, 0, priority: 1);
                 }
             });
+        }
+
+        static void RunOnUiThread(Action action)
+        {
+            if (Dispatcher.UIThread.CheckAccess()) action();
+            else Dispatcher.UIThread.Post(action);
         }
 
         static string DescribeFit(SolverInterface solver) =>
