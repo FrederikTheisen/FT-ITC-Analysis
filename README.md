@@ -111,7 +111,7 @@ instead.
 
 FT-ITC Analysis supports three baseline modes:
 
-- **Spline:** places baseline control points between injections and interpolates them with a linear or smooth spline. The sparse, balanced, and dense point-density settings control the target number of points per injection, while the app adapts the actual point count to the usable baseline length after each injection.
+- **Spline:** places baseline control points between injections and interpolates them with a linear or smooth spline. Sparse uses one point per injection. Balanced uses two points when less than half of the injection interval is integrated and one otherwise. Dense scales linearly from five points down to one as the integrated fraction increases.
 - **Polynomial:** fits an outlier-discarding polynomial baseline across the thermogram.
 - **Segmented:** fits local baseline segments around injection regions.
 
