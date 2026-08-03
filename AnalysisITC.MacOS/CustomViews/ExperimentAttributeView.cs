@@ -250,7 +250,8 @@ namespace AnalysisITC.UI.MacOS.CustomViews
                     break;
             }
 
-            CombinedParameterField = new ValueWithErrorTextField(new CGRect(0, 0, 80, 19))
+            CombinedParameterField = new ValueWithErrorTextField(
+                new CGRect(0, 0, 80, 19))
             {
                 ToolTip = includeerror ? "Value for the given property. Press space to enter uncertainty." : "Value for the given property",
                 Alignment = NSTextAlignment.Right,

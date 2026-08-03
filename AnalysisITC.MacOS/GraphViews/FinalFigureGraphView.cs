@@ -543,6 +543,9 @@ namespace AnalysisITC
             }
         }
 
+        internal static int GetExportFigureCount(ExportDataSelection selection) =>
+            GetExportData(selection).Count(data => data != null);
+
         static ExperimentData CurrentFigureData
         {
             get

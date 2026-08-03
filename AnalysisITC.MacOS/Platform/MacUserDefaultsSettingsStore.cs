@@ -139,11 +139,62 @@ namespace AnalysisITC.Platform.MacOS
                     return url.Path ?? url.ToString();
                 case NSString str:
                     return str.ToString();
-                case NSObject obj:
-                    return obj.ToString();
+                case NSData data:
+                    return StringFromData(data);
+                case NSObject:
+                    // NSObject.ToString() exposes diagnostic descriptions such
+                    // as "{length = …, bytes = …}" for archived preferences.
+                    // That is never a valid stored string.
+                    return null;
                 default:
                     return value.ToString();
             }
+        }
+
+        static string StringFromData(NSData data)
+        {
+            if (data == null || data.Length == 0) return null;
+
+            // Older builds stored recent document URLs as bookmark data.
+            try
+            {
+                bool isStale;
+                NSError error;
+                using (var url = NSUrl.FromBookmarkData(
+                           data,
+                           NSUrlBookmarkResolutionOptions.WithoutUI
+                           | NSUrlBookmarkResolutionOptions.WithoutMounting,
+                           null,
+                           out isStale,
+                           out error))
+                {
+                    if (url != null)
+                        return url.Path ?? url.AbsoluteString;
+                }
+            }
+            catch
+            {
+                // Try the older keyed-archive representation next.
+            }
+
+            try
+            {
+#pragma warning disable CS0618
+                var archivedObject =
+                    NSKeyedUnarchiver.UnarchiveObject(data);
+#pragma warning restore CS0618
+                if (archivedObject != null
+                    && !(archivedObject is NSData))
+                {
+                    return StringFromObject(archivedObject);
+                }
+            }
+            catch
+            {
+                // Invalid or unrelated binary data is not a string setting.
+            }
+
+            return null;
         }
     }
 }

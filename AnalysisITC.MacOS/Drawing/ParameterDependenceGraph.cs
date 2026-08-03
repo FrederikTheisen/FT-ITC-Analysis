@@ -69,6 +69,8 @@ namespace AnalysisITC.UI.MacOS.Drawing
 
             SetupAxisScalingUnits();
 
+            DrawFrameBackground(gc);
+
             Draw(gc);
 
             DrawFrame(gc);

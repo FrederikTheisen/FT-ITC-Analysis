@@ -4,6 +4,7 @@ using System;
 using System.Linq;
 using Foundation;
 using AppKit;
+using CoreGraphics;
 using AnalysisITC.Core.Utilities;
 
 using AnalysisITC.Core.Application;
@@ -21,9 +22,13 @@ namespace AnalysisITC
 {
 	public partial class BindingAnalysisViewController : NSViewController
 	{
+        const float BaseContentWidth = 343;
+        const float BaseContentHeight = 657;
+
         public static event EventHandler UpdateTable;
 
         private AnalysisResult Result { get; set; }
+        bool preferredSizeUpdateQueued;
 
         EnergyUnit EnergyUnit => (int)EnergyUnitControl.SelectedSegment switch { 0 => EnergyUnit.Joule, 1 => EnergyUnit.KiloJoule, 2 => EnergyUnit.Cal, 3 => EnergyUnit.KCal, _ => EnergyUnit.KiloJoule, };
         public bool UseKelvin => TemperatureUnitControl.SelectedSegment == 1;
@@ -57,7 +62,9 @@ namespace AnalysisITC
             if (this.NextResponder is NSWindow) (this.NextResponder as NSWindow).Title = Result.Name;
 
             NameTextField.StringValue = Result.Name;
-            CommentTextField.StringValue = Result.Comments;
+            CommentTextField.TextStorage.Replace(
+                new NSRange(0, CommentTextField.TextStorage.Length),
+                Result.Comments ?? string.Empty);
 
             info += Result.Solution.Solutions.Count + " experiments" + Environment.NewLine;
             info += Result.Solution.SolutionName + Environment.NewLine;
@@ -87,6 +94,38 @@ namespace AnalysisITC
             // Right column values
             DataSetParameterLabel.AttributedStringValue =
                 AnalysisITC.UI.MacOS.MacStrings.FromMarkDownString(string.Join(Environment.NewLine, items.Select(i => i.Item2)), NSFont.SystemFontOfSize(11));
+
+            QueuePreferredContentSizeUpdate();
+        }
+
+        void QueuePreferredContentSizeUpdate()
+        {
+            if (preferredSizeUpdateQueued) return;
+
+            preferredSizeUpdateQueued = true;
+            BeginInvokeOnMainThread(() =>
+            {
+                preferredSizeUpdateQueued = false;
+                View.NeedsLayout = true;
+                View.LayoutSubtreeIfNeeded();
+
+                var targetSize = new CGSize(
+                    Math.Max(BaseContentWidth, View.Bounds.Width),
+                    BaseContentHeight);
+
+                PreferredContentSize = targetSize;
+                if (View.Window != null)
+                {
+                    var currentSize =
+                        View.Window.ContentView?.Frame.Size
+                        ?? new CGSize(0, 0);
+                    if (Math.Abs(currentSize.Width - targetSize.Width) > 0.5
+                        || Math.Abs(currentSize.Height - targetSize.Height) > 0.5)
+                    {
+                        View.Window.SetContentSize(targetSize);
+                    }
+                }
+            });
         }
 
         partial void CopyToClipboard(NSObject sender)
@@ -148,8 +187,7 @@ namespace AnalysisITC
             if (!string.IsNullOrWhiteSpace(NameTextField.StringValue))
                 Result.Name = NameTextField.StringValue;
 
-            if (!string.IsNullOrWhiteSpace(CommentTextField.StringValue))
-                Result.Comments = CommentTextField.StringValue;
+            Result.Comments = CommentTextField.String;
 
             CloseButtonClicked(sender);
 

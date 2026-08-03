@@ -25,27 +25,39 @@ namespace AnalysisITC.UI.MacOS
         public Task<string> ChooseExportFolderAsync(ExportAccessoryViewSettings settings)
         {
             var tcs = new TaskCompletionSource<string>();
-            var storyboard = NSStoryboard.FromName("Main", null);
-            var viewController = (ExportAccessoryViewController)storyboard.InstantiateControllerWithIdentifier("ExportAccessoryViewController");
-            viewController.Setup(settings);
+            var parent = NSApplication.SharedApplication.MainWindow;
+            var presenter = parent?.ContentViewController;
+            if (parent == null || presenter == null)
+                return Task.FromResult<string>(null);
 
-            var dlg = NSOpenPanel.OpenPanel;
-            dlg.Title = "Export";
-            dlg.AccessoryView = viewController.View;
-            dlg.RespondsToSelector(new ObjCRuntime.Selector("setAccessoryViewDisclosed:"));
-            dlg.PerformSelector(new ObjCRuntime.Selector("setAccessoryViewDisclosed:"), NSNumber.FromBoolean(true), 0);
-            dlg.CanChooseDirectories = true;
-            dlg.CanChooseFiles = false;
-            dlg.AllowsMultipleSelection = false;
-            dlg.CanCreateDirectories = true;
-            dlg.Prompt = "Export";
-
-            dlg.BeginSheet(NSApplication.SharedApplication.MainWindow, result =>
+            ExportSheetViewController sheet = null;
+            sheet = new ExportSheetViewController(settings, accepted =>
             {
-                tcs.TrySetResult(result == (int)NSModalResponse.OK ? dlg.Url?.Path : null);
+                presenter.DismissViewController(sheet);
+                if (!accepted)
+                {
+                    tcs.TrySetResult(null);
+                    return;
+                }
+
+                NSApplication.SharedApplication.BeginInvokeOnMainThread(() => ChooseFolder(parent, tcs));
             });
+            presenter.PresentViewControllerAsSheet(sheet);
 
             return tcs.Task;
+        }
+
+        static void ChooseFolder(NSWindow parent, TaskCompletionSource<string> completion)
+        {
+            var panel = NSOpenPanel.OpenPanel;
+            panel.Title = "Choose Export Folder";
+            panel.CanChooseDirectories = true;
+            panel.CanChooseFiles = false;
+            panel.AllowsMultipleSelection = false;
+            panel.CanCreateDirectories = true;
+            panel.Prompt = "Export";
+            panel.BeginSheet(parent, result =>
+                completion.TrySetResult(result == (int)NSModalResponse.OK ? panel.Url?.Path : null));
         }
 
         public bool ConfirmOverwrite(IEnumerable<string> outputPaths)

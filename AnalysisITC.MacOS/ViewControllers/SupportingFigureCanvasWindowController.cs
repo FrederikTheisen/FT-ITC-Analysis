@@ -78,8 +78,9 @@ namespace AnalysisITC
         PdfDocument currentPdfDocument;
         NSImage previewSnapshotImage;
         CoreGraphicsFigureCanvasRenderPlan currentPlan;
-        NSWindow parentWindow;
+        readonly SupportingFigureWindowDelegate windowDelegate;
         Action closed;
+        bool windowCloseHandled;
         bool disposed;
 
         public SupportingFigureCanvasWindowController(PublicationFigureOptions figureOptions, ITCDataContainer selectedItem)
@@ -89,24 +90,28 @@ namespace AnalysisITC
             if (selectedItem != null) composition.Add(selectedItem);
 
             Window.Title = "Supporting Figure";
+            windowDelegate = new SupportingFigureWindowDelegate(this);
+            Window.Delegate = windowDelegate;
             BuildInterface();
             ApplyDefaults();
             ReloadComposition(selectedItem);
             RefreshPreview();
         }
 
-        public void ShowSheet(NSWindow parent, Action onClosed)
+        public void ShowModeless(Action onClosed)
         {
-            parentWindow = parent;
             closed = onClosed;
-            parent.BeginSheet(Window, result =>
-            {
-                Window.OrderOut(this);
-                var callback = closed;
-                closed = null;
-                callback?.Invoke();
-                Dispose();
-            });
+            base.ShowWindow(this);
+            BringToFront();
+        }
+
+        public void BringToFront()
+        {
+            if (disposed || Window == null) return;
+
+            if (Window.IsMiniaturized)
+                Window.Deminiaturize(this);
+            Window.MakeKeyAndOrderFront(this);
         }
 
         void BuildInterface()
@@ -387,7 +392,7 @@ namespace AnalysisITC
 
         void BuildFooter(NSView panel)
         {
-            var closeButton = Button("Cancel");
+            var closeButton = Button("Close");
             closeButton.ControlSize = NSControlSize.Large;
             exportButton.ControlSize = NSControlSize.Large;
             var buttons = HorizontalStack(closeButton, exportButton);
@@ -414,7 +419,7 @@ namespace AnalysisITC
                 buttons.CenterYAnchor.ConstraintEqualToAnchor(panel.CenterYAnchor),
             });
 
-            closeButton.Activated += (sender, e) => CloseSheet();
+            closeButton.Activated += (sender, e) => CloseWindow();
             exportButton.Activated += (sender, e) => ExportPdf();
         }
 
@@ -849,11 +854,22 @@ namespace AnalysisITC
             currentPdfData = null;
         }
 
-        void CloseSheet()
+        void CloseWindow()
         {
             sourcePopover.Close();
-            if (parentWindow != null) parentWindow.EndSheet(Window, NSModalResponse.Cancel);
-            else Close();
+            Window?.PerformClose(this);
+        }
+
+        void HandleWindowWillClose()
+        {
+            if (windowCloseHandled) return;
+            windowCloseHandled = true;
+
+            sourcePopover.Close();
+            var callback = closed;
+            closed = null;
+            callback?.Invoke();
+            NSApplication.SharedApplication.BeginInvokeOnMainThread(Dispose);
         }
 
         protected override void Dispose(bool disposing)
@@ -862,6 +878,8 @@ namespace AnalysisITC
             disposed = true;
             if (disposing)
             {
+                if (Window != null)
+                    Window.Delegate = null;
                 previewTimer?.Invalidate();
                 previewTimer?.Dispose();
                 previewTransitionTimer?.Invalidate();
@@ -877,6 +895,7 @@ namespace AnalysisITC
                 compositionDelegate?.Dispose();
                 pickerSource?.Dispose();
                 pickerDelegate?.Dispose();
+                windowDelegate?.Dispose();
             }
             base.Dispose(disposing);
         }
@@ -885,11 +904,33 @@ namespace AnalysisITC
         {
             var window = new NSWindow(
                 new CGRect(0, 0, 1320, 780),
-                NSWindowStyle.Titled | NSWindowStyle.Resizable,
+                NSWindowStyle.Titled
+                    | NSWindowStyle.Closable
+                    | NSWindowStyle.Miniaturizable
+                    | NSWindowStyle.Resizable,
                 NSBackingStore.Buffered,
-                false) { MinSize = new CGSize(1040, 640) };
+                false)
+            {
+                MinSize = new CGSize(1040, 640),
+            };
             window.Center();
             return window;
+        }
+
+        sealed class SupportingFigureWindowDelegate : NSWindowDelegate
+        {
+            readonly SupportingFigureCanvasWindowController controller;
+
+            public SupportingFigureWindowDelegate(
+                SupportingFigureCanvasWindowController controller)
+            {
+                this.controller = controller;
+            }
+
+            public override void WillClose(NSNotification notification)
+            {
+                controller.HandleWindowWillClose();
+            }
         }
 
         static PublicationFigureOptions SnapshotFinalFigureOptions()
@@ -1134,7 +1175,7 @@ namespace AnalysisITC
         {
             var control = new NSSwitch
             {
-                ControlSize = NSControlSize.Regular,
+                ControlSize = NSControlSize.Small,
                 ToolTip = accessibilityLabel,
             };
             SetAccessibilityLabel(control, accessibilityLabel);
@@ -1218,7 +1259,7 @@ namespace AnalysisITC
             {
                 if (!(rows[rowIndex][1] is NSSwitch)) continue;
                 var row = grid.GetRow(rowIndex);
-                row.Height = 32;
+                row.Height = 22;
                 row.RowAlignment = NSGridRowAlignment.None;
                 grid.GetCell(1, rowIndex).X = NSGridCellPlacement.Trailing;
             }

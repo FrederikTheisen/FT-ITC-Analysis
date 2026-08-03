@@ -55,6 +55,9 @@ namespace AnalysisITC
 		AppKit.NSTextField Label3 { get; set; }
 
 		[Outlet]
+		AppKit.NSTextField LastOpenedFileLabel { get; set; }
+
+		[Outlet]
 		AppKit.NSBox LoadDataPrompt { get; set; }
 
 		[Outlet]
@@ -140,6 +143,11 @@ namespace AnalysisITC
 			if (Label3 != null) {
 				Label3.Dispose ();
 				Label3 = null;
+			}
+
+			if (LastOpenedFileLabel != null) {
+				LastOpenedFileLabel.Dispose ();
+				LastOpenedFileLabel = null;
 			}
 
 			if (LoadDataPrompt != null) {

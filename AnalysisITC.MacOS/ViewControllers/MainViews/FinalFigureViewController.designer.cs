@@ -228,6 +228,9 @@ namespace AnalysisITC
 		[Outlet]
 		AppKit.NSTabView PublishOptionsTabView { get; set; }
 
+		[Outlet]
+		AppKit.NSTextField PublishSummaryLabel { get; set; }
+
 		[Action ("AttributeOptionAction:")]
 		partial void AttributeOptionAction (Foundation.NSObject sender);
 
@@ -239,6 +242,9 @@ namespace AnalysisITC
 
 		[Action ("ExportGraphButtonClick:")]
 		partial void ExportGraphButtonClick (Foundation.NSObject sender);
+
+		[Action ("ExportSelectionChanged:")]
+		partial void ExportSelectionChanged (Foundation.NSObject sender);
 
 		[Action ("ParameterOptionAction:")]
 		partial void ParameterOptionAction (Foundation.NSObject sender);
@@ -586,6 +592,11 @@ namespace AnalysisITC
 			if (PublishOptionsTabView != null) {
 				PublishOptionsTabView.Dispose ();
 				PublishOptionsTabView = null;
+			}
+
+			if (PublishSummaryLabel != null) {
+				PublishSummaryLabel.Dispose ();
+				PublishSummaryLabel = null;
 			}
 		}
 	}

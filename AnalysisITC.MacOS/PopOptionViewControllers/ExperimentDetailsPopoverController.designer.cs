@@ -40,7 +40,7 @@ namespace AnalysisITC
 		AppKit.NSTextField CellVolumeField { get; set; }
 
 		[Outlet]
-		AppKit.NSTextField CommentTextField { get; set; }
+		AppKit.NSTextView CommentTextField { get; set; }
 
 		[Outlet]
 		AppKit.NSTextField ExperimentNameField { get; set; }

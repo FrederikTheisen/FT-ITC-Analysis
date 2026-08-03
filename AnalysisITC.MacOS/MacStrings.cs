@@ -147,7 +147,112 @@ namespace AnalysisITC.UI.MacOS
             return s;
         }
 
-        public static NSAttributedString FromMarkDownString(string str, NSFont font, bool iscg = false)
+        public static NSAttributedString AnalysisItemTitle(
+            string title,
+            string symbol,
+            float fontSize,
+            bool enabled = true)
+        {
+            var result = new NSMutableAttributedString();
+            var titleFont = NSFont.SystemFontOfSize(fontSize, NSFontWeight.Semibold);
+            var symbolFont = NSFont.SystemFontOfSize(fontSize);
+
+            var titleText = FromMarkDownString(title ?? string.Empty, titleFont);
+            var titleColor = enabled ? NSColor.Label : NSColor.DisabledControlText;
+            var symbolColor = enabled ? NSColor.SecondaryLabel : NSColor.DisabledControlText;
+            titleText.AddAttribute(NSStringAttributeKey.ForegroundColor, titleColor,
+                new NSRange(0, titleText.Length));
+            result.Append(titleText);
+
+            if (!string.IsNullOrWhiteSpace(symbol))
+            {
+                var separator = PlainText(" — ", symbolFont);
+                separator.AddAttribute(NSStringAttributeKey.ForegroundColor, symbolColor,
+                    new NSRange(0, separator.Length));
+                result.Append(separator);
+
+                var symbolText = FromMarkDownString(symbol, symbolFont);
+                symbolText.AddAttribute(NSStringAttributeKey.ForegroundColor, symbolColor,
+                    new NSRange(0, symbolText.Length));
+                result.Append(symbolText);
+            }
+
+            return result;
+        }
+
+        public static NSAttributedString AnalysisInspectorItemTitle(
+            string title,
+            string symbol,
+            float fontSize,
+            bool enabled = true,
+            bool bold = false,
+            bool medium = false)
+        {
+            var result = new NSMutableAttributedString();
+            var titleFont = bold
+                ? NSFont.BoldSystemFontOfSize(fontSize)
+                : medium
+                    ? NSFont.SystemFontOfSize(fontSize, NSFontWeight.Medium)
+                : NSFont.SystemFontOfSize(fontSize);
+            var symbolFont = NSFont.SystemFontOfSize(fontSize * 0.82f);
+            var titleColor = enabled ? NSColor.Label : NSColor.DisabledControlText;
+            var symbolColor = enabled ? NSColor.SecondaryLabel : NSColor.DisabledControlText;
+
+            var titleText = FromMarkDownString(title ?? string.Empty, titleFont);
+            titleText.AddAttribute(
+                NSStringAttributeKey.ForegroundColor,
+                titleColor,
+                new NSRange(0, titleText.Length));
+            result.Append(titleText);
+
+            if (!string.IsNullOrWhiteSpace(symbol))
+            {
+                result.Append(new NSAttributedString("\n"));
+                var symbolText = FromMarkDownString(symbol, symbolFont);
+                symbolText.AddAttribute(
+                    NSStringAttributeKey.ForegroundColor,
+                    symbolColor,
+                    new NSRange(0, symbolText.Length));
+                result.Append(symbolText);
+            }
+
+            return result;
+        }
+
+        public static string ParameterSymbol(ParameterType key, bool includeSiteIndex = false, bool correctionFactor = false)
+        {
+            if (correctionFactor) return "α";
+
+            var symbol = key.GetProperties().SymbolName ?? string.Empty;
+            if (string.IsNullOrWhiteSpace(symbol)
+                && key.GetProperties().ParentType == ParameterType.Affinity1)
+                symbol = "*K*{d}";
+            if (!includeSiteIndex) return symbol;
+
+            switch (key)
+            {
+                case ParameterType.Nvalue1:
+                case ParameterType.Enthalpy1:
+                case ParameterType.Affinity1:
+                case ParameterType.HeatCapacity1:
+                case ParameterType.Gibbs1:
+                case ParameterType.Entropy1:
+                case ParameterType.EntropyContribution1:
+                    return symbol + "{1}";
+                case ParameterType.Nvalue2:
+                case ParameterType.Enthalpy2:
+                case ParameterType.Affinity2:
+                case ParameterType.HeatCapacity2:
+                case ParameterType.Gibbs2:
+                case ParameterType.Entropy2:
+                case ParameterType.EntropyContribution2:
+                    return symbol + "{2}";
+                default:
+                    return symbol;
+            }
+        }
+
+        public static NSMutableAttributedString FromMarkDownString(string str, NSFont font, bool iscg = false)
         {
             var segments = MarkdownProcessor.GetSegments(str);
 
@@ -185,4 +290,3 @@ namespace AnalysisITC.UI.MacOS
         }
     }
 }
-

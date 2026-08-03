@@ -25,7 +25,7 @@ namespace AnalysisITC
 	partial class BindingAnalysisViewController
 	{
 		[Outlet]
-		AppKit.NSTextField CommentTextField { get; set; }
+		AppKit.NSTextView CommentTextField { get; set; }
 
 		[Outlet]
 		AppKit.NSTextField ConstraintKeyLabel { get; set; }

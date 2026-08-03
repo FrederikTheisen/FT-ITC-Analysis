@@ -26,12 +26,16 @@ namespace AnalysisITC
 {
     public partial class ExperimentDetailsPopoverController : NSViewController
     {
+        const float BaseContentWidth = 380;
+        const float BaseContentHeight = 285;
+
         public static event EventHandler UpdateTable; 
 
         public static ExperimentData Data { get; set; } = null;
         static List<ExperimentAttribute> tmpoptions = new List<ExperimentAttribute>();
         public static IEnumerable<AttributeKey> AllAddedOptions => Data.Attributes.Select(opt => opt.Key).Concat(tmpoptions.Select(mo => mo.Key).ToList());
         public static IEnumerable<AttributeKey> AvailableAttributes => tmpoptions.Select(mo => mo.Key).ToList();
+        bool preferredSizeUpdateQueued;
 
         public ExperimentDetailsPopoverController() : base()
         {
@@ -63,7 +67,9 @@ namespace AnalysisITC
             SyringeConcentrationField.DoubleValue = Data.SyringeConcentration * 1000000;
             if (Data.SyringeConcentration.HasError) SyringeConcentrationErrorField.DoubleValue = Data.SyringeConcentration.SD * 1000000;
             TemperatureField.DoubleValue = Data.MeasuredTemperature;
-            CommentTextField.StringValue = Data.Comments;
+            CommentTextField.TextStorage.Replace(
+                new NSRange(0, CommentTextField.TextStorage.Length),
+                Data.Comments ?? string.Empty);
             CellVolumeField.DoubleValue = Data.CellVolume * 1000000;
 
             foreach (var opt in tmpoptions)
@@ -80,6 +86,8 @@ namespace AnalysisITC
                 SyringeConcentrationField.Enabled = false;
                 SyringeConcentrationErrorField.Enabled = false;
             }
+
+            QueuePreferredContentSizeUpdate();
         }
 
         partial void AddAttribute(NSObject sender)
@@ -87,6 +95,7 @@ namespace AnalysisITC
             var opt = new ExperimentAttribute();
             tmpoptions.Add(opt);
             AddAttribute(opt);
+            QueuePreferredContentSizeUpdate();
         }
 
         void AddAttribute(ExperimentAttribute opt)
@@ -113,6 +122,7 @@ namespace AnalysisITC
             AttributeStackView.Subviews = new NSView[0];
 
             foreach (var opt in tmpoptions) AddAttribute(opt);
+            QueuePreferredContentSizeUpdate();
         }
 
         private void Sv_KeyChanged(object sender, EventArgs e) //Update available menu items
@@ -133,6 +143,41 @@ namespace AnalysisITC
             if (AttributeStackView.Subviews.Count() < ExperimentAttribute.AvailableExperimentAttributes.Count) AddAttributeButton.Enabled = true;
 
             Sv_KeyChanged(null, null);
+            QueuePreferredContentSizeUpdate();
+        }
+
+        void QueuePreferredContentSizeUpdate()
+        {
+            if (preferredSizeUpdateQueued) return;
+
+            preferredSizeUpdateQueued = true;
+            BeginInvokeOnMainThread(() =>
+            {
+                preferredSizeUpdateQueued = false;
+                View.NeedsLayout = true;
+                View.LayoutSubtreeIfNeeded();
+
+                var attributeHeight = Math.Max(
+                    0,
+                    AttributeStackView.FittingSize.Height);
+                var targetSize = new CGSize(
+                    BaseContentWidth,
+                    BaseContentHeight
+                    + attributeHeight);
+
+                PreferredContentSize = targetSize;
+                if (View.Window != null)
+                {
+                    var currentSize =
+                        View.Window.ContentView?.Frame.Size
+                        ?? new CGSize(0, 0);
+                    if (Math.Abs(currentSize.Width - targetSize.Width) > 0.5
+                        || Math.Abs(currentSize.Height - targetSize.Height) > 0.5)
+                    {
+                        View.Window.SetContentSize(targetSize);
+                    }
+                }
+            });
         }
 
         partial void Apply(NSObject sender)
@@ -168,7 +213,7 @@ namespace AnalysisITC
                 var proc = new DataProcessor(Data);
                 proc.IntegratePeaks();
 
-                Data.Comments = CommentTextField.StringValue;
+                Data.Comments = CommentTextField.String;
 
                 DismissViewController(this);
 

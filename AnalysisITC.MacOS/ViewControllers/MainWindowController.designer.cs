@@ -49,15 +49,6 @@ namespace AnalysisITC
 		AppKit.NSSegmentedControl ProcessSegControl { get; set; }
 
 		[Outlet]
-		AppKit.NSTextField StatusbarPrimaryLabel { get; set; }
-
-		[Outlet]
-		AppKit.NSProgressIndicator StatusbarProgressIndicator { get; set; }
-
-		[Outlet]
-		AppKit.NSTextField StatusbarSecondaryLabel { get; set; }
-
-		[Outlet]
 		AppKit.NSSegmentedControl SharedToolbarControl { get; set; }
 
 		[Outlet]
@@ -65,6 +56,9 @@ namespace AnalysisITC
 
 		[Outlet]
 		AppKit.NSButton StopProcessButton { get; set; }
+
+		[Outlet]
+		AppKit.NSToolbarItem WorkflowToolbarItem { get; set; }
 
 		[Action ("AnalysisSegControlClicked:")]
 		partial void AnalysisSegControlClicked (AppKit.NSSegmentedControl sender);
@@ -132,21 +126,6 @@ namespace AnalysisITC
 				ProcessSegControl = null;
 			}
 
-			if (StatusbarPrimaryLabel != null) {
-				StatusbarPrimaryLabel.Dispose ();
-				StatusbarPrimaryLabel = null;
-			}
-
-			if (StatusbarProgressIndicator != null) {
-				StatusbarProgressIndicator.Dispose ();
-				StatusbarProgressIndicator = null;
-			}
-
-			if (StatusbarSecondaryLabel != null) {
-				StatusbarSecondaryLabel.Dispose ();
-				StatusbarSecondaryLabel = null;
-			}
-
 			if (SharedToolbarControl != null) {
 				SharedToolbarControl.Dispose ();
 				SharedToolbarControl = null;
@@ -160,6 +139,11 @@ namespace AnalysisITC
 			if (StopProcessButton != null) {
 				StopProcessButton.Dispose ();
 				StopProcessButton = null;
+			}
+
+			if (WorkflowToolbarItem != null) {
+				WorkflowToolbarItem.Dispose ();
+				WorkflowToolbarItem = null;
 			}
 		}
 	}

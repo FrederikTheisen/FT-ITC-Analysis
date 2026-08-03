@@ -35,6 +35,22 @@ namespace AnalysisITC
 		{
             Settings = settings;
 
+            var segment = settings.Export switch
+            {
+                ExportType.InterchangeCsv => 0,
+                ExportType.Peaks => 1,
+                _ => 2
+            };
+            ExportTypeControl.SelectSegment(segment);
+            TabView.SelectAt(settings.Export switch
+            {
+                ExportType.InterchangeCsv => 0,
+                ExportType.Data => 0,
+                ExportType.Peaks => 1,
+                ExportType.CSV => 1,
+                _ => 2
+            });
+
             UnifyTimeAxisControl.State = Settings.UnifyTimeAxis ? NSCellStateValue.On : NSCellStateValue.Off;
 
             ExportCorrectedControl.Enabled = settings.BaselineCorrectionEnabled;
@@ -57,7 +73,12 @@ namespace AnalysisITC
         {
 			TabView.SelectAt(sender.SelectedSegment);
 
-            Settings.Export = (ExportType)(int)sender.SelectedSegment;
+            Settings.Export = (int)sender.SelectedSegment switch
+            {
+                0 => ExportType.InterchangeCsv,
+                1 => ExportType.Peaks,
+                _ => ExportType.CSV
+            };
 
             Setup(Settings);
         }
@@ -78,6 +99,9 @@ namespace AnalysisITC
 
             switch (selected.Title.ToLower())
             {
+                case "ft-itc csv": Settings.Export = ExportType.InterchangeCsv; break;
+                case "thermogram data": Settings.Export = ExportType.Data; break;
+                case "integrated peaks": Settings.Export = ExportType.Peaks; break;
                 case "microcal": Settings.Export = ExportType.MicroCal; break;
                 case "itcsim": Settings.Export = ExportType.ITCsim; break;
                 case "pytc": Settings.Export = ExportType.PYTC; break;
@@ -85,8 +109,22 @@ namespace AnalysisITC
                 case "csv": Settings.Export = ExportType.CSV; break;
             }
 
-            ThirdPartyFormatButton.Title = Settings.Export.ToString();
+            ThirdPartyFormatButton.Title = Settings.Export.GetProperties().Name;
             ExportTypeInfo.StringValue = Settings.Export.GetProperties().Description;
+            ExportTypeControl.SelectSegment(Settings.Export switch
+            {
+                ExportType.InterchangeCsv => 0,
+                ExportType.Peaks => 1,
+                _ => 2
+            });
+            TabView.SelectAt(Settings.Export switch
+            {
+                ExportType.InterchangeCsv => 0,
+                ExportType.Data => 0,
+                ExportType.Peaks => 1,
+                ExportType.CSV => 1,
+                _ => 2
+            });
 
             Console.WriteLine("Export Format: " + Settings.Export);
         }

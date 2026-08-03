@@ -33,6 +33,8 @@ namespace AnalysisITC
         NSTableView LoadedInjectionTableView;
         LoadedInjectionDataSource LoadedInjectionSource;
         LoadedInjectionTableDelegate LoadedInjectionDelegate;
+        NSStackView OverviewInfoStackView;
+        NSFont OverviewInfoFont;
         bool isLoadingRecentData;
         public static bool OverviewShowsInjections { get; private set; }
         public static event EventHandler OverviewDisplayModeDidChange;
@@ -64,6 +66,7 @@ namespace AnalysisITC
             AppDelegate.StartPrintOperation += AppDelegate_StartPrintOperation;
             BindExperimentMenuActions(ExperimentMenuButton.Menu);
             SetupLoadedInjectionTable();
+            SetupOverviewInfoTable();
 
             ShowLoadDataPrompt();
         }
@@ -73,6 +76,7 @@ namespace AnalysisITC
              base.ViewDidAppear();
 
             UpdateGraph();
+            ShowLoadDataPrompt();
         }
 
         public override void ViewDidLayout()
@@ -109,6 +113,7 @@ namespace AnalysisITC
                 AllowsEmptySelection = true,
                 AllowsMultipleSelection = false,
                 ColumnAutoresizingStyle = NSTableViewColumnAutoresizingStyle.None,
+                FocusRingType = NSFocusRingType.None,
                 TranslatesAutoresizingMaskIntoConstraints = true,
                 //BackgroundColor = NSColor.WindowBackground,
             };
@@ -125,24 +130,37 @@ namespace AnalysisITC
             {
                 DocumentView = LoadedInjectionTableView,
                 HasVerticalScroller = true,
-                HasHorizontalScroller = false,
+                HasHorizontalScroller = true,
                 HorizontalScrollElasticity = NSScrollElasticity.None,
                 AutohidesScrollers = true,
-                BorderType = NSBorderType.LineBorder,
+                BorderType = NSBorderType.NoBorder,
                 DrawsBackground = true,
                 BackgroundColor = NSColor.WindowBackground,
+                FocusRingType = NSFocusRingType.None,
                 TranslatesAutoresizingMaskIntoConstraints = false,
                 Hidden = true,
             };
 
-            GVC.Superview.AddSubview(LoadedInjectionScrollView);
+            var container = GVC.Superview;
+            container.AddSubview(LoadedInjectionScrollView);
             NSLayoutConstraint.ActivateConstraints(new[]
             {
+                // Start below the header separator so it remains visible in table mode.
                 LoadedInjectionScrollView.TopAnchor.ConstraintEqualToAnchor(GVC.TopAnchor),
-                LoadedInjectionScrollView.BottomAnchor.ConstraintEqualToAnchor(GVC.BottomAnchor),
-                LoadedInjectionScrollView.LeadingAnchor.ConstraintEqualToAnchor(GVC.LeadingAnchor),
-                LoadedInjectionScrollView.TrailingAnchor.ConstraintEqualToAnchor(GVC.TrailingAnchor),
+                LoadedInjectionScrollView.BottomAnchor.ConstraintEqualToAnchor(container.BottomAnchor),
+                LoadedInjectionScrollView.LeadingAnchor.ConstraintEqualToAnchor(container.LeadingAnchor),
+                LoadedInjectionScrollView.TrailingAnchor.ConstraintEqualToAnchor(container.TrailingAnchor),
             });
+        }
+
+        void SetupOverviewInfoTable()
+        {
+            OverviewInfoStackView = InfoLabel?.Superview as NSStackView;
+            if (OverviewInfoStackView == null) return;
+
+            OverviewInfoFont = InfoLabel.Font ?? NSFont.SystemFontOfSize(NSFont.SmallSystemFontSize);
+            OverviewInfoStackView.RemoveArrangedSubview(InfoLabel);
+            InfoLabel.RemoveFromSuperview();
         }
 
         void RebuildLoadedInjectionColumns()
@@ -178,16 +196,16 @@ namespace AnalysisITC
         {
             if (LoadedInjectionTableView == null || LoadedInjectionTableView.TableColumns() == null) return;
 
-            var scrollWidth = LoadedInjectionScrollView?.Frame.Width ?? 0;
+            var scrollWidth = LoadedInjectionScrollView?.ContentSize.Width ?? 0;
             var graphWidth = GVC?.Frame.Width ?? 0;
-            var width = Math.Max(Math.Min(scrollWidth > 0 ? scrollWidth : graphWidth, graphWidth > 0 ? graphWidth : scrollWidth), 0);
+            var width = Math.Max(scrollWidth > 0 ? scrollWidth : graphWidth, 0);
             if (width <= 0) return;
 
             var columns = LoadedInjectionTableView.TableColumns();
             if (columns.Length == 0) return;
 
             var intercellWidth = LoadedInjectionTableView.IntercellSpacing.Width * Math.Max(columns.Length - 1, 0);
-            var usableWidth = Math.Max(width - intercellWidth - 2, 240);
+            var usableWidth = Math.Max(width - intercellWidth, 240);
             var preferredWidth = LoadedInjectionSource.Columns.Sum(column => column.PreferredWidth);
             var widthFactor = preferredWidth > 0 ? Math.Max(1, usableWidth / preferredWidth) : 1;
 
@@ -242,7 +260,7 @@ namespace AnalysisITC
                     DataManager.DuplicateSelectedData(Data);
                     break;
                 case "export": 
-                    Exporter.Export(ExportType.Data, ExportDataSelection.SelectedData);
+                    Exporter.Export(null, ExportDataSelection.SelectedData);
                     break;
                 case "clearsolution":
                     RemoveSolution();
@@ -311,7 +329,11 @@ namespace AnalysisITC
         }
 
         private void OnSelectionChanged(object sender, ExperimentData e) => UpdateGraph();
-        private void OnDataChanged(object sender, ExperimentData e) => UpdateGraph();
+        private void OnDataChanged(object sender, ExperimentData e)
+        {
+            UpdateGraph();
+            ShowLoadDataPrompt();
+        }
 
         private void UpdateGraph()
         {
@@ -350,11 +372,120 @@ namespace AnalysisITC
 
         void UpdateLabel()
         {
-            if (Data == null) InfoLabel.StringValue = "";
-            else
+            if (OverviewInfoStackView == null)
             {
-                InfoLabel.AttributedStringValue = AnalysisITC.UI.MacOS.MacStrings.FromMarkDownString(string.Join(Environment.NewLine, DataManager.Current.GetInfoString()), InfoLabel.Font);
+                InfoLabel.StringValue = Data == null
+                    ? ""
+                    : string.Join(Environment.NewLine, Data.GetInfoString());
+                return;
             }
+
+            foreach (var view in OverviewInfoStackView.ArrangedSubviews.ToArray())
+            {
+                OverviewInfoStackView.RemoveArrangedSubview(view);
+                view.RemoveFromSuperview();
+                view.Dispose();
+            }
+
+            if (Data == null) return;
+
+            var lines = Data.GetInfoString()
+                .Select(OverviewPlainText)
+                .Where(line => !string.IsNullOrWhiteSpace(line))
+                .ToArray();
+            var rows = lines
+                .Select(OverviewInfoRow)
+                .ToArray();
+            if (rows.Length == 0) return;
+
+            var grid = NSGridView.Create(rows);
+            grid.ColumnSpacing = 8;
+            grid.RowSpacing = 2;
+            grid.RowAlignment = NSGridRowAlignment.FirstBaseline;
+            grid.X = NSGridCellPlacement.Fill;
+            grid.Y = NSGridCellPlacement.Center;
+            grid.GetColumn(0).Width = 135;
+            grid.GetColumn(0).X = NSGridCellPlacement.Leading;
+            grid.GetColumn(1).X = NSGridCellPlacement.Fill;
+            for (var rowIndex = 0; rowIndex < lines.Length; rowIndex++)
+            {
+                if (!lines[rowIndex].Contains(Environment.NewLine)
+                    && !lines[rowIndex].Contains("\n"))
+                    continue;
+
+                // Baseline alignment adds space above a wrapping NSTextField.
+                // Top-align multiline overview rows so their first line starts
+                // alongside the row label.
+                grid.GetRow(rowIndex).RowAlignment = NSGridRowAlignment.None;
+                grid.GetCell(0, rowIndex).Y = NSGridCellPlacement.Top;
+                grid.GetCell(1, rowIndex).Y = NSGridCellPlacement.Top;
+            }
+            grid.TranslatesAutoresizingMaskIntoConstraints = false;
+            OverviewInfoStackView.AddArrangedSubview(grid);
+            OverviewInfoStackView.AddConstraint(NSLayoutConstraint.Create(
+                grid,
+                NSLayoutAttribute.Width,
+                NSLayoutRelation.Equal,
+                OverviewInfoStackView,
+                NSLayoutAttribute.Width,
+                1,
+                -10));
+        }
+
+        NSView[] OverviewInfoRow(string line)
+        {
+            var separator = line.IndexOf(':');
+            if (separator > 0 && separator < 28)
+            {
+                return new NSView[]
+                {
+                    CreateOverviewInfoLabel(line.Substring(0, separator).TrimEnd(), true),
+                    CreateOverviewInfoLabel(line.Substring(separator + 1).Trim(), false),
+                };
+            }
+
+            return new NSView[]
+            {
+                CreateOverviewInfoLabel("", true),
+                CreateOverviewInfoLabel(line, false),
+            };
+        }
+
+        NSTextField CreateOverviewInfoLabel(string text, bool isHeader)
+        {
+            var label = new NSTextField
+            {
+                StringValue = text ?? "",
+                Bordered = false,
+                Editable = false,
+                Selectable = false,
+                DrawsBackground = false,
+                FocusRingType = NSFocusRingType.None,
+                Font = OverviewInfoFont ?? NSFont.SystemFontOfSize(NSFont.SmallSystemFontSize),
+                TextColor = isHeader ? NSColor.SecondaryLabel : NSColor.Label,
+                Alignment = NSTextAlignment.Left,
+                LineBreakMode = NSLineBreakMode.ByWordWrapping,
+                MaximumNumberOfLines = 0,
+                TranslatesAutoresizingMaskIntoConstraints = false,
+            };
+            label.Cell.Wraps = true;
+            label.Cell.UsesSingleLineMode = false;
+            label.SetContentHuggingPriorityForOrientation(
+                isHeader ? 750 : 249,
+                NSLayoutConstraintOrientation.Horizontal);
+            label.SetContentCompressionResistancePriority(
+                isHeader ? 1000 : 250,
+                NSLayoutConstraintOrientation.Horizontal);
+            return label;
+        }
+
+        static string OverviewPlainText(string text)
+        {
+            if (string.IsNullOrWhiteSpace(text)) return "";
+
+            return string.Concat(MarkdownProcessor.GetSegments(text).Select(segment => segment.Text))
+                .Replace("∆", "Δ")
+                .TrimEnd();
         }
 
         partial void ClearButtonClick(NSObject sender)
@@ -406,10 +537,18 @@ namespace AnalysisITC
             if (!string.IsNullOrWhiteSpace(lastDocumentPath))
             {
                 var format = AnalysisITC.Core.DataReaders.DataReader.GetFormat(lastDocumentPath);
+                var fileName = Path.GetFileName(lastDocumentPath);
 
                 if (format != AnalysisITC.Core.DataReaders.ITCDataFormat.Unknown && !isLoadingRecentData) LoadLastButton.Enabled = true;
 
-                LoadLastButton.ToolTip = $"Reload the last file ({Path.GetFileName(lastDocumentPath)}) [SPACE] ";
+                LastOpenedFileLabel.StringValue = $"Last opened file: {fileName}";
+                LastOpenedFileLabel.ToolTip = lastDocumentPath;
+                LoadLastButton.ToolTip = $"Reload the last file ({fileName}) [SPACE] ";
+            }
+            else
+            {
+                LastOpenedFileLabel.StringValue = "No recently opened file";
+                LastOpenedFileLabel.ToolTip = null;
             }
 
             LoadDataPrompt.Hidden = DataManager.DataIsLoaded;

@@ -21,6 +21,10 @@ namespace AnalysisITC.UI.MacOS.CustomViews
 {
 	public partial class AutoExpandingTextView2 : AppKit.NSTextField
 	{
+        const float MinimumFieldHeight = 22;
+        const int MaximumVisibleLines = 3;
+        nfloat lastMeasuredWidth;
+
 		#region Constructors
 
 		// Called when created from unmanaged code
@@ -45,6 +49,19 @@ namespace AnalysisITC.UI.MacOS.CustomViews
         // Shared initialization code
         void Initialize ()
 		{
+            if (Cell != null)
+            {
+                Cell.Wraps = true;
+                Cell.Scrollable = false;
+                Cell.UsesSingleLineMode = false;
+            }
+
+            LineBreakMode = NSLineBreakMode.ByWordWrapping;
+            MaximumNumberOfLines = MaximumVisibleLines;
+            HorizontalContentSizeConstraintActive = false;
+            SetContentCompressionResistancePriority(
+                1000,
+                NSLayoutConstraintOrientation.Vertical);
 		}
 
         #endregion
@@ -53,26 +70,54 @@ namespace AnalysisITC.UI.MacOS.CustomViews
         {
 			get
 			{
-				// Guard the cell exists and wraps
-				if (Cell != null && Cell.Wraps)
-				{
-					// Use intrinsic width to jive with autolayout
-					var width = base.IntrinsicContentSize.Width;
+                var intrinsicSize = base.IntrinsicContentSize;
+                if (Cell == null || !Cell.Wraps)
+                    return intrinsicSize;
 
-					// Set the frame height to a reasonable number
-					this.Frame = new CGRect(this.Frame.Location, new CGSize(this.Frame.Width, 750.0));
+                var width = Bounds.Width > 0
+                    ? Bounds.Width
+                    : Frame.Width;
+                if (width <= 0)
+                    return intrinsicSize;
 
-					// Calculate height
-					nfloat height = Cell.CellSizeForBounds(this.Frame).Height;
+                var font = Font
+                    ?? NSFont.SystemFontOfSize(
+                        NSFont.SystemFontSize);
+                var lineHeight =
+                    (nfloat)Math.Ceiling(
+                        font.Ascender
+                        - font.Descender
+                        + font.Leading);
+                var singleLineHeight = Math.Max(
+                    MinimumFieldHeight,
+                    intrinsicSize.Height);
+                var maximumFieldHeight =
+                    singleLineHeight
+                    + (MaximumVisibleLines - 1) * lineHeight;
+                var measuredHeight = Cell.CellSizeForBounds(
+                    new CGRect(0, 0, width, 10000)).Height;
 
-					return new CGSize(width, height);
-				}
-				else
-				{
-					return base.IntrinsicContentSize;
-				}
+                return new CGSize(
+                    intrinsicSize.Width,
+                    Math.Min(
+                        maximumFieldHeight,
+                        Math.Max(
+                        MinimumFieldHeight,
+                            measuredHeight)));
 			}
 		}
+
+        public override void SetFrameSize(CGSize newSize)
+        {
+            var widthChanged =
+                Math.Abs(newSize.Width - lastMeasuredWidth) > 0.5;
+            base.SetFrameSize(newSize);
+
+            if (!widthChanged) return;
+
+            lastMeasuredWidth = newSize.Width;
+            InvalidateIntrinsicContentSize();
+        }
 
         public override void DidChange(NSNotification notification)
         {

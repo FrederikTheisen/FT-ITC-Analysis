@@ -27,6 +27,7 @@ namespace AnalysisITC
 	{
         DirtyTrackingWindowDelegate dirtyTrackingWindowDelegate;
         NSLayoutConstraint workflowToolbarMenuWidthConstraint;
+        NSSegmentedControl overviewDisplayControl;
         bool allowDirtyClose;
         bool stopableProcessRunning;
         int toolbarSplineConversionPointDensitySegment = 1;
@@ -45,9 +46,6 @@ namespace AnalysisITC
             DataManager.SelectionDidChange += DataManager_SelectionDidChange;
             DataManager.AnalysisResultSelected += DataManager_AnalysisResultSelected;
             DataProcessor.BaselineInterpolationCompleted += DataProcessor_InterpolationCompleted;
-            StatusBarManager.ProgressUpdate += OnProgressUpdated;
-            StatusBarManager.StatusUpdated += OnStatusUpdated;
-            StatusBarManager.SecondaryStatusUpdated += OnSecondaryStatusUpdated;
             SolverInterface.AnalysisStarted += StopableProcessStarted;
             ResultAnalysisController.AnalysisStarted += StopableProcessStarted;
             ResultAnalysisController.AnalysisFinished += StopableProcessFinished;
@@ -72,6 +70,7 @@ namespace AnalysisITC
             UpdateSharedToolbarControl();
             ConfigureFileToolbarMenu();
             ConfigureContextToolbarMenu();
+            ConfigureWorkspaceToolbar();
             StateManager_UpdateStateDependentUI(null, null);
             UpdateWindowDirtyState();
             UpdateDocumentStatus();
@@ -240,9 +239,6 @@ namespace AnalysisITC
             }
         }
 
-        private void OnStatusUpdated(object sender, string e) => StatusbarPrimaryLabel.StringValue = e;
-        private void OnSecondaryStatusUpdated(object sender, string e) => StatusbarSecondaryLabel.StringValue = e;
-
         private void OpenTool(object sender, EventArgs e)
         {
             PerformSegue("ShowExperimentMergerToolSegue", this);
@@ -260,18 +256,62 @@ namespace AnalysisITC
 
         internal void OpenSupportingFigureTool()
         {
-            if (supportingFigureController != null || DataManager.SourceItems == null || DataManager.SourceItems.Count == 0)
+            if (supportingFigureController != null)
+            {
+                supportingFigureController.BringToFront();
+                return;
+            }
+
+            if (DataManager.SourceItems == null || DataManager.SourceItems.Count == 0)
                 return;
 
-            supportingFigureController = SupportingFigureCanvasWindowController.CreateForCurrentSelection();
-            supportingFigureController.ShowSheet(Window, () => supportingFigureController = null);
+            var controller =
+                SupportingFigureCanvasWindowController.CreateForCurrentSelection();
+            supportingFigureController = controller;
+            controller.ShowModeless(() =>
+            {
+                if (ReferenceEquals(supportingFigureController, controller))
+                    supportingFigureController = null;
+            });
         }
 
         private void StateManager_UpdateStateDependentUI(object sender, EventArgs e)
         {
             NavigationArrowControl.SetEnabled(StateManager.PreviousState(true), 2);
             NavigationArrowControl.SetEnabled(StateManager.NextState(true), 3);
+            UpdateWorkflowNavigator();
             UpdateContextToolbarMenu();
+        }
+
+        void ConfigureWorkspaceToolbar()
+        {
+            if (StepControl == null) return;
+
+            StepControl.ToolTip = "Choose a workspace";
+            StepControl.AccessibilityLabel = "Workspace";
+            UpdateWorkflowNavigator();
+        }
+
+        void UpdateWorkflowNavigator()
+        {
+            if (StepControl == null) return;
+
+            for (nint index = 0; index < 4; index++)
+            {
+                StepControl.SetEnabled(
+                    StateManager.StateIsAvailable((ProgramState)(int)index),
+                    index);
+            }
+
+            if (StateManager.CurrentState == ProgramState.AnalysisView)
+            {
+                StepControl.Enabled = false;
+                StepControl.SelectedSegment = -1;
+                return;
+            }
+
+            StepControl.Enabled = true;
+            StepControl.SelectedSegment = (nint)(int)StateManager.CurrentState;
         }
 
         private void DataProcessor_InterpolationCompleted(object sender, EventArgs e)
@@ -323,6 +363,24 @@ namespace AnalysisITC
                     1,
                     100);
                 WorkflowToolbarMenuButton.AddConstraint(workflowToolbarMenuWidthConstraint);
+            }
+
+            if (overviewDisplayControl == null)
+            {
+                overviewDisplayControl = new NSSegmentedControl(
+                    new CoreGraphics.CGRect(0, 0, 154, 25))
+                {
+                    SegmentCount = 2,
+                    SegmentStyle = NSSegmentStyle.TexturedRounded,
+                    SelectedSegment = 0,
+                    ToolTip = "Choose between the Overview graph and injection table",
+                    AccessibilityLabel = "Overview view",
+                };
+                overviewDisplayControl.SetLabel("Graph", 0);
+                overviewDisplayControl.SetLabel("Injections", 1);
+                overviewDisplayControl.SetWidth(74, 0);
+                overviewDisplayControl.SetWidth(74, 1);
+                overviewDisplayControl.Activated += OverviewDisplayControlChanged;
             }
 
             UpdateContextToolbarMenu();
@@ -400,7 +458,9 @@ namespace AnalysisITC
 
         void UpdateWorkflowToolbarMenu()
         {
-            if (WorkflowToolbarMenuButton == null) return;
+            if (WorkflowToolbarMenuButton == null
+                || WorkflowToolbarItem == null
+                || overviewDisplayControl == null) return;
 
             var title = StateManager.CurrentState switch
             {
@@ -417,22 +477,28 @@ namespace AnalysisITC
             switch (StateManager.CurrentState)
             {
                 case ProgramState.Load:
-                    WorkflowToolbarMenuButton.Hidden = false;
-                    PopulateOverviewToolbarMenu(menu);
+                    overviewDisplayControl.Enabled = DataManager.Current != null;
+                    overviewDisplayControl.SelectedSegment =
+                        ViewController.OverviewShowsInjections ? 1 : 0;
+                    WorkflowToolbarItem.View = overviewDisplayControl;
                     break;
                 case ProgramState.Process:
                     WorkflowToolbarMenuButton.Hidden = false;
+                    WorkflowToolbarItem.View = WorkflowToolbarMenuButton;
                     PopulateProcessingToolbarMenu(menu);
                     break;
                 case ProgramState.Analyze:
                     WorkflowToolbarMenuButton.Hidden = false;
+                    WorkflowToolbarItem.View = WorkflowToolbarMenuButton;
                     PopulateAnalysisToolbarMenu(menu);
                     break;
                 case ProgramState.AnalysisView:
                     WorkflowToolbarMenuButton.Hidden = false;
+                    WorkflowToolbarItem.View = WorkflowToolbarMenuButton;
                     PopulateAnalysisResultToolbarMenu(menu);
                     break;
                 default:
+                    WorkflowToolbarItem.View = WorkflowToolbarMenuButton;
                     WorkflowToolbarMenuButton.Hidden = true;
                     break;
             }
@@ -440,22 +506,6 @@ namespace AnalysisITC
             WorkflowToolbarMenuButton.Menu = menu;
             WorkflowToolbarMenuButton.Title = title;
             WorkflowToolbarMenuButton.SelectItem(0);
-        }
-
-        void PopulateOverviewToolbarMenu(NSMenu menu)
-        {
-            var hasData = DataManager.Current != null;
-
-            menu.AddItem(CreateContextMenuItem("Raw Data", "overviewrawdata", hasData, (s, e) =>
-            {
-                ViewController.SetOverviewDisplayMode(false);
-                UpdateContextToolbarMenu();
-            }, !ViewController.OverviewShowsInjections));
-            menu.AddItem(CreateContextMenuItem("Injections", "overviewinjections", hasData, (s, e) =>
-            {
-                ViewController.SetOverviewDisplayMode(true);
-                UpdateContextToolbarMenu();
-            }, ViewController.OverviewShowsInjections));
         }
 
         void PopulateExperimentToolbarMenu(NSMenu menu)
@@ -487,7 +537,7 @@ namespace AnalysisITC
             }
             menu.AddItem(NSMenuItem.SeparatorItem);
             menu.AddItem(CreateContextMenuItem("Duplicate data", "duplicate", hasData, (s, e) => DataManager.DuplicateSelectedData(DataManager.Current)));
-            menu.AddItem(CreateContextMenuItem("Export data...", "exportselecteddata", hasData, (s, e) => Exporter.Export(ExportType.Data, ExportDataSelection.SelectedData)));
+            menu.AddItem(CreateContextMenuItem("Export data...", "exportselecteddata", hasData, (s, e) => Exporter.Export(null, ExportDataSelection.SelectedData)));
             menu.AddItem(NSMenuItem.SeparatorItem);
             menu.AddItem(CreateContextMenuItem(hasData && DataManager.Current.Include ? "Disable active" : "Enable active", "toggleinclude", hasData, (s, e) =>
             {
@@ -535,11 +585,6 @@ namespace AnalysisITC
             var canConvertToLinearSpline = hasProcessor && (splineInterpolator == null || splineInterpolator.Algorithm != SplineInterpolator.SplineInterpolatorAlgorithm.Linear);
             var canConvertToAnySpline = canConvertToSmoothSpline || canConvertToLinearSpline;
 
-            menu.AddItem(CreateContextMenuItem(processor?.IsLocked == true ? "Unlock processor" : "Lock processor", "lockprocessor", hasProcessor, (s, e) =>
-            {
-                processor.ToggleLock();
-                UpdateContextToolbarMenu();
-            }));
             menu.AddItem(CreateContextMenuItem("Show spline handles", "showsplinehandles", hasSmoothSpline, (s, e) =>
             {
                 splineInterpolator.ShowHandles = !splineInterpolator.ShowHandles;
@@ -558,14 +603,10 @@ namespace AnalysisITC
             }, AppSettings.IntegrationRegionCopyIncludesStart));
             menu.AddItem(NSMenuItem.SeparatorItem);
             menu.AddItem(CreateSplineConversionMenuItem(canConvertToAnySpline, canConvertToSmoothSpline, canConvertToLinearSpline));
-            menu.AddItem(NSMenuItem.SeparatorItem);
-            menu.AddItem(CreateContextMenuItem("Copy to active", "copytoactive", hasProcessor, (s, e) => DataManager.CopySelectedProcessToActive()));
-            menu.AddItem(CreateContextMenuItem("Copy to non-processed", "copytononprocessed", hasProcessor, (s, e) => DataManager.CopySelectedProcessToNonProcessed()));
         }
 
         void PopulateAnalysisToolbarMenu(NSMenu menu)
         {
-            menu.AddItem(CreateAnalysisResultCreationMenuItem());
             menu.AddItem(CreateContextMenuItem("Auto open new result", "autoopennewresult", true, (s, e) =>
             {
                 AppSettings.AutoOpenNewAnalysisResult = !AppSettings.AutoOpenNewAnalysisResult;
@@ -573,31 +614,21 @@ namespace AnalysisITC
                 UpdateContextToolbarMenu();
             }, AppSettings.AutoOpenNewAnalysisResult));
             menu.AddItem(NSMenuItem.SeparatorItem);
+            menu.AddItem(CreateContextMenuItem("Show guides", "analysisshowguides", true, (s, e) =>
+            {
+                AnalysisGraphView.ShowFitParameters = !AnalysisGraphView.ShowFitParameters;
+                UpdateContextToolbarMenu();
+            }, AnalysisGraphView.ShowFitParameters));
+            menu.AddItem(CreateContextMenuItem("Shared axes", "analysissharedaxes", true, (s, e) =>
+            {
+                AnalysisGraphView.UseUnifiedAxes = !AnalysisGraphView.UseUnifiedAxes;
+                UpdateContextToolbarMenu();
+            }, AnalysisGraphView.UseUnifiedAxes));
             menu.AddItem(CreateAnalysisFitLineInterpolationMenuItem());
+            menu.AddItem(NSMenuItem.SeparatorItem);
             menu.AddItem(CreateParameterLimitSettingsMenuItem());
-            menu.AddItem(CreateAnalysisParameterDisplayMenuItem());
             menu.AddItem(NSMenuItem.SeparatorItem);
             menu.AddItem(CreateContextMenuItem("Restore analysis defaults", "restoreanalysisdefaults", !stopableProcessRunning, (s, e) => RestoreAnalysisDefaults()));
-        }
-
-        NSMenuItem CreateAnalysisResultCreationMenuItem()
-        {
-            var isGlobal = DataAnalysisViewController.CurrentAnalysisModeIsGlobal;
-            var canCreateResult = !isGlobal || DataManager.Data.Count(d => d.Include) > 1;
-            var isChecked = isGlobal
-                ? AppSettings.CreateGlobalAnalysisResult
-                : AppSettings.CreateSingleAnalysisResult;
-
-            return CreateContextMenuItem("Create analysis result", "createanalysisresult", canCreateResult, (s, e) =>
-            {
-                if (isGlobal)
-                    AppSettings.CreateGlobalAnalysisResult = !AppSettings.CreateGlobalAnalysisResult;
-                else
-                    AppSettings.CreateSingleAnalysisResult = !AppSettings.CreateSingleAnalysisResult;
-
-                AppSettings.Save();
-                UpdateContextToolbarMenu();
-            }, isChecked);
         }
 
         NSMenuItem CreateAnalysisFitLineInterpolationMenuItem()
@@ -639,33 +670,6 @@ namespace AnalysisITC
 
             item.Submenu = submenu;
             return item;
-        }
-
-        NSMenuItem CreateAnalysisParameterDisplayMenuItem()
-        {
-            var item = CreateContextMenuItem("Parameter box display", null, true, null);
-            var submenu = new NSMenu("Parameter box display") { AutoEnablesItems = false };
-
-            submenu.AddItem(CreateAnalysisParameterFlagMenuItem("Model", FinalFigureDisplayParameters.Model));
-            submenu.AddItem(CreateAnalysisParameterFlagMenuItem("Fitted", FinalFigureDisplayParameters.Fitted));
-            submenu.AddItem(CreateAnalysisParameterFlagMenuItem("Derived", FinalFigureDisplayParameters.Derived));
-
-            item.Submenu = submenu;
-            return item;
-        }
-
-        NSMenuItem CreateAnalysisParameterFlagMenuItem(string title, FinalFigureDisplayParameters flag)
-        {
-            return CreateContextMenuItem(title, $"analysisparameter{flag}", true, (s, e) =>
-            {
-                if (AppSettings.AnalysisParameterDisplay.HasFlag(flag))
-                    AppSettings.AnalysisParameterDisplay &= ~flag;
-                else
-                    AppSettings.AnalysisParameterDisplay |= flag;
-
-                AppSettings.Save();
-                UpdateContextToolbarMenu();
-            }, AppSettings.AnalysisParameterDisplay.HasFlag(flag));
         }
 
         void SetParameterLimitSetting(ParameterLimitSetting setting)
@@ -1199,67 +1203,9 @@ namespace AnalysisITC
             UpdateContextToolbarMenu();
         }
 
-        private async void OnProgressUpdated(object sender, ProgressIndicatorEventData e)
-        {
-            if (e.HideProgressWheel)
-            {
-                await Task.Delay(100);
-
-                if (!e.HideProgressWheel)
-                    return;
-
-                StatusbarProgressIndicator.StopAnimation(this);
-                StatusbarProgressIndicator.Hidden = true;
-                //StopProcessButton.Hidden = true;
-            }
-            else if (e.Indeterminate)
-            {
-                StatusbarProgressIndicator.Indeterminate = true;
-                StatusbarProgressIndicator.StartAnimation(this);
-                StatusbarProgressIndicator.Hidden = false;
-                //StopProcessButton.Hidden = true;
-            }
-            else if (e.IsProgressFinished)
-            {
-                StatusbarProgressIndicator.DoubleValue = 100;
-
-                await Task.Delay(500);
-
-                if (!e.IsProgressFinished)
-                    return;
-
-                StatusbarProgressIndicator.StopAnimation(this);
-                StatusbarProgressIndicator.Hidden = true;
-                //StopProcessButton.Hidden = true;
-            }
-            else
-            {
-                StatusbarProgressIndicator.Hidden = false;
-                StatusbarProgressIndicator.Indeterminate = false;
-                StatusbarProgressIndicator.DoubleValue = e.Progress*100;
-
-                //StopProcessButton.Hidden = false;
-            }
-        }
-
-        private void OnDataChanged(object sender, ExperimentData e)
-        {
-            //if (DataManager.Count == 0)
-            //{
-            //    StepControl.SetEnabled(false, 1);
-            //    StepControl.SetEnabled(false, 2);
-            //    StepControl.SetEnabled(false, 3);
-            //}
-
-            //DataLoadSegControl.SetEnabled(DataManager.DataIsLoaded, 1);
-            //DataLoadSegControl.SetEnabled(DataManager.DataIsLoaded, 2);
-        }
-
         private void OnProgramStateChanged(object sender, ProgramState e)
         {
-            //StepControl.SelectedSegment = (int)e;
-
-            //StepControl.SetEnabled(true, (int)e);
+            UpdateWorkflowNavigator();
         }
 
         sealed class DirtyTrackingWindowDelegate : NSWindowDelegate
@@ -1298,7 +1244,7 @@ namespace AnalysisITC
                     SaveCurrentDocument();
                     break;
                 case 2:
-                    Exporter.Export(ExportType.Data);
+                    Exporter.Export();
                     break;
             }
 
@@ -1348,8 +1294,21 @@ namespace AnalysisITC
         partial void StepControlClick(NSSegmentedControl sender)
         {
             var index = (int)sender.SelectedSegment;
+            if (index < (int)ProgramState.Load || index > (int)ProgramState.Publish)
+                return;
 
-            StateManager.SetProgramState((ProgramState)index);
+            var state = (ProgramState)index;
+            if (StateManager.StateIsAvailable(state))
+                StateManager.SetProgramState(state);
+        }
+
+        void OverviewDisplayControlChanged(object sender, EventArgs e)
+        {
+            if (overviewDisplayControl.SelectedSegment < 0) return;
+
+            ViewController.SetOverviewDisplayMode(
+                overviewDisplayControl.SelectedSegment == 1);
+            UpdateContextToolbarMenu();
         }
 
         partial void StopButtonClick(NSObject sender)

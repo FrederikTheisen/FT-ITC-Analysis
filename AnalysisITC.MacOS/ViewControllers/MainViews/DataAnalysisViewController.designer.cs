@@ -5,263 +5,165 @@
 // Manual changes to this file may not be handled correctly.
 //
 using Foundation;
-using System.CodeDom.Compiler;
-
-using AnalysisITC.Core.Application;
-using AnalysisITC.Core.Analysis;
-using AnalysisITC.Core.Analysis.Models;
-using AnalysisITC.Core.Data;
-using AnalysisITC.Core.DataReaders;
-using AnalysisITC.Core.Export;
-using AnalysisITC.Core.Numerics;
-using AnalysisITC.Core.Presentation;
-using AnalysisITC.Core.Processing;
-using AnalysisITC.Core.Units;
-using AnalysisITC.Core.Utilities;
 
 namespace AnalysisITC
 {
-	[Register ("DataAnalysisViewController")]
-	partial class DataAnalysisViewController
-	{
-		[Outlet]
-		AppKit.NSSegmentedControl AffinityStyleSegControl { get; set; }
+    [Register("DataAnalysisViewController")]
+    partial class DataAnalysisViewController
+    {
+        [Outlet]
+        AppKit.NSSegmentedControl AnalysisInspectorTabControl { get; set; }
 
-		[Outlet]
-		AppKit.NSSegmentedControl AnalysisModeControl { get; set; }
+        [Outlet]
+        AppKit.NSTabView AnalysisInspectorTabView { get; set; }
 
-		[Outlet]
-		AppKit.NSButton ApplyToAllExperimentsControl { get; set; }
+        [Outlet]
+        AppKit.NSSegmentedControl AnalysisModeControl { get; set; }
 
-		[Outlet]
-		AppKit.NSButton AxesScopeButton { get; set; }
+        [Outlet]
+        AppKit.NSStackView ConstraintStackView { get; set; }
 
-		[Outlet]
-		AppKit.NSTextField CstepTextField { get; set; }
+        [Outlet]
+        AppKit.NSTextField ConstraintsHeader { get; set; }
 
-		[Outlet]
-		AppKit.NSTextField DataAnalysisSummaryLabel { get; set; }
+        [Outlet]
+        AppKit.NSBox ConstraintsLine { get; set; }
 
-		[Outlet]
-		AppKit.NSSegmentedControl EnthalpyStyleSegControl { get; set; }
+        [Outlet]
+        AppKit.NSButton CreateAnalysisResultControl { get; set; }
 
-		[Outlet]
-		AppKit.NSButton FitLMButton { get; set; }
+        [Outlet]
+        AppKit.NSTextField DataAnalysisSummaryLabel { get; set; }
 
-		[Outlet]
-		AppKit.NSButton FitSimplexButton { get; set; }
+        [Outlet]
+        AppKit.NSTextField ErrorIterationLabel { get; set; }
 
-		[Outlet]
-		AppKit.NSStackView GlobalAffinityStyle { get; set; }
+        [Outlet]
+        AppKit.NSSlider ErrorIterationsControl { get; set; }
 
-		[Outlet]
-		AppKit.NSStackView GlobalEnthalpyStyle { get; set; }
+        [Outlet]
+        AppKit.NSPopUpButton ErrorMethodControl { get; set; }
 
-		[Outlet]
-		AppKit.NSStackView GlobalNView { get; set; }
+        [Outlet]
+        AppKit.NSButton FitSimplexButton { get; set; }
 
-		[Outlet]
-		AppKit.NSSegmentedControl GlobalVariablesControl { get; set; }
+        [Outlet]
+        AnalysisITC.UI.MacOS.CustomViews.AnalysisFitSummaryView FitSummaryView { get; set; }
 
-		[Outlet]
-		AppKit.NSStackView GlobalVariablesView { get; set; }
+        [Outlet]
+        AnalysisITC.AnalysisGraphView GraphView { get; set; }
 
-		[Outlet]
-		AnalysisITC.AnalysisGraphView GraphView { get; set; }
+        [Outlet]
+        AppKit.NSButton IncludeConcErrorControl { get; set; }
 
-		[Outlet]
-		AppKit.NSTextField GstepTextField { get; set; }
+        [Outlet]
+        AppKit.NSTextField ModelOptionsEmptyLabel { get; set; }
 
-		[Outlet]
-		AppKit.NSTextField HstepTextField { get; set; }
+        [Outlet]
+        AppKit.NSStackView ModelOptionsStackView { get; set; }
 
-		[Outlet]
-		AppKit.NSSegmentedControl ModelTypeControl { get; set; }
+        [Outlet]
+        AppKit.NSPopUpButton ModelTypeControl { get; set; }
 
-		[Outlet]
-		AppKit.NSTextField NstepTextField { get; set; }
+        [Outlet]
+        AppKit.NSStackView ParameterStackView { get; set; }
 
-		[Outlet]
-		AppKit.NSSegmentedControl NStyleSegControl { get; set; }
+        [Outlet]
+        AppKit.NSTextField ParametersEmptyLabel { get; set; }
 
-		[Outlet]
-		AppKit.NSStackView OptionsStackView { get; set; }
+        [Outlet]
+        AppKit.NSButton PeakInfoScopeButton { get; set; }
 
-		[Outlet]
-		AppKit.NSTextField OstepTextField { get; set; }
+        [Outlet]
+        AppKit.NSButton ScaleToValidButton { get; set; }
 
-		[Outlet]
-		AppKit.NSButton ParametersScopeButton { get; set; }
+        [Outlet]
+        AppKit.NSButton ShowResidualGraphButton { get; set; }
 
-		[Outlet]
-		AppKit.NSButton PeakInfoScopeButton { get; set; }
+        [Outlet]
+        AppKit.NSPopUpButton SolverAlgorithmControl { get; set; }
 
-		[Outlet]
-		AppKit.NSButton ScaleToValidButton { get; set; }
+        [Outlet]
+        AppKit.NSButton UnlockParametersForErrorEstimationControl { get; set; }
 
-		[Outlet]
-		AppKit.NSButton ShowResidualGraphButton { get; set; }
+        [Outlet]
+        AppKit.NSButton UseWeightedControl { get; set; }
 
-		[Outlet]
-		AppKit.NSStackView SolverStepSizeView { get; set; }
+        [Action("AnalysisInspectorTabChanged:")]
+        partial void AnalysisInspectorTabChanged(Foundation.NSObject sender);
 
-		[Action ("AnalysisModeClicked:")]
-		partial void AnalysisModeClicked (AppKit.NSSegmentedControl sender);
+        [Action("AnalysisModeClicked:")]
+        partial void AnalysisModeClicked(AppKit.NSSegmentedControl sender);
 
-		[Action ("AnalysisModelClicked:")]
-		partial void AnalysisModelClicked (AppKit.NSSegmentedControl sender);
+        [Action("AnalysisModelClicked:")]
+        partial void AnalysisModelClicked(AppKit.NSPopUpButton sender);
 
-		[Action ("CopySettingsToAll:")]
-		partial void CopySettingsToAll (Foundation.NSObject sender);
+        [Action("CreateAnalysisResultChanged:")]
+        partial void CreateAnalysisResultChanged(AppKit.NSButton sender);
 
-		[Action ("FeatureDrawControlClicked:")]
-		partial void FeatureDrawControlClicked (AppKit.NSSegmentedControl sender);
+        [Action("ErrorIterationSliderChanged:")]
+        partial void ErrorIterationSliderChanged(AppKit.NSSlider sender);
 
-		[Action ("FitLM:")]
-		partial void FitLM (Foundation.NSObject sender);
+        [Action("FitSimplex:")]
+        partial void FitSimplex(Foundation.NSObject sender);
 
-		[Action ("FitSimplex:")]
-		partial void FitSimplex (Foundation.NSObject sender);
+        [Action("ScopeButtonClicked:")]
+        partial void ScopeButtonClicked(AppKit.NSButton sender);
 
-		[Action ("ScopeButtonClicked:")]
-		partial void ScopeButtonClicked (AppKit.NSButton sender);
-		
-		void ReleaseDesignerOutlets ()
-		{
-			if (DataAnalysisSummaryLabel != null) {
-				DataAnalysisSummaryLabel.Dispose ();
-				DataAnalysisSummaryLabel = null;
-			}
-
-			if (AffinityStyleSegControl != null) {
-				AffinityStyleSegControl.Dispose ();
-				AffinityStyleSegControl = null;
-			}
-
-			if (AnalysisModeControl != null) {
-				AnalysisModeControl.Dispose ();
-				AnalysisModeControl = null;
-			}
-
-			if (ApplyToAllExperimentsControl != null) {
-				ApplyToAllExperimentsControl.Dispose ();
-				ApplyToAllExperimentsControl = null;
-			}
-
-			if (AxesScopeButton != null) {
-				AxesScopeButton.Dispose ();
-				AxesScopeButton = null;
-			}
-
-			if (CstepTextField != null) {
-				CstepTextField.Dispose ();
-				CstepTextField = null;
-			}
-
-			if (EnthalpyStyleSegControl != null) {
-				EnthalpyStyleSegControl.Dispose ();
-				EnthalpyStyleSegControl = null;
-			}
-
-			if (FitLMButton != null) {
-				FitLMButton.Dispose ();
-				FitLMButton = null;
-			}
-
-			if (FitSimplexButton != null) {
-				FitSimplexButton.Dispose ();
-				FitSimplexButton = null;
-			}
-
-			if (GlobalAffinityStyle != null) {
-				GlobalAffinityStyle.Dispose ();
-				GlobalAffinityStyle = null;
-			}
-
-			if (GlobalEnthalpyStyle != null) {
-				GlobalEnthalpyStyle.Dispose ();
-				GlobalEnthalpyStyle = null;
-			}
-
-			if (GlobalNView != null) {
-				GlobalNView.Dispose ();
-				GlobalNView = null;
-			}
-
-			if (GlobalVariablesControl != null) {
-				GlobalVariablesControl.Dispose ();
-				GlobalVariablesControl = null;
-			}
-
-			if (GlobalVariablesView != null) {
-				GlobalVariablesView.Dispose ();
-				GlobalVariablesView = null;
-			}
-
-			if (GraphView != null) {
-				GraphView.Dispose ();
-				GraphView = null;
-			}
-
-			if (GstepTextField != null) {
-				GstepTextField.Dispose ();
-				GstepTextField = null;
-			}
-
-			if (HstepTextField != null) {
-				HstepTextField.Dispose ();
-				HstepTextField = null;
-			}
-
-			if (ModelTypeControl != null) {
-				ModelTypeControl.Dispose ();
-				ModelTypeControl = null;
-			}
-
-			if (NstepTextField != null) {
-				NstepTextField.Dispose ();
-				NstepTextField = null;
-			}
-
-			if (NStyleSegControl != null) {
-				NStyleSegControl.Dispose ();
-				NStyleSegControl = null;
-			}
-
-			if (OptionsStackView != null) {
-				OptionsStackView.Dispose ();
-				OptionsStackView = null;
-			}
-
-			if (OstepTextField != null) {
-				OstepTextField.Dispose ();
-				OstepTextField = null;
-			}
-
-			if (ParametersScopeButton != null) {
-				ParametersScopeButton.Dispose ();
-				ParametersScopeButton = null;
-			}
-
-			if (PeakInfoScopeButton != null) {
-				PeakInfoScopeButton.Dispose ();
-				PeakInfoScopeButton = null;
-			}
-
-			if (ScaleToValidButton != null) {
-				ScaleToValidButton.Dispose ();
-				ScaleToValidButton = null;
-			}
-
-			if (ShowResidualGraphButton != null) {
-				ShowResidualGraphButton.Dispose ();
-				ShowResidualGraphButton = null;
-			}
-
-			if (SolverStepSizeView != null) {
-				SolverStepSizeView.Dispose ();
-				SolverStepSizeView = null;
-			}
-		}
-	}
+        void ReleaseDesignerOutlets()
+        {
+            AnalysisInspectorTabControl?.Dispose();
+            AnalysisInspectorTabControl = null;
+            AnalysisInspectorTabView?.Dispose();
+            AnalysisInspectorTabView = null;
+            AnalysisModeControl?.Dispose();
+            AnalysisModeControl = null;
+            ConstraintStackView?.Dispose();
+            ConstraintStackView = null;
+            ConstraintsHeader?.Dispose();
+            ConstraintsHeader = null;
+            ConstraintsLine?.Dispose();
+            ConstraintsLine = null;
+            CreateAnalysisResultControl?.Dispose();
+            CreateAnalysisResultControl = null;
+            DataAnalysisSummaryLabel?.Dispose();
+            DataAnalysisSummaryLabel = null;
+            ErrorIterationLabel?.Dispose();
+            ErrorIterationLabel = null;
+            ErrorIterationsControl?.Dispose();
+            ErrorIterationsControl = null;
+            ErrorMethodControl?.Dispose();
+            ErrorMethodControl = null;
+            FitSimplexButton?.Dispose();
+            FitSimplexButton = null;
+            FitSummaryView?.Dispose();
+            FitSummaryView = null;
+            GraphView?.Dispose();
+            GraphView = null;
+            IncludeConcErrorControl?.Dispose();
+            IncludeConcErrorControl = null;
+            ModelOptionsEmptyLabel?.Dispose();
+            ModelOptionsEmptyLabel = null;
+            ModelOptionsStackView?.Dispose();
+            ModelOptionsStackView = null;
+            ModelTypeControl?.Dispose();
+            ModelTypeControl = null;
+            ParameterStackView?.Dispose();
+            ParameterStackView = null;
+            ParametersEmptyLabel?.Dispose();
+            ParametersEmptyLabel = null;
+            PeakInfoScopeButton?.Dispose();
+            PeakInfoScopeButton = null;
+            ScaleToValidButton?.Dispose();
+            ScaleToValidButton = null;
+            ShowResidualGraphButton?.Dispose();
+            ShowResidualGraphButton = null;
+            SolverAlgorithmControl?.Dispose();
+            SolverAlgorithmControl = null;
+            UnlockParametersForErrorEstimationControl?.Dispose();
+            UnlockParametersForErrorEstimationControl = null;
+            UseWeightedControl?.Dispose();
+            UseWeightedControl = null;
+        }
+    }
 }

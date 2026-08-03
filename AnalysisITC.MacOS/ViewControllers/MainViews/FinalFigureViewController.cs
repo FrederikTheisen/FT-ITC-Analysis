@@ -41,19 +41,26 @@ namespace AnalysisITC
             base.ViewDidLoad();
 
             FinalFigureGraphView.PlotSizeChanged += FinalFigureGraphView_PlotSizeChanged;
+            DataManager.SelectionDidChange += OnExportDataChanged;
+            DataManager.ResultLinkedExperimentHighlightDidChange += OnExportDataChanged;
+            DataManager.DataDidChange += OnExportDataChanged;
+            DataManager.DataInclusionDidChange += OnExportDataChanged;
             SyncEmbeddedOptions();
+            RefreshPublishSummary();
         }
 
         public override void ViewDidAppear()
         {
             SyncEmbeddedOptions();
             FinalFigureGraphView.Invalidate();
+            RefreshPublishSummary();
         }
 
         public override void ViewWillAppear()
         {
             base.ViewWillAppear();
             SyncEmbeddedOptions();
+            RefreshPublishSummary();
         }
 
         private void FinalFigureGraphView_PlotSizeChanged(object sender, EventArgs e)
@@ -73,6 +80,11 @@ namespace AnalysisITC
             }
 
             FinalFigureGraphView.Export((ExportDataSelection)(int)EmbeddedExportSelectionControl.SelectedSegment);
+        }
+
+        partial void ExportSelectionChanged(NSObject sender)
+        {
+            RefreshPublishSummary();
         }
 
         partial void PublishOptionsTabControlChanged(NSObject sender)
@@ -157,6 +169,35 @@ namespace AnalysisITC
             {
                 _isSyncingEmbeddedOptions = false;
             }
+        }
+
+        void OnExportDataChanged(object sender, ExperimentData experiment)
+        {
+            RefreshPublishSummary();
+        }
+
+        void RefreshPublishSummary()
+        {
+            NSApplication.SharedApplication.InvokeOnMainThread(
+                RefreshPublishSummaryOnMainThread);
+        }
+
+        void RefreshPublishSummaryOnMainThread()
+        {
+            if (PublishSummaryLabel == null) return;
+
+            var selectedSegment = EmbeddedExportSelectionControl?.SelectedSegment ?? 0;
+            var selection = selectedSegment >= 0
+                ? (ExportDataSelection)(int)selectedSegment
+                : ExportDataSelection.SelectedData;
+            var figureCount = FinalFigureGraphView.GetExportFigureCount(selection);
+
+            PublishSummaryLabel.StringValue = figureCount switch
+            {
+                0 => "No figures selected for export",
+                1 => "1 figure selected for export",
+                _ => $"{figureCount:N0} figures selected for export",
+            };
         }
 
         FinalFigureOptionsController.GeneralControls EmbeddedGeneralControls => new()
@@ -247,6 +288,10 @@ namespace AnalysisITC
             _eventsUnsubscribed = true;
 
             FinalFigureGraphView.PlotSizeChanged -= FinalFigureGraphView_PlotSizeChanged;
+            DataManager.SelectionDidChange -= OnExportDataChanged;
+            DataManager.ResultLinkedExperimentHighlightDidChange -= OnExportDataChanged;
+            DataManager.DataDidChange -= OnExportDataChanged;
+            DataManager.DataInclusionDidChange -= OnExportDataChanged;
         }
 
         protected override void Dispose(bool disposing)

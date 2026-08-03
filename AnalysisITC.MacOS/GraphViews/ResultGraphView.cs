@@ -52,7 +52,12 @@ namespace AnalysisITC
             switch (Type)
             {
                 case ResultGraphType.Parameters: Graph = new ThermodynamicParameterBarPlot(result, this); break;
-                case ResultGraphType.TemperatureDependence: Graph = new TemperatureDependenceGraph(result, this); break;
+                case ResultGraphType.TemperatureDependence:
+                    Graph = new TemperatureDependenceGraph(
+                        result,
+                        this,
+                        AnalysisResultTabViewController.CurrentUseKelvin);
+                    break;
             }
 
             Invalidate();

@@ -30,95 +30,19 @@ namespace AnalysisITC
             base.ViewDidLoad();
 
             StateManager.ProgramStateChanged += OnProgramModeChanged;
-            StateManager.UpdateStateDependentUI += StateManager_UpdateStateDependentUI;
-
-            this.View.AddSubview(TabControllerView);
-            
-            StateManager_UpdateStateDependentUI(null, null);
-        }
-
-        public override void ViewDidLayout()
-        {
-            base.ViewDidLayout();
-
-            TabControllerView.Frame = new CoreGraphics.CGRect(new CoreGraphics.CGPoint(0, View.Frame.Height - 33), new CoreGraphics.CGSize(View.Frame.Width, 33));
-        }
-
-        //nfloat SegWidth
-        //{
-        //    get
-        //    {
-        //        switch ((float)View.Frame.Width)
-        //        {
-        //            case > 700: return 461;
-        //            default:
-        //                var x2 = 700 - View.Frame.Width;
-        //                return 461 - 1.5f * x2 * x2 / (700 + x2);
-        //        }
-        //    }
-        //}
-        //
-        //CoreGraphics.CGSize SegSize => new CoreGraphics.CGSize(SegWidth, 40);
-
-        private void StateManager_UpdateStateDependentUI(object sender, EventArgs e)
-        {
-            TCVDataTabControl.Enabled = StateManager.StateIsAvailable(ProgramState.Load);
-            TCVProcessControl.Enabled = StateManager.StateIsAvailable(ProgramState.Process);
-            TCVAnalysisControl.Enabled = StateManager.StateIsAvailable(ProgramState.Analyze);
-            TCVFigureControl.Enabled = StateManager.StateIsAvailable(ProgramState.Publish);
+            SelectWorkspace(StateManager.CurrentState);
         }
 
         private void OnProgramModeChanged(object sender, ProgramState e)
         {
-            TabView.SelectAt((int)e);
-
-            if (e == ProgramState.AnalysisView)
-            {
-                TabControllerView.Hidden = true;
-            }
-            else
-            {
-                TabControllerView.Hidden = false;
-                TCVDataTabControl.State = StateManager.CurrentState == ProgramState.Load ? NSCellStateValue.On : NSCellStateValue.Off;
-                TCVProcessControl.State = StateManager.CurrentState == ProgramState.Process ? NSCellStateValue.On : NSCellStateValue.Off;
-                TCVAnalysisControl.State = StateManager.CurrentState == ProgramState.Analyze ? NSCellStateValue.On : NSCellStateValue.Off;
-                TCVFigureControl.State = StateManager.CurrentState == ProgramState.Publish ? NSCellStateValue.On : NSCellStateValue.Off;
-            }
+            SelectWorkspace(e);
         }
 
-        partial void SegControlClicked(NSSegmentedControl sender)
+        void SelectWorkspace(ProgramState state)
         {
-            StateManager.SetProgramState((ProgramState)(int)sender.SelectedSegment);
+            var index = (int)state;
+            if (index >= 0 && index < TabView.Items.Length)
+                TabView.SelectAt(index);
         }
-
-        partial void TCVDataClick(NSButton sender)
-        {
-            SetTCVState(sender);
-
-            StateManager.SetProgramState(ProgramState.Load);
-        }
-
-        partial void TCVProcessClick(NSButton sender)
-        {
-            SetTCVState(sender);
-
-            StateManager.SetProgramState(ProgramState.Process);
-        }
-
-        partial void TCVAnalysisClick(NSButton sender)
-        {
-            SetTCVState(sender);
-
-            StateManager.SetProgramState(ProgramState.Analyze);
-        }
-
-        partial void TCVFigureClick(NSButton sender)
-        {
-            SetTCVState(sender);
-
-            StateManager.SetProgramState(ProgramState.Publish);
-        }
-
-        void SetTCVState(NSButton sender) => sender.State = NSCellStateValue.On;
     }
 }

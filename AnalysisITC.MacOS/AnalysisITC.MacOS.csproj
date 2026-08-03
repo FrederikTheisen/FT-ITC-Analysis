@@ -36,7 +36,7 @@
     <PackageSigningKey>3rd Party Mac Developer Installer</PackageSigningKey>
     <CodesignProvision></CodesignProvision>
     <NoWarn>MMP</NoWarn>
-    <XamMacArch></XamMacArch>
+    <XamMacArch>x86_64,ARM64</XamMacArch>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
     <Optimize>true</Optimize>
@@ -57,7 +57,7 @@
     <LangVersion>latest</LangVersion>
     <CodesignProvision></CodesignProvision>
     <PackageSigningKey>3rd Party Mac Developer Installer</PackageSigningKey>
-    <XamMacArch></XamMacArch>
+    <XamMacArch>x86_64,ARM64</XamMacArch>
   </PropertyGroup>
   <ItemGroup>
     <Reference Include="System">
@@ -219,6 +219,7 @@
     <ImageAsset Include="Assets.xcassets\InvertedSecondaryFill.colorset\Contents.json" />
     <ImageAsset Include="Assets.xcassets\InvertedLabel.colorset\Contents.json" />
     <ImageAsset Include="Assets.xcassets\ResponderControlColor.colorset\Contents.json" />
+    <ImageAsset Include="Assets.xcassets\GraphBackgroundTint.colorset\Contents.json" />
   </ItemGroup>
   <ItemGroup>
     <Folder Include="GraphViews\" />
@@ -244,6 +245,7 @@
     <Compile Include="Platform\MacMainThreadDispatcher.cs" />
     <Compile Include="Platform\MacAppEnvironment.cs" />
     <Compile Include="Platform\MacPlatformBootstrapper.cs" />
+    <Compile Include="AnalysisParameterSummaryPresentation.cs" />
     <Compile Include="GraphViews\AnalysisGraphView.cs" />
     <Compile Include="GraphViews\AnalysisGraphView.designer.cs">
       <DependentUpon>AnalysisGraphView.cs</DependentUpon>
@@ -277,6 +279,10 @@
     <Compile Include="ViewControllers\MainWindowController.designer.cs">
       <DependentUpon>MainWindowController.cs</DependentUpon>
     </Compile>
+    <Compile Include="ViewControllers\StatusBarViewController.cs" />
+    <Compile Include="ViewControllers\StatusBarViewController.designer.cs">
+      <DependentUpon>StatusBarViewController.cs</DependentUpon>
+    </Compile>
     <Compile Include="ViewControllers\SupportingFigureCanvasWindowController.cs" />
     <Compile Include="SideBarView.cs" />
     <Compile Include="SideBarView.designer.cs">
@@ -286,10 +292,6 @@
     <Compile Include="GraphViews\TemperatureDependenceGraphView.cs" />
     <Compile Include="GraphViews\TemperatureDependenceGraphView.designer.cs">
       <DependentUpon>TemperatureDependenceGraphView.cs</DependentUpon>
-    </Compile>
-    <Compile Include="PopOptionViewControllers\FittingOptionsPopoverViewController.cs" />
-    <Compile Include="PopOptionViewControllers\FittingOptionsPopoverViewController.designer.cs">
-      <DependentUpon>FittingOptionsPopoverViewController.cs</DependentUpon>
     </Compile>
     <Compile Include="PopOptionViewControllers\BaselineOptionsPopoverViewController.cs" />
     <Compile Include="PopOptionViewControllers\BaselineOptionsPopoverViewController.designer.cs">
@@ -333,10 +335,6 @@
     <Compile Include="ListViews\ExperimentListViewController.designer.cs">
       <DependentUpon>ExperimentListViewController.cs</DependentUpon>
     </Compile>
-    <Compile Include="CustomViews\AnalysisGlobalModeOptionsView.cs" />
-    <Compile Include="CustomViews\AnalysisGlobalModeOptionsView.designer.cs">
-      <DependentUpon>AnalysisGlobalModeOptionsView.cs</DependentUpon>
-    </Compile>
     <Compile Include="Drawing\ThermodynamicParameterBarPlot.cs" />
     <Compile Include="AppColors.cs" />
     <Compile Include="MacColors.cs" />
@@ -345,6 +343,10 @@
       <DependentUpon>AboutAppViewController.cs</DependentUpon>
     </Compile>
     <Compile Include="CustomViews\CustomDrawingSegmentedControl.cs" />
+    <Compile Include="CustomViews\WorkspaceTabControl.cs" />
+    <Compile Include="CustomViews\ResultWorkspaceSplitView.cs" />
+    <Compile Include="CustomViews\AnalysisFitSummaryView.cs" />
+    <Compile Include="CustomViews\AnalysisInspectorViews.cs" />
     <Compile Include="GraphViews\ExperimentDesignerGraphView.cs" />
     <Compile Include="GraphViews\ExperimentDesignerGraphView.designer.cs">
       <DependentUpon>ExperimentDesignerGraphView.cs</DependentUpon>
@@ -361,6 +363,7 @@
     <Compile Include="ViewControllers\AnalysisResultExporterViewController.designer.cs">
       <DependentUpon>AnalysisResultExporterViewController.cs</DependentUpon>
     </Compile>
+    <Compile Include="ViewControllers\ExportSheetViewController.cs" />
     <Compile Include="CustomViews\ExportAccessoryView.cs" />
     <Compile Include="CustomViews\ExportAccessoryView.designer.cs">
       <DependentUpon>ExportAccessoryView.cs</DependentUpon>
@@ -456,6 +459,7 @@
     <Compile Include="CustomViews\AutoExpandingTextView2.designer.cs">
       <DependentUpon>AutoExpandingTextView2.cs</DependentUpon>
     </Compile>
+    <Compile Include="CustomViews\SheetInputViews.cs" />
     <Compile Include="ListViews\ExperimentMergerListViewCell.cs" />
     <Compile Include="ListViews\ExperimentMergerListViewCell.designer.cs">
       <DependentUpon>ExperimentMergerListViewCell.cs</DependentUpon>

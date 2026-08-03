@@ -81,6 +81,10 @@ namespace AnalysisITC.UI.MacOS.Drawing
         public CGColor StrokeColor => DrawOnWhite ? NSColor.Black.CGColor : NSColor.Label.CGColor;
         public CGColor SecondaryLineColor => DrawOnWhite ? NSColor.Gray.CGColor : NSColor.SecondaryLabel.CGColor;
         public CGColor TertiaryLineColor => DrawOnWhite ? NSColor.LightGray.CGColor : NSColor.TertiaryLabel.CGColor;
+        public CGColor GridLineColor =>
+            (DrawOnWhite ? NSColor.Black : NSColor.Label)
+            .ColorWithAlphaComponent(0.10f)
+            .CGColor;
 
         GraphAxis xaxis;
         GraphAxis yaxis;
@@ -490,6 +494,16 @@ namespace AnalysisITC.UI.MacOS.Drawing
             gc.StrokeRectWithWidth(Frame, 1);
         }
 
+        internal void DrawFrameBackground(CGContext gc)
+        {
+            if (DrawOnWhite) return;
+
+            gc.SaveState();
+            gc.SetFillColor(MacColors.GraphFrameBackground.CGColor);
+            gc.FillRect(Frame);
+            gc.RestoreState();
+        }
+
         public static CGSize MeasureString(string s, CTFont font, CTStringAttributes attr = null, AxisPosition position = AxisPosition.Bottom, bool ignoreoptical = true)
         {
             if (attr == null) attr = new CTStringAttributes
@@ -569,6 +583,8 @@ namespace AnalysisITC.UI.MacOS.Drawing
             AutoSetFrame();
 
             SetupAxisScalingUnits();
+
+            DrawFrameBackground(gc);
 
             Draw(gc);
 
@@ -1516,12 +1532,14 @@ namespace AnalysisITC.UI.MacOS.Drawing
         void DrawSplinePoints(CGContext gc)
         {
             var layer = CGLayer.Create(gc, Frame.Size);
-            var points = new List<CGRect>();
+            var roundPoints = new List<CGRect>();
+            var squarePoints = new List<CGRect>();
             var handles = new List<CGPath>();
             var handleCores = new List<CGPath>();
             var slopelines = new List<CGPath>();
             var pointCenters = new List<CGPoint>();
-            var highlightedPointCenters = new List<CGPoint>();
+            var highlightedRoundPoints = new List<CGRect>();
+            var highlightedSquarePoints = new List<CGRect>();
             const float highlightOutset = 2f;
             const float handleHitSize = 10;
             const float pointHitSize = 12;
@@ -1586,9 +1604,17 @@ namespace AnalysisITC.UI.MacOS.Drawing
                     SecondaryFeatureReferenceValue = sp.Time
                 });
 
-                points.Add(GetRectAtPosition(m, pointOutlineSize));
+                var pointRect = GetRectAtPosition(m, pointOutlineSize);
+                if (sp.Linear) squarePoints.Add(pointRect);
+                else roundPoints.Add(pointRect);
+
                 pointCenters.Add(m);
-                if (IsHoverFeature(MouseOverFeatureEvent.FeatureType.BaselineSplinePoint, sp.ID)) highlightedPointCenters.Add(m);
+                if (IsHoverFeature(MouseOverFeatureEvent.FeatureType.BaselineSplinePoint, sp.ID))
+                {
+                    var highlightRect = GetRectAtPosition(m, pointHighlightSize);
+                    if (sp.Linear) highlightedSquarePoints.Add(highlightRect);
+                    else highlightedRoundPoints.Add(highlightRect);
+                }
             }
 
             layer.Context.SetStrokeColor(StrokeColor);
@@ -1606,22 +1632,26 @@ namespace AnalysisITC.UI.MacOS.Drawing
             layer.Context.StrokePath();
 
             layer.Context.SetFillColor(BaselineNSColor.ColorWithAlphaComponent(.22f).CGColor);
-            foreach (var p in highlightedPointCenters) layer.Context.FillEllipseInRect(GetRectAtPosition(p, pointHighlightSize));
+            foreach (var r in highlightedRoundPoints) layer.Context.FillEllipseInRect(r);
+            foreach (var r in highlightedSquarePoints) layer.Context.FillRect(r);
 
             //Draw points
             layer.Context.SetFillColor(NSColor.White.CGColor);
-            foreach (var r in points) layer.Context.FillEllipseInRect(r);
+            foreach (var r in roundPoints) layer.Context.FillEllipseInRect(r);
+            foreach (var r in squarePoints) layer.Context.FillRect(r);
 
             layer.Context.SetStrokeColor(BaselineColor);
             layer.Context.SetLineWidth(pointOutlineWidth);
-            foreach (var r in points) layer.Context.StrokeEllipseInRect(r);
+            foreach (var r in roundPoints) layer.Context.StrokeEllipseInRect(r);
+            foreach (var r in squarePoints) layer.Context.StrokeRect(r);
 
             layer.Context.SetFillColor(BaselineColor);
             foreach (var p in pointCenters) layer.Context.FillEllipseInRect(GetRectAtPosition(p, pointDotSize));
 
             layer.Context.SetStrokeColor(BaselineNSColor.ColorWithAlphaComponent(.35f).CGColor);
             layer.Context.SetLineWidth(highlightOutset);
-            foreach (var p in highlightedPointCenters) layer.Context.StrokeEllipseInRect(GetRectAtPosition(p, pointHighlightSize));
+            foreach (var r in highlightedRoundPoints) layer.Context.StrokeEllipseInRect(r);
+            foreach (var r in highlightedSquarePoints) layer.Context.StrokeRect(r);
 
             gc.DrawLayer(layer, Frame.Location);
         }
@@ -1643,7 +1673,7 @@ namespace AnalysisITC.UI.MacOS.Drawing
                 var s = GetRelativePosition(inj.IntegrationStartTime, YAxis.Min);
                 var e = GetRelativePosition(inj.IntegrationEndTime, YAxis.Min);
 
-                var selected = focused == -1 || focused == inj.ID;
+                var selected = focused == inj.ID;
                 var color = selected ? NSColor.SystemBlue : NSColor.SystemGray;
                 var fillLeft = Math.Max(0, Math.Min(s.X, e.X));
                 var fillRight = Math.Min(Frame.Width, Math.Max(s.X, e.X));
@@ -1851,8 +1881,7 @@ namespace AnalysisITC.UI.MacOS.Drawing
 
             CGLayer layer = CGLayer.Create(gc, Frame.Size);
             layer.Context.SetLineWidth(1);
-            layer.Context.SetStrokeColor(TertiaryLineColor);
-            layer.Context.SetLineDash(3, new nfloat[] { 10 });
+            layer.Context.SetStrokeColor(GridLineColor);
             layer.Context.AddPath(grid);
             layer.Context.StrokePath();
 
@@ -1868,7 +1897,32 @@ namespace AnalysisITC.UI.MacOS.Drawing
         private bool _drawWithOffset = true;
 
         public bool DrawConfidenceBands { get; set; } = true;
-        public bool ShowFitParameters { get; set; } = true;
+        bool showParameterGuides = true;
+        bool showParameterBox = true;
+
+        /// <summary>
+        /// Compatibility switch used by existing graph callers. New callers that
+        /// need independent control should use ShowParameterGuides/ShowParameterBox.
+        /// </summary>
+        public bool ShowFitParameters
+        {
+            get => showParameterGuides && showParameterBox;
+            set
+            {
+                showParameterGuides = value;
+                showParameterBox = value;
+            }
+        }
+        public bool ShowParameterGuides
+        {
+            get => showParameterGuides;
+            set => showParameterGuides = value;
+        }
+        public bool ShowParameterBox
+        {
+            get => showParameterBox;
+            set => showParameterBox = value;
+        }
         public int ParameterFontSize { get; set; } = 18;
         public bool DrawWithOffset
         {
@@ -2059,7 +2113,11 @@ namespace AnalysisITC.UI.MacOS.Drawing
             XAxis.Draw(gc);
             YAxis.Draw(gc);
 
-            if (ShowFitParameters && ExperimentData.Solution != null) DrawParameters(gc);
+            if (ExperimentData.Solution != null)
+            {
+                if (ShowParameterGuides) DrawParameterGuides(gc);
+                if (ShowParameterBox) DrawParameterBox(gc);
+            }
 
             // Draw the residual graph after the fit graph, if enabled.
             if (ResidualDisplayOptions.ShowResidualGraph) ResidualGraph.PrepareDraw(gc, Center);
@@ -2149,7 +2207,7 @@ namespace AnalysisITC.UI.MacOS.Drawing
             //DrawRectsAtPositions(layer, points.ToArray(), 8, true, false, color: NSColor.PlaceholderTextColor.CGColor);
         }
 
-        void DrawParameters(CGContext gc)
+        void DrawParameterGuides(CGContext gc)
         {
             CGLayer layer = CGLayer.Create(gc, Frame.Size);
             layer.Context.SetStrokeColor(TertiaryLineColor);
@@ -2186,21 +2244,13 @@ namespace AnalysisITC.UI.MacOS.Drawing
             }
 
             gc.DrawLayer(layer, Frame.Location);
+        }
 
-            var lines = new List<string>();
-
+        void DrawParameterBox(CGContext gc)
+        {
             var display = DrawOnWhite ? FinalFigureDisplayParameters : AnalysisDisplayParameters;
-            foreach (var par in ExperimentData.Solution.UISolutionParameters(display))
-            {
-                if (display.HasFlag(FinalFigureDisplayParameters.Model) && lines.Count == 0)
-                {
-                    lines.Add($"{par.Item1} | RMSD = {par.Item2}");
-                }
-                else
-                {
-                    lines.Add($"{par.Item1} = {par.Item2}");
-                }
-            }
+            var lines = AnalysisITC.UI.MacOS.AnalysisParameterSummaryPresentation
+                .BuildLines(ExperimentData.Solution, display);
 
             var first = ExperimentData.Model.Evaluate(0, withoffset: false);
             var last = ExperimentData.Model.Evaluate(ExperimentData.InjectionCount - 1, withoffset: false);
@@ -2371,6 +2421,8 @@ namespace AnalysisITC.UI.MacOS.Drawing
 
             DrawOnWhite = DataFittingGraph.DrawOnWhite;
             base.SetupAxisScalingUnits();
+
+            DrawFrameBackground(gc);
 
             Draw(gc);
 

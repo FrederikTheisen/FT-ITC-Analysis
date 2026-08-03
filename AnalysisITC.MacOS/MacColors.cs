@@ -29,6 +29,8 @@ namespace AnalysisITC.UI.MacOS
 		public static readonly NSColor FadeDark = NSColor.FromCalibratedRgb(35, 35, 35);
         public static readonly NSColor FadeLight = NSColor.Grid;
 
+		internal static NSColor GraphFrameBackground => NSColor.FromName("GraphBackgroundTint").ColorWithAlphaComponent(0.3f);
+
         public static CGColor ColorToCG(Color color) => new(color.R/255f, color.G/255f, color.B/255f, color.A/255f);
 
         public static NSColor ResolveAdaptive(NSColor light, NSColor dark)

@@ -52,6 +52,9 @@ namespace AnalysisITC
 		AppKit.NSSegmentedControl DrawFeatureSegControl { get; set; }
 
 		[Outlet]
+		AppKit.NSButton FitPeaksButton { get; set; }
+
+		[Outlet]
 		AppKit.NSSegmentedControl InjectionViewSegControl { get; set; }
 
 		[Outlet]
@@ -65,9 +68,6 @@ namespace AnalysisITC
 
 		[Outlet]
 		AppKit.NSTextField IntegrationLengthLabel { get; set; }
-
-		[Outlet]
-		AppKit.NSSegmentedControl IntegrationModeSegControl { get; set; }
 
 		[Outlet]
 		AppKit.NSButton IntegrationScopeButton { get; set; }
@@ -100,10 +100,22 @@ namespace AnalysisITC
 		AppKit.NSPopUpButton ProcessingOptionsMenuButton { get; set; }
 
 		[Outlet]
+		AppKit.NSTextField ProcessingSummaryLabel { get; set; }
+
+		[Outlet]
+		AppKit.NSButton ProcessingLockButton { get; set; }
+
+		[Outlet]
+		AppKit.NSImageView ProcessingLockedImage { get; set; }
+
+		[Outlet]
 		AppKit.NSTextField SelectedInjectionLabel { get; set; }
 
 		[Outlet]
 		AppKit.NSButton ShowCursorInfoButton { get; set; }
+
+		[Outlet]
+		AppKit.NSButton ShowSplineHandlesButton { get; set; }
 
 		[Outlet]
 		AppKit.NSSegmentedControl SplineAlgoControl { get; set; }
@@ -125,6 +137,9 @@ namespace AnalysisITC
 
 		[Outlet]
 		AppKit.NSSegmentedControl SplinePointDensityControl { get; set; }
+
+		[Outlet]
+		AppKit.NSButton AllowSplinePointTimeDraggingButton { get; set; }
 
 		[Outlet]
 		AppKit.NSSwitch UseFactorSwitch { get; set; }
@@ -165,14 +180,14 @@ namespace AnalysisITC
 		[Action ("DrawFeatureControlClicked:")]
 		partial void DrawFeatureControlClicked (AppKit.NSSegmentedControl sender);
 
+		[Action ("FitPeaksClicked:")]
+		partial void FitPeaksClicked (AppKit.NSButton sender);
+
 		[Action ("InjectionViewControlClicked:")]
 		partial void InjectionViewControlClicked (AppKit.NSSegmentedControl sender);
 
 		[Action ("IntegrationLengthSliderChanged:")]
 		partial void IntegrationLengthSliderChanged (AppKit.NSSlider sender);
-
-		[Action ("IntegrationSegControlClicked:")]
-		partial void IntegrationSegControlClicked (AppKit.NSSegmentedControl sender);
 
 		[Action ("IntegrationStartTimeSliderChanged:")]
 		partial void IntegrationStartTimeSliderChanged (AppKit.NSSlider sender);
@@ -189,17 +204,26 @@ namespace AnalysisITC
 		[Action ("PolynomialDegreeChanged:")]
 		partial void PolynomialDegreeChanged (AppKit.NSSlider sender);
 
+		[Action ("ProcessingLockButtonClicked:")]
+		partial void ProcessingLockButtonClicked (AppKit.NSButton sender);
+
 		[Action ("ScopeButtonClicked:")]
 		partial void ScopeButtonClicked (Foundation.NSObject sender);
 
-		[Action ("SelectAllInjections:")]
-		partial void SelectAllInjections (AppKit.NSButton sender);
+		[Action ("ClearInjectionSelection:")]
+		partial void ClearInjectionSelection (AppKit.NSButton sender);
 
 		[Action ("SplineAlgoClicked:")]
 		partial void SplineAlgoClicked (AppKit.NSSegmentedControl sender);
 
 		[Action ("SplineHandleModeControlClicked:")]
 		partial void SplineHandleModeControlClicked (AppKit.NSSegmentedControl sender);
+
+		[Action ("ShowSplineHandlesToggled:")]
+		partial void ShowSplineHandlesToggled (AppKit.NSButton sender);
+
+		[Action ("AllowSplinePointTimeDraggingToggled:")]
+		partial void AllowSplinePointTimeDraggingToggled (AppKit.NSButton sender);
 
 		[Action ("SplinePointDensityAction:")]
 		partial void SplinePointDensityAction (AppKit.NSSegmentedControl sender);
@@ -240,6 +264,11 @@ namespace AnalysisITC
 				SplinePointDensityControl = null;
 			}
 
+			if (AllowSplinePointTimeDraggingButton != null) {
+				AllowSplinePointTimeDraggingButton.Dispose ();
+				AllowSplinePointTimeDraggingButton = null;
+			}
+
 			if (BaselineGraphView != null) {
 				BaselineGraphView.Dispose ();
 				BaselineGraphView = null;
@@ -248,6 +277,21 @@ namespace AnalysisITC
 			if (ProcessingOptionsMenuButton != null) {
 				ProcessingOptionsMenuButton.Dispose ();
 				ProcessingOptionsMenuButton = null;
+			}
+
+			if (ProcessingSummaryLabel != null) {
+				ProcessingSummaryLabel.Dispose ();
+				ProcessingSummaryLabel = null;
+			}
+
+			if (ProcessingLockButton != null) {
+				ProcessingLockButton.Dispose ();
+				ProcessingLockButton = null;
+			}
+
+			if (ProcessingLockedImage != null) {
+				ProcessingLockedImage.Dispose ();
+				ProcessingLockedImage = null;
 			}
 
 			if (BaselineHeader != null) {
@@ -285,6 +329,11 @@ namespace AnalysisITC
 				DrawFeatureSegControl = null;
 			}
 
+			if (FitPeaksButton != null) {
+				FitPeaksButton.Dispose ();
+				FitPeaksButton = null;
+			}
+
 			if (InjectionViewSegControl != null) {
 				InjectionViewSegControl.Dispose ();
 				InjectionViewSegControl = null;
@@ -308,11 +357,6 @@ namespace AnalysisITC
 			if (IntegrationLengthLabel != null) {
 				IntegrationLengthLabel.Dispose ();
 				IntegrationLengthLabel = null;
-			}
-
-			if (IntegrationModeSegControl != null) {
-				IntegrationModeSegControl.Dispose ();
-				IntegrationModeSegControl = null;
 			}
 
 			if (IntegrationScopeButton != null) {
@@ -368,6 +412,11 @@ namespace AnalysisITC
 			if (ShowCursorInfoButton != null) {
 				ShowCursorInfoButton.Dispose ();
 				ShowCursorInfoButton = null;
+			}
+
+			if (ShowSplineHandlesButton != null) {
+				ShowSplineHandlesButton.Dispose ();
+				ShowSplineHandlesButton = null;
 			}
 
 			if (SplineAlgoControl != null) {

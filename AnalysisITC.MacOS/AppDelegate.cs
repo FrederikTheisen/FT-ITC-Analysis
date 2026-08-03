@@ -97,7 +97,14 @@ namespace AnalysisITC
 
             supportingFigureMenuItem = new NSMenuItem("Supporting Figure...", (sender, e) =>
             {
-                var controller = NSApplication.SharedApplication.MainWindow?.WindowController as MainWindowController;
+                var application = NSApplication.SharedApplication;
+                var controller =
+                    application.MainWindow?.WindowController as MainWindowController
+                    ?? application.DangerousWindows
+                        .Cast<NSWindow>()
+                        .Select(window => window.WindowController)
+                        .OfType<MainWindowController>()
+                        .FirstOrDefault();
                 controller?.OpenSupportingFigureTool();
             })
             {
@@ -564,12 +571,12 @@ namespace AnalysisITC
 
         partial void ExportAction(NSObject sender)
         {
-            Exporter.Export(ExportType.Data);
+            Exporter.Export();
         }
 
         partial void ExportDataClick(NSMenuItem sender)
         {
-            Exporter.Export(ExportType.Data);
+            Exporter.Export();
         }
 
         partial void ExportPeaksAction(NSMenuItem sender)

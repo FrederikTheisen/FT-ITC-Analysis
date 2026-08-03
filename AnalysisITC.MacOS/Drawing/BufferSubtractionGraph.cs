@@ -335,8 +335,7 @@ namespace AnalysisITC.UI.MacOS.Drawing
 
             var layer = CGLayer.Create(gc, Frame.Size);
             layer.Context.SetLineWidth(1);
-            layer.Context.SetStrokeColor(TertiaryLineColor);
-            layer.Context.SetLineDash(3, new nfloat[] { 10 });
+            layer.Context.SetStrokeColor(GridLineColor);
             layer.Context.AddPath(grid);
             layer.Context.StrokePath();
 

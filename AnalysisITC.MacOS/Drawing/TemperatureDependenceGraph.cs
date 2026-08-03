@@ -23,17 +23,33 @@ namespace AnalysisITC.UI.MacOS.Drawing
     public class TemperatureDependenceGraph : GraphBase
     {
         AnalysisResult Result { get; set; }
+        readonly double TemperatureOffset;
 
         List<FeatureBoundingBox> FeatureBoundingBoxes = new List<FeatureBoundingBox>();
 
         public TemperatureDependenceGraph(AnalysisResult analysis, NSView view)
+            : this(analysis, view, useKelvin: false)
+        {
+        }
+
+        public TemperatureDependenceGraph(
+            AnalysisResult analysis,
+            NSView view,
+            bool useKelvin)
         {
             View = view;
             Result = analysis;
+            TemperatureOffset = useKelvin ? 273.15 : 0;
 
-            XAxis = GraphAxis.WithBuffer(this, analysis.GetMinimumTemperature(), analysis.GetMaximumTemperature(), buffer: .1, position: AxisPosition.Bottom);
+            XAxis = GraphAxis.WithBuffer(
+                this,
+                DisplayTemperature(analysis.GetMinimumTemperature()),
+                DisplayTemperature(analysis.GetMaximumTemperature()),
+                buffer: .1,
+                position: AxisPosition.Bottom);
             XAxis.HideUnwantedTicks = false;
-            XAxis.LegendTitle = "Temperature (°C)";
+            XAxis.LegendTitle =
+                "Temperature (" + (useKelvin ? "K" : "°C") + ")";
 
             YAxis = GraphAxis.WithBuffer(this, analysis.GetMinimumParameter(), analysis.GetMaximumParameter(), buffer: .1, position: AxisPosition.Left);
             YAxis.HideUnwantedTicks = false;
@@ -51,6 +67,8 @@ namespace AnalysisITC.UI.MacOS.Drawing
             AutoSetFrame();
 
             SetupAxisScalingUnits();
+
+            DrawFrameBackground(gc);
 
             Draw(gc);
 
@@ -125,8 +143,8 @@ namespace AnalysisITC.UI.MacOS.Drawing
         void DrawLinFit(CGContext gc, LinearFitWithError fit)
         {
             var offset = fit.ReferenceT;
-            var xmin = XAxis.Min - offset;
-            var xmax = XAxis.Max - offset;
+            var xmin = CelsiusTemperature(XAxis.Min) - offset;
+            var xmax = CelsiusTemperature(XAxis.Max) - offset;
             var y0 = fit.Slope * xmin + fit.Intercept;
             var y1 = fit.Slope * xmax + fit.Intercept;
 
@@ -156,7 +174,7 @@ namespace AnalysisITC.UI.MacOS.Drawing
             {
                 var sol = Result.Solution.Solutions[i];
                 var y = sol.ReportParameters[key];
-                var x = sol.Temp;
+                var x = DisplayTemperature(sol.Temp);
                 var dp = GetRelativePosition(x, y);
 
                 FeatureBoundingBoxes.Add(new FeatureBoundingBox(MouseOverFeatureEvent.FeatureType.DataPoint, dp, size * 0.66f, i, Frame.Location));
@@ -232,7 +250,8 @@ namespace AnalysisITC.UI.MacOS.Drawing
 
             foreach (var x in xpoints)
             {
-                var dx = x - Result.Solution.Model.MeanTemperature;
+                var dx = CelsiusTemperature(x)
+                    - Result.Solution.Model.MeanTemperature;
                 var e = ComputeConfidenceBand(dx, values);
                 var val = line.Slope * dx + line.Intercept;
                 var max = val + e;
@@ -254,6 +273,12 @@ namespace AnalysisITC.UI.MacOS.Drawing
 
             gc.DrawLayer(layer, Frame.Location);
         }
+
+        double DisplayTemperature(double celsius) =>
+            celsius + TemperatureOffset;
+
+        double CelsiusTemperature(double displayed) =>
+            displayed - TemperatureOffset;
 
         public override MouseOverFeatureEvent CursorFeatureFromPos(CGPoint cursorpos, bool isclick = false, bool ismouseup = false)
         {

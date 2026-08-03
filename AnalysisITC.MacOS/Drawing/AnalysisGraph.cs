@@ -70,6 +70,16 @@ namespace AnalysisITC.UI.MacOS.Drawing
             get => FitGraph.ShowFitParameters;
             set => FitGraph.ShowFitParameters = value;
         }
+        public bool ShowParameterGuides
+        {
+            get => FitGraph.ShowParameterGuides;
+            set => FitGraph.ShowParameterGuides = value;
+        }
+        public bool ShowParameterBox
+        {
+            get => FitGraph.ShowParameterBox;
+            set => FitGraph.ShowParameterBox = value;
+        }
         public SymbolShape InjectionSymbolShape
         {
             get => FitGraph.InjectionSymbolShape;
@@ -197,4 +207,3 @@ namespace AnalysisITC.UI.MacOS.Drawing
         }
     }
 }
-

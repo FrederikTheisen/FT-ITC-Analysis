@@ -32,11 +32,17 @@ namespace AnalysisITC
         static GraphBase.LineSmoothness lineSmoothness = GraphBase.LineSmoothness.Linear;
         static FinalFigureDisplayParameters analysisDisplayParameters =
             FinalFigureDisplayParameters.Model | FinalFigureDisplayParameters.Fitted | FinalFigureDisplayParameters.Derived;
+        public static event EventHandler ParameterSummaryDidChange;
 
         public static FinalFigureDisplayParameters AnalysisDisplayParameters
         {
             get => analysisDisplayParameters;
-            set { analysisDisplayParameters = value; UpdateViewParameters?.Invoke(null, null); }
+            set
+            {
+                analysisDisplayParameters = value;
+                UpdateViewParameters?.Invoke(null, null);
+                ParameterSummaryDidChange?.Invoke(null, EventArgs.Empty);
+            }
         }
 
         public static GraphBase.LineSmoothness LineSmoothness
@@ -83,7 +89,11 @@ namespace AnalysisITC
             if (Graph == null) return;
 
             DataFittingGraph.ShowPeakInfo = ShowPeakInfo;
-            DataFittingGraph.ShowFitParameters = ShowFitParameters;
+            // The analysis inspector owns the textual fit summary. Keep the graph
+            // guides independently controllable without consuming plot space.
+            DataFittingGraph.ShowFitParameters = false;
+            DataFittingGraph.ShowParameterGuides = ShowFitParameters;
+            DataFittingGraph.ShowParameterBox = false;
             DataFittingGraph.UnifiedMolarRatioAxis = UseUnifiedAxes;
             DataFittingGraph.UnifiedEnthalpyAxis = UseUnifiedAxes;
             DataFittingGraph.ResidualDisplayOptions.ShowResidualGraph = ShowResidualGraph;
