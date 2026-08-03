@@ -39,7 +39,9 @@ namespace AnalysisITC.Core.Export
         [ExportType("pytc", "Export a .dh file for analysis using pytc. pytc is a python software package for analyzing Isothermal Titration Calorimetry experiments. It does Bayesian and ML fitting. Performs global fits to multiple experiments.", "dh")]
         PYTC,
         [ExportType("MicroCal", "Export a MicroCal style table containing columns such as DH, INJV, Xt, Mt, XMt and so forth. The format is compatible with SEDPHAT analysis.", "dat")]
-        MicroCal
+        MicroCal,
+        [ExportType("FT-ITC CSV", "Export raw and corrected thermogram samples together with integrated heats and fitted values in a portable CSV format.", "csv")]
+        InterchangeCsv
     }
 
     public enum ExportDataSelection
@@ -86,15 +88,16 @@ namespace AnalysisITC.Core.Export
         public ExportDataSelection Selection;
         public bool ExportConcentrations;
         public ExportColumns Columns;
+        public string OutputBaseName;
 
         public bool FittedPeakExportEnabled;
         public bool BaselineCorrectionEnabled;
 
-        static ExportAccessoryViewSettings Default()
+        static ExportAccessoryViewSettings Default(ExportType export)
         {
             var settings = new ExportAccessoryViewSettings()
             {
-                Export = ExportType.Data,
+                Export = export,
                 UnifyTimeAxis = AppSettings.UnifyTimeAxisForExport,
                 ExportBaselineCorrectDataPoints = AppSettings.ExportBaselineCorrectedData,
                 ExportFittedPeaks = AppSettings.ExportFitPointsWithPeaks,
@@ -102,6 +105,7 @@ namespace AnalysisITC.Core.Export
                 ExportOffsetCorrected = true,
                 ExportConcentrations = true,
                 Columns = AppSettings.ExportColumns,
+                OutputBaseName = AppSettings.ExportOutputBaseName,
             };
 
             settings.SetData();
@@ -115,10 +119,7 @@ namespace AnalysisITC.Core.Export
         /// <returns></returns>
         public static ExportAccessoryViewSettings DataDefault()
         {
-            var s = Default();
-            s.Export = ExportType.Data;
-
-            return s;
+            return Default(ExportType.Data);
         }
 
         /// <summary>
@@ -127,11 +128,10 @@ namespace AnalysisITC.Core.Export
         /// <returns></returns>
         public static ExportAccessoryViewSettings PeaksDefault()
         {
-            var s = Default();
-            s.Export = ExportType.Peaks;
-
-            return s;
+            return Default(ExportType.Peaks);
         }
+
+        public static ExportAccessoryViewSettings CreateDefault(ExportType export) => Default(export);
 
         public void SetData()
         {
@@ -151,7 +151,9 @@ namespace AnalysisITC.Core.Export
                 ExportFittedPeaks = false;
                 ExportOffsetCorrected = false;
             }
+
+            if (string.IsNullOrWhiteSpace(OutputBaseName))
+                OutputBaseName = Data.Count == 1 ? System.IO.Path.GetFileNameWithoutExtension(Data[0].Name) : "FT-ITC Export";
         }
     }
     }
-

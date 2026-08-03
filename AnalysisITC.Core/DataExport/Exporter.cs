@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Threading.Tasks;
 using System.Linq;
+using System.Globalization;
 using AnalysisITC.Platform;
 using AnalysisITC.Core.Analysis;
 
@@ -17,29 +18,27 @@ namespace AnalysisITC.Core.Export
 {
     public class Exporter
     {
-        static char Delimiter = ',';
-        static char BlankChar = ' ';
-        static ExportAccessoryViewSettings ExportSettings;
+        const char Delimiter = ',';
+        const char BlankChar = ' ';
 
-        public static void Export(ExportType type, ExportDataSelection? sel = null)
+        public static void Export(ExportType? type = null, ExportDataSelection? sel = null)
         {
             _ = ExportAsync(type, sel);
         }
 
-        public static async Task ExportAsync(ExportType type, ExportDataSelection? sel = null)
+        public static async Task ExportAsync(ExportType? type = null, ExportDataSelection? sel = null)
         {
             var selection = sel.HasValue ? (ExportDataSelection)sel : AppSettings.ExportSelectionMode;
+            var settings = ExportAccessoryViewSettings.CreateDefault(type ?? AppSettings.DefaultExportType);
+            settings.Selection = selection;
+            settings.SetData();
 
-            ExportSettings = type == ExportType.Data
-                ? ExportAccessoryViewSettings.DataDefault()
-                : ExportAccessoryViewSettings.PeaksDefault();
-
-            ExportSettings.Selection = selection;
-
-            var folderPath = await PlatformServices.ExportPromptService.ChooseExportFolderAsync(ExportSettings);
+            var folderPath = await PlatformServices.ExportPromptService.ChooseExportFolderAsync(settings);
             if (string.IsNullOrWhiteSpace(folderPath)) return;
 
-            var outputPaths = GetPlannedOutputPaths(folderPath, ExportSettings);
+            if (!TryPersistSettings(settings)) return;
+
+            var outputPaths = GetPlannedOutputPaths(folderPath, settings);
             if (!PlatformServices.ExportPromptService.ConfirmOverwrite(outputPaths)) return;
 
             StatusBarManager.StartInderminateProgress();
@@ -48,66 +47,105 @@ namespace AnalysisITC.Core.Export
             {
                 StatusBarManager.SetStatusScrolling($"Saving to {folderPath}...");
 
-                switch (ExportSettings.Export)
+                switch (settings.Export)
                 {
+                    case ExportType.InterchangeCsv:
+                        await WriteInterchangeFiles(folderPath, settings);
+                        break;
                     case ExportType.Data:
-                        await WriteDataFile(folderPath);
+                        await WriteDataFile(folderPath, settings);
                         break;
 
                     case ExportType.Peaks:
-                        await WritePeakFile(folderPath, ExportColumns.SelectionMinimal);
+                        await WritePeakFile(folderPath, settings, ExportColumns.SelectionMinimal);
                         break;
 
                     case ExportType.ITCsim:
-                        await WriteITCsimFile(folderPath);
+                        await WriteITCsimFile(folderPath, settings);
                         break;
 
                     default:
                     case ExportType.CSV:
-                        await WritePeakFile(folderPath, ExportSettings.Columns);
+                        await WritePeakFile(folderPath, settings, settings.Columns);
                         break;
 
                     case ExportType.MicroCal:
-                        await WriteMicroCalExportFile(folderPath);
+                        await WriteMicroCalExportFile(folderPath, settings);
                         break;
 
                     case ExportType.PYTC:
-                        await WritePytcExportFile(folderPath);
+                        await WritePytcExportFile(folderPath, settings);
                         break;
                 }
             }
             finally
             {
-                // If you have a "stop progress" method, call it here.
+                StatusBarManager.StopIndeterminateProgress();
             }
+        }
+
+        static bool TryPersistSettings(ExportAccessoryViewSettings settings)
+        {
+            if (string.IsNullOrWhiteSpace(settings.OutputBaseName) ||
+                settings.OutputBaseName.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0)
+            {
+                AppEventHandler.DisplayHandledException(new HandledException(
+                    HandledException.Severity.Warning,
+                    "Invalid Export Name",
+                    "Enter an output name without path separators or invalid filename characters."));
+                return false;
+            }
+
+            AppSettings.DefaultExportType = settings.Export;
+            AppSettings.ExportOutputBaseName = settings.OutputBaseName.Trim();
+            AppSettings.ExportSelectionMode = settings.Selection;
+            AppSettings.UnifyTimeAxisForExport = settings.UnifyTimeAxis;
+            AppSettings.ExportBaselineCorrectedData = settings.ExportBaselineCorrectDataPoints;
+            AppSettings.ExportFitPointsWithPeaks = settings.ExportFittedPeaks;
+            AppSettings.ExportColumns = settings.Columns;
+            AppSettings.Save();
+            return true;
         }
 
         static List<string> GetPlannedOutputPaths(string folderPath, ExportAccessoryViewSettings settings)
         {
-            // If you export many files, return many here based on data names.
-            string ext = settings.Export.GetProperties().Extension;
+            if (settings.Export == ExportType.Data)
+                return new List<string> { Path.Combine(folderPath, BuildOutputFileName(settings, null)) };
 
-            var paths = new List<string>();
-            foreach (var data in settings.Data)
+            return settings.Data
+                .Select((data, index) => Path.Combine(folderPath, BuildOutputFileName(settings, data, index)))
+                .ToList();
+        }
+
+        static string BuildOutputFileName(ExportAccessoryViewSettings settings, ExperimentData data, int index = 0)
+        {
+            var baseName = settings.OutputBaseName.Trim();
+            if (data != null && settings.Data.Count > 1)
             {
-                var fileName = $"{Path.GetFileNameWithoutExtension(data.Name)}.{ext}";
-
-                paths.Add(Path.Combine(folderPath, fileName));
+                var experimentName = SanitizeFileName(Path.GetFileNameWithoutExtension(data.Name), index);
+                baseName += "_" + experimentName;
+                if (settings.Data.Count(item => string.Equals(
+                        SanitizeFileName(Path.GetFileNameWithoutExtension(item.Name), 0),
+                        experimentName,
+                        StringComparison.OrdinalIgnoreCase)) > 1)
+                    baseName += "_" + (index + 1).ToString(CultureInfo.InvariantCulture);
             }
 
-            return paths;
+            return baseName + settings.Export.GetProperties().DotExtension();
         }
 
-        static string GetDataFileName()
+        static string SanitizeFileName(string value, int index)
         {
-            return Path.GetFileNameWithoutExtension(ExportSettings.Data[0].Name);
+            var invalid = Path.GetInvalidFileNameChars();
+            var sanitized = new string((value ?? "experiment").Select(c => invalid.Contains(c) ? '_' : c).ToArray()).Trim();
+            return string.IsNullOrWhiteSpace(sanitized) ? $"experiment_{index + 1}" : sanitized;
         }
 
-        static async Task WriteDataFile(string path)
+        static async Task WriteDataFile(string path, ExportAccessoryViewSettings settings)
         {
             await Task.Run(async () =>
             {
-                var exportdata = ExportSettings.Data.Where(d => d.HasThermogram).ToList();
+                var exportdata = settings.Data.Where(d => d.HasThermogram).ToList();
 
                 if (exportdata.Count == 0)
                 {
@@ -115,9 +153,9 @@ namespace AnalysisITC.Core.Export
                     return;
                 }
 
-                var lines = ExportSettings.UnifyTimeAxis ? GetUnifiedDataLines(exportdata) : GetDataLines(exportdata);
+                var lines = settings.UnifyTimeAxis ? GetUnifiedDataLines(exportdata, settings) : GetDataLines(exportdata, settings);
 
-                var filename = GetDataFileName() + ExportSettings.Export.GetProperties().DotExtension();
+                var filename = BuildOutputFileName(settings, null);
 
                 using (var writer = new StreamWriter(Path.Combine(path, filename)))
                 {
@@ -129,10 +167,9 @@ namespace AnalysisITC.Core.Export
             });
 
             StatusBarManager.SetStatus("Finished exporting data file", 3000);
-            StatusBarManager.StopIndeterminateProgress();
         }
 
-        static List<string> GetUnifiedDataLines(List<ExperimentData> data)
+        static List<string> GetUnifiedDataLines(List<ExperimentData> data, ExportAccessoryViewSettings settings)
         {
             //Get time axis
             var mostcommonstep = FindMostCommonStep(data);
@@ -147,7 +184,7 @@ namespace AnalysisITC.Core.Export
             //Implemented unified x axis
             foreach (var dat in data)
             {
-                var dps = ExportSettings.ExportBaselineCorrectDataPoints ? dat.BaseLineCorrectedDataPoints : dat.DataPoints;
+                var dps = settings.ExportBaselineCorrectDataPoints ? dat.BaseLineCorrectedDataPoints : dat.DataPoints;
                 var points = new List<float>();
                 var prevtime = 0f;
                 foreach (var t in xaxis)
@@ -202,7 +239,7 @@ namespace AnalysisITC.Core.Export
             return lines;
         }
 
-        static List<string> GetDataLines(List<ExperimentData> data)
+        static List<string> GetDataLines(List<ExperimentData> data, ExportAccessoryViewSettings settings)
         {
             var lines = new List<string>();
             var header = "";
@@ -217,7 +254,7 @@ namespace AnalysisITC.Core.Export
 
                 foreach (var d in data)
                 {
-                    var dps = ExportSettings.ExportBaselineCorrectDataPoints ? d.BaseLineCorrectedDataPoints : d.DataPoints;
+                    var dps = settings.ExportBaselineCorrectDataPoints ? d.BaseLineCorrectedDataPoints : d.DataPoints;
 
                     if (dps.Count > index)
                     {
@@ -254,17 +291,15 @@ namespace AnalysisITC.Core.Export
             return mostCommonStep;
         }
 
-        static async Task WritePeakFile(string path, ExportColumns columns)
+        static async Task WritePeakFile(string path, ExportAccessoryViewSettings settings, ExportColumns columns)
         {
             await Task.Run(async () =>
             {
-                foreach (var data in ExportSettings.Data)
+                foreach (var pair in settings.Data.Select((data, index) => new { data, index }))
                 {
-                    var dataname = data.Name;
-                    var ext = ExportType.Peaks.GetProperties().DotExtension();
-                    var output = Path.Combine(path, dataname + ext);
+                    var output = Path.Combine(path, BuildOutputFileName(settings, pair.data, pair.index));
 
-                    var lines = GetColumns(data, columns);
+                    var lines = GetColumns(pair.data, columns, settings);
 
                     using (var writer = new StreamWriter(output))
                     {
@@ -277,22 +312,19 @@ namespace AnalysisITC.Core.Export
             });
 
             StatusBarManager.SetStatus("Finished exporting peak file", 3000);
-            StatusBarManager.StopIndeterminateProgress();
         }
 
-        static async Task WriteITCsimFile(string path)
+        static async Task WriteITCsimFile(string path, ExportAccessoryViewSettings settings)
         {
             await Task.Run(async () =>
             {
-                foreach (var data in ExportSettings.Data)
+                foreach (var pair in settings.Data.Select((data, index) => new { data, index }))
                 {
-                    var dataname = data.Name;
-                    var ext = ExportType.ITCsim.GetProperties().DotExtension();
-                    var output = Path.Combine(path, dataname + ext);
+                    var output = Path.Combine(path, BuildOutputFileName(settings, pair.data, pair.index));
 
-                    var lines = GetColumns(data, ExportColumns.SelectionITCsim);
+                    var lines = GetColumns(pair.data, ExportColumns.SelectionITCsim, settings);
 
-                    lines.AddRange(GetMetaData(data));
+                    lines.AddRange(GetMetaData(pair.data));
 
                     using (var writer = new StreamWriter(output))
                     {
@@ -305,18 +337,16 @@ namespace AnalysisITC.Core.Export
             });
 
             StatusBarManager.SetStatus("Finished exporting " + MarkdownStrings.ITCsimName, 3000);
-            StatusBarManager.StopIndeterminateProgress();
         }
 
-        static async Task WriteMicroCalExportFile(string path)
+        static async Task WriteMicroCalExportFile(string path, ExportAccessoryViewSettings settings)
         {
             await Task.Run(async () =>
             {
-                foreach (var data in ExportSettings.Data)
+                foreach (var pair in settings.Data.Select((data, index) => new { data, index }))
                 {
-                    var dataname = data.Name;
-                    var ext = ExportType.MicroCal.GetProperties().DotExtension();
-                    var output = Path.Combine(path, dataname + ext);
+                    var data = pair.data;
+                    var output = Path.Combine(path, BuildOutputFileName(settings, data, pair.index));
 
                     var lines = new List<string>()
                     {
@@ -378,18 +408,16 @@ namespace AnalysisITC.Core.Export
             });
 
             StatusBarManager.SetStatus("Finished exporting file", 3000);
-            StatusBarManager.StopIndeterminateProgress();
         }
 
-        static async Task WritePytcExportFile(string path)
+        static async Task WritePytcExportFile(string path, ExportAccessoryViewSettings settings)
         {
             await Task.Run(async () =>
             {
-                foreach (var data in ExportSettings.Data)
+                foreach (var pair in settings.Data.Select((data, index) => new { data, index }))
                 {
-                    var dataname = data.Name;
-                    var ext = ExportType.PYTC.GetProperties().DotExtension();
-                    var output = Path.Combine(path, dataname + ext);
+                    var data = pair.data;
+                    var output = Path.Combine(path, BuildOutputFileName(settings, data, pair.index));
 
                     var lines = new List<string>
                     {
@@ -418,10 +446,81 @@ namespace AnalysisITC.Core.Export
             });
 
             StatusBarManager.SetStatus("Finished exporting file for pytc", 3000);
-            StatusBarManager.StopIndeterminateProgress();
         }
 
-        static List<string> GetColumns(ExperimentData data, ExportColumns columns)
+        static async Task WriteInterchangeFiles(string path, ExportAccessoryViewSettings settings)
+        {
+            await Task.Run(async () =>
+            {
+                foreach (var pair in settings.Data.Select((data, index) => new { data, index }))
+                {
+                    var output = Path.Combine(path, BuildOutputFileName(settings, pair.data, pair.index));
+                    using var writer = new StreamWriter(output);
+                    await writer.WriteLineAsync("record_type,experiment,time_s,raw_power_w,corrected_power_w,injection_index,x_axis_type,x_axis_value,included,integrated_enthalpy_j_per_mol,integrated_enthalpy_sd_j_per_mol,model_enthalpy_j_per_mol,residual_j_per_mol");
+                    var correctedByTime = pair.data.BaseLineCorrectedDataPoints?
+                        .GroupBy(point => point.Time)
+                        .ToDictionary(group => group.Key, group => group.First());
+
+                    foreach (var point in pair.data.DataPoints ?? new List<DataPoint>())
+                    {
+                        var corrected = default(DataPoint);
+                        var hasCorrected = correctedByTime != null && correctedByTime.TryGetValue(point.Time, out corrected);
+                        await writer.WriteLineAsync(string.Join(Delimiter.ToString(),
+                            "trace",
+                            EscapeCsv(pair.data.Name),
+                            Invariant(point.Time),
+                            Invariant(point.Power),
+                            hasCorrected ? Invariant(corrected.Power) : "",
+                            "", "", "", "", "", "", "", ""));
+                    }
+
+                    foreach (var injection in pair.data.Injections ?? new List<InjectionData>())
+                    {
+                        var fit = pair.data.Solution != null && pair.data.Model != null
+                            ? pair.data.Model.EvaluateEnthalpy(injection.ID, true)
+                            : double.NaN;
+                        var residual = double.IsNaN(fit) ? double.NaN : injection.Enthalpy - fit;
+                        await writer.WriteLineAsync(string.Join(Delimiter.ToString(),
+                            "injection",
+                            EscapeCsv(pair.data.Name),
+                            "", "", "",
+                            (injection.ID + 1).ToString(CultureInfo.InvariantCulture),
+                            pair.data.AxisType.ToString(),
+                            Invariant(GetXAxisValue(pair.data, injection)),
+                            injection.Include ? "1" : "0",
+                            Invariant(injection.Enthalpy),
+                            Invariant(injection.SD),
+                            Invariant(fit),
+                            Invariant(residual)));
+                    }
+                }
+            });
+
+            StatusBarManager.SetStatus("Finished exporting FT-ITC CSV", 3000);
+        }
+
+        static double GetXAxisValue(ExperimentData data, InjectionData injection)
+        {
+            return data.AxisType switch
+            {
+                AnalysisXAxisType.TitrantConcentration => injection.ActualTitrantConcentration,
+                AnalysisXAxisType.ID => injection.ID + 1,
+                _ => injection.Ratio
+            };
+        }
+
+        static string Invariant(double value) => !double.IsNaN(value) && !double.IsInfinity(value) ? value.ToString("G17", CultureInfo.InvariantCulture) : "";
+        static string Invariant(float value) => !float.IsNaN(value) && !float.IsInfinity(value) ? value.ToString("G9", CultureInfo.InvariantCulture) : "";
+
+        static string EscapeCsv(string value)
+        {
+            if (string.IsNullOrEmpty(value)) return "";
+            return value.IndexOfAny(new[] { Delimiter, '"', '\r', '\n' }) >= 0
+                ? "\"" + value.Replace("\"", "\"\"") + "\""
+                : value;
+        }
+
+        static List<string> GetColumns(ExperimentData data, ExportColumns columns, ExportAccessoryViewSettings settings)
         {
             var lines = new List<string>();
 
@@ -450,7 +549,7 @@ namespace AnalysisITC.Core.Export
                     if (!columns.HasFlag((ExportColumns)i)) { continue; } // Enum not in selection, try next
                     if (line.Length > 0) line += Delimiter.ToString();
 
-                    line += ExportColumnHandler.GetColumnValue((ExportColumns)i, data, j);
+                    line += ExportColumnHandler.GetColumnValue((ExportColumns)i, data, j, settings);
                 }
 
                 lines.Add(line);
@@ -594,7 +693,7 @@ namespace AnalysisITC.Core.Export
                 }
             }
 
-            public static string GetColumnValue(ExportColumns column, ExperimentData data, int i)
+            public static string GetColumnValue(ExportColumns column, ExperimentData data, int i, ExportAccessoryViewSettings settings)
             {
                 if (data == null) throw new Exception("No data selected");
                 if (data.Injections == null) throw new Exception("Data does not contain injection information");
@@ -610,12 +709,12 @@ namespace AnalysisITC.Core.Export
                     case ExportColumns.InjectionDelay: return inj.Delay.ToString();
                     case ExportColumns.CellConc: return inj.ActualCellConcentration.ToString("F8");
                     case ExportColumns.SyrConc: return inj.ActualTitrantConcentration.ToString("F8");
-                    case ExportColumns.Peak: return ExportSettings.ExportOffsetCorrected ? inj.OffsetEnthalpy.ToString("F3") : inj.Enthalpy.ToString("F3");
+                    case ExportColumns.Peak: return settings.ExportOffsetCorrected ? inj.OffsetEnthalpy.ToString("F3") : inj.Enthalpy.ToString("F3");
                     case ExportColumns.PeakError: return inj.SD.ToString("F2");
                     case ExportColumns.Temperature: return inj.Temperature.ToString("F2");
                     case ExportColumns.IntegrationLength: return inj.IntegrationEndOffset.ToString("F1");
                     case ExportColumns.Fit:
-                        if (data.Solution != null) return data.Model.EvaluateEnthalpy(i, !ExportSettings.ExportOffsetCorrected).ToString("F3");
+                        if (data.Solution != null) return data.Model.EvaluateEnthalpy(i, !settings.ExportOffsetCorrected).ToString("F3");
                         else return BlankChar.ToString();
                     default: return BlankChar.ToString();
                 }

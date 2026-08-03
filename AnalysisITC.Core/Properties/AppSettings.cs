@@ -99,6 +99,8 @@ namespace AnalysisITC.Core.Application
         public static ExportDataSelection ExportSelectionMode { get; set; } = ExportDataSelection.SelectedData;
         public static int NumOfDecimalsToExport { get; set; } = 2;
         public static ExportColumns ExportColumns { get; set; } = ExportColumns.Default;
+        public static ExportType DefaultExportType { get; set; } = ExportType.InterchangeCsv;
+        public static string ExportOutputBaseName { get; set; } = "FT-ITC Export";
 
         public static void Initialize()
         {
@@ -155,6 +157,8 @@ namespace AnalysisITC.Core.Application
             Storage.SetBool("IncludeBufferInIonicStrengthCalc", IncludeBufferInIonicStrengthCalc);
             Storage.SetInt("DisplayAttributeOptions", (int)DisplayAttributeOptions);
             Storage.SetInt("ExportColumns", (int)ExportColumns);
+            Storage.SetInt("DefaultExportType", (int)DefaultExportType);
+            Storage.SetString("ExportOutputBaseName", ExportOutputBaseName);
             Storage.SetBool("ShowResidualGraph", ShowResidualGraph);
             Storage.SetBool("ShowResidualGraphGap", ShowResidualGraphGap);
             Storage.SetBool("UnifyResidualGraphAxis", UnifyResidualGraphAxis);
@@ -226,6 +230,8 @@ namespace AnalysisITC.Core.Application
             IncludeBufferInIonicStrengthCalc = Storage.GetBool("IncludeBufferInIonicStrengthCalc", IncludeBufferInIonicStrengthCalc);
             DisplayAttributeOptions = (DisplayAttributeOptions)Storage.GetInt("DisplayAttributeOptions", (int)DisplayAttributeOptions);
             ExportColumns = (ExportColumns)Storage.GetInt("ExportColumns", (int)ExportColumns.Default);
+            DefaultExportType = (ExportType)Storage.GetInt("DefaultExportType", (int)DefaultExportType);
+            ExportOutputBaseName = Storage.GetString("ExportOutputBaseName") ?? ExportOutputBaseName;
             ShowResidualGraph = Storage.GetBool("ShowResidualGraph", ShowResidualGraph);
             ShowResidualGraphGap = Storage.GetBool("ShowResidualGraphGap", ShowResidualGraphGap);
             UnifyResidualGraphAxis = Storage.GetBool("UnifyResidualGraphAxis", UnifyResidualGraphAxis);
@@ -293,6 +299,8 @@ namespace AnalysisITC.Core.Application
             UncertaintyDisplayStyle = UncertaintyDisplayStyle.StandardDeviation;
             DisplayAttributeOptions = DisplayAttributeOptions.Default;
             ExportColumns = ExportColumns.Default;
+            DefaultExportType = ExportType.InterchangeCsv;
+            ExportOutputBaseName = "FT-ITC Export";
             UseInjectionErrorWeightedFitting = false;
             DefaultSolverAlgorithm = SolverAlgorithm.NelderMead;
             DiscardIntegrationRegionForBaseline = true;
