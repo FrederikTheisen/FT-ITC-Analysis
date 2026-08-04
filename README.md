@@ -55,24 +55,24 @@ This repository is open source and exists both to distribute end-user applicatio
 
 Raw input files are read by the application but are not modified. Save work as a `.ftitc` project file if you want to preserve processing settings, analysis results, and comments.
 
-## Installation
+# Installation
+
+FT-ITC Analysis is distributed as an executable desktop application and does not require installation of other packages. The program is currently available for macOS, with versions for Windows and Linux in development.
+
+## MacOS
 
 FT-ITC Analysis is distributed as a macOS app through
 [GitHub Releases](https://github.com/FrederikTheisen/FT-ITC-Analysis/releases).
-There is no command-line installer and no separate runtime to install.
 
 ### Requirements
 
 - macOS 11.1 or newer.
 - Apple silicon or Intel Mac. Release builds are universal binaries.
-- A normal user account with permission to copy apps into `/Applications`.
 
 ### Install the Release Build
 
-1. Download the latest `FT-ITC_Installer.dmg` from the Releases page.
-2. Open the DMG.
-3. Drag `FT-ITC.app` into the `Applications` folder shown in the installer window.
-4. Eject the DMG and launch **FT-ITC Analysis** from Applications, Launchpad, Spotlight, or by opening a supported data file.
+1. Download the latest `FT-ITC_Installer.dmg` from the Releases page and open it.
+2. Drag `FT-ITC.app` into the `Applications` folder shown in the installer window.
 
 The release DMG is signed and notarized for macOS Gatekeeper. On first launch,
 macOS may still ask you to confirm that you want to open an app downloaded from
@@ -90,14 +90,7 @@ app.
 Quit FT-ITC Analysis and move `/Applications/FT-ITC.app` to the Trash. Removing
 the app does not delete your `.ftitc` projects or original ITC data files.
 
-### Building From Source
-
-Building from source is intended for developers. The project is a Xamarin.Mac
-application and requires the macOS/Xcode/Xamarin build toolchain plus the NuGet
-packages listed in `packages.config`. Most users should install the prebuilt DMG
-instead.
-
-## Basic Workflow
+# Basic Workflow
 
 1. Open one or more supported data files using **File > Open...** or drag-and-drop.
 2. Review the experiment metadata and correct concentrations, temperature, or attributes if needed.
@@ -119,7 +112,7 @@ By default, points inside the selected integration regions are excluded from bas
 
 Spline baselines can be edited directly. User-added or locked spline points are preserved when the baseline is reprocessed, and locked points replace nearby automatically generated points instead of being duplicated. Polynomial and segmented baselines can also be converted to spline baselines when manual editing is needed.
 
-## Help and Support
+# Help and Support
 
 The application includes built-in help and science notes covering data loading, processing, fitting, uncertainty estimation, and figure export.
 
