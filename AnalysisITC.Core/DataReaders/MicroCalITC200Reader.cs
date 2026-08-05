@@ -16,11 +16,24 @@ namespace AnalysisITC.Core.DataReaders
     {
         public static ExperimentData ReadPath(string path)
         {
-            var experiment = new ExperimentData(Path.GetFileName(path));
-            experiment.Date = File.GetCreationTime(path);
+            using (var stream = File.OpenRead(path))
+                return ReadStream(stream, Path.GetFileName(path), File.GetCreationTime(path), interactive: true);
+        }
+
+        internal static ExperimentData ReadStream(
+            Stream stream,
+            string fileName,
+            DateTime? fallbackDate = null,
+            bool interactive = false,
+            Action<string> warning = null)
+        {
+            if (stream == null) throw new ArgumentNullException(nameof(stream));
+
+            var experiment = new ExperimentData(Path.GetFileName(fileName ?? "uploaded.itc"));
+            experiment.Date = fallbackDate ?? default(DateTime);
             experiment.DataSourceFormat = ITCDataFormat.ITC200;
 
-            using (var stream = new StreamReader(path))
+            using (var reader = new StreamReader(stream, System.Text.Encoding.UTF8, true, 4096, leaveOpen: true))
             {
                 int counter = 0;
                 int counter2 = 0;
@@ -31,7 +44,7 @@ namespace AnalysisITC.Core.DataReaders
                 bool isDataStream = false;
                 var readState = new MicroCalReadState();
 
-                while ((line = stream.ReadLine()) != null)
+                while ((line = reader.ReadLine()) != null)
                 {
                     line = line.Trim();
                     if (line.Count() == 0) continue;
@@ -101,13 +114,16 @@ namespace AnalysisITC.Core.DataReaders
                     if (counter3 > -1) counter3++;
                 }
 
-                stream.Close();
-                Console.WriteLine($"File has {counter} lines.");
+                if (interactive) Console.WriteLine($"File has {counter} lines.");
 
                 var tandemSegments = readState.GetSegments(experiment.InjectionCount).ToList();
                 if (tandemSegments.Count > 1)
                 {
-                    var tandemSettings = PromptBackMixingSettings(experiment, tandemSegments.Count);
+                    var tandemSettings = interactive
+                        ? PromptBackMixingSettings(experiment, tandemSegments.Count)
+                        : TandemConcatenation.BackMixingSettings.MicroCalDefault();
+                    if (!interactive)
+                        warning?.Invoke("The raw file contains concatenated runs; deterministic MicroCal back-mixing defaults were applied.");
                     TandemConcatenation.ProcessInjectionsWithBackMixing(
                         experiment,
                         tandemSegments,
@@ -115,7 +131,8 @@ namespace AnalysisITC.Core.DataReaders
                 }
                 else
                 {
-                    ProcessInjections(experiment);
+                    if (interactive) ProcessInjections(experiment);
+                    else ProcessInjectionsMicroCal(experiment);
                 }
             }
 
@@ -126,7 +143,7 @@ namespace AnalysisITC.Core.DataReaders
 
         private static float LineToFloat(string line)
         {
-            return float.Parse(line.Substring(1).Trim());
+            return float.Parse(line.Substring(1).Trim(), System.Globalization.CultureInfo.InvariantCulture);
         }
 
         private static int LineToInt(string line)
