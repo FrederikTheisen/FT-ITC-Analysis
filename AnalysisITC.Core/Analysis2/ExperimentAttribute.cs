@@ -50,11 +50,11 @@ namespace AnalysisITC.Core.Analysis
 	public enum AttributeKey
 	{
 		Null,
-		[AttributeKey("[Ligand]", "Concentration of ligand already bound before titration starts. This reduces the initially available binding capacity. Can be set directly or read from an experiment attribute.", ExperimentAttribute.AttributeType.ParameterConcentration)]
+		[AttributeKey("[Ligand]", "Concentration of ligand already bound before titration starts. Can be set directly or read from an experiment attribute.", ExperimentAttribute.AttributeType.ParameterConcentration)]
 		PreboundLigandConc,
-		[AttributeKey("Ligand Affinity", "Previously determined affinity of the prebound ligand for the binding site. This determines how strongly the prebound species occupies the site before titration.", ExperimentAttribute.AttributeType.ParameterAffinity)]
+		[AttributeKey("Ligand Affinity", "Affinity of the prebound ligand for the binding site.", ExperimentAttribute.AttributeType.ParameterAffinity)]
 		PreboundLigandAffinity,
-		[AttributeKey("Ligand Enthalpy", "Previously determined binding enthalpy of the prebound ligand. This is used when calculating heat changes associated with ligand displacement.", ExperimentAttribute.AttributeType.Parameter)]
+		[AttributeKey("Ligand Enthalpy", "Binding enthalpy of the prebound ligand.", ExperimentAttribute.AttributeType.Parameter)]
 		PreboundLigandEnthalpy,
 		[AttributeKey(ExperimentAttribute.AttributeType.Bool)]
         PeptideInCell,
@@ -72,11 +72,11 @@ namespace AnalysisITC.Core.Analysis
         LockDuplicateParameter,
         [AttributeKey("Buffer Subtraction", ExperimentAttribute.AttributeType.ReferenceExperiment)]
         BufferSubtraction,
-        [AttributeKey("Stoichiometry", "Fixed stoichiometric site ratio used by the model. This controls how many binding sites are represented on the cell side.", ExperimentAttribute.AttributeType.Int)]
+        [AttributeKey("Stoichiometry", "Fixed stoichiometric site ratio used by the model. Controls how many binding sites are represented on the cell side.", ExperimentAttribute.AttributeType.Int)]
         NumberOfSites1,
-        [AttributeKey("Use Syringe Correction", "Use a syringe concentration correction factor instead of fitting an apparent N-value. Useful when the active titrant concentration is uncertain. This changes the fitted affinity and enthalpy.", ExperimentAttribute.AttributeType.Bool)]
+        [AttributeKey("Use Syringe Correction", "Use a syringe concentration correction factor instead of fitting an apparent N-value. Useful when the active titrant concentration is uncertain.", ExperimentAttribute.AttributeType.Bool)]
         UseSyringeActiveFraction,
-        [AttributeKey("Stoichiometry", "Fixed stoichiometric site ratio used by the model. This controls how many binding sites are represented on the cell side.", ExperimentAttribute.AttributeType.Int)]
+        [AttributeKey("Stoichiometry", "Fixed stoichiometric site ratio used by the model. Controls how many binding sites are represented on the cell side.", ExperimentAttribute.AttributeType.Int)]
         NumberOfSites2,
         [AttributeKey("Species", "Name of a species in the ITC cell or syringe. This is annotation metadata for figures and exported results.", ExperimentAttribute.AttributeType.String, true)]
         Species,
