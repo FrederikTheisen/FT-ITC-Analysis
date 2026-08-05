@@ -90,6 +90,12 @@ app.
 Quit FT-ITC Analysis and move `/Applications/FT-ITC.app` to the Trash. Removing
 the app does not delete your `.ftitc` projects or original ITC data files.
 
+## Web Viewer Development
+
+Building and testing `AnalysisITC.Web` requires a stable .NET 10 SDK. The
+repository's `global.json` accepts .NET 10 feature-band and patch updates, but
+does not roll forward to a later major SDK.
+
 # Basic Workflow
 
 1. Open one or more supported data files using **File > Open...** or drag-and-drop.
