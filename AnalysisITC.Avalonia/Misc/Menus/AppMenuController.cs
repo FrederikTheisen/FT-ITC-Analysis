@@ -101,7 +101,6 @@ internal sealed class AppMenuController
         Add("clearall", "Remove All Data/Results", window.ClearDataWithConfirmationAsync, window.HasDocumentContent);
         Add("exportdata", "Export Data...", () => window.ExportDataAsync(selectedOnly: false), window.HasDataLoaded, gesture: new KeyGesture(Key.E, commandModifier));
         Add("exportpeaks", "Export Integrated Peaks...", window.ExportPeaksAsync, window.HasAnyProcessedData);
-        Add("exportfigure", "Export Final Figure...", window.ExportFinalFigureAsync, window.CanExportFinalFigure);
         Add("print", "Print...", window.NotImplementedAsync, () => false, gesture: new KeyGesture(Key.P, commandModifier));
 
         Add("undo", "Undo Delete", window.UndoDeleteAsync, window.CanUndoDelete, gesture: new KeyGesture(Key.Z, commandModifier));
@@ -168,7 +167,6 @@ internal sealed class AppMenuController
             Separator(),
             Command("exportdata"),
             Command("exportpeaks"),
-            Command("exportfigure"),
             Command("print")));
 
         windowMenuNodes.Add(Menu("Edit",
