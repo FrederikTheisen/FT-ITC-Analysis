@@ -407,9 +407,10 @@ namespace AnalysisITC.Avalonia.Results
             var updateButton = new Button
             {
                 Content = isUpdatingResult ? "Updating..." : "Update Result",
-                MinHeight = 26,
+                //MinHeight = 30,
                 Padding = new Thickness(8, 1),
                 HorizontalAlignment = HorizontalAlignment.Left,
+                VerticalAlignment = VerticalAlignment.Center,
                 IsEnabled = !isUpdatingResult && result.Solution?.Model != null
             };
             updateButton.Click += async (_, _) => await UpdateResultAsync();
@@ -1087,20 +1088,21 @@ namespace AnalysisITC.Avalonia.Results
                 ColumnDefinitions = new ColumnDefinitions($"Auto,*"),
                 ColumnSpacing = RowSpacing,
             };
-            panel.Children.Add(new TextBlock
+            var labelText = new TextBlock
             {
                 Text = label,
-                Foreground = WorkspaceControlBuilder.LabelBrush,
                 VerticalAlignment = VerticalAlignment.Top
-            });
+            };
+            AppTheme.Bind(labelText, TextBlock.ForegroundProperty, AppTheme.MutedText);
+            panel.Children.Add(labelText);
             var valueText = new TextBlock
             {
                 Text = value ?? "",
-                Foreground = WorkspaceControlBuilder.SectionHeaderBrush,
                 TextWrapping = TextWrapping.Wrap,
                 VerticalAlignment = VerticalAlignment.Center,
                 TextAlignment = TextAlignment.Right
             };
+            AppTheme.Bind(valueText, TextBlock.ForegroundProperty, AppTheme.PrimaryText);
             Grid.SetColumn(valueText, 1);
             panel.Children.Add(valueText);
 
@@ -1119,21 +1121,22 @@ namespace AnalysisITC.Avalonia.Results
                 RowDefinitions = new RowDefinitions($"*,*"),
                 RowSpacing = 0,
             };
-            panel.Children.Add(new TextBlock
+            var labelText = new TextBlock
             {
                 Text = label,
                 FontSize = 10,
-                Foreground = WorkspaceControlBuilder.LabelBrush,
                 VerticalAlignment = VerticalAlignment.Top
-            });
+            };
+            AppTheme.Bind(labelText, TextBlock.ForegroundProperty, AppTheme.MutedText);
+            panel.Children.Add(labelText);
             var valueText = new TextBlock
             {
                 Text = value ?? "",
-                Foreground = WorkspaceControlBuilder.SectionHeaderBrush,
                 TextWrapping = TextWrapping.Wrap,
                 VerticalAlignment = VerticalAlignment.Center,
                 TextAlignment = TextAlignment.Left
             };
+            AppTheme.Bind(valueText, TextBlock.ForegroundProperty, AppTheme.PrimaryText);
             Grid.SetRow(valueText, 1);
             panel.Children.Add(valueText);
 
@@ -1146,13 +1149,14 @@ namespace AnalysisITC.Avalonia.Results
 
         static TextBlock Message(string text)
         {
-            return new TextBlock
+            var message = new TextBlock
             {
                 Text = text,
-                Foreground = WorkspaceControlBuilder.LabelBrush,
                 Margin = new Thickness(16),
                 TextWrapping = TextWrapping.Wrap
             };
+            AppTheme.Bind(message, TextBlock.ForegroundProperty, AppTheme.MutedText);
+            return message;
         }
     }
 }
