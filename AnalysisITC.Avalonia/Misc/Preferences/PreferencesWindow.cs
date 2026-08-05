@@ -62,7 +62,6 @@ internal sealed class PreferencesWindow : Window
 
     readonly ComboBox exportSelectionCombo;
     readonly TextBox decimalsBox = Box("");
-    readonly CheckBox unifyTimeAxisCheck = Check("Unify time axis for export");
     readonly CheckBox exportCorrectedDataCheck = Check("Export baseline-corrected data");
     readonly CheckBox exportFitPointsCheck = Check("Export fit points with peaks");
     readonly CheckBox exportMolarRatioCheck = Check("Molar ratio");
@@ -138,9 +137,9 @@ internal sealed class PreferencesWindow : Window
 
         exportSelectionCombo = Combo(new[]
         {
-            Option("Selected data", ExportDataSelection.SelectedData),
-            Option("Included data", ExportDataSelection.IncludedData),
-            Option("All data", ExportDataSelection.AllData)
+            Option("Selected experiment", ExportDataSelection.SelectedData),
+            Option("Active experiments", ExportDataSelection.IncludedData),
+            Option("All experiments", ExportDataSelection.AllData)
         });
         fitLineSmoothnessCombo = Combo(Enum.GetValues<LineSmoothness>().Select(smoothness => Option(DisplayName(smoothness), smoothness)));
         attributeDisplayCombo = Combo(new[]
@@ -299,7 +298,6 @@ internal sealed class PreferencesWindow : Window
         {
             Row("Selection", exportSelectionCombo),
             Row("Decimals", decimalsBox),
-            unifyTimeAxisCheck,
             exportCorrectedDataCheck,
             exportFitPointsCheck
         }));
@@ -365,7 +363,6 @@ internal sealed class PreferencesWindow : Window
 
         SetCombo(exportSelectionCombo, state.ExportSelectionMode);
         decimalsBox.Text = state.NumOfDecimalsToExport.ToString(CultureInfo.CurrentCulture);
-        unifyTimeAxisCheck.IsChecked = state.UnifyTimeAxisForExport;
         exportCorrectedDataCheck.IsChecked = state.ExportBaselineCorrectedData;
         exportFitPointsCheck.IsChecked = state.ExportFitPointsWithPeaks;
         exportMolarRatioCheck.IsChecked = state.ExportColumns.HasFlag(ExportColumns.MolarRatio);
@@ -463,7 +460,6 @@ internal sealed class PreferencesWindow : Window
         state.ExportSelectionMode = Value(exportSelectionCombo, AppSettings.ExportSelectionMode);
         state.ExportColumns = BuildExportColumns();
         state.NumOfDecimalsToExport = decimals;
-        state.UnifyTimeAxisForExport = unifyTimeAxisCheck.IsChecked == true;
         state.ExportBaselineCorrectedData = exportCorrectedDataCheck.IsChecked == true;
         state.ExportFitPointsWithPeaks = exportFitPointsCheck.IsChecked == true;
         state.FinalFigureWidthCentimeters = figureWidth;
