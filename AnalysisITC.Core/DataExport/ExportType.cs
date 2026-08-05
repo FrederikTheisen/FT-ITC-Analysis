@@ -40,7 +40,7 @@ namespace AnalysisITC.Core.Export
         PYTC,
         [ExportType("MicroCal", "Export a MicroCal style table containing columns such as DH, INJV, Xt, Mt, XMt and so forth. The format is compatible with SEDPHAT analysis.", "dat")]
         MicroCal,
-        [ExportType("FT-ITC CSV", "Export raw and corrected thermogram samples together with integrated heats and fitted values in a portable CSV format.", "csv")]
+        [ExportType("Combined Data", "Export thermogram samples and integrated peaks side by side in one CSV file.", "csv")]
         InterchangeCsv
     }
 
@@ -49,6 +49,44 @@ namespace AnalysisITC.Core.Export
         SelectedData,
         IncludedData,
         AllData
+    }
+
+    public static class ExportFormatDescription
+    {
+        public static string GetOutputUnits(ExportType export, IEnumerable<ExperimentData> data = null)
+        {
+            return export switch
+            {
+                ExportType.Data => "Time in s; power in W.",
+                ExportType.Peaks => $"{GetXAxisUnits(data)}; enthalpy, SD, model, and residual are J/mol.",
+                ExportType.InterchangeCsv => $"Time in s; power in W; peak {GetXAxisUnits(data)}; enthalpy, SD, model, and residual are J/mol.",
+                ExportType.MicroCal => "DH in J; injection volume in uL; titrant and cell concentrations in mM; XMt is molar ratio. Remaining columns follow the MicroCal / SEDPHAT convention.",
+                ExportType.PYTC => "Injection volume in uL; heat in microcal; header concentrations in mM; cell volume in mL; temperature in C.",
+                ExportType.ITCsim => "Molar ratio; injection volume in L; injection delay in s; peak heat in J/mol. Metadata concentrations are in uM and cell volume is in L.",
+                _ => "Units depend on the selected legacy export columns."
+            };
+        }
+
+        static string GetXAxisUnits(IEnumerable<ExperimentData> data)
+        {
+            var axes = data?
+                .Where(item => item != null)
+                .Select(item => item.AxisType)
+                .Distinct()
+                .ToList() ?? new List<AnalysisXAxisType>();
+
+            if (axes.Count == 1)
+            {
+                return axes[0] switch
+                {
+                    AnalysisXAxisType.TitrantConcentration => "X is titrant concentration in M",
+                    AnalysisXAxisType.ID => "X is injection number (dimensionless)",
+                    _ => "X is molar ratio (dimensionless)"
+                };
+            }
+
+            return "X depends on the experiment: molar ratio (dimensionless), titrant concentration in M, or injection number (dimensionless)";
+        }
     }
 
     [Flags]
@@ -139,11 +177,11 @@ namespace AnalysisITC.Core.Export
             {
                 ExportDataSelection.IncludedData => DataManager.Data.Where(d => d.Include).ToList(),
                 ExportDataSelection.AllData => DataManager.Data,
-                _ => new List<ExperimentData> { DataManager.Current },
+                _ => new[] { DataManager.Current }.Where(d => d != null).ToList(),
             };
 
-            BaselineCorrectionEnabled = !Data.Any(d => d.BaseLineCorrectedDataPoints == null);
-            FittedPeakExportEnabled = !Data.Any(d => d.Solution == null);
+            BaselineCorrectionEnabled = Data.Any() && Data.All(d => d.BaseLineCorrectedDataPoints != null);
+            FittedPeakExportEnabled = Data.Any() && Data.All(d => d.Solution != null);
 
             if (!BaselineCorrectionEnabled) ExportBaselineCorrectDataPoints = false;
             if (!FittedPeakExportEnabled)
