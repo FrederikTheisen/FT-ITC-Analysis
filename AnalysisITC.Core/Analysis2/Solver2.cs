@@ -565,8 +565,12 @@ namespace AnalysisITC.Core.Analysis
             int failure = 0;
             var start = DateTime.Now;
             var bag = new ConcurrentBag<SolutionInterface>();
+            var options = new ParallelOptions
+            {
+                MaxDegreeOfParallelism = Math.Max(1, AppSettings.MaxDegreeOfParallelism),
+            };
 
-            Parallel.For(0, BootstrapIterations, (i) =>
+            Parallel.For(0, BootstrapIterations, options, (i) =>
             {
                 if (TerminateAnalysisFlag.Down)
                 {
