@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Antiforgery;
 using Microsoft.AspNetCore.Http.Features;
 
 const long MaxUploadBytes = 50L * 1024 * 1024;
+const string ViewerBuild = "2026.08.05-bootstrap-band.1";
 
 var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddAntiforgery(options => options.HeaderName = "X-CSRF-TOKEN");
@@ -14,9 +15,34 @@ var app = builder.Build();
 
 app.UseExceptionHandler("/error");
 
+app.Use(async (context, next) =>
+{
+    context.Response.Headers["X-FTITC-Viewer-Build"] = ViewerBuild;
+    if (HttpMethods.IsGet(context.Request.Method) &&
+        (context.Request.Path == "/" || context.Request.Path == "/index.html"))
+    {
+        context.Response.Headers.CacheControl = "no-store, max-age=0";
+        context.Response.Headers.Pragma = "no-cache";
+        context.Response.Headers.Expires = "0";
+    }
+    await next();
+});
+
 app.UseDefaultFiles();
-app.UseStaticFiles();
+app.UseStaticFiles(new StaticFileOptions
+{
+    OnPrepareResponse = context =>
+    {
+        context.Context.Response.Headers.CacheControl = "no-store, max-age=0";
+        context.Context.Response.Headers.Pragma = "no-cache";
+        context.Context.Response.Headers.Expires = "0";
+    },
+});
 app.UseAntiforgery();
+
+app.MapGet("/assets/ft-itc-icon-32.png", (HttpContext context) => ViewerIcon(context, "ft-itc-icon-32.png"));
+app.MapGet("/assets/ft-itc-icon-64.png", (HttpContext context) => ViewerIcon(context, "ft-itc-icon-64.png"));
+app.MapGet("/assets/ft-itc-icon-256.png", (HttpContext context) => ViewerIcon(context, "ft-itc-icon-256.png"));
 
 app.MapGet("/api/viewer/token", (HttpContext context, IAntiforgery antiforgery) =>
 {
@@ -97,5 +123,12 @@ static IResult Problem(int status, string code, string detail) => Results.Proble
     title: status >= 500 ? "Unable to open file" : "File could not be opened",
     detail: detail,
     extensions: new Dictionary<string, object?> { ["code"] = code });
+
+static IResult ViewerIcon(HttpContext context, string fileName)
+{
+    context.Response.Headers.CacheControl = "no-store, max-age=0";
+    var path = Path.Combine(AppContext.BaseDirectory, "wwwroot", "assets", fileName);
+    return Results.File(path, "image/png");
+}
 
 public partial class Program { }

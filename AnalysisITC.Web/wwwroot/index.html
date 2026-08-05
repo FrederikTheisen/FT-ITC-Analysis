@@ -4,18 +4,21 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="color-scheme" content="light">
+  <meta name="ftitc-viewer-build" content="2026.08.05-bootstrap-band.1">
   <title>FT-ITC Analysis Viewer</title>
-  <link rel="stylesheet" href="/styles.css">
+  <link rel="icon" type="image/png" sizes="32x32" href="/assets/ft-itc-icon-32.png?v=2026.08.05-bootstrap-band.1">
+  <link rel="apple-touch-icon" sizes="256x256" href="/assets/ft-itc-icon-256.png?v=2026.08.05-bootstrap-band.1">
+  <link rel="stylesheet" href="/styles.css?v=2026.08.05-bootstrap-band.1">
   <script src="/vendor/viewer-charts-2.35.3.min.js"></script>
-  <script src="/app.js" defer></script>
+  <script src="/app.js?v=2026.08.05-bootstrap-band.1" defer></script>
 </head>
 <body>
   <header class="site-header">
     <a class="brand" href="/" aria-label="FT-ITC Analysis home">
-      <span class="brand-mark">FT</span>
+      <img class="brand-mark" src="/assets/ft-itc-icon-64.png?v=2026.08.05-bootstrap-band.1" width="32" height="32" alt="">
       <span>FT-ITC Analysis</span>
     </a>
-    <span class="product-label">Read-only viewer</span>
+    <span class="product-label">Read-only viewer · build 2026.08.05-bootstrap-band.1</span>
   </header>
 
   <main>
@@ -84,9 +87,11 @@
             <section class="view-panel">
               <div id="view-message" class="notice" hidden></div>
               <div id="processed-controls" class="trace-mode-controls" role="group" aria-label="Processing trace" hidden>
-                <span>Display</span>
+                <span>Trace</span>
                 <button id="processed-mode-raw" type="button" aria-pressed="true">Raw</button>
                 <button id="processed-mode-corrected" type="button" aria-pressed="false">Corrected</button>
+                <span id="processed-integration-ranges-label" class="control-divider">Overlay</span>
+                <button id="processed-integration-ranges" type="button" aria-pressed="true">Integration ranges</button>
               </div>
               <dl id="fit-plot-summary" class="fit-plot-summary" hidden></dl>
               <div id="plot" class="plot" aria-label="Interactive data graph"></div>
@@ -132,6 +137,22 @@
               <div id="result-comparison-message" class="notice" hidden></div>
               <div id="result-comparison-plot" class="plot result-comparison-plot" aria-label="Parameter comparison graph"></div>
               <div id="result-parameter-table" class="table-scroll" tabindex="0" aria-label="Result parameter table"></div>
+            </section>
+
+            <section id="result-temperature-evaluation-card" class="result-card" aria-labelledby="temperature-evaluation-heading" hidden>
+              <div class="section-heading member-heading">
+                <div>
+                  <p class="eyebrow">Temperature-dependent result</p>
+                  <h2 id="temperature-evaluation-heading">Parameter evaluation</h2>
+                  <p id="temperature-evaluation-note" class="muted"></p>
+                </div>
+                <div>
+                  <label for="result-evaluation-temperature">Temperature (°C)</label>
+                  <input id="result-evaluation-temperature" type="number" step="0.1" inputmode="decimal" />
+                </div>
+              </div>
+              <div id="result-temperature-evaluation-message" class="notice" hidden></div>
+              <div id="result-temperature-evaluation-table" class="table-scroll" tabindex="0" aria-label="Parameters evaluated at the selected temperature"></div>
             </section>
 
             <section class="result-card" aria-labelledby="member-fit-heading">
