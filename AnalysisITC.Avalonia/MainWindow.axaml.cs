@@ -194,15 +194,20 @@ public partial class MainWindow : Window
     {
         if (!HasDocumentContent()) return true;
 
-        if (!await PromptSaveChangesIfNeededAsync(SavePromptReason.ClearAllData))
-            return false;
-
-        if (!await ConfirmAsync(
-            "Remove All Data/Results",
-            "Are you sure you want to remove all loaded data and analysis results?",
-            "Keep",
-            "Remove"))
-            return false;
+        if (DocumentDirtyTracker.IsDirty)
+        {
+            if (!await PromptSaveChangesIfNeededAsync(SavePromptReason.ClearAllData))
+                return false;
+        }
+        else
+        {
+            if (!await ConfirmAsync(
+                "Remove All Data/Results",
+                "Are you sure you want to remove all loaded data and analysis results?",
+                "Keep",
+                "Remove"))
+                return false;
+        }
 
         ClearData();
         return true;
