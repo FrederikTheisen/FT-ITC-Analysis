@@ -2,6 +2,7 @@ using System;
 using System.IO;
 using System.Linq;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using AnalysisITC.Core.Viewer;
 using Xunit;
@@ -66,13 +67,78 @@ namespace AnalysisITC.Core.Tests
                 Assert.Contains(experiment.Integrated.RawHeatMicrojoules, item => item.HasValue && Math.Abs(item.Value) > 0);
                 Assert.NotNull(experiment.Processed);
                 Assert.Equal(experiment.Raw.TimeSeconds.Length, experiment.Processed.CorrectedPowerMicrowatts.Length);
+                Assert.Equal(experiment.InjectionCount, experiment.Processed.IntegrationStartSeconds.Length);
+                Assert.Equal(experiment.InjectionCount, experiment.Processed.IntegrationEndSeconds.Length);
+                Assert.All(
+                    experiment.Processed.IntegrationStartSeconds.Zip(experiment.Processed.IntegrationEndSeconds, (start, end) => (start, end)),
+                    range => Assert.True(range.end > range.start));
                 Assert.NotEmpty(experiment.Fits);
+                Assert.All(experiment.Fits, fit =>
+                {
+                    Assert.Contains(fit.Parameters, item => !item.IsDerived && item.Key == "Offset");
+                    Assert.Contains(fit.Parameters, item => item.IsDerived && item.Key == "Gibbs1");
+                    Assert.Contains(fit.Parameters, item => item.IsDerived && item.Key == "EntropyContribution1");
+                });
                 Assert.Contains(experiment.Fits.SelectMany(item => item.Parameters), item => item.Key.Contains("Affinity"));
                 Assert.Contains(experiment.Fits.SelectMany(item => item.Parameters), item => item.Unit == "µM");
                 Assert.Contains(experiment.Fits.SelectMany(item => item.Parameters), item => item.Unit == "kJ/mol");
                 Assert.Contains(experiment.Fits.SelectMany(item => item.FittedKilojoulesPerMole), item => item.HasValue);
                 Assert.All(experiment.Fits, fit => Assert.Equal(experiment.InjectionCount, fit.ResidualKilojoulesPerMole.Length));
             }
+        }
+
+        [Fact]
+        public async Task PreservesSerializedTandemConcentrationsInLegacyExperimentFiles()
+        {
+            var lines = File.ReadAllLines(Fixture("one-set.ftitc")).ToList();
+            var injectionList = lines.FindIndex(line => line == "LIST:InjectionList");
+            Assert.True(injectionList >= 0);
+
+            var firstInjection = lines[injectionList + 1].Split(',');
+            firstInjection[9] = "0.000111111";
+            firstInjection[10] = "0.000222222";
+            lines[injectionList + 1] = string.Join(",", firstInjection);
+
+            var injectionListEnd = lines.FindIndex(injectionList + 1, line => line == "ENDLIST");
+            lines.InsertRange(injectionListEnd + 1, new[]
+            {
+                "LIST:SegmentList",
+                "0,0.000111111,0",
+                "10,0.0001,0.0001",
+                "ENDLIST"
+            });
+
+            using var stream = TextStream(string.Join("\n", lines));
+            var document = await reader.ReadAsync(stream, "legacy-tandem.ftitc", ViewerFileFormat.Ftitc);
+
+            var experiment = document.Experiments[0];
+            Assert.NotNull(experiment.Integrated);
+            Assert.Equal(111.111, experiment.Integrated.CellConcentrationMicromolar[0], 6);
+            Assert.Equal(222.222, experiment.Integrated.TitrantConcentrationMicromolar[0], 6);
+            Assert.Equal(2.0, experiment.Integrated.AnalysisX[0], 6);
+            Assert.All(experiment.Fits, fit => Assert.Equal(2.0, fit.X[0], 6));
+        }
+
+        [Fact]
+        public async Task ProjectsSavedParameterLocksSeparatelyFromDerivedParameters()
+        {
+            var project = File.ReadAllText(Fixture("one-set.ftitc"));
+            project = Regex.Replace(
+                project,
+                "(?m)^(Nvalue1:[0-9]+:[^:\\r\\n]+)$",
+                "$1:1",
+                RegexOptions.None,
+                TimeSpan.FromSeconds(1));
+            using var stream = TextStream(project);
+
+            var document = await reader.ReadAsync(stream, "locked.ftitc", ViewerFileFormat.Ftitc);
+
+            Assert.Contains(
+                document.Experiments.SelectMany(experiment => experiment.Fits).SelectMany(fit => fit.Parameters),
+                parameter => parameter.Key == "Nvalue1" && parameter.IsLocked && !parameter.IsDerived);
+            Assert.All(
+                document.Experiments.SelectMany(experiment => experiment.Fits).SelectMany(fit => fit.Parameters).Where(parameter => parameter.IsDerived),
+                parameter => Assert.False(parameter.IsLocked));
         }
 
         [Fact]
@@ -171,6 +237,8 @@ namespace AnalysisITC.Core.Tests
 
             var experiment = Assert.Single(document.Experiments);
             Assert.Equal(1, experiment.InjectionCount);
+            Assert.Equal("Shown in the dedicated comment box", experiment.Comments);
+            Assert.DoesNotContain(experiment.Metadata, item => item.Label == "Comments");
             Assert.Contains("raw", experiment.AvailableViews);
             Assert.DoesNotContain("integrated", experiment.AvailableViews);
             Assert.DoesNotContain("processed", experiment.AvailableViews);
@@ -246,7 +314,7 @@ Name:Minimal
 ID:minimal-id
 Date:2026-01-01T00:00:00.0000000Z
 Source:0
-Comments:
+Comments:Shown in the dedicated comment box
 Include:1
 SyringeConcentration:0.001,0
 CellConcentration:0.0001,0
