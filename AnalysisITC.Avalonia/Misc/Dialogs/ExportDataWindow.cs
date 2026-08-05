@@ -15,15 +15,21 @@ namespace AnalysisITC.Avalonia.Dialogs;
 
 internal sealed class ExportDataWindow : Window
 {
+    static readonly ExportSelectionOption[] SelectionOptions =
+    {
+        new("Selected experiment", ExportDataSelection.SelectedData),
+        new("Active experiments", ExportDataSelection.IncludedData),
+        new("All experiments", ExportDataSelection.AllData)
+    };
+
     readonly ExportAccessoryViewSettings settings;
     readonly TextBox nameBox;
     readonly ComboBox formatBox;
     readonly ComboBox selectionBox;
-    readonly CheckBox unifyTimeAxisCheck;
     readonly CheckBox correctedDataCheck;
-    readonly CheckBox fittedValuesCheck;
     readonly CheckBox offsetCorrectedCheck;
     readonly TextBlock descriptionText;
+    readonly TextBlock unitsText;
     readonly StackPanel optionsPanel;
     readonly TextBlock statusText;
 
@@ -39,33 +45,33 @@ internal sealed class ExportDataWindow : Window
         CanResize = false;
 
         nameBox = new TextBox { Text = settings.OutputBaseName, MinWidth = 250 };
-        formatBox = new ComboBox
+        formatBox = new ComboBox { MinWidth = 250 };
+        AddFormatItem("Thermogram Data", ExportType.Data);
+        AddFormatItem("Integrated Peaks", ExportType.Peaks);
+        AddFormatItem("Combined Data", ExportType.InterchangeCsv);
+        formatBox.Items.Add(new Separator { IsHitTestVisible = false });
+        formatBox.Items.Add(new ComboBoxItem
         {
-            ItemsSource = new[]
-            {
-                ExportType.InterchangeCsv,
-                ExportType.Data,
-                ExportType.Peaks,
-                ExportType.CSV,
-                ExportType.ITCsim,
-                ExportType.PYTC,
-                ExportType.MicroCal
-            },
-            SelectedItem = settings.Export,
-            MinWidth = 250
-        };
+            Content = "Other programs",
+            IsEnabled = false,
+            FontWeight = FontWeight.SemiBold
+        });
+        AddFormatItem("MicroCal / SEDPHAT", ExportType.MicroCal);
+        AddFormatItem("pytc", ExportType.PYTC);
+        AddFormatItem("ITCsim", ExportType.ITCsim);
+        SelectFormat(settings.Export);
         selectionBox = new ComboBox
         {
-            ItemsSource = Enum.GetValues<ExportDataSelection>(),
-            SelectedItem = settings.Selection,
+            ItemsSource = SelectionOptions,
+            SelectedItem = SelectionOptions.First(option => option.Value == settings.Selection),
             MinWidth = 250
         };
-        unifyTimeAxisCheck = Check("Unify time axis", settings.UnifyTimeAxis);
         correctedDataCheck = Check("Export baseline-corrected trace", settings.ExportBaselineCorrectDataPoints);
-        fittedValuesCheck = Check("Include fitted model values", settings.Columns.HasFlag(ExportColumns.Fit));
         offsetCorrectedCheck = Check("Export offset-corrected peaks", settings.ExportOffsetCorrected);
         descriptionText = new TextBlock { TextWrapping = TextWrapping.Wrap };
-        statusText = new TextBlock { TextWrapping = TextWrapping.Wrap, Foreground = Brushes.IndianRed };
+        unitsText = new TextBlock { TextWrapping = TextWrapping.Wrap };
+        statusText = new TextBlock { TextWrapping = TextWrapping.Wrap };
+        AppTheme.Bind(statusText, TextBlock.ForegroundProperty, AppTheme.StatusError);
         optionsPanel = new StackPanel { Spacing = 6 };
 
         formatBox.SelectionChanged += (_, _) => RefreshOptions();
@@ -81,6 +87,15 @@ internal sealed class ExportDataWindow : Window
                 Labeled("Format", formatBox),
                 Labeled("Data", selectionBox),
                 new Border { BorderThickness = new Thickness(0, 1, 0, 0), Margin = new Thickness(0, 2), Child = descriptionText },
+                new StackPanel
+                {
+                    Spacing = 2,
+                    Children =
+                    {
+                        new TextBlock { Text = "Output units", FontWeight = FontWeight.SemiBold },
+                        unitsText
+                    }
+                },
                 optionsPanel,
                 statusText
             }
@@ -116,7 +131,7 @@ internal sealed class ExportDataWindow : Window
 
     void RefreshOptions()
     {
-        if (formatBox.SelectedItem is not ExportType export) return;
+        if (formatBox.SelectedItem is not ComboBoxItem { Tag: ExportType export }) return;
         settings.Export = export;
         optionsPanel.Children.Clear();
         descriptionText.Text = export.GetProperties().Description;
@@ -124,12 +139,9 @@ internal sealed class ExportDataWindow : Window
         switch (export)
         {
             case ExportType.Data:
-                optionsPanel.Children.Add(unifyTimeAxisCheck);
                 optionsPanel.Children.Add(correctedDataCheck);
                 break;
             case ExportType.Peaks:
-            case ExportType.CSV:
-                optionsPanel.Children.Add(fittedValuesCheck);
                 optionsPanel.Children.Add(offsetCorrectedCheck);
                 break;
             case ExportType.ITCsim:
@@ -138,7 +150,7 @@ internal sealed class ExportDataWindow : Window
             case ExportType.InterchangeCsv:
                 optionsPanel.Children.Add(new TextBlock
                 {
-                    Text = "Each file contains typed trace and injection rows with raw/corrected power, integrated heats, SD, fitted values, and residuals when available.",
+                    Text = "Each file places thermogram and integrated-peak columns side by side. Raw data, corrected data, fitted values, and residuals are included when available.",
                     TextWrapping = TextWrapping.Wrap
                 });
                 break;
@@ -149,12 +161,18 @@ internal sealed class ExportDataWindow : Window
 
     void RefreshAvailability()
     {
-        if (selectionBox.SelectedItem is not ExportDataSelection selection) return;
-        settings.Selection = selection;
+        if (selectionBox.SelectedItem is not ExportSelectionOption selection) return;
+        settings.Selection = selection.Value;
         settings.SetData();
         correctedDataCheck.IsEnabled = settings.BaselineCorrectionEnabled;
-        fittedValuesCheck.IsEnabled = settings.FittedPeakExportEnabled;
         offsetCorrectedCheck.IsEnabled = settings.FittedPeakExportEnabled;
+        RefreshUnitDescription();
+    }
+
+    void RefreshUnitDescription()
+    {
+        if (formatBox.SelectedItem is ComboBoxItem { Tag: ExportType export })
+            unitsText.Text = ExportFormatDescription.GetOutputUnits(export, settings.Data);
     }
 
     void Apply()
@@ -167,23 +185,48 @@ internal sealed class ExportDataWindow : Window
         }
 
         settings.OutputBaseName = name;
-        settings.UnifyTimeAxis = unifyTimeAxisCheck.IsChecked == true;
         settings.ExportBaselineCorrectDataPoints = correctedDataCheck.IsChecked == true;
         settings.ExportOffsetCorrected = offsetCorrectedCheck.IsChecked == true;
-        settings.Columns = fittedValuesCheck.IsChecked == true
-            ? settings.Columns | ExportColumns.Fit
-            : settings.Columns & ~ExportColumns.Fit;
         settings.ExportFittedPeaks = settings.Columns.HasFlag(ExportColumns.Fit);
         settings.SetData();
         if (settings.Data.Count == 0)
         {
-            statusText.Text = "Select an experiment or choose Included data or All data.";
+            statusText.Text = "Select an experiment or choose Active experiments or All experiments.";
             return;
         }
         Close(true);
     }
 
     static CheckBox Check(string text, bool value) => new() { Content = text, IsChecked = value };
+
+    sealed class ExportSelectionOption
+    {
+        public ExportSelectionOption(string label, ExportDataSelection value)
+        {
+            Label = label;
+            Value = value;
+        }
+
+        public string Label { get; }
+        public ExportDataSelection Value { get; }
+
+        public override string ToString() => Label;
+    }
+
+    void AddFormatItem(string label, ExportType format)
+    {
+        formatBox.Items.Add(new ComboBoxItem { Content = label, Tag = format });
+    }
+
+    void SelectFormat(ExportType export)
+    {
+        var selected = formatBox.Items
+            .OfType<ComboBoxItem>()
+            .FirstOrDefault(item => item.Tag is ExportType format && format == export)
+            ?? formatBox.Items.OfType<ComboBoxItem>()
+                .First(item => item.Tag is ExportType format && format == ExportType.InterchangeCsv);
+        formatBox.SelectedItem = selected;
+    }
 
     static Control Labeled(string label, Control control)
     {
