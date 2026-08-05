@@ -26,7 +26,7 @@ README CONTENT
 ![Static Badge](https://img.shields.io/badge/publication-work_in_process-yellow)
 
 # FT-ITC Analysis
-FT-ITC Analysis is a macOS desktop application for processing, analyzing, and presenting isothermal titration calorimetry (ITC) data. It is intended for working with ITC data away from the instrument workstation, with tools for baseline correction, peak integration, model fitting, multi-experiment analysis, and export of publication-style figures and processed data. 
+FT-ITC Analysis is a desktop application for processing, analyzing, and presenting isothermal titration calorimetry (ITC) data. It is intended for working with ITC data away from the instrument workstation, with tools for baseline correction, peak integration, model fitting, multi-experiment analysis, and export of publication-style figures and processed data. 
  
 
 This repository is open source and exists both to distribute end-user application bundles through [GitHub Releases](https://github.com/FrederikTheisen/FT-ITC-Analysis/releases) and to provide a versioned software record.
