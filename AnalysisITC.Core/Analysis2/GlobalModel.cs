@@ -248,6 +248,15 @@ namespace AnalysisITC.Core.Analysis
 			foreach (var sol in Solutions) sol.Invalidate();
 		}
 
+        /// <summary>
+        /// Marks a saved global solution invalid without invalidating every member
+        /// solution or changing their attached experiment models.
+        /// </summary>
+        internal void InvalidateForExperimentChange()
+        {
+            IsValid = false;
+        }
+
 		public GlobalSolution(GlobalSolver solver, SolverConvergence convergence)
 		{
 			Model = solver.Model;
