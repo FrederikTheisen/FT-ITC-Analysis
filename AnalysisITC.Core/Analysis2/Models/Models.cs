@@ -75,7 +75,7 @@ namespace AnalysisITC.Core.Analysis.Models
         public void SetModelOptions(IDictionary<AttributeKey, ExperimentAttribute> options = null)
         {
             if (options != null)
-                ModelOptions = options;
+                ModelOptions = options.ToDictionary(entry => entry.Key, entry => entry.Value.Copy());
 
             // Setup model options
             ApplyModelOptions();
@@ -426,6 +426,17 @@ namespace AnalysisITC.Core.Analysis.Models
             }
 
             Data.UpdateSolution();
+        }
+
+        /// <summary>
+        /// Marks this stored solution invalid without changing the model attached to
+        /// its experiment or publishing a separate experiment update.  Processing
+        /// changes can affect several saved results for the same experiment; their
+        /// updates are coalesced by <see cref="DataManager"/>.
+        /// </summary>
+        internal void InvalidateForExperimentChange()
+        {
+            IsValid = false;
         }
 		
 		public static SolutionInterface FromModel(Model model, SolverConvergence convergence)
