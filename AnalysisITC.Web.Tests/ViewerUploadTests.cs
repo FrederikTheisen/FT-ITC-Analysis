@@ -23,20 +23,54 @@ public sealed class ViewerUploadTests : IClassFixture<WebApplicationFactory<Prog
     [Fact]
     public async Task ViewerShellUsesListsAndExclusiveProcessingModes()
     {
-        var html = await client.GetStringAsync("/");
+        var page = await client.GetAsync("/");
+        var html = await page.Content.ReadAsStringAsync();
         var script = await client.GetStringAsync("/app.js");
 
+        Assert.True(page.Headers.CacheControl?.NoStore);
+        Assert.Equal("2026.08.05-bootstrap-band.1", page.Headers.GetValues("X-FTITC-Viewer-Build").Single());
         Assert.Contains("id=\"experiment-list\"", html);
         Assert.Contains("id=\"result-list\"", html);
         Assert.DoesNotContain("id=\"experiment-select\"", html);
         Assert.DoesNotContain("id=\"result-select\"", html);
         Assert.Contains("id=\"processed-mode-raw\"", html);
         Assert.Contains("id=\"processed-mode-corrected\"", html);
+        Assert.Contains("id=\"processed-integration-ranges\"", html);
         Assert.Contains("[\"metadata\", \"raw\", \"processed\", \"fit\"]", script);
         Assert.DoesNotContain("renderIntegrated", script);
         Assert.Contains("Baseline = 0", script);
+        Assert.Contains("integrationRangeTraces", script);
+        Assert.Contains("fill: \"toself\"", script);
+        Assert.Contains("Included integration range", script);
+        Assert.Contains("Excluded integration range", script);
         Assert.Contains("useGrouping: false", script);
         Assert.DoesNotContain("toLocaleString", script);
+        Assert.Contains("const xRange = [0,", script);
+        Assert.Contains("minallowed: 0", script);
+        Assert.Contains("anchor: \"y2\"", script);
+        Assert.DoesNotContain("xaxis: \"x2\"", script);
+        Assert.Contains("preferredExperimentView", script);
+        Assert.Contains("parameterSection(\"Fitted parameters\"", script);
+        Assert.Contains("parameterSection(\"Derived parameters\"", script);
+        Assert.Contains("parameter.isLocked ? \"Locked\"", script);
+        Assert.Contains("formatParameterInterval", script);
+        Assert.Contains("Bootstrap interval unavailable", script);
+        Assert.Contains("connectgaps: false", script);
+        Assert.Contains("result-evaluation-temperature", html);
+        Assert.Contains("2026.08.05-bootstrap-band.1", html);
+        Assert.Contains("app.js?v=2026.08.05-bootstrap-band.1", html);
+        Assert.Contains("class=\"brand-mark\" src=\"/assets/ft-itc-icon-64.png", html);
+        Assert.Contains("rel=\"icon\" type=\"image/png\"", html);
+        Assert.Contains("rel=\"apple-touch-icon\"", html);
+        Assert.Contains("const viewerBuild = \"2026.08.05-bootstrap-band.1\"", script);
+        Assert.Contains("buildConfidenceBand", script);
+        Assert.Contains("formatParameterNumber", script);
+        Assert.Contains("95% bootstrap confidence", script);
+
+        var icon = await client.GetAsync("/assets/ft-itc-icon-32.png");
+        Assert.Equal(HttpStatusCode.OK, icon.StatusCode);
+        Assert.Equal("image/png", icon.Content.Headers.ContentType?.MediaType);
+        Assert.True(icon.Content.Headers.ContentLength > 0);
     }
 
     [Fact]
@@ -98,8 +132,36 @@ public sealed class ViewerUploadTests : IClassFixture<WebApplicationFactory<Prog
         if (expectedFormat == "ftitc")
         {
             Assert.True(experiments[0].GetProperty("integrated").GetProperty("correctedHeatMicrojoules").GetArrayLength() > 0);
-            Assert.True(experiments[0].GetProperty("processed").GetProperty("correctedPowerMicrowatts").GetArrayLength() > 0);
-            Assert.True(experiments[0].GetProperty("fits").GetArrayLength() > 0);
+            var processed = experiments[0].GetProperty("processed");
+            Assert.True(processed.GetProperty("correctedPowerMicrowatts").GetArrayLength() > 0);
+            Assert.Equal(
+                experiments[0].GetProperty("injectionCount").GetInt32(),
+                processed.GetProperty("integrationStartSeconds").GetArrayLength());
+            Assert.Equal(
+                processed.GetProperty("integrationStartSeconds").GetArrayLength(),
+                processed.GetProperty("integrationEndSeconds").GetArrayLength());
+            var fits = experiments[0].GetProperty("fits");
+            Assert.True(fits.GetArrayLength() > 0);
+            var fitX = fits[0].GetProperty("x");
+            var confidenceLower = fits[0].GetProperty("confidenceLowerKilojoulesPerMole");
+            var confidenceUpper = fits[0].GetProperty("confidenceUpperKilojoulesPerMole");
+            Assert.Equal(fitX.GetArrayLength(), confidenceLower.GetArrayLength());
+            Assert.Equal(fitX.GetArrayLength(), confidenceUpper.GetArrayLength());
+            var parameters = fits[0].GetProperty("parameters").EnumerateArray().ToArray();
+            Assert.Contains(parameters, parameter =>
+                parameter.GetProperty("key").GetString() == "Offset"
+                && !parameter.GetProperty("isDerived").GetBoolean());
+            Assert.Contains(parameters, parameter =>
+                parameter.GetProperty("key").GetString() == "Gibbs1"
+                && parameter.GetProperty("isDerived").GetBoolean());
+            Assert.All(parameters, parameter =>
+            {
+                Assert.True(parameter.TryGetProperty("isLocked", out _));
+                Assert.True(parameter.TryGetProperty("isGloballyDetermined", out _));
+            });
+            var results = json.RootElement.GetProperty("analysisResults");
+            Assert.True(results.GetArrayLength() > 0);
+            Assert.Contains(results.EnumerateArray(), result => result.GetProperty("solver").GetProperty("bootstrapIterations").GetInt32() > 0);
         }
     }
 
@@ -122,6 +184,7 @@ public sealed class ViewerUploadTests : IClassFixture<WebApplicationFactory<Prog
             Assert.True(result.GetProperty("validity").TryGetProperty("status", out _));
             Assert.True(result.TryGetProperty("modelOptions", out _));
             Assert.True(result.TryGetProperty("constraints", out _));
+            Assert.True(result.TryGetProperty("temperatureParameterEvaluation", out _));
             var resultKey = result.GetProperty("key").GetString();
             Assert.StartsWith("result-", resultKey);
             foreach (var member in result.GetProperty("members").EnumerateArray())
@@ -134,6 +197,16 @@ public sealed class ViewerUploadTests : IClassFixture<WebApplicationFactory<Prog
                 Assert.True(fit.GetProperty("fittedKilojoulesPerMole").GetArrayLength() > 0);
                 Assert.Equal(fit.GetProperty("observedKilojoulesPerMole").GetArrayLength(), fit.GetProperty("residualKilojoulesPerMole").GetArrayLength());
             }
+        });
+        var evaluations = results
+            .Select(result => result.GetProperty("temperatureParameterEvaluation"))
+            .Where(item => item.ValueKind == JsonValueKind.Object)
+            .ToArray();
+        Assert.NotEmpty(evaluations);
+        Assert.All(evaluations, evaluation =>
+        {
+            Assert.True(evaluation.GetProperty("dependences").GetArrayLength() > 0);
+            Assert.True(evaluation.GetProperty("defaultTemperatureCelsius").GetDouble() > -273.15);
         });
     }
 
