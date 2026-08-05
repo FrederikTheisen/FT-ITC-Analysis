@@ -610,7 +610,7 @@ namespace AnalysisITC.Core.Data
 
         public void UpdateProcessing(bool invalidate = true)
         {
-            if (Solution != null && invalidate) Solution.Invalidate();
+            if (invalidate) DataManager.InvalidateSolutionsForExperiment(this);
 
             CalculateExperimentHeatDirection();
             MarkModified();
@@ -748,15 +748,15 @@ namespace AnalysisITC.Core.Data
 
             if (!string.IsNullOrEmpty(this.Comments)) info.Add("**Comment:** " + this.Comments);
 
-            //if (attributeInfo.Count > 0)
-            //{
-            //    info.Add("**Attributes:**");
-            //
-            //    foreach (var att in attributeInfo)
-            //    {
-            //        info.Add($"  **{att.Name}:** {att.Value}");
-            //    }
-            //}
+            if (attributeInfo.Count > 0)
+            {
+                info.Add("**Attributes:**");
+
+                foreach (var att in attributeInfo)
+                {
+                    info.Add($"  **{att.Name}:** {att.Value}");
+                }
+            }
 
             return info;
         }
