@@ -34,7 +34,7 @@ public sealed class SkiaFigureRenderer
     internal const float HorizontalAxisTitleOffset = 0f;
     internal const float VerticalAxisTitleMinimumOffset = 4f;
     internal const float VerticalAxisTitleOffsetFontFraction = 0.3f;
-    internal const float AnnotationInset = 8f;
+    internal const float AnnotationTickClearance = 2f;
     internal const float AnnotationPaddingX = 6f;
     internal const float AnnotationPaddingY = 2f;
     internal const float AnnotationLineSpacingFactor = 0.15f;
@@ -169,7 +169,7 @@ public sealed class SkiaFigureRenderer
 
         if (settings.ShowAnnotationBoxes)
             foreach (var box in panel.AnnotationBoxes)
-                DrawAnnotationBox(drawing, panel, rect, box, settings.AnnotationFontSize ?? 12f, strokeWidth);
+                DrawAnnotationBox(drawing, panel, rect, box, settings.AnnotationFontSize ?? 12f, strokeWidth, settings.MajorTickLength ?? TickLength);
     }
 
     void DrawSeries(SkiaDrawingContext drawing, PublicationFigureOptions options, PublicationFigurePanel panel, SKRect rect, PublicationSeries series, float strokeWidth)
@@ -377,7 +377,7 @@ public sealed class SkiaFigureRenderer
         }
     }
 
-    void DrawAnnotationBox(SkiaDrawingContext drawing, PublicationFigurePanel panel, SKRect rect, PublicationAnnotationBox box, float fontSize, float strokeWidth)
+    void DrawAnnotationBox(SkiaDrawingContext drawing, PublicationFigurePanel panel, SKRect rect, PublicationAnnotationBox box, float fontSize, float strokeWidth, float majorTickLength)
     {
         if (box.Lines.Count == 0) return;
 
@@ -388,8 +388,9 @@ public sealed class SkiaFigureRenderer
         var width = widths.Max() + paddingx * 2;
         var height = box.Lines.Count * lineHeight + (box.Lines.Count - 1) * lineGap + AnnotationPaddingY * 2;
         var upper = ResolveBoxUpperPlacement(panel, box);
-        var x = rect.Right - width - AnnotationInset;
-        var y = upper ? rect.Top + AnnotationInset : rect.Bottom - height - AnnotationInset;
+        var inset = majorTickLength + AnnotationTickClearance;
+        var x = rect.Right - width - inset;
+        var y = upper ? rect.Top + inset : rect.Bottom - height - inset;
         var boxRect = new SKRect(x, y, x + width, y + height);
 
         drawing.FillRect(boxRect, AnnotationBackground);
