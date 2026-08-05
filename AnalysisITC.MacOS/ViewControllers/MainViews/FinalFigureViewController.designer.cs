@@ -94,6 +94,9 @@ namespace AnalysisITC
 		AppKit.NSSwitch EmbeddedDrawOffsetCorrected { get; set; }
 
 		[Outlet]
+		AppKit.NSSwitch EmbeddedDrawParameterGuides { get; set; }
+
+		[Outlet]
 		AppKit.NSSwitch EmbeddedDrawZeroLine { get; set; }
 
 		[Outlet]
@@ -367,6 +370,11 @@ namespace AnalysisITC
 			if (EmbeddedDrawOffsetCorrected != null) {
 				EmbeddedDrawOffsetCorrected.Dispose ();
 				EmbeddedDrawOffsetCorrected = null;
+			}
+
+			if (EmbeddedDrawParameterGuides != null) {
+				EmbeddedDrawParameterGuides.Dispose ();
+				EmbeddedDrawParameterGuides = null;
 			}
 
 			if (EmbeddedDrawZeroLine != null) {

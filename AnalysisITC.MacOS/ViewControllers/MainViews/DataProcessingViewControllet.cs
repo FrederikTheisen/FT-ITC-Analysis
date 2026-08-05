@@ -317,9 +317,10 @@ namespace AnalysisITC
             if (ProcessingOptionsMenuButton?.Menu == null) return;
 
             var hasProcessor = ContextIsValid && Processor?.Interpolator != null;
+            var canEditProcessor = hasProcessor && !Processor.IsLocked;
             var splineInterpolator = Processor?.Interpolator as SplineInterpolator;
-            var canConvertToSmoothSpline = hasProcessor && Processor.Interpolator is PolynomialLeastSquaresInterpolator or SegmentedBaselineInterpolator;
-            var canConvertToLinearSpline = hasProcessor && (splineInterpolator == null || splineInterpolator.Algorithm != SplineInterpolator.SplineInterpolatorAlgorithm.Linear);
+            var canConvertToSmoothSpline = canEditProcessor && Processor.Interpolator is PolynomialLeastSquaresInterpolator or SegmentedBaselineInterpolator;
+            var canConvertToLinearSpline = canEditProcessor && (splineInterpolator == null || splineInterpolator.Algorithm != SplineInterpolator.SplineInterpolatorAlgorithm.Linear);
             var canConvertToAnySpline = canConvertToSmoothSpline || canConvertToLinearSpline;
             var hasSmoothSpline = splineInterpolator?.Algorithm == SplineInterpolator.SplineInterpolatorAlgorithm.Smooth;
 
@@ -365,6 +366,12 @@ namespace AnalysisITC
 
             if (SplineConversionPointDensityControl != null)
                 SplineConversionPointDensityControl.Enabled = canConvertToAnySpline;
+
+            if (ConvertToLinearSplineButton != null)
+                ConvertToLinearSplineButton.Enabled = canConvertToLinearSpline;
+
+            if (ConvertToSmoothSplineButton != null)
+                ConvertToSmoothSplineButton.Enabled = canConvertToSmoothSpline;
 
             if (SplinePointDensityControl != null)
                 SplinePointDensityControl.Enabled = splineInterpolator != null;
@@ -475,7 +482,7 @@ namespace AnalysisITC
 
         void ConvertCurrentProcessorToSpline(SplineInterpolator.SplineInterpolatorAlgorithm algorithm)
         {
-            if (!ContextIsValid || Processor?.Interpolator == null) return;
+            if (!ContextIsValid || Processor?.Interpolator == null || Processor.IsLocked) return;
 
             if (Processor.Interpolator is SplineInterpolator splineInterpolator)
             {
@@ -494,6 +501,16 @@ namespace AnalysisITC
             SplineInterpolator.PolynomialToSplineConversionTargetAlgorithm = algorithm;
             Processor.Interpolator.ConvertToSpline(ProductSplinePointDensity(algorithm));
             UpdateUI();
+        }
+
+        partial void ConvertToLinearSplineClicked(NSButton sender)
+        {
+            ConvertCurrentProcessorToSpline(SplineInterpolator.SplineInterpolatorAlgorithm.Linear);
+        }
+
+        partial void ConvertToSmoothSplineClicked(NSButton sender)
+        {
+            ConvertCurrentProcessorToSpline(SplineInterpolator.SplineInterpolatorAlgorithm.Smooth);
         }
 
         int ProductSplinePointDensity(SplineInterpolator.SplineInterpolatorAlgorithm algorithm)

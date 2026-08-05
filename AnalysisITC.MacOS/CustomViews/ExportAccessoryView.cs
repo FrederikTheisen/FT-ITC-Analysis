@@ -51,7 +51,8 @@ namespace AnalysisITC
                 _ => 2
             });
 
-            UnifyTimeAxisControl.State = Settings.UnifyTimeAxis ? NSCellStateValue.On : NSCellStateValue.Off;
+            // Legacy accessory view: thermogram exports are now always per experiment.
+            UnifyTimeAxisControl.Superview.Hidden = true;
 
             ExportCorrectedControl.Enabled = settings.BaselineCorrectionEnabled;
             ExportCorrectedControl.State = Settings.ExportBaselineCorrectDataPoints ? NSCellStateValue.On : NSCellStateValue.Off;
@@ -131,9 +132,7 @@ namespace AnalysisITC
 
         partial void UnifyTimeAxisControlAction(NSButton sender)
         {
-            Settings.UnifyTimeAxis = sender.State == NSCellStateValue.On;
-
-            AppEventHandler.PrintAndLog("Settings.UnifyTimeAxis" + Settings.UnifyTimeAxis.ToString());
+            // Retained only because the legacy storyboard still declares this action.
         }
 
         partial void BaselineCorrectControlAction(NSButton sender)

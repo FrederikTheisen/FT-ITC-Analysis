@@ -1,5 +1,6 @@
 ﻿using System;
 using AppKit;
+using CoreGraphics;
 using Foundation;
 
 using AnalysisITC.Core.Application;
@@ -77,5 +78,73 @@ namespace AnalysisITC
 
         [Export("tableView:heightOfRow:")]
         public override nfloat GetRowHeight(NSTableView tableView, nint row) => 48;
+
+        [Export("tableView:rowViewForRow:")]
+        public override NSTableRowView CoreGetRowView(NSTableView tableView, nint row)
+        {
+            return new SourceListHoverRowView();
+        }
+    }
+
+    /// <summary>
+    /// Keeps the source list's native selection appearance while providing a
+    /// quiet indication that an unselected row is under the pointer.
+    /// </summary>
+    sealed class SourceListHoverRowView : NSTableRowView
+    {
+        NSTrackingArea hoverTrackingArea;
+        bool isHovered;
+
+        public override void UpdateTrackingAreas()
+        {
+            base.UpdateTrackingAreas();
+
+            if (hoverTrackingArea != null)
+            {
+                RemoveTrackingArea(hoverTrackingArea);
+                hoverTrackingArea = null;
+            }
+
+            hoverTrackingArea = new NSTrackingArea(
+                Bounds,
+                NSTrackingAreaOptions.ActiveInKeyWindow
+                    | NSTrackingAreaOptions.InVisibleRect
+                    | NSTrackingAreaOptions.MouseEnteredAndExited,
+                this,
+                null);
+            AddTrackingArea(hoverTrackingArea);
+        }
+
+        public override void MouseEntered(NSEvent theEvent)
+        {
+            base.MouseEntered(theEvent);
+            SetHovered(true);
+        }
+
+        public override void MouseExited(NSEvent theEvent)
+        {
+            base.MouseExited(theEvent);
+            SetHovered(false);
+        }
+
+        public override void DrawBackground(CGRect dirtyRect)
+        {
+            base.DrawBackground(dirtyRect);
+
+            if (!isHovered || Selected) return;
+
+            NSColor.Label.ColorWithAlphaComponent(0.045f).SetFill();
+            var hoverBounds = Bounds;
+            hoverBounds.Inflate(-10, -2);
+            NSBezierPath.FromRoundedRect(hoverBounds, 5, 5).Fill();
+        }
+
+        void SetHovered(bool hovered)
+        {
+            if (isHovered == hovered) return;
+
+            isHovered = hovered;
+            NeedsDisplay = true;
+        }
     }
 }

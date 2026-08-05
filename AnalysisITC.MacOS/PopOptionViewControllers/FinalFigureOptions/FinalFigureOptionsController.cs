@@ -93,6 +93,7 @@ namespace AnalysisITC
             public NSSwitch BadDataErrorBars { get; set; }
             public NSSwitch DrawConfidence { get; set; }
             public NSSwitch DrawOffsetCorrected { get; set; }
+            public NSSwitch DrawParameterGuides { get; set; }
         }
 
         internal static void SyncGeneral(GeneralControls controls)
@@ -458,6 +459,7 @@ namespace AnalysisITC
             SetState(controls.BadDataErrorBars, FinalFigureGraphView.ShowBadDataErrorBars);
             SetState(controls.DrawConfidence, FinalFigureGraphView.DrawConfidence);
             SetState(controls.DrawOffsetCorrected, FinalFigureGraphView.DrawFitOffsetCorrected);
+            SetState(controls.DrawParameterGuides, FinalFigureGraphView.DrawParameterGuides);
             SetState(controls.HideBadData, FinalFigureGraphView.ShowBadData);
             SetState(controls.ShowResiduals, FinalFigureGraphView.ShowResiduals);
             SetState(controls.AddGapToResidualPlot, FinalFigureGraphView.GapResidualGraph);
@@ -539,6 +541,11 @@ namespace AnalysisITC
             if (controls.DrawOffsetCorrected != null)
             {
                 FinalFigureGraphView.DrawFitOffsetCorrected = IsOn(controls.DrawOffsetCorrected);
+            }
+
+            if (controls.DrawParameterGuides != null)
+            {
+                FinalFigureGraphView.DrawParameterGuides = IsOn(controls.DrawParameterGuides);
             }
 
             if (controls.HideBadData != null)

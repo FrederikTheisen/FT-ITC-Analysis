@@ -550,12 +550,12 @@ namespace AnalysisITC
                 var xfraction = (CursorPositionInView.X - Graph.Frame.X) / Graph.Frame.Width;
                 var time = xfraction * (Graph.XAxis.Max - Graph.XAxis.Min) + Graph.XAxis.Min;
 
-                var clickedinj = Data.Injections.Where(inj => inj.Time < time && inj.Time + inj.Delay > time);
+                var clickedinj = Graph.InjectionAtTime(time);
 
-                if (clickedinj.Count() != 0)
+                if (clickedinj != null)
                 {
-                    SelectedPeak = clickedinj.First().ID;
-                    InjectionSelected?.Invoke(clickedinj.First(), clickedinj.First().ID);
+                    SelectedPeak = clickedinj.ID;
+                    InjectionSelected?.Invoke(clickedinj, clickedinj.ID);
                 }
 
                 if (theEvent.ClickCount > 1 && SelectedPeak != -1) FocusPeak(); // Double click

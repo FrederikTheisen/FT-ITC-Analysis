@@ -1055,8 +1055,8 @@ namespace AnalysisITC
                     Pair(
                         "Status",
                         solution.IsValid
-                            ? "Solution valid"
-                            : "Solution invalid")));
+                            ? "Valid"
+                            : "Solution expired")));
             }
         }
 

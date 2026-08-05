@@ -33,9 +33,13 @@ namespace AnalysisITC
         NSTableView LoadedInjectionTableView;
         LoadedInjectionDataSource LoadedInjectionSource;
         LoadedInjectionTableDelegate LoadedInjectionDelegate;
+        NSScrollView OverviewInfoScrollView;
         NSStackView OverviewInfoStackView;
+        NSLayoutConstraint OverviewInfoPreferredHeightConstraint;
         NSFont OverviewInfoFont;
         bool isLoadingRecentData;
+        static readonly nfloat OverviewInfoMinimumHeight = 60;
+        static readonly nfloat OverviewInfoMaximumHeight = 220;
         public static bool OverviewShowsInjections { get; private set; }
         public static event EventHandler OverviewDisplayModeDidChange;
 
@@ -84,6 +88,7 @@ namespace AnalysisITC
             base.ViewDidLayout();
 
             ResizeLoadedInjectionColumns();
+            UpdateOverviewInfoScrollHeight();
         }
 
         void OnOverviewDisplayModeDidChange(object sender, EventArgs e) => UpdateGraph();
@@ -155,12 +160,44 @@ namespace AnalysisITC
 
         void SetupOverviewInfoTable()
         {
+            OverviewInfoScrollView = InfoLabel?.EnclosingScrollView;
             OverviewInfoStackView = InfoLabel?.Superview as NSStackView;
             if (OverviewInfoStackView == null) return;
 
             OverviewInfoFont = InfoLabel.Font ?? NSFont.SystemFontOfSize(NSFont.SmallSystemFontSize);
             OverviewInfoStackView.RemoveArrangedSubview(InfoLabel);
             InfoLabel.RemoveFromSuperview();
+
+            if (OverviewInfoScrollView != null)
+            {
+                OverviewInfoPreferredHeightConstraint = OverviewInfoScrollView.HeightAnchor.ConstraintEqualToConstant(OverviewInfoMinimumHeight);
+                OverviewInfoPreferredHeightConstraint.Priority = 750;
+                OverviewInfoPreferredHeightConstraint.Active = true;
+            }
+        }
+
+        void UpdateOverviewInfoScrollHeight(bool resetScrollPosition = false)
+        {
+            if (OverviewInfoScrollView == null
+                || OverviewInfoStackView == null
+                || OverviewInfoPreferredHeightConstraint == null) return;
+
+            OverviewInfoStackView.LayoutSubtreeIfNeeded();
+
+            var contentHeight = OverviewInfoStackView.FittingSize.Height;
+            var preferredHeight = contentHeight;
+            if (preferredHeight < OverviewInfoMinimumHeight)
+                preferredHeight = OverviewInfoMinimumHeight;
+            else if (preferredHeight > OverviewInfoMaximumHeight)
+                preferredHeight = OverviewInfoMaximumHeight;
+
+            if (Math.Abs(OverviewInfoPreferredHeightConstraint.Constant - preferredHeight) > 0.5)
+                OverviewInfoPreferredHeightConstraint.Constant = preferredHeight;
+
+            if (!resetScrollPosition) return;
+
+            OverviewInfoScrollView.ContentView.ScrollToPoint(CGPoint.Empty);
+            OverviewInfoScrollView.ReflectScrolledClipView(OverviewInfoScrollView.ContentView);
         }
 
         void RebuildLoadedInjectionColumns()
@@ -387,7 +424,11 @@ namespace AnalysisITC
                 view.Dispose();
             }
 
-            if (Data == null) return;
+            if (Data == null)
+            {
+                UpdateOverviewInfoScrollHeight(resetScrollPosition: true);
+                return;
+            }
 
             var lines = Data.GetInfoString()
                 .Select(OverviewPlainText)
@@ -396,7 +437,11 @@ namespace AnalysisITC
             var rows = lines
                 .Select(OverviewInfoRow)
                 .ToArray();
-            if (rows.Length == 0) return;
+            if (rows.Length == 0)
+            {
+                UpdateOverviewInfoScrollHeight(resetScrollPosition: true);
+                return;
+            }
 
             var grid = NSGridView.Create(rows);
             grid.ColumnSpacing = 8;
@@ -430,6 +475,9 @@ namespace AnalysisITC
                 NSLayoutAttribute.Width,
                 1,
                 -10));
+
+            OverviewInfoStackView.LayoutSubtreeIfNeeded();
+            UpdateOverviewInfoScrollHeight(resetScrollPosition: true);
         }
 
         NSView[] OverviewInfoRow(string line)
@@ -553,5 +601,13 @@ namespace AnalysisITC
 
             LoadDataPrompt.Hidden = DataManager.DataIsLoaded;
         }
+    }
+
+    [Register("OverviewInfoDocumentView")]
+    internal sealed class OverviewInfoDocumentView : NSView
+    {
+        public OverviewInfoDocumentView(IntPtr handle) : base(handle) { }
+
+        public override bool IsFlipped => true;
     }
 }

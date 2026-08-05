@@ -852,6 +852,38 @@ namespace AnalysisITC.UI.MacOS.Drawing
             layer.Context.StrokePath();
         }
 
+        protected void DrawGrid(CGContext gc)
+        {
+            var yticks = YAxis.GetValidTicks(false).Item1;
+            var xticks = XAxis.GetValidTicks(false).Item1;
+
+            var grid = new CGPath();
+
+            foreach (var t in yticks.Where(v => v != 0))
+            {
+                var y = GetRelativePosition(0, t / YAxis.ValueFactor).Y;
+
+                grid.MoveToPoint(0, y);
+                grid.AddLineToPoint(PlotSize.Width, y);
+            }
+
+            foreach (var t in xticks)
+            {
+                var x = GetRelativePosition(t / XAxis.ValueFactor, 0).X;
+
+                grid.MoveToPoint(x, 0);
+                grid.AddLineToPoint(x, PlotSize.Height);
+            }
+
+            var layer = CGLayer.Create(gc, Frame.Size);
+            layer.Context.SetLineWidth(1);
+            layer.Context.SetStrokeColor(GridLineColor);
+            layer.Context.AddPath(grid);
+            layer.Context.StrokePath();
+
+            gc.DrawLayer(layer, Frame.Location);
+        }
+
         #endregion
         #endregion
     }
@@ -1000,7 +1032,68 @@ namespace AnalysisITC.UI.MacOS.Drawing
 
             base.Draw(gc);
 
+            DrawInjectionMarkers(gc);
+
             if (DrawCursorPositionInfo) DrawInfo(gc);
+        }
+
+        void DrawInjectionMarkers(CGContext gc)
+        {
+            if (ExperimentData.Injections == null || ExperimentData.Injections.Count == 0) return;
+
+            const float markerWidth = 0.8f;
+            const float capWidth = 4f;
+            const float capHeight = 8f;
+            const float minimumLabelSpacing = 22f;
+            const int maximumLabelCount = 80;
+
+            var layer = CGLayer.Create(gc, Frame.Size);
+            var markerColor = NSColor.SystemOrange.ColorWithAlphaComponent(.55f);
+            var capColor = NSColor.SystemOrange.ColorWithAlphaComponent(.8f);
+            var markerLines = new CGPath();
+
+            foreach (var injection in ExperimentData.Injections)
+            {
+                if (injection.Time < XAxis.Min || injection.Time > XAxis.Max) continue;
+
+                var x = GetRelativePosition(injection.Time, YAxis.Min).X;
+                markerLines.MoveToPoint(x, 0);
+                markerLines.AddLineToPoint(x, Frame.Height);
+
+                layer.Context.SetFillColor(capColor.CGColor);
+                layer.Context.FillRect(new CGRect(x - capWidth / 2, Frame.Height - capHeight, capWidth, capHeight));
+            }
+
+            layer.Context.SetLineWidth(markerWidth);
+            layer.Context.SetStrokeColor(markerColor.CGColor);
+            layer.Context.AddPath(markerLines);
+            layer.Context.StrokePath();
+
+            if (ExperimentData.Injections.Count <= maximumLabelCount)
+            {
+                using var labelFont = new CTFont("Helvetica Neue", 9);
+                var lastLabelX = double.NegativeInfinity;
+
+                foreach (var injection in ExperimentData.Injections)
+                {
+                    if (injection.Time < XAxis.Min || injection.Time > XAxis.Max) continue;
+
+                    var x = GetRelativePosition(injection.Time, YAxis.Min).X;
+                    if (x - lastLabelX < minimumLabelSpacing) continue;
+
+                    DrawString(
+                        layer,
+                        (injection.ID + 1).ToString(),
+                        new CGPoint(x, Frame.Height - capHeight - 7),
+                        labelFont,
+                        textcolor: capColor.CGColor);
+                    lastLabelX = x;
+                }
+            }
+
+            gc.DrawLayer(layer, Frame.Location);
+            markerLines.Dispose();
+            layer.Dispose();
         }
 
         void DrawTemperature(CGContext gc)
@@ -1468,6 +1561,7 @@ namespace AnalysisITC.UI.MacOS.Drawing
     {
         int focused = -1;
 
+        public bool ShowGrid { get; set; } = true;
         public bool ShowInjections { get; set; } = true;
         List<FeatureBoundingBox> SplineHandlePoints { get; set; } = new List<FeatureBoundingBox>();
         List<FeatureBoundingBox> SplinePoints { get; set; } = new List<FeatureBoundingBox>();
@@ -1485,6 +1579,12 @@ namespace AnalysisITC.UI.MacOS.Drawing
         }
 
         public void SetFocusedInjection(int i = -1) => focused = i;
+
+        internal InjectionData InjectionAtTime(double time)
+        {
+            return ExperimentData.Injections.LastOrDefault(injection =>
+                injection.Time <= time && time < injection.Time + injection.Delay);
+        }
 
         public bool SetHoverFeature(MouseOverFeatureEvent feature)
         {
@@ -1513,6 +1613,8 @@ namespace AnalysisITC.UI.MacOS.Drawing
 
         internal override void Draw(CGContext gc)
         {
+            if (ShowGrid && ExperimentData.HasThermogram) DrawGrid(gc);
+
             base.Draw(gc);
 
             IntegrationHandleBoxes.Clear();
@@ -1731,17 +1833,16 @@ namespace AnalysisITC.UI.MacOS.Drawing
 
                 CursorPosition = xfraction * (XAxis.Max - XAxis.Min) + XAxis.Min;
                 var datapoint = CursorPosition > ExperimentData.DataPoints.Last().Time ? ExperimentData.DataPoints.Last() : ExperimentData.DataPoints.First(dp => dp.Time > CursorPosition);
-                var clickedinj = ExperimentData.Injections.Where(inj => inj.IntegrationStartTime < datapoint.Time && inj.IntegrationEndTime + 1 > datapoint.Time);
+                var injection = InjectionAtTime(CursorPosition);
 
-                if (clickedinj.Count() > 0)
+                if (injection != null)
                 {
-                    var inj = clickedinj.First();
-                    string line1 = "Inj #" + (inj.ID + 1).ToString() + " | ";
-                    if (double.IsFinite(inj.Enthalpy)) line1 += inj.Enthalpy2.ToFormattedString(AppSettings.EnergyUnit, withunit: true, permole: true);
-                    else line1 += (1000000 * inj.PeakArea).ToString() + " µJ";
+                    string line1 = "Inj #" + (injection.ID + 1).ToString() + " | ";
+                    if (double.IsFinite(injection.Enthalpy)) line1 += injection.Enthalpy2.ToFormattedString(AppSettings.EnergyUnit, withunit: true, permole: true);
+                    else line1 += (1000000 * injection.PeakArea).ToString() + " µJ";
 
                     CursorInfo.Add(line1);
-                    CursorInfo.Add("Heat: " + inj.HeatDirection.GetEnumDescription());
+                    CursorInfo.Add("Heat: " + injection.HeatDirection.GetEnumDescription());
                 }
                 
                 CursorInfo.Add("Time: " + datapoint.Time.ToString() + "s");
@@ -1856,37 +1957,6 @@ namespace AnalysisITC.UI.MacOS.Drawing
             gc.DrawLayer(layer, Frame.Location);
         }
 
-        protected void DrawGrid(CGContext gc)
-        {
-            var yticks = YAxis.GetValidTicks(false).Item1;
-            var xticks = XAxis.GetValidTicks(false).Item1;
-
-            var grid = new CGPath();
-
-            foreach (var t in yticks.Where(v => v != 0))
-            {
-                var y = GetRelativePosition(0, t / YAxis.ValueFactor).Y;
-
-                grid.MoveToPoint(0, y);
-                grid.AddLineToPoint(PlotSize.Width, y);
-            }
-
-            foreach (var t in xticks)
-            {
-                var x = GetRelativePosition(t / XAxis.ValueFactor, 0).X;
-
-                grid.MoveToPoint(x, 0);
-                grid.AddLineToPoint(x, PlotSize.Height);
-            }
-
-            CGLayer layer = CGLayer.Create(gc, Frame.Size);
-            layer.Context.SetLineWidth(1);
-            layer.Context.SetStrokeColor(GridLineColor);
-            layer.Context.AddPath(grid);
-            layer.Context.StrokePath();
-
-            gc.DrawLayer(layer, Frame.Location);
-        }
     }
 
     public class DataFittingGraph : ThermogramGraph

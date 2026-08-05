@@ -315,33 +315,6 @@ namespace AnalysisITC.UI.MacOS.Drawing
             gc.DrawLayer(layer, Frame.Location);
         }
 
-        void DrawGrid(CGContext gc)
-        {
-            var grid = new CGPath();
-
-            foreach (var t in YAxis.GetValidTicks(false).Item1.Where(v => v != 0))
-            {
-                var y = GetRelativePosition(0, t / YAxis.ValueFactor).Y;
-                grid.MoveToPoint(0, y);
-                grid.AddLineToPoint(PlotSize.Width, y);
-            }
-
-            foreach (var t in XAxis.GetValidTicks(false).Item1)
-            {
-                var x = GetRelativePosition(t / XAxis.ValueFactor, 0).X;
-                grid.MoveToPoint(x, 0);
-                grid.AddLineToPoint(x, PlotSize.Height);
-            }
-
-            var layer = CGLayer.Create(gc, Frame.Size);
-            layer.Context.SetLineWidth(1);
-            layer.Context.SetStrokeColor(GridLineColor);
-            layer.Context.AddPath(grid);
-            layer.Context.StrokePath();
-
-            gc.DrawLayer(layer, Frame.Location);
-        }
-
         double EvaluateAverageLine(double injectionNumber)
         {
             return AverageLineSlope * injectionNumber + AverageLineIntercept;

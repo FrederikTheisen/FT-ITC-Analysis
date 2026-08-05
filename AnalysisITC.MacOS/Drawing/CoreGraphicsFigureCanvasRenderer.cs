@@ -67,7 +67,7 @@ namespace AnalysisITC.UI.MacOS.Drawing
         const float HorizontalAxisTitleOffset = 2;
         const float VerticalAxisTitleMinimumOffset = 4;
         const float VerticalAxisTitleOffsetFontFraction = 0.3f;
-        const float AnnotationInset = 8;
+        const float AnnotationTickClearance = 2;
         const float AnnotationPaddingX = 6;
         const float AnnotationPaddingY = 2;
         const float AnnotationLineSpacingFactor = 0.15f;
@@ -280,7 +280,7 @@ namespace AnalysisITC.UI.MacOS.Drawing
             DrawAxes(context, document, panel, rect, settings, drawXAxisLabels, drawXAxisTitle, pageLeft);
 
             if (settings.ShowAnnotationBoxes)
-                foreach (var box in panel.AnnotationBoxes) DrawAnnotationBox(context, panel, rect, box, settings.AnnotationFontSize, settings.StrokeWidth);
+                foreach (var box in panel.AnnotationBoxes) DrawAnnotationBox(context, panel, rect, box, settings.AnnotationFontSize, settings.StrokeWidth, settings.MajorTickLength);
         }
 
         void DrawSeries(CGContext context, PublicationFigureOptions options, PublicationFigurePanel panel, CGRect rect, PublicationSeries series, float strokeWidth)
@@ -478,7 +478,7 @@ namespace AnalysisITC.UI.MacOS.Drawing
                 rich: true);
         }
 
-        void DrawAnnotationBox(CGContext context, PublicationFigurePanel panel, CGRect rect, PublicationAnnotationBox box, float fontSize, float strokeWidth)
+        void DrawAnnotationBox(CGContext context, PublicationFigurePanel panel, CGRect rect, PublicationAnnotationBox box, float fontSize, float strokeWidth, float majorTickLength)
         {
             if (box.Lines.Count == 0) return;
             var sizes = box.Lines.Select(line => MeasureRichText(line, fontSize)).ToList();
@@ -488,8 +488,9 @@ namespace AnalysisITC.UI.MacOS.Drawing
             var width = sizes.Max(size => size.Width) + paddingX * 2;
             var height = box.Lines.Count * lineHeight + (box.Lines.Count - 1) * lineGap + AnnotationPaddingY * 2;
             var upper = ResolveBoxUpperPlacement(panel, box);
-            var x = rect.GetMaxX() - width - AnnotationInset;
-            var y = upper ? rect.GetMaxY() - height - AnnotationInset : rect.Y + AnnotationInset;
+            var inset = majorTickLength + AnnotationTickClearance;
+            var x = rect.GetMaxX() - width - inset;
+            var y = upper ? rect.GetMaxY() - height - inset : rect.Y + inset;
             var boxRect = new CGRect(x, y, width, height);
 
             context.SetFillColor(White);

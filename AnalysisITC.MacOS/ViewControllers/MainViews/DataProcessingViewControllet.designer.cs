@@ -46,6 +46,12 @@ namespace AnalysisITC
 		AppKit.NSButton CorrectedScopeButton { get; set; }
 
 		[Outlet]
+		AppKit.NSButton ConvertToLinearSplineButton { get; set; }
+
+		[Outlet]
+		AppKit.NSButton ConvertToSmoothSplineButton { get; set; }
+
+		[Outlet]
 		AppKit.NSSegmentedControl DataZoomSegControl { get; set; }
 
 		[Outlet]
@@ -173,6 +179,12 @@ namespace AnalysisITC
 
 		[Action ("CopyToNextButtonAction:")]
 		partial void CopyToNextButtonAction (Foundation.NSObject sender);
+
+		[Action ("ConvertToLinearSplineClicked:")]
+		partial void ConvertToLinearSplineClicked (AppKit.NSButton sender);
+
+		[Action ("ConvertToSmoothSplineClicked:")]
+		partial void ConvertToSmoothSplineClicked (AppKit.NSButton sender);
 
 		[Action ("DiscardIntRangeAction:")]
 		partial void DiscardIntRangeAction (AppKit.NSButton sender);
@@ -317,6 +329,16 @@ namespace AnalysisITC
 			if (CorrectedScopeButton != null) {
 				CorrectedScopeButton.Dispose ();
 				CorrectedScopeButton = null;
+			}
+
+			if (ConvertToLinearSplineButton != null) {
+				ConvertToLinearSplineButton.Dispose ();
+				ConvertToLinearSplineButton = null;
+			}
+
+			if (ConvertToSmoothSplineButton != null) {
+				ConvertToSmoothSplineButton.Dispose ();
+				ConvertToSmoothSplineButton = null;
 			}
 
 			if (DataZoomSegControl != null) {

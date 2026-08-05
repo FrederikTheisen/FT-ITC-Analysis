@@ -150,6 +150,12 @@ namespace AnalysisITC.UI.MacOS.Drawing
             set => IntegrationGraph.ShowFitParameters = value;
         }
 
+        public bool DrawParameterGuides
+        {
+            get => IntegrationGraph.ShowParameterGuides;
+            set => IntegrationGraph.ShowParameterGuides = value;
+        }
+
         public bool DrawExpDetails
         {
             get => DataGraph != null && DataGraph.ShowExperimentDetails;

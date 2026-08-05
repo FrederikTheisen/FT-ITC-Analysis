@@ -30,7 +30,6 @@ namespace AnalysisITC
         NSSegmentedControl overviewDisplayControl;
         bool allowDirtyClose;
         bool stopableProcessRunning;
-        int toolbarSplineConversionPointDensitySegment = 1;
         SupportingFigureCanvasWindowController supportingFigureController;
 
         public MainWindowController (IntPtr handle) : base (handle)
@@ -514,7 +513,7 @@ namespace AnalysisITC
             var hasAttributes = hasData && DataManager.Current.Attributes.Count > 0;
             var canRecalculateActualConcentrations = CanRecalculateActualConcentrations(DataManager.Current);
 
-            menu.AddItem(CreateContextMenuItem("Experiment attributes...", "openattributes", hasData, (s, e) => OpenCurrentExperimentAttributes()));
+            menu.AddItem(CreateContextMenuItem("Details...", "openattributes", hasData, (s, e) => OpenCurrentExperimentAttributes()));
             menu.AddItem(CreateCopyAttributesMenuItem(hasAttributes));
             menu.AddItem(CreateCopyAttributeMenuItem(hasAttributes));
             menu.AddItem(CreateContextMenuItem("Clear attributes", "clearattributes", hasAttributes, (s, e) =>
@@ -528,22 +527,15 @@ namespace AnalysisITC
                 DataManager.Current.ClearAttributes();
                 UpdateContextToolbarMenu();
             }));
-            menu.AddItem(NSMenuItem.SeparatorItem);
-            menu.AddItem(CreateContextMenuItem("Experiment merger...", "experimentmerger", DataManager.TandemMergerToolEnabled, OpenTool));
-            menu.AddItem(CreateContextMenuItem("Buffer subtraction...", "buffersubtraction", DataManager.Data.Count > 0, OpenSubtractionTool));
             if (hasData && DataManager.Current.DataSourceFormat == ITCDataFormat.IntegratedHeats)
             {
+                menu.AddItem(NSMenuItem.SeparatorItem);
                 menu.AddItem(CreateContextMenuItem("Recalculate actual concentrations", "recalculateactualconcentrations", canRecalculateActualConcentrations, (s, e) => RecalculateActualConcentrations(DataManager.Current)));
             }
             menu.AddItem(NSMenuItem.SeparatorItem);
             menu.AddItem(CreateContextMenuItem("Duplicate data", "duplicate", hasData, (s, e) => DataManager.DuplicateSelectedData(DataManager.Current)));
             menu.AddItem(CreateContextMenuItem("Export data...", "exportselecteddata", hasData, (s, e) => Exporter.Export(null, ExportDataSelection.SelectedData)));
             menu.AddItem(NSMenuItem.SeparatorItem);
-            menu.AddItem(CreateContextMenuItem(hasData && DataManager.Current.Include ? "Disable active" : "Enable active", "toggleinclude", hasData, (s, e) =>
-            {
-                DataManager.Current.ToggleInclude();
-                UpdateContextToolbarMenu();
-            }));
             menu.AddItem(CreateContextMenuItem("Clear solution", "clearsolution", hasData && DataManager.Current.Solution != null, (s, e) =>
             {
                 var dataName = string.IsNullOrWhiteSpace(DataManager.Current.Name) ? DataManager.Current.FileName : DataManager.Current.Name;
@@ -576,14 +568,9 @@ namespace AnalysisITC
 
         void PopulateProcessingToolbarMenu(NSMenu menu)
         {
-            var data = DataManager.Current;
-            var processor = data?.Processor;
-            var hasProcessor = data?.HasThermogram == true && processor?.Interpolator != null;
+            var processor = DataManager.Current?.Processor;
             var splineInterpolator = processor?.Interpolator as SplineInterpolator;
             var hasSmoothSpline = splineInterpolator?.Algorithm == SplineInterpolator.SplineInterpolatorAlgorithm.Smooth;
-            var canConvertToSmoothSpline = hasProcessor && (processor.Interpolator is PolynomialLeastSquaresInterpolator || processor.Interpolator is SegmentedBaselineInterpolator);
-            var canConvertToLinearSpline = hasProcessor && (splineInterpolator == null || splineInterpolator.Algorithm != SplineInterpolator.SplineInterpolatorAlgorithm.Linear);
-            var canConvertToAnySpline = canConvertToSmoothSpline || canConvertToLinearSpline;
 
             menu.AddItem(CreateContextMenuItem("Show spline handles", "showsplinehandles", hasSmoothSpline, (s, e) =>
             {
@@ -601,8 +588,6 @@ namespace AnalysisITC
                 AppSettings.Save();
                 UpdateContextToolbarMenu();
             }, AppSettings.IntegrationRegionCopyIncludesStart));
-            menu.AddItem(NSMenuItem.SeparatorItem);
-            menu.AddItem(CreateSplineConversionMenuItem(canConvertToAnySpline, canConvertToSmoothSpline, canConvertToLinearSpline));
         }
 
         void PopulateAnalysisToolbarMenu(NSMenu menu)
@@ -801,8 +786,8 @@ namespace AnalysisITC
 
         NSMenuItem CreateCopyAttributesMenuItem(bool hasAttributes)
         {
-            var item = CreateContextMenuItem("Copy attributes to", "copyattributes", hasAttributes, null);
-            var submenu = new NSMenu("Copy attributes to") { AutoEnablesItems = false };
+            var item = CreateContextMenuItem("Copy all attributes", "copyattributes", hasAttributes, null);
+            var submenu = new NSMenu("Copy all attributes") { AutoEnablesItems = false };
             var hasOtherExperiments = DataManager.Data.Any(data => data != DataManager.Current);
             var hasActiveTargets = DataManager.Data.Any(data => data != DataManager.Current && data.Include);
 
@@ -828,9 +813,6 @@ namespace AnalysisITC
                     submenu.AddItem(CreateContextMenuItem(target.Name, "copyatttospecific", hasAttributes, (s, e) => DataManager.CopySelectedAttributesToExperiment(target)));
                 }
             }
-
-            submenu.AddItem(NSMenuItem.SeparatorItem);
-            submenu.AddItem(CreateContextMenuItem("Name contains...", "copyattbyname", hasAttributes && hasOtherExperiments, (s, e) => PromptCopyAttributesToNameToken()));
 
             item.Submenu = submenu;
             return item;
@@ -896,36 +878,6 @@ namespace AnalysisITC
             return string.IsNullOrWhiteSpace(value) ? name : $"{name}: {value}";
         }
 
-        void PromptCopyAttributesToNameToken()
-        {
-            var tokenField = new NSTextField(new CoreGraphics.CGRect(0, 0, 260, 24))
-            {
-                PlaceholderString = "Experiment name text",
-            };
-
-            var alert = new NSAlert
-            {
-                MessageText = "Copy attributes by name",
-                InformativeText = "Copy the current experiment attributes to experiments whose names contain this text.",
-                AccessoryView = tokenField,
-                AlertStyle = NSAlertStyle.Informational,
-            };
-
-            alert.AddButton("Copy");
-            alert.AddButton("Cancel");
-            if (alert.Window != null)
-            {
-                alert.Window.InitialFirstResponder = tokenField;
-            }
-
-            if (alert.RunModal() != 1000) return;
-
-            var token = tokenField.StringValue?.Trim();
-            if (string.IsNullOrWhiteSpace(token)) return;
-
-            DataManager.CopySelectedAttributesToNameToken(token);
-        }
-
         void OpenCurrentExperimentAttributes()
         {
             var data = DataManager.Current;
@@ -965,62 +917,6 @@ namespace AnalysisITC
             StatusBarManager.SetStatus("Actual concentrations recalculated", 2000);
         }
 
-        NSMenuItem CreateSplineConversionMenuItem(bool enabled, bool canConvertToSmoothSpline, bool canConvertToLinearSpline)
-        {
-            var item = CreateContextMenuItem("Convert to spline", null, enabled, null);
-            var submenu = new NSMenu("Convert to spline") { AutoEnablesItems = false };
-
-            submenu.AddItem(CreateSplinePointDensityViewMenuItem(enabled));
-            submenu.AddItem(NSMenuItem.SeparatorItem);
-            submenu.AddItem(CreateContextMenuItem("Convert to smooth spline", "converttospline", canConvertToSmoothSpline, (s, e) => ConvertCurrentProcessorToSpline(SplineInterpolator.SplineInterpolatorAlgorithm.Smooth)));
-            submenu.AddItem(CreateContextMenuItem("Convert to linear spline", "converttolinearspline", canConvertToLinearSpline, (s, e) => ConvertCurrentProcessorToSpline(SplineInterpolator.SplineInterpolatorAlgorithm.Linear)));
-
-            item.Submenu = submenu;
-            return item;
-        }
-
-        NSMenuItem CreateSplinePointDensityViewMenuItem(bool enabled)
-        {
-            var view = new NSView(new CoreGraphics.CGRect(0, 0, 250, 30));
-
-            var label = new NSTextField(new CoreGraphics.CGRect(10, 7, 92, 17))
-            {
-                StringValue = "Point Density",
-                Editable = false,
-                Bordered = false,
-                DrawsBackground = false,
-                Selectable = false,
-            };
-
-            var control = new NSSegmentedControl(new CoreGraphics.CGRect(110, 2, 132, 24))
-            {
-                SegmentCount = 3,
-                SegmentStyle = NSSegmentStyle.Rounded,
-                SelectedSegment = toolbarSplineConversionPointDensitySegment,
-                Enabled = enabled,
-            };
-
-            control.SetLabel("Low", 0);
-            control.SetLabel("Med", 1);
-            control.SetLabel("High", 2);
-            control.SetWidth(42, 0);
-            control.SetWidth(42, 1);
-            control.SetWidth(42, 2);
-            control.Activated += (s, e) =>
-            {
-                toolbarSplineConversionPointDensitySegment = (int)control.SelectedSegment;
-            };
-
-            view.AddSubview(label);
-            view.AddSubview(control);
-
-            return new NSMenuItem
-            {
-                Enabled = false,
-                View = view,
-            };
-        }
-
         NSMenuItem CreateContextMenuItem(string title, string identifier, bool enabled, EventHandler activated, bool isChecked = false)
         {
             var item = new NSMenuItem(title)
@@ -1038,63 +934,6 @@ namespace AnalysisITC
         void SendActionToResponder(string selector)
         {
             NSApplication.SharedApplication.SendAction(new ObjCRuntime.Selector(selector), null, this);
-        }
-
-        void ConvertCurrentProcessorToSpline(SplineInterpolator.SplineInterpolatorAlgorithm algorithm)
-        {
-            var processor = DataManager.Current?.Processor;
-            if (processor?.Interpolator == null) return;
-
-            var splineInterpolator = processor.Interpolator as SplineInterpolator;
-            if (splineInterpolator != null)
-            {
-                if (algorithm != SplineInterpolator.SplineInterpolatorAlgorithm.Linear) return;
-                if (splineInterpolator.Algorithm == SplineInterpolator.SplineInterpolatorAlgorithm.Linear) return;
-
-                splineInterpolator.Algorithm = SplineInterpolator.SplineInterpolatorAlgorithm.Linear;
-                splineInterpolator.ApplyPointDensity();
-                _ = processor.ProcessData(false);
-                UpdateContextToolbarMenu();
-                return;
-            }
-
-            if (algorithm == SplineInterpolator.SplineInterpolatorAlgorithm.Smooth
-                && !(processor.Interpolator is PolynomialLeastSquaresInterpolator)
-                && !(processor.Interpolator is SegmentedBaselineInterpolator))
-            {
-                return;
-            }
-
-            SplineInterpolator.PolynomialToSplineConversionTargetAlgorithm = algorithm;
-            processor.Interpolator.ConvertToSpline(SplineConversionPointDensity(algorithm));
-            UpdateContextToolbarMenu();
-        }
-
-        int SplineConversionPointDensity(SplineInterpolator.SplineInterpolatorAlgorithm algorithm)
-        {
-            switch (algorithm)
-            {
-                case SplineInterpolator.SplineInterpolatorAlgorithm.Linear:
-                    switch (toolbarSplineConversionPointDensitySegment)
-                    {
-                        case 0:
-                            return 2;
-                        case 2:
-                            return 6;
-                        default:
-                            return 4;
-                    }
-                default:
-                    switch (toolbarSplineConversionPointDensitySegment)
-                    {
-                        case 0:
-                            return 1;
-                        case 2:
-                            return 3;
-                        default:
-                            return 2;
-                    }
-            }
         }
 
         void SetSelectedResultExperimentsActive()

@@ -125,6 +125,7 @@ namespace AnalysisITC
         public static bool DrawConfidence { get; set; } = true;
         public static bool DrawFitOffsetCorrected { get; set; } = true;
         public static bool DrawFitParameters { get; set; } = false;
+        public static bool DrawParameterGuides { get; set; } = true;
         public static bool DrawExpDetails { get; set; } = true;
         public static bool DrawModelInfo { get; set; } = true;
         public static bool ShowTextUncertainties { get; set; } = true;
@@ -272,6 +273,7 @@ namespace AnalysisITC
                 DrawFitOffsetCorrected = DrawFitOffsetCorrected,
                 DrawZeroLine = DrawZeroLine,
                 DrawFitParameters = DrawFitParameters,
+                DrawParameterGuides = DrawParameterGuides,
                 DrawExpDetails = FinalFigureGraphView.DrawExpDetails,
                 FinalFigureDisplayParameters = FinalFigureGraphView.VisibleFinalFigureDisplayParameters,
                 InformationBoxPlacement = InformationBoxPosition,
@@ -717,6 +719,7 @@ namespace AnalysisITC
                 DrawFitOffsetCorrected = DrawFitOffsetCorrected,
                 DrawZeroLine = DrawZeroLine,
                 DrawFitParameters = DrawFitParameters,
+                DrawParameterGuides = DrawParameterGuides,
                 DrawExpDetails = FinalFigureGraphView.DrawExpDetails,
                 FinalFigureDisplayParameters = FinalFigureGraphView.VisibleFinalFigureDisplayParameters,
                 InformationBoxPlacement = InformationBoxPosition,
