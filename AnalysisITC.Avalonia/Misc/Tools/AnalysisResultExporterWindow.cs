@@ -11,6 +11,7 @@ using Avalonia.Layout;
 using Avalonia.Media;
 using Avalonia.Platform.Storage;
 
+using AnalysisITC.Avalonia.Styling;
 using AnalysisITC.Avalonia.Workspace;
 using AnalysisITC.Core.Application;
 using AnalysisITC.Core.Data;
@@ -40,7 +41,7 @@ namespace AnalysisITC.Avalonia.Tools
             MinWidth = 620;
             MinHeight = 460;
             WindowStartupLocation = WindowStartupLocation.CenterOwner;
-            Background = WorkspaceBackgroundBrush;
+            AppTheme.Bind(this, BackgroundProperty, AppTheme.WorkspaceBackground);
 
             BuildLayout();
             PopulateResults();
@@ -105,27 +106,30 @@ namespace AnalysisITC.Avalonia.Tools
             var details = $"{result.Date:g} | {model} | {count} experiment" + (count == 1 ? "" : "s");
 
             var panel = new StackPanel { Spacing = 1, Margin = new Thickness(8, 5) };
-            panel.Children.Add(new TextBlock
+            var name = new TextBlock
             {
                 Text = result.Name,
                 FontWeight = FontWeight.SemiBold,
-                Foreground = SectionHeaderBrush,
                 TextTrimming = TextTrimming.CharacterEllipsis
-            });
-            panel.Children.Add(new TextBlock
+            };
+            AppTheme.Bind(name, TextBlock.ForegroundProperty, AppTheme.PrimaryText);
+            panel.Children.Add(name);
+            var detailText = new TextBlock
             {
                 Text = details,
                 FontSize = 12,
-                Foreground = LabelBrush,
                 TextTrimming = TextTrimming.CharacterEllipsis
-            });
-            panel.Children.Add(new TextBlock
+            };
+            AppTheme.Bind(detailText, TextBlock.ForegroundProperty, AppTheme.MutedText);
+            panel.Children.Add(detailText);
+            var description = new TextBlock
             {
                 Text = result.GetListDescriptionString(),
                 FontSize = 12,
-                Foreground = TextBrush,
                 TextTrimming = TextTrimming.CharacterEllipsis
-            });
+            };
+            AppTheme.Bind(description, TextBlock.ForegroundProperty, AppTheme.SecondaryText);
+            panel.Children.Add(description);
 
             return panel;
         }

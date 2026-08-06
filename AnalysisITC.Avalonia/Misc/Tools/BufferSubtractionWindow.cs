@@ -8,6 +8,7 @@ using Avalonia.Controls.Templates;
 using Avalonia.Layout;
 using Avalonia.Media;
 
+using AnalysisITC.Avalonia.Styling;
 using AnalysisITC.Avalonia.Workspace;
 using AnalysisITC.Core.Application;
 using AnalysisITC.Core.Data;
@@ -40,7 +41,7 @@ namespace AnalysisITC.Avalonia.Tools
             MinWidth = 720;
             MinHeight = 500;
             WindowStartupLocation = WindowStartupLocation.CenterOwner;
-            Background = WorkspaceBackgroundBrush;
+            AppTheme.Bind(this, BackgroundProperty, AppTheme.WorkspaceBackground);
 
             BuildLayout();
             PopulateReferenceExperiments();
@@ -193,20 +194,22 @@ namespace AnalysisITC.Avalonia.Tools
             if (data == null) return Text();
 
             var panel = new StackPanel { Spacing = 1, Margin = new Thickness(8, 4) };
-            panel.Children.Add(new TextBlock
+            var name = new TextBlock
             {
                 Text = data.Name,
                 FontWeight = FontWeight.SemiBold,
-                Foreground = SectionHeaderBrush,
                 TextTrimming = TextTrimming.CharacterEllipsis
-            });
-            panel.Children.Add(new TextBlock
+            };
+            AppTheme.Bind(name, TextBlock.ForegroundProperty, AppTheme.PrimaryText);
+            panel.Children.Add(name);
+            var details = new TextBlock
             {
                 Text = $"{data.UIShortDateWithTime} | {data.MeasuredTemperature:G3} °C | {data.SyringeConcentration.AsFormattedConcentration(true)}",
                 FontSize = 12,
-                Foreground = LabelBrush,
                 TextTrimming = TextTrimming.CharacterEllipsis
-            });
+            };
+            AppTheme.Bind(details, TextBlock.ForegroundProperty, AppTheme.MutedText);
+            panel.Children.Add(details);
             return panel;
         }
 

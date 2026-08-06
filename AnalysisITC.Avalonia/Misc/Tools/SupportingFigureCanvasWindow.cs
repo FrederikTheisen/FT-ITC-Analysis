@@ -69,7 +69,7 @@ namespace AnalysisITC.Avalonia.Tools
             MinWidth = 1040;
             MinHeight = 640;
             WindowStartupLocation = WindowStartupLocation.CenterOwner;
-            Background = WorkspaceBackgroundBrush;
+            AppTheme.Bind(this, BackgroundProperty, AppTheme.WorkspaceBackground);
 
             if (selectedItem != null) composition.Add(selectedItem);
 
@@ -265,30 +265,31 @@ namespace AnalysisITC.Avalonia.Tools
             };
             if (showOrder)
             {
-                panel.Children.Add(new TextBlock
+                var order = new TextBlock
                 {
                     Text = $"{composition.IndexOf(item) + 1}.",
-                    Foreground = LabelBrush,
                     VerticalAlignment = VerticalAlignment.Center
-                });
+                };
+                AppTheme.Bind(order, TextBlock.ForegroundProperty, AppTheme.MutedText);
+                panel.Children.Add(order);
             }
             var name = new TextBlock
             {
                 Text = item.Name,
                 FontWeight = FontWeight.SemiBold,
                 TextTrimming = TextTrimming.CharacterEllipsis,
-                Foreground = SectionHeaderBrush,
                 VerticalAlignment = VerticalAlignment.Center
             };
+            AppTheme.Bind(name, TextBlock.ForegroundProperty, AppTheme.PrimaryText);
             Grid.SetColumn(name, showOrder ? 1 : 0);
             panel.Children.Add(name);
             var detail = new TextBlock
             {
                 Text = suffix,
                 FontSize = 11,
-                Foreground = LabelBrush,
                 VerticalAlignment = VerticalAlignment.Center
             };
+            AppTheme.Bind(detail, TextBlock.ForegroundProperty, AppTheme.MutedText);
             Grid.SetColumn(detail, showOrder ? 2 : 1);
             panel.Children.Add(detail);
             return panel;
