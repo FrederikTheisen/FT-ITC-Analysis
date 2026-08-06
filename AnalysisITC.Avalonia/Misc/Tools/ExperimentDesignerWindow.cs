@@ -11,6 +11,7 @@ using Avalonia.Media;
 using Avalonia.Threading;
 
 using AnalysisITC.Avalonia.Analysis;
+using AnalysisITC.Avalonia.Styling;
 using AnalysisITC.Avalonia.Workspace;
 using AnalysisITC.Core.Analysis;
 using AnalysisITC.Core.Analysis.Models;
@@ -37,13 +38,13 @@ namespace AnalysisITC.Avalonia.Tools
         readonly ComboBox modelCombo = Combo(190);
         readonly TextBox cellConcentrationBox = TextBox("10");
         readonly TextBox syringeConcentrationBox = TextBox("100");
-        readonly TextBox injectionCountBox = TextBox("20");
+        readonly NumericUpDown injectionCountStepper = Stepper(20, 2, 1000);
         readonly TextBox injectionVolumeBox = TextBox("2");
         readonly CheckBox autoVolumeCheck = Check("Automatic injection volume", true);
         readonly CheckBox smallFirstInjectionCheck = Check("Small first injection", true);
         readonly CheckBox simulateNoiseCheck = Check("Simulate noise", false);
         readonly CheckBox tandemCheck = Check("Tandem simulation", false);
-        readonly TextBox tandemSegmentCountBox = TextBox("2");
+        readonly NumericUpDown tandemSegmentCountStepper = Stepper(2, 2, 100);
         readonly TextBlock instrumentInfoText = Text();
         readonly TextBlock injectionInfoText = Text();
         readonly TextBlock statusText = Text();
@@ -71,7 +72,7 @@ namespace AnalysisITC.Avalonia.Tools
             MinWidth = 780;
             MinHeight = 560;
             WindowStartupLocation = WindowStartupLocation.CenterOwner;
-            Background = WorkspaceBackgroundBrush;
+            AppTheme.Bind(this, BackgroundProperty, AppTheme.WorkspaceBackground);
 
             BuildLayout();
             PopulateSelectors();
@@ -100,15 +101,14 @@ namespace AnalysisITC.Avalonia.Tools
                 Labeled("Cell uM", cellConcentrationBox),
                 Labeled("Syringe uM", syringeConcentrationBox)));
             setupPanel.Children.Add(Section("Injections",
-                Labeled("Count", injectionCountBox),
+                Labeled("Count", injectionCountStepper),
                 Labeled("Volume uL", injectionVolumeBox),
                 autoVolumeCheck,
                 smallFirstInjectionCheck,
                 injectionInfoText));
             setupPanel.Children.Add(Section("Tandem",
                 tandemCheck,
-                Labeled("Segments", tandemSegmentCountBox)));
-            setupPanel.Children.Add(Section("Simulation", simulateNoiseCheck));
+                Labeled("Segments", tandemSegmentCountStepper)));
 
             var modelPanel = InspectorPanel();
             modelPanel.Children.Add(Section("Model", Labeled("Type", modelCombo)));
@@ -122,7 +122,8 @@ namespace AnalysisITC.Avalonia.Tools
             Content = WorkspaceControlBuilder.Workspace(
                 ContentBorder(graph),
                 tabs,
-                InspectorFooter(Section("Fit",
+                InspectorFooter(Section("Simulation",
+                    simulateNoiseCheck,
                     fitButton,
                     statusText)),
                 useOuterMargin: true);
@@ -147,7 +148,7 @@ namespace AnalysisITC.Avalonia.Tools
         {
             instrumentCombo.SelectionChanged += (_, _) => SetupExperiment();
             modelCombo.SelectionChanged += (_, _) => SetupModel();
-            foreach (var textBox in new[] { cellConcentrationBox, syringeConcentrationBox, injectionCountBox, injectionVolumeBox, tandemSegmentCountBox })
+            foreach (var textBox in new[] { cellConcentrationBox, syringeConcentrationBox, injectionVolumeBox })
             {
                 textBox.LostFocus += (_, _) => SetupExperiment();
                 textBox.KeyDown += (_, e) =>
@@ -155,6 +156,9 @@ namespace AnalysisITC.Avalonia.Tools
                     if (e.Key == Key.Enter) SetupExperiment();
                 };
             }
+
+            injectionCountStepper.ValueChanged += (_, _) => SetupExperiment();
+            tandemSegmentCountStepper.ValueChanged += (_, _) => SetupExperiment();
 
             autoVolumeCheck.IsCheckedChanged += (_, _) => SetupExperiment();
             smallFirstInjectionCheck.IsCheckedChanged += (_, _) => SetupExperiment();
@@ -181,11 +185,12 @@ namespace AnalysisITC.Avalonia.Tools
                     TargetTemperature = AppSettings.ReferenceTemperature
                 };
 
-                var injectionCount = Math.Max(2, ReadInt(injectionCountBox, 20));
-                injectionCountBox.Text = injectionCount.ToString(CultureInfo.CurrentCulture);
+                var injectionCount = Math.Max(2, ReadInt(injectionCountStepper, 20));
+                injectionCountStepper.Value = injectionCount;
                 var volume = InjectionVolume(injectionCount);
-                var segmentCount = UseTandem ? Math.Max(2, ReadInt(tandemSegmentCountBox, 2)) : 1;
-                tandemSegmentCountBox.Text = segmentCount.ToString(CultureInfo.CurrentCulture);
+                var segmentCount = UseTandem ? Math.Max(2, ReadInt(tandemSegmentCountStepper, 2)) : 1;
+                tandemSegmentCountStepper.Value = Math.Max(2, segmentCount);
+                tandemSegmentCountStepper.IsEnabled = UseTandem;
 
                 var segments = new List<TandemConcatenation.TandemInjectionSegment>();
                 for (var segment = 0; segment < segmentCount; segment++)
@@ -259,18 +264,11 @@ namespace AnalysisITC.Avalonia.Tools
 
             foreach (var parameter in factory.GetExposedParameters())
             {
-                parameterPanel.Children.Add(AnalysisParameterRowBuilder.Build(
+                parameterPanel.Children.Add(AnalysisParameterRowBuilder.BuildDesigner(
                     parameter,
-                    apply: (key, value, locked) =>
+                    apply: (key, value) =>
                     {
-                        factory.UpdateParameter(key, value, locked);
-                        UpdateSyntheticData();
-                    },
-                    reset: key =>
-                    {
-                        var parameterToReset = factory.GetExposedParameters().FirstOrDefault(parameter => parameter.Key == key);
-                        if (parameterToReset != null) factory.ReinitializeParameter(parameterToReset);
-                        RebuildParameterRows();
+                        factory.UpdateParameter(key, value, false);
                         UpdateSyntheticData();
                     },
                     setStatus: SetStatus,
@@ -298,32 +296,37 @@ namespace AnalysisITC.Avalonia.Tools
             {
                 Text = properties.Name,
                 FontWeight = FontWeight.SemiBold,
-                Foreground = SectionHeaderBrush,
                 TextWrapping = TextWrapping.Wrap
             };
+            AppTheme.Bind(title, TextBlock.ForegroundProperty, AppTheme.PrimaryText);
 
-            Control editor = properties.Type switch
+            Control editor = key switch
             {
-                ExperimentAttribute.AttributeType.Bool => BoolOptionEditor(option),
-                ExperimentAttribute.AttributeType.Int => NumericOptionEditor(option, option.IntValue.ToString(CultureInfo.CurrentCulture), integer: true),
-                ExperimentAttribute.AttributeType.Double => NumericOptionEditor(option, option.DoubleValue.ToString("G6", CultureInfo.CurrentCulture), integer: false),
-                ExperimentAttribute.AttributeType.Parameter => NumericOptionEditor(option, option.ParameterValue.Value.ToString("G6", CultureInfo.CurrentCulture), integer: false, parameter: true),
-                ExperimentAttribute.AttributeType.ParameterAffinity => NumericOptionEditor(option, option.ParameterValue.Value.ToString("G6", CultureInfo.CurrentCulture), integer: false, parameter: true),
-                ExperimentAttribute.AttributeType.ParameterConcentration => NumericOptionEditor(option, option.ParameterValue.Value.ToString("G6", CultureInfo.CurrentCulture), integer: false, parameter: true),
-                ExperimentAttribute.AttributeType.String => StringOptionEditor(option),
-                _ => Text("Read-only: " + option.GetDisplayValue())
+                AttributeKey.NumberOfSites1 or AttributeKey.NumberOfSites2 => StoichiometryOptionEditor(option),
+                _ => properties.Type switch
+                {
+                    ExperimentAttribute.AttributeType.Bool => BoolOptionEditor(option),
+                    ExperimentAttribute.AttributeType.Int => NumericOptionEditor(option, option.IntValue.ToString(CultureInfo.CurrentCulture), integer: true),
+                    ExperimentAttribute.AttributeType.Double => NumericOptionEditor(option, option.DoubleValue.ToString("G6", CultureInfo.CurrentCulture), integer: false),
+                    ExperimentAttribute.AttributeType.Parameter => NumericOptionEditor(option, option.ParameterValue.Value.ToString("G6", CultureInfo.CurrentCulture), integer: false, parameter: true),
+                    ExperimentAttribute.AttributeType.ParameterAffinity => NumericOptionEditor(option, option.ParameterValue.Value.ToString("G6", CultureInfo.CurrentCulture), integer: false, parameter: true),
+                    ExperimentAttribute.AttributeType.ParameterConcentration => NumericOptionEditor(option, option.ParameterValue.Value.ToString("G6", CultureInfo.CurrentCulture), integer: false, parameter: true),
+                    ExperimentAttribute.AttributeType.String => StringOptionEditor(option),
+                    _ => Text("Read-only: " + option.GetDisplayValue())
+                }
             };
 
             var panel = new StackPanel { Spacing = 4 };
             panel.Children.Add(title);
             panel.Children.Add(editor);
-            return new Border
+            var border = new Border
             {
-                BorderBrush = SectionBorderBrush,
                 BorderThickness = new Thickness(0, 0, 0, 1),
                 Padding = new Thickness(0, 0, 0, 8),
                 Child = panel
             };
+            AppTheme.Bind(border, Border.BorderBrushProperty, AppTheme.SectionBorder);
+            return border;
         }
 
         Control BoolOptionEditor(ExperimentAttribute option)
@@ -337,6 +340,25 @@ namespace AnalysisITC.Avalonia.Tools
                 UpdateSyntheticData();
             };
             return check;
+        }
+
+        Control StoichiometryOptionEditor(ExperimentAttribute option)
+        {
+            var presets = StoichiometryOptions.Presets;
+            var combo = Combo(presets.Select(preset => preset.Title).ToArray());
+            var currentFactor = option.DoubleValue > 0 ? option.DoubleValue : option.IntValue;
+            var selectedPreset = StoichiometryOptions.GetClosest(currentFactor);
+            combo.SelectedIndex = Math.Max(0, presets.ToList().FindIndex(preset => preset.Preset == selectedPreset.Preset));
+            combo.SelectionChanged += (_, _) =>
+            {
+                if (combo.SelectedIndex < 0 || combo.SelectedIndex >= presets.Count) return;
+
+                var copy = option.Copy();
+                copy.DoubleValue = presets[combo.SelectedIndex].Factor;
+                factory?.SetModelOption(copy);
+                UpdateSyntheticData();
+            };
+            return combo;
         }
 
         Control StringOptionEditor(ExperimentAttribute option)
@@ -473,6 +495,7 @@ namespace AnalysisITC.Avalonia.Tools
             Dispatcher.UIThread.Post(() =>
             {
                 fitButton.IsEnabled = true;
+                RebuildParameterRows();
                 graph.Experiment = data;
                 graph.FitToData();
                 SetStatus(e?.Failed == true ? "Fit failed." : "Synthetic fit complete.");
@@ -528,11 +551,9 @@ namespace AnalysisITC.Avalonia.Tools
             return string.Join(", ", groups);
         }
 
-        static int ReadInt(TextBox box, int fallback)
+        static int ReadInt(NumericUpDown stepper, int fallback)
         {
-            return int.TryParse(box.Text, NumberStyles.Integer, CultureInfo.CurrentCulture, out var value)
-                ? value
-                : fallback;
+            return stepper.Value.HasValue ? decimal.ToInt32(stepper.Value.Value) : fallback;
         }
 
         static double ReadDouble(TextBox box, double fallback)
