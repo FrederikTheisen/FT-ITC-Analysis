@@ -125,7 +125,7 @@
                           ResizeDirection="Columns"
                           Background="{DynamicResource SectionBorder}" />
 
-            <Grid Grid.Column="2" Margin="12">
+            <Grid Grid.Column="2" Margin="12,12,6,12">
                 <TabControl x:Name="WorkspaceTabs">
                     <TabItem Header="Overview">
                         <Grid RowDefinitions="Auto,Auto,*" Background="{DynamicResource PanelBackground}">
