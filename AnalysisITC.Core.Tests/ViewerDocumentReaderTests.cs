@@ -4,6 +4,9 @@ using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
+using AnalysisITC.Core.Analysis;
+using AnalysisITC.Core.Data;
+using AnalysisITC.Core.DataReaders;
 using AnalysisITC.Core.Viewer;
 using Xunit;
 
@@ -85,6 +88,39 @@ namespace AnalysisITC.Core.Tests
                 Assert.Contains(experiment.Fits.SelectMany(item => item.FittedKilojoulesPerMole), item => item.HasValue);
                 Assert.All(experiment.Fits, fit => Assert.Equal(experiment.InjectionCount, fit.ResidualKilojoulesPerMole.Length));
             }
+
+            var confidenceFit = document.Experiments
+                .SelectMany(experiment => experiment.Fits)
+                .FirstOrDefault(fit => fit.ConfidenceLowerKilojoulesPerMole != null
+                    && fit.ConfidenceUpperKilojoulesPerMole != null
+                    && fit.ConfidenceLowerKilojoulesPerMole.Zip(
+                        fit.ConfidenceUpperKilojoulesPerMole,
+                        (lower, upper) => lower.HasValue && upper.HasValue && upper.Value > lower.Value)
+                        .Any(valid => valid));
+            Assert.NotNull(confidenceFit);
+        }
+
+        [Fact]
+        public async Task RestoresIndependentSavedBootstrapModelsForEvaluation()
+        {
+            using var stream = File.OpenRead(Fixture("one-set.ftitc"));
+            var containers = await FTITCReader.ReadStream(stream);
+            var experiment = containers.OfType<ExperimentData>().First();
+            var solution = experiment.Solution;
+
+            Assert.NotNull(solution);
+            Assert.NotNull(solution.BootstrapSolutions);
+            Assert.True(solution.BootstrapSolutions.Count > 1);
+            Assert.Equal(
+                solution.BootstrapSolutions.Count,
+                solution.BootstrapSolutions.Select(item => item.Model).Distinct().Count());
+
+            var primaryEnthalpy = solution.Parameters[ParameterType.Enthalpy1].Value;
+            Assert.Equal(-34943.4928996423, primaryEnthalpy, 6);
+
+            var evaluated = solution.Model.EvaluateBootstrap(0, true).DistributionConfidence95;
+            Assert.NotNull(evaluated);
+            Assert.True(evaluated[0] < evaluated[1]);
         }
 
         [Fact]

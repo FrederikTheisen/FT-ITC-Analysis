@@ -1,4 +1,4 @@
-const viewerBuild = "2026.08.05-bootstrap-band.1";
+const viewerBuild = "2026.08.05-bootstrap-band.2";
 document.documentElement.dataset.viewerBuild = viewerBuild;
 
 const state = {

@@ -28,7 +28,7 @@ public sealed class ViewerUploadTests : IClassFixture<WebApplicationFactory<Prog
         var script = await client.GetStringAsync("/app.js");
 
         Assert.True(page.Headers.CacheControl?.NoStore);
-        Assert.Equal("2026.08.05-bootstrap-band.1", page.Headers.GetValues("X-FTITC-Viewer-Build").Single());
+        Assert.Equal("2026.08.05-bootstrap-band.2", page.Headers.GetValues("X-FTITC-Viewer-Build").Single());
         Assert.Contains("id=\"experiment-list\"", html);
         Assert.Contains("id=\"result-list\"", html);
         Assert.DoesNotContain("id=\"experiment-select\"", html);
@@ -57,12 +57,12 @@ public sealed class ViewerUploadTests : IClassFixture<WebApplicationFactory<Prog
         Assert.Contains("Bootstrap interval unavailable", script);
         Assert.Contains("connectgaps: false", script);
         Assert.Contains("result-evaluation-temperature", html);
-        Assert.Contains("2026.08.05-bootstrap-band.1", html);
-        Assert.Contains("app.js?v=2026.08.05-bootstrap-band.1", html);
+        Assert.Contains("2026.08.05-bootstrap-band.2", html);
+        Assert.Contains("app.js?v=2026.08.05-bootstrap-band.2", html);
         Assert.Contains("class=\"brand-mark\" src=\"/assets/ft-itc-icon-64.png", html);
         Assert.Contains("rel=\"icon\" type=\"image/png\"", html);
         Assert.Contains("rel=\"apple-touch-icon\"", html);
-        Assert.Contains("const viewerBuild = \"2026.08.05-bootstrap-band.1\"", script);
+        Assert.Contains("const viewerBuild = \"2026.08.05-bootstrap-band.2\"", script);
         Assert.Contains("buildConfidenceBand", script);
         Assert.Contains("formatParameterNumber", script);
         Assert.Contains("95% bootstrap confidence", script);
@@ -147,6 +147,14 @@ public sealed class ViewerUploadTests : IClassFixture<WebApplicationFactory<Prog
             var confidenceUpper = fits[0].GetProperty("confidenceUpperKilojoulesPerMole");
             Assert.Equal(fitX.GetArrayLength(), confidenceLower.GetArrayLength());
             Assert.Equal(fitX.GetArrayLength(), confidenceUpper.GetArrayLength());
+            Assert.Contains(fits.EnumerateArray(), fit =>
+            {
+                var lower = fit.GetProperty("confidenceLowerKilojoulesPerMole").EnumerateArray().ToArray();
+                var upper = fit.GetProperty("confidenceUpperKilojoulesPerMole").EnumerateArray().ToArray();
+                return lower.Zip(upper, (lo, hi) => hi.ValueKind == JsonValueKind.Number
+                    && lo.ValueKind == JsonValueKind.Number
+                    && hi.GetDouble() > lo.GetDouble()).Any(valid => valid);
+            });
             var parameters = fits[0].GetProperty("parameters").EnumerateArray().ToArray();
             Assert.Contains(parameters, parameter =>
                 parameter.GetProperty("key").GetString() == "Offset"

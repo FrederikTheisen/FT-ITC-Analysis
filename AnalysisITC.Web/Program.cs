@@ -3,7 +3,7 @@ using Microsoft.AspNetCore.Antiforgery;
 using Microsoft.AspNetCore.Http.Features;
 
 const long MaxUploadBytes = 50L * 1024 * 1024;
-const string ViewerBuild = "2026.08.05-bootstrap-band.1";
+const string ViewerBuild = "2026.08.05-bootstrap-band.2";
 
 var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddAntiforgery(options => options.HeaderName = "X-CSRF-TOKEN");

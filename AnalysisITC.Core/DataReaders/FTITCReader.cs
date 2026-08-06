@@ -16,51 +16,83 @@ namespace AnalysisITC.Core.DataReaders
 {
     class FTITCReader : FTITCFormat
     {
-        static List<ITCDataContainer> Data { get; set; }
+        readonly List<ITCDataContainer> data = new List<ITCDataContainer>();
+        readonly bool interactive;
+
+        FTITCReader(bool interactive)
+        {
+            this.interactive = interactive;
+        }
 
         public static async Task<ITCDataContainer[]> ReadPath(string path)
         {
-            var watch = System.Diagnostics.Stopwatch.StartNew();
-
-            Data = new List<ITCDataContainer>();
-
-            using (var reader = (new StreamReader(path)))
+            using (var stream = File.OpenRead(path))
             {
-                string line;
-
-                while (!string.IsNullOrEmpty(line = reader.ReadLine()))
-                {
-                    var startms = watch.ElapsedMilliseconds;
-                    var input = line.Split(new[] { ':' }, 3);
-                    AppEventHandler.PrintAndLog($"Read {(input.Length == 3 ? $"{input[0]}:{input[1]}:{string.Join(",", input[2].Split(',').Select(DecodeText))}" : line)} Start: {watch.ElapsedMilliseconds}");
-
-                    if (input[0] == "FILE")
-                    {
-                        if (input[1] == ExperimentHeader) Data.Add(await ReadExperimentDataFile(reader, line));
-                        else if (input[1] == TandemExperimentHeader) Data.Add(await ReadTandemExperimentDataFile(reader, line));
-                        else if (input[1] == AnalysisResultHeader) Data.Add(await ReadAnalysisResult(reader, line));
-                    }
-
-                    AppEventHandler.PrintAndLog($"Total time: {watch.ElapsedMilliseconds - startms}");
-                }
+                var result = await ReadStream(stream, interactive: true);
+                CurrentAccessedAppDocumentPath = path;
+                return result;
             }
-
-            watch.Stop();
-
-            CurrentAccessedAppDocumentPath = path;
-
-            return Data.ToArray();
         }
 
-        static async Task<ExperimentData> ReadTandemExperimentDataFile(StreamReader reader, string firstline)
+        internal static async Task<ITCDataContainer[]> ReadStream(Stream stream, bool interactive = false)
         {
-            AppEventHandler.PrintAndLog("Loading Tandem Experiment Data...", 1);
+            if (stream == null) throw new ArgumentNullException(nameof(stream));
+
+            var parser = new FTITCReader(interactive);
+            using (var reader = new StreamReader(stream, System.Text.Encoding.UTF8, true, 4096, leaveOpen: true))
+                return await parser.Read(reader);
+        }
+
+        async Task<ITCDataContainer[]> Read(StreamReader reader)
+        {
+            var watch = System.Diagnostics.Stopwatch.StartNew();
+            string line;
+
+            while ((line = reader.ReadLine()) != null)
+            {
+                if (string.IsNullOrWhiteSpace(line)) continue;
+                var startms = watch.ElapsedMilliseconds;
+                var input = line.Split(new[] { ':' }, 3);
+                if (interactive)
+                    AppEventHandler.PrintAndLog($"Read {(input.Length == 3 ? $"{input[0]}:{input[1]}:{string.Join(",", input[2].Split(',').Select(DecodeText))}" : line)} Start: {watch.ElapsedMilliseconds}");
+
+                if (input.Length > 1 && input[0] == "FILE")
+                {
+                    if (input[1] == ExperimentHeader) data.Add(await ReadExperimentDataFile(reader, line));
+                    else if (input[1] == TandemExperimentHeader) data.Add(await ReadTandemExperimentDataFile(reader, line));
+                    else if (input[1] == AnalysisResultHeader)
+                    {
+                        var result = await ReadAnalysisResult(reader, line);
+                        if (result != null) data.Add(result);
+                    }
+                }
+
+                if (interactive) AppEventHandler.PrintAndLog($"Total time: {watch.ElapsedMilliseconds - startms}");
+            }
+
+            return data.ToArray();
+        }
+
+        static string ReadRequiredLine(StreamReader reader)
+        {
+            var line = reader.ReadLine();
+            if (line == null)
+                throw new InvalidDataException("The FTITC file ended before the current section was closed.");
+            return line;
+        }
+
+        async Task<ExperimentData> ReadTandemExperimentDataFile(StreamReader reader, string firstline)
+        {
+            if (interactive) AppEventHandler.PrintAndLog("Loading Tandem Experiment Data...", 1);
 
             string[] a = firstline.Split(new[] { ':' }, 3);
             var exp = new ExperimentData(DecodeText(a[2]));
 
-            StatusBarManager.SetSecondaryStatus($"{exp.Name}", 0);
-            await Task.Delay(1); //Necessary to update UI. Unclear why whole method has to be on UI thread.
+            if (interactive)
+            {
+                StatusBarManager.SetSecondaryStatus($"{exp.Name}", 0);
+                await Task.Delay(1);
+            }
 
             await ReadExperimentData(reader, exp);
 
@@ -69,19 +101,31 @@ namespace AnalysisITC.Core.DataReaders
             return exp;
         }
 
-        static async Task<ExperimentData> ReadExperimentDataFile(StreamReader reader, string firstline)
+        async Task<ExperimentData> ReadExperimentDataFile(StreamReader reader, string firstline)
         {
-            AppEventHandler.PrintAndLog("Loading Experiment Data...", 1);
+            if (interactive) AppEventHandler.PrintAndLog("Loading Experiment Data...", 1);
 
             string[] a = firstline.Split(new[] { ':' }, 3);
             var exp = new ExperimentData(DecodeText(a[2]));
 
-            StatusBarManager.SetSecondaryStatus($"{exp.Name}", 0);
-            await Task.Delay(1); //Necessary to update UI. Unclear why whole method has to be on UI thread.
+            if (interactive)
+            {
+                StatusBarManager.SetSecondaryStatus($"{exp.Name}", 0);
+                await Task.Delay(1);
+            }
 
             await ReadExperimentData(reader, exp);
 
-            RawDataReader.ProcessInjections(exp);
+            // Tandem experiments contain segment-aware concentrations calculated when
+            // the runs were concatenated. Reapplying the ordinary single-run dilution
+            // model here destroys those values at and after segment transitions.
+            // Older files may still use FILE:Experiment while carrying SegmentList, so
+            // use the parsed segment data rather than relying only on the file header.
+            if (!exp.IsTandemExperiment)
+            {
+                if (interactive) RawDataReader.ProcessInjections(exp);
+                else RawDataReader.ProcessInjectionsMicroCal(exp);
+            }
 
             if (exp.Solution != null) exp.UpdateSolution(exp.Solution.Model);
 
@@ -89,13 +133,13 @@ namespace AnalysisITC.Core.DataReaders
             return exp;
         }
 
-        static async Task<ExperimentData> ReadExperimentData(StreamReader reader, ExperimentData exp)
+        async Task<ExperimentData> ReadExperimentData(StreamReader reader, ExperimentData exp)
         {
             SolutionInterface sol = null;
 
             string line;
 
-            while ((line = reader.ReadLine()) != EndFileHeader)
+            while ((line = ReadRequiredLine(reader)) != EndFileHeader)
             {
                 string[] v = SplitKeyValue(line);
                 string key = v[0];
@@ -130,7 +174,7 @@ namespace AnalysisITC.Core.DataReaders
                     case "OBJECT" when value == Processor:
                         await ReadProcessor(exp, reader); break;
                     case "OBJECT" when value == ExperimentSolutionHeader:
-                        sol = ReadSolution(reader, reader.ReadLine(), exp);
+                        sol = ReadSolution(reader, ReadRequiredLine(reader), exp);
                         exp.UpdateSolution(sol.Model);
                         break;
                         //case "OBJECT" when v[1] == SolutionHeader: exp.UpdateSolution(ReadSolution(reader, line).Model); break; //Not certain about implementation
@@ -144,14 +188,14 @@ namespace AnalysisITC.Core.DataReaders
         {
             var p = new DataProcessor(exp);
 
-            string line = reader.ReadLine();
+            string line = ReadRequiredLine(reader);
             string[] v = SplitKeyValue(line);
 
             if (v[0] != ProcessorType) return;
 
             p.InitializeBaseline((BaselineInterpolatorTypes)int.Parse(v[1]));
 
-            while ((line = reader.ReadLine()) != EndObjectHeader)
+            while ((line = ReadRequiredLine(reader)) != EndObjectHeader)
             {
                 v = SplitKeyValue(line);
 
@@ -195,7 +239,7 @@ namespace AnalysisITC.Core.DataReaders
 
             string line;
 
-            while ((line = reader.ReadLine()) != EndListHeader)
+            while ((line = ReadRequiredLine(reader)) != EndListHeader)
             {
                 var _spdat = SplitCsv(line);
                 var splinePoint = new SplineInterpolator.SplinePoint(DParse(_spdat[0]), DParse(_spdat[1]), IParse(_spdat[2]), DParse(_spdat[3]));
@@ -210,7 +254,7 @@ namespace AnalysisITC.Core.DataReaders
             interpolator.SetSplinePoints(splinepoints) ;
         }
 
-        private static void ReadAttributes(ExperimentData exp, StreamReader reader)
+        private void ReadAttributes(ExperimentData exp, StreamReader reader)
         {
             var attributes = ReadAttributeOptions(reader);
 
@@ -218,14 +262,14 @@ namespace AnalysisITC.Core.DataReaders
                 exp.Attributes.Add(att);
         }
 
-        private static List<ExperimentAttribute> ReadAttributeOptions(StreamReader reader)
+        private List<ExperimentAttribute> ReadAttributeOptions(StreamReader reader)
         {
             var options = new List<ExperimentAttribute>();
 
-            AppEventHandler.Print("Reading Attributes...", 1);
+            if (interactive) AppEventHandler.Print("Reading Attributes...", 1);
 
             string line;
-            while ((line = reader.ReadLine()) != EndListHeader)
+            while ((line = ReadRequiredLine(reader)) != EndListHeader)
             {
                 var dat = line.Split(';');
 
@@ -248,7 +292,7 @@ namespace AnalysisITC.Core.DataReaders
                     }
                 }
 
-                AppEventHandler.Print($"{opt.Key} {opt}", 2);
+                if (interactive) AppEventHandler.Print($"{opt.Key} {opt}", 2);
 
                 options.Add(opt);
             }
@@ -256,17 +300,17 @@ namespace AnalysisITC.Core.DataReaders
             return options;
         }
 
-        static void ReadInjectionList(ExperimentData exp, StreamReader reader)
+        void ReadInjectionList(ExperimentData exp, StreamReader reader)
         {
             var injections = new List<InjectionData>();
 
             string line;
 
-            AppEventHandler.Print("Reading Injections...", 1);
-            while ((line = reader.ReadLine()) != EndListHeader)
+            if (interactive) AppEventHandler.Print("Reading Injections...", 1);
+            while ((line = ReadRequiredLine(reader)) != EndListHeader)
             {
                 var inj = InjectionData.FromFTITCLine(exp, line);
-                AppEventHandler.Print(inj.ToString(), 2);
+                if (interactive) AppEventHandler.Print(inj.ToString(), 2);
                 injections.Add(inj);
             }
 
@@ -279,7 +323,7 @@ namespace AnalysisITC.Core.DataReaders
 
             string line;
 
-            while ((line = reader.ReadLine()) != EndListHeader)
+            while ((line = ReadRequiredLine(reader)) != EndListHeader)
             {
                 var dp = SplitCsv(line);
                 datapoints.Add(new DataPoint(FParse(dp[0]), FParse(dp[1]), FParse(dp[2]), shieldt: FParse(dp[3])));
@@ -292,14 +336,14 @@ namespace AnalysisITC.Core.DataReaders
         {
             string line;
 
-            while ((line = reader.ReadLine()) != EndListHeader) exp.AddSegment(TandemExperimentSegment.FromFile(line));
+            while ((line = ReadRequiredLine(reader)) != EndListHeader) exp.AddSegment(TandemExperimentSegment.FromFile(line));
 
             exp.InvalidateSegmentLookup();
         }
 
-        static async Task<AnalysisResult> ReadAnalysisResult(StreamReader reader, string firstline)
+        async Task<AnalysisResult> ReadAnalysisResult(StreamReader reader, string firstline)
         {
-            AppEventHandler.PrintAndLog("Loading Analysis Result...", 1);
+            if (interactive) AppEventHandler.PrintAndLog("Loading Analysis Result...", 1);
 
             try
             {
@@ -311,7 +355,7 @@ namespace AnalysisITC.Core.DataReaders
                 DateTime date = DateTime.Now;
                 AnalysisResultValiditySnapshot validitySnapshot = null;
 
-                while (!(line = reader.ReadLine()).Contains(GlobalSolutionHeader))
+                while (!(line = ReadRequiredLine(reader)).Contains(GlobalSolutionHeader))
                 {
                     var dat = SplitKeyValue(line);
                     string value = dat.Length > 1 ? dat[1] : string.Empty;
@@ -335,8 +379,11 @@ namespace AnalysisITC.Core.DataReaders
                         ? info[1]
                         : "Analysis Result";
 
-                StatusBarManager.SetSecondaryStatus($"{statusName}", 0);
-                await Task.Delay(1); //Necessary to update UI.
+                if (interactive)
+                {
+                    StatusBarManager.SetSecondaryStatus($"{statusName}", 0);
+                    await Task.Delay(1);
+                }
 
                 var sol = ReadGlobalSolution(reader);
                 
@@ -354,19 +401,19 @@ namespace AnalysisITC.Core.DataReaders
             }
             catch (Exception ex)
             {
+                if (!interactive) throw new InvalidDataException("The saved analysis result is malformed.", ex);
                 AppEventHandler.PrintAndLog(ex.Message);
                 AppEventHandler.PrintAndLog(ex.StackTrace);
                 AppEventHandler.DisplayHandledException(new HandledException(HandledException.Severity.Error,"File Reading Error", $"Analysis Result reading error.\nFile: {firstline}"));
-
                 return null;
             }
         }
 
-        static GlobalSolution ReadGlobalSolution(StreamReader reader)
+        GlobalSolution ReadGlobalSolution(StreamReader reader)
         {
             bool useErrorWeightedFitting = false;
 
-            string line = reader.ReadLine();
+            string line = ReadRequiredLine(reader);
             var mdl = (AnalysisModel)IParse(SplitKeyValue(line)[1]);
             GlobalModelFactory factory = new GlobalModelFactory(mdl);
             var datas = new List<ExperimentData>();
@@ -374,7 +421,7 @@ namespace AnalysisITC.Core.DataReaders
             SolverConvergence legacyConv = null;
             SolverConvergence snapshotConv = null;
 
-            while ((line = reader.ReadLine()) != EndFileHeader)
+            while ((line = ReadRequiredLine(reader)) != EndFileHeader)
             {
                 var v = line.Split(':');
                 switch (v[0])
@@ -383,9 +430,9 @@ namespace AnalysisITC.Core.DataReaders
                     case "LIST" when v[1] == DataRef:
                         {
                             string dref;
-                            while ((dref = reader.ReadLine()) != EndListHeader)
+                            while ((dref = ReadRequiredLine(reader)) != EndListHeader)
                             {
-                                datas.Add(Data.Find(d => d.UniqueID == dref) as ExperimentData);
+                                datas.Add(data.Find(d => d.UniqueID == dref) as ExperimentData);
                             }
 
                             factory.InitializeModel(datas);
@@ -394,7 +441,7 @@ namespace AnalysisITC.Core.DataReaders
                     case "LIST" when v[1] == SolConstraints:
                         {
                             string line2;
-                            while ((line2 = reader.ReadLine()) != EndListHeader)
+                            while ((line2 = ReadRequiredLine(reader)) != EndListHeader)
                             {
                                 var dat = line2.Split(':');
                                 var par = (ParameterType)int.Parse(dat[1]);
@@ -407,7 +454,7 @@ namespace AnalysisITC.Core.DataReaders
                     case "LIST" when v[1] == SolParams:
                         {
                             string line2;
-                            while ((line2 = reader.ReadLine()) != EndListHeader)
+                            while ((line2 = ReadRequiredLine(reader)) != EndListHeader)
                             {
                                 var dat = line2.Split(':');
                                 var par = (ParameterType)int.Parse(dat[1]);
@@ -421,7 +468,7 @@ namespace AnalysisITC.Core.DataReaders
                     case "LIST" when v[1] == SolutionList:
                         {
                             string solline;
-                            while ((solline = reader.ReadLine()) != EndListHeader)
+                            while ((solline = ReadRequiredLine(reader)) != EndListHeader)
                             {
                                 var sol = ReadSolution(reader, solline);
                                 if (sol == null) break;
@@ -450,7 +497,7 @@ namespace AnalysisITC.Core.DataReaders
                     case "OBJECT" when v[1] == SolConvergence:
                         {
                             legacyConv = ReadConvergenceObject(reader);
-                            reader.ReadLine();
+                            ReadRequiredLine(reader);
 
                             break;
                         }
@@ -461,7 +508,7 @@ namespace AnalysisITC.Core.DataReaders
                         {
                             var mco = new ModelCloneOptions();
                             string mcoline;
-                            while ((mcoline = reader.ReadLine()) != EndObjectHeader)
+                            while ((mcoline = ReadRequiredLine(reader)) != EndObjectHeader)
                             {
                                 var vv = SplitKeyValue(mcoline);
                                 switch (vv[0])
@@ -492,20 +539,20 @@ namespace AnalysisITC.Core.DataReaders
             return factory.Model.Solution;
         }
 
-        static SolutionInterface ReadSolution(StreamReader reader, string firstline, ExperimentData experimentData = null)
+        SolutionInterface ReadSolution(StreamReader reader, string firstline, ExperimentData experimentData = null)
         {
             try
             {
                 SingleModelFactory factory = null;
                 string guid = DecodeText(firstline.Split(new[] { ':' }, 3)[2]);
-                string dataref = SplitKeyValue(reader.ReadLine())[1];
+                string dataref = SplitKeyValue(ReadRequiredLine(reader))[1];
                 string parentID = "";
                 bool useErrorWeightedFitting = false;
-                var mdltype = (AnalysisModel)IParse(SplitKeyValue(reader.ReadLine())[1]);
+                var mdltype = (AnalysisModel)IParse(SplitKeyValue(ReadRequiredLine(reader))[1]);
 
                 factory = new SingleModelFactory(mdltype);
                 if (experimentData == null)
-                    factory.InitializeModel(Data.Find(d => d.UniqueID == dataref) as ExperimentData);
+                    factory.InitializeModel(data.Find(d => d.UniqueID == dataref) as ExperimentData);
                 else factory.ConstructModel(experimentData);
                 SolverConvergence legacyConv = null;
                 SolverConvergence snapshotConv = null;
@@ -514,7 +561,7 @@ namespace AnalysisITC.Core.DataReaders
                 List<SolutionInterface> bsols = null;
 
                 string line;
-                while ((line = reader.ReadLine()) != EndFileHeader)
+                while ((line = ReadRequiredLine(reader)) != EndFileHeader)
                 {
                     var v = line.Split(':');
                     switch (v[0])
@@ -526,7 +573,7 @@ namespace AnalysisITC.Core.DataReaders
                         case "LIST" when v[1] == SolParams:
                             parameters = new List<Parameter>();
                             string line2;
-                            while ((line2 = reader.ReadLine()) != EndListHeader)
+                            while ((line2 = ReadRequiredLine(reader)) != EndListHeader)
                             {
                                 var dat = line2.Split(':');
                                 var par = (ParameterType)int.Parse(dat[1]);
@@ -535,11 +582,18 @@ namespace AnalysisITC.Core.DataReaders
 
                                 parameters.Add(new Parameter(par, val, locked));
                             }
+                            // Make the saved primary values available while the
+                            // following bootstrap list is being materialized. The
+                            // experiment data itself may be read later in the file,
+                            // so bootstrap models must not initialize guessed values
+                            // from the (currently empty) injection list.
+                            foreach (var parameter in parameters)
+                                factory.Model.Parameters.AddOrUpdateParameter(parameter.Copy());
                             break;
                         case "LIST" when v[1] == SolBootstrapSolutions:
                             bsols = new List<SolutionInterface>();
                             var bsol = "";
-                            while ((bsol = reader.ReadLine()) != EndListHeader)
+                            while ((bsol = ReadRequiredLine(reader)) != EndListHeader)
                             {
                                 bsols.Add(ReadSolution(reader, bsol, factory.Model.Data));
                             }
@@ -550,7 +604,7 @@ namespace AnalysisITC.Core.DataReaders
                         case "LIST" when v[1] == MdlOptions: ReadModelOptions(factory.Model, reader); break;
                         case "OBJECT" when v[1] == SolConvergence:
                             legacyConv = ReadConvergenceObject(reader);
-                            reader.ReadLine();
+                            ReadRequiredLine(reader);
                             break;
                         case "OBJECT" when v[1] == SolConvergenceSnapshot:
                             snapshotConv = ReadConvergenceSnapshotObject(reader);
@@ -582,8 +636,8 @@ namespace AnalysisITC.Core.DataReaders
             catch (Exception ex)
             {
                 ex.Source = "Solution Reading Error: " + firstline;
+                if (!interactive) throw new InvalidDataException("A saved fit solution is malformed.", ex);
                 AppEventHandler.DisplayHandledException(ex);
-
                 return null;
             }
         }
@@ -593,26 +647,61 @@ namespace AnalysisITC.Core.DataReaders
             var solutions = new List<SolutionInterface>();
 
             string line;
-            while ((line = reader.ReadLine()) != EndListHeader)
+            while ((line = ReadRequiredLine(reader)) != EndListHeader)
             {
+                var parameters = new List<Parameter>();
                 while (line != EndListHeader)
                 {
                     var dat = line.Split(':');
                     var par = (ParameterType)int.Parse(dat[1]);
                     var val = DParse(dat[2]);
 
-                    mdl.Parameters.AddOrUpdateParameter(par, val);
+                    parameters.Add(new Parameter(par, val));
 
-                    line = reader.ReadLine();
+                    line = ReadRequiredLine(reader);
                 }
 
-                solutions.Add(SolutionInterface.FromModel(mdl, null));
+                // Each serialized bootstrap parameter set must have its own model.
+                // Reusing mdl here makes every bootstrap solution evaluate the same
+                // final primary model, collapsing fitted-value confidence intervals.
+                // Construct the same concrete model against the experiment data.  The
+                // synthetic-clone path is intended for generating new bootstrap data
+                // and can depend on desktop-only state; saved bootstrap parameters
+                // only need an independent parameter/model object for evaluation.
+                var modelFactory = new SingleModelFactory(mdl.ModelType);
+                modelFactory.ConstructModel(mdl.Data);
+                var bootstrapModel = modelFactory.Model;
+                bootstrapModel.ModelCloneOptions = CopyCloneOptions(mdl.ModelCloneOptions);
+                bootstrapModel.ReuseAttachedSolutionInitialValues = mdl.ReuseAttachedSolutionInitialValues;
+                bootstrapModel.SetModelOptions(mdl.ModelOptions);
+                foreach (var parameter in mdl.Parameters.Table.Values)
+                    bootstrapModel.Parameters.AddOrUpdateParameter(parameter.Copy());
+                foreach (var parameter in parameters)
+                    bootstrapModel.Parameters.AddOrUpdateParameter(parameter);
+
+                solutions.Add(SolutionInterface.FromModel(bootstrapModel, null));
             }
 
             return solutions;
         }
 
-        private static void ReadModelOptions(Model mdl, StreamReader reader)
+        private static ModelCloneOptions CopyCloneOptions(ModelCloneOptions source)
+        {
+            if (source == null) return null;
+
+            return new ModelCloneOptions
+            {
+                IsGlobalClone = source.IsGlobalClone,
+                ErrorEstimationMethod = source.ErrorEstimationMethod,
+                IncludeConcentrationErrorsInBootstrap = source.IncludeConcentrationErrorsInBootstrap,
+                EnableAutoConcentrationVariance = source.EnableAutoConcentrationVariance,
+                AutoConcentrationVariance = source.AutoConcentrationVariance,
+                DiscardedDataPoint = source.DiscardedDataPoint,
+                UnlockBootstrapParameters = source.UnlockBootstrapParameters,
+            };
+        }
+
+        private void ReadModelOptions(Model mdl, StreamReader reader)
         {
             List<ExperimentAttribute> options = ReadAttributeOptions(reader);
 
@@ -629,7 +718,7 @@ namespace AnalysisITC.Core.DataReaders
         private static SolverConvergence ReadConvergenceObject(StreamReader reader)
         {
             SolverConvergence conv;
-            var dat = reader.ReadLine().Split(';');
+            var dat = ReadRequiredLine(reader).Split(';');
             var dict = new Dictionary<string, string>();
             foreach (var d in dat.Where(s => !string.IsNullOrEmpty(s)))
             {
@@ -682,7 +771,7 @@ namespace AnalysisITC.Core.DataReaders
             var dict = new Dictionary<string, string>();
 
             string line;
-            while ((line = reader.ReadLine()) != EndObjectHeader)
+            while ((line = ReadRequiredLine(reader)) != EndObjectHeader)
             {
                 int idx = line.IndexOf(':');
 
