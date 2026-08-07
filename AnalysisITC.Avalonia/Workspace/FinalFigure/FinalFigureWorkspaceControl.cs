@@ -58,9 +58,9 @@ namespace AnalysisITC.Avalonia.FinalFigure
         };
         readonly TextBlock statusText = Text();
 
-        readonly Button exportCurrentButton = Button("Export Current", 96);
-        readonly Button exportActiveButton = Button("Export Active", 96);
-        readonly Button exportAllButton = Button("Export All", 96);
+        readonly Button exportCurrentButton = Button("Current", 0);
+        readonly Button exportActiveButton = Button("Active", 0);
+        readonly Button exportAllButton = Button("All", 0);
 
         readonly TextBox widthBox = TextBox("6");
         readonly TextBox heightBox = TextBox("10");
@@ -93,6 +93,7 @@ namespace AnalysisITC.Avalonia.FinalFigure
         readonly TextBox dataXMaxBox = TextBox("");
         readonly TextBox dataYMinBox = TextBox("");
         readonly TextBox dataYMaxBox = TextBox("");
+        readonly CheckBox sharedPowerAxisCheck = Check("Shared power axis", false);
         readonly CheckBox correctedDataCheck = Check("Corrected data", true);
         readonly CheckBox baselineCheck = Check("Baseline", false);
         readonly ComboBox baselineStyleCombo = Combo(new[] { "Solid", "Dashed" }, 0, 126);
@@ -109,6 +110,8 @@ namespace AnalysisITC.Avalonia.FinalFigure
         readonly TextBox fitXMaxBox = TextBox("");
         readonly TextBox fitYMinBox = TextBox("");
         readonly TextBox fitYMaxBox = TextBox("");
+        readonly CheckBox sharedFitXAxisCheck = Check("Shared X axis", false);
+        readonly CheckBox sharedEnthalpyAxisCheck = Check("Shared enthalpy axis", false);
         readonly TextBox symbolSizeBox = TextBox("8");
         readonly TextBox fitLineWidthBox = TextBox("2");
         readonly ComboBox symbolCombo = Combo(new[] { "Square", "Circle" }, 0, 126);
@@ -211,6 +214,11 @@ namespace AnalysisITC.Avalonia.FinalFigure
 
         void BuildLayout()
         {
+            exportCurrentButton.Classes.Add("accent");
+            ToolTip.SetTip(exportCurrentButton, "Export the currently displayed figure");
+            ToolTip.SetTip(exportActiveButton, "Export figures for all active experiments");
+            ToolTip.SetTip(exportAllButton, "Export figures for all experiments");
+
             image.Stretch = Stretch.Fill;
             AppTheme.Bind(previewHost, Border.BackgroundProperty, AppTheme.PreviewBackground);
             AppTheme.Bind(previewHost, Border.BorderBrushProperty, AppTheme.PanelBorder);
@@ -233,13 +241,18 @@ namespace AnalysisITC.Avalonia.FinalFigure
                 InspectorTab("Data Graph", BuildDataGraphTab()),
                 InspectorTab("Fit Graph", BuildFitGraphTab()));
 
+            var exportFooter = WorkspaceControlBuilder.VerticalGroup();
+            exportFooter.Spacing = 5;
+            exportFooter.Children.Add(WorkspaceControlBuilder.Header("Export PDF"));
+            exportFooter.Children.Add(WorkspaceControlBuilder.EqualWidthRow(
+                exportCurrentButton,
+                exportActiveButton,
+                exportAllButton));
+
             Content = WorkspaceControlBuilder.Workspace(
                 previewHost,
                 inspector,
-                WorkspaceControlBuilder.InspectorFooter(WorkspaceControlBuilder.Section(
-                    "Export",
-                    WorkspaceControlBuilder.Row(exportCurrentButton, exportActiveButton),
-                    exportAllButton)));
+                WorkspaceControlBuilder.InspectorFooter(exportFooter));
         }
 
         Control BuildGeneralTab()
@@ -296,6 +309,10 @@ namespace AnalysisITC.Avalonia.FinalFigure
                 Labeled("Y max", dataYMaxBox),
                 correctedDataCheck
             }));
+            panel.Children.Add(Section("Shared axes", new Control[]
+            {
+                sharedPowerAxisCheck
+            }));
             panel.Children.Add(Section("Baseline", new Control[]
             {
                 baselineCheck,
@@ -325,7 +342,12 @@ namespace AnalysisITC.Avalonia.FinalFigure
                 Labeled("Y min", fitYMinBox),
                 Labeled("Y max", fitYMaxBox),
                 Labeled("Symbol", symbolCombo),
-                Labeled("Data point size", symbolSizeBox)
+                Labeled("Point size", symbolSizeBox)
+            }));
+            panel.Children.Add(Section("Shared axes", new Control[]
+            {
+                sharedFitXAxisCheck,
+                sharedEnthalpyAxisCheck
             }));
             panel.Children.Add(Section("Fit line", new Control[]
             {
@@ -400,6 +422,7 @@ namespace AnalysisITC.Avalonia.FinalFigure
                 instrumentCheck,
                 attributesCheck,
                 correctedDataCheck,
+                sharedPowerAxisCheck,
                 baselineCheck,
                 integrationRegionsCheck,
                 residualsCheck,
@@ -410,7 +433,9 @@ namespace AnalysisITC.Avalonia.FinalFigure
                 errorBarsCheck,
                 excludedCheck,
                 excludedErrorBarsCheck,
-                offsetCorrectedCheck
+                offsetCorrectedCheck,
+                sharedFitXAxisCheck,
+                sharedEnthalpyAxisCheck
             };
         }
 
@@ -491,11 +516,11 @@ namespace AnalysisITC.Avalonia.FinalFigure
                 return;
             }
 
-            var options = BuildOptions();
             var solutionKey = figureExperiment.Solution == null ? "no-solution" : figureExperiment.Solution.GetHashCode().ToString();
 
             try
             {
+                var options = BuildEffectiveOptions(figureExperiment);
                 var document = PublicationFigureBuilder.Build(figureExperiment, options);
                 var pageSize = renderer.GetPageSize(document);
                 var pixelWidth = PreviewPixelWidth(pageSize);
@@ -602,6 +627,92 @@ namespace AnalysisITC.Avalonia.FinalFigure
                 AttributeOptions = AppSettings.DisplayAttributeOptions,
                 TextUncertaintyStyle = SelectedUncertaintyStyle()
             };
+        }
+
+        PublicationFigureOptions BuildEffectiveOptions(ExperimentData target)
+        {
+            var options = BuildOptions();
+            if (sharedPowerAxisCheck.IsChecked != true &&
+                sharedFitXAxisCheck.IsChecked != true &&
+                sharedEnthalpyAxisCheck.IsChecked != true)
+            {
+                return options;
+            }
+
+            var references = DataManager.IncludedData
+                .Where(experiment => experiment != null)
+                .GroupBy(experiment => experiment.UniqueID)
+                .Select(group => group.First())
+                .ToList();
+
+            if (references.Count == 0)
+                references.Add(target);
+
+            var documents = references
+                .Select(experiment => new SharedAxisDocument(
+                    experiment,
+                    PublicationFigureBuilder.Build(experiment, options)))
+                .ToList();
+
+            if (sharedPowerAxisCheck.IsChecked == true)
+            {
+                var range = SharedRange(
+                    documents.Select(item => item.Document.ThermogramPanel?.YAxis),
+                    options.DataYAxisMinimum,
+                    options.DataYAxisMaximum);
+                options.DataYAxisMinimum = range.Minimum;
+                options.DataYAxisMaximum = range.Maximum;
+            }
+
+            if (sharedFitXAxisCheck.IsChecked == true)
+            {
+                var range = SharedRange(
+                    documents
+                        .Where(item => item.Experiment.AxisType == target.AxisType)
+                        .Select(item => item.Document.FitPanel?.XAxis),
+                    options.FitXAxisMinimum,
+                    options.FitXAxisMaximum);
+                options.FitXAxisMinimum = range.Minimum;
+                options.FitXAxisMaximum = range.Maximum;
+            }
+
+            if (sharedEnthalpyAxisCheck.IsChecked == true)
+            {
+                var range = SharedRange(
+                    documents.Select(item => item.Document.FitPanel?.YAxis),
+                    options.FitYAxisMinimum,
+                    options.FitYAxisMaximum);
+                options.FitYAxisMinimum = range.Minimum;
+                options.FitYAxisMaximum = range.Maximum;
+
+                if (AppSettings.UnifyResidualGraphAxis)
+                {
+                    var residualRange = SharedRange(
+                        documents.Select(item => item.Document.ResidualPanel?.YAxis),
+                        options.ResidualYAxisMinimum,
+                        options.ResidualYAxisMaximum);
+                    options.ResidualYAxisMinimum = residualRange.Minimum;
+                    options.ResidualYAxisMaximum = residualRange.Maximum;
+                }
+            }
+
+            return options;
+        }
+
+        static (double? Minimum, double? Maximum) SharedRange(
+            IEnumerable<PublicationAxis?> axes,
+            double? minimum,
+            double? maximum)
+        {
+            var available = axes.Where(axis => axis != null).ToList();
+            if (available.Count == 0) return (minimum, maximum);
+
+            if (!minimum.HasValue)
+                minimum = available.Min(axis => axis!.Minimum);
+            if (!maximum.HasValue)
+                maximum = available.Max(axis => axis!.Maximum);
+
+            return (minimum, maximum);
         }
 
         internal PublicationFigureOptions GetOptionsSnapshot()
@@ -844,7 +955,7 @@ namespace AnalysisITC.Avalonia.FinalFigure
 
         void ExportExperimentFigure(ExperimentData experiment, string path)
         {
-            var document = PublicationFigureBuilder.Build(experiment, BuildOptions());
+            var document = PublicationFigureBuilder.Build(experiment, BuildEffectiveOptions(experiment));
             renderer.WritePdf(document, path);
         }
 
@@ -957,6 +1068,18 @@ namespace AnalysisITC.Avalonia.FinalFigure
 
             public ExperimentData Experiment { get; }
             public string Path { get; }
+        }
+
+        sealed class SharedAxisDocument
+        {
+            public SharedAxisDocument(ExperimentData experiment, PublicationFigureDocument document)
+            {
+                Experiment = experiment;
+                Document = document;
+            }
+
+            public ExperimentData Experiment { get; }
+            public PublicationFigureDocument Document { get; }
         }
     }
 }
