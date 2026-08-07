@@ -1,5 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
+using System.Globalization;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -9,13 +11,17 @@ using MathNet.Numerics.LinearAlgebra.Solvers;
 
 using AnalysisITC.Core.Application;
 using AnalysisITC.Core.Data;
+using AnalysisITC.Core.Numerics;
 using AnalysisITC.Core.Units;
 using AnalysisITC.Core.Utilities;
+using AnalysisITC.Platform;
 
 namespace AnalysisITC.Core.Processing
 {
     public class DataProcessor
     {
+        public const int PeakFitPassCount = 3;
+
         public static event EventHandler BaselineInterpolationCompleted;
         public static event EventHandler ProcessingCompleted;
 
@@ -24,6 +30,9 @@ namespace AnalysisITC.Core.Processing
 
         CancellationToken cToken { get; set; }
         CancellationTokenSource csource = new CancellationTokenSource();
+        readonly SemaphoreSlim processingGate = new SemaphoreSlim(1, 1);
+
+        internal Func<IReadOnlyList<DataPoint>, float[]> PeakEndOffsetEstimator { get; set; }
 
         public BaselineInterpolator Interpolator { get; set; }
         public BaselineInterpolatorTypes BaselineType
@@ -87,6 +96,20 @@ namespace AnalysisITC.Core.Processing
         {
             if (BaselineType == BaselineInterpolatorTypes.None) return;
 
+            await processingGate.WaitAsync();
+            try
+            {
+                await ProcessDataCore(replace, invalidate, showProgress);
+            }
+            finally
+            {
+                processingGate.Release();
+            }
+        }
+
+        async Task ProcessDataCore(bool replace, bool invalidate, bool showProgress)
+        {
+
             if (showProgress) StatusBarManager.StartInderminateProgress();
 
             this.WillProcessData(invalidate);
@@ -95,6 +118,551 @@ namespace AnalysisITC.Core.Processing
             this.DidProcessData(invalidate);
 
             if (showProgress) StatusBarManager.StopIndeterminateProgress();
+        }
+
+        public async Task<PeakFitResult> FitIntegrationPeaksAsync(
+            IEnumerable<InjectionData> targetInjections = null,
+            bool invalidate = true,
+            bool showProgress = true)
+        {
+            var requestTimer = Stopwatch.StartNew();
+            var gateTimer = Stopwatch.StartNew();
+            var gateWaitMilliseconds = 0d;
+            var workerMilliseconds = 0d;
+            var publicationMilliseconds = 0d;
+            PeakFitResult result = null;
+            var targets = targetInjections?.ToArray();
+            var targetCount = targets?.Length ?? Data?.Injections?.Count ?? 0;
+            ReportPeakFitProgress(
+                showProgress,
+                "Waiting to fit injection peaks...",
+                "Preparing",
+                0);
+
+            await processingGate.WaitAsync();
+            gateWaitMilliseconds = gateTimer.Elapsed.TotalMilliseconds;
+            try
+            {
+                ReportPeakFitProgress(
+                    showProgress,
+                    "Preparing injection peak fitting...",
+                    "Preparing corrected data",
+                    0.025);
+
+                var workerTimer = Stopwatch.StartNew();
+                result = await Task.Run(() => FitIntegrationPeaksCoreAsync(
+                    targets,
+                    showProgress));
+                workerMilliseconds = workerTimer.Elapsed.TotalMilliseconds;
+
+                var publicationTimer = Stopwatch.StartNew();
+                if (result.Status != PeakFitStatus.NoData)
+                    DidProcessData(invalidate);
+                publicationMilliseconds = publicationTimer.Elapsed.TotalMilliseconds;
+
+                return result;
+            }
+            finally
+            {
+                requestTimer.Stop();
+                LogPeakFit(
+                    $"Timing: targets={targetCount}, gateWait={FormatPeakFitMilliseconds(gateWaitMilliseconds)}, " +
+                    $"worker={FormatPeakFitMilliseconds(workerMilliseconds)}, " +
+                    $"publication={FormatPeakFitMilliseconds(publicationMilliseconds)}, " +
+                    $"requestTotal={FormatPeakFitMilliseconds(requestTimer.Elapsed.TotalMilliseconds)}.");
+                processingGate.Release();
+                CompletePeakFitProgress(showProgress, result);
+            }
+        }
+
+        async Task<PeakFitResult> FitIntegrationPeaksCoreAsync(
+            IEnumerable<InjectionData> targetInjections,
+            bool showProgress)
+        {
+            if (Data?.Injections == null || Data.Injections.Count == 0 || Data.DataPoints == null || Data.DataPoints.Count == 0)
+            {
+                LogPeakFit("Skipped: the experiment has no injections or thermogram samples.");
+                return new PeakFitResult(PeakFitStatus.NoData, 0, false);
+            }
+
+            var targetSet = targetInjections == null
+                ? new HashSet<InjectionData>(Data.Injections)
+                : new HashSet<InjectionData>(targetInjections.Where(inj => inj != null && Data.Injections.Contains(inj)));
+
+            if (targetSet.Count == 0)
+            {
+                LogPeakFit("Skipped: no valid target injections were supplied.");
+                return new PeakFitResult(PeakFitStatus.NoData, 0, false);
+            }
+
+            var targetIndices = Data.Injections
+                .Select((injection, index) => new { injection, index })
+                .Where(item => targetSet.Contains(item.injection))
+                .Select(item => item.index)
+                .ToArray();
+
+            var original = CapturePeakFitState(targetIndices);
+            var iterations = 0;
+            var finalState = original;
+            var coreTimer = Stopwatch.StartNew();
+
+            LogPeakFit(
+                $"Start: experiment=\"{Data.FileName}\", targets={FormatPeakFitTargets(targetIndices)}, " +
+                $"baseline={BaselineType}, locked={IsLocked}, discardIntegratedPoints={DiscardIntegratedPoints}, " +
+                $"baselineRefitEnabled={CanRefitBaseline()}, passes={PeakFitPassCount}, " +
+                $"samples={Data.DataPoints.Count}, dt={FormatPeakFitNumber(Data.TimeStep)} s.");
+            LogPeakFit(
+                $"Criteria: fitStart≥{FormatPeakFitNumber(CorrectedPeakEndEstimator.TailFitStartOffsetSeconds)} s, " +
+                $"model=A*exp(-x/tau), plateau=0, " +
+                $"endpoint=fitStart+{FormatPeakFitNumber(CorrectedPeakEndEstimator.EndpointTauMultiples)}tau, " +
+                $"minimumFitImprovement={FormatPeakFitNumber(100 * CorrectedPeakEndEstimator.MinimumFitImprovement)}%, " +
+                $"neighbourFilter=median(previous,self,next) for interior injections.",
+                1);
+            LogPeakFit($"Starting endpoints: {FormatPeakFitState(original, targetIndices)}", 1);
+
+            try
+            {
+                ReportPeakFitProgress(
+                    showProgress,
+                    "Preparing baseline-corrected peak data...",
+                    "Preparing corrected data",
+                    0.05);
+
+                var correctedDataTimer = Stopwatch.StartNew();
+                var correctedTraceSource = "existing corrected trace";
+                if (!HasValidCorrectedTrace() && CanCalculateBaseline())
+                {
+                    correctedTraceSource = "new baseline interpolation";
+                    LogPeakFit("Corrected trace is missing; calculating the baseline before detection.", 1);
+                    await InterpolateBaseline(replace: true, notify: false, throwOnError: true);
+                }
+
+                if (!HasValidCorrectedTrace())
+                {
+                    correctedTraceSource = "stored fixed baseline";
+                    RefreshCorrectedTraceFromCurrentBaseline();
+                }
+
+                if (!HasValidCorrectedTrace())
+                    throw new InvalidOperationException("Peak fitting requires baseline-corrected data.");
+
+                LogPeakFit(
+                    $"Corrected trace ready: source={correctedTraceSource}, points={Data.BaseLineCorrectedDataPoints.Count}.",
+                    1);
+                LogPeakFitTiming("corrected-data preparation", correctedDataTimer);
+
+                for (iterations = 1; iterations <= PeakFitPassCount; iterations++)
+                {
+                    ReportPeakFitProgress(
+                        showProgress,
+                        $"Fitting injection peaks...",
+                        $"Pass {iterations} of {PeakFitPassCount}",
+                        0.1 + 0.25 * (iterations - 1));
+
+                    var previousState = finalState;
+                    var frozenCorrectedTrace = Data.BaseLineCorrectedDataPoints.ToArray();
+                    LogPeakFit(
+                        $"Pass {iterations}/{PeakFitPassCount}: froze {frozenCorrectedTrace.Length} corrected samples.",
+                        1);
+
+                    var estimationTimer = Stopwatch.StartNew();
+                    var estimatedState = EstimatePeakFitState(
+                        frozenCorrectedTrace,
+                        targetIndices,
+                        out var detection);
+                    estimationTimer.Stop();
+                    finalState = StabilizeOneSampleEndpointJitter(
+                        previousState,
+                        estimatedState,
+                        targetIndices,
+                        out int stabilizedEndpointCount);
+                    if (stabilizedEndpointCount > 0)
+                    {
+                        LogPeakFit(
+                            $"Pass {iterations}/{PeakFitPassCount}: retained {stabilizedEndpointCount} endpoint(s) " +
+                            "whose candidate moved by only one thermogram sample.",
+                            2);
+                    }
+                    LogPeakFitIteration(
+                        iterations,
+                        previousState,
+                        finalState,
+                        detection,
+                        targetIndices);
+                    ApplyPeakFitState(finalState);
+                    LogPeakFitTiming($"pass {iterations} peak estimation", estimationTimer);
+
+                    if (iterations < PeakFitPassCount)
+                    {
+                        Stopwatch baselineTimer;
+                        if (CanRefitBaseline())
+                        {
+                            ReportPeakFitProgress(
+                                showProgress,
+                                $"Recalculating baseline after peak-fit pass {iterations}...",
+                                $"Pass {iterations} of {PeakFitPassCount - 1}",
+                                0.25 + 0.25 * (iterations - 1));
+                            LogPeakFit(
+                                $"Pass {iterations}/{PeakFitPassCount}: recalculating the baseline for the candidate regions.",
+                                1);
+                            baselineTimer = Stopwatch.StartNew();
+                            await InterpolateBaseline(
+                                replace: true,
+                                notify: false,
+                                throwOnError: true);
+                        }
+                        else
+                        {
+                            ReportPeakFitProgress(
+                                showProgress,
+                                $"Preparing peak-fit pass {iterations + 1} of {PeakFitPassCount}...",
+                                $"Pass {iterations} of {PeakFitPassCount - 1}",
+                                0.25 + 0.25 * (iterations - 1));
+                            LogPeakFit(
+                                $"Pass {iterations}/{PeakFitPassCount}: baseline is fixed or region-independent; reusing it.",
+                                1);
+                            baselineTimer = Stopwatch.StartNew();
+                            RefreshCorrectedTraceFromCurrentBaseline();
+                        }
+                        LogPeakFitTiming($"pass {iterations} baseline preparation", baselineTimer);
+
+                        if (!HasValidCorrectedTrace())
+                            throw new InvalidOperationException("Peak fitting lost its baseline-corrected data.");
+                    }
+                }
+
+                // The final baseline must correspond to the regions committed by pass three.
+                Stopwatch finalBaselineTimer;
+                if (CanRefitBaseline())
+                {
+                    ReportPeakFitProgress(
+                        showProgress,
+                        "Updating the final baseline...",
+                        $"Pass {iterations} of {PeakFitPassCount - 1}",
+                        0.85);
+                    LogPeakFit("Recalculating the final baseline for the committed regions.", 1);
+                    finalBaselineTimer = Stopwatch.StartNew();
+                    await InterpolateBaseline(
+                        replace: true,
+                        notify: false,
+                        throwOnError: true);
+                }
+                else
+                {
+                    finalBaselineTimer = Stopwatch.StartNew();
+                    RefreshCorrectedTraceFromCurrentBaseline();
+                }
+                LogPeakFitTiming("final baseline preparation", finalBaselineTimer);
+
+                ReportPeakFitProgress(
+                    showProgress,
+                    "Integrating fitted injection peaks...",
+                    $"Pass {iterations} of {PeakFitPassCount - 1}",
+                    0.95);
+                var integrationTimer = Stopwatch.StartNew();
+                if (HasValidCorrectedTrace())
+                    IntegratePeaks(invalidate: false, notify: false);
+                LogPeakFitTiming("final integration", integrationTimer);
+
+                var regionsChanged = !finalState.HasSameOffsets(original);
+                coreTimer.Stop();
+                LogPeakFit(
+                    $"Complete: status={PeakFitStatus.Converged}, iterations={PeakFitPassCount}, " +
+                    $"regionsChanged={regionsChanged}, finalEndpoints={FormatPeakFitState(finalState, targetIndices)}, " +
+                    $"coreTotal={FormatPeakFitMilliseconds(coreTimer.Elapsed.TotalMilliseconds)}.");
+
+                return new PeakFitResult(
+                    PeakFitStatus.Converged,
+                    PeakFitPassCount,
+                    regionsChanged);
+            }
+            catch (Exception ex)
+            {
+                coreTimer.Stop();
+                ReportPeakFitProgress(
+                    showProgress,
+                    "Peak fitting failed; restoring the original regions...",
+                    "Rolling back",
+                    0.95);
+                LogPeakFit($"Failed after iteration {iterations}: {ex.Message}");
+                LogPeakFit(ex.StackTrace ?? "No stack trace available.", 1);
+
+                ApplyPeakFitState(original);
+                if (CanRefitBaseline())
+                {
+                    await InterpolateBaseline(
+                        replace: true,
+                        notify: false,
+                        throwOnError: false);
+                }
+                else
+                {
+                    RefreshCorrectedTraceFromCurrentBaseline();
+                }
+
+                if (HasValidCorrectedTrace())
+                    IntegratePeaks(invalidate: false, notify: false);
+
+                LogPeakFit($"Failure rollback complete: endpoints={FormatPeakFitState(original, targetIndices)}.");
+                LogPeakFit(
+                    $"Timing: failed core total={FormatPeakFitMilliseconds(coreTimer.Elapsed.TotalMilliseconds)}.",
+                    1);
+                return new PeakFitResult(PeakFitStatus.Failed, iterations, false);
+            }
+        }
+
+        static void ReportPeakFitProgress(
+            bool showProgress,
+            string status,
+            string secondaryStatus,
+            double progress)
+        {
+            if (!showProgress) return;
+
+            PlatformServices.MainThreadDispatcher.Invoke(() =>
+            {
+                StatusBarManager.SetStatus(status, 0, priority: 1);
+                StatusBarManager.SetSecondaryStatus(secondaryStatus, 0);
+                StatusBarManager.SetProgress(progress);
+            });
+        }
+
+        static void CompletePeakFitProgress(bool showProgress, PeakFitResult result)
+        {
+            if (!showProgress) return;
+
+            PlatformServices.MainThreadDispatcher.Invoke(() =>
+            {
+                StatusBarManager.ClearAppStatus();
+                StatusBarManager.SetProgress(1);
+                StatusBarManager.SetStatus(result?.Status switch
+                {
+                    PeakFitStatus.Converged => $"Injection peaks fitted in {result.Iterations} passes",
+                    PeakFitStatus.CycleResolved => "Injection peak fitting completed",
+                    PeakFitStatus.NonConvergent => "Injection peak fitting did not converge",
+                    PeakFitStatus.NoData => "No injection peak data available to fit",
+                    _ => "Injection peak fitting failed",
+                }, 3000);
+            });
+        }
+
+        bool CanCalculateBaseline() =>
+            Interpolator != null && !IsLocked;
+
+        bool CanRefitBaseline() =>
+            Interpolator != null && DiscardIntegratedPoints && !IsLocked;
+
+        bool HasValidCorrectedTrace() =>
+            Data.BaseLineCorrectedDataPoints != null &&
+            Data.BaseLineCorrectedDataPoints.Count == Data.DataPoints.Count;
+
+        void RefreshCorrectedTraceFromCurrentBaseline()
+        {
+            if (Interpolator?.Baseline != null && Interpolator.Baseline.Count == Data.DataPoints.Count)
+                SubtractBaseline();
+        }
+
+        PeakFitState EstimatePeakFitState(
+            IReadOnlyList<DataPoint> trace,
+            int[] targetIndices,
+            out PeakEndDetectionResult detection)
+        {
+            float[] estimates;
+            if (PeakEndOffsetEstimator != null)
+            {
+                detection = null;
+                estimates = PeakEndOffsetEstimator(trace);
+            }
+            else
+            {
+                detection = CorrectedPeakEndEstimator.EstimateEndOffsets(Data, trace);
+                estimates = detection.EndOffsets;
+            }
+            var offsets = Data.Injections.Select(injection => injection.IntegrationEndOffset).ToArray();
+
+            foreach (var index in targetIndices)
+            {
+                if (index < estimates.Length)
+                    offsets[index] = CanonicalizeEndOffset(Data.Injections[index], estimates[index]);
+            }
+
+            return CreatePeakFitState(offsets, targetIndices);
+        }
+
+        void LogPeakFitIteration(
+            int iteration,
+            PeakFitState previous,
+            PeakFitState candidate,
+            PeakEndDetectionResult detection,
+            int[] targetIndices)
+        {
+            var changedCount = candidate.Signature
+                .Zip(previous.Signature, (next, current) => next != current)
+                .Count(changed => changed);
+            var detectorText = detection == null
+                ? "custom estimator"
+                : "zero-plateau exponential-tail detector";
+
+            LogPeakFit(
+                $"Pass {iteration}: changedEndpointSamples={changedCount}/{targetIndices.Length}, {detectorText}.",
+                1);
+
+            for (int targetPosition = 0; targetPosition < targetIndices.Length; targetPosition++)
+            {
+                var injectionIndex = targetIndices[targetPosition];
+                var injection = Data.Injections[injectionIndex];
+                var changed = previous.Signature[targetPosition] != candidate.Signature[targetPosition];
+
+                if (detection == null || injectionIndex >= detection.Estimates.Length)
+                {
+                    LogPeakFit(
+                        $"Injection {injectionIndex + 1} (id={injection.ID}): custom estimator, " +
+                        $"previous={FormatPeakFitNumber(previous.Offsets[injectionIndex])} s, " +
+                        $"canonical={FormatPeakFitNumber(candidate.Offsets[injectionIndex])} s, " +
+                        $"sampleIndex={candidate.Signature[targetPosition]}, changed={changed}.",
+                        2);
+                    continue;
+                }
+
+                var estimate = detection.Estimates[injectionIndex];
+                var detectorReason = estimate.DetectionDecision == estimate.FinalDecision
+                    ? estimate.FinalDecision.ToString()
+                    : $"{estimate.FinalDecision} (detector={estimate.DetectionDecision})";
+                var fitStartText = double.IsNaN(estimate.FitStartOffset)
+                    ? "n/a"
+                    : FormatPeakFitNumber(estimate.FitStartOffset) + " s";
+                var tauText = double.IsNaN(estimate.Tau)
+                    ? "n/a"
+                    : FormatPeakFitNumber(estimate.Tau) + " s";
+                var fitImprovementText = double.IsNaN(estimate.FitImprovement)
+                    ? "n/a"
+                    : FormatPeakFitNumber(100 * estimate.FitImprovement) + "%";
+                var neighbourText = estimate.NeighbourFilterApplied
+                    ? $", individual={FormatPeakFitNumber(estimate.IndividualEndOffset)} s, " +
+                      $"neighbourMedian={FormatPeakFitNumber(estimate.EndOffset)} s"
+                    : $", individual={FormatPeakFitNumber(estimate.EndOffset)} s";
+
+                LogPeakFit(
+                    $"Injection {injectionIndex + 1} (id={injection.ID}): decision={detectorReason}, " +
+                    $"polarity={estimate.Polarity}, points={estimate.SampleCount}, " +
+                    $"fitStart={fitStartText}, initialA={FormatPeakFitScientific(estimate.InitialAmplitude)}, " +
+                    $"A={FormatPeakFitScientific(estimate.Amplitude)}, tau={tauText}, " +
+                    $"rmse={FormatPeakFitScientific(estimate.RootMeanSquareError)}, " +
+                    $"fitImprovement={fitImprovementText}, " +
+                    $"previous={FormatPeakFitNumber(previous.Offsets[injectionIndex])} s{neighbourText}, " +
+                    $"canonical={FormatPeakFitNumber(candidate.Offsets[injectionIndex])} s, " +
+                    $"sampleIndex={candidate.Signature[targetPosition]}, changed={changed}.",
+                    2);
+            }
+        }
+
+        void LogPeakFit(string message, int indentation = 0) =>
+            AppEventHandler.PrintAndLog(message, indentation, "PeakFit");
+
+        void LogPeakFitTiming(string phase, Stopwatch timer)
+        {
+            timer.Stop();
+            LogPeakFit($"Timing: {phase}={FormatPeakFitMilliseconds(timer.Elapsed.TotalMilliseconds)}.", 1);
+        }
+
+        string FormatPeakFitTargets(int[] targetIndices) =>
+            targetIndices.Length == Data.Injections.Count
+                ? $"all ({targetIndices.Length})"
+                : string.Join(",", targetIndices.Select(index => (index + 1).ToString(CultureInfo.InvariantCulture)));
+
+        static string FormatPeakFitState(PeakFitState state, int[] targetIndices) =>
+            string.Join(", ", targetIndices.Select(index =>
+                $"inj{index + 1}={FormatPeakFitNumber(state.Offsets[index])}s"));
+
+        static string FormatPeakFitNumber(double value) =>
+            double.IsNaN(value) || double.IsInfinity(value)
+                ? "n/a"
+                : value.ToString("0.###", CultureInfo.InvariantCulture);
+
+        static string FormatPeakFitScientific(double value) =>
+            double.IsNaN(value) || double.IsInfinity(value)
+                ? "n/a"
+                : value.ToString("0.###E+0", CultureInfo.InvariantCulture);
+
+        static string FormatPeakFitMilliseconds(double milliseconds) =>
+            milliseconds.ToString("0.###", CultureInfo.InvariantCulture) + " ms";
+
+        PeakFitState CapturePeakFitState(int[] targetIndices) =>
+            CreatePeakFitState(Data.Injections.Select(injection => injection.IntegrationEndOffset).ToArray(), targetIndices);
+
+        PeakFitState CreatePeakFitState(float[] offsets, int[] targetIndices)
+        {
+            var signature = targetIndices
+                .Select(index => GetEffectiveEndSampleIndex(Data.Injections[index], offsets[index]))
+                .ToArray();
+            return new PeakFitState(offsets, signature);
+        }
+
+        PeakFitState StabilizeOneSampleEndpointJitter(
+            PeakFitState previousState,
+            PeakFitState candidateState,
+            int[] targetIndices,
+            out int stabilizedEndpointCount)
+        {
+            stabilizedEndpointCount = 0;
+            var stabilizedOffsets = candidateState.Offsets.ToArray();
+
+            for (int targetPosition = 0; targetPosition < targetIndices.Length; targetPosition++)
+            {
+                if (candidateState.Signature[targetPosition] ==
+                    previousState.Signature[targetPosition])
+                {
+                    continue;
+                }
+
+                if (Math.Abs(
+                        candidateState.Signature[targetPosition] -
+                        previousState.Signature[targetPosition]) > 1)
+                {
+                    continue;
+                }
+
+                int injectionIndex = targetIndices[targetPosition];
+                stabilizedOffsets[injectionIndex] = previousState.Offsets[injectionIndex];
+                stabilizedEndpointCount++;
+            }
+
+            return stabilizedEndpointCount == 0
+                ? candidateState
+                : CreatePeakFitState(stabilizedOffsets, targetIndices);
+        }
+
+        float CanonicalizeEndOffset(InjectionData injection, float estimate)
+        {
+            var minimum = injection.IntegrationStartDelay + Math.Max(2f * (float)Data.TimeStep, 1f);
+            var maximum = injection.Delay;
+            var clamped = FWEMath.Clamp(estimate, minimum, maximum);
+
+            var candidates = Data.DataPoints
+                .Where(point => point.Time - injection.Time >= minimum && point.Time - injection.Time <= maximum)
+                .OrderBy(point => Math.Abs((point.Time - injection.Time) - clamped))
+                .ToList();
+
+            if (candidates.Count == 0)
+                return clamped;
+
+            var nearest = candidates[0];
+            return FWEMath.Clamp(nearest.Time - injection.Time, minimum, maximum);
+        }
+
+        int GetEffectiveEndSampleIndex(InjectionData injection, float endOffset)
+        {
+            var endTime = injection.Time + endOffset;
+            var index = -1;
+            for (int i = 0; i < Data.DataPoints.Count && Data.DataPoints[i].Time <= endTime; i++)
+                index = i;
+            return index;
+        }
+
+        void ApplyPeakFitState(PeakFitState state)
+        {
+            for (int i = 0; i < Data.Injections.Count && i < state.Offsets.Length; i++)
+                Data.Injections[i].SetIntegrationLengthByTime(state.Offsets[i], markModified: false);
         }
 
         public void Lock() => IsLocked = true;
@@ -109,10 +677,11 @@ namespace AnalysisITC.Core.Processing
             Data.UpdateProcessing(invalidate);
         }
 
-        public async Task InterpolateBaseline(bool replace = true)
+        public async Task InterpolateBaseline(bool replace = true, bool notify = true, bool throwOnError = false)
         {
             try
             {
+                BaselineCompleted = false;
                 csource.Cancel();
                 csource = new CancellationTokenSource();
                 cToken = csource.Token;
@@ -122,13 +691,14 @@ namespace AnalysisITC.Core.Processing
                 SubtractBaseline();
 
                 BaselineCompleted = true;
-                BaselineInterpolationCompleted?.Invoke(this, null);
+                if (notify) BaselineInterpolationCompleted?.Invoke(this, null);
             }
             catch (Exception ex)
             {
                 AppEventHandler.PrintAndLog("Baseline Interpolation Error");
                 AppEventHandler.PrintAndLog(ex.Message);
                 AppEventHandler.PrintAndLog(ex.StackTrace);
+                if (throwOnError) throw;
             }
         }
 
@@ -153,7 +723,7 @@ namespace AnalysisITC.Core.Processing
             Data.CalculateExperimentHeatDirection();
         }
 
-        public void IntegratePeaks(bool invalidate = true)
+        public void IntegratePeaks(bool invalidate = true, bool notify = true)
         {
             if (Data.BaseLineCorrectedDataPoints == null || Data.BaseLineCorrectedDataPoints.Count == 0) return;
 
@@ -169,9 +739,50 @@ namespace AnalysisITC.Core.Processing
                 AppEventHandler.DisplayHandledException(ex);
             }
 
-            Data.UpdateProcessing(invalidate);
+            if (notify)
+            {
+                Data.UpdateProcessing(invalidate);
+                ProcessingCompleted?.Invoke(Data, null);
+            }
+        }
 
-            ProcessingCompleted?.Invoke(Data, null);
+        sealed class PeakFitState
+        {
+            public float[] Offsets { get; }
+            public int[] Signature { get; }
+
+            public PeakFitState(float[] offsets, int[] signature)
+            {
+                Offsets = offsets.ToArray();
+                Signature = signature.ToArray();
+            }
+
+            public bool HasSameSignature(PeakFitState other) => Signature.SequenceEqual(other.Signature);
+            public bool HasSameOffsets(PeakFitState other) => Offsets.SequenceEqual(other.Offsets);
+        }
+    }
+
+    public enum PeakFitStatus
+    {
+        Converged,
+        CycleResolved,
+        NonConvergent,
+        NoData,
+        Failed,
+    }
+
+    public sealed class PeakFitResult
+    {
+        public PeakFitStatus Status { get; }
+        public int Iterations { get; }
+        public bool RegionsChanged { get; }
+        public bool Succeeded => Status == PeakFitStatus.Converged || Status == PeakFitStatus.CycleResolved;
+
+        public PeakFitResult(PeakFitStatus status, int iterations, bool regionsChanged)
+        {
+            Status = status;
+            Iterations = iterations;
+            RegionsChanged = regionsChanged;
         }
     }
 
@@ -525,9 +1136,8 @@ namespace AnalysisITC.Core.Processing
         int pointsPerInjection = DefaultPointsPerInjection;
 
         public static SplineInterpolatorAlgorithm PolynomialToSplineConversionTargetAlgorithm { get; set; } = SplineInterpolatorAlgorithm.Rigid;
-        public static double ExpectedBaselineFractionForSplinePointSpacing { get; set; } = 0.5;
-        public static double AdditionalSplinePointSpacingFraction { get; set; } = 0.75;
-        public static int MaximumAdditionalSplinePointsPerInjection { get; set; } = 1;
+        public static double BalancedSplinePointIntegrationFractionThreshold { get; set; } = 0.33;
+        public static int DenseSplinePointsAtZeroIntegration { get; set; } = 5;
         public static double LockedSplinePointPlacementMarginFraction { get; set; } = 1.0 / 3.0;
         public static SplineHandleMode DefaultHandleMode { get; set; } = SplineHandleMode.Mean;
         public static bool DefaultAllowPointTimeDragging { get; set; } = false;
@@ -619,7 +1229,6 @@ namespace AnalysisITC.Core.Processing
         public List<SplinePoint> GetInitialPoints(int pointperinjection = 1)
         {
             var points = new List<SplinePoint>();
-            pointperinjection = Math.Max(1, pointperinjection);
 
             //First points
             var segmmentL = (Data.InitialDelay - 5) / 4;
@@ -639,7 +1248,7 @@ namespace AnalysisITC.Core.Processing
                 if (end <= start) start = (float)Math.Max(inj.Time, end - Data.TimeStep);
 
                 var baselineLength = Math.Max(end - start, Data.TimeStep);
-                var pointCount = GetAutomaticSplinePointCount(inj.Delay, baselineLength, pointperinjection);
+                var pointCount = GetAutomaticSplinePointCount(inj.Delay, inj.IntegrationLength);
                 var length = baselineLength / pointCount;
 
                 for (int j = 0; j < pointCount; j++)
@@ -657,29 +1266,21 @@ namespace AnalysisITC.Core.Processing
             return points;
         }
 
-        int GetAutomaticSplinePointCount(double injectionDelay, double baselineLength, int requestedPoints)
+        int GetAutomaticSplinePointCount(double injectionDelay, double integratedLength)
         {
-            requestedPoints = Math.Max(1, requestedPoints);
+            if (PointDensity == SplinePointDensity.Sparse) return 1;
 
-            var expectedBaselineFraction = Math.Max(double.Epsilon, ExpectedBaselineFractionForSplinePointSpacing);
-            var expectedBaselineLength = Math.Max(Data.TimeStep, injectionDelay * expectedBaselineFraction);
-            var expectedPointSpacing = expectedBaselineLength / requestedPoints;
+            var injectionScope = Math.Max(Data.TimeStep, injectionDelay);
+            var fractionIntegrated = Math.Min(1, Math.Max(0, integratedLength / injectionScope));
 
-            if (double.IsNaN(expectedPointSpacing) || double.IsInfinity(expectedPointSpacing) || expectedPointSpacing <= double.Epsilon)
-                return requestedPoints;
+            if (PointDensity == SplinePointDensity.Balanced)
+            {
+                var threshold = Math.Min(1, Math.Max(0, BalancedSplinePointIntegrationFractionThreshold));
+                return fractionIntegrated < threshold ? 2 : 1;
+            }
 
-            var scaledPointCount = baselineLength / expectedPointSpacing;
-            if (double.IsNaN(scaledPointCount) || double.IsInfinity(scaledPointCount) || scaledPointCount <= double.Epsilon)
-                return 1;
-
-            var pointCount = (int)Math.Floor(scaledPointCount);
-            var additionalPointThreshold = Math.Min(1, Math.Max(0, AdditionalSplinePointSpacingFraction));
-
-            if (scaledPointCount - pointCount >= additionalPointThreshold) pointCount++;
-
-            var maxPointCount = Math.Min(MaximumPointsPerInjection, requestedPoints + Math.Max(0, MaximumAdditionalSplinePointsPerInjection));
-
-            return Math.Min(maxPointCount, Math.Max(1, pointCount));
+            var densePointCount = Math.Floor((1 - fractionIntegrated) * Math.Max(1, DenseSplinePointsAtZeroIntegration));
+            return ClampPointsPerInjection((int)Math.Max(1, densePointCount));
         }
 
         double SplineSlope(double time, double s = 0, double e = 1) => DataPoint.Slope(GetInterpolatedDataPoints(s, e));
