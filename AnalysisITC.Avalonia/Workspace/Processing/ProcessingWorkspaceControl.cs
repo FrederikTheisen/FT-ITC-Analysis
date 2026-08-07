@@ -72,6 +72,8 @@ namespace AnalysisITC.Avalonia.Processing
         ExperimentData? experiment;
         bool isUpdatingControls;
         bool isPeakFitting;
+        int processingRefreshGeneration;
+        bool processingRefreshQueued;
 
         public event EventHandler<string>? StatusChanged;
         public event EventHandler? ProcessingChanged;
@@ -92,6 +94,7 @@ namespace AnalysisITC.Avalonia.Processing
                 if (ReferenceEquals(experiment, value)) return;
 
                 UnsubscribeExperiment();
+                CancelQueuedProcessingRefresh();
                 experiment = value;
                 graph.Experiment = value;
                 SubscribeExperiment();
@@ -109,6 +112,7 @@ namespace AnalysisITC.Avalonia.Processing
         protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
         {
             UnsubscribeExperiment();
+            CancelQueuedProcessingRefresh();
             base.OnDetachedFromVisualTree(e);
         }
 
@@ -275,7 +279,7 @@ namespace AnalysisITC.Avalonia.Processing
             if (experiment == null) return;
 
             experiment.ProcessingUpdated += ExperimentProcessingUpdated;
-            experiment.InjectionIncludeChanged += ExperimentProcessingUpdated;
+            experiment.InjectionIncludeChanged += ExperimentInjectionIncludeChanged;
         }
 
         void UnsubscribeExperiment()
@@ -283,17 +287,51 @@ namespace AnalysisITC.Avalonia.Processing
             if (experiment == null) return;
 
             experiment.ProcessingUpdated -= ExperimentProcessingUpdated;
-            experiment.InjectionIncludeChanged -= ExperimentProcessingUpdated;
+            experiment.InjectionIncludeChanged -= ExperimentInjectionIncludeChanged;
         }
 
         void ExperimentProcessingUpdated(object? sender, EventArgs e)
         {
+            var source = sender as ExperimentData;
+            if (source?.Processor.BaselineCompleted == false) return;
+            QueueProcessingRefresh(source);
+        }
+
+        void ExperimentInjectionIncludeChanged(object? sender, EventArgs e)
+        {
+            QueueProcessingRefresh(sender as ExperimentData);
+        }
+
+        void QueueProcessingRefresh(ExperimentData? source)
+        {
+            if (!Dispatcher.UIThread.CheckAccess())
+            {
+                Dispatcher.UIThread.Post(() => QueueProcessingRefresh(source));
+                return;
+            }
+
+            var current = experiment;
+            if (current == null || (source != null && !ReferenceEquals(source, current))) return;
+            if (processingRefreshQueued) return;
+
+            var generation = processingRefreshGeneration;
+            processingRefreshQueued = true;
             Dispatcher.UIThread.Post(() =>
             {
+                if (generation != processingRefreshGeneration || !ReferenceEquals(current, experiment))
+                    return;
+
+                processingRefreshQueued = false;
                 graph.InvalidateVisual();
                 UpdateControls();
                 ProcessingChanged?.Invoke(this, EventArgs.Empty);
             });
+        }
+
+        void CancelQueuedProcessingRefresh()
+        {
+            processingRefreshGeneration++;
+            processingRefreshQueued = false;
         }
 
         async Task InitializeExperimentAsync()
@@ -473,7 +511,6 @@ namespace AnalysisITC.Avalonia.Processing
 
                 ConfigureIntegrationControls();
                 graph.InvalidateVisual();
-                ProcessingChanged?.Invoke(this, EventArgs.Empty);
                 StatusChanged?.Invoke(this, PeakFitStatusMessage(fitResult));
             }
             catch (Exception ex)
@@ -508,7 +545,6 @@ namespace AnalysisITC.Avalonia.Processing
             {
                 experiment.Processor.IntegratePeaks();
                 graph.InvalidateVisual();
-                ProcessingChanged?.Invoke(this, EventArgs.Empty);
                 StatusChanged?.Invoke(this, "Integration updated");
             }
         }
@@ -523,7 +559,6 @@ namespace AnalysisITC.Avalonia.Processing
             {
                 experiment.Processor.IntegratePeaks();
                 UpdateControls();
-                ProcessingChanged?.Invoke(this, EventArgs.Empty);
                 StatusChanged?.Invoke(this, "Integration updated");
             }
         }
@@ -545,7 +580,6 @@ namespace AnalysisITC.Avalonia.Processing
                 await experiment!.Processor.ProcessData(replace);
                 graph.InvalidateVisual();
                 UpdateControls();
-                ProcessingChanged?.Invoke(this, EventArgs.Empty);
                 StatusChanged?.Invoke(this, status);
             }
             catch (Exception ex)

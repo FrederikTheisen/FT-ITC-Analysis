@@ -32,6 +32,9 @@ namespace AnalysisITC.Avalonia.Processing
         double dragReferenceTime;
         double dragReferencePower;
         double dragReferenceSlope;
+        float integrationDragOriginalValue;
+        bool integrationDragActivated;
+        bool integrationDragChanged;
         HitTarget hoverTarget = HitTarget.None;
         Point? hoverPoint;
         DataPoint? hoverData;
@@ -329,6 +332,7 @@ namespace AnalysisITC.Avalonia.Processing
             dragCurrent = point;
             dragTarget = HitTest(point, graph);
             CaptureSplineDragReference();
+            CaptureIntegrationDragReference();
             isPointerCaptured = true;
             e.Pointer.Capture(this);
 
@@ -373,6 +377,18 @@ namespace AnalysisITC.Avalonia.Processing
 
                 if (dragTarget.Kind == HitKind.IntegrationStart || dragTarget.Kind == HitKind.IntegrationEnd)
                 {
+                    if (!integrationDragActivated)
+                    {
+                        if (Distance(dragStart, point) <= AvaloniaGraphSettings.ProcessingDragThreshold)
+                        {
+                            e.Handled = true;
+                            return;
+                        }
+
+                        integrationDragActivated = true;
+                        SelectedInjectionIndex = dragTarget.InjectionIndex;
+                    }
+
                     UpdateIntegrationMarker(point, graph);
                 }
                 else if (dragTarget.Kind == HitKind.SplinePoint)
@@ -422,7 +438,14 @@ namespace AnalysisITC.Avalonia.Processing
 
             if (wasIntegrationDrag)
             {
-                IntegrationEditCompleted?.Invoke(this, EventArgs.Empty);
+                if (integrationDragActivated && integrationDragChanged)
+                    IntegrationEditCompleted?.Invoke(this, EventArgs.Empty);
+                else
+                {
+                    SelectedInjectionIndex = dragTarget.InjectionIndex;
+                    if (pressedClickCount > 1)
+                        FocusSelectedInjection();
+                }
             }
             else if (wasSplineDrag)
             {
@@ -783,17 +806,39 @@ namespace AnalysisITC.Avalonia.Processing
 
             var injection = data.Injections[dragTarget.InjectionIndex];
             var time = graph.Transform.ToData(point).X;
+            var requestedOffset = (float)(time - injection.Time);
+            var minimumIntegrationTime = 2f * (float)data.TimeStep;
+            float nextValue;
+            float currentValue;
+
+            if (dragTarget.Kind == HitKind.IntegrationStart)
+            {
+                var minimum = Math.Max(
+                    -injection.Delay,
+                    data.DataPoints.First().Time - injection.Time + minimumIntegrationTime);
+                var maximum = injection.IntegrationEndOffset - minimumIntegrationTime;
+                nextValue = Math.Min(maximum, Math.Max(minimum, requestedOffset));
+                currentValue = injection.IntegrationStartDelay;
+            }
+            else
+            {
+                var minimum = injection.IntegrationStartDelay + minimumIntegrationTime;
+                var maximum = injection.Delay;
+                nextValue = Math.Min(maximum, Math.Max(minimum, requestedOffset));
+                currentValue = injection.IntegrationEndOffset;
+            }
+
+            if (NearlyEqual(nextValue, currentValue)) return;
 
             data.Processor.IntegrationLengthMode = InjectionData.IntegrationLengthMode.Time;
 
             if (dragTarget.Kind == HitKind.IntegrationStart)
-                injection.SetIntegrationStartTime((float)(time - injection.Time));
+                injection.SetIntegrationStartTime(nextValue);
             else if (dragTarget.Kind == HitKind.IntegrationEnd)
-                injection.SetIntegrationLengthByTime((float)(time - injection.Time));
+                injection.SetIntegrationLengthByTime(nextValue);
 
-            selectedInjectionIndex = injection.ID;
-            SelectedInjectionChanged?.Invoke(this, SelectedInjectionIndex);
-            data.Processor.IntegratePeaks(false);
+            integrationDragChanged = !NearlyEqual(nextValue, integrationDragOriginalValue);
+            data.Processor.IntegratePeaks(invalidate: false, notify: false);
             IntegrationEdited?.Invoke(this, EventArgs.Empty);
         }
 
@@ -855,18 +900,56 @@ namespace AnalysisITC.Avalonia.Processing
                 if (splineHit.Kind != HitKind.None)
                     return splineHit;
 
-                foreach (var injection in data.Injections)
+                if (ShowIntegrationRegions)
                 {
-                    var startX = graph.Transform.X(injection.IntegrationStartTime);
-                    var endX = graph.Transform.X(injection.IntegrationEndTime);
-
-                    if (Math.Abs(point.X - startX) <= AvaloniaGraphSettings.ProcessingMarkerHitWidth / 2)
-                        return new HitTarget(HitKind.IntegrationStart, injection.ID);
-
-                    if (Math.Abs(point.X - endX) <= AvaloniaGraphSettings.ProcessingMarkerHitWidth / 2)
-                        return new HitTarget(HitKind.IntegrationEnd, injection.ID);
+                    var markerHit = HitTestIntegrationMarker(point, graph, data);
+                    if (markerHit.Kind != HitKind.None)
+                        return markerHit;
                 }
             }
+
+            if (ShowIntegrationRegions)
+                return HitTestIntegrationRegion(point, graph, data);
+
+            return new HitTarget(HitKind.Plot, -1);
+        }
+
+        HitTarget HitTestIntegrationMarker(Point point, GraphLayout graph, ExperimentData data)
+        {
+            var best = HitTarget.None;
+            var bestDistance = double.PositiveInfinity;
+            var hitDistance = AvaloniaGraphSettings.ProcessingMarkerHitWidth / 2;
+
+            foreach (var injection in data.Injections)
+            {
+                Consider(HitKind.IntegrationStart, injection.ID, graph.Transform.X(injection.IntegrationStartTime));
+                Consider(HitKind.IntegrationEnd, injection.ID, graph.Transform.X(injection.IntegrationEndTime));
+            }
+
+            return best;
+
+            void Consider(HitKind kind, int injectionIndex, double markerX)
+            {
+                if (markerX < graph.Plot.Left || markerX > graph.Plot.Right) return;
+
+                var distance = Math.Abs(point.X - markerX);
+                if (distance > hitDistance) return;
+
+                var isCloser = distance < bestDistance - 0.001;
+                var winsTie = Math.Abs(distance - bestDistance) <= 0.001
+                    && injectionIndex == SelectedInjectionIndex
+                    && best.InjectionIndex != SelectedInjectionIndex;
+                if (!isCloser && !winsTie) return;
+
+                best = new HitTarget(kind, injectionIndex);
+                bestDistance = distance;
+            }
+        }
+
+        HitTarget HitTestIntegrationRegion(Point point, GraphLayout graph, ExperimentData data)
+        {
+            var best = HitTarget.None;
+            var bestDistance = double.PositiveInfinity;
 
             foreach (var injection in data.Injections)
             {
@@ -874,12 +957,22 @@ namespace AnalysisITC.Avalonia.Processing
                 var endX = graph.Transform.X(injection.IntegrationEndTime);
                 var left = Math.Min(startX, endX);
                 var right = Math.Max(startX, endX);
+                if (point.X < left || point.X > right) continue;
 
-                if (point.X >= left && point.X <= right)
-                    return new HitTarget(HitKind.IntegrationRegion, injection.ID);
+                var distance = Math.Abs(point.X - (left + right) / 2);
+                var isCloser = distance < bestDistance - 0.001;
+                var winsTie = Math.Abs(distance - bestDistance) <= 0.001
+                    && injection.ID == SelectedInjectionIndex
+                    && best.InjectionIndex != SelectedInjectionIndex;
+                if (!isCloser && !winsTie) continue;
+
+                best = new HitTarget(HitKind.IntegrationRegion, injection.ID);
+                bestDistance = distance;
             }
 
-            return new HitTarget(HitKind.Plot, -1);
+            return best.Kind == HitKind.None
+                ? new HitTarget(HitKind.Plot, -1)
+                : best;
         }
 
         HitTarget HitTestSpline(Point point, GraphLayout graph)
@@ -1053,6 +1146,26 @@ namespace AnalysisITC.Avalonia.Processing
             dragReferenceTime = point.Time;
             dragReferencePower = point.Power;
             dragReferenceSlope = point.Slope;
+        }
+
+        void CaptureIntegrationDragReference()
+        {
+            integrationDragActivated = false;
+            integrationDragChanged = false;
+            integrationDragOriginalValue = 0;
+
+            var data = Experiment;
+            if (dragTarget.Kind != HitKind.IntegrationStart && dragTarget.Kind != HitKind.IntegrationEnd)
+                return;
+            if (data == null || dragTarget.InjectionIndex < 0 || dragTarget.InjectionIndex >= data.InjectionCount)
+                return;
+
+            var injection = data.Injections[dragTarget.InjectionIndex];
+            integrationDragOriginalValue = dragTarget.Kind == HitKind.IntegrationStart
+                ? injection.IntegrationStartDelay
+                : dragTarget.Kind == HitKind.IntegrationEnd
+                    ? injection.IntegrationEndOffset
+                    : 0;
         }
 
         double ClampSplinePointTime(SplineInterpolator spline, int index, double time)
@@ -1236,6 +1349,8 @@ namespace AnalysisITC.Avalonia.Processing
             var dy = a.Y - b.Y;
             return Math.Sqrt(dx * dx + dy * dy);
         }
+
+        static bool NearlyEqual(float left, float right) => Math.Abs(left - right) <= 0.00001f;
 
         static double Crisp(double value) => Math.Round(value) + 0.5;
 
