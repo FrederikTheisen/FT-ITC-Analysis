@@ -26,10 +26,10 @@ namespace AnalysisITC.Core.Tests
             var timestamp = new DateTime(2026, 8, 7, 14, 5, 6, 123);
 
             Assert.Equal(
-                "AutoSave_AppStarted_2026-08-07_14-05-06-123.ftitc",
+                "AutoSave_AppStarted_2026-08-07_14-05-06-123.ftxtc",
                 AutoSaveManager.BuildUntitledFileName(timestamp));
             Assert.Equal(
-                "AutoSave_Opened_2026-08-07_14-05-06-123_My Project.ftitc",
+                "AutoSave_Opened_2026-08-07_14-05-06-123_My Project.ftxtc",
                 AutoSaveManager.BuildProjectFileName(timestamp, Path.Combine("somewhere", "My Project.ftitc")));
         }
 
@@ -55,7 +55,7 @@ namespace AnalysisITC.Core.Tests
                 manager = NewManager(directory);
                 manager.Start();
                 Assert.False(await manager.TickNowAsync());
-                Assert.Empty(Directory.GetFiles(directory, "*.ftitc"));
+                Assert.Empty(Directory.GetFiles(directory, "*.ftxtc"));
 
                 DocumentDirtyTracker.MarkDirty();
                 AppSettings.AutoSaveEnabled = false;
@@ -64,7 +64,7 @@ namespace AnalysisITC.Core.Tests
                 Assert.True(await manager.TickNowAsync());
                 Assert.True(DocumentDirtyTracker.IsDirty);
                 Assert.Equal(activeProjectPath, FTITCFormat.CurrentAccessedAppDocumentPath);
-                Assert.Single(Directory.GetFiles(directory, "*.ftitc"));
+                Assert.Single(Directory.GetFiles(directory, "*.ftxtc"));
 
                 manager.StopWithoutResolving();
                 manager = null;
@@ -113,14 +113,14 @@ namespace AnalysisITC.Core.Tests
                 manager.Start();
                 Assert.True(await manager.TickNowAsync());
                 Assert.True(await manager.TickNowAsync());
-                Assert.Single(Directory.GetFiles(directory, "*.ftitc"));
+                Assert.Single(Directory.GetFiles(directory, "*.ftxtc"));
 
                 FTITCFormat.CurrentAccessedAppDocumentPath = Path.Combine(directory, "Second Project.ftitc");
                 Assert.True(await manager.TickNowAsync());
                 FTITCFormat.CurrentAccessedAppDocumentPath = Path.Combine(directory, "Third Project.ftitc");
                 Assert.True(await manager.TickNowAsync());
 
-                var files = Directory.GetFiles(directory, "*.ftitc");
+                var files = Directory.GetFiles(directory, "*.ftxtc");
                 Assert.Equal(2, files.Length);
                 Assert.DoesNotContain(files, file => Path.GetFileName(file).Contains("data"));
                 Assert.Contains(files, file => Path.GetFileName(file).Contains("Second Project"));
