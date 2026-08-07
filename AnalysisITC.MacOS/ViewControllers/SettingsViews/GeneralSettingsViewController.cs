@@ -27,6 +27,10 @@ namespace AnalysisITC
         public static event EventHandler ShouldApplySettings;
 
         ColorSchemes ColorScheme;
+        NSButton autoSaveEnabledControl;
+        NSTextField autoSaveIntervalControl;
+        NSTextField autoSaveFileLimitControl;
+        NSButton recoveryPromptControl;
 
         public GeneralSettingsViewController (IntPtr handle) : base (handle)
 		{
@@ -58,6 +62,13 @@ namespace AnalysisITC
             AppSettings.ConfirmRemoveDelete = ConfirmRemoveDelete.State == NSCellStateValue.On;
             AppSettings.AutomaticallyDiscardOrphanInjectionsOnLoad =
                 AutomaticallyDiscardOrphanInjectionsOnLoad.State == NSCellStateValue.On;
+            if (autoSaveEnabledControl != null)
+            {
+                AppSettings.AutoSaveEnabled = autoSaveEnabledControl.State == NSCellStateValue.On;
+                AppSettings.AutoSaveIntervalMinutes = Math.Max(1, Math.Min(60, autoSaveIntervalControl.IntValue));
+                AppSettings.AutoSaveFileLimit = Math.Max(1, Math.Min(100, autoSaveFileLimitControl.IntValue));
+                AppSettings.PromptForAutoSaveRecovery = recoveryPromptControl.State == NSCellStateValue.On;
+            }
 
             //Color
             AppSettings.ColorScheme = ColorScheme;
@@ -97,7 +108,103 @@ namespace AnalysisITC
             ConfirmRemoveDelete.State = AppSettings.ConfirmRemoveDelete ? NSCellStateValue.On : NSCellStateValue.Off;
             AutomaticallyDiscardOrphanInjectionsOnLoad.State =
                 AppSettings.AutomaticallyDiscardOrphanInjectionsOnLoad ? NSCellStateValue.On : NSCellStateValue.Off;
+            SetupAutoSaveControls();
         }
+
+        void SetupAutoSaveControls()
+        {
+            if (autoSaveEnabledControl != null)
+            {
+                autoSaveEnabledControl.State = AppSettings.AutoSaveEnabled ? NSCellStateValue.On : NSCellStateValue.Off;
+                autoSaveIntervalControl.IntValue = AppSettings.AutoSaveIntervalMinutes;
+                autoSaveFileLimitControl.IntValue = AppSettings.AutoSaveFileLimit;
+                recoveryPromptControl.State = AppSettings.PromptForAutoSaveRecovery ? NSCellStateValue.On : NSCellStateValue.Off;
+                return;
+            }
+
+            if (!(View is NSStackView root)) return;
+
+            autoSaveEnabledControl = MakeCheckbox("Enable autosave", AppSettings.AutoSaveEnabled);
+            recoveryPromptControl = MakeCheckbox("Prompt after interrupted session", AppSettings.PromptForAutoSaveRecovery);
+            autoSaveIntervalControl = MakeIntegerField(AppSettings.AutoSaveIntervalMinutes);
+            autoSaveFileLimitControl = MakeIntegerField(AppSettings.AutoSaveFileLimit);
+
+            var firstRow = MakeRow();
+            firstRow.AddArrangedSubview(autoSaveEnabledControl);
+            firstRow.AddArrangedSubview(MakeLabel("Every"));
+            firstRow.AddArrangedSubview(autoSaveIntervalControl);
+            firstRow.AddArrangedSubview(MakeLabel("minutes; keep"));
+            firstRow.AddArrangedSubview(autoSaveFileLimitControl);
+            firstRow.AddArrangedSubview(MakeLabel("files"));
+
+            var openFolder = new NSButton(new CoreGraphics.CGRect(0, 0, 150, 24))
+            {
+                Title = "Open Autosave Folder",
+                BezelStyle = NSBezelStyle.Rounded,
+                ControlSize = NSControlSize.Small
+            };
+            openFolder.Activated += (_, _) => AppDelegate.OpenAutoSaveFolder();
+
+            var secondRow = MakeRow();
+            secondRow.AddArrangedSubview(recoveryPromptControl);
+            secondRow.AddArrangedSubview(new NSView());
+            secondRow.AddArrangedSubview(openFolder);
+
+            var section = new NSStackView
+            {
+                Orientation = NSUserInterfaceLayoutOrientation.Vertical,
+                Alignment = NSLayoutAttribute.Leading,
+                Spacing = 5,
+                TranslatesAutoresizingMaskIntoConstraints = false
+            };
+            section.AddArrangedSubview(firstRow);
+            section.AddArrangedSubview(secondRow);
+
+            var insertionIndex = Math.Max(0, root.ArrangedSubviews.Length - 2);
+            root.InsertArrangedSubview(section, insertionIndex);
+        }
+
+        static NSStackView MakeRow() => new NSStackView
+        {
+            Orientation = NSUserInterfaceLayoutOrientation.Horizontal,
+            Alignment = NSLayoutAttribute.CenterY,
+            Spacing = 6,
+            TranslatesAutoresizingMaskIntoConstraints = false
+        };
+
+        static NSButton MakeCheckbox(string title, bool enabled)
+        {
+            var checkbox = new NSButton(new CoreGraphics.CGRect(0, 0, 180, 20))
+            {
+                Title = title,
+                State = enabled ? NSCellStateValue.On : NSCellStateValue.Off,
+                ControlSize = NSControlSize.Small
+            };
+            checkbox.SetButtonType(NSButtonType.Switch);
+            return checkbox;
+        }
+
+        static NSTextField MakeIntegerField(int value)
+        {
+            var field = new NSTextField(new CoreGraphics.CGRect(0, 0, 44, 22))
+            {
+                IntValue = value,
+                Alignment = NSTextAlignment.Right,
+                ControlSize = NSControlSize.Small
+            };
+            field.WidthAnchor.ConstraintEqualToConstant(44).Active = true;
+            return field;
+        }
+
+        static NSTextField MakeLabel(string text) => new NSTextField
+        {
+            StringValue = text,
+            Editable = false,
+            Bezeled = false,
+            DrawsBackground = false,
+            Selectable = false,
+            ControlSize = NSControlSize.Small
+        };
 
         private void SetupDefaultDesignerInstrumentControl()
         {

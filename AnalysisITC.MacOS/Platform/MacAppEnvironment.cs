@@ -1,4 +1,5 @@
 using System;
+using System.IO;
 using Foundation;
 using AnalysisITC.Platform;
 
@@ -22,6 +23,7 @@ namespace AnalysisITC.Platform.MacOS
         public string ShortVersion => NSBundle.MainBundle.ObjectForInfoDictionary("CFBundleShortVersionString")?.ToString();
         public string BuildVersion => NSBundle.MainBundle.ObjectForInfoDictionary("CFBundleVersion")?.ToString();
         public string ApplicationDataDirectory => Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
+        public string AutoSaveDirectory => Path.Combine(ApplicationDataDirectory, "AnalysisITC", "Autosaves");
 
         public string GetResourcePath(string name, string extension) => NSBundle.MainBundle.PathForResource(name, extension);
     }

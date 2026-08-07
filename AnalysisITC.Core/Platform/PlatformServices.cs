@@ -109,6 +109,7 @@ namespace AnalysisITC.Platform
             public string ShortVersion => typeof(PlatformServices).Assembly.GetName().Version?.ToString();
             public string BuildVersion => ShortVersion;
             public string ApplicationDataDirectory => Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
+            public string AutoSaveDirectory => Path.Combine(ApplicationDataDirectory, "AnalysisITC", "Autosaves");
 
             public string GetResourcePath(string name, string extension)
             {

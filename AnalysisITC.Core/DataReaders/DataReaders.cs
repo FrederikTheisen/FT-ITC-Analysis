@@ -9,6 +9,7 @@ using System.IO;
 
 using AnalysisITC.Core.Application;
 using AnalysisITC.Core.Data;
+using AnalysisITC.Core.Export;
 using Buffer = AnalysisITC.Core.Data.Buffer;
 using AnalysisITC.Core.Numerics;
 using AnalysisITC.Core.Units;
@@ -171,6 +172,36 @@ namespace AnalysisITC.Core.DataReaders
                 initialItemCount: initialItemCount,
                 finalItemCount: DataManager.SourceItems?.Count ?? 0,
                 openedCleanProject: openedCleanProject);
+        }
+
+        public static async Task<bool> ReadRecoveryFileAsync(string path)
+        {
+            if (string.IsNullOrWhiteSpace(path) || !File.Exists(path)) return false;
+            if (DataManager.SourceItems != null && DataManager.SourceItems.Count > 0) return false;
+
+            try
+            {
+                ITCDataContainer[] recovered;
+                using (var stream = File.OpenRead(path))
+                {
+                    recovered = await FTITCReader.ReadStream(stream, interactive: true);
+                }
+
+                using (DocumentDirtyTracker.RestoreDocument())
+                {
+                    if (!AddData(recovered, allowAutomaticActions: false, new List<AutomaticImportActionReport>())) return false;
+                    DataManager.ApplyOptions();
+                    FTITCFormat.CurrentAccessedAppDocumentPath = "";
+                }
+
+                DocumentDirtyTracker.MarkDirty();
+                return true;
+            }
+            catch (Exception ex)
+            {
+                AppEventHandler.PrintAndLog("Recovery file could not be opened: " + ex.Message);
+                return false;
+            }
         }
 
         internal static string BuildAutomaticImportActionStatus(

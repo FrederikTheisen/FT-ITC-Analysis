@@ -21,6 +21,10 @@ internal sealed class PreferencesState
     public UncertaintyDisplayStyle UncertaintyDisplayStyle { get; set; }
     public bool IncludeBufferInIonicStrengthCalc { get; set; }
     public bool ConfirmRemoveDelete { get; set; }
+    public bool AutoSaveEnabled { get; set; }
+    public int AutoSaveIntervalMinutes { get; set; }
+    public int AutoSaveFileLimit { get; set; }
+    public bool PromptForAutoSaveRecovery { get; set; }
     public bool AutomaticallyDiscardOrphanInjectionsOnLoad { get; set; }
 
     public DilutionMethod DilutionCalculationMethod { get; set; }
@@ -78,6 +82,10 @@ internal sealed class PreferencesState
             UncertaintyDisplayStyle = AppSettings.UncertaintyDisplayStyle,
             IncludeBufferInIonicStrengthCalc = AppSettings.IncludeBufferInIonicStrengthCalc,
             ConfirmRemoveDelete = AppSettings.ConfirmRemoveDelete,
+            AutoSaveEnabled = AppSettings.AutoSaveEnabled,
+            AutoSaveIntervalMinutes = AppSettings.AutoSaveIntervalMinutes,
+            AutoSaveFileLimit = AppSettings.AutoSaveFileLimit,
+            PromptForAutoSaveRecovery = AppSettings.PromptForAutoSaveRecovery,
             AutomaticallyDiscardOrphanInjectionsOnLoad = AppSettings.AutomaticallyDiscardOrphanInjectionsOnLoad,
 
             DilutionCalculationMethod = AppSettings.DilutionCalculationMethod,
@@ -137,6 +145,10 @@ internal sealed class PreferencesState
             UncertaintyDisplayStyle = UncertaintyDisplayStyle.StandardDeviation,
             IncludeBufferInIonicStrengthCalc = true,
             ConfirmRemoveDelete = true,
+            AutoSaveEnabled = true,
+            AutoSaveIntervalMinutes = 5,
+            AutoSaveFileLimit = 10,
+            PromptForAutoSaveRecovery = true,
             AutomaticallyDiscardOrphanInjectionsOnLoad = true,
 
             DilutionCalculationMethod = DilutionMethod.MicroCal,
@@ -194,6 +206,10 @@ internal sealed class PreferencesState
         AppSettings.UncertaintyDisplayStyle = UncertaintyDisplayStyle;
         AppSettings.IncludeBufferInIonicStrengthCalc = IncludeBufferInIonicStrengthCalc;
         AppSettings.ConfirmRemoveDelete = ConfirmRemoveDelete;
+        AppSettings.AutoSaveEnabled = AutoSaveEnabled;
+        AppSettings.AutoSaveIntervalMinutes = AutoSaveIntervalMinutes;
+        AppSettings.AutoSaveFileLimit = AutoSaveFileLimit;
+        AppSettings.PromptForAutoSaveRecovery = PromptForAutoSaveRecovery;
         AppSettings.AutomaticallyDiscardOrphanInjectionsOnLoad = AutomaticallyDiscardOrphanInjectionsOnLoad;
 
         AppSettings.DilutionCalculationMethod = DilutionCalculationMethod;

@@ -45,6 +45,7 @@ public partial class MainWindow : Window
     bool allowDirtyClose;
     bool isHandlingDirtyClose;
     bool isReloadingLastFile;
+    bool autoSaveInitialized;
     int activeExperimentWorkspaceIndex;
 
     public MainWindow()
@@ -114,6 +115,7 @@ public partial class MainWindow : Window
 
     protected override void OnClosed(EventArgs e)
     {
+        AutoSaveManager.Shared.StopCleanly();
         DragDrop.RemoveDragOverHandler(this, OnDragOver);
         DragDrop.RemoveDragLeaveHandler(this, OnDragLeave);
         DragDrop.RemoveDropHandler(this, OnDrop);
@@ -137,6 +139,45 @@ public partial class MainWindow : Window
         ResultWorkspace.ResultUpdated -= OnResultUpdated;
 
         base.OnClosed(e);
+    }
+
+    internal async Task InitializeAutoSaveAndRecoveryAsync()
+    {
+        if (autoSaveInitialized) return;
+        autoSaveInitialized = true;
+
+        AutoSaveManager.Shared.Start();
+        if (!AppSettings.PromptForAutoSaveRecovery) return;
+
+        var candidate = AutoSaveManager.Shared.GetNewestRecoveryCandidate();
+        if (candidate == null) return;
+
+        string? errorMessage = null;
+        while (true)
+        {
+            var dialog = new AutoSaveRecoveryWindow(candidate, errorMessage);
+            var action = await dialog.ShowDialog<AutoSaveRecoveryAction?>(this);
+
+            if (action == AutoSaveRecoveryAction.Discard)
+            {
+                AutoSaveManager.Shared.ResolveRecovery(candidate, deleteFile: true);
+                return;
+            }
+
+            if (action != AutoSaveRecoveryAction.Recover) return;
+
+            if (await DataReader.ReadRecoveryFileAsync(candidate.FilePath))
+            {
+                AutoSaveManager.Shared.ResolveRecovery(candidate, deleteFile: false);
+                RefreshDataList();
+                UpdateDocumentStatus();
+                RefreshMenuState();
+                StatusBarManager.SetStatus("Recovered autosaved project", 5000);
+                return;
+            }
+
+            errorMessage = "The autosave could not be recovered. You can open its folder, discard it, or try again.";
+        }
     }
 
     internal Menu MenuHost => InWindowMenu;

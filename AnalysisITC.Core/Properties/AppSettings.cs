@@ -31,6 +31,10 @@ namespace AnalysisITC.Core.Application
         public static int MaxDegreeOfParallelism { get; set; } = 10;
         public static bool PerformOnlineChecksOnLaunch { get; set; } = true;
         public static bool ConfirmRemoveDelete { get; set; } = true;
+        public static bool AutoSaveEnabled { get; set; } = true;
+        public static int AutoSaveIntervalMinutes { get; set; } = 5;
+        public static int AutoSaveFileLimit { get; set; } = 10;
+        public static bool PromptForAutoSaveRecovery { get; set; } = true;
         public static bool AutomaticallyDiscardOrphanInjectionsOnLoad { get; set; } = true;
 
         public static bool Verbose { get; set; } = false;
@@ -177,6 +181,10 @@ namespace AnalysisITC.Core.Application
             Storage.SetBool("IntegrationRegionCopyIncludesStart", IntegrationRegionCopyIncludesStart);
             Storage.SetBool("PerformOnlineChecksOnLaunch", PerformOnlineChecksOnLaunch);
             Storage.SetBool("ConfirmRemoveDelete", ConfirmRemoveDelete);
+            Storage.SetBool("AutoSaveEnabled", AutoSaveEnabled);
+            Storage.SetInt("AutoSaveIntervalMinutes", AutoSaveIntervalMinutes);
+            Storage.SetInt("AutoSaveFileLimit", AutoSaveFileLimit);
+            Storage.SetBool("PromptForAutoSaveRecovery", PromptForAutoSaveRecovery);
             Storage.SetBool("AutomaticallyDiscardOrphanInjectionsOnLoad", AutomaticallyDiscardOrphanInjectionsOnLoad);
 
             Storage.SetStringArray("LastDocumentUrls", LastDocumentPaths);
@@ -251,6 +259,10 @@ namespace AnalysisITC.Core.Application
             IntegrationRegionCopyIncludesStart = Storage.GetBool("IntegrationRegionCopyIncludesStart", IntegrationRegionCopyIncludesStart);
             PerformOnlineChecksOnLaunch = Storage.GetBool("PerformOnlineChecksOnLaunch", PerformOnlineChecksOnLaunch);
             ConfirmRemoveDelete = Storage.GetBool("ConfirmRemoveDelete", ConfirmRemoveDelete);
+            AutoSaveEnabled = Storage.GetBool("AutoSaveEnabled", AutoSaveEnabled);
+            AutoSaveIntervalMinutes = Math.Max(1, Math.Min(60, Storage.GetInt("AutoSaveIntervalMinutes", AutoSaveIntervalMinutes)));
+            AutoSaveFileLimit = Math.Max(1, Math.Min(100, Storage.GetInt("AutoSaveFileLimit", AutoSaveFileLimit)));
+            PromptForAutoSaveRecovery = Storage.GetBool("PromptForAutoSaveRecovery", PromptForAutoSaveRecovery);
             AutomaticallyDiscardOrphanInjectionsOnLoad = Storage.GetBool(
                 "AutomaticallyDiscardOrphanInjectionsOnLoad",
                 AutomaticallyDiscardOrphanInjectionsOnLoad);
@@ -323,6 +335,10 @@ namespace AnalysisITC.Core.Application
             IntegrationRegionCopyIncludesStart = false;
             PerformOnlineChecksOnLaunch = true;
             ConfirmRemoveDelete = true;
+            AutoSaveEnabled = true;
+            AutoSaveIntervalMinutes = 5;
+            AutoSaveFileLimit = 10;
+            PromptForAutoSaveRecovery = true;
             AutomaticallyDiscardOrphanInjectionsOnLoad = true;
         }
 

@@ -6,6 +6,7 @@ using System.Linq;
 using System.Text;
 using System.Globalization;
 using System.Text.RegularExpressions;
+using System.Threading;
 using AnalysisITC.Platform;
 using AnalysisITC.Core.Analysis.Models;
 using AnalysisITC.Core.Analysis;
@@ -394,7 +395,10 @@ namespace AnalysisITC.Core.Export
 
     public class FTITCWriter : FTITCFormat
     {
+        static readonly SemaphoreSlim SaveGate = new SemaphoreSlim(1, 1);
+
         public static bool IsSaved => !string.IsNullOrEmpty(CurrentAccessedAppDocumentPath);
+        public static bool IsWriteInProgress => SaveGate.CurrentCount == 0;
 
         public static void SaveState2()
         {
@@ -408,7 +412,15 @@ namespace AnalysisITC.Core.Export
 
             try
             {
-                await WriteFile(path);
+                await SaveGate.WaitAsync();
+                try
+                {
+                    await WriteFile(path, reportStatus: true);
+                }
+                finally
+                {
+                    SaveGate.Release();
+                }
 
                 CurrentAccessedAppDocumentPath = path;
                 AppSettings.LastDocumentPath = path;
@@ -436,7 +448,15 @@ namespace AnalysisITC.Core.Export
 
             try
             {
-                await WriteFile(CurrentAccessedAppDocumentPath);
+                await SaveGate.WaitAsync();
+                try
+                {
+                    await WriteFile(CurrentAccessedAppDocumentPath, reportStatus: true);
+                }
+                finally
+                {
+                    SaveGate.Release();
+                }
                 DocumentDirtyTracker.MarkClean();
                 return true;
             }
@@ -470,25 +490,33 @@ namespace AnalysisITC.Core.Export
 
             try
             {
-                StatusBarManager.SetSavingFileMessage();
-
-                switch (data)
+                await SaveGate.WaitAsync();
+                try
                 {
-                    case ExperimentData:
-                        using (var writer = GetFTITCStreamWriter(path))
-                        {
-                            await WriteExperimentDataToFile(data as ExperimentData, writer);
-                        }
-                        break;
-                    case AnalysisResult when Path.GetExtension(path).TrimStart('.').ToLowerInvariant() == "ftitc":
-                        using (var writer = GetFTITCStreamWriter(path))
-                        {
-                            await WriteAnalysisResultToFile(data as AnalysisResult, writer);
-                        }
-                        break;
-                    case AnalysisResult when Path.GetExtension(path).TrimStart('.').ToLowerInvariant() == "csv":
-                        Exporter.Export(ExportType.CSV);
-                        break;
+                    StatusBarManager.SetSavingFileMessage();
+
+                    switch (data)
+                    {
+                        case ExperimentData:
+                            using (var writer = GetFTITCStreamWriter(path))
+                            {
+                                await WriteExperimentDataToFile(data as ExperimentData, writer);
+                            }
+                            break;
+                        case AnalysisResult when Path.GetExtension(path).TrimStart('.').ToLowerInvariant() == "ftitc":
+                            using (var writer = GetFTITCStreamWriter(path))
+                            {
+                                await WriteAnalysisResultToFile(data as AnalysisResult, writer);
+                            }
+                            break;
+                        case AnalysisResult when Path.GetExtension(path).TrimStart('.').ToLowerInvariant() == "csv":
+                            Exporter.Export(ExportType.CSV);
+                            break;
+                    }
+                }
+                finally
+                {
+                    SaveGate.Release();
                 }
 
                 StatusBarManager.SetFileSaveSuccessfulMessage(path);
@@ -501,9 +529,34 @@ namespace AnalysisITC.Core.Export
             }
         }
 
-        static async Task WriteFile(string path)
+        public static async Task<bool> WriteAutoSaveAsync(string path)
         {
-            StatusBarManager.SetSavingFileMessage();
+            if (string.IsNullOrWhiteSpace(path)) throw new ArgumentException("An autosave path is required.", nameof(path));
+            if (!await SaveGate.WaitAsync(0)) return false;
+
+            var directory = Path.GetDirectoryName(path);
+            if (!string.IsNullOrWhiteSpace(directory)) Directory.CreateDirectory(directory);
+
+            var temporaryPath = path + ".tmp-" + Guid.NewGuid().ToString("N");
+            try
+            {
+                await WriteFile(temporaryPath, reportStatus: false);
+
+                if (File.Exists(path)) File.Replace(temporaryPath, path, null);
+                else File.Move(temporaryPath, path);
+
+                return true;
+            }
+            finally
+            {
+                if (File.Exists(temporaryPath)) File.Delete(temporaryPath);
+                SaveGate.Release();
+            }
+        }
+
+        static async Task WriteFile(string path, bool reportStatus)
+        {
+            if (reportStatus) StatusBarManager.SetSavingFileMessage();
 
             using (var writer = GetFTITCStreamWriter(path))
             {
@@ -517,7 +570,7 @@ namespace AnalysisITC.Core.Export
                 }
             }
 
-            StatusBarManager.SetFileSaveSuccessfulMessage(path);
+            if (reportStatus) StatusBarManager.SetFileSaveSuccessfulMessage(path);
         }
 
         internal static async Task WriteStream(

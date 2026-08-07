@@ -29,6 +29,7 @@ namespace AnalysisITC
         NSLayoutConstraint workflowToolbarMenuWidthConstraint;
         NSSegmentedControl overviewDisplayControl;
         bool allowDirtyClose;
+        bool autoSaveInitialized;
         bool stopableProcessRunning;
         SupportingFigureCanvasWindowController supportingFigureController;
 
@@ -75,6 +76,65 @@ namespace AnalysisITC
             UpdateDocumentStatus();
             AppVersion.CheckForUpdatesInBackground();
             _ = CitationManager.TryFetchOnlineCitation();
+            NSApplication.SharedApplication.InvokeOnMainThread(() => _ = InitializeAutoSaveAndRecoveryAsync());
+        }
+
+        async Task InitializeAutoSaveAndRecoveryAsync()
+        {
+            if (autoSaveInitialized) return;
+            autoSaveInitialized = true;
+
+            AutoSaveManager.Shared.Start();
+            if (!AppSettings.PromptForAutoSaveRecovery) return;
+
+            var candidate = AutoSaveManager.Shared.GetNewestRecoveryCandidate();
+            if (candidate == null) return;
+
+            var recoveryFailed = false;
+            while (true)
+            {
+                var alert = new NSAlert
+                {
+                    MessageText = "Recover autosaved project?",
+                    InformativeText = recoveryFailed
+                        ? "The autosave could not be recovered. You can locate it, discard it, or try again."
+                        : $"FT-ITC Analysis found an autosave from an interrupted session.\n\nProject: {candidate.SourceProjectName}\nAutosaved: {candidate.LastWrittenUtc.ToLocalTime():g}\nFile: {Path.GetFileName(candidate.FilePath)}",
+                    AlertStyle = recoveryFailed ? NSAlertStyle.Warning : NSAlertStyle.Informational
+                };
+                alert.AddButton("Recover");
+                alert.AddButton("Not Now");
+                alert.AddButton("Discard");
+                alert.AddButton("Open Folder");
+                alert.Buttons[2].HasDestructiveAction = true;
+
+                var response = (int)alert.RunModal();
+                if (response == 1003)
+                {
+                    AppDelegate.OpenAutoSaveFolder();
+                    continue;
+                }
+
+                if (response == 1002)
+                {
+                    AutoSaveManager.Shared.ResolveRecovery(candidate, deleteFile: true);
+                    return;
+                }
+
+                if (response != 1000) return;
+
+                if (await DataReader.ReadRecoveryFileAsync(candidate.FilePath))
+                {
+                    AutoSaveManager.Shared.ResolveRecovery(candidate, deleteFile: false);
+                    UpdateSharedToolbarControl();
+                    UpdateFileToolbarMenu();
+                    UpdateContextToolbarMenu();
+                    UpdateDocumentStatus();
+                    StatusBarManager.SetStatus("Recovered autosaved project", 5000);
+                    return;
+                }
+
+                recoveryFailed = true;
+            }
         }
 
         private void DocumentDirtyTracker_DirtyStateChanged(object sender, EventArgs e)

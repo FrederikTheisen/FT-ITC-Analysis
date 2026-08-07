@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.IO;
 using System.Linq;
 
 using Avalonia;
@@ -20,6 +21,7 @@ using AnalysisITC.Core.Processing;
 using AnalysisITC.Core.Units;
 using AnalysisITC.Core.Utilities;
 using AnalysisITC.Avalonia.Styling;
+using AnalysisITC.Avalonia.Support;
 
 namespace AnalysisITC.Avalonia.Preferences;
 
@@ -38,6 +40,11 @@ internal sealed class PreferencesWindow : Window
     readonly CheckBox confirmRemoveDeleteCheck = Check("Confirm remove/delete actions");
     readonly CheckBox automaticallyDiscardOrphanInjectionsCheck =
         Check("Automatically discard injections outside the thermogram range");
+    readonly CheckBox autoSaveEnabledCheck = Check("Enable autosave");
+    readonly TextBox autoSaveIntervalBox = Box("");
+    readonly TextBox autoSaveFileLimitBox = Box("");
+    readonly CheckBox recoveryPromptCheck = Check("Prompt to recover after an interrupted session");
+    readonly Button openAutoSaveFolderButton = Button("Open Autosave Folder", 160);
 
     readonly ComboBox dilutionMethodCombo;
     readonly ComboBox peakFitAlgorithmCombo;
@@ -152,6 +159,7 @@ internal sealed class PreferencesWindow : Window
         });
 
         BuildLayout();
+        openAutoSaveFolderButton.Click += (_, _) => OpenAutoSaveFolder();
         LoadState(PreferencesState.FromSettings());
     }
 
@@ -245,6 +253,14 @@ internal sealed class PreferencesWindow : Window
         panel.Children.Add(Section("File Loading", new Control[]
         {
             automaticallyDiscardOrphanInjectionsCheck
+        }));
+        panel.Children.Add(Section("Autosave and Recovery", new Control[]
+        {
+            autoSaveEnabledCheck,
+            Row("Interval (minutes)", autoSaveIntervalBox),
+            Row("Maximum files", autoSaveFileLimitBox),
+            recoveryPromptCheck,
+            openAutoSaveFolderButton
         }));
         return panel;
     }
@@ -344,6 +360,10 @@ internal sealed class PreferencesWindow : Window
         includeBufferInIonicStrengthCheck.IsChecked = state.IncludeBufferInIonicStrengthCalc;
         confirmRemoveDeleteCheck.IsChecked = state.ConfirmRemoveDelete;
         automaticallyDiscardOrphanInjectionsCheck.IsChecked = state.AutomaticallyDiscardOrphanInjectionsOnLoad;
+        autoSaveEnabledCheck.IsChecked = state.AutoSaveEnabled;
+        autoSaveIntervalBox.Text = state.AutoSaveIntervalMinutes.ToString(CultureInfo.CurrentCulture);
+        autoSaveFileLimitBox.Text = state.AutoSaveFileLimit.ToString(CultureInfo.CurrentCulture);
+        recoveryPromptCheck.IsChecked = state.PromptForAutoSaveRecovery;
 
         SetCombo(dilutionMethodCombo, state.DilutionCalculationMethod);
         SetCombo(peakFitAlgorithmCombo, state.PeakFitAlgorithm);
@@ -430,6 +450,8 @@ internal sealed class PreferencesWindow : Window
         if (!TryReadInt(decimalsBox, "export decimals", 0, 12, out var decimals)) return false;
         if (!TryReadDouble(figureWidthBox, "figure width", 1, 50, out var figureWidth)) return false;
         if (!TryReadDouble(figureHeightBox, "figure height", 1, 50, out var figureHeight)) return false;
+        if (!TryReadInt(autoSaveIntervalBox, "autosave interval", 1, 60, out var autoSaveInterval)) return false;
+        if (!TryReadInt(autoSaveFileLimitBox, "autosave file limit", 1, 100, out var autoSaveFileLimit)) return false;
 
         state.ReferenceTemperature = referenceTemperature;
         state.EnergyUnit = Value(energyUnitCombo, AppSettings.EnergyUnit);
@@ -441,6 +463,10 @@ internal sealed class PreferencesWindow : Window
         state.IncludeBufferInIonicStrengthCalc = includeBufferInIonicStrengthCheck.IsChecked == true;
         state.ConfirmRemoveDelete = confirmRemoveDeleteCheck.IsChecked == true;
         state.AutomaticallyDiscardOrphanInjectionsOnLoad = automaticallyDiscardOrphanInjectionsCheck.IsChecked == true;
+        state.AutoSaveEnabled = autoSaveEnabledCheck.IsChecked == true;
+        state.AutoSaveIntervalMinutes = autoSaveInterval;
+        state.AutoSaveFileLimit = autoSaveFileLimit;
+        state.PromptForAutoSaveRecovery = recoveryPromptCheck.IsChecked == true;
 
         state.DilutionCalculationMethod = Value(dilutionMethodCombo, AppSettings.DilutionCalculationMethod);
         state.PeakFitAlgorithm = Value(peakFitAlgorithmCombo, AppSettings.PeakFitAlgorithm);
@@ -484,6 +510,20 @@ internal sealed class PreferencesWindow : Window
         state.AutoAxesIgnoresBadData = autoAxesIgnoreBadDataCheck.IsChecked == true;
 
         return true;
+    }
+
+    void OpenAutoSaveFolder()
+    {
+        try
+        {
+            Directory.CreateDirectory(AutoSaveManager.Shared.AutoSaveDirectory);
+            if (!ExternalLinkLauncher.TryOpen(AutoSaveManager.Shared.AutoSaveDirectory))
+                SetStatus("Could not open the autosave folder.");
+        }
+        catch (Exception ex)
+        {
+            SetStatus(ex.Message);
+        }
     }
 
     ExportColumns BuildExportColumns()

@@ -15,6 +15,7 @@ namespace AnalysisITC.Platform.Avalonia
             Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
             "AnalysisITC",
             "Avalonia");
+        public string AutoSaveDirectory => Path.Combine(ApplicationDataDirectory, "Autosaves");
 
         public string GetResourcePath(string name, string extension)
         {

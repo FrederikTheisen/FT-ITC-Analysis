@@ -64,6 +64,7 @@ public partial class App : Application
         window.Opened += async (_, _) =>
         {
             mainWindowOpened = true;
+            await window.InitializeAutoSaveAndRecoveryAsync();
             await FlushActivationPathsAsync();
         };
     }

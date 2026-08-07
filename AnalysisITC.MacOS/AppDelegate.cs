@@ -63,6 +63,20 @@ namespace AnalysisITC
         public static void CloseAllData() => _ = CloseAllDataAsync();
         public static void LaunchResultExporter() => OpenResultExporterTool?.Invoke(null, null);
 
+        public static void OpenAutoSaveFolder()
+        {
+            try
+            {
+                var directory = AutoSaveManager.Shared.AutoSaveDirectory;
+                Directory.CreateDirectory(directory);
+                NSWorkspace.SharedWorkspace.OpenUrl(NSUrl.FromFilename(directory));
+            }
+            catch (Exception ex)
+            {
+                AppEventHandler.PrintAndLog("Could not open autosave folder: " + ex.Message);
+            }
+        }
+
         public AppDelegate()
         {
             
@@ -617,7 +631,7 @@ namespace AnalysisITC
 
         public override void WillTerminate(NSNotification notification)
         {
-            // Insert code here to tear down your application
+            AutoSaveManager.Shared.StopCleanly();
         }
 
         private async Task SaveBeforeTerminateAsync()
