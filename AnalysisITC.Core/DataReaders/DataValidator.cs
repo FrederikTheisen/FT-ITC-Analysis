@@ -11,6 +11,18 @@ using AnalysisITC.Core.Utilities;
 
 namespace AnalysisITC.Core.DataReaders
 {
+    internal sealed class AutomaticImportActionReport
+    {
+        public AutomaticImportActionReport(string experimentName, int discardedOrphanInjectionCount)
+        {
+            ExperimentName = experimentName ?? "";
+            DiscardedOrphanInjectionCount = Math.Max(0, discardedOrphanInjectionCount);
+        }
+
+        public string ExperimentName { get; }
+        public int DiscardedOrphanInjectionCount { get; }
+    }
+
     public static class ImportValidator
     {
         sealed class ValidationIssue
@@ -19,6 +31,7 @@ namespace AnalysisITC.Core.DataReaders
             public DataFixProtocol FixProtocol { get; }
             public bool Fixable => FixProtocol != DataFixProtocol.None;
             public bool RequiresInput => FixProtocol == DataFixProtocol.Concentrations;
+            public bool IsOrphanInjectionIssue => FixProtocol == DataFixProtocol.OrphanInjection;
 
             public ValidationIssue(string message, DataFixProtocol fixProtocol = DataFixProtocol.None)
             {
@@ -27,7 +40,13 @@ namespace AnalysisITC.Core.DataReaders
             }
         }
 
-        public static bool ValidateData(ExperimentData data)
+        public static bool ValidateData(ExperimentData data) =>
+            ValidateData(data, allowAutomaticActions: false, automaticActionReports: null);
+
+        internal static bool ValidateData(
+            ExperimentData data,
+            bool allowAutomaticActions,
+            ICollection<AutomaticImportActionReport> automaticActionReports)
         {
             if (data == null) return false;
 
@@ -35,6 +54,22 @@ namespace AnalysisITC.Core.DataReaders
             {
                 var issue = GetFirstIssue(data);
                 if (issue == null) return true;
+
+                if (issue.IsOrphanInjectionIssue
+                    && allowAutomaticActions
+                    && !data.IsTandemExperiment
+                    && AppSettings.AutomaticallyDiscardOrphanInjectionsOnLoad)
+                {
+                    var discardedCount = DiscardOrphanInjections(data);
+                    if (discardedCount > 0)
+                    {
+                        RawDataReader.ProcessInjections(data);
+                        automaticActionReports?.Add(new AutomaticImportActionReport(data.Name, discardedCount));
+                        AppEventHandler.PrintAndLog(
+                            $"Automatically discarded {discardedCount} orphan injection(s) while loading {data.Name}.");
+                        continue;
+                    }
+                }
 
                 var response = PlatformServices.DataValidationPromptService.AskValidationIssue(
                     "Potential Error Detected: " + data.Name,
@@ -80,7 +115,6 @@ namespace AnalysisITC.Core.DataReaders
             if (data.DataSourceFormat != ITCDataFormat.IntegratedHeats)
             {
                 var dps = data.DataPoints;
-                
 
                 if (dps == null || dps.Count < 10)
                 {
@@ -88,17 +122,32 @@ namespace AnalysisITC.Core.DataReaders
                     return new ValidationIssue($"Only {n} data points were found (expected > 10).");
                 }
 
-                // Optimize the original O(Ninj * Ndps) check to O(Ninj).
-                var maxDataTime = dps.Max(dp => dp.Time);
-                if (injs.All(inj => (inj.Time + 10) >= maxDataTime))
+                if (injs != null && injs.Count > 0)
                 {
-                    var firstInj = injs.Min(i => i.Time);
-                    var lastInj = injs.Max(i => i.Time);
-                    return new ValidationIssue(
-                        "All injections appear to occur outside (or at the very end of) the recorded data range.\n" +
-                        $"Last data point: {maxDataTime:G4} s. Injection time range: {firstInj:G4}–{lastInj:G4} s.\n" +
-                        "Attempt fix can remove problematic injections.",
-                        DataFixProtocol.InvalidInjection);
+                    var minDataTime = dps.Min(dp => dp.Time);
+                    var maxDataTime = dps.Max(dp => dp.Time);
+                    var orphanCount = injs.Count(inj => IsOrphanInjection(inj, minDataTime, maxDataTime));
+
+                    if (orphanCount > 0)
+                    {
+                        return new ValidationIssue(
+                            $"{orphanCount} injection marker(s) occur outside the recorded thermogram range " +
+                            $"({minDataTime:G4}–{maxDataTime:G4} s).\n" +
+                            "Attempt fix can remove the orphan injection markers.",
+                            DataFixProtocol.OrphanInjection);
+                    }
+
+                    // Optimize the original O(Ninj * Ndps) check to O(Ninj).
+                    if (injs.All(inj => (inj.Time + 10) >= maxDataTime))
+                    {
+                        var firstInj = injs.Min(i => i.Time);
+                        var lastInj = injs.Max(i => i.Time);
+                        return new ValidationIssue(
+                            "All injections appear to occur at the very end of the recorded data range.\n" +
+                            $"Last data point: {maxDataTime:G4} s. Injection time range: {firstInj:G4}–{lastInj:G4} s.\n" +
+                            "Attempt fix can remove problematic injections.",
+                            DataFixProtocol.InvalidInjection);
+                    }
                 }
             }
 
@@ -168,6 +217,10 @@ namespace AnalysisITC.Core.DataReaders
                 switch (fix)
                 {
                     case DataFixProtocol.FileExists: data.IterateCopyName(); break;
+                    case DataFixProtocol.OrphanInjection:
+                        DiscardOrphanInjections(data);
+                        RawDataReader.ProcessInjections(data);
+                        break;
                     case DataFixProtocol.InvalidInjection:
                         var injectiondata = new List<InjectionData>();
                         foreach (var inj in data.Injections)
@@ -200,10 +253,26 @@ namespace AnalysisITC.Core.DataReaders
             }
         }
 
+        static int DiscardOrphanInjections(ExperimentData data)
+        {
+            if (data?.Injections == null || data.DataPoints == null || data.DataPoints.Count == 0)
+                return 0;
+
+            var minDataTime = data.DataPoints.Min(point => point.Time);
+            var maxDataTime = data.DataPoints.Max(point => point.Time);
+            return data.Injections.RemoveAll(injection => IsOrphanInjection(injection, minDataTime, maxDataTime));
+        }
+
+        static bool IsOrphanInjection(InjectionData injection, float minDataTime, float maxDataTime)
+        {
+            return injection != null && (injection.Time < minDataTime || injection.Time > maxDataTime);
+        }
+
         enum DataFixProtocol
         {
             None,
             FileExists,
+            OrphanInjection,
             InvalidInjection,
             Concentrations,
         }

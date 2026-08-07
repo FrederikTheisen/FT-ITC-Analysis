@@ -18,19 +18,31 @@ namespace AnalysisITC.Core.DataReaders
 {
     public static partial class DataReader
     {
-        static ITCDataContainer GetValidData(ITCDataContainer data)
+        static ITCDataContainer GetValidData(
+            ITCDataContainer data,
+            bool allowAutomaticActions,
+            ICollection<AutomaticImportActionReport> automaticActionReports)
         {
             if (data == null) return null;
             bool valid = true;
-            if (data is ExperimentData) valid = ImportValidator.ValidateData(data as ExperimentData);
+            if (data is ExperimentData experiment)
+            {
+                valid = ImportValidator.ValidateData(
+                    experiment,
+                    allowAutomaticActions && !experiment.IsTandemExperiment,
+                    automaticActionReports);
+            }
 
             return valid ? data : null;
         }
 
-        static bool AddData(ITCDataContainer[] data)
+        static bool AddData(
+            ITCDataContainer[] data,
+            bool allowAutomaticActions,
+            ICollection<AutomaticImportActionReport> automaticActionReports)
         {
             var validData = data?
-                .Select(GetValidData)
+                .Select(item => GetValidData(item, allowAutomaticActions, automaticActionReports))
                 .Where(dat => dat != null)
                 .ToArray() ?? Array.Empty<ITCDataContainer>();
 
@@ -69,6 +81,7 @@ namespace AnalysisITC.Core.DataReaders
         {
             var pathList = paths?.Where(path => !string.IsNullOrWhiteSpace(path)).ToArray() ?? Array.Empty<string>();
             var loadedPaths = new List<string>();
+            var automaticActionReports = new List<AutomaticImportActionReport>();
 
             StatusBarManager.SetStatus("Reading data...", 0);
             StatusBarManager.StartInderminateProgress();
@@ -103,7 +116,10 @@ namespace AnalysisITC.Core.DataReaders
                             break;
                         }
 
-                        if (dat != null && AddData(dat))
+                        if (dat != null && AddData(
+                            dat,
+                            allowAutomaticActions: !isFtitc,
+                            automaticActionReports: automaticActionReports))
                         {
                             loadedPaths.Add(path);
                             didReadPath?.Invoke(path);
@@ -145,12 +161,38 @@ namespace AnalysisITC.Core.DataReaders
             await Task.Delay(1);
             StatusBarManager.ClearAppStatus();
 
+            var automaticActionStatus = BuildAutomaticImportActionStatus(automaticActionReports);
+            if (!string.IsNullOrEmpty(automaticActionStatus))
+                StatusBarManager.SetStatus(automaticActionStatus, 8000);
+
             return new DataReadResult(
                 requestedPathCount: pathList.Length,
                 loadedPaths: loadedPaths,
                 initialItemCount: initialItemCount,
                 finalItemCount: DataManager.SourceItems?.Count ?? 0,
                 openedCleanProject: openedCleanProject);
+        }
+
+        internal static string BuildAutomaticImportActionStatus(
+            IEnumerable<AutomaticImportActionReport> reports)
+        {
+            var reportList = reports?
+                .Where(report => report != null && report.DiscardedOrphanInjectionCount > 0)
+                .ToList() ?? new List<AutomaticImportActionReport>();
+
+            if (reportList.Count == 0) return "";
+
+            var discardedCount = reportList.Sum(report => report.DiscardedOrphanInjectionCount);
+            var injectionWord = discardedCount == 1 ? "injection" : "injections";
+
+            if (reportList.Count == 1)
+            {
+                return $"Automatically discarded {discardedCount} orphan {injectionWord} " +
+                    $"while loading {reportList[0].ExperimentName}.";
+            }
+
+            return $"Automatically discarded {discardedCount} orphan {injectionWord} " +
+                $"across {reportList.Count} experiments.";
         }
 
         static async Task<ITCDataContainer[]> ReadFile(string path)

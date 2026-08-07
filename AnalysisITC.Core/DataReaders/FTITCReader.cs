@@ -558,7 +558,8 @@ namespace AnalysisITC.Core.DataReaders
                 SolverConvergence snapshotConv = null;
                 double reference_loss_value = double.NaN;
                 List<Parameter> parameters = null;
-                List<SolutionInterface> bsols = null;
+                List<SolutionInterface> legacyBootstrapSolutions = null;
+                List<BootstrapModelSnapshot> bootstrapSnapshots = null;
 
                 string line;
                 while ((line = ReadRequiredLine(reader)) != EndFileHeader)
@@ -591,15 +592,18 @@ namespace AnalysisITC.Core.DataReaders
                                 factory.Model.Parameters.AddOrUpdateParameter(parameter.Copy());
                             break;
                         case "LIST" when v[1] == SolBootstrapSolutions:
-                            bsols = new List<SolutionInterface>();
+                            legacyBootstrapSolutions = new List<SolutionInterface>();
                             var bsol = "";
                             while ((bsol = ReadRequiredLine(reader)) != EndListHeader)
                             {
-                                bsols.Add(ReadSolution(reader, bsol, factory.Model.Data));
+                                legacyBootstrapSolutions.Add(ReadSolution(reader, bsol, factory.Model.Data));
                             }
                             break;
                         case "LIST" when v[1] == SolBootstrapParameters:
-                            bsols = ReadBootstrapParameterList(factory.Model, reader);
+                            legacyBootstrapSolutions = ReadBootstrapParameterList(factory.Model, reader);
+                            break;
+                        case "LIST" when v[1] == SolBootstrapSnapshots:
+                            bootstrapSnapshots = ReadBootstrapSnapshots(reader);
                             break;
                         case "LIST" when v[1] == MdlOptions: ReadModelOptions(factory.Model, reader); break;
                         case "OBJECT" when v[1] == SolConvergence:
@@ -629,7 +633,18 @@ namespace AnalysisITC.Core.DataReaders
                 //    if (Math.Abs(reference_loss_value - currloss) > 0.0001)
                 //        solution.Invalidate();
 
-                if (bsols != null) solution.SetBootstrapSolutions(bsols);
+                if (bootstrapSnapshots != null)
+                {
+                    var restoredSnapshots = bootstrapSnapshots
+                        .OrderBy(snapshot => snapshot.ReplicateIndex)
+                        .Select(snapshot => snapshot.Restore(factory.Model))
+                        .ToList();
+                    solution.SetBootstrapSolutions(restoredSnapshots);
+                }
+                else if (legacyBootstrapSolutions != null)
+                {
+                    solution.SetBootstrapSolutions(legacyBootstrapSolutions);
+                }
 
                 return factory.Model.Solution;
             }
@@ -639,6 +654,176 @@ namespace AnalysisITC.Core.DataReaders
                 if (!interactive) throw new InvalidDataException("A saved fit solution is malformed.", ex);
                 AppEventHandler.DisplayHandledException(ex);
                 return null;
+            }
+        }
+
+        private List<BootstrapModelSnapshot> ReadBootstrapSnapshots(StreamReader reader)
+        {
+            var snapshots = new List<BootstrapModelSnapshot>();
+            var replicateIndices = new HashSet<int>();
+
+            string line;
+            while ((line = ReadRequiredLine(reader)) != EndListHeader)
+            {
+                var header = SplitKeyValue(line);
+                if (header.Length < 2 || header[0] != "OBJECT" || header[1] != BootSnapshot)
+                    throw new InvalidDataException("BootSnapshots may contain only BootSnapshot objects.");
+
+                var snapshot = ReadBootstrapSnapshot(reader);
+                if (!replicateIndices.Add(snapshot.ReplicateIndex))
+                    throw new InvalidDataException($"Duplicate bootstrap replicate index {snapshot.ReplicateIndex}.");
+                snapshots.Add(snapshot);
+            }
+
+            return snapshots;
+        }
+
+        private BootstrapModelSnapshot ReadBootstrapSnapshot(StreamReader reader)
+        {
+            var snapshot = new BootstrapModelSnapshot();
+            var requiredFields = new HashSet<string>();
+
+            string line;
+            while ((line = ReadRequiredLine(reader)) != EndObjectHeader)
+            {
+                var value = SplitKeyValue(line);
+                switch (value[0])
+                {
+                    case BootSnapshotVersion:
+                        snapshot.Version = IParse(RequiredValue(value, BootSnapshotVersion));
+                        requiredFields.Add(BootSnapshotVersion);
+                        break;
+                    case BootReplicateIndex:
+                        snapshot.ReplicateIndex = IParse(RequiredValue(value, BootReplicateIndex));
+                        requiredFields.Add(BootReplicateIndex);
+                        break;
+                    case BootCellConcentration:
+                        snapshot.CellConcentration = FWEParse(RequiredValue(value, BootCellConcentration));
+                        requiredFields.Add(BootCellConcentration);
+                        break;
+                    case BootSyringeConcentration:
+                        snapshot.SyringeConcentration = FWEParse(RequiredValue(value, BootSyringeConcentration));
+                        requiredFields.Add(BootSyringeConcentration);
+                        break;
+                    case BootCellVolume:
+                        snapshot.CellVolume = DParse(RequiredValue(value, BootCellVolume));
+                        requiredFields.Add(BootCellVolume);
+                        break;
+                    case BootMeasuredTemperature:
+                        snapshot.MeasuredTemperature = DParse(RequiredValue(value, BootMeasuredTemperature));
+                        requiredFields.Add(BootMeasuredTemperature);
+                        break;
+                    case "LIST" when value.Length > 1 && value[1] == BootSnapshotParameters:
+                        ReadBootstrapSnapshotParameters(snapshot, reader);
+                        requiredFields.Add(BootSnapshotParameters);
+                        break;
+                    case "LIST" when value.Length > 1 && value[1] == BootSnapshotModelOptions:
+                        snapshot.ModelOptions.AddRange(ReadAttributeOptions(reader));
+                        requiredFields.Add(BootSnapshotModelOptions);
+                        break;
+                    case "LIST" when value.Length > 1 && value[1] == BootSnapshotInjections:
+                        ReadBootstrapSnapshotInjections(snapshot, reader);
+                        requiredFields.Add(BootSnapshotInjections);
+                        break;
+                    case "LIST" when value.Length > 1 && value[1] == BootSnapshotSegments:
+                        ReadBootstrapSnapshotSegments(snapshot, reader);
+                        requiredFields.Add(BootSnapshotSegments);
+                        break;
+                    default:
+                        throw new InvalidDataException($"Unknown bootstrap snapshot field '{line}'.");
+                }
+            }
+
+            var required = new[]
+            {
+                BootSnapshotVersion,
+                BootReplicateIndex,
+                BootCellConcentration,
+                BootSyringeConcentration,
+                BootCellVolume,
+                BootMeasuredTemperature,
+                BootSnapshotParameters,
+                BootSnapshotModelOptions,
+                BootSnapshotInjections,
+                BootSnapshotSegments,
+            };
+            var missing = required.Where(field => !requiredFields.Contains(field)).ToList();
+            if (missing.Count > 0)
+                throw new InvalidDataException($"Bootstrap snapshot is missing: {string.Join(", ", missing)}.");
+            if (snapshot.Version != BootstrapModelSnapshot.CurrentVersion)
+                throw new InvalidDataException($"Unsupported bootstrap snapshot version {snapshot.Version}.");
+            if (snapshot.ReplicateIndex < 0)
+                throw new InvalidDataException("Bootstrap replicate indices cannot be negative.");
+            if (snapshot.Parameters.Count == 0)
+                throw new InvalidDataException("Bootstrap snapshot has no fitted parameters.");
+            if (snapshot.Injections.Count == 0)
+                throw new InvalidDataException("Bootstrap snapshot has no injections.");
+
+            return snapshot;
+        }
+
+        private static string RequiredValue(string[] value, string field)
+        {
+            if (value.Length < 2)
+                throw new InvalidDataException($"Bootstrap snapshot field '{field}' has no value.");
+            return value[1];
+        }
+
+        private static void ReadBootstrapSnapshotParameters(BootstrapModelSnapshot snapshot, StreamReader reader)
+        {
+            string line;
+            while ((line = ReadRequiredLine(reader)) != EndListHeader)
+            {
+                var data = line.Split(':');
+                if (data.Length < 3)
+                    throw new InvalidDataException($"Malformed bootstrap parameter '{line}'.");
+
+                var key = (ParameterType)IParse(data[1]);
+                var parameter = new Parameter(key, DParse(data[2]), data.Length > 3 && BParse(data[3]));
+                if (snapshot.Parameters.Any(existing => existing.Key == key))
+                    throw new InvalidDataException($"Duplicate bootstrap parameter '{key}'.");
+                snapshot.Parameters.Add(parameter);
+            }
+        }
+
+        private static void ReadBootstrapSnapshotInjections(BootstrapModelSnapshot snapshot, StreamReader reader)
+        {
+            string line;
+            while ((line = ReadRequiredLine(reader)) != EndListHeader)
+            {
+                var data = SplitCsv(line);
+                if (data.Length != 5)
+                    throw new InvalidDataException($"Malformed bootstrap injection '{line}'.");
+
+                var injection = new BootstrapInjectionSnapshot
+                {
+                    ID = IParse(data[0]),
+                    Include = BParse(data[1]),
+                    Volume = DParse(data[2]),
+                    ActualCellConcentration = DParse(data[3]),
+                    ActualTitrantConcentration = DParse(data[4]),
+                };
+                if (injection.ID != snapshot.Injections.Count)
+                    throw new InvalidDataException("Bootstrap injection IDs must match their list positions.");
+                snapshot.Injections.Add(injection);
+            }
+        }
+
+        private static void ReadBootstrapSnapshotSegments(BootstrapModelSnapshot snapshot, StreamReader reader)
+        {
+            string line;
+            while ((line = ReadRequiredLine(reader)) != EndListHeader)
+            {
+                var data = SplitCsv(line);
+                if (data.Length != 3)
+                    throw new InvalidDataException($"Malformed bootstrap segment '{line}'.");
+
+                snapshot.Segments.Add(new BootstrapSegmentSnapshot
+                {
+                    FirstInjectionID = IParse(data[0]),
+                    InitialCellConcentration = DParse(data[1]),
+                    InitialTitrantConcentration = DParse(data[2]),
+                });
             }
         }
 
@@ -679,7 +864,9 @@ namespace AnalysisITC.Core.DataReaders
                 foreach (var parameter in parameters)
                     bootstrapModel.Parameters.AddOrUpdateParameter(parameter);
 
-                solutions.Add(SolutionInterface.FromModel(bootstrapModel, null));
+                var solution = SolutionInterface.FromModel(bootstrapModel, null);
+                bootstrapModel.Solution = solution;
+                solutions.Add(solution);
             }
 
             return solutions;
