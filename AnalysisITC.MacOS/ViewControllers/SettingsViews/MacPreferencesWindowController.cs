@@ -45,24 +45,24 @@ namespace AnalysisITC
         readonly NSTextField referenceTemperatureField = Field();
         readonly NSTextField minimumTemperatureSpanField = Field();
         readonly NSTextField minimumIonSpanField = Field();
-        readonly NSButton includeBufferCheck = Check("Include buffer in ionic-strength calculation");
-        readonly NSButton onlineChecksCheck = Check("Check for updates and online resources on launch");
-        readonly NSButton confirmDeleteCheck = Check("Confirm remove and delete actions");
-        readonly NSButton discardOrphanCheck = Check("Automatically discard injections outside the thermogram range");
-        readonly NSButton autoSaveEnabledCheck = Check("Enable autosave");
+        readonly CheckboxControl includeBufferCheck = Check("Include buffer in ionic-strength calculation");
+        readonly CheckboxControl onlineChecksCheck = Check("Check for updates and online resources on launch");
+        readonly CheckboxControl confirmDeleteCheck = Check("Confirm remove and delete actions");
+        readonly CheckboxControl discardOrphanCheck = Check("Automatically discard injections outside the thermogram range");
+        readonly CheckboxControl autoSaveEnabledCheck = Check("Enable autosave");
         readonly SliderValueControl autoSaveIntervalSlider;
         readonly NSTextField autoSaveLimitField = Field();
-        readonly NSButton recoveryPromptCheck = Check("Prompt to recover after an interrupted session");
+        readonly CheckboxControl recoveryPromptCheck = Check("Prompt to recover after an interrupted session");
 
         readonly TaggedSegmentedControl dilutionControl;
         readonly NSPopUpButton peakFitPopup;
         readonly NSPopUpButton bufferSubtractionPopup;
         readonly TaggedSegmentedControl splineDensityControl;
         readonly NSPopUpButton splineHandlePopup;
-        readonly NSButton discardIntegrationCheck = Check("Discard integration regions when estimating the baseline");
-        readonly NSButton reprocessIntegratedCheck = Check("Reprocess integrated heats when loading a project");
-        readonly NSButton splineTimeDraggingCheck = Check("Allow spline-point time dragging by default");
-        readonly NSButton copyIntegrationStartCheck = Check("Copy integration start with the selected region");
+        readonly CheckboxControl discardIntegrationCheck = Check("Discard integration regions when estimating the baseline");
+        readonly CheckboxControl reprocessIntegratedCheck = Check("Reprocess integrated heats when loading a project");
+        readonly CheckboxControl splineTimeDraggingCheck = Check("Allow spline-point time dragging by default");
+        readonly CheckboxControl copyIntegrationStartCheck = Check("Copy integration start with the selected region");
 
         readonly TaggedSegmentedControl solverControl;
         readonly NSPopUpButton errorMethodPopup;
@@ -71,11 +71,11 @@ namespace AnalysisITC
         readonly SliderValueControl optimizerToleranceSlider;
         readonly SliderValueControl maximumIterationsSlider;
         readonly NSTextField concentrationVarianceField = Field();
-        readonly NSButton concentrationBootstrapCheck = Check("Include concentration errors in bootstrap analysis");
-        readonly NSButton weightedFittingCheck = Check("Use injection-error weighted fitting");
-        readonly NSButton createSingleResultCheck = Check("Create single-experiment analysis results");
-        readonly NSButton createGlobalResultCheck = Check("Create global analysis results");
-        readonly NSButton autoOpenResultCheck = Check("Open new analysis results automatically");
+        readonly CheckboxControl concentrationBootstrapCheck = Check("Include concentration errors in bootstrap analysis");
+        readonly CheckboxControl weightedFittingCheck = Check("Use injection-error weighted fitting");
+        readonly CheckboxControl createSingleResultCheck = Check("Create single-experiment analysis results");
+        readonly CheckboxControl createGlobalResultCheck = Check("Create global analysis results");
+        readonly CheckboxControl autoOpenResultCheck = Check("Open new analysis results automatically");
 
         readonly NSPopUpButton exportSelectionPopup;
         readonly TaggedSegmentedControl fitLineControl;
@@ -83,30 +83,30 @@ namespace AnalysisITC
         readonly NSTextField exportDecimalsField = Field();
         readonly NSTextField figureWidthField = Field();
         readonly NSTextField figureHeightField = Field();
-        readonly NSButton unifyTimeAxisCheck = Check("Use a unified time axis for exports");
-        readonly NSButton exportCorrectedCheck = Check("Export baseline-corrected data");
-        readonly NSButton exportFitPointsCheck = Check("Export fit points with peaks");
-        readonly NSButton exportMolarRatioCheck = Check("Molar ratio");
-        readonly NSButton exportInjectionInfoCheck = Check("Injection information");
-        readonly NSButton exportConcentrationsCheck = Check("Concentrations");
-        readonly NSButton exportIncludedCheck = Check("Included state");
-        readonly NSButton exportPeakCheck = Check("Peak heats");
-        readonly NSButton exportFitCheck = Check("Fit values");
-        readonly NSButton showResidualCheck = Check("Show residual graph");
-        readonly NSButton residualGapCheck = Check("Show a gap above the residual graph");
-        readonly NSButton unifyResidualAxisCheck = Check("Use the same residual axis across graphs");
-        readonly NSButton parameterBoxCheck = Check("Show parameter box by default");
-        readonly NSButton experimentDetailsCheck = Check("Show experiment details by default");
-        readonly NSButton modelInfoCheck = Check("Show model information by default");
-        readonly NSButton autoAxesCheck = Check("Automatic axes ignore excluded or invalid points");
-        readonly NSButton thermodynamicCheck = Check("Thermodynamic parameters");
-        readonly NSButton offsetCheck = Check("Offset parameter");
-        readonly NSButton derivedCheck = Check("Derived parameters");
-        readonly NSButton temperatureCheck = Check("Temperature");
-        readonly NSButton concentrationsCheck = Check("Concentrations");
-        readonly NSButton injectionDelayCheck = Check("Injection delay");
-        readonly NSButton instrumentInfoCheck = Check("Instrument");
-        readonly NSButton attributesCheck = Check("Experiment attributes");
+        readonly CheckboxControl unifyTimeAxisCheck = Check("Use a unified time axis for exports");
+        readonly CheckboxControl exportCorrectedCheck = Check("Export baseline-corrected data");
+        readonly CheckboxControl exportFitPointsCheck = Check("Export fit points with peaks");
+        readonly CheckboxControl exportMolarRatioCheck = Check("Molar ratio");
+        readonly CheckboxControl exportInjectionInfoCheck = Check("Injection information");
+        readonly CheckboxControl exportConcentrationsCheck = Check("Concentrations");
+        readonly CheckboxControl exportIncludedCheck = Check("Included state");
+        readonly CheckboxControl exportPeakCheck = Check("Peak heats");
+        readonly CheckboxControl exportFitCheck = Check("Fit values");
+        readonly CheckboxControl showResidualCheck = Check("Show residual graph");
+        readonly CheckboxControl residualGapCheck = Check("Show a gap above the residual graph");
+        readonly CheckboxControl unifyResidualAxisCheck = Check("Use the same residual axis across graphs");
+        readonly CheckboxControl parameterBoxCheck = Check("Show parameter box by default");
+        readonly CheckboxControl experimentDetailsCheck = Check("Show experiment details by default");
+        readonly CheckboxControl modelInfoCheck = Check("Show model information by default");
+        readonly CheckboxControl autoAxesCheck = Check("Automatic axes ignore excluded or invalid points");
+        readonly CheckboxControl thermodynamicCheck = Check("Thermodynamic parameters");
+        readonly CheckboxControl offsetCheck = Check("Offset parameter");
+        readonly CheckboxControl derivedCheck = Check("Derived parameters");
+        readonly CheckboxControl temperatureCheck = Check("Temperature");
+        readonly CheckboxControl concentrationsCheck = Check("Concentrations");
+        readonly CheckboxControl injectionDelayCheck = Check("Injection delay");
+        readonly CheckboxControl instrumentInfoCheck = Check("Instrument");
+        readonly CheckboxControl attributesCheck = Check("Experiment attributes");
 
         public MacPreferencesWindowController()
             : base(CreateWindow())
@@ -165,7 +165,7 @@ namespace AnalysisITC
             tabController.SelectionChanged = index =>
             {
                 selectedPaneIndex = index;
-                BeginInvokeOnMainThread(() => ResizeForPane(index, hasShown));
+                if (hasShown) BeginInvokeOnMainThread(() => ResizeForPane(index, animate: true));
             };
 
             AddPane(0, "General", "gearshape", BuildGeneralPage());
@@ -192,10 +192,9 @@ namespace AnalysisITC
             ShowWindow(this);
             tabController.SelectedTabViewItemIndex = selectedPaneIndex;
             Window.ContentView?.LayoutSubtreeIfNeeded();
-            ResizeForPane(selectedPaneIndex, false);
+            ResizeForPane(selectedPaneIndex, animate: false);
             if (!hasShown) Window.Center();
             hasShown = true;
-            BeginInvokeOnMainThread(() => ResizeForPane(selectedPaneIndex, false));
             Window.MakeKeyAndOrderFront(this);
             NSApplication.SharedApplication.ActivateIgnoringOtherApps(true);
             Window.MakeFirstResponder(null);
@@ -232,9 +231,7 @@ namespace AnalysisITC
                 Math.Min(MaximumWindowHeight, pane.PreferredContentHeight + WindowChromeHeight));
             var screen = Window.Screen ?? NSScreen.MainScreen;
             if (screen != null)
-            {
                 requestedFrameHeight = Math.Min(requestedFrameHeight, screen.VisibleFrame.Height - 40);
-            }
 
             var currentFrame = Window.Frame;
             var top = currentFrame.GetMaxY();
@@ -669,7 +666,9 @@ namespace AnalysisITC
                 grid.GetRow(rowIndex).Height = row.Height;
                 if (!row.FullWidth) continue;
                 grid.MergeCells(new NSRange(0, 2), new NSRange(rowIndex, 1));
-                grid.GetCell(0, rowIndex).X = NSGridCellPlacement.Leading;
+                grid.GetCell(0, rowIndex).X = row.FillsWidth
+                    ? NSGridCellPlacement.Fill
+                    : NSGridCellPlacement.Leading;
             }
 
             AddFullWidth(section, grid);
@@ -682,15 +681,44 @@ namespace AnalysisITC
             return new FormRow(title, control, false, height);
         }
 
-        static FormRow Full(NSView control) => new FormRow(null, control, true, control is NSButton ? 24 : 30);
+        static FormRow Full(NSView control) => new FormRow(
+            null,
+            control,
+            true,
+            control is CheckboxControl || control is NSButton ? 24 : 30,
+            control is CheckboxControl);
 
-        static FormRow TwoChecks(NSButton left, NSButton right)
+        static FormRow TwoChecks(CheckboxControl left, CheckboxControl right)
         {
-            left.WidthAnchor.ConstraintEqualToConstant(290).Active = true;
-            var row = HorizontalStack(8);
-            row.AddArrangedSubview(left);
-            row.AddArrangedSubview(right);
-            return new FormRow(null, row, true, 24);
+            var row = new NSView
+            {
+                TranslatesAutoresizingMaskIntoConstraints = false
+            };
+            var separator = new NSBox
+            {
+                BoxType = NSBoxType.NSBoxSeparator,
+                TranslatesAutoresizingMaskIntoConstraints = false
+            };
+
+            row.AddSubview(left);
+            row.AddSubview(separator);
+            row.AddSubview(right);
+
+            left.LeadingAnchor.ConstraintEqualToAnchor(row.LeadingAnchor).Active = true;
+            left.TrailingAnchor.ConstraintEqualToAnchor(separator.LeadingAnchor, -10).Active = true;
+            left.TopAnchor.ConstraintEqualToAnchor(row.TopAnchor).Active = true;
+            left.BottomAnchor.ConstraintEqualToAnchor(row.BottomAnchor).Active = true;
+
+            separator.CenterXAnchor.ConstraintEqualToAnchor(row.CenterXAnchor).Active = true;
+            separator.TopAnchor.ConstraintEqualToAnchor(row.TopAnchor, 2).Active = true;
+            separator.BottomAnchor.ConstraintEqualToAnchor(row.BottomAnchor, -2).Active = true;
+            separator.WidthAnchor.ConstraintEqualToConstant(1).Active = true;
+
+            right.LeadingAnchor.ConstraintEqualToAnchor(separator.TrailingAnchor, 10).Active = true;
+            right.TrailingAnchor.ConstraintEqualToAnchor(row.TrailingAnchor).Active = true;
+            right.TopAnchor.ConstraintEqualToAnchor(row.TopAnchor).Active = true;
+            right.BottomAnchor.ConstraintEqualToAnchor(row.BottomAnchor).Active = true;
+            return new FormRow(null, row, true, 24, fillsWidth: true);
         }
 
         static NSTextField FormLabel(string text)
@@ -743,18 +771,9 @@ namespace AnalysisITC
             return field;
         }
 
-        static NSButton Check(string title)
+        static CheckboxControl Check(string title)
         {
-            var check = new NSButton
-            {
-                Title = title,
-                ControlSize = NSControlSize.Large,
-                Font = NSFont.SystemFontOfSize(13),
-                RefusesFirstResponder = true,
-                TranslatesAutoresizingMaskIntoConstraints = false
-            };
-            check.SetButtonType(NSButtonType.Switch);
-            return check;
+            return new CheckboxControl(title);
         }
 
         static NSButton Button(string title, string keyEquivalent = null) => new NSButton
@@ -829,8 +848,9 @@ namespace AnalysisITC
             (T)Enum.ToObject(typeof(T), control.SelectedValue);
         static void Select<T>(TaggedSegmentedControl control, T value) =>
             control.SelectValue(Convert.ToInt32(value));
-        static void Set(NSButton button, bool value) => button.State = value ? NSCellStateValue.On : NSCellStateValue.Off;
-        static bool IsOn(NSButton button) => button.State == NSCellStateValue.On;
+        static void Set(CheckboxControl checkbox, bool value) =>
+            checkbox.State = value ? NSCellStateValue.On : NSCellStateValue.Off;
+        static bool IsOn(CheckboxControl checkbox) => checkbox.State == NSCellStateValue.On;
         static string Format(double value) => value.ToString("G6", CultureInfo.CurrentCulture);
 
         static string ToleranceLabel(double value)
@@ -897,12 +917,13 @@ namespace AnalysisITC
                 RefusesFirstResponder = true;
                 TranslatesAutoresizingMaskIntoConstraints = false;
                 WidthAnchor.ConstraintEqualToConstant(300).Active = true;
+                SegmentDistribution = NSSegmentDistribution.Fill;
 
                 var segmentWidth = 300.0 / Math.Max(1, labels.Length);
                 for (var index = 0; index < labels.Length; index++)
                 {
                     SetLabel(labels[index], index);
-                    SetWidth((nfloat)segmentWidth, index);
+                    //SetWidth((nfloat)segmentWidth, index);
                 }
                 SelectedSegment = values.Length > 0 ? 0 : -1;
             }
@@ -1013,20 +1034,72 @@ namespace AnalysisITC
             void UpdateLabel() => valueLabel.StringValue = valueText(Value);
         }
 
+        sealed class CheckboxControl : NSStackView
+        {
+            readonly NSButton checkbox;
+
+            public CheckboxControl(string title)
+            {
+                Orientation = NSUserInterfaceLayoutOrientation.Horizontal;
+                Distribution = NSStackViewDistribution.Fill;
+                Alignment = NSLayoutAttribute.CenterY;
+                Spacing = 8;
+                TranslatesAutoresizingMaskIntoConstraints = false;
+
+                var label = Label(title, 13, false);
+                label.SetContentHuggingPriorityForOrientation(1, NSLayoutConstraintOrientation.Horizontal);
+                label.SetContentCompressionResistancePriority(1, NSLayoutConstraintOrientation.Horizontal);
+
+                checkbox = new NSButton
+                {
+                    Title = "",
+                    ControlSize = NSControlSize.Regular,
+                    RefusesFirstResponder = true,
+                    TranslatesAutoresizingMaskIntoConstraints = false
+                };
+                checkbox.SetButtonType(NSButtonType.Switch);
+                checkbox.WidthAnchor.ConstraintEqualToConstant(18).Active = true;
+                checkbox.SetContentHuggingPriorityForOrientation(1000, NSLayoutConstraintOrientation.Horizontal);
+
+                AddArrangedSubview(label);
+                AddArrangedSubview(checkbox);
+            }
+
+            public event EventHandler Activated
+            {
+                add => checkbox.Activated += value;
+                remove => checkbox.Activated -= value;
+            }
+
+            public NSCellStateValue State
+            {
+                get => checkbox.State;
+                set => checkbox.State = value;
+            }
+
+            public bool Enabled
+            {
+                get => checkbox.Enabled;
+                set => checkbox.Enabled = value;
+            }
+        }
+
         sealed class FormRow
         {
-            public FormRow(string title, NSView control, bool fullWidth, nfloat height)
+            public FormRow(string title, NSView control, bool fullWidth, nfloat height, bool fillsWidth = false)
             {
                 Title = title;
                 Control = control;
                 FullWidth = fullWidth;
                 Height = height;
+                FillsWidth = fillsWidth;
             }
 
             public string Title { get; }
             public NSView Control { get; }
             public bool FullWidth { get; }
             public nfloat Height { get; }
+            public bool FillsWidth { get; }
         }
 
         sealed class PreferencesPaneController : NSViewController
