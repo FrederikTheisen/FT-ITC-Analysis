@@ -979,8 +979,8 @@ namespace AnalysisITC
                 var convergence = await AnalysisResultUpdater.UpdateAsync(result);
 
                 StatusBarManager.ClearAppStatus();
-                StatusBarManager.SetStatus($"{convergence.Algorithm.GetProperties().ShortName} | RMSD = {convergence.Loss:G4}", 8000);
-                StatusBarManager.SetStatus("Analysis result updated", 3000);
+                StatusBarManager.QueueStatus("Analysis result updated", 3000);
+                StatusBarManager.QueueStatus($"{convergence.Algorithm.GetProperties().ShortName} | RMSD = {convergence.Loss:G4}", 5000);
 
                 DataManager.InvokeUpdateDataViewCells();
                 DataManager.InvokeUpdateTable();
