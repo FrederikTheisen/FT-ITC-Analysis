@@ -1,18 +1,30 @@
 using AnalysisITC.Core.Viewer;
 using Microsoft.AspNetCore.Antiforgery;
 using Microsoft.AspNetCore.Http.Features;
+using Microsoft.AspNetCore.HttpOverrides;
 
 const long MaxUploadBytes = 50L * 1024 * 1024;
 const string ViewerBuild = "2026.08.05-bootstrap-band.2";
 
 var builder = WebApplication.CreateBuilder(args);
-builder.Services.AddAntiforgery(options => options.HeaderName = "X-CSRF-TOKEN");
+builder.Services.AddAntiforgery(options =>
+{
+    options.HeaderName = "X-CSRF-TOKEN";
+    options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
+});
+builder.Services.Configure<ForwardedHeadersOptions>(options =>
+{
+    options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+});
 builder.Services.AddSingleton<ViewerDocumentReader>();
 builder.Services.Configure<FormOptions>(options => options.MultipartBodyLengthLimit = MaxUploadBytes + 1024 * 1024);
 builder.WebHost.ConfigureKestrel(options => options.Limits.MaxRequestBodySize = MaxUploadBytes + 1024 * 1024);
 
 var app = builder.Build();
 
+// Caddy connects from loopback, which ForwardedHeadersMiddleware trusts by default.
+// Apply these headers before middleware that depends on the public request scheme.
+app.UseForwardedHeaders();
 app.UseExceptionHandler("/error");
 
 app.Use(async (context, next) =>
@@ -81,18 +93,20 @@ app.MapPost("/api/viewer/open", async (
 
     var file = form.Files.GetFile("file");
     if (file is null || file.Length == 0)
-        return Problem(StatusCodes.Status400BadRequest, "missing_file", "Choose a non-empty .ftitc or .itc file.");
+        return Problem(StatusCodes.Status400BadRequest, "missing_file", "Choose a non-empty .ftxtc, .ftitc, or .itc file.");
     if (file.Length > MaxUploadBytes)
         return Problem(StatusCodes.Status413PayloadTooLarge, "file_too_large", "The uploaded file must be 50 MB or smaller.");
 
     var extension = Path.GetExtension(file.FileName);
     ViewerFileFormat format;
-    if (string.Equals(extension, ".ftitc", StringComparison.OrdinalIgnoreCase))
+    if (string.Equals(extension, ".ftxtc", StringComparison.OrdinalIgnoreCase))
+        format = ViewerFileFormat.Ftxtc;
+    else if (string.Equals(extension, ".ftitc", StringComparison.OrdinalIgnoreCase))
         format = ViewerFileFormat.Ftitc;
     else if (string.Equals(extension, ".itc", StringComparison.OrdinalIgnoreCase))
         format = ViewerFileFormat.Itc;
     else
-        return Problem(StatusCodes.Status415UnsupportedMediaType, "unsupported_extension", "Only .ftitc project files and .itc raw data files are supported.");
+        return Problem(StatusCodes.Status415UnsupportedMediaType, "unsupported_extension", "Only .ftxtc/.ftitc project files and .itc raw data files are supported.");
 
     try
     {
