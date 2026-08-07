@@ -195,6 +195,95 @@ namespace AnalysisITC.Core.Application
             }
         }
 
+        /// <summary>
+        /// Invalidates every known solution graph that references <paramref name="experiment"/>.
+        /// Saved analysis results intentionally retain their own solution instances, so matching
+        /// is based on experiment ID rather than object identity or the one solution currently
+        /// attached to the experiment.
+        /// </summary>
+        internal static void InvalidateSolutionsForExperiment(ExperimentData experiment)
+        {
+            if (experiment == null || string.IsNullOrWhiteSpace(experiment.UniqueID)) return;
+
+            var experimentID = experiment.UniqueID;
+            var matchingSolutions = new HashSet<SolutionInterface>();
+            var containingGlobalSolutions = new HashSet<GlobalSolution>();
+            var visitedSolutions = new Dictionary<SolutionInterface, bool>();
+            var visitedGlobalSolutions = new Dictionary<GlobalSolution, bool>();
+
+            bool CollectSolution(SolutionInterface solution)
+            {
+                if (solution == null) return false;
+                if (visitedSolutions.TryGetValue(solution, out var previouslyMatched))
+                    return previouslyMatched;
+
+                // Store a provisional value before walking bootstrap solutions so an
+                // unexpected cyclic graph cannot recurse indefinitely.
+                visitedSolutions[solution] = false;
+
+                var matches = solution.Data?.UniqueID == experimentID;
+                foreach (var bootstrap in solution.BootstrapSolutions ?? Enumerable.Empty<SolutionInterface>())
+                    matches |= CollectSolution(bootstrap);
+
+                visitedSolutions[solution] = matches;
+                if (matches) matchingSolutions.Add(solution);
+
+                return matches;
+            }
+
+            bool CollectGlobalSolution(GlobalSolution solution)
+            {
+                if (solution == null) return false;
+                if (visitedGlobalSolutions.TryGetValue(solution, out var previouslyMatched))
+                    return previouslyMatched;
+
+                visitedGlobalSolutions[solution] = false;
+
+                var matches = false;
+                foreach (var member in solution.Solutions ?? Enumerable.Empty<SolutionInterface>())
+                    matches |= CollectSolution(member);
+                foreach (var bootstrap in solution.BootstrapSolutions ?? Enumerable.Empty<GlobalSolution>())
+                    matches |= CollectGlobalSolution(bootstrap);
+
+                visitedGlobalSolutions[solution] = matches;
+                if (matches) containingGlobalSolutions.Add(solution);
+
+                return matches;
+            }
+
+            CollectSolution(experiment.Solution);
+
+            foreach (var result in Results)
+                CollectGlobalSolution(result?.Solution);
+
+            switch (ModelFactory.Factory)
+            {
+                case SingleModelFactory singleFactory:
+                    CollectSolution(singleFactory.Model?.Solution);
+                    break;
+                case GlobalModelFactory globalFactory:
+                    CollectGlobalSolution(globalFactory.Model?.Solution);
+                    foreach (var model in globalFactory.Model?.Models ?? Enumerable.Empty<Model>())
+                        CollectSolution(model?.Solution);
+                    break;
+            }
+
+            foreach (var solution in matchingSolutions)
+            {
+                solution.InvalidateForExperimentChange();
+                if (solution.ParentSolution != null)
+                    containingGlobalSolutions.Add(solution.ParentSolution);
+            }
+
+            foreach (var solution in containingGlobalSolutions)
+                solution.InvalidateForExperimentChange();
+
+            // Preserve the normal solution-changed event for the experiment while
+            // avoiding one UI notification per saved result or bootstrap solution.
+            if (matchingSolutions.Count > 0)
+                experiment.UpdateSolution();
+        }
+
         static string DescribeItem(ITCDataContainer item)
         {
             if (item == null) return "<null>";
@@ -808,15 +897,23 @@ namespace AnalysisITC.Core.Application
                     data.SetIntegrationStartTimes(int_delay);
 
                     data.Processor.IntegrationLengthMode = int_mode;
+                    var peakFitHandledProcessing = false;
                     if (int_mode == InjectionData.IntegrationLengthMode.Factor) data.SetIntegrationLengthByFactor(int_factor);
-                    else if (int_mode == InjectionData.IntegrationLengthMode.Fit) data.FitIntegrationPeaks();
+                    else if (int_mode == InjectionData.IntegrationLengthMode.Fit)
+                    {
+                        await data.Processor.FitIntegrationPeaksAsync(showProgress: false);
+                        peakFitHandledProcessing = true;
+                    }
                     else data.SetIntegrationLengthByTimes(int_length);
 
-                    // Reprocesses baseline with new integration regions
-                    data.Processor.WillProcessData();
-                    if (!data.Processor.Interpolator.IsLocked) await data.Processor.InterpolateBaseline();
-                    data.Processor.IntegratePeaks();
-                    data.Processor.DidProcessData();
+                    if (!peakFitHandledProcessing)
+                    {
+                        // Reprocesses baseline with new integration regions
+                        data.Processor.WillProcessData();
+                        if (!data.Processor.Interpolator.IsLocked) await data.Processor.InterpolateBaseline();
+                        data.Processor.IntegratePeaks();
+                        data.Processor.DidProcessData();
+                    }
                 }
 
                 StatusBarManager.SetProgress(i / (Count - 1));
