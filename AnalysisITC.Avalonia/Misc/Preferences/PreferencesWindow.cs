@@ -36,6 +36,8 @@ internal sealed class PreferencesWindow : Window
     readonly ComboBox uncertaintyStyleCombo;
     readonly CheckBox includeBufferInIonicStrengthCheck = Check("Include buffer in ionic-strength calculation");
     readonly CheckBox confirmRemoveDeleteCheck = Check("Confirm remove/delete actions");
+    readonly CheckBox automaticallyDiscardOrphanInjectionsCheck =
+        Check("Automatically discard injections outside the thermogram range");
 
     readonly ComboBox dilutionMethodCombo;
     readonly ComboBox peakFitAlgorithmCombo;
@@ -240,6 +242,10 @@ internal sealed class PreferencesWindow : Window
         {
             confirmRemoveDeleteCheck
         }));
+        panel.Children.Add(Section("File Loading", new Control[]
+        {
+            automaticallyDiscardOrphanInjectionsCheck
+        }));
         return panel;
     }
 
@@ -337,6 +343,7 @@ internal sealed class PreferencesWindow : Window
         SetCombo(uncertaintyStyleCombo, state.UncertaintyDisplayStyle);
         includeBufferInIonicStrengthCheck.IsChecked = state.IncludeBufferInIonicStrengthCalc;
         confirmRemoveDeleteCheck.IsChecked = state.ConfirmRemoveDelete;
+        automaticallyDiscardOrphanInjectionsCheck.IsChecked = state.AutomaticallyDiscardOrphanInjectionsOnLoad;
 
         SetCombo(dilutionMethodCombo, state.DilutionCalculationMethod);
         SetCombo(peakFitAlgorithmCombo, state.PeakFitAlgorithm);
@@ -433,6 +440,7 @@ internal sealed class PreferencesWindow : Window
         state.UncertaintyDisplayStyle = Value(uncertaintyStyleCombo, AppSettings.UncertaintyDisplayStyle);
         state.IncludeBufferInIonicStrengthCalc = includeBufferInIonicStrengthCheck.IsChecked == true;
         state.ConfirmRemoveDelete = confirmRemoveDeleteCheck.IsChecked == true;
+        state.AutomaticallyDiscardOrphanInjectionsOnLoad = automaticallyDiscardOrphanInjectionsCheck.IsChecked == true;
 
         state.DilutionCalculationMethod = Value(dilutionMethodCombo, AppSettings.DilutionCalculationMethod);
         state.PeakFitAlgorithm = Value(peakFitAlgorithmCombo, AppSettings.PeakFitAlgorithm);

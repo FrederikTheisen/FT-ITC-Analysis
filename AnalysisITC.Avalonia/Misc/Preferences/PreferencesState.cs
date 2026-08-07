@@ -21,6 +21,7 @@ internal sealed class PreferencesState
     public UncertaintyDisplayStyle UncertaintyDisplayStyle { get; set; }
     public bool IncludeBufferInIonicStrengthCalc { get; set; }
     public bool ConfirmRemoveDelete { get; set; }
+    public bool AutomaticallyDiscardOrphanInjectionsOnLoad { get; set; }
 
     public DilutionMethod DilutionCalculationMethod { get; set; }
     public PeakFitAlgorithm PeakFitAlgorithm { get; set; }
@@ -77,6 +78,7 @@ internal sealed class PreferencesState
             UncertaintyDisplayStyle = AppSettings.UncertaintyDisplayStyle,
             IncludeBufferInIonicStrengthCalc = AppSettings.IncludeBufferInIonicStrengthCalc,
             ConfirmRemoveDelete = AppSettings.ConfirmRemoveDelete,
+            AutomaticallyDiscardOrphanInjectionsOnLoad = AppSettings.AutomaticallyDiscardOrphanInjectionsOnLoad,
 
             DilutionCalculationMethod = AppSettings.DilutionCalculationMethod,
             PeakFitAlgorithm = AppSettings.PeakFitAlgorithm,
@@ -135,6 +137,7 @@ internal sealed class PreferencesState
             UncertaintyDisplayStyle = UncertaintyDisplayStyle.StandardDeviation,
             IncludeBufferInIonicStrengthCalc = true,
             ConfirmRemoveDelete = true,
+            AutomaticallyDiscardOrphanInjectionsOnLoad = true,
 
             DilutionCalculationMethod = DilutionMethod.MicroCal,
             PeakFitAlgorithm = PeakFitAlgorithm.SingleExponential,
@@ -191,6 +194,7 @@ internal sealed class PreferencesState
         AppSettings.UncertaintyDisplayStyle = UncertaintyDisplayStyle;
         AppSettings.IncludeBufferInIonicStrengthCalc = IncludeBufferInIonicStrengthCalc;
         AppSettings.ConfirmRemoveDelete = ConfirmRemoveDelete;
+        AppSettings.AutomaticallyDiscardOrphanInjectionsOnLoad = AutomaticallyDiscardOrphanInjectionsOnLoad;
 
         AppSettings.DilutionCalculationMethod = DilutionCalculationMethod;
         AppSettings.PeakFitAlgorithm = PeakFitAlgorithm;
