@@ -53,11 +53,11 @@ namespace AnalysisITC.Core.Export
                         await WriteInterchangeFiles(folderPath, settings);
                         break;
                     case ExportType.Data:
-                        await WriteDataFile(folderPath, settings);
+                        await WriteThermogramFiles(folderPath, settings);
                         break;
 
                     case ExportType.Peaks:
-                        await WritePeakFile(folderPath, settings, ExportColumns.SelectionMinimal);
+                        await WriteIntegratedPeakFiles(folderPath, settings);
                         break;
 
                     case ExportType.ITCsim:
@@ -109,10 +109,11 @@ namespace AnalysisITC.Core.Export
 
         static List<string> GetPlannedOutputPaths(string folderPath, ExportAccessoryViewSettings settings)
         {
-            if (settings.Export == ExportType.Data)
-                return new List<string> { Path.Combine(folderPath, BuildOutputFileName(settings, null)) };
+            var data = settings.Export == ExportType.Data
+                ? settings.Data.Where(item => item.HasThermogram)
+                : settings.Data;
 
-            return settings.Data
+            return data
                 .Select((data, index) => Path.Combine(folderPath, BuildOutputFileName(settings, data, index)))
                 .ToList();
         }
@@ -141,7 +142,7 @@ namespace AnalysisITC.Core.Export
             return string.IsNullOrWhiteSpace(sanitized) ? $"experiment_{index + 1}" : sanitized;
         }
 
-        static async Task WriteDataFile(string path, ExportAccessoryViewSettings settings)
+        static async Task WriteThermogramFiles(string path, ExportAccessoryViewSettings settings)
         {
             await Task.Run(async () =>
             {
@@ -153,142 +154,30 @@ namespace AnalysisITC.Core.Export
                     return;
                 }
 
-                var lines = settings.UnifyTimeAxis ? GetUnifiedDataLines(exportdata, settings) : GetDataLines(exportdata, settings);
-
-                var filename = BuildOutputFileName(settings, null);
-
-                using (var writer = new StreamWriter(Path.Combine(path, filename)))
+                foreach (var pair in exportdata.Select((data, index) => new { data, index }))
                 {
-                    foreach (var line in lines)
-                    {
+                    var output = Path.Combine(path, BuildOutputFileName(settings, pair.data, pair.index));
+                    using var writer = new StreamWriter(output);
+                    foreach (var line in GetThermogramLines(pair.data, settings))
                         await writer.WriteLineAsync(line);
-                    }
                 }
             });
 
             StatusBarManager.SetStatus("Finished exporting data file", 3000);
         }
 
-        static List<string> GetUnifiedDataLines(List<ExperimentData> data, ExportAccessoryViewSettings settings)
+        static List<string> GetThermogramLines(ExperimentData data, ExportAccessoryViewSettings settings)
         {
-            //Get time axis
-            var mostcommonstep = FindMostCommonStep(data);
-            var newvalues = new Dictionary<string, List<float>>();
-            var xaxis = new List<float>();
-            var min = data.Min(d => d.DataPoints.First().Time);
-            var max = data.Max(d => d.DataPoints.Last().Time);
+            var lines = new List<string> { "time_s,power_w" };
+            var points = settings.ExportBaselineCorrectDataPoints && data.BaseLineCorrectedDataPoints != null
+                ? data.BaseLineCorrectedDataPoints
+                : data.DataPoints;
 
-            //Add points to new x axis
-            for (float i = min; i <= max; i += mostcommonstep) xaxis.Add(i); 
-
-            //Implemented unified x axis
-            foreach (var dat in data)
+            foreach (var point in points ?? new List<DataPoint>())
             {
-                var dps = settings.ExportBaselineCorrectDataPoints ? dat.BaseLineCorrectedDataPoints : dat.DataPoints;
-                var points = new List<float>();
-                var prevtime = 0f;
-                foreach (var t in xaxis)
-                {
-                    var group = dps.Where(dp => dp.Time > prevtime && dp.Time <= t);
-                    float newdp;
-
-                    if (group.Count() == 0) //Are we averaging a number of datapoints?
-                    {
-                        if (prevtime >= dps.Last().Time || t < dps.First().Time) newdp = float.NaN; //Outside data set?
-                        else //Interpolate from datapoints
-                        {
-                            var p1 = dps.Where(dp => dp.Time > prevtime).First();
-                            var p2 = dps.Where(dp => dp.Time < t).Last();
-
-                            var weight = (t - p2.Time) / (p2.Time - p1.Time);
-
-                            newdp = weight * p2.Power + (1 - weight) * p1.Power;
-                        }
-                    }
-                    //Average datapoints in window. Probably not 100% accurate.
-                    else newdp = dps.Where(dp => dp.Time > prevtime && dp.Time <= t).Select(dp => dp.Power).Average();
-
-                    points.Add(newdp);
-
-                    prevtime = t;
-                }
-
-                newvalues[dat.Name] = points;
+                lines.Add(Invariant(point.Time) + Delimiter + Invariant(point.Power));
             }
-
-            var lines = new List<string>();
-            var header = "time" + Delimiter;
-            foreach (var dat in newvalues) header += dat.Key + Delimiter;
-            lines.Add(header.TrimEnd(Delimiter));
-
-            for (int i = 0; i < xaxis.Count; i++)
-            {
-                var x = xaxis[i];
-                var line = x.ToString("F1") + Delimiter;
-
-                foreach (var dat in newvalues)
-                {
-                    var v = dat.Value[i];
-                    if (float.IsNaN(v)) line += BlankChar + Delimiter;
-                    else line += dat.Value[i].ToString() + Delimiter;
-                }
-
-                lines.Add(line.TrimEnd(Delimiter));
-            }
-
             return lines;
-        }
-
-        static List<string> GetDataLines(List<ExperimentData> data, ExportAccessoryViewSettings settings)
-        {
-            var lines = new List<string>();
-            var header = "";
-            foreach (var dat in data) header += "time" + Delimiter + dat.Name + Delimiter;
-            lines.Add(header.TrimEnd(Delimiter));
-
-            int index = 0;
-
-            while (data.Any(d => d.DataPoints.Count > index))
-            {
-                string line = "";
-
-                foreach (var d in data)
-                {
-                    var dps = settings.ExportBaselineCorrectDataPoints ? d.BaseLineCorrectedDataPoints : d.DataPoints;
-
-                    if (dps.Count > index)
-                    {
-                        var dp = dps[index];
-                        line += dp.Time.ToString() + Delimiter + dp.Power.ToString() + Delimiter;
-                    }
-                    else line += BlankChar.ToString() + Delimiter + BlankChar + Delimiter;
-                }
-
-                lines.Add(line.TrimEnd(Delimiter));
-
-                index++;
-            }
-
-            return lines;
-        }
-
-        static float FindMostCommonStep(List<ExperimentData> data)
-        {
-            // Flatten the datasets into a single list of x-axis values
-            List<float> allXValues = new List<float>();
-            foreach (var dataset in data.Select(d => d.DataPoints))
-            {
-                allXValues.AddRange(dataset.Select(dp => dp.Time));
-            }
-
-            // Determine the most frequently used step
-            var stepFrequencies = allXValues
-                .Select((x, i) => i > 0 ? x - allXValues[i - 1] : 0)
-                .GroupBy(step => step)
-                .OrderByDescending(group => group.Count());
-            float mostCommonStep = stepFrequencies.First().Key;
-
-            return mostCommonStep;
         }
 
         static async Task WritePeakFile(string path, ExportAccessoryViewSettings settings, ExportColumns columns)
@@ -312,6 +201,23 @@ namespace AnalysisITC.Core.Export
             });
 
             StatusBarManager.SetStatus("Finished exporting peak file", 3000);
+        }
+
+        static async Task WriteIntegratedPeakFiles(string path, ExportAccessoryViewSettings settings)
+        {
+            await Task.Run(async () =>
+            {
+                foreach (var pair in settings.Data.Select((data, index) => new { data, index }))
+                {
+                    var output = Path.Combine(path, BuildOutputFileName(settings, pair.data, pair.index));
+                    using var writer = new StreamWriter(output);
+                    await writer.WriteLineAsync(BuildPeakHeader(pair.data));
+                    foreach (var injection in pair.data.Injections ?? new List<InjectionData>())
+                        await writer.WriteLineAsync(string.Join(Delimiter.ToString(), BuildPeakValues(pair.data, injection, settings.ExportOffsetCorrected)));
+                }
+            });
+
+            StatusBarManager.SetStatus("Finished exporting integrated peaks", 3000);
         }
 
         static async Task WriteITCsimFile(string path, ExportAccessoryViewSettings settings)
@@ -456,47 +362,64 @@ namespace AnalysisITC.Core.Export
                 {
                     var output = Path.Combine(path, BuildOutputFileName(settings, pair.data, pair.index));
                     using var writer = new StreamWriter(output);
-                    await writer.WriteLineAsync("record_type,experiment,time_s,raw_power_w,corrected_power_w,injection_index,x_axis_type,x_axis_value,included,integrated_enthalpy_j_per_mol,integrated_enthalpy_sd_j_per_mol,model_enthalpy_j_per_mol,residual_j_per_mol");
-                    var correctedByTime = pair.data.BaseLineCorrectedDataPoints?
-                        .GroupBy(point => point.Time)
-                        .ToDictionary(group => group.Key, group => group.First());
+                    await writer.WriteLineAsync("time_s,raw_power_w,corrected_power_w," + BuildPeakHeader(pair.data));
 
-                    foreach (var point in pair.data.DataPoints ?? new List<DataPoint>())
-                    {
-                        var corrected = default(DataPoint);
-                        var hasCorrected = correctedByTime != null && correctedByTime.TryGetValue(point.Time, out corrected);
-                        await writer.WriteLineAsync(string.Join(Delimiter.ToString(),
-                            "trace",
-                            EscapeCsv(pair.data.Name),
-                            Invariant(point.Time),
-                            Invariant(point.Power),
-                            hasCorrected ? Invariant(corrected.Power) : "",
-                            "", "", "", "", "", "", "", ""));
-                    }
+                    var rawPoints = pair.data.DataPoints ?? new List<DataPoint>();
+                    var correctedPoints = pair.data.BaseLineCorrectedDataPoints;
+                    var injections = pair.data.Injections ?? new List<InjectionData>();
+                    var rowCount = Math.Max(rawPoints.Count, injections.Count);
 
-                    foreach (var injection in pair.data.Injections ?? new List<InjectionData>())
+                    for (var index = 0; index < rowCount; index++)
                     {
-                        var fit = pair.data.Solution != null && pair.data.Model != null
-                            ? pair.data.Model.EvaluateEnthalpy(injection.ID, true)
-                            : double.NaN;
-                        var residual = double.IsNaN(fit) ? double.NaN : injection.Enthalpy - fit;
-                        await writer.WriteLineAsync(string.Join(Delimiter.ToString(),
-                            "injection",
-                            EscapeCsv(pair.data.Name),
-                            "", "", "",
-                            (injection.ID + 1).ToString(CultureInfo.InvariantCulture),
-                            pair.data.AxisType.ToString(),
-                            Invariant(GetXAxisValue(pair.data, injection)),
-                            injection.Include ? "1" : "0",
-                            Invariant(injection.Enthalpy),
-                            Invariant(injection.SD),
-                            Invariant(fit),
-                            Invariant(residual)));
+                        var traceValues = index < rawPoints.Count
+                            ? new[]
+                            {
+                                Invariant(rawPoints[index].Time),
+                                Invariant(rawPoints[index].Power),
+                                correctedPoints != null && index < correctedPoints.Count ? Invariant(correctedPoints[index].Power) : ""
+                            }
+                            : new[] { "", "", "" };
+                        var peakValues = index < injections.Count
+                            ? BuildPeakValues(pair.data, injections[index], offsetCorrected: false)
+                            : new[] { "", "", "", "", "" };
+                        await writer.WriteLineAsync(string.Join(Delimiter.ToString(), traceValues.Concat(peakValues)));
                     }
                 }
             });
 
-            StatusBarManager.SetStatus("Finished exporting FT-ITC CSV", 3000);
+            StatusBarManager.SetStatus("Finished exporting combined data", 3000);
+        }
+
+        static string BuildPeakHeader(ExperimentData data)
+        {
+            return GetXAxisHeader(data) + ",integrated_enthalpy_j_per_mol,sd_j_per_mol,model_j_per_mol,residual_j_per_mol";
+        }
+
+        static string[] BuildPeakValues(ExperimentData data, InjectionData injection, bool offsetCorrected)
+        {
+            var peak = offsetCorrected ? injection.OffsetEnthalpy : injection.Enthalpy;
+            var fit = data.Solution != null && data.Model != null
+                ? data.Model.EvaluateEnthalpy(injection.ID, !offsetCorrected)
+                : double.NaN;
+            var residual = double.IsNaN(fit) ? double.NaN : peak - fit;
+            return new[]
+            {
+                Invariant(GetXAxisValue(data, injection)),
+                Invariant(peak),
+                Invariant(injection.SD),
+                Invariant(fit),
+                Invariant(residual)
+            };
+        }
+
+        static string GetXAxisHeader(ExperimentData data)
+        {
+            return data.AxisType switch
+            {
+                AnalysisXAxisType.TitrantConcentration => "titrant_concentration_m",
+                AnalysisXAxisType.ID => "injection_number",
+                _ => "molar_ratio"
+            };
         }
 
         static double GetXAxisValue(ExperimentData data, InjectionData injection)
@@ -511,14 +434,6 @@ namespace AnalysisITC.Core.Export
 
         static string Invariant(double value) => !double.IsNaN(value) && !double.IsInfinity(value) ? value.ToString("G17", CultureInfo.InvariantCulture) : "";
         static string Invariant(float value) => !float.IsNaN(value) && !float.IsInfinity(value) ? value.ToString("G9", CultureInfo.InvariantCulture) : "";
-
-        static string EscapeCsv(string value)
-        {
-            if (string.IsNullOrEmpty(value)) return "";
-            return value.IndexOfAny(new[] { Delimiter, '"', '\r', '\n' }) >= 0
-                ? "\"" + value.Replace("\"", "\"\"") + "\""
-                : value;
-        }
 
         static List<string> GetColumns(ExperimentData data, ExportColumns columns, ExportAccessoryViewSettings settings)
         {
