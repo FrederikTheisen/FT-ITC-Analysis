@@ -88,6 +88,18 @@ namespace AnalysisITC.Core.Export
         public const string SolBootN = "BootstrapIterations";
         public const string SolBootstrapSolutions = "BootSolutions";
         public const string SolBootstrapParameters = "BootParameters";
+        public const string SolBootstrapSnapshots = "BootSnapshots";
+        public const string BootSnapshot = "BootSnapshot";
+        public const string BootSnapshotVersion = "BootSnapshotVersion";
+        public const string BootReplicateIndex = "BootReplicateIndex";
+        public const string BootCellConcentration = "BootCellConcentration";
+        public const string BootSyringeConcentration = "BootSyringeConcentration";
+        public const string BootCellVolume = "BootCellVolume";
+        public const string BootMeasuredTemperature = "BootMeasuredTemperature";
+        public const string BootSnapshotParameters = "BootSnapshotParameters";
+        public const string BootSnapshotModelOptions = "BootSnapshotModelOptions";
+        public const string BootSnapshotInjections = "BootSnapshotInjections";
+        public const string BootSnapshotSegments = "BootSnapshotSegments";
         public const string SolConvergence = "Conv";
         public const string SolIterations = "Iter";
         public const string SolConvMsg = "MSG";
@@ -508,11 +520,29 @@ namespace AnalysisITC.Core.Export
             StatusBarManager.SetFileSaveSuccessfulMessage(path);
         }
 
+        internal static async Task WriteStream(
+            Stream stream,
+            IEnumerable<ExperimentData> experiments,
+            IEnumerable<AnalysisResult> results = null)
+        {
+            if (stream == null) throw new ArgumentNullException(nameof(stream));
+
+            using var writer = new StreamWriter(stream, new UTF8Encoding(false), 4096, leaveOpen: true);
+            await writer.WriteLineAsync(Variable(FTITCVersion, AppVersion.FullVersionString));
+
+            foreach (var experiment in experiments ?? Enumerable.Empty<ExperimentData>())
+                await WriteExperimentDataToFile(experiment, writer);
+            foreach (var result in results ?? Enumerable.Empty<AnalysisResult>())
+                await WriteAnalysisResultToFile(result, writer);
+
+            await writer.FlushAsync();
+        }
+
         static async Task WriteExperimentDataToFile(ExperimentData data, StreamWriter stream)
         {
             var file = new List<string>
             {
-                FileHeader(ExperimentHeader, data.FileName),
+                FileHeader(data.IsTandemExperiment ? TandemExperimentHeader : ExperimentHeader, data.FileName),
                 Variable(AssignedName, EncodeText(data.Name)),
                 Variable(ID, data.UniqueID),
                 Variable(Date, data.Date.ToString("O", CultureInfo.InvariantCulture)),
@@ -671,14 +701,13 @@ namespace AnalysisITC.Core.Export
 
             if (solution.BootstrapSolutions.Count > 0)
             {
-                file.Add(ListHeader(SolBootstrapParameters));
-
-                //file.Add(ListHeader(SolBootstrapSolutions));
-                foreach (var bsol in solution.BootstrapSolutions)
+                file.Add(ListHeader(SolBootstrapSnapshots));
+                for (int index = 0; index < solution.BootstrapSolutions.Count; index++)
                 {
-                    var lines = GetBootstrapSolutionLines(bsol);
-
-                    file.AddRange(lines);
+                    var bootstrap = solution.BootstrapSolutions[index];
+                    var replicateIndex = bootstrap.BootstrapReplicateIndex ?? index;
+                    var snapshot = BootstrapModelSnapshot.Capture(bootstrap, replicateIndex);
+                    file.AddRange(GetBootstrapSnapshotLines(snapshot));
                 }
                 file.Add(EndListHeader);
             }
@@ -688,14 +717,52 @@ namespace AnalysisITC.Core.Export
             return file;
         }
 
-        private static List<string> GetBootstrapSolutionLines(SolutionInterface solution)
+        private static List<string> GetBootstrapSnapshotLines(BootstrapModelSnapshot snapshot)
         {
-            var lines = new List<string>();
-            foreach (var par in solution.Parameters)
+            var lines = new List<string>
             {
-                lines.Add(Variable(par.Key.ToString() + ":" + ((int)par.Key).ToString(), par.Value.Value));
+                ObjectHeader(BootSnapshot),
+                Variable(BootSnapshotVersion, snapshot.Version),
+                Variable(BootReplicateIndex, snapshot.ReplicateIndex),
+                Variable(BootCellConcentration, snapshot.CellConcentration),
+                Variable(BootSyringeConcentration, snapshot.SyringeConcentration),
+                Variable(BootCellVolume, snapshot.CellVolume),
+                Variable(BootMeasuredTemperature, snapshot.MeasuredTemperature),
+                ListHeader(BootSnapshotParameters),
+            };
+
+            foreach (var parameter in snapshot.Parameters)
+                lines.Add(ParameterLine(parameter.Key, parameter));
+            lines.Add(EndListHeader);
+
+            lines.Add(ListHeader(BootSnapshotModelOptions));
+            foreach (var option in snapshot.ModelOptions)
+                lines.Add(Attribute(option));
+            lines.Add(EndListHeader);
+
+            lines.Add(ListHeader(BootSnapshotInjections));
+            foreach (var injection in snapshot.Injections)
+            {
+                lines.Add(string.Join(",",
+                    FormatInt(injection.ID),
+                    injection.Include ? "1" : "0",
+                    FormatDouble(injection.Volume),
+                    FormatDouble(injection.ActualCellConcentration),
+                    FormatDouble(injection.ActualTitrantConcentration)));
             }
             lines.Add(EndListHeader);
+
+            lines.Add(ListHeader(BootSnapshotSegments));
+            foreach (var segment in snapshot.Segments)
+            {
+                lines.Add(string.Join(",",
+                    FormatInt(segment.FirstInjectionID),
+                    FormatDouble(segment.InitialCellConcentration),
+                    FormatDouble(segment.InitialTitrantConcentration)));
+            }
+            lines.Add(EndListHeader);
+            lines.Add(EndObjectHeader);
+
             return lines;
         }
 
