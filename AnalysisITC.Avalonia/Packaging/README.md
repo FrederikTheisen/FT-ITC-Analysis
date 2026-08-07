@@ -29,7 +29,7 @@ cross-publish, native package validation and signing tools are platform-owned.
 
 ## File associations
 
-All three package definitions advertise `.ftitc` as an FT-ITC Analysis project.
+All three package definitions advertise `.ftxtc` as the current FT-ITC Analysis project format and `.ftitc` as the legacy project format.
 The application handles command-line paths on Windows and Linux and Avalonia
 file-activation events on macOS. Additional raw data formats should remain
 available through Open until their ownership and activation behavior have been
@@ -157,7 +157,7 @@ Before publishing:
 1. Build from a clean, immutable release tag.
 2. Confirm the project version, package version, About dialog, and tag agree.
 3. Install on a clean target machine as a normal user.
-4. Open an associated `.ftitc` file from the operating-system file manager.
+4. Open an associated `.ftxtc` or `.ftitc` file from the operating-system file manager.
 5. Verify open, edit, save, export, upgrade, and uninstall behavior.
 6. Verify signatures independently after downloading the release artifact.
 7. Publish checksums and retain signing/notarization logs without credentials.

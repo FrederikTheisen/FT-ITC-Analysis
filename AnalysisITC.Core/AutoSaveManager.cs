@@ -200,7 +200,7 @@ namespace AnalysisITC.Core.Application
 
         public static string BuildUntitledFileName(DateTime startedAt)
         {
-            return $"AutoSave_AppStarted_{startedAt:yyyy-MM-dd_HH-mm-ss-fff}.ftitc";
+            return $"AutoSave_AppStarted_{startedAt:yyyy-MM-dd_HH-mm-ss-fff}.ftxtc";
         }
 
         public static string BuildProjectFileName(DateTime openedAt, string projectPath)
@@ -208,7 +208,7 @@ namespace AnalysisITC.Core.Application
             var projectName = Path.GetFileNameWithoutExtension(projectPath);
             projectName = SanitizeFileName(projectName);
             if (string.IsNullOrWhiteSpace(projectName)) projectName = "Project";
-            return $"AutoSave_Opened_{openedAt:yyyy-MM-dd_HH-mm-ss-fff}_{projectName}.ftitc";
+            return $"AutoSave_Opened_{openedAt:yyyy-MM-dd_HH-mm-ss-fff}_{projectName}.ftxtc";
         }
 
         public static string SanitizeFileName(string value)

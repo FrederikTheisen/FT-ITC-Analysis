@@ -35,6 +35,7 @@ namespace AnalysisITC.Core.DataReaders
                 ITCDataFormat.ITC200,
                 ITCDataFormat.VPITC,
                 ITCDataFormat.TAITC,
+                ITCDataFormat.FTXTC,
                 ITCDataFormat.FTITC,
                 ITCDataFormat.IntegratedHeats,
                 ITCDataFormat.PEAQITCProject,
@@ -62,6 +63,8 @@ namespace AnalysisITC.Core.DataReaders
         VPITC,
         [ITCFormat("FT-ITC", "Data format produced by this software", ".ftitc")]
         FTITC,
+        [ITCFormat("FT-ITC Project", "Versioned FT-ITC project package", ".ftxtc")]
+        FTXTC,
         Unknown,
         [ITCFormat("TA Instruments Nano Analyze", "Data format exported from NanoAnalyze", ".ta")]
         TAITC,

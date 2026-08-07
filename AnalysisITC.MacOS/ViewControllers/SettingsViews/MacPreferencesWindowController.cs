@@ -22,7 +22,7 @@ namespace AnalysisITC
 {
     sealed class MacPreferencesWindowController : NSWindowController
     {
-        const double WindowWidth = 600;
+        const double WindowWidth = 500;
         const double InitialContentHeight = 520;
         const double MaximumWindowHeight = 800;
         const double WindowChromeHeight = 88;
@@ -168,10 +168,10 @@ namespace AnalysisITC
                 if (hasShown) BeginInvokeOnMainThread(() => ResizeForPane(index, animate: true));
             };
 
-            AddPane(0, "General", "gearshape", BuildGeneralPage());
-            AddPane(1, "Processing", "beziercurve", BuildProcessingPage());
-            AddPane(2, "Fitting", "chart.xyaxis.line", BuildFittingPage());
-            AddPane(3, "Export", "square.and.arrow.up", BuildExportPage());
+            AddPane(0, "General", "gearshape", BuildGeneralPage);
+            AddPane(1, "Processing", "beziercurve", BuildProcessingPage);
+            AddPane(2, "Fitting", "chart.xyaxis.line", BuildFittingPage);
+            AddPane(3, "Export", "square.and.arrow.up", BuildExportPage);
 
             Window.ContentViewController = tabController;
             Window.ToolbarStyle = NSWindowToolbarStyle.Preference;
@@ -191,7 +191,6 @@ namespace AnalysisITC
             SetStatus("");
             ShowWindow(this);
             tabController.SelectedTabViewItemIndex = selectedPaneIndex;
-            Window.ContentView?.LayoutSubtreeIfNeeded();
             ResizeForPane(selectedPaneIndex, animate: false);
             if (!hasShown) Window.Center();
             hasShown = true;
@@ -201,10 +200,10 @@ namespace AnalysisITC
             BeginInvokeOnMainThread(() => Window.MakeFirstResponder(null));
         }
 
-        void AddPane(int index, string title, string symbol, FlippedStackView content)
+        void AddPane(int index, string title, string symbol, Func<FlippedStackView> contentFactory)
         {
             var pane = new PreferencesPaneController(
-                content,
+                contentFactory,
                 RestoreDefaults,
                 () => Window.PerformClose(this),
                 Apply);
@@ -226,7 +225,6 @@ namespace AnalysisITC
         {
             if (!panes.TryGetValue(index, out var pane) || Window == null) return;
 
-            pane.View.LayoutSubtreeIfNeeded();
             var requestedFrameHeight = Math.Max(420,
                 Math.Min(MaximumWindowHeight, pane.PreferredContentHeight + WindowChromeHeight));
             var screen = Window.Screen ?? NSScreen.MainScreen;
@@ -333,9 +331,9 @@ namespace AnalysisITC
                 Full(exportCorrectedCheck),
                 Full(exportFitPointsCheck));
             AddSection(page, "Export Columns",
-                TwoChecks(exportMolarRatioCheck, exportInjectionInfoCheck),
-                TwoChecks(exportConcentrationsCheck, exportIncludedCheck),
-                TwoChecks(exportPeakCheck, exportFitCheck));
+                CheckboxColumns(
+                    new[] { exportMolarRatioCheck, exportConcentrationsCheck, exportPeakCheck },
+                    new[] { exportInjectionInfoCheck, exportIncludedCheck, exportFitCheck }));
             AddSection(page, "Final Figure Defaults",
                 Row("Width (cm)", figureWidthField),
                 Row("Height (cm)", figureHeightField),
@@ -348,10 +346,9 @@ namespace AnalysisITC
                 Full(modelInfoCheck),
                 Full(autoAxesCheck));
             AddSection(page, "Final Figure Content",
-                TwoChecks(thermodynamicCheck, offsetCheck),
-                TwoChecks(derivedCheck, temperatureCheck),
-                TwoChecks(concentrationsCheck, injectionDelayCheck),
-                TwoChecks(instrumentInfoCheck, attributesCheck),
+                CheckboxColumns(
+                    new[] { thermodynamicCheck, derivedCheck, concentrationsCheck, instrumentInfoCheck },
+                    new[] { offsetCheck, temperatureCheck, injectionDelayCheck, attributesCheck }),
                 Row("Attributes", attributeDisplayPopup));
             return page;
         }
@@ -688,37 +685,55 @@ namespace AnalysisITC
             control is CheckboxControl || control is NSButton ? 24 : 30,
             control is CheckboxControl);
 
-        static FormRow TwoChecks(CheckboxControl left, CheckboxControl right)
+        static FormRow CheckboxColumns(CheckboxControl[] leftChecks, CheckboxControl[] rightChecks)
         {
-            var row = new NSView
+            if (leftChecks == null || rightChecks == null ||
+                leftChecks.Length == 0 || leftChecks.Length != rightChecks.Length)
+                throw new ArgumentException("Checkbox columns must contain the same non-zero number of controls.");
+
+            var rowHeight = (nfloat)24;
+            var rowSpacing = (nfloat)5;
+            var container = new NSView
             {
                 TranslatesAutoresizingMaskIntoConstraints = false
             };
+            var leftColumn = VerticalStack(rowSpacing);
+            var rightColumn = VerticalStack(rowSpacing);
             var separator = new NSBox
             {
                 BoxType = NSBoxType.NSBoxSeparator,
                 TranslatesAutoresizingMaskIntoConstraints = false
             };
 
-            row.AddSubview(left);
-            row.AddSubview(separator);
-            row.AddSubview(right);
+            for (var index = 0; index < leftChecks.Length; index++)
+            {
+                leftChecks[index].HeightAnchor.ConstraintEqualToConstant(rowHeight).Active = true;
+                rightChecks[index].HeightAnchor.ConstraintEqualToConstant(rowHeight).Active = true;
+                AddFullWidth(leftColumn, leftChecks[index]);
+                AddFullWidth(rightColumn, rightChecks[index]);
+            }
 
-            left.LeadingAnchor.ConstraintEqualToAnchor(row.LeadingAnchor).Active = true;
-            left.TrailingAnchor.ConstraintEqualToAnchor(separator.LeadingAnchor, -10).Active = true;
-            left.TopAnchor.ConstraintEqualToAnchor(row.TopAnchor).Active = true;
-            left.BottomAnchor.ConstraintEqualToAnchor(row.BottomAnchor).Active = true;
+            container.AddSubview(leftColumn);
+            container.AddSubview(separator);
+            container.AddSubview(rightColumn);
 
-            separator.CenterXAnchor.ConstraintEqualToAnchor(row.CenterXAnchor).Active = true;
-            separator.TopAnchor.ConstraintEqualToAnchor(row.TopAnchor, 2).Active = true;
-            separator.BottomAnchor.ConstraintEqualToAnchor(row.BottomAnchor, -2).Active = true;
+            leftColumn.LeadingAnchor.ConstraintEqualToAnchor(container.LeadingAnchor).Active = true;
+            leftColumn.TrailingAnchor.ConstraintEqualToAnchor(separator.LeadingAnchor, -10).Active = true;
+            leftColumn.TopAnchor.ConstraintEqualToAnchor(container.TopAnchor).Active = true;
+            leftColumn.BottomAnchor.ConstraintEqualToAnchor(container.BottomAnchor).Active = true;
+
+            separator.CenterXAnchor.ConstraintEqualToAnchor(container.CenterXAnchor).Active = true;
+            separator.TopAnchor.ConstraintEqualToAnchor(container.TopAnchor, 2).Active = true;
+            separator.BottomAnchor.ConstraintEqualToAnchor(container.BottomAnchor, -2).Active = true;
             separator.WidthAnchor.ConstraintEqualToConstant(1).Active = true;
 
-            right.LeadingAnchor.ConstraintEqualToAnchor(separator.TrailingAnchor, 10).Active = true;
-            right.TrailingAnchor.ConstraintEqualToAnchor(row.TrailingAnchor).Active = true;
-            right.TopAnchor.ConstraintEqualToAnchor(row.TopAnchor).Active = true;
-            right.BottomAnchor.ConstraintEqualToAnchor(row.BottomAnchor).Active = true;
-            return new FormRow(null, row, true, 24, fillsWidth: true);
+            rightColumn.LeadingAnchor.ConstraintEqualToAnchor(separator.TrailingAnchor, 10).Active = true;
+            rightColumn.TrailingAnchor.ConstraintEqualToAnchor(container.TrailingAnchor).Active = true;
+            rightColumn.TopAnchor.ConstraintEqualToAnchor(container.TopAnchor).Active = true;
+            rightColumn.BottomAnchor.ConstraintEqualToAnchor(container.BottomAnchor).Active = true;
+
+            var height = leftChecks.Length * rowHeight + (leftChecks.Length - 1) * rowSpacing;
+            return new FormRow(null, container, true, height, fillsWidth: true);
         }
 
         static NSTextField FormLabel(string text)
@@ -1107,16 +1122,32 @@ namespace AnalysisITC
             const double FooterHeight = 55;
             const double VerticalContentMargin = 32;
 
-            readonly FlippedStackView content;
-            readonly NSTextField statusLabel;
+            readonly Func<FlippedStackView> contentFactory;
+            readonly Action restoreDefaults;
+            readonly Action cancel;
+            readonly Action apply;
+
+            FlippedStackView content;
+            NSTextField statusLabel;
+            nfloat? preferredContentHeight;
+            string statusMessage = "";
+            bool statusIsError;
 
             public PreferencesPaneController(
-                FlippedStackView content,
+                Func<FlippedStackView> contentFactory,
                 Action restoreDefaults,
                 Action cancel,
                 Action apply)
             {
-                this.content = content;
+                this.contentFactory = contentFactory ?? throw new ArgumentNullException(nameof(contentFactory));
+                this.restoreDefaults = restoreDefaults;
+                this.cancel = cancel;
+                this.apply = apply;
+            }
+
+            public override void LoadView()
+            {
+                content = contentFactory();
 
                 var root = new NSView(new CGRect(0, 0, WindowWidth, InitialContentHeight))
                 {
@@ -1164,7 +1195,7 @@ namespace AnalysisITC
                 applyButton.Activated += (_, _) => apply();
 
                 statusLabel = Label("", 12, false);
-                statusLabel.TextColor = NSColor.SecondaryLabel;
+                UpdateStatusLabel();
                 statusLabel.LineBreakMode = NSLineBreakMode.TruncatingTail;
                 statusLabel.SetContentHuggingPriorityForOrientation(1, NSLayoutConstraintOrientation.Horizontal);
 
@@ -1200,15 +1231,27 @@ namespace AnalysisITC
             {
                 get
                 {
-                    content.LayoutSubtreeIfNeeded();
-                    return (nfloat)Math.Ceiling(content.FittingSize.Height + VerticalContentMargin + FooterHeight);
+                    if (preferredContentHeight.HasValue) return preferredContentHeight.Value;
+
+                    View.LayoutSubtreeIfNeeded();
+                    preferredContentHeight = (nfloat)Math.Ceiling(
+                        content.FittingSize.Height + VerticalContentMargin + FooterHeight);
+                    return preferredContentHeight.Value;
                 }
             }
 
             public void SetStatus(string message, bool error)
             {
-                statusLabel.StringValue = message ?? "";
-                statusLabel.TextColor = error ? NSColor.SystemRed : NSColor.SecondaryLabel;
+                statusMessage = message ?? "";
+                statusIsError = error;
+                UpdateStatusLabel();
+            }
+
+            void UpdateStatusLabel()
+            {
+                if (statusLabel == null) return;
+                statusLabel.StringValue = statusMessage;
+                statusLabel.TextColor = statusIsError ? NSColor.SystemRed : NSColor.SecondaryLabel;
             }
         }
 

@@ -1,7 +1,11 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <mime-info xmlns="http://www.freedesktop.org/standards/shared-mime-info">
-  <mime-type type="application/x-ftitc-project">
+  <mime-type type="application/vnd.ftitc.project+zip">
     <comment>FT-ITC Analysis project</comment>
+    <glob pattern="*.ftxtc" />
+  </mime-type>
+  <mime-type type="application/x-ftitc-project">
+    <comment>Legacy FT-ITC Analysis project</comment>
     <glob pattern="*.ftitc" />
   </mime-type>
 </mime-info>

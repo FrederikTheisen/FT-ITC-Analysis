@@ -22,7 +22,10 @@ namespace AnalysisITC.UI.MacOS
 
         public static UTType[] ProjectFile()
         {
-            return UTType.GetTypes("ftitc", UTTagClass.FilenameExtension, UTTypes.Data);
+            var types = new List<UTType>();
+            types.AddRange(UTType.GetTypes("ftxtc", UTTagClass.FilenameExtension, UTTypes.Data));
+            types.AddRange(UTType.GetTypes("ftitc", UTTagClass.FilenameExtension, UTTypes.Data));
+            return types.ToArray();
         }
 
         public static UTType[] GetAllUTTypes()

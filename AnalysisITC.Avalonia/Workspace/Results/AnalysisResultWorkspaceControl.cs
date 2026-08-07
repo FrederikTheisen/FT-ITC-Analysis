@@ -22,6 +22,7 @@ using AnalysisITC.Core.Units;
 using AnalysisITC.Core.Utilities;
 
 using AnalysisITC.Avalonia.Styling;
+using AnalysisITC.Avalonia.Analysis;
 using AnalysisITC.Avalonia.Workspace;
 using static AnalysisITC.Avalonia.Workspace.WorkspaceControlBuilder;
 
@@ -43,6 +44,21 @@ namespace AnalysisITC.Avalonia.Results
 
         readonly ResultParameterGraphControl graph = new ResultParameterGraphControl();
         readonly ResultDependenceGraphControl dependenceGraph = new ResultDependenceGraphControl();
+        readonly IntegratedHeatsGraphControl selectedFitGraph = new IntegratedHeatsGraphControl
+        {
+            IsReadOnly = true,
+            ShowFit = true,
+            ShowResiduals = true,
+            ShowErrorBars = true,
+            ShowConfidenceBand = true,
+            ShowPointLabels = false,
+            ShowFitParameters = false,
+            ShowExcludedPoints = true,
+            ScaleToIncludedPoints = true,
+            DrawWithOffset = false,
+            EmptyStateTitle = "No experiment selected",
+            EmptyStateMessage = "Select an experiment in the result table or an overview graph to inspect its saved fit."
+        };
         readonly ContentControl graphHost = new ContentControl();
         readonly StackPanel tableHost = new StackPanel { Spacing = 0 };
         readonly StackPanel summaryPanel = WorkspaceControlBuilder.InspectorPanel();
@@ -109,6 +125,8 @@ namespace AnalysisITC.Avalonia.Results
         {
             if (activeViewMode == ResultAnalysisViewMode.Parameters)
                 graph.FitToData();
+            else if (activeViewMode == ResultAnalysisViewMode.SelectedFit)
+                selectedFitGraph.FitToData();
             else
                 dependenceGraph.FitToData();
         }
@@ -291,6 +309,7 @@ namespace AnalysisITC.Avalonia.Results
         {
             availableViewModes.Clear();
             availableViewModes.Add(ResultAnalysisViewMode.Parameters);
+            availableViewModes.Add(ResultAnalysisViewMode.SelectedFit);
 
             if (result?.IsAdvancedAnalysisAvailable == true)
             {
@@ -325,6 +344,13 @@ namespace AnalysisITC.Avalonia.Results
                 return;
             }
 
+            if (activeViewMode == ResultAnalysisViewMode.SelectedFit)
+            {
+                graphHost.Content = selectedFitGraph;
+                RefreshSelectedFitGraph();
+                return;
+            }
+
             graphHost.Content = dependenceGraph;
             dependenceGraph.Result = result;
             dependenceGraph.Mode = activeViewMode;
@@ -344,8 +370,20 @@ namespace AnalysisITC.Avalonia.Results
             if (isUpdatingSelection) return;
 
             RefreshTable();
+            RefreshSelectedFitGraph();
             graph.InvalidateVisual();
             dependenceGraph.InvalidateVisual();
+            if (activeViewMode == ResultAnalysisViewMode.SelectedFit)
+                RefreshAnalysis();
+        }
+
+        void RefreshSelectedFitGraph()
+        {
+            var selected = DataManager.SelectedResultSolution;
+            if (selected != null && result?.Solution?.Solutions?.Contains(selected) != true)
+                selected = null;
+
+            selectedFitGraph.SetSource(selected?.Data, selected);
         }
 
         void OnAdvancedAnalysisStarted(object? sender, TerminationFlag e)
@@ -604,6 +642,16 @@ namespace AnalysisITC.Avalonia.Results
 
             analysisPanel.Children.Add(BuildResultViewSection());
             analysisPanel.Children.Add(parameterEvaluationSection);
+
+            if (activeViewMode == ResultAnalysisViewMode.SelectedFit)
+            {
+                var selected = DataManager.SelectedResultSolution;
+                var selectionText = selected != null && result.Solution.Solutions.Contains(selected)
+                    ? selected.Data?.Name ?? "Selected experiment"
+                    : "Select an experiment in the table or an overview graph.";
+                analysisPanel.Children.Add(Section("Selected Fit", new Control[] { Text(selectionText) }));
+                return;
+            }
 
             if (!result.IsAdvancedAnalysisAvailable)
             {
@@ -1036,6 +1084,7 @@ namespace AnalysisITC.Avalonia.Results
                 ResultAnalysisViewMode.Temperature => "Temperature",
                 ResultAnalysisViewMode.Salt => "Salt",
                 ResultAnalysisViewMode.Protonation => "Protonation",
+                ResultAnalysisViewMode.SelectedFit => "Selected Fit",
                 _ => "Parameters"
             };
         }

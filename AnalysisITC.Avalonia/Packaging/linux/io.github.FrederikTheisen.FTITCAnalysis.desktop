@@ -6,5 +6,5 @@ Exec=/opt/ft-itc-analysis/AnalysisITC.Avalonia %F
 Icon=io.github.FrederikTheisen.FTITCAnalysis
 Terminal=false
 Categories=Science;Education;
-MimeType=application/x-ftitc-project;
+MimeType=application/vnd.ftitc.project+zip;application/x-ftitc-project;
 StartupNotify=true

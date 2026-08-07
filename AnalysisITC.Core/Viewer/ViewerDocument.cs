@@ -5,6 +5,7 @@ namespace AnalysisITC.Core.Viewer
 {
     public enum ViewerFileFormat
     {
+        Ftxtc,
         Ftitc,
         Itc,
     }

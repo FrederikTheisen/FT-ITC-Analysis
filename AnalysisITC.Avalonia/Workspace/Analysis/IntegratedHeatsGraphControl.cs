@@ -22,6 +22,7 @@ namespace AnalysisITC.Avalonia.Analysis
         static AvaloniaGraphTheme GraphTheme => AvaloniaGraphSettings.Current;
 
         ExperimentData? experiment;
+        SolutionInterface? solutionOverride;
         GraphViewport view;
         GraphViewport residualView;
         bool hasView;
@@ -52,6 +53,33 @@ namespace AnalysisITC.Avalonia.Analysis
             }
         }
 
+        public SolutionInterface? SolutionOverride
+        {
+            get => solutionOverride;
+            set
+            {
+                if (ReferenceEquals(solutionOverride, value)) return;
+
+                solutionOverride = value;
+                hoverPoint = null;
+                hoverGraphPoint = null;
+                FitToData();
+            }
+        }
+
+        public void SetSource(ExperimentData? sourceExperiment, SolutionInterface? sourceSolution)
+        {
+            if (ReferenceEquals(experiment, sourceExperiment) && ReferenceEquals(solutionOverride, sourceSolution)) return;
+
+            experiment = sourceExperiment;
+            solutionOverride = sourceSolution;
+            hoverPoint = null;
+            hoverGraphPoint = null;
+            FitToData();
+        }
+
+        public bool IsReadOnly { get; set; }
+
         public bool ShowFit { get; set; } = true;
         public bool ShowResiduals { get; set; } = true;
         public bool ShowErrorBars { get; set; } = true;
@@ -64,10 +92,14 @@ namespace AnalysisITC.Avalonia.Analysis
         public bool UnifiedYAxis { get; set; }
         public bool DrawWithOffset { get; set; } = true;
         public LineSmoothness FitLineSmoothness { get; set; } = LineSmoothness.Linear;
+        public string EmptyStateTitle { get; set; } = "No integrated heats selected";
+        public string EmptyStateMessage { get; set; } = "Process an experiment, then switch to Analyze Data to inspect injection heats.";
 
         EnergyDisplay Energy => EnergyDisplay.Current;
 
-        bool HasResidualPanel => ShowResiduals && Experiment?.Solution != null;
+        SolutionInterface? ActiveSolution => SolutionOverride ?? Experiment?.Solution;
+        Model? ActiveModel => ActiveSolution?.Model;
+        bool HasResidualPanel => ShowResiduals && ActiveSolution != null;
 
         public void FitToData()
         {
@@ -160,6 +192,12 @@ namespace AnalysisITC.Avalonia.Analysis
 
             if (!hasView) return;
 
+            if (IsReadOnly)
+            {
+                e.Handled = true;
+                return;
+            }
+
             var layout = GraphLayout.Create(Bounds, view, residualView, Energy, HasResidualPanel, XAxisTitle());
             var hit = HitTest(e.GetPosition(this), layout);
             if (!hit.HasValue) return;
@@ -190,19 +228,19 @@ namespace AnalysisITC.Avalonia.Analysis
             DrawGrid(context, layout.FitPlot, layout.FitTransform, layout.XTicks, layout.YTicks);
             DrawZeroLine(context, layout.FitPlot, layout.FitTransform);
 
-            if (Experiment?.Solution != null && ShowConfidenceBand)
+            if (ActiveSolution != null && ShowConfidenceBand)
                 DrawConfidenceBand(context, layout);
 
-            if (Experiment?.Solution != null && ShowFit)
+            if (ActiveSolution != null && ShowFit)
                 DrawFitLine(context, layout);
 
-            if (Experiment?.Solution != null && ShowFitParameters)
+            if (ActiveSolution != null && ShowFitParameters)
                 DrawParameterGuides(context, layout);
 
             DrawPoints(context, layout);
             DrawAxes(context, layout.FitPlot, layout.FitTransform, layout.XTicks, layout.YTicks, layout.XAxisTitle, layout.YAxisTitle, hideXAxisLabels: HasResidualPanel);
 
-            if (Experiment?.Solution != null && ShowFitParameters)
+            if (ActiveSolution != null && ShowFitParameters)
                 DrawParameterBox(context, layout);
         }
 
@@ -219,8 +257,8 @@ namespace AnalysisITC.Avalonia.Analysis
         {
             var x = plot.Left + AvaloniaGraphSettings.EmptyStateXOffset;
             var width = Math.Max(40, plot.Right - x - AvaloniaGraphSettings.EmptyStateXOffset);
-            AvaloniaGraphText.DrawWrappedText(context, "No integrated heats selected", new Point(x, plot.Top + AvaloniaGraphSettings.EmptyStateTitleYOffset), width, AvaloniaGraphSettings.EmptyTitleFontSize, FontWeight.SemiBold, GraphTheme.MutedTextBrush);
-            AvaloniaGraphText.DrawWrappedText(context, "Process an experiment, then switch to Analyze Data to inspect injection heats.", new Point(x, plot.Top + AvaloniaGraphSettings.EmptyStateBodyYOffset), width, AvaloniaGraphSettings.EmptyBodyFontSize, FontWeight.Normal, GraphTheme.MutedTextBrush);
+            AvaloniaGraphText.DrawWrappedText(context, EmptyStateTitle, new Point(x, plot.Top + AvaloniaGraphSettings.EmptyStateTitleYOffset), width, AvaloniaGraphSettings.EmptyTitleFontSize, FontWeight.SemiBold, GraphTheme.MutedTextBrush);
+            AvaloniaGraphText.DrawWrappedText(context, EmptyStateMessage, new Point(x, plot.Top + AvaloniaGraphSettings.EmptyStateBodyYOffset), width, AvaloniaGraphSettings.EmptyBodyFontSize, FontWeight.Normal, GraphTheme.MutedTextBrush);
         }
 
         void DrawGrid(DrawingContext context, Rect plot, PlotTransform transform, AxisTicks xTicks, AxisTicks yTicks)
@@ -393,12 +431,12 @@ namespace AnalysisITC.Avalonia.Analysis
 
         void DrawParameterGuides(DrawingContext context, GraphLayout layout)
         {
-            var data = Experiment;
-            if (data?.Solution == null) return;
+            var solution = ActiveSolution;
+            if (solution == null) return;
 
             using (context.PushClip(layout.FitPlot))
             {
-                foreach (var n in data.Solution.GetCorrectedStoichiometryGuides())
+                foreach (var n in solution.GetCorrectedStoichiometryGuides())
                 {
                     var x = XValue(n.Value);
                     if (!view.ContainsX(x)) continue;
@@ -407,10 +445,10 @@ namespace AnalysisITC.Avalonia.Analysis
                     context.DrawLine(GraphTheme.GuidePen, new Point(screenX, layout.FitPlot.Top), new Point(screenX, layout.FitPlot.Bottom));
                 }
 
-                foreach (var h in data.Solution.GetCorrectedEnthalpyGuides())
+                foreach (var h in solution.GetCorrectedEnthalpyGuides())
                 {
                     var y = h.Value;
-                    if (DrawWithOffset) y += data.Solution.Offset;
+                    if (DrawWithOffset) y += solution.Offset;
                     y *= Energy.Scale;
                     if (!view.ContainsY(y)) continue;
 
@@ -423,11 +461,13 @@ namespace AnalysisITC.Avalonia.Analysis
         void DrawParameterBox(DrawingContext context, GraphLayout layout)
         {
             var data = Experiment;
-            if (data?.Solution == null || data.Model == null || data.InjectionCount == 0) return;
+            var solution = ActiveSolution;
+            var model = ActiveModel;
+            if (data == null || solution == null || model == null || data.InjectionCount == 0) return;
 
             var display = AppSettings.AnalysisParameterDisplay;
             var lines = new List<string>();
-            foreach (var parameter in data.Solution.UISolutionParameters(display))
+            foreach (var parameter in solution.UISolutionParameters(display))
             {
                 if (display.HasFlag(FinalFigureDisplayParameters.Model) && lines.Count == 0)
                     lines.Add($"{parameter.Item1} | RMSD = {parameter.Item2}");
@@ -437,8 +477,8 @@ namespace AnalysisITC.Avalonia.Analysis
 
             if (lines.Count == 0) return;
 
-            var first = data.Model.Evaluate(0, withoffset: false);
-            var last = data.Model.Evaluate(data.InjectionCount - 1, withoffset: false);
+            var first = model.Evaluate(0, withoffset: false);
+            var last = model.Evaluate(data.InjectionCount - 1, withoffset: false);
             var anchor = first > last
                 ? new Point(layout.FitPlot.Right - 14, layout.FitPlot.Top + 14)
                 : new Point(layout.FitPlot.Right - 14, layout.FitPlot.Bottom - 14);
@@ -470,8 +510,8 @@ namespace AnalysisITC.Avalonia.Analysis
                 point.Included ? "Included" : "Excluded"
             };
 
-            if (!hit.IsResidual && Experiment?.Solution != null)
-                lines.Add($"Residual: {Energy.Format(point.Injection.ResidualEnthalpy * Energy.Scale)}");
+            if (!hit.IsResidual && ActiveSolution != null)
+                lines.Add($"Residual: {Energy.Format(ResidualEnthalpy(point.Injection, ActiveSolution) * Energy.Scale)}");
 
             DrawInfoBox(context, lines, plot, screen, alignRight: false);
         }
@@ -574,7 +614,8 @@ namespace AnalysisITC.Avalonia.Analysis
         IEnumerable<GraphPoint> ResidualPoints(bool includeExcluded)
         {
             var data = Experiment;
-            if (data?.Solution == null) yield break;
+            var solution = ActiveSolution;
+            if (data == null || solution?.Model == null) yield break;
 
             foreach (var injection in data.Injections)
             {
@@ -582,7 +623,7 @@ namespace AnalysisITC.Avalonia.Analysis
                 if (!injection.Include && !includeExcluded) continue;
 
                 var x = XValue(injection);
-                var y = injection.ResidualEnthalpy * Energy.Scale;
+                var y = ResidualEnthalpy(injection, solution) * Energy.Scale;
                 var sd = Safe(injection.SD) ? injection.SD * Energy.Scale : 0;
 
                 if (!Safe(x) || !Safe(y)) continue;
@@ -593,17 +634,19 @@ namespace AnalysisITC.Avalonia.Analysis
 
         IEnumerable<GraphPoint> FitPoints()
         {
-            return FitPointsFor(Experiment);
+            return FitPointsFor(Experiment, ActiveSolution);
         }
 
-        IEnumerable<GraphPoint> FitPointsFor(ExperimentData? data)
+        IEnumerable<GraphPoint> FitPointsFor(ExperimentData? data, SolutionInterface? solution = null)
         {
-            if (data?.Solution == null || data.Model == null) yield break;
+            solution ??= data?.Solution;
+            var model = solution?.Model;
+            if (data == null || model == null) yield break;
 
             foreach (var injection in data.Injections)
             {
                 var x = XValue(data, injection);
-                var y = data.Model.EvaluateEnthalpy(injection.ID, DrawWithOffset) * Energy.Scale;
+                var y = model.EvaluateEnthalpy(injection.ID, DrawWithOffset) * Energy.Scale;
                 if (!Safe(x) || !Safe(y)) continue;
 
                 yield return new GraphPoint(injection, x, y, y, y, true);
@@ -625,12 +668,14 @@ namespace AnalysisITC.Avalonia.Analysis
         IEnumerable<GraphPoint> ConfidenceBand()
         {
             var data = Experiment;
-            if (data?.Solution?.BootstrapSolutions == null || data.Solution.BootstrapSolutions.Count == 0 || data.Model == null) yield break;
-            if (!data.Solution.BootstrapSolutions.Any(solution => solution?.Model != null)) yield break;
+            var solution = ActiveSolution;
+            var model = ActiveModel;
+            if (data == null || solution?.BootstrapSolutions == null || solution.BootstrapSolutions.Count == 0 || model == null) yield break;
+            if (!solution.BootstrapSolutions.Any(candidate => candidate?.Model != null)) yield break;
 
             foreach (var injection in data.Injections)
             {
-                var confidence = data.Model.EvaluateBootstrap(injection.ID, DrawWithOffset).WithConfidence();
+                var confidence = model.EvaluateBootstrap(injection.ID, DrawWithOffset).WithConfidence();
                 if (confidence == null || confidence.Length < 2) continue;
 
                 var x = XValue(injection);
@@ -671,7 +716,17 @@ namespace AnalysisITC.Avalonia.Analysis
 
         double YValue(ExperimentData? data, InjectionData injection)
         {
-            return (DrawWithOffset ? injection.Enthalpy : injection.OffsetEnthalpy) * Energy.Scale;
+            var solution = ReferenceEquals(data, Experiment) ? ActiveSolution : data?.Solution;
+            var value = DrawWithOffset || solution == null
+                ? injection.Enthalpy
+                : injection.Enthalpy - solution.Offset;
+            return value * Energy.Scale;
+        }
+
+        static double ResidualEnthalpy(InjectionData injection, SolutionInterface? solution)
+        {
+            if (solution?.Model == null || injection.InjectionMass == 0) return 0;
+            return solution.Model.Residual(injection) / injection.InjectionMass;
         }
 
         string XAxisTitle()

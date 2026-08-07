@@ -13,6 +13,7 @@
   <url type="bugtracker">https://github.com/FrederikTheisen/FT-ITC-Analysis/issues</url>
   <provides>
     <binary>AnalysisITC.Avalonia</binary>
+    <mediatype>application/vnd.ftitc.project+zip</mediatype>
     <mediatype>application/x-ftitc-project</mediatype>
   </provides>
 </component>

@@ -43,7 +43,9 @@ namespace AnalysisITC.Core.Viewer
             {
                 var parseWarnings = new List<string>();
                 ITCDataContainer[] containers;
-                if (format == ViewerFileFormat.Ftitc)
+                if (format == ViewerFileFormat.Ftxtc)
+                    containers = await FTXTCReader.ReadStream(buffer, interactive: false);
+                else if (format == ViewerFileFormat.Ftitc)
                     containers = await FTITCReader.ReadStream(buffer, interactive: false);
                 else
                     containers = new ITCDataContainer[]
@@ -71,7 +73,7 @@ namespace AnalysisITC.Core.Viewer
             {
                 throw;
             }
-            catch (Exception ex) when (ex is IOException || ex is FormatException || ex is InvalidDataException || ex is IndexOutOfRangeException || ex is ArgumentException || ex is InvalidOperationException || ex is NullReferenceException)
+            catch (Exception ex) when (ex is IOException || ex is FormatException || ex is InvalidDataException || ex is NotSupportedException || ex is IndexOutOfRangeException || ex is ArgumentException || ex is InvalidOperationException || ex is NullReferenceException)
             {
                 throw new ViewerFileException("malformed_file", "The file is malformed or incomplete and could not be read.", ex);
             }
@@ -95,7 +97,9 @@ namespace AnalysisITC.Core.Viewer
 
         static string SafeDisplayName(string fileName, ViewerFileFormat format)
         {
-            var fallback = format == ViewerFileFormat.Ftitc ? "uploaded.ftitc" : "uploaded.itc";
+            var fallback = format == ViewerFileFormat.Ftxtc
+                ? "uploaded.ftxtc"
+                : format == ViewerFileFormat.Ftitc ? "uploaded.ftitc" : "uploaded.itc";
             var normalized = (fileName ?? fallback).Replace('\\', '/');
             var name = Path.GetFileName(normalized);
             if (string.IsNullOrWhiteSpace(name)) name = fallback;
@@ -116,9 +120,11 @@ namespace AnalysisITC.Core.Viewer
 
         static void ValidateSignature(string header, ViewerFileFormat format)
         {
-            var valid = format == ViewerFileFormat.Ftitc
-                ? header.StartsWith("FTITCVersion:", StringComparison.Ordinal) || header.StartsWith("FILE:Experiment:", StringComparison.Ordinal) || header.StartsWith("FILE:TandemExperiment:", StringComparison.Ordinal)
-                : header.StartsWith("$ITC", StringComparison.OrdinalIgnoreCase);
+            var valid = format == ViewerFileFormat.Ftxtc
+                ? header.Length >= 2 && header[0] == 'P' && header[1] == 'K'
+                : format == ViewerFileFormat.Ftitc
+                    ? header.StartsWith("FTITCVersion:", StringComparison.Ordinal) || header.StartsWith("FILE:Experiment:", StringComparison.Ordinal) || header.StartsWith("FILE:TandemExperiment:", StringComparison.Ordinal)
+                    : header.StartsWith("$ITC", StringComparison.OrdinalIgnoreCase);
 
             if (!valid)
                 throw new ViewerFileException("format_mismatch", "The file contents do not match the selected file extension.");
@@ -137,9 +143,9 @@ namespace AnalysisITC.Core.Viewer
             var document = new ViewerDocument
             {
                 DisplayName = displayName,
-                Format = format == ViewerFileFormat.Ftitc ? "ftitc" : "itc",
+                Format = format == ViewerFileFormat.Ftxtc ? "ftxtc" : format == ViewerFileFormat.Ftitc ? "ftitc" : "itc",
                 SizeBytes = size,
-                FormatVersion = format == ViewerFileFormat.Ftitc ? ParseVersion(header) : null,
+                FormatVersion = format == ViewerFileFormat.Ftxtc ? "1.0" : format == ViewerFileFormat.Ftitc ? ParseVersion(header) : null,
             };
 
             var resultKeys = results

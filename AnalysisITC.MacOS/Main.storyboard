@@ -1635,7 +1635,7 @@
                                                                         </attributes>
                                                                     </fragment>
                                                                     <fragment>
-                                                                        <mutableString key="content">FT-ITC Analysis supports saving processed files in the ‘ftitc’ file format. The saved file contains all the data necessary to process and analyze the experiment and also includes any processing done to the data. Note that saving does not include the analysis of data.
+                                                                        <mutableString key="content">FT-ITC Analysis saves complete projects in the ‘ftxtc’ format, including data, processing, fits, and analysis results. Legacy ‘ftitc’ project files remain supported.
 </mutableString>
                                                                         <attributes>
                                                                             <color key="NSColor" name="textColor" catalog="System" colorSpace="catalog"/>

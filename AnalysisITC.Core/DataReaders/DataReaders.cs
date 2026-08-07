@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using AnalysisITC.Core.Analysis;
+using AnalysisITC.Core.Analysis.Models;
 using System.Text.RegularExpressions;
 using System.Globalization;
 using System.IO;
@@ -88,29 +89,36 @@ namespace AnalysisITC.Core.DataReaders
             StatusBarManager.StartInderminateProgress();
             IntegratedHeatReader.BeginImportQueue();
 
-            var allFtitc = pathList.Length > 0 && pathList.All(path => GetFormat(path) == ITCDataFormat.FTITC);
+            var allProjectFiles = pathList.Length > 0 && pathList.All(path =>
+            {
+                var format = GetFormat(path);
+                return format == ITCDataFormat.FTITC || format == ITCDataFormat.FTXTC;
+            });
             var wasEmptyDocument = DataManager.SourceItems == null || DataManager.SourceItems.Count == 0;
             var initialItemCount = DataManager.SourceItems?.Count ?? 0;
 
             try
             {
-                using (allFtitc ? DocumentDirtyTracker.RestoreDocument() : DocumentDirtyTracker.Suspend())
+                using (allProjectFiles ? DocumentDirtyTracker.RestoreDocument() : DocumentDirtyTracker.Suspend())
                 {
                     await Task.Delay(1);
 
                     foreach (var path in pathList)
                     {
                         var format = GetFormat(path);
-                        var isFtitc = format == ITCDataFormat.FTITC;
+                        var isProjectFile = format == ITCDataFormat.FTITC || format == ITCDataFormat.FTXTC;
                         var fileName = Path.GetFileName(path);
 
                         AppEventHandler.PrintAndLog($"Loading File: {fileName}");
-                        StatusBarManager.SetStatus(isFtitc
+                        StatusBarManager.SetStatus(isProjectFile
                             ? $"Loading: {Path.GetFileNameWithoutExtension(fileName)}"
                             : $"Reading file: {fileName}", 0);
                         StatusBarManager.SetSecondaryStatus("", 0);
                         await Task.Delay(1); //Necessary to update UI. Unclear why whole method has to be on UI thread.
                         var dat = await ReadFile(path);
+
+                        if (format == ITCDataFormat.FTXTC && dat != null)
+                            RemapFtxtcIdentityCollisions(dat);
 
                         if (IntegratedHeatReader.CancelRemainingQueueItems)
                         {
@@ -119,7 +127,7 @@ namespace AnalysisITC.Core.DataReaders
 
                         if (dat != null && AddData(
                             dat,
-                            allowAutomaticActions: !isFtitc,
+                            allowAutomaticActions: !isProjectFile,
                             automaticActionReports: automaticActionReports))
                         {
                             loadedPaths.Add(path);
@@ -142,7 +150,7 @@ namespace AnalysisITC.Core.DataReaders
             }
 
             var addedData = (DataManager.SourceItems?.Count ?? 0) > initialItemCount;
-            var openedCleanProject = wasEmptyDocument && allFtitc && pathList.Length == 1 && addedData;
+            var openedCleanProject = wasEmptyDocument && allProjectFiles && pathList.Length == 1 && addedData;
 
             if (openedCleanProject)
             {
@@ -184,7 +192,9 @@ namespace AnalysisITC.Core.DataReaders
                 ITCDataContainer[] recovered;
                 using (var stream = File.OpenRead(path))
                 {
-                    recovered = await FTITCReader.ReadStream(stream, interactive: true);
+                    recovered = GetFormat(path) == ITCDataFormat.FTITC
+                        ? await FTITCReader.ReadStream(stream, interactive: true)
+                        : await FTXTCReader.ReadStream(stream, interactive: true);
                 }
 
                 using (DocumentDirtyTracker.RestoreDocument())
@@ -236,6 +246,8 @@ namespace AnalysisITC.Core.DataReaders
                 {
                     case ITCDataFormat.FTITC:
                         return await FTITCReader.ReadPath(path);
+                    case ITCDataFormat.FTXTC:
+                        return await FTXTCReader.ReadPath(path);
                     case ITCDataFormat.VPITC: // TODO No idea what vpitc files might look like if they exist
                     case ITCDataFormat.ITC200:
                         return new ExperimentData[] { MicroCalITC200Reader.ReadPath(path) };
@@ -256,6 +268,101 @@ namespace AnalysisITC.Core.DataReaders
             }
 
             return null;
+        }
+
+        static void RemapFtxtcIdentityCollisions(IReadOnlyCollection<ITCDataContainer> loaded)
+        {
+            if (loaded == null || loaded.Count == 0 || DataManager.SourceItems == null || DataManager.SourceItems.Count == 0) return;
+
+            var existingContainerIds = new HashSet<string>(
+                DataManager.SourceItems.Where(item => item != null).Select(item => item.UniqueID),
+                StringComparer.Ordinal);
+            var experimentIdMap = new Dictionary<string, string>(StringComparer.Ordinal);
+            foreach (var container in loaded.Where(item => item != null))
+            {
+                var original = container.UniqueID;
+                if (!existingContainerIds.Add(original))
+                {
+                    var replacement = NewUniqueId(existingContainerIds);
+                    container.SetID(replacement);
+                    if (container is ExperimentData) experimentIdMap[original] = replacement;
+                }
+            }
+
+            if (experimentIdMap.Count > 0)
+            {
+                foreach (var experiment in loaded.OfType<ExperimentData>())
+                {
+                    foreach (var attribute in experiment.Attributes.Where(attribute => attribute.Key == AttributeKey.BufferSubtraction))
+                        if (attribute.StringValue != null && experimentIdMap.TryGetValue(attribute.StringValue, out var replacement))
+                            attribute.StringValue = replacement;
+                }
+                foreach (var result in loaded.OfType<AnalysisResult>())
+                foreach (var snapshot in result.ValiditySnapshot?.Experiments ?? Enumerable.Empty<ExperimentFitInputSnapshot>())
+                    if (snapshot.ExperimentID != null && experimentIdMap.TryGetValue(snapshot.ExperimentID, out var replacement))
+                        snapshot.ExperimentID = replacement;
+            }
+
+            var existingGlobalIds = new HashSet<string>(
+                DataManager.Results.SelectMany(result => EnumerateGlobalSolutions(result.Solution)).Select(solution => solution.UniqueID),
+                StringComparer.Ordinal);
+            var globalIdMap = new Dictionary<string, string>(StringComparer.Ordinal);
+            foreach (var global in loaded.OfType<AnalysisResult>().SelectMany(result => EnumerateGlobalSolutions(result.Solution)).Distinct())
+            {
+                var original = global.UniqueID;
+                if (!existingGlobalIds.Add(original))
+                {
+                    var replacement = NewUniqueId(existingGlobalIds);
+                    global.SetID(replacement);
+                    globalIdMap[original] = replacement;
+                }
+            }
+
+            var existingSolutionIds = new HashSet<string>(
+                DataManager.SourceItems.SelectMany(EnumerateSolutions).Select(solution => solution.Guid),
+                StringComparer.Ordinal);
+            foreach (var solution in loaded.SelectMany(EnumerateSolutions).Distinct())
+            {
+                if (!existingSolutionIds.Add(solution.Guid)) solution.SetID(NewUniqueId(existingSolutionIds));
+                if (solution.ParentSolutionID != null && globalIdMap.TryGetValue(solution.ParentSolutionID, out var replacement))
+                    solution.ParentSolutionID = replacement;
+            }
+        }
+
+        static IEnumerable<GlobalSolution> EnumerateGlobalSolutions(GlobalSolution solution)
+        {
+            if (solution == null) yield break;
+            yield return solution;
+            foreach (var bootstrap in solution.BootstrapSolutions ?? new List<GlobalSolution>())
+                if (bootstrap != null) yield return bootstrap;
+        }
+
+        static IEnumerable<SolutionInterface> EnumerateSolutions(ITCDataContainer container)
+        {
+            if (container is ExperimentData experiment && experiment.Solution != null)
+            {
+                yield return experiment.Solution;
+                foreach (var bootstrap in experiment.Solution.BootstrapSolutions ?? new List<SolutionInterface>())
+                    if (bootstrap != null) yield return bootstrap;
+            }
+            if (container is AnalysisResult result)
+            {
+                foreach (var global in EnumerateGlobalSolutions(result.Solution))
+                foreach (var solution in global.Solutions ?? new List<SolutionInterface>())
+                {
+                    if (solution == null) continue;
+                    yield return solution;
+                    foreach (var bootstrap in solution.BootstrapSolutions ?? new List<SolutionInterface>())
+                        if (bootstrap != null) yield return bootstrap;
+                }
+            }
+        }
+
+        static string NewUniqueId(ISet<string> used)
+        {
+            string id;
+            do id = Guid.NewGuid().ToString(); while (!used.Add(id));
+            return id;
         }
     }
 

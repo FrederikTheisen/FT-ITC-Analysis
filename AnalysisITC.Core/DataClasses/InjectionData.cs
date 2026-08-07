@@ -295,6 +295,42 @@ namespace AnalysisITC.Core.Data
             IsIntegrated = true;
         }
 
+        internal void RestoreState(
+            bool include,
+            float time,
+            double volume,
+            float delay,
+            float duration,
+            float filter,
+            double temperature,
+            float integrationStartDelay,
+            float integrationEndOffset,
+            double actualCellConcentration,
+            double actualTitrantConcentration,
+            double ratio,
+            bool isIntegrated,
+            PeakHeatDirection heatDirection,
+            FloatWithError rawPeakArea,
+            FloatWithError correctedPeakArea)
+        {
+            this.include = include;
+            this.time = time;
+            Volume = volume;
+            Delay = delay;
+            Duration = duration;
+            Filter = filter;
+            Temperature = temperature;
+            IntegrationStartDelay = integrationStartDelay;
+            IntegrationEndOffset = integrationEndOffset;
+            ActualCellConcentration = actualCellConcentration;
+            ActualTitrantConcentration = actualTitrantConcentration;
+            Ratio = ratio;
+            IsIntegrated = isIntegrated;
+            HeatDirection = heatDirection;
+            RawPeakArea = rawPeakArea;
+            PeakArea = correctedPeakArea;
+        }
+
         public void UpdateCorrectedPeakArea()
         {
             // RawPeakArea is the integrated heat; PeakArea is the value after optional subtraction.

@@ -18,10 +18,12 @@ namespace AnalysisITC.Core.DataReaders
     {
         readonly List<ITCDataContainer> data = new List<ITCDataContainer>();
         readonly bool interactive;
+        readonly bool processProcessorData;
 
-        FTITCReader(bool interactive)
+        FTITCReader(bool interactive, bool processProcessorData)
         {
             this.interactive = interactive;
+            this.processProcessorData = processProcessorData;
         }
 
         public static async Task<ITCDataContainer[]> ReadPath(string path)
@@ -34,11 +36,11 @@ namespace AnalysisITC.Core.DataReaders
             }
         }
 
-        internal static async Task<ITCDataContainer[]> ReadStream(Stream stream, bool interactive = false)
+        internal static async Task<ITCDataContainer[]> ReadStream(Stream stream, bool interactive = false, bool processProcessorData = true)
         {
             if (stream == null) throw new ArgumentNullException(nameof(stream));
 
-            var parser = new FTITCReader(interactive);
+            var parser = new FTITCReader(interactive, processProcessorData);
             using (var reader = new StreamReader(stream, System.Text.Encoding.UTF8, true, 4096, leaveOpen: true))
                 return await parser.Read(reader);
         }
@@ -172,7 +174,7 @@ namespace AnalysisITC.Core.DataReaders
                     case "LIST" when value == SegmentList:
                         ReadSegmentList(exp, reader); break;
                     case "OBJECT" when value == Processor:
-                        await ReadProcessor(exp, reader); break;
+                        await ReadProcessor(exp, reader, processProcessorData); break;
                     case "OBJECT" when value == ExperimentSolutionHeader:
                         sol = ReadSolution(reader, ReadRequiredLine(reader), exp);
                         exp.UpdateSolution(sol.Model);
@@ -184,7 +186,7 @@ namespace AnalysisITC.Core.DataReaders
             return exp;
         }
 
-        private static async Task ReadProcessor(ExperimentData exp, StreamReader reader)
+        private static async Task ReadProcessor(ExperimentData exp, StreamReader reader, bool processData)
         {
             var p = new DataProcessor(exp);
 
@@ -230,7 +232,7 @@ namespace AnalysisITC.Core.DataReaders
 
             exp.SetProcessor(p);
 
-            await p.ProcessData(replace: false, invalidate: false, showProgress: false);
+            if (processData) await p.ProcessData(replace: false, invalidate: false, showProgress: false);
         }
 
         static void ReadSplineList(SplineInterpolator interpolator, StreamReader reader)

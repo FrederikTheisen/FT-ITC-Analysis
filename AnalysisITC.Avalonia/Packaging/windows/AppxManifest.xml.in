@@ -40,6 +40,7 @@
             <uap:DisplayName>FT-ITC Analysis Project</uap:DisplayName>
             <uap:Logo>Assets\FileLogo.png</uap:Logo>
             <uap:SupportedFileTypes>
+              <uap:FileType ContentType="application/vnd.ftitc.project+zip">.ftxtc</uap:FileType>
               <uap:FileType ContentType="application/x-ftitc-project">.ftitc</uap:FileType>
             </uap:SupportedFileTypes>
           </uap3:FileTypeAssociation>

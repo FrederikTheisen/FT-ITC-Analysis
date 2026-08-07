@@ -197,7 +197,8 @@ namespace AnalysisITC
 
             var path = FTITCFormat.CurrentAccessedAppDocumentPath;
             var fileName = Path.GetFileName(path);
-            if (string.Equals(Path.GetExtension(fileName), ".ftitc", StringComparison.OrdinalIgnoreCase))
+            if (string.Equals(Path.GetExtension(fileName), ".ftitc", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(Path.GetExtension(fileName), ".ftxtc", StringComparison.OrdinalIgnoreCase))
             {
                 fileName = Path.GetFileNameWithoutExtension(fileName);
             }

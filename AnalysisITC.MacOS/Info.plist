@@ -37,6 +37,7 @@
 			<string>FT-ITC Project File</string>
 			<key>CFBundleTypeExtensions</key>
 			<array>
+				<string>ftxtc</string>
 				<string>ftitc</string>
 			</array>
 			<key>CFBundleTypeIconFile</key>
@@ -96,6 +97,7 @@
 			<dict>
 				<key>public.filename-extension</key>
 				<array>
+					<string>ftxtc</string>
 					<string>ftitc</string>
 				</array>
 			</dict>

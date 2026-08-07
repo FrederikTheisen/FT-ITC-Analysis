@@ -32,7 +32,7 @@
       <key>UTTypeDescription</key><string>FT-ITC Analysis Project</string>
       <key>UTTypeConformsTo</key><array><string>public.data</string></array>
       <key>UTTypeTagSpecification</key>
-      <dict><key>public.filename-extension</key><array><string>ftitc</string></array></dict>
+      <dict><key>public.filename-extension</key><array><string>ftxtc</string><string>ftitc</string></array></dict>
     </dict>
   </array>
 </dict>

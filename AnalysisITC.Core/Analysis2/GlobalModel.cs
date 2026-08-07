@@ -190,6 +190,8 @@ namespace AnalysisITC.Core.Analysis
 	{
         public string UniqueID { get; private set; } = Guid.NewGuid().ToString();
 
+        internal void SetID(string id) => UniqueID = id;
+
         public GlobalModel Model { get; set; }
         public SolverConvergence Convergence { get; set; }
         public List<GlobalSolution> BootstrapSolutions { get; private set; } = new List<GlobalSolution>();

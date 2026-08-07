@@ -13,6 +13,7 @@ using AnalysisITC.Core.Analysis;
 
 using AnalysisITC.Core.Application;
 using AnalysisITC.Core.Data;
+using AnalysisITC.Core.DataReaders;
 using AnalysisITC.Core.Numerics;
 using AnalysisITC.Core.Processing;
 using AnalysisITC.Core.Units;
@@ -28,7 +29,6 @@ namespace AnalysisITC.Core.Export
         const string EncodedTextPrefix = "b64:";
         static readonly UTF8Encoding StrictUtf8 = new UTF8Encoding(false, true);
         static readonly Regex Base64TextPattern = new Regex(@"^[A-Za-z0-9+/]*={0,2}$", RegexOptions.Compiled);
-        static string currentAccessedAppDocumentPath = "";
 
         public const string FTITCVersion = "FTITCVersion";
 
@@ -377,19 +377,16 @@ namespace AnalysisITC.Core.Export
             return DateTime.Parse(value, CultureInfo.CurrentCulture);
         }
 
-        public static event EventHandler CurrentAccessedAppDocumentPathChanged;
+        public static event EventHandler CurrentAccessedAppDocumentPathChanged
+        {
+            add => ProjectDocumentState.PathChanged += value;
+            remove => ProjectDocumentState.PathChanged -= value;
+        }
 
         public static string CurrentAccessedAppDocumentPath
         {
-            get => currentAccessedAppDocumentPath;
-            set
-            {
-                var next = value ?? "";
-                if (currentAccessedAppDocumentPath == next) return;
-
-                currentAccessedAppDocumentPath = next;
-                CurrentAccessedAppDocumentPathChanged?.Invoke(null, EventArgs.Empty);
-            }
+            get => ProjectDocumentState.Path;
+            set => ProjectDocumentState.Path = value;
         }
     }
 
@@ -407,7 +404,7 @@ namespace AnalysisITC.Core.Export
 
         public static async Task<bool> SaveState2Async()
         {
-            var path = await PlatformServices.FileSavePromptService.ChooseSaveFilePathAsync("Save FT-ITC File", new[] { "ftitc" });
+            var path = await PlatformServices.FileSavePromptService.ChooseSaveFilePathAsync("Save FT-ITC Project", new[] { "ftxtc", "ftitc" });
             if (string.IsNullOrWhiteSpace(path)) return false;
 
             try
@@ -484,7 +481,7 @@ namespace AnalysisITC.Core.Export
         public static async Task<bool> SaveSelectedAsync(ITCDataContainer data)
         {
             var title = "Save FT-ITC " + (data is ExperimentData ? "Experiment Data" : "Analysis Results");
-            var allowedFileTypes = data is ExperimentData ? new[] { "ftitc" } : new[] { "ftitc", "csv" };
+            var allowedFileTypes = data is ExperimentData ? new[] { "ftxtc", "ftitc" } : new[] { "ftxtc", "ftitc", "csv" };
             var path = await PlatformServices.FileSavePromptService.ChooseSaveFilePathAsync(title, allowedFileTypes);
             if (string.IsNullOrWhiteSpace(path)) return false;
 
@@ -497,11 +494,20 @@ namespace AnalysisITC.Core.Export
 
                     switch (data)
                     {
+                        case ExperimentData experiment when IsFtxtcPath(path):
+                            await FTXTCWriter.WriteFileAsync(path, new[] { experiment });
+                            break;
                         case ExperimentData:
                             using (var writer = GetFTITCStreamWriter(path))
                             {
                                 await WriteExperimentDataToFile(data as ExperimentData, writer);
                             }
+                            break;
+                        case AnalysisResult result when IsFtxtcPath(path):
+                            await FTXTCWriter.WriteFileAsync(
+                                path,
+                                result.Solution.Solutions.Select(solution => solution.Data).Distinct(),
+                                new[] { result });
                             break;
                         case AnalysisResult when Path.GetExtension(path).TrimStart('.').ToLowerInvariant() == "ftitc":
                             using (var writer = GetFTITCStreamWriter(path))
@@ -540,7 +546,8 @@ namespace AnalysisITC.Core.Export
             var temporaryPath = path + ".tmp-" + Guid.NewGuid().ToString("N");
             try
             {
-                await WriteFile(temporaryPath, reportStatus: false);
+                using (var stream = new FileStream(temporaryPath, FileMode.CreateNew, FileAccess.Write, FileShare.None))
+                    await FTXTCWriter.WriteStream(stream, DataManager.Data, DataManager.Results);
 
                 if (File.Exists(path)) File.Replace(temporaryPath, path, null);
                 else File.Move(temporaryPath, path);
@@ -558,20 +565,30 @@ namespace AnalysisITC.Core.Export
         {
             if (reportStatus) StatusBarManager.SetSavingFileMessage();
 
-            using (var writer = GetFTITCStreamWriter(path))
+            if (IsFtxtcPath(path))
             {
-                foreach (var data in DataManager.Data)
+                await FTXTCWriter.WriteFileAsync(path, DataManager.Data, DataManager.Results);
+            }
+            else
+            {
+                using (var writer = GetFTITCStreamWriter(path))
                 {
-                    await WriteExperimentDataToFile(data, writer);
-                }
-                foreach(var res in DataManager.Results)
-                {
-                    await WriteAnalysisResultToFile(res, writer);
+                    foreach (var data in DataManager.Data)
+                    {
+                        await WriteExperimentDataToFile(data, writer);
+                    }
+                    foreach(var res in DataManager.Results)
+                    {
+                        await WriteAnalysisResultToFile(res, writer);
+                    }
                 }
             }
 
             if (reportStatus) StatusBarManager.SetFileSaveSuccessfulMessage(path);
         }
+
+        static bool IsFtxtcPath(string path) =>
+            string.Equals(Path.GetExtension(path), FTXTCFormat.Extension, StringComparison.OrdinalIgnoreCase);
 
         internal static async Task WriteStream(
             Stream stream,
