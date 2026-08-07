@@ -56,6 +56,8 @@ namespace AnalysisITC
             AppSettings.IncludeBufferInIonicStrengthCalc = IncludeBufferInIonicStrength.State == NSCellStateValue.On;
             AppSettings.PerformOnlineChecksOnLaunch = PerformOnlineChecksOnLaunch.State == NSCellStateValue.On;
             AppSettings.ConfirmRemoveDelete = ConfirmRemoveDelete.State == NSCellStateValue.On;
+            AppSettings.AutomaticallyDiscardOrphanInjectionsOnLoad =
+                AutomaticallyDiscardOrphanInjectionsOnLoad.State == NSCellStateValue.On;
 
             //Color
             AppSettings.ColorScheme = ColorScheme;
@@ -93,6 +95,8 @@ namespace AnalysisITC
             IncludeBufferInIonicStrength.State = AppSettings.IncludeBufferInIonicStrengthCalc ? NSCellStateValue.On : NSCellStateValue.Off;
             PerformOnlineChecksOnLaunch.State = AppSettings.PerformOnlineChecksOnLaunch ? NSCellStateValue.On : NSCellStateValue.Off;
             ConfirmRemoveDelete.State = AppSettings.ConfirmRemoveDelete ? NSCellStateValue.On : NSCellStateValue.Off;
+            AutomaticallyDiscardOrphanInjectionsOnLoad.State =
+                AppSettings.AutomaticallyDiscardOrphanInjectionsOnLoad ? NSCellStateValue.On : NSCellStateValue.Off;
         }
 
         private void SetupDefaultDesignerInstrumentControl()

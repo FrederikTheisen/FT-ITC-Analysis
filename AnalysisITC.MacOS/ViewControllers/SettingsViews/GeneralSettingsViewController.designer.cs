@@ -25,6 +25,9 @@ namespace AnalysisITC
 	partial class GeneralSettingsViewController
 	{
 		[Outlet]
+		AppKit.NSButton AutomaticallyDiscardOrphanInjectionsOnLoad { get; set; }
+
+		[Outlet]
 		AppKit.NSSegmentedControl ColorGradientControl { get; set; }
 
 		[Outlet]
@@ -110,6 +113,11 @@ namespace AnalysisITC
 		
 		void ReleaseDesignerOutlets ()
 		{
+			if (AutomaticallyDiscardOrphanInjectionsOnLoad != null) {
+				AutomaticallyDiscardOrphanInjectionsOnLoad.Dispose ();
+				AutomaticallyDiscardOrphanInjectionsOnLoad = null;
+			}
+
 			if (PerformOnlineChecksOnLaunch != null) {
 				PerformOnlineChecksOnLaunch.Dispose ();
 				PerformOnlineChecksOnLaunch = null;
