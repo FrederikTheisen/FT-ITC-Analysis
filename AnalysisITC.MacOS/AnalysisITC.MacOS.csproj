@@ -384,27 +384,8 @@
     <Compile Include="GraphViews\ResultGraphView.designer.cs">
       <DependentUpon>ResultGraphView.cs</DependentUpon>
     </Compile>
-    <Compile Include="ViewControllers\SettingsViews\FittingPreferencesViewController.cs" />
-    <Compile Include="ViewControllers\SettingsViews\FittingPreferencesViewController.designer.cs">
-      <DependentUpon>FittingPreferencesViewController.cs</DependentUpon>
-    </Compile>
-    <Compile Include="ViewControllers\SettingsViews\GeneralSettingsViewController.cs" />
-    <Compile Include="ViewControllers\SettingsViews\GeneralSettingsViewController.designer.cs">
-      <DependentUpon>GeneralSettingsViewController.cs</DependentUpon>
-    </Compile>
-    <Compile Include="ViewControllers\SettingsViews\SettingsTabViewController.cs" />
-    <Compile Include="ViewControllers\SettingsViews\ProcessingPreferencesViewController.cs" />
-    <Compile Include="ViewControllers\SettingsViews\ProcessingPreferencesViewController.designer.cs">
-      <DependentUpon>ProcessingPreferencesViewController.cs</DependentUpon>
-    </Compile>
-    <Compile Include="ViewControllers\SettingsViews\ExportPreferencesViewController.cs" />
-    <Compile Include="ViewControllers\SettingsViews\ExportPreferencesViewController.designer.cs">
-      <DependentUpon>ExportPreferencesViewController.cs</DependentUpon>
-    </Compile>
-    <Compile Include="ViewControllers\SettingsViews\PreferencesViewController.cs" />
-    <Compile Include="ViewControllers\SettingsViews\PreferencesViewController.designer.cs">
-      <DependentUpon>PreferencesViewController.cs</DependentUpon>
-    </Compile>
+    <Compile Include="ViewControllers\SettingsViews\MacPreferencesState.cs" />
+    <Compile Include="ViewControllers\SettingsViews\MacPreferencesWindowController.cs" />
     <Compile Include="ViewControllers\MainViews\AnalysisResultTabViewController.cs" />
     <Compile Include="ViewControllers\MainViews\AnalysisResultTabViewController.designer.cs">
       <DependentUpon>AnalysisResultTabViewController.cs</DependentUpon>

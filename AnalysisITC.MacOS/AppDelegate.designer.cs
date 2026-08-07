@@ -65,6 +65,9 @@ namespace AnalysisITC
 		[Action ("OpenMergeToolAction:")]
 		partial void OpenMergeToolAction (Foundation.NSObject sender);
 
+		[Action ("OpenPreferences:")]
+		partial void OpenPreferences (Foundation.NSObject sender);
+
 		[Action ("OpenResultExporter:")]
 		partial void OpenResultExporter (Foundation.NSObject sender);
 

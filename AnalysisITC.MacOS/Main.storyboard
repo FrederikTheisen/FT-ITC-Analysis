@@ -4656,7 +4656,7 @@ For analysis and presentation of ITC data</string>
                                         <menuItem isSeparatorItem="YES" id="VOq-y0-SEH"/>
                                         <menuItem title="Preferences…" keyEquivalent="," id="BOF-NM-1cW">
                                             <connections>
-                                                <segue destination="WeE-dq-qPF" kind="show" id="Szt-NB-BGs"/>
+                                                <action selector="OpenPreferences:" target="Voe-Tx-rLC" id="Szt-NB-BGs"/>
                                             </connections>
                                         </menuItem>
                                         <menuItem isSeparatorItem="YES" id="wFC-TO-SCJ"/>

@@ -58,10 +58,17 @@ namespace AnalysisITC
 
         private NSOpenPanel FileDialog { get; set; }
         private NSMenuItem supportingFigureMenuItem;
+        private MacPreferencesWindowController preferencesWindowController;
 
         public static void LaunchOpenFileDialog() => OpenFileDialog.Invoke(null, null);
         public static void CloseAllData() => _ = CloseAllDataAsync();
         public static void LaunchResultExporter() => OpenResultExporterTool?.Invoke(null, null);
+
+        partial void OpenPreferences(NSObject sender)
+        {
+            preferencesWindowController ??= new MacPreferencesWindowController();
+            preferencesWindowController.ShowPreferences();
+        }
 
         public static void OpenAutoSaveFolder()
         {
