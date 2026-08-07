@@ -31,6 +31,7 @@ namespace AnalysisITC.Core.Application
         public static int MaxDegreeOfParallelism { get; set; } = 10;
         public static bool PerformOnlineChecksOnLaunch { get; set; } = true;
         public static bool ConfirmRemoveDelete { get; set; } = true;
+        public static bool AutomaticallyDiscardOrphanInjectionsOnLoad { get; set; } = true;
 
         public static bool Verbose { get; set; } = false;
 
@@ -176,6 +177,7 @@ namespace AnalysisITC.Core.Application
             Storage.SetBool("IntegrationRegionCopyIncludesStart", IntegrationRegionCopyIncludesStart);
             Storage.SetBool("PerformOnlineChecksOnLaunch", PerformOnlineChecksOnLaunch);
             Storage.SetBool("ConfirmRemoveDelete", ConfirmRemoveDelete);
+            Storage.SetBool("AutomaticallyDiscardOrphanInjectionsOnLoad", AutomaticallyDiscardOrphanInjectionsOnLoad);
 
             Storage.SetStringArray("LastDocumentUrls", LastDocumentPaths);
             Storage.SetDoubleArray("FinalFigureDimensions", FinalFigureDimensions);
@@ -249,6 +251,9 @@ namespace AnalysisITC.Core.Application
             IntegrationRegionCopyIncludesStart = Storage.GetBool("IntegrationRegionCopyIncludesStart", IntegrationRegionCopyIncludesStart);
             PerformOnlineChecksOnLaunch = Storage.GetBool("PerformOnlineChecksOnLaunch", PerformOnlineChecksOnLaunch);
             ConfirmRemoveDelete = Storage.GetBool("ConfirmRemoveDelete", ConfirmRemoveDelete);
+            AutomaticallyDiscardOrphanInjectionsOnLoad = Storage.GetBool(
+                "AutomaticallyDiscardOrphanInjectionsOnLoad",
+                AutomaticallyDiscardOrphanInjectionsOnLoad);
 
             lastDocumentPaths = NormalizeDocumentPaths(Storage.GetStringArray("LastDocumentUrls"));
 
@@ -318,6 +323,7 @@ namespace AnalysisITC.Core.Application
             IntegrationRegionCopyIncludesStart = false;
             PerformOnlineChecksOnLaunch = true;
             ConfirmRemoveDelete = true;
+            AutomaticallyDiscardOrphanInjectionsOnLoad = true;
         }
 
         static string NormalizeDocumentPath(string path)
