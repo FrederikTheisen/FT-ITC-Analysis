@@ -286,29 +286,47 @@ namespace AnalysisITC.Core.Analysis
 			// Get the parameters 
             foreach (var dep in dependencies) SetParameterTemperatureDependence(dep.Item1, dep.Item2);
 
-            int min_error_sol_count = solutions.Min(sol => sol.BootstrapSolutions.Count);
-            if (min_error_sol_count != 0)
+            var indexedBootstrapSolutions = solutions
+                .Select(solution => solution.BootstrapSolutions
+                    .Select((bootstrap, ordinal) => new
+                    {
+                        Index = bootstrap.BootstrapReplicateIndex ?? ordinal,
+                        Solution = bootstrap,
+                    })
+                    .ToDictionary(item => item.Index, item => item.Solution))
+                .ToList();
+
+            var commonReplicateIndices = indexedBootstrapSolutions.Count == 0
+                ? new List<int>()
+                : indexedBootstrapSolutions
+                    .Skip(1)
+                    .Aggregate(
+                        new HashSet<int>(indexedBootstrapSolutions[0].Keys),
+                        (common, member) =>
+                        {
+                            common.IntersectWith(member.Keys);
+                            return common;
+                        })
+                    .OrderBy(index => index)
+                    .ToList();
+
+            if (commonReplicateIndices.Count != 0)
 			{
-                // Create global error solutions from each experiment's saved refit at the same bootstrap index.
-                // Use the SolutionInterface instances directly so reconstructed project files keep the
-                // bootstrap parameter values copied into SolutionInterface.Parameters.
-                var sets = new List<SolutionInterface>[min_error_sol_count];
-
-                for (int i = 0; i < min_error_sol_count; i++)
-                {
-                    var set = new List<SolutionInterface>(solutions.Count);
-
-                    foreach (var sol in solutions)
-                        set.Add(sol.BootstrapSolutions[i]);
-
-                    sets[i] = set;
-                }
+                // Snapshot-backed solutions carry explicit indices. Legacy bootstrap
+                // lists use their ordinal as the implicit index. Joining the common
+                // keys prevents a missing/filtered replicate from shifting all later
+                // global pairings.
+                var sets = commonReplicateIndices
+                    .Select(index => indexedBootstrapSolutions
+                        .Select(member => member[index])
+                        .ToList())
+                    .ToArray();
 
                 // Construct global solutions for each refit
                 // This determines a 'dependency' for each parameter (may be zero slope and just a value)
-                var bootstrapSolutions = new GlobalSolution[min_error_sol_count];
+                var bootstrapSolutions = new GlobalSolution[sets.Length];
 
-                System.Threading.Tasks.Parallel.For(0, min_error_sol_count, i =>
+                System.Threading.Tasks.Parallel.For(0, sets.Length, i =>
                 {
                     bootstrapSolutions[i] = new GlobalSolution(sets[i]);
                 });
@@ -323,6 +341,9 @@ namespace AnalysisITC.Core.Analysis
 
         private GlobalSolution(List<SolutionInterface> solutions)
         {
+            foreach (var solution in solutions)
+                solution.Model.Solution = solution;
+
             Model = new GlobalModel(solutions.Select(sol => sol.Model).ToList());
 
             var dependencies = solutions[0].DependenciesToReport;

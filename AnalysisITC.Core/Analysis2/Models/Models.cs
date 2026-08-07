@@ -308,6 +308,7 @@ namespace AnalysisITC.Core.Analysis.Models
         public SolverConvergence Convergence { get; private set; }
         public ErrorEstimationMethod ErrorMethod { get; set; } = ErrorEstimationMethod.None;
         public virtual List<SolutionInterface> BootstrapSolutions { get; protected set; }
+		internal int? BootstrapReplicateIndex { get; set; }
 		
         public bool UseWeightedFitting { get; set; } = false;
         public bool IsValid { get; private set; } = true;
