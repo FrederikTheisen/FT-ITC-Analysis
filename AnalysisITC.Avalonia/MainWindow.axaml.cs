@@ -338,10 +338,17 @@ public partial class MainWindow : Window
 
     internal async Task RemoveSelectedItemAsync()
     {
-        if (selectedItem == null) return;
+        if (selectedItem != null)
+            await RemoveItemAsync(selectedItem);
+    }
 
-        var itemType = selectedItem is AnalysisResult ? "Result" : "Data";
-        var itemName = string.IsNullOrWhiteSpace(selectedItem.Name) ? selectedItem.FileName : selectedItem.Name;
+    async Task RemoveItemAsync(ITCDataContainer item)
+    {
+        var itemIndex = DataManager.SourceItems.ToList().IndexOf(item);
+        if (itemIndex < 0) return;
+
+        var itemType = item is AnalysisResult ? "Result" : "Data";
+        var itemName = string.IsNullOrWhiteSpace(item.Name) ? item.FileName : item.Name;
 
         if (!await ConfirmAsync(
             $"Remove {itemType}",
@@ -350,7 +357,7 @@ public partial class MainWindow : Window
             "Remove"))
             return;
 
-        DataManager.RemoveSourceItemAt(DataManager.SelectedContentIndex);
+        DataManager.RemoveSourceItemAt(itemIndex);
         RefreshDataList();
         RefreshMenuState();
     }
@@ -527,6 +534,9 @@ public partial class MainWindow : Window
 
     async Task<bool> ConfirmAsync(string title, string message, string cancelButton, string confirmButton)
     {
+        if (!AppSettings.ConfirmRemoveDelete)
+            return true;
+
         return await ConfirmationDialogWindow.ConfirmAsync(this, title, message, cancelButton, confirmButton);
     }
 
@@ -782,6 +792,41 @@ public partial class MainWindow : Window
         var index = entries.IndexOf(entry);
         if (index >= 0) DataManager.SelectIndex(index);
 
+        UpdateSelection(entry.Item);
+    }
+
+    void OnInlineListActionPointerPressed(object? sender, PointerPressedEventArgs e)
+    {
+        // Row actions explicitly select their bound row. Suppress the bubbling
+        // pointer event so ListBox selection cannot race the action.
+        e.Handled = true;
+    }
+
+    async void OnListItemDetailsClick(object? sender, RoutedEventArgs e)
+    {
+        if (sender is not Control { DataContext: DataListEntry entry }) return;
+
+        SelectDataListEntry(entry);
+        await OpenDetailsAsync(entry.Item);
+        e.Handled = true;
+    }
+
+    async void OnListItemRemoveClick(object? sender, RoutedEventArgs e)
+    {
+        if (sender is not Control { DataContext: DataListEntry entry }) return;
+
+        SelectDataListEntry(entry);
+        await RemoveItemAsync(entry.Item);
+        e.Handled = true;
+    }
+
+    void SelectDataListEntry(DataListEntry entry)
+    {
+        var index = entries.IndexOf(entry);
+        if (index < 0) return;
+
+        ItemsList.SelectedItem = entry;
+        DataManager.SelectIndex(index);
         UpdateSelection(entry.Item);
     }
 
@@ -1311,7 +1356,13 @@ public partial class MainWindow : Window
 
     async Task OpenSelectedDetailsAsync()
     {
-        switch (selectedItem)
+        if (selectedItem != null)
+            await OpenDetailsAsync(selectedItem);
+    }
+
+    async Task OpenDetailsAsync(ITCDataContainer item)
+    {
+        switch (item)
         {
             case ExperimentData experiment:
             {
@@ -1680,6 +1731,8 @@ public partial class MainWindow : Window
         public string DateLine { get; }
         public string DetailLine { get; }
         public string FitLine { get; }
+        public string DetailsLabel => Item is AnalysisResult ? "Open result details" : "Open data details";
+        public string RemoveLabel => Item is AnalysisResult ? "Remove result" : "Remove data";
         public bool CanInclude => experiment != null;
         public bool CanIncludeActive => experiment?.Processor?.IntegrationCompleted == true;
         public bool IsIncluded
