@@ -19,13 +19,6 @@ namespace AnalysisITC.Avalonia.Workspace
         public const double RowSpacing = 6;
         public const double InspectorTabFontSize = 13;
 
-        public static IBrush WorkspaceBackgroundBrush => AppTheme.Brush(AppTheme.WorkspaceBackground);
-        public static IBrush PanelBackgroundBrush => AppTheme.Brush(AppTheme.PanelBackground);
-        public static IBrush PanelBorderBrush => AppTheme.Brush(AppTheme.PanelBorder);
-        public static IBrush SectionBorderBrush => AppTheme.Brush(AppTheme.SectionBorder);
-        public static IBrush SectionHeaderBrush => AppTheme.Brush(AppTheme.PrimaryText);
-        public static IBrush LabelBrush => AppTheme.Brush(AppTheme.MutedText);
-        public static IBrush TextBrush => AppTheme.Brush(AppTheme.SecondaryText);
         public static Thickness ControlMargin => new Thickness(0, 1);
         public static Thickness ScrollContentPadding => new Thickness(8);
         public static Thickness SectionPadding => new Thickness(0, 0, 0, 6);
@@ -274,6 +267,31 @@ namespace AnalysisITC.Avalonia.Workspace
             return row;
         }
 
+        public static Grid EqualWidthRow(params Control[] controls)
+        {
+            var columns = new ColumnDefinitions();
+            for (var i = 0; i < controls.Length; i++)
+                columns.Add(new ColumnDefinition(GridLength.Star));
+
+            var row = new Grid
+            {
+                ColumnDefinitions = columns,
+                ColumnSpacing = RowSpacing,
+                Margin = ControlMargin
+            };
+
+            for (var i = 0; i < controls.Length; i++)
+            {
+                var control = controls[i];
+                StretchFieldControl(control);
+                control.Margin = new Thickness(0);
+                Grid.SetColumn(control, i);
+                row.Children.Add(control);
+            }
+
+            return row;
+        }
+
         public static StackPanel Horizontal(double spacing)
         {
             return new StackPanel
@@ -329,6 +347,28 @@ namespace AnalysisITC.Avalonia.Workspace
                 TickFrequency = tickFrequency,
                 Width = width,
                 VerticalAlignment = VerticalAlignment.Center
+            };
+        }
+
+        public static NumericUpDown Stepper(
+            decimal value,
+            decimal minimum,
+            decimal maximum,
+            decimal increment = 1,
+            double width = InspectorFieldWidth)
+        {
+            return new NumericUpDown
+            {
+                Value = value,
+                Minimum = minimum,
+                Maximum = maximum,
+                Increment = increment,
+                FormatString = "0",
+                Width = width,
+                Height = 24,
+                Padding = TextBoxPadding,
+                ClipValueToMinMax = true,
+                VerticalContentAlignment = VerticalAlignment.Center
             };
         }
 

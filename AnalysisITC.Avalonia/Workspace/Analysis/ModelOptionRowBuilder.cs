@@ -9,6 +9,7 @@ using Avalonia.Input;
 using Avalonia.Layout;
 using Avalonia.Media;
 
+using AnalysisITC.Avalonia.Styling;
 using AnalysisITC.Avalonia.Workspace;
 using AnalysisITC.Core.Analysis;
 using AnalysisITC.Core.Application;
@@ -35,14 +36,15 @@ namespace AnalysisITC.Avalonia.Analysis
             var editor = BuildEditor(key, option, allOptions, enabled, apply, setStatus);
             var panel = new StackPanel { Spacing = 3 };
 
-            panel.Children.Add(new TextBlock
+            var title = new TextBlock
             {
                 Text = CleanTitle(option.GetDisplayName()),
                 FontWeight = FontWeight.SemiBold,
-                Foreground = enabled ? WorkspaceControlBuilder.SectionHeaderBrush : WorkspaceControlBuilder.LabelBrush,
                 TextWrapping = TextWrapping.Wrap,
                 Margin = WorkspaceControlBuilder.ControlMargin
-            });
+            };
+            AppTheme.Bind(title, TextBlock.ForegroundProperty, enabled ? AppTheme.PrimaryText : AppTheme.MutedText);
+            panel.Children.Add(title);
 
             panel.Children.Add(editor);
 
@@ -50,13 +52,14 @@ namespace AnalysisITC.Avalonia.Analysis
             if (!string.IsNullOrWhiteSpace(tooltip) && tooltip != key.GetProperties().Type.ToString())
                 panel.Children.Add(WorkspaceControlBuilder.Text(tooltip));
 
-            return new Border
+            var border = new Border
             {
-                BorderBrush = WorkspaceControlBuilder.SectionBorderBrush,
                 BorderThickness = new Thickness(0, 0, 0, 1),
                 Padding = new Thickness(0, 0, 0, 8),
                 Child = panel
             };
+            AppTheme.Bind(border, Border.BorderBrushProperty, AppTheme.SectionBorder);
+            return border;
         }
 
         static Control BuildEditor(
@@ -408,15 +411,14 @@ namespace AnalysisITC.Avalonia.Analysis
             if (string.IsNullOrWhiteSpace(unitLabel))
                 return textBox;
 
-            return WorkspaceControlBuilder.Row(
-                textBox,
-                new TextBlock
-                {
-                    Text = unitLabel,
-                    Foreground = WorkspaceControlBuilder.LabelBrush,
-                    VerticalAlignment = VerticalAlignment.Center,
-                    TextWrapping = TextWrapping.NoWrap
-                });
+            var unit = new TextBlock
+            {
+                Text = unitLabel,
+                VerticalAlignment = VerticalAlignment.Center,
+                TextWrapping = TextWrapping.NoWrap
+            };
+            AppTheme.Bind(unit, TextBlock.ForegroundProperty, AppTheme.MutedText);
+            return WorkspaceControlBuilder.Row(textBox, unit);
         }
 
         static Control ParameterTextEditor(
@@ -468,27 +470,25 @@ namespace AnalysisITC.Avalonia.Analysis
                 if (e.Key == Key.Enter) ApplyValue();
             };
 
-            var controls = new List<Control>
+            var errorSeparator = new TextBlock
             {
-                valueBox,
-                new TextBlock
-                {
-                    Text = "±",
-                    Foreground = WorkspaceControlBuilder.LabelBrush,
-                    VerticalAlignment = VerticalAlignment.Center
-                },
-                errorBox
+                Text = "±",
+                VerticalAlignment = VerticalAlignment.Center
             };
+            AppTheme.Bind(errorSeparator, TextBlock.ForegroundProperty, AppTheme.MutedText);
+
+            var controls = new List<Control> { valueBox, errorSeparator, errorBox };
 
             if (!string.IsNullOrWhiteSpace(unitLabel))
             {
-                controls.Add(new TextBlock
+                var unit = new TextBlock
                 {
                     Text = unitLabel,
-                    Foreground = WorkspaceControlBuilder.LabelBrush,
                     VerticalAlignment = VerticalAlignment.Center,
                     TextWrapping = TextWrapping.NoWrap
-                });
+                };
+                AppTheme.Bind(unit, TextBlock.ForegroundProperty, AppTheme.MutedText);
+                controls.Add(unit);
             }
 
             return WorkspaceControlBuilder.Row(controls.ToArray());
