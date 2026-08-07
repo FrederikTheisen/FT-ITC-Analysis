@@ -88,9 +88,10 @@ namespace AnalysisITC.Core.Analysis
 
         /// <summary>
         /// Records a user-driven parameter change. The value and lock state are stored
-        /// and reapplied on every subsequent rebuild.
+        /// and reapplied on every subsequent rebuild. Callers batching inspector edits
+        /// can suppress the immediate rebuild and rebuild once after the batch.
         /// </summary>
-        public void SetParameterOverride(ParameterType key, double value, bool isLocked)
+        public void SetParameterOverride(ParameterType key, double value, bool isLocked, bool rebuild = true)
         {
             var overrideKey = new ParameterOverrideKey(Session.ModelType, key);
 
@@ -102,28 +103,28 @@ namespace AnalysisITC.Core.Analysis
 
             ov.Value = value;
             ov.IsLocked = isLocked;
-            TryRebuild();
+            if (rebuild) TryRebuild();
         }
 
         /// <summary>
         /// Removes the stored override for the given parameter.
         /// The next rebuild will restore the model/data-derived default.
         /// </summary>
-        public void ResetParameterOverride(ParameterType key)
+        public void ResetParameterOverride(ParameterType key, bool rebuild = true)
         {
             var overrideKey = new ParameterOverrideKey(Session.ModelType, key);
             Session.Active.ParameterOverrides.Remove(overrideKey);
-            TryRebuild();
+            if (rebuild) TryRebuild();
         }
 
         /// <summary>
-        /// Records a global constraint change and triggers a rebuild.
+        /// Records a global constraint change and, by default, triggers a rebuild.
         /// The new constraint is reflected in the rebuilt context's GlobalModelParameters.
         /// </summary>
-        public void SetConstraint(ParameterType key, VariableConstraint constraint)
+        public void SetConstraint(ParameterType key, VariableConstraint constraint, bool rebuild = true)
         {
             Session.Active.Constraints[key] = constraint;
-            TryRebuild();
+            if (rebuild) TryRebuild();
         }
 
         /// <summary>
@@ -232,7 +233,7 @@ namespace AnalysisITC.Core.Analysis
 
             if (FittingOptionsController.EnableSolverDiagnostics || AppSettings.Verbose)
             {
-                AppEventHandler.PrintAndLog($"[FitDiag] Workspace prepare: mode={(Context.IsGlobal ? "global" : "single")}, model={Context.ModelType}");
+                AppEventHandler.PrintAndLog($"[FitDiag] Workspace prepare: mode={(Context.IsMultiExperiment ? "global" : "single")}, model={Context.ModelType}");
                 foreach (var par in Context.ExposedParameters)
                 {
                     AppEventHandler.PrintAndLog(

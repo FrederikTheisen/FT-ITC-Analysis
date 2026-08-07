@@ -15,7 +15,7 @@ namespace AnalysisITC.Core.Analysis
     public sealed class AnalysisContext
     {
         public AnalysisModel ModelType { get; }
-        public bool IsGlobal { get; }
+        public bool IsMultiExperiment { get; }
 
         // ── Single-analysis ────────────────────────────────────────────────
         public Model SingleModel { get; }
@@ -47,12 +47,52 @@ namespace AnalysisITC.Core.Analysis
         /// </summary>
         public IDictionary<AttributeKey, ExperimentAttribute> ExposedModelOptions { get; }
 
+        public bool WillFitGlobally =>
+            IsMultiExperiment &&
+            GlobalModelParameters?.RequiresGlobalFitting == true;
+
+        /// <summary>
+        /// Number of independent variables in the current fit configuration.
+        /// </summary>
+        public int FittingVariableCount
+        {
+            get
+            {
+                if (!IsMultiExperiment)
+                    return SingleModel?.NumberOfParameters ?? 0;
+
+                var sharedVariables = GlobalModelParameters?.GlobalTable.Values
+                    .Count(parameter => parameter.IsFitted) ?? 0;
+                var individualVariables = GlobalModel?.Models.Sum(model =>
+                    model.Parameters.Table.Values.Count(parameter =>
+                        parameter.IsFitted
+                        && GlobalModelParameters.GetConstraintForParameter(parameter.Key)
+                            == VariableConstraint.None)) ?? 0;
+
+                return sharedVariables + individualVariables;
+            }
+        }
+
+        /// <summary>
+        /// Number of included experiments used as observations by the fit.
+        /// </summary>
+        public int FittingExperimentCount => IsMultiExperiment
+            ? GlobalModel?.Models.Count ?? 0
+            : 1;
+
+        /// <summary>
+        /// Number of included injection heats used as observations by the fit.
+        /// </summary>
+        public int FittingPointCount => IsMultiExperiment
+            ? GlobalModel?.GetNumberOfPoints() ?? 0
+            : SingleModel?.NumberOfPoints ?? 0;
+
         // ── Constructors ───────────────────────────────────────────────────
 
         internal AnalysisContext(AnalysisModel modelType, Model model)
         {
             ModelType = modelType;
-            IsGlobal = false;
+            IsMultiExperiment = false;
             SingleModel = model;
             ExposedParameters = model.Parameters.Table.Values.ToList();
             ExposedModelOptions = model.ModelOptions;
@@ -66,7 +106,7 @@ namespace AnalysisITC.Core.Analysis
             IReadOnlyDictionary<ParameterType, IReadOnlyList<VariableConstraint>> constraintOptions)
         {
             ModelType = modelType;
-            IsGlobal = true;
+            IsMultiExperiment = true;
             GlobalModel = globalModel;
             GlobalModelParameters = globalParams;
             ExposedConstraintOptions = constraintOptions;
@@ -83,7 +123,7 @@ namespace AnalysisITC.Core.Analysis
         /// </summary>
         public void FinalizeForSolver()
         {
-            if (!IsGlobal)
+            if (!IsMultiExperiment)
             {
                 SingleModel.Data.Model = SingleModel;
                 SingleModel.SetModelOptions();
@@ -114,14 +154,14 @@ namespace AnalysisITC.Core.Analysis
 
         public SolverInterface CreateSolver()
         {
-            return IsGlobal
+            return IsMultiExperiment
                 ? SolverInterface.Initialize(GlobalModel)
                 : SolverInterface.Initialize(SingleModel);
         }
 
         public void RefreshParameterLimits()
         {
-            if (!IsGlobal)
+            if (!IsMultiExperiment)
             {
                 foreach (var par in SingleModel.Parameters.Table.Values)
                     par.RefreshLimits();

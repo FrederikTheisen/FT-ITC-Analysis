@@ -26,7 +26,7 @@ namespace AnalysisITC.Avalonia.Analysis
         readonly IntegratedHeatsGraphControl graph = new IntegratedHeatsGraphControl();
         readonly CoreAnalysisWorkspace workspace = new CoreAnalysisWorkspace();
 
-        readonly ComboBox modeCombo = Combo(new[] { "Single experiment", "Global included" }, 190);
+        readonly ComboBox modeCombo = Combo(new[] { "Single experiment", "Multiple experiments" }, 190);
         readonly ComboBox modelCombo = Combo(190);
         readonly ComboBox algorithmCombo = Combo(new[] { "Nelder-Mead", "Levenberg-Marquardt" }, 190);
         readonly ComboBox errorMethodCombo = Combo(new[] { "None", "Bootstrap residuals", "Leave-one-out" }, 190);
@@ -66,6 +66,9 @@ namespace AnalysisITC.Avalonia.Analysis
         ErrorEstimationMethod activeErrorMethod;
         bool isUpdatingControls;
         bool isFitting;
+        bool experimentSubscribed;
+        int experimentRefreshGeneration;
+        bool experimentRefreshQueued;
 
         public event EventHandler<string>? StatusChanged;
         public event EventHandler? GraphChanged;
@@ -90,6 +93,7 @@ namespace AnalysisITC.Avalonia.Analysis
                 if (ReferenceEquals(experiment, value)) return;
 
                 UnsubscribeExperiment();
+                CancelQueuedExperimentRefresh();
                 experiment = value;
                 graph.Experiment = value;
                 SubscribeExperiment();
@@ -114,11 +118,15 @@ namespace AnalysisITC.Avalonia.Analysis
             SolverInterface.AnalysisStepFinished += OnAnalysisStepFinished;
             SolverInterface.ErrorEstimationIterationCompleted += OnErrorIteration;
             SolverInterface.SolverUpdated += OnSolverUpdated;
+
+            SubscribeExperiment();
+            RefreshWorkspaceViews();
         }
 
         protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
         {
             UnsubscribeExperiment();
+            CancelQueuedExperimentRefresh();
             DataManager.DataInclusionDidChange -= OnDataInclusionDidChange;
             workspace.ContextRebuilt -= OnContextRebuilt;
             workspace.RebuildFailed -= OnRebuildFailed;
@@ -248,39 +256,78 @@ namespace AnalysisITC.Avalonia.Analysis
             graph.StatusChanged += (_, status) => StatusChanged?.Invoke(this, status);
             graph.GraphChanged += (_, _) =>
             {
-                RebuildAnalysisContext();
+                QueueExperimentRefresh(experiment, requireCompletedBaseline: false);
                 UpdateStatus();
-                GraphChanged?.Invoke(this, EventArgs.Empty);
             };
         }
 
         void SubscribeExperiment()
         {
-            if (experiment == null) return;
+            if (experiment == null || experimentSubscribed) return;
 
-            experiment.ProcessingUpdated += ExperimentChanged;
-            experiment.SolutionChanged += ExperimentChanged;
-            experiment.InjectionIncludeChanged += ExperimentChanged;
+            experiment.ProcessingUpdated += ExperimentProcessingChanged;
+            experiment.SolutionChanged += ExperimentSolutionChanged;
+            experiment.InjectionIncludeChanged += ExperimentPointInclusionChanged;
+            experimentSubscribed = true;
         }
 
         void UnsubscribeExperiment()
         {
-            if (experiment == null) return;
+            if (experiment == null || !experimentSubscribed) return;
 
-            experiment.ProcessingUpdated -= ExperimentChanged;
-            experiment.SolutionChanged -= ExperimentChanged;
-            experiment.InjectionIncludeChanged -= ExperimentChanged;
+            experiment.ProcessingUpdated -= ExperimentProcessingChanged;
+            experiment.SolutionChanged -= ExperimentSolutionChanged;
+            experiment.InjectionIncludeChanged -= ExperimentPointInclusionChanged;
+            experimentSubscribed = false;
         }
 
-        void ExperimentChanged(object? sender, EventArgs e)
+        void ExperimentProcessingChanged(object? sender, EventArgs e)
         {
+            QueueExperimentRefresh(sender as ExperimentData, requireCompletedBaseline: true);
+        }
+
+        void ExperimentSolutionChanged(object? sender, EventArgs e)
+        {
+            QueueExperimentRefresh(sender as ExperimentData, requireCompletedBaseline: true);
+        }
+
+        void ExperimentPointInclusionChanged(object? sender, EventArgs e)
+        {
+            QueueExperimentRefresh(sender as ExperimentData, requireCompletedBaseline: false);
+        }
+
+        void QueueExperimentRefresh(ExperimentData? source, bool requireCompletedBaseline)
+        {
+            if (!Dispatcher.UIThread.CheckAccess())
+            {
+                Dispatcher.UIThread.Post(() => QueueExperimentRefresh(source, requireCompletedBaseline));
+                return;
+            }
+
+            var current = experiment;
+            if (current == null || (source != null && !ReferenceEquals(source, current))) return;
+            if (requireCompletedBaseline && !current.Processor.BaselineCompleted) return;
+            if (experimentRefreshQueued) return;
+
+            var generation = experimentRefreshGeneration;
+            experimentRefreshQueued = true;
             Dispatcher.UIThread.Post(() =>
             {
+                if (generation != experimentRefreshGeneration || !ReferenceEquals(current, experiment))
+                    return;
+
+                experimentRefreshQueued = false;
                 RebuildAnalysisContext();
                 graph.FitToData();
                 UpdateStatus();
                 GraphChanged?.Invoke(this, EventArgs.Empty);
             });
+        }
+
+        void CancelQueuedExperimentRefresh()
+        {
+            experimentRefreshGeneration++;
+            experimentRefreshQueued = false;
         }
 
         void OnDataInclusionDidChange(object? sender, ExperimentData? e)
@@ -314,9 +361,12 @@ namespace AnalysisITC.Avalonia.Analysis
                 return;
             }
 
+            var modeChanged = workspace.Session.IsGlobal != IsGlobalMode;
             workspace.SetGlobalMode(IsGlobalMode);
-            workspace.TryRebuild();
-            RefreshWorkspaceViews();
+            if (!modeChanged && !workspace.TryRebuild())
+                RefreshWorkspaceViews();
+            else if (modeChanged && !AnalysisInputsAreReady())
+                RefreshWorkspaceViews();
         }
 
         void OnContextRebuilt(object? sender, EventArgs e)
@@ -413,7 +463,6 @@ namespace AnalysisITC.Avalonia.Analysis
             if (modelCombo.SelectedItem is not ComboBoxItem item || item.Tag is not AnalysisModel model || !item.IsEnabled) return;
 
             workspace.SetModelType(model);
-            RefreshWorkspaceViews();
         }
 
         void ChangeMode()
@@ -428,10 +477,8 @@ namespace AnalysisITC.Avalonia.Analysis
                 isUpdatingControls = false;
             }
 
-            workspace.SetGlobalMode(IsGlobalMode);
             RefreshModelChoices();
-            workspace.TryRebuild();
-            RefreshWorkspaceViews();
+            RebuildAnalysisContext();
             graph.FitToData();
             FittingChanged?.Invoke(this, EventArgs.Empty);
         }
@@ -624,8 +671,16 @@ namespace AnalysisITC.Avalonia.Analysis
                 graph.FitToData();
                 RefreshWorkspaceViews();
                 FittingChanged?.Invoke(this, EventArgs.Empty);
-                StatusBarManager.SetStatus(fitStatusText.Text, 5000);
-                StatusChanged?.Invoke(this, fitStatusText.Text);
+
+                var completionMessage = convergence.Message;
+                StatusBarManager.ClearAppStatus();
+                StatusBarManager.QueueStatus(completionMessage, 3000);
+                StatusBarManager.QueueStatus($"{convergence.Iterations} iterations | {elapsed}", 3000);
+                if (convergence.Success)
+                    StatusBarManager.QueueStatus($"{convergence.Algorithm.GetProperties().ShortName} | RMSD = {convergence.Loss:G4}", 2000);
+                if (convergence.ErrorEstimationOutcome != ErrorEstimationOutcome.None)
+                    StatusBarManager.QueueStatus(convergence.ErrorEstimationSummary, 2000);
+                StatusChanged?.Invoke(this, completionMessage);
             });
         }
 
