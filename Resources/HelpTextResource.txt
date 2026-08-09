@@ -19,9 +19,9 @@ The overview displays experiment metadata such as instrument information, experi
 **TA Instruments NanoAnalyze exports:** `.TA`
 **PEAQ-ITC project files:** `.apj`
 **Integrated heats:** `.dat`, `.aff`, `.dh`
-**\appname project files:** `.ftitc`
+**\appname project files:** `.ftxtc` (current) and `.ftitc` (legacy)
 Drag compatible files into the app window, or use **File > Open...** to select them manually.
-Once loaded, datasets behave the same in the application regardless of instrument type. \appname does not modify raw data files. To make a project portable across computers, save it as a `.ftitc` file.
+Once loaded, datasets behave the same in the application regardless of instrument type. \appname does not modify raw data files. To make a project portable across computers, save it as a `.ftxtc` file.
 
 ## Processing Data
 Processing is the first step in ITC analysis. It consists of defining the baseline and the integration region for each injection.
@@ -86,7 +86,7 @@ The designer can simulate tandem experiments with multiple syringe loads. When t
 
 ## Additional Tools
 # Experiment Attributes
-Experiment attributes are metadata attached to each dataset. They are used for derived analyses and for applying constraints in multi/global fitting. Attributes can be edited in the experiment details view and are stored in `.ftitc` project files.
+Experiment attributes are metadata attached to each dataset. They are used for derived analyses and for applying constraints in multi/global fitting. Attributes can be edited in the experiment details view and are stored in project files.
 # Buffer Subtraction
 Buffer subtraction is provided as a dedicated tool. Select a reference buffer experiment, select one or more target experiments, and apply subtraction to generate buffer-corrected datasets. Buffer subtraction operates on loaded data within the project and does not modify raw data files.
 Three subtraction modes are available:

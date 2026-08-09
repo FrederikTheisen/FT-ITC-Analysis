@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ft-itc.local/schemas/ftxtc/1.0/project.schema.json",
+  "title": "FTXTC 1.0 project index",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["projectSchemaVersion", "experiments", "solutions", "results"],
+  "properties": {
+    "projectSchemaVersion": { "const": 1 },
+    "experiments": { "type": "array", "items": { "$ref": "#/$defs/experiment" } },
+    "solutions": { "type": "array", "items": { "$ref": "#/$defs/solution" } },
+    "results": { "type": "array", "items": { "$ref": "#/$defs/component" } }
+  },
+  "$defs": {
+    "component": {
+      "type": "object", "required": ["id", "metadata"],
+      "properties": { "id": { "type": "string", "minLength": 1 }, "metadata": { "type": "string", "minLength": 1 } }
+    },
+    "experiment": {
+      "allOf": [
+        { "$ref": "#/$defs/component" },
+        { "type": "object", "required": ["thermogram", "baseline", "correctedTrace"] }
+      ]
+    },
+    "solution": {
+      "allOf": [
+        { "$ref": "#/$defs/component" },
+        { "type": "object", "required": ["experimentId"], "properties": { "experimentId": { "type": "string" }, "bootstrap": { "type": ["string", "null"] } } }
+      ]
+    }
+  }
+}

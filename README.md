@@ -43,7 +43,7 @@ This repository is open source and exists both to distribute end-user applicatio
 - **Analyze temperature, salt, and buffer-dependent** experiments for derived **thermodynamic interpretation**.
 - **Merge tandem titration experiments** and perform buffer subtraction.
 - Export integrated heats, processed data, fit results, and **publication-oriented figures**.
-- **Save portable `.ftitc` project files** containing data, processing state, fit results, and analysis results.
+- **Save portable `.ftxtc` project files** containing data, processing state, fit results, and analysis results; legacy `.ftitc` remains supported.
 
 ## Supported Data Files
 
@@ -51,9 +51,9 @@ This repository is open source and exists both to distribute end-user applicatio
 - **TA Instruments / NanoAnalyze exports:** `.TA`
 - **PEAQ-ITC project files:** `.apj`
 - **Integrated heats:** `.dat`, `.aff`, `.dh`
-- **FT-ITC Analysis project files:** `.ftitc`
+- **FT-ITC Analysis project files:** `.ftxtc` (current), `.ftitc` (legacy)
 
-Raw input files are read by the application but are not modified. Save work as a `.ftitc` project file if you want to preserve processing settings, analysis results, and comments.
+Raw input files are read by the application but are not modified. Save work as a `.ftxtc` project file if you want to preserve processing settings, analysis results, and comments.
 
 # Installation
 
@@ -81,14 +81,14 @@ the internet.
 ### Updating
 
 Download the newest DMG from GitHub Releases and replace the older
-`/Applications/FT-ITC.app`. Existing `.ftitc` project files and exported data are
+`/Applications/FT-ITC.app`. Existing `.ftxtc`/`.ftitc` project files and exported data are
 not stored inside the application bundle and are not removed by replacing the
 app.
 
 ### Uninstalling
 
 Quit FT-ITC Analysis and move `/Applications/FT-ITC.app` to the Trash. Removing
-the app does not delete your `.ftitc` projects or original ITC data files.
+the app does not delete your `.ftxtc` or `.ftitc` projects or original ITC data files.
 
 ## Web Viewer Development
 
@@ -104,7 +104,7 @@ does not roll forward to a later major SDK.
 4. Fit a model to one experiment, or select multiple experiments for global analysis.
 5. Review residuals, uncertainty estimates, and derived thermodynamic values.
 6. Export figures, processed data, integrated heats, or fit parameters as needed.
-7. Save the session as a `.ftitc` project file to preserve the full analysis state.
+7. Save the session as a `.ftxtc` project file to preserve the full analysis state.
 
 ## Baseline Processing
 
