@@ -49,6 +49,7 @@ mkdir -p \
   "$STAGE_DIR/opt/ft-itc-analysis" \
   "$STAGE_DIR/usr/share/applications" \
   "$STAGE_DIR/usr/share/icons/hicolor/512x512/apps" \
+  "$STAGE_DIR/usr/share/icons/hicolor/512x512/mimetypes" \
   "$STAGE_DIR/usr/share/metainfo" \
   "$STAGE_DIR/usr/share/mime/packages" \
   "$STAGE_DIR/usr/share/doc/ft-itc-analysis"
@@ -58,6 +59,8 @@ cp "$SCRIPT_DIR/io.github.FrederikTheisen.FTITCAnalysis.desktop" "$STAGE_DIR/usr
 cp "$SCRIPT_DIR/io.github.FrederikTheisen.FTITCAnalysis.metainfo.xml" "$STAGE_DIR/usr/share/metainfo/"
 cp "$SCRIPT_DIR/ft-itc-analysis.xml" "$STAGE_DIR/usr/share/mime/packages/"
 cp "$SCRIPT_DIR/io.github.FrederikTheisen.FTITCAnalysis.png" "$STAGE_DIR/usr/share/icons/hicolor/512x512/apps/"
+cp "$SCRIPT_DIR/mimetypes/application-vnd.ftitc.project+zip.png" "$STAGE_DIR/usr/share/icons/hicolor/512x512/mimetypes/"
+cp "$SCRIPT_DIR/mimetypes/application-x-ftitc-project.png" "$STAGE_DIR/usr/share/icons/hicolor/512x512/mimetypes/"
 cp "$ROOT/LICENSE.md" "$STAGE_DIR/usr/share/doc/ft-itc-analysis/copyright"
 chmod 0755 "$STAGE_DIR/opt/ft-itc-analysis/AnalysisITC.Avalonia"
 
@@ -80,6 +83,7 @@ cat > "$STAGE_DIR/DEBIAN/postinst" <<'EOF'
 set -e
 command -v update-mime-database >/dev/null 2>&1 && update-mime-database /usr/share/mime || true
 command -v update-desktop-database >/dev/null 2>&1 && update-desktop-database /usr/share/applications || true
+command -v gtk-update-icon-cache >/dev/null 2>&1 && gtk-update-icon-cache -f -t /usr/share/icons/hicolor || true
 exit 0
 EOF
 
@@ -88,6 +92,7 @@ cat > "$STAGE_DIR/DEBIAN/postrm" <<'EOF'
 set -e
 command -v update-mime-database >/dev/null 2>&1 && update-mime-database /usr/share/mime || true
 command -v update-desktop-database >/dev/null 2>&1 && update-desktop-database /usr/share/applications || true
+command -v gtk-update-icon-cache >/dev/null 2>&1 && gtk-update-icon-cache -f -t /usr/share/icons/hicolor || true
 exit 0
 EOF
 chmod 0755 "$STAGE_DIR/DEBIAN/postinst" "$STAGE_DIR/DEBIAN/postrm"

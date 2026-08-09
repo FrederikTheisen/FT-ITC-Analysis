@@ -53,6 +53,8 @@ dotnet "${publish_args[@]}"
 
 cp -R "$PUBLISH_DIR/." "$APP/Contents/MacOS/"
 cp "$ROOT/Resources/AppIcon.icns" "$APP/Contents/Resources/AppIcon.icns"
+cp "$ROOT/Resources/ProjectFileIcon.icns" "$APP/Contents/Resources/ProjectFileIcon.icns"
+cp "$ROOT/Resources/FTXTCProjectFileIcon.icns" "$APP/Contents/Resources/FTXTCProjectFileIcon.icns"
 sed -e "s|@BUNDLE_ID@|$BUNDLE_ID|g" -e "s|@VERSION@|$VERSION|g" "$SCRIPT_DIR/Info.plist.in" > "$APP/Contents/Info.plist"
 chmod 0755 "$APP/Contents/MacOS/AnalysisITC.Avalonia"
 plutil -lint "$APP/Contents/Info.plist"
