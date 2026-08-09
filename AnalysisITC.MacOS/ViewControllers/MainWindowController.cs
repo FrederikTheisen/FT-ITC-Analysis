@@ -190,7 +190,7 @@ namespace AnalysisITC
                 return "";
             }
 
-            if (!FTITCWriter.IsSaved)
+            if (!ProjectWriter.IsSaved)
             {
                 return "Unsaved";
             }
@@ -239,9 +239,9 @@ namespace AnalysisITC
 
         async Task SaveBeforeCloseAsync()
         {
-            var didSave = FTITCWriter.IsSaved
-                ? await FTITCWriter.SaveWithPathAsync()
-                : await FTITCWriter.SaveState2Async();
+            var didSave = ProjectWriter.IsSaved
+                ? await ProjectWriter.SaveWithPathAsync()
+                : await ProjectWriter.SaveAsync();
 
             if (!didSave || Window == null) return;
 
@@ -479,19 +479,19 @@ namespace AnalysisITC
 
         void SaveCurrentDocument()
         {
-            if (FTITCWriter.IsSaved)
+            if (ProjectWriter.IsSaved)
             {
-                FTITCWriter.SaveWithPath();
+                ProjectWriter.SaveWithPath();
             }
             else
             {
-                FTITCWriter.SaveState2();
+                ProjectWriter.Save();
             }
         }
 
         void SaveCurrentDocumentAs()
         {
-            FTITCWriter.SaveState2();
+            ProjectWriter.Save();
         }
 
         void UpdateSelectedObjectToolbarMenu()

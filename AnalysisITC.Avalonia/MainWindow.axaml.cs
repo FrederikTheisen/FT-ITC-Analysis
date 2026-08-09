@@ -215,7 +215,7 @@ public partial class MainWindow : Window
     {
         if (selectedItem == null) return;
 
-        var saved = await FTITCWriter.SaveSelectedAsync(selectedItem);
+        var saved = await ProjectWriter.SaveSelectedAsync(selectedItem);
         if (saved)
         {
             var itemType = selectedItem is AnalysisResult ? "result" : "experiment";
@@ -738,9 +738,9 @@ public partial class MainWindow : Window
     {
         if (!HasDocumentContent()) return false;
 
-        var saved = forcePrompt || !FTITCWriter.IsSaved
-            ? await FTITCWriter.SaveState2Async()
-            : await FTITCWriter.SaveWithPathAsync();
+        var saved = forcePrompt || !ProjectWriter.IsSaved
+            ? await ProjectWriter.SaveAsync()
+            : await ProjectWriter.SaveWithPathAsync();
 
         UpdateDocumentStatus();
         RefreshMenuState();
@@ -1561,7 +1561,7 @@ public partial class MainWindow : Window
         if (DataManager.SourceItems == null || DataManager.SourceItems.Count == 0)
             return "";
 
-        if (!FTITCWriter.IsSaved)
+        if (!ProjectWriter.IsSaved)
             return "Unsaved";
 
         var path = FTITCFormat.CurrentAccessedAppDocumentPath;

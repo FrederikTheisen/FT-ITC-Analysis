@@ -285,7 +285,7 @@ namespace AnalysisITC.Core.Application
                     || DocumentDirtyTracker.IsSuspended
                     || DataManager.SourceItems == null
                     || DataManager.SourceItems.Count == 0
-                    || FTITCWriter.IsWriteInProgress)
+                    || ProjectWriter.IsWriteInProgress)
                 {
                     return false;
                 }
@@ -300,7 +300,7 @@ namespace AnalysisITC.Core.Application
                     activeRunId = runId;
                 }
 
-                var didWrite = await FTITCWriter.WriteAutoSaveAsync(path);
+                var didWrite = await ProjectWriter.WriteAutoSaveAsync(path);
                 if (!didWrite) return false;
 
                 lock (sync)

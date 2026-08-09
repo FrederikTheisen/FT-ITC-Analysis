@@ -541,18 +541,18 @@ namespace AnalysisITC
 
         partial void SaveAsMenuClick(NSObject sender)
         {
-            FTITCWriter.SaveState2();
+            ProjectWriter.Save();
         }
 
         partial void SaveMenuClick(NSMenuItem sender)
         {
-            if (FTITCWriter.IsSaved)
+            if (ProjectWriter.IsSaved)
             {
-                FTITCWriter.SaveWithPath();
+                ProjectWriter.SaveWithPath();
             }
             else
             {
-                FTITCWriter.SaveState2();
+                ProjectWriter.Save();
             }
         }
 
@@ -563,7 +563,7 @@ namespace AnalysisITC
                 return;
             }
 
-            FTITCWriter.SaveSelected(DataManager.Current);
+            ProjectWriter.SaveSelected(DataManager.Current);
         }
 
         partial void DuplicateSelectedData(NSObject sender)
@@ -643,9 +643,9 @@ namespace AnalysisITC
 
         private async Task SaveBeforeTerminateAsync()
         {
-            var didSave = FTITCWriter.IsSaved
-                ? await FTITCWriter.SaveWithPathAsync()
-                : await FTITCWriter.SaveState2Async();
+            var didSave = ProjectWriter.IsSaved
+                ? await ProjectWriter.SaveWithPathAsync()
+                : await ProjectWriter.SaveAsync();
 
             NSApplication.SharedApplication.ReplyToApplicationShouldTerminate(didSave);
         }
@@ -743,9 +743,9 @@ namespace AnalysisITC
                 {
                     case PendingSaveAction.Save:
                         {
-                            var didSave = FTITCWriter.IsSaved
-                                ? await FTITCWriter.SaveWithPathAsync()
-                                : await FTITCWriter.SaveState2Async();
+                            var didSave = ProjectWriter.IsSaved
+                                ? await ProjectWriter.SaveWithPathAsync()
+                                : await ProjectWriter.SaveAsync();
 
                             if (!didSave) return false;
                             break;
