@@ -211,7 +211,15 @@ namespace AnalysisITC
             object sender,
             SolutionInterface solution)
         {
-            BeginInvokeOnMainThread(() => SyncTableSelection(solution));
+            BeginInvokeOnMainThread(() =>
+            {
+                SyncTableSelection(solution);
+                if (displayedGraphType == ResultGraphView.ResultGraphType.SelectedFit)
+                {
+                    SetupGraphView();
+                    RefreshAnalysis();
+                }
+            });
         }
 
         void AppDelegate_StartPrintOperation(object sender, EventArgs e)
@@ -598,6 +606,18 @@ namespace AnalysisITC
             AddPageView(
                 analysisStack,
                 BuildParameterEvaluationSection());
+
+            if (displayedGraphType == ResultGraphView.ResultGraphType.SelectedFit)
+            {
+                var selected = SelectedResultSolution();
+                AddPageView(
+                    analysisStack,
+                    Section(
+                        "Selected Fit",
+                        Message(selected?.Data?.Name
+                            ?? "Select an experiment in the table or an overview graph.")));
+                return;
+            }
 
             if (!analysisResult.IsAdvancedAnalysisAvailable)
             {
@@ -1133,6 +1153,8 @@ namespace AnalysisITC
             availableGraphTypes.Clear();
             availableGraphTypes.Add(
                 ResultGraphView.ResultGraphType.Parameters);
+            availableGraphTypes.Add(
+                ResultGraphView.ResultGraphType.SelectedFit);
 
             if (analysisResult?.IsAdvancedAnalysisAvailable != true) return;
             if (analysisResult.IsTemperatureDependenceEnabled)
@@ -1155,6 +1177,9 @@ namespace AnalysisITC
 
             switch (displayedGraphType)
             {
+                case ResultGraphView.ResultGraphType.SelectedFit:
+                    Graph.SetupSelectedFit(SelectedResultSolution());
+                    break;
                 case ResultGraphView.ResultGraphType.TemperatureDependence:
                     Graph.Setup(
                         ResultGraphView.ResultGraphType.TemperatureDependence,
@@ -1177,6 +1202,15 @@ namespace AnalysisITC
                         analysisResult);
                     break;
             }
+        }
+
+        SolutionInterface SelectedResultSolution()
+        {
+            var selected = DataManager.SelectedResultSolution;
+            return selected != null
+                && analysisResult?.Solution?.Solutions?.Contains(selected) == true
+                    ? selected
+                    : null;
         }
 
         void UpdateAnalysisViewSubState()
@@ -1409,6 +1443,8 @@ namespace AnalysisITC
                     "Salt",
                 ResultGraphView.ResultGraphType.ProtonationAnalysis =>
                     "Protonation",
+                ResultGraphView.ResultGraphType.SelectedFit =>
+                    "Selected Fit",
                 _ => "Parameters",
             };
         }

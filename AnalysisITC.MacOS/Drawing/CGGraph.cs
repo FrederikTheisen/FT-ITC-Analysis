@@ -1961,6 +1961,7 @@ namespace AnalysisITC.UI.MacOS.Drawing
 
     public class DataFittingGraph : ThermogramGraph
     {
+        readonly SolutionInterface solutionOverride;
         private bool _useUnifiedAxes = false;
         private bool _useUnifiedEnthalpyAxis = false;
         private bool _focusvaliddata = true;
@@ -2025,6 +2026,8 @@ namespace AnalysisITC.UI.MacOS.Drawing
 
         bool ShowBadData => !HideBadData;
         bool AutoAxesIncludesBadData => (!AutoAxesFocusesIncludedOnly && ShowBadData);
+        internal SolutionInterface ActiveSolution => solutionOverride ?? ExperimentData.Solution;
+        internal Model ActiveModel => ActiveSolution?.Model;
 
         public CGPoint GetCompositeOrigin()
         {
@@ -2032,8 +2035,13 @@ namespace AnalysisITC.UI.MacOS.Drawing
             else return base.Origin;
         }
 
-        public DataFittingGraph(ExperimentData experiment, NSView view) : base(experiment, view)
+        public DataFittingGraph(ExperimentData experiment, NSView view) : this(experiment, null, view)
         {
+        }
+
+        public DataFittingGraph(ExperimentData experiment, SolutionInterface solution, NSView view) : base(experiment, view)
+        {
+            solutionOverride = solution;
             XAxis = new GraphAxis(this, 0, 1);
             XAxis.SetWithBuffer(0, Math.Max(Math.Floor(XAxis.Max + 0.33f), XAxis.Max), 0.05);
             XAxis.UseNiceAxis = false;
@@ -2099,13 +2107,16 @@ namespace AnalysisITC.UI.MacOS.Drawing
             var evals = new List<double>();
 
             foreach (var data in includeddata)
-                if (data.Solution != null)
+            {
+                var solution = SolutionFor(data);
+                if (solution?.Model != null)
                     for (int i = 0; i < data.InjectionCount; i++)
-                        evals.Add(data.Model.EvaluateEnthalpy(i, withoffset: DrawWithOffset));
+                        evals.Add(solution.Model.EvaluateEnthalpy(i, withoffset: DrawWithOffset));
+            }
 
             // Consider only data points which were included for fitting, or if we explicitly show bad data
-            var maxpoints = includeddata.Select(d => d.Injections.Where(inj => inj.Include || AutoAxesIncludesBadData).Max(inj => DrawWithOffset ? inj.Enthalpy : inj.OffsetEnthalpy));
-            var minpoints = includeddata.Select(d => d.Injections.Where(inj => inj.Include || AutoAxesIncludesBadData).Min(inj => DrawWithOffset ? inj.Enthalpy : inj.OffsetEnthalpy));
+            var maxpoints = includeddata.Select(d => d.Injections.Where(inj => inj.Include || AutoAxesIncludesBadData).Max(inj => DisplayEnthalpy(d, inj)));
+            var minpoints = includeddata.Select(d => d.Injections.Where(inj => inj.Include || AutoAxesIncludesBadData).Min(inj => DisplayEnthalpy(d, inj)));
 
             if (evals.Count(v => double.IsFinite(v)) == 0) evals = new List<double> { 0 };
             if (maxpoints.Count(v => double.IsFinite(v)) == 0) maxpoints = new double[] { 0 };
@@ -2172,7 +2183,7 @@ namespace AnalysisITC.UI.MacOS.Drawing
 
             if (ShowZero) DrawZero(gc);
 
-            if (ExperimentData.Solution != null)
+            if (ActiveSolution != null)
             {
                 if (DrawConfidenceBands) DrawConfidenceInterval(gc);
                 DrawFit(gc);
@@ -2183,7 +2194,7 @@ namespace AnalysisITC.UI.MacOS.Drawing
             XAxis.Draw(gc);
             YAxis.Draw(gc);
 
-            if (ExperimentData.Solution != null)
+            if (ActiveSolution != null)
             {
                 if (ShowParameterGuides) DrawParameterGuides(gc);
                 if (ShowParameterBox) DrawParameterBox(gc);
@@ -2206,7 +2217,7 @@ namespace AnalysisITC.UI.MacOS.Drawing
             {
                 if (HideBadData && !inj.Include) continue; //Ignore datapoint if 'bad' and hidebaddata is true
 
-                var enthalpy = DrawWithOffset ? inj.Enthalpy : inj.OffsetEnthalpy;
+                var enthalpy = DisplayEnthalpy(ExperimentData, inj);
 
                 var p = GetRelativePosition(inj.Ratio, enthalpy);
                 var infop = p;
@@ -2267,7 +2278,7 @@ namespace AnalysisITC.UI.MacOS.Drawing
             foreach (var inj in ExperimentData.Injections)
             {
                 var x = inj.Ratio;
-                var y = ExperimentData.Model.EvaluateEnthalpy(inj.ID, withoffset: DrawWithOffset);
+                var y = ActiveModel.EvaluateEnthalpy(inj.ID, withoffset: DrawWithOffset);
 
                 points.Add(GetRelativePosition(x, y));
             }
@@ -2284,11 +2295,11 @@ namespace AnalysisITC.UI.MacOS.Drawing
             layer.Context.SetLineWidth(1);
 
             // Enthalpy line. Only makes sense for single site model.
-            var Hs = ExperimentData.Solution.GetCorrectedEnthalpyGuides();
+            var Hs = ActiveSolution.GetCorrectedEnthalpyGuides();
             if (Hs.Count == 1)
             {
                 var H = Hs[0];
-                if (DrawWithOffset) H += ExperimentData.Solution.Offset;
+                if (DrawWithOffset) H += ActiveSolution.Offset;
                 var e1 = GetRelativePosition(XAxis.Min, H);
                 var e2 = GetRelativePosition(XAxis.Max, H);
                 var enthalpy = new CGPath();
@@ -2298,7 +2309,7 @@ namespace AnalysisITC.UI.MacOS.Drawing
             }
 
             // Stoichiometry lines
-            var Ns = ExperimentData.Solution.GetCorrectedStoichiometryGuides();
+            var Ns = ActiveSolution.GetCorrectedStoichiometryGuides();
             foreach (var N in Ns)
             {
                 var n1 = GetRelativePosition(N, YAxis.Min);
@@ -2320,10 +2331,10 @@ namespace AnalysisITC.UI.MacOS.Drawing
         {
             var display = DrawOnWhite ? FinalFigureDisplayParameters : AnalysisDisplayParameters;
             var lines = AnalysisITC.UI.MacOS.AnalysisParameterSummaryPresentation
-                .BuildLines(ExperimentData.Solution, display);
+                .BuildLines(ActiveSolution, display);
 
-            var first = ExperimentData.Model.Evaluate(0, withoffset: false);
-            var last = ExperimentData.Model.Evaluate(ExperimentData.InjectionCount - 1, withoffset: false);
+            var first = ActiveModel.Evaluate(0, withoffset: false);
+            var last = ActiveModel.Evaluate(ExperimentData.InjectionCount - 1, withoffset: false);
 
             var position = GetParameterBoxPosition(first, last);
 
@@ -2342,9 +2353,9 @@ namespace AnalysisITC.UI.MacOS.Drawing
 
         void DrawConfidenceInterval(CGContext gc)
         {
-            if (ExperimentData.Solution == null) return;
-            if (ExperimentData.Solution.BootstrapSolutions == null) return;
-            if (ExperimentData.Solution.BootstrapSolutions.Count == 0) return;
+            if (ActiveSolution == null) return;
+            if (ActiveSolution.BootstrapSolutions == null) return;
+            if (ActiveSolution.BootstrapSolutions.Count == 0) return;
 
             var top = new List<CGPoint>();
             var bottom = new List<CGPoint>();
@@ -2352,7 +2363,7 @@ namespace AnalysisITC.UI.MacOS.Drawing
             foreach (var inj in ExperimentData.Injections)
             {
                 var x = inj.Ratio;
-                var y = ExperimentData.Model.EvaluateBootstrap(inj.ID, DrawWithOffset).WithConfidence();
+                var y = ActiveModel.EvaluateBootstrap(inj.ID, DrawWithOffset).WithConfidence();
 
                 top.Add(GetRelativePosition(x, y[0]));
                 bottom.Add(GetRelativePosition(x, y[1]));
@@ -2380,7 +2391,7 @@ namespace AnalysisITC.UI.MacOS.Drawing
         {
             var fitEvent = CursorFeatureFromInjectionPoints(
                 cursorpos,
-                inj => GetRelativePosition(inj.Ratio, DrawWithOffset ? inj.Enthalpy : inj.OffsetEnthalpy),
+                inj => GetRelativePosition(inj.Ratio, DisplayEnthalpy(ExperimentData, inj)),
                 this,
                 isclick,
                 ismouseup,
@@ -2395,6 +2406,25 @@ namespace AnalysisITC.UI.MacOS.Drawing
             if (fitHit) return fitEvent;
             if (residualEvent.IsMouseOverFeature) return residualEvent;
             return fitEvent;
+        }
+
+        SolutionInterface SolutionFor(ExperimentData data)
+        {
+            return ReferenceEquals(data, ExperimentData) ? ActiveSolution : data?.Solution;
+        }
+
+        double DisplayEnthalpy(ExperimentData data, InjectionData injection)
+        {
+            var solution = SolutionFor(data);
+            return DrawWithOffset || solution == null
+                ? injection.Enthalpy
+                : injection.Enthalpy - solution.Offset;
+        }
+
+        internal double ResidualEnthalpy(InjectionData injection)
+        {
+            if (ActiveModel == null || injection.InjectionMass == 0) return 0;
+            return ActiveModel.Residual(injection) / injection.InjectionMass;
         }
 
         public class ResidualGraphOptions
@@ -2458,11 +2488,17 @@ namespace AnalysisITC.UI.MacOS.Drawing
 
             foreach (var dat in data)
             {
-                if (dat.Solution != null)
+                var solution = ReferenceEquals(dat, ExperimentData)
+                    ? DataFittingGraph.ActiveSolution
+                    : dat.Solution;
+                if (solution?.Model != null)
                 {
                     foreach (var inj in dat.Injections.Where(IncludeInjectionInAutoAxes))
                     {
-                        var inj_v = Math.Abs(inj.ResidualEnthalpy);
+                        var residual = ReferenceEquals(dat, ExperimentData)
+                            ? DataFittingGraph.ResidualEnthalpy(inj)
+                            : inj.InjectionMass == 0 ? 0 : solution.Model.Residual(inj) / inj.InjectionMass;
+                        var inj_v = Math.Abs(residual);
                         var inj_min = Math.Abs(inj_v - inj.SD);
                         var inj_max = Math.Abs(inj_v + inj.SD);
                         if (DataFittingGraph.ShowErrorBars) res.Add(Math.Max(inj_v, Math.Min(inj_min, inj_max)));
@@ -2507,7 +2543,7 @@ namespace AnalysisITC.UI.MacOS.Drawing
 
             DrawZero(gc);
 
-            if (ExperimentData.Solution != null)
+            if (DataFittingGraph.ActiveSolution != null)
             {
                 DrawResidual(gc);
             }
@@ -2529,7 +2565,7 @@ namespace AnalysisITC.UI.MacOS.Drawing
             {
                 if (!ShouldDrawInjection(inj)) continue;
 
-                var res = inj.ResidualEnthalpy;
+                var res = DataFittingGraph.ResidualEnthalpy(inj);
 
                 var p = GetRelativePosition(inj.Ratio, res);
                 var infop = p;
@@ -2590,7 +2626,7 @@ namespace AnalysisITC.UI.MacOS.Drawing
         {
             return CursorFeatureFromInjectionPoints(
                 cursorpos,
-                inj => GetRelativePosition(inj.Ratio, inj.ResidualEnthalpy),
+                inj => GetRelativePosition(inj.Ratio, DataFittingGraph.ResidualEnthalpy(inj)),
                 DataFittingGraph,
                 isclick,
                 ismouseup,

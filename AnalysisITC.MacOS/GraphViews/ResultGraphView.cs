@@ -63,6 +63,38 @@ namespace AnalysisITC
             Invalidate();
         }
 
+        public void SetupSelectedFit(SolutionInterface solution)
+        {
+            Type = ResultGraphType.SelectedFit;
+
+            if (solution?.Data == null || solution.Model == null)
+            {
+                Graph = null;
+                Invalidate();
+                return;
+            }
+
+            var fitGraph = new DataFittingGraph(solution.Data, solution, this)
+            {
+                ShowGrid = true,
+                ShowZero = true,
+                ShowPeakInfo = false,
+                ShowErrorBars = true,
+                DrawConfidenceBands = true,
+                HideBadData = false,
+                HideBadDataErrorBars = true,
+                DrawWithOffset = false,
+                ShowParameterGuides = false,
+                ShowParameterBox = false,
+                AutoAxesFocusesIncludedOnly = true,
+            };
+            fitGraph.ResidualDisplayOptions.ShowResidualGraph = true;
+            fitGraph.ResidualDisplayOptions.GapGraphs = true;
+            Graph = fitGraph;
+
+            Invalidate();
+        }
+
         public void Setup(ProtonationAnalysis analysis)
         {
             Type = ResultGraphType.ProtonationAnalysis;
@@ -181,13 +213,45 @@ namespace AnalysisITC
         {
             base.DrawRect(dirtyRect);
 
+            if (Graph == null)
+            {
+                if (Type == ResultGraphType.SelectedFit)
+                    DrawSelectedFitEmptyState();
+                return;
+            }
+
             var cg = NSGraphicsContext.CurrentContext.CGContext;
 
-            Graph?.PrepareDraw(cg, new CGPoint(Frame.GetMidX(), Frame.GetMidY()));
+            Graph.PrepareDraw(cg, new CGPoint(Frame.GetMidX(), Frame.GetMidY()));
+        }
+
+        void DrawSelectedFitEmptyState()
+        {
+            var title = new NSAttributedString(
+                "No experiment selected",
+                new NSStringAttributes
+                {
+                    Font = NSFont.SystemFontOfSize(NSFont.SystemFontSize, NSFontWeight.Semibold),
+                    ForegroundColor = NSColor.SecondaryLabel,
+                });
+            var message = new NSAttributedString(
+                "Select an experiment in the result table or an overview graph to inspect its saved fit.",
+                new NSStringAttributes
+                {
+                    Font = NSFont.SystemFontOfSize(NSFont.SmallSystemFontSize),
+                    ForegroundColor = NSColor.SecondaryLabel,
+                });
+
+            var x = Bounds.GetMidX() - Math.Max(title.Size.Width, message.Size.Width) / 2;
+            var y = Bounds.GetMidY();
+            title.DrawString(new CGPoint(x, y + 4));
+            message.DrawString(new CGPoint(x, y - message.Size.Height - 6));
         }
 
         new public void Print()
         {
+            if (Graph == null) return;
+
             var _drawOnWhite = Graph.DrawOnWhite;
             Graph.DrawOnWhite = true;
 
@@ -218,6 +282,21 @@ namespace AnalysisITC
 
                         if (b.IsMouseOverFeature) NSCursor.PointingHandCursor.Set();
                         else NSCursor.ArrowCursor.Set();
+                        break;
+                    }
+                case DataFittingGraph:
+                    {
+                        var feature = Graph.CursorFeatureFromPos(CursorPositionInView);
+                        if (feature.IsMouseOverFeature)
+                        {
+                            NSCursor.PointingHandCursor.Set();
+                            ToolTip = feature.ToolTip;
+                        }
+                        else
+                        {
+                            NSCursor.ArrowCursor.Set();
+                            ToolTip = null;
+                        }
                         break;
                     }
                 default: break;
@@ -265,6 +344,7 @@ namespace AnalysisITC
         public enum ResultGraphType
         {
             Parameters,
+            SelectedFit,
             TemperatureDependence,
             IonicStrengthDependence,
             ProtonationAnalysis,
