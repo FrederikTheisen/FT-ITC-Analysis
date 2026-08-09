@@ -34,10 +34,27 @@
 	<array>
 		<dict>
 			<key>CFBundleTypeName</key>
-			<string>FT-ITC Project File</string>
+			<string>FT-ITC Analysis Project File</string>
 			<key>CFBundleTypeExtensions</key>
 			<array>
 				<string>ftxtc</string>
+			</array>
+			<key>CFBundleTypeIconFile</key>
+			<string>FTXTCProjectFileIcon</string>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>LSHandlerRank</key>
+			<string>Owner</string>
+			<key>LSItemContentTypes</key>
+			<array>
+				<string>com.frederiktheisen.ftxtc-project</string>
+			</array>
+		</dict>
+		<dict>
+			<key>CFBundleTypeName</key>
+			<string>FT-ITC Analysis Project File</string>
+			<key>CFBundleTypeExtensions</key>
+			<array>
 				<string>ftitc</string>
 			</array>
 			<key>CFBundleTypeIconFile</key>
@@ -82,7 +99,28 @@
 	<array>
 		<dict>
 			<key>UTTypeDescription</key>
-			<string>FT-ITC Project</string>
+			<string>FT-ITC Analysis Project File</string>
+			<key>UTTypeIdentifier</key>
+			<string>com.frederiktheisen.ftxtc-project</string>
+			<key>UTTypeConformsTo</key>
+			<array>
+				<string>public.data</string>
+			</array>
+			<key>UTTypeIconFiles</key>
+			<array>
+				<string>FTXTCProjectFileIcon</string>
+			</array>
+			<key>UTTypeTagSpecification</key>
+			<dict>
+				<key>public.filename-extension</key>
+				<array>
+					<string>ftxtc</string>
+				</array>
+			</dict>
+		</dict>
+		<dict>
+			<key>UTTypeDescription</key>
+			<string>FT-ITC Analysis Project File</string>
 			<key>UTTypeIdentifier</key>
 			<string>com.frederiktheisen.ftitc-project</string>
 			<key>UTTypeConformsTo</key>
@@ -97,7 +135,6 @@
 			<dict>
 				<key>public.filename-extension</key>
 				<array>
-					<string>ftxtc</string>
 					<string>ftitc</string>
 				</array>
 			</dict>
