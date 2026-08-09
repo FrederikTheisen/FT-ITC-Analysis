@@ -46,7 +46,8 @@ namespace AnalysisITC.Core.Tests
             {
                 ResetDocument();
                 var opened = await DataReader.ReadPathsAsync(new[] { Fixture("one-set.ftitc") });
-                Assert.True(opened.OpenedCleanProject);
+                Assert.False(opened.OpenedCleanProject);
+                Assert.True(DocumentDirtyTracker.IsDirty);
 
                 AppSettings.AutoSaveEnabled = true;
                 AppSettings.AutoSaveFileLimit = 10;
@@ -54,8 +55,8 @@ namespace AnalysisITC.Core.Tests
 
                 manager = NewManager(directory);
                 manager.Start();
-                Assert.False(await manager.TickNowAsync());
-                Assert.Empty(Directory.GetFiles(directory, "*.ftxtc"));
+                Assert.True(await manager.TickNowAsync());
+                Assert.Single(Directory.GetFiles(directory, "*.ftxtc"));
 
                 DocumentDirtyTracker.MarkDirty();
                 AppSettings.AutoSaveEnabled = false;

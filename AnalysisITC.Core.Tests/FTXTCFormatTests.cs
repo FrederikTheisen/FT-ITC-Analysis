@@ -12,6 +12,7 @@ using AnalysisITC.Core.Application;
 using AnalysisITC.Core.DataReaders;
 using AnalysisITC.Core.Export;
 using AnalysisITC.Core.Viewer;
+using AnalysisITC.Core.Analysis;
 using Xunit;
 
 namespace AnalysisITC.Core.Tests
@@ -103,11 +104,23 @@ namespace AnalysisITC.Core.Tests
 
             Assert.NotNull(archive.GetEntry("manifest.json"));
             Assert.NotNull(archive.GetEntry("project.json"));
-            Assert.NotNull(archive.GetEntry("experiments/000000.json"));
-            Assert.NotNull(archive.GetEntry("experiments/000000-thermogram.ftxb"));
-            Assert.NotNull(archive.GetEntry("experiments/000000-baseline.ftxb"));
-            Assert.NotNull(archive.GetEntry("experiments/000000-corrected-power.ftxb"));
-            Assert.NotNull(archive.GetEntry("results/000000.json"));
+            Assert.NotNull(archive.GetEntry("experiments/000000/experiment.json"));
+            Assert.NotNull(archive.GetEntry("experiments/000000/thermogram.ftxb"));
+            Assert.NotNull(archive.GetEntry("experiments/000000/baseline.ftxb"));
+            Assert.NotNull(archive.GetEntry("experiments/000000/corrected-trace.ftxb"));
+            Assert.NotNull(archive.GetEntry("solutions/000000/solution.json"));
+            Assert.NotNull(archive.GetEntry("solutions/000000/bootstrap.json"));
+            Assert.NotNull(archive.GetEntry("solutions/000000/bootstrap-parameters.ftxb"));
+            Assert.NotNull(archive.GetEntry("solutions/000000/bootstrap-parameter-locks.ftxb"));
+            Assert.NotNull(archive.GetEntry("solutions/000000/bootstrap-injections.ftxb"));
+            Assert.NotNull(archive.GetEntry("solutions/000000/bootstrap-injection-includes.ftxb"));
+            Assert.NotNull(archive.GetEntry("results/000000/result.json"));
+
+            using var projectReader = new StreamReader(archive.GetEntry("project.json").Open());
+            var projectText = await projectReader.ReadToEndAsync();
+            Assert.DoesNotContain("semanticGraph", projectText, StringComparison.OrdinalIgnoreCase);
+            Assert.DoesNotContain("payloadBase64", projectText, StringComparison.OrdinalIgnoreCase);
+            Assert.DoesNotContain("FTITCVersion", projectText, StringComparison.Ordinal);
 
             using var manifest = JsonDocument.Parse(archive.GetEntry("manifest.json").Open());
             Assert.Equal("ftxtc", manifest.RootElement.GetProperty("format").GetString());
@@ -198,7 +211,7 @@ namespace AnalysisITC.Core.Tests
         {
             using var package = await CreatePackage();
             using var corrupt = RewritePackage(package, (path, bytes) =>
-                path == "experiments/000000.json" ? bytes.Concat(new byte[] { 0 }).ToArray() : bytes);
+                path == "experiments/000000/experiment.json" ? bytes.Concat(new byte[] { 0 }).ToArray() : bytes);
 
             var error = await Assert.ThrowsAsync<InvalidDataException>(() => FTXTCReader.ReadStream(corrupt));
             Assert.Contains("length", error.Message, StringComparison.OrdinalIgnoreCase);
@@ -217,6 +230,53 @@ namespace AnalysisITC.Core.Tests
             });
 
             await Assert.ThrowsAsync<NotSupportedException>(() => FTXTCReader.ReadStream(future));
+        }
+
+        [Fact]
+        public async Task RecoveryRetainsIntegratedExperimentWhenThermogramIsCorrupt()
+        {
+            using var package = await CreatePackage();
+            using var corrupt = RewritePackage(package, (path, bytes) =>
+                path == "experiments/000000/thermogram.ftxb" ? bytes.Concat(new byte[] { 0 }).ToArray() : bytes);
+
+            var recovered = await FTXTCReader.ReadWithRecovery(corrupt, FtxtcReadPolicy.RecoverUsableContent);
+            var experiment = Assert.Single(recovered.Containers.OfType<ExperimentData>(), item => item.DataPoints.Count == 0);
+            Assert.True(recovered.IsPartial);
+            Assert.Empty(experiment.DataPoints);
+            Assert.NotEmpty(experiment.Injections);
+            Assert.Contains(recovered.Issues, issue => issue.Code == "checksum-failure");
+
+            corrupt.Position = 0;
+            await Assert.ThrowsAsync<InvalidDataException>(() => FTXTCReader.ReadStream(corrupt));
+        }
+
+        [Fact]
+        public async Task SaveLoadSaveKeepsNormalizedPayloadHashes()
+        {
+            using var first = await CreatePackage();
+            var restored = await FTXTCReader.ReadStream(first);
+            using var second = new MemoryStream();
+            await FTXTCWriter.WriteStream(second, restored.OfType<ExperimentData>(), restored.OfType<AnalysisResult>());
+
+            Assert.Equal(PayloadHashes(first), PayloadHashes(second));
+        }
+
+        [Fact]
+        public void PersistenceRegistryCoversEverySolutionModel()
+        {
+            var expected = Enum.GetValues<AnalysisModel>().OrderBy(value => value).ToArray();
+            Assert.Equal(expected, FtxtcModelRegistry.SupportedModels.OrderBy(value => value));
+            Assert.All(expected, model => Assert.False(string.IsNullOrWhiteSpace(FtxtcWireIds.Model(model))));
+        }
+
+        [Fact]
+        public async Task FtitcOpenIsDetachedForNativeSaveAs()
+        {
+            FTITCFormat.CurrentAccessedAppDocumentPath = "previous.ftxtc";
+            var restored = await FTITCReader.ReadPath(Fixture("one-set.ftitc"));
+
+            Assert.NotEmpty(restored);
+            Assert.Equal(string.Empty, FTITCFormat.CurrentAccessedAppDocumentPath);
         }
 
         static async Task<MemoryStream> CreatePackage()
@@ -255,6 +315,20 @@ namespace AnalysisITC.Core.Tests
             }
             output.Position = 0;
             return output;
+        }
+
+        static string[] PayloadHashes(Stream source)
+        {
+            source.Position = 0;
+            using var archive = new ZipArchive(source, ZipArchiveMode.Read, leaveOpen: true);
+            return archive.Entries.Where(entry => entry.FullName != "manifest.json")
+                .OrderBy(entry => entry.FullName, StringComparer.Ordinal)
+                .Select(entry =>
+                {
+                    using var stream = entry.Open();
+                    using var sha = System.Security.Cryptography.SHA256.Create();
+                    return entry.FullName + ":" + Convert.ToHexString(sha.ComputeHash(stream));
+                }).ToArray();
         }
 
         static string Fixture(string name) => Path.Combine(AppContext.BaseDirectory, "Fixtures", name);
