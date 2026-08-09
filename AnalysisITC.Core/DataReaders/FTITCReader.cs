@@ -31,7 +31,9 @@ namespace AnalysisITC.Core.DataReaders
             using (var stream = File.OpenRead(path))
             {
                 var result = await ReadStream(stream, interactive: true);
-                CurrentAccessedAppDocumentPath = path;
+                // FTITC is an import format.  Never retain its source path as a save
+                // target; the first Save must create a native FTXTC package.
+                CurrentAccessedAppDocumentPath = "";
                 return result;
             }
         }

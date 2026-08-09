@@ -404,7 +404,7 @@ namespace AnalysisITC.Core.Export
 
         public static async Task<bool> SaveState2Async()
         {
-            var path = await PlatformServices.FileSavePromptService.ChooseSaveFilePathAsync("Save FT-ITC Project", new[] { "ftxtc", "ftitc" });
+            var path = await PlatformServices.FileSavePromptService.ChooseSaveFilePathAsync("Save FT-ITC Project", new[] { "ftxtc" });
             if (string.IsNullOrWhiteSpace(path)) return false;
 
             try
@@ -464,15 +464,6 @@ namespace AnalysisITC.Core.Export
             }
         }
 
-        static StreamWriter GetFTITCStreamWriter(string path)
-        {
-            var sw = new StreamWriter(path);
-
-            sw.WriteLine(Variable(FTITCVersion, AppVersion.FullVersionString));
-
-            return sw;
-        }
-
         public static void SaveSelected(ITCDataContainer data)
         {
             _ = SaveSelectedAsync(data);
@@ -481,7 +472,7 @@ namespace AnalysisITC.Core.Export
         public static async Task<bool> SaveSelectedAsync(ITCDataContainer data)
         {
             var title = "Save FT-ITC " + (data is ExperimentData ? "Experiment Data" : "Analysis Results");
-            var allowedFileTypes = data is ExperimentData ? new[] { "ftxtc", "ftitc" } : new[] { "ftxtc", "ftitc", "csv" };
+            var allowedFileTypes = data is ExperimentData ? new[] { "ftxtc" } : new[] { "ftxtc", "csv" };
             var path = await PlatformServices.FileSavePromptService.ChooseSaveFilePathAsync(title, allowedFileTypes);
             if (string.IsNullOrWhiteSpace(path)) return false;
 
@@ -494,26 +485,14 @@ namespace AnalysisITC.Core.Export
 
                     switch (data)
                     {
-                        case ExperimentData experiment when IsFtxtcPath(path):
+                        case ExperimentData experiment:
                             await FTXTCWriter.WriteFileAsync(path, new[] { experiment });
                             break;
-                        case ExperimentData:
-                            using (var writer = GetFTITCStreamWriter(path))
-                            {
-                                await WriteExperimentDataToFile(data as ExperimentData, writer);
-                            }
-                            break;
-                        case AnalysisResult result when IsFtxtcPath(path):
+                        case AnalysisResult result when !string.Equals(Path.GetExtension(path), ".csv", StringComparison.OrdinalIgnoreCase):
                             await FTXTCWriter.WriteFileAsync(
                                 path,
                                 result.Solution.Solutions.Select(solution => solution.Data).Distinct(),
                                 new[] { result });
-                            break;
-                        case AnalysisResult when Path.GetExtension(path).TrimStart('.').ToLowerInvariant() == "ftitc":
-                            using (var writer = GetFTITCStreamWriter(path))
-                            {
-                                await WriteAnalysisResultToFile(data as AnalysisResult, writer);
-                            }
                             break;
                         case AnalysisResult when Path.GetExtension(path).TrimStart('.').ToLowerInvariant() == "csv":
                             Exporter.Export(ExportType.CSV);
@@ -565,24 +544,8 @@ namespace AnalysisITC.Core.Export
         {
             if (reportStatus) StatusBarManager.SetSavingFileMessage();
 
-            if (IsFtxtcPath(path))
-            {
-                await FTXTCWriter.WriteFileAsync(path, DataManager.Data, DataManager.Results);
-            }
-            else
-            {
-                using (var writer = GetFTITCStreamWriter(path))
-                {
-                    foreach (var data in DataManager.Data)
-                    {
-                        await WriteExperimentDataToFile(data, writer);
-                    }
-                    foreach(var res in DataManager.Results)
-                    {
-                        await WriteAnalysisResultToFile(res, writer);
-                    }
-                }
-            }
+            if (!IsFtxtcPath(path)) throw new InvalidOperationException("Projects can only be saved in native .ftxtc format.");
+            await FTXTCWriter.WriteFileAsync(path, DataManager.Data, DataManager.Results);
 
             if (reportStatus) StatusBarManager.SetFileSaveSuccessfulMessage(path);
         }

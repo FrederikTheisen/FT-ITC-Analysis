@@ -87,8 +87,8 @@ namespace AnalysisITC.Core.Processing
                 case BaselineInterpolatorTypes.Spline: Interpolator = new SplineInterpolator(this); break;
                 case BaselineInterpolatorTypes.Polynomial: Interpolator = new PolynomialLeastSquaresInterpolator(this); break;
                 case BaselineInterpolatorTypes.Segmented: Interpolator = new SegmentedBaselineInterpolator(this); break;
-                case BaselineInterpolatorTypes.ASL:
-                default: Interpolator = new SplineInterpolator(this); break;
+                case BaselineInterpolatorTypes.ASL: Interpolator = new AssymetricLeastSquaresInterpolator(this); break;
+                default: throw new ArgumentOutOfRangeException(nameof(mode), mode, "Unknown baseline interpolator type.");
             }
         }
 
@@ -906,6 +906,16 @@ namespace AnalysisITC.Core.Processing
 
         public List<BaselineSegment> Segments { get; private set; } = new List<BaselineSegment>();
 
+        /// <summary>
+        /// Restores the fitted piecewise-polynomial state from a project file.  This
+        /// deliberately does not refit the baseline.
+        /// </summary>
+        internal void RestoreSegments(IEnumerable<BaselineSegment> segments)
+        {
+            Segments = segments?.Select(segment => segment.Copy()).ToList()
+                ?? new List<BaselineSegment>();
+        }
+
         public SegmentedBaselineInterpolator(DataProcessor processor) : base(processor)
         {
         }
@@ -1699,9 +1709,9 @@ namespace AnalysisITC.Core.Processing
 
     public class AssymetricLeastSquaresInterpolator : BaselineInterpolator
     {
-        static int alg_niter = 10;
-        double Lambda = 1000;
-        double p = 0.96;
+        public int Iterations { get; set; } = 10;
+        public double Lambda { get; set; } = 1000;
+        public double Asymmetry { get; set; } = 0.96;
         double[] datapoints => Data.DataPoints.Select(dp => (double)dp.Power).ToArray();
 
         public AssymetricLeastSquaresInterpolator(DataProcessor processor) : base(processor)
@@ -1718,7 +1728,7 @@ namespace AnalysisITC.Core.Processing
 
             var z = new SparseVector(L);
 
-            for (int i = 0; i < alg_niter; i++)
+            for (int i = 0; i < Iterations; i++)
             {
                 Console.WriteLine("ASL iter: " + i);
                 var W = SparseMatrix.CreateDiagonal(L, L, (o => w[o]));
@@ -1775,8 +1785,8 @@ namespace AnalysisITC.Core.Processing
 
             for (int i = 0; i < z.Count(); i++)
             {
-                if (z[i] < y[i]) w[i] = p;
-                else w[i] = (1 - p);
+                if (z[i] < y[i]) w[i] = Asymmetry;
+                else w[i] = (1 - Asymmetry);
             }
 
             return w;

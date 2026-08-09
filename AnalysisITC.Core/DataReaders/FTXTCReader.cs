@@ -5,249 +5,563 @@ using System.IO.Compression;
 using System.Linq;
 using System.Threading.Tasks;
 
+using AnalysisITC.Core.Analysis;
+using AnalysisITC.Core.Analysis.Models;
+using AnalysisITC.Core.Application;
 using AnalysisITC.Core.Data;
 using AnalysisITC.Core.Export;
 using AnalysisITC.Core.Numerics;
+using AnalysisITC.Core.Processing;
 using AnalysisITC.Core.Units;
 
 namespace AnalysisITC.Core.DataReaders
 {
+    public enum FtxtcReadPolicy { Strict, RecoverUsableContent }
+    public enum FtxtcIssueSeverity { Warning, Error }
+
+    public sealed class FtxtcRecoveryIssue
+    {
+        public string Code { get; set; }
+        public FtxtcIssueSeverity Severity { get; set; }
+        public string ComponentId { get; set; }
+        public string EntryPath { get; set; }
+        public string Message { get; set; }
+    }
+
+    public sealed class FtxtcReadResult
+    {
+        public ITCDataContainer[] Containers { get; internal set; } = Array.Empty<ITCDataContainer>();
+        public IReadOnlyList<FtxtcRecoveryIssue> Issues { get; internal set; } = Array.Empty<FtxtcRecoveryIssue>();
+        public bool IsPartial => Issues.Count != 0;
+    }
+
+    internal sealed class FtxtcEntryStore : IReadOnlyDictionary<string, byte[]>, IDisposable
+    {
+        readonly string directory;
+        readonly Dictionary<string, string> files = new Dictionary<string, string>(StringComparer.Ordinal);
+
+        internal FtxtcEntryStore()
+        {
+            directory = Path.Combine(Path.GetTempPath(), "ftxtc-read-" + Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(directory);
+        }
+
+        internal Stream Create(string path)
+        {
+            if (files.ContainsKey(path)) throw new InvalidDataException($"FTXTC package contains duplicate entry '{path}'.");
+            var file = Path.Combine(directory, files.Count.ToString("D8") + ".entry");
+            files.Add(path, file);
+            return new FileStream(file, FileMode.CreateNew, FileAccess.Write, FileShare.None);
+        }
+
+        internal bool Remove(string path)
+        {
+            if (!files.TryGetValue(path, out var file)) return false;
+            files.Remove(path);
+            if (File.Exists(file)) File.Delete(file);
+            return true;
+        }
+
+        internal long Length(string path) => new FileInfo(files[path]).Length;
+        internal string Sha256(string path)
+        {
+            using var input = File.OpenRead(files[path]);
+            using var sha = System.Security.Cryptography.SHA256.Create();
+            return string.Concat(sha.ComputeHash(input).Select(value => value.ToString("x2")));
+        }
+
+        public byte[] this[string key] => File.ReadAllBytes(files[key]);
+        public IEnumerable<string> Keys => files.Keys;
+        public IEnumerable<byte[]> Values => files.Keys.Select(key => this[key]);
+        public int Count => files.Count;
+        public bool ContainsKey(string key) => files.ContainsKey(key);
+        public bool TryGetValue(string key, out byte[] value)
+        {
+            if (!files.ContainsKey(key)) { value = null; return false; }
+            value = this[key]; return true;
+        }
+        public IEnumerator<KeyValuePair<string, byte[]>> GetEnumerator() =>
+            files.Keys.Select(key => new KeyValuePair<string, byte[]>(key, this[key])).GetEnumerator();
+        System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() => GetEnumerator();
+
+        public void Dispose()
+        {
+            try { if (Directory.Exists(directory)) Directory.Delete(directory, recursive: true); }
+            catch { /* Best-effort cleanup of a private temporary directory. */ }
+        }
+    }
+
     public static class FTXTCReader
     {
+        public static IReadOnlyList<FtxtcRecoveryIssue> LastRecoveryIssues { get; private set; } = Array.Empty<FtxtcRecoveryIssue>();
+
         public static async Task<ITCDataContainer[]> ReadPath(string path)
         {
             using var stream = File.OpenRead(path);
-            var result = await ReadStream(stream, interactive: true);
-            FTITCFormat.CurrentAccessedAppDocumentPath = path;
-            return result;
+            var result = await ReadWithRecovery(stream, FtxtcReadPolicy.RecoverUsableContent, interactive: true);
+            LastRecoveryIssues = result.Issues;
+            foreach (var issue in result.Issues)
+                AppEventHandler.PrintAndLog($"FTXTC recovery [{issue.Severity}/{issue.Code}] {issue.ComponentId}: {issue.Message}");
+            FTITCFormat.CurrentAccessedAppDocumentPath = result.IsPartial ? "" : path;
+            if (result.IsPartial) DocumentDirtyTracker.MarkDirty();
+            return result.Containers;
         }
 
-        internal static async Task<ITCDataContainer[]> ReadStream(Stream stream, bool interactive = false)
+        internal static async Task<ITCDataContainer[]> ReadStream(Stream stream, bool interactive = false) =>
+            (await ReadWithRecovery(stream, FtxtcReadPolicy.Strict, interactive)).Containers;
+
+        public static Task<FtxtcReadResult> ReadWithRecovery(Stream stream, FtxtcReadPolicy policy, bool interactive = false)
         {
             if (stream == null) throw new ArgumentNullException(nameof(stream));
-
-            // Phase one is deliberately side-effect free: read, constrain and authenticate
-            // the complete package before the semantic graph is reconstructed.
-            var entries = ReadAndValidateEntries(stream);
+            using var restoreScope = DocumentDirtyTracker.RestoreDocument();
+            var issues = new List<FtxtcRecoveryIssue>();
+            using var entries = ReadAndValidateEntries(stream, policy, issues);
             var project = ReadProject(entries);
-            ValidateProjectReferences(project, entries);
+            ValidateRootReferences(project);
 
-            ITCDataContainer[] containers;
-            using (var semanticStream = new MemoryStream(DecodeSemanticGraph(project), writable: false))
-                containers = await FTITCReader.ReadStream(semanticStream, interactive, processProcessorData: false);
+            var experiments = RestoreExperiments(project, entries, policy, issues);
+            var solutions = RestoreSolutions(project, entries, experiments, policy, issues);
+            foreach (var reference in project.Experiments)
+            {
+                if (string.IsNullOrWhiteSpace(reference.Id) || !experiments.TryGetValue(reference.Id, out var experiment)) continue;
+                var state = TryRead<FtxtcExperimentState>(entries, reference.Metadata, reference.Id, policy, issues, "experiment-metadata");
+                if (state != null && !string.IsNullOrWhiteSpace(state.AttachedSolutionId)
+                    && solutions.TryGetValue(state.AttachedSolutionId, out var solution))
+                    experiment.UpdateSolution(solution.Model);
+            }
+            RestoreBufferReferences(experiments.Values);
+            var results = RestoreResults(project, entries, solutions, policy, issues);
 
-            // Phase two applies authoritative exact-state payloads only to the detached
-            // objects returned above. DataManager is updated by DataReader after success.
-            RestoreExactExperimentState(project, entries, containers);
-            return containers;
+            var containers = experiments.Values.Cast<ITCDataContainer>().Concat(results).ToArray();
+            foreach (var container in containers) container.MarkClean();
+            return Task.FromResult(new FtxtcReadResult { Containers = containers, Issues = issues });
         }
 
-        static Dictionary<string, byte[]> ReadAndValidateEntries(Stream stream)
+        static FtxtcEntryStore ReadAndValidateEntries(Stream stream, FtxtcReadPolicy policy, List<FtxtcRecoveryIssue> issues)
         {
-            var entries = new Dictionary<string, byte[]>(StringComparer.Ordinal);
-            using (var archive = new ZipArchive(stream, ZipArchiveMode.Read, leaveOpen: true))
+            // Pass one constrains paths and sizes and authenticates all declared
+            // entries. Pass two (the restore methods below) parses entries on demand.
+            // Validated expanded entries are spooled to a private temporary store,
+            // so validation never retains the complete package in memory.
+            var entries = new FtxtcEntryStore();
+            try
             {
-                if (archive.Entries.Count > FTXTCFormat.MaxEntries)
-                    throw new InvalidDataException("FTXTC package contains too many entries.");
-
-                long totalLength = 0;
-                foreach (var entry in archive.Entries)
+            using var archive = new ZipArchive(stream, ZipArchiveMode.Read, leaveOpen: true);
+            if (archive.Entries.Count > FTXTCFormat.MaxEntries) throw new InvalidDataException("FTXTC package contains too many entries.");
+            long total = 0;
+            foreach (var entry in archive.Entries)
+            {
+                var path = FTXTCFormat.NormalizeEntryPath(entry.FullName);
+                if (entries.ContainsKey(path)) throw new InvalidDataException($"FTXTC package contains duplicate entry '{path}'.");
+                if (entry.Length > FTXTCFormat.MaxEntryBytes) throw new InvalidDataException($"FTXTC entry '{path}' exceeds the size limit.");
+                if (entry.Length > 1024 * 1024 && entry.CompressedLength > 0 && entry.Length / entry.CompressedLength > 200)
+                    throw new InvalidDataException($"FTXTC entry '{path}' exceeds the compression-ratio limit.");
+                using var input = entry.Open();
+                using var output = entries.Create(path);
+                var buffer = new byte[81920];
+                int read;
+                while ((read = input.Read(buffer, 0, buffer.Length)) > 0)
                 {
-                    var path = FTXTCFormat.NormalizeEntryPath(entry.FullName);
-                    if (entry.Length > FTXTCFormat.MaxEntryBytes)
-                        throw new InvalidDataException($"FTXTC entry '{path}' exceeds the size limit.");
-                    if (entry.Length > 1024 * 1024 && entry.CompressedLength > 0 && entry.Length / entry.CompressedLength > 200)
-                        throw new InvalidDataException($"FTXTC entry '{path}' exceeds the compression-ratio limit.");
-                    if (entries.ContainsKey(path))
-                        throw new InvalidDataException($"FTXTC package contains duplicate entry '{path}'.");
-
-                    using var source = entry.Open();
-                    using var destination = new MemoryStream(entry.Length > int.MaxValue ? 0 : (int)entry.Length);
-                    var buffer = new byte[81920];
-                    int read;
-                    while ((read = source.Read(buffer, 0, buffer.Length)) > 0)
-                    {
-                        if (destination.Length + read > FTXTCFormat.MaxEntryBytes)
-                            throw new InvalidDataException($"FTXTC entry '{path}' exceeds the size limit while decompressing.");
-                        destination.Write(buffer, 0, read);
-                    }
-                    totalLength = checked(totalLength + destination.Length);
-                    if (totalLength > FTXTCFormat.MaxPackageBytes)
-                        throw new InvalidDataException("FTXTC package exceeds the uncompressed size limit.");
-                    entries.Add(path, destination.ToArray());
+                    if (output.Position + read > FTXTCFormat.MaxEntryBytes) throw new InvalidDataException($"FTXTC entry '{path}' exceeds the size limit while decompressing.");
+                    output.Write(buffer, 0, read);
                 }
+                total = checked(total + output.Position);
+                if (total > FTXTCFormat.MaxPackageBytes) throw new InvalidDataException("FTXTC package exceeds the uncompressed size limit.");
             }
-
-            if (!entries.TryGetValue(FTXTCFormat.ManifestPath, out var manifestBytes))
-                throw new InvalidDataException("FTXTC package is missing manifest.json.");
+            if (!entries.TryGetValue(FTXTCFormat.ManifestPath, out var manifestBytes)) throw new InvalidDataException("FTXTC package is missing manifest.json.");
             var manifest = FTXTCFormat.ReadJson<FtxtcManifest>(manifestBytes, FTXTCFormat.ManifestPath);
-            if (!string.Equals(manifest.Format, FTXTCFormat.FormatName, StringComparison.Ordinal))
-                throw new InvalidDataException("The ZIP package is not an FTXTC project.");
-            if (!string.Equals(manifest.Root, FTXTCFormat.ProjectPath, StringComparison.Ordinal))
-                throw new InvalidDataException("FTXTC manifest has an unsupported root document.");
+            if (manifest.Format != FTXTCFormat.FormatName || manifest.Root != FTXTCFormat.ProjectPath) throw new InvalidDataException("The ZIP package is not a supported FTXTC project.");
+            if (manifest.SchemaMajor > FTXTCFormat.SchemaMajor || manifest.SchemaMajor == FTXTCFormat.SchemaMajor && manifest.SchemaMinor > FTXTCFormat.SchemaMinor)
+                throw new NotSupportedException($"FTXTC schema {manifest.SchemaMajor}.{manifest.SchemaMinor} is newer than this application supports.");
+            if (manifest.SchemaMajor != FTXTCFormat.SchemaMajor || manifest.SchemaMinor != FTXTCFormat.SchemaMinor)
+                throw new NotSupportedException($"No FTXTC migrator is available for schema {manifest.SchemaMajor}.{manifest.SchemaMinor}.");
 
             var declared = new HashSet<string>(StringComparer.Ordinal);
             foreach (var item in manifest.Entries ?? new List<FtxtcManifestEntry>())
             {
                 var path = FTXTCFormat.NormalizeEntryPath(item.Path);
-                if (path == FTXTCFormat.ManifestPath || !declared.Add(path))
-                    throw new InvalidDataException($"FTXTC manifest declares duplicate entry '{path}'.");
-                if (!entries.TryGetValue(path, out var bytes))
-                    throw new InvalidDataException($"FTXTC package is missing declared entry '{path}'.");
-                if (bytes.LongLength != item.Length)
-                    throw new InvalidDataException($"FTXTC entry '{path}' has the wrong length.");
-                if (!string.Equals(FTXTCFormat.Sha256(bytes), item.Sha256, StringComparison.OrdinalIgnoreCase))
-                    throw new InvalidDataException($"FTXTC entry '{path}' failed its SHA-256 checksum.");
+                if (!declared.Add(path) || path == FTXTCFormat.ManifestPath) throw new InvalidDataException($"FTXTC manifest declares duplicate entry '{path}'.");
+                if (!entries.ContainsKey(path))
+                {
+                    if (path == FTXTCFormat.ProjectPath || policy == FtxtcReadPolicy.Strict) throw new InvalidDataException($"FTXTC package is missing declared entry '{path}'.");
+                    issues.Add(Issue("missing-entry", null, path, $"Declared entry '{path}' is missing."));
+                    continue;
+                }
+                var valid = entries.Length(path) == item.Length
+                    && string.Equals(entries.Sha256(path), item.Sha256, StringComparison.OrdinalIgnoreCase);
+                if (!valid)
+                {
+                    if (path == FTXTCFormat.ProjectPath || policy == FtxtcReadPolicy.Strict) throw new InvalidDataException($"FTXTC entry '{path}' failed its length or SHA-256 check.");
+                    entries.Remove(path);
+                    issues.Add(Issue("checksum-failure", null, path, $"Entry '{path}' failed authentication and was omitted."));
+                }
             }
-
-            var actual = new HashSet<string>(entries.Keys.Where(path => path != FTXTCFormat.ManifestPath), StringComparer.Ordinal);
-            if (!actual.SetEquals(declared))
+            foreach (var path in entries.Keys.Where(path => path != FTXTCFormat.ManifestPath && !declared.Contains(path)).ToList())
             {
-                var extra = actual.Except(declared).FirstOrDefault();
-                throw new InvalidDataException($"FTXTC package contains undeclared entry '{extra}'.");
+                if (policy == FtxtcReadPolicy.Strict) throw new InvalidDataException($"FTXTC package contains undeclared entry '{path}'.");
+                entries.Remove(path);
+                issues.Add(Issue("undeclared-entry", null, path, $"Undeclared safe entry '{path}' was ignored.", FtxtcIssueSeverity.Warning));
             }
-            FtxtcMigrationPipeline.MigrateToCurrent(manifest, entries);
             return entries;
+            }
+            catch
+            {
+                entries.Dispose();
+                throw;
+            }
         }
 
-        static FtxtcProject ReadProject(Dictionary<string, byte[]> entries)
+        static FtxtcProject ReadProject(IReadOnlyDictionary<string, byte[]> entries)
         {
-            if (!entries.TryGetValue(FTXTCFormat.ProjectPath, out var bytes))
-                throw new InvalidDataException("FTXTC package is missing project.json.");
-            return FTXTCFormat.ReadJson<FtxtcProject>(bytes, FTXTCFormat.ProjectPath);
+            if (!entries.TryGetValue(FTXTCFormat.ProjectPath, out var bytes)) throw new InvalidDataException("FTXTC package is missing project.json.");
+            return FtxtcStorageMigrationPipeline.MigrateToCurrent(
+                FTXTCFormat.ReadJson<FtxtcProject>(bytes, FTXTCFormat.ProjectPath));
         }
 
-        static void ValidateProjectReferences(FtxtcProject project, Dictionary<string, byte[]> entries)
+        static void ValidateRootReferences(FtxtcProject project)
         {
             if (project == null) throw new InvalidDataException("FTXTC root project is missing.");
-            var referencedEntries = new HashSet<string>(StringComparer.Ordinal) { FTXTCFormat.ProjectPath };
-            _ = DecodeSemanticGraph(project);
-            var experimentIds = new HashSet<string>(StringComparer.Ordinal);
-            foreach (var experiment in project.Experiments ?? new List<FtxtcExperimentReference>())
-            {
-                if (string.IsNullOrWhiteSpace(experiment.Id) || !experimentIds.Add(experiment.Id))
-                    throw new InvalidDataException("FTXTC project contains an empty or duplicate experiment id.");
-                Require(experiment.Metadata, entries, "experiment metadata");
-                Require(experiment.Thermogram, entries, "thermogram");
-                Require(experiment.Baseline, entries, "baseline");
-                Require(experiment.CorrectedPower, entries, "corrected trace");
-                referencedEntries.Add(FTXTCFormat.NormalizeEntryPath(experiment.Metadata));
-                referencedEntries.Add(FTXTCFormat.NormalizeEntryPath(experiment.Thermogram));
-                referencedEntries.Add(FTXTCFormat.NormalizeEntryPath(experiment.Baseline));
-                referencedEntries.Add(FTXTCFormat.NormalizeEntryPath(experiment.CorrectedPower));
-            }
-            var resultIds = new HashSet<string>(StringComparer.Ordinal);
-            foreach (var result in project.Results ?? new List<FtxtcResultReference>())
-            {
-                if (string.IsNullOrWhiteSpace(result.Id) || !resultIds.Add(result.Id))
-                    throw new InvalidDataException("FTXTC project contains an empty or duplicate result id.");
-                if (experimentIds.Contains(result.Id))
-                    throw new InvalidDataException($"FTXTC project reuses id '{result.Id}' for an experiment and a result.");
-                Require(result.Metadata, entries, "result metadata");
-                referencedEntries.Add(FTXTCFormat.NormalizeEntryPath(result.Metadata));
-                var resultState = FTXTCFormat.ReadJson<FtxtcResultState>(entries[result.Metadata], result.Metadata);
-                if (resultState.Id != result.Id || resultState.ExperimentIds.Any(id => !experimentIds.Contains(id)))
-                    throw new InvalidDataException($"FTXTC result '{result.Id}' has an invalid reference.");
-            }
-            var actualPayloadEntries = new HashSet<string>(entries.Keys.Where(path => path != FTXTCFormat.ManifestPath), StringComparer.Ordinal);
-            if (!actualPayloadEntries.SetEquals(referencedEntries))
-                throw new InvalidDataException("FTXTC project contains payload entries that are not referenced by project.json.");
+            var ids = new HashSet<string>(StringComparer.Ordinal);
+            foreach (var id in project.Experiments.Select(value => value.Id).Concat(project.Solutions.Select(value => value.Id)).Concat(project.Results.Select(value => value.Id)))
+                if (string.IsNullOrWhiteSpace(id) || !ids.Add(id)) throw new InvalidDataException($"FTXTC project contains an empty or ambiguous root id '{id}'.");
+            var experimentIds = new HashSet<string>(project.Experiments.Select(value => value.Id), StringComparer.Ordinal);
+            if (project.Solutions.Any(value => !experimentIds.Contains(value.ExperimentId))) throw new InvalidDataException("FTXTC project contains an ambiguous solution-to-experiment reference.");
         }
 
-        static void Require(string path, IReadOnlyDictionary<string, byte[]> entries, string purpose)
+        static Dictionary<string, ExperimentData> RestoreExperiments(FtxtcProject project, IReadOnlyDictionary<string, byte[]> entries,
+            FtxtcReadPolicy policy, List<FtxtcRecoveryIssue> issues)
         {
-            var normalized = FTXTCFormat.NormalizeEntryPath(path);
-            if (!entries.ContainsKey(normalized)) throw new InvalidDataException($"FTXTC project references missing {purpose} entry '{normalized}'.");
-        }
-
-        static byte[] DecodeSemanticGraph(FtxtcProject project)
-        {
-            if (project?.SemanticGraph == null
-                || !string.Equals(project.SemanticGraph.Encoding, "ftitc-semantic-v1", StringComparison.Ordinal)
-                || string.IsNullOrWhiteSpace(project.SemanticGraph.PayloadBase64))
-                throw new InvalidDataException("FTXTC project is missing a supported semantic graph.");
-            try
-            {
-                return Convert.FromBase64String(project.SemanticGraph.PayloadBase64);
-            }
-            catch (FormatException ex)
-            {
-                throw new InvalidDataException("FTXTC semantic graph is not valid base64.", ex);
-            }
-        }
-
-        static void RestoreExactExperimentState(
-            FtxtcProject project,
-            IReadOnlyDictionary<string, byte[]> entries,
-            IReadOnlyCollection<ITCDataContainer> containers)
-        {
-            var experiments = containers.OfType<ExperimentData>().ToDictionary(item => item.UniqueID, StringComparer.Ordinal);
-            if (experiments.Count != project.Experiments.Count)
-                throw new InvalidDataException("FTXTC semantic state does not match its experiment index.");
-
+            var result = new Dictionary<string, ExperimentData>(StringComparer.Ordinal);
             foreach (var reference in project.Experiments)
             {
-                if (!experiments.TryGetValue(reference.Id, out var experiment))
-                    throw new InvalidDataException($"FTXTC semantic state is missing experiment '{reference.Id}'.");
-                var metadata = FTXTCFormat.ReadJson<FtxtcExperimentState>(entries[reference.Metadata], reference.Metadata);
-                if (metadata.Id != reference.Id)
-                    throw new InvalidDataException($"FTXTC experiment metadata id does not match '{reference.Id}'.");
+                var state = TryRead<FtxtcExperimentState>(entries, reference.Metadata, reference.Id, policy, issues, "experiment-metadata");
+                if (state == null) continue;
+                try
+                {
+                    if (state.Id != reference.Id) throw new InvalidDataException("Experiment metadata id does not match project.json.");
+                    var experiment = new ExperimentData(state.FileName ?? string.Empty);
+                    experiment.SetID(state.Id); experiment.Name = state.Name; experiment.SetDate(state.Date); experiment.Comments = state.Comments;
+                    experiment.DataSourceFormat = ParseDataFormat(state.SourceFormat); experiment.Instrument = ParseInstrument(state.Instrument);
+                    experiment.CellConcentration = state.CellConcentration?.Restore() ?? new FloatWithError(double.NaN);
+                    experiment.SyringeConcentration = state.SyringeConcentration?.Restore() ?? new FloatWithError(double.NaN);
+                    experiment.CellVolume = state.CellVolume; experiment.StirringSpeed = state.StirringSpeed;
+                    experiment.FeedBackMode = ParseFeedback(state.FeedbackMode); experiment.TargetTemperature = state.TargetTemperature;
+                    experiment.MeasuredTemperature = state.MeasuredTemperature; experiment.InitialDelay = state.InitialDelay;
+                    experiment.TargetPowerDiff = state.TargetPowerDifference; experiment.AverageHeatDirection = ParseHeatDirection(state.AverageHeatDirection);
+                    experiment.Attributes.AddRange(state.Attributes.Select(RestoreAttribute));
+                    experiment.ReplaceSegments(state.Segments.Select(segment => new TandemExperimentSegment(segment.FirstInjectionId, segment.InitialCellConcentration, segment.InitialTitrantConcentration)));
+                    experiment.Injections = state.Injections.Select(injection => RestoreInjection(experiment, injection)).ToList();
+                    experiment.Include = state.Included;
 
-                experiment.DataPoints = RestoreDataPoints(entries[reference.Thermogram], reference.Thermogram);
-                experiment.BaseLineCorrectedDataPoints = RestoreDataPoints(entries[reference.CorrectedPower], reference.CorrectedPower);
-                var baseline = FtxbCodec.DecodeFloat64(entries[reference.Baseline], reference.Baseline);
-                if (experiment.Processor?.Interpolator == null && baseline.GetLength(0) != 0)
-                    throw new InvalidDataException($"FTXTC experiment '{reference.Id}' has baseline data but no interpolator.");
-                if (experiment.Processor?.Interpolator != null)
-                {
-                    experiment.Processor.Interpolator.Baseline = Enumerable.Range(0, baseline.GetLength(0))
-                        .Select(row => new Energy(new FloatWithError(baseline[row, 0], baseline[row, 1], baseline[row, 2], baseline[row, 3])))
-                        .ToList();
-                    experiment.Processor.BaselineCompleted = metadata.BaselineCompleted;
-                    if (metadata.ProcessorLocked && !experiment.Processor.IsLocked) experiment.Processor.Lock();
+                    if (entries.TryGetValue(reference.Thermogram, out var thermogram))
+                    {
+                        try { experiment.DataPoints = RestoreDataPoints(thermogram, reference.Thermogram); }
+                        catch (Exception ex)
+                        {
+                            if (policy == FtxtcReadPolicy.Strict) throw;
+                            experiment.DataPoints = new List<DataPoint>();
+                            issues.Add(Issue("thermogram-unavailable", reference.Id, reference.Thermogram,
+                                "Raw thermogram is corrupt; integrated injection data was retained. " + ex.Message, FtxtcIssueSeverity.Warning));
+                        }
+                    }
+                    else issues.Add(Issue("thermogram-unavailable", reference.Id, reference.Thermogram, "Raw thermogram is unavailable; integrated injection data was retained.", FtxtcIssueSeverity.Warning));
+                    var hasBaseline = entries.TryGetValue(reference.Baseline, out var baselineBytes);
+                    var hasCorrected = entries.TryGetValue(reference.CorrectedTrace, out var correctedBytes);
+                    RestoreProcessor(experiment, state.Processor);
+                    if (hasBaseline && hasCorrected)
+                    {
+                        try
+                        {
+                            var corrected = RestoreDataPoints(correctedBytes, reference.CorrectedTrace);
+                            RestoreBaseline(experiment, baselineBytes, reference.Baseline);
+                            experiment.BaseLineCorrectedDataPoints = corrected;
+                        }
+                        catch (Exception ex)
+                        {
+                            if (policy == FtxtcReadPolicy.Strict) throw;
+                            experiment.BaseLineCorrectedDataPoints = null;
+                            if (experiment.Processor?.Interpolator != null) experiment.Processor.Interpolator.Baseline = new List<Energy>();
+                            if (experiment.Processor != null) experiment.Processor.BaselineCompleted = false;
+                            issues.Add(Issue("processed-output-unavailable", reference.Id, reference.Baseline,
+                                "Baseline and corrected trace were discarded because a processed output is corrupt. " + ex.Message,
+                                FtxtcIssueSeverity.Warning));
+                        }
+                    }
+                    else if (state.Processor != null)
+                    {
+                        experiment.BaseLineCorrectedDataPoints = null;
+                        experiment.Processor.BaselineCompleted = false;
+                        issues.Add(Issue("processed-output-unavailable", reference.Id, !hasBaseline ? reference.Baseline : reference.CorrectedTrace,
+                            "Baseline and corrected trace were discarded because the processed pair was incomplete.", FtxtcIssueSeverity.Warning));
+                    }
+                    result.Add(reference.Id, experiment);
                 }
-                if (experiment.Processor != null)
+                catch (Exception ex)
                 {
-                    experiment.Processor.DiscardIntegratedPoints = metadata.DiscardIntegratedPoints;
-                    experiment.Processor.IntegrationLengthMode = metadata.IntegrationLengthMode;
-                    experiment.Processor.IntegrationLengthFactor = metadata.IntegrationLengthFactor;
-                    experiment.Processor.BaselineCompleted = metadata.BaselineCompleted;
-                    if (metadata.ProcessorLocked && !experiment.Processor.IsLocked) experiment.Processor.Lock();
-                }
-
-                if (experiment.Injections.Count != metadata.Injections.Count)
-                    throw new InvalidDataException($"FTXTC injection count does not match for experiment '{reference.Id}'.");
-                for (var index = 0; index < experiment.Injections.Count; index++)
-                {
-                    var injection = experiment.Injections[index];
-                    var state = metadata.Injections[index];
-                    if (injection.ID != state.Id)
-                        throw new InvalidDataException($"FTXTC injection ids do not match for experiment '{reference.Id}'.");
-                    injection.RestoreState(
-                        state.Included, state.Time, state.Volume, state.Delay, state.Duration, state.Filter,
-                        state.Temperature, state.IntegrationStartDelay, state.IntegrationEndOffset,
-                        state.ActualCellConcentration, state.ActualTitrantConcentration, state.Ratio,
-                        state.IsIntegrated, state.HeatDirection,
-                        state.RawPeakArea.Restore(), state.CorrectedPeakArea.Restore());
+                    if (policy == FtxtcReadPolicy.Strict) throw new InvalidDataException($"Could not restore experiment '{reference.Id}'.", ex);
+                    issues.Add(Issue("experiment-skipped", reference.Id, reference.Metadata, ex.Message));
                 }
             }
+            return result;
+        }
+
+        static Dictionary<string, SolutionInterface> RestoreSolutions(FtxtcProject project, IReadOnlyDictionary<string, byte[]> entries,
+            IReadOnlyDictionary<string, ExperimentData> experiments, FtxtcReadPolicy policy, List<FtxtcRecoveryIssue> issues)
+        {
+            var result = new Dictionary<string, SolutionInterface>(StringComparer.Ordinal);
+            foreach (var reference in project.Solutions)
+            {
+                if (!experiments.TryGetValue(reference.ExperimentId, out var experiment)) continue;
+                var state = TryRead<FtxtcSolutionState>(entries, reference.Metadata, reference.Id, policy, issues, "solution-metadata");
+                if (state == null) continue;
+                try
+                {
+                    if (state.Id != reference.Id || state.ExperimentId != reference.ExperimentId || state.SchemaVersion != 1 || state.ModelSchemaVersion != 1)
+                        throw new InvalidDataException("Solution identity or schema is invalid.");
+                    var model = FtxtcModelRegistry.Create(state.ModelId, experiment);
+                    model.InitializeParameters(experiment);
+                    model.ModelCloneOptions = RestoreCloneOptions(state.CloneOptions);
+                    foreach (var option in state.ModelOptions) { var restored = RestoreAttribute(option); model.ModelOptions[restored.Key] = restored; }
+                    foreach (var parameter in state.FittedParameters)
+                        model.Parameters.AddOrUpdateParameter(new Parameter(FtxtcWireIds.Parameter(parameter.Id), parameter.Value, parameter.Locked));
+                    model.ApplyModelOptions();
+                    var solution = SolutionInterface.FromModel(model, RestoreConvergence(state.Convergence));
+                    solution.SetID(state.Id); solution.UseWeightedFitting = state.Weighted; solution.ErrorMethod = ParseErrorMethod(state.ErrorMethod);
+                    model.Solution = solution;
+                    if (!string.IsNullOrWhiteSpace(reference.Bootstrap))
+                    {
+                        try { solution.SetBootstrapSolutions(RestoreBootstrap(reference, solution, entries)); }
+                        catch (Exception ex)
+                        {
+                            if (policy == FtxtcReadPolicy.Strict) throw;
+                            issues.Add(Issue("bootstrap-omitted", reference.Id, reference.Bootstrap, ex.Message, FtxtcIssueSeverity.Warning));
+                        }
+                    }
+                    solution.Parameters.Clear();
+                    foreach (var parameter in state.ReportedParameters)
+                        solution.Parameters.Add(FtxtcWireIds.Parameter(parameter.Id), parameter.Estimate.Restore());
+                    result.Add(reference.Id, solution);
+                }
+                catch (Exception ex)
+                {
+                    if (policy == FtxtcReadPolicy.Strict) throw new InvalidDataException($"Could not restore solution '{reference.Id}'.", ex);
+                    issues.Add(Issue("solution-skipped", reference.Id, reference.Metadata, ex.Message));
+                }
+            }
+            return result;
+        }
+
+        static List<SolutionInterface> RestoreBootstrap(FtxtcSolutionReference reference, SolutionInterface primary,
+            IReadOnlyDictionary<string, byte[]> entries)
+        {
+            if (!entries.TryGetValue(reference.Bootstrap, out var descriptorBytes)) throw new InvalidDataException("Bootstrap descriptor is missing.");
+            var state = FTXTCFormat.ReadJson<FtxtcBootstrapState>(descriptorBytes, reference.Bootstrap);
+            if (state.SchemaVersion != 1 || state.ReplicateIndices.Count != state.Replicates.Count) throw new InvalidDataException("Bootstrap descriptor has an invalid schema or shape.");
+            if (state.ReplicateIndices.Distinct().Count() != state.ReplicateIndices.Count) throw new InvalidDataException("Bootstrap replicate indices must be unique.");
+            var values = FtxbCodec.DecodeFloat64(Require(entries, state.ParameterValues), state.ParameterValues);
+            var locks = FtxbCodec.DecodeUInt8(Require(entries, state.ParameterLocks), state.ParameterLocks);
+            var injections = FtxbCodec.DecodeFloat64(Require(entries, state.Injections), state.Injections);
+            var includes = FtxbCodec.DecodeUInt8(Require(entries, state.InjectionIncludes), state.InjectionIncludes);
+            var rows = state.ReplicateIndices.Count;
+            if (values.GetLength(0) != rows || values.GetLength(1) != state.ParameterIds.Count
+                || locks.GetLength(0) != rows || locks.GetLength(1) != state.ParameterIds.Count
+                || injections.GetLength(0) != rows || injections.GetLength(1) != state.InjectionIds.Count * 4
+                || includes.GetLength(0) != rows || includes.GetLength(1) != state.InjectionIds.Count)
+                throw new InvalidDataException("Bootstrap matrices do not match their declared columns.");
+            var restored = new List<SolutionInterface>();
+            for (var row = 0; row < rows; row++)
+            {
+                var descriptor = state.Replicates[row];
+                var snapshot = new BootstrapModelSnapshot
+                {
+                    ReplicateIndex = state.ReplicateIndices[row], CellConcentration = descriptor.CellConcentration.Restore(),
+                    SyringeConcentration = descriptor.SyringeConcentration.Restore(), CellVolume = descriptor.CellVolume,
+                    MeasuredTemperature = descriptor.MeasuredTemperature,
+                };
+                for (var column = 0; column < state.ParameterIds.Count; column++)
+                    snapshot.Parameters.Add(new Parameter(FtxtcWireIds.Parameter(state.ParameterIds[column]), values[row, column], locks[row, column] != 0));
+                snapshot.ModelOptions.AddRange(descriptor.ModelOptions.Select(RestoreAttribute));
+                for (var column = 0; column < state.InjectionIds.Count; column++) snapshot.Injections.Add(new BootstrapInjectionSnapshot
+                {
+                    ID = state.InjectionIds[column], Include = includes[row, column] != 0, Volume = injections[row, column * 4],
+                    ActualCellConcentration = injections[row, column * 4 + 1], ActualTitrantConcentration = injections[row, column * 4 + 2],
+                    Ratio = injections[row, column * 4 + 3],
+                });
+                snapshot.Segments.AddRange(descriptor.Segments.Select(segment => new BootstrapSegmentSnapshot
+                {
+                    FirstInjectionID = segment.FirstInjectionId, InitialCellConcentration = segment.InitialCellConcentration,
+                    InitialTitrantConcentration = segment.InitialTitrantConcentration,
+                }));
+                restored.Add(snapshot.Restore(primary.Model));
+            }
+            return restored.OrderBy(item => item.BootstrapReplicateIndex).ToList();
+        }
+
+        static List<AnalysisResult> RestoreResults(FtxtcProject project, IReadOnlyDictionary<string, byte[]> entries,
+            IReadOnlyDictionary<string, SolutionInterface> solutions, FtxtcReadPolicy policy, List<FtxtcRecoveryIssue> issues)
+        {
+            var result = new List<AnalysisResult>();
+            foreach (var reference in project.Results)
+            {
+                var state = TryRead<FtxtcResultState>(entries, reference.Metadata, reference.Id, policy, issues, "result-metadata");
+                if (state == null) continue;
+                try
+                {
+                    if (state.Id != reference.Id || state.MemberSolutionIds.Count == 0
+                        || state.MemberSolutionIds.Any(id => !solutions.ContainsKey(id))) throw new InvalidDataException("Result member reference is unavailable.");
+                    var members = state.MemberSolutionIds.Select(id => solutions[id]).ToList();
+                    var model = new GlobalModel(members.Select(member => member.Model).ToList())
+                    {
+                        ModelCloneOptions = RestoreCloneOptions(state.CloneOptions), Parameters = new GlobalModelParameters(),
+                    };
+                    foreach (var member in members) model.Parameters.AddIndivdualParameter(member.Model.Parameters);
+                    foreach (var constraint in state.Constraints)
+                        model.Parameters.SetConstraintForParameter(FtxtcWireIds.Parameter(constraint.ParameterId), ParseConstraint(constraint.Constraint));
+                    foreach (var parameter in state.GlobalParameters)
+                        model.Parameters.AddorUpdateGlobalParameter(FtxtcWireIds.Parameter(parameter.Id), parameter.Value, parameter.Locked);
+                    var solver = new GlobalSolver { Model = model, ErrorEstimationMethod = state.CloneOptions == null ? ErrorEstimationMethod.None : ParseErrorMethod(state.CloneOptions.ErrorMethod), UseErrorWeightedFitting = state.Weighted };
+                    var global = new GlobalSolution(solver, members, RestoreConvergence(state.Convergence));
+                    global.SetID(state.GlobalSolutionId); model.Solution = global;
+                    var restored = new AnalysisResult(global, captureValiditySnapshot: false);
+                    restored.SetID(state.Id); restored.SetFileName(state.FileName); restored.Name = state.Name; restored.SetDate(state.Date);
+                    restored.Comments = state.Comments; restored.SetValiditySnapshot(state.Validity); restored.MarkClean();
+                    result.Add(restored);
+                }
+                catch (Exception ex)
+                {
+                    if (policy == FtxtcReadPolicy.Strict) throw new InvalidDataException($"Could not restore result '{reference.Id}'.", ex);
+                    issues.Add(Issue("result-skipped", reference.Id, reference.Metadata, ex.Message));
+                }
+            }
+            return result;
+        }
+
+        static InjectionData RestoreInjection(ExperimentData experiment, FtxtcInjectionState state)
+        {
+            var injection = new InjectionData(experiment, state.Id, state.Volume, experiment.SyringeConcentration * state.Volume, state.Included);
+            injection.RestoreState(state.Included, state.Time, state.Volume, state.Delay, state.Duration, state.Filter, state.Temperature,
+                state.IntegrationStartDelay, state.IntegrationEndOffset, state.ActualCellConcentration, state.ActualTitrantConcentration,
+                state.Ratio, state.IsIntegrated, ParseHeatDirection(state.HeatDirection), state.RawPeakArea.Restore(), state.CorrectedPeakArea.Restore());
+            return injection;
+        }
+
+        static ExperimentAttribute RestoreAttribute(FtxtcAttributeState state)
+        {
+            var value = ExperimentAttribute.FromKey(FtxtcWireIds.Attribute(state.Key));
+            value.OptionName = state.Name; value.BoolValue = state.BoolValue; value.IntValue = state.IntValue;
+            value.DoubleValue = state.DoubleValue; value.StringValue = state.StringValue;
+            value.ParameterValue = state.ParameterValue?.Restore() ?? new FloatWithError(double.NaN);
+            return value;
+        }
+
+        static void RestoreProcessor(ExperimentData experiment, FtxtcProcessorState state)
+        {
+            if (state == null) return;
+            var processor = new DataProcessor(experiment) { DiscardIntegratedPoints = state.DiscardIntegratedPoints,
+                IntegrationLengthMode = state.IntegrationLengthMode == "factor" ? InjectionData.IntegrationLengthMode.Factor : InjectionData.IntegrationLengthMode.Time,
+                IntegrationLengthFactor = state.IntegrationLengthFactor, BaselineCompleted = state.BaselineCompleted };
+            processor.InitializeBaseline(ParseProcessorType(state.Type));
+            if (processor.Interpolator is SplineInterpolator spline && state.Spline != null)
+            {
+                spline.Algorithm = ParseSplineAlgorithm(state.Spline.Algorithm); spline.PointDensity = ParseSplineDensity(state.Spline.Density);
+                spline.HandleMode = ParseSplineHandle(state.Spline.HandleMode); spline.ShowHandles = state.Spline.ShowHandles;
+                spline.AllowPointTimeDragging = state.Spline.AllowPointTimeDragging; spline.PointsPerInjection = state.Spline.PointsPerInjection;
+                spline.SetSplinePoints(state.Spline.Points.Select(point => new SplineInterpolator.SplinePoint(point.Time, point.Power, point.Id, point.Slope)
+                { Locked = point.Locked, SlopeLocked = point.SlopeLocked, Linear = point.Linear, UserDefined = point.UserDefined }).ToList());
+            }
+            else if (processor.Interpolator is PolynomialLeastSquaresInterpolator polynomial && state.Polynomial != null)
+            { polynomial.Degree = state.Polynomial.Degree; polynomial.ZLimit = state.Polynomial.ZLimit; }
+            else if (processor.Interpolator is SegmentedBaselineInterpolator segmented && state.Segmented != null)
+            {
+                segmented.Degree = state.Segmented.Degree;
+                segmented.RestoreSegments(state.Segmented.Segments.Select(segment => new SegmentedBaselineInterpolator.BaselineSegment(
+                    segment.Kind == "initial-delay" ? SegmentedBaselineInterpolator.BaselineSegmentKind.InitialDelay : SegmentedBaselineInterpolator.BaselineSegmentKind.InjectionScope,
+                    segment.InjectionId, segment.StartTime, segment.EndTime, segment.CenterTime, segment.Coefficients)));
+            }
+            else if (processor.Interpolator is AssymetricLeastSquaresInterpolator asl && state.Asl != null)
+            { asl.Iterations = state.Asl.Iterations; asl.Lambda = state.Asl.Lambda; asl.Asymmetry = state.Asl.Asymmetry; }
+            if (state.Locked) processor.Lock();
+            experiment.SetProcessor(processor);
+        }
+
+        static void RestoreBaseline(ExperimentData experiment, byte[] bytes, string path)
+        {
+            var values = FtxbCodec.DecodeFloat64(bytes, path);
+            if (values.GetLength(1) != 4) throw new InvalidDataException($"FTXTC baseline '{path}' must have four columns.");
+            if (experiment.Processor?.Interpolator == null && values.GetLength(0) != 0) throw new InvalidDataException("Baseline data has no processor interpolator.");
+            if (experiment.Processor?.Interpolator != null)
+                experiment.Processor.Interpolator.Baseline = Enumerable.Range(0, values.GetLength(0))
+                    .Select(row => new Energy(new FloatWithError(values[row, 0], values[row, 1], values[row, 2], values[row, 3]))).ToList();
         }
 
         static List<DataPoint> RestoreDataPoints(byte[] bytes, string path)
         {
             var values = FtxbCodec.DecodeFloat32(bytes, path);
-            if (values.GetLength(1) != 7)
-                throw new InvalidDataException($"FTXTC data-point entry '{path}' must have seven columns.");
-            return Enumerable.Range(0, values.GetLength(0)).Select(row => new DataPoint(
-                values[row, 0], values[row, 1], values[row, 2], values[row, 3],
-                values[row, 4], values[row, 5], values[row, 6])).ToList();
+            if (values.GetLength(1) != 7) throw new InvalidDataException($"FTXTC trace '{path}' must have seven columns.");
+            return Enumerable.Range(0, values.GetLength(0)).Select(row => new DataPoint(values[row, 0], values[row, 1], values[row, 2],
+                values[row, 3], values[row, 4], values[row, 5], values[row, 6])).ToList();
         }
+
+        static void RestoreBufferReferences(IEnumerable<ExperimentData> experiments)
+        {
+            // Attribute references are restored as stable IDs. Subscription wiring is
+            // intentionally deferred until DataManager publishes the detached graph.
+            _ = experiments;
+        }
+
+        static FtxtcRecoveryIssue Issue(string code, string id, string path, string message, FtxtcIssueSeverity severity = FtxtcIssueSeverity.Error) =>
+            new FtxtcRecoveryIssue { Code = code, Severity = severity, ComponentId = id, EntryPath = path, Message = message };
+        static T TryRead<T>(IReadOnlyDictionary<string, byte[]> entries, string path, string id, FtxtcReadPolicy policy,
+            List<FtxtcRecoveryIssue> issues, string code) where T : class
+        {
+            try
+            {
+                if (string.IsNullOrWhiteSpace(path) || !entries.TryGetValue(path, out var bytes)) throw new InvalidDataException($"Entry '{path}' is unavailable.");
+                return FTXTCFormat.ReadJson<T>(bytes, path);
+            }
+            catch (Exception ex)
+            {
+                if (policy == FtxtcReadPolicy.Strict) throw;
+                issues.Add(Issue(code, id, path, ex.Message)); return null;
+            }
+        }
+        static byte[] Require(IReadOnlyDictionary<string, byte[]> entries, string path) =>
+            entries.TryGetValue(path, out var bytes) ? bytes : throw new InvalidDataException($"Required bootstrap entry '{path}' is missing.");
+
+        static ModelCloneOptions RestoreCloneOptions(FtxtcCloneOptionsState value) => value == null ? null : new ModelCloneOptions
+        {
+            IsGlobalClone = value.IsGlobalClone, ErrorEstimationMethod = ParseErrorMethod(value.ErrorMethod),
+            IncludeConcentrationErrorsInBootstrap = value.IncludeConcentrationErrors,
+            EnableAutoConcentrationVariance = value.EnableAutoConcentrationVariance,
+            AutoConcentrationVariance = value.AutoConcentrationVariance, DiscardedDataPoint = value.DiscardedDataPoint,
+            UnlockBootstrapParameters = value.UnlockParameters,
+        };
+        static SolverConvergence RestoreConvergence(FtxtcConvergenceState value) => value == null ? null : SolverConvergence.FromSnapshot(new SolverConvergenceSnapshot
+        {
+            Algorithm = value.Algorithm == "nelder-mead" ? SolverAlgorithm.NelderMead : SolverAlgorithm.LevenbergMarquardt,
+            Termination = ParseTermination(value.Termination), ErrorEstimationOutcome = ParseErrorOutcome(value.ErrorOutcome),
+            Iterations = value.Iterations, Loss = value.Loss, TimeSeconds = value.TimeSeconds,
+            ErrorEstimationTimeSeconds = value.ErrorEstimationTimeSeconds, FailureReason = value.FailureReason,
+            ErrorEstimationSummary = value.ErrorEstimationSummary,
+        });
+
+        static ITCDataFormat ParseDataFormat(string value) => value switch { "microcal-itc200" => ITCDataFormat.ITC200, "microcal-vpitc" => ITCDataFormat.VPITC, "ftitc" => ITCDataFormat.FTITC, "ftxtc" => ITCDataFormat.FTXTC, "ta-itc" => ITCDataFormat.TAITC, "integrated-heats" => ITCDataFormat.IntegratedHeats, "peaq-itc-project" => ITCDataFormat.PEAQITCProject, "unknown" => ITCDataFormat.Unknown, _ => throw new NotSupportedException($"Unknown data format '{value}'.") };
+        static ITCInstrument ParseInstrument(string value) => value switch { "unknown" => ITCInstrument.Unknown, "microcal-itc200" => ITCInstrument.MicroCalITC200, "microcal-peaq-itc" => ITCInstrument.MalvernITC200, "microcal-vp-itc" => ITCInstrument.MicroCalVPITC, "ta-itc-standard" => ITCInstrument.TAInstrumentsITCStandard, "ta-itc-low-volume" => ITCInstrument.TAInstrumentsITCLowVolume, _ => throw new NotSupportedException($"Unknown instrument '{value}'.") };
+        static FeedbackMode ParseFeedback(string value) => value switch { "unknown" => FeedbackMode.Null, "none" => FeedbackMode.None, "low" => FeedbackMode.Low, "high" => FeedbackMode.High, _ => throw new NotSupportedException() };
+        static PeakHeatDirection ParseHeatDirection(string value) => value switch { "unknown" => PeakHeatDirection.Unknown, "exothermal" => PeakHeatDirection.Exothermal, "endothermal" => PeakHeatDirection.Endothermal, "both" => PeakHeatDirection.Both, _ => throw new NotSupportedException() };
+        static BaselineInterpolatorTypes ParseProcessorType(string value) => value switch { "none" => BaselineInterpolatorTypes.None, "spline" => BaselineInterpolatorTypes.Spline, "asl" => BaselineInterpolatorTypes.ASL, "polynomial" => BaselineInterpolatorTypes.Polynomial, "segmented" => BaselineInterpolatorTypes.Segmented, _ => throw new NotSupportedException($"Unknown processor '{value}'.") };
+        static SplineInterpolator.SplineInterpolatorAlgorithm ParseSplineAlgorithm(string value) => value switch { "smooth" => SplineInterpolator.SplineInterpolatorAlgorithm.Smooth, "handles" => SplineInterpolator.SplineInterpolatorAlgorithm.Handles, "rigid" => SplineInterpolator.SplineInterpolatorAlgorithm.Rigid, "linear" => SplineInterpolator.SplineInterpolatorAlgorithm.Linear, _ => throw new NotSupportedException() };
+        static SplineInterpolator.SplinePointDensity ParseSplineDensity(string value) => value switch { "sparse" => SplineInterpolator.SplinePointDensity.Sparse, "balanced" => SplineInterpolator.SplinePointDensity.Balanced, "dense" => SplineInterpolator.SplinePointDensity.Dense, _ => throw new NotSupportedException() };
+        static SplineInterpolator.SplineHandleMode ParseSplineHandle(string value) => value switch { "mean" => SplineInterpolator.SplineHandleMode.Mean, "median" => SplineInterpolator.SplineHandleMode.Median, "minimum-volatility" => SplineInterpolator.SplineHandleMode.MinVolatility, _ => throw new NotSupportedException() };
+        static ErrorEstimationMethod ParseErrorMethod(string value) => value switch { "none" => ErrorEstimationMethod.None, "bootstrap-residuals" => ErrorEstimationMethod.BootstrapResiduals, "leave-one-out" => ErrorEstimationMethod.LeaveOneOut, _ => throw new NotSupportedException($"Unknown error method '{value}'.") };
+        static VariableConstraint ParseConstraint(string value) => value switch { "none" => VariableConstraint.None, "temperature-dependent" => VariableConstraint.TemperatureDependent, "same-for-all" => VariableConstraint.SameForAll, _ => throw new NotSupportedException() };
+        static SolverTermination ParseTermination(string value) => value switch { "unknown" => SolverTermination.Unknown, "converged" => SolverTermination.Converged, "small-step" => SolverTermination.SmallStep, "small-gradient" => SolverTermination.SmallGradient, "reached-target" => SolverTermination.ReachedTarget, "iteration-limit" => SolverTermination.IterationLimit, "evaluation-limit" => SolverTermination.EvaluationLimit, "time-limit" => SolverTermination.TimeLimit, "cancelled" => SolverTermination.Cancelled, "invalid-values" => SolverTermination.InvalidValues, "failed" => SolverTermination.Failed, _ => throw new NotSupportedException() };
+        static ErrorEstimationOutcome ParseErrorOutcome(string value) => value switch { "none" => ErrorEstimationOutcome.None, "not-run" => ErrorEstimationOutcome.NotRun, "completed" => ErrorEstimationOutcome.Completed, "partial-failure" => ErrorEstimationOutcome.PartialFailure, "complete-failure" => ErrorEstimationOutcome.CompleteFailure, "cancelled" => ErrorEstimationOutcome.Cancelled, _ => throw new NotSupportedException() };
     }
 
     internal static class ProjectDocumentState
     {
         static string path = "";
-
         internal static event EventHandler PathChanged;
         internal static ITCDataFormat Format { get; private set; } = ITCDataFormat.FTXTC;
         internal static string Path
@@ -255,13 +569,8 @@ namespace AnalysisITC.Core.DataReaders
             get => path;
             set
             {
-                var next = value ?? "";
-                if (path == next) return;
-                path = next;
-                var extension = System.IO.Path.GetExtension(next);
-                Format = string.Equals(extension, ".ftitc", StringComparison.OrdinalIgnoreCase)
-                    ? ITCDataFormat.FTITC
-                    : ITCDataFormat.FTXTC;
+                var next = value ?? ""; if (path == next) return; path = next;
+                Format = string.Equals(System.IO.Path.GetExtension(next), ".ftitc", StringComparison.OrdinalIgnoreCase) ? ITCDataFormat.FTITC : ITCDataFormat.FTXTC;
                 PathChanged?.Invoke(null, EventArgs.Empty);
             }
         }

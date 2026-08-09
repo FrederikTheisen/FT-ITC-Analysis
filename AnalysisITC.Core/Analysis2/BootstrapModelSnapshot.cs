@@ -128,6 +128,7 @@ namespace AnalysisITC.Core.Analysis
         public double Volume { get; set; }
         public double ActualCellConcentration { get; set; }
         public double ActualTitrantConcentration { get; set; }
+        public double Ratio { get; set; } = double.NaN;
 
         public static BootstrapInjectionSnapshot Capture(InjectionData injection) => new BootstrapInjectionSnapshot
         {
@@ -136,6 +137,7 @@ namespace AnalysisITC.Core.Analysis
             Volume = injection.Volume,
             ActualCellConcentration = injection.ActualCellConcentration,
             ActualTitrantConcentration = injection.ActualTitrantConcentration,
+            Ratio = injection.Ratio,
         };
 
         public InjectionData Restore(ExperimentData data)
@@ -144,7 +146,9 @@ namespace AnalysisITC.Core.Analysis
             {
                 ActualCellConcentration = ActualCellConcentration,
                 ActualTitrantConcentration = ActualTitrantConcentration,
-                Ratio = ActualCellConcentration == 0 ? 0 : ActualTitrantConcentration / ActualCellConcentration,
+                Ratio = double.IsNaN(Ratio)
+                    ? (ActualCellConcentration == 0 ? 0 : ActualTitrantConcentration / ActualCellConcentration)
+                    : Ratio,
             };
             injection.SetPeakArea(new FloatWithError(0));
             return injection;

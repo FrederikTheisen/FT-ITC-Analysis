@@ -150,7 +150,9 @@ namespace AnalysisITC.Core.DataReaders
             }
 
             var addedData = (DataManager.SourceItems?.Count ?? 0) > initialItemCount;
-            var openedCleanProject = wasEmptyDocument && allProjectFiles && pathList.Length == 1 && addedData;
+            var openedCleanProject = wasEmptyDocument && allProjectFiles && pathList.Length == 1 && addedData
+                && GetFormat(pathList[0]) == ITCDataFormat.FTXTC
+                && !string.IsNullOrWhiteSpace(FTITCFormat.CurrentAccessedAppDocumentPath);
 
             if (openedCleanProject)
             {
@@ -192,9 +194,15 @@ namespace AnalysisITC.Core.DataReaders
                 ITCDataContainer[] recovered;
                 using (var stream = File.OpenRead(path))
                 {
-                    recovered = GetFormat(path) == ITCDataFormat.FTITC
-                        ? await FTITCReader.ReadStream(stream, interactive: true)
-                        : await FTXTCReader.ReadStream(stream, interactive: true);
+                    if (GetFormat(path) == ITCDataFormat.FTITC)
+                        recovered = await FTITCReader.ReadStream(stream, interactive: true);
+                    else
+                    {
+                        var recovery = await FTXTCReader.ReadWithRecovery(stream, FtxtcReadPolicy.RecoverUsableContent, interactive: true);
+                        recovered = recovery.Containers;
+                        foreach (var issue in recovery.Issues)
+                            AppEventHandler.PrintAndLog($"FTXTC recovery [{issue.Code}] {issue.Message}");
+                    }
                 }
 
                 using (DocumentDirtyTracker.RestoreDocument())
