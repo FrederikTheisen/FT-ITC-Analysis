@@ -44,7 +44,11 @@ namespace AnalysisITC.Core.Viewer
                 var parseWarnings = new List<string>();
                 ITCDataContainer[] containers;
                 if (format == ViewerFileFormat.Ftxtc)
-                    containers = await FTXTCReader.ReadStream(buffer, interactive: false);
+                {
+                    var recovered = await FTXTCReader.ReadWithRecovery(buffer, FtxtcReadPolicy.RecoverUsableContent, interactive: false);
+                    containers = recovered.Containers;
+                    parseWarnings.AddRange(recovered.Issues.Select(issue => issue.Message));
+                }
                 else if (format == ViewerFileFormat.Ftitc)
                     containers = await FTITCReader.ReadStream(buffer, interactive: false);
                 else

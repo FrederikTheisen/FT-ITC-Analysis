@@ -2,6 +2,10 @@ using System.Net;
 using System.Net.Http.Json;
 using System.Text;
 using System.Text.Json;
+using AnalysisITC.Core.Analysis.Models;
+using AnalysisITC.Core.Data;
+using AnalysisITC.Core.DataReaders;
+using AnalysisITC.Core.Export;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Xunit;
 
@@ -9,15 +13,47 @@ namespace AnalysisITC.Web.Tests;
 
 public sealed class ViewerUploadTests : IClassFixture<WebApplicationFactory<Program>>
 {
+    readonly WebApplicationFactory<Program> factory;
     readonly HttpClient client;
 
     public ViewerUploadTests(WebApplicationFactory<Program> factory)
     {
+        this.factory = factory;
         client = factory.CreateClient(new WebApplicationFactoryClientOptions
         {
             AllowAutoRedirect = false,
+            BaseAddress = new Uri("https://localhost"),
             HandleCookies = true,
         });
+    }
+
+    [Fact]
+    public async Task DevelopmentAntiforgeryTokenSupportsLocalHttp()
+    {
+        using var httpClient = factory.CreateClient(new WebApplicationFactoryClientOptions
+        {
+            AllowAutoRedirect = false,
+            BaseAddress = new Uri("http://localhost"),
+            HandleCookies = true,
+        });
+
+        var response = await httpClient.GetAsync("/api/viewer/token");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var cookie = Assert.Single(response.Headers.GetValues("Set-Cookie"));
+        Assert.DoesNotContain("secure", cookie, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task AntiforgeryCookieIsRestrictedToHttps()
+    {
+        var response = await client.GetAsync("/api/viewer/token");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var cookie = Assert.Single(response.Headers.GetValues("Set-Cookie"));
+        Assert.Contains("httponly", cookie, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("samesite=strict", cookie, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("secure", cookie, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
@@ -28,7 +64,7 @@ public sealed class ViewerUploadTests : IClassFixture<WebApplicationFactory<Prog
         var script = await client.GetStringAsync("/app.js");
 
         Assert.True(page.Headers.CacheControl?.NoStore);
-        Assert.Equal("2026.08.05-bootstrap-band.2", page.Headers.GetValues("X-FTITC-Viewer-Build").Single());
+        Assert.Equal("2026.08.09-ftxtc.2", page.Headers.GetValues("X-FTITC-Viewer-Build").Single());
         Assert.Contains("id=\"experiment-list\"", html);
         Assert.Contains("id=\"result-list\"", html);
         Assert.DoesNotContain("id=\"experiment-select\"", html);
@@ -57,12 +93,14 @@ public sealed class ViewerUploadTests : IClassFixture<WebApplicationFactory<Prog
         Assert.Contains("Bootstrap interval unavailable", script);
         Assert.Contains("connectgaps: false", script);
         Assert.Contains("result-evaluation-temperature", html);
-        Assert.Contains("2026.08.05-bootstrap-band.2", html);
-        Assert.Contains("app.js?v=2026.08.05-bootstrap-band.2", html);
+        Assert.Contains("2026.08.09-ftxtc.2", html);
+        Assert.Contains("app.js?v=2026.08.09-ftxtc.2", html);
         Assert.Contains("class=\"brand-mark\" src=\"/assets/ft-itc-icon-64.png", html);
         Assert.Contains("rel=\"icon\" type=\"image/png\"", html);
         Assert.Contains("rel=\"apple-touch-icon\"", html);
-        Assert.Contains("const viewerBuild = \"2026.08.05-bootstrap-band.2\"", script);
+        Assert.Contains("const viewerBuild = \"2026.08.09-ftxtc.2\"", script);
+        Assert.Contains("roundTemperatureToHalf", script);
+        Assert.Contains(".ftxtc", script);
         Assert.Contains("buildConfidenceBand", script);
         Assert.Contains("formatParameterNumber", script);
         Assert.Contains("95% bootstrap confidence", script);
@@ -174,6 +212,33 @@ public sealed class ViewerUploadTests : IClassFixture<WebApplicationFactory<Prog
     }
 
     [Fact]
+    public async Task OpensNativeFtxtcProjectThroughUploadEndpoint()
+    {
+        using var source = File.OpenRead(Fixture("data.ftitc"));
+        var containers = await FTITCReader.ReadStream(source);
+        using var package = new MemoryStream();
+        await FTXTCWriter.WriteStream(
+            package,
+            containers.OfType<ExperimentData>(),
+            containers.OfType<AnalysisResult>());
+        package.Position = 0;
+
+        var token = await Token();
+        using var content = UploadContent("native-project.ftxtc", package);
+        using var request = new HttpRequestMessage(HttpMethod.Post, "/api/viewer/open") { Content = content };
+        request.Headers.Add("X-CSRF-TOKEN", token);
+
+        using var response = await client.SendAsync(request);
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        using var json = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+        var root = json.RootElement;
+        Assert.Equal("ftxtc", root.GetProperty("format").GetString());
+        Assert.Equal(3, root.GetProperty("experiments").GetArrayLength());
+        Assert.True(root.GetProperty("experiments")[0].GetProperty("raw").GetProperty("timeSeconds").GetArrayLength() > 100);
+        Assert.True(root.GetProperty("analysisResults").GetArrayLength() > 0);
+    }
+
+    [Fact]
     public async Task UploadReturnsCompleteResolvableAnalysisResultReferences()
     {
         using var json = await UploadAndReadJson("jors.ftitc");
@@ -235,6 +300,7 @@ public sealed class ViewerUploadTests : IClassFixture<WebApplicationFactory<Prog
 
     [Theory]
     [InlineData("sample.txt", "$ITC\n", HttpStatusCode.UnsupportedMediaType, "unsupported_extension")]
+    [InlineData("sample.ftxtc", "$ITC\n", HttpStatusCode.BadRequest, "format_mismatch")]
     [InlineData("sample.ftitc", "$ITC\n", HttpStatusCode.BadRequest, "format_mismatch")]
     [InlineData("sample.ftitc", "FTITCVersion:1.1\nFILE:Experiment:broken.itc\nLIST:InjectionList\nbroken\n", HttpStatusCode.BadRequest, "malformed_file")]
     public async Task RejectsUnsupportedMismatchedAndMalformedFiles(string fileName, string body, HttpStatusCode status, string code)

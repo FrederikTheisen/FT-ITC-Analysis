@@ -1,4 +1,4 @@
-const viewerBuild = "2026.08.05-bootstrap-band.2";
+const viewerBuild = "2026.08.09-ftxtc.2";
 document.documentElement.dataset.viewerBuild = viewerBuild;
 
 const state = {
@@ -27,7 +27,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
 function bindEvents() {
   $("file-input").addEventListener("change", (event) => {
-    $("file-label").textContent = event.target.files[0]?.name || "Choose a .ftitc or .itc file";
+    $("file-label").textContent = event.target.files[0]?.name || "Select an .ftxtc file";
   });
   $("upload-form").addEventListener("submit", openFile);
   $("new-file-button").addEventListener("click", resetViewer);
@@ -59,7 +59,7 @@ async function refreshToken() {
 async function openFile(event) {
   event.preventDefault();
   const file = $("file-input").files[0];
-  if (!file) return showError("Choose a .ftitc or .itc file.");
+  if (!file) return showError("Choose a .ftxtc, .ftitc, or .itc file.");
   if (file.size > 50 * 1024 * 1024) return showError("The selected file is larger than 50 MB.");
 
   const button = $("open-button");
@@ -113,7 +113,7 @@ function resetViewer() {
   $("viewer").hidden = true;
   $("upload-panel").hidden = false;
   $("upload-form").reset();
-  $("file-label").textContent = "Choose a .ftitc or .itc file";
+  $("file-label").textContent = "Choose a .ftxtc, .ftitc, or .itc file";
   ["plot", "result-comparison-plot", "result-fit-plot"].forEach((id) => window.Plotly?.purge?.($(id)));
 }
 
@@ -431,7 +431,7 @@ function renderTemperatureParameterEvaluation(result) {
   if (card.hidden) return;
 
   if (!Number.isFinite(state.resultEvaluationTemperature))
-    state.resultEvaluationTemperature = evaluation.defaultTemperatureCelsius;
+    state.resultEvaluationTemperature = roundTemperatureToHalf(evaluation.defaultTemperatureCelsius);
   input.value = formatInputNumber(state.resultEvaluationTemperature);
   const range = evaluation.minimumTemperatureCelsius != null && evaluation.maximumTemperatureCelsius != null
     ? `Saved experiments span ${formatNumber(evaluation.minimumTemperatureCelsius, " °C")} to ${formatNumber(evaluation.maximumTemperatureCelsius, " °C")}.`
@@ -853,6 +853,10 @@ function formatParameterInterval(lower, upper, sd, unit = "") {
   return `${formatParameterNumber(lower, sd)} – ${formatParameterNumber(upper, sd)}${suffix}`;
 }
 function formatInputNumber(value) { return Number.isFinite(Number(value)) ? String(Number(value)) : ""; }
+function roundTemperatureToHalf(value) {
+  const numeric = Number(value);
+  return Number.isFinite(numeric) ? Math.round(numeric * 2) / 2 : value;
+}
 function formatDate(value) {
   if (!value) return "Unavailable";
   const date = new Date(value);

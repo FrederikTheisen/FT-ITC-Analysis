@@ -4,34 +4,34 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="color-scheme" content="light">
-  <meta name="ftitc-viewer-build" content="2026.08.05-bootstrap-band.2">
+  <meta name="ftitc-viewer-build" content="2026.08.09-ftxtc.2">
   <title>FT-ITC Analysis Viewer</title>
-  <link rel="icon" type="image/png" sizes="32x32" href="/assets/ft-itc-icon-32.png?v=2026.08.05-bootstrap-band.2">
-  <link rel="apple-touch-icon" sizes="256x256" href="/assets/ft-itc-icon-256.png?v=2026.08.05-bootstrap-band.2">
-  <link rel="stylesheet" href="/styles.css?v=2026.08.05-bootstrap-band.2">
+  <link rel="icon" type="image/png" sizes="32x32" href="/assets/ft-itc-icon-32.png?v=2026.08.09-ftxtc.2">
+  <link rel="apple-touch-icon" sizes="256x256" href="/assets/ft-itc-icon-256.png?v=2026.08.09-ftxtc.2">
+  <link rel="stylesheet" href="/styles.css?v=2026.08.09-ftxtc.2">
   <script src="/vendor/viewer-charts-2.35.3.min.js"></script>
-  <script src="/app.js?v=2026.08.05-bootstrap-band.2" defer></script>
+  <script src="/app.js?v=2026.08.09-ftxtc.2" defer></script>
 </head>
 <body>
   <header class="site-header">
     <a class="brand" href="/" aria-label="FT-ITC Analysis home">
-      <img class="brand-mark" src="/assets/ft-itc-icon-64.png?v=2026.08.05-bootstrap-band.2" width="32" height="32" alt="">
-      <span>FT-ITC Analysis</span>
+      <img class="brand-mark" src="/assets/ft-itc-icon-64.png?v=2026.08.09-ftxtc.2" width="32" height="32" alt="">
+      <span>FT-ITC Viewer</span>
     </a>
-    <span class="product-label">Read-only viewer · build 2026.08.05-bootstrap-band.2</span>
+    <span class="product-label">Read-only viewer · build 2026.08.09-ftxtc.2</span>
   </header>
 
   <main>
     <section id="upload-panel" class="upload-panel">
       <div>
         <p class="eyebrow">Inspect an experiment</p>
-        <h1>Open an ITC data file</h1>
-        <p class="lede">View thermograms, integrations, processing, and saved fits without changing the source file.</p>
+        <h1>Open an FT-ITC Analysis project file</h1>
+        <p class="lede">View thermograms, integrations, processing, and saved fits without installing the desktop application.</p>
       </div>
       <form id="upload-form" enctype="multipart/form-data">
         <label class="file-picker" for="file-input">
-          <span id="file-label">Choose a .ftitc or .itc file</span>
-          <input id="file-input" name="file" type="file" accept=".ftitc,.itc" required>
+          <span id="file-label">Select an .ftxtc file</span>
+          <input id="file-input" name="file" type="file" accept=".ftxtc,.ftitc,.itc" required>
         </label>
         <button id="open-button" type="submit">Open file</button>
         <p class="upload-note">Maximum file size: 50 MB. Files are parsed in memory and are not stored.</p>
