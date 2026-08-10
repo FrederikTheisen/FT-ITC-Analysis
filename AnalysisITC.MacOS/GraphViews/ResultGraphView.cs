@@ -227,12 +227,18 @@ namespace AnalysisITC
 
         void DrawSelectedFitEmptyState()
         {
+            var paragraph = new NSMutableParagraphStyle
+            {
+                Alignment = NSTextAlignment.Center,
+                LineBreakMode = NSLineBreakMode.ByWordWrapping,
+            };
             var title = new NSAttributedString(
                 "No experiment selected",
                 new NSStringAttributes
                 {
                     Font = NSFont.SystemFontOfSize(NSFont.SystemFontSize, NSFontWeight.Semibold),
                     ForegroundColor = NSColor.SecondaryLabel,
+                    ParagraphStyle = paragraph,
                 });
             var message = new NSAttributedString(
                 "Select an experiment in the result table or an overview graph to inspect its saved fit.",
@@ -240,12 +246,33 @@ namespace AnalysisITC
                 {
                     Font = NSFont.SystemFontOfSize(NSFont.SmallSystemFontSize),
                     ForegroundColor = NSColor.SecondaryLabel,
+                    ParagraphStyle = paragraph,
                 });
 
-            var x = Bounds.GetMidX() - Math.Max(title.Size.Width, message.Size.Width) / 2;
-            var y = Bounds.GetMidY();
-            title.DrawString(new CGPoint(x, y + 4));
-            message.DrawString(new CGPoint(x, y - message.Size.Height - 6));
+            nfloat horizontalInset = 24;
+            nfloat spacing = 6;
+            var contentWidth = Math.Max(1, Bounds.Width - 2 * horizontalInset);
+            var drawingOptions = NSStringDrawingOptions.UsesLineFragmentOrigin
+                | NSStringDrawingOptions.UsesFontLeading;
+            var titleBounds = title.BoundingRectWithSize(
+                new CGSize(contentWidth, nfloat.MaxValue),
+                drawingOptions);
+            var messageBounds = message.BoundingRectWithSize(
+                new CGSize(contentWidth, nfloat.MaxValue),
+                drawingOptions);
+            var contentHeight = titleBounds.Height + spacing + messageBounds.Height;
+            var messageY = Math.Max(0, Bounds.GetMidY() - contentHeight / 2);
+
+            message.DrawString(new CGRect(
+                horizontalInset,
+                messageY,
+                contentWidth,
+                messageBounds.Height));
+            title.DrawString(new CGRect(
+                horizontalInset,
+                messageY + messageBounds.Height + spacing,
+                contentWidth,
+                titleBounds.Height));
         }
 
         new public void Print()
