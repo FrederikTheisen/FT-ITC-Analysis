@@ -369,6 +369,11 @@ namespace AnalysisITC.Avalonia.Results
         {
             if (isUpdatingSelection) return;
 
+            RefreshSolutionSelectionPresentation();
+        }
+
+        void RefreshSolutionSelectionPresentation()
+        {
             RefreshTable();
             RefreshSelectedFitGraph();
             graph.InvalidateVisual();
@@ -852,30 +857,27 @@ namespace AnalysisITC.Avalonia.Results
             }));
         }
 
-        Task RunTemperatureAnalysisAsync()
+        async Task RunTemperatureAnalysisAsync()
         {
-            if (result?.SpolarRecordAnalysis == null || isRunningAdvancedAnalysis) return Task.CompletedTask;
+            if (result?.SpolarRecordAnalysis == null || isRunningAdvancedAnalysis) return;
 
             result.SpolarRecordAnalysis.FoldedMode = selectedSrFoldedMode;
             result.SpolarRecordAnalysis.TempMode = selectedSrTemperatureMode;
-            result.SpolarRecordAnalysis.PerformAnalysis();
-            return Task.CompletedTask;
+            await result.SpolarRecordAnalysis.PerformAnalysisAsync();
         }
 
-        Task RunSaltAnalysisAsync()
+        async Task RunSaltAnalysisAsync()
         {
-            if (result?.ElectrostaticsAnalysis == null || isRunningAdvancedAnalysis) return Task.CompletedTask;
+            if (result?.ElectrostaticsAnalysis == null || isRunningAdvancedAnalysis) return;
 
-            result.ElectrostaticsAnalysis.PerformAnalysis();
-            return Task.CompletedTask;
+            await result.ElectrostaticsAnalysis.PerformAnalysisAsync();
         }
 
-        Task RunProtonationAnalysisAsync()
+        async Task RunProtonationAnalysisAsync()
         {
-            if (result?.ProtonationAnalysis == null || isRunningAdvancedAnalysis) return Task.CompletedTask;
+            if (result?.ProtonationAnalysis == null || isRunningAdvancedAnalysis) return;
 
-            result.ProtonationAnalysis.PerformAnalysis();
-            return Task.CompletedTask;
+            await result.ProtonationAnalysis.PerformAnalysisAsync();
         }
 
         void RefreshTable()
@@ -995,8 +997,7 @@ namespace AnalysisITC.Avalonia.Results
                     isUpdatingSelection = true;
                     DataManager.SelectResultSolution(solution);
                     isUpdatingSelection = false;
-                    RefreshTable();
-                    graph.InvalidateVisual();
+                    RefreshSolutionSelectionPresentation();
                     StatusChanged?.Invoke(this, solution.Data?.Name ?? "Solution selected");
                     e.Handled = true;
                 };
