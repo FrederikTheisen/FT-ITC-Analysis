@@ -665,6 +665,24 @@
                 }
             ],
             "mixture": null
+        },
+        {
+            "id": "imidazole",
+            "enum": "Imidazole",
+            "legacyEnum": 35,
+            "name": "Imidazole",
+            "aliases": [ "Imidazole" ],
+            "pKa": [ 6.993 ],
+            "dPka_dT": [ -0.0215 ],
+            "acidCharge": [ 1 ],
+            "description": "Imidazole buffer",
+            "thermoSteps": [
+                {
+                    "dH298_Jmol": 36640.0,
+                    "dCp_JmolK": -0.009
+                }
+            ],
+            "mixture": null
         }
     ]
 }
