@@ -436,6 +436,17 @@ namespace AnalysisITC.Avalonia.Processing
             isZoomDragging = false;
             e.Pointer.Capture(null);
 
+            if (!CanEditProcessing && (wasIntegrationDrag || wasSplineDrag))
+            {
+                dragTarget = HitTarget.None;
+                integrationDragActivated = false;
+                integrationDragChanged = false;
+                Cursor = new Cursor(StandardCursorType.Cross);
+                InvalidateVisual();
+                e.Handled = true;
+                return;
+            }
+
             if (wasIntegrationDrag)
             {
                 if (integrationDragActivated && integrationDragChanged)

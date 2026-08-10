@@ -61,6 +61,7 @@ namespace AnalysisITC
         static NSCursor SplinePointMoveCursor => splinePointMoveCursor ??= CreateSplinePointMoveCursor();
         static NSCursor SplinePointVerticalMoveCursor => splinePointVerticalMoveCursor ??= CreateSplinePointVerticalMoveCursor();
         static NSCursor ZoomDragCursor => zoomDragCursor ??= CreateZoomDragCursor();
+        bool CanEditProcessing => Data?.Processor?.IsLocked == false;
 
         bool ShowBaselineCorrected
         {
@@ -134,7 +135,7 @@ namespace AnalysisITC
             switch ((NSKey)theEvent.KeyCode)
             {
                 case NSKey.Space:
-                    if (SelectedPeak != -1 && IsInjectionZoomed)
+                    if (CanEditProcessing && SelectedPeak != -1 && IsInjectionZoomed)
                     {
                         Console.WriteLine("Copying integration length...");
                         var startDelay = Data.Injections[SelectedPeak].IntegrationStartDelay;
@@ -343,6 +344,8 @@ namespace AnalysisITC
             if (Graph == null) return;
 
             var b = Graph.CursorFeatureFromPos(CursorPositionInView);
+            if (!CanEditProcessing && IsProcessingEditFeature(b))
+                b = new MouseOverFeatureEvent();
             var update = Graph.SetCursorInfo(CursorPositionInView);
             var hoverChanged = Graph.SetHoverFeature(b);
 
@@ -365,7 +368,9 @@ namespace AnalysisITC
             if (Data == null) return;
             if (Graph == null) return;
 
-            SelectedFeature = Graph.CursorFeatureFromPos(CursorPositionInView, true);
+            SelectedFeature = CanEditProcessing
+                ? Graph.CursorFeatureFromPos(CursorPositionInView, true)
+                : MouseOverFeatureEvent.MouseDragZoom(Graph, CursorPositionInView);
 
             if (SelectedFeature.Type == MouseOverFeatureEvent.FeatureType.DragZoom)
                 ZoomDragCursor.Set();
@@ -377,6 +382,7 @@ namespace AnalysisITC
 
             if (Data == null) return;
             if (Graph == null) return;
+            if (!CanEditProcessing) return;
 
             var feature = Graph.CursorFeatureFromPos(CursorPositionInView);
 
@@ -388,16 +394,32 @@ namespace AnalysisITC
 
                     NSMenu menu = new NSMenu("Spline Point Options");
                     if (splinePoint.Locked)
-                        menu.AddItem(new NSMenuItem("Unlock", (s, e) => { splinePoint.Unlock(); splinePoint.UnlockSlope(); _ = Data.Processor.ProcessData(); }));
+                        menu.AddItem(new NSMenuItem("Unlock", (s, e) =>
+                        {
+                            if (!CanEditProcessing) return;
+                            splinePoint.Unlock();
+                            splinePoint.UnlockSlope();
+                            _ = Data.Processor.ProcessData();
+                        }));
                     else
-                        menu.AddItem(new NSMenuItem("Lock", (s, e) => { splinePoint.Lock(); _ = Data.Processor.ProcessData(false); }));
+                        menu.AddItem(new NSMenuItem("Lock", (s, e) =>
+                        {
+                            if (!CanEditProcessing) return;
+                            splinePoint.Lock();
+                            _ = Data.Processor.ProcessData(false);
+                        }));
                     menu.AddItem(new NSMenuItem(splinePoint.Linear ? "Unmark Linear" : "Mark Linear", (s, e) =>
                     {
+                        if (!CanEditProcessing) return;
                         splinePoint.Linear = !splinePoint.Linear;
                         if (splinePoint.Linear) splinePoint.Lock();
                         _ = Data.Processor.ProcessData(false);
                     }));
-                    menu.AddItem(new NSMenuItem("Remove", (s, e) => { Data.Processor.Interpolator.SplineInterpolator.RemoveSplinePoint(feature.FeatureID); }));
+                    menu.AddItem(new NSMenuItem("Remove", (s, e) =>
+                    {
+                        if (!CanEditProcessing) return;
+                        Data.Processor.Interpolator.SplineInterpolator.RemoveSplinePoint(feature.FeatureID);
+                    }));
                     WillOpenMenu(menu, theEvent);
 
                     NSMenu.PopUpContextMenu(menu, theEvent, this);
@@ -410,8 +432,16 @@ namespace AnalysisITC
 
                 NSMenu menu = new NSMenu("New Spline Point");
                 menu.AddItem(new NSMenuItem("New Spline Point..."));
-                menu.AddItem(new NSMenuItem("at data", (s, e) => { (Data.Processor.Interpolator as SplineInterpolator).InsertSplinePoint(time, true); }) { IndentationLevel = 1 });
-                menu.AddItem(new NSMenuItem("at baseline", (s, e) => { (Data.Processor.Interpolator as SplineInterpolator).InsertSplinePoint(time, false); }) { IndentationLevel = 1 });
+                menu.AddItem(new NSMenuItem("at data", (s, e) =>
+                {
+                    if (!CanEditProcessing) return;
+                    (Data.Processor.Interpolator as SplineInterpolator).InsertSplinePoint(time, true);
+                }) { IndentationLevel = 1 });
+                menu.AddItem(new NSMenuItem("at baseline", (s, e) =>
+                {
+                    if (!CanEditProcessing) return;
+                    (Data.Processor.Interpolator as SplineInterpolator).InsertSplinePoint(time, false);
+                }) { IndentationLevel = 1 });
                 NSMenu.PopUpContextMenu(menu, theEvent, this);
             }
         }
@@ -422,6 +452,7 @@ namespace AnalysisITC
 
             if (Graph == null) return;
             if (SelectedFeature == null) return;
+            if (!CanEditProcessing && IsProcessingEditFeature(SelectedFeature)) return;
 
             var position = CursorPositionInView;
 
@@ -513,6 +544,13 @@ namespace AnalysisITC
             base.MouseUp(theEvent);
 
             if (Graph == null) return;
+            if (!CanEditProcessing && IsProcessingEditFeature(SelectedFeature))
+            {
+                SelectedFeature = null;
+                ZoomSelectionBox.Hidden = true;
+                NSCursor.ArrowCursor.Set();
+                return;
+            }
 
             if (MouseDidDrag)
             {
@@ -535,6 +573,8 @@ namespace AnalysisITC
                 if (Data == null) return;
 
                 var b = Graph.CursorFeatureFromPos(CursorPositionInView);
+                if (!CanEditProcessing && IsProcessingEditFeature(b))
+                    b = new MouseOverFeatureEvent();
                 Graph.SetHoverFeature(b);
 
                 if (b.IsMouseOverFeature)
@@ -601,6 +641,11 @@ namespace AnalysisITC
             else
                 SplinePointVerticalMoveCursor.Set();
         }
+
+        static bool IsProcessingEditFeature(MouseOverFeatureEvent feature) =>
+            feature?.Type == MouseOverFeatureEvent.FeatureType.BaselineSplinePoint
+            || feature?.Type == MouseOverFeatureEvent.FeatureType.BaselineSplineHandle
+            || feature?.Type == MouseOverFeatureEvent.FeatureType.IntegrationRangeMarker;
 
         static NSCursor CreateSplinePointMoveCursor() => CreateSplinePointCursor(includeHorizontalArrows: true);
 

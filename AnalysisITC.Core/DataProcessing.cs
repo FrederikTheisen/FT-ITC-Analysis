@@ -26,11 +26,15 @@ namespace AnalysisITC.Core.Processing
         public static event EventHandler ProcessingCompleted;
 
         internal ExperimentData Data { get; set; }
-        public bool IsLocked { get; private set; } = false;
+        int lockState;
+        public bool IsLocked => Volatile.Read(ref lockState) != 0;
 
         CancellationToken cToken { get; set; }
         CancellationTokenSource csource = new CancellationTokenSource();
         readonly SemaphoreSlim processingGate = new SemaphoreSlim(1, 1);
+        readonly AsyncLocal<int> processingAdmissionDepth = new AsyncLocal<int>();
+
+        internal bool HasProcessingAdmission => processingAdmissionDepth.Value > 0;
 
         internal Func<IReadOnlyList<DataPoint>, float[]> PeakEndOffsetEstimator { get; set; }
 
@@ -94,11 +98,13 @@ namespace AnalysisITC.Core.Processing
 
         public async Task ProcessData(bool replace = true, bool invalidate = true, bool showProgress = true)
         {
-            if (BaselineType == BaselineInterpolatorTypes.None) return;
+            if (IsLocked || BaselineType == BaselineInterpolatorTypes.None) return;
 
             await processingGate.WaitAsync();
             try
             {
+                if (IsLocked) return;
+                using var admission = BeginProcessingAdmission();
                 await ProcessDataCore(replace, invalidate, showProgress);
             }
             finally
@@ -112,10 +118,10 @@ namespace AnalysisITC.Core.Processing
 
             if (showProgress) StatusBarManager.StartInderminateProgress();
 
-            this.WillProcessData(invalidate);
-            await this.InterpolateBaseline(replace);
-            this.IntegratePeaks(invalidate);
-            this.DidProcessData(invalidate);
+            WillProcessDataCore(invalidate);
+            await InterpolateBaselineCore(replace, notify: true, throwOnError: false);
+            IntegratePeaksCore(invalidate, notify: true);
+            DidProcessDataCore(invalidate);
 
             if (showProgress) StatusBarManager.StopIndeterminateProgress();
         }
@@ -125,6 +131,9 @@ namespace AnalysisITC.Core.Processing
             bool invalidate = true,
             bool showProgress = true)
         {
+            if (IsLocked)
+                return new PeakFitResult(PeakFitStatus.Locked, 0, false);
+
             var requestTimer = Stopwatch.StartNew();
             var gateTimer = Stopwatch.StartNew();
             var gateWaitMilliseconds = 0d;
@@ -133,6 +142,7 @@ namespace AnalysisITC.Core.Processing
             PeakFitResult result = null;
             var targets = targetInjections?.ToArray();
             var targetCount = targets?.Length ?? Data?.Injections?.Count ?? 0;
+            var admitted = false;
             ReportPeakFitProgress(
                 showProgress,
                 "Waiting to fit injection peaks...",
@@ -143,6 +153,11 @@ namespace AnalysisITC.Core.Processing
             gateWaitMilliseconds = gateTimer.Elapsed.TotalMilliseconds;
             try
             {
+                if (IsLocked)
+                    return new PeakFitResult(PeakFitStatus.Locked, 0, false);
+
+                admitted = true;
+                using var admission = BeginProcessingAdmission();
                 ReportPeakFitProgress(
                     showProgress,
                     "Preparing injection peak fitting...",
@@ -157,7 +172,7 @@ namespace AnalysisITC.Core.Processing
 
                 var publicationTimer = Stopwatch.StartNew();
                 if (result.Status != PeakFitStatus.NoData)
-                    DidProcessData(invalidate);
+                    DidProcessDataCore(invalidate);
                 publicationMilliseconds = publicationTimer.Elapsed.TotalMilliseconds;
 
                 return result;
@@ -171,7 +186,8 @@ namespace AnalysisITC.Core.Processing
                     $"publication={FormatPeakFitMilliseconds(publicationMilliseconds)}, " +
                     $"requestTotal={FormatPeakFitMilliseconds(requestTimer.Elapsed.TotalMilliseconds)}.");
                 processingGate.Release();
-                CompletePeakFitProgress(showProgress, result);
+                if (admitted)
+                    CompletePeakFitProgress(showProgress, result);
             }
         }
 
@@ -234,7 +250,7 @@ namespace AnalysisITC.Core.Processing
                 {
                     correctedTraceSource = "new baseline interpolation";
                     LogPeakFit("Corrected trace is missing; calculating the baseline before detection.", 1);
-                    await InterpolateBaseline(replace: true, notify: false, throwOnError: true);
+                    await InterpolateBaselineCore(replace: true, notify: false, throwOnError: true);
                 }
 
                 if (!HasValidCorrectedTrace())
@@ -306,7 +322,7 @@ namespace AnalysisITC.Core.Processing
                                 $"Pass {iterations}/{PeakFitPassCount}: recalculating the baseline for the candidate regions.",
                                 1);
                             baselineTimer = Stopwatch.StartNew();
-                            await InterpolateBaseline(
+                            await InterpolateBaselineCore(
                                 replace: true,
                                 notify: false,
                                 throwOnError: true);
@@ -342,7 +358,7 @@ namespace AnalysisITC.Core.Processing
                         0.85);
                     LogPeakFit("Recalculating the final baseline for the committed regions.", 1);
                     finalBaselineTimer = Stopwatch.StartNew();
-                    await InterpolateBaseline(
+                    await InterpolateBaselineCore(
                         replace: true,
                         notify: false,
                         throwOnError: true);
@@ -361,7 +377,7 @@ namespace AnalysisITC.Core.Processing
                     0.95);
                 var integrationTimer = Stopwatch.StartNew();
                 if (HasValidCorrectedTrace())
-                    IntegratePeaks(invalidate: false, notify: false);
+                    IntegratePeaksCore(invalidate: false, notify: false);
                 LogPeakFitTiming("final integration", integrationTimer);
 
                 var regionsChanged = !finalState.HasSameOffsets(original);
@@ -390,7 +406,7 @@ namespace AnalysisITC.Core.Processing
                 ApplyPeakFitState(original);
                 if (CanRefitBaseline())
                 {
-                    await InterpolateBaseline(
+                    await InterpolateBaselineCore(
                         replace: true,
                         notify: false,
                         throwOnError: false);
@@ -401,7 +417,7 @@ namespace AnalysisITC.Core.Processing
                 }
 
                 if (HasValidCorrectedTrace())
-                    IntegratePeaks(invalidate: false, notify: false);
+                    IntegratePeaksCore(invalidate: false, notify: false);
 
                 LogPeakFit($"Failure rollback complete: endpoints={FormatPeakFitState(original, targetIndices)}.");
                 LogPeakFit(
@@ -441,16 +457,17 @@ namespace AnalysisITC.Core.Processing
                     PeakFitStatus.CycleResolved => "Injection peak fitting completed",
                     PeakFitStatus.NonConvergent => "Injection peak fitting did not converge",
                     PeakFitStatus.NoData => "No injection peak data available to fit",
+                    PeakFitStatus.Locked => "Injection peak fitting skipped because processing is locked",
                     _ => "Injection peak fitting failed",
                 }, 3000);
             });
         }
 
         bool CanCalculateBaseline() =>
-            Interpolator != null && !IsLocked;
+            Interpolator != null;
 
         bool CanRefitBaseline() =>
-            Interpolator != null && DiscardIntegratedPoints && !IsLocked;
+            Interpolator != null && DiscardIntegratedPoints;
 
         bool HasValidCorrectedTrace() =>
             Data.BaseLineCorrectedDataPoints != null &&
@@ -459,7 +476,7 @@ namespace AnalysisITC.Core.Processing
         void RefreshCorrectedTraceFromCurrentBaseline()
         {
             if (Interpolator?.Baseline != null && Interpolator.Baseline.Count == Data.DataPoints.Count)
-                SubtractBaseline();
+                SubtractBaselineCore();
         }
 
         PeakFitState EstimatePeakFitState(
@@ -665,11 +682,31 @@ namespace AnalysisITC.Core.Processing
                 Data.Injections[i].SetIntegrationLengthByTime(state.Offsets[i], markModified: false);
         }
 
-        public void Lock() => IsLocked = true;
-        public void Unlock() => IsLocked = false;
-        public void ToggleLock() => IsLocked = !IsLocked;
+        public void Lock() => Volatile.Write(ref lockState, 1);
+        public void Unlock() => Volatile.Write(ref lockState, 0);
+        public void ToggleLock()
+        {
+            int current;
+            do
+            {
+                current = Volatile.Read(ref lockState);
+            }
+            while (Interlocked.CompareExchange(ref lockState, current == 0 ? 1 : 0, current) != current);
+        }
+
+        IDisposable BeginProcessingAdmission()
+        {
+            processingAdmissionDepth.Value++;
+            return new ProcessingAdmission(this);
+        }
 
         public void WillProcessData(bool invalidate = true)
+        {
+            if (IsLocked) return;
+            WillProcessDataCore(invalidate);
+        }
+
+        void WillProcessDataCore(bool invalidate)
         {
             BaselineCompleted = false;
 
@@ -678,6 +715,13 @@ namespace AnalysisITC.Core.Processing
         }
 
         public async Task InterpolateBaseline(bool replace = true, bool notify = true, bool throwOnError = false)
+        {
+            if (IsLocked) return;
+            using var admission = BeginProcessingAdmission();
+            await InterpolateBaselineCore(replace, notify, throwOnError);
+        }
+
+        async Task InterpolateBaselineCore(bool replace, bool notify, bool throwOnError)
         {
             try
             {
@@ -688,7 +732,7 @@ namespace AnalysisITC.Core.Processing
 
                 await Task.Run(() => Interpolator.Interpolate(cToken, replace));
 
-                SubtractBaseline();
+                SubtractBaselineCore();
 
                 BaselineCompleted = true;
                 if (notify) BaselineInterpolationCompleted?.Invoke(this, null);
@@ -704,12 +748,24 @@ namespace AnalysisITC.Core.Processing
 
         public void DidProcessData(bool invalidate = true)
         {
+            if (IsLocked) return;
+            DidProcessDataCore(invalidate);
+        }
+
+        void DidProcessDataCore(bool invalidate)
+        {
             Data.UpdateProcessing(invalidate);
 
             ProcessingCompleted?.Invoke(Data, null);
         }
 
         public void SubtractBaseline()
+        {
+            if (IsLocked) return;
+            SubtractBaselineCore();
+        }
+
+        void SubtractBaselineCore()
         {
             Data.BaseLineCorrectedDataPoints = new List<DataPoint>();
 
@@ -723,7 +779,15 @@ namespace AnalysisITC.Core.Processing
             Data.CalculateExperimentHeatDirection();
         }
 
+        internal void RestoreBaselineCorrectedData() => SubtractBaselineCore();
+
         public void IntegratePeaks(bool invalidate = true, bool notify = true)
+        {
+            if (IsLocked) return;
+            IntegratePeaksCore(invalidate, notify);
+        }
+
+        void IntegratePeaksCore(bool invalidate, bool notify)
         {
             if (Data.BaseLineCorrectedDataPoints == null || Data.BaseLineCorrectedDataPoints.Count == 0) return;
 
@@ -743,6 +807,23 @@ namespace AnalysisITC.Core.Processing
             {
                 Data.UpdateProcessing(invalidate);
                 ProcessingCompleted?.Invoke(Data, null);
+            }
+        }
+
+        sealed class ProcessingAdmission : IDisposable
+        {
+            DataProcessor processor;
+
+            public ProcessingAdmission(DataProcessor processor)
+            {
+                this.processor = processor;
+            }
+
+            public void Dispose()
+            {
+                if (processor == null) return;
+                processor.processingAdmissionDepth.Value--;
+                processor = null;
             }
         }
 
@@ -768,6 +849,7 @@ namespace AnalysisITC.Core.Processing
         CycleResolved,
         NonConvergent,
         NoData,
+        Locked,
         Failed,
     }
 
@@ -1317,7 +1399,8 @@ namespace AnalysisITC.Core.Processing
 
             List<SplinePoint> splinePoints;
 
-            if (SplinePoints.Count == 0 || (replace && !IsLocked)) splinePoints = MergeLockedSplinePoints(GetInitialPoints(PointsPerInjection));
+            if (SplinePoints.Count == 0 || (replace && (!IsLocked || Processor.HasProcessingAdmission)))
+                splinePoints = MergeLockedSplinePoints(GetInitialPoints(PointsPerInjection));
             else splinePoints = SplinePoints;
 
             UpdateAutomaticSplineSlopes(splinePoints);

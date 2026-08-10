@@ -80,6 +80,9 @@ namespace AnalysisITC.Avalonia.Processing
 
         public ProcessingWorkspaceControl()
         {
+            ToolTip.SetTip(
+                lockProcessorButton,
+                "Freeze processing results and disable integration-region and spline-point editing.");
             BuildLayout();
             WireEvents();
             ApplyViewOptions();
@@ -532,6 +535,7 @@ namespace AnalysisITC.Avalonia.Processing
             PeakFitStatus.CycleResolved => "Peaks fitted; a stable cycle was resolved",
             PeakFitStatus.NonConvergent => "Peak fitting did not converge; integration regions were unchanged",
             PeakFitStatus.NoData => "No peak data available to fit",
+            PeakFitStatus.Locked => "Peak fitting skipped because processing is locked",
             _ => "Peak fitting failed; integration regions were unchanged",
         };
 
