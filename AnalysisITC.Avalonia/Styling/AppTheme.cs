@@ -13,6 +13,7 @@ internal static class AppTheme
     public const string SectionBorder = nameof(SectionBorder);
     public const string PrimaryText = nameof(PrimaryText);
     public const string SecondaryText = nameof(SecondaryText);
+    public const string ListTextColor = nameof(ListTextColor);
     public const string MutedText = nameof(MutedText);
     public const string DisabledText = nameof(DisabledText);
     public const string TableHeaderBackground = nameof(TableHeaderBackground);
@@ -22,6 +23,12 @@ internal static class AppTheme
     public const string StatusValid = nameof(StatusValid);
     public const string StatusWarning = nameof(StatusWarning);
     public const string StatusError = nameof(StatusError);
+    public const string ActiveToggleHoverBackground = nameof(ActiveToggleHoverBackground);
+    public const string ActiveToggleTrackInactive = nameof(ActiveToggleTrackInactive);
+    public const string ActiveToggleTrackInactiveHover = nameof(ActiveToggleTrackInactiveHover);
+    public const string ActiveToggleThumb = nameof(ActiveToggleThumb);
+    public const string ListRowHoverBackground = nameof(ListRowHoverBackground);
+    public const string ListActionHoverBackground = nameof(ListActionHoverBackground);
 
     public static void Bind(AvaloniaObject target, AvaloniaProperty property, string key)
     {
