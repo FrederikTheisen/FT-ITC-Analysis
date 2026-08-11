@@ -45,7 +45,6 @@ namespace AnalysisITC.Core.Application
         public static string[] LastDocumentPaths { get => lastDocumentPaths; set { lastDocumentPaths = NormalizeDocumentPaths(value); Save(); } }
 
         //Processing
-        public static PeakFitAlgorithm PeakFitAlgorithm { get; set; } = PeakFitAlgorithm.SingleExponential;
         public static bool DiscardIntegrationRegionForBaseline { get; set; } = true;
         public static bool IncludeBufferInIonicStrengthCalc { get; set; } = true;
         public static DilutionMethod DilutionCalculationMethod { get; set; } = DilutionMethod.MicroCal;
@@ -156,7 +155,6 @@ namespace AnalysisITC.Core.Application
             Storage.SetBool("FinalFigureShowParameterBoxAsDefault", FinalFigureShowParameterBoxAsDefault);
             Storage.SetBool("FinalFigureShowDetailsAsDefault", FinalFigureShowDetailsAsDefault);
             Storage.SetBool("FinalFigureShowModelInfoAsDefault", FinalFigureShowModelInfoAsDefault);
-            Storage.SetInt("PeakFitAlgorithm", (int)PeakFitAlgorithm);
             Storage.SetInt("NumberPrecision", (int)NumberPrecision);
             Storage.SetInt("UncertaintyDisplayStyle", (int)UncertaintyDisplayStyle);
             Storage.SetBool("IncludeBufferInIonicStrengthCalc", IncludeBufferInIonicStrengthCalc);
@@ -234,7 +232,6 @@ namespace AnalysisITC.Core.Application
             FinalFigureShowParameterBoxAsDefault = Storage.GetBool("FinalFigureShowParameterBoxAsDefault", FinalFigureShowParameterBoxAsDefault);
             FinalFigureShowDetailsAsDefault = Storage.GetBool("FinalFigureShowDetailsAsDefault", FinalFigureShowDetailsAsDefault);
             FinalFigureShowModelInfoAsDefault = Storage.GetBool("FinalFigureShowModelInfoAsDefault", FinalFigureShowModelInfoAsDefault);
-            PeakFitAlgorithm = (PeakFitAlgorithm)Storage.GetInt("PeakFitAlgorithm", (int)PeakFitAlgorithm);
             NumberPrecision = (NumberPrecision)Storage.GetInt("NumberPrecision", (int)NumberPrecision);
             UncertaintyDisplayStyle = (UncertaintyDisplayStyle)Storage.GetInt("UncertaintyDisplayStyle", (int)UncertaintyDisplayStyle);
             IncludeBufferInIonicStrengthCalc = Storage.GetBool("IncludeBufferInIonicStrengthCalc", IncludeBufferInIonicStrengthCalc);
@@ -311,7 +308,6 @@ namespace AnalysisITC.Core.Application
             FinalFigureShowParameterBoxAsDefault = true;
             FinalFigureShowDetailsAsDefault = true;
             FinalFigureShowModelInfoAsDefault = true;
-            PeakFitAlgorithm = PeakFitAlgorithm.SingleExponential;
             NumberPrecision = NumberPrecision.Standard;
             UncertaintyDisplayStyle = UncertaintyDisplayStyle.StandardDeviation;
             DisplayAttributeOptions = DisplayAttributeOptions.Default;
@@ -391,12 +387,6 @@ namespace AnalysisITC.Core.Application
             FittingOptionsController.UseErrorWeightedFitting = UseInjectionErrorWeightedFitting;
             SettingsApplied?.Invoke(null, null);
         }
-    }
-
-    public enum PeakFitAlgorithm
-    {
-        SingleExponential,
-        DoubleExponential,
     }
 
     public enum NumberPrecision

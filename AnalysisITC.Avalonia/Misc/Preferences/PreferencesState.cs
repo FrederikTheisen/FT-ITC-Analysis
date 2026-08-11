@@ -28,7 +28,6 @@ internal sealed class PreferencesState
     public bool AutomaticallyDiscardOrphanInjectionsOnLoad { get; set; }
 
     public DilutionMethod DilutionCalculationMethod { get; set; }
-    public PeakFitAlgorithm PeakFitAlgorithm { get; set; }
     public BufferSubtractionMethod BufferSubtractionDefaultMethod { get; set; }
     public bool DiscardIntegrationRegionForBaseline { get; set; }
     public bool ReprocessIntegratedHeatDataOnLoad { get; set; }
@@ -89,7 +88,6 @@ internal sealed class PreferencesState
             AutomaticallyDiscardOrphanInjectionsOnLoad = AppSettings.AutomaticallyDiscardOrphanInjectionsOnLoad,
 
             DilutionCalculationMethod = AppSettings.DilutionCalculationMethod,
-            PeakFitAlgorithm = AppSettings.PeakFitAlgorithm,
             BufferSubtractionDefaultMethod = AppSettings.BufferSubtractionDefaultMethod,
             DiscardIntegrationRegionForBaseline = AppSettings.DiscardIntegrationRegionForBaseline,
             ReprocessIntegratedHeatDataOnLoad = AppSettings.ReprocessIntegratedHeatDataOnLoad,
@@ -152,7 +150,6 @@ internal sealed class PreferencesState
             AutomaticallyDiscardOrphanInjectionsOnLoad = true,
 
             DilutionCalculationMethod = DilutionMethod.MicroCal,
-            PeakFitAlgorithm = PeakFitAlgorithm.SingleExponential,
             BufferSubtractionDefaultMethod = BufferSubtractionMethod.MatchedInjection,
             DiscardIntegrationRegionForBaseline = true,
             ReprocessIntegratedHeatDataOnLoad = true,
@@ -213,7 +210,6 @@ internal sealed class PreferencesState
         AppSettings.AutomaticallyDiscardOrphanInjectionsOnLoad = AutomaticallyDiscardOrphanInjectionsOnLoad;
 
         AppSettings.DilutionCalculationMethod = DilutionCalculationMethod;
-        AppSettings.PeakFitAlgorithm = PeakFitAlgorithm;
         AppSettings.BufferSubtractionDefaultMethod = BufferSubtractionDefaultMethod;
         AppSettings.DiscardIntegrationRegionForBaseline = DiscardIntegrationRegionForBaseline;
         AppSettings.ReprocessIntegratedHeatDataOnLoad = ReprocessIntegratedHeatDataOnLoad;

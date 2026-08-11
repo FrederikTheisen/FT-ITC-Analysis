@@ -47,7 +47,6 @@ internal sealed class PreferencesWindow : Window
     readonly Button openAutoSaveFolderButton = Button("Open Autosave Folder", 160);
 
     readonly ComboBox dilutionMethodCombo;
-    readonly ComboBox peakFitAlgorithmCombo;
     readonly ComboBox bufferSubtractionMethodCombo;
     readonly CheckBox discardIntegrationRegionCheck = Check("Discard integration regions for baseline");
     readonly CheckBox reprocessIntegratedHeatsCheck = Check("Reprocess integrated heats on load");
@@ -130,7 +129,6 @@ internal sealed class PreferencesWindow : Window
         });
 
         dilutionMethodCombo = Combo(Enum.GetValues<DilutionMethod>().Select(method => Option(DisplayName(method), method)));
-        peakFitAlgorithmCombo = Combo(Enum.GetValues<PeakFitAlgorithm>().Select(algorithm => Option(DisplayName(algorithm), algorithm)));
         bufferSubtractionMethodCombo = Combo(Enum.GetValues<BufferSubtractionMethod>().Select(method => Option(method.GetDisplayName(), method)));
         splineDensityCombo = Combo(Enum.GetValues<SplineInterpolator.SplinePointDensity>().Select(density => Option(DisplayName(density), density)));
         splineHandleModeCombo = Combo(Enum.GetValues<SplineInterpolator.SplineHandleMode>().Select(mode => Option(DisplayName(mode), mode)));
@@ -271,7 +269,6 @@ internal sealed class PreferencesWindow : Window
         panel.Children.Add(Section("Processing Defaults", new Control[]
         {
             Row("Dilution method", dilutionMethodCombo),
-            Row("Peak fit algorithm", peakFitAlgorithmCombo),
             Row("Buffer subtraction", bufferSubtractionMethodCombo),
             discardIntegrationRegionCheck,
             reprocessIntegratedHeatsCheck
@@ -366,7 +363,6 @@ internal sealed class PreferencesWindow : Window
         recoveryPromptCheck.IsChecked = state.PromptForAutoSaveRecovery;
 
         SetCombo(dilutionMethodCombo, state.DilutionCalculationMethod);
-        SetCombo(peakFitAlgorithmCombo, state.PeakFitAlgorithm);
         SetCombo(bufferSubtractionMethodCombo, state.BufferSubtractionDefaultMethod);
         discardIntegrationRegionCheck.IsChecked = state.DiscardIntegrationRegionForBaseline;
         reprocessIntegratedHeatsCheck.IsChecked = state.ReprocessIntegratedHeatDataOnLoad;
@@ -469,7 +465,6 @@ internal sealed class PreferencesWindow : Window
         state.PromptForAutoSaveRecovery = recoveryPromptCheck.IsChecked == true;
 
         state.DilutionCalculationMethod = Value(dilutionMethodCombo, AppSettings.DilutionCalculationMethod);
-        state.PeakFitAlgorithm = Value(peakFitAlgorithmCombo, AppSettings.PeakFitAlgorithm);
         state.BufferSubtractionDefaultMethod = Value(bufferSubtractionMethodCombo, AppSettings.BufferSubtractionDefaultMethod);
         state.DiscardIntegrationRegionForBaseline = discardIntegrationRegionCheck.IsChecked == true;
         state.ReprocessIntegratedHeatDataOnLoad = reprocessIntegratedHeatsCheck.IsChecked == true;
