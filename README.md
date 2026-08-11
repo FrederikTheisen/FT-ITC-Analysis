@@ -114,7 +114,7 @@ FT-ITC Analysis supports three baseline modes:
 - **Polynomial:** fits an outlier-discarding polynomial baseline across the thermogram.
 - **Segmented:** fits local baseline segments around injection regions.
 
-By default, points inside the selected integration regions are excluded from baseline fitting so peak area selection and baseline estimation stay coupled. Changing integration ranges can therefore change the fitted baseline unless the processor or relevant spline points are locked.
+By default, points inside the selected integration regions are excluded from baseline fitting so peak area selection and baseline estimation stay coupled. Locking the processor freezes all processing results and disables graphical editing of integration regions and spline points. To preserve selected spline points while continuing to process the experiment, lock those points individually instead.
 
 Spline baselines can be edited directly. User-added or locked spline points are preserved when the baseline is reprocessed, and locked points replace nearby automatically generated points instead of being duplicated. Polynomial and segmented baselines can also be converted to spline baselines when manual editing is needed.
 
