@@ -64,8 +64,8 @@ namespace AnalysisITC.Avalonia.Tools
             ApplyCanvasDefaults();
 
             Title = "Supporting Figure";
-            Width = 1380;
-            Height = 820;
+            Width = 1200;
+            Height = 720;
             MinWidth = 1040;
             MinHeight = 640;
             WindowStartupLocation = WindowStartupLocation.CenterOwner;

@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 
+using AnalysisITC.Core.Analysis;
 using AnalysisITC.Core.Analysis.Models;
 using AnalysisITC.Core.Application;
 using AnalysisITC.Core.Data;
@@ -515,6 +516,29 @@ namespace AnalysisITC.Core.Presentation
         const double FitXAxisBuffer = 0.05;
         const double FitXAxisRoundPadding = 0.33;
 
+        static readonly ParameterType[] PdfMetadataParameterOrder =
+        {
+            ParameterType.Offset,
+            ParameterType.Nvalue1,
+            ParameterType.Nvalue2,
+            ParameterType.ApparentAffinity,
+            ParameterType.Affinity1,
+            ParameterType.Affinity2,
+            ParameterType.Enthalpy1,
+            ParameterType.Enthalpy2,
+            ParameterType.EntropyContribution1,
+            ParameterType.EntropyContribution2,
+            ParameterType.Gibbs1,
+            ParameterType.Gibbs2,
+            ParameterType.HeatCapacity1,
+            ParameterType.HeatCapacity2,
+            ParameterType.IsomerizationEquilibriumConstant,
+            ParameterType.IsomerizationRate,
+            ParameterType.CisIsomerPopulationPercentage,
+            ParameterType.Entropy1,
+            ParameterType.Entropy2,
+        };
+
         public static PublicationFigureDocument Build(ExperimentData data, PublicationFigureOptions options)
         {
             if (data == null) throw new ArgumentNullException(nameof(data));
@@ -963,12 +987,71 @@ namespace AnalysisITC.Core.Presentation
 
             if (solution == null) return keywords.Select(keyword => keyword.Replace(",", "..")).ToList();
 
-            foreach (var parameter in solution.UISolutionParameters(options.DisplayParameters))
+            var reportParameters = solution.ReportParameters ?? new Dictionary<ParameterType, FloatWithError>();
+            var orderedParameters = new List<KeyValuePair<ParameterType, FloatWithError>>();
+
+            foreach (var key in PdfMetadataParameterOrder)
             {
-                keywords.Add($"{parameter.Item1} = {parameter.Item2}");
+                if (reportParameters.ContainsKey(key))
+                {
+                    orderedParameters.Add(new KeyValuePair<ParameterType, FloatWithError>(key, reportParameters[key]));
+                    continue;
+                }
+
+                if (solution.Parameters.ContainsKey(key))
+                {
+                    orderedParameters.Add(new KeyValuePair<ParameterType, FloatWithError>(key, solution.Parameters[key]));
+                }
+            }
+
+            foreach (var parameter in orderedParameters)
+            {
+                keywords.Add($"{GetParameterMetadataLabel(parameter.Key)} = {FormatParameterMetadataValue(parameter.Key, parameter.Value)}");
             }
 
             return keywords.Select(keyword => keyword.Replace(",", "..")).ToList();
+        }
+
+        static string GetParameterMetadataLabel(ParameterType key)
+        {
+            return key switch
+            {
+                ParameterType.Nvalue1 => "N",
+                ParameterType.Nvalue2 => "N2",
+                ParameterType.Affinity1 => "Kd",
+                ParameterType.Affinity2 => "Kd2",
+                ParameterType.ApparentAffinity => "Kd app",
+                ParameterType.Enthalpy1 => "ΔH",
+                ParameterType.Enthalpy2 => "ΔH2",
+                ParameterType.EntropyContribution1 => "-TΔS",
+                ParameterType.EntropyContribution2 => "-TΔS2",
+                ParameterType.Gibbs1 => "ΔG",
+                ParameterType.Gibbs2 => "ΔG2",
+                ParameterType.HeatCapacity1 => "ΔCp",
+                ParameterType.HeatCapacity2 => "ΔCp2",
+                ParameterType.IsomerizationEquilibriumConstant => "Keq",
+                ParameterType.IsomerizationRate => "kiso",
+                ParameterType.CisIsomerPopulationPercentage => "%cis",
+                _ => key.GetProperties().Name
+            };
+        }
+
+        static string FormatParameterMetadataValue(ParameterType key, FloatWithError value)
+        {
+            var parent = key.GetProperties().ParentType;
+            var energyUnit = Model.ReportEnergyUnit;
+            var uncertaintyStyle = UncertaintyDisplayStyle.StandardDeviationAndConfidenceInterval;
+
+            return parent switch
+            {
+                ParameterType.Affinity1 => value.AsFormattedConcentration(withunit: true, style: uncertaintyStyle),
+                ParameterType.Enthalpy1 => value.Energy.ToFormattedString(energyUnit, permole: true, style: uncertaintyStyle),
+                ParameterType.EntropyContribution1 => value.Energy.ToFormattedString(energyUnit, permole: true, style: uncertaintyStyle),
+                ParameterType.Gibbs1 => value.Energy.ToFormattedString(energyUnit, permole: true, style: uncertaintyStyle),
+                ParameterType.Offset => value.Energy.ToFormattedString(energyUnit, permole: true, style: uncertaintyStyle),
+                ParameterType.HeatCapacity1 => value.Energy.ToFormattedString(energyUnit, permole: true, perK: true, style: uncertaintyStyle),
+                _ => value.AsNumber(uncertaintyStyle),
+            };
         }
 
         static double AnalysisXValue(ExperimentData data, InjectionData injection)

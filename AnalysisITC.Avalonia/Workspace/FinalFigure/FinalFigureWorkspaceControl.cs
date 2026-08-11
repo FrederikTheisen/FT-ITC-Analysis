@@ -62,69 +62,69 @@ namespace AnalysisITC.Avalonia.FinalFigure
         readonly Button exportActiveButton = Button("Active", 0);
         readonly Button exportAllButton = Button("All", 0);
 
-        readonly TextBox widthBox = TextBox("6");
-        readonly TextBox heightBox = TextBox("10");
-        readonly TextBox fontSizeBox = TextBox("14");
+        readonly NumericUpDown widthStepper = Stepper(6, 3, 20, 0.5m, formatString: "0.##");
+        readonly NumericUpDown heightStepper = Stepper(10, 4, 28, 0.5m, formatString: "0.##");
+        readonly NumericUpDown fontSizeStepper = Stepper(14, 5, 24);
         readonly ComboBox energyUnitCombo = Combo(EnergyUnits.Select(unit => unit.GetUnit()).ToArray(), 0, 126);
         readonly ComboBox timeUnitCombo = Combo(TimeUnits.Select(unit => unit.GetProperties().Name).ToArray(), 1, 126);
         readonly ComboBox uncertaintyCombo = Combo(new[] { "Automatic", "SD", "CI", "SD + CI", "None" }, 1, 126);
         readonly ComboBox infoPlacementCombo = Combo(new[] { "Auto", "Upper", "Lower" }, 0, 126);
 
-        readonly CheckBox showThermogramCheck = Check("Data graph", true);
-        readonly CheckBox axisTitlesCheck = Check("Axis titles", true);
-        readonly CheckBox sanitizeTicksCheck = Check("Nice ticks", true);
-        readonly CheckBox experimentDetailsCheck = Check("Experiment details", true);
-        readonly CheckBox modelInfoCheck = Check("Model info", true);
-        readonly CheckBox fitParametersCheck = Check("Fit parameters", true);
-        readonly CheckBox thermodynamicCheck = Check("Thermodynamic", true);
-        readonly CheckBox derivedCheck = Check("Derived", true);
-        readonly CheckBox offsetParameterCheck = Check("Offset parameter", false);
-        readonly CheckBox temperatureCheck = Check("Temperature", true);
-        readonly CheckBox concentrationsCheck = Check("Concentrations", true);
-        readonly CheckBox injectionDelayCheck = Check("Injection delay", true);
-        readonly CheckBox instrumentCheck = Check("Instrument", true);
-        readonly CheckBox attributesCheck = Check("Attributes", true);
+        readonly CheckBox showThermogramCheck = Check("Data graph", true, "Include the differential-power trace above the fit graph.");
+        readonly CheckBox axisTitlesCheck = Check("Axis titles", true, "Draw titles for the graph axes.");
+        readonly CheckBox sanitizeTicksCheck = Check("Nice ticks", true, "Choose rounded, readable axis tick locations automatically.");
+        readonly CheckBox experimentDetailsCheck = Check("Experiment details", true, "Include experiment metadata in the figure information box.");
+        readonly CheckBox modelInfoCheck = Check("Model info", true, "Include the selected analysis model in the figure information box.");
+        readonly CheckBox fitParametersCheck = Check("Fit parameters", true, "Include fitted parameter values in the figure information box.");
+        readonly CheckBox thermodynamicCheck = Check("Thermodynamic", true, "Include thermodynamic parameters in the information box.");
+        readonly CheckBox derivedCheck = Check("Derived", true, "Include calculated or derived parameters in the information box.");
+        readonly CheckBox offsetParameterCheck = Check("Offset parameter", false, "Include the fitted offset parameter in the information box.");
+        readonly CheckBox temperatureCheck = Check("Temperature", true, "Include the experiment temperature in the information box.");
+        readonly CheckBox concentrationsCheck = Check("Concentrations", true, "Include cell and syringe concentrations in the information box.");
+        readonly CheckBox injectionDelayCheck = Check("Injection delay", true, "Include the injection-delay setting in the information box.");
+        readonly CheckBox instrumentCheck = Check("Instrument", true, "Include the instrument name in the information box.");
+        readonly CheckBox attributesCheck = Check("Attributes", true, "Include user-defined experiment attributes in the information box.");
 
         readonly TextBox powerAxisTitleBox = TextBox("Differential Power (<unit>)");
         readonly TextBox timeAxisTitleBox = TextBox("Time (<unit>)");
-        readonly TextBox dataXTickBox = TextBox("7");
-        readonly TextBox dataYTickBox = TextBox("7");
+        readonly NumericUpDown dataXTickStepper = Stepper(7, 2, 12);
+        readonly NumericUpDown dataYTickStepper = Stepper(7, 2, 12);
         readonly TextBox dataXMinBox = TextBox("");
         readonly TextBox dataXMaxBox = TextBox("");
         readonly TextBox dataYMinBox = TextBox("");
         readonly TextBox dataYMaxBox = TextBox("");
-        readonly CheckBox sharedPowerAxisCheck = Check("Shared power axis", false);
-        readonly CheckBox correctedDataCheck = Check("Corrected data", true);
-        readonly CheckBox baselineCheck = Check("Baseline", false);
+        readonly CheckBox sharedPowerAxisCheck = Check("Shared power axis", false, tooltip: "Use same power axis for all active experiments.");
+        readonly CheckBox correctedDataCheck = Check("Corrected data", true, "Plot baseline-corrected differential-power data.");
+        readonly CheckBox baselineCheck = Check("Include baseline", false, "Overlay the fitted baseline on the data graph.");
         readonly ComboBox baselineStyleCombo = Combo(new[] { "Solid", "Dashed" }, 0, 126);
         readonly ComboBox baselineLayerCombo = Combo(new[] { "Under data", "Over data" }, 1, 126);
-        readonly TextBox baselineWidthBox = TextBox("2");
-        readonly CheckBox integrationRegionsCheck = Check("Integration ranges", false);
+        readonly NumericUpDown baselineWidthStepper = Stepper(2, 0.25m, 8, 0.25m, formatString: "0.##");
+        readonly CheckBox integrationRegionsCheck = Check("Integration ranges", false, "Show the time ranges used to integrate injection peaks.");
         readonly ComboBox integrationRegionStyleCombo = Combo(new[] { "Bar", "Fill", "Endpoint lines" }, 1, 126);
 
         readonly TextBox enthalpyAxisTitleBox = TextBox("<unit> of injectant");
         readonly TextBox fitXAxisTitleBox = TextBox("");
-        readonly TextBox fitXTickBox = TextBox("7");
-        readonly TextBox fitYTickBox = TextBox("7");
+        readonly NumericUpDown fitXTickStepper = Stepper(7, 2, 12);
+        readonly NumericUpDown fitYTickStepper = Stepper(7, 2, 12);
         readonly TextBox fitXMinBox = TextBox("");
         readonly TextBox fitXMaxBox = TextBox("");
         readonly TextBox fitYMinBox = TextBox("");
         readonly TextBox fitYMaxBox = TextBox("");
-        readonly CheckBox sharedFitXAxisCheck = Check("Shared X axis", false);
-        readonly CheckBox sharedEnthalpyAxisCheck = Check("Shared enthalpy axis", false);
-        readonly TextBox symbolSizeBox = TextBox("8");
-        readonly TextBox fitLineWidthBox = TextBox("2");
+        readonly CheckBox sharedFitXAxisCheck = Check("Shared X axis", false, tooltip: "Use same x for all active experiments.");
+        readonly CheckBox sharedEnthalpyAxisCheck = Check("Shared enthalpy axis", false, tooltip: "Use same enthalpy for all active experiments.");
+        readonly NumericUpDown symbolSizeStepper = Stepper(8, 3, 14, 0.5m, formatString: "0.#");
+        readonly NumericUpDown fitLineWidthStepper = Stepper(2, 0.25m, 8, 0.25m, formatString: "0.##");
         readonly ComboBox symbolCombo = Combo(new[] { "Square", "Circle" }, 0, 126);
         readonly ComboBox fitLineSmoothnessCombo = Combo(FitLineSmoothnessOptions.Select(DisplayName).ToArray(), 1, 126);
-        readonly CheckBox fitLineCheck = Check("Fit line", true);
-        readonly CheckBox residualsCheck = Check("Residuals", true);
-        readonly CheckBox residualGapCheck = Check("Residual gap", true);
-        readonly CheckBox zeroLineCheck = Check("Zero line", true);
-        readonly CheckBox confidenceCheck = Check("Confidence band", true);
-        readonly CheckBox errorBarsCheck = Check("Error bars", true);
-        readonly CheckBox excludedCheck = Check("Excluded points", true);
-        readonly CheckBox excludedErrorBarsCheck = Check("Excluded error bars", false);
-        readonly CheckBox offsetCorrectedCheck = Check("Offset-corrected heats", true);
+        readonly CheckBox fitLineCheck = Check("Fit line", true, "Draw the fitted binding curve.");
+        readonly CheckBox residualsCheck = Check("Show residuals graph", true, "Include a residuals graph below the fitted heats.");
+        readonly CheckBox residualGapCheck = Check("Residual gap", true, "Leave a visual gap between the fit and residual graphs.");
+        readonly CheckBox zeroLineCheck = Check("Display zero enthalpy line", true, "Draw a horizontal reference line at zero enthalpy.");
+        readonly CheckBox confidenceCheck = Check("Confidence band", true, "Draw the fit confidence interval around the fitted curve.");
+        readonly CheckBox errorBarsCheck = Check("Error bars", true, "Draw uncertainty bars for integrated heats.");
+        readonly CheckBox excludedCheck = Check("Excluded points", true, "Show points excluded from the fit.");
+        readonly CheckBox excludedErrorBarsCheck = Check("Excluded error bars", false, "Draw uncertainty bars for excluded points.");
+        readonly CheckBox offsetCorrectedCheck = Check("Offset-corrected heats", true, "Plot heats after applying the fitted offset correction.");
 
         Bitmap? bitmap;
         ITCDataContainer? selectedItem;
@@ -166,8 +166,8 @@ namespace AnalysisITC.Avalonia.FinalFigure
                 isApplyingSettingsDefaults = true;
 
                 var dimensions = AppSettings.FinalFigureDimensions;
-                if (dimensions.Length > 0) widthBox.Text = dimensions[0].ToString("G6", CultureInfo.CurrentCulture);
-                if (dimensions.Length > 1) heightBox.Text = dimensions[1].ToString("G6", CultureInfo.CurrentCulture);
+                if (dimensions.Length > 0) widthStepper.Value = (decimal)dimensions[0];
+                if (dimensions.Length > 1) heightStepper.Value = (decimal)dimensions[1];
 
                 energyUnitCombo.SelectedIndex = Math.Max(0, Array.IndexOf(EnergyUnits, AppSettings.EnergyUnit));
                 fitLineSmoothnessCombo.SelectedIndex = Math.Max(0, Array.IndexOf(FitLineSmoothnessOptions, AppSettings.FitLineSmoothness));
@@ -260,9 +260,9 @@ namespace AnalysisITC.Avalonia.FinalFigure
             var panel = WorkspaceControlBuilder.InspectorPanel();
             panel.Children.Add(Section("Page", new Control[]
             {
-                Labeled("Width cm", widthBox),
-                Labeled("Height cm", heightBox),
-                Labeled("Base font pt", fontSizeBox),
+                Labeled("Width cm", widthStepper),
+                Labeled("Height cm", heightStepper),
+                Labeled("Base font pt", fontSizeStepper),
                 Text("Ticks use the base size; axis titles use base + 1 pt; parameter boxes use 12 pt."),
                 Labeled("Energy", energyUnitCombo),
                 Labeled("Time", timeUnitCombo)
@@ -301,8 +301,8 @@ namespace AnalysisITC.Avalonia.FinalFigure
             {
                 Labeled("Power title", powerAxisTitleBox),
                 Labeled("Time title", timeAxisTitleBox),
-                Labeled("X ticks", dataXTickBox),
-                Labeled("Y ticks", dataYTickBox),
+                Labeled("X ticks", dataXTickStepper),
+                Labeled("Y ticks", dataYTickStepper),
                 Labeled("X min", dataXMinBox),
                 Labeled("X max", dataXMaxBox),
                 Labeled("Y min", dataYMinBox),
@@ -318,7 +318,7 @@ namespace AnalysisITC.Avalonia.FinalFigure
                 baselineCheck,
                 Labeled("Style", baselineStyleCombo),
                 Labeled("Layer", baselineLayerCombo),
-                Labeled("Width", baselineWidthBox)
+                Labeled("Width", baselineWidthStepper)
             }));
             panel.Children.Add(Section("Integration ranges", new Control[]
             {
@@ -335,14 +335,14 @@ namespace AnalysisITC.Avalonia.FinalFigure
             {
                 Labeled("Y title", enthalpyAxisTitleBox),
                 Labeled("X title", fitXAxisTitleBox),
-                Labeled("X ticks", fitXTickBox),
-                Labeled("Y ticks", fitYTickBox),
+                Labeled("X ticks", fitXTickStepper),
+                Labeled("Y ticks", fitYTickStepper),
                 Labeled("X min", fitXMinBox),
                 Labeled("X max", fitXMaxBox),
                 Labeled("Y min", fitYMinBox),
                 Labeled("Y max", fitYMaxBox),
                 Labeled("Symbol", symbolCombo),
-                Labeled("Point size", symbolSizeBox)
+                Labeled("Point size", symbolSizeStepper)
             }));
             panel.Children.Add(Section("Shared axes", new Control[]
             {
@@ -352,7 +352,7 @@ namespace AnalysisITC.Avalonia.FinalFigure
             panel.Children.Add(Section("Fit line", new Control[]
             {
                 fitLineCheck,
-                Labeled("Width", fitLineWidthBox),
+                Labeled("Width", fitLineWidthStepper),
                 Labeled("Smoothness", fitLineSmoothnessCombo)
             }));
             panel.Children.Add(Section("Residuals", new Control[]
@@ -401,6 +401,9 @@ namespace AnalysisITC.Avalonia.FinalFigure
                         RefreshPreview(force: true);
                 };
             }
+
+            foreach (var stepper in AllSteppers())
+                stepper.ValueChanged += (_, _) => RefreshPreview(force: true);
         }
 
         IEnumerable<CheckBox> AllChecks()
@@ -459,28 +462,35 @@ namespace AnalysisITC.Avalonia.FinalFigure
         {
             return new[]
             {
-                widthBox,
-                heightBox,
-                fontSizeBox,
                 powerAxisTitleBox,
                 timeAxisTitleBox,
-                dataXTickBox,
-                dataYTickBox,
                 dataXMinBox,
                 dataXMaxBox,
                 dataYMinBox,
                 dataYMaxBox,
-                baselineWidthBox,
                 enthalpyAxisTitleBox,
                 fitXAxisTitleBox,
-                fitXTickBox,
-                fitYTickBox,
                 fitXMinBox,
                 fitXMaxBox,
                 fitYMinBox,
-                fitYMaxBox,
-                symbolSizeBox,
-                fitLineWidthBox
+                fitYMaxBox
+            };
+        }
+
+        IEnumerable<NumericUpDown> AllSteppers()
+        {
+            return new[]
+            {
+                widthStepper,
+                heightStepper,
+                fontSizeStepper,
+                dataXTickStepper,
+                dataYTickStepper,
+                baselineWidthStepper,
+                fitXTickStepper,
+                fitYTickStepper,
+                symbolSizeStepper,
+                fitLineWidthStepper
             };
         }
 
@@ -575,9 +585,9 @@ namespace AnalysisITC.Avalonia.FinalFigure
 
             return new PublicationFigureOptions
             {
-                PlotWidthCentimeters = ParseDouble(widthBox.Text, defaults.PlotWidthCentimeters, 3, 20),
-                PlotHeightCentimeters = ParseDouble(heightBox.Text, defaults.PlotHeightCentimeters, 4, 28),
-                FontSize = ParseDouble(fontSizeBox.Text, defaults.FontSize, 5, 24),
+                PlotWidthCentimeters = StepperValue(widthStepper, defaults.PlotWidthCentimeters),
+                PlotHeightCentimeters = StepperValue(heightStepper, defaults.PlotHeightCentimeters),
+                FontSize = StepperValue(fontSizeStepper, defaults.FontSize),
                 EnergyUnit = SelectedEnergyUnit(),
                 TimeUnit = SelectedTimeUnit(),
                 ShowThermogram = showThermogramCheck.IsChecked == true,
@@ -598,18 +608,18 @@ namespace AnalysisITC.Avalonia.FinalFigure
                 ShowBaseline = baselineCheck.IsChecked == true,
                 BaselineStyle = baselineStyleCombo.SelectedIndex == 1 ? PublicationBaselineStyle.Dashed : PublicationBaselineStyle.Solid,
                 BaselineLayer = baselineLayerCombo.SelectedIndex == 0 ? PublicationBaselineLayer.UnderData : PublicationBaselineLayer.OverData,
-                BaselineWidth = ParseDouble(baselineWidthBox.Text, defaults.BaselineWidth, 0.25, 8),
+                BaselineWidth = StepperValue(baselineWidthStepper, defaults.BaselineWidth),
                 ShowIntegrationRegions = integrationRegionsCheck.IsChecked == true,
                 IntegrationRegionStyle = (PublicationIntegrationRegionStyle)Math.Max(0, integrationRegionStyleCombo.SelectedIndex),
                 ShowZeroLine = zeroLineCheck.IsChecked == true,
-                DataXTickCount = ParseInt(dataXTickBox.Text, defaults.DataXTickCount, 2, 12),
-                DataYTickCount = ParseInt(dataYTickBox.Text, defaults.DataYTickCount, 2, 12),
-                FitXTickCount = ParseInt(fitXTickBox.Text, defaults.FitXTickCount, 2, 12),
-                FitYTickCount = ParseInt(fitYTickBox.Text, defaults.FitYTickCount, 2, 12),
+                DataXTickCount = StepperIntValue(dataXTickStepper, defaults.DataXTickCount),
+                DataYTickCount = StepperIntValue(dataYTickStepper, defaults.DataYTickCount),
+                FitXTickCount = StepperIntValue(fitXTickStepper, defaults.FitXTickCount),
+                FitYTickCount = StepperIntValue(fitYTickStepper, defaults.FitYTickCount),
                 InformationBoxPlacement = SelectedInfoBoxPlacement(),
                 SymbolShape = symbolCombo.SelectedIndex == 1 ? PublicationSymbolShape.Circle : PublicationSymbolShape.Square,
-                SymbolSize = ParseDouble(symbolSizeBox.Text, defaults.SymbolSize, 3, 14),
-                FitLineWidth = ParseDouble(fitLineWidthBox.Text, defaults.FitLineWidth, 0.25, 8),
+                SymbolSize = StepperValue(symbolSizeStepper, defaults.SymbolSize),
+                FitLineWidth = StepperValue(fitLineWidthStepper, defaults.FitLineWidth),
                 FitLineSmoothness = SelectedFitLineSmoothness(),
                 PowerAxisTitle = string.IsNullOrWhiteSpace(powerAxisTitleBox.Text) ? defaults.PowerAxisTitle : powerAxisTitleBox.Text!,
                 TimeAxisTitle = string.IsNullOrWhiteSpace(timeAxisTitleBox.Text) ? defaults.TimeAxisTitle : timeAxisTitleBox.Text!,
@@ -1023,17 +1033,6 @@ namespace AnalysisITC.Avalonia.FinalFigure
             return new Bitmap(stream);
         }
 
-        static double ParseDouble(string? text, double fallback, double minimum, double maximum)
-        {
-            if (!double.TryParse(text, NumberStyles.Float, CultureInfo.CurrentCulture, out var value) &&
-                !double.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out value))
-            {
-                return fallback;
-            }
-
-            return Math.Max(minimum, Math.Min(maximum, value));
-        }
-
         static double? ParseOptionalDouble(string? text)
         {
             if (string.IsNullOrWhiteSpace(text)) return null;
@@ -1047,15 +1046,14 @@ namespace AnalysisITC.Avalonia.FinalFigure
             return null;
         }
 
-        static int ParseInt(string? text, int fallback, int minimum, int maximum)
+        static double StepperValue(NumericUpDown stepper, double fallback)
         {
-            if (!int.TryParse(text, NumberStyles.Integer, CultureInfo.CurrentCulture, out var value) &&
-                !int.TryParse(text, NumberStyles.Integer, CultureInfo.InvariantCulture, out value))
-            {
-                return fallback;
-            }
+            return stepper.Value.HasValue ? decimal.ToDouble(stepper.Value.Value) : fallback;
+        }
 
-            return Math.Max(minimum, Math.Min(maximum, value));
+        static int StepperIntValue(NumericUpDown stepper, int fallback)
+        {
+            return stepper.Value.HasValue ? decimal.ToInt32(stepper.Value.Value) : fallback;
         }
 
         sealed class FigureExportTarget
