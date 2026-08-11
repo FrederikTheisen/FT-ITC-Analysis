@@ -1008,7 +1008,7 @@ namespace AnalysisITC.UI.MacOS.Drawing
             if (!ExperimentData.HasThermogram) return;
 
             var tamid = experiment.TargetTemperature;
-            var delta = Math.Max(Math.Abs(experiment.DataPoints.Min(dp => Math.Min(dp.Temperature, dp.ShieldT)) - tamid), Math.Abs(experiment.DataPoints.Max(dp => Math.Max(dp.Temperature, dp.ShieldT)) - tamid));
+            var delta = Math.Max(Math.Abs(experiment.DataPoints.Min(dp => dp.Temperature) - tamid), Math.Abs(experiment.DataPoints.Max(dp => dp.Temperature) - tamid));
             TemperatureAxis = GraphAxis.WithBuffer(this, tamid - delta, tamid + delta, position: AxisPosition.Right);
             TemperatureAxis.Position = AxisPosition.Right;
             TemperatureAxis.TickScale.SetMaxTicks(5);
@@ -1044,8 +1044,6 @@ namespace AnalysisITC.UI.MacOS.Drawing
             const float markerWidth = 0.8f;
             const float capWidth = 4f;
             const float capHeight = 8f;
-            const float minimumLabelSpacing = 22f;
-            const int maximumLabelCount = 80;
 
             var layer = CGLayer.Create(gc, Frame.Size);
             var markerColor = NSColor.SystemOrange.ColorWithAlphaComponent(.55f);
@@ -1069,28 +1067,6 @@ namespace AnalysisITC.UI.MacOS.Drawing
             layer.Context.AddPath(markerLines);
             layer.Context.StrokePath();
 
-            if (ExperimentData.Injections.Count <= maximumLabelCount)
-            {
-                using var labelFont = new CTFont("Helvetica Neue", 9);
-                var lastLabelX = double.NegativeInfinity;
-
-                foreach (var injection in ExperimentData.Injections)
-                {
-                    if (injection.Time < XAxis.Min || injection.Time > XAxis.Max) continue;
-
-                    var x = GetRelativePosition(injection.Time, YAxis.Min).X;
-                    if (x - lastLabelX < minimumLabelSpacing) continue;
-
-                    DrawString(
-                        layer,
-                        (injection.ID + 1).ToString(),
-                        new CGPoint(x, Frame.Height - capHeight - 7),
-                        labelFont,
-                        textcolor: capColor.CGColor);
-                    lastLabelX = x;
-                }
-            }
-
             gc.DrawLayer(layer, Frame.Location);
             markerLines.Dispose();
             layer.Dispose();
@@ -1099,7 +1075,6 @@ namespace AnalysisITC.UI.MacOS.Drawing
         void DrawTemperature(CGContext gc)
         {
             var temperature = new List<CGPoint>();
-            var jacket = new List<CGPoint>();
 
             for (int i = 0; i < DataPoints.Count - 1; i += 10) //Skip some datapoints
             {
@@ -1107,15 +1082,12 @@ namespace AnalysisITC.UI.MacOS.Drawing
                 if (p.Time > XAxis.Min && p.Time < XAxis.Max)
                 {
                     temperature.Add(GetRelativePosition(p.Time, p.Temperature, TemperatureAxis));
-                    jacket.Add(GetRelativePosition(p.Time, p.ShieldT, TemperatureAxis));
                 }
             }
 
             temperature.Add(GetRelativePosition(DataPoints.Last().Time, DataPoints.Last().Temperature, TemperatureAxis)); //add final datapoint
-            jacket.Add(GetRelativePosition(DataPoints.Last().Time, DataPoints.Last().ShieldT, TemperatureAxis));
 
             DrawDataSeries(gc, temperature, 1, NSColor.SystemRed.CGColor);
-            DrawDataSeries(gc, jacket, 1, NSColor.SystemRed.CGColor);
         }
 
         void DrawInfo(CGContext gc)
@@ -1124,7 +1096,7 @@ namespace AnalysisITC.UI.MacOS.Drawing
             var textlayer = CGLayer.Create(gc, Frame.Size);
             textlayer.Context.SetFillColor(StrokeColor);
 
-            var datapoint = CursorPosition > ExperimentData.DataPoints.Last().Time ? ExperimentData.DataPoints.Last() : ExperimentData.DataPoints.First(dp => dp.Time > CursorPosition);
+            var datapoint = CursorPosition >= ExperimentData.DataPoints.Last().Time ? ExperimentData.DataPoints.Last() : ExperimentData.DataPoints.First(dp => dp.Time > CursorPosition);
 
             var power = GetRelativePosition(CursorPosition, datapoint.Power);
             var max = new CGPoint(power.X, Frame.Height);
@@ -1148,16 +1120,17 @@ namespace AnalysisITC.UI.MacOS.Drawing
 
                 var xfraction = (cursorpos.X - Frame.X) / Frame.Width;
 
-                CursorPosition = xfraction * (XAxis.Max - XAxis.Min);
+                CursorPosition = xfraction * (XAxis.Max - XAxis.Min) + XAxis.Min;
 
                 CursorInfo = new List<string>();
 
-                var datapoint = CursorPosition > ExperimentData.DataPoints.Last().Time ? ExperimentData.DataPoints.Last() : ExperimentData.DataPoints.First(dp => dp.Time > CursorPosition);
+                var datapoint = CursorPosition >= ExperimentData.DataPoints.Last().Time ? ExperimentData.DataPoints.Last() : ExperimentData.DataPoints.First(dp => dp.Time > CursorPosition);
+                var injection = ExperimentData.Injections?.LastOrDefault(item => item.Time <= CursorPosition);
 
+                if (injection != null) CursorInfo.Add("Injection: " + (injection.ID + 1).ToString());
                 CursorInfo.Add("Time: " + datapoint.Time.ToString() + "s");
                 CursorInfo.Add("DP: " + (DataManager.Unit.IsSI() ? (datapoint.Power * 1000000).ToString("F1") + " µW" : (datapoint.Power * 1000000 * Energy.JouleToCalFactor).ToString("F1") + " µCal"));
                 CursorInfo.Add("Temperature: " + datapoint.Temperature.ToString("F3") + " °C");
-                CursorInfo.Add("Jacket Temp: " + datapoint.ShieldT.ToString("F3") + " °C");
             }
             else DrawCursorPositionInfo = false;
 
