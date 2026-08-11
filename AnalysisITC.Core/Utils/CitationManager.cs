@@ -16,6 +16,8 @@ namespace AnalysisITC.Core.Application
         public const string SoftwareDoi = "10.5281/zenodo.14832177";
         public const string SoftwareDoiUrl = "https://doi.org/10.5281/zenodo.14832177";
         public const string SoftwareRepositoryUrl = "https://github.com/FrederikTheisen/FT-ITC-Analysis";
+        public const string SoftwareWebsiteUrl = "https://ft-itc.org";
+        public const string SoftwareViewerUrl = "https://app.ft-itc.org";
 
         [JsonPropertyName("title")]
         public string Title { get; set; }
