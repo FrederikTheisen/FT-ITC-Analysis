@@ -145,6 +145,8 @@ internal sealed class AppMenuController
         Add("citation", "Citation", window.OpenCitationAsync);
         Add("support", "Contact Support...", window.OpenSupportAsync);
         Add("copysupportreport", "Copy Support Report", window.CopySupportReportAsync);
+        Add("openwebsite", "FT-ITC Analysis Website", window.OpenWebsiteAsync);
+        Add("openviewer", "FT-ITC Project Viewer", window.OpenViewerAsync);
         Add("opensourcerepository", "Open Source Repository", window.OpenSourceRepositoryAsync);
 
     }
@@ -213,6 +215,7 @@ internal sealed class AppMenuController
 
         windowMenuNodes.Add(Menu("Tools",
             Command("experimentdesigner"),
+            Separator(),
             Command("experimentmerger"),
             Command("buffersubtraction"),
             Separator(),
@@ -223,11 +226,14 @@ internal sealed class AppMenuController
             Command("helpguide"),
             Command("technicalhelp"),
             Separator(),
+            Command("openwebsite"),
+            Command("openviewer"),
+            Command("opensourcerepository"),
+            Separator(),
             Command("citation"),
             Separator(),
             Command("support"),
-            Command("copysupportreport"),
-            Command("opensourcerepository")));
+            Command("copysupportreport")));
     }
 
     void Add(

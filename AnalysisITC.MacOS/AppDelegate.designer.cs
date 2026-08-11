@@ -74,6 +74,12 @@ namespace AnalysisITC
 		[Action ("OpenSourceRepository:")]
 		partial void OpenSourceRepository (Foundation.NSObject sender);
 
+		[Action ("OpenViewer:")]
+		partial void OpenViewer (Foundation.NSObject sender);
+
+		[Action ("OpenWebsite:")]
+		partial void OpenWebsite (Foundation.NSObject sender);
+
 		[Action ("Print:")]
 		partial void Print (AppKit.NSMenuItem sender);
 
