@@ -36,13 +36,9 @@ namespace AnalysisITC.Avalonia.Analysis
             var editor = BuildEditor(key, option, allOptions, enabled, apply, setStatus);
             var panel = new StackPanel { Spacing = 3 };
 
-            var title = new TextBlock
-            {
-                Text = CleanTitle(option.GetDisplayName()),
-                FontWeight = FontWeight.SemiBold,
-                TextWrapping = TextWrapping.Wrap,
-                Margin = WorkspaceControlBuilder.ControlMargin
-            };
+            var title = WorkspaceControlBuilder.MarkdownText(option.GetDisplayName());
+            title.FontWeight = FontWeight.SemiBold;
+            title.Margin = WorkspaceControlBuilder.ControlMargin;
             AppTheme.Bind(title, TextBlock.ForegroundProperty, enabled ? AppTheme.PrimaryText : AppTheme.MutedText);
             panel.Children.Add(title);
 
@@ -152,7 +148,7 @@ namespace AnalysisITC.Avalonia.Analysis
             Action<AttributeKey, ExperimentAttribute> apply,
             Action<string> setStatus)
         {
-            var check = WorkspaceControlBuilder.Check("Enabled", option.BoolValue);
+            var check = WorkspaceControlBuilder.Check("Enabled", option.BoolValue, "Enable or disable this model option.");
             check.IsEnabled = enabled;
             check.IsCheckedChanged += (_, _) =>
             {
@@ -275,7 +271,7 @@ namespace AnalysisITC.Avalonia.Analysis
             if (!allowFromAttributes)
                 return textEditor;
 
-            var fromAttributes = WorkspaceControlBuilder.Check("From attributes", option.BoolValue);
+            var fromAttributes = WorkspaceControlBuilder.Check("From attributes", option.BoolValue, "Read this value from the experiment attributes.");
             fromAttributes.IsCheckedChanged += (_, _) =>
             {
                 var copy = option.Copy();

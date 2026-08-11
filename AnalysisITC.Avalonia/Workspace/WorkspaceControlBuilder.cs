@@ -279,6 +279,26 @@ namespace AnalysisITC.Avalonia.Workspace
             return panel;
         }
 
+        public static Grid NumericFieldWithSuffix(NumericUpDown field, string suffix, double suffixLeft = 26)
+        {
+            StretchFieldControl(field);
+            field.Margin = new Thickness(0);
+
+            var suffixText = new TextBlock
+            {
+                Text = suffix,
+                Margin = new Thickness(suffixLeft, 0, 0, 0),
+                IsHitTestVisible = false,
+                VerticalAlignment = VerticalAlignment.Center
+            };
+            AppTheme.Bind(suffixText, TextBlock.ForegroundProperty, AppTheme.MutedText);
+
+            var panel = new Grid();
+            panel.Children.Add(field);
+            panel.Children.Add(suffixText);
+            return panel;
+        }
+
         public static StackPanel Row(params Control[] controls)
         {
             var row = Horizontal(RowSpacing);

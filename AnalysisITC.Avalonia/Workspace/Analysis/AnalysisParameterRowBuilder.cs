@@ -31,7 +31,10 @@ namespace AnalysisITC.Avalonia.Analysis
             var valueBox = WorkspaceControlBuilder.TextBox(display.TextValue);
             valueBox.Width = ValueWidth;
 
-            var lockCheck = WorkspaceControlBuilder.Check("Locked", parameter.IsLocked);
+            var lockCheck = WorkspaceControlBuilder.Check(
+                "Locked",
+                parameter.IsLocked,
+                "Hold this parameter at the entered value while fitting.");
             lockCheck.MinWidth = 86;
 
             void ApplyParameter()

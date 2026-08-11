@@ -31,10 +31,10 @@ namespace AnalysisITC.Avalonia.Analysis
         readonly ComboBox algorithmCombo = Combo(new[] { "Nelder-Mead", "Levenberg-Marquardt" }, 190);
         readonly ComboBox errorMethodCombo = Combo(new[] { "None", "Bootstrap residuals", "Leave-one-out" }, 190);
         readonly TextBox bootstrapIterationsBox = TextBox("100");
-        readonly CheckBox weightedFitCheck = Check("Weight by injection error", false);
+        readonly CheckBox weightedFitCheck = Check("Weight by injection error", false, "Weight each data point by its estimated injection uncertainty during fitting.");
         readonly ComboBox parameterLimitsCombo = Combo(new[] { "Standard", "Expanded", "No limits" }, 190);
-        readonly CheckBox createResultCheck = Check("Create analysis result", true);
-        readonly CheckBox autoOpenResultCheck = Check("Auto-open new result", true);
+        readonly CheckBox createResultCheck = Check("Create analysis result", true, "Save the fit as an analysis result when fitting completes.");
+        readonly CheckBox autoOpenResultCheck = Check("Auto-open new result", true, "Open the newly created analysis result after a successful fit.");
         readonly Button runFitButton = Button("Run Fit", 92);
         readonly Button stopFitButton = Button("Stop", 70);
         readonly Button restoreDefaultsButton = Button("Restore defaults", 124);
@@ -44,21 +44,21 @@ namespace AnalysisITC.Avalonia.Analysis
         readonly StackPanel parameterPanel = WorkspaceControlBuilder.InspectorPanel();
         readonly StackPanel optionPanel = WorkspaceControlBuilder.InspectorPanel();
 
-        readonly CheckBox fitCheck = Check("Fit line", true);
-        readonly CheckBox residualsCheck = Check("Residuals", true);
-        readonly CheckBox errorBarsCheck = Check("Error bars", true);
-        readonly CheckBox confidenceCheck = Check("Confidence band", true);
-        readonly CheckBox labelsCheck = Check("Point labels", true);
-        readonly CheckBox parametersCheck = Check("Parameter box", true);
-        readonly CheckBox excludedCheck = Check("Excluded points", true);
-        readonly CheckBox scaleIncludedCheck = Check("Scale to included", true);
-        readonly CheckBox unifiedXCheck = Check("Unified X axis", false);
-        readonly CheckBox unifiedYCheck = Check("Unified Y axis", false);
-        readonly CheckBox offsetCheck = Check("Show fitted offset", true);
+        readonly CheckBox fitCheck = Check("Fit line", true, "Draw the fitted model curve.");
+        readonly CheckBox residualsCheck = Check("Residuals", true, "Show differences between observed and fitted heats.");
+        readonly CheckBox errorBarsCheck = Check("Error bars", true, "Draw uncertainty bars for integrated heats.");
+        readonly CheckBox confidenceCheck = Check("Confidence band", true, "Draw the confidence interval around the fitted curve.");
+        readonly CheckBox labelsCheck = Check("Point labels", true, "Label each plotted injection point.");
+        readonly CheckBox parametersCheck = Check("Parameter box", true, "Show the fitted parameter summary on the graph.");
+        readonly CheckBox excludedCheck = Check("Excluded points", true, "Show injections excluded from the fit.");
+        readonly CheckBox scaleIncludedCheck = Check("Scale to included", true, "Calculate automatic graph limits from included points only.");
+        readonly CheckBox unifiedXCheck = Check("Unified X axis", false, "Use the same x-axis range for comparable graphs.");
+        readonly CheckBox unifiedYCheck = Check("Unified Y axis", false, "Use the same y-axis range for comparable graphs.");
+        readonly CheckBox offsetCheck = Check("Show fitted offset", true, "Display the fitted baseline offset on the graph.");
         readonly ComboBox fitLineInterpolationCombo = Combo(new[] { "Linear", "Smooth" }, 170);
-        readonly CheckBox displayModelCheck = Check("Model parameters", true);
-        readonly CheckBox displayFittedCheck = Check("Fitted parameters", true);
-        readonly CheckBox displayDerivedCheck = Check("Derived parameters", true);
+        readonly CheckBox displayModelCheck = Check("Model parameters", true, "Show parameters defined by the selected model.");
+        readonly CheckBox displayFittedCheck = Check("Fitted parameters", true, "Show parameters optimized by the fit.");
+        readonly CheckBox displayDerivedCheck = Check("Derived parameters", true, "Show parameters calculated from the fitted values.");
         readonly AnalysisModel[] modelChoices = AnalysisModelAttribute.GetAll().ToArray();
 
         ExperimentData? experiment;
@@ -340,7 +340,18 @@ namespace AnalysisITC.Avalonia.Analysis
             var globalAvailable = GlobalModeAvailable();
 
             if (!globalAvailable && modeCombo.SelectedIndex == 1)
-                modeCombo.SelectedIndex = 0;
+            {
+                var wasUpdatingControls = isUpdatingControls;
+                isUpdatingControls = true;
+                try
+                {
+                    modeCombo.SelectedIndex = 0;
+                }
+                finally
+                {
+                    isUpdatingControls = wasUpdatingControls;
+                }
+            }
 
             RebuildAnalysisContext();
             graph.FitToData();
@@ -496,13 +507,16 @@ namespace AnalysisITC.Avalonia.Analysis
             if (workspace.Session.IsGlobal)
                 AddConstraintRows();
 
-            foreach (var parameter in workspace.Context.ExposedParameters)
+            foreach (var parameter in workspace.Context.ExposedParameters
+                .Where(parameter => IsParameterApplicable(parameter.Key)))
                 parameterPanel.Children.Add(BuildParameterRow(parameter));
         }
 
         void AddConstraintRows()
         {
-            var constraints = workspace.Context.ExposedConstraintOptions;
+            var constraints = workspace.Context.ExposedConstraintOptions
+                .Where(option => IsParameterApplicable(option.Key))
+                .ToList();
             if (constraints.Count == 0) return;
 
             var panel = new StackPanel { Spacing = 2 };
@@ -510,6 +524,19 @@ namespace AnalysisITC.Avalonia.Analysis
                 panel.Children.Add(BuildConstraintRow(constraint.Key, constraint.Value));
 
             parameterPanel.Children.Add(Section("Global constraints", new Control[] { panel }));
+        }
+
+        bool IsParameterApplicable(ParameterType key)
+        {
+            if (key != ParameterType.Nvalue2 || !workspace.IsReady) return true;
+
+            var options = workspace.Context.ExposedModelOptions;
+            var useSyringeCorrection = options.TryGetValue(AttributeKey.UseSyringeActiveFraction, out var syringeOption)
+                && syringeOption.BoolValue;
+            var shareNValues = options.TryGetValue(AttributeKey.LockDuplicateParameter, out var sharedOption)
+                && sharedOption.BoolValue;
+
+            return !useSyringeCorrection && !shareNValues;
         }
 
         Control BuildConstraintRow(ParameterType key, IReadOnlyList<VariableConstraint> options)
@@ -825,7 +852,7 @@ namespace AnalysisITC.Avalonia.Analysis
                 var includedExperiments = DataManager.IncludedData.ToList();
                 var ready = includedExperiments.Count(AnalysisBuilder.IsAnalysisReady);
                 fitStatusText.Text = workspace.IsReady
-                    ? $"Global fit: {ready}/{includedExperiments.Count} included experiments ready"
+                    ? ""
                     : $"Global fit needs at least two ready included experiments ({ready}/{includedExperiments.Count})";
                 UpdateFitButtonState();
                 return;

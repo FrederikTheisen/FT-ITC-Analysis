@@ -592,7 +592,10 @@ namespace AnalysisITC.Avalonia.Results
                 {
                     Pair("Date", data?.UIShortDateWithTime ?? ""),
                     Pair("Temperature", data == null ? "" : $"{data.MeasuredTemperature:G3} °C"),
-                    Pair("Status", solution.IsValid ? "Solution valid" : "Solution invalid")
+                    Pair(
+                        "Status",
+                        solution.IsValid ? "Valid solution" : "Invalid solution",
+                        solution.IsValid ? AppTheme.StatusValid : AppTheme.StatusError)
                 }));
             }
         }
@@ -611,7 +614,7 @@ namespace AnalysisITC.Avalonia.Results
             if (options != null && options.Count > 0)
             {
                 modelPanel.Children.Add(Section("Model options", options
-                    .Select(option => Pair(OptionName(option.Key, option.Value), OptionValue(option.Key, option.Value)))
+                    .Select(option => Pair(OptionName(option.Key, option.Value), OptionValue(option.Key, option.Value), labelContainsMarkdown: true))
                     .Cast<Control>()
                     .ToArray()));
             }
@@ -1131,18 +1134,17 @@ namespace AnalysisITC.Avalonia.Results
             };
         }
 
-        static Border Pair(string label, string value)
+        static Border Pair(string label, string value, string? valueBrush = null, bool labelContainsMarkdown = false)
         {
             var panel = new Grid
             {
                 ColumnDefinitions = new ColumnDefinitions($"Auto,*"),
                 ColumnSpacing = RowSpacing,
             };
-            var labelText = new TextBlock
-            {
-                Text = label,
-                VerticalAlignment = VerticalAlignment.Top
-            };
+            var labelText = labelContainsMarkdown
+                ? WorkspaceControlBuilder.MarkdownText(label)
+                : new TextBlock { Text = label };
+            labelText.VerticalAlignment = VerticalAlignment.Top;
             AppTheme.Bind(labelText, TextBlock.ForegroundProperty, AppTheme.MutedText);
             panel.Children.Add(labelText);
             var valueText = new TextBlock
@@ -1152,7 +1154,9 @@ namespace AnalysisITC.Avalonia.Results
                 VerticalAlignment = VerticalAlignment.Center,
                 TextAlignment = TextAlignment.Right
             };
-            AppTheme.Bind(valueText, TextBlock.ForegroundProperty, AppTheme.PrimaryText);
+            AppTheme.Bind(valueText, TextBlock.ForegroundProperty, valueBrush ?? AppTheme.PrimaryText);
+            if (valueBrush != null)
+                valueText.FontWeight = FontWeight.SemiBold;
             Grid.SetColumn(valueText, 1);
             panel.Children.Add(valueText);
 

@@ -40,10 +40,10 @@ namespace AnalysisITC.Avalonia.Tools
         readonly TextBox syringeConcentrationBox = TextBox("100");
         readonly NumericUpDown injectionCountStepper = Stepper(20, 2, 1000);
         readonly TextBox injectionVolumeBox = TextBox("2");
-        readonly CheckBox autoVolumeCheck = Check("Automatic injection volume", true);
-        readonly CheckBox smallFirstInjectionCheck = Check("Small first injection", true);
-        readonly CheckBox simulateNoiseCheck = Check("Simulate noise", false);
-        readonly CheckBox tandemCheck = Check("Tandem simulation", false);
+        readonly CheckBox autoVolumeCheck = Check("Automatic injection volume", true, "Calculate injection volume from the selected instrument and concentrations.");
+        readonly CheckBox smallFirstInjectionCheck = Check("Small first injection", true, "Use a smaller first injection to model the usual equilibration injection.");
+        readonly CheckBox simulateNoiseCheck = Check("Simulate noise", false, "Add simulated measurement noise to the synthetic experiment.");
+        readonly CheckBox tandemCheck = Check("Tandem simulation", false, "Simulate consecutive loads with back-mixing between segments.");
         readonly NumericUpDown tandemSegmentCountStepper = Stepper(2, 2, 100);
         readonly TextBlock instrumentInfoText = Text();
         readonly TextBlock injectionInfoText = Text();
@@ -292,12 +292,8 @@ namespace AnalysisITC.Avalonia.Tools
         Control BuildOptionRow(AttributeKey key, ExperimentAttribute option)
         {
             var properties = key.GetProperties();
-            var title = new TextBlock
-            {
-                Text = properties.Name,
-                FontWeight = FontWeight.SemiBold,
-                TextWrapping = TextWrapping.Wrap
-            };
+            var title = WorkspaceControlBuilder.MarkdownText(option.GetDisplayName());
+            title.FontWeight = FontWeight.SemiBold;
             AppTheme.Bind(title, TextBlock.ForegroundProperty, AppTheme.PrimaryText);
 
             Control editor = key switch
@@ -331,7 +327,7 @@ namespace AnalysisITC.Avalonia.Tools
 
         Control BoolOptionEditor(ExperimentAttribute option)
         {
-            var check = Check("Enabled", option.BoolValue);
+            var check = Check("Enabled", option.BoolValue, "Enable or disable this model option.");
             check.IsCheckedChanged += (_, _) =>
             {
                 var copy = option.Copy();

@@ -43,6 +43,7 @@ internal sealed class ExportDataWindow : Window
         MinHeight = 380;
         WindowStartupLocation = WindowStartupLocation.CenterOwner;
         CanResize = false;
+        AppTheme.Bind(this, BackgroundProperty, AppTheme.PanelBackground);
 
         nameBox = new TextBox { Text = settings.OutputBaseName, MinWidth = 250 };
         formatBox = new ComboBox { MinWidth = 250 };
@@ -116,6 +117,7 @@ internal sealed class ExportDataWindow : Window
         };
 
         var root = new DockPanel { LastChildFill = true };
+        AppTheme.Bind(root, Panel.BackgroundProperty, AppTheme.PanelBackground);
         DockPanel.SetDock(footer, Dock.Bottom);
         root.Children.Add(footer);
         root.Children.Add(content);
