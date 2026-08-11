@@ -166,6 +166,7 @@ public sealed class AvaloniaGraphTheme
         string data,
         string correctedData,
         string baseline,
+        string temperature,
         string region,
         string mutedRegion,
         string injection,
@@ -192,6 +193,7 @@ public sealed class AvaloniaGraphTheme
         DataBrush = AvaloniaGraphSettings.Brush(data);
         CorrectedDataBrush = AvaloniaGraphSettings.Brush(correctedData);
         BaselineBrush = AvaloniaGraphSettings.Brush(baseline);
+        TemperatureBrush = AvaloniaGraphSettings.Brush(temperature);
         SplinePointBrush = BaselineBrush;
         SplinePointHoverBrush = AvaloniaGraphSettings.Brush(baseline, 0.22);
         SplinePointHoverPen = AvaloniaGraphSettings.Pen(AvaloniaGraphSettings.Brush(baseline, 0.42), AvaloniaGraphSettings.ProcessingSplinePointHoverStroke);
@@ -219,6 +221,7 @@ public sealed class AvaloniaGraphTheme
         CorrectedDataPen = AvaloniaGraphSettings.Pen(CorrectedDataBrush, AvaloniaGraphSettings.DataStroke);
         InjectionPen = AvaloniaGraphSettings.Pen(InjectionBrush, AvaloniaGraphSettings.InjectionStroke);
         BaselinePen = AvaloniaGraphSettings.Pen(BaselineBrush, AvaloniaGraphSettings.BaselineStroke);
+        TemperaturePen = AvaloniaGraphSettings.Pen(TemperatureBrush, AvaloniaGraphSettings.FrameStroke);
         PointPen = AvaloniaGraphSettings.Pen(PointBrush, AvaloniaGraphSettings.PointStroke);
         ExcludedPen = AvaloniaGraphSettings.Pen(ExcludedBrush, AvaloniaGraphSettings.PointStroke);
         FitPen = AvaloniaGraphSettings.Pen(FitBrush, AvaloniaGraphSettings.FitStroke);
@@ -241,6 +244,7 @@ public sealed class AvaloniaGraphTheme
         data: "#1E5F84",
         correctedData: "#365D41",
         baseline: "#BE3A34",
+        temperature: "#C74640",
         region: "#2563EB",
         mutedRegion: "#7B8794",
         injection: "#A46A2A",
@@ -268,6 +272,7 @@ public sealed class AvaloniaGraphTheme
         data: "#7CB7D8",
         correctedData: "#89B891",
         baseline: "#E17872",
+        temperature: "#F08B84",
         region: "#7EA8FF",
         mutedRegion: "#8D99A6",
         injection: "#D6A05C",
@@ -294,6 +299,7 @@ public sealed class AvaloniaGraphTheme
     public IBrush DataBrush { get; }
     public IBrush CorrectedDataBrush { get; }
     public IBrush BaselineBrush { get; }
+    public IBrush TemperatureBrush { get; }
     public IBrush SplinePointBrush { get; }
     public IBrush SplinePointHoverBrush { get; }
     public Pen SplinePointHoverPen { get; }
@@ -321,6 +327,7 @@ public sealed class AvaloniaGraphTheme
     public Pen CorrectedDataPen { get; }
     public Pen InjectionPen { get; }
     public Pen BaselinePen { get; }
+    public Pen TemperaturePen { get; }
     public Pen PointPen { get; }
     public Pen ExcludedPen { get; }
     public Pen FitPen { get; }

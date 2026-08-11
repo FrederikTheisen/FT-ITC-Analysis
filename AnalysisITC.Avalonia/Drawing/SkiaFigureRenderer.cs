@@ -131,7 +131,7 @@ public sealed class SkiaFigureRenderer
 
         foreach (var band in panel.Bands)
         {
-            DrawBand(drawing, panel, rect, band);
+            DrawBand(drawing, document.Options, panel, rect, band);
         }
 
         if (document.Options.IntegrationRegionStyle == PublicationIntegrationRegionStyle.Fill)
@@ -190,9 +190,11 @@ public sealed class SkiaFigureRenderer
             PublicationSeriesRole.Baseline => (float)Math.Max(0.25, options.BaselineWidth * strokeWidth),
             _ => strokeWidth
         };
-        var smooth = series.Role == PublicationSeriesRole.Fit && options.FitLineSmoothness != LineSmoothness.Linear;
+        var smoothness = series.Role == PublicationSeriesRole.Fit
+            ? options.FitLineSmoothness
+            : LineSmoothness.Linear;
 
-        drawing.DrawPolyline(points, color, width, smooth,
+        drawing.DrawPolyline(points, color, width, smoothness,
             series.Role == PublicationSeriesRole.Baseline && options.BaselineStyle == PublicationBaselineStyle.Dashed);
     }
 
@@ -229,19 +231,24 @@ public sealed class SkiaFigureRenderer
         }
     }
 
-    void DrawBand(SkiaDrawingContext drawing, PublicationFigurePanel panel, SKRect rect, PublicationBand band)
+    void DrawBand(SkiaDrawingContext drawing, PublicationFigureOptions options, PublicationFigurePanel panel, SKRect rect, PublicationBand band)
     {
         if (band.Upper.Count < 2 || band.Lower.Count < 2) return;
 
-        var path = new SKPath();
         var upper = band.Upper.Select(point => Transform(panel, rect, point.X, point.Y)).ToList();
         var lower = band.Lower.Select(point => Transform(panel, rect, point.X, point.Y)).Reverse().ToList();
 
         if (upper.Count == 0 || lower.Count == 0) return;
 
-        path.MoveTo(upper[0]);
-        foreach (var point in upper.Skip(1)) path.LineTo(point);
-        foreach (var point in lower) path.LineTo(point);
+        var upperPath = SkiaDrawingContext.BuildInterpolatedPath(upper, options.FitLineSmoothness);
+        var lowerPath = SkiaDrawingContext.BuildInterpolatedPath(lower, options.FitLineSmoothness);
+        if (upperPath.IsEmpty || lowerPath.IsEmpty) return;
+
+        using var path = new SKPath();
+        path.MoveTo(SkiaDrawingContext.ToSkiaPoint(upperPath.Start));
+        SkiaDrawingContext.AppendInterpolatedPath(path, upperPath);
+        path.LineTo(SkiaDrawingContext.ToSkiaPoint(lowerPath.Start));
+        SkiaDrawingContext.AppendInterpolatedPath(path, lowerPath);
         path.Close();
 
         drawing.FillPath(path, BandGray);
@@ -695,11 +702,11 @@ sealed class SkiaDrawingContext
         canvas.DrawLine(start, end, paint);
     }
 
-    public void DrawPolyline(IReadOnlyList<SKPoint> points, SKColor color, float width, bool smooth, bool dashed = false)
+    public void DrawPolyline(IReadOnlyList<SKPoint> points, SKColor color, float width, LineSmoothness smoothness, bool dashed = false)
     {
         if (points.Count < 2) return;
 
-        using var path = smooth ? SmoothedPath(points) : LinearPath(points);
+        using var path = InterpolatedPath(points, smoothness);
         using var paint = StrokePaint(color, width);
         if (dashed) paint.PathEffect = SKPathEffect.CreateDash(new[] { 2 * width, 2 * width }, 0);
         canvas.DrawPath(path, paint);
@@ -904,39 +911,37 @@ sealed class SkiaDrawingContext
             ?? SKTypeface.Default;
     }
 
-    static SKPath LinearPath(IReadOnlyList<SKPoint> points)
+    static SKPath InterpolatedPath(IReadOnlyList<SKPoint> points, LineSmoothness smoothness)
     {
+        var interpolationPath = BuildInterpolatedPath(points, smoothness);
         var path = new SKPath();
-        path.MoveTo(points[0]);
-        for (int i = 1; i < points.Count; i++) path.LineTo(points[i]);
+        if (interpolationPath.IsEmpty) return path;
+
+        path.MoveTo(ToSkiaPoint(interpolationPath.Start));
+        AppendInterpolatedPath(path, interpolationPath);
         return path;
     }
 
-    static SKPath SmoothedPath(IReadOnlyList<SKPoint> points)
+    internal static FitLinePath BuildInterpolatedPath(IReadOnlyList<SKPoint> points, LineSmoothness smoothness)
     {
-        var path = new SKPath();
-        path.MoveTo(points[0]);
-
-        if (points.Count < 3)
-        {
-            path.LineTo(points[1]);
-            return path;
-        }
-
-        for (int i = 0; i < points.Count - 1; i++)
-        {
-            var p0 = i == 0 ? points[i] : points[i - 1];
-            var p1 = points[i];
-            var p2 = points[i + 1];
-            var p3 = i + 2 < points.Count ? points[i + 2] : p2;
-            var c1 = new SKPoint(p1.X + (p2.X - p0.X) / 6, p1.Y + (p2.Y - p0.Y) / 6);
-            var c2 = new SKPoint(p2.X - (p3.X - p1.X) / 6, p2.Y - (p3.Y - p1.Y) / 6);
-
-            path.CubicTo(c1, c2, p2);
-        }
-
-        return path;
+        return FitLinePathBuilder.Build(
+            points.Select(point => new FitLineInterpolationPoint(point.X, point.Y)).ToList(),
+            smoothness);
     }
+
+    internal static void AppendInterpolatedPath(SKPath path, FitLinePath interpolationPath)
+    {
+        foreach (var segment in interpolationPath.Segments)
+        {
+            var end = ToSkiaPoint(segment.End);
+            if (segment.Kind == FitLinePathSegmentKind.Quadratic)
+                path.QuadTo(ToSkiaPoint(segment.Control), end);
+            else
+                path.LineTo(end);
+        }
+    }
+
+    internal static SKPoint ToSkiaPoint(FitLineInterpolationPoint point) => new SKPoint((float)point.X, (float)point.Y);
 
     readonly struct RichTextPart
     {

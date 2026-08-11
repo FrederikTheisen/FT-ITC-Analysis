@@ -387,10 +387,7 @@ namespace AnalysisITC.Avalonia.Analysis
             if (points.Count < 2) return;
 
             var screenPoints = points.Select(point => layout.FitTransform.ToScreen(point.X, point.Y)).ToList();
-            if (FitLineSmoothness == LineSmoothness.Linear)
-                DrawPolyline(context, layout.FitPlot, screenPoints, GraphTheme.FitPen);
-            else
-                DrawSmoothPolyline(context, layout.FitPlot, screenPoints, GraphTheme.FitPen);
+            DrawInterpolatedPolyline(context, layout.FitPlot, screenPoints, GraphTheme.FitPen, FitLineSmoothness);
         }
 
         void DrawConfidenceBand(DrawingContext context, GraphLayout layout)
@@ -411,15 +408,21 @@ namespace AnalysisITC.Avalonia.Analysis
 
             if (band.Count < 2) return;
 
-            var upper = band.Select(point => layout.FitTransform.ToScreen(point.X, point.UpperY)).ToList();
-            var lower = band.Select(point => layout.FitTransform.ToScreen(point.X, point.LowerY)).Reverse().ToList();
+            var upper = BuildInterpolatedPath(
+                band.Select(point => layout.FitTransform.ToScreen(point.X, point.UpperY)).ToList(),
+                FitLineSmoothness);
+            var lower = BuildInterpolatedPath(
+                band.Select(point => layout.FitTransform.ToScreen(point.X, point.LowerY)).Reverse().ToList(),
+                FitLineSmoothness);
+            if (upper.IsEmpty || lower.IsEmpty) return;
 
             var geometry = new StreamGeometry();
             using (var stream = geometry.Open())
             {
-                stream.BeginFigure(upper[0], true);
-                foreach (var point in upper.Skip(1)) stream.LineTo(point);
-                foreach (var point in lower) stream.LineTo(point);
+                stream.BeginFigure(ToAvaloniaPoint(upper.Start), true);
+                AppendInterpolatedPath(stream, upper);
+                stream.LineTo(ToAvaloniaPoint(lower.Start));
+                AppendInterpolatedPath(stream, lower);
                 stream.EndFigure(true);
             }
 
@@ -751,15 +754,23 @@ namespace AnalysisITC.Avalonia.Analysis
 
         static bool Safe(double value) => double.IsFinite(value) && !double.IsNaN(value);
 
-        static void DrawPolyline(DrawingContext context, Rect clip, IReadOnlyList<Point> points, Pen pen)
+        static void DrawInterpolatedPolyline(
+            DrawingContext context,
+            Rect clip,
+            IReadOnlyList<Point> points,
+            Pen pen,
+            LineSmoothness smoothness)
         {
             if (points.Count < 2) return;
 
+            var path = BuildInterpolatedPath(points, smoothness);
+            if (path.IsEmpty) return;
+
             var geometry = new StreamGeometry();
             using (var stream = geometry.Open())
             {
-                stream.BeginFigure(points[0], false);
-                for (int i = 1; i < points.Count; i++) stream.LineTo(points[i]);
+                stream.BeginFigure(ToAvaloniaPoint(path.Start), false);
+                AppendInterpolatedPath(stream, path);
             }
 
             using (context.PushClip(clip))
@@ -768,36 +779,30 @@ namespace AnalysisITC.Avalonia.Analysis
             }
         }
 
-        static void DrawSmoothPolyline(DrawingContext context, Rect clip, IReadOnlyList<Point> points, Pen pen)
+        static FitLinePath BuildInterpolatedPath(IReadOnlyList<Point> points, LineSmoothness smoothness)
         {
-            if (points.Count < 3)
-            {
-                DrawPolyline(context, clip, points, pen);
-                return;
-            }
+            return FitLinePathBuilder.Build(
+                points.Select(point => new FitLineInterpolationPoint(point.X, point.Y)).ToList(),
+                smoothness);
+        }
 
-            var geometry = new StreamGeometry();
-            using (var stream = geometry.Open())
+        static void AppendInterpolatedPath(StreamGeometryContext stream, FitLinePath path)
+        {
+            foreach (var segment in path.Segments)
             {
-                stream.BeginFigure(points[0], false);
-                for (var i = 0; i < points.Count - 1; i++)
+                var end = ToAvaloniaPoint(segment.End);
+                if (segment.Kind == FitLinePathSegmentKind.Quadratic)
                 {
-                    var p0 = i == 0 ? points[i] : points[i - 1];
-                    var p1 = points[i];
-                    var p2 = points[i + 1];
-                    var p3 = i + 2 < points.Count ? points[i + 2] : p2;
-
-                    var c1 = new Point(p1.X + (p2.X - p0.X) / 6.0, p1.Y + (p2.Y - p0.Y) / 6.0);
-                    var c2 = new Point(p2.X - (p3.X - p1.X) / 6.0, p2.Y - (p3.Y - p1.Y) / 6.0);
-                    stream.CubicBezierTo(c1, c2, p2);
+                    stream.QuadraticBezierTo(ToAvaloniaPoint(segment.Control), end);
+                }
+                else
+                {
+                    stream.LineTo(end);
                 }
             }
-
-            using (context.PushClip(clip))
-            {
-                context.DrawGeometry(null, pen, geometry);
-            }
         }
+
+        static Point ToAvaloniaPoint(FitLineInterpolationPoint point) => new Point(point.X, point.Y);
 
         static double Crisp(double value) => Math.Round(value) + 0.5;
 
