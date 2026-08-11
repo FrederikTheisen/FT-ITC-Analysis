@@ -23,8 +23,9 @@ namespace AnalysisITC.Avalonia
 
         GraphViewport view;
         bool hasView;
-        bool isPanning;
-        Point lastPanPoint;
+        bool isZoomDragging;
+        Point dragStart;
+        Point dragCurrent;
         Point? hoverPoint;
         DataPoint? hoverData;
 
@@ -63,6 +64,7 @@ namespace AnalysisITC.Avalonia
 
             view = GraphViewport.WithPadding(xMin, xMax, yMin, yMax, AvaloniaGraphSettings.DefaultXPaddingFraction, AvaloniaGraphSettings.DefaultYPaddingFraction);
             hasView = true;
+            isZoomDragging = false;
             hoverPoint = null;
             hoverData = null;
 
@@ -104,27 +106,8 @@ namespace AnalysisITC.Avalonia
             DrawInjections(context, graph);
             DrawAxes(context, graph);
             context.DrawRectangle(null, GraphTheme.FramePen, graph.Plot);
+            DrawZoomSelection(context);
             DrawHover(context, graph);
-        }
-
-        protected override void OnPointerWheelChanged(PointerWheelEventArgs e)
-        {
-            base.OnPointerWheelChanged(e);
-
-            if (!hasView) return;
-
-            var graph = GraphLayout.Create(null, Bounds, view, Power, Experiment);
-            var point = e.GetPosition(this);
-            if (!graph.Plot.Contains(point)) return;
-
-            var factor = e.Delta.Y > 0 ? 0.82 : 1.22;
-            var anchor = graph.Transform.ToData(point);
-
-            view = view.Zoom(anchor.X, anchor.Y, factor);
-            UpdateHover(point, graph);
-            InvalidateVisual();
-
-            e.Handled = true;
         }
 
         protected override void OnPointerPressed(PointerPressedEventArgs e)
@@ -136,10 +119,23 @@ namespace AnalysisITC.Avalonia
             var graph = GraphLayout.Create(null, Bounds, view, Power, Experiment);
             var point = e.GetPosition(this);
             if (!graph.Plot.Contains(point)) return;
+            if (!e.GetCurrentPoint(this).Properties.IsLeftButtonPressed) return;
+
+            if (e.ClickCount > 1)
+            {
+                isZoomDragging = false;
+                e.Pointer.Capture(null);
+                FitToData();
+                e.Handled = true;
+                return;
+            }
 
             Focus();
-            isPanning = true;
-            lastPanPoint = point;
+            isZoomDragging = true;
+            dragStart = point;
+            dragCurrent = point;
+            hoverPoint = null;
+            hoverData = null;
             e.Pointer.Capture(this);
             e.Handled = true;
         }
@@ -158,10 +154,9 @@ namespace AnalysisITC.Avalonia
             var graph = GraphLayout.Create(null, Bounds, view, Power, Experiment);
             var point = e.GetPosition(this);
 
-            if (isPanning)
+            if (isZoomDragging)
             {
-                view = view.Pan(lastPanPoint, point, graph.Transform);
-                lastPanPoint = point;
+                dragCurrent = point;
                 hoverPoint = null;
                 hoverData = null;
                 InvalidateVisual();
@@ -177,8 +172,19 @@ namespace AnalysisITC.Avalonia
         {
             base.OnPointerReleased(e);
 
-            isPanning = false;
+            if (!isZoomDragging) return;
+
+            var graph = GraphLayout.Create(null, Bounds, view, Power, Experiment);
+            var point = e.GetPosition(this);
+            isZoomDragging = false;
             e.Pointer.Capture(null);
+
+            if (Distance(dragStart, point) > AvaloniaGraphSettings.ProcessingDragThreshold)
+                ZoomRegion(dragStart, point, graph);
+
+            hoverPoint = null;
+            hoverData = null;
+            InvalidateVisual();
             e.Handled = true;
         }
 
@@ -186,9 +192,28 @@ namespace AnalysisITC.Avalonia
         {
             base.OnPointerExited(e);
 
+            if (isZoomDragging) return;
+
             hoverPoint = null;
             hoverData = null;
             InvalidateVisual();
+        }
+
+        void DrawZoomSelection(DrawingContext context)
+        {
+            if (!isZoomDragging || Distance(dragStart, dragCurrent) <= AvaloniaGraphSettings.ProcessingDragThreshold) return;
+
+            context.DrawRectangle(GraphTheme.ZoomBrush, GraphTheme.ZoomPen, RectFromPoints(dragStart, dragCurrent));
+        }
+
+        void ZoomRegion(Point start, Point end, GraphLayout graph)
+        {
+            var rect = RectFromPoints(start, end).Intersect(graph.Plot);
+            if (rect.Width < 10 || rect.Height < 10) return;
+
+            var topLeft = graph.Transform.ToData(new Point(rect.Left, rect.Top));
+            var bottomRight = graph.Transform.ToData(new Point(rect.Right, rect.Bottom));
+            view = GraphViewport.FromBounds(topLeft.X, bottomRight.X, bottomRight.Y, topLeft.Y);
         }
 
         void UpdateHover(Point point, GraphLayout graph)
@@ -349,7 +374,7 @@ namespace AnalysisITC.Avalonia
 
             using (context.PushClip(graph.Plot))
             {
-                context.DrawGeometry(null, GraphTheme.OverviewDataPen, geometry);
+                context.DrawGeometry(null, GraphTheme.OverviewThermogramPen, geometry);
             }
         }
 
@@ -364,40 +389,9 @@ namespace AnalysisITC.Avalonia
 
             if (visible.Count == 0) return new List<Point>();
 
-            if (visible.Count <= graph.Plot.Width * 2)
-            {
-                return visible
-                    .Select(point => graph.Transform.ToScreen(point.Time, Power.Convert(point.Power)))
-                    .ToList();
-            }
-
-            var result = new List<Point>((int)graph.Plot.Width * 3);
-            PixelBucket? bucket = null;
-
-            foreach (var point in visible)
-            {
-                var screen = graph.Transform.ToScreen(point.Time, Power.Convert(point.Power));
-                var pixel = (int)Math.Round(screen.X);
-
-                if (bucket == null)
-                {
-                    bucket = new PixelBucket(pixel, screen.Y);
-                    continue;
-                }
-
-                if (bucket.Value.Pixel == pixel)
-                {
-                    bucket = bucket.Value.Add(screen.Y);
-                    continue;
-                }
-
-                bucket.Value.AppendTo(result);
-                bucket = new PixelBucket(pixel, screen.Y);
-            }
-
-            bucket?.AppendTo(result);
-
-            return result;
+            return visible
+                .Select(point => graph.Transform.ToScreen(point.Time, Power.Convert(point.Power)))
+                .ToList();
         }
 
         void DrawInjections(DrawingContext context, GraphLayout graph)
@@ -415,20 +409,6 @@ namespace AnalysisITC.Avalonia
                     context.DrawLine(GraphTheme.InjectionPen, new Point(x, graph.Plot.Top), new Point(x, graph.Plot.Bottom));
                     context.DrawRectangle(GraphTheme.InjectionBrush, null, new Rect(x - 2, graph.Plot.Top, 4, 8));
                 }
-            }
-
-            if (injections.Count > 80) return;
-
-            var lastLabelX = double.NegativeInfinity;
-            foreach (var injection in injections)
-            {
-                if (!view.ContainsX(injection.Time)) continue;
-
-                var x = graph.Transform.X(injection.Time);
-                if (x - lastLabelX < 22) continue;
-
-                DrawCenteredText(context, injection.ID.ToString(CultureInfo.CurrentCulture), new Point(x, graph.Plot.Top + 10), AvaloniaGraphSettings.InjectionLabelFontSize, GraphTheme.InjectionBrush);
-                lastLabelX = x;
             }
         }
 
@@ -448,14 +428,23 @@ namespace AnalysisITC.Avalonia
                 context.DrawEllipse(GraphTheme.PlotBrush, GraphTheme.HoverPen, screen, AvaloniaGraphSettings.HoverMarkerRadius, AvaloniaGraphSettings.HoverMarkerRadius);
             }
 
-            var lines = new[]
-            {
-                $"Time: {data.Time:F1} s",
-                $"Power: {Power.Format(Power.Convert(data.Power))}",
-                $"Temp: {data.Temperature:F3} °C"
-            };
+            var lines = new List<string>();
+            var injection = InjectionAtTime(graph.Transform.ToData(hoverPoint.Value).X);
+            if (injection != null) lines.Add($"Injection: {injection.ID + 1}");
 
-            DrawInfoBox(context, lines, graph.Plot, screen);
+            lines.Add($"Time: {data.Time:F1} s");
+            lines.Add($"Power: {Power.Format(Power.Convert(data.Power))}");
+            lines.Add($"Temp: {data.Temperature:F3} °C");
+
+            DrawInfoBox(context, lines.ToArray(), graph.Plot, screen);
+        }
+
+        InjectionData? InjectionAtTime(double time)
+        {
+            var injections = Experiment?.Injections;
+            if (injections == null || injections.Count == 0) return null;
+
+            return injections.LastOrDefault(injection => injection.Time <= time);
         }
 
         void DrawInfoBox(DrawingContext context, string[] lines, Rect plot, Point anchor)
@@ -507,6 +496,22 @@ namespace AnalysisITC.Avalonia
         }
 
         static double Crisp(double value) => Math.Round(value) + 0.5;
+
+        static double Distance(Point left, Point right)
+        {
+            var dx = left.X - right.X;
+            var dy = left.Y - right.Y;
+            return Math.Sqrt(dx * dx + dy * dy);
+        }
+
+        static Rect RectFromPoints(Point left, Point right)
+        {
+            return new Rect(
+                Math.Min(left.X, right.X),
+                Math.Min(left.Y, right.Y),
+                Math.Abs(left.X - right.X),
+                Math.Abs(left.Y - right.Y));
+        }
 
         static FormattedText CreateText(string text, double size, FontWeight weight, IBrush brush)
         {
@@ -583,30 +588,12 @@ namespace AnalysisITC.Avalonia
                     yMax + yDelta * yPaddingFraction);
             }
 
+            public static GraphViewport FromBounds(double xMin, double xMax, double yMin, double yMax)
+                => new GraphViewport(xMin, xMax, yMin, yMax);
+
             public bool ContainsX(double value) => value >= XMin && value <= XMax;
 
             public bool ContainsY(double value) => value >= YMin && value <= YMax;
-
-            public GraphViewport Zoom(double xAnchor, double yAnchor, double factor)
-            {
-                factor = Math.Max(0.05, Math.Min(20, factor));
-
-                return new GraphViewport(
-                    xAnchor - (xAnchor - XMin) * factor,
-                    xAnchor + (XMax - xAnchor) * factor,
-                    yAnchor - (yAnchor - YMin) * factor,
-                    yAnchor + (YMax - yAnchor) * factor);
-            }
-
-            public GraphViewport Pan(Point previous, Point current, PlotTransform transform)
-            {
-                var previousData = transform.ToData(previous);
-                var currentData = transform.ToData(current);
-                var dx = previousData.X - currentData.X;
-                var dy = previousData.Y - currentData.Y;
-
-                return new GraphViewport(XMin + dx, XMax + dx, YMin + dy, YMax + dy);
-            }
 
             static double EnsureDelta(double min, double max)
             {
@@ -848,88 +835,5 @@ namespace AnalysisITC.Avalonia
             static double NormalizeZero(double value) => Math.Abs(value) < 1E-12 ? 0 : value;
         }
 
-        readonly struct PixelBucket
-        {
-            public int Pixel { get; }
-            readonly double firstY;
-            readonly double lastY;
-            readonly double minY;
-            readonly double maxY;
-            readonly int minOrder;
-            readonly int maxOrder;
-            readonly int count;
-
-            public PixelBucket(int pixel, double y)
-            {
-                Pixel = pixel;
-                firstY = y;
-                lastY = y;
-                minY = y;
-                maxY = y;
-                minOrder = 0;
-                maxOrder = 0;
-                count = 1;
-            }
-
-            PixelBucket(int pixel, double firstY, double lastY, double minY, double maxY, int minOrder, int maxOrder, int count)
-            {
-                Pixel = pixel;
-                this.firstY = firstY;
-                this.lastY = lastY;
-                this.minY = minY;
-                this.maxY = maxY;
-                this.minOrder = minOrder;
-                this.maxOrder = maxOrder;
-                this.count = count;
-            }
-
-            public PixelBucket Add(double y)
-            {
-                var nextMinY = minY;
-                var nextMaxY = maxY;
-                var nextMinOrder = minOrder;
-                var nextMaxOrder = maxOrder;
-
-                if (y < minY)
-                {
-                    nextMinY = y;
-                    nextMinOrder = count;
-                }
-
-                if (y > maxY)
-                {
-                    nextMaxY = y;
-                    nextMaxOrder = count;
-                }
-
-                return new PixelBucket(Pixel, firstY, y, nextMinY, nextMaxY, nextMinOrder, nextMaxOrder, count + 1);
-            }
-
-            public void AppendTo(List<Point> points)
-            {
-                var x = Pixel + 0.5;
-
-                if (count <= 1 || Math.Abs(maxY - minY) < 0.5)
-                {
-                    points.Add(new Point(x, lastY));
-                    return;
-                }
-
-                points.Add(new Point(x, firstY));
-
-                if (minOrder <= maxOrder)
-                {
-                    points.Add(new Point(x, minY));
-                    points.Add(new Point(x, maxY));
-                }
-                else
-                {
-                    points.Add(new Point(x, maxY));
-                    points.Add(new Point(x, minY));
-                }
-
-                points.Add(new Point(x, lastY));
-            }
-        }
     }
 }

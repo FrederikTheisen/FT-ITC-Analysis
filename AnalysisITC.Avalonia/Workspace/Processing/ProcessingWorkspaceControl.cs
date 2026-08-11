@@ -5,6 +5,8 @@ using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
+using Avalonia.Input;
+using Avalonia.Interactivity;
 using Avalonia.Layout;
 using Avalonia.Media;
 using Avalonia.Threading;
@@ -33,20 +35,20 @@ namespace AnalysisITC.Avalonia.Processing
         readonly ComboBox splineAlgorithmCombo = Combo(new[] { "Linear", "Smooth" });
         readonly ComboBox splineDensityCombo = Combo(new[] { "Sparse", "Balanced", "Dense" });
         readonly ComboBox splineHandleCombo = Combo(new[] { "Mean", "Median", "Min volatility" });
-        readonly ComboBox peakWidthCombo = Combo(new[] { "1", "3", "5" });
+        readonly NumericUpDown peakWidthStepper = Stepper(3, 1, 5, 2);
 
         readonly Slider degreeSlider = Slider(0, 10, 1);
         readonly Slider integrationStartSlider = Slider(-30, 30, 0.1);
         readonly Slider integrationLengthSlider = Slider(0, 120, 0.1);
 
-        readonly CheckBox showBaselineCheck = Check("Baseline", true);
-        readonly CheckBox showIntegrationCheck = Check("Regions", true);
-        readonly CheckBox correctedCheck = Check("Corrected", false);
-        readonly CheckBox cursorInfoCheck = Check("Cursor", true);
-        readonly CheckBox discardIntegratedCheck = Check("Discard integrated regions", true);
-        readonly CheckBox showSplineHandlesCheck = Check("Show spline handles", false);
-        readonly CheckBox moveSplinePointsCheck = Check("Move spline points in time", false);
-        readonly CheckBox copyIntegrationStartCheck = Check("Copy start time to next", true);
+        readonly CheckBox showBaselineCheck = Check("Display baseline", true, "Show the currently configured baseline on the thermogram.");
+        readonly CheckBox showIntegrationCheck = Check("Integration regions", true, "Show the time ranges used to integrate injection peaks.");
+        readonly CheckBox correctedCheck = Check("Corrected data", false, "Show data after subtraction of the configured baseline.");
+        readonly CheckBox cursorInfoCheck = Check("Cursor information", true, "Show the time and power values under the graph cursor.");
+        readonly CheckBox discardIntegratedCheck = Check("Discard integrated regions", true, "Exclude already integrated regions when recalculating the baseline.");
+        readonly CheckBox showSplineHandlesCheck = Check("Show spline handles", false, "Show editable control points for a spline baseline.");
+        readonly CheckBox moveSplinePointsCheck = Check("Move spline points in time", false, "Allow drag operations to change a spline point's time as well as its value.");
+        readonly CheckBox copyIntegrationStartCheck = Check("Copy start time to next", true, "Include the integration start time when copying a region to the next injection.");
 
         readonly Button lockProcessorButton = Button("Lock", 72);
         readonly Button copyActiveButton = Button("Active", 96);
@@ -72,6 +74,8 @@ namespace AnalysisITC.Avalonia.Processing
         ExperimentData? experiment;
         bool isUpdatingControls;
         bool isPeakFitting;
+        bool integrationSliderDragging;
+        bool integrationSliderChanged;
         int processingRefreshGeneration;
         bool processingRefreshQueued;
 
@@ -133,10 +137,8 @@ namespace AnalysisITC.Avalonia.Processing
             baselineEditingPanel.Children.Add(degreePanel);
 
             fitPeaksButton.HorizontalAlignment = HorizontalAlignment.Stretch;
-            integrationEditingPanel.Children.Add(Labeled("Start", integrationStartSlider));
-            integrationEditingPanel.Children.Add(startLabel);
-            integrationEditingPanel.Children.Add(Labeled("Length", integrationLengthSlider));
-            integrationEditingPanel.Children.Add(lengthLabel);
+            integrationEditingPanel.Children.Add(Labeled("Start", FieldWithSuffix(integrationStartSlider, startLabel)));
+            integrationEditingPanel.Children.Add(Labeled("Length", FieldWithSuffix(integrationLengthSlider, lengthLabel)));
             integrationEditingPanel.Children.Add(fitPeaksButton);
             copyNextButton.MinWidth = 0;
             copyNextButton.HorizontalAlignment = HorizontalAlignment.Stretch;
@@ -190,7 +192,7 @@ namespace AnalysisITC.Avalonia.Processing
                 showIntegrationCheck,
                 correctedCheck,
                 cursorInfoCheck,
-                Labeled("Peak width", peakWidthCombo)
+                Labeled("Zoom width", NumericFieldWithSuffix(peakWidthStepper, "peaks"))
             }));
 
             return panel;
@@ -225,7 +227,11 @@ namespace AnalysisITC.Avalonia.Processing
             splineAlgorithmCombo.SelectionChanged += async (_, _) => await ChangeSplineAlgorithmAsync();
             splineDensityCombo.SelectionChanged += async (_, _) => await ChangeSplineDensityAsync();
             splineHandleCombo.SelectionChanged += async (_, _) => await ChangeSplineHandleModeAsync();
-            peakWidthCombo.SelectionChanged += (_, _) => ChangePeakWidth();
+            peakWidthStepper.PropertyChanged += (_, e) =>
+            {
+                if (e.Property == NumericUpDown.ValueProperty)
+                    ChangePeakWidth();
+            };
 
             degreeSlider.PropertyChanged += async (_, e) =>
             {
@@ -244,6 +250,11 @@ namespace AnalysisITC.Avalonia.Processing
                 if (e.Property == RangeBase.ValueProperty)
                     await ChangeIntegrationLengthAsync();
             };
+
+            integrationStartSlider.AddHandler(Thumb.DragStartedEvent, IntegrationSliderDragStarted, RoutingStrategies.Bubble, true);
+            integrationStartSlider.AddHandler(Thumb.DragCompletedEvent, IntegrationSliderDragCompleted, RoutingStrategies.Bubble, true);
+            integrationLengthSlider.AddHandler(Thumb.DragStartedEvent, IntegrationSliderDragStarted, RoutingStrategies.Bubble, true);
+            integrationLengthSlider.AddHandler(Thumb.DragCompletedEvent, IntegrationSliderDragCompleted, RoutingStrategies.Bubble, true);
 
             showBaselineCheck.IsCheckedChanged += (_, _) => ApplyViewOptions();
             showIntegrationCheck.IsCheckedChanged += (_, _) => ApplyViewOptions();
@@ -449,8 +460,11 @@ namespace AnalysisITC.Avalonia.Processing
             else
                 experiment!.Injections[graph.SelectedInjectionIndex].SetIntegrationStartTime((float)integrationStartSlider.Value);
 
+            if (integrationSliderDragging)
+                integrationSliderChanged = true;
+
             UpdateIntegrationLabels();
-            await ProcessOrIntegrateAfterRangeChangeAsync();
+            await ProcessOrIntegrateAfterRangeChangeAsync(refreshBaseline: !integrationSliderDragging);
         }
 
         async Task ChangeIntegrationLengthAsync()
@@ -459,6 +473,21 @@ namespace AnalysisITC.Avalonia.Processing
 
             UseTimeModeForLegacyFit();
             await ApplyIntegrationLengthAsync();
+        }
+
+        void IntegrationSliderDragStarted(object? sender, VectorEventArgs e)
+        {
+            integrationSliderDragging = true;
+            integrationSliderChanged = false;
+        }
+
+        async void IntegrationSliderDragCompleted(object? sender, VectorEventArgs e)
+        {
+            integrationSliderDragging = false;
+            if (!integrationSliderChanged) return;
+
+            integrationSliderChanged = false;
+            await CompleteIntegrationSliderEditAsync();
         }
 
         async Task ChangeDiscardIntegratedAsync()
@@ -490,8 +519,11 @@ namespace AnalysisITC.Avalonia.Processing
                     break;
             }
 
+            if (integrationSliderDragging)
+                integrationSliderChanged = true;
+
             UpdateIntegrationLabels();
-            await ProcessOrIntegrateAfterRangeChangeAsync();
+            await ProcessOrIntegrateAfterRangeChangeAsync(refreshBaseline: !integrationSliderDragging);
         }
 
         async Task RunPeakFitAsync()
@@ -539,18 +571,26 @@ namespace AnalysisITC.Avalonia.Processing
             _ => "Peak fitting failed; integration regions were unchanged",
         };
 
-        async Task ProcessOrIntegrateAfterRangeChangeAsync()
+        async Task ProcessOrIntegrateAfterRangeChangeAsync(bool refreshBaseline = true)
         {
             if (!ProcessingIsEditable) return;
 
-            if (experiment!.Processor.DiscardIntegratedPoints)
+            if (refreshBaseline && experiment!.Processor.DiscardIntegratedPoints)
                 await ProcessDataAsync(replace: true, status: "Integration updated");
             else
             {
-                experiment.Processor.IntegratePeaks();
+                experiment.Processor.IntegratePeaks(invalidate: refreshBaseline, notify: refreshBaseline);
                 graph.InvalidateVisual();
                 StatusChanged?.Invoke(this, "Integration updated");
             }
+        }
+
+        async Task CompleteIntegrationSliderEditAsync()
+        {
+            if (!ProcessingIsEditable) return;
+
+            await ProcessOrIntegrateAfterRangeChangeAsync();
+            UpdateControls();
         }
 
         async Task CompleteGraphIntegrationEditAsync()
@@ -750,13 +790,8 @@ namespace AnalysisITC.Avalonia.Processing
 
         void ChangePeakWidth()
         {
-            graph.PeakZoomWidth = peakWidthCombo.SelectedIndex switch
-            {
-                0 => 0,
-                1 => 1,
-                2 => 2,
-                _ => 1,
-            };
+            var displayedPeakCount = (int)(peakWidthStepper.Value ?? 3);
+            graph.PeakZoomWidth = Math.Max(0, (displayedPeakCount - 1) / 2);
 
             if (graph.IsInjectionFocused)
                 graph.FocusSelectedInjection();

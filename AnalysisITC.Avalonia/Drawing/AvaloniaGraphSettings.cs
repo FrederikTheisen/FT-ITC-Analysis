@@ -26,7 +26,6 @@ public static class AvaloniaGraphSettings
     public static double EmptyTitleFontSize => 14;
     public static double EmptyBodyFontSize => 12;
     public static double HoverFontSize => 11;
-    public static double InjectionLabelFontSize => 9;
     public static double PointLabelFontSize => 10;
 
     public static double EmptyStateXOffset => 18;
@@ -165,6 +164,7 @@ public sealed class AvaloniaGraphTheme
         string minorGrid,
         string data,
         string correctedData,
+        string thermogram,
         string baseline,
         string temperature,
         string region,
@@ -192,6 +192,7 @@ public sealed class AvaloniaGraphTheme
         MinorGridBrush = AvaloniaGraphSettings.Brush(minorGrid);
         DataBrush = AvaloniaGraphSettings.Brush(data);
         CorrectedDataBrush = AvaloniaGraphSettings.Brush(correctedData);
+        ThermogramBrush = AvaloniaGraphSettings.Brush(thermogram);
         BaselineBrush = AvaloniaGraphSettings.Brush(baseline);
         TemperatureBrush = AvaloniaGraphSettings.Brush(temperature);
         SplinePointBrush = BaselineBrush;
@@ -219,6 +220,8 @@ public sealed class AvaloniaGraphTheme
         DataPen = AvaloniaGraphSettings.Pen(DataBrush, AvaloniaGraphSettings.DataStroke);
         OverviewDataPen = AvaloniaGraphSettings.Pen(DataBrush, AvaloniaGraphSettings.OverviewDataStroke);
         CorrectedDataPen = AvaloniaGraphSettings.Pen(CorrectedDataBrush, AvaloniaGraphSettings.DataStroke);
+        ThermogramPen = AvaloniaGraphSettings.Pen(ThermogramBrush, AvaloniaGraphSettings.DataStroke);
+        OverviewThermogramPen = AvaloniaGraphSettings.Pen(ThermogramBrush, AvaloniaGraphSettings.OverviewDataStroke);
         InjectionPen = AvaloniaGraphSettings.Pen(InjectionBrush, AvaloniaGraphSettings.InjectionStroke);
         BaselinePen = AvaloniaGraphSettings.Pen(BaselineBrush, AvaloniaGraphSettings.BaselineStroke);
         TemperaturePen = AvaloniaGraphSettings.Pen(TemperatureBrush, AvaloniaGraphSettings.FrameStroke);
@@ -243,6 +246,7 @@ public sealed class AvaloniaGraphTheme
         minorGrid: "#EEF2F6",
         data: "#1E5F84",
         correctedData: "#365D41",
+        thermogram: "#000000",
         baseline: "#BE3A34",
         temperature: "#C74640",
         region: "#2563EB",
@@ -271,6 +275,7 @@ public sealed class AvaloniaGraphTheme
         minorGrid: "#24303B",
         data: "#7CB7D8",
         correctedData: "#89B891",
+        thermogram: "#F3F6FA",
         baseline: "#E17872",
         temperature: "#F08B84",
         region: "#7EA8FF",
@@ -298,6 +303,7 @@ public sealed class AvaloniaGraphTheme
     public IBrush MinorGridBrush { get; }
     public IBrush DataBrush { get; }
     public IBrush CorrectedDataBrush { get; }
+    public IBrush ThermogramBrush { get; }
     public IBrush BaselineBrush { get; }
     public IBrush TemperatureBrush { get; }
     public IBrush SplinePointBrush { get; }
@@ -325,6 +331,8 @@ public sealed class AvaloniaGraphTheme
     public Pen DataPen { get; }
     public Pen OverviewDataPen { get; }
     public Pen CorrectedDataPen { get; }
+    public Pen ThermogramPen { get; }
+    public Pen OverviewThermogramPen { get; }
     public Pen InjectionPen { get; }
     public Pen BaselinePen { get; }
     public Pen TemperaturePen { get; }

@@ -597,7 +597,7 @@ namespace AnalysisITC.Avalonia.Processing
             var points = BuildDisplayPoints(DisplayDataPoints(), graph);
             if (points.Count < 2) return;
 
-            DrawPolyline(context, graph.Plot, points, ShowBaselineCorrected ? GraphTheme.CorrectedDataPen : GraphTheme.DataPen);
+            DrawPolyline(context, graph.Plot, points, GraphTheme.ThermogramPen);
         }
 
         void DrawBaseline(DrawingContext context, GraphLayout graph)
@@ -744,7 +744,7 @@ namespace AnalysisITC.Avalonia.Processing
             }
 
             var lines = BuildHoverLines(data).ToArray();
-            DrawInfoBox(context, lines, graph.Plot, screen);
+            DrawInfoBox(context, lines, graph.Plot);
         }
 
         IEnumerable<string> BuildHoverLines(DataPoint data)
@@ -771,7 +771,7 @@ namespace AnalysisITC.Avalonia.Processing
             }
         }
 
-        void DrawInfoBox(DrawingContext context, IReadOnlyList<string> lines, Rect plot, Point anchor)
+        void DrawInfoBox(DrawingContext context, IReadOnlyList<string> lines, Rect plot)
         {
             if (lines.Count == 0) return;
 
@@ -779,12 +779,11 @@ namespace AnalysisITC.Avalonia.Processing
             var width = texts.Max(text => text.Width) + AvaloniaGraphSettings.HoverPaddingX * 2;
             var height = texts.Sum(text => text.Height) + AvaloniaGraphSettings.HoverLineGap * (texts.Length - 1) + AvaloniaGraphSettings.HoverPaddingY * 2;
 
-            var x = anchor.X + AvaloniaGraphSettings.HoverAnchorXOffset;
-            var y = anchor.Y - height - AvaloniaGraphSettings.HoverAnchorYOffset;
-
-            if (x + width > plot.Right - AvaloniaGraphSettings.HoverPlotInset) x = anchor.X - width - AvaloniaGraphSettings.HoverAnchorXOffset;
-            if (y < plot.Top + AvaloniaGraphSettings.HoverPlotInset) y = anchor.Y + AvaloniaGraphSettings.HoverAnchorXOffset;
-            if (y + height > plot.Bottom - AvaloniaGraphSettings.HoverPlotInset) y = plot.Bottom - height - AvaloniaGraphSettings.HoverPlotInset;
+            var inset = AvaloniaGraphSettings.HoverPlotInset;
+            var x = plot.Right - width - inset;
+            var y = Experiment?.AverageHeatDirection == PeakHeatDirection.Endothermal
+                ? plot.Top + inset
+                : plot.Bottom - height - inset;
 
             var rect = new Rect(x, y, width, height);
             context.DrawRectangle(GraphTheme.HoverBackgroundBrush, GraphTheme.HoverBorderPen, rect, AvaloniaGraphSettings.HoverCornerRadius);
@@ -1264,40 +1263,9 @@ namespace AnalysisITC.Avalonia.Processing
 
             if (visible.Count == 0) return new List<Point>();
 
-            if (visible.Count <= graph.Plot.Width * 2)
-            {
-                return visible
-                    .Select(point => graph.Transform.ToScreen(point.Time, Power.Convert(point.Power)))
-                    .ToList();
-            }
-
-            var result = new List<Point>((int)graph.Plot.Width * 3);
-            PixelBucket? bucket = null;
-
-            foreach (var point in visible)
-            {
-                var screen = graph.Transform.ToScreen(point.Time, Power.Convert(point.Power));
-                var pixel = (int)Math.Round(screen.X);
-
-                if (bucket == null)
-                {
-                    bucket = new PixelBucket(pixel, screen.Y);
-                    continue;
-                }
-
-                if (bucket.Value.Pixel == pixel)
-                {
-                    bucket = bucket.Value.Add(screen.Y);
-                    continue;
-                }
-
-                bucket.Value.AppendTo(result);
-                bucket = new PixelBucket(pixel, screen.Y);
-            }
-
-            bucket?.AppendTo(result);
-
-            return result;
+            return visible
+                .Select(point => graph.Transform.ToScreen(point.Time, Power.Convert(point.Power)))
+                .ToList();
         }
 
         static void DrawPolyline(DrawingContext context, Rect clip, IReadOnlyList<Point> points, Pen pen)
@@ -1616,90 +1584,6 @@ namespace AnalysisITC.Avalonia.Processing
             }
 
             static double NormalizeZero(double value) => Math.Abs(value) < 1E-12 ? 0 : value;
-        }
-
-        readonly struct PixelBucket
-        {
-            public int Pixel { get; }
-            readonly double firstY;
-            readonly double lastY;
-            readonly double minY;
-            readonly double maxY;
-            readonly int minOrder;
-            readonly int maxOrder;
-            readonly int count;
-
-            public PixelBucket(int pixel, double y)
-            {
-                Pixel = pixel;
-                firstY = y;
-                lastY = y;
-                minY = y;
-                maxY = y;
-                minOrder = 0;
-                maxOrder = 0;
-                count = 1;
-            }
-
-            PixelBucket(int pixel, double firstY, double lastY, double minY, double maxY, int minOrder, int maxOrder, int count)
-            {
-                Pixel = pixel;
-                this.firstY = firstY;
-                this.lastY = lastY;
-                this.minY = minY;
-                this.maxY = maxY;
-                this.minOrder = minOrder;
-                this.maxOrder = maxOrder;
-                this.count = count;
-            }
-
-            public PixelBucket Add(double y)
-            {
-                var nextMinY = minY;
-                var nextMaxY = maxY;
-                var nextMinOrder = minOrder;
-                var nextMaxOrder = maxOrder;
-
-                if (y < minY)
-                {
-                    nextMinY = y;
-                    nextMinOrder = count;
-                }
-
-                if (y > maxY)
-                {
-                    nextMaxY = y;
-                    nextMaxOrder = count;
-                }
-
-                return new PixelBucket(Pixel, firstY, y, nextMinY, nextMaxY, nextMinOrder, nextMaxOrder, count + 1);
-            }
-
-            public void AppendTo(List<Point> points)
-            {
-                var x = Pixel + 0.5;
-
-                if (count <= 1 || Math.Abs(maxY - minY) < 0.5)
-                {
-                    points.Add(new Point(x, lastY));
-                    return;
-                }
-
-                points.Add(new Point(x, firstY));
-
-                if (minOrder <= maxOrder)
-                {
-                    points.Add(new Point(x, minY));
-                    points.Add(new Point(x, maxY));
-                }
-                else
-                {
-                    points.Add(new Point(x, maxY));
-                    points.Add(new Point(x, minY));
-                }
-
-                points.Add(new Point(x, lastY));
-            }
         }
 
         readonly struct HitTarget
