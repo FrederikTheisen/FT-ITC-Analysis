@@ -70,9 +70,6 @@ namespace AnalysisITC
 		AppKit.NSSlider MinTempSpanSlider { get; set; }
 
 		[Outlet]
-		AppKit.NSSegmentedControl PeakFitAlgorithmControl { get; set; }
-
-		[Outlet]
 		AppKit.NSTextField RefTempField { get; set; }
 
 		[Outlet]
@@ -138,11 +135,6 @@ namespace AnalysisITC
 			if (MinTempSpanSlider != null) {
 				MinTempSpanSlider.Dispose ();
 				MinTempSpanSlider = null;
-			}
-
-			if (PeakFitAlgorithmControl != null) {
-				PeakFitAlgorithmControl.Dispose ();
-				PeakFitAlgorithmControl = null;
 			}
 
 			if (ConcentrationAutoVarianceSlider != null) {

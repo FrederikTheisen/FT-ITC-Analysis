@@ -55,7 +55,6 @@ namespace AnalysisITC
         readonly CheckboxControl recoveryPromptCheck = Check("Prompt to recover after an interrupted session");
 
         readonly TaggedSegmentedControl dilutionControl;
-        readonly NSPopUpButton peakFitPopup;
         readonly NSPopUpButton bufferSubtractionPopup;
         readonly TaggedSegmentedControl splineDensityControl;
         readonly NSPopUpButton splineHandlePopup;
@@ -121,7 +120,6 @@ namespace AnalysisITC
             uncertaintyPopup = Popup(EnumValues<UncertaintyDisplayStyle>(), FriendlyName);
 
             dilutionControl = Segmented(EnumValues<DilutionMethod>(), FriendlyName);
-            peakFitPopup = Popup(EnumValues<PeakFitAlgorithm>(), FriendlyName);
             bufferSubtractionPopup = Popup(EnumValues<BufferSubtractionMethod>(), method => method.GetDisplayName());
             splineDensityControl = Segmented(EnumValues<SplineInterpolator.SplinePointDensity>(), FriendlyName);
             splineHandlePopup = Popup(EnumValues<SplineInterpolator.SplineHandleMode>(), FriendlyName);
@@ -288,7 +286,6 @@ namespace AnalysisITC
             var page = Page();
             AddSection(page, "Processing Defaults",
                 Row("Dilution method", dilutionControl),
-                Row("Peak-fit algorithm", peakFitPopup),
                 Row("Buffer subtraction", bufferSubtractionPopup),
                 Full(discardIntegrationCheck),
                 Full(reprocessIntegratedCheck));
@@ -375,7 +372,6 @@ namespace AnalysisITC
             Set(recoveryPromptCheck, state.PromptForAutoSaveRecovery);
 
             Select(dilutionControl, state.DilutionCalculationMethod);
-            Select(peakFitPopup, state.PeakFitAlgorithm);
             Select(bufferSubtractionPopup, state.BufferSubtractionDefaultMethod);
             Select(splineDensityControl, state.DefaultSplinePointDensity);
             Select(splineHandlePopup, state.DefaultSplineHandleMode);
@@ -477,7 +473,6 @@ namespace AnalysisITC
             state.PromptForAutoSaveRecovery = IsOn(recoveryPromptCheck);
 
             state.DilutionCalculationMethod = Value<DilutionMethod>(dilutionControl);
-            state.PeakFitAlgorithm = Value<PeakFitAlgorithm>(peakFitPopup);
             state.BufferSubtractionDefaultMethod = Value<BufferSubtractionMethod>(bufferSubtractionPopup);
             state.DefaultSplinePointDensity = Value<SplineInterpolator.SplinePointDensity>(splineDensityControl);
             state.DefaultSplineHandleMode = Value<SplineInterpolator.SplineHandleMode>(splineHandlePopup);

@@ -34,9 +34,6 @@ namespace AnalysisITC
         AppKit.NSButton DiscardIntegrationRegionForBaseline { get; set; }
 
         [Outlet]
-        AppKit.NSSegmentedControl PeakFitAlgorithmControl { get; set; }
-
-        [Outlet]
         AppKit.NSButton IntegrationRegionCopyIncludesStartControl { get; set; }
 
         [Outlet]
@@ -75,11 +72,6 @@ namespace AnalysisITC
             if (DiscardIntegrationRegionForBaseline != null) {
                 DiscardIntegrationRegionForBaseline.Dispose ();
                 DiscardIntegrationRegionForBaseline = null;
-            }
-
-            if (PeakFitAlgorithmControl != null) {
-                PeakFitAlgorithmControl.Dispose ();
-                PeakFitAlgorithmControl = null;
             }
 
             if (IntegrationRegionCopyIncludesStartControl != null) {

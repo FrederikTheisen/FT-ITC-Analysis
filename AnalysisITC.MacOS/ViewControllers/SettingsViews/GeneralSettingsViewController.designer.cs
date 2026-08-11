@@ -79,9 +79,6 @@ namespace AnalysisITC
 		AppKit.NSSegmentedControl ParameterRoundingSettingsControl { get; set; }
 
 		[Outlet]
-		AppKit.NSSegmentedControl PeakFitAlgorithmControl { get; set; }
-
-		[Outlet]
 		AppKit.NSButton PerformOnlineChecksOnLaunch { get; set; }
 
 		[Outlet]
@@ -206,11 +203,6 @@ namespace AnalysisITC
 			if (ParameterRoundingSettingsControl != null) {
 				ParameterRoundingSettingsControl.Dispose ();
 				ParameterRoundingSettingsControl = null;
-			}
-
-			if (PeakFitAlgorithmControl != null) {
-				PeakFitAlgorithmControl.Dispose ();
-				PeakFitAlgorithmControl = null;
 			}
 
 			if (RefTempField != null) {

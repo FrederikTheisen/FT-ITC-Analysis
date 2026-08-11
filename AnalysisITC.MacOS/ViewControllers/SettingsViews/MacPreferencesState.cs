@@ -32,7 +32,6 @@ namespace AnalysisITC
         public bool PromptForAutoSaveRecovery { get; set; }
 
         public DilutionMethod DilutionCalculationMethod { get; set; }
-        public PeakFitAlgorithm PeakFitAlgorithm { get; set; }
         public BufferSubtractionMethod BufferSubtractionDefaultMethod { get; set; }
         public bool DiscardIntegrationRegionForBaseline { get; set; }
         public bool ReprocessIntegratedHeatDataOnLoad { get; set; }
@@ -95,7 +94,6 @@ namespace AnalysisITC
             PromptForAutoSaveRecovery = AppSettings.PromptForAutoSaveRecovery,
 
             DilutionCalculationMethod = AppSettings.DilutionCalculationMethod,
-            PeakFitAlgorithm = AppSettings.PeakFitAlgorithm,
             BufferSubtractionDefaultMethod = AppSettings.BufferSubtractionDefaultMethod,
             DiscardIntegrationRegionForBaseline = AppSettings.DiscardIntegrationRegionForBaseline,
             ReprocessIntegratedHeatDataOnLoad = AppSettings.ReprocessIntegratedHeatDataOnLoad,
@@ -159,7 +157,6 @@ namespace AnalysisITC
             PromptForAutoSaveRecovery = true,
 
             DilutionCalculationMethod = DilutionMethod.MicroCal,
-            PeakFitAlgorithm = PeakFitAlgorithm.SingleExponential,
             BufferSubtractionDefaultMethod = BufferSubtractionMethod.MatchedInjection,
             DiscardIntegrationRegionForBaseline = true,
             ReprocessIntegratedHeatDataOnLoad = true,
@@ -223,7 +220,6 @@ namespace AnalysisITC
             AppSettings.PromptForAutoSaveRecovery = PromptForAutoSaveRecovery;
 
             AppSettings.DilutionCalculationMethod = DilutionCalculationMethod;
-            AppSettings.PeakFitAlgorithm = PeakFitAlgorithm;
             AppSettings.BufferSubtractionDefaultMethod = BufferSubtractionDefaultMethod;
             AppSettings.DiscardIntegrationRegionForBaseline = DiscardIntegrationRegionForBaseline;
             AppSettings.ReprocessIntegratedHeatDataOnLoad = ReprocessIntegratedHeatDataOnLoad;
