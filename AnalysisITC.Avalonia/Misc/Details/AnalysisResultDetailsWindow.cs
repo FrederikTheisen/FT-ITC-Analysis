@@ -178,10 +178,8 @@ namespace AnalysisITC.Avalonia.Details
                     data.Include = ids.Contains(data.UniqueID);
 
                 DataManager.InvokeDataInclusionDidChange();
-                DataManager.InvokeUpdateTable();
                 StatusBarManager.SetStatus("Experiments used by result selected", 3000);
                 SetStatus("Experiment inclusion updated.");
-                Applied = true;
             };
 
             return Section("Actions", new Control[]
@@ -207,8 +205,11 @@ namespace AnalysisITC.Avalonia.Details
                 panel.Children.Add(Section(data?.Name ?? solution.SolutionName, new Control[]
                 {
                     Pair("Date", data?.UIShortDateWithTime ?? ""),
-                    Pair("Temperature", data == null ? "" : $"{data.MeasuredTemperature:G3} C"),
-                    Pair("Status", solution.IsValid ? "Solution valid" : "Solution invalid")
+                    Pair("Temperature", data == null ? "" : $"{data.MeasuredTemperature:G3} °C"),
+                    Pair(
+                        "Status",
+                        solution.IsValid ? "Valid solution" : "Invalid solution",
+                        solution.IsValid ? AppTheme.StatusValid : AppTheme.StatusError)
                 }));
             }
 
@@ -254,7 +255,7 @@ namespace AnalysisITC.Avalonia.Details
 
         static Border Section(string title, Control[] controls)
         {
-            var panel = new StackPanel { Spacing = 7 };
+            var panel = new StackPanel { Spacing = 3 };
             var titleBlock = new TextBlock
             {
                 Text = title,
@@ -356,17 +357,18 @@ namespace AnalysisITC.Avalonia.Details
             return grid;
         }
 
-        static Border Pair(string label, string value)
+        static Border Pair(string label, string value, string? valueBrush = null)
         {
             var grid = new Grid
             {
                 ColumnDefinitions = new ColumnDefinitions("132,*"),
                 ColumnSpacing = 10,
-                MinHeight = 28
+                MinHeight = 23
             };
             grid.Children.Add(FormLabel(label));
-            var valueText = Text(value);
-            AppTheme.Bind(valueText, TextBlock.ForegroundProperty, AppTheme.PrimaryText);
+            var valueText = Text(value, valueBrush ?? AppTheme.PrimaryText);
+            if (valueBrush != null)
+                valueText.FontWeight = FontWeight.SemiBold;
             Grid.SetColumn(valueText, 1);
             grid.Children.Add(valueText);
             return new Border { Child = grid };
@@ -402,7 +404,7 @@ namespace AnalysisITC.Avalonia.Details
             };
         }
 
-        static TextBlock Text(string text)
+        static TextBlock Text(string text, string brush = AppTheme.SecondaryText)
         {
             var textBlock = new TextBlock
             {
@@ -410,7 +412,7 @@ namespace AnalysisITC.Avalonia.Details
                 VerticalAlignment = VerticalAlignment.Center,
                 TextWrapping = TextWrapping.Wrap
             };
-            AppTheme.Bind(textBlock, TextBlock.ForegroundProperty, AppTheme.SecondaryText);
+            AppTheme.Bind(textBlock, TextBlock.ForegroundProperty, brush);
             return textBlock;
         }
 
