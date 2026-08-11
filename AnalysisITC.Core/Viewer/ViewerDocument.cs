@@ -34,6 +34,7 @@ namespace AnalysisITC.Core.Viewer
         public ViewerSolverDto Solver { get; internal set; }
         public ViewerValidityDto Validity { get; internal set; }
         public ViewerTemperatureParameterEvaluationDto TemperatureParameterEvaluation { get; internal set; }
+        public ViewerAdvancedAnalysesDto AdvancedAnalyses { get; internal set; }
         public List<ViewerAnalysisResultMemberDto> Members { get; } = new List<ViewerAnalysisResultMemberDto>();
         public List<ViewerSettingDto> ModelOptions { get; } = new List<ViewerSettingDto>();
         public List<ViewerSettingDto> Constraints { get; } = new List<ViewerSettingDto>();
@@ -103,6 +104,72 @@ namespace AnalysisITC.Core.Viewer
         public double Sd { get; internal set; }
         public double? ConfidenceLower { get; internal set; }
         public double? ConfidenceUpper { get; internal set; }
+    }
+
+    public sealed class ViewerAdvancedAnalysesDto
+    {
+        public ViewerSpolarRecordDto SpolarRecord { get; internal set; }
+        public ViewerElectrostaticsDto Electrostatics { get; internal set; }
+        public ViewerProtonationDto Protonation { get; internal set; }
+    }
+
+    public sealed class ViewerAdvancedAnalysisMetadataDto
+    {
+        public DateTime? CompletedAtUtc { get; internal set; }
+        public int CompletedIterations { get; internal set; }
+        public string ErrorEstimationMethod { get; internal set; }
+    }
+
+    public sealed class ViewerSpolarRecordDto
+    {
+        public ViewerAdvancedAnalysisMetadataDto Metadata { get; internal set; }
+        public string FoldedMode { get; internal set; }
+        public string TemperatureMode { get; internal set; }
+        public ViewerValueWithErrorDto HydrationContributionKilojoulesPerMole { get; internal set; }
+        public ViewerValueWithErrorDto ConformationalContributionKilojoulesPerMole { get; internal set; }
+        public ViewerValueWithErrorDto ResidueEstimate { get; internal set; }
+        public ViewerValueWithErrorDto ReferenceTemperatureCelsius { get; internal set; }
+        public ViewerAdvancedPlotDto TemperatureDependencePlot { get; internal set; }
+    }
+
+    public sealed class ViewerElectrostaticsDto
+    {
+        public ViewerAdvancedAnalysisMetadataDto Metadata { get; internal set; }
+        public int CounterIonReleaseIterations { get; internal set; }
+        public ViewerValueWithErrorDto Kd0Micromolar { get; internal set; }
+        public ViewerValueWithErrorDto SaltSensitivity { get; internal set; }
+        public ViewerValueWithErrorDto Curvature { get; internal set; }
+        public bool UsesCurvature { get; internal set; }
+        public ViewerValueWithErrorDto CounterIonRelease { get; internal set; }
+        public List<ViewerAdvancedPlotDto> Plots { get; } = new List<ViewerAdvancedPlotDto>();
+    }
+
+    public sealed class ViewerProtonationDto
+    {
+        public ViewerAdvancedAnalysisMetadataDto Metadata { get; internal set; }
+        public ViewerValueWithErrorDto BindingEnthalpyKilojoulesPerMole { get; internal set; }
+        public ViewerValueWithErrorDto ProtonationChange { get; internal set; }
+        public ViewerAdvancedPlotDto Plot { get; internal set; }
+    }
+
+    public sealed class ViewerAdvancedPlotDto
+    {
+        public string Key { get; internal set; }
+        public string Title { get; internal set; }
+        public string XAxisLabel { get; internal set; }
+        public string YAxisLabel { get; internal set; }
+        public List<ViewerAdvancedPlotSeriesDto> Series { get; } = new List<ViewerAdvancedPlotSeriesDto>();
+    }
+
+    public sealed class ViewerAdvancedPlotSeriesDto
+    {
+        public string Label { get; internal set; }
+        public string Kind { get; internal set; }
+        public string Group { get; internal set; }
+        public double[] X { get; internal set; }
+        public double[] Y { get; internal set; }
+        public double[] Lower { get; internal set; }
+        public double[] Upper { get; internal set; }
     }
 
     public sealed class ViewerExperiment

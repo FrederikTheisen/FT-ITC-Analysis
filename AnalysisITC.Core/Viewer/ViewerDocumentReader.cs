@@ -11,6 +11,7 @@ using AnalysisITC.Core.Analysis.Models;
 using AnalysisITC.Core.Data;
 using AnalysisITC.Core.DataReaders;
 using AnalysisITC.Core.Numerics;
+using AnalysisITC.Core.Presentation;
 using AnalysisITC.Core.Processing;
 using AnalysisITC.Core.Units;
 using AnalysisITC.Core.Utilities;
@@ -43,10 +44,12 @@ namespace AnalysisITC.Core.Viewer
             {
                 var parseWarnings = new List<string>();
                 ITCDataContainer[] containers;
+                string formatVersion = null;
                 if (format == ViewerFileFormat.Ftxtc)
                 {
                     var recovered = await FTXTCReader.ReadWithRecovery(buffer, FtxtcReadPolicy.RecoverUsableContent, interactive: false);
                     containers = recovered.Containers;
+                    formatVersion = $"{recovered.SchemaMajor}.{recovered.SchemaMinor}";
                     parseWarnings.AddRange(recovered.Issues.Select(issue => issue.Message));
                 }
                 else if (format == ViewerFileFormat.Ftitc)
@@ -62,7 +65,7 @@ namespace AnalysisITC.Core.Viewer
                     };
 
                 cancellationToken.ThrowIfCancellationRequested();
-                var document = BuildDocument(containers, safeName, format, buffer.Length, header);
+                var document = BuildDocument(containers, safeName, format, buffer.Length, header, formatVersion);
                 document.Warnings.InsertRange(0, parseWarnings);
                 if (document.Experiments.Count == 0)
                     throw new ViewerFileException("no_experiments", "The file did not contain a readable ITC experiment.");
@@ -139,7 +142,8 @@ namespace AnalysisITC.Core.Viewer
             string displayName,
             ViewerFileFormat format,
             long size,
-            string header)
+            string header,
+            string formatVersion)
         {
             var all = containers?.Where(item => item != null).ToList() ?? new List<ITCDataContainer>();
             var experiments = all.OfType<ExperimentData>().ToList();
@@ -149,7 +153,7 @@ namespace AnalysisITC.Core.Viewer
                 DisplayName = displayName,
                 Format = format == ViewerFileFormat.Ftxtc ? "ftxtc" : format == ViewerFileFormat.Ftitc ? "ftitc" : "itc",
                 SizeBytes = size,
-                FormatVersion = format == ViewerFileFormat.Ftxtc ? "1.0" : format == ViewerFileFormat.Ftitc ? ParseVersion(header) : null,
+                FormatVersion = format == ViewerFileFormat.Ftxtc ? formatVersion : format == ViewerFileFormat.Ftitc ? ParseVersion(header) : null,
             };
 
             var resultKeys = results
@@ -256,6 +260,7 @@ namespace AnalysisITC.Core.Viewer
                 Validity = BuildValidity(result),
                 TemperatureParameterEvaluation = BuildTemperatureParameterEvaluation(result),
             };
+            viewer.AdvancedAnalyses = BuildAdvancedAnalyses(result, viewer.Warnings);
 
             foreach (var option in solution?.Model?.ModelOptions ?? new Dictionary<AttributeKey, ExperimentAttribute>())
             {
@@ -346,6 +351,313 @@ namespace AnalysisITC.Core.Viewer
 
             return viewer.Dependences.Count == 0 ? null : viewer;
         }
+
+        static ViewerAdvancedAnalysesDto BuildAdvancedAnalyses(AnalysisResult result, List<string> warnings)
+        {
+            if (result == null) return null;
+            var viewer = new ViewerAdvancedAnalysesDto();
+
+            try
+            {
+                if (result.SpolarRecordAnalysis?.Result != null)
+                    viewer.SpolarRecord = BuildSpolarRecord(result);
+            }
+            catch (Exception ex) when (ex is ArithmeticException || ex is InvalidOperationException || ex is NullReferenceException)
+            {
+                warnings.Add("The saved Spolar record analysis could not be displayed.");
+            }
+
+            try
+            {
+                if (result.ElectrostaticsAnalysis?.Calculated == true)
+                    viewer.Electrostatics = BuildElectrostatics(result.ElectrostaticsAnalysis);
+            }
+            catch (Exception ex) when (ex is ArithmeticException || ex is InvalidOperationException || ex is NullReferenceException)
+            {
+                warnings.Add("The saved electrostatics analysis could not be displayed.");
+            }
+
+            try
+            {
+                if (result.ProtonationAnalysis?.Fit is LinearFitWithError)
+                    viewer.Protonation = BuildProtonation(result.ProtonationAnalysis);
+            }
+            catch (Exception ex) when (ex is ArithmeticException || ex is InvalidOperationException || ex is NullReferenceException)
+            {
+                warnings.Add("The saved protonation analysis could not be displayed.");
+            }
+
+            return viewer.SpolarRecord == null && viewer.Electrostatics == null && viewer.Protonation == null ? null : viewer;
+        }
+
+        static ViewerSpolarRecordDto BuildSpolarRecord(AnalysisResult result)
+        {
+            const double energyScale = 1.0 / 1000.0;
+            var analysis = result.SpolarRecordAnalysis;
+            var output = analysis.Result;
+            var evaluationTemperature = output.ReferenceTemperature.Value;
+
+            return new ViewerSpolarRecordDto
+            {
+                Metadata = BuildAdvancedMetadata(analysis),
+                FoldedMode = (analysis.CompletedFoldedMode ?? analysis.FoldedMode) switch
+                {
+                    FTSRMethod.SRFoldedMode.ID => "ID interaction",
+                    FTSRMethod.SRFoldedMode.Intermediate => "Intermediate",
+                    _ => "Globular",
+                },
+                TemperatureMode = (analysis.CompletedTempMode ?? analysis.TempMode) switch
+                {
+                    FTSRMethod.SRTempMode.MeanTemperature => "Mean temperature",
+                    FTSRMethod.SRTempMode.ReferenceTemperature => "Reference temperature",
+                    _ => "Isoentropic point",
+                },
+                HydrationContributionKilojoulesPerMole = BuildValueWithError(
+                    output.HydrationContribution(evaluationTemperature), energyScale),
+                ConformationalContributionKilojoulesPerMole = BuildValueWithError(
+                    output.ConformationalContribution(evaluationTemperature), energyScale),
+                ResidueEstimate = BuildValueWithError(output.Rvalue, 1),
+                ReferenceTemperatureCelsius = BuildValueWithError(output.ReferenceTemperature, 1),
+                TemperatureDependencePlot = BuildTemperatureDependencePlot(result),
+            };
+        }
+
+        static ViewerAdvancedPlotDto BuildTemperatureDependencePlot(AnalysisResult result)
+        {
+            const double energyScale = 1.0 / 1000.0;
+            var plot = new ViewerAdvancedPlotDto
+            {
+                Key = "temperature-dependence",
+                Title = "Temperature dependence",
+                XAxisLabel = "Temperature (°C)",
+                YAxisLabel = "Thermodynamic parameter (kJ/mol)",
+            };
+            var solution = result?.Solution;
+            var dependences = solution?.TemperatureDependence;
+            if (dependences == null || dependences.Count == 0) return plot;
+
+            var temperatures = solution.Solutions
+                .Select(member => member?.Data?.MeasuredTemperature ?? double.NaN)
+                .Where(IsFinite)
+                .ToList();
+            var domain = PlotDomain(temperatures, solution.MeanTemperature);
+            var xs = Sample(domain.min, domain.max, 81);
+            var parameters = new[]
+            {
+                ParameterType.Enthalpy1,
+                ParameterType.EntropyContribution1,
+                ParameterType.Gibbs1,
+                ParameterType.Enthalpy2,
+                ParameterType.EntropyContribution2,
+                ParameterType.Gibbs2,
+            };
+
+            foreach (var parameter in parameters)
+            {
+                if (!dependences.TryGetValue(parameter, out var fit)) continue;
+                var values = solution.Solutions
+                    .Where(member => member != null
+                        && IsFinite(member.Temp)
+                        && member.ReportParameters.TryGetValue(parameter, out var estimate)
+                        && IsFinite(estimate.Value))
+                    .Select(member => Tuple.Create(member.Temp, member.ReportParameters[parameter]))
+                    .OrderBy(point => point.Item1)
+                    .ToList();
+                if (values.Count == 0) continue;
+
+                var label = parameter.GetProperties()?.Name ?? parameter.ToString();
+                var group = parameter.ToString();
+                plot.Series.Add(new ViewerAdvancedPlotSeriesDto
+                {
+                    Label = label,
+                    Kind = "points",
+                    Group = group,
+                    X = values.Select(point => point.Item1).ToArray(),
+                    Y = values.Select(point => point.Item2.Value * energyScale).ToArray(),
+                    Lower = values.Select(point => FiniteBound(point.Item2.Lower, point.Item2.Value) * energyScale).ToArray(),
+                    Upper = values.Select(point => FiniteBound(point.Item2.Upper, point.Item2.Value) * energyScale).ToArray(),
+                });
+
+                var bootstrapFits = solution.BootstrapSolutions
+                    .Where(bootstrap => bootstrap?.TemperatureDependence?.ContainsKey(parameter) == true)
+                    .Select(bootstrap => bootstrap.TemperatureDependence[parameter])
+                    .ToList();
+                plot.Series.Add(BuildLinearSeries(label, xs, fit, energyScale,
+                    bootstrapFits: bootstrapFits, group: group));
+            }
+
+            return plot;
+        }
+
+        static ViewerElectrostaticsDto BuildElectrostatics(ElectrostaticsAnalysis analysis)
+        {
+            var fit = analysis.IonicStrengthDependenceFit;
+            var viewer = new ViewerElectrostaticsDto
+            {
+                Metadata = BuildAdvancedMetadata(analysis),
+                CounterIonReleaseIterations = analysis.CounterIonReleaseIterations,
+                Kd0Micromolar = fit == null ? null : BuildValueWithError(fit.Kd0, 1e6),
+                SaltSensitivity = fit == null ? null : BuildValueWithError(fit.SaltSensitivity, 1),
+                Curvature = fit == null ? null : BuildValueWithError(fit.Curvature, 1),
+                UsesCurvature = fit?.UsesCurvature == true,
+                CounterIonRelease = analysis.CounterIonReleaseFit == null ? null : BuildValueWithError(analysis.CounterIonReleaseFit.Slope, 1),
+            };
+
+            viewer.Plots.Add(BuildPointPlot(
+                "affinity-salt", "Affinity versus salt", "Salt concentration (mM)", "Kd (µM)",
+                analysis.GetDataPoints(ElectrostaticsAnalysis.DissocFitMode.AffinityVsSalt), 1, 1e6));
+
+            var debyePoints = analysis.GetDataPoints(ElectrostaticsAnalysis.DissocFitMode.DebyeHuckel)
+                .Where(point => point.Item1 >= 0 && point.Item2.Value > 0)
+                .Select(point => Tuple.Create(Math.Sqrt(point.Item1), FWEMath.Log10(point.Item2))).ToList();
+            var debye = BuildPointPlot("debye-huckel", "Debye–Hückel", "sqrt(Ionic strength / M)", "log10(Kd / M)", debyePoints, 1, 1);
+            if (fit != null && debyePoints.Count > 0)
+            {
+                var domain = PlotDomain(debyePoints.Select(point => point.Item1), 0);
+                var xs = Sample(domain.min, domain.max, 81);
+                debye.Series.Add(BuildValueSeries("Saved fit", "line", xs, x => fit.Evaluate(x), 1));
+            }
+            viewer.Plots.Add(debye);
+
+            var counterPoints = analysis.GetDataPoints(ElectrostaticsAnalysis.DissocFitMode.CounterIonRelease);
+            var counter = BuildPointPlot("counter-ion-release", "Counter-ion release", "ln(Salt activity)", "ln(Kd / M)", counterPoints, 1, 1);
+            if (analysis.CounterIonReleaseFit != null && counterPoints.Count > 0)
+            {
+                var domain = PlotDomain(counterPoints.Select(point => point.Item1), 0);
+                var xs = Sample(domain.min, domain.max, 81);
+                counter.Series.Add(BuildLinearSeries("Saved fit", xs, analysis.CounterIonReleaseFit, 1));
+            }
+            viewer.Plots.Add(counter);
+            return viewer;
+        }
+
+        static ViewerProtonationDto BuildProtonation(ProtonationAnalysis analysis)
+        {
+            const double energyScale = 1.0 / 1000.0;
+            var fit = analysis.Fit as LinearFitWithError;
+            var plot = BuildPointPlot(
+                "protonation", "Protonation dependence", "Buffer protonation enthalpy (kJ/mol)",
+                "Observed enthalpy (kJ/mol)", analysis.DataPoints, energyScale, energyScale);
+            if (fit != null && analysis.DataPoints.Count > 0)
+            {
+                var domain = PlotDomain(analysis.DataPoints.Select(point => point.Item1 * energyScale), 0);
+                var xs = Sample(domain.min, domain.max, 81);
+                plot.Series.Add(BuildLinearSeries("Saved fit", xs, fit, energyScale, energyScale));
+            }
+
+            return new ViewerProtonationDto
+            {
+                Metadata = BuildAdvancedMetadata(analysis),
+                BindingEnthalpyKilojoulesPerMole = BuildValueWithError(analysis.BindingEnthalpy.FloatWithError, energyScale),
+                ProtonationChange = BuildValueWithError(analysis.ProtonationChange, 1),
+                Plot = plot,
+            };
+        }
+
+        static ViewerAdvancedAnalysisMetadataDto BuildAdvancedMetadata(AdvancedAnalysis analysis) => new ViewerAdvancedAnalysisMetadataDto
+        {
+            CompletedAtUtc = analysis.CompletedAtUtc,
+            CompletedIterations = analysis.CompletedIterations,
+            ErrorEstimationMethod = analysis.CompletedErrorEstimationMethod?.Description(),
+        };
+
+        static ViewerAdvancedPlotDto BuildPointPlot(
+            string key,
+            string title,
+            string xLabel,
+            string yLabel,
+            IEnumerable<Tuple<double, FloatWithError>> points,
+            double xScale,
+            double yScale)
+        {
+            var plot = new ViewerAdvancedPlotDto { Key = key, Title = title, XAxisLabel = xLabel, YAxisLabel = yLabel };
+            var values = points
+                .Where(point => point != null && IsFinite(point.Item1) && IsFinite(point.Item2.Value))
+                .OrderBy(point => point.Item1)
+                .ToList();
+            plot.Series.Add(new ViewerAdvancedPlotSeriesDto
+            {
+                Label = "Saved observations",
+                Kind = "points",
+                X = values.Select(point => point.Item1 * xScale).ToArray(),
+                Y = values.Select(point => point.Item2.Value * yScale).ToArray(),
+                Lower = values.Select(point => FiniteBound(point.Item2.Lower, point.Item2.Value) * yScale).ToArray(),
+                Upper = values.Select(point => FiniteBound(point.Item2.Upper, point.Item2.Value) * yScale).ToArray(),
+            });
+            return plot;
+        }
+
+        static ViewerAdvancedPlotSeriesDto BuildValueSeries(
+            string label,
+            string kind,
+            IEnumerable<double> xs,
+            Func<double, FloatWithError> evaluate,
+            double scale)
+        {
+            var points = xs.Select(x => new { X = x, Value = evaluate(x) })
+                .Where(point => IsFinite(point.Value.Value)).ToList();
+            return new ViewerAdvancedPlotSeriesDto
+            {
+                Label = label,
+                Kind = kind,
+                X = points.Select(point => point.X).ToArray(),
+                Y = points.Select(point => point.Value.Value * scale).ToArray(),
+                Lower = points.Select(point => Math.Min(
+                    FiniteBound(point.Value.Lower, point.Value.Value) * scale,
+                    FiniteBound(point.Value.Upper, point.Value.Value) * scale)).ToArray(),
+                Upper = points.Select(point => Math.Max(
+                    FiniteBound(point.Value.Lower, point.Value.Value) * scale,
+                    FiniteBound(point.Value.Upper, point.Value.Value) * scale)).ToArray(),
+            };
+        }
+
+        static ViewerAdvancedPlotSeriesDto BuildLinearSeries(
+            string label,
+            IEnumerable<double> displayXs,
+            LinearFitWithError fit,
+            double yScale,
+            double xScale = 1,
+            IReadOnlyList<LinearFitWithError> bootstrapFits = null,
+            string group = null)
+        {
+            var envelope = LinearFitEnvelopeBuilder.Build(
+                fit,
+                bootstrapFits,
+                displayXs.Where(IsFinite).Select(displayX => displayX / xScale));
+            var values = envelope.Select(point => new
+            {
+                X = point.X * xScale,
+                Exact = point.Center * yScale,
+                Lower = (point.HasBand ? point.Lower : point.Center) * yScale,
+                Upper = (point.HasBand ? point.Upper : point.Center) * yScale,
+            }).ToArray();
+            return new ViewerAdvancedPlotSeriesDto
+            {
+                Label = label,
+                Kind = "line",
+                Group = group,
+                X = values.Select(value => value.X).ToArray(),
+                Y = values.Select(value => value.Exact).ToArray(),
+                Lower = values.Select(value => value.Lower).ToArray(),
+                Upper = values.Select(value => value.Upper).ToArray(),
+            };
+        }
+
+        static double FiniteBound(double value, double fallback) => IsFinite(value) ? value : fallback;
+
+        static (double min, double max) PlotDomain(IEnumerable<double> source, double fallback)
+        {
+            var values = source.Where(IsFinite).OrderBy(value => value).ToArray();
+            if (values.Length == 0) return (fallback - 5, fallback + 5);
+            var min = values.First();
+            var max = values.Last();
+            var span = max - min;
+            if (Math.Abs(span) < 1e-12) span = Math.Max(1, Math.Abs(max) * 0.1);
+            return (min - span * 0.08, max + span * 0.08);
+        }
+
+        static double[] Sample(double min, double max, int count) => Enumerable.Range(0, count)
+            .Select(index => min + (max - min) * index / Math.Max(1, count - 1.0)).ToArray();
 
         static ViewerTemperatureDependenceDto BuildTemperatureDependence(ParameterType key, LinearFitWithError dependence)
         {
