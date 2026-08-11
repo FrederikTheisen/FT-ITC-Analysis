@@ -545,7 +545,7 @@ namespace AnalysisITC.Core.Analysis
         Nvalue1,
         [ParameterTypeAttribute("N-value 2", ParameterType.Nvalue1)]
         Nvalue2,
-        [ParameterTypeAttribute("Enthalpy", "∆*H*", 1000, new double[] { -300000, 300000 }, ParameterType.Enthalpy1)]
+        [ParameterTypeAttribute("Enthalpy", "∆*H*", 1000, new double[] { -1000000, 1000000 }, ParameterType.Enthalpy1)]
         Enthalpy1,
         [ParameterTypeAttribute("Enthalpy 2", ParameterType.Enthalpy1)]
         Enthalpy2,
