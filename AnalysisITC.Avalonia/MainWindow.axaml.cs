@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
@@ -27,6 +28,7 @@ using AnalysisITC.Avalonia.Analysis;
 using AnalysisITC.Avalonia.Details;
 using AnalysisITC.Avalonia.Dialogs;
 using AnalysisITC.Avalonia.Help;
+using AnalysisITC.Avalonia.ListItems;
 using AnalysisITC.Avalonia.Menus;
 using AnalysisITC.Avalonia.Preferences;
 using AnalysisITC.Avalonia.Results;
@@ -46,6 +48,7 @@ public partial class MainWindow : Window
     bool isHandlingDirtyClose;
     bool isReloadingLastFile;
     bool autoSaveInitialized;
+    bool isRestoringDataListSelection;
     int activeExperimentWorkspaceIndex;
 
     public MainWindow()
@@ -60,8 +63,13 @@ public partial class MainWindow : Window
         DragDrop.AddDragOverHandler(this, OnDragOver);
         DragDrop.AddDragLeaveHandler(this, OnDragLeave);
         DragDrop.AddDropHandler(this, OnDrop);
-        ItemsList.SelectionChanged += (_, _) => SelectListItem();
+        ItemsList.SelectionChanged += (_, _) =>
+        {
+            if (!isRestoringDataListSelection) SelectListItem();
+        };
         ItemsList.PointerReleased += OnItemsListPointerReleased;
+        ItemsList.DoubleTapped += OnItemsListDoubleTapped;
+        ItemsList.KeyDown += OnItemsListKeyDown;
         WorkspaceTabs.SelectionChanged += (_, _) => OnWorkspaceTabChanged();
         OverviewRawButton.Click += (_, _) => SelectOverviewMode(rawData: true);
         OverviewInjectionsButton.Click += (_, _) => SelectOverviewMode(rawData: false);
@@ -77,7 +85,6 @@ public partial class MainWindow : Window
         DataManager.DataDidChange += OnDataDidChange;
         DataManager.DataInclusionDidChange += OnDataInclusionDidChange;
         DataManager.UpdateTable += OnDataManagerUpdate;
-        DataManager.UpdateViewCells += OnDataManagerUpdate;
         DocumentDirtyTracker.Initialize();
         DocumentDirtyTracker.MarkClean();
         DocumentDirtyTracker.DirtyStateChanged += OnDirtyStateChanged;
@@ -119,10 +126,11 @@ public partial class MainWindow : Window
         DragDrop.RemoveDragOverHandler(this, OnDragOver);
         DragDrop.RemoveDragLeaveHandler(this, OnDragLeave);
         DragDrop.RemoveDropHandler(this, OnDrop);
+        ItemsList.DoubleTapped -= OnItemsListDoubleTapped;
+        ItemsList.KeyDown -= OnItemsListKeyDown;
         DataManager.DataDidChange -= OnDataDidChange;
         DataManager.DataInclusionDidChange -= OnDataInclusionDidChange;
         DataManager.UpdateTable -= OnDataManagerUpdate;
-        DataManager.UpdateViewCells -= OnDataManagerUpdate;
         DocumentDirtyTracker.DirtyStateChanged -= OnDirtyStateChanged;
         FTITCFormat.CurrentAccessedAppDocumentPathChanged -= OnCurrentDocumentPathChanged;
         StatusBarManager.StatusUpdated -= OnStatusUpdated;
@@ -318,21 +326,15 @@ public partial class MainWindow : Window
     internal Task SetAllExperimentInclusionAsync(bool include)
     {
         SetAllExperimentInclusion(include);
-        RefreshMenuState();
         return Task.CompletedTask;
     }
 
     internal Task InvertExperimentInclusionAsync()
     {
-        var included = DataManager.IncludedData.ToList();
-        DataManager.SetAllIncludeState(true);
-
-        foreach (var data in included)
-            data.Include = false;
+        foreach (var data in DataManager.Data)
+            data.Include = !data.Include;
 
         DataManager.InvokeDataInclusionDidChange();
-        RefreshDataList();
-        RefreshMenuState();
         return Task.CompletedTask;
     }
 
@@ -349,13 +351,7 @@ public partial class MainWindow : Window
     internal Task ToggleSelectedExperimentInclusionAsync()
     {
         if (selectedItem is ExperimentData experiment)
-        {
             experiment.ToggleInclude();
-            RefreshDataList();
-            AnalysisWorkspace.RefreshIncludedDataState();
-            InvalidateFinalFigurePreview();
-            RefreshMenuState();
-        }
 
         return Task.CompletedTask;
     }
@@ -442,10 +438,6 @@ public partial class MainWindow : Window
             data.Include = ids.Contains(data.UniqueID);
 
         DataManager.InvokeDataInclusionDidChange();
-        DataManager.InvokeUpdateTable();
-        RefreshDataList();
-        AnalysisWorkspace.RefreshIncludedDataState();
-        InvalidateFinalFigurePreview();
         StatusBarManager.SetStatus("Experiments used by result selected", 3000);
 
         return Task.CompletedTask;
@@ -499,10 +491,29 @@ public partial class MainWindow : Window
 
     internal Task OpenSourceRepositoryAsync()
     {
-        if (!ExternalLinkLauncher.TryOpen(CitationInfo.SoftwareRepositoryUrl))
-            StatusBarManager.SetStatus("Could not open source repository", 3000);
+        OpenExternalLink(CitationInfo.SoftwareRepositoryUrl, "source repository");
 
         return Task.CompletedTask;
+    }
+
+    internal Task OpenWebsiteAsync()
+    {
+        OpenExternalLink(CitationInfo.SoftwareWebsiteUrl, "FT-ITC Analysis website");
+
+        return Task.CompletedTask;
+    }
+
+    internal Task OpenViewerAsync()
+    {
+        OpenExternalLink(CitationInfo.SoftwareViewerUrl, "FT-ITC Project Viewer");
+
+        return Task.CompletedTask;
+    }
+
+    static void OpenExternalLink(string url, string destination)
+    {
+        if (!ExternalLinkLauncher.TryOpen(url))
+            StatusBarManager.SetStatus($"Could not open {destination}", 3000);
     }
 
     internal async Task OpenExperimentDesignerAsync()
@@ -790,19 +801,26 @@ public partial class MainWindow : Window
             .Select(DataListEntry.From)
             .ToList();
 
-        ItemsList.ItemsSource = entries;
-        UpdateListHeader();
-        UpdateEmptyWorkspaceState();
-
         var nextIndex = previous == null
             ? DataManager.SelectedContentIndex
             : entries.FindIndex(entry => ReferenceEquals(entry.Item, previous));
 
         if (nextIndex < 0 && entries.Count > 0) nextIndex = Math.Min(Math.Max(DataManager.SelectedContentIndex, 0), entries.Count - 1);
-        ItemsList.SelectedIndex = nextIndex >= 0 && nextIndex < entries.Count ? nextIndex : -1;
 
-        var next = ItemsList.SelectedItem is DataListEntry entry ? entry.Item : null;
-        UpdateSelection(next);
+        isRestoringDataListSelection = true;
+        try
+        {
+            ItemsList.ItemsSource = entries;
+            ItemsList.SelectedIndex = nextIndex >= 0 && nextIndex < entries.Count ? nextIndex : -1;
+        }
+        finally
+        {
+            isRestoringDataListSelection = false;
+        }
+
+        UpdateListHeader();
+        UpdateEmptyWorkspaceState();
+        SelectListItem(forceRefresh: true);
         RefreshMenuState();
     }
 
@@ -822,18 +840,29 @@ public partial class MainWindow : Window
         };
     }
 
-    void SelectListItem()
+    void SelectListItem(bool forceRefresh = false)
     {
         if (ItemsList.SelectedItem is not DataListEntry entry)
         {
-            UpdateSelection(null);
+            if (DataManager.SelectedContentIndex != -1)
+                DataManager.SelectIndex(-1);
+
+            if (forceRefresh || selectedItem != null)
+                UpdateSelection(null);
             return;
         }
 
         var index = entries.IndexOf(entry);
-        if (index >= 0) DataManager.SelectIndex(index);
+        if (index < 0) return;
 
-        UpdateSelection(entry.Item);
+        var managerSelectionMatches = DataManager.SelectedContentIndex == index
+            && index < DataManager.SourceItems.Count
+            && ReferenceEquals(DataManager.SourceItems[index], entry.Item);
+        if (!managerSelectionMatches)
+            DataManager.SelectIndex(index);
+
+        if (forceRefresh || !ReferenceEquals(selectedItem, entry.Item))
+            UpdateSelection(entry.Item);
     }
 
     void OnInlineListActionPointerPressed(object? sender, PointerPressedEventArgs e)
@@ -863,12 +892,9 @@ public partial class MainWindow : Window
 
     void SelectDataListEntry(DataListEntry entry)
     {
-        var index = entries.IndexOf(entry);
-        if (index < 0) return;
+        if (!entries.Contains(entry) || ReferenceEquals(ItemsList.SelectedItem, entry)) return;
 
         ItemsList.SelectedItem = entry;
-        DataManager.SelectIndex(index);
-        UpdateSelection(entry.Item);
     }
 
     void OnItemsListPointerReleased(object? sender, PointerReleasedEventArgs e)
@@ -879,47 +905,96 @@ public partial class MainWindow : Window
         var itemContainer = source?.FindAncestorOfType<ListBoxItem>();
         if (itemContainer?.DataContext is not DataListEntry entry) return;
 
-        ItemsList.SelectedItem = entry;
-        var index = entries.IndexOf(entry);
-        if (index >= 0) DataManager.SelectIndex(index);
-        UpdateSelection(entry.Item);
-
-        BuildDataListItemMenu(entry.Item).ShowAt(itemContainer);
+        ShowDataListItemMenu(entry, itemContainer);
         e.Handled = true;
     }
 
-    MenuFlyout BuildDataListItemMenu(ITCDataContainer item)
+    void OnDataListItemMoreRequested(object? sender, EventArgs e)
     {
-        return item is AnalysisResult
-            ? BuildResultListItemMenu()
-            : BuildExperimentListItemMenu();
+        if (sender is not DataListItemControl { DataContext: DataListEntry entry } control) return;
+        ShowDataListItemMenu(entry, control.MenuAnchor);
     }
 
-    MenuFlyout BuildExperimentListItemMenu()
+    async void OnDataListItemRemoveRequested(object? sender, EventArgs e)
+    {
+        if (sender is not DataListItemControl { DataContext: DataListEntry entry }) return;
+
+        await RemoveItemAsync(entry.Item);
+    }
+
+    async void OnItemsListDoubleTapped(object? sender, TappedEventArgs e)
+    {
+        var source = e.Source as Visual;
+        var itemContainer = source?.FindAncestorOfType<ListBoxItem>();
+        if (itemContainer?.DataContext is not DataListEntry entry) return;
+
+        SelectDataListEntry(entry);
+        await OpenDetailsAsync(entry.Item);
+        e.Handled = true;
+    }
+
+    async void OnItemsListKeyDown(object? sender, KeyEventArgs e)
+    {
+        if (e.Key != Key.Enter || ItemsList.SelectedItem is not DataListEntry entry) return;
+
+        await OpenDetailsAsync(entry.Item);
+        e.Handled = true;
+    }
+
+    void ShowDataListItemMenu(DataListEntry entry, Control anchor)
+    {
+        BuildDataListItemMenu(entry).ShowAt(anchor);
+    }
+
+    MenuFlyout BuildDataListItemMenu(DataListEntry entry)
+    {
+        return entry.Item switch
+        {
+            AnalysisResult result => BuildResultListItemMenu(entry, result),
+            ExperimentData experiment => BuildExperimentListItemMenu(entry, experiment),
+            _ => new MenuFlyout()
+        };
+    }
+
+    MenuFlyout BuildExperimentListItemMenu(DataListEntry entry, ExperimentData experiment)
     {
         var menu = new MenuFlyout();
-        menu.Items.Add(ToolbarItem("Details...", OpenSelectedDetailsAsync, HasSelectedExperiment()));
-        menu.Items.Add(ToolbarItem("Duplicate Data", DuplicateSelectedDataAsync, HasSelectedExperiment()));
-        menu.Items.Add(ToolbarItem("Export Selected Data...", () => ExportDataAsync(selectedOnly: true), HasSelectedExperiment()));
+        menu.Items.Add(ToolbarItem("Details...", ForDataListEntry(entry, OpenSelectedDetailsAsync)));
+        menu.Items.Add(ToolbarItem(
+            "Active",
+            ForDataListEntry(entry, ToggleSelectedExperimentInclusionAsync),
+            experiment.Processor?.IntegrationCompleted == true,
+            experiment.Include,
+            hasCheckState: true));
         menu.Items.Add(new Separator());
-        menu.Items.Add(ToolbarItem(selectedItem is ExperimentData experiment && experiment.Include ? "Disable Active" : "Enable Active", ToggleSelectedExperimentInclusionAsync, HasSelectedExperiment()));
+        menu.Items.Add(ToolbarItem("Duplicate Data", ForDataListEntry(entry, DuplicateSelectedDataAsync)));
+        menu.Items.Add(ToolbarItem("Export Selected Data...", ForDataListEntry(entry, () => ExportDataAsync(selectedOnly: true))));
         menu.Items.Add(new Separator());
-        menu.Items.Add(ToolbarItem("Remove Data", RemoveSelectedItemAsync, HasSelectedExperiment()));
+        menu.Items.Add(ToolbarItem("Remove Data", ForDataListEntry(entry, RemoveSelectedItemAsync)));
         return menu;
     }
 
-    MenuFlyout BuildResultListItemMenu()
+    MenuFlyout BuildResultListItemMenu(DataListEntry entry, AnalysisResult result)
     {
         var menu = new MenuFlyout();
-        menu.Items.Add(ToolbarItem("Details...", OpenSelectedDetailsAsync, HasSelectedResult()));
-        menu.Items.Add(ToolbarItem("Copy Result Table", CopyResultTableAsync, HasSelectedResult()));
+        menu.Items.Add(ToolbarItem("Details...", ForDataListEntry(entry, OpenSelectedDetailsAsync)));
+        menu.Items.Add(ToolbarItem("Copy Result Table", ForDataListEntry(entry, CopyResultTableAsync), result.Solution != null));
         menu.Items.Add(new Separator());
-        menu.Items.Add(ToolbarItem("Load Solutions to Experiments", LoadSelectedResultSolutionsAsync, HasSelectedResult()));
-        menu.Items.Add(ToolbarItem("Set Active Experiments", SelectResultExperimentsAsync, HasSelectedResult()));
-        menu.Items.Add(ToolbarItem("Export Associated Final Figures...", ExportFinalFigureAsync, CanExportFinalFigure()));
+        menu.Items.Add(ToolbarItem("Load Solutions to Experiments", ForDataListEntry(entry, LoadSelectedResultSolutionsAsync), result.Solution?.Solutions?.Count > 0));
+        menu.Items.Add(ToolbarItem("Set Active Experiments", ForDataListEntry(entry, SelectResultExperimentsAsync), result.Solution?.Solutions?.Count > 0));
+        menu.Items.Add(ToolbarItem("Export Associated Final Figures...", ForDataListEntry(entry, ExportFinalFigureAsync), result.Solution?.Solutions?.Count > 0));
         menu.Items.Add(new Separator());
-        menu.Items.Add(ToolbarItem("Remove Result", RemoveSelectedItemAsync, HasSelectedResult()));
+        menu.Items.Add(ToolbarItem("Remove Result", ForDataListEntry(entry, RemoveSelectedItemAsync)));
         return menu;
+    }
+
+    Func<Task> ForDataListEntry(DataListEntry entry, Func<Task> action)
+    {
+        return async () =>
+        {
+            SelectDataListEntry(entry);
+            await action();
+        };
     }
 
     static MenuItem ToolbarItem(string header, Action action, bool isEnabled = true, bool isChecked = false, bool hasCheckState = false)
@@ -960,9 +1035,6 @@ public partial class MainWindow : Window
     void SetAllExperimentInclusion(bool include)
     {
         DataManager.SetAllIncludeState(include);
-        RefreshDataList();
-        AnalysisWorkspace.RefreshIncludedDataState();
-        InvalidateFinalFigurePreview();
     }
 
     void UpdateListHeader()
@@ -1006,6 +1078,7 @@ public partial class MainWindow : Window
                 WorkspaceTabs.SelectedIndex = ValidExperimentWorkspaceIndex();
         }
 
+        RefreshDataListEntryStates();
         RefreshMenuState();
     }
 
@@ -1256,7 +1329,7 @@ public partial class MainWindow : Window
                 $"File: {experiment.FileName}",
                 $"Data points: {experiment.DataPoints.Count}",
                 $"Injections: {experiment.InjectionCount}",
-                $"Temperature: {experiment.MeasuredTemperature:F1} C",
+                $"Temperature: {experiment.MeasuredTemperature:F1} °C",
                 $"Instrument: {experiment.Instrument}"
             }),
             AnalysisResult result => BuildResultSummary(result),
@@ -1299,8 +1372,9 @@ public partial class MainWindow : Window
     {
         Dispatcher.UIThread.Post(() =>
         {
-            RefreshDataList();
-            AnalysisWorkspace.RefreshIncludedDataState();
+            RefreshDataListEntryStates();
+
+            UpdateListHeader();
             InvalidateFinalFigurePreview();
             UpdateDocumentStatus();
         });
@@ -1309,6 +1383,13 @@ public partial class MainWindow : Window
     void OnDataManagerUpdate(object? sender, EventArgs e)
     {
         Dispatcher.UIThread.Post(RefreshDataList);
+    }
+
+    void RefreshDataListEntryStates()
+    {
+        var selectedResult = selectedItem as AnalysisResult;
+        foreach (var entry in entries)
+            entry.RefreshState(selectedResult);
     }
 
     void OnDirtyStateChanged(object? sender, EventArgs e)
@@ -1350,6 +1431,7 @@ public partial class MainWindow : Window
 
     void OnProcessingChanged(object? sender, EventArgs e)
     {
+        RefreshDataListEntryStates();
         RefreshOverview();
         InvalidateFinalFigurePreview();
     }
@@ -1361,12 +1443,14 @@ public partial class MainWindow : Window
 
     void OnAnalysisGraphChanged(object? sender, EventArgs e)
     {
+        RefreshDataListEntryStates();
         RefreshOverview();
         InvalidateFinalFigurePreview();
     }
 
     void OnAnalysisFittingChanged(object? sender, EventArgs e)
     {
+        RefreshDataListEntryStates();
         RefreshOverview();
         InvalidateFinalFigurePreview();
     }
@@ -1753,10 +1837,17 @@ public partial class MainWindow : Window
         }
     }
 
-    public sealed class DataListEntry
+    public sealed class DataListEntry : INotifyPropertyChanged
     {
         public ITCDataContainer Item { get; }
         readonly ExperimentData? experiment;
+        AnalysisResultValidity validityStatus;
+        string validityTooltip = "";
+        bool isSelectedResultMember;
+        bool isSelectedResultCurrentSolution;
+        string selectedResultMembershipTooltip = "";
+
+        public event PropertyChangedEventHandler? PropertyChanged;
 
         DataListEntry(ITCDataContainer item, string kindLabel, string dateLine, string detailLine, string fitLine)
         {
@@ -1766,17 +1857,26 @@ public partial class MainWindow : Window
             DateLine = dateLine;
             DetailLine = detailLine;
             FitLine = fitLine;
+            UpdateValidityState();
         }
 
         public string Title => Item.Name;
         public string KindLabel { get; }
-        public string DateLine { get; }
-        public string DetailLine { get; }
-        public string FitLine { get; }
+        public string DateLine { get; private set; }
+        public string DetailLine { get; private set; }
+        public string FitLine { get; private set; }
         public string DetailsLabel => Item is AnalysisResult ? "Open result details" : "Open data details";
         public string RemoveLabel => Item is AnalysisResult ? "Remove result" : "Remove data";
+        public string MoreActionsLabel => $"More actions for {Title}";
         public bool CanInclude => experiment != null;
+        public bool IsResult => Item is AnalysisResult;
         public bool CanIncludeActive => experiment?.Processor?.IntegrationCompleted == true;
+        public string ActiveStateLabel => !CanIncludeActive
+            ? "Not processed"
+            : IsIncluded ? "Active" : "Inactive";
+        public string InclusionLabel => !CanIncludeActive
+            ? "Experiment is not processed"
+            : IsIncluded ? "Deactivate experiment" : "Activate experiment";
         public bool IsIncluded
         {
             get => experiment?.Include == true;
@@ -1785,6 +1885,109 @@ public partial class MainWindow : Window
                 if (experiment == null || experiment.Include == value) return;
                 experiment.ToggleInclude();
             }
+        }
+
+        public string ValidityLabel => validityStatus switch
+        {
+            AnalysisResultValidity.Valid => "Valid",
+            AnalysisResultValidity.PartialInvalid => "Partial",
+            AnalysisResultValidity.Invalid => "Invalid",
+            _ => "Unknown"
+        };
+
+        public string ValidityTooltip => validityTooltip;
+        public bool IsValidityValid => IsResult && validityStatus == AnalysisResultValidity.Valid;
+        public bool IsValidityPartial => IsResult && validityStatus == AnalysisResultValidity.PartialInvalid;
+        public bool IsValidityInvalid => IsResult && validityStatus == AnalysisResultValidity.Invalid;
+        public bool IsValidityUnknown => IsResult && validityStatus == AnalysisResultValidity.Unknown;
+        public bool IsSelectedResultMember => isSelectedResultMember;
+        public bool IsSelectedResultCurrentSolution => isSelectedResultCurrentSolution;
+        public string SelectedResultMembershipTooltip => selectedResultMembershipTooltip;
+
+        internal void RefreshState(AnalysisResult? selectedResult)
+        {
+            UpdateDisplayState();
+            UpdateValidityState();
+            UpdateSelectedResultState(selectedResult);
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(IsIncluded)));
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(CanIncludeActive)));
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(ActiveStateLabel)));
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(InclusionLabel)));
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(DateLine)));
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(DetailLine)));
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(FitLine)));
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(ValidityLabel)));
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(ValidityTooltip)));
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(IsValidityValid)));
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(IsValidityPartial)));
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(IsValidityInvalid)));
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(IsValidityUnknown)));
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(IsSelectedResultMember)));
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(IsSelectedResultCurrentSolution)));
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(SelectedResultMembershipTooltip)));
+        }
+
+        void UpdateDisplayState()
+        {
+            if (experiment == null) return;
+
+            DateLine = experiment.UIShortDateWithTime;
+            DetailLine = BuildExperimentDetailLine(experiment);
+            FitLine = BuildExperimentSummaryLine(experiment);
+        }
+
+        void UpdateValidityState()
+        {
+            if (Item is not AnalysisResult result)
+            {
+                validityStatus = AnalysisResultValidity.Unknown;
+                validityTooltip = "";
+                return;
+            }
+
+            var report = result.ValidityReport;
+            validityStatus = report.Status;
+            var title = report.Status switch
+            {
+                AnalysisResultValidity.Valid => "Analysis result is valid for the current data.",
+                AnalysisResultValidity.PartialInvalid => "Analysis result is partially invalid for the current data.",
+                AnalysisResultValidity.Invalid => "Analysis result is invalid for the current data.",
+                _ => "Analysis result validity is unknown."
+            };
+            validityTooltip = report.Reasons.Count == 0
+                ? title
+                : title + Environment.NewLine + string.Join(Environment.NewLine, report.Reasons);
+        }
+
+        void UpdateSelectedResultState(AnalysisResult? selectedResult)
+        {
+            isSelectedResultMember = false;
+            isSelectedResultCurrentSolution = false;
+            selectedResultMembershipTooltip = "";
+
+            if (experiment == null || selectedResult?.Solution?.Solutions == null) return;
+
+            var resultSolution = selectedResult.Solution.Solutions
+                .FirstOrDefault(solution => ReferenceEquals(solution?.Data, experiment));
+
+            if (resultSolution == null && !string.IsNullOrWhiteSpace(experiment.UniqueID))
+            {
+                resultSolution = selectedResult.Solution.Solutions.FirstOrDefault(solution =>
+                    string.Equals(solution?.Data?.UniqueID, experiment.UniqueID, StringComparison.Ordinal));
+            }
+
+            if (resultSolution == null) return;
+
+            isSelectedResultMember = true;
+            isSelectedResultCurrentSolution = experiment.Solution != null
+                && string.Equals(experiment.Solution.Guid, resultSolution.Guid, StringComparison.Ordinal);
+
+            var resultName = string.IsNullOrWhiteSpace(selectedResult.Name)
+                ? "the selected analysis result"
+                : $"analysis result '{selectedResult.Name}'";
+            selectedResultMembershipTooltip = isSelectedResultCurrentSolution
+                ? $"Used in {resultName}. Its stored result solution is currently loaded on this experiment."
+                : $"Used in {resultName}. This experiment currently has a different fitted solution.";
         }
 
         public static DataListEntry From(ITCDataContainer item)
@@ -1799,18 +2002,25 @@ public partial class MainWindow : Window
 
         static DataListEntry FromExperiment(ExperimentData experiment)
         {
-            var detail = $"{experiment.MeasuredTemperature:G3} °C | {experiment.SyringeConcentration.AsFormattedConcentration(true)} | {experiment.CellConcentration.AsFormattedConcentration(true)}";
+            return new DataListEntry(
+                experiment,
+                "DATA",
+                experiment.UIShortDateWithTime,
+                BuildExperimentDetailLine(experiment),
+                BuildExperimentSummaryLine(experiment));
+        }
+
+        static string BuildExperimentDetailLine(ExperimentData experiment) =>
+            $"{experiment.MeasuredTemperature:G3} °C | {experiment.SyringeConcentration.AsFormattedConcentration(true)} | {experiment.CellConcentration.AsFormattedConcentration(true)}";
+
+        static string BuildExperimentSummaryLine(ExperimentData experiment)
+        {
             var fit = BuildExperimentFitLine(experiment);
+            if (!string.IsNullOrWhiteSpace(fit)) return fit;
 
-            if (string.IsNullOrWhiteSpace(fit))
-            {
-                var processing = experiment.Processor?.IntegrationCompleted == true
-                    ? $"{experiment.InjectionCount} integrated injections"
-                    : $"{experiment.InjectionCount} injections, not processed";
-                fit = $"{processing} | {System.IO.Path.GetFileName(experiment.FileName)}";
-            }
-
-            return new DataListEntry(experiment, "DATA", experiment.UIShortDateWithTime, detail, fit);
+            return experiment.Processor?.IntegrationCompleted == true
+                ? $"{experiment.InjectionCount} integrated injections"
+                : $"{experiment.InjectionCount} injections, not processed";
         }
 
         static DataListEntry FromResult(AnalysisResult result)
@@ -1823,7 +2033,7 @@ public partial class MainWindow : Window
 
             var dateLine = lines.Count > 0 ? lines[0] : BuildResultSummary(result);
             var detailLine = lines.Count > 1 ? lines[1] : "";
-            var fitLine = lines.Count > 2 ? string.Join(Environment.NewLine, lines.Skip(2)) : "";
+            var fitLine = lines.Count > 2 ? string.Join(" | ", lines.Skip(2)) : "";
 
             return new DataListEntry(result, "RESULT", dateLine, detailLine, fitLine);
         }
@@ -1841,7 +2051,7 @@ public partial class MainWindow : Window
                     lines.Add($"{parameter.Item1} = {parameter.Item2}");
             }
 
-            return PlainListText(string.Join(Environment.NewLine, lines));
+            return PlainListText(string.Join(" | ", lines));
         }
 
         static string PlainListText(string text)
