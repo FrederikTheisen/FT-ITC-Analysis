@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ft-itc.local/schemas/ftxtc/1.0/component.schema.json",
+  "title": "FTXTC 1.0 native components",
+  "description": "Maintainer schema for experiment.json, solution.json, bootstrap.json and result.json. Component-specific semantic validation is performed by the versioned storage DTO validators.",
+  "oneOf": [
+    { "$ref": "#/$defs/experiment" },
+    { "$ref": "#/$defs/solution" },
+    { "$ref": "#/$defs/bootstrap" },
+    { "$ref": "#/$defs/result" }
+  ],
+  "$defs": {
+    "id": { "type": "string", "minLength": 1 },
+    "experiment": { "type": "object", "required": ["id", "injections", "processor", "attributes", "segments"], "properties": { "id": { "$ref": "#/$defs/id" }, "injections": { "type": "array" }, "attributes": { "type": "array" }, "segments": { "type": "array" } } },
+    "solution": { "type": "object", "required": ["schemaVersion", "id", "experimentId", "modelId", "modelSchemaVersion", "fittedParameters", "reportedParameters", "modelOptions"], "properties": { "schemaVersion": { "const": 1 }, "id": { "$ref": "#/$defs/id" }, "experimentId": { "$ref": "#/$defs/id" }, "modelId": { "$ref": "#/$defs/id" }, "modelSchemaVersion": { "const": 1 }, "fittedParameters": { "type": "array" }, "reportedParameters": { "type": "array" }, "modelOptions": { "type": "array" } } },
+    "bootstrap": { "type": "object", "required": ["schemaVersion", "replicateIndices", "parameterIds", "injectionIds", "replicates", "parameterValues", "parameterLocks", "injections", "injectionIncludes"], "properties": { "schemaVersion": { "const": 1 }, "replicateIndices": { "type": "array", "items": { "type": "integer", "minimum": 0 }, "uniqueItems": true }, "parameterIds": { "type": "array", "items": { "$ref": "#/$defs/id" } }, "injectionIds": { "type": "array", "items": { "type": "integer" } }, "replicates": { "type": "array" } } },
+    "result": { "type": "object", "required": ["id", "globalSolutionId", "modelId", "memberSolutionIds", "constraints", "globalParameters"], "properties": { "id": { "$ref": "#/$defs/id" }, "globalSolutionId": { "$ref": "#/$defs/id" }, "modelId": { "$ref": "#/$defs/id" }, "memberSolutionIds": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/id" } } } }
+  }
+}

@@ -4,6 +4,8 @@ using System.Collections.Generic;
 using AnalysisITC.Core.Analysis;
 using AnalysisITC.Core.Analysis.Models;
 using AnalysisITC.Core.Data;
+using AnalysisITC.Core.Processing;
+using Buffer = AnalysisITC.Core.Data.Buffer;
 
 namespace AnalysisITC.Core.Export
 {
@@ -52,12 +54,96 @@ namespace AnalysisITC.Core.Export
             [AttributeKey.NumberOfSites2] = "number-of-sites-2", [AttributeKey.Species] = "species",
         };
 
+        // Buffer ids mirror Resources/Buffers.json and are part of the storage API.
+        static readonly IReadOnlyDictionary<Buffer, string> Buffers = new Dictionary<Buffer, string>
+        {
+            [Buffer.Null] = "null", [Buffer.Hepes] = "hepes",
+            [Buffer.SodiumPhosphate] = "sodium_phosphate", [Buffer.PotassiumPhosphate] = "potassium_phosphate",
+            [Buffer.Tris] = "tris", [Buffer.Maleate] = "maleate", [Buffer.Chloroacetate] = "chloroacetate",
+            [Buffer.Citrate] = "citrate", [Buffer.Formate] = "formate", [Buffer.Succinate] = "succinate",
+            [Buffer.Benzoate] = "benzoate", [Buffer.Acetate] = "acetate", [Buffer.Propionate] = "propionate",
+            [Buffer.Pyridine] = "pyridine", [Buffer.Piperazine] = "piperazine", [Buffer.MES] = "mes",
+            [Buffer.Carbonate] = "carbonate", [Buffer.BisTris] = "bis_tris", [Buffer.ADA] = "ada",
+            [Buffer.PIPES] = "pipes", [Buffer.ACES] = "aces", [Buffer.BES] = "bes", [Buffer.MOPS] = "mops",
+            [Buffer.TES] = "tes", [Buffer.Tricine] = "tricine", [Buffer.Bicine] = "bicine", [Buffer.TAPS] = "taps",
+            [Buffer.Ethanolamine] = "ethanolamine", [Buffer.CHES] = "ches", [Buffer.CAPS] = "caps",
+            [Buffer.Methylamine] = "methylamine", [Buffer.Piperidine] = "piperidine", [Buffer.TAPSO] = "tapso",
+            [Buffer.PBS] = "pbs", [Buffer.TBS] = "tbs", [Buffer.Histidine] = "histidine",
+            [Buffer.Imidazole] = "imidazole",
+        };
+
+        static readonly IReadOnlyDictionary<Salt, string> Salts = new Dictionary<Salt, string>
+        {
+            [Salt.NaCl] = "sodium-chloride", [Salt.NaF] = "sodium-fluoride",
+            [Salt.Na2SO4] = "sodium-sulfate", [Salt.K2SO4] = "potassium-sulfate",
+            [Salt.MgSO4] = "magnesium-sulfate", [Salt.KCl] = "potassium-chloride",
+            [Salt.MgCl2] = "magnesium-chloride", [Salt.KI] = "potassium-iodide",
+            [Salt.CaCl2] = "calcium-chloride",
+        };
+
+        static readonly IReadOnlyDictionary<BufferSubtractionMethod, string> BufferSubtractionMethods =
+            new Dictionary<BufferSubtractionMethod, string>
+            {
+                [BufferSubtractionMethod.MatchedInjection] = "matched-injection",
+                [BufferSubtractionMethod.Linear] = "linear",
+                [BufferSubtractionMethod.ExponentialDecay] = "exponential-decay",
+            };
+
+        static readonly IReadOnlyDictionary<ExperimentSpeciesLocation, string> SpeciesLocations =
+            new Dictionary<ExperimentSpeciesLocation, string>
+            {
+                [ExperimentSpeciesLocation.Cell] = "cell",
+                [ExperimentSpeciesLocation.Syringe] = "syringe",
+            };
+
+        static readonly IReadOnlyDictionary<BaselineInterpolatorTypes, string> Processors =
+            new Dictionary<BaselineInterpolatorTypes, string>
+            {
+                [BaselineInterpolatorTypes.None] = "none", [BaselineInterpolatorTypes.Spline] = "spline",
+                [BaselineInterpolatorTypes.ASL] = "asl", [BaselineInterpolatorTypes.Polynomial] = "polynomial",
+                [BaselineInterpolatorTypes.Segmented] = "segmented",
+            };
+
         internal static string Model(AnalysisModel value) => Get(Models, value, "model");
         internal static AnalysisModel Model(string value) => Get(Models, value, "model");
         internal static string Parameter(ParameterType value) => Get(Parameters, value, "parameter");
         internal static ParameterType Parameter(string value) => Get(Parameters, value, "parameter");
         internal static string Attribute(AttributeKey value) => Get(Attributes, value, "attribute");
         internal static AttributeKey Attribute(string value) => Get(Attributes, value, "attribute");
+        internal static string Processor(BaselineInterpolatorTypes value) => Get(Processors, value, "processor");
+        internal static BaselineInterpolatorTypes Processor(string value) => Get(Processors, value, "processor");
+
+        internal static bool UsesAttributeValueId(AttributeKey key) => key == AttributeKey.Buffer
+            || key == AttributeKey.Salt
+            || key == AttributeKey.BufferSubtraction
+            || key == AttributeKey.Species;
+
+        internal static bool UsesNumericAttributeIntValue(AttributeKey key) =>
+            key == AttributeKey.NumberOfSites1 || key == AttributeKey.NumberOfSites2;
+
+        internal static string AttributeValueId(AttributeKey key, int intValue)
+        {
+            switch (key)
+            {
+                case AttributeKey.Buffer: return Get(Buffers, (Buffer)intValue, "buffer");
+                case AttributeKey.Salt: return Get(Salts, (Salt)intValue, "salt");
+                case AttributeKey.BufferSubtraction: return Get(BufferSubtractionMethods, (BufferSubtractionMethod)intValue, "buffer subtraction method");
+                case AttributeKey.Species: return Get(SpeciesLocations, (ExperimentSpeciesLocation)intValue, "species location");
+                default: return null;
+            }
+        }
+
+        internal static int AttributeIntValue(AttributeKey key, string valueId, int? numericValue)
+        {
+            switch (key)
+            {
+                case AttributeKey.Buffer: return (int)Get(Buffers, valueId, "buffer");
+                case AttributeKey.Salt: return (int)Get(Salts, valueId, "salt");
+                case AttributeKey.BufferSubtraction: return (int)Get(BufferSubtractionMethods, valueId, "buffer subtraction method");
+                case AttributeKey.Species: return (int)Get(SpeciesLocations, valueId, "species location");
+                default: return numericValue ?? 0;
+            }
+        }
 
         static string Get<T>(IReadOnlyDictionary<T, string> table, T key, string kind)
         {

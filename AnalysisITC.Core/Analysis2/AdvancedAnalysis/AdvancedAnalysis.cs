@@ -47,6 +47,10 @@ namespace AnalysisITC.Core.Analysis
         public FitWithError Fit { get; set; }
 
         public int CompletedIterations { get; internal set; } = 0;
+        public DateTime? CompletedAtUtc { get; internal set; }
+        public ErrorEstimationMethod? CompletedErrorEstimationMethod { get; internal set; }
+
+        protected ErrorEstimationMethod RunErrorEstimationMethod { get; private set; }
 
         public AdvancedAnalysis(AnalysisResult result)
         {
@@ -55,21 +59,49 @@ namespace AnalysisITC.Core.Analysis
 
         public virtual async void PerformAnalysis()
         {
+            await PerformAnalysisAsync();
+        }
+
+        public virtual async Task<bool> PerformAnalysisAsync()
+        {
             ResultAnalysisController.TerminateAnalysisFlag.Lower();
             ResultAnalysisController.ReportCalculationStarted();
 
-            DateTime start = DateTime.Now;
+            var start = DateTime.UtcNow;
+            var previous = CaptureCommittedState();
+            var previousIterations = CompletedIterations;
+            var previousCompletedAt = CompletedAtUtc;
+            var previousErrorMethod = CompletedErrorEstimationMethod;
+            RunErrorEstimationMethod = AppSettings.DefaultErrorEstimationMethod;
+            var succeeded = false;
 
             try
             {
                 await Task.Run(() => Calculate());
+                succeeded = ResultAnalysisController.TerminateAnalysisFlag.Down;
             }
             catch (Exception ex)
             {
                 AppEventHandler.DisplayHandledException(ex);
             }
 
-            ResultAnalysisController.ReportAnalysisFinished(this, CompletedIterations, DateTime.Now - start);
+            if (succeeded)
+            {
+                CompletedAtUtc = DateTime.UtcNow;
+                CompletedErrorEstimationMethod = RunErrorEstimationMethod;
+                CommitRunState();
+                Data.MarkModified();
+            }
+            else
+            {
+                RestoreCommittedState(previous);
+                CompletedIterations = previousIterations;
+                CompletedAtUtc = previousCompletedAt;
+                CompletedErrorEstimationMethod = previousErrorMethod;
+            }
+
+            ResultAnalysisController.ReportAnalysisFinished(this, CompletedIterations, DateTime.UtcNow - start);
+            return succeeded;
         }
 
         protected virtual void Calculate()
@@ -77,9 +109,26 @@ namespace AnalysisITC.Core.Analysis
             
         }
 
+        protected virtual object CaptureCommittedState() => null;
+
+        protected virtual void RestoreCommittedState(object state)
+        {
+        }
+
+        protected virtual void CommitRunState()
+        {
+        }
+
+        internal void RestoreRunMetadata(int completedIterations, DateTime? completedAtUtc, ErrorEstimationMethod? errorMethod)
+        {
+            CompletedIterations = completedIterations;
+            CompletedAtUtc = completedAtUtc?.ToUniversalTime();
+            CompletedErrorEstimationMethod = errorMethod;
+        }
+
         internal List<(double,double)> GetErrorData(List<(double, FloatWithError)> dps)
         {
-            switch (AppSettings.DefaultErrorEstimationMethod)
+            switch (RunErrorEstimationMethod)
             {
                 default:
                 case ErrorEstimationMethod.BootstrapResiduals:

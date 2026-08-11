@@ -26,6 +26,9 @@ namespace AnalysisITC.Core.Analysis
 
         public SROutput Result { get; private set; }
 
+        internal SRFoldedMode? CompletedFoldedMode { get; private set; }
+        internal SRTempMode? CompletedTempMode { get; private set; }
+
         LinearFitWithError EnthalpyDependence { get; set; }
         LinearFitWithError EntropyDependence { get; set; }
 
@@ -52,11 +55,6 @@ namespace AnalysisITC.Core.Analysis
             EntropyDependence = analysisResult.Solution.TemperatureDependence[ParameterType.EntropyContribution1];
 
             TS = EntropyDependence.GetXAxisIntersect();
-        }
-
-        public override void PerformAnalysis()
-        {
-            base.PerformAnalysis();
         }
 
         protected override void Calculate()
@@ -89,6 +87,7 @@ namespace AnalysisITC.Core.Analysis
                 list_ds_r.Add(result.Rvalue);
 
                 ResultAnalysisController.ReportCalculationProgress(i, niter);
+                if (ResultAnalysisController.TerminateAnalysisFlag.Up) break;
             }
 
             CompletedIterations = list_ds_r.Count;
@@ -98,6 +97,53 @@ namespace AnalysisITC.Core.Analysis
                 new FloatWithError(list_ds_conf, exact.ConformationalEntropy),
                 new FloatWithError(list_ds_r, exact.Rvalue),
                 TempMode == SRTempMode.IsoEntropicPoint ? TS : new(EvalutationTemperature(sample: false)));
+        }
+
+        protected override object CaptureCommittedState() => new CommittedState
+        {
+            Result = Result,
+            FoldedMode = CompletedFoldedMode,
+            TempMode = CompletedTempMode,
+        };
+
+        protected override void RestoreCommittedState(object state)
+        {
+            var previous = state as CommittedState;
+            Result = previous?.Result;
+            CompletedFoldedMode = previous?.FoldedMode;
+            CompletedTempMode = previous?.TempMode;
+            if (CompletedFoldedMode.HasValue) FoldedMode = CompletedFoldedMode.Value;
+            if (CompletedTempMode.HasValue) TempMode = CompletedTempMode.Value;
+        }
+
+        protected override void CommitRunState()
+        {
+            CompletedFoldedMode = FoldedMode;
+            CompletedTempMode = TempMode;
+            CompletedErrorEstimationMethod = null;
+        }
+
+        internal void RestoreResult(
+            SRFoldedMode foldedMode,
+            SRTempMode tempMode,
+            SROutput result,
+            int completedIterations,
+            DateTime? completedAtUtc)
+        {
+            if (result == null) throw new ArgumentNullException(nameof(result));
+            FoldedMode = foldedMode;
+            TempMode = tempMode;
+            Result = result;
+            CompletedFoldedMode = foldedMode;
+            CompletedTempMode = tempMode;
+            RestoreRunMetadata(completedIterations, completedAtUtc, null);
+        }
+
+        sealed class CommittedState
+        {
+            public SROutput Result { get; set; }
+            public SRFoldedMode? FoldedMode { get; set; }
+            public SRTempMode? TempMode { get; set; }
         }
 
         SROutput Evaluate(bool exact = false)

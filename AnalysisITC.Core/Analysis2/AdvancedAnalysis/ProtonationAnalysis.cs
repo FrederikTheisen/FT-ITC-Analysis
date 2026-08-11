@@ -40,12 +40,48 @@ namespace AnalysisITC.Core.Analysis
                 if (ResultAnalysisController.TerminateAnalysisFlag.Up) break;
             }
 
+            var bindingEnthalpy = new FloatWithError(results.Select(r => r.BindingEnthalpy), result.BindingEnthalpy).Energy;
+            var protonationChange = new FloatWithError(results.Select(r => r.ProtonationChange), result.ProtonationChange);
+
             CompletedIterations = results.Count;
+            BindingEnthalpy = bindingEnthalpy;
+            ProtonationChange = protonationChange;
+            base.Fit = new LinearFitWithError(protonationChange, bindingEnthalpy.FloatWithError, 0);
+        }
 
-            BindingEnthalpy = new FloatWithError(results.Select(r => r.BindingEnthalpy), result.BindingEnthalpy).Energy;
-            ProtonationChange = new FloatWithError(results.Select(r => r.ProtonationChange), result.ProtonationChange);
+        protected override object CaptureCommittedState() => new CommittedState
+        {
+            BindingEnthalpy = BindingEnthalpy,
+            ProtonationChange = ProtonationChange,
+            Fit = Fit,
+        };
 
-            base.Fit = new LinearFitWithError(ProtonationChange, BindingEnthalpy.FloatWithError, 0);
+        protected override void RestoreCommittedState(object state)
+        {
+            var previous = state as CommittedState;
+            BindingEnthalpy = previous?.BindingEnthalpy ?? new Energy(0);
+            ProtonationChange = previous?.ProtonationChange ?? FloatWithError.NaN;
+            Fit = previous?.Fit;
+        }
+
+        internal void RestoreResult(
+            FloatWithError bindingEnthalpy,
+            FloatWithError protonationChange,
+            int completedIterations,
+            DateTime? completedAtUtc,
+            ErrorEstimationMethod errorMethod)
+        {
+            BindingEnthalpy = new Energy(bindingEnthalpy);
+            ProtonationChange = protonationChange;
+            Fit = new LinearFitWithError(protonationChange, bindingEnthalpy, 0);
+            RestoreRunMetadata(completedIterations, completedAtUtc, errorMethod);
+        }
+
+        sealed class CommittedState
+        {
+            public Energy BindingEnthalpy { get; set; }
+            public FloatWithError ProtonationChange { get; set; }
+            public FitWithError Fit { get; set; }
         }
 
         FitResult Analyze(bool witherror = false)
@@ -70,4 +106,3 @@ namespace AnalysisITC.Core.Analysis
         }
     }
 }
-

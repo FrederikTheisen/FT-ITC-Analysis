@@ -229,7 +229,7 @@ namespace AnalysisITC.Core.DataReaders
         {
             var dat = StringParsers.ParseLine(line);
 
-            experiment.DataPoints.Add(new DataPoint(dat[0], (float)Energy.ConvertToJoule(dat[1], EnergyUnit.MicroCal), dat[2], dat[3], dat[4], dat[5], dat[6]));
+            experiment.DataPoints.Add(new DataPoint(dat[0], (float)Energy.ConvertToJoule(dat[1], EnergyUnit.MicroCal), dat[2]));
         }
 
         static void ReadVPITCDataPoint(ExperimentData experiment, string line)

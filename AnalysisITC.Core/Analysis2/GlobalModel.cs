@@ -259,6 +259,11 @@ namespace AnalysisITC.Core.Analysis
             IsValid = false;
         }
 
+        internal void RestoreValidity(bool isValid)
+        {
+            IsValid = isValid;
+        }
+
 		public GlobalSolution(GlobalSolver solver, SolverConvergence convergence)
 		{
 			Model = solver.Model;

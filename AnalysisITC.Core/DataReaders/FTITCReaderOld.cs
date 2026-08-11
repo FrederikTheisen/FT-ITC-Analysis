@@ -73,7 +73,8 @@ namespace AnalysisITC.Core.DataReaders
             foreach (var dp in dpdata)
             {
                 var _dp = dp.Split(',');
-                datapoints.Add(new DataPoint(float.Parse(_dp[0]), float.Parse(_dp[1]), float.Parse(_dp[2]), shieldt: float.Parse(_dp[3])));
+                if (_dp.Length < 3) throw new InvalidDataException("FTITC data-point rows must have at least three columns.");
+                datapoints.Add(new DataPoint(float.Parse(_dp[0]), float.Parse(_dp[1]), float.Parse(_dp[2])));
             }
 
             exp.DataPoints = datapoints;

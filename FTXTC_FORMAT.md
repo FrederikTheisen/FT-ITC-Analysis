@@ -1,4 +1,4 @@
-# Native FTXTC project format 1.1
+# Native FTXTC project format 1.2
 
 FTXTC is the native FT-ITC Analysis project format. An `.ftxtc` file is a ZIP package containing a normalized JSON object graph, typed binary matrices, and a checksum manifest. This document is maintainer documentation, not a third-party compatibility promise.
 
@@ -30,7 +30,7 @@ Paths are relative, use `/`, and cannot contain empty, `.` or `..` segments. ZIP
 
 ## Manifest and validation
 
-`manifest.json` contains `format` (`"ftxtc"`), schema major/minor (`1.1`), writer version, root (`"project.json"`), and a sorted declaration for every payload with media type, uncompressed length, and lowercase SHA-256.
+`manifest.json` contains `format` (`"ftxtc"`), schema major/minor (`1.2`), writer version, root (`"project.json"`), and a sorted declaration for every payload with media type, uncompressed length, and lowercase SHA-256.
 
 Reading first validates safe unique paths, entry count, expanded sizes, compression ratio, declarations, lengths, hashes, root schema, and root references. Domain objects are built as a detached graph and published only after restoration completes.
 
@@ -49,6 +49,8 @@ Processor state is a versioned tagged union: `none`, `spline`, `polynomial`, or 
 Solution metadata stores the stable model ID and model schema, validity, clone/model options, weighting/error method, fitted parameters and locks, reported `FloatWithError` estimates, and convergence. Restoration initializes the concrete model normally, directly installs captured options, restores fitted parameters, applies model options, creates the solution, directly restores the validated bootstrap set without applying current preference limits, and finally reapplies reported estimates and validity.
 
 Result metadata stores the global-solution ID, global validity, ordered member-solution IDs, model, constraints, global parameters, clone options, convergence, and a historical fit-input validity snapshot. The snapshot retains fit-time corrected heats so stale results can still be diagnosed. Global bootstrap sets are reconstructed by joining explicit common replicate indices.
+
+Schema 1.2 optionally adds `advancedAnalyses` to result metadata. Completed Spolar record, electrostatics, and protonation analyses are stored as independently versioned JSON objects using stable mode/method IDs and SI-valued `FloatWithError` estimates. Reconstructable input points and discarded Monte Carlo samples are not duplicated. A missing subtype means that analysis has not completed. Desktop and viewer readers restore saved outputs without rerunning calculations; recovery mode may discard one invalid advanced subtype while retaining the parent result.
 
 ## Bootstrap representation
 
@@ -80,4 +82,4 @@ Thermogram arrays use three Float32 columns: time, power, and temperature. Basel
 
 ## Compatibility
 
-Writers emit schema 1.1. Readers also accept native 1.0 packages, whose thermogram and corrected-trace matrices contain seven Float32 columns ordered as time, power, temperature, cell/reference temperature difference, shield temperature, ATP, and JFBI. The reader retains only the first three values, translates legacy enum ordinals, ignores redundant corrected traces and current corrected peak areas, and reconstructs the normalized in-memory state from raw values and baselines. Other schema versions remain unsupported until an explicit migration becomes necessary.
+Writers emit schema 1.2. Readers also accept native 1.0 and 1.1 packages. Schema 1.0 thermogram and corrected-trace matrices contain seven Float32 columns ordered as time, power, temperature, cell/reference temperature difference, shield temperature, ATP, and JFBI; the reader retains only the first three values, translates legacy enum ordinals, ignores redundant corrected traces and current corrected peak areas, and reconstructs normalized state from raw values and baselines. Schema 1.1 normally uses three-column thermograms, but the reader also accepts the seven-column variant emitted by early 1.1 writers and retains its first three values. Schema 1.1 projects load with no persisted advanced-analysis state. Other schema versions remain unsupported until an explicit migration becomes necessary.

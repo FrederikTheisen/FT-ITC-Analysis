@@ -191,6 +191,7 @@ namespace AnalysisITC.Core.DataReaders
         private static async Task ReadProcessor(ExperimentData exp, StreamReader reader, bool processData)
         {
             var p = new DataProcessor(exp);
+            var processorLocked = false;
 
             string line = ReadRequiredLine(reader);
             string[] v = SplitKeyValue(line);
@@ -211,7 +212,7 @@ namespace AnalysisITC.Core.DataReaders
                     case SplineAllowPointTimeDragging: (p.Interpolator as SplineInterpolator).AllowPointTimeDragging = BParse(v[1]); break;
                     case SplinePointDensity: (p.Interpolator as SplineInterpolator).PointDensity = (SplineInterpolator.SplinePointDensity)IParse(v[1]); break;
                     case SplinePointsPerInjection: (p.Interpolator as SplineInterpolator).PointsPerInjection = IParse(v[1]); break;
-                    case SplineLocked: if (BParse(v[1])) p.Lock(); break;
+                    case SplineLocked: processorLocked = BParse(v[1]); break;
                     case "LIST" when v[1] == SplinePointList: ReadSplineList(p.Interpolator as SplineInterpolator, reader); break;
                     case PolynomiumDegree:
                         {
@@ -235,6 +236,7 @@ namespace AnalysisITC.Core.DataReaders
             exp.SetProcessor(p);
 
             if (processData) await p.ProcessData(replace: false, invalidate: false, showProgress: false);
+            if (processorLocked) p.Lock();
         }
 
         static void ReadSplineList(SplineInterpolator interpolator, StreamReader reader)
@@ -330,7 +332,8 @@ namespace AnalysisITC.Core.DataReaders
             while ((line = ReadRequiredLine(reader)) != EndListHeader)
             {
                 var dp = SplitCsv(line);
-                datapoints.Add(new DataPoint(FParse(dp[0]), FParse(dp[1]), FParse(dp[2]), shieldt: FParse(dp[3])));
+                if (dp.Length < 3) throw new InvalidDataException("FTITC data-point rows must have at least three columns.");
+                datapoints.Add(new DataPoint(FParse(dp[0]), FParse(dp[1]), FParse(dp[2])));
             }
 
             exp.DataPoints = datapoints;

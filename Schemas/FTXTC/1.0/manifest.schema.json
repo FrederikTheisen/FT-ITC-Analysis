@@ -1,14 +1,14 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://ft-itc.local/schemas/ftxtc/1.2/manifest.schema.json",
-  "title": "FTXTC 1.2 manifest",
+  "$id": "https://ft-itc.local/schemas/ftxtc/1.0/manifest.schema.json",
+  "title": "FTXTC 1.0 manifest",
   "type": "object",
   "additionalProperties": false,
   "required": ["format", "schemaMajor", "schemaMinor", "root", "entries"],
   "properties": {
     "format": { "const": "ftxtc" },
     "schemaMajor": { "const": 1 },
-    "schemaMinor": { "const": 2 },
+    "schemaMinor": { "const": 0 },
     "writerVersion": { "type": ["string", "null"] },
     "root": { "const": "project.json" },
     "entries": {

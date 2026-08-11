@@ -538,6 +538,21 @@ namespace AnalysisITC.Core.Analysis.Models
             if (BootstrapSolutions.Count > 0) ComputeErrorsFromBootstrapSolutions();
         }
 
+        /// <summary>
+        /// Restores bootstrap replicates that have already passed storage shape and
+        /// identity validation. Persisted data must not be filtered through the
+        /// parameter limits selected in the current application session.
+        /// </summary>
+        internal void RestoreBootstrapSolutions(List<SolutionInterface> list)
+        {
+            BootstrapSolutions = list ?? new List<SolutionInterface>();
+        }
+
+        internal void RestoreValidity(bool isValid)
+        {
+            IsValid = isValid;
+        }
+
         List<SolutionInterface> ValidateBootstrapSolution(List<SolutionInterface> list)
         {
             var validated = new List<SolutionInterface>();

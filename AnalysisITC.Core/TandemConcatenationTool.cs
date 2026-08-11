@@ -231,11 +231,7 @@ namespace AnalysisITC.Core.Processing
                     datapoints.Add(new DataPoint(
                         time: dp.Time + shift,
                         power: dp.Power,
-                        temp: dp.Temperature,
-                        dt: dp.DT,
-                        shieldt: dp.ShieldT,
-                        atp: dp.ATP,
-                        jfbi: dp.JFBI
+                        temp: dp.Temperature
                     ));
                 }
 

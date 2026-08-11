@@ -18,40 +18,12 @@ namespace AnalysisITC.Core.Data
         /// Cell temperature
         /// </summary>
         public float Temperature { get; }
-        /// <summary>
-        /// Temperature difference between sample and reference cell
-        /// </summary>
-        public float DT { get; } //Delta T between sample and reference cells
-        /// <summary>
-        /// Thermal shield temperature
-        /// </summary>
-        public float ShieldT { get; } //Probably jacket temperature
-        public float ATP { get; } //Unknown variable
-        /// <summary>
-        /// Jacket FeedBack current
-        /// </summary>
-        public float JFBI { get; }
 
-        public DataPoint(float time, float power, float temp)
+        public DataPoint(float time, float power, float temp = 0)
         {
             this.Time = time;
             this.Power = power;
             this.Temperature = temp;
-            this.ATP = 0;
-            this.JFBI = 0;
-            this.DT = 0;
-            this.ShieldT = 0;
-        }
-
-        public DataPoint(float time, float power, float temp = 0, float dt = 0, float shieldt = 0, float atp = 0, float jfbi = 0)
-        {
-            this.Time = time;
-            this.Power = power;
-            this.Temperature = temp;
-            this.ATP = atp;
-            this.JFBI = jfbi;
-            this.DT = dt;
-            this.ShieldT = shieldt;
         }
 
         public static double Mean(List<DataPoint> list)
@@ -103,12 +75,12 @@ namespace AnalysisITC.Core.Data
 
         public DataPoint SubtractBaseline(float baseline)
         {
-            return new DataPoint(Time, Power - baseline, Temperature, DT, ShieldT, ATP, JFBI);
+            return new DataPoint(Time, Power - baseline, Temperature);
         }
 
         public DataPoint Copy()
         {
-            return new DataPoint(Time, Power, Temperature, DT, ShieldT, ATP, JFBI);
+            return new DataPoint(Time, Power, Temperature);
         }
 
         override public string ToString()

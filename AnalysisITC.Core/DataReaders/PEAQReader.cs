@@ -143,7 +143,7 @@ namespace AnalysisITC.Core.DataReaders
                     float powerJ = (float)Energy.ConvertToJoule(dpValue, EnergyUnit.Cal);
 
                     // Construct DataPoint with named parameter 'temp' for temperature
-                    var dp = new DataPoint((float)tSample, powerJ, temp: (float)dp_temp, shieldt: (float)experiment.TargetTemperature);
+                    var dp = new DataPoint((float)tSample, powerJ, temp: (float)dp_temp);
                     dpList.Add(dp);
                 }
             }

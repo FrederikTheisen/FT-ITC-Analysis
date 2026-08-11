@@ -22,6 +22,7 @@ namespace AnalysisITC.Core.Analysis
 
         public IonicStrengthDependenceFit IonicStrengthDependenceFit { get; private set; } = null;
         public LinearFitWithError CounterIonReleaseFit { get; private set; } = null;
+        public int CounterIonReleaseIterations { get; private set; }
 
         public ElectrostaticsAnalysis(AnalysisResult result) : base(result)
         {
@@ -68,14 +69,22 @@ namespace AnalysisITC.Core.Analysis
 
         protected override void Calculate()
         {
-            CalculateIonTransfer();
+            var ionTransfer = CalculateIonTransfer();
+            if (ResultAnalysisController.TerminateAnalysisFlag.Up) return;
 
-            CalculateIonicStrengthDependence();
+            var ionicStrength = CalculateIonicStrengthDependence();
+            if (ResultAnalysisController.TerminateAnalysisFlag.Up) return;
+
+            CounterIonRelease = ionTransfer.CounterIonRelease;
+            CounterIonReleaseFit = ionTransfer.Fit;
+            CounterIonReleaseIterations = ionTransfer.Iterations;
+            IonicStrengthDependenceFit = ionicStrength.Fit;
+            CompletedIterations = ionicStrength.Iterations;
 
             Calculated = true;
         }
 
-        void CalculateIonTransfer()
+        IonTransferResult CalculateIonTransfer()
         {
             AppEventHandler.PrintAndLog("Performing Ion Release Analysis...");
 
@@ -99,9 +108,7 @@ namespace AnalysisITC.Core.Analysis
 
             if (dps.Count < 3)
             {
-                CounterIonRelease = FloatWithError.NaN;
-                CounterIonReleaseFit = null;
-                return;
+                return new IonTransferResult(FloatWithError.NaN, null, 0);
             }
 
             var result = FitLinear(dps.Select(dp => dp.Item1).ToArray(), dps.Select(dp => dp.Item2.Value).ToArray());
@@ -111,7 +118,8 @@ namespace AnalysisITC.Core.Analysis
             {
                 var _dps = GetErrorData(dps);
 
-                results.Add(FitLinear(_dps.Select(dp => dp.Item1).ToArray(), _dps.Select(dp => dp.Item2).ToArray()));
+                var fitted = FitLinear(_dps.Select(dp => dp.Item1).ToArray(), _dps.Select(dp => dp.Item2).ToArray());
+                if (fitted != null) results.Add(fitted);
 
                 ResultAnalysisController.ReportCalculationProgress(i + 1, description: "Ion Transfer");
                 if (ResultAnalysisController.TerminateAnalysisFlag.Up) break;
@@ -120,12 +128,10 @@ namespace AnalysisITC.Core.Analysis
             var slope = new FloatWithError(results.Select(r => r.Slope), result.Slope);
             var intercept = new FloatWithError(results.Select(r => r.Intercept), result.Intercept);
 
-            CounterIonRelease = slope;
-
-            CounterIonReleaseFit = new LinearFitWithError(slope, intercept, 0);
+            return new IonTransferResult(slope, new LinearFitWithError(slope, intercept, 0), results.Count);
         }
 
-        void CalculateIonicStrengthDependence()
+        IonicStrengthResult CalculateIonicStrengthDependence()
         {
             AppEventHandler.PrintAndLog("Performing Electrostatics Analysis...");
 
@@ -141,9 +147,7 @@ namespace AnalysisITC.Core.Analysis
 
             if (dps.Count < 3)
             {
-                IonicStrengthDependenceFit = null;
-                CompletedIterations = 0;
-                return;
+                return new IonicStrengthResult(null, 0);
             }
 
             var point = IonicStrengthDependence.FitIonicStrengthDependence(
@@ -152,9 +156,7 @@ namespace AnalysisITC.Core.Analysis
 
             if (point == null)
             {
-                IonicStrengthDependenceFit = null;
-                CompletedIterations = 0;
-                return;
+                return new IonicStrengthResult(null, 0);
             }
 
             var results = new List<IonicStrengthDependence>();
@@ -186,13 +188,73 @@ namespace AnalysisITC.Core.Analysis
                 ? new FloatWithError(results.Select(r => r.Curvature), point.Curvature)
                 : new FloatWithError(point.Curvature);
 
-            IonicStrengthDependenceFit = new IonicStrengthDependenceFit(kd0, sensitivity, curvature, point.UsesCurvature);
-
-            CompletedIterations = results.Count;
+            var fit = new IonicStrengthDependenceFit(kd0, sensitivity, curvature, point.UsesCurvature);
 
             AppEventHandler.PrintAndLog($"Kd0 = {kd0}", 1);
             AppEventHandler.PrintAndLog($"sensitivity = {sensitivity}", 1);
             AppEventHandler.PrintAndLog($"curvature = {curvature}", 1);
+            return new IonicStrengthResult(fit, results.Count);
+        }
+
+        protected override object CaptureCommittedState() => new CommittedState
+        {
+            Calculated = Calculated,
+            CounterIonRelease = CounterIonRelease,
+            CounterIonReleaseFit = CounterIonReleaseFit,
+            CounterIonReleaseIterations = CounterIonReleaseIterations,
+            IonicStrengthDependenceFit = IonicStrengthDependenceFit,
+        };
+
+        protected override void RestoreCommittedState(object state)
+        {
+            var previous = state as CommittedState;
+            Calculated = previous?.Calculated == true;
+            CounterIonRelease = previous?.CounterIonRelease ?? FloatWithError.NaN;
+            CounterIonReleaseFit = previous?.CounterIonReleaseFit;
+            CounterIonReleaseIterations = previous?.CounterIonReleaseIterations ?? 0;
+            IonicStrengthDependenceFit = previous?.IonicStrengthDependenceFit;
+        }
+
+        internal void RestoreResult(
+            IonicStrengthDependenceFit ionicStrengthFit,
+            LinearFitWithError counterIonReleaseFit,
+            int ionicStrengthIterations,
+            int counterIonReleaseIterations,
+            DateTime? completedAtUtc,
+            ErrorEstimationMethod errorMethod)
+        {
+            IonicStrengthDependenceFit = ionicStrengthFit;
+            CounterIonReleaseFit = counterIonReleaseFit;
+            CounterIonRelease = counterIonReleaseFit?.Slope ?? FloatWithError.NaN;
+            CounterIonReleaseIterations = counterIonReleaseIterations;
+            Calculated = true;
+            RestoreRunMetadata(ionicStrengthIterations, completedAtUtc, errorMethod);
+        }
+
+        sealed class CommittedState
+        {
+            public bool Calculated { get; set; }
+            public FloatWithError CounterIonRelease { get; set; }
+            public LinearFitWithError CounterIonReleaseFit { get; set; }
+            public int CounterIonReleaseIterations { get; set; }
+            public IonicStrengthDependenceFit IonicStrengthDependenceFit { get; set; }
+        }
+
+        readonly struct IonTransferResult
+        {
+            public IonTransferResult(FloatWithError counterIonRelease, LinearFitWithError fit, int iterations)
+            { CounterIonRelease = counterIonRelease; Fit = fit; Iterations = iterations; }
+            public FloatWithError CounterIonRelease { get; }
+            public LinearFitWithError Fit { get; }
+            public int Iterations { get; }
+        }
+
+        readonly struct IonicStrengthResult
+        {
+            public IonicStrengthResult(IonicStrengthDependenceFit fit, int iterations)
+            { Fit = fit; Iterations = iterations; }
+            public IonicStrengthDependenceFit Fit { get; }
+            public int Iterations { get; }
         }
 
         LinearFit FitLinear(double[] x, double[] y)
@@ -220,4 +282,3 @@ namespace AnalysisITC.Core.Analysis
         }
     }
 }
-

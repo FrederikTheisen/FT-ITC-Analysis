@@ -1,12 +1,12 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://ft-itc.local/schemas/ftxtc/1.2/project.schema.json",
-  "title": "FTXTC 1.2 project index",
+  "$id": "https://ft-itc.local/schemas/ftxtc/1.0/project.schema.json",
+  "title": "FTXTC 1.0 project index",
   "type": "object",
   "additionalProperties": false,
   "required": ["projectSchemaVersion", "experiments", "solutions", "results"],
   "properties": {
-    "projectSchemaVersion": { "const": 2 },
+    "projectSchemaVersion": { "const": 1 },
     "experiments": { "type": "array", "items": { "$ref": "#/$defs/experiment" } },
     "solutions": { "type": "array", "items": { "$ref": "#/$defs/solution" } },
     "results": { "type": "array", "items": { "$ref": "#/$defs/component" } }
@@ -19,7 +19,7 @@
     "experiment": {
       "allOf": [
         { "$ref": "#/$defs/component" },
-        { "type": "object", "required": ["thermogram", "baseline"] }
+        { "type": "object", "required": ["thermogram", "baseline", "correctedTrace"] }
       ]
     },
     "solution": {

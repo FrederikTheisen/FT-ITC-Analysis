@@ -21,7 +21,7 @@ using AnalysisITC.Core.Units;
 namespace AnalysisITC.Core.Export
 {
     /// <summary>
-    /// Version 1 of the FT-ITC project container. The package is a checksummed ZIP
+    /// Version 1.x of the FT-ITC project container. The package is a checksummed ZIP
     /// whose numeric traces are stored in typed, little-endian FTXB payloads.
     /// </summary>
     internal static class FTXTCFormat
@@ -29,7 +29,8 @@ namespace AnalysisITC.Core.Export
         internal const string Extension = ".ftxtc";
         internal const string FormatName = "ftxtc";
         internal const int SchemaMajor = 1;
-        internal const int SchemaMinor = 0;
+        internal const int SchemaMinor = 2;
+        internal const int ProjectSchemaVersion = 2;
         internal const string ManifestPath = "manifest.json";
         internal const string ProjectPath = "project.json";
         internal const int MaxEntries = 10000;
@@ -104,7 +105,7 @@ namespace AnalysisITC.Core.Export
 
     internal sealed class FtxtcProject
     {
-        public int ProjectSchemaVersion { get; set; } = 1;
+        public int ProjectSchemaVersion { get; set; } = FTXTCFormat.ProjectSchemaVersion;
         public List<FtxtcExperimentReference> Experiments { get; set; } = new List<FtxtcExperimentReference>();
         public List<FtxtcSolutionReference> Solutions { get; set; } = new List<FtxtcSolutionReference>();
         public List<FtxtcResultReference> Results { get; set; } = new List<FtxtcResultReference>();
@@ -116,10 +117,11 @@ namespace AnalysisITC.Core.Export
     /// </summary>
     internal static class FtxtcStorageMigrationPipeline
     {
-        internal static FtxtcProject MigrateToCurrent(FtxtcProject project)
+        internal static FtxtcProject MigrateToCurrent(FtxtcProject project, int packageSchemaMinor)
         {
             if (project == null) throw new InvalidDataException("FTXTC root project is missing.");
-            if (project.ProjectSchemaVersion != 1)
+            var expectedProjectSchema = packageSchemaMinor == 0 ? 1 : FTXTCFormat.ProjectSchemaVersion;
+            if (project.ProjectSchemaVersion != expectedProjectSchema)
                 throw new NotSupportedException($"No FTXTC storage migration is available for project schema {project.ProjectSchemaVersion}.");
             return project;
         }
@@ -131,6 +133,7 @@ namespace AnalysisITC.Core.Export
         public string Metadata { get; set; }
         public string Thermogram { get; set; }
         public string Baseline { get; set; }
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         public string CorrectedTrace { get; set; }
     }
 
@@ -180,7 +183,10 @@ namespace AnalysisITC.Core.Export
         public string Key { get; set; }
         public string Name { get; set; }
         public bool BoolValue { get; set; }
-        public int IntValue { get; set; }
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public int? IntValue { get; set; }
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public string ValueId { get; set; }
         public double DoubleValue { get; set; }
         public string StringValue { get; set; }
         public FtxtcFloatWithError ParameterValue { get; set; }
@@ -266,6 +272,7 @@ namespace AnalysisITC.Core.Export
         public bool IsIntegrated { get; set; }
         public string HeatDirection { get; set; }
         public FtxtcFloatWithError RawPeakArea { get; set; }
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         public FtxtcFloatWithError CorrectedPeakArea { get; set; }
     }
 
@@ -341,6 +348,7 @@ namespace AnalysisITC.Core.Export
         public List<FtxtcParameterState> FittedParameters { get; set; } = new List<FtxtcParameterState>();
         public List<FtxtcReportedParameterState> ReportedParameters { get; set; } = new List<FtxtcReportedParameterState>();
         public FtxtcConvergenceState Convergence { get; set; }
+        public bool IsValid { get; set; } = true;
     }
 
     internal sealed class FtxtcBootstrapState
@@ -381,10 +389,281 @@ namespace AnalysisITC.Core.Export
         public List<FtxtcParameterState> GlobalParameters { get; set; } = new List<FtxtcParameterState>();
         public FtxtcCloneOptionsState CloneOptions { get; set; }
         public FtxtcConvergenceState Convergence { get; set; }
-        public AnalysisResultValiditySnapshot Validity { get; set; }
+        public bool IsValid { get; set; } = true;
+        public JsonElement? Validity { get; set; }
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public FtxtcAdvancedAnalysesState AdvancedAnalyses { get; set; }
     }
 
     internal sealed class FtxtcConstraintState { public string ParameterId { get; set; } public string Constraint { get; set; } }
+
+    internal sealed class FtxtcAdvancedAnalysesState
+    {
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public FtxtcSpolarRecordState SpolarRecord { get; set; }
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public FtxtcElectrostaticsState Electrostatics { get; set; }
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public FtxtcProtonationState Protonation { get; set; }
+    }
+
+    internal sealed class FtxtcSpolarRecordState
+    {
+        public int SchemaVersion { get; set; } = 1;
+        public string FoldedMode { get; set; }
+        public string TemperatureMode { get; set; }
+        public FtxtcFloatWithError HydrationEntropy { get; set; }
+        public FtxtcFloatWithError ConformationalEntropy { get; set; }
+        public FtxtcFloatWithError ResidueEstimate { get; set; }
+        public FtxtcFloatWithError ReferenceTemperature { get; set; }
+        public int CompletedIterations { get; set; }
+        public DateTime? CompletedAtUtc { get; set; }
+    }
+
+    internal sealed class FtxtcElectrostaticsState
+    {
+        public int SchemaVersion { get; set; } = 1;
+        public FtxtcIonicStrengthFitState IonicStrengthFit { get; set; }
+        public FtxtcLinearFitState CounterIonReleaseFit { get; set; }
+        public string ErrorMethod { get; set; }
+        public int IonicStrengthIterations { get; set; }
+        public int CounterIonReleaseIterations { get; set; }
+        public DateTime? CompletedAtUtc { get; set; }
+    }
+
+    internal sealed class FtxtcIonicStrengthFitState
+    {
+        public FtxtcFloatWithError Kd0 { get; set; }
+        public FtxtcFloatWithError Sensitivity { get; set; }
+        public FtxtcFloatWithError Curvature { get; set; }
+        public bool UsesCurvature { get; set; }
+    }
+
+    internal sealed class FtxtcLinearFitState
+    {
+        public FtxtcFloatWithError Slope { get; set; }
+        public FtxtcFloatWithError Intercept { get; set; }
+        public double ReferenceX { get; set; }
+    }
+
+    internal sealed class FtxtcProtonationState
+    {
+        public int SchemaVersion { get; set; } = 1;
+        public FtxtcFloatWithError BindingEnthalpy { get; set; }
+        public FtxtcFloatWithError ProtonationChange { get; set; }
+        public string ErrorMethod { get; set; }
+        public int CompletedIterations { get; set; }
+        public DateTime? CompletedAtUtc { get; set; }
+    }
+
+    internal sealed class FtxtcValidityState
+    {
+        public int SchemaVersion { get; set; } = AnalysisResultValiditySnapshot.CurrentSchemaVersion;
+        public List<FtxtcValidityExperimentState> Experiments { get; set; } = new List<FtxtcValidityExperimentState>();
+
+        internal static FtxtcValidityState Capture(AnalysisResultValiditySnapshot snapshot)
+        {
+            if (snapshot == null) return null;
+            return new FtxtcValidityState
+            {
+                SchemaVersion = snapshot.SchemaVersion,
+                Experiments = (snapshot.Experiments ?? new List<ExperimentFitInputSnapshot>())
+                    .Select(FtxtcValidityExperimentState.Capture).ToList(),
+            };
+        }
+
+        internal AnalysisResultValiditySnapshot Restore() => new AnalysisResultValiditySnapshot
+        {
+            SchemaVersion = SchemaVersion,
+            Experiments = (Experiments ?? new List<FtxtcValidityExperimentState>())
+                .Select(value => value.Restore()).ToList(),
+        };
+    }
+
+    internal sealed class FtxtcValidityExperimentState
+    {
+        public string ExperimentId { get; set; }
+        public string DisplayName { get; set; }
+        public double CellConcentration { get; set; }
+        public double CellConcentrationSd { get; set; }
+        public double SyringeConcentration { get; set; }
+        public double SyringeConcentrationSd { get; set; }
+        public double CellVolume { get; set; }
+        public FtxtcValidityProcessingState Processing { get; set; }
+        public List<FtxtcValidityAttributeState> Attributes { get; set; } = new List<FtxtcValidityAttributeState>();
+        public List<FtxtcValidityInjectionState> IncludedInjections { get; set; } = new List<FtxtcValidityInjectionState>();
+        public List<FtxtcValiditySegmentState> Segments { get; set; } = new List<FtxtcValiditySegmentState>();
+
+        internal static FtxtcValidityExperimentState Capture(ExperimentFitInputSnapshot value) => new FtxtcValidityExperimentState
+        {
+            ExperimentId = value.ExperimentID,
+            DisplayName = value.DisplayName,
+            CellConcentration = value.CellConcentration,
+            CellConcentrationSd = value.CellConcentrationSD,
+            SyringeConcentration = value.SyringeConcentration,
+            SyringeConcentrationSd = value.SyringeConcentrationSD,
+            CellVolume = value.CellVolume,
+            Processing = FtxtcValidityProcessingState.Capture(value.Processing),
+            Attributes = (value.Attributes ?? new List<ExperimentAttributeSnapshot>())
+                .Select(FtxtcValidityAttributeState.Capture).ToList(),
+            IncludedInjections = (value.IncludedInjections ?? new List<InjectionFitInputSnapshot>())
+                .Select(FtxtcValidityInjectionState.Capture).ToList(),
+            Segments = (value.Segments ?? new List<TandemSegmentSnapshot>())
+                .Select(FtxtcValiditySegmentState.Capture).ToList(),
+        };
+
+        internal ExperimentFitInputSnapshot Restore() => new ExperimentFitInputSnapshot
+        {
+            ExperimentID = ExperimentId,
+            DisplayName = DisplayName,
+            CellConcentration = CellConcentration,
+            CellConcentrationSD = CellConcentrationSd,
+            SyringeConcentration = SyringeConcentration,
+            SyringeConcentrationSD = SyringeConcentrationSd,
+            CellVolume = CellVolume,
+            Processing = Processing?.Restore(),
+            Attributes = (Attributes ?? new List<FtxtcValidityAttributeState>()).Select(value => value.Restore()).ToList(),
+            IncludedInjections = (IncludedInjections ?? new List<FtxtcValidityInjectionState>()).Select(value => value.Restore()).ToList(),
+            Segments = (Segments ?? new List<FtxtcValiditySegmentState>()).Select(value => value.Restore()).ToList(),
+        };
+    }
+
+    internal sealed class FtxtcValidityProcessingState
+    {
+        public string Type { get; set; }
+        public int BaselinePointCount { get; set; }
+        public double BaselineFirstValue { get; set; }
+        public double BaselineLastValue { get; set; }
+        public double BaselineValueSum { get; set; }
+        public double BaselineValueSumSquares { get; set; }
+
+        internal static FtxtcValidityProcessingState Capture(ExperimentProcessingSnapshot value) => value == null ? null : new FtxtcValidityProcessingState
+        {
+            Type = FtxtcWireIds.Processor(value.BaselineType),
+            BaselinePointCount = value.BaselinePointCount,
+            BaselineFirstValue = value.BaselineFirstValue,
+            BaselineLastValue = value.BaselineLastValue,
+            BaselineValueSum = value.BaselineValueSum,
+            BaselineValueSumSquares = value.BaselineValueSumSquares,
+        };
+
+        internal ExperimentProcessingSnapshot Restore() => new ExperimentProcessingSnapshot
+        {
+            BaselineType = FtxtcWireIds.Processor(Type),
+            BaselinePointCount = BaselinePointCount,
+            BaselineFirstValue = BaselineFirstValue,
+            BaselineLastValue = BaselineLastValue,
+            BaselineValueSum = BaselineValueSum,
+            BaselineValueSumSquares = BaselineValueSumSquares,
+        };
+    }
+
+    internal sealed class FtxtcValidityAttributeState
+    {
+        public string Key { get; set; }
+        public bool BoolValue { get; set; }
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public int? IntValue { get; set; }
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public string ValueId { get; set; }
+        public double DoubleValue { get; set; }
+        public string StringValue { get; set; }
+        public double ParameterValue { get; set; }
+        public double ParameterSd { get; set; }
+
+        internal static FtxtcValidityAttributeState Capture(ExperimentAttributeSnapshot value) => new FtxtcValidityAttributeState
+        {
+            Key = FtxtcWireIds.Attribute(value.Key),
+            BoolValue = value.BoolValue,
+            IntValue = FtxtcWireIds.UsesNumericAttributeIntValue(value.Key) ? value.IntValue : null,
+            ValueId = FtxtcWireIds.AttributeValueId(value.Key, value.IntValue),
+            DoubleValue = value.DoubleValue,
+            StringValue = value.StringValue,
+            ParameterValue = value.ParameterValue,
+            ParameterSd = value.ParameterSD,
+        };
+
+        internal ExperimentAttributeSnapshot Restore()
+        {
+            var key = FtxtcWireIds.Attribute(Key);
+            return new ExperimentAttributeSnapshot
+            {
+                Key = key,
+                BoolValue = BoolValue,
+                IntValue = FtxtcWireIds.AttributeIntValue(key, ValueId, IntValue),
+                DoubleValue = DoubleValue,
+                StringValue = StringValue,
+                ParameterValue = ParameterValue,
+                ParameterSD = ParameterSd,
+            };
+        }
+    }
+
+    internal sealed class FtxtcValidityInjectionState
+    {
+        public int Id { get; set; }
+        public double Volume { get; set; }
+        public double? IntegrationStartDelay { get; set; }
+        public double? IntegrationEndOffset { get; set; }
+        public double? RawPeakArea { get; set; }
+        public double? RawPeakAreaSd { get; set; }
+        public double PeakArea { get; set; }
+        public double PeakAreaSd { get; set; }
+        public double ActualCellConcentration { get; set; }
+        public double ActualTitrantConcentration { get; set; }
+        public double Ratio { get; set; }
+
+        internal static FtxtcValidityInjectionState Capture(InjectionFitInputSnapshot value) => new FtxtcValidityInjectionState
+        {
+            Id = value.ID,
+            Volume = value.Volume,
+            IntegrationStartDelay = value.IntegrationStartDelay,
+            IntegrationEndOffset = value.IntegrationEndOffset,
+            RawPeakArea = value.RawPeakArea,
+            RawPeakAreaSd = value.RawPeakAreaSD,
+            PeakArea = value.PeakArea,
+            PeakAreaSd = value.PeakAreaSD,
+            ActualCellConcentration = value.ActualCellConcentration,
+            ActualTitrantConcentration = value.ActualTitrantConcentration,
+            Ratio = value.Ratio,
+        };
+
+        internal InjectionFitInputSnapshot Restore() => new InjectionFitInputSnapshot
+        {
+            ID = Id,
+            Volume = Volume,
+            IntegrationStartDelay = IntegrationStartDelay,
+            IntegrationEndOffset = IntegrationEndOffset,
+            RawPeakArea = RawPeakArea,
+            RawPeakAreaSD = RawPeakAreaSd,
+            PeakArea = PeakArea,
+            PeakAreaSD = PeakAreaSd,
+            ActualCellConcentration = ActualCellConcentration,
+            ActualTitrantConcentration = ActualTitrantConcentration,
+            Ratio = Ratio,
+        };
+    }
+
+    internal sealed class FtxtcValiditySegmentState
+    {
+        public int FirstInjectionId { get; set; }
+        public double InitialCellConcentration { get; set; }
+        public double InitialTitrantConcentration { get; set; }
+
+        internal static FtxtcValiditySegmentState Capture(TandemSegmentSnapshot value) => new FtxtcValiditySegmentState
+        {
+            FirstInjectionId = value.FirstInjectionID,
+            InitialCellConcentration = value.SegmentInitialActiveCellConc,
+            InitialTitrantConcentration = value.SegmentInitialActiveTitrantConc,
+        };
+
+        internal TandemSegmentSnapshot Restore() => new TandemSegmentSnapshot
+        {
+            FirstInjectionID = FirstInjectionId,
+            SegmentInitialActiveCellConc = InitialCellConcentration,
+            SegmentInitialActiveTitrantConc = InitialTitrantConcentration,
+        };
+    }
 
     internal enum FtxbScalarType : byte
     {
@@ -554,7 +833,9 @@ namespace AnalysisITC.Core.Export
                 .Concat(resultList.SelectMany(result => result.Solution.Solutions))
                 .Where(solution => solution != null)
                 .GroupBy(solution => solution.Guid, StringComparer.Ordinal)
-                .Select(group => group.First())
+                // Legacy imports can expose equivalent solution instances with the
+                // same persisted id. Never let a valid duplicate erase invalidity.
+                .Select(group => group.FirstOrDefault(solution => !solution.IsValid) ?? group.First())
                 .OrderBy(solution => solution.Guid, StringComparer.Ordinal)
                 .ToList();
 
@@ -565,20 +846,17 @@ namespace AnalysisITC.Core.Export
                 var metadataPath = prefix + "/experiment.json";
                 var thermogramPath = prefix + "/thermogram.ftxb";
                 var baselinePath = prefix + "/baseline.ftxb";
-                var correctedPath = prefix + "/corrected-trace.ftxb";
 
                 var metadata = CaptureExperiment(experiment);
                 entries.Add(metadataPath, ("application/json", FTXTCFormat.JsonBytes(metadata)));
                 entries.Add(thermogramPath, ("application/x-ftxb", EncodeDataPoints(experiment.DataPoints)));
                 entries.Add(baselinePath, ("application/x-ftxb", EncodeBaseline(experiment.Processor?.Interpolator?.Baseline)));
-                entries.Add(correctedPath, ("application/x-ftxb", EncodeDataPoints(experiment.BaseLineCorrectedDataPoints)));
                 project.Experiments.Add(new FtxtcExperimentReference
                 {
                     Id = experiment.UniqueID,
                     Metadata = metadataPath,
                     Thermogram = thermogramPath,
                     Baseline = baselinePath,
-                    CorrectedTrace = correctedPath
                 });
             }
 
@@ -694,27 +972,31 @@ namespace AnalysisITC.Core.Export
                 IsIntegrated = injection.IsIntegrated,
                 HeatDirection = HeatDirectionId(injection.HeatDirection),
                 RawPeakArea = FtxtcFloatWithError.Capture(injection.RawPeakArea),
-                CorrectedPeakArea = FtxtcFloatWithError.Capture(injection.PeakArea)
             }).ToList()
         };
 
-        static FtxtcAttributeState CaptureAttribute(ExperimentAttribute attribute) => new FtxtcAttributeState
+        static FtxtcAttributeState CaptureAttribute(ExperimentAttribute attribute)
         {
-            Key = FtxtcWireIds.Attribute(attribute.Key),
-            Name = attribute.OptionName,
-            BoolValue = attribute.BoolValue,
-            IntValue = attribute.IntValue,
-            DoubleValue = attribute.DoubleValue,
-            StringValue = attribute.StringValue,
-            ParameterValue = FtxtcFloatWithError.Capture(attribute.ParameterValue),
-        };
+            var usesValueId = FtxtcWireIds.UsesAttributeValueId(attribute.Key);
+            return new FtxtcAttributeState
+            {
+                Key = FtxtcWireIds.Attribute(attribute.Key),
+                Name = attribute.OptionName,
+                BoolValue = attribute.BoolValue,
+                IntValue = FtxtcWireIds.UsesNumericAttributeIntValue(attribute.Key) ? attribute.IntValue : null,
+                ValueId = usesValueId ? FtxtcWireIds.AttributeValueId(attribute.Key, attribute.IntValue) : null,
+                DoubleValue = attribute.DoubleValue,
+                StringValue = attribute.StringValue,
+                ParameterValue = FtxtcFloatWithError.Capture(attribute.ParameterValue),
+            };
+        }
 
         static FtxtcProcessorState CaptureProcessor(DataProcessor processor)
         {
             if (processor == null) return null;
             var state = new FtxtcProcessorState
             {
-                Type = ProcessorTypeId(processor.BaselineType),
+                Type = FtxtcWireIds.Processor(processor.BaselineType),
                 Locked = processor.IsLocked,
                 BaselineCompleted = processor.BaselineCompleted,
                 DiscardIntegratedPoints = processor.DiscardIntegratedPoints,
@@ -777,6 +1059,7 @@ namespace AnalysisITC.Core.Export
                 Id = FtxtcWireIds.Parameter(parameter.Key), Estimate = FtxtcFloatWithError.Capture(parameter.Value),
             }).OrderBy(item => item.Id, StringComparer.Ordinal).ToList(),
             Convergence = CaptureConvergence(solution.Convergence),
+            IsValid = solution.IsValid,
         };
 
         static void CaptureBootstrap(SolutionInterface solution, string prefix,
@@ -850,7 +1133,76 @@ namespace AnalysisITC.Core.Export
                 Id = FtxtcWireIds.Parameter(parameter.Key), Value = parameter.Value, Locked = parameter.IsLocked,
             }).OrderBy(item => item.Id, StringComparer.Ordinal).ToList(),
             CloneOptions = CaptureCloneOptions(result.Model.ModelCloneOptions),
-            Convergence = CaptureConvergence(result.Solution.Convergence), Validity = result.ValiditySnapshot,
+            Convergence = CaptureConvergence(result.Solution.Convergence),
+            IsValid = result.Solution.IsValid,
+            Validity = result.ValiditySnapshot == null
+                ? null
+                : JsonSerializer.SerializeToElement(FtxtcValidityState.Capture(result.ValiditySnapshot), FTXTCFormat.JsonOptions),
+            AdvancedAnalyses = CaptureAdvancedAnalyses(result),
+        };
+
+        static FtxtcAdvancedAnalysesState CaptureAdvancedAnalyses(AnalysisResult result)
+        {
+            var state = new FtxtcAdvancedAnalysesState();
+            var spolar = result.SpolarRecordAnalysis;
+            if (spolar?.Result != null)
+            {
+                state.SpolarRecord = new FtxtcSpolarRecordState
+                {
+                    FoldedMode = SpolarFoldedModeId(spolar.CompletedFoldedMode ?? spolar.FoldedMode),
+                    TemperatureMode = SpolarTemperatureModeId(spolar.CompletedTempMode ?? spolar.TempMode),
+                    HydrationEntropy = FtxtcFloatWithError.Capture(spolar.Result.HydrationEntropy),
+                    ConformationalEntropy = FtxtcFloatWithError.Capture(spolar.Result.ConformationalEntropy),
+                    ResidueEstimate = FtxtcFloatWithError.Capture(spolar.Result.Rvalue),
+                    ReferenceTemperature = FtxtcFloatWithError.Capture(spolar.Result.ReferenceTemperature),
+                    CompletedIterations = spolar.CompletedIterations,
+                    CompletedAtUtc = spolar.CompletedAtUtc,
+                };
+            }
+
+            var electrostatics = result.ElectrostaticsAnalysis;
+            if (electrostatics?.Calculated == true)
+            {
+                state.Electrostatics = new FtxtcElectrostaticsState
+                {
+                    IonicStrengthFit = CaptureIonicStrengthFit(electrostatics.IonicStrengthDependenceFit),
+                    CounterIonReleaseFit = CaptureLinearFit(electrostatics.CounterIonReleaseFit),
+                    ErrorMethod = ErrorMethodId(electrostatics.CompletedErrorEstimationMethod ?? ErrorEstimationMethod.None),
+                    IonicStrengthIterations = electrostatics.CompletedIterations,
+                    CounterIonReleaseIterations = electrostatics.CounterIonReleaseIterations,
+                    CompletedAtUtc = electrostatics.CompletedAtUtc,
+                };
+            }
+
+            var protonation = result.ProtonationAnalysis;
+            if (protonation?.Fit is LinearFitWithError)
+            {
+                state.Protonation = new FtxtcProtonationState
+                {
+                    BindingEnthalpy = FtxtcFloatWithError.Capture(protonation.BindingEnthalpy.FloatWithError),
+                    ProtonationChange = FtxtcFloatWithError.Capture(protonation.ProtonationChange),
+                    ErrorMethod = ErrorMethodId(protonation.CompletedErrorEstimationMethod ?? ErrorEstimationMethod.None),
+                    CompletedIterations = protonation.CompletedIterations,
+                    CompletedAtUtc = protonation.CompletedAtUtc,
+                };
+            }
+
+            return state.SpolarRecord == null && state.Electrostatics == null && state.Protonation == null ? null : state;
+        }
+
+        static FtxtcIonicStrengthFitState CaptureIonicStrengthFit(IonicStrengthDependenceFit fit) => fit == null ? null : new FtxtcIonicStrengthFitState
+        {
+            Kd0 = FtxtcFloatWithError.Capture(fit.Kd0),
+            Sensitivity = FtxtcFloatWithError.Capture(fit.SaltSensitivity),
+            Curvature = FtxtcFloatWithError.Capture(fit.Curvature),
+            UsesCurvature = fit.UsesCurvature,
+        };
+
+        static FtxtcLinearFitState CaptureLinearFit(LinearFitWithError fit) => fit == null ? null : new FtxtcLinearFitState
+        {
+            Slope = FtxtcFloatWithError.Capture(fit.Slope),
+            Intercept = FtxtcFloatWithError.Capture(fit.Intercept),
+            ReferenceX = fit.ReferenceT,
         };
 
         static FtxtcCloneOptionsState CaptureCloneOptions(ModelCloneOptions options)
@@ -883,18 +1235,14 @@ namespace AnalysisITC.Core.Export
         static byte[] EncodeDataPoints(IReadOnlyList<DataPoint> points)
         {
             points = points ?? Array.Empty<DataPoint>();
-            return FtxbCodec.EncodeFloat32(points.Count, 7, (row, column) =>
+            return FtxbCodec.EncodeFloat32(points.Count, 3, (row, column) =>
             {
                 var point = points[row];
                 switch (column)
                 {
                     case 0: return point.Time;
                     case 1: return point.Power;
-                    case 2: return point.Temperature;
-                    case 3: return point.DT;
-                    case 4: return point.ShieldT;
-                    case 5: return point.ATP;
-                    default: return point.JFBI;
+                    default: return point.Temperature;
                 }
             });
         }
@@ -941,8 +1289,6 @@ namespace AnalysisITC.Core.Export
         { FeedbackMode.Null => "unknown", FeedbackMode.None => "none", FeedbackMode.Low => "low", FeedbackMode.High => "high", _ => throw new NotSupportedException() };
         static string HeatDirectionId(PeakHeatDirection value) => value switch
         { PeakHeatDirection.Unknown => "unknown", PeakHeatDirection.Exothermal => "exothermal", PeakHeatDirection.Endothermal => "endothermal", PeakHeatDirection.Both => "both", _ => throw new NotSupportedException() };
-        static string ProcessorTypeId(BaselineInterpolatorTypes value) => value switch
-        { BaselineInterpolatorTypes.None => "none", BaselineInterpolatorTypes.Spline => "spline", BaselineInterpolatorTypes.ASL => "asl", BaselineInterpolatorTypes.Polynomial => "polynomial", BaselineInterpolatorTypes.Segmented => "segmented", _ => throw new NotSupportedException() };
         static string SplineAlgorithmId(SplineInterpolator.SplineInterpolatorAlgorithm value) => value switch
         { SplineInterpolator.SplineInterpolatorAlgorithm.Smooth => "smooth", SplineInterpolator.SplineInterpolatorAlgorithm.Handles => "handles", SplineInterpolator.SplineInterpolatorAlgorithm.Rigid => "rigid", SplineInterpolator.SplineInterpolatorAlgorithm.Linear => "linear", _ => throw new NotSupportedException() };
         static string SplineDensityId(SplineInterpolator.SplinePointDensity value) => value switch
@@ -960,6 +1306,22 @@ namespace AnalysisITC.Core.Export
             SolverTermination.IterationLimit => "iteration-limit", SolverTermination.EvaluationLimit => "evaluation-limit",
             SolverTermination.TimeLimit => "time-limit", SolverTermination.Cancelled => "cancelled",
             SolverTermination.InvalidValues => "invalid-values", SolverTermination.Failed => "failed", _ => throw new NotSupportedException(),
+        };
+
+        static string SpolarFoldedModeId(FTSRMethod.SRFoldedMode value) => value switch
+        {
+            FTSRMethod.SRFoldedMode.Glob => "globular",
+            FTSRMethod.SRFoldedMode.Intermediate => "intermediate",
+            FTSRMethod.SRFoldedMode.ID => "intrinsically-disordered",
+            _ => throw new NotSupportedException($"Unknown Spolar folded mode '{value}'."),
+        };
+
+        static string SpolarTemperatureModeId(FTSRMethod.SRTempMode value) => value switch
+        {
+            FTSRMethod.SRTempMode.IsoEntropicPoint => "isoentropic-point",
+            FTSRMethod.SRTempMode.MeanTemperature => "mean-temperature",
+            FTSRMethod.SRTempMode.ReferenceTemperature => "reference-temperature",
+            _ => throw new NotSupportedException($"Unknown Spolar temperature mode '{value}'."),
         };
         static string ErrorOutcomeId(ErrorEstimationOutcome value) => value switch
         {

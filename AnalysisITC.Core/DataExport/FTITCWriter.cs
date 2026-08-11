@@ -649,8 +649,7 @@ namespace AnalysisITC.Core.Export
                 file.Add(string.Join(",",
                     FormatFloat(dp.Time),
                     FormatFloat(dp.Power),
-                    FormatFloat(dp.Temperature),
-                    FormatFloat(dp.ShieldT)));
+                    FormatFloat(dp.Temperature)));
             }
             file.Add(EndListHeader);
 

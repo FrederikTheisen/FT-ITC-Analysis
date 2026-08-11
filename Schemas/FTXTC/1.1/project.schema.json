@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://ft-itc.local/schemas/ftxtc/1.2/project.schema.json",
-  "title": "FTXTC 1.2 project index",
+  "$id": "https://ft-itc.local/schemas/ftxtc/1.1/project.schema.json",
+  "title": "FTXTC 1.1 project index",
   "type": "object",
   "additionalProperties": false,
   "required": ["projectSchemaVersion", "experiments", "solutions", "results"],
