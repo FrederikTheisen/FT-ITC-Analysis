@@ -1,10 +1,12 @@
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.Documents;
 using Avalonia.Controls.Primitives;
 using Avalonia.Layout;
 using Avalonia.Media;
 
 using AnalysisITC.Avalonia.Styling;
+using AnalysisITC.Core.Utilities;
 
 namespace AnalysisITC.Avalonia.Workspace
 {
@@ -258,6 +260,25 @@ namespace AnalysisITC.Avalonia.Workspace
             };
         }
 
+        public static Grid FieldWithSuffix(Control field, Control suffix, double suffixWidth = 48)
+        {
+            StretchFieldControl(field);
+            field.Margin = new Thickness(0);
+            suffix.Margin = new Thickness(0);
+            suffix.HorizontalAlignment = HorizontalAlignment.Right;
+            suffix.VerticalAlignment = VerticalAlignment.Center;
+
+            var panel = new Grid
+            {
+                ColumnDefinitions = new ColumnDefinitions($"*,{suffixWidth}"),
+                ColumnSpacing = RowSpacing
+            };
+            panel.Children.Add(field);
+            Grid.SetColumn(suffix, 1);
+            panel.Children.Add(suffix);
+            return panel;
+        }
+
         public static StackPanel Row(params Control[] controls)
         {
             var row = Horizontal(RowSpacing);
@@ -355,7 +376,8 @@ namespace AnalysisITC.Avalonia.Workspace
             decimal minimum,
             decimal maximum,
             decimal increment = 1,
-            double width = InspectorFieldWidth)
+            double width = InspectorFieldWidth,
+            string formatString = "0")
         {
             return new NumericUpDown
             {
@@ -363,7 +385,7 @@ namespace AnalysisITC.Avalonia.Workspace
                 Minimum = minimum,
                 Maximum = maximum,
                 Increment = increment,
-                FormatString = "0",
+                FormatString = formatString,
                 Width = width,
                 Height = 24,
                 Padding = TextBoxPadding,
@@ -409,16 +431,20 @@ namespace AnalysisITC.Avalonia.Workspace
             };
         }
 
-        public static CheckBox Check(string text, bool isChecked = false)
+        public static CheckBox Check(string text, bool isChecked = false, string tooltip = "")
         {
-            return new CheckBox
+            var control = new CheckBox
             {
                 Content = text,
                 IsChecked = isChecked,
                 Height = 20,
                 Margin = ControlMargin,
-                VerticalAlignment = VerticalAlignment.Center
+                VerticalAlignment = VerticalAlignment.Center,
             };
+
+            if (!string.IsNullOrEmpty(tooltip)) ToolTip.SetTip(control, tooltip);
+
+            return control;
         }
 
         public static TextBlock Text(string text = "")
@@ -431,6 +457,46 @@ namespace AnalysisITC.Avalonia.Workspace
                 TextWrapping = TextWrapping.Wrap
             };
             AppTheme.Bind(textBlock, TextBlock.ForegroundProperty, AppTheme.SecondaryText);
+            return textBlock;
+        }
+
+        public static TextBlock MarkdownText(string text)
+        {
+            var textBlock = new TextBlock
+            {
+                TextWrapping = TextWrapping.Wrap
+            };
+
+            foreach (var segment in MarkdownProcessor.GetSegments(MarkdownProcessor.ProcessWrittenText(text ?? "")))
+            {
+                var run = new Run(segment.Text);
+                switch (segment.Property)
+                {
+                    case MarkdownProperty.Bold:
+                    case MarkdownProperty.Header1:
+                    case MarkdownProperty.Header2:
+                        run.FontWeight = FontWeight.SemiBold;
+                        break;
+                    case MarkdownProperty.Cursive:
+                        run.FontStyle = FontStyle.Italic;
+                        break;
+                    case MarkdownProperty.Subscript:
+                        run.BaselineAlignment = BaselineAlignment.Subscript;
+                        run.FontSize = 10;
+                        break;
+                    case MarkdownProperty.Superscript:
+                        run.BaselineAlignment = BaselineAlignment.Superscript;
+                        run.FontSize = 10;
+                        break;
+                    case MarkdownProperty.Small:
+                        run.FontSize = 11;
+                        break;
+                }
+
+                textBlock.Inlines ??= new InlineCollection();
+                textBlock.Inlines.Add(run);
+            }
+
             return textBlock;
         }
 
