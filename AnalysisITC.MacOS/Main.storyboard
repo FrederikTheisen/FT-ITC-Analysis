@@ -4994,22 +4994,37 @@ For analysis and presentation of ITC data</string>
                                                 <segue destination="fNZ-eA-ZYe" kind="show" id="dm5-JF-QZc"/>
                                             </connections>
                                         </menuItem>
+                                        <menuItem isSeparatorItem="YES" id="help-documentation-separator"/>
+                                        <menuItem title="FT-ITC Analysis Website" identifier="website" id="help-website-item">
+                                            <modifierMask key="keyEquivalentModifierMask"/>
+                                            <connections>
+                                                <action selector="OpenWebsite:" target="Voe-Tx-rLC" id="help-open-website-action"/>
+                                            </connections>
+                                        </menuItem>
+                                        <menuItem title="FT-ITC Project Viewer" identifier="viewer" id="help-viewer-item">
+                                            <modifierMask key="keyEquivalentModifierMask"/>
+                                            <connections>
+                                                <action selector="OpenViewer:" target="Voe-Tx-rLC" id="help-open-viewer-action"/>
+                                            </connections>
+                                        </menuItem>
                                         <menuItem title="Source Code on GitHub" identifier="opensource" id="nF3-oU-vjF">
                                             <modifierMask key="keyEquivalentModifierMask"/>
                                             <connections>
                                                 <action selector="OpenSourceRepository:" target="Voe-Tx-rLC" id="P2k-Sc-g1H"/>
                                             </connections>
                                         </menuItem>
-                                        <menuItem title="Support" id="Mx8-VC-e2I">
-                                            <modifierMask key="keyEquivalentModifierMask"/>
-                                            <connections>
-                                                <action selector="StartSupport:" target="Voe-Tx-rLC" id="JYo-rE-nHI"/>
-                                            </connections>
-                                        </menuItem>
+                                        <menuItem isSeparatorItem="YES" id="help-online-separator"/>
                                         <menuItem title="Citation" id="WnH-2h-1d3">
                                             <modifierMask key="keyEquivalentModifierMask"/>
                                             <connections>
                                                 <action selector="OpenCitation:" target="Voe-Tx-rLC" id="R9Z-fm-FJd"/>
+                                            </connections>
+                                        </menuItem>
+                                        <menuItem isSeparatorItem="YES" id="help-support-separator"/>
+                                        <menuItem title="Support" id="Mx8-VC-e2I">
+                                            <modifierMask key="keyEquivalentModifierMask"/>
+                                            <connections>
+                                                <action selector="StartSupport:" target="Voe-Tx-rLC" id="JYo-rE-nHI"/>
                                             </connections>
                                         </menuItem>
                                         <menuItem title="Deverloper" hidden="YES" id="m3f-Vd-rOd">
@@ -7403,7 +7418,7 @@ DQ
                                                                             <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
                                                                         </textFieldCell>
                                                                     </textField>
-                                                                    <imageView hidden="YES" toolTip="Processing settings are locked." horizontalHuggingPriority="251" verticalHuggingPriority="251" translatesAutoresizingMaskIntoConstraints="NO" id="03F-ba-Ehm">
+                                                                    <imageView hidden="YES" toolTip="Processing results and graphical region and spline-point editing are locked." horizontalHuggingPriority="251" verticalHuggingPriority="251" translatesAutoresizingMaskIntoConstraints="NO" id="03F-ba-Ehm">
                                                                         <rect key="frame" x="0.0" y="4.5" width="13" height="15"/>
                                                                         <imageCell key="cell" refusesFirstResponder="YES" alignment="left" imageScaling="proportionallyDown" image="lock" catalog="system" id="gPh-CU-xoI"/>
                                                                     </imageView>
@@ -7910,21 +7925,21 @@ DQ
                                                     <stackView distribution="fillEqually" orientation="horizontal" alignment="top" spacing="5" horizontalStackHuggingPriority="750" verticalStackHuggingPriority="250" horizontalClippingResistancePriority="750" horizontalHuggingPriority="249" verticalHuggingPriority="1000" verticalCompressionResistancePriority="1000" detachesHiddenViews="YES" translatesAutoresizingMaskIntoConstraints="NO" id="fmo-aQ-7AV">
                                                         <rect key="frame" x="10" y="404" width="280" height="20"/>
                                                         <subviews>
-                                                            <button toolTip="Lock or unlock the processing settings for this experiment." horizontalHuggingPriority="249" verticalHuggingPriority="750" verticalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="rzv-Fl-DXh">
+                                                            <button toolTip="Freeze processing results and disable integration-region and spline-point editing." horizontalHuggingPriority="249" verticalHuggingPriority="750" verticalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="rzv-Fl-DXh">
                                                                 <rect key="frame" x="-7" y="-7" width="104" height="32"/>
                                                                 <buttonCell key="cell" type="push" title="All" bezelStyle="rounded" alignment="center" borderStyle="border" imageScaling="proportionallyDown" inset="2" id="UV1-wl-5ki">
                                                                     <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
                                                                     <font key="font" metaFont="system"/>
                                                                 </buttonCell>
                                                             </button>
-                                                            <button toolTip="Lock or unlock the processing settings for this experiment." verticalHuggingPriority="750" verticalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="Gh1-JB-mxm">
+                                                            <button toolTip="Freeze processing results and disable integration-region and spline-point editing." verticalHuggingPriority="750" verticalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="Gh1-JB-mxm">
                                                                 <rect key="frame" x="88" y="-7" width="104" height="32"/>
                                                                 <buttonCell key="cell" type="push" title="Active" bezelStyle="rounded" alignment="center" borderStyle="border" imageScaling="proportionallyDown" inset="2" id="lK1-4n-xl0">
                                                                     <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
                                                                     <font key="font" metaFont="system"/>
                                                                 </buttonCell>
                                                             </button>
-                                                            <button toolTip="Lock or unlock the processing settings for this experiment." verticalHuggingPriority="750" verticalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="seg-zP-Rji">
+                                                            <button toolTip="Freeze processing results and disable integration-region and spline-point editing." verticalHuggingPriority="750" verticalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="seg-zP-Rji">
                                                                 <rect key="frame" x="183" y="-7" width="104" height="32"/>
                                                                 <buttonCell key="cell" type="push" title="New" bezelStyle="rounded" alignment="center" borderStyle="border" imageScaling="proportionallyDown" inset="2" id="zKL-an-Q8G">
                                                                     <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
@@ -15056,37 +15071,6 @@ DQ
                                             <real value="3.4028234663852886e+38"/>
                                         </customSpacing>
                                     </stackView>
-                                    <stackView distribution="fill" orientation="horizontal" alignment="top" horizontalStackHuggingPriority="249.99998474121094" verticalStackHuggingPriority="1000" verticalHuggingPriority="1000" verticalCompressionResistancePriority="1000" detachesHiddenViews="YES" translatesAutoresizingMaskIntoConstraints="NO" id="peak-fit-row">
-                                        <rect key="frame" x="20" y="302" width="560" height="18"/>
-                                        <subviews>
-                                            <textField toolTip="Default model used when fitting injection peaks during processing." focusRingType="none" horizontalHuggingPriority="249" verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="peak-fit-label">
-                                                <rect key="frame" x="-2" y="0.0" width="414" height="18"/>
-                                                <textFieldCell key="cell" lineBreakMode="clipping" title="Default peak fitting algorithm" id="peak-fit-label-cell">
-                                                    <font key="font" usesAppearanceFont="YES"/>
-                                                    <color key="textColor" name="labelColor" catalog="System" colorSpace="catalog"/>
-                                                    <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
-                                                </textFieldCell>
-                                            </textField>
-                                            <segmentedControl toolTip="Default model used when fitting injection peaks during processing." verticalHuggingPriority="750" verticalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="peak-fit-control">
-                                                <rect key="frame" x="416" y="-2" width="146" height="21"/>
-                                                <segmentedCell key="cell" controlSize="small" borderStyle="border" alignment="left" segmentDistribution="fill" style="rounded" trackingMode="selectOne" id="peak-fit-cell">
-                                                    <font key="font" metaFont="smallSystem"/>
-                                                    <segments>
-                                                        <segment label="Single Exp." toolTip="Fit injection peaks with a single exponential." selected="YES"/>
-                                                        <segment label="Double Exp." toolTip="Fit injection peaks with a double exponential." tag="1"/>
-                                                    </segments>
-                                                </segmentedCell>
-                                            </segmentedControl>
-                                        </subviews>
-                                        <visibilityPriorities>
-                                            <integer value="1000"/>
-                                            <integer value="1000"/>
-                                        </visibilityPriorities>
-                                        <customSpacing>
-                                            <real value="3.4028234663852886e+38"/>
-                                            <real value="3.4028234663852886e+38"/>
-                                        </customSpacing>
-                                    </stackView>
                                     <stackView distribution="fill" orientation="horizontal" alignment="top" horizontalStackHuggingPriority="249.99998474121094" verticalStackHuggingPriority="1000" verticalHuggingPriority="1000" verticalCompressionResistancePriority="1000" detachesHiddenViews="YES" translatesAutoresizingMaskIntoConstraints="NO" id="buf-default-row">
                                         <rect key="frame" x="20" y="276" width="560" height="18"/>
                                         <subviews>
@@ -15410,10 +15394,8 @@ DQ
                                     <integer value="1000"/>
                                     <integer value="1000"/>
                                     <integer value="1000"/>
-                                    <integer value="1000"/>
                                 </visibilityPriorities>
                                 <customSpacing>
-                                    <real value="3.4028234663852886e+38"/>
                                     <real value="3.4028234663852886e+38"/>
                                     <real value="3.4028234663852886e+38"/>
                                     <real value="3.4028234663852886e+38"/>
@@ -15442,7 +15424,6 @@ DQ
                         <outlet property="DilutionMathMethodControl" destination="pPx-JN-IQm" id="DzB-uT-Gs4"/>
                         <outlet property="DiscardIntegrationRegionForBaseline" destination="7ZU-M3-gbp" id="xjN-z9-4eh"/>
                         <outlet property="IntegrationRegionCopyIncludesStartControl" destination="copy-start-default-control" id="copy-start-default-outlet"/>
-                        <outlet property="PeakFitAlgorithmControl" destination="peak-fit-control" id="peak-fit-outlet"/>
                         <outlet property="ReprocessIntegratedHeatDataOnLoad" destination="xbR-Zd-h3x" id="jYs-D0-VO2"/>
                         <outlet property="SplineHandleModeControl" destination="pmt-eI-UZy" id="grJ-qj-Mh0"/>
                         <outlet property="SplinePointDensityControl" destination="MqL-NE-hdO" id="bBX-fG-MGj"/>
