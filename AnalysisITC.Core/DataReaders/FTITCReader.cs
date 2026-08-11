@@ -9,6 +9,7 @@ using System.Threading.Tasks;
 using AnalysisITC.Core.Application;
 using AnalysisITC.Core.Data;
 using AnalysisITC.Core.Export;
+using AnalysisITC.Core.Numerics;
 using AnalysisITC.Core.Processing;
 using AnalysisITC.Core.Utilities;
 
@@ -42,9 +43,48 @@ namespace AnalysisITC.Core.DataReaders
         {
             if (stream == null) throw new ArgumentNullException(nameof(stream));
 
-            var parser = new FTITCReader(interactive, processProcessorData);
-            using (var reader = new StreamReader(stream, System.Text.Encoding.UTF8, true, 4096, leaveOpen: true))
-                return await parser.Read(reader);
+            MemoryStream buffered = null;
+            var input = stream;
+            if (!stream.CanSeek)
+            {
+                buffered = new MemoryStream();
+                await stream.CopyToAsync(buffered);
+                buffered.Position = 0;
+                input = buffered;
+            }
+
+            try
+            {
+                if (IsOriginalTaggedFormat(input))
+                    return await ReadOriginalTaggedFormat(input, processProcessorData);
+
+                var parser = new FTITCReader(interactive, processProcessorData);
+                using (var reader = new StreamReader(input, System.Text.Encoding.UTF8, true, 4096, leaveOpen: true))
+                    return await parser.Read(reader);
+            }
+            finally
+            {
+                buffered?.Dispose();
+            }
+        }
+
+        static bool IsOriginalTaggedFormat(Stream stream)
+        {
+            var position = stream.Position;
+            try
+            {
+                using var reader = new StreamReader(stream, System.Text.Encoding.UTF8, true, 4096, leaveOpen: true);
+                var buffer = new char[4096];
+                var count = reader.ReadBlock(buffer, 0, buffer.Length);
+                var prefix = new string(buffer, 0, count).TrimStart('\uFEFF', '\r', '\n', ' ', '\t');
+                return prefix.StartsWith(OldHeader(ExperimentHeader), StringComparison.Ordinal)
+                    || prefix.IndexOf(OldHeader(ExperimentHeader), StringComparison.Ordinal) >= 0
+                        && prefix.IndexOf(FileHeader(ExperimentHeader, ""), StringComparison.Ordinal) < 0;
+            }
+            finally
+            {
+                stream.Position = position;
+            }
         }
 
         async Task<ITCDataContainer[]> Read(StreamReader reader)
@@ -75,6 +115,155 @@ namespace AnalysisITC.Core.DataReaders
             }
 
             return data.ToArray();
+        }
+
+        static async Task<ITCDataContainer[]> ReadOriginalTaggedFormat(Stream stream, bool processProcessorData)
+        {
+            using var reader = new StreamReader(stream, System.Text.Encoding.UTF8, true, 4096, leaveOpen: true);
+            var text = await reader.ReadToEndAsync();
+            var experiments = new List<ITCDataContainer>();
+
+            foreach (var section in TaggedSections(text, ExperimentHeader))
+            {
+                var fileName = TaggedContent(section, FileName) ?? string.Empty;
+                var experiment = new ExperimentData(fileName);
+                var sourceFormat = TaggedContent(section, SourceFormat);
+                if (!string.IsNullOrWhiteSpace(sourceFormat))
+                    experiment.DataSourceFormat = ParseSourceFormat(sourceFormat, fileName);
+                var id = TaggedContent(section, ID);
+                if (!string.IsNullOrWhiteSpace(id)) experiment.SetID(id);
+                var name = TaggedContent(section, AssignedName);
+                if (!string.IsNullOrWhiteSpace(name)) experiment.Name = name;
+                var date = TaggedContent(section, Date);
+                if (!string.IsNullOrWhiteSpace(date)) experiment.SetDate(DTParse(date));
+                experiment.SyringeConcentration = ParseTaggedFwe(section, SyringeConcentration);
+                experiment.CellConcentration = ParseTaggedFwe(section, CellConcentration);
+                experiment.StirringSpeed = ParseTaggedDouble(section, StirringSpeed);
+                experiment.TargetTemperature = ParseTaggedDouble(section, TargetTemperature);
+                experiment.MeasuredTemperature = ParseTaggedDouble(section, MeasuredTemperature, experiment.TargetTemperature);
+                experiment.InitialDelay = ParseTaggedDouble(section, InitialDelay);
+                experiment.TargetPowerDiff = ParseTaggedDouble(section, TargetPowerDiff);
+                experiment.CellVolume = ParseTaggedDouble(section, CellVolume);
+                experiment.FeedBackMode = (FeedbackMode)ParseTaggedInt(section, FeedBackMode, (int)FeedbackMode.Null);
+                experiment.Instrument = (ITCInstrument)ParseTaggedInt(section, Instrument, (int)ITCInstrument.Unknown);
+
+                var injections = TaggedRows(section, InjectionList).Select(row => RestoreOriginalTaggedInjection(experiment, row)).ToList();
+                experiment.Injections = injections;
+
+                var points = new List<DataPoint>();
+                foreach (var row in TaggedRows(section, DataPointList))
+                {
+                    var columns = SplitCsv(row);
+                    if (columns.Length < 3)
+                        throw new InvalidDataException("Original FTITC data-point rows must have at least three columns.");
+                    points.Add(new DataPoint(FParse(columns[0]), FParse(columns[1]), FParse(columns[2])));
+                }
+                experiment.DataPoints = points;
+
+                await RestoreOriginalTaggedProcessor(experiment, TaggedContent(section, Processor), processProcessorData);
+                if (!experiment.IsTandemExperiment) RawDataReader.ProcessInjectionsMicroCal(experiment);
+                experiment.Include = TaggedContent(section, Include) == "1";
+                experiment.CalculateExperimentHeatDirection();
+                experiments.Add(experiment);
+            }
+
+            if (experiments.Count == 0)
+                throw new InvalidDataException("The original FTITC file did not contain an Experiment section.");
+            return experiments.ToArray();
+        }
+
+        static InjectionData RestoreOriginalTaggedInjection(ExperimentData experiment, string row)
+        {
+            var values = SplitCsv(row);
+            if (values.Length < 9)
+                throw new InvalidDataException("Original FTITC injection rows must have at least nine columns.");
+            var id = IParse(values[0]);
+            var include = BParse(values[1]);
+            var time = FParse(values[2]);
+            var volume = DParse(values[3]);
+            var delay = FParse(values[4]);
+            var duration = FParse(values[5]);
+            var temperature = DParse(values[6]);
+            var integrationStart = FParse(values[7]);
+            // The original tagged writer stored integration length, whereas the
+            // later line-based FTITC dialect stores an end offset.
+            var integrationEnd = integrationStart + FParse(values[8]);
+            var injection = new InjectionData(experiment, id, volume, experiment.SyringeConcentration * volume, include);
+            injection.RestoreState(include, time, volume, delay, duration, 0, temperature,
+                integrationStart, integrationEnd, 0, 0, 0, false, PeakHeatDirection.Unknown,
+                new FloatWithError(), new FloatWithError());
+            return injection;
+        }
+
+        static async Task RestoreOriginalTaggedProcessor(ExperimentData experiment, string section, bool processProcessorData)
+        {
+            if (string.IsNullOrWhiteSpace(section)) return;
+            var typeText = TaggedContent(section, ProcessorType);
+            if (string.IsNullOrWhiteSpace(typeText)) return;
+            var processor = new DataProcessor(experiment);
+            processor.InitializeBaseline((BaselineInterpolatorTypes)IParse(typeText));
+
+            if (processor.Interpolator is SplineInterpolator spline)
+            {
+                var algorithm = TaggedContent(section, SplineAlgorithm);
+                if (!string.IsNullOrWhiteSpace(algorithm)) spline.Algorithm = (SplineInterpolator.SplineInterpolatorAlgorithm)IParse(algorithm);
+                var handleMode = TaggedContent(section, SplineHandleMode);
+                if (!string.IsNullOrWhiteSpace(handleMode)) spline.HandleMode = (SplineInterpolator.SplineHandleMode)IParse(handleMode);
+                var splineRows = TaggedRows(section, SplinePointList).ToList();
+                if (splineRows.Count != 0)
+                    spline.SetSplinePoints(splineRows.Select(row =>
+                    {
+                        var values = SplitCsv(row);
+                        if (values.Length < 4) throw new InvalidDataException("Original FTITC spline-point rows must have four columns.");
+                        return new SplineInterpolator.SplinePoint(DParse(values[0]), DParse(values[1]), IParse(values[2]), DParse(values[3]));
+                    }).ToList());
+            }
+            else if (processor.Interpolator is PolynomialLeastSquaresInterpolator polynomial)
+            {
+                polynomial.Degree = ParseTaggedInt(section, PolynomiumDegree, polynomial.Degree);
+                polynomial.ZLimit = ParseTaggedDouble(section, PolynomiumLimit, polynomial.ZLimit);
+            }
+
+            experiment.SetProcessor(processor);
+            if (processProcessorData) await processor.ProcessData(replace: false, invalidate: false, showProgress: false);
+            if (TaggedContent(section, SplineLocked) == "1") processor.Lock();
+        }
+
+        static IEnumerable<string> TaggedSections(string text, string header)
+        {
+            var startTag = OldHeader(header);
+            var endTag = OldEndHeader(header);
+            var offset = 0;
+            while (offset < text.Length)
+            {
+                var start = text.IndexOf(startTag, offset, StringComparison.Ordinal);
+                if (start < 0) yield break;
+                start += startTag.Length;
+                var end = text.IndexOf(endTag, start, StringComparison.Ordinal);
+                if (end < 0) throw new InvalidDataException($"Original FTITC section '{header}' is not closed.");
+                yield return text.Substring(start, end - start);
+                offset = end + endTag.Length;
+            }
+        }
+
+        static string TaggedContent(string text, string header) => TaggedSections(text, header).FirstOrDefault();
+        static IEnumerable<string> TaggedRows(string text, string header) =>
+            (TaggedContent(text, header) ?? string.Empty).Split(new[] { ';' }, StringSplitOptions.RemoveEmptyEntries)
+                .Select(row => row.Trim()).Where(row => row.Length != 0);
+        static double ParseTaggedDouble(string text, string header, double fallback = 0)
+        {
+            var value = TaggedContent(text, header);
+            return string.IsNullOrWhiteSpace(value) ? fallback : DParse(value);
+        }
+        static int ParseTaggedInt(string text, string header, int fallback = 0)
+        {
+            var value = TaggedContent(text, header);
+            return string.IsNullOrWhiteSpace(value) ? fallback : IParse(value);
+        }
+        static FloatWithError ParseTaggedFwe(string text, string header)
+        {
+            var value = TaggedContent(text, header);
+            return string.IsNullOrWhiteSpace(value) ? new FloatWithError() : FWEParse(value);
         }
 
         static string ReadRequiredLine(StreamReader reader)
@@ -154,7 +343,7 @@ namespace AnalysisITC.Core.DataReaders
                     case ID: exp.SetID(value); break;
                     case AssignedName: exp.Name = DecodeText(value); break;
                     case Date: exp.Date = DTParse(value); break;
-                    case SourceFormat: exp.DataSourceFormat = (ITCDataFormat)IParse(value); break;
+                    case SourceFormat: exp.DataSourceFormat = ParseSourceFormat(value, exp.FileName); break;
                     case Comments: exp.Comments = DecodeText(value); break;
                     case SyringeConcentration: exp.SyringeConcentration = FWEParse(value); break;
                     case CellConcentration: exp.CellConcentration = FWEParse(value); break;
@@ -186,6 +375,31 @@ namespace AnalysisITC.Core.DataReaders
             }
 
             return exp;
+        }
+
+        // FTITC historically persisted the ordinal value of ITCDataFormat. Adding
+        // FTXTC before Unknown shifted every later value by one, even though the
+        // on-disk FTITC representation had already escaped into existing projects.
+        // Prefer the original FTITC ordinals and use the saved source extension to
+        // disambiguate files produced briefly after the enum was extended.
+        static ITCDataFormat ParseSourceFormat(string value, string fileName)
+        {
+            var wireValue = IParse(value);
+            var extension = Path.GetExtension(fileName ?? string.Empty).ToLowerInvariant();
+            var isIntegratedHeatFile = extension == ".dat" || extension == ".aff" || extension == ".dh";
+
+            switch (wireValue)
+            {
+                case 0: return ITCDataFormat.ITC200;
+                case 1: return ITCDataFormat.VPITC;
+                case 2: return ITCDataFormat.FTITC;
+                case 3: return extension == ".ftxtc" ? ITCDataFormat.FTXTC : ITCDataFormat.Unknown;
+                case 4: return extension == ".ta" ? ITCDataFormat.TAITC : ITCDataFormat.Unknown;
+                case 5: return extension == ".ta" ? ITCDataFormat.TAITC : ITCDataFormat.IntegratedHeats;
+                case 6: return isIntegratedHeatFile ? ITCDataFormat.IntegratedHeats : ITCDataFormat.PEAQITCProject;
+                case 7: return ITCDataFormat.PEAQITCProject;
+                default: return ITCDataFormat.Unknown;
+            }
         }
 
         private static async Task ReadProcessor(ExperimentData exp, StreamReader reader, bool processData)
