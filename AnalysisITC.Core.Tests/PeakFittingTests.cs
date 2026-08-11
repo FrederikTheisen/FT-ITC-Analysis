@@ -288,20 +288,51 @@ namespace AnalysisITC.Core.Tests
         }
 
         [Fact]
-        public async Task LockedBaselineCanRegenerateMissingCorrectedDataWithoutRefitting()
+        public async Task LockedPeakFitIsASilentNoOp()
         {
             var experiment = CreateSyntheticExperiment(BaselineInterpolatorTypes.Spline);
             await experiment.Processor.ProcessData(showProgress: false);
             var baseline = experiment.Processor.Interpolator.Baseline.Select(value => value.Value).ToArray();
             experiment.BaseLineCorrectedDataPoints = null;
+            var estimatorCalls = 0;
+            experiment.Processor.PeakEndOffsetEstimator = _ =>
+            {
+                estimatorCalls++;
+                return experiment.Injections.Select(injection => 20f).ToArray();
+            };
             experiment.Processor.Lock();
 
-            var result = await experiment.Processor.FitIntegrationPeaksAsync(showProgress: false);
+            var statusUpdates = 0;
+            var secondaryStatusUpdates = 0;
+            var progressUpdates = 0;
+            EventHandler<string> statusHandler = (_, _) => statusUpdates++;
+            EventHandler<string> secondaryStatusHandler = (_, _) => secondaryStatusUpdates++;
+            EventHandler<ProgressIndicatorEventData> progressHandler = (_, _) => progressUpdates++;
+            StatusBarManager.StatusUpdated += statusHandler;
+            StatusBarManager.SecondaryStatusUpdated += secondaryStatusHandler;
+            StatusBarManager.ProgressUpdate += progressHandler;
+            PeakFitResult result;
+            try
+            {
+                result = await experiment.Processor.FitIntegrationPeaksAsync(showProgress: true);
+            }
+            finally
+            {
+                StatusBarManager.StatusUpdated -= statusHandler;
+                StatusBarManager.SecondaryStatusUpdated -= secondaryStatusHandler;
+                StatusBarManager.ProgressUpdate -= progressHandler;
+            }
 
-            Assert.NotEqual(PeakFitStatus.Failed, result.Status);
-            Assert.NotNull(experiment.BaseLineCorrectedDataPoints);
-            Assert.Equal(experiment.DataPoints.Count, experiment.BaseLineCorrectedDataPoints.Count);
+            Assert.Equal(PeakFitStatus.Locked, result.Status);
+            Assert.False(result.Succeeded);
+            Assert.False(result.RegionsChanged);
+            Assert.Equal(0, result.Iterations);
+            Assert.Equal(0, estimatorCalls);
+            Assert.Null(experiment.BaseLineCorrectedDataPoints);
             Assert.Equal(baseline, experiment.Processor.Interpolator.Baseline.Select(value => value.Value).ToArray());
+            Assert.Equal(0, statusUpdates);
+            Assert.Equal(0, secondaryStatusUpdates);
+            Assert.Equal(0, progressUpdates);
         }
 
         [Fact]
@@ -337,21 +368,112 @@ namespace AnalysisITC.Core.Tests
             Assert.Equal(original[3], experiment.Injections[3].IntegrationEndOffset);
         }
 
-        [Theory]
-        [InlineData(true, true)]
-        [InlineData(false, false)]
-        public async Task FixedBaselineIsNotChanged(bool discardIntegratedPoints, bool lockProcessor)
+        [Fact]
+        public async Task RegionIndependentBaselineIsNotChangedByPeakFitting()
         {
             var experiment = CreateSyntheticExperiment(BaselineInterpolatorTypes.Spline);
-            experiment.Processor.DiscardIntegratedPoints = discardIntegratedPoints;
+            experiment.Processor.DiscardIntegratedPoints = false;
             await experiment.Processor.ProcessData(showProgress: false);
-            if (lockProcessor) experiment.Processor.Lock();
             var baseline = experiment.Processor.Interpolator.Baseline.Select(value => value.Value).ToArray();
 
             var result = await experiment.Processor.FitIntegrationPeaksAsync(showProgress: false);
 
             Assert.True(result.Succeeded);
             Assert.Equal(baseline, experiment.Processor.Interpolator.Baseline.Select(value => value.Value).ToArray());
+        }
+
+        [Fact]
+        public async Task LockedProcessorRejectsEveryPublicProcessingEntryPoint()
+        {
+            var experiment = CreateSyntheticExperiment(BaselineInterpolatorTypes.Spline);
+            await experiment.Processor.ProcessData(showProgress: false);
+            var processor = experiment.Processor;
+            var baseline = processor.Interpolator.Baseline.Select(value => value.Value).ToArray();
+            var corrected = experiment.BaseLineCorrectedDataPoints.Select(value => value.Power).ToArray();
+            var peakAreas = experiment.Injections.Select(injection => injection.PeakArea.Value).ToArray();
+            var integrated = experiment.Injections.Select(injection => injection.IsIntegrated).ToArray();
+            var baselineCompleted = processor.BaselineCompleted;
+
+            var raw = experiment.DataPoints[0];
+            experiment.DataPoints[0] = new DataPoint(raw.Time, raw.Power + 1, raw.Temperature);
+            experiment.Injections[0].SetIntegrationLengthByTime(20);
+            processor.Lock();
+
+            var baselineEvents = 0;
+            var processingEvents = 0;
+            EventHandler baselineHandler = (sender, _) =>
+            {
+                if (ReferenceEquals(sender, processor)) baselineEvents++;
+            };
+            EventHandler processingHandler = (sender, _) =>
+            {
+                if (ReferenceEquals(sender, experiment)) processingEvents++;
+            };
+            DataProcessor.BaselineInterpolationCompleted += baselineHandler;
+            DataProcessor.ProcessingCompleted += processingHandler;
+            try
+            {
+                processor.WillProcessData();
+                await processor.InterpolateBaseline();
+                processor.SubtractBaseline();
+                processor.IntegratePeaks();
+                processor.DidProcessData();
+                await processor.ProcessData(showProgress: false);
+            }
+            finally
+            {
+                DataProcessor.BaselineInterpolationCompleted -= baselineHandler;
+                DataProcessor.ProcessingCompleted -= processingHandler;
+            }
+
+            Assert.Equal(baselineCompleted, processor.BaselineCompleted);
+            Assert.Equal(integrated, experiment.Injections.Select(injection => injection.IsIntegrated).ToArray());
+            Assert.Equal(baseline, processor.Interpolator.Baseline.Select(value => value.Value).ToArray());
+            Assert.Equal(corrected, experiment.BaseLineCorrectedDataPoints.Select(value => value.Power).ToArray());
+            Assert.Equal(peakAreas, experiment.Injections.Select(injection => injection.PeakArea.Value).ToArray());
+            Assert.Equal(0, baselineEvents);
+            Assert.Equal(0, processingEvents);
+
+            processor.Unlock();
+            await processor.ProcessData(showProgress: false);
+
+            Assert.True(processor.BaselineCompleted);
+            Assert.All(experiment.Injections, injection => Assert.True(injection.IsIntegrated));
+            Assert.NotEqual(corrected, experiment.BaseLineCorrectedDataPoints.Select(value => value.Power).ToArray());
+        }
+
+        [Fact]
+        public async Task LockLetsActivePeakFitFinishAndRejectsQueuedFit()
+        {
+            var experiment = CreateSyntheticExperiment(BaselineInterpolatorTypes.Spline, initializeBaseline: false);
+            experiment.BaseLineCorrectedDataPoints = experiment.DataPoints.ToList();
+            var estimatorStarted = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+            using var releaseEstimator = new ManualResetEventSlim(false);
+            var estimatorCalls = 0;
+            experiment.Processor.PeakEndOffsetEstimator = _ =>
+            {
+                if (Interlocked.Increment(ref estimatorCalls) == 1)
+                {
+                    estimatorStarted.TrySetResult(true);
+                    releaseEstimator.Wait();
+                }
+
+                return experiment.Injections.Select(injection => 24f).ToArray();
+            };
+
+            var active = experiment.Processor.FitIntegrationPeaksAsync(showProgress: false);
+            await estimatorStarted.Task;
+            var queued = experiment.Processor.FitIntegrationPeaksAsync(showProgress: false);
+            experiment.Processor.Lock();
+            releaseEstimator.Set();
+
+            var activeResult = await active;
+            var queuedResult = await queued;
+
+            Assert.True(activeResult.Succeeded);
+            Assert.Equal(PeakFitStatus.Locked, queuedResult.Status);
+            Assert.Equal(DataProcessor.PeakFitPassCount, estimatorCalls);
+            Assert.All(experiment.Injections, injection => Assert.Equal(24f, injection.IntegrationEndOffset));
         }
 
         [Fact]

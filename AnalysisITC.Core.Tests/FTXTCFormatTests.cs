@@ -170,6 +170,15 @@ namespace AnalysisITC.Core.Tests
                 var expectedSpolar = result.SpolarRecordAnalysis.Result;
                 var expectedElectrostatics = result.ElectrostaticsAnalysis;
                 var expectedProtonation = result.ProtonationAnalysis;
+                var expectedTemperatures = result.Solution.Solutions.Select(solution => solution.Temp).ToArray();
+                var expectedTemperatureDependences = result.Solution.TemperatureDependence.ToDictionary(
+                    item => item.Key,
+                    item => new
+                    {
+                        Slope = item.Value.Slope,
+                        Intercept = item.Value.Intercept,
+                        item.Value.ReferenceT,
+                    });
                 using var package = new MemoryStream();
                 await FTXTCWriter.WriteStream(package,
                     result.Solution.Solutions.Select(solution => solution.Data).Distinct(), new[] { result });
@@ -191,6 +200,20 @@ namespace AnalysisITC.Core.Tests
                 Assert.NotNull(restored.SpolarRecordAnalysis.Result);
                 Assert.True(restored.ElectrostaticsAnalysis.Calculated);
                 Assert.NotNull(restored.ProtonationAnalysis.Fit);
+                Assert.Equal(expectedTemperatures, restored.Solution.Solutions.Select(solution => solution.Temp));
+                Assert.Equal(expectedTemperatureDependences.Keys.OrderBy(value => value),
+                    restored.Solution.TemperatureDependence.Keys.OrderBy(value => value));
+                foreach (var dependence in expectedTemperatureDependences)
+                {
+                    var actual = restored.Solution.TemperatureDependence[dependence.Key];
+                    Assert.Equal(dependence.Value.Slope.Value, actual.Slope.Value, 10);
+                    Assert.Equal(dependence.Value.Slope.Lower, actual.Slope.Lower, 10);
+                    Assert.Equal(dependence.Value.Slope.Upper, actual.Slope.Upper, 10);
+                    Assert.Equal(dependence.Value.Intercept.Value, actual.Intercept.Value, 10);
+                    Assert.Equal(dependence.Value.Intercept.Lower, actual.Intercept.Lower, 10);
+                    Assert.Equal(dependence.Value.Intercept.Upper, actual.Intercept.Upper, 10);
+                    Assert.Equal(dependence.Value.ReferenceT, actual.ReferenceT, 10);
+                }
                 Assert.Equal(expectedSpolar.HydrationEntropy.Value, restored.SpolarRecordAnalysis.Result.HydrationEntropy.Value);
                 Assert.Equal(expectedSpolar.ConformationalEntropy.SD, restored.SpolarRecordAnalysis.Result.ConformationalEntropy.SD);
                 Assert.Equal(expectedElectrostatics.Kd0.Value, restored.ElectrostaticsAnalysis.Kd0.Value);
@@ -207,7 +230,53 @@ namespace AnalysisITC.Core.Tests
                 Assert.NotNull(viewerResult.AdvancedAnalyses?.SpolarRecord);
                 Assert.NotNull(viewerResult.AdvancedAnalyses?.Electrostatics);
                 Assert.NotNull(viewerResult.AdvancedAnalyses?.Protonation);
-                Assert.NotEmpty(viewerResult.AdvancedAnalyses.SpolarRecord.ContributionPlot.Series);
+                var temperature = viewerResult.AdvancedAnalyses.SpolarRecord;
+                Assert.NotEmpty(temperature.TemperatureDependencePlot.Series);
+                var enthalpyPoints = Assert.Single(temperature.TemperatureDependencePlot.Series,
+                    series => series.Group == ParameterType.Enthalpy1.ToString() && series.Kind == "points");
+                var enthalpyLine = Assert.Single(temperature.TemperatureDependencePlot.Series,
+                    series => series.Group == ParameterType.Enthalpy1.ToString() && series.Kind == "line");
+                Assert.Equal(expectedTemperatures.OrderBy(value => value), enthalpyPoints.X);
+                var expectedEnthalpies = restored.Solution.Solutions
+                    .OrderBy(solution => solution.Temp)
+                    .Select(solution => solution.ReportParameters[ParameterType.Enthalpy1].Value / 1000.0)
+                    .ToArray();
+                Assert.Equal(expectedEnthalpies.Length, enthalpyPoints.Y.Length);
+                for (var index = 0; index < expectedEnthalpies.Length; index++)
+                    Assert.Equal(expectedEnthalpies[index], enthalpyPoints.Y[index], 10);
+                Assert.Equal(81, enthalpyLine.X.Length);
+                Assert.Equal(enthalpyLine.X.Length, enthalpyLine.Lower.Length);
+                Assert.Equal(enthalpyLine.X.Length, enthalpyLine.Upper.Length);
+                Assert.True(restored.Solution.BootstrapSolutions.Count > 1);
+                var midpoint = enthalpyLine.X.Length / 2;
+                var bootstrapValues = restored.Solution.BootstrapSolutions
+                    .Select(solution => solution.TemperatureDependence[ParameterType.Enthalpy1])
+                    .Select(fit => ((enthalpyLine.X[midpoint] - fit.ReferenceT) * fit.Slope.Value
+                        + fit.Intercept.Value) / 1000.0)
+                    .OrderBy(value => value)
+                    .ToArray();
+                Assert.Equal(Percentile(bootstrapValues, 0.025), enthalpyLine.Lower[midpoint], 10);
+                Assert.Equal(Percentile(bootstrapValues, 0.975), enthalpyLine.Upper[midpoint], 10);
+                var expectedHydration = restored.SpolarRecordAnalysis.Result.HydrationContribution(
+                    restored.SpolarRecordAnalysis.Result.ReferenceTemperature.Value);
+                var expectedConformation = restored.SpolarRecordAnalysis.Result.ConformationalContribution(
+                    restored.SpolarRecordAnalysis.Result.ReferenceTemperature.Value);
+                Assert.Equal(expectedHydration.Value / 1000.0,
+                    temperature.HydrationContributionKilojoulesPerMole.Value, 12);
+                Assert.Equal(expectedHydration.SD / 1000.0,
+                    temperature.HydrationContributionKilojoulesPerMole.Sd, 12);
+                Assert.Equal(expectedHydration.Lower / 1000.0,
+                    temperature.HydrationContributionKilojoulesPerMole.ConfidenceLower.Value, 12);
+                Assert.Equal(expectedConformation.Value / 1000.0,
+                    temperature.ConformationalContributionKilojoulesPerMole.Value, 12);
+                Assert.Equal(expectedConformation.SD / 1000.0,
+                    temperature.ConformationalContributionKilojoulesPerMole.Sd, 12);
+                Assert.Equal(expectedConformation.Upper / 1000.0,
+                    temperature.ConformationalContributionKilojoulesPerMole.ConfidenceUpper.Value, 12);
+                Assert.Equal(restored.SpolarRecordAnalysis.Result.Rvalue.Value,
+                    temperature.ResidueEstimate.Value, 12);
+                Assert.Equal(restored.SpolarRecordAnalysis.Result.ReferenceTemperature.Value,
+                    temperature.ReferenceTemperatureCelsius.Value, 12);
                 Assert.Equal(3, viewerResult.AdvancedAnalyses.Electrostatics.Plots.Count);
                 var debyePlot = viewerResult.AdvancedAnalyses.Electrostatics.Plots.Single(plot => plot.Key == "debye-huckel");
                 var debyeFit = debyePlot.Series.Single(series => series.Label == "Saved fit");
@@ -219,6 +288,110 @@ namespace AnalysisITC.Core.Tests
             {
                 ResultAnalysisController.CalculationIterations = previousIterations;
                 AppSettings.DefaultErrorEstimationMethod = previousErrorMethod;
+            }
+        }
+
+        [Fact]
+        public async Task TemperatureViewerPlotFallsBackToSavedFitIntervalsWithoutBootstrapReplicates()
+        {
+            var result = await PrepareAdvancedResult(includeBootstrapReplicates: false);
+            result.SpolarRecordAnalysis.RestoreResult(
+                FTSRMethod.SRFoldedMode.Glob,
+                FTSRMethod.SRTempMode.ReferenceTemperature,
+                new FTSRMethod.SROutput(
+                    new FloatWithError(-0.11, 0.01),
+                    new FloatWithError(-0.22, 0.02),
+                    new FloatWithError(42, 2),
+                    new FloatWithError(25, 0.5)),
+                completedIterations: 0,
+                completedAtUtc: DateTime.UtcNow);
+
+            using var package = new MemoryStream();
+            await FTXTCWriter.WriteStream(package,
+                result.Solution.Solutions.Select(solution => solution.Data).Distinct(), new[] { result });
+            package.Position = 0;
+
+            var document = await new ViewerDocumentReader().ReadAsync(
+                package, "advanced-no-bootstrap.ftxtc", ViewerFileFormat.Ftxtc);
+            var temperature = Assert.Single(document.AnalysisResults).AdvancedAnalyses.SpolarRecord;
+            var lines = temperature.TemperatureDependencePlot.Series
+                .Where(series => series.Kind == "line").ToArray();
+
+            Assert.Equal(3, lines.Length);
+            Assert.All(lines, line =>
+            {
+                Assert.NotEmpty(line.X);
+                Assert.Equal(line.X.Length, line.Y.Length);
+                Assert.Equal(line.X.Length, line.Lower.Length);
+                Assert.Equal(line.X.Length, line.Upper.Length);
+                Assert.All(line.X.Concat(line.Y).Concat(line.Lower).Concat(line.Upper),
+                    value => Assert.True(double.IsFinite(value)));
+                for (var index = 0; index < line.Y.Length; index++)
+                {
+                    Assert.True(line.Lower[index] <= line.Y[index]);
+                    Assert.True(line.Upper[index] >= line.Y[index]);
+                }
+            });
+        }
+
+        [Fact]
+        public async Task TwoSiteTemperatureViewerPlotIncludesBothThermodynamicSites()
+        {
+            using var source = File.OpenRead(Fixture("two-sites.ftitc"));
+            var containers = await FTITCReader.ReadStream(source);
+            var sourceResult = Assert.Single(containers.OfType<AnalysisResult>());
+            var members = sourceResult.Solution.Solutions;
+            Assert.Equal(2, members.Count);
+            members[0].Data.MeasuredTemperature = 20;
+            members[1].Data.MeasuredTemperature = 30;
+
+            var globalModel = new GlobalModel(members.Select(solution => solution.Model).ToList())
+            {
+                Parameters = sourceResult.Model.Parameters,
+                ModelCloneOptions = sourceResult.Model.ModelCloneOptions,
+            };
+            var globalSolver = new GlobalSolver
+            {
+                Model = globalModel,
+                ErrorEstimationMethod = sourceResult.Solution.ErrorEstimationMethod,
+                UseErrorWeightedFitting = sourceResult.Solution.UseWeightedFitting,
+            };
+            var globalSolution = new GlobalSolution(globalSolver, members, sourceResult.Solution.Convergence);
+            globalModel.Solution = globalSolution;
+            var result = new AnalysisResult(globalSolution);
+            Assert.NotNull(result.SpolarRecordAnalysis);
+            result.SpolarRecordAnalysis.RestoreResult(
+                FTSRMethod.SRFoldedMode.Glob,
+                FTSRMethod.SRTempMode.ReferenceTemperature,
+                new FTSRMethod.SROutput(
+                    new FloatWithError(-0.11, 0.01),
+                    new FloatWithError(-0.22, 0.02),
+                    new FloatWithError(42, 2),
+                    new FloatWithError(25, 0.5)),
+                completedIterations: 0,
+                completedAtUtc: DateTime.UtcNow);
+
+            using var package = new MemoryStream();
+            await FTXTCWriter.WriteStream(package,
+                members.Select(solution => solution.Data).Distinct(), new[] { result });
+            package.Position = 0;
+            var document = await new ViewerDocumentReader().ReadAsync(
+                package, "advanced-two-site.ftxtc", ViewerFileFormat.Ftxtc);
+            var series = Assert.Single(document.AnalysisResults).AdvancedAnalyses.SpolarRecord
+                .TemperatureDependencePlot.Series;
+
+            foreach (var parameter in new[]
+                     {
+                         ParameterType.Enthalpy1,
+                         ParameterType.EntropyContribution1,
+                         ParameterType.Gibbs1,
+                         ParameterType.Enthalpy2,
+                         ParameterType.EntropyContribution2,
+                         ParameterType.Gibbs2,
+                     })
+            {
+                Assert.Single(series, item => item.Group == parameter.ToString() && item.Kind == "points");
+                Assert.Single(series, item => item.Group == parameter.ToString() && item.Kind == "line");
             }
         }
 
@@ -938,7 +1111,7 @@ namespace AnalysisITC.Core.Tests
             return package;
         }
 
-        static async Task<AnalysisResult> PrepareAdvancedResult()
+        static async Task<AnalysisResult> PrepareAdvancedResult(bool includeBootstrapReplicates = true)
         {
             using var source = File.OpenRead(Fixture("one-set.ftitc"));
             var containers = await FTITCReader.ReadStream(source);
@@ -963,12 +1136,38 @@ namespace AnalysisITC.Core.Tests
                 data.Attributes.Add(buffer);
             }
 
-            var result = new AnalysisResult(sourceResult.Solution);
+            var members = sourceResult.Solution.Solutions;
+            if (!includeBootstrapReplicates)
+                foreach (var member in members)
+                    member.SetBootstrapSolutions(new List<SolutionInterface>());
+            var globalModel = new GlobalModel(members.Select(solution => solution.Model).ToList())
+            {
+                Parameters = sourceResult.Model.Parameters,
+                ModelCloneOptions = sourceResult.Model.ModelCloneOptions,
+            };
+            var globalSolver = new GlobalSolver
+            {
+                Model = globalModel,
+                ErrorEstimationMethod = sourceResult.Solution.ErrorEstimationMethod,
+                UseErrorWeightedFitting = sourceResult.Solution.UseWeightedFitting,
+            };
+            var globalSolution = new GlobalSolution(globalSolver, members, sourceResult.Solution.Convergence);
+            globalModel.Solution = globalSolution;
+            var result = new AnalysisResult(globalSolution);
             Assert.NotNull(result.SpolarRecordAnalysis);
             Assert.NotNull(result.ElectrostaticsAnalysis);
             Assert.NotNull(result.ProtonationAnalysis);
             result.MarkClean();
             return result;
+        }
+
+        static double Percentile(IReadOnlyList<double> sortedValues, double percentile)
+        {
+            var position = percentile * (sortedValues.Count - 1);
+            var lowerIndex = (int)Math.Floor(position);
+            var upperIndex = (int)Math.Ceiling(position);
+            var weight = position - lowerIndex;
+            return sortedValues[lowerIndex] * (1 - weight) + sortedValues[upperIndex] * weight;
         }
 
         static async Task<ExperimentData> LoadExperiment(string fixture)
