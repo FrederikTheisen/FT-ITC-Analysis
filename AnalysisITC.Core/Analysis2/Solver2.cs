@@ -86,6 +86,18 @@ namespace AnalysisITC.Core.Analysis
         public double LevenbergMarquardtGradientTolerance => Tolerance(19, 24);
         public double LevenbergMarquardtStepTolerance => Tolerance(18, 23);
 
+        protected double[] GetLevenbergMarquardtInitialGuess(IReadOnlyList<Parameter> parameters)
+        {
+            const double zeroValueStepFraction = 1e-3;
+
+            // Give Math.NET a scale-aware nonzero point from which to estimate the numerical derivative.
+            return parameters
+                .Select(parameter => parameter.Value == 0
+                    ? parameter.StepSize * zeroValueStepFraction
+                    : parameter.Value)
+                .ToArray();
+        }
+
         public static CancellationTokenSource NelderMeadToken { get; set; }
         internal NonlinearMinimizationResult LmResult { get; set; }
 
@@ -532,14 +544,15 @@ namespace AnalysisITC.Core.Analysis
                 maximumIterations: MaxOptimizerIterations);
 
             double[] initialGuess = Model.Parameters.GetFittedParameterArray();
+            double[] optimizerInitialGuess = GetLevenbergMarquardtInitialGuess(fittedParameters);
             double[] lower = limits.Select(b => b[0]).ToArray();
             double[] upper = limits.Select(b => b[1]).ToArray();
-            double[] scales = initialGuess.Select(g => Math.Max(1, Math.Abs(g))).ToArray();
-            LogSolverInput("Single/LevenbergMarquardt", fittedParameters, initialGuess, scales, limits);
+            double[] scales = optimizerInitialGuess.Select(g => Math.Max(1, Math.Abs(g))).ToArray();
+            LogSolverInput("Single/LevenbergMarquardt", fittedParameters, optimizerInitialGuess, scales, limits);
 
             var result = minimizer.FindMinimum(
                 objective,
-                initialGuess,
+                optimizerInitialGuess,
                 lower,
                 upper,
                 scales);
@@ -828,14 +841,15 @@ namespace AnalysisITC.Core.Analysis
                 maximumIterations: MaxOptimizerIterations);
 
             double[] initialGuess = Model.Parameters.GetFittedParameterArray();
+            double[] optimizerInitialGuess = GetLevenbergMarquardtInitialGuess(fittedParameters);
             double[] lower = limits.Select(b => b[0]).ToArray();
             double[] upper = limits.Select(b => b[1]).ToArray();
-            double[] scales = initialGuess.Select(g => Math.Max(1, Math.Abs(g))).ToArray();
-            LogSolverInput("Global/LevenbergMarquardt", fittedParameters, initialGuess, scales, limits);
+            double[] scales = optimizerInitialGuess.Select(g => Math.Max(1, Math.Abs(g))).ToArray();
+            LogSolverInput("Global/LevenbergMarquardt", fittedParameters, optimizerInitialGuess, scales, limits);
 
             var result = minimizer.FindMinimum(
                 objective,
-                initialGuess,
+                optimizerInitialGuess,
                 lower,
                 upper,
                 scales);
