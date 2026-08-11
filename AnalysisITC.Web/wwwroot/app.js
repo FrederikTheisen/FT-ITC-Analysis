@@ -1,4 +1,4 @@
-const viewerBuild = "2026.08.09-ftxtc.2";
+const viewerBuild = "2026.08.11-ftxtc.1.3";
 document.documentElement.dataset.viewerBuild = viewerBuild;
 
 const state = {
@@ -13,7 +13,9 @@ const state = {
   fitIndex: 0,
   resultIndex: 0,
   resultMemberIndex: 0,
-  resultEvaluationTemperature: null
+  resultEvaluationTemperature: null,
+  advancedAnalysisKind: null,
+  advancedPlotKey: null
 };
 const $ = (id) => document.getElementById(id);
 const colors = { raw: "#718086", teal: "#087e78", coral: "#ca644f", amber: "#c18b29", blue: "#386c93", purple: "#76558e", pale: "rgba(8,126,120,.16)" };
@@ -44,6 +46,10 @@ function bindEvents() {
   $("result-evaluation-temperature").addEventListener("input", (event) => {
     state.resultEvaluationTemperature = Number(event.target.value);
     renderTemperatureParameterEvaluation(currentResult());
+  });
+  $("advanced-plot-select").addEventListener("change", (event) => {
+    state.advancedPlotKey = event.target.value;
+    renderAdvancedAnalysis(currentResult());
   });
   $("processed-mode-raw").addEventListener("click", () => setProcessingMode("raw"));
   $("processed-mode-corrected").addEventListener("click", () => setProcessingMode("corrected"));
@@ -91,6 +97,8 @@ async function openFile(event) {
     state.resultIndex = 0;
     state.resultMemberIndex = 0;
     state.resultEvaluationTemperature = null;
+    state.advancedAnalysisKind = null;
+    state.advancedPlotKey = null;
     renderDocument();
   } catch (error) {
     showError(error.message);
@@ -114,7 +122,7 @@ function resetViewer() {
   $("upload-panel").hidden = false;
   $("upload-form").reset();
   $("file-label").textContent = "Choose a .ftxtc, .ftitc, or .itc file";
-  ["plot", "result-comparison-plot", "result-fit-plot"].forEach((id) => window.Plotly?.purge?.($(id)));
+  ["plot", "result-comparison-plot", "result-fit-plot", "advanced-analysis-plot"].forEach((id) => window.Plotly?.purge?.($(id)));
 }
 
 function renderDocument() {
@@ -146,6 +154,7 @@ function setWorkspace(workspace) {
   if (experimentsActive) {
     window.Plotly?.purge?.($("result-comparison-plot"));
     window.Plotly?.purge?.($("result-fit-plot"));
+    window.Plotly?.purge?.($("advanced-analysis-plot"));
     renderView();
   } else {
     window.Plotly?.purge?.($("plot"));
@@ -185,6 +194,8 @@ function renderResultList() {
       state.resultIndex = index;
       state.resultMemberIndex = 0;
       state.resultEvaluationTemperature = null;
+      state.advancedAnalysisKind = null;
+      state.advancedPlotKey = null;
       renderResult();
     });
   }));
@@ -321,6 +332,7 @@ function renderResult() {
 
   renderResultComparison(result);
   renderTemperatureParameterEvaluation(result);
+  renderAdvancedAnalysis(result);
   const memberSelect = $("result-member-select");
   memberSelect.replaceChildren(...result.members.map((member, index) => option(index, memberLabel(member))));
   if (state.resultMemberIndex >= result.members.length) state.resultMemberIndex = 0;
@@ -328,6 +340,200 @@ function renderResult() {
   memberSelect.disabled = result.members.length < 2;
   renderResultMember();
   renderResultDetails(result);
+}
+
+function renderAdvancedAnalysis(result) {
+  const card = $("result-advanced-card");
+  const advanced = result?.advancedAnalyses;
+  const available = [
+    ["spolarRecord", "Temperature", advanced?.spolarRecord],
+    ["electrostatics", "Salt", advanced?.electrostatics],
+    ["protonation", "Protonation", advanced?.protonation]
+  ].filter(([, , value]) => value);
+  card.hidden = available.length === 0;
+  if (card.hidden) {
+    window.Plotly?.purge?.($("advanced-analysis-plot"));
+    return;
+  }
+
+  if (!available.some(([key]) => key === state.advancedAnalysisKind))
+    state.advancedAnalysisKind = available[0][0];
+  $("advanced-analysis-tabs").replaceChildren(...available.map(([key, label]) => {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.role = "tab";
+    button.textContent = label;
+    button.setAttribute("aria-selected", String(key === state.advancedAnalysisKind));
+    button.addEventListener("click", () => {
+      state.advancedAnalysisKind = key;
+      state.advancedPlotKey = null;
+      renderAdvancedAnalysis(currentResult());
+    });
+    return button;
+  }));
+
+  const value = available.find(([key]) => key === state.advancedAnalysisKind)?.[2];
+  const message = $("advanced-analysis-message");
+  message.hidden = true;
+  message.textContent = "";
+  let plots = [];
+  let metadataRows = advancedMetadataRows(value?.metadata);
+  let parameters = [];
+  if (state.advancedAnalysisKind === "spolarRecord") {
+    metadataRows = [
+      ["Mode", value.foldedMode],
+      ["Temperature mode", value.temperatureMode],
+      ...metadataRows
+    ];
+    parameters = [
+      advancedParameter("Reference temperature", value.referenceTemperatureCelsius, "°C"),
+      advancedParameter("Hydration", value.hydrationContributionKilojoulesPerMole, "kJ/mol"),
+      advancedParameter("Conformation", value.conformationalContributionKilojoulesPerMole, "kJ/mol"),
+      advancedParameter("Residues", value.residueEstimate, "")
+    ];
+    if (value.temperatureDependencePlot) plots = [value.temperatureDependencePlot];
+  } else if (state.advancedAnalysisKind === "electrostatics") {
+    metadataRows = [
+      ["Counter-ion iterations", String(value.counterIonReleaseIterations ?? 0)],
+      ...metadataRows
+    ];
+    parameters = [
+      advancedParameter("Kd0", value.kd0Micromolar, "µM"),
+      advancedParameter("Salt sensitivity", value.saltSensitivity, ""),
+      advancedParameter("Curvature", value.curvature, ""),
+      advancedParameter("Counter-ion release", value.counterIonRelease, "")
+    ];
+    plots = value.plots || [];
+  } else {
+    parameters = [
+      advancedParameter("Binding enthalpy", value.bindingEnthalpyKilojoulesPerMole, "kJ/mol"),
+      advancedParameter("Protonation change", value.protonationChange, "")
+    ];
+    if (value.plot) plots = [value.plot];
+  }
+  renderAdvancedSummary(metadataRows, parameters);
+
+  const control = $("advanced-plot-control");
+  const select = $("advanced-plot-select");
+  control.hidden = plots.length < 2;
+  if (!plots.some((plot) => plot.key === state.advancedPlotKey)) state.advancedPlotKey = plots[0]?.key || null;
+  select.replaceChildren(...plots.map((plot) => option(plot.key, plot.title)));
+  if (state.advancedPlotKey) select.value = state.advancedPlotKey;
+  const plot = plots.find((item) => item.key === state.advancedPlotKey) || plots[0];
+  const target = $("advanced-analysis-plot");
+  if (!plot || !plot.series?.some((series) => series.x?.length)) {
+    window.Plotly?.purge?.(target);
+    target.hidden = true;
+    message.hidden = false;
+    message.textContent = "The saved numeric result is available, but this analysis has no displayable plot data.";
+    return;
+  }
+  target.hidden = false;
+  renderAdvancedPlot(target, plot);
+}
+
+function advancedMetadataRows(metadata) {
+  if (!metadata) return [];
+  return [
+    ["Completed", formatDate(metadata.completedAtUtc)],
+    ["Iterations", String(metadata.completedIterations ?? 0)],
+    ["Uncertainty method", metadata.errorEstimationMethod || "Parameter sampling"]
+  ];
+}
+
+function advancedParameter(label, value, unit) {
+  return { label, value, unit };
+}
+
+function renderAdvancedSummary(metadataRows, parameters) {
+  const metadata = $("advanced-analysis-metadata");
+  metadata.hidden = metadataRows.length === 0;
+  metadata.replaceChildren(...metadataRows.map(([label, text]) => definition(label, text)));
+
+  const target = $("advanced-analysis-parameter-table");
+  target.hidden = parameters.length === 0;
+  target.replaceChildren();
+  if (target.hidden) return;
+
+  const table = document.createElement("table");
+  const head = document.createElement("thead");
+  const header = document.createElement("tr");
+  ["Parameter", "Value", "SD", "95% interval"].forEach((text) => {
+    const th = document.createElement("th");
+    th.textContent = text;
+    header.append(th);
+  });
+  head.append(header);
+
+  const body = document.createElement("tbody");
+  parameters.forEach((parameter) => {
+    const row = document.createElement("tr");
+    appendAdvancedCell(row, "Parameter", parameter.label);
+    const value = parameter.value;
+    if (!value || value.value == null || !Number.isFinite(Number(value.value))) {
+      appendAdvancedCell(row, "Value", "Unavailable");
+      appendAdvancedCell(row, "SD", "Unavailable");
+      appendAdvancedCell(row, "95% interval", "Unavailable");
+    } else {
+      const suffix = parameter.unit ? ` ${parameter.unit}` : "";
+      appendAdvancedCell(row, "Value", formatParameterNumber(value.value, value.sd, suffix));
+      appendAdvancedCell(row, "SD", formatParameterNumber(value.sd, value.sd, suffix));
+      appendAdvancedCell(row, "95% interval", formatParameterInterval(
+        value.confidenceLower, value.confidenceUpper, value.sd, parameter.unit));
+    }
+    body.append(row);
+  });
+  table.append(head, body);
+  target.append(table);
+}
+
+function appendAdvancedCell(row, label, value) {
+  const cell = document.createElement("td");
+  cell.dataset.label = label;
+  cell.textContent = value == null ? "—" : String(value);
+  row.append(cell);
+}
+
+function renderAdvancedPlot(target, plot) {
+  const traces = [];
+  const palette = [colors.teal, colors.coral, colors.blue, colors.amber, colors.purple];
+  const colorsByGroup = new Map();
+  const shownGroups = new Set();
+  (plot.series || []).forEach((series, index) => {
+    const group = series.group || `series-${index}`;
+    if (!colorsByGroup.has(group)) colorsByGroup.set(group, palette[colorsByGroup.size % palette.length]);
+    const color = colorsByGroup.get(group);
+    const showlegend = !shownGroups.has(group);
+    shownGroups.add(group);
+    if (series.kind === "points") {
+      traces.push({
+        x: series.x,
+        y: series.y,
+        name: series.label,
+        type: "scatter",
+        mode: "markers",
+        legendgroup: group,
+        showlegend,
+        marker: { color, size: 8 },
+        error_y: {
+          type: "data",
+          symmetric: false,
+          array: series.y.map((value, point) => Math.max(0, (series.upper?.[point] ?? value) - value)),
+          arrayminus: series.y.map((value, point) => Math.max(0, value - (series.lower?.[point] ?? value))),
+          visible: true,
+          color
+        }
+      });
+      return;
+    }
+    if (series.lower?.length === series.x?.length && series.upper?.length === series.x?.length) {
+      traces.push({ x: series.x, y: series.lower, type: "scatter", mode: "lines", legendgroup: group, line: { width: 0 }, showlegend: false, hoverinfo: "skip" });
+      traces.push({ x: series.x, y: series.upper, type: "scatter", mode: "lines", legendgroup: group, line: { width: 0 }, fill: "tonexty", fillcolor: `${color}22`, showlegend: false, hoverinfo: "skip" });
+    }
+    traces.push({ x: series.x, y: series.y, name: series.label, type: "scatter", mode: "lines", legendgroup: group, showlegend, line: { color, width: 2 } });
+  });
+  const layout = baseLayout(plot.xAxisLabel, plot.yAxisLabel);
+  window.Plotly.newPlot(target, traces, layout, plotConfig);
 }
 
 function renderResultComparison(result) {

@@ -1,22 +1,16 @@
 <Project Sdk="Microsoft.NET.Sdk.Web">
 
   <ItemGroup>
-    <ProjectReference Include="..\AnalysisITC.Core\AnalysisITC.Core.csproj" />
+    <ProjectReference Include="..\AnalysisITC.Core\AnalysisITC.Core.csproj">
+      <ReferenceSourceTarget></ReferenceSourceTarget>
+      <GlobalPropertiesToRemove></GlobalPropertiesToRemove>
+    </ProjectReference>
   </ItemGroup>
 
   <ItemGroup>
-    <Content Include="..\AnalysisITC.MacOS\Assets.xcassets\AppIcon.iconset\icon_32x32.png"
-             Link="wwwroot\assets\ft-itc-icon-32.png"
-             CopyToOutputDirectory="PreserveNewest"
-             CopyToPublishDirectory="PreserveNewest" />
-    <Content Include="..\AnalysisITC.MacOS\Assets.xcassets\AppIcon.iconset\icon_32x32@2x.png"
-             Link="wwwroot\assets\ft-itc-icon-64.png"
-             CopyToOutputDirectory="PreserveNewest"
-             CopyToPublishDirectory="PreserveNewest" />
-    <Content Include="..\AnalysisITC.MacOS\Assets.xcassets\AppIcon.iconset\icon_128x128@2x.png"
-             Link="wwwroot\assets\ft-itc-icon-256.png"
-             CopyToOutputDirectory="PreserveNewest"
-             CopyToPublishDirectory="PreserveNewest" />
+    <Content Include="..\AnalysisITC.MacOS\Assets.xcassets\AppIcon.iconset\icon_32x32.png" Link="wwwroot\assets\ft-itc-icon-32.png" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <Content Include="..\AnalysisITC.MacOS\Assets.xcassets\AppIcon.iconset\icon_32x32@2x.png" Link="wwwroot\assets\ft-itc-icon-64.png" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <Content Include="..\AnalysisITC.MacOS\Assets.xcassets\AppIcon.iconset\icon_128x128@2x.png" Link="wwwroot\assets\ft-itc-icon-256.png" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
   </ItemGroup>
 
   <PropertyGroup>
