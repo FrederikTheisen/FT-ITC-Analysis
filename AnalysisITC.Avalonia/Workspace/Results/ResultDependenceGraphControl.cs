@@ -15,6 +15,7 @@ using AnalysisITC.Core.Analysis.Models;
 using AnalysisITC.Core.Application;
 using AnalysisITC.Core.Data;
 using AnalysisITC.Core.Numerics;
+using AnalysisITC.Core.Presentation;
 using AnalysisITC.Core.Units;
 using AnalysisITC.Core.Utilities;
 
@@ -23,8 +24,6 @@ namespace AnalysisITC.Avalonia.Results
     public sealed class ResultDependenceGraphControl : Control
     {
         static AvaloniaGraphTheme GraphTheme => AvaloniaGraphSettings.Current;
-        const int FitSampleCount = 400;
-
         AnalysisResult? result;
         ResultAnalysisViewMode mode = ResultAnalysisViewMode.Temperature;
         ElectrostaticsAnalysis.DissocFitMode saltMode = ElectrostaticsAnalysis.DissocFitMode.DebyeHuckel;
@@ -553,46 +552,21 @@ namespace AnalysisITC.Avalonia.Results
             var xs = SampleXs(points);
             if (xs.Count < 2) return null;
 
-            var line = xs
-                .Select(x => new GraphFitPoint(x, DeterministicLinearValue(fit, x / xScale) * yScale))
-                .Where(point => IsFinite(point.X) && IsFinite(point.Y))
+            var envelope = LinearFitEnvelopeBuilder.Build(
+                fit,
+                bootstrapFits,
+                xs.Select(x => x / xScale));
+            var line = envelope
+                .Select(point => new GraphFitPoint(point.X * xScale, point.Center * yScale))
                 .ToList();
-
-            var lower = new List<GraphFitPoint>();
-            var upper = new List<GraphFitPoint>();
-
-            if (bootstrapFits != null && bootstrapFits.Count > 1)
-            {
-                foreach (var x in xs)
-                {
-                    var values = bootstrapFits
-                        .Select(bootstrap => DeterministicLinearValue(bootstrap, x / xScale) * yScale)
-                        .Where(IsFinite)
-                        .OrderBy(value => value)
-                        .ToList();
-
-                    if (values.Count < 2) continue;
-
-                    lower.Add(new GraphFitPoint(x, PercentileSorted(values, 0.025)));
-                    upper.Add(new GraphFitPoint(x, PercentileSorted(values, 0.975)));
-                }
-            }
-            else
-            {
-                foreach (var x in xs)
-                {
-                    var values = LinearCornerValues(fit, x / xScale)
-                        .Select(value => value * yScale)
-                        .Where(IsFinite)
-                        .OrderBy(value => value)
-                        .ToList();
-
-                    if (values.Count < 2 || Math.Abs(values.Last() - values.First()) < 1E-12) continue;
-
-                    lower.Add(new GraphFitPoint(x, values.First()));
-                    upper.Add(new GraphFitPoint(x, values.Last()));
-                }
-            }
+            var lower = envelope
+                .Where(point => point.HasBand)
+                .Select(point => new GraphFitPoint(point.X * xScale, point.Lower * yScale))
+                .ToList();
+            var upper = envelope
+                .Where(point => point.HasBand)
+                .Select(point => new GraphFitPoint(point.X * xScale, point.Upper * yScale))
+                .ToList();
 
             return line.Count < 2 ? null : new GraphFitSeries(line, lower, upper);
         }
@@ -629,8 +603,8 @@ namespace AnalysisITC.Avalonia.Results
             var domain = BuildDataXDomain(points);
             if (domain == null) return new List<double>();
 
-            return Enumerable.Range(0, FitSampleCount + 1)
-                .Select(i => domain.Value.Min + (domain.Value.Max - domain.Value.Min) * i / FitSampleCount)
+            return LinearFitEnvelopeBuilder
+                .SampleDomain(domain.Value.Min, domain.Value.Max)
                 .ToList();
         }
 
@@ -655,35 +629,6 @@ namespace AnalysisITC.Avalonia.Results
             return (
                 min - delta * AvaloniaGraphSettings.AnalysisXPaddingFraction,
                 max + delta * AvaloniaGraphSettings.AnalysisXPaddingFraction);
-        }
-
-        static double DeterministicLinearValue(LinearFitWithError fit, double x)
-        {
-            return (x - fit.ReferenceT) * fit.Slope.Value + fit.Intercept.Value;
-        }
-
-        static IEnumerable<double> LinearCornerValues(LinearFitWithError fit, double x)
-        {
-            var slopes = new[] { fit.Slope.Lower, fit.Slope.Upper, fit.Slope.Value };
-            var intercepts = new[] { fit.Intercept.Lower, fit.Intercept.Upper, fit.Intercept.Value };
-
-            foreach (var slope in slopes)
-            foreach (var intercept in intercepts)
-                yield return (x - fit.ReferenceT) * slope + intercept;
-        }
-
-        static double PercentileSorted(IReadOnlyList<double> sortedValues, double percentile)
-        {
-            if (sortedValues.Count == 0) return double.NaN;
-            if (sortedValues.Count == 1) return sortedValues[0];
-
-            var position = Math.Clamp(percentile, 0, 1) * (sortedValues.Count - 1);
-            var lowerIndex = (int)Math.Floor(position);
-            var upperIndex = (int)Math.Ceiling(position);
-            if (lowerIndex == upperIndex) return sortedValues[lowerIndex];
-
-            var weight = position - lowerIndex;
-            return sortedValues[lowerIndex] * (1 - weight) + sortedValues[upperIndex] * weight;
         }
 
         static List<GraphPoint> SortFinitePoints(IEnumerable<GraphPoint> points)

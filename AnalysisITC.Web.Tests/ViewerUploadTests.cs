@@ -2,14 +2,18 @@ using System.Net;
 using System.Net.Http.Json;
 using System.Text;
 using System.Text.Json;
+using AnalysisITC.Core.Analysis;
 using AnalysisITC.Core.Analysis.Models;
 using AnalysisITC.Core.Data;
 using AnalysisITC.Core.DataReaders;
 using AnalysisITC.Core.Export;
+using AnalysisITC.Core.Numerics;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Xunit;
 
 namespace AnalysisITC.Web.Tests;
+
+using Buffer = AnalysisITC.Core.Data.Buffer;
 
 public sealed class ViewerUploadTests : IClassFixture<WebApplicationFactory<Program>>
 {
@@ -64,7 +68,7 @@ public sealed class ViewerUploadTests : IClassFixture<WebApplicationFactory<Prog
         var script = await client.GetStringAsync("/app.js");
 
         Assert.True(page.Headers.CacheControl?.NoStore);
-        Assert.Equal("2026.08.09-ftxtc.2", page.Headers.GetValues("X-FTITC-Viewer-Build").Single());
+        Assert.Equal("2026.08.11-ftxtc.1.3", page.Headers.GetValues("X-FTITC-Viewer-Build").Single());
         Assert.Contains("id=\"experiment-list\"", html);
         Assert.Contains("id=\"result-list\"", html);
         Assert.DoesNotContain("id=\"experiment-select\"", html);
@@ -93,12 +97,23 @@ public sealed class ViewerUploadTests : IClassFixture<WebApplicationFactory<Prog
         Assert.Contains("Bootstrap interval unavailable", script);
         Assert.Contains("connectgaps: false", script);
         Assert.Contains("result-evaluation-temperature", html);
-        Assert.Contains("2026.08.09-ftxtc.2", html);
-        Assert.Contains("app.js?v=2026.08.09-ftxtc.2", html);
+        Assert.Contains("id=\"result-advanced-card\"", html);
+        Assert.Contains("advanced-analysis-plot", html);
+        Assert.Contains("2026.08.11-ftxtc.1.3", html);
+        Assert.Contains("app.js?v=2026.08.11-ftxtc.1.3", html);
+        Assert.Contains("href=\"https://ft-itc.org\"", html);
+        Assert.Contains("href=\"https://github.com/FrederikTheisen/FT-ITC-Analysis\"", html);
         Assert.Contains("class=\"brand-mark\" src=\"/assets/ft-itc-icon-64.png", html);
         Assert.Contains("rel=\"icon\" type=\"image/png\"", html);
         Assert.Contains("rel=\"apple-touch-icon\"", html);
-        Assert.Contains("const viewerBuild = \"2026.08.09-ftxtc.2\"", script);
+        Assert.Contains("const viewerBuild = \"2026.08.11-ftxtc.1.3\"", script);
+        Assert.Contains("renderAdvancedAnalysis", script);
+        Assert.Contains("advanced-analysis-metadata", html);
+        Assert.Contains("advanced-analysis-parameter-table", html);
+        Assert.Contains("legendgroup", script);
+        Assert.DoesNotContain("layout.title = { text: plot.title", script);
+        Assert.Contains("no displayable plot data", script);
+        Assert.Contains("appendAdvancedCell", script);
         Assert.Contains("roundTemperatureToHalf", script);
         Assert.Contains(".ftxtc", script);
         Assert.Contains("buildConfidenceBand", script);
@@ -236,6 +251,98 @@ public sealed class ViewerUploadTests : IClassFixture<WebApplicationFactory<Prog
         Assert.Equal(3, root.GetProperty("experiments").GetArrayLength());
         Assert.True(root.GetProperty("experiments")[0].GetProperty("raw").GetProperty("timeSeconds").GetArrayLength() > 100);
         Assert.True(root.GetProperty("analysisResults").GetArrayLength() > 0);
+    }
+
+    [Fact]
+    public async Task UploadReturnsSavedAdvancedAnalysesAndPlotSeries()
+    {
+        using var source = File.OpenRead(Fixture("data.ftitc"));
+        var containers = await FTITCReader.ReadStream(source);
+        var sourceResult = Assert.Single(containers.OfType<AnalysisResult>());
+        var buffers = new[] { Buffer.Hepes, Buffer.Tris, Buffer.SodiumPhosphate };
+        for (var index = 0; index < sourceResult.Solution.Solutions.Count; index++)
+        {
+            var data = sourceResult.Solution.Solutions[index].Data;
+            data.MeasuredTemperature = 20 + index * 5;
+            data.Attributes.RemoveAll(attribute => attribute.Key is AttributeKey.Salt or AttributeKey.Buffer);
+            var salt = ExperimentAttribute.FromKey(AttributeKey.Salt);
+            salt.IntValue = (int)Salt.NaCl;
+            salt.ParameterValue = new FloatWithError(0.05 + index * 0.05);
+            data.Attributes.Add(salt);
+            var buffer = ExperimentAttribute.FromKey(AttributeKey.Buffer);
+            buffer.IntValue = (int)buffers[index];
+            buffer.DoubleValue = 7.4;
+            data.Attributes.Add(buffer);
+        }
+
+        var result = new AnalysisResult(sourceResult.Solution);
+        var completed = new DateTime(2026, 8, 10, 10, 0, 0, DateTimeKind.Utc);
+        result.SpolarRecordAnalysis.RestoreResult(
+            FTSRMethod.SRFoldedMode.Glob,
+            FTSRMethod.SRTempMode.MeanTemperature,
+            new FTSRMethod.SROutput(new FloatWithError(-0.11, 0.01), new FloatWithError(-0.22, 0.02),
+                new FloatWithError(42, 2), new FloatWithError(25, 0.5)),
+            20, completed);
+        result.ElectrostaticsAnalysis.RestoreResult(
+            new IonicStrengthDependenceFit(new FloatWithError(2e-6, 0.1e-6), new FloatWithError(1.2, 0.1), new FloatWithError(0), false),
+            new LinearFitWithError(new FloatWithError(1.5, 0.1), new FloatWithError(-12, 0.2), 0),
+            15, 16, completed, ErrorEstimationMethod.BootstrapResiduals);
+        result.ProtonationAnalysis.RestoreResult(
+            new FloatWithError(-25000, 500), new FloatWithError(0.8, 0.05), 18, completed,
+            ErrorEstimationMethod.BootstrapResiduals);
+
+        using var package = new MemoryStream();
+        await FTXTCWriter.WriteStream(package,
+            result.Solution.Solutions.Select(solution => solution.Data).Distinct(), new[] { result });
+        package.Position = 0;
+        var token = await Token();
+        using var content = UploadContent("advanced.ftxtc", package);
+        using var request = new HttpRequestMessage(HttpMethod.Post, "/api/viewer/open") { Content = content };
+        request.Headers.Add("X-CSRF-TOKEN", token);
+        using var response = await client.SendAsync(request);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        using var json = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+        var advanced = json.RootElement.GetProperty("analysisResults")[0].GetProperty("advancedAnalyses");
+        var temperature = advanced.GetProperty("spolarRecord");
+        var temperatureSeries = temperature.GetProperty("temperatureDependencePlot").GetProperty("series")
+            .EnumerateArray().ToArray();
+        foreach (var group in new[] { "Enthalpy1", "EntropyContribution1", "Gibbs1" })
+        {
+            Assert.Contains(temperatureSeries, series => series.GetProperty("kind").GetString() == "points"
+                && series.GetProperty("group").GetString() == group
+                && series.GetProperty("x").GetArrayLength() == sourceResult.Solution.Solutions.Count);
+            Assert.Contains(temperatureSeries, series => series.GetProperty("kind").GetString() == "line"
+                && series.GetProperty("group").GetString() == group
+                && series.GetProperty("x").GetArrayLength() > 2);
+        }
+        Assert.DoesNotContain(temperatureSeries, series =>
+            (series.GetProperty("label").GetString() ?? "").Contains("Hydration", StringComparison.OrdinalIgnoreCase)
+            || (series.GetProperty("label").GetString() ?? "").Contains("Conformational", StringComparison.OrdinalIgnoreCase));
+        Assert.Equal(0.0327965,
+            temperature.GetProperty("hydrationContributionKilojoulesPerMole").GetProperty("value").GetDouble(), 8);
+        Assert.Equal(0.065593,
+            temperature.GetProperty("conformationalContributionKilojoulesPerMole").GetProperty("value").GetDouble(), 8);
+        Assert.Equal(25,
+            temperature.GetProperty("referenceTemperatureCelsius").GetProperty("value").GetDouble(), 8);
+        Assert.Equal(42,
+            temperature.GetProperty("residueEstimate").GetProperty("value").GetDouble(), 8);
+        foreach (var property in new[]
+                 {
+                     "referenceTemperatureCelsius",
+                     "hydrationContributionKilojoulesPerMole",
+                     "conformationalContributionKilojoulesPerMole",
+                     "residueEstimate",
+                 })
+        {
+            var savedValue = temperature.GetProperty(property);
+            Assert.True(savedValue.TryGetProperty("sd", out _));
+            Assert.True(savedValue.TryGetProperty("confidenceLower", out _));
+            Assert.True(savedValue.TryGetProperty("confidenceUpper", out _));
+        }
+        Assert.Equal(3, advanced.GetProperty("electrostatics").GetProperty("plots").GetArrayLength());
+        Assert.True(advanced.GetProperty("protonation").GetProperty("plot").GetProperty("series").GetArrayLength() >= 2);
+        Assert.Equal(2.0, advanced.GetProperty("electrostatics").GetProperty("kd0Micromolar").GetProperty("value").GetDouble(), 8);
     }
 
     [Fact]
