@@ -1,0 +1,280 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="AnalysisITC.Avalonia.ListItems.DataListItemControl"
+             HorizontalContentAlignment="Stretch">
+    <UserControl.Resources>
+        <ControlTheme x:Key="CompactSwitchTheme" TargetType="ToggleButton">
+            <Setter Property="Template">
+                <ControlTemplate>
+                    <ContentPresenter Content="{TemplateBinding Content}"
+                                      ContentTemplate="{TemplateBinding ContentTemplate}"
+                                      Background="Transparent"
+                                      Padding="0"
+                                      HorizontalContentAlignment="Center"
+                                      VerticalContentAlignment="Center" />
+                </ControlTemplate>
+            </Setter>
+        </ControlTheme>
+        <ControlTheme x:Key="LeftActionGroupButtonTheme" TargetType="Button">
+            <Setter Property="Template">
+                <ControlTemplate>
+                    <ContentPresenter Content="{TemplateBinding Content}"
+                                      ContentTemplate="{TemplateBinding ContentTemplate}"
+                                      Background="{TemplateBinding Background}"
+                                      CornerRadius="2,0,0,2"
+                                      Padding="0"
+                                      HorizontalContentAlignment="Center"
+                                      VerticalContentAlignment="Center" />
+                </ControlTemplate>
+            </Setter>
+        </ControlTheme>
+        <ControlTheme x:Key="RightActionGroupButtonTheme" TargetType="Button">
+            <Setter Property="Template">
+                <ControlTemplate>
+                    <ContentPresenter Content="{TemplateBinding Content}"
+                                      ContentTemplate="{TemplateBinding ContentTemplate}"
+                                      Background="{TemplateBinding Background}"
+                                      CornerRadius="0,2,2,0"
+                                      Padding="0"
+                                      HorizontalContentAlignment="Center"
+                                      VerticalContentAlignment="Center" />
+                </ControlTemplate>
+            </Setter>
+        </ControlTheme>
+    </UserControl.Resources>
+
+    <UserControl.Styles>
+        <Style Selector="ToggleButton.compact-active-switch">
+            <Setter Property="Width" Value="32" />
+            <Setter Property="Height" Value="18" />
+            <Setter Property="MinWidth" Value="32" />
+            <Setter Property="MinHeight" Value="18" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+        </Style>
+        <Style Selector="ToggleButton.compact-active-switch Border.switch-track">
+            <Setter Property="Background" Value="{DynamicResource ActiveToggleTrackInactive}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource MutedText}" />
+            <Setter Property="BorderThickness" Value="1" />
+        </Style>
+        <Style Selector="ToggleButton.compact-active-switch Border.switch-thumb">
+            <Setter Property="Background" Value="{DynamicResource ActiveToggleThumb}" />
+            <Setter Property="HorizontalAlignment" Value="Left" />
+        </Style>
+        <Style Selector="ToggleButton.compact-active-switch:checked Border.switch-track">
+            <Setter Property="Background" Value="{DynamicResource ActiveToggleBackground}" />
+        </Style>
+        <Style Selector="ToggleButton.compact-active-switch:checked Border.switch-thumb">
+            <Setter Property="Background" Value="{DynamicResource ActiveToggleGlyph}" />
+            <Setter Property="HorizontalAlignment" Value="Right" />
+        </Style>
+        <Style Selector="ToggleButton.compact-active-switch:pointerover Border.switch-track">
+            <Setter Property="Background" Value="{DynamicResource ActiveToggleTrackInactiveHover}" />
+        </Style>
+        <Style Selector="ToggleButton.compact-active-switch:checked:pointerover Border.switch-track">
+            <Setter Property="Background" Value="{DynamicResource ActiveToggleHoverBackground}" />
+        </Style>
+        <Style Selector="ToggleButton.compact-active-switch:disabled">
+            <Setter Property="Opacity" Value="0.45" />
+        </Style>
+        <Style Selector="Grid.inline-action-group">
+            <Setter Property="Width" Value="50" />
+            <Setter Property="Height" Value="18" />
+        </Style>
+        <Style Selector="Border.inline-action-frame">
+            <Setter Property="Width" Value="46" />
+            <Setter Property="Height" Value="14" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderBrush" Value="{DynamicResource MutedText}" />
+            <Setter Property="BorderThickness" Value="1" />
+        </Style>
+        <Style Selector="Button.inline-action">
+            <Setter Property="Height" Value="12" />
+            <Setter Property="MinHeight" Value="12" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="Foreground" Value="{DynamicResource MutedText}" />
+            <Setter Property="BorderThickness" Value="0" />
+        </Style>
+        <Style Selector="Button.more-actions">
+            <Setter Property="Width" Value="26" />
+            <Setter Property="MinWidth" Value="26" />
+        </Style>
+        <Style Selector="Button.remove-action">
+            <Setter Property="Width" Value="17" />
+            <Setter Property="MinWidth" Value="17" />
+        </Style>
+        <Style Selector="Button.inline-action:pointerover">
+            <Setter Property="Background" Value="{DynamicResource ListActionHoverBackground}" />
+        </Style>
+    </UserControl.Styles>
+
+    <Grid>
+        <Border Padding="8,4,6,5"
+                BorderBrush="{DynamicResource SectionBorder}"
+                BorderThickness="0,0,0,1">
+            <Grid RowDefinitions="Auto,Auto,Auto,Auto">
+            <Grid Grid.Row="0" ColumnDefinitions="*,Auto,Auto">
+                <TextBlock Grid.Column="0"
+                           Text="{Binding Title}"
+                           FontSize="13"
+                           LineHeight="13"
+                           FontWeight="SemiBold"
+                           Foreground="{DynamicResource ListTextColor}"
+                           TextWrapping="Wrap"
+                           TextTrimming="CharacterEllipsis"
+                           MaxLines="2"
+                           ToolTip.Tip="{Binding Title}" />
+
+                <StackPanel Grid.Column="1"
+                            IsVisible="{Binding CanInclude}"
+                            Orientation="Horizontal"
+                            Height="18"
+                            Spacing="2"
+                            Margin="6,0,2,0"
+                            VerticalAlignment="Top">
+                    <TextBlock Text="{Binding ActiveStateLabel}"
+                               FontSize="10.5"
+                               Foreground="{DynamicResource MutedText}"
+                               VerticalAlignment="Center" />
+                    <ToggleButton Classes="compact-active-switch"
+                                  Theme="{StaticResource CompactSwitchTheme}"
+                                  IsChecked="{Binding IsIncluded, Mode=TwoWay}"
+                                  IsEnabled="{Binding CanIncludeActive}"
+                                  PointerPressed="OnInlineActionPointerPressed"
+                                  ToolTip.Tip="{Binding InclusionLabel}"
+                                  AutomationProperties.Name="{Binding InclusionLabel}">
+                        <Border Classes="switch-track"
+                                Width="28"
+                                Height="14"
+                                CornerRadius="3">
+                            <Border Classes="switch-thumb"
+                                    Width="10"
+                                    Height="10"
+                                    Margin="1"
+                                    CornerRadius="2" />
+                        </Border>
+                    </ToggleButton>
+                </StackPanel>
+
+                <Grid Grid.Column="1"
+                      IsVisible="{Binding IsResult}"
+                      Height="18"
+                      Margin="6,0,3,0"
+                      VerticalAlignment="Top"
+                      ToolTip.Tip="{Binding ValidityTooltip}">
+                    <TextBlock Text="Valid"
+                               IsVisible="{Binding IsValidityValid}"
+                               FontSize="10.5"
+                               VerticalAlignment="Center"
+                               Foreground="{DynamicResource StatusValid}" />
+                    <TextBlock Text="Partial"
+                               IsVisible="{Binding IsValidityPartial}"
+                               FontSize="10.5"
+                               VerticalAlignment="Center"
+                               Foreground="{DynamicResource StatusWarning}" />
+                    <TextBlock Text="Invalid"
+                               IsVisible="{Binding IsValidityInvalid}"
+                               FontSize="10.5"
+                               VerticalAlignment="Center"
+                               Foreground="{DynamicResource StatusError}" />
+                    <TextBlock Text="Unknown"
+                               IsVisible="{Binding IsValidityUnknown}"
+                               FontSize="10.5"
+                               VerticalAlignment="Center"
+                               Foreground="{DynamicResource MutedText}" />
+                </Grid>
+
+                <Grid Grid.Column="2"
+                      Classes="inline-action-group"
+                      VerticalAlignment="Top">
+                    <Border Classes="inline-action-frame"
+                            CornerRadius="3"
+                            HorizontalAlignment="Center"
+                            VerticalAlignment="Center"
+                            ClipToBounds="True">
+                        <Grid ColumnDefinitions="26,1,17">
+                            <Button x:Name="MoreActionsButton"
+                                    Grid.Column="0"
+                                    Classes="inline-action more-actions"
+                                    Theme="{StaticResource LeftActionGroupButtonTheme}"
+                                    Click="OnMoreActionsClick"
+                                    PointerPressed="OnInlineActionPointerPressed"
+                                    ToolTip.Tip="{Binding MoreActionsLabel}"
+                                    AutomationProperties.Name="{Binding MoreActionsLabel}">
+                                <StackPanel Orientation="Horizontal"
+                                            Spacing="2"
+                                            HorizontalAlignment="Center"
+                                            VerticalAlignment="Center">
+                                    <Border Width="2" Height="2" CornerRadius="1" Background="{DynamicResource MutedText}" />
+                                    <Border Width="2" Height="2" CornerRadius="1" Background="{DynamicResource MutedText}" />
+                                    <Border Width="2" Height="2" CornerRadius="1" Background="{DynamicResource MutedText}" />
+                                </StackPanel>
+                            </Button>
+
+                            <Border Grid.Column="1"
+                                    Width="1"
+                                    Background="{DynamicResource MutedText}"
+                                    Opacity="0.55" />
+
+                            <Button Grid.Column="2"
+                                    Classes="inline-action remove-action"
+                                    Theme="{StaticResource RightActionGroupButtonTheme}"
+                                    Click="OnRemoveClick"
+                                    PointerPressed="OnInlineActionPointerPressed"
+                                    ToolTip.Tip="{Binding RemoveLabel}"
+                                    AutomationProperties.Name="{Binding RemoveLabel}">
+                                <Path Data="M 2.5,2.5 L 8.5,8.5 M 8.5,2.5 L 2.5,8.5"
+                                      Stroke="{DynamicResource MutedText}"
+                                      StrokeThickness="1.1"
+                                      StrokeLineCap="Round"
+                                      Width="7"
+                                      Height="7"
+                                      Stretch="Uniform" />
+                            </Button>
+                        </Grid>
+                    </Border>
+                </Grid>
+            </Grid>
+
+            <TextBlock Grid.Row="1"
+                       Text="{Binding DateLine}"
+                       FontSize="10.5"
+                       LineHeight="11.5"
+                       Foreground="{DynamicResource ListTextColor}"
+                       TextTrimming="CharacterEllipsis" />
+            <TextBlock Grid.Row="2"
+                       Text="{Binding DetailLine}"
+                       FontSize="10.5"
+                       LineHeight="11.5"
+                       Foreground="{DynamicResource ListTextColor}"
+                       TextTrimming="CharacterEllipsis"
+                       MaxLines="1" />
+            <TextBlock Grid.Row="3"
+                       Text="{Binding FitLine}"
+                       FontSize="10.5"
+                       LineHeight="11.5"
+                       Foreground="{DynamicResource ListTextColor}"
+                       TextWrapping="NoWrap"
+                       TextTrimming="CharacterEllipsis"
+                       MaxLines="1" />
+            </Grid>
+        </Border>
+
+        <Grid Width="8"
+              HorizontalAlignment="Left"
+              Background="Transparent"
+              IsVisible="{Binding IsSelectedResultMember}"
+              ToolTip.Tip="{Binding SelectedResultMembershipTooltip}">
+            <Border Width="3"
+                    HorizontalAlignment="Left"
+                    Background="{DynamicResource MutedText}"
+                    Opacity="0.5" />
+            <Border Width="3"
+                    HorizontalAlignment="Left"
+                    Background="{DynamicResource ActiveToggleBackground}"
+                    IsVisible="{Binding IsSelectedResultCurrentSolution}" />
+        </Grid>
+    </Grid>
+</UserControl>

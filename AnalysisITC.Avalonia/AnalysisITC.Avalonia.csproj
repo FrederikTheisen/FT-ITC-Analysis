@@ -30,6 +30,8 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\AnalysisITC.Core\AnalysisITC.Core.csproj" />
+    <ProjectReference Include="..\AnalysisITC.Core\AnalysisITC.Core.csproj">
+      <ReferenceSourceTarget></ReferenceSourceTarget>
+    </ProjectReference>
   </ItemGroup>
 </Project>
