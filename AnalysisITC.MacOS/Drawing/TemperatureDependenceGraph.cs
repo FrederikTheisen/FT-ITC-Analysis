@@ -133,24 +133,36 @@ namespace AnalysisITC.UI.MacOS.Drawing
                 case ParameterType.Gibbs2: symbol = SymbolShape.Diamond; fill = false; break;
             }
 
-            DrawPredictionInterval(gc, line, Result.Solution.Solutions.Select(sol => sol.ReportParameters[key]));
-
-            DrawLinFit(gc, line);
+            var envelope = BuildFitEnvelope(key, line);
+            DrawConfidenceBand(gc, envelope);
+            DrawLinFit(gc, envelope);
 
             DrawDataPoints(gc, key, symbol, fill);
         }
 
-        void DrawLinFit(CGContext gc, LinearFitWithError fit)
+        IReadOnlyList<LinearFitEnvelopePoint> BuildFitEnvelope(
+            ParameterType key,
+            LinearFitWithError fit)
         {
-            var offset = fit.ReferenceT;
-            var xmin = CelsiusTemperature(XAxis.Min) - offset;
-            var xmax = CelsiusTemperature(XAxis.Max) - offset;
-            var y0 = fit.Slope * xmin + fit.Intercept;
-            var y1 = fit.Slope * xmax + fit.Intercept;
+            var bootstrapFits = (Result.Solution.BootstrapSolutions ?? new List<GlobalSolution>())
+                .Where(solution => solution?.TemperatureDependence?.ContainsKey(key) == true)
+                .Select(solution => solution.TemperatureDependence[key])
+                .ToList();
+            var samples = LinearFitEnvelopeBuilder.SampleDomain(
+                CelsiusTemperature(XAxis.Min),
+                CelsiusTemperature(XAxis.Max));
+
+            return LinearFitEnvelopeBuilder.Build(fit, bootstrapFits, samples);
+        }
+
+        void DrawLinFit(CGContext gc, IReadOnlyList<LinearFitEnvelopePoint> envelope)
+        {
+            if (envelope == null || envelope.Count < 2) return;
 
             var path = new CGPath();
-            path.MoveToPoint(GetRelativePosition(XAxis.Min, y0));
-            path.AddLineToPoint(GetRelativePosition(XAxis.Max, y1));
+            path.MoveToPoint(GetRelativePosition(DisplayTemperature(envelope[0].X), envelope[0].Center));
+            for (var index = 1; index < envelope.Count; index++)
+                path.AddLineToPoint(GetRelativePosition(DisplayTemperature(envelope[index].X), envelope[index].Center));
 
             var layer = CGLayer.Create(gc, PlotSize);
             layer.Context.SetStrokeColor(StrokeColor);
@@ -204,67 +216,20 @@ namespace AnalysisITC.UI.MacOS.Drawing
             gc.DrawLayer(layer, Origin);
         }
 
-        double ComputeConfidenceBand(double dx, IEnumerable<FloatWithError> var)
+        void DrawConfidenceBand(
+            CGContext gc,
+            IReadOnlyList<LinearFitEnvelopePoint> envelope)
         {
-            var n = Result.Solution.Solutions.Count;
-            var dx2 = dx * dx;
+            var points = envelope?.Where(point => point.HasBand).ToList();
+            if (points == null || points.Count < 2) return;
 
-            var sy = Math.Sqrt(var.Select(s =>
-            {
-                var v = s.SD;
-                return v * v;
-            }).Sum() / (n - 2));
-
-            var sx = Result.Solution.Solutions.Select(s => Math.Pow(s.Temp - Result.Solution.Model.MeanTemperature, 2)).Sum() / (n - 2);
-            var t = 1.96;
-
-            return t * sy * Math.Sqrt(1 + 1 / n + dx2 / sx);
-        }
-
-        double ComputeConfidenceBand2(double dx, IEnumerable<FloatWithError> var)
-        {
-            var n = Result.Solution.Solutions.Count;
-            var dx2 = dx * dx;
-
-            var sy = Math.Sqrt(Result.Solution.Solutions.Select(s =>
-            {
-                var v = s.Loss;
-                return v;
-            }).Sum() / (n - 2));
-
-            var sx = Math.Sqrt(Result.Solution.Solutions.Select(s => Math.Pow(s.Temp - Result.Solution.Model.MeanTemperature, 2)).Sum() / (n - 2));
-            var t = 1.96;
-
-            return t * sy * Math.Sqrt(1 + 1 / n + dx2 / (sx * sx));
-        }
-
-        void DrawPredictionInterval(CGContext gc, LinearFitWithError line, IEnumerable<FloatWithError> values)
-        {
-            var top = new List<CGPoint>();
-            var bottom = new List<CGPoint>();
-            var xrange = XAxis.Max - XAxis.Min;
-            var xpoints = new List<double>();
-
-            for (var x = XAxis.Min; x < XAxis.Max; x += 0.5f) { xpoints.Add(x); }
-            xpoints.Add(XAxis.Max); 
-
-            foreach (var x in xpoints)
-            {
-                var dx = CelsiusTemperature(x)
-                    - Result.Solution.Model.MeanTemperature;
-                var e = ComputeConfidenceBand(dx, values);
-                var val = line.Slope * dx + line.Intercept;
-                var max = val + e;
-                var min = val - e;
-
-                top.Add(new CGPoint(GetRelativePosition(x, max)));
-                bottom.Add(new CGPoint(GetRelativePosition(x, min)));
-            }
-
-            bottom.Reverse();
-
-            CGPath path = GetSplineFromPoints(top.ToArray());
-            GetSplineFromPoints(bottom.ToArray(), path);
+            var path = new CGPath();
+            path.MoveToPoint(GetRelativePosition(DisplayTemperature(points[0].X), points[0].Upper));
+            for (var index = 1; index < points.Count; index++)
+                path.AddLineToPoint(GetRelativePosition(DisplayTemperature(points[index].X), points[index].Upper));
+            for (var index = points.Count - 1; index >= 0; index--)
+                path.AddLineToPoint(GetRelativePosition(DisplayTemperature(points[index].X), points[index].Lower));
+            path.CloseSubpath();
 
             var layer = CGLayer.Create(gc, PlotSize);
             layer.Context.SetFillColor(new CGColor(StrokeColor, .25f));
