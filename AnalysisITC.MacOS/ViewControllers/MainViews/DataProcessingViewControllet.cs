@@ -11,6 +11,7 @@ using AnalysisITC.Core.Application;
 using AnalysisITC.Core.Data;
 using AnalysisITC.Core.Processing;
 using AnalysisITC.Core.Utilities;
+using AnalysisITC.UI.MacOS.Drawing;
 
 namespace AnalysisITC
 {
@@ -817,14 +818,18 @@ namespace AnalysisITC
         {
             UpdateSliderLabels();
 
-            UpdateIntegrationStartTime(IntegrationDelayControl.FloatValue);
+            var sliderEvent = new NSSliderEvent();
+            var refreshBaseline = !sliderEvent.DidStartDragging && !sliderEvent.IsDragging;
+            UpdateIntegrationStartTime(IntegrationDelayControl.FloatValue, refreshBaseline);
         }
 
         partial void IntegrationLengthSliderChanged(NSSlider sender)
         {
             UpdateSliderLabels();
 
-            UpdateIntegrationEndPoint(time_or_factor: GetLengthSliderParameter());
+            var sliderEvent = new NSSliderEvent();
+            var refreshBaseline = !sliderEvent.DidStartDragging && !sliderEvent.IsDragging;
+            UpdateIntegrationEndPoint(time_or_factor: GetLengthSliderParameter(), refreshBaseline: refreshBaseline);
         }
 
         float GetLengthSliderParameter() => Processor.IntegrationLengthMode switch
@@ -844,9 +849,9 @@ namespace AnalysisITC
             return (float)(Math.Log(value, 5) * IntegrationLengthControl.MaxValue);
         }
 
-        async void UpdateIntegrationEndPoint(float time_or_factor)
+        async void UpdateIntegrationEndPoint(float time_or_factor, bool refreshBaseline = true)
         {
-            if (!ContextIsValid) return;
+            if (!ContextIsValid || Processor.IsLocked) return;
 
             try
             {
@@ -871,11 +876,12 @@ namespace AnalysisITC
                         return;
                 }
 
-                if (DiscardIntegratedPoints) UpdateProcessing();
-
                 BaselineGraphView.Invalidate();
 
-                Data.Processor.IntegratePeaks();
+                if (refreshBaseline && DiscardIntegratedPoints)
+                    UpdateProcessing();
+                else
+                    Data.Processor.IntegratePeaks(invalidate: refreshBaseline, notify: refreshBaseline);
             }
             catch (Exception ex)
             {
@@ -889,21 +895,23 @@ namespace AnalysisITC
             PeakFitStatus.CycleResolved => "Peaks fitted; a stable cycle was resolved",
             PeakFitStatus.NonConvergent => "Peak fitting did not converge; integration regions were unchanged",
             PeakFitStatus.NoData => "No peak data available to fit",
+            PeakFitStatus.Locked => "Peak fitting skipped because processing is locked",
             _ => "Peak fitting failed; integration regions were unchanged",
         };
 
-        void UpdateIntegrationStartTime(float delay)
+        void UpdateIntegrationStartTime(float delay, bool refreshBaseline = true)
         {
-            if (!ContextIsValid) return;
+            if (!ContextIsValid || Processor.IsLocked) return;
 
             if (BaselineGraphView.SelectedPeak == -1) Data.Injections.ForEach(inj => inj.SetIntegrationStartTime(delay));
             else Data.Injections[BaselineGraphView.SelectedPeak].SetIntegrationStartTime(delay);
 
-            if (DiscardIntegratedPoints) UpdateProcessing();
-
             BaselineGraphView.Invalidate();
 
-            Data.Processor.IntegratePeaks();
+            if (refreshBaseline && DiscardIntegratedPoints)
+                UpdateProcessing();
+            else
+                Data.Processor.IntegratePeaks(invalidate: refreshBaseline, notify: refreshBaseline);
         }
 
         #endregion
@@ -985,7 +993,7 @@ namespace AnalysisITC
 
         partial void CopyToNextButtonAction(NSObject sender)
         {
-            if (!ContextIsValid) return;
+            if (!ContextIsValid || Processor.IsLocked) return;
 
             int selected = BaselineGraphView?.SelectedPeak ?? -1;
 
