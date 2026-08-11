@@ -88,9 +88,9 @@ namespace AnalysisITC.Avalonia
                 return;
             }
 
-            var graph = GraphLayout.Create(context, bounds, view, Power);
+            var graph = GraphLayout.Create(context, bounds, view, Power, Experiment);
 
-            context.DrawRectangle(GraphTheme.PlotBrush, GraphTheme.FramePen, graph.Plot);
+            context.DrawRectangle(GraphTheme.PlotBrush, null, graph.Plot);
 
             if (Experiment?.HasThermogram != true || !hasView)
             {
@@ -99,9 +99,11 @@ namespace AnalysisITC.Avalonia
             }
 
             DrawGrid(context, graph);
+            DrawTemperature(context, graph);
             DrawSeries(context, graph);
             DrawInjections(context, graph);
             DrawAxes(context, graph);
+            context.DrawRectangle(null, GraphTheme.FramePen, graph.Plot);
             DrawHover(context, graph);
         }
 
@@ -111,7 +113,7 @@ namespace AnalysisITC.Avalonia
 
             if (!hasView) return;
 
-            var graph = GraphLayout.Create(null, Bounds, view, Power);
+            var graph = GraphLayout.Create(null, Bounds, view, Power, Experiment);
             var point = e.GetPosition(this);
             if (!graph.Plot.Contains(point)) return;
 
@@ -131,7 +133,7 @@ namespace AnalysisITC.Avalonia
 
             if (!hasView) return;
 
-            var graph = GraphLayout.Create(null, Bounds, view, Power);
+            var graph = GraphLayout.Create(null, Bounds, view, Power, Experiment);
             var point = e.GetPosition(this);
             if (!graph.Plot.Contains(point)) return;
 
@@ -153,7 +155,7 @@ namespace AnalysisITC.Avalonia
                 return;
             }
 
-            var graph = GraphLayout.Create(null, Bounds, view, Power);
+            var graph = GraphLayout.Create(null, Bounds, view, Power, Experiment);
             var point = e.GetPosition(this);
 
             if (isPanning)
@@ -245,6 +247,9 @@ namespace AnalysisITC.Avalonia
             context.DrawLine(GraphTheme.AxisPen, new Point(graph.Plot.Left, graph.Plot.Bottom), new Point(graph.Plot.Right, graph.Plot.Bottom));
             context.DrawLine(GraphTheme.AxisPen, new Point(graph.Plot.Left, graph.Plot.Top), new Point(graph.Plot.Left, graph.Plot.Bottom));
 
+            if (graph.Temperature.HasValue)
+                DrawTemperatureAxis(context, graph, graph.Temperature.Value);
+
             foreach (var tick in graph.XTicks.Major)
             {
                 if (!view.ContainsX(tick)) continue;
@@ -265,6 +270,69 @@ namespace AnalysisITC.Avalonia
 
             DrawCenteredText(context, "Time (s)", new Point(graph.Plot.Left + graph.Plot.Width / 2, graph.Plot.Bottom + AvaloniaGraphSettings.XAxisTitleOffset), AvaloniaGraphSettings.AxisTitleFontSize, GraphTheme.TextBrush);
             DrawText(context, $"Power ({Power.UnitLabel})", new Point(graph.Plot.Left, graph.Plot.Top - AvaloniaGraphSettings.AxisTitleOffset), AvaloniaGraphSettings.AxisTitleFontSize, FontWeight.SemiBold, GraphTheme.TextBrush);
+        }
+
+        void DrawTemperature(DrawingContext context, GraphLayout graph)
+        {
+            if (!graph.Temperature.HasValue || Experiment?.DataPoints is not { Count: > 1 } points) return;
+
+            var axis = graph.Temperature.Value;
+            var geometry = new StreamGeometry();
+            var hasPoint = false;
+
+            using (var stream = geometry.Open())
+            {
+                for (var index = 0; index < points.Count; index += 10)
+                {
+                    var point = points[index];
+                    if (!view.ContainsX(point.Time)) continue;
+
+                    var screen = new Point(graph.Transform.X(point.Time), axis.Y(graph.Plot, point.Temperature));
+                    if (!hasPoint)
+                    {
+                        stream.BeginFigure(screen, false);
+                        hasPoint = true;
+                    }
+                    else
+                    {
+                        stream.LineTo(screen);
+                    }
+                }
+
+                var finalPoint = points[^1];
+                if (view.ContainsX(finalPoint.Time))
+                {
+                    var screen = new Point(graph.Transform.X(finalPoint.Time), axis.Y(graph.Plot, finalPoint.Temperature));
+                    if (!hasPoint) stream.BeginFigure(screen, false);
+                    else stream.LineTo(screen);
+                }
+            }
+
+            if (!hasPoint) return;
+
+            using (context.PushClip(graph.Plot))
+                context.DrawGeometry(null, GraphTheme.TemperaturePen, geometry);
+        }
+
+        void DrawTemperatureAxis(DrawingContext context, GraphLayout graph, TemperatureAxis axis)
+        {
+            context.DrawLine(GraphTheme.AxisPen, new Point(graph.Plot.Right, graph.Plot.Top), new Point(graph.Plot.Right, graph.Plot.Bottom));
+
+            foreach (var tick in axis.Ticks.Major)
+            {
+                if (!axis.Contains(tick)) continue;
+
+                var y = Crisp(axis.Y(graph.Plot, tick));
+                context.DrawLine(GraphTheme.AxisPen, new Point(graph.Plot.Right, y), new Point(graph.Plot.Right + AvaloniaGraphSettings.TickLength, y));
+                DrawText(context, axis.Ticks.Format(tick), new Point(graph.Plot.Right + AvaloniaGraphSettings.TickLabelOffset, y - AvaloniaGraphSettings.YTickLabelYOffset), AvaloniaGraphSettings.TickLabelFontSize, FontWeight.Normal, GraphTheme.MutedTextBrush);
+            }
+
+            var title = CreateText("Temperature (°C)", AvaloniaGraphSettings.AxisTitleFontSize, FontWeight.SemiBold, GraphTheme.TextBrush);
+            var center = new Point(
+                graph.Plot.Right + AvaloniaGraphSettings.TickLength + AvaloniaGraphSettings.TickLabelOffset + axis.LabelWidth + AvaloniaGraphSettings.AxisTitleOffset,
+                graph.Plot.Top + graph.Plot.Height / 2);
+            using (context.PushTransform(Matrix.CreateRotation(Math.PI / 2, center)))
+                context.DrawText(title, new Point(center.X - title.Width / 2, center.Y - title.Height / 2));
         }
 
         void DrawSeries(DrawingContext context, GraphLayout graph)
@@ -384,7 +452,7 @@ namespace AnalysisITC.Avalonia
             {
                 $"Time: {data.Time:F1} s",
                 $"Power: {Power.Format(Power.Convert(data.Power))}",
-                $"Temp: {data.Temperature:F3} C"
+                $"Temp: {data.Temperature:F3} °C"
             };
 
             DrawInfoBox(context, lines, graph.Plot, screen);
@@ -555,19 +623,22 @@ namespace AnalysisITC.Avalonia
             public PlotTransform Transform { get; }
             public AxisTicks XTicks { get; }
             public AxisTicks YTicks { get; }
+            public TemperatureAxis? Temperature { get; }
 
-            GraphLayout(Rect plot, PlotTransform transform, AxisTicks xTicks, AxisTicks yTicks)
+            GraphLayout(Rect plot, PlotTransform transform, AxisTicks xTicks, AxisTicks yTicks, TemperatureAxis? temperatureAxis)
             {
                 Plot = plot;
                 Transform = transform;
                 XTicks = xTicks;
                 YTicks = yTicks;
+                Temperature = temperatureAxis;
             }
 
-            public static GraphLayout Create(DrawingContext? context, Rect bounds, GraphViewport view, PowerDisplay power)
+            public static GraphLayout Create(DrawingContext? context, Rect bounds, GraphViewport view, PowerDisplay power, ExperimentData? experiment)
             {
                 var xTicks = AxisTicks.Create(view.XMin, view.XMax, Math.Max(4, Math.Min(9, (int)(bounds.Width / AvaloniaGraphSettings.ThermogramXTickDivisor))));
                 var yTicks = AxisTicks.Create(view.YMin, view.YMax, Math.Max(4, Math.Min(8, (int)(bounds.Height / AvaloniaGraphSettings.ThermogramYTickDivisor))));
+                var temperatureAxis = global::AnalysisITC.Avalonia.ThermogramGraphControl.TemperatureAxis.Create(experiment);
 
                 var yLabelWidth = yTicks.Major.Count == 0
                     ? AvaloniaGraphSettings.YLabelFallbackWidth
@@ -576,6 +647,17 @@ namespace AnalysisITC.Avalonia
                 var left = Math.Max(AvaloniaGraphSettings.GraphMarginLeftMinimum, yLabelWidth + AvaloniaGraphSettings.GraphMarginLeftTickBuffer);
                 double top = AvaloniaGraphSettings.GraphMarginTop;
                 double right = AvaloniaGraphSettings.GraphMarginRight;
+                if (temperatureAxis.HasValue)
+                {
+                    var labelWidth = temperatureAxis.Value.LabelWidth;
+                    right = Math.Max(
+                        right,
+                        AvaloniaGraphSettings.TickLength
+                        + AvaloniaGraphSettings.TickLabelOffset
+                        + labelWidth
+                        + AvaloniaGraphSettings.AxisTitleOffset
+                        + AvaloniaGraphSettings.AxisTitleFontSize);
+                }
                 double bottom = AvaloniaGraphSettings.GraphMarginBottom;
 
                 var plot = new Rect(
@@ -584,12 +666,69 @@ namespace AnalysisITC.Avalonia
                     Math.Max(1, bounds.Width - left - right),
                     Math.Max(1, bounds.Height - top - bottom));
 
-                return new GraphLayout(plot, new PlotTransform(plot, view), xTicks, yTicks);
+                return new GraphLayout(plot, new PlotTransform(plot, view), xTicks, yTicks, temperatureAxis);
             }
 
             static Size MeasureText(string text, double size)
             {
                 var formatted = CreateText(text, size, FontWeight.Normal, GraphTheme.TextBrush);
+                return new Size(formatted.Width, formatted.Height);
+            }
+        }
+
+        readonly struct TemperatureAxis
+        {
+            public double Min { get; }
+            public double Max { get; }
+            public AxisTicks Ticks { get; }
+            public double LabelWidth { get; }
+
+            TemperatureAxis(double min, double max, AxisTicks ticks, double labelWidth)
+            {
+                Min = min;
+                Max = max;
+                Ticks = ticks;
+                LabelWidth = labelWidth;
+            }
+
+            public static TemperatureAxis? Create(ExperimentData? experiment)
+            {
+                var points = experiment?.DataPoints;
+                if (points is not { Count: > 0 }) return null;
+
+                var temperatures = points
+                    .Select(point => (double)point.Temperature)
+                    .Where(double.IsFinite)
+                    .ToArray();
+                if (temperatures.Length == 0) return null;
+
+                var target = experiment!.TargetTemperature;
+                if (!double.IsFinite(target)) target = temperatures.Average();
+
+                var delta = temperatures.Max(value => Math.Abs(value - target));
+                if (delta < 1e-6) delta = 0.5;
+
+                var unbufferedMin = target - delta;
+                var unbufferedMax = target + delta;
+                var buffer = (unbufferedMax - unbufferedMin) * 0.035;
+                var min = unbufferedMin - buffer;
+                var max = unbufferedMax + buffer;
+                var ticks = AxisTicks.Create(min, max, 5);
+                var labelWidth = ticks.Major.Count == 0
+                    ? AvaloniaGraphSettings.YLabelFallbackWidth
+                    : ticks.Major.Max(tick => MeasureText(ticks.Format(tick), AvaloniaGraphSettings.TickLabelFontSize).Width);
+
+                return new TemperatureAxis(min, max, ticks, labelWidth);
+            }
+
+            public bool Contains(double value) => value >= Min && value <= Max;
+
+            public double Y(Rect plot, double value) =>
+                plot.Bottom - (value - Min) / Math.Max(double.Epsilon, Max - Min) * plot.Height;
+
+            static Size MeasureText(string text, double size)
+            {
+                var formatted = CreateText(text, size, FontWeight.Normal, GraphTheme.TemperatureBrush);
                 return new Size(formatted.Width, formatted.Height);
             }
         }
