@@ -63,6 +63,59 @@ namespace AnalysisITC.Core.Tests
             Assert.All(restored.Injections, injection => Assert.True(injection.IsIntegrated));
         }
 
+        [Theory]
+        [InlineData(ExperimentDateSource.DataFile)]
+        [InlineData(ExperimentDateSource.FileSystem)]
+        public async Task ProjectRoundTripsPreserveExperimentDateSource(ExperimentDateSource source)
+        {
+            var experiment = await LoadExperiment("one-set.ftitc");
+            experiment.DateSource = source;
+
+            using var legacy = new MemoryStream();
+            await FTITCWriter.WriteStream(legacy, new[] { experiment });
+            legacy.Position = 0;
+            var legacyRestored = Assert.Single((await FTITCReader.ReadStream(legacy)).OfType<ExperimentData>());
+
+            using var package = new MemoryStream();
+            await FTXTCWriter.WriteStream(package, new[] { experiment });
+            package.Position = 0;
+            var packageRestored = Assert.Single((await FTXTCReader.ReadStream(package)).OfType<ExperimentData>());
+
+            Assert.Equal(source, legacyRestored.DateSource);
+            Assert.Equal(source, packageRestored.DateSource);
+        }
+
+        [Fact]
+        public async Task LegacyProjectWithoutDateSourceLeavesOverviewDateUnannotated()
+        {
+            var experiment = await LoadExperiment("one-set.ftitc");
+
+            Assert.Equal(ExperimentDateSource.Unknown, experiment.DateSource);
+            var dateLine = Assert.Single(experiment.GetInfoString(), line => line.Contains("**Date:**"));
+            Assert.DoesNotContain("from data file", dateLine);
+            Assert.DoesNotContain("from file system", dateLine);
+        }
+
+        [Fact]
+        public async Task OverviewDateAnnotatesKnownDateSource()
+        {
+            var experiment = await LoadExperiment("one-set.ftitc");
+            experiment.DateSource = ExperimentDateSource.DataFile;
+
+            var dateLine = Assert.Single(experiment.GetInfoString(), line => line.Contains("**Date:**"));
+
+            Assert.Contains("from data file", dateLine);
+        }
+
+        [Fact]
+        public async Task OverviewOmitsUnknownFeedbackMode()
+        {
+            var experiment = await LoadExperiment("one-set.ftitc");
+            experiment.FeedBackMode = FeedbackMode.Null;
+
+            Assert.DoesNotContain(experiment.GetInfoString(), line => line.Contains("Feedback Mode"));
+        }
+
         [Fact]
         public void DataPointCopiesAndBaselineSubtractionRetainCoreValues()
         {
