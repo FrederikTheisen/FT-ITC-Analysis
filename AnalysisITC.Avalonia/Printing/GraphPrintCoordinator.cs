@@ -31,16 +31,12 @@ internal static class GraphPrintCoordinator
             using var payload = await target.CaptureAsync();
             var backend = BackendFactoryOverride?.Invoke() ?? CreateBackend();
             var outcome = await PrintPreparedAsync(owner, payload, backend);
-            StatusBarManager.SetStatus(outcome switch
-            {
-                PrintOutcome.Printed => "Print job submitted",
-                PrintOutcome.Saved => "PDF saved",
-                _ => "Printing canceled"
-            }, 3000);
+            ReportOutcome(outcome);
         }
         catch (Exception ex)
         {
             AppEventHandler.DisplayHandledException(ex);
+            StatusBarManager.ClearAppStatus();
             StatusBarManager.SetStatus($"Printing failed: {ex.Message}", 5000);
         }
     }
@@ -50,6 +46,17 @@ internal static class GraphPrintCoordinator
         GraphPrintPayload payload,
         IGraphPrintBackend backend)
         => backend.PrintAsync(owner, payload);
+
+    internal static void ReportOutcome(PrintOutcome outcome, int duration = 3000)
+    {
+        StatusBarManager.ClearAppStatus();
+        StatusBarManager.SetStatus(outcome switch
+        {
+            PrintOutcome.Printed => "Print job submitted",
+            PrintOutcome.Saved => "PDF saved",
+            _ => "Printing canceled"
+        }, duration);
+    }
 
     static IGraphPrintBackend CreateBackend()
     {
