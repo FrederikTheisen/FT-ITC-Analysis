@@ -15,8 +15,8 @@ namespace AnalysisITC.Core.DataReaders
         {
             var experiment = new ExperimentData(Path.GetFileName(path));
             experiment.Date = File.GetLastWriteTimeUtc(path);
+            experiment.DateSource = ExperimentDateSource.FileSystem;
             experiment.DataSourceFormat = ITCDataFormat.TAITC;
-            experiment.FeedBackMode = FeedbackMode.High;
             experiment.StirringSpeed = -1;
 
             using (var stream = new StreamReader(path))

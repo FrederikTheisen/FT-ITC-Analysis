@@ -488,6 +488,7 @@ namespace AnalysisITC.Core.Application
                 TargetPowerDiff = data.TargetPowerDiff,
                 MeasuredTemperature = data.MeasuredTemperature,
                 Date = data.Date,
+                DateSource = data.DateSource,
             };
             newdata.IterateCopyName();
 
@@ -769,17 +770,39 @@ namespace AnalysisITC.Core.Application
         {
             if (Current == null) return;
 
-            token = token?.Trim().ToLower();
+            token = token?.Trim();
             if (string.IsNullOrWhiteSpace(token)) return;
 
             var opt = Current.Attributes;
-            var target = Data.Where(d => d != Current && d.Name.ToLower().Contains(token)).ToList();
+            var target = Data
+                .Where(d => d != Current && (d.Name ?? "").IndexOf(token, StringComparison.OrdinalIgnoreCase) >= 0)
+                .ToList();
 
             var copied = CopyAttributesTo(opt, target, clear);
             StatusBarManager.SetStatus(
                 copied > 0
                     ? $"Copied attributes to {copied} experiment{(copied == 1 ? "" : "s")} matching \"{token}\""
                     : $"No experiments matched \"{token}\"",
+                4000);
+        }
+
+        public static void CopySelectedAttributeToNameToken(ExperimentAttribute attribute, string token)
+        {
+            if (Current == null || attribute == null || !Current.Attributes.Contains(attribute)) return;
+
+            token = token?.Trim();
+            if (string.IsNullOrWhiteSpace(token)) return;
+
+            var target = Data
+                .Where(d => d != Current && (d.Name ?? "").IndexOf(token, StringComparison.OrdinalIgnoreCase) >= 0)
+                .ToList();
+            var copied = CopyAttributesTo(new List<ExperimentAttribute> { attribute }, target);
+            var attributeName = attribute.GetDisplayName();
+
+            StatusBarManager.SetStatus(
+                copied > 0
+                    ? $"Copied {attributeName} to {copied} experiment{(copied == 1 ? "" : "s")} matching \"{token}\""
+                    : $"No experiments matched \"{token}\" for {attributeName} copy",
                 4000);
         }
 

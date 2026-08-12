@@ -342,6 +342,7 @@ namespace AnalysisITC.Core.DataReaders
                     DataPoints = context.LocalPoints,
                     BaseLineCorrectedDataPoints = context.LocalPoints.Select(point => point.Copy()).ToList(),
                     Date = File.GetCreationTime(SourcePath),
+                    DateSource = ExperimentDateSource.FileSystem,
                     Comments = BuildImportComment(metadata),
                 };
 

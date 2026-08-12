@@ -7,6 +7,13 @@ using AnalysisITC.Core.Utilities;
 
 namespace AnalysisITC.Core.Data
 {
+    public enum ExperimentDateSource
+    {
+        Unknown,
+        DataFile,
+        FileSystem,
+    }
+
     public class ITCDataContainer
     {
         private static readonly CultureInfo UICulture = EnglishWithLocalFormats();
@@ -42,10 +49,17 @@ namespace AnalysisITC.Core.Data
                 MarkModified();
             }
         }
+        public ExperimentDateSource DateSource { get; set; } = ExperimentDateSource.Unknown;
         public bool IsModified => isModified;
 
         public string UILongDateWithTime => GetLongDateString();// + " " + Date.ToString("HH:mm:ss");
         public string UIShortDateWithTime => GetShortDateString();
+        public string UIDateSourceSuffix => DateSource switch
+        {
+            ExperimentDateSource.DataFile => " (from data file)",
+            ExperimentDateSource.FileSystem => " (from file system)",
+            _ => ""
+        };
 
         public void SetID(string id) => UniqueID = id;
 

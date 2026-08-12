@@ -31,6 +31,7 @@ namespace AnalysisITC.Core.DataReaders
 
             var experiment = new ExperimentData(Path.GetFileName(fileName ?? "uploaded.itc"));
             experiment.Date = fallbackDate ?? default(DateTime);
+            experiment.DateSource = fallbackDate.HasValue ? ExperimentDateSource.FileSystem : ExperimentDateSource.Unknown;
             experiment.DataSourceFormat = ITCDataFormat.ITC200;
 
             using (var reader = new StreamReader(stream, System.Text.Encoding.UTF8, true, 4096, leaveOpen: true))
@@ -106,7 +107,11 @@ namespace AnalysisITC.Core.DataReaders
 
                                 var b = DateTime.TryParse(datestr, new System.Globalization.CultureInfo("en-US", false), System.Globalization.DateTimeStyles.AllowWhiteSpaces, out DateTime date);
 
-                                if (b) experiment.Date = date;
+                                if (b)
+                                {
+                                    experiment.Date = date;
+                                    experiment.DateSource = ExperimentDateSource.DataFile;
+                                }
                             }
                         }
                     }

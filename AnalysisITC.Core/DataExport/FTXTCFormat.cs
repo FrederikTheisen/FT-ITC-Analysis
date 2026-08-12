@@ -157,6 +157,7 @@ namespace AnalysisITC.Core.Export
         public string FileName { get; set; }
         public string Name { get; set; }
         public DateTime Date { get; set; }
+        public string DateSource { get; set; }
         public string Comments { get; set; }
         public bool Included { get; set; }
         public string SourceFormat { get; set; }
@@ -931,6 +932,7 @@ namespace AnalysisITC.Core.Export
             FileName = experiment.FileName,
             Name = experiment.Name,
             Date = experiment.Date,
+            DateSource = DateSourceId(experiment.DateSource),
             Comments = experiment.Comments,
             Included = experiment.Include,
             SourceFormat = DataFormatId(experiment.DataSourceFormat),
@@ -1287,6 +1289,9 @@ namespace AnalysisITC.Core.Export
         };
         static string FeedbackId(FeedbackMode value) => value switch
         { FeedbackMode.Null => "unknown", FeedbackMode.None => "none", FeedbackMode.Low => "low", FeedbackMode.High => "high", _ => throw new NotSupportedException() };
+
+        static string DateSourceId(ExperimentDateSource value) => value switch
+        { ExperimentDateSource.Unknown => null, ExperimentDateSource.DataFile => "data-file", ExperimentDateSource.FileSystem => "file-system", _ => throw new NotSupportedException() };
         static string HeatDirectionId(PeakHeatDirection value) => value switch
         { PeakHeatDirection.Unknown => "unknown", PeakHeatDirection.Exothermal => "exothermal", PeakHeatDirection.Endothermal => "endothermal", PeakHeatDirection.Both => "both", _ => throw new NotSupportedException() };
         static string SplineAlgorithmId(SplineInterpolator.SplineInterpolatorAlgorithm value) => value switch

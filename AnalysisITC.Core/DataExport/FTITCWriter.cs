@@ -39,6 +39,7 @@ namespace AnalysisITC.Core.Export
         public const string FileName = "FileName";
         public const string Comments = "Comments";
         public const string Date = "Date";
+        public const string DateSource = "DateSource";
         public const string SourceFormat = "Source";
         public const string Instrument = "Instrument";
         public const string SyringeConcentration = "SyringeConcentration";
@@ -579,6 +580,7 @@ namespace AnalysisITC.Core.Export
                 Variable(AssignedName, EncodeText(data.Name)),
                 Variable(ID, data.UniqueID),
                 Variable(Date, data.Date.ToString("O", CultureInfo.InvariantCulture)),
+                Variable(DateSource, (int)data.DateSource),
                 Variable(SourceFormat, (int)data.DataSourceFormat),
                 Variable(Comments, EncodeText(data.Comments)),
                 Variable(Include, data.Include),

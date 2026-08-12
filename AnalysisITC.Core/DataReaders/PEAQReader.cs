@@ -110,6 +110,7 @@ namespace AnalysisITC.Core.DataReaders
             var experiment = new ExperimentData(Path.GetFileName(path))
             {
                 Date = parseddate ? date : File.GetCreationTime(path),
+                DateSource = parseddate ? ExperimentDateSource.DataFile : ExperimentDateSource.FileSystem,
                 DataSourceFormat = ITCDataFormat.PEAQITCProject,
                 CellVolume = cellVolume,
                 CellConcentration = new FloatWithError((float)cellConcentration),

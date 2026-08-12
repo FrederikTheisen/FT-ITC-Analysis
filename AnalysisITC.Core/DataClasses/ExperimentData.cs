@@ -717,7 +717,7 @@ namespace AnalysisITC.Core.Data
 
             info.Add("**Filename:** " + this.FileName);
             info.Add("  **Format:** " + this.DataSourceFormat.GetProperties().Name);
-            info.Add("  **Date:** " + this.UILongDateWithTime);
+            info.Add("  **Date:** " + this.UILongDateWithTime + this.UIDateSourceSuffix);
             if (this.Duration > TimeSpan.FromSeconds(1))
                 info.Add($"  **Duration:** {this.Duration.ToReadableString()} | {this.DataPoints.Count} points | {this.TimeStep:F1}s sampling");
 

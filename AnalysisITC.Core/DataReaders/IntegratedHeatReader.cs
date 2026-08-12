@@ -127,6 +127,7 @@ namespace AnalysisITC.Core.DataReaders
                 DataPoints = new List<DataPoint>(),                  // no thermogram
                 BaseLineCorrectedDataPoints = new List<DataPoint>(), // avoid null refs
                 Date = File.GetCreationTime(filepath),
+                DateSource = ExperimentDateSource.FileSystem,
                 Instrument = ITCInstrument.Unknown,
                 DataSourceFormat = ITCDataFormat.IntegratedHeats,
                 CellConcentration = new(cCell_M),
@@ -219,6 +220,7 @@ namespace AnalysisITC.Core.DataReaders
                 DataPoints = new List<DataPoint>(),
                 BaseLineCorrectedDataPoints = new List<DataPoint>(),
                 Date = File.GetCreationTime(filepath),
+                DateSource = ExperimentDateSource.FileSystem,
                 Instrument = ITCInstrument.Unknown,
                 DataSourceFormat = ITCDataFormat.IntegratedHeats,
                 CellConcentration = new(metadata.CellConcentration_M),

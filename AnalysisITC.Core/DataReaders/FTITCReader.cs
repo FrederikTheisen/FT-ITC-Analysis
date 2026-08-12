@@ -136,6 +136,8 @@ namespace AnalysisITC.Core.DataReaders
                 if (!string.IsNullOrWhiteSpace(name)) experiment.Name = name;
                 var date = TaggedContent(section, Date);
                 if (!string.IsNullOrWhiteSpace(date)) experiment.SetDate(DTParse(date));
+                var dateSource = TaggedContent(section, DateSource);
+                if (!string.IsNullOrWhiteSpace(dateSource)) experiment.DateSource = (ExperimentDateSource)ParseTaggedInt(section, DateSource, (int)ExperimentDateSource.Unknown);
                 experiment.SyringeConcentration = ParseTaggedFwe(section, SyringeConcentration);
                 experiment.CellConcentration = ParseTaggedFwe(section, CellConcentration);
                 experiment.StirringSpeed = ParseTaggedDouble(section, StirringSpeed);
@@ -343,6 +345,7 @@ namespace AnalysisITC.Core.DataReaders
                     case ID: exp.SetID(value); break;
                     case AssignedName: exp.Name = DecodeText(value); break;
                     case Date: exp.Date = DTParse(value); break;
+                    case DateSource: exp.DateSource = (ExperimentDateSource)IParse(value); break;
                     case SourceFormat: exp.DataSourceFormat = ParseSourceFormat(value, exp.FileName); break;
                     case Comments: exp.Comments = DecodeText(value); break;
                     case SyringeConcentration: exp.SyringeConcentration = FWEParse(value); break;
