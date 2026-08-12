@@ -4,7 +4,7 @@
 <dict>
   <key>CFBundleDevelopmentRegion</key><string>en</string>
   <key>CFBundleDisplayName</key><string>FT-ITC Analysis</string>
-  <key>CFBundleExecutable</key><string>AnalysisITC.Avalonia</string>
+  <key>CFBundleExecutable</key><string>FT-ITC Analysis</string>
   <key>CFBundleIconFile</key><string>AppIcon</string>
   <key>CFBundleIdentifier</key><string>@BUNDLE_ID@</string>
   <key>CFBundleInfoDictionaryVersion</key><string>6.0</string>

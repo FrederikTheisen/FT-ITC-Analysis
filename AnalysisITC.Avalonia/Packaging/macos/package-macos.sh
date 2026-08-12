@@ -56,7 +56,7 @@ cp "$ROOT/Resources/AppIcon.icns" "$APP/Contents/Resources/AppIcon.icns"
 cp "$ROOT/Resources/ProjectFileIcon.icns" "$APP/Contents/Resources/ProjectFileIcon.icns"
 cp "$ROOT/Resources/FTXTCProjectFileIcon.icns" "$APP/Contents/Resources/FTXTCProjectFileIcon.icns"
 sed -e "s|@BUNDLE_ID@|$BUNDLE_ID|g" -e "s|@VERSION@|$VERSION|g" "$SCRIPT_DIR/Info.plist.in" > "$APP/Contents/Info.plist"
-chmod 0755 "$APP/Contents/MacOS/AnalysisITC.Avalonia"
+chmod 0755 "$APP/Contents/MacOS/FT-ITC Analysis"
 plutil -lint "$APP/Contents/Info.plist"
 
 if [[ $UNSIGNED -eq 0 ]]; then

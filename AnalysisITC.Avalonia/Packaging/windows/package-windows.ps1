@@ -76,7 +76,7 @@ if ($NoRestore) { $publishArgs += "--no-restore" }
 & dotnet @publishArgs
 
 if (-not $Unsigned) {
-    Invoke-CodeSign (Join-Path $PublishDir "AnalysisITC.Avalonia.exe")
+    Invoke-CodeSign (Join-Path $PublishDir "FT-ITC Analysis.exe")
 }
 
 New-Item -ItemType Directory -Force (Join-Path $StageDir "Assets") | Out-Null

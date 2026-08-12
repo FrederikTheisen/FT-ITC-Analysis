@@ -88,9 +88,9 @@ cp "$SCRIPT_DIR/org.ft_itc.analysis.png" "$STAGE_DIR/usr/share/icons/hicolor/512
 cp "$SCRIPT_DIR/mimetypes/application-vnd.ftitc.project+zip.png" "$STAGE_DIR/usr/share/icons/hicolor/512x512/mimetypes/"
 cp "$SCRIPT_DIR/mimetypes/application-x-ftitc-project.png" "$STAGE_DIR/usr/share/icons/hicolor/512x512/mimetypes/"
 cp "$ROOT/LICENSE.md" "$STAGE_DIR/usr/share/doc/ft-itc-analysis/copyright"
-chmod 0755 "$STAGE_DIR/usr/lib/ft-itc-analysis/AnalysisITC.Avalonia"
+chmod 0755 "$STAGE_DIR/usr/lib/ft-itc-analysis/FT-ITC Analysis"
 
-ln -s ../lib/ft-itc-analysis/AnalysisITC.Avalonia \
+ln -s "../lib/ft-itc-analysis/FT-ITC Analysis" \
   "$STAGE_DIR/usr/bin/ft-itc-analysis"
 
 cat > "$STAGE_DIR/DEBIAN/control" <<EOF
