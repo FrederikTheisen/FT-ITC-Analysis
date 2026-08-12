@@ -23,12 +23,16 @@ namespace AnalysisITC
         [Outlet] AppKit.NSButton ConfirmDeleteCheck { get; set; }
         [Outlet] AppKit.NSButton DiscardOrphanCheck { get; set; }
         [Outlet] AppKit.NSButton AutoSaveEnabledCheck { get; set; }
-        [Outlet] AppKit.NSTextField AutoSaveIntervalField { get; set; }
+        [Outlet] AppKit.NSSlider AutoSaveIntervalSlider { get; set; }
+        [Outlet] AppKit.NSTextField AutoSaveIntervalValueLabel { get; set; }
         [Outlet] AppKit.NSTextField AutoSaveLimitField { get; set; }
         [Outlet] AppKit.NSButton RecoveryPromptCheck { get; set; }
 
         [Action("autoSaveEnabledChanged:")]
         partial void AutoSaveEnabledChanged(NSObject sender);
+
+        [Action("autoSaveIntervalChanged:")]
+        partial void AutoSaveIntervalChanged(NSObject sender);
 
         [Action("openAutoSaveFolder:")]
         partial void OpenAutoSaveFolder(NSObject sender);
@@ -48,7 +52,8 @@ namespace AnalysisITC
             ConfirmDeleteCheck = Release(ConfirmDeleteCheck);
             DiscardOrphanCheck = Release(DiscardOrphanCheck);
             AutoSaveEnabledCheck = Release(AutoSaveEnabledCheck);
-            AutoSaveIntervalField = Release(AutoSaveIntervalField);
+            AutoSaveIntervalSlider = Release(AutoSaveIntervalSlider);
+            AutoSaveIntervalValueLabel = Release(AutoSaveIntervalValueLabel);
             AutoSaveLimitField = Release(AutoSaveLimitField);
             RecoveryPromptCheck = Release(RecoveryPromptCheck);
         }
@@ -97,9 +102,12 @@ namespace AnalysisITC
         [Outlet] AppKit.NSPopUpButton SolverPopup { get; set; }
         [Outlet] AppKit.NSPopUpButton ErrorMethodPopup { get; set; }
         [Outlet] AppKit.NSPopUpButton ParameterLimitPopup { get; set; }
-        [Outlet] AppKit.NSTextField BootstrapIterationsField { get; set; }
-        [Outlet] AppKit.NSTextField OptimizerToleranceField { get; set; }
-        [Outlet] AppKit.NSTextField MaximumIterationsField { get; set; }
+        [Outlet] AppKit.NSSlider BootstrapIterationsSlider { get; set; }
+        [Outlet] AppKit.NSTextField BootstrapIterationsValueLabel { get; set; }
+        [Outlet] AppKit.NSSlider OptimizerToleranceSlider { get; set; }
+        [Outlet] AppKit.NSTextField OptimizerToleranceValueLabel { get; set; }
+        [Outlet] AppKit.NSSlider MaximumIterationsSlider { get; set; }
+        [Outlet] AppKit.NSTextField MaximumIterationsValueLabel { get; set; }
         [Outlet] AppKit.NSTextField ConcentrationVarianceField { get; set; }
         [Outlet] AppKit.NSButton ConcentrationBootstrapCheck { get; set; }
         [Outlet] AppKit.NSButton WeightedFittingCheck { get; set; }
@@ -107,14 +115,26 @@ namespace AnalysisITC
         [Outlet] AppKit.NSButton CreateGlobalResultCheck { get; set; }
         [Outlet] AppKit.NSButton AutoOpenResultCheck { get; set; }
 
+        [Action("bootstrapIterationsChanged:")]
+        partial void BootstrapIterationsChanged(NSObject sender);
+
+        [Action("optimizerToleranceChanged:")]
+        partial void OptimizerToleranceChanged(NSObject sender);
+
+        [Action("maximumIterationsChanged:")]
+        partial void MaximumIterationsChanged(NSObject sender);
+
         void ReleaseDesignerOutlets()
         {
             SolverPopup = Release(SolverPopup);
             ErrorMethodPopup = Release(ErrorMethodPopup);
             ParameterLimitPopup = Release(ParameterLimitPopup);
-            BootstrapIterationsField = Release(BootstrapIterationsField);
-            OptimizerToleranceField = Release(OptimizerToleranceField);
-            MaximumIterationsField = Release(MaximumIterationsField);
+            BootstrapIterationsSlider = Release(BootstrapIterationsSlider);
+            BootstrapIterationsValueLabel = Release(BootstrapIterationsValueLabel);
+            OptimizerToleranceSlider = Release(OptimizerToleranceSlider);
+            OptimizerToleranceValueLabel = Release(OptimizerToleranceValueLabel);
+            MaximumIterationsSlider = Release(MaximumIterationsSlider);
+            MaximumIterationsValueLabel = Release(MaximumIterationsValueLabel);
             ConcentrationVarianceField = Release(ConcentrationVarianceField);
             ConcentrationBootstrapCheck = Release(ConcentrationBootstrapCheck);
             WeightedFittingCheck = Release(WeightedFittingCheck);

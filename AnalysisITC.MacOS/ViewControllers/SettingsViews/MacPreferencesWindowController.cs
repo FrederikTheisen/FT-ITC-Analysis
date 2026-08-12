@@ -216,6 +216,50 @@ namespace AnalysisITC
 
         protected static bool IsOn(NSButton checkbox) => checkbox.State == NSCellStateValue.On;
 
+        protected static void ConfigureDiscreteSlider(NSSlider slider, int valueCount)
+        {
+            slider.MinValue = 0;
+            slider.MaxValue = valueCount - 1;
+            slider.TickMarksCount = valueCount;
+            slider.AllowsTickMarkValuesOnly = true;
+            slider.Continuous = true;
+        }
+
+        protected static int NearestIndex(int[] values, int value)
+        {
+            var nearest = 0;
+            var smallestDistance = Math.Abs((long)values[0] - value);
+            for (var index = 1; index < values.Length; index++)
+            {
+                var distance = Math.Abs((long)values[index] - value);
+                if (distance < smallestDistance)
+                {
+                    nearest = index;
+                    smallestDistance = distance;
+                }
+            }
+            return nearest;
+        }
+
+        protected static int NearestIndex(double[] values, double value)
+        {
+            var nearest = 0;
+            var smallestDistance = Math.Abs(values[0] - value);
+            for (var index = 1; index < values.Length; index++)
+            {
+                var distance = Math.Abs(values[index] - value);
+                if (distance < smallestDistance)
+                {
+                    nearest = index;
+                    smallestDistance = distance;
+                }
+            }
+            return nearest;
+        }
+
+        protected static int SliderIndex(NSSlider slider, int valueCount) =>
+            Math.Max(0, Math.Min(valueCount - 1, (int)Math.Round(slider.DoubleValue)));
+
         protected static string Format(double value) => value.ToString("G6", CultureInfo.CurrentCulture);
 
         protected static T[] EnumValues<T>() => Enum.GetValues(typeof(T)).Cast<T>().ToArray();

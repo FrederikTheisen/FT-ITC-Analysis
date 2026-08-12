@@ -20,6 +20,11 @@ namespace AnalysisITC
 {
     public sealed partial class MacGeneralPreferencesViewController : MacPreferencesPaneController
     {
+        static readonly int[] AutoSaveIntervalValues = { 1, 2, 5, 10, 20, 30 };
+
+        int loadedAutoSaveInterval;
+        bool autoSaveIntervalChanged;
+
         public MacGeneralPreferencesViewController(IntPtr handle) : base(handle) { }
 
         internal override int PaneIndex => 0;
@@ -36,6 +41,7 @@ namespace AnalysisITC
             PopulatePopup(UncertaintyPopup, EnumValues<UncertaintyDisplayStyle>(), FriendlyName);
             PopulatePopup(InstrumentPopup, ITCInstrumentAttribute.GetITCInstruments().ToArray(),
                 value => value.GetProperties().Name);
+            ConfigureDiscreteSlider(AutoSaveIntervalSlider, AutoSaveIntervalValues.Length);
             UpdateAutoSaveControls();
         }
 
@@ -54,7 +60,10 @@ namespace AnalysisITC
             Set(ConfirmDeleteCheck, state.ConfirmRemoveDelete);
             Set(DiscardOrphanCheck, state.AutomaticallyDiscardOrphanInjectionsOnLoad);
             Set(AutoSaveEnabledCheck, state.AutoSaveEnabled);
-            AutoSaveIntervalField.IntValue = state.AutoSaveIntervalMinutes;
+            loadedAutoSaveInterval = state.AutoSaveIntervalMinutes;
+            autoSaveIntervalChanged = false;
+            AutoSaveIntervalSlider.DoubleValue = NearestIndex(AutoSaveIntervalValues, loadedAutoSaveInterval);
+            UpdateAutoSaveIntervalLabel();
             AutoSaveLimitField.IntValue = state.AutoSaveFileLimit;
             Set(RecoveryPromptCheck, state.PromptForAutoSaveRecovery);
             UpdateAutoSaveControls();
@@ -68,8 +77,6 @@ namespace AnalysisITC
                 out var minimumTemperatureSpan, out error)) return false;
             if (!ReadDouble(MinimumIonSpanField, "minimum ionic-strength span", 0, 10000,
                 out var minimumIonSpan, out error)) return false;
-            if (!ReadInt(AutoSaveIntervalField, "autosave interval", 1, 60,
-                out var autoSaveInterval, out error)) return false;
             if (!ReadInt(AutoSaveLimitField, "autosave file limit", 1, 100,
                 out var autoSaveLimit, out error)) return false;
 
@@ -86,7 +93,9 @@ namespace AnalysisITC
             state.ConfirmRemoveDelete = IsOn(ConfirmDeleteCheck);
             state.AutomaticallyDiscardOrphanInjectionsOnLoad = IsOn(DiscardOrphanCheck);
             state.AutoSaveEnabled = IsOn(AutoSaveEnabledCheck);
-            state.AutoSaveIntervalMinutes = autoSaveInterval;
+            state.AutoSaveIntervalMinutes = autoSaveIntervalChanged
+                ? AutoSaveIntervalValues[SliderIndex(AutoSaveIntervalSlider, AutoSaveIntervalValues.Length)]
+                : loadedAutoSaveInterval;
             state.AutoSaveFileLimit = autoSaveLimit;
             state.PromptForAutoSaveRecovery = IsOn(RecoveryPromptCheck);
             error = null;
@@ -94,6 +103,12 @@ namespace AnalysisITC
         }
 
         partial void AutoSaveEnabledChanged(NSObject sender) => UpdateAutoSaveControls();
+
+        partial void AutoSaveIntervalChanged(NSObject sender)
+        {
+            autoSaveIntervalChanged = true;
+            UpdateAutoSaveIntervalLabel();
+        }
 
         partial void OpenAutoSaveFolder(NSObject sender)
         {
@@ -113,9 +128,18 @@ namespace AnalysisITC
         {
             if (AutoSaveEnabledCheck == null) return;
             var enabled = IsOn(AutoSaveEnabledCheck);
-            AutoSaveIntervalField.Enabled = enabled;
+            AutoSaveIntervalSlider.Enabled = enabled;
+            AutoSaveIntervalValueLabel.Enabled = enabled;
             AutoSaveLimitField.Enabled = enabled;
             RecoveryPromptCheck.Enabled = enabled;
+        }
+
+        void UpdateAutoSaveIntervalLabel()
+        {
+            var value = autoSaveIntervalChanged
+                ? AutoSaveIntervalValues[SliderIndex(AutoSaveIntervalSlider, AutoSaveIntervalValues.Length)]
+                : loadedAutoSaveInterval;
+            AutoSaveIntervalValueLabel.StringValue = $"{value} min";
         }
     }
 
@@ -132,7 +156,9 @@ namespace AnalysisITC
             PopulatePopup(BufferSubtractionPopup, EnumValues<BufferSubtractionMethod>(),
                 value => value.GetDisplayName());
             PopulatePopup(SplineDensityPopup, EnumValues<SplineInterpolator.SplinePointDensity>(), FriendlyName);
-            PopulatePopup(SplineHandlePopup, EnumValues<SplineInterpolator.SplineHandleMode>(), FriendlyName);
+            PopulatePopup(SplineHandlePopup, EnumValues<SplineInterpolator.SplineHandleMode>()
+                .Where(mode => mode != SplineInterpolator.SplineHandleMode.MinVolatility)
+                .ToArray(), FriendlyName);
         }
 
         internal override void LoadState(MacPreferencesState state)
@@ -164,6 +190,21 @@ namespace AnalysisITC
 
     public sealed partial class MacFittingPreferencesViewController : MacPreferencesPaneController
     {
+        static readonly int[] BootstrapIterationValues =
+            { 10, 50, 100, 200, 500, 1_000, 2_000, 5_000, 10_000 };
+        static readonly int[] MaximumIterationValues =
+            { 1, 10, 100, 1_000, 5_000, 10_000, 20_000, 30_000 };
+        static readonly double[] OptimizerToleranceValues = { 0, 0.25, 0.5, 0.8, 1 };
+        static readonly string[] OptimizerToleranceLabels =
+            { "Fast", "Relaxed", "Balanced", "Strict", "Very Strict" };
+
+        int loadedBootstrapIterations;
+        int loadedMaximumIterations;
+        double loadedOptimizerTolerance;
+        bool bootstrapIterationsChanged;
+        bool maximumIterationsChanged;
+        bool optimizerToleranceChanged;
+
         public MacFittingPreferencesViewController(IntPtr handle) : base(handle) { }
 
         internal override int PaneIndex => 2;
@@ -175,6 +216,9 @@ namespace AnalysisITC
                 value == SolverAlgorithm.NelderMead ? "Nelder–Mead" : "Levenberg–Marquardt");
             PopulatePopup(ErrorMethodPopup, EnumValues<ErrorEstimationMethod>(), value => value.Description());
             PopulatePopup(ParameterLimitPopup, EnumValues<ParameterLimitSetting>(), FriendlyName);
+            ConfigureDiscreteSlider(BootstrapIterationsSlider, BootstrapIterationValues.Length);
+            ConfigureDiscreteSlider(OptimizerToleranceSlider, OptimizerToleranceValues.Length);
+            ConfigureDiscreteSlider(MaximumIterationsSlider, MaximumIterationValues.Length);
         }
 
         internal override void LoadState(MacPreferencesState state)
@@ -182,9 +226,18 @@ namespace AnalysisITC
             SelectPopup(SolverPopup, state.DefaultSolverAlgorithm);
             SelectPopup(ErrorMethodPopup, state.DefaultErrorEstimationMethod);
             SelectPopup(ParameterLimitPopup, state.ParameterLimitSetting);
-            BootstrapIterationsField.IntValue = state.DefaultBootstrapIterations;
-            OptimizerToleranceField.StringValue = Format(state.OptimizerTolerance);
-            MaximumIterationsField.IntValue = state.MaximumOptimizerIterations;
+            loadedBootstrapIterations = state.DefaultBootstrapIterations;
+            loadedOptimizerTolerance = state.OptimizerTolerance;
+            loadedMaximumIterations = state.MaximumOptimizerIterations;
+            bootstrapIterationsChanged = false;
+            optimizerToleranceChanged = false;
+            maximumIterationsChanged = false;
+            BootstrapIterationsSlider.DoubleValue = NearestIndex(BootstrapIterationValues, loadedBootstrapIterations);
+            OptimizerToleranceSlider.DoubleValue = NearestIndex(OptimizerToleranceValues, loadedOptimizerTolerance);
+            MaximumIterationsSlider.DoubleValue = NearestIndex(MaximumIterationValues, loadedMaximumIterations);
+            UpdateBootstrapIterationsLabel();
+            UpdateOptimizerToleranceLabel();
+            UpdateMaximumIterationsLabel();
             ConcentrationVarianceField.StringValue = Format(state.ConcentrationAutoVariance * 100);
             Set(ConcentrationBootstrapCheck, state.IncludeConcentrationErrorsInBootstrap);
             Set(WeightedFittingCheck, state.UseInjectionErrorWeightedFitting);
@@ -195,21 +248,21 @@ namespace AnalysisITC
 
         internal override bool TryUpdateState(MacPreferencesState state, out PreferencesValidationError error)
         {
-            if (!ReadInt(BootstrapIterationsField, "bootstrap iterations", 0, 1_000_000,
-                out var bootstrapIterations, out error)) return false;
-            if (!ReadDouble(OptimizerToleranceField, "optimizer tolerance", 0, 1,
-                out var optimizerTolerance, out error)) return false;
-            if (!ReadInt(MaximumIterationsField, "maximum optimizer iterations", 1, 10_000_000,
-                out var maximumIterations, out error)) return false;
             if (!ReadDouble(ConcentrationVarianceField, "concentration variance", 0, 100,
                 out var concentrationVariance, out error)) return false;
 
             state.DefaultSolverAlgorithm = PopupValue<SolverAlgorithm>(SolverPopup);
             state.DefaultErrorEstimationMethod = PopupValue<ErrorEstimationMethod>(ErrorMethodPopup);
             state.ParameterLimitSetting = PopupValue<ParameterLimitSetting>(ParameterLimitPopup);
-            state.DefaultBootstrapIterations = bootstrapIterations;
-            state.OptimizerTolerance = optimizerTolerance;
-            state.MaximumOptimizerIterations = maximumIterations;
+            state.DefaultBootstrapIterations = bootstrapIterationsChanged
+                ? BootstrapIterationValues[SliderIndex(BootstrapIterationsSlider, BootstrapIterationValues.Length)]
+                : loadedBootstrapIterations;
+            state.OptimizerTolerance = optimizerToleranceChanged
+                ? OptimizerToleranceValues[SliderIndex(OptimizerToleranceSlider, OptimizerToleranceValues.Length)]
+                : loadedOptimizerTolerance;
+            state.MaximumOptimizerIterations = maximumIterationsChanged
+                ? MaximumIterationValues[SliderIndex(MaximumIterationsSlider, MaximumIterationValues.Length)]
+                : loadedMaximumIterations;
             state.ConcentrationAutoVariance = concentrationVariance / 100;
             state.IncludeConcentrationErrorsInBootstrap = IsOn(ConcentrationBootstrapCheck);
             state.UseInjectionErrorWeightedFitting = IsOn(WeightedFittingCheck);
@@ -218,6 +271,44 @@ namespace AnalysisITC
             state.AutoOpenNewAnalysisResult = IsOn(AutoOpenResultCheck);
             error = null;
             return true;
+        }
+
+        partial void BootstrapIterationsChanged(NSObject sender)
+        {
+            bootstrapIterationsChanged = true;
+            UpdateBootstrapIterationsLabel();
+        }
+
+        partial void OptimizerToleranceChanged(NSObject sender)
+        {
+            optimizerToleranceChanged = true;
+            UpdateOptimizerToleranceLabel();
+        }
+
+        partial void MaximumIterationsChanged(NSObject sender)
+        {
+            maximumIterationsChanged = true;
+            UpdateMaximumIterationsLabel();
+        }
+
+        void UpdateBootstrapIterationsLabel()
+        {
+            var value = bootstrapIterationsChanged
+                ? BootstrapIterationValues[SliderIndex(BootstrapIterationsSlider, BootstrapIterationValues.Length)]
+                : loadedBootstrapIterations;
+            BootstrapIterationsValueLabel.StringValue = value.ToString("0");
+        }
+
+        void UpdateOptimizerToleranceLabel() =>
+            OptimizerToleranceValueLabel.StringValue = OptimizerToleranceLabels[
+                SliderIndex(OptimizerToleranceSlider, OptimizerToleranceValues.Length)];
+
+        void UpdateMaximumIterationsLabel()
+        {
+            var value = maximumIterationsChanged
+                ? MaximumIterationValues[SliderIndex(MaximumIterationsSlider, MaximumIterationValues.Length)]
+                : loadedMaximumIterations;
+            MaximumIterationsValueLabel.StringValue = value.ToString("0");
         }
     }
 
