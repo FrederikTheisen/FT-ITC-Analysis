@@ -20,6 +20,7 @@ internal sealed class PreferencesState
     public NumberPrecision NumberPrecision { get; set; }
     public UncertaintyDisplayStyle UncertaintyDisplayStyle { get; set; }
     public bool IncludeBufferInIonicStrengthCalc { get; set; }
+    public bool PerformOnlineChecksOnLaunch { get; set; }
     public bool ConfirmRemoveDelete { get; set; }
     public bool AutoSaveEnabled { get; set; }
     public int AutoSaveIntervalMinutes { get; set; }
@@ -80,6 +81,7 @@ internal sealed class PreferencesState
             NumberPrecision = AppSettings.NumberPrecision,
             UncertaintyDisplayStyle = AppSettings.UncertaintyDisplayStyle,
             IncludeBufferInIonicStrengthCalc = AppSettings.IncludeBufferInIonicStrengthCalc,
+            PerformOnlineChecksOnLaunch = AppSettings.PerformOnlineChecksOnLaunch,
             ConfirmRemoveDelete = AppSettings.ConfirmRemoveDelete,
             AutoSaveEnabled = AppSettings.AutoSaveEnabled,
             AutoSaveIntervalMinutes = AppSettings.AutoSaveIntervalMinutes,
@@ -142,6 +144,7 @@ internal sealed class PreferencesState
             NumberPrecision = NumberPrecision.Standard,
             UncertaintyDisplayStyle = UncertaintyDisplayStyle.StandardDeviation,
             IncludeBufferInIonicStrengthCalc = true,
+            PerformOnlineChecksOnLaunch = true,
             ConfirmRemoveDelete = true,
             AutoSaveEnabled = true,
             AutoSaveIntervalMinutes = 5,
@@ -202,6 +205,7 @@ internal sealed class PreferencesState
         AppSettings.NumberPrecision = NumberPrecision;
         AppSettings.UncertaintyDisplayStyle = UncertaintyDisplayStyle;
         AppSettings.IncludeBufferInIonicStrengthCalc = IncludeBufferInIonicStrengthCalc;
+        AppSettings.PerformOnlineChecksOnLaunch = PerformOnlineChecksOnLaunch;
         AppSettings.ConfirmRemoveDelete = ConfirmRemoveDelete;
         AppSettings.AutoSaveEnabled = AutoSaveEnabled;
         AppSettings.AutoSaveIntervalMinutes = AutoSaveIntervalMinutes;

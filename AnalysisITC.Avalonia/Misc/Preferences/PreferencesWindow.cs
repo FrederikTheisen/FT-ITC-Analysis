@@ -37,6 +37,7 @@ internal sealed class PreferencesWindow : Window
     readonly ComboBox numberPrecisionCombo;
     readonly ComboBox uncertaintyStyleCombo;
     readonly CheckBox includeBufferInIonicStrengthCheck = Check("Include buffer in ionic-strength calculation");
+    readonly CheckBox onlineChecksCheck = Check("Check for updates and online resources on launch");
     readonly CheckBox confirmRemoveDeleteCheck = Check("Confirm remove/delete actions");
     readonly CheckBox automaticallyDiscardOrphanInjectionsCheck =
         Check("Automatically discard injections outside the thermogram range");
@@ -246,6 +247,7 @@ internal sealed class PreferencesWindow : Window
         }));
         panel.Children.Add(Section("Behavior", new Control[]
         {
+            onlineChecksCheck,
             confirmRemoveDeleteCheck
         }));
         panel.Children.Add(Section("File Loading", new Control[]
@@ -355,6 +357,7 @@ internal sealed class PreferencesWindow : Window
         SetCombo(numberPrecisionCombo, state.NumberPrecision);
         SetCombo(uncertaintyStyleCombo, state.UncertaintyDisplayStyle);
         includeBufferInIonicStrengthCheck.IsChecked = state.IncludeBufferInIonicStrengthCalc;
+        onlineChecksCheck.IsChecked = state.PerformOnlineChecksOnLaunch;
         confirmRemoveDeleteCheck.IsChecked = state.ConfirmRemoveDelete;
         automaticallyDiscardOrphanInjectionsCheck.IsChecked = state.AutomaticallyDiscardOrphanInjectionsOnLoad;
         autoSaveEnabledCheck.IsChecked = state.AutoSaveEnabled;
@@ -457,6 +460,7 @@ internal sealed class PreferencesWindow : Window
         state.NumberPrecision = Value(numberPrecisionCombo, AppSettings.NumberPrecision);
         state.UncertaintyDisplayStyle = Value(uncertaintyStyleCombo, AppSettings.UncertaintyDisplayStyle);
         state.IncludeBufferInIonicStrengthCalc = includeBufferInIonicStrengthCheck.IsChecked == true;
+        state.PerformOnlineChecksOnLaunch = onlineChecksCheck.IsChecked == true;
         state.ConfirmRemoveDelete = confirmRemoveDeleteCheck.IsChecked == true;
         state.AutomaticallyDiscardOrphanInjectionsOnLoad = automaticallyDiscardOrphanInjectionsCheck.IsChecked == true;
         state.AutoSaveEnabled = autoSaveEnabledCheck.IsChecked == true;
