@@ -57,9 +57,6 @@ namespace AnalysisITC
 		[Outlet]
 		AppKit.NSPopUpButton ThirdPartyFormatButton { get; set; }
 
-		[Outlet]
-		AppKit.NSButton UnifyTimeAxisControl { get; set; }
-
 		[Action ("BaselineCorrectControlAction:")]
 		partial void BaselineCorrectControlAction (AppKit.NSButton sender);
 
@@ -81,9 +78,6 @@ namespace AnalysisITC
 		[Action ("SelectThirdPartyAction:")]
 		partial void SelectThirdPartyAction (AppKit.NSPopUpButton sender);
 
-		[Action ("UnifyTimeAxisControlAction:")]
-		partial void UnifyTimeAxisControlAction (AppKit.NSButton sender);
-		
 		void ReleaseDesignerOutlets ()
 		{
 			if (BSLLabel != null) {
@@ -129,11 +123,6 @@ namespace AnalysisITC
 			if (TabView != null) {
 				TabView.Dispose ();
 				TabView = null;
-			}
-
-			if (UnifyTimeAxisControl != null) {
-				UnifyTimeAxisControl.Dispose ();
-				UnifyTimeAxisControl = null;
 			}
 
 			if (ThirdPartyFormatButton != null) {
