@@ -28,11 +28,6 @@ internal sealed class MacGraphPrintBackend : IGraphPrintBackend
                 throw new InvalidOperationException("PDFKit could not open the prepared graph.");
 
             printInfo = ObjC.Send(ObjC.Send(ObjC.GetClass("NSPrintInfo"), "sharedPrintInfo"), "copy");
-            ObjC.SendSize(printInfo, "setPaperSize:", payload.PdfPageSize);
-            ObjC.SendDouble(printInfo, "setTopMargin:", 0);
-            ObjC.SendDouble(printInfo, "setBottomMargin:", 0);
-            ObjC.SendDouble(printInfo, "setLeftMargin:", 0);
-            ObjC.SendDouble(printInfo, "setRightMargin:", 0);
             operation = ObjC.Send(document, "printOperationForPrintInfo:scalingMode:autoRotate:", printInfo, 1, false);
             if (operation == IntPtr.Zero)
                 throw new InvalidOperationException("macOS could not create a print operation.");
@@ -76,12 +71,6 @@ internal sealed class MacGraphPrintBackend : IGraphPrintBackend
         public static IntPtr Send(IntPtr receiver, string selector, IntPtr argument) =>
             objc_msgSend_IntPtr(receiver, Selector(selector), argument);
 
-        public static void SendSize(IntPtr receiver, string selector, PrintSize size) =>
-            objc_msgSend_Size(receiver, Selector(selector), new NativeSize(size.Width, size.Height));
-
-        public static void SendDouble(IntPtr receiver, string selector, double argument) =>
-            objc_msgSend_Double(receiver, Selector(selector), argument);
-
         public static IntPtr Send(IntPtr receiver, string selector, IntPtr argument, int scaleMode, bool autoRotate) =>
             objc_msgSend_PrintOperation(receiver, Selector(selector), argument, scaleMode, autoRotate);
 
@@ -116,24 +105,10 @@ internal sealed class MacGraphPrintBackend : IGraphPrintBackend
         [DllImport(Library)] static extern IntPtr sel_registerName(string name);
         [DllImport(Library, EntryPoint = "objc_msgSend")] static extern IntPtr objc_msgSend(IntPtr receiver, IntPtr selector);
         [DllImport(Library, EntryPoint = "objc_msgSend")] static extern IntPtr objc_msgSend_IntPtr(IntPtr receiver, IntPtr selector, IntPtr argument);
-        [DllImport(Library, EntryPoint = "objc_msgSend")] static extern void objc_msgSend_Size(IntPtr receiver, IntPtr selector, NativeSize argument);
-        [DllImport(Library, EntryPoint = "objc_msgSend")] static extern void objc_msgSend_Double(IntPtr receiver, IntPtr selector, double argument);
         [DllImport(Library, EntryPoint = "objc_msgSend")] static extern IntPtr objc_msgSend_Bytes(IntPtr receiver, IntPtr selector, IntPtr bytes, nuint length);
         [DllImport(Library, EntryPoint = "objc_msgSend")] static extern IntPtr objc_msgSend_PrintOperation(IntPtr receiver, IntPtr selector, IntPtr printInfo, int scaleMode, [MarshalAs(UnmanagedType.I1)] bool autoRotate);
         [DllImport(Library, EntryPoint = "objc_msgSend")] [return: MarshalAs(UnmanagedType.I1)] static extern bool objc_msgSend_Bool(IntPtr receiver, IntPtr selector);
         [DllImport(Library, EntryPoint = "objc_msgSend")] static extern IntPtr objc_msgSend_Utf8(IntPtr receiver, IntPtr selector, [MarshalAs(UnmanagedType.LPUTF8Str)] string value);
 
-        [StructLayout(LayoutKind.Sequential)]
-        readonly struct NativeSize
-        {
-            public NativeSize(double width, double height)
-            {
-                Width = width;
-                Height = height;
-            }
-
-            public readonly double Width;
-            public readonly double Height;
-        }
     }
 }

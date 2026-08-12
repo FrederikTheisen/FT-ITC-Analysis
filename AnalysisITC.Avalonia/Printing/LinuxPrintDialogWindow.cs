@@ -20,6 +20,7 @@ internal sealed class LinuxPrintDialogWindow : Window
     readonly ComboBox orientationBox = new ComboBox { MinWidth = 160 };
     readonly ComboBox colorBox = new ComboBox { MinWidth = 160 };
     readonly NumericUpDown copiesBox = new NumericUpDown { Minimum = 1, Maximum = 999, Value = 1, MinWidth = 100 };
+    readonly Button printButton = new Button { Content = "Print", MinWidth = 84 };
 
     LinuxPrintDialogWindow(IReadOnlyList<CupsPrinter> printers, PrintSize sourceSize)
     {
@@ -35,7 +36,12 @@ internal sealed class LinuxPrintDialogWindow : Window
         WindowStartupLocation = WindowStartupLocation.CenterOwner;
 
         foreach (var printer in printers) printerBox.Items.Add(printer);
-        printerBox.SelectedIndex = Math.Max(0, printers.ToList().FindIndex(printer => printer.IsDefault));
+        if (printers.Count > 0)
+            printerBox.SelectedIndex = Math.Max(0, printers.ToList().FindIndex(printer => printer.IsDefault));
+        else
+            printerBox.PlaceholderText = "No CUPS printers available";
+        printerBox.IsEnabled = printers.Count > 0;
+        printButton.IsEnabled = printers.Count > 0;
         orientationBox.Items.Add("Automatic");
         orientationBox.Items.Add("Portrait");
         orientationBox.Items.Add("Landscape");
@@ -44,8 +50,9 @@ internal sealed class LinuxPrintDialogWindow : Window
 
         var cancel = new Button { Content = "Cancel", MinWidth = 84 };
         cancel.Click += (_, _) => Close(null);
-        var print = new Button { Content = "Print", MinWidth = 84 };
-        print.Click += (_, _) => Submit();
+        var savePdf = new Button { Content = "Save as PDF…", MinWidth = 112 };
+        savePdf.Click += (_, _) => Close(new LinuxPrintDialogResult(null, true));
+        printButton.Click += (_, _) => Submit();
 
         var form = new Grid
         {
@@ -65,7 +72,7 @@ internal sealed class LinuxPrintDialogWindow : Window
             Orientation = Orientation.Horizontal,
             HorizontalAlignment = HorizontalAlignment.Right,
             Spacing = 8,
-            Children = { cancel, print }
+            Children = { cancel, savePdf, printButton }
         };
 
         var panel = new DockPanel { LastChildFill = true };
@@ -79,11 +86,11 @@ internal sealed class LinuxPrintDialogWindow : Window
         RefreshCapabilities();
     }
 
-    public static Task<LinuxPrintOptions?> ShowAsync(
+    public static Task<LinuxPrintDialogResult?> ShowAsync(
         Window owner,
         IReadOnlyList<CupsPrinter> printers,
         PrintSize sourceSize)
-        => new LinuxPrintDialogWindow(printers, sourceSize).ShowDialog<LinuxPrintOptions?>(owner);
+        => new LinuxPrintDialogWindow(printers, sourceSize).ShowDialog<LinuxPrintDialogResult?>(owner);
 
     void RefreshCapabilities()
     {
@@ -115,12 +122,14 @@ internal sealed class LinuxPrintDialogWindow : Window
                 ? LinuxPrintOrientation.Landscape
                 : LinuxPrintOrientation.Portrait
         };
-        Close(new LinuxPrintOptions(
-            printer,
-            mediaBox.SelectedItem as CupsMedia,
-            orientation,
-            Math.Max(1, (int)(copiesBox.Value ?? 1)),
-            colorBox.SelectedItem as CupsColorMode));
+        Close(new LinuxPrintDialogResult(
+            new LinuxPrintOptions(
+                printer,
+                mediaBox.SelectedItem as CupsMedia,
+                orientation,
+                Math.Max(1, (int)(copiesBox.Value ?? 1)),
+                colorBox.SelectedItem as CupsColorMode),
+            false));
     }
 
     static void AddRow(Grid grid, int row, string label, Control field)
@@ -140,3 +149,5 @@ internal sealed class LinuxPrintDialogWindow : Window
         grid.Children.Add(field);
     }
 }
+
+internal sealed record LinuxPrintDialogResult(LinuxPrintOptions? PrintOptions, bool SaveAsPdf);

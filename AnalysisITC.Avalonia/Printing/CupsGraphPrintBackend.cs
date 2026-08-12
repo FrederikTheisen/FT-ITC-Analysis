@@ -6,6 +6,7 @@ using System.Runtime.InteropServices;
 using System.Threading.Tasks;
 
 using Avalonia.Controls;
+using Avalonia.Platform.Storage;
 
 namespace AnalysisITC.Avalonia.Printing;
 
@@ -18,16 +19,17 @@ internal sealed class CupsGraphPrintBackend : IGraphPrintBackend
         {
             printers = await Task.Run(CupsNative.GetPrinters);
         }
-        catch (DllNotFoundException ex)
+        catch (DllNotFoundException)
         {
-            throw new InvalidOperationException("CUPS is not installed. Install libcups2 to enable printing.", ex);
+            printers = Array.Empty<CupsPrinter>();
         }
 
-        if (printers.Count == 0)
-            throw new InvalidOperationException("No CUPS printers are configured.");
-
-        var options = await LinuxPrintDialogWindow.ShowAsync(owner, printers, payload.SourceSize);
-        if (options == null) return PrintOutcome.Canceled;
+        var selection = await LinuxPrintDialogWindow.ShowAsync(owner, printers, payload.SourceSize);
+        if (selection == null) return PrintOutcome.Canceled;
+        if (selection.SaveAsPdf)
+            return await SavePdfAsync(owner, payload);
+        var options = selection.PrintOptions
+            ?? throw new InvalidOperationException("No CUPS printer was selected.");
 
         var path = Path.Combine(Path.GetTempPath(), $"ft-itc-print-{Guid.NewGuid():N}.pdf");
         try
@@ -42,6 +44,30 @@ internal sealed class CupsGraphPrintBackend : IGraphPrintBackend
             try { File.Delete(path); }
             catch { }
         }
+    }
+
+    static async Task<PrintOutcome> SavePdfAsync(Window owner, GraphPrintPayload payload)
+    {
+        var suggestedName = string.Concat(payload.JobName.Select(character =>
+            Path.GetInvalidFileNameChars().Contains(character) ? '_' : character));
+        var file = await owner.StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
+        {
+            Title = "Save Graph as PDF",
+            SuggestedFileName = suggestedName + ".pdf",
+            DefaultExtension = "pdf",
+            FileTypeChoices = new[]
+            {
+                new FilePickerFileType("Vector PDF") { Patterns = new[] { "*.pdf" } },
+                FilePickerFileTypes.All
+            }
+        });
+        if (file == null) return PrintOutcome.Canceled;
+
+        await using var output = await file.OpenWriteAsync();
+        if (output.CanSeek) output.SetLength(0);
+        await output.WriteAsync(payload.Pdf);
+        await output.FlushAsync();
+        return PrintOutcome.Saved;
     }
 
     static byte[] ComposePdf(GraphPrintPayload payload, LinuxPrintOptions options)

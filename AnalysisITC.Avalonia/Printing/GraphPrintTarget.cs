@@ -71,7 +71,7 @@ internal sealed class GraphPrintTarget
             bitmap,
             pdf,
             preservePdf: true,
-            pdfPageSize: new PrintSize(width * 72 / 96, height * 72 / 96));
+            pdfPageSize: new PrintSize(width, height));
     }
 
     static async Task<byte[]> CreateVectorPdfAsync(
@@ -80,7 +80,6 @@ internal sealed class GraphPrintTarget
         double width,
         double height)
     {
-        const float pointsPerDip = 72f / 96f;
         using var stream = new MemoryStream();
         var metadata = new SKDocumentPdfMetadata
         {
@@ -89,9 +88,8 @@ internal sealed class GraphPrintTarget
             Creator = MarkdownStrings.AppName
         };
         using var document = SKDocument.CreatePdf(stream, metadata);
-        var canvas = document.BeginPage((float)width * pointsPerDip, (float)height * pointsPerDip);
+        var canvas = document.BeginPage((float)width, (float)height);
         canvas.Clear(SKColors.White);
-        canvas.Scale(pointsPerDip);
         await DrawingContextHelper.RenderAsync(
             canvas,
             visual,

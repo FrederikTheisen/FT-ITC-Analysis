@@ -10,6 +10,7 @@ namespace AnalysisITC.Avalonia.Printing;
 internal enum PrintOutcome
 {
     Printed,
+    Saved,
     Canceled
 }
 
@@ -30,9 +31,12 @@ internal static class GraphPrintCoordinator
             using var payload = await target.CaptureAsync();
             var backend = BackendFactoryOverride?.Invoke() ?? CreateBackend();
             var outcome = await PrintPreparedAsync(owner, payload, backend);
-            StatusBarManager.SetStatus(
-                outcome == PrintOutcome.Printed ? "Print job submitted" : "Printing canceled",
-                3000);
+            StatusBarManager.SetStatus(outcome switch
+            {
+                PrintOutcome.Printed => "Print job submitted",
+                PrintOutcome.Saved => "PDF saved",
+                _ => "Printing canceled"
+            }, 3000);
         }
         catch (Exception ex)
         {
