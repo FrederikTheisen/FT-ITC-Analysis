@@ -38,6 +38,8 @@ done
 
 VERSION="$(sed -n 's:.*<Version>\([^<]*\)</Version>.*:\1:p' "$PROJECT" | head -n 1)"
 [[ -n "$VERSION" ]] || { echo "ERROR: Could not read Version from $PROJECT." >&2; exit 1; }
+TARGET_FRAMEWORK="$(sed -n 's:.*<TargetFramework>\([^<]*\)</TargetFramework>.*:\1:p' "$PROJECT" | head -n 1)"
+[[ -n "$TARGET_FRAMEWORK" ]] || { echo "ERROR: Could not read TargetFramework from $PROJECT." >&2; exit 1; }
 
 PUBLISH_DIR="$ROOT/artifacts/publish/$RUNTIME"
 STAGE_DIR="$ROOT/artifacts/package/linux-$RUNTIME"
@@ -47,9 +49,24 @@ DEB="$PACKAGE_DIR/ft-itc-analysis_${VERSION}_${DEB_ARCH}.deb"
 rm -rf "$PUBLISH_DIR" "$STAGE_DIR"
 mkdir -p "$PUBLISH_DIR" "$PACKAGE_DIR"
 
-publish_args=(publish "$PROJECT" -c "$CONFIGURATION" -r "$RUNTIME" --self-contained true -o "$PUBLISH_DIR")
-if [[ $NO_RESTORE -eq 1 ]]; then publish_args+=(--no-restore); fi
-dotnet "${publish_args[@]}"
+if [[ $NO_RESTORE -eq 0 ]]; then
+  dotnet restore "$PROJECT" --runtime "$RUNTIME"
+else
+  ASSETS_FILE="$ROOT/AnalysisITC.Avalonia/obj/project.assets.json"
+  RID_TARGET="$TARGET_FRAMEWORK/$RUNTIME"
+  if [[ ! -f "$ASSETS_FILE" ]] || ! grep -Fq "\"$RID_TARGET\":" "$ASSETS_FILE"; then
+    echo "ERROR: --no-restore requires an existing NuGet assets target for $RID_TARGET." >&2
+    echo "Run: dotnet restore \"$PROJECT\" --runtime $RUNTIME" >&2
+    exit 1
+  fi
+fi
+
+dotnet publish "$PROJECT" \
+  --configuration "$CONFIGURATION" \
+  --runtime "$RUNTIME" \
+  --self-contained true \
+  --no-restore \
+  --output "$PUBLISH_DIR"
 
 mkdir -p \
   "$STAGE_DIR/DEBIAN" \

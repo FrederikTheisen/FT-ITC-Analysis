@@ -99,6 +99,12 @@ export FTITC_GPG_KEY_ID="full-key-fingerprint"
 AnalysisITC.Avalonia/Packaging/package.sh linux --runtime linux-x64
 ```
 
+The Linux packager performs a runtime-specific restore before publishing. If
+`--no-restore` is used, the matching target (for example,
+`net10.0/linux-x64`) must already exist in
+`AnalysisITC.Avalonia/obj/project.assets.json`; a generic project or solution
+restore is not sufficient for a self-contained runtime-specific publish.
+
 The output includes the DEB, a SHA-256 checksum, and an ASCII-armored detached
 signature. Linux does not have a universal executable code-signing trust model.
 For a public package repository, sign the APT repository metadata as well; for
