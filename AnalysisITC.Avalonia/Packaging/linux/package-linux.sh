@@ -86,7 +86,6 @@ cp "$SCRIPT_DIR/org.ft_itc.analysis.metainfo.xml" "$STAGE_DIR/usr/share/metainfo
 cp "$SCRIPT_DIR/ft-itc-analysis.xml" "$STAGE_DIR/usr/share/mime/packages/"
 cp "$SCRIPT_DIR/org.ft_itc.analysis.png" "$STAGE_DIR/usr/share/icons/hicolor/512x512/apps/"
 cp "$SCRIPT_DIR/mimetypes/application-vnd.ftitc.project+zip.png" "$STAGE_DIR/usr/share/icons/hicolor/512x512/mimetypes/"
-cp "$SCRIPT_DIR/mimetypes/application-x-ftitc-project.png" "$STAGE_DIR/usr/share/icons/hicolor/512x512/mimetypes/"
 cp "$ROOT/LICENSE.md" "$STAGE_DIR/usr/share/doc/ft-itc-analysis/copyright"
 chmod 0755 "$STAGE_DIR/usr/lib/ft-itc-analysis/FT-ITC Analysis"
 

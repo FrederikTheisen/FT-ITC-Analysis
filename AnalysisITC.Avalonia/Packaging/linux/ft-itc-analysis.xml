@@ -5,9 +5,4 @@
     <generic-icon name="application-vnd.ftitc.project+zip" />
     <glob pattern="*.ftxtc" />
   </mime-type>
-  <mime-type type="application/x-ftitc-project">
-    <comment>FT-ITC Analysis Project File</comment>
-    <generic-icon name="application-x-ftitc-project" />
-    <glob pattern="*.ftitc" />
-  </mime-type>
 </mime-info>

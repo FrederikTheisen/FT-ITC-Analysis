@@ -25,13 +25,6 @@
       <key>LSHandlerRank</key><string>Owner</string>
       <key>LSItemContentTypes</key><array><string>org.ft-itc.ftxtc-project</string></array>
     </dict>
-    <dict>
-      <key>CFBundleTypeName</key><string>FT-ITC Analysis Project File</string>
-      <key>CFBundleTypeIconFile</key><string>ProjectFileIcon</string>
-      <key>CFBundleTypeRole</key><string>Editor</string>
-      <key>LSHandlerRank</key><string>Owner</string>
-      <key>LSItemContentTypes</key><array><string>org.ft-itc.project</string></array>
-    </dict>
   </array>
   <key>UTExportedTypeDeclarations</key>
   <array>
@@ -42,14 +35,6 @@
       <key>UTTypeIconFiles</key><array><string>FTXTCProjectFileIcon</string></array>
       <key>UTTypeTagSpecification</key>
       <dict><key>public.filename-extension</key><array><string>ftxtc</string></array></dict>
-    </dict>
-    <dict>
-      <key>UTTypeIdentifier</key><string>org.ft-itc.project</string>
-      <key>UTTypeDescription</key><string>FT-ITC Analysis Project File</string>
-      <key>UTTypeConformsTo</key><array><string>public.data</string></array>
-      <key>UTTypeIconFiles</key><array><string>ProjectFileIcon</string></array>
-      <key>UTTypeTagSpecification</key>
-      <dict><key>public.filename-extension</key><array><string>ftitc</string></array></dict>
     </dict>
   </array>
 </dict>

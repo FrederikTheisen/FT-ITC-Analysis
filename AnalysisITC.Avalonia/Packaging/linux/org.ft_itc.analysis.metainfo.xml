@@ -81,6 +81,5 @@
   <provides>
     <binary>ft-itc-analysis</binary>
     <mediatype>application/vnd.ftitc.project+zip</mediatype>
-    <mediatype>application/x-ftitc-project</mediatype>
   </provides>
 </component>
