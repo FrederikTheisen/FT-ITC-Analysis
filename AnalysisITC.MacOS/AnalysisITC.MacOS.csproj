@@ -396,6 +396,10 @@
     </Compile>
     <Compile Include="ViewControllers\SettingsViews\MacPreferencesState.cs" />
     <Compile Include="ViewControllers\SettingsViews\MacPreferencesWindowController.cs" />
+    <Compile Include="ViewControllers\SettingsViews\MacPreferencesPaneControllers.cs" />
+    <Compile Include="ViewControllers\SettingsViews\MacPreferencesPaneControllers.designer.cs">
+      <DependentUpon>MacPreferencesPaneControllers.cs</DependentUpon>
+    </Compile>
     <Compile Include="ViewControllers\MainViews\AnalysisResultTabViewController.cs" />
     <Compile Include="ViewControllers\MainViews\AnalysisResultTabViewController.designer.cs">
       <DependentUpon>AnalysisResultTabViewController.cs</DependentUpon>
@@ -526,6 +530,7 @@
   </ItemGroup>
   <ItemGroup>
     <InterfaceDefinition Include="Main.storyboard" />
+    <InterfaceDefinition Include="Preferences.storyboard" />
   </ItemGroup>
   <ItemGroup>
     <BundleResource Include="..\Resources\HelpTextResource.txt">

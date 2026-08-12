@@ -56,7 +56,6 @@ namespace AnalysisITC
         public ExportDataSelection ExportSelectionMode { get; set; }
         public ExportColumns ExportColumns { get; set; }
         public int NumOfDecimalsToExport { get; set; }
-        public bool UnifyTimeAxisForExport { get; set; }
         public bool ExportBaselineCorrectedData { get; set; }
         public bool ExportFitPointsWithPeaks { get; set; }
         public double FinalFigureWidthCentimeters { get; set; }
@@ -118,7 +117,6 @@ namespace AnalysisITC
             ExportSelectionMode = AppSettings.ExportSelectionMode,
             ExportColumns = AppSettings.ExportColumns,
             NumOfDecimalsToExport = AppSettings.NumOfDecimalsToExport,
-            UnifyTimeAxisForExport = AppSettings.UnifyTimeAxisForExport,
             ExportBaselineCorrectedData = AppSettings.ExportBaselineCorrectedData,
             ExportFitPointsWithPeaks = AppSettings.ExportFitPointsWithPeaks,
             FinalFigureWidthCentimeters = AppSettings.FinalFigureDimensions.Length > 0 ? AppSettings.FinalFigureDimensions[0] : 6.5,
@@ -181,7 +179,6 @@ namespace AnalysisITC
             ExportSelectionMode = ExportDataSelection.IncludedData,
             ExportColumns = ExportColumns.Default,
             NumOfDecimalsToExport = 1,
-            UnifyTimeAxisForExport = true,
             ExportBaselineCorrectedData = true,
             ExportFitPointsWithPeaks = true,
             FinalFigureWidthCentimeters = 6.5,
@@ -246,7 +243,6 @@ namespace AnalysisITC
             AppSettings.ExportSelectionMode = ExportSelectionMode;
             AppSettings.ExportColumns = ExportColumns;
             AppSettings.NumOfDecimalsToExport = NumOfDecimalsToExport;
-            AppSettings.UnifyTimeAxisForExport = UnifyTimeAxisForExport;
             AppSettings.ExportBaselineCorrectedData = ExportBaselineCorrectedData;
             AppSettings.ExportFitPointsWithPeaks = ExportFitPointsWithPeaks;
             AppSettings.FinalFigureDimensions = new[] { FinalFigureWidthCentimeters, FinalFigureHeightCentimeters };

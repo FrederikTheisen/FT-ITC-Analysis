@@ -1,0 +1,894 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<document type="com.apple.InterfaceBuilder3.Cocoa.Storyboard.XIB" version="3.0" toolsVersion="23727" targetRuntime="MacOSX.Cocoa" propertyAccessControl="none" useAutolayout="YES" initialViewController="preferences-window-controller">
+<dependencies>
+<deployment identifier="macosx"/>
+<plugIn identifier="com.apple.InterfaceBuilder.CocoaPlugin" version="23727"/>
+<capability name="Image references" minToolsVersion="12.0"/>
+<capability name="System colors introduced in macOS 10.14" minToolsVersion="10.0"/>
+<capability name="documents saved in the Xcode 8 format" minToolsVersion="8.0"/>
+</dependencies>
+<scenes>
+<scene sceneID="preferences-window-scene">
+<objects>
+<windowController storyboardIdentifier="PreferencesWindowController" showSeguePresentationStyle="single" id="preferences-window-controller" customClass="MacPreferencesWindowController" sceneMemberID="viewController">
+<window key="window" title="FT-ITC Analysis Preferences" allowsToolTipsWhenApplicationIsInactive="NO" autorecalculatesKeyViewLoop="YES" releasedWhenClosed="NO" visibleAtLaunch="NO" animationBehavior="documentWindow" toolbarStyle="preference" id="preferences-window">
+<windowStyleMask key="styleMask" titled="YES" closable="YES"/>
+<windowPositionMask key="initialPositionMask" leftStrut="YES" rightStrut="YES" topStrut="YES" bottomStrut="YES"/>
+<rect key="frame" x="0" y="0" width="680" height="640"/>
+<rect key="contentRect" x="0.0" y="0.0" width="680" height="640"/>
+<rect key="screenRect" x="0.0" y="0.0" width="1512" height="944"/>
+<value key="minSize" type="size" width="680" height="640"/>
+<value key="maxSize" type="size" width="680" height="640"/>
+<view key="contentView" id="preferences-window-content"><rect key="frame" x="0" y="0" width="680" height="640"/><autoresizingMask key="autoresizingMask"/></view>
+<connections><outlet property="delegate" destination="preferences-window-controller" id="preferences-window-delegate"/></connections>
+</window>
+<connections><segue destination="preferences-tab-controller" kind="relationship" relationship="window.shadowedContentViewController" id="preferences-content-segue"/></connections>
+</windowController>
+<customObject id="preferences-window-first-responder" userLabel="First Responder" customClass="NSResponder" sceneMemberID="firstResponder"/>
+</objects>
+<point key="canvasLocation" x="200" y="0"/>
+</scene>
+<scene sceneID="preferences-tab-scene">
+<objects>
+<tabViewController selectedTabViewItemIndex="0" tabStyle="toolbar" id="preferences-tab-controller" sceneMemberID="viewController">
+<tabViewItems><tabViewItem label="General" image="gearshape" catalog="system" id="general-tab-item"/><tabViewItem label="Processing" image="beziercurve" catalog="system" id="processing-tab-item"/><tabViewItem label="Fitting" image="chart.xyaxis.line" catalog="system" id="fitting-tab-item"/><tabViewItem label="Export" image="square.and.arrow.up" catalog="system" id="export-tab-item"/></tabViewItems>
+<tabView key="tabView" type="noTabsNoBorder" id="preferences-tab-view"><rect key="frame" x="0" y="0" width="680" height="640"/><autoresizingMask key="autoresizingMask"/><font key="font" metaFont="message"/></tabView>
+<connections><outlet property="tabView" destination="preferences-tab-view" id="preferences-tab-outlet"/><segue destination="general-pane-controller" kind="relationship" relationship="tabItems" id="general-tab-segue"/><segue destination="processing-pane-controller" kind="relationship" relationship="tabItems" id="processing-tab-segue"/><segue destination="fitting-pane-controller" kind="relationship" relationship="tabItems" id="fitting-tab-segue"/><segue destination="export-pane-controller" kind="relationship" relationship="tabItems" id="export-tab-segue"/></connections>
+</tabViewController>
+<customObject id="preferences-tab-first-responder" userLabel="First Responder" customClass="NSResponder" sceneMemberID="firstResponder"/>
+</objects>
+<point key="canvasLocation" x="900" y="0"/>
+</scene>
+<scene sceneID="general-scene">
+<objects>
+<viewController title="General" id="general-pane-controller" customClass="MacGeneralPreferencesViewController" sceneMemberID="viewController">
+<view key="view" id="general-root"><rect key="frame" x="0" y="0" width="680" height="640"/><autoresizingMask key="autoresizingMask"/>
+<subviews>
+<scrollView borderType="none" autohidesScrollers="YES" horizontalLineScroll="10" horizontalPageScroll="10" verticalLineScroll="24" verticalPageScroll="48" hasHorizontalScroller="NO" horizontalScrollElasticity="none" translatesAutoresizingMaskIntoConstraints="NO" id="general-scroll">
+<rect key="frame" x="0" y="55" width="680" height="585"/>
+<clipView key="contentView" drawsBackground="NO" id="general-clip"><rect key="frame" x="0" y="0" width="680" height="585"/><autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
+<subviews><view autoresizesSubviews="NO" translatesAutoresizingMaskIntoConstraints="NO" id="general-document" customClass="FlippedPreferencesDocumentView"><rect key="frame" x="0" y="0" width="680" height="760"/>
+<subviews><stackView distribution="fill" orientation="vertical" alignment="width" spacing="8" horizontalStackHuggingPriority="750" verticalStackHuggingPriority="1000" verticalCompressionResistancePriority="1000" detachesHiddenViews="YES" translatesAutoresizingMaskIntoConstraints="NO" id="general-content"><rect key="frame" x="40" y="16" width="600" height="728"/>
+<subviews><textField focusRingType="none" horizontalHuggingPriority="249" verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="general-section-0">
+<rect key="frame" x="-2" y="0" width="604" height="18"/>
+<textFieldCell key="cell" lineBreakMode="clipping" title="Units and Formatting" id="general-section-0-cell"><font key="font" metaFont="systemBold"/><color key="textColor" name="labelColor" catalog="System" colorSpace="catalog"/><color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/></textFieldCell>
+</textField><stackView distribution="fill" orientation="horizontal" alignment="firstBaseline" spacing="10" horizontalStackHuggingPriority="249" verticalStackHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="general-EnergyUnitPopup-row">
+<rect key="frame" x="0" y="0" width="600" height="26"/>
+<subviews><textField focusRingType="none" horizontalHuggingPriority="249" verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="general-EnergyUnitPopup-label">
+<rect key="frame" x="-2" y="3" width="292" height="16"/>
+<textFieldCell key="cell" lineBreakMode="truncatingTail" title="Energy unit" id="general-EnergyUnitPopup-label-cell"><font key="font" metaFont="system"/><color key="textColor" name="secondaryLabelColor" catalog="System" colorSpace="catalog"/><color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/></textFieldCell>
+</textField><popUpButton verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="general-EnergyUnitPopup">
+<rect key="frame" x="360" y="0" width="240" height="25"/>
+<constraints><constraint firstAttribute="width" constant="240" id="general-EnergyUnitPopup-width"/></constraints>
+<popUpButtonCell key="cell" type="push" title="Option" bezelStyle="rounded" alignment="left" lineBreakMode="truncatingTail" state="on" borderStyle="border" imageScaling="proportionallyDown" inset="2" selectedItem="general-EnergyUnitPopup-default" id="general-EnergyUnitPopup-cell">
+<behavior key="behavior" lightByBackground="YES" lightByGray="YES"/><font key="font" metaFont="system"/>
+<menu key="menu" title="OtherViews" id="general-EnergyUnitPopup-menu"><items><menuItem title="Option" state="on" id="general-EnergyUnitPopup-default"/></items></menu>
+</popUpButtonCell></popUpButton></subviews>
+<visibilityPriorities><integer value="1000"/><integer value="1000"/></visibilityPriorities>
+<customSpacing><real value="3.4028234663852886e+38"/><real value="3.4028234663852886e+38"/></customSpacing>
+</stackView><stackView distribution="fill" orientation="horizontal" alignment="firstBaseline" spacing="10" horizontalStackHuggingPriority="249" verticalStackHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="general-ConcentrationUnitPopup-row">
+<rect key="frame" x="0" y="0" width="600" height="26"/>
+<subviews><textField focusRingType="none" horizontalHuggingPriority="249" verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="general-ConcentrationUnitPopup-label">
+<rect key="frame" x="-2" y="3" width="292" height="16"/>
+<textFieldCell key="cell" lineBreakMode="truncatingTail" title="Concentration unit" id="general-ConcentrationUnitPopup-label-cell"><font key="font" metaFont="system"/><color key="textColor" name="secondaryLabelColor" catalog="System" colorSpace="catalog"/><color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/></textFieldCell>
+</textField><popUpButton verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="general-ConcentrationUnitPopup">
+<rect key="frame" x="360" y="0" width="240" height="25"/>
+<constraints><constraint firstAttribute="width" constant="240" id="general-ConcentrationUnitPopup-width"/></constraints>
+<popUpButtonCell key="cell" type="push" title="Option" bezelStyle="rounded" alignment="left" lineBreakMode="truncatingTail" state="on" borderStyle="border" imageScaling="proportionallyDown" inset="2" selectedItem="general-ConcentrationUnitPopup-default" id="general-ConcentrationUnitPopup-cell">
+<behavior key="behavior" lightByBackground="YES" lightByGray="YES"/><font key="font" metaFont="system"/>
+<menu key="menu" title="OtherViews" id="general-ConcentrationUnitPopup-menu"><items><menuItem title="Option" state="on" id="general-ConcentrationUnitPopup-default"/></items></menu>
+</popUpButtonCell></popUpButton></subviews>
+<visibilityPriorities><integer value="1000"/><integer value="1000"/></visibilityPriorities>
+<customSpacing><real value="3.4028234663852886e+38"/><real value="3.4028234663852886e+38"/></customSpacing>
+</stackView><stackView distribution="fill" orientation="horizontal" alignment="firstBaseline" spacing="10" horizontalStackHuggingPriority="249" verticalStackHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="general-NumberPrecisionPopup-row">
+<rect key="frame" x="0" y="0" width="600" height="26"/>
+<subviews><textField focusRingType="none" horizontalHuggingPriority="249" verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="general-NumberPrecisionPopup-label">
+<rect key="frame" x="-2" y="3" width="292" height="16"/>
+<textFieldCell key="cell" lineBreakMode="truncatingTail" title="Number precision" id="general-NumberPrecisionPopup-label-cell"><font key="font" metaFont="system"/><color key="textColor" name="secondaryLabelColor" catalog="System" colorSpace="catalog"/><color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/></textFieldCell>
+</textField><popUpButton verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="general-NumberPrecisionPopup">
+<rect key="frame" x="360" y="0" width="240" height="25"/>
+<constraints><constraint firstAttribute="width" constant="240" id="general-NumberPrecisionPopup-width"/></constraints>
+<popUpButtonCell key="cell" type="push" title="Option" bezelStyle="rounded" alignment="left" lineBreakMode="truncatingTail" state="on" borderStyle="border" imageScaling="proportionallyDown" inset="2" selectedItem="general-NumberPrecisionPopup-default" id="general-NumberPrecisionPopup-cell">
+<behavior key="behavior" lightByBackground="YES" lightByGray="YES"/><font key="font" metaFont="system"/>
+<menu key="menu" title="OtherViews" id="general-NumberPrecisionPopup-menu"><items><menuItem title="Option" state="on" id="general-NumberPrecisionPopup-default"/></items></menu>
+</popUpButtonCell></popUpButton></subviews>
+<visibilityPriorities><integer value="1000"/><integer value="1000"/></visibilityPriorities>
+<customSpacing><real value="3.4028234663852886e+38"/><real value="3.4028234663852886e+38"/></customSpacing>
+</stackView><stackView distribution="fill" orientation="horizontal" alignment="firstBaseline" spacing="10" horizontalStackHuggingPriority="249" verticalStackHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="general-UncertaintyPopup-row">
+<rect key="frame" x="0" y="0" width="600" height="26"/>
+<subviews><textField focusRingType="none" horizontalHuggingPriority="249" verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="general-UncertaintyPopup-label">
+<rect key="frame" x="-2" y="3" width="292" height="16"/>
+<textFieldCell key="cell" lineBreakMode="truncatingTail" title="Uncertainty display" id="general-UncertaintyPopup-label-cell"><font key="font" metaFont="system"/><color key="textColor" name="secondaryLabelColor" catalog="System" colorSpace="catalog"/><color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/></textFieldCell>
+</textField><popUpButton verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="general-UncertaintyPopup">
+<rect key="frame" x="360" y="0" width="240" height="25"/>
+<constraints><constraint firstAttribute="width" constant="240" id="general-UncertaintyPopup-width"/></constraints>
+<popUpButtonCell key="cell" type="push" title="Option" bezelStyle="rounded" alignment="left" lineBreakMode="truncatingTail" state="on" borderStyle="border" imageScaling="proportionallyDown" inset="2" selectedItem="general-UncertaintyPopup-default" id="general-UncertaintyPopup-cell">
+<behavior key="behavior" lightByBackground="YES" lightByGray="YES"/><font key="font" metaFont="system"/>
+<menu key="menu" title="OtherViews" id="general-UncertaintyPopup-menu"><items><menuItem title="Option" state="on" id="general-UncertaintyPopup-default"/></items></menu>
+</popUpButtonCell></popUpButton></subviews>
+<visibilityPriorities><integer value="1000"/><integer value="1000"/></visibilityPriorities>
+<customSpacing><real value="3.4028234663852886e+38"/><real value="3.4028234663852886e+38"/></customSpacing>
+</stackView><stackView distribution="fill" orientation="horizontal" alignment="firstBaseline" spacing="10" horizontalStackHuggingPriority="249" verticalStackHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="general-InstrumentPopup-row">
+<rect key="frame" x="0" y="0" width="600" height="26"/>
+<subviews><textField focusRingType="none" horizontalHuggingPriority="249" verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="general-InstrumentPopup-label">
+<rect key="frame" x="-2" y="3" width="292" height="16"/>
+<textFieldCell key="cell" lineBreakMode="truncatingTail" title="Designer instrument" id="general-InstrumentPopup-label-cell"><font key="font" metaFont="system"/><color key="textColor" name="secondaryLabelColor" catalog="System" colorSpace="catalog"/><color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/></textFieldCell>
+</textField><popUpButton verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="general-InstrumentPopup">
+<rect key="frame" x="360" y="0" width="240" height="25"/>
+<constraints><constraint firstAttribute="width" constant="240" id="general-InstrumentPopup-width"/></constraints>
+<popUpButtonCell key="cell" type="push" title="Option" bezelStyle="rounded" alignment="left" lineBreakMode="truncatingTail" state="on" borderStyle="border" imageScaling="proportionallyDown" inset="2" selectedItem="general-InstrumentPopup-default" id="general-InstrumentPopup-cell">
+<behavior key="behavior" lightByBackground="YES" lightByGray="YES"/><font key="font" metaFont="system"/>
+<menu key="menu" title="OtherViews" id="general-InstrumentPopup-menu"><items><menuItem title="Option" state="on" id="general-InstrumentPopup-default"/></items></menu>
+</popUpButtonCell></popUpButton></subviews>
+<visibilityPriorities><integer value="1000"/><integer value="1000"/></visibilityPriorities>
+<customSpacing><real value="3.4028234663852886e+38"/><real value="3.4028234663852886e+38"/></customSpacing>
+</stackView><box boxType="separator" translatesAutoresizingMaskIntoConstraints="NO" id="general-separator-1"><rect key="frame" x="0" y="0" width="600" height="1"/><constraints><constraint firstAttribute="height" constant="1" id="general-separator-1-height"/></constraints></box><textField focusRingType="none" horizontalHuggingPriority="249" verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="general-section-1">
+<rect key="frame" x="-2" y="0" width="604" height="18"/>
+<textFieldCell key="cell" lineBreakMode="clipping" title="Analysis Context" id="general-section-1-cell"><font key="font" metaFont="systemBold"/><color key="textColor" name="labelColor" catalog="System" colorSpace="catalog"/><color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/></textFieldCell>
+</textField><stackView distribution="fill" orientation="horizontal" alignment="firstBaseline" spacing="10" horizontalStackHuggingPriority="249" verticalStackHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="general-ReferenceTemperatureField-row">
+<rect key="frame" x="0" y="0" width="600" height="26"/>
+<subviews><textField focusRingType="none" horizontalHuggingPriority="249" verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="general-ReferenceTemperatureField-label">
+<rect key="frame" x="-2" y="3" width="292" height="16"/>
+<textFieldCell key="cell" lineBreakMode="truncatingTail" title="Reference temperature (°C)" id="general-ReferenceTemperatureField-label-cell"><font key="font" metaFont="system"/><color key="textColor" name="secondaryLabelColor" catalog="System" colorSpace="catalog"/><color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/></textFieldCell>
+</textField><textField focusRingType="none" horizontalHuggingPriority="1000" verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="general-ReferenceTemperatureField">
+<rect key="frame" x="460" y="0" width="140" height="22"/>
+<constraints><constraint firstAttribute="width" constant="140" id="general-ReferenceTemperatureField-width"/></constraints>
+<textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" sendsActionOnEndEditing="YES" borderStyle="bezel" focusRingType="none" alignment="right" bezelStyle="round" id="general-ReferenceTemperatureField-cell"><numberFormatter key="formatter" formatterBehavior="default10_4" numberStyle="decimal" usesGroupingSeparator="NO" lenient="YES" formatWidth="-1" groupingSize="0" minimumIntegerDigits="1" maximumIntegerDigits="2000000000" maximumFractionDigits="12" id="general-ReferenceTemperatureField-formatter"/><font key="font" metaFont="system"/><color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/><color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/></textFieldCell>
+</textField></subviews>
+<visibilityPriorities><integer value="1000"/><integer value="1000"/></visibilityPriorities>
+<customSpacing><real value="3.4028234663852886e+38"/><real value="3.4028234663852886e+38"/></customSpacing>
+</stackView><stackView distribution="fill" orientation="horizontal" alignment="firstBaseline" spacing="10" horizontalStackHuggingPriority="249" verticalStackHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="general-MinimumTemperatureSpanField-row">
+<rect key="frame" x="0" y="0" width="600" height="26"/>
+<subviews><textField focusRingType="none" horizontalHuggingPriority="249" verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="general-MinimumTemperatureSpanField-label">
+<rect key="frame" x="-2" y="3" width="292" height="16"/>
+<textFieldCell key="cell" lineBreakMode="truncatingTail" title="Minimum temperature span (°C)" id="general-MinimumTemperatureSpanField-label-cell"><font key="font" metaFont="system"/><color key="textColor" name="secondaryLabelColor" catalog="System" colorSpace="catalog"/><color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/></textFieldCell>
+</textField><textField focusRingType="none" horizontalHuggingPriority="1000" verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="general-MinimumTemperatureSpanField">
+<rect key="frame" x="460" y="0" width="140" height="22"/>
+<constraints><constraint firstAttribute="width" constant="140" id="general-MinimumTemperatureSpanField-width"/></constraints>
+<textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" sendsActionOnEndEditing="YES" borderStyle="bezel" focusRingType="none" alignment="right" bezelStyle="round" id="general-MinimumTemperatureSpanField-cell"><numberFormatter key="formatter" formatterBehavior="default10_4" numberStyle="decimal" usesGroupingSeparator="NO" lenient="YES" formatWidth="-1" groupingSize="0" minimumIntegerDigits="1" maximumIntegerDigits="2000000000" maximumFractionDigits="12" id="general-MinimumTemperatureSpanField-formatter"/><font key="font" metaFont="system"/><color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/><color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/></textFieldCell>
+</textField></subviews>
+<visibilityPriorities><integer value="1000"/><integer value="1000"/></visibilityPriorities>
+<customSpacing><real value="3.4028234663852886e+38"/><real value="3.4028234663852886e+38"/></customSpacing>
+</stackView><stackView distribution="fill" orientation="horizontal" alignment="firstBaseline" spacing="10" horizontalStackHuggingPriority="249" verticalStackHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="general-MinimumIonSpanField-row">
+<rect key="frame" x="0" y="0" width="600" height="26"/>
+<subviews><textField focusRingType="none" horizontalHuggingPriority="249" verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="general-MinimumIonSpanField-label">
+<rect key="frame" x="-2" y="3" width="292" height="16"/>
+<textFieldCell key="cell" lineBreakMode="truncatingTail" title="Minimum ionic-strength span (mM)" id="general-MinimumIonSpanField-label-cell"><font key="font" metaFont="system"/><color key="textColor" name="secondaryLabelColor" catalog="System" colorSpace="catalog"/><color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/></textFieldCell>
+</textField><textField focusRingType="none" horizontalHuggingPriority="1000" verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="general-MinimumIonSpanField">
+<rect key="frame" x="460" y="0" width="140" height="22"/>
+<constraints><constraint firstAttribute="width" constant="140" id="general-MinimumIonSpanField-width"/></constraints>
+<textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" sendsActionOnEndEditing="YES" borderStyle="bezel" focusRingType="none" alignment="right" bezelStyle="round" id="general-MinimumIonSpanField-cell"><numberFormatter key="formatter" formatterBehavior="default10_4" numberStyle="decimal" usesGroupingSeparator="NO" lenient="YES" formatWidth="-1" groupingSize="0" minimumIntegerDigits="1" maximumIntegerDigits="2000000000" maximumFractionDigits="12" id="general-MinimumIonSpanField-formatter"/><font key="font" metaFont="system"/><color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/><color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/></textFieldCell>
+</textField></subviews>
+<visibilityPriorities><integer value="1000"/><integer value="1000"/></visibilityPriorities>
+<customSpacing><real value="3.4028234663852886e+38"/><real value="3.4028234663852886e+38"/></customSpacing>
+</stackView><button verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="general-IncludeBufferCheck">
+<rect key="frame" x="0" y="0" width="600" height="20"/>
+<buttonCell key="cell" type="check" title="Include buffer in ionic-strength calculation" bezelStyle="regularSquare" imagePosition="left" alignment="left" inset="2" id="general-IncludeBufferCheck-cell"><behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/><font key="font" metaFont="system"/></buttonCell>
+
+</button><box boxType="separator" translatesAutoresizingMaskIntoConstraints="NO" id="general-separator-2"><rect key="frame" x="0" y="0" width="600" height="1"/><constraints><constraint firstAttribute="height" constant="1" id="general-separator-2-height"/></constraints></box><textField focusRingType="none" horizontalHuggingPriority="249" verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="general-section-2">
+<rect key="frame" x="-2" y="0" width="604" height="18"/>
+<textFieldCell key="cell" lineBreakMode="clipping" title="Behavior and File Loading" id="general-section-2-cell"><font key="font" metaFont="systemBold"/><color key="textColor" name="labelColor" catalog="System" colorSpace="catalog"/><color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/></textFieldCell>
+</textField><button verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="general-OnlineChecksCheck">
+<rect key="frame" x="0" y="0" width="600" height="20"/>
+<buttonCell key="cell" type="check" title="Check for updates and online resources on launch" bezelStyle="regularSquare" imagePosition="left" alignment="left" inset="2" id="general-OnlineChecksCheck-cell"><behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/><font key="font" metaFont="system"/></buttonCell>
+
+</button><button verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="general-ConfirmDeleteCheck">
+<rect key="frame" x="0" y="0" width="600" height="20"/>
+<buttonCell key="cell" type="check" title="Confirm remove and delete actions" bezelStyle="regularSquare" imagePosition="left" alignment="left" inset="2" id="general-ConfirmDeleteCheck-cell"><behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/><font key="font" metaFont="system"/></buttonCell>
+
+</button><button verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="general-DiscardOrphanCheck">
+<rect key="frame" x="0" y="0" width="600" height="20"/>
+<buttonCell key="cell" type="check" title="Automatically discard injections outside the thermogram range" bezelStyle="regularSquare" imagePosition="left" alignment="left" inset="2" id="general-DiscardOrphanCheck-cell"><behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/><font key="font" metaFont="system"/></buttonCell>
+
+</button><box boxType="separator" translatesAutoresizingMaskIntoConstraints="NO" id="general-separator-3"><rect key="frame" x="0" y="0" width="600" height="1"/><constraints><constraint firstAttribute="height" constant="1" id="general-separator-3-height"/></constraints></box><textField focusRingType="none" horizontalHuggingPriority="249" verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="general-section-3">
+<rect key="frame" x="-2" y="0" width="604" height="18"/>
+<textFieldCell key="cell" lineBreakMode="clipping" title="Autosave and Recovery" id="general-section-3-cell"><font key="font" metaFont="systemBold"/><color key="textColor" name="labelColor" catalog="System" colorSpace="catalog"/><color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/></textFieldCell>
+</textField><button verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="general-AutoSaveEnabledCheck">
+<rect key="frame" x="0" y="0" width="600" height="20"/>
+<buttonCell key="cell" type="check" title="Enable autosave" bezelStyle="regularSquare" imagePosition="left" alignment="left" inset="2" id="general-AutoSaveEnabledCheck-cell"><behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/><font key="font" metaFont="system"/></buttonCell>
+<connections><action selector="autoSaveEnabledChanged:" target="general-pane-controller" id="general-AutoSaveEnabledCheck-action"/></connections>
+</button><stackView distribution="fill" orientation="horizontal" alignment="firstBaseline" spacing="10" horizontalStackHuggingPriority="249" verticalStackHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="general-AutoSaveIntervalField-row">
+<rect key="frame" x="0" y="0" width="600" height="26"/>
+<subviews><textField focusRingType="none" horizontalHuggingPriority="249" verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="general-AutoSaveIntervalField-label">
+<rect key="frame" x="-2" y="3" width="292" height="16"/>
+<textFieldCell key="cell" lineBreakMode="truncatingTail" title="Interval (minutes)" id="general-AutoSaveIntervalField-label-cell"><font key="font" metaFont="system"/><color key="textColor" name="secondaryLabelColor" catalog="System" colorSpace="catalog"/><color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/></textFieldCell>
+</textField><textField focusRingType="none" horizontalHuggingPriority="1000" verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="general-AutoSaveIntervalField">
+<rect key="frame" x="460" y="0" width="140" height="22"/>
+<constraints><constraint firstAttribute="width" constant="140" id="general-AutoSaveIntervalField-width"/></constraints>
+<textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" sendsActionOnEndEditing="YES" borderStyle="bezel" focusRingType="none" alignment="right" bezelStyle="round" id="general-AutoSaveIntervalField-cell"><numberFormatter key="formatter" formatterBehavior="default10_4" numberStyle="decimal" usesGroupingSeparator="NO" lenient="YES" formatWidth="-1" groupingSize="0" minimumIntegerDigits="1" maximumIntegerDigits="2000000000" maximumFractionDigits="0" id="general-AutoSaveIntervalField-formatter"/><font key="font" metaFont="system"/><color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/><color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/></textFieldCell>
+</textField></subviews>
+<visibilityPriorities><integer value="1000"/><integer value="1000"/></visibilityPriorities>
+<customSpacing><real value="3.4028234663852886e+38"/><real value="3.4028234663852886e+38"/></customSpacing>
+</stackView><stackView distribution="fill" orientation="horizontal" alignment="firstBaseline" spacing="10" horizontalStackHuggingPriority="249" verticalStackHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="general-AutoSaveLimitField-row">
+<rect key="frame" x="0" y="0" width="600" height="26"/>
+<subviews><textField focusRingType="none" horizontalHuggingPriority="249" verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="general-AutoSaveLimitField-label">
+<rect key="frame" x="-2" y="3" width="292" height="16"/>
+<textFieldCell key="cell" lineBreakMode="truncatingTail" title="Maximum files" id="general-AutoSaveLimitField-label-cell"><font key="font" metaFont="system"/><color key="textColor" name="secondaryLabelColor" catalog="System" colorSpace="catalog"/><color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/></textFieldCell>
+</textField><textField focusRingType="none" horizontalHuggingPriority="1000" verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="general-AutoSaveLimitField">
+<rect key="frame" x="460" y="0" width="140" height="22"/>
+<constraints><constraint firstAttribute="width" constant="140" id="general-AutoSaveLimitField-width"/></constraints>
+<textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" sendsActionOnEndEditing="YES" borderStyle="bezel" focusRingType="none" alignment="right" bezelStyle="round" id="general-AutoSaveLimitField-cell"><numberFormatter key="formatter" formatterBehavior="default10_4" numberStyle="decimal" usesGroupingSeparator="NO" lenient="YES" formatWidth="-1" groupingSize="0" minimumIntegerDigits="1" maximumIntegerDigits="2000000000" maximumFractionDigits="0" id="general-AutoSaveLimitField-formatter"/><font key="font" metaFont="system"/><color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/><color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/></textFieldCell>
+</textField></subviews>
+<visibilityPriorities><integer value="1000"/><integer value="1000"/></visibilityPriorities>
+<customSpacing><real value="3.4028234663852886e+38"/><real value="3.4028234663852886e+38"/></customSpacing>
+</stackView><button verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="general-RecoveryPromptCheck">
+<rect key="frame" x="0" y="0" width="600" height="20"/>
+<buttonCell key="cell" type="check" title="Prompt to recover after an interrupted session" bezelStyle="regularSquare" imagePosition="left" alignment="left" inset="2" id="general-RecoveryPromptCheck-cell"><behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/><font key="font" metaFont="system"/></buttonCell>
+
+</button><button verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="general-open-folder">
+<rect key="frame" x="0" y="0" width="170" height="32"/>
+<buttonCell key="cell" type="push" title="Open Autosave Folder" bezelStyle="rounded" alignment="center" borderStyle="border" imageScaling="proportionallyDown" inset="2" id="general-open-folder-cell"><behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/><font key="font" metaFont="system"/></buttonCell>
+<connections><action selector="openAutoSaveFolder:" target="general-pane-controller" id="general-open-folder-action"/></connections>
+</button></subviews>
+</stackView><customView translatesAutoresizingMaskIntoConstraints="NO" id="general-bottom-spacer"><rect key="frame" x="40" y="724" width="600" height="20"/><constraints><constraint firstAttribute="height" relation="greaterThanOrEqual" constant="20" id="general-bottom-spacer-min-height"/></constraints></customView></subviews>
+<constraints>
+<constraint firstItem="general-content" firstAttribute="top" secondItem="general-document" secondAttribute="top" constant="16" id="general-content-top"/>
+<constraint firstItem="general-content" firstAttribute="leading" secondItem="general-document" secondAttribute="leading" constant="40" id="general-content-leading"/>
+<constraint firstAttribute="trailing" secondItem="general-content" secondAttribute="trailing" constant="40" id="general-content-trailing"/>
+<constraint firstItem="general-bottom-spacer" firstAttribute="top" secondItem="general-content" secondAttribute="bottom" id="general-bottom-spacer-top"/>
+<constraint firstItem="general-bottom-spacer" firstAttribute="leading" secondItem="general-document" secondAttribute="leading" constant="40" id="general-bottom-spacer-leading"/>
+<constraint firstAttribute="trailing" secondItem="general-bottom-spacer" secondAttribute="trailing" constant="40" id="general-bottom-spacer-trailing"/>
+<constraint firstAttribute="bottom" secondItem="general-bottom-spacer" secondAttribute="bottom" id="general-bottom-spacer-bottom"/>
+</constraints></view></subviews>
+<constraints>
+<constraint firstItem="general-document" firstAttribute="leading" secondItem="general-clip" secondAttribute="leading" id="general-document-leading"/>
+<constraint firstItem="general-document" firstAttribute="top" secondItem="general-clip" secondAttribute="top" id="general-document-top"/>
+<constraint firstAttribute="trailing" secondItem="general-document" secondAttribute="trailing" id="general-document-trailing"/>
+<constraint firstItem="general-document" firstAttribute="height" relation="greaterThanOrEqual" secondItem="general-clip" secondAttribute="height" id="general-document-min-height"/>
+</constraints>
+</clipView>
+<scroller key="horizontalScroller" hidden="YES" wantsLayer="YES" horizontal="YES" id="general-horizontal-scroller"><rect key="frame" x="-100" y="-100" width="16" height="16"/><autoresizingMask key="autoresizingMask"/></scroller>
+<scroller key="verticalScroller" hidden="YES" wantsLayer="YES" horizontal="NO" id="general-vertical-scroller"><rect key="frame" x="664" y="0" width="16" height="585"/><autoresizingMask key="autoresizingMask"/></scroller>
+</scrollView>
+<customView translatesAutoresizingMaskIntoConstraints="NO" id="general-footer">
+<rect key="frame" x="0" y="0" width="680" height="55"/>
+<subviews>
+<box boxType="separator" translatesAutoresizingMaskIntoConstraints="NO" id="general-footer-separator"><rect key="frame" x="0" y="54" width="680" height="1"/><constraints><constraint firstAttribute="height" constant="1" id="general-footer-separator-height"/></constraints></box>
+<stackView distribution="fill" orientation="horizontal" alignment="centerY" spacing="8" horizontalStackHuggingPriority="249" verticalStackHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="general-footer-stack">
+<rect key="frame" x="20" y="12" width="640" height="32"/>
+<subviews>
+<button verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="general-restore"><rect key="frame" x="0" y="0" width="150" height="32"/><buttonCell key="cell" type="push" title="Restore Defaults" bezelStyle="rounded" alignment="center" borderStyle="border" imageScaling="proportionallyDown" inset="2" id="general-restore-cell"><behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/><font key="font" metaFont="system"/></buttonCell><connections><action selector="restorePreferenceDefaults:" target="general-pane-controller" id="general-restore-action"/></connections></button>
+<textField focusRingType="none" horizontalHuggingPriority="1" verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="general-status"><rect key="frame" x="134" y="8" width="338" height="16"/><textFieldCell key="cell" lineBreakMode="truncatingTail" title="" id="general-status-cell"><font key="font" metaFont="smallSystem"/><color key="textColor" name="secondaryLabelColor" catalog="System" colorSpace="catalog"/><color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/></textFieldCell></textField>
+<button verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="general-cancel"><rect key="frame" x="480" y="0" width="76" height="32"/><buttonCell key="cell" type="push" title="Cancel" bezelStyle="rounded" alignment="center" borderStyle="border" imageScaling="proportionallyDown" inset="2" id="general-cancel-cell"><behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/><font key="font" metaFont="system"/></buttonCell><connections><action selector="cancelPreferences:" target="general-pane-controller" id="general-cancel-action"/></connections></button>
+<button verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="general-apply"><rect key="frame" x="564" y="0" width="76" height="32"/><buttonCell key="cell" type="push" title="Apply" bezelStyle="rounded" alignment="center" borderStyle="border" imageScaling="proportionallyDown" keyEquivalent="&#13;" inset="2" id="general-apply-cell"><behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/><font key="font" metaFont="system"/></buttonCell><connections><action selector="applyPreferences:" target="general-pane-controller" id="general-apply-action"/></connections></button>
+</subviews>
+<visibilityPriorities><integer value="1000"/><integer value="1000"/><integer value="1000"/><integer value="1000"/></visibilityPriorities>
+<customSpacing><real value="3.4028234663852886e+38"/><real value="3.4028234663852886e+38"/><real value="3.4028234663852886e+38"/><real value="3.4028234663852886e+38"/></customSpacing>
+</stackView>
+</subviews>
+<constraints>
+<constraint firstItem="general-footer-separator" firstAttribute="top" secondItem="general-footer" secondAttribute="top" id="general-sep-top"/>
+<constraint firstItem="general-footer-separator" firstAttribute="leading" secondItem="general-footer" secondAttribute="leading" id="general-sep-leading"/>
+<constraint firstAttribute="trailing" secondItem="general-footer-separator" secondAttribute="trailing" id="general-sep-trailing"/>
+<constraint firstItem="general-footer-stack" firstAttribute="leading" secondItem="general-footer" secondAttribute="leading" constant="20" id="general-footer-stack-leading"/>
+<constraint firstAttribute="trailing" secondItem="general-footer-stack" secondAttribute="trailing" constant="20" id="general-footer-stack-trailing"/>
+<constraint firstItem="general-footer-stack" firstAttribute="centerY" secondItem="general-footer" secondAttribute="centerY" id="general-footer-stack-center"/>
+</constraints>
+</customView>
+</subviews>
+<constraints>
+<constraint firstItem="general-scroll" firstAttribute="top" secondItem="general-root" secondAttribute="top" id="general-scroll-top"/>
+<constraint firstItem="general-scroll" firstAttribute="leading" secondItem="general-root" secondAttribute="leading" id="general-scroll-leading"/>
+<constraint firstAttribute="trailing" secondItem="general-scroll" secondAttribute="trailing" id="general-scroll-trailing"/>
+<constraint firstItem="general-footer" firstAttribute="top" secondItem="general-scroll" secondAttribute="bottom" id="general-scroll-footer"/>
+<constraint firstItem="general-footer" firstAttribute="leading" secondItem="general-root" secondAttribute="leading" id="general-footer-leading"/>
+<constraint firstAttribute="trailing" secondItem="general-footer" secondAttribute="trailing" id="general-footer-trailing"/>
+<constraint firstAttribute="bottom" secondItem="general-footer" secondAttribute="bottom" id="general-footer-bottom"/>
+<constraint firstItem="general-footer" firstAttribute="height" constant="55" id="general-footer-height"/>
+</constraints>
+</view>
+<connections><outlet property="PreferencesScrollView" destination="general-scroll" id="general-scroll-outlet"/><outlet property="EnergyUnitPopup" destination="general-EnergyUnitPopup" id="general-EnergyUnitPopup-outlet"/><outlet property="ConcentrationUnitPopup" destination="general-ConcentrationUnitPopup" id="general-ConcentrationUnitPopup-outlet"/><outlet property="NumberPrecisionPopup" destination="general-NumberPrecisionPopup" id="general-NumberPrecisionPopup-outlet"/><outlet property="UncertaintyPopup" destination="general-UncertaintyPopup" id="general-UncertaintyPopup-outlet"/><outlet property="InstrumentPopup" destination="general-InstrumentPopup" id="general-InstrumentPopup-outlet"/><outlet property="ReferenceTemperatureField" destination="general-ReferenceTemperatureField" id="general-ReferenceTemperatureField-outlet"/><outlet property="MinimumTemperatureSpanField" destination="general-MinimumTemperatureSpanField" id="general-MinimumTemperatureSpanField-outlet"/><outlet property="MinimumIonSpanField" destination="general-MinimumIonSpanField" id="general-MinimumIonSpanField-outlet"/><outlet property="IncludeBufferCheck" destination="general-IncludeBufferCheck" id="general-IncludeBufferCheck-outlet"/><outlet property="OnlineChecksCheck" destination="general-OnlineChecksCheck" id="general-OnlineChecksCheck-outlet"/><outlet property="ConfirmDeleteCheck" destination="general-ConfirmDeleteCheck" id="general-ConfirmDeleteCheck-outlet"/><outlet property="DiscardOrphanCheck" destination="general-DiscardOrphanCheck" id="general-DiscardOrphanCheck-outlet"/><outlet property="AutoSaveEnabledCheck" destination="general-AutoSaveEnabledCheck" id="general-AutoSaveEnabledCheck-outlet"/><outlet property="AutoSaveIntervalField" destination="general-AutoSaveIntervalField" id="general-AutoSaveIntervalField-outlet"/><outlet property="AutoSaveLimitField" destination="general-AutoSaveLimitField" id="general-AutoSaveLimitField-outlet"/><outlet property="RecoveryPromptCheck" destination="general-RecoveryPromptCheck" id="general-RecoveryPromptCheck-outlet"/><outlet property="StatusLabel" destination="general-status" id="general-status-outlet"/></connections>
+</viewController>
+<customObject id="general-first-responder" userLabel="First Responder" customClass="NSResponder" sceneMemberID="firstResponder"/>
+</objects>
+<point key="canvasLocation" x="1600" y="0"/>
+</scene>
+<scene sceneID="processing-scene">
+<objects>
+<viewController title="Processing" id="processing-pane-controller" customClass="MacProcessingPreferencesViewController" sceneMemberID="viewController">
+<view key="view" id="processing-root"><rect key="frame" x="0" y="0" width="680" height="640"/><autoresizingMask key="autoresizingMask"/>
+<subviews>
+<scrollView borderType="none" autohidesScrollers="YES" horizontalLineScroll="10" horizontalPageScroll="10" verticalLineScroll="24" verticalPageScroll="48" hasHorizontalScroller="NO" horizontalScrollElasticity="none" translatesAutoresizingMaskIntoConstraints="NO" id="processing-scroll">
+<rect key="frame" x="0" y="55" width="680" height="585"/>
+<clipView key="contentView" drawsBackground="NO" id="processing-clip"><rect key="frame" x="0" y="0" width="680" height="585"/><autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
+<subviews><view autoresizesSubviews="NO" translatesAutoresizingMaskIntoConstraints="NO" id="processing-document" customClass="FlippedPreferencesDocumentView"><rect key="frame" x="0" y="0" width="680" height="545"/>
+<subviews><stackView distribution="fill" orientation="vertical" alignment="width" spacing="8" horizontalStackHuggingPriority="750" verticalStackHuggingPriority="1000" verticalCompressionResistancePriority="1000" detachesHiddenViews="YES" translatesAutoresizingMaskIntoConstraints="NO" id="processing-content"><rect key="frame" x="40" y="16" width="600" height="513"/>
+<subviews><textField focusRingType="none" horizontalHuggingPriority="249" verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="processing-section-0">
+<rect key="frame" x="-2" y="0" width="604" height="18"/>
+<textFieldCell key="cell" lineBreakMode="clipping" title="Processing Defaults" id="processing-section-0-cell"><font key="font" metaFont="systemBold"/><color key="textColor" name="labelColor" catalog="System" colorSpace="catalog"/><color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/></textFieldCell>
+</textField><stackView distribution="fill" orientation="horizontal" alignment="firstBaseline" spacing="10" horizontalStackHuggingPriority="249" verticalStackHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="processing-DilutionPopup-row">
+<rect key="frame" x="0" y="0" width="600" height="26"/>
+<subviews><textField focusRingType="none" horizontalHuggingPriority="249" verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="processing-DilutionPopup-label">
+<rect key="frame" x="-2" y="3" width="292" height="16"/>
+<textFieldCell key="cell" lineBreakMode="truncatingTail" title="Dilution method" id="processing-DilutionPopup-label-cell"><font key="font" metaFont="system"/><color key="textColor" name="secondaryLabelColor" catalog="System" colorSpace="catalog"/><color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/></textFieldCell>
+</textField><popUpButton verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="processing-DilutionPopup">
+<rect key="frame" x="360" y="0" width="240" height="25"/>
+<constraints><constraint firstAttribute="width" constant="240" id="processing-DilutionPopup-width"/></constraints>
+<popUpButtonCell key="cell" type="push" title="Option" bezelStyle="rounded" alignment="left" lineBreakMode="truncatingTail" state="on" borderStyle="border" imageScaling="proportionallyDown" inset="2" selectedItem="processing-DilutionPopup-default" id="processing-DilutionPopup-cell">
+<behavior key="behavior" lightByBackground="YES" lightByGray="YES"/><font key="font" metaFont="system"/>
+<menu key="menu" title="OtherViews" id="processing-DilutionPopup-menu"><items><menuItem title="Option" state="on" id="processing-DilutionPopup-default"/></items></menu>
+</popUpButtonCell></popUpButton></subviews>
+<visibilityPriorities><integer value="1000"/><integer value="1000"/></visibilityPriorities>
+<customSpacing><real value="3.4028234663852886e+38"/><real value="3.4028234663852886e+38"/></customSpacing>
+</stackView><stackView distribution="fill" orientation="horizontal" alignment="firstBaseline" spacing="10" horizontalStackHuggingPriority="249" verticalStackHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="processing-BufferSubtractionPopup-row">
+<rect key="frame" x="0" y="0" width="600" height="26"/>
+<subviews><textField focusRingType="none" horizontalHuggingPriority="249" verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="processing-BufferSubtractionPopup-label">
+<rect key="frame" x="-2" y="3" width="292" height="16"/>
+<textFieldCell key="cell" lineBreakMode="truncatingTail" title="Buffer subtraction" id="processing-BufferSubtractionPopup-label-cell"><font key="font" metaFont="system"/><color key="textColor" name="secondaryLabelColor" catalog="System" colorSpace="catalog"/><color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/></textFieldCell>
+</textField><popUpButton verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="processing-BufferSubtractionPopup">
+<rect key="frame" x="360" y="0" width="240" height="25"/>
+<constraints><constraint firstAttribute="width" constant="240" id="processing-BufferSubtractionPopup-width"/></constraints>
+<popUpButtonCell key="cell" type="push" title="Option" bezelStyle="rounded" alignment="left" lineBreakMode="truncatingTail" state="on" borderStyle="border" imageScaling="proportionallyDown" inset="2" selectedItem="processing-BufferSubtractionPopup-default" id="processing-BufferSubtractionPopup-cell">
+<behavior key="behavior" lightByBackground="YES" lightByGray="YES"/><font key="font" metaFont="system"/>
+<menu key="menu" title="OtherViews" id="processing-BufferSubtractionPopup-menu"><items><menuItem title="Option" state="on" id="processing-BufferSubtractionPopup-default"/></items></menu>
+</popUpButtonCell></popUpButton></subviews>
+<visibilityPriorities><integer value="1000"/><integer value="1000"/></visibilityPriorities>
+<customSpacing><real value="3.4028234663852886e+38"/><real value="3.4028234663852886e+38"/></customSpacing>
+</stackView><button verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="processing-DiscardIntegrationCheck">
+<rect key="frame" x="0" y="0" width="600" height="20"/>
+<buttonCell key="cell" type="check" title="Discard integration regions when estimating the baseline" bezelStyle="regularSquare" imagePosition="left" alignment="left" inset="2" id="processing-DiscardIntegrationCheck-cell"><behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/><font key="font" metaFont="system"/></buttonCell>
+
+</button><button verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="processing-ReprocessIntegratedCheck">
+<rect key="frame" x="0" y="0" width="600" height="20"/>
+<buttonCell key="cell" type="check" title="Reprocess integrated heats when loading a project" bezelStyle="regularSquare" imagePosition="left" alignment="left" inset="2" id="processing-ReprocessIntegratedCheck-cell"><behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/><font key="font" metaFont="system"/></buttonCell>
+
+</button><box boxType="separator" translatesAutoresizingMaskIntoConstraints="NO" id="processing-separator-1"><rect key="frame" x="0" y="0" width="600" height="1"/><constraints><constraint firstAttribute="height" constant="1" id="processing-separator-1-height"/></constraints></box><textField focusRingType="none" horizontalHuggingPriority="249" verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="processing-section-1">
+<rect key="frame" x="-2" y="0" width="604" height="18"/>
+<textFieldCell key="cell" lineBreakMode="clipping" title="Spline Defaults" id="processing-section-1-cell"><font key="font" metaFont="systemBold"/><color key="textColor" name="labelColor" catalog="System" colorSpace="catalog"/><color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/></textFieldCell>
+</textField><stackView distribution="fill" orientation="horizontal" alignment="firstBaseline" spacing="10" horizontalStackHuggingPriority="249" verticalStackHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="processing-SplineDensityPopup-row">
+<rect key="frame" x="0" y="0" width="600" height="26"/>
+<subviews><textField focusRingType="none" horizontalHuggingPriority="249" verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="processing-SplineDensityPopup-label">
+<rect key="frame" x="-2" y="3" width="292" height="16"/>
+<textFieldCell key="cell" lineBreakMode="truncatingTail" title="Point density" id="processing-SplineDensityPopup-label-cell"><font key="font" metaFont="system"/><color key="textColor" name="secondaryLabelColor" catalog="System" colorSpace="catalog"/><color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/></textFieldCell>
+</textField><popUpButton verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="processing-SplineDensityPopup">
+<rect key="frame" x="360" y="0" width="240" height="25"/>
+<constraints><constraint firstAttribute="width" constant="240" id="processing-SplineDensityPopup-width"/></constraints>
+<popUpButtonCell key="cell" type="push" title="Option" bezelStyle="rounded" alignment="left" lineBreakMode="truncatingTail" state="on" borderStyle="border" imageScaling="proportionallyDown" inset="2" selectedItem="processing-SplineDensityPopup-default" id="processing-SplineDensityPopup-cell">
+<behavior key="behavior" lightByBackground="YES" lightByGray="YES"/><font key="font" metaFont="system"/>
+<menu key="menu" title="OtherViews" id="processing-SplineDensityPopup-menu"><items><menuItem title="Option" state="on" id="processing-SplineDensityPopup-default"/></items></menu>
+</popUpButtonCell></popUpButton></subviews>
+<visibilityPriorities><integer value="1000"/><integer value="1000"/></visibilityPriorities>
+<customSpacing><real value="3.4028234663852886e+38"/><real value="3.4028234663852886e+38"/></customSpacing>
+</stackView><stackView distribution="fill" orientation="horizontal" alignment="firstBaseline" spacing="10" horizontalStackHuggingPriority="249" verticalStackHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="processing-SplineHandlePopup-row">
+<rect key="frame" x="0" y="0" width="600" height="26"/>
+<subviews><textField focusRingType="none" horizontalHuggingPriority="249" verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="processing-SplineHandlePopup-label">
+<rect key="frame" x="-2" y="3" width="292" height="16"/>
+<textFieldCell key="cell" lineBreakMode="truncatingTail" title="Handle mode" id="processing-SplineHandlePopup-label-cell"><font key="font" metaFont="system"/><color key="textColor" name="secondaryLabelColor" catalog="System" colorSpace="catalog"/><color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/></textFieldCell>
+</textField><popUpButton verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="processing-SplineHandlePopup">
+<rect key="frame" x="360" y="0" width="240" height="25"/>
+<constraints><constraint firstAttribute="width" constant="240" id="processing-SplineHandlePopup-width"/></constraints>
+<popUpButtonCell key="cell" type="push" title="Option" bezelStyle="rounded" alignment="left" lineBreakMode="truncatingTail" state="on" borderStyle="border" imageScaling="proportionallyDown" inset="2" selectedItem="processing-SplineHandlePopup-default" id="processing-SplineHandlePopup-cell">
+<behavior key="behavior" lightByBackground="YES" lightByGray="YES"/><font key="font" metaFont="system"/>
+<menu key="menu" title="OtherViews" id="processing-SplineHandlePopup-menu"><items><menuItem title="Option" state="on" id="processing-SplineHandlePopup-default"/></items></menu>
+</popUpButtonCell></popUpButton></subviews>
+<visibilityPriorities><integer value="1000"/><integer value="1000"/></visibilityPriorities>
+<customSpacing><real value="3.4028234663852886e+38"/><real value="3.4028234663852886e+38"/></customSpacing>
+</stackView><button verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="processing-SplineTimeDraggingCheck">
+<rect key="frame" x="0" y="0" width="600" height="20"/>
+<buttonCell key="cell" type="check" title="Allow spline-point time dragging by default" bezelStyle="regularSquare" imagePosition="left" alignment="left" inset="2" id="processing-SplineTimeDraggingCheck-cell"><behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/><font key="font" metaFont="system"/></buttonCell>
+
+</button><button verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="processing-CopyIntegrationStartCheck">
+<rect key="frame" x="0" y="0" width="600" height="20"/>
+<buttonCell key="cell" type="check" title="Copy integration start with the selected region" bezelStyle="regularSquare" imagePosition="left" alignment="left" inset="2" id="processing-CopyIntegrationStartCheck-cell"><behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/><font key="font" metaFont="system"/></buttonCell>
+
+</button></subviews>
+</stackView><customView translatesAutoresizingMaskIntoConstraints="NO" id="processing-bottom-spacer"><rect key="frame" x="40" y="565" width="600" height="20"/><constraints><constraint firstAttribute="height" relation="greaterThanOrEqual" constant="20" id="processing-bottom-spacer-min-height"/></constraints></customView></subviews>
+<constraints>
+<constraint firstItem="processing-content" firstAttribute="top" secondItem="processing-document" secondAttribute="top" constant="16" id="processing-content-top"/>
+<constraint firstItem="processing-content" firstAttribute="leading" secondItem="processing-document" secondAttribute="leading" constant="40" id="processing-content-leading"/>
+<constraint firstAttribute="trailing" secondItem="processing-content" secondAttribute="trailing" constant="40" id="processing-content-trailing"/>
+<constraint firstItem="processing-bottom-spacer" firstAttribute="top" secondItem="processing-content" secondAttribute="bottom" id="processing-bottom-spacer-top"/>
+<constraint firstItem="processing-bottom-spacer" firstAttribute="leading" secondItem="processing-document" secondAttribute="leading" constant="40" id="processing-bottom-spacer-leading"/>
+<constraint firstAttribute="trailing" secondItem="processing-bottom-spacer" secondAttribute="trailing" constant="40" id="processing-bottom-spacer-trailing"/>
+<constraint firstAttribute="bottom" secondItem="processing-bottom-spacer" secondAttribute="bottom" id="processing-bottom-spacer-bottom"/>
+</constraints></view></subviews>
+<constraints>
+<constraint firstItem="processing-document" firstAttribute="leading" secondItem="processing-clip" secondAttribute="leading" id="processing-document-leading"/>
+<constraint firstItem="processing-document" firstAttribute="top" secondItem="processing-clip" secondAttribute="top" id="processing-document-top"/>
+<constraint firstAttribute="trailing" secondItem="processing-document" secondAttribute="trailing" id="processing-document-trailing"/>
+<constraint firstItem="processing-document" firstAttribute="height" relation="greaterThanOrEqual" secondItem="processing-clip" secondAttribute="height" id="processing-document-min-height"/>
+</constraints>
+</clipView>
+<scroller key="horizontalScroller" hidden="YES" wantsLayer="YES" horizontal="YES" id="processing-horizontal-scroller"><rect key="frame" x="-100" y="-100" width="16" height="16"/><autoresizingMask key="autoresizingMask"/></scroller>
+<scroller key="verticalScroller" hidden="YES" wantsLayer="YES" horizontal="NO" id="processing-vertical-scroller"><rect key="frame" x="664" y="0" width="16" height="585"/><autoresizingMask key="autoresizingMask"/></scroller>
+</scrollView>
+<customView translatesAutoresizingMaskIntoConstraints="NO" id="processing-footer">
+<rect key="frame" x="0" y="0" width="680" height="55"/>
+<subviews>
+<box boxType="separator" translatesAutoresizingMaskIntoConstraints="NO" id="processing-footer-separator"><rect key="frame" x="0" y="54" width="680" height="1"/><constraints><constraint firstAttribute="height" constant="1" id="processing-footer-separator-height"/></constraints></box>
+<stackView distribution="fill" orientation="horizontal" alignment="centerY" spacing="8" horizontalStackHuggingPriority="249" verticalStackHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="processing-footer-stack">
+<rect key="frame" x="20" y="12" width="640" height="32"/>
+<subviews>
+<button verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="processing-restore"><rect key="frame" x="0" y="0" width="150" height="32"/><buttonCell key="cell" type="push" title="Restore Defaults" bezelStyle="rounded" alignment="center" borderStyle="border" imageScaling="proportionallyDown" inset="2" id="processing-restore-cell"><behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/><font key="font" metaFont="system"/></buttonCell><connections><action selector="restorePreferenceDefaults:" target="processing-pane-controller" id="processing-restore-action"/></connections></button>
+<textField focusRingType="none" horizontalHuggingPriority="1" verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="processing-status"><rect key="frame" x="134" y="8" width="338" height="16"/><textFieldCell key="cell" lineBreakMode="truncatingTail" title="" id="processing-status-cell"><font key="font" metaFont="smallSystem"/><color key="textColor" name="secondaryLabelColor" catalog="System" colorSpace="catalog"/><color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/></textFieldCell></textField>
+<button verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="processing-cancel"><rect key="frame" x="480" y="0" width="76" height="32"/><buttonCell key="cell" type="push" title="Cancel" bezelStyle="rounded" alignment="center" borderStyle="border" imageScaling="proportionallyDown" inset="2" id="processing-cancel-cell"><behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/><font key="font" metaFont="system"/></buttonCell><connections><action selector="cancelPreferences:" target="processing-pane-controller" id="processing-cancel-action"/></connections></button>
+<button verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="processing-apply"><rect key="frame" x="564" y="0" width="76" height="32"/><buttonCell key="cell" type="push" title="Apply" bezelStyle="rounded" alignment="center" borderStyle="border" imageScaling="proportionallyDown" keyEquivalent="&#13;" inset="2" id="processing-apply-cell"><behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/><font key="font" metaFont="system"/></buttonCell><connections><action selector="applyPreferences:" target="processing-pane-controller" id="processing-apply-action"/></connections></button>
+</subviews>
+<visibilityPriorities><integer value="1000"/><integer value="1000"/><integer value="1000"/><integer value="1000"/></visibilityPriorities>
+<customSpacing><real value="3.4028234663852886e+38"/><real value="3.4028234663852886e+38"/><real value="3.4028234663852886e+38"/><real value="3.4028234663852886e+38"/></customSpacing>
+</stackView>
+</subviews>
+<constraints>
+<constraint firstItem="processing-footer-separator" firstAttribute="top" secondItem="processing-footer" secondAttribute="top" id="processing-sep-top"/>
+<constraint firstItem="processing-footer-separator" firstAttribute="leading" secondItem="processing-footer" secondAttribute="leading" id="processing-sep-leading"/>
+<constraint firstAttribute="trailing" secondItem="processing-footer-separator" secondAttribute="trailing" id="processing-sep-trailing"/>
+<constraint firstItem="processing-footer-stack" firstAttribute="leading" secondItem="processing-footer" secondAttribute="leading" constant="20" id="processing-footer-stack-leading"/>
+<constraint firstAttribute="trailing" secondItem="processing-footer-stack" secondAttribute="trailing" constant="20" id="processing-footer-stack-trailing"/>
+<constraint firstItem="processing-footer-stack" firstAttribute="centerY" secondItem="processing-footer" secondAttribute="centerY" id="processing-footer-stack-center"/>
+</constraints>
+</customView>
+</subviews>
+<constraints>
+<constraint firstItem="processing-scroll" firstAttribute="top" secondItem="processing-root" secondAttribute="top" id="processing-scroll-top"/>
+<constraint firstItem="processing-scroll" firstAttribute="leading" secondItem="processing-root" secondAttribute="leading" id="processing-scroll-leading"/>
+<constraint firstAttribute="trailing" secondItem="processing-scroll" secondAttribute="trailing" id="processing-scroll-trailing"/>
+<constraint firstItem="processing-footer" firstAttribute="top" secondItem="processing-scroll" secondAttribute="bottom" id="processing-scroll-footer"/>
+<constraint firstItem="processing-footer" firstAttribute="leading" secondItem="processing-root" secondAttribute="leading" id="processing-footer-leading"/>
+<constraint firstAttribute="trailing" secondItem="processing-footer" secondAttribute="trailing" id="processing-footer-trailing"/>
+<constraint firstAttribute="bottom" secondItem="processing-footer" secondAttribute="bottom" id="processing-footer-bottom"/>
+<constraint firstItem="processing-footer" firstAttribute="height" constant="55" id="processing-footer-height"/>
+</constraints>
+</view>
+<connections><outlet property="PreferencesScrollView" destination="processing-scroll" id="processing-scroll-outlet"/><outlet property="DilutionPopup" destination="processing-DilutionPopup" id="processing-DilutionPopup-outlet"/><outlet property="BufferSubtractionPopup" destination="processing-BufferSubtractionPopup" id="processing-BufferSubtractionPopup-outlet"/><outlet property="DiscardIntegrationCheck" destination="processing-DiscardIntegrationCheck" id="processing-DiscardIntegrationCheck-outlet"/><outlet property="ReprocessIntegratedCheck" destination="processing-ReprocessIntegratedCheck" id="processing-ReprocessIntegratedCheck-outlet"/><outlet property="SplineDensityPopup" destination="processing-SplineDensityPopup" id="processing-SplineDensityPopup-outlet"/><outlet property="SplineHandlePopup" destination="processing-SplineHandlePopup" id="processing-SplineHandlePopup-outlet"/><outlet property="SplineTimeDraggingCheck" destination="processing-SplineTimeDraggingCheck" id="processing-SplineTimeDraggingCheck-outlet"/><outlet property="CopyIntegrationStartCheck" destination="processing-CopyIntegrationStartCheck" id="processing-CopyIntegrationStartCheck-outlet"/><outlet property="StatusLabel" destination="processing-status" id="processing-status-outlet"/></connections>
+</viewController>
+<customObject id="processing-first-responder" userLabel="First Responder" customClass="NSResponder" sceneMemberID="firstResponder"/>
+</objects>
+<point key="canvasLocation" x="2360" y="0"/>
+</scene>
+<scene sceneID="fitting-scene">
+<objects>
+<viewController title="Fitting" id="fitting-pane-controller" customClass="MacFittingPreferencesViewController" sceneMemberID="viewController">
+<view key="view" id="fitting-root"><rect key="frame" x="0" y="0" width="680" height="640"/><autoresizingMask key="autoresizingMask"/>
+<subviews>
+<scrollView borderType="none" autohidesScrollers="YES" horizontalLineScroll="10" horizontalPageScroll="10" verticalLineScroll="24" verticalPageScroll="48" hasHorizontalScroller="NO" horizontalScrollElasticity="none" translatesAutoresizingMaskIntoConstraints="NO" id="fitting-scroll">
+<rect key="frame" x="0" y="55" width="680" height="585"/>
+<clipView key="contentView" drawsBackground="NO" id="fitting-clip"><rect key="frame" x="0" y="0" width="680" height="585"/><autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
+<subviews><view autoresizesSubviews="NO" translatesAutoresizingMaskIntoConstraints="NO" id="fitting-document" customClass="FlippedPreferencesDocumentView"><rect key="frame" x="0" y="0" width="680" height="620"/>
+<subviews><stackView distribution="fill" orientation="vertical" alignment="width" spacing="8" horizontalStackHuggingPriority="750" verticalStackHuggingPriority="1000" verticalCompressionResistancePriority="1000" detachesHiddenViews="YES" translatesAutoresizingMaskIntoConstraints="NO" id="fitting-content"><rect key="frame" x="40" y="16" width="600" height="588"/>
+<subviews><textField focusRingType="none" horizontalHuggingPriority="249" verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="fitting-section-0">
+<rect key="frame" x="-2" y="0" width="604" height="18"/>
+<textFieldCell key="cell" lineBreakMode="clipping" title="Solver" id="fitting-section-0-cell"><font key="font" metaFont="systemBold"/><color key="textColor" name="labelColor" catalog="System" colorSpace="catalog"/><color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/></textFieldCell>
+</textField><stackView distribution="fill" orientation="horizontal" alignment="firstBaseline" spacing="10" horizontalStackHuggingPriority="249" verticalStackHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="fitting-SolverPopup-row">
+<rect key="frame" x="0" y="0" width="600" height="26"/>
+<subviews><textField focusRingType="none" horizontalHuggingPriority="249" verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="fitting-SolverPopup-label">
+<rect key="frame" x="-2" y="3" width="292" height="16"/>
+<textFieldCell key="cell" lineBreakMode="truncatingTail" title="Default solver" id="fitting-SolverPopup-label-cell"><font key="font" metaFont="system"/><color key="textColor" name="secondaryLabelColor" catalog="System" colorSpace="catalog"/><color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/></textFieldCell>
+</textField><popUpButton verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="fitting-SolverPopup">
+<rect key="frame" x="360" y="0" width="240" height="25"/>
+<constraints><constraint firstAttribute="width" constant="240" id="fitting-SolverPopup-width"/></constraints>
+<popUpButtonCell key="cell" type="push" title="Option" bezelStyle="rounded" alignment="left" lineBreakMode="truncatingTail" state="on" borderStyle="border" imageScaling="proportionallyDown" inset="2" selectedItem="fitting-SolverPopup-default" id="fitting-SolverPopup-cell">
+<behavior key="behavior" lightByBackground="YES" lightByGray="YES"/><font key="font" metaFont="system"/>
+<menu key="menu" title="OtherViews" id="fitting-SolverPopup-menu"><items><menuItem title="Option" state="on" id="fitting-SolverPopup-default"/></items></menu>
+</popUpButtonCell></popUpButton></subviews>
+<visibilityPriorities><integer value="1000"/><integer value="1000"/></visibilityPriorities>
+<customSpacing><real value="3.4028234663852886e+38"/><real value="3.4028234663852886e+38"/></customSpacing>
+</stackView><stackView distribution="fill" orientation="horizontal" alignment="firstBaseline" spacing="10" horizontalStackHuggingPriority="249" verticalStackHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="fitting-ErrorMethodPopup-row">
+<rect key="frame" x="0" y="0" width="600" height="26"/>
+<subviews><textField focusRingType="none" horizontalHuggingPriority="249" verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="fitting-ErrorMethodPopup-label">
+<rect key="frame" x="-2" y="3" width="292" height="16"/>
+<textFieldCell key="cell" lineBreakMode="truncatingTail" title="Error estimation" id="fitting-ErrorMethodPopup-label-cell"><font key="font" metaFont="system"/><color key="textColor" name="secondaryLabelColor" catalog="System" colorSpace="catalog"/><color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/></textFieldCell>
+</textField><popUpButton verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="fitting-ErrorMethodPopup">
+<rect key="frame" x="360" y="0" width="240" height="25"/>
+<constraints><constraint firstAttribute="width" constant="240" id="fitting-ErrorMethodPopup-width"/></constraints>
+<popUpButtonCell key="cell" type="push" title="Option" bezelStyle="rounded" alignment="left" lineBreakMode="truncatingTail" state="on" borderStyle="border" imageScaling="proportionallyDown" inset="2" selectedItem="fitting-ErrorMethodPopup-default" id="fitting-ErrorMethodPopup-cell">
+<behavior key="behavior" lightByBackground="YES" lightByGray="YES"/><font key="font" metaFont="system"/>
+<menu key="menu" title="OtherViews" id="fitting-ErrorMethodPopup-menu"><items><menuItem title="Option" state="on" id="fitting-ErrorMethodPopup-default"/></items></menu>
+</popUpButtonCell></popUpButton></subviews>
+<visibilityPriorities><integer value="1000"/><integer value="1000"/></visibilityPriorities>
+<customSpacing><real value="3.4028234663852886e+38"/><real value="3.4028234663852886e+38"/></customSpacing>
+</stackView><stackView distribution="fill" orientation="horizontal" alignment="firstBaseline" spacing="10" horizontalStackHuggingPriority="249" verticalStackHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="fitting-BootstrapIterationsField-row">
+<rect key="frame" x="0" y="0" width="600" height="26"/>
+<subviews><textField focusRingType="none" horizontalHuggingPriority="249" verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="fitting-BootstrapIterationsField-label">
+<rect key="frame" x="-2" y="3" width="292" height="16"/>
+<textFieldCell key="cell" lineBreakMode="truncatingTail" title="Bootstrap iterations" id="fitting-BootstrapIterationsField-label-cell"><font key="font" metaFont="system"/><color key="textColor" name="secondaryLabelColor" catalog="System" colorSpace="catalog"/><color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/></textFieldCell>
+</textField><textField focusRingType="none" horizontalHuggingPriority="1000" verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="fitting-BootstrapIterationsField">
+<rect key="frame" x="460" y="0" width="140" height="22"/>
+<constraints><constraint firstAttribute="width" constant="140" id="fitting-BootstrapIterationsField-width"/></constraints>
+<textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" sendsActionOnEndEditing="YES" borderStyle="bezel" focusRingType="none" alignment="right" bezelStyle="round" id="fitting-BootstrapIterationsField-cell"><numberFormatter key="formatter" formatterBehavior="default10_4" numberStyle="decimal" usesGroupingSeparator="NO" lenient="YES" formatWidth="-1" groupingSize="0" minimumIntegerDigits="1" maximumIntegerDigits="2000000000" maximumFractionDigits="0" id="fitting-BootstrapIterationsField-formatter"/><font key="font" metaFont="system"/><color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/><color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/></textFieldCell>
+</textField></subviews>
+<visibilityPriorities><integer value="1000"/><integer value="1000"/></visibilityPriorities>
+<customSpacing><real value="3.4028234663852886e+38"/><real value="3.4028234663852886e+38"/></customSpacing>
+</stackView><stackView distribution="fill" orientation="horizontal" alignment="firstBaseline" spacing="10" horizontalStackHuggingPriority="249" verticalStackHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="fitting-OptimizerToleranceField-row">
+<rect key="frame" x="0" y="0" width="600" height="26"/>
+<subviews><textField focusRingType="none" horizontalHuggingPriority="249" verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="fitting-OptimizerToleranceField-label">
+<rect key="frame" x="-2" y="3" width="292" height="16"/>
+<textFieldCell key="cell" lineBreakMode="truncatingTail" title="Optimizer tolerance" id="fitting-OptimizerToleranceField-label-cell"><font key="font" metaFont="system"/><color key="textColor" name="secondaryLabelColor" catalog="System" colorSpace="catalog"/><color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/></textFieldCell>
+</textField><textField focusRingType="none" horizontalHuggingPriority="1000" verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="fitting-OptimizerToleranceField">
+<rect key="frame" x="460" y="0" width="140" height="22"/>
+<constraints><constraint firstAttribute="width" constant="140" id="fitting-OptimizerToleranceField-width"/></constraints>
+<textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" sendsActionOnEndEditing="YES" borderStyle="bezel" focusRingType="none" alignment="right" bezelStyle="round" id="fitting-OptimizerToleranceField-cell"><numberFormatter key="formatter" formatterBehavior="default10_4" numberStyle="scientific" usesGroupingSeparator="NO" lenient="YES" formatWidth="-1" groupingSize="0" minimumIntegerDigits="1" maximumIntegerDigits="2000000000" maximumFractionDigits="12" id="fitting-OptimizerToleranceField-formatter"/><font key="font" metaFont="system"/><color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/><color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/></textFieldCell>
+</textField></subviews>
+<visibilityPriorities><integer value="1000"/><integer value="1000"/></visibilityPriorities>
+<customSpacing><real value="3.4028234663852886e+38"/><real value="3.4028234663852886e+38"/></customSpacing>
+</stackView><stackView distribution="fill" orientation="horizontal" alignment="firstBaseline" spacing="10" horizontalStackHuggingPriority="249" verticalStackHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="fitting-MaximumIterationsField-row">
+<rect key="frame" x="0" y="0" width="600" height="26"/>
+<subviews><textField focusRingType="none" horizontalHuggingPriority="249" verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="fitting-MaximumIterationsField-label">
+<rect key="frame" x="-2" y="3" width="292" height="16"/>
+<textFieldCell key="cell" lineBreakMode="truncatingTail" title="Maximum iterations" id="fitting-MaximumIterationsField-label-cell"><font key="font" metaFont="system"/><color key="textColor" name="secondaryLabelColor" catalog="System" colorSpace="catalog"/><color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/></textFieldCell>
+</textField><textField focusRingType="none" horizontalHuggingPriority="1000" verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="fitting-MaximumIterationsField">
+<rect key="frame" x="460" y="0" width="140" height="22"/>
+<constraints><constraint firstAttribute="width" constant="140" id="fitting-MaximumIterationsField-width"/></constraints>
+<textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" sendsActionOnEndEditing="YES" borderStyle="bezel" focusRingType="none" alignment="right" bezelStyle="round" id="fitting-MaximumIterationsField-cell"><numberFormatter key="formatter" formatterBehavior="default10_4" numberStyle="decimal" usesGroupingSeparator="NO" lenient="YES" formatWidth="-1" groupingSize="0" minimumIntegerDigits="1" maximumIntegerDigits="2000000000" maximumFractionDigits="0" id="fitting-MaximumIterationsField-formatter"/><font key="font" metaFont="system"/><color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/><color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/></textFieldCell>
+</textField></subviews>
+<visibilityPriorities><integer value="1000"/><integer value="1000"/></visibilityPriorities>
+<customSpacing><real value="3.4028234663852886e+38"/><real value="3.4028234663852886e+38"/></customSpacing>
+</stackView><stackView distribution="fill" orientation="horizontal" alignment="firstBaseline" spacing="10" horizontalStackHuggingPriority="249" verticalStackHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="fitting-ParameterLimitPopup-row">
+<rect key="frame" x="0" y="0" width="600" height="26"/>
+<subviews><textField focusRingType="none" horizontalHuggingPriority="249" verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="fitting-ParameterLimitPopup-label">
+<rect key="frame" x="-2" y="3" width="292" height="16"/>
+<textFieldCell key="cell" lineBreakMode="truncatingTail" title="Parameter limits" id="fitting-ParameterLimitPopup-label-cell"><font key="font" metaFont="system"/><color key="textColor" name="secondaryLabelColor" catalog="System" colorSpace="catalog"/><color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/></textFieldCell>
+</textField><popUpButton verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="fitting-ParameterLimitPopup">
+<rect key="frame" x="360" y="0" width="240" height="25"/>
+<constraints><constraint firstAttribute="width" constant="240" id="fitting-ParameterLimitPopup-width"/></constraints>
+<popUpButtonCell key="cell" type="push" title="Option" bezelStyle="rounded" alignment="left" lineBreakMode="truncatingTail" state="on" borderStyle="border" imageScaling="proportionallyDown" inset="2" selectedItem="fitting-ParameterLimitPopup-default" id="fitting-ParameterLimitPopup-cell">
+<behavior key="behavior" lightByBackground="YES" lightByGray="YES"/><font key="font" metaFont="system"/>
+<menu key="menu" title="OtherViews" id="fitting-ParameterLimitPopup-menu"><items><menuItem title="Option" state="on" id="fitting-ParameterLimitPopup-default"/></items></menu>
+</popUpButtonCell></popUpButton></subviews>
+<visibilityPriorities><integer value="1000"/><integer value="1000"/></visibilityPriorities>
+<customSpacing><real value="3.4028234663852886e+38"/><real value="3.4028234663852886e+38"/></customSpacing>
+</stackView><button verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="fitting-WeightedFittingCheck">
+<rect key="frame" x="0" y="0" width="600" height="20"/>
+<buttonCell key="cell" type="check" title="Use injection-error weighted fitting" bezelStyle="regularSquare" imagePosition="left" alignment="left" inset="2" id="fitting-WeightedFittingCheck-cell"><behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/><font key="font" metaFont="system"/></buttonCell>
+
+</button><box boxType="separator" translatesAutoresizingMaskIntoConstraints="NO" id="fitting-separator-1"><rect key="frame" x="0" y="0" width="600" height="1"/><constraints><constraint firstAttribute="height" constant="1" id="fitting-separator-1-height"/></constraints></box><textField focusRingType="none" horizontalHuggingPriority="249" verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="fitting-section-1">
+<rect key="frame" x="-2" y="0" width="604" height="18"/>
+<textFieldCell key="cell" lineBreakMode="clipping" title="Concentration Error" id="fitting-section-1-cell"><font key="font" metaFont="systemBold"/><color key="textColor" name="labelColor" catalog="System" colorSpace="catalog"/><color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/></textFieldCell>
+</textField><button verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="fitting-ConcentrationBootstrapCheck">
+<rect key="frame" x="0" y="0" width="600" height="20"/>
+<buttonCell key="cell" type="check" title="Include concentration errors in bootstrap analysis" bezelStyle="regularSquare" imagePosition="left" alignment="left" inset="2" id="fitting-ConcentrationBootstrapCheck-cell"><behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/><font key="font" metaFont="system"/></buttonCell>
+
+</button><stackView distribution="fill" orientation="horizontal" alignment="firstBaseline" spacing="10" horizontalStackHuggingPriority="249" verticalStackHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="fitting-ConcentrationVarianceField-row">
+<rect key="frame" x="0" y="0" width="600" height="26"/>
+<subviews><textField focusRingType="none" horizontalHuggingPriority="249" verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="fitting-ConcentrationVarianceField-label">
+<rect key="frame" x="-2" y="3" width="292" height="16"/>
+<textFieldCell key="cell" lineBreakMode="truncatingTail" title="Automatic variance (%)" id="fitting-ConcentrationVarianceField-label-cell"><font key="font" metaFont="system"/><color key="textColor" name="secondaryLabelColor" catalog="System" colorSpace="catalog"/><color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/></textFieldCell>
+</textField><textField focusRingType="none" horizontalHuggingPriority="1000" verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="fitting-ConcentrationVarianceField">
+<rect key="frame" x="460" y="0" width="140" height="22"/>
+<constraints><constraint firstAttribute="width" constant="140" id="fitting-ConcentrationVarianceField-width"/></constraints>
+<textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" sendsActionOnEndEditing="YES" borderStyle="bezel" focusRingType="none" alignment="right" bezelStyle="round" id="fitting-ConcentrationVarianceField-cell"><numberFormatter key="formatter" formatterBehavior="default10_4" numberStyle="decimal" usesGroupingSeparator="NO" lenient="YES" formatWidth="-1" groupingSize="0" minimumIntegerDigits="1" maximumIntegerDigits="2000000000" maximumFractionDigits="12" id="fitting-ConcentrationVarianceField-formatter"/><font key="font" metaFont="system"/><color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/><color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/></textFieldCell>
+</textField></subviews>
+<visibilityPriorities><integer value="1000"/><integer value="1000"/></visibilityPriorities>
+<customSpacing><real value="3.4028234663852886e+38"/><real value="3.4028234663852886e+38"/></customSpacing>
+</stackView><box boxType="separator" translatesAutoresizingMaskIntoConstraints="NO" id="fitting-separator-2"><rect key="frame" x="0" y="0" width="600" height="1"/><constraints><constraint firstAttribute="height" constant="1" id="fitting-separator-2-height"/></constraints></box><textField focusRingType="none" horizontalHuggingPriority="249" verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="fitting-section-2">
+<rect key="frame" x="-2" y="0" width="604" height="18"/>
+<textFieldCell key="cell" lineBreakMode="clipping" title="Result Creation" id="fitting-section-2-cell"><font key="font" metaFont="systemBold"/><color key="textColor" name="labelColor" catalog="System" colorSpace="catalog"/><color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/></textFieldCell>
+</textField><button verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="fitting-CreateSingleResultCheck">
+<rect key="frame" x="0" y="0" width="600" height="20"/>
+<buttonCell key="cell" type="check" title="Create single-experiment analysis results" bezelStyle="regularSquare" imagePosition="left" alignment="left" inset="2" id="fitting-CreateSingleResultCheck-cell"><behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/><font key="font" metaFont="system"/></buttonCell>
+
+</button><button verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="fitting-CreateGlobalResultCheck">
+<rect key="frame" x="0" y="0" width="600" height="20"/>
+<buttonCell key="cell" type="check" title="Create global analysis results" bezelStyle="regularSquare" imagePosition="left" alignment="left" inset="2" id="fitting-CreateGlobalResultCheck-cell"><behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/><font key="font" metaFont="system"/></buttonCell>
+
+</button><button verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="fitting-AutoOpenResultCheck">
+<rect key="frame" x="0" y="0" width="600" height="20"/>
+<buttonCell key="cell" type="check" title="Open new analysis results automatically" bezelStyle="regularSquare" imagePosition="left" alignment="left" inset="2" id="fitting-AutoOpenResultCheck-cell"><behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/><font key="font" metaFont="system"/></buttonCell>
+
+</button></subviews>
+</stackView><customView translatesAutoresizingMaskIntoConstraints="NO" id="fitting-bottom-spacer"><rect key="frame" x="40" y="600" width="600" height="20"/><constraints><constraint firstAttribute="height" relation="greaterThanOrEqual" constant="20" id="fitting-bottom-spacer-min-height"/></constraints></customView></subviews>
+<constraints>
+<constraint firstItem="fitting-content" firstAttribute="top" secondItem="fitting-document" secondAttribute="top" constant="16" id="fitting-content-top"/>
+<constraint firstItem="fitting-content" firstAttribute="leading" secondItem="fitting-document" secondAttribute="leading" constant="40" id="fitting-content-leading"/>
+<constraint firstAttribute="trailing" secondItem="fitting-content" secondAttribute="trailing" constant="40" id="fitting-content-trailing"/>
+<constraint firstItem="fitting-bottom-spacer" firstAttribute="top" secondItem="fitting-content" secondAttribute="bottom" id="fitting-bottom-spacer-top"/>
+<constraint firstItem="fitting-bottom-spacer" firstAttribute="leading" secondItem="fitting-document" secondAttribute="leading" constant="40" id="fitting-bottom-spacer-leading"/>
+<constraint firstAttribute="trailing" secondItem="fitting-bottom-spacer" secondAttribute="trailing" constant="40" id="fitting-bottom-spacer-trailing"/>
+<constraint firstAttribute="bottom" secondItem="fitting-bottom-spacer" secondAttribute="bottom" id="fitting-bottom-spacer-bottom"/>
+</constraints></view></subviews>
+<constraints>
+<constraint firstItem="fitting-document" firstAttribute="leading" secondItem="fitting-clip" secondAttribute="leading" id="fitting-document-leading"/>
+<constraint firstItem="fitting-document" firstAttribute="top" secondItem="fitting-clip" secondAttribute="top" id="fitting-document-top"/>
+<constraint firstAttribute="trailing" secondItem="fitting-document" secondAttribute="trailing" id="fitting-document-trailing"/>
+<constraint firstItem="fitting-document" firstAttribute="height" relation="greaterThanOrEqual" secondItem="fitting-clip" secondAttribute="height" id="fitting-document-min-height"/>
+</constraints>
+</clipView>
+<scroller key="horizontalScroller" hidden="YES" wantsLayer="YES" horizontal="YES" id="fitting-horizontal-scroller"><rect key="frame" x="-100" y="-100" width="16" height="16"/><autoresizingMask key="autoresizingMask"/></scroller>
+<scroller key="verticalScroller" hidden="YES" wantsLayer="YES" horizontal="NO" id="fitting-vertical-scroller"><rect key="frame" x="664" y="0" width="16" height="585"/><autoresizingMask key="autoresizingMask"/></scroller>
+</scrollView>
+<customView translatesAutoresizingMaskIntoConstraints="NO" id="fitting-footer">
+<rect key="frame" x="0" y="0" width="680" height="55"/>
+<subviews>
+<box boxType="separator" translatesAutoresizingMaskIntoConstraints="NO" id="fitting-footer-separator"><rect key="frame" x="0" y="54" width="680" height="1"/><constraints><constraint firstAttribute="height" constant="1" id="fitting-footer-separator-height"/></constraints></box>
+<stackView distribution="fill" orientation="horizontal" alignment="centerY" spacing="8" horizontalStackHuggingPriority="249" verticalStackHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="fitting-footer-stack">
+<rect key="frame" x="20" y="12" width="640" height="32"/>
+<subviews>
+<button verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="fitting-restore"><rect key="frame" x="0" y="0" width="150" height="32"/><buttonCell key="cell" type="push" title="Restore Defaults" bezelStyle="rounded" alignment="center" borderStyle="border" imageScaling="proportionallyDown" inset="2" id="fitting-restore-cell"><behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/><font key="font" metaFont="system"/></buttonCell><connections><action selector="restorePreferenceDefaults:" target="fitting-pane-controller" id="fitting-restore-action"/></connections></button>
+<textField focusRingType="none" horizontalHuggingPriority="1" verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="fitting-status"><rect key="frame" x="134" y="8" width="338" height="16"/><textFieldCell key="cell" lineBreakMode="truncatingTail" title="" id="fitting-status-cell"><font key="font" metaFont="smallSystem"/><color key="textColor" name="secondaryLabelColor" catalog="System" colorSpace="catalog"/><color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/></textFieldCell></textField>
+<button verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="fitting-cancel"><rect key="frame" x="480" y="0" width="76" height="32"/><buttonCell key="cell" type="push" title="Cancel" bezelStyle="rounded" alignment="center" borderStyle="border" imageScaling="proportionallyDown" inset="2" id="fitting-cancel-cell"><behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/><font key="font" metaFont="system"/></buttonCell><connections><action selector="cancelPreferences:" target="fitting-pane-controller" id="fitting-cancel-action"/></connections></button>
+<button verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="fitting-apply"><rect key="frame" x="564" y="0" width="76" height="32"/><buttonCell key="cell" type="push" title="Apply" bezelStyle="rounded" alignment="center" borderStyle="border" imageScaling="proportionallyDown" keyEquivalent="&#13;" inset="2" id="fitting-apply-cell"><behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/><font key="font" metaFont="system"/></buttonCell><connections><action selector="applyPreferences:" target="fitting-pane-controller" id="fitting-apply-action"/></connections></button>
+</subviews>
+<visibilityPriorities><integer value="1000"/><integer value="1000"/><integer value="1000"/><integer value="1000"/></visibilityPriorities>
+<customSpacing><real value="3.4028234663852886e+38"/><real value="3.4028234663852886e+38"/><real value="3.4028234663852886e+38"/><real value="3.4028234663852886e+38"/></customSpacing>
+</stackView>
+</subviews>
+<constraints>
+<constraint firstItem="fitting-footer-separator" firstAttribute="top" secondItem="fitting-footer" secondAttribute="top" id="fitting-sep-top"/>
+<constraint firstItem="fitting-footer-separator" firstAttribute="leading" secondItem="fitting-footer" secondAttribute="leading" id="fitting-sep-leading"/>
+<constraint firstAttribute="trailing" secondItem="fitting-footer-separator" secondAttribute="trailing" id="fitting-sep-trailing"/>
+<constraint firstItem="fitting-footer-stack" firstAttribute="leading" secondItem="fitting-footer" secondAttribute="leading" constant="20" id="fitting-footer-stack-leading"/>
+<constraint firstAttribute="trailing" secondItem="fitting-footer-stack" secondAttribute="trailing" constant="20" id="fitting-footer-stack-trailing"/>
+<constraint firstItem="fitting-footer-stack" firstAttribute="centerY" secondItem="fitting-footer" secondAttribute="centerY" id="fitting-footer-stack-center"/>
+</constraints>
+</customView>
+</subviews>
+<constraints>
+<constraint firstItem="fitting-scroll" firstAttribute="top" secondItem="fitting-root" secondAttribute="top" id="fitting-scroll-top"/>
+<constraint firstItem="fitting-scroll" firstAttribute="leading" secondItem="fitting-root" secondAttribute="leading" id="fitting-scroll-leading"/>
+<constraint firstAttribute="trailing" secondItem="fitting-scroll" secondAttribute="trailing" id="fitting-scroll-trailing"/>
+<constraint firstItem="fitting-footer" firstAttribute="top" secondItem="fitting-scroll" secondAttribute="bottom" id="fitting-scroll-footer"/>
+<constraint firstItem="fitting-footer" firstAttribute="leading" secondItem="fitting-root" secondAttribute="leading" id="fitting-footer-leading"/>
+<constraint firstAttribute="trailing" secondItem="fitting-footer" secondAttribute="trailing" id="fitting-footer-trailing"/>
+<constraint firstAttribute="bottom" secondItem="fitting-footer" secondAttribute="bottom" id="fitting-footer-bottom"/>
+<constraint firstItem="fitting-footer" firstAttribute="height" constant="55" id="fitting-footer-height"/>
+</constraints>
+</view>
+<connections><outlet property="PreferencesScrollView" destination="fitting-scroll" id="fitting-scroll-outlet"/><outlet property="SolverPopup" destination="fitting-SolverPopup" id="fitting-SolverPopup-outlet"/><outlet property="ErrorMethodPopup" destination="fitting-ErrorMethodPopup" id="fitting-ErrorMethodPopup-outlet"/><outlet property="BootstrapIterationsField" destination="fitting-BootstrapIterationsField" id="fitting-BootstrapIterationsField-outlet"/><outlet property="OptimizerToleranceField" destination="fitting-OptimizerToleranceField" id="fitting-OptimizerToleranceField-outlet"/><outlet property="MaximumIterationsField" destination="fitting-MaximumIterationsField" id="fitting-MaximumIterationsField-outlet"/><outlet property="ParameterLimitPopup" destination="fitting-ParameterLimitPopup" id="fitting-ParameterLimitPopup-outlet"/><outlet property="WeightedFittingCheck" destination="fitting-WeightedFittingCheck" id="fitting-WeightedFittingCheck-outlet"/><outlet property="ConcentrationBootstrapCheck" destination="fitting-ConcentrationBootstrapCheck" id="fitting-ConcentrationBootstrapCheck-outlet"/><outlet property="ConcentrationVarianceField" destination="fitting-ConcentrationVarianceField" id="fitting-ConcentrationVarianceField-outlet"/><outlet property="CreateSingleResultCheck" destination="fitting-CreateSingleResultCheck" id="fitting-CreateSingleResultCheck-outlet"/><outlet property="CreateGlobalResultCheck" destination="fitting-CreateGlobalResultCheck" id="fitting-CreateGlobalResultCheck-outlet"/><outlet property="AutoOpenResultCheck" destination="fitting-AutoOpenResultCheck" id="fitting-AutoOpenResultCheck-outlet"/><outlet property="StatusLabel" destination="fitting-status" id="fitting-status-outlet"/></connections>
+</viewController>
+<customObject id="fitting-first-responder" userLabel="First Responder" customClass="NSResponder" sceneMemberID="firstResponder"/>
+</objects>
+<point key="canvasLocation" x="3120" y="0"/>
+</scene>
+<scene sceneID="export-scene">
+<objects>
+<viewController title="Export" id="export-pane-controller" customClass="MacExportPreferencesViewController" sceneMemberID="viewController">
+<view key="view" id="export-root"><rect key="frame" x="0" y="0" width="680" height="640"/><autoresizingMask key="autoresizingMask"/>
+<subviews>
+<scrollView borderType="none" autohidesScrollers="YES" horizontalLineScroll="10" horizontalPageScroll="10" verticalLineScroll="24" verticalPageScroll="48" hasHorizontalScroller="NO" horizontalScrollElasticity="none" translatesAutoresizingMaskIntoConstraints="NO" id="export-scroll">
+<rect key="frame" x="0" y="55" width="680" height="585"/>
+<clipView key="contentView" drawsBackground="NO" id="export-clip"><rect key="frame" x="0" y="0" width="680" height="585"/><autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
+<subviews><view autoresizesSubviews="NO" translatesAutoresizingMaskIntoConstraints="NO" id="export-document" customClass="FlippedPreferencesDocumentView"><rect key="frame" x="0" y="0" width="680" height="1040"/>
+<subviews><stackView distribution="fill" orientation="vertical" alignment="width" spacing="8" horizontalStackHuggingPriority="750" verticalStackHuggingPriority="1000" verticalCompressionResistancePriority="1000" detachesHiddenViews="YES" translatesAutoresizingMaskIntoConstraints="NO" id="export-content"><rect key="frame" x="40" y="16" width="600" height="1008"/>
+<subviews><textField focusRingType="none" horizontalHuggingPriority="249" verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="export-section-0">
+<rect key="frame" x="-2" y="0" width="604" height="18"/>
+<textFieldCell key="cell" lineBreakMode="clipping" title="Data Export" id="export-section-0-cell"><font key="font" metaFont="systemBold"/><color key="textColor" name="labelColor" catalog="System" colorSpace="catalog"/><color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/></textFieldCell>
+</textField><stackView distribution="fill" orientation="horizontal" alignment="firstBaseline" spacing="10" horizontalStackHuggingPriority="249" verticalStackHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="export-ExportSelectionPopup-row">
+<rect key="frame" x="0" y="0" width="600" height="26"/>
+<subviews><textField focusRingType="none" horizontalHuggingPriority="249" verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="export-ExportSelectionPopup-label">
+<rect key="frame" x="-2" y="3" width="292" height="16"/>
+<textFieldCell key="cell" lineBreakMode="truncatingTail" title="Selection" id="export-ExportSelectionPopup-label-cell"><font key="font" metaFont="system"/><color key="textColor" name="secondaryLabelColor" catalog="System" colorSpace="catalog"/><color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/></textFieldCell>
+</textField><popUpButton verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="export-ExportSelectionPopup">
+<rect key="frame" x="360" y="0" width="240" height="25"/>
+<constraints><constraint firstAttribute="width" constant="240" id="export-ExportSelectionPopup-width"/></constraints>
+<popUpButtonCell key="cell" type="push" title="Option" bezelStyle="rounded" alignment="left" lineBreakMode="truncatingTail" state="on" borderStyle="border" imageScaling="proportionallyDown" inset="2" selectedItem="export-ExportSelectionPopup-default" id="export-ExportSelectionPopup-cell">
+<behavior key="behavior" lightByBackground="YES" lightByGray="YES"/><font key="font" metaFont="system"/>
+<menu key="menu" title="OtherViews" id="export-ExportSelectionPopup-menu"><items><menuItem title="Option" state="on" id="export-ExportSelectionPopup-default"/></items></menu>
+</popUpButtonCell></popUpButton></subviews>
+<visibilityPriorities><integer value="1000"/><integer value="1000"/></visibilityPriorities>
+<customSpacing><real value="3.4028234663852886e+38"/><real value="3.4028234663852886e+38"/></customSpacing>
+</stackView><stackView distribution="fill" orientation="horizontal" alignment="firstBaseline" spacing="10" horizontalStackHuggingPriority="249" verticalStackHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="export-ExportDecimalsField-row">
+<rect key="frame" x="0" y="0" width="600" height="26"/>
+<subviews><textField focusRingType="none" horizontalHuggingPriority="249" verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="export-ExportDecimalsField-label">
+<rect key="frame" x="-2" y="3" width="292" height="16"/>
+<textFieldCell key="cell" lineBreakMode="truncatingTail" title="Decimal places" id="export-ExportDecimalsField-label-cell"><font key="font" metaFont="system"/><color key="textColor" name="secondaryLabelColor" catalog="System" colorSpace="catalog"/><color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/></textFieldCell>
+</textField><textField focusRingType="none" horizontalHuggingPriority="1000" verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="export-ExportDecimalsField">
+<rect key="frame" x="460" y="0" width="140" height="22"/>
+<constraints><constraint firstAttribute="width" constant="140" id="export-ExportDecimalsField-width"/></constraints>
+<textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" sendsActionOnEndEditing="YES" borderStyle="bezel" focusRingType="none" alignment="right" bezelStyle="round" id="export-ExportDecimalsField-cell"><numberFormatter key="formatter" formatterBehavior="default10_4" numberStyle="decimal" usesGroupingSeparator="NO" lenient="YES" formatWidth="-1" groupingSize="0" minimumIntegerDigits="1" maximumIntegerDigits="2000000000" maximumFractionDigits="0" id="export-ExportDecimalsField-formatter"/><font key="font" metaFont="system"/><color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/><color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/></textFieldCell>
+</textField></subviews>
+<visibilityPriorities><integer value="1000"/><integer value="1000"/></visibilityPriorities>
+<customSpacing><real value="3.4028234663852886e+38"/><real value="3.4028234663852886e+38"/></customSpacing>
+</stackView><button verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="export-ExportCorrectedCheck">
+<rect key="frame" x="0" y="0" width="600" height="20"/>
+<buttonCell key="cell" type="check" title="Export baseline-corrected data" bezelStyle="regularSquare" imagePosition="left" alignment="left" inset="2" id="export-ExportCorrectedCheck-cell"><behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/><font key="font" metaFont="system"/></buttonCell>
+
+</button><button verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="export-ExportFitPointsCheck">
+<rect key="frame" x="0" y="0" width="600" height="20"/>
+<buttonCell key="cell" type="check" title="Export fit points with peaks" bezelStyle="regularSquare" imagePosition="left" alignment="left" inset="2" id="export-ExportFitPointsCheck-cell"><behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/><font key="font" metaFont="system"/></buttonCell>
+
+</button><box boxType="separator" translatesAutoresizingMaskIntoConstraints="NO" id="export-separator-1"><rect key="frame" x="0" y="0" width="600" height="1"/><constraints><constraint firstAttribute="height" constant="1" id="export-separator-1-height"/></constraints></box><textField focusRingType="none" horizontalHuggingPriority="249" verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="export-section-1">
+<rect key="frame" x="-2" y="0" width="604" height="18"/>
+<textFieldCell key="cell" lineBreakMode="clipping" title="Export Columns" id="export-section-1-cell"><font key="font" metaFont="systemBold"/><color key="textColor" name="labelColor" catalog="System" colorSpace="catalog"/><color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/></textFieldCell>
+</textField><button verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="export-ExportMolarRatioCheck">
+<rect key="frame" x="0" y="0" width="600" height="20"/>
+<buttonCell key="cell" type="check" title="Molar ratio" bezelStyle="regularSquare" imagePosition="left" alignment="left" inset="2" id="export-ExportMolarRatioCheck-cell"><behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/><font key="font" metaFont="system"/></buttonCell>
+
+</button><button verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="export-ExportInjectionInfoCheck">
+<rect key="frame" x="0" y="0" width="600" height="20"/>
+<buttonCell key="cell" type="check" title="Injection information" bezelStyle="regularSquare" imagePosition="left" alignment="left" inset="2" id="export-ExportInjectionInfoCheck-cell"><behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/><font key="font" metaFont="system"/></buttonCell>
+
+</button><button verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="export-ExportConcentrationsCheck">
+<rect key="frame" x="0" y="0" width="600" height="20"/>
+<buttonCell key="cell" type="check" title="Concentrations" bezelStyle="regularSquare" imagePosition="left" alignment="left" inset="2" id="export-ExportConcentrationsCheck-cell"><behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/><font key="font" metaFont="system"/></buttonCell>
+
+</button><button verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="export-ExportIncludedCheck">
+<rect key="frame" x="0" y="0" width="600" height="20"/>
+<buttonCell key="cell" type="check" title="Included state" bezelStyle="regularSquare" imagePosition="left" alignment="left" inset="2" id="export-ExportIncludedCheck-cell"><behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/><font key="font" metaFont="system"/></buttonCell>
+
+</button><button verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="export-ExportPeakCheck">
+<rect key="frame" x="0" y="0" width="600" height="20"/>
+<buttonCell key="cell" type="check" title="Peak heats" bezelStyle="regularSquare" imagePosition="left" alignment="left" inset="2" id="export-ExportPeakCheck-cell"><behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/><font key="font" metaFont="system"/></buttonCell>
+
+</button><button verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="export-ExportFitCheck">
+<rect key="frame" x="0" y="0" width="600" height="20"/>
+<buttonCell key="cell" type="check" title="Fit values" bezelStyle="regularSquare" imagePosition="left" alignment="left" inset="2" id="export-ExportFitCheck-cell"><behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/><font key="font" metaFont="system"/></buttonCell>
+
+</button><box boxType="separator" translatesAutoresizingMaskIntoConstraints="NO" id="export-separator-2"><rect key="frame" x="0" y="0" width="600" height="1"/><constraints><constraint firstAttribute="height" constant="1" id="export-separator-2-height"/></constraints></box><textField focusRingType="none" horizontalHuggingPriority="249" verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="export-section-2">
+<rect key="frame" x="-2" y="0" width="604" height="18"/>
+<textFieldCell key="cell" lineBreakMode="clipping" title="Final Figure Defaults" id="export-section-2-cell"><font key="font" metaFont="systemBold"/><color key="textColor" name="labelColor" catalog="System" colorSpace="catalog"/><color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/></textFieldCell>
+</textField><stackView distribution="fill" orientation="horizontal" alignment="firstBaseline" spacing="10" horizontalStackHuggingPriority="249" verticalStackHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="export-FigureWidthField-row">
+<rect key="frame" x="0" y="0" width="600" height="26"/>
+<subviews><textField focusRingType="none" horizontalHuggingPriority="249" verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="export-FigureWidthField-label">
+<rect key="frame" x="-2" y="3" width="292" height="16"/>
+<textFieldCell key="cell" lineBreakMode="truncatingTail" title="Width (cm)" id="export-FigureWidthField-label-cell"><font key="font" metaFont="system"/><color key="textColor" name="secondaryLabelColor" catalog="System" colorSpace="catalog"/><color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/></textFieldCell>
+</textField><textField focusRingType="none" horizontalHuggingPriority="1000" verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="export-FigureWidthField">
+<rect key="frame" x="460" y="0" width="140" height="22"/>
+<constraints><constraint firstAttribute="width" constant="140" id="export-FigureWidthField-width"/></constraints>
+<textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" sendsActionOnEndEditing="YES" borderStyle="bezel" focusRingType="none" alignment="right" bezelStyle="round" id="export-FigureWidthField-cell"><numberFormatter key="formatter" formatterBehavior="default10_4" numberStyle="decimal" usesGroupingSeparator="NO" lenient="YES" formatWidth="-1" groupingSize="0" minimumIntegerDigits="1" maximumIntegerDigits="2000000000" maximumFractionDigits="12" id="export-FigureWidthField-formatter"/><font key="font" metaFont="system"/><color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/><color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/></textFieldCell>
+</textField></subviews>
+<visibilityPriorities><integer value="1000"/><integer value="1000"/></visibilityPriorities>
+<customSpacing><real value="3.4028234663852886e+38"/><real value="3.4028234663852886e+38"/></customSpacing>
+</stackView><stackView distribution="fill" orientation="horizontal" alignment="firstBaseline" spacing="10" horizontalStackHuggingPriority="249" verticalStackHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="export-FigureHeightField-row">
+<rect key="frame" x="0" y="0" width="600" height="26"/>
+<subviews><textField focusRingType="none" horizontalHuggingPriority="249" verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="export-FigureHeightField-label">
+<rect key="frame" x="-2" y="3" width="292" height="16"/>
+<textFieldCell key="cell" lineBreakMode="truncatingTail" title="Height (cm)" id="export-FigureHeightField-label-cell"><font key="font" metaFont="system"/><color key="textColor" name="secondaryLabelColor" catalog="System" colorSpace="catalog"/><color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/></textFieldCell>
+</textField><textField focusRingType="none" horizontalHuggingPriority="1000" verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="export-FigureHeightField">
+<rect key="frame" x="460" y="0" width="140" height="22"/>
+<constraints><constraint firstAttribute="width" constant="140" id="export-FigureHeightField-width"/></constraints>
+<textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" sendsActionOnEndEditing="YES" borderStyle="bezel" focusRingType="none" alignment="right" bezelStyle="round" id="export-FigureHeightField-cell"><numberFormatter key="formatter" formatterBehavior="default10_4" numberStyle="decimal" usesGroupingSeparator="NO" lenient="YES" formatWidth="-1" groupingSize="0" minimumIntegerDigits="1" maximumIntegerDigits="2000000000" maximumFractionDigits="12" id="export-FigureHeightField-formatter"/><font key="font" metaFont="system"/><color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/><color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/></textFieldCell>
+</textField></subviews>
+<visibilityPriorities><integer value="1000"/><integer value="1000"/></visibilityPriorities>
+<customSpacing><real value="3.4028234663852886e+38"/><real value="3.4028234663852886e+38"/></customSpacing>
+</stackView><stackView distribution="fill" orientation="horizontal" alignment="firstBaseline" spacing="10" horizontalStackHuggingPriority="249" verticalStackHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="export-FitLinePopup-row">
+<rect key="frame" x="0" y="0" width="600" height="26"/>
+<subviews><textField focusRingType="none" horizontalHuggingPriority="249" verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="export-FitLinePopup-label">
+<rect key="frame" x="-2" y="3" width="292" height="16"/>
+<textFieldCell key="cell" lineBreakMode="truncatingTail" title="Fit line" id="export-FitLinePopup-label-cell"><font key="font" metaFont="system"/><color key="textColor" name="secondaryLabelColor" catalog="System" colorSpace="catalog"/><color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/></textFieldCell>
+</textField><popUpButton verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="export-FitLinePopup">
+<rect key="frame" x="360" y="0" width="240" height="25"/>
+<constraints><constraint firstAttribute="width" constant="240" id="export-FitLinePopup-width"/></constraints>
+<popUpButtonCell key="cell" type="push" title="Option" bezelStyle="rounded" alignment="left" lineBreakMode="truncatingTail" state="on" borderStyle="border" imageScaling="proportionallyDown" inset="2" selectedItem="export-FitLinePopup-default" id="export-FitLinePopup-cell">
+<behavior key="behavior" lightByBackground="YES" lightByGray="YES"/><font key="font" metaFont="system"/>
+<menu key="menu" title="OtherViews" id="export-FitLinePopup-menu"><items><menuItem title="Option" state="on" id="export-FitLinePopup-default"/></items></menu>
+</popUpButtonCell></popUpButton></subviews>
+<visibilityPriorities><integer value="1000"/><integer value="1000"/></visibilityPriorities>
+<customSpacing><real value="3.4028234663852886e+38"/><real value="3.4028234663852886e+38"/></customSpacing>
+</stackView><button verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="export-ShowResidualCheck">
+<rect key="frame" x="0" y="0" width="600" height="20"/>
+<buttonCell key="cell" type="check" title="Show residual graph" bezelStyle="regularSquare" imagePosition="left" alignment="left" inset="2" id="export-ShowResidualCheck-cell"><behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/><font key="font" metaFont="system"/></buttonCell>
+<connections><action selector="residualVisibilityChanged:" target="export-pane-controller" id="export-ShowResidualCheck-action"/></connections>
+</button><button verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="export-ResidualGapCheck">
+<rect key="frame" x="0" y="0" width="600" height="20"/>
+<buttonCell key="cell" type="check" title="Show a gap above the residual graph" bezelStyle="regularSquare" imagePosition="left" alignment="left" inset="2" id="export-ResidualGapCheck-cell"><behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/><font key="font" metaFont="system"/></buttonCell>
+
+</button><button verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="export-UnifyResidualAxisCheck">
+<rect key="frame" x="0" y="0" width="600" height="20"/>
+<buttonCell key="cell" type="check" title="Use the same residual axis across graphs" bezelStyle="regularSquare" imagePosition="left" alignment="left" inset="2" id="export-UnifyResidualAxisCheck-cell"><behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/><font key="font" metaFont="system"/></buttonCell>
+
+</button><button verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="export-ParameterBoxCheck">
+<rect key="frame" x="0" y="0" width="600" height="20"/>
+<buttonCell key="cell" type="check" title="Show parameter box by default" bezelStyle="regularSquare" imagePosition="left" alignment="left" inset="2" id="export-ParameterBoxCheck-cell"><behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/><font key="font" metaFont="system"/></buttonCell>
+
+</button><button verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="export-ExperimentDetailsCheck">
+<rect key="frame" x="0" y="0" width="600" height="20"/>
+<buttonCell key="cell" type="check" title="Show experiment details by default" bezelStyle="regularSquare" imagePosition="left" alignment="left" inset="2" id="export-ExperimentDetailsCheck-cell"><behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/><font key="font" metaFont="system"/></buttonCell>
+
+</button><button verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="export-ModelInfoCheck">
+<rect key="frame" x="0" y="0" width="600" height="20"/>
+<buttonCell key="cell" type="check" title="Show model information by default" bezelStyle="regularSquare" imagePosition="left" alignment="left" inset="2" id="export-ModelInfoCheck-cell"><behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/><font key="font" metaFont="system"/></buttonCell>
+
+</button><button verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="export-AutoAxesCheck">
+<rect key="frame" x="0" y="0" width="600" height="20"/>
+<buttonCell key="cell" type="check" title="Automatic axes ignore excluded or invalid points" bezelStyle="regularSquare" imagePosition="left" alignment="left" inset="2" id="export-AutoAxesCheck-cell"><behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/><font key="font" metaFont="system"/></buttonCell>
+
+</button><box boxType="separator" translatesAutoresizingMaskIntoConstraints="NO" id="export-separator-3"><rect key="frame" x="0" y="0" width="600" height="1"/><constraints><constraint firstAttribute="height" constant="1" id="export-separator-3-height"/></constraints></box><textField focusRingType="none" horizontalHuggingPriority="249" verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="export-section-3">
+<rect key="frame" x="-2" y="0" width="604" height="18"/>
+<textFieldCell key="cell" lineBreakMode="clipping" title="Final Figure Content" id="export-section-3-cell"><font key="font" metaFont="systemBold"/><color key="textColor" name="labelColor" catalog="System" colorSpace="catalog"/><color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/></textFieldCell>
+</textField><button verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="export-ThermodynamicCheck">
+<rect key="frame" x="0" y="0" width="600" height="20"/>
+<buttonCell key="cell" type="check" title="Thermodynamic parameters" bezelStyle="regularSquare" imagePosition="left" alignment="left" inset="2" id="export-ThermodynamicCheck-cell"><behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/><font key="font" metaFont="system"/></buttonCell>
+
+</button><button verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="export-OffsetCheck">
+<rect key="frame" x="0" y="0" width="600" height="20"/>
+<buttonCell key="cell" type="check" title="Offset parameter" bezelStyle="regularSquare" imagePosition="left" alignment="left" inset="2" id="export-OffsetCheck-cell"><behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/><font key="font" metaFont="system"/></buttonCell>
+
+</button><button verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="export-DerivedCheck">
+<rect key="frame" x="0" y="0" width="600" height="20"/>
+<buttonCell key="cell" type="check" title="Derived parameters" bezelStyle="regularSquare" imagePosition="left" alignment="left" inset="2" id="export-DerivedCheck-cell"><behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/><font key="font" metaFont="system"/></buttonCell>
+
+</button><button verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="export-TemperatureCheck">
+<rect key="frame" x="0" y="0" width="600" height="20"/>
+<buttonCell key="cell" type="check" title="Temperature" bezelStyle="regularSquare" imagePosition="left" alignment="left" inset="2" id="export-TemperatureCheck-cell"><behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/><font key="font" metaFont="system"/></buttonCell>
+
+</button><button verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="export-ConcentrationsCheck">
+<rect key="frame" x="0" y="0" width="600" height="20"/>
+<buttonCell key="cell" type="check" title="Concentrations" bezelStyle="regularSquare" imagePosition="left" alignment="left" inset="2" id="export-ConcentrationsCheck-cell"><behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/><font key="font" metaFont="system"/></buttonCell>
+
+</button><button verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="export-InjectionDelayCheck">
+<rect key="frame" x="0" y="0" width="600" height="20"/>
+<buttonCell key="cell" type="check" title="Injection delay" bezelStyle="regularSquare" imagePosition="left" alignment="left" inset="2" id="export-InjectionDelayCheck-cell"><behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/><font key="font" metaFont="system"/></buttonCell>
+
+</button><button verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="export-InstrumentInfoCheck">
+<rect key="frame" x="0" y="0" width="600" height="20"/>
+<buttonCell key="cell" type="check" title="Instrument" bezelStyle="regularSquare" imagePosition="left" alignment="left" inset="2" id="export-InstrumentInfoCheck-cell"><behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/><font key="font" metaFont="system"/></buttonCell>
+
+</button><button verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="export-AttributesCheck">
+<rect key="frame" x="0" y="0" width="600" height="20"/>
+<buttonCell key="cell" type="check" title="Experiment attributes" bezelStyle="regularSquare" imagePosition="left" alignment="left" inset="2" id="export-AttributesCheck-cell"><behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/><font key="font" metaFont="system"/></buttonCell>
+
+</button><stackView distribution="fill" orientation="horizontal" alignment="firstBaseline" spacing="10" horizontalStackHuggingPriority="249" verticalStackHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="export-AttributeDisplayPopup-row">
+<rect key="frame" x="0" y="0" width="600" height="26"/>
+<subviews><textField focusRingType="none" horizontalHuggingPriority="249" verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="export-AttributeDisplayPopup-label">
+<rect key="frame" x="-2" y="3" width="292" height="16"/>
+<textFieldCell key="cell" lineBreakMode="truncatingTail" title="Attributes" id="export-AttributeDisplayPopup-label-cell"><font key="font" metaFont="system"/><color key="textColor" name="secondaryLabelColor" catalog="System" colorSpace="catalog"/><color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/></textFieldCell>
+</textField><popUpButton verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="export-AttributeDisplayPopup">
+<rect key="frame" x="360" y="0" width="240" height="25"/>
+<constraints><constraint firstAttribute="width" constant="240" id="export-AttributeDisplayPopup-width"/></constraints>
+<popUpButtonCell key="cell" type="push" title="Option" bezelStyle="rounded" alignment="left" lineBreakMode="truncatingTail" state="on" borderStyle="border" imageScaling="proportionallyDown" inset="2" selectedItem="export-AttributeDisplayPopup-default" id="export-AttributeDisplayPopup-cell">
+<behavior key="behavior" lightByBackground="YES" lightByGray="YES"/><font key="font" metaFont="system"/>
+<menu key="menu" title="OtherViews" id="export-AttributeDisplayPopup-menu"><items><menuItem title="Option" state="on" id="export-AttributeDisplayPopup-default"/></items></menu>
+</popUpButtonCell></popUpButton></subviews>
+<visibilityPriorities><integer value="1000"/><integer value="1000"/></visibilityPriorities>
+<customSpacing><real value="3.4028234663852886e+38"/><real value="3.4028234663852886e+38"/></customSpacing>
+</stackView></subviews>
+</stackView><customView translatesAutoresizingMaskIntoConstraints="NO" id="export-bottom-spacer"><rect key="frame" x="40" y="1020" width="600" height="20"/><constraints><constraint firstAttribute="height" relation="greaterThanOrEqual" constant="20" id="export-bottom-spacer-min-height"/></constraints></customView></subviews>
+<constraints>
+<constraint firstItem="export-content" firstAttribute="top" secondItem="export-document" secondAttribute="top" constant="16" id="export-content-top"/>
+<constraint firstItem="export-content" firstAttribute="leading" secondItem="export-document" secondAttribute="leading" constant="40" id="export-content-leading"/>
+<constraint firstAttribute="trailing" secondItem="export-content" secondAttribute="trailing" constant="40" id="export-content-trailing"/>
+<constraint firstItem="export-bottom-spacer" firstAttribute="top" secondItem="export-content" secondAttribute="bottom" id="export-bottom-spacer-top"/>
+<constraint firstItem="export-bottom-spacer" firstAttribute="leading" secondItem="export-document" secondAttribute="leading" constant="40" id="export-bottom-spacer-leading"/>
+<constraint firstAttribute="trailing" secondItem="export-bottom-spacer" secondAttribute="trailing" constant="40" id="export-bottom-spacer-trailing"/>
+<constraint firstAttribute="bottom" secondItem="export-bottom-spacer" secondAttribute="bottom" id="export-bottom-spacer-bottom"/>
+</constraints></view></subviews>
+<constraints>
+<constraint firstItem="export-document" firstAttribute="leading" secondItem="export-clip" secondAttribute="leading" id="export-document-leading"/>
+<constraint firstItem="export-document" firstAttribute="top" secondItem="export-clip" secondAttribute="top" id="export-document-top"/>
+<constraint firstAttribute="trailing" secondItem="export-document" secondAttribute="trailing" id="export-document-trailing"/>
+<constraint firstItem="export-document" firstAttribute="height" relation="greaterThanOrEqual" secondItem="export-clip" secondAttribute="height" id="export-document-min-height"/>
+</constraints>
+</clipView>
+<scroller key="horizontalScroller" hidden="YES" wantsLayer="YES" horizontal="YES" id="export-horizontal-scroller"><rect key="frame" x="-100" y="-100" width="16" height="16"/><autoresizingMask key="autoresizingMask"/></scroller>
+<scroller key="verticalScroller" hidden="YES" wantsLayer="YES" horizontal="NO" id="export-vertical-scroller"><rect key="frame" x="664" y="0" width="16" height="585"/><autoresizingMask key="autoresizingMask"/></scroller>
+</scrollView>
+<customView translatesAutoresizingMaskIntoConstraints="NO" id="export-footer">
+<rect key="frame" x="0" y="0" width="680" height="55"/>
+<subviews>
+<box boxType="separator" translatesAutoresizingMaskIntoConstraints="NO" id="export-footer-separator"><rect key="frame" x="0" y="54" width="680" height="1"/><constraints><constraint firstAttribute="height" constant="1" id="export-footer-separator-height"/></constraints></box>
+<stackView distribution="fill" orientation="horizontal" alignment="centerY" spacing="8" horizontalStackHuggingPriority="249" verticalStackHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="export-footer-stack">
+<rect key="frame" x="20" y="12" width="640" height="32"/>
+<subviews>
+<button verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="export-restore"><rect key="frame" x="0" y="0" width="150" height="32"/><buttonCell key="cell" type="push" title="Restore Defaults" bezelStyle="rounded" alignment="center" borderStyle="border" imageScaling="proportionallyDown" inset="2" id="export-restore-cell"><behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/><font key="font" metaFont="system"/></buttonCell><connections><action selector="restorePreferenceDefaults:" target="export-pane-controller" id="export-restore-action"/></connections></button>
+<textField focusRingType="none" horizontalHuggingPriority="1" verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="export-status"><rect key="frame" x="134" y="8" width="338" height="16"/><textFieldCell key="cell" lineBreakMode="truncatingTail" title="" id="export-status-cell"><font key="font" metaFont="smallSystem"/><color key="textColor" name="secondaryLabelColor" catalog="System" colorSpace="catalog"/><color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/></textFieldCell></textField>
+<button verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="export-cancel"><rect key="frame" x="480" y="0" width="76" height="32"/><buttonCell key="cell" type="push" title="Cancel" bezelStyle="rounded" alignment="center" borderStyle="border" imageScaling="proportionallyDown" inset="2" id="export-cancel-cell"><behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/><font key="font" metaFont="system"/></buttonCell><connections><action selector="cancelPreferences:" target="export-pane-controller" id="export-cancel-action"/></connections></button>
+<button verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="export-apply"><rect key="frame" x="564" y="0" width="76" height="32"/><buttonCell key="cell" type="push" title="Apply" bezelStyle="rounded" alignment="center" borderStyle="border" imageScaling="proportionallyDown" keyEquivalent="&#13;" inset="2" id="export-apply-cell"><behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/><font key="font" metaFont="system"/></buttonCell><connections><action selector="applyPreferences:" target="export-pane-controller" id="export-apply-action"/></connections></button>
+</subviews>
+<visibilityPriorities><integer value="1000"/><integer value="1000"/><integer value="1000"/><integer value="1000"/></visibilityPriorities>
+<customSpacing><real value="3.4028234663852886e+38"/><real value="3.4028234663852886e+38"/><real value="3.4028234663852886e+38"/><real value="3.4028234663852886e+38"/></customSpacing>
+</stackView>
+</subviews>
+<constraints>
+<constraint firstItem="export-footer-separator" firstAttribute="top" secondItem="export-footer" secondAttribute="top" id="export-sep-top"/>
+<constraint firstItem="export-footer-separator" firstAttribute="leading" secondItem="export-footer" secondAttribute="leading" id="export-sep-leading"/>
+<constraint firstAttribute="trailing" secondItem="export-footer-separator" secondAttribute="trailing" id="export-sep-trailing"/>
+<constraint firstItem="export-footer-stack" firstAttribute="leading" secondItem="export-footer" secondAttribute="leading" constant="20" id="export-footer-stack-leading"/>
+<constraint firstAttribute="trailing" secondItem="export-footer-stack" secondAttribute="trailing" constant="20" id="export-footer-stack-trailing"/>
+<constraint firstItem="export-footer-stack" firstAttribute="centerY" secondItem="export-footer" secondAttribute="centerY" id="export-footer-stack-center"/>
+</constraints>
+</customView>
+</subviews>
+<constraints>
+<constraint firstItem="export-scroll" firstAttribute="top" secondItem="export-root" secondAttribute="top" id="export-scroll-top"/>
+<constraint firstItem="export-scroll" firstAttribute="leading" secondItem="export-root" secondAttribute="leading" id="export-scroll-leading"/>
+<constraint firstAttribute="trailing" secondItem="export-scroll" secondAttribute="trailing" id="export-scroll-trailing"/>
+<constraint firstItem="export-footer" firstAttribute="top" secondItem="export-scroll" secondAttribute="bottom" id="export-scroll-footer"/>
+<constraint firstItem="export-footer" firstAttribute="leading" secondItem="export-root" secondAttribute="leading" id="export-footer-leading"/>
+<constraint firstAttribute="trailing" secondItem="export-footer" secondAttribute="trailing" id="export-footer-trailing"/>
+<constraint firstAttribute="bottom" secondItem="export-footer" secondAttribute="bottom" id="export-footer-bottom"/>
+<constraint firstItem="export-footer" firstAttribute="height" constant="55" id="export-footer-height"/>
+</constraints>
+</view>
+<connections><outlet property="PreferencesScrollView" destination="export-scroll" id="export-scroll-outlet"/><outlet property="ExportSelectionPopup" destination="export-ExportSelectionPopup" id="export-ExportSelectionPopup-outlet"/><outlet property="ExportDecimalsField" destination="export-ExportDecimalsField" id="export-ExportDecimalsField-outlet"/><outlet property="ExportCorrectedCheck" destination="export-ExportCorrectedCheck" id="export-ExportCorrectedCheck-outlet"/><outlet property="ExportFitPointsCheck" destination="export-ExportFitPointsCheck" id="export-ExportFitPointsCheck-outlet"/><outlet property="ExportMolarRatioCheck" destination="export-ExportMolarRatioCheck" id="export-ExportMolarRatioCheck-outlet"/><outlet property="ExportInjectionInfoCheck" destination="export-ExportInjectionInfoCheck" id="export-ExportInjectionInfoCheck-outlet"/><outlet property="ExportConcentrationsCheck" destination="export-ExportConcentrationsCheck" id="export-ExportConcentrationsCheck-outlet"/><outlet property="ExportIncludedCheck" destination="export-ExportIncludedCheck" id="export-ExportIncludedCheck-outlet"/><outlet property="ExportPeakCheck" destination="export-ExportPeakCheck" id="export-ExportPeakCheck-outlet"/><outlet property="ExportFitCheck" destination="export-ExportFitCheck" id="export-ExportFitCheck-outlet"/><outlet property="FigureWidthField" destination="export-FigureWidthField" id="export-FigureWidthField-outlet"/><outlet property="FigureHeightField" destination="export-FigureHeightField" id="export-FigureHeightField-outlet"/><outlet property="FitLinePopup" destination="export-FitLinePopup" id="export-FitLinePopup-outlet"/><outlet property="ShowResidualCheck" destination="export-ShowResidualCheck" id="export-ShowResidualCheck-outlet"/><outlet property="ResidualGapCheck" destination="export-ResidualGapCheck" id="export-ResidualGapCheck-outlet"/><outlet property="UnifyResidualAxisCheck" destination="export-UnifyResidualAxisCheck" id="export-UnifyResidualAxisCheck-outlet"/><outlet property="ParameterBoxCheck" destination="export-ParameterBoxCheck" id="export-ParameterBoxCheck-outlet"/><outlet property="ExperimentDetailsCheck" destination="export-ExperimentDetailsCheck" id="export-ExperimentDetailsCheck-outlet"/><outlet property="ModelInfoCheck" destination="export-ModelInfoCheck" id="export-ModelInfoCheck-outlet"/><outlet property="AutoAxesCheck" destination="export-AutoAxesCheck" id="export-AutoAxesCheck-outlet"/><outlet property="ThermodynamicCheck" destination="export-ThermodynamicCheck" id="export-ThermodynamicCheck-outlet"/><outlet property="OffsetCheck" destination="export-OffsetCheck" id="export-OffsetCheck-outlet"/><outlet property="DerivedCheck" destination="export-DerivedCheck" id="export-DerivedCheck-outlet"/><outlet property="TemperatureCheck" destination="export-TemperatureCheck" id="export-TemperatureCheck-outlet"/><outlet property="ConcentrationsCheck" destination="export-ConcentrationsCheck" id="export-ConcentrationsCheck-outlet"/><outlet property="InjectionDelayCheck" destination="export-InjectionDelayCheck" id="export-InjectionDelayCheck-outlet"/><outlet property="InstrumentInfoCheck" destination="export-InstrumentInfoCheck" id="export-InstrumentInfoCheck-outlet"/><outlet property="AttributesCheck" destination="export-AttributesCheck" id="export-AttributesCheck-outlet"/><outlet property="AttributeDisplayPopup" destination="export-AttributeDisplayPopup" id="export-AttributeDisplayPopup-outlet"/><outlet property="StatusLabel" destination="export-status" id="export-status-outlet"/></connections>
+</viewController>
+<customObject id="export-first-responder" userLabel="First Responder" customClass="NSResponder" sceneMemberID="firstResponder"/>
+</objects>
+<point key="canvasLocation" x="3880" y="0"/>
+</scene>
+</scenes>
+<resources>
+<image name="beziercurve" catalog="system" width="128" height="84"/>
+<image name="chart.xyaxis.line" catalog="system" width="128" height="113"/>
+<image name="gearshape" catalog="system" width="128" height="123"/>
+<image name="square.and.arrow.up" catalog="system" width="128" height="121"/>
+</resources>
+</document>

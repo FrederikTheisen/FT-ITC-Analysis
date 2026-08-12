@@ -66,7 +66,14 @@ namespace AnalysisITC
 
         partial void OpenPreferences(NSObject sender)
         {
-            preferencesWindowController ??= new MacPreferencesWindowController();
+            if (preferencesWindowController == null)
+            {
+                var storyboard = NSStoryboard.FromName("Preferences", null);
+                preferencesWindowController = storyboard.InstantiateInitialController()
+                    as MacPreferencesWindowController
+                    ?? throw new InvalidOperationException(
+                        "Preferences.storyboard does not contain the expected initial window controller.");
+            }
             preferencesWindowController.ShowPreferences();
         }
 
