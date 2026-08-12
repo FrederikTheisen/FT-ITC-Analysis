@@ -15,25 +15,17 @@ using AnalysisITC.Avalonia.Analysis;
 using AnalysisITC.Avalonia.FinalFigure;
 using AnalysisITC.Avalonia.Processing;
 using AnalysisITC.Avalonia.Results;
+using AnalysisITC.Core.Application;
 using AnalysisITC.Core.Data;
 
 namespace AnalysisITC.Avalonia.Tests;
 
+[Collection("Avalonia UI")]
 public sealed class PrintingTests : IDisposable
 {
-    static readonly object setupLock = new();
-    static bool initialized;
-
     public PrintingTests()
     {
-        lock (setupLock)
-        {
-            if (initialized) return;
-            AppBuilder.Configure<TestApplication>()
-                .UseHeadless(new AvaloniaHeadlessPlatformOptions())
-                .SetupWithoutStarting();
-            initialized = true;
-        }
+        AvaloniaTestBootstrap.EnsureInitialized();
     }
 
     [Fact]
@@ -92,11 +84,11 @@ public sealed class PrintingTests : IDisposable
             Assert.Same(AvaloniaGraphTheme.Dark, AvaloniaGraphSettings.Current);
             Assert.Equal(750, payload.Bitmap.Width);
             Assert.Equal(375, payload.Bitmap.Height);
-            Assert.Equal(new PrintSize(180, 90), payload.PdfPageSize);
+            Assert.Equal(new PrintSize(240, 120), payload.PdfPageSize);
             Assert.NotEmpty(payload.Pdf);
             Assert.True(payload.PreservePdf);
             var pdfText = System.Text.Encoding.ASCII.GetString(payload.Pdf);
-            Assert.Contains("/MediaBox [0 0 180 90]", pdfText);
+            Assert.Contains("/MediaBox [0 0 240 120]", pdfText);
             Assert.DoesNotContain("/Subtype /Image", pdfText);
         }
         finally
@@ -118,6 +110,29 @@ public sealed class PrintingTests : IDisposable
         Assert.Equal(PrintOutcome.Printed, outcome);
         Assert.Equal(1, backend.Calls);
         Assert.Same(payload, backend.Payload);
+    }
+
+    [Fact]
+    public void PrintCompletionRetiresPreparingStatus()
+    {
+        var messages = new System.Collections.Generic.List<string>();
+        EventHandler<string> handler = (_, message) => messages.Add(message);
+        StatusBarManager.ClearAppStatus();
+        StatusBarManager.StatusUpdated += handler;
+        try
+        {
+            StatusBarManager.SetStatus("Preparing graph for printing...", 0);
+            GraphPrintCoordinator.ReportOutcome(PrintOutcome.Saved, 30);
+            System.Threading.Thread.Sleep(100);
+
+            Assert.Contains("PDF saved", messages);
+            Assert.NotEqual("Preparing graph for printing...", messages[^1]);
+        }
+        finally
+        {
+            StatusBarManager.StatusUpdated -= handler;
+            StatusBarManager.ClearAppStatus();
+        }
     }
 
     [Fact]
@@ -151,8 +166,6 @@ public sealed class PrintingTests : IDisposable
         while (GraphPrintRenderScope.IsActive)
             throw new InvalidOperationException("A print render scope leaked from a test.");
     }
-
-    sealed class TestApplication : Application { }
 
     sealed class ScopeProbeControl : Control
     {
