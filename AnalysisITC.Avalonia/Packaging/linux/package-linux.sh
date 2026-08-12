@@ -8,6 +8,13 @@ RUNTIME="linux-x64"
 CONFIGURATION="Release"
 UNSIGNED=0
 NO_RESTORE=0
+MAINTAINER_NAME="${FTITC_MAINTAINER_NAME:-Frederik Theisen}"
+MAINTAINER_EMAIL="${FTITC_MAINTAINER_EMAIL:-application@ft-itc.org}"
+
+if [[ -z "$MAINTAINER_EMAIL" ]]; then
+  echo "ERROR: Set FTITC_MAINTAINER_EMAIL to the package support address." >&2
+  exit 1
+fi
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -46,7 +53,8 @@ dotnet "${publish_args[@]}"
 
 mkdir -p \
   "$STAGE_DIR/DEBIAN" \
-  "$STAGE_DIR/opt/ft-itc-analysis" \
+  "$STAGE_DIR/usr/bin" \
+  "$STAGE_DIR/usr/lib/ft-itc-analysis" \
   "$STAGE_DIR/usr/share/applications" \
   "$STAGE_DIR/usr/share/icons/hicolor/512x512/apps" \
   "$STAGE_DIR/usr/share/icons/hicolor/512x512/mimetypes" \
@@ -54,7 +62,7 @@ mkdir -p \
   "$STAGE_DIR/usr/share/mime/packages" \
   "$STAGE_DIR/usr/share/doc/ft-itc-analysis"
 
-cp -R "$PUBLISH_DIR/." "$STAGE_DIR/opt/ft-itc-analysis/"
+cp -R "$PUBLISH_DIR/." "$STAGE_DIR/usr/lib/ft-itc-analysis/"
 cp "$SCRIPT_DIR/org.ft_itc.analysis.desktop" "$STAGE_DIR/usr/share/applications/"
 cp "$SCRIPT_DIR/org.ft_itc.analysis.metainfo.xml" "$STAGE_DIR/usr/share/metainfo/"
 cp "$SCRIPT_DIR/ft-itc-analysis.xml" "$STAGE_DIR/usr/share/mime/packages/"
@@ -62,7 +70,10 @@ cp "$SCRIPT_DIR/org.ft_itc.analysis.png" "$STAGE_DIR/usr/share/icons/hicolor/512
 cp "$SCRIPT_DIR/mimetypes/application-vnd.ftitc.project+zip.png" "$STAGE_DIR/usr/share/icons/hicolor/512x512/mimetypes/"
 cp "$SCRIPT_DIR/mimetypes/application-x-ftitc-project.png" "$STAGE_DIR/usr/share/icons/hicolor/512x512/mimetypes/"
 cp "$ROOT/LICENSE.md" "$STAGE_DIR/usr/share/doc/ft-itc-analysis/copyright"
-chmod 0755 "$STAGE_DIR/opt/ft-itc-analysis/AnalysisITC.Avalonia"
+chmod 0755 "$STAGE_DIR/usr/lib/ft-itc-analysis/AnalysisITC.Avalonia"
+
+ln -s ../lib/ft-itc-analysis/AnalysisITC.Avalonia \
+  "$STAGE_DIR/usr/bin/ft-itc-analysis"
 
 cat > "$STAGE_DIR/DEBIAN/control" <<EOF
 Package: ft-itc-analysis
@@ -70,9 +81,9 @@ Version: $VERSION
 Section: science
 Priority: optional
 Architecture: $DEB_ARCH
-Maintainer: Frederik Theisen
-Installed-Size: $(du -sk "$STAGE_DIR/opt/ft-itc-analysis" | cut -f1)
-Depends: libc6, libfontconfig1, libfreetype6, libx11-6, libice6, libsm6, libxext6, libcups2 | libcups2t64
+Maintainer: $MAINTAINER_NAME <$MAINTAINER_EMAIL>
+Installed-Size: $(du -sk "$STAGE_DIR/usr" | cut -f1)
+Depends: ca-certificates, libc6, libgcc-s1, libgssapi-krb5-2, libstdc++6, libicu78 | libicu76 | libicu74 | libicu72 | libicu70, libssl3t64 | libssl3, tzdata, zlib1g, libfontconfig1, libfreetype6, libx11-6, libice6, libsm6, libxext6
 Homepage: https://ft-itc.org
 Description: Isothermal titration calorimetry analysis
  Process, analyze, fit, and present ITC data and FT-ITC project files.

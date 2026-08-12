@@ -20,6 +20,7 @@
     <Content Include="..\citation.json" Link="citation.json" CopyToOutputDirectory="PreserveNewest" />
     <PackageReference Include="Avalonia" Version="12.0.5" />
     <PackageReference Include="Avalonia.Desktop" Version="12.0.5" />
+    <PackageReference Include="Avalonia.Skia" Version="12.0.5" />
     <PackageReference Include="Avalonia.Themes.Fluent" Version="12.0.5" />
     <PackageReference Include="Avalonia.Fonts.Inter" Version="12.0.5" />
     <PackageReference Include="SkiaSharp" Version="3.119.4" />

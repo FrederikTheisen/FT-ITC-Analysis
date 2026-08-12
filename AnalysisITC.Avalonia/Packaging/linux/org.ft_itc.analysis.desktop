@@ -2,7 +2,7 @@
 Type=Application
 Name=FT-ITC Analysis
 Comment=Process, analyze, and present isothermal titration calorimetry data
-Exec=/opt/ft-itc-analysis/AnalysisITC.Avalonia %F
+Exec=ft-itc-analysis %F
 Icon=org.ft_itc.analysis
 Terminal=false
 Categories=Science;Education;

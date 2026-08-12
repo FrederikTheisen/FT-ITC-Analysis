@@ -23,6 +23,7 @@ using AnalysisITC.Core.Utilities;
 
 using AnalysisITC.Avalonia.Styling;
 using AnalysisITC.Avalonia.Analysis;
+using AnalysisITC.Avalonia.Printing;
 using AnalysisITC.Avalonia.Workspace;
 using static AnalysisITC.Avalonia.Workspace.WorkspaceControlBuilder;
 
@@ -88,6 +89,7 @@ namespace AnalysisITC.Avalonia.Results
 
         public event EventHandler<string>? StatusChanged;
         public event EventHandler? ResultUpdated;
+        public event EventHandler? ActiveGraphChanged;
 
         public AnalysisResultWorkspaceControl()
         {
@@ -118,6 +120,7 @@ namespace AnalysisITC.Avalonia.Results
                 DataManager.ClearResultSolutionSelection();
                 ResetEvaluationTemperature();
                 Refresh();
+                ActiveGraphChanged?.Invoke(this, EventArgs.Empty);
             }
         }
 
@@ -147,6 +150,37 @@ namespace AnalysisITC.Avalonia.Results
             SyncModeCombo();
             RefreshGraphMode();
             RefreshAnalysis();
+            ActiveGraphChanged?.Invoke(this, EventArgs.Empty);
+        }
+
+        internal bool TryGetPrintTarget(out GraphPrintTarget? target)
+        {
+            target = null;
+            if (result == null) return false;
+
+            var title = string.IsNullOrWhiteSpace(result.Name) ? "Analysis Result" : result.Name;
+            switch (activeViewMode)
+            {
+                case ResultAnalysisViewMode.Parameters when graph.HasPrintableData:
+                    target = GraphPrintTarget.FromVisual($"{title} – Parameters", graph);
+                    return true;
+                case ResultAnalysisViewMode.SelectedFit:
+                    var selected = DataManager.SelectedResultSolution;
+                    if (selected?.Data?.Processor?.IntegrationCompleted == true
+                        && result.Solution.Solutions.Contains(selected))
+                    {
+                        target = GraphPrintTarget.FromVisual($"{title} – Selected Fit", selectedFitGraph);
+                        return true;
+                    }
+                    return false;
+                default:
+                    if (dependenceGraph.HasPrintableData)
+                    {
+                        target = GraphPrintTarget.FromVisual($"{title} – {ModeTitle(activeViewMode)}", dependenceGraph);
+                        return true;
+                    }
+                    return false;
+            }
         }
 
         public async Task RunActiveAdvancedAnalysisAsync()
@@ -332,6 +366,7 @@ namespace AnalysisITC.Avalonia.Results
             activeViewMode = availableViewModes[index];
             RefreshGraphMode();
             RefreshAnalysis();
+            ActiveGraphChanged?.Invoke(this, EventArgs.Empty);
         }
 
         void RefreshGraphMode()
@@ -380,6 +415,7 @@ namespace AnalysisITC.Avalonia.Results
             dependenceGraph.InvalidateVisual();
             if (activeViewMode == ResultAnalysisViewMode.SelectedFit)
                 RefreshAnalysis();
+            ActiveGraphChanged?.Invoke(this, EventArgs.Empty);
         }
 
         void RefreshSelectedFitGraph()
@@ -413,6 +449,7 @@ namespace AnalysisITC.Avalonia.Results
             isRunningAdvancedAnalysis = false;
             dependenceGraph.Rebuild();
             RefreshAnalysis();
+            ActiveGraphChanged?.Invoke(this, EventArgs.Empty);
             var status = $"Advanced analysis completed ({e.Item1} iterations).";
             StatusBarManager.SetStatus(status, 5000);
             StatusChanged?.Invoke(this, status);

@@ -7,6 +7,9 @@ using Avalonia.Media;
 public static class AvaloniaGraphSettings
 {
     public static AvaloniaGraphTheme Current { get; private set; } = AvaloniaGraphTheme.Light;
+    public static AvaloniaGraphTheme CurrentForRender => GraphPrintRenderScope.IsActive
+        ? AvaloniaGraphTheme.Print
+        : Current;
 
     public static double GraphMarginLeftMinimum => 30;
     public static double GraphMarginLeftTickBuffer => 20;
@@ -237,6 +240,35 @@ public sealed class AvaloniaGraphTheme
 
     public static AvaloniaGraphTheme Light { get; } = new(
         canvas: "#F8FAFC",
+        plot: "#FFFFFF",
+        text: "#202832",
+        mutedText: "#202832",
+        frame: "#26323D",
+        axis: "#26323D",
+        majorGrid: "#D8DEE6",
+        minorGrid: "#EEF2F6",
+        data: "#1E5F84",
+        correctedData: "#365D41",
+        thermogram: "#000000",
+        baseline: "#BE3A34",
+        temperature: "#C74640",
+        region: "#2563EB",
+        mutedRegion: "#7B8794",
+        injection: "#A46A2A",
+        point: "#202832",
+        excluded: "#7B8794",
+        fit: "#111827",
+        guide: "#8A96A3",
+        zero: "#6B7682",
+        hover: "#26323D",
+        hoverBackground: "#FFFFFF",
+        hoverBorder: "#B6C0CA",
+        confidenceBand: "#3E5A6473",
+        zoomFill: "#322563EB",
+        zoomStroke: "#2563EB");
+
+    public static AvaloniaGraphTheme Print { get; } = new(
+        canvas: "#FFFFFF",
         plot: "#FFFFFF",
         text: "#202832",
         mutedText: "#202832",

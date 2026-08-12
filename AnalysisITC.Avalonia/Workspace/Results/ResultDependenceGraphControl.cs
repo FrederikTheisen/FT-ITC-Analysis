@@ -23,7 +23,7 @@ namespace AnalysisITC.Avalonia.Results
 {
     public sealed class ResultDependenceGraphControl : Control
     {
-        static AvaloniaGraphTheme GraphTheme => AvaloniaGraphSettings.Current;
+        static AvaloniaGraphTheme GraphTheme => AvaloniaGraphSettings.CurrentForRender;
         AnalysisResult? result;
         ResultAnalysisViewMode mode = ResultAnalysisViewMode.Temperature;
         ElectrostaticsAnalysis.DissocFitMode saltMode = ElectrostaticsAnalysis.DissocFitMode.DebyeHuckel;
@@ -99,6 +99,8 @@ namespace AnalysisITC.Avalonia.Results
             cachedSeries = BuildSeries();
             InvalidateVisual();
         }
+
+        internal bool HasPrintableData => cachedSeries.Any(series => series.Points.Count > 0);
 
         public override void Render(DrawingContext context)
         {

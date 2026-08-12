@@ -9,6 +9,7 @@ using Avalonia.Threading;
 using Avalonia.VisualTree;
 
 using AnalysisITC.Avalonia.Workspace;
+using AnalysisITC.Avalonia.Printing;
 using AnalysisITC.Core.Analysis;
 using AnalysisITC.Core.Analysis.Models;
 using AnalysisITC.Core.Application;
@@ -105,6 +106,18 @@ namespace AnalysisITC.Avalonia.Analysis
         public void FitToData()
         {
             graph.FitToData();
+        }
+
+        internal bool TryGetPrintTarget(out GraphPrintTarget? target)
+        {
+            if (experiment?.Processor?.IntegrationCompleted == true)
+            {
+                target = GraphPrintTarget.FromVisual($"{experiment.Name} – Analysis", graph);
+                return true;
+            }
+
+            target = null;
+            return false;
         }
 
         protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)

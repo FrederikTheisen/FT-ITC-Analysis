@@ -1,18 +1,85 @@
 <?xml version="1.0" encoding="UTF-8"?>
+<!-- Copyright 2026 Frederik Theisen -->
 <component type="desktop-application">
   <id>org.ft_itc.analysis</id>
+
   <name>FT-ITC Analysis</name>
-  <summary>Process and analyze isothermal titration calorimetry data</summary>
+  <summary>Analyze calorimetry data</summary>
+
+  <developer id="org.ft_itc">
+    <name>Frederik Theisen</name>
+  </developer>
+
   <metadata_license>CC0-1.0</metadata_license>
   <project_license>MIT</project_license>
+
   <description>
-    <p>FT-ITC Analysis processes, analyzes, fits, and presents isothermal titration calorimetry data.</p>
+    <p>
+      Process raw isothermal titration calorimetry thermograms away from
+      the instrument workstation. Correct baselines, integrate peaks, fit
+      binding models, and inspect residuals and parameter uncertainty.
+    </p>
+    <p>
+      Combine related experiments for global analysis, investigate
+      temperature and buffer dependencies, and export publication-ready
+      figures and processed data.
+    </p>
+    <p>FT-ITC Analysis supports:</p>
+    <ul>
+      <li>MicroCal, PEAQ-ITC, TA Instruments, and integrated-heats data</li>
+      <li>Single-experiment and multi-experiment model fitting</li>
+      <li>Portable FT-ITC project files for preserving complete analyses</li>
+    </ul>
   </description>
+
   <launchable type="desktop-id">org.ft_itc.analysis.desktop</launchable>
+
   <url type="homepage">https://ft-itc.org</url>
   <url type="bugtracker">https://github.com/FrederikTheisen/FT-ITC-Analysis/issues</url>
+  <url type="vcs-browser">https://github.com/FrederikTheisen/FT-ITC-Analysis</url>
+
+  <screenshots>
+    <screenshot type="default">
+      <image>https://ft-itc.org/media/avalonia/avalonia-process-data-baseline.png</image>
+      <caption>Correct baselines and integrate injection peaks</caption>
+    </screenshot>
+    <screenshot>
+      <image>https://ft-itc.org/media/avalonia/avalonia-analyze-data-fitting.png</image>
+      <caption>Fit binding models and inspect residuals</caption>
+    </screenshot>
+    <screenshot>
+      <image>https://ft-itc.org/media/avalonia/avalonia-final-publication-figure.png</image>
+      <caption>Prepare publication-oriented figures and exports</caption>
+    </screenshot>
+    <screenshot>
+      <image>https://ft-itc.org/media/avalonia/avalonia-analysis-results.png</image>
+      <caption>Global fitting and multi experiment result evaluation</caption>
+    </screenshot>
+  </screenshots>
+
+  <releases>
+    <release version="1.4.0" date="2026-08-DD">
+      <url type="details">https://github.com/FrederikTheisen/FT-ITC-Analysis/releases/tag/v1.4.0</url>
+      <description>
+        <p>First cross-platform release of FT-ITC Analysis.</p>
+        <ul>
+          <li>Added native Linux and Windows applications</li>
+          <li>Introduced portable FTXTC project files</li>
+          <li>Added support for producing combined publication figures</li>
+        </ul>
+      </description>
+    </release>
+  </releases>
+
+  <content_rating type="oars-1.1" />
+
+  <supports>
+    <control>keyboard</control>
+    <control>pointing</control>
+  </supports>
+
   <provides>
-    <binary>AnalysisITC.Avalonia</binary>
+    <binary>ft-itc-analysis</binary>
     <mediatype>application/vnd.ftitc.project+zip</mediatype>
     <mediatype>application/x-ftitc-project</mediatype>
   </provides>

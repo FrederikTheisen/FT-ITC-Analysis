@@ -22,7 +22,7 @@ namespace AnalysisITC.Avalonia.Results
 {
     public sealed class ResultParameterGraphControl : Control
     {
-        static AvaloniaGraphTheme GraphTheme => AvaloniaGraphSettings.Current;
+        static AvaloniaGraphTheme GraphTheme => AvaloniaGraphSettings.CurrentForRender;
 
         static readonly ParameterType[] ThermodynamicParameters =
         {
@@ -63,6 +63,15 @@ namespace AnalysisITC.Avalonia.Results
         public void FitToData()
         {
             InvalidateVisual();
+        }
+
+        internal bool HasPrintableData
+        {
+            get
+            {
+                var solutions = result?.Solution?.Solutions ?? new List<SolutionInterface>();
+                return solutions.Count > 0 && AvailableThermodynamicParameters(solutions).Count > 0;
+            }
         }
 
         protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)

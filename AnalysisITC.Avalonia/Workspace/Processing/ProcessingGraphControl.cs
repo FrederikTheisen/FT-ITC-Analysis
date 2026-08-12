@@ -19,7 +19,7 @@ namespace AnalysisITC.Avalonia.Processing
 {
     public sealed class ProcessingGraphControl : Control
     {
-        static AvaloniaGraphTheme GraphTheme => AvaloniaGraphSettings.Current;
+        static AvaloniaGraphTheme GraphTheme => AvaloniaGraphSettings.CurrentForRender;
 
         ExperimentData? experiment;
         GraphViewport view;
@@ -306,8 +306,11 @@ namespace AnalysisITC.Avalonia.Processing
             DrawBaseline(context, graph);
             DrawSplinePoints(context, graph);
             DrawAxes(context, graph);
-            DrawZoomSelection(context);
-            DrawHover(context, graph);
+            if (!GraphPrintRenderScope.IsActive)
+            {
+                DrawZoomSelection(context);
+                DrawHover(context, graph);
+            }
         }
 
         protected override void OnPointerPressed(PointerPressedEventArgs e)

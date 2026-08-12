@@ -43,7 +43,7 @@ the first public release and do not change them afterward.
 Requirements:
 
 - Windows 10 or 11
-- .NET 8 SDK
+- .NET 10 SDK
 - Windows SDK tools `makeappx.exe` and `signtool.exe`
 - A public code-signing certificate for direct distribution, or a reserved
   Microsoft Partner Center identity for Store distribution
@@ -90,7 +90,7 @@ it, not for public distribution.
 Requirements:
 
 - A Debian-compatible Linux build host
-- .NET 8 SDK
+- .NET 10 SDK
 - `dpkg-deb`
 - GnuPG and a release signing key
 
@@ -111,7 +111,7 @@ Use `--unsigned` only for local installation tests.
 Requirements:
 
 - macOS with Xcode command-line tools
-- .NET 8 SDK
+- .NET 10 SDK
 - An Apple Developer ID Application certificate in Keychain
 - An App Store Connect notarization profile for public distribution
 

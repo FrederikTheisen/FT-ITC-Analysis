@@ -81,6 +81,12 @@ public sealed class SkiaFigureRenderer
 
     public void WritePdf(PublicationFigureDocument document, string path)
     {
+        using var stream = File.Create(path);
+        WritePdf(document, stream);
+    }
+
+    public void WritePdf(PublicationFigureDocument document, Stream stream)
+    {
         var layout = PublicationFigureLayout.Create(document);
         var metadata = new SKDocumentPdfMetadata
         {
@@ -91,7 +97,7 @@ public sealed class SkiaFigureRenderer
             Keywords = string.Join(", ", document.MetadataKeywords)
         };
 
-        using var pdf = SKDocument.CreatePdf(path, metadata);
+        using var pdf = SKDocument.CreatePdf(stream, metadata);
         var canvas = pdf.BeginPage(layout.PageWidth, layout.PageHeight);
         DrawDocument(canvas, document, layout, PublicationFigureRenderSettings.Default);
         pdf.EndPage();

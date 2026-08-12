@@ -19,7 +19,7 @@ namespace AnalysisITC.Avalonia.Analysis
 {
     public sealed class IntegratedHeatsGraphControl : Control
     {
-        static AvaloniaGraphTheme GraphTheme => AvaloniaGraphSettings.Current;
+        static AvaloniaGraphTheme GraphTheme => AvaloniaGraphSettings.CurrentForRender;
 
         ExperimentData? experiment;
         SolutionInterface? solutionOverride;
@@ -163,7 +163,8 @@ namespace AnalysisITC.Avalonia.Analysis
             if (HasResidualPanel)
                 DrawResidualPanel(context, layout);
 
-            DrawHover(context, layout);
+            if (!GraphPrintRenderScope.IsActive)
+                DrawHover(context, layout);
         }
 
         protected override void OnPointerMoved(PointerEventArgs e)

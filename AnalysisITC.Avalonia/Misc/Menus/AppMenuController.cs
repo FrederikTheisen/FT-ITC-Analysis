@@ -101,11 +101,13 @@ internal sealed class AppMenuController
         Add("clearall", "Remove All Data/Results", window.ClearDataWithConfirmationAsync, window.HasDocumentContent);
         Add("exportdata", "Export Data...", () => window.ExportDataAsync(selectedOnly: false), window.HasDataLoaded, gesture: new KeyGesture(Key.E, commandModifier));
         Add("exportpeaks", "Export Integrated Peaks...", window.ExportPeaksAsync, window.HasAnyProcessedData);
-        Add("print", "Print...", window.NotImplementedAsync, () => false, gesture: new KeyGesture(Key.P, commandModifier));
+        Add("print", "Print...", window.PrintActiveGraphAsync, window.CanPrintActiveGraph, gesture: new KeyGesture(Key.P, commandModifier));
 
         Add("undo", "Undo Delete", window.UndoDeleteAsync, window.CanUndoDelete, gesture: new KeyGesture(Key.Z, commandModifier));
         Add("duplicate", "Duplicate Data", window.DuplicateSelectedDataAsync, window.HasSelectedExperiment);
         Add("copyattributes", "Copy Attributes to All", window.CopyAttributesToAllAsync, window.SelectedExperimentHasAttributes);
+        Add("attributeoperations", "Attribute Operations...", window.OpenAttributeOperationsAsync, window.SelectedExperimentHasAttributes);
+        Add("clearattributes", "Clear Attributes", window.ClearSelectedAttributesAsync, window.SelectedExperimentHasAttributes);
         Add("clearprocessing", "Clear Processing/Results", window.ClearProcessingResultsAsync, window.HasAnyResults);
         Add("enableall", "Enable All", () => window.SetAllExperimentInclusionAsync(true), window.CanEnableAnyExperiment);
         Add("disableall", "Disable All", () => window.SetAllExperimentInclusionAsync(false), window.CanDisableAnyExperiment);
@@ -176,6 +178,8 @@ internal sealed class AppMenuController
             Separator(),
             Command("duplicate"),
             Command("copyattributes"),
+            Command("attributeoperations"),
+            Command("clearattributes"),
             Command("clearprocessing"),
             Separator(),
             Command("enableall"),
@@ -194,6 +198,8 @@ internal sealed class AppMenuController
         windowMenuNodes.Add(Menu("Selection",
             Command("experimentdetails", window.HasSelectedExperiment),
             Command("duplicate", window.HasSelectedExperiment),
+            Command("attributeoperations", window.SelectedExperimentHasAttributes),
+            Command("clearattributes", window.SelectedExperimentHasAttributes),
             Command("resultdetails", window.HasSelectedResult),
             Separator(),
             Command("saveselected", window.HasSelectedExperiment),

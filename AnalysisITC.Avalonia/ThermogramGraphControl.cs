@@ -19,7 +19,7 @@ namespace AnalysisITC.Avalonia
         public static readonly StyledProperty<ExperimentData?> ExperimentProperty =
             AvaloniaProperty.Register<ThermogramGraphControl, ExperimentData?>(nameof(Experiment));
 
-        static AvaloniaGraphTheme GraphTheme => AvaloniaGraphSettings.Current;
+        static AvaloniaGraphTheme GraphTheme => AvaloniaGraphSettings.CurrentForRender;
 
         GraphViewport view;
         bool hasView;
@@ -106,8 +106,11 @@ namespace AnalysisITC.Avalonia
             DrawInjections(context, graph);
             DrawAxes(context, graph);
             context.DrawRectangle(null, GraphTheme.FramePen, graph.Plot);
-            DrawZoomSelection(context);
-            DrawHover(context, graph);
+            if (!GraphPrintRenderScope.IsActive)
+            {
+                DrawZoomSelection(context);
+                DrawHover(context, graph);
+            }
         }
 
         protected override void OnPointerPressed(PointerPressedEventArgs e)

@@ -20,6 +20,7 @@ using SkiaSharp;
 using AnalysisITC.Avalonia.Drawing;
 using AnalysisITC.Avalonia.Styling;
 using AnalysisITC.Avalonia.Workspace;
+using AnalysisITC.Avalonia.Printing;
 using AnalysisITC.Core.Analysis.Models;
 using AnalysisITC.Core.Application;
 using AnalysisITC.Core.Data;
@@ -157,6 +158,22 @@ namespace AnalysisITC.Avalonia.FinalFigure
             cacheKey = null;
             if (figureExperiment != null)
                 RefreshPreview(force: true);
+        }
+
+        internal bool TryGetPrintTarget(out GraphPrintTarget? target)
+        {
+            if (figureExperiment != null)
+            {
+                var experiment = figureExperiment;
+                target = GraphPrintTarget.FromPublicationFigure(
+                    $"{experiment.Name} – Final Figure",
+                    () => PublicationFigureBuilder.Build(experiment, BuildEffectiveOptions(experiment)),
+                    renderer);
+                return true;
+            }
+
+            target = null;
+            return false;
         }
 
         public void ApplySettingsDefaults()

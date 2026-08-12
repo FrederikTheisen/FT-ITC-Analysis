@@ -13,6 +13,7 @@ using Avalonia.Threading;
 using Avalonia.VisualTree;
 
 using AnalysisITC.Avalonia.Workspace;
+using AnalysisITC.Avalonia.Printing;
 using AnalysisITC.Core.Application;
 using AnalysisITC.Core.Data;
 using AnalysisITC.Core.Processing;
@@ -114,6 +115,18 @@ namespace AnalysisITC.Avalonia.Processing
         public void FitToData()
         {
             graph.FitToData();
+        }
+
+        internal bool TryGetPrintTarget(out GraphPrintTarget? target)
+        {
+            if (experiment?.HasThermogram == true)
+            {
+                target = GraphPrintTarget.FromVisual($"{experiment.Name} – Processing", graph);
+                return true;
+            }
+
+            target = null;
+            return false;
         }
 
         protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)

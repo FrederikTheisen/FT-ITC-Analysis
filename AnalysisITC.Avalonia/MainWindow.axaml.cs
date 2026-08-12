@@ -31,6 +31,7 @@ using AnalysisITC.Avalonia.Help;
 using AnalysisITC.Avalonia.ListItems;
 using AnalysisITC.Avalonia.Menus;
 using AnalysisITC.Avalonia.Preferences;
+using AnalysisITC.Avalonia.Printing;
 using AnalysisITC.Avalonia.Results;
 using AnalysisITC.Avalonia.Styling;
 using AnalysisITC.Avalonia.Support;
@@ -81,6 +82,7 @@ public partial class MainWindow : Window
         FinalFigureWorkspace.StatusChanged += OnFinalFigureStatusChanged;
         ResultWorkspace.StatusChanged += OnResultStatusChanged;
         ResultWorkspace.ResultUpdated += OnResultUpdated;
+        ResultWorkspace.ActiveGraphChanged += OnActiveGraphChanged;
 
         DataManager.DataDidChange += OnDataDidChange;
         DataManager.DataInclusionDidChange += OnDataInclusionDidChange;
@@ -145,6 +147,7 @@ public partial class MainWindow : Window
         FinalFigureWorkspace.StatusChanged -= OnFinalFigureStatusChanged;
         ResultWorkspace.StatusChanged -= OnResultStatusChanged;
         ResultWorkspace.ResultUpdated -= OnResultUpdated;
+        ResultWorkspace.ActiveGraphChanged -= OnActiveGraphChanged;
 
         base.OnClosed(e);
     }
@@ -306,6 +309,36 @@ public partial class MainWindow : Window
         return Task.CompletedTask;
     }
 
+    internal async Task OpenAttributeOperationsAsync()
+    {
+        if (selectedItem is not ExperimentData experiment) return;
+
+        await AttributeOperationsWindow.ShowAsync(this, experiment);
+        RefreshOverview(experiment);
+        RefreshDataList();
+        InvalidateFinalFigurePreview();
+        RefreshMenuState();
+    }
+
+    internal async Task ClearSelectedAttributesAsync()
+    {
+        if (selectedItem is not ExperimentData experiment || experiment.Attributes.Count == 0) return;
+
+        if (!await ConfirmAsync(
+            "Clear Attributes",
+            $"Are you sure you want to remove all attributes from {experiment.Name}?",
+            "Keep",
+            "Clear"))
+            return;
+
+        experiment.ClearAttributes();
+        DataManager.InvokeUpdateDataViewCells();
+        DataManager.InvokeUpdateTable();
+        RefreshOverview(experiment);
+        RefreshDataList();
+        RefreshMenuState();
+    }
+
     internal async Task ClearProcessingResultsAsync()
     {
         if (!HasAnyResults()) return;
@@ -443,10 +476,39 @@ public partial class MainWindow : Window
         return Task.CompletedTask;
     }
 
-    internal Task NotImplementedAsync()
+    internal bool CanPrintActiveGraph() => TryGetActivePrintTarget(out _);
+
+    internal async Task PrintActiveGraphAsync()
     {
-        StatusBarManager.SetStatus("This menu item is not available in the Avalonia app yet", 3000);
-        return Task.CompletedTask;
+        if (!TryGetActivePrintTarget(out var target) || target == null) return;
+        await GraphPrintCoordinator.PrintAsync(this, target);
+    }
+
+    bool TryGetActivePrintTarget(out GraphPrintTarget? target)
+    {
+        target = null;
+
+        if (selectedItem is AnalysisResult)
+            return ResultWorkspace.TryGetPrintTarget(out target);
+
+        if (selectedItem is not ExperimentData experiment || !WorkspaceTabs.IsVisible)
+            return false;
+
+        return WorkspaceTabs.SelectedIndex switch
+        {
+            0 when overviewShowsRawData && experiment.HasThermogram =>
+                SetPrintTarget(GraphPrintTarget.FromVisual($"{experiment.Name} – Overview", OverviewThermogram), out target),
+            1 => ProcessingWorkspace.TryGetPrintTarget(out target),
+            2 => AnalysisWorkspace.TryGetPrintTarget(out target),
+            3 => FinalFigureWorkspace.TryGetPrintTarget(out target),
+            _ => false
+        };
+    }
+
+    static bool SetPrintTarget(GraphPrintTarget value, out GraphPrintTarget? target)
+    {
+        target = value;
+        return true;
     }
 
     internal async Task ShowAboutAsync()
@@ -967,6 +1029,9 @@ public partial class MainWindow : Window
             experiment.Include,
             hasCheckState: true));
         menu.Items.Add(new Separator());
+        menu.Items.Add(ToolbarItem("Attribute Operations...", ForDataListEntry(entry, OpenAttributeOperationsAsync), experiment.Attributes.Count > 0));
+        menu.Items.Add(ToolbarItem("Clear Attributes", ForDataListEntry(entry, ClearSelectedAttributesAsync), experiment.Attributes.Count > 0));
+        menu.Items.Add(new Separator());
         menu.Items.Add(ToolbarItem("Duplicate Data", ForDataListEntry(entry, DuplicateSelectedDataAsync)));
         menu.Items.Add(ToolbarItem("Export Selected Data...", ForDataListEntry(entry, () => ExportDataAsync(selectedOnly: true))));
         menu.Items.Add(new Separator());
@@ -1434,6 +1499,7 @@ public partial class MainWindow : Window
         RefreshDataListEntryStates();
         RefreshOverview();
         InvalidateFinalFigurePreview();
+        RefreshMenuState();
     }
 
     void OnAnalysisStatusChanged(object? sender, string status)
@@ -1446,6 +1512,7 @@ public partial class MainWindow : Window
         RefreshDataListEntryStates();
         RefreshOverview();
         InvalidateFinalFigurePreview();
+        RefreshMenuState();
     }
 
     void OnAnalysisFittingChanged(object? sender, EventArgs e)
@@ -1468,6 +1535,11 @@ public partial class MainWindow : Window
     void OnResultUpdated(object? sender, EventArgs e)
     {
         RefreshAfterResultUpdate();
+    }
+
+    void OnActiveGraphChanged(object? sender, EventArgs e)
+    {
+        RefreshMenuState();
     }
 
     internal async Task UpdateSelectedResultAsync()
