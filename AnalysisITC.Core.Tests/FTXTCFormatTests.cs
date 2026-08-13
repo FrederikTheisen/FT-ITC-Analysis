@@ -314,27 +314,27 @@ namespace AnalysisITC.Core.Tests
                     restored.SpolarRecordAnalysis.Result.ReferenceTemperature.Value);
                 var expectedConformation = restored.SpolarRecordAnalysis.Result.ConformationalContribution(
                     restored.SpolarRecordAnalysis.Result.ReferenceTemperature.Value);
-                Assert.Equal(expectedHydration.Value / 1000.0,
-                    temperature.HydrationContributionKilojoulesPerMole.Value, 12);
-                Assert.Equal(expectedHydration.SD / 1000.0,
-                    temperature.HydrationContributionKilojoulesPerMole.Sd, 12);
-                Assert.Equal(expectedHydration.Lower / 1000.0,
-                    temperature.HydrationContributionKilojoulesPerMole.ConfidenceLower.Value, 12);
-                Assert.Equal(expectedConformation.Value / 1000.0,
-                    temperature.ConformationalContributionKilojoulesPerMole.Value, 12);
-                Assert.Equal(expectedConformation.SD / 1000.0,
-                    temperature.ConformationalContributionKilojoulesPerMole.Sd, 12);
-                Assert.Equal(expectedConformation.Upper / 1000.0,
-                    temperature.ConformationalContributionKilojoulesPerMole.ConfidenceUpper.Value, 12);
-                Assert.Equal(restored.SpolarRecordAnalysis.Result.Rvalue.Value,
-                    temperature.ResidueEstimate.Value, 12);
-                Assert.Equal(restored.SpolarRecordAnalysis.Result.ReferenceTemperature.Value,
-                    temperature.ReferenceTemperatureCelsius.Value, 12);
+                AssertClose(expectedHydration.Value / 1000.0,
+                    temperature.HydrationContributionKilojoulesPerMole.Value);
+                AssertClose(expectedHydration.SD / 1000.0,
+                    temperature.HydrationContributionKilojoulesPerMole.Sd);
+                AssertClose(expectedHydration.Lower / 1000.0,
+                    temperature.HydrationContributionKilojoulesPerMole.ConfidenceLower.Value);
+                AssertClose(expectedConformation.Value / 1000.0,
+                    temperature.ConformationalContributionKilojoulesPerMole.Value);
+                AssertClose(expectedConformation.SD / 1000.0,
+                    temperature.ConformationalContributionKilojoulesPerMole.Sd);
+                AssertClose(expectedConformation.Upper / 1000.0,
+                    temperature.ConformationalContributionKilojoulesPerMole.ConfidenceUpper.Value);
+                AssertClose(restored.SpolarRecordAnalysis.Result.Rvalue.Value,
+                    temperature.ResidueEstimate.Value);
+                AssertClose(restored.SpolarRecordAnalysis.Result.ReferenceTemperature.Value,
+                    temperature.ReferenceTemperatureCelsius.Value);
                 Assert.Equal(3, viewerResult.AdvancedAnalyses.Electrostatics.Plots.Count);
                 var debyePlot = viewerResult.AdvancedAnalyses.Electrostatics.Plots.Single(plot => plot.Key == "debye-huckel");
                 var debyeFit = debyePlot.Series.Single(series => series.Label == "Saved fit");
-                Assert.Equal(restored.ElectrostaticsAnalysis.IonicStrengthDependenceFit.Evaluate(debyeFit.X[40]),
-                    debyeFit.Y[40], 12);
+                AssertClose(restored.ElectrostaticsAnalysis.IonicStrengthDependenceFit.Evaluate(debyeFit.X[40]),
+                    debyeFit.Y[40]);
                 Assert.NotEmpty(viewerResult.AdvancedAnalyses.Protonation.Plot.Series);
             }
             finally
@@ -1221,6 +1221,12 @@ namespace AnalysisITC.Core.Tests
             var upperIndex = (int)Math.Ceiling(position);
             var weight = position - lowerIndex;
             return sortedValues[lowerIndex] * (1 - weight) + sortedValues[upperIndex] * weight;
+        }
+
+        static void AssertClose(double expected, double actual, double tolerance = 1e-12)
+        {
+            Assert.True(Math.Abs(expected - actual) <= tolerance,
+                $"Expected {expected:R}, actual {actual:R}, tolerance {tolerance:R}.");
         }
 
         static async Task<ExperimentData> LoadExperiment(string fixture)
