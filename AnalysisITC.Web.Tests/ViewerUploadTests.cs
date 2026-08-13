@@ -71,6 +71,9 @@ public sealed class ViewerUploadTests : IClassFixture<WebApplicationFactory<Prog
         Assert.Equal("2026.08.11-ftxtc.1.3", page.Headers.GetValues("X-FTITC-Viewer-Build").Single());
         Assert.Contains("id=\"experiment-list\"", html);
         Assert.Contains("id=\"result-list\"", html);
+        Assert.Contains("processed transiently on the server", html);
+        Assert.Contains("not intentionally retained", html);
+        Assert.Contains("temporary server storage", html);
         Assert.DoesNotContain("id=\"experiment-select\"", html);
         Assert.DoesNotContain("id=\"result-select\"", html);
         Assert.Contains("id=\"processed-mode-raw\"", html);
