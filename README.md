@@ -1,5 +1,12 @@
 # FT-ITC Analysis
 
+[![Latest release](https://img.shields.io/github/v/release/FrederikTheisen/FT-ITC-Analysis?display_name=tag&sort=semver&label=release)](https://github.com/FrederikTheisen/FT-ITC-Analysis/releases/latest)
+[![Downloads](https://img.shields.io/github/downloads/FrederikTheisen/FT-ITC-Analysis/total)](https://github.com/FrederikTheisen/FT-ITC-Analysis/releases)
+[![License](https://img.shields.io/github/license/FrederikTheisen/FT-ITC-Analysis)](LICENSE.md)
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.14832177.svg)](https://doi.org/10.5281/zenodo.14832177)
+[![Website status](https://img.shields.io/website?url=https%3A%2F%2Fft-itc.org&label=website)](https://ft-itc.org)
+[![Web viewer status](https://img.shields.io/website?url=https%3A%2F%2Fapp.ft-itc.org&label=web%20viewer)](https://app.ft-itc.org)
+
 [Website](https://ft-itc.org) ·
 [Latest release](https://github.com/FrederikTheisen/FT-ITC-Analysis/releases/latest) ·
 [All releases](https://github.com/FrederikTheisen/FT-ITC-Analysis/releases) ·
