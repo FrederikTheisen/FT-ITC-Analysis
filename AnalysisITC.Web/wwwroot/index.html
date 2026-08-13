@@ -37,7 +37,7 @@
           <input id="file-input" name="file" type="file" accept=".ftxtc,.ftitc,.itc" required>
         </label>
         <button id="open-button" type="submit">Open file</button>
-        <p class="upload-note">Maximum file size: 50 MB. Files are parsed in memory and are not stored.</p>
+        <p class="upload-note">Maximum file size: 50 MB. Uploads are processed transiently on the server and are not intentionally retained. FTXTC packages may use temporary server storage while being read.</p>
       </form>
       <div id="upload-error" class="notice error" role="alert" hidden></div>
     </section>
