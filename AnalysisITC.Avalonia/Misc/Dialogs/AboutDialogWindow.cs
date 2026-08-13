@@ -8,13 +8,12 @@ using Avalonia.Controls;
 using Avalonia.Layout;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
-using Avalonia.Platform;
 
 namespace AnalysisITC.Avalonia.Dialogs;
 
 internal sealed class AboutDialogWindow : Window
 {
-    AboutDialogWindow()
+    internal AboutDialogWindow()
     {
         Title = "About FT-ITC Analysis";
         Width = 420;
@@ -26,9 +25,10 @@ internal sealed class AboutDialogWindow : Window
         ExtendClientAreaToDecorationsHint = true;
         ExtendClientAreaTitleBarHeightHint= -1;
 
+        using var iconStream = AppAssetLoader.Open("Resources/appicon.ico");
         var icon = new Image
         {
-            Source = new Bitmap(AssetLoader.Open(new System.Uri("Resources/appicon.ico", System.UriKind.Relative))),
+            Source = new Bitmap(iconStream),
             Width = 120,
             Height = 120,
             Margin = new Thickness(0, 30, 0, 20),

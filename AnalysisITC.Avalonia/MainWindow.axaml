@@ -11,7 +11,6 @@
         mc:Ignorable="d" d:DesignWidth="1200" d:DesignHeight="760"
         x:Class="AnalysisITC.Avalonia.MainWindow"
         Title="FT-ITC Analysis"
-        Icon="/Resources/appicon.ico"
         Width="1200"
         Height="760"
         MinWidth="1000"

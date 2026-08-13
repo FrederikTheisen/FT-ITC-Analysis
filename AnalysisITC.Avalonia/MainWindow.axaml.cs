@@ -55,6 +55,8 @@ public partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();
+        using (var iconStream = AppAssetLoader.Open("Resources/appicon.ico"))
+            Icon = new WindowIcon(iconStream);
 
         IncludeAllButton.Click += (_, _) => SetAllExperimentInclusion(true);
         IncludeNoneButton.Click += (_, _) => SetAllExperimentInclusion(false);

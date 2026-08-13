@@ -1,8 +1,6 @@
 using System;
 using System.IO;
 
-using Avalonia.Platform;
-
 namespace AnalysisITC.Avalonia.Help;
 
 internal static class AvaloniaHelpResourceLoader
@@ -12,8 +10,7 @@ internal static class AvaloniaHelpResourceLoader
         if (string.IsNullOrWhiteSpace(resourceName))
             throw new ArgumentException("Help resource name is missing.", nameof(resourceName));
 
-        var uri = new Uri("Resources/" + resourceName.TrimStart('/'), UriKind.Relative);
-        using var stream = AssetLoader.Open(uri);
+        using var stream = AppAssetLoader.Open("Resources/" + resourceName.TrimStart('/'));
         using var reader = new StreamReader(stream);
         return reader.ReadToEnd();
     }
