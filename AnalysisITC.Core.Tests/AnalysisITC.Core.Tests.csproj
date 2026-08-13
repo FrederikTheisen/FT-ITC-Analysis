@@ -20,11 +20,17 @@
   </ItemGroup>
 
   <ItemGroup>
+    <None Include="..\AnalysisITC.Tests\BufferSubtraction\hepes-01.DH" Link="Fixtures\BufferSubtraction\hepes-01.DH" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\AnalysisITC.Tests\BufferSubtraction\hepes-02.DH" Link="Fixtures\BufferSubtraction\hepes-02.DH" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\AnalysisITC.Tests\BufferSubtraction\hepes-03.DH" Link="Fixtures\BufferSubtraction\hepes-03.DH" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\AnalysisITC.Tests\BufferSubtraction\hepes-blank.DH" Link="Fixtures\BufferSubtraction\hepes-blank.DH" CopyToOutputDirectory="PreserveNewest" />
     <None Include="..\AnalysisITC.Tests\OneSetOfSites\data_1.itc" Link="Fixtures\data_1.itc" CopyToOutputDirectory="PreserveNewest" />
     <None Include="..\AnalysisITC.Tests\OneSetOfSites\data.ftitc" Link="Fixtures\one-set.ftitc" CopyToOutputDirectory="PreserveNewest" />
     <None Include="..\AnalysisITC.Tests\TemperatureSeries\temp_data.ftitc" Link="Fixtures\temperature-series.ftitc" CopyToOutputDirectory="PreserveNewest" />
     <None Include="..\AnalysisITC.Tests\JORS Example Project.ftitc" Link="Fixtures\jors.ftitc" CopyToOutputDirectory="PreserveNewest" />
     <None Include="..\AnalysisITC.Tests\SeArgT_Pu1210_TwoSetsOfSites.ftitc" Link="Fixtures\two-sites.ftitc" CopyToOutputDirectory="PreserveNewest" />
     <None Include="..\AnalysisITC.Tests\Me6PXDA_C1_CHDA_CompetitiveDisplacement.ftitc" Link="Fixtures\competitive.ftitc" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\AnalysisITC.Tests\Tandem\tandem-original.ftitc.gz" Link="Fixtures\Tandem\tandem-original.ftitc.gz" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\AnalysisITC.Tests\Tandem\tandem-process2.ftitc.gz" Link="Fixtures\Tandem\tandem-process2.ftitc.gz" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>
