@@ -2059,7 +2059,7 @@ public partial class MainWindow : Window
                 : $"analysis result '{selectedResult.Name}'";
             selectedResultMembershipTooltip = isSelectedResultCurrentSolution
                 ? $"Used in {resultName}. Its stored result solution is currently loaded on this experiment."
-                : $"Used in {resultName}. This experiment currently has a different fitted solution.";
+                : $"Used in {resultName}. Its stored result solution is not currently loaded on this experiment.";
         }
 
         public static DataListEntry From(ITCDataContainer item)

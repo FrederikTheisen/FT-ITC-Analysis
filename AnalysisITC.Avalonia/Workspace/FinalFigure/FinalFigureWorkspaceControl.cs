@@ -522,11 +522,11 @@ namespace AnalysisITC.Avalonia.FinalFigure
                 return;
             }
 
-            if (selectedItem is AnalysisResult result)
+            if (selectedItem is AnalysisResult)
             {
-                DataManager.LoadResultSolutionsToExperiments(result, markDocumentDirty: false);
-                figureExperiment = GetResultExperiments(result).FirstOrDefault();
-                RefreshPreview(force: true);
+                figureExperiment = null;
+                ClearBitmap();
+                statusText.Text = "Select an experiment to preview its final figure";
                 return;
             }
 
