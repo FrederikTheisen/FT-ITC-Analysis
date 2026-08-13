@@ -25,8 +25,7 @@ pre-release, and the Windows build is coming soon.
 2. Open it and drag **FT-ITC.app** to **Applications**.
 3. Launch the app from Applications or open a supported data/project file.
 
-The public macOS DMG is signed and notarized. Replacing the app during an
-update does not remove projects, exported data, settings, or autosaves.
+The public macOS DMG is signed and notarized. Removing the app does not remove projects, exported data, settings, or autosaves.
 
 ### Linux — pre-release
 
@@ -39,11 +38,7 @@ as pre-release builds. Please report platform-specific issues through the
 ### Windows — coming soon
 
 The Windows x64 installer will be added to the same GitHub release as the
-macOS and Linux packages. Until it is available, developer packaging
-instructions are in
-[AnalysisITC.Avalonia/Packaging/README.md](AnalysisITC.Avalonia/Packaging/README.md),
-and the first unsigned installer can be built with the
-[step-by-step Windows 10 guide](AnalysisITC.Avalonia/Packaging/WINDOWS-10-QUICKSTART.md).
+macOS and Linux packages.
 
 ## Supported files
 
@@ -78,8 +73,8 @@ The desktop applications process experiment data locally and do not upload it.
 They may check this GitHub repository for version and citation metadata; this
 can be disabled in preferences.
 
-The optional web viewer uploads a selected file to its server for transient processing.
-It does not intentionally retain the parsed document as application state.
+The optional web viewer uploads the selected file to its server for transient processing.
+It does not retain the parsed document as application state and no information is logged.
 
 ## Development and tests
 
