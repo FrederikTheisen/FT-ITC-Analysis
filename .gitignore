@@ -415,3 +415,7 @@ signing/
 *.p12
 *.cer
 *.key
+
+# Generated Xamarin.Mac release workspace and artifacts
+AnalysisITC.MacOS/Packaging/work/
+AnalysisITC.MacOS/Packaging/output/
