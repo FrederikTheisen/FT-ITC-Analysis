@@ -14,6 +14,7 @@ using AnalysisITC.Core.Presentation;
 using AnalysisITC.Core.Processing;
 using AnalysisITC.Core.Units;
 using AnalysisITC.Core.Utilities;
+using AnalysisITC.UI.MacOS.CustomViews;
 
 namespace AnalysisITC
 {
@@ -92,46 +93,60 @@ namespace AnalysisITC
     /// </summary>
     sealed class SourceListHoverRowView : NSTableRowView
     {
-        NSTrackingArea hoverTrackingArea;
-        bool isHovered;
+        readonly ScrollAwareHoverTracker hoverTracker;
+
+        public SourceListHoverRowView()
+        {
+            hoverTracker = new ScrollAwareHoverTracker(this, () => NeedsDisplay = true);
+        }
 
         public override void UpdateTrackingAreas()
         {
             base.UpdateTrackingAreas();
+            hoverTracker?.UpdateTrackingArea();
+        }
 
-            if (hoverTrackingArea != null)
-            {
-                RemoveTrackingArea(hoverTrackingArea);
-                hoverTrackingArea = null;
-            }
+        public override void ViewDidMoveToWindow()
+        {
+            base.ViewDidMoveToWindow();
+            hoverTracker?.UpdateTrackingArea();
+        }
 
-            hoverTrackingArea = new NSTrackingArea(
-                Bounds,
-                NSTrackingAreaOptions.ActiveInKeyWindow
-                    | NSTrackingAreaOptions.InVisibleRect
-                    | NSTrackingAreaOptions.MouseEnteredAndExited,
-                this,
-                null);
-            AddTrackingArea(hoverTrackingArea);
+        public override void ViewDidMoveToSuperview()
+        {
+            base.ViewDidMoveToSuperview();
+            hoverTracker?.UpdateTrackingArea();
+        }
+
+        public override void ViewDidHide()
+        {
+            base.ViewDidHide();
+            hoverTracker?.Reconcile();
+        }
+
+        public override void ViewDidUnhide()
+        {
+            base.ViewDidUnhide();
+            hoverTracker?.Reconcile();
         }
 
         public override void MouseEntered(NSEvent theEvent)
         {
             base.MouseEntered(theEvent);
-            SetHovered(true);
+            hoverTracker.Reconcile();
         }
 
         public override void MouseExited(NSEvent theEvent)
         {
             base.MouseExited(theEvent);
-            SetHovered(false);
+            hoverTracker.Reconcile();
         }
 
         public override void DrawBackground(CGRect dirtyRect)
         {
             base.DrawBackground(dirtyRect);
 
-            if (!isHovered || Selected) return;
+            if (!hoverTracker.IsHovered || Selected) return;
 
             NSColor.Label.ColorWithAlphaComponent(0.045f).SetFill();
             var hoverBounds = Bounds;
@@ -139,12 +154,11 @@ namespace AnalysisITC
             NSBezierPath.FromRoundedRect(hoverBounds, 5, 5).Fill();
         }
 
-        void SetHovered(bool hovered)
+        protected override void Dispose(bool disposing)
         {
-            if (isHovered == hovered) return;
+            if (disposing) hoverTracker?.Dispose();
 
-            isHovered = hovered;
-            NeedsDisplay = true;
+            base.Dispose(disposing);
         }
     }
 }

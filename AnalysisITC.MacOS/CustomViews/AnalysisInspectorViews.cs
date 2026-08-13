@@ -629,10 +629,8 @@ namespace AnalysisITC.UI.MacOS.CustomViews
     internal abstract class AnalysisInspectorItemView : NSStackView
     {
         readonly bool showsDivider;
-        readonly bool highlightsOnHover;
-        NSTrackingArea hoverTrackingArea;
+        readonly ScrollAwareHoverTracker hoverTracker;
         bool reservesDividerSpace;
-        bool isHovered;
         nfloat fixedItemHeight = NSView.NoIntrinsicMetric;
 
         protected AnalysisInspectorItemView(
@@ -640,7 +638,8 @@ namespace AnalysisITC.UI.MacOS.CustomViews
             bool highlightsOnHover = false)
         {
             this.showsDivider = showsDivider;
-            this.highlightsOnHover = highlightsOnHover;
+            if (highlightsOnHover)
+                hoverTracker = new ScrollAwareHoverTracker(this, () => NeedsDisplay = true);
             Orientation = NSUserInterfaceLayoutOrientation.Vertical;
             Distribution = NSStackViewDistribution.Fill;
             Alignment = NSLayoutAttribute.CenterX;
@@ -1028,42 +1027,48 @@ namespace AnalysisITC.UI.MacOS.CustomViews
         public override void UpdateTrackingAreas()
         {
             base.UpdateTrackingAreas();
+            hoverTracker?.UpdateTrackingArea();
+        }
 
-            if (hoverTrackingArea != null)
-            {
-                RemoveTrackingArea(hoverTrackingArea);
-                hoverTrackingArea = null;
-            }
+        public override void ViewDidMoveToWindow()
+        {
+            base.ViewDidMoveToWindow();
+            hoverTracker?.UpdateTrackingArea();
+        }
 
-            if (!highlightsOnHover) return;
+        public override void ViewDidMoveToSuperview()
+        {
+            base.ViewDidMoveToSuperview();
+            hoverTracker?.UpdateTrackingArea();
+        }
 
-            hoverTrackingArea = new NSTrackingArea(
-                Bounds,
-                NSTrackingAreaOptions.ActiveInKeyWindow
-                    | NSTrackingAreaOptions.InVisibleRect
-                    | NSTrackingAreaOptions.MouseEnteredAndExited,
-                this,
-                null);
-            AddTrackingArea(hoverTrackingArea);
+        public override void ViewDidHide()
+        {
+            base.ViewDidHide();
+            hoverTracker?.Reconcile();
+        }
+
+        public override void ViewDidUnhide()
+        {
+            base.ViewDidUnhide();
+            hoverTracker?.Reconcile();
         }
 
         public override void MouseEntered(NSEvent theEvent)
         {
             base.MouseEntered(theEvent);
-            if (!highlightsOnHover) return;
-            SetHovered(true);
+            hoverTracker?.Reconcile();
         }
 
         public override void MouseExited(NSEvent theEvent)
         {
             base.MouseExited(theEvent);
-            if (!highlightsOnHover) return;
-            SetHovered(false);
+            hoverTracker?.Reconcile();
         }
 
         public override void DrawRect(CGRect dirtyRect)
         {
-            if (isHovered)
+            if (hoverTracker?.IsHovered == true)
             {
                 NSColor.Label.ColorWithAlphaComponent(0.045f).SetFill();
                 var dividerSpace = showsDivider || reservesDividerSpace ? 8 : 0;
@@ -1078,12 +1083,11 @@ namespace AnalysisITC.UI.MacOS.CustomViews
             base.DrawRect(dirtyRect);
         }
 
-        void SetHovered(bool hovered)
+        protected override void Dispose(bool disposing)
         {
-            if (isHovered == hovered) return;
+            if (disposing) hoverTracker?.Dispose();
 
-            isHovered = hovered;
-            NeedsDisplay = true;
+            base.Dispose(disposing);
         }
 
         public override CGSize IntrinsicContentSize
