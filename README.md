@@ -96,6 +96,17 @@ Building and testing `AnalysisITC.Web` requires a stable .NET 10 SDK. The
 repository's `global.json` accepts .NET 10 feature-band and patch updates, but
 does not roll forward to a later major SDK.
 
+### Web viewer privacy
+
+The Web viewer uploads the selected file to the server for the duration of the
+open request. The parsed document is returned to the browser and is not
+intentionally retained as application state. Reading an FTXTC package may use
+temporary server storage while the archive is validated and unpacked; that
+temporary data is cleaned up when processing completes normally. An unexpected
+process termination can leave operating-system temporary artifacts, so the Web
+viewer should be operated over HTTPS with appropriate server log and
+temporary-file retention policies.
+
 # Basic Workflow
 
 1. Open one or more supported data files using **File > Open...** or drag-and-drop.
@@ -129,9 +140,10 @@ If you report a bug, please include:
 
 The app can generate a support report from the Help menu. Review the report before sending it if your log or data file names may contain sensitive information.
 
-## Privacy and Network Access
+## Desktop privacy and network access
 
-FT-ITC Analysis processes data locally. It does not upload experiment data.
+The desktop FT-ITC Analysis application processes data locally. It does not
+upload experiment data.
 
 The app may contact this GitHub repository on launch to check for version information and citation metadata. This can be disabled in preferences. If those checks fail or are disabled, the application continues to work with local/default metadata.
 
