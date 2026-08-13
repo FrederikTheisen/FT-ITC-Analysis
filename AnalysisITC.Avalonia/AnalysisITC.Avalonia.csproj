@@ -30,6 +30,12 @@
       <IncludeAssets Condition="'$(Configuration)' != 'Debug'">None</IncludeAssets>
       <PrivateAssets Condition="'$(Configuration)' != 'Debug'">All</PrivateAssets>
     </PackageReference>
+    <!-- DiagnosticsSupport 2.2.3 deliberately exposes no NuGet compile asset.
+         Reference its Avalonia 12 bridge explicitly in Debug builds. -->
+    <Reference Include="AvaloniaUI.DiagnosticsSupport.Avalonia" Condition="'$(Configuration)' == 'Debug'">
+      <HintPath>$(NuGetPackageRoot)avaloniaui.diagnosticssupport/2.2.3/lib/net10.0/AvaloniaUI.DiagnosticsSupport.Avalonia.dll</HintPath>
+      <Private>true</Private>
+    </Reference>
   </ItemGroup>
 
   <ItemGroup>

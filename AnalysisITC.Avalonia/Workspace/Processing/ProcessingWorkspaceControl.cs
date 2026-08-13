@@ -592,7 +592,7 @@ namespace AnalysisITC.Avalonia.Processing
                 await ProcessDataAsync(replace: true, status: "Integration updated");
             else
             {
-                experiment.Processor.IntegratePeaks(invalidate: refreshBaseline, notify: refreshBaseline);
+                experiment!.Processor.IntegratePeaks(invalidate: refreshBaseline, notify: refreshBaseline);
                 graph.InvalidateVisual();
                 StatusChanged?.Invoke(this, "Integration updated");
             }

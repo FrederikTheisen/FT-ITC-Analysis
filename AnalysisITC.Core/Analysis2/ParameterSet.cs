@@ -344,7 +344,9 @@ namespace AnalysisITC.Core.Analysis
                                 var _par = par.Key switch
                                 {
                                     ParameterType.Affinity1 => ParameterType.Gibbs1,
-                                    ParameterType.Affinity2 => ParameterType.Gibbs2
+                                    ParameterType.Affinity2 => ParameterType.Gibbs2,
+                                    _ => throw new InvalidOperationException(
+                                        $"Temperature dependence is not supported for {par.Key}.")
                                 };
 
                                 //par.Value.SetGlobal(Math.Exp(-GlobalTable[_par].Value / (Energy.R * paramset.ExperimentTemperature)));

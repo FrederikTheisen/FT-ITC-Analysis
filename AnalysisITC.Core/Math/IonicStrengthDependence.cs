@@ -54,15 +54,8 @@ namespace AnalysisITC.Core.Numerics
 
             if (xs.Count < 2) return null;
 
-            // Keep this simple:
-            // - 2 parameters if the dataset is small
-            // - 3 parameters only when there are enough points to support curvature
-            if (false)
-            {
-                var curved = FitWithCurvature(xs.ToArray(), ys.ToArray());
-                if (curved != null) return curved;
-            }
-
+            // Curvature fitting remains intentionally disabled until that
+            // three-parameter model has its own validation data and tests.
             return FitWithoutCurvature(xs.ToArray(), ys.ToArray());
         }
 
@@ -146,4 +139,3 @@ namespace AnalysisITC.Core.Numerics
         }
     }
 }
-

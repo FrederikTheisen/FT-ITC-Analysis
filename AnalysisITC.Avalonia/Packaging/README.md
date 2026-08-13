@@ -10,6 +10,9 @@ tested with Avalonia, SkiaSharp, reflection, and native library loading.
 
 Generated output is written below `artifacts/`, which is ignored by Git.
 Release packages must be built and tested on their target operating system.
+The Linux and macOS packagers run the shared core and Avalonia Release test
+suites before publishing files. The Windows packager runs the equivalent tests
+in PowerShell. A test failure stops packaging.
 
 ## Project file registration
 

@@ -20,7 +20,11 @@ namespace AnalysisITC.Core.Processing
 {
     public class DataProcessor
     {
+        // Run at least three passes so a region-dependent baseline is allowed to
+        // respond to the fitted integration regions. Continue beyond that only
+        // when the endpoint state is still changing, up to the safety limit.
         public const int PeakFitPassCount = 3;
+        public const int PeakFitMaximumPassCount = 8;
 
         public static event EventHandler BaselineInterpolationCompleted;
         public static event EventHandler ProcessingCompleted;
@@ -220,12 +224,15 @@ namespace AnalysisITC.Core.Processing
             var original = CapturePeakFitState(targetIndices);
             var iterations = 0;
             var finalState = original;
+            var stateHistory = new List<PeakFitState> { original };
+            var completionStatus = PeakFitStatus.NonConvergent;
             var coreTimer = Stopwatch.StartNew();
 
             LogPeakFit(
                 $"Start: experiment=\"{Data.FileName}\", targets={FormatPeakFitTargets(targetIndices)}, " +
                 $"baseline={BaselineType}, locked={IsLocked}, discardIntegratedPoints={DiscardIntegratedPoints}, " +
-                $"baselineRefitEnabled={CanRefitBaseline()}, passes={PeakFitPassCount}, " +
+                $"baselineRefitEnabled={CanRefitBaseline()}, minimumPasses={PeakFitPassCount}, " +
+                $"maximumPasses={PeakFitMaximumPassCount}, " +
                 $"samples={Data.DataPoints.Count}, dt={FormatPeakFitNumber(Data.TimeStep)} s.");
             LogPeakFit(
                 $"Criteria: fitStart≥{FormatPeakFitNumber(CorrectedPeakEndEstimator.TailFitStartOffsetSeconds)} s, " +
@@ -267,18 +274,18 @@ namespace AnalysisITC.Core.Processing
                     1);
                 LogPeakFitTiming("corrected-data preparation", correctedDataTimer);
 
-                for (iterations = 1; iterations <= PeakFitPassCount; iterations++)
+                for (iterations = 1; iterations <= PeakFitMaximumPassCount; iterations++)
                 {
                     ReportPeakFitProgress(
                         showProgress,
-                        $"Fitting injection peaks...",
-                        $"Pass {iterations} of {PeakFitPassCount}",
-                        0.1 + 0.25 * (iterations - 1));
+                        $"Fitting injection peaks: pass {iterations}...",
+                        $"Pass {iterations}",
+                        0.1 + 0.7 * (iterations - 1) / PeakFitMaximumPassCount);
 
                     var previousState = finalState;
                     var frozenCorrectedTrace = Data.BaseLineCorrectedDataPoints.ToArray();
                     LogPeakFit(
-                        $"Pass {iterations}/{PeakFitPassCount}: froze {frozenCorrectedTrace.Length} corrected samples.",
+                        $"Pass {iterations}/{PeakFitMaximumPassCount}: froze {frozenCorrectedTrace.Length} corrected samples.",
                         1);
 
                     var estimationTimer = Stopwatch.StartNew();
@@ -295,7 +302,7 @@ namespace AnalysisITC.Core.Processing
                     if (stabilizedEndpointCount > 0)
                     {
                         LogPeakFit(
-                            $"Pass {iterations}/{PeakFitPassCount}: retained {stabilizedEndpointCount} endpoint(s) " +
+                            $"Pass {iterations}/{PeakFitMaximumPassCount}: retained {stabilizedEndpointCount} endpoint(s) " +
                             "whose candidate moved by only one thermogram sample.",
                             2);
                     }
@@ -308,7 +315,34 @@ namespace AnalysisITC.Core.Processing
                     ApplyPeakFitState(finalState);
                     LogPeakFitTiming($"pass {iterations} peak estimation", estimationTimer);
 
-                    if (iterations < PeakFitPassCount)
+                    if (iterations >= PeakFitPassCount && finalState.HasSameSignature(previousState))
+                    {
+                        completionStatus = PeakFitStatus.Converged;
+                        LogPeakFit($"Pass {iterations}: endpoint state converged.", 1);
+                        break;
+                    }
+
+                    if (iterations >= PeakFitPassCount)
+                    {
+                        var cycleStart = stateHistory.FindIndex(state =>
+                            state.HasSameSignature(finalState));
+                        if (cycleStart >= 0 && cycleStart < stateHistory.Count - 1)
+                        {
+                            var cycleStates = stateHistory.Skip(cycleStart).ToArray();
+                            finalState = ResolvePeakFitCycle(cycleStates, targetIndices);
+                            ApplyPeakFitState(finalState);
+                            completionStatus = PeakFitStatus.CycleResolved;
+                            LogPeakFit(
+                                $"Pass {iterations}: resolved a {cycleStates.Length}-state endpoint cycle " +
+                                $"to {FormatPeakFitState(finalState, targetIndices)}.",
+                                1);
+                            break;
+                        }
+                    }
+
+                    stateHistory.Add(finalState);
+
+                    if (iterations < PeakFitMaximumPassCount)
                     {
                         Stopwatch baselineTimer;
                         if (CanRefitBaseline())
@@ -316,10 +350,10 @@ namespace AnalysisITC.Core.Processing
                             ReportPeakFitProgress(
                                 showProgress,
                                 $"Recalculating baseline after peak-fit pass {iterations}...",
-                                $"Pass {iterations} of {PeakFitPassCount - 1}",
-                                0.25 + 0.25 * (iterations - 1));
+                                $"Pass {iterations}",
+                                0.15 + 0.7 * iterations / PeakFitMaximumPassCount);
                             LogPeakFit(
-                                $"Pass {iterations}/{PeakFitPassCount}: recalculating the baseline for the candidate regions.",
+                                $"Pass {iterations}/{PeakFitMaximumPassCount}: recalculating the baseline for the candidate regions.",
                                 1);
                             baselineTimer = Stopwatch.StartNew();
                             await InterpolateBaselineCore(
@@ -331,11 +365,11 @@ namespace AnalysisITC.Core.Processing
                         {
                             ReportPeakFitProgress(
                                 showProgress,
-                                $"Preparing peak-fit pass {iterations + 1} of {PeakFitPassCount}...",
-                                $"Pass {iterations} of {PeakFitPassCount - 1}",
-                                0.25 + 0.25 * (iterations - 1));
+                                $"Preparing peak-fit pass {iterations + 1}...",
+                                $"Pass {iterations}",
+                                0.15 + 0.7 * iterations / PeakFitMaximumPassCount);
                             LogPeakFit(
-                                $"Pass {iterations}/{PeakFitPassCount}: baseline is fixed or region-independent; reusing it.",
+                                $"Pass {iterations}/{PeakFitMaximumPassCount}: baseline is fixed or region-independent; reusing it.",
                                 1);
                             baselineTimer = Stopwatch.StartNew();
                             RefreshCorrectedTraceFromCurrentBaseline();
@@ -347,14 +381,27 @@ namespace AnalysisITC.Core.Processing
                     }
                 }
 
-                // The final baseline must correspond to the regions committed by pass three.
+                // A naturally exhausted for-loop advances its counter once past
+                // the maximum; report the number of passes that actually ran.
+                iterations = Math.Min(iterations, PeakFitMaximumPassCount);
+
+                if (completionStatus == PeakFitStatus.NonConvergent)
+                {
+                    LogPeakFit(
+                        $"No stable endpoint state was found after {PeakFitMaximumPassCount} passes; " +
+                        "restoring the original integration regions.");
+                    finalState = original;
+                    ApplyPeakFitState(finalState);
+                }
+
+                // The final baseline must correspond to the committed endpoint state.
                 Stopwatch finalBaselineTimer;
                 if (CanRefitBaseline())
                 {
                     ReportPeakFitProgress(
                         showProgress,
                         "Updating the final baseline...",
-                        $"Pass {iterations} of {PeakFitPassCount - 1}",
+                        $"Pass {iterations}",
                         0.85);
                     LogPeakFit("Recalculating the final baseline for the committed regions.", 1);
                     finalBaselineTimer = Stopwatch.StartNew();
@@ -373,7 +420,7 @@ namespace AnalysisITC.Core.Processing
                 ReportPeakFitProgress(
                     showProgress,
                     "Integrating fitted injection peaks...",
-                    $"Pass {iterations} of {PeakFitPassCount - 1}",
+                    $"Pass {iterations}",
                     0.95);
                 var integrationTimer = Stopwatch.StartNew();
                 if (HasValidCorrectedTrace())
@@ -383,13 +430,13 @@ namespace AnalysisITC.Core.Processing
                 var regionsChanged = !finalState.HasSameOffsets(original);
                 coreTimer.Stop();
                 LogPeakFit(
-                    $"Complete: status={PeakFitStatus.Converged}, iterations={PeakFitPassCount}, " +
+                    $"Complete: status={completionStatus}, iterations={iterations}, " +
                     $"regionsChanged={regionsChanged}, finalEndpoints={FormatPeakFitState(finalState, targetIndices)}, " +
                     $"coreTotal={FormatPeakFitMilliseconds(coreTimer.Elapsed.TotalMilliseconds)}.");
 
                 return new PeakFitResult(
-                    PeakFitStatus.Converged,
-                    PeakFitPassCount,
+                    completionStatus,
+                    iterations,
                     regionsChanged);
             }
             catch (Exception ex)
@@ -647,6 +694,24 @@ namespace AnalysisITC.Core.Processing
             return stabilizedEndpointCount == 0
                 ? candidateState
                 : CreatePeakFitState(stabilizedOffsets, targetIndices);
+        }
+
+        PeakFitState ResolvePeakFitCycle(
+            IReadOnlyList<PeakFitState> cycleStates,
+            int[] targetIndices)
+        {
+            var resolvedOffsets = cycleStates[0].Offsets.ToArray();
+
+            foreach (var injectionIndex in targetIndices)
+            {
+                var meanOffset = cycleStates.Average(state =>
+                    (double)state.Offsets[injectionIndex]);
+                resolvedOffsets[injectionIndex] = CanonicalizeEndOffset(
+                    Data.Injections[injectionIndex],
+                    (float)meanOffset);
+            }
+
+            return CreatePeakFitState(resolvedOffsets, targetIndices);
         }
 
         float CanonicalizeEndOffset(InjectionData injection, float estimate)

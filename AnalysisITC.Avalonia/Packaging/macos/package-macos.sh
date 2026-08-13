@@ -45,6 +45,8 @@ if [[ $NOTARIZE -eq 1 && -z "$NOTARY_PROFILE" ]]; then
   exit 1
 fi
 
+"$SCRIPT_DIR/../test-release.sh"
+
 rm -rf "$PUBLISH_DIR" "$(dirname "$APP")"
 mkdir -p "$PUBLISH_DIR" "$APP/Contents/MacOS" "$APP/Contents/Resources" "$PACKAGE_DIR"
 publish_args=(publish "$PROJECT" -c "$CONFIGURATION" -r "$RUNTIME" --self-contained true -o "$PUBLISH_DIR")

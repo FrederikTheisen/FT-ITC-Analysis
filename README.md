@@ -1,160 +1,112 @@
-<!--
-VARIABLES
--->
-[downloadlink]: https://github.com/FrederikTheisen/FT-ITC-Analysis/releases/download/v1.3.3/FT-ITC_Installer.dmg
-[downloadlink-shield]: https://img.shields.io/badge/download-FT--ITC_Analysis-skyblue?style=for-the-badge
-
-[repolink]: https://github.com/FrederikTheisen/FT-ITC-Analysis/releases/download/v1.3.3/FT-ITC_Installer.dmg
-[repolink-shield]: https://img.shields.io/badge/download-FT--ITC_Analysis_v1.3.3-green
-
-[downloadstat-link]: https://github.com/FrederikTheisen/FT-ITC-Analysis/releases
-[downloadstat-shield]: https://img.shields.io/github/downloads/FrederikTheisen/FT-ITC-Analysis/total
-
-[doi-link]: https://doi.org/10.5281/zenodo.14832177
-[doi-shield]: https://img.shields.io/badge/doi-10.5281%2Fzenodo.14832177-blue
-
-<!--
-README CONTENT
--->
-
-![Static Badge](https://img.shields.io/badge/github-FT--ITC--Analysis-blue?logo=github&color=%23e86767)
-![Dynamic XML Badge](https://img.shields.io/badge/dynamic/xml?url=https%3A%2F%2Fraw.githubusercontent.com%2FFrederikTheisen%2FFT-ITC-Analysis%2Frefs%2Fheads%2Fmaster%2FAnalysisITC.MacOS%2FInfo.plist&query=plist%2Fdict%2Fkey%5B.%3D%22CFBundleVersion%22%5D%2Ffollowing-sibling%3A%3Astring%5B1%5D&label=version&color=green) 
-[![][doi-shield]][doi-link] 
-[![][downloadstat-shield]][downloadstat-link] 
-![Endpoint Badge](https://img.shields.io/endpoint?url=https%3A%2F%2Fapi.juleskreuer.eu%2Fcitation-badge.php%3Fshield%26doi%3D10.5281%2Fzenodo.14832177&style=flat&label=citations&color=salmon)
-
-![Static Badge](https://img.shields.io/badge/publication-work_in_process-yellow)
-
 # FT-ITC Analysis
-FT-ITC Analysis is a desktop application for processing, analyzing, and presenting isothermal titration calorimetry (ITC) data. It is intended for working with ITC data away from the instrument workstation, with tools for baseline correction, peak integration, model fitting, multi-experiment analysis, and export of publication-style figures and processed data. 
- 
 
-This repository is open source and exists both to distribute end-user application bundles through [GitHub Releases](https://github.com/FrederikTheisen/FT-ITC-Analysis/releases) and to provide a versioned software record.
+[Website](https://ft-itc.org) ·
+[Latest release](https://github.com/FrederikTheisen/FT-ITC-Analysis/releases/latest) ·
+[All releases](https://github.com/FrederikTheisen/FT-ITC-Analysis/releases) ·
+[Software DOI](https://doi.org/10.5281/zenodo.14832177) ·
+[License](LICENSE.md)
 
-[![][downloadlink-shield]][downloadlink]
+FT-ITC Analysis is an open-source desktop application for processing,
+analyzing, and presenting isothermal titration calorimetry (ITC) data. It
+supports baseline correction, peak integration, model fitting,
+multi-experiment analysis, uncertainty estimation, and publication-oriented
+figure and data export.
 
-## Features
+The current public desktop release is for macOS. Cross-platform Windows,
+Linux, and macOS development is taking place in the Avalonia application in
+this repository; those builds should be treated as pre-release until matching
+packages are published on the Releases page.
 
-- **Process raw thermograms** with spline, polynomial, or segmented baseline correction.
-- Adjust integration regions **globally or per injection**.
-- Fit standard ITC binding models, including one-set-of-sites, two-sets-of-sites, competitive binding, and dissociation models.
-- Run **multi-experiment and global analyses** with shared, free, fixed, or temperature-dependent parameters where applicable.
-- **Estimate parameter uncertainty** using resampling-based methods.
-- **Analyze temperature, salt, and buffer-dependent** experiments for derived **thermodynamic interpretation**.
-- **Merge tandem titration experiments** and perform buffer subtraction.
-- Export integrated heats, processed data, fit results, and **publication-oriented figures**.
-- **Save portable `.ftxtc` project files** containing data, processing state, fit results, and analysis results; legacy `.ftitc` remains supported.
+## Install
 
-## Supported Data Files
+### macOS release
 
-- **MicroCal-style raw data:** `.itc`
-- **TA Instruments / NanoAnalyze exports:** `.TA`
-- **PEAQ-ITC project files:** `.apj`
-- **Integrated heats:** `.dat`, `.aff`, `.dh`
-- **FT-ITC Analysis project files:** `.ftxtc` (current), `.ftitc` (legacy)
+1. Download the DMG from the [latest GitHub release](https://github.com/FrederikTheisen/FT-ITC-Analysis/releases/latest).
+2. Open it and drag **FT-ITC.app** to **Applications**.
+3. Launch the app from Applications or open a supported data/project file.
 
-Raw input files are read by the application but are not modified. Save work as a `.ftxtc` project file if you want to preserve processing settings, analysis results, and comments.
+The public macOS DMG is signed and notarized. Replacing the app during an
+update does not remove projects, exported data, settings, or autosaves.
 
-# Installation
+### Windows and Linux
 
-FT-ITC Analysis is distributed as an executable desktop application and does not require installation of other packages. The program is currently available for macOS, with versions for Windows and Linux in development.
+Packaging support is under active development. Installation instructions will
+be added when signed/tested public packages are available. Developer packaging
+instructions are in
+[AnalysisITC.Avalonia/Packaging/README.md](AnalysisITC.Avalonia/Packaging/README.md).
 
-## MacOS
+## Supported files
 
-FT-ITC Analysis is distributed as a macOS app through
-[GitHub Releases](https://github.com/FrederikTheisen/FT-ITC-Analysis/releases).
+- MicroCal-style raw data: `.itc`
+- TA Instruments / NanoAnalyze exports: `.TA`
+- PEAQ-ITC projects: `.apj`
+- Integrated heats: `.dat`, `.aff`, `.dh`
+- FT-ITC Analysis projects: `.ftxtc` (current), `.ftitc` (legacy import)
 
-### Requirements
+Input data are read but not modified. Save work as `.ftxtc` to preserve data,
+processing settings, fit results, analysis results, and comments.
 
-- macOS 11.1 or newer.
-- Apple silicon or Intel Mac. Release builds are universal binaries.
+## Main capabilities
 
-### Install the Release Build
+- Spline, polynomial, and segmented baseline correction
+- Global or per-injection integration-region editing
+- One-set-of-sites, two-sets-of-sites, competitive, and dissociation models
+- Multi-experiment/global analysis with shared, free, fixed, or
+  temperature-dependent parameters
+- Resampling-based uncertainty estimates
+- Temperature-, salt-, and buffer-dependent analyses
+- Tandem-experiment merging and buffer subtraction
+- Publication-oriented figures and processed-data export
 
-1. Download the latest `FT-ITC_Installer.dmg` from the Releases page and open it.
-2. Drag `FT-ITC.app` into the `Applications` folder shown in the installer window.
+The application includes its own workflow help and scientific notes. More
+documentation and project information are available at
+[ft-itc.org](https://ft-itc.org).
 
-The release DMG is signed and notarized for macOS Gatekeeper. On first launch,
-macOS may still ask you to confirm that you want to open an app downloaded from
-the internet.
+## Privacy
 
-### Updating
+The desktop applications process experiment data locally and do not upload it.
+They may check this GitHub repository for version and citation metadata; this
+can be disabled in preferences.
 
-Download the newest DMG from GitHub Releases and replace the older
-`/Applications/FT-ITC.app`. Existing `.ftxtc`/`.ftitc` project files and exported data are
-not stored inside the application bundle and are not removed by replacing the
-app.
+The optional web viewer uploads a selected file to its server for the duration
+of the request. It does not intentionally retain the parsed document as
+application state, although archive validation can use temporary server
+storage. Deployments should use HTTPS and suitable log and temporary-file
+retention policies.
 
-### Uninstalling
+## Development and tests
 
-Quit FT-ITC Analysis and move `/Applications/FT-ITC.app` to the Trash. Removing
-the app does not delete your `.ftxtc` or `.ftitc` projects or original ITC data files.
+The repository contains a shared scientific core, the original Xamarin.Mac
+application, the cross-platform Avalonia application, and a web viewer. The
+.NET projects use the SDK selected by `global.json`.
 
-## Web Viewer Development
+Run the automated suites with:
 
-Building and testing `AnalysisITC.Web` requires a stable .NET 10 SDK. The
-repository's `global.json` accepts .NET 10 feature-band and patch updates, but
-does not roll forward to a later major SDK.
+```bash
+dotnet test AnalysisITC.Core.Tests/AnalysisITC.Core.Tests.csproj --configuration Release
+dotnet test AnalysisITC.Avalonia.Tests/AnalysisITC.Avalonia.Tests.csproj --configuration Release
+dotnet test AnalysisITC.Web.Tests/AnalysisITC.Web.Tests.csproj --configuration Release
+```
 
-### Web viewer privacy
+GitHub Actions runs these commands for pushes to `master` and pull requests.
+Platform packages must additionally be built and smoke-tested on their target
+operating systems.
 
-The Web viewer uploads the selected file to the server for the duration of the
-open request. The parsed document is returned to the browser and is not
-intentionally retained as application state. Reading an FTXTC package may use
-temporary server storage while the archive is validated and unpacked; that
-temporary data is cleaned up when processing completes normally. An unexpected
-process termination can leave operating-system temporary artifacts, so the Web
-viewer should be operated over HTTPS with appropriate server log and
-temporary-file retention policies.
+Remove ignored build and packaging output without touching source files,
+dependency caches, signing material, or project data with:
 
-# Basic Workflow
+```bash
+scripts/clean-generated.sh
+```
 
-1. Open one or more supported data files using **File > Open...** or drag-and-drop.
-2. Review the experiment metadata and correct concentrations, temperature, or attributes if needed.
-3. Process each thermogram by fitting a baseline and choosing integration regions.
-4. Fit a model to one experiment, or select multiple experiments for global analysis.
-5. Review residuals, uncertainty estimates, and derived thermodynamic values.
-6. Export figures, processed data, integrated heats, or fit parameters as needed.
-7. Save the session as a `.ftxtc` project file to preserve the full analysis state.
+The original Xamarin.Mac packaging instructions are in
+[AnalysisITC.MacOS/Packaging/README.md](AnalysisITC.MacOS/Packaging/README.md).
 
-## Baseline Processing
+## Citation and license
 
-FT-ITC Analysis supports three baseline modes:
+Citation information is available through **Help > Citation** and will be
+updated with the meta-paper record when it is published. The software archive
+DOI is [10.5281/zenodo.14832177](https://doi.org/10.5281/zenodo.14832177).
 
-- **Spline:** places baseline control points between injections and interpolates them with a linear or smooth spline. Sparse uses one point per injection. Balanced uses two points when less than half of the injection interval is integrated and one otherwise. Dense scales linearly from five points down to one as the integrated fraction increases.
-- **Polynomial:** fits an outlier-discarding polynomial baseline across the thermogram.
-- **Segmented:** fits local baseline segments around injection regions.
-
-By default, points inside the selected integration regions are excluded from baseline fitting so peak area selection and baseline estimation stay coupled. Locking the processor freezes all processing results and disables graphical editing of integration regions and spline points. To preserve selected spline points while continuing to process the experiment, lock those points individually instead.
-
-Spline baselines can be edited directly. User-added or locked spline points are preserved when the baseline is reprocessed, and locked points replace nearby automatically generated points instead of being duplicated. Polynomial and segmented baselines can also be converted to spline baselines when manual editing is needed.
-
-# Help and Support
-
-The application includes built-in help and science notes covering data loading, processing, fitting, uncertainty estimation, and figure export.
-
-If you report a bug, please include:
-
-- the application version,
-- a minimal example dataset or exported project when possible.
-
-The app can generate a support report from the Help menu. Review the report before sending it if your log or data file names may contain sensitive information.
-
-## Desktop privacy and network access
-
-The desktop FT-ITC Analysis application processes data locally. It does not
-upload experiment data.
-
-The app may contact this GitHub repository on launch to check for version information and citation metadata. This can be disabled in preferences. If those checks fail or are disabled, the application continues to work with local/default metadata.
-
-## Citation
-
-Citation information is available inside the program through **Help > Citation**.
-
-## Development
-
-The project is a Xamarin.Mac / Visual Studio for Mac / XCode application.
-
-## License
-
-MIT License. See `LICENSE.md`.
+FT-ITC Analysis is distributed under the MIT License. Third-party notices are
+included in [LICENSE.md](LICENSE.md).

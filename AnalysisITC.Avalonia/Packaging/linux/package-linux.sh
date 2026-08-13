@@ -42,6 +42,8 @@ VERSION="$(sed -n 's:.*<Version>\([^<]*\)</Version>.*:\1:p' "$PROJECT" | head -n
 TARGET_FRAMEWORK="$(sed -n 's:.*<TargetFramework>\([^<]*\)</TargetFramework>.*:\1:p' "$PROJECT" | head -n 1)"
 [[ -n "$TARGET_FRAMEWORK" ]] || { echo "ERROR: Could not read TargetFramework from $PROJECT." >&2; exit 1; }
 
+"$SCRIPT_DIR/../test-release.sh"
+
 PUBLISH_DIR="$ROOT/artifacts/publish/$RUNTIME"
 STAGE_DIR="$ROOT/artifacts/package/linux-$RUNTIME"
 PACKAGE_DIR="$ROOT/artifacts/packages"

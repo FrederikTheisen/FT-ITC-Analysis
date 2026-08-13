@@ -46,7 +46,12 @@ namespace AnalysisITC.Core.Tests
             Assert.Equal(PeakPolarity.Negative, negativeResult.Estimates[0].Polarity);
             Assert.True(positiveResult.Estimates[0].IsReliable);
             Assert.Equal(PeakEndDecision.ExponentialTail, positiveResult.Estimates[0].FinalDecision);
-            Assert.InRange(positiveResult.EndOffsets[0], 34f, 40f);
+            Assert.InRange(
+                positiveResult.EndOffsets[0],
+                (float)(CorrectedPeakEndEstimator.TailFitStartOffsetSeconds +
+                    4.5 * CorrectedPeakEndEstimator.EndpointTauMultiples),
+                (float)(CorrectedPeakEndEstimator.TailFitStartOffsetSeconds +
+                    5.5 * CorrectedPeakEndEstimator.EndpointTauMultiples));
         }
 
         [Fact]
@@ -78,7 +83,7 @@ namespace AnalysisITC.Core.Tests
         }
 
         [Fact]
-        public void ExponentialTailRecoversTauAndUsesFivePointThreeTauEnd()
+        public void ExponentialTailRecoversTauAndUsesConfiguredTauMultiple()
         {
             const double tau = 5;
             var experiment = CreateCorrectedExperiment(
@@ -100,7 +105,12 @@ namespace AnalysisITC.Core.Tests
                     (estimate.FitStartOffset + CorrectedPeakEndEstimator.EndpointTauMultiples * estimate.Tau)),
                 0,
                 0.001);
-            Assert.InRange(estimate.EndOffset, 34f, 40f);
+            Assert.InRange(
+                estimate.EndOffset,
+                (float)(estimate.FitStartOffset +
+                    4.5 * CorrectedPeakEndEstimator.EndpointTauMultiples),
+                (float)(estimate.FitStartOffset +
+                    5.5 * CorrectedPeakEndEstimator.EndpointTauMultiples));
         }
 
         [Fact]
@@ -204,6 +214,9 @@ namespace AnalysisITC.Core.Tests
 
             Assert.True(first.Succeeded);
             Assert.True(second.Succeeded);
+            Assert.False(second.RegionsChanged);
+            if (baselineType == BaselineInterpolatorTypes.Segmented)
+                Assert.Equal(PeakFitStatus.CycleResolved, first.Status);
             Assert.Equal(firstOffsets, secondOffsets);
             Assert.Equal(firstBaseline, experiment.Processor.Interpolator.Baseline.Select(point => point.Value).ToArray());
             Assert.Equal(firstCorrected, experiment.BaseLineCorrectedDataPoints.Select(point => point.Power).ToArray());
@@ -497,6 +510,50 @@ namespace AnalysisITC.Core.Tests
         }
 
         [Fact]
+        public async Task AlternatingEstimatorCycleIsResolvedToStableMidpoint()
+        {
+            var experiment = CreateSyntheticExperiment(BaselineInterpolatorTypes.Spline, initializeBaseline: false);
+            experiment.BaseLineCorrectedDataPoints = experiment.DataPoints.ToList();
+            var call = 0;
+            experiment.Processor.PeakEndOffsetEstimator = _ =>
+            {
+                var offset = Interlocked.Increment(ref call) % 2 == 1 ? 20f : 30f;
+                return experiment.Injections.Select(injection => offset).ToArray();
+            };
+
+            var first = await experiment.Processor.FitIntegrationPeaksAsync(showProgress: false);
+            var second = await experiment.Processor.FitIntegrationPeaksAsync(showProgress: false);
+
+            Assert.Equal(PeakFitStatus.CycleResolved, first.Status);
+            Assert.Equal(PeakFitStatus.CycleResolved, second.Status);
+            Assert.True(first.RegionsChanged);
+            Assert.False(second.RegionsChanged);
+            Assert.All(experiment.Injections, injection => Assert.Equal(25f, injection.IntegrationEndOffset));
+        }
+
+        [Fact]
+        public async Task NonConvergentEstimatorRestoresOriginalRegions()
+        {
+            var experiment = CreateSyntheticExperiment(BaselineInterpolatorTypes.Spline, initializeBaseline: false);
+            experiment.BaseLineCorrectedDataPoints = experiment.DataPoints.ToList();
+            var original = experiment.Injections.Select(injection => injection.IntegrationEndOffset).ToArray();
+            var call = 0;
+            experiment.Processor.PeakEndOffsetEstimator = _ =>
+            {
+                var offset = 12f + 3f * Interlocked.Increment(ref call);
+                return experiment.Injections.Select(injection => offset).ToArray();
+            };
+
+            var result = await experiment.Processor.FitIntegrationPeaksAsync(showProgress: false);
+
+            Assert.Equal(PeakFitStatus.NonConvergent, result.Status);
+            Assert.Equal(DataProcessor.PeakFitMaximumPassCount, result.Iterations);
+            Assert.False(result.Succeeded);
+            Assert.False(result.RegionsChanged);
+            Assert.Equal(original, experiment.Injections.Select(injection => injection.IntegrationEndOffset).ToArray());
+        }
+
+        [Fact]
         public async Task FitRunsOnAWorkerThreadAndReportsPassProgress()
         {
             var experiment = CreateSyntheticExperiment(BaselineInterpolatorTypes.Spline, initializeBaseline: false);
@@ -556,10 +613,10 @@ namespace AnalysisITC.Core.Tests
             Assert.True(result.Succeeded);
             Assert.Equal(DataProcessor.PeakFitPassCount, estimatorThreads.Count);
             Assert.All(estimatorThreads, thread => Assert.NotEqual(callerThread, thread));
-            Assert.Contains(statuses, status => status.Contains("pass 1 of 3"));
-            Assert.Contains(statuses, status => status.Contains("pass 2 of 3"));
-            Assert.Contains(statuses, status => status.Contains("pass 3 of 3"));
-            Assert.Contains(secondaryStatuses, status => status == "Pass 1 of 3");
+            Assert.Contains(statuses, status => status.Contains("pass 1"));
+            Assert.Contains(statuses, status => status.Contains("pass 2"));
+            Assert.Contains(statuses, status => status.Contains("pass 3"));
+            Assert.Contains(secondaryStatuses, status => status == "Pass 1");
             Assert.Contains(progressUpdates, progress => progress == 0);
             Assert.Contains(progressUpdates, progress => progress > 0 && progress < 1);
             Assert.Contains(progressUpdates, progress => progress == 1);
