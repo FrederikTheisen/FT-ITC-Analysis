@@ -40,33 +40,18 @@ one at a time.
 
 ### Prepare a Windows packaging computer
 
-Use Windows 11. Visual Studio, Clang, the WDK, a C++ workload, and a standalone
-.NET runtime are not required.
+Windows 10 22H2 x64 or Windows 11 x64 can be used. Visual Studio, Clang, the
+WDK, a C++ workload, and a standalone .NET runtime are not required.
 
-Download `setup-windows-build-host.ps1` from this repository. Open Windows
-PowerShell as Administrator and run:
+For a first build on a personal Windows 10 desktop, follow
+[`WINDOWS-10-QUICKSTART.md`](WINDOWS-10-QUICKSTART.md). It installs Git,
+PowerShell 7.4, the .NET 10 SDK, Windows SDK, and Inno Setup one command at a
+time, then builds and tests an unsigned direct-download installer. No GitHub
+account or SSH key is needed.
 
-```powershell
-Set-ExecutionPolicy -Scope Process Bypass
-.\setup-windows-build-host.ps1 `
-    -CheckoutPath "$env:USERPROFILE\source\FT-ITC-Analysis"
-```
-
-The bootstrap script uses WinGet to install:
-
-- Git
-- PowerShell 7.4 or newer
-- .NET 10 SDK
-- Windows 11 SDK, including MakeAppx and SignTool
-- Inno Setup 6
-
-It anonymously clones the public repository over HTTPS. No GitHub account or
-SSH key is needed. When the checkout already exists, the script verifies its
-origin and status but never fetches, pulls, resets, or overwrites it. The
-bootstrap is safe to run again after installing updates or restarting Windows.
-
-If WinGet is unavailable, install or repair **Microsoft App Installer** first.
-If a newly installed tool is not found, restart Windows and rerun the script.
+Ordinary Windows 10 Home and Pro reached end of support in October 2025. Keep a
+Windows 10 packaging computer fully patched through ESU, or upgrade it, before
+placing production signing credentials on it.
 
 ### Prepare a release checkout
 
@@ -248,7 +233,7 @@ the MSIX to Partner Center.
 
 Before publishing either channel:
 
-1. Run the bootstrap on a clean Windows 11 computer, then run it a second time.
+1. Follow the quick-start on the intended Windows 10 or Windows 11 x64 host.
 2. Build from the clean tagged release checkout.
 3. Install the direct setup as a normal user and launch from the Start menu.
 4. Select the application for `.ftxtc`, then open a project by double-clicking it.

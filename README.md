@@ -12,14 +12,14 @@ supports baseline correction, peak integration, model fitting,
 multi-experiment analysis, uncertainty estimation, and publication-oriented
 figure and data export.
 
-The current public desktop release is for macOS. Cross-platform Windows,
-Linux, and macOS development is taking place in the Avalonia application in
-this repository; those builds should be treated as pre-release until matching
-packages are published on the Releases page.
+Platform packages are published together in a single GitHub release so that
+macOS, Linux, and Windows downloads share the same version and release notes.
+The macOS build is the stable release, the Linux build is currently a
+pre-release, and the Windows build is coming soon.
 
 ## Install
 
-### macOS release
+### macOS — available
 
 1. Download the DMG from the [latest GitHub release](https://github.com/FrederikTheisen/FT-ITC-Analysis/releases/latest).
 2. Open it and drag **FT-ITC.app** to **Applications**.
@@ -28,12 +28,22 @@ packages are published on the Releases page.
 The public macOS DMG is signed and notarized. Replacing the app during an
 update does not remove projects, exported data, settings, or autosaves.
 
-### Windows and Linux
+### Linux — pre-release
 
-Packaging support is under active development. Installation instructions will
-be added when signed/tested public packages are available. Developer packaging
+Download the package for your architecture from the
+[latest GitHub release](https://github.com/FrederikTheisen/FT-ITC-Analysis/releases/latest).
+Linux packages are provided as Debian packages and should currently be treated
+as pre-release builds. Please report platform-specific issues through the
+[GitHub issue tracker](https://github.com/FrederikTheisen/FT-ITC-Analysis/issues).
+
+### Windows — coming soon
+
+The Windows x64 installer will be added to the same GitHub release as the
+macOS and Linux packages. Until it is available, developer packaging
 instructions are in
-[AnalysisITC.Avalonia/Packaging/README.md](AnalysisITC.Avalonia/Packaging/README.md).
+[AnalysisITC.Avalonia/Packaging/README.md](AnalysisITC.Avalonia/Packaging/README.md),
+and the first unsigned installer can be built with the
+[step-by-step Windows 10 guide](AnalysisITC.Avalonia/Packaging/WINDOWS-10-QUICKSTART.md).
 
 ## Supported files
 
@@ -68,11 +78,8 @@ The desktop applications process experiment data locally and do not upload it.
 They may check this GitHub repository for version and citation metadata; this
 can be disabled in preferences.
 
-The optional web viewer uploads a selected file to its server for the duration
-of the request. It does not intentionally retain the parsed document as
-application state, although archive validation can use temporary server
-storage. Deployments should use HTTPS and suitable log and temporary-file
-retention policies.
+The optional web viewer uploads a selected file to its server for transient processing.
+It does not intentionally retain the parsed document as application state.
 
 ## Development and tests
 
@@ -88,16 +95,7 @@ dotnet test AnalysisITC.Avalonia.Tests/AnalysisITC.Avalonia.Tests.csproj --confi
 dotnet test AnalysisITC.Web.Tests/AnalysisITC.Web.Tests.csproj --configuration Release
 ```
 
-GitHub Actions runs these commands for pushes to `master` and pull requests.
-Platform packages must additionally be built and smoke-tested on their target
-operating systems.
-
-Remove ignored build and packaging output without touching source files,
-dependency caches, signing material, or project data with:
-
-```bash
-scripts/clean-generated.sh
-```
+Run these tests locally before packaging.
 
 The original Xamarin.Mac packaging instructions are in
 [AnalysisITC.MacOS/Packaging/README.md](AnalysisITC.MacOS/Packaging/README.md).
