@@ -1,8 +1,12 @@
 ##VERSION 1.x.0 PAPER PUBLICATION RELEASE VERSION
 
-##VERSION 1.4.1 Package releases of cross-platform versions
+##VERSION 1.4.2
+macOS: updated preferences user interface
+Linux/Windows: improved workflow graph printing
 
-#VERSION 1.4.1 FT-ITC Analysis Cross-Platform
+#VERSION 1.4.1 Package releases of Linux distribution
+
+#VERSION 1.4.0 FT-ITC Analysis Cross-Platform
 Feature: FT-ITC is now also available for Windows and Linux
 Feature: Added tool to produce figures containing multiple final figures
 Fix: Fixed issue with global solution error loading from saved files
