@@ -58,8 +58,8 @@
   </screenshots>
 
   <releases>
-    <release version="1.4.1" date="2026-08-DD">
-      <url type="details">https://github.com/FrederikTheisen/FT-ITC-Analysis/releases/tag/v1.4.1</url>
+    <release version="1.4.2" date="2026-08-DD">
+      <url type="details">https://github.com/FrederikTheisen/FT-ITC-Analysis/releases/tag/v1.4.2</url>
       <description>
         <p>First cross-platform release of FT-ITC Analysis.</p>
         <ul>

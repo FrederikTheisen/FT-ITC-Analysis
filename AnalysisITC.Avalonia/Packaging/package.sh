@@ -8,7 +8,7 @@ usage() {
 Usage: AnalysisITC.Avalonia/Packaging/package.sh <windows|linux|macos> [platform options]
 
 Examples:
-  AnalysisITC.Avalonia/Packaging/package.sh windows -Channel Direct -Runtime win-x64 -UnsignedDirect -Development
+  AnalysisITC.Avalonia/Packaging/package.sh windows
   AnalysisITC.Avalonia/Packaging/package.sh linux --runtime linux-x64
   AnalysisITC.Avalonia/Packaging/package.sh macos --runtime osx-arm64 --notarize
 

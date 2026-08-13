@@ -30,9 +30,10 @@ Windows has two independent distribution channels:
 | Direct download | Inno Setup `.exe` | Authenticode-signed when credentials are configured; explicitly unsigned otherwise. Users install later releases over the current installation. |
 | Microsoft Store | MSIX | Uploaded unsigned to Partner Center; Microsoft certifies and signs it and supplies Store updates. |
 
-The first Windows release is x64 only. It can run under x64 emulation on
-Windows 11 ARM64. Native ARM64 packaging is deferred until it can be tested on
-real ARM64 hardware.
+The first Windows release is x64 only. The Windows script intentionally stops
+after testing and publishing the application. The commands that create and
+sign packages are kept here so the release operator can run and inspect them
+one at a time.
 
 ### Prepare a Windows packaging computer
 
@@ -51,7 +52,7 @@ Set-ExecutionPolicy -Scope Process Bypass
 The bootstrap script uses WinGet to install:
 
 - Git
-- PowerShell 7
+- PowerShell 7.4 or newer
 - .NET 10 SDK
 - Windows 11 SDK, including MakeAppx and SignTool
 - Inno Setup 6
@@ -66,75 +67,115 @@ If a newly installed tool is not found, restart Windows and rerun the script.
 
 ### Prepare a release checkout
 
-The version comes from `AnalysisITC.Avalonia.csproj`. Before packaging, make
-the project version, assembly/file versions, release notes, and Git tag agree.
-Commit the release state and create an immutable `v<version>` tag.
+The version comes from `AnalysisITC.Avalonia.csproj`. Make the project version,
+assembly/file versions, release notes, and Git tag agree. Commit the release
+state and create an immutable `v<version>` tag.
 
 On the Windows computer:
 
 ```powershell
 Set-Location "$env:USERPROFILE\source\FT-ITC-Analysis"
 git fetch --tags
-git switch --detach "v1.4.1" # replace with the release version
+git switch --detach "v1.4.2" # replace with the release version
 git status --short
+git describe --tags --exact-match
 ```
 
-The final command must print nothing. Release packaging fails when the checkout
-is dirty, the project contains a prerelease version, or HEAD lacks the matching
-tag. `-Development` bypasses those release guards only for local tests.
+`git status --short` must print nothing, and `git describe` must print the
+expected `v<version>` tag. These are deliberate operator checks; the packaging
+script does not hide them in release-policy logic.
 
-Before creating the release tag, exercise the direct packaging path with:
+Run the tests and publish the self-contained x64 application:
 
 ```powershell
-pwsh -NoProfile -File `
-    .\AnalysisITC.Avalonia\Packaging\windows\package-windows.ps1 `
-    -Channel Direct -Runtime win-x64 -UnsignedDirect -Development
+pwsh -NoProfile -File .\AnalysisITC.Avalonia\Packaging\windows\package-windows.ps1
 ```
 
-### Build the direct-download installer
+The script is deliberately short. For development, run it from your current
+branch without doing the tag checks above.
 
-For an unsigned direct installer:
+### Set packaging variables
+
+Run these lines from the repository root after publishing:
 
 ```powershell
-pwsh -NoProfile -File `
-    .\AnalysisITC.Avalonia\Packaging\windows\package-windows.ps1 `
-    -Channel Direct -Runtime win-x64 -UnsignedDirect
+$Root = (Get-Location).Path
+[xml]$ProjectXml = Get-Content .\AnalysisITC.Avalonia\AnalysisITC.Avalonia.csproj
+$Version = [string]$ProjectXml.Project.PropertyGroup.Version
+$PublishDir = Join-Path $Root "artifacts\publish\win-x64"
+$PackageDir = Join-Path $Root "artifacts\packages"
+$WindowsPackagingDir = Join-Path $Root "AnalysisITC.Avalonia\Packaging\windows"
+$Inno = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
+$WindowsSdkBin = "${env:ProgramFiles(x86)}\Windows Kits\10\bin\10.0.28000.0\x64"
+$MakeAppx = Join-Path $WindowsSdkBin "makeappx.exe"
+$SignTool = Join-Path $WindowsSdkBin "signtool.exe"
+New-Item -ItemType Directory -Force $PackageDir
+```
+
+If a later Windows SDK is installed, replace `10.0.28000.0` with the directory
+name shown under `C:\Program Files (x86)\Windows Kits\10\bin`.
+
+### Build an unsigned direct-download installer
+
+These commands compile the installer without signing it:
+
+
+```powershell
+$DirectBaseName = "FT-ITC-Analysis-$Version-win-x64-setup"
+$InstallerDefinition = Join-Path $WindowsPackagingDir "installer.iss"
+
+& $Inno /Qp `
+    "/DSourceDir=$PublishDir" `
+    "/DOutputDir=$PackageDir" `
+    "/DAppVersion=$Version" `
+    "/DOutputBaseFilename=$DirectBaseName" `
+    "/DAppPublisher=Frederik Theisen" `
+    $InstallerDefinition
 ```
 
 Unsigned distribution is functional, but Windows displays an unknown publisher
 and may show Microsoft Defender SmartScreen warnings. Never describe an unsigned
 installer as trusted or signed.
 
-For production signing, prefer a code-signing certificate in the Windows
-certificate store:
+### Build a signed direct-download installer
+
+Prefer a code-signing certificate installed in the Windows certificate store.
+Set its SHA-1 thumbprint, then run each command:
 
 ```powershell
-$env:FTITC_WINDOWS_CERT_SHA1 = "CERTIFICATE_THUMBPRINT"
-$env:FTITC_WINDOWS_PUBLISHER_DISPLAY_NAME = "Frederik Theisen"
+$CertificateThumbprint = "CERTIFICATE_THUMBPRINT"
+$TimestampUrl = "http://timestamp.digicert.com"
+$ApplicationExe = Join-Path $PublishDir "FT-ITC Analysis.exe"
+$DirectBaseName = "FT-ITC-Analysis-$Version-win-x64-setup"
+$DirectInstaller = Join-Path $PackageDir "$DirectBaseName.exe"
+$InstallerDefinition = Join-Path $WindowsPackagingDir "installer.iss"
 
-pwsh -NoProfile -File `
-    .\AnalysisITC.Avalonia\Packaging\windows\package-windows.ps1 `
-    -Channel Direct -Runtime win-x64
+& $SignTool sign /sha1 $CertificateThumbprint /fd SHA256 /tr $TimestampUrl /td SHA256 $ApplicationExe
+& $SignTool verify /pa /v $ApplicationExe
+
+$InnoSignCommand = "`$q$SignTool`$q sign /sha1 $CertificateThumbprint /fd SHA256 /tr `$q$TimestampUrl`$q /td SHA256 `$f"
+
+& $Inno /Qp `
+    "/DSourceDir=$PublishDir" `
+    "/DOutputDir=$PackageDir" `
+    "/DAppVersion=$Version" `
+    "/DOutputBaseFilename=$DirectBaseName" `
+    "/DAppPublisher=Frederik Theisen" `
+    /DSignedBuild=1 `
+    "/Sftitc=$InnoSignCommand" `
+    $InstallerDefinition
+
+& $SignTool verify /pa /v $DirectInstaller
 ```
 
-A PFX can also be used. Never commit the PFX or its password:
+A PFX or managed signing service can also be used, but its exact `signtool`
+arguments depend on the certificate provider. Replace the two signing commands
+and `$InnoSignCommand` with the provider's documented command. Never commit a
+PFX, password, token, or certificate-provider configuration.
 
-```powershell
-$env:FTITC_WINDOWS_SIGNING_CERT = "C:\secure\ft-itc-signing.pfx"
-$env:FTITC_WINDOWS_SIGNING_CERT_PASSWORD = "..."
-
-pwsh -NoProfile -File `
-    .\AnalysisITC.Avalonia\Packaging\windows\package-windows.ps1 `
-    -Channel Direct -Runtime win-x64
-```
-
-For Inno Setup command-line signing, the PFX password cannot contain a quote or
-line break. An installed certificate selected by thumbprint is preferred and
-does not expose a PFX password to the compiler process.
-
-The signing workflow timestamps and verifies the published application. Inno
-Setup signs the generated uninstaller and final setup executable, and the
-packager independently verifies the setup executable.
+The application must be signed before compiling the installer. `SignedBuild`
+makes Inno Setup use the same signing command for its uninstaller and final
+setup executable.
 
 The direct installer:
 
@@ -146,46 +187,59 @@ The direct installer:
 - supports Inno Setup's normal `/SILENT` and `/VERYSILENT` switches; and
 - leaves projects, settings, and autosaves intact during uninstall.
 
-### Build the Microsoft Store package
+### Build the unsigned Microsoft Store package
 
-Reserve the product name in Partner Center, then copy the exact values from its
-product identity page. Publisher matching is exact and case-sensitive.
+Do this before signing the published application, or rerun
+`package-windows.ps1` first so the Store package contains the original unsigned
+application. Reserve the product in Partner Center and insert its exact values:
 
 ```powershell
-$env:FTITC_WINDOWS_PACKAGE_IDENTITY = "<Partner Center package identity>"
-$env:FTITC_WINDOWS_PUBLISHER = "<Partner Center publisher>"
-$env:FTITC_WINDOWS_PUBLISHER_DISPLAY_NAME = "Frederik Theisen"
+$PackageIdentity = "<Partner Center package identity>"
+$Publisher = "<Partner Center publisher>"
+$PublisherDisplayName = "Frederik Theisen"
+$MsixVersion = "$Version.0"
+$StoreStageDir = Join-Path $Root "artifacts\package\windows-store-win-x64"
+$StoreMsix = Join-Path $PackageDir "FT-ITC-Analysis-$Version-win-x64-store.msix"
 
-pwsh -NoProfile -File `
-    .\AnalysisITC.Avalonia\Packaging\windows\package-windows.ps1 `
-    -Channel Store -Runtime win-x64
+Remove-Item -LiteralPath $StoreStageDir -Recurse -Force -ErrorAction SilentlyContinue
+New-Item -ItemType Directory -Force (Join-Path $StoreStageDir "Assets")
+Copy-Item (Join-Path $PublishDir "*") $StoreStageDir -Recurse
+Copy-Item (Join-Path $WindowsPackagingDir "Assets\*") (Join-Path $StoreStageDir "Assets")
+
+$Manifest = Get-Content (Join-Path $WindowsPackagingDir "AppxManifest.xml.in") -Raw
+$Manifest = $Manifest.Replace("@PACKAGE_IDENTITY@", $PackageIdentity)
+$Manifest = $Manifest.Replace("@PUBLISHER@", $Publisher)
+$Manifest = $Manifest.Replace("@PUBLISHER_DISPLAY_NAME@", $PublisherDisplayName)
+$Manifest = $Manifest.Replace("@VERSION@", $MsixVersion)
+$Manifest = $Manifest.Replace("@ARCHITECTURE@", "x64")
+[xml]$Manifest | Out-Null
+$Manifest | Set-Content (Join-Path $StoreStageDir "AppxManifest.xml") -Encoding utf8NoBOM
+
+& $MakeAppx pack /d $StoreStageDir /p $StoreMsix /o
 ```
 
 Upload the resulting unsigned MSIX to Partner Center. Do not sign that Store
 artifact locally; Microsoft signs the package after certification.
 
-To build both channels in one run, configure the Partner Center variables and
-either signing credentials or `-UnsignedDirect`, then use `-Channel All`.
+### Create the checksum file
 
-### Output and checksums
-
-Depending on the selected channel, packaging creates:
-
-```text
-artifacts\packages\FT-ITC-Analysis-<version>-win-x64-store.msix
-artifacts\packages\FT-ITC-Analysis-<version>-win-x64-setup.exe
-artifacts\packages\SHA256SUMS-windows.txt
-```
-
-The checksum file contains only artifacts produced by the current invocation.
-Verify a downloaded artifact with:
+After creating both artifacts, run:
 
 ```powershell
-Get-FileHash .\FT-ITC-Analysis-<version>-win-x64-setup.exe -Algorithm SHA256
+$DirectInstaller = Join-Path $PackageDir "FT-ITC-Analysis-$Version-win-x64-setup.exe"
+$StoreMsix = Join-Path $PackageDir "FT-ITC-Analysis-$Version-win-x64-store.msix"
+$ChecksumFile = Join-Path $PackageDir "SHA256SUMS-windows.txt"
+
+Get-FileHash $DirectInstaller, $StoreMsix -Algorithm SHA256 |
+    ForEach-Object { "$($_.Hash.ToLowerInvariant())  $(Split-Path $_.Path -Leaf)" } |
+    Set-Content $ChecksumFile -Encoding ascii
+
+Get-Content $ChecksumFile
 ```
 
-`-NoRestore` is available only when the matching NuGet restore state already
-exists. Packaging runs the Core and Avalonia test projects before publishing.
+If releasing only one channel, remove the other path from the `Get-FileHash`
+line. Upload the setup executable and checksum file to GitHub Releases; upload
+the MSIX to Partner Center.
 
 ### Windows acceptance checklist
 

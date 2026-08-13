@@ -1,14 +1,14 @@
 #ifndef SourceDir
-  #error SourceDir must be supplied by package-windows.ps1
+  #error SourceDir must be supplied to ISCC
 #endif
 #ifndef OutputDir
-  #error OutputDir must be supplied by package-windows.ps1
+  #error OutputDir must be supplied to ISCC
 #endif
 #ifndef AppVersion
-  #error AppVersion must be supplied by package-windows.ps1
+  #error AppVersion must be supplied to ISCC
 #endif
 #ifndef OutputBaseFilename
-  #error OutputBaseFilename must be supplied by package-windows.ps1
+  #error OutputBaseFilename must be supplied to ISCC
 #endif
 #ifndef AppPublisher
   #define AppPublisher "Frederik Theisen"
