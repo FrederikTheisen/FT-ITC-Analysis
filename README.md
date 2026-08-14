@@ -18,44 +18,44 @@ supports baseline correction, peak integration, model fitting,
 multi-experiment analysis, uncertainty estimation, and publication-oriented
 figure and data export.
 
-Platform packages are published together in a single GitHub release so that
-macOS, Linux, and Windows downloads share the same version and release notes.
-The macOS build is the stable release. The Linux and Windows builds are
-currently pre-release packages. The pre-release packages are the recommended versions.
+Packages for macOS, Linux, and Windows are published together with the same
+version and release notes.
 
 ## Install
 
-### macOS — available
+### macOS
 
-1. Download the DMG from the [latest GitHub release](https://github.com/FrederikTheisen/FT-ITC-Analysis/releases/latest).
+1. Download the macOS DMG from the [latest release](https://github.com/FrederikTheisen/FT-ITC-Analysis/releases/latest).
 2. Open it and drag **FT-ITC.app** to **Applications**.
-3. Launch the app from Applications or open a supported data/project file.
+3. Launch **FT-ITC** from Applications.
 
-The public macOS DMG is signed and notarized. Removing the app does not remove projects, exported data, settings, or autosaves.
+The macOS application is signed and notarized.
 
-### Linux — pre-release
+### Linux
 
-Download the package for your architecture from the
-[latest GitHub release](https://github.com/FrederikTheisen/FT-ITC-Analysis/releases/latest).
-Linux packages are provided as Debian packages and should currently be treated
-as pre-release builds. Please report platform-specific issues through the
+1. Download the Debian package for your architecture (`amd64` or `arm64`) from
+   the [latest release](https://github.com/FrederikTheisen/FT-ITC-Analysis/releases/latest).
+2. Install it with `sudo apt install ./ft-itc-analysis_<version>_<architecture>.deb`.
+3. Launch **FT-ITC Analysis** from the application menu.
+
+### Windows
+
+1. Download the x64 setup executable from the
+   [latest release](https://github.com/FrederikTheisen/FT-ITC-Analysis/releases/latest).
+2. Run the installer; administrator access is not required.
+3. Launch **FT-ITC Analysis** from the Start menu.
+
+The Windows installer supports x64 Windows 10 and Windows 11. It is currently
+unsigned, so Windows may show **Unknown publisher** or a Microsoft Defender
+SmartScreen warning. Only continue when the installer was downloaded from this
+repository.
+
+### Updates and removal
+
+Install a newer package over the existing application to update it. Removing
+the application does not delete projects, exported data, settings, or
+autosaves. Report installation problems through the
 [GitHub issue tracker](https://github.com/FrederikTheisen/FT-ITC-Analysis/issues).
-
-### Windows — pre-release
-
-1. Open the [GitHub releases page](https://github.com/FrederikTheisen/FT-ITC-Analysis/releases).
-2. Download `ft-itc-analysis-<version>-win-x64-setup.exe` from the newest release.
-3. Run the installer and launch **FT-ITC Analysis** from the Start menu.
-
-The Windows package is intended for x64 Windows 10 and Windows 11 and installs
-for the current user without administrator access. The prerelease installer is
-currently unsigned, so Windows may show **Unknown publisher** or a Microsoft
-Defender SmartScreen warning. Only bypass that warning for an installer
-downloaded from this repository. 
-
-Windows updates are currently manual: download a later installer and run it
-over the existing installation. Please report Windows-specific issues through
-the [GitHub issue tracker](https://github.com/FrederikTheisen/FT-ITC-Analysis/issues).
 
 ## Supported files
 
