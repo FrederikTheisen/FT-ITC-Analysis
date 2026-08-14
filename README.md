@@ -20,8 +20,8 @@ figure and data export.
 
 Platform packages are published together in a single GitHub release so that
 macOS, Linux, and Windows downloads share the same version and release notes.
-The macOS build is the stable release, the Linux build is currently a
-pre-release, and the Windows build is coming soon.
+The macOS build is the stable release. The Linux and Windows builds are
+currently pre-release packages. The pre-release packages are the recommended versions.
 
 ## Install
 
@@ -41,10 +41,21 @@ Linux packages are provided as Debian packages and should currently be treated
 as pre-release builds. Please report platform-specific issues through the
 [GitHub issue tracker](https://github.com/FrederikTheisen/FT-ITC-Analysis/issues).
 
-### Windows — coming soon
+### Windows — pre-release
 
-The Windows x64 installer will be added to the same GitHub release as the
-macOS and Linux packages.
+1. Open the [GitHub releases page](https://github.com/FrederikTheisen/FT-ITC-Analysis/releases).
+2. Download `ft-itc-analysis-<version>-win-x64-setup.exe` from the newest release.
+3. Run the installer and launch **FT-ITC Analysis** from the Start menu.
+
+The Windows package is intended for x64 Windows 10 and Windows 11 and installs
+for the current user without administrator access. The prerelease installer is
+currently unsigned, so Windows may show **Unknown publisher** or a Microsoft
+Defender SmartScreen warning. Only bypass that warning for an installer
+downloaded from this repository. 
+
+Windows updates are currently manual: download a later installer and run it
+over the existing installation. Please report Windows-specific issues through
+the [GitHub issue tracker](https://github.com/FrederikTheisen/FT-ITC-Analysis/issues).
 
 ## Supported files
 
