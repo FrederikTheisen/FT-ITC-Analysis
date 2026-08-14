@@ -83,6 +83,7 @@ namespace AnalysisITC.Core.Application
 
         //Final figure
         public static double[] FinalFigureDimensions { get; set; } = new double[2] { 6.5, 10.0 };
+        public static PublicationFont PublicationFigureFont { get; set; } = PublicationFont.Native;
         public static FinalFigureDisplayParameters FinalFigureParameterDisplay { get; set; } = FinalFigureDisplayParameters.Default;
         public static DisplayAttributeOptions DisplayAttributeOptions { get; set; } = DisplayAttributeOptions.Default;
         public static bool FinalFigureShowParameterBoxAsDefault { get; set; } = true;
@@ -137,6 +138,8 @@ namespace AnalysisITC.Core.Application
             Storage.SetBool("UnifyTimeAxisForExport", UnifyTimeAxisForExport);
             Storage.SetBool("ExportFitPointsWithPeaks", ExportFitPointsWithPeaks);
             Storage.SetInt("ExportSelectionMode", (int)ExportSelectionMode);
+            PublicationFigureFont = NormalizePublicationFont((int)PublicationFigureFont);
+            Storage.SetInt("PublicationFigureFont", (int)PublicationFigureFont);
             Storage.SetInt("FinalFigureParameterDisplay", (int)FinalFigureParameterDisplay);
             Storage.SetBool("ExportBaselineCorrectedData", ExportBaselineCorrectedData);
             Storage.SetInt("DefaultConcentrationUnit", (int)DefaultConcentrationUnit);
@@ -213,6 +216,8 @@ namespace AnalysisITC.Core.Application
             UnifyTimeAxisForExport = Storage.GetBool("UnifyTimeAxisForExport", UnifyTimeAxisForExport);
             ExportFitPointsWithPeaks = Storage.GetBool("ExportFitPointsWithPeaks", ExportFitPointsWithPeaks);
             ExportSelectionMode = (ExportDataSelection)Storage.GetInt("ExportSelectionMode", (int)ExportSelectionMode);
+            PublicationFigureFont = NormalizePublicationFont(
+                Storage.GetInt("PublicationFigureFont", (int)PublicationFont.Native));
             EnableExtendedParameterLimits = Storage.GetBool("EnableExtendedParameterLimits", EnableExtendedParameterLimits);
             ParameterLimitSetting = (ParameterLimitSetting)Storage.GetInt("ParameterLimitSetting", (int)ParameterLimitSetting);
             FinalFigureParameterDisplay = (FinalFigureDisplayParameters)Storage.GetInt("FinalFigureParameterDisplay", (int)FinalFigureParameterDisplay);
@@ -289,6 +294,7 @@ namespace AnalysisITC.Core.Application
             ExportSelectionMode = ExportDataSelection.IncludedData; ;
             EnableExtendedParameterLimits = false;
             ParameterLimitSetting = ParameterLimitSetting.Standard;
+            PublicationFigureFont = PublicationFont.Native;
             FinalFigureParameterDisplay = FinalFigureDisplayParameters.Default;
             FinalFigureDimensions = new double[] { 6.5, 10 };
             ExportBaselineCorrectedData = true;
@@ -364,6 +370,13 @@ namespace AnalysisITC.Core.Application
                 return (BufferSubtractionMethod)method;
 
             return BufferSubtractionMethod.MatchedInjection;
+        }
+
+        static PublicationFont NormalizePublicationFont(int font)
+        {
+            return Enum.IsDefined(typeof(PublicationFont), font)
+                ? (PublicationFont)font
+                : PublicationFont.Native;
         }
 
         static ITCInstrument NormalizeDesignerInstrument(int instrument)

@@ -44,6 +44,13 @@ namespace AnalysisITC.Core.Presentation
     public enum PublicationBaselineLayer { UnderData, OverData }
     public enum PublicationIntegrationRegionStyle { Bar, Fill, Line }
 
+    public enum PublicationFont
+    {
+        Native = 0,
+        Inter = 1,
+        LiberationSans = 2
+    }
+
     public enum PublicationSeriesRole
     {
         Thermogram,
@@ -59,6 +66,7 @@ namespace AnalysisITC.Core.Presentation
         public double PlotHeightCentimeters { get; set; } = 10;
         public double PointsPerCentimeter { get; set; } = DefaultPointsPerCentimeter;
         public double FontSize { get; set; } = 14;
+        public PublicationFont Font { get; set; } = AppSettings.PublicationFigureFont;
 
         public EnergyUnit EnergyUnit { get; set; } = AppSettings.EnergyUnit;
         public TimeUnit TimeUnit { get; set; } = TimeUnit.Minute;
@@ -129,6 +137,7 @@ namespace AnalysisITC.Core.Presentation
                     PlotHeightCentimeters.ToString("G17"),
                     PointsPerCentimeter.ToString("G17"),
                     FontSize.ToString("G17"),
+                    ((int)Font).ToString(),
                     ((int)EnergyUnit).ToString(),
                     ((int)TimeUnit).ToString(),
                     ShowThermogram.ToString(),

@@ -8,6 +8,7 @@ using Avalonia.Headless;
 using Xunit;
 
 using AnalysisITC.Avalonia.Preferences;
+using AnalysisITC.Core.Presentation;
 
 namespace AnalysisITC.Avalonia.Tests;
 
@@ -136,6 +137,27 @@ public sealed class PreferencesTests
         Assert.Equal(100, result.DefaultBootstrapIterations);
         Assert.Equal(300_000, result.MaximumOptimizerIterations);
         Assert.Equal(savedBootstrapIterations, AnalysisITC.Core.Application.AppSettings.DefaultBootstrapIterations);
+    }
+
+    [Theory]
+    [InlineData(PublicationFont.Native, "Resolved on this computer:")]
+    [InlineData(PublicationFont.Inter, "Resolved on this computer: Inter")]
+    [InlineData(PublicationFont.LiberationSans, "Resolved on this computer: Liberation Sans")]
+    public void PublicationFontRoundTripsAndShowsResolvedFamily(PublicationFont font, string expectedResolution)
+    {
+        var window = new PreferencesWindow();
+        var state = PreferencesState.Defaults();
+        state.PublicationFigureFont = font;
+
+        window.LoadState(state);
+
+        Assert.Contains(expectedResolution, window.PublicationFontResolutionText.Text);
+        Assert.True(window.TryBuildState(out var result));
+        Assert.Equal(font, result.PublicationFigureFont);
+
+        window.RestoreDefaults();
+        Assert.True(window.TryBuildState(out var defaults));
+        Assert.Equal(PublicationFont.Native, defaults.PublicationFigureFont);
     }
 
     static void AssertSlider(Slider slider, int maximum)

@@ -22,6 +22,7 @@ sealed class SkiaFigureCanvasRenderPlan
     public PublicationFigureCanvasDocument Document { get; init; } = null!;
     public PublicationFigureCanvasLayoutResult LayoutResult { get; init; } = null!;
     public IReadOnlyList<SkiaFigureCanvasCellPlan> Cells { get; init; } = Array.Empty<SkiaFigureCanvasCellPlan>();
+    public SkiaPublicationFontSet Fonts { get; init; } = null!;
     public float CanvasWidth { get; init; }
     public float CanvasHeight { get; init; }
 
@@ -47,6 +48,7 @@ sealed class SkiaFigureCanvasRenderer
         var figures = document.Cells
             .Select(cell => PublicationFigureBuilder.Build(cell.Source, document.FigureOptions))
             .ToList();
+        var fonts = figureRenderer.ResolveFontSet(document.FigureOptions);
         var activeColumns = Math.Min(document.Options.Columns, document.Cells.Count);
         var activeRows = (document.Cells.Count + document.Options.Columns - 1) / document.Options.Columns;
         var plotWidthCentimeters = Math.Min(document.Options.PlotWidthCentimeters, document.FigureOptions.PlotWidthCentimeters);
@@ -83,7 +85,7 @@ sealed class SkiaFigureCanvasRenderer
         {
             var indices = CellIndices(document, cell => cell.Column == column);
             leftMargins[column] = indices.Max(index => PublicationFigureLayout.RequiredLeftMargin(
-                figures[index], settings[index].ShowYAxisTickLabels, settings[index].ShowYAxisTitle, fontSize));
+                figures[index], settings[index].ShowYAxisTickLabels, settings[index].ShowYAxisTitle, fontSize, fonts));
             rightMargins[column] = indices.Max(index => PublicationFigureLayout.RequiredRightMargin(figures[index]));
         }
 
@@ -93,9 +95,9 @@ sealed class SkiaFigureCanvasRenderer
         {
             var indices = CellIndices(document, cell => cell.Row == row);
             topMargins[row] = indices.Max(index => PublicationFigureLayout.RequiredTopMargin(
-                figures[index], settings[index].ShowTopXAxisTickLabels, settings[index].ShowTopXAxisTitle, fontSize));
+                figures[index], settings[index].ShowTopXAxisTickLabels, settings[index].ShowTopXAxisTitle, fontSize, fonts));
             bottomMargins[row] = indices.Max(index => PublicationFigureLayout.RequiredBottomMargin(
-                figures[index], settings[index].ShowBottomXAxisTickLabels, settings[index].ShowBottomXAxisTitle, fontSize));
+                figures[index], settings[index].ShowBottomXAxisTickLabels, settings[index].ShowBottomXAxisTitle, fontSize, fonts));
         }
 
         var gap = GapCentimeters * PdfPointsPerCentimeter;
@@ -142,6 +144,7 @@ sealed class SkiaFigureCanvasRenderer
                 canvasHeight / PdfPointsPerCentimeter,
                 ""),
             Cells = cellPlans,
+            Fonts = fonts,
             CanvasWidth = canvasWidth,
             CanvasHeight = canvasHeight
         };
@@ -189,11 +192,11 @@ sealed class SkiaFigureCanvasRenderer
         canvas.Clear(SKColors.White);
         foreach (var cell in plan.Cells)
         {
-            figureRenderer.DrawDocument(canvas, cell.Figure, cell.Layout, cell.RenderSettings);
+            figureRenderer.DrawDocument(canvas, cell.Figure, cell.Layout, cell.RenderSettings, plan.Fonts);
             if (string.IsNullOrWhiteSpace(cell.Cell.PanelLabel)) continue;
 
             var figureBounds = cell.Layout.PageRect;
-            var drawing = new SkiaDrawingContext(canvas);
+            var drawing = new SkiaDrawingContext(canvas, plan.Fonts);
             drawing.DrawText(
                 cell.Cell.PanelLabel,
                 new SKPoint(figureBounds.Left + PanelLabelInset, figureBounds.Top + PanelLabelInset),

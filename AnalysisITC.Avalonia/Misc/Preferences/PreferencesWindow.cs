@@ -20,6 +20,7 @@ using AnalysisITC.Core.Presentation;
 using AnalysisITC.Core.Processing;
 using AnalysisITC.Core.Units;
 using AnalysisITC.Core.Utilities;
+using AnalysisITC.Avalonia.Drawing;
 using AnalysisITC.Avalonia.Styling;
 using AnalysisITC.Avalonia.Support;
 
@@ -101,6 +102,8 @@ internal sealed class PreferencesWindow : Window
 
     readonly TextBox figureWidthBox = Box("");
     readonly TextBox figureHeightBox = Box("");
+    readonly ComboBox publicationFontCombo;
+    readonly TextBlock publicationFontResolutionText = Note();
     readonly CheckBox residualGraphCheck = Check("Show residual graph");
     readonly CheckBox residualGapCheck = Check("Show residual graph gap");
     readonly CheckBox unifyResidualAxisCheck = Check("Unify residual graph axis");
@@ -140,6 +143,8 @@ internal sealed class PreferencesWindow : Window
     internal Slider MaximumIterationsSlider => maximumIterationsSlider;
     internal TextBlock MaximumIterationsValueLabel => maximumIterationsValueLabel;
     internal CheckBox AutoSaveEnabledCheck => autoSaveEnabledCheck;
+    internal ComboBox PublicationFontCombo => publicationFontCombo;
+    internal TextBlock PublicationFontResolutionText => publicationFontResolutionText;
 
     public PreferencesWindow()
     {
@@ -191,6 +196,12 @@ internal sealed class PreferencesWindow : Window
             Option("All experiments", ExportDataSelection.AllData)
         });
         fitLineSmoothnessCombo = Combo(Enum.GetValues<LineSmoothness>().Select(smoothness => Option(DisplayName(smoothness), smoothness)));
+        publicationFontCombo = Combo(new[]
+        {
+            Option("Native", PublicationFont.Native),
+            Option("Inter", PublicationFont.Inter),
+            Option("Liberation Sans", PublicationFont.LiberationSans)
+        });
         attributeDisplayCombo = Combo(new[]
         {
             Option("Used in analysis", DisplayAttributeOptions.UsedInAnalysis),
@@ -205,6 +216,7 @@ internal sealed class PreferencesWindow : Window
         bootstrapIterationsSlider.ValueChanged += (_, _) => BootstrapIterationsChanged();
         optimizerToleranceSlider.ValueChanged += (_, _) => OptimizerToleranceChanged();
         maximumIterationsSlider.ValueChanged += (_, _) => MaximumIterationsChanged();
+        publicationFontCombo.SelectionChanged += (_, _) => UpdatePublicationFontResolution();
         LoadState(PreferencesState.FromSettings());
     }
 
@@ -372,6 +384,15 @@ internal sealed class PreferencesWindow : Window
         {
             Row("Width cm", figureWidthBox),
             Row("Height cm", figureHeightBox),
+            Row("Publication font", new StackPanel
+            {
+                Spacing = 3,
+                Children =
+                {
+                    publicationFontCombo,
+                    publicationFontResolutionText
+                }
+            }),
             residualGraphCheck,
             residualGapCheck,
             unifyResidualAxisCheck,
@@ -454,6 +475,8 @@ internal sealed class PreferencesWindow : Window
 
         figureWidthBox.Text = Format(state.FinalFigureWidthCentimeters);
         figureHeightBox.Text = Format(state.FinalFigureHeightCentimeters);
+        SetCombo(publicationFontCombo, state.PublicationFigureFont);
+        UpdatePublicationFontResolution();
         residualGraphCheck.IsChecked = state.ShowResidualGraph;
         residualGapCheck.IsChecked = state.ShowResidualGraphGap;
         unifyResidualAxisCheck.IsChecked = state.UnifyResidualGraphAxis;
@@ -556,6 +579,7 @@ internal sealed class PreferencesWindow : Window
         state.ExportFitPointsWithPeaks = exportFitPointsCheck.IsChecked == true;
         state.FinalFigureWidthCentimeters = figureWidth;
         state.FinalFigureHeightCentimeters = figureHeight;
+        state.PublicationFigureFont = Value(publicationFontCombo, AppSettings.PublicationFigureFont);
         state.ShowResidualGraph = residualGraphCheck.IsChecked == true;
         state.ShowResidualGraphGap = residualGapCheck.IsChecked == true;
         state.UnifyResidualGraphAxis = unifyResidualAxisCheck.IsChecked == true;
@@ -637,6 +661,20 @@ internal sealed class PreferencesWindow : Window
             ? MaximumIterationValues[SliderIndex(maximumIterationsSlider, MaximumIterationValues.Length)]
             : loadedMaximumIterations;
         maximumIterationsValueLabel.Text = value.ToString("N0", CultureInfo.CurrentCulture);
+    }
+
+    void UpdatePublicationFontResolution()
+    {
+        try
+        {
+            var selected = Value(publicationFontCombo, PublicationFont.Native);
+            var resolved = SkiaPublicationFontResolver.Shared.Resolve(selected);
+            publicationFontResolutionText.Text = $"Resolved on this computer: {resolved.ResolutionDescription}";
+        }
+        catch (Exception ex)
+        {
+            publicationFontResolutionText.Text = $"Could not resolve publication font: {ex.Message}";
+        }
     }
 
     void SetDiscreteSliderValue(Slider slider, int index)
@@ -952,6 +990,19 @@ internal sealed class PreferencesWindow : Window
         };
         AppTheme.Bind(label, TextBlock.ForegroundProperty, AppTheme.SecondaryText);
         return label;
+    }
+
+    static TextBlock Note()
+    {
+        var note = new TextBlock
+        {
+            Width = FormControlWidth,
+            FontSize = 11,
+            VerticalAlignment = VerticalAlignment.Center,
+            TextWrapping = TextWrapping.Wrap
+        };
+        AppTheme.Bind(note, TextBlock.ForegroundProperty, AppTheme.MutedText);
+        return note;
     }
 
     static Button Button(string text, double width)

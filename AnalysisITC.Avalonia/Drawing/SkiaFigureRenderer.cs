@@ -37,21 +37,35 @@ public sealed class SkiaFigureRenderer
     internal const float AnnotationTickClearance = 2f;
     internal const float AnnotationPaddingX = 6f;
     internal const float AnnotationPaddingY = 2f;
-    internal const float AnnotationLineSpacingFactor = 0.15f;
+    internal const float AnnotationLineAdvanceFactor = 1.15f;
     internal const float ResidualGraphGap = 5f;
+
+    readonly SkiaPublicationFontResolver fontResolver;
+
+    public SkiaFigureRenderer()
+        : this(SkiaPublicationFontResolver.Shared)
+    {
+    }
+
+    internal SkiaFigureRenderer(SkiaPublicationFontResolver fontResolver)
+    {
+        this.fontResolver = fontResolver ?? throw new ArgumentNullException(nameof(fontResolver));
+    }
 
     internal static float VerticalAxisTitleOffset(float fontSize)
         => Math.Max(VerticalAxisTitleMinimumOffset, fontSize * VerticalAxisTitleOffsetFontFraction);
 
     public SKSize GetPageSize(PublicationFigureDocument document)
     {
-        var layout = PublicationFigureLayout.Create(document);
+        var fonts = ResolveFontSet(document);
+        var layout = PublicationFigureLayout.Create(document, fonts);
         return new SKSize(layout.PageWidth, layout.PageHeight);
     }
 
     public SKBitmap RenderBitmap(PublicationFigureDocument document, int maxPixelWidth, int maxPixelHeight = 0)
     {
-        var layout = PublicationFigureLayout.Create(document);
+        var fonts = ResolveFontSet(document);
+        var layout = PublicationFigureLayout.Create(document, fonts);
         var width = Math.Max(320, maxPixelWidth);
         var height = maxPixelHeight > 0
             ? Math.Max(320, maxPixelHeight)
@@ -73,7 +87,7 @@ public sealed class SkiaFigureRenderer
         using var canvas = new SKCanvas(bitmap);
         canvas.Clear(White);
         canvas.Scale(width / layout.PageWidth, height / layout.PageHeight);
-        DrawDocument(canvas, document, layout, PublicationFigureRenderSettings.Default);
+        DrawDocument(canvas, document, layout, PublicationFigureRenderSettings.Default, fonts);
         canvas.Flush();
 
         return bitmap;
@@ -87,7 +101,8 @@ public sealed class SkiaFigureRenderer
 
     public void WritePdf(PublicationFigureDocument document, Stream stream)
     {
-        var layout = PublicationFigureLayout.Create(document);
+        var fonts = ResolveFontSet(document);
+        var layout = PublicationFigureLayout.Create(document, fonts);
         var metadata = new SKDocumentPdfMetadata
         {
             Title = document.Title,
@@ -99,14 +114,31 @@ public sealed class SkiaFigureRenderer
 
         using var pdf = SKDocument.CreatePdf(stream, metadata);
         var canvas = pdf.BeginPage(layout.PageWidth, layout.PageHeight);
-        DrawDocument(canvas, document, layout, PublicationFigureRenderSettings.Default);
+        DrawDocument(canvas, document, layout, PublicationFigureRenderSettings.Default, fonts);
         pdf.EndPage();
         pdf.Close();
     }
 
-    internal void DrawDocument(SKCanvas canvas, PublicationFigureDocument document, PublicationFigureLayout layout, PublicationFigureRenderSettings settings)
+    internal SkiaPublicationFontSet ResolveFontSet(PublicationFigureDocument document)
     {
-        var drawing = new SkiaDrawingContext(canvas);
+        if (document == null) throw new ArgumentNullException(nameof(document));
+        return ResolveFontSet(document.Options);
+    }
+
+    internal SkiaPublicationFontSet ResolveFontSet(PublicationFigureOptions options)
+    {
+        if (options == null) throw new ArgumentNullException(nameof(options));
+        return fontResolver.Resolve(options.Font);
+    }
+
+    internal void DrawDocument(
+        SKCanvas canvas,
+        PublicationFigureDocument document,
+        PublicationFigureLayout layout,
+        PublicationFigureRenderSettings settings,
+        SkiaPublicationFontSet fonts)
+    {
+        var drawing = new SkiaDrawingContext(canvas, fonts);
 
         drawing.FillRect(layout.PageRect, White);
 
@@ -311,7 +343,7 @@ public sealed class SkiaFigureRenderer
         var labelsAtTop = panel.XAxis.Placement == PublicationAxisPlacement.Top;
         var tickStart = labelsAtTop ? rect.Top : rect.Bottom;
         var tickDirection = labelsAtTop ? 1 : -1;
-        var tickLabelHeight = drawLabels ? MaxTickLabelHeight(panel.XAxis, fontSize) : 0;
+        var tickLabelHeight = drawLabels ? MaxTickLabelHeight(panel.XAxis, fontSize, drawing.Fonts) : 0;
         var strokeWidth = settings.StrokeWidth ?? TickStrokeWidth;
         var majorTickLength = settings.MajorTickLength ?? TickLength;
         var minorTickLength = settings.MinorTickLength ?? MinorTickLength;
@@ -394,12 +426,12 @@ public sealed class SkiaFigureRenderer
     {
         if (box.Lines.Count == 0) return;
 
-        var widths = box.Lines.Select(line => drawing.MeasureRichText(line, fontSize).Width).ToList();
-        var lineHeight = fontSize;
-        var lineGap = fontSize * AnnotationLineSpacingFactor;
+        var measurements = box.Lines.Select(line => drawing.MeasureRichTextMetrics(line, fontSize)).ToList();
+        var textLayout = CalculateAnnotationTextLayout(measurements, fontSize);
         var paddingx = AnnotationPaddingX * fontSize / 12f;
-        var width = widths.Max() + paddingx * 2;
-        var height = box.Lines.Count * lineHeight + (box.Lines.Count - 1) * lineGap + AnnotationPaddingY * 2;
+        var paddingy = AnnotationPaddingY * fontSize / 12f;
+        var width = measurements.Max(measurement => measurement.Width) + paddingx * 2;
+        var height = textLayout.Bottom - textLayout.Top + paddingy * 2;
         var upper = ResolveBoxUpperPlacement(panel, box);
         var inset = majorTickLength + AnnotationTickClearance;
         var x = rect.Right - width - inset;
@@ -409,12 +441,30 @@ public sealed class SkiaFigureRenderer
         drawing.FillRect(boxRect, AnnotationBackground);
         drawing.DrawRect(boxRect, AnnotationBorder, strokeWidth);
 
-        var textY = y;// + AnnotationPaddingY;
-        foreach (var line in box.Lines)
+        var firstBaseline = y + paddingy - textLayout.Top;
+        for (var index = 0; index < box.Lines.Count; index++)
         {
-            drawing.DrawRichText(line, new SKPoint(x + paddingx, textY), fontSize, Black);
-            textY += lineHeight + lineGap;
+            var textTop = firstBaseline + index * textLayout.LineAdvance + measurements[index].Top;
+            drawing.DrawRichText(box.Lines[index], new SKPoint(x + paddingx, textTop), fontSize, Black);
         }
+    }
+
+    internal static (float Top, float Bottom, float LineAdvance) CalculateAnnotationTextLayout(
+        IReadOnlyList<SkiaDrawingContext.RichTextMeasurement> measurements,
+        float fontSize)
+    {
+        if (measurements == null) throw new ArgumentNullException(nameof(measurements));
+        if (measurements.Count == 0) return (0, 0, fontSize * AnnotationLineAdvanceFactor);
+
+        var lineAdvance = fontSize * AnnotationLineAdvanceFactor;
+        var top = measurements
+            .Select((measurement, index) => measurement.Top + index * lineAdvance)
+            .Min();
+        var bottom = measurements
+            .Select((measurement, index) => measurement.Bottom + index * lineAdvance)
+            .Max();
+
+        return (top, bottom, lineAdvance);
     }
 
     static bool ResolveBoxUpperPlacement(PublicationFigurePanel panel, PublicationAnnotationBox box)
@@ -467,18 +517,18 @@ public sealed class SkiaFigureRenderer
         return !double.IsNaN(value) && !double.IsInfinity(value);
     }
 
-    internal static float MaxTickLabelWidth(PublicationAxis axis, float fontSize)
+    internal static float MaxTickLabelWidth(PublicationAxis axis, float fontSize, SkiaPublicationFontSet fonts)
     {
         return axis.MajorTicks.Count == 0
             ? 0
-            : axis.MajorTicks.Max(tick => SkiaDrawingContext.MeasureTextValue(axis.FormatTick(tick), fontSize).Width);
+            : axis.MajorTicks.Max(tick => SkiaDrawingContext.MeasureTextValue(axis.FormatTick(tick), fontSize, fonts).Width);
     }
 
-    internal static float MaxTickLabelHeight(PublicationAxis axis, float fontSize)
+    internal static float MaxTickLabelHeight(PublicationAxis axis, float fontSize, SkiaPublicationFontSet fonts)
     {
         return axis.MajorTicks.Count == 0
             ? 0
-            : axis.MajorTicks.Max(tick => SkiaDrawingContext.MeasureTextValue(axis.FormatTick(tick), fontSize).Height);
+            : axis.MajorTicks.Max(tick => SkiaDrawingContext.MeasureTextValue(axis.FormatTick(tick), fontSize, fonts).Height);
     }
 }
 
@@ -516,14 +566,14 @@ sealed class PublicationFigureLayout
     public SKRect FitRect { get; private set; }
     public SKRect ResidualRect { get; private set; }
 
-    public static PublicationFigureLayout Create(PublicationFigureDocument document)
+    public static PublicationFigureLayout Create(PublicationFigureDocument document, SkiaPublicationFontSet fonts)
     {
         var plotWidth = (float)Math.Max(120, document.PlotWidth);
         var configuredPlotHeight = (float)Math.Max(160, document.PlotHeight);
-        var leftMargin = RequiredLeftMargin(document);
+        var leftMargin = RequiredLeftMargin(document, fonts);
         var rightMargin = RequiredRightMargin(document);
-        var topMargin = RequiredTopMargin(document);
-        var bottomMargin = RequiredBottomMargin(document);
+        var topMargin = RequiredTopMargin(document, fonts);
+        var bottomMargin = RequiredBottomMargin(document, fonts);
         return Create(document, plotWidth, configuredPlotHeight, leftMargin, rightMargin, topMargin, bottomMargin, 0, 0, preserveFitOnlyHalfHeight: true);
     }
 
@@ -601,57 +651,82 @@ sealed class PublicationFigureLayout
         };
     }
 
-    public static float RequiredLeftMargin(PublicationFigureDocument document)
-        => RequiredLeftMargin(document, true, document.Options.ShowAxisTitles, (float)document.Options.FontSize);
+    public static float RequiredLeftMargin(PublicationFigureDocument document, SkiaPublicationFontSet fonts)
+        => RequiredLeftMargin(document, true, document.Options.ShowAxisTitles, (float)document.Options.FontSize, fonts);
 
-    public static float RequiredLeftMargin(PublicationFigureDocument document, bool showTickLabels, bool showAxisTitle, float fontSize)
+    public static float RequiredLeftMargin(
+        PublicationFigureDocument document,
+        bool showTickLabels,
+        bool showAxisTitle,
+        float fontSize,
+        SkiaPublicationFontSet fonts)
     {
         return document.Panels
-            .Select(panel => EstimateVerticalAxisMargin(panel.YAxis, showTickLabels, showAxisTitle && document.Options.ShowAxisTitles, fontSize))
+            .Select(panel => EstimateVerticalAxisMargin(panel.YAxis, showTickLabels, showAxisTitle && document.Options.ShowAxisTitles, fontSize, fonts))
             .DefaultIfEmpty(SkiaFigureRenderer.PageInset)
             .Max();
     }
 
     public static float RequiredRightMargin(PublicationFigureDocument document) => SkiaFigureRenderer.PageInset;
-    public static float RequiredTopMargin(PublicationFigureDocument document)
-        => RequiredTopMargin(document, true, document.Options.ShowAxisTitles, (float)document.Options.FontSize);
+    public static float RequiredTopMargin(PublicationFigureDocument document, SkiaPublicationFontSet fonts)
+        => RequiredTopMargin(document, true, document.Options.ShowAxisTitles, (float)document.Options.FontSize, fonts);
 
-    public static float RequiredTopMargin(PublicationFigureDocument document, bool showTickLabels, bool showAxisTitle, float fontSize)
+    public static float RequiredTopMargin(
+        PublicationFigureDocument document,
+        bool showTickLabels,
+        bool showAxisTitle,
+        float fontSize,
+        SkiaPublicationFontSet fonts)
     {
         return document.ThermogramPanel != null
-            ? EstimateHorizontalAxisMargin(document.ThermogramPanel.XAxis, showTickLabels, showAxisTitle && document.Options.ShowAxisTitles, fontSize)
+            ? EstimateHorizontalAxisMargin(document.ThermogramPanel.XAxis, showTickLabels, showAxisTitle && document.Options.ShowAxisTitles, fontSize, fonts)
             : SkiaFigureRenderer.PageInset;
     }
 
-    public static float RequiredBottomMargin(PublicationFigureDocument document)
-        => RequiredBottomMargin(document, true, document.Options.ShowAxisTitles, (float)document.Options.FontSize);
+    public static float RequiredBottomMargin(PublicationFigureDocument document, SkiaPublicationFontSet fonts)
+        => RequiredBottomMargin(document, true, document.Options.ShowAxisTitles, (float)document.Options.FontSize, fonts);
 
-    public static float RequiredBottomMargin(PublicationFigureDocument document, bool showTickLabels, bool showAxisTitle, float fontSize)
+    public static float RequiredBottomMargin(
+        PublicationFigureDocument document,
+        bool showTickLabels,
+        bool showAxisTitle,
+        float fontSize,
+        SkiaPublicationFontSet fonts)
     {
         var axis = document.ResidualPanel?.XAxis ?? document.FitPanel?.XAxis;
         return axis != null
-            ? EstimateHorizontalAxisMargin(axis, showTickLabels, showAxisTitle && document.Options.ShowAxisTitles, fontSize)
+            ? EstimateHorizontalAxisMargin(axis, showTickLabels, showAxisTitle && document.Options.ShowAxisTitles, fontSize, fonts)
             : SkiaFigureRenderer.PageInset;
     }
 
-    static float EstimateHorizontalAxisMargin(PublicationAxis axis, bool showTickLabels, bool showAxisTitle, float fontSize)
+    static float EstimateHorizontalAxisMargin(
+        PublicationAxis axis,
+        bool showTickLabels,
+        bool showAxisTitle,
+        float fontSize,
+        SkiaPublicationFontSet fonts)
     {
         var tickMargin = showTickLabels
-            ? SkiaFigureRenderer.AxisLabelVerticalOffset + SkiaFigureRenderer.MaxTickLabelHeight(axis, fontSize)
+            ? SkiaFigureRenderer.AxisLabelVerticalOffset + SkiaFigureRenderer.MaxTickLabelHeight(axis, fontSize, fonts)
             : 0;
         var titleMargin = showAxisTitle && !string.IsNullOrWhiteSpace(axis.Title)
-            ? SkiaFigureRenderer.HorizontalAxisTitleOffset + SkiaDrawingContext.MeasureTextValue(axis.Title, fontSize + 1).Height
+            ? SkiaFigureRenderer.HorizontalAxisTitleOffset + SkiaDrawingContext.MeasureTextValue(axis.Title, fontSize + 1, fonts).Height
             : 0;
         return Math.Max(SkiaFigureRenderer.PageInset, tickMargin + titleMargin);
     }
 
-    static float EstimateVerticalAxisMargin(PublicationAxis axis, bool showTickLabels, bool showAxisTitle, float fontSize)
+    static float EstimateVerticalAxisMargin(
+        PublicationAxis axis,
+        bool showTickLabels,
+        bool showAxisTitle,
+        float fontSize,
+        SkiaPublicationFontSet fonts)
     {
         var tickMargin = showTickLabels
-            ? SkiaFigureRenderer.AxisLabelHorizontalOffset * fontSize / 12f + SkiaFigureRenderer.MaxTickLabelWidth(axis, fontSize)
+            ? SkiaFigureRenderer.AxisLabelHorizontalOffset * fontSize / 12f + SkiaFigureRenderer.MaxTickLabelWidth(axis, fontSize, fonts)
             : 0;
         var titleMargin = showAxisTitle && !string.IsNullOrWhiteSpace(axis.Title)
-            ? SkiaFigureRenderer.PageInset + SkiaFigureRenderer.VerticalAxisTitleOffset(fontSize) + SkiaDrawingContext.MeasureTextValue(axis.Title, fontSize + 1).Height
+            ? SkiaFigureRenderer.PageInset + SkiaFigureRenderer.VerticalAxisTitleOffset(fontSize) + SkiaDrawingContext.MeasureTextValue(axis.Title, fontSize + 1, fonts).Height
             : 0;
         return Math.Max(SkiaFigureRenderer.PageInset, tickMargin + titleMargin);
     }
@@ -660,11 +735,15 @@ sealed class PublicationFigureLayout
 sealed class SkiaDrawingContext
 {
     readonly SKCanvas canvas;
+    readonly SkiaPublicationFontSet fonts;
 
-    public SkiaDrawingContext(SKCanvas canvas)
+    public SkiaDrawingContext(SKCanvas canvas, SkiaPublicationFontSet fonts)
     {
-        this.canvas = canvas;
+        this.canvas = canvas ?? throw new ArgumentNullException(nameof(canvas));
+        this.fonts = fonts ?? throw new ArgumentNullException(nameof(fonts));
     }
+
+    internal SkiaPublicationFontSet Fonts => fonts;
 
     public void Save() => canvas.Save();
 
@@ -793,13 +872,18 @@ sealed class SkiaDrawingContext
 
     public SKSize MeasureText(string text, float size, bool bold = false, bool italic = false)
     {
-        return MeasureTextValue(text, size, bold, italic);
+        return MeasureTextValue(text, size, fonts, bold, italic);
     }
 
-    public static SKSize MeasureTextValue(string text, float size, bool bold = false, bool italic = false)
+    public static SKSize MeasureTextValue(
+        string text,
+        float size,
+        SkiaPublicationFontSet fonts,
+        bool bold = false,
+        bool italic = false)
     {
         using var paint = TextPaint(SKColors.Black);
-        using var font = TextFont(size, bold, italic);
+        using var font = fonts.CreateFont(size, bold, italic);
         var width = font.MeasureText(text ?? "", paint);
         var metrics = font.Metrics;
 
@@ -808,10 +892,12 @@ sealed class SkiaDrawingContext
 
     public void DrawRichText(string text, SKPoint topLeft, float size, SKColor color)
     {
+        var parts = RichTextParts(text, size).ToList();
+        var measurement = MeasureRichTextParts(parts, size);
         var x = topLeft.X;
-        var baseline = topLeft.Y + size;
+        var baseline = topLeft.Y - measurement.Top;
 
-        foreach (var part in RichTextParts(text, size))
+        foreach (var part in parts)
         {
             using var paint = TextPaint(color);
             using var font = TextFont(part.Size, part.Bold, part.Italic);
@@ -822,20 +908,38 @@ sealed class SkiaDrawingContext
 
     public SKSize MeasureRichText(string text, float size)
     {
-        return MeasureRichTextValue(text, size);
+        var measurement = MeasureRichTextMetrics(text, size);
+        return new SKSize(measurement.Width, measurement.Height);
     }
 
-    public static SKSize MeasureRichTextValue(string text, float size)
+    internal RichTextMeasurement MeasureRichTextMetrics(string text, float size)
+        => MeasureRichTextParts(RichTextParts(text, size).ToList(), size);
+
+    RichTextMeasurement MeasureRichTextParts(IReadOnlyList<RichTextPart> parts, float defaultSize)
     {
         var width = 0f;
-        var height = size * 1.25f;
+        var top = float.PositiveInfinity;
+        var bottom = float.NegativeInfinity;
 
-        foreach (var part in RichTextParts(text, size))
+        foreach (var part in parts)
         {
-            width += MeasureTextValue(part.Text, part.Size, part.Bold, part.Italic).Width;
+            using var paint = TextPaint(SKColors.Black);
+            using var font = TextFont(part.Size, part.Bold, part.Italic);
+            var metrics = font.Metrics;
+            width += font.MeasureText(part.Text, paint);
+            top = Math.Min(top, metrics.Ascent + part.BaselineOffset);
+            bottom = Math.Max(bottom, metrics.Descent + part.BaselineOffset);
         }
 
-        return new SKSize(width, height);
+        if (parts.Count == 0)
+        {
+            using var font = TextFont(defaultSize, bold: false, italic: false);
+            var metrics = font.Metrics;
+            top = metrics.Ascent;
+            bottom = metrics.Descent;
+        }
+
+        return new RichTextMeasurement(width, top, bottom);
     }
 
     static IEnumerable<RichTextPart> RichTextParts(string text, float size)
@@ -897,25 +1001,7 @@ sealed class SkiaDrawingContext
         };
     }
 
-    static SKFont TextFont(float size, bool bold, bool italic)
-    {
-        var font = new SKFont(TextTypeface, size)
-        {
-            Embolden = bold,
-            SkewX = italic ? -0.25f : 0
-        };
-
-        return font;
-    }
-
-    static readonly SKTypeface TextTypeface = CreateTextTypeface();
-
-    static SKTypeface CreateTextTypeface()
-    {
-        return SKTypeface.FromFamilyName("Helvetica Neue", SKFontStyleWeight.Light, SKFontStyleWidth.Normal, SKFontStyleSlant.Upright)
-            ?? SKTypeface.FromFamilyName("Helvetica Neue")
-            ?? SKTypeface.Default;
-    }
+    SKFont TextFont(float size, bool bold, bool italic) => fonts.CreateFont(size, bold, italic);
 
     static SKPath InterpolatedPath(IReadOnlyList<SKPoint> points, LineSmoothness smoothness)
     {
@@ -965,5 +1051,20 @@ sealed class SkiaDrawingContext
         public bool Bold { get; }
         public bool Italic { get; }
         public float BaselineOffset { get; }
+    }
+
+    internal readonly struct RichTextMeasurement
+    {
+        public RichTextMeasurement(float width, float top, float bottom)
+        {
+            Width = width;
+            Top = top;
+            Bottom = bottom;
+        }
+
+        public float Width { get; }
+        public float Top { get; }
+        public float Bottom { get; }
+        public float Height => Math.Max(0, Bottom - Top);
     }
 }

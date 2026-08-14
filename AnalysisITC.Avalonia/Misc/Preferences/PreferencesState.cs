@@ -58,6 +58,7 @@ internal sealed class PreferencesState
     public bool ExportFitPointsWithPeaks { get; set; }
     public double FinalFigureWidthCentimeters { get; set; }
     public double FinalFigureHeightCentimeters { get; set; }
+    public PublicationFont PublicationFigureFont { get; set; }
     public bool ShowResidualGraph { get; set; }
     public bool ShowResidualGraphGap { get; set; }
     public bool UnifyResidualGraphAxis { get; set; }
@@ -119,6 +120,7 @@ internal sealed class PreferencesState
             ExportFitPointsWithPeaks = AppSettings.ExportFitPointsWithPeaks,
             FinalFigureWidthCentimeters = AppSettings.FinalFigureDimensions.Length > 0 ? AppSettings.FinalFigureDimensions[0] : 6.5,
             FinalFigureHeightCentimeters = AppSettings.FinalFigureDimensions.Length > 1 ? AppSettings.FinalFigureDimensions[1] : 10.0,
+            PublicationFigureFont = AppSettings.PublicationFigureFont,
             ShowResidualGraph = AppSettings.ShowResidualGraph,
             ShowResidualGraphGap = AppSettings.ShowResidualGraphGap,
             UnifyResidualGraphAxis = AppSettings.UnifyResidualGraphAxis,
@@ -182,6 +184,7 @@ internal sealed class PreferencesState
             ExportFitPointsWithPeaks = true,
             FinalFigureWidthCentimeters = 6.5,
             FinalFigureHeightCentimeters = 10.0,
+            PublicationFigureFont = PublicationFont.Native,
             ShowResidualGraph = true,
             ShowResidualGraphGap = true,
             UnifyResidualGraphAxis = false,
@@ -244,6 +247,7 @@ internal sealed class PreferencesState
         AppSettings.ExportBaselineCorrectedData = ExportBaselineCorrectedData;
         AppSettings.ExportFitPointsWithPeaks = ExportFitPointsWithPeaks;
         AppSettings.FinalFigureDimensions = new[] { FinalFigureWidthCentimeters, FinalFigureHeightCentimeters };
+        AppSettings.PublicationFigureFont = PublicationFigureFont;
         AppSettings.ShowResidualGraph = ShowResidualGraph;
         AppSettings.ShowResidualGraphGap = ShowResidualGraphGap;
         AppSettings.UnifyResidualGraphAxis = UnifyResidualGraphAxis;

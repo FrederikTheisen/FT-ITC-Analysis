@@ -18,8 +18,18 @@
     <EmbeddedResource Include="..\Resources\appicon.ico" LogicalName="AnalysisITC.Avalonia.Resources.appicon.ico" />
     <EmbeddedResource Include="..\Resources\HelpTextResource.txt" LogicalName="AnalysisITC.Avalonia.Resources.HelpTextResource.txt" />
     <EmbeddedResource Include="..\Resources\ScienceHelpResource.txt" LogicalName="AnalysisITC.Avalonia.Resources.ScienceHelpResource.txt" />
+    <EmbeddedResource Include="Assets\Fonts\Inter\Inter-Light.ttf" LogicalName="AnalysisITC.Avalonia.Assets.Fonts.Inter.Inter-Light.ttf" />
+    <EmbeddedResource Include="Assets\Fonts\Inter\Inter-LightItalic.ttf" LogicalName="AnalysisITC.Avalonia.Assets.Fonts.Inter.Inter-LightItalic.ttf" />
+    <EmbeddedResource Include="Assets\Fonts\Inter\Inter-Medium.ttf" LogicalName="AnalysisITC.Avalonia.Assets.Fonts.Inter.Inter-Medium.ttf" />
+    <EmbeddedResource Include="Assets\Fonts\Inter\Inter-MediumItalic.ttf" LogicalName="AnalysisITC.Avalonia.Assets.Fonts.Inter.Inter-MediumItalic.ttf" />
+    <EmbeddedResource Include="Assets\Fonts\LiberationSans\LiberationSans-Regular.ttf" LogicalName="AnalysisITC.Avalonia.Assets.Fonts.LiberationSans.LiberationSans-Regular.ttf" />
+    <EmbeddedResource Include="Assets\Fonts\LiberationSans\LiberationSans-Italic.ttf" LogicalName="AnalysisITC.Avalonia.Assets.Fonts.LiberationSans.LiberationSans-Italic.ttf" />
+    <EmbeddedResource Include="Assets\Fonts\LiberationSans\LiberationSans-Bold.ttf" LogicalName="AnalysisITC.Avalonia.Assets.Fonts.LiberationSans.LiberationSans-Bold.ttf" />
+    <EmbeddedResource Include="Assets\Fonts\LiberationSans\LiberationSans-BoldItalic.ttf" LogicalName="AnalysisITC.Avalonia.Assets.Fonts.LiberationSans.LiberationSans-BoldItalic.ttf" />
     <Content Include="..\Resources\AppIcon.icns" Link="Resources\AppIcon.icns" CopyToOutputDirectory="PreserveNewest" />
     <Content Include="..\citation.json" Link="citation.json" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="Assets\Fonts\Licenses\*.txt" Link="Licenses\Fonts\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="Assets\Fonts\PROVENANCE.md" Link="Licenses\Fonts\PROVENANCE.md" CopyToOutputDirectory="PreserveNewest" />
     <PackageReference Include="Avalonia" Version="12.0.5" />
     <PackageReference Include="Avalonia.Desktop" Version="12.0.5" />
     <PackageReference Include="Avalonia.Skia" Version="12.0.5" />
