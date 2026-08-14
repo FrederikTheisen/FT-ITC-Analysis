@@ -158,13 +158,17 @@ namespace AnalysisITC.Core.Tests
         [Fact]
         public async Task ProjectsSavedParameterLocksSeparatelyFromDerivedParameters()
         {
-            var project = File.ReadAllText(Fixture("one-set.ftitc"));
+            // Git commonly checks text fixtures out with CRLF on Windows. Exercise
+            // that form explicitly so the lock insertion cannot silently miss it.
+            var project = File.ReadAllText(Fixture("one-set.ftitc")).ReplaceLineEndings("\r\n");
+            var originalProject = project;
             project = Regex.Replace(
                 project,
-                "(?m)^(Nvalue1:[0-9]+:[^:\\r\\n]+)$",
+                "(?m)^(Nvalue1:[0-9]+:[^:\\r\\n]+)(?=\\r?$)",
                 "$1:1",
                 RegexOptions.None,
                 TimeSpan.FromSeconds(1));
+            Assert.NotEqual(originalProject, project);
             using var stream = TextStream(project);
 
             var document = await reader.ReadAsync(stream, "locked.ftitc", ViewerFileFormat.Ftitc);
