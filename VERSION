@@ -1,5 +1,8 @@
 ##VERSION 1.x.0 PAPER PUBLICATION RELEASE VERSION
 
+##VERSION 1.4.3
+macos: fixed list view highlight scroll issue
+
 #VERSION 1.4.2
 macOS: updated preferences user interface
 cross: improved workflow graph printing
