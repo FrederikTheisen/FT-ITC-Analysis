@@ -33,9 +33,9 @@ The macOS application is signed and notarized.
 
 ### Linux
 
-1. Download the Debian package for your architecture (`amd64` or `arm64`) from
+1. Download the Debian package for your architecture from
    the [latest release](https://github.com/FrederikTheisen/FT-ITC-Analysis/releases/latest).
-2. Install it with `sudo apt install ./ft-itc-analysis_<version>_<architecture>.deb`.
+2. Install it with `sudo apt install ./ft-itc-analysis_<version>_amd64.deb`.
 3. Launch **FT-ITC Analysis** from the application menu.
 
 ### Windows
