@@ -73,6 +73,26 @@ pointer to the full licence text.
   copyright notice and licence terms are included in any copies or substantial
   portions of the software.  The library is provided without warranty.
 
+### Inter 4.1 (SIL Open Font License 1.1)
+
+* **Bundled files:** hinted static Light, Light Italic, Medium and Medium
+  Italic TrueType faces
+* **Licence:** SIL Open Font License Version 1.1
+* **Summary:** Inter is bundled privately for publication-figure rendering.
+  The source release and file hashes are recorded in
+  `Licenses/Fonts/PROVENANCE.md`; the complete licence and copyright notice
+  are shipped as `Licenses/Fonts/Inter-OFL.txt`.
+
+### Liberation Sans 2.1.5 (SIL Open Font License 1.1)
+
+* **Bundled files:** Regular, Italic, Bold and Bold Italic TrueType faces
+* **Licence:** SIL Open Font License Version 1.1
+* **Summary:** Liberation Sans is bundled privately as the reproducible
+  Arial-compatible publication font and deterministic native fallback.  The
+  source release and file hashes are recorded in
+  `Licenses/Fonts/PROVENANCE.md`; the complete licence and copyright notice
+  are shipped as `Licenses/Fonts/LiberationSans-OFL.txt`.
+
 ### System and Microsoft packages
 
 This project depends on many packages with names beginning with `System.` or
