@@ -22,14 +22,13 @@ namespace AnalysisITC.UI.MacOS
 {
     public static class MacSupport
 	{
-        static readonly string constant = "102114101100101114105107116104101105115101110064103109097105108046099111109";
         static readonly Dictionary<IntPtr, SupportShareSession> ActiveShareSessions = new Dictionary<IntPtr, SupportShareSession>();
         const string SupportReportPrefix = "ft-itc-support-report-";
 
         internal static string VersionString => AppVersion.FullVersionString;
 
         internal static string OperatingSystem => NSProcessInfo.ProcessInfo.OperatingSystemVersionString;
-        internal static string SupportAddress => GetSupportAddress();
+        internal static string SupportAddress => SupportReportBuilder.SupportAddress;
 
         public static readonly DateTime AppStartTime = DateTime.Now;
 
@@ -232,20 +231,6 @@ namespace AnalysisITC.UI.MacOS
             {
                 alert.RunModal();
             }
-        }
-
-        static string GetSupportAddress()
-        {
-            string recipient = "";
-            var _con = constant;
-            while (_con.Length > 0)
-            {
-                var c = int.Parse(_con.Substring(0, 3));
-                _con = _con.Substring(3);
-                recipient += (char)c;
-            }
-
-            return recipient;
         }
 
         sealed class SupportShareSession

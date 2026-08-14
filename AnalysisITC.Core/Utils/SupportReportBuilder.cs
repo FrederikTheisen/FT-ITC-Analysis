@@ -6,11 +6,9 @@ namespace AnalysisITC.Core.Application
 {
     public static class SupportReportBuilder
     {
-        static readonly string EncodedSupportAddress = "102114101100101114105107116104101105115101110064103109097105108046099111109";
-
         public static DateTime AppStartTime { get; } = DateTime.Now;
 
-        public static string SupportAddress => DecodeSupportAddress();
+        public static string SupportAddress => "support@ft-itc.org";
 
         public static string BuildEmailBody()
         {
@@ -55,21 +53,6 @@ namespace AnalysisITC.Core.Application
             builder.Append(AppEventHandler.GetLogReport());
 
             return builder.ToString();
-        }
-
-        static string DecodeSupportAddress()
-        {
-            var address = new StringBuilder();
-            var encoded = EncodedSupportAddress;
-
-            while (encoded.Length >= 3)
-            {
-                var c = int.Parse(encoded.Substring(0, 3));
-                encoded = encoded.Substring(3);
-                address.Append((char)c);
-            }
-
-            return address.ToString();
         }
     }
 }
