@@ -1,0 +1,19 @@
+cff-version: 1.2.0
+message: >-
+  If you use FT-ITC Analysis in your work, please cite the software using the
+  metadata below.
+title: FT-ITC Analysis
+type: software
+authors:
+  - family-names: Theisen
+    given-names: Frederik Friis
+version: 1.4.2
+date-released: 2026-08-13
+doi: 10.5281/zenodo.21919400
+identifiers:
+  - type: doi
+    value: 10.5281/zenodo.14832177
+    description: Zenodo concept DOI for all versions
+repository-code: https://github.com/FrederikTheisen/FT-ITC-Analysis
+url: https://ft-itc.org
+license: MIT
