@@ -64,7 +64,7 @@ On the Windows computer:
 ```powershell
 Set-Location "$env:USERPROFILE\source\FT-ITC-Analysis"
 git fetch --tags
-git switch --detach "v1.4.2" # replace with the release version
+git switch --detach "v1.4.3" # replace with the release version
 git status --short
 git describe --tags --exact-match
 ```

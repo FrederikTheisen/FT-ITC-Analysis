@@ -1,7 +1,10 @@
 ##VERSION 1.x.0 PAPER PUBLICATION RELEASE VERSION
 
 ##VERSION 1.4.3
+updated support information
 macos: fixed list view highlight scroll issue
+cross: fixed missing font resource issue
+
 
 #VERSION 1.4.2
 macOS: updated preferences user interface
