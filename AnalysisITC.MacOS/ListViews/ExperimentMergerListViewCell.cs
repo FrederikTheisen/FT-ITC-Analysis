@@ -46,9 +46,6 @@ namespace AnalysisITC
 
         public event EventHandler<int> MoveUp;
         public event EventHandler<int> MoveDown;
-        public event EventHandler<int> ToggleActive;
-        public event EventHandler<int> Remove;
-
         public int Index => row;
 
         public bool IsActive => source.Items[Index].IsActive;
