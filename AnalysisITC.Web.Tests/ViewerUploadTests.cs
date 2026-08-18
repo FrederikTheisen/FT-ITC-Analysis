@@ -69,6 +69,9 @@ public sealed class ViewerUploadTests : IClassFixture<WebApplicationFactory<Prog
 
         Assert.True(page.Headers.CacheControl?.NoStore);
         Assert.Equal("2026.08.11-ftxtc.1.3", page.Headers.GetValues("X-FTITC-Viewer-Build").Single());
+        Assert.Contains("name=\"description\" content=\"Open and review FT-ITC Analysis project files in your browser.", html);
+        Assert.Contains("property=\"og:title\" content=\"FT-ITC Analysis Viewer\"", html);
+        Assert.Contains("name=\"twitter:card\" content=\"summary\"", html);
         Assert.Contains("id=\"experiment-list\"", html);
         Assert.Contains("id=\"result-list\"", html);
         Assert.Contains("processed transiently on the server", html);
