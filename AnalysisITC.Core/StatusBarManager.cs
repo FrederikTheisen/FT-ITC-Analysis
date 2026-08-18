@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -237,18 +238,33 @@ namespace AnalysisITC.Core.Application
             Progress = -1;
         }
 
-        public static void SetSavingFileMessage()
+        public static void SetSavingFileMessage(string path)
         {
             StartInderminateProgress();
 
-            SetStatus("Saving File...");
+            SetStatus($"Saving {FileDisplayName(path)}…", 0);
         }
 
         public static void SetFileSaveSuccessfulMessage(string path)
         {
             ClearAppStatus();
 
-            SetStatusScrolling("File Saved: " + path);
+            SetStatus($"Saved {FileDisplayName(path)}", 3000);
+        }
+
+        public static void SetFileSaveFailedMessage(string path)
+        {
+            ClearAppStatus();
+
+            SetStatus($"Couldn’t save {FileDisplayName(path)}", 5000);
+        }
+
+        static string FileDisplayName(string path)
+        {
+            if (string.IsNullOrWhiteSpace(path)) return "file";
+
+            var fileName = Path.GetFileName(path);
+            return string.IsNullOrWhiteSpace(fileName) ? "file" : fileName;
         }
 
         static void PublishSecondaryStatus()

@@ -228,12 +228,7 @@ public partial class MainWindow : Window
     {
         if (selectedItem == null) return;
 
-        var saved = await ProjectWriter.SaveSelectedAsync(selectedItem);
-        if (saved)
-        {
-            var itemType = selectedItem is AnalysisResult ? "result" : "experiment";
-            StatusBarManager.SetStatus($"Selected {itemType} saved: {selectedItem.Name}", 3000);
-        }
+        await ProjectWriter.SaveSelectedAsync(selectedItem);
 
         UpdateDocumentStatus();
         RefreshMenuState();

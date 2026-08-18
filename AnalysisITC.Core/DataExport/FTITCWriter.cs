@@ -410,10 +410,11 @@ namespace AnalysisITC.Core.Export
 
             try
             {
+                StatusBarManager.SetSavingFileMessage(path);
                 await SaveGate.WaitAsync();
                 try
                 {
-                    await WriteFile(path, reportStatus: true);
+                    await WriteFile(path);
                 }
                 finally
                 {
@@ -423,11 +424,12 @@ namespace AnalysisITC.Core.Export
                 CurrentAccessedAppDocumentPath = path;
                 AppSettings.LastDocumentPath = path;
                 DocumentDirtyTracker.MarkClean();
+                StatusBarManager.SetFileSaveSuccessfulMessage(path);
                 return true;
             }
             catch (Exception ex)
             {
-                AppEventHandler.DisplayHandledException(ex);
+                ReportSaveFailure(path, ex);
                 return false;
             }
         }
@@ -439,28 +441,31 @@ namespace AnalysisITC.Core.Export
 
         public static async Task<bool> SaveWithPathAsync()
         {
-            if (string.IsNullOrWhiteSpace(CurrentAccessedAppDocumentPath))
+            var path = CurrentAccessedAppDocumentPath;
+            if (string.IsNullOrWhiteSpace(path))
             {
                 return false;
             }
 
             try
             {
+                StatusBarManager.SetSavingFileMessage(path);
                 await SaveGate.WaitAsync();
                 try
                 {
-                    await WriteFile(CurrentAccessedAppDocumentPath, reportStatus: true);
+                    await WriteFile(path);
                 }
                 finally
                 {
                     SaveGate.Release();
                 }
                 DocumentDirtyTracker.MarkClean();
+                StatusBarManager.SetFileSaveSuccessfulMessage(path);
                 return true;
             }
             catch (Exception ex)
             {
-                AppEventHandler.DisplayHandledException(ex);
+                ReportSaveFailure(path, ex);
                 return false;
             }
         }
@@ -479,11 +484,10 @@ namespace AnalysisITC.Core.Export
 
             try
             {
+                StatusBarManager.SetSavingFileMessage(path);
                 await SaveGate.WaitAsync();
                 try
                 {
-                    StatusBarManager.SetSavingFileMessage();
-
                     switch (data)
                     {
                         case ExperimentData experiment:
@@ -510,7 +514,7 @@ namespace AnalysisITC.Core.Export
             }
             catch (Exception ex)
             {
-                AppEventHandler.DisplayHandledException(ex);
+                ReportSaveFailure(path, ex);
                 return false;
             }
         }
@@ -541,14 +545,17 @@ namespace AnalysisITC.Core.Export
             }
         }
 
-        static async Task WriteFile(string path, bool reportStatus)
+        static async Task WriteFile(string path)
         {
-            if (reportStatus) StatusBarManager.SetSavingFileMessage();
-
             if (!IsFtxtcPath(path)) throw new InvalidOperationException("Projects can only be saved in native .ftxtc format.");
             await FTXTCWriter.WriteFileAsync(path, DataManager.Data, DataManager.Results);
+        }
 
-            if (reportStatus) StatusBarManager.SetFileSaveSuccessfulMessage(path);
+        static void ReportSaveFailure(string path, Exception exception)
+        {
+            AppEventHandler.DisplayHandledException(exception);
+            PlatformServices.MainThreadDispatcher.Invoke(() =>
+                StatusBarManager.SetFileSaveFailedMessage(path));
         }
 
         static bool IsFtxtcPath(string path) =>

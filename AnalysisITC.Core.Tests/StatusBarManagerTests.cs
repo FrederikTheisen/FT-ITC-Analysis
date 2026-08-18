@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Concurrent;
 using System.Diagnostics;
+using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 
@@ -23,6 +24,7 @@ namespace AnalysisITC.Core.Tests
 
         public StatusBarManagerTests()
         {
+            StatusBarManager.SetDefaultSecondaryStatus("");
             StatusBarManager.ClearAppStatus();
             StatusBarManager.StatusUpdated += OnStatusUpdated;
         }
@@ -31,6 +33,87 @@ namespace AnalysisITC.Core.Tests
         {
             StatusBarManager.StatusUpdated -= OnStatusUpdated;
             StatusBarManager.ClearAppStatus();
+            StatusBarManager.SetDefaultSecondaryStatus("");
+        }
+
+        [Fact]
+        public void SavingFileMessageUsesOnlyFileNameAndStartsIndeterminateProgress()
+        {
+            var path = Path.Combine("private-save-folder", "Project.ftxtc");
+
+            StatusBarManager.SetSavingFileMessage(path);
+
+            Assert.Contains("Saving Project.ftxtc…", statuses);
+            Assert.DoesNotContain(statuses, status => status.Contains("private-save-folder"));
+            Assert.Equal(-0.5, StatusBarManager.Progress);
+        }
+
+        [Fact]
+        public void SuccessfulFileMessageStopsProgressWithoutSuppressingDocumentStatus()
+        {
+            var path = Path.Combine("private-save-folder", "Project.ftxtc");
+            var secondaryStatuses = new ConcurrentQueue<string>();
+            EventHandler<string> secondaryHandler = (_, status) => secondaryStatuses.Enqueue(status);
+            StatusBarManager.SetDefaultSecondaryStatus("Project [M]");
+            StatusBarManager.SecondaryStatusUpdated += secondaryHandler;
+
+            try
+            {
+                StatusBarManager.SetSavingFileMessage(path);
+                StatusBarManager.SetFileSaveSuccessfulMessage(path);
+
+                Assert.Contains("Saved Project.ftxtc", statuses);
+                Assert.DoesNotContain(statuses, status => status.Contains("private-save-folder"));
+                Assert.Equal(-1, StatusBarManager.Progress);
+                Assert.NotEmpty(secondaryStatuses);
+                Assert.All(secondaryStatuses, status => Assert.Equal("Project [M]", status));
+            }
+            finally
+            {
+                StatusBarManager.SecondaryStatusUpdated -= secondaryHandler;
+            }
+        }
+
+        [Fact]
+        public void FailedFileMessageStopsProgressAndUsesOnlyFileName()
+        {
+            var path = Path.Combine("private-save-folder", "Project.ftxtc");
+
+            StatusBarManager.SetSavingFileMessage(path);
+            StatusBarManager.SetFileSaveFailedMessage(path);
+
+            Assert.Contains("Couldn’t save Project.ftxtc", statuses);
+            Assert.DoesNotContain(statuses, status => status.Contains("private-save-folder"));
+            Assert.Equal(-1, StatusBarManager.Progress);
+        }
+
+        [Fact]
+        public void FileSaveMessagesFallBackToGenericFileName()
+        {
+            StatusBarManager.SetSavingFileMessage("");
+            StatusBarManager.SetFileSaveSuccessfulMessage(" ");
+            StatusBarManager.SetFileSaveFailedMessage(null);
+
+            Assert.Contains("Saving file…", statuses);
+            Assert.Contains("Saved file", statuses);
+            Assert.Contains("Couldn’t save file", statuses);
+        }
+
+        [Theory]
+        [InlineData("Résumé Δ.ftxtc")]
+        [InlineData("A very long project filename used to verify status trimming behavior.ftxtc")]
+        public void FileSaveMessagesPreserveUserVisibleFileName(string fileName)
+        {
+            var path = Path.Combine("private-save-folder", fileName);
+
+            StatusBarManager.SetSavingFileMessage(path);
+            StatusBarManager.SetFileSaveSuccessfulMessage(path);
+            StatusBarManager.SetFileSaveFailedMessage(path);
+
+            Assert.Contains($"Saving {fileName}…", statuses);
+            Assert.Contains($"Saved {fileName}", statuses);
+            Assert.Contains($"Couldn’t save {fileName}", statuses);
+            Assert.DoesNotContain(statuses, status => status.Contains("private-save-folder"));
         }
 
         [Fact]

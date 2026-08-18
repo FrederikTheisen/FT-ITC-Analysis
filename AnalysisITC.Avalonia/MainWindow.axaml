@@ -414,6 +414,7 @@
         <Border Grid.Row="2" Background="{DynamicResource PanelBackground}" BorderBrush="{DynamicResource PanelBorder}" BorderThickness="0,1,0,0" Padding="8,4">
             <Grid ColumnDefinitions="*,Auto,Auto,Auto" RowDefinitions="20">
                 <TextBlock x:Name="StatusText"
+                           AutomationProperties.LiveSetting="Polite"
                            Foreground="{DynamicResource SecondaryText}"
                            TextTrimming="CharacterEllipsis"
                            VerticalAlignment="Center" />
