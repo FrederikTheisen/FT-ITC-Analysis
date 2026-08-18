@@ -67,8 +67,6 @@ namespace AnalysisITC
 
             ExperimentDetailsPopoverController.UpdateTable += ExperimentDetailsPopoverController_UpdateTable;
             BindingAnalysisViewController.UpdateTable += ExperimentDetailsPopoverController_UpdateTable;
-            ViewController.UpdateTable += ExperimentDetailsPopoverController_UpdateTable;
-
             AppSettings.SettingsDidUpdate += AppSettings_SettingsDidUpdate;
         }
 
@@ -361,8 +359,6 @@ namespace AnalysisITC
 
             ExperimentDetailsPopoverController.UpdateTable -= ExperimentDetailsPopoverController_UpdateTable;
             BindingAnalysisViewController.UpdateTable -= ExperimentDetailsPopoverController_UpdateTable;
-            ViewController.UpdateTable -= ExperimentDetailsPopoverController_UpdateTable;
-
             AppSettings.SettingsDidUpdate -= AppSettings_SettingsDidUpdate;
 
             if (TableView is ModifierClickTableView modifierClickTableView)

@@ -25,8 +25,6 @@ namespace AnalysisITC
 {
     public partial class ViewController : NSViewController
     {
-        public static event EventHandler UpdateTable;
-
         ExperimentData Data => DataManager.Current;
 
         NSScrollView LoadedInjectionScrollView;
