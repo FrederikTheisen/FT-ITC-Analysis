@@ -25,7 +25,6 @@ namespace AnalysisITC.Core.Application
         private static int secondaryStatusSuppressionCount;
         private static ProgressIndicatorEventData progressstate = new ProgressIndicatorEventData(1);
 
-        public static event EventHandler UpdateContextButton;
         public static event EventHandler<string> StatusUpdated;
         public static event EventHandler<string> SecondaryStatusUpdated;
         public static event EventHandler<ProgressIndicatorEventData> ProgressUpdate;
