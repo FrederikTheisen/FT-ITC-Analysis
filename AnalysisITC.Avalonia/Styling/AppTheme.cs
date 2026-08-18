@@ -1,6 +1,9 @@
+using System;
+
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Data;
+using Avalonia.Media;
 using Avalonia.Styling;
 
 namespace AnalysisITC.Avalonia.Styling;
@@ -29,6 +32,18 @@ internal static class AppTheme
     public const string ActiveToggleThumb = nameof(ActiveToggleThumb);
     public const string ListRowHoverBackground = nameof(ListRowHoverBackground);
     public const string ListActionHoverBackground = nameof(ListActionHoverBackground);
+    public const string UiBodyFontWeight = nameof(UiBodyFontWeight);
+
+    public static FontWeight BodyFontWeight => BodyFontWeightFor(OperatingSystem.IsWindows());
+
+    internal static FontWeight BodyFontWeightFor(bool isWindows)
+        => isWindows ? FontWeight.Medium : FontWeight.Normal;
+
+    internal static void RegisterUiTypography(IResourceDictionary resources, bool isWindows)
+    {
+        ArgumentNullException.ThrowIfNull(resources);
+        resources[UiBodyFontWeight] = BodyFontWeightFor(isWindows);
+    }
 
     public static void Bind(AvaloniaObject target, AvaloniaProperty property, string key)
     {

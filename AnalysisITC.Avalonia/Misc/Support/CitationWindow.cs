@@ -248,7 +248,7 @@ public sealed class CitationWindow : Window
         {
             Text = text,
             FontSize = size,
-            FontWeight = weight == default ? FontWeight.Normal : weight,
+            FontWeight = weight == default ? AppTheme.BodyFontWeight : weight,
             TextWrapping = TextWrapping.Wrap
         };
         AppTheme.Bind(textBlock, TextBlock.ForegroundProperty, resourceKey);

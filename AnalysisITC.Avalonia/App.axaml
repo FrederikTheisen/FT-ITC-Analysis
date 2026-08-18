@@ -12,6 +12,9 @@
     </Application.Resources>
     <Application.Styles>
         <FluentTheme />
+        <Style Selector="Window">
+            <Setter Property="FontWeight" Value="{DynamicResource UiBodyFontWeight}" />
+        </Style>
     </Application.Styles>
     <NativeMenu.Menu>
         <NativeMenu>

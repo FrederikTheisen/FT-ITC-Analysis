@@ -1339,7 +1339,7 @@ public partial class MainWindow : Window
             Text = text,
             Margin = new Thickness(8, 5),
             FontSize = isHeader ? 11 : 12,
-            FontWeight = isHeader ? FontWeight.SemiBold : FontWeight.Normal,
+            FontWeight = isHeader ? FontWeight.SemiBold : AppTheme.BodyFontWeight,
             TextTrimming = TextTrimming.CharacterEllipsis,
             HorizontalAlignment = HorizontalAlignmentFor(alignment)
         };

@@ -99,7 +99,7 @@ public sealed class HelpWindow : Window
         {
             Text = PlainText(item.Topic.Title),
             FontSize = item.Topic.Level == 2 ? 13 : 12,
-            FontWeight = item.Topic.Level == 2 ? FontWeight.SemiBold : FontWeight.Normal,
+            FontWeight = item.Topic.Level == 2 ? FontWeight.SemiBold : AppTheme.BodyFontWeight,
             Margin = new Thickness(item.Indent, 4, 8, 4),
             TextTrimming = TextTrimming.CharacterEllipsis
         };

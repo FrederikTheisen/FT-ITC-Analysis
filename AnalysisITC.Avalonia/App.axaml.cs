@@ -12,6 +12,7 @@ using System.Linq;
 using System.Threading.Tasks;
 
 using AnalysisITC.Platform.Avalonia;
+using AnalysisITC.Avalonia.Styling;
 
 namespace AnalysisITC.Avalonia;
 
@@ -26,6 +27,7 @@ public partial class App : Application
     public override void Initialize()
     {
         AvaloniaXamlLoader.Load(this);
+        AppTheme.RegisterUiTypography(Resources, OperatingSystem.IsWindows());
     }
 
     public override void OnFrameworkInitializationCompleted()
