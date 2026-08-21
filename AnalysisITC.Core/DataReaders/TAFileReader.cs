@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using AnalysisITC.Core.Utilities;
@@ -78,7 +79,7 @@ namespace AnalysisITC.Core.DataReaders
 
         private static float LineToFloat(string line)
         {
-            return float.Parse(line.Substring(1).Trim());
+            return float.Parse(line.Substring(1).Trim(), CultureInfo.InvariantCulture);
         }
 
         static void AddInjection(ExperimentData experiment, string line)
