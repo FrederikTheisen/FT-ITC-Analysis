@@ -1,5 +1,6 @@
 using System;
 using System.Globalization;
+using System.Linq;
 
 using Avalonia;
 using Avalonia.Controls;
@@ -9,6 +10,7 @@ using Xunit;
 
 using AnalysisITC.Avalonia.Preferences;
 using AnalysisITC.Core.Presentation;
+using AnalysisITC.Platform;
 
 namespace AnalysisITC.Avalonia.Tests;
 
@@ -158,6 +160,32 @@ public sealed class PreferencesTests
         window.RestoreDefaults();
         Assert.True(window.TryBuildState(out var defaults));
         Assert.Equal(PublicationFont.Native, defaults.PublicationFigureFont);
+    }
+
+    [Fact]
+    public void RestoresAndPersistsActiveTab()
+    {
+        var originalStore = PlatformServices.SettingsStore;
+        var store = new InMemorySettingsStore();
+        PlatformServices.RegisterSettingsStore(store);
+
+        try
+        {
+            store.SetInt("Avalonia.Preferences.ActiveTab", 2);
+            var window = new PreferencesWindow();
+            var root = Assert.IsType<DockPanel>(window.Content);
+            var tabs = Assert.IsType<TabControl>(root.Children.Single(control => control is TabControl));
+
+            Assert.Equal(2, tabs.SelectedIndex);
+
+            tabs.SelectedIndex = 3;
+
+            Assert.Equal(3, store.GetInt("Avalonia.Preferences.ActiveTab"));
+        }
+        finally
+        {
+            PlatformServices.RegisterSettingsStore(originalStore);
+        }
     }
 
     static void AssertSlider(Slider slider, int maximum)

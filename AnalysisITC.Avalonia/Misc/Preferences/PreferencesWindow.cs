@@ -23,11 +23,13 @@ using AnalysisITC.Core.Utilities;
 using AnalysisITC.Avalonia.Drawing;
 using AnalysisITC.Avalonia.Styling;
 using AnalysisITC.Avalonia.Support;
+using AnalysisITC.Platform;
 
 namespace AnalysisITC.Avalonia.Preferences;
 
 internal sealed class PreferencesWindow : Window
 {
+    const string ActiveTabSettingsKey = "Avalonia.Preferences.ActiveTab";
     const double FormLabelWidth = 220;
     const double FormControlWidth = 280;
     const double SliderValueWidth = 82;
@@ -277,9 +279,22 @@ internal sealed class PreferencesWindow : Window
                 Tab("Export", Scroll(BuildExportTab()))
             }
         };
+        tabs.SelectedIndex = Math.Clamp(
+            PlatformServices.SettingsStore.GetInt(ActiveTabSettingsKey),
+            0,
+            Math.Max(0, tabs.Items.Count - 1));
+        tabs.SelectionChanged += (_, _) => SaveActiveTab(tabs);
         root.Children.Add(tabs);
 
         Content = root;
+    }
+
+    static void SaveActiveTab(TabControl tabs)
+    {
+        if (tabs.SelectedIndex < 0) return;
+
+        PlatformServices.SettingsStore.SetInt(ActiveTabSettingsKey, tabs.SelectedIndex);
+        PlatformServices.SettingsStore.Synchronize();
     }
 
     Control BuildGeneralTab()
