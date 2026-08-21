@@ -5,6 +5,7 @@ using Avalonia.Controls.Primitives;
 using Avalonia.Layout;
 using Avalonia.Media;
 
+using AnalysisITC.Avalonia.Controls;
 using AnalysisITC.Avalonia.Styling;
 using AnalysisITC.Core.Utilities;
 
@@ -377,6 +378,17 @@ namespace AnalysisITC.Avalonia.Workspace
             var combo = Combo(items, width);
             combo.SelectedIndex = selectedIndex;
             return combo;
+        }
+
+        public static SegmentedSelector Segmented(string[] items, int selectedIndex = 0, double width = InspectorFieldWidth)
+        {
+            return new SegmentedSelector(items, selectedIndex)
+            {
+                Width = width,
+                Height = 32,
+                MinHeight = 32,
+                VerticalAlignment = VerticalAlignment.Center
+            };
         }
 
         public static Slider Slider(double min, double max, double tickFrequency, double width = InspectorFieldWidth)

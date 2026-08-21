@@ -1032,6 +1032,10 @@ public partial class MainWindow : Window
         menu.Items.Add(ToolbarItem("Duplicate Data", ForDataListEntry(entry, DuplicateSelectedDataAsync)));
         menu.Items.Add(ToolbarItem("Export Selected Data...", ForDataListEntry(entry, () => ExportDataAsync(selectedOnly: true))));
         menu.Items.Add(new Separator());
+        menu.Items.Add(ToolbarItem(
+            "Clear Solution",
+            ForDataListEntry(entry, ClearSelectedExperimentSolutionAsync),
+            experiment.Solution != null));
         menu.Items.Add(ToolbarItem("Remove Data", ForDataListEntry(entry, RemoveSelectedItemAsync)));
         return menu;
     }

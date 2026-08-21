@@ -1,0 +1,77 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="AnalysisITC.Avalonia.Controls.SegmentedSelector"
+             Focusable="False"
+             Height="32"
+             MinHeight="32"
+             HorizontalContentAlignment="Stretch"
+             VerticalContentAlignment="Stretch">
+    <UserControl.Resources>
+        <ControlTheme x:Key="SegmentedChoiceTheme" TargetType="RadioButton">
+            <Setter Property="Template">
+                <ControlTemplate>
+                    <Border Background="{TemplateBinding Background}"
+                            BorderBrush="{TemplateBinding BorderBrush}"
+                            BorderThickness="{TemplateBinding BorderThickness}"
+                            Padding="{TemplateBinding Padding}">
+                        <ContentPresenter Content="{TemplateBinding Content}"
+                                          ContentTemplate="{TemplateBinding ContentTemplate}"
+                                          HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                          VerticalContentAlignment="{TemplateBinding VerticalContentAlignment}"
+                                          Foreground="{TemplateBinding Foreground}" />
+                    </Border>
+                </ControlTemplate>
+            </Setter>
+        </ControlTheme>
+    </UserControl.Resources>
+
+    <UserControl.Styles>
+        <Style Selector="Border.segmented-backing">
+            <Setter Property="Background" Value="{DynamicResource TextControlBackground}" />
+        </Style>
+        <Style Selector="Border.segmented-frame">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderBrush" Value="{DynamicResource TextControlBorderBrush}" />
+            <Setter Property="BorderThickness" Value="{DynamicResource TextControlBorderThemeThickness}" />
+        </Style>
+        <Style Selector="RadioButton.segmented-choice">
+            <Setter Property="Theme" Value="{StaticResource SegmentedChoiceTheme}" />
+            <Setter Property="Padding" Value="4,0" />
+            <Setter Property="Background" Value="{DynamicResource TextControlBackground}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource TextControlBorderBrush}" />
+            <Setter Property="Foreground" Value="{DynamicResource TextControlForeground}" />
+            <Setter Property="HorizontalContentAlignment" Value="Center" />
+            <Setter Property="VerticalContentAlignment" Value="Center" />
+        </Style>
+        <Style Selector="RadioButton.segmented-choice:pointerover">
+            <Setter Property="Background" Value="{DynamicResource TextControlBackgroundPointerOver}" />
+        </Style>
+        <Style Selector="RadioButton.segmented-choice:checked">
+            <Setter Property="Background" Value="{DynamicResource ActiveToggleBackground}" />
+            <Setter Property="Foreground" Value="{DynamicResource ActiveToggleGlyph}" />
+        </Style>
+        <Style Selector="RadioButton.segmented-choice:checked:pointerover">
+            <Setter Property="Background" Value="{DynamicResource ActiveToggleHoverBackground}" />
+        </Style>
+        <Style Selector="RadioButton.segmented-choice:focus-visible">
+            <Setter Property="BorderBrush" Value="{DynamicResource TextControlBorderBrushFocused}" />
+        </Style>
+        <Style Selector="RadioButton.segmented-choice:disabled">
+            <Setter Property="Opacity" Value="0.45" />
+        </Style>
+    </UserControl.Styles>
+
+    <Grid x:Name="Host">
+        <Border Classes="segmented-backing"
+                CornerRadius="3"
+                ClipToBounds="True"
+                VerticalAlignment="Stretch">
+            <Grid x:Name="OptionsGrid" />
+        </Border>
+        <Border x:Name="Frame"
+                Classes="segmented-frame"
+                CornerRadius="3"
+                IsHitTestVisible="False"
+                VerticalAlignment="Stretch" />
+    </Grid>
+</UserControl>

@@ -17,6 +17,7 @@ using Avalonia.VisualTree;
 
 using SkiaSharp;
 
+using AnalysisITC.Avalonia.Controls;
 using AnalysisITC.Avalonia.Drawing;
 using AnalysisITC.Avalonia.Styling;
 using AnalysisITC.Avalonia.Workspace;
@@ -31,6 +32,13 @@ using static AnalysisITC.Avalonia.Workspace.WorkspaceControlBuilder;
 
 namespace AnalysisITC.Avalonia.FinalFigure
 {
+    internal enum FinalFigureTickDensity
+    {
+        Sparse = 0,
+        Normal = 1,
+        Dense = 2
+    }
+
     public sealed class FinalFigureWorkspaceControl : UserControl
     {
         static readonly EnergyUnit[] EnergyUnits = EnergyUnitAttribute.GetSelectableUnits().ToArray();
@@ -49,6 +57,7 @@ namespace AnalysisITC.Avalonia.FinalFigure
             UncertaintyDisplayStyle.StandardDeviationAndConfidenceInterval,
             UncertaintyDisplayStyle.None
         };
+        static readonly string[] TickDensityOptions = { "Sparse", "Normal", "Dense" };
         const double PreviewRenderScale = 4.0;
 
         readonly SkiaFigureRenderer renderer = new SkiaFigureRenderer();
@@ -73,7 +82,6 @@ namespace AnalysisITC.Avalonia.FinalFigure
 
         readonly CheckBox showThermogramCheck = Check("Data graph", true, "Include the differential-power trace above the fit graph.");
         readonly CheckBox axisTitlesCheck = Check("Axis titles", true, "Draw titles for the graph axes.");
-        readonly CheckBox sanitizeTicksCheck = Check("Nice ticks", true, "Choose rounded, readable axis tick locations automatically.");
         readonly CheckBox experimentDetailsCheck = Check("Experiment details", true, "Include experiment metadata in the figure information box.");
         readonly CheckBox modelInfoCheck = Check("Model info", true, "Include the selected analysis model in the figure information box.");
         readonly CheckBox fitParametersCheck = Check("Fit parameters", true, "Include fitted parameter values in the figure information box.");
@@ -88,8 +96,8 @@ namespace AnalysisITC.Avalonia.FinalFigure
 
         readonly TextBox powerAxisTitleBox = TextBox("Differential Power (<unit>)");
         readonly TextBox timeAxisTitleBox = TextBox("Time (<unit>)");
-        readonly NumericUpDown dataXTickStepper = Stepper(7, 2, 12);
-        readonly NumericUpDown dataYTickStepper = Stepper(7, 2, 12);
+        readonly SegmentedSelector dataXTickDensitySelector = TickDensitySelector();
+        readonly SegmentedSelector dataYTickDensitySelector = TickDensitySelector();
         readonly TextBox dataXMinBox = TextBox("");
         readonly TextBox dataXMaxBox = TextBox("");
         readonly TextBox dataYMinBox = TextBox("");
@@ -105,8 +113,8 @@ namespace AnalysisITC.Avalonia.FinalFigure
 
         readonly TextBox enthalpyAxisTitleBox = TextBox("<unit> of injectant");
         readonly TextBox fitXAxisTitleBox = TextBox("");
-        readonly NumericUpDown fitXTickStepper = Stepper(7, 2, 12);
-        readonly NumericUpDown fitYTickStepper = Stepper(7, 2, 12);
+        readonly SegmentedSelector fitXTickDensitySelector = TickDensitySelector();
+        readonly SegmentedSelector fitYTickDensitySelector = TickDensitySelector();
         readonly TextBox fitXMinBox = TextBox("");
         readonly TextBox fitXMaxBox = TextBox("");
         readonly TextBox fitYMinBox = TextBox("");
@@ -288,7 +296,6 @@ namespace AnalysisITC.Avalonia.FinalFigure
             {
                 showThermogramCheck,
                 axisTitlesCheck,
-                sanitizeTicksCheck,
                 experimentDetailsCheck,
                 modelInfoCheck,
                 fitParametersCheck,
@@ -318,8 +325,8 @@ namespace AnalysisITC.Avalonia.FinalFigure
             {
                 Labeled("Power title", powerAxisTitleBox),
                 Labeled("Time title", timeAxisTitleBox),
-                Labeled("X ticks", dataXTickStepper),
-                Labeled("Y ticks", dataYTickStepper),
+                Labeled("X tick density", dataXTickDensitySelector),
+                Labeled("Y tick density", dataYTickDensitySelector),
                 Labeled("X min", dataXMinBox),
                 Labeled("X max", dataXMaxBox),
                 Labeled("Y min", dataYMinBox),
@@ -352,8 +359,8 @@ namespace AnalysisITC.Avalonia.FinalFigure
             {
                 Labeled("Y title", enthalpyAxisTitleBox),
                 Labeled("X title", fitXAxisTitleBox),
-                Labeled("X ticks", fitXTickStepper),
-                Labeled("Y ticks", fitYTickStepper),
+                Labeled("X tick density", fitXTickDensitySelector),
+                Labeled("Y tick density", fitYTickDensitySelector),
                 Labeled("X min", fitXMinBox),
                 Labeled("X max", fitXMaxBox),
                 Labeled("Y min", fitYMinBox),
@@ -409,6 +416,12 @@ namespace AnalysisITC.Avalonia.FinalFigure
                     if (!isApplyingSettingsDefaults) RefreshPreview(force: true);
                 };
 
+            foreach (var selector in AllSegmentedSelectors())
+                selector.SelectionChanged += (_, _) =>
+                {
+                    if (!isApplyingSettingsDefaults) RefreshPreview(force: true);
+                };
+
             foreach (var textBox in AllTextBoxes())
             {
                 textBox.LostFocus += (_, _) => RefreshPreview(force: true);
@@ -429,7 +442,6 @@ namespace AnalysisITC.Avalonia.FinalFigure
             {
                 showThermogramCheck,
                 axisTitlesCheck,
-                sanitizeTicksCheck,
                 experimentDetailsCheck,
                 modelInfoCheck,
                 fitParametersCheck,
@@ -475,6 +487,19 @@ namespace AnalysisITC.Avalonia.FinalFigure
             };
         }
 
+        IEnumerable<SegmentedSelector> AllSegmentedSelectors()
+        {
+            return TickDensitySelectors;
+        }
+
+        internal IReadOnlyList<SegmentedSelector> TickDensitySelectors => new[]
+        {
+            dataXTickDensitySelector,
+            dataYTickDensitySelector,
+            fitXTickDensitySelector,
+            fitYTickDensitySelector
+        };
+
         IEnumerable<TextBox> AllTextBoxes()
         {
             return new[]
@@ -501,11 +526,7 @@ namespace AnalysisITC.Avalonia.FinalFigure
                 widthStepper,
                 heightStepper,
                 fontSizeStepper,
-                dataXTickStepper,
-                dataYTickStepper,
                 baselineWidthStepper,
-                fitXTickStepper,
-                fitYTickStepper,
                 symbolSizeStepper,
                 fitLineWidthStepper
             };
@@ -620,7 +641,7 @@ namespace AnalysisITC.Avalonia.FinalFigure
                 ShowBadDataErrorBars = excludedErrorBarsCheck.IsChecked == true,
                 AutoAxesIgnoresBadData = AppSettings.AutoAxesIgnoresBadData,
                 IncludeResidualGraphGap = residualGapCheck.IsChecked == true,
-                SanitizeTicks = sanitizeTicksCheck.IsChecked == true,
+                SanitizeTicks = true,
                 DrawBaselineCorrected = correctedDataCheck.IsChecked == true,
                 ShowBaseline = baselineCheck.IsChecked == true,
                 BaselineStyle = baselineStyleCombo.SelectedIndex == 1 ? PublicationBaselineStyle.Dashed : PublicationBaselineStyle.Solid,
@@ -629,10 +650,10 @@ namespace AnalysisITC.Avalonia.FinalFigure
                 ShowIntegrationRegions = integrationRegionsCheck.IsChecked == true,
                 IntegrationRegionStyle = (PublicationIntegrationRegionStyle)Math.Max(0, integrationRegionStyleCombo.SelectedIndex),
                 ShowZeroLine = zeroLineCheck.IsChecked == true,
-                DataXTickCount = StepperIntValue(dataXTickStepper, defaults.DataXTickCount),
-                DataYTickCount = StepperIntValue(dataYTickStepper, defaults.DataYTickCount),
-                FitXTickCount = StepperIntValue(fitXTickStepper, defaults.FitXTickCount),
-                FitYTickCount = StepperIntValue(fitYTickStepper, defaults.FitYTickCount),
+                DataXTickCount = TickCountForDensity(dataXTickDensitySelector),
+                DataYTickCount = TickCountForDensity(dataYTickDensitySelector),
+                FitXTickCount = TickCountForDensity(fitXTickDensitySelector),
+                FitYTickCount = TickCountForDensity(fitYTickDensitySelector),
                 InformationBoxPlacement = SelectedInfoBoxPlacement(),
                 SymbolShape = symbolCombo.SelectedIndex == 1 ? PublicationSymbolShape.Circle : PublicationSymbolShape.Square,
                 SymbolSize = StepperValue(symbolSizeStepper, defaults.SymbolSize),
@@ -817,6 +838,34 @@ namespace AnalysisITC.Avalonia.FinalFigure
             return fitLineSmoothnessCombo.SelectedIndex >= 0 && fitLineSmoothnessCombo.SelectedIndex < FitLineSmoothnessOptions.Length
                 ? FitLineSmoothnessOptions[fitLineSmoothnessCombo.SelectedIndex]
                 : AppSettings.FitLineSmoothness;
+        }
+
+        static SegmentedSelector TickDensitySelector()
+        {
+            var selector = Segmented(TickDensityOptions, (int)FinalFigureTickDensity.Normal, 126);
+            ToolTip.SetTip(selector, "Choose a sparse, normal, or dense arrangement of rounded tick locations.");
+            return selector;
+        }
+
+        internal static int TickCountForDensity(FinalFigureTickDensity density)
+        {
+            return density switch
+            {
+                FinalFigureTickDensity.Sparse => 3,
+                FinalFigureTickDensity.Dense => 14,
+                _ => 7
+            };
+        }
+
+        static int TickCountForDensity(SegmentedSelector selector)
+        {
+            var density = selector.SelectedIndex switch
+            {
+                (int)FinalFigureTickDensity.Sparse => FinalFigureTickDensity.Sparse,
+                (int)FinalFigureTickDensity.Dense => FinalFigureTickDensity.Dense,
+                _ => FinalFigureTickDensity.Normal
+            };
+            return TickCountForDensity(density);
         }
 
         static string DisplayName(LineSmoothness smoothness)
