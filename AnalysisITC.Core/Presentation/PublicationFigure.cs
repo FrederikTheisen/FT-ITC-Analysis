@@ -396,6 +396,21 @@ namespace AnalysisITC.Core.Presentation
             spacing = NiceNumber(range / (maxTicks + 1), true);
             if (!IsFinite(spacing) || spacing <= 0) spacing = 1;
 
+            var ticks = BuildTickGrid(minimum, maximum, spacing);
+            if (!ShouldPreferCoarserGrid(ticks, minimum, maximum, spacing, maxTicks)) return ticks;
+
+            var coarserSpacing = NextNiceSpacing(spacing);
+            var coarserTicks = BuildTickGrid(minimum, maximum, coarserSpacing);
+            // Prefer the lower-density conventional grid only when it remains close to the requested density.
+            if (VisibleTickCount(coarserTicks, minimum, maximum, coarserSpacing) < Math.Max(2, maxTicks - 2))
+                return ticks;
+
+            spacing = coarserSpacing;
+            return coarserTicks;
+        }
+
+        static List<double> BuildTickGrid(double minimum, double maximum, double spacing)
+        {
             var niceMin = Math.Floor(minimum / spacing) * spacing;
             var niceMax = Math.Ceiling(maximum / spacing) * spacing;
             var ticks = new List<double>();
@@ -409,6 +424,33 @@ namespace AnalysisITC.Core.Presentation
             return ticks;
         }
 
+        static bool ShouldPreferCoarserGrid(List<double> ticks, double minimum, double maximum, double spacing, int maxTicks)
+        {
+            if (maxTicks < 5) return false;
+
+            return VisibleTickCount(ticks, minimum, maximum, spacing) >= maxTicks + 2;
+        }
+
+        static int VisibleTickCount(IEnumerable<double> ticks, double minimum, double maximum, double spacing)
+        {
+            return ticks.Count(tick => tick >= minimum - spacing * 0.001 && tick <= maximum + spacing * 0.001);
+        }
+
+        static double NextNiceSpacing(double spacing)
+        {
+            if (!IsFinite(spacing) || spacing <= 0) return 1;
+
+            var exponent = Math.Floor(Math.Log10(spacing));
+            var scale = Math.Pow(10, exponent);
+            var fraction = spacing / scale;
+
+            if (fraction <= 1) return 2 * scale;
+            if (fraction <= 2) return 2.5 * scale;
+            if (fraction <= 2.5) return 5 * scale;
+            if (fraction <= 5) return 10 * scale;
+            return 2 * Math.Pow(10, exponent + 1);
+        }
+
         static double NiceNumber(double value, bool round)
         {
             if (!IsFinite(value) || value <= 0) return 1;
@@ -420,14 +462,16 @@ namespace AnalysisITC.Core.Presentation
             if (round)
             {
                 if (fraction < 1.5) niceFraction = 1;
-                else if (fraction < 3) niceFraction = 2;
-                else if (fraction < 7) niceFraction = 5;
+                else if (fraction < 2.25) niceFraction = 2;
+                else if (fraction < 3.75) niceFraction = 2.5;
+                else if (fraction < 7.5) niceFraction = 5;
                 else niceFraction = 10;
             }
             else
             {
                 if (fraction <= 1) niceFraction = 1;
                 else if (fraction <= 2) niceFraction = 2;
+                else if (fraction <= 2.5) niceFraction = 2.5;
                 else if (fraction <= 5) niceFraction = 5;
                 else niceFraction = 10;
             }
