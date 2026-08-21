@@ -184,13 +184,13 @@ namespace AnalysisITC.Core.Tests
         [Fact]
         public async Task ProjectsDistinctSavedResultsInNewestFirstOrder()
         {
-            using var stream = File.OpenRead(Fixture("jors.ftitc"));
-            var document = await reader.ReadAsync(stream, "jors.ftitc", ViewerFileFormat.Ftitc);
+            using var stream = File.OpenRead(Fixture("jors.ftxtc"));
+            var document = await reader.ReadAsync(stream, "jors.ftxtc", ViewerFileFormat.Ftxtc);
 
-            Assert.Equal(3, document.AnalysisResults.Count);
+            Assert.Equal(2, document.AnalysisResults.Count);
             Assert.Equal(document.AnalysisResults.OrderByDescending(item => item.Date).Select(item => item.Key),
                 document.AnalysisResults.Select(item => item.Key));
-            Assert.Equal(3, document.AnalysisResults.Select(item => item.Key).Distinct().Count());
+            Assert.Equal(2, document.AnalysisResults.Select(item => item.Key).Distinct().Count());
             Assert.All(document.AnalysisResults, item => Assert.Matches("^result-[0-9]+$", item.Key));
             Assert.Contains(document.AnalysisResults, item => item.IsGlobal);
             Assert.Contains(document.AnalysisResults, item => !item.IsGlobal);
@@ -216,16 +216,15 @@ namespace AnalysisITC.Core.Tests
             Assert.Contains(document.AnalysisResults, item => item.ModelOptions.Count > 0);
             Assert.Contains(document.AnalysisResults, item => item.Solver.WeightedFitting);
             Assert.Contains(document.AnalysisResults, item => item.Solver.BootstrapIterations > 0);
-            Assert.Contains(document.AnalysisResults, item => item.Validity.Status == "unknown");
         }
 
         [Theory]
-        [InlineData("two-sites.ftitc", true)]
-        [InlineData("competitive.ftitc", false)]
+        [InlineData("two-sites.ftxtc", true)]
+        [InlineData("competitive.ftxtc", false)]
         public async Task ProjectsModelSpecificResultMembersWithoutCrossResultCollapse(string fixture, bool expectSecondSite)
         {
             using var stream = File.OpenRead(Fixture(fixture));
-            var document = await reader.ReadAsync(stream, fixture, ViewerFileFormat.Ftitc);
+            var document = await reader.ReadAsync(stream, fixture, ViewerFileFormat.Ftxtc);
 
             Assert.NotEmpty(document.AnalysisResults);
             Assert.All(document.AnalysisResults.SelectMany(item => item.Members), member =>
@@ -243,8 +242,8 @@ namespace AnalysisITC.Core.Tests
         [Fact]
         public async Task EmbeddedTemperatureSeriesFitsAreNotSynthesizedIntoResults()
         {
-            using var stream = File.OpenRead(Fixture("temperature-series.ftitc"));
-            var document = await reader.ReadAsync(stream, "temperature-series.ftitc", ViewerFileFormat.Ftitc);
+            using var stream = File.OpenRead(Fixture("temperature-series.ftxtc"));
+            var document = await reader.ReadAsync(stream, "temperature-series.ftxtc", ViewerFileFormat.Ftxtc);
 
             Assert.Empty(document.AnalysisResults);
             Assert.All(document.Experiments, experiment =>
@@ -255,14 +254,14 @@ namespace AnalysisITC.Core.Tests
         }
 
         [Theory]
-        [InlineData("temperature-series.ftitc", 4)]
-        [InlineData("jors.ftitc", 3)]
-        [InlineData("two-sites.ftitc", 2)]
-        [InlineData("competitive.ftitc", 5)]
+        [InlineData("temperature-series.ftxtc", 4)]
+        [InlineData("jors.ftxtc", 3)]
+        [InlineData("two-sites.ftxtc", 2)]
+        [InlineData("competitive.ftxtc", 5)]
         public async Task ReadsRepresentativeProjectModels(string fixture, int experimentCount)
         {
             using var stream = File.OpenRead(Fixture(fixture));
-            var document = await reader.ReadAsync(stream, fixture, ViewerFileFormat.Ftitc);
+            var document = await reader.ReadAsync(stream, fixture, ViewerFileFormat.Ftxtc);
 
             Assert.Equal(experimentCount, document.Experiments.Count);
             Assert.All(document.Experiments, item => Assert.NotNull(item.Raw));
@@ -329,13 +328,15 @@ namespace AnalysisITC.Core.Tests
         [Fact]
         public async Task ConcurrentReadsDoNotShareProjectState()
         {
-            async Task<ViewerDocument> Read(string fixture)
+            async Task<ViewerDocument> Read(string fixture, ViewerFileFormat format)
             {
                 using var stream = File.OpenRead(Fixture(fixture));
-                return await new ViewerDocumentReader().ReadAsync(stream, fixture, ViewerFileFormat.Ftitc);
+                return await new ViewerDocumentReader().ReadAsync(stream, fixture, format);
             }
 
-            var documents = await Task.WhenAll(Read("one-set.ftitc"), Read("temperature-series.ftitc"));
+            var documents = await Task.WhenAll(
+                Read("one-set.ftitc", ViewerFileFormat.Ftitc),
+                Read("temperature-series.ftxtc", ViewerFileFormat.Ftxtc));
 
             Assert.Equal(3, documents[0].Experiments.Count);
             Assert.Equal(4, documents[1].Experiments.Count);

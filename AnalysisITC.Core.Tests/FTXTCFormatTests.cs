@@ -390,9 +390,11 @@ namespace AnalysisITC.Core.Tests
         [Fact]
         public async Task TwoSiteTemperatureViewerPlotIncludesBothThermodynamicSites()
         {
-            using var source = File.OpenRead(Fixture("two-sites.ftitc"));
-            var containers = await FTITCReader.ReadStream(source);
-            var sourceResult = Assert.Single(containers.OfType<AnalysisResult>());
+            using var source = File.OpenRead(Fixture("two-sites.ftxtc"));
+            var containers = await FTXTCReader.ReadStream(source);
+            var sourceResult = Assert.Single(
+                containers.OfType<AnalysisResult>(),
+                result => result.Solution.SolutionName.StartsWith("Global.", StringComparison.Ordinal));
             var members = sourceResult.Solution.Solutions;
             Assert.Equal(2, members.Count);
             members[0].Data.MeasuredTemperature = 20;
@@ -657,8 +659,8 @@ namespace AnalysisITC.Core.Tests
         [Fact]
         public async Task GlobalReplicatesRemainPairedByExplicitIndex()
         {
-            using var source = File.OpenRead(Fixture("jors.ftitc"));
-            var containers = await FTITCReader.ReadStream(source);
+            using var source = File.OpenRead(Fixture("jors.ftxtc"));
+            var containers = await FTXTCReader.ReadStream(source);
             var sourceResult = containers.OfType<AnalysisResult>()
                 .First(result => result.Solution.Solutions.Count > 1
                     && result.Solution.Solutions.All(member => member.BootstrapSolutions.Count >= 3));

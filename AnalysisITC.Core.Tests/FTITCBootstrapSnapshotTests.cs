@@ -124,8 +124,8 @@ namespace AnalysisITC.Core.Tests
         [Fact]
         public async Task GlobalRoundTripPairsCommonReplicateIndicesDespiteMissingAndReorderedSnapshots()
         {
-            using var stream = File.OpenRead(Fixture("jors.ftitc"));
-            var containers = await FTITCReader.ReadStream(stream);
+            using var stream = File.OpenRead(Fixture("jors.ftxtc"));
+            var containers = await FTXTCReader.ReadStream(stream);
             var sourceResult = containers.OfType<AnalysisResult>()
                 .First(result => result.Solution.Solutions.Count > 1
                     && result.Solution.Solutions.All(member => member.BootstrapSolutions.Count >= 3));
@@ -160,8 +160,8 @@ namespace AnalysisITC.Core.Tests
 
         static async Task<ExperimentData> CreateExperimentWithSyntheticSnapshots()
         {
-            using var fixture = File.OpenRead(Fixture("competitive.ftitc"));
-            var containers = await FTITCReader.ReadStream(fixture);
+            using var fixture = File.OpenRead(Fixture("competitive.ftxtc"));
+            var containers = await FTXTCReader.ReadStream(fixture);
             var experiment = containers.OfType<ExperimentData>()
                 .First(item => item.Model?.ModelType == AnalysisModel.CompetitiveBinding
                     && item.Model.ModelOptions.ContainsKey(AttributeKey.PreboundLigandConc));

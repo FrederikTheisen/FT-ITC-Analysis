@@ -24,14 +24,23 @@
     <None Include="..\AnalysisITC.Tests\BufferSubtraction\hepes-02.DH" Link="Fixtures\BufferSubtraction\hepes-02.DH" CopyToOutputDirectory="PreserveNewest" />
     <None Include="..\AnalysisITC.Tests\BufferSubtraction\hepes-03.DH" Link="Fixtures\BufferSubtraction\hepes-03.DH" CopyToOutputDirectory="PreserveNewest" />
     <None Include="..\AnalysisITC.Tests\BufferSubtraction\hepes-blank.DH" Link="Fixtures\BufferSubtraction\hepes-blank.DH" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\AnalysisITC.Tests\FileTypeTests\16102024_Rocu_3mM_Sug_0_3mM_PBS_2.ta" Link="Fixtures\FileTypeTests\16102024_Rocu_3mM_Sug_0_3mM_PBS_2.ta" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\AnalysisITC.Tests\FileTypeTests\230908_PRLRlong_W392A_run1.dat" Link="Fixtures\FileTypeTests\230908_PRLRlong_W392A_run1.dat" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\AnalysisITC.Tests\FileTypeTests\230908_PRLRlong_W392A_run1.itc" Link="Fixtures\FileTypeTests\230908_PRLRlong_W392A_run1.itc" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\AnalysisITC.Tests\FileTypeTests\CURVE-1.csv" Link="Fixtures\FileTypeTests\CURVE-1.csv" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\AnalysisITC.Tests\FileTypeTests\CURVE-2.aff" Link="Fixtures\FileTypeTests\CURVE-2.aff" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\AnalysisITC.Tests\FileTypeTests\JORS Example Project.ftxtc" Link="Fixtures\FileTypeTests\JORS Example Project.ftxtc" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\AnalysisITC.Tests\FileTypeTests\TpxWT_CtFT(1).apj" Link="Fixtures\FileTypeTests\TpxWT_CtFT(1).apj" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\AnalysisITC.Tests\FileTypeTests\legacy.ftitc" Link="Fixtures\FileTypeTests\legacy.ftitc" CopyToOutputDirectory="PreserveNewest" />
     <None Include="..\AnalysisITC.Tests\OneSetOfSites\data_1.itc" Link="Fixtures\data_1.itc" CopyToOutputDirectory="PreserveNewest" />
     <None Include="..\AnalysisITC.Tests\OneSetOfSites\data.ftitc" Link="Fixtures\one-set.ftitc" CopyToOutputDirectory="PreserveNewest" />
-    <None Include="..\AnalysisITC.Tests\TemperatureSeries\temp_data.ftitc" Link="Fixtures\temperature-series.ftitc" CopyToOutputDirectory="PreserveNewest" />
-    <None Include="..\AnalysisITC.Tests\JORS Example Project.ftitc" Link="Fixtures\jors.ftitc" CopyToOutputDirectory="PreserveNewest" />
-    <None Include="..\AnalysisITC.Tests\SeArgT_Pu1210_TwoSetsOfSites.ftitc" Link="Fixtures\two-sites.ftitc" CopyToOutputDirectory="PreserveNewest" />
-    <None Include="..\AnalysisITC.Tests\Me6PXDA_C1_CHDA_CompetitiveDisplacement.ftitc" Link="Fixtures\competitive.ftitc" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\AnalysisITC.Tests\TemperatureSeries\temp_data.ftxtc" Link="Fixtures\temperature-series.ftxtc" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\AnalysisITC.Tests\JORS Example Project.ftxtc" Link="Fixtures\jors.ftxtc" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\AnalysisITC.Tests\SeArgT_Pu1210_TwoSetsOfSites.ftxtc" Link="Fixtures\two-sites.ftxtc" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\AnalysisITC.Tests\Me6PXDA_C1_CHDA_CompetitiveDisplacement.ftxtc" Link="Fixtures\competitive.ftxtc" CopyToOutputDirectory="PreserveNewest" />
     <None Include="..\AnalysisITC.Tests\PublishedBenchmarks\pytc-ca-edta-tris-01.DH" Link="Fixtures\PublishedBenchmarks\pytc-ca-edta-tris-01.DH" CopyToOutputDirectory="PreserveNewest" />
-    <None Include="..\AnalysisITC.Tests\Tandem\tandem-original.ftitc.gz" Link="Fixtures\Tandem\tandem-original.ftitc.gz" CopyToOutputDirectory="PreserveNewest" />
-    <None Include="..\AnalysisITC.Tests\Tandem\tandem-process2.ftitc.gz" Link="Fixtures\Tandem\tandem-process2.ftitc.gz" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\AnalysisITC.Tests\PublishedBenchmarks\feotf54-independent-sites.ndh" Link="Fixtures\PublishedBenchmarks\feotf54-independent-sites.ndh" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\AnalysisITC.Tests\Tandem\280-430-D2mut-1p6mM-JNK-200uM-1.ftxtc" Link="Fixtures\Tandem\280-430-D2mut-1p6mM-JNK-200uM-1.ftxtc" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\AnalysisITC.Tests\Tandem\280-430-D2mut-1p6mM-JNK-200uM-1_process2.ftxtc" Link="Fixtures\Tandem\280-430-D2mut-1p6mM-JNK-200uM-1_process2.ftxtc" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>

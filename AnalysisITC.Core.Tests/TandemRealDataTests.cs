@@ -2,9 +2,9 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
-using System.IO.Compression;
 using System.Linq;
 using System.Threading.Tasks;
+using AnalysisITC.Core.Analysis;
 using AnalysisITC.Core.Data;
 using AnalysisITC.Core.DataReaders;
 using AnalysisITC.Core.Export;
@@ -16,14 +16,16 @@ namespace AnalysisITC.Core.Tests
     public sealed class TandemRealDataTests
     {
         [Theory]
-        [InlineData("tandem-original.ftitc.gz")]
-        [InlineData("tandem-process2.ftitc.gz")]
+        [InlineData("280-430-D2mut-1p6mM-JNK-200uM-1.ftxtc")]
+        [InlineData("280-430-D2mut-1p6mM-JNK-200uM-1_process2.ftxtc")]
         public async Task HistoricalProjectsRestoreTheirSourcesAndSavedMerges(string fileName)
         {
-            var experiments = await ReadExperiments(fileName);
+            var containers = await ReadContainers(fileName);
+            var experiments = containers.OfType<ExperimentData>().ToList();
             var sources = experiments.Take(3).ToList();
             var tandems = experiments.Skip(3).ToList();
 
+            Assert.Single(containers.OfType<AnalysisResult>());
             Assert.Equal(13, experiments.Count);
             Assert.Equal(new[] { 26, 26, 26 }, sources.Select(source => source.Injections.Count));
             Assert.Equal(new[] { 3959, 3959, 3958 }, sources.Select(source => source.DataPoints.Count));
@@ -41,7 +43,7 @@ namespace AnalysisITC.Core.Tests
         [Fact]
         public async Task CurrentMergeReproducesHistoricalBackMixingConcentrations()
         {
-            var experiments = await ReadExperiments("tandem-process2.ftitc.gz");
+            var experiments = await ReadExperiments("280-430-D2mut-1p6mM-JNK-200uM-1_process2.ftxtc");
             var sources = experiments.Take(3).ToList();
 
             AssertMergeMatchesSaved(sources, experiments, mixingFraction: null);
@@ -60,7 +62,7 @@ namespace AnalysisITC.Core.Tests
         [Fact]
         public async Task FullProcessingPipelineReproducesHistoricalMergedHeats()
         {
-            var experiments = await ReadExperiments("tandem-process2.ftitc.gz");
+            var experiments = await ReadExperiments("280-430-D2mut-1p6mM-JNK-200uM-1_process2.ftxtc");
             var sources = experiments.Take(3).ToList();
             foreach (var source in sources)
                 await source.Processor.ProcessData(replace: false, invalidate: false, showProgress: false);
@@ -159,11 +161,15 @@ namespace AnalysisITC.Core.Tests
 
         static async Task<List<ExperimentData>> ReadExperiments(string fileName)
         {
-            var path = Path.Combine(AppContext.BaseDirectory, "Fixtures", "Tandem", fileName);
-            await using var compressed = File.OpenRead(path);
-            await using var stream = new GZipStream(compressed, CompressionMode.Decompress);
-            var containers = await FTITCReader.ReadStream(stream, processProcessorData: false);
+            var containers = await ReadContainers(fileName);
             return containers.OfType<ExperimentData>().ToList();
+        }
+
+        static async Task<ITCDataContainer[]> ReadContainers(string fileName)
+        {
+            var path = Path.Combine(AppContext.BaseDirectory, "Fixtures", "Tandem", fileName);
+            await using var stream = File.OpenRead(path);
+            return await FTXTCReader.ReadStream(stream);
         }
 
         static void AssertClose(double expected, double actual, double tolerance) =>

@@ -28,7 +28,6 @@ namespace AnalysisITC.Core.Tests
         public PublishedModelReproductionTests()
         {
             originalDilutionMethod = AppSettings.DilutionCalculationMethod;
-            AppSettings.DilutionCalculationMethod = DilutionMethod.MicroCal;
             IntegratedHeatReader.BeginImportQueue();
             PlatformServices.RegisterImportPromptService(new FixedEnergyUnitPromptService(EnergyUnit.MicroCal));
         }
@@ -43,8 +42,22 @@ namespace AnalysisITC.Core.Tests
         [Theory]
         [InlineData(SolverAlgorithm.LevenbergMarquardt)]
         [InlineData(SolverAlgorithm.NelderMead)]
-        public void OneSetOfSitesReproducesPublishedPyTcParameters(SolverAlgorithm algorithm)
+        public void OneSetOfSitesReproducesPublishedPyTcParametersWithMicroCalDilution(SolverAlgorithm algorithm)
         {
+            ReproducePublishedPyTcParameters(algorithm, DilutionMethod.MicroCal);
+        }
+
+        [Theory]
+        [InlineData(SolverAlgorithm.LevenbergMarquardt)]
+        [InlineData(SolverAlgorithm.NelderMead)]
+        public void OneSetOfSitesReproducesPublishedPyTcParametersWithExponentialDilution(SolverAlgorithm algorithm)
+        {
+            ReproducePublishedPyTcParameters(algorithm, DilutionMethod.Exponential);
+        }
+
+        void ReproducePublishedPyTcParameters(SolverAlgorithm algorithm, DilutionMethod dilutionMethod)
+        {
+            AppSettings.DilutionCalculationMethod = dilutionMethod;
             var experiment = IntegratedHeatReader.ReadFile(Path.Combine(
                 AppContext.BaseDirectory,
                 "Fixtures",
