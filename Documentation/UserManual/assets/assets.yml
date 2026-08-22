@@ -1,0 +1,15 @@
+assets:
+  - file: workflow.svg
+    kind: diagram
+    alt: Six-step FT-ITC Analysis workflow from opening data through saving and export.
+    caption: The analysis workflow. Integrated-heat imports enter after thermogram processing.
+    source: Manual editorial diagram
+    publication_status: publish
+  - file: analysis-result-workspace.png
+    kind: screenshot
+    alt: Analysis Result workspace with the project list, fitted curve, parameters, and residuals.
+    caption: The common Analysis Result workspace in the cross-platform application.
+    source: FT-ITC Analysis 1.4.3 Avalonia build at verification commit
+    data: Existing repository JORS Example Project
+    publication_status: publish
+

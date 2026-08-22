@@ -1,0 +1,34 @@
+manual:
+  title: FT-ITC Analysis User Manual
+  product_version: "1.4.3"
+  verification_commit: "7a19b583468b4b087e130e4b27c8140cd428339a"
+  language: en-US
+  web_base_path: /manual/
+  pdf_filename: FT-ITC-Analysis-User-Manual.pdf
+  source_of_truth_after_integration: website-repository
+  pages:
+    - file: pages/01-manual-home.md
+      slug: index
+    - file: pages/02-quick-start.md
+      slug: quick-start
+    - file: pages/03-installation-files-projects.md
+      slug: installation-files-projects
+    - file: pages/04-workspace-experiments.md
+      slug: workspace-experiments
+    - file: pages/05-processing-thermograms.md
+      slug: processing-thermograms
+    - file: pages/06-fitting-models.md
+      slug: fitting-models
+    - file: pages/07-multiple-experiments.md
+      slug: multiple-experiments
+    - file: pages/08-results-advanced-analysis.md
+      slug: results-advanced-analysis
+    - file: pages/09-figures-printing-export.md
+      slug: figures-printing-export
+    - file: pages/10-additional-tools.md
+      slug: additional-tools
+    - file: pages/11-preferences-troubleshooting.md
+      slug: preferences-troubleshooting
+    - file: pages/12-reference.md
+      slug: reference
+

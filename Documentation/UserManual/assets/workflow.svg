@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 240" role="img" aria-labelledby="title desc">
+  <title id="title">FT-ITC Analysis workflow</title>
+  <desc id="desc">A six-step workflow from opening data through checking details, processing, fitting, reviewing, and saving or exporting.</desc>
+  <defs>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L0,6 L9,3 z" fill="#376f95"/>
+    </marker>
+    <style>
+      .box { fill:#f4f8fb; stroke:#376f95; stroke-width:2; rx:12; }
+      .n { font:700 16px system-ui,sans-serif; fill:#376f95; }
+      .label { font:600 19px system-ui,sans-serif; fill:#152935; text-anchor:middle; }
+      .sub { font:14px system-ui,sans-serif; fill:#425965; text-anchor:middle; }
+      .arrow { stroke:#376f95; stroke-width:3; fill:none; marker-end:url(#arrow); }
+    </style>
+  </defs>
+  <path class="arrow" d="M185 120 H213"/><path class="arrow" d="M385 120 H413"/>
+  <path class="arrow" d="M585 120 H613"/><path class="arrow" d="M785 120 H813"/>
+  <path class="arrow" d="M985 120 H1013"/>
+  <g transform="translate(15,55)"><rect class="box" width="170" height="130"/><text class="n" x="14" y="25">1</text><text class="label" x="85" y="61">Open</text><text class="sub" x="85" y="88">raw data, heats,</text><text class="sub" x="85" y="108">or project</text></g>
+  <g transform="translate(215,55)"><rect class="box" width="170" height="130"/><text class="n" x="14" y="25">2</text><text class="label" x="85" y="61">Check details</text><text class="sub" x="85" y="88">concentrations,</text><text class="sub" x="85" y="108">temperature, metadata</text></g>
+  <g transform="translate(415,55)"><rect class="box" width="170" height="130"/><text class="n" x="14" y="25">3</text><text class="label" x="85" y="61">Process</text><text class="sub" x="85" y="88">baseline and</text><text class="sub" x="85" y="108">integration</text></g>
+  <g transform="translate(615,55)"><rect class="box" width="170" height="130"/><text class="n" x="14" y="25">4</text><text class="label" x="85" y="61">Fit</text><text class="sub" x="85" y="88">model, constraints,</text><text class="sub" x="85" y="108">uncertainty</text></g>
+  <g transform="translate(815,55)"><rect class="box" width="170" height="130"/><text class="n" x="14" y="25">5</text><text class="label" x="85" y="61">Review</text><text class="sub" x="85" y="88">curve, residuals,</text><text class="sub" x="85" y="108">validity</text></g>
+  <g transform="translate(1015,55)"><rect class="box" width="170" height="130"/><text class="n" x="14" y="25">6</text><text class="label" x="85" y="61">Preserve</text><text class="sub" x="85" y="88">save project and</text><text class="sub" x="85" y="108">export output</text></g>
+</svg>
+
