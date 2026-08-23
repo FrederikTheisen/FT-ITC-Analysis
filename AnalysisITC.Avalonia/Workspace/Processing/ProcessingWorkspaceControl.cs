@@ -27,7 +27,6 @@ namespace AnalysisITC.Avalonia.Processing
         readonly TextBlock summaryText = TrimmingText();
         readonly TextBlock baselineHeader = Header("Baseline");
         readonly TextBlock integrationHeader = Header("Integration");
-        readonly TextBlock degreeLabel = TrimmingText();
         readonly TextBlock startLabel = TrimmingText();
         readonly TextBlock lengthLabel = TrimmingText();
         readonly TextBlock selectionLabel = TrimmingText();
@@ -38,7 +37,7 @@ namespace AnalysisITC.Avalonia.Processing
         readonly ComboBox splineHandleCombo = Combo(new[] { "Mean", "Median", "Min volatility" });
         readonly NumericUpDown peakWidthStepper = Stepper(3, 1, 5, 2);
 
-        readonly Slider degreeSlider = Slider(0, 10, 1);
+        readonly NumericUpDown degreeStepper = Stepper(12, 0, 32, 1);
         readonly Slider integrationStartSlider = Slider(-30, 30, 0.1);
         readonly Slider integrationLengthSlider = Slider(0, 120, 0.1);
 
@@ -82,6 +81,8 @@ namespace AnalysisITC.Avalonia.Processing
 
         public event EventHandler<string>? StatusChanged;
         public event EventHandler? ProcessingChanged;
+
+        internal NumericUpDown DegreeStepper => degreeStepper;
 
         public ProcessingWorkspaceControl()
         {
@@ -142,8 +143,7 @@ namespace AnalysisITC.Avalonia.Processing
             splineOptionsPanel.Children.Add(Labeled("Density", splineDensityCombo));
             splineOptionsPanel.Children.Add(Labeled("Handle", splineHandleCombo));
 
-            degreePanel.Children.Add(Labeled("Degree", degreeSlider));
-            degreePanel.Children.Add(degreeLabel);
+            degreePanel.Children.Add(Labeled("Degree", degreeStepper));
 
             baselineEditingPanel.Children.Add(Labeled("Type", baselineTypeCombo));
             baselineEditingPanel.Children.Add(splineOptionsPanel);
@@ -246,11 +246,7 @@ namespace AnalysisITC.Avalonia.Processing
                     ChangePeakWidth();
             };
 
-            degreeSlider.PropertyChanged += async (_, e) =>
-            {
-                if (e.Property == RangeBase.ValueProperty)
-                    await ChangeDegreeAsync();
-            };
+            degreeStepper.ValueChanged += async (_, _) => await ChangeDegreeAsync();
 
             integrationStartSlider.PropertyChanged += async (_, e) =>
             {
@@ -449,17 +445,21 @@ namespace AnalysisITC.Avalonia.Processing
         {
             if (isUpdatingControls || !ProcessingIsEditable) return;
 
+            var degree = (int)Math.Round((double)(degreeStepper.Value ?? 0));
+
             if (experiment!.Processor.Interpolator is PolynomialLeastSquaresInterpolator polynomial)
             {
-                polynomial.Degree = PolynomialDegreeFromSlider((int)Math.Round(degreeSlider.Value));
+                if (polynomial.Degree == degree) return;
+                polynomial.Degree = degree;
             }
             else if (experiment.Processor.Interpolator is SegmentedBaselineInterpolator segmented)
             {
-                segmented.Degree = SegmentedBaselineInterpolator.ClampDegree((int)Math.Round(degreeSlider.Value));
+                var clampedDegree = SegmentedBaselineInterpolator.ClampDegree(degree);
+                if (segmented.Degree == clampedDegree) return;
+                segmented.Degree = clampedDegree;
             }
             else return;
 
-            UpdateDegreeLabel();
             await ProcessDataAsync(replace: true, status: "Baseline degree updated");
         }
 
@@ -920,20 +920,19 @@ namespace AnalysisITC.Avalonia.Processing
         {
             if (experiment?.Processor.Interpolator is PolynomialLeastSquaresInterpolator polynomial)
             {
-                degreeSlider.Minimum = 0;
-                degreeSlider.Maximum = 10;
-                degreeSlider.TickFrequency = 1;
-                degreeSlider.Value = SliderPositionFromPolynomialDegree(polynomial.Degree);
+                var displayedDegree = Math.Max(0, polynomial.Degree);
+                degreeStepper.Minimum = 0;
+                degreeStepper.Maximum = Math.Max(32, displayedDegree);
+                degreeStepper.Increment = 1;
+                degreeStepper.Value = displayedDegree;
             }
             else if (experiment?.Processor.Interpolator is SegmentedBaselineInterpolator segmented)
             {
-                degreeSlider.Minimum = SegmentedBaselineInterpolator.MinimumDegree;
-                degreeSlider.Maximum = SegmentedBaselineInterpolator.MaximumDegree;
-                degreeSlider.TickFrequency = 1;
-                degreeSlider.Value = segmented.Degree;
+                degreeStepper.Minimum = SegmentedBaselineInterpolator.MinimumDegree;
+                degreeStepper.Maximum = SegmentedBaselineInterpolator.MaximumDegree;
+                degreeStepper.Increment = 1;
+                degreeStepper.Value = segmented.Degree;
             }
-
-            UpdateDegreeLabel();
         }
 
         void ConfigureIntegrationControls()
@@ -962,16 +961,6 @@ namespace AnalysisITC.Avalonia.Processing
                 : injection.IntegrationEndOffset;
 
             UpdateIntegrationLabels();
-        }
-
-        void UpdateDegreeLabel()
-        {
-            if (experiment?.Processor.Interpolator is PolynomialLeastSquaresInterpolator polynomial)
-                degreeLabel.Text = polynomial.Degree.ToString();
-            else if (experiment?.Processor.Interpolator is SegmentedBaselineInterpolator segmented)
-                degreeLabel.Text = segmented.Degree.ToString();
-            else
-                degreeLabel.Text = "";
         }
 
         void UpdateIntegrationLabels()
@@ -1043,44 +1032,6 @@ namespace AnalysisITC.Avalonia.Processing
         static int SplineConversionPointDensity(SplineInterpolator.SplineInterpolatorAlgorithm algorithm)
         {
             return algorithm == SplineInterpolator.SplineInterpolatorAlgorithm.Linear ? 4 : 2;
-        }
-
-        static int PolynomialDegreeFromSlider(int sliderValue)
-        {
-            return sliderValue switch
-            {
-                0 => 0,
-                1 => 1,
-                2 => 2,
-                3 => 3,
-                4 => 4,
-                5 => 6,
-                6 => 8,
-                7 => 12,
-                8 => 16,
-                9 => 24,
-                10 => 32,
-                _ => 12,
-            };
-        }
-
-        static int SliderPositionFromPolynomialDegree(int degree)
-        {
-            return degree switch
-            {
-                0 => 0,
-                1 => 1,
-                2 => 2,
-                3 => 3,
-                4 => 4,
-                6 => 5,
-                8 => 6,
-                12 => 7,
-                16 => 8,
-                24 => 9,
-                32 => 10,
-                _ => 5,
-            };
         }
 
     }
