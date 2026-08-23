@@ -33,6 +33,7 @@ namespace AnalysisITC.Avalonia.Analysis
         readonly ComboBox errorMethodCombo = Combo(new[] { "None", "Bootstrap residuals", "Leave-one-out" }, 190);
         readonly TextBox bootstrapIterationsBox = TextBox("100");
         readonly CheckBox weightedFitCheck = Check("Weight by injection error", false, "Weight each data point by its estimated injection uncertainty during fitting.");
+        readonly CheckBox unlockParametersCheck = Check("Unlock parameters", false, "Unlock locked parameters during the error estimation pass.");
         readonly ComboBox parameterLimitsCombo = Combo(new[] { "Standard", "Expanded", "No limits" }, 190);
         readonly CheckBox createResultCheck = Check("Create analysis result", true, "Save the fit as an analysis result when fitting completes.");
         readonly CheckBox autoOpenResultCheck = Check("Auto-open new result", true, "Open the newly created analysis result after a successful fit.");
@@ -76,6 +77,8 @@ namespace AnalysisITC.Avalonia.Analysis
         public event EventHandler? FittingChanged;
 
         public bool IsGlobalMode => modeCombo.SelectedIndex == 1 && GlobalModeAvailable();
+
+        internal CheckBox UnlockParametersCheck => unlockParametersCheck;
 
         public AnalysisWorkspaceControl()
         {
@@ -161,6 +164,7 @@ namespace AnalysisITC.Avalonia.Analysis
                 _ => 0,
             };
             weightedFitCheck.IsChecked = FittingOptionsController.UseErrorWeightedFitting;
+            unlockParametersCheck.IsChecked = FittingOptionsController.UnlockBootstrapParameters;
             bootstrapIterationsBox.Text = FittingOptionsController.BootstrapIterations.ToString(CultureInfo.CurrentCulture);
             SyncPreferenceControls();
 
@@ -194,7 +198,8 @@ namespace AnalysisITC.Avalonia.Analysis
                 Labeled("Errors", errorMethodCombo),
                 Labeled("Bootstrap", bootstrapIterationsBox),
                 Labeled("Limits", parameterLimitsCombo),
-                weightedFitCheck
+                weightedFitCheck,
+                unlockParametersCheck
             }));
             panel.Children.Add(Section("Result", new Control[]
             {
@@ -247,6 +252,7 @@ namespace AnalysisITC.Avalonia.Analysis
             stopFitButton.Click += (_, _) => StopFit();
             restoreDefaultsButton.Click += (_, _) => RestoreAnalysisDefaults();
             parameterLimitsCombo.SelectionChanged += (_, _) => ChangeParameterLimits();
+            unlockParametersCheck.IsCheckedChanged += (_, _) => ChangeUnlockParameters();
             createResultCheck.IsCheckedChanged += (_, _) => ChangeCreateResult();
             autoOpenResultCheck.IsCheckedChanged += (_, _) => ChangeAutoOpenResult();
             fitLineInterpolationCombo.SelectionChanged += (_, _) => ChangeFitLineInterpolation();
@@ -557,11 +563,13 @@ namespace AnalysisITC.Avalonia.Analysis
             var combo = Combo(170);
             foreach (var option in options)
             {
-                combo.Items.Add(new ComboBoxItem
+                var item = new ComboBoxItem
                 {
                     Tag = option,
-                    Content = option.GetEnumDescription()
-                });
+                    Content = ConstraintDisplayName(option)
+                };
+                ToolTip.SetTip(item, option.GetEnumDescription());
+                combo.Items.Add(item);
             }
 
             var selected = workspace.Session.Active.Constraints.TryGetValue(key, out var stored)
@@ -578,6 +586,13 @@ namespace AnalysisITC.Avalonia.Analysis
             };
 
             return Labeled(key.GetProperties().Name, combo);
+        }
+
+        static string ConstraintDisplayName(VariableConstraint constraint)
+        {
+            return constraint == VariableConstraint.TemperatureDependent
+                ? "Temp. dependent"
+                : constraint.GetEnumDescription();
         }
 
         Control BuildParameterRow(Parameter parameter)
@@ -643,6 +658,7 @@ namespace AnalysisITC.Avalonia.Analysis
                 isFitting = true;
                 UpdateFitButtonState();
 
+                FittingOptionsController.UnlockBootstrapParameters = unlockParametersCheck.IsChecked == true;
                 var solver = workspace.PrepareForSolve();
                 solver.SolverAlgorithm = SelectedAlgorithm();
                 solver.ErrorEstimationMethod = SelectedErrorMethod();
@@ -896,6 +912,7 @@ namespace AnalysisITC.Avalonia.Analysis
             errorMethodCombo.IsEnabled = !isFitting;
             bootstrapIterationsBox.IsEnabled = !isFitting;
             weightedFitCheck.IsEnabled = !isFitting;
+            unlockParametersCheck.IsEnabled = !isFitting;
             parameterLimitsCombo.IsEnabled = !isFitting;
             createResultCheck.IsEnabled = !isFitting && CanCreateAnalysisResult();
             autoOpenResultCheck.IsEnabled = !isFitting;
@@ -1008,6 +1025,12 @@ namespace AnalysisITC.Avalonia.Analysis
                 2 => ParameterLimitSetting.NoLimit,
                 _ => ParameterLimitSetting.Standard
             });
+        }
+
+        void ChangeUnlockParameters()
+        {
+            if (isUpdatingControls) return;
+            FittingOptionsController.UnlockBootstrapParameters = unlockParametersCheck.IsChecked == true;
         }
 
         void ChangeCreateResult()
