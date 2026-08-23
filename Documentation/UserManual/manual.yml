@@ -3,9 +3,13 @@ manual:
   product_version: "1.4.3"
   verification_commit: "7a19b583468b4b087e130e4b27c8140cd428339a"
   language: en-US
-  web_base_path: /manual/
+  web_base_path: /manual
   pdf_filename: FT-ITC-Analysis-User-Manual.pdf
-  source_of_truth_after_integration: website-repository
+  source_of_truth: application-repository
+  source_repository: FrederikTheisen/FT-ITC-Analysis
+  source_path: Documentation/UserManual
+  website_role: generated-consumer
+  sync_mode: pull-on-change
   pages:
     - file: pages/01-manual-home.md
       slug: index
@@ -31,4 +35,3 @@ manual:
       slug: preferences-troubleshooting
     - file: pages/12-reference.md
       slug: reference
-

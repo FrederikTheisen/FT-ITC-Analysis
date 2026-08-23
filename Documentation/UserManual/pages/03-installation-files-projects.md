@@ -3,7 +3,7 @@ title: Installation, files, and projects
 summary: Install FT-ITC Analysis, open supported data, save portable projects, and use autosave or recovery safely.
 slug: installation-files-projects
 nav_order: 3
-last_verified: 2026-08-22
+last_verified: 2026-08-23
 _verification:
   product_version: "1.4.3"
   commit: "7a19b583468b4b087e130e4b27c8140cd428339a"
@@ -13,7 +13,7 @@ _verification:
 
 ## Install the application
 
-Download an available release for your operating system from the [FT-ITC Analysis releases](https://github.com/FrederikTheisen/FT-ITC-Analysis/releases) page. Verify that the file came from the project release channel before accepting an operating-system security prompt. Package availability and release status are stated on the release page; at this manual's verification date, macOS is the stable public release, Linux is pre-release, and Windows packaging is announced but not yet public.
+Download an available release for your operating system from the [FT-ITC Analysis releases](https://github.com/FrederikTheisen/FT-ITC-Analysis/releases) page. Verify that the file came from the project release channel before accepting an operating-system security prompt. At this manual's verification date, public packages include a macOS disk image, a Windows x64 executable installer, and a Linux AMD64 Debian package.
 
 ### macOS
 
@@ -21,11 +21,11 @@ Open the DMG, drag **FT-ITC Analysis** to **Applications**, and eject the disk i
 
 ### Windows
 
-When a Windows release is available, install the supplied MSIX package. A release can register `.ftxtc` and `.ftitc` project associations. If Windows displays a publisher or certificate warning, confirm the release source before continuing.
+Run the supplied Windows x64 `.exe` installer and follow the setup prompts. The installer can register `.ftxtc` and `.ftitc` project associations. If Windows displays a publisher or certificate warning, confirm the release source before continuing.
 
 ### Linux
 
-Install the pre-release Debian package on a compatible Debian-based distribution. Package trust and dependency behavior depend on the channel through which the package was obtained. Review the current release notes for known platform limitations.
+Install the supplied AMD64 `.deb` package on a compatible Debian-based distribution. Package trust and dependency behavior depend on the channel through which the package was obtained. Review the current release notes for known platform limitations.
 
 > **Platform note:** Package installation and file-association prompts are controlled by the operating system. Once the application is running, the analysis workflow and labels in this manual are shared.
 
