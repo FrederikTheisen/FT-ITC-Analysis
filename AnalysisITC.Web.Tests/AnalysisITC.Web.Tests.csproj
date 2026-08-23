@@ -5,6 +5,7 @@
     <IsTestProject>true</IsTestProject>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
+    <ReleaseVersion>1.1</ReleaseVersion>
   </PropertyGroup>
 
   <ItemGroup>
@@ -25,7 +26,6 @@
   <ItemGroup>
     <None Include="..\AnalysisITC.Tests\OneSetOfSites\data_1.itc" Link="Fixtures\data_1.itc" CopyToOutputDirectory="PreserveNewest" />
     <None Include="..\AnalysisITC.Tests\OneSetOfSites\data.ftitc" Link="Fixtures\data.ftitc" CopyToOutputDirectory="PreserveNewest" />
-    <None Include="..\AnalysisITC.Tests\JORS Example Project.ftitc" Link="Fixtures\jors.ftitc" CopyToOutputDirectory="PreserveNewest" />
     <None Include="..\AnalysisITC.Tests\TemperatureSeries\temp_data.ftitc" Link="Fixtures\temperature-series.ftitc" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>
