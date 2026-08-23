@@ -394,7 +394,6 @@ namespace AnalysisITC.Core.DataReaders
             switch (wireValue)
             {
                 case 0: return ITCDataFormat.ITC200;
-                case 1: return ITCDataFormat.VPITC;
                 case 2: return ITCDataFormat.FTITC;
                 case 3: return extension == ".ftxtc" ? ITCDataFormat.FTXTC : ITCDataFormat.Unknown;
                 case 4: return extension == ".ta" ? ITCDataFormat.TAITC : ITCDataFormat.Unknown;

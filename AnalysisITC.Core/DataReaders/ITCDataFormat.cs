@@ -33,7 +33,6 @@ namespace AnalysisITC.Core.DataReaders
             return new List<ITCDataFormat>
             {
                 ITCDataFormat.ITC200,
-                ITCDataFormat.VPITC,
                 ITCDataFormat.TAITC,
                 ITCDataFormat.FTXTC,
                 ITCDataFormat.FTITC,
@@ -55,23 +54,22 @@ namespace AnalysisITC.Core.DataReaders
 
     }
 
+    // Keep persisted FTITC source ordinals stable; ordinal 1 belonged to the removed legacy format.
     public enum ITCDataFormat
     {
         [ITCFormat("MicroCal ITC Data File","Data format produced by the MicroCal ITC200 instrument", ".itc")]
-        ITC200,
-        [ITCFormat("VP-ITC", "Data format produced by the VP-ITC instrument", ".vpitc")]
-        VPITC,
+        ITC200 = 0,
         [ITCFormat("FT-ITC", "Data format produced by this software", ".ftitc")]
-        FTITC,
+        FTITC = 2,
         [ITCFormat("FT-ITC Project", "Versioned FT-ITC project package", ".ftxtc")]
-        FTXTC,
-        Unknown,
+        FTXTC = 3,
+        Unknown = 4,
         [ITCFormat("TA Instruments Nano Analyze", "Data format exported from NanoAnalyze", ".ta")]
-        TAITC,
+        TAITC = 5,
         [ITCFormat("Integrated Heats File", "Exports from Origin and legacy DH exports", new[] { ".dat", ".aff", ".dh" })]
-        IntegratedHeats,
+        IntegratedHeats = 6,
         [ITCFormat("PEAQ-ITC Project File", "Exports from PEAQ-ITC", ".apj")]
-        PEAQITCProject
+        PEAQITCProject = 7
     }
 
     public enum DilutionMethod

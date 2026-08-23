@@ -410,7 +410,7 @@ namespace AnalysisITC.Core.DataReaders
 
             if (vCandidates.Count == 0)
             {
-                // Fallback: VP-ITC-ish 1.4 mL (safe default; user can edit later)
+                // Fallback: 1.4 mL (safe default; user can edit later)
                 AppEventHandler.PrintAndLog("Could not determine cell volume", 1);
                 return 1.4e-3;
             }

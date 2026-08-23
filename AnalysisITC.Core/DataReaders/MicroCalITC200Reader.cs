@@ -41,7 +41,6 @@ namespace AnalysisITC.Core.DataReaders
                 int counter3 = -1;
                 string line;
 
-                bool shouldAscertainDataFormat = true;
                 bool isDataStream = false;
                 var readState = new MicroCalReadState();
 
@@ -59,12 +58,6 @@ namespace AnalysisITC.Core.DataReaders
 
                     if (isDataStream)
                     {
-                        if (shouldAscertainDataFormat)
-                        {
-                            experiment.DataSourceFormat = StringParsers.ParseLine(line).Count() > 3 ? ITCDataFormat.ITC200 : ITCDataFormat.VPITC;
-                            shouldAscertainDataFormat = false;
-                        }
-
                         if (line.First() == '@') ReadInjection(experiment, line, readState);
                         else ReadDataPoint(experiment, line);
                         continue;
@@ -219,25 +212,10 @@ namespace AnalysisITC.Core.DataReaders
 
         static void ReadDataPoint(ExperimentData experiment, string line)
         {
-            switch (experiment.DataSourceFormat)
-            {
-                case ITCDataFormat.VPITC:
-                    ReadVPITCDataPoint(experiment, line);
-                    break;
-                default:
-                    ReadITC200DataPoint(experiment, line);
-                    break;
-            }
+            ReadITC200DataPoint(experiment, line);
         }
 
         static void ReadITC200DataPoint(ExperimentData experiment, string line)
-        {
-            var dat = StringParsers.ParseLine(line);
-
-            experiment.DataPoints.Add(new DataPoint(dat[0], (float)Energy.ConvertToJoule(dat[1], EnergyUnit.MicroCal), dat[2]));
-        }
-
-        static void ReadVPITCDataPoint(ExperimentData experiment, string line)
         {
             var dat = StringParsers.ParseLine(line);
 

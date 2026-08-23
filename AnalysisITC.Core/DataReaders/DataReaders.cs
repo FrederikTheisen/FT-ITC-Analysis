@@ -256,7 +256,6 @@ namespace AnalysisITC.Core.DataReaders
                         return await FTITCReader.ReadPath(path);
                     case ITCDataFormat.FTXTC:
                         return await FTXTCReader.ReadPath(path);
-                    case ITCDataFormat.VPITC: // TODO No idea what vpitc files might look like if they exist
                     case ITCDataFormat.ITC200:
                         return new ExperimentData[] { MicroCalITC200Reader.ReadPath(path) };
                     case ITCDataFormat.TAITC:

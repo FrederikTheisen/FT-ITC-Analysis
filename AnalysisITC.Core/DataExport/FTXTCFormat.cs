@@ -1275,7 +1275,7 @@ namespace AnalysisITC.Core.Export
 
         static string DataFormatId(ITCDataFormat value) => value switch
         {
-            ITCDataFormat.ITC200 => "microcal-itc200", ITCDataFormat.VPITC => "microcal-vpitc",
+            ITCDataFormat.ITC200 => "microcal-itc200",
             ITCDataFormat.FTITC => "ftitc", ITCDataFormat.FTXTC => "ftxtc", ITCDataFormat.TAITC => "ta-itc",
             ITCDataFormat.IntegratedHeats => "integrated-heats", ITCDataFormat.PEAQITCProject => "peaq-itc-project",
             ITCDataFormat.Unknown => "unknown", _ => throw new NotSupportedException("Unsupported data source format."),
@@ -1283,7 +1283,7 @@ namespace AnalysisITC.Core.Export
         static string InstrumentId(ITCInstrument value) => value switch
         {
             ITCInstrument.Unknown => "unknown", ITCInstrument.MicroCalITC200 => "microcal-itc200",
-            ITCInstrument.MalvernITC200 => "microcal-peaq-itc", ITCInstrument.MicroCalVPITC => "microcal-vp-itc",
+            ITCInstrument.MalvernITC200 => "microcal-peaq-itc",
             ITCInstrument.TAInstrumentsITCStandard => "ta-itc-standard", ITCInstrument.TAInstrumentsITCLowVolume => "ta-itc-low-volume",
             _ => throw new NotSupportedException("Unsupported instrument value."),
         };
