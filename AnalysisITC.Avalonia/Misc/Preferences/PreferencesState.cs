@@ -15,6 +15,7 @@ internal sealed class PreferencesState
     public double ReferenceTemperature { get; set; }
     public EnergyUnit EnergyUnit { get; set; }
     public ConcentrationUnit DefaultConcentrationUnit { get; set; }
+    public ITCInstrument DefaultDesignerInstrument { get; set; }
     public double MinimumTemperatureSpanForFitting { get; set; }
     public double MinimumIonSpanForFitting { get; set; }
     public NumberPrecision NumberPrecision { get; set; }
@@ -77,6 +78,7 @@ internal sealed class PreferencesState
             ReferenceTemperature = AppSettings.ReferenceTemperature,
             EnergyUnit = AppSettings.EnergyUnit,
             DefaultConcentrationUnit = AppSettings.DefaultConcentrationUnit,
+            DefaultDesignerInstrument = AppSettings.DefaultDesignerInstrument,
             MinimumTemperatureSpanForFitting = AppSettings.MinimumTemperatureSpanForFitting,
             MinimumIonSpanForFitting = AppSettings.MinimumIonSpanForFitting,
             NumberPrecision = AppSettings.NumberPrecision,
@@ -141,6 +143,7 @@ internal sealed class PreferencesState
             ReferenceTemperature = 25,
             EnergyUnit = EnergyUnit.KiloJoule,
             DefaultConcentrationUnit = ConcentrationUnit.µM,
+            DefaultDesignerInstrument = ITCInstrument.MicroCalITC200,
             MinimumTemperatureSpanForFitting = 3,
             MinimumIonSpanForFitting = 0.03,
             NumberPrecision = NumberPrecision.Standard,
@@ -203,6 +206,7 @@ internal sealed class PreferencesState
         AppSettings.ReferenceTemperature = ReferenceTemperature;
         AppSettings.EnergyUnit = EnergyUnit;
         AppSettings.DefaultConcentrationUnit = DefaultConcentrationUnit;
+        AppSettings.DefaultDesignerInstrument = DefaultDesignerInstrument;
         AppSettings.MinimumTemperatureSpanForFitting = MinimumTemperatureSpanForFitting;
         AppSettings.MinimumIonSpanForFitting = MinimumIonSpanForFitting;
         AppSettings.NumberPrecision = NumberPrecision;

@@ -49,6 +49,7 @@ internal sealed class PreferencesWindow : Window
 
     readonly ComboBox energyUnitCombo;
     readonly ComboBox concentrationUnitCombo;
+    readonly ComboBox designerInstrumentCombo;
     readonly TextBox referenceTemperatureBox = Box("");
     readonly TextBox minimumTemperatureSpanBox = Box("");
     readonly TextBox minimumIonSpanBox = Box("");
@@ -145,6 +146,7 @@ internal sealed class PreferencesWindow : Window
     internal Slider MaximumIterationsSlider => maximumIterationsSlider;
     internal TextBlock MaximumIterationsValueLabel => maximumIterationsValueLabel;
     internal CheckBox AutoSaveEnabledCheck => autoSaveEnabledCheck;
+    internal ComboBox DefaultDesignerInstrumentCombo => designerInstrumentCombo;
     internal ComboBox PublicationFontCombo => publicationFontCombo;
     internal TextBlock PublicationFontResolutionText => publicationFontResolutionText;
 
@@ -159,6 +161,7 @@ internal sealed class PreferencesWindow : Window
 
         energyUnitCombo = Combo(EnergyUnitAttribute.GetSelectableUnits().Select(unit => Option($"{unit.GetName()} ({unit.GetUnit()})", unit)));
         concentrationUnitCombo = Combo(Enum.GetValues<ConcentrationUnit>().Select(unit => Option(unit.GetProperties().Name, unit)));
+        designerInstrumentCombo = Combo(ITCInstrumentAttribute.GetITCInstruments().Select(instrument => Option(instrument.GetProperties().Name, instrument)));
         numberPrecisionCombo = Combo(new[]
         {
             Option("Strict", NumberPrecision.Strict),
@@ -304,6 +307,7 @@ internal sealed class PreferencesWindow : Window
         {
             Row("Energy unit", energyUnitCombo),
             Row("Concentration unit", concentrationUnitCombo),
+            Row("Designer instrument", designerInstrumentCombo),
             Row("Number precision", numberPrecisionCombo),
             Row("Uncertainty display", uncertaintyStyleCombo)
         }));
@@ -429,6 +433,7 @@ internal sealed class PreferencesWindow : Window
     {
         SetCombo(energyUnitCombo, state.EnergyUnit);
         SetCombo(concentrationUnitCombo, state.DefaultConcentrationUnit);
+        SetCombo(designerInstrumentCombo, state.DefaultDesignerInstrument);
         referenceTemperatureBox.Text = Format(state.ReferenceTemperature);
         minimumTemperatureSpanBox.Text = Format(state.MinimumTemperatureSpanForFitting);
         minimumIonSpanBox.Text = Format(state.MinimumIonSpanForFitting * 1000);
@@ -544,6 +549,7 @@ internal sealed class PreferencesWindow : Window
         state.ReferenceTemperature = referenceTemperature;
         state.EnergyUnit = Value(energyUnitCombo, AppSettings.EnergyUnit);
         state.DefaultConcentrationUnit = Value(concentrationUnitCombo, AppSettings.DefaultConcentrationUnit);
+        state.DefaultDesignerInstrument = Value(designerInstrumentCombo, AppSettings.DefaultDesignerInstrument);
         state.MinimumTemperatureSpanForFitting = minimumTemperatureSpan;
         state.MinimumIonSpanForFitting = minimumIonSpanMm / 1000.0;
         state.NumberPrecision = Value(numberPrecisionCombo, AppSettings.NumberPrecision);
