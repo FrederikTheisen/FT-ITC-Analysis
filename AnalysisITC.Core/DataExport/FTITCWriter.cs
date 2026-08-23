@@ -477,8 +477,8 @@ namespace AnalysisITC.Core.Export
 
         public static async Task<bool> SaveSelectedAsync(ITCDataContainer data)
         {
-            var title = "Save FT-ITC " + (data is ExperimentData ? "Experiment Data" : "Analysis Results");
-            var allowedFileTypes = data is ExperimentData ? new[] { "ftxtc" } : new[] { "ftxtc", "csv" };
+            var title = "Save FT-ITC " + (data is ExperimentData ? "Experiment Data" : "Analysis Result");
+            var allowedFileTypes = new[] { "ftxtc" };
             var path = await PlatformServices.FileSavePromptService.ChooseSaveFilePathAsync(title, allowedFileTypes);
             if (string.IsNullOrWhiteSpace(path)) return false;
 
@@ -493,14 +493,11 @@ namespace AnalysisITC.Core.Export
                         case ExperimentData experiment:
                             await FTXTCWriter.WriteFileAsync(path, new[] { experiment });
                             break;
-                        case AnalysisResult result when !string.Equals(Path.GetExtension(path), ".csv", StringComparison.OrdinalIgnoreCase):
+                        case AnalysisResult result:
                             await FTXTCWriter.WriteFileAsync(
                                 path,
                                 result.Solution.Solutions.Select(solution => solution.Data).Distinct(),
                                 new[] { result });
-                            break;
-                        case AnalysisResult when Path.GetExtension(path).TrimStart('.').ToLowerInvariant() == "csv":
-                            Exporter.Export(ExportType.CSV);
                             break;
                     }
                 }
