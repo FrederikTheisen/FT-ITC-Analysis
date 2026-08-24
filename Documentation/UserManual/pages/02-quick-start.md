@@ -3,7 +3,7 @@ title: Quick start
 summary: Open your own ITC dataset, process it, fit a one-set-of-sites model, review the result, save the project, and export a figure.
 slug: quick-start
 nav_order: 2
-last_verified: 2026-08-23
+last_verified: 2026-08-24
 _verification:
   product_version: "1.4.3"
   commit: "7a19b583468b4b087e130e4b27c8140cd428339a"
@@ -21,14 +21,15 @@ This procedure takes a compatible file through an ordinary one-set-of-sites anal
 
 Have one of these inputs available:
 
-- a raw MicroCal-style thermogram (`.itc`).
-- a TA Instruments/NanoAnalyze export (`.ta`), PEAQ-ITC export (`.apj`), or legacy Origin ITC project (`.opj`).
+- a raw MicroCal-style thermogram (`.itc`) or native TA Instruments NanoITC file (`.nitc`).
+- a NanoAnalyze export (`.ta`) or PEAQ-ITC export (`.apj`).
+- a legacy Origin ITC project (`.opj`). When a compatible worksheet contains the original time/power trace, FT-ITC Analysis restores it for processing; otherwise, it uses the worksheet heat values as integrated input.
 - injection-level integrated heats (`.dat`, `.aff`, or `.dh`).
 - an FT-ITC project (`.ftxtc`) or legacy project (`.ftitc`).
 
 Supported formats and project behavior are described in [Installation, files, and projects](03-installation-files-projects.md).
 
-> **Note:** Integrated-heat files do not contain a raw thermogram. They skip baseline correction and peak integration; begin with experiment details and fitting.
+> **Note:** Integrated-heat files and Origin projects without an original time/power trace skip baseline correction and peak integration; begin with experiment details and fitting.
 
 ## 1. Open your data
 

@@ -1,6 +1,6 @@
 ---
-title: Preferences
-summary: Reference for shared defaults, display choices, processing and fitting behavior, and exports.
+title: Settings and defaults
+summary: Configure shared defaults for display, processing, fitting, and export.
 slug: preferences-troubleshooting
 nav_order: 11
 last_verified: 2026-08-23
@@ -9,7 +9,7 @@ _verification:
   commit: "7a19b583468b4b087e130e4b27c8140cd428339a"
 ---
 
-# Preferences
+# Settings and defaults
 
 **Preferences...** contains **General**, **Processing**, **Fitting**, and **Export**. Settings labelled as defaults provide starting values for new or reset work. Display settings affect presentation; export settings affect generated tables and figures. Project-specific values stored in a project remain distinct from application preferences. Project and recovery behavior is covered in [Installation, files, and projects](03-installation-files-projects.md).
 
@@ -108,4 +108,4 @@ Bootstrap method and count are shared fitting defaults. Fit-specific settings ca
 
 Export preferences affect newly generated exports and figure defaults; they do not rewrite an existing export or a stored figure configuration. See [Figures and export](09-figures-printing-export.md) for output formats and units.
 
-> **Platform note:** Avalonia provides **Publication font** choices of **Native**, **Inter**, and **Liberation Sans**. macOS uses its native publication renderer and does not expose a publication-font selector.
+> **Platform note:** The **Publication font** selector is available on Windows and Linux, with choices of **Native**, **Inter**, and **Liberation Sans**. Some macOS releases use the native publication renderer and do not show this selector.

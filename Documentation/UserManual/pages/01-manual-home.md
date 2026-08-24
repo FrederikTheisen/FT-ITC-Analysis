@@ -59,8 +59,8 @@ The shortest route to a first result is [Quick start](02-quick-start.md), which 
 - [Results and advanced analyses](08-results-advanced-analysis.md)
 - [Figures and export](09-figures-printing-export.md)
 - [Tools](10-additional-tools.md)
-- [Preferences](11-preferences-troubleshooting.md)
-- [Reference](12-reference.md)
+- [Settings and defaults](11-preferences-troubleshooting.md)
+- [Glossary and equations](12-reference.md)
 
 The manual uses these callouts:
 

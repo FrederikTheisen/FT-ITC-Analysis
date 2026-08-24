@@ -60,7 +60,7 @@ The format list contains:
 - **pytc** — a `.dh` file containing the pytc-compatible injection and metadata fields.
 - **ITCsim** — ITCsim-compatible injection data and metadata, with offset-corrected peaks available when a fitted solution exists.
 
-Output units are format-specific. Thermogram samples use seconds and watts; integrated-peak and combined-data enthalpy, model, and residual values use joules per mole; MicroCal/SEDPHAT, pytc, and ITCsim use their documented concentration, volume, temperature, and heat conventions. Fitted columns and correction controls are disabled when the selected data do not contain the corresponding processed or fitted state. Export defaults are described in [Preferences](11-preferences-troubleshooting.md).
+Output units are format-specific. Thermogram samples use seconds and watts; integrated-peak and combined-data enthalpy, model, and residual values use joules per mole; MicroCal/SEDPHAT, pytc, and ITCsim use their documented concentration, volume, temperature, and heat conventions. Fitted columns and correction controls are disabled when the selected data do not contain the corresponding processed or fitted state. Export defaults are described in [Settings and defaults](11-preferences-troubleshooting.md).
 
 ## Analysis Result Exporter
 

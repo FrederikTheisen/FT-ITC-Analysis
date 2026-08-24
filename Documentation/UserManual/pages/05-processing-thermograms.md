@@ -13,7 +13,7 @@ _verification:
 
 The **Process Data** workspace estimates and subtracts a baseline from the differential-power trace and integrates the corrected response for each injection. Processing produces an injection heat with an estimated uncertainty for later fitting. The application cannot determine whether a baseline or integration boundary is scientifically appropriate for the experiment.
 
-Integrated-heat imports do not contain a thermogram and therefore do not use **Process Data**.
+Integrated-heat imports and Origin `.opj` imports without an original time/power trace do not use **Process Data**.
 
 > **Calculation:**
 >

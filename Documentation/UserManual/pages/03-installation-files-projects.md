@@ -34,9 +34,10 @@ Install the supplied `.deb` package matching the system architecture (AMD64 or A
 | Extension | Source | Contains thermogram? |
 | --- | --- | --- |
 | `.itc` | MicroCal-style raw data | Yes |
+| `.nitc` | TA Instruments NanoITC native data | Yes |
 | `.ta` | TA Instruments/NanoAnalyze export | Usually |
 | `.apj` | PEAQ-ITC project export | As supported by import |
-| `.opj` | Legacy Origin ITC project | Yes, when an embedded trace is present |
+| `.opj` | Legacy Origin ITC project | In some projects |
 | `.dat` | Integrated heats | No |
 | `.aff` | Integrated heats | No |
 | `.dh` | Integrated heats | No |
@@ -45,7 +46,9 @@ Install the supplied `.deb` package matching the system architecture (AMD64 or A
 
 PEAQ project imports are converted into experiment information understood by FT-ITC Analysis. Content that is specific to the source application is not automatically equivalent to a native FT-ITC project.
 
-Legacy Origin `.opj` imports select the first compatible ITC worksheet in project order and restore its source heats, injection metadata, and embedded thermogram when available. ResultsLog text is retained in the experiment comments as provenance. Origin baseline processing, fitted models, and Fit/DY columns are not imported or converted into native FT-ITC fits. Newer `.opju` files are not supported.
+Native NanoITC `.nitc` imports restore the raw thermogram, injection schedule, concentrations, cell volume, temperature and stirring information, and available source provenance. They open as unprocessed Experiment Data and follow the normal thermogram-processing workflow.
+
+Legacy Origin `.opj` imports select the first compatible ITC worksheet in project order and restore its injection metadata. When the worksheet contains the original time/power trace, FT-ITC Analysis restores the thermogram; opening **Process Data** initializes processing and recalculates the heats from that trace. The worksheet heat values are therefore not retained as the processed result. If no trace is present, the worksheet heat values are used as integrated input and **Process Data** is skipped. ResultsLog text is retained in the experiment comments as provenance. Origin baseline processing, fitted models, and Fit/DY columns are not imported or converted into native FT-ITC fits. Newer `.opju` files are not supported.
 
 ## Open files
 
@@ -65,7 +68,7 @@ An `.ftxtc` project preserves the data and metadata needed to continue analysis,
 
 **Save Selected...** writes selected project content when you need a smaller handoff. Confirm the selection before saving and reopen the result if the subset is critical. Saving the selected experiments saves only the experiment with any solution. Saving the selected Analysis Results saves the result along with the involved experiments.
 
-> **Recommendation:** Retain immutable copies of original instrument files, the named `.ftxtc` analysis project, and exported publication output. They serve different record-keeping purposes.
+> **Recommendation:** Save a processed version of the project before fitting if you want a reusable starting point. After fitting, save the project again—under a new name if you want to preserve the processed-only version—to retain the fitted solutions and Analysis Results.
 
 ## Autosave and recovery
 

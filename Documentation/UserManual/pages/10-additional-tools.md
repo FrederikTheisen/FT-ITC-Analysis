@@ -25,7 +25,7 @@ The **Setup** tab contains **Instrument**, **Cell uM**, **Syringe uM**, injectio
 
 The **Model** tab contains **Type**, exposed model **Parameters**, and model-specific **Options**. **Simulate noise** adds synthetic measurement noise. **Apply / Fit** fits the synthetic data in the designer window and reports the fit on its graph; neither the simulation nor this fit becomes an Analysis Result or Experiment Data entry.
 
-![Experiment Designer Model view showing a synthetic one-set-of-sites fit and editable N-value, enthalpy, and affinity parameters.](../assets/experiment-designer-model.png)
+![Experiment Designer Model controls showing One-Set-Of-Sites and editable N-value, enthalpy, and affinity parameters.](../assets/experiment-designer-model.png)
 
 ## Buffer Subtraction
 
@@ -39,7 +39,7 @@ The **Method** selector contains **Matched**, **Linear**, and **Exp. decay**:
 
 The preview graph shows reference and target heats and the selected subtraction model. Reference-point inclusion changes the points available to the fitted methods. **Focus Y axis on buffer data** changes only the preview range. A continuous model line appears for **Linear** and **Exp. decay**; **Matched** is represented by injection-level reference values.
 
-![Buffer Subtraction window showing a processed reference, selected target, Linear method, focused buffer-data axis, fitted reference line, and Apply controls.](../assets/buffer-subtraction.png)
+![Buffer Subtraction window showing a processed reference, selected targets, Linear method, focused buffer-data axis, fitted reference line, and Apply controls.](../assets/buffer-subtraction.png)
 
 > **Calculation:**
 >
@@ -61,7 +61,7 @@ The merge **Mode** selector contains:
 
 Back-mixing controls include **Dead vol. uL**, the **Mixing** fraction, and **Remove titrated overflow**. Dead volume represents the filling-stem or overflow volume above the active cell volume. The overflow control records whether titrated overflow was removed between segments. In Fixed mode, the slider supplies the fraction; in Auto mode, the scanner determines the transition values.
 
-![Experiment Merger showing three ordered tandem segments, Auto back-mixing, dead volume, mixing result, overflow removal, and Create controls.](../assets/experiment-merger-auto.png)
+![Experiment Merger showing three ordered tandem segments while Auto back-mixing scans possible transition corrections.](../assets/experiment-merger-auto.png)
 
 **Create** produces a new processed Experiment Data item. Its thermogram samples are time-shifted and concatenated, its injection sequence retains segment boundaries, and its segment metadata stores the calculated starting active-cell and active-titrant concentrations. The merged item’s comments record the selected tandem mode and back-mixing parameters. Source experiments remain separate and are not changed by creation; the new item is marked as a tandem experiment and is not eligible as a later merger source. The resulting item can be fitted through [Analyze Data](06-fitting-models.md).
 

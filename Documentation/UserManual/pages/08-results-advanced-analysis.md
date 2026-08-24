@@ -25,7 +25,7 @@ The result view selector contains **Parameters** and **Selected Fit** for every 
 
 ## Inspector tabs
 
-The result inspector has four tabs with shared labels on Avalonia and macOS: **Summary**, **Analysis**, **Experiments**, and **Model**.
+The result inspector has four tabs with shared labels across the supported desktop versions: **Summary**, **Analysis**, **Experiments**, and **Model**.
 
 The **Summary** tab contains the result identity, model, member count, RMSD, and solver diagnostics. The validity section reports **Analysis is valid**, **Partially invalid**, **Invalid**, or **Unknown status**, with reasons when the stored validity snapshot differs from current member inputs. Solver information includes algorithm, iterations, weighted or unweighted injection errors, error-estimation method, and bootstrap count.
 

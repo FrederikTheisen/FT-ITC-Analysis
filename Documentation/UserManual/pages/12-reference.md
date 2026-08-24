@@ -1,6 +1,6 @@
 ---
-title: Reference
-summary: Compact terminology, keyboard conventions, symbols, and scientific and software references.
+title: Glossary and equations
+summary: Terminology, keyboard conventions, calculation symbols, equations, and references.
 slug: reference
 nav_order: 12
 last_verified: 2026-08-23
@@ -9,7 +9,7 @@ _verification:
   commit: "7a19b583468b4b087e130e4b27c8140cd428339a"
 ---
 
-# Reference
+# Glossary and equations
 
 ## Workspace terms
 
@@ -39,8 +39,8 @@ The application command modifier is **Command** on macOS and **Ctrl** on Windows
 | Command/Ctrl + I | Invert the Active Experiment Data set. |
 | Command/Ctrl + comma | Open Preferences. |
 | Command/Ctrl + Q | Quit FT-ITC Analysis. |
-| F1 | Open **Help and Guide** in Avalonia. macOS exposes Help through its **?** menu command. |
-| Enter | Open **Details** for the selected Data/Results item in Avalonia. |
+| F1 | Open **Help and Guide** on Windows and Linux. On macOS, open Help through the **?** menu command. |
+| Enter | Open **Details** for the selected Data/Results item on Windows and Linux. |
 | Left / Right | Change the selected injection in **Process Data**. |
 | Space | Copy the selected integration length to the next injection in **Process Data**; the start is also copied when that processing option is enabled. |
 

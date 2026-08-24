@@ -1,7 +1,7 @@
 assets:
   - file: workflow.svg
     kind: diagram
-    alt: Six-step FT-ITC Analysis workflow from opening data through saving and export.
+    alt: FT-ITC Analysis workflow from opening data through saving and export.
     caption: The analysis workflow. Integrated-heat imports enter after thermogram processing.
     source: Manual editorial diagram
     publication_status: publish
@@ -30,14 +30,14 @@ assets:
     kind: screenshot-composite
     alt: Three light-theme JORS Process Data views demonstrating Spline, Polynomial, and Segmented baselines.
     caption: Spline, Polynomial, and Segmented provide different baseline representations for thermogram processing.
-    source: FT-ITC Analysis 1.4.3 Avalonia build at verification commit
+    source: FT-ITC Analysis 1.4.3 desktop build at verification commit
     data: Existing repository JORS Example Project
     publication_status: publish
   - file: processing-selected-injection.png
     kind: screenshot
     alt: Light-theme Process Data view focused on one JORS injection, showing its boundaries, Start and Length controls, Fit Peaks, and Copy to next peak.
     caption: Selecting an injection exposes its individual boundaries and navigation controls.
-    source: FT-ITC Analysis 1.4.3 Avalonia build at verification commit
+    source: User-supplied FT-ITC Analysis 1.4.3 light-theme capture
     data: Existing repository JORS Example Project
     publication_status: publish
   - file: fitting-workspace.png
@@ -65,14 +65,14 @@ assets:
     kind: screenshot
     alt: Multiple-experiment Analyze Data view configured to fit three Active experiments globally with shared enthalpy, showing the fitted curve, residuals, model settings, uncertainty controls, and result-creation controls.
     caption: A shared enthalpy constraint connects the three Active experiments in one global fit.
-    source: User-supplied FT-ITC Analysis 1.4.3 Avalonia light-theme capture
+    source: User-supplied FT-ITC Analysis 1.4.3 light-theme capture
     data: Existing repository JORS Example Project
     publication_status: publish
   - file: multiple-experiment-constraints.png
     kind: screenshot-composite
     alt: Two Parameters views showing global N-value, enthalpy, and affinity constraints with the common enthalpy parameter unlocked and locked.
     caption: Global constraints define relationships between member parameters; Locked separately fixes an exposed value.
-    source: User-supplied FT-ITC Analysis 1.4.3 Avalonia light-theme captures
+    source: User-supplied FT-ITC Analysis 1.4.3 light-theme captures
     data: Existing repository JORS Example Project
     publication_status: publish
   - file: analysis-result-summary.png
@@ -133,22 +133,22 @@ assets:
     publication_status: publish
   - file: experiment-designer-model.png
     kind: screenshot
-    alt: Experiment Designer Model view showing a synthetic one-set-of-sites fit and editable N-value, enthalpy, and affinity parameters.
+    alt: Experiment Designer Model controls showing One-Set-Of-Sites and editable N-value, enthalpy, and affinity parameters.
     caption: Model exposes the synthetic model type and its parameter values.
     source: User-supplied FT-ITC Analysis 1.4.3 light-theme capture
     data: Synthetic Experiment Designer data
     publication_status: publish
   - file: buffer-subtraction.png
     kind: screenshot
-    alt: Buffer Subtraction window showing a processed reference, selected target, Linear method, focused buffer-data axis, fitted reference line, and Apply controls.
+    alt: Buffer Subtraction window showing a processed reference, selected targets, Linear method, focused buffer-data axis, fitted reference line, and Apply controls.
     caption: Buffer Subtraction previews the selected reference model and target experiments before storing the correction.
     source: User-supplied FT-ITC Analysis 1.4.3 light-theme capture
     data: Synthetic HEPES reference and target experiments
     publication_status: publish
   - file: experiment-merger-auto.png
     kind: screenshot
-    alt: Experiment Merger showing three ordered tandem segments, Auto back-mixing, dead volume, mixing result, overflow removal, and Create controls.
-    caption: Auto back-mixing estimates the transition correction for an ordered tandem experiment set.
+    alt: Experiment Merger showing three ordered tandem segments while Auto back-mixing scans possible transition corrections.
+    caption: Auto back-mixing scans possible transition corrections for an ordered tandem experiment set.
     source: User-supplied FT-ITC Analysis 1.4.3 light-theme capture
     data: Existing repository tandem example project
     publication_status: publish
