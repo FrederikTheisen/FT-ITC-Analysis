@@ -60,6 +60,7 @@ autosaves. Report installation problems through the
 ## Supported files
 
 - MicroCal-style raw data: `.itc`
+- TA Instruments NanoITC native data: `.nitc`
 - TA Instruments / NanoAnalyze exports: `.TA`
 - PEAQ-ITC projects: `.apj`
 - Legacy Origin ITC projects: `.opj` (first compatible worksheet)
