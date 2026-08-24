@@ -17,17 +17,9 @@ namespace AnalysisITC.Core.DataReaders
     ///
     /// PEAQ analysis exports the entire experiment – raw data, injection table
     /// and fitted results – as an XML document with the extension .apj.
-    /// Although rich in content, the ITC analysis program cares primarily
-    /// about injection volumes, integrated heats and post‑injection
-    /// concentrations.  This reader extracts only the information needed to
-    /// build an <see cref="ExperimentData"/> object suitable for FT‑ITC
-    /// Analysis.  The thermogram itself is discarded; PEAQ exports provide
-    /// normalized heat and DH values which are sufficient for integrated
-    /// analysis.
-    ///
-    /// If additional fields (such as baseline corrected data points or
-    /// fitting results) are required in future, extend this class
-    /// accordingly.
+    /// This reader restores the raw thermogram and injection information needed
+    /// to build an <see cref="ExperimentData"/> object suitable for FT‑ITC
+    /// Analysis. PEAQ fitting results and integrated heats are not imported.
     ///
     /// The units in the .apj export are:
     /// * CellVolume: litres (e.g. 0.0002136 for 213.6 µL)
