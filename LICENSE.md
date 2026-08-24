@@ -108,3 +108,14 @@ Acknowledgements
 
 Many thanks to the authors and maintainers of the open‑source projects above.
 Without their contributions, this application would not have been possible.
+
+The legacy Origin project reader was implemented as managed C# code from the
+publicly documented CPYA block format. The MIT-licensed OpenOPJ project by
+Juliusz Gonera was consulted as a format reference:
+
+* **Copyright:** Copyright (c) 2012 Juliusz Gonera, Minor Laboratory,
+  University of Virginia
+* **Source:** https://github.com/jgonera/openopj
+* **Licence:** MIT License (the complete terms appear above)
+
+No GPL liborigin code is linked or redistributed.
