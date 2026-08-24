@@ -9,6 +9,7 @@ using MathNet.Numerics.Optimization;
 using AnalysisITC.Core.Application;
 using AnalysisITC.Core.Data;
 using AnalysisITC.Core.Analysis.Models;
+using AnalysisITC.Core.Numerics;
 using AnalysisITC.Core.Utilities;
 
 namespace AnalysisITC.Core.Analysis
