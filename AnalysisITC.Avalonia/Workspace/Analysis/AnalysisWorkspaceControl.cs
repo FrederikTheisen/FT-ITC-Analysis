@@ -736,6 +736,9 @@ namespace AnalysisITC.Avalonia.Analysis
                 var completionMessage = convergence.Message;
                 StatusBarManager.ClearAppStatus();
                 StatusBarManager.QueueStatus(completionMessage, 3000);
+                var boundaryWarning = ParameterBoundaryWarningFormatter.Format(convergence.ParameterBoundaryContacts);
+                if (!string.IsNullOrWhiteSpace(boundaryWarning))
+                    StatusBarManager.QueueStatus(boundaryWarning, 5000);
                 StatusBarManager.QueueStatus($"{convergence.Iterations} iterations | {elapsed}", 3000);
                 if (convergence.Success)
                     StatusBarManager.QueueStatus($"{convergence.Algorithm.GetProperties().ShortName} | RMSD = {convergence.Loss:G4}", 2000);

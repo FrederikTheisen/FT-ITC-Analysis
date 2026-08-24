@@ -73,6 +73,11 @@ namespace AnalysisITC.Core.Analysis
             }
         }
 
+        internal void SetLimits(double[] limits)
+        {
+            Limits = limits?.ToArray();
+        }
+
         /// <summary>
         /// Set the parameter value from the global parameters and tells the model that the parameter should not be fitted
         /// </summary>
@@ -256,8 +261,11 @@ namespace AnalysisITC.Core.Analysis
 
         public void AddorUpdateGlobalParameter(ParameterType key, double value, bool islocked = false, double[] limits = null)
         {
-            if (GlobalTable.Keys.Contains(key)) GlobalTable[key] = new Parameter(key, value, islocked);           
-            else GlobalTable.Add(key, new Parameter(key, value, islocked));
+            var parameter = new Parameter(key, value, islocked);
+            if (limits != null) parameter.SetLimits(limits);
+
+            if (GlobalTable.Keys.Contains(key)) GlobalTable[key] = parameter;
+            else GlobalTable.Add(key, parameter);
         }
 
         public void AddIndivdualParameter(ModelParameters parameters)

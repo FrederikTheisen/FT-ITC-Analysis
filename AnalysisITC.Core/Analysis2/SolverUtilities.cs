@@ -7,10 +7,183 @@ using System.Threading.Tasks;
 using MathNet.Numerics.Optimization;
 
 using AnalysisITC.Core.Application;
+using AnalysisITC.Core.Data;
+using AnalysisITC.Core.Analysis.Models;
 using AnalysisITC.Core.Utilities;
 
 namespace AnalysisITC.Core.Analysis
 {
+    public enum ParameterBoundaryScope
+    {
+        Local,
+        Shared,
+        Global = Shared,
+    }
+
+    public enum ParameterBoundarySide
+    {
+        Lower,
+        Upper,
+    }
+
+    /// <summary>
+    /// A transient description of a free parameter whose accepted final value is
+    /// effectively on one of its active bounds. Boundary contacts intentionally
+    /// are not part of the persisted convergence snapshot.
+    /// </summary>
+    public sealed class ParameterBoundaryContact
+    {
+        public ParameterType Parameter { get; }
+        public ParameterType ParameterType => Parameter;
+        public ParameterType ParameterKey => Parameter;
+        public string ParameterIdentity { get; }
+        public string DisplayName => Parameter.GetProperties().Name;
+        public ParameterBoundaryScope Scope { get; }
+        public bool IsShared => Scope == ParameterBoundaryScope.Shared;
+        public bool IsGlobal => IsShared;
+        public string ExperimentIdentity { get; }
+        public string ExperimentId => ExperimentIdentity;
+        public string ExperimentID => ExperimentIdentity;
+        public string ExperimentUniqueId => ExperimentIdentity;
+        public string ExperimentName { get; }
+        public ParameterBoundarySide Side { get; }
+        public bool IsLower => Side == ParameterBoundarySide.Lower;
+        public bool IsUpper => Side == ParameterBoundarySide.Upper;
+        public double FinalValue { get; }
+        public double FinalParameterValue => FinalValue;
+        public double Value => FinalValue;
+        public double BoundValue { get; }
+        public double Bound => BoundValue;
+        public double LowerBound => Side == ParameterBoundarySide.Lower ? BoundValue : double.NaN;
+        public double UpperBound => Side == ParameterBoundarySide.Upper ? BoundValue : double.NaN;
+
+        public ParameterBoundaryContact(
+            ParameterType parameter,
+            ParameterBoundaryScope scope,
+            string experimentIdentity,
+            string experimentName,
+            ParameterBoundarySide side,
+            double finalValue,
+            double boundValue)
+        {
+            Parameter = parameter;
+            ParameterIdentity = parameter.ToString();
+            Scope = scope;
+            ExperimentIdentity = experimentIdentity;
+            ExperimentName = experimentName;
+            Side = side;
+            FinalValue = finalValue;
+            BoundValue = boundValue;
+        }
+
+        public ParameterBoundaryContact Copy() => new ParameterBoundaryContact(
+            Parameter,
+            Scope,
+            ExperimentIdentity,
+            ExperimentName,
+            Side,
+            FinalValue,
+            BoundValue);
+    }
+
+    public static class ParameterBoundaryWarningFormatter
+    {
+        public static string Format(IEnumerable<ParameterBoundaryContact> contacts)
+        {
+            var names = (contacts ?? Enumerable.Empty<ParameterBoundaryContact>())
+                .Where(contact => contact != null)
+                .Select(contact => string.IsNullOrWhiteSpace(contact.ExperimentName)
+                    ? contact.DisplayName
+                    : $"{contact.DisplayName} ({contact.ExperimentName})")
+                .Distinct(StringComparer.Ordinal)
+                .ToList();
+
+            if (names.Count == 0) return string.Empty;
+
+            const string prefix = "Warning: parameter bound reached";
+            if (names.Count <= 3)
+                return $"{prefix}: {string.Join(", ", names)}";
+
+            return $"{prefix}: {string.Join(", ", names.Take(3))}, and {names.Count - 3} more";
+        }
+    }
+
+    /// <summary>
+    /// Independent bound-contact detection used after a solver has applied its
+    /// accepted parameter vector. It only considers free parameters and the
+    /// currently active finite limits.
+    /// </summary>
+    public static class ParameterBoundaryDetector
+    {
+        static bool IsAtBound(double value, double bound, double tolerance)
+        {
+            return FWEMath.IsFinite(value) && FWEMath.IsFinite(bound) && Math.Abs(value - bound) <= tolerance;
+        }
+
+        static void AddContact(
+            List<ParameterBoundaryContact> contacts,
+            Parameter parameter,
+            ParameterBoundaryScope scope,
+            ExperimentData data)
+        {
+            if (parameter == null || !parameter.IsFitted || parameter.Limits == null || parameter.Limits.Length < 2)
+                return;
+
+            var lower = parameter.Limits[0];
+            var upper = parameter.Limits[1];
+            if (!FWEMath.IsFinite(lower) || !FWEMath.IsFinite(upper) || upper < lower)
+                return;
+
+            var tolerance = Math.Max(1e-10, 1e-6 * Math.Abs(upper - lower));
+            var value = parameter.Value;
+            var experimentId = scope == ParameterBoundaryScope.Local ? data?.UniqueID : null;
+            var experimentName = scope == ParameterBoundaryScope.Local ? data?.Name ?? data?.FileName : null;
+
+            if (IsAtBound(value, lower, tolerance))
+                contacts.Add(new ParameterBoundaryContact(
+                    parameter.Key, scope, experimentId, experimentName,
+                    ParameterBoundarySide.Lower, value, lower));
+
+            if (IsAtBound(value, upper, tolerance))
+                contacts.Add(new ParameterBoundaryContact(
+                    parameter.Key, scope, experimentId, experimentName,
+                    ParameterBoundarySide.Upper, value, upper));
+        }
+
+        public static IReadOnlyList<ParameterBoundaryContact> Detect(Model model)
+        {
+            return Detect(model, ParameterBoundaryScope.Local);
+        }
+
+        public static IReadOnlyList<ParameterBoundaryContact> Detect(Model model, ParameterBoundaryScope scope)
+        {
+            var contacts = new List<ParameterBoundaryContact>();
+            foreach (var parameter in model?.Parameters?.Table?.Values ?? Enumerable.Empty<Parameter>())
+                AddContact(contacts, parameter, scope, model.Data);
+            return contacts;
+        }
+
+        public static IReadOnlyList<ParameterBoundaryContact> Detect(GlobalModel model)
+        {
+            var contacts = new List<ParameterBoundaryContact>();
+            foreach (var parameter in model?.Parameters?.GlobalTable?.Values ?? Enumerable.Empty<Parameter>())
+                AddContact(contacts, parameter, ParameterBoundaryScope.Shared, null);
+
+            var models = model?.Models ?? new List<Model>();
+            var parameterSets = model?.Parameters?.IndividualModelParameterList;
+            if (parameterSets == null) return contacts;
+
+            for (var i = 0; i < parameterSets.Count; i++)
+            {
+                var data = i < models.Count ? models[i]?.Data : null;
+                foreach (var parameter in parameterSets[i]?.Table?.Values ?? Enumerable.Empty<Parameter>())
+                    AddContact(contacts, parameter, ParameterBoundaryScope.Local, data);
+            }
+
+            return contacts;
+        }
+    }
+
     public class SolverConvergence
     {
         public SolverAlgorithm Algorithm { get; private set; }
@@ -26,6 +199,13 @@ namespace AnalysisITC.Core.Analysis
         public string FailureReason { get; private set; } = string.Empty;
         public string ErrorEstimationSummary { get; private set; } = string.Empty;
         public Exception RootCause { get; private set; } = null;
+
+        /// <summary>
+        /// Boundary contacts from the primary fit. This is deliberately excluded
+        /// from SolverConvergenceSnapshot and is therefore not persisted.
+        /// </summary>
+        public IReadOnlyList<ParameterBoundaryContact> ParameterBoundaryContacts { get; private set; } = Array.Empty<ParameterBoundaryContact>();
+        public IReadOnlyList<ParameterBoundaryContact> BoundaryContacts => ParameterBoundaryContacts;
 
         public TimeSpan TotalTime => Time + ErrorEstimationTime;
 
@@ -58,6 +238,14 @@ namespace AnalysisITC.Core.Analysis
 
         public void SetLoss(double loss) => Loss = loss;
 
+        public void SetParameterBoundaryContacts(IEnumerable<ParameterBoundaryContact> contacts)
+        {
+            ParameterBoundaryContacts = (contacts ?? Enumerable.Empty<ParameterBoundaryContact>())
+                .Where(contact => contact != null)
+                .Select(contact => contact.Copy())
+                .ToArray();
+        }
+
         private SolverConvergence() { }
 
         public SolverConvergence(NelderMead solver, double loss)
@@ -88,6 +276,8 @@ namespace AnalysisITC.Core.Analysis
             ErrorEstimationTime = TimeSpan.FromTicks(list.Sum(c => c.ErrorEstimationTime.Ticks));
             Loss = list.Sum(c => c.Loss);
             ErrorEstimationOutcome = AggregateErrorEstimationOutcome(list);
+
+            SetParameterBoundaryContacts(list.SelectMany(c => c.ParameterBoundaryContacts));
 
             var term = AggregateTermination(list);
 
@@ -145,6 +335,9 @@ namespace AnalysisITC.Core.Analysis
                 FailureReason = this.FailureReason,
                 ErrorEstimationSummary = this.ErrorEstimationSummary,
                 RootCause = this.RootCause,
+                ParameterBoundaryContacts = this.ParameterBoundaryContacts
+                    .Select(contact => contact.Copy())
+                    .ToArray(),
             };
         }
 

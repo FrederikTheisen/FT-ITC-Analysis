@@ -103,6 +103,7 @@ namespace AnalysisITC.Core.Analysis
 
         protected DateTime starttime;
         protected DateTime endtime;
+        protected IReadOnlyList<ParameterBoundaryContact> LastParameterBoundaryContacts { get; private set; } = Array.Empty<ParameterBoundaryContact>();
         public TimeSpan Duration
         {
             get
@@ -407,9 +408,13 @@ namespace AnalysisITC.Core.Analysis
             LogSolverOutput(scope, parameters, initial, fitted, initialObjective, fittedObjective, initialLoss, fittedLoss, acceptedFitted);
 
             if (acceptedFitted)
+            {
+                LastParameterBoundaryContacts = ParameterBoundaryDetector.Detect(model, ParameterBoundaryScope.Local);
                 return fittedLoss;
+            }
 
             model.LossFunction(initial, false);
+            LastParameterBoundaryContacts = ParameterBoundaryDetector.Detect(model, ParameterBoundaryScope.Local);
             return initialLoss;
         }
 
@@ -425,10 +430,21 @@ namespace AnalysisITC.Core.Analysis
             LogSolverOutput(scope, parameters, initial, fitted, initialObjective, fittedObjective, initialLoss, fittedLoss, acceptedFitted);
 
             if (acceptedFitted)
+            {
+                LastParameterBoundaryContacts = ParameterBoundaryDetector.Detect(model);
                 return fittedLoss;
+            }
 
             model.LossFunction(initial, false);
+            LastParameterBoundaryContacts = ParameterBoundaryDetector.Detect(model);
             return initialLoss;
+        }
+
+        protected void ApplyBoundaryContacts(SolverConvergence convergence)
+        {
+            convergence?.SetParameterBoundaryContacts(Silent
+                ? Array.Empty<ParameterBoundaryContact>()
+                : LastParameterBoundaryContacts);
         }
 
         protected bool ShouldCreateAnalysisResult(SolverConvergence convergence)
@@ -509,7 +525,9 @@ namespace AnalysisITC.Core.Analysis
 
             var loss = ApplyBestFittedParameters(Model, initialGuess, solver.Solution, UseErrorWeightedFitting, "Single/NelderMead", fittedParameters);
 
-            Model.Solution = SolutionInterface.FromModel(Model, new SolverConvergence(solver, loss));
+            var convergence = new SolverConvergence(solver, loss);
+            ApplyBoundaryContacts(convergence);
+            Model.Solution = SolutionInterface.FromModel(Model, convergence);
             Model.Solution.ErrorMethod = ErrorEstimationMethod;
             Model.Solution.UseWeightedFitting = UseErrorWeightedFitting;
 
@@ -562,7 +580,9 @@ namespace AnalysisITC.Core.Analysis
             var fitted = result.MinimizingPoint.ToArray();
             var loss = ApplyBestFittedParameters(Model, initialGuess, fitted, UseErrorWeightedFitting, "Single/LevenbergMarquardt", fittedParameters);
 
-            Model.Solution = SolutionInterface.FromModel(Model, new SolverConvergence(result, DateTime.Now - start, loss));
+            var convergence = new SolverConvergence(result, DateTime.Now - start, loss);
+            ApplyBoundaryContacts(convergence);
+            Model.Solution = SolutionInterface.FromModel(Model, convergence);
             Model.Solution.ErrorMethod = ErrorEstimationMethod;
             Model.Solution.UseWeightedFitting = UseErrorWeightedFitting;
 
@@ -597,6 +617,7 @@ namespace AnalysisITC.Core.Analysis
                             MaxOptimizerIterations = MaxBootstrapOptimizerIterations,
                             UseErrorWeightedFitting = this.UseErrorWeightedFitting,
                             EnableSolverDiagnostics = false,
+                            Silent = true,
                         };
 
                         var rconv = solver.Solve();
@@ -670,6 +691,7 @@ namespace AnalysisITC.Core.Analysis
                             MaxOptimizerIterations = MaxBootstrapOptimizerIterations,
                             UseErrorWeightedFitting = this.UseErrorWeightedFitting,
                             EnableSolverDiagnostics = false,
+                            Silent = true,
                         };
 
                         var rconv = solver.Solve();
@@ -808,7 +830,9 @@ namespace AnalysisITC.Core.Analysis
 
             var loss = ApplyBestFittedParameters(Model, initialGuess, solver.Solution, UseErrorWeightedFitting, "Global/NelderMead", fittedParameters);
 
-            Model.Solution = new GlobalSolution(this, new SolverConvergence(solver, loss));
+            var convergence = new SolverConvergence(solver, loss);
+            ApplyBoundaryContacts(convergence);
+            Model.Solution = new GlobalSolution(this, convergence);
 
             return Model.Solution.Convergence;
         }
@@ -860,7 +884,9 @@ namespace AnalysisITC.Core.Analysis
 
             var loss = ApplyBestFittedParameters(Model, initialGuess, fitted, UseErrorWeightedFitting, "Global/LevenbergMarquardt", fittedParameters);
 
-            Model.Solution = new GlobalSolution(this, new SolverConvergence(result, DateTime.Now - start, loss));
+            var convergence = new SolverConvergence(result, DateTime.Now - start, loss);
+            ApplyBoundaryContacts(convergence);
+            Model.Solution = new GlobalSolution(this, convergence);
 
             return Model.Solution.Convergence;
         }
@@ -892,6 +918,7 @@ namespace AnalysisITC.Core.Analysis
                             MaxOptimizerIterations = MaxBootstrapOptimizerIterations,
                             UseErrorWeightedFitting = this.UseErrorWeightedFitting,
                             EnableSolverDiagnostics = false,
+                            Silent = true,
                         };
 
                         var rconv = solver.Solve();
@@ -954,6 +981,7 @@ namespace AnalysisITC.Core.Analysis
                             MaxOptimizerIterations = MaxBootstrapOptimizerIterations,
                             UseErrorWeightedFitting = this.UseErrorWeightedFitting,
                             EnableSolverDiagnostics = false,
+                            Silent = true,
                         };
 
                         var rconv = solver.Solve();
