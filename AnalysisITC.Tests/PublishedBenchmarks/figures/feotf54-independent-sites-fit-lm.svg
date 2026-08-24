@@ -1,0 +1,81 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="850" viewBox="0 0 1600 850">
+<rect width="100%" height="100%" fill="white"/>
+<style>text{font-family:Arial,sans-serif;fill:#202020}.title{font-size:26px;font-weight:600}.label{font-size:18px}.tick{font-size:15px;fill:#555}.note{font-size:16px}.fit{fill:none;stroke:#e4572e;stroke-width:3}.point{fill:#1f77b4;stroke:white;stroke-width:1.5}</style>
+<text x="165" y="42" class="title">FEOTF54 independent-sites benchmark — N₁ = N₂ = 1</text>
+<text x="165" y="70" class="note">LevenbergMarquardt; published source forward model vs FT-ITC fit</text>
+<line x1="165" y1="100" x2="165" y2="535" stroke="#222" stroke-width="1.5"/>
+<line x1="165" y1="535" x2="1100" y2="535" stroke="#222" stroke-width="1.5"/>
+<line x1="165" y1="635" x2="165" y2="775" stroke="#222" stroke-width="1.5"/>
+<line x1="165" y1="775" x2="1100" y2="775" stroke="#222" stroke-width="1.5"/>
+<line x1="165" y1="152.146" x2="1100" y2="152.146" stroke="#aaa" stroke-width="1"/>
+<line x1="165" y1="705" x2="1100" y2="705" stroke="#aaa" stroke-width="1"/>
+<line x1="165" y1="535" x2="165" y2="541" stroke="#222" stroke-width="1"/>
+<line x1="165" y1="775" x2="165" y2="781" stroke="#222" stroke-width="1"/>
+<text x="165" y="802" text-anchor="middle" class="tick">0</text>
+<line x1="398.75" y1="535" x2="398.75" y2="541" stroke="#222" stroke-width="1"/>
+<line x1="398.75" y1="775" x2="398.75" y2="781" stroke="#222" stroke-width="1"/>
+<text x="398.75" y="802" text-anchor="middle" class="tick">0.771</text>
+<line x1="632.5" y1="535" x2="632.5" y2="541" stroke="#222" stroke-width="1"/>
+<line x1="632.5" y1="775" x2="632.5" y2="781" stroke="#222" stroke-width="1"/>
+<text x="632.5" y="802" text-anchor="middle" class="tick">1.542</text>
+<line x1="866.25" y1="535" x2="866.25" y2="541" stroke="#222" stroke-width="1"/>
+<line x1="866.25" y1="775" x2="866.25" y2="781" stroke="#222" stroke-width="1"/>
+<text x="866.25" y="802" text-anchor="middle" class="tick">2.313</text>
+<line x1="1100" y1="535" x2="1100" y2="541" stroke="#222" stroke-width="1"/>
+<line x1="1100" y1="775" x2="1100" y2="781" stroke="#222" stroke-width="1"/>
+<text x="1100" y="802" text-anchor="middle" class="tick">3.084</text>
+<line x1="159" y1="535" x2="165" y2="535" stroke="#222" stroke-width="1"/>
+<text x="153" y="540" text-anchor="end" class="tick">-12481.475</text>
+<line x1="159" y1="426.25" x2="165" y2="426.25" stroke="#222" stroke-width="1"/>
+<text x="153" y="431.25" text-anchor="end" class="tick">-8936.103</text>
+<line x1="159" y1="317.5" x2="165" y2="317.5" stroke="#222" stroke-width="1"/>
+<text x="153" y="322.5" text-anchor="end" class="tick">-5390.731</text>
+<line x1="159" y1="208.75" x2="165" y2="208.75" stroke="#222" stroke-width="1"/>
+<text x="153" y="213.75" text-anchor="end" class="tick">-1845.359</text>
+<line x1="159" y1="100" x2="165" y2="100" stroke="#222" stroke-width="1"/>
+<text x="153" y="105" text-anchor="end" class="tick">1700.013</text>
+<line x1="159" y1="775" x2="165" y2="775" stroke="#222" stroke-width="1"/>
+<text x="153" y="780" text-anchor="end" class="tick">-100</text>
+<line x1="159" y1="705" x2="165" y2="705" stroke="#222" stroke-width="1"/>
+<text x="153" y="710" text-anchor="end" class="tick">0</text>
+<line x1="159" y1="635" x2="165" y2="635" stroke="#222" stroke-width="1"/>
+<text x="153" y="640" text-anchor="end" class="tick">100</text>
+<path d="M 218.373 130.617 L 271.558 131.32 L 324.553 132.768 L 377.361 136.541 L 429.982 152.098 L 482.417 266.803 L 534.665 460.865 L 586.729 498.68 L 638.608 504.64 L 690.303 505 L 741.815 496.347 L 793.144 349.704 L 844.292 168.567 L 895.258 155.181 L 946.043 153.087 L 996.649 152.393 L 1047.075 152.08" class="fit"/>
+<circle cx="218.373" cy="130" r="5" class="point"/>
+<circle cx="218.373" cy="690.917" r="4" class="point"/>
+<circle cx="271.558" cy="130.817" r="5" class="point"/>
+<circle cx="271.558" cy="693.507" r="4" class="point"/>
+<circle cx="324.553" cy="132.411" r="5" class="point"/>
+<circle cx="324.553" cy="696.853" r="4" class="point"/>
+<circle cx="377.361" cy="136.432" r="5" class="point"/>
+<circle cx="377.361" cy="702.512" r="4" class="point"/>
+<circle cx="429.982" cy="152.661" r="5" class="point"/>
+<circle cx="429.982" cy="717.844" r="4" class="point"/>
+<circle cx="482.417" cy="268.241" r="5" class="point"/>
+<circle cx="482.417" cy="737.812" r="4" class="point"/>
+<circle cx="534.665" cy="461.738" r="5" class="point"/>
+<circle cx="534.665" cy="724.914" r="4" class="point"/>
+<circle cx="586.729" cy="499.564" r="5" class="point"/>
+<circle cx="586.729" cy="725.171" r="4" class="point"/>
+<circle cx="638.608" cy="504.677" r="5" class="point"/>
+<circle cx="638.608" cy="705.83" r="4" class="point"/>
+<circle cx="690.303" cy="504.129" r="5" class="point"/>
+<circle cx="690.303" cy="685.124" r="4" class="point"/>
+<circle cx="741.815" cy="495.436" r="5" class="point"/>
+<circle cx="741.815" cy="684.221" r="4" class="point"/>
+<circle cx="793.144" cy="348.971" r="5" class="point"/>
+<circle cx="793.144" cy="688.261" r="4" class="point"/>
+<circle cx="844.292" cy="167.287" r="5" class="point"/>
+<circle cx="844.292" cy="675.803" r="4" class="point"/>
+<circle cx="895.258" cy="155.326" r="5" class="point"/>
+<circle cx="895.258" cy="708.305" r="4" class="point"/>
+<circle cx="946.043" cy="153.496" r="5" class="point"/>
+<circle cx="946.043" cy="714.325" r="4" class="point"/>
+<circle cx="996.649" cy="152.891" r="5" class="point"/>
+<circle cx="996.649" cy="716.347" r="4" class="point"/>
+<circle cx="1047.075" cy="152.617" r="5" class="point"/>
+<circle cx="1047.075" cy="717.256" r="4" class="point"/>
+<text x="632.5" y="820" text-anchor="middle" class="label">Molar ratio</text>
+<text x="0" y="0" text-anchor="middle" class="label" transform="translate(55 317.5) rotate(-90)">Integrated heat (cal/mol injectant)</text>
+<text x="0" y="0" text-anchor="middle" class="label" transform="translate(55 705) rotate(-90)">Residual (cal/mol)</text>
+</svg>

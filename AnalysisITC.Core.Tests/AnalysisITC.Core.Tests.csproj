@@ -31,6 +31,11 @@
     <None Include="..\AnalysisITC.Tests\FileTypeTests\CURVE-2.aff" Link="Fixtures\FileTypeTests\CURVE-2.aff" CopyToOutputDirectory="PreserveNewest" />
     <None Include="..\AnalysisITC.Tests\FileTypeTests\JORS Example Project.ftxtc" Link="Fixtures\FileTypeTests\JORS Example Project.ftxtc" CopyToOutputDirectory="PreserveNewest" />
     <None Include="..\AnalysisITC.Tests\FileTypeTests\TpxWT_CtFT(1).apj" Link="Fixtures\FileTypeTests\TpxWT_CtFT(1).apj" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\AnalysisITC.Tests\FileTypeTests\G223W_Mn_onesite_first_run.OPJ" Link="Fixtures\FileTypeTests\G223W_Mn_onesite_first_run.OPJ" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\AnalysisITC.Tests\FileTypeTests\20221030 Insulin (2.5 um) and Binding Buffer (20 mM HEPES, 100 mM NaCl, 2 mM EDTA).nitc" Link="Fixtures\FileTypeTests\20221030 Insulin (2.5 um) and Binding Buffer (20 mM HEPES, 100 mM NaCl, 2 mM EDTA).nitc" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\AnalysisITC.Tests\FileTypeTests\20221030 Insulin (2.5 um) and IBP (20 um) in Binding Buffer (20 mM HEPES, 100 mM NaCl, 2 mM EDTA).nitc" Link="Fixtures\FileTypeTests\20221030 Insulin (2.5 um) and IBP (20 um) in Binding Buffer (20 mM HEPES, 100 mM NaCl, 2 mM EDTA).nitc" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\AnalysisITC.Tests\FileTypeTests\20230504 Insulin (200 mM) and Binding Buffer (20 mM HEPES, 100 mM NaCl, 2 mM EDTA).nitc" Link="Fixtures\FileTypeTests\20230504 Insulin (200 mM) and Binding Buffer (20 mM HEPES, 100 mM NaCl, 2 mM EDTA).nitc" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\AnalysisITC.Tests\FileTypeTests\20230504 Insulin (200 mM) and IBP (1 mM) in Binding Buffer (20 mM HEPES, 100 mM NaCl, 2 mM EDTA).nitc" Link="Fixtures\FileTypeTests\20230504 Insulin (200 mM) and IBP (1 mM) in Binding Buffer (20 mM HEPES, 100 mM NaCl, 2 mM EDTA).nitc" CopyToOutputDirectory="PreserveNewest" />
     <None Include="..\AnalysisITC.Tests\FileTypeTests\legacy.ftitc" Link="Fixtures\FileTypeTests\legacy.ftitc" CopyToOutputDirectory="PreserveNewest" />
     <None Include="..\AnalysisITC.Tests\OneSetOfSites\data_1.itc" Link="Fixtures\data_1.itc" CopyToOutputDirectory="PreserveNewest" />
     <None Include="..\AnalysisITC.Tests\OneSetOfSites\data.ftitc" Link="Fixtures\one-set.ftitc" CopyToOutputDirectory="PreserveNewest" />
@@ -40,6 +45,17 @@
     <None Include="..\AnalysisITC.Tests\Me6PXDA_C1_CHDA_CompetitiveDisplacement.ftxtc" Link="Fixtures\competitive.ftxtc" CopyToOutputDirectory="PreserveNewest" />
     <None Include="..\AnalysisITC.Tests\PublishedBenchmarks\pytc-ca-edta-tris-01.DH" Link="Fixtures\PublishedBenchmarks\pytc-ca-edta-tris-01.DH" CopyToOutputDirectory="PreserveNewest" />
     <None Include="..\AnalysisITC.Tests\PublishedBenchmarks\feotf54-independent-sites.ndh" Link="Fixtures\PublishedBenchmarks\feotf54-independent-sites.ndh" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\AnalysisITC.Tests\PublishedBenchmarks\bbr2020-m-equivalent.ndh" Link="Fixtures\PublishedBenchmarks\bbr2020-m-equivalent.ndh" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\AnalysisITC.Tests\PublishedBenchmarks\bbr2020-rnase.ndh" Link="Fixtures\PublishedBenchmarks\bbr2020-rnase.ndh" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\AnalysisITC.Tests\PublishedBenchmarks\elife2023-g223w-mn-onesite-first-run.DH" Link="Fixtures\PublishedBenchmarks\elife2023-g223w-mn-onesite-first-run.DH" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\AnalysisITC.Tests\PublishedBenchmarks\elife2023-g223w-mn-onesite-first-run.md" Link="Fixtures\PublishedBenchmarks\elife2023-g223w-mn-onesite-first-run.md" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\AnalysisITC.Tests\PublishedBenchmarks\elife2023-a47w-d296a-mn-onesite-first-run.DH" Link="Fixtures\PublishedBenchmarks\elife2023-a47w-d296a-mn-onesite-first-run.DH" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\AnalysisITC.Tests\PublishedBenchmarks\elife2023-a47w-d369a-mn-onesite-first-run.DH" Link="Fixtures\PublishedBenchmarks\elife2023-a47w-d369a-mn-onesite-first-run.DH" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\AnalysisITC.Tests\PublishedBenchmarks\elife2023-d369a-mn-onesite-first-run.DH" Link="Fixtures\PublishedBenchmarks\elife2023-d369a-mn-onesite-first-run.DH" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\AnalysisITC.Tests\PublishedBenchmarks\elife2023-m230a-d296a-mn-onesite-first-run.DH" Link="Fixtures\PublishedBenchmarks\elife2023-m230a-d296a-mn-onesite-first-run.DH" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\AnalysisITC.Tests\PublishedBenchmarks\elife2023-m230a-cd-onesite-first-run.DH" Link="Fixtures\PublishedBenchmarks\elife2023-m230a-cd-onesite-first-run.DH" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\AnalysisITC.Tests\PublishedBenchmarks\elife2023-g223w-mn-onesite-second-run.DH" Link="Fixtures\PublishedBenchmarks\elife2023-g223w-mn-onesite-second-run.DH" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\AnalysisITC.Tests\PublishedBenchmarks\elife2023-g223w-mn-onesite-second-run.md" Link="Fixtures\PublishedBenchmarks\elife2023-g223w-mn-onesite-second-run.md" CopyToOutputDirectory="PreserveNewest" />
     <None Include="..\AnalysisITC.Tests\Tandem\280-430-D2mut-1p6mM-JNK-200uM-1.ftxtc" Link="Fixtures\Tandem\280-430-D2mut-1p6mM-JNK-200uM-1.ftxtc" CopyToOutputDirectory="PreserveNewest" />
     <None Include="..\AnalysisITC.Tests\Tandem\280-430-D2mut-1p6mM-JNK-200uM-1_process2.ftxtc" Link="Fixtures\Tandem\280-430-D2mut-1p6mM-JNK-200uM-1_process2.ftxtc" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>

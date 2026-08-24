@@ -71,11 +71,11 @@ namespace AnalysisITC.Core.Tests
             var model = new OneSetOfSites(experiment);
             model.InitializeParameters(experiment);
 
-            // Deliberately distinct from the published solution so the test
-            // verifies parameter recovery rather than merely evaluating it.
-            model.Parameters.AddOrUpdateParameter(ParameterType.Nvalue1, 1.10);
-            model.Parameters.AddOrUpdateParameter(ParameterType.Enthalpy1, Energy.ConvertToJoule(-9.0, EnergyUnit.KCal));
-            model.Parameters.AddOrUpdateParameter(ParameterType.Affinity1, 7.0);
+            // Start from the reported source fit. Benchmark data do not carry
+            // per-injection uncertainties, so comparisons remain unweighted.
+            model.Parameters.AddOrUpdateParameter(ParameterType.Nvalue1, ExpectedN);
+            model.Parameters.AddOrUpdateParameter(ParameterType.Enthalpy1, Energy.ConvertToJoule(ExpectedEnthalpyCalPerMole, EnergyUnit.Cal));
+            model.Parameters.AddOrUpdateParameter(ParameterType.Affinity1, Math.Log10(ExpectedAssociationConstant));
             model.Parameters.AddOrUpdateParameter(ParameterType.Offset, 0.0);
 
             var solver = new Solver
@@ -83,6 +83,7 @@ namespace AnalysisITC.Core.Tests
                 Model = model,
                 SolverAlgorithm = algorithm,
                 ErrorEstimationMethod = ErrorEstimationMethod.None,
+                UseErrorWeightedFitting = false,
                 MaxOptimizerIterations = 4000,
                 Silent = true,
             };

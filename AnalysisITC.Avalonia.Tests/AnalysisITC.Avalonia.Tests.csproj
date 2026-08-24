@@ -4,6 +4,7 @@
     <IsPackable>false</IsPackable>
     <IsTestProject>true</IsTestProject>
     <Nullable>enable</Nullable>
+    <ReleaseVersion>1.1</ReleaseVersion>
   </PropertyGroup>
 
   <ItemGroup>
@@ -17,6 +18,8 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\AnalysisITC.Avalonia\AnalysisITC.Avalonia.csproj" />
+    <ProjectReference Include="..\AnalysisITC.Avalonia\AnalysisITC.Avalonia.csproj">
+      <ReferenceSourceTarget></ReferenceSourceTarget>
+    </ProjectReference>
   </ItemGroup>
 </Project>

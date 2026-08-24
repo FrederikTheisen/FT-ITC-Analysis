@@ -54,6 +54,8 @@ namespace AnalysisITC.Core.Tests
                 ".ftitc",
                 ".ftxtc",
                 ".itc",
+                ".nitc",
+                ".opj",
                 ".ta",
             };
 
@@ -68,7 +70,9 @@ namespace AnalysisITC.Core.Tests
         [InlineData("TpxWT_CtFT(1).apj", ITCDataFormat.PEAQITCProject)]
         [InlineData("legacy.ftitc", ITCDataFormat.FTITC)]
         [InlineData("JORS Example Project.ftxtc", ITCDataFormat.FTXTC)]
+        [InlineData("sample.NITC", ITCDataFormat.NanoITC)]
         [InlineData("CURVE-1.csv", ITCDataFormat.Unknown)]
+        [InlineData("unsupported.vpitc", ITCDataFormat.Unknown)]
         public void FormatDetectionMatchesTheRealFixture(string fileName, ITCDataFormat expected)
         {
             Assert.Equal(expected, DataReader.GetFormat(Fixture(fileName)));

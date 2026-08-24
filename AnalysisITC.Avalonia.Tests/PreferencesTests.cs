@@ -9,7 +9,9 @@ using Avalonia.Headless;
 using Xunit;
 
 using AnalysisITC.Avalonia.Preferences;
+using AnalysisITC.Core.Data;
 using AnalysisITC.Core.Presentation;
+using AnalysisITC.Core.Utilities;
 using AnalysisITC.Platform;
 
 namespace AnalysisITC.Avalonia.Tests;
@@ -44,6 +46,22 @@ public sealed class PreferencesTests
         window.AutoSaveEnabledCheck.IsChecked = false;
         Assert.False(window.AutoSaveIntervalSlider.IsEnabled);
         Assert.False(window.AutoSaveIntervalValueLabel.IsEnabled);
+    }
+
+    [Theory]
+    [InlineData(ITCInstrument.MicroCalITC200)]
+    [InlineData(ITCInstrument.TAInstrumentsITCStandard)]
+    public void DesignerInstrumentPreferenceLoadsAndRoundTrips(ITCInstrument instrument)
+    {
+        var window = new PreferencesWindow();
+        var state = PreferencesState.Defaults();
+        state.DefaultDesignerInstrument = instrument;
+
+        window.LoadState(state);
+
+        Assert.Equal(instrument.GetProperties().Name, window.DefaultDesignerInstrumentCombo.SelectedItem?.ToString());
+        Assert.True(window.TryBuildState(out var result));
+        Assert.Equal(instrument, result.DefaultDesignerInstrument);
     }
 
     [Theory]
