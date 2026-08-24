@@ -15,8 +15,8 @@ namespace AnalysisITC.Core.DataReaders
     /// <summary>
     /// Reads legacy Origin CPYA project files containing ITC worksheets.
     ///
-    /// The importer deliberately reads source heats and the embedded thermogram,
-    /// but does not attempt to restore Origin's baseline, spline, or fit model.
+    /// The importer reads either an embedded raw thermogram or integrated source
+    /// heats, and does not attempt to restore Origin's baseline, spline, or fit model.
     /// </summary>
     public static class OriginProjectReader
     {
@@ -504,19 +504,23 @@ namespace AnalysisITC.Core.DataReaders
             var datasets = BuildDatasets(document.Columns);
             var selected = datasets.FirstOrDefault(dataset => IsCompatible(dataset));
             if (selected == null)
-                throw new FormatException("The Origin project contains no compatible ITC worksheet with DH and INJV columns.");
+                throw new FormatException("The Origin project contains no compatible ITC worksheet with injection volumes and either a raw trace or integrated heats.");
 
-            var dh = selected.Column("DH").NumericValues();
+            var hasRawTrace = HasUsableRawTrace(selected);
+            var hasIntegratedHeats = HasUsableIntegratedHeats(selected);
+            var dh = selected.ColumnOrNull("DH")?.NumericValues();
             var injv = selected.Column("INJV").NumericValues();
-            var injectionCount = GetInjectionRowCount(selected);
+            var injectionCount = GetInjectionRowCount(selected, requireIntegratedHeats: !hasRawTrace);
             if (injectionCount == 0)
                 throw new FormatException($"Origin worksheet '{selected.BaseName}' contains no ITC injections.");
 
             var warnings = new List<string>(document.Warnings);
             for (var i = 0; i < injectionCount; i++)
             {
-                if (!Finite(dh[i]) || !Finite(injv[i]) || injv[i] <= 0)
-                    throw new FormatException($"Origin worksheet '{selected.BaseName}' has a non-numeric DH or INJV row at index {i}.");
+                if (!Finite(injv[i]) || injv[i] <= 0)
+                    throw new FormatException($"Origin worksheet '{selected.BaseName}' has a non-numeric INJV row at index {i}.");
+                if (!hasRawTrace && !Finite(dh[i]))
+                    throw new FormatException($"Origin worksheet '{selected.BaseName}' has a non-numeric DH row at index {i}.");
             }
 
             var cellConcentration = GetMillimolarParameter(document, "CELL_C_" + selected.BaseName);
@@ -577,10 +581,10 @@ namespace AnalysisITC.Core.DataReaders
 
             SetFeedbackMode(experiment, document, selected.BaseName, warnings);
             SetDataPoints(experiment, selected, temperature, warnings);
-            SetInjections(experiment, selected, injectionCount, dh, injv, cellConcentration, syringeConcentration, cellVolume, temperature, warnings);
+            SetInjections(experiment, selected, injectionCount, dh, injv, cellConcentration, syringeConcentration, cellVolume, temperature, warnings, useIntegratedHeats: !hasRawTrace);
             experiment.CalculateExperimentHeatDirection();
             ITCInstrumentAttribute.ResolveInstrument(experiment);
-            experiment.Comments = BuildComments(document, selected.BaseName, fileName, warnings);
+            experiment.Comments = BuildComments(document, selected.BaseName, fileName, warnings, hasRawTrace, hasIntegratedHeats);
 
             return experiment;
         }
@@ -633,17 +637,47 @@ namespace AnalysisITC.Core.DataReaders
 
         static bool IsCompatible(OriginDataset dataset)
         {
-            if (!dataset.Columns.ContainsKey("DH") || !dataset.Columns.ContainsKey("INJV")) return false;
-            return GetInjectionRowCount(dataset) > 0;
+            if (!dataset.Columns.ContainsKey("INJV")) return false;
+            if (HasUsableRawTrace(dataset))
+                return GetInjectionRowCount(dataset, requireIntegratedHeats: false) > 0;
+            return HasUsableIntegratedHeats(dataset);
         }
 
-        static int GetInjectionRowCount(OriginDataset dataset)
+        static bool HasUsableRawTrace(OriginDataset dataset)
         {
-            var dh = dataset.Column("DH").NumericValues();
+            var time = dataset.ColumnOrNull("RAW_TIME")?.NumericValues();
+            var power = dataset.ColumnOrNull("RAW_CP")?.NumericValues();
+            if (time == null || power == null) return false;
+
+            var sharedLength = Math.Min(time.Count, power.Count);
+            var validPairs = 0;
+            for (var i = 0; i < sharedLength; i++)
+            {
+                if (Finite(time[i]) && Finite(power[i]) && ++validPairs >= 2)
+                    return true;
+            }
+            return false;
+        }
+
+        static bool HasUsableIntegratedHeats(OriginDataset dataset)
+        {
+            return dataset.Columns.ContainsKey("DH")
+                && dataset.Columns.ContainsKey("INJV")
+                && GetInjectionRowCount(dataset, requireIntegratedHeats: true) > 0;
+        }
+
+        static int GetInjectionRowCount(OriginDataset dataset, bool requireIntegratedHeats)
+        {
+            var dh = dataset.ColumnOrNull("DH")?.NumericValues();
             var injv = dataset.Column("INJV").NumericValues();
-            var sharedLength = Math.Min(dh.Count, injv.Count);
+            if (requireIntegratedHeats && dh == null) return 0;
+
+            var sharedLength = requireIntegratedHeats ? Math.Min(dh.Count, injv.Count) : injv.Count;
             var count = 0;
-            while (count < sharedLength && Finite(dh[count]) && Finite(injv[count]) && injv[count] > 0)
+            while (count < sharedLength
+                && Finite(injv[count])
+                && injv[count] > 0
+                && (!requireIntegratedHeats || Finite(dh[count])))
                 count++;
 
             if (count == 0) return 0;
@@ -651,7 +685,7 @@ namespace AnalysisITC.Core.DataReaders
             // Origin commonly declares a trailing empty INJV row. Accept empty
             // tails, but reject a later numeric value or a numeric row present
             // in only one required column rather than silently truncating it.
-            if (dh.Skip(count).Any(Finite) || injv.Skip(count).Any(Finite)) return 0;
+            if ((requireIntegratedHeats && dh.Skip(count).Any(Finite)) || injv.Skip(count).Any(Finite)) return 0;
             return count;
         }
 
@@ -703,11 +737,11 @@ namespace AnalysisITC.Core.DataReaders
 
         static double InferSyringeConcentration(OriginDataset dataset, int injectionCount, double cellVolume)
         {
-            var dh = dataset.Column("DH").NumericValues();
+            var dh = dataset.ColumnOrNull("DH")?.NumericValues();
             var injv = dataset.Column("INJV").NumericValues();
             var candidates = new List<double>();
             OriginColumn ndhColumn;
-            if (dataset.Columns.TryGetValue("NDH", out ndhColumn))
+            if (dh != null && dataset.Columns.TryGetValue("NDH", out ndhColumn))
             {
                 var ndh = ndhColumn.NumericValues();
                 for (var i = 0; i < injectionCount && i < ndh.Count; i++)
@@ -804,7 +838,8 @@ namespace AnalysisITC.Core.DataReaders
             double syringeConcentration,
             double cellVolume,
             double temperature,
-            List<string> warnings)
+            List<string> warnings,
+            bool useIntegratedHeats)
         {
             var xt = dataset.ColumnOrNull("XT")?.NumericValues();
             var mt = dataset.ColumnOrNull("MT")?.NumericValues();
@@ -848,7 +883,10 @@ namespace AnalysisITC.Core.DataReaders
                 if (!Positive(actualTitrant)) actualTitrant = syringeConcentration * (deltaVolume / cellVolume) * (1 - deltaVolume / (2 * cellVolume));
                 if (!Positive(ratio) && Positive(actualCell)) ratio = actualTitrant / actualCell;
 
-                var area = Energy.ConvertToJoule(dh[i].Value, EnergyUnit.MicroCal);
+                var area = useIntegratedHeats
+                    ? Energy.ConvertToJoule(dh[i].Value, EnergyUnit.MicroCal)
+                    : 0;
+                var importedArea = new FloatWithError(area, 0);
                 var injection = new InjectionData(experiment, i, volume, 0, include: i != 0);
                 injection.RestoreState(
                     include: i != 0,
@@ -863,10 +901,12 @@ namespace AnalysisITC.Core.DataReaders
                     actualCellConcentration: actualCell,
                     actualTitrantConcentration: actualTitrant,
                     ratio: ratio,
-                    isIntegrated: true,
-                    heatDirection: area > 0 ? PeakHeatDirection.Endothermal : area < 0 ? PeakHeatDirection.Exothermal : PeakHeatDirection.Unknown,
-                    rawPeakArea: new FloatWithError(area, 0),
-                    correctedPeakArea: new FloatWithError(area, 0));
+                    isIntegrated: useIntegratedHeats,
+                    heatDirection: useIntegratedHeats
+                        ? area > 0 ? PeakHeatDirection.Endothermal : area < 0 ? PeakHeatDirection.Exothermal : PeakHeatDirection.Unknown
+                        : PeakHeatDirection.Unknown,
+                    rawPeakArea: importedArea,
+                    correctedPeakArea: importedArea);
                 experiment.Injections.Add(injection);
             }
 
@@ -891,7 +931,13 @@ namespace AnalysisITC.Core.DataReaders
             return Finite(value) ? value.Value : double.NaN;
         }
 
-        static string BuildComments(OriginProjectDocument document, string baseName, string fileName, List<string> warnings)
+        static string BuildComments(
+            OriginProjectDocument document,
+            string baseName,
+            string fileName,
+            List<string> warnings,
+            bool hasRawTrace,
+            bool hasIntegratedHeats)
         {
             var lines = new List<string>
             {
@@ -904,7 +950,16 @@ namespace AnalysisITC.Core.DataReaders
             if (!string.IsNullOrWhiteSpace(document.OriginVersionText))
                 lines.Add("Origin signature version/build: " + document.OriginVersionText);
 
-            lines.Add("Embedded thermogram was restored without Origin baseline/spline processing. Source DH heats are authoritative until the thermogram is reprocessed in FT-ITC Analysis.");
+            if (hasRawTrace)
+            {
+                lines.Add("Embedded thermogram was restored without Origin baseline/spline processing.");
+                if (hasIntegratedHeats)
+                    lines.Add("Source DH heats were not imported because the restored raw thermogram is authoritative.");
+            }
+            else
+            {
+                lines.Add("Source DH heats were imported as integrated input because no usable raw thermogram was available.");
+            }
             lines.Add("Origin ResultsLog text was retained as provenance when available. Origin Fit/DY columns, fitted models, and processing state were not imported, and no native solution or result was created.");
 
             foreach (var warning in warnings.Where(value => !string.IsNullOrWhiteSpace(value)).Distinct())
