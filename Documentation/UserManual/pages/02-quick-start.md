@@ -22,7 +22,7 @@ This procedure takes a compatible file through an ordinary one-set-of-sites anal
 Have one of these inputs available:
 
 - a raw MicroCal-style thermogram (`.itc`).
-- a TA Instruments/NanoAnalyze export (`.ta`) or PEAQ-ITC export (`.apj`).
+- a TA Instruments/NanoAnalyze export (`.ta`), PEAQ-ITC export (`.apj`), or legacy Origin ITC project (`.opj`).
 - injection-level integrated heats (`.dat`, `.aff`, or `.dh`).
 - an FT-ITC project (`.ftxtc`) or legacy project (`.ftitc`).
 

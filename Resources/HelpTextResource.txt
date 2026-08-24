@@ -17,7 +17,7 @@ The overview displays experiment metadata such as instrument information, experi
 \appname can read the following file types:
 **MicroCal-style raw data:** `.itc`
 
-**Legacy Origin ITC projects:** `.opj` (the first compatible ITC worksheet is imported, including embedded trace data and source heats; Origin fits and processing are retained as provenance only)
+**Legacy Origin ITC projects:** `.opj` (the first compatible ITC worksheet is imported, including embedded trace data and source heats; ResultsLog text is retained as provenance, but Origin fits and processing are not imported)
 **TA Instruments NanoAnalyze exports:** `.TA`
 **PEAQ-ITC project files:** `.apj`
 **Integrated heats:** `.dat`, `.aff`, `.dh`
