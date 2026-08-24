@@ -41,6 +41,7 @@ namespace AnalysisITC.Core.Data
             {
                 ITCInstrument.MicroCalITC200,
                 ITCInstrument.MalvernITC200,
+                ITCInstrument.MicroCalVPITC,
                 ITCInstrument.TAInstrumentsITCLowVolume,
                 ITCInstrument.TAInstrumentsITCStandard,
             };
@@ -120,6 +121,12 @@ namespace AnalysisITC.Core.Data
             deadv: 80)]
         MalvernITC200 = 2,
 
+        [ITCInstrument("MicroCal VP-ITC", "", "VPITC",
+            cellv: 1479.1,
+            syrv: 310,
+            deadv: 400)]
+        MicroCalVPITC = 4,
+
         [ITCInstrument("TA Instruments ITC Standard", "", "TAITC",
             cellv: 1000.0,
             syrv: 250,
@@ -132,7 +139,7 @@ namespace AnalysisITC.Core.Data
             deadv: 60)]
         TAInstrumentsITCLowVolume = 16,
 
-        MicroCal = MicroCalITC200 | MalvernITC200
+        MicroCal = MicroCalITC200 | MalvernITC200 | MicroCalVPITC
     }
 
     public enum FeedbackMode

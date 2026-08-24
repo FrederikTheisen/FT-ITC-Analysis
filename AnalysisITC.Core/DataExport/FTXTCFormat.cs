@@ -1284,6 +1284,7 @@ namespace AnalysisITC.Core.Export
         {
             ITCInstrument.Unknown => "unknown", ITCInstrument.MicroCalITC200 => "microcal-itc200",
             ITCInstrument.MalvernITC200 => "microcal-peaq-itc",
+            ITCInstrument.MicroCalVPITC => "microcal-vp-itc",
             ITCInstrument.TAInstrumentsITCStandard => "ta-itc-standard", ITCInstrument.TAInstrumentsITCLowVolume => "ta-itc-low-volume",
             _ => throw new NotSupportedException("Unsupported instrument value."),
         };
