@@ -46,8 +46,11 @@ For the core binding parameters, the available relationship states are model- an
 | **Affinity** | **None** or **Temperature dependent** |
 | **Enthalpy** | **None** or **Same for all**; **Temperature dependent** is also available when the selected set exposes temperature dependence |
 | **N-value** | **None** or **Same for all** |
+| **Offset** | **None** or **Same for all** |
 
 The interface omits unsupported states for the current model. The corresponding labels can appear as **Temp. dependent**, **Independent**, or **Shared**; they describe the same temperature-dependent, member-specific, and common relationships.
+
+With **Offset: None**, each experiment has its own fitted injection-heat offset. With **Offset: Same for all**, the Parameters tab exposes one common offset value, which can also be locked to hold that value fixed across every member.
 
 > **Calculation:**
 >
