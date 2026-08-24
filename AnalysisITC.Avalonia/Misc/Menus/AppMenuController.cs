@@ -16,6 +16,7 @@ internal sealed class AppMenuController
     readonly List<MenuNode> windowMenuNodes = new();
     readonly List<(NativeMenuItem Item, AppMenuCommand Command, MenuNode Node)> nativeCommandItems = new();
     readonly List<(NativeMenuItem Item, MenuNode Node)> nativeMenuItems = new();
+    readonly List<(NativeMenuItemSeparator Item, MenuNode Node)> nativeSeparatorItems = new();
     bool nativeMenuInstalled;
 
     public AppMenuController(MainWindow window)
@@ -40,6 +41,7 @@ internal sealed class AppMenuController
         {
             nativeCommandItems.Clear();
             nativeMenuItems.Clear();
+            nativeSeparatorItems.Clear();
             NativeMenu.SetMenu(window, CreateNativeMenu(windowMenuNodes, trackNativeCommands: true));
             nativeMenuInstalled = true;
         }
@@ -82,6 +84,9 @@ internal sealed class AppMenuController
             item.IsChecked = command.IsChecked;
         }
 
+        foreach (var (item, node) in nativeSeparatorItems)
+            item.IsVisible = node.IsVisible;
+
         for (var i = nativeMenuItems.Count - 1; i >= 0; i--)
         {
             var (item, node) = nativeMenuItems[i];
@@ -122,7 +127,7 @@ internal sealed class AppMenuController
 
         Add("experimentdetails", "Details...", window.OpenSelectedDetailsFromMenuAsync, window.HasSelectedExperiment);
         Add("exportselecteddata", "Export Selected Data...", () => window.ExportDataAsync(selectedOnly: true), window.HasSelectedExperiment);
-        Add("toggleinclude", "Enable/Disable Active", window.ToggleSelectedExperimentInclusionAsync, window.HasSelectedExperiment);
+        Add("toggleinclude", "Active", window.ToggleSelectedExperimentInclusionAsync, window.SelectedExperimentCanToggleInclusion, window.SelectedExperimentIsIncluded);
         Add("clearsolution", "Clear Solution", window.ClearSelectedExperimentSolutionAsync, window.SelectedExperimentHasSolution);
         Add("removedata", "Remove Data", window.RemoveSelectedItemAsync, window.HasSelectedExperiment);
 
@@ -133,11 +138,11 @@ internal sealed class AppMenuController
         Add("supportingfigurecanvas", "Supporting Figure...", window.OpenSupportingFigureCanvasAsync, window.HasDocumentContent);
 
         Add("resultdetails", "Details...", window.OpenSelectedDetailsFromMenuAsync, window.HasSelectedResult);
-        Add("updateresult", "Update Result", window.UpdateSelectedResultAsync, window.HasSelectedResult);
-        Add("copyresulttable", "Copy Result Table", window.CopyResultTableAsync, window.HasSelectedResult);
-        Add("loadresultsolutions", "Load Solutions to Experiments", window.LoadSelectedResultSolutionsAsync, window.HasSelectedResult);
-        Add("selectresultexperiments", "Select Result Experiments", window.SelectResultExperimentsAsync, window.HasSelectedResult);
-        Add("exportresultfigures", "Export Associated Final Figures...", window.ExportFinalFigureAsync, window.CanExportFinalFigure);
+        Add("updateresult", "Update Result", window.UpdateSelectedResultAsync, window.SelectedResultCanUpdate);
+        Add("copyresulttable", "Copy Result Table", window.CopyResultTableAsync, window.SelectedResultHasSolution);
+        Add("loadresultsolutions", "Load Solutions to Experiments", window.LoadSelectedResultSolutionsAsync, window.SelectedResultHasMemberSolutions);
+        Add("selectresultexperiments", "Set Active Experiments", window.SelectResultExperimentsAsync, window.SelectedResultHasMemberSolutions);
+        Add("exportresultfigures", "Export Associated Final Figures...", window.ExportFinalFigureAsync, window.SelectedResultHasMemberSolutions);
         Add("removeresult", "Remove Result", window.RemoveSelectedItemAsync, window.HasSelectedResult);
         Add("about", "About FT-ITC Analysis", window.ShowAboutAsync);
         Add("preferences", "Preferences...", window.OpenPreferencesAsync, gesture: new KeyGesture(Key.OemComma, commandModifier));
@@ -195,29 +200,7 @@ internal sealed class AppMenuController
                 Command("sortionic"),
                 Command("sortprotonation"))));
 
-        windowMenuNodes.Add(Menu("Selection",
-            Command("experimentdetails", window.HasSelectedExperiment),
-            Command("duplicate", window.HasSelectedExperiment),
-            Command("attributeoperations", window.SelectedExperimentHasAttributes),
-            Command("clearattributes", window.SelectedExperimentHasAttributes),
-            Command("resultdetails", window.HasSelectedResult),
-            Separator(),
-            Command("saveselected", window.HasSelectedExperiment),
-            Command("exportselecteddata", window.HasSelectedExperiment),
-            Command("saveselected", window.HasSelectedResult),
-            Command("copyresulttable", window.HasSelectedResult),
-            Separator(),
-            Command("toggleinclude", window.HasSelectedExperiment),
-            Command("clearsolution", window.HasSelectedExperiment),
-            Command("updateresult", window.HasSelectedResult),
-            Command("loadresultsolutions", window.HasSelectedResult),
-            Command("selectresultexperiments", window.HasSelectedResult),
-            Command("exportresultfigures", window.HasSelectedResult),
-            Separator(),
-            Command("experimentmerger", window.HasSelectedExperiment),
-            Command("buffersubtraction", window.HasSelectedExperiment),
-            Command("removedata", window.HasSelectedExperiment),
-            Command("removeresult", window.HasSelectedResult)));
+        windowMenuNodes.Add(Menu("Selection", SelectionNodes(includeSelectionOnlyTools: true)));
 
         windowMenuNodes.Add(Menu("Tools",
             Command("experimentdesigner"),
@@ -255,7 +238,73 @@ internal sealed class AppMenuController
 
     MenuNode Command(string id, Func<bool>? isVisible = null) => new(commands[id], isVisible);
     static MenuNode Separator() => MenuNode.Separator;
+    static MenuNode Separator(Func<bool> isVisible) => new(isVisible);
     static MenuNode Menu(string title, params MenuNode[] children) => new(title, children.ToList());
+
+    MenuNode[] SelectionNodes(bool includeSelectionOnlyTools)
+    {
+        var nodes = new List<MenuNode>();
+        var experimentVisible = window.HasSelectedExperiment;
+        var resultVisible = window.HasSelectedResult;
+
+        nodes.AddRange(new[]
+        {
+            Command("experimentdetails", experimentVisible),
+            Command("toggleinclude", experimentVisible),
+            Separator(experimentVisible),
+            Command("attributeoperations", experimentVisible),
+            Command("clearattributes", experimentVisible),
+            Separator(experimentVisible),
+            Command("saveselected", experimentVisible),
+            Command("exportselecteddata", experimentVisible),
+            Command("duplicate", experimentVisible),
+            Separator(experimentVisible),
+            Command("clearsolution", experimentVisible),
+        });
+
+        if (includeSelectionOnlyTools)
+        {
+            nodes.Add(Separator(experimentVisible));
+            nodes.Add(Command("experimentmerger", experimentVisible));
+            nodes.Add(Command("buffersubtraction", experimentVisible));
+        }
+
+        nodes.Add(Separator(experimentVisible));
+        nodes.Add(Command("removedata", experimentVisible));
+
+        nodes.AddRange(new[]
+        {
+            Command("resultdetails", resultVisible),
+            Command("updateresult", resultVisible),
+            Separator(resultVisible),
+            Command("saveselected", resultVisible),
+            Command("copyresulttable", resultVisible),
+            Separator(resultVisible),
+            Command("loadresultsolutions", resultVisible),
+            Command("selectresultexperiments", resultVisible),
+            Command("exportresultfigures", resultVisible),
+            Separator(resultVisible),
+            Command("removeresult", resultVisible),
+        });
+
+        return nodes.ToArray();
+    }
+
+    internal MenuFlyout CreateSelectionContextFlyout() => CreateSelectionFlyout(includeSelectionOnlyTools: false);
+
+    internal MenuFlyout CreateSelectionFlyout(bool includeSelectionOnlyTools)
+    {
+        var flyout = new MenuFlyout();
+        foreach (var node in SelectionNodes(includeSelectionOnlyTools).Where(node => node.IsVisible))
+        {
+            if (node.IsSeparator)
+                flyout.Items.Add(new Separator());
+            else
+                flyout.Items.Add(CreateMenuItem(node));
+        }
+
+        return flyout;
+    }
 
     IEnumerable<MenuNode> WindowMenuNodes(bool includeApplicationMenu)
     {
@@ -291,7 +340,7 @@ internal sealed class AppMenuController
         foreach (var child in node.Children)
         {
             if (child.IsSeparator)
-                item.Items.Add(new Separator());
+                item.Items.Add(new Separator { IsVisible = child.IsVisible });
             else
                 item.Items.Add(CreateMenuItem(child));
         }
@@ -312,7 +361,12 @@ internal sealed class AppMenuController
     NativeMenuItemBase CreateNativeItem(MenuNode node, bool trackNativeCommands)
     {
         if (node.IsSeparator)
-            return new NativeMenuItemSeparator();
+        {
+            var separator = new NativeMenuItemSeparator { IsVisible = node.IsVisible };
+            if (trackNativeCommands)
+                nativeSeparatorItems.Add((separator, node));
+            return separator;
+        }
 
         if (node.Command != null)
         {
@@ -358,6 +412,11 @@ internal sealed class AppMenuController
             IsSeparator = true;
             Title = "";
             Children = new List<MenuNode>();
+        }
+
+        public MenuNode(Func<bool> isVisible) : this()
+        {
+            this.isVisible = isVisible;
         }
 
         public MenuNode(AppMenuCommand command, Func<bool>? isVisible = null)

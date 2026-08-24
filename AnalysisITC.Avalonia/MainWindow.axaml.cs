@@ -194,6 +194,8 @@ public partial class MainWindow : Window
     }
 
     internal Menu MenuHost => InWindowMenu;
+    internal AppMenuController MenuController => menuController!;
+    internal IReadOnlyList<DataListEntry> DataListEntries => entries;
 
     internal bool HasDocumentContent() => DataManager.SourceItems.Count > 0;
     internal bool HasDataLoaded() => DataManager.DataIsLoaded;
@@ -210,7 +212,11 @@ public partial class MainWindow : Window
     internal bool CanDisableAnyExperiment() => DataManager.Data.Any(data => data.Include);
     internal bool SelectedExperimentHasAttributes() => selectedItem is ExperimentData data && data.Attributes.Count > 0;
     internal bool SelectedExperimentHasSolution() => selectedItem is ExperimentData data && data.Solution != null;
-    internal bool CanExportFinalFigure() => selectedItem is ExperimentData or AnalysisResult;
+    internal bool SelectedExperimentCanToggleInclusion() => selectedItem is ExperimentData data && data.Processor?.IntegrationCompleted == true;
+    internal bool SelectedExperimentIsIncluded() => selectedItem is ExperimentData data && data.Include;
+    internal bool SelectedResultHasSolution() => selectedItem is AnalysisResult result && result.Solution != null;
+    internal bool SelectedResultHasMemberSolutions() => selectedItem is AnalysisResult result && result.Solution?.Solutions?.Count > 0;
+    internal bool SelectedResultCanUpdate() => selectedItem is AnalysisResult result && result.Solution?.Model != null;
 
     internal Task OpenFilesFromMenuAsync() => OpenFilesAsync();
 
@@ -951,7 +957,14 @@ public partial class MainWindow : Window
 
     void SelectDataListEntry(DataListEntry entry)
     {
-        if (!entries.Contains(entry) || ReferenceEquals(ItemsList.SelectedItem, entry)) return;
+        if (!entries.Contains(entry)) return;
+
+        if (ReferenceEquals(ItemsList.SelectedItem, entry))
+        {
+            if (!ReferenceEquals(selectedItem, entry.Item))
+                SelectListItem(forceRefresh: true);
+            return;
+        }
 
         ItemsList.SelectedItem = entry;
     }
@@ -1002,87 +1015,13 @@ public partial class MainWindow : Window
 
     void ShowDataListItemMenu(DataListEntry entry, Control anchor)
     {
-        BuildDataListItemMenu(entry).ShowAt(anchor);
+        CreateDataListItemMenu(entry).ShowAt(anchor);
     }
 
-    MenuFlyout BuildDataListItemMenu(DataListEntry entry)
+    internal MenuFlyout CreateDataListItemMenu(DataListEntry entry)
     {
-        return entry.Item switch
-        {
-            AnalysisResult result => BuildResultListItemMenu(entry, result),
-            ExperimentData experiment => BuildExperimentListItemMenu(entry, experiment),
-            _ => new MenuFlyout()
-        };
-    }
-
-    MenuFlyout BuildExperimentListItemMenu(DataListEntry entry, ExperimentData experiment)
-    {
-        var menu = new MenuFlyout();
-        menu.Items.Add(ToolbarItem("Details...", ForDataListEntry(entry, OpenSelectedDetailsAsync)));
-        menu.Items.Add(ToolbarItem(
-            "Active",
-            ForDataListEntry(entry, ToggleSelectedExperimentInclusionAsync),
-            experiment.Processor?.IntegrationCompleted == true,
-            experiment.Include,
-            hasCheckState: true));
-        menu.Items.Add(new Separator());
-        menu.Items.Add(ToolbarItem("Attribute Operations...", ForDataListEntry(entry, OpenAttributeOperationsAsync), experiment.Attributes.Count > 0));
-        menu.Items.Add(ToolbarItem("Clear Attributes", ForDataListEntry(entry, ClearSelectedAttributesAsync), experiment.Attributes.Count > 0));
-        menu.Items.Add(new Separator());
-        menu.Items.Add(ToolbarItem("Duplicate Data", ForDataListEntry(entry, DuplicateSelectedDataAsync)));
-        menu.Items.Add(ToolbarItem("Export Selected Data...", ForDataListEntry(entry, () => ExportDataAsync(selectedOnly: true))));
-        menu.Items.Add(new Separator());
-        menu.Items.Add(ToolbarItem(
-            "Clear Solution",
-            ForDataListEntry(entry, ClearSelectedExperimentSolutionAsync),
-            experiment.Solution != null));
-        menu.Items.Add(ToolbarItem("Remove Data", ForDataListEntry(entry, RemoveSelectedItemAsync)));
-        return menu;
-    }
-
-    MenuFlyout BuildResultListItemMenu(DataListEntry entry, AnalysisResult result)
-    {
-        var menu = new MenuFlyout();
-        menu.Items.Add(ToolbarItem("Details...", ForDataListEntry(entry, OpenSelectedDetailsAsync)));
-        menu.Items.Add(ToolbarItem("Copy Result Table", ForDataListEntry(entry, CopyResultTableAsync), result.Solution != null));
-        menu.Items.Add(new Separator());
-        menu.Items.Add(ToolbarItem("Load Solutions to Experiments", ForDataListEntry(entry, LoadSelectedResultSolutionsAsync), result.Solution?.Solutions?.Count > 0));
-        menu.Items.Add(ToolbarItem("Set Active Experiments", ForDataListEntry(entry, SelectResultExperimentsAsync), result.Solution?.Solutions?.Count > 0));
-        menu.Items.Add(ToolbarItem("Export Associated Final Figures...", ForDataListEntry(entry, ExportFinalFigureAsync), result.Solution?.Solutions?.Count > 0));
-        menu.Items.Add(new Separator());
-        menu.Items.Add(ToolbarItem("Remove Result", ForDataListEntry(entry, RemoveSelectedItemAsync)));
-        return menu;
-    }
-
-    Func<Task> ForDataListEntry(DataListEntry entry, Func<Task> action)
-    {
-        return async () =>
-        {
-            SelectDataListEntry(entry);
-            await action();
-        };
-    }
-
-    static MenuItem ToolbarItem(string header, Action action, bool isEnabled = true, bool isChecked = false, bool hasCheckState = false)
-    {
-        return ToolbarItem(header, () =>
-        {
-            action();
-            return Task.CompletedTask;
-        }, isEnabled, isChecked, hasCheckState);
-    }
-
-    static MenuItem ToolbarItem(string header, Func<Task> action, bool isEnabled = true, bool isChecked = false, bool hasCheckState = false)
-    {
-        var item = new MenuItem
-        {
-            Header = header,
-            IsEnabled = isEnabled,
-            ToggleType = hasCheckState ? MenuItemToggleType.CheckBox : MenuItemToggleType.None,
-            IsChecked = isChecked
-        };
-        item.Click += async (_, _) => await action();
-        return item;
+        SelectDataListEntry(entry);
+        return menuController?.CreateSelectionContextFlyout() ?? new MenuFlyout();
     }
 
     void OnWorkspaceTabChanged()
