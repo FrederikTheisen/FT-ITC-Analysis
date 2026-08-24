@@ -22,7 +22,7 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution 
 		README.md = README.md
 		VERSION = VERSION
 		LICENSE.md = LICENSE.md
-		FTXTC_FORMAT.md = FTXTC_FORMAT.md
+		Documentation\Schemas\FTXTC\FTXTC_FORMAT.md = Documentation\Schemas\FTXTC\FTXTC_FORMAT.md
 		citation.json = citation.json
 	EndProjectSection
 EndProject
