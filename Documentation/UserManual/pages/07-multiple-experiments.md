@@ -1,121 +1,78 @@
 ---
-title: Multiple-experiment analysis
-summary: Select compatible experiments, define parameter constraints, run a global fit, and judge combined and member results.
+title: Multiple-experiment fitting
+summary: Multi-dataset fitting across processed Active experiments, including constraints, shared options, diagnostics, and combined results.
 slug: multiple-experiments
 nav_order: 7
-last_verified: 2026-08-22
+last_verified: 2026-08-23
 _verification:
   product_version: "1.4.3"
   commit: "7a19b583468b4b087e130e4b27c8140cd428339a"
 ---
 
-# Multiple-experiment analysis
+# Multiple-experiment fitting
 
-**Multiple experiments** fits selected experiments together. It is useful for replicates, condition series, and systems in which selected parameters should be shared or described across temperature. It creates a combined Analysis Result with member fits.
+**Multiple experiments** is the multi-dataset mode in **Analyze Data**. It represents at least two processed **Active** experiments with one shared model context and one combined **Analysis Result**. When every constraint is **None**, the members are fitted independently. When one or more supported constraints are active, the solver performs one connected global optimization. Each experiment remains a member of the result, with member-specific parameters where the constraint state is **None**.
 
-Global fitting is not automatic averaging. Every constraint states a scientific relationship between experiments and changes the model being tested.
+The model and model options apply across the active set. The resulting **Analysis Result** retains the member fits, any shared or temperature-dependent parameters, constraints, solver settings, diagnostics, and uncertainty output. Shared fitting controls are described in [Single-experiment fitting](06-fitting-models.md).
 
-## Prepare a coherent set
+## Fit
 
-Before configuring the fit:
+The **Fit** tab identifies the **Mode** as **Multiple experiments** and exposes the shared **Model** selection. The solver controls include **Algorithm**, **Errors**, **Bootstrap**, **Limits**, **Weight by injection error**, and **Unlock parameters**. The available **Algorithm** values are **Nelder-Mead** and **Levenberg-Marquardt**; the error-estimation values are **None**, **Bootstrap residuals**, and **Leave-one-out**.
 
-1. Load every intended experiment.
-2. Check cell and syringe concentrations, uncertainties, temperature, injection volumes, and attributes.
-3. Process each thermogram independently and inspect its uncertainty bars.
-4. Set experiment and injection inclusion deliberately.
-5. Give experiments clear names and save a project checkpoint.
+The **Result** controls describe whether a completed fit is stored as an **Analysis Result** and whether that result opens automatically. **Run Fit** and **Stop** are the fit controls. The status area records termination state, RMSD, iteration count, elapsed time, and error-estimation outcome when applicable. A multiple-experiment analysis is ready only when every member has usable processed data and the set contains at least two members.
 
-Choose experiments that can defensibly share the selected model. Similar-looking curves are not sufficient if sample composition, construct, protonation state, or competing species differ.
+![Multiple-experiment Analyze Data view configured to fit three Active experiments globally with shared enthalpy, showing the fitted curve, residuals, model settings, uncertainty controls, and result-creation controls.](../assets/multiple-experiment-fit.png)
 
-## Select experiments
+*A shared enthalpy constraint connects the three Active experiments in one global fit.*
 
-Open **Analyze Data**, choose **Multiple experiments**, and select the experiments for the fit. Confirm the member list before running.
+## Parameters
 
-The project-level enabled state and the analysis member selection can both matter. If an expected dataset is missing, check whether it is loaded, enabled, processed, and compatible with the selected model.
+The **Parameters** tab contains the exposed fit parameters and, in multiple-experiment mode, the **Global constraints** section. Parameter rows show the current value, units, uncertainty information when available, and the parameter lock state. A parameter value or lock state is a parameter setting; it is separate from the relationship between members.
 
-## Define parameter relationships
+The constraint states have these meanings:
 
-The available constraint states include:
+| State | Meaning |
+| --- | --- |
+| **None** | The parameter remains member-specific. Each experiment has its own fitted value. |
+| **Same for all** | One common value is fitted for every member in the set. |
+| **Temperature dependent** | A supported parameter is represented across the temperature series by the relationship exposed by the model. |
 
-- **Free** - estimate a separate value for each experiment.
-- **Shared** - estimate one common value across the selected experiments.
-- **Fixed** - hold the value at the specified input.
-- **Temperature-dependent** - describe values across temperature using the relationship exposed by the model.
+The **Locked** state fixes an exposed parameter at its displayed value during fitting. **Locked** is not a constraint state and does not make a parameter common to the member experiments. A locked global value and a member-specific locked value therefore have different scopes.
 
-Not every parameter or model exposes every state. The interface disables relationships that are not supported for the current configuration.
+For the core binding parameters, the available relationship states are model- and data-dependent:
 
-### Free parameters
+| Parameter | Available states |
+| --- | --- |
+| **Affinity** | **None** or **Temperature dependent** |
+| **Enthalpy** | **None** or **Same for all**; **Temperature dependent** is also available when the selected set exposes temperature dependence |
+| **N-value** | **None** or **Same for all** |
 
-Use a free parameter when the quantity can vary independently between experiments. This preserves flexibility but increases the number of values the data must constrain.
+The interface omits unsupported states for the current model. The corresponding labels can appear as **Temp. dependent**, **Independent**, or **Shared**; they describe the same temperature-dependent, member-specific, and common relationships.
 
-### Shared parameters
+> **Calculation:**
+>
+> *ΔH*(*T*) = *ΔH*<sub>ref</sub> + *ΔC*<sub>p</sub>(*T* − *T*<sub>ref</sub>)
+>
+> *K*<sub>a</sub>(*T*) = exp[−*ΔG* / (*R T*)]
+>
+> *ΔH*<sub>ref</sub> is the enthalpy at the reference temperature, and *ΔC*<sub>p</sub> is the common heat-capacity term. Temperature-dependent affinity is represented through a common free-energy term. *T* and *T*<sub>ref</sub> are absolute temperatures.
 
-Use a shared parameter when the same physical value is a justified assumption across the entire set. Replicate experiments at matched conditions are a common case, subject to the experimental design.
+![Two Parameters views showing global N-value, enthalpy, and affinity constraints with the common enthalpy parameter unlocked and locked.](../assets/multiple-experiment-constraints.png)
 
-> **Caution:** Sharing a parameter can make an imprecise dataset appear more precise by borrowing information from others. The assumption must be reported with the result.
+## Options
 
-### Fixed parameters
+The **Options** tab contains the options exposed by the selected model. In multiple-experiment mode, an option is a property of the shared model context and applies to every member. This includes model-specific concentration, stoichiometry, syringe-correction, or prebound-species settings when those options are exposed. The option values are preserved with the combined Analysis Result.
 
-Fix a parameter when a value is known independently or deliberately imposed for model identifiability. Record its source and uncertainty outside the result table; a fixed value is not estimated by the fit.
+An option that changes which parameters are exposed can also change the available parameter rows and constraint states. For example, model options that share or replace stoichiometry alter which N-values are independently represented. The available rows always describe the active model and option combination.
 
-### Temperature-dependent parameters
+## Display
 
-Use a temperature-dependent relationship only for a suitable temperature series and a model that exposes it. Confirm temperatures and their spread before fitting. The selected reference or evaluation temperature affects how parameters are presented, not the raw measurements.
+The **Display** tab controls the graph presentation for the active member set. Its controls cover the fitted line, residuals, error bars, confidence band, point labels, parameter box, excluded points, automatic scaling, unified axes, fitted offset, and fit-line interpolation. The parameter box can separately show model, fitted, and derived parameters.
 
-## Configure weighting and uncertainty
+Display settings affect the graph presentation, not the model, the member data, or the fitted values. The graph can therefore show the current member fits or connected global fit alongside member observations while the Parameters tab remains the source of the stored parameter and constraint state.
 
-Weighting uses each experiment's injection uncertainties. Check processing consistency across the set before enabling it. A single experiment with unrealistically small errors can dominate a global result.
+## Combined Analysis Result
 
-Bootstrap residuals and leave-one-out analysis repeat the combined fit. They can be computationally intensive and expose weak constraints through failed or widely dispersed refits. Include concentration uncertainty only when the entered uncertainty values are meaningful for all members.
+The combined **Analysis Result** contains the exact member experiments, the shared model and options, member parameters, any shared or temperature-dependent parameters, active constraints, solver and weighting settings, convergence diagnostics, and uncertainty results. Its result table can represent both global values and member-specific values. A selected member retains its own fitted curve and residual information even when a parameter is common across the set.
 
-## Run the fit
-
-Choose the model, constraints, initial values, parameter limits, optimizer, weighting, and error-estimation method. Then choose **Run Fit** and create an Analysis Result.
-
-If convergence fails, simplify the constraint pattern first. A highly parameterized global model can be less identifiable even though it contains more data.
-
-## Review the combined result
-
-Select the Analysis Result and inspect:
-
-- the exact member experiments;
-- model and model options;
-- free, shared, fixed, and temperature-dependent constraints;
-- convergence, loss, weighting, and error method;
-- combined parameter table and uncertainty display;
-- every member fitted curve and residual plot.
-
-A satisfactory combined loss can conceal a poor member fit. Review all experiments, especially those with fewer informative points or unusual uncertainty.
-
-> **Interpretation:** Structured residuals shared across experiments suggest a model deficiency or systematic processing issue. Structure in only one member suggests an experiment-specific issue or an unjustified shared constraint.
-
-## Check fit validity
-
-An Analysis Result retains a snapshot of inputs that affect the fit. Editing experiment data, processing, concentrations, attributes, inclusion state, or fit settings can make the result invalid for the current project.
-
-When a result is invalid:
-
-1. Identify the changed input.
-2. Decide whether to revert it or refit.
-3. Run the configured analysis again.
-4. Update or replace the stored result as appropriate.
-5. Regenerate dependent figures and exports.
-
-Do not use **Update Result** merely to silence a warning; the current data and constraints must actually have been fitted.
-
-## Compare alternative constraint models
-
-Duplicate experiments only for processing comparisons, not to create artificial replicates. For alternative global models, retain distinct Analysis Results with descriptive names or comments. Compare:
-
-- parameter plausibility and stability;
-- member residuals;
-- limit contacts and failed resamples;
-- whether the additional constraint or parameter has a scientific basis;
-- predictive or held-out behavior when available.
-
-Do not select a model solely from the smallest loss when the candidates have different complexity.
-
-## Export the result
-
-Use **Analysis Result Exporter...** for one summary row per result or member-level rows. Include the chosen uncertainty representation and enough identifiers to reconstruct the experiment set. Use **Export Associated Final Figures...** to export figures linked to the selected result.
-
+The status and diagnostics distinguish a successful solver termination from the quality and uncertainty of the fit. RMSD, iteration count, weighting, error-estimation method, and the number of successful uncertainty refits describe how the combined result was obtained. Wide or asymmetric uncertainty, a member with a markedly different residual pattern, or a member solution with an invalid status remains visible as member-level information rather than being hidden by a combined value. Result interpretation and validity are covered in [Results and advanced analyses](08-results-advanced-analysis.md).

@@ -7,9 +7,148 @@ assets:
     publication_status: publish
   - file: analysis-result-workspace.png
     kind: screenshot
-    alt: Analysis Result workspace with the project list, fitted curve, parameters, and residuals.
-    caption: The common Analysis Result workspace in the cross-platform application.
+    alt: Light-theme FT-ITC Analysis window with an Analysis Result selected, showing its parameters, validity, and Update Result action.
+    caption: Selecting an Analysis Result opens its dedicated result workspace.
+    source: User-supplied FT-ITC Analysis 1.4.3 light-theme capture
+    data: Existing repository JORS Example Project
+    publication_status: publish
+  - file: experiment-data-workspace.png
+    kind: screenshot
+    alt: Light-theme FT-ITC Analysis window with Experiment Data selected and the Overview workflow open.
+    caption: Selecting Experiment Data opens its experiment workflow in the shared workspace.
+    source: User-supplied FT-ITC Analysis 1.4.3 light-theme capture
+    data: Existing repository JORS Example Project
+    publication_status: publish
+  - file: processing-workspace.png
+    kind: screenshot
+    alt: Light-theme Process Data workspace for a JORS experiment, showing the thermogram, Spline baseline controls, integration settings, and graph navigation.
+    caption: Process Data combines the thermogram with baseline, integration, display, and navigation controls.
+    source: User-supplied FT-ITC Analysis 1.4.3 light-theme capture
+    data: Existing repository JORS Example Project
+    publication_status: publish
+  - file: processing-baseline-comparison.png
+    kind: screenshot-composite
+    alt: Three light-theme JORS Process Data views demonstrating Spline, Polynomial, and Segmented baselines.
+    caption: Spline, Polynomial, and Segmented provide different baseline representations for thermogram processing.
     source: FT-ITC Analysis 1.4.3 Avalonia build at verification commit
     data: Existing repository JORS Example Project
     publication_status: publish
-
+  - file: processing-selected-injection.png
+    kind: screenshot
+    alt: Light-theme Process Data view focused on one JORS injection, showing its boundaries, Start and Length controls, Fit Peaks, and Copy to next peak.
+    caption: Selecting an injection exposes its individual boundaries and navigation controls.
+    source: FT-ITC Analysis 1.4.3 Avalonia build at verification commit
+    data: Existing repository JORS Example Project
+    publication_status: publish
+  - file: fitting-workspace.png
+    kind: screenshot
+    alt: Analyze Data workspace showing a fitted one-set-of-sites curve, residuals, fitting controls, and fit status.
+    caption: Analyze Data combines the fitted-heats graph and residuals with the controls for configuring and running the fit.
+    source: User-supplied FT-ITC Analysis 1.4.3 light-theme capture
+    data: Existing repository JORS Example Project
+    publication_status: publish
+  - file: fitting-parameters-options.png
+    kind: screenshot-composite
+    alt: Parameters and Options inspectors showing fitted values, Locked controls, syringe correction, and fixed stoichiometry.
+    caption: Parameters exposes parameter values and locks; Options contains settings specific to the selected model.
+    source: User-supplied FT-ITC Analysis 1.4.3 light-theme captures
+    data: Existing repository JORS Example Project
+    publication_status: publish
+  - file: fitting-injection-inclusion.png
+    kind: screenshot
+    alt: Analyze Data graph with excluded injections visible and the Display controls for the fit and its diagnostics.
+    caption: Excluded injections remain visible when Excluded points is enabled and can be selected for inclusion again.
+    source: User-supplied FT-ITC Analysis 1.4.3 light-theme capture
+    data: Existing repository JORS Example Project
+    publication_status: publish
+  - file: multiple-experiment-fit.png
+    kind: screenshot
+    alt: Multiple-experiment Analyze Data view configured to fit three Active experiments globally with shared enthalpy, showing the fitted curve, residuals, model settings, uncertainty controls, and result-creation controls.
+    caption: A shared enthalpy constraint connects the three Active experiments in one global fit.
+    source: User-supplied FT-ITC Analysis 1.4.3 Avalonia light-theme capture
+    data: Existing repository JORS Example Project
+    publication_status: publish
+  - file: multiple-experiment-constraints.png
+    kind: screenshot-composite
+    alt: Two Parameters views showing global N-value, enthalpy, and affinity constraints with the common enthalpy parameter unlocked and locked.
+    caption: Global constraints define relationships between member parameters; Locked separately fixes an exposed value.
+    source: User-supplied FT-ITC Analysis 1.4.3 Avalonia light-theme captures
+    data: Existing repository JORS Example Project
+    publication_status: publish
+  - file: analysis-result-summary.png
+    kind: screenshot
+    alt: Analysis Result workspace showing a valid three-experiment result, parameter summary, member table, solver information, uncertainty display, and Update Result.
+    caption: Summary combines result validity, stored solver information, display controls, and the member parameter overview.
+    source: User-supplied FT-ITC Analysis 1.4.3 light-theme capture
+    data: Existing repository JORS Example Project
+    publication_status: publish
+  - file: analysis-result-selected-fit.png
+    kind: screenshot
+    alt: Analysis Result workspace showing the Selected Fit curve, residuals, parameter evaluation, and selected member experiment.
+    caption: Selected Fit presents the stored fitted curve and diagnostics for one result member.
+    source: User-supplied FT-ITC Analysis 1.4.3 light-theme capture
+    data: Existing repository JORS Example Project
+    publication_status: publish
+  - file: analysis-result-temperature.png
+    kind: screenshot
+    alt: Temperature analysis view showing thermodynamic parameters across temperature, evaluation values, folded and temperature modes, and calculated output.
+    caption: Temperature presents the stored temperature dependence together with its evaluation and folded-state analysis controls.
+    source: User-supplied FT-ITC Analysis 1.4.3 light-theme capture
+    data: Existing repository Med25DREB2A temperature-series project
+    publication_status: publish
+  - file: final-figure-workspace.png
+    kind: screenshot
+    alt: Final Figure workspace showing a publication preview, General controls, page dimensions, information content, uncertainty, and PDF output scopes.
+    caption: Final Figure combines a live publication preview with page, content, and PDF export controls.
+    source: User-supplied FT-ITC Analysis 1.4.3 light-theme capture
+    data: Existing repository JORS Example Project
+    publication_status: publish
+  - file: final-figure-graph-controls.png
+    kind: screenshot-composite
+    alt: Data Graph and Fit Graph inspectors showing axis, corrected-data, baseline, symbol, shared-axis, fit-line, and PDF output controls.
+    caption: Data Graph and Fit Graph provide separate controls for the thermogram and fitted-heats panels.
+    source: User-supplied FT-ITC Analysis 1.4.3 light-theme captures
+    data: Existing repository JORS Example Project
+    publication_status: publish
+  - file: analysis-result-exporter.png
+    kind: screenshot
+    alt: Analysis Result Exporter showing selected results, summary-row mode, uncertainty layout and style, CSV format, temperature units, Copy, and Export.
+    caption: Analysis Result Exporter configures a delimited table for clipboard or file output.
+    source: User-supplied FT-ITC Analysis 1.4.3 light-theme capture
+    data: Existing repository JORS Example Project
+    publication_status: publish
+  - file: supporting-figure.png
+    kind: screenshot
+    alt: Supporting Figure window showing one Analysis Result expanded into three preview panels, with preview zoom, grid, plot dimensions, typography, and PDF export.
+    caption: Supporting Figure arranges the three member figures from an Analysis Result on a shared multi-panel canvas.
+    source: User-supplied FT-ITC Analysis 1.4.3 light-theme capture
+    data: Existing repository JORS Example Project
+    publication_status: publish
+  - file: experiment-designer-setup.png
+    kind: screenshot
+    alt: Experiment Designer Setup view showing the synthetic fit, instrument, concentrations, injection schedule, automatic volume, small first injection, tandem, and noise controls.
+    caption: Setup defines the instrument, concentrations, injection schedule, tandem behavior, and simulation state.
+    source: User-supplied FT-ITC Analysis 1.4.3 light-theme capture
+    data: Synthetic Experiment Designer data
+    publication_status: publish
+  - file: experiment-designer-model.png
+    kind: screenshot
+    alt: Experiment Designer Model view showing a synthetic one-set-of-sites fit and editable N-value, enthalpy, and affinity parameters.
+    caption: Model exposes the synthetic model type and its parameter values.
+    source: User-supplied FT-ITC Analysis 1.4.3 light-theme capture
+    data: Synthetic Experiment Designer data
+    publication_status: publish
+  - file: buffer-subtraction.png
+    kind: screenshot
+    alt: Buffer Subtraction window showing a processed reference, selected target, Linear method, focused buffer-data axis, fitted reference line, and Apply controls.
+    caption: Buffer Subtraction previews the selected reference model and target experiments before storing the correction.
+    source: User-supplied FT-ITC Analysis 1.4.3 light-theme capture
+    data: Synthetic HEPES reference and target experiments
+    publication_status: publish
+  - file: experiment-merger-auto.png
+    kind: screenshot
+    alt: Experiment Merger showing three ordered tandem segments, Auto back-mixing, dead volume, mixing result, overflow removal, and Create controls.
+    caption: Auto back-mixing estimates the transition correction for an ordered tandem experiment set.
+    source: User-supplied FT-ITC Analysis 1.4.3 light-theme capture
+    data: Existing repository tandem example project
+    publication_status: publish

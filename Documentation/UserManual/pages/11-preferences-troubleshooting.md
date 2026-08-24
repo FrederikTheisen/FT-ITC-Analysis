@@ -1,122 +1,111 @@
 ---
-title: Preferences and troubleshooting
-summary: Set user defaults, recover interrupted work, diagnose unavailable controls or failed fits, and create useful support reports.
+title: Preferences
+summary: Reference for shared defaults, display choices, processing and fitting behavior, and exports.
 slug: preferences-troubleshooting
 nav_order: 11
-last_verified: 2026-08-22
+last_verified: 2026-08-23
 _verification:
   product_version: "1.4.3"
   commit: "7a19b583468b4b087e130e4b27c8140cd428339a"
 ---
 
-# Preferences and troubleshooting
+# Preferences
 
-Open **Preferences...** to change user-level defaults. Preferences affect new work or display behavior as indicated; they do not retroactively certify an existing project.
+**Preferences...** contains **General**, **Processing**, **Fitting**, and **Export**. Settings labelled as defaults provide starting values for new or reset work. Display settings affect presentation; export settings affect generated tables and figures. Project-specific values stored in a project remain distinct from application preferences. Project and recovery behavior is covered in [Installation, files, and projects](03-installation-files-projects.md).
 
-## General preferences
+**Restore Defaults** stages the built-in values in the window. **Apply** saves the staged values as application preferences. **Cancel** closes the window without saving staged edits.
 
-General settings include unit and presentation choices, uncertainty display, autosave and recovery behavior, and the optional launch-time check for updates and online resources.
+## General
 
-Choose units at the beginning of an analysis and report them with exports. Changing display units should not be confused with changing an entered physical value.
+| Setting | Effect |
+| --- | --- |
+| **Energy unit** | Shared unit for displayed and exported energy values. |
+| **Concentration unit** | Shared default unit for concentration entry, parameter display, and supported result-table concentration fields; format-specific data exports use their documented units. |
+| **Designer instrument** | Shared default instrument for the Experiment Designer and its instrument-specific volumes. |
+| **Number precision** | Controls numeric presentation: **Strict**, **Standard**, **Single decimal**, or **All decimals**. It does not set export decimal places. |
+| **Uncertainty display** | Shared uncertainty presentation: **Automatic**, **Standard deviation**, **Confidence interval**, **SD + confidence interval**, or **None**. It changes presentation, not the underlying fit. |
+| **Reference temperature (°C)** | Temperature used where a result or derived quantity is evaluated at a reference temperature. |
+| **Minimum temperature span (°C)** | Minimum temperature variation required for temperature-dependent result analyses. |
+| **Minimum salt span (mM)** | Minimum ionic-strength variation required for salt-dependent result analyses. |
+| **Include buffer in ionic-strength calculation** | Includes buffer contribution when ionic strength is calculated. |
+| **Check for updates and online resources on launch** | Controls launch-time online checks; it does not disable local analysis. |
+| **Confirm remove/delete actions** | Controls confirmation before remove or delete commands. |
+| **Automatically discard injections outside the thermogram range** | Controls automatic removal of orphan injections when data are loaded. |
+| **Enable autosave** | Enables periodic recovery copies. |
+| **Interval (minutes)** | Sets the autosave interval. The built-in default is **5 minutes**. |
+| **Maximum files** | Sets the number of autosave files retained. The built-in default is **10 files**. |
+| **Prompt to recover after an interrupted session** | Controls whether the application presents an available autosave recovery after an interrupted session. Recovery prompting is enabled by default. |
+| **Open Autosave Folder** | Opens the folder containing autosave recovery files. |
 
-Disable online checks when working offline or when launch-time network access is restricted. Local analysis remains available.
+Energy unit, concentration unit, number precision, and uncertainty presentation are shared application settings where the corresponding control is available. The built-in units are **kilojoule (kJ)** and **µM**; the built-in uncertainty presentation is **Standard deviation**.
 
-## Processing preferences
+## Processing
 
-Processing defaults control the starting baseline and integration behavior for new or reset processors. Choose defaults that suit the instrument and routine protocol, then inspect every experiment rather than accepting a default invisibly.
+| Setting | Effect |
+| --- | --- |
+| **Dilution method** | Sets the default dilution correction model: **MicroCal** or **Exponential**. |
+| **Buffer subtraction** | Sets the default buffer-subtraction model: **Matched**, **Linear**, or **Exp. decay**. |
+| **Discard integration regions for baseline** | Controls whether existing integration regions are excluded from baseline construction. |
+| **Reprocess integrated heats on load** | Controls reprocessing of integrated heats when data are loaded. |
+| **Point density** | Sets the default spline point density: **Sparse**, **Balanced**, or **Dense**. |
+| **Handle mode** | Sets the default spline handle calculation: **Mean** or **Median** in the preferences window. |
+| **Allow spline point time dragging by default** | Controls whether spline points can be moved in time by default. |
+| **Copy integration start with selected region** | Controls whether copying an integration region also copies its start time. |
 
-Project-specific processing is stored in the project. Changing a preference does not necessarily rewrite an already processed experiment.
+Processing preferences provide defaults for new processors. Processing values already stored with an experiment are not replaced merely by changing a preference.
 
-## Fitting preferences
+## Fitting
 
-Fitting defaults include optimizer, parameter-limit, weighting, resampling, and presentation choices exposed by the current interface. Use defaults to reduce repetitive setup, but confirm the actual configuration in each Analysis Result.
+| Setting | Effect |
+| --- | --- |
+| **Default solver** | Sets the starting optimizer: **Nelder-Mead [SIMPLEX]** or **Levenberg-Marquardt**. |
+| **Error estimation** | Sets the default uncertainty method: **None**, **Bootstrap residuals**, or **Leave-one-out**. The built-in method is **Bootstrap residuals**. |
+| **Bootstrap iterations** | Sets the number of bootstrap refits. The built-in count is **100**. |
+| **Optimizer tolerance** | Sets the solver tolerance preset: **Fast**, **Relaxed**, **Balanced**, **Strict**, or **Very Strict**. |
+| **Max iterations** | Sets the maximum number of optimizer iterations. |
+| **Parameter limits** | Sets the default parameter-limit policy: **Standard**, **Extended**, or **No limit**. |
+| **Use injection-error weighted fitting** | Controls weighting of injection observations by their estimated errors. |
+| **Include concentration errors in bootstrap** | Includes concentration errors in bootstrap resampling when bootstrap estimation is selected. |
+| **Auto variance (%)** | Sets the automatic concentration variance used when concentration-error handling is enabled. |
+| **Create single-experiment analysis result** | Controls creation of an Analysis Result after a usable single-experiment fit. Disabled in the built-in defaults. |
+| **Create global analysis result** | Controls creation of a combined Analysis Result after a usable multiple-experiment fit. Enabled in the built-in defaults. |
+| **Auto-open new analysis result** | Controls whether a newly created result is opened automatically. |
 
-## Export preferences
+Bootstrap method and count are shared fitting defaults. Fit-specific settings captured in an Analysis Result remain part of that result. See [Single-experiment fitting](06-fitting-models.md) for model and uncertainty interpretation.
 
-Export defaults control available formatting and presentation choices such as units, uncertainty columns, figure style, or destination-specific behavior. Reopen an exported file after changing these settings.
+## Export
 
-## Autosave and recovery
+| Setting | Effect |
+| --- | --- |
+| **Selection** | Sets the default export scope: **Selected experiment**, **Active experiments**, or **All experiments**. |
+| **Decimals** | Sets the number of decimal places in exported numeric tables. |
+| **Export baseline-corrected data** | Includes baseline-corrected data in data exports. |
+| **Export fit points with peaks** | Includes fitted peak points with exported peak data. |
+| **Molar ratio** | Includes molar-ratio values in exported tables. |
+| **Injection info** | Includes injection volume, delay, peak error, integration length, and temperature columns. |
+| **Concentrations** | Includes cell and syringe concentration columns. |
+| **Included state** | Includes the injection-inclusion state. |
+| **Peak heats** | Includes integrated peak heats. |
+| **Fit values** | Includes fitted values. |
+| **Width cm** and **Height cm** | Set the default final-figure dimensions. The built-in dimensions are **6.5 × 10 cm**. |
+| **Publication font** | Selects the publication figure font where the platform provides this selector. |
+| **Show residual graph** | Includes the residual graph in final figures. |
+| **Show residual graph gap** | Includes the gap separating residual and fit panels. |
+| **Unify residual graph axis** | Uses a common residual-axis scale across applicable panels. |
+| **Fit line** | Sets fit-line smoothing: **Smooth**, **Spline**, or **Linear**. |
+| **Show parameter box by default** | Includes the parameter information box in new final figures. |
+| **Show experiment details by default** | Includes experiment metadata in the figure information box. |
+| **Show model info by default** | Includes model information in the figure information box. |
+| **Auto axes ignore excluded/bad points** | Excludes points marked excluded or bad when automatic axes are calculated. |
+| **Thermodynamic parameters** | Includes thermodynamic parameters in final-figure information. |
+| **Offset parameter** | Includes the fit offset in final-figure information. |
+| **Derived parameters** | Includes derived parameters in final-figure information. |
+| **Temperature** | Includes temperature in final-figure information. |
+| **Concentrations** | Includes concentrations in final-figure information. |
+| **Injection delay** | Includes injection delay in final-figure information. |
+| **Instrument** | Includes instrument information in final-figure information. |
+| **Attributes** | Includes experiment attributes in final-figure information and limits their display to **Used in analysis**, **All**, or **None**. |
 
-Keep autosave enabled for routine work unless local policy requires otherwise. After an interrupted session:
+Export preferences affect newly generated exports and figure defaults; they do not rewrite an existing export or a stored figure configuration. See [Figures and export](09-figures-printing-export.md) for output formats and units.
 
-1. Accept the recovery candidate when it represents the work you need.
-2. Inspect experiments, results, and recent edits.
-3. Choose **Save As...** and create a named `.ftxtc` project.
-4. Reopen the saved project and confirm important content.
-
-If recovery reports omitted content, reprocess or refit only after confirming the underlying experiment data.
-
-## A control is unavailable
-
-Check these common prerequisites:
-
-- **Process Data** requires an input with a thermogram.
-- Graphical processing edits are disabled while processing is locked.
-- Fit actions require suitable processed or integrated heats and an eligible experiment selection.
-- Result actions require an Analysis Result with compatible member solutions.
-- Advanced tabs require a compatible one-set-of-sites result, valid members, sufficient condition variation, and complete metadata.
-- Export and print actions require the relevant active graph, figure, data, or result.
-
-If the prerequisite is present, save the project, restart the application, reopen it, and reproduce the shortest sequence that demonstrates the issue.
-
-## A result became invalid
-
-The project changed after the result was created. Review recent changes to details, processing, attributes, experiment or injection inclusion, and fit settings. Either revert the change or rerun the fit. Then inspect member fits and regenerate dependent exports.
-
-Do not report an invalidated result as current simply because its table remains visible.
-
-## A fit fails or gives implausible values
-
-Use this order:
-
-1. Check units, concentrations, temperature, volumes, and attributes.
-2. Check baseline, integration regions, uncertainty bars, and injection inclusion.
-3. Confirm the chosen model matches the experiment.
-4. Use plausible initial values and standard limits.
-5. Try the alternate optimizer.
-6. Reduce model complexity or global constraints.
-7. Inspect whether the titration spans an informative transition.
-8. Expand parameter limits only with an independent scientific reason.
-
-Retain failed configurations when they provide useful sensitivity evidence; do not keep only the visually preferred fit.
-
-## Import problems
-
-If a file does not open:
-
-- confirm the extension and source application;
-- confirm the export is complete and not a shortcut, cloud placeholder, or partially copied file;
-- try a fresh export from the instrument software;
-- avoid editing structured source files in a spreadsheet before import;
-- record the exact error and application version.
-
-For a damaged `.ftxtc` project, use the offered recovery path. Never overwrite the only copy while testing recovery.
-
-## Export or print problems
-
-If output is empty or unavailable, confirm the correct experiment or result and active view. For result tables, confirm that the result contains fitted solutions. For figures, confirm the current processing and fit are valid.
-
-If a CSV opens in one column, choose the matching delimiter during import or use TSV. If symbols or page elements are clipped, export again with a standard page size and inspect the PDF before printing.
-
-Printing depends on an operating-system printer service. Export to PDF to distinguish a figure-rendering problem from a printer-driver problem.
-
-## Create a support report
-
-Open the support command and use **Copy Report** when available. Include:
-
-- FT-ITC Analysis version;
-- operating system and application implementation;
-- shortest reproducible sequence;
-- exact error message;
-- whether the issue survives restart and project reopen;
-- a minimal, shareable project or synthetic input when permitted;
-- screenshots that show the complete relevant control state.
-
-Remove confidential sample names and comments before sharing. Confirm that the reduced project still reproduces the problem.
-
-## Citation and issue reporting
-
-Choose **Help > Citation** for the current recommended paper and versioned software citation, BibTeX copy, or export. The persistent software DOI is [10.5281/zenodo.14832177](https://doi.org/10.5281/zenodo.14832177).
-
-Search existing reports and create a new issue in the [GitHub issue tracker](https://github.com/FrederikTheisen/FT-ITC-Analysis/issues) when needed. One reproducible problem per issue is easiest to diagnose.
-
+> **Platform note:** Avalonia provides **Publication font** choices of **Native**, **Inter**, and **Liberation Sans**. macOS uses its native publication renderer and does not expose a publication-font selector.

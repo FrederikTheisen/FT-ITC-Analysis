@@ -13,7 +13,7 @@ _verification:
 
 ## Install the application
 
-Download an available release for your operating system from the [FT-ITC Analysis releases](https://github.com/FrederikTheisen/FT-ITC-Analysis/releases) page. Verify that the file came from the project release channel before accepting an operating-system security prompt. At this manual's verification date, public packages include a macOS disk image, a Windows x64 executable installer, and a Linux AMD64 Debian package.
+Use the [latest FT-ITC Analysis release](https://github.com/FrederikTheisen/FT-ITC-Analysis/releases/latest) for current packages and release notes. Verify that the file came from the project release channel before accepting an operating-system security prompt. The examples below describe package types available at this manual's verification date and may change between releases. Installation problems can be reported through the [GitHub issue tracker](https://github.com/FrederikTheisen/FT-ITC-Analysis/issues).
 
 ### macOS
 
@@ -21,27 +21,26 @@ Open the DMG, drag **FT-ITC Analysis** to **Applications**, and eject the disk i
 
 ### Windows
 
-Run the supplied Windows x64 `.exe` installer and follow the setup prompts. The installer can register `.ftxtc` and `.ftitc` project associations. If Windows displays a publisher or certificate warning, confirm the release source before continuing.
+Run the supplied Windows x64 `.exe` installer and follow the setup prompts. The installer registers `.ftxtc` project associations; legacy `.ftitc` projects remain openable from **File > Open...**. If Windows displays an **Unknown publisher** or Microsoft Defender SmartScreen warning, continue only after confirming that the installer came from the project repository.
 
 ### Linux
 
-Install the supplied AMD64 `.deb` package on a compatible Debian-based distribution. Package trust and dependency behavior depend on the channel through which the package was obtained. Review the current release notes for known platform limitations.
+Install the supplied `.deb` package matching the system architecture (AMD64 or ARM64, when available) on a compatible Debian-based distribution. Package trust and dependency behavior depend on the channel through which the package was obtained. Review the current release notes for known platform limitations.
 
 > **Platform note:** Package installation and file-association prompts are controlled by the operating system. Once the application is running, the analysis workflow and labels in this manual are shared.
 
 ## Supported input formats
 
-| Extension | Source | Contains thermogram? | Typical next step |
-| --- | --- | --- | --- |
-| `.itc` | MicroCal-style raw data | Yes | Check details, then process |
-| `.vpitc` | VP-ITC data | Yes | Check details, then process |
-| `.ta` | TA Instruments/NanoAnalyze export | Usually | Check imported metadata |
-| `.apj` | PEAQ-ITC project export | As supported by import | Check imported experiment data |
-| `.dat` | Integrated heats | No | Check details, then fit |
-| `.aff` | Integrated heats | No | Check details, then fit |
-| `.dh` | Integrated heats | No | Check details, then fit |
-| `.ftxtc` | Current FT-ITC project | Stored project state | Continue the saved workflow |
-| `.ftitc` | Legacy FT-ITC project | Stored legacy state | Import, then save as `.ftxtc` |
+| Extension | Source | Contains thermogram? |
+| --- | --- | --- |
+| `.itc` | MicroCal-style raw data | Yes |
+| `.ta` | TA Instruments/NanoAnalyze export | Usually |
+| `.apj` | PEAQ-ITC project export | As supported by import |
+| `.dat` | Integrated heats | No |
+| `.aff` | Integrated heats | No |
+| `.dh` | Integrated heats | No |
+| `.ftxtc` | Current FT-ITC project | Stored project state |
+| `.ftitc` | Legacy FT-ITC project | Stored legacy state |
 
 PEAQ project imports are converted into experiment information understood by FT-ITC Analysis. Content that is specific to the source application is not automatically equivalent to a native FT-ITC project.
 
@@ -51,6 +50,8 @@ Choose **File > Open...**, use the welcome-screen action, or drag files into the
 
 When you open an FT-ITC project while other data is loaded, choose whether to replace the current document or append the project's contents. Replace is appropriate when the opened project should become the complete working document. Append is useful for bringing experiments or results into an existing comparison project.
 
+Legacy `.ftitc` projects can be opened like other supported files. They are read as legacy project data, while subsequent project saves use the current `.ftxtc` format.
+
 > **Caution:** Appending can create similarly named experiments or results. Confirm the data list and details before fitting or exporting.
 
 ## Save projects
@@ -59,15 +60,9 @@ Choose **File > Save** to update a named current project, or **File > Save As...
 
 An `.ftxtc` project preserves the data and metadata needed to continue analysis, including thermograms where imported, concentrations and uncertainties, attributes and comments, injection inclusion, processing state, fit solutions, Analysis Results, and completed derived analyses. The package is portable and does not depend on the original raw-file path for ordinary reopening.
 
-**Save Selected...** writes selected project content when you need a smaller handoff. Confirm the selection before saving and reopen the result if the subset is critical.
+**Save Selected...** writes selected project content when you need a smaller handoff. Confirm the selection before saving and reopen the result if the subset is critical. Saving the selected experiments saves only the experiment with any solution. Saving the selected Analysis Results saves the result along with the involved experiments.
 
 > **Recommendation:** Retain immutable copies of original instrument files, the named `.ftxtc` analysis project, and exported publication output. They serve different record-keeping purposes.
-
-## Import a legacy project
-
-Open `.ftitc` like any other supported file. Review the imported experiments, processing, and results, then choose **Save As...**. The saved file uses `.ftxtc`; the legacy source is not overwritten unless you deliberately choose its path and confirm an overwrite.
-
-Some historical state can require recovery or review because current validation is stricter. Treat an imported legacy result as something to inspect, not automatically as a newly verified analysis.
 
 ## Autosave and recovery
 
@@ -79,13 +74,13 @@ Recovery mode is designed to salvage valid project components when possible. A r
 
 ## Remove and clear content
 
-Removing an experiment or Analysis Result changes only the open document; it does not delete the original raw file. **Remove All** clears the current document after confirmation. **Clear Processing** discards processing state for the selected experiment, and **Clear Results** removes dependent solution state. Use these commands only when you intend to repeat that work.
+Removing an experiment or Analysis Result changes only the open document; it does not delete the original raw file. **Remove All Data/Results** clears the current document after confirmation. **Clear Processing/Results** removes all Analysis Results from the open document.
 
 Saving after removal makes the removal part of the saved project. Use **Save As...** first if you want to preserve the original project version.
 
 ## Privacy and online checks
 
-Analysis is performed locally. The optional **Check for updates and online resources on launch** preference allows version and citation metadata checks; it does not upload experiment data as part of ordinary analysis. Disable the setting when launch-time network access is undesirable. A failed or disabled check does not prevent local processing, fitting, or saving.
+Analysis and the surrounding workflow—including saving, recovery, export, and printing—run locally. The application has no online analysis features. If **Check for updates and online resources on launch** is enabled, it only checks two repository files for version and citation updates; it does not upload experiment data. Disable the setting when launch-time network access is undesirable. A failed or disabled check does not prevent local processing, fitting, or saving.
 
 ## Update safely
 

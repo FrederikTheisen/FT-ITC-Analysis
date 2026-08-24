@@ -1,126 +1,176 @@
 ---
-title: Processing thermograms
-summary: Choose and refine baselines, set integration regions, manage injections, and judge whether processing is defensible.
+title: Processing
+summary: Baseline models, integration regions, injection uncertainty, and processing propagation and locking.
 slug: processing-thermograms
 nav_order: 5
-last_verified: 2026-08-22
+last_verified: 2026-08-24
 _verification:
   product_version: "1.4.3"
   commit: "7a19b583468b4b087e130e4b27c8140cd428339a"
 ---
 
-# Processing thermograms
+# Processing
 
-Processing subtracts an estimated baseline from differential power and integrates the corrected response within each injection region. It produces an injection heat and estimated uncertainty for fitting. It does not decide whether the baseline, integration window, or experiment is scientifically appropriate.
+The **Process Data** workspace estimates and subtracts a baseline from the differential-power trace and integrates the corrected response for each injection. Processing produces an injection heat with an estimated uncertainty for later fitting. The application cannot determine whether a baseline or integration boundary is scientifically appropriate for the experiment.
 
-Integrated-heat imports do not contain a thermogram and therefore do not use this workflow.
+Integrated-heat imports do not contain a thermogram and therefore do not use **Process Data**.
 
-## Prepare the experiment
+> **Calculation:**
+>
+> *q*<sub>i,raw</sub> = ∫[*P*(*t*) − *b*(*t*)] d*t*
+>
+> *ΔH*<sub>i</sub> = *q*<sub>i</sub> / *n*<sub>i</sub>
+>
+> *n*<sub>i</sub> = *c*<sub>syr</sub>*V*<sub>i</sub>
+>
+> The integral is evaluated between the injection's integration boundaries. *P*(*t*) is differential power, *b*(*t*) is the estimated baseline, and *q*<sub>i,raw</sub> is the raw integrated heat. The heat *q*<sub>i</sub> equals that raw value unless optional buffer subtraction changes it. *c*<sub>syr</sub> is the syringe concentration, *V*<sub>i</sub> is the injection volume, *n*<sub>i</sub> is the injected amount, and *ΔH*<sub>i</sub> is the molar heat.
 
-Before processing, open **Details...** and confirm temperature, concentrations, injection schedule, and instrument metadata. Then open **Process Data** and inspect the complete trace before zooming into individual injections.
+## Processing workspace
 
-Look for equilibration drift, discontinuities, unusually shaped peaks, failed injections, and changes in noise. These observations guide baseline choice and identify injections that deserve closer review.
+![Light-theme Process Data workspace for a JORS experiment, showing the thermogram, Spline baseline controls, integration settings, and graph navigation.](../assets/processing-workspace.png)
 
-## Choose a baseline
+*Process Data combines the thermogram with baseline, integration, display, and navigation controls.*
+
+The **Processing** controls configure the baseline and integration regions. The **Display** controls show or hide the baseline, integration regions, corrected data, and cursor information.
+
+With **All injections** selected, **Start** and **Length** apply to every injection. A selected graph region targets one injection, and double-clicking it focuses the graph on that peak. The previous and next controls move through the injections; **Clear Selection** returns to all injections.
+
+The view controls separate horizontal and vertical scaling:
+
+- **All Y** shows the complete power range, while **Baseline Y** emphasizes the baseline region.
+- **All Peaks** shows the full injection series, while **Selected Peak** focuses on the current injection.
+- Dragging an empty part of the graph zooms into the selected region.
+
+## Baseline models and editing
+
+![Three light-theme JORS Process Data views demonstrating Spline, Polynomial, and Segmented baselines.](../assets/processing-baseline-comparison.png)
+
+*Spline, Polynomial, and Segmented provide different baseline representations for thermogram processing.*
 
 ### Spline
 
-**Spline** places control points in usable baseline regions and interpolates between them. It provides the most direct graphical control.
+**Spline** places points in usable baseline regions and interpolates between them. It provides the most direct graphical control.
 
-- **Linear** connects neighboring control points without smooth curvature.
-- **Smooth** interpolates a continuous smooth baseline through the controls.
-- **Sparse**, **Balanced**, and **Dense** adjust the target point density.
-- **Mean**, **Median**, and **Min volatility** determine how a representative local handle value is obtained.
+- **Linear** connects the spline points with straight sections. **Smooth** produces a continuously varying baseline and supports editable slope handles.
+- **Sparse**, **Balanced**, and **Dense** change the number of automatically generated points.
+- **Mean**, **Median**, and **Min volatility** determine the representative power used for an automatically generated point.
+- **Show spline handles** displays the slope handles for a Smooth spline. **Move spline points in time** allows a point to be dragged horizontally as well as vertically.
 
-Show spline points when reviewing the fit. Add or remove a point when an interval needs more or less control; drag a point to correct its value. Lock an individual point when it should survive later automatic processing changes.
+Dragging a point corrects its position. A secondary-click on the graph adds a point **At Data** or **At Baseline**. A secondary-click on an existing point exposes **Lock** or **Unlock**, **Mark Linear** or **Unmark Linear**, and **Remove**. Marking neighboring points as linear makes the interval between them straight. Locked points are retained when automatic spline points are regenerated.
 
-> **Recommendation:** Start with **Balanced** density. Add complexity only where the baseline trace supports it. Dense control points can follow noise or absorb genuine injection signal.
+**Balanced** provides the middle spline-point density. Greater density increases local flexibility but can also follow noise or absorb part of an injection response.
 
 ### Polynomial
 
-**Polynomial** fits one polynomial across the thermogram. Points with large residuals are iteratively rejected according to the z-limit, helping prevent injection peaks from dominating the fit. Polynomial degree controls global flexibility.
+**Polynomial** fits one polynomial across the complete thermogram and is suited to smooth global drift. **Degree** controls flexibility.
 
-Use this baseline when drift is smooth across the entire run. Inspect both ends of the trace, where high-degree polynomials can behave poorly. A lower degree is easier to justify; a higher degree should solve a visible baseline problem rather than merely reduce residuals.
+Polynomial behavior is least constrained at the beginning and end of the run, where a high degree can produce strong edge behavior. Additional degree increases flexibility whether it represents baseline drift or follows more of the trace.
 
 ### Segmented
 
-**Segmented** fits local constant, linear, or quadratic behavior around integration regions and evaluates a piecewise baseline through the run. It is useful when drift changes locally or a single global polynomial is too rigid.
+**Segmented** fits local constant, linear, or quadratic baseline behavior between integration regions and blends the local estimates across the run. It is suited to locally changing drift for which one global polynomial is too rigid. **Degree** selects the local behavior.
 
-Check continuity and the baseline immediately before and after each peak. Local flexibility can accommodate real drift but can also hide a poorly chosen integration region.
+Local flexibility can follow genuine drift, but it also makes the result more dependent on the integration boundaries and on the baseline immediately around each peak.
 
-### Convert to spline
+### Exclude integration regions from the baseline
 
-Convert a polynomial or segmented baseline to **Spline** when the automatic result is a good starting point but needs point-level editing. The conversion changes the editable representation; review the whole trace again before accepting it.
+When **Discard integrated regions** is enabled, data inside the current integration regions are excluded when the baseline is recalculated. Moving a boundary can therefore change both the integrated area and the estimated baseline.
 
-## Control which data establish the baseline
+> **Caution:** Boundaries should follow the observed response and a consistent processing rule, not the heat expected from a model.
 
-By default, data inside integration regions are excluded from baseline fitting. The **Discard integrated regions** setting controls this behavior. Because the baseline and integration windows are coupled, moving a boundary can change both the area of integration and the baseline estimate.
+### Convert to a spline
 
-> **Caution:** Do not tune boundaries solely to obtain expected heats. Boundaries should follow the thermogram response and a consistent processing rule.
+A Polynomial or Segmented baseline can be converted to a **Smooth** or **Linear** Spline when the automatic baseline is a useful starting point for graphical editing. Conversion changes the baseline representation and creates editable spline points.
 
-## Set integration regions
+## Integration regions
 
-Each injection has a start delay and an end offset within its injection scope. Use global controls when all or most injections need the same rule, and graphical markers when an injection needs an individual adjustment.
+![Light-theme Process Data view focused on one JORS injection, showing its boundaries, Start and Length controls, Fit Peaks, and Copy to next peak.](../assets/processing-selected-injection.png)
 
-The supported integration-length modes are:
+*Selecting an injection exposes its individual boundaries and navigation controls.*
 
-- **Time** - use a common time length.
-- **Factor** - estimate a peak-dependent length from injection shapes and apply a scale factor.
-- **Fit** - fit injection peak shapes and use the fitted behavior to estimate end offsets.
+Each injection region has a start and an end boundary. **Start** sets the offset of the start boundary relative to the injection. The value displayed as **Length** positions the end boundary that many seconds after the injection begins; it is not a separate processing mode.
 
-End times are constrained to the injection scope and a minimum interval. If a requested window is outside those limits, the application uses a valid interval instead.
+Either boundary can be dragged in the graph or adjusted with the controls. The application constrains the start and end to a valid interval within the injection scope and preserves a minimum separation between them.
 
-### Review injection by injection
+### Estimate end points with Fit Peaks
 
-Zoom to an individual injection and confirm that the region starts at the intended response and ends after the signal has returned sufficiently toward baseline. When the keyboard shortcut is active, **Space** copies the current integration length to the next injection and advances the view. Always confirm the next region rather than assuming identical kinetics.
+**Fit Peaks** estimates the end point of each injection from the decay of the baseline-corrected response. It changes the end boundaries and then integrates the resulting regions; it does not fit the integrated heats or select a persistent integration mode.
 
-Review the first injection separately. A small first injection can behave differently because of syringe diffusion, backlash, or experimental design. Exclude it from fitting only for an identified reason.
+When peak fitting converges, the estimated boundaries replace the previous end points. If fitting fails or does not converge, the previous regions remain unchanged. Peak kinetics can vary across the titration, and the first injection can behave differently from the remaining series.
 
-## Understand injection uncertainty
+### Copy a region to the next injection
 
-The application estimates uncertainty from corrected baseline noise around an injection and the number of corrected samples in its integration region. The estimate uses robust noise handling and an autocorrelation correction before combining integration and baseline-level contributions.
+Selecting an injection and choosing **Copy to next peak**, or pressing **Space**, copies its end boundary and advances to the next injection. **Copy start time to next** includes the start boundary in that operation.
 
-Display the uncertainty bars and compare them across the run. Longer regions normally collect more baseline noise; an unstable baseline can increase uncertainty. Weighting a fit by injection error uses these estimates, so inspect them before enabling weighting.
+## Injection uncertainty
 
-> **Interpretation:** Error bars describe estimated measurement uncertainty under the selected processing. They do not account for every systematic error, and they do not validate the baseline model.
+Each injection error bar represents an estimated ±1 standard deviation for that injection's molar heat. The estimate describes how local noise in the baseline-corrected thermogram propagates through the selected integration region. It is calculated independently for every injection, so the bars can vary across a titration.
 
-## Copy processing
+### Baseline samples and local noise
 
-Use the processing-copy command when multiple experiments were collected with sufficiently similar timing and response characteristics. Copying is a starting point, not confirmation that every baseline and integration region is suitable.
+The surrounding baseline sample normally begins at the end of the preceding injection's integration region, or at the start of the thermogram for the first injection, and ends at the end of the current injection's time scope. The start moves earlier when necessary to retain at least 10 seconds before the integration start. Samples inside the current integration region are excluded, but the exclusion ends early enough to retain the final 10 seconds of the injection scope when the available data permit it.
 
-After copying:
+Let *p*<sub>j</sub> be the *N*<sub>B</sub> baseline-corrected differential-power samples retained in that window. Their robust preliminary scale is based on the median absolute deviation (MAD):
 
-1. Inspect the entire destination thermogram.
-2. Check baseline controls and every integration region.
-3. Compare uncertainty behavior.
-4. Reprocess and save only after review.
+> **Calculation:**
+>
+> *m* = median(*p*<sub>j</sub>)
+>
+> MAD = median(|*p*<sub>j</sub> − *m*|)
+>
+> *σ*<sub>0</sub> = 1.4826 MAD
+>
+> *p*<sub>j,c</sub><sup>2</sup> = min(*p*<sub>j</sub><sup>2</sup>, [6*σ*<sub>0</sub>]<sup>2</sup>)
+>
+> *σ*<sub>P</sub> = √[Σ*p*<sub>j,c</sub><sup>2</sup> / (*N*<sub>B</sub> − 1)]
 
-## Lock processing
+The factor 1.4826 makes the MAD comparable to a standard deviation for normally distributed noise. Capping the magnitude at six times this preliminary scale prevents a small number of extreme baseline points from dominating the RMS power-noise estimate *σ*<sub>P</sub>; it does not remove those points from processing or change the integrated heat.
 
-Lock the processor after the baseline and integration regions are accepted. A processing lock freezes the result and disables integration-region and spline-point editing. Unlock it to revise the processing.
+### Correlation-aware propagation
 
-Locking protects against accidental edits; it does not certify the analysis. If the processor is locked and controls appear unavailable, check the lock state before diagnosing a software problem.
+Successive thermogram samples are often correlated, so the uncertainty does not generally grow as though every point were independent. The application estimates a lag-one correlation *r*<sub>1</sub> from adjacent surrounding baseline samples and uses the variance factor for the sum of *n* samples with AR(1)-style correlation:
 
-## Include or exclude injections
+> **Calculation:**
+>
+> *V*(*n*, *r*) = *n* + 2 Σ<sub>*k*=1</sub><sup>*n*−1</sup> (*n* − *k*) *r*<sup>*k*</sup>
+>
+> *σ*<sub>q,int</sub> = *σ*<sub>P</sub> Δ*t* √*V*(*n*<sub>int</sub>, *r*<sub>1</sub>)
+>
+> *σ*<sub>q,bl</sub> = (*σ*<sub>P</sub> *T*<sub>int</sub> / *N*<sub>B</sub>) √[*V*(*n*<sub>before</sub>, *r*<sub>1</sub>) + *V*(*n*<sub>after</sub>, *r*<sub>1</sub>)]
+>
+> *σ*<sub>q</sub> = √(*σ*<sub>q,int</sub><sup>2</sup> + *σ*<sub>q,bl</sub><sup>2</sup>)
+>
+> *σ*<sub>ΔH,i</sub> = *σ*<sub>q</sub> / (*c*<sub>syr</sub>*V*<sub>i</sub>)
 
-Injection inclusion affects fitting. Exclude an injection when the raw trace or experimental record identifies a delivery, equilibration, or integration problem. Use the display to confirm which points are omitted.
+Here, Δ*t* is the thermogram sampling interval; *n*<sub>int</sub> is the number of samples strictly inside the integration region; *T*<sub>int</sub> is the integration length; and *n*<sub>before</sub> and *n*<sub>after</sub> are the retained baseline-sample counts before and after the excluded region, with *N*<sub>B</sub> = *n*<sub>before</sub> + *n*<sub>after</sub>. The first contribution, *σ*<sub>q,int</sub>, represents noise accumulated while integrating. The second, *σ*<sub>q,bl</sub>, represents uncertainty in the baseline level applied across the whole integration interval. They are combined in quadrature to obtain the heat uncertainty *σ*<sub>q</sub>, then divided by the injected amount *c*<sub>syr</sub>*V*<sub>i</sub> to obtain the displayed molar-heat error *σ*<sub>ΔH,i</sub>.
 
-> **Recommendation:** Fit with and without a questionable injection and record the reason for the final choice. A large residual alone is evidence to investigate, not an automatic exclusion rule.
+When *r*<sub>1</sub> = 0, *V*(*n*, 0) = *n* and the integration contribution has the usual square-root dependence on the number of samples. Positive temporal correlation increases the variance factor because neighboring deviations tend to reinforce one another. A longer integration region normally increases both contributions, more surrounding baseline samples reduce the baseline-level contribution, and a less stable local corrected baseline increases *σ*<sub>P</sub>.
 
-## Diagnose the processed result
+Buffer subtraction propagates the target and reference heat errors in quadrature:
 
-Before fitting, ask:
+> **Calculation:**
+>
+> *σ*<sub>q,subtracted</sub> = √(*σ*<sub>q,target</sub><sup>2</sup> + *σ*<sub>q,reference</sub><sup>2</sup>)
 
-- Does the corrected thermogram return sensibly toward zero between injections?
-- Are baseline transitions or oscillations introduced by the chosen method?
-- Do integration regions follow a consistent experimental rule?
-- Are uncertainty bars plausible relative to visible noise?
-- Are discontinuities associated with known events?
-- Is the heat trend stable under small, defensible changes in processing?
+This propagation treats the target and reference errors as independent.
 
-If not, revisit the simplest relevant choice: details, excluded baseline regions, baseline family, baseline flexibility, or integration boundaries. Do not use model fitting to compensate for unresolved thermogram processing.
+> **Caution:** At least two surrounding baseline samples and two samples inside the integration region are required. When the estimate cannot be calculated, the application stores zero. Integrated-heat imports also lack a thermogram from which to estimate this uncertainty. A zero or absent error bar can therefore mean that no processing-derived estimate is available; it does not establish that the injection has no uncertainty.
 
-## Preserve processing decisions
+The bars do not include uncertainty in cell or syringe concentration, fitted parameters, or model-derived confidence bands. They also do not quantify baseline-model choice, integration-boundary choice, calibration error, other instrumental effects, or other systematic uncertainty. Consequently, they do not validate the selected processing or constitute confidence intervals for the true heat.
 
-Save the project as `.ftxtc` after processing. The project stores the configured baseline, integration state, raw and corrected peak information, optional buffer subtraction, and inclusion state. Export integrated peaks when you need a human-readable injection table, but retain the project for a reproducible continuation.
+**Weight by injection error** can use these estimates in the fitting objective. Concentration uncertainty is handled separately in supported resampling calculations. Both behaviors are described under [Fitting calculation](06-fitting-models.md#fitting-calculation).
 
+### References
+
+The exact estimator above documents the FT-ITC Analysis implementation. Keller et al. and Scheuermann and Brautigam provide ITC peak-integration context; Rousseeuw and Croux discuss robust scale estimators based on absolute deviations; and Bartlett describes variance behavior in autocorrelated time series. These publications do not define this exact FT-ITC estimator.
+
+- Sandro Keller, Carolyn Vargas, Huaying Zhao, Grzegorz Piszczek, Chad A. Brautigam, and Peter Schuck. “High-Precision Isothermal Titration Calorimetry with Automated Peak-Shape Analysis.” *Analytical Chemistry* 84, no. 11 (2012): 5066–5073. [https://doi.org/10.1021/ac3007522](https://doi.org/10.1021/ac3007522).
+- Thomas H. Scheuermann and Chad A. Brautigam. “High-precision, automated integration of multiple isothermal titration calorimetric thermograms: New features of NITPIC.” *Methods* 76 (2015): 87–98. [https://doi.org/10.1016/j.ymeth.2014.11.024](https://doi.org/10.1016/j.ymeth.2014.11.024).
+- Peter J. Rousseeuw and Christophe Croux. “Alternatives to the Median Absolute Deviation.” *Journal of the American Statistical Association* 88, no. 424 (1993): 1273–1283. [https://doi.org/10.1080/01621459.1993.10476408](https://doi.org/10.1080/01621459.1993.10476408).
+- M. S. Bartlett. “On the Theoretical Specification and Sampling Properties of Autocorrelated Time-Series.” *Journal of the Royal Statistical Society: Series B (Methodological)* 8, no. 1 (1946): 27–41. [https://doi.org/10.2307/2983611](https://doi.org/10.2307/2983611).
+
+## Propagate and lock processing
+
+**Active** under **Copy processing** copies the selected experiment's processing to the other Active experiments. This can replace existing processing when a destination is unlocked. **New** targets experiments that do not yet have processing.
+
+Processing can be propagated while the source is unlocked. Locked destinations are not overwritten. After propagation, each processor that should be protected can be selected and set to **Lock**. Locking disables baseline, spline-point, integration-region, and peak-fitting edits; **Unlock** makes changes available again.

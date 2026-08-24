@@ -1,115 +1,72 @@
 ---
-title: Additional tools
+title: Tools
 summary: Design simulated titrations, subtract buffer controls, and merge standard or back-mixed tandem experiments.
 slug: additional-tools
 nav_order: 10
-last_verified: 2026-08-22
+last_verified: 2026-08-23
 _verification:
   product_version: "1.4.3"
   commit: "7a19b583468b4b087e130e4b27c8140cd428339a"
 ---
 
-# Additional tools
+# Tools
 
-The **Tools** menu contains workflows that prepare or combine experiments but are not ordinary model fitting. Their output becomes part of the open project, so save a checkpoint before applying changes to valuable work.
+The **Tools** menu contains **Experiment Designer...**, **Buffer Subtraction...**, and **Experiment Merger...**. They have different output lifecycles: Experiment Designer keeps simulation and fitting inside its window, Buffer Subtraction stores a correction on target experiments, and Experiment Merger creates a new processed Experiment Data item. Source and target selection uses the project state described in [Workspace](04-workspace-experiments.md).
 
 ## Experiment Designer
 
-Open **Experiment Designer...** to simulate a proposed titration using the same model concepts used for analysis.
+**Experiment Designer...** creates a synthetic titration from instrument, concentration, injection, and model parameters. The graph updates as the design changes. The designer does not add the synthetic experiment or its fit as a project item.
 
-### Configure the design
+### Setup and model controls
 
-Choose or enter:
+The **Setup** tab contains **Instrument**, **Cell uM**, **Syringe uM**, injection **Count**, and **Volume uL**. Count and volume define the injection schedule. **Automatic injection volume** derives the injection volume from the selected instrument’s standard syringe volume and injection count. **Small first injection** gives the first injection of each load a smaller volume and marks it excluded. **Tandem simulation** creates consecutive loads, with **Segments** defining their count and the designer’s tandem back-mixing model.
 
-- instrument and available cell or syringe volume information;
-- cell and syringe concentrations;
-- injection count and injection volumes;
-- an optional smaller first injection;
-- model and model parameters;
-- model-specific options;
-- synthetic noise, when desired.
+![Experiment Designer Setup view showing the synthetic fit, instrument, concentrations, injection schedule, automatic volume, small first injection, tandem, and noise controls.](../assets/experiment-designer-setup.png)
 
-The simulated graph updates as the design changes. Use it to see whether the transition lies within the injection series, whether early or late points establish useful baselines, and whether the expected heat scale is measurable.
+The **Model** tab contains **Type**, exposed model **Parameters**, and model-specific **Options**. **Simulate noise** adds synthetic measurement noise. **Apply / Fit** fits the synthetic data in the designer window and reports the fit on its graph; neither the simulation nor this fit becomes an Analysis Result or Experiment Data entry.
 
-### Fit the simulated experiment
-
-Run a fit against the synthetic data to see whether the proposed design can recover the known input under the chosen noise and fitting configuration. Repeat with plausible uncertainty in concentration and parameters rather than testing only an ideal curve.
-
-> **Interpretation:** Recovering simulated parameters is a design diagnostic under the assumed model and noise. It does not guarantee sample stability, correct active concentration, absence of artifacts, or validity of the model for the real system.
-
-### Design tandem experiments
-
-Enable tandem design to repeat an injection series across syringe-load segments. The designer continues concentration bookkeeping between segments and applies the tandem back-mixing assumptions. A small first injection is applied at the beginning of each segment.
-
-Use tandem design when a reload might extend the informative concentration range. Compare the gain in parameter recovery with the additional preparation and mixing assumptions.
+![Experiment Designer Model view showing a synthetic one-set-of-sites fit and editable N-value, enthalpy, and affinity parameters.](../assets/experiment-designer-model.png)
 
 ## Buffer Subtraction
 
-Open **Buffer Subtraction...** after loading a target experiment and a distinct processed reference experiment. The reference must contain usable integrated heats and must not itself be configured as a buffer-subtracted experiment.
+**Buffer Subtraction...** models background heat from one processed reference experiment and applies the resulting correction to one or more target experiments. The reference selector shows experiment metadata and a **Processed** or **Not yet processed** status. The target list excludes the selected reference and supports multiple targets. A processed reference is required; its processing state is described in [Processing](05-processing-thermograms.md).
 
-### Choose targets and reference
+The **Method** selector contains **Matched**, **Linear**, and **Exp. decay**:
 
-1. Select the processed buffer or reference experiment.
-2. Select one or more distinct target experiments.
-3. Choose a subtraction method.
-4. Inspect the preview and included reference injections.
-5. Apply the subtraction and inspect the corrected target heats.
+- **Matched** evaluates the reference heat at each target injection number, using nearby included reference injections when the matching injection is unavailable.
+- **Linear** fits a line through valid, included reference injections and evaluates it across target injections.
+- **Exp. decay** fits an exponential-decay model through valid, included reference injections when enough points are available.
 
-The reference is disabled from ordinary analysis when applied as the buffer source. Raw integrated peak areas remain available; subtraction supplies corrected areas used downstream. Original files are not modified.
+The preview graph shows reference and target heats and the selected subtraction model. Reference-point inclusion changes the points available to the fitted methods. **Focus Y axis on buffer data** changes only the preview range. A continuous model line appears for **Linear** and **Exp. decay**; **Matched** is represented by injection-level reference values.
 
-### Matched subtraction
+![Buffer Subtraction window showing a processed reference, selected target, Linear method, focused buffer-data axis, fitted reference line, and Apply controls.](../assets/buffer-subtraction.png)
 
-**Matched** evaluates a reference heat at the target injection number. When the exact reference injection is unavailable, the nearest valid reference injection is used.
+> **Calculation:**
+>
+> *q*<sub>i,corr</sub> = *q*<sub>i,target</sub> − *q*<sub>i,ref</sub>
+>
+> The selected method determines the reference value evaluated for injection *i*. *q*<sub>i,target</sub> is the target heat, *q*<sub>i,ref</sub> is the corresponding reference value, and *q*<sub>i,corr</sub> is the corrected heat used downstream.
 
-Use it when injection-by-injection background is reproducible and schedules align. Inspect mismatched schedules carefully.
-
-### Linear subtraction
-
-**Linear** fits a straight background trend through valid reference heats and evaluates it for the target injections. Use it when background changes approximately linearly through the titration.
-
-### Exponential-decay subtraction
-
-**Exp. decay** fits an exponential-decay background when enough valid reference points are present. Use it only when the reference trend supports that shape.
-
-> **Caution:** Subtraction can reduce an apparent background while adding uncertainty and model dependence. Compare reference and target preparation, concentrations, injection schedules, and volumes before applying it.
+**Apply** stores the reference and method on each target. The corrected heats are then used by downstream fitting and export while the original integrated heats remain unchanged. The reference Experiment Data becomes inactive. Changes in its processing or injection inclusion update the target corrections. The subtraction is project data and can affect the validity of dependent results.
 
 ## Experiment Merger
 
-Open **Experiment Merger...** to join consecutive titration segments collected on the same continuing cell contents after syringe reloads.
+**Experiment Merger...** joins two or more eligible thermogram experiments from consecutive segments of a tandem titration. The source list contains thermograms that are not already tandem experiments. Selection order defines segment order; **Up** and **Down** reorder selected rows.
 
-### Prepare segments
+The merge **Mode** selector contains:
 
-Load all segments and place them in chronological order. Confirm that they belong to the same cell sequence, use compatible timing and units, and have correct concentrations and injection metadata.
+- **Simple tandem**, which concatenates the segments using the standard concentration progression without a user-selected back-mixing correction.
+- **Fixed back-mixing**, which applies one configured mixing fraction at every segment transition.
+- **Auto back-mixing**, which scans for a transition mixing fraction and is available for up to three source experiments.
 
-The merger appends thermograms and injection sequences, preserves segment boundaries, and stores calculated starting active cell and titrant concentrations for every segment. If an input has already been baseline processed, the merger can use its baseline-corrected trace for that segment.
+Back-mixing controls include **Dead vol. uL**, the **Mixing** fraction, and **Remove titrated overflow**. Dead volume represents the filling-stem or overflow volume above the active cell volume. The overflow control records whether titrated overflow was removed between segments. In Fixed mode, the slider supplies the fraction; in Auto mode, the scanner determines the transition values.
 
-### Standard merge
+![Experiment Merger showing three ordered tandem segments, Auto back-mixing, dead volume, mixing result, overflow removal, and Create controls.](../assets/experiment-merger-auto.png)
 
-Use standard concatenation when the next segment continues concentration progression without a separate back-mixing correction. Inspect the time-shifted thermogram, injection sequence, segment boundary, and calculated concentration ratio after merging.
+**Create** produces a new processed Experiment Data item. Its thermogram samples are time-shifted and concatenated, its injection sequence retains segment boundaries, and its segment metadata stores the calculated starting active-cell and active-titrant concentrations. The merged item’s comments record the selected tandem mode and back-mixing parameters. Source experiments remain separate and are not changed by creation; the new item is marked as a tandem experiment and is not eligible as a later merger source. The resulting item can be fitted through [Analyze Data](06-fitting-models.md).
 
-### Back-mixing merge
+## Interpretation of tool state
 
-Use back-mixing when syringe reloads can mix dead or overflow volume with the active cell contents. Configure:
+The tools expose state labels rather than claims about physical history. Buffer reference status **Processed** means integration has completed; **Not yet processed** means that prerequisite is absent. The merger status **Invalid back-mixing settings** describes control validation, while **Auto back-mixing is available for up to three experiments** describes the scanner limit. A selected mixing fraction or fitted subtraction model is a software correction with model uncertainty, not a measurement of unobserved liquid mixing or background heat.
 
-- syringe dead or overflow volume;
-- whether displaced titrated solution was removed between segments;
-- the mixing fraction between remaining dead volume and active cell;
-- automatic back-mixing optimization when appropriate.
-
-Automatic scanning can choose a mixing fraction for one or two reload transitions. Treat the selected fraction as a fitted experimental correction and check its plausibility.
-
-> **Interpretation:** Back-mixing can improve continuity under its volume model, but the software cannot verify the physical mixing history. Report the correction and test sensitivity to plausible settings.
-
-### Validate a merged experiment
-
-After merging:
-
-1. Inspect thermogram continuity and segment markers.
-2. Confirm every injection and its inclusion state.
-3. Review segment starting concentrations and concentration ratios.
-4. Process the merged experiment consistently.
-5. Fit and inspect residuals around segment transitions.
-6. Save the project under a new name.
-
-Do not count segments from one continuing titration as independent replicates.
-
+Changes to reference inclusion or processing change the subtraction preview and target correction. Existing merged Experiment Data is a separate snapshot and does not update when its source experiments are edited.

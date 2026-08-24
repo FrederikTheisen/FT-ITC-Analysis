@@ -1,9 +1,9 @@
 ---
 title: Results and advanced analyses
-summary: Read Analysis Results, control uncertainty presentation, maintain valid solutions, and use temperature, salt, counter-ion, or protonation analyses.
+summary: Analysis Result views, validity, uncertainty presentation, evaluation temperature, and conditional advanced analyses.
 slug: results-advanced-analysis
 nav_order: 8
-last_verified: 2026-08-22
+last_verified: 2026-08-23
 _verification:
   product_version: "1.4.3"
   commit: "7a19b583468b4b087e130e4b27c8140cd428339a"
@@ -11,109 +11,74 @@ _verification:
 
 # Results and advanced analyses
 
-An **Analysis Result** stores a fit across one or more experiments, its constraints and model options, convergence information, weighting and uncertainty settings, member solutions, and a validity snapshot. It is the basis for combined result tables and compatible advanced analyses.
+An **Analysis Result** is a stored fit for one or more experiments. It contains the model and options, constraints, solver state, weighting and uncertainty settings, member solutions, and a validity snapshot. The result workspace presents those stored values together with graph and analysis views. The fitting controls are described in [Single-experiment fitting](06-fitting-models.md), and multi-dataset constraints are described in [Multiple-experiment fitting](07-multiple-experiments.md).
 
-## Read the summary
+## Result views
 
-Select an Analysis Result and confirm:
+The result view selector contains **Parameters** and **Selected Fit** for every Analysis Result. **Temperature**, **Salt**, and **Protonation** appear conditionally when the result and its member metadata satisfy the corresponding advanced-analysis requirements.
 
-- result name and included experiments;
-- selected model and options;
-- fitted, shared, free, fixed, or dependent parameters;
-- optimizer, convergence, and loss;
-- whether injection-error weighting was used;
-- uncertainty method and successful result population;
-- validity for the current project state.
+**Parameters** presents the combined parameter graph and the result table. The table can show fitted values, derived values, and the selected uncertainty representation for each stored solution. Selecting a row makes that member the current result solution; the selection is retained by the result workspace and drives the Selected Fit view.
 
-Use the selected-fit control to inspect each member experiment. Review its curve and residuals even when the main table reports a combined value.
+**Selected Fit** presents the saved fitted curve, residuals, error bars, confidence band, and excluded points for the selected member. Its graph is read-only: it represents the stored solution and does not expose fit controls or alter the underlying experiment.
 
-## Evaluate at a temperature
+![Analysis Result workspace showing the Selected Fit curve, residuals, parameter evaluation, and selected member experiment.](../assets/analysis-result-selected-fit.png)
 
-The result view can present thermodynamic quantities at a chosen evaluation temperature. When temperature dependence is fitted, the configured reference temperature is the natural starting point; otherwise the application can use the mean experiment temperature.
+## Inspector tabs
 
-Changing the evaluation temperature changes derived presentation according to the stored model. It does not alter the observed injection heats or silently refit the data.
+The result inspector has four tabs with shared labels on Avalonia and macOS: **Summary**, **Analysis**, **Experiments**, and **Model**.
 
-Report the evaluation or reference temperature with temperature-dependent values. Values such as enthalpy, free energy, entropy contribution, dissociation constant, and heat-capacity change are meaningful only with their model, units, and temperature context.
+The **Summary** tab contains the result identity, model, member count, RMSD, and solver diagnostics. The validity section reports **Analysis is valid**, **Partially invalid**, **Invalid**, or **Unknown status**, with reasons when the stored validity snapshot differs from current member inputs. Solver information includes algorithm, iterations, weighted or unweighted injection errors, error-estimation method, and bootstrap count.
 
-## Present uncertainty
+![Analysis Result workspace showing a valid three-experiment result, parameter summary, member table, solver information, uncertainty display, and Update Result.](../assets/analysis-result-summary.png)
 
-When the result contains the necessary resampling output, the view can show:
+The **Analysis** tab contains the result view selector, parameter evaluation, and the analysis-specific controls and outputs. It is also the location of the uncertainty display and evaluation-temperature presentation associated with the result view.
 
-- standard deviations;
-- 95% confidence intervals;
-- both representations.
+The **Experiments** tab lists the result members and their stored status and condition information, including member temperature. The member represented as selected in the result table drives **Selected Fit**, while this tab provides the corresponding member context.
 
-Changing the display changes presentation only. It does not recalculate the fit or convert one underlying sampling method into another.
+The **Model** tab shows the stored model options and the active constraints. A constraint with state **None** is not listed as an active global constraint; **Same for all** and **Temperature dependent** entries identify the relationships retained by the Analysis Result. The corresponding labels **Independent** and **Shared** describe the same member-specific and common relationships.
 
-> **Interpretation:** A symmetric standard deviation and an asymmetric interval can emphasize different properties of the same parameter distribution. Inspect the distribution or failure behavior when intervals are skewed, broad, or bounded.
+## Uncertainty and evaluation temperature
 
-## Copy or export a result table
+The **Errors** display control provides **Automatic**, **Standard deviation**, **95% confidence interval**, and **SD + 95% CI**. This control changes how stored uncertainty is presented in tables, parameter evaluation, and graphs. It does not rerun the fit or turn one error-estimation method into another.
 
-Use **Copy Result Table** for a quick clipboard table. Use **Analysis Result Exporter...** when you need a controlled CSV or TSV output, multiple results, summary versus individual rows, or separate uncertainty columns.
+The **Parameter Evaluation** section contains an evaluation **Temperature** field and the displayed thermodynamic quantities at that temperature. Temperature display can be **Celsius** or **Kelvin**. Changing the evaluation temperature changes derived presentation from the stored model; it does not change injection heats or refit the result. Temperature-dependent values are meaningful together with their model, units, uncertainty representation, and evaluation temperature.
 
-Include units, uncertainty type, model, evaluation temperature, and fixed or shared assumptions in the surrounding report. A bare parameter table is not a complete analysis record.
+## Advanced analysis views
 
-## Update or load solutions
+All advanced analyses require a **One-Set-Of-Sites** Analysis Result. Availability is additionally conditional on the relevant condition span and metadata. The advanced analyses operate on the stored member solutions and expose their own calculated outputs; they do not change the base fit parameters.
 
-**Update Result** refreshes a stored result from a fit that corresponds to its current data and configuration. **Load Solutions to Experiments** makes member solutions available to the corresponding experiments, for example for review and figure generation. **Select Result Experiments** selects the experiments associated with the result.
+### Temperature
 
-Loading a solution is not a new fit. Check result validity before using a loaded solution for export.
+The **Temperature** view is available when member temperatures span more than the configured minimum temperature span. Its temperature-analysis controls expose **Folded mode** values **Globular** and **ID interaction**, together with **Temp mode** values **Isoentropic point**, **Mean temperature**, and **Reference temperature**.
 
-## Result invalidation
+The stored temperature-analysis output includes reference temperature, hydration contribution, conformational contribution, and residue estimate. These values describe the selected folded and temperature-evaluation modes under the fitted temperature dependence. They remain conditional estimates of the stored model and member series rather than direct structural measurements.
 
-Changes to data, processing, details, attributes, inclusion, or fit settings can invalidate a result. An invalid result remains useful as a record of an earlier state, but it must not be presented as the current solution.
+![Temperature analysis view showing thermodynamic parameters across temperature, evaluation values, folded and temperature modes, and calculated output.](../assets/analysis-result-temperature.png)
 
-Refit after the change, confirm all members, and regenerate tables and figures. Saving a project preserves the validity state; reopening does not make an invalid result valid.
+### Salt
 
-## Advanced-analysis availability
+The **Salt** view requires a **Salt** attribute for every member and sufficient ionic-strength span across the member set. Its **Graph mode** values are **Affinity vs Salt**, **Debye-Huckel**, and **Counter Ion Release**. Counter-ion release is a salt analysis mode and is presented in the Salt view rather than as a separate advanced analysis.
 
-Advanced tabs are intentionally conditional. They require compatible **One-Set-Of-Sites** results, sufficient experimental variation, and complete metadata. An unavailable control usually indicates unmet prerequisites rather than an interface failure.
+The Salt output includes the extrapolated **Kd0** and **Counter ion** result when the analysis has a calculated fit. The graph mode determines whether the displayed dependence is expressed against salt, ionic strength using Debye-Huckel behavior, or ion activity for counter-ion release. The result is limited by the recorded salt identities, ionic-strength values, and the quality and span of the member affinity values.
 
-### Temperature analysis
+> **Calculation:**
+>
+> ln *K*<sub>d</sub>(*I*) = ln *K*<sub>d,0</sub> + *s*√*I*
+>
+> ln *K*<sub>d</sub> = *b* + *n*<sub>ion</sub> ln *a*<sub>ion</sub>
+>
+> *I* is ionic strength, *s* is the fitted sensitivity, *a*<sub>ion</sub> is ion activity, and *b* is the fitted intercept. *K*<sub>d,0</sub> is the extrapolated value in the Debye–Hückel view. *n*<sub>ion</sub> is the reported slope for Counter Ion Release; its sign is reported by the analysis and is not assigned an interpretation here.
 
-Temperature analysis becomes available when the contributing experiments span more than the configured minimum temperature range. It can expose temperature-dependent thermodynamic interpretation, including heat-capacity and structuring-related calculations where applicable.
+### Protonation
 
-Before interpreting it:
+The **Protonation** view requires a **Buffer** attribute for every member and at least two distinct buffer identities. Its calculated output contains **Protons** and **Binding H**, with uncertainty when the stored analysis contains the corresponding uncertainty results.
 
-1. Verify every experiment temperature.
-2. Confirm a common binding model and defensible constraints across the series.
-3. Inspect each member fit and residuals.
-4. Confirm the temperature range is broad enough to support the fitted relationship.
+The view relates the stored member binding enthalpies to the buffer protonation information associated with their conditions. The result is conditional on the recorded buffer identities, their temperature-dependent protonation enthalpies, and the model assumptions; it does not identify a particular residue or microscopic protonation event.
 
-> **Interpretation:** A derived heat-capacity or structuring term inherits uncertainty and assumptions from the global fit. It is not direct structural evidence.
+> **Calculation:**
+>
+> *ΔH*<sub>obs</sub> = *ΔH*<sub>bind</sub> + *n*<sub>H</sub> *ΔH*<sub>buffer</sub>
+>
+> The intercept is reported as **Binding H**, and the slope is reported as **Protons**. The relationship describes the stored member binding enthalpies against the buffer protonation enthalpies.
 
-### Salt and ionic-strength analysis
-
-Salt analysis requires ionic-strength variation and salt metadata for every contributing experiment. Depending on the selected mode, the view can examine affinity versus salt, Debye-Huckel behavior, or counter-ion release.
-
-Use consistent concentration and ionic-strength conventions across the series. Include all relevant ionic species in the external calculation used to enter metadata. A salt label without correct ionic strength is not sufficient.
-
-> **Interpretation:** A trend with ionic strength can be consistent with electrostatic contributions or ion release, but the software does not establish a unique molecular mechanism.
-
-### Counter-ion analysis
-
-Use the counter-ion-release mode only when the experiment series and salt identities support that interpretation. Check that the relevant metadata are complete and that changes in affinity are not confounded with pH, buffer, activity, temperature, or sample preparation.
-
-### Protonation analysis
-
-Protonation analysis requires buffer metadata for all contributing experiments and at least two buffer identities. It relates observed binding enthalpy to buffer protonation behavior under the selected assumptions.
-
-Confirm pH, temperature, buffer identity, and appropriate buffer ionization enthalpy information for the experiment conditions. Buffer name alone cannot correct inconsistent pH or unrecorded additives.
-
-> **Interpretation:** The result estimates linked proton exchange under the analysis assumptions. It does not identify a particular residue or microscopic protonation event.
-
-## When an advanced tab is unavailable
-
-Check, in order:
-
-1. The result uses a compatible one-set-of-sites model.
-2. All intended experiments are members of the result.
-3. Member results are valid and fitted successfully.
-4. Temperature, buffer, salt, and ionic-strength details are complete.
-5. The required condition range or number of identities is present.
-
-After correcting metadata, refit or update the analysis as required. Simply adding an attribute to an old result does not recompute the fit or its derived analysis.
-
-## Report advanced results responsibly
-
-Report the member experiments, condition range, base binding model, constraints, evaluation temperature, uncertainty method, excluded data, and any externally supplied constants. Preserve the `.ftxtc` project and exported table used for the report.
+Advanced-analysis values are supplemental views of a stored Analysis Result. Their availability and outputs are determined by the One-Set-Of-Sites model, member variation, metadata, selected graph or evaluation mode, and any completed uncertainty calculation. Result validity remains a separate indication of whether the stored fit inputs match the current project state. Figure and table output is covered in [Figures and export](09-figures-printing-export.md).

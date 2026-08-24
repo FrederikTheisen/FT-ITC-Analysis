@@ -1,121 +1,179 @@
 ---
-title: Fitting models
-summary: Select a supported binding model, configure fitting and uncertainty options, run the fit, and diagnose common model problems.
+title: Single-experiment fitting
+summary: Fit one experiment, configure model and uncertainty options, control injection inclusion, and interpret fit diagnostics.
 slug: fitting-models
 nav_order: 6
-last_verified: 2026-08-22
+last_verified: 2026-08-23
 _verification:
   product_version: "1.4.3"
   commit: "7a19b583468b4b087e130e4b27c8140cd428339a"
 ---
 
-# Fitting models
+# Single-experiment fitting
 
-Open **Analyze Data**, select **Single experiment** or **Multiple experiments**, and choose a model. The fit uses processed integrated heats for enabled injections together with experiment concentrations, volumes, temperature, and applicable attributes.
+**Analyze Data** in **Single experiment** mode fits the integrated heats of the selected Experiment Data. The fit uses the included injections together with the experiment concentrations, injection volumes, cell volume, temperature, and any model-specific information.
 
-## Choose the model
+The inspector has four tabs:
+
+- **Fit** selects the model, optimizer, error-estimation method, limits, weighting, and result output.
+- **Parameters** shows the model parameters and their starting or fixed values.
+- **Options** contains settings specific to the selected model.
+- **Display** controls the fitted curve and diagnostic information shown in the graph.
+
+![Analyze Data workspace showing a fitted one-set-of-sites curve, residuals, fitting controls, and fit status.](../assets/fitting-workspace.png)
+
+*Analyze Data combines the fitted-heats graph and residuals with the controls for configuring and running the fit.*
+
+Multiple-experiment fitting uses additional experiment selection and parameter constraints; see [Multiple-experiment fitting](07-multiple-experiments.md).
+
+## Injection inclusion
+
+Selecting an injection point in the integrated-heats graph changes whether it is included in the fit. Excluded injections do not contribute to the objective function. The **Excluded points** option in **Display** keeps excluded injections visible and available for selection.
+
+![Analyze Data graph with excluded injections visible and the Display controls for the fit and its diagnostics.](../assets/fitting-injection-inclusion.png)
+
+*Excluded injections remain visible when Excluded points is enabled and can be selected for inclusion again.*
+
+Changing injection inclusion does not rerun the fit. The fitted curve and parameters continue to represent the previous fit until **Run Fit** is used again. An inclusion change can also invalidate an Analysis Result that contains the experiment.
+
+## Models
 
 ### One-Set-Of-Sites
 
-Use **One-Set-Of-Sites** for one class of equivalent, non-interacting sites under the model assumptions. It is the best starting point when the data and system support a single transition.
+**One-Set-Of-Sites** represents one class of equivalent, independent binding sites. It fits stoichiometry, dissociation constant, binding enthalpy, and an injection-heat offset. The solution also reports thermodynamic quantities derived from the fitted affinity and enthalpy.
 
-Typical outputs include stoichiometry, affinity or dissociation behavior, and binding enthalpy, with derived free-energy and entropy terms where applicable.
+The **Options** tab provides **Use Syringe Correction** and **Stoichiometry**. Without syringe correction, the fitted N-value represents the apparent site stoichiometry. With syringe correction enabled, **Stoichiometry** fixes the number of cell-side sites and the fitted N parameter becomes the active syringe-concentration factor `alpha`.
+
+The model cannot by itself distinguish a concentration error from other effects that change an apparent stoichiometry.
 
 ### Two-Sets-Of-Sites
 
-Use **Two-Sets-Of-Sites** for two fitted classes of independent sites. This model has more adjustable parameters and therefore requires substantially more information in the titration curve.
+**Two-Sets-Of-Sites** represents two independent classes of sites. It fits separate stoichiometries, dissociation constants, and enthalpies for the two classes, together with a shared injection-heat offset.
 
-> **Caution:** A lower loss does not by itself justify the second site. Check whether both transitions are supported, parameters are identifiable, results are stable, and the system provides a plausible interpretation.
+**Shared N-Values** makes the two site classes use the same fitted stoichiometry. **Use Syringe Correction** instead fixes the first and second **Stoichiometry** values and fits one active syringe-concentration factor, `alpha`.
+
+The two site labels are interchangeable: exchanging all parameters assigned to site 1 and site 2 describes the same physical model. A lower fitting loss alone does not establish that two distinguishable binding processes are supported by the experiment.
 
 ### Competitive Binding
 
-Use **Competitive Binding** when a higher-affinity interaction is measured by titrating into a preformed competing complex. Enter the relevant competitor or prebound-species details and fixed knowledge required by the interface.
+**Competitive Binding** represents titration of a target ligand into a macromolecule that is initially in equilibrium with a prebound ligand in the cell. It fits the target ligand's stoichiometry, dissociation constant, binding enthalpy, and injection-heat offset.
 
-The useful affinity range depends on the chosen competition conditions. Incorrect competitor concentration or affinity assumptions can produce a convincing but biased result.
+The **Options** tab requires the prebound ligand **[Ligand]**, **Ligand Affinity**, and **Ligand Enthalpy**. **From attributes** makes **[Ligand]** use the corresponding value stored in the Experiment Data attributes instead of the value entered in the model options. The model also provides **Use Syringe Correction** and **Stoichiometry** with the same concentration-factor interpretation as One-Set-Of-Sites.
+
+The fitted target affinity and enthalpy depend on the supplied prebound-ligand properties. Those values are model inputs rather than quantities independently determined by the competitive fit.
 
 ### Dissociation
 
-Use **Dissociation** when the injected material is a preformed complex that dissociates under the modeled titration conditions. Confirm the preparation, species definitions, and concentration entries match this experiment rather than an association titration.
+**Dissociation** represents dilution-driven monomer-dimer self-association. The syringe contains the macromolecule and the cell initially contains buffer. Dilution and mixing change the dimer population, and the model fits the association equilibrium through its reported dissociation constant, the association enthalpy per mole of dimer formed, and an injection-heat offset.
 
-## Set initial values
+> **Calculation:**
+>
+> 2 <i>M</i> ⇌ <i>D</i>
+>
+> <i>K</i><sub>a</sub> = [<i>D</i>] / [<i>M</i>]<sup>2</sup>
+>
+> Here, [<i>M</i>] and [<i>D</i>] are the monomer and dimer concentrations, and <i>K</i><sub>a</sub> is the association constant.
 
-Initial values tell the optimizer where to begin. Estimate them from the experiment and known chemistry at the correct unit scale.
+This is not a general model for dissociation of an arbitrary preformed complex or for other oligomerization schemes. It has no stoichiometry or syringe-correction options.
 
-- Use the transition position and concentration ratio to guide stoichiometry and affinity.
-- Use the sign and scale of integrated heats to guide enthalpy.
-- For a two-site or competitive model, avoid starting two processes at numerically indistinguishable values unless that is deliberate.
+### Thermodynamic relationships
 
-Run from more than one defensible starting point when the model is complex. Agreement improves confidence that the same solution basin was found; disagreement reveals sensitivity that should be reported or resolved.
+The application derives thermodynamic quantities from the fitted affinity and enthalpy. Temperature <i>T</i> is expressed in kelvin.
 
-## Choose parameter limits
+> **Calculation:**
+>
+> <i>K</i><sub>d</sub> = 1 / <i>K</i><sub>a</sub>
+>
+> Δ<i>G</i> = <i>R</i><i>T</i> ln(<i>K</i><sub>d</sub>) = −<i>R</i><i>T</i> ln(<i>K</i><sub>a</sub>)
+>
+> −<i>T</i>Δ<i>S</i> = Δ<i>G</i> − Δ<i>H</i>
+>
+> Here, <i>R</i> is the gas constant, and the final relationship matches the **−TΔS** quantity reported by the application.
 
-The interface provides standard, expanded, or no limit policies, together with model-specific fixed values or bounds.
+## Parameters and model options
 
-Start with standard limits. Expand a limit only when independent knowledge supports the parameter range and the data can constrain it. Removing limits can expose a numerical solution but can also allow physically meaningless regions.
+![Parameters and Options inspectors showing fitted values, Locked controls, syringe correction, and fixed stoichiometry.](../assets/fitting-parameters-options.png)
 
-> **Interpretation:** A fitted value pressed against a limit is not a normal interior estimate. Treat it as a diagnostic of the data, starting values, model, or constraint.
+*Parameters exposes parameter values and locks; Options contains settings specific to the selected model.*
 
-## Choose an optimizer
+The application generates initial parameter values from the experiment and can reuse an attached fitted solution where applicable. Entering a value replaces the generated starting value for that parameter. Values are displayed in the current application units. Clearing a value returns the parameter to automatic initialization.
 
-- **Levenberg-Marquardt** uses local derivative information and is efficient near a suitable solution.
-- **Nelder-Mead** is a derivative-free simplex method and can be useful when the local surface or starting point is less favorable.
+**Locked** holds a parameter at its displayed value during the primary fit. An unlocked parameter is adjusted by the optimizer. Locked values remain part of the model and affect every other fitted parameter even though they are not estimated by that fit.
 
-Try the other optimizer when a fit fails, converges at a limit, or is sensitive to initial values. Comparable solutions from both optimizers are reassuring, but model adequacy still requires scientific review.
+Analysis choices are retained separately for the available fitting modes and models. **Restore defaults** clears the stored analysis inputs and restores the fitting-related defaults, including the standard limit policy and result-output defaults.
 
-## Weight by injection error
+The **Limits** control selects a common parameter-bound policy:
 
-Enable **Weight by injection error** to give observations influence according to their estimated integration uncertainty. This is appropriate only when those uncertainties are meaningful and comparable.
+- **Standard** uses the normal parameter bounds.
+- **Expanded** permits a wider parameter range.
+- **No limits** removes the configured parameter bounds.
 
-Compare weighted and unweighted fits when uncertainty varies strongly. A major shift can be informative: inspect which injections dominate and whether their errors reflect signal quality or a processing artifact.
+A fitted value at a bound is not an interior estimate. It indicates that the reported value depends on the selected bound as well as on the data and model.
 
-## Estimate error
+## Fitting calculation
 
-Fitting chooses a best solution. Error estimation repeatedly refits perturbed or reduced data; it does not replace the best-fit parameters with an average.
+### Algorithm
 
-- **None** reports the fitted solution without resampling-based uncertainty.
-- **Bootstrap residuals** resamples residual behavior and refits to estimate a parameter distribution.
-- **Leave-one-out** refits while omitting observations in turn to show sensitivity to individual points.
+**Levenberg-Marquardt** uses local derivative information and can be efficient when the starting values describe a suitable region of the fitting surface.
 
-Set an adequate number of iterations for the intended precision and available time. Review how many refits succeeded. A distribution based on many failed or limit-bound refits is a warning, not a reliable uncertainty statement.
+**Nelder-Mead** is a derivative-free simplex optimizer. It provides an alternative calculation for surfaces or starting conditions that are less cooperative for the local derivative-based method. Agreement between optimizers does not by itself establish that the selected model is scientifically adequate.
 
-### Include concentration uncertainty
+### Weight by injection error
 
-When enabled, concentration uncertainties from experiment details are propagated in the resampling workflow. Enter those uncertainties before fitting and use values supported by preparation and assay records.
+**Weight by injection error** uses the integration uncertainty estimated during thermogram processing when calculating the fitting objective. Injections with larger estimated uncertainty consequently have less influence than injections with smaller estimated uncertainty.
 
-> **Interpretation:** Concentration uncertainty can dominate stoichiometry and affinity behavior. Entering zero is a substantive assumption, not merely leaving a field blank.
+> **Calculation:**
+>
+> <i>r</i><sub>i</sub> = <i>q</i><sub>i,obs</sub> − <i>q</i><sub>i,model</sub>
+>
+> RMSD = √[(Σ<i>r</i><sub>i</sub><sup>2</sup>) / <i>N</i>]
+>
+> weighted objective = Σ(<i>r</i><sub>i</sub> / <i>σ</i><sub>i</sub>)<sup>2</sup>
+>
+> Only included injections enter these sums. The value <i>σ</i><sub>i</sub> is the processing-derived uncertainty for injection *i*; weighting changes the fitting objective but does not remove systematic uncertainty.
 
-## Use syringe correction
+The weighting describes the application's processing-derived uncertainty model. It does not account for every systematic source of experimental or processing uncertainty.
 
-Models that expose **Use Syringe Correction** can fit a syringe-side active-concentration correction. In this mode the reported factor is `alpha` in result tables and figures, while the configured site stoichiometry is fixed as required by the model option.
+## Parameter uncertainty
 
-Use it when the principal concentration uncertainty is believed to be in syringe material. The ordinary fitted stoichiometry is more appropriate when the conventional interpretation and cell-side concentration uncertainty apply.
+The **Errors** control determines whether the primary best fit is followed by repeated refitting:
 
-> **Caution:** Syringe correction does not identify which preparation is wrong. It changes how the model represents a concentration correction and must be justified externally.
+- **None** retains the primary fit without resampling-based parameter uncertainty.
+- **Bootstrap residuals** constructs synthetic datasets from the fit residuals and refits them.
+- **Leave-one-out** refits reduced datasets with included injections omitted in turn.
 
-## Run and evaluate the fit
+**Bootstrap** sets the requested number of resampling iterations. The fit status distinguishes successful and failed refits. Reported resampling uncertainty is calculated around the primary solution; the primary parameter values are not replaced with the average of the resampled fits.
 
-Choose **Run Fit**, then inspect:
+When concentration errors are enabled in Preferences, the concentration uncertainties entered in **Details...** are propagated through supported resampling calculations. These uncertainties affect the synthetic experiment concentrations used for the refits, not the concentrations used for the primary best fit.
 
-1. convergence state and fit loss;
-2. the curve over the complete concentration range;
-3. residuals for structure, drift, or outliers;
-4. parameter values, units, limits, and correlations implied by instability;
-5. uncertainty distributions or intervals, when calculated;
-6. sensitivity to initial values, optimizer, weighting, and defensible injection inclusion.
+### Unlock parameters during error estimation
 
-Choose the option to create an **Analysis Result** when you need a stored combined result, advanced analysis, result export, or a durable validity snapshot.
+**Locked** parameters remain fixed during the primary fit. With **Unlock parameters** enabled, copies of those parameters are unlocked for the error-estimation refits and can vary in the resampled solutions.
 
-## When a fit fails
+This setting does not change or rerun the primary best fit. It changes only the parameter state used by the repeated error-estimation fits, and it has no effect when no fitted parameter is locked.
 
-Work through these checks in order:
+## Fit execution and diagnostics
 
-1. Confirm concentrations, temperature, units, and injection volumes.
-2. Confirm baseline, integrated heats, uncertainties, and included injections.
-3. Confirm the experiment actually spans a transition informative for the chosen parameters.
-4. Use plausible initial values and standard limits.
-5. Try the alternate optimizer.
-6. Simplify the model or constraints.
-7. Expand limits only with a scientific reason.
+**Run Fit** starts the primary optimization and the selected error-estimation calculation. **Stop** requests cancellation of the active calculation. When fitting ends, the status reports the termination state, RMSD, iteration count, and elapsed time. A resampling calculation also reports its outcome and the number of successful and failed refits.
 
-Do not interpret a numerical solution until the fitted curve, residuals, and parameters all support it.
+The **Display** tab exposes complementary diagnostics:
 
+- **Fit line** shows the curve calculated from the current fitted solution.
+- **Residuals** show the difference between each included observation and the fitted curve.
+- **Error bars** show the processing-derived integration uncertainty.
+- **Confidence band** shows uncertainty around the fitted curve when the solution contains suitable resampling results.
+- **Excluded points** shows injections that do not contribute to the current fit.
+
+These displays describe different aspects of the fitted solution. A small RMSD does not rule out systematic residual structure, poorly identified parameters, or dependence on model assumptions.
+
+### Store the fitted solution
+
+With **Create analysis result** disabled, a successful single-experiment solution remains attached to its Experiment Data and is available in that experiment's analysis and figure workflows.
+
+With **Create analysis result** enabled, a usable completed fit also creates a separate Analysis Result containing the experiment, model, fit settings, and solution. **Auto-open new result** determines whether the new result workspace opens immediately. A stopped or unusable fit does not create or replace an Analysis Result.
+
+## Fit availability and non-convergence
+
+A single-experiment analysis requires processed or imported heats and at least three included injections with usable numerical values. The binding models also require nonzero cell and syringe concentrations. **Dissociation** uses the syringe concentration and does not require a macromolecule concentration in the initially buffered cell.
+
+An unavailable model, failed termination, bound-limited solution, or failed resampling population can reflect missing or degenerate heat and concentration information, the supplied starting values, the selected limit policy, the optimizer's interaction with the fitting surface, model complexity, or weak parameter identifiability. Resampling can fail even when the primary fit succeeds because each refit presents a different or reduced dataset to the same model.

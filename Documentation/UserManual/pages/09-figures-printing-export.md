@@ -1,122 +1,83 @@
 ---
-title: Figures, printing, and export
+title: Figures and export
 summary: Configure final and supporting figures, print active graphs, and export data, peaks, results, and publication-ready PDFs.
 slug: figures-printing-export
 nav_order: 9
-last_verified: 2026-08-22
+last_verified: 2026-08-23
 _verification:
   product_version: "1.4.3"
   commit: "7a19b583468b4b087e130e4b27c8140cd428339a"
 ---
 
-# Figures, printing, and export
+# Figures and export
 
-FT-ITC Analysis separates visual figures from numerical exports. Decide whether the downstream need is a publication graphic, an injection table, processed traces, or a fitted-parameter table before choosing an export command.
+FT-ITC Analysis keeps publication figures, numerical data, and fitted result tables as separate output types. **Final Figure** is an Experiment Data workflow. An Analysis Result does not open directly as a Final Figure; **Export Associated Final Figures...** on a result exports figures for the experiment solutions associated with that result.
 
-## Build a Final Figure
+## Final Figure
 
-Select an experiment or a compatible Analysis Result and open **Final Figure**. The view builds a publication-oriented figure from the current experiment, processing, and solution.
+The **Final Figure** workspace renders the selected Experiment Data as a publication figure. Its preview and PDF output reflect the selected experiment, processing state, fitted solution, and figure options. An Analysis Result can supply fitted solutions for associated figure export, but the result itself is not the Final Figure workspace input.
 
-Depending on the available data and controls, a final figure can include:
+The Export PDF controls contain three scopes:
 
-- raw thermogram and baseline;
-- integration-region markers or fills;
-- integrated heats and excluded points;
-- injection uncertainty bars;
-- fitted model curve and confidence band;
-- residual panel;
-- parameter or experiment annotation;
-- axis, line, symbol, font, and page controls.
+- **Current** exports the displayed experiment figure to one PDF.
+- **Active** exports figures for Active Experiment Data.
+- **All** exports figures for all Experiment Data in the project.
 
-Choose only elements that communicate the analysis. A diagnostic view can show baseline and excluded points; a final publication figure may use a cleaner subset while the methods describe processing.
+The result-list command **Export Associated Final Figures...** loads the result’s member solutions into their experiments and writes one final-figure PDF per associated experiment. It is available for a result with exportable solutions. See [Results and advanced analyses](08-results-advanced-analysis.md) for result validity and stored member-solution behavior.
 
-## Check residuals and confidence bands
+### General
 
-Enable residuals to expose systematic disagreement that the main curve can hide. Residuals should be interpreted with their scale and weighting.
+The **General** tab defines the page and common content. Page controls specify width and height in centimeters and the base font size. Energy and time controls set the displayed units. Content controls include the data graph, axis titles, experiment details, model information, fit parameters, and the information-box placement. The uncertainty selector provides **Automatic**, **SD**, **CI**, **SD + CI**, and **None**.
 
-A confidence band is available when the solution contains suitable uncertainty information. It represents fitted uncertainty under the selected model and resampling workflow, not the full range of possible models or systematic experimental errors.
+The parameter controls determine which information appears in the information box: thermodynamic, derived, or offset parameters; temperature; concentrations; injection delay; instrument; and user-defined attributes. The information box is descriptive figure content and does not alter the underlying fit.
 
-> **Interpretation:** A narrow band around a systematically wrong curve is not evidence of accuracy. Review residual structure and model assumptions together.
+![Final Figure workspace showing a publication preview, General controls, page dimensions, information content, uncertainty, and PDF output scopes.](../assets/final-figure-workspace.png)
 
-## Coordinate axes across figures
+### Data Graph
 
-Use shared or unified axis options when comparing experiments on a common visual scale. Check that all points and confidence regions remain visible. Independent axes maximize use of space but can exaggerate or conceal between-panel differences.
+The **Data Graph** tab controls the differential-power trace. Power and time axis titles, tick density, and explicit minimum and maximum values define the axes. **Corrected data** selects the baseline-corrected trace when one is available. **Shared power axis** applies one power-axis range across the active experiments represented by a figure set.
 
-Set axis ranges deliberately for final output. Avoid clipping error bars, fit curves, or annotations. Use consistent energy, concentration, and temperature units across a figure set.
+Baseline controls expose the baseline, its **Solid** or **Dashed** style, **Under data** or **Over data** layer, and line width. **Integration ranges** displays the integration intervals as **Bar**, **Fill**, or **Endpoint lines**. These overlays describe processing and do not recalculate integration.
 
-## Export a final figure as PDF
+### Fit Graph
 
-Use the PDF export action in **Final Figure** or **Export Associated Final Figures...** for a selected Analysis Result. Choose a clear filename that identifies the result and analysis version.
+The **Fit Graph** tab controls the integrated-heats and model panels. Enthalpy and molar-ratio axis titles, tick density, and explicit ranges define the axes. Symbols are **Square** or **Circle**, with an independent point size. **Shared X axis** and **Shared enthalpy axis** unify the corresponding ranges across active experiments; the residual-axis range follows the shared enthalpy setting when configured for unified residual axes.
 
-Reopen the exported PDF and check:
+**Fit line** displays the fitted binding curve with a selected width and **Smooth**, **Spline**, or **Linear** smoothness. **Show residuals graph** adds the residual panel, and **Residual gap** separates it visually from the fit panel. The display controls include the zero enthalpy line, confidence band, error bars, excluded points, excluded error bars, and offset-corrected heats. Error bars use processed injection uncertainties; confidence bands require bootstrap uncertainty in the fitted solution; fit lines and residuals require a fitted solution.
 
-- page size and orientation;
-- text, symbols, subscripts, and units;
-- line weights and color contrast;
-- full axis ranges and uncropped annotations;
-- residual and confidence-band visibility at publication size.
+![Data Graph and Fit Graph inspectors showing axis, corrected-data, baseline, symbol, shared-axis, fit-line, and PDF output controls.](../assets/final-figure-graph-controls.png)
 
-PDF preserves vector output where the renderer supports it and is the preferred handoff for layout and print workflows.
+## Numerical data export
 
-## Print the active graph
+**File > Export Data...** opens the numerical export dialog. **Export Selected Data...** invokes the same export for the selected experiment. The data scope is one of **Selected experiment**, **Active experiments**, or **All experiments**.
 
-Choose **File > Print** while the intended graph or figure is active. The application prepares the current printable view and passes it to the operating-system print workflow.
+The format list contains:
 
-> **Platform note:** macOS and Windows use their native print dialogs. Linux uses the available CUPS printers and can offer PDF saving through the application print dialog. Printer options and naming therefore differ, but the source graph is the same.
+- **Thermogram Data** — time and power samples, with the **Export baseline-corrected trace** option when baseline-corrected samples exist.
+- **Integrated Peaks** — injection records and integrated heats, with **Export offset-corrected peaks** when a fitted solution is available.
+- **Combined Data** — thermogram samples and integrated-peak columns in one CSV; raw, corrected, fitted, and residual columns are included when available.
+- **MicroCal / SEDPHAT** — MicroCal-style `DH`, `INJV`, `Xt`, `Mt`, and `XMt` columns compatible with SEDPHAT conventions.
+- **pytc** — a `.dh` file containing the pytc-compatible injection and metadata fields.
+- **ITCsim** — ITCsim-compatible injection data and metadata, with offset-corrected peaks available when a fitted solution exists.
 
-Use print preview where available and check scaling before submitting. For reproducible archival output, export a PDF and retain it alongside the project.
+Output units are format-specific. Thermogram samples use seconds and watts; integrated-peak and combined-data enthalpy, model, and residual values use joules per mole; MicroCal/SEDPHAT, pytc, and ITCsim use their documented concentration, volume, temperature, and heat conventions. Fitted columns and correction controls are disabled when the selected data do not contain the corresponding processed or fitted state. Export defaults are described in [Preferences](11-preferences-troubleshooting.md).
 
-## Export raw or processed data
+## Analysis Result Exporter
 
-Choose **File > Export Data...** for data traces in the selected export format. Use **Export Selected Data...** when the operation should be limited to the current selection. Review the export dialog because available columns depend on the source and processing state.
+**Analysis Result Exporter...** builds a table from one or more selected Analysis Results. **Summary rows** emits result-level rows; **All replicate rows** emits the individual fitted/member rows. Error layout is **Value with error** or **Separate columns**. Uncertainty style is **SD**, **CI**, or **SD + CI**. The file format is **CSV** or **TSV**. Energy values use the current application energy unit, and temperature presentation is **Celsius** or **Kelvin**.
 
-Exported text data are useful for downstream plotting or review, but they do not carry the complete project state. Preserve the `.ftxtc` project as the reproducible source.
+The configured table is available through **Copy** and **Export...**. Copy places the same delimited text on the clipboard; Export writes it to a file.
 
-## Export integrated peaks
+![Analysis Result Exporter showing selected results, summary-row mode, uncertainty layout and style, CSV format, temperature units, Copy, and Export.](../assets/analysis-result-exporter.png)
 
-Choose **File > Export Integrated Peaks...** for injection-level integrated heat information. Verify inclusion flags, raw versus corrected values, buffer subtraction, and uncertainty columns in the resulting file.
+## Supporting Figure
 
-Use this export to audit processing or interoperate with another analysis workflow. When publishing a table, state whether heats were buffer-corrected and which injections were excluded.
+**Supporting Figure...** composes figures from Experiment Data and Analysis Results into a multi-panel canvas. The **Figure order** list defines source order; **Add…**, **Remove**, **Up**, and **Down** change the composition. The source picker can filter available experiment and result figures by name or type.
 
-## Export result tables
+Common plot size specifies width and height in centimeters. Grid controls specify columns and rows. Typography controls define base font size, point size, line weight, and tick style. **Panel letters**, **Group result figures**, and the parameter and information box control affect panel labeling, result grouping, and annotations. The preview zoom shows the rendered canvas at 25%, 50%, 75%, or 100%. **Export PDF...** writes the composed supporting figure as a PDF.
 
-Open **Analysis Result Exporter...**. Select one or more results and configure:
+![Supporting Figure window showing one Analysis Result expanded into three preview panels, with preview zoom, grid, plot dimensions, typography, and PDF export.](../assets/supporting-figure.png)
 
-- summary rows or individual fitted/member rows;
-- inline or separate value and uncertainty columns;
-- standard deviations, 95% confidence bounds, or both;
-- CSV or TSV output.
+## Printing
 
-Copy the configured table to the clipboard for a quick transfer, or save it to preserve exact delimiters and encoding. Open the saved file in the destination tool and check that decimal values and delimiters were interpreted correctly.
-
-## Copy to the clipboard
-
-Use **Copy Result Table** or a tool-specific copy command for tabular text. Clipboard output is convenient but easier to alter accidentally than a saved export. Keep a saved table for reported results.
-
-When copying figures, confirm the destination retained sufficient resolution and transparency. Prefer PDF export when the destination accepts it.
-
-## Create a Supporting Figure
-
-Choose **Supporting Figure...** to arrange several experiment or result figures in a configurable grid.
-
-1. Select the source figures.
-2. Choose rows and columns.
-3. Place the figures in the intended reading order.
-4. Use shared visual options and axis alignment where appropriate.
-5. Confirm that the grid has capacity for every selected figure.
-6. Export the canvas as PDF and inspect it at final size.
-
-The supporting-figure tool aligns multi-panel output; it does not change the underlying processing or fit. If a source result becomes invalid, rebuild the source result and export the composition again.
-
-## A publication handoff checklist
-
-Before handing off files:
-
-- save the `.ftxtc` project;
-- confirm result validity;
-- export the exact numerical result table;
-- export final and supporting figures as PDF;
-- retain descriptions of processing, constraints, uncertainty, and exclusions;
-- cite the application version and software DOI;
-- reopen every exported file.
-
+**File > Print** prints the active graph or figure through the operating system’s print workflow. The active target can be the overview thermogram, processing graph, analysis graph, result graph, or Final Figure, depending on the selected workspace. The operating-system print dialog supplies the available printer and PDF destinations; the graph content comes from the active application view.

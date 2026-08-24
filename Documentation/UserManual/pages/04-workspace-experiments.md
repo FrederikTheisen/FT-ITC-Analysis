@@ -1,105 +1,91 @@
 ---
-title: Workspace and experiment management
-summary: Navigate the workspace, manage experiments and results, edit details, and keep project selections and metadata consistent.
+title: Workspace
+summary: The application window, Experiment Data capabilities, and Analysis Result capabilities.
 slug: workspace-experiments
 nav_order: 4
-last_verified: 2026-08-22
+last_verified: 2026-08-23
 _verification:
   product_version: "1.4.3"
   commit: "7a19b583468b4b087e130e4b27c8140cd428339a"
 ---
 
-# Workspace and experiment management
+# Workspace
 
-## Understand the data list
+## Application window
 
-The data list is the project navigator. It contains experiments and completed Analysis Results. Selecting an experiment opens experiment views; selecting a result opens its combined summary and member fits.
+The **Data / Results** list is the project navigator. It contains two types of project item: Experiment Data and completed Analysis Results. Selecting an item shows it in the workspace; selection does not change whether an experiment is Active.
 
-The enabled state controls whether an experiment participates in operations that use active datasets. Enable, disable, or invert active selections from the data commands. Inclusion of an individual injection is separate from inclusion of its experiment.
+Only Experiment Data has an **Active** toggle. Active experiments participate in operations that use a group of datasets, such as multiple-experiment fitting, processing propagation, and coordinated export. The toggle becomes available after the experiment has been processed. **Enable All**, **Disable All**, and **Invert Active** change several experiments, while the sorting commands change the list order. Multiple-experiment fitting is described in [Multiple-experiment fitting](07-multiple-experiments.md), and the processing prerequisite is covered in [Processing](05-processing-thermograms.md).
 
-> **Note:** “Selected” means the item currently shown. “Enabled” or “active” means an item is eligible for a multi-item operation. Check both concepts before a global fit, merge, subtraction, or batch export.
+The rest of the window follows the selected item and task:
 
-## Navigate an experiment
+- The workflow navigator switches between the available stages of an experiment.
+- The workspace contains the graphs, tables, and controls for the current task.
+- Workflow controls provide options for the view or analysis currently open.
+- Item actions apply to the selected Experiment Data or Analysis Result.
+- The application menu contains project commands, tools, preferences, and help.
 
-For an experiment, use:
+## Experiment Data
 
-- **Overview** to inspect origin, instrument information, duration, temperature, concentrations, and analysis state.
-- **Process Data** to define the baseline and integration regions for a thermogram.
-- **Analyze Data** to configure and run a single- or multiple-experiment fit.
-- **Final Figure** to prepare the current experiment and result for presentation.
+![Light-theme FT-ITC Analysis window with Experiment Data selected and the Overview workflow open.](../assets/experiment-data-workspace.png)
 
-The available processing controls depend on whether the import contains a thermogram. Result-dependent controls remain unavailable until a compatible fit exists.
+*Selecting Experiment Data opens its experiment workflow in the shared workspace.*
 
-## Review and edit details
+Experiment Data represents an imported or application-created dataset. Its list entry provides identifying information and a summary of its processing or fitted state.
 
-Choose **Details...** for the selected experiment. The details view can include:
+### Experiment workflow
 
-- experiment name, comments, date, temperature, and instrument metadata;
-- cell and syringe concentrations;
-- concentration uncertainties;
-- attributes such as buffer identity, salt, ionic strength, competitor concentration, or prebound species.
+Four task views are available for Experiment Data:
 
-Use the units shown by the control. Confirm changes before fitting because concentration and temperature values enter the model, while attributes can determine constraints and advanced-analysis availability.
+- **Overview** presents the imported data and available experiment information.
+- **Process Data** provides baseline and peak-integration controls when a thermogram is available.
+- **Analyze Data** configures and runs single- or multiple-experiment fitting.
+- **Final Figure** prepares the thermogram, integrated heats, fit, residuals, and annotations for presentation.
 
-> **Recommendation:** Record why a value was changed in the experiment comment or in the laboratory record. The application stores the value, but it cannot establish the provenance of a correction.
+### Details and attributes
 
-Merged tandem experiments store calculated starting concentrations for each segment. Edit merge inputs or recreate the merge when those values need correction; do not treat segment bookkeeping as an ordinary single-experiment concentration field.
+The **Details...** view contains editable concentrations, comments, and experiment attributes. Attributes describe conditions and analysis inputs such as buffer, salt, ionic strength, competitor, or prebound species.
 
-## Duplicate an experiment
+Attribute commands copy either one attribute or all attributes from the selected Experiment Data to all other experiments, all Active experiments, or a specific experiment.
 
-Use **Duplicate** when you want to compare processing or fitting choices without reimporting the raw file.
+### Experiment Data actions
 
-1. Select the source experiment.
-2. Choose the duplicate command.
-3. Rename or comment the copy so its purpose is clear.
-4. Change only the intended processing or analysis choices.
+- **Details...** opens the editable experiment information and attributes.
+- **Duplicate Data** creates another project item from the selected Experiment Data.
+- **Export Selected Data...** exports the selected dataset.
+- **Clear Solution** removes the fitted solution currently attached to the Experiment Data.
+- **Remove Data** removes the item from the open project without deleting its source file.
 
-The duplicate belongs to the same project. It is not a second independent raw measurement and should not be counted as a biological or technical replicate.
+## Analysis Result
 
-## Remove experiments and results
+![Light-theme FT-ITC Analysis window with an Analysis Result selected, showing its parameters, validity, and Update Result action.](../assets/analysis-result-workspace.png)
 
-Select an item and choose **Remove Data** or **Remove Result**. Confirm the operation. Removal does not delete an instrument file on disk, but it will be reflected in the project the next time you save.
+*An Analysis Result opens its dedicated result workspace when selected.*
 
-Removing or changing an experiment can invalidate or remove the usefulness of associated results. If you need an archival comparison, save the project under a new name before making structural changes.
+An Analysis Result stores a fit for one or more experiments together with its model, constraints, fitting settings, uncertainty output, and member solutions. Its list entry summarizes the stored fit.
 
-## Sort the project
+### Result workspace
 
-Use sorting commands to organize experiments by the exposed metadata, including experimental or attribute values where available. Sorting changes presentation order; it does not change the underlying fit or create a grouping constraint.
+The result workspace provides these views:
 
-Use explicit names and attributes in addition to sorting. A global analysis should be reproducible from the selected experiments and constraints, not from visual adjacency alone.
+- **Parameters** compares fitted and derived parameters across the result.
+- **Selected Fit** shows the fitted curve and residuals for a selected member experiment.
+- **Temperature**, **Salt**, and **Protonation** appear when the result and its experiment information support those analyses.
 
-## Copy and clear attributes
+The inspector organizes result information under **Summary**, **Analysis**, **Experiments**, and **Model**. See [Results and advanced analyses](08-results-advanced-analysis.md) for interpretation and prerequisites.
 
-Project commands can copy attributes from one experiment to others, perform an attribute operation, or clear attributes. These are efficient for consistent metadata across a series, but they can also propagate a mistake.
+### Analysis Result actions
 
-1. Check the source experiment and target selection.
-2. Apply the copy or operation.
-3. Reopen details on representative targets.
-4. Save after confirming the result.
+Changes to the fit-relevant state of Experiment Data stored in an Analysis Result can invalidate the result. The validity indicator shows whether the stored result still matches the current data.
 
-> **Caution:** Buffer, salt, ionic strength, competitor, and prebound-species attributes can change model availability, constraints, or derived analyses. They are analysis inputs, not decorative labels.
+- **Details...** edits the result name and comments.
+- **Copy Result Table** copies the current result table; **Analysis Result Exporter...** provides controlled table export.
+- **Update Result** reruns the stored model and fitting settings using the current member experiments and replaces the result only after a successful fit.
+- **Set Active Experiments** makes the result's member experiments Active.
+- **Load Solutions to Experiments** attaches the stored member solutions to their corresponding Experiment Data.
+- **Export Associated Final Figures...** exports figures for the member experiments.
+- **Remove Result** removes the Analysis Result from the open project.
 
-## Manage injection inclusion
+## Separate tools
 
-An injection can be included in processing display yet excluded from fitting. Use the injection inclusion control to omit a demonstrably compromised injection, such as a first-injection artifact or a known delivery failure. Reinclude it to test sensitivity.
-
-Do not remove points solely because their residuals are large. First check raw signal, integration boundaries, baseline, concentrations, and model adequacy. Record the reason for exclusions.
-
-## Clear processing or results
-
-**Clear Processing** returns the selected thermogram to an unprocessed state. **Clear Results** removes fitted solution state associated with the selection. These commands are useful when starting a controlled reanalysis, but they deliberately discard work.
-
-Changes to data, details, processing, attributes, injection inclusion, or fit configuration can make an existing Analysis Result invalid for the current project state. The validity indicator is the authoritative warning; updating a figure does not make an invalid result current.
-
-## A maintainable project pattern
-
-For a multi-condition study:
-
-1. Name experiments consistently.
-2. Enter concentrations, uncertainties, temperature, and attributes before processing.
-3. Process each thermogram and record justified injection exclusions.
-4. Save a checkpoint project.
-5. Configure and run the combined analysis.
-6. Save again before exporting tables and figures.
-
-This separates experiment curation from model fitting and makes later troubleshooting easier.
+The **Tools** menu opens separate windows for tasks outside the main experiment and result workflows. These include **Experiment Designer...**, **Buffer Subtraction...**, and **Experiment Merger...**. Their features are described in [Tools](10-additional-tools.md).
