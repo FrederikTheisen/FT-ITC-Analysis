@@ -38,6 +38,7 @@ namespace AnalysisITC.Core.DataReaders
                 ITCDataFormat.FTITC,
                 ITCDataFormat.IntegratedHeats,
                 ITCDataFormat.PEAQITCProject,
+                ITCDataFormat.OriginProject,
             };
         }
 
@@ -69,7 +70,9 @@ namespace AnalysisITC.Core.DataReaders
         [ITCFormat("Integrated Heats File", "Exports from Origin and legacy DH exports", new[] { ".dat", ".aff", ".dh" })]
         IntegratedHeats = 6,
         [ITCFormat("PEAQ-ITC Project File", "Exports from PEAQ-ITC", ".apj")]
-        PEAQITCProject = 7
+        PEAQITCProject = 7,
+        [ITCFormat("Origin ITC Project File", "Legacy Origin project containing ITC data", ".opj")]
+        OriginProject = 8
     }
 
     public enum DilutionMethod

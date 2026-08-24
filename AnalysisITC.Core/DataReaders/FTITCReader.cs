@@ -400,6 +400,7 @@ namespace AnalysisITC.Core.DataReaders
                 case 5: return extension == ".ta" ? ITCDataFormat.TAITC : ITCDataFormat.IntegratedHeats;
                 case 6: return isIntegratedHeatFile ? ITCDataFormat.IntegratedHeats : ITCDataFormat.PEAQITCProject;
                 case 7: return ITCDataFormat.PEAQITCProject;
+                case 8: return ITCDataFormat.OriginProject;
                 default: return ITCDataFormat.Unknown;
             }
         }

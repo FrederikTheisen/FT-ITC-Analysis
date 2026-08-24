@@ -112,7 +112,8 @@ namespace AnalysisITC.Core.DataReaders
             var injs = data.Injections;
 
             // Defensive null checks (importers can leave these null).
-            if (data.DataSourceFormat != ITCDataFormat.IntegratedHeats)
+            if (data.DataSourceFormat != ITCDataFormat.IntegratedHeats
+                && data.DataSourceFormat != ITCDataFormat.OriginProject)
             {
                 var dps = data.DataPoints;
 

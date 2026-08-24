@@ -264,6 +264,8 @@ namespace AnalysisITC.Core.DataReaders
                         return new ExperimentData[] { IntegratedHeatReader.ReadFile(path) };
                     case ITCDataFormat.PEAQITCProject:
                         return new ExperimentData[] { PEAQReader.ReadFile(path) };
+                    case ITCDataFormat.OriginProject:
+                        return new ExperimentData[] { OriginProjectReader.ReadFile(path) };
                     case ITCDataFormat.Unknown:
                         AppEventHandler.PrintAndLog($"Unknown File Format: {path}");
                         break;

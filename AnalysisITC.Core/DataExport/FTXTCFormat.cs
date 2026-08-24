@@ -1277,7 +1277,7 @@ namespace AnalysisITC.Core.Export
         {
             ITCDataFormat.ITC200 => "microcal-itc200",
             ITCDataFormat.FTITC => "ftitc", ITCDataFormat.FTXTC => "ftxtc", ITCDataFormat.TAITC => "ta-itc",
-            ITCDataFormat.IntegratedHeats => "integrated-heats", ITCDataFormat.PEAQITCProject => "peaq-itc-project",
+            ITCDataFormat.IntegratedHeats => "integrated-heats", ITCDataFormat.PEAQITCProject => "peaq-itc-project", ITCDataFormat.OriginProject => "origin-opj",
             ITCDataFormat.Unknown => "unknown", _ => throw new NotSupportedException("Unsupported data source format."),
         };
         static string InstrumentId(ITCInstrument value) => value switch
