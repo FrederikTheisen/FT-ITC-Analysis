@@ -161,6 +161,29 @@ namespace AnalysisITC.Core.Data
             };
         }
 
+        internal static InjectionData FromNanoItcValues(
+            ExperimentData experiment,
+            int id,
+            double time,
+            double volume,
+            double delay,
+            double duration,
+            double temperature)
+        {
+            return new InjectionData()
+            {
+                Experiment = experiment,
+                ID = id,
+                Include = id != 0,
+                Time = (float)time,
+                Volume = volume,
+                Delay = (float)delay,
+                Duration = (float)duration,
+                Temperature = temperature,
+                Filter = 0.0f,
+            };
+        }
+
         public InjectionData(ExperimentData experiment, double volume)
         {
             Experiment = experiment;

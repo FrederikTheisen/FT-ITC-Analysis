@@ -37,8 +37,16 @@ namespace AnalysisITC.Core.DataReaders
         {
             if (stream == null) throw new ArgumentNullException(nameof(stream));
 
-            var document = OriginProjectParser.Read(stream);
-            return OriginExperimentMapper.Map(document, Path.GetFileName(fileName ?? "origin.opj"), date);
+            var displayName = Path.GetFileName(fileName ?? "origin.opj");
+            try
+            {
+                var document = OriginProjectParser.Read(stream);
+                return OriginExperimentMapper.Map(document, displayName, date);
+            }
+            catch (Exception ex) when (ex is FormatException || ex is EndOfStreamException || ex is OverflowException)
+            {
+                throw new FormatException($"Could not read Origin project '{displayName}': {ex.Message}", ex);
+            }
         }
     }
 
@@ -146,15 +154,27 @@ namespace AnalysisITC.Core.DataReaders
                 byte[] header;
                 if (!reader.TryReadBlock(out header)) break;
 
-                var column = ReadColumnHeader(header);
                 var content = reader.ReadBlock();
-                column.Values.AddRange(ReadColumnValues(column, content));
                 reader.RequireNullBlock("Origin data column");
-                document.Columns.Add(column);
+
+                OriginColumn column;
+                try
+                {
+                    column = ReadColumnHeader(header);
+                    column.Values.AddRange(ReadColumnValues(column, content));
+                    document.Columns.Add(column);
+                }
+                catch (Exception ex) when (ex is FormatException || ex is OverflowException || ex is ArgumentOutOfRangeException)
+                {
+                    // Non-ITC Origin files often contain worksheet encodings that
+                    // are irrelevant to this reader. Keep the section boundary
+                    // intact and let worksheet selection decide whether the file
+                    // is a usable ITC project. A malformed DH/INJV column cannot
+                    // become compatible because it is not added here.
+                    document.Warnings.Add("Skipped an unsupported or malformed Origin data column: " + ex.Message);
+                }
             }
 
-            if (document.Columns.Count == 0)
-                throw new FormatException("The Origin project contains no worksheet data columns.");
         }
 
         static OriginColumn ReadColumnHeader(byte[] header)
@@ -375,12 +395,10 @@ namespace AnalysisITC.Core.DataReaders
     internal sealed class OriginBinaryReader
     {
         readonly Stream stream;
-        long offset;
 
         internal OriginBinaryReader(Stream stream)
         {
             this.stream = stream ?? throw new ArgumentNullException(nameof(stream));
-            if (stream.CanSeek) stream.Position = stream.Position;
         }
 
         internal byte[] ReadLine(int maxBytes)
@@ -399,6 +417,20 @@ namespace AnalysisITC.Core.DataReaders
         internal byte[] ReadExact(int count)
         {
             if (count < 0) throw new ArgumentOutOfRangeException(nameof(count));
+            if (stream.CanSeek)
+            {
+                try
+                {
+                    if (count > stream.Length - stream.Position)
+                        throw new EndOfStreamException("The Origin project ended unexpectedly.");
+                }
+                catch (NotSupportedException)
+                {
+                    // Some streams report CanSeek but do not expose Length. The
+                    // normal exact-read loop below remains safe for those streams.
+                }
+            }
+
             var bytes = new byte[count];
             var read = 0;
             while (read < count)
@@ -406,7 +438,6 @@ namespace AnalysisITC.Core.DataReaders
                 var n = stream.Read(bytes, read, count - read);
                 if (n <= 0) throw new EndOfStreamException("The Origin project ended unexpectedly.");
                 read += n;
-                offset += n;
             }
 
             return bytes;
@@ -416,7 +447,6 @@ namespace AnalysisITC.Core.DataReaders
         {
             var value = stream.ReadByte();
             if (value < 0) throw new EndOfStreamException("The Origin project ended unexpectedly.");
-            offset++;
             return (byte)value;
         }
 
@@ -478,7 +508,7 @@ namespace AnalysisITC.Core.DataReaders
 
             var dh = selected.Column("DH").NumericValues();
             var injv = selected.Column("INJV").NumericValues();
-            var injectionCount = Math.Min(dh.Count, injv.Count);
+            var injectionCount = GetInjectionRowCount(selected);
             if (injectionCount == 0)
                 throw new FormatException($"Origin worksheet '{selected.BaseName}' contains no ITC injections.");
 
@@ -604,11 +634,25 @@ namespace AnalysisITC.Core.DataReaders
         static bool IsCompatible(OriginDataset dataset)
         {
             if (!dataset.Columns.ContainsKey("DH") || !dataset.Columns.ContainsKey("INJV")) return false;
+            return GetInjectionRowCount(dataset) > 0;
+        }
+
+        static int GetInjectionRowCount(OriginDataset dataset)
+        {
             var dh = dataset.Column("DH").NumericValues();
             var injv = dataset.Column("INJV").NumericValues();
-            var count = Math.Min(dh.Count, injv.Count);
-            if (count <= 0) return false;
-            return Enumerable.Range(0, count).All(i => Finite(dh[i]) && Finite(injv[i]) && injv[i] > 0);
+            var sharedLength = Math.Min(dh.Count, injv.Count);
+            var count = 0;
+            while (count < sharedLength && Finite(dh[count]) && Finite(injv[count]) && injv[count] > 0)
+                count++;
+
+            if (count == 0) return 0;
+
+            // Origin commonly declares a trailing empty INJV row. Accept empty
+            // tails, but reject a later numeric value or a numeric row present
+            // in only one required column rather than silently truncating it.
+            if (dh.Skip(count).Any(Finite) || injv.Skip(count).Any(Finite)) return 0;
+            return count;
         }
 
         static double GetParameter(OriginProjectDocument document, string name)
@@ -861,7 +905,7 @@ namespace AnalysisITC.Core.DataReaders
                 lines.Add("Origin signature version/build: " + document.OriginVersionText);
 
             lines.Add("Embedded thermogram was restored without Origin baseline/spline processing. Source DH heats are authoritative until the thermogram is reprocessed in FT-ITC Analysis.");
-            lines.Add("Origin fitted models and result columns were retained as provenance only; no native solution or result was created.");
+            lines.Add("Origin ResultsLog text was retained as provenance when available. Origin Fit/DY columns, fitted models, and processing state were not imported, and no native solution or result was created.");
 
             foreach (var warning in warnings.Where(value => !string.IsNullOrWhiteSpace(value)).Distinct())
                 lines.Add("Import warning: " + warning);

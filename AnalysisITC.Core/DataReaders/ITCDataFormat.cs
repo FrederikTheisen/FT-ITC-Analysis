@@ -39,6 +39,7 @@ namespace AnalysisITC.Core.DataReaders
                 ITCDataFormat.IntegratedHeats,
                 ITCDataFormat.PEAQITCProject,
                 ITCDataFormat.OriginProject,
+                ITCDataFormat.NanoITC,
             };
         }
 
@@ -72,7 +73,9 @@ namespace AnalysisITC.Core.DataReaders
         [ITCFormat("PEAQ-ITC Project File", "Exports from PEAQ-ITC", ".apj")]
         PEAQITCProject = 7,
         [ITCFormat("Origin ITC Project File", "Legacy Origin project containing ITC data", ".opj")]
-        OriginProject = 8
+        OriginProject = 8,
+        [ITCFormat("TA Instruments NanoITC Data File", "Native data format produced by NanoITC instruments", ".nitc")]
+        NanoITC = 9
     }
 
     public enum DilutionMethod

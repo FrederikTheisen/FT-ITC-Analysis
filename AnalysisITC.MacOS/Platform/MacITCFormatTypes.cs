@@ -16,6 +16,8 @@ namespace AnalysisITC.UI.MacOS
             types.AddRange(UTType.GetTypes("aff", UTTagClass.FilenameExtension, UTTypes.Data).ToList());
             types.AddRange(UTType.GetTypes("dh", UTTagClass.FilenameExtension, UTTypes.Data).ToList());
             types.AddRange(UTType.GetTypes("apj", UTTagClass.FilenameExtension, UTTypes.Data).ToList());
+            types.AddRange(UTType.GetTypes("opj", UTTagClass.FilenameExtension, UTTypes.Data).ToList());
+            types.AddRange(UTType.GetTypes("nitc", UTTagClass.FilenameExtension, UTTypes.Data).ToList());
 
             return types.ToArray();
         }

@@ -401,6 +401,7 @@ namespace AnalysisITC.Core.DataReaders
                 case 6: return isIntegratedHeatFile ? ITCDataFormat.IntegratedHeats : ITCDataFormat.PEAQITCProject;
                 case 7: return ITCDataFormat.PEAQITCProject;
                 case 8: return ITCDataFormat.OriginProject;
+                case 9: return ITCDataFormat.NanoITC;
                 default: return ITCDataFormat.Unknown;
             }
         }

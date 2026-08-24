@@ -266,6 +266,8 @@ namespace AnalysisITC.Core.DataReaders
                         return new ExperimentData[] { PEAQReader.ReadFile(path) };
                     case ITCDataFormat.OriginProject:
                         return new ExperimentData[] { OriginProjectReader.ReadFile(path) };
+                    case ITCDataFormat.NanoITC:
+                        return new ExperimentData[] { NanoItcReader.ReadPath(path) };
                     case ITCDataFormat.Unknown:
                         AppEventHandler.PrintAndLog($"Unknown File Format: {path}");
                         break;
