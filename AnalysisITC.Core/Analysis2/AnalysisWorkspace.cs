@@ -41,6 +41,12 @@ namespace AnalysisITC.Core.Analysis
         /// <summary>Raised on the calling thread after every successful rebuild.</summary>
         public event EventHandler ContextRebuilt;
 
+        /// <summary>
+        /// Raised when current inputs can no longer produce a context. Consumers must
+        /// clear parameter and constraint controls rather than retain an older snapshot.
+        /// </summary>
+        public event EventHandler ContextInvalidated;
+
         /// <summary>Raised when a rebuild attempt fails (e.g. data not ready).</summary>
         public event EventHandler<Exception> RebuildFailed;
 
@@ -181,12 +187,31 @@ namespace AnalysisITC.Core.Analysis
         /// </summary>
         public void Rebuild()
         {
-            Context = AnalysisBuilder.Build(Session, reuseAttachedSolutionInitialValues);
+            AnalysisContext rebuiltContext;
+            try
+            {
+                rebuiltContext = AnalysisBuilder.Build(Session, reuseAttachedSolutionInitialValues);
+            }
+            catch
+            {
+                InvalidateContext();
+                throw;
+            }
+
+            Context = rebuiltContext;
 
             AppEventHandler.Print(
                 $"[AnalysisWorkspace] Rebuilt {Session.ModelType} ({(Session.IsGlobal ? "global" : "single")})", 0);
 
             ContextRebuilt?.Invoke(this, EventArgs.Empty);
+        }
+
+        void InvalidateContext()
+        {
+            if (Context == null) return;
+
+            Context = null;
+            ContextInvalidated?.Invoke(this, EventArgs.Empty);
         }
 
         /// <summary>
@@ -196,7 +221,11 @@ namespace AnalysisITC.Core.Analysis
         /// </summary>
         public bool TryRebuild()
         {
-            if (!DataManager.DataIsLoaded) return false;
+            if (!DataManager.DataIsLoaded)
+            {
+                InvalidateContext();
+                return false;
+            }
 
             var requiredData = Session.IsGlobal
                 ? DataManager.Data.Where(d => d.Include).ToList()
@@ -205,7 +234,10 @@ namespace AnalysisITC.Core.Analysis
                     : new List<ExperimentData>();
 
             if (requiredData.Count == 0 || (Session.IsGlobal && requiredData.Count < 2) || !requiredData.All(AnalysisBuilder.IsAnalysisReady))
+            {
+                InvalidateContext();
                 return false;
+            }
 
             try
             {
@@ -214,6 +246,7 @@ namespace AnalysisITC.Core.Analysis
             }
             catch (Exception ex)
             {
+                InvalidateContext();
                 AppEventHandler.Print($"[AnalysisWorkspace] TryRebuild failed: {ex.Message}", 0);
                 RebuildFailed?.Invoke(this, ex);
                 return false;

@@ -77,6 +77,7 @@ namespace AnalysisITC
 
             // Workspace events
             Workspace.ContextRebuilt += OnContextRebuilt;
+            Workspace.ContextInvalidated += OnContextRebuilt;
 
             // Solver events
             SolverInterface.AnalysisFinished += OnAnalysisFinished;
@@ -974,6 +975,7 @@ namespace AnalysisITC
             _eventsUnsubscribed = true;
 
             Workspace.ContextRebuilt -= OnContextRebuilt;
+            Workspace.ContextInvalidated -= OnContextRebuilt;
             SolverInterface.AnalysisFinished -= OnAnalysisFinished;
             SolverInterface.ErrorEstimationIterationCompleted -= OnErrorIteration;
             DataManager.SelectionDidChange -= OnSelectionChanged;

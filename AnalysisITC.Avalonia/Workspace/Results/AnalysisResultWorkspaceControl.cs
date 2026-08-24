@@ -858,7 +858,7 @@ namespace AnalysisITC.Avalonia.Results
 
             analysisPanel.Children.Add(Section("Output", new Control[]
             {
-                Pair("Kd0", analysis.Kd0.AsFormattedConcentration(withunit: true)),
+                Pair("*K*{d} at *I* = 0 M", analysis.Kd0.AsFormattedConcentration(withunit: true), labelContainsMarkdown: true),
                 Pair("Counter ion", analysis.CounterIonRelease.AsNumber()),
             }));
         }

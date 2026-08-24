@@ -121,15 +121,19 @@ namespace AnalysisITC.Core.Analysis
             // Apply stored model options to the shared GlobalModel options dict
             ApplyModelOptionsToGlobalModel(globalModel, state);
 
-            // Apply stored constraints to the global parameter set
+            // Apply the persisted settings first so the constraint controls and the
+            // generated parameter table can describe the same effective model state.
             foreach (var (paramType, constraint) in state.Constraints)
                 globalParams.SetConstraintForParameter(paramType, constraint);
 
             // Build the global parameter table (values come from data guesses or stored overrides)
             InitializeGlobalParameters(modelType, globalModel, globalParams, state);
 
-            // Derive the legal constraint options for the constraint UI
-            var constraintOptions = DeriveConstraintOptions(globalModel);
+            // The active constraint is always included in the UI choices, even if it
+            // would not normally be offered for the current datasets. This keeps the
+            // displayed setting aligned with the dependent parameters and lets the
+            // user explicitly change or remove it.
+            var constraintOptions = DeriveConstraintOptions(globalModel, globalParams);
 
             return new AnalysisContext(modelType, globalModel, globalParams, constraintOptions);
         }
@@ -230,6 +234,17 @@ namespace AnalysisITC.Core.Analysis
                         }
                         break;
 
+                    case ParameterType.Offset:
+                        if (globalParams.GetConstraintForParameter(par.Key) == VariableConstraint.SameForAll)
+                        {
+                            var (hasOverride, ov) = GetOverride(state, modelType, par.Key);
+                            globalParams.AddorUpdateGlobalParameter(
+                                par.Key,
+                                hasOverride ? ov.Value : globalModel.Models.Average(m => m.GuessOffset()),
+                                hasOverride && ov.IsLocked);
+                        }
+                        break;
+
                     default:
                         AppEventHandler.Print($"[AnalysisBuilder] Parameter {par.Key} not handled in InitializeGlobalParameters", 1);
                         break;
@@ -247,10 +262,13 @@ namespace AnalysisITC.Core.Analysis
         // ── Constraint option derivation ───────────────────────────────────
 
         /// <summary>
-        /// Derives which VariableConstraint choices are legal for each parameter type,
-        /// based on the first individual model's parameter table.
+        /// Derives the normally available VariableConstraint choices for each parameter
+        /// type and retains any currently active choice so the UI never misrepresents
+        /// the parameter table that was built from it.
         /// </summary>
-        static IReadOnlyDictionary<ParameterType, IReadOnlyList<VariableConstraint>> DeriveConstraintOptions(GlobalModel globalModel)
+        static IReadOnlyDictionary<ParameterType, IReadOnlyList<VariableConstraint>> DeriveConstraintOptions(
+            GlobalModel globalModel,
+            GlobalModelParameters globalParams)
         {
             var dict = new Dictionary<ParameterType, IReadOnlyList<VariableConstraint>>();
 
@@ -275,6 +293,7 @@ namespace AnalysisITC.Core.Analysis
 
                     case ParameterType.Nvalue1:
                     case ParameterType.Nvalue2:
+                    case ParameterType.Offset:
                     case ParameterType.IsomerizationEquilibriumConstant:
                         dict[par.Key] = new[] { VariableConstraint.None, VariableConstraint.SameForAll };
                         break;
@@ -283,6 +302,18 @@ namespace AnalysisITC.Core.Analysis
                         AppEventHandler.Print($"[AnalysisBuilder] Parameter {par.Key} not handled in DeriveConstraintOptions", 1);
                         break;
                 }
+
+                if (!dict.TryGetValue(par.Key, out var choices)) continue;
+
+                var activeConstraint = globalParams.GetConstraintForParameter(par.Key);
+                if (choices.Contains(activeConstraint)) continue;
+
+                dict[par.Key] = new[]
+                {
+                    VariableConstraint.None,
+                    VariableConstraint.TemperatureDependent,
+                    VariableConstraint.SameForAll,
+                }.Where(choice => choice == activeConstraint || choices.Contains(choice)).ToArray();
             }
 
             return dict;

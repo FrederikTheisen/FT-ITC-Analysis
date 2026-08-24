@@ -128,6 +128,7 @@ namespace AnalysisITC.Avalonia.Analysis
             base.OnAttachedToVisualTree(e);
 
             workspace.ContextRebuilt += OnContextRebuilt;
+            workspace.ContextInvalidated += OnContextInvalidated;
             workspace.RebuildFailed += OnRebuildFailed;
             DataManager.DataInclusionDidChange += OnDataInclusionDidChange;
             SolverInterface.AnalysisFinished += OnAnalysisFinished;
@@ -145,6 +146,7 @@ namespace AnalysisITC.Avalonia.Analysis
             CancelQueuedExperimentRefresh();
             DataManager.DataInclusionDidChange -= OnDataInclusionDidChange;
             workspace.ContextRebuilt -= OnContextRebuilt;
+            workspace.ContextInvalidated -= OnContextInvalidated;
             workspace.RebuildFailed -= OnRebuildFailed;
             SolverInterface.AnalysisFinished -= OnAnalysisFinished;
             SolverInterface.AnalysisStepFinished -= OnAnalysisStepFinished;
@@ -404,6 +406,11 @@ namespace AnalysisITC.Avalonia.Analysis
             Dispatcher.UIThread.Post(RefreshWorkspaceViews);
         }
 
+        void OnContextInvalidated(object? sender, EventArgs e)
+        {
+            Dispatcher.UIThread.Post(RefreshWorkspaceViews);
+        }
+
         void OnRebuildFailed(object? sender, Exception e)
         {
             Dispatcher.UIThread.Post(() =>
@@ -572,9 +579,7 @@ namespace AnalysisITC.Avalonia.Analysis
                 combo.Items.Add(item);
             }
 
-            var selected = workspace.Session.Active.Constraints.TryGetValue(key, out var stored)
-                ? stored
-                : VariableConstraint.None;
+            var selected = workspace.Context.GlobalModelParameters.GetConstraintForParameter(key);
             var index = options.ToList().IndexOf(selected);
             combo.SelectedIndex = index >= 0 ? index : 0;
             combo.SelectionChanged += (_, _) =>

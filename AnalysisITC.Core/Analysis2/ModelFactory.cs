@@ -524,6 +524,18 @@ namespace AnalysisITC.Core.Analysis
                             }
                         }
                         break;
+                    case ParameterType.Offset:
+                        switch (GlobalModelParameters.GetConstraintForParameter(par.Key))
+                        {
+                            case VariableConstraint.SameForAll:
+                                GlobalModelParameters.AddorUpdateGlobalParameter(
+                                    key: par.Key,
+                                    value: prevvalue != null ? prevvalue.Value : Model.Models.Average(mdl => mdl.GuessOffset()),
+                                    islocked: prevvalue != null ? prevvalue.IsLocked : false);
+                                break;
+                            default: break;
+                        }
+                        break;
                     default: break;
                 }
             }
@@ -558,6 +570,7 @@ namespace AnalysisITC.Core.Analysis
 						dict[par.Key] = new List<VariableConstraint> { VariableConstraint.None, VariableConstraint.SameForAll };
 						break;
                     case ParameterType.IsomerizationEquilibriumConstant:
+                    case ParameterType.Offset:
                         dict[par.Key] = new List<VariableConstraint> { VariableConstraint.None, VariableConstraint.SameForAll };
                         break;
                     default: Console.WriteLine(par.Key.ToString() + " not handled by factory"); break;

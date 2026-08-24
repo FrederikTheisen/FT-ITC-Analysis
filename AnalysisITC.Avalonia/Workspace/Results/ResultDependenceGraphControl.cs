@@ -109,7 +109,7 @@ namespace AnalysisITC.Avalonia.Results
             var bounds = Bounds;
             context.DrawRectangle(GraphTheme.CanvasBrush, null, bounds);
 
-            var range = BuildRange(cachedSeries);
+            var range = BuildRange(cachedSeries, includeZero: mode != ResultAnalysisViewMode.Salt);
             var yTicks = BuildTicks(range.YMin, range.YMax);
             var yLabelWidth = yTicks.Count == 0
                 ? AvaloniaGraphSettings.YLabelFallbackWidth
@@ -161,7 +161,7 @@ namespace AnalysisITC.Avalonia.Results
 
         GraphPoint? FindPoint(Point pointer)
         {
-            var range = BuildRange(cachedSeries);
+            var range = BuildRange(cachedSeries, includeZero: mode != ResultAnalysisViewMode.Salt);
             var yTicks = BuildTicks(range.YMin, range.YMax);
             var yLabelWidth = yTicks.Count == 0
                 ? AvaloniaGraphSettings.YLabelFallbackWidth
@@ -387,6 +387,9 @@ namespace AnalysisITC.Avalonia.Results
                     {
                         xLabel = "sqrt(Ionic Strength / M)";
                         yLabel = "Log(Kd)";
+                        // The salt view may be opened before its advanced analysis is run.
+                        // In that state the data points are useful, but no fitted curve exists yet.
+                        var fit = analysis.IonicStrengthDependenceFit;
                         var points = solutions
                             .Where(solution => solution.ReportParameters.ContainsKey(ParameterType.Affinity1))
                             .Select(solution => PointFrom(
@@ -402,7 +405,9 @@ namespace AnalysisITC.Avalonia.Results
                             new GraphSeries(
                                 "Debye-Huckel",
                                 points,
-                                BuildSampledFit(points, x => ValueFrom(analysis.IonicStrengthDependenceFit.Evaluate(x * x), 1)))
+                                BuildSampledFit(points, fit == null
+                                    ? null
+                                    : x => ValueFrom(fit.Evaluate(x * x), 1)))
                         };
                     }
             }
@@ -652,10 +657,10 @@ namespace AnalysisITC.Avalonia.Results
             };
         }
 
-        static GraphRange BuildRange(IReadOnlyList<GraphSeries> series)
+        static GraphRange BuildRange(IReadOnlyList<GraphSeries> series, bool includeZero)
         {
             var xs = new List<double>();
-            var ys = new List<double> { 0 };
+            var ys = includeZero ? new List<double> { 0 } : new List<double>();
             var dataPoints = series.SelectMany(s => s.Points).Where(point => point.HasValue).ToList();
             foreach (var point in dataPoints)
             {

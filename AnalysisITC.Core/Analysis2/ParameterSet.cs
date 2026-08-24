@@ -363,6 +363,12 @@ namespace AnalysisITC.Core.Analysis
                                 par.Value.SetGlobal(GlobalTable[par.Key].Value);
                             }
                             break;
+                        case ParameterType.Offset:
+                            if (GetConstraintForParameter(par.Key) == VariableConstraint.SameForAll)
+                            {
+                                par.Value.SetGlobal(GlobalTable[par.Key].Value);
+                            }
+                            break;
                         default:
                             break;
 
